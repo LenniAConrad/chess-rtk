@@ -1,0 +1,7 @@
+# Logs
+session/*
+!session/.gitkeep
+
+# Calculation results
+dump/*
+!dump/.gitkeep

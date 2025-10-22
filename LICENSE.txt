@@ -1,0 +1,7 @@
+Copyright (c) 2025 Lennart Axel Conrad. All rights reserved.
+
+Permission is granted to download, view, and use this software for evaluation and personal, non-commercial purposes only.
+No redistribution, sublicensing, or derivative works are permitted without prior written permission.
+
+This license is revocable at the Licensor’s discretion upon notice. Upon termination, you must cease all use and delete
+all copies. This software is provided “AS IS”, without warranty of any kind.

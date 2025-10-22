@@ -1,0 +1,82 @@
+# ENGINE PROTOCOL
+# Path to your UCI/TOML protocol file (command set) for the engine.
+# Most UCI engines are compatible with Stockfish-style commands, but minor
+# dialects exist—consult your engine’s docs and adjust if needed.
+# Ensure the engine binary is installed and the path below exists.
+protocol-path = "config/default.engine.toml"
+
+# OUTPUT DIRECTORY
+# Directory where all computed outputs (e.g., puzzles) will be saved.
+# Must exist or be creatable by the application.
+# If empty or creation fails, results will be printed to standard output.
+# Options are:
+#  - ""
+#  - "DIRECORYPATH"
+#  - "FILEPATH"
+output = "dump/"
+
+# ENGINE INSTANCES
+# Number of engine instances to run in parallel.
+# For example, setting this to 4 will run 4 separate copies of the engine (e.g., Stockfish)
+# concurrently. Useful for batch processing positions across multiple CPU cores.
+# Only increase if your system can handle the load and your engine is thread-safe.
+engine-instances = 2
+
+# SEARCH LIMITS (per evaluated position)
+# Maximum nodes the engine may search before the run is stopped.
+# Passed as:  go nodes <max-nodes>
+max-nodes = 1_000_000_000
+
+# Maximum wall time (ms) the engine may think before being aborted.
+# If a position exceeds this, the search is forcefully stopped.
+max-duration = 1_000_000
+
+# PUZZLE FILTERS
+# The following filters are expressed in the Arguments DSL.
+# They gate whether an analyzed position qualifies as a candidate puzzle.
+# Adjust for your hardware AND your engine’s eval “character”:
+#   Some engines evaluate more optimistically/pessimistically (net, contempt,
+#   pruning style, scale). Calibrate thresholds to your engine.
+
+# Quality gate:
+# Require ≥ 50M nodes on both PV1 and PV2 before accepting a position.
+# Rationale: ensures depth/confirmation rather than shallow “lucky” evals.
+puzzle-quality = """
+gate=AND;null=false;empty=false;
+leaf[gate=AND;break=1;nodes>=50000000];
+leaf[gate=AND;break=2;null=false;empty=false;nodes>=50000000];
+"""
+
+# Winning puzzle:
+# PV1 ≥ +300 cp (clearly better) AND PV2 ≤ 0 cp (neutral or worse).
+# Intent: there is a single, clearly winning move.
+# NOTE: If your engine skews optimistic, raise the value; if pessimistic, lower it.
+puzzle-winning = """
+gate=AND;
+leaf[eval>=300];
+leaf[break=2;eval<=0];
+"""
+
+# Drawing puzzle:
+# PV1 ≥ 0 cp (hold equality or better) AND PV2 ≤ −300 cp (clearly worse).
+# Intent: there is a single, clearly drawing resource that avoids a big drop.
+# NOTE: Engines that undervalue defense may need a softer −300 (e.g., −250),
+#       so tune for your engine’s eval bias.
+puzzle-drawing = """
+gate=AND;
+leaf[eval>=0];
+leaf[break=2;eval<=-300];
+"""
+
+# Accelerate (prefilter):
+# Abort early on non-puzzles to save time:
+#   - Demand ≥ 2M nodes on PV1 and PV2 (cheap depth check)
+#   - AND not (winning) AND not (drawing) via relaxed eval guards
+# Keep conservative to avoid false negatives; tune for your engine’s eval bias.
+puzzle-accelerate = """
+gate=AND;
+leaf[break=1;nodes>=2000000];
+leaf[break=2;nodes>=2000000];
+leaf[gate=OR;eval<300;leaf[break=2;eval>0]];
+leaf[gate=OR;eval<0;leaf[break=2;eval>-300]];
+"""

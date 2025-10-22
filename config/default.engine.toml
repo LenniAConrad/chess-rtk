@@ -1,0 +1,32 @@
+#
+# Chess-Engine UCI Protocol configuration for 'Stockfish'
+# (created 2025-05-12 21:18:51 +08:00)
+#
+
+# %d → integer      %s → string      %b → boolean
+# Can only ever contain up to one %d, %s or %b
+
+path                  = "stockfish"                              # Used for identifying the key for the engine executable path.
+name                  = "Stockfish"                              # Used for identifying the key for the engine name. (not essential)
+settings              = "4000mb"                                 # Used for identifying the key for the engine's configuration overrides. (not essential)
+isready               = "isready"                                # Used for identifying the key for the UCI isready command.
+readyok               = "readyok"                                # Used for identifying the key for the UCI readyok response.
+searchDepth           = "go depth %d"                            # Used for identifying the key for the UCI search depth command.
+searchNodes           = "go nodes %d"                            # Used for identifying the key for the UCI search nodes command.
+searchTime            = "go movetime %d"                         # Used for identifying the key for the UCI search time command.
+setPosition           = "position fen %s"                        # Used for identifying the key for the UCI position command.
+stop                  = "stop"                                   # Used for identifying the key for the UCI stop command.
+newGame               = "ucinewgame"                             # Used for identifying the key for the UCI new game command. (not essential)
+setChess960           = "setoption name UCI_Chess960 value %b"   # Used for identifying the key for enabling or disabling Chess960. (not essential)
+setHashSize           = "setoption name Hash value %d"           # Used for identifying the key for setting the transposition table size. (not essential)
+setMultiPivotAmount   = "setoption name multipv value %d"        # Used for identifying the key for setting the number of multi-pivot variations. (not essential)
+setThreadAmount       = "setoption name threads value %d"        # Used for identifying the key for setting the thread count. (not essential)
+showUci               = "uci"                                    # Used for identifying the key for displaying UCI options. (not essential)
+showWinDrawLoss       = "setoption name UCI_ShowWDL value %b"    # Used for identifying the key for enabling or disabling WDL stats. (not essential)
+
+# The inputs that will be fed into the Engine once it is ready (Optional)
+setup = [
+   "setoption name UCI_ShowWDL value true",
+   "setoption name Hash value 4000",
+   "setoption name multipv value 2" # Has to be at least 2 for mining chess puzzles
+]
