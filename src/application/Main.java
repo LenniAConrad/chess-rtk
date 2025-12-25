@@ -13,28 +13,38 @@ import java.util.Set;
 import java.util.function.Supplier;
 
 import application.console.Bar;
+import chess.core.Field;
+import chess.core.Move;
+import chess.core.Piece;
 import chess.core.Position;
 import chess.core.SAN;
 import chess.core.Setup;
 import chess.debug.LogService;
 import chess.debug.SessionCache;
 import chess.debug.Printer;
+import chess.eval.Backend;
+import chess.eval.Evaluator;
+import chess.eval.Result;
+import chess.images.render.Render;
 import chess.io.Converter;
-import chess.misc.Pgn;
+import chess.struct.Pgn;
+import chess.struct.Record;
 import chess.io.Reader;
 import chess.io.Writer;
 import chess.uci.Filter;
 import chess.uci.Filter.FilterDSL;
-import chess.model.Record;
 import utility.Argv;
+import utility.Display;
 
 /**
  * Used for providing the CLI entry point and dispatching subcommands.
  *
  * <p>
  * Recognized subcommands are {@code record-to-plain}, {@code record-to-csv},
- * {@code record-to-dataset}, {@code stack-to-dataset}, {@code mine},
- * {@code gen-fens}, {@code eval-fens}, {@code print}, {@code clean}, and {@code help}.
+ * {@code record-to-pgn}, {@code record-to-dataset}, {@code stack-to-dataset},
+ * {@code cuda-info}, {@code mine}, {@code gen-fens}, {@code print}, {@code display},
+ * {@code clean},
+ * and {@code help}.
  * Prints usage information when no subcommand is supplied. For unknown
  * subcommands, prints an
  * error and exits with status {@code 2}.
@@ -43,6 +53,86 @@ import utility.Argv;
  * @author Lennart A. Conrad
  */
 public final class Main {
+
+	/**
+	 * Used for attaching FEN context to log entries.
+	 */
+	private static final String LOG_CTX_FEN_PREFIX = "FEN: ";
+
+	/**
+	 * Used for the default display window size when no overrides are supplied.
+	 */
+	private static final int DEFAULT_DISPLAY_WINDOW_SIZE = 640;
+
+	/**
+	 * Subcommand for converting {@code .record} JSON to {@code .plain}.
+	 */
+	private static final String CMD_RECORD_TO_PLAIN = "record-to-plain";
+
+	/**
+	 * Subcommand for converting {@code .record} JSON to CSV.
+	 */
+	private static final String CMD_RECORD_TO_CSV = "record-to-csv";
+
+	/**
+	 * Subcommand for converting {@code .record} JSON to dataset tensors.
+	 */
+	private static final String CMD_RECORD_TO_DATASET = "record-to-dataset";
+
+	/**
+	 * Subcommand for converting {@code .record} JSON to PGN.
+	 */
+	private static final String CMD_RECORD_TO_PGN = "record-to-pgn";
+
+	/**
+	 * Subcommand for converting Stack puzzle dumps to dataset tensors.
+	 */
+	private static final String CMD_STACK_TO_DATASET = "stack-to-dataset";
+
+	/**
+	 * Subcommand for printing CUDA JNI backend status.
+	 */
+	private static final String CMD_CUDA_INFO = "cuda-info";
+
+	/**
+	 * Subcommand for generating random legal FEN shards.
+	 */
+	private static final String CMD_GEN_FENS = "gen-fens";
+
+	/**
+	 * Subcommand for mining puzzles.
+	 */
+	private static final String CMD_MINE = "mine";
+
+	/**
+	 * Subcommand for pretty-printing a FEN.
+	 */
+	private static final String CMD_PRINT = "print";
+
+	/**
+	 * Subcommand for rendering a FEN in a window.
+	 */
+	private static final String CMD_DISPLAY = "display";
+
+	/**
+	 * Subcommand for deleting cached session artifacts.
+	 */
+	private static final String CMD_CLEAN = "clean";
+
+	/**
+	 * Subcommand for printing usage information.
+	 */
+	private static final String CMD_HELP = "help";
+
+	/**
+	 * Help command alias for printing usage information.
+	 */
+	private static final String CMD_HELP_SHORT = "-h";
+
+	/**
+	 * Help command alias for printing usage information.
+	 */
+	private static final String CMD_HELP_LONG = "--help";
 
 	/**
 	 * Used for the {@code --input | -i} option.
@@ -92,16 +182,18 @@ public final class Main {
 		Argv b = new Argv(tail);
 
 		switch (sub) {
-			case "record-to-plain" -> runConvert(b);
-			case "record-to-csv" -> runConvertCsv(b);
-			case "record-to-dataset" -> runRecordToDataset(b);
-			case "stack-to-dataset" -> runStackToDataset(b);
-			case "gen-fens" -> runGenerateFens(b);
-			case "eval-fens" -> runEvalFens(b);
-			case "mine" -> runMine(b);
-			case "print" -> runPrint(b);
-			case "clean" -> runClean(b);
-			case "help", "-h", "--help" -> help();
+			case CMD_RECORD_TO_PLAIN -> runConvert(b);
+			case CMD_RECORD_TO_CSV -> runConvertCsv(b);
+			case CMD_RECORD_TO_DATASET -> runRecordToDataset(b);
+			case CMD_RECORD_TO_PGN -> runRecordToPgn(b);
+			case CMD_STACK_TO_DATASET -> runStackToDataset(b);
+			case CMD_CUDA_INFO -> runCudaInfo(b);
+			case CMD_GEN_FENS -> runGenerateFens(b);
+			case CMD_MINE -> runMine(b);
+			case CMD_PRINT -> runPrint(b);
+			case CMD_DISPLAY -> runDisplay(b);
+			case CMD_CLEAN -> runClean(b);
+			case CMD_HELP, CMD_HELP_SHORT, CMD_HELP_LONG -> help();
 			default -> {
 				System.err.println("Unknown command: " + sub);
 				help();
@@ -217,6 +309,26 @@ public final class Main {
 	}
 
 	/**
+	 * Converts a {@code .record} JSON file into one or more PGN games by linking
+	 * record {@code parent} and {@code position} fields.
+	 *
+	 * @param a parsed argument vector for the subcommand. Recognized options:
+	 *          <ul>
+	 *          <li>{@code -i | --input <path>} — required input {@code .record}
+	 *          file.</li>
+	 *          <li>{@code -o | --output <path>} — optional output {@code .pgn}
+	 *          file path.</li>
+	 *          </ul>
+	 */
+	private static void runRecordToPgn(Argv a) {
+		Path in = a.pathRequired(OPT_INPUT, "-i");
+		Path out = a.path(OPT_OUTPUT, "-o");
+		a.ensureConsumed();
+
+		Converter.recordToPgn(in, out);
+	}
+
+	/**
 	 * Convert a Stack-*.json puzzle dump (JSON array) into NPY tensors.
 	 */
 	private static void runStackToDataset(Argv a) {
@@ -234,12 +346,35 @@ public final class Main {
 		}
 
 		try {
-			chess.io.StackDatasetExporter.export(in, out);
+			chess.io.RecordDatasetExporter.exportStack(in, out);
 			System.out.printf("Wrote %s.features.npy and %s.labels.npy%n", out, out);
 		} catch (IOException e) {
 			System.err.println("Failed to export stack dataset: " + e.getMessage());
 			System.exit(2);
 		}
+	}
+
+	/**
+	 * Prints whether the optional CUDA JNI backend is available and how many
+	 * devices are visible.
+	 *
+	 * <p>
+	 * This is a lightweight diagnostic command that does not require a GUI.
+	 * If you built the native library under {@code native-cuda/}, run with:
+	 * {@code -Djava.library.path=native-cuda/build}.
+	 * </p>
+	 */
+	private static void runCudaInfo(Argv a) {
+		a.ensureConsumed();
+
+		boolean loaded = chess.lc0.cuda.Support.isLoaded();
+		int count = chess.lc0.cuda.Support.deviceCount();
+		boolean available = chess.lc0.cuda.Support.isAvailable();
+		System.out.printf(
+				"CUDA JNI backend: loaded=%s, available=%s (deviceCount=%d)%n",
+				loaded ? "yes" : "no",
+				available ? "yes" : "no",
+				count);
 	}
 
 	/**
@@ -262,36 +397,13 @@ public final class Main {
 
 		a.ensureConsumed();
 
-		if (files <= 0) {
-			System.err.println("gen-fens: --files must be positive");
-			System.exit(2);
-		}
-		if (perFile <= 0) {
-			System.err.println("gen-fens: --per-file must be positive");
-			System.exit(2);
-		}
-		if (batch <= 0) {
-			System.err.println("gen-fens: --batch must be positive");
-			System.exit(2);
-		}
-		if (chess960Files < 0 || chess960Files > files) {
-			System.err.printf("gen-fens: --chess960-files must be between 0 and %d%n", files);
-			System.exit(2);
-		}
+		validateGenFensArgs(files, perFile, batch, chess960Files);
 
 		if (outDir == null) {
 			outDir = Paths.get("all_positions_shards");
 		}
 
-		try {
-			Files.createDirectories(outDir);
-		} catch (IOException e) {
-			System.err.println("gen-fens: failed to create output directory: " + e.getMessage());
-			if (verbose) {
-				e.printStackTrace(System.err);
-			}
-			System.exit(2);
-		}
+		ensureDirectoryOrExit(CMD_GEN_FENS, outDir, verbose);
 
 		final long total = (long) files * (long) perFile;
 		final int barTotal = (total > Integer.MAX_VALUE) ? 0 : (int) total;
@@ -300,19 +412,8 @@ public final class Main {
 
 		for (int i = 0; i < files; i++) {
 			boolean useChess960 = i < chess960Files;
-			String suffix = useChess960 ? "-960" : "-std";
-			String name = String.format("fens-%0" + width + "d%s.txt", i, suffix);
-			Path target = outDir.resolve(name);
-
-			try {
-				writeFenShard(target, perFile, useChess960, batch, bar);
-			} catch (Exception e) {
-				System.err.println("gen-fens: failed to write " + target + ": " + e.getMessage());
-				if (verbose) {
-					e.printStackTrace(System.err);
-				}
-				System.exit(1);
-			}
+			Path target = outDir.resolve(fenShardFileName(i, width, useChess960));
+			writeFenShardOrExit(target, perFile, useChess960, batch, bar, verbose);
 		}
 
 		bar.finish();
@@ -321,6 +422,105 @@ public final class Main {
 				files,
 				chess960Files,
 				outDir.toAbsolutePath());
+	}
+
+	private static void validateGenFensArgs(int files, int perFile, int batch, int chess960Files) {
+		requirePositive(CMD_GEN_FENS, "--files", files);
+		requirePositive(CMD_GEN_FENS, "--per-file", perFile);
+		requirePositive(CMD_GEN_FENS, "--batch", batch);
+		requireBetweenInclusive(CMD_GEN_FENS, "--chess960-files", chess960Files, 0, files);
+	}
+
+	private static void requirePositive(String cmd, String opt, int value) {
+		if (value <= 0) {
+			System.err.printf("%s: %s must be positive%n", cmd, opt);
+			System.exit(2);
+		}
+	}
+
+	private static void requireBetweenInclusive(String cmd, String opt, int value, int min, int max) {
+		if (value < min || value > max) {
+			System.err.printf("%s: %s must be between %d and %d%n", cmd, opt, min, max);
+			System.exit(2);
+		}
+	}
+
+	private static void ensureDirectoryOrExit(String cmd, Path dir, boolean verbose) {
+		try {
+			Files.createDirectories(dir);
+		} catch (IOException e) {
+			System.err.println(cmd + ": failed to create output directory: " + e.getMessage());
+			if (verbose) {
+				e.printStackTrace(System.err);
+			}
+			System.exit(2);
+		}
+	}
+
+	/**
+	 * Builds the output filename for a generated FEN shard.
+	 *
+	 * <p>
+	 * Uses zero-padding for the shard index so filenames sort lexicographically
+	 * (e.g. {@code fens-0001-std.txt}).
+	 * </p>
+	 *
+	 * @param index    shard index (0-based)
+	 * @param width    minimum number of digits for {@code index}
+	 * @param chess960 whether the shard contains Chess960-start-derived positions
+	 * @return filename (no directory component)
+	 */
+	private static String fenShardFileName(int index, int width, boolean chess960) {
+		String suffix = chess960 ? "-960" : "-std";
+		return "fens-" + zeroPad(index, width) + suffix + ".txt";
+	}
+
+	/**
+	 * Pads a decimal integer with leading zeros to reach a minimum width.
+	 *
+	 * @param value non-negative integer value
+	 * @param width minimum number of digits to return
+	 * @return zero-padded decimal string (or the unmodified value when already wide enough)
+	 */
+	private static String zeroPad(int value, int width) {
+		String raw = Integer.toString(value);
+		if (raw.length() >= width) {
+			return raw;
+		}
+		StringBuilder sb = new StringBuilder(width);
+		for (int i = raw.length(); i < width; i++) {
+			sb.append('0');
+		}
+		sb.append(raw);
+		return sb.toString();
+	}
+
+	/**
+	 * Writes a single FEN shard file and terminates the process on failure.
+	 *
+	 * @param target    output path
+	 * @param fenCount  number of FENs to write
+	 * @param chess960  whether to seed from Chess960 starts
+	 * @param batchSize how many random positions to generate per batch
+	 * @param bar       progress bar
+	 * @param verbose   whether to print stack traces on failure
+	 */
+	private static void writeFenShardOrExit(
+			Path target,
+			int fenCount,
+			boolean chess960,
+			int batchSize,
+			Bar bar,
+			boolean verbose) {
+		try {
+			writeFenShard(target, fenCount, chess960, batchSize, bar);
+		} catch (Exception e) {
+			System.err.println("gen-fens: failed to write " + target + ": " + e.getMessage());
+			if (verbose) {
+				e.printStackTrace(System.err);
+			}
+			System.exit(1);
+		}
 	}
 
 	/**
@@ -351,51 +551,6 @@ public final class Main {
 				}
 				remaining -= chunk;
 			}
-		}
-	}
-
-	/**
-	 * Evaluate FEN shards with Stockfish "eval" and write JSONL outputs.
-	 *
-	 * Options:
-	 * <ul>
-	 * <li>{@code --input|-i} input directory with FEN shard .txt files (default
-	 * {@code all_positions_shards})</li>
-	 * <li>{@code --output|-o} output directory (default {@code eval_shards})</li>
-	 * <li>{@code --workers|-e} number of engine workers (default Config
-	 * engine-instances)</li>
-	 * <li>{@code --protocol-path|-P} TOML describing engine path/options (default
-	 * Config protocol-path)</li>
-	 * <li>{@code --write-npy} also emit {@code .labels.npy} per shard
-	 * (float32, shape (N,65): scalar then 64-cell grid)</li>
-	 * <li>{@code --ascii} ASCII progress bars</li>
-	 * </ul>
-	 */
-	private static void runEvalFens(Argv a) {
-		Path input = a.path(OPT_INPUT, "-i");
-		Path output = a.path(OPT_OUTPUT, "-o");
-		int workers = a.integerOr(Config.getEngineInstances(), "--workers", "-e");
-		String proto = optional(a.string("--protocol-path", "-P"), Config.getProtocolPath());
-		boolean ascii = a.flag("--ascii");
-		boolean writeNpy = a.flag("--write-npy");
-		final boolean verbose = a.flag(OPT_VERBOSE, "-v");
-		a.ensureConsumed();
-
-		if (input == null) {
-			input = Paths.get("all_positions_shards");
-		}
-		if (output == null) {
-			output = Paths.get("eval_shards");
-		}
-
-		try {
-			EvalMiner.mine(input, output, workers, proto, ascii, writeNpy);
-		} catch (Exception e) {
-			System.err.println("eval-fens failed: " + e.getMessage());
-			if (verbose) {
-				e.printStackTrace(System.err);
-			}
-			System.exit(1);
 		}
 	}
 
@@ -439,19 +594,373 @@ public final class Main {
 		} catch (IllegalArgumentException ex) {
 			// Invalid FEN or position construction error
 			System.err.println("Error: invalid FEN. " + (ex.getMessage() == null ? "" : ex.getMessage()));
-			LogService.error(ex, "print: invalid FEN", "FEN: " + fen);
+			LogService.error(ex, "print: invalid FEN", LOG_CTX_FEN_PREFIX + fen);
 			if (verbose) {
 				ex.printStackTrace(System.err);
 			}
 			System.exit(3);
 		} catch (Exception t) {
 			System.err.println("Error: failed to print position. " + (t.getMessage() == null ? "" : t.getMessage()));
-			LogService.error(t, "print: unexpected failure while printing position", "FEN: " + fen);
+			LogService.error(t, "print: unexpected failure while printing position", LOG_CTX_FEN_PREFIX + fen);
 			if (verbose) {
 				t.printStackTrace(System.err);
 			}
 			System.exit(3);
 		}
+	}
+
+	/**
+	 * Parsed options for the {@code display} subcommand.
+	 *
+	 * @param verbose     whether to print stack traces on failure
+	 * @param fen         FEN string (may be null until resolved)
+	 * @param showBorder  whether to render the board frame
+	 * @param whiteDown   whether White is rendered at the bottom
+	 * @param light       whether to use light window styling
+	 * @param showBackend whether to print and display the evaluator backend
+	 * @param ablation    whether to overlay per-piece inverted ablation scores
+	 * @param size        square window size fallback (0 means unset)
+	 * @param width       explicit window width (0 means unset)
+	 * @param height      explicit window height (0 means unset)
+	 * @param arrows      UCI moves to render as arrows
+	 * @param circles     squares to highlight with circles
+	 * @param legal       squares whose legal moves should be highlighted
+	 */
+	private record DisplayOptions(
+			boolean verbose,
+			String fen,
+			boolean showBorder,
+			boolean whiteDown,
+			boolean light,
+			boolean showBackend,
+			boolean ablation,
+			int size,
+			int width,
+			int height,
+			List<String> arrows,
+			List<String> circles,
+			List<String> legal) {
+	}
+
+	/**
+	 * Used for handling the {@code display} subcommand.
+	 *
+	 * <p>
+	 * Parses a FEN and renders a board image with optional overlays, then opens
+	 * a {@link Display} window to show it.
+	 * </p>
+	 *
+	 * <p>
+	 * Options:
+	 * <ul>
+	 * <li>{@code --fen "<FEN...>"} — FEN string; may also be provided
+	 * positionally.</li>
+	 * <li>{@code --arrow <uci>} — add an arrow (repeatable, UCI move format).</li>
+	 * <li>{@code --circle <sq>} — add a circle highlight (repeatable, e.g.
+	 * e4).</li>
+	 * <li>{@code --legal <sq>} — highlight legal moves from a square
+	 * (repeatable).</li>
+	 * <li>{@code --ablation} — overlay per-piece inverted ablation scores.</li>
+	 * <li>{@code --show-backend} — print and display which evaluator was used.</li>
+	 * <li>{@code --flip} or {@code --black-down} — render Black at the bottom.</li>
+	 * <li>{@code --no-border} — hide the board frame.</li>
+	 * <li>{@code --size <px>} — window size (square).</li>
+	 * <li>{@code --width <px>} and {@code --height <px>} — window size
+	 * override.</li>
+	 * <li>{@code --dark} or {@code --dark-mode} — use dark display window
+	 * styling.</li>
+	 * <li>{@code --verbose} or {@code -v} — also print stack traces on errors.</li>
+	 * </ul>
+	 */
+	private static void runDisplay(Argv a) {
+		DisplayOptions opts = parseDisplayOptions(a);
+
+		if (opts.fen() == null || opts.fen().isEmpty()) {
+			System.err.println("display requires a FEN (use --fen or positional)");
+			System.exit(2);
+			return;
+		}
+
+		try {
+			Position pos = new Position(opts.fen().trim());
+			Render render = createRender(pos, opts.whiteDown(), opts.showBorder());
+			applyDisplayOverlays(render, pos, opts.arrows(), opts.circles(), opts.legal());
+			String backendLabel = applyDisplayEvaluatorOverlays(render, pos, opts.showBackend(), opts.ablation());
+
+			int windowWidth = resolveWindowDimension(opts.width(), opts.size(), DEFAULT_DISPLAY_WINDOW_SIZE);
+			int windowHeight = resolveWindowDimension(opts.height(), opts.size(), DEFAULT_DISPLAY_WINDOW_SIZE);
+			Display display = new Display(render.render(), windowWidth, windowHeight, opts.light());
+			if (backendLabel != null) {
+				display.setTitle("Backend: " + backendLabel);
+			}
+		} catch (IllegalArgumentException ex) {
+			System.err.println("Error: invalid display input. " + (ex.getMessage() == null ? "" : ex.getMessage()));
+			LogService.error(ex, "display: invalid input", LOG_CTX_FEN_PREFIX + opts.fen());
+			if (opts.verbose()) {
+				ex.printStackTrace(System.err);
+			}
+			System.exit(3);
+		} catch (Exception t) {
+			System.err.println("Error: failed to display position. " + (t.getMessage() == null ? "" : t.getMessage()));
+			LogService.error(t, "display: unexpected failure while rendering position",
+					LOG_CTX_FEN_PREFIX + opts.fen());
+			if (opts.verbose()) {
+				t.printStackTrace(System.err);
+			}
+			System.exit(3);
+		}
+	}
+
+	/**
+	 * Parses CLI arguments for {@code display} and returns a normalized options
+	 * bundle.
+	 *
+	 * <p>
+	 * Accepts the FEN either via {@code --fen} or as remaining positionals (joined
+	 * with spaces).
+	 * </p>
+	 *
+	 * @param a argument parser positioned after the subcommand token
+	 * @return parsed display options
+	 */
+	private static DisplayOptions parseDisplayOptions(Argv a) {
+		boolean verbose = a.flag(OPT_VERBOSE, "-v");
+		String fen = a.string("--fen");
+		boolean showBorder = !a.flag("--no-border");
+		boolean whiteDown = !a.flag("--flip", "--black-down");
+		boolean light = !a.flag("--dark", "--dark-mode");
+
+		boolean showBackend = a.flag("--show-backend", "--backend");
+		boolean ablation = a.flag("--ablation");
+		int size = a.integerOr(0, "--size");
+		int width = a.integerOr(0, "--width");
+		int height = a.integerOr(0, "--height");
+		List<String> arrows = a.strings("--arrow", "--arrows");
+		List<String> circles = a.strings("--circle", "--circles");
+		List<String> legal = a.strings("--legal");
+		List<String> rest = a.positionals();
+		if (fen == null && !rest.isEmpty()) {
+			fen = String.join(" ", rest);
+		}
+
+		a.ensureConsumed();
+		return new DisplayOptions(
+				verbose,
+				fen,
+				showBorder,
+				whiteDown,
+				light,
+				showBackend,
+				ablation,
+				size,
+				width,
+				height,
+				arrows,
+				circles,
+				legal);
+	}
+
+	/**
+	 * Creates a {@link Render} instance configured for the given position and
+	 * basic orientation settings.
+	 *
+	 * @param pos        position to render
+	 * @param whiteDown  whether White is displayed at the bottom
+	 * @param showBorder whether to show the board frame
+	 * @return configured render instance
+	 */
+	private static Render createRender(Position pos, boolean whiteDown, boolean showBorder) {
+		return new Render()
+				.setPosition(pos)
+				.setWhiteSideDown(whiteDown)
+				.setShowBorder(showBorder);
+	}
+
+	/**
+	 * Applies display overlays (arrows/circles/legal-move highlights) to a render
+	 * instance.
+	 *
+	 * @param render       render instance to annotate
+	 * @param pos          position used for legal-move overlays
+	 * @param arrows       UCI moves to add as arrows
+	 * @param circles      squares to highlight with circles
+	 * @param legalSquares squares whose legal moves should be highlighted
+	 */
+	private static void applyDisplayOverlays(
+			Render render,
+			Position pos,
+			List<String> arrows,
+			List<String> circles,
+			List<String> legalSquares) {
+		for (String arrow : arrows) {
+			short move = Move.parse(arrow);
+			render.addArrow(move);
+		}
+		for (String circle : circles) {
+			byte index = parseSquare(circle);
+			render.addCircle(index);
+		}
+		for (String sq : legalSquares) {
+			byte index = parseSquare(sq);
+			render.addLegalMoves(pos, index);
+		}
+	}
+
+		/**
+		 * Optionally evaluates a position for backend selection and/or ablation scores,
+		 * and applies resulting overlays to the renderer.
+		 *
+		 * @param render      render instance to annotate
+		 * @param pos         position to evaluate
+		 * @param showBackend whether to evaluate and print the backend label
+		 * @param ablation    whether to compute and overlay ablation scores
+		 * @return backend label when {@code showBackend} is enabled, otherwise {@code null}
+		 */
+		private static String applyDisplayEvaluatorOverlays(
+				Render render,
+				Position pos,
+				boolean showBackend,
+			boolean ablation) {
+		if (!showBackend && !ablation) {
+			return null;
+		}
+
+		String backendLabel = null;
+		try (Evaluator evaluator = new Evaluator()) {
+			if (showBackend) {
+				Result result = evaluator.evaluate(pos);
+				backendLabel = formatBackendLabel(result.backend());
+				System.out.println("Display backend: " + backendLabel);
+			}
+			if (ablation) {
+				applyAblationOverlay(render, pos, evaluator);
+			}
+		}
+		return backendLabel;
+	}
+
+	/**
+	 * Resolves a window dimension given explicit and square-size overrides.
+	 *
+	 * @param explicit explicit width/height (takes precedence when {@code > 0})
+	 * @param size     square window size fallback (used when {@code > 0})
+	 * @param fallback default value when neither override is set
+	 * @return resolved window dimension in pixels
+	 */
+	private static int resolveWindowDimension(int explicit, int size, int fallback) {
+		if (explicit > 0) {
+			return explicit;
+		}
+		if (size > 0) {
+			return size;
+		}
+		return fallback;
+	}
+
+	/**
+	 * Validates and parses a square string into a board index.
+	 *
+	 * @param square algebraic square (e.g. "e4")
+	 * @return board index 0..63
+	 */
+	private static byte parseSquare(String square) {
+		if (square == null || "-".equals(square) || !Field.isField(square)) {
+			throw new IllegalArgumentException("Invalid square: " + square);
+		}
+		return Field.toIndex(square);
+	}
+
+	/**
+	 * Adds an ablation overlay to the renderer using inverted ablation scores.
+	 *
+	 * @param render render instance to annotate
+	 * @param pos    position to evaluate
+	 */
+	private static void applyAblationOverlay(Render render, Position pos, Evaluator evaluator) {
+		int[][] matrix = evaluator.ablation(pos);
+		byte[] board = pos.getBoard();
+		double[] scales = ablationMaterialScales(matrix, board);
+
+		for (int index = 0; index < 64; index++) {
+			byte piece = board[index];
+			if (piece == Piece.EMPTY) {
+				continue;
+			}
+			int file = Field.getX((byte) index);
+			int rankFromBottom = Field.getY((byte) index);
+			int delta = matrix[rankFromBottom][file];
+			int type = Math.abs(piece);
+			double scaled = delta * scales[type];
+			int signed = (int) Math.round(Piece.isWhite(piece) ? scaled : -scaled);
+			render.setSquareText((byte) index, formatSigned(signed));
+		}
+	}
+
+	/**
+	 * Computes per-piece-type scaling factors that normalize ablation magnitudes
+	 * towards classical material values.
+	 *
+	 * @param matrix ablation scores
+	 * @param board  board array
+	 * @return scale factors indexed by piece type (1..6)
+	 */
+	private static double[] ablationMaterialScales(int[][] matrix, byte[] board) {
+		int[] counts = new int[7];
+		long[] sumAbs = new long[7];
+		for (int index = 0; index < 64; index++) {
+			byte piece = board[index];
+			if (piece == Piece.EMPTY) {
+				continue;
+			}
+			int file = Field.getX((byte) index);
+			int rankFromBottom = Field.getY((byte) index);
+			int raw = matrix[rankFromBottom][file];
+			int type = Math.abs(piece);
+			sumAbs[type] += Math.abs(raw);
+			counts[type]++;
+		}
+
+		double[] scales = new double[7];
+		for (int type = 1; type <= 6; type++) {
+			if (counts[type] == 0) {
+				scales[type] = 1.0;
+				continue;
+			}
+			double avg = sumAbs[type] / (double) counts[type];
+			int material = Math.abs(Piece.getValue((byte) type));
+			if (material <= 0 || avg <= 0.0) {
+				scales[type] = 1.0;
+			} else {
+				scales[type] = material / avg;
+			}
+		}
+		return scales;
+	}
+
+	/**
+	 * Formats a backend label for display/logging.
+	 *
+	 * @param backend evaluation backend
+	 * @return human-friendly label
+	 */
+	private static String formatBackendLabel(Backend backend) {
+		if (backend == Backend.LC0_CUDA) {
+			return "LC0 (cuda)";
+		}
+		if (backend == Backend.LC0_CPU) {
+			return "LC0 (cpu)";
+		}
+		return "classical";
+	}
+
+	/**
+	 * Formats a signed integer with an explicit sign.
+	 *
+	 * @param value numeric score
+	 * @return signed string (e.g. "+12", "-4", "+0")
+	 */
+	private static String formatSigned(int value) {
+		return String.format("%+d", value);
 	}
 
 	/**
@@ -495,17 +1004,19 @@ public final class Main {
 	private static void help() {
 		System.out.println(
 				"""
-						usage: app <command> [options]
+						usage: ucicli <command> [options]
 
 						commands:
 						  record-to-plain Convert .record JSON to .plain
 						  record-to-csv  Convert .record JSON to CSV (no .plain output)
+						  record-to-pgn  Convert .record JSON to PGN games
 						  record-to-dataset Convert .record JSON to NPY tensors (features/labels)
 						  stack-to-dataset Convert Stack-*.json puzzle dumps to NPY tensors
+						  cuda-info Print CUDA JNI backend status
 						  gen-fens  Generate random legal FEN shards (standard + Chess960 mix)
-						  eval-fens Evaluate FEN shards with Stockfish \"eval\" (JSONL per shard)
 						  mine      Mine chess puzzles (supports Chess960 / PGN / FEN list / random)
 						  print     Pretty-print a FEN
+						  display   Render a board image in a window
 						  clean     Delete session cache/logs
 
 						record-to-plain options:
@@ -514,7 +1025,7 @@ public final class Main {
 						  --csv                      Also emit a CSV export (default path derived)
 						  --csv-output|-c <path>     CSV output path (enables CSV export)
 						  --filter|-f <dsl>          Filter-DSL string for selecting records
-						  --sidelines|--export-all   Include sidelines in output
+						  --sidelines|--export-all|-a Include sidelines in output
 
 						record-to-csv options:
 						  --input|-i <path>          Input .record file (required)
@@ -525,26 +1036,26 @@ public final class Main {
 						  --input|-i <path>          Input .record file (required, JSON array)
 						  --output|-o <path>         Output stem (writes <stem>.features.npy, <stem>.labels.npy)
 
+						record-to-pgn options:
+						  --input|-i <path>          Input .record file (required, JSON array)
+						  --output|-o <path>         Output .pgn file (optional; default derived)
+
 						stack-to-dataset options:
 						  --input|-i <path>          Input Stack-*.json file (required, JSON array)
 						  --output|-o <path>         Output stem (writes <stem>.features.npy, <stem>.labels.npy)
 
+						cuda-info options:
+						  (no options)
+
 						gen-fens options:
-						  --output|-o <dir>          Output directory (default all_positions_shards)
+						  --output|-o <dir>          Output directory (default all_positions_shards/)
 						  --files <n>                Number of files to generate (default 1000)
 						  --per-file <n>             FENs per file (default 100000)
+						  --fens-per-file <n>        Alias for --per-file
 						  --chess960-files <n>       Files to seed from Chess960 (default 100)
+						  --chess960 <n>             Alias for --chess960-files
 						  --batch <n>                Random positions per batch (default 2048)
 						  --ascii                    Render ASCII progress bar
-						  --verbose|-v               Print stack trace on failure
-
-						eval-fens options:
-						  --input|-i <dir>           Input shard directory (default all_positions_shards)
-						  --output|-o <dir>          Output directory (default eval_shards)
-						  --workers|-e <n>           Engine workers (default config engine-instances)
-						  --protocol-path|-P <toml>  Engine protocol TOML (default config)
-						  --write-npy                Also emit <shard>.labels.npy (shape (N,65): scalar + 64 grid)
-						  --ascii                    Render ASCII progress bars
 						  --verbose|-v               Print stack trace on failure
 
 						mine options (overrides & inputs):
@@ -559,18 +1070,34 @@ public final class Main {
 
 						  --random-count <n>          Random seeds to generate (default 100)
 						  --random-infinite           Continuously add random seeds (ignores waves/total caps)
-						  --max-waves <n>             Override maximum waves (default 4; ignored with --random-infinite)
-						  --max-frontier <n>          Override frontier cap (default 1_000)
+						  --max-waves <n>             Override maximum waves (default 100; ignored with --random-infinite)
+						  --max-frontier <n>          Override frontier cap (default 5_000)
 						  --max-total <n>             Override total processed cap (default 500_000; ignored with --random-infinite)
 
 						  --puzzle-quality <dsl>      Override quality gate DSL
 						  --puzzle-winning <dsl>      Override winning gate DSL
 						  --puzzle-drawing <dsl>      Override drawing gate DSL
 						  --puzzle-accelerate <dsl>   Override accelerate prefilter DSL
+						  --verbose|-v                Print stack trace on failure
 
 						print options:
 						  --fen "<FEN...>"            FEN string (or supply as positional)
 						  --verbose|-v                Print stack trace on failure (parsing errors)
+
+						display options:
+						  --fen "<FEN...>"            FEN string (or supply as positional)
+						  --arrow <uci>               Add an arrow (repeatable)
+						  --circle <sq>               Add a circle (repeatable)
+						  --legal <sq>                Highlight legal moves from a square (repeatable)
+						  --ablation                  Overlay per-piece inverted ablation scores
+						  --show-backend              Print and display which evaluator was used
+						  --flip|--black-down         Render Black at the bottom
+						  --no-border                 Hide the board frame
+						  --size <px>                 Window size (square)
+						  --width <px>                Window width override
+						  --height <px>               Window height override
+						  --dark|--dark-mode          Use dark display window styling
+						  --verbose|-v                Print stack trace on failure
 
 						clean options:
 						  --verbose|-v                Print stack trace on failure
@@ -728,22 +1255,9 @@ public final class Main {
 		int waves = 0;
 		int processed = 0;
 
-		while (true) {
-			if (frontier.isEmpty() && config.infinite()) {
-				frontier = wrapSeeds(Setup.getRandomPositionSeeds(config.randomSeeds(), config.chess960()));
-			}
-
-			frontier = deduplicateFrontier(frontier, seenFen, analyzedFen);
+		while (waves < config.maxWaves() && processed < config.maxTotal()) {
+			frontier = prepareFrontierForWave(frontier, config, seenFen, analyzedFen, processed, waves);
 			if (frontier.isEmpty()) {
-				if (processed >= config.maxTotal() || waves >= config.maxWaves()) {
-					break;
-				}
-				if (config.infinite()) {
-					continue;
-				}
-			}
-
-			if (shouldStop(frontier, waves, processed, config.maxWaves(), config.maxTotal())) {
 				break;
 			}
 
@@ -772,17 +1286,70 @@ public final class Main {
 	}
 
 	/**
-	 * Used for holding per-wave results.
+	 * Prepares the frontier for the next mining wave.
 	 *
-	 * @param next      next frontier
-	 * @param processed total processed count so far
+	 * <p>
+	 * When {@link MiningConfig#infinite()} is enabled and the frontier becomes
+	 * empty, this method refills it with new random seeds until either a
+	 * non-empty, unique frontier is produced or mining limits are reached.
+	 * </p>
+	 *
+	 * @param frontier    current frontier (possibly empty)
+	 * @param config      mining configuration
+	 * @param seenFen     global de-duplication set (mutated)
+	 * @param analyzedFen already analyzed FENs (used to skip re-analysis)
+	 * @param processed   processed count so far
+	 * @param waves       waves completed so far
+	 * @return deduplicated frontier for the next wave (may be empty)
+	 */
+	private static List<Record> prepareFrontierForWave(
+			List<Record> frontier,
+			MiningConfig config,
+			Set<String> seenFen,
+			Set<String> analyzedFen,
+			int processed,
+			int waves) {
+		List<Record> prepared = frontier;
+		while (prepared.isEmpty() && config.infinite() && waves < config.maxWaves() && processed < config.maxTotal()) {
+			prepared = wrapSeeds(Setup.getRandomPositionSeeds(config.randomSeeds(), config.chess960()));
+			prepared = deduplicateFrontier(prepared, seenFen, analyzedFen);
+		}
+		return deduplicateFrontier(prepared, seenFen, analyzedFen);
+	}
+
+	/**
+	 * Used for holding per-wave results.
 	 */
 	private static final class WaveState {
+
+		/**
+		 * Next frontier to analyze in the following wave.
+		 */
 		final List<Record> next;
+
+		/**
+		 * Total processed count after this wave.
+		 */
 		final int processed;
+
+		/**
+		 * Verified puzzles encountered in this wave.
+		 */
 		final List<Record> wavePuzzles;
+
+		/**
+		 * Non-puzzles encountered in this wave.
+		 */
 		final List<Record> waveNonPuzzles;
 
+		/**
+		 * Creates a new per-wave state snapshot.
+		 *
+		 * @param next           next frontier
+		 * @param processed      processed count after the wave
+		 * @param wavePuzzles    puzzles found in the wave
+		 * @param waveNonPuzzles non-puzzles found in the wave
+		 */
 		WaveState(List<Record> next, int processed, List<Record> wavePuzzles, List<Record> waveNonPuzzles) {
 			this.next = next;
 			this.processed = processed;
@@ -791,6 +1358,22 @@ public final class Main {
 		}
 	}
 
+	/**
+	 * Immutable configuration bundle for the mining loop.
+	 *
+	 * @param accel       accelerate pre-filter
+	 * @param verify      verification filter for classifying puzzles
+	 * @param nodesCap    maximum nodes per position
+	 * @param durMs       maximum duration per position (ms)
+	 * @param outs        output targets for incremental persistence
+	 * @param infinite    whether to keep generating random seeds when frontier is
+	 *                    empty
+	 * @param chess960    whether to generate Chess960 random seeds when refilling
+	 * @param randomSeeds number of random seeds to generate per refill
+	 * @param maxFrontier cap on frontier size per wave
+	 * @param maxWaves    maximum waves to execute
+	 * @param maxTotal    maximum records to process
+	 */
 	private record MiningConfig(
 			Filter accel,
 			Filter verify,
@@ -805,31 +1388,25 @@ public final class Main {
 			long maxTotal) {
 	}
 
-	/** Used for default limiting the number of waves executed. */
+	/**
+	 * Used for default limiting the number of waves executed.
+	 */
 	private static final int DEFAULT_MAX_WAVES = 100;
 
-	/** Used for default capping the number of records per frontier. */
+	/**
+	 * Used for default capping the number of records per frontier.
+	 */
 	private static final int DEFAULT_MAX_FRONTIER = 5_000;
 
-	/** Used for default capping the total number of processed records. */
+	/**
+	 * Used for default capping the total number of processed records.
+	 */
 	private static final long DEFAULT_MAX_TOTAL = 500_000;
 
-	/** Used for default random seed count when none are provided. */
-	private static final int DEFAULT_RANDOM_SEEDS = 100;
-
 	/**
-	 * Used for deciding whether the mining loop should terminate.
-	 *
-	 * @param frontier  current frontier
-	 * @param waves     waves completed
-	 * @param processed total processed count
-	 * @param maxWaves  maximum waves permitted
-	 * @param maxTotal  maximum records permitted
-	 * @return true when the loop must end
+	 * Used for default random seed count when none are provided.
 	 */
-	private static boolean shouldStop(List<Record> frontier, int waves, int processed, int maxWaves, long maxTotal) {
-		return frontier.isEmpty() || waves >= maxWaves || processed >= maxTotal;
-	}
+	private static final int DEFAULT_RANDOM_SEEDS = 100;
 
 	/**
 	 * Used for capping the frontier size to a fixed maximum.
@@ -868,15 +1445,13 @@ public final class Main {
 
 		for (Record rec : frontier) {
 			final Position pos = rec.getPosition();
-			if (pos == null) {
-				continue;
+			if (pos != null) {
+				final String fen = pos.toString();
+				if (!analyzedFen.contains(fen) && waveSeen.add(fen)) {
+					seenFen.add(fen); // Register for child de-duplication across waves.
+					unique.add(rec);
+				}
 			}
-			final String fen = pos.toString();
-			if (analyzedFen.contains(fen) || !waveSeen.add(fen)) {
-				continue;
-			}
-			seenFen.add(fen); // Register for child de-duplication across waves.
-			unique.add(rec);
 		}
 
 		return (unique.size() == frontier.size()) ? frontier : unique;
@@ -903,14 +1478,14 @@ public final class Main {
 	/**
 	 * Used for processing the analyzed frontier and building the next wave.
 	 *
-	 * @param frontier   current frontier
-	 * @param verify     puzzle verification filter
-	 * @param seenFen    FEN de-duplication set
+	 * @param frontier    current frontier
+	 * @param verify      puzzle verification filter
+	 * @param seenFen     FEN de-duplication set
 	 * @param analyzedFen processed FEN set for skipping re-analysis
-	 * @param puzzles    collected puzzles
-	 * @param nonPuzzles collected non-puzzles
-	 * @param processed  processed count so far
-	 * @param maxTotal   maximum records permitted
+	 * @param puzzles     collected puzzles
+	 * @param nonPuzzles  collected non-puzzles
+	 * @param processed   processed count so far
+	 * @param maxTotal    maximum records permitted
 	 * @return next frontier and updated processed count
 	 */
 	private static WaveState processFrontier(
@@ -947,12 +1522,12 @@ public final class Main {
 	/**
 	 * Used for expanding a record's best move and queuing all child replies.
 	 *
-	 * @param r         analyzed record
-	 * @param seenFen   de-duplication set
+	 * @param r           analyzed record
+	 * @param seenFen     de-duplication set
 	 * @param analyzedFen processed FEN set for skipping re-analysis
-	 * @param next      accumulator for next frontier
-	 * @param processed processed count so far
-	 * @param maxTotal  maximum records permitted
+	 * @param next        accumulator for next frontier
+	 * @param processed   processed count so far
+	 * @param maxTotal    maximum records permitted
 	 */
 	private static void expandBestMoveChildren(
 			Record r,
@@ -966,10 +1541,7 @@ public final class Main {
 
 		for (Position child : parent.generateSubPositions()) {
 			final String fen = child.toString(); // assumes FEN canonicalization
-			if (analyzedFen.contains(fen)) {
-				continue;
-			}
-			if (seenFen.add(fen)) {
+			if (!analyzedFen.contains(fen) && seenFen.add(fen)) {
 				next.add(new Record().withPosition(child).withParent(parent));
 				if (processed + next.size() >= maxTotal) {
 					break;
@@ -1037,7 +1609,7 @@ public final class Main {
 	 *
 	 * <p>
 	 * When {@code outputRoot} is file-like ({@code .json} or {@code .jsonl}), the
-	 * method derives sibling {@code .puzzles.jsonl} and {@code .nonpuzzles.jsonl}
+	 * method derives sibling {@code .puzzles.json} and {@code .nonpuzzles.json}
 	 * files. Otherwise, generates timestamped filenames inside the provided
 	 * directory, prefixed with the chess variant.
 	 *
@@ -1100,35 +1672,48 @@ public final class Main {
 	 * @throws IOException if reading fails
 	 */
 	private static List<Record> loadRecordsFromPgn(Path input) throws IOException {
-		List<chess.model.Game> games = Pgn.read(input);
+		List<chess.struct.Game> games = Pgn.read(input);
 		List<Record> positions = new ArrayList<>();
-		for (chess.model.Game g : games) {
+		for (chess.struct.Game g : games) {
 			positions.addAll(extractRecordsWithVariations(g));
 		}
 		return positions;
 	}
 
-	private static List<Record> extractRecordsWithVariations(chess.model.Game game) {
+	/**
+	 * Extracts {@link Record} instances for every reachable ply in a game's
+	 * movetext, including all variations.
+	 *
+	 * <p>
+	 * Each returned record contains both the parent position (before the SAN move)
+	 * and the resulting child position. Illegal SAN moves terminate the current
+	 * line but do not stop processing other queued variations.
+	 * </p>
+	 *
+	 * @param game PGN game
+	 * @return list of records (parent/child position pairs)
+	 */
+	private static List<Record> extractRecordsWithVariations(chess.struct.Game game) {
 		List<Record> positions = new ArrayList<>();
 		Position start = game.getStartPosition() != null
 				? game.getStartPosition().copyOf()
-				: new Position(chess.model.Game.STANDARD_START_FEN);
+				: new Position(chess.struct.Game.STANDARD_START_FEN);
 
-		record Work(chess.model.Game.Node node, Position pos) {
+		record Work(chess.struct.Game.Node node, Position pos) {
 		}
 
 		java.util.ArrayDeque<Work> stack = new java.util.ArrayDeque<>();
 		if (game.getMainline() != null) {
 			stack.push(new Work(game.getMainline(), start.copyOf()));
 		}
-		for (chess.model.Game.Node rootVar : game.getRootVariations()) {
+		for (chess.struct.Game.Node rootVar : game.getRootVariations()) {
 			stack.push(new Work(rootVar, start.copyOf()));
 		}
 
 		while (!stack.isEmpty()) {
 			Work work = stack.pop();
 			Position current = work.pos();
-			chess.model.Game.Node cur = work.node();
+			chess.struct.Game.Node cur = work.node();
 			while (cur != null) {
 				Position parent = current.copyOf();
 				Position child;
@@ -1139,7 +1724,7 @@ public final class Main {
 					break; // stop this line on illegal SAN
 				}
 				positions.add(new Record().withParent(parent).withPosition(child.copyOf()));
-				for (chess.model.Game.Node variation : cur.getVariations()) {
+				for (chess.struct.Game.Node variation : cur.getVariations()) {
 					stack.push(new Work(variation, child.copyOf()));
 				}
 				current = child;

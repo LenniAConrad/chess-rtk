@@ -2,6 +2,8 @@ package chess.images.render;
 
 import java.awt.BasicStroke;
 import java.awt.Color;
+import java.awt.Font;
+import java.awt.FontMetrics;
 import java.awt.Graphics2D;
 import java.awt.Polygon;
 import java.awt.RenderingHints;
@@ -16,7 +18,7 @@ import chess.core.Move;
 import chess.core.MoveList;
 import chess.core.Piece;
 import chess.core.Position;
-import chess.model.Game;
+import chess.struct.Game;
 
 /**
  * Lightweight board renderer for {@link Position} objects with optional arrows
@@ -61,6 +63,62 @@ public final class Render {
 	 * Default frame color surrounding the board. 
 	 */
 	private static final Color DEFAULT_FRAME = new Color(100, 100, 100);
+
+	/**
+	 * Default text color for per-square text overlays (used when no auto color applies).
+	 */
+	private static final Color DEFAULT_SQUARE_TEXT_COLOR = new Color(255, 255, 255, 255);
+
+	/**
+	 * Default background color for per-square text overlays (used when no auto color applies).
+	 */
+	private static final Color DEFAULT_SQUARE_TEXT_BACKGROUND = new Color(0, 0, 0, 150);
+
+	/**
+	 * Default border color for per-square text overlays (used when no auto color applies).
+	 */
+	private static final Color DEFAULT_SQUARE_TEXT_BORDER = new Color(255, 255, 255, 140);
+
+	/**
+	 * Text color used for overlays on squares occupied by White pieces when auto contrast is off.
+	 * The high opacity keeps glyphs legible without overpowering the lighter board tiles.
+	 */
+	private static final Color DEFAULT_SQUARE_TEXT_WHITE_PIECE_TEXT = new Color(0, 0, 0, 235);
+
+	/**
+	 * Background color for White-piece text overlays when manual styling is requested.
+	 * This translucent white frame makes digits stand out without obscuring the underlying square.
+	 */
+	private static final Color DEFAULT_SQUARE_TEXT_WHITE_PIECE_BACKGROUND = new Color(255, 255, 255, 180);
+
+	/**
+	 * Border color for White-piece overlays to visually separate them from the board.
+	 * The low opacity keeps the border subtle while preserving contrast.
+	 */
+	private static final Color DEFAULT_SQUARE_TEXT_WHITE_PIECE_BORDER = new Color(0, 0, 0, 120);
+
+	/**
+	 * Text color used for overlays on squares occupied by Black pieces.
+	 * Pure white delivers maximum contrast on the darker board sections.
+	 */
+	private static final Color DEFAULT_SQUARE_TEXT_BLACK_PIECE_TEXT = new Color(255, 255, 255, 255);
+
+	/**
+	 * Background color for Black-piece text overlays when explicit styling is needed.
+	 * The translucent black keeps the overlay readable while allowing the board to remain visible.
+	 */
+	private static final Color DEFAULT_SQUARE_TEXT_BLACK_PIECE_BACKGROUND = new Color(0, 0, 0, 150);
+
+	/**
+	 * Border color for Black-piece overlays, mirroring the lighter border used elsewhere.
+	 * This consistent tone helps overlay borders stay harmonious across themes.
+	 */
+	private static final Color DEFAULT_SQUARE_TEXT_BLACK_PIECE_BORDER = new Color(255, 255, 255, 140);
+
+	/**
+	 * Default stroke for per-square text overlay background borders.
+	 */
+	private static final Stroke DEFAULT_SQUARE_TEXT_STROKE = new BasicStroke(1.25f);
 
 	/**
 	 * Board pixel width taken from the background asset.
@@ -111,6 +169,46 @@ public final class Render {
 	 * Overlay circles to draw
 	 */
 	private final List<Circle> circles = new ArrayList<>();
+
+	/**
+	 * Per-square text overlays (one per square).
+	 */
+	private final SquareText[] squareTexts = new SquareText[64];
+
+	/**
+	 * Maximum width (in pixels) for a single square text overlay, derived from {@link #tileWidth}.
+	 */
+	private final int squareTextMaxWidth = (int) (tileWidth * 0.80);
+
+	/**
+	 * Maximum height (in pixels) for a single square text overlay, derived from {@link #tileHeight}.
+	 */
+	private final int squareTextMaxHeight = (int) (tileHeight * 0.40);
+
+	/**
+	 * Initial font size (in pixels) used when laying out square text; clamped to a minimum for readability.
+	 */
+	private final int squareTextStartingFontSize = Math.max(9, (int) (tileHeight * 0.28));
+
+	/**
+	 * Base font used for square text overlays (bold, sans-serif) at {@link #squareTextStartingFontSize}.
+	 */
+	private final Font squareTextBaseFont = new Font(Font.SANS_SERIF, Font.BOLD, squareTextStartingFontSize);
+
+	/**
+	 * Mutable style configuration used during square text rendering.
+	 */
+	private final SquareTextStyle squareTextStyle = new SquareTextStyle();
+
+	/**
+	 * Reusable text layout helper to avoid per-frame allocations when rendering square text.
+	 */
+	private final TextLayout squareTextLayout = new TextLayout();
+
+	/**
+	 * Reusable tile coordinate scratch value used during square text rendering.
+	 */
+	private final IntPoint squareTextTile = new IntPoint();
 
 	/**
 	 * Sets the position to render.
@@ -165,6 +263,62 @@ public final class Render {
 	 */
 	public Render clearCircles() {
 		circles.clear();
+		return this;
+	}
+
+	/**
+	 * Removes all per-square text overlays.
+	 *
+	 * @return this renderer for chaining
+	 */
+	public Render clearSquareTexts() {
+		for (int i = 0; i < squareTexts.length; i++) {
+			squareTexts[i] = null;
+		}
+		return this;
+	}
+
+	/**
+	 * Sets a small centered text overlay for a square using default styling.
+	 * <p>
+	 * Passing {@code null} or blank {@code text} clears the overlay for the square.
+	 *
+	 * @param index square index (0..63)
+	 * @param text  label to draw (e.g. "+1.5")
+	 * @return this renderer for chaining
+	 */
+	public Render setSquareText(byte index, String text) {
+		int idx = toSquareIndex(index);
+		if (text == null || text.isBlank()) {
+			squareTexts[idx] = null;
+			return this;
+		}
+		// Auto-colors: White pieces get dark text on light background; Black pieces get inverted.
+		squareTexts[idx] = new SquareText(index, text, null, null, null, DEFAULT_SQUARE_TEXT_STROKE);
+		return this;
+	}
+
+	/**
+	 * Sets a small centered text overlay for a square with custom styling.
+	 * <p>
+	 * Passing {@code null} or blank {@code text} clears the overlay for the square.
+	 *
+	 * @param index       square index (0..63)
+	 * @param text        label to draw (e.g. "+1.5")
+	 * @param textColor   text color
+	 * @param background  background fill color (use alpha for transparency)
+	 * @param border      background border color (use alpha for transparency)
+	 * @param borderStroke background border stroke
+	 * @return this renderer for chaining
+	 */
+	public Render setSquareText(byte index, String text, Color textColor, Color background, Color border,
+			Stroke borderStroke) {
+		int idx = toSquareIndex(index);
+		if (text == null || text.isBlank()) {
+			squareTexts[idx] = null;
+			return this;
+		}
+		squareTexts[idx] = new SquareText(index, text, textColor, background, border, borderStroke);
 		return this;
 	}
 
@@ -273,6 +427,7 @@ public final class Render {
 		drawPieces(g, boardX, boardY);
 		drawCircles(g, boardX, boardY);
 		drawArrows(g, boardX, boardY);
+		drawSquareTexts(g, boardX, boardY);
 
 		g.dispose();
 		return img;
@@ -337,6 +492,128 @@ public final class Render {
 	}
 
 	/**
+	 * Draws per-square text overlays centered in each tile, with a small background box.
+	 *
+	 * @param g      graphics context
+	 * @param boardX board origin x
+	 * @param boardY board origin y
+	 */
+	private void drawSquareTexts(Graphics2D g, int boardX, int boardY) {
+		Font previousFont = g.getFont();
+		Stroke previousStroke = g.getStroke();
+		Object prevTextAA = g.getRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING);
+		g.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+
+		SquareTextStyle style = squareTextStyle;
+		TextLayout layout = squareTextLayout;
+		IntPoint tile = squareTextTile;
+
+		for (SquareText label : squareTexts) {
+			if (!hasVisibleText(label)) {
+				continue;
+			}
+			drawSquareText(g, boardX, boardY, label, style, layout, tile);
+		}
+
+		g.setFont(previousFont);
+		g.setStroke(previousStroke);
+		g.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, prevTextAA);
+	}
+
+	private static boolean hasVisibleText(SquareText label) {
+		return label != null && label.text != null && !label.text.isBlank();
+	}
+
+	private void drawSquareText(Graphics2D g, int boardX, int boardY, SquareText label, SquareTextStyle style,
+			TextLayout layout, IntPoint tile) {
+		String text = label.text;
+		int boardIndex = toSquareIndex(label.index);
+		byte piece = position.getBoard()[boardIndex];
+
+		resolveSquareTextStyle(label, piece, style);
+		tileOrigin(label.index, boardX, boardY, tile);
+		fitSquareTextFont(g, text, layout);
+		drawSquareTextBoxAndText(g, text, tile.x, tile.y, style, layout);
+	}
+
+	private void resolveSquareTextStyle(SquareText label, byte piece, SquareTextStyle out) {
+		if (label.background == null || label.textColor == null || label.border == null) {
+			if (Piece.isWhitePiece(piece)) {
+				out.textColor = DEFAULT_SQUARE_TEXT_WHITE_PIECE_TEXT;
+				out.background = DEFAULT_SQUARE_TEXT_WHITE_PIECE_BACKGROUND;
+				out.border = DEFAULT_SQUARE_TEXT_WHITE_PIECE_BORDER;
+			} else if (Piece.isBlackPiece(piece)) {
+				out.textColor = DEFAULT_SQUARE_TEXT_BLACK_PIECE_TEXT;
+				out.background = DEFAULT_SQUARE_TEXT_BLACK_PIECE_BACKGROUND;
+				out.border = DEFAULT_SQUARE_TEXT_BLACK_PIECE_BORDER;
+			} else {
+				out.textColor = DEFAULT_SQUARE_TEXT_COLOR;
+				out.background = DEFAULT_SQUARE_TEXT_BACKGROUND;
+				out.border = DEFAULT_SQUARE_TEXT_BORDER;
+			}
+		} else {
+			out.textColor = label.textColor;
+			out.background = label.background;
+			out.border = label.border;
+		}
+		out.borderStroke = label.borderStroke != null ? label.borderStroke : DEFAULT_SQUARE_TEXT_STROKE;
+	}
+
+	private void tileOrigin(byte index, int boardX, int boardY, IntPoint out) {
+		int x = whiteSideDown ? Field.getX(index) : Field.getXInverted(index);
+		int y = whiteSideDown ? Field.getYInverted(index) : Field.getY(index);
+		out.x = boardX + x * tileWidth;
+		out.y = boardY + y * tileHeight;
+	}
+
+	private void fitSquareTextFont(Graphics2D g, String text, TextLayout out) {
+		int fontSize = squareTextStartingFontSize;
+		Font font = squareTextBaseFont;
+		FontMetrics fm = g.getFontMetrics(font);
+		int textWidth = fm.stringWidth(text);
+		int textHeight = fm.getAscent() + fm.getDescent();
+		while ((textWidth > squareTextMaxWidth || textHeight > squareTextMaxHeight) && fontSize > 7) {
+			fontSize--;
+			font = font.deriveFont((float) fontSize);
+			fm = g.getFontMetrics(font);
+			textWidth = fm.stringWidth(text);
+			textHeight = fm.getAscent() + fm.getDescent();
+		}
+
+		out.fontSize = fontSize;
+		out.font = font;
+		out.fm = fm;
+		out.textWidth = textWidth;
+		out.textHeight = textHeight;
+	}
+
+	private void drawSquareTextBoxAndText(Graphics2D g, String text, int tileX, int tileY, SquareTextStyle style,
+			TextLayout layout) {
+		int padX = Math.max(2, layout.fontSize / 4);
+		int padY = Math.max(1, layout.fontSize / 5);
+
+		int boxWidth = Math.min(tileWidth, layout.textWidth + padX * 2);
+		int boxHeight = Math.min(tileHeight, layout.textHeight + padY * 2);
+		int boxX = tileX + (tileWidth - boxWidth) / 2;
+		int boxY = tileY + (tileHeight - boxHeight) / 2;
+		int arc = Math.max(4, boxHeight / 2);
+
+		g.setPaint(style.background);
+		g.fillRoundRect(boxX, boxY, boxWidth, boxHeight, arc, arc);
+		if (style.border != null) {
+			g.setStroke(style.borderStroke);
+			g.setPaint(style.border);
+			g.drawRoundRect(boxX, boxY, boxWidth, boxHeight, arc, arc);
+		}
+
+		g.setFont(layout.font);
+		g.setPaint(style.textColor);
+		int textX = tileX + (tileWidth - layout.textWidth) / 2;
+		int textY = tileY + (tileHeight - layout.textHeight) / 2 + layout.fm.getAscent();
+		g.drawString(text, textX, textY);
+	}
+
+	/**
 	 * Maps a piece code to its corresponding image.
 	 *
 	 * @param piece piece code from {@link Piece}
@@ -361,6 +638,21 @@ public final class Render {
 	}
 
 	/**
+	 * Converts a signed byte square index to a validated 0..63 integer index.
+	 *
+	 * @param index square index
+	 * @return int index in range
+	 * @throws IllegalArgumentException if outside 0..63
+	 */
+	private static int toSquareIndex(byte index) {
+		int idx = index & 0xFF;
+		if (idx < 0 || idx >= 64) {
+			throw new IllegalArgumentException("square index must be in range 0..63, got " + idx);
+		}
+		return idx;
+	}
+
+	/**
 	 * Circle overlay state.
 	 *
 	 * @param index    target square index
@@ -370,5 +662,39 @@ public final class Render {
 	 * @param stroke   outline stroke
 	 */
 	private record Circle(byte index, int diameter, Color border, Color fill, Stroke stroke) {
+	}
+
+	/**
+	 * Per-square text overlay state.
+	 *
+	 * @param index        target square index
+	 * @param text         label to draw
+	 * @param textColor    text color
+	 * @param background   background fill color
+	 * @param border       border color
+	 * @param borderStroke border stroke
+	 */
+	private record SquareText(byte index, String text, Color textColor, Color background, Color border,
+			Stroke borderStroke) {
+	}
+
+	private static final class SquareTextStyle {
+		private Color background;
+		private Color border;
+		private Color textColor;
+		private Stroke borderStroke;
+	}
+
+	private static final class TextLayout {
+		private Font font;
+		private FontMetrics fm;
+		private int textWidth;
+		private int textHeight;
+		private int fontSize;
+	}
+
+	private static final class IntPoint {
+		private int x;
+		private int y;
 	}
 }

@@ -11,9 +11,9 @@ import java.util.List;
 import java.util.stream.Stream;
 
 import chess.core.Position;
-import chess.model.Game;
-import chess.model.Record;
-import chess.misc.Pgn;
+import chess.struct.Game;
+import chess.struct.Pgn;
+import chess.struct.Record;
 import utility.Json;
 
 /**

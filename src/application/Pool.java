@@ -14,7 +14,7 @@ import java.util.concurrent.Executors;
 
 import application.console.Bar;
 import chess.debug.LogService;
-import chess.model.Record;
+import chess.struct.Record;
 import chess.uci.Filter;
 import chess.uci.Engine;
 import chess.uci.Protocol;

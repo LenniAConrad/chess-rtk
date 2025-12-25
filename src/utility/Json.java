@@ -27,6 +27,18 @@ import java.util.function.Consumer;
  */
 public class Json {
 
+    /**
+     * Initial capacity of the per-object buffer used while scanning huge JSON arrays.
+     * It grows automatically once the incoming object exceeds this starting size.
+     */
+    private static final int STREAM_OBJ_INITIAL_CAPACITY = 1 << 20; // ~1 MiB chars
+    
+    /**
+     * Ceiling on the per-object buffer size to keep memory usage bounded for malformed input.
+     * The stream reader refuses to grow beyond this limit and throws if more space is required.
+     */
+    private static final int STREAM_OBJ_MAX_CAPACITY = 1 << 23; // ~8 MiB chars
+
     // Private constructor to prevent instantiation
     private Json() {
         // Prevents instantiation of utility class
@@ -173,7 +185,7 @@ public class Json {
      */
     public static void streamTopLevelObjects(Reader r, Consumer<String> consumer) throws IOException {
         final char[] buf = new char[1 << 16]; // 64 KiB chunks
-        final StreamScan st = new StreamScan(1 << 20); // ~1 MiB initial builder
+        final StreamScan st = new StreamScan(STREAM_OBJ_INITIAL_CAPACITY);
 
         int read;
         while ((read = r.read(buf)) != -1) {
@@ -205,9 +217,11 @@ public class Json {
         boolean inStr;
         boolean esc;
         int depth; // 0 = not inside an object; >0 = brace depth
-        final StringBuilder obj;
+        final int initialCapacity;
+        StringBuilder obj;
 
         StreamScan(int initialCapacity) {
+            this.initialCapacity = initialCapacity;
             this.obj = new StringBuilder(initialCapacity);
         }
     }
@@ -300,8 +314,16 @@ public class Json {
             if (st.depth == 0) {
                 // Completed a top-level object
                 consumer.accept(st.obj.toString());
-                // obj will be reset when next object starts to avoid new allocation
+                resetObjectBufferAfterEmit(st);
             }
+        }
+    }
+
+    private static void resetObjectBufferAfterEmit(StreamScan st) {
+        if (st.obj.capacity() > STREAM_OBJ_MAX_CAPACITY) {
+            st.obj = new StringBuilder(st.initialCapacity);
+        } else {
+            st.obj.setLength(0);
         }
     }
 

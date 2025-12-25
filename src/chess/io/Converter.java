@@ -15,28 +15,31 @@ import java.util.concurrent.atomic.AtomicLong;
 import chess.core.Move;
 import chess.core.Position;
 import chess.core.SAN;
-import utility.Json;
-import chess.model.Record;
+import chess.debug.LogService;
+import chess.struct.Plain;
+import chess.struct.Record;
 import chess.uci.Evaluation;
 import chess.uci.Filter;
 import chess.uci.Output;
-import chess.model.Plain;
-import chess.debug.LogService;
+import utility.Json;
 
 /**
- * Used for providing utility methods to convert a JSON array of Record objects
- * into Plain format blocks.
- * This utility class is non-instantiable and operates in a streaming fashion to
- * avoid loading the entire
- * input into memory.
+ * Used for providing utility methods to convert a JSON array of {@link Record} objects
+ * into other output formats.
  *
+ * <p>
+ * This utility class is non-instantiable and operates in a streaming fashion to
+ * avoid loading the entire input into memory.
+ * </p>
+ *
+ * <p>
  * Input shape (whitespace allowed):
- * [ { ... }, { ... }, ... ]
+ * {@code [ { ... }, { ... }, ... ]}
+ * </p>
  *
  * @since 2025
  * @author Lennart A. Conrad
  */
-
 public class Converter {
 
     /**
@@ -47,16 +50,17 @@ public class Converter {
     }
 
     /**
-     * Used for stream-converting a JSON array file of records into one
-     * {@code .plain} file without
-     * loading the whole input. Writes to a temp file, then atomically moves it into
-     * place.
+     * Used for stream-converting a JSON array file of records into one {@code .plain} file without
+     * loading the whole input.
+     *
+     * <p>
+     * Writes to a temp file, then atomically moves it into place.
+     * </p>
      *
      * @param exportAll  include all exportable fields.
      * @param arguments  optional filter; {@code null} = emit all.
      * @param recordFile input JSON (array) path.
-     * @param plainFile  output {@code .plain} path; if {@code null}, derived from
-     *                   {@code recordFile}.
+     * @param plainFile  output {@code .plain} path; if {@code null}, derived from {@code recordFile}.
      * @throws IllegalArgumentException if {@code recordFile} is {@code null}.
      */
     public static void recordToPlain(boolean exportAll, Filter arguments, Path recordFile, Path plainFile) {
@@ -124,19 +128,16 @@ public class Converter {
     }
 
     /**
-     * Used for stream-converting a JSON array file of records into one CSV file
-     * with a column per requested PV.
+     * Used for stream-converting a JSON array file of records into one CSV file with a column per requested PV.
      *
      * <p>
-     * Always writes a header. PV columns are sized to the maximum principal
-     * variation count observed across records that pass the filter. Each PV adds
-     * three columns: evaluation, best move in SAN, and the UCI PV line.
+     * Always writes a header. PV columns are sized to the maximum principal variation count observed across records that
+     * pass the filter. Each PV adds three columns: evaluation, best move in SAN, and the UCI PV line.
      * </p>
      *
      * @param arguments  optional filter; {@code null} = emit all.
      * @param recordFile input JSON (array) path.
-     * @param csvFile    output {@code .csv} path; if {@code null}, derived from
-     *                   {@code recordFile}.
+     * @param csvFile    output {@code .csv} path; if {@code null}, derived from {@code recordFile}.
      * @throws IllegalArgumentException if {@code recordFile} is {@code null}.
      */
     public static void recordToCsv(Filter arguments, Path recordFile, Path csvFile) {
@@ -225,15 +226,38 @@ public class Converter {
     }
 
     /**
-     * Opens a UTF-8 {@link BufferedWriter} for {@code tmp} with
-     * CREATE/TRUNCATE/WRITE, creating parent directories as needed.
+     * Converts a {@code .record} JSON array file into PGN games by linking records via their {@code parent} and
+     * {@code position} FENs.
      *
-     * @param tmp path to the temporary output file
-     * @return an open writer ready for output
-     * @throws IOException if the directory creation or file open fails
+     * <p>
+     * The exporter connects records directly when a record's {@code parent} equals another record's {@code position},
+     * and also bridges positions by generating legal subpositions to find matching {@code parent} nodes.
+     * </p>
+     *
+     * @param recordFile input JSON (array) path.
+     * @param pgnFile    output PGN path; if {@code null}, derived from {@code recordFile}.
+     * @throws IllegalArgumentException if {@code recordFile} is {@code null}.
+     */
+    public static void recordToPgn(Path recordFile, Path pgnFile) {
+        if (recordFile == null) {
+            throw new IllegalArgumentException("recordfile is null");
+        }
+        if (pgnFile == null) {
+            pgnFile = deriveOutputPath(recordFile, ".pgn");
+        }
+        RecordPgnExporter.export(recordFile, pgnFile);
+    }
+
+    /**
+     * Opens a UTF-8 {@link BufferedWriter} for {@code tmp} with CREATE/TRUNCATE/WRITE, creating parent directories as
+     * needed.
+     *
+     * @param tmp path to the temporary output file.
+     * @return an open writer ready for output.
+     * @throws IOException if the directory creation or file open fails.
      */
     private static BufferedWriter openWriter(Path tmp) throws IOException {
-        ensureParentDirs(tmp); // make sure the temp file's dir exists
+        ensureParentDirs(tmp);
         return Files.newBufferedWriter(
                 tmp,
                 StandardCharsets.UTF_8,
@@ -243,27 +267,25 @@ public class Converter {
     }
 
     /**
-     * Ensures the parent directory of {@code p} exists, creating it (and any
-     * missing intermediates) if necessary. No-op if there is no parent or it
-     * already exists.
+     * Ensures the parent directory of {@code p} exists, creating it (and any missing intermediates) if necessary.
      *
-     * @param p path whose parent directory should be present
-     * @throws IOException if directory creation fails
+     * @param p path whose parent directory should be present.
+     * @throws IOException if directory creation fails.
      */
     private static void ensureParentDirs(Path p) throws IOException {
         final Path parent = p.getParent();
-        if (parent != null)
+        if (parent != null) {
             Files.createDirectories(parent);
+        }
     }
 
     /**
-     * Used for scanning the input once to determine the maximum PV count for CSV
-     * header sizing. Applies the same filter as the actual export.
+     * Scans the input once to determine the maximum PV count for CSV header sizing.
      *
-     * @param arguments optional filter; {@code null} = accept all
-     * @param recordFile input JSON (array) path
-     * @return maximum PV index observed across accepted records
-     * @throws IOException if streaming fails
+     * @param arguments  optional filter; {@code null} = accept all.
+     * @param recordFile input JSON (array) path.
+     * @return maximum PV index observed across accepted records.
+     * @throws IOException if streaming fails.
      */
     private static int computeMaxPivot(Filter arguments, Path recordFile) throws IOException {
         final int[] maxPv = new int[1];
@@ -271,7 +293,7 @@ public class Converter {
             try {
                 Record r = Record.fromJson(objJson);
                 if (r == null) {
-                    return; // skip malformed records
+                    return;
                 }
                 if (arguments != null && !arguments.apply(r.getAnalysis())) {
                     return;
@@ -279,7 +301,7 @@ public class Converter {
                 int pivots = r.getAnalysis().getPivots();
                 maxPv[0] = Math.max(maxPv[0], Math.max(1, pivots));
             } catch (IllegalArgumentException | NullPointerException ignore) {
-                // Skip invalid records in the sizing pass
+                // Skip invalid records in the sizing pass.
             }
         });
         return maxPv[0];
@@ -288,9 +310,9 @@ public class Converter {
     /**
      * Writes the CSV header with base fields plus PV-specific columns.
      *
-     * @param out   destination writer
-     * @param maxPv maximum PV count to include
-     * @throws IOException if writing fails
+     * @param out   destination writer.
+     * @param maxPv maximum PV count to include.
+     * @throws IOException if writing fails.
      */
     private static void writeCsvHeader(BufferedWriter out, int maxPv) throws IOException {
         StringBuilder sb = new StringBuilder(64 + maxPv * 32);
@@ -305,16 +327,15 @@ public class Converter {
     }
 
     /**
-     * Parses one JSON object into a Record and, if accepted by {@code arguments},
-     * writes its Plain block. Updates {@code ok}/{@code bad} counters.
+     * Parses one JSON object into a {@link Record} and, if accepted by {@code arguments}, writes its Plain block.
      *
-     * @param arguments optional filter; {@code null} = accept all
-     * @param objJson   JSON text of a single object
-     * @param exportall pass-through to {@code Plain.toString}
-     * @param out       destination writer
-     * @param ok        counter for successful writes
-     * @param bad       counter for invalid/rejected records
-     * @throws UncheckedIOException on write errors
+     * @param arguments optional filter; {@code null} = accept all.
+     * @param objJson   JSON text of a single object.
+     * @param exportall pass-through to {@code Plain.toString}.
+     * @param out       destination writer.
+     * @param ok        counter for successful writes.
+     * @param bad       counter for invalid/rejected records.
+     * @throws UncheckedIOException on write errors.
      */
     private static void processRecordJson(
             Filter arguments,
@@ -341,16 +362,15 @@ public class Converter {
     }
 
     /**
-     * Parses one JSON object into a Record and, if accepted by {@code arguments},
-     * writes its CSV row. Updates {@code ok}/{@code bad} counters.
+     * Parses one JSON object into a {@link Record} and, if accepted by {@code arguments}, writes its CSV row.
      *
-     * @param arguments optional filter; {@code null} = accept all
-     * @param objJson   JSON text of a single object
-     * @param maxPv     column count for PVs
-     * @param out       destination writer
-     * @param ok        counter for successful writes
-     * @param bad       counter for invalid/rejected records
-     * @throws UncheckedIOException on write errors
+     * @param arguments optional filter; {@code null} = accept all.
+     * @param objJson   JSON text of a single object.
+     * @param maxPv     column count for PVs.
+     * @param out       destination writer.
+     * @param ok        counter for successful writes.
+     * @param bad       counter for invalid/rejected records.
+     * @throws UncheckedIOException on write errors.
      */
     private static void processRecordCsv(
             Filter arguments,
@@ -377,12 +397,12 @@ public class Converter {
     }
 
     /**
-     * Used for writing a single Plain block to the writer.
+     * Writes a single Plain block to the writer.
      *
-     * @param out   writer to write to
-     * @param block string block to write
-     * @return true if block was written, false otherwise
-     * @throws IOException if write fails
+     * @param out   writer to write to.
+     * @param block string block to write.
+     * @return true if block was written, false otherwise.
+     * @throws IOException if write fails.
      */
     private static boolean writeBlock(BufferedWriter out, String block) throws IOException {
         if (block == null || block.isEmpty()) {
@@ -393,13 +413,12 @@ public class Converter {
     }
 
     /**
-     * Writes one CSV row for the given record, emitting empty cells for missing PV
-     * data.
+     * Writes one CSV row for the given record, emitting empty cells for missing PV data.
      *
-     * @param out   destination writer
-     * @param r     record to serialize
-     * @param maxPv number of PV columns in the header
-     * @throws IOException if writing fails
+     * @param out   destination writer.
+     * @param r     record to serialize.
+     * @param maxPv number of PV columns in the header.
+     * @throws IOException if writing fails.
      */
     private static void writeCsvRow(BufferedWriter out, Record r, int maxPv) throws IOException {
         StringBuilder sb = new StringBuilder(128 + maxPv * 48);
@@ -424,9 +443,8 @@ public class Converter {
     /**
      * Formats the evaluation of an {@link Output} for CSV.
      *
-     * @param best output to inspect
-     * @return evaluation string ({@code #N} for mate, centipawns otherwise) or
-     *         empty
+     * @param best output to inspect.
+     * @return evaluation string ({@code #N} for mate, centipawns otherwise) or empty.
      */
     private static String formatEvaluation(Output best) {
         if (best == null) {
@@ -443,12 +461,11 @@ public class Converter {
     }
 
     /**
-     * Formats the best move for a PV as SAN, falling back to UCI if SAN generation
-     * fails.
+     * Formats the best move for a PV as SAN, falling back to UCI if SAN generation fails.
      *
-     * @param pos  source position
-     * @param best output providing PV moves
-     * @return SAN move or UCI fallback; empty if unavailable
+     * @param pos  source position.
+     * @param best best move.
+     * @return SAN move or UCI fallback; empty if unavailable.
      */
     private static String formatBestMoveSan(Position pos, short best) {
         if (pos == null || best == Move.NO_MOVE) {
@@ -464,8 +481,8 @@ public class Converter {
     /**
      * Formats the PV move list as space-separated UCI.
      *
-     * @param best output to inspect
-     * @return PV string or empty if none
+     * @param best output to inspect.
+     * @return PV string or empty if none.
      */
     private static String formatPvMoves(Output best) {
         if (best == null) {
@@ -493,8 +510,8 @@ public class Converter {
     /**
      * Escapes a value for safe CSV emission using RFC 4180 quoting rules.
      *
-     * @param value string to escape
-     * @return escaped value (possibly quoted); never {@code null}
+     * @param value string to escape.
+     * @return escaped value (possibly quoted); never {@code null}.
      */
     private static String csv(String value) {
         if (value == null) {
@@ -511,8 +528,8 @@ public class Converter {
     /**
      * Joins tags for CSV output.
      *
-     * @param tags tag array (may be null or empty)
-     * @return semicolon-joined tags or empty
+     * @param tags tag array (may be null or empty).
+     * @return semicolon-joined tags or empty.
      */
     private static String joinTags(String[] tags) {
         if (tags == null || tags.length == 0) {
@@ -524,23 +541,21 @@ public class Converter {
     /**
      * Returns the FEN string or empty if position is null.
      *
-     * @param p position to convert
-     * @return FEN or empty
+     * @param p position to convert.
+     * @return FEN or empty.
      */
     private static String toFen(Position p) {
         return p == null ? "" : p.toString();
     }
 
     /**
-     * Commits a temp file: ensure parent dir exists, fsync the temp, then move it
-     * to {@code dest} (atomic when supported, else replace), and best-effort fsync
-     * the destination directory.
+     * Commits a temp file: ensure parent dir exists, fsync the temp, then move it to {@code dest} (atomic when
+     * supported, else replace), and best-effort fsync the destination directory.
      *
-     * @param tmp  temporary file to commitsy
-     * @param dest final destination path
-     * @throws IOException if syncing or moving fails
+     * @param tmp  temporary file to commit.
+     * @param dest final destination path.
+     * @throws IOException if syncing or moving fails.
      */
-
     private static void finalizeOutput(Path tmp, Path dest) throws IOException {
         ensureParentDirs(dest);
 
@@ -567,24 +582,24 @@ public class Converter {
     }
 
     /**
-     * Used for silently cleaning up temporary files.
+     * Silently cleans up temporary files.
      *
-     * @param tmp path to delete
+     * @param tmp path to delete.
      */
     private static void cleanupTempQuietly(Path tmp) {
         try {
             Files.deleteIfExists(tmp);
         } catch (IOException ignore) {
-            // Failed to delete temp file
+            // Failed to delete temp file.
         }
     }
 
     /**
-     * Used for deriving a new file path by replacing or appending a file extension.
+     * Derives a new file path by replacing or appending a file extension.
      *
-     * @param input  original input path
-     * @param newExt new file extension (including dot)
-     * @return new Path with updated extension
+     * @param input  original input path.
+     * @param newExt new file extension (including dot).
+     * @return new {@link Path} with updated extension.
      */
     private static Path deriveOutputPath(Path input, String newExt) {
         String name = input.getFileName().toString();
@@ -592,5 +607,5 @@ public class Converter {
         String base = (dot > 0 ? name.substring(0, dot) : name);
         return input.resolveSibling(base + newExt);
     }
-
 }
+

@@ -2879,4 +2879,51 @@ public class Position implements Comparable<Position> {
 		return result;
 	}
 
+	/**
+	 * Returns a 64-bit signature of the full position state.
+	 *
+	 * <p>
+	 * This is intended as a fast, allocation-free key for memoization and caching.
+	 * It incorporates the same state components as {@link #equals(Object)} /
+	 * {@link #hashCode()} (board, turn, castling rights, en-passant, king squares,
+	 * and move counters).
+	 * </p>
+	 *
+	 * @return 64-bit signature for the current position state
+	 */
+	public long signature() {
+		long h = 1469598103934665603L; // FNV-1a 64-bit offset basis
+		for (byte piece : board) {
+			h ^= (piece & 0xFFL);
+			h *= 1099511628211L; // FNV prime
+		}
+
+		h ^= whitesTurn ? 1L : 0L;
+		h *= 1099511628211L;
+		h ^= chess960 ? 1L : 0L;
+		h *= 1099511628211L;
+
+		h ^= (whiteKingside & 0xFFL);
+		h *= 1099511628211L;
+		h ^= (whiteQueenside & 0xFFL);
+		h *= 1099511628211L;
+		h ^= (blackKingside & 0xFFL);
+		h *= 1099511628211L;
+		h ^= (blackQueenside & 0xFFL);
+		h *= 1099511628211L;
+		h ^= (enPassant & 0xFFL);
+		h *= 1099511628211L;
+		h ^= (whiteKing & 0xFFL);
+		h *= 1099511628211L;
+		h ^= (blackKing & 0xFFL);
+		h *= 1099511628211L;
+
+		h ^= (halfMove & 0xFFFFL);
+		h *= 1099511628211L;
+		h ^= (fullMove & 0xFFFFL);
+		h *= 1099511628211L;
+
+		return h;
+	}
+
 }

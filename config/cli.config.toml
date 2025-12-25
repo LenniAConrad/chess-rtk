@@ -11,7 +11,7 @@ protocol-path = "config/default.engine.toml"
 # If empty or creation fails, results will be printed to standard output.
 # Options are:
 #  - ""
-#  - "DIRECORYPATH"
+#  - "DIRECTORYPATH"
 #  - "FILEPATH"
 output = "dump/"
 
@@ -32,7 +32,7 @@ max-nodes = 50_000_000
 max-duration = 1_000_000
 
 # PUZZLE FILTERS
-# The following filters are expressed in the Arguments DSL.
+# The following filters are expressed in the Filter DSL.
 # They gate whether an analyzed position qualifies as a candidate puzzle.
 # Adjust for your hardware AND your engine’s eval “character”:
 #   Some engines evaluate more optimistically/pessimistically (net, contempt,
@@ -75,7 +75,7 @@ leaf[break=2;null=false;eval<=-300];
 # Keep conservative to avoid false negatives; tune for your engine’s eval bias.
 puzzle-accelerate = """
 gate=AND;
-leaf[break=1;;nodes>=2000000];
+leaf[break=1;nodes>=2000000];
 leaf[break=2;null=false;nodes>=2000000];
 leaf[gate=OR;eval<300;leaf[break=2;eval>0]];
 leaf[gate=OR;eval<0;leaf[break=2;eval>-300]];

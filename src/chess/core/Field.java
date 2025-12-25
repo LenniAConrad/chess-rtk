@@ -1018,6 +1018,28 @@ public class Field {
 	}
 
 	/**
+	 * Used for checking whether a file/rank pair lies within the chessboard.
+	 *
+	 * @param file the file coordinate (0..7)
+	 * @param rank the rank coordinate (0..7)
+	 * @return {@code true} if the coordinates are on the 8x8 board
+	 */
+	public static boolean isOnBoard(int file, int rank) {
+		return file >= 0 && file < 8 && rank >= 0 && rank < 8;
+	}
+
+	/**
+	 * Used for converting file/rank coordinates into a 0-based board index.
+	 *
+	 * @param file the file coordinate (0..7)
+	 * @param rank the rank coordinate (0..7)
+	 * @return the board index (0..63)
+	 */
+	public static int toIndex(int file, int rank) {
+		return (7 - rank) * 8 + file;
+	}
+
+	/**
 	 * Used for calculating the inverted X-coordinate of the index, starting at 7.
 	 * 
 	 * @return The inverted X-coordinate of the index, starting at 7
@@ -1243,5 +1265,85 @@ public class Field {
 	 */
 	public static byte leftOf(byte index) {
 		return (byte) (index - 1);
+	}
+
+	/**
+	 * Provides the cached diagonal rays for each board square.
+	 *
+	 * @return three-dimensional array where the first dimension is the source
+	 *         square and the remaining dimensions describe each diagonal path.
+	 */
+	public static byte[][][] getDiagonals() {
+		return DIAGONALS;
+	}
+
+	/**
+	 * Provides the cached straight-line rays for each board square.
+	 *
+	 * @return three-dimensional array where the first dimension is the source
+	 *         square and the remaining dimensions describe each orthogonal path.
+	 */
+	public static byte[][][] getLines() {
+		return LINES;
+	}
+
+	/**
+	 * Provides the cached knight jump targets for each board square.
+	 *
+	 * @return two-dimensional array where each entry is the set of destinations
+	 *         reachable by a knight from the corresponding square.
+	 */
+	public static byte[][] getJumps() {
+		return JUMPS;
+	}
+
+	/**
+	 * Provides the cached king neighbor squares for each board square.
+	 *
+	 * @return two-dimensional array with the adjacent squares that can be reached
+	 *         by a king from each position.
+	 */
+	public static byte[][] getNeighbors() {
+		return NEIGHBORS;
+	}
+
+	/**
+	 * Provides the cached forward push targets for white pawns.
+	 *
+	 * @return two-dimensional array where each entry lists the squares a white
+	 *         pawn can push to (one or two steps) from the given source square.
+	 */
+	public static byte[][] getPawnPushWhite() {
+		return PAWN_PUSH_WHITE;
+	}
+
+	/**
+	 * Provides the cached forward push targets for black pawns.
+	 *
+	 * @return two-dimensional array where each entry lists the squares a black
+	 *         pawn can push to (one or two steps) from the given source square.
+	 */
+	public static byte[][] getPawnPushBlack() {
+		return PAWN_PUSH_BLACK;
+	}
+
+	/**
+	 * Provides the cached capture targets for white pawns.
+	 *
+	 * @return two-dimensional array where each entry lists the squares a white
+	 *         pawn can capture from the given source square.
+	 */
+	public static byte[][] getPawnCaptureWhite() {
+		return PAWN_CAPTURE_WHITE;
+	}
+
+	/**
+	 * Provides the cached capture targets for black pawns.
+	 *
+	 * @return two-dimensional array where each entry lists the squares a black
+	 *         pawn can capture from the given source square.
+	 */
+	public static byte[][] getPawnCaptureBlack() {
+		return PAWN_CAPTURE_BLACK;
 	}
 }

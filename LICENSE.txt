@@ -5,3 +5,10 @@ No redistribution, sublicensing, or derivative works are permitted without prior
 
 This license is revocable at the Licensor’s discretion upon notice. Upon termination, you must cease all use and delete
 all copies. This software is provided “AS IS”, without warranty of any kind.
+
+---
+
+Third-party assets
+
+Files under `models/` are third-party neural-network weights and are NOT covered by the
+license above. They are provided as-is and remain subject to their original license/terms.

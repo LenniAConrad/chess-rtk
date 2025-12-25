@@ -2,5 +2,11 @@
 	"java.project.sourcePaths": [
 		"src"
 	],
-	"java.project.outputPath": "out"
+	"java.project.outputPath": "out",
+	"C_Cpp.default.compileCommands": "${workspaceFolder}/native-cuda/build/compile_commands.json",
+	"files.associations": {
+		"*.cu": "cpp",
+		"*.cuh": "cpp"
+	},
+	"cmake.sourceDirectory": "/home/lennart/Code/universal-chess-cli/native-cuda"
 }

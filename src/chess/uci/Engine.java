@@ -8,7 +8,7 @@ import java.util.concurrent.TimeUnit;
 
 import chess.core.Position;
 import chess.debug.LogService;
-import chess.model.Record;
+import chess.struct.Record;
 import chess.tag.Tagging;
 
 /**

@@ -16,6 +16,43 @@ public class Piece {
 	}
 
 	/**
+	 * Used for representing no piece.
+	 * 
+	 * @implNote this value must be 0
+	 */
+	public static final byte NONE = 0;
+
+	/**
+	 * Used for representing a pawn.
+	 */
+	public static final byte PAWN = 1;
+
+	/**
+	 * Used for representing a knight.
+	 */
+	public static final byte KNIGHT = 2;
+
+	/**
+	 * Used for representing a bishop.
+	 */
+	public static final byte BISHOP = 3;
+
+	/**
+	 * Used for representing a rook.
+	 */
+	public static final byte ROOK = 4;
+
+	/**
+	 * Used for representing a queen.
+	 */
+	public static final byte QUEEN = 5;
+
+	/**
+	 * Used for representing a king.
+	 */
+	public static final byte KING = 6;
+
+	/**
 	 * Used for representing the white king piece in a chess game.
 	 */
 	public static final byte WHITE_KING = 6;

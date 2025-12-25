@@ -8,4 +8,22 @@ dump/*
 
 # Build artifacts
 out/
+out-*/
 ucicli.jar
+
+# LC0 / model weights (large, third-party)
+models/lc0_610153.bin
+
+# Native CUDA build artifacts
+native-cuda/build/
+native-cuda/build*/
+native-cuda/**/CMakeFiles/
+native-cuda/**/CMakeCache.txt
+native-cuda/**/cmake_install.cmake
+native-cuda/**/Makefile
+native-cuda/**/*.so
+native-cuda/**/*.dll
+native-cuda/**/*.dylib
+
+# VS Code settings
+.vscode/

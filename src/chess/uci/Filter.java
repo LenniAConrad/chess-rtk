@@ -3,6 +3,8 @@ package chess.uci;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.function.Predicate;
 
 import utility.Booleans;
@@ -1133,9 +1135,30 @@ public final class Filter {
                 String token = readComparison(); // e.g., "eval>=300" or "eval>=#3"
                 Filter.ComparisonOperator op = parseOp(token);
                 String raw = token.replaceAll("[^0-9#.+-]", "");
-                Evaluation eval = (raw.isEmpty() || DslLiterals.NULL_LITERAL.equals(raw)) ? null : new Evaluation(raw);
+                Evaluation eval = (raw.isEmpty() || DslLiterals.NULL_LITERAL.equals(raw)) ? null : parseEval(raw);
                 b.withEvaluation(op, eval);
                 return true;
+            }
+
+            private static Evaluation parseEval(String raw) {
+                String normalized = raw;
+                if (normalized.startsWith("#+")) {
+                    normalized = "#" + normalized.substring(2);
+                } else if (normalized.startsWith("+")) {
+                    normalized = normalized.substring(1);
+                }
+
+                if (normalized.startsWith("#")) {
+                    return new Evaluation(normalized);
+                }
+
+                if (normalized.indexOf('.') >= 0) {
+                    BigDecimal pawns = new BigDecimal(normalized);
+                    BigDecimal centipawns = pawns.movePointRight(2).setScale(0, RoundingMode.HALF_UP);
+                    return new Evaluation(centipawns.toPlainString());
+                }
+
+                return new Evaluation(normalized);
             }
 
             /**

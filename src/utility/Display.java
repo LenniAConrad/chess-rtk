@@ -40,13 +40,13 @@ public class Display extends JFrame {
 	 * @param light  - if the window will be displayed in light mode
 	 */
 	public Display(BufferedImage image, int width, int height, boolean light) {
-		image = requireImage(image);
-		imageDisplay = new DisplayPanel(image, this, light);
+		BufferedImage validated = requireImage(image);
+		imageDisplay = new DisplayPanel(validated, this, light);
 		this.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
 		this.setSize(width, height);
 		this.add(imageDisplay);
 		this.setVisible(true);
-		this.setIconImages(buildIconVariants(image));
+		this.setIconImages(buildIconVariants(validated));
 	}
 	
 	/**
@@ -57,13 +57,13 @@ public class Display extends JFrame {
 	 * @param height - the height of the {@code JFrame} upon execution
 	 */
 	public Display(BufferedImage image, int width, int height) {
-		image = requireImage(image);
-		imageDisplay = new DisplayPanel(image, this, true);
+		BufferedImage validated = requireImage(image);
+		imageDisplay = new DisplayPanel(validated, this, true);
 		this.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
 		this.setSize(width, height);
 		this.add(imageDisplay);
 		this.setVisible(true);
-		this.setIconImages(buildIconVariants(image));
+		this.setIconImages(buildIconVariants(validated));
 	}
 	
 	/**
@@ -73,13 +73,13 @@ public class Display extends JFrame {
 	 * @param light whether to display the frame in light mode
 	 */
 	public Display(BufferedImage image, boolean light) {
-		image = requireImage(image);
-		imageDisplay = new DisplayPanel(image, this, light);
+		BufferedImage validated = requireImage(image);
+		imageDisplay = new DisplayPanel(validated, this, light);
 		this.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
 		this.setSize(400, 400);
 		this.add(imageDisplay);
 		this.setVisible(true);
-		this.setIconImages(buildIconVariants(image));
+		this.setIconImages(buildIconVariants(validated));
 	}
 	
 	/**
@@ -88,13 +88,13 @@ public class Display extends JFrame {
 	 * @param image  - the {@code BufferedImage} that is to be displayed
 	 */
 	public Display(BufferedImage image) {
-		image = requireImage(image);
-		imageDisplay = new DisplayPanel(image, this, true);
+		BufferedImage validated = requireImage(image);
+		imageDisplay = new DisplayPanel(validated, this, true);
 		this.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
 		this.setSize(400, 400);
 		this.add(imageDisplay);
 		this.setVisible(true);
-		this.setIconImages(buildIconVariants(image));
+		this.setIconImages(buildIconVariants(validated));
 	}
 
 	/**
@@ -258,6 +258,31 @@ public class Display extends JFrame {
 		 * Reusable checkerboard texture for transparent background.
 		 */
 		private transient TexturePaint checkerPaint;
+
+		/**
+		 * Debounces resize events before regenerating a high-quality scaled buffer.
+		 */
+		private transient Timer resizeDebounceTimer;
+
+		/**
+		 * Background worker used to scale the image without blocking the EDT.
+		 */
+		private transient SwingWorker<BufferedImage, Void> scaleWorker;
+
+		/**
+		 * Monotonic request id so stale workers cannot overwrite newer scale requests.
+		 */
+		private long scaleRequestId = 0L;
+
+		/**
+		 * Pending target dimensions for the next scale request.
+		 */
+		private int pendingScaledWidth = -1;
+
+		/**
+		 * Pending target dimensions for the next scale request.
+		 */
+		private int pendingScaledHeight = -1;
 		
 		/**
 		 * Used for holding the background color depending on light/dark mode.
@@ -300,7 +325,28 @@ public class Display extends JFrame {
 				transparentColor1 = DARK_TRANSPARENT_1;
 				transparentColor2 = DARK_TRANSPARENT_2;
 			}
+			setBackground(backgroundColor);
+			setOpaque(true);
 			checkerPaint = buildCheckerPaint();
+
+			resizeDebounceTimer = new Timer(120, e -> triggerScaleToPendingSize());
+			resizeDebounceTimer.setRepeats(false);
+
+			addComponentListener(new java.awt.event.ComponentAdapter() {
+				@Override
+				public void componentResized(java.awt.event.ComponentEvent e) {
+					scheduleScaleToFit();
+				}
+			});
+		}
+
+		@Override
+		public void addNotify() {
+			super.addNotify();
+			SwingUtilities.invokeLater(() -> {
+				scheduleScaleToFit();
+				triggerScaleToPendingSize();
+			});
 		}
 
 		/**
@@ -329,10 +375,91 @@ public class Display extends JFrame {
 			this.image = image;
 			this.imageWidth = image.getWidth();
 			this.imageHeight = image.getHeight();
-			// Invalidate cache so next paint recalculates scale.
+			// Invalidate cache so the next scale request recalculates.
 			this.scaledWidth = -1;
 			this.scaledHeight = -1;
 			this.scaledImageCache = null;
+			cancelScaleWorker();
+			scheduleScaleToFit();
+		}
+
+		private void cancelScaleWorker() {
+			if (scaleWorker != null && !scaleWorker.isDone()) {
+				scaleWorker.cancel(true);
+			}
+			scaleWorker = null;
+		}
+
+		private void scheduleScaleToFit() {
+			if (image == null) {
+				return;
+			}
+			Dimension target = computeFitSize(getWidth(), getHeight());
+			if (target.width <= 0 || target.height <= 0) {
+				return;
+			}
+			pendingScaledWidth = target.width;
+			pendingScaledHeight = target.height;
+			if (resizeDebounceTimer != null) {
+				resizeDebounceTimer.restart();
+			}
+		}
+
+		private void triggerScaleToPendingSize() {
+			int targetWidth = pendingScaledWidth;
+			int targetHeight = pendingScaledHeight;
+			if (targetWidth <= 0 || targetHeight <= 0) {
+				return;
+			}
+			if (scaledImageCache != null && targetWidth == scaledWidth && targetHeight == scaledHeight) {
+				return;
+			}
+			startScaleWorker(targetWidth, targetHeight);
+		}
+
+		private void startScaleWorker(int targetWidth, int targetHeight) {
+			cancelScaleWorker();
+			final long requestId = ++scaleRequestId;
+			final BufferedImage source = image;
+			scaleWorker = new SwingWorker<>() {
+				@Override
+				protected BufferedImage doInBackground() {
+					return scaleImage(source, targetWidth, targetHeight);
+				}
+
+				@Override
+				protected void done() {
+					if (isCancelled() || requestId != scaleRequestId) {
+						return;
+					}
+					try {
+						BufferedImage scaled = get();
+						if (scaled == null || image != source) {
+							return;
+						}
+						scaledImageCache = scaled;
+						scaledWidth = targetWidth;
+						scaledHeight = targetHeight;
+						jframe.setTitle("Image Display (" + targetWidth + "x" + targetHeight + ") " + timestamp);
+						repaint();
+					} catch (InterruptedException e) {
+						Thread.currentThread().interrupt();
+					} catch (Exception ignored) {
+						// If scaling fails/cancels, keep showing the last cached image.
+					}
+				}
+			};
+			scaleWorker.execute();
+		}
+
+		private Dimension computeFitSize(int frameWidth, int frameHeight) {
+			if (imageWidth <= 0 || imageHeight <= 0 || frameWidth <= 0 || frameHeight <= 0) {
+				return new Dimension(0, 0);
+			}
+			double scaleFactor = Math.min(frameWidth / (double) imageWidth, frameHeight / (double) imageHeight);
+			int newWidth = (int) Math.round(imageWidth * scaleFactor);
+			int newHeight = (int) Math.round(imageHeight * scaleFactor);
+			return new Dimension(Math.max(0, newWidth), Math.max(0, newHeight));
 		}
 
 		/**
@@ -343,39 +470,37 @@ public class Display extends JFrame {
 			super.paintComponent(g);
 			Graphics2D graphics2d = (Graphics2D) g;
 			graphics2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-			graphics2d.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
-			graphics2d.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
 			if (image != null) {
 				int frameWidth = getWidth();
 				int frameHeight = getHeight();
-				double scaleFactor = Math.min(frameWidth / (double) imageWidth, frameHeight / (double) imageHeight);
-				int newWidth = (int) (imageWidth * scaleFactor);
-				int newHeight = (int) (imageHeight * scaleFactor);
+				Dimension fit = computeFitSize(frameWidth, frameHeight);
+				int newWidth = fit.width;
+				int newHeight = fit.height;
+				if (newWidth <= 0 || newHeight <= 0) {
+					return;
+				}
 				int x = (int) ((frameWidth - newWidth) / 2.0);
 				int y = (int) ((frameHeight - newHeight) / 2.0);
-				if (newWidth > 0 && newHeight > 0 && (newWidth != scaledWidth || newHeight != scaledHeight)) {
-					BufferedImage scaled = new BufferedImage(newWidth, newHeight, BufferedImage.TYPE_INT_ARGB);
-					Graphics2D ig2 = scaled.createGraphics();
-					ig2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
-					ig2.drawImage(image, 0, 0, newWidth, newHeight, this);
-					ig2.dispose();
-					scaledImageCache = scaled;
-					scaledWidth = newWidth;
-					scaledHeight = newHeight;
-					jframe.setTitle("Image Display (" + newWidth + "x" + newHeight + ") " + timestamp);
-				}
-				graphics2d.setColor(backgroundColor);
-				graphics2d.fillRect(0, 0, frameWidth, frameHeight);
 				if (checkerPaint == null) {
 					checkerPaint = buildCheckerPaint();
 				}
 				graphics2d.setPaint(checkerPaint);
 				graphics2d.fillRect(x, y, newWidth, newHeight);
-				graphics2d.setPaint(null);
 				graphics2d.setColor(borderColor);
 				graphics2d.drawRect(x - 1, y - 1, newWidth + 2, newHeight + 2);
-				if (scaledImageCache != null) {
-					graphics2d.drawImage(scaledImageCache, x, y, this);
+
+				BufferedImage cached = scaledImageCache;
+				if (cached != null && scaledWidth == newWidth && scaledHeight == newHeight) {
+					graphics2d.drawImage(cached, x, y, this);
+					return;
+				}
+
+				graphics2d.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+				graphics2d.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_SPEED);
+				if (cached != null) {
+					graphics2d.drawImage(cached, x, y, newWidth, newHeight, this);
+				} else {
+					graphics2d.drawImage(image, x, y, newWidth, newHeight, this);
 				}
 			}
 		}

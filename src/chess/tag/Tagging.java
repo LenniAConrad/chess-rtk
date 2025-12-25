@@ -2,93 +2,188 @@ package chess.tag;
 
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.EnumSet;
 import java.util.List;
+import java.util.Objects;
 
 import chess.core.Position;
-import chess.eco.Encyclopedia;
-import chess.eco.Entry;
+import chess.eval.Evaluator;
 
 /**
- * Used for tagging {@code Position} with standard chess tags.
+ * Central orchestrator for the {@code chess.tag} tagging subsystem.
  *
  * <p>
- * Thin facade over {@link PositionTagExtractor}, which uses heuristics inspired
- * by Chess.com, Lichess, and ChessTempo puzzle themes. When an ECO book is
- * available, ECO code/name tags are added as well.
- * 
+ * {@code Tagx} maintains an ordered set of {@link TagProvider}s that produce textual
+ * descriptions of various position facets (piece placements, immediate attacks, etc.).
+ * Calling {@link #tags(Position)} produces an immutable mix of those strings that downstream
+ * consumers can reason over or present verbatim. All providers share a single {@link Evaluator}
+ * instance when one is available, ensuring expensive evaluation resources are reused consistently.
+ * </p>
+ *
+ * <p>
+ * The ordering inside {@link #PROVIDERS} is deterministic and defines the sequence of emitted tags.
+ * To add a new tag generator, simply implement {@link TagProvider} and register it here.
+ * </p>
+ *
  * @since 2025
  * @author Lennart A. Conrad
  */
-public class Tagging {
+public final class Tagging {
 
-    // Prevent instantiation
+    /**
+     * Immutable list of tag providers that contribute to every tagx run.
+     */
+    private static final List<TagProvider> PROVIDERS = List.of(
+            new DifficultyProvider(),
+            new PieceAblationProvider(),
+            new AttackProvider(),
+            new MoveTagProvider()
+    );
+
+    /**
+     * Prevents instantiation; this class exposes only static helpers.
+     */
     private Tagging() {
-        // non-instantiable
+        // utility class
     }
 
     /**
-     * Used for generating standard tags for a given position.
-     * 
-     * @param parent   the position before the move (optional; required for tactical
-     *                 tags)
-     * @param position the position to generate tags for
-     * @return an array of standard tags
+     * Produces the full tag output for {@code position}, creating a fresh {@link Evaluator} for
+     * providers that require one.
+     *
+     * @param position position to describe
+     * @return read-only list of generated tag strings
+     */
+    public static List<String> tags(Position position) {
+        Objects.requireNonNull(position, "position");
+        try (Evaluator evaluator = new Evaluator()) {
+            return tags(position, evaluator);
+        }
+    }
+
+    /**
+     * Compatibility entry point used by the UCI pipeline.
+     *
+     * <p>
+     * Some callers provide a {@code parent} position to support taggers that need context from the
+     * previous ply. The current {@code chess.tag} taggers operate on a single position, so the
+     * {@code parent} is currently ignored.
+     * </p>
+     *
+     * @param parent previous position (may be {@code null})
+     * @param position position to describe (non-null)
+     * @return tag strings as an array suitable for varargs APIs
      */
     public static String[] positionalTags(Position parent, Position position) {
-        if (position == null) {
-            return new String[0];
-        }
-
-        // Some sources (e.g., FEN seed lists) do not provide a parent position. In
-        // that case, fall back to using the current position for structural tagging
-        // so callers still get phase/material/opening tags instead of an empty set.
-        //TODO CHANGE THIS IF IT DOES NOT HAVE A PARENT IT DOES NOT HAVE A PARENT. THAT IS JUST HOW IT IS
-        Position contextParent = parent != null ? parent : position;
-
-        EnumSet<PuzzleTheme> themes = PositionTagExtractor.extract(contextParent, position);
-        List<String> tags = new ArrayList<>(themes.size() + 2);
-        for (PuzzleTheme theme : themes) {
-            tags.add(theme.getCanonicalName());
-        }
-
-        // Ensure every record receives at least one tag so downstream consumers
-        // never see an empty tag array (which currently happens when the
-        // heuristic extractors find nothing). This prevents mined/analysed
-        // puzzles from being stored as untagged.
-        if (tags.isEmpty()) {
-            tags.add("untagged");
-        }
-
-        addEcoTags(position, tags);
-
-        Collections.sort(tags);
-        return tags.toArray(String[]::new);
+        List<String> tags = tags(position);
+        return tags.toArray(new String[0]);
     }
 
-    private static void addEcoTags(Position position, List<String> tags) {
-        Entry entry = safeEcoEntry(position);
-        if (entry == null) {
-            return;
-        }
+    /**
+     * Produces the tag output for {@code position} while reusing an existing evaluator instance.
+     *
+     * @param position position to describe
+     * @param evaluator evaluator shared across providers
+     * @return read-only list of generated tag strings
+     */
+    public static List<String> tags(Position position, Evaluator evaluator) {
+        Objects.requireNonNull(position, "position");
+        Objects.requireNonNull(evaluator, "evaluator");
 
-        String ecoCode = entry.getECO();
-        if (ecoCode != null && !ecoCode.isEmpty()) {
-            tags.add("eco:" + ecoCode);
+        List<String> all = new ArrayList<>();
+        for (TagProvider provider : PROVIDERS) {
+            List<String> tags = provider.tags(position, evaluator);
+            if (tags != null && !tags.isEmpty()) {
+                all.addAll(tags);
+            }
         }
+        return Collections.unmodifiableList(all);
+    }
 
-        String openingName = entry.getName();
-        if (openingName != null && !openingName.isEmpty()) {
-            tags.add("opening:" + openingName);
+    /**
+ * Contract for composable tag generators that plug into {@code Tagging}.
+     */
+    public interface TagProvider {
+
+        /**
+         * Emits zero or more tag strings for the supplied {@code position}.
+         *
+         * @param position position to inspect
+         * @param evaluator evaluator that can be reused if needed
+         * @return list of tag strings, or an empty list if nothing applies
+         */
+        List<String> tags(Position position, Evaluator evaluator);
+    }
+
+    /**
+     * Provider wrapper around {@link PieceAblationTagger}.
+     */
+    private static final class PieceAblationProvider implements TagProvider {
+
+        /**
+         * Delegates tagging to {@link PieceAblationTagger#tag(Position, Evaluator, boolean)} and
+         * requests color-qualified output.
+         *
+         * @param position position to tag
+         * @param evaluator evaluator instance to reuse
+         * @return piece placement tags
+         */
+        @Override
+        public List<String> tags(Position position, Evaluator evaluator) {
+            return PieceAblationTagger.tag(position, evaluator, true);
         }
     }
 
-    private static Entry safeEcoEntry(Position position) {
-        try {
-            return Encyclopedia.node(position);
-        } catch (IllegalStateException ex) {
-            // Optional ECO book missing or unreadable; skip opening tags gracefully.
-            return null;
+    /**
+     * Provider wrapper around {@link Difficulty}.
+     */
+    private static final class DifficultyProvider implements TagProvider {
+
+        /**
+         * Emits a coarse difficulty tag based on the position evaluation.
+         *
+         * @param position position to tag
+         * @param evaluator evaluator instance to reuse
+         * @return difficulty tag
+         */
+        @Override
+        public List<String> tags(Position position, Evaluator evaluator) {
+            return Difficulty.tags(position, evaluator);
+        }
+    }
+
+    /**
+     * Provider wrapper around {@link Attack}.
+     */
+    private static final class AttackProvider implements TagProvider {
+
+        /**
+         * Emits the attack/fork strings produced by {@link Attack#tag(Position)}.
+         *
+         * @param position position to tag
+         * @param evaluator evaluator instance (unused but accepted for consistency)
+         * @return attack description tags
+         */
+        @Override
+        public List<String> tags(Position position, Evaluator evaluator) {
+            return Attack.tag(position);
+        }
+    }
+
+    /**
+     * Provider wrapper around {@link MoveTagger}.
+     */
+    private static final class MoveTagProvider implements TagProvider {
+
+        /**
+         * Emits tags for all legal moves from the supplied position.
+         *
+         * @param position position to tag
+         * @param evaluator evaluator instance (unused but accepted for consistency)
+         * @return move outcome tags
+         */
+        @Override
+        public List<String> tags(Position position, Evaluator evaluator) {
+            return MoveTagger.tags(position, position.getMoves());
         }
     }
 }

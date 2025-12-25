@@ -25,6 +25,8 @@ import java.util.Optional;
  * </p>
  * <ul>
  * <li>protocol-path (string)</li>
+ * <li>output (string)</li>
+ * <li>engine-instances (long)</li>
  * <li>max-nodes (long; per-position node cap)</li>
  * <li>max-duration (long; per-position time cap in ms)</li>
  * <li>puzzle-quality (string; Filter DSL)</li>
@@ -125,17 +127,17 @@ public final class Config {
     /**
      * Used for providing a default count of engines for concurrent computation.
      */
-    private static final int DEFAULT_ENGINE_INSTANCES = 1;
+    private static final int DEFAULT_ENGINE_INSTANCES = 4;
 
     /**
      * Used for providing the default per-position duration cap in milliseconds.
      */
-    private static final long DEFAULT_MAX_NODES = 100_000_000L;
+    private static final long DEFAULT_MAX_NODES = 50_000_000L;
 
     /**
      * Used for caching the configured per-position duration cap in milliseconds.
      */
-    private static final long DEFAULT_MAX_DURATION = 60_000L;
+    private static final long DEFAULT_MAX_DURATION = 1_000_000L;
 
     /**
      * Used for providing the default Filter-DSL for puzzle quality selection.
@@ -147,12 +149,12 @@ public final class Config {
     /**
      * Used for providing the default Filter-DSL for identifying winning puzzles.
      */
-    private static final String DEFAULT_PUZZLE_WINNING = "gate=AND;leaf[eval>=3.0];leaf[break=2;eval<=0.0];";
+    private static final String DEFAULT_PUZZLE_WINNING = "gate=AND;leaf[eval>=300];leaf[break=2;null=false;eval<=0];";
 
     /**
      * Used for providing the default Filter-DSL for identifying drawing puzzles.
      */
-    private static final String DEFAULT_PUZZLE_DRAWING = "gate=AND;leaf[eval>=0.0];leaf[break=2;eval<=-3.0];";
+    private static final String DEFAULT_PUZZLE_DRAWING = "gate=AND;leaf[eval>=0];leaf[break=2;null=false;eval<=-300];";
 
     /**
      * Used for providing a fast prefilter Filter-DSL (acceleration) that
@@ -160,35 +162,100 @@ public final class Config {
      */
     private static final String DEFAULT_PUZZLE_ACCELERATE = "gate=AND;"
             + "leaf[break=1;nodes>=2000000];"
-            + "leaf[break=2;nodes>=2000000];"
-            + "leaf[gate=OR;eval<3.0;leaf[break=2;eval>0.0]];"
-            + "leaf[gate=OR;eval<0.0;leaf[break=2;eval>-3.0]];";
+            + "leaf[break=2;null=false;nodes>=2000000];"
+            + "leaf[gate=OR;eval<300;leaf[break=2;eval>0]];"
+            + "leaf[gate=OR;eval<0;leaf[break=2;eval>-300]];";
 
     /**
      * Used for seeding a brand-new configuration file with explanatory comments and
      * defaults that mirror the constant defaults in this class.
      */
     private static final String[] DEFAULT_CONFIG_FILE = {
-            "# Engine protocol (path to your UCI/TOML config for Stockfish or compatible)",
+            "# ENGINE PROTOCOL",
+            "# Path to your UCI/TOML protocol file (command set) for the engine.",
+            "# Most UCI engines are compatible with Stockfish-style commands, but minor",
+            "# dialects exist—consult your engine’s docs and adjust if needed.",
+            "# Ensure the engine binary is installed and the path below exists.",
             K_PROTOCOL_PATH + EQ_Q + DEFAULT_PROTOCOL_PATH + Q,
             "",
-            "# Max amount of nodes to search per position.",
+            "",
+            "# OUTPUT DIRECTORY",
+            "# Directory where all computed outputs (e.g., puzzles) will be saved.",
+            "# Must exist or be creatable by the application.",
+            "# If empty or creation fails, results will be printed to standard output.",
+            "# Options are:",
+            "#  - \"\"",
+            "#  - \"DIRECTORYPATH\"",
+            "#  - \"FILEPATH\"",
+            K_OUTPUT + EQ_Q + DEFAULT_OUTPUT + Q,
+            "",
+            "",
+            "# ENGINE INSTANCES",
+            "# Number of engine instances to run in parallel.",
+            "# For example, setting this to 4 will run 4 separate copies of the engine (e.g., Stockfish)",
+            "# concurrently. Useful for batch processing positions across multiple CPU cores.",
+            "# Only increase if your system can handle the load and your engine is thread-safe.",
+            K_ENGINE_INSTANCES + EQ + DEFAULT_ENGINE_INSTANCES,
+            "",
+            "",
+            "# SEARCH LIMITS (per evaluated position)",
+            "# Maximum nodes the engine may search before the run is stopped.",
+            "# Passed as:  go nodes <max-nodes>",
             K_MAX_NODES + EQ + DEFAULT_MAX_NODES,
             "",
-            "# Max amount of time (ms) to search per position.",
+            "# Maximum wall time (ms) the engine may think before being aborted.",
+            "# If a position exceeds this, the search is forcefully stopped.",
             K_MAX_DURATION + EQ + DEFAULT_MAX_DURATION,
             "",
-            "# Quality gate - require >= 50M nodes on PV1 and PV2 before accepting a puzzle.",
-            K_PUZZLE_QUALITY + EQ_Q + DEFAULT_PUZZLE_QUALITY + Q,
+            "# PUZZLE FILTERS",
+            "# The following filters are expressed in the Filter DSL.",
+            "# They gate whether an analyzed position qualifies as a candidate puzzle.",
+            "# Adjust for your hardware AND your engine’s eval “character”:",
+            "#   Some engines evaluate more optimistically/pessimistically (net, contempt,",
+            "#   pruning style, scale). Calibrate thresholds to your engine.",
             "",
-            "# Winning puzzle - PV1 >= +3.0 and PV2 <= 0.0",
-            K_PUZZLE_WINNING + EQ_Q + DEFAULT_PUZZLE_WINNING + Q,
+            "# Quality gate:",
+            "# Require ≥ 50M nodes on both PV1 and PV2 before accepting a position.",
+            "# Rationale: ensures depth/confirmation rather than shallow “lucky” evals.",
+            K_PUZZLE_QUALITY + EQ + "\"\"\"",
+            "gate=AND;null=false;empty=false;",
+            "leaf[gate=AND;break=1;nodes>=50000000];",
+            "leaf[gate=AND;break=2;null=false;empty=false;nodes>=50000000];",
+            "\"\"\"",
             "",
-            "# Drawing puzzle - PV1 >= 0.0 and PV2 <= -3.0",
-            K_PUZZLE_DRAWING + EQ_Q + DEFAULT_PUZZLE_DRAWING + Q,
+            "# Winning puzzle:",
+            "# PV1 ≥ +300 cp (clearly better) AND PV2 ≤ 0 cp (neutral or worse).",
+            "# Intent: there is a single, clearly winning move.",
+            "# NOTE: If your engine skews optimistic, raise the value; if pessimistic, lower it.",
+            K_PUZZLE_WINNING + EQ + "\"\"\"",
+            "gate=AND;",
+            "leaf[eval>=300];",
+            "leaf[break=2;null=false;eval<=0];",
+            "\"\"\"",
             "",
-            "# Accelerate (prefilter) - >=2M nodes on PV1 and PV2 and NOT(win) and NOT(draw)",
-            K_PUZZLE_ACCELERATE + EQ_Q + DEFAULT_PUZZLE_ACCELERATE + Q
+            "# Drawing puzzle:",
+            "# PV1 ≥ 0 cp (hold equality or better) AND PV2 ≤ −300 cp (clearly worse).",
+            "# Intent: there is a single, clearly drawing resource that avoids a big drop.",
+            "# NOTE: Engines that undervalue defense may need a softer −300 (e.g., −250),",
+            "#       so tune for your engine’s eval bias.",
+            K_PUZZLE_DRAWING + EQ + "\"\"\"",
+            "gate=AND;",
+            "leaf[eval>=0];",
+            "leaf[break=2;null=false;eval<=-300];",
+            "\"\"\"",
+            "",
+            "# Accelerate (prefilter):",
+            "# Abort early on non-puzzles to save time:",
+            "#   - Demand ≥ 2M nodes on PV1 and PV2 (cheap depth check)",
+            "#   - AND not (winning) AND not (drawing) via relaxed eval guards",
+            "# Keep conservative to avoid false negatives; tune for your engine’s eval bias.",
+            K_PUZZLE_ACCELERATE + EQ + "\"\"\"",
+            "gate=AND;",
+            "leaf[break=1;nodes>=2000000];",
+            "leaf[break=2;null=false;nodes>=2000000];",
+            "leaf[gate=OR;eval<300;leaf[break=2;eval>0]];",
+            "leaf[gate=OR;eval<0;leaf[break=2;eval>-300]];",
+            "\"\"\""
     };
 
     /**

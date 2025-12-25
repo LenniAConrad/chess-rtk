@@ -1,2 +1,2 @@
-Add image generation
 Add puzzles to pgn
+Improve tagging
