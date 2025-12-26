@@ -10,6 +10,7 @@ dump/*
 out/
 out-*/
 ucicli.jar
+dist/
 
 # LC0 / model weights (large, third-party)
 models/lc0_610153.bin

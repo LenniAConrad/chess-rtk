@@ -27,6 +27,45 @@ public final class Support {
     private static final String LIB_BASE_NAME = "lc0j_cuda";
 
     /**
+     * Environment variable that can point to an explicit CUDA JNI library path.
+     *
+     * <p>
+     * Example: {@code UCICLI_CUDA_LIB=/absolute/path/to/liblc0j_cuda.so}
+     * </p>
+     */
+    private static final String ENV_CUDA_LIB = "UCICLI_CUDA_LIB";
+
+    /**
+     * Repository directory containing the optional CUDA JNI sources/build outputs.
+     */
+    private static final String DIR_NATIVE_CUDA = "native-cuda";
+
+    /**
+     * Default CMake build output directory name for the CUDA JNI project.
+     */
+    private static final String DIR_BUILD = "build";
+
+    /**
+     * Directory name typically used by multi-config CMake generators for release builds.
+     */
+    private static final String DIR_RELEASE = "Release";
+
+    /**
+     * Directory name typically used by multi-config CMake generators for debug builds.
+     */
+    private static final String DIR_DEBUG = "Debug";
+
+    /**
+     * Common library subdirectory name.
+     */
+    private static final String DIR_LIB = "lib";
+
+    /**
+     * Common output directory name used in some local build setups.
+     */
+    private static final String DIR_OUT = "out";
+
+    /**
      * Whether the JNI library was successfully loaded.
      */
     private static final boolean LOADED = tryLoad();
@@ -81,26 +120,116 @@ public final class Support {
      * @return {@code true} if the JNI library was found and loaded
      */
     private static boolean tryLoad() {
+        if (tryLoadFromLibraryPath()) {
+            return true;
+        }
+
+        String filename = platformLibraryFilename();
+
+        Path explicit = explicitLibraryPath();
+        if (explicit != null && tryLoadFromPath(explicit)) {
+            return true;
+        }
+
+        return tryLoadFromCandidatePaths(candidatePaths(filename));
+    }
+
+    /**
+     * Attempts to load the JNI library using {@link System#loadLibrary(String)}.
+     *
+     * @return {@code true} if the library was successfully loaded
+     */
+    private static boolean tryLoadFromLibraryPath() {
         try {
             System.loadLibrary(LIB_BASE_NAME);
             return true;
         } catch (UnsatisfiedLinkError | SecurityException ignore) {
-            // fall through
+            return false;
         }
+    }
 
+    /**
+     * Returns the platform-specific filename for the JNI shared library.
+     *
+     * <p>
+     * This is used for explicit {@link System#load(String)} fallbacks where we search well-known
+     * build output locations.
+     * </p>
+     *
+     * @return library filename such as {@code "liblc0j_cuda.so"} or {@code "lc0j_cuda.dll"}
+     */
+    private static String platformLibraryFilename() {
         String os = System.getProperty("os.name", "").toLowerCase();
         String suffix;
-        if (os.contains("win")) suffix = ".dll";
-        else if (os.contains("mac")) suffix = ".dylib";
-        else suffix = ".so";
-
+        if (os.contains("win")) {
+            suffix = ".dll";
+        } else if (os.contains("mac")) {
+            suffix = ".dylib";
+        } else {
+            suffix = ".so";
+        }
         String prefix = os.contains("win") ? "" : "lib";
-        Path local = Path.of(prefix + LIB_BASE_NAME + suffix);
-        if (!Files.exists(local)) {
+        return prefix + LIB_BASE_NAME + suffix;
+    }
+
+    /**
+     * Resolves an explicit JNI library path from {@link #ENV_CUDA_LIB}.
+     *
+     * @return resolved path when set and exists, otherwise {@code null}
+     */
+    private static Path explicitLibraryPath() {
+        String explicit = System.getenv(ENV_CUDA_LIB);
+        if (explicit == null || explicit.isBlank()) {
+            return null;
+        }
+        Path explicitPath = Path.of(explicit.trim());
+        return Files.exists(explicitPath) ? explicitPath : null;
+    }
+
+    /**
+     * Returns candidate locations that may contain the built JNI library.
+     *
+     * @param filename platform-specific library filename
+     * @return candidate paths to attempt (never null)
+     */
+    private static Path[] candidatePaths(String filename) {
+        return new Path[] {
+                Path.of(filename),
+                Path.of(DIR_NATIVE_CUDA, DIR_BUILD, filename),
+                Path.of(DIR_NATIVE_CUDA, DIR_BUILD, DIR_RELEASE, filename),
+                Path.of(DIR_NATIVE_CUDA, DIR_BUILD, DIR_DEBUG, filename),
+                Path.of(DIR_NATIVE_CUDA, DIR_BUILD, DIR_LIB, filename),
+                Path.of(DIR_NATIVE_CUDA, DIR_OUT, filename)
+        };
+    }
+
+    /**
+     * Attempts to load the JNI library from a list of candidate locations.
+     *
+     * @param candidates candidate locations
+     * @return {@code true} if any candidate successfully loaded
+     */
+    private static boolean tryLoadFromCandidatePaths(Path[] candidates) {
+        for (Path candidate : candidates) {
+            if (tryLoadFromPath(candidate)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Attempts to load the JNI library from a specific filesystem location.
+     *
+     * @param path path to the shared library
+     * @return {@code true} if the path exists and the load succeeds
+     */
+    private static boolean tryLoadFromPath(Path path) {
+        if (!Files.exists(path)) {
             return false;
         }
         try {
-            System.load(local.toAbsolutePath().toString());
+            System.load(path.toAbsolutePath().toString());
             return true;
         } catch (UnsatisfiedLinkError | SecurityException ignore) {
             return false;

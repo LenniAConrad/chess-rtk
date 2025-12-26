@@ -70,6 +70,17 @@ public final class Evaluator implements AutoCloseable {
     private final AtomicReference<Model> model = new AtomicReference<>();
 
     /**
+     * Whether the currently loaded LC0 model is using the CUDA backend.
+     *
+     * <p>
+     * CUDA inference is routed through a JNI bridge and is treated as a single shared native
+     * resource. To avoid backend-specific threading hazards, CUDA predictions are serialized by
+     * taking the write lock in {@link #tryPredictLc0(Position)}.
+     * </p>
+     */
+    private volatile boolean cudaActive;
+
+    /**
      * Set to true once LC0 is considered unusable; from then on we never attempt
      * to load or run it again.
      */
@@ -317,6 +328,7 @@ public final class Evaluator implements AutoCloseable {
             if (m != null) {
                 m.close();
             }
+            cudaActive = false;
         } finally {
             modelLock.unlockWrite(stamp);
         }
@@ -345,13 +357,15 @@ public final class Evaluator implements AutoCloseable {
                 if (m == null) {
                     m = Model.load(weights);
                     model.set(m);
+                    cudaActive = "cuda".equalsIgnoreCase(m.backend());
                 }
             } finally {
                 modelLock.unlockWrite(writeStamp);
             }
         }
 
-        long readStamp = modelLock.readLock();
+        final boolean exclusive = cudaActive;
+        long stamp = exclusive ? modelLock.writeLock() : modelLock.readLock();
         try {
             if (lc0Disabled) {
                 return null;
@@ -363,7 +377,11 @@ public final class Evaluator implements AutoCloseable {
             Network.Prediction pred = m.predict(position);
             return new Lc0Prediction(pred, m.backend());
         } finally {
-            modelLock.unlockRead(readStamp);
+            if (exclusive) {
+                modelLock.unlockWrite(stamp);
+            } else {
+                modelLock.unlockRead(stamp);
+            }
         }
     }
 

@@ -24,4 +24,4 @@ If you did **not** run `./install.sh`, replace `ucicli <command> ...` with `java
 
 - [Piece tags](piece-tags.md)
 - [Development notes](development-notes.md)
-
+- [Releasing](releasing.md)

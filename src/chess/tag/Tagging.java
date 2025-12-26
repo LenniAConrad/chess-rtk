@@ -4,6 +4,8 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 
 import chess.core.Position;
 import chess.eval.Evaluator;
@@ -30,6 +32,80 @@ import chess.eval.Evaluator;
 public final class Tagging {
 
     /**
+     * Shared evaluator instance reused across tag runs.
+     *
+     * <p>
+     * Tagging can be invoked from hot paths such as puzzle mining where creating and tearing down
+     * native evaluation resources (LC0 CPU threads / CUDA device memory) per position is
+     * prohibitively expensive. A single shared evaluator keeps those resources alive for the
+     * duration of the process and is closed via a shutdown hook.
+     * </p>
+     */
+    private static final class SharedEvaluator {
+        /**
+         * Reference holding the shared evaluator instance.
+         */
+        private static final AtomicReference<Evaluator> INSTANCE = new AtomicReference<>();
+
+        /**
+         * Tracks whether the shutdown hook has been installed.
+         */
+        private static final AtomicBoolean SHUTDOWN_HOOK_INSTALLED = new AtomicBoolean(false);
+
+        private SharedEvaluator() {
+            // utility
+        }
+
+        /**
+         * Returns the shared evaluator instance, creating it on first use.
+         *
+         * <p>
+         * The returned evaluator is owned by the JVM process and will be closed via a shutdown hook.
+         * </p>
+         *
+         * @return shared evaluator instance (non-null)
+         */
+        static Evaluator get() {
+            Evaluator existing = INSTANCE.get();
+            if (existing != null) {
+                return existing;
+            }
+
+            Evaluator created = new Evaluator();
+            if (INSTANCE.compareAndSet(null, created)) {
+                installShutdownHook();
+                return created;
+            }
+
+            try {
+                created.close();
+            } catch (Exception ignore) {
+                // best-effort cleanup
+            }
+            return INSTANCE.get();
+        }
+
+        /**
+         * Installs a shutdown hook that closes the shared evaluator instance.
+         */
+        private static void installShutdownHook() {
+            if (!SHUTDOWN_HOOK_INSTALLED.compareAndSet(false, true)) {
+                return;
+            }
+            Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+                Evaluator shared = INSTANCE.get();
+                if (shared != null) {
+                    try {
+                        shared.close();
+                    } catch (Exception ignore) {
+                        // best-effort cleanup
+                    }
+                }
+            }, "ucicli-tagging-evaluator-shutdown"));
+        }
+    }
+
+    /**
      * Immutable list of tag providers that contribute to every tagx run.
      */
     private static final List<TagProvider> PROVIDERS = List.of(
@@ -47,33 +123,29 @@ public final class Tagging {
     }
 
     /**
-     * Produces the full tag output for {@code position}, creating a fresh {@link Evaluator} for
-     * providers that require one.
+     * Produces the full tag output for {@code position} using a shared {@link Evaluator} instance.
+     *
+     * <p>
+     * This avoids repeatedly loading LC0 weights (and repeatedly allocating native resources) in
+     * hot paths such as mining, while still allowing callers to supply an explicit evaluator via
+     * {@link #tags(Position, Evaluator)}.
+     * </p>
      *
      * @param position position to describe
      * @return read-only list of generated tag strings
      */
     public static List<String> tags(Position position) {
         Objects.requireNonNull(position, "position");
-        try (Evaluator evaluator = new Evaluator()) {
-            return tags(position, evaluator);
-        }
+        return tags(position, SharedEvaluator.get());
     }
 
     /**
      * Compatibility entry point used by the UCI pipeline.
      *
-     * <p>
-     * Some callers provide a {@code parent} position to support taggers that need context from the
-     * previous ply. The current {@code chess.tag} taggers operate on a single position, so the
-     * {@code parent} is currently ignored.
-     * </p>
-     *
-     * @param parent previous position (may be {@code null})
      * @param position position to describe (non-null)
      * @return tag strings as an array suitable for varargs APIs
      */
-    public static String[] positionalTags(Position parent, Position position) {
+    public static String[] positionalTags(Position position) {
         List<String> tags = tags(position);
         return tags.toArray(new String[0]);
     }

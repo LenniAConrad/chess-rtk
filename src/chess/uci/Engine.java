@@ -413,7 +413,7 @@ public class Engine implements AutoCloseable {
 		Position position = sample.getPosition();
 		Analysis analysis = sample.getAnalysis();
 		sample.withEngine(protocol.getName()).withCreated(System.currentTimeMillis());
-		sample.addTags(Tagging.positionalTags(sample.getParent(), position));
+		sample.addTags(Tagging.positionalTags(position));
 		return analyse(position, analysis, arguments, nodes, duration);
 	}
 

@@ -46,6 +46,28 @@ More: `wiki/build-and-install.md`
 
 ---
 
+## Release (Linux CUDA)
+
+This repo includes an optional CUDA JNI backend under `native-cuda/`.
+
+To build and package a CUDA-enabled Linux x86_64 release artifact:
+
+```bash
+scripts/make_release_linux_cuda.sh --version v0.0.0
+```
+
+To include `models/` in the release bundle:
+
+```bash
+scripts/make_release_linux_cuda.sh --version v0.0.0 --include-models
+```
+
+Outputs:
+- `dist/ucicli-<version>-linux-x86_64-cuda.tar.gz`
+- `dist/SHA256SUMS`
+
+---
+
 ## What It Does
 
 - `mine`: evaluate lots of seeds (random / `.txt` / `.pgn`) and emit puzzles + non-puzzles JSON
