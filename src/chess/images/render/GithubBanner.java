@@ -24,7 +24,7 @@ import utility.Images;
  * <p>
  * The output is a centered render of a chess position (default: standard start),
  * with file/rank coordinates around the board, on a dark diagonal gradient
- * background ({@code #0F0F0F} top-left to {@code #1F1F1F} bottom-right).
+ * background ({@code #F0F0F0} top-left to {@code #E0E0E0} bottom-right).
  * </p>
  *
  * <h2>Usage</h2>
@@ -45,8 +45,8 @@ import utility.Images;
  */
 public final class GithubBanner {
 
-	private static final Color GRADIENT_TOP_LEFT = new Color(0x0F0F0F);
-	private static final Color GRADIENT_BOTTOM_RIGHT = new Color(0x1F1F1F);
+	private static final Color GRADIENT_TOP_LEFT = new Color(0xF0F0F0);
+	private static final Color GRADIENT_BOTTOM_RIGHT = new Color(0xE0E0E0);
 
 	private GithubBanner() {
 		// static utility
@@ -167,7 +167,7 @@ public final class GithubBanner {
 		// Board frame/border.
 		float borderStroke = clamp((int) Math.round(tile * 0.08), 2, 8);
 		g.setStroke(new BasicStroke(borderStroke, BasicStroke.CAP_SQUARE, BasicStroke.JOIN_MITER));
-		g.setPaint(new Color(135, 135, 135, 220));
+		g.setPaint(new Color(65, 65, 65, 210));
 		float inset = borderStroke / 2.0f;
 		g.draw(new java.awt.geom.Rectangle2D.Float(pad + inset, pad + inset, boardW - borderStroke, boardH - borderStroke));
 
@@ -176,8 +176,8 @@ public final class GithubBanner {
 		g.setFont(font);
 		FontMetrics fm = g.getFontMetrics();
 
-		Color text = new Color(230, 230, 230, 215);
-		Color shadow = new Color(0, 0, 0, 160);
+		Color text = new Color(30, 30, 30, 230);
+		Color shadow = new Color(255, 255, 255, 160);
 
 		// Files (a..h) at top/bottom.
 		for (int file = 0; file < 8; file++) {
