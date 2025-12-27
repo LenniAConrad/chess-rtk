@@ -48,6 +48,9 @@ public final class RecordDatasetExporter {
 		void export(String obj, float[] featsBuf, NpyFloat32Writer feat, NpyFloat32Writer lab) throws IOException;
 	}
 
+	/**
+	 * Prevents instantiation of this utility class.
+	 */
 	private RecordDatasetExporter() {
 	}
 
@@ -230,6 +233,12 @@ public final class RecordDatasetExporter {
 		private final int depth;
 		private final float pawns;
 
+		/**
+		 * Creates a parsed Stack evaluation summary.
+		 *
+		 * @param depth search depth
+		 * @param pawns evaluation in pawns
+		 */
 		private StackEval(int depth, float pawns) {
 			this.depth = depth;
 			this.pawns = pawns;
@@ -331,6 +340,14 @@ public final class RecordDatasetExporter {
 			return new NpyFloat32Writer(path, true, -1);
 		}
 
+		/**
+		 * Creates a streaming .npy writer and writes the header placeholder.
+		 *
+		 * @param path output path
+		 * @param oneD whether the output is 1D (labels) or 2D (features)
+		 * @param cols number of columns for 2D output, ignored for 1D
+		 * @throws IOException if the file cannot be created or initialized
+		 */
 		private NpyFloat32Writer(Path path, boolean oneD, int cols) throws IOException {
 			this.oneD = oneD;
 			this.cols = cols;

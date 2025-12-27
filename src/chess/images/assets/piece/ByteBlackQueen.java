@@ -8,6 +8,9 @@ package chess.images.assets.piece;
  * @author Lennart A. Conrad
  */
 public class ByteBlackQueen {
+	/**
+	 * Prevents instantiation of this utility class.
+	 */
 	private ByteBlackQueen() {
 		// utility holder
 	}

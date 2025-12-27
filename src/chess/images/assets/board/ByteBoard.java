@@ -8,6 +8,9 @@ package chess.images.assets.board;
  * @author Lennart A. Conrad
  */
 public class ByteBoard {
+	/**
+	 * Prevents instantiation of this utility class.
+	 */
 	private ByteBoard() {
 		// utility holder
 	}

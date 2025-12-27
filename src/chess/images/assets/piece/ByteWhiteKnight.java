@@ -8,6 +8,9 @@ package chess.images.assets.piece;
  * @author Lennart A. Conrad
  */
 public class ByteWhiteKnight {
+	/**
+	 * Prevents instantiation of this utility class.
+	 */
 	private ByteWhiteKnight() {
 		// utility holder
 	}

@@ -8,6 +8,9 @@ package chess.images.assets.icon;
  * @author Lennart A. Conrad
  */
 public class ByteQueen {
+	/**
+	 * Prevents instantiation of this utility class.
+	 */
 	private ByteQueen() {
 		// utility holder
 	}

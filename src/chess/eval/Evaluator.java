@@ -479,6 +479,12 @@ public final class Evaluator implements AutoCloseable {
         private final Network.Prediction prediction;
         private final String backend;
 
+        /**
+         * Creates a holder for an LC0 prediction with its backend identifier.
+         *
+         * @param prediction LC0 prediction payload
+         * @param backend    backend identifier string
+         */
         private Lc0Prediction(Network.Prediction prediction, String backend) {
             this.prediction = prediction;
             this.backend = backend;

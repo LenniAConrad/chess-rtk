@@ -19,6 +19,9 @@ public final class SessionCache {
 	 */
 	private static final Path SESSION_DIR = Paths.get("session");
 
+	/**
+	 * Prevents instantiation of this utility class.
+	 */
 	private SessionCache() {
 	}
 

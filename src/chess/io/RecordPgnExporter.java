@@ -1,16 +1,24 @@
 package chess.io;
 
+import java.io.BufferedWriter;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 
+import application.console.Bar;
 import chess.core.MoveList;
 import chess.core.Position;
 import chess.core.SAN;
@@ -82,17 +90,16 @@ public final class RecordPgnExporter {
                 recordFile, pgnFile));
 
         try {
-            List<Record> records = readRecords(recordFile, ok, bad);
-            if (records.isEmpty()) {
+            long totalRecords = countRecords(recordFile);
+            IndexData index = indexRecords(recordFile, ok, bad, badEdges, totalRecords);
+            if (index.positionsBySig.isEmpty()) {
                 LogService.info(String.format(
                         "No records parsed from '%s'; skipping PGN output '%s'.",
                         recordFile, pgnFile));
                 return;
             }
 
-            PgnIndex index = indexRecords(records);
-            GraphData graph = buildGraph(index, badEdges);
-            List<String> startSigs = computeStartSignatures(index.positionsBySig, graph.incoming);
+            List<String> startSigs = computeStartSignatures(index.positionsBySig.keySet(), index.incoming);
             if (startSigs.isEmpty()) {
                 LogService.info(String.format(
                         "No root positions found in '%s'; skipping PGN output '%s'.",
@@ -100,29 +107,28 @@ public final class RecordPgnExporter {
                 return;
             }
 
-            Map<String, Integer> lineLengthBySig = computeLineLengths(index.positionsBySig.keySet(), graph.adjacency,
+            Map<String, Integer> lineLengthBySig = computeLineLengths(index.positionsBySig.keySet(), index.adjacency,
                     index.bestMoveBySig);
             PgnContext ctx = new PgnContext(
-                    graph.adjacency,
+                    index.adjacency,
                     index.bestMoveBySig,
                     index.descriptionBySig,
                     index.evalScoreBySig,
                     lineLengthBySig);
-            List<Game> games = buildGames(startSigs, index.positionsBySig, ctx);
-            if (games.isEmpty()) {
+            long gamesWritten = writePgnOutput(pgnFile, startSigs, index.positionsBySig, ctx, recordFile);
+            if (gamesWritten < 0) {
+                return;
+            }
+            if (gamesWritten == 0) {
                 LogService.info(String.format(
                         "No PGN games produced from '%s'; skipping output '%s'.",
                         recordFile, pgnFile));
                 return;
             }
 
-            if (!writePgnOutput(pgnFile, games, recordFile)) {
-                return;
-            }
-
             LogService.info(String.format(
                     "Completed record to PGN conversion '%s' to '%s' and wrote %d games (bad records=%d, bad edges=%d).",
-                    recordFile, pgnFile, games.size(), bad.get(), badEdges.get()));
+                    recordFile, pgnFile, gamesWritten, bad.get(), badEdges.get()));
         } catch (Exception e) {
             LogService.error(
                     e,
@@ -135,127 +141,356 @@ public final class RecordPgnExporter {
     /**
      * Writes parsed games to {@code pgnFile}, logging failures that mention the source.
      *
-     * @param pgnFile    destination PGN path.
-     * @param games      parsed games to serialize.
-     * @param recordFile source record file for log context.
-     * @return {@code true} if the write succeeded.
+     * @param pgnFile       destination PGN path.
+     * @param startSigs     root signatures in output order.
+     * @param positionsBySig map of signature to starting FEN.
+     * @param ctx           shared graph context.
+     * @param recordFile    source record file for log context.
+     * @return number of games written, or {@code -1} on failure.
      */
-    private static boolean writePgnOutput(Path pgnFile, List<Game> games, Path recordFile) {
-        try {
-            Writer.writePgn(pgnFile, games);
-            return true;
+    private static long writePgnOutput(
+            Path pgnFile,
+            List<String> startSigs,
+            Map<String, String> positionsBySig,
+            PgnContext ctx,
+            Path recordFile) {
+        long written = 0;
+        try (BufferedWriter out = Files.newBufferedWriter(
+                pgnFile,
+                StandardCharsets.UTF_8,
+                StandardOpenOption.CREATE,
+                StandardOpenOption.TRUNCATE_EXISTING,
+                StandardOpenOption.WRITE)) {
+            for (String sig : startSigs) {
+                String fen = positionsBySig.get(sig);
+                String pgn = buildPgnForStart(sig, fen, ctx);
+                if (pgn == null || pgn.isEmpty()) {
+                    continue;
+                }
+                if (written > 0) {
+                    out.newLine();
+                    out.newLine();
+                }
+                out.write(pgn);
+                written++;
+            }
         } catch (IOException e) {
             LogService.error(
                     e,
                     String.format(
                             "Failed to write PGN output '%s' from '%s'.",
                             pgnFile, recordFile));
-            return false;
+            return -1;
         }
+        return written;
     }
 
     /**
-     * Streams records from the JSON file, collecting valid entries and tracking counts.
+     * Builds the PGN for a single start signature when valid.
+     *
+     * @param sig start signature.
+     * @param fen starting FEN string.
+     * @param ctx shared PGN context.
+     * @return serialized PGN or {@code null} when the line is not renderable.
+     */
+    private static String buildPgnForStart(String sig, String fen, PgnContext ctx) {
+        if (fen == null || fen.isEmpty()) {
+            return null;
+        }
+        Game game = buildGameWithVariations(sig, new Position(fen), ctx);
+        if (game == null) {
+            return null;
+        }
+        return chess.struct.Pgn.toPgn(game);
+    }
+
+    /**
+     * Indexes streamed records into lookup maps used for graph construction.
      *
      * @param recordFile source JSON path.
      * @param ok         counter for valid records.
      * @param bad        counter for skipped records.
-     * @return list of parsed records that contain a position.
+     * @param badEdges   counter for missing SAN links.
+     * @return {@link IndexData} holding map views.
      * @throws IOException if the stream fails.
      */
-    private static List<Record> readRecords(Path recordFile, AtomicLong ok, AtomicLong bad)
-            throws IOException {
-        final List<Record> records = new ArrayList<>();
-        Json.streamTopLevelObjects(recordFile, objJson -> {
-            Record rec = Record.fromJson(objJson);
-            if (rec == null || rec.getPosition() == null) {
-                bad.incrementAndGet();
-                return;
-            }
-            records.add(rec);
-            ok.incrementAndGet();
-        });
-        return records;
-    }
-
-    /**
-     * Indexes parsed records into nodes and lookup maps used for graph construction.
-     *
-     * @param records parsed records to index.
-     * @return {@link PgnIndex} holding nodes plus map views.
-     */
-    private static PgnIndex indexRecords(List<Record> records) {
-        final List<RecordNode> nodes = new ArrayList<>(records.size());
-        final Map<String, Position> positionsBySig = new LinkedHashMap<>();
-        final Map<String, List<RecordNode>> childrenByParentSig = new HashMap<>();
+    private static IndexData indexRecords(
+            Path recordFile,
+            AtomicLong ok,
+            AtomicLong bad,
+            AtomicLong badEdges,
+            long totalRecords) throws IOException {
+        final Map<String, String> positionsBySig = new LinkedHashMap<>();
+        final Map<String, List<ChildInfo>> childrenByParentSig = new HashMap<>();
+        final Map<String, Set<String>> directChildren = new HashMap<>();
+        final Map<String, Set<EdgeKey>> edgeKeysByFrom = new HashMap<>();
         final Map<String, String> bestMoveBySig = new HashMap<>();
         final Map<String, String> descriptionBySig = new HashMap<>();
         final Map<String, Integer> evalScoreBySig = new HashMap<>();
 
-        for (Record rec : records) {
-            if (rec.getPosition() == null) {
-                continue;
-            }
-            RecordNode node = new RecordNode(rec);
-            nodes.add(node);
-            positionsBySig.putIfAbsent(node.positionSig, node.position);
-            if (node.bestMoveSan != null && !node.bestMoveSan.isEmpty()) {
-                bestMoveBySig.putIfAbsent(node.positionSig, node.bestMoveSan);
-            }
-            if (node.description != null && !node.description.isEmpty()) {
-                descriptionBySig.putIfAbsent(node.positionSig, node.description);
-            }
-            if (node.evalScore != null) {
-                evalScoreBySig.putIfAbsent(node.positionSig, node.evalScore);
-            }
-            if (node.parentSig != null) {
-                childrenByParentSig.computeIfAbsent(node.parentSig, k -> new ArrayList<>()).add(node);
+        Bar indexBar = progressBar(totalRecords, "Indexing records");
+        IndexMaps indexMaps = new IndexMaps(positionsBySig, childrenByParentSig, bestMoveBySig, descriptionBySig,
+                evalScoreBySig);
+        IndexContext indexCtx = new IndexContext(ok, bad, indexBar, indexMaps);
+        try {
+            Json.streamTopLevelObjects(recordFile, objJson -> handleIndexRecord(objJson, indexCtx));
+        } finally {
+            if (indexBar != null) {
+                indexBar.finish();
             }
         }
 
-        return new PgnIndex(nodes, positionsBySig, childrenByParentSig, bestMoveBySig, descriptionBySig, evalScoreBySig);
+        final Map<String, List<Edge>> adjacency = new LinkedHashMap<>();
+        final Set<String> incoming = new HashSet<>();
+        addDirectEdges(childrenByParentSig, positionsBySig, adjacency, incoming, badEdges, directChildren,
+                edgeKeysByFrom);
+        Bar bridgeBar = progressBar(totalRecords, "Linking records");
+        BridgeContext bridgeCtx = new BridgeContext(adjacency, incoming, badEdges, directChildren, edgeKeysByFrom,
+                bridgeBar);
+        addBridgedEdges(recordFile, childrenByParentSig, bridgeCtx);
+
+        return new IndexData(positionsBySig, adjacency, incoming, bestMoveBySig, descriptionBySig, evalScoreBySig);
     }
 
     /**
-     * Builds adjacency relationships between positions, tagging incoming nodes.
+     * Parses and indexes one JSON record, updating counters and progress.
      *
-     * @param index    indexed record data.
-     * @param badEdges counter for edges that could not be formed.
-     * @return adjacency graph plus incoming signature set.
+     * @param objJson raw JSON object string.
+     * @param ctx     indexing context with counters and map views.
      */
-    private static GraphData buildGraph(PgnIndex index, AtomicLong badEdges) {
-        final Map<String, List<Edge>> adjacency = new LinkedHashMap<>();
-        final Set<String> incoming = new HashSet<>();
-        addDirectEdges(index.nodes, index.positionsBySig, adjacency, incoming, badEdges);
-        addBridgedEdges(index.nodes, index.childrenByParentSig, adjacency, incoming, badEdges);
-        return new GraphData(adjacency, incoming);
+    private static void handleIndexRecord(String objJson, IndexContext ctx) {
+        Record rec = safeParseRecord(objJson);
+        if (rec == null || rec.getPosition() == null) {
+            ctx.bad.incrementAndGet();
+            if (ctx.indexBar != null) {
+                ctx.indexBar.step();
+            }
+            return;
+        }
+        ctx.ok.incrementAndGet();
+        indexRecordData(rec, ctx.positionsBySig, ctx.childrenByParentSig, ctx.bestMoveBySig, ctx.descriptionBySig,
+                ctx.evalScoreBySig);
+        if (ctx.indexBar != null) {
+            ctx.indexBar.step();
+        }
+    }
+
+    /**
+     * Shared state for indexing streamed records.
+     */
+    private static final class IndexContext {
+        /**
+         * Counter for successfully parsed records.
+         */
+        private final AtomicLong ok;
+
+        /**
+         * Counter for records that are skipped or invalid.
+         */
+        private final AtomicLong bad;
+
+        /**
+         * Progress bar for indexing.
+         */
+        private final Bar indexBar;
+
+        /**
+         * Map of signature to FEN string.
+         */
+        private final Map<String, String> positionsBySig;
+
+        /**
+         * Map of parent signature to its children.
+         */
+        private final Map<String, List<ChildInfo>> childrenByParentSig;
+
+        /**
+         * Map of signature to best move in SAN.
+         */
+        private final Map<String, String> bestMoveBySig;
+
+        /**
+         * Map of signature to human-readable description.
+         */
+        private final Map<String, String> descriptionBySig;
+
+        /**
+         * Map of signature to evaluation score.
+         */
+        private final Map<String, Integer> evalScoreBySig;
+
+        /**
+         * Creates a context wrapper for indexing counters, progress bar, and map views.
+         *
+         * @param ok       counter for successfully parsed records.
+         * @param bad      counter for skipped or invalid records.
+         * @param indexBar progress bar for indexing, may be null.
+         * @param maps     shared index maps backing this context.
+         */
+        private IndexContext(
+                AtomicLong ok,
+                AtomicLong bad,
+                Bar indexBar,
+                IndexMaps maps) {
+            this.ok = ok;
+            this.bad = bad;
+            this.indexBar = indexBar;
+            this.positionsBySig = maps.positionsBySig;
+            this.childrenByParentSig = maps.childrenByParentSig;
+            this.bestMoveBySig = maps.bestMoveBySig;
+            this.descriptionBySig = maps.descriptionBySig;
+            this.evalScoreBySig = maps.evalScoreBySig;
+        }
+    }
+
+    /**
+     * Container for shared index maps.
+     */
+    private static final class IndexMaps {
+        /**
+         * Map of signature to FEN string.
+         */
+        private final Map<String, String> positionsBySig;
+
+        /**
+         * Map of parent signature to its children.
+         */
+        private final Map<String, List<ChildInfo>> childrenByParentSig;
+
+        /**
+         * Map of signature to best move in SAN.
+         */
+        private final Map<String, String> bestMoveBySig;
+
+        /**
+         * Map of signature to descriptive text.
+         */
+        private final Map<String, String> descriptionBySig;
+
+        /**
+         * Map of signature to evaluation score.
+         */
+        private final Map<String, Integer> evalScoreBySig;
+
+        /**
+         * Creates a container for shared index maps.
+         *
+         * @param positionsBySig    map of signature to FEN string
+         * @param childrenByParentSig map of parent signature to child descriptors
+         * @param bestMoveBySig     map of signature to best-move SAN
+         * @param descriptionBySig  map of signature to descriptive text
+         * @param evalScoreBySig    map of signature to evaluation score
+         */
+        private IndexMaps(
+                Map<String, String> positionsBySig,
+                Map<String, List<ChildInfo>> childrenByParentSig,
+                Map<String, String> bestMoveBySig,
+                Map<String, String> descriptionBySig,
+                Map<String, Integer> evalScoreBySig) {
+            this.positionsBySig = positionsBySig;
+            this.childrenByParentSig = childrenByParentSig;
+            this.bestMoveBySig = bestMoveBySig;
+            this.descriptionBySig = descriptionBySig;
+            this.evalScoreBySig = evalScoreBySig;
+        }
+    }
+
+    /**
+     * Extracts record data and stores it in the provided index maps.
+     *
+     * @param rec               record to index.
+     * @param positionsBySig    map for signature to FEN.
+     * @param childrenByParentSig map of parent signature to children.
+     * @param bestMoveBySig     map of best move SAN by signature.
+     * @param descriptionBySig  map of description text by signature.
+     * @param evalScoreBySig    map of evaluation score by signature.
+     */
+    private static void indexRecordData(
+            Record rec,
+            Map<String, String> positionsBySig,
+            Map<String, List<ChildInfo>> childrenByParentSig,
+            Map<String, String> bestMoveBySig,
+            Map<String, String> descriptionBySig,
+            Map<String, Integer> evalScoreBySig) {
+        Position position = rec.getPosition();
+        String posSig = fenSignature(position);
+        positionsBySig.putIfAbsent(posSig, position.toString());
+
+        String bestMoveSan = formatBestMoveSan(position, rec.getAnalysis().getBestMove());
+        if (bestMoveSan != null && !bestMoveSan.isEmpty()) {
+            bestMoveBySig.putIfAbsent(posSig, bestMoveSan);
+        }
+
+        String description = rec.getDescription();
+        if (description != null) {
+            description = description.trim();
+        }
+        if (description != null && !description.isEmpty()) {
+            descriptionBySig.putIfAbsent(posSig, description);
+        }
+
+        Integer evalScore = evalScoreFromRecord(rec);
+        if (evalScore != null) {
+            evalScoreBySig.putIfAbsent(posSig, evalScore);
+        }
+
+        Position parent = rec.getParent();
+        if (parent != null) {
+            String parentSig = fenSignature(parent);
+            String parentToPositionSan = sanFromEdge(parent, position);
+            childrenByParentSig
+                    .computeIfAbsent(parentSig, k -> new ArrayList<>())
+                    .add(new ChildInfo(posSig, parentToPositionSan));
+        }
+    }
+
+    /**
+     * Parses a record safely, treating malformed JSON or invalid FEN as null.
+     *
+     * @param objJson raw JSON object string.
+     * @return parsed {@link Record}, or {@code null} if invalid.
+     */
+    private static Record safeParseRecord(String objJson) {
+        try {
+            return Record.fromJson(objJson);
+        } catch (IllegalArgumentException | NullPointerException ex) {
+            return null;
+        }
     }
 
     /**
      * Adds edges where the parent position is explicitly stored as another record.
      *
-     * @param nodes          record nodes to inspect.
-     * @param positionsBySig positions available in the dataset.
-     * @param adjacency      adjacency list under construction.
-     * @param incoming       set of signatures with incoming edges.
-     * @param badEdges       counter incremented when edge data is missing.
+     * @param childrenByParentSig child nodes grouped by parent signature.
+     * @param positionsBySig      positions available in the dataset.
+     * @param adjacency           adjacency list under construction.
+     * @param incoming            set of signatures with incoming edges.
+     * @param badEdges            counter incremented when edge data is missing.
      */
     private static void addDirectEdges(
-            List<RecordNode> nodes,
-            Map<String, Position> positionsBySig,
+            Map<String, List<ChildInfo>> childrenByParentSig,
+            Map<String, String> positionsBySig,
             Map<String, List<Edge>> adjacency,
             Set<String> incoming,
-            AtomicLong badEdges) {
-        for (RecordNode node : nodes) {
-            if (node.parentSig == null || !positionsBySig.containsKey(node.parentSig)) {
+            AtomicLong badEdges,
+            Map<String, Set<String>> directChildren,
+            Map<String, Set<EdgeKey>> edgeKeysByFrom) {
+        for (Map.Entry<String, List<ChildInfo>> entry : childrenByParentSig.entrySet()) {
+            String parentSig = entry.getKey();
+            if (!positionsBySig.containsKey(parentSig)) {
                 continue;
             }
-            if (node.parentToPositionSan == null) {
-                badEdges.incrementAndGet();
-            } else {
-                addEdge(adjacency, node.parentSig,
-                        new Edge(node.positionSig, new String[] { node.parentToPositionSan }));
-                incoming.add(node.positionSig);
+            for (ChildInfo child : entry.getValue()) {
+                if (child.parentToPositionSan == null) {
+                    badEdges.incrementAndGet();
+                    continue;
+                }
+                directChildren
+                        .computeIfAbsent(parentSig, k -> new HashSet<>())
+                        .add(child.positionSig);
+                addEdge(adjacency, edgeKeysByFrom, parentSig,
+                        new Edge(child.positionSig, new String[] { child.parentToPositionSan }));
+                incoming.add(child.positionSig);
             }
         }
     }
@@ -263,75 +498,107 @@ public final class RecordPgnExporter {
     /**
      * Generates synthetic connections by exploring legal moves from recorded nodes.
      *
-     * @param nodes               record nodes to expand.
-     * @param childrenByParentSig children grouped by parent signatures.
+     * @param recordFile          source JSON path.
+     * @param childrenByParentSig child nodes grouped by parent signatures.
      * @param adjacency           adjacency list being filled.
      * @param incoming            set of signatures with incoming edges.
      * @param badEdges            counter for invalid child references.
+     * @throws IOException if the stream fails.
      */
     private static void addBridgedEdges(
-            List<RecordNode> nodes,
-            Map<String, List<RecordNode>> childrenByParentSig,
-            Map<String, List<Edge>> adjacency,
-            Set<String> incoming,
-            AtomicLong badEdges) {
-        for (RecordNode node : nodes) {
-            addBridgedEdgesForNode(node, childrenByParentSig, adjacency, incoming, badEdges);
+            Path recordFile,
+            Map<String, List<ChildInfo>> childrenByParentSig,
+            BridgeContext ctx) throws IOException {
+        try {
+            Json.streamTopLevelObjects(recordFile, objJson -> {
+                processBridgedRecord(objJson, childrenByParentSig, ctx);
+                stepBridgeBar(ctx);
+            });
+        } finally {
+            finishBridgeBar(ctx);
         }
     }
 
     /**
-     * Handles bridging logic for a single node.
+     * Processes a single record for bridge edges by exploring its legal moves.
      *
-     * @param node               node whose moves are explored.
-     * @param childrenByParentSig child mapping by parent signature.
-     * @param adjacency           adjacency list being filled.
-     * @param incoming            seen incoming signatures.
-     * @param badEdges            counter for missing SAN strings.
+     * @param objJson           raw JSON object.
+     * @param childrenByParentSig child nodes grouped by parent signatures.
+     * @param ctx               bridge context for edge creation.
      */
-    private static void addBridgedEdgesForNode(
-            RecordNode node,
-            Map<String, List<RecordNode>> childrenByParentSig,
-            Map<String, List<Edge>> adjacency,
-            Set<String> incoming,
-            AtomicLong badEdges) {
-        Position pos = node.position;
-        MoveList moves = pos != null ? pos.getMoves() : null;
+    private static void processBridgedRecord(
+            String objJson,
+            Map<String, List<ChildInfo>> childrenByParentSig,
+            BridgeContext ctx) {
+        Record rec = safeParseRecord(objJson);
+        if (rec == null) {
+            return;
+        }
+        Position pos = rec.getPosition();
+        if (pos == null) {
+            return;
+        }
+        MoveList moves = pos.getMoves();
         if (moves == null || moves.size() == 0) {
             return;
         }
+        String fromSig = fenSignature(pos);
+        Set<String> directKids = ctx.directChildren.get(fromSig);
         for (int i = 0; i < moves.size(); i++) {
             short move = moves.get(i);
-            addBridgedEdgesForMove(node.positionSig, pos, move, childrenByParentSig, adjacency, incoming, badEdges);
+            Position next = pos.copyOf().play(move);
+            String nextSig = fenSignature(next);
+            List<ChildInfo> kids = getBridgeKids(childrenByParentSig, directKids, nextSig);
+            if (kids == null) {
+                continue;
+            }
+            String san = SAN.toAlgebraic(pos, move);
+            addBridgedEdgesForKids(fromSig, san, kids, ctx);
         }
     }
 
     /**
-     * Processes one legal move from a position and links to child nodes.
+     * Retrieves matching child nodes while excluding direct children already linked.
      *
-     * @param fromSig             signature of the starting position.
-     * @param pos                 current position.
-     * @param move                move being considered.
-     * @param childrenByParentSig child mapping keyed by signatures.
-     * @param adjacency           adjacency list being filled.
-     * @param incoming            set of incoming sigs.
-     * @param badEdges            counter for missing SAN data.
+     * @param childrenByParentSig map of parent signature to children.
+     * @param directKids          direct children of the current node.
+     * @param nextSig             signature to match.
+     * @return list of child info entries or an empty list when none should be bridged.
      */
-    private static void addBridgedEdgesForMove(
-            String fromSig,
-            Position pos,
-            short move,
-            Map<String, List<RecordNode>> childrenByParentSig,
-            Map<String, List<Edge>> adjacency,
-            Set<String> incoming,
-            AtomicLong badEdges) {
-        Position next = pos.copyOf().play(move);
-        List<RecordNode> kids = childrenByParentSig.get(fenSignature(next));
-        if (kids == null || kids.isEmpty()) {
-            return;
+    private static List<ChildInfo> getBridgeKids(
+            Map<String, List<ChildInfo>> childrenByParentSig,
+            Set<String> directKids,
+            String nextSig) {
+        if (directKids != null && directKids.contains(nextSig)) {
+            return Collections.emptyList();
         }
-        String san = SAN.toAlgebraic(pos, move);
-        addBridgedEdgesForKids(fromSig, san, kids, adjacency, incoming, badEdges);
+        List<ChildInfo> kids = childrenByParentSig.get(nextSig);
+        if (kids == null || kids.isEmpty()) {
+            return Collections.emptyList();
+        }
+        return kids;
+    }
+
+    /**
+     * Advances the bridge progress bar by one step if present.
+     *
+     * @param ctx bridge context holding the bar.
+     */
+    private static void stepBridgeBar(BridgeContext ctx) {
+        if (ctx.bridgeBar != null) {
+            ctx.bridgeBar.step();
+        }
+    }
+
+    /**
+     * Completes the bridge progress bar if present.
+     *
+     * @param ctx bridge context holding the bar.
+     */
+    private static void finishBridgeBar(BridgeContext ctx) {
+        if (ctx.bridgeBar != null) {
+            ctx.bridgeBar.finish();
+        }
     }
 
     /**
@@ -347,39 +614,37 @@ public final class RecordPgnExporter {
     private static void addBridgedEdgesForKids(
             String fromSig,
             String san,
-            List<RecordNode> kids,
-            Map<String, List<Edge>> adjacency,
-            Set<String> incoming,
-            AtomicLong badEdges) {
-        for (RecordNode kid : kids) {
+            List<ChildInfo> kids,
+            BridgeContext ctx) {
+        for (ChildInfo kid : kids) {
             if (kid.parentToPositionSan == null) {
-                badEdges.incrementAndGet();
+                ctx.badEdges.incrementAndGet();
                 continue;
             }
-            addEdge(adjacency, fromSig,
+            addEdge(ctx.adjacency, ctx.edgeKeysByFrom, fromSig,
                     new Edge(kid.positionSig, new String[] { san, kid.parentToPositionSan }));
-            incoming.add(kid.positionSig);
+            ctx.incoming.add(kid.positionSig);
         }
     }
 
     /**
      * Determines which signatures lack incoming edges and therefore form roots.
      *
-     * @param positionsBySig map of available signatures.
-     * @param incoming       signatures that have incoming links.
+     * @param signatures signatures available in the dataset.
+     * @param incoming   signatures that have incoming links.
      * @return candidate root signatures; falls back to all signatures when none are isolated.
      */
     private static List<String> computeStartSignatures(
-            Map<String, Position> positionsBySig,
+            Set<String> signatures,
             Set<String> incoming) {
         final List<String> startSigs = new ArrayList<>();
-        for (String posSig : positionsBySig.keySet()) {
+        for (String posSig : signatures) {
             if (!incoming.contains(posSig)) {
                 startSigs.add(posSig);
             }
         }
         if (startSigs.isEmpty()) {
-            startSigs.addAll(positionsBySig.keySet());
+            startSigs.addAll(signatures);
         }
         return startSigs;
     }
@@ -403,42 +668,28 @@ public final class RecordPgnExporter {
         return lineLengthBySig;
     }
 
-    /**
-     * Builds PGN game structures starting from each root signature.
-     *
-     * @param startSigs      candidate root signatures.
-     * @param positionsBySig map of starting positions by signature.
-     * @param ctx            shared context with adjacency and metadata.
-     * @return list of games produced from the graph.
-     */
-    private static List<Game> buildGames(
-            List<String> startSigs,
-            Map<String, Position> positionsBySig,
-            PgnContext ctx) {
-        final List<Game> games = new ArrayList<>();
-        for (String startSig : startSigs) {
-            Position startPos = positionsBySig.get(startSig);
-            if (startPos == null) {
-                continue;
-            }
-            Game game = buildGameWithVariations(startSig, startPos, ctx);
-            if (game != null) {
-                games.add(game);
-            }
-        }
-        return games;
-    }
 
     /**
-     * Adds a directed edge from {@code fromSig} when SAN data exists.
+     * Adds a directed edge once per SAN sequence to avoid duplicate expansions.
      *
-     * @param adjacency adjacency list being filled.
-     * @param fromSig   source signature.
-     * @param edge      edge descriptor to append.
+     * @param adjacency       adjacency list being filled.
+     * @param edgeKeysByFrom  per-signature edge keys for deduplication.
+     * @param fromSig         source signature.
+     * @param edge            edge descriptor to append.
      */
-    private static void addEdge(Map<String, List<Edge>> adjacency, String fromSig, Edge edge) {
-        if (edge == null || edge.sans == null || edge.sans.length == 0) {
+    private static void addEdge(
+            Map<String, List<Edge>> adjacency,
+            Map<String, Set<EdgeKey>> edgeKeysByFrom,
+            String fromSig,
+            Edge edge) {
+        if (edge == null || edge.destSig == null || edge.sans == null || edge.sans.length == 0) {
             return;
+        }
+        if (edgeKeysByFrom != null) {
+            Set<EdgeKey> seen = edgeKeysByFrom.computeIfAbsent(fromSig, k -> new HashSet<>());
+            if (!seen.add(new EdgeKey(edge.destSig, edge.sans))) {
+                return;
+            }
         }
         adjacency.computeIfAbsent(fromSig, k -> new ArrayList<>()).add(edge);
     }
@@ -743,57 +994,59 @@ public final class RecordPgnExporter {
     }
 
     /**
-     * Holds nodes and supporting maps derived from the input records.
+     * Holds map views built from streamed records.
      */
-    private static final class PgnIndex {
+    private static final class IndexData {
         /**
-         * Parsed record nodes ordered as read; available for adjacency construction.
+         * Map of signature to FEN.
          */
-        private final List<RecordNode> nodes;
+        private final Map<String, String> positionsBySig;
 
         /**
-         * Positions keyed by their FEN signatures for direct lookup when building edges.
+         * Adjacency list for move edges.
          */
-        private final Map<String, Position> positionsBySig;
+        private final Map<String, List<Edge>> adjacency;
 
         /**
-         * Child nodes grouped by the signature of their recorded parent position.
+         * Set of signatures that have incoming edges.
          */
-        private final Map<String, List<RecordNode>> childrenByParentSig;
+        private final Set<String> incoming;
 
         /**
-         * SAN strings describing the best move stored for each signature.
+         * Best-move SAN lookup by signature.
          */
         private final Map<String, String> bestMoveBySig;
 
         /**
-         * Optional description text that accompanies a signature when present.
+         * Description lookup by signature.
          */
         private final Map<String, String> descriptionBySig;
 
         /**
-         * Normalized evaluation scores keyed by signature for ordering PVs.
+         * Evaluation score lookup by signature.
          */
         private final Map<String, Integer> evalScoreBySig;
 
         /**
-         * @param nodes               parsed nodes preserved in input order for reconstruction.
-         * @param positionsBySig      lookup of unique positions by their FEN signatures.
-         * @param childrenByParentSig map from parent signatures to child nodes for bridging.
-         * @param bestMoveBySig       recorded best-move SAN per signature for leaf hints.
-         * @param descriptionBySig    optional description text attached to each signature.
-         * @param evalScoreBySig      evaluation map used when sorting continuations.
+         * Creates a container for indexed position graph data.
+         *
+         * @param positionsBySig   map of signature to FEN string
+         * @param adjacency        adjacency list of edges per signature
+         * @param incoming         set of signatures with incoming edges
+         * @param bestMoveBySig    map of signature to best-move SAN
+         * @param descriptionBySig map of signature to descriptive text
+         * @param evalScoreBySig   map of signature to evaluation score
          */
-        private PgnIndex(
-                List<RecordNode> nodes,
-                Map<String, Position> positionsBySig,
-                Map<String, List<RecordNode>> childrenByParentSig,
+        private IndexData(
+                Map<String, String> positionsBySig,
+                Map<String, List<Edge>> adjacency,
+                Set<String> incoming,
                 Map<String, String> bestMoveBySig,
                 Map<String, String> descriptionBySig,
                 Map<String, Integer> evalScoreBySig) {
-            this.nodes = nodes;
             this.positionsBySig = positionsBySig;
-            this.childrenByParentSig = childrenByParentSig;
+            this.adjacency = adjacency;
+            this.incoming = incoming;
             this.bestMoveBySig = bestMoveBySig;
             this.descriptionBySig = descriptionBySig;
             this.evalScoreBySig = evalScoreBySig;
@@ -801,26 +1054,28 @@ public final class RecordPgnExporter {
     }
 
     /**
-     * Holds the adjacency list and incoming signature set for the PGN graph.
+     * Lightweight child descriptor used for parent/child linking.
      */
-    private static final class GraphData {
+    private static final class ChildInfo {
         /**
-         * Adjacency list keyed by signature for the graph.
+         * Signature of the child position.
          */
-        private final Map<String, List<Edge>> adjacency;
+        private final String positionSig;
 
         /**
-         * Signatures that have at least one incoming edge.
+         * SAN for the parent-to-child move.
          */
-        private final Set<String> incoming;
+        private final String parentToPositionSan;
 
         /**
-         * @param adjacency adjacency list built from records.
-         * @param incoming  set of signatures with incoming edges.
+         * Creates a child descriptor for parent/child linking.
+         *
+         * @param positionSig         child position signature
+         * @param parentToPositionSan SAN for the parent-to-child move
          */
-        private GraphData(Map<String, List<Edge>> adjacency, Set<String> incoming) {
-            this.adjacency = adjacency;
-            this.incoming = incoming;
+        private ChildInfo(String positionSig, String parentToPositionSan) {
+            this.positionSig = positionSig;
+            this.parentToPositionSan = parentToPositionSan;
         }
     }
 
@@ -875,133 +1130,70 @@ public final class RecordPgnExporter {
     }
 
     /**
-     * Wraps a {@link Record} with derived metadata for graph construction.
+     * Finds the SAN for a move that produces {@code child} from {@code parent}.
+     *
+     * @param parent source position.
+     * @param child  resulting position.
+     * @return SAN move when found, {@code null} otherwise.
      */
-    private static final class RecordNode {
-        /**
-         * Recorded position used for branching.
-         */
-        private final Position position;
-
-        /**
-         * Parent position, when present.
-         */
-        private final Position parent;
-
-        /**
-         * Signature derived from {@link #position}.
-         */
-        private final String positionSig;
-
-        /**
-         * Signature derived from {@link #parent}.
-         */
-        private final String parentSig;
-
-        /**
-         * SAN describing the edge from parent to this position.
-         */
-        private final String parentToPositionSan;
-
-        /**
-         * Best-move SAN determined for this node.
-         */
-        private final String bestMoveSan;
-
-        /**
-         * Cached evaluation score for ordering variations.
-         */
-        private final Integer evalScore;
-
-        /**
-         * Trimmed description text for PGN comments, if provided.
-         */
-        private final String description;
-
-        /**
-         * @param rec source record.
-         */
-        private RecordNode(Record rec) {
-            this.position = rec.getPosition();
-            this.parent = rec.getParent();
-            this.positionSig = fenSignature(this.position);
-            this.parentSig = this.parent != null ? fenSignature(this.parent) : null;
-            this.parentToPositionSan = this.parent != null ? sanFromEdge(this.parent, this.position) : null;
-            this.bestMoveSan = formatBestMoveSan(this.position, rec.getAnalysis().getBestMove());
-            this.evalScore = evalScoreFromRecord(rec);
-            String desc = rec.getDescription();
-            if (desc != null) {
-                desc = desc.trim();
-            }
-            this.description = (desc == null || desc.isEmpty()) ? null : desc;
-        }
-
-        /**
-         * Finds the SAN for a move that produces {@code child} from {@code parent}.
-         *
-         * @param parent source position.
-         * @param child  resulting position.
-         * @return SAN move when found, {@code null} otherwise.
-         */
-        private static String sanFromEdge(Position parent, Position child) {
-            if (parent == null || child == null) {
-                return null;
-            }
-            String target = fenSignature(child);
-            MoveList moves = parent.getMoves();
-            for (int i = 0; i < moves.size(); i++) {
-                short move = moves.get(i);
-                Position next = parent.copyOf().play(move);
-                if (fenSignature(next).equals(target)) {
-                    return SAN.toAlgebraic(parent, move);
-                }
-            }
+    private static String sanFromEdge(Position parent, Position child) {
+        if (parent == null || child == null) {
             return null;
         }
-
-        /**
-         * Extracts an evaluation score for the record's primary output.
-         *
-         * @param rec source record.
-         * @return normalized score or {@code null} when unavailable.
-         */
-        private static Integer evalScoreFromRecord(Record rec) {
-            if (rec == null) {
-                return null;
+        String target = fenSignature(child);
+        MoveList moves = parent.getMoves();
+        for (int i = 0; i < moves.size(); i++) {
+            short move = moves.get(i);
+            Position next = parent.copyOf().play(move);
+            if (fenSignature(next).equals(target)) {
+                return SAN.toAlgebraic(parent, move);
             }
-            Output best = rec.getAnalysis().getBestOutput(1);
-            if (best == null) {
-                return null;
-            }
-            Evaluation eval = best.getEvaluation();
-            if (eval == null || !eval.isValid()) {
-                return null;
-            }
-            int value = eval.getValue();
-            if (eval.isMate()) {
-                int sign = value >= 0 ? 1 : -1;
-                int mate = Math.min(9_999, Math.abs(value));
-                return sign * (MATE_SCORE_BASE - mate);
-            }
-            return value;
         }
+        return null;
+    }
 
-        /**
-         * Formats the best move for a PV as SAN, falling back to UCI if SAN generation fails.
-         *
-         * @param pos  source position.
-         * @param best best move.
-         * @return SAN move or UCI fallback; empty if unavailable.
-         */
-        private static String formatBestMoveSan(Position pos, short best) {
-            if (pos == null || best == chess.core.Move.NO_MOVE) {
-                return "";
-            }
-            try {
-                return SAN.toAlgebraic(pos, best);
-            } catch (RuntimeException ex) {
-                return chess.core.Move.toString(best);
-            }
+    /**
+     * Extracts an evaluation score for the record's primary output.
+     *
+     * @param rec source record.
+     * @return normalized score or {@code null} when unavailable.
+     */
+    private static Integer evalScoreFromRecord(Record rec) {
+        if (rec == null) {
+            return null;
+        }
+        Output best = rec.getAnalysis().getBestOutput(1);
+        if (best == null) {
+            return null;
+        }
+        Evaluation eval = best.getEvaluation();
+        if (eval == null || !eval.isValid()) {
+            return null;
+        }
+        int value = eval.getValue();
+        if (eval.isMate()) {
+            int sign = value >= 0 ? 1 : -1;
+            int mate = Math.min(9_999, Math.abs(value));
+            return sign * (MATE_SCORE_BASE - mate);
+        }
+        return value;
+    }
+
+    /**
+     * Formats the best move for a PV as SAN, falling back to UCI if SAN generation fails.
+     *
+     * @param pos  source position.
+     * @param best best move.
+     * @return SAN move or UCI fallback; empty if unavailable.
+     */
+    private static String formatBestMoveSan(Position pos, short best) {
+        if (pos == null || best == chess.core.Move.NO_MOVE) {
+            return "";
+        }
+        try {
+            return SAN.toAlgebraic(pos, best);
+        } catch (RuntimeException ex) {
+            return chess.core.Move.toString(best);
         }
     }
 
@@ -1026,6 +1218,124 @@ public final class RecordPgnExporter {
         private Edge(String destSig, String[] sans) {
             this.destSig = destSig;
             this.sans = sans;
+        }
+    }
+
+    /**
+     * Shared context for the bridging pass.
+     */
+    private static final class BridgeContext {
+        /**
+         * Adjacency list being populated.
+         */
+        private final Map<String, List<Edge>> adjacency;
+
+        /**
+         * Signatures that already have incoming edges.
+         */
+        private final Set<String> incoming;
+
+        /**
+         * Counter for missing SAN edges.
+         */
+        private final AtomicLong badEdges;
+
+        /**
+         * Direct children keyed by parent signature.
+         */
+        private final Map<String, Set<String>> directChildren;
+
+        /**
+         * Edge deduplication keys per source signature.
+         */
+        private final Map<String, Set<EdgeKey>> edgeKeysByFrom;
+
+        /**
+         * Progress bar for bridge linking.
+         */
+        private final Bar bridgeBar;
+
+        /**
+         * Creates a context for the bridging pass.
+         *
+         * @param adjacency        adjacency list being populated
+         * @param incoming         set of signatures with incoming edges
+         * @param badEdges         counter for missing SAN edges
+         * @param directChildren   direct children keyed by parent signature
+         * @param edgeKeysByFrom   edge deduplication keys per source signature
+         * @param bridgeBar        progress bar for bridge linking (may be null)
+         */
+        private BridgeContext(
+                Map<String, List<Edge>> adjacency,
+                Set<String> incoming,
+                AtomicLong badEdges,
+                Map<String, Set<String>> directChildren,
+                Map<String, Set<EdgeKey>> edgeKeysByFrom,
+                Bar bridgeBar) {
+            this.adjacency = adjacency;
+            this.incoming = incoming;
+            this.badEdges = badEdges;
+            this.directChildren = directChildren;
+            this.edgeKeysByFrom = edgeKeysByFrom;
+            this.bridgeBar = bridgeBar;
+        }
+    }
+
+    /**
+     * Uniquely identifies an edge per source signature using destination and SAN path.
+     */
+    private static final class EdgeKey {
+        /**
+         * Destination signature.
+         */
+        private final String destSig;
+
+        /**
+         * SAN path tokens for the edge.
+         */
+        private final String[] sans;
+
+        /**
+         * Precomputed hash code for fast lookup.
+         */
+        private final int hash;
+
+        /**
+         * Creates a deduplication key for an edge.
+         *
+         * @param destSig destination signature
+         * @param sans    SAN path tokens for the edge
+         */
+        private EdgeKey(String destSig, String[] sans) {
+            this.destSig = destSig;
+            this.sans = sans;
+            this.hash = computeHash(destSig, sans);
+        }
+
+        private static int computeHash(String destSig, String[] sans) {
+            int result = (destSig != null) ? destSig.hashCode() : 0;
+            if (sans != null) {
+                for (String san : sans) {
+                    result = 31 * result + (san != null ? san.hashCode() : 0);
+                }
+            }
+            return result;
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            if (this == obj) {
+                return true;
+            }
+            if (!(obj instanceof EdgeKey other)) {
+                return false;
+            }
+            return Objects.equals(destSig, other.destSig) && Arrays.equals(sans, other.sans);
+        }
+
+        @Override
+        public int hashCode() {
+            return hash;
         }
     }
 
@@ -1273,6 +1583,43 @@ public final class RecordPgnExporter {
         visiting.remove(sig);
         memo.put(sig, best);
         return best;
+    }
+
+    /**
+     * Counts top-level records for progress reporting; returns {@code 0} on failure.
+     *
+     * @param recordFile input JSON array file.
+     * @return total record count, or {@code 0} when counting fails.
+     */
+    private static long countRecords(Path recordFile) {
+        if (recordFile == null) {
+            return 0L;
+        }
+        final AtomicLong count = new AtomicLong();
+        try {
+            Json.streamTopLevelObjects(recordFile, objJson -> count.incrementAndGet());
+        } catch (IOException ex) {
+            LogService.warn(String.format(
+                    "Unable to count records in '%s'; progress bar disabled.",
+                    recordFile));
+            return 0L;
+        }
+        return count.get();
+    }
+
+    /**
+     * Builds a progress bar capped to int range; returns null when total is unknown.
+     *
+     * @param totalRecords total record count (may be 0 or negative for unknown).
+     * @param label        label prefix for the bar.
+     * @return progress bar instance or {@code null} if disabled.
+     */
+    private static Bar progressBar(long totalRecords, String label) {
+        if (totalRecords <= 0) {
+            return null;
+        }
+        int capped = (totalRecords > Integer.MAX_VALUE) ? Integer.MAX_VALUE : (int) totalRecords;
+        return new Bar(capped, label);
     }
 
 }

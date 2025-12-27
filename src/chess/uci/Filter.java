@@ -879,6 +879,9 @@ public final class Filter {
         /** Used for the DSL symbol for LESS. */
         static final String OP_SYMBOL_LESS = "<";
 
+        /**
+         * Prevents instantiation of this utility class.
+         */
         private DslLiterals() {
             /* Used for preventing instantiation. */
         }

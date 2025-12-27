@@ -48,6 +48,9 @@ public final class GithubBanner {
 	private static final Color GRADIENT_TOP_LEFT = new Color(0xF0F0F0);
 	private static final Color GRADIENT_BOTTOM_RIGHT = new Color(0xE0E0E0);
 
+	/**
+	 * Prevents instantiation of this utility class.
+	 */
 	private GithubBanner() {
 		// static utility
 	}

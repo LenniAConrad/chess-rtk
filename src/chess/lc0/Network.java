@@ -134,6 +134,11 @@ public final class Network implements AutoCloseable {
     private static final class CudaBackendHolder implements AutoCloseable {
         private Backend backend;
 
+        /**
+         * Creates a holder that owns the provided backend until detached or closed.
+         *
+         * @param backend backend instance to manage
+         */
         private CudaBackendHolder(Backend backend) {
             this.backend = backend;
         }
@@ -618,6 +623,13 @@ public final class Network implements AutoCloseable {
         /** Flattened list of kernel tap indices aligned with {@link #square}. */
         final int[] kernelIndex;
 
+        /**
+         * Creates neighbor lookups for convolution kernels.
+         *
+         * @param start       offsets into {@code square}/{@code kernelIndex} per board square
+         * @param square      flattened neighbor square indices
+         * @param kernelIndex flattened kernel tap indices aligned with {@code square}
+         */
         private KernelNeighbors(int[] start, int[] square, int[] kernelIndex) {
             this.start = start;
             this.square = square;

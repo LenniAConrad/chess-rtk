@@ -39,7 +39,9 @@ public class Json {
      */
     private static final int STREAM_OBJ_MAX_CAPACITY = 1 << 23; // ~8 MiB chars
 
-    // Private constructor to prevent instantiation
+    /**
+     * Prevents instantiation of this utility class.
+     */
     private Json() {
         // Prevents instantiation of utility class
     }
@@ -220,6 +222,11 @@ public class Json {
         final int initialCapacity;
         StringBuilder obj;
 
+        /**
+         * Creates a streaming scan state with the requested initial buffer capacity.
+         *
+         * @param initialCapacity initial per-object buffer capacity
+         */
         StreamScan(int initialCapacity) {
             this.initialCapacity = initialCapacity;
             this.obj = new StringBuilder(initialCapacity);

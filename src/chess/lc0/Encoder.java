@@ -63,6 +63,9 @@ public final class Encoder {
      */
     private static final int TOTAL_CHANNELS = 112;
 
+    /**
+     * Prevents instantiation of this utility class.
+     */
     private Encoder() {}
 
     /**

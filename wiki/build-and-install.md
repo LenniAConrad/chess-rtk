@@ -58,17 +58,10 @@ java -jar ucicli.jar help
 - compiles sources and builds `ucicli.jar`
 - installs a launcher at `/usr/local/bin/ucicli` that runs from this repo
 - optionally builds the CUDA JNI backend under `native-cuda/` (if you have the CUDA toolkit)
-- optionally downloads an Lc0 network into `./nets/`
 
 ```bash
 ./install.sh
 ucicli help
-```
-
-Skip the Lc0 network download:
-
-```bash
-./install.sh --no-net
 ```
 
 Skip the CUDA backend build:
@@ -77,7 +70,7 @@ Skip the CUDA backend build:
 ./install.sh --no-cuda
 ```
 
-Force the CUDA backend build (and optionally install build deps):
+Force the CUDA backend build (installs missing CUDA build deps on Debian/Ubuntu):
 
 ```bash
 ./install.sh --cuda

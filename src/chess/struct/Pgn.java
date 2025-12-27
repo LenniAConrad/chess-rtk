@@ -33,6 +33,9 @@ public final class Pgn {
      */
     private static final Pattern RESULT_TOKEN = Pattern.compile("^(1-0|0-1|1/2-1/2|\\*)$");
 
+    /**
+     * Prevents instantiation of this utility class.
+     */
     private Pgn() {
         // utility class
     }
@@ -553,6 +556,12 @@ public final class Pgn {
         final TokenKind kind;
         final String value;
 
+        /**
+         * Creates a token with a kind and optional value payload.
+         *
+         * @param kind  token kind
+         * @param value token payload (may be empty)
+         */
         Token(TokenKind kind, String value) {
             this.kind = kind;
             this.value = value;
@@ -718,6 +727,13 @@ public final class Pgn {
         final int moveNumber;
         final boolean printBlackNumbers;
 
+        /**
+         * Creates a ply tracker with the provided counters.
+         *
+         * @param ply               current ply index
+         * @param moveNumber        current move number
+         * @param printBlackNumbers whether to emit black move numbers
+         */
         PlyTracker(int ply, int moveNumber, boolean printBlackNumbers) {
             this.ply = ply;
             this.moveNumber = moveNumber;

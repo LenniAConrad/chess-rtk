@@ -8,6 +8,9 @@ package chess.images.assets.piece;
  * @author Lennart A. Conrad
  */
 public class ByteBlackRook {
+	/**
+	 * Prevents instantiation of this utility class.
+	 */
 	private ByteBlackRook() {
 		// utility holder
 	}

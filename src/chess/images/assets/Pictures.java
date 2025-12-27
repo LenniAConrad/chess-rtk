@@ -71,7 +71,9 @@ import utility.Images;
  */
 public class Pictures {
 
-	// Private constructor to prevent instantiation
+	/**
+	 * Prevents instantiation of this utility class.
+	 */
 	private Pictures() {
 		// Do nothing
 	}

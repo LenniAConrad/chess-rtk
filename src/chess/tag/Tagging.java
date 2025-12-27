@@ -52,6 +52,9 @@ public final class Tagging {
          */
         private static final AtomicBoolean SHUTDOWN_HOOK_INSTALLED = new AtomicBoolean(false);
 
+        /**
+         * Prevents instantiation of this utility class.
+         */
         private SharedEvaluator() {
             // utility
         }
