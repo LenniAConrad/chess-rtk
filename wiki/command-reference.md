@@ -26,6 +26,14 @@ Options:
 - `--output|-o <path>`: output `.csv` (optional; default derived from input)
 - `--filter|-f <dsl>`: Filter DSL to select which records are exported
 
+## `record-to-pgn`
+
+Convert a `.record` JSON array into one or more PGN games.
+
+Options:
+- `--input|-i <path>`: input `.record` (required)
+- `--output|-o <path>`: output `.pgn` (optional; default derived from input)
+
 ## `record-to-dataset`
 
 Convert a `.record` JSON array into NumPy tensors:
@@ -117,6 +125,119 @@ Options:
 - `--size <px>`: window size (square)
 - `--width <px>`, `--height <px>`: window size override
 - `--dark|--dark-mode`: dark window styling
+- `--verbose|-v`: print stack traces on failure
+
+## `config`
+
+Show or validate CLI configuration.
+
+Subcommands:
+- `show`: print resolved configuration values
+- `validate`: validate config + protocol files
+
+## `stats`
+
+Summarize a `.record` or puzzle JSON dump.
+
+Options:
+- `--input|-i <path>`: input JSON array/JSONL (required)
+- `--top <n>`: show top-N tags/engines (default `10`)
+- `--verbose|-v`: print stack traces on failure
+
+## `stats-tags`
+
+Summarize tag distributions in a dump.
+
+Options:
+- `--input|-i <path>`: input JSON array/JSONL (required)
+- `--top <n>`: show top-N tags (default `20`)
+- `--verbose|-v`: print stack traces on failure
+
+## `tags`
+
+Generate tags for a FEN or FEN list.
+
+Options:
+- `--input|-i <path>`: FEN list file (optional)
+- `--fen "<FEN...>"`: FEN string (or pass it positionally)
+- `--verbose|-v`: print stack traces on failure
+
+## `moves`
+
+List legal moves for a FEN.
+
+Options:
+- `--fen "<FEN...>"`: FEN string (or pass it positionally)
+- `--san`: output SAN instead of UCI
+- `--both`: output UCI + SAN per move
+- `--verbose|-v`: print stack traces on failure
+
+## `analyze`
+
+Analyze a position with the engine and print PV summaries.
+
+Options:
+- `--input|-i <path>`: FEN list file (optional)
+- `--fen "<FEN...>"`: FEN string (or pass it positionally)
+- `--protocol-path|-P <toml>`: override `Config.getProtocolPath()`
+- `--max-nodes|--nodes <n>`: override `Config.getMaxNodes()`
+- `--max-duration <dur>`: override `Config.getMaxDuration()`, e.g. `60s`, `2m`, `60000`
+- `--multipv <n>`: set engine MultiPV
+- `--threads <n>`: set engine thread count
+- `--hash <mb>`: set engine hash size
+- `--wdl|--no-wdl`: enable/disable WDL output
+- `--verbose|-v`: print stack traces on failure
+
+## `bestmove`
+
+Return the best move for a FEN.
+
+Options:
+- `--input|-i <path>`: FEN list file (optional)
+- `--fen "<FEN...>"`: FEN string (or pass it positionally)
+- `--san`: output SAN instead of UCI
+- `--both`: output UCI + SAN
+- `--protocol-path|-P <toml>`: override `Config.getProtocolPath()`
+- `--max-nodes|--nodes <n>`: override `Config.getMaxNodes()`
+- `--max-duration <dur>`: override `Config.getMaxDuration()`, e.g. `60s`, `2m`, `60000`
+- `--multipv <n>`: set engine MultiPV
+- `--threads <n>`: set engine thread count
+- `--hash <mb>`: set engine hash size
+- `--wdl|--no-wdl`: enable/disable WDL output
+- `--verbose|-v`: print stack traces on failure
+
+## `perft`
+
+Run perft on a position (move generation validation).
+
+Options:
+- `--fen "<FEN...>"`: FEN string (or pass it positionally; defaults to start position)
+- `--depth|-d <n>`: perft depth (required)
+- `--divide|--per-move`: print per-move breakdown
+- `--verbose|-v`: print stack traces on failure
+
+## `pgn-to-fens`
+
+Convert PGN games to a FEN list that can be used as seeds.
+
+Options:
+- `--input|-i <path>`: input PGN file (required)
+- `--output|-o <path>`: output `.txt` (optional; default derived)
+- `--pairs`: write "parent child" FEN pairs per line
+- `--mainline`: only output the mainline (skip variations)
+- `--verbose|-v`: print stack traces on failure
+
+## `eval`
+
+Evaluate a position using LC0 or the classical evaluator.
+
+Options:
+- `--input|-i <path>`: FEN list file (optional)
+- `--fen "<FEN...>"`: FEN string (or pass it positionally)
+- `--lc0`: force LC0 evaluation
+- `--classical`: force classical evaluation
+- `--weights <path>`: LC0 weights path (optional)
+- `--terminal-aware`: use terminal-aware classical evaluation
 - `--verbose|-v`: print stack traces on failure
 
 ## `clean`

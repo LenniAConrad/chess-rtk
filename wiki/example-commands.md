@@ -7,6 +7,8 @@ Examples assume you installed the launcher (`ucicli`). If you run from classes, 
 - `ucicli help` — show all commands + flags.
 - `ucicli cuda-info` — check whether the optional CUDA JNI backend is usable.
 - `ucicli print --fen "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"` — print the starting position.
+- `ucicli config show` — dump resolved config values.
+- `ucicli config validate` — validate config + protocol file paths.
 
 ## Convert `.record` → `.plain` / CSV
 
@@ -36,6 +38,33 @@ Examples assume you installed the launcher (`ucicli`). If you run from classes, 
 - `ucicli display --fen "r1k5/2p4p/2p5/3p4/1Q4P1/1P3P2/PR3R2/1K5q w - - 1 34"` — open a window.
 - `ucicli display --fen "<FEN>" --arrow e2e4 --circle e4 --legal g1` — overlays for quick inspection.
 - `ucicli display --fen "<FEN>" --ablation --show-backend` — show per-piece ablation (uses LC0 if available; otherwise classical).
+
+## Analyze positions / best move
+
+- `ucicli analyze --fen "<FEN>" --max-duration 5s` — print PV summaries for a single position.
+- `ucicli bestmove --fen "<FEN>"` — print the best move (UCI).
+- `ucicli bestmove --fen "<FEN>" --san` — print the best move (SAN).
+
+## Tags / moves
+
+- `ucicli tags --fen "<FEN>"` — emit tags as JSON.
+- `ucicli moves --fen "<FEN>" --both` — list legal moves (UCI + SAN).
+
+## Stats
+
+- `ucicli stats -i dump/fens.puzzles.json` — summarize a puzzle dump.
+- `ucicli stats-tags -i dump/fens.puzzles.json` — summarize tag distributions.
+
+## Perft / PGN conversion
+
+- `ucicli perft --depth 4` — perft from the standard start position.
+- `ucicli perft --fen "<FEN>" --depth 5 --divide` — per-move breakdown.
+- `ucicli pgn-to-fens -i games.pgn -o seeds.txt` — extract FEN seeds from PGN.
+
+## Eval
+
+- `ucicli eval --fen "<FEN>"` — evaluate with LC0 (fallback to classical).
+- `ucicli eval --fen "<FEN>" --classical` — force classical evaluation.
 
 ## Useful helpers
 

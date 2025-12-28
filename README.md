@@ -71,10 +71,17 @@ Outputs:
 ## What It Does
 
 - `mine`: evaluate lots of seeds (random / `.txt` / `.pgn`) and emit puzzles + non-puzzles JSON
-- `record-to-plain`, `record-to-csv`: convert `.record` analysis dumps to `.plain` and/or CSV
+- `record-to-plain`, `record-to-csv`, `record-to-pgn`: convert `.record` analysis dumps to `.plain`, CSV, or PGN
 - `record-to-dataset`, `stack-to-dataset`: export NumPy tensors for training (features `(N, 781)`)
 - `print`: pretty-print a FEN as ASCII
 - `display`: open a small GUI board view (overlays + optional ablation)
+- `analyze`, `bestmove`: analyze a FEN and extract the best move
+- `moves`, `tags`: list legal moves or tags for a FEN
+- `stats`, `stats-tags`: summarize dumps or tag distributions
+- `perft`: validate move generation at a given depth
+- `pgn-to-fens`: extract FEN seeds from PGN files
+- `eval`: evaluate a position with LC0 or classical heuristics
+- `config`: show/validate resolved configuration
 
 ---
 

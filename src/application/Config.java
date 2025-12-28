@@ -58,6 +58,11 @@ public final class Config {
     private static final String Q = "\"";
 
     /**
+     * Used for representing a TOML multiline string delimiter.
+     */
+    private static final String TRIPLE_Q = "\"\"\"";
+
+    /**
      * Used for building TOML key/value lines: key + EQ_Q + value + Q.
      */
     private static final String EQ_Q = EQ + Q; // used to build lines: key + EQ_Q + value + Q
@@ -170,6 +175,7 @@ public final class Config {
      * Used for seeding a brand-new configuration file with explanatory comments and
      * defaults that mirror the constant defaults in this class.
      */
+    @SuppressWarnings("java:S1192") // Intentional repetition keeps template readable.
     private static final String[] DEFAULT_CONFIG_FILE = {
             "# ENGINE PROTOCOL",
             "# Path to your UCI/TOML protocol file (command set) for the engine.",
@@ -217,45 +223,45 @@ public final class Config {
             "# Quality gate:",
             "# Require ≥ 50M nodes on both PV1 and PV2 before accepting a position.",
             "# Rationale: ensures depth/confirmation rather than shallow “lucky” evals.",
-            K_PUZZLE_QUALITY + EQ + "\"\"\"",
+            K_PUZZLE_QUALITY + EQ + TRIPLE_Q,
             "gate=AND;null=false;empty=false;",
             "leaf[gate=AND;break=1;nodes>=50000000];",
             "leaf[gate=AND;break=2;null=false;empty=false;nodes>=50000000];",
-            "\"\"\"",
+            TRIPLE_Q,
             "",
             "# Winning puzzle:",
             "# PV1 ≥ +300 cp (clearly better) AND PV2 ≤ 0 cp (neutral or worse).",
             "# Intent: there is a single, clearly winning move.",
             "# NOTE: If your engine skews optimistic, raise the value; if pessimistic, lower it.",
-            K_PUZZLE_WINNING + EQ + "\"\"\"",
+            K_PUZZLE_WINNING + EQ + TRIPLE_Q,
             "gate=AND;",
             "leaf[eval>=300];",
             "leaf[break=2;null=false;eval<=0];",
-            "\"\"\"",
+            TRIPLE_Q,
             "",
             "# Drawing puzzle:",
             "# PV1 ≥ 0 cp (hold equality or better) AND PV2 ≤ −300 cp (clearly worse).",
             "# Intent: there is a single, clearly drawing resource that avoids a big drop.",
             "# NOTE: Engines that undervalue defense may need a softer −300 (e.g., −250),",
             "#       so tune for your engine’s eval bias.",
-            K_PUZZLE_DRAWING + EQ + "\"\"\"",
+            K_PUZZLE_DRAWING + EQ + TRIPLE_Q,
             "gate=AND;",
             "leaf[eval>=0];",
             "leaf[break=2;null=false;eval<=-300];",
-            "\"\"\"",
+            TRIPLE_Q,
             "",
             "# Accelerate (prefilter):",
             "# Abort early on non-puzzles to save time:",
             "#   - Demand ≥ 2M nodes on PV1 and PV2 (cheap depth check)",
             "#   - AND not (winning) AND not (drawing) via relaxed eval guards",
             "# Keep conservative to avoid false negatives; tune for your engine’s eval bias.",
-            K_PUZZLE_ACCELERATE + EQ + "\"\"\"",
+            K_PUZZLE_ACCELERATE + EQ + TRIPLE_Q,
             "gate=AND;",
             "leaf[break=1;nodes>=2000000];",
             "leaf[break=2;null=false;nodes>=2000000];",
             "leaf[gate=OR;eval<300;leaf[break=2;eval>0]];",
             "leaf[gate=OR;eval<0;leaf[break=2;eval>-300]];",
-            "\"\"\""
+            TRIPLE_Q
     };
 
     /**
@@ -430,6 +436,15 @@ public final class Config {
      */
     public static int getEngineInstances() {
         return engineInstances;
+    }
+
+    /**
+     * Used for obtaining the path to the CLI configuration file on disk.
+     *
+     * @return path to the config file
+     */
+    public static Path getConfigPath() {
+        return Paths.get(CONFIG_PATH);
     }
 
     /**

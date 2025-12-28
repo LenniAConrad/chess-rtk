@@ -1,28 +1,42 @@
 package application;
 
-import java.io.IOException;
 import java.io.BufferedWriter;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Supplier;
 
+import static application.cli.ConfigOps.*;
+import static application.cli.Constants.*;
+import static application.cli.EngineOps.*;
+import static application.cli.EvalOps.*;
+import static application.cli.Format.*;
+import static application.cli.PathOps.*;
+import static application.cli.PgnOps.*;
+import static application.cli.RecordIO.*;
+import static application.cli.Validation.*;
+
+import application.cli.RecordIO.RecordConsumer;
 import application.console.Bar;
 import chess.core.Field;
 import chess.core.Move;
+import chess.core.MoveList;
 import chess.core.Piece;
 import chess.core.Position;
-import chess.core.SAN;
 import chess.core.Setup;
 import chess.debug.LogService;
 import chess.debug.SessionCache;
 import chess.debug.Printer;
-import chess.eval.Backend;
 import chess.eval.Evaluator;
 import chess.eval.Result;
 import chess.images.render.Render;
@@ -31,20 +45,28 @@ import chess.struct.Pgn;
 import chess.struct.Record;
 import chess.io.Reader;
 import chess.io.Writer;
+import chess.tag.Tagging;
+import chess.uci.Analysis;
+import chess.uci.Engine;
+import chess.uci.Evaluation;
 import chess.uci.Filter;
 import chess.uci.Filter.FilterDSL;
+import chess.uci.Output;
+import chess.uci.Protocol;
 import utility.Argv;
 import utility.Display;
+import utility.Json;
 
 /**
  * Used for providing the CLI entry point and dispatching subcommands.
  *
  * <p>
- * Recognized subcommands are {@code record-to-plain}, {@code record-to-csv},
- * {@code record-to-pgn}, {@code record-to-dataset}, {@code stack-to-dataset},
- * {@code cuda-info}, {@code mine}, {@code gen-fens}, {@code print}, {@code display},
- * {@code clean},
- * and {@code help}.
+	 * Recognized subcommands are {@code record-to-plain}, {@code record-to-csv},
+	 * {@code record-to-pgn}, {@code record-to-dataset}, {@code stack-to-dataset},
+	 * {@code cuda-info}, {@code mine}, {@code gen-fens}, {@code print}, {@code display},
+	 * {@code clean}, {@code config}, {@code stats}, {@code stats-tags}, {@code tags},
+	 * {@code moves}, {@code analyze}, {@code bestmove}, {@code perft},
+	 * {@code pgn-to-fens}, {@code eval}, and {@code help}.
  * Prints usage information when no subcommand is supplied. For unknown
  * subcommands, prints an
  * error and exits with status {@code 2}.
@@ -64,90 +86,6 @@ public final class Main {
 	 */
 	private static final int DEFAULT_DISPLAY_WINDOW_SIZE = 640;
 
-	/**
-	 * Subcommand for converting {@code .record} JSON to {@code .plain}.
-	 */
-	private static final String CMD_RECORD_TO_PLAIN = "record-to-plain";
-
-	/**
-	 * Subcommand for converting {@code .record} JSON to CSV.
-	 */
-	private static final String CMD_RECORD_TO_CSV = "record-to-csv";
-
-	/**
-	 * Subcommand for converting {@code .record} JSON to dataset tensors.
-	 */
-	private static final String CMD_RECORD_TO_DATASET = "record-to-dataset";
-
-	/**
-	 * Subcommand for converting {@code .record} JSON to PGN.
-	 */
-	private static final String CMD_RECORD_TO_PGN = "record-to-pgn";
-
-	/**
-	 * Subcommand for converting Stack puzzle dumps to dataset tensors.
-	 */
-	private static final String CMD_STACK_TO_DATASET = "stack-to-dataset";
-
-	/**
-	 * Subcommand for printing CUDA JNI backend status.
-	 */
-	private static final String CMD_CUDA_INFO = "cuda-info";
-
-	/**
-	 * Subcommand for generating random legal FEN shards.
-	 */
-	private static final String CMD_GEN_FENS = "gen-fens";
-
-	/**
-	 * Subcommand for mining puzzles.
-	 */
-	private static final String CMD_MINE = "mine";
-
-	/**
-	 * Subcommand for pretty-printing a FEN.
-	 */
-	private static final String CMD_PRINT = "print";
-
-	/**
-	 * Subcommand for rendering a FEN in a window.
-	 */
-	private static final String CMD_DISPLAY = "display";
-
-	/**
-	 * Subcommand for deleting cached session artifacts.
-	 */
-	private static final String CMD_CLEAN = "clean";
-
-	/**
-	 * Subcommand for printing usage information.
-	 */
-	private static final String CMD_HELP = "help";
-
-	/**
-	 * Help command alias for printing usage information.
-	 */
-	private static final String CMD_HELP_SHORT = "-h";
-
-	/**
-	 * Help command alias for printing usage information.
-	 */
-	private static final String CMD_HELP_LONG = "--help";
-
-	/**
-	 * Used for the {@code --input | -i} option.
-	 */
-	private static final String OPT_INPUT = "--input";
-
-	/**
-	 * Used for the {@code --output | -o} option.
-	 */
-	private static final String OPT_OUTPUT = "--output";
-
-	/**
-	 * Used for the {@code --verbose | -v} option.
-	 */
-	private static final String OPT_VERBOSE = "--verbose";
 
 	/**
 	 * Used for parsing top-level CLI arguments and delegating to a subcommand
@@ -193,6 +131,16 @@ public final class Main {
 			case CMD_PRINT -> runPrint(b);
 			case CMD_DISPLAY -> runDisplay(b);
 			case CMD_CLEAN -> runClean(b);
+			case CMD_CONFIG -> runConfig(b);
+			case CMD_STATS -> runStats(b);
+			case CMD_TAGS -> runTags(b);
+			case CMD_MOVES -> runMoves(b);
+			case CMD_ANALYZE -> runAnalyze(b);
+			case CMD_BESTMOVE -> runBestMove(b);
+			case CMD_PERFT -> runPerft(b);
+			case CMD_PGN_TO_FENS -> runPgnToFens(b);
+			case CMD_STATS_TAGS -> runStatsTags(b);
+			case CMD_EVAL, CMD_EVALUATE -> runEval(b);
 			case CMD_HELP, CMD_HELP_SHORT, CMD_HELP_LONG -> help();
 			default -> {
 				System.err.println("Unknown command: " + sub);
@@ -230,12 +178,12 @@ public final class Main {
 	 *          </ul>
 	 */
 	private static void runConvert(Argv a) {
-		boolean exportAll = a.flag("--sidelines", "--export-all", "-a");
-		String filterDsl = a.string("--filter", "-f");
-		Path in = a.pathRequired(OPT_INPUT, "-i");
-		Path out = a.path(OPT_OUTPUT, "-o");
-		boolean csv = a.flag("--csv");
-		Path csvOut = a.path("--csv-output", "-c");
+		boolean exportAll = a.flag(OPT_SIDELINES, OPT_EXPORT_ALL, OPT_EXPORT_ALL_SHORT);
+		String filterDsl = a.string(OPT_FILTER, OPT_FILTER_SHORT);
+		Path in = a.pathRequired(OPT_INPUT, OPT_INPUT_SHORT);
+		Path out = a.path(OPT_OUTPUT, OPT_OUTPUT_SHORT);
+		boolean csv = a.flag(OPT_CSV);
+		Path csvOut = a.path(OPT_CSV_OUTPUT, OPT_CSV_OUTPUT_SHORT);
 		a.ensureConsumed();
 
 		Filter filter = null;
@@ -268,9 +216,9 @@ public final class Main {
 	 *          </ul>
 	 */
 	private static void runConvertCsv(Argv a) {
-		String filterDsl = a.string("--filter", "-f");
-		Path in = a.pathRequired(OPT_INPUT, "-i");
-		Path out = a.path(OPT_OUTPUT, "-o");
+		String filterDsl = a.string(OPT_FILTER, OPT_FILTER_SHORT);
+		Path in = a.pathRequired(OPT_INPUT, OPT_INPUT_SHORT);
+		Path out = a.path(OPT_OUTPUT, OPT_OUTPUT_SHORT);
 		a.ensureConsumed();
 
 		Filter filter = null;
@@ -285,8 +233,8 @@ public final class Main {
 	 * Convert a .record JSON array into Numpy .npy tensors (features/labels).
 	 */
 	private static void runRecordToDataset(Argv a) {
-		Path in = a.pathRequired(OPT_INPUT, "-i");
-		Path out = a.path(OPT_OUTPUT, "-o");
+		Path in = a.pathRequired(OPT_INPUT, OPT_INPUT_SHORT);
+		Path out = a.path(OPT_OUTPUT, OPT_OUTPUT_SHORT);
 		a.ensureConsumed();
 
 		if (out == null) {
@@ -321,8 +269,8 @@ public final class Main {
 	 *          </ul>
 	 */
 	private static void runRecordToPgn(Argv a) {
-		Path in = a.pathRequired(OPT_INPUT, "-i");
-		Path out = a.path(OPT_OUTPUT, "-o");
+		Path in = a.pathRequired(OPT_INPUT, OPT_INPUT_SHORT);
+		Path out = a.path(OPT_OUTPUT, OPT_OUTPUT_SHORT);
 		a.ensureConsumed();
 
 		Converter.recordToPgn(in, out);
@@ -332,8 +280,8 @@ public final class Main {
 	 * Convert a Stack-*.json puzzle dump (JSON array) into NPY tensors.
 	 */
 	private static void runStackToDataset(Argv a) {
-		Path in = a.pathRequired(OPT_INPUT, "-i");
-		Path out = a.path(OPT_OUTPUT, "-o");
+		Path in = a.pathRequired(OPT_INPUT, OPT_INPUT_SHORT);
+		Path out = a.path(OPT_OUTPUT, OPT_OUTPUT_SHORT);
 		a.ensureConsumed();
 
 		if (out == null) {
@@ -387,13 +335,13 @@ public final class Main {
 	 * @param a parsed argument vector
 	 */
 	private static void runGenerateFens(Argv a) {
-		final boolean verbose = a.flag(OPT_VERBOSE, "-v");
-		Path outDir = a.path(OPT_OUTPUT, "-o");
-		final int files = a.integerOr(1_000, "--files");
-		final int perFile = a.integerOr(100_000, "--per-file", "--fens-per-file");
-		final int chess960Files = a.integerOr(100, "--chess960-files", "--chess960");
-		final int batch = a.integerOr(2_048, "--batch");
-		final boolean ascii = a.flag("--ascii");
+		final boolean verbose = a.flag(OPT_VERBOSE, OPT_VERBOSE_SHORT);
+		Path outDir = a.path(OPT_OUTPUT, OPT_OUTPUT_SHORT);
+		final int files = a.integerOr(1_000, OPT_FILES);
+		final int perFile = a.integerOr(100_000, OPT_PER_FILE, OPT_FENS_PER_FILE);
+		final int chess960Files = a.integerOr(100, OPT_CHESS960_FILES, OPT_CHESS960);
+		final int batch = a.integerOr(2_048, OPT_BATCH);
+		final boolean ascii = a.flag(OPT_ASCII);
 
 		a.ensureConsumed();
 
@@ -424,27 +372,28 @@ public final class Main {
 				outDir.toAbsolutePath());
 	}
 
+	/**
+	 * Validates arguments for the {@code gen-fens} command and exits on violation.
+	 *
+	 * @param files         number of output files requested
+	 * @param perFile       FENs per file
+	 * @param batch         batch size for random generation
+	 * @param chess960Files number of Chess960 shards to emit
+	 */
 	private static void validateGenFensArgs(int files, int perFile, int batch, int chess960Files) {
-		requirePositive(CMD_GEN_FENS, "--files", files);
-		requirePositive(CMD_GEN_FENS, "--per-file", perFile);
-		requirePositive(CMD_GEN_FENS, "--batch", batch);
-		requireBetweenInclusive(CMD_GEN_FENS, "--chess960-files", chess960Files, 0, files);
+		requirePositive(CMD_GEN_FENS, OPT_FILES, files);
+		requirePositive(CMD_GEN_FENS, OPT_PER_FILE, perFile);
+		requirePositive(CMD_GEN_FENS, OPT_BATCH, batch);
+		requireBetweenInclusive(CMD_GEN_FENS, OPT_CHESS960_FILES, chess960Files, 0, files);
 	}
 
-	private static void requirePositive(String cmd, String opt, int value) {
-		if (value <= 0) {
-			System.err.printf("%s: %s must be positive%n", cmd, opt);
-			System.exit(2);
-		}
-	}
-
-	private static void requireBetweenInclusive(String cmd, String opt, int value, int min, int max) {
-		if (value < min || value > max) {
-			System.err.printf("%s: %s must be between %d and %d%n", cmd, opt, min, max);
-			System.exit(2);
-		}
-	}
-
+	/**
+	 * Ensures the target directory exists or exits with a diagnostic.
+	 *
+	 * @param cmd     command label used in diagnostics
+	 * @param dir     output directory to create
+	 * @param verbose whether to print stack traces on failure
+	 */
 	private static void ensureDirectoryOrExit(String cmd, Path dir, boolean verbose) {
 		try {
 			Files.createDirectories(dir);
@@ -573,17 +522,11 @@ public final class Main {
 	 * </ul>
 	 */
 	private static void runPrint(Argv a) {
-		boolean verbose = a.flag(OPT_VERBOSE, "-v");
-		String fen = a.string("--fen");
-		List<String> rest = a.positionals();
-		if (fen == null && !rest.isEmpty()) {
-			fen = String.join(" ", rest);
-		}
-
-		a.ensureConsumed();
+		boolean verbose = a.flag(OPT_VERBOSE, OPT_VERBOSE_SHORT);
+		String fen = resolveFenArgument(a);
 
 		if (fen == null || fen.isEmpty()) {
-			System.err.println("print requires a FEN (use --fen or positional)");
+			System.err.println("print requires a FEN (" + MSG_FEN_REQUIRED_HINT + ")");
 			System.exit(2);
 			return;
 		}
@@ -593,7 +536,7 @@ public final class Main {
 			Printer.board(pos);
 		} catch (IllegalArgumentException ex) {
 			// Invalid FEN or position construction error
-			System.err.println("Error: invalid FEN. " + (ex.getMessage() == null ? "" : ex.getMessage()));
+			System.err.println(ERR_INVALID_FEN + (ex.getMessage() == null ? "" : ex.getMessage()));
 			LogService.error(ex, "print: invalid FEN", LOG_CTX_FEN_PREFIX + fen);
 			if (verbose) {
 				ex.printStackTrace(System.err);
@@ -676,7 +619,7 @@ public final class Main {
 		DisplayOptions opts = parseDisplayOptions(a);
 
 		if (opts.fen() == null || opts.fen().isEmpty()) {
-			System.err.println("display requires a FEN (use --fen or positional)");
+			System.err.println("display requires a FEN (" + MSG_FEN_REQUIRED_HINT + ")");
 			System.exit(2);
 			return;
 		}
@@ -724,20 +667,20 @@ public final class Main {
 	 * @return parsed display options
 	 */
 	private static DisplayOptions parseDisplayOptions(Argv a) {
-		boolean verbose = a.flag(OPT_VERBOSE, "-v");
-		String fen = a.string("--fen");
-		boolean showBorder = !a.flag("--no-border");
-		boolean whiteDown = !a.flag("--flip", "--black-down");
-		boolean light = !a.flag("--dark", "--dark-mode");
+		boolean verbose = a.flag(OPT_VERBOSE, OPT_VERBOSE_SHORT);
+		String fen = a.string(OPT_FEN);
+		boolean showBorder = !a.flag(OPT_NO_BORDER);
+		boolean whiteDown = !a.flag(OPT_FLIP, OPT_BLACK_DOWN);
+		boolean light = !a.flag(OPT_DARK, OPT_DARK_MODE);
 
-		boolean showBackend = a.flag("--show-backend", "--backend");
-		boolean ablation = a.flag("--ablation");
-		int size = a.integerOr(0, "--size");
-		int width = a.integerOr(0, "--width");
-		int height = a.integerOr(0, "--height");
-		List<String> arrows = a.strings("--arrow", "--arrows");
-		List<String> circles = a.strings("--circle", "--circles");
-		List<String> legal = a.strings("--legal");
+		boolean showBackend = a.flag(OPT_SHOW_BACKEND, OPT_BACKEND);
+		boolean ablation = a.flag(OPT_ABLATION);
+		int size = a.integerOr(0, OPT_SIZE);
+		int width = a.integerOr(0, OPT_WIDTH);
+		int height = a.integerOr(0, OPT_HEIGHT);
+		List<String> arrows = a.strings(OPT_ARROW, OPT_ARROWS);
+		List<String> circles = a.strings(OPT_CIRCLE, OPT_CIRCLES);
+		List<String> legal = a.strings(OPT_LEGAL);
 		List<String> rest = a.positionals();
 		if (fen == null && !rest.isEmpty()) {
 			fen = String.join(" ", rest);
@@ -938,29 +881,1100 @@ public final class Main {
 	}
 
 	/**
-	 * Formats a backend label for display/logging.
+	 * Used for handling the {@code config} subcommand.
 	 *
-	 * @param backend evaluation backend
-	 * @return human-friendly label
+	 * <p>
+	 * Supports {@code config show} and {@code config validate}.
+	 * </p>
+	 *
+	 * @param a parsed argument vector after {@code config}
 	 */
-	private static String formatBackendLabel(Backend backend) {
-		if (backend == Backend.LC0_CUDA) {
-			return "LC0 (cuda)";
+	private static void runConfig(Argv a) {
+		List<String> rest = a.positionals();
+		a.ensureConsumed();
+
+		if (rest.isEmpty()) {
+			System.err.println("config requires a subcommand: show | validate");
+			System.exit(2);
+			return;
 		}
-		if (backend == Backend.LC0_CPU) {
-			return "LC0 (cpu)";
+		if (rest.size() > 1) {
+			System.err.println("config accepts only one subcommand: show | validate");
+			System.exit(2);
+			return;
 		}
-		return "classical";
+
+		String sub = rest.get(0);
+		switch (sub) {
+			case "show" -> runConfigShow();
+			case "validate" -> runConfigValidate();
+			default -> {
+				System.err.println("Unknown config subcommand: " + sub);
+				System.exit(2);
+			}
+		}
 	}
 
 	/**
-	 * Formats a signed integer with an explicit sign.
-	 *
-	 * @param value numeric score
-	 * @return signed string (e.g. "+12", "-4", "+0")
+	 * Prints resolved configuration values to standard output.
 	 */
-	private static String formatSigned(int value) {
-		return String.format("%+d", value);
+	private static void runConfigShow() {
+		Config.reload();
+		Path configPath = Config.getConfigPath();
+		System.out.println("Config path: " + configPath.toAbsolutePath());
+		System.out.println("Protocol path: " + Config.getProtocolPath());
+		System.out.println("Output: " + Config.getOutput());
+		System.out.println("Engine instances: " + Config.getEngineInstances());
+		System.out.println("Max nodes: " + Config.getMaxNodes());
+		System.out.println("Max duration (ms): " + Config.getMaxDuration());
+		System.out.println("Puzzle quality: " + Config.getPuzzleQuality());
+		System.out.println("Puzzle winning: " + Config.getPuzzleWinning());
+		System.out.println("Puzzle drawing: " + Config.getPuzzleDrawing());
+		System.out.println("Puzzle accelerate: " + Config.getPuzzleAccelerate());
+	}
+
+	/**
+	 * Validates configuration and protocol files, then exits with status.
+	 */
+	private static void runConfigValidate() {
+		Config.reload();
+
+		List<String> warnings = new ArrayList<>();
+		List<String> errors = new ArrayList<>();
+
+		Path configPath = Config.getConfigPath();
+		validateConfigToml(configPath, warnings, errors);
+		validateProtocolConfig(Config.getProtocolPath(), warnings, errors);
+		printValidationResults(warnings, errors);
+	}
+
+	/**
+	 * Used for handling the {@code stats} subcommand.
+	 *
+	 * @param a parsed argument vector for the subcommand.
+	 */
+	private static void runStats(Argv a) {
+		boolean verbose = a.flag(OPT_VERBOSE, OPT_VERBOSE_SHORT);
+		Path input = a.pathRequired(OPT_INPUT, OPT_INPUT_SHORT);
+		int top = a.integerOr(10, OPT_TOP);
+		requirePositive(CMD_STATS, OPT_TOP, top);
+		a.ensureConsumed();
+
+		StatsAccumulator stats = new StatsAccumulator();
+		try {
+			streamRecordFile(input, verbose, CMD_STATS, stats);
+		} catch (Exception ex) {
+			System.err.println("stats: failed to read input: " + ex.getMessage());
+			if (verbose) {
+				ex.printStackTrace(System.err);
+			}
+			System.exit(2);
+			return;
+		}
+
+		stats.printSummary(input, top);
+	}
+
+	/**
+	 * Used for handling the {@code tags} subcommand.
+	 *
+	 * @param a parsed argument vector for the subcommand.
+	 */
+	private static void runTags(Argv a) {
+		boolean verbose = a.flag(OPT_VERBOSE, OPT_VERBOSE_SHORT);
+		Path input = a.path(OPT_INPUT, OPT_INPUT_SHORT);
+		String fen = a.string(OPT_FEN);
+		List<String> rest = a.positionals();
+		if (fen == null && !rest.isEmpty()) {
+			fen = String.join(" ", rest);
+		}
+		a.ensureConsumed();
+
+		if (input != null && fen != null) {
+			System.err.println("tags: provide either " + OPT_INPUT + " or a single FEN, not both");
+			System.exit(2);
+			return;
+		}
+
+		if (input != null) {
+			try {
+				List<String> fens = Reader.readFenList(input);
+				for (String entry : fens) {
+					printTags(entry, verbose, true);
+				}
+			} catch (Exception ex) {
+				System.err.println("tags: failed to read input: " + ex.getMessage());
+				if (verbose) {
+					ex.printStackTrace(System.err);
+				}
+				System.exit(2);
+			}
+			return;
+		}
+
+		if (fen == null || fen.isEmpty()) {
+			System.err.println("tags requires a FEN (" + MSG_FEN_REQUIRED_HINT + ")");
+			System.exit(2);
+			return;
+		}
+		printTags(fen, verbose, false);
+	}
+
+	/**
+	 * Used for handling the {@code moves} subcommand.
+	 *
+	 * @param a parsed argument vector for the subcommand.
+	 */
+	private static void runMoves(Argv a) {
+		boolean verbose = a.flag(OPT_VERBOSE, OPT_VERBOSE_SHORT);
+		boolean san = a.flag(OPT_SAN);
+		boolean both = a.flag(OPT_BOTH);
+		String fen = resolveFenArgument(a);
+
+		if (fen == null || fen.isEmpty()) {
+			System.err.println("moves requires a FEN (" + MSG_FEN_REQUIRED_HINT + ")");
+			System.exit(2);
+			return;
+		}
+
+		try {
+			Position pos = new Position(fen.trim());
+			printMoves(pos, san, both);
+		} catch (IllegalArgumentException ex) {
+			System.err.println(ERR_INVALID_FEN + (ex.getMessage() == null ? "" : ex.getMessage()));
+			LogService.error(ex, "moves: invalid FEN", LOG_CTX_FEN_PREFIX + fen);
+			if (verbose) {
+				ex.printStackTrace(System.err);
+			}
+			System.exit(3);
+		} catch (Exception t) {
+			System.err.println("Error: failed to list moves. " + (t.getMessage() == null ? "" : t.getMessage()));
+			LogService.error(t, "moves: unexpected failure", LOG_CTX_FEN_PREFIX + fen);
+			if (verbose) {
+				t.printStackTrace(System.err);
+			}
+			System.exit(3);
+		}
+	}
+
+	/**
+	 * Resolves a FEN either from {@code --fen} or remaining positionals.
+	 *
+	 * @param a argument parser for the current subcommand
+	 * @return FEN string or {@code null} when none provided
+	 */
+	private static String resolveFenArgument(Argv a) {
+		String fen = a.string(OPT_FEN);
+		List<String> rest = a.positionals();
+		if (fen == null && !rest.isEmpty()) {
+			fen = String.join(" ", rest);
+		}
+		a.ensureConsumed();
+		return fen;
+	}
+
+	/**
+	 * Prints all legal moves for a position using the selected format.
+	 *
+	 * @param pos  position to list moves for
+	 * @param san  whether to print SAN instead of UCI
+	 * @param both whether to print UCI and SAN side-by-side
+	 */
+	private static void printMoves(Position pos, boolean san, boolean both) {
+		MoveList moves = pos.getMoves();
+		for (int i = 0; i < moves.size(); i++) {
+			printMoveLine(pos, moves.get(i), san, both);
+		}
+	}
+
+	/**
+	 * Prints a single move line in UCI/SAN as configured.
+	 *
+	 * @param pos  position used to compute SAN
+	 * @param move move to print
+	 * @param san  whether to print SAN instead of UCI
+	 * @param both whether to print both UCI and SAN
+	 */
+	private static void printMoveLine(Position pos, short move, boolean san, boolean both) {
+		String uci = Move.toString(move);
+		if (both) {
+			System.out.println(uci + "\t" + safeSan(pos, move));
+			return;
+		}
+		if (san) {
+			System.out.println(safeSan(pos, move));
+			return;
+		}
+		System.out.println(uci);
+	}
+
+	/**
+	 * Used for handling the {@code analyze} subcommand.
+	 *
+	 * @param a parsed argument vector for the subcommand.
+	 */
+	private static void runAnalyze(Argv a) {
+		boolean verbose = a.flag(OPT_VERBOSE, OPT_VERBOSE_SHORT);
+		Path input = a.path(OPT_INPUT, OPT_INPUT_SHORT);
+		String fen = a.string(OPT_FEN);
+		String protoPath = optional(a.string(OPT_PROTOCOL_PATH, OPT_PROTOCOL_PATH_SHORT), Config.getProtocolPath());
+		long nodesCap = Math.max(1, optional(a.lng(OPT_MAX_NODES, OPT_NODES), Config.getMaxNodes()));
+		long durMs = Math.max(1, optionalDurationMs(a.duration(OPT_MAX_DURATION), Config.getMaxDuration()));
+		Integer multipv = a.integer(OPT_MULTIPV);
+		Integer threads = a.integer(OPT_THREADS);
+		Integer hash = a.integer(OPT_HASH);
+		boolean wdl = a.flag(OPT_WDL);
+		boolean noWdl = a.flag(OPT_NO_WDL);
+		List<String> rest = a.positionals();
+		if (fen == null && !rest.isEmpty()) {
+			fen = String.join(" ", rest);
+		}
+		a.ensureConsumed();
+
+		if (wdl && noWdl) {
+			System.err.println(String.format("analyze: only one of %s or %s may be set", OPT_WDL, OPT_NO_WDL));
+			System.exit(2);
+			return;
+		}
+
+		List<String> fens = resolveFenInputs(CMD_ANALYZE, input, fen);
+		Protocol protocol = loadProtocolOrExit(protoPath, verbose);
+		Optional<Boolean> wdlFlag = resolveWdlFlag(wdl, noWdl);
+
+		try (Engine engine = new Engine(protocol)) {
+			configureEngine(CMD_ANALYZE, engine, threads, hash, multipv, wdlFlag);
+			String engineLabel = protocol.getName() != null ? protocol.getName() : protocol.getPath();
+			System.out.println("Engine: " + engineLabel);
+			for (int i = 0; i < fens.size(); i++) {
+				String entry = fens.get(i);
+				Position pos = parsePositionOrNull(entry, CMD_ANALYZE, verbose);
+				if (pos == null) {
+					continue;
+				}
+				Analysis analysis = analysePositionOrExit(engine, pos, nodesCap, durMs, CMD_ANALYZE, verbose);
+				if (analysis == null) {
+					return;
+				}
+
+				if (i > 0) {
+					System.out.println();
+				}
+				printAnalysisSummary(pos, analysis);
+			}
+		} catch (Exception ex) {
+			System.err.println("analyze: failed to initialize engine: " + ex.getMessage());
+			if (verbose) {
+				ex.printStackTrace(System.err);
+			}
+			System.exit(2);
+		}
+	}
+
+	/**
+	 * Used for handling the {@code bestmove} subcommand.
+	 *
+	 * @param a parsed argument vector for the subcommand.
+	 */
+	private record BestMoveOptions(
+			boolean verbose,
+			boolean san,
+			boolean both,
+			Path input,
+			String fen,
+			String protoPath,
+			long nodesCap,
+			long durMs,
+			Integer multipv,
+			Integer threads,
+			Integer hash,
+			boolean wdl,
+			boolean noWdl) {
+	}
+
+	/**
+	 * Used for handling the {@code bestmove} subcommand.
+	 *
+	 * @param a parsed argument vector for the subcommand.
+	 */
+	private static void runBestMove(Argv a) {
+		BestMoveOptions opts = parseBestMoveOptions(a);
+
+		if (opts.wdl() && opts.noWdl()) {
+			System.err.println(String.format("bestmove: only one of %s or %s may be set", OPT_WDL, OPT_NO_WDL));
+			System.exit(2);
+			return;
+		}
+
+		List<String> fens = resolveFenInputs(CMD_BESTMOVE, opts.input(), opts.fen());
+		Protocol protocol = loadProtocolOrExit(opts.protoPath(), opts.verbose());
+		Optional<Boolean> wdlFlag = resolveWdlFlag(opts.wdl(), opts.noWdl());
+
+		try (Engine engine = new Engine(protocol)) {
+			configureEngine(CMD_BESTMOVE, engine, opts.threads(), opts.hash(), opts.multipv(), wdlFlag);
+			for (String entry : fens) {
+				Position pos = parsePositionOrNull(entry, CMD_BESTMOVE, opts.verbose());
+				if (pos == null) {
+					continue;
+				}
+				Analysis analysis = analysePositionOrExit(engine, pos, opts.nodesCap(), opts.durMs(), CMD_BESTMOVE, opts.verbose());
+				if (analysis == null) {
+					return;
+				}
+				printBestMove(entry, pos, analysis, opts.input(), opts.san(), opts.both());
+			}
+		} catch (Exception ex) {
+			System.err.println("bestmove: failed to initialize engine: " + ex.getMessage());
+			if (opts.verbose()) {
+				ex.printStackTrace(System.err);
+			}
+			System.exit(2);
+		}
+	}
+
+	/**
+	 * Parses arguments for {@code bestmove} into a normalized options record.
+	 *
+	 * @param a argument parser positioned after the subcommand token
+	 * @return parsed bestmove options
+	 */
+	private static BestMoveOptions parseBestMoveOptions(Argv a) {
+		boolean verbose = a.flag(OPT_VERBOSE, OPT_VERBOSE_SHORT);
+		boolean san = a.flag(OPT_SAN);
+		boolean both = a.flag(OPT_BOTH);
+		Path input = a.path(OPT_INPUT, OPT_INPUT_SHORT);
+		String fen = a.string(OPT_FEN);
+		String protoPath = optional(a.string(OPT_PROTOCOL_PATH, OPT_PROTOCOL_PATH_SHORT), Config.getProtocolPath());
+		long nodesCap = Math.max(1, optional(a.lng(OPT_MAX_NODES, OPT_NODES), Config.getMaxNodes()));
+		long durMs = Math.max(1, optionalDurationMs(a.duration(OPT_MAX_DURATION), Config.getMaxDuration()));
+		Integer multipv = a.integer(OPT_MULTIPV);
+		Integer threads = a.integer(OPT_THREADS);
+		Integer hash = a.integer(OPT_HASH);
+		boolean wdl = a.flag(OPT_WDL);
+		boolean noWdl = a.flag(OPT_NO_WDL);
+		List<String> rest = a.positionals();
+		if (fen == null && !rest.isEmpty()) {
+			fen = String.join(" ", rest);
+		}
+		a.ensureConsumed();
+		return new BestMoveOptions(
+				verbose,
+				san,
+				both,
+				input,
+				fen,
+				protoPath,
+				nodesCap,
+				durMs,
+				multipv,
+				threads,
+				hash,
+				wdl,
+				noWdl);
+	}
+
+	/**
+	 * Prints the best move for a single analysis result.
+	 *
+	 * @param entry   original input line (FEN string)
+	 * @param pos     parsed position
+	 * @param analysis analysis result with best move
+	 * @param input   input file path (when provided)
+	 * @param san     whether to output SAN instead of UCI
+	 * @param both    whether to print both UCI and SAN
+	 */
+	private static void printBestMove(
+			String entry,
+			Position pos,
+			Analysis analysis,
+			Path input,
+			boolean san,
+			boolean both) {
+		short best = analysis.getBestMove();
+		String uci = (best == Move.NO_MOVE) ? "0000" : Move.toString(best);
+		String sanMove = (best == Move.NO_MOVE) ? "-" : safeSan(pos, best);
+		if (input != null) {
+			if (both) {
+				System.out.println(entry + "\t" + uci + "\t" + sanMove);
+			} else if (san) {
+				System.out.println(entry + "\t" + sanMove);
+			} else {
+				System.out.println(entry + "\t" + uci);
+			}
+			return;
+		}
+		if (both) {
+			System.out.println(uci + "\t" + sanMove);
+		} else if (san) {
+			System.out.println(sanMove);
+		} else {
+			System.out.println(uci);
+		}
+	}
+
+	/**
+	 * Used for handling the {@code perft} subcommand.
+	 *
+	 * @param a parsed argument vector for the subcommand.
+	 */
+	private static void runPerft(Argv a) {
+		boolean verbose = a.flag(OPT_VERBOSE, OPT_VERBOSE_SHORT);
+		boolean divide = a.flag(OPT_DIVIDE, OPT_PER_MOVE);
+		Integer depth = a.integer(OPT_DEPTH, OPT_DEPTH_SHORT);
+		String fen = a.string(OPT_FEN);
+		List<String> rest = a.positionals();
+		if (fen == null && !rest.isEmpty()) {
+			fen = String.join(" ", rest);
+		}
+		a.ensureConsumed();
+
+		if (depth == null) {
+			System.err.println("perft requires " + OPT_DEPTH + " <n>");
+			System.exit(2);
+			return;
+		}
+		requireNonNegative(CMD_PERFT, OPT_DEPTH, depth);
+
+		Position pos;
+		try {
+			pos = (fen == null || fen.isEmpty())
+					? Setup.getStandardStartPosition()
+					: new Position(fen.trim());
+		} catch (IllegalArgumentException ex) {
+			System.err.println(ERR_INVALID_FEN + (ex.getMessage() == null ? "" : ex.getMessage()));
+			LogService.error(ex, "perft: invalid FEN", LOG_CTX_FEN_PREFIX + fen);
+			if (verbose) {
+				ex.printStackTrace(System.err);
+			}
+			System.exit(3);
+			return;
+		}
+
+		if (divide) {
+			Printer.perft(pos, depth);
+			return;
+		}
+		long nodes = pos.perft(depth);
+		System.out.println(LOG_CTX_FEN_PREFIX + pos.toString());
+		System.out.println("perft depth " + depth + ": " + nodes);
+	}
+
+	/**
+	 * Used for handling the {@code pgn-to-fens} subcommand.
+	 *
+	 * @param a parsed argument vector for the subcommand.
+	 */
+	private static void runPgnToFens(Argv a) {
+		boolean verbose = a.flag(OPT_VERBOSE, OPT_VERBOSE_SHORT);
+		boolean mainline = a.flag(OPT_MAINLINE);
+		boolean pairs = a.flag(OPT_PAIRS);
+		Path input = a.pathRequired(OPT_INPUT, OPT_INPUT_SHORT);
+		Path output = a.path(OPT_OUTPUT, OPT_OUTPUT_SHORT);
+		a.ensureConsumed();
+
+		if (output == null) {
+			output = deriveOutputPath(input, ".txt");
+		}
+
+		List<chess.struct.Game> games = readPgnOrExit(input, verbose, CMD_PGN_TO_FENS);
+		if (games == null) {
+			return;
+		}
+
+		try (BufferedWriter writer = openWriterOrExit(output, verbose, CMD_PGN_TO_FENS)) {
+			if (writer == null) {
+				return;
+			}
+			long lines = writePgnFens(games, writer, mainline, pairs);
+			System.out.printf("pgn-to-fens wrote %d lines to %s%n", lines, output.toAbsolutePath());
+		} catch (IOException ex) {
+			System.err.println("pgn-to-fens: failed to write output: " + ex.getMessage());
+			if (verbose) {
+				ex.printStackTrace(System.err);
+			}
+			System.exit(2);
+		}
+	}
+
+	/**
+	 * Used for handling the {@code stats-tags} subcommand.
+	 *
+	 * @param a parsed argument vector for the subcommand.
+	 */
+	private static void runStatsTags(Argv a) {
+		boolean verbose = a.flag(OPT_VERBOSE, OPT_VERBOSE_SHORT);
+		Path input = a.pathRequired(OPT_INPUT, OPT_INPUT_SHORT);
+		int top = a.integerOr(20, OPT_TOP);
+		requirePositive(CMD_STATS_TAGS, OPT_TOP, top);
+		a.ensureConsumed();
+
+		TagStatsAccumulator stats = new TagStatsAccumulator();
+		try {
+			streamRecordFile(input, verbose, CMD_STATS_TAGS, stats);
+		} catch (Exception ex) {
+			System.err.println("stats-tags: failed to read input: " + ex.getMessage());
+			if (verbose) {
+				ex.printStackTrace(System.err);
+			}
+			System.exit(2);
+			return;
+		}
+
+		stats.printSummary(input, top);
+	}
+
+	/**
+	 * Used for handling the {@code eval} subcommand.
+	 *
+	 * @param a parsed argument vector for the subcommand.
+	 */
+	private static void runEval(Argv a) {
+		boolean verbose = a.flag(OPT_VERBOSE, OPT_VERBOSE_SHORT);
+		Path input = a.path(OPT_INPUT, OPT_INPUT_SHORT);
+		String fen = a.string(OPT_FEN);
+		boolean lc0Only = a.flag(OPT_LC0);
+		boolean classicalOnly = a.flag(OPT_CLASSICAL);
+		boolean terminalAware = a.flag(OPT_TERMINAL_AWARE, OPT_TERMINAL);
+		Path weights = a.path(OPT_WEIGHTS);
+		List<String> rest = a.positionals();
+		if (fen == null && !rest.isEmpty()) {
+			fen = String.join(" ", rest);
+		}
+		a.ensureConsumed();
+
+		if (lc0Only && classicalOnly) {
+			System.err.println("eval: only one of " + OPT_LC0 + " or " + OPT_CLASSICAL + " may be set");
+			System.exit(2);
+			return;
+		}
+
+		List<String> fens = resolveFenInputs(CMD_EVAL, input, fen);
+		boolean includeFen = input != null;
+
+		if (classicalOnly) {
+			if (!evalClassicalEntries(fens, terminalAware, includeFen, verbose, CMD_EVAL)) {
+				System.exit(2);
+			}
+			return;
+		}
+
+		Path weightsPath = (weights == null) ? Evaluator.DEFAULT_WEIGHTS : weights;
+		try (Evaluator evaluator = new Evaluator(weightsPath, terminalAware)) {
+			if (!evalEvaluatorEntries(fens, evaluator, lc0Only, includeFen, verbose, CMD_EVAL)) {
+				System.exit(2);
+			}
+		} catch (Exception ex) {
+			System.err.println("eval: failed to initialize evaluator: " + ex.getMessage());
+			if (verbose) {
+				ex.printStackTrace(System.err);
+			}
+			System.exit(2);
+		}
+	}
+
+	/**
+	 * Resolves FEN inputs from either a file or a single CLI FEN string.
+	 *
+	 * @param cmd   command label used in diagnostics
+	 * @param input optional input file path
+	 * @param fen   optional single FEN string
+	 * @return list of FEN strings to process
+	 */
+	private static List<String> resolveFenInputs(String cmd, Path input, String fen) {
+		if (input != null && fen != null) {
+			System.err.println(cmd + ": provide either " + OPT_INPUT + " or a single FEN, not both");
+			System.exit(2);
+			return List.of();
+		}
+		if (input != null) {
+			try {
+				List<String> fens = Reader.readFenList(input);
+				if (fens.isEmpty()) {
+					System.err.println(cmd + ": input file has no FENs");
+					System.exit(2);
+				}
+				return fens;
+			} catch (IOException ex) {
+				System.err.println(cmd + ": failed to read input: " + ex.getMessage());
+				System.exit(2);
+				return List.of();
+			}
+		}
+		if (fen == null || fen.isEmpty()) {
+			System.err.println(cmd + " requires a FEN (" + MSG_FEN_REQUIRED_HINT + ")");
+			System.exit(2);
+			return List.of();
+		}
+		return List.of(fen);
+	}
+
+	/**
+	 * Tags a position and prints JSON output, optionally prefixed by the FEN.
+	 *
+	 * @param fen        FEN string to tag
+	 * @param verbose    whether to print stack traces on failure
+	 * @param includeFen whether to print the FEN before the JSON tags
+	 */
+	private static void printTags(String fen, boolean verbose, boolean includeFen) {
+		try {
+			Position pos = new Position(fen.trim());
+			List<String> tags = Tagging.tags(pos);
+			String json = Json.stringArray(tags.toArray(new String[0]));
+			if (includeFen) {
+				System.out.println(fen + "\t" + json);
+			} else {
+				System.out.println(json);
+			}
+		} catch (IllegalArgumentException ex) {
+			System.err.println("tags: invalid FEN skipped: " + fen);
+			if (verbose) {
+				ex.printStackTrace(System.err);
+			}
+		} catch (Exception ex) {
+			System.err.println("tags: failed to tag position: " + ex.getMessage());
+			if (verbose) {
+				ex.printStackTrace(System.err);
+			}
+		}
+	}
+
+	/**
+	 * Loads and validates a protocol TOML file or exits on failure.
+	 *
+	 * @param protocolPath path to the protocol TOML file
+	 * @param verbose      whether to print stack traces on failure
+	 * @return parsed protocol instance
+	 */
+	private static Protocol loadProtocolOrExit(String protocolPath, boolean verbose) {
+		Path path = Paths.get(protocolPath);
+		try {
+			String toml = Files.readString(path);
+			Protocol protocol = new Protocol().fromToml(toml);
+			String[] errors = protocol.collectValidationErrors();
+			if (!protocol.assertValid()) {
+				System.err.println("Protocol is missing required values:");
+				for (String err : errors) {
+					System.err.println("  - " + err);
+				}
+				System.exit(2);
+			}
+			if (errors.length > 0) {
+				LogService.warn("Protocol has non-essential issues: " + errors.length);
+			}
+			return protocol;
+		} catch (Exception e) {
+			System.err.println("Failed to load protocol: " + e.getMessage());
+			if (verbose) {
+				e.printStackTrace(System.err);
+			}
+			System.exit(2);
+			return null;
+		}
+	}
+
+	/**
+	 * Prints a human-readable analysis summary to standard output.
+	 *
+	 * @param pos      position that was analyzed
+	 * @param analysis analysis output from the engine
+	 */
+	private static void printAnalysisSummary(Position pos, Analysis analysis) {
+		System.out.println(String.format("FEN: %s", pos.toString()));
+		if (analysis == null || analysis.isEmpty()) {
+			System.out.println("analysis: (no output)");
+			return;
+		}
+		int pivots = Math.max(1, analysis.getPivots());
+		for (int pv = 1; pv <= pivots; pv++) {
+			Output best = analysis.getBestOutput(pv);
+			if (best == null) {
+				continue;
+			}
+			String eval = formatEvaluation(best.getEvaluation());
+			String wdl = formatChances(best.getChances());
+			String bound = formatBound(best.getBound());
+			System.out.printf(
+					"pv%d eval=%s depth=%d seldepth=%d nodes=%d nps=%d time=%d wdl=%s bound=%s%n",
+					pv,
+					eval,
+					best.getDepth(),
+					best.getSelectiveDepth(),
+					best.getNodes(),
+					best.getNodesPerSecond(),
+					best.getTime(),
+					wdl,
+					bound);
+			short bestMove = analysis.getBestMove(pv);
+			if (bestMove != Move.NO_MOVE) {
+				System.out.printf("pv%d bestmove=%s san=%s%n", pv, Move.toString(bestMove), safeSan(pos, bestMove));
+			}
+			String pvLine = formatPvMoves(best.getMoves());
+			if (!pvLine.isEmpty()) {
+				System.out.printf("pv%d line=%s%n", pv, pvLine);
+			}
+		}
+	}
+
+	/**
+	 * Accumulates aggregate statistics for the {@code stats} subcommand.
+	 */
+	private static final class StatsAccumulator implements RecordConsumer {
+		/**
+		 * Total records processed.
+		 */
+		private long total;
+		/**
+		 * Count of invalid records encountered.
+		 */
+		private long invalid;
+		/**
+		 * Records containing a position.
+		 */
+		private long withPosition;
+		/**
+		 * Records containing a parent position.
+		 */
+		private long withParent;
+		/**
+		 * Records that include tags.
+		 */
+		private long withTags;
+		/**
+		 * Records that include analysis output.
+		 */
+		private long withAnalysis;
+		/**
+		 * Records that include valid evaluations.
+		 */
+		private long withEval;
+		/**
+		 * Records that include mate evaluations.
+		 */
+		private long withMate;
+		/**
+		 * Sum of centipawn evaluations.
+		 */
+		private long sumCp;
+		/**
+		 * Count of centipawn evaluations.
+		 */
+		private long countCp;
+		/**
+		 * Minimum centipawn value observed.
+		 */
+		private int minCp = Integer.MAX_VALUE;
+		/**
+		 * Maximum centipawn value observed.
+		 */
+		private int maxCp = Integer.MIN_VALUE;
+		/**
+		 * Minimum mate value observed.
+		 */
+		private int minMate = Integer.MAX_VALUE;
+		/**
+		 * Maximum mate value observed.
+		 */
+		private int maxMate = Integer.MIN_VALUE;
+		/**
+		 * Sum of reported depths.
+		 */
+		private long sumDepth;
+		/**
+		 * Count of depth samples.
+		 */
+		private long countDepth;
+		/**
+		 * Sum of reported node counts.
+		 */
+		private long sumNodes;
+		/**
+		 * Count of node samples.
+		 */
+		private long countNodes;
+		/**
+		 * Histogram of engine names.
+		 */
+		private final Map<String, Long> engineCounts = new HashMap<>();
+		/**
+		 * Histogram of tag labels.
+		 */
+		private final Map<String, Long> tagCounts = new HashMap<>();
+
+		/**
+		 * Records an invalid record entry.
+		 */
+		@Override
+		public void invalid() {
+			invalid++;
+		}
+
+		/**
+		 * Updates counters based on an incoming record.
+		 *
+		 * @param rec record to process
+		 */
+		@Override
+		public void accept(Record rec) {
+			total++;
+			recordPositions(rec);
+			recordEngine(rec);
+			recordTags(rec);
+			Analysis analysis = recordAnalysis(rec);
+			Output best = (analysis == null) ? null : analysis.getBestOutput(1);
+			if (best == null) {
+				return;
+			}
+			recordEvaluation(best);
+			recordDepthNodes(best);
+		}
+
+		/**
+		 * Updates position/parent counters from the record.
+		 *
+		 * @param rec record to inspect
+		 */
+		private void recordPositions(Record rec) {
+			if (rec.getPosition() != null) {
+				withPosition++;
+			}
+			if (rec.getParent() != null) {
+				withParent++;
+			}
+		}
+
+		/**
+		 * Updates engine name counts from the record.
+		 *
+		 * @param rec record to inspect
+		 */
+		private void recordEngine(Record rec) {
+			String engine = rec.getEngine();
+			if (engine != null && !engine.isEmpty()) {
+				increment(engineCounts, engine);
+			}
+		}
+
+		/**
+		 * Updates tag counters from the record.
+		 *
+		 * @param rec record to inspect
+		 */
+		private void recordTags(Record rec) {
+			String[] tags = rec.getTags();
+			if (tags.length == 0) {
+				return;
+			}
+			withTags++;
+			for (String tag : tags) {
+				if (tag != null && !tag.isEmpty()) {
+					increment(tagCounts, tag);
+				}
+			}
+		}
+
+		/**
+		 * Records analysis availability for the record.
+		 *
+		 * @param rec record to inspect
+		 * @return analysis instance (may be null)
+		 */
+		private Analysis recordAnalysis(Record rec) {
+			Analysis analysis = rec.getAnalysis();
+			if (analysis != null && !analysis.isEmpty()) {
+				withAnalysis++;
+			}
+			return analysis;
+		}
+
+		/**
+		 * Updates evaluation counters from the best output.
+		 *
+		 * @param best best output to inspect
+		 */
+		private void recordEvaluation(Output best) {
+			Evaluation eval = best.getEvaluation();
+			if (eval == null || !eval.isValid()) {
+				return;
+			}
+			withEval++;
+			if (eval.isMate()) {
+				withMate++;
+				minMate = Math.min(minMate, eval.getValue());
+				maxMate = Math.max(maxMate, eval.getValue());
+				return;
+			}
+			countCp++;
+			sumCp += eval.getValue();
+			minCp = Math.min(minCp, eval.getValue());
+			maxCp = Math.max(maxCp, eval.getValue());
+		}
+
+		/**
+		 * Updates depth/node aggregate counters from the best output.
+		 *
+		 * @param best best output to inspect
+		 */
+		private void recordDepthNodes(Output best) {
+			short depth = best.getDepth();
+			if (depth > 0) {
+				sumDepth += depth;
+				countDepth++;
+			}
+			long nodes = best.getNodes();
+			if (nodes > 0) {
+				sumNodes += nodes;
+				countNodes++;
+			}
+		}
+
+		/**
+		 * Prints a human-readable summary of the collected statistics.
+		 *
+		 * @param input input path used for the summary heading
+		 * @param top   number of top entries to include for engines/tags
+		 */
+		void printSummary(Path input, int top) {
+			System.out.println("Input: " + input.toAbsolutePath());
+			System.out.println("Records: " + total + " (invalid " + invalid + ")");
+			System.out.println("Positions: " + withPosition + " Parents: " + withParent);
+			System.out.println("Records with tags: " + withTags);
+			System.out.println("Analysis: " + withAnalysis + " Evals: " + withEval + " Mates: " + withMate);
+			if (countCp > 0) {
+				double avg = sumCp / (double) countCp;
+				System.out.println("Eval cp: count=" + countCp
+						+ " avg=" + String.format("%+.1f", avg)
+						+ " min=" + formatSigned(minCp)
+						+ " max=" + formatSigned(maxCp));
+			} else {
+				System.out.println("Eval cp: n/a");
+			}
+			if (withMate > 0) {
+				System.out.println("Eval mate: min=#" + minMate + " max=#" + maxMate);
+			} else {
+				System.out.println("Eval mate: n/a");
+			}
+			if (countDepth > 0) {
+				System.out.println("Depth avg: " + String.format("%.1f", sumDepth / (double) countDepth));
+			} else {
+				System.out.println("Depth avg: n/a");
+			}
+			if (countNodes > 0) {
+				System.out.println("Nodes avg: " + String.format("%.1f", sumNodes / (double) countNodes));
+			} else {
+				System.out.println("Nodes avg: n/a");
+			}
+			System.out.println("Top engines: " + formatTopCounts(engineCounts, top));
+			System.out.println("Top tags: " + formatTopCounts(tagCounts, top));
+		}
+
+		/**
+		 * Increments a counter in a map by one.
+		 *
+		 * @param map counter map to update
+		 * @param key key to increment
+		 */
+		private static void increment(Map<String, Long> map, String key) {
+			map.put(key, map.getOrDefault(key, 0L) + 1L);
+		}
+	}
+
+	/**
+	 * Formats the most frequent entries in a count map for CLI output.
+	 *
+	 * @param counts count map to format
+	 * @param limit  maximum number of entries to include
+	 * @return formatted list or {@code -} if empty
+	 */
+	private static String formatTopCounts(Map<String, Long> counts, int limit) {
+		if (counts.isEmpty() || limit <= 0) {
+			return "-";
+		}
+		List<Map.Entry<String, Long>> entries = new ArrayList<>(counts.entrySet());
+		entries.sort(Comparator.<Map.Entry<String, Long>>comparingLong(Map.Entry::getValue).reversed()
+				.thenComparing(Map.Entry::getKey));
+		StringBuilder sb = new StringBuilder();
+		int n = Math.min(limit, entries.size());
+		for (int i = 0; i < n; i++) {
+			if (i > 0) {
+				sb.append(", ");
+			}
+			Map.Entry<String, Long> entry = entries.get(i);
+			sb.append(entry.getKey()).append('=').append(entry.getValue());
+		}
+		return sb.toString();
+	}
+
+	/**
+	 * Accumulates tag-focused statistics for the {@code stats-tags} subcommand.
+	 */
+	private static final class TagStatsAccumulator implements RecordConsumer {
+		/**
+		 * Total records processed.
+		 */
+		private long total;
+		/**
+		 * Count of invalid records encountered.
+		 */
+		private long invalid;
+		/**
+		 * Records that include tags.
+		 */
+		private long withTags;
+		/**
+		 * Total number of tags across tagged records.
+		 */
+		private long totalTags;
+		/**
+		 * Histogram of tag labels.
+		 */
+		private final Map<String, Long> tagCounts = new HashMap<>();
+
+		/**
+		 * Records an invalid record entry.
+		 */
+		@Override
+		public void invalid() {
+			invalid++;
+		}
+
+		/**
+		 * Updates tag counters for a single record.
+		 *
+		 * @param rec record to process
+		 */
+		@Override
+		public void accept(Record rec) {
+			total++;
+			String[] tags = rec.getTags();
+			if (tags.length == 0) {
+				return;
+			}
+			withTags++;
+			for (String tag : tags) {
+				if (tag == null || tag.isEmpty()) {
+					continue;
+				}
+				totalTags++;
+				tagCounts.put(tag, tagCounts.getOrDefault(tag, 0L) + 1L);
+			}
+		}
+
+		/**
+		 * Prints a human-readable summary of the collected tag statistics.
+		 *
+		 * @param input input path used for the summary heading
+		 * @param top   number of top entries to include
+		 */
+		void printSummary(Path input, int top) {
+			System.out.println("Input: " + input.toAbsolutePath());
+			System.out.println("Records: " + total + " (invalid " + invalid + ")");
+			System.out.println("Records with tags: " + withTags);
+			System.out.println("Total tags: " + totalTags + " Unique tags: " + tagCounts.size());
+			if (withTags > 0) {
+				double avg = totalTags / (double) withTags;
+				System.out.println("Tags per tagged record: " + String.format("%.2f", avg));
+			}
+			System.out.println("Top tags: " + formatTopCounts(tagCounts, top));
+		}
 	}
 
 	/**
@@ -977,7 +1991,7 @@ public final class Main {
 	 *          </ul>
 	 */
 	private static void runClean(Argv a) {
-		boolean verbose = a.flag(OPT_VERBOSE, "-v");
+		boolean verbose = a.flag(OPT_VERBOSE, OPT_VERBOSE_SHORT);
 		a.ensureConsumed();
 
 		try {
@@ -1017,6 +2031,16 @@ public final class Main {
 						  mine      Mine chess puzzles (supports Chess960 / PGN / FEN list / random)
 						  print     Pretty-print a FEN
 						  display   Render a board image in a window
+						  config    Show/validate configuration
+						  stats     Summarize .record or puzzle dumps
+						  stats-tags Summarize tag distributions
+						  tags      Generate tags for a FEN (or list)
+						  moves     List legal moves for a FEN
+						  analyze   Analyze a FEN with the engine
+						  bestmove  Print the best move for a FEN
+						  perft     Run perft on a FEN (movegen validation)
+						  pgn-to-fens Convert PGN games to FEN lists
+						  eval      Evaluate a FEN with LC0 or classical
 						  clean     Delete session cache/logs
 
 						record-to-plain options:
@@ -1099,6 +2123,79 @@ public final class Main {
 						  --dark|--dark-mode          Use dark display window styling
 						  --verbose|-v                Print stack trace on failure
 
+						config subcommands:
+						  show                         Print resolved configuration values
+						  validate                     Validate config + protocol files
+
+						stats options:
+						  --input|-i <path>           Input JSON array/JSONL file (required)
+						  --top <n>                   Show top-N tags/engines (default 10)
+						  --verbose|-v                Print stack trace on failure
+
+						stats-tags options:
+						  --input|-i <path>           Input JSON array/JSONL file (required)
+						  --top <n>                   Show top-N tags (default 20)
+						  --verbose|-v                Print stack trace on failure
+
+						tags options:
+						  --input|-i <path>           FEN list file (optional)
+						  --fen "<FEN...>"            FEN string (or supply as positional)
+						  --verbose|-v                Print stack trace on failure
+
+						moves options:
+						  --fen "<FEN...>"            FEN string (or supply as positional)
+						  --san                        Output SAN instead of UCI
+						  --both                       Output UCI + SAN per move
+						  --verbose|-v                Print stack trace on failure
+
+						analyze options:
+						  --input|-i <path>           FEN list file (optional)
+						  --fen "<FEN...>"            FEN string (or supply as positional)
+						  --protocol-path|-P <toml>   Override Config.getProtocolPath()
+						  --max-nodes|--nodes <n>     Override Config.getMaxNodes()
+						  --max-duration <dur>        Override Config.getMaxDuration(), e.g. 60s, 2m, 60000
+						  --multipv <n>               Set engine MultiPV
+						  --threads <n>               Set engine thread count
+						  --hash <mb>                 Set engine hash size
+						  --wdl|--no-wdl              Enable/disable WDL output
+						  --verbose|-v                Print stack trace on failure
+
+						bestmove options:
+						  --input|-i <path>           FEN list file (optional)
+						  --fen "<FEN...>"            FEN string (or supply as positional)
+						  --san                        Output SAN instead of UCI
+						  --both                       Output UCI + SAN
+						  --protocol-path|-P <toml>   Override Config.getProtocolPath()
+						  --max-nodes|--nodes <n>     Override Config.getMaxNodes()
+						  --max-duration <dur>        Override Config.getMaxDuration(), e.g. 60s, 2m, 60000
+						  --multipv <n>               Set engine MultiPV
+						  --threads <n>               Set engine thread count
+						  --hash <mb>                 Set engine hash size
+						  --wdl|--no-wdl              Enable/disable WDL output
+						  --verbose|-v                Print stack trace on failure
+
+						perft options:
+						  --fen "<FEN...>"            FEN string (or supply as positional)
+						  --depth|-d <n>              Perft depth (required)
+						  --divide|--per-move         Print per-move breakdown
+						  --verbose|-v                Print stack trace on failure
+
+						pgn-to-fens options:
+						  --input|-i <path>           Input PGN file (required)
+						  --output|-o <path>          Output .txt (optional; default derived)
+						  --pairs                     Write "parent child" FEN pairs per line
+						  --mainline                  Only output the mainline (skip variations)
+						  --verbose|-v                Print stack trace on failure
+
+						eval options:
+						  --input|-i <path>           FEN list file (optional)
+						  --fen "<FEN...>"            FEN string (or supply as positional)
+						  --lc0                       Force LC0 evaluation
+						  --classical                 Force classical evaluation
+						  --weights <path>            LC0 weights path (optional)
+						  --terminal-aware            Use terminal-aware classical eval
+						  --verbose|-v                Print stack trace on failure
+
 						clean options:
 						  --verbose|-v                Print stack trace on failure
 						""");
@@ -1117,26 +2214,26 @@ public final class Main {
 	 * @param a parsed argument vector for the subcommand
 	 */
 	private static void runMine(Argv a) {
-		final boolean verbose = a.flag(OPT_VERBOSE, "-v");
-		final boolean chess960 = a.flag("--chess960", "-9");
-		final Path input = a.path(OPT_INPUT, "-i");
-		final String outRoot = optional(a.string(OPT_OUTPUT, "-o"), Config.getOutput());
-		final String proto = optional(a.string("--protocol-path", "-P"), Config.getProtocolPath());
-		final long engineInstances = optional(a.lng("--engine-instances", "-e"), Config.getEngineInstances());
-		final long nodesCap = Math.max(1, optional(a.lng("--max-nodes"), Config.getMaxNodes()));
+		final boolean verbose = a.flag(OPT_VERBOSE, OPT_VERBOSE_SHORT);
+		final boolean chess960 = a.flag(OPT_CHESS960, OPT_CHESS960_SHORT);
+		final Path input = a.path(OPT_INPUT, OPT_INPUT_SHORT);
+		final String outRoot = optional(a.string(OPT_OUTPUT, OPT_OUTPUT_SHORT), Config.getOutput());
+		final String proto = optional(a.string(OPT_PROTOCOL_PATH, OPT_PROTOCOL_PATH_SHORT), Config.getProtocolPath());
+		final long engineInstances = optional(a.lng(OPT_ENGINE_INSTANCES, OPT_ENGINE_INSTANCES_SHORT), Config.getEngineInstances());
+		final long nodesCap = Math.max(1, optional(a.lng(OPT_MAX_NODES), Config.getMaxNodes()));
 		final long durMs = Math.max(
 				1,
-				optionalDurationMs(a.duration("--max-duration"), Config.getMaxDuration()));
-		final Long randomSeedOverride = a.lng("--random-count");
-		final boolean randomInfinite = a.flag("--random-infinite");
-		final Long maxWavesOverride = a.lng("--max-waves");
-		final Long maxFrontierOverride = a.lng("--max-frontier");
-		final Long maxTotalOverride = a.lng("--max-total");
+				optionalDurationMs(a.duration(OPT_MAX_DURATION), Config.getMaxDuration()));
+		final Long randomSeedOverride = a.lng(OPT_RANDOM_COUNT);
+		final boolean randomInfinite = a.flag(OPT_RANDOM_INFINITE);
+		final Long maxWavesOverride = a.lng(OPT_MAX_WAVES);
+		final Long maxFrontierOverride = a.lng(OPT_MAX_FRONTIER);
+		final Long maxTotalOverride = a.lng(OPT_MAX_TOTAL);
 
-		final String qGate = a.string("--puzzle-quality");
-		final String wGate = a.string("--puzzle-winning");
-		final String dGate = a.string("--puzzle-drawing");
-		final String accelDsl = a.string("--puzzle-accelerate");
+		final String qGate = a.string(OPT_PUZZLE_QUALITY);
+		final String wGate = a.string(OPT_PUZZLE_WINNING);
+		final String dGate = a.string(OPT_PUZZLE_DRAWING);
+		final String accelDsl = a.string(OPT_PUZZLE_ACCELERATE);
 
 		final Filter accel = filterOrDefault(accelDsl, Config::getPuzzleAccelerate);
 		final Filter qF = filterOrDefault(qGate, Config::getPuzzleQuality);
@@ -1681,60 +2778,6 @@ public final class Main {
 	}
 
 	/**
-	 * Extracts {@link Record} instances for every reachable ply in a game's
-	 * movetext, including all variations.
-	 *
-	 * <p>
-	 * Each returned record contains both the parent position (before the SAN move)
-	 * and the resulting child position. Illegal SAN moves terminate the current
-	 * line but do not stop processing other queued variations.
-	 * </p>
-	 *
-	 * @param game PGN game
-	 * @return list of records (parent/child position pairs)
-	 */
-	private static List<Record> extractRecordsWithVariations(chess.struct.Game game) {
-		List<Record> positions = new ArrayList<>();
-		Position start = game.getStartPosition() != null
-				? game.getStartPosition().copyOf()
-				: new Position(chess.struct.Game.STANDARD_START_FEN);
-
-		record Work(chess.struct.Game.Node node, Position pos) {
-		}
-
-		java.util.ArrayDeque<Work> stack = new java.util.ArrayDeque<>();
-		if (game.getMainline() != null) {
-			stack.push(new Work(game.getMainline(), start.copyOf()));
-		}
-		for (chess.struct.Game.Node rootVar : game.getRootVariations()) {
-			stack.push(new Work(rootVar, start.copyOf()));
-		}
-
-		while (!stack.isEmpty()) {
-			Work work = stack.pop();
-			Position current = work.pos();
-			chess.struct.Game.Node cur = work.node();
-			while (cur != null) {
-				Position parent = current.copyOf();
-				Position child;
-				try {
-					short move = SAN.fromAlgebraic(parent, cur.getSan());
-					child = parent.copyOf().play(move);
-				} catch (IllegalArgumentException ex) {
-					break; // stop this line on illegal SAN
-				}
-				positions.add(new Record().withParent(parent).withPosition(child.copyOf()));
-				for (chess.struct.Game.Node variation : cur.getVariations()) {
-					stack.push(new Work(variation, child.copyOf()));
-				}
-				current = child;
-				cur = cur.getNext();
-			}
-		}
-		return positions;
-	}
-
-	/**
 	 * Used for writing records as JSON Lines to the target path (touching the file
 	 * when empty).
 	 *
@@ -1759,19 +2802,6 @@ public final class Main {
 		}
 		ensureParentDir(target);
 		Writer.appendJsonObjects(target, jsons);
-	}
-
-	/**
-	 * Used for ensuring the parent directory of a target path exists.
-	 *
-	 * @param p path whose parent should be created if missing
-	 * @throws IOException when directory creation fails
-	 */
-	private static void ensureParentDir(Path p) throws IOException {
-		Path parent = p.getParent();
-		if (parent != null) {
-			Files.createDirectories(parent);
-		}
 	}
 
 	/**
