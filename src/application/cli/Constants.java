@@ -66,6 +66,11 @@ public final class Constants {
 	public static final String CMD_DISPLAY = "display";
 
 	/**
+	 * {@code render} subcommand token.
+	 */
+	public static final String CMD_RENDER = "render";
+
+	/**
 	 * {@code clean} subcommand token.
 	 */
 	public static final String CMD_CLEAN = "clean";
@@ -164,6 +169,11 @@ public final class Constants {
 	 * Short {@code --output} flag alias.
 	 */
 	public static final String OPT_OUTPUT_SHORT = "-o";
+
+	/**
+	 * {@code --format} option flag.
+	 */
+	public static final String OPT_FORMAT = "--format";
 
 	/**
 	 * {@code --verbose} option flag.
@@ -409,6 +419,31 @@ public final class Constants {
 	 * {@code --arrows} option flag.
 	 */
 	public static final String OPT_ARROWS = "--arrows";
+
+	/**
+	 * {@code --special-arrows} option flag.
+	 */
+	public static final String OPT_SPECIAL_ARROWS = "--special-arrows";
+
+	/**
+	 * {@code --details-inside} option flag.
+	 */
+	public static final String OPT_DETAILS_INSIDE = "--details-inside";
+
+	/**
+	 * {@code --details-outside} option flag.
+	 */
+	public static final String OPT_DETAILS_OUTSIDE = "--details-outside";
+
+	/**
+	 * {@code --shadow} option flag.
+	 */
+	public static final String OPT_SHADOW = "--shadow";
+
+	/**
+	 * {@code --drop-shadow} option flag (alias for {@link #OPT_SHADOW}).
+	 */
+	public static final String OPT_DROP_SHADOW = "--drop-shadow";
 
 	/**
 	 * {@code --circle} option flag.

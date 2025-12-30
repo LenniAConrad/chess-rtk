@@ -1,5 +1,9 @@
 package application;
 
+import java.awt.Color;
+import java.awt.Graphics2D;
+import java.awt.RenderingHints;
+import java.awt.image.BufferedImage;
 import java.io.BufferedWriter;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -7,14 +11,18 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Supplier;
+
+import javax.imageio.ImageIO;
 
 import static application.cli.ConfigOps.*;
 import static application.cli.Constants.*;
@@ -55,6 +63,7 @@ import chess.uci.Output;
 import chess.uci.Protocol;
 import utility.Argv;
 import utility.Display;
+import utility.Images;
 import utility.Json;
 
 /**
@@ -64,9 +73,10 @@ import utility.Json;
 	 * Recognized subcommands are {@code record-to-plain}, {@code record-to-csv},
 	 * {@code record-to-pgn}, {@code record-to-dataset}, {@code stack-to-dataset},
 	 * {@code cuda-info}, {@code mine}, {@code gen-fens}, {@code print}, {@code display},
-	 * {@code clean}, {@code config}, {@code stats}, {@code stats-tags}, {@code tags},
-	 * {@code moves}, {@code analyze}, {@code bestmove}, {@code perft},
-	 * {@code pgn-to-fens}, {@code eval}, and {@code help}.
+	 * {@code render}, {@code clean}, {@code config}, {@code stats},
+	 * {@code stats-tags}, {@code tags}, {@code moves}, {@code analyze},
+	 * {@code bestmove}, {@code perft}, {@code pgn-to-fens}, {@code eval},
+	 * and {@code help}.
  * Prints usage information when no subcommand is supplied. For unknown
  * subcommands, prints an
  * error and exits with status {@code 2}.
@@ -111,7 +121,7 @@ public final class Main {
 		a.ensureConsumed();
 
 		if (head.isEmpty()) {
-			help();
+			helpSummary();
 			return;
 		}
 
@@ -130,6 +140,7 @@ public final class Main {
 			case CMD_MINE -> runMine(b);
 			case CMD_PRINT -> runPrint(b);
 			case CMD_DISPLAY -> runDisplay(b);
+			case CMD_RENDER -> runRenderImage(b);
 			case CMD_CLEAN -> runClean(b);
 			case CMD_CONFIG -> runConfig(b);
 			case CMD_STATS -> runStats(b);
@@ -141,10 +152,10 @@ public final class Main {
 			case CMD_PGN_TO_FENS -> runPgnToFens(b);
 			case CMD_STATS_TAGS -> runStatsTags(b);
 			case CMD_EVAL, CMD_EVALUATE -> runEval(b);
-			case CMD_HELP, CMD_HELP_SHORT, CMD_HELP_LONG -> help();
+			case CMD_HELP, CMD_HELP_SHORT, CMD_HELP_LONG -> runHelp(b);
 			default -> {
 				System.err.println("Unknown command: " + sub);
-				help();
+				helpSummary();
 				System.exit(2);
 			}
 		}
@@ -566,6 +577,10 @@ public final class Main {
 	 * @param width       explicit window width (0 means unset)
 	 * @param height      explicit window height (0 means unset)
 	 * @param arrows      UCI moves to render as arrows
+	 * @param specialArrows whether to render castling/en passant arrows
+	 * @param details     whether to render coordinate labels inside the board
+	 * @param detailsOutside whether to render coordinate labels outside the board
+	 * @param shadow      whether to render a drop shadow behind the board
 	 * @param circles     squares to highlight with circles
 	 * @param legal       squares whose legal moves should be highlighted
 	 */
@@ -581,8 +596,55 @@ public final class Main {
 			int width,
 			int height,
 			List<String> arrows,
+			boolean specialArrows,
+			boolean details,
+			boolean detailsOutside,
+			boolean shadow,
 			List<String> circles,
 			List<String> legal) {
+	}
+
+	/**
+	 * Parsed options for the {@code render} subcommand.
+	 *
+	 * @param verbose     whether to print stack traces on failure
+	 * @param fen         FEN string (may be null until resolved)
+	 * @param showBorder  whether to render the board frame
+	 * @param whiteDown   whether White is rendered at the bottom
+	 * @param showBackend whether to print evaluator backend info
+	 * @param ablation    whether to overlay per-piece inverted ablation scores
+	 * @param size        output size fallback (square, 0 means unset)
+	 * @param width       explicit output width (0 means unset)
+	 * @param height      explicit output height (0 means unset)
+	 * @param arrows      UCI moves to render as arrows
+	 * @param specialArrows whether to render castling/en passant arrows
+	 * @param details     whether to render coordinate labels inside the board
+	 * @param detailsOutside whether to render coordinate labels outside the board
+	 * @param shadow      whether to render a drop shadow behind the board
+	 * @param circles     squares to highlight with circles
+	 * @param legal       squares whose legal moves should be highlighted
+	 * @param output      output image path
+	 * @param format      image format override (png/jpg/bmp)
+	 */
+	private record RenderImageOptions(
+			boolean verbose,
+			String fen,
+			boolean showBorder,
+			boolean whiteDown,
+			boolean showBackend,
+			boolean ablation,
+			int size,
+			int width,
+			int height,
+			List<String> arrows,
+			boolean specialArrows,
+			boolean details,
+			boolean detailsOutside,
+			boolean shadow,
+			List<String> circles,
+			List<String> legal,
+			Path output,
+			String format) {
 	}
 
 	/**
@@ -599,6 +661,10 @@ public final class Main {
 	 * <li>{@code --fen "<FEN...>"} — FEN string; may also be provided
 	 * positionally.</li>
 	 * <li>{@code --arrow <uci>} — add an arrow (repeatable, UCI move format).</li>
+	 * <li>{@code --special-arrows} — show castling/en passant arrows.</li>
+	 * <li>{@code --details-inside} — show coordinate labels inside the board.</li>
+	 * <li>{@code --details-outside} — show coordinate labels outside the board.</li>
+	 * <li>{@code --shadow} — add a drop shadow behind the board.</li>
 	 * <li>{@code --circle <sq>} — add a circle highlight (repeatable, e.g.
 	 * e4).</li>
 	 * <li>{@code --legal <sq>} — highlight legal moves from a square
@@ -626,13 +692,17 @@ public final class Main {
 
 		try {
 			Position pos = new Position(opts.fen().trim());
-			Render render = createRender(pos, opts.whiteDown(), opts.showBorder());
-			applyDisplayOverlays(render, pos, opts.arrows(), opts.circles(), opts.legal());
+			Render render = createRender(pos, opts.whiteDown(), opts.showBorder(), opts.details(), opts.detailsOutside());
+			applyDisplayOverlays(render, pos, opts.arrows(), opts.circles(), opts.legal(), opts.specialArrows());
 			String backendLabel = applyDisplayEvaluatorOverlays(render, pos, opts.showBackend(), opts.ablation());
 
 			int windowWidth = resolveWindowDimension(opts.width(), opts.size(), DEFAULT_DISPLAY_WINDOW_SIZE);
 			int windowHeight = resolveWindowDimension(opts.height(), opts.size(), DEFAULT_DISPLAY_WINDOW_SIZE);
-			Display display = new Display(render.render(), windowWidth, windowHeight, opts.light());
+			BufferedImage image = render.render();
+			if (opts.shadow()) {
+				image = applyDropShadow(image);
+			}
+			Display display = new Display(image, windowWidth, windowHeight, opts.light());
 			if (backendLabel != null) {
 				display.setTitle("Backend: " + backendLabel);
 			}
@@ -679,6 +749,10 @@ public final class Main {
 		int width = a.integerOr(0, OPT_WIDTH);
 		int height = a.integerOr(0, OPT_HEIGHT);
 		List<String> arrows = a.strings(OPT_ARROW, OPT_ARROWS);
+		boolean specialArrows = a.flag(OPT_SPECIAL_ARROWS);
+		boolean details = a.flag(OPT_DETAILS_INSIDE);
+		boolean detailsOutside = a.flag(OPT_DETAILS_OUTSIDE);
+		boolean shadow = a.flag(OPT_SHADOW, OPT_DROP_SHADOW);
 		List<String> circles = a.strings(OPT_CIRCLE, OPT_CIRCLES);
 		List<String> legal = a.strings(OPT_LEGAL);
 		List<String> rest = a.positionals();
@@ -699,8 +773,172 @@ public final class Main {
 				width,
 				height,
 				arrows,
+				specialArrows,
+				details,
+				detailsOutside,
+				shadow,
 				circles,
 				legal);
+	}
+
+	/**
+	 * Used for handling the {@code render} subcommand.
+	 *
+	 * <p>
+	 * Parses a FEN and renders a board image with optional overlays, then saves
+	 * it to disk.
+	 * </p>
+	 *
+	 * <p>
+	 * Options:
+	 * <ul>
+	 * <li>{@code --fen "<FEN...>"} — FEN string; may also be provided
+	 * positionally.</li>
+	 * <li>{@code --output|-o <path>} — output image path (required).</li>
+	 * <li>{@code --format <png|jpg|bmp>} — output format override.</li>
+	 * <li>{@code --arrow <uci>} — add an arrow (repeatable, UCI move format).</li>
+	 * <li>{@code --special-arrows} — show castling/en passant arrows.</li>
+	 * <li>{@code --details-inside} — show coordinate labels inside the board.</li>
+	 * <li>{@code --details-outside} — show coordinate labels outside the board.</li>
+	 * <li>{@code --circle <sq>} — add a circle highlight (repeatable, e.g.
+	 * e4).</li>
+	 * <li>{@code --legal <sq>} — highlight legal moves from a square
+	 * (repeatable).</li>
+	 * <li>{@code --ablation} — overlay per-piece inverted ablation scores.</li>
+	 * <li>{@code --show-backend} — print which evaluator was used.</li>
+	 * <li>{@code --flip} or {@code --black-down} — render Black at the bottom.</li>
+	 * <li>{@code --no-border} — hide the board frame.</li>
+	 * <li>{@code --size <px>} — output size (square).</li>
+	 * <li>{@code --width <px>} and {@code --height <px>} — output size
+	 * override.</li>
+	 * <li>{@code --verbose} or {@code -v} — also print stack traces on errors.</li>
+	 * </ul>
+	 */
+	private static void runRenderImage(Argv a) {
+		RenderImageOptions opts = parseRenderImageOptions(a);
+
+		if (opts.fen() == null || opts.fen().isEmpty()) {
+			System.err.println("render requires a FEN (" + MSG_FEN_REQUIRED_HINT + ")");
+			System.exit(2);
+			return;
+		}
+		if (opts.output() == null) {
+			System.err.println("render requires --output|-o <path>");
+			System.exit(2);
+			return;
+		}
+
+		try {
+			Position pos = new Position(opts.fen().trim());
+			Render render = createRender(pos, opts.whiteDown(), opts.showBorder(), opts.details(), opts.detailsOutside());
+			applyDisplayOverlays(render, pos, opts.arrows(), opts.circles(), opts.legal(), opts.specialArrows());
+			applyDisplayEvaluatorOverlays(render, pos, opts.showBackend(), opts.ablation());
+
+			BufferedImage image = render.render();
+			int outWidth = resolveWindowDimension(opts.width(), opts.size(), image.getWidth());
+			int outHeight = resolveWindowDimension(opts.height(), opts.size(), image.getHeight());
+			if (outWidth <= 0 || outHeight <= 0) {
+				throw new IllegalArgumentException("render size must be positive");
+			}
+			if (outWidth != image.getWidth() || outHeight != image.getHeight()) {
+				image = scaleImage(image, outWidth, outHeight);
+			}
+
+			String format = resolveImageFormat(opts.output(), opts.format());
+			Path out = ensureImageExtension(opts.output(), format);
+			ensureParentDir(out);
+
+			if (opts.shadow()) {
+				image = applyDropShadow(image);
+			}
+
+			BufferedImage toWrite = "jpg".equals(format) ? toOpaqueImage(image, Color.WHITE) : image;
+			if (!ImageIO.write(toWrite, format, out.toFile())) {
+				throw new IOException("No ImageIO writer for format: " + format);
+			}
+			System.out.println("Saved board image: " + out.toAbsolutePath());
+		} catch (IllegalArgumentException ex) {
+			System.err.println("Error: invalid render input. " + (ex.getMessage() == null ? "" : ex.getMessage()));
+			LogService.error(ex, "render: invalid input", LOG_CTX_FEN_PREFIX + opts.fen());
+			if (opts.verbose()) {
+				ex.printStackTrace(System.err);
+			}
+			System.exit(3);
+		} catch (IOException ex) {
+			System.err.println("Error: failed to write image. " + (ex.getMessage() == null ? "" : ex.getMessage()));
+			LogService.error(ex, "render: failed to write image", LOG_CTX_FEN_PREFIX + opts.fen());
+			if (opts.verbose()) {
+				ex.printStackTrace(System.err);
+			}
+			System.exit(3);
+		} catch (Exception t) {
+			System.err.println("Error: failed to render image. " + (t.getMessage() == null ? "" : t.getMessage()));
+			LogService.error(t, "render: unexpected failure while rendering image", LOG_CTX_FEN_PREFIX + opts.fen());
+			if (opts.verbose()) {
+				t.printStackTrace(System.err);
+			}
+			System.exit(3);
+		}
+	}
+
+	/**
+	 * Parses CLI arguments for {@code render} and returns a normalized options
+	 * bundle.
+	 *
+	 * <p>
+	 * Accepts the FEN either via {@code --fen} or as remaining positionals (joined
+	 * with spaces).
+	 * </p>
+	 *
+	 * @param a argument parser positioned after the subcommand token
+	 * @return parsed render options
+	 */
+	private static RenderImageOptions parseRenderImageOptions(Argv a) {
+		boolean verbose = a.flag(OPT_VERBOSE, OPT_VERBOSE_SHORT);
+		String fen = a.string(OPT_FEN);
+		boolean showBorder = !a.flag(OPT_NO_BORDER);
+		boolean whiteDown = !a.flag(OPT_FLIP, OPT_BLACK_DOWN);
+
+		boolean showBackend = a.flag(OPT_SHOW_BACKEND, OPT_BACKEND);
+		boolean ablation = a.flag(OPT_ABLATION);
+		int size = a.integerOr(0, OPT_SIZE);
+		int width = a.integerOr(0, OPT_WIDTH);
+		int height = a.integerOr(0, OPT_HEIGHT);
+		List<String> arrows = a.strings(OPT_ARROW, OPT_ARROWS);
+		boolean specialArrows = a.flag(OPT_SPECIAL_ARROWS);
+		boolean details = a.flag(OPT_DETAILS_INSIDE);
+		boolean detailsOutside = a.flag(OPT_DETAILS_OUTSIDE);
+		boolean shadow = a.flag(OPT_SHADOW, OPT_DROP_SHADOW);
+		List<String> circles = a.strings(OPT_CIRCLE, OPT_CIRCLES);
+		List<String> legal = a.strings(OPT_LEGAL);
+		Path output = a.path(OPT_OUTPUT, OPT_OUTPUT_SHORT);
+		String format = a.string(OPT_FORMAT);
+		a.flag(OPT_DARK, OPT_DARK_MODE);
+		List<String> rest = a.positionals();
+		if (fen == null && !rest.isEmpty()) {
+			fen = String.join(" ", rest);
+		}
+
+		a.ensureConsumed();
+		return new RenderImageOptions(
+				verbose,
+				fen,
+				showBorder,
+				whiteDown,
+				showBackend,
+				ablation,
+				size,
+				width,
+				height,
+				arrows,
+				specialArrows,
+				details,
+				detailsOutside,
+				shadow,
+				circles,
+				legal,
+				output,
+				format);
 	}
 
 	/**
@@ -710,13 +948,18 @@ public final class Main {
 	 * @param pos        position to render
 	 * @param whiteDown  whether White is displayed at the bottom
 	 * @param showBorder whether to show the board frame
+	 * @param showCoordinates whether to draw coordinate labels inside the board
+	 * @param showCoordinatesOutside whether to draw coordinate labels outside the board
 	 * @return configured render instance
 	 */
-	private static Render createRender(Position pos, boolean whiteDown, boolean showBorder) {
+	private static Render createRender(Position pos, boolean whiteDown, boolean showBorder, boolean showCoordinates,
+			boolean showCoordinatesOutside) {
 		return new Render()
 				.setPosition(pos)
 				.setWhiteSideDown(whiteDown)
-				.setShowBorder(showBorder);
+				.setShowBorder(showBorder)
+				.setShowCoordinates(showCoordinates)
+				.setShowCoordinatesOutside(showCoordinatesOutside);
 	}
 
 	/**
@@ -728,13 +971,18 @@ public final class Main {
 	 * @param arrows       UCI moves to add as arrows
 	 * @param circles      squares to highlight with circles
 	 * @param legalSquares squares whose legal moves should be highlighted
+	 * @param specialArrows whether to add castling/en passant arrows
 	 */
 	private static void applyDisplayOverlays(
 			Render render,
 			Position pos,
 			List<String> arrows,
 			List<String> circles,
-			List<String> legalSquares) {
+			List<String> legalSquares,
+			boolean specialArrows) {
+		if (specialArrows) {
+			render.addCastlingRights(pos).addEnPassant(pos);
+		}
 		for (String arrow : arrows) {
 			short move = Move.parse(arrow);
 			render.addArrow(move);
@@ -798,6 +1046,137 @@ public final class Main {
 			return size;
 		}
 		return fallback;
+	}
+
+	/**
+	 * Resolves the image format from CLI overrides or output file extension.
+	 *
+	 * @param output output path used for extension lookup
+	 * @param formatOverride user-provided format override
+	 * @return normalized image format string
+	 */
+	private static String resolveImageFormat(Path output, String formatOverride) {
+		String format = normalizeImageFormat(formatOverride);
+		if (format != null) {
+			return format;
+		}
+		String ext = extensionOf(output);
+		format = normalizeImageFormat(ext);
+		if (format == null) {
+			if (ext == null || ext.isBlank()) {
+				throw new IllegalArgumentException("Missing image format (use --format png|jpg|bmp or add an extension)");
+			}
+			throw new IllegalArgumentException("Unsupported image format: " + ext);
+		}
+		return format;
+	}
+
+	/**
+	 * Normalizes a format label into a supported ImageIO format name.
+	 *
+	 * @param format format string (e.g. png, jpg, jpeg, bmp)
+	 * @return normalized format or {@code null} if unsupported
+	 */
+	private static String normalizeImageFormat(String format) {
+		if (format == null || format.isBlank()) {
+			return null;
+		}
+		String normalized = format.toLowerCase(Locale.ROOT);
+		if ("jpeg".equals(normalized)) {
+			normalized = "jpg";
+		}
+		return switch (normalized) {
+			case "png", "jpg", "bmp" -> normalized;
+			default -> null;
+		};
+	}
+
+	/**
+	 * Returns the file extension without the dot, if any.
+	 *
+	 * @param output output path to inspect
+	 * @return extension string or {@code null} if missing
+	 */
+	private static String extensionOf(Path output) {
+		if (output == null) {
+			return null;
+		}
+		String name = output.getFileName().toString();
+		int dot = name.lastIndexOf('.');
+		if (dot <= 0 || dot == name.length() - 1) {
+			return null;
+		}
+		return name.substring(dot + 1);
+	}
+
+	/**
+	 * Ensures a file path includes the expected extension for the format.
+	 *
+	 * @param output base output path
+	 * @param format target image format
+	 * @return output path with extension appended when missing
+	 */
+	private static Path ensureImageExtension(Path output, String format) {
+		if (output == null || format == null || format.isBlank()) {
+			return output;
+		}
+		String ext = extensionOf(output);
+		if (ext == null || ext.isBlank()) {
+			return output.resolveSibling(output.getFileName().toString() + "." + format);
+		}
+		return output;
+	}
+
+	/**
+	 * Scales an image to the requested dimensions using high-quality interpolation.
+	 *
+	 * @param source source image
+	 * @param width target width in pixels
+	 * @param height target height in pixels
+	 * @return scaled image
+	 */
+	private static BufferedImage scaleImage(BufferedImage source, int width, int height) {
+		BufferedImage scaled = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
+		Graphics2D g = scaled.createGraphics();
+		g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
+		g.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+		g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+		g.drawImage(source, 0, 0, width, height, null);
+		g.dispose();
+		return scaled;
+	}
+
+	/**
+	 * Converts an ARGB image into an opaque RGB image using a solid background.
+	 *
+	 * @param source source image
+	 * @param background background fill color
+	 * @return opaque image in RGB format
+	 */
+	private static BufferedImage toOpaqueImage(BufferedImage source, Color background) {
+		if (source.getType() == BufferedImage.TYPE_INT_RGB) {
+			return source;
+		}
+		BufferedImage out = new BufferedImage(source.getWidth(), source.getHeight(), BufferedImage.TYPE_INT_RGB);
+		Graphics2D g = out.createGraphics();
+		g.setPaint(background);
+		g.fillRect(0, 0, out.getWidth(), out.getHeight());
+		g.drawImage(source, 0, 0, null);
+		g.dispose();
+		return out;
+	}
+
+	/**
+	 * Adds a blurred drop shadow to an image using a size-aware blur radius.
+	 *
+	 * @param image image to wrap with a shadow
+	 * @return image with drop shadow
+	 */
+	private static BufferedImage applyDropShadow(BufferedImage image) {
+		int width = image.getWidth();
+		int blur = (int) (width * 0.05);
+		int offset = (int) (width * 0.05);
+		return Images.addDropShadow(image, blur, offset, offset, new Color(0, 0, 0, 255));
 	}
 
 	/**
@@ -2015,9 +2394,139 @@ public final class Main {
 	 * Intended for
 	 * interactive use from the command line.
 	 */
-	private static void help() {
+	private static void runHelp(Argv a) {
+		boolean full = a.flag("--full");
+		List<String> rest = a.positionals();
+		a.ensureConsumed();
+
+		if (!rest.isEmpty()) {
+			helpCommand(rest.get(0));
+			return;
+		}
+
+		if (full) {
+			helpFull();
+		} else {
+			helpSummary();
+		}
+	}
+
+	private static void helpSummary() {
 		System.out.println(
 				"""
+						usage: ucicli <command> [options]
+
+						commands:
+						  record-to-plain  Convert .record JSON to .plain
+						  record-to-csv    Convert .record JSON to CSV (no .plain output)
+						  record-to-pgn    Convert .record JSON to PGN games
+						  record-to-dataset Convert .record JSON to NPY tensors (features/labels)
+						  stack-to-dataset Convert Stack-*.json puzzle dumps to NPY tensors
+						  cuda-info        Print CUDA JNI backend status
+						  gen-fens         Generate random legal FEN shards (standard + Chess960 mix)
+						  mine             Mine chess puzzles (supports Chess960 / PGN / FEN list / random)
+						  print            Pretty-print a FEN
+						  display          Render a board image in a window
+						  render           Save a board image to disk
+						  config           Show/validate configuration
+						  stats            Summarize .record or puzzle dumps
+						  stats-tags       Summarize tag distributions
+						  tags             Generate tags for a FEN (or list)
+						  moves            List legal moves for a FEN
+						  analyze          Analyze a FEN with the engine
+						  bestmove         Print the best move for a FEN
+						  perft            Run perft on a FEN (movegen validation)
+						  pgn-to-fens      Convert PGN games to FEN lists
+						  eval             Evaluate a FEN with LC0 or classical (alias: evaluate)
+						  clean            Delete session cache/logs
+						  help             Show command help
+
+						tips:
+						  ucicli help <command>       Show help for one command
+						  ucicli help --full          Show full help output
+						""");
+	}
+
+	private static void helpFull() {
+		System.out.println(HELP_FULL_TEXT);
+	}
+
+	private static void helpCommand(String command) {
+		String marker = helpMarkerFor(command);
+		if (marker == null) {
+			System.err.println("Unknown command for help: " + command);
+			helpSummary();
+			return;
+		}
+		String section = extractHelpSection(HELP_FULL_TEXT, marker);
+		if (section == null) {
+			System.err.println("No help available for: " + command);
+			helpSummary();
+			return;
+		}
+		System.out.println("usage: ucicli " + command + " [options]\n\n" + section);
+	}
+
+	private static String helpMarkerFor(String command) {
+		return switch (command) {
+			case CMD_RECORD_TO_PLAIN -> "record-to-plain options:";
+			case CMD_RECORD_TO_CSV -> "record-to-csv options:";
+			case CMD_RECORD_TO_DATASET -> "record-to-dataset options:";
+			case CMD_RECORD_TO_PGN -> "record-to-pgn options:";
+			case CMD_STACK_TO_DATASET -> "stack-to-dataset options:";
+			case CMD_CUDA_INFO -> "cuda-info options:";
+			case CMD_GEN_FENS -> "gen-fens options:";
+			case CMD_MINE -> "mine options (overrides & inputs):";
+			case CMD_PRINT -> "print options:";
+			case CMD_DISPLAY -> "display options:";
+			case CMD_RENDER -> "render options:";
+			case CMD_CONFIG -> "config subcommands:";
+			case CMD_STATS -> "stats options:";
+			case CMD_STATS_TAGS -> "stats-tags options:";
+			case CMD_TAGS -> "tags options:";
+			case CMD_MOVES -> "moves options:";
+			case CMD_ANALYZE -> "analyze options:";
+			case CMD_BESTMOVE -> "bestmove options:";
+			case CMD_PERFT -> "perft options:";
+			case CMD_PGN_TO_FENS -> "pgn-to-fens options:";
+			case CMD_EVAL, CMD_EVALUATE -> "eval options:";
+			case CMD_CLEAN -> "clean options:";
+			case CMD_HELP, CMD_HELP_SHORT, CMD_HELP_LONG -> "help options:";
+			default -> null;
+		};
+	}
+
+	private static String extractHelpSection(String fullText, String marker) {
+		String[] lines = fullText.split("\n", -1);
+		int start = -1;
+		for (int i = 0; i < lines.length; i++) {
+			if (lines[i].trim().equals(marker)) {
+				start = i;
+				break;
+			}
+		}
+		if (start < 0) {
+			return null;
+		}
+		int end = lines.length;
+		for (int i = start + 1; i < lines.length; i++) {
+			String trimmed = lines[i].trim();
+			if ((trimmed.endsWith("options:") || trimmed.endsWith("subcommands:")) && !trimmed.equals(marker)) {
+				end = i;
+				break;
+			}
+		}
+		while (start < end && lines[start].trim().isEmpty()) {
+			start++;
+		}
+		while (end > start && lines[end - 1].trim().isEmpty()) {
+			end--;
+		}
+		return String.join("\n", Arrays.copyOfRange(lines, start, end));
+	}
+
+	private static final String HELP_FULL_TEXT =
+			"""
 						usage: ucicli <command> [options]
 
 						commands:
@@ -2031,6 +2540,7 @@ public final class Main {
 						  mine      Mine chess puzzles (supports Chess960 / PGN / FEN list / random)
 						  print     Pretty-print a FEN
 						  display   Render a board image in a window
+						  render    Save a board image to disk
 						  config    Show/validate configuration
 						  stats     Summarize .record or puzzle dumps
 						  stats-tags Summarize tag distributions
@@ -2040,8 +2550,9 @@ public final class Main {
 						  bestmove  Print the best move for a FEN
 						  perft     Run perft on a FEN (movegen validation)
 						  pgn-to-fens Convert PGN games to FEN lists
-						  eval      Evaluate a FEN with LC0 or classical
+						  eval      Evaluate a FEN with LC0 or classical (alias: evaluate)
 						  clean     Delete session cache/logs
+						  help      Show command help
 
 						record-to-plain options:
 						  --input|-i <path>          Input .record file (required)
@@ -2110,17 +2621,41 @@ public final class Main {
 
 						display options:
 						  --fen "<FEN...>"            FEN string (or supply as positional)
-						  --arrow <uci>               Add an arrow (repeatable)
-						  --circle <sq>               Add a circle (repeatable)
+						  --arrow|--arrows <uci>       Add an arrow (repeatable)
+						  --special-arrows            Show castling/en passant arrows (semi-transparent gray)
+						  --details-inside            Show coordinate labels inside the board
+						  --details-outside           Show coordinate labels outside the board
+						  --shadow|--drop-shadow       Add a drop shadow behind the board
+						  --circle|--circles <sq>      Add a circle (repeatable)
 						  --legal <sq>                Highlight legal moves from a square (repeatable)
 						  --ablation                  Overlay per-piece inverted ablation scores
-						  --show-backend              Print and display which evaluator was used
+						  --show-backend|--backend    Print and display which evaluator was used
 						  --flip|--black-down         Render Black at the bottom
 						  --no-border                 Hide the board frame
 						  --size <px>                 Window size (square)
 						  --width <px>                Window width override
 						  --height <px>               Window height override
 						  --dark|--dark-mode          Use dark display window styling
+						  --verbose|-v                Print stack trace on failure
+
+						render options:
+						  --fen "<FEN...>"            FEN string (or supply as positional)
+						  --output|-o <path>          Output image path (required)
+						  --format <png|jpg|bmp>      Image format override (optional)
+						  --arrow|--arrows <uci>       Add an arrow (repeatable)
+						  --special-arrows            Show castling/en passant arrows (semi-transparent gray)
+						  --details-inside            Show coordinate labels inside the board
+						  --details-outside           Show coordinate labels outside the board
+						  --shadow|--drop-shadow       Add a drop shadow behind the board
+						  --circle|--circles <sq>      Add a circle (repeatable)
+						  --legal <sq>                Highlight legal moves from a square (repeatable)
+						  --ablation                  Overlay per-piece inverted ablation scores
+						  --show-backend|--backend    Print which evaluator was used
+						  --flip|--black-down         Render Black at the bottom
+						  --no-border                 Hide the board frame
+						  --size <px>                 Output size (square)
+						  --width <px>                Output width override
+						  --height <px>               Output height override
 						  --verbose|-v                Print stack trace on failure
 
 						config subcommands:
@@ -2193,13 +2728,16 @@ public final class Main {
 						  --lc0                       Force LC0 evaluation
 						  --classical                 Force classical evaluation
 						  --weights <path>            LC0 weights path (optional)
-						  --terminal-aware            Use terminal-aware classical eval
+						  --terminal-aware|--terminal Use terminal-aware classical eval
 						  --verbose|-v                Print stack trace on failure
 
 						clean options:
 						  --verbose|-v                Print stack trace on failure
-						""");
-	}
+
+						help options:
+						  --full                      Show full help output
+						  <command>                   Show help for one command
+						""";
 
 	/**
 	 * Used for handling the {@code mine} subcommand.

@@ -43,6 +43,31 @@ public final class Render {
 	 * Default stroke for arrow outlines.
 	 */
 	private static final Stroke DEFAULT_ARROW_STROKE = new BasicStroke(3f);
+
+	/**
+	 * Default fill color for castling/en passant arrows (opaque gray).
+	 */
+	private static final Color DEFAULT_HINT_ARROW_FILL = new Color(120, 120, 120, 153);
+
+	/**
+	 * Default outline color for castling/en passant arrows (opaque gray).
+	 */
+	private static final Color DEFAULT_HINT_ARROW_BORDER = new Color(0, 0, 0, 0);
+
+	/**
+	 * Default arrow head height for castling/en passant arrows (in tiles).
+	 */
+	private static final double DEFAULT_HINT_ARROW_HEAD_HEIGHT = 0.3;
+
+	/**
+	 * Default start shortener for castling/en passant arrows (in tiles).
+	 */
+	private static final double DEFAULT_HINT_ARROW_START_SHORTENER = 0.25;
+
+	/**
+	 * Default end shortener for castling/en passant arrows (in tiles).
+	 */
+	private static final double DEFAULT_HINT_ARROW_END_SHORTENER = 0.25;
 	
 	/**
 	 * Default fill color for hint circles.
@@ -116,6 +141,21 @@ public final class Render {
 	private static final Color DEFAULT_SQUARE_TEXT_BLACK_PIECE_BORDER = new Color(255, 255, 255, 140);
 
 	/**
+	 * Default text color for detail overlays (Times New Roman).
+	 */
+	private static final Color DEFAULT_DETAIL_TEXT_COLOR = new Color(140, 140, 140);
+
+	/**
+	 * Default background color for detail overlays (transparent).
+	 */
+	private static final Color DEFAULT_DETAIL_TEXT_BACKGROUND = new Color(0, 0, 0, 0);
+
+	/**
+	 * Default border color for detail overlays (transparent).
+	 */
+	private static final Color DEFAULT_DETAIL_TEXT_BORDER = new Color(0, 0, 0, 0);
+
+	/**
 	 * Default stroke for per-square text overlay background borders.
 	 */
 	private static final Stroke DEFAULT_SQUARE_TEXT_STROKE = new BasicStroke(1.25f);
@@ -146,6 +186,11 @@ public final class Render {
 	private final int borderThickness = Math.max(2, tileWidth / 10);
 
 	/**
+	 * Stroke used for castling/en passant arrows, scaled to the tile size.
+	 */
+	private final Stroke hintArrowStroke = new BasicStroke(Math.max(1f, tileWidth / 40f));
+
+	/**
 	 * Position currently being rendered.
 	 */
 	private Position position = new Position(Game.STANDARD_START_FEN);
@@ -159,6 +204,16 @@ public final class Render {
 	 * Whether a frame/border should be drawn.
 	 */
 	private boolean showBorder = true;
+
+	/**
+	 * Whether to draw coordinate labels inside the board.
+	 */
+	private boolean showCoordinates = false;
+
+	/**
+	 * Whether to draw coordinate labels outside the board image.
+	 */
+	private boolean showCoordinatesOutside = false;
 
 	/** 
 	 * Overlay arrows to draw.
@@ -191,9 +246,19 @@ public final class Render {
 	private final int squareTextStartingFontSize = Math.max(9, (int) (tileHeight * 0.28));
 
 	/**
+	 * Initial font size (in pixels) used when laying out detail text.
+	 */
+	private final int detailTextStartingFontSize = Math.max(8, (int) (tileHeight * 0.22));
+
+	/**
 	 * Base font used for square text overlays (bold, sans-serif) at {@link #squareTextStartingFontSize}.
 	 */
 	private final Font squareTextBaseFont = new Font(Font.SANS_SERIF, Font.BOLD, squareTextStartingFontSize);
+
+	/**
+	 * Base font used for detail overlays (Times New Roman) at {@link #detailTextStartingFontSize}.
+	 */
+	private final Font detailTextBaseFont = new Font("Times New Roman", Font.PLAIN, detailTextStartingFontSize);
 
 	/**
 	 * Mutable style configuration used during square text rendering.
@@ -247,6 +312,28 @@ public final class Render {
 	}
 
 	/**
+	 * Toggles drawing of coordinate labels inside the board.
+	 *
+	 * @param value true to draw coordinates inside the board
+	 * @return this renderer for chaining
+	 */
+	public Render setShowCoordinates(boolean value) {
+		this.showCoordinates = value;
+		return this;
+	}
+
+	/**
+	 * Toggles drawing of coordinate labels outside the board.
+	 *
+	 * @param value true to draw coordinates outside the board
+	 * @return this renderer for chaining
+	 */
+	public Render setShowCoordinatesOutside(boolean value) {
+		this.showCoordinatesOutside = value;
+		return this;
+	}
+
+	/**
 	 * Removes all arrows.
 	 *
 	 * @return this renderer for chaining
@@ -294,7 +381,27 @@ public final class Render {
 			return this;
 		}
 		// Auto-colors: White pieces get dark text on light background; Black pieces get inverted.
-		squareTexts[idx] = new SquareText(index, text, null, null, null, DEFAULT_SQUARE_TEXT_STROKE);
+		squareTexts[idx] = new SquareText(index, text, null, null, null, DEFAULT_SQUARE_TEXT_STROKE, null);
+		return this;
+	}
+
+	/**
+	 * Sets a small centered detail overlay for a square using Times New Roman gray styling.
+	 * <p>
+	 * Passing {@code null} or blank {@code text} clears the overlay for the square.
+	 *
+	 * @param index square index (0..63)
+	 * @param text  label to draw (e.g. "a", "1")
+	 * @return this renderer for chaining
+	 */
+	public Render setSquareDetail(byte index, String text) {
+		int idx = toSquareIndex(index);
+		if (text == null || text.isBlank()) {
+			squareTexts[idx] = null;
+			return this;
+		}
+		squareTexts[idx] = new SquareText(index, text, DEFAULT_DETAIL_TEXT_COLOR, DEFAULT_DETAIL_TEXT_BACKGROUND,
+				DEFAULT_DETAIL_TEXT_BORDER, DEFAULT_SQUARE_TEXT_STROKE, detailTextBaseFont);
 		return this;
 	}
 
@@ -318,7 +425,7 @@ public final class Render {
 			squareTexts[idx] = null;
 			return this;
 		}
-		squareTexts[idx] = new SquareText(index, text, textColor, background, border, borderStroke);
+		squareTexts[idx] = new SquareText(index, text, textColor, background, border, borderStroke, null);
 		return this;
 	}
 
@@ -401,18 +508,95 @@ public final class Render {
 	}
 
 	/**
+	 * Adds an opaque gray arrow indicating the last pawn move that enables en passant.
+	 *
+	 * @param pos position containing the en passant target
+	 * @return this renderer for chaining
+	 */
+	public Render addEnPassant(Position pos) {
+		if (pos == null) {
+			return this;
+		}
+		byte enPassant = pos.getEnPassant();
+		if (enPassant == Field.NO_SQUARE) {
+			return this;
+		}
+		if (Field.isOn6thRank(enPassant)) {
+			byte from = (byte) (enPassant - 8);
+			byte to = (byte) (enPassant + 8);
+			addArrow(Move.of(from, to), DEFAULT_HINT_ARROW_BORDER, DEFAULT_HINT_ARROW_FILL, hintArrowStroke,
+					DEFAULT_HINT_ARROW_START_SHORTENER, DEFAULT_HINT_ARROW_END_SHORTENER, DEFAULT_HINT_ARROW_HEAD_HEIGHT);
+			return this;
+		}
+		if (Field.isOn3rdRank(enPassant)) {
+			byte from = (byte) (enPassant + 8);
+			byte to = (byte) (enPassant - 8);
+			addArrow(Move.of(from, to), DEFAULT_HINT_ARROW_BORDER, DEFAULT_HINT_ARROW_FILL, hintArrowStroke,
+					DEFAULT_HINT_ARROW_START_SHORTENER, DEFAULT_HINT_ARROW_END_SHORTENER, DEFAULT_HINT_ARROW_HEAD_HEIGHT);
+		}
+		return this;
+	}
+
+	/**
+	 * Adds opaque gray arrows indicating castling rights for both sides.
+	 *
+	 * @param pos position containing castling rights
+	 * @return this renderer for chaining
+	 */
+	public Render addCastlingRights(Position pos) {
+		if (pos == null) {
+			return this;
+		}
+		byte whiteKing = pos.getWhiteKing();
+		byte blackKing = pos.getBlackKing();
+		if (whiteKing != Field.NO_SQUARE) {
+			byte whiteKingside = pos.getWhiteKingside();
+			if (whiteKingside != Field.NO_SQUARE) {
+				addArrow(Move.of(whiteKing, whiteKingside), DEFAULT_HINT_ARROW_BORDER, DEFAULT_HINT_ARROW_FILL,
+						hintArrowStroke, DEFAULT_HINT_ARROW_START_SHORTENER, DEFAULT_HINT_ARROW_END_SHORTENER,
+						DEFAULT_HINT_ARROW_HEAD_HEIGHT);
+			}
+			byte whiteQueenside = pos.getWhiteQueenside();
+			if (whiteQueenside != Field.NO_SQUARE) {
+				addArrow(Move.of(whiteKing, whiteQueenside), DEFAULT_HINT_ARROW_BORDER, DEFAULT_HINT_ARROW_FILL,
+						hintArrowStroke, DEFAULT_HINT_ARROW_START_SHORTENER, DEFAULT_HINT_ARROW_END_SHORTENER,
+						DEFAULT_HINT_ARROW_HEAD_HEIGHT);
+			}
+		}
+		if (blackKing != Field.NO_SQUARE) {
+			byte blackKingside = pos.getBlackKingside();
+			if (blackKingside != Field.NO_SQUARE) {
+				addArrow(Move.of(blackKing, blackKingside), DEFAULT_HINT_ARROW_BORDER, DEFAULT_HINT_ARROW_FILL,
+						hintArrowStroke, DEFAULT_HINT_ARROW_START_SHORTENER, DEFAULT_HINT_ARROW_END_SHORTENER,
+						DEFAULT_HINT_ARROW_HEAD_HEIGHT);
+			}
+			byte blackQueenside = pos.getBlackQueenside();
+			if (blackQueenside != Field.NO_SQUARE) {
+				addArrow(Move.of(blackKing, blackQueenside), DEFAULT_HINT_ARROW_BORDER, DEFAULT_HINT_ARROW_FILL,
+						hintArrowStroke, DEFAULT_HINT_ARROW_START_SHORTENER, DEFAULT_HINT_ARROW_END_SHORTENER,
+						DEFAULT_HINT_ARROW_HEAD_HEIGHT);
+			}
+		}
+		return this;
+	}
+
+	/**
 	 * Renders the configured position with overlays into a new image.
 	 *
 	 * @return rendered board image
 	 */
 	public BufferedImage render() {
+		int coordinatePadding = showCoordinatesOutside ? coordinatePadding() : 0;
+		boolean outside = showCoordinatesOutside;
+		int borderPadding = (!outside && showBorder) ? borderThickness * 2 : 0;
 		BufferedImage img = new BufferedImage(
-				boardWidth + (showBorder ? borderThickness * 2 : 0),
-				boardHeight + (showBorder ? borderThickness * 2 : 0),
+				boardWidth + borderPadding + coordinatePadding * 2,
+				boardHeight + borderPadding + coordinatePadding * 2,
 				BufferedImage.TYPE_INT_ARGB);
 
-		int boardX = showBorder ? borderThickness : 0;
-		int boardY = showBorder ? borderThickness : 0;
+		int offset = showBorder ? borderThickness : 0;
+		int boardX = outside ? coordinatePadding : offset;
+		int boardY = outside ? coordinatePadding : offset;
 
 		Graphics2D g = img.createGraphics();
 		g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
@@ -420,7 +604,15 @@ public final class Render {
 
 		if (showBorder) {
 			g.setPaint(DEFAULT_FRAME);
-			g.fillRect(0, 0, img.getWidth(), img.getHeight());
+			if (showCoordinatesOutside) {
+				int frameX = boardX - borderThickness;
+				int frameY = boardY - borderThickness;
+				int frameW = boardWidth + borderThickness * 2;
+				int frameH = boardHeight + borderThickness * 2;
+				g.fillRect(frameX, frameY, frameW, frameH);
+			} else {
+				g.fillRect(0, 0, img.getWidth(), img.getHeight());
+			}
 		}
 
 		g.drawImage(Pictures.Board, boardX, boardY, null);
@@ -428,6 +620,7 @@ public final class Render {
 		drawCircles(g, boardX, boardY);
 		drawArrows(g, boardX, boardY);
 		drawSquareTexts(g, boardX, boardY);
+		drawCoordinates(g, boardX, boardY);
 
 		g.dispose();
 		return img;
@@ -532,8 +725,147 @@ public final class Render {
 
 		resolveSquareTextStyle(label, piece, style);
 		tileOrigin(label.index, boardX, boardY, tile);
-		fitSquareTextFont(g, text, layout);
+		fitSquareTextFont(g, text, label.baseFont, layout);
 		drawSquareTextBoxAndText(g, text, tile.x, tile.y, style, layout);
+	}
+
+	/**
+	 * Draws rank/file coordinate labels either in the border gutter or inside edge squares.
+	 *
+	 * @param g      graphics context
+	 * @param boardX board origin x
+	 * @param boardY board origin y
+	 */
+	private void drawCoordinates(Graphics2D g, int boardX, int boardY) {
+		if (!showCoordinates && !showCoordinatesOutside) {
+			return;
+		}
+
+		int gutter = showBorder ? borderThickness : 0;
+		int fontSize = Math.max(10, (int) Math.round(tileHeight * 0.22));
+		boolean useGutter = gutter >= fontSize + 4;
+
+		Font previousFont = g.getFont();
+		Object prevTextAA = g.getRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING);
+		g.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+
+		if (showCoordinatesOutside) {
+			fontSize = Math.max(10, (int) Math.round(tileHeight * 0.30));
+		}
+
+		int fontStyle = showCoordinatesOutside ? Font.BOLD : Font.PLAIN;
+		Font font = new Font("Times New Roman", fontStyle, fontSize);
+		g.setFont(font);
+		FontMetrics fm = g.getFontMetrics();
+		Color detailColor = showCoordinatesOutside ? DEFAULT_FRAME : DEFAULT_DETAIL_TEXT_COLOR;
+		g.setPaint(detailColor);
+
+		if (showCoordinatesOutside) {
+			drawOutsideCoordinates(g, fm, boardX, boardY);
+		} else if (useGutter) {
+			drawCoordinateGutters(g, fm, boardX, boardY, gutter);
+		} else {
+			drawInlineCoordinates(g, fm, boardX, boardY);
+		}
+
+		g.setFont(previousFont);
+		g.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, prevTextAA);
+	}
+
+	private void drawCoordinateGutters(Graphics2D g, FontMetrics fm, int boardX, int boardY, int gutter) {
+		int topY = boardY - gutter;
+		int bottomY = boardY + boardHeight;
+		int yTop = topY + (gutter - fm.getHeight()) / 2 + fm.getAscent();
+		int yBottom = bottomY + (gutter - fm.getHeight()) / 2 + fm.getAscent();
+
+		for (int file = 0; file < 8; file++) {
+			char fileChar = whiteSideDown ? (char) ('a' + file) : (char) ('h' - file);
+			String s = String.valueOf(fileChar);
+			int cx = boardX + file * tileWidth + tileWidth / 2;
+			int x = cx - fm.stringWidth(s) / 2;
+			g.drawString(s, x, yTop);
+			g.drawString(s, x, yBottom);
+		}
+
+		for (int rank = 0; rank < 8; rank++) {
+			int label = whiteSideDown ? 8 - rank : 1 + rank;
+			String s = String.valueOf(label);
+			int cy = boardY + rank * tileHeight + tileHeight / 2;
+			int y = cy + fm.getAscent() / 2 - 1;
+
+			int leftX = boardX - gutter;
+			int rightX = boardX + boardWidth;
+			int xLeft = leftX + (gutter - fm.stringWidth(s)) / 2;
+			int xRight = rightX + (gutter - fm.stringWidth(s)) / 2;
+			g.drawString(s, xLeft, y);
+			g.drawString(s, xRight, y);
+		}
+	}
+
+	private void drawInlineCoordinates(Graphics2D g, FontMetrics fm, int boardX, int boardY) {
+		int pad = Math.max(2, fm.getAscent() / 5);
+		int bottomRow = 7;
+
+		for (int file = 0; file < 8; file++) {
+			char fileChar = whiteSideDown ? (char) ('a' + file) : (char) ('h' - file);
+			String s = String.valueOf(fileChar);
+			int x = boardX + file * tileWidth + tileWidth - pad - fm.stringWidth(s);
+			int y = boardY + bottomRow * tileHeight + tileHeight - pad - fm.getDescent();
+			g.drawString(s, x, y);
+		}
+
+		for (int rank = 0; rank < 8; rank++) {
+			int label = whiteSideDown ? 8 - rank : 1 + rank;
+			String s = String.valueOf(label);
+			int x = boardX + pad;
+			int y = boardY + rank * tileHeight + pad + fm.getAscent();
+			g.drawString(s, x, y);
+		}
+	}
+
+	private void drawOutsideCoordinates(Graphics2D g, FontMetrics fm, int boardX, int boardY) {
+		double halfFont = g.getFont().getSize() / 2.0;
+		int halfTileW = tileWidth / 2;
+		int halfTileH = tileHeight / 2;
+
+		if (whiteSideDown) {
+			for (int i = 0; i < 8; i++) {
+				String s = Integer.toString(i + 1);
+				int y = (int) (boardY + tileHeight * (7 - i) + halfFont + halfTileH);
+				g.drawString(s,
+						(int) (boardWidth + boardX + halfTileW - (fm.stringWidth(s) / 2.0)),
+						y);
+				g.drawString(s,
+						(int) (boardX - halfTileW - (fm.stringWidth(s) / 2.0)),
+						y);
+
+				s = Character.toString((char) ('a' + i));
+				int x = (int) (boardX + (tileWidth * i) + halfTileW - (fm.stringWidth(s) / 2.0));
+				g.drawString(s, x, (int) (boardHeight + boardY + halfFont + halfTileH));
+				g.drawString(s, x, (int) (boardY + halfFont - halfTileH));
+			}
+			return;
+		}
+
+		for (int i = 0; i < 8; i++) {
+			String s = Integer.toString(i + 1);
+			int y = (int) (boardY + tileHeight * i + halfFont + halfTileH);
+			g.drawString(s,
+					(int) (boardWidth + boardX + halfTileW - (fm.stringWidth(s) / 2.0)),
+					y);
+			g.drawString(s,
+					(int) (boardX - halfTileW - (fm.stringWidth(s) / 2.0)),
+					y);
+
+			s = Character.toString((char) ('a' + i));
+			int x = (int) (boardX + (tileWidth * (7 - i)) + halfTileW - (fm.stringWidth(s) / 2.0));
+			g.drawString(s, x, (int) (boardHeight + boardY + halfFont + halfTileH));
+			g.drawString(s, x, (int) (boardY + halfFont - halfTileH));
+		}
+	}
+
+	private int coordinatePadding() {
+		return Math.max(16, tileWidth);
 	}
 
 	private void resolveSquareTextStyle(SquareText label, byte piece, SquareTextStyle out) {
@@ -566,9 +898,9 @@ public final class Render {
 		out.y = boardY + y * tileHeight;
 	}
 
-	private void fitSquareTextFont(Graphics2D g, String text, TextLayout out) {
-		int fontSize = squareTextStartingFontSize;
-		Font font = squareTextBaseFont;
+	private void fitSquareTextFont(Graphics2D g, String text, Font baseFont, TextLayout out) {
+		Font font = baseFont != null ? baseFont : squareTextBaseFont;
+		int fontSize = font.getSize();
 		FontMetrics fm = g.getFontMetrics(font);
 		int textWidth = fm.stringWidth(text);
 		int textHeight = fm.getAscent() + fm.getDescent();
@@ -673,9 +1005,10 @@ public final class Render {
 	 * @param background   background fill color
 	 * @param border       border color
 	 * @param borderStroke border stroke
+	 * @param baseFont     optional base font override
 	 */
 	private record SquareText(byte index, String text, Color textColor, Color background, Color border,
-			Stroke borderStroke) {
+			Stroke borderStroke, Font baseFont) {
 	}
 
 	private static final class SquareTextStyle {

@@ -75,6 +75,7 @@ Outputs:
 - `record-to-dataset`, `stack-to-dataset`: export NumPy tensors for training (features `(N, 781)`)
 - `print`: pretty-print a FEN as ASCII
 - `display`: open a small GUI board view (overlays + optional ablation)
+- `render`: save a board image to disk (PNG/JPG/BMP)
 - `analyze`, `bestmove`: analyze a FEN and extract the best move
 - `moves`, `tags`: list legal moves or tags for a FEN
 - `stats`, `stats-tags`: summarize dumps or tag distributions
