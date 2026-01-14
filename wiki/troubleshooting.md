@@ -20,5 +20,5 @@
 ## `display --ablation` is slow or uses the classical backend
 
 - The evaluator tries to load `models/lc0_744706.bin` and falls back to a classical heuristic when LC0 is unavailable.
-- If you want CUDA acceleration, build `native-cuda/` and run with `-Djava.library.path=...`.
+- If you want CUDA acceleration, build `native/cuda/` and run with `-Djava.library.path=...`.
 

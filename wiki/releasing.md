@@ -1,6 +1,6 @@
 # Releasing `ucicli`
 
-This repo is intentionally build-tool light: the CLI is a runnable Java 17 jar, and the optional CUDA backend is a small JNI library under `native-cuda/`.
+This repo is intentionally build-tool light: the CLI is a runnable Java 17 jar, and the optional CUDA backend is a small JNI library under `native/cuda/`.
 
 ## Linux (x86_64) + CUDA release artifact
 

@@ -25,6 +25,16 @@ public enum Backend {
     LC0_CUDA,
 
     /**
+     * LC0 network evaluated the position on the ROCm backend.
+     */
+    LC0_ROCM,
+
+    /**
+     * LC0 network evaluated the position on the oneAPI backend.
+     */
+    LC0_ONEAPI,
+
+    /**
      * Classical heuristic evaluation was used (no neural network involved).
      */
     CLASSICAL

@@ -27,16 +27,17 @@ import chess.lc0.cuda.Backend;
  * This class can run inference using either:
  * <ul>
  * <li>a pure-Java CPU backend</li>
- * <li>an optional CUDA backend via JNI ({@link Backend})</li>
+ * <li>optional GPU backends via JNI (CUDA/ROCm/oneAPI)</li>
  * </ul>
  *
  * <h2>Backend selection</h2>
  * <ul>
- * <li>{@code -Ducicli.lc0.backend=auto} (default): use CUDA if available and
- * initialization succeeds, else CPU</li>
+ * <li>{@code -Ducicli.lc0.backend=auto} (default): use the first available GPU backend
+ * (CUDA, then ROCm, then oneAPI) that initializes successfully, else CPU</li>
  * <li>{@code -Ducicli.lc0.backend=cpu}: force CPU</li>
- * <li>{@code -Ducicli.lc0.backend=cuda}: force CUDA (throws if init
- * fails/unavailable)</li>
+ * <li>{@code -Ducicli.lc0.backend=cuda}: force CUDA (throws if init fails/unavailable)</li>
+ * <li>{@code -Ducicli.lc0.backend=rocm|amd|hip}: force ROCm (AMD)</li>
+ * <li>{@code -Ducicli.lc0.backend=oneapi|intel}: force oneAPI (Intel)</li>
  * </ul>
  *
  * <p>
@@ -70,21 +71,33 @@ import chess.lc0.cuda.Backend;
 public final class Network implements AutoCloseable {
 
     /**
-     * CPU backend weights (null when CUDA backend is active).
+     * CPU backend weights (null when a GPU backend is active).
      */
     private final Weights weights; // CPU backend (when non-null)
 
     /**
-     * CUDA backend instance (null when falling back to CPU).
+     * CUDA backend instance (null when inactive).
      */
     private final Backend cuda; // CUDA backend (when non-null)
 
     /**
+     * ROCm backend instance (null when inactive).
+     */
+    private final chess.lc0.rocm.Backend rocm; // ROCm backend (when non-null)
+
+    /**
+     * oneAPI backend instance (null when inactive).
+     */
+    private final chess.lc0.oneapi.Backend oneapi; // oneAPI backend (when non-null)
+
+    /**
      * Internal constructor selecting the active backend.
      */
-    private Network(Weights weights, Backend cuda) {
+    private Network(Weights weights, Backend cuda, chess.lc0.rocm.Backend rocm, chess.lc0.oneapi.Backend oneapi) {
         this.weights = weights;
         this.cuda = cuda;
+        this.rocm = rocm;
+        this.oneapi = oneapi;
     }
 
     /**
@@ -92,25 +105,41 @@ public final class Network implements AutoCloseable {
      *
      * <p>
      * Depending on {@code -Ducicli.lc0.backend} (or legacy {@code lc0j.backend})
-     * and CUDA availability,
-     * this will load either the CPU or CUDA backend.
+     * and GPU availability, this will load either the CPU or a GPU backend.
      *
      * @param path path to an LC0J binary weights file (magic {@code LC0J})
      * @return network evaluator
-     * @throws IOException if the weights cannot be read/parsed, or if CUDA is
-     *                     forced and initialization fails
+     * @throws IOException if the weights cannot be read/parsed, or if a forced
+     *                     GPU backend fails to initialize
      */
     public static Network load(Path path) throws IOException {
         String backend = System.getProperty("ucicli.lc0.backend", System.getProperty("lc0j.backend", "auto"))
                 .trim()
                 .toLowerCase();
         boolean preferCuda = backend.equals("auto") || backend.equals("cuda");
+        boolean preferRocm = backend.equals("auto") || backend.equals("rocm") || backend.equals("amd") || backend.equals("hip");
+        boolean preferOneapi = backend.equals("auto") || backend.equals("oneapi") || backend.equals("intel");
         boolean forceCuda = backend.equals("cuda");
+        boolean forceRocm = backend.equals("rocm") || backend.equals("amd") || backend.equals("hip");
+        boolean forceOneapi = backend.equals("oneapi") || backend.equals("intel");
+
         boolean cudaAvailable = Backend.isAvailable();
+        boolean rocmAvailable = chess.lc0.rocm.Backend.isAvailable();
+        boolean oneapiAvailable = chess.lc0.oneapi.Backend.isAvailable();
+
         if (forceCuda && !cudaAvailable) {
             throw new IOException(
                     "CUDA backend requested but unavailable (JNI library not loaded and/or no CUDA device).");
         }
+        if (forceRocm && !rocmAvailable) {
+            throw new IOException(
+                    "ROCm backend requested but unavailable (JNI library not loaded and/or no ROCm device).");
+        }
+        if (forceOneapi && !oneapiAvailable) {
+            throw new IOException(
+                    "oneAPI backend requested but unavailable (JNI library not loaded and/or no Intel GPU device).");
+        }
+
         if (preferCuda && cudaAvailable) {
             try {
                 return loadCuda(path);
@@ -120,7 +149,25 @@ public final class Network implements AutoCloseable {
                 }
             }
         }
-        return new Network(Weights.load(path), null);
+        if (preferRocm && rocmAvailable) {
+            try {
+                return loadRocm(path);
+            } catch (RuntimeException e) {
+                if (forceRocm) {
+                    throw new IOException("ROCm backend requested but failed to initialize.", e);
+                }
+            }
+        }
+        if (preferOneapi && oneapiAvailable) {
+            try {
+                return loadOneapi(path);
+            } catch (RuntimeException e) {
+                if (forceOneapi) {
+                    throw new IOException("oneAPI backend requested but failed to initialize.", e);
+                }
+            }
+        }
+        return new Network(Weights.load(path), null, null, null);
     }
 
     /**
@@ -132,7 +179,37 @@ public final class Network implements AutoCloseable {
      */
     private static Network loadCuda(Path path) {
         try (CudaBackendHolder holder = new CudaBackendHolder(Backend.create(path))) {
-            Network network = new Network(null, holder.backend);
+            Network network = new Network(null, holder.backend, null, null);
+            holder.detach();
+            return network;
+        }
+    }
+
+    /**
+     * Loads a network using the ROCm backend.
+     * Returns an initialized instance when ROCm setup succeeds.
+     *
+     * @param path path to the weights file
+     * @return ROCm-backed network instance
+     */
+    private static Network loadRocm(Path path) {
+        try (RocmBackendHolder holder = new RocmBackendHolder(chess.lc0.rocm.Backend.create(path))) {
+            Network network = new Network(null, null, holder.backend, null);
+            holder.detach();
+            return network;
+        }
+    }
+
+    /**
+     * Loads a network using the oneAPI backend.
+     * Returns an initialized instance when oneAPI setup succeeds.
+     *
+     * @param path path to the weights file
+     * @return oneAPI-backed network instance
+     */
+    private static Network loadOneapi(Path path) {
+        try (OneapiBackendHolder holder = new OneapiBackendHolder(chess.lc0.oneapi.Backend.create(path))) {
+            Network network = new Network(null, null, null, holder.backend);
             holder.detach();
             return network;
         }
@@ -179,12 +256,67 @@ public final class Network implements AutoCloseable {
     }
 
     /**
+     * Helper that owns a ROCm backend until detached or closed.
+     * Ensures the backend is closed on error paths.
+     */
+    private static final class RocmBackendHolder implements AutoCloseable {
+        private chess.lc0.rocm.Backend backend;
+
+        private RocmBackendHolder(chess.lc0.rocm.Backend backend) {
+            this.backend = backend;
+        }
+
+        private void detach() {
+            backend = null;
+        }
+
+        @Override
+        public void close() {
+            if (backend != null) {
+                backend.close();
+            }
+        }
+    }
+
+    /**
+     * Helper that owns a oneAPI backend until detached or closed.
+     * Ensures the backend is closed on error paths.
+     */
+    private static final class OneapiBackendHolder implements AutoCloseable {
+        private chess.lc0.oneapi.Backend backend;
+
+        private OneapiBackendHolder(chess.lc0.oneapi.Backend backend) {
+            this.backend = backend;
+        }
+
+        private void detach() {
+            backend = null;
+        }
+
+        @Override
+        public void close() {
+            if (backend != null) {
+                backend.close();
+            }
+        }
+    }
+
+    /**
      * Returns the active backend for this instance.
      *
-     * @return {@code "cpu"} or {@code "cuda"}
+     * @return {@code "cpu"}, {@code "cuda"}, {@code "rocm"}, or {@code "oneapi"}
      */
     public String backend() {
-        return (cuda != null) ? "cuda" : "cpu";
+        if (cuda != null) {
+            return "cuda";
+        }
+        if (rocm != null) {
+            return "rocm";
+        }
+        if (oneapi != null) {
+            return "oneapi";
+        }
+        return "cpu";
     }
 
     /**
@@ -195,6 +327,12 @@ public final class Network implements AutoCloseable {
     public Info info() {
         if (cuda != null) {
             return cuda.info();
+        }
+        if (rocm != null) {
+            return rocm.info();
+        }
+        if (oneapi != null) {
+            return oneapi.info();
         }
         return new Info(
                 weights.inputChannels,
@@ -211,15 +349,15 @@ public final class Network implements AutoCloseable {
      * side-to-move flag.
      *
      * <p>
-     * This is only supported for the CPU backend (the CUDA backend does not
+     * This is only supported for the CPU backend (GPU backends do not
      * currently expose this hook).
      *
      * @param encodedPlanes encoded LC0 planes (length {@code inputChannels * 64})
      * @return raw value-head output and side-to-move information
      */
     public DebugValue debugValue(float[] encodedPlanes) {
-        if (cuda != null) {
-            throw new UnsupportedOperationException("debugValue() not supported for CUDA backend.");
+        if (cuda != null || rocm != null || oneapi != null) {
+            throw new UnsupportedOperationException("debugValue() not supported for GPU backends.");
         }
         if (encodedPlanes.length != weights.inputChannels * 64) {
             throw new IllegalArgumentException("Encoded input must be " + (weights.inputChannels * 64) + " floats.");
@@ -237,6 +375,12 @@ public final class Network implements AutoCloseable {
         if (cuda != null) {
             return cuda.predictEncoded(encodedPlanes);
         }
+        if (rocm != null) {
+            return rocm.predictEncoded(encodedPlanes);
+        }
+        if (oneapi != null) {
+            return oneapi.predictEncoded(encodedPlanes);
+        }
         if (encodedPlanes.length != weights.inputChannels * 64) {
             throw new IllegalArgumentException("Encoded input must be " + (weights.inputChannels * 64) + " floats.");
         }
@@ -247,14 +391,21 @@ public final class Network implements AutoCloseable {
      * Releases backend resources.
      *
      * <p>
-     * CPU backend has no native resources. CUDA backend must be closed to free
+     * CPU backend has no native resources. GPU backends must be closed to free
      * device memory.
      */
     @Override
     public void close() {
         if (cuda != null) {
             cuda.close();
-        } else {
+        }
+        if (rocm != null) {
+            rocm.close();
+        }
+        if (oneapi != null) {
+            oneapi.close();
+        }
+        if (cuda == null && rocm == null && oneapi == null) {
             Evaluator.clearThreadLocal();
         }
     }

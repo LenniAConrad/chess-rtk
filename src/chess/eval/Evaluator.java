@@ -22,7 +22,7 @@ import java.util.concurrent.locks.StampedLock;
  * </p>
  *
  * <p>
- * Implementations may hold native resources (e.g., CUDA memory) and therefore
+ * Implementations may hold native resources (e.g., GPU memory) and therefore
  * implement {@link AutoCloseable}.
  * </p>
  *
@@ -70,15 +70,15 @@ public final class Evaluator implements AutoCloseable {
     private final AtomicReference<Model> model = new AtomicReference<>();
 
     /**
-     * Whether the currently loaded LC0 model is using the CUDA backend.
+     * Whether the currently loaded LC0 model is using a GPU backend.
      *
      * <p>
-     * CUDA inference is routed through a JNI bridge and is treated as a single shared native
-     * resource. To avoid backend-specific threading hazards, CUDA predictions are serialized by
+     * GPU inference is routed through JNI and is treated as a single shared native
+     * resource. To avoid backend-specific threading hazards, GPU predictions are serialized by
      * taking the write lock in {@link #tryPredictLc0(Position)}.
      * </p>
      */
-    private volatile boolean cudaActive;
+    private volatile boolean gpuActive;
 
     /**
      * Set to true once LC0 is considered unusable; from then on we never attempt
@@ -332,7 +332,7 @@ public final class Evaluator implements AutoCloseable {
             if (m != null) {
                 m.close();
             }
-            cudaActive = false;
+            gpuActive = false;
         } finally {
             modelLock.unlockWrite(stamp);
         }
@@ -361,14 +361,14 @@ public final class Evaluator implements AutoCloseable {
                 if (m == null) {
                     m = Model.load(weights);
                     model.set(m);
-                    cudaActive = "cuda".equalsIgnoreCase(m.backend());
+                    gpuActive = !"cpu".equalsIgnoreCase(m.backend());
                 }
             } finally {
                 modelLock.unlockWrite(writeStamp);
             }
         }
 
-        final boolean exclusive = cudaActive;
+        final boolean exclusive = gpuActive;
         long stamp = exclusive ? modelLock.writeLock() : modelLock.readLock();
         try {
             if (lc0Disabled) {
@@ -459,6 +459,10 @@ public final class Evaluator implements AutoCloseable {
         String msg;
         if (backend == Backend.LC0_CUDA) {
             msg = "Evaluator backend: LC0 (cuda), weights=" + weights;
+        } else if (backend == Backend.LC0_ROCM) {
+            msg = "Evaluator backend: LC0 (rocm), weights=" + weights;
+        } else if (backend == Backend.LC0_ONEAPI) {
+            msg = "Evaluator backend: LC0 (oneapi), weights=" + weights;
         } else if (backend == Backend.LC0_CPU) {
             msg = "Evaluator backend: LC0 (cpu), weights=" + weights;
         } else {
@@ -536,6 +540,12 @@ public final class Evaluator implements AutoCloseable {
         }
         if ("cuda".equalsIgnoreCase(backend)) {
             return Backend.LC0_CUDA;
+        }
+        if ("rocm".equalsIgnoreCase(backend) || "amd".equalsIgnoreCase(backend) || "hip".equalsIgnoreCase(backend)) {
+            return Backend.LC0_ROCM;
+        }
+        if ("oneapi".equalsIgnoreCase(backend) || "intel".equalsIgnoreCase(backend)) {
+            return Backend.LC0_ONEAPI;
         }
         return Backend.LC0_CPU;
     }

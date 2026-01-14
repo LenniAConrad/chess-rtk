@@ -315,13 +315,14 @@ public final class Main {
 	}
 
 	/**
-	 * Prints whether the optional CUDA JNI backend is available and how many
+	 * Prints whether the optional GPU JNI backends are available and how many
 	 * devices are visible.
 	 *
 	 * <p>
 	 * This is a lightweight diagnostic command that does not require a GUI.
-	 * If you built the native library under {@code native-cuda/}, run with:
-	 * {@code -Djava.library.path=native-cuda/build}.
+	 * If you built the native library under {@code native/cuda/} (or
+	 * {@code native/rocm/}, {@code native/oneapi/}), run with:
+	 * {@code -Djava.library.path=native/cuda/build:native/rocm/build:native/oneapi/build}.
 	 * </p>
 	 */
 	private static void runCudaInfo(Argv a) {
@@ -335,6 +336,24 @@ public final class Main {
 				loaded ? "yes" : "no",
 				available ? "yes" : "no",
 				count);
+
+		boolean rocmLoaded = chess.lc0.rocm.Support.isLoaded();
+		int rocmCount = chess.lc0.rocm.Support.deviceCount();
+		boolean rocmAvailable = chess.lc0.rocm.Support.isAvailable();
+		System.out.printf(
+				"ROCm JNI backend: loaded=%s, available=%s (deviceCount=%d)%n",
+				rocmLoaded ? "yes" : "no",
+				rocmAvailable ? "yes" : "no",
+				rocmCount);
+
+		boolean oneapiLoaded = chess.lc0.oneapi.Support.isLoaded();
+		int oneapiCount = chess.lc0.oneapi.Support.deviceCount();
+		boolean oneapiAvailable = chess.lc0.oneapi.Support.isAvailable();
+		System.out.printf(
+				"oneAPI JNI backend: loaded=%s, available=%s (deviceCount=%d)%n",
+				oneapiLoaded ? "yes" : "no",
+				oneapiAvailable ? "yes" : "no",
+				oneapiCount);
 	}
 
 	/**
@@ -1262,6 +1281,7 @@ public final class Main {
 	 * @param pos    position to evaluate
 	 */
 	private static void applyAblationOverlay(Render render, Position pos, Evaluator evaluator) {
+		render.setPieceScaleAndOffset(0.70, -0.15);
 		int[][] matrix = evaluator.ablation(pos);
 		byte[] board = pos.getBoard();
 		double[] scales = ablationMaterialScales(matrix, board);
@@ -1277,7 +1297,7 @@ public final class Main {
 			int type = Math.abs(piece);
 			double scaled = delta * scales[type];
 			int signed = (int) Math.round(Piece.isWhite(piece) ? scaled : -scaled);
-			render.setSquareText((byte) index, formatSigned(signed));
+			render.setSquareTextBottom((byte) index, formatSigned(signed));
 		}
 	}
 
@@ -2522,7 +2542,7 @@ public final class Main {
 						  record-to-pgn     Convert .record JSON to PGN games
 						  record-to-dataset Convert .record JSON to NPY tensors (features/labels)
 						  stack-to-dataset  Convert Stack-*.json puzzle dumps to NPY tensors
-						  cuda-info         Print CUDA JNI backend status
+						  cuda-info         Print GPU JNI backend status
 						  gen-fens          Generate random legal FEN shards (standard + Chess960 mix)
 						  mine              Mine chess puzzles (supports Chess960 / PGN / FEN list / random)
 						  print             Pretty-print a FEN
@@ -2664,7 +2684,7 @@ public final class Main {
 						  record-to-pgn  Convert .record JSON to PGN games
 						  record-to-dataset Convert .record JSON to NPY tensors (features/labels)
 						  stack-to-dataset Convert Stack-*.json puzzle dumps to NPY tensors
-						  cuda-info Print CUDA JNI backend status
+						  cuda-info Print GPU JNI backend status
 						  gen-fens  Generate random legal FEN shards (standard + Chess960 mix)
 						  mine      Mine chess puzzles (supports Chess960 / PGN / FEN list / random)
 						  print     Pretty-print a FEN

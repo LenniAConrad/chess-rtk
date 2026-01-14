@@ -1,4 +1,4 @@
-# `native-cuda`: optional CUDA backend (JNI)
+# `native/cuda`: optional CUDA backend (JNI)
 
 This directory contains an optional native shared library (`lc0j_cuda`) used by the Java LC0 evaluator under `src/chess/lc0/`.
 
@@ -25,21 +25,21 @@ Prerequisites:
 ### Linux (single-config generators)
 
 ```bash
-cmake -S native-cuda -B native-cuda/build -DCMAKE_BUILD_TYPE=Release
-cmake --build native-cuda/build -j
+cmake -S native/cuda -B native/cuda/build -DCMAKE_BUILD_TYPE=Release
+cmake --build native/cuda/build -j
 ```
 
 Output:
-- Linux: `native-cuda/build/liblc0j_cuda.so`
-- Windows: `native-cuda/build/Release/lc0j_cuda.dll` (typical)
+- Linux: `native/cuda/build/liblc0j_cuda.so`
+- Windows: `native/cuda/build/Release/lc0j_cuda.dll` (typical)
 
 If CMake cannot find JNI, set `JAVA_HOME` to your JDK root and re-run configure.
 
 ### Windows (Visual Studio, multi-config)
 
 ```powershell
-cmake -S native-cuda -B native-cuda/build -G "Visual Studio 17 2022" -A x64
-cmake --build native-cuda/build --config Release
+cmake -S native/cuda -B native/cuda/build -G "Visual Studio 17 2022" -A x64
+cmake --build native/cuda/build --config Release
 ```
 
 ## Run
@@ -54,13 +54,13 @@ Example (quick backend check; opens a window):
 ```bash
 mkdir -p out
 javac --release 17 -d out $(find src -name "*.java")
-java -cp out -Djava.library.path=native-cuda/build application.Main display --fen "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1" --show-backend
+java -cp out -Djava.library.path=native/cuda/build application.Main display --fen "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1" --show-backend
 ```
 
 Example (force CUDA backend; opens a window; errors out if CUDA cannot initialize):
 
 ```bash
-java -cp out -Djava.library.path=native-cuda/build -Ducicli.lc0.backend=cuda application.Main display --fen "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1" --show-backend
+java -cp out -Djava.library.path=native/cuda/build -Ducicli.lc0.backend=cuda application.Main display --fen "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1" --show-backend
 ```
 
 Backend selection:
@@ -75,7 +75,7 @@ In code, call `chess.lc0.cuda.Support.isAvailable()` / `chess.lc0.cuda.Support.d
 - `lc0j.backend` / `lc0j.threads` are still accepted as legacy aliases, but prefer `ucicli.lc0.backend` / `ucicli.lc0.threads`.
 
 ## Troubleshooting
-- VSCode squiggles on `#include <jni.h>` / CUDA headers: run the CMake configure step once to generate `native-cuda/build/compile_commands.json` and reload VSCode (this repo sets `C_Cpp.default.compileCommands` accordingly).
+- VSCode squiggles on `#include <jni.h>` / CUDA headers: run the CMake configure step once to generate `native/cuda/build/compile_commands.json` and reload VSCode (this repo sets `C_Cpp.default.compileCommands` accordingly).
 - CMake cannot find CUDA: ensure `nvcc` is on `PATH`, or pass `-DCUDAToolkit_ROOT=/path/to/cuda` when configuring.
 - CMake cannot find JNI: ensure you installed a full JDK (not just a JRE) and set `JAVA_HOME` to the JDK root.
 - `UnsatisfiedLinkError: no lc0j_cuda in java.library.path`: pass `-Djava.library.path=...` pointing at the directory containing the built library, or copy the library into your working directory.

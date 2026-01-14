@@ -52,7 +52,7 @@ More: `wiki/build-and-install.md`
 
 ## Release (Linux CUDA)
 
-This repo includes an optional CUDA JNI backend under `native-cuda/`.
+This repo includes an optional CUDA JNI backend under `native/cuda/`.
 
 To build and package a CUDA-enabled Linux x86_64 release artifact:
 

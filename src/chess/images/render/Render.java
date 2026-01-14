@@ -215,6 +215,16 @@ public final class Render {
 	 */
 	private boolean showCoordinatesOutside = false;
 
+	/**
+	 * Scale factor for rendering piece images (1.0 = default size).
+	 */
+	private double pieceScale = 1.0;
+
+	/**
+	 * Vertical pixel offset applied to pieces after scaling (negative moves up).
+	 */
+	private int pieceYOffset = 0;
+
 	/** 
 	 * Overlay arrows to draw.
 	 */
@@ -334,6 +344,22 @@ public final class Render {
 	}
 
 	/**
+	 * Sets a scale factor and vertical offset for piece rendering.
+	 *
+	 * @param scale scale multiplier (1.0 = default size)
+	 * @param yOffsetFraction vertical offset as a fraction of tile height (negative moves up)
+	 * @return this renderer for chaining
+	 */
+	public Render setPieceScaleAndOffset(double scale, double yOffsetFraction) {
+		if (scale <= 0.0) {
+			throw new IllegalArgumentException("piece scale must be > 0");
+		}
+		this.pieceScale = scale;
+		this.pieceYOffset = (int) Math.round(tileHeight * yOffsetFraction);
+		return this;
+	}
+
+	/**
 	 * Removes all arrows.
 	 *
 	 * @return this renderer for chaining
@@ -381,7 +407,27 @@ public final class Render {
 			return this;
 		}
 		// Auto-colors: White pieces get dark text on light background; Black pieces get inverted.
-		squareTexts[idx] = new SquareText(index, text, null, null, null, DEFAULT_SQUARE_TEXT_STROKE, null);
+		squareTexts[idx] = new SquareText(index, text, null, null, null, DEFAULT_SQUARE_TEXT_STROKE, null, false);
+		return this;
+	}
+
+	/**
+	 * Sets a square text overlay aligned to the bottom of the tile.
+	 * <p>
+	 * Passing {@code null} or blank {@code text} clears the overlay for the square.
+	 *
+	 * @param index square index (0..63)
+	 * @param text  label to draw (e.g. "+1.5")
+	 * @return this renderer for chaining
+	 */
+	public Render setSquareTextBottom(byte index, String text) {
+		int idx = toSquareIndex(index);
+		if (text == null || text.isBlank()) {
+			squareTexts[idx] = null;
+			return this;
+		}
+		// Auto-colors: White pieces get dark text on light background; Black pieces get inverted.
+		squareTexts[idx] = new SquareText(index, text, null, null, null, DEFAULT_SQUARE_TEXT_STROKE, null, true);
 		return this;
 	}
 
@@ -401,7 +447,7 @@ public final class Render {
 			return this;
 		}
 		squareTexts[idx] = new SquareText(index, text, DEFAULT_DETAIL_TEXT_COLOR, DEFAULT_DETAIL_TEXT_BACKGROUND,
-				DEFAULT_DETAIL_TEXT_BORDER, DEFAULT_SQUARE_TEXT_STROKE, detailTextBaseFont);
+				DEFAULT_DETAIL_TEXT_BORDER, DEFAULT_SQUARE_TEXT_STROKE, detailTextBaseFont, false);
 		return this;
 	}
 
@@ -425,7 +471,7 @@ public final class Render {
 			squareTexts[idx] = null;
 			return this;
 		}
-		squareTexts[idx] = new SquareText(index, text, textColor, background, border, borderStroke, null);
+		squareTexts[idx] = new SquareText(index, text, textColor, background, border, borderStroke, null, false);
 		return this;
 	}
 
@@ -635,13 +681,31 @@ public final class Render {
 	 */
 	private void drawPieces(Graphics2D g, int boardX, int boardY) {
 		byte[] board = position.getBoard();
+		boolean scaled = pieceScale != 1.0 || pieceYOffset != 0;
+		Graphics2D draw = scaled ? (Graphics2D) g.create() : g;
+		if (scaled) {
+			draw.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+		}
 		for (int i = 0; i < board.length; i++) {
 			int x = whiteSideDown ? Field.getX((byte) i) : Field.getXInverted((byte) i);
 			int y = whiteSideDown ? Field.getYInverted((byte) i) : Field.getY((byte) i);
 			BufferedImage img = imageForPiece(board[i]);
 			if (img != null) {
-				g.drawImage(img, boardX + x * tileWidth, boardY + y * tileHeight, null);
+				int tileX = boardX + x * tileWidth;
+				int tileY = boardY + y * tileHeight;
+				if (!scaled) {
+					draw.drawImage(img, tileX, tileY, null);
+				} else {
+					int drawW = Math.max(1, (int) Math.round(tileWidth * pieceScale));
+					int drawH = Math.max(1, (int) Math.round(tileHeight * pieceScale));
+					int drawX = tileX + (tileWidth - drawW) / 2;
+					int drawY = tileY + (tileHeight - drawH) / 2 + pieceYOffset;
+					draw.drawImage(img, drawX, drawY, drawW, drawH, null);
+				}
 			}
+		}
+		if (scaled) {
+			draw.dispose();
 		}
 	}
 
@@ -748,8 +812,10 @@ public final class Render {
 
 		resolveSquareTextStyle(label, piece, style);
 		tileOrigin(label.index, boardX, boardY, tile);
-		fitSquareTextFont(g, text, label.baseFont, layout);
-		drawSquareTextBoxAndText(g, text, tile.x, tile.y, style, layout);
+		double maxWidthScale = label.bottomAligned ? 0.75 : 1.0;
+		double maxHeightScale = label.bottomAligned ? 0.75 : 1.0;
+		fitSquareTextFont(g, text, label.baseFont, layout, maxWidthScale, maxHeightScale);
+		drawSquareTextBoxAndText(g, text, tile.x, tile.y, style, layout, label.bottomAligned);
 	}
 
 	/**
@@ -984,14 +1050,19 @@ public final class Render {
 		 * @param text label text to measure
 		 * @param baseFont base font to start from
 		 * @param out layout buffer populated with measurement results
+		 * @param maxWidthScale scale to apply to {@link #squareTextMaxWidth}
+		 * @param maxHeightScale scale to apply to {@link #squareTextMaxHeight}
 		 */
-		private void fitSquareTextFont(Graphics2D g, String text, Font baseFont, TextLayout out) {
+		private void fitSquareTextFont(Graphics2D g, String text, Font baseFont, TextLayout out,
+				double maxWidthScale, double maxHeightScale) {
 		Font font = baseFont != null ? baseFont : squareTextBaseFont;
 		int fontSize = font.getSize();
 		FontMetrics fm = g.getFontMetrics(font);
 		int textWidth = fm.stringWidth(text);
 		int textHeight = fm.getAscent() + fm.getDescent();
-		while ((textWidth > squareTextMaxWidth || textHeight > squareTextMaxHeight) && fontSize > 7) {
+		int maxWidth = (int) Math.max(1, Math.round(squareTextMaxWidth * maxWidthScale));
+		int maxHeight = (int) Math.max(1, Math.round(squareTextMaxHeight * maxHeightScale));
+		while ((textWidth > maxWidth || textHeight > maxHeight) && fontSize > 7) {
 			fontSize--;
 			font = font.deriveFont((float) fontSize);
 			fm = g.getFontMetrics(font);
@@ -1019,16 +1090,25 @@ public final class Render {
 		 * @param tileY tile origin y coordinate
 		 * @param style resolved style colors and stroke
 		 * @param layout layout metrics produced by {@link #fitSquareTextFont}
+		 * @param bottomAligned whether to anchor the box to the bottom of the tile
 		 */
 		private void drawSquareTextBoxAndText(Graphics2D g, String text, int tileX, int tileY, SquareTextStyle style,
-				TextLayout layout) {
+				TextLayout layout, boolean bottomAligned) {
 		int padX = Math.max(2, layout.fontSize / 4);
 		int padY = Math.max(1, layout.fontSize / 5);
+		if (bottomAligned) {
+			padX = Math.max(1, layout.fontSize / 5);
+			padY = Math.max(1, layout.fontSize / 5);
+		}
 
 		int boxWidth = Math.min(tileWidth, layout.textWidth + padX * 2);
 		int boxHeight = Math.min(tileHeight, layout.textHeight + padY * 2);
 		int boxX = tileX + (tileWidth - boxWidth) / 2;
 		int boxY = tileY + (tileHeight - boxHeight) / 2;
+		if (bottomAligned) {
+			int bottomPad = Math.max(2, layout.fontSize / 6);
+			boxY = tileY + tileHeight - boxHeight - bottomPad;
+		}
 		int arc = Math.max(4, boxHeight / 2);
 
 		g.setPaint(style.background);
@@ -1041,8 +1121,8 @@ public final class Render {
 
 		g.setFont(layout.font);
 		g.setPaint(style.textColor);
-		int textX = tileX + (tileWidth - layout.textWidth) / 2;
-		int textY = tileY + (tileHeight - layout.textHeight) / 2 + layout.fm.getAscent();
+		int textX = boxX + (boxWidth - layout.textWidth) / 2;
+		int textY = boxY + (boxHeight - layout.textHeight) / 2 + layout.fm.getAscent();
 		g.drawString(text, textX, textY);
 	}
 
@@ -1107,9 +1187,10 @@ public final class Render {
 	 * @param border       border color
 	 * @param borderStroke border stroke
 	 * @param baseFont     optional base font override
+	 * @param bottomAligned whether to align the background box to the bottom of the tile
 	 */
 	private record SquareText(byte index, String text, Color textColor, Color background, Color border,
-			Stroke borderStroke, Font baseFont) {
+			Stroke borderStroke, Font baseFont, boolean bottomAligned) {
 	}
 
 		/**

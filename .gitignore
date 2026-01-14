@@ -15,16 +15,34 @@ dist/
 # LC0 / model weights (large, third-party)
 models/lc0_610153.bin
 
-# Native CUDA build artifacts
-native-cuda/build/
-native-cuda/build*/
-native-cuda/**/CMakeFiles/
-native-cuda/**/CMakeCache.txt
-native-cuda/**/cmake_install.cmake
-native-cuda/**/Makefile
-native-cuda/**/*.so
-native-cuda/**/*.dll
-native-cuda/**/*.dylib
+# Native GPU build artifacts
+native/cuda/build/
+native/cuda/build*/
+native/cuda/**/CMakeFiles/
+native/cuda/**/CMakeCache.txt
+native/cuda/**/cmake_install.cmake
+native/cuda/**/Makefile
+native/cuda/**/*.so
+native/cuda/**/*.dll
+native/cuda/**/*.dylib
+native/rocm/build/
+native/rocm/build*/
+native/rocm/**/CMakeFiles/
+native/rocm/**/CMakeCache.txt
+native/rocm/**/cmake_install.cmake
+native/rocm/**/Makefile
+native/rocm/**/*.so
+native/rocm/**/*.dll
+native/rocm/**/*.dylib
+native/oneapi/build/
+native/oneapi/build*/
+native/oneapi/**/CMakeFiles/
+native/oneapi/**/CMakeCache.txt
+native/oneapi/**/cmake_install.cmake
+native/oneapi/**/Makefile
+native/oneapi/**/*.so
+native/oneapi/**/*.dll
+native/oneapi/**/*.dylib
 
 # VS Code settings
 .vscode/

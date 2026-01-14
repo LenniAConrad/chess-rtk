@@ -1,5 +1,5 @@
 /*
- * native-cuda/lc0j_cuda_jni.cu
+ * native/cuda/lc0j_cuda_jni.cu
  *
  * Overview
  * --------

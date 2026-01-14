@@ -1,21 +1,21 @@
-package chess.lc0.cuda;
+package chess.lc0.rocm;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
 
 /**
- * Optional CUDA support via a tiny JNI shared library (no third-party Java deps).
+ * Optional ROCm (AMD) support via a tiny JNI shared library (no third-party Java deps).
  *
- * <p>This class is responsible for loading the JNI library ({@code liblc0j_cuda.so}/{@code lc0j_cuda.dll})
- * and exposing simple capability checks such as {@link #deviceCount()}.
+ * <p>This class loads the JNI library ({@code liblc0j_rocm.so}/{@code lc0j_rocm.dll})
+ * and exposes capability checks such as {@link #deviceCount()}.
  *
- * <p>If the native library isn't present, or no CUDA device exists, the Java code
+ * <p>If the native library isn't present, or no ROCm device exists, the Java code
  * automatically falls back to the pure-Java CPU path.
  *
- * <p>To enable CUDA inference, build the native library and run Java with:
+ * <p>To enable ROCm inference, build the native library and run Java with:
  * {@code -Djava.library.path=/path/to/build/dir}.
  *
- * <p>Build instructions for the native library live under {@code native/cuda/} in this repo.
+ * <p>Build instructions for the native library live under {@code native/rocm/} in this repo.
  *
  * @since 2025
  * @author Lennart A. Conrad
@@ -24,24 +24,24 @@ public final class Support {
     /**
      * Base library name used by {@link System#loadLibrary(String)}.
      */
-    private static final String LIB_BASE_NAME = "lc0j_cuda";
+    private static final String LIB_BASE_NAME = "lc0j_rocm";
 
     /**
-     * Environment variable that can point to an explicit CUDA JNI library path.
+     * Environment variable that can point to an explicit ROCm JNI library path.
      *
      * <p>
-     * Example: {@code UCICLI_CUDA_LIB=/absolute/path/to/liblc0j_cuda.so}
+     * Example: {@code UCICLI_ROCM_LIB=/absolute/path/to/liblc0j_rocm.so}
      * </p>
      */
-    private static final String ENV_CUDA_LIB = "UCICLI_CUDA_LIB";
+    private static final String ENV_ROCM_LIB = "UCICLI_ROCM_LIB";
 
     /**
-     * Repository directory containing the optional CUDA JNI sources/build outputs.
+     * Repository directory containing the optional ROCm JNI sources/build outputs.
      */
-    private static final String DIR_NATIVE_CUDA = "native/cuda";
+    private static final String DIR_NATIVE_ROCM = "native/rocm";
 
     /**
-     * Default CMake build output directory name for the CUDA JNI project.
+     * Default CMake build output directory name for the ROCm JNI project.
      */
     private static final String DIR_BUILD = "build";
 
@@ -92,7 +92,7 @@ public final class Support {
      *
      * <p>
      * This can be {@code true} even when {@link #deviceCount()} is zero (for example, when the library is present but
-     * no CUDA device is visible or the CUDA runtime cannot initialize).
+     * no ROCm device is visible or the runtime cannot initialize).
      * </p>
      *
      * @return {@code true} if the native library loaded.
@@ -102,11 +102,11 @@ public final class Support {
     }
 
     /**
-     * Returns the number of CUDA devices visible to the CUDA runtime.
+     * Returns the number of ROCm devices visible to the HIP runtime.
      *
-     * <p>If the native library is not present or the CUDA runtime cannot be initialized, this returns 0.
+     * <p>If the native library is not present or the runtime cannot be initialized, this returns 0.
      *
-     * @return number of available CUDA devices (0 when unavailable)
+     * @return number of available devices (0 when unavailable)
      */
     public static int deviceCount() {
         return DEVICE_COUNT;
@@ -115,7 +115,7 @@ public final class Support {
     /**
      * Tries to load from java.library.path first, then from the current directory.
      *
-     * <p>Linux: liblc0j_cuda.so, Windows: lc0j_cuda.dll, macOS: liblc0j_cuda.dylib (if built).
+     * <p>Linux: liblc0j_rocm.so, Windows: lc0j_rocm.dll, macOS: liblc0j_rocm.dylib (if built).
      *
      * @return {@code true} if the JNI library was found and loaded
      */
@@ -151,12 +151,7 @@ public final class Support {
     /**
      * Returns the platform-specific filename for the JNI shared library.
      *
-     * <p>
-     * This is used for explicit {@link System#load(String)} fallbacks where we search well-known
-     * build output locations.
-     * </p>
-     *
-     * @return library filename such as {@code "liblc0j_cuda.so"} or {@code "lc0j_cuda.dll"}
+     * @return library filename such as {@code "liblc0j_rocm.so"} or {@code "lc0j_rocm.dll"}
      */
     private static String platformLibraryFilename() {
         String os = System.getProperty("os.name", "").toLowerCase();
@@ -173,12 +168,12 @@ public final class Support {
     }
 
     /**
-     * Resolves an explicit JNI library path from {@link #ENV_CUDA_LIB}.
+     * Resolves an explicit JNI library path from {@link #ENV_ROCM_LIB}.
      *
      * @return resolved path when set and exists, otherwise {@code null}
      */
     private static Path explicitLibraryPath() {
-        String explicit = System.getenv(ENV_CUDA_LIB);
+        String explicit = System.getenv(ENV_ROCM_LIB);
         if (explicit == null || explicit.isBlank()) {
             return null;
         }
@@ -195,11 +190,11 @@ public final class Support {
     private static Path[] candidatePaths(String filename) {
         return new Path[] {
                 Path.of(filename),
-                Path.of(DIR_NATIVE_CUDA, DIR_BUILD, filename),
-                Path.of(DIR_NATIVE_CUDA, DIR_BUILD, DIR_RELEASE, filename),
-                Path.of(DIR_NATIVE_CUDA, DIR_BUILD, DIR_DEBUG, filename),
-                Path.of(DIR_NATIVE_CUDA, DIR_BUILD, DIR_LIB, filename),
-                Path.of(DIR_NATIVE_CUDA, DIR_OUT, filename)
+                Path.of(DIR_NATIVE_ROCM, DIR_BUILD, filename),
+                Path.of(DIR_NATIVE_ROCM, DIR_BUILD, DIR_RELEASE, filename),
+                Path.of(DIR_NATIVE_ROCM, DIR_BUILD, DIR_DEBUG, filename),
+                Path.of(DIR_NATIVE_ROCM, DIR_BUILD, DIR_LIB, filename),
+                Path.of(DIR_NATIVE_ROCM, DIR_OUT, filename)
         };
     }
 
@@ -250,9 +245,9 @@ public final class Support {
     }
 
     /**
-     * JNI entry point implemented in {@code native/cuda/lc0j_cuda_jni.cu}.
+     * JNI entry point implemented in {@code native/rocm/lc0j_rocm_jni.hip}.
      *
-     * @return number of visible CUDA devices (0 on error)
+     * @return number of visible ROCm devices (0 on error)
      */
     private static native int nativeDeviceCount();
 }

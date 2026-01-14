@@ -37,6 +37,12 @@ public final class Format {
 		if (backend == Backend.LC0_CUDA) {
 			return "LC0 (cuda)";
 		}
+		if (backend == Backend.LC0_ROCM) {
+			return "LC0 (rocm)";
+		}
+		if (backend == Backend.LC0_ONEAPI) {
+			return "LC0 (oneapi)";
+		}
 		if (backend == Backend.LC0_CPU) {
 			return "LC0 (cpu)";
 		}

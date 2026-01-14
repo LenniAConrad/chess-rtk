@@ -9,7 +9,7 @@
   - `chess.uci`: engine protocol + analysis parsing + Filter DSL
   - `chess.io`: converters, readers/writers, dataset exporters
   - `chess.eval`: evaluation backend used by `display` (LC0 when available; fallback to classical)
-  - `chess.lc0`: pure-Java LC0 forward pass (+ optional `native-cuda/` backend)
+  - `chess.lc0`: pure-Java LC0 forward pass (+ optional `native/cuda/` backend)
 
 ## Adding/changing CLI commands
 

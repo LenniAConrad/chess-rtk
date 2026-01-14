@@ -58,7 +58,7 @@ Options:
 Print whether the optional CUDA JNI backend is available (and how many CUDA devices it sees).
 
 Notes:
-- If you built the native library under `native-cuda/`, run with `-Djava.library.path=native-cuda/build`.
+- If you built the native library under `native/cuda/`, run with `-Djava.library.path=native/cuda/build`.
 
 ## `gen-fens`
 

@@ -28,7 +28,7 @@ sudo apt-get install -y \
 
 Notes:
 - `git` is included so a fresh machine can `git clone` this repo (and `ca-certificates` enables HTTPS downloads).
-- `nvidia-cuda-toolkit` is large and only needed to build the optional CUDA JNI backend under `native-cuda/`.
+- `nvidia-cuda-toolkit` is large and only needed to build the optional CUDA JNI backend under `native/cuda/`.
 
 ## Build (no Maven/Gradle)
 
@@ -57,7 +57,7 @@ java -jar ucicli.jar help
 - optionally installs OpenJDK 17 and Stockfish via `apt-get`
 - compiles sources and builds `ucicli.jar`
 - installs a launcher at `/usr/local/bin/ucicli` that runs from this repo
-- optionally builds the CUDA JNI backend under `native-cuda/` (if you have the CUDA toolkit)
+- optionally builds the CUDA JNI backend under `native/cuda/` (if you have the CUDA toolkit)
 
 ```bash
 ./install.sh

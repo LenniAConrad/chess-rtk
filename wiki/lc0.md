@@ -56,14 +56,14 @@ ucicli display --fen "<FEN>" --show-backend
 Build the JNI library:
 
 ```bash
-cmake -S native-cuda -B native-cuda/build -DCMAKE_BUILD_TYPE=Release
-cmake --build native-cuda/build -j
+cmake -S native/cuda -B native/cuda/build -DCMAKE_BUILD_TYPE=Release
+cmake --build native/cuda/build -j
 ```
 
 Then run Java with the library on `java.library.path`:
 
 ```bash
-java -cp out -Djava.library.path=native-cuda/build -Ducicli.lc0.backend=cuda application.Main display --fen "<FEN>" --show-backend
+java -cp out -Djava.library.path=native/cuda/build -Ducicli.lc0.backend=cuda application.Main display --fen "<FEN>" --show-backend
 ```
 
-See `native-cuda/README.md` for more details.
+See `native/cuda/README.md` for more details.

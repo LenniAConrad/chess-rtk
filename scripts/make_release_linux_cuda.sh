@@ -7,7 +7,7 @@ Usage: scripts/make_release_linux_cuda.sh [--version <vX.Y.Z>] [--include-models
 
 Builds:
   - ucicli.jar (Java 17, pure javac)
-  - native-cuda/build/liblc0j_cuda.so (CMake + NVCC)
+  - native/cuda/build/liblc0j_cuda.so (CMake + NVCC)
 
 Packages a Linux x86_64 CUDA-enabled release under:
   dist/ucicli-<version>-linux-x86_64-cuda/
@@ -68,7 +68,7 @@ if ! command -v cmake >/dev/null 2>&1; then
   exit 1
 fi
 if ! command -v nvcc >/dev/null 2>&1; then
-  echo "nvcc not found; install the CUDA toolkit (required to build native-cuda)." >&2
+  echo "nvcc not found; install the CUDA toolkit (required to build native/cuda)." >&2
   exit 1
 fi
 
@@ -79,10 +79,10 @@ find src -name "*.java" -print0 | xargs -0 javac --release 17 -d out
 jar --create --file ucicli.jar --main-class application.Main -C out .
 
 echo "== Building CUDA JNI (liblc0j_cuda.so) =="
-cmake -S native-cuda -B native-cuda/build -DCMAKE_BUILD_TYPE=Release
-cmake --build native-cuda/build -j
+cmake -S native/cuda -B native/cuda/build -DCMAKE_BUILD_TYPE=Release
+cmake --build native/cuda/build -j
 
-cuda_lib="native-cuda/build/liblc0j_cuda.so"
+cuda_lib="native/cuda/build/liblc0j_cuda.so"
 if [[ ! -f "$cuda_lib" ]]; then
   echo "Expected CUDA library not found at: $cuda_lib" >&2
   exit 1

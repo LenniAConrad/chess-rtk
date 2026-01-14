@@ -1,19 +1,19 @@
-package chess.lc0.cuda;
+package chess.lc0.oneapi;
 
 import java.nio.file.Path;
 
 import chess.lc0.Network;
 
 /**
- * Optional CUDA backend (JNI) for LC0 policy+value inference.
+ * Optional oneAPI (Intel) backend (JNI) for LC0 policy+value inference.
  *
- * <p>This uses a native shared library ({@code lc0j_cuda}) and will only be used when:
+ * <p>This uses a native shared library ({@code lc0j_oneapi}) and will only be used when:
  * <ul>
  *   <li>the library is loadable (see {@link Support})</li>
- *   <li>a CUDA device is present</li>
+ *   <li>an Intel GPU is present</li>
  * </ul>
  *
- * <p>{@link Network#load(Path)} selects this backend automatically when {@code -Ducicli.lc0.backend=auto} and CUDA is available.
+ * <p>{@link Network#load(Path)} selects this backend automatically when {@code -Ducicli.lc0.backend=auto} and oneAPI is available.
  *
  * <p>This class is a thin wrapper around native code. It owns native resources and must be closed.
  *
@@ -21,9 +21,9 @@ import chess.lc0.Network;
  * @author Lennart A. Conrad
  */
 public final class Backend implements AutoCloseable {
-    
+
     /**
-     * Native handle to the CUDA evaluator instance (opaque pointer stored as a {@code long}).
+     * Native handle to the oneAPI evaluator instance (opaque pointer stored as a {@code long}).
      */
     private final long handle;
 
@@ -44,16 +44,16 @@ public final class Backend implements AutoCloseable {
     }
 
     /**
-     * Returns {@code true} if the JNI library loaded and at least one CUDA device is present.
+     * Returns {@code true} if the JNI library loaded and at least one Intel GPU is present.
      *
-     * @return {@code true} when CUDA inference is available
+     * @return {@code true} when oneAPI inference is available
      */
     public static boolean isAvailable() {
         return Support.isAvailable();
     }
 
     /**
-     * Creates a CUDA evaluator from an LC0J {@code .bin} weights file.
+     * Creates a oneAPI evaluator from an LC0J {@code .bin} weights file.
      *
      * @param weightsBin path to {@code LC0J} binary weights
      * @return evaluator instance owning device resources
@@ -62,12 +62,12 @@ public final class Backend implements AutoCloseable {
     public static Backend create(Path weightsBin) {
         long h = nativeCreate(weightsBin.toAbsolutePath().toString());
         if (h == 0L) {
-            throw new IllegalStateException("Failed to create CUDA evaluator (no device / init failed).");
+            throw new IllegalStateException("Failed to create oneAPI evaluator (no device / init failed).");
         }
         long[] meta = nativeGetInfo(h);
         if (meta == null || meta.length < 7) {
             nativeDestroy(h);
-            throw new IllegalStateException("CUDA evaluator returned invalid info.");
+            throw new IllegalStateException("oneAPI evaluator returned invalid info.");
         }
         Network.Info info = new Network.Info(
                 (int) meta[0],
@@ -114,7 +114,7 @@ public final class Backend implements AutoCloseable {
     }
 
     /**
-     * JNI entry point implemented in {@code native/cuda/lc0j_cuda_jni.cu}.
+     * JNI entry point implemented in {@code native/oneapi/lc0j_oneapi_jni.cpp}.
      *
      * @param weightsPath absolute path to the LC0J weights file
      * @return native handle or zero on failure
@@ -122,14 +122,14 @@ public final class Backend implements AutoCloseable {
     private static native long nativeCreate(String weightsPath);
 
     /**
-     * JNI entry point implemented in {@code native/cuda/lc0j_cuda_jni.cu}.
+     * JNI entry point implemented in {@code native/oneapi/lc0j_oneapi_jni.cpp}.
      *
      * @param handle native handle to destroy
      */
     private static native void nativeDestroy(long handle);
 
     /**
-     * JNI entry point implemented in {@code native/cuda/lc0j_cuda_jni.cu}.
+     * JNI entry point implemented in {@code native/oneapi/lc0j_oneapi_jni.cpp}.
      *
      * @param handle native handle to inspect
      * @return {@code [inputC, trunkC, blocks, policyC, valueC, policySize, paramCount]}
@@ -137,7 +137,7 @@ public final class Backend implements AutoCloseable {
     private static native long[] nativeGetInfo(long handle);
 
     /**
-     * JNI entry point implemented in {@code native/cuda/lc0j_cuda_jni.cu}.
+     * JNI entry point implemented in {@code native/oneapi/lc0j_oneapi_jni.cpp}.
      *
      * <p>Writes {@code outPolicy} (length {@code policySize}) and {@code outWdl} (length 3).
      *
