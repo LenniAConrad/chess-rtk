@@ -14,6 +14,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.stream.IntStream;
 
 import chess.core.Position;
 import chess.debug.LogService;
@@ -33,6 +34,12 @@ import utility.Toml;
  * @author Lennart A. Conrad
  */
 public final class Encyclopedia {
+
+    private static final int PARALLEL_PARSE_THRESHOLD = 512;
+
+    private static final String PROP_PARALLEL_PARSE = "crtk.eco.parallel";
+
+    private static final String ENV_PARALLEL_PARSE = "CRTK_ECO_PARALLEL";
 
     /**
      * Used for pointing to the default ECO book read by
@@ -101,6 +108,17 @@ public final class Encyclopedia {
      */
     private final Map<Long, Entry> byCoreSignature;
 
+    private record Row(String eco, String name, String movetext) {
+        private Row {
+            Objects.requireNonNull(eco, "eco");
+            Objects.requireNonNull(name, "name");
+            Objects.requireNonNull(movetext, "movetext");
+        }
+    }
+
+    private record RowParseResult(Entry entry, String error) {
+    }
+
     /**
      * Used for constructing an {@link Encyclopedia} from the TOML file at
      * {@code file}. The constructor is intentionally package-private; clients
@@ -118,18 +136,61 @@ public final class Encyclopedia {
         Map<String, List<Map<String, Object>>> arrays = getTableArrays(toml);
 
         // 3) Build nodes
-        List<Entry> tmp = new ArrayList<>();
-        for (Map.Entry<String, List<Map<String, Object>>> entry : arrays.entrySet()) {
-            String eco = entry.getKey();
-            for (Map<String, Object> tbl : entry.getValue()) {
-                String name = asString(tbl.get("name"));
-                String movetext = asString(tbl.get("movetext"));
-                if (name == null || movetext == null)
-                    continue; // skip incomplete
-                try {
-                    tmp.add(new Entry(eco, name, movetext));
-                } catch (IllegalArgumentException ex) {
-                    LogService.warn(String.format("Invalid ECO '%s' – %s", eco, ex.getMessage()));
+        ArrayList<Entry> tmp = new ArrayList<>();
+        if (parallelParseEnabled() && Runtime.getRuntime().availableProcessors() > 1) {
+            // Parallel parse with deterministic book order (opt-in).
+            List<Row> rows = new ArrayList<>();
+            for (Map.Entry<String, List<Map<String, Object>>> entry : arrays.entrySet()) {
+                String eco = entry.getKey();
+                for (Map<String, Object> tbl : entry.getValue()) {
+                    String name = asString(tbl.get("name"));
+                    String movetext = asString(tbl.get("movetext"));
+                    if (name == null || movetext == null) {
+                        continue;
+                    }
+                    rows.add(new Row(eco, name, movetext));
+                }
+            }
+
+            RowParseResult[] parsed = new RowParseResult[rows.size()];
+            if (rows.size() >= PARALLEL_PARSE_THRESHOLD) {
+                IntStream.range(0, rows.size()).parallel().forEach(i -> parsed[i] = parseRow(rows.get(i)));
+            } else {
+                for (int i = 0; i < rows.size(); i++) {
+                    parsed[i] = parseRow(rows.get(i));
+                }
+            }
+
+            tmp.ensureCapacity(rows.size());
+            for (int i = 0; i < rows.size(); i++) {
+                RowParseResult result = parsed[i];
+                if (result == null) {
+                    continue;
+                }
+                if (result.entry() != null) {
+                    tmp.add(result.entry());
+                    continue;
+                }
+                if (result.error() != null) {
+                    Row row = rows.get(i);
+                    LogService.warn(String.format("Invalid ECO '%s' – %s", row.eco(), result.error()));
+                }
+            }
+        } else {
+            // Sequential parse (fast default).
+            for (Map.Entry<String, List<Map<String, Object>>> entry : arrays.entrySet()) {
+                String eco = entry.getKey();
+                for (Map<String, Object> tbl : entry.getValue()) {
+                    String name = asString(tbl.get("name"));
+                    String movetext = asString(tbl.get("movetext"));
+                    if (name == null || movetext == null) {
+                        continue;
+                    }
+                    try {
+                        tmp.add(new Entry(eco, name, movetext));
+                    } catch (IllegalArgumentException ex) {
+                        LogService.warn(String.format("Invalid ECO '%s' – %s", eco, ex.getMessage()));
+                    }
                 }
             }
         }
@@ -231,6 +292,30 @@ public final class Encyclopedia {
      */
     private static String asString(Object o) {
         return o == null ? null : o.toString();
+    }
+
+    private static RowParseResult parseRow(Row row) {
+        try {
+            return new RowParseResult(new Entry(row.eco(), row.name(), row.movetext()), null);
+        } catch (IllegalArgumentException ex) {
+            return new RowParseResult(null, ex.getMessage());
+        }
+    }
+
+    private static boolean parallelParseEnabled() {
+        String prop = System.getProperty(PROP_PARALLEL_PARSE);
+        if (prop != null) {
+            return Boolean.parseBoolean(prop);
+        }
+        String env = System.getenv(ENV_PARALLEL_PARSE);
+        if (env == null) {
+            return false;
+        }
+        String value = env.trim();
+        if (value.isEmpty()) {
+            return false;
+        }
+        return !(value.equals("0") || value.equalsIgnoreCase("false") || value.equalsIgnoreCase("no"));
     }
 
     /**
