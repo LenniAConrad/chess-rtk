@@ -1,0 +1,96 @@
+digraph crtk_position_toolbox {
+  rankdir=LR;
+  bgcolor="transparent";
+  splines=ortho;
+  pad="0.20";
+  nodesep="0.35";
+  ranksep="0.55";
+
+  graph [fontname="Helvetica", fontsize=14];
+  node  [fontname="Helvetica", fontsize=12];
+  edge  [fontname="Helvetica", fontsize=10, color="#444444", arrowsize=0.8, penwidth=1.2];
+
+  subgraph cluster_input {
+    label="Input";
+    style="rounded";
+    color="#B39DDB";
+    fontcolor="#311B92";
+    penwidth=1.4;
+
+    node [shape=note, style="filled", fillcolor="#F3E5F5", color="#6A1B9A", penwidth=1.2];
+    fen [label="FEN position\n(\"<FEN>\")"];
+  }
+
+  subgraph cluster_commands {
+    label="Single-position commands";
+    style="rounded";
+    color="#90CAF9";
+    fontcolor="#0D47A1";
+    penwidth=1.4;
+
+    node [shape=box, style="rounded,filled", fillcolor="#E3F2FD", color="#1565C0", penwidth=1.2];
+    print [label="print"];
+    moves [label="moves"];
+    tags [label="tags"];
+    render [label="render"];
+    display [label="display"];
+    eval [label="eval"];
+    analyze [label="analyze"];
+    bestmove [label="bestmove"];
+  }
+
+  subgraph cluster_engines {
+    label="Backends (optional)";
+    style="rounded";
+    color="#FFCC80";
+    fontcolor="#E65100";
+    penwidth=1.4;
+
+    node [shape=component, style="filled", fillcolor="#FFF3E0", color="#EF6C00", penwidth=1.2];
+    uci [label="UCI engine\n(Stockfish / LC0)"];
+    evaluator [label="Evaluator\n(Java LC0 / heuristics)"];
+  }
+
+  subgraph cluster_outputs {
+    label="What you get";
+    style="rounded";
+    color="#A5D6A7";
+    fontcolor="#1B5E20";
+    penwidth=1.4;
+
+    node [shape=note, style="filled", fillcolor="#F1F8E9", color="#558B2F", penwidth=1.2];
+    out_ascii [label="ASCII board"];
+    out_moves [label="Legal moves"];
+    out_tags [label="Tags"];
+    out_image [label="Image file\n(PNG/JPG/BMP)"];
+    out_gui [label="GUI board view"];
+    out_score [label="Evaluation score"];
+    out_analysis [label="Analysis output\n(PV/eval)"];
+    out_best [label="Best move"];
+  }
+
+  // Wiring
+  fen -> print;
+  fen -> moves;
+  fen -> tags;
+  fen -> render;
+  fen -> display;
+  fen -> eval;
+  fen -> analyze;
+  fen -> bestmove;
+
+  print -> out_ascii;
+  moves -> out_moves;
+  tags -> out_tags;
+  render -> out_image;
+  display -> out_gui;
+  eval -> out_score;
+  analyze -> out_analysis;
+  bestmove -> out_best;
+
+  // Backends
+  uci -> analyze [style=dashed];
+  uci -> bestmove [style=dashed];
+  evaluator -> eval [style=dashed];
+  evaluator -> display [style=dashed, xlabel="optional"];
+}

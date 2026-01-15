@@ -95,6 +95,13 @@ public final class Encyclopedia {
     private final Map<Position, Entry> byPosition;
 
     /**
+     * Used for fast lookup from a "core" position signature (ignoring move counters)
+     * to {@link Entry}. This makes ECO mapping resilient to FENs that omit or vary
+     * half-move/full-move counters.
+     */
+    private final Map<Long, Entry> byCoreSignature;
+
+    /**
      * Used for constructing an {@link Encyclopedia} from the TOML file at
      * {@code file}. The constructor is intentionally package-private; clients
      * should rely on {@link #of(Path)}.
@@ -129,9 +136,27 @@ public final class Encyclopedia {
         this.entries = tmp.toArray(Entry[]::new);
 
         Map<Position, Entry> map = new HashMap<>(entries.length * 2);
-        for (Entry n : entries)
+        for (Entry n : entries) {
             map.put(n.position, n);
+        }
         this.byPosition = Collections.unmodifiableMap(map);
+
+        Map<Long, Entry> coreMap = new HashMap<>(entries.length * 2);
+        for (Entry n : entries) {
+            long sig = n.position.signatureCore();
+            Entry existing = coreMap.get(sig);
+            if (existing == null) {
+                coreMap.put(sig, n);
+                continue;
+            }
+
+            int existingMoves = existing.moves == null ? 0 : existing.moves.length;
+            int candidateMoves = n.moves == null ? 0 : n.moves.length;
+            if (candidateMoves > existingMoves) {
+                coreMap.put(sig, n);
+            }
+        }
+        this.byCoreSignature = Collections.unmodifiableMap(coreMap);
     }
 
     /**
@@ -141,7 +166,7 @@ public final class Encyclopedia {
      * @return the opening name or an empty string if unknown
      */
     public String getName(Position pos) {
-        Entry n = byPosition.get(pos);
+        Entry n = getNode(pos);
         return n == null ? "" : n.getName();
     }
 
@@ -152,7 +177,7 @@ public final class Encyclopedia {
      * @return the ECO code or an empty string if unknown
      */
     public String getECO(Position pos) {
-        Entry n = byPosition.get(pos);
+        Entry n = getNode(pos);
         return n == null ? "" : n.getECO();
     }
 
@@ -163,7 +188,11 @@ public final class Encyclopedia {
      * @return the matching {@link Entry} or {@code null} if none exists
      */
     public Entry getNode(Position pos) {
-        return byPosition.get(pos);
+        Entry direct = byPosition.get(pos);
+        if (direct != null) {
+            return direct;
+        }
+        return byCoreSignature.get(pos.signatureCore());
     }
 
     /**

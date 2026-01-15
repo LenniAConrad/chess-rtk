@@ -2926,4 +2926,46 @@ public class Position implements Comparable<Position> {
 		return h;
 	}
 
+	/**
+	 * Returns a 64-bit signature of the core position state (without move counters).
+	 *
+	 * <p>
+	 * This is equivalent to {@link #signature()} but excludes the half-move clock and
+	 * full-move number. It is useful for lookups where those counters are not meaningful
+	 * (e.g. opening/ECO mapping) while still keeping all move-legality-relevant state
+	 * (board, side to move, castling rights, en-passant, king squares, and Chess960 flag).
+	 * </p>
+	 *
+	 * @return 64-bit signature without half/full move counters
+	 */
+	public long signatureCore() {
+		long h = 1469598103934665603L; // FNV-1a 64-bit offset basis
+		for (byte piece : board) {
+			h ^= (piece & 0xFFL);
+			h *= 1099511628211L; // FNV prime
+		}
+
+		h ^= whitesTurn ? 1L : 0L;
+		h *= 1099511628211L;
+		h ^= chess960 ? 1L : 0L;
+		h *= 1099511628211L;
+
+		h ^= (whiteKingside & 0xFFL);
+		h *= 1099511628211L;
+		h ^= (whiteQueenside & 0xFFL);
+		h *= 1099511628211L;
+		h ^= (blackKingside & 0xFFL);
+		h *= 1099511628211L;
+		h ^= (blackQueenside & 0xFFL);
+		h *= 1099511628211L;
+		h ^= (enPassant & 0xFFL);
+		h *= 1099511628211L;
+		h ^= (whiteKing & 0xFFL);
+		h *= 1099511628211L;
+		h ^= (blackKing & 0xFFL);
+		h *= 1099511628211L;
+
+		return h;
+	}
+
 }

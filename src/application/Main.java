@@ -76,7 +76,7 @@ import utility.Json;
 	 * {@code gpu-info}, {@code mine}, {@code gen-fens}, {@code print}, {@code display},
 	 * {@code render}, {@code clean}, {@code config}, {@code stats},
 	 * {@code stats-tags}, {@code tags}, {@code moves}, {@code analyze},
-	 * {@code bestmove}, {@code perft}, {@code pgn-to-fens}, {@code eval},
+	 * {@code bestmove}, {@code threats}, {@code perft}, {@code pgn-to-fens}, {@code eval},
 	 * and {@code help}.
  * Prints usage information when no subcommand is supplied. For unknown
  * subcommands, prints an
@@ -149,6 +149,7 @@ public final class Main {
 			case CMD_MOVES -> runMoves(b);
 			case CMD_ANALYZE -> runAnalyze(b);
 			case CMD_BESTMOVE -> runBestMove(b);
+			case CMD_THREATS -> runThreats(b);
 			case CMD_PERFT -> runPerft(b);
 			case CMD_PGN_TO_FENS -> runPgnToFens(b);
 			case CMD_STATS_TAGS -> runStatsTags(b);
@@ -540,7 +541,7 @@ public final class Main {
 	 * <p>
 	 * Parses a FEN supplied via {@code --fen} or as a single positional argument
 	 * after the
-	 * subcommand and pretty-prints the position. Exits with status {@code 2} when
+	 * subcommand and pretty-prints the position (including tags). Exits with status {@code 2} when
 	 * no FEN is provided.
 	 *
 	 * <p>
@@ -565,6 +566,14 @@ public final class Main {
 		try {
 			Position pos = new Position(fen.trim());
 			Printer.board(pos);
+			List<String> tags = Tagging.tags(pos);
+			if (!tags.isEmpty()) {
+				System.out.println();
+				System.out.println("Tags:");
+				for (String tag : tags) {
+					System.out.println("  " + tag);
+				}
+			}
 		} catch (IllegalArgumentException ex) {
 			// Invalid FEN or position construction error
 			System.err.println(ERR_INVALID_FEN + (ex.getMessage() == null ? "" : ex.getMessage()));
@@ -1633,6 +1642,148 @@ public final class Main {
 	}
 
 	/**
+	 * Used for handling the {@code threats} subcommand.
+	 *
+	 * <p>
+	 * Computes a null-move version of the input position (switches side to move,
+	 * clears en-passant), then analyzes that position with MultiPV. The resulting
+	 * best moves are treated as the opponent's "threats".
+	 *
+	 * @param a parsed argument vector for the subcommand.
+	 */
+	private static void runThreats(Argv a) {
+		boolean verbose = a.flag(OPT_VERBOSE, OPT_VERBOSE_SHORT);
+		Path input = a.path(OPT_INPUT, OPT_INPUT_SHORT);
+		String fen = a.string(OPT_FEN);
+		String protoPath = optional(a.string(OPT_PROTOCOL_PATH, OPT_PROTOCOL_PATH_SHORT), Config.getProtocolPath());
+		long nodesCap = Math.max(1, optional(a.lng(OPT_MAX_NODES, OPT_NODES), Config.getMaxNodes()));
+		long durMs = Math.max(1, optionalDurationMs(a.duration(OPT_MAX_DURATION), Config.getMaxDuration()));
+		Integer multipv = a.integer(OPT_MULTIPV);
+		Integer threads = a.integer(OPT_THREADS);
+		Integer hash = a.integer(OPT_HASH);
+		boolean wdl = a.flag(OPT_WDL);
+		boolean noWdl = a.flag(OPT_NO_WDL);
+		List<String> rest = a.positionals();
+		if (fen == null && !rest.isEmpty()) {
+			fen = String.join(" ", rest);
+		}
+		a.ensureConsumed();
+
+		if (wdl && noWdl) {
+			System.err.println(String.format("threats: only one of %s or %s may be set", OPT_WDL, OPT_NO_WDL));
+			System.exit(2);
+			return;
+		}
+
+		List<String> fens = resolveFenInputs(CMD_THREATS, input, fen);
+		Protocol protocol = loadProtocolOrExit(protoPath, verbose);
+		Optional<Boolean> wdlFlag = resolveWdlFlag(wdl, noWdl);
+
+		try (Engine engine = new Engine(protocol)) {
+			configureEngine(CMD_THREATS, engine, threads, hash, multipv, wdlFlag);
+			String engineLabel = protocol.getName() != null ? protocol.getName() : protocol.getPath();
+			System.out.println("Engine: " + engineLabel);
+
+			boolean printedAny = false;
+			Integer lastMultiPv = multipv;
+
+			for (String entry : fens) {
+				Position base = parsePositionOrNull(entry, CMD_THREATS, verbose);
+				if (base == null) {
+					continue;
+				}
+				if (base.inCheck()) {
+					System.err.println("threats: skipped (side to move is in check): " + entry);
+					continue;
+				}
+
+				Position threatPos;
+				try {
+					threatPos = nullMovePosition(base);
+				} catch (IllegalArgumentException ex) {
+					System.err.println("threats: skipped (null move not legal): " + entry);
+					if (verbose) {
+						ex.printStackTrace(System.err);
+					}
+					continue;
+				}
+
+				if (multipv == null) {
+					int all = Math.max(1, threatPos.getMoves().size());
+					if (lastMultiPv == null || lastMultiPv.intValue() != all) {
+						engine.setMultiPivot(all);
+						lastMultiPv = all;
+					}
+				}
+
+				Analysis analysis = analysePositionOrExit(engine, threatPos, nodesCap, durMs, CMD_THREATS, verbose);
+				if (analysis == null) {
+					return;
+				}
+
+				if (printedAny) {
+					System.out.println();
+				}
+				printedAny = true;
+				printThreatsSummary(base, threatPos, analysis);
+			}
+		} catch (Exception ex) {
+			System.err.println("threats: failed to initialize engine: " + ex.getMessage());
+			if (verbose) {
+				ex.printStackTrace(System.err);
+			}
+			System.exit(2);
+		}
+	}
+
+	/**
+	 * Builds a "null move" position used for threat detection.
+	 *
+	 * <p>
+	 * This switches the side to move and clears en-passant. The base position must
+	 * not be in check; otherwise, a null move would be illegal and the resulting
+	 * FEN would also be illegal (side not to move in check).
+	 *
+	 * @param base base position (must be legal and not in check)
+	 * @return position with side-to-move swapped and en-passant cleared
+	 */
+	private static Position nullMovePosition(Position base) {
+		if (base.inCheck()) {
+			throw new IllegalArgumentException("null move not legal while in check");
+		}
+
+		String[] parts = base.toString().split(" ");
+		if (parts.length < 4) {
+			throw new IllegalArgumentException("unexpected FEN: " + base);
+		}
+
+		boolean wasWhite = base.isWhiteTurn();
+		String newTurn = wasWhite ? "b" : "w";
+
+		String placement = parts[0];
+		String castling = parts[2];
+		String enPassant = "-";
+
+		int halfMove = parts.length > 4 ? Integer.parseInt(parts[4]) : 0;
+		int fullMove = parts.length > 5 ? Integer.parseInt(parts[5]) : 1;
+
+		halfMove = Math.max(0, halfMove + 1);
+		if (!wasWhite) {
+			fullMove = Math.max(1, fullMove + 1);
+		}
+
+		String fen = String.format(
+				"%s %s %s %s %d %d",
+				placement,
+				newTurn,
+				castling,
+				enPassant,
+				halfMove,
+				fullMove);
+		return new Position(fen);
+	}
+
+	/**
 	 * Used for handling the {@code bestmove} subcommand.
 	 *
 	 * @param a parsed argument vector for the subcommand.
@@ -2030,6 +2181,53 @@ public final class Main {
 			}
 			System.exit(2);
 			return null;
+		}
+	}
+
+	/**
+	 * Prints a human-readable threats summary to standard output.
+	 *
+	 * @param base      input position (before null move)
+	 * @param threatPos null-move position analyzed (opponent to move)
+	 * @param analysis  analysis output from the engine
+	 */
+	private static void printThreatsSummary(Position base, Position threatPos, Analysis analysis) {
+		String side = base.isWhiteTurn() ? "black" : "white";
+		System.out.println(String.format("FEN: %s", base.toString()));
+		System.out.println(String.format("threats-for: %s", side));
+		System.out.println(String.format("threats-fen: %s", threatPos.toString()));
+		if (analysis == null || analysis.isEmpty()) {
+			System.out.println("threats: (no output)");
+			return;
+		}
+		int pivots = Math.max(1, analysis.getPivots());
+		for (int pv = 1; pv <= pivots; pv++) {
+			Output best = analysis.getBestOutput(pv);
+			if (best == null) {
+				continue;
+			}
+			String eval = formatEvaluation(best.getEvaluation());
+			String wdl = formatChances(best.getChances());
+			String bound = formatBound(best.getBound());
+			System.out.printf(
+					"pv%d eval=%s depth=%d seldepth=%d nodes=%d nps=%d time=%d wdl=%s bound=%s%n",
+					pv,
+					eval,
+					best.getDepth(),
+					best.getSelectiveDepth(),
+					best.getNodes(),
+					best.getNodesPerSecond(),
+					best.getTime(),
+					wdl,
+					bound);
+			short bestMove = analysis.getBestMove(pv);
+			if (bestMove != Move.NO_MOVE) {
+				System.out.printf("pv%d threat=%s san=%s%n", pv, Move.toString(bestMove), safeSan(threatPos, bestMove));
+			}
+			String pvLine = formatPvMoves(best.getMoves());
+			if (!pvLine.isEmpty()) {
+				System.out.printf("pv%d line=%s%n", pv, pvLine);
+			}
 		}
 	}
 
@@ -2557,6 +2755,7 @@ public final class Main {
 						  moves             List legal moves for a FEN
 						  analyze           Analyze a FEN with the engine
 						  bestmove          Print the best move for a FEN
+						  threats           Analyze opponent threats (null move)
 						  perft             Run perft on a FEN (movegen validation)
 						  pgn-to-fens       Convert PGN games to FEN lists
 						  eval              Evaluate a FEN with LC0 or classical (alias: evaluate)
@@ -2626,6 +2825,7 @@ public final class Main {
 			case CMD_MOVES -> "moves options:";
 			case CMD_ANALYZE -> "analyze options:";
 			case CMD_BESTMOVE -> "bestmove options:";
+			case CMD_THREATS -> "threats options:";
 			case CMD_PERFT -> "perft options:";
 			case CMD_PGN_TO_FENS -> "pgn-to-fens options:";
 			case CMD_EVAL, CMD_EVALUATE -> "eval options:";
@@ -2701,6 +2901,7 @@ public final class Main {
 						  moves     List legal moves for a FEN
 						  analyze   Analyze a FEN with the engine
 						  bestmove  Print the best move for a FEN
+						  threats   Analyze opponent threats (null move)
 						  perft     Run perft on a FEN (movegen validation)
 						  pgn-to-fens Convert PGN games to FEN lists
 						  eval      Evaluate a FEN with LC0 or classical (alias: evaluate)
@@ -2769,6 +2970,7 @@ public final class Main {
 						  --verbose|-v                Print stack trace on failure
 
 						print options:
+						  (Also prints chess.tag tags below the board.)
 						  --fen "<FEN...>"            FEN string (or supply as positional)
 						  --verbose|-v                Print stack trace on failure (parsing errors)
 
@@ -2844,6 +3046,18 @@ public final class Main {
 						  --max-nodes|--nodes <n>     Override Config.getMaxNodes()
 						  --max-duration <dur>        Override Config.getMaxDuration(), e.g. 60s, 2m, 60000
 						  --multipv <n>               Set engine MultiPV
+						  --threads <n>               Set engine thread count
+						  --hash <mb>                 Set engine hash size
+						  --wdl|--no-wdl              Enable/disable WDL output
+						  --verbose|-v                Print stack trace on failure
+
+						threats options:
+						  --input|-i <path>           FEN list file (optional)
+						  --fen "<FEN...>"            FEN string (or supply as positional)
+						  --protocol-path|-P <toml>   Override Config.getProtocolPath()
+						  --max-nodes|--nodes <n>     Override Config.getMaxNodes()
+						  --max-duration <dur>        Override Config.getMaxDuration(), e.g. 60s, 2m, 60000
+						  --multipv <n>               Set engine MultiPV (default: all legal opponent moves)
 						  --threads <n>               Set engine thread count
 						  --hash <mb>                 Set engine hash size
 						  --wdl|--no-wdl              Enable/disable WDL output

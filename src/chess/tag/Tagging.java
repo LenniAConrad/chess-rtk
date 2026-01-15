@@ -112,6 +112,7 @@ public final class Tagging {
      * Immutable list of tag providers that contribute to every tagx run.
      */
     private static final List<TagProvider> PROVIDERS = List.of(
+            new OpeningProvider(),
             new DifficultyProvider(),
             new PieceAblationProvider(),
             new AttackProvider(),
@@ -223,6 +224,17 @@ public final class Tagging {
         @Override
         public List<String> tags(Position position, Evaluator evaluator) {
             return Difficulty.tags(position, evaluator);
+        }
+    }
+
+    /**
+     * Provider wrapper around {@link OpeningTagger}.
+     */
+    private static final class OpeningProvider implements TagProvider {
+
+        @Override
+        public List<String> tags(Position position, Evaluator evaluator) {
+            return OpeningTagger.tags(position);
         }
     }
 

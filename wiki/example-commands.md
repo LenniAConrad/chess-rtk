@@ -42,6 +42,7 @@ Examples assume you installed the launcher (`crtk`). If you run from classes, re
 ## Analyze positions / best move
 
 - `crtk analyze --fen "<FEN>" --max-duration 5s` — print PV summaries for a single position.
+- `crtk threats --fen "<FEN>" --max-duration 2s` — analyze opponent threats via a null move (MultiPV).
 - `crtk bestmove --fen "<FEN>"` — print the best move (UCI).
 - `crtk bestmove --fen "<FEN>" --san` — print the best move (SAN).
 

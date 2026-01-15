@@ -104,7 +104,7 @@ Filter overrides:
 
 ## `print`
 
-Pretty-print a FEN as ASCII.
+Pretty-print a FEN as ASCII (board + metadata + tags).
 
 Options:
 - `--fen "<FEN...>"` (or pass it positionally)
@@ -159,6 +159,9 @@ Options:
 
 Generate tags for a FEN or FEN list.
 
+Notes:
+- If `config/book.eco.toml` is present, tags may include `eco:` / `opening:` for positions that match the ECO book.
+
 Options:
 - `--input|-i <path>`: FEN list file (optional)
 - `--fen "<FEN...>"`: FEN string (or pass it positionally)
@@ -185,6 +188,26 @@ Options:
 - `--max-nodes|--nodes <n>`: override `Config.getMaxNodes()`
 - `--max-duration <dur>`: override `Config.getMaxDuration()`, e.g. `60s`, `2m`, `60000`
 - `--multipv <n>`: set engine MultiPV
+- `--threads <n>`: set engine thread count
+- `--hash <mb>`: set engine hash size
+- `--wdl|--no-wdl`: enable/disable WDL output
+- `--verbose|-v`: print stack traces on failure
+
+## `threats`
+
+Compute opponent "threats" via a null move: the side to move is swapped, en-passant is cleared, and the resulting position is analyzed with MultiPV. The resulting PV best moves are the threats.
+
+Notes:
+- Positions where the side to move is in check are skipped (null move would be illegal).
+- If `--multipv` is not set, MultiPV defaults to all legal opponent moves in the null-move position.
+
+Options:
+- `--input|-i <path>`: FEN list file (optional)
+- `--fen "<FEN...>"`: FEN string (or pass it positionally)
+- `--protocol-path|-P <toml>`: override `Config.getProtocolPath()`
+- `--max-nodes|--nodes <n>`: override `Config.getMaxNodes()`
+- `--max-duration <dur>`: override `Config.getMaxDuration()`, e.g. `60s`, `2m`, `60000`
+- `--multipv <n>`: set engine MultiPV (default: all legal opponent moves)
 - `--threads <n>`: set engine thread count
 - `--hash <mb>`: set engine hash size
 - `--wdl|--no-wdl`: enable/disable WDL output

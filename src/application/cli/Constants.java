@@ -116,6 +116,11 @@ public final class Constants {
 	public static final String CMD_BESTMOVE = "bestmove";
 
 	/**
+	 * {@code threats} subcommand token.
+	 */
+	public static final String CMD_THREATS = "threats";
+
+	/**
 	 * {@code perft} subcommand token.
 	 */
 	public static final String CMD_PERFT = "perft";

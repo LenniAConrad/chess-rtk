@@ -36,9 +36,15 @@ Other common primitives:
 
 - Mine random seeds: `crtk mine --random-count 200 --output dump/random.json` (or endless with `--random-infinite`)
 - Validate movegen: `crtk perft --depth 5`
-- Engine probing: `crtk analyze --fen "<FEN>" --max-duration 2s`, `crtk bestmove --fen "<FEN>" --max-duration 200`
+- Engine probing: `crtk analyze --fen "<FEN>" --max-duration 2s`, `crtk bestmove --fen "<FEN>" --max-duration 200`, `crtk threats --fen "<FEN>" --max-duration 2s`
 - Position inspection: `crtk print --fen "<FEN>"`, `crtk display --fen "<FEN>" --special-arrows`, `crtk render --fen "<FEN>" --output dump/pos.png`
 - Dataset export: `crtk record-to-dataset --input dump/run.puzzles.json --output training/puzzles`
+
+## Single-position toolbox
+
+![ChessRTK single-position toolbox](assets/crtk-position-toolbox.png)
+
+Diagram source: `assets/crtk-position-toolbox.dot` (render with `dot -Tpng -Gdpi=160 -o assets/crtk-position-toolbox.png assets/crtk-position-toolbox.dot`).
 
 ## Docs (full)
 
@@ -89,7 +95,7 @@ More: `wiki/build-and-install.md`
 - `mine`: evaluate lots of seeds (random / `.txt` / `.pgn`) and emit puzzles + non-puzzles JSON
 - `record-to-plain`, `record-to-csv`, `record-to-pgn`: convert `.record` analysis dumps to `.plain`, CSV, or PGN
 - `record-to-dataset`, `stack-to-dataset`: export tensors for AI training (features `(N, 781)`)
-- `print`: pretty-print a FEN as ASCII
+- `print`: pretty-print a FEN as ASCII (includes tags)
 - `display`: open a small GUI board view (overlays + optional ablation)
 - `render`: save a board image to disk (PNG/JPG/BMP)
 - `gpu-info`: show LC0 GPU backend availability and device info (CUDA/ROCm/oneAPI)

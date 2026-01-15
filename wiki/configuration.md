@@ -45,4 +45,10 @@ Use your package manager (e.g. `apt-get install stockfish`) or build engines you
 
 ## Optional ECO book: `config/book.eco.toml`
 
-An ECO dictionary used when printing/logging positions. If you don't need ECO names, you can ignore this file.
+An ECO dictionary used for opening lookups (tags / printing).
+
+When present, the tagging subsystem (used by `tags`, `print`, and by mined records) will add:
+- `eco: <code>` (e.g. `eco: A00`)
+- `opening: <name>` (e.g. `opening: Amar Opening`)
+
+If the file is missing, opening tags are simply omitted.
