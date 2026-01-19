@@ -8,9 +8,12 @@ import java.util.List;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Callable;
+import java.util.concurrent.CompletionService;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorCompletionService;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.function.Consumer;
 
 import application.console.Bar;
 import chess.debug.LogService;
@@ -162,6 +165,72 @@ public final class Pool implements AutoCloseable {
         }
         progressBar.finish();
         return out;
+    }
+
+    /**
+     * Analyses all records and invokes {@code onDone} for each record as soon as its
+     * analysis completes (completion order is not guaranteed).
+     *
+     * <p>
+     * The callback runs on the caller thread (the thread calling this method), not
+     * on worker threads.
+     * </p>
+     *
+     * @param records       input records to analyse
+     * @param accelerate    prefilter arguments
+     * @param maxNodes      maximum nodes per position
+     * @param maxDurationMs maximum time per position (milliseconds)
+     * @param onDone        called once per analysed record
+     */
+    public void analyseEach(
+            List<Record> records,
+            Filter accelerate,
+            long maxNodes,
+            long maxDurationMs,
+            Consumer<Record> onDone) {
+        final CompletionService<Record> cs = new ExecutorCompletionService<>(executor);
+
+        for (Record rec : records) {
+            cs.submit(() -> {
+                try {
+                    Engine eng = engines.take();
+                    analyseWithEngine(eng, rec, accelerate, maxNodes, maxDurationMs);
+                    return rec;
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    return rec;
+                }
+            });
+        }
+
+        for (int i = 0; i < records.size(); i++) {
+            try {
+                Record rec = cs.take().get();
+                if (onDone != null) {
+                    onDone.accept(rec);
+                }
+            } catch (InterruptedException ie) {
+                Thread.currentThread().interrupt();
+                break;
+            } catch (ExecutionException ee) {
+                LogService.error(ee, "Worker crashed.");
+            }
+        }
+    }
+
+    private void analyseWithEngine(
+            Engine eng,
+            Record rec,
+            Filter accelerate,
+            long maxNodes,
+            long maxDurationMs) throws InterruptedException {
+        try {
+            eng.analyse(rec, accelerate, maxNodes, maxDurationMs);
+        } catch (IOException ioe) {
+            LogService.error(ioe, "Engine analyse failed.");
+        } finally {
+            engines.put(eng);
+        }
     }
 
     /**

@@ -205,17 +205,26 @@ public class Engine implements AutoCloseable {
 	private synchronized Engine rest() throws IOException {
 		print(protocol.isready);
 		long deadline = System.currentTimeMillis() + STOP_TIMEOUT;
-		String line;
 		while (System.currentTimeMillis() < deadline) {
-			line = input.readLine();
-			if (line == null) {
-				String message = String.format("%s process died or stream closed while getting ready! (%dms timeout)",
-						engineId, STOP_TIMEOUT);
-				LogService.error(null, message);
-				throw new IOException(message);
-			}
-			if (line.equals(protocol.readyok)) {
-				return this;
+			if (input.ready()) {
+				String line = input.readLine();
+				if (line == null) {
+					String message = String.format("%s process died or stream closed while getting ready! (%dms timeout)",
+							engineId, STOP_TIMEOUT);
+					LogService.error(null, message);
+					throw new IOException(message);
+				}
+				if (line.equals(protocol.readyok)) {
+					return this;
+				}
+			} else {
+				if (!process.isAlive()) {
+					String message = String.format("%s process died while getting ready! (%dms timeout)",
+							engineId, STOP_TIMEOUT);
+					LogService.error(null, message);
+					throw new IOException(message);
+				}
+				yieldForEngineOutput();
 			}
 		}
 		String message = String.format("%s did not get ready! (%dms timeout)", engineId, STOP_TIMEOUT);
@@ -450,6 +459,10 @@ public class Engine implements AutoCloseable {
 	 */
 	private void processEngineOutput(Analysis analysis, Filter arguments) throws IOException {
 		engineOutput = input.readLine();
+		if (engineOutput == null) {
+			LogService.error(null, String.format("%s output stream closed during analysis", engineId));
+			return;
+		}
 		analysis.add(new Output(engineOutput));
 		if (arguments != null && arguments.apply(analysis)) {
 			stop();
@@ -537,6 +550,9 @@ public class Engine implements AutoCloseable {
 	 *         terminal line was seen
 	 */
 	private static boolean searchOngoing(String string) {
+		if (string == null) {
+			return false;
+		}
 		return !string.startsWith("bestmove ") && !string.equals("info depth 0 score mate 0")
 				&& !string.equals("info depth 0 score cp 0");
 	}

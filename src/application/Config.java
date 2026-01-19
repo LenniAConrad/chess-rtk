@@ -29,6 +29,7 @@ import java.util.Optional;
  * <li>engine-instances (long)</li>
  * <li>max-nodes (long; per-position node cap)</li>
  * <li>max-duration (long; per-position time cap in ms)</li>
+ * <li>puzzle-analysis-cache (long; max analyzed positions to remember)</li>
  * <li>puzzle-quality (string; Filter DSL)</li>
  * <li>puzzle-winning (string; Filter DSL)</li>
  * <li>puzzle-drawing (string; Filter DSL)</li>
@@ -99,6 +100,11 @@ public final class Config {
     private static final String K_MAX_DURATION = "max-duration";
 
     /**
+     * Used for holding the TOML key of the maximum analyzed-position cache size.
+     */
+    private static final String K_PUZZLE_ANALYSIS_CACHE = "puzzle-analysis-cache";
+
+    /**
      * Used for holding the TOML key of the puzzle quality filter string.
      */
     private static final String K_PUZZLE_QUALITY = "puzzle-quality";
@@ -143,6 +149,11 @@ public final class Config {
      * Used for caching the configured per-position duration cap in milliseconds.
      */
     private static final long DEFAULT_MAX_DURATION = 1_000_000L;
+
+    /**
+     * Used for providing the default maximum size of the analyzed-position cache.
+     */
+    private static final int DEFAULT_PUZZLE_ANALYSIS_CACHE = 500_000;
 
     /**
      * Used for providing the default Filter-DSL for puzzle quality selection.
@@ -212,6 +223,15 @@ public final class Config {
             "# Maximum wall time (ms) the engine may think before being aborted.",
             "# If a position exceeds this, the search is forcefully stopped.",
             K_MAX_DURATION + EQ + DEFAULT_MAX_DURATION,
+            "",
+            "",
+            "# MINING DEDUP CACHE",
+            "# Maximum number of analyzed positions to remember during mining.",
+            "# When full, the oldest entries are evicted (LRU).",
+            "# Rough memory estimate per cached position (FEN string + LinkedHashMap entry):",
+            "#   ~200-400 bytes on a 64-bit JVM with compressed oops (depends on FEN length/JVM).",
+            "#   1 GB RAM ~= 2.5-5.0 million cached positions.",
+            K_PUZZLE_ANALYSIS_CACHE + EQ + DEFAULT_PUZZLE_ANALYSIS_CACHE,
             "",
             "# PUZZLE FILTERS",
             "# The following filters are expressed in the Filter DSL.",
@@ -311,6 +331,11 @@ public final class Config {
     private static volatile long maxDuration;
 
     /**
+     * Used for caching the configured size of the analyzed-position cache.
+     */
+    private static volatile int puzzleAnalysisCache;
+
+    /**
      * Used for holding the parsed Filter tree for the puzzle quality filter.
      */
     private static Filter puzzleQuality;
@@ -362,6 +387,15 @@ public final class Config {
      */
     public static long getMaxDuration() {
         return maxDuration;
+    }
+
+    /**
+     * Used for obtaining the configured size of the analyzed-position cache.
+     *
+     * @return maximum number of analyzed positions to remember.
+     */
+    public static int getPuzzleAnalysisCacheSize() {
+        return puzzleAnalysisCache;
     }
 
     /**
@@ -559,11 +593,14 @@ public final class Config {
         Long nodes = tomlOpt.map(t -> t.getLong(K_MAX_NODES)).orElse(null);
         Long durMs = tomlOpt.map(t -> t.getLong(K_MAX_DURATION)).orElse(null);
         Long engines = tomlOpt.map(t -> t.getLong(K_ENGINE_INSTANCES)).orElse(null);
+        Long analysisCache = tomlOpt.map(t -> t.getLong(K_PUZZLE_ANALYSIS_CACHE)).orElse(null);
 
         maxNodes = Math.max(1, nonNullOrDefaultLong(nodes, K_MAX_NODES, DEFAULT_MAX_NODES));
         maxDuration = Math.max(1, nonNullOrDefaultLong(durMs, K_MAX_DURATION, DEFAULT_MAX_DURATION));
         engineInstances = Math.max(1,
                 (int) nonNullOrDefaultLong(engines, K_ENGINE_INSTANCES, DEFAULT_ENGINE_INSTANCES));
+        puzzleAnalysisCache = Math.max(1,
+                (int) nonNullOrDefaultLong(analysisCache, K_PUZZLE_ANALYSIS_CACHE, DEFAULT_PUZZLE_ANALYSIS_CACHE));
 
     }
 
@@ -692,6 +729,7 @@ public final class Config {
         System.out.println("Protocol path: " + Config.getProtocolPath());
         System.out.println("Max nodes: " + Config.getMaxNodes());
         System.out.println("Max duration: " + Config.getMaxDuration());
+        System.out.println("Puzzle analysis cache: " + Config.getPuzzleAnalysisCacheSize());
         System.out.println("Puzzle quality: " + Config.getPuzzleQuality());
         System.out.println("Puzzle winning: " + Config.getPuzzleWinning());
         System.out.println("Puzzle drawing: " + Config.getPuzzleDrawing());

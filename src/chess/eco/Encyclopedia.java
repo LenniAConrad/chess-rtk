@@ -108,6 +108,13 @@ public final class Encyclopedia {
      */
     private final Map<Long, Entry> byCoreSignature;
 
+    /**
+     * Holds the raw ECO data extracted from a TOML table array before parsing it into an {@link Entry}.
+     *
+     * <p>
+     * Each row stores the ECO code, the descriptive name, and the SAN movetext.
+     * </p>
+     */
     private record Row(String eco, String name, String movetext) {
         private Row {
             Objects.requireNonNull(eco, "eco");
@@ -116,6 +123,13 @@ public final class Encyclopedia {
         }
     }
 
+    /**
+     * Result returned when attempting to parse a {@link Row}.
+     *
+     * <p>
+     * Exactly one of {@link #entry()} and {@link #error()} should be non-null to indicate success or failure.
+     * </p>
+     */
     private record RowParseResult(Entry entry, String error) {
     }
 

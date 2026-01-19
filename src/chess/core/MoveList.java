@@ -86,11 +86,12 @@ public final class MoveList {
 	/**
 	 * Used for retrieving a random move from the list.
 	 *
-	 * @param index the index of the move to retrieve
-	 * @return the move at the specified index
-	 * @throws IndexOutOfBoundsException if the index is out of range
+	 * @return a random move, or {@link Move#NO_MOVE} if the list is empty
 	 */
 	public short getRandomMove() {
+		if (size == 0) {
+			return Move.NO_MOVE;
+		}
 		return moves[ThreadLocalRandom.current().nextInt(0, size)];
 	}
 

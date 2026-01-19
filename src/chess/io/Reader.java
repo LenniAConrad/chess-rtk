@@ -143,13 +143,20 @@ public final class Reader {
     }
     String[] tokens = line.split("\\s+");
     List<String> fens = new ArrayList<>();
-    for (int i = 0; i <= tokens.length - 6; i++) {
-      String fen = String.join(" ", Arrays.copyOfRange(tokens, i, i + 6));
-      try {
-        new Position(fen);
-        fens.add(fen);
-      } catch (IllegalArgumentException ignored) {
-        // not a fen starting at this token window
+    for (int i = 0; i < tokens.length; i++) {
+      int[] lengths = { 6, 5, 4 };
+      boolean foundFen = false;
+      for (int len : lengths) {
+        if (!foundFen && i + len <= tokens.length) {
+          String fen = String.join(" ", Arrays.copyOfRange(tokens, i, i + len));
+          try {
+            new Position(fen);
+            fens.add(fen);
+            foundFen = true;
+          } catch (IllegalArgumentException ignored) {
+            // not a fen starting at this token window
+          }
+        }
       }
     }
     return fens;

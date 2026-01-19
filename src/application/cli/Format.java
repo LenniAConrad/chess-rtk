@@ -145,6 +145,51 @@ public final class Format {
 	}
 
 	/**
+	 * Formats a principal variation as a space-delimited sequence of SAN moves.
+	 *
+	 * <p>Falls back to UCI for remaining moves if the position becomes invalid
+	 * while replaying the PV.</p>
+	 *
+	 * @param pos   starting position for the PV
+	 * @param moves move array returned from the engine
+	 * @return PV string or empty string when no moves are present
+	 */
+	public static String formatPvMovesSan(Position pos, short[] moves) {
+		if (moves == null || moves.length == 0) {
+			return "";
+		}
+		if (pos == null) {
+			return formatPvMoves(moves);
+		}
+		Position cursor = pos.copyOf();
+		StringBuilder sb = new StringBuilder(moves.length * 6);
+		boolean first = true;
+		boolean canAdvance = true;
+		for (short move : moves) {
+			if (move == Move.NO_MOVE) {
+				continue;
+			}
+			String token;
+			if (canAdvance) {
+				token = safeSan(cursor, move);
+				try {
+					cursor.play(move);
+				} catch (RuntimeException ex) {
+					canAdvance = false;
+				}
+			} else {
+				token = Move.toString(move);
+			}
+			if (!first) {
+				sb.append(' ');
+			}
+			sb.append(token);
+			first = false;
+		}
+		return sb.toString();
+	}
+
+	/**
 	 * Converts a {@link Wdl} distribution into the canonical {@code win draw loss}
 	 * triple representation used in CLI outputs.
 	 *

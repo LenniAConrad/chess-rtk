@@ -1,0 +1,57 @@
+/* crtk-github-banner.dot
+ * Render:
+ *   neato -Tsvg assets/crtk-github-banner.dot -o assets/crtk-github-banner.svg
+ *   neato -Tpng assets/crtk-github-banner.dot -o assets/crtk-github-banner.png
+ */
+graph ChessRTK_Banner {
+  layout=neato;
+  overlap=false;
+  splines=curved;
+  outputorder=edgesfirst;
+
+  /* Canvas feel (fixed 1280x640 at 72 dpi) */
+  dpi=72;
+  size="17.78,8.89!";
+  bgcolor="#fbfbfb";
+
+  /* Default styling */
+  node [fontname="Helvetica", fontsize=16, fontcolor="#222222"];
+  edge [color="#c9c9c9", penwidth=2];
+
+  /* ---- Right abstract network motif ---- */
+  edge [color="#d8d8d8", penwidth=1.6];
+  node [shape=none, label="", fixedsize=true, width=2.0, height=2.0, imagescale=true];
+  img1 [pos="1130,150!", width=2.2, height=2.2, image="assets/banner-pos1.png"];
+  img2 [pos="960,110!", width=1.7, height=1.7, image="assets/banner-pos2.png"];
+  img3 [pos="1100,360!", width=2.3, height=2.3, image="assets/banner-pos3.png"];
+  img4 [pos="1030,520!", width=1.85, height=1.85, image="assets/banner-pos4.png"];
+  img5 [pos="840,520!", width=2.15, height=2.15, image="assets/banner-pos5.png"];
+  img6 [pos="680,370!", width=1.8, height=1.8, image="assets/banner-pos6.png"];
+  img7 [pos="760,190!", width=2.0, height=2.0, image="assets/banner-pos7.png"];
+  img8 [pos="940,300!", width=1.6, height=1.6, image="assets/banner-pos8.png"];
+
+  img1 -- img2;
+  img2 -- img3;
+  img3 -- img4;
+  img4 -- img5;
+  img5 -- img6;
+  img6 -- img7;
+  img7 -- img8;
+  img8 -- img1;
+  img2 -- img6;
+  img3 -- img7;
+
+  /* ---- Left text block (absolute positioning) ---- */
+  textblock [shape=plaintext, pos="360,320!", fixedsize=false,
+            label=<<TABLE BORDER="0" CELLBORDER="0" CELLPADDING="0" ALIGN="LEFT">
+              <TR><TD ALIGN="LEFT"><FONT POINT-SIZE="72" COLOR="#222222"><B>ChessRTK</B></FONT></TD></TR>
+              <TR><TD ALIGN="LEFT"><FONT POINT-SIZE="30" COLOR="#444444">Reproducible Chess Research Toolkit</FONT></TD></TR>
+              <TR><TD ALIGN="LEFT"><FONT POINT-SIZE="22" COLOR="#666666">Java 17 CLI - Mining - Evaluation - Dataset Export</FONT></TD></TR>
+            </TABLE>>];
+
+  /* Keep the composition stable (invisible anchors) */
+  anchorL [shape=point, width=0.01, label="", pos="80,320!", style=invis];
+  anchorR [shape=point, width=0.01, label="", pos="1180,320!", style=invis];
+
+  anchorL -- textblock [style=invis];
+}

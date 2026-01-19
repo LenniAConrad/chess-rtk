@@ -31,6 +31,14 @@ max-nodes = 50_000_000
 # If a position exceeds this, the search is forcefully stopped.
 max-duration = 1_000_000
 
+# MINING DEDUP CACHE
+# Maximum number of analyzed positions to remember during mining.
+# When full, the oldest entries are evicted (LRU).
+# Rough memory estimate per cached position (FEN string + LinkedHashMap entry):
+#   ~200-400 bytes on a 64-bit JVM with compressed oops (depends on FEN length/JVM).
+#   1 GB RAM ~= 2.5-5.0 million cached positions.
+puzzle-analysis-cache = 5_000_000
+
 # PUZZLE FILTERS
 # The following filters are expressed in the Filter DSL.
 # They gate whether an analyzed position qualifies as a candidate puzzle.

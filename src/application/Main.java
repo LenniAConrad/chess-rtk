@@ -15,6 +15,7 @@ import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -71,13 +72,15 @@ import utility.Json;
  * Used for providing the CLI entry point and dispatching subcommands.
  *
  * <p>
-	 * Recognized subcommands are {@code record-to-plain}, {@code record-to-csv},
-	 * {@code record-to-pgn}, {@code record-to-dataset}, {@code stack-to-dataset},
-	 * {@code gpu-info}, {@code mine-puzzles}, {@code gen-fens}, {@code print}, {@code display},
-	 * {@code render}, {@code clean}, {@code config}, {@code stats},
-	 * {@code stats-tags}, {@code tags}, {@code moves}, {@code analyze},
-	 * {@code bestmove}, {@code threats}, {@code perft}, {@code pgn-to-fens}, {@code eval},
-	 * and {@code help}.
+ * Recognized subcommands are {@code record-to-plain}, {@code record-to-csv},
+ * {@code record-to-pgn}, {@code record-to-dataset}, {@code stack-to-dataset},
+ * {@code gpu-info}, {@code mine-puzzles}, {@code gen-fens}, {@code print},
+ * {@code display},
+ * {@code render}, {@code clean}, {@code config}, {@code stats},
+ * {@code stats-tags}, {@code tags}, {@code moves}, {@code analyze},
+ * {@code bestmove}, {@code threats}, {@code perft}, {@code pgn-to-fens},
+ * {@code eval},
+ * and {@code help}.
  * Prints usage information when no subcommand is supplied. For unknown
  * subcommands, prints an
  * error and exits with status {@code 2}.
@@ -93,10 +96,24 @@ public final class Main {
 	private static final String LOG_CTX_FEN_PREFIX = "FEN: ";
 
 	/**
+	 * Prefix used to build fast JSON objects that start with a {@code kind} field.
+	 *
+	 * <p>
+	 * This avoids a formatter by splicing the prefix with a kind value and the
+	 * remaining JSON payload.
+	 * </p>
+	 */
+	private static final String KIND_JSON_PREFIX = "{\"kind\":\"";
+
+	/**
 	 * Used for the default display window size when no overrides are supplied.
 	 */
 	private static final int DEFAULT_DISPLAY_WINDOW_SIZE = 640;
 
+	/**
+	 * Maximum line width for wrapped PV move output in analyze summaries.
+	 */
+	private static final int ANALYSIS_PV_WRAP_WIDTH = 100;
 
 	/**
 	 * Used for parsing top-level CLI arguments and delegating to a subcommand
@@ -461,7 +478,8 @@ public final class Main {
 	 *
 	 * @param value non-negative integer value
 	 * @param width minimum number of digits to return
-	 * @return zero-padded decimal string (or the unmodified value when already wide enough)
+	 * @return zero-padded decimal string (or the unmodified value when already wide
+	 *         enough)
 	 */
 	private static String zeroPad(int value, int width) {
 		String raw = Integer.toString(value);
@@ -541,7 +559,8 @@ public final class Main {
 	 * <p>
 	 * Parses a FEN supplied via {@code --fen} or as a single positional argument
 	 * after the
-	 * subcommand and pretty-prints the position (including tags). Exits with status {@code 2} when
+	 * subcommand and pretty-prints the position (including tags). Exits with status
+	 * {@code 2} when
 	 * no FEN is provided.
 	 *
 	 * <p>
@@ -595,24 +614,24 @@ public final class Main {
 	/**
 	 * Parsed options for the {@code display} subcommand.
 	 *
-	 * @param verbose     whether to print stack traces on failure
-	 * @param fen         FEN string (may be null until resolved)
-	 * @param showBorder  whether to render the board frame
-	 * @param whiteDown   whether White is rendered at the bottom
-	 * @param light       whether to use light window styling
-	 * @param showBackend whether to print and display the evaluator backend
-	 * @param ablation    whether to overlay per-piece inverted ablation scores
-	 * @param size        square window size fallback (0 means unset)
-	 * @param width       explicit window width (0 means unset)
-	 * @param height      explicit window height (0 means unset)
-	 * @param zoom        zoom multiplier applied after fit-to-window scaling
-	 * @param arrows      UCI moves to render as arrows
-	 * @param specialArrows whether to render castling/en passant arrows
-	 * @param details     whether to render coordinate labels inside the board
+	 * @param verbose        whether to print stack traces on failure
+	 * @param fen            FEN string (may be null until resolved)
+	 * @param showBorder     whether to render the board frame
+	 * @param whiteDown      whether White is rendered at the bottom
+	 * @param light          whether to use light window styling
+	 * @param showBackend    whether to print and display the evaluator backend
+	 * @param ablation       whether to overlay per-piece inverted ablation scores
+	 * @param size           square window size fallback (0 means unset)
+	 * @param width          explicit window width (0 means unset)
+	 * @param height         explicit window height (0 means unset)
+	 * @param zoom           zoom multiplier applied after fit-to-window scaling
+	 * @param arrows         UCI moves to render as arrows
+	 * @param specialArrows  whether to render castling/en passant arrows
+	 * @param details        whether to render coordinate labels inside the board
 	 * @param detailsOutside whether to render coordinate labels outside the board
-	 * @param shadow      whether to render a drop shadow behind the board
-	 * @param circles     squares to highlight with circles
-	 * @param legal       squares whose legal moves should be highlighted
+	 * @param shadow         whether to render a drop shadow behind the board
+	 * @param circles        squares to highlight with circles
+	 * @param legal          squares whose legal moves should be highlighted
 	 */
 	private record DisplayOptions(
 			boolean verbose,
@@ -638,24 +657,24 @@ public final class Main {
 	/**
 	 * Parsed options for the {@code render} subcommand.
 	 *
-	 * @param verbose     whether to print stack traces on failure
-	 * @param fen         FEN string (may be null until resolved)
-	 * @param showBorder  whether to render the board frame
-	 * @param whiteDown   whether White is rendered at the bottom
-	 * @param showBackend whether to print evaluator backend info
-	 * @param ablation    whether to overlay per-piece inverted ablation scores
-	 * @param size        output size fallback (square, 0 means unset)
-	 * @param width       explicit output width (0 means unset)
-	 * @param height      explicit output height (0 means unset)
-	 * @param arrows      UCI moves to render as arrows
-	 * @param specialArrows whether to render castling/en passant arrows
-	 * @param details     whether to render coordinate labels inside the board
+	 * @param verbose        whether to print stack traces on failure
+	 * @param fen            FEN string (may be null until resolved)
+	 * @param showBorder     whether to render the board frame
+	 * @param whiteDown      whether White is rendered at the bottom
+	 * @param showBackend    whether to print evaluator backend info
+	 * @param ablation       whether to overlay per-piece inverted ablation scores
+	 * @param size           output size fallback (square, 0 means unset)
+	 * @param width          explicit output width (0 means unset)
+	 * @param height         explicit output height (0 means unset)
+	 * @param arrows         UCI moves to render as arrows
+	 * @param specialArrows  whether to render castling/en passant arrows
+	 * @param details        whether to render coordinate labels inside the board
 	 * @param detailsOutside whether to render coordinate labels outside the board
-	 * @param shadow      whether to render a drop shadow behind the board
-	 * @param circles     squares to highlight with circles
-	 * @param legal       squares whose legal moves should be highlighted
-	 * @param output      output image path
-	 * @param format      image format override (png/jpg/bmp)
+	 * @param shadow         whether to render a drop shadow behind the board
+	 * @param circles        squares to highlight with circles
+	 * @param legal          squares whose legal moves should be highlighted
+	 * @param output         output image path
+	 * @param format         image format override (png/jpg/bmp)
 	 */
 	private record RenderImageOptions(
 			boolean verbose,
@@ -694,7 +713,8 @@ public final class Main {
 	 * <li>{@code --arrow <uci>} — add an arrow (repeatable, UCI move format).</li>
 	 * <li>{@code --special-arrows} — show castling/en passant arrows.</li>
 	 * <li>{@code --details-inside} — show coordinate labels inside the board.</li>
-	 * <li>{@code --details-outside} — show coordinate labels outside the board.</li>
+	 * <li>{@code --details-outside} — show coordinate labels outside the
+	 * board.</li>
 	 * <li>{@code --shadow} — add a drop shadow behind the board.</li>
 	 * <li>{@code --circle <sq>} — add a circle highlight (repeatable, e.g.
 	 * e4).</li>
@@ -724,7 +744,8 @@ public final class Main {
 
 		try {
 			Position pos = new Position(opts.fen().trim());
-			Render render = createRender(pos, opts.whiteDown(), opts.showBorder(), opts.details(), opts.detailsOutside());
+			Render render = createRender(pos, opts.whiteDown(), opts.showBorder(), opts.details(),
+					opts.detailsOutside());
 			applyDisplayOverlays(render, pos, opts.arrows(), opts.circles(), opts.legal(), opts.specialArrows());
 			String backendLabel = applyDisplayEvaluatorOverlays(render, pos, opts.showBackend(), opts.ablation());
 
@@ -834,7 +855,8 @@ public final class Main {
 	 * <li>{@code --arrow <uci>} — add an arrow (repeatable, UCI move format).</li>
 	 * <li>{@code --special-arrows} — show castling/en passant arrows.</li>
 	 * <li>{@code --details-inside} — show coordinate labels inside the board.</li>
-	 * <li>{@code --details-outside} — show coordinate labels outside the board.</li>
+	 * <li>{@code --details-outside} — show coordinate labels outside the
+	 * board.</li>
 	 * <li>{@code --circle <sq>} — add a circle highlight (repeatable, e.g.
 	 * e4).</li>
 	 * <li>{@code --legal <sq>} — highlight legal moves from a square
@@ -874,7 +896,8 @@ public final class Main {
 		} catch (IOException ex) {
 			handleRenderFailure(opts, "Error: failed to write image. ", "render: failed to write image", ex);
 		} catch (Exception ex) {
-			handleRenderFailure(opts, "Error: failed to render image. ", "render: unexpected failure while rendering image", ex);
+			handleRenderFailure(opts, "Error: failed to render image. ",
+					"render: unexpected failure while rendering image", ex);
 		}
 	}
 
@@ -937,12 +960,13 @@ public final class Main {
 	 * Reports a render failure, logs details, and exits.
 	 * Optionally prints stack traces when verbose output is enabled.
 	 *
-	 * @param opts render options for contextual logging
+	 * @param opts       render options for contextual logging
 	 * @param userPrefix user-facing prefix for the error message
 	 * @param logMessage message to send to the logger
-	 * @param ex exception that triggered the failure
+	 * @param ex         exception that triggered the failure
 	 */
-	private static void handleRenderFailure(RenderImageOptions opts, String userPrefix, String logMessage, Exception ex) {
+	private static void handleRenderFailure(RenderImageOptions opts, String userPrefix, String logMessage,
+			Exception ex) {
 		System.err.println(userPrefix + (ex.getMessage() == null ? "" : ex.getMessage()));
 		LogService.error(ex, logMessage, LOG_CTX_FEN_PREFIX + opts.fen());
 		if (opts.verbose()) {
@@ -1015,11 +1039,13 @@ public final class Main {
 	 * Creates a {@link Render} instance configured for the given position and
 	 * basic orientation settings.
 	 *
-	 * @param pos        position to render
-	 * @param whiteDown  whether White is displayed at the bottom
-	 * @param showBorder whether to show the board frame
-	 * @param showCoordinates whether to draw coordinate labels inside the board
-	 * @param showCoordinatesOutside whether to draw coordinate labels outside the board
+	 * @param pos                    position to render
+	 * @param whiteDown              whether White is displayed at the bottom
+	 * @param showBorder             whether to show the board frame
+	 * @param showCoordinates        whether to draw coordinate labels inside the
+	 *                               board
+	 * @param showCoordinatesOutside whether to draw coordinate labels outside the
+	 *                               board
 	 * @return configured render instance
 	 */
 	private static Render createRender(Position pos, boolean whiteDown, boolean showBorder, boolean showCoordinates,
@@ -1036,11 +1062,11 @@ public final class Main {
 	 * Applies display overlays (arrows/circles/legal-move highlights) to a render
 	 * instance.
 	 *
-	 * @param render       render instance to annotate
-	 * @param pos          position used for legal-move overlays
-	 * @param arrows       UCI moves to add as arrows
-	 * @param circles      squares to highlight with circles
-	 * @param legalSquares squares whose legal moves should be highlighted
+	 * @param render        render instance to annotate
+	 * @param pos           position used for legal-move overlays
+	 * @param arrows        UCI moves to add as arrows
+	 * @param circles       squares to highlight with circles
+	 * @param legalSquares  squares whose legal moves should be highlighted
 	 * @param specialArrows whether to add castling/en passant arrows
 	 */
 	private static void applyDisplayOverlays(
@@ -1067,20 +1093,21 @@ public final class Main {
 		}
 	}
 
-		/**
-		 * Optionally evaluates a position for backend selection and/or ablation scores,
-		 * and applies resulting overlays to the renderer.
-		 *
-		 * @param render      render instance to annotate
-		 * @param pos         position to evaluate
-		 * @param showBackend whether to evaluate and print the backend label
-		 * @param ablation    whether to compute and overlay ablation scores
-		 * @return backend label when {@code showBackend} is enabled, otherwise {@code null}
-		 */
-		private static String applyDisplayEvaluatorOverlays(
-				Render render,
-				Position pos,
-				boolean showBackend,
+	/**
+	 * Optionally evaluates a position for backend selection and/or ablation scores
+	 * and applies resulting overlays to the renderer.
+	 *
+	 * @param render      render instance to annotate
+	 * @param pos         position to evaluate
+	 * @param showBackend whether to evaluate and print the backend label
+	 * @param ablation    whether to compute and overlay ablation scores
+	 * @return backend label when {@code showBackend} is enabled, otherwise
+	 *         {@code null}
+	 */
+	private static String applyDisplayEvaluatorOverlays(
+			Render render,
+			Position pos,
+			boolean showBackend,
 			boolean ablation) {
 		if (!showBackend && !ablation) {
 			return null;
@@ -1142,7 +1169,7 @@ public final class Main {
 	/**
 	 * Resolves the image format from CLI overrides or output file extension.
 	 *
-	 * @param output output path used for extension lookup
+	 * @param output         output path used for extension lookup
 	 * @param formatOverride user-provided format override
 	 * @return normalized image format string
 	 */
@@ -1155,7 +1182,8 @@ public final class Main {
 		format = normalizeImageFormat(ext);
 		if (format == null) {
 			if (ext == null || ext.isBlank()) {
-				throw new IllegalArgumentException("Missing image format (use --format png|jpg|bmp or add an extension)");
+				throw new IllegalArgumentException(
+						"Missing image format (use --format png|jpg|bmp or add an extension)");
 			}
 			throw new IllegalArgumentException("Unsupported image format: " + ext);
 		}
@@ -1222,7 +1250,7 @@ public final class Main {
 	 * Scales an image to the requested dimensions using high-quality interpolation.
 	 *
 	 * @param source source image
-	 * @param width target width in pixels
+	 * @param width  target width in pixels
 	 * @param height target height in pixels
 	 * @return scaled image
 	 */
@@ -1240,7 +1268,7 @@ public final class Main {
 	/**
 	 * Converts an ARGB image into an opaque RGB image using a solid background.
 	 *
-	 * @param source source image
+	 * @param source     source image
 	 * @param background background fill color
 	 * @return opaque image in RGB format
 	 */
@@ -1398,6 +1426,7 @@ public final class Main {
 		System.out.println("Engine instances: " + Config.getEngineInstances());
 		System.out.println("Max nodes: " + Config.getMaxNodes());
 		System.out.println("Max duration (ms): " + Config.getMaxDuration());
+		System.out.println("Puzzle analysis cache: " + Config.getPuzzleAnalysisCacheSize());
 		System.out.println("Puzzle quality: " + Config.getPuzzleQuality());
 		System.out.println("Puzzle winning: " + Config.getPuzzleWinning());
 		System.out.println("Puzzle drawing: " + Config.getPuzzleDrawing());
@@ -1652,6 +1681,33 @@ public final class Main {
 	 * @param a parsed argument vector for the subcommand.
 	 */
 	private static void runThreats(Argv a) {
+		ThreatsOptions opts = parseThreatsOptions(a);
+		if (opts.fens.isEmpty()) {
+			return;
+		}
+		Protocol protocol = loadProtocolOrExit(opts.protoPath, opts.verbose);
+		Optional<Boolean> wdlFlag = resolveWdlFlag(opts.wdlConfig.wdl, opts.wdlConfig.noWdl);
+
+		try (Engine engine = new Engine(protocol)) {
+			runThreatsWithEngine(engine, protocol, opts, wdlFlag);
+		} catch (Exception ex) {
+			System.err.println("threats: failed to initialize engine: " + ex.getMessage());
+			if (opts.verbose) {
+				ex.printStackTrace(System.err);
+			}
+			System.exit(2);
+		}
+	}
+
+	/**
+	 * Parses CLI arguments for the {@code threats} subcommand and builds a
+	 * normalized
+	 * options bundle.
+	 *
+	 * @param a argument parser positioned after the subcommand token
+	 * @return parsed threats options
+	 */
+	private static ThreatsOptions parseThreatsOptions(Argv a) {
 		boolean verbose = a.flag(OPT_VERBOSE, OPT_VERBOSE_SHORT);
 		Path input = a.path(OPT_INPUT, OPT_INPUT_SHORT);
 		String fen = a.string(OPT_FEN);
@@ -1672,67 +1728,245 @@ public final class Main {
 		if (wdl && noWdl) {
 			System.err.println(String.format("threats: only one of %s or %s may be set", OPT_WDL, OPT_NO_WDL));
 			System.exit(2);
-			return;
+			return null;
 		}
 
 		List<String> fens = resolveFenInputs(CMD_THREATS, input, fen);
-		Protocol protocol = loadProtocolOrExit(protoPath, verbose);
-		Optional<Boolean> wdlFlag = resolveWdlFlag(wdl, noWdl);
+		ThreatsOptions.Limits limits = new ThreatsOptions.Limits(nodesCap, durMs);
+		ThreatsOptions.EngineConfig engineConfig = new ThreatsOptions.EngineConfig(multipv, threads, hash);
+		ThreatsOptions.WdlConfig wdlConfig = new ThreatsOptions.WdlConfig(wdl, noWdl);
+		return new ThreatsOptions(verbose, protoPath, limits, engineConfig, wdlConfig, fens);
+	}
 
-		try (Engine engine = new Engine(protocol)) {
-			configureEngine(CMD_THREATS, engine, threads, hash, multipv, wdlFlag);
-			String engineLabel = protocol.getName() != null ? protocol.getName() : protocol.getPath();
-			System.out.println("Engine: " + engineLabel);
+	/**
+	 * Executes the threats analysis loop using a leased engine instance.
+	 *
+	 * @param engine   engine instance to analyze threat positions with
+	 * @param protocol protocol metadata used for diagnostics
+	 * @param opts     parsed threats options bundle
+	 * @param wdlFlag  resolved WDL override flag for the engine
+	 */
+	private static void runThreatsWithEngine(Engine engine, Protocol protocol, ThreatsOptions opts,
+			Optional<Boolean> wdlFlag) {
+		configureEngine(CMD_THREATS, engine, opts.engineConfig.threads, opts.engineConfig.hash,
+				opts.engineConfig.multipv, wdlFlag);
+		String engineLabel = protocol.getName() != null ? protocol.getName() : protocol.getPath();
+		System.out.println("Engine: " + engineLabel);
 
-			boolean printedAny = false;
-			Integer lastMultiPv = multipv;
-
-			for (String entry : fens) {
-				Position base = parsePositionOrNull(entry, CMD_THREATS, verbose);
-				if (base == null) {
-					continue;
-				}
-				if (base.inCheck()) {
-					System.err.println("threats: skipped (side to move is in check): " + entry);
-					continue;
-				}
-
-				Position threatPos;
-				try {
-					threatPos = nullMovePosition(base);
-				} catch (IllegalArgumentException ex) {
-					System.err.println("threats: skipped (null move not legal): " + entry);
-					if (verbose) {
-						ex.printStackTrace(System.err);
-					}
-					continue;
-				}
-
-				if (multipv == null) {
-					int all = Math.max(1, threatPos.getMoves().size());
-					if (lastMultiPv == null || lastMultiPv.intValue() != all) {
-						engine.setMultiPivot(all);
-						lastMultiPv = all;
-					}
-				}
-
-				Analysis analysis = analysePositionOrExit(engine, threatPos, nodesCap, durMs, CMD_THREATS, verbose);
-				if (analysis == null) {
-					return;
-				}
-
-				if (printedAny) {
-					System.out.println();
-				}
-				printedAny = true;
-				printThreatsSummary(base, threatPos, analysis);
+		ThreatsRunState state = new ThreatsRunState(opts.engineConfig.multipv);
+		for (String entry : opts.fens) {
+			if (!processThreatEntry(engine, entry, opts, state)) {
+				return;
 			}
-		} catch (Exception ex) {
-			System.err.println("threats: failed to initialize engine: " + ex.getMessage());
-			if (verbose) {
+		}
+	}
+
+	/**
+	 * Processes a single FEN entry for the threats command, printing summaries when
+	 * analysis succeeds.
+	 *
+	 * @param engine engine used for analysis
+	 * @param entry  input FEN string
+	 * @param opts   threats configuration options
+	 * @param state  mutable runtime state
+	 * @return {@code true} to continue processing, {@code false} when analysis
+	 *         should stop
+	 */
+	private static boolean processThreatEntry(Engine engine, String entry, ThreatsOptions opts, ThreatsRunState state) {
+		Position base = parsePositionOrNull(entry, CMD_THREATS, opts.verbose);
+		if (base == null) {
+			return true;
+		}
+		if (base.inCheck()) {
+			System.err.println("threats: skipped (side to move is in check): " + entry);
+			return true;
+		}
+
+		Position threatPos;
+		try {
+			threatPos = nullMovePosition(base);
+		} catch (IllegalArgumentException ex) {
+			System.err.println("threats: skipped (null move not legal): " + entry);
+			if (opts.verbose) {
 				ex.printStackTrace(System.err);
 			}
-			System.exit(2);
+			return true;
+		}
+
+		syncThreatsMultiPv(engine, threatPos, state);
+
+		Analysis analysis = analysePositionOrExit(engine, threatPos, opts.limits.nodesCap, opts.limits.durMs,
+				CMD_THREATS, opts.verbose);
+		if (analysis == null) {
+			return false;
+		}
+
+		if (state.printedAny) {
+			System.out.println();
+		}
+		state.printedAny = true;
+		printThreatsSummary(base, threatPos, analysis);
+		return true;
+	}
+
+	/**
+	 * Ensures the engine is configured with a sufficient MultiPV value based on the
+	 * threat position.
+	 *
+	 * @param engine    engine to configure
+	 * @param threatPos analyzed threat position
+	 * @param state     run-state tracking previously requested MultiPV
+	 */
+	private static void syncThreatsMultiPv(Engine engine, Position threatPos, ThreatsRunState state) {
+		if (state.requestedMultiPv != null) {
+			return;
+		}
+		int all = Math.max(1, threatPos.getMoves().size());
+		if (state.lastMultiPv == null || state.lastMultiPv.intValue() != all) {
+			engine.setMultiPivot(all);
+			state.lastMultiPv = all;
+		}
+	}
+
+	/**
+	 * Immutable configuration bundle for the threats analysis command.
+	 */
+	private static final class ThreatsOptions {
+
+		/**
+		 * Whether verbose logging/output is enabled.
+		 */
+		private final boolean verbose;
+
+		/**
+		 * Protocol configuration path to use for engine spawning.
+		 */
+		private final String protoPath;
+
+		/**
+		 * Parsed node/time limits.
+		 */
+		private final Limits limits;
+
+		/**
+		 * Engine tuning values (threads, hash, multipv).
+		 */
+		private final EngineConfig engineConfig;
+
+		/**
+		 * WDL flag overrides requested by the user.
+		 */
+		private final WdlConfig wdlConfig;
+
+		/**
+		 * Input FENs to process.
+		 */
+		private final List<String> fens;
+
+		private ThreatsOptions(boolean verbose, String protoPath, Limits limits, EngineConfig engineConfig,
+				WdlConfig wdlConfig,
+				List<String> fens) {
+			this.verbose = verbose;
+			this.protoPath = protoPath;
+			this.limits = limits;
+			this.engineConfig = engineConfig;
+			this.wdlConfig = wdlConfig;
+			this.fens = fens;
+		}
+
+		/**
+		 * Node/time limits configured for the threats run.
+		 */
+		private static final class Limits {
+
+			/**
+			 * Maximum nodes per position.
+			 */
+			private final long nodesCap;
+
+			/**
+			 * Maximum duration per position (ms).
+			 */
+			private final long durMs;
+
+			private Limits(long nodesCap, long durMs) {
+				this.nodesCap = nodesCap;
+				this.durMs = durMs;
+			}
+		}
+
+		/**
+		 * Engine tuning parameters parsed from CLI overrides.
+		 */
+		private static final class EngineConfig {
+
+			/**
+			 * Desired MultiPV value.
+			 */
+			private final Integer multipv;
+
+			/**
+			 * Desired thread count.
+			 */
+			private final Integer threads;
+
+			/**
+			 * Desired hash size in MB.
+			 */
+			private final Integer hash;
+
+			private EngineConfig(Integer multipv, Integer threads, Integer hash) {
+				this.multipv = multipv;
+				this.threads = threads;
+				this.hash = hash;
+			}
+		}
+
+		/**
+		 * Tri-state WDL flag overrides.
+		 */
+		private static final class WdlConfig {
+
+			/**
+			 * {@code true} when {@code --wdl} was supplied.
+			 */
+			private final boolean wdl;
+
+			/**
+			 * {@code true} when {@code --no-wdl} was supplied.
+			 */
+			private final boolean noWdl;
+
+			private WdlConfig(boolean wdl, boolean noWdl) {
+				this.wdl = wdl;
+				this.noWdl = noWdl;
+			}
+		}
+	}
+
+	/**
+	 * Mutable runtime state captured while processing all threat entries.
+	 */
+	private static final class ThreatsRunState {
+
+		/**
+		 * User-requested MultiPV value (may be {@code null}).
+		 */
+		private final Integer requestedMultiPv;
+
+		/**
+		 * Whether any threat summaries have been printed so far.
+		 */
+		private boolean printedAny;
+
+		/**
+		 * Last MultiPV value configured on the engine.
+		 */
+		private Integer lastMultiPv;
+
+		private ThreatsRunState(Integer requestedMultiPv) {
+			this.requestedMultiPv = requestedMultiPv;
+			this.lastMultiPv = requestedMultiPv;
 		}
 	}
 
@@ -1829,7 +2063,8 @@ public final class Main {
 				if (pos == null) {
 					continue;
 				}
-				Analysis analysis = analysePositionOrExit(engine, pos, opts.nodesCap(), opts.durMs(), CMD_BESTMOVE, opts.verbose());
+				Analysis analysis = analysePositionOrExit(engine, pos, opts.nodesCap(), opts.durMs(), CMD_BESTMOVE,
+						opts.verbose());
 				if (analysis == null) {
 					return;
 				}
@@ -1888,12 +2123,12 @@ public final class Main {
 	/**
 	 * Prints the best move for a single analysis result.
 	 *
-	 * @param entry   original input line (FEN string)
-	 * @param pos     parsed position
+	 * @param entry    original input line (FEN string)
+	 * @param pos      parsed position
 	 * @param analysis analysis result with best move
-	 * @param input   input file path (when provided)
-	 * @param san     whether to output SAN instead of UCI
-	 * @param both    whether to print both UCI and SAN
+	 * @param input    input file path (when provided)
+	 * @param san      whether to output SAN instead of UCI
+	 * @param both     whether to print both UCI and SAN
 	 */
 	private static void printBestMove(
 			String entry,
@@ -2231,6 +2466,55 @@ public final class Main {
 		}
 	}
 
+	private static String formatMillis(long millis) {
+		if (millis < 1_000L) {
+			return millis + "ms";
+		}
+		if (millis < 60_000L) {
+			return String.format(Locale.US, "%.1fs", millis / 1000.0);
+		}
+		long seconds = millis / 1000L;
+		long minutes = seconds / 60L;
+		long remSeconds = seconds % 60L;
+		return String.format(Locale.US, "%dm%02ds", minutes, remSeconds);
+	}
+
+	private static void printWrappedLine(String prefix, String content, int maxWidth) {
+		if (content == null || content.isBlank()) {
+			return;
+		}
+		String trimmed = content.trim();
+		String indent = " ".repeat(prefix.length());
+		int width = Math.max(prefix.length() + 10, maxWidth);
+		int available = width - prefix.length();
+		String[] tokens = trimmed.split("\\s+");
+		StringBuilder line = new StringBuilder();
+		String currentPrefix = prefix;
+		int currentAvailable = available;
+		for (String token : tokens) {
+			int separatorLen = line.isEmpty() ? 0 : 1;
+			boolean fits = line.length() + separatorLen + token.length() <= currentAvailable;
+
+			if (line.isEmpty()) {
+				line.append(token);
+			} else if (fits) {
+				line.append(' ').append(token);
+			} else {
+				System.out.println(currentPrefix + line);
+
+				currentPrefix = indent;
+				currentAvailable = width - currentPrefix.length();
+
+				line.setLength(0);
+				line.append(token);
+			}
+		}
+
+		if (!line.isEmpty()) {
+			System.out.println(currentPrefix + line);
+		}
+	}
+
 	/**
 	 * Prints a human-readable analysis summary to standard output.
 	 *
@@ -2239,6 +2523,7 @@ public final class Main {
 	 */
 	private static void printAnalysisSummary(Position pos, Analysis analysis) {
 		System.out.println(String.format("FEN: %s", pos.toString()));
+		System.out.println();
 		if (analysis == null || analysis.isEmpty()) {
 			System.out.println("analysis: (no output)");
 			return;
@@ -2252,24 +2537,25 @@ public final class Main {
 			String eval = formatEvaluation(best.getEvaluation());
 			String wdl = formatChances(best.getChances());
 			String bound = formatBound(best.getBound());
+			System.out.printf("PV%d%n", pv);
+			System.out.printf("  eval: %s%n", eval);
+			System.out.printf("  depth: %d (sel %d)%n", best.getDepth(), best.getSelectiveDepth());
 			System.out.printf(
-					"pv%d eval=%s depth=%d seldepth=%d nodes=%d nps=%d time=%d wdl=%s bound=%s%n",
-					pv,
-					eval,
-					best.getDepth(),
-					best.getSelectiveDepth(),
-					best.getNodes(),
-					best.getNodesPerSecond(),
-					best.getTime(),
-					wdl,
-					bound);
+					"  nodes: %s  nps: %s  time: %s%n",
+					formatCount(best.getNodes()),
+					formatCount(best.getNodesPerSecond()),
+					formatMillis(best.getTime()));
+			System.out.printf("  wdl: %s  bound: %s%n", wdl, bound);
 			short bestMove = analysis.getBestMove(pv);
 			if (bestMove != Move.NO_MOVE) {
-				System.out.printf("pv%d bestmove=%s san=%s%n", pv, Move.toString(bestMove), safeSan(pos, bestMove));
+				System.out.printf("  best: %s (%s)%n", Move.toString(bestMove), safeSan(pos, bestMove));
 			}
-			String pvLine = formatPvMoves(best.getMoves());
+			String pvLine = formatPvMovesSan(pos, best.getMoves());
 			if (!pvLine.isEmpty()) {
-				System.out.printf("pv%d line=%s%n", pv, pvLine);
+				printWrappedLine("  line: ", pvLine, ANALYSIS_PV_WRAP_WIDTH);
+			}
+			if (pv < pivots) {
+				System.out.println();
 			}
 		}
 	}
@@ -2507,10 +2793,12 @@ public final class Main {
 
 			printStat(labelWidth, "Input", input.toAbsolutePath().toString());
 			printStat(labelWidth, "Records", formatCount(total) + " (invalid " + formatCount(invalid) + ")");
-			printStat(labelWidth, "Positions", formatCount(withPosition) + " (parents " + formatCount(withParent) + ")");
+			printStat(labelWidth, "Positions",
+					formatCount(withPosition) + " (parents " + formatCount(withParent) + ")");
 			printStat(labelWidth, "Tags", formatCount(withTags));
 			printStat(labelWidth, "Analysis",
-					formatCount(withAnalysis) + " (evals " + formatCount(withEval) + ", mates " + formatCount(withMate) + ")");
+					formatCount(withAnalysis) + " (evals " + formatCount(withEval) + ", mates " + formatCount(withMate)
+							+ ")");
 
 			if (countCp > 0) {
 				double avg = sumCp / (double) countCp;
@@ -2530,13 +2818,15 @@ public final class Main {
 			}
 
 			if (countDepth > 0) {
-				printStat(labelWidth, "Depth", "avg " + String.format(Locale.ROOT, "%.1f", sumDepth / (double) countDepth));
+				printStat(labelWidth, "Depth",
+						"avg " + String.format(Locale.ROOT, "%.1f", sumDepth / (double) countDepth));
 			} else {
 				printStat(labelWidth, "Depth", "n/a");
 			}
 
 			if (countNodes > 0) {
-				printStat(labelWidth, "Nodes", "avg " + String.format(Locale.ROOT, "%,.1f", sumNodes / (double) countNodes));
+				printStat(labelWidth, "Nodes",
+						"avg " + String.format(Locale.ROOT, "%,.1f", sumNodes / (double) countNodes));
 			} else {
 				printStat(labelWidth, "Nodes", "n/a");
 			}
@@ -2545,15 +2835,15 @@ public final class Main {
 			printStat(labelWidth, "Top tags", formatTopCounts(tagCounts, top));
 		}
 
-			/**
-			 * Prints a single aligned statistic line to standard output.
-			 * Pads the label to the configured width for readability.
-			 *
-			 * @param labelWidth width to pad the label to
-			 * @param label label text to print
-			 * @param value formatted value to print
-			 */
-			private static void printStat(int labelWidth, String label, String value) {
+		/**
+		 * Prints a single aligned statistic line to standard output.
+		 * Pads the label to the configured width for readability.
+		 *
+		 * @param labelWidth width to pad the label to
+		 * @param label      label text to print
+		 * @param value      formatted value to print
+		 */
+		private static void printStat(int labelWidth, String label, String value) {
 			String formatString = "%-" + labelWidth + "s: %s%n";
 			System.out.printf(formatString, label, value);
 		}
@@ -2840,7 +3130,7 @@ public final class Main {
 	 * Trims leading and trailing blank lines around the section.
 	 *
 	 * @param fullText full help text to search
-	 * @param marker marker line that begins the section
+	 * @param marker   marker line that begins the section
 	 * @return section text, or {@code null} if the marker is not found
 	 */
 	private static String extractHelpSection(String fullText, String marker) {
@@ -2876,236 +3166,235 @@ public final class Main {
 	 * Full help text used by the {@code help} command.
 	 * Contains per-command option blocks for the CLI.
 	 */
-	private static final String HELP_FULL_TEXT =
-			"""
-						crtk — ChessRTK (chess research toolkit)
+	private static final String HELP_FULL_TEXT = """
+			crtk — ChessRTK (chess research toolkit)
 
-						usage: crtk <command> [options]
+			usage: crtk <command> [options]
 
-						commands:
-						  record-to-plain Convert .record JSON to .plain
-						  record-to-csv  Convert .record JSON to CSV (no .plain output)
-						  record-to-pgn  Convert .record JSON to PGN games
-						  record-to-dataset Convert .record JSON to NPY tensors (features/labels)
-						  stack-to-dataset Convert Stack-*.json puzzle dumps to NPY tensors
-						  gpu-info Print GPU JNI backend status
-						  gen-fens  Generate random legal FEN shards (standard + Chess960 mix)
-						  mine-puzzles Mine chess puzzles (supports Chess960 / PGN / FEN list / random)
-						  print     Pretty-print a FEN
-						  display   Render a board image in a window
-						  render    Save a board image to disk
-						  config    Show/validate configuration
-						  stats     Summarize .record or puzzle dumps
-						  stats-tags Summarize tag distributions
-						  tags      Generate tags for a FEN (or list)
-						  moves     List legal moves for a FEN
-						  analyze   Analyze a FEN with the engine
-						  bestmove  Print the best move for a FEN
-						  threats   Analyze opponent threats (null move)
-						  perft     Run perft on a FEN (movegen validation)
-						  pgn-to-fens Convert PGN games to FEN lists
-						  eval      Evaluate a FEN with LC0 or classical (alias: evaluate)
-						  clean     Delete session cache/logs
-						  help      Show command help
+			commands:
+			  record-to-plain Convert .record JSON to .plain
+			  record-to-csv  Convert .record JSON to CSV (no .plain output)
+			  record-to-pgn  Convert .record JSON to PGN games
+			  record-to-dataset Convert .record JSON to NPY tensors (features/labels)
+			  stack-to-dataset Convert Stack-*.json puzzle dumps to NPY tensors
+			  gpu-info Print GPU JNI backend status
+			  gen-fens  Generate random legal FEN shards (standard + Chess960 mix)
+			  mine-puzzles Mine chess puzzles (supports Chess960 / PGN / FEN list / random)
+			  print     Pretty-print a FEN
+			  display   Render a board image in a window
+			  render    Save a board image to disk
+			  config    Show/validate configuration
+			  stats     Summarize .record or puzzle dumps
+			  stats-tags Summarize tag distributions
+			  tags      Generate tags for a FEN (or list)
+			  moves     List legal moves for a FEN
+			  analyze   Analyze a FEN with the engine
+			  bestmove  Print the best move for a FEN
+			  threats   Analyze opponent threats (null move)
+			  perft     Run perft on a FEN (movegen validation)
+			  pgn-to-fens Convert PGN games to FEN lists
+			  eval      Evaluate a FEN with LC0 or classical (alias: evaluate)
+			  clean     Delete session cache/logs
+			  help      Show command help
 
-						record-to-plain options:
-						  --input|-i <path>          Input .record file (required)
-						  --output|-o <path>         Output .plain file (optional; default derived)
-						  --csv                      Also emit a CSV export (default path derived)
-						  --csv-output|-c <path>     CSV output path (enables CSV export)
-						  --filter|-f <dsl>          Filter-DSL string for selecting records
-						  --sidelines|--export-all|-a Include sidelines in output
+			record-to-plain options:
+			  --input|-i <path>          Input .record file (required)
+			  --output|-o <path>         Output .plain file (optional; default derived)
+			  --csv                      Also emit a CSV export (default path derived)
+			  --csv-output|-c <path>     CSV output path (enables CSV export)
+			  --filter|-f <dsl>          Filter-DSL string for selecting records
+			  --sidelines|--export-all|-a Include sidelines in output
 
-						record-to-csv options:
-						  --input|-i <path>          Input .record file (required)
-						  --output|-o <path>         Output .csv file (optional; default derived)
-						  --filter|-f <dsl>          Filter-DSL string for selecting records
+			record-to-csv options:
+			  --input|-i <path>          Input .record file (required)
+			  --output|-o <path>         Output .csv file (optional; default derived)
+			  --filter|-f <dsl>          Filter-DSL string for selecting records
 
-						record-to-dataset options:
-						  --input|-i <path>          Input .record file (required, JSON array)
-						  --output|-o <path>         Output stem (writes <stem>.features.npy, <stem>.labels.npy)
+			record-to-dataset options:
+			  --input|-i <path>          Input .record file (required, JSON array)
+			  --output|-o <path>         Output stem (writes <stem>.features.npy, <stem>.labels.npy)
 
-						record-to-pgn options:
-						  --input|-i <path>          Input .record file (required, JSON array)
-						  --output|-o <path>         Output .pgn file (optional; default derived)
+			record-to-pgn options:
+			  --input|-i <path>          Input .record file (required, JSON array)
+			  --output|-o <path>         Output .pgn file (optional; default derived)
 
-						stack-to-dataset options:
-						  --input|-i <path>          Input Stack-*.json file (required, JSON array)
-						  --output|-o <path>         Output stem (writes <stem>.features.npy, <stem>.labels.npy)
+			stack-to-dataset options:
+			  --input|-i <path>          Input Stack-*.json file (required, JSON array)
+			  --output|-o <path>         Output stem (writes <stem>.features.npy, <stem>.labels.npy)
 
-						gpu-info options:
-						  (no options)
+			gpu-info options:
+			  (no options)
 
-						gen-fens options:
-						  --output|-o <dir>          Output directory (default all_positions_shards/)
-						  --files <n>                Number of files to generate (default 1000)
-						  --per-file <n>             FENs per file (default 100000)
-						  --fens-per-file <n>        Alias for --per-file
-						  --chess960-files <n>       Files to seed from Chess960 (default 100)
-						  --chess960 <n>             Alias for --chess960-files
-						  --batch <n>                Random positions per batch (default 2048)
-						  --ascii                    Render ASCII progress bar
-						  --verbose|-v               Print stack trace on failure
+			gen-fens options:
+			  --output|-o <dir>          Output directory (default all_positions_shards/)
+			  --files <n>                Number of files to generate (default 1000)
+			  --per-file <n>             FENs per file (default 100000)
+			  --fens-per-file <n>        Alias for --per-file
+			  --chess960-files <n>       Files to seed from Chess960 (default 100)
+			  --chess960 <n>             Alias for --chess960-files
+			  --batch <n>                Random positions per batch (default 2048)
+			  --ascii                    Render ASCII progress bar
+			  --verbose|-v               Print stack trace on failure
 
-						mine-puzzles options (overrides & inputs):
-						  --chess960|-9               Enable Chess960 mining
-						  --input|-i <path>           PGN or TXT with FENs; omit to use random
-						  --output|-o <path>          Output path/dir for puzzles
+			mine-puzzles options (overrides & inputs):
+			  --chess960|-9               Enable Chess960 mining
+			  --input|-i <path>           PGN or TXT with FENs; omit to use random
+			  --output|-o <path>          Output dir/root; use '-' (or config output='') for JSONL to stdout
 
-						  --protocol-path|-P <toml>   Override Config.getProtocolPath()
-						  --engine-instances|-e <n>   Override Config.getEngineInstances()
-						  --max-nodes <n>             Override Config.getMaxNodes()
-						  --max-duration <dur>        Override Config.getMaxDuration(), e.g. 60s, 2m, 60000
+			  --protocol-path|-P <toml>   Override Config.getProtocolPath()
+			  --engine-instances|-e <n>   Override Config.getEngineInstances()
+			  --max-nodes <n>             Override Config.getMaxNodes()
+			  --max-duration <dur>        Override Config.getMaxDuration(), e.g. 60s, 2m, 60000
 
-						  --random-count <n>          Random seeds to generate (default 100)
-						  --random-infinite           Continuously add random seeds (ignores waves/total caps)
-						  --max-waves <n>             Override maximum waves (default 100; ignored with --random-infinite)
-						  --max-frontier <n>          Override frontier cap (default 5_000)
-						  --max-total <n>             Override total processed cap (default 500_000; ignored with --random-infinite)
+			  --random-count <n>          Random seeds to generate (default 100)
+			  --random-infinite           Continuously add random seeds (ignores waves/total caps)
+			  --max-waves <n>             Override maximum waves (default 100; ignored with --random-infinite)
+			  --max-frontier <n>          Override frontier cap (default 5_000)
+			  --max-total <n>             Override total processed cap (default 500_000; ignored with --random-infinite)
 
-						  --puzzle-quality <dsl>      Override quality gate DSL
-						  --puzzle-winning <dsl>      Override winning gate DSL
-						  --puzzle-drawing <dsl>      Override drawing gate DSL
-						  --puzzle-accelerate <dsl>   Override accelerate prefilter DSL
-						  --verbose|-v                Print stack trace on failure
+			  --puzzle-quality <dsl>      Override quality gate DSL
+			  --puzzle-winning <dsl>      Override winning gate DSL
+			  --puzzle-drawing <dsl>      Override drawing gate DSL
+			  --puzzle-accelerate <dsl>   Override accelerate prefilter DSL
+			  --verbose|-v                Print stack trace on failure
 
-						print options:
-						  (Also prints chess.tag tags below the board.)
-						  --fen "<FEN...>"            FEN string (or supply as positional)
-						  --verbose|-v                Print stack trace on failure (parsing errors)
+			print options:
+			  (Also prints chess.tag tags below the board.)
+			  --fen "<FEN...>"            FEN string (or supply as positional)
+			  --verbose|-v                Print stack trace on failure (parsing errors)
 
-						display options:
-						  --fen "<FEN...>"            FEN string (or supply as positional)
-						  --arrow|--arrows <uci>       Add an arrow (repeatable)
-						  --special-arrows            Show castling/en passant arrows (semi-transparent gray)
-						  --details-inside            Show coordinate labels inside the board
-						  --details-outside           Show coordinate labels outside the board
-						  --shadow|--drop-shadow       Add a drop shadow behind the board
-						  --circle|--circles <sq>      Add a circle (repeatable)
-						  --legal <sq>                Highlight legal moves from a square (repeatable)
-						  --ablation                  Overlay per-piece inverted ablation scores
-						  --show-backend|--backend    Print and display which evaluator was used
-						  --flip|--black-down         Render Black at the bottom
-						  --no-border                 Hide the board frame
-						  --size <px>                 Window size (square)
-						  --width <px>                Window width override
-						  --height <px>               Window height override
-						  --zoom <factor>             Zoom multiplier (1.0 = fit-to-window)
-						  --dark|--dark-mode          Use dark display window styling
-						  --verbose|-v                Print stack trace on failure
+			display options:
+			  --fen "<FEN...>"            FEN string (or supply as positional)
+			  --arrow|--arrows <uci>       Add an arrow (repeatable)
+			  --special-arrows            Show castling/en passant arrows (semi-transparent gray)
+			  --details-inside            Show coordinate labels inside the board
+			  --details-outside           Show coordinate labels outside the board
+			  --shadow|--drop-shadow       Add a drop shadow behind the board
+			  --circle|--circles <sq>      Add a circle (repeatable)
+			  --legal <sq>                Highlight legal moves from a square (repeatable)
+			  --ablation                  Overlay per-piece inverted ablation scores
+			  --show-backend|--backend    Print and display which evaluator was used
+			  --flip|--black-down         Render Black at the bottom
+			  --no-border                 Hide the board frame
+			  --size <px>                 Window size (square)
+			  --width <px>                Window width override
+			  --height <px>               Window height override
+			  --zoom <factor>             Zoom multiplier (1.0 = fit-to-window)
+			  --dark|--dark-mode          Use dark display window styling
+			  --verbose|-v                Print stack trace on failure
 
-						render options:
-						  --fen "<FEN...>"            FEN string (or supply as positional)
-						  --output|-o <path>          Output image path (required)
-						  --format <png|jpg|bmp>      Image format override (optional)
-						  --arrow|--arrows <uci>       Add an arrow (repeatable)
-						  --special-arrows            Show castling/en passant arrows (semi-transparent gray)
-						  --details-inside            Show coordinate labels inside the board
-						  --details-outside           Show coordinate labels outside the board
-						  --shadow|--drop-shadow       Add a drop shadow behind the board
-						  --circle|--circles <sq>      Add a circle (repeatable)
-						  --legal <sq>                Highlight legal moves from a square (repeatable)
-						  --ablation                  Overlay per-piece inverted ablation scores
-						  --show-backend|--backend    Print which evaluator was used
-						  --flip|--black-down         Render Black at the bottom
-						  --no-border                 Hide the board frame
-						  --size <px>                 Output size (square)
-						  --width <px>                Output width override
-						  --height <px>               Output height override
-						  --verbose|-v                Print stack trace on failure
+			render options:
+			  --fen "<FEN...>"            FEN string (or supply as positional)
+			  --output|-o <path>          Output image path (required)
+			  --format <png|jpg|bmp>      Image format override (optional)
+			  --arrow|--arrows <uci>       Add an arrow (repeatable)
+			  --special-arrows            Show castling/en passant arrows (semi-transparent gray)
+			  --details-inside            Show coordinate labels inside the board
+			  --details-outside           Show coordinate labels outside the board
+			  --shadow|--drop-shadow       Add a drop shadow behind the board
+			  --circle|--circles <sq>      Add a circle (repeatable)
+			  --legal <sq>                Highlight legal moves from a square (repeatable)
+			  --ablation                  Overlay per-piece inverted ablation scores
+			  --show-backend|--backend    Print which evaluator was used
+			  --flip|--black-down         Render Black at the bottom
+			  --no-border                 Hide the board frame
+			  --size <px>                 Output size (square)
+			  --width <px>                Output width override
+			  --height <px>               Output height override
+			  --verbose|-v                Print stack trace on failure
 
-						config subcommands:
-						  show                         Print resolved configuration values
-						  validate                     Validate config + protocol files
+			config subcommands:
+			  show                         Print resolved configuration values
+			  validate                     Validate config + protocol files
 
-						stats options:
-						  --input|-i <path>           Input JSON array/JSONL file (required)
-						  --top <n>                   Show top-N tags/engines (default 10)
-						  --verbose|-v                Print stack trace on failure
+			stats options:
+			  --input|-i <path>           Input JSON array/JSONL file (required)
+			  --top <n>                   Show top-N tags/engines (default 10)
+			  --verbose|-v                Print stack trace on failure
 
-						stats-tags options:
-						  --input|-i <path>           Input JSON array/JSONL file (required)
-						  --top <n>                   Show top-N tags (default 20)
-						  --verbose|-v                Print stack trace on failure
+			stats-tags options:
+			  --input|-i <path>           Input JSON array/JSONL file (required)
+			  --top <n>                   Show top-N tags (default 20)
+			  --verbose|-v                Print stack trace on failure
 
-						tags options:
-						  --input|-i <path>           FEN list file (optional)
-						  --fen "<FEN...>"            FEN string (or supply as positional)
-						  --verbose|-v                Print stack trace on failure
+			tags options:
+			  --input|-i <path>           FEN list file (optional)
+			  --fen "<FEN...>"            FEN string (or supply as positional)
+			  --verbose|-v                Print stack trace on failure
 
-						moves options:
-						  --fen "<FEN...>"            FEN string (or supply as positional)
-						  --san                        Output SAN instead of UCI
-						  --both                       Output UCI + SAN per move
-						  --verbose|-v                Print stack trace on failure
+			moves options:
+			  --fen "<FEN...>"            FEN string (or supply as positional)
+			  --san                        Output SAN instead of UCI
+			  --both                       Output UCI + SAN per move
+			  --verbose|-v                Print stack trace on failure
 
-						analyze options:
-						  --input|-i <path>           FEN list file (optional)
-						  --fen "<FEN...>"            FEN string (or supply as positional)
-						  --protocol-path|-P <toml>   Override Config.getProtocolPath()
-						  --max-nodes|--nodes <n>     Override Config.getMaxNodes()
-						  --max-duration <dur>        Override Config.getMaxDuration(), e.g. 60s, 2m, 60000
-						  --multipv <n>               Set engine MultiPV
-						  --threads <n>               Set engine thread count
-						  --hash <mb>                 Set engine hash size
-						  --wdl|--no-wdl              Enable/disable WDL output
-						  --verbose|-v                Print stack trace on failure
+			analyze options:
+			  --input|-i <path>           FEN list file (optional)
+			  --fen "<FEN...>"            FEN string (or supply as positional)
+			  --protocol-path|-P <toml>   Override Config.getProtocolPath()
+			  --max-nodes|--nodes <n>     Override Config.getMaxNodes()
+			  --max-duration <dur>        Override Config.getMaxDuration(), e.g. 60s, 2m, 60000
+			  --multipv <n>               Set engine MultiPV
+			  --threads <n>               Set engine thread count
+			  --hash <mb>                 Set engine hash size
+			  --wdl|--no-wdl              Enable/disable WDL output
+			  --verbose|-v                Print stack trace on failure
 
-						threats options:
-						  --input|-i <path>           FEN list file (optional)
-						  --fen "<FEN...>"            FEN string (or supply as positional)
-						  --protocol-path|-P <toml>   Override Config.getProtocolPath()
-						  --max-nodes|--nodes <n>     Override Config.getMaxNodes()
-						  --max-duration <dur>        Override Config.getMaxDuration(), e.g. 60s, 2m, 60000
-						  --multipv <n>               Set engine MultiPV (default: all legal opponent moves)
-						  --threads <n>               Set engine thread count
-						  --hash <mb>                 Set engine hash size
-						  --wdl|--no-wdl              Enable/disable WDL output
-						  --verbose|-v                Print stack trace on failure
+			threats options:
+			  --input|-i <path>           FEN list file (optional)
+			  --fen "<FEN...>"            FEN string (or supply as positional)
+			  --protocol-path|-P <toml>   Override Config.getProtocolPath()
+			  --max-nodes|--nodes <n>     Override Config.getMaxNodes()
+			  --max-duration <dur>        Override Config.getMaxDuration(), e.g. 60s, 2m, 60000
+			  --multipv <n>               Set engine MultiPV (default: all legal opponent moves)
+			  --threads <n>               Set engine thread count
+			  --hash <mb>                 Set engine hash size
+			  --wdl|--no-wdl              Enable/disable WDL output
+			  --verbose|-v                Print stack trace on failure
 
-						bestmove options:
-						  --input|-i <path>           FEN list file (optional)
-						  --fen "<FEN...>"            FEN string (or supply as positional)
-						  --san                        Output SAN instead of UCI
-						  --both                       Output UCI + SAN
-						  --protocol-path|-P <toml>   Override Config.getProtocolPath()
-						  --max-nodes|--nodes <n>     Override Config.getMaxNodes()
-						  --max-duration <dur>        Override Config.getMaxDuration(), e.g. 60s, 2m, 60000
-						  --multipv <n>               Set engine MultiPV
-						  --threads <n>               Set engine thread count
-						  --hash <mb>                 Set engine hash size
-						  --wdl|--no-wdl              Enable/disable WDL output
-						  --verbose|-v                Print stack trace on failure
+			bestmove options:
+			  --input|-i <path>           FEN list file (optional)
+			  --fen "<FEN...>"            FEN string (or supply as positional)
+			  --san                        Output SAN instead of UCI
+			  --both                       Output UCI + SAN
+			  --protocol-path|-P <toml>   Override Config.getProtocolPath()
+			  --max-nodes|--nodes <n>     Override Config.getMaxNodes()
+			  --max-duration <dur>        Override Config.getMaxDuration(), e.g. 60s, 2m, 60000
+			  --multipv <n>               Set engine MultiPV
+			  --threads <n>               Set engine thread count
+			  --hash <mb>                 Set engine hash size
+			  --wdl|--no-wdl              Enable/disable WDL output
+			  --verbose|-v                Print stack trace on failure
 
-						perft options:
-						  --fen "<FEN...>"            FEN string (or supply as positional)
-						  --depth|-d <n>              Perft depth (required)
-						  --divide|--per-move         Print per-move breakdown
-						  --verbose|-v                Print stack trace on failure
+			perft options:
+			  --fen "<FEN...>"            FEN string (or supply as positional)
+			  --depth|-d <n>              Perft depth (required)
+			  --divide|--per-move         Print per-move breakdown
+			  --verbose|-v                Print stack trace on failure
 
-						pgn-to-fens options:
-						  --input|-i <path>           Input PGN file (required)
-						  --output|-o <path>          Output .txt (optional; default derived)
-						  --pairs                     Write "parent child" FEN pairs per line
-						  --mainline                  Only output the mainline (skip variations)
-						  --verbose|-v                Print stack trace on failure
+			pgn-to-fens options:
+			  --input|-i <path>           Input PGN file (required)
+			  --output|-o <path>          Output .txt (optional; default derived)
+			  --pairs                     Write "parent child" FEN pairs per line
+			  --mainline                  Only output the mainline (skip variations)
+			  --verbose|-v                Print stack trace on failure
 
-						eval options:
-						  --input|-i <path>           FEN list file (optional)
-						  --fen "<FEN...>"            FEN string (or supply as positional)
-						  --lc0                       Force LC0 evaluation
-						  --classical                 Force classical evaluation
-						  --weights <path>            LC0 weights path (optional)
-						  --terminal-aware|--terminal Use terminal-aware classical eval
-						  --verbose|-v                Print stack trace on failure
+			eval options:
+			  --input|-i <path>           FEN list file (optional)
+			  --fen "<FEN...>"            FEN string (or supply as positional)
+			  --lc0                       Force LC0 evaluation
+			  --classical                 Force classical evaluation
+			  --weights <path>            LC0 weights path (optional)
+			  --terminal-aware|--terminal Use terminal-aware classical eval
+			  --verbose|-v                Print stack trace on failure
 
-						clean options:
-						  --verbose|-v                Print stack trace on failure
+			clean options:
+			  --verbose|-v                Print stack trace on failure
 
-						help options:
-						  --full                      Show full help output
-						  <command>                   Show help for one command
-						""";
+			help options:
+			  --full                      Show full help output
+			  <command>                   Show help for one command
+			""";
 
 	/**
 	 * Used for handling the {@code mine-puzzles} subcommand.
@@ -3125,7 +3414,8 @@ public final class Main {
 		final Path input = a.path(OPT_INPUT, OPT_INPUT_SHORT);
 		final String outRoot = optional(a.string(OPT_OUTPUT, OPT_OUTPUT_SHORT), Config.getOutput());
 		final String proto = optional(a.string(OPT_PROTOCOL_PATH, OPT_PROTOCOL_PATH_SHORT), Config.getProtocolPath());
-		final long engineInstances = optional(a.lng(OPT_ENGINE_INSTANCES, OPT_ENGINE_INSTANCES_SHORT), Config.getEngineInstances());
+		final long engineInstances = optional(a.lng(OPT_ENGINE_INSTANCES, OPT_ENGINE_INSTANCES_SHORT),
+				Config.getEngineInstances());
 		final long nodesCap = Math.max(1, optional(a.lng(OPT_MAX_NODES), Config.getMaxNodes()));
 		final long durMs = Math.max(
 				1,
@@ -3147,6 +3437,7 @@ public final class Main {
 		final Filter dF = filterOrDefault(dGate, Config::getPuzzleDrawing);
 		final boolean anyOverride = (qGate != null) || (wGate != null) || (dGate != null);
 		final Filter verify = anyOverride ? Config.buildPuzzleVerify(qF, wF, dF) : Config.getPuzzleVerify();
+		final int analysisCacheSize = Config.getPuzzleAnalysisCacheSize();
 
 		a.ensureConsumed();
 
@@ -3171,9 +3462,9 @@ public final class Main {
 			}
 		} catch (Exception ex) {
 			LogService.error(ex, "Failed to load seed positions (input=%s)", String.valueOf(input));
-			System.out.println("Failed to load seed positions; see log for details.");
+			System.err.println("Failed to load seed positions; see log for details.");
 			if (verbose) {
-				ex.printStackTrace(System.out);
+				ex.printStackTrace(System.err);
 			}
 			System.exit(2);
 			return;
@@ -3191,9 +3482,15 @@ public final class Main {
 				randomSeeds,
 				maxFrontier,
 				maxWaves,
-				maxTotal);
+				maxTotal,
+				analysisCacheSize);
 
 		try (Pool pool = Pool.create(Math.toIntExact(Math.max(1, engineInstances)), proto)) {
+			if (outs.stdout) {
+				mineStdout(pool, frontier, config);
+				return;
+			}
+
 			// Touch output files up front so incremental flushes can append safely.
 			flushJsonLines(outs.puzzles, List.of());
 			flushJsonLines(outs.nonpuzzles, List.of());
@@ -3201,9 +3498,9 @@ public final class Main {
 			mine(pool, frontier, config);
 		} catch (Exception e) {
 			LogService.error(e, "Failed during mining (pool/create/analyse/flush)");
-			System.out.println("Mining failed; see log for details.");
+			System.err.println("Mining failed; see log for details.");
 			if (verbose) {
-				e.printStackTrace(System.out);
+				e.printStackTrace(System.err);
 			}
 			System.exit(1);
 		}
@@ -3253,7 +3550,7 @@ public final class Main {
 			List<Record> frontier,
 			MiningConfig config) throws IOException {
 		final Set<String> seenFen = new HashSet<>(frontier.size() * 2);
-		final Set<String> analyzedFen = new HashSet<>(frontier.size() * 2);
+		final AnalysisCache analyzedFen = new AnalysisCache(config.analysisCacheSize());
 
 		int waves = 0;
 		int processed = 0;
@@ -3289,6 +3586,114 @@ public final class Main {
 	}
 
 	/**
+	 * Used for mining with JSONL streaming to standard output.
+	 *
+	 * <p>
+	 * This mode prints each result as soon as its engine analysis completes, so the
+	 * output ordering is completion-order (not input-order).
+	 * </p>
+	 *
+	 * @param pool     shared engine pool
+	 * @param frontier initial frontier records
+	 * @param config   mining configuration
+	 * @throws IOException when mining fails unexpectedly
+	 */
+	private static void mineStdout(
+			Pool pool,
+			List<Record> frontier,
+			MiningConfig config) {
+		final Set<String> seenFen = new HashSet<>(frontier.size() * 2);
+		final AnalysisCache analyzedFen = new AnalysisCache(config.analysisCacheSize());
+
+		int waves = 0;
+		int processed = 0;
+
+		while (waves < config.maxWaves() && processed < config.maxTotal()) {
+			frontier = prepareFrontierForWave(frontier, config, seenFen, analyzedFen, processed, waves);
+			if (frontier.isEmpty()) {
+				break;
+			}
+
+			frontier = capFrontier(frontier, config.maxFrontier());
+			final WaveState state = analyzeAndProcessWaveStdout(
+					pool,
+					frontier,
+					config,
+					seenFen,
+					analyzedFen,
+					processed,
+					config.maxTotal());
+
+			frontier = state.next;
+			processed = state.processed;
+			waves++;
+		}
+	}
+
+	/**
+	 * Analyzes a wave and emits each record as soon as it completes.
+	 *
+	 * @param pool        engine pool
+	 * @param frontier    current frontier (deduplicated + capped)
+	 * @param config      mining configuration
+	 * @param seenFen     FEN de-duplication set
+	 * @param analyzedFen analyzed FEN cache
+	 * @param processed0  processed count entering the wave
+	 * @param maxTotal    maximum records permitted
+	 * @return next frontier + updated processed count
+	 */
+	private static WaveState analyzeAndProcessWaveStdout(
+			Pool pool,
+			List<Record> frontier,
+			MiningConfig config,
+			Set<String> seenFen,
+			AnalysisCache analyzedFen,
+			int processed0,
+			long maxTotal) {
+		final List<Record> next = new ArrayList<>(frontier.size() * 2);
+		final int[] processed = new int[] { processed0 };
+
+		pool.analyseEach(frontier, config.accel(), config.nodesCap(), config.durMs(), r -> {
+			if (processed[0] >= maxTotal) {
+				return;
+			}
+			processed[0]++;
+
+			final Position pos = r.getPosition();
+			if (pos != null) {
+				analyzedFen.add(pos.toString());
+			}
+
+			final boolean isPuzzle = config.verify().apply(r.getAnalysis());
+			System.out.println(prependKind(isPuzzle ? "puzzle" : "nonpuzzle", r.toJson()));
+
+			if (isPuzzle) {
+				expandBestMoveChildren(r, seenFen, analyzedFen, next, processed[0], maxTotal);
+			}
+		});
+
+		return new WaveState(next, processed[0], List.of(), List.of());
+	}
+
+	/**
+	 * Prepends {@code "kind":"..."} to a {@link chess.struct.Record#toJson()}
+	 * object.
+	 *
+	 * @param kind       "puzzle" or "nonpuzzle"
+	 * @param recordJson JSON object string starting with '{'
+	 * @return JSON object string with inserted {@code kind} field
+	 */
+	private static String prependKind(String kind, String recordJson) {
+		if (recordJson == null || recordJson.isEmpty()) {
+			return KIND_JSON_PREFIX + kind + "\"}";
+		}
+		if (recordJson.charAt(0) == '{') {
+			return KIND_JSON_PREFIX + kind + "\"," + recordJson.substring(1);
+		}
+		return KIND_JSON_PREFIX + kind + "\",\"record\":" + recordJson + "}";
+	}
+
+	/**
 	 * Prepares the frontier for the next mining wave.
 	 *
 	 * <p>
@@ -3300,7 +3705,7 @@ public final class Main {
 	 * @param frontier    current frontier (possibly empty)
 	 * @param config      mining configuration
 	 * @param seenFen     global de-duplication set (mutated)
-	 * @param analyzedFen already analyzed FENs (used to skip re-analysis)
+	 * @param analyzedFen already analyzed FEN cache (used to skip re-analysis)
 	 * @param processed   processed count so far
 	 * @param waves       waves completed so far
 	 * @return deduplicated frontier for the next wave (may be empty)
@@ -3309,7 +3714,7 @@ public final class Main {
 			List<Record> frontier,
 			MiningConfig config,
 			Set<String> seenFen,
-			Set<String> analyzedFen,
+			AnalysisCache analyzedFen,
 			int processed,
 			int waves) {
 		List<Record> prepared = frontier;
@@ -3362,20 +3767,53 @@ public final class Main {
 	}
 
 	/**
+	 * Fixed-size LRU cache for remembering analyzed positions.
+	 */
+	private static final class AnalysisCache {
+		private final int maxSize;
+		private final LinkedHashMap<String, Boolean> map;
+
+		AnalysisCache(int maxSize) {
+			if (maxSize < 1) {
+				throw new IllegalArgumentException("maxSize < 1");
+			}
+			this.maxSize = maxSize;
+			int initialCapacity = Math.min(maxSize, 16_384);
+			this.map = new LinkedHashMap<>(initialCapacity, 0.75f, true) {
+				@Override
+				protected boolean removeEldestEntry(Map.Entry<String, Boolean> eldest) {
+					return size() > AnalysisCache.this.maxSize;
+				}
+			};
+		}
+
+		boolean contains(String fen) {
+			return map.get(fen) != null;
+		}
+
+		boolean add(String fen) {
+			return map.put(fen, Boolean.TRUE) == null;
+		}
+	}
+
+	/**
 	 * Immutable configuration bundle for the mining loop.
 	 *
-	 * @param accel       accelerate pre-filter
-	 * @param verify      verification filter for classifying puzzles
-	 * @param nodesCap    maximum nodes per position
-	 * @param durMs       maximum duration per position (ms)
-	 * @param outs        output targets for incremental persistence
-	 * @param infinite    whether to keep generating random seeds when frontier is
-	 *                    empty
-	 * @param chess960    whether to generate Chess960 random seeds when refilling
-	 * @param randomSeeds number of random seeds to generate per refill
-	 * @param maxFrontier cap on frontier size per wave
-	 * @param maxWaves    maximum waves to execute
-	 * @param maxTotal    maximum records to process
+	 * @param accel             accelerate pre-filter
+	 * @param verify            verification filter for classifying puzzles
+	 * @param nodesCap          maximum nodes per position
+	 * @param durMs             maximum duration per position (ms)
+	 * @param outs              output targets for incremental persistence
+	 * @param infinite          whether to keep generating random seeds when
+	 *                          frontier is
+	 *                          empty
+	 * @param chess960          whether to generate Chess960 random seeds when
+	 *                          refilling
+	 * @param randomSeeds       number of random seeds to generate per refill
+	 * @param maxFrontier       cap on frontier size per wave
+	 * @param maxWaves          maximum waves to execute
+	 * @param maxTotal          maximum records to process
+	 * @param analysisCacheSize max analyzed positions to remember (LRU)
 	 */
 	private record MiningConfig(
 			Filter accel,
@@ -3388,7 +3826,8 @@ public final class Main {
 			int randomSeeds,
 			int maxFrontier,
 			int maxWaves,
-			long maxTotal) {
+			long maxTotal,
+			int analysisCacheSize) {
 	}
 
 	/**
@@ -3438,7 +3877,7 @@ public final class Main {
 	private static List<Record> deduplicateFrontier(
 			List<Record> frontier,
 			Set<String> seenFen,
-			Set<String> analyzedFen) {
+			AnalysisCache analyzedFen) {
 		if (frontier.isEmpty()) {
 			return frontier;
 		}
@@ -3484,7 +3923,7 @@ public final class Main {
 	 * @param frontier    current frontier
 	 * @param verify      puzzle verification filter
 	 * @param seenFen     FEN de-duplication set
-	 * @param analyzedFen processed FEN set for skipping re-analysis
+	 * @param analyzedFen processed FEN cache for skipping re-analysis
 	 * @param puzzles     collected puzzles
 	 * @param nonPuzzles  collected non-puzzles
 	 * @param processed   processed count so far
@@ -3495,7 +3934,7 @@ public final class Main {
 			List<Record> frontier,
 			Filter verify,
 			Set<String> seenFen,
-			Set<String> analyzedFen,
+			AnalysisCache analyzedFen,
 			int processed,
 			long maxTotal) {
 		final List<Record> next = new ArrayList<>(frontier.size() * 2);
@@ -3527,7 +3966,7 @@ public final class Main {
 	 *
 	 * @param r           analyzed record
 	 * @param seenFen     de-duplication set
-	 * @param analyzedFen processed FEN set for skipping re-analysis
+	 * @param analyzedFen processed FEN cache for skipping re-analysis
 	 * @param next        accumulator for next frontier
 	 * @param processed   processed count so far
 	 * @param maxTotal    maximum records permitted
@@ -3535,7 +3974,7 @@ public final class Main {
 	private static void expandBestMoveChildren(
 			Record r,
 			Set<String> seenFen,
-			Set<String> analyzedFen,
+			AnalysisCache analyzedFen,
 			List<Record> next,
 			int processed,
 			long maxTotal) {
@@ -3593,15 +4032,19 @@ public final class Main {
 	 */
 	private static final class OutputTargets {
 		/**
+		 * When set, mining emits JSONL to standard output instead of writing files.
+		 */
+		final boolean stdout;
+		/**
 		 * Output path for puzzle JSONL data.
 		 * Written incrementally during mining.
 		 */
-		Path puzzles;
+		final Path puzzles;
 		/**
 		 * Output path for non-puzzle JSONL data.
 		 * Written incrementally alongside puzzle outputs.
 		 */
-		Path nonpuzzles;
+		final Path nonpuzzles;
 
 		/**
 		 * Used for holding both puzzle and non-puzzle output targets.
@@ -3610,8 +4053,17 @@ public final class Main {
 		 * @param n path for non-puzzle JSONL output
 		 */
 		OutputTargets(Path p, Path n) {
+			this(false, p, n);
+		}
+
+		private OutputTargets(boolean stdout, Path p, Path n) {
+			this.stdout = stdout;
 			this.puzzles = p;
 			this.nonpuzzles = n;
+		}
+
+		static OutputTargets toStdout() {
+			return new OutputTargets(true, null, null);
 		}
 	}
 
@@ -3629,6 +4081,9 @@ public final class Main {
 	 * @return resolved pair of output targets
 	 */
 	private static OutputTargets resolveOutputs(String outputRoot, boolean chess960) {
+		if (outputRoot == null || outputRoot.isEmpty() || "-".equals(outputRoot)) {
+			return OutputTargets.toStdout();
+		}
 		boolean isFileLike = outputRoot.endsWith(".json") || outputRoot.endsWith(".jsonl");
 		Path basePath = Paths.get(outputRoot);
 		String baseStem;

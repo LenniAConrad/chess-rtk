@@ -72,32 +72,39 @@ public class Position implements Comparable<Position> {
 			"Kq", "Q", "Qk", "Qkq", "Qq", "k", "kq", "q" };
 
 	/**
-	 * All possible combinations of a Chess960 castling string
-	 * 
-	 * The allowed Chess960 castling order.
+	 * All Chess960 castling-rights strings in KQkq order, sorted alphabetically.
+	 *
 	 * <p>
-	 * In Chess960, the allowed castling positions are specified in a descending
-	 * order.
-	 * The uppercase letters denote one side's castling positions, and the lowercase
-	 * letters denote the other side's.
-	 * For example, in this order, 'H' represents the highest-ranked allowed
-	 * position and 'a' the lowest.
+	 * Format:
+	 * <ul>
+	 * <li>0-2 uppercase letters for White, 0-2 lowercase letters for Black</li>
+	 * <li>Within each side, letters are in kingside-then-queenside order</li>
+	 * <li>Includes all legal mid-game subsets derived from any Chess960 start</li>
+	 * <li>Use "-" to indicate no castling rights at all</li>
+	 * </ul>
+	 * Letters represent the rook files eligible for castling.
 	 * </p>
 	 */
-	private static final String[] CHESS_960_CASTLING_STRINGS = { "-", "A", "Aa", "Ac", "Aca", "Ad", "Ada", "Ae", "Aea",
-			"Af", "Afa", "Ag", "Aga", "Ah", "Aha", "B", "Bb", "Bd", "Bdb", "Be", "Beb", "Bf", "Bfb", "B6g", "Bgb", "Bh",
-			"Bhb", "C", "CA", "CAa", "CAc", "CAca", "Ca", "Cc", "Cca", "Ce", "Cec", "Cf", "Cfc", "Cg", "Cgc", "Ch",
-			"Chc", "D", "DA", "DAa", "DAd", "DAda", "DB", "DBb", "DBd", "DBdb", "Da", "Db", "Dd", "Dda", "Ddb", "Df",
-			"Dfd", "Dg", "Dgd", "Dh", "Dhd", "E", "EA", "EAa", "EAe", "EAea", "EB", "EBb", "EBe", "EBeb", "EC", "ECc",
-			"ECe", "ECec", "Ea", "Eb", "Ec", "Ee", "Eea", "Eeb", "Eec", "Eg", "Ege", "Eh", "Ehe", "F", "FA", "FAa",
-			"FAf", "FAfa", "FB", "FBb", "FBf", "FBfb", "FC", "FCc", "FCf", "FCfc", "FD", "FDd", "FDf", "FDfd", "Fa",
-			"Fb", "Fc", "Fd", "Ff", "Ffa", "Ffb", "Ffc", "Ffd", "Fh", "Fhf", "G", "GA", "GAa", "GAg", "GAga", "GB",
-			"GBb", "GBg", "GBgb", "GC", "GCc", "GCg", "GCgc", "GD", "GDd", "GDg", "GDgd", "GE", "GEe", "GEg", "GEge",
-			"Ga", "Gb", "Gc", "Gd", "Ge", "Gg", "Gga", "Ggb", "Ggc", "Ggd", "Gge", "H", "HA", "HAa", "HAh", "HAha",
-			"HB", "HBb", "HBh", "HBhb", "HC", "HCc", "HCh", "HChc", "HD", "HDd", "HDh", "HDhd", "HE", "HEe", "HEh",
-			"HEhe", "HF", "HFf", "HFh", "HFhf", "Ha", "Hb", "Hc", "Hd", "He", "Hf", "Hh", "Hha", "Hhb", "Hhc", "Hhd",
-			"Hhe", "Hhf", "a", "b", "c", "ca", "d", "da", "db", "e", "ea", "eb", "ec", "f", "fa", "fb", "fc", "fd", "g",
-			"ga", "gb", "gc", "gd", "ge", "h", "ha", "hb", "hc", "hd", "he", "hf" };
+	private static final String[] CHESS_960_CASTLING_STRINGS = {
+		"-", "A", "Aa", "Ac", "Aca", "Ad", "Ada", "Ae", "Aea", "Af", "Afa", "Ag",
+		"Aga", "Ah", "Aha", "B", "Bb", "Bd", "Bdb", "Be", "Beb", "Bf", "Bfb", "Bg",
+		"Bgb", "Bh", "Bhb", "C", "CA", "CAa", "CAc", "CAca", "Ca", "Cc", "Cca", "Ce",
+		"Cec", "Cf", "Cfc", "Cg", "Cgc", "Ch", "Chc", "D", "DA", "DAa", "DAd", "DAda",
+		"DB", "DBb", "DBd", "DBdb", "Da", "Db", "Dd", "Dda", "Ddb", "Df", "Dfd", "Dg",
+		"Dgd", "Dh", "Dhd", "E", "EA", "EAa", "EAe", "EAea", "EB", "EBb", "EBe", "EBeb",
+		"EC", "ECc", "ECe", "ECec", "Ea", "Eb", "Ec", "Ee", "Eea", "Eeb", "Eec", "Eg",
+		"Ege", "Eh", "Ehe", "F", "FA", "FAa", "FAf", "FAfa", "FB", "FBb", "FBf", "FBfb",
+		"FC", "FCc", "FCf", "FCfc", "FD", "FDd", "FDf", "FDfd", "Fa", "Fb", "Fc", "Fd",
+		"Ff", "Ffa", "Ffb", "Ffc", "Ffd", "Fh", "Fhf", "G", "GA", "GAa", "GAg", "GAga",
+		"GB", "GBb", "GBg", "GBgb", "GC", "GCc", "GCg", "GCgc", "GD", "GDd", "GDg", "GDgd",
+		"GE", "GEe", "GEg", "GEge", "Ga", "Gb", "Gc", "Gd", "Ge", "Gg", "Gga", "Ggb",
+		"Ggc", "Ggd", "Gge", "H", "HA", "HAa", "HAh", "HAha", "HB", "HBb", "HBh", "HBhb",
+		"HC", "HCc", "HCh", "HChc", "HD", "HDd", "HDh", "HDhd", "HE", "HEe", "HEh", "HEhe",
+		"HF", "HFf", "HFh", "HFhf", "Ha", "Hb", "Hc", "Hd", "He", "Hf", "Hh", "Hha",
+		"Hhb", "Hhc", "Hhd", "Hhe", "Hhf", "a", "b", "c", "ca", "d", "da", "db",
+		"e", "ea", "eb", "ec", "f", "fa", "fb", "fc", "fd", "g", "ga", "gb",
+		"gc", "gd", "ge", "h", "ha", "hb", "hc", "hd", "he", "hf"
+	};
 
 	/**
 	 * The en passant target square. If there is no en passant target, this is set
@@ -236,6 +243,10 @@ public class Position implements Comparable<Position> {
 			throw new IllegalArgumentException(
 					"Invalid FEN '" + fen + "' contains " + parts.length + " fields, expected 4 to 6.");
 		}
+		if (parts.length == 5) {
+			throw new IllegalArgumentException(
+					"Invalid FEN '" + fen + "' contains 5 fields, expected 4 or 6.");
+		}
 
 		if (parts[0].isEmpty() || parts[1].isEmpty() || parts[2].isEmpty() || parts[3].isEmpty()) {
 			throw new IllegalArgumentException("Invalid FEN '" + fen + "' contains empty fields.");
@@ -284,75 +295,100 @@ public class Position implements Comparable<Position> {
 	 */
 	private Position initializePieces(String pieces) {
 		int index = 0;
-		int empty = 0;
+		int rankSquares = 0;
+		int ranks = 0;
 		for (int i = 0; i < pieces.length(); i++) {
-			if (index >= board.length) {
-				throw new IllegalArgumentException("Too many pieces in FEN string: " + pieces);
-			}
 			switch (pieces.charAt(i)) {
 				case '/': {
-					index += empty; // skip empty squares
-					empty = 0; // reset empty counter
+					if (rankSquares != 8) {
+						throw new IllegalArgumentException("Invalid FEN rank width: " + pieces);
+					}
+					rankSquares = 0;
+					ranks++;
 					break;
 				}
 				case '1', '2', '3', '4', '5', '6', '7', '8': {
-					index += pieces.charAt(i) - '0'; // add empty squares
+					int empty = pieces.charAt(i) - '0';
+					rankSquares += empty;
+					index += empty; // add empty squares
 					break;
 				}
 				case 'P': {
 					board[index++] = Piece.WHITE_PAWN;
+					rankSquares++;
 					break;
 				}
 				case 'R': {
 					board[index++] = Piece.WHITE_ROOK;
+					rankSquares++;
 					break;
 				}
 				case 'N': {
 					board[index++] = Piece.WHITE_KNIGHT;
+					rankSquares++;
 					break;
 				}
 				case 'B': {
 					board[index++] = Piece.WHITE_BISHOP;
+					rankSquares++;
 					break;
 				}
 				case 'Q': {
 					board[index++] = Piece.WHITE_QUEEN;
+					rankSquares++;
 					break;
 				}
 				case 'K': {
 					whiteKing = (byte) (index);
 					board[index++] = Piece.WHITE_KING;
+					rankSquares++;
 					break;
 				}
 				case 'p': {
 					board[index++] = Piece.BLACK_PAWN;
+					rankSquares++;
 					break;
 				}
 				case 'r': {
 					board[index++] = Piece.BLACK_ROOK;
+					rankSquares++;
 					break;
 				}
 				case 'n': {
 					board[index++] = Piece.BLACK_KNIGHT;
+					rankSquares++;
 					break;
 				}
 				case 'b': {
 					board[index++] = Piece.BLACK_BISHOP;
+					rankSquares++;
 					break;
 				}
 				case 'q': {
 					board[index++] = Piece.BLACK_QUEEN;
+					rankSquares++;
 					break;
 				}
 				case 'k': {
 					blackKing = (byte) (index);
 					board[index++] = Piece.BLACK_KING;
+					rankSquares++;
 					break;
 				}
 				default: {
 					throw new IllegalArgumentException("Invalid character in FEN string: " + pieces.charAt(i));
 				}
 			}
+			if (rankSquares > 8 || index > board.length) {
+				throw new IllegalArgumentException("Too many squares in FEN string: " + pieces);
+			}
+		}
+		if (rankSquares != 8) {
+			throw new IllegalArgumentException("Invalid FEN rank width: " + pieces);
+		}
+		ranks++;
+		if (ranks != 8 || index != board.length) {
+			throw new IllegalArgumentException("Invalid FEN board size: " + pieces);
 		}
 		return this;
 	}
@@ -648,18 +684,19 @@ public class Position implements Comparable<Position> {
 	 *         exceed eight
 	 */
 	private boolean validPawns() {
-		for (int i = 0; i < 8; i++) {
-			if (Piece.isPawn(board[i]) || Piece.isPawn(board[Field.A1 + i])) {
-				return false;
-			}
-		}
 		int whitePawns = 0;
 		int blackPawns = 0;
-		for (int i = Field.A2; i < Field.H1; i++) {
-			if (board[i] == Piece.WHITE_PAWN) {
-				whitePawns++;
+		for (int i = 0; i < board.length; i++) {
+			byte piece = board[i];
+			if (!Piece.isPawn(piece)) {
+				continue;
 			}
-			if (board[i] == Piece.BLACK_PAWN) {
+			if (Field.isOn1stRank((byte) i) || Field.isOn8thRank((byte) i)) {
+				return false;
+			}
+			if (piece == Piece.WHITE_PAWN) {
+				whitePawns++;
+			} else if (piece == Piece.BLACK_PAWN) {
 				blackPawns++;
 			}
 		}
