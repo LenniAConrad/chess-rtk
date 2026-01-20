@@ -8,6 +8,7 @@ package chess.images.assets.icon;
  * @author Lennart A. Conrad
  */
 public class ByteRook {
+
 	/**
 	 * Prevents instantiation of this utility class.
 	 */

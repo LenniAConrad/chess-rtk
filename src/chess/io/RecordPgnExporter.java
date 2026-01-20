@@ -1,5 +1,6 @@
 package chess.io;
 
+import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -17,6 +18,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Consumer;
+import java.util.function.Predicate;
 
 import application.console.Bar;
 import chess.core.MoveList;
@@ -57,7 +60,7 @@ public final class RecordPgnExporter {
     }
 
     /**
-     * Converts a {@code .record} JSON array file into PGN games by linking records
+     * Converts a {@code .record} JSON array/JSONL file into PGN games by linking records
      * via their {@code parent} and {@code position} FENs.
      *
      * <p>
@@ -69,11 +72,24 @@ public final class RecordPgnExporter {
      * its best move is appended as a final ply.
      * </p>
      *
-     * @param recordFile input JSON (array) path.
+     * @param recordFile input JSON (array or JSONL) path.
      * @param pgnFile    output PGN path (must not be null).
      * @throws IllegalArgumentException if {@code recordFile} or {@code pgnFile} is null.
      */
     public static void export(Path recordFile, Path pgnFile) {
+        exportFiltered(recordFile, pgnFile, null);
+    }
+
+    /**
+     * Converts a {@code .record} JSON array/JSONL file into PGN games while filtering
+     * records by their raw JSON payload.
+     *
+     * @param recordFile        input JSON (array or JSONL) path.
+     * @param pgnFile           output PGN path (must not be null).
+     * @param includeRecordJson predicate to decide whether a record should be included; {@code null} = include all.
+     * @throws IllegalArgumentException if {@code recordFile} or {@code pgnFile} is null.
+     */
+    public static void exportFiltered(Path recordFile, Path pgnFile, Predicate<String> includeRecordJson) {
         if (recordFile == null) {
             throw new IllegalArgumentException("recordfile is null");
         }
@@ -84,6 +100,9 @@ public final class RecordPgnExporter {
         final AtomicLong ok = new AtomicLong();
         final AtomicLong bad = new AtomicLong();
         final AtomicLong badEdges = new AtomicLong();
+        final Predicate<String> include = (includeRecordJson == null)
+                ? json -> true
+                : includeRecordJson;
 
         LogService.info(String.format(
                 "Converting records to PGN '%s' to '%s'.",
@@ -91,7 +110,7 @@ public final class RecordPgnExporter {
 
         try {
             long totalRecords = countRecords(recordFile);
-            IndexData index = indexRecords(recordFile, ok, bad, badEdges, totalRecords);
+            IndexData index = indexRecords(recordFile, ok, bad, badEdges, totalRecords, include);
             if (index.positionsBySig.isEmpty()) {
                 LogService.info(String.format(
                         "No records parsed from '%s'; skipping PGN output '%s'.",
@@ -226,6 +245,7 @@ public final class RecordPgnExporter {
      * @param bad        counter for skipped records.
      * @param badEdges   counter for missing SAN links.
      * @param totalRecords estimated record count for progress reporting
+     * @param include    predicate to decide whether to include a record
      * @return {@link IndexData} holding map views used by {@link #buildPgnForStart}
      * @throws IOException if the stream fails.
      */
@@ -234,7 +254,8 @@ public final class RecordPgnExporter {
             AtomicLong ok,
             AtomicLong bad,
             AtomicLong badEdges,
-            long totalRecords) throws IOException {
+            long totalRecords,
+            Predicate<String> include) throws IOException {
         final Map<String, String> positionsBySig = new LinkedHashMap<>();
         final Map<String, List<ChildInfo>> childrenByParentSig = new HashMap<>();
         final Map<String, Set<String>> directChildren = new HashMap<>();
@@ -248,7 +269,15 @@ public final class RecordPgnExporter {
                 evalScoreBySig);
         IndexContext indexCtx = new IndexContext(ok, bad, indexBar, indexMaps);
         try {
-            Json.streamTopLevelObjects(recordFile, objJson -> handleIndexRecord(objJson, indexCtx));
+            streamRecordObjects(recordFile, objJson -> {
+                if (!include.test(objJson)) {
+                    if (indexBar != null) {
+                        indexBar.step();
+                    }
+                    return;
+                }
+                handleIndexRecord(objJson, indexCtx);
+            });
         } finally {
             if (indexBar != null) {
                 indexBar.finish();
@@ -262,7 +291,7 @@ public final class RecordPgnExporter {
         Bar bridgeBar = progressBar(totalRecords, "Linking records");
         BridgeContext bridgeCtx = new BridgeContext(adjacency, incoming, badEdges, directChildren, edgeKeysByFrom,
                 bridgeBar);
-        addBridgedEdges(recordFile, childrenByParentSig, bridgeCtx);
+        addBridgedEdges(recordFile, childrenByParentSig, bridgeCtx, include);
 
         return new IndexData(positionsBySig, adjacency, incoming, bestMoveBySig, descriptionBySig, evalScoreBySig);
     }
@@ -300,6 +329,7 @@ public final class RecordPgnExporter {
      * Shared state for indexing streamed records.
      */
     private static final class IndexContext {
+
         /**
          * Counter for successfully parsed records.
          */
@@ -368,6 +398,7 @@ public final class RecordPgnExporter {
      * Container for shared index maps.
      */
     private static final class IndexMaps {
+
         /**
          * Map of signature to FEN string.
          */
@@ -530,15 +561,19 @@ public final class RecordPgnExporter {
      * @param adjacency           adjacency list being filled.
      * @param incoming            set of signatures with incoming edges.
      * @param badEdges            counter for invalid child references.
+     * @param include             predicate to decide whether to include a record
      * @throws IOException if the stream fails.
      */
     private static void addBridgedEdges(
             Path recordFile,
             Map<String, List<ChildInfo>> childrenByParentSig,
-            BridgeContext ctx) throws IOException {
+            BridgeContext ctx,
+            Predicate<String> include) throws IOException {
         try {
-            Json.streamTopLevelObjects(recordFile, objJson -> {
-                processBridgedRecord(objJson, childrenByParentSig, ctx);
+            streamRecordObjects(recordFile, objJson -> {
+                if (include.test(objJson)) {
+                    processBridgedRecord(objJson, childrenByParentSig, ctx);
+                }
                 stepBridgeBar(ctx);
             });
         } finally {
@@ -1024,6 +1059,7 @@ public final class RecordPgnExporter {
      * Holds map views built from streamed records.
      */
     private static final class IndexData {
+
         /**
          * Map of signature to FEN.
          */
@@ -1084,6 +1120,7 @@ public final class RecordPgnExporter {
      * Lightweight child descriptor used for parent/child linking.
      */
     private static final class ChildInfo {
+
         /**
          * Signature of the child position.
          */
@@ -1110,6 +1147,7 @@ public final class RecordPgnExporter {
      * Shared context passed through recursive builders.
      */
     private static final class PgnContext {
+
         /**
          * Adjacency list describing transitions between signatures.
          */
@@ -1228,6 +1266,7 @@ public final class RecordPgnExporter {
      * Represents a directed edge with SAN strings for the path.
      */
     private static final class Edge {
+
         /**
          * Destination signature reached by this edge.
          */
@@ -1252,6 +1291,7 @@ public final class RecordPgnExporter {
      * Shared context for the bridging pass.
      */
     private static final class BridgeContext {
+
         /**
          * Adjacency list being populated.
          */
@@ -1312,6 +1352,7 @@ public final class RecordPgnExporter {
      * Uniquely identifies an edge per source signature using destination and SAN path.
      */
     private static final class EdgeKey {
+
         /**
          * Destination signature.
          */
@@ -1391,6 +1432,7 @@ public final class RecordPgnExporter {
      * Tracks progression through an edge's SAN sequence.
      */
     private static final class PathOption {
+
         /**
          * Destination signature this option aims for.
          */
@@ -1634,9 +1676,53 @@ public final class RecordPgnExporter {
     }
 
     /**
+     * Streams JSON objects from either a top-level array or JSONL file.
+     *
+     * @param recordFile input JSON path
+     * @param consumer   receiver for each JSON object
+     * @throws IOException when reading fails
+     */
+    private static void streamRecordObjects(Path recordFile, Consumer<String> consumer) throws IOException {
+        if (isJsonArrayFile(recordFile)) {
+            Json.streamTopLevelObjects(recordFile, consumer);
+            return;
+        }
+        try (BufferedReader reader = Files.newBufferedReader(recordFile, StandardCharsets.UTF_8)) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                String trimmed = line.trim();
+                if (trimmed.isEmpty()) {
+                    continue;
+                }
+                consumer.accept(trimmed);
+            }
+        }
+    }
+
+    /**
+     * Detects whether the input begins with a JSON array.
+     *
+     * @param input input path
+     * @return {@code true} when the file looks like a JSON array
+     * @throws IOException when the file cannot be read
+     */
+    private static boolean isJsonArrayFile(Path input) throws IOException {
+        try (BufferedReader reader = Files.newBufferedReader(input, StandardCharsets.UTF_8)) {
+            int c;
+            while ((c = reader.read()) != -1) {
+                boolean skip = c == '\uFEFF' || Character.isWhitespace(c);
+                if (!skip) {
+                    return c == '[';
+                }
+            }
+        }
+        return false;
+    }
+
+    /**
      * Counts top-level records for progress reporting; returns {@code 0} on failure.
      *
-     * @param recordFile input JSON array file.
+     * @param recordFile input JSON array or JSONL file.
      * @return total record count, or {@code 0} when counting fails.
      */
     private static long countRecords(Path recordFile) {
@@ -1645,7 +1731,7 @@ public final class RecordPgnExporter {
         }
         final AtomicLong count = new AtomicLong();
         try {
-            Json.streamTopLevelObjects(recordFile, objJson -> count.incrementAndGet());
+            streamRecordObjects(recordFile, objJson -> count.incrementAndGet());
         } catch (IOException ex) {
             LogService.warn(String.format(
                     "Unable to count records in '%s'; progress bar disabled.",

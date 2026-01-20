@@ -432,6 +432,7 @@ public final class Evaluator implements AutoCloseable {
      * @param result evaluation result to cache
      */
     private record CacheEntry(long signature, Result result) {
+
         /**
          * Validates the cache entry inputs for a recorded evaluation.
          *
@@ -505,11 +506,13 @@ public final class Evaluator implements AutoCloseable {
      * Small holder for an LC0 prediction and backend identifier.
      */
     private static final class Lc0Prediction {
+
         /**
          * LC0 prediction payload containing policy/WDL/value outputs.
          * Used to avoid recomputing predictions for the same position.
          */
         private final Network.Prediction prediction;
+
         /**
          * Backend identifier reported by LC0.
          * Used for logging and backend selection.

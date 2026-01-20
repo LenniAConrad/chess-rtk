@@ -227,6 +227,7 @@ public final class Network implements AutoCloseable {
      * Ensures the backend is closed on error paths.
      */
     private static final class CudaBackendHolder implements AutoCloseable {
+
         /**
          * Owned backend instance, or {@code null} once detached.
          * Closed on {@link #close()} when still attached.
@@ -449,6 +450,7 @@ public final class Network implements AutoCloseable {
      * @author Lennart A. Conrad
      */
     public record DebugValue(float[] rawWdl, boolean blackToMove) {
+
         /**
          * Compares the WDL arrays by content and the side-to-move flag by value.
          * Treats array contents as the equality contract.
@@ -551,8 +553,10 @@ public final class Network implements AutoCloseable {
      * Activation function used in the network.
      */
     private enum Activation {
+
         /** Rectified linear unit. */
         RELU,
+
         /** No activation (identity). */
         NONE
     }
@@ -564,10 +568,12 @@ public final class Network implements AutoCloseable {
      * Use {@code -Dlc0j.threads=N} to override thread count (default:
      * {@code availableProcessors()}).
      */
+
     /**
      * Fork-join helper used when channel counts justify parallel work.
      */
     private static final class Parallel {
+
         /**
          * Number of threads configured for LC0 convolutions.
          */
@@ -624,6 +630,7 @@ public final class Network implements AutoCloseable {
          * Converts a range into work that can be executed by fork/join tasks.
          */
         interface RangeBody {
+
             /**
              * Executes work for a half-open channel range.
              *
@@ -739,11 +746,13 @@ public final class Network implements AutoCloseable {
          * {@code null} when the kernel size is 1.
          */
         private final int[] neighborSquare;
+
         /**
          * Precomputed kernel index offsets for each neighbor square.
          * {@code null} when the kernel size is 1.
          */
         private final int[] neighborKernelIndex;
+
         /**
          * Precomputed start offsets into the neighbor arrays.
          * {@code null} when the kernel size is 1.
@@ -1137,66 +1146,79 @@ public final class Network implements AutoCloseable {
 	         * Internal build state used while parsing a weights file.
 	         */
 	        private static final class Builder {
+
 	            /**
 	             * Number of input channels reported by the weights file.
 	             * Copied into the built {@link Weights} instance.
 	             */
 	            int inputChannels;
+
 	            /**
 	             * Number of channels in the residual trunk.
 	             * Copied into the built {@link Weights} instance.
 	             */
 	            int trunkChannels;
+
 	            /**
 	             * Number of channels feeding the policy head.
 	             * Copied into the built {@link Weights} instance.
 	             */
 	            int policyChannels;
+
 	            /**
 	             * Number of channels feeding the value head.
 	             * Copied into the built {@link Weights} instance.
 	             */
 	            int valueChannels;
+
 	            /**
 	             * Mapping from raw policy planes to LC0 move indices.
 	             * Populated from the weights file.
 	             */
             int[] policyMap;
+
             /**
              * Total parameter count computed during parsing.
              * Propagated to the built {@link Weights}.
              */
             long parameterCount;
+
             /**
              * Parsed input convolution layer descriptor.
              * Assigned once during file decoding.
              */
             ConvLayer inputLayer;
+
             /**
              * Parsed residual blocks in the trunk.
              * Preserves original order from the weights file.
              */
             List<ResidualBlock> blocks;
+
             /**
              * Convolutional stem for the policy head.
              * Assigned once during file decoding.
              */
             ConvLayer policyStem;
+
             /**
              * Final convolution producing policy logits.
              * Assigned once during file decoding.
              */
             ConvLayer policyOutput;
+
             /**
              * Convolutional stem for the value head.
              * Assigned once during file decoding.
              */
             ConvLayer valueConv;
+
             /**
              * First dense layer in the value head.
              * Assigned once during file decoding.
              */
             DenseLayer valueFc1;
+
             /**
              * Second dense layer in the value head.
              * Assigned once during file decoding.

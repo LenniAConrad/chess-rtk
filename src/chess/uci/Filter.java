@@ -425,6 +425,7 @@ public final class Filter {
      * Used for building immutable {@code Arguments} instances.
      */
     public static final class Builder {
+
         /**
          * Used for storing the gate operation for predicate combination.
          */

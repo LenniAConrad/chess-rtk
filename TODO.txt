@@ -1,2 +1,1 @@
-Add puzzles to pgn
 Improve tagging

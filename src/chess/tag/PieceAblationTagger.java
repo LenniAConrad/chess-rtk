@@ -251,6 +251,7 @@ public final class PieceAblationTagger {
      * Minimal summary for ranking extremes by strength score.
      */
     private static final class PieceSummary {
+
         /**
          * Piece code (white/black).
          */
@@ -282,30 +283,37 @@ public final class PieceAblationTagger {
      * Enumerates the tiers used for describing placement impact.
      */
     private enum Strength {
+
         /**
          * Piece is much stronger than expected.
          */
         VERY_STRONG("very strong"),
+
         /**
          * Piece enjoys a clear advantage in its placement.
          */
         STRONG("strong"),
+
         /**
          * Piece is slightly above the neutral threshold.
          */
         SLIGHTLY_STRONG("slightly strong"),
+
         /**
          * Piece placement is approximately neutral.
          */
         OK("neutral"),
+
         /**
          * Piece is slightly behind expected placement.
          */
         SLIGHTLY_WEAK("slightly weak"),
+
         /**
          * Piece placement is clearly suboptimal.
          */
         WEAK("weak"),
+
         /**
          * Piece is significantly hurting the owner.
          */

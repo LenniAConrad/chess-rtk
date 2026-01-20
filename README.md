@@ -52,6 +52,11 @@ Other common primitives:
 
 Diagram source: `assets/crtk-position-toolbox.dot` (render with `dot -Tpng -Gdpi=160 -o assets/crtk-position-toolbox.png assets/crtk-position-toolbox.dot`).
 
+Agent-friendly shortcuts:
+- `moves-uci`, `moves-san`, `moves-both`
+- `bestmove-uci`, `bestmove-san`, `bestmove-both`
+- `eval-static`, `perft-suite`, `records`, `puzzles-to-pgn`, `pgn-to-fens`
+
 ## Docs (full)
 
 - Start here: `wiki/README.md`
@@ -100,17 +105,22 @@ More: `wiki/build-and-install.md`
 
 - `mine-puzzles`: evaluate lots of seeds (random / `.txt` / `.pgn`) and emit puzzles + non-puzzles JSON
 - `record-to-plain`, `record-to-csv`, `record-to-pgn`: convert `.record` analysis dumps to `.plain`, CSV, or PGN
+- `records`: merge/filter/split record files (with optional puzzle/DSL filtering)
+- `puzzles-to-pgn`: convert mixed puzzle/non-puzzle dumps to PGN games
 - `record-to-dataset`, `stack-to-dataset`: export tensors for AI training (features `(N, 781)`)
+- `gen-fens`: generate large shards of random legal FENs
 - `print`: pretty-print a FEN as ASCII (includes tags)
 - `display`: open a small GUI board view (overlays + optional ablation)
 - `render`: save a board image to disk (PNG/JPG/BMP)
 - `gpu-info`: show LC0 GPU backend availability and device info (CUDA/ROCm/oneAPI)
-- `analyze`, `bestmove`: analyze a FEN and extract the best move
-- `moves`, `tags`: list legal moves or tags for a FEN
+- `analyze`, `bestmove`, `threats`: engine probing and tactical checks on a FEN
+- `moves`, `moves-uci`, `moves-san`, `moves-both`: list legal moves for a FEN
+- `bestmove-uci`, `bestmove-san`, `bestmove-both`: best move shortcuts with fixed output format
+- `tags`: list tags for a FEN
 - `stats`, `stats-tags`: summarize dumps or tag distributions
-- `perft`: validate move generation at a given depth
+- `perft`, `perft-suite`: validate move generation (single position or suite)
 - `pgn-to-fens`: extract FEN seeds from PGN files
-- `eval`: evaluate a position with LC0 or classical heuristics
+- `eval`, `eval-static`: evaluate a position with LC0 or classical heuristics
 - `clean`: remove/clean derived artifacts
 - `config`: show/validate resolved configuration
 

@@ -35,6 +35,30 @@ Options:
 - `--input|-i <path>`: input `.record` (required)
 - `--output|-o <path>`: output `.pgn` (optional; default derived from input)
 
+## `puzzles-to-pgn`
+
+Convert a mixed puzzle/non-puzzle dump into PGN games (filters to puzzles).
+If entries include a `kind` field, only `kind:"puzzle"` is kept; otherwise the
+configured puzzle verify filter is applied.
+
+Options:
+- `--input|-i <path>`: input dump (JSON array or JSONL)
+- `--output|-o <path>`: output `.pgn` (optional; default derived from input)
+
+## `records`
+
+Merge/filter/split record files.
+
+Options:
+- `--input|-i <path>`: input file or directory (repeatable; positionals allowed)
+- `--output|-o <path>`: output `.json` file or directory (required)
+- `--filter|-f <dsl>`: Filter-DSL string to select records
+- `--puzzles`: keep only puzzle records (uses `kind` or puzzle verify filter)
+- `--nonpuzzles`: keep only non-puzzle records
+- `--max-records <n>`: split output into parts with at most `n` records each
+- `--recursive`: recurse into directories
+- `--verbose|-v`: print stack traces on failure
+
 ## `record-to-dataset`
 
 Convert a `.record` JSON array into NumPy tensors:
@@ -59,6 +83,7 @@ Print whether the optional GPU JNI backends are available (CUDA/ROCm/oneAPI) and
 
 Notes:
 - If you built a native library under `native/cuda/`, run with `-Djava.library.path=native/cuda/build`.
+- `cuda-info` is a legacy alias.
 
 ## `gen-fens`
 
@@ -102,6 +127,9 @@ Filter overrides:
 - `--puzzle-accelerate <dsl>`
 - `--verbose|-v`: print stack traces on failure
 
+Notes:
+- `mine` is a legacy alias.
+
 ## `print`
 
 Pretty-print a FEN as ASCII (board + metadata + tags).
@@ -116,17 +144,45 @@ Render a board image in a window (with optional overlays).
 
 Options:
 - `--fen "<FEN...>"` (or pass it positionally)
-- `--arrow <uci>`: add an arrow (repeatable)
-- `--circle <sq>`: add a circle (repeatable)
+- `--arrow <uci>` / `--arrows <uci,uci,...>`: add arrow overlays
+- `--special-arrows`: include castling/en-passant hint arrows
+- `--circle <sq>` / `--circles <sq,sq,...>`: add circle overlays
 - `--legal <sq>`: highlight legal moves from a square (repeatable)
 - `--ablation`: overlay inverted per-piece ablation scores
-- `--show-backend`: print which evaluator backend was used
+- `--show-backend|--backend`: print which evaluator backend was used
 - `--flip|--black-down`: render Black at the bottom
 - `--no-border`: hide the board frame
 - `--size <px>`: window size (square)
 - `--width <px>`, `--height <px>`: window size override
 - `--zoom <factor>`: zoom multiplier (1.0 = fit-to-window)
 - `--dark|--dark-mode`: dark window styling
+- `--details-inside`: show coordinates inside the board
+- `--details-outside`: show coordinates outside the board
+- `--shadow|--drop-shadow`: apply a subtle drop shadow
+- `--verbose|-v`: print stack traces on failure
+
+## `render`
+
+Render a board image to disk (PNG/JPG/BMP).
+
+Options:
+- `--fen "<FEN...>"` (or pass it positionally)
+- `--output|-o <path>`: output image path (required)
+- `--format <fmt>`: output format override (`png`, `jpg`, `bmp`)
+- `--arrow <uci>` / `--arrows <uci,uci,...>`: add arrow overlays
+- `--special-arrows`: include castling/en-passant hint arrows
+- `--circle <sq>` / `--circles <sq,sq,...>`: add circle overlays
+- `--legal <sq>`: highlight legal moves from a square (repeatable)
+- `--ablation`: overlay inverted per-piece ablation scores
+- `--show-backend|--backend`: print which evaluator backend was used
+- `--flip|--black-down`: render Black at the bottom
+- `--no-border`: hide the board frame
+- `--size <px>`: board size (square)
+- `--width <px>`, `--height <px>`: image size override
+- `--dark|--dark-mode`: dark board styling
+- `--details-inside`: show coordinates inside the board
+- `--details-outside`: show coordinates outside the board
+- `--shadow|--drop-shadow`: apply a subtle drop shadow
 - `--verbose|-v`: print stack traces on failure
 
 ## `config`
@@ -175,6 +231,30 @@ Options:
 - `--fen "<FEN...>"`: FEN string (or pass it positionally)
 - `--san`: output SAN instead of UCI
 - `--both`: output UCI + SAN per move
+- `--verbose|-v`: print stack traces on failure
+
+## `moves-uci`
+
+List legal moves for a FEN (UCI only).
+
+Options:
+- `--fen "<FEN...>"`: FEN string (or pass it positionally)
+- `--verbose|-v`: print stack traces on failure
+
+## `moves-san`
+
+List legal moves for a FEN (SAN only).
+
+Options:
+- `--fen "<FEN...>"`: FEN string (or pass it positionally)
+- `--verbose|-v`: print stack traces on failure
+
+## `moves-both`
+
+List legal moves for a FEN (UCI + SAN).
+
+Options:
+- `--fen "<FEN...>"`: FEN string (or pass it positionally)
 - `--verbose|-v`: print stack traces on failure
 
 ## `analyze`
@@ -231,6 +311,54 @@ Options:
 - `--wdl|--no-wdl`: enable/disable WDL output
 - `--verbose|-v`: print stack traces on failure
 
+## `bestmove-uci`
+
+Return the best move for a FEN (UCI only).
+
+Options:
+- `--input|-i <path>`: FEN list file (optional)
+- `--fen "<FEN...>"`: FEN string (or pass it positionally)
+- `--protocol-path|-P <toml>`: override `Config.getProtocolPath()`
+- `--max-nodes|--nodes <n>`: override `Config.getMaxNodes()`
+- `--max-duration <dur>`: override `Config.getMaxDuration()`, e.g. `60s`, `2m`, `60000`
+- `--multipv <n>`: set engine MultiPV
+- `--threads <n>`: set engine thread count
+- `--hash <mb>`: set engine hash size
+- `--wdl|--no-wdl`: enable/disable WDL output
+- `--verbose|-v`: print stack traces on failure
+
+## `bestmove-san`
+
+Return the best move for a FEN (SAN only).
+
+Options:
+- `--input|-i <path>`: FEN list file (optional)
+- `--fen "<FEN...>"`: FEN string (or pass it positionally)
+- `--protocol-path|-P <toml>`: override `Config.getProtocolPath()`
+- `--max-nodes|--nodes <n>`: override `Config.getMaxNodes()`
+- `--max-duration <dur>`: override `Config.getMaxDuration()`, e.g. `60s`, `2m`, `60000`
+- `--multipv <n>`: set engine MultiPV
+- `--threads <n>`: set engine thread count
+- `--hash <mb>`: set engine hash size
+- `--wdl|--no-wdl`: enable/disable WDL output
+- `--verbose|-v`: print stack traces on failure
+
+## `bestmove-both`
+
+Return the best move for a FEN (UCI + SAN).
+
+Options:
+- `--input|-i <path>`: FEN list file (optional)
+- `--fen "<FEN...>"`: FEN string (or pass it positionally)
+- `--protocol-path|-P <toml>`: override `Config.getProtocolPath()`
+- `--max-nodes|--nodes <n>`: override `Config.getMaxNodes()`
+- `--max-duration <dur>`: override `Config.getMaxDuration()`, e.g. `60s`, `2m`, `60000`
+- `--multipv <n>`: set engine MultiPV
+- `--threads <n>`: set engine thread count
+- `--hash <mb>`: set engine hash size
+- `--wdl|--no-wdl`: enable/disable WDL output
+- `--verbose|-v`: print stack traces on failure
+
 ## `perft`
 
 Run perft on a position (move generation validation).
@@ -240,6 +368,13 @@ Options:
 - `--depth|-d <n>`: perft depth (required)
 - `--divide|--per-move`: print per-move breakdown
 - `--verbose|-v`: print stack traces on failure
+
+## `perft-suite`
+
+Run a compact perft regression suite with known node counts.
+
+Options:
+- (no options)
 
 ## `pgn-to-fens`
 
@@ -262,6 +397,19 @@ Options:
 - `--lc0`: force LC0 evaluation
 - `--classical`: force classical evaluation
 - `--weights <path>`: LC0 weights path (optional)
+- `--terminal-aware`: use terminal-aware classical evaluation
+- `--verbose|-v`: print stack traces on failure
+
+Notes:
+- `evaluate` is a legacy alias.
+
+## `eval-static`
+
+Evaluate a position using the classical evaluator only.
+
+Options:
+- `--input|-i <path>`: FEN list file (optional)
+- `--fen "<FEN...>"`: FEN string (or pass it positionally)
 - `--terminal-aware`: use terminal-aware classical evaluation
 - `--verbose|-v`: print stack traces on failure
 

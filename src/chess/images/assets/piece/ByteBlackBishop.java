@@ -8,6 +8,7 @@ package chess.images.assets.piece;
  * @author Lennart A. Conrad
  */
 public class ByteBlackBishop {
+
 	/**
 	 * Prevents instantiation of this utility class.
 	 */

@@ -1198,18 +1198,22 @@ public final class Render {
 		 * Keeps allocations low during the render loop.
 		 */
 		private static final class SquareTextStyle {
+
 			/**
 			 * Background fill color for the text box.
 			 */
 			private Color background;
+
 			/**
 			 * Border color for the text box outline.
 			 */
 			private Color border;
+
 			/**
 			 * Color used to draw the text glyph.
 			 */
 			private Color textColor;
+
 			/**
 			 * Stroke used when drawing the border.
 			 */
@@ -1221,22 +1225,27 @@ public final class Render {
 		 * Updated per label to track measured width, height, and font selection.
 		 */
 		private static final class TextLayout {
+
 			/**
 			 * Font chosen for the label.
 			 */
 			private Font font;
+
 			/**
 			 * Font metrics corresponding to {@link #font}.
 			 */
 			private FontMetrics fm;
+
 			/**
 			 * Measured width of the current text.
 			 */
 			private int textWidth;
+
 			/**
 			 * Measured height of the current text.
 			 */
 			private int textHeight;
+
 			/**
 			 * Rendered font size in points.
 			 */
@@ -1247,10 +1256,12 @@ public final class Render {
 		 * Simple mutable point used for temporary tile origin calculations.
 		 */
 		private static final class IntPoint {
+
 			/**
 			 * X coordinate in pixels.
 			 */
 			private int x;
+
 			/**
 			 * Y coordinate in pixels.
 			 */

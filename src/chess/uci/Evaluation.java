@@ -31,11 +31,13 @@ public class Evaluation implements Comparable<Evaluation> {
 	 * used for comparison.
 	 */
 	private boolean valid = false;
+
 	/**
 	 * Used for indicating if the current {@code Evaluation} is a mate. If it is
 	 * mate, the value will represent a mate in ..., instead of the centipawn value.
 	 */
 	private boolean mate = false;
+
 	/**
 	 * Used for indicating the centipawn value of the current {@code Evaluation}.
 	 */
@@ -54,14 +56,17 @@ public class Evaluation implements Comparable<Evaluation> {
 	 * </ul>
 	 */
 	public enum Discrepancy {
+
 		/**
 		 * If two {@code Evaluations} are not mate.
 		 */
 		NORMAL,
+
 		/**
 		 * If one out of two {@code Evaluations} is a mate.
 		 */
 		ABSOLUTE,
+
 		/**
 		 * If two out of two {@code Evaluations} are mate.
 		 */

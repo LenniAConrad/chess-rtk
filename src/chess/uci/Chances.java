@@ -45,10 +45,12 @@ public class Chances implements Comparable<Chances> {
 	 * The chance of the game resulting in a win.
 	 */
 	private short win = 0;
+
 	/**
 	 * The chance of the game resulting in a draw.
 	 */
 	private short draw = 0;
+
 	/**
 	 * The chance of the game resulting in a loss.
 	 */
@@ -70,22 +72,27 @@ public class Chances implements Comparable<Chances> {
 	 * @see applies
 	 */
 	public enum ComparisonOperator {
+
 		/**
 		 * A value is greater than another
 		 */
 		GREATER,
+
 		/**
 		 * A value is greater or equal to another
 		 */
 		GREATER_EQUAL,
+
 		/**
 		 * A value is equal to another
 		 */
 		EQUAL,
+
 		/**
 		 * A value is less or equal to another
 		 */
 		LESS_EQUAL,
+
 		/**
 		 * A value is less than another
 		 */

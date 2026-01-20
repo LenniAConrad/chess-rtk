@@ -4,6 +4,7 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.function.Consumer;
 
 import chess.struct.Record;
 import utility.Json;
@@ -73,6 +74,30 @@ import utility.Json;
 					continue;
 				}
 				handleRecordJson(trimmed, verbose, label, consumer);
+			}
+		}
+	}
+
+	/**
+	 * Streams raw JSON objects from a record file (array or JSONL).
+	 *
+	 * @param input    path to a JSON array or newline-delimited records file
+	 * @param consumer receiver for each raw JSON object
+	 * @throws IOException if reading the file fails
+	 */
+	public static void streamRecordJson(Path input, Consumer<String> consumer) throws IOException {
+		if (isJsonArrayFile(input)) {
+			Json.streamTopLevelObjects(input, consumer);
+			return;
+		}
+		try (BufferedReader reader = Files.newBufferedReader(input)) {
+			String line;
+			while ((line = reader.readLine()) != null) {
+				String trimmed = line.trim();
+				if (trimmed.isEmpty()) {
+					continue;
+				}
+				consumer.accept(trimmed);
 			}
 		}
 	}

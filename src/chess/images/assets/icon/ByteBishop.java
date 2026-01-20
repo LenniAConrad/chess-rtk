@@ -8,6 +8,7 @@ package chess.images.assets.icon;
  * @author Lennart A. Conrad
  */
 public class ByteBishop {
+
 	/**
 	 * Prevents instantiation of this utility class.
 	 */

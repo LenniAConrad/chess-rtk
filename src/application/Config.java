@@ -714,7 +714,7 @@ public final class Config {
      * @param drawing Filter for drawing puzzles.
      * @return combined Filter for overall puzzle verification.
      */
-    protected static Filter buildPuzzleVerify(Filter quality, Filter winning, Filter drawing) {
+    public static Filter buildPuzzleVerify(Filter quality, Filter winning, Filter drawing) {
         return Filter.builder().addLeaf(quality)
                 .addLeaf(Filter.builder().gate(Gate.OR).addLeaf(winning).addLeaf(drawing).build()).build();
     }

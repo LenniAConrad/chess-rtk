@@ -16,6 +16,9 @@ Examples assume you installed the launcher (`crtk`). If you run from classes, re
 - `crtk record-to-plain -i data/input.record --sidelines --csv` — also writes `data/input.csv`.
 - `crtk record-to-csv -i data/input.record -o dump/input.csv` — CSV only.
 - `crtk record-to-plain -i data/input.record -f "gate=AND;eval>=300"` — export only records matching a Filter DSL.
+- `crtk records -i dump/ -o dump/merged.json` — merge many record files into one JSON array.
+- `crtk records -i dump/ -o dump/merged.json --max-records 100000` — merge and split into 100k-sized parts.
+- `crtk records -i dump/mixed.json -o dump/puzzles.json --puzzles` — keep only puzzle records.
 
 ## Mine puzzles
 
@@ -45,11 +48,17 @@ Examples assume you installed the launcher (`crtk`). If you run from classes, re
 - `crtk threats --fen "<FEN>" --max-duration 2s` — analyze opponent threats via a null move (MultiPV).
 - `crtk bestmove --fen "<FEN>"` — print the best move (UCI).
 - `crtk bestmove --fen "<FEN>" --san` — print the best move (SAN).
+- `crtk bestmove-uci --fen "<FEN>"` — best move (UCI shortcut).
+- `crtk bestmove-san --fen "<FEN>"` — best move (SAN shortcut).
+- `crtk bestmove-both --fen "<FEN>"` — best move (UCI + SAN).
 
 ## Tags / moves
 
 - `crtk tags --fen "<FEN>"` — emit tags as JSON.
 - `crtk moves --fen "<FEN>" --both` — list legal moves (UCI + SAN).
+- `crtk moves-uci --fen "<FEN>"` — list legal moves (UCI shortcut).
+- `crtk moves-san --fen "<FEN>"` — list legal moves (SAN shortcut).
+- `crtk moves-both --fen "<FEN>"` — list legal moves (UCI + SAN shortcut).
 
 ## Stats
 
@@ -66,6 +75,7 @@ Examples assume you installed the launcher (`crtk`). If you run from classes, re
 
 - `crtk eval --fen "<FEN>"` — evaluate with LC0 (fallback to classical).
 - `crtk eval --fen "<FEN>" --classical` — force classical evaluation.
+- `crtk eval-static --fen "<FEN>"` — classical evaluation shortcut.
 
 ## Useful helpers
 

@@ -27,6 +27,7 @@ import chess.classical.Wdl;
  * @author Lennart A. Conrad
  */
 public record Result(Backend backend, Wdl wdl, double value, Integer centipawns) {
+
     /**
      * Validates the evaluation result components.
      *

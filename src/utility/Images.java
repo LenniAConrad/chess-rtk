@@ -262,6 +262,7 @@ public final class Images {
 	 * Derived dimensions and offsets used during shadow blur.
 	 */
 	private static final class ShadowSpec {
+
 		/**
 		 * Width of the source image.
 		 */

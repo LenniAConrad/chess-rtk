@@ -36,6 +36,16 @@ public final class Constants {
 	public static final String CMD_RECORD_TO_PGN = "record-to-pgn";
 
 	/**
+	 * {@code records} subcommand token.
+	 */
+	public static final String CMD_RECORDS = "records";
+
+	/**
+	 * {@code puzzles-to-pgn} subcommand token.
+	 */
+	public static final String CMD_PUZZLES_TO_PGN = "puzzles-to-pgn";
+
+	/**
 	 * {@code stack-to-dataset} subcommand token.
 	 */
 	public static final String CMD_STACK_TO_DATASET = "stack-to-dataset";
@@ -111,6 +121,21 @@ public final class Constants {
 	public static final String CMD_MOVES = "moves";
 
 	/**
+	 * {@code moves-uci} subcommand token.
+	 */
+	public static final String CMD_MOVES_UCI = "moves-uci";
+
+	/**
+	 * {@code moves-san} subcommand token.
+	 */
+	public static final String CMD_MOVES_SAN = "moves-san";
+
+	/**
+	 * {@code moves-both} subcommand token.
+	 */
+	public static final String CMD_MOVES_BOTH = "moves-both";
+
+	/**
 	 * {@code analyze} subcommand token.
 	 */
 	public static final String CMD_ANALYZE = "analyze";
@@ -121,6 +146,21 @@ public final class Constants {
 	public static final String CMD_BESTMOVE = "bestmove";
 
 	/**
+	 * {@code bestmove-uci} subcommand token.
+	 */
+	public static final String CMD_BESTMOVE_UCI = "bestmove-uci";
+
+	/**
+	 * {@code bestmove-san} subcommand token.
+	 */
+	public static final String CMD_BESTMOVE_SAN = "bestmove-san";
+
+	/**
+	 * {@code bestmove-both} subcommand token.
+	 */
+	public static final String CMD_BESTMOVE_BOTH = "bestmove-both";
+
+	/**
 	 * {@code threats} subcommand token.
 	 */
 	public static final String CMD_THREATS = "threats";
@@ -129,6 +169,11 @@ public final class Constants {
 	 * {@code perft} subcommand token.
 	 */
 	public static final String CMD_PERFT = "perft";
+
+	/**
+	 * {@code perft-suite} subcommand token.
+	 */
+	public static final String CMD_PERFT_SUITE = "perft-suite";
 
 	/**
 	 * {@code pgn-to-fens} subcommand token.
@@ -144,6 +189,11 @@ public final class Constants {
 	 * {@code eval} subcommand token.
 	 */
 	public static final String CMD_EVAL = "eval";
+
+	/**
+	 * {@code eval-static} subcommand token.
+	 */
+	public static final String CMD_EVAL_STATIC = "eval-static";
 
 	/**
 	 * {@code evaluate} alias for the {@link #CMD_EVAL} subcommand.
@@ -224,6 +274,26 @@ public final class Constants {
 	 * Short {@code --filter} flag alias.
 	 */
 	public static final String OPT_FILTER_SHORT = "-f";
+
+	/**
+	 * {@code --max-records} option flag.
+	 */
+	public static final String OPT_MAX_RECORDS = "--max-records";
+
+	/**
+	 * {@code --puzzles} option flag.
+	 */
+	public static final String OPT_PUZZLES = "--puzzles";
+
+	/**
+	 * {@code --nonpuzzles} option flag.
+	 */
+	public static final String OPT_NONPUZZLES = "--nonpuzzles";
+
+	/**
+	 * {@code --recursive} option flag.
+	 */
+	public static final String OPT_RECURSIVE = "--recursive";
 
 	/**
 	 * {@code --csv} option flag.

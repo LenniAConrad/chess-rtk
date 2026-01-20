@@ -42,6 +42,7 @@ public final class Tagging {
      * </p>
      */
     private static final class SharedEvaluator {
+
         /**
          * Reference holding the shared evaluator instance.
          */

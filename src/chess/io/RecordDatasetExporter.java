@@ -44,11 +44,13 @@ public final class RecordDatasetExporter {
 	 * Combines piece planes, castling, en-passant, and side-to-move features.
 	 */
 	private static final int INPUTS = 64 * 12 + 4 + 8 + 1; // 781
+
 	/**
 	 * Regex for extracting score kind/value from Stack analysis lines.
 	 * Matches both centipawn and mate evaluations.
 	 */
 	private static final Pattern STACK_SCORE_RE = Pattern.compile("score\\s+(cp|mate)\\s+(-?\\d+)");
+
 	/**
 	 * Regex for extracting depth from Stack analysis lines.
 	 * Used to pick the deepest multipv=1 line.
@@ -61,6 +63,7 @@ public final class RecordDatasetExporter {
 	 */
 	@FunctionalInterface
 	private interface JsonObjectExporter {
+
 		/**
 		 * Exports a parsed JSON object into the feature/label writers.
 		 * Implementations may skip rows by returning without writing.
@@ -317,11 +320,13 @@ public final class RecordDatasetExporter {
 	 * Used to compare and select the best analysis line.
 	 */
 	private static final class StackEval {
+
 		/**
 		 * Search depth reported by the engine.
 		 * Used to pick the deepest line.
 		 */
 		private final int depth;
+
 		/**
 		 * Evaluation value in pawns after conversion/clamping.
 		 * Used as the training label.
@@ -456,6 +461,7 @@ public final class RecordDatasetExporter {
 	 * the row count in-place on close. Constant memory.
 	 */
 	private static final class NpyFloat32Writer implements Closeable {
+
 		/**
 		 * Width of the row-count placeholder field in the header.
 		 * Keeps header patching stable even for very large datasets.
@@ -467,16 +473,19 @@ public final class RecordDatasetExporter {
 		 * Used to patch the header on close.
 		 */
 		private final RandomAccessFile raf;
+
 		/**
 		 * File channel used for streaming writes.
 		 * Keeps payload writes efficient and sequential.
 		 */
 		private final FileChannel ch;
+
 		/**
 		 * Whether the output is one-dimensional (labels).
 		 * Controls header shape and write behavior.
 		 */
 		private final boolean oneD;
+
 		/**
 		 * Column count for 2D outputs (features).
 		 * Ignored for 1D label outputs.
@@ -488,6 +497,7 @@ public final class RecordDatasetExporter {
 		 * Used to patch the placeholder on close.
 		 */
 		private final long rowsFieldOffsetInFile; // where the rows digits/spaces begin
+
 		/**
 		 * Width of the row-count field in the header.
 		 * Matches the placeholder length.
@@ -499,6 +509,7 @@ public final class RecordDatasetExporter {
 		 * Avoids per-row allocations.
 		 */
 		private final ByteBuffer rowBuf;
+
 		/**
 		 * Reusable buffer for writing scalar labels.
 		 * Avoids per-write allocations.
@@ -510,6 +521,7 @@ public final class RecordDatasetExporter {
 		 * Incremented after each successful write.
 		 */
 		private long rows = 0;
+
 		/**
 		 * Whether the writer has been closed.
 		 * Prevents double-close operations.

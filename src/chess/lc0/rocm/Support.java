@@ -21,6 +21,7 @@ import java.nio.file.Path;
  * @author Lennart A. Conrad
  */
 public final class Support {
+
     /**
      * Base library name used by {@link System#loadLibrary(String)}.
      */

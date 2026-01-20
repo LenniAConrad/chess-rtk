@@ -486,6 +486,7 @@ public class Display extends JFrame {
 			interactionTimer.setRepeats(false);
 
 			addComponentListener(new java.awt.event.ComponentAdapter() {
+
 				/**
 				 * Reacts to panel resize events by recomputing scale and pan constraints.
 				 *
@@ -499,6 +500,7 @@ public class Display extends JFrame {
 			});
 			addMouseWheelListener(this::handleZoomWheel);
 			addMouseListener(new java.awt.event.MouseAdapter() {
+
 				/**
 				 * Captures the start point for drag-based panning.
 				 *
@@ -520,6 +522,7 @@ public class Display extends JFrame {
 				}
 			});
 			addMouseMotionListener(new java.awt.event.MouseMotionAdapter() {
+
 				/**
 				 * Applies pan deltas as the mouse is dragged.
 				 *
@@ -628,6 +631,7 @@ public class Display extends JFrame {
 			ActionMap actionMap = getActionMap();
 			inputMap.put(saveStroke, SAVE_ACTION_KEY);
 			actionMap.put(SAVE_ACTION_KEY, new AbstractAction() {
+
 				/**
 				 * Serialization id for the save action.
 				 */
@@ -657,6 +661,7 @@ public class Display extends JFrame {
 			ActionMap actionMap = getActionMap();
 			inputMap.put(copyStroke, COPY_ACTION_KEY);
 			actionMap.put(COPY_ACTION_KEY, new AbstractAction() {
+
 				/**
 				 * Serialization id for the copy action.
 				 */
@@ -993,6 +998,7 @@ public class Display extends JFrame {
 			final long requestId = ++scaleRequestId;
 			final BufferedImage source = image;
 			scaleWorker = new SwingWorker<>() {
+
 				/**
 				 * Performs the scaling work off the EDT.
 				 *
@@ -1234,22 +1240,27 @@ public class Display extends JFrame {
 		 * Immutable snapshot of render geometry for a paint pass.
 		 */
 		private static final class RenderState {
+
 			/**
 			 * Rendered image width in pixels.
 			 */
 			private final int width;
+
 			/**
 			 * Rendered image height in pixels.
 			 */
 			private final int height;
+
 			/**
 			 * Image origin x coordinate.
 			 */
 			private final int x;
+
 			/**
 			 * Image origin y coordinate.
 			 */
 			private final int y;
+
 			/**
 			 * Visible intersection rectangle.
 			 */
@@ -1277,6 +1288,7 @@ public class Display extends JFrame {
 		 * Transferable wrapper for placing an image onto the system clipboard.
 		 */
 		private static final class ImageSelection implements Transferable, ClipboardOwner {
+
 			/**
 			 * Image being transferred to the clipboard.
 			 */

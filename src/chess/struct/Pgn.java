@@ -620,11 +620,13 @@ public final class Pgn {
      * Simple value object representing a token kind and its payload.
      */
     private static final class Token {
+
         /**
          * Token kind describing how to interpret the payload.
          * Used by the parser to dispatch token handling.
          */
         final TokenKind kind;
+
         /**
          * Raw token payload text.
          * May be empty for tokens without a payload.
@@ -659,6 +661,7 @@ public final class Pgn {
      * Mutable cursor used during recursive descent parsing.
      */
     private static final class Index {
+
         /**
          * Current cursor index into the token list.
          * Mutated as parsing advances.
@@ -847,16 +850,19 @@ public final class Pgn {
      * Tracks ply and move number while emitting movetext.
      */
     private static final class PlyTracker {
+
         /**
          * Current ply index starting from zero.
          * Used to decide when to increment move numbers.
          */
         final int ply;
+
         /**
          * Current move number in the PGN output.
          * Incremented after each completed full move.
          */
         final int moveNumber;
+
         /**
          * Whether to emit black move numbers when starting from black to move.
          * Controls the initial "..." prefix behavior.

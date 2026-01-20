@@ -43,6 +43,7 @@ import chess.core.Position;
  * @author Lennart A. Conrad
  */
 public final class Encoder {
+
     /**
      * Planes per time step in LC0 classical input (12 piece planes + 1 repetition plane).
      */

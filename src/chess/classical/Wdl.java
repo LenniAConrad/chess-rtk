@@ -1274,14 +1274,19 @@ public record Wdl(short win, short draw, short loss) {
      * Accumulates material and PST-derived signals during a board scan.
      */
     private static final class EvalScan {
+
         /** White material total in centipawns (kings excluded). */
         int whiteMaterial;
+
         /** Black material total in centipawns (kings excluded). */
         int blackMaterial;
+
         /** PST-derived score from White's perspective. */
         int score;
+
         /** Number of White bishops on the board. */
         int whiteBishops;
+
         /** Number of Black bishops on the board. */
         int blackBishops;
     }

@@ -215,31 +215,37 @@ public class Json {
      * Holds streaming scanner state to avoid many local vars in the public method.
      */
     private static final class StreamScan {
+
         /**
          * Tracks whether the opening array bracket has been seen.
          * Used to route input between the preamble and object scanning.
          */
         boolean inArray;
+
         /**
          * Tracks whether the scanner is currently inside a JSON string literal.
          * Used to ignore braces and commas until the string closes.
          */
         boolean inStr;
+
         /**
          * Tracks whether the previous character was an escape in a string.
          * Ensures escaped quotes do not terminate the string.
          */
         boolean esc;
+
         /**
          * Current nested object depth within the array payload.
          * A depth of zero means the scanner is between objects.
          */
         int depth; // 0 = not inside an object; >0 = brace depth
+
         /**
          * Initial buffer size for building a single JSON object string.
          * Reused when the working buffer needs to be reset.
          */
         final int initialCapacity;
+
         /**
          * Accumulates the current object's raw JSON characters.
          * Emitted to the consumer once the object closes.
@@ -645,6 +651,7 @@ public class Json {
      *              (backslash)
      */
     private static final class StrState {
+
         /**
          * Used for indicating whether the parser is currently inside a quoted JSON
          * string.

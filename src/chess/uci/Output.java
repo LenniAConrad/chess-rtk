@@ -333,6 +333,7 @@ public class Output {
 	/** Used for consuming a parsed {@code short} value during token scanning. */
 	@FunctionalInterface
 	private interface ShortConsumer {
+
 		/**
 		 * Used for receiving one parsed {@code short}.
 		 *
@@ -344,6 +345,7 @@ public class Output {
 	/** Used for consuming a parsed {@code int} value during token scanning. */
 	@FunctionalInterface
 	private interface IntConsumer {
+
 		/**
 		 * Used for receiving one parsed {@code int}.
 		 *
@@ -355,6 +357,7 @@ public class Output {
 	/** Used for consuming a parsed {@code long} value during token scanning. */
 	@FunctionalInterface
 	private interface LongConsumer {
+
 		/**
 		 * Used for receiving one parsed {@code long}.
 		 *
@@ -370,6 +373,7 @@ public class Output {
 	 */
 	@FunctionalInterface
 	private interface ShortTripleConsumer {
+
 		/**
 		 * Used for receiving three parsed {@code short} values.
 		 *

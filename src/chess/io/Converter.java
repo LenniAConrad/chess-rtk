@@ -11,6 +11,7 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Predicate;
 
 import chess.core.Move;
 import chess.core.Position;
@@ -246,6 +247,25 @@ public class Converter {
             pgnFile = deriveOutputPath(recordFile, ".pgn");
         }
         RecordPgnExporter.export(recordFile, pgnFile);
+    }
+
+    /**
+     * Converts a mixed puzzle/non-puzzle record file into PGN games by first
+     * filtering the input JSON objects.
+     *
+     * @param recordFile        input JSON (array or JSONL) path.
+     * @param pgnFile           output PGN path; if {@code null}, derived from {@code recordFile}.
+     * @param includeRecordJson predicate to decide whether a record should be included; {@code null} = include all.
+     * @throws IllegalArgumentException if {@code recordFile} is {@code null}.
+     */
+    public static void puzzlesToPgn(Path recordFile, Path pgnFile, Predicate<String> includeRecordJson) {
+        if (recordFile == null) {
+            throw new IllegalArgumentException("recordfile is null");
+        }
+        if (pgnFile == null) {
+            pgnFile = deriveOutputPath(recordFile, ".pgn");
+        }
+        RecordPgnExporter.exportFiltered(recordFile, pgnFile, includeRecordJson);
     }
 
     /**

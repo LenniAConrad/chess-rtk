@@ -9,6 +9,14 @@ This page is a design checklist + backlog of high-value subcommands and flags fo
 
 ---
 
+## What's already available
+
+- `moves-uci`, `moves-san`, `moves-both` for deterministic move lists.
+- `bestmove-uci`, `bestmove-san`, `bestmove-both` for fixed-format best moves.
+- `eval-static` for classical evaluation.
+- `perft-suite` for quick regression checks.
+- `records`, `puzzles-to-pgn`, `pgn-to-fens` for dataset plumbing.
+
 ## What AI agents need (contract)
 
 ### 1) JSON everywhere (opt-in)
