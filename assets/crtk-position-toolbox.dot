@@ -30,13 +30,15 @@ digraph crtk_position_toolbox {
 
     node [shape=box, style="rounded,filled", fillcolor="#E3F2FD", color="#1565C0", penwidth=1.2];
     print [label="print"];
-    moves [label="moves"];
+    moves [label="moves\n(moves-uci/moves-san/moves-both)"];
     tags [label="tags"];
     render [label="render"];
     display [label="display"];
-    eval [label="eval"];
+    eval [label="eval / eval-static"];
     analyze [label="analyze"];
-    bestmove [label="bestmove"];
+    bestmove [label="bestmove\n(bestmove-uci/bestmove-san/bestmove-both)"];
+    threats [label="threats"];
+    perft [label="perft"];
   }
 
   subgraph cluster_engines {
@@ -67,6 +69,8 @@ digraph crtk_position_toolbox {
     out_score [label="Evaluation score"];
     out_analysis [label="Analysis output\n(PV/eval)"];
     out_best [label="Best move"];
+    out_threats [label="Threat analysis"];
+    out_perft [label="Perft nodes"];
   }
 
   // Wiring
@@ -78,6 +82,8 @@ digraph crtk_position_toolbox {
   fen -> eval;
   fen -> analyze;
   fen -> bestmove;
+  fen -> threats;
+  fen -> perft;
 
   print -> out_ascii;
   moves -> out_moves;
@@ -87,10 +93,13 @@ digraph crtk_position_toolbox {
   eval -> out_score;
   analyze -> out_analysis;
   bestmove -> out_best;
+  threats -> out_threats;
+  perft -> out_perft;
 
   // Backends
   uci -> analyze [style=dashed];
   uci -> bestmove [style=dashed];
+  uci -> threats [style=dashed];
   evaluator -> eval [style=dashed];
   evaluator -> display [style=dashed, xlabel="optional"];
 }
