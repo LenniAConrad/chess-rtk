@@ -2599,6 +2599,22 @@ public class Position implements Comparable<Position> {
 	}
 
 	/**
+	 * Used for counting the number of occurrences of a specific piece code.
+	 *
+	 * @param piece piece code to count (including color)
+	 * @return number of matching pieces on the board
+	 */
+	public int countPieces(byte piece) {
+		int count = 0;
+		for (byte current : board) {
+			if (current == piece) {
+				count++;
+			}
+		}
+		return count;
+	}
+
+	/**
 	 * Used for returning the total number of pieces on the board.
 	 *
 	 * @return total number of pieces.

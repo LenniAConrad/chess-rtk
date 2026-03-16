@@ -5,6 +5,13 @@
 # Ensure the engine binary is installed and the path below exists.
 protocol-path = "config/default.engine.toml"
 
+# MODEL PATHS
+# Default LC0J model path used by evaluator-backed features.
+lc0-model-path = "models/lc0_744706.bin"
+
+# Default T5 model path used by `tag-text` / `puzzle-text` when --model is omitted.
+t5-model-path = "models/t5.bin"
+
 # OUTPUT DIRECTORY
 # Directory where all computed outputs (e.g., puzzles) will be saved.
 # Must exist or be creatable by the application.
@@ -30,6 +37,16 @@ max-nodes = 50_000_000
 # Maximum wall time (ms) the engine may think before being aborted.
 # If a position exceeds this, the search is forcefully stopped.
 max-duration = 1_000_000
+
+# THREAT TAGS
+# Minimum centipawn advantage in null-move analysis to emit a threat tag.
+threat-min-cp = 150
+
+# Minimum disadvantage before considering an equalizing threat.
+threat-equalize-min-cp = 150
+
+# Maximum remaining disadvantage after an equalizing threat.
+threat-equalize-target-cp = 50
 
 # MINING DEDUP CACHE
 # Maximum number of analyzed positions to remember during mining.

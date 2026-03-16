@@ -7,17 +7,15 @@ import static application.cli.Constants.CMD_BESTMOVE_SAN;
 import static application.cli.Constants.CMD_BESTMOVE_UCI;
 import static application.cli.Constants.CMD_CLEAN;
 import static application.cli.Constants.CMD_CONFIG;
-import static application.cli.Constants.CMD_CUDA_INFO;
 import static application.cli.Constants.CMD_DISPLAY;
 import static application.cli.Constants.CMD_EVAL;
 import static application.cli.Constants.CMD_EVAL_STATIC;
-import static application.cli.Constants.CMD_EVALUATE;
 import static application.cli.Constants.CMD_GEN_FENS;
+import static application.cli.Constants.CMD_GUI;
 import static application.cli.Constants.CMD_GPU_INFO;
 import static application.cli.Constants.CMD_HELP;
 import static application.cli.Constants.CMD_HELP_LONG;
 import static application.cli.Constants.CMD_HELP_SHORT;
-import static application.cli.Constants.CMD_MINE;
 import static application.cli.Constants.CMD_MINE_PUZZLES;
 import static application.cli.Constants.CMD_MOVES;
 import static application.cli.Constants.CMD_MOVES_BOTH;
@@ -38,6 +36,9 @@ import static application.cli.Constants.CMD_STACK_TO_DATASET;
 import static application.cli.Constants.CMD_STATS;
 import static application.cli.Constants.CMD_STATS_TAGS;
 import static application.cli.Constants.CMD_TAGS;
+import static application.cli.Constants.CMD_TAG_TEXT;
+import static application.cli.Constants.CMD_PUZZLE_TAGS;
+import static application.cli.Constants.CMD_PUZZLE_TEXT;
 import static application.cli.Constants.CMD_THREATS;
 
 import java.util.Arrays;
@@ -90,7 +91,7 @@ public final class HelpCommand {
 	private static final String STACK_TO_DATASET_OPTIONS_MARKER = "stack-to-dataset options:";
 
 	/**
-	 * Help marker for {@code gpu-info} and {@code cuda-info}.
+	 * Help marker for {@code gpu-info}.
 	 */
 	private static final String GPU_INFO_OPTIONS_MARKER = "gpu-info options:";
 
@@ -120,6 +121,11 @@ public final class HelpCommand {
 	private static final String RENDER_OPTIONS_MARKER = "render options:";
 
 	/**
+	 * Help marker for {@code gui}.
+	 */
+	private static final String GUI_OPTIONS_MARKER = "gui options:";
+
+	/**
 	 * Help marker for {@code config}.
 	 */
 	private static final String CONFIG_SUBCOMMANDS_MARKER = "config subcommands:";
@@ -138,6 +144,21 @@ public final class HelpCommand {
 	 * Help marker for {@code tags}.
 	 */
 	private static final String TAGS_OPTIONS_MARKER = "tags options:";
+
+	/**
+	 * Help marker for {@code puzzle-tags}.
+	 */
+	private static final String PUZZLE_TAGS_OPTIONS_MARKER = "puzzle-tags options:";
+
+	/**
+	 * Help marker for {@code puzzle-text}.
+	 */
+	private static final String PUZZLE_TEXT_OPTIONS_MARKER = "puzzle-text options:";
+
+	/**
+	 * Help marker for {@code tag-text}.
+	 */
+	private static final String TAG_TEXT_OPTIONS_MARKER = "tag-text options:";
 
 	/**
 	 * Help marker for {@code moves}.
@@ -205,7 +226,7 @@ public final class HelpCommand {
 	private static final String PGN_TO_FENS_OPTIONS_MARKER = "pgn-to-fens options:";
 
 	/**
-	 * Help marker for {@code eval} and {@code evaluate}.
+	 * Help marker for {@code eval}.
 	 */
 	private static final String EVAL_OPTIONS_MARKER = "eval options:";
 
@@ -233,20 +254,22 @@ public final class HelpCommand {
 			Map.entry(CMD_RECORD_TO_DATASET, RECORD_TO_DATASET_OPTIONS_MARKER),
 			Map.entry(CMD_RECORD_TO_PGN, RECORD_TO_PGN_OPTIONS_MARKER),
 			Map.entry(CMD_PUZZLES_TO_PGN, PUZZLES_TO_PGN_OPTIONS_MARKER),
-			Map.entry(CMD_RECORDS, RECORDS_OPTIONS_MARKER),
-			Map.entry(CMD_STACK_TO_DATASET, STACK_TO_DATASET_OPTIONS_MARKER),
-			Map.entry(CMD_GPU_INFO, GPU_INFO_OPTIONS_MARKER),
-			Map.entry(CMD_CUDA_INFO, GPU_INFO_OPTIONS_MARKER),
-			Map.entry(CMD_GEN_FENS, GEN_FENS_OPTIONS_MARKER),
-			Map.entry(CMD_MINE_PUZZLES, MINE_PUZZLES_OPTIONS_MARKER),
-			Map.entry(CMD_MINE, MINE_PUZZLES_OPTIONS_MARKER),
-			Map.entry(CMD_PRINT, PRINT_OPTIONS_MARKER),
-			Map.entry(CMD_DISPLAY, DISPLAY_OPTIONS_MARKER),
+				Map.entry(CMD_RECORDS, RECORDS_OPTIONS_MARKER),
+				Map.entry(CMD_STACK_TO_DATASET, STACK_TO_DATASET_OPTIONS_MARKER),
+				Map.entry(CMD_GPU_INFO, GPU_INFO_OPTIONS_MARKER),
+				Map.entry(CMD_GEN_FENS, GEN_FENS_OPTIONS_MARKER),
+				Map.entry(CMD_MINE_PUZZLES, MINE_PUZZLES_OPTIONS_MARKER),
+				Map.entry(CMD_PRINT, PRINT_OPTIONS_MARKER),
+				Map.entry(CMD_DISPLAY, DISPLAY_OPTIONS_MARKER),
 			Map.entry(CMD_RENDER, RENDER_OPTIONS_MARKER),
+			Map.entry(CMD_GUI, GUI_OPTIONS_MARKER),
 			Map.entry(CMD_CONFIG, CONFIG_SUBCOMMANDS_MARKER),
 			Map.entry(CMD_STATS, STATS_OPTIONS_MARKER),
 			Map.entry(CMD_STATS_TAGS, STATS_TAGS_OPTIONS_MARKER),
 			Map.entry(CMD_TAGS, TAGS_OPTIONS_MARKER),
+			Map.entry(CMD_PUZZLE_TAGS, PUZZLE_TAGS_OPTIONS_MARKER),
+			Map.entry(CMD_PUZZLE_TEXT, PUZZLE_TEXT_OPTIONS_MARKER),
+			Map.entry(CMD_TAG_TEXT, TAG_TEXT_OPTIONS_MARKER),
 			Map.entry(CMD_MOVES, MOVES_OPTIONS_MARKER),
 			Map.entry(CMD_MOVES_UCI, MOVES_UCI_OPTIONS_MARKER),
 			Map.entry(CMD_MOVES_SAN, MOVES_SAN_OPTIONS_MARKER),
@@ -257,13 +280,12 @@ public final class HelpCommand {
 			Map.entry(CMD_BESTMOVE_SAN, BESTMOVE_SAN_OPTIONS_MARKER),
 			Map.entry(CMD_BESTMOVE_BOTH, BESTMOVE_BOTH_OPTIONS_MARKER),
 			Map.entry(CMD_THREATS, THREATS_OPTIONS_MARKER),
-			Map.entry(CMD_PERFT, PERFT_OPTIONS_MARKER),
-			Map.entry(CMD_PERFT_SUITE, PERFT_SUITE_OPTIONS_MARKER),
-			Map.entry(CMD_PGN_TO_FENS, PGN_TO_FENS_OPTIONS_MARKER),
-			Map.entry(CMD_EVAL, EVAL_OPTIONS_MARKER),
-			Map.entry(CMD_EVALUATE, EVAL_OPTIONS_MARKER),
-			Map.entry(CMD_EVAL_STATIC, EVAL_STATIC_OPTIONS_MARKER),
-			Map.entry(CMD_CLEAN, CLEAN_OPTIONS_MARKER),
+				Map.entry(CMD_PERFT, PERFT_OPTIONS_MARKER),
+				Map.entry(CMD_PERFT_SUITE, PERFT_SUITE_OPTIONS_MARKER),
+				Map.entry(CMD_PGN_TO_FENS, PGN_TO_FENS_OPTIONS_MARKER),
+				Map.entry(CMD_EVAL, EVAL_OPTIONS_MARKER),
+				Map.entry(CMD_EVAL_STATIC, EVAL_STATIC_OPTIONS_MARKER),
+				Map.entry(CMD_CLEAN, CLEAN_OPTIONS_MARKER),
 			Map.entry(CMD_HELP, HELP_OPTIONS_MARKER),
 			Map.entry(CMD_HELP_SHORT, HELP_OPTIONS_MARKER),
 			Map.entry(CMD_HELP_LONG, HELP_OPTIONS_MARKER));
@@ -321,10 +343,14 @@ public final class HelpCommand {
 				  print             Pretty-print a FEN
 				  display           Render a board image in a window
 				  render            Save a board image to disk
+				  gui               Launch the GUI
 				  config            Show/validate configuration
 				  stats             Summarize .record or puzzle dumps
 				  stats-tags        Summarize tag distributions
 				  tags              Generate tags for a FEN (or list)
+				  puzzle-tags       Generate per-move tags for puzzle PVs
+				  puzzle-text       Run T5 over puzzle PVs
+				  tag-text          Tag text via T5 summary
 				  moves             List legal moves for a FEN
 				  moves-uci         List legal moves (UCI)
 				  moves-san         List legal moves (SAN)
@@ -338,7 +364,7 @@ public final class HelpCommand {
 				  perft             Run perft on a FEN (movegen validation)
 				  perft-suite       Run a small perft regression suite
 				  pgn-to-fens       Convert PGN games to FEN lists
-				  eval              Evaluate a FEN with LC0 or classical (alias: evaluate)
+				  eval              Evaluate a FEN with LC0 or classical
 				  eval-static       Evaluate a FEN with the classical backend
 				  clean             Delete session cache/logs
 				  help              Show command help
@@ -450,10 +476,14 @@ public final class HelpCommand {
 			  print     Pretty-print a FEN
 			  display   Render a board image in a window
 			  render    Save a board image to disk
+			  gui       Launch the GUI
 			  config    Show/validate configuration
 			  stats     Summarize .record or puzzle dumps
 			  stats-tags Summarize tag distributions
-			  tags      Generate tags for a FEN (or list)
+			  tags      Generate tags (FEN list, PGN, variations, deltas)
+			  puzzle-tags Generate per-move tags for puzzle PVs
+			  puzzle-text Run T5 over puzzle PVs
+			  tag-text  Tag text via T5 summary
 			  moves     List legal moves for a FEN
 			  moves-uci List legal moves (UCI)
 			  moves-san List legal moves (SAN)
@@ -467,7 +497,7 @@ public final class HelpCommand {
 			  perft     Run perft on a FEN (movegen validation)
 			  perft-suite Run a small perft regression suite
 			  pgn-to-fens Convert PGN games to FEN lists
-			  eval      Evaluate a FEN with LC0 or classical (alias: evaluate)
+			  eval      Evaluate a FEN with LC0 or classical
 			  eval-static Evaluate a FEN with the classical backend
 			  clean     Delete session cache/logs
 			  help      Show command help
@@ -589,6 +619,13 @@ public final class HelpCommand {
 			  --ablation                 Overlay evaluator ablation heatmap
 			  --verbose|-v               Print stack trace on failure
 
+			gui options:
+			  --fen FEN                  Start position (default: standard start FEN)
+			  --flip|--black-down        Render Black at the bottom
+			  --dark|--dark-mode         Start in dark UI theme
+			  --light                    Start in light UI theme
+			  -h|--help                  Show help
+
 			config subcommands:
 			  show                       Print config values
 			  validate                   Validate config file
@@ -605,7 +642,74 @@ public final class HelpCommand {
 
 			tags options:
 			  --fen FEN                  Input FEN (default: stdin)
+			  --input|-i PATH            Input FEN list (supports parent/child pairs)
+			  --pgn PATH                 Input PGN (use --sidelines for variations)
 			  --include-fen              Include FEN in output
+			  --sequence                 Interpret input as an ordered line
+			  --delta                    Emit per-move tag deltas (JSONL)
+			  --mainline                 Only export mainline from PGN
+			  --sidelines                Include PGN variations
+			  --analyze                  Run engine analysis to enrich tags
+			  --protocol|-p PATH         Engine protocol TOML file
+			  --max-nodes N              Max nodes per position
+			  --max-duration D           Max duration per position (e.g. 5s)
+			  --multipv N                Number of PVs
+			  --threads N                Engine threads
+			  --hash N                   Engine hash (MB)
+			  --wdl                      Enable WDL output (if supported)
+			  --no-wdl                   Disable WDL output
+			  --verbose|-v               Print stack trace on failure
+
+			puzzle-tags options:
+			  --fen FEN                  Root puzzle FEN (required)
+			  --multipv N                Number of PVs to expand (default: 3)
+			  --pv-plies N               PV plies per line (default: 12)
+			  --tag-multipv N            Engine multipv during tag analysis (default: 1)
+			  --analyze                  Run engine analysis to enrich tags (default)
+			  --no-analyze               Skip per-move analysis
+			  --protocol|-p PATH         Engine protocol TOML file
+			  --max-nodes N              Max nodes per position
+			  --max-duration D           Max duration per position (e.g. 5s)
+			  --threads N                Engine threads
+			  --hash N                   Engine hash (MB)
+			  --wdl                      Enable WDL output (if supported)
+			  --no-wdl                   Disable WDL output
+			  --verbose|-v               Print stack trace on failure
+
+			puzzle-text options:
+			  --model PATH               T5 .bin model path (default: config t5-model-path)
+			  --fen FEN                  Root puzzle FEN (required)
+			  --multipv N                Number of PVs to expand (default: 3)
+			  --pv-plies N               PV plies per line (default: 12)
+			  --tag-multipv N            Engine multipv during tag analysis (default: 1)
+			  --max-new N                Max generated tokens (default: 128)
+			  --include-fen              Emit JSON with fen + move + summary
+			  --analyze                  Run engine analysis to enrich tags (default)
+			  --no-analyze               Skip per-move analysis
+			  --protocol|-p PATH         Engine protocol TOML file
+			  --max-nodes N              Max nodes per position
+			  --max-duration D           Max duration per position (e.g. 5s)
+			  --threads N                Engine threads
+			  --hash N                   Engine hash (MB)
+			  --wdl                      Enable WDL output (if supported)
+			  --no-wdl                   Disable WDL output
+			  --verbose|-v               Print stack trace on failure
+
+			tag-text options:
+			  --model PATH               T5 .bin model path (default: config t5-model-path)
+			  --fen FEN                  Input FEN (default: stdin)
+			  --input|-i PATH            Input FEN file
+			  --include-fen              Emit JSON with fen + summary
+			  --max-new N                Max generated tokens (default: 128)
+			  --analyze                  Run engine analysis to enrich tags
+			  --protocol|-p PATH         Engine protocol TOML file
+			  --max-nodes N              Max nodes per position
+			  --max-duration D           Max duration per position (e.g. 5s)
+			  --multipv N                Number of PVs
+			  --threads N                Engine threads
+			  --hash N                   Engine hash (MB)
+			  --wdl                      Enable WDL output (if supported)
+			  --no-wdl                   Disable WDL output
 			  --verbose|-v               Print stack trace on failure
 
 			moves options:

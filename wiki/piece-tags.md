@@ -2,6 +2,10 @@
 
 This project can emit **piece tags** (short lines like `weak white f4 pawn`). The goal is to provide compact signals that an LLM (or a human) can turn into a coherent, natural-language description of a position.
 
+![Tagging pipeline](../assets/diagrams/crtk-tagging-flow.png)
+
+Diagram source: `assets/diagrams/crtk-tagging-flow.dot` (render with `dot -Tpng -Gdpi=160 -o assets/diagrams/crtk-tagging-flow.png assets/diagrams/crtk-tagging-flow.dot`).
+
 ## Tag Format
 
 Each non-empty square produces one line:
@@ -18,11 +22,19 @@ Two extra summary lines are appended:
 
 - `strongest: <side> <piece> <square>`
 - `weakest: <side> <piece> <square>`
+- `strongest white: <side> <piece> <square>`
+- `weakest white: <side> <piece> <square>`
+- `strongest black: <side> <piece> <square>`
+- `weakest black: <side> <piece> <square>`
 
 Example:
 
 - `strongest: black queen f5`
 - `weakest: black king g5`
+- `strongest white: white queen d4`
+- `weakest white: white knight b1`
+- `strongest black: black queen f5`
+- `weakest black: black king g5`
 
 ## Field Meanings
 
@@ -57,6 +69,7 @@ The tags are best treated as **hints** and **priorities**, not as strict tactics
 Use this ordering when deciding what to mention:
 
 1. `strongest:` and `weakest:` lines (global highlights; mention these first).
+2. `strongest white:` / `weakest white:` / `strongest black:` / `weakest black:` (side-specific anchors).
 2. Any `very strong` / `very weak` pieces (big features).
 3. Any `strong` / `weak` pieces (notable features).
 4. `slightly strong` / `slightly weak` pieces (supporting details; mention only if needed).
@@ -94,3 +107,10 @@ Example template:
 - `weakest: black king g5` means: the single most important *negative* piece placement on the board is the black king on g5.
 
 These lines are often the best anchors for an LLM to build a narrative around.
+
+### The Side-Specific Extremes
+
+- `strongest white: white queen d4` means: White's most important *positive* piece placement is the queen on d4.
+- `weakest white: white knight b1` means: White's most important *negative* piece placement is the knight on b1.
+- `strongest black: black queen f5` means: Black's most important *positive* piece placement is the queen on f5.
+- `weakest black: black king g5` means: Black's most important *negative* piece placement is the king on g5.

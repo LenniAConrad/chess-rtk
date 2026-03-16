@@ -23,6 +23,34 @@ ONEAPI_MODE="auto"    # auto|yes|no
 REQUIRE_ONEAPI=0
 INSTALL_LAUNCHER=1
 
+# Colors (opt-out with NO_COLOR or non-TTY)
+if [[ -t 1 && -z "${NO_COLOR:-}" ]]; then
+  C_RESET=$'\033[0m'
+  C_BOLD=$'\033[1m'
+  C_GREEN_BOLD=$'\033[1;92m'
+  C_YELLOW=$'\033[33m'
+  C_RED=$'\033[31m'
+else
+  C_RESET=""
+  C_BOLD=""
+  C_GREEN_BOLD=""
+  C_YELLOW=""
+  C_RED=""
+fi
+
+title() {
+  printf '%b\n' "${C_GREEN_BOLD}$*${C_RESET}"
+}
+step() {
+  printf '%b\n' "${C_GREEN_BOLD} >${C_RESET} $*"
+}
+warn() {
+  printf '%b\n' "${C_YELLOW}warning:${C_RESET} $*"
+}
+err() {
+  printf '%b\n' "${C_RED}error:${C_RESET} $*" >&2
+}
+
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --cuda)
@@ -73,7 +101,7 @@ while [[ $# -gt 0 ]]; do
       exit 0
       ;;
     *)
-      echo "Unknown argument: $1" >&2
+      err "Unknown argument: $1"
       echo "Usage: ./install.sh [--cuda|--require-cuda|--no-cuda] [--rocm|--require-rocm|--no-rocm] [--oneapi|--require-oneapi|--no-oneapi] [--no-launcher]" >&2
       exit 2
       ;;
@@ -85,7 +113,7 @@ if [[ "${EUID:-$(id -u)}" -ne 0 ]]; then
   if command -v sudo >/dev/null 2>&1; then
     SUDO='sudo'
   else
-    echo "This script needs root privileges for package installs and installing $LAUNCHER."
+    err "This script needs root privileges for package installs and installing $LAUNCHER."
     echo "Please run as root or install sudo."
     exit 1
   fi
@@ -367,14 +395,17 @@ fi
 CUDA_RESULT="skipped" # built|skipped|failed
 CUDA_BUILD_DIR="$APP_HOME/native/cuda/build"
 CUDA_LIB_SO="$CUDA_BUILD_DIR/liblc0j_cuda.so"
+CUDA_T5_LIB_SO="$CUDA_BUILD_DIR/libt5_cuda.so"
 
 ROCM_RESULT="skipped" # built|skipped|failed
 ROCM_BUILD_DIR="$APP_HOME/native/rocm/build"
 ROCM_LIB_SO="$ROCM_BUILD_DIR/liblc0j_rocm.so"
+ROCM_T5_LIB_SO="$ROCM_BUILD_DIR/libt5_rocm.so"
 
 ONEAPI_RESULT="skipped" # built|skipped|failed
 ONEAPI_BUILD_DIR="$APP_HOME/native/oneapi/build"
 ONEAPI_LIB_SO="$ONEAPI_BUILD_DIR/liblc0j_oneapi.so"
+ONEAPI_T5_LIB_SO="$ONEAPI_BUILD_DIR/libt5_oneapi.so"
 
 manual_build_cuda_backend() {
   if ! command -v nvcc >/dev/null 2>&1; then
@@ -394,13 +425,18 @@ manual_build_cuda_backend() {
 
   mkdir -p "$CUDA_BUILD_DIR"
   echo
-  echo "Building CUDA backend (native/cuda) via nvcc (CMake fallback)..."
-  if nvcc -shared -Xcompiler=-fPIC -O3 --std=c++17 \
+  step "Building CUDA backends (native/cuda) via nvcc (CMake fallback)..."
+  if ! nvcc -shared -Xcompiler=-fPIC -O3 --std=c++17 \
       -I"${JAVA_HOME}/include" -I"${JAVA_HOME}/include/linux" \
       -o "$CUDA_LIB_SO" "$APP_HOME/native/cuda/lc0j_cuda_jni.cu" -lcudart; then
-    return 0
+    return 1
   fi
-  return 1
+  if ! nvcc -shared -Xcompiler=-fPIC -O3 --std=c++17 \
+      -I"${JAVA_HOME}/include" -I"${JAVA_HOME}/include/linux" \
+      -o "$CUDA_T5_LIB_SO" "$APP_HOME/native/cuda/t5_cuda_jni.cu" -lcudart -lcublas; then
+    return 1
+  fi
+  return 0
 }
 
 try_build_cuda_backend() {
@@ -408,7 +444,11 @@ try_build_cuda_backend() {
     CUDA_RESULT="skipped"
     return 0
   fi
-  if [[ ! -d "$APP_HOME/native/cuda" ]]; then
+  local has_cuda=0
+  if [[ -d "$APP_HOME/native/cuda" ]]; then
+    has_cuda=1
+  fi
+  if [[ $has_cuda -eq 0 ]]; then
     CUDA_RESULT="skipped"
     return 0
   fi
@@ -452,52 +492,60 @@ try_build_cuda_backend() {
     echo "CMake not found; installing (preferred for CUDA backend builds)..."
     if ! apt_install cmake; then
       echo "Failed to install CMake."
-      echo "Trying a manual nvcc build as a fallback..."
-      if manual_build_cuda_backend; then
-        echo "CUDA backend built: $CUDA_LIB_SO"
-        CUDA_RESULT="built"
-        return 0
+      if [[ $has_cuda -eq 1 ]]; then
+        echo "Trying a manual nvcc build as a fallback..."
+        if manual_build_cuda_backend; then
+          step "CUDA backends built: $CUDA_LIB_SO, $CUDA_T5_LIB_SO"
+          CUDA_RESULT="built"
+        else
+          CUDA_RESULT="failed"
+        fi
       fi
-      CUDA_RESULT="failed"
       return 0
     fi
   fi
   if ! cmake_version_ok; then
     echo "CMake 3.18+ is required for the CUDA backend."
     echo "Found: $(cmake --version 2>/dev/null | head -n1 || true)"
-    echo "Trying a manual nvcc build as a fallback..."
-    if manual_build_cuda_backend; then
-      echo "CUDA backend built: $CUDA_LIB_SO"
-      CUDA_RESULT="built"
-      return 0
+    if [[ $has_cuda -eq 1 ]]; then
+      echo "Trying a manual nvcc build as a fallback..."
+      if manual_build_cuda_backend; then
+        step "CUDA backends built: $CUDA_LIB_SO, $CUDA_T5_LIB_SO"
+        CUDA_RESULT="built"
+      else
+        CUDA_RESULT="failed"
+      fi
     fi
-    CUDA_RESULT="failed"
     return 0
   fi
 
   echo
-  echo "Building CUDA backend (native/cuda)..."
+  step "Building CUDA backends (native/cuda)..."
   maybe_export_java_home
 
   prepare_cmake_build_dir "$APP_HOME/native/cuda" "$CUDA_BUILD_DIR"
   if cmake -S "$APP_HOME/native/cuda" -B "$CUDA_BUILD_DIR" -DCMAKE_BUILD_TYPE=Release && \
      cmake --build "$CUDA_BUILD_DIR" -j "$JOBS"; then
     if [[ -f "$CUDA_LIB_SO" ]]; then
-      echo "CUDA backend built: $CUDA_LIB_SO"
+      step "CUDA backend built: $CUDA_LIB_SO"
     else
-      echo "CUDA backend build succeeded, but expected library not found at: $CUDA_LIB_SO"
+      warn "CUDA backend build succeeded, but expected library not found at: $CUDA_LIB_SO"
+    fi
+    if [[ -f "$CUDA_T5_LIB_SO" ]]; then
+      step "T5 CUDA backend built: $CUDA_T5_LIB_SO"
+    else
+      warn "T5 CUDA backend build succeeded, but expected library not found at: $CUDA_T5_LIB_SO"
     fi
     CUDA_RESULT="built"
-    return 0
+  else
+    echo
+    warn "CUDA backend build failed. Continuing with CPU-only install."
+    echo "To retry later:"
+    echo "  cmake -S native/cuda -B native/cuda/build -DCMAKE_BUILD_TYPE=Release"
+    echo "  cmake --build native/cuda/build -j"
+    echo "Troubleshooting: native/cuda/README.md"
+    CUDA_RESULT="failed"
   fi
-
-  echo
-  echo "WARNING: CUDA backend build failed. Continuing with CPU-only install."
-  echo "To retry later:"
-  echo "  cmake -S native/cuda -B native/cuda/build -DCMAKE_BUILD_TYPE=Release"
-  echo "  cmake --build native/cuda/build -j"
-  echo "Troubleshooting: native/cuda/README.md"
-  CUDA_RESULT="failed"
   return 0
 }
 
@@ -521,11 +569,15 @@ manual_build_rocm_backend() {
 
   mkdir -p "$ROCM_BUILD_DIR"
   echo
-  echo "Building ROCm backend (native/rocm) via hipcc (CMake fallback)..."
+  step "Building ROCm backends (native/rocm) via hipcc (CMake fallback)..."
   if "$hipcc_bin" -shared -fPIC -O3 --std=c++17 \
       -I"${JAVA_HOME}/include" -I"${JAVA_HOME}/include/linux" \
       -o "$ROCM_LIB_SO" "$APP_HOME/native/rocm/lc0j_rocm_jni.hip"; then
-    return 0
+    if "$hipcc_bin" -shared -fPIC -O3 --std=c++17 \
+        -I"${JAVA_HOME}/include" -I"${JAVA_HOME}/include/linux" \
+        -o "$ROCM_T5_LIB_SO" "$APP_HOME/native/rocm/t5_rocm_jni.hip" -lhipblas; then
+      return 0
+    fi
   fi
   return 1
 }
@@ -586,7 +638,7 @@ try_build_rocm_backend() {
   if ! command -v cmake >/dev/null 2>&1; then
     echo "CMake not found; trying a manual hipcc build as a fallback..."
     if manual_build_rocm_backend; then
-      echo "ROCm backend built: $ROCM_LIB_SO"
+      step "ROCm backends built: $ROCM_LIB_SO, $ROCM_T5_LIB_SO"
       ROCM_RESULT="built"
       return 0
     fi
@@ -595,23 +647,28 @@ try_build_rocm_backend() {
   fi
 
   echo
-  echo "Building ROCm backend (native/rocm)..."
+  step "Building ROCm backends (native/rocm)..."
   maybe_export_java_home
 
   prepare_cmake_build_dir "$APP_HOME/native/rocm" "$ROCM_BUILD_DIR"
   if cmake -S "$APP_HOME/native/rocm" -B "$ROCM_BUILD_DIR" -DCMAKE_BUILD_TYPE=Release -DCMAKE_HIP_COMPILER="$hipcc_bin" && \
      cmake --build "$ROCM_BUILD_DIR" -j "$JOBS"; then
     if [[ -f "$ROCM_LIB_SO" ]]; then
-      echo "ROCm backend built: $ROCM_LIB_SO"
+      step "ROCm backend built: $ROCM_LIB_SO"
     else
-      echo "ROCm backend build succeeded, but expected library not found at: $ROCM_LIB_SO"
+      warn "ROCm backend build succeeded, but expected library not found at: $ROCM_LIB_SO"
+    fi
+    if [[ -f "$ROCM_T5_LIB_SO" ]]; then
+      step "T5 ROCm backend built: $ROCM_T5_LIB_SO"
+    else
+      warn "T5 ROCm backend build succeeded, but expected library not found at: $ROCM_T5_LIB_SO"
     fi
     ROCM_RESULT="built"
     return 0
   fi
 
   echo
-  echo "WARNING: ROCm backend build failed. Continuing with CPU-only install."
+  warn "ROCm backend build failed. Continuing with CPU-only install."
   echo "To retry later:"
   echo "  cmake -S native/rocm -B native/rocm/build -DCMAKE_BUILD_TYPE=Release -DCMAKE_HIP_COMPILER=hipcc"
   echo "  cmake --build native/rocm/build -j"
@@ -639,11 +696,15 @@ manual_build_oneapi_backend() {
 
   mkdir -p "$ONEAPI_BUILD_DIR"
   echo
-  echo "Building oneAPI backend (native/oneapi) via $cxx (CMake fallback)..."
+  step "Building oneAPI backends (native/oneapi) via $cxx (CMake fallback)..."
   if "$cxx" -fsycl -shared -fPIC -O3 --std=c++17 \
       -I"${JAVA_HOME}/include" -I"${JAVA_HOME}/include/linux" \
       -o "$ONEAPI_LIB_SO" "$APP_HOME/native/oneapi/lc0j_oneapi_jni.cpp"; then
-    return 0
+    if "$cxx" -fsycl -shared -fPIC -O3 --std=c++17 \
+        -I"${JAVA_HOME}/include" -I"${JAVA_HOME}/include/linux" \
+        -o "$ONEAPI_T5_LIB_SO" "$APP_HOME/native/oneapi/t5_oneapi_jni.cpp"; then
+      return 0
+    fi
   fi
   return 1
 }
@@ -704,7 +765,7 @@ try_build_oneapi_backend() {
   if ! command -v cmake >/dev/null 2>&1; then
     echo "CMake not found; trying a manual oneAPI build as a fallback..."
     if manual_build_oneapi_backend; then
-      echo "oneAPI backend built: $ONEAPI_LIB_SO"
+      step "oneAPI backends built: $ONEAPI_LIB_SO, $ONEAPI_T5_LIB_SO"
       ONEAPI_RESULT="built"
       return 0
     fi
@@ -713,23 +774,28 @@ try_build_oneapi_backend() {
   fi
 
   echo
-  echo "Building oneAPI backend (native/oneapi)..."
+  step "Building oneAPI backends (native/oneapi)..."
   maybe_export_java_home
 
   prepare_cmake_build_dir "$APP_HOME/native/oneapi" "$ONEAPI_BUILD_DIR"
   if cmake -S "$APP_HOME/native/oneapi" -B "$ONEAPI_BUILD_DIR" -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER="$oneapi_cxx" && \
      cmake --build "$ONEAPI_BUILD_DIR" -j "$JOBS"; then
     if [[ -f "$ONEAPI_LIB_SO" ]]; then
-      echo "oneAPI backend built: $ONEAPI_LIB_SO"
+      step "oneAPI backend built: $ONEAPI_LIB_SO"
     else
-      echo "oneAPI backend build succeeded, but expected library not found at: $ONEAPI_LIB_SO"
+      warn "oneAPI backend build succeeded, but expected library not found at: $ONEAPI_LIB_SO"
+    fi
+    if [[ -f "$ONEAPI_T5_LIB_SO" ]]; then
+      step "T5 oneAPI backend built: $ONEAPI_T5_LIB_SO"
+    else
+      warn "T5 oneAPI backend build succeeded, but expected library not found at: $ONEAPI_T5_LIB_SO"
     fi
     ONEAPI_RESULT="built"
     return 0
   fi
 
   echo
-  echo "WARNING: oneAPI backend build failed. Continuing with CPU-only install."
+  warn "oneAPI backend build failed. Continuing with CPU-only install."
   echo "To retry later:"
   echo "  cmake -S native/oneapi -B native/oneapi/build -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=$oneapi_cxx"
   echo "  cmake --build native/oneapi/build -j"
@@ -737,11 +803,9 @@ try_build_oneapi_backend() {
   return 0
 }
 
-echo "crtk installer ~"
+title "Installing chess research toolkit (crtk)..."
 echo "Repo path: $APP_HOME"
-echo
-
-echo "Checking prerequisites..."
+step "Checking prerequisites..."
 JAVA_OK=0
 JAVAC_OK=0
 
@@ -751,16 +815,16 @@ if command -v java >/dev/null 2>&1; then
   if [[ "$ver" =~ ^[0-9]+$ && "$ver" -ge 17 ]]; then
     JAVA_OK=1
   else
-    echo "  -> Found Java, but version <$ver> (<17)."
+    warn "Found Java, but version <$ver> (<17)."
   fi
 else
-  echo "  -> Java not found."
+  warn "Java not found."
 fi
 
 if command -v javac >/dev/null 2>&1; then
   JAVAC_OK=1
 else
-  echo "  -> javac not found (needed to build)."
+  warn "javac not found (needed to build)."
 fi
 
 if [[ $JAVA_OK -eq 0 || $JAVAC_OK -eq 0 ]]; then
@@ -769,53 +833,53 @@ if [[ $JAVA_OK -eq 0 || $JAVAC_OK -eq 0 ]]; then
     JAVA_OK=1
     JAVAC_OK=1
   else
-    echo "Skipping Java installation. Ensure Java 17 (and javac) is available."
+    warn "Skipping Java installation. Ensure Java 17 (and javac) is available."
   fi
 fi
 
 if command -v stockfish >/dev/null 2>&1; then
-  echo "Stockfish found at: $(command -v stockfish)"
+  step "Stockfish found at: $(command -v stockfish)"
 else
   if confirm "Install Stockfish (optional, recommended)?" "Y"; then
     apt_install stockfish
   else
-    echo "Skipping Stockfish installation. You can set your engine path in config/default.engine.toml."
+    warn "Skipping Stockfish installation. You can set your engine path in config/default.engine.toml."
   fi
 fi
 
 echo
-echo "Creating output & log directories..."
+step "Creating output & log directories... (laying out the board)"
 mkdir -p "$OUT_DIR" "$APP_HOME/dump" "$APP_HOME/session"
 
-echo "Compiling sources (pure javac)..."
+step "Compiling sources (pure javac)... (herding the knights)"
 find "$APP_HOME/src" -name "*.java" -print0 | xargs -0 javac --release 17 -d "$OUT_DIR"
 
-echo "Packaging runnable jar..."
+step "Packaging runnable jar... (boxing the pieces)"
 jar --create --file "$JAR_PATH" --main-class application.Main -C "$OUT_DIR" .
 
 try_build_cuda_backend
 if [[ $REQUIRE_CUDA -eq 1 && "$CUDA_RESULT" != "built" ]]; then
   echo
-  echo "ERROR: CUDA backend was required (--require-cuda) but was not built."
+  err "CUDA backend was required (--require-cuda) but was not built."
   exit 1
 fi
 
 try_build_rocm_backend
 if [[ $REQUIRE_ROCM -eq 1 && "$ROCM_RESULT" != "built" ]]; then
   echo
-  echo "ERROR: ROCm backend was required (--require-rocm/--require-amd) but was not built."
+  err "ROCm backend was required (--require-rocm/--require-amd) but was not built."
   exit 1
 fi
 
 try_build_oneapi_backend
 if [[ $REQUIRE_ONEAPI -eq 1 && "$ONEAPI_RESULT" != "built" ]]; then
   echo
-  echo "ERROR: oneAPI backend was required (--require-oneapi/--require-intel) but was not built."
+  err "oneAPI backend was required (--require-oneapi/--require-intel) but was not built."
   exit 1
 fi
 
 if [[ $INSTALL_LAUNCHER -eq 1 ]]; then
-  echo "Installing launcher to $LAUNCHER ..."
+  step "Installing launcher to $LAUNCHER ..."
   LAUNCHER_TMP="$(mktemp)"
   cat > "$LAUNCHER_TMP" <<EOF
 #!/usr/bin/env bash
@@ -825,13 +889,13 @@ JAVA_BIN="\${JAVA_BIN:-java}"
 JAVA_OPTS="\${JAVA_OPTS:-}"
 cd "\$APP_HOME"
 LIB_DIRS=()
-if [[ -f "\$APP_HOME/native/cuda/build/liblc0j_cuda.so" ]]; then
+if [[ -f "\$APP_HOME/native/cuda/build/liblc0j_cuda.so" || -f "\$APP_HOME/native/cuda/build/libt5_cuda.so" ]]; then
   LIB_DIRS+=("\$APP_HOME/native/cuda/build")
 fi
-if [[ -f "\$APP_HOME/native/rocm/build/liblc0j_rocm.so" ]]; then
+if [[ -f "\$APP_HOME/native/rocm/build/liblc0j_rocm.so" || -f "\$APP_HOME/native/rocm/build/libt5_rocm.so" ]]; then
   LIB_DIRS+=("\$APP_HOME/native/rocm/build")
 fi
-if [[ -f "\$APP_HOME/native/oneapi/build/liblc0j_oneapi.so" ]]; then
+if [[ -f "\$APP_HOME/native/oneapi/build/liblc0j_oneapi.so" || -f "\$APP_HOME/native/oneapi/build/libt5_oneapi.so" ]]; then
   LIB_DIRS+=("\$APP_HOME/native/oneapi/build")
 fi
 LIB_OPT=""
@@ -846,58 +910,31 @@ EOF
   $SUDO mv "$LAUNCHER_TMP" "$LAUNCHER"
   $SUDO chmod +x "$LAUNCHER"
 else
-  echo "Skipping launcher install (--no-launcher)."
+  warn "Skipping launcher install (--no-launcher)."
 fi
 
 echo
-echo "== Done =="
+title "Done."
 if [[ $INSTALL_LAUNCHER -eq 1 ]]; then
-  echo "Launcher installed: $LAUNCHER"
+  step "Launcher installed: $LAUNCHER"
 fi
 if [[ "$CUDA_RESULT" == "built" ]]; then
-  echo "CUDA backend: built ($CUDA_LIB_SO)"
+  step "CUDA backend: built ($CUDA_LIB_SO)"
 elif [[ "$CUDA_RESULT" == "failed" ]]; then
-  echo "CUDA backend: not built (CPU fallback)"
+  warn "CUDA backend: not built (CPU fallback)"
 fi
 if [[ "$ROCM_RESULT" == "built" ]]; then
-  echo "ROCm backend: built ($ROCM_LIB_SO)"
+  step "ROCm backends: built ($ROCM_LIB_SO, $ROCM_T5_LIB_SO)"
 elif [[ "$ROCM_RESULT" == "failed" ]]; then
-  echo "ROCm backend: not built (CPU fallback)"
+  warn "ROCm backend: not built (CPU fallback)"
 fi
 if [[ "$ONEAPI_RESULT" == "built" ]]; then
-  echo "oneAPI backend: built ($ONEAPI_LIB_SO)"
+  step "oneAPI backends: built ($ONEAPI_LIB_SO, $ONEAPI_T5_LIB_SO)"
 elif [[ "$ONEAPI_RESULT" == "failed" ]]; then
-  echo "oneAPI backend: not built (CPU fallback)"
+  warn "oneAPI backend: not built (CPU fallback)"
 fi
 echo
-echo "Next steps (please read):"
-echo "  1) Open README.md for quick usage (and wiki/README.md for full docs)."
-echo "  2) Review and tweak config files under ./config/:"
-echo "       - cli.config.toml         (CLI defaults, output dir, gates)"
-echo "       - default.engine.toml     (UCI engine protocol; set your engine path)"
-echo "       - book.eco.toml           (optional ECO names)"
-echo "  3) Verify LICENSE.txt fits your intentions."
-echo
-echo "Examples:"
+step "Next steps:"
 echo "  $APP_NAME help"
-echo "  $APP_NAME print --fen \"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1\""
-echo "  $APP_NAME record-to-plain -i data/input.record -o dump/output.plain --sidelines"
-echo "  $APP_NAME record-to-csv -i data/input.record -o dump/output.csv"
-echo "  $APP_NAME mine-puzzles -i data/seeds.pgn -o dump/ --engine-instances 4 --max-duration 60s"
-echo
-echo "Optional (LC0 GPU JNI):"
-echo "  CUDA:"
-echo "    cmake -S native/cuda -B native/cuda/build -DCMAKE_BUILD_TYPE=Release"
-echo "    cmake --build native/cuda/build -j"
-echo "    java -cp out -Djava.library.path=native/cuda/build -Dcrtk.lc0.backend=cuda application.Main display --fen \"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1\" --show-backend"
-echo "  ROCm:"
-echo "    cmake -S native/rocm -B native/rocm/build -DCMAKE_BUILD_TYPE=Release -DCMAKE_HIP_COMPILER=hipcc"
-echo "    cmake --build native/rocm/build -j"
-echo "    java -cp out -Djava.library.path=native/rocm/build -Dcrtk.lc0.backend=rocm application.Main display --fen \"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1\" --show-backend"
-echo "  oneAPI:"
-echo "    cmake -S native/oneapi -B native/oneapi/build -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=dpcpp"
-echo "    cmake --build native/oneapi/build -j"
-echo "    java -cp out -Djava.library.path=native/oneapi/build -Dcrtk.lc0.backend=oneapi application.Main display --fen \"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1\" --show-backend"
-echo "  (See native/cuda/README.md for CUDA details.)"
-echo
 echo "Tip: You can run from anywhere using '$APP_NAME'."
+echo "Tip: Forcing en passant is encouraged (in chess, not in life)."

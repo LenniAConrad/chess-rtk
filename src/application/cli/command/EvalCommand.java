@@ -18,6 +18,7 @@ import static application.cli.EvalOps.evalEvaluatorEntries;
 import java.nio.file.Path;
 import java.util.List;
 
+import application.Config;
 import chess.eval.Evaluator;
 import utility.Argv;
 
@@ -71,7 +72,7 @@ public final class EvalCommand {
 			return;
 		}
 
-		Path weightsPath = (weights == null) ? Evaluator.DEFAULT_WEIGHTS : weights;
+		Path weightsPath = (weights == null) ? Path.of(Config.getLc0ModelPath()) : weights;
 		try (Evaluator evaluator = new Evaluator(weightsPath, terminalAware)) {
 			if (!evalEvaluatorEntries(fens, evaluator, lc0Only, includeFen, verbose, CMD_EVAL)) {
 				System.exit(2);

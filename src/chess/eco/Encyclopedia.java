@@ -7,6 +7,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -40,6 +41,12 @@ public final class Encyclopedia {
     private static final String PROP_PARALLEL_PARSE = "crtk.eco.parallel";
 
     private static final String ENV_PARALLEL_PARSE = "CRTK_ECO_PARALLEL";
+
+    private static final String KEY_ECO = "eco";
+
+    private static final String KEY_NAME = "name";
+
+    private static final String KEY_MOVETEXT = "movetext";
 
     /**
      * Used for pointing to the default ECO book read by
@@ -117,9 +124,9 @@ public final class Encyclopedia {
      */
     private record Row(String eco, String name, String movetext) {
         private Row {
-            Objects.requireNonNull(eco, "eco");
-            Objects.requireNonNull(name, "name");
-            Objects.requireNonNull(movetext, "movetext");
+            Objects.requireNonNull(eco, KEY_ECO);
+            Objects.requireNonNull(name, KEY_NAME);
+            Objects.requireNonNull(movetext, KEY_MOVETEXT);
         }
     }
 
@@ -142,96 +149,11 @@ public final class Encyclopedia {
      * @throws IOException if the file cannot be read or parsed
      */
     private Encyclopedia(Path file) throws IOException {
-        // 1) Read file
-        String tomlContent = Files.readString(file, StandardCharsets.UTF_8);
-
-        // 2) Parse TOML ([[A00]] arrays)
-        Toml toml = Toml.load(new StringReader(tomlContent));
-        Map<String, List<Map<String, Object>>> arrays = getTableArrays(toml);
-
-        // 3) Build nodes
-        ArrayList<Entry> tmp = new ArrayList<>();
-        if (parallelParseEnabled() && Runtime.getRuntime().availableProcessors() > 1) {
-            // Parallel parse with deterministic book order (opt-in).
-            List<Row> rows = new ArrayList<>();
-            for (Map.Entry<String, List<Map<String, Object>>> entry : arrays.entrySet()) {
-                String eco = entry.getKey();
-                for (Map<String, Object> tbl : entry.getValue()) {
-                    String name = asString(tbl.get("name"));
-                    String movetext = asString(tbl.get("movetext"));
-                    if (name == null || movetext == null) {
-                        continue;
-                    }
-                    rows.add(new Row(eco, name, movetext));
-                }
-            }
-
-            RowParseResult[] parsed = new RowParseResult[rows.size()];
-            if (rows.size() >= PARALLEL_PARSE_THRESHOLD) {
-                IntStream.range(0, rows.size()).parallel().forEach(i -> parsed[i] = parseRow(rows.get(i)));
-            } else {
-                for (int i = 0; i < rows.size(); i++) {
-                    parsed[i] = parseRow(rows.get(i));
-                }
-            }
-
-            tmp.ensureCapacity(rows.size());
-            for (int i = 0; i < rows.size(); i++) {
-                RowParseResult result = parsed[i];
-                if (result == null) {
-                    continue;
-                }
-                if (result.entry() != null) {
-                    tmp.add(result.entry());
-                    continue;
-                }
-                if (result.error() != null) {
-                    Row row = rows.get(i);
-                    LogService.warn(String.format("Invalid ECO '%s' – %s", row.eco(), result.error()));
-                }
-            }
-        } else {
-            // Sequential parse (fast default).
-            for (Map.Entry<String, List<Map<String, Object>>> entry : arrays.entrySet()) {
-                String eco = entry.getKey();
-                for (Map<String, Object> tbl : entry.getValue()) {
-                    String name = asString(tbl.get("name"));
-                    String movetext = asString(tbl.get("movetext"));
-                    if (name == null || movetext == null) {
-                        continue;
-                    }
-                    try {
-                        tmp.add(new Entry(eco, name, movetext));
-                    } catch (IllegalArgumentException ex) {
-                        LogService.warn(String.format("Invalid ECO '%s' – %s", eco, ex.getMessage()));
-                    }
-                }
-            }
-        }
-        this.entries = tmp.toArray(Entry[]::new);
-
-        Map<Position, Entry> map = new HashMap<>(entries.length * 2);
-        for (Entry n : entries) {
-            map.put(n.position, n);
-        }
-        this.byPosition = Collections.unmodifiableMap(map);
-
-        Map<Long, Entry> coreMap = new HashMap<>(entries.length * 2);
-        for (Entry n : entries) {
-            long sig = n.position.signatureCore();
-            Entry existing = coreMap.get(sig);
-            if (existing == null) {
-                coreMap.put(sig, n);
-                continue;
-            }
-
-            int existingMoves = existing.moves == null ? 0 : existing.moves.length;
-            int candidateMoves = n.moves == null ? 0 : n.moves.length;
-            if (candidateMoves > existingMoves) {
-                coreMap.put(sig, n);
-            }
-        }
-        this.byCoreSignature = Collections.unmodifiableMap(coreMap);
+        String tomlContent = readToml(file);
+        Map<String, List<Map<String, Object>>> arrays = parseTomlArrays(tomlContent);
+        this.entries = loadEntries(arrays);
+        this.byPosition = buildByPosition(entries);
+        this.byCoreSignature = buildByCoreSignature(entries);
     }
 
     /**
@@ -298,6 +220,15 @@ public final class Encyclopedia {
     }
 
     /**
+     * Returns an immutable view of all parsed ECO entries in book order.
+     *
+     * @return list of {@link Entry} items
+     */
+    public List<Entry> entries() {
+        return Collections.unmodifiableList(Arrays.asList(entries));
+    }
+
+    /**
      * Used for safely converting {@code o} to a string, returning
      * {@code null} when {@code o} is {@code null}.
      *
@@ -306,6 +237,118 @@ public final class Encyclopedia {
      */
     private static String asString(Object o) {
         return o == null ? null : o.toString();
+    }
+
+    private static String readToml(Path file) throws IOException {
+        return Files.readString(file, StandardCharsets.UTF_8);
+    }
+
+    private static Map<String, List<Map<String, Object>>> parseTomlArrays(String tomlContent) throws IOException {
+        Toml toml = Toml.load(new StringReader(tomlContent));
+        return getTableArrays(toml);
+    }
+
+    private static Entry[] loadEntries(Map<String, List<Map<String, Object>>> arrays) {
+        ArrayList<Entry> tmp = new ArrayList<>();
+        if (shouldParallelParse()) {
+            List<Row> rows = collectRows(arrays);
+            RowParseResult[] parsed = parseRows(rows);
+            appendParsedRows(rows, parsed, tmp);
+        } else {
+            parseSequential(arrays, tmp);
+        }
+        return tmp.toArray(Entry[]::new);
+    }
+
+    private static boolean shouldParallelParse() {
+        return parallelParseEnabled() && Runtime.getRuntime().availableProcessors() > 1;
+    }
+
+    private static List<Row> collectRows(Map<String, List<Map<String, Object>>> arrays) {
+        List<Row> rows = new ArrayList<>();
+        for (Map.Entry<String, List<Map<String, Object>>> entry : arrays.entrySet()) {
+            String eco = entry.getKey();
+            for (Map<String, Object> tbl : entry.getValue()) {
+                String name = asString(tbl.get(KEY_NAME));
+                String movetext = asString(tbl.get(KEY_MOVETEXT));
+                if (name != null && movetext != null) {
+                    rows.add(new Row(eco, name, movetext));
+                }
+            }
+        }
+        return rows;
+    }
+
+    private static RowParseResult[] parseRows(List<Row> rows) {
+        RowParseResult[] parsed = new RowParseResult[rows.size()];
+        if (rows.size() >= PARALLEL_PARSE_THRESHOLD) {
+            IntStream.range(0, rows.size()).parallel().forEach(i -> parsed[i] = parseRow(rows.get(i)));
+        } else {
+            for (int i = 0; i < rows.size(); i++) {
+                parsed[i] = parseRow(rows.get(i));
+            }
+        }
+        return parsed;
+    }
+
+    private static void appendParsedRows(List<Row> rows, RowParseResult[] parsed, ArrayList<Entry> tmp) {
+        tmp.ensureCapacity(rows.size());
+        for (int i = 0; i < rows.size(); i++) {
+            RowParseResult result = parsed[i];
+            if (result != null) {
+                Entry entry = result.entry();
+                if (entry != null) {
+                    tmp.add(entry);
+                } else if (result.error() != null) {
+                    Row row = rows.get(i);
+                    LogService.warn(String.format("Invalid ECO '%s' – %s", row.eco(), result.error()));
+                }
+            }
+        }
+    }
+
+    private static void parseSequential(Map<String, List<Map<String, Object>>> arrays, ArrayList<Entry> tmp) {
+        for (Map.Entry<String, List<Map<String, Object>>> entry : arrays.entrySet()) {
+            String eco = entry.getKey();
+            for (Map<String, Object> tbl : entry.getValue()) {
+                String name = asString(tbl.get(KEY_NAME));
+                String movetext = asString(tbl.get(KEY_MOVETEXT));
+                if (name == null || movetext == null) {
+                    continue;
+                }
+                try {
+                    tmp.add(new Entry(eco, name, movetext));
+                } catch (IllegalArgumentException ex) {
+                    LogService.warn(String.format("Invalid ECO '%s' – %s", eco, ex.getMessage()));
+                }
+            }
+        }
+    }
+
+    private static Map<Position, Entry> buildByPosition(Entry[] entries) {
+        Map<Position, Entry> map = new HashMap<>(entries.length * 2);
+        for (Entry n : entries) {
+            map.put(n.position, n);
+        }
+        return Collections.unmodifiableMap(map);
+    }
+
+    private static Map<Long, Entry> buildByCoreSignature(Entry[] entries) {
+        Map<Long, Entry> coreMap = new HashMap<>(entries.length * 2);
+        for (Entry n : entries) {
+            long sig = n.position.signatureCore();
+            Entry existing = coreMap.computeIfAbsent(sig, ignored -> n);
+            if (existing == n) {
+                continue;
+            }
+
+            int existingMoves = existing.moves == null ? 0 : existing.moves.length;
+            int candidateMoves = n.moves == null ? 0 : n.moves.length;
+            if (candidateMoves > existingMoves) {
+                coreMap.put(sig, n);
+            }
+        }
+        return Collections.unmodifiableMap(coreMap);
     }
 
     private static RowParseResult parseRow(Row row) {

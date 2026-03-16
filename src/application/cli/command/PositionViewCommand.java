@@ -46,6 +46,7 @@ import java.util.Objects;
 
 import javax.imageio.ImageIO;
 
+import application.Config;
 import chess.core.Field;
 import chess.core.Move;
 import chess.core.Piece;
@@ -103,7 +104,10 @@ public final class PositionViewCommand {
 		try {
 			Position pos = new Position(fen.trim());
 			Printer.board(pos);
-			List<String> tags = Tagging.tags(pos);
+			List<String> tags;
+			try (Evaluator evaluator = new Evaluator(Path.of(Config.getLc0ModelPath()), false)) {
+				tags = Tagging.tags(pos, evaluator);
+			}
 			if (!tags.isEmpty()) {
 				System.out.println();
 				System.out.println("Tags:");
@@ -549,7 +553,7 @@ public final class PositionViewCommand {
 		}
 
 		String backendLabel = null;
-		try (Evaluator evaluator = new Evaluator()) {
+		try (Evaluator evaluator = new Evaluator(Path.of(Config.getLc0ModelPath()), false)) {
 			if (showBackend) {
 				Result result = evaluator.evaluate(pos);
 				backendLabel = formatBackendLabel(result.backend());

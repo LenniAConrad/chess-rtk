@@ -1,0 +1,78 @@
+digraph crtk_lc0_cnn {
+  rankdir=LR;
+  bgcolor="transparent";
+  splines=ortho;
+  pad="0.20";
+  nodesep="0.35";
+  ranksep="0.55";
+
+  graph [fontname="Helvetica", fontsize=14];
+  node  [fontname="Helvetica", fontsize=12];
+  edge  [fontname="Helvetica", fontsize=10, color="#424242", arrowsize=0.8, penwidth=1.2];
+
+  subgraph cluster_input {
+    label="Input encoding";
+    style="rounded";
+    color="#90CAF9";
+    fontcolor="#0D47A1";
+    penwidth=1.4;
+
+    node [shape=note, style="filled", fillcolor="#E3F2FD", color="#1565C0", penwidth=1.2];
+    fen [label="FEN / position"];
+
+    node [shape=box, style="rounded,filled", fillcolor="#E3F2FD", color="#1565C0", penwidth=1.2];
+    planes [label="LC0 planes\n(112 x 64)"];
+  }
+
+  subgraph cluster_model {
+    label="LC0 CNN";
+    style="rounded";
+    color="#B2DFDB";
+    fontcolor="#004D40";
+    penwidth=1.4;
+
+    node [shape=box, style="rounded,filled", fillcolor="#E0F2F1", color="#00796B", penwidth=1.2];
+    cnn [label="Residual tower"];
+    policy_head [label="Policy head"];
+    value_head [label="Value head"];
+
+    node [shape=note, style="filled", fillcolor="#E0F2F1", color="#00796B", penwidth=1.2];
+    weights [label="LC0J weights\nmodels/lc0_744706.bin"];
+    backend [label="Backend\ncpu | cuda (auto)"];
+  }
+
+  subgraph cluster_outputs {
+    label="Outputs";
+    style="rounded";
+    color="#FFE082";
+    fontcolor="#E65100";
+    penwidth=1.4;
+
+    node [shape=note, style="filled", fillcolor="#FFF3E0", color="#EF6C00", penwidth=1.2];
+    policy [label="Move priors\n(policy map)"];
+    value [label="Value score\n[-1, 1]"];
+  }
+
+  subgraph cluster_use {
+    label="Consumers";
+    style="rounded";
+    color="#C5CAE9";
+    fontcolor="#1A237E";
+    penwidth=1.4;
+
+    node [shape=box, style="rounded,filled", fillcolor="#E8EAF6", color="#303F9F", penwidth=1.2];
+    consumers [label="eval / display\n/ ablation"];
+  }
+
+  fen -> planes;
+  planes -> cnn;
+  cnn -> policy_head;
+  cnn -> value_head;
+  policy_head -> policy;
+  value_head -> value;
+  policy -> consumers;
+  value -> consumers;
+
+  weights -> cnn [style=dashed];
+  backend -> cnn [style=dashed];
+}

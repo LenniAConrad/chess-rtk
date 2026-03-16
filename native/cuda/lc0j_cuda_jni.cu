@@ -14,11 +14,11 @@
  * JNI surface
  * -----------
  * Exported native methods (names must match their Java declarations):
- *   - chess.lc0.cuda.Support.nativeDeviceCount() -> int
- *   - chess.lc0.cuda.Backend.nativeCreate(String weightsPath) -> long (opaque handle)
- *   - chess.lc0.cuda.Backend.nativeDestroy(long handle) -> void
- *   - chess.lc0.cuda.Backend.nativeGetInfo(long handle) -> long[7]
- *   - chess.lc0.cuda.Backend.nativePredict(long handle, float[] encoded, float[] policyOut, float[] wdlOut) -> float
+ *   - chess.nn.lc0.cuda.Support.nativeDeviceCount() -> int
+ *   - chess.nn.lc0.cuda.Backend.nativeCreate(String weightsPath) -> long (opaque handle)
+ *   - chess.nn.lc0.cuda.Backend.nativeDestroy(long handle) -> void
+ *   - chess.nn.lc0.cuda.Backend.nativeGetInfo(long handle) -> long[7]
+ *   - chess.nn.lc0.cuda.Backend.nativePredict(long handle, float[] encoded, float[] policyOut, float[] wdlOut) -> float
  *
  * Data / shapes
  * -------------
@@ -64,12 +64,12 @@ static inline int device_count() {
     return count;
 }
 
-extern "C" JNIEXPORT jint JNICALL Java_chess_lc0_CudaSupport_nativeDeviceCount(JNIEnv*, jclass) {
+extern "C" JNIEXPORT jint JNICALL Java_chess_nn_lc0_CudaSupport_nativeDeviceCount(JNIEnv*, jclass) {
     return device_count();
 }
 
-// Current (2025) Java API lives under chess.lc0.cuda.*.
-extern "C" JNIEXPORT jint JNICALL Java_chess_lc0_cuda_Support_nativeDeviceCount(JNIEnv*, jclass) {
+// Current (2025) Java API lives under chess.nn.lc0.cuda.*.
+extern "C" JNIEXPORT jint JNICALL Java_chess_nn_lc0_cuda_Support_nativeDeviceCount(JNIEnv*, jclass) {
     return device_count();
 }
 
@@ -662,23 +662,23 @@ static jlong backend_nativeCreate(JNIEnv* env, jstring jpath) {
     return reinterpret_cast<jlong>(net);
 }
 
-extern "C" JNIEXPORT jlong JNICALL Java_chess_lc0_CudaBackend_nativeCreate(JNIEnv* env, jclass, jstring jpath) {
+extern "C" JNIEXPORT jlong JNICALL Java_chess_nn_lc0_CudaBackend_nativeCreate(JNIEnv* env, jclass, jstring jpath) {
     return backend_nativeCreate(env, jpath);
 }
 
-extern "C" JNIEXPORT jlong JNICALL Java_chess_lc0_cuda_Backend_nativeCreate(JNIEnv* env, jclass, jstring jpath) {
+extern "C" JNIEXPORT jlong JNICALL Java_chess_nn_lc0_cuda_Backend_nativeCreate(JNIEnv* env, jclass, jstring jpath) {
     return backend_nativeCreate(env, jpath);
 }
 
-extern "C" JNIEXPORT void JNICALL Java_chess_lc0_CudaBackend_nativeDestroy(JNIEnv*, jclass, jlong handle) {
+extern "C" JNIEXPORT void JNICALL Java_chess_nn_lc0_CudaBackend_nativeDestroy(JNIEnv*, jclass, jlong handle) {
     destroy_net(reinterpret_cast<GpuNet*>(handle));
 }
 
-extern "C" JNIEXPORT void JNICALL Java_chess_lc0_cuda_Backend_nativeDestroy(JNIEnv*, jclass, jlong handle) {
+extern "C" JNIEXPORT void JNICALL Java_chess_nn_lc0_cuda_Backend_nativeDestroy(JNIEnv*, jclass, jlong handle) {
     destroy_net(reinterpret_cast<GpuNet*>(handle));
 }
 
-extern "C" JNIEXPORT jlongArray JNICALL Java_chess_lc0_CudaBackend_nativeGetInfo(JNIEnv* env, jclass, jlong handle) {
+extern "C" JNIEXPORT jlongArray JNICALL Java_chess_nn_lc0_CudaBackend_nativeGetInfo(JNIEnv* env, jclass, jlong handle) {
     GpuNet* net = reinterpret_cast<GpuNet*>(handle);
     if (!net) return nullptr;
     jlong vals[7];
@@ -695,11 +695,11 @@ extern "C" JNIEXPORT jlongArray JNICALL Java_chess_lc0_CudaBackend_nativeGetInfo
     return arr;
 }
 
-extern "C" JNIEXPORT jlongArray JNICALL Java_chess_lc0_cuda_Backend_nativeGetInfo(JNIEnv* env, jclass, jlong handle) {
-    return Java_chess_lc0_CudaBackend_nativeGetInfo(env, nullptr, handle);
+extern "C" JNIEXPORT jlongArray JNICALL Java_chess_nn_lc0_cuda_Backend_nativeGetInfo(JNIEnv* env, jclass, jlong handle) {
+    return Java_chess_nn_lc0_CudaBackend_nativeGetInfo(env, nullptr, handle);
 }
 
-extern "C" JNIEXPORT jfloat JNICALL Java_chess_lc0_CudaBackend_nativePredict(
+extern "C" JNIEXPORT jfloat JNICALL Java_chess_nn_lc0_CudaBackend_nativePredict(
         JNIEnv* env, jclass, jlong handle, jfloatArray jencoded, jfloatArray joutPolicy, jfloatArray joutWdl) {
     GpuNet* net = reinterpret_cast<GpuNet*>(handle);
     if (!net) return 0.0f;
@@ -727,7 +727,7 @@ extern "C" JNIEXPORT jfloat JNICALL Java_chess_lc0_CudaBackend_nativePredict(
     return value;
 }
 
-extern "C" JNIEXPORT jfloat JNICALL Java_chess_lc0_cuda_Backend_nativePredict(
+extern "C" JNIEXPORT jfloat JNICALL Java_chess_nn_lc0_cuda_Backend_nativePredict(
         JNIEnv* env, jclass, jlong handle, jfloatArray jencoded, jfloatArray joutPolicy, jfloatArray joutWdl) {
-    return Java_chess_lc0_CudaBackend_nativePredict(env, nullptr, handle, jencoded, joutPolicy, joutWdl);
+    return Java_chess_nn_lc0_CudaBackend_nativePredict(env, nullptr, handle, jencoded, joutPolicy, joutWdl);
 }

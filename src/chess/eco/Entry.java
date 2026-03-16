@@ -89,6 +89,24 @@ public class Entry {
    }
 
    /**
+    * Returns a copy of the final position reached by this entry.
+    *
+    * @return position after applying movetext
+    */
+   public Position getPosition() {
+      return position == null ? null : position.copyOf();
+   }
+
+   /**
+    * Returns a copy of the parsed move list for this entry.
+    *
+    * @return array of parsed moves in order
+    */
+   public short[] getMoves() {
+      return moves == null ? new short[0] : moves.clone();
+   }
+
+   /**
     * Serialises this {@code Entry} as a TOML fragment that can be appended to an
     * ECO (Encyclopaedia of Chess Openings) encyclopedia file.
     * <p>

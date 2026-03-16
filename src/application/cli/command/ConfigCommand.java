@@ -2,6 +2,7 @@ package application.cli.command;
 
 import static application.cli.ConfigOps.printValidationResults;
 import static application.cli.ConfigOps.validateConfigToml;
+import static application.cli.ConfigOps.validateModelPath;
 import static application.cli.ConfigOps.validateProtocolConfig;
 
 import java.nio.file.Path;
@@ -65,6 +66,8 @@ public final class ConfigCommand {
 		Path configPath = Config.getConfigPath();
 		System.out.println("Config path: " + configPath.toAbsolutePath());
 		System.out.println("Protocol path: " + Config.getProtocolPath());
+		System.out.println("LC0 model path: " + Config.getLc0ModelPath());
+		System.out.println("T5 model path: " + Config.getT5ModelPath());
 		System.out.println("Output: " + Config.getOutput());
 		System.out.println("Engine instances: " + Config.getEngineInstances());
 		System.out.println("Max nodes: " + Config.getMaxNodes());
@@ -88,6 +91,8 @@ public final class ConfigCommand {
 		Path configPath = Config.getConfigPath();
 		validateConfigToml(configPath, warnings, errors);
 		validateProtocolConfig(Config.getProtocolPath(), warnings, errors);
+		validateModelPath("lc0-model-path", Config.getLc0ModelPath(), warnings);
+		validateModelPath("t5-model-path", Config.getT5ModelPath(), warnings);
 		printValidationResults(warnings, errors);
 	}
 }

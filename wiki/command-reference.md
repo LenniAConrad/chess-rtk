@@ -6,6 +6,10 @@ All commands are subcommands of `application.Main`.
 - From classes: `java -cp out application.Main <command> ...`
 - Proposed/future additions: `roadmap.md`
 
+Compatibility note:
+- This reference lists the canonical commands only.
+- Removed commands: `gui2`, `cuda-info`, `mine`, `evaluate`.
+
 ## `record-to-plain`
 
 Convert a `.record` JSON array into Leela-style `.plain` blocks.
@@ -69,6 +73,19 @@ Options:
 - `--input|-i <path>`: input `.record` (required)
 - `--output|-o <path>`: output stem (optional; default derived when omitted)
 
+## `record-to-lc0`
+
+Convert a `.record` JSON array into LC0-style tensors:
+- `<stem>.lc0.inputs.npy` shaped `(N, 112*64)` float32
+- `<stem>.lc0.policy.npy` shaped `(N, policySize)` float32 (one-hot)
+- `<stem>.lc0.value.npy` shaped `(N,)` float32 (scalar in `[-1,1]`)
+- `<stem>.lc0.meta.json` metadata
+
+Options:
+- `--input|-i <path>`: input `.record` (required)
+- `--output|-o <path>`: output stem (optional; default derived when omitted)
+- `--weights <path>`: optional LC0 weights to compress the policy to the net's size
+
 ## `stack-to-dataset`
 
 Convert a `Stack-*.json` JSON array (puzzle dump format) into the same NumPy tensors as `record-to-dataset`.
@@ -83,7 +100,6 @@ Print whether the optional GPU JNI backends are available (CUDA/ROCm/oneAPI) and
 
 Notes:
 - If you built a native library under `native/cuda/`, run with `-Djava.library.path=native/cuda/build`.
-- `cuda-info` is a legacy alias.
 
 ## `gen-fens`
 
@@ -126,9 +142,6 @@ Filter overrides:
 - `--puzzle-drawing <dsl>`
 - `--puzzle-accelerate <dsl>`
 - `--verbose|-v`: print stack traces on failure
-
-Notes:
-- `mine` is a legacy alias.
 
 ## `print`
 
@@ -221,6 +234,16 @@ Notes:
 Options:
 - `--input|-i <path>`: FEN list file (optional)
 - `--fen "<FEN...>"`: FEN string (or pass it positionally)
+- `--analyze`: run engine analysis to enrich tags (PV/mate/enables)
+- `--sequence`: interpret input as an ordered line (enable/disable tags)
+- `--protocol|-p <path>`: engine protocol TOML file
+- `--max-nodes <n>`: max nodes per position
+- `--max-duration <duration>`: max duration per position (e.g. `5s`)
+- `--multipv <n>`: number of PVs
+- `--threads <n>`: engine threads
+- `--hash <n>`: engine hash (MB)
+- `--wdl`: enable WDL output (if supported)
+- `--no-wdl`: disable WDL output
 - `--verbose|-v`: print stack traces on failure
 
 ## `moves`
@@ -255,6 +278,56 @@ List legal moves for a FEN (UCI + SAN).
 
 Options:
 - `--fen "<FEN...>"`: FEN string (or pass it positionally)
+- `--verbose|-v`: print stack traces on failure
+
+## `uci-to-san`
+
+Convert a single UCI move to SAN in the given position.
+
+Notes:
+- If no FEN is provided, the standard start position is used.
+
+Options:
+- `--fen "<FEN...>"`: FEN string (or pass it positionally)
+- `<move>`: UCI move token (e.g. `e2e4`, `a7a8q`)
+- `--verbose|-v`: print stack traces on failure
+
+## `san-to-uci`
+
+Convert a single SAN move to UCI in the given position.
+
+Notes:
+- If no FEN is provided, the standard start position is used.
+
+Options:
+- `--fen "<FEN...>"`: FEN string (or pass it positionally)
+- `<move>`: SAN move token (e.g. `Nf3`, `exd5`, `O-O`)
+- `--verbose|-v`: print stack traces on failure
+
+## `fen-after`
+
+Apply a single move (UCI or SAN) and print the resulting FEN.
+
+Notes:
+- If no FEN is provided, the standard start position is used.
+
+Options:
+- `--fen "<FEN...>"`: FEN string (or pass it positionally)
+- `<move>`: move token (UCI or SAN)
+- `--verbose|-v`: print stack traces on failure
+
+## `play-line`
+
+Apply a move sequence (UCI or SAN) and print the resulting FEN.
+
+Notes:
+- If no FEN is provided, the standard start position is used.
+- Move lists are cleaned using the PGN sanitizer (move numbers and comments are ignored).
+
+Options:
+- `--fen "<FEN...>"`: FEN string (or pass it positionally)
+- `<moves...>`: move sequence (UCI or SAN)
+- `--intermediate`: print intermediate FENs after each move instead of only the final FEN
 - `--verbose|-v`: print stack traces on failure
 
 ## `analyze`
@@ -399,9 +472,6 @@ Options:
 - `--weights <path>`: LC0 weights path (optional)
 - `--terminal-aware`: use terminal-aware classical evaluation
 - `--verbose|-v`: print stack traces on failure
-
-Notes:
-- `evaluate` is a legacy alias.
 
 ## `eval-static`
 

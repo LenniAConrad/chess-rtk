@@ -5,8 +5,8 @@ import chess.core.Field;
 import chess.core.Piece;
 import chess.core.Position;
 import chess.debug.LogService;
-import chess.lc0.Model;
-import chess.lc0.Network;
+import chess.nn.lc0.Model;
+import chess.nn.lc0.Network;
 
 import java.io.IOException;
 import java.nio.file.Path;
@@ -48,6 +48,11 @@ public final class Evaluator implements AutoCloseable {
      * Default weights path for convenience.
      */
     public static final Path DEFAULT_WEIGHTS = Model.DEFAULT_WEIGHTS;
+
+    /**
+     * JVM property for overriding default LC0 weights path.
+     */
+    private static final String PROP_LC0_WEIGHTS = "crtk.lc0.weights.path";
 
     /**
      * Lock guarding model creation, use, and shutdown.
@@ -122,7 +127,7 @@ public final class Evaluator implements AutoCloseable {
      * fallback (no move-generation terminal detection).
      */
     public Evaluator() {
-        this(DEFAULT_WEIGHTS, false);
+        this(resolveDefaultWeights(), false);
     }
 
     /**
@@ -139,6 +144,19 @@ public final class Evaluator implements AutoCloseable {
         }
         this.weights = weights;
         this.terminalAwareClassical = terminalAwareClassical;
+    }
+
+    private static Path resolveDefaultWeights() {
+        String configured = System.getProperty(PROP_LC0_WEIGHTS);
+        if (configured == null || configured.isBlank()) {
+            return DEFAULT_WEIGHTS;
+        }
+        try {
+            return Path.of(configured.trim());
+        } catch (RuntimeException ex) {
+            LogService.warn("Invalid " + PROP_LC0_WEIGHTS + " path; using default: " + configured);
+            return DEFAULT_WEIGHTS;
+        }
     }
 
     /**

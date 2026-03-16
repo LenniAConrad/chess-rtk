@@ -1,6 +1,10 @@
 # ChessRTK docs (CLI: `crtk`)
 
-This folder holds the long-form docs for ChessRTK (CLI: `crtk`). The root `README.md` is intentionally short; start there for a quick build/run.
+This folder holds the long-form docs for ChessRTK (CLI: `crtk`). The root `README.md` gives the project overview and quick build/run commands.
+
+Command compatibility note:
+- Use canonical command names only.
+- Removed commands: `gui2`, `cuda-info`, `mine`, `evaluate`.
 
 If you did **not** run `./install.sh`, replace `crtk <command> ...` with `java -cp out application.Main <command> ...` (after building).
 
@@ -18,6 +22,7 @@ If you did **not** run `./install.sh`, replace `crtk <command> ...` with `java -
 - [Filter DSL](filter-dsl.md)
 - [Outputs & logs](outputs-and-logs.md)
 - [Lc0 (UCI weights + Java evaluator)](lc0.md)
+- [T5 tag-to-text pipeline](t5.md)
 - [Datasets](datasets.md)
 - [AI agents & automation](ai-agents.md)
 - [Troubleshooting](troubleshooting.md)

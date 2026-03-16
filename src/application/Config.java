@@ -25,10 +25,15 @@ import java.util.Optional;
  * </p>
  * <ul>
  * <li>protocol-path (string)</li>
+ * <li>lc0-model-path (string)</li>
+ * <li>t5-model-path (string)</li>
  * <li>output (string)</li>
  * <li>engine-instances (long)</li>
  * <li>max-nodes (long; per-position node cap)</li>
  * <li>max-duration (long; per-position time cap in ms)</li>
+ * <li>threat-min-cp (long; minimum centipawn threshold for threat tags)</li>
+ * <li>threat-equalize-min-cp (long; minimum disadvantage to consider equalizing threats)</li>
+ * <li>threat-equalize-target-cp (long; target disadvantage threshold after equalizing threat)</li>
  * <li>puzzle-analysis-cache (long; max analyzed positions to remember)</li>
  * <li>puzzle-quality (string; Filter DSL)</li>
  * <li>puzzle-winning (string; Filter DSL)</li>
@@ -79,6 +84,16 @@ public final class Config {
     private static final String K_PROTOCOL_PATH = "protocol-path";
 
     /**
+     * Used for holding the TOML key of the default LC0 model path.
+     */
+    private static final String K_LC0_MODEL_PATH = "lc0-model-path";
+
+    /**
+     * Used for holding the TOML key of the default T5 model path.
+     */
+    private static final String K_T5_MODEL_PATH = "t5-model-path";
+
+    /**
      * Used for holding the TOML key of the output path.
      */
     private static final String K_OUTPUT = "output";
@@ -98,6 +113,21 @@ public final class Config {
      * milliseconds.
      */
     private static final String K_MAX_DURATION = "max-duration";
+
+    /**
+     * Used for holding the TOML key of the minimum centipawn threshold for threat tags.
+     */
+    private static final String K_THREAT_MIN_CP = "threat-min-cp";
+
+    /**
+     * Used for holding the TOML key of the minimum disadvantage required for equalizing threats.
+     */
+    private static final String K_THREAT_EQUALIZE_MIN_CP = "threat-equalize-min-cp";
+
+    /**
+     * Used for holding the TOML key of the target disadvantage threshold after equalizing threats.
+     */
+    private static final String K_THREAT_EQUALIZE_TARGET_CP = "threat-equalize-target-cp";
 
     /**
      * Used for holding the TOML key of the maximum analyzed-position cache size.
@@ -131,6 +161,16 @@ public final class Config {
     private static final String DEFAULT_PROTOCOL_PATH = "config/default.engine.toml";
 
     /**
+     * Used for providing a default LC0J weights path.
+     */
+    private static final String DEFAULT_LC0_MODEL_PATH = "models/lc0_744706.bin";
+
+    /**
+     * Used for providing a default T5 weights path.
+     */
+    private static final String DEFAULT_T5_MODEL_PATH = "models/t5.bin";
+
+    /**
      * Used for providing a default output for result dumps.
      */
     private static final String DEFAULT_OUTPUT = "dump/";
@@ -149,6 +189,21 @@ public final class Config {
      * Used for caching the configured per-position duration cap in milliseconds.
      */
     private static final long DEFAULT_MAX_DURATION = 1_000_000L;
+
+    /**
+     * Used for providing the default centipawn threshold for threat tags.
+     */
+    private static final int DEFAULT_THREAT_MIN_CP = 100;
+
+    /**
+     * Used for providing the default disadvantage threshold to consider equalizing threats.
+     */
+    private static final int DEFAULT_THREAT_EQUALIZE_MIN_CP = 150;
+
+    /**
+     * Used for providing the default target disadvantage threshold after equalizing threats.
+     */
+    private static final int DEFAULT_THREAT_EQUALIZE_TARGET_CP = 50;
 
     /**
      * Used for providing the default maximum size of the analyzed-position cache.
@@ -196,6 +251,14 @@ public final class Config {
             K_PROTOCOL_PATH + EQ_Q + DEFAULT_PROTOCOL_PATH + Q,
             "",
             "",
+            "# MODEL PATHS",
+            "# Default LC0J model path used by evaluator-backed features",
+            "# (eval, tags metadata, display --show-backend/--ablation, etc.).",
+            K_LC0_MODEL_PATH + EQ_Q + DEFAULT_LC0_MODEL_PATH + Q,
+            "# Default T5 model path used by puzzle-text/tag-text when --model is omitted.",
+            K_T5_MODEL_PATH + EQ_Q + DEFAULT_T5_MODEL_PATH + Q,
+            "",
+            "",
             "# OUTPUT DIRECTORY",
             "# Directory where all computed outputs (e.g., puzzles) will be saved.",
             "# Must exist or be creatable by the application.",
@@ -223,6 +286,15 @@ public final class Config {
             "# Maximum wall time (ms) the engine may think before being aborted.",
             "# If a position exceeds this, the search is forcefully stopped.",
             K_MAX_DURATION + EQ + DEFAULT_MAX_DURATION,
+            "",
+            "",
+            "# THREAT TAGS",
+            "# Minimum centipawn advantage in null-move analysis to emit a threat tag.",
+            K_THREAT_MIN_CP + EQ + DEFAULT_THREAT_MIN_CP,
+            "# Minimum disadvantage before considering an equalizing threat.",
+            K_THREAT_EQUALIZE_MIN_CP + EQ + DEFAULT_THREAT_EQUALIZE_MIN_CP,
+            "# Maximum remaining disadvantage after an equalizing threat.",
+            K_THREAT_EQUALIZE_TARGET_CP + EQ + DEFAULT_THREAT_EQUALIZE_TARGET_CP,
             "",
             "",
             "# MINING DEDUP CACHE",
@@ -295,6 +367,16 @@ public final class Config {
     private static volatile String output;
 
     /**
+     * Used for caching the configured default LC0 model path in memory.
+     */
+    private static volatile String lc0ModelPath;
+
+    /**
+     * Used for caching the configured default T5 model path in memory.
+     */
+    private static volatile String t5ModelPath;
+
+    /**
      * Used for caching the configured number of engine instances in memory.
      */
     private static volatile int engineInstances;
@@ -329,6 +411,21 @@ public final class Config {
      * memory.
      */
     private static volatile long maxDuration;
+
+    /**
+     * Used for caching the configured centipawn threshold for threat tags.
+     */
+    private static volatile int threatMinCp;
+
+    /**
+     * Used for caching the configured disadvantage threshold for equalizing threats.
+     */
+    private static volatile int threatEqualizeMinCp;
+
+    /**
+     * Used for caching the configured target disadvantage threshold after equalizing threats.
+     */
+    private static volatile int threatEqualizeTargetCp;
 
     /**
      * Used for caching the configured size of the analyzed-position cache.
@@ -387,6 +484,33 @@ public final class Config {
      */
     public static long getMaxDuration() {
         return maxDuration;
+    }
+
+    /**
+     * Used for obtaining the configured centipawn threshold for threat tags.
+     *
+     * @return minimum centipawn advantage needed to emit a threat tag.
+     */
+    public static int getThreatMinCp() {
+        return threatMinCp;
+    }
+
+    /**
+     * Used for obtaining the configured disadvantage threshold for equalizing threats.
+     *
+     * @return minimum disadvantage required to consider an equalizing threat.
+     */
+    public static int getThreatEqualizeMinCp() {
+        return threatEqualizeMinCp;
+    }
+
+    /**
+     * Used for obtaining the configured target disadvantage threshold after equalizing threats.
+     *
+     * @return maximum disadvantage allowed after an equalizing threat.
+     */
+    public static int getThreatEqualizeTargetCp() {
+        return threatEqualizeTargetCp;
     }
 
     /**
@@ -452,6 +576,24 @@ public final class Config {
      */
     public static String getProtocolPath() {
         return protocolPath;
+    }
+
+    /**
+     * Used for obtaining the configured default LC0 model path.
+     *
+     * @return LC0 model path as a string.
+     */
+    public static String getLc0ModelPath() {
+        return lc0ModelPath;
+    }
+
+    /**
+     * Used for obtaining the configured default T5 model path.
+     *
+     * @return T5 model path as a string.
+     */
+    public static String getT5ModelPath() {
+        return t5ModelPath;
     }
 
     /**
@@ -527,6 +669,7 @@ public final class Config {
         loadStringsOrDefaults(tomlOpt);
         loadNumericsOrDefaults(tomlOpt);
         parseFilterOrFallback();
+        publishRuntimeDefaults();
     }
 
     /**
@@ -592,11 +735,19 @@ public final class Config {
     private static void loadNumericsOrDefaults(Optional<Toml> tomlOpt) {
         Long nodes = tomlOpt.map(t -> t.getLong(K_MAX_NODES)).orElse(null);
         Long durMs = tomlOpt.map(t -> t.getLong(K_MAX_DURATION)).orElse(null);
+        Long threatCp = tomlOpt.map(t -> t.getLong(K_THREAT_MIN_CP)).orElse(null);
+        Long threatEqMin = tomlOpt.map(t -> t.getLong(K_THREAT_EQUALIZE_MIN_CP)).orElse(null);
+        Long threatEqTarget = tomlOpt.map(t -> t.getLong(K_THREAT_EQUALIZE_TARGET_CP)).orElse(null);
         Long engines = tomlOpt.map(t -> t.getLong(K_ENGINE_INSTANCES)).orElse(null);
         Long analysisCache = tomlOpt.map(t -> t.getLong(K_PUZZLE_ANALYSIS_CACHE)).orElse(null);
 
         maxNodes = Math.max(1, nonNullOrDefaultLong(nodes, K_MAX_NODES, DEFAULT_MAX_NODES));
         maxDuration = Math.max(1, nonNullOrDefaultLong(durMs, K_MAX_DURATION, DEFAULT_MAX_DURATION));
+        threatMinCp = (int) nonNullOrDefaultLong(threatCp, K_THREAT_MIN_CP, DEFAULT_THREAT_MIN_CP);
+        threatEqualizeMinCp = (int) nonNullOrDefaultLong(threatEqMin, K_THREAT_EQUALIZE_MIN_CP,
+                DEFAULT_THREAT_EQUALIZE_MIN_CP);
+        threatEqualizeTargetCp = (int) nonNullOrDefaultLong(threatEqTarget, K_THREAT_EQUALIZE_TARGET_CP,
+                DEFAULT_THREAT_EQUALIZE_TARGET_CP);
         engineInstances = Math.max(1,
                 (int) nonNullOrDefaultLong(engines, K_ENGINE_INSTANCES, DEFAULT_ENGINE_INSTANCES));
         puzzleAnalysisCache = Math.max(1,
@@ -635,6 +786,8 @@ public final class Config {
         String d = tomlOpt.map(t -> t.getString(K_PUZZLE_DRAWING)).orElse(null);
         String a = tomlOpt.map(t -> t.getString(K_PUZZLE_ACCELERATE)).orElse(null);
         String pp = tomlOpt.map(t -> t.getString(K_PROTOCOL_PATH)).orElse(null);
+        String lc0Path = tomlOpt.map(t -> t.getString(K_LC0_MODEL_PATH)).orElse(null);
+        String t5Path = tomlOpt.map(t -> t.getString(K_T5_MODEL_PATH)).orElse(null);
         String outDir = tomlOpt.map(t -> t.getString(K_OUTPUT)).orElse(null);
 
         puzzleQualityString = nonNullOrDefaultString(q, K_PUZZLE_QUALITY, DEFAULT_PUZZLE_QUALITY);
@@ -643,8 +796,22 @@ public final class Config {
         puzzleAccelerateString = nonNullOrDefaultString(a, K_PUZZLE_ACCELERATE, DEFAULT_PUZZLE_ACCELERATE);
 
         protocolPath = nonNullOrDefaultString(pp, K_PROTOCOL_PATH, DEFAULT_PROTOCOL_PATH);
+        lc0ModelPath = nonNullOrDefaultString(lc0Path, K_LC0_MODEL_PATH, DEFAULT_LC0_MODEL_PATH);
+        t5ModelPath = nonNullOrDefaultString(t5Path, K_T5_MODEL_PATH, DEFAULT_T5_MODEL_PATH);
         output = nonNullOrDefaultString(outDir, K_OUTPUT, DEFAULT_OUTPUT);
 
+    }
+
+    /**
+     * Publishes selected defaults as JVM properties so subsystems that do not directly depend on
+     * {@code application.Config} can still pick up configured paths.
+     */
+    private static void publishRuntimeDefaults() {
+        if (lc0ModelPath != null && !lc0ModelPath.isBlank()) {
+            System.setProperty("crtk.lc0.weights.path", lc0ModelPath);
+        } else {
+            System.clearProperty("crtk.lc0.weights.path");
+        }
     }
 
     /**
@@ -727,8 +894,13 @@ public final class Config {
      */
     public static void main(String[] args) {
         System.out.println("Protocol path: " + Config.getProtocolPath());
+        System.out.println("LC0 model path: " + Config.getLc0ModelPath());
+        System.out.println("T5 model path: " + Config.getT5ModelPath());
         System.out.println("Max nodes: " + Config.getMaxNodes());
         System.out.println("Max duration: " + Config.getMaxDuration());
+        System.out.println("Threat min cp: " + Config.getThreatMinCp());
+        System.out.println("Threat equalize min cp: " + Config.getThreatEqualizeMinCp());
+        System.out.println("Threat equalize target cp: " + Config.getThreatEqualizeTargetCp());
         System.out.println("Puzzle analysis cache: " + Config.getPuzzleAnalysisCacheSize());
         System.out.println("Puzzle quality: " + Config.getPuzzleQuality());
         System.out.println("Puzzle winning: " + Config.getPuzzleWinning());

@@ -75,3 +75,17 @@ Force the CUDA backend build (installs missing CUDA build deps on Debian/Ubuntu)
 ```bash
 ./install.sh --cuda
 ```
+
+## Uninstall
+
+Remove the launcher and local build artifacts:
+
+```bash
+./scripts/uninstall.sh
+```
+
+Also remove data directories created by the app (`dump/`, `session/`):
+
+```bash
+./scripts/uninstall.sh --remove-data
+```

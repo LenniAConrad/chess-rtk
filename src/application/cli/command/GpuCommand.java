@@ -25,27 +25,27 @@ public final class GpuCommand {
 	public static void runGpuInfo(Argv a) {
 		a.ensureConsumed();
 
-		boolean loaded = chess.lc0.cuda.Support.isLoaded();
-		int count = chess.lc0.cuda.Support.deviceCount();
-		boolean available = chess.lc0.cuda.Support.isAvailable();
+		boolean loaded = chess.nn.lc0.cuda.Support.isLoaded();
+		int count = chess.nn.lc0.cuda.Support.deviceCount();
+		boolean available = chess.nn.lc0.cuda.Support.isAvailable();
 		System.out.printf(
 				"CUDA JNI backend: loaded=%s, available=%s (deviceCount=%d)%n",
 				loaded ? "yes" : "no",
 				available ? "yes" : "no",
 				count);
 
-		boolean rocmLoaded = chess.lc0.rocm.Support.isLoaded();
-		int rocmCount = chess.lc0.rocm.Support.deviceCount();
-		boolean rocmAvailable = chess.lc0.rocm.Support.isAvailable();
+		boolean rocmLoaded = chess.nn.lc0.rocm.Support.isLoaded();
+		int rocmCount = chess.nn.lc0.rocm.Support.deviceCount();
+		boolean rocmAvailable = chess.nn.lc0.rocm.Support.isAvailable();
 		System.out.printf(
 				"ROCm JNI backend: loaded=%s, available=%s (deviceCount=%d)%n",
 				rocmLoaded ? "yes" : "no",
 				rocmAvailable ? "yes" : "no",
 				rocmCount);
 
-		boolean oneapiLoaded = chess.lc0.oneapi.Support.isLoaded();
-		int oneapiCount = chess.lc0.oneapi.Support.deviceCount();
-		boolean oneapiAvailable = chess.lc0.oneapi.Support.isAvailable();
+		boolean oneapiLoaded = chess.nn.lc0.oneapi.Support.isLoaded();
+		int oneapiCount = chess.nn.lc0.oneapi.Support.deviceCount();
+		boolean oneapiAvailable = chess.nn.lc0.oneapi.Support.isAvailable();
 		System.out.printf(
 				"oneAPI JNI backend: loaded=%s, available=%s (deviceCount=%d)%n",
 				oneapiLoaded ? "yes" : "no",

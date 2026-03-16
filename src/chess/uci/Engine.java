@@ -5,6 +5,8 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintStream;
 import java.util.concurrent.TimeUnit;
+import java.util.function.BooleanSupplier;
+import java.util.function.Consumer;
 
 import chess.core.Position;
 import chess.debug.LogService;
@@ -397,6 +399,69 @@ public class Engine implements AutoCloseable {
 
 		checkProcessAlive(position);
 
+		engineOutput = "";
+		return this;
+	}
+
+	/**
+	 * Used for running an infinite analysis that only stops when the caller signals
+	 * a stop or the engine emits a {@code bestmove} line.
+	 *
+	 * @param position     the position to analyse
+	 * @param analysis     the analysis buffer to append engine output to
+	 * @param arguments    optional stopping criteria (may be {@code null})
+	 * @param stallTimeout max idle time (ms) before stopping due to unresponsive engine
+	 * @param stopSignal   external stop signal (may be {@code null})
+	 * @param onUpdate     callback invoked after each parsed output (may be {@code null})
+	 * @return this {@code Engine} instance for chaining
+	 * @throws IOException if I/O fails while communicating with the engine
+	 */
+	public synchronized Engine analyseInfinite(
+			Position position,
+			Analysis analysis,
+			Filter arguments,
+			long stallTimeout,
+			BooleanSupplier stopSignal,
+			Consumer<Analysis> onUpdate) throws IOException {
+		if (position == null || analysis == null) {
+			return this;
+		}
+
+		revive();
+		rest();
+		setPosition(position);
+		print("go infinite");
+
+		boolean engineUnresponsive = false;
+		long lastOutput = System.currentTimeMillis();
+		long stopTimestamp = 0;
+		boolean stopIssued = false;
+
+		while (searchOngoing(engineOutput) && process.isAlive()) {
+			if (!stopIssued && stopSignal != null && stopSignal.getAsBoolean()) {
+				stop();
+				stopIssued = true;
+			}
+			if (input.ready()) {
+				engineUnresponsive = false;
+				processEngineOutput(analysis, arguments);
+				lastOutput = System.currentTimeMillis();
+				if (onUpdate != null) {
+					onUpdate.accept(analysis);
+				}
+			} else if (stallTimeout > 0 && System.currentTimeMillis() - lastOutput >= stallTimeout) {
+				if (engineUnresponsive) {
+					stopTimestamp = terminateIfStalled(stopTimestamp);
+				} else {
+					stopTimestamp = markUnresponsive(stallTimeout);
+					engineUnresponsive = true;
+				}
+			} else {
+				yieldForEngineOutput();
+			}
+		}
+
+		checkProcessAlive(position);
 		engineOutput = "";
 		return this;
 	}

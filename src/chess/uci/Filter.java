@@ -465,7 +465,9 @@ public final class Filter {
          */
         private final List<Filter> leaves = new ArrayList<>();
 
-        /** Predicate specs for DSL round-trip. */
+        /**
+         * Predicate specs for DSL round-trip.
+         */
         private final List<PredicateSpec> predicateSpecs = new ArrayList<>();
 
         /**
@@ -821,88 +823,144 @@ public final class Filter {
      */
     private static final class DslLiterals {
 
-        /** Used for representing the canonical literal for a {@code null} value. */
+        /**
+         * Used for representing the canonical literal for a {@code null} value.
+         */
         static final String NULL_LITERAL = "null";
 
-        /** Used for the DSL key prefix for the gate operator. */
+        /**
+         * Used for the DSL key prefix for the gate operator.
+         */
         static final String KEY_GATE = "gate=";
 
-        /** Used for the DSL key prefix for null-return behavior. */
+        /**
+         * Used for the DSL key prefix for null-return behavior.
+         */
         static final String KEY_NULL = "null=";
 
-        /** Used for the DSL key prefix for empty-return behavior. */
+        /**
+         * Used for the DSL key prefix for empty-return behavior.
+         */
         static final String KEY_EMPTY = "empty=";
 
-        /** Used for the DSL key prefix for principal variation break. */
+        /**
+         * Used for the DSL key prefix for principal variation break.
+         */
         static final String KEY_BREAK = "break=";
 
-        /** Used for the informational predicates count key. */
+        /**
+         * Used for the informational predicates count key.
+         */
         static final String KEY_PREDICATES = "predicates=";
 
-        /** Used for the token starting a nested leaf block. */
+        /**
+         * Used for the token starting a nested leaf block.
+         */
         static final String LEAF_OPEN = "leaf[";
 
-        /** Used for the token ending a nested leaf block. */
+        /**
+         * Used for the token ending a nested leaf block.
+         */
         static final String LEAF_CLOSE_AND_SEMI = "];";
 
-        /** Used for the predicate key "nodes". */
+        /**
+         * Used for the predicate key "nodes".
+         */
         static final String PRED_NODES = "nodes";
 
-        /** Used for the predicate key "nps". */
+        /**
+         * Used for the predicate key "nps".
+         */
         static final String PRED_NPS = "nps";
 
-        /** Used for the predicate key "tbhits". */
+        /**
+         * Used for the predicate key "tbhits".
+         */
         static final String PRED_TBHITS = "tbhits";
 
-        /** Used for the predicate key "time". */
+        /**
+         * Used for the predicate key "time".
+         */
         static final String PRED_TIME = "time";
 
-        /** Used for the predicate key "depth". */
+        /**
+         * Used for the predicate key "depth".
+         */
         static final String PRED_DEPTH = "depth";
 
-        /** Used for the predicate key "seldepth". */
+        /**
+         * Used for the predicate key "seldepth".
+         */
         static final String PRED_SELDEPTH = "seldepth";
 
-        /** Used for the predicate key "multipv". */
+        /**
+         * Used for the predicate key "multipv".
+         */
         static final String PRED_MULTIPV = "multipv";
 
-        /** Used for the predicate key "hashfull". */
+        /**
+         * Used for the predicate key "hashfull".
+         */
         static final String PRED_HASHFULL = "hashfull";
 
-        /** Used for the predicate key "eval". */
+        /**
+         * Used for the predicate key "eval".
+         */
         static final String PRED_EVAL = "eval";
 
-        /** Used for the predicate key "chances". */
+        /**
+         * Used for the predicate key "chances".
+         */
         static final String PRED_CHANCES = "chances";
 
-        /** Used for the DSL delimiter semicolon. */
+        /**
+         * Used for the DSL delimiter semicolon.
+         */
         static final char DELIM_SEMICOLON = ';';
 
-        /** Used for the DSL delimiter comma. */
+        /**
+         * Used for the DSL delimiter comma.
+         */
         static final char DELIM_COMMA = ',';
 
-        /** Used for the DSL space delimiter during parsing. */
+        /**
+         * Used for the DSL space delimiter during parsing.
+         */
         static final char DELIM_SPACE = ' ';
 
-        /** Used for the closing bracket encountered by the parser. */
+        /**
+         * Used for the closing bracket encountered by the parser.
+         */
         static final char BRACKET_CLOSE = ']';
 
-        /** Used for the opening bracket encountered by the parser. */
+        /**
+         * Used for the opening bracket encountered by the parser.
+         */
         static final char BRACKET_OPEN = '[';
 
-        /** Used for the DSL symbol for GREATER. */
+        /**
+         * Used for the DSL symbol for GREATER.
+         */
         static final String OP_SYMBOL_GREATER = ">";
 
-        /** Used for the DSL symbol for GREATER_EQUAL. */
+        /**
+         * Used for the DSL symbol for GREATER_EQUAL.
+         */
         static final String OP_SYMBOL_GREATER_EQUAL = ">=";
 
-        /** Used for the DSL symbol for EQUAL. */
+        /**
+         * Used for the DSL symbol for EQUAL.
+         */
         static final String OP_SYMBOL_EQUAL = "=";
 
-        /** Used for the DSL symbol for LESS_EQUAL. */
+        /**
+         * Used for the DSL symbol for LESS_EQUAL.
+         */
         static final String OP_SYMBOL_LESS_EQUAL = "<=";
 
-        /** Used for the DSL symbol for LESS. */
+        /**
+         * Used for the DSL symbol for LESS.
+         */
         static final String OP_SYMBOL_LESS = "<";
 
         /**
@@ -1004,10 +1062,14 @@ public final class Filter {
          */
         private static final class Parser {
 
-            /** Raw DSL input, trimmed once at construction. */
+            /**
+             * Raw DSL input, trimmed once at construction.
+             */
             private final String input;
 
-            /** Current index into {@link #input}. */
+            /**
+             * Current index into {@link #input}.
+             */
             private int pos = 0;
 
             /**
@@ -1255,7 +1317,9 @@ public final class Filter {
                 return true;
             }
 
-            /** Holds the most recently parsed comparison operator token. */
+            /**
+             * Holds the most recently parsed comparison operator token.
+             */
             private Filter.ComparisonOperator lastOp; // set by parse*CompAndValue methods
 
             /**
@@ -1296,13 +1360,17 @@ public final class Filter {
                 return Filter.ComparisonOperator.EQUAL;
             }
 
-            /** Skips ASCII whitespace. */
+            /**
+             * Skips ASCII whitespace.
+             */
             private void skipWs() {
                 while (pos < input.length() && Character.isWhitespace(input.charAt(pos)))
                     pos++;
             }
 
-            /** Skips DSL delimiters ({@code ; ,} and spaces). */
+            /**
+             * Skips DSL delimiters ({@code ; ,} and spaces).
+             */
             private void skipDelims() {
                 while (pos < input.length()) {
                     char c = input.charAt(pos);
@@ -1321,12 +1389,16 @@ public final class Filter {
                 return input.startsWith(s, pos);
             }
 
-            /** Reads a comparison token until a delimiter or bracket. */
+            /**
+             * Reads a comparison token until a delimiter or bracket.
+             */
             private String readComparison() {
                 return readToken();
             }
 
-            /** Reads a generic token until a delimiter or bracket. */
+            /**
+             * Reads a generic token until a delimiter or bracket.
+             */
             private String readToken() {
                 int start = pos;
                 while (pos < input.length()) {
@@ -1340,12 +1412,16 @@ public final class Filter {
                 return input.substring(start, pos);
             }
 
-            /** Parses an {@code int} from a digit string. */
+            /**
+             * Parses an {@code int} from a digit string.
+             */
             private static int parseInt(String s) {
                 return Integer.parseInt(s);
             }
 
-            /** Parses a {@code long} from a digit string. */
+            /**
+             * Parses a {@code long} from a digit string.
+             */
             private static long parseLong(String s) {
                 return Long.parseLong(s);
             }
@@ -1371,10 +1447,14 @@ public final class Filter {
             EVAL, CHANCES
         }
 
-        /** Attribute kind this spec applies to. */
+        /**
+         * Attribute kind this spec applies to.
+         */
         final Kind kind;
 
-        /** Operator applied to this attribute. */
+        /**
+         * Operator applied to this attribute.
+         */
         final ComparisonOperator op;
 
         /**

@@ -14,11 +14,11 @@
  * JNI surface
  * -----------
  * Exported native methods (names must match their Java declarations):
- *   - chess.lc0.oneapi.Support.nativeDeviceCount() -> int
- *   - chess.lc0.oneapi.Backend.nativeCreate(String weightsPath) -> long (opaque handle)
- *   - chess.lc0.oneapi.Backend.nativeDestroy(long handle) -> void
- *   - chess.lc0.oneapi.Backend.nativeGetInfo(long handle) -> long[7]
- *   - chess.lc0.oneapi.Backend.nativePredict(long handle, float[] encoded, float[] policyOut, float[] wdlOut) -> float
+ *   - chess.nn.lc0.oneapi.Support.nativeDeviceCount() -> int
+ *   - chess.nn.lc0.oneapi.Backend.nativeCreate(String weightsPath) -> long (opaque handle)
+ *   - chess.nn.lc0.oneapi.Backend.nativeDestroy(long handle) -> void
+ *   - chess.nn.lc0.oneapi.Backend.nativeGetInfo(long handle) -> long[7]
+ *   - chess.nn.lc0.oneapi.Backend.nativePredict(long handle, float[] encoded, float[] policyOut, float[] wdlOut) -> float
  *
  * Data / shapes
  * -------------
@@ -99,7 +99,7 @@ static bool select_intel_gpu(sycl::device& out) {
     return true;
 }
 
-extern "C" JNIEXPORT jint JNICALL Java_chess_lc0_oneapi_Support_nativeDeviceCount(JNIEnv*, jclass) {
+extern "C" JNIEXPORT jint JNICALL Java_chess_nn_lc0_oneapi_Support_nativeDeviceCount(JNIEnv*, jclass) {
     return device_count();
 }
 
@@ -772,15 +772,15 @@ static jlong backend_nativeCreate(JNIEnv* env, jstring jpath) {
     return reinterpret_cast<jlong>(net);
 }
 
-extern "C" JNIEXPORT jlong JNICALL Java_chess_lc0_oneapi_Backend_nativeCreate(JNIEnv* env, jclass, jstring jpath) {
+extern "C" JNIEXPORT jlong JNICALL Java_chess_nn_lc0_oneapi_Backend_nativeCreate(JNIEnv* env, jclass, jstring jpath) {
     return backend_nativeCreate(env, jpath);
 }
 
-extern "C" JNIEXPORT void JNICALL Java_chess_lc0_oneapi_Backend_nativeDestroy(JNIEnv*, jclass, jlong handle) {
+extern "C" JNIEXPORT void JNICALL Java_chess_nn_lc0_oneapi_Backend_nativeDestroy(JNIEnv*, jclass, jlong handle) {
     destroy_net(reinterpret_cast<SyclNet*>(handle));
 }
 
-extern "C" JNIEXPORT jlongArray JNICALL Java_chess_lc0_oneapi_Backend_nativeGetInfo(JNIEnv* env, jclass, jlong handle) {
+extern "C" JNIEXPORT jlongArray JNICALL Java_chess_nn_lc0_oneapi_Backend_nativeGetInfo(JNIEnv* env, jclass, jlong handle) {
     SyclNet* net = reinterpret_cast<SyclNet*>(handle);
     if (!net) return nullptr;
     jlong vals[7];
@@ -797,7 +797,7 @@ extern "C" JNIEXPORT jlongArray JNICALL Java_chess_lc0_oneapi_Backend_nativeGetI
     return arr;
 }
 
-extern "C" JNIEXPORT jfloat JNICALL Java_chess_lc0_oneapi_Backend_nativePredict(
+extern "C" JNIEXPORT jfloat JNICALL Java_chess_nn_lc0_oneapi_Backend_nativePredict(
         JNIEnv* env, jclass, jlong handle, jfloatArray jencoded, jfloatArray joutPolicy, jfloatArray joutWdl) {
     SyclNet* net = reinterpret_cast<SyclNet*>(handle);
     if (!net) return 0.0f;

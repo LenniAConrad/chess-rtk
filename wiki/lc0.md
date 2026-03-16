@@ -35,16 +35,20 @@ Guardrail (fail if weights are tracked by git):
 
 ## 2) Built-in Java LC0 evaluator (display/ablation)
 
+![LC0 CNN evaluator flow](../assets/diagrams/crtk-lc0-cnn.png)
+
+Diagram source: `assets/diagrams/crtk-lc0-cnn.dot` (render with `dot -Tpng -Gdpi=160 -o assets/diagrams/crtk-lc0-cnn.png assets/diagrams/crtk-lc0-cnn.dot`).
+
 The Java evaluator lives under `src/chess/lc0/` and is used by `chess.eval.Evaluator`.
 
 Defaults:
-- weights: `models/lc0_744706.bin` (`chess.lc0.Model.DEFAULT_WEIGHTS`)
+- weights: `models/lc0_744706.bin` (`chess.nn.lc0.Model.DEFAULT_WEIGHTS`)
 - backend: `cpu` unless the optional CUDA JNI backend is available
 
 Backend selection (system properties):
 - `-Dcrtk.lc0.backend=auto|cpu|cuda` (default `auto`)
 - `-Dcrtk.lc0.threads=N` (CPU backend only)
-- Legacy aliases still accepted: `ucicli.lc0.*`, `lc0j.*`
+- Command aliases are not accepted.
 
 To see which backend is being used in practice (opens a window), run:
 

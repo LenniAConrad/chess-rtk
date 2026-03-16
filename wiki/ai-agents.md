@@ -9,10 +9,15 @@ This page is a design checklist + backlog of high-value subcommands and flags fo
 
 ---
 
+![Agentic command contracts](../assets/diagrams/crtk-agentic-commands.png)
+
+Diagram source: `assets/diagrams/crtk-agentic-commands.dot` (render with `dot -Tpng -Gdpi=160 -o assets/diagrams/crtk-agentic-commands.png assets/diagrams/crtk-agentic-commands.dot`).
+
 ## What's already available
 
 - `moves-uci`, `moves-san`, `moves-both` for deterministic move lists.
 - `bestmove-uci`, `bestmove-san`, `bestmove-both` for fixed-format best moves.
+- `uci-to-san`, `san-to-uci`, `fen-after`, `play-line` for move conversion and line application.
 - `eval-static` for classical evaluation.
 - `perft-suite` for quick regression checks.
 - `records`, `puzzles-to-pgn`, `pgn-to-fens` for dataset plumbing.

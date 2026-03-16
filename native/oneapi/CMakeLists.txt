@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.18)
-project(lc0j_oneapi LANGUAGES CXX)
+project(oneapi_backends LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -12,3 +12,8 @@ add_library(lc0j_oneapi SHARED lc0j_oneapi_jni.cpp)
 target_include_directories(lc0j_oneapi PRIVATE ${JNI_INCLUDE_DIRS})
 target_compile_options(lc0j_oneapi PRIVATE -fsycl)
 target_link_options(lc0j_oneapi PRIVATE -fsycl)
+
+add_library(t5_oneapi SHARED t5_oneapi_jni.cpp)
+target_include_directories(t5_oneapi PRIVATE ${JNI_INCLUDE_DIRS})
+target_compile_options(t5_oneapi PRIVATE -fsycl)
+target_link_options(t5_oneapi PRIVATE -fsycl)

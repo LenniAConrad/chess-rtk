@@ -59,6 +59,11 @@ Examples assume you installed the launcher (`crtk`). If you run from classes, re
 - `crtk moves-uci --fen "<FEN>"` — list legal moves (UCI shortcut).
 - `crtk moves-san --fen "<FEN>"` — list legal moves (SAN shortcut).
 - `crtk moves-both --fen "<FEN>"` — list legal moves (UCI + SAN shortcut).
+- `crtk uci-to-san --fen "<FEN>" e2e4` — convert a single move to SAN.
+- `crtk san-to-uci --fen "<FEN>" Nf3` — convert a single move to UCI.
+- `crtk fen-after --fen "<FEN>" e2e4` — apply one move and print the resulting FEN.
+- `crtk play-line --fen "<FEN>" e2e4 e7e5 g1f3` — apply a move sequence and print the final FEN.
+- `crtk play-line --fen "<FEN>" e4 e5 Nf3 --intermediate` — apply a SAN line and print each intermediate FEN.
 
 ## Stats
 

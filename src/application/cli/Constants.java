@@ -31,9 +31,24 @@ public final class Constants {
 	public static final String CMD_RECORD_TO_DATASET = "record-to-dataset";
 
 	/**
+	 * {@code record-to-lc0} subcommand token.
+	 */
+	public static final String CMD_RECORD_TO_LC0 = "record-to-lc0";
+
+	/**
 	 * {@code record-to-pgn} subcommand token.
 	 */
 	public static final String CMD_RECORD_TO_PGN = "record-to-pgn";
+
+	/**
+	 * {@code record-to-puzzle-jsonl} subcommand token.
+	 */
+	public static final String CMD_RECORD_TO_PUZZLE_JSONL = "record-to-puzzle-jsonl";
+
+	/**
+	 * {@code record-analysis-delta} subcommand token.
+	 */
+	public static final String CMD_RECORD_ANALYSIS_DELTA = "record-analysis-delta";
 
 	/**
 	 * {@code records} subcommand token.
@@ -56,11 +71,6 @@ public final class Constants {
 	public static final String CMD_GPU_INFO = "gpu-info";
 
 	/**
-	 * Legacy alias for {@code gpu-info}.
-	 */
-	public static final String CMD_CUDA_INFO = "cuda-info";
-
-	/**
 	 * {@code gen-fens} subcommand token.
 	 */
 	public static final String CMD_GEN_FENS = "gen-fens";
@@ -69,11 +79,6 @@ public final class Constants {
 	 * {@code mine-puzzles} subcommand token.
 	 */
 	public static final String CMD_MINE_PUZZLES = "mine-puzzles";
-
-	/**
-	 * Legacy alias for {@code mine-puzzles}.
-	 */
-	public static final String CMD_MINE = "mine";
 
 	/**
 	 * {@code print} subcommand token.
@@ -89,6 +94,11 @@ public final class Constants {
 	 * {@code render} subcommand token.
 	 */
 	public static final String CMD_RENDER = "render";
+
+	/**
+	 * {@code gui} subcommand token.
+	 */
+	public static final String CMD_GUI = "gui";
 
 	/**
 	 * {@code clean} subcommand token.
@@ -116,6 +126,21 @@ public final class Constants {
 	public static final String CMD_TAGS = "tags";
 
 	/**
+	 * {@code puzzle-tags} subcommand token.
+	 */
+	public static final String CMD_PUZZLE_TAGS = "puzzle-tags";
+
+	/**
+	 * {@code puzzle-text} subcommand token.
+	 */
+	public static final String CMD_PUZZLE_TEXT = "puzzle-text";
+
+	/**
+	 * {@code tag-text} subcommand token.
+	 */
+	public static final String CMD_TAG_TEXT = "tag-text";
+
+	/**
 	 * {@code moves} subcommand token.
 	 */
 	public static final String CMD_MOVES = "moves";
@@ -134,6 +159,26 @@ public final class Constants {
 	 * {@code moves-both} subcommand token.
 	 */
 	public static final String CMD_MOVES_BOTH = "moves-both";
+
+	/**
+	 * {@code uci-to-san} subcommand token.
+	 */
+	public static final String CMD_UCI_TO_SAN = "uci-to-san";
+
+	/**
+	 * {@code san-to-uci} subcommand token.
+	 */
+	public static final String CMD_SAN_TO_UCI = "san-to-uci";
+
+	/**
+	 * {@code fen-after} subcommand token.
+	 */
+	public static final String CMD_FEN_AFTER = "fen-after";
+
+	/**
+	 * {@code play-line} subcommand token.
+	 */
+	public static final String CMD_PLAY_LINE = "play-line";
 
 	/**
 	 * {@code analyze} subcommand token.
@@ -196,11 +241,6 @@ public final class Constants {
 	public static final String CMD_EVAL_STATIC = "eval-static";
 
 	/**
-	 * {@code evaluate} alias for the {@link #CMD_EVAL} subcommand.
-	 */
-	public static final String CMD_EVALUATE = "evaluate";
-
-	/**
 	 * Short help flag alias.
 	 */
 	public static final String CMD_HELP_SHORT = "-h";
@@ -221,9 +261,19 @@ public final class Constants {
 	public static final String OPT_INPUT_SHORT = "-i";
 
 	/**
+	 * {@code --pgn} option flag.
+	 */
+	public static final String OPT_PGN = "--pgn";
+
+	/**
 	 * {@code --fen} option flag.
 	 */
 	public static final String OPT_FEN = "--fen";
+
+	/**
+	 * {@code --include-fen} option flag.
+	 */
+	public static final String OPT_INCLUDE_FEN = "--include-fen";
 
 	/**
 	 * {@code --output} option flag.
@@ -249,6 +299,31 @@ public final class Constants {
 	 * Short {@code --verbose} flag alias.
 	 */
 	public static final String OPT_VERBOSE_SHORT = "-v";
+
+	/**
+	 * {@code --analyze} option flag.
+	 */
+	public static final String OPT_ANALYZE = "--analyze";
+
+	/**
+	 * {@code --no-analyze} option flag.
+	 */
+	public static final String OPT_NO_ANALYZE = "--no-analyze";
+
+	/**
+	 * {@code --sequence} option flag.
+	 */
+	public static final String OPT_SEQUENCE = "--sequence";
+
+	/**
+	 * {@code --delta} option flag.
+	 */
+	public static final String OPT_DELTA = "--delta";
+
+	/**
+	 * {@code --intermediate} option flag.
+	 */
+	public static final String OPT_INTERMEDIATE = "--intermediate";
 
 	/**
 	 * {@code --sidelines} option flag.
@@ -349,6 +424,16 @@ public final class Constants {
 	 * {@code --multipv} option flag.
 	 */
 	public static final String OPT_MULTIPV = "--multipv";
+
+	/**
+	 * {@code --pv-plies} option flag.
+	 */
+	public static final String OPT_PV_PLIES = "--pv-plies";
+
+	/**
+	 * {@code --tag-multipv} option flag.
+	 */
+	public static final String OPT_TAG_MULTIPV = "--tag-multipv";
 
 	/**
 	 * {@code --threads} option flag.
@@ -494,6 +579,11 @@ public final class Constants {
 	 * {@code --dark} option flag.
 	 */
 	public static final String OPT_DARK = "--dark";
+
+	/**
+	 * {@code --light} option flag.
+	 */
+	public static final String OPT_LIGHT = "--light";
 
 	/**
 	 * {@code --dark-mode} option flag (alias for {@link #OPT_DARK}).

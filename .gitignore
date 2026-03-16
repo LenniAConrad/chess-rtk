@@ -13,7 +13,8 @@ crtk.jar
 dist/
 
 # LC0 / model weights (large, third-party)
-models/lc0_610153.bin
+models/*
+!models/README.md
 
 # Native GPU build artifacts
 native/cuda/build/
@@ -46,3 +47,7 @@ native/oneapi/**/*.dylib
 
 # VS Code settings
 .vscode/
+.directory
+
+# GUI package
+src/application/gui/

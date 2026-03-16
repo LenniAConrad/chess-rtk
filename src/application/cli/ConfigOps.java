@@ -67,6 +67,30 @@ public final class ConfigOps {
 	}
 
 	/**
+	 * Validates an optional model-path setting from CLI config.
+	 *
+	 * <p>Model paths are treated as advisory defaults, so missing files are reported as warnings.
+	 *
+	 * @param key      config key name (for diagnostics)
+	 * @param pathText configured model path
+	 * @param warnings mutable list receiving warning messages
+	 */
+	public static void validateModelPath(String key, String pathText, List<String> warnings) {
+		if (pathText == null || pathText.isBlank()) {
+			warnings.add(key + " is empty in config");
+			return;
+		}
+		try {
+			Path path = Path.of(pathText);
+			if (Files.notExists(path)) {
+				warnings.add("Missing model file for " + key + ": " + path.toAbsolutePath());
+			}
+		} catch (RuntimeException ex) {
+			warnings.add("Invalid path for " + key + ": " + pathText);
+		}
+	}
+
+	/**
 	 * Parses a protocol TOML file, validates its contents, and checks that the declared engine is on PATH.
 	 *
 	 * @param protocolPath path to the protocol TOML file

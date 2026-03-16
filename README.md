@@ -4,6 +4,11 @@ ChessRTK is a reproducible, zero-dependency Java 17 toolkit for chess research: 
 
 CLI command: `crtk`
 
+Command compatibility:
+- Use canonical command names only.
+- Removed commands: `gui2`, `cuda-info`, `mine`, `evaluate`.
+- Use instead: `gui`, `gpu-info`, `mine-puzzles`, `eval`.
+
 Built for:
 - chess researchers / dataset builders / engine experimenters
 - high-throughput, scriptable pipelines (CLI-first)
@@ -15,9 +20,9 @@ Not a:
 
 ## Pipeline overview
 
-![ChessRTK pipeline overview](assets/crtk-pipeline-overview.png)
+![ChessRTK pipeline overview](assets/diagrams/crtk-pipeline-overview.png)
 
-Diagram source: `assets/crtk-pipeline-overview.dot` (render with `dot -Tpng -Gdpi=160 -o assets/crtk-pipeline-overview.png assets/crtk-pipeline-overview.dot`).
+Diagram source: `assets/diagrams/crtk-pipeline-overview.dot` (render with `dot -Tpng -Gdpi=160 -o assets/diagrams/crtk-pipeline-overview.png assets/diagrams/crtk-pipeline-overview.dot`).
 
 ---
 
@@ -34,9 +39,9 @@ crtk record-to-pgn --input dump/run.puzzles.json --output dump/run.puzzles.pgn
 
 ### Mining decision gates
 
-![ChessRTK mining decision gates](assets/crtk-mining-gates.png)
+![ChessRTK mining decision gates](assets/diagrams/crtk-mining-gates.png)
 
-Diagram source: `assets/crtk-mining-gates.dot` (render with `dot -Tpng -Gdpi=100 -o assets/crtk-mining-gates.png assets/crtk-mining-gates.dot`).
+Diagram source: `assets/diagrams/crtk-mining-gates.dot` (render with `dot -Tpng -Gdpi=100 -o assets/diagrams/crtk-mining-gates.png assets/diagrams/crtk-mining-gates.dot`).
 
 Other common primitives:
 
@@ -44,17 +49,19 @@ Other common primitives:
 - Validate movegen: `crtk perft --depth 5`
 - Engine probing: `crtk analyze --fen "<FEN>" --max-duration 2s`, `crtk bestmove --fen "<FEN>" --max-duration 200`, `crtk threats --fen "<FEN>" --max-duration 2s`
 - Position inspection: `crtk print --fen "<FEN>"`, `crtk display --fen "<FEN>" --special-arrows`, `crtk render --fen "<FEN>" --output dump/pos.png`
-- Dataset export: `crtk record-to-dataset --input dump/run.puzzles.json --output training/puzzles`
+- Dataset export (NNUE): `crtk record-to-dataset --input dump/run.puzzles.json --output training/puzzles`
+- Dataset export (LC0): `crtk record-to-lc0 --input dump/run.puzzles.json --output training/puzzles`
 
 ## Single-position toolbox
 
-![ChessRTK single-position toolbox](assets/crtk-position-toolbox.png)
+![ChessRTK single-position toolbox](assets/diagrams/crtk-position-toolbox.png)
 
-Diagram source: `assets/crtk-position-toolbox.dot` (render with `dot -Tpng -Gdpi=160 -o assets/crtk-position-toolbox.png assets/crtk-position-toolbox.dot`).
+Diagram source: `assets/diagrams/crtk-position-toolbox.dot` (render with `dot -Tpng -Gdpi=160 -o assets/diagrams/crtk-position-toolbox.png assets/diagrams/crtk-position-toolbox.dot`).
 
 Agent-friendly shortcuts:
 - `moves-uci`, `moves-san`, `moves-both`
 - `bestmove-uci`, `bestmove-san`, `bestmove-both`
+- `uci-to-san`, `san-to-uci`, `fen-after`, `play-line`
 - `eval-static`, `perft-suite`, `records`, `puzzles-to-pgn`, `pgn-to-fens`
 
 ## Docs (full)
@@ -75,6 +82,9 @@ Agent-friendly shortcuts:
 Requirements:
 - Java 17+ JDK (needs `javac`)
 - A UCI engine on `PATH` (e.g. Stockfish) or configured via `config/*.engine.toml`
+
+Model files are not stored in this repo. Download them from:
+- https://github.com/LenniAConrad/chess-models
 
 Build (no Maven/Gradle):
 
@@ -97,6 +107,12 @@ Linux convenience installer (Debian/Ubuntu):
 crtk help
 ```
 
+Uninstall (removes launcher + local build artifacts):
+
+```bash
+./scripts/uninstall.sh
+```
+
 More: `wiki/build-and-install.md`
 
 ---
@@ -108,6 +124,7 @@ More: `wiki/build-and-install.md`
 - `records`: merge/filter/split record files (with optional puzzle/DSL filtering)
 - `puzzles-to-pgn`: convert mixed puzzle/non-puzzle dumps to PGN games
 - `record-to-dataset`, `stack-to-dataset`: export tensors for AI training (features `(N, 781)`)
+- `record-to-lc0`: export LC0-style tensors (inputs/policy/value)
 - `gen-fens`: generate large shards of random legal FENs
 - `print`: pretty-print a FEN as ASCII (includes tags)
 - `display`: open a small GUI board view (overlays + optional ablation)
@@ -115,6 +132,9 @@ More: `wiki/build-and-install.md`
 - `gpu-info`: show LC0 GPU backend availability and device info (CUDA/ROCm/oneAPI)
 - `analyze`, `bestmove`, `threats`: engine probing and tactical checks on a FEN
 - `moves`, `moves-uci`, `moves-san`, `moves-both`: list legal moves for a FEN
+- `uci-to-san`, `san-to-uci`: convert a move between UCI and SAN
+- `fen-after`: apply a move and return the resulting FEN
+- `play-line`: apply a line of moves and return the final (or intermediate) FENs
 - `bestmove-uci`, `bestmove-san`, `bestmove-both`: best move shortcuts with fixed output format
 - `tags`: list tags for a FEN
 - `stats`, `stats-tags`: summarize dumps or tag distributions

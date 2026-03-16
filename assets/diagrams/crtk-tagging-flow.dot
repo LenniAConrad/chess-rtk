@@ -1,0 +1,62 @@
+digraph crtk_tagging_flow {
+  rankdir=LR;
+  bgcolor="transparent";
+  splines=ortho;
+  pad="0.20";
+  nodesep="0.35";
+  ranksep="0.55";
+
+  graph [fontname="Helvetica", fontsize=14];
+  node  [fontname="Helvetica", fontsize=12];
+  edge  [fontname="Helvetica", fontsize=10, color="#424242", arrowsize=0.8, penwidth=1.2];
+
+  subgraph cluster_input {
+    label="Inputs";
+    style="rounded";
+    color="#FFE0B2";
+    fontcolor="#E65100";
+    penwidth=1.4;
+
+    node [shape=note, style="filled", fillcolor="#FFF3E0", color="#EF6C00", penwidth=1.2];
+    fen [label="FEN / positions"];
+    eco [label="ECO book\nconfig/book.eco.toml"];
+    analysis [label="Engine analysis\n(--analyze)"];
+    sequence [label="Sequence tags\n(--sequence)"];
+  }
+
+  subgraph cluster_tagging {
+    label="Tagging core";
+    style="rounded";
+    color="#B3E5FC";
+    fontcolor="#01579B";
+    penwidth=1.4;
+
+    node [shape=box, style="rounded,filled", fillcolor="#E1F5FE", color="#0288D1", penwidth=1.2];
+    tagging [label="Tagging + taggers\n(piece, pawn, tactical, material)"];
+
+    node [shape=note, style="filled", fillcolor="#E1F5FE", color="#0288D1", penwidth=1.2];
+    tags [label="Tag lines\n+ strongest / weakest"];
+  }
+
+  subgraph cluster_outputs {
+    label="Consumers";
+    style="rounded";
+    color="#C5CAE9";
+    fontcolor="#1A237E";
+    penwidth=1.4;
+
+    node [shape=note, style="filled", fillcolor="#E8EAF6", color="#303F9F", penwidth=1.2];
+    tags_cmd [label="tags output\n(JSON array)"];
+    print_cmd [label="print output\n(board + tags)"];
+    records [label="record tags\n(mining)"];
+  }
+
+  fen -> tagging;
+  eco -> tagging [style=dashed];
+  analysis -> tagging [style=dashed];
+  sequence -> tagging [style=dashed];
+  tagging -> tags;
+  tags -> tags_cmd;
+  tags -> print_cmd;
+  tags -> records;
+}

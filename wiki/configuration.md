@@ -8,10 +8,15 @@ Loaded on startup. If the file is missing, the CLI will create it with built-in 
 
 Common keys:
 - `protocol-path`: points to the engine protocol file (default `config/default.engine.toml`)
+- `lc0-model-path`: default LC0J weights path for evaluator-backed commands/features (default `models/lc0_744706.bin`)
+- `t5-model-path`: default T5 `.bin` path used by `tag-text` / `puzzle-text` when `--model` is omitted (default `models/t5.bin`)
 - `output`: default output root for `mine-puzzles` (default `dump/`)
 - `engine-instances`: how many engine processes to run in parallel
 - `max-nodes`: per-position node cap
 - `max-duration`: per-position time cap (ms)
+- `threat-min-cp`: minimum centipawn advantage in null-move analysis to emit a threat tag
+- `threat-equalize-min-cp`: minimum disadvantage before considering equalizing threats
+- `threat-equalize-target-cp`: maximum remaining disadvantage after an equalizing threat
 - `puzzle-quality`, `puzzle-winning`, `puzzle-drawing`, `puzzle-accelerate`: Filter DSL strings for mining
 
 Notes:

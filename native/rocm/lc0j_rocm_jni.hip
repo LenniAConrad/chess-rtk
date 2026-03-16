@@ -14,11 +14,11 @@
  * JNI surface
  * -----------
  * Exported native methods (names must match their Java declarations):
- *   - chess.lc0.rocm.Support.nativeDeviceCount() -> int
- *   - chess.lc0.rocm.Backend.nativeCreate(String weightsPath) -> long (opaque handle)
- *   - chess.lc0.rocm.Backend.nativeDestroy(long handle) -> void
- *   - chess.lc0.rocm.Backend.nativeGetInfo(long handle) -> long[7]
- *   - chess.lc0.rocm.Backend.nativePredict(long handle, float[] encoded, float[] policyOut, float[] wdlOut) -> float
+ *   - chess.nn.lc0.rocm.Support.nativeDeviceCount() -> int
+ *   - chess.nn.lc0.rocm.Backend.nativeCreate(String weightsPath) -> long (opaque handle)
+ *   - chess.nn.lc0.rocm.Backend.nativeDestroy(long handle) -> void
+ *   - chess.nn.lc0.rocm.Backend.nativeGetInfo(long handle) -> long[7]
+ *   - chess.nn.lc0.rocm.Backend.nativePredict(long handle, float[] encoded, float[] policyOut, float[] wdlOut) -> float
  *
  * Data / shapes
  * -------------
@@ -64,7 +64,7 @@ static inline int device_count() {
     return count;
 }
 
-extern "C" JNIEXPORT jint JNICALL Java_chess_lc0_rocm_Support_nativeDeviceCount(JNIEnv*, jclass) {
+extern "C" JNIEXPORT jint JNICALL Java_chess_nn_lc0_rocm_Support_nativeDeviceCount(JNIEnv*, jclass) {
     return device_count();
 }
 
@@ -657,15 +657,15 @@ static jlong backend_nativeCreate(JNIEnv* env, jstring jpath) {
     return reinterpret_cast<jlong>(net);
 }
 
-extern "C" JNIEXPORT jlong JNICALL Java_chess_lc0_rocm_Backend_nativeCreate(JNIEnv* env, jclass, jstring jpath) {
+extern "C" JNIEXPORT jlong JNICALL Java_chess_nn_lc0_rocm_Backend_nativeCreate(JNIEnv* env, jclass, jstring jpath) {
     return backend_nativeCreate(env, jpath);
 }
 
-extern "C" JNIEXPORT void JNICALL Java_chess_lc0_rocm_Backend_nativeDestroy(JNIEnv*, jclass, jlong handle) {
+extern "C" JNIEXPORT void JNICALL Java_chess_nn_lc0_rocm_Backend_nativeDestroy(JNIEnv*, jclass, jlong handle) {
     destroy_net(reinterpret_cast<GpuNet*>(handle));
 }
 
-extern "C" JNIEXPORT jlongArray JNICALL Java_chess_lc0_rocm_Backend_nativeGetInfo(JNIEnv* env, jclass, jlong handle) {
+extern "C" JNIEXPORT jlongArray JNICALL Java_chess_nn_lc0_rocm_Backend_nativeGetInfo(JNIEnv* env, jclass, jlong handle) {
     GpuNet* net = reinterpret_cast<GpuNet*>(handle);
     if (!net) return nullptr;
     jlong vals[7];
@@ -682,7 +682,7 @@ extern "C" JNIEXPORT jlongArray JNICALL Java_chess_lc0_rocm_Backend_nativeGetInf
     return arr;
 }
 
-extern "C" JNIEXPORT jfloat JNICALL Java_chess_lc0_rocm_Backend_nativePredict(
+extern "C" JNIEXPORT jfloat JNICALL Java_chess_nn_lc0_rocm_Backend_nativePredict(
         JNIEnv* env, jclass, jlong handle, jfloatArray jencoded, jfloatArray joutPolicy, jfloatArray joutWdl) {
     GpuNet* net = reinterpret_cast<GpuNet*>(handle);
     if (!net) return 0.0f;

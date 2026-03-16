@@ -16,6 +16,24 @@ Example:
 crtk record-to-dataset -i dump/run.puzzles.json -o training/pytorch/data/puzzles
 ```
 
+## From `.record` JSON: `record-to-lc0`
+
+Exports LC0-style inputs/policy/value tensors:
+
+- `<stem>.lc0.inputs.npy` shaped `(N, 112*64)` float32
+- `<stem>.lc0.policy.npy` shaped `(N, policySize)` float32 (one-hot)
+- `<stem>.lc0.value.npy` shaped `(N,)` float32 (scalar in `[-1,1]`)
+- `<stem>.lc0.meta.json` metadata (policy encoding, compression, value scale)
+
+If `--weights` is provided, the policy is compressed to the LC0 network's policy size using the weights' policy map.
+Otherwise, the raw 73-plane policy size (4672) is used.
+
+Example:
+
+```bash
+crtk record-to-lc0 -i dump/run.puzzles.json -o training/lc0/puzzles --weights models/lc0_744706.bin
+```
+
 ## From Stack dumps: `stack-to-dataset`
 
 Input: `Stack-*.json` JSON array dumps (one object per position, with `position` and `analysis` fields).

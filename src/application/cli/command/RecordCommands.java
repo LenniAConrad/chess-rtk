@@ -8,6 +8,7 @@ import static application.cli.Constants.OPT_MAX_RECORDS;
 import static application.cli.Constants.OPT_NONPUZZLES;
 import static application.cli.Constants.OPT_OUTPUT;
 import static application.cli.Constants.OPT_OUTPUT_SHORT;
+import static application.cli.Constants.OPT_WEIGHTS;
 import static application.cli.Constants.OPT_PUZZLES;
 import static application.cli.Constants.OPT_RECURSIVE;
 import static application.cli.Constants.OPT_VERBOSE;
@@ -20,6 +21,7 @@ import static application.cli.Constants.OPT_CSV_OUTPUT;
 import static application.cli.Constants.OPT_CSV_OUTPUT_SHORT;
 import static application.cli.PathOps.ensureParentDir;
 
+import java.io.BufferedWriter;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
@@ -32,12 +34,21 @@ import java.util.Locale;
 import java.util.Objects;
 
 import application.Config;
+import application.console.Bar;
+import chess.core.Move;
 import chess.io.Converter;
 import chess.io.Writer;
+import chess.nn.lc0.Encoder;
+import chess.nn.lc0.Network;
+import chess.nn.lc0.PolicyEncoder;
 import chess.struct.Record;
+import chess.uci.Chances;
+import chess.uci.Evaluation;
 import chess.uci.Filter;
 import chess.uci.Filter.FilterDSL;
+import chess.uci.Output;
 import utility.Argv;
+import utility.Json;
 
 import static application.cli.RecordIO.streamRecordJson;
 
@@ -56,6 +67,8 @@ public final class RecordCommands {
 	private static final String EXT_JSON = ".json";
 	private static final String EXT_JSONL = ".jsonl";
 	private static final String EXT_RECORD = ".record";
+	private static final String EXT_PUZZLE_JSONL = ".puzzle.jsonl";
+	private static final String PUZZLE_JSONL_FORMAT_NAME = "puzzle-jsonl";
 
 	/**
 	 * Utility class; prevent instantiation.
@@ -137,6 +150,37 @@ public final class RecordCommands {
 	}
 
 	/**
+	 * Handles {@code record-to-lc0}.
+	 *
+	 * @param argv argument parser for the subcommand
+	 */
+	public static void runRecordToLc0(Argv argv) {
+		Path in = argv.pathRequired(OPT_INPUT, OPT_INPUT_SHORT);
+		Path out = argv.path(OPT_OUTPUT, OPT_OUTPUT_SHORT);
+		Path weights = argv.path(OPT_WEIGHTS);
+		argv.ensureConsumed();
+
+		if (out == null) {
+			String stem = in.getFileName().toString();
+			int dot = stem.lastIndexOf('.');
+			if (dot > 0) {
+				stem = stem.substring(0, dot);
+			}
+			out = in.resolveSibling(stem + ".lc0");
+		}
+
+		try {
+			chess.io.RecordLc0Exporter.export(in, out, weights);
+			System.out.printf(
+					"Wrote %s.lc0.inputs.npy, %s.lc0.policy.npy, %s.lc0.value.npy, %s.lc0.meta.json%n",
+					out, out, out, out);
+		} catch (IOException e) {
+			System.err.println("Failed to export LC0 dataset: " + e.getMessage());
+			System.exit(2);
+		}
+	}
+
+	/**
 	 * Handles {@code record-to-pgn}.
 	 *
 	 * @param a argument parser for the subcommand
@@ -147,6 +191,141 @@ public final class RecordCommands {
 		a.ensureConsumed();
 
 		Converter.recordToPgn(in, out);
+	}
+
+	/**
+	 * Handles {@code record-to-puzzle-jsonl}.
+	 *
+	 * @param a argument parser for the subcommand
+	 */
+	public static void runRecordToPuzzleJsonl(Argv a) {
+		boolean verbose = a.flag(OPT_VERBOSE, OPT_VERBOSE_SHORT);
+		boolean puzzles = a.flag(OPT_PUZZLES);
+		boolean nonpuzzles = a.flag(OPT_NONPUZZLES);
+		String filterDsl = a.string(OPT_FILTER, OPT_FILTER_SHORT);
+		Path in = a.pathRequired(OPT_INPUT, OPT_INPUT_SHORT);
+		Path weights = a.path(OPT_WEIGHTS);
+		Path out = a.path(OPT_OUTPUT, OPT_OUTPUT_SHORT);
+		a.ensureConsumed();
+
+		if (puzzles && nonpuzzles) {
+			exitWithError("record-to-puzzle-jsonl: cannot combine " + OPT_PUZZLES + " and " + OPT_NONPUZZLES);
+		}
+		if (weights == null) {
+			exitWithError("record-to-puzzle-jsonl: missing " + OPT_WEIGHTS + " for LC0 policy values");
+		}
+
+		final Filter filter = (filterDsl != null && !filterDsl.isEmpty())
+				? FilterDSL.fromString(filterDsl)
+				: null;
+
+		final Filter puzzleVerify;
+		if (puzzles || nonpuzzles) {
+			Config.reload();
+			puzzleVerify = Config.getPuzzleVerify();
+		} else {
+			puzzleVerify = null;
+		}
+
+		if (out == null) {
+			String stem = in.getFileName().toString();
+			int dot = stem.lastIndexOf('.');
+			if (dot > 0) {
+				stem = stem.substring(0, dot);
+			}
+			out = in.resolveSibling(stem + EXT_PUZZLE_JSONL);
+		}
+
+		final Network network;
+		final int[] policyMapInverse;
+		try {
+			network = Network.load(weights);
+			policyMapInverse = invertPolicyMap(Network.loadPolicyMap(weights));
+		} catch (IOException ex) {
+			exitWithError("record-to-puzzle-jsonl: failed to load LC0 weights: " + ex.getMessage(), ex, verbose);
+			return;
+		}
+
+		try {
+			ensureParentDir(out);
+		} catch (IOException ex) {
+			exitWithError("record-to-puzzle-jsonl: failed to prepare output: " + ex.getMessage(), ex, verbose);
+		}
+		final Bar bar = progressBar(countRecords(in, verbose), "record-to-puzzle-jsonl");
+		final long[] seen = { 0 };
+		final long[] written = { 0 };
+		final long[] skipped = { 0 };
+		final long[] invalid = { 0 };
+
+		try (Network net = network; BufferedWriter writer = Files.newBufferedWriter(out)) {
+			streamRecordJson(in, objJson -> {
+				seen[0]++;
+				if (bar != null) {
+					bar.step();
+				}
+				Record rec;
+				try {
+					rec = Record.fromJson(objJson);
+				} catch (Exception ex) {
+					invalid[0]++;
+					if (verbose) {
+						System.err.println("record-to-puzzle-jsonl: skipped invalid record: " + ex.getMessage());
+					}
+					return;
+				}
+				if (rec == null) {
+					invalid[0]++;
+					return;
+				}
+				if (filter != null && !filter.apply(rec.getAnalysis())) {
+					skipped[0]++;
+					return;
+				}
+				if (puzzles || nonpuzzles) {
+					boolean isPuzzle = isPuzzleRecordJson(objJson, rec, puzzleVerify);
+					if (puzzles && !isPuzzle) {
+						skipped[0]++;
+						return;
+					}
+					if (nonpuzzles && isPuzzle) {
+						skipped[0]++;
+						return;
+					}
+				}
+				String line = toPuzzleJsonlLine(rec, net, policyMapInverse);
+				if (line == null) {
+					skipped[0]++;
+					return;
+				}
+				try {
+					writer.write(line);
+					writer.newLine();
+				} catch (IOException e) {
+					throw new UncheckedIOException(e);
+				}
+				written[0]++;
+				if (bar != null && (seen[0] % 1000L == 0L)) {
+					bar.setPostfix(String.format(Locale.ROOT,
+							"written=%d skipped=%d invalid=%d", written[0], skipped[0], invalid[0]));
+				}
+			});
+		} catch (IOException | UncheckedIOException ex) {
+			exitWithError("record-to-puzzle-jsonl: failed to write output: " + ex.getMessage(), ex, verbose);
+		}
+		if (bar != null) {
+			bar.setPostfix(String.format(Locale.ROOT,
+					"written=%d skipped=%d invalid=%d", written[0], skipped[0], invalid[0]));
+			bar.finish();
+		}
+
+		System.out.printf(
+				"record-to-puzzle-jsonl: wrote %d/%d %s records (skipped %d invalid, %d filtered) to %s%n",
+				written[0],
+				seen[0],
+				PUZZLE_JSONL_FORMAT_NAME,
+				invalid[0],
+				skipped[0],
+				out);
 	}
 
 	/**
@@ -473,6 +652,202 @@ public final class RecordCommands {
 			return false;
 		}
 		return puzzleVerify.apply(rec.getAnalysis());
+	}
+
+	private static String toPuzzleJsonlLine(Record rec, Network network, int[] policyMapInverse) {
+		if (rec == null || rec.getPosition() == null || rec.getAnalysis() == null) {
+			return null;
+		}
+		Output best = rec.getAnalysis().getBestOutput();
+		short[] moves = best == null ? null : best.getMoves();
+		Short criticalMove = toCriticalMove(moves);
+		if (criticalMove == null) {
+			return null;
+		}
+		String fen = rec.getPosition().toString();
+		int policyIndex = PolicyEncoder.rawPolicyIndex(rec.getPosition(), criticalMove);
+		Lc0PolicyEval lc0 = lc0PolicyEval(rec.getPosition(), network, policyIndex, policyMapInverse);
+		Chances engineChances = best.getChances();
+		String engineWdlJson = toWdlJson(engineChances);
+		String engineEval = formatEngineEval(best.getEvaluation());
+		long id = rec.getPosition().signature();
+		StringBuilder sb = new StringBuilder(128);
+		sb.append("{\"id\":")
+				.append(id)
+				.append(",\"position\":\"")
+				.append(Json.esc(fen))
+				.append("\",\"critical_move\":\"")
+				.append(Move.toString(criticalMove))
+				.append('"')
+				.append(",\"lc0_policy_index\":")
+				.append(policyIndex >= 0 ? policyIndex : "null")
+				.append(",\"lc0_policy_pct\":")
+				.append(lc0 != null ? formatPercent(lc0.policyPercent) : "null")
+				.append(",\"lc0_wdl\":")
+				.append(lc0 != null ? lc0.wdlJson : "null")
+				.append(",\"engine_eval\":")
+				.append(engineEval != null ? ("\"" + engineEval + "\"") : "null")
+				.append(",\"engine_wdl\":")
+				.append(engineWdlJson)
+				.append('}');
+		return sb.toString();
+	}
+
+	private static long countRecords(Path input, boolean verbose) {
+		if (input == null) {
+			return 0L;
+		}
+		final long[] count = { 0 };
+		try {
+			streamRecordJson(input, objJson -> count[0]++);
+		} catch (IOException ex) {
+			if (verbose) {
+				System.err.println("record-to-puzzle-jsonl: unable to count records for progress bar: " + ex.getMessage());
+			}
+			return 0L;
+		}
+		return count[0];
+	}
+
+	private static Bar progressBar(long totalRecords, String label) {
+		if (totalRecords <= 0) {
+			return null;
+		}
+		int capped = (totalRecords > Integer.MAX_VALUE) ? Integer.MAX_VALUE : (int) totalRecords;
+		return new Bar(capped, label);
+	}
+
+	private static Short toCriticalMove(short[] moves) {
+		if (moves == null || moves.length == 0) {
+			return null;
+		}
+		for (short move : moves) {
+			if (move == Move.NO_MOVE) {
+				continue;
+			}
+			return move;
+		}
+		return null;
+	}
+
+	private static String toWdlJson(Chances chances) {
+		if (chances == null) {
+			return "null";
+		}
+		return new StringBuilder(32)
+				.append('[')
+				.append(chances.getWinChance())
+				.append(',')
+				.append(chances.getDrawChance())
+				.append(',')
+				.append(chances.getLossChance())
+				.append(']')
+				.toString();
+	}
+
+	private static String formatEngineEval(Evaluation eval) {
+		if (eval == null || !eval.isValid()) {
+			return null;
+		}
+		if (eval.isMate()) {
+			return "mate " + eval.getValue();
+		}
+		return String.valueOf(eval.getValue());
+	}
+
+	private static int[] invertPolicyMap(int[] policyMap) {
+		if (policyMap == null || policyMap.length == 0) {
+			return null;
+		}
+		int max = -1;
+		for (int value : policyMap) {
+			if (value > max) {
+				max = value;
+			}
+		}
+		if (max < 0) {
+			return null;
+		}
+		int[] inverse = new int[max + 1];
+		java.util.Arrays.fill(inverse, -1);
+		for (int compressedIndex = 0; compressedIndex < policyMap.length; compressedIndex++) {
+			int rawIndex = policyMap[compressedIndex];
+			if (rawIndex >= 0 && rawIndex < inverse.length) {
+				inverse[rawIndex] = compressedIndex;
+			}
+		}
+		return inverse;
+	}
+
+	private static Lc0PolicyEval lc0PolicyEval(
+			chess.core.Position position,
+			Network network,
+			int rawPolicyIndex,
+			int[] policyMapInverse) {
+		if (network == null || position == null) {
+			return null;
+		}
+		float[] encoded = Encoder.encode(position);
+		Network.Prediction prediction = network.predictEncoded(encoded);
+		String wdlJson = toWdlJson(prediction.wdl());
+		Double prob = null;
+		int policyIndex = rawPolicyIndex;
+		if (rawPolicyIndex >= 0) {
+			if (policyMapInverse != null) {
+				if (rawPolicyIndex < policyMapInverse.length) {
+					policyIndex = policyMapInverse[rawPolicyIndex];
+				}
+				if (policyIndex < 0) {
+					policyIndex = -1;
+				}
+			}
+			float[] logits = prediction.policy();
+			if (policyIndex >= 0 && logits != null && policyIndex < logits.length) {
+				double max = Double.NEGATIVE_INFINITY;
+				for (float v : logits) {
+					if (v > max) {
+						max = v;
+					}
+				}
+				double denom = 0.0;
+				for (float v : logits) {
+					denom += Math.exp(v - max);
+				}
+				if (denom > 0.0) {
+					prob = Math.exp(logits[policyIndex] - max) / denom;
+				}
+			}
+		}
+		return new Lc0PolicyEval(prob != null ? prob * 100.0 : null, wdlJson);
+	}
+
+	private static String toWdlJson(float[] wdl) {
+		if (wdl == null || wdl.length < 3) {
+			return "null";
+		}
+		return new StringBuilder(64)
+				.append('[')
+				.append(formatPercent(wdl[0] * 100.0))
+				.append(',')
+				.append(formatPercent(wdl[1] * 100.0))
+				.append(',')
+				.append(formatPercent(wdl[2] * 100.0))
+				.append(']')
+				.toString();
+	}
+
+	private static String formatPercent(double value) {
+		return String.format(Locale.ROOT, "%.6f", value);
+	}
+
+	private static final class Lc0PolicyEval {
+		private final Double policyPercent;
+		private final String wdlJson;
+
+		private Lc0PolicyEval(Double policyPercent, String wdlJson) {
+			this.policyPercent = policyPercent;
+			this.wdlJson = wdlJson;
+		}
 	}
 
 	/**

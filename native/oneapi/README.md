@@ -1,10 +1,13 @@
 # `native/oneapi`: optional oneAPI backend (JNI)
 
-This directory contains an optional native shared library (`lc0j_oneapi`) used by the Java LC0 evaluator under `src/chess/lc0/`.
+This directory contains optional native shared libraries:
+- `lc0j_oneapi` used by the Java LC0 evaluator under `src/chess/lc0/`.
+- `t5_oneapi` used by the T5 tag-to-text pipeline under `src/chess/nn/t5/`.
 
 If present at runtime, the Java code can:
-- Detect whether oneAPI is usable (`chess.lc0.oneapi.Support.isAvailable()` / `deviceCount()`).
-- Run LC0J `.bin` policy+value inference on the GPU (`chess.lc0.oneapi.Backend`), which is auto-selected by `chess.lc0.Network` when `-Dcrtk.lc0.backend=auto` (default; legacy: `ucicli.lc0.*`) and oneAPI is available.
+- Detect whether oneAPI is usable (`chess.nn.lc0.oneapi.Support.isAvailable()` / `deviceCount()`).
+- Run LC0J `.bin` policy+value inference on the GPU (`chess.nn.lc0.oneapi.Backend`), which is auto-selected by `chess.nn.lc0.Network` when `-Dcrtk.lc0.backend=auto` (default) and oneAPI is available.
+- Run T5 matrix multiplies on the GPU (`chess.nn.t5.oneapi.Kernels`), with a CPU fallback when oneAPI cannot initialize.
 
 This JNI library intentionally has **no third-party Java dependencies**; it uses JNI and the oneAPI SYCL runtime.
 
@@ -30,7 +33,7 @@ cmake --build native/oneapi/build -j
 ```
 
 Output:
-- Linux: `native/oneapi/build/liblc0j_oneapi.so`
+- Linux: `native/oneapi/build/liblc0j_oneapi.so`, `native/oneapi/build/libt5_oneapi.so`
 - Windows: `native/oneapi/build/Release/lc0j_oneapi.dll` (if supported)
 
 If your default compiler does not support `-fsycl`, configure with:
@@ -42,11 +45,12 @@ cmake -S native/oneapi -B native/oneapi/build -DCMAKE_BUILD_TYPE=Release -DCMAKE
 If CMake cannot find JNI, set `JAVA_HOME` to your JDK root and re-run configure.
 
 ## Run
-The library must be loadable via `System.loadLibrary("lc0j_oneapi")`.
+The libraries must be loadable via `System.loadLibrary("lc0j_oneapi")` and/or `System.loadLibrary("t5_oneapi")`.
 
 Two common ways:
 - Add the build directory to `java.library.path`.
-- Copy the built library next to where you run Java from (there is a small fallback in `chess.lc0.oneapi.Support` that tries the current directory).
+- Copy the built library next to where you run Java from (there is a small fallback in `chess.nn.lc0.oneapi.Support` that tries the current directory).
+ - Or set `CRTK_T5_ONEAPI_LIB` to the absolute `t5_oneapi` library path (T5 only).
 
 Example (quick backend check; opens a window):
 
@@ -67,11 +71,17 @@ Backend selection:
 - Force CPU: `-Dcrtk.lc0.backend=cpu`
 - Force oneAPI: `-Dcrtk.lc0.backend=oneapi` (alias: `intel`)
 
-In code, call `chess.lc0.oneapi.Support.isAvailable()` / `chess.lc0.oneapi.Support.deviceCount()`.
+T5 selection:
+- Default: `-Dcrtk.t5.backend=auto` (use CUDA/ROCm/oneAPI if available, else CPU)
+- Force CPU: `-Dcrtk.t5.backend=cpu`
+- Force oneAPI: `-Dcrtk.t5.backend=oneapi` (alias: `intel`)
+
+In code, call `chess.nn.lc0.oneapi.Support.isAvailable()` / `chess.nn.lc0.oneapi.Support.deviceCount()` and
+`chess.nn.t5.oneapi.Support.isAvailable()` / `chess.nn.t5.oneapi.Support.deviceCount()`.
 
 ## Notes
 - This backend loads LC0J weights with magic `LC0J` (same file format as the pure-Java CPU path).
-- `ucicli.lc0.*` and `lc0j.*` are still accepted as legacy aliases, but prefer `crtk.lc0.backend` / `crtk.lc0.threads`.
+- Use `crtk.lc0.backend` / `crtk.lc0.threads` for configuration.
 
 ## Troubleshooting
 - VSCode squiggles on `#include <jni.h>` / SYCL headers: run the CMake configure step once to generate `native/oneapi/build/compile_commands.json` and reload VSCode (this repo sets `C_Cpp.default.compileCommands` accordingly).
