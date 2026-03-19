@@ -34,8 +34,8 @@ import chess.core.Move;
 import chess.core.MoveList;
 import chess.core.Position;
 import chess.core.SAN;
-import chess.tag.TagDelta;
-import chess.tag.TagSort;
+import chess.tag.Delta;
+import chess.tag.Sort;
 import chess.tag.Tagging;
 import chess.uci.Analysis;
 import chess.uci.Evaluation;
@@ -92,12 +92,12 @@ public final class PuzzleTagsCommand {
                 if (tags == null) {
                     continue;
                 }
-                TagDelta delta = null;
+                Delta delta = null;
                 Position parent = rec.getParent();
                 if (parent != null) {
                     List<String> parentTags = tagsFor(parent, opts.analyzeTags ? engine : null, opts, cache);
                     if (parentTags != null) {
-                        delta = TagDelta.diff(parentTags, tags);
+                        delta = Delta.diff(parentTags, tags);
                     }
                 }
                 printDeltaJson(index++, rec, tags, delta);
@@ -180,7 +180,7 @@ public final class PuzzleTagsCommand {
                 merged.addAll(tags);
                 merged.addAll(threats);
                 overrideInitiativeForPuzzle(merged);
-                tags = TagSort.sort(merged);
+                tags = Sort.sort(merged);
             }
         }
         cache.put(fen, new TagEntry(tags, analysis));
@@ -333,7 +333,7 @@ public final class PuzzleTagsCommand {
         return (mateValue > 0 ? 1 : -1) * 100_000;
     }
 
-    private static void printDeltaJson(long index, chess.struct.Record rec, List<String> tags, TagDelta delta) {
+    private static void printDeltaJson(long index, chess.struct.Record rec, List<String> tags, Delta delta) {
         Position parent = rec.getParent();
         Position pos = rec.getPosition();
         MoveInfo moveInfo = (parent != null && pos != null) ? inferMove(parent, pos) : null;

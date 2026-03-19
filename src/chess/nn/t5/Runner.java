@@ -20,17 +20,17 @@ public final class Runner implements AutoCloseable {
   /**
    * Optional CUDA backend for accelerated inference.
    */
-  private final chess.nn.t5.cuda.Backend cudaBackend;
+  private final NativeGenerationBackend cudaBackend;
 
   /**
    * Optional ROCm backend for accelerated inference.
    */
-  private final chess.nn.t5.rocm.Backend rocmBackend;
+  private final NativeGenerationBackend rocmBackend;
 
   /**
    * Optional oneAPI backend for accelerated inference.
    */
-  private final chess.nn.t5.oneapi.Backend oneapiBackend;
+  private final NativeGenerationBackend oneapiBackend;
 
   /**
    * Minimum work size before parallel loops are enabled.
@@ -62,9 +62,9 @@ public final class Runner implements AutoCloseable {
       this.rocmBackend = null;
       this.oneapiBackend = chess.nn.t5.oneapi.Backend.tryCreate(model);
     } else {
-      chess.nn.t5.cuda.Backend cuda = chess.nn.t5.cuda.Backend.tryCreate(model);
-      chess.nn.t5.rocm.Backend rocm = cuda == null ? chess.nn.t5.rocm.Backend.tryCreate(model) : null;
-      chess.nn.t5.oneapi.Backend oneapi =
+      NativeGenerationBackend cuda = chess.nn.t5.cuda.Backend.tryCreate(model);
+      NativeGenerationBackend rocm = cuda == null ? chess.nn.t5.rocm.Backend.tryCreate(model) : null;
+      NativeGenerationBackend oneapi =
           (cuda == null && rocm == null) ? chess.nn.t5.oneapi.Backend.tryCreate(model) : null;
       this.cudaBackend = cuda;
       this.rocmBackend = rocm;
@@ -114,15 +114,7 @@ public final class Runner implements AutoCloseable {
    * @return decoded output, or {@code null} on failure/unavailable backend
    */
   private String tryGenerateCuda(String prompt, int maxNewTokens) {
-    if (cudaBackend == null) {
-      return null;
-    }
-    try {
-      return generateCuda(prompt, maxNewTokens);
-    } catch (UnsatisfiedLinkError | RuntimeException ignore) {
-      // Fallback to CPU path on CUDA failures.
-      return null;
-    }
+    return tryGenerate(cudaBackend, prompt, maxNewTokens);
   }
 
   /**
@@ -133,15 +125,7 @@ public final class Runner implements AutoCloseable {
    * @return decoded output, or {@code null} on failure/unavailable backend
    */
   private String tryGenerateRocm(String prompt, int maxNewTokens) {
-    if (rocmBackend == null) {
-      return null;
-    }
-    try {
-      return generateRocm(prompt, maxNewTokens);
-    } catch (UnsatisfiedLinkError | RuntimeException ignore) {
-      // Fallback to CPU path on ROCm failures.
-      return null;
-    }
+    return tryGenerate(rocmBackend, prompt, maxNewTokens);
   }
 
   /**
@@ -152,15 +136,7 @@ public final class Runner implements AutoCloseable {
    * @return decoded output, or {@code null} on failure/unavailable backend
    */
   private String tryGenerateOneapi(String prompt, int maxNewTokens) {
-    if (oneapiBackend == null) {
-      return null;
-    }
-    try {
-      return generateOneapi(prompt, maxNewTokens);
-    } catch (UnsatisfiedLinkError | RuntimeException ignore) {
-      // Fallback to CPU path on oneAPI failures.
-      return null;
-    }
+    return tryGenerate(oneapiBackend, prompt, maxNewTokens);
   }
 
   /**
@@ -231,15 +207,7 @@ public final class Runner implements AutoCloseable {
    * @return generated ids, or empty when unavailable/failing
    */
   private List<Integer> tryGenerateCudaIds(String prompt, int maxNewTokens) {
-    if (cudaBackend == null) {
-      return List.of();
-    }
-    try {
-      return generateCudaIds(prompt, maxNewTokens);
-    } catch (UnsatisfiedLinkError | RuntimeException ignore) {
-      // Fallback to CPU path on CUDA failures.
-      return List.of();
-    }
+    return tryGenerateIds(cudaBackend, prompt, maxNewTokens);
   }
 
   /**
@@ -250,15 +218,7 @@ public final class Runner implements AutoCloseable {
    * @return generated ids, or empty when unavailable/failing
    */
   private List<Integer> tryGenerateRocmIds(String prompt, int maxNewTokens) {
-    if (rocmBackend == null) {
-      return List.of();
-    }
-    try {
-      return generateRocmIds(prompt, maxNewTokens);
-    } catch (UnsatisfiedLinkError | RuntimeException ignore) {
-      // Fallback to CPU path on ROCm failures.
-      return List.of();
-    }
+    return tryGenerateIds(rocmBackend, prompt, maxNewTokens);
   }
 
   /**
@@ -269,15 +229,7 @@ public final class Runner implements AutoCloseable {
    * @return generated ids, or empty when unavailable/failing
    */
   private List<Integer> tryGenerateOneapiIds(String prompt, int maxNewTokens) {
-    if (oneapiBackend == null) {
-      return List.of();
-    }
-    try {
-      return generateOneapiIds(prompt, maxNewTokens);
-    } catch (UnsatisfiedLinkError | RuntimeException ignore) {
-      // Fallback to CPU path on oneAPI failures.
-      return List.of();
-    }
+    return tryGenerateIds(oneapiBackend, prompt, maxNewTokens);
   }
 
   /**
@@ -321,15 +273,9 @@ public final class Runner implements AutoCloseable {
    */
   @Override
   public void close() {
-    if (cudaBackend != null) {
-      cudaBackend.close();
-    }
-    if (rocmBackend != null) {
-      rocmBackend.close();
-    }
-    if (oneapiBackend != null) {
-      oneapiBackend.close();
-    }
+    closeBackend(cudaBackend);
+    closeBackend(rocmBackend);
+    closeBackend(oneapiBackend);
   }
 
   /**
@@ -395,17 +341,56 @@ public final class Runner implements AutoCloseable {
   }
 
   /**
-   * Generates decoded text using CUDA-native execution.
+   * Attempts generation through a native backend and falls back on any backend error.
    *
+   * @param backend backend to invoke
+   * @param prompt prompt to decode
+   * @param maxNewTokens maximum generated token count
+   * @return decoded text, or {@code null} when unavailable or failing
+   */
+  private String tryGenerate(NativeGenerationBackend backend, String prompt, int maxNewTokens) {
+    if (backend == null) {
+      return null;
+    }
+    try {
+      return generateNative(backend, prompt, maxNewTokens);
+    } catch (UnsatisfiedLinkError | RuntimeException ignore) {
+      return null;
+    }
+  }
+
+  /**
+   * Attempts id generation through a native backend and falls back on any backend error.
+   *
+   * @param backend backend to invoke
+   * @param prompt prompt to decode
+   * @param maxNewTokens maximum generated token count
+   * @return generated ids, or empty when unavailable or failing
+   */
+  private List<Integer> tryGenerateIds(NativeGenerationBackend backend, String prompt, int maxNewTokens) {
+    if (backend == null) {
+      return List.of();
+    }
+    try {
+      return generateNativeIds(backend, prompt, maxNewTokens);
+    } catch (UnsatisfiedLinkError | RuntimeException ignore) {
+      return List.of();
+    }
+  }
+
+  /**
+   * Generates decoded text using a native backend.
+   *
+   * @param backend backend to invoke
    * @param prompt prompt to decode
    * @param maxNewTokens maximum generated token count
    * @return decoded text, or {@code null} when backend returned no output
    */
-  private String generateCuda(String prompt, int maxNewTokens) {
+  private String generateNative(NativeGenerationBackend backend, String prompt, int maxNewTokens) {
     List<Integer> inputIds = model.tokenizer.encode(prompt);
     ensureEncoderEos(inputIds);
     int[] ids = toIntArray(inputIds);
-    int[] outputIds = cudaBackend.generateIds(ids, maxNewTokens);
+    int[] outputIds = backend.generateIds(ids, maxNewTokens);
     if (outputIds == null || outputIds.length == 0) {
       return null;
     }
@@ -413,17 +398,18 @@ public final class Runner implements AutoCloseable {
   }
 
   /**
-   * Generates token ids using CUDA-native execution.
+   * Generates token ids using a native backend.
    *
+   * @param backend backend to invoke
    * @param prompt prompt to decode
    * @param maxNewTokens maximum generated token count
    * @return generated ids, or empty when backend returned no output
    */
-  private List<Integer> generateCudaIds(String prompt, int maxNewTokens) {
+  private List<Integer> generateNativeIds(NativeGenerationBackend backend, String prompt, int maxNewTokens) {
     List<Integer> inputIds = model.tokenizer.encode(prompt);
     ensureEncoderEos(inputIds);
     int[] ids = toIntArray(inputIds);
-    int[] outputIds = cudaBackend.generateIds(ids, maxNewTokens);
+    int[] outputIds = backend.generateIds(ids, maxNewTokens);
     if (outputIds == null || outputIds.length == 0) {
       return List.of();
     }
@@ -431,75 +417,14 @@ public final class Runner implements AutoCloseable {
   }
 
   /**
-   * Generates decoded text using ROCm-native execution.
+   * Closes a native backend when present.
    *
-   * @param prompt prompt to decode
-   * @param maxNewTokens maximum generated token count
-   * @return decoded text, or {@code null} when backend returned no output
+   * @param backend backend to close
    */
-  private String generateRocm(String prompt, int maxNewTokens) {
-    List<Integer> inputIds = model.tokenizer.encode(prompt);
-    ensureEncoderEos(inputIds);
-    int[] ids = toIntArray(inputIds);
-    int[] outputIds = rocmBackend.generateIds(ids, maxNewTokens);
-    if (outputIds == null || outputIds.length == 0) {
-      return null;
+  private static void closeBackend(NativeGenerationBackend backend) {
+    if (backend != null) {
+      backend.close();
     }
-    return model.tokenizer.decode(toList(outputIds, 1));
-  }
-
-  /**
-   * Generates token ids using ROCm-native execution.
-   *
-   * @param prompt prompt to decode
-   * @param maxNewTokens maximum generated token count
-   * @return generated ids, or empty when backend returned no output
-   */
-  private List<Integer> generateRocmIds(String prompt, int maxNewTokens) {
-    List<Integer> inputIds = model.tokenizer.encode(prompt);
-    ensureEncoderEos(inputIds);
-    int[] ids = toIntArray(inputIds);
-    int[] outputIds = rocmBackend.generateIds(ids, maxNewTokens);
-    if (outputIds == null || outputIds.length == 0) {
-      return List.of();
-    }
-    return toList(outputIds, 0);
-  }
-
-  /**
-   * Generates decoded text using oneAPI-native execution.
-   *
-   * @param prompt prompt to decode
-   * @param maxNewTokens maximum generated token count
-   * @return decoded text, or {@code null} when backend returned no output
-   */
-  private String generateOneapi(String prompt, int maxNewTokens) {
-    List<Integer> inputIds = model.tokenizer.encode(prompt);
-    ensureEncoderEos(inputIds);
-    int[] ids = toIntArray(inputIds);
-    int[] outputIds = oneapiBackend.generateIds(ids, maxNewTokens);
-    if (outputIds == null || outputIds.length == 0) {
-      return null;
-    }
-    return model.tokenizer.decode(toList(outputIds, 1));
-  }
-
-  /**
-   * Generates token ids using oneAPI-native execution.
-   *
-   * @param prompt prompt to decode
-   * @param maxNewTokens maximum generated token count
-   * @return generated ids, or empty when backend returned no output
-   */
-  private List<Integer> generateOneapiIds(String prompt, int maxNewTokens) {
-    List<Integer> inputIds = model.tokenizer.encode(prompt);
-    ensureEncoderEos(inputIds);
-    int[] ids = toIntArray(inputIds);
-    int[] outputIds = oneapiBackend.generateIds(ids, maxNewTokens);
-    if (outputIds == null || outputIds.length == 0) {
-      return List.of();
-    }
-    return toList(outputIds, 0);
   }
 
   /**

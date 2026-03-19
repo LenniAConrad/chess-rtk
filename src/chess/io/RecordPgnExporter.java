@@ -286,11 +286,11 @@ public final class RecordPgnExporter {
 
         final Map<String, List<Edge>> adjacency = new LinkedHashMap<>();
         final Set<String> incoming = new HashSet<>();
-        addDirectEdges(childrenByParentSig, positionsBySig, adjacency, incoming, badEdges, directChildren,
-                edgeKeysByFrom);
+        addDirectEdges(childrenByParentSig, positionsBySig, adjacency, incoming, badEdges, bestMoveBySig,
+                directChildren, edgeKeysByFrom);
         Bar bridgeBar = progressBar(totalRecords, "Linking records");
-        BridgeContext bridgeCtx = new BridgeContext(adjacency, incoming, badEdges, directChildren, edgeKeysByFrom,
-                bridgeBar);
+        BridgeContext bridgeCtx = new BridgeContext(adjacency, incoming, badEdges, bestMoveBySig, directChildren,
+                edgeKeysByFrom, bridgeBar);
         addBridgedEdges(recordFile, childrenByParentSig, bridgeCtx, include);
 
         return new IndexData(positionsBySig, adjacency, incoming, bestMoveBySig, descriptionBySig, evalScoreBySig);
@@ -531,6 +531,7 @@ public final class RecordPgnExporter {
             Map<String, List<Edge>> adjacency,
             Set<String> incoming,
             AtomicLong badEdges,
+            Map<String, String> bestMoveBySig,
             Map<String, Set<String>> directChildren,
             Map<String, Set<EdgeKey>> edgeKeysByFrom) {
         for (Map.Entry<String, List<ChildInfo>> entry : childrenByParentSig.entrySet()) {
@@ -541,6 +542,9 @@ public final class RecordPgnExporter {
             for (ChildInfo child : entry.getValue()) {
                 if (child.parentToPositionSan == null) {
                     badEdges.incrementAndGet();
+                    continue;
+                }
+                if (!matchesRecordedBestMove(parentSig, child.parentToPositionSan, bestMoveBySig)) {
                     continue;
                 }
                 directChildren
@@ -678,6 +682,9 @@ public final class RecordPgnExporter {
             String san,
             List<ChildInfo> kids,
             BridgeContext ctx) {
+        if (!matchesRecordedBestMove(fromSig, san, ctx.bestMoveBySig)) {
+            return;
+        }
         for (ChildInfo kid : kids) {
             if (kid.parentToPositionSan == null) {
                 ctx.badEdges.incrementAndGet();
@@ -754,6 +761,35 @@ public final class RecordPgnExporter {
             }
         }
         adjacency.computeIfAbsent(fromSig, k -> new ArrayList<>()).add(edge);
+    }
+
+    /**
+     * Checks whether an exported continuation starts with the recorded best move
+     * for the source position.
+     *
+     * <p>
+     * When a source record has a stored best move, only continuations beginning
+     * with that SAN are linked into the PGN graph. This avoids exporting
+     * parent→child paths that arise from blunders elsewhere in the dump.
+     * </p>
+     *
+     * @param fromSig       source position signature.
+     * @param firstSan      first SAN token of the continuation.
+     * @param bestMoveBySig recorded best moves keyed by signature.
+     * @return {@code true} when the continuation is compatible with the source record.
+     */
+    private static boolean matchesRecordedBestMove(
+            String fromSig,
+            String firstSan,
+            Map<String, String> bestMoveBySig) {
+        if (firstSan == null || firstSan.isEmpty()) {
+            return false;
+        }
+        if (bestMoveBySig == null || fromSig == null || fromSig.isEmpty()) {
+            return true;
+        }
+        String bestSan = bestMoveBySig.get(fromSig);
+        return bestSan == null || bestSan.isEmpty() || firstSan.equals(bestSan);
     }
 
     /**
@@ -1308,6 +1344,11 @@ public final class RecordPgnExporter {
         private final AtomicLong badEdges;
 
         /**
+         * Recorded best moves keyed by source signature.
+         */
+        private final Map<String, String> bestMoveBySig;
+
+        /**
          * Direct children keyed by parent signature.
          */
         private final Map<String, Set<String>> directChildren;
@@ -1328,6 +1369,7 @@ public final class RecordPgnExporter {
          * @param adjacency        adjacency list being populated
          * @param incoming         set of signatures with incoming edges
          * @param badEdges         counter for missing SAN edges
+         * @param bestMoveBySig    recorded best moves keyed by signature
          * @param directChildren   direct children keyed by parent signature
          * @param edgeKeysByFrom   edge deduplication keys per source signature
          * @param bridgeBar        progress bar for bridge linking (may be null)
@@ -1336,12 +1378,14 @@ public final class RecordPgnExporter {
                 Map<String, List<Edge>> adjacency,
                 Set<String> incoming,
                 AtomicLong badEdges,
+                Map<String, String> bestMoveBySig,
                 Map<String, Set<String>> directChildren,
                 Map<String, Set<EdgeKey>> edgeKeysByFrom,
                 Bar bridgeBar) {
             this.adjacency = adjacency;
             this.incoming = incoming;
             this.badEdges = badEdges;
+            this.bestMoveBySig = bestMoveBySig;
             this.directChildren = directChildren;
             this.edgeKeysByFrom = edgeKeysByFrom;
             this.bridgeBar = bridgeBar;

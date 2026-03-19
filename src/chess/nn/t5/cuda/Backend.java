@@ -1,6 +1,8 @@
 package chess.nn.t5.cuda;
 
 import chess.nn.t5.Model;
+import chess.nn.t5.NativeBackendOps;
+import chess.nn.t5.NativeGenerationBackend;
 
 /**
  * Optional CUDA backend for end-to-end T5 inference.
@@ -11,7 +13,7 @@ import chess.nn.t5.Model;
  * @since 2026
  * @author Lennart A. Conrad
  */
-public final class Backend implements AutoCloseable {
+public final class Backend implements NativeGenerationBackend {
 
   /**
    * Native handle to the CUDA model instance.
@@ -29,17 +31,11 @@ public final class Backend implements AutoCloseable {
    * @return backend instance or {@code null} if unavailable
    */
   public static Backend tryCreate(Model model) {
-    if (model == null || model.sourcePath == null || model.sourcePath.isBlank()) {
+    long handle = NativeBackendOps.tryCreateHandle(model, Support::isAvailable, Backend::nativeCreate);
+    if (handle == 0L) {
       return null;
     }
-    if (!Support.isAvailable()) {
-      return null;
-    }
-    long h = nativeCreate(model.sourcePath);
-    if (h == 0L) {
-      return null;
-    }
-    return new Backend(h);
+    return new Backend(handle);
   }
 
   /**
@@ -47,13 +43,10 @@ public final class Backend implements AutoCloseable {
    *
    * @param inputIds encoder input ids
    * @param maxNewTokens maximum new tokens to generate
-   * @return generated token ids, or {@code null} if the backend failed
+   * @return generated token ids, or an empty array if the backend failed
    */
   public int[] generateIds(int[] inputIds, int maxNewTokens) {
-    if (inputIds == null) {
-      return null;
-    }
-    return nativeGenerateIds(handle, inputIds, maxNewTokens);
+    return NativeBackendOps.generateIds(handle, inputIds, maxNewTokens, Backend::nativeGenerateIds);
   }
 
   /**
@@ -61,7 +54,7 @@ public final class Backend implements AutoCloseable {
    */
   @Override
   public void close() {
-    nativeDestroy(handle);
+    NativeBackendOps.destroy(handle, Backend::nativeDestroy);
   }
 
   /**

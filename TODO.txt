@@ -1,1 +1,12 @@
 Improve tagging
+Add agentic commands:
+- apply-move / fen-after: resulting FEN after applying a move (UCI or SAN)
+- move-validate: legality check with reason on illegal
+- uci-to-san / san-to-uci: move notation conversion
+- legal-after: list legal replies after a move
+- play-line: apply a move sequence; optional intermediate FENs
+- fen-normalize: normalize and validate FEN fields
+- position-diff: diff two FENs (piece/turn/castling/EP)
+- pgn-slice: extract plies from PGN to FENs
+- analyze-batch: analyze FEN list -> JSONL with caps
+- bestmove-batch: bestmove for FEN list -> JSONL with caps

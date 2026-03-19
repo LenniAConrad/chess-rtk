@@ -43,9 +43,9 @@ import chess.core.SAN;
 import chess.io.Reader;
 import chess.struct.Game;
 import chess.struct.Record;
-import chess.tag.TagDelta;
+import chess.tag.Delta;
 import chess.tag.Tagging;
-import chess.tag.TagSort;
+import chess.tag.Sort;
 import chess.uci.Analysis;
 import chess.uci.Evaluation;
 import chess.uci.Engine;
@@ -122,15 +122,16 @@ public final class TagsCommand {
         TagsOptions.WdlConfig wdlConfig = new TagsOptions.WdlConfig(wdl, noWdl);
         TagsOptions.Flags flags = new TagsOptions.Flags(verbose, analyze, sequence, delta, includeFen, mainline,
                 sidelines);
-        return new TagsOptions(flags, protoPath, limits, engineConfig, wdlConfig, fen, input, pgn);
+        TagsOptions.InputConfig inputConfig = new TagsOptions.InputConfig(fen, input, pgn);
+        return new TagsOptions(flags, protoPath, limits, engineConfig, wdlConfig, inputConfig);
     }
 
     private static TagsInputs loadInputs(TagsOptions opts) {
-        if (opts.pgn != null) {
+        if (opts.inputConfig.pgn != null) {
             return loadPgnInputs(opts);
         }
 
-        if (opts.input != null) {
+        if (opts.inputConfig.input != null) {
             return loadRecordInputs(opts);
         }
 
@@ -138,13 +139,21 @@ public final class TagsCommand {
     }
 
     private static TagsInputs loadPgnInputs(TagsOptions opts) {
-        List<Game> games = PgnOps.readPgnOrExit(opts.pgn, opts.flags.verbose, CMD_TAGS);
+        List<Game> games = PgnOps.readPgnOrExit(opts.inputConfig.pgn, opts.flags.verbose, CMD_TAGS);
         List<Record> records = new ArrayList<>();
         int gameIndex = 0;
+        boolean includeSidelines = includePgnSidelines(opts.flags);
         for (Game game : games) {
-            addGameRecords(records, game, gameIndex++, opts.flags.sidelines);
+            addGameRecords(records, game, gameIndex++, includeSidelines);
         }
         return new TagsInputs(records);
+    }
+
+    private static boolean includePgnSidelines(TagsOptions.Flags flags) {
+        if (flags.mainline) {
+            return false;
+        }
+        return flags.sidelines;
     }
 
     private static void addGameRecords(List<Record> records, Game game, int gameIndex, boolean includeSidelines) {
@@ -167,7 +176,7 @@ public final class TagsCommand {
 
     private static List<Record> readInputRecordsOrExit(TagsOptions opts) {
         try {
-            return Reader.readPositionRecords(opts.input);
+            return Reader.readPositionRecords(opts.inputConfig.input);
         } catch (Exception ex) {
             System.err.println(CMD_TAGS + ": failed to read input: " + ex.getMessage());
             if (opts.flags.verbose) {
@@ -190,12 +199,13 @@ public final class TagsCommand {
     }
 
     private static TagsInputs loadSingleFenInput(TagsOptions opts) {
-        if (opts.fen == null || opts.fen.isBlank()) {
+        if (opts.inputConfig.fen == null || opts.inputConfig.fen.isBlank()) {
             System.err.println(CMD_TAGS + " requires a FEN (use --fen or --input)");
             System.exit(2);
         }
         List<Record> single = new ArrayList<>(1);
-        single.add(new Record().withPosition(EngineOps.parsePositionOrNull(opts.fen, CMD_TAGS, opts.flags.verbose)));
+        single.add(new Record().withPosition(
+                EngineOps.parsePositionOrNull(opts.inputConfig.fen, CMD_TAGS, opts.flags.verbose)));
         return new TagsInputs(single);
     }
 
@@ -210,11 +220,11 @@ public final class TagsCommand {
             }
             List<String> tags = tagsFor(pos, null, cache, includeTagFen);
             if (opts.flags.delta) {
-                TagDelta delta = null;
+                Delta delta = null;
                 Position parent = rec.getParent();
                 if (parent != null) {
                     List<String> parentTags = tagsFor(parent, null, cache, false);
-                    delta = TagDelta.diff(parentTags, tags);
+                    delta = Delta.diff(parentTags, tags);
                 }
                 printDeltaJson(index++, rec, tags, delta);
             } else {
@@ -251,9 +261,6 @@ public final class TagsCommand {
             return index;
         }
         List<String> tags = tagsFor(pos, engine, opts, cache, includeTagFen);
-        if (tags == null) {
-            return index;
-        }
         if (opts.flags.delta) {
             printDeltaJson(index, rec, tags, deltaFor(rec, tags, engine, opts, cache));
             return index + 1;
@@ -262,17 +269,14 @@ public final class TagsCommand {
         return index;
     }
 
-    private static TagDelta deltaFor(Record rec, List<String> tags, Engine engine, TagsOptions opts,
+    private static Delta deltaFor(Record rec, List<String> tags, Engine engine, TagsOptions opts,
             Map<String, TagEntry> cache) {
         Position parent = rec.getParent();
         if (parent == null) {
             return null;
         }
         List<String> parentTags = tagsFor(parent, engine, opts, cache, false);
-        if (parentTags == null) {
-            return null;
-        }
-        return TagDelta.diff(parentTags, tags);
+        return Delta.diff(parentTags, tags);
     }
 
     private static List<String> tagsFor(Position pos, Engine engine, TagsOptions opts, Map<String, TagEntry> cache,
@@ -287,7 +291,7 @@ public final class TagsCommand {
             analysis = analysePositionOrExit(engine, pos, opts.limits.nodesCap, opts.limits.durMs, CMD_TAGS,
                     opts.flags.verbose);
             if (analysis == null) {
-                return null;
+                return List.of();
             }
         }
         List<String> tags = Tagging.tags(pos, analysis);
@@ -299,7 +303,7 @@ public final class TagsCommand {
                 merged.addAll(tags);
                 merged.addAll(threats);
                 overrideInitiative(merged);
-                tags = TagSort.sort(merged);
+                tags = Sort.sort(merged);
             }
         }
         cache.put(fen, new TagEntry(tags, analysis));
@@ -329,17 +333,15 @@ public final class TagsCommand {
         boolean threatWhite = false;
         boolean threatBlack = false;
         for (String tag : tags) {
-            if (tag == null) {
-                continue;
-            }
-            String trimmed = tag.trim();
-            if (!trimmed.startsWith("THREAT:")) {
-                continue;
-            }
-            if (trimmed.contains("side=white")) {
-                threatWhite = true;
-            } else if (trimmed.contains("side=black")) {
-                threatBlack = true;
+            if (tag != null) {
+                String trimmed = tag.trim();
+                if (trimmed.startsWith("THREAT:")) {
+                    if (trimmed.contains("side=white")) {
+                        threatWhite = true;
+                    } else if (trimmed.contains("side=black")) {
+                        threatBlack = true;
+                    }
+                }
             }
         }
         if (!threatWhite && !threatBlack) {
@@ -360,7 +362,7 @@ public final class TagsCommand {
         return "equal";
     }
 
-    private static void printDeltaJson(long index, Record rec, List<String> tags, TagDelta delta) {
+    private static void printDeltaJson(long index, Record rec, List<String> tags, Delta delta) {
         Position parent = rec.getParent();
         Position pos = rec.getPosition();
         MoveInfo moveInfo = (parent != null && pos != null) ? inferMove(parent, pos) : null;
@@ -487,10 +489,7 @@ public final class TagsCommand {
         if (Math.abs(threatWhiteCp) > target) {
             return false;
         }
-        if (Math.abs(threatWhiteCp) >= Math.abs(baseWhiteCp)) {
-            return false;
-        }
-        return true;
+        return Math.abs(threatWhiteCp) < Math.abs(baseWhiteCp);
     }
 
     private static ThreatInfo classifyThreatMove(String move) {
@@ -569,20 +568,16 @@ public final class TagsCommand {
         private final Limits limits;
         private final EngineConfig engineConfig;
         private final WdlConfig wdlConfig;
-        private final String fen;
-        private final Path input;
-        private final Path pgn;
+        private final InputConfig inputConfig;
 
         private TagsOptions(Flags flags, String protoPath, Limits limits, EngineConfig engineConfig,
-                WdlConfig wdlConfig, String fen, Path input, Path pgn) {
+                WdlConfig wdlConfig, InputConfig inputConfig) {
             this.flags = flags;
             this.protoPath = protoPath;
             this.limits = limits;
             this.engineConfig = engineConfig;
             this.wdlConfig = wdlConfig;
-            this.fen = fen;
-            this.input = input;
-            this.pgn = pgn;
+            this.inputConfig = inputConfig;
         }
 
         private static final class Flags {
@@ -635,6 +630,18 @@ public final class TagsCommand {
             private WdlConfig(boolean wdl, boolean noWdl) {
                 this.wdl = wdl;
                 this.noWdl = noWdl;
+            }
+        }
+
+        private static final class InputConfig {
+            private final String fen;
+            private final Path input;
+            private final Path pgn;
+
+            private InputConfig(String fen, Path input, Path pgn) {
+                this.fen = fen;
+                this.input = input;
+                this.pgn = pgn;
             }
         }
     }

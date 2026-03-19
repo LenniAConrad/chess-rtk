@@ -4,40 +4,37 @@ import chess.core.Field;
 import chess.core.Piece;
 
 /**
- * Shared formatting helpers for {@code chess.tag}.
- *
+ * Converts board coordinates and piece codes into lower-case text fragments.
  * <p>
- * Tag generators should use these helpers to keep wording consistent and avoid
- * duplicating small formatting methods across classes.
+ * These helpers are used when rendering human-readable tag descriptions.
  * </p>
- *
- * @since 2026
  * @author Lennart A. Conrad
+ * @since 2026
  */
 public final class Text {
 
     /**
-     * Prevents instantiation; this class exposes only static helpers.
+     * Prevents instantiation of this utility class.
      */
     private Text() {
         // utility class
     }
 
     /**
-     * Returns the algebraic square name in lowercase (e.g. {@code "e4"}).
+     * Returns the lower-case algebraic name for a square.
      *
-     * @param square board index
-     * @return lowercase square name
+     * @param square the square to render
+     * @return the square name in lower-case algebraic notation
      */
     public static String squareNameLower(byte square) {
         return "" + Field.getFile(square) + Field.getRank(square);
     }
 
     /**
-     * Returns the lowercase, human-readable piece name for {@code piece}.
+     * Returns the lower-case piece name for a piece code.
      *
-     * @param piece piece code
-     * @return name such as {@code "knight"} or {@code "queen"}
+     * @param piece the piece to render
+     * @return the piece name in lower-case text
      */
     public static String pieceNameLower(byte piece) {
         if (Piece.isPawn(piece)) {
@@ -59,10 +56,10 @@ public final class Text {
     }
 
     /**
-     * Returns the lowercase color name implied by {@code piece}.
+     * Returns the lower-case color name for a piece code.
      *
-     * @param piece piece code
-     * @return {@code "white"} for white pieces, otherwise {@code "black"}
+     * @param piece the piece to render
+     * @return {@code white} for White pieces, otherwise {@code black}
      */
     public static String colorNameLower(byte piece) {
         return Piece.isWhite(piece) ? "white" : "black";

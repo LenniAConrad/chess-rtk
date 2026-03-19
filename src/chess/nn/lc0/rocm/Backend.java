@@ -2,6 +2,7 @@ package chess.nn.lc0.rocm;
 
 import java.nio.file.Path;
 
+import chess.nn.lc0.NativeBackendOps;
 import chess.nn.lc0.Network;
 
 /**
@@ -61,24 +62,14 @@ public final class Backend implements AutoCloseable {
      * @throws IllegalStateException if initialization fails
      */
     public static Backend create(Path weightsBin) {
-        long h = nativeCreate(weightsBin.toAbsolutePath().toString());
-        if (h == 0L) {
-            throw new IllegalStateException("Failed to create ROCm evaluator (no device / init failed).");
-        }
-        long[] meta = nativeGetInfo(h);
-        if (meta == null || meta.length < 7) {
-            nativeDestroy(h);
-            throw new IllegalStateException("ROCm evaluator returned invalid info.");
-        }
-        Network.Info info = new Network.Info(
-                (int) meta[0],
-                (int) meta[1],
-                (int) meta[2],
-                (int) meta[3],
-                (int) meta[4],
-                (int) meta[5],
-                meta[6]);
-        return new Backend(h, info);
+        NativeBackendOps.Created created = NativeBackendOps.create(
+                weightsBin,
+                Backend::nativeCreate,
+                Backend::nativeGetInfo,
+                Backend::nativeDestroy,
+                "Failed to create ROCm evaluator (no device / init failed).",
+                "ROCm evaluator returned invalid info.");
+        return new Backend(created.handle(), created.info());
     }
 
     /**
@@ -97,13 +88,7 @@ public final class Backend implements AutoCloseable {
      * @return policy logits, WDL probabilities, and scalar {@code W-L} value
      */
     public Network.Prediction predictEncoded(float[] encodedPlanes) {
-        if (encodedPlanes.length != info.inputChannels() * 64) {
-            throw new IllegalArgumentException("Encoded input must be " + (info.inputChannels() * 64) + " floats.");
-        }
-        float[] policy = new float[info.policySize()];
-        float[] wdl = new float[3];
-        float value = nativePredict(handle, encodedPlanes, policy, wdl);
-        return new Network.Prediction(policy, wdl, value);
+        return NativeBackendOps.predictEncoded(handle, info, encodedPlanes, Backend::nativePredict);
     }
 
     /**
@@ -111,7 +96,7 @@ public final class Backend implements AutoCloseable {
      */
     @Override
     public void close() {
-        nativeDestroy(handle);
+        NativeBackendOps.destroy(handle, Backend::nativeDestroy);
     }
 
     /**

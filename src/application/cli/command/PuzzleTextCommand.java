@@ -39,12 +39,10 @@ import chess.nn.t5.BinLoader;
 import chess.nn.t5.Model;
 import chess.nn.t5.Runner;
 import chess.nn.t5.TagPrompt;
-import chess.tag.TagSort;
+import chess.tag.Sort;
 import chess.tag.Tagging;
 import chess.uci.Analysis;
-import chess.uci.Evaluation;
 import chess.uci.Engine;
-import chess.uci.Output;
 import chess.uci.Protocol;
 import utility.Argv;
 import utility.Json;
@@ -60,41 +58,43 @@ public final class PuzzleTextCommand {
 
     public static void runPuzzleText(Argv a) {
         PuzzleTextOptions opts = parseOptions(a);
-        Position root = parsePositionOrExit(opts.fen, opts.verbose);
+        Position root = parsePositionOrExit(opts.inputConfig.fen, opts.flags.verbose);
 
         Model model;
         try {
-            model = BinLoader.load(opts.modelPath);
+            model = BinLoader.load(opts.inputConfig.modelPath);
         } catch (Exception ex) {
             System.err.println(CMD_PUZZLE_TEXT + ": failed to load model: " + ex.getMessage());
-            if (opts.verbose) {
+            if (opts.flags.verbose) {
                 ex.printStackTrace(System.err);
             }
             System.exit(2);
             return;
         }
 
-        Protocol protocol = EngineSupport.loadProtocolOrExit(opts.protoPath, opts.verbose);
-        Optional<Boolean> wdlFlag = resolveWdlFlag(opts.wdl, opts.noWdl);
+        Protocol protocol = EngineSupport.loadProtocolOrExit(opts.engineConfig.protoPath, opts.flags.verbose);
+        Optional<Boolean> wdlFlag = resolveWdlFlag(opts.wdlConfig.wdl, opts.wdlConfig.noWdl);
 
         try (Engine engine = new Engine(protocol); Runner runner = new Runner(model)) {
-            configureEngine(CMD_PUZZLE_TEXT, engine, opts.threads, opts.hash, opts.multipv, wdlFlag);
-            Analysis analysis = analysePositionOrExit(engine, root, opts.nodesCap, opts.durMs, CMD_PUZZLE_TEXT,
-                    opts.verbose);
+            configureEngine(CMD_PUZZLE_TEXT, engine, opts.engineConfig.threads, opts.engineConfig.hash,
+                    opts.engineConfig.multipv, wdlFlag);
+            Analysis analysis = analysePositionOrExit(engine, root, opts.limits.nodesCap, opts.limits.durMs,
+                    CMD_PUZZLE_TEXT, opts.flags.verbose);
             if (analysis == null) {
                 return;
             }
 
-            List<chess.struct.Record> records = PuzzleSupport.buildRecords(root, analysis, opts.pvPlies,
-                    CMD_PUZZLE_TEXT, opts.verbose);
+            List<chess.struct.Record> records = PuzzleSupport.buildRecords(root, analysis, opts.limits.pvPlies,
+                    CMD_PUZZLE_TEXT, opts.flags.verbose);
             if (records.isEmpty()) {
                 System.err.println(CMD_PUZZLE_TEXT + ": no records extracted from PVs");
                 System.exit(2);
             }
 
-            if (opts.analyzeTags) {
-                int tagMultipv = Math.max(1, opts.tagMultipv);
-                configureEngine(CMD_PUZZLE_TEXT, engine, opts.threads, opts.hash, tagMultipv, wdlFlag);
+            if (opts.flags.analyzeTags) {
+                int tagMultipv = Math.max(1, opts.engineConfig.tagMultipv);
+                configureEngine(CMD_PUZZLE_TEXT, engine, opts.engineConfig.threads, opts.engineConfig.hash, tagMultipv,
+                        wdlFlag);
             }
 
             Map<String, TagEntry> cache = new HashMap<>();
@@ -103,13 +103,13 @@ public final class PuzzleTextCommand {
                 if (pos == null) {
                     continue;
                 }
-                List<String> tags = tagsFor(pos, opts.analyzeTags ? engine : null, opts, cache);
-                if (tags == null) {
+                List<String> tags = tagsFor(pos, opts.flags.analyzeTags ? engine : null, opts, cache);
+                if (tags.isEmpty()) {
                     continue;
                 }
                 String prompt = TagPrompt.buildPositionPrompt(tags);
-                String summary = runner.generate(prompt, opts.maxNew);
-                if (opts.includeFen) {
+                String summary = runner.generate(prompt, opts.limits.maxNew);
+                if (opts.flags.includeFen) {
                     MoveInfo moveInfo = null;
                     if (rec.getParent() != null && pos != null) {
                         moveInfo = inferMove(rec.getParent(), pos);
@@ -128,7 +128,7 @@ public final class PuzzleTextCommand {
             }
         } catch (Exception ex) {
             System.err.println(CMD_PUZZLE_TEXT + ": inference failed: " + ex.getMessage());
-            if (opts.verbose) {
+            if (opts.flags.verbose) {
                 ex.printStackTrace(System.err);
             }
             System.exit(2);
@@ -180,8 +180,13 @@ public final class PuzzleTextCommand {
         int tagMpv = tagMultipv == null ? 1 : Math.max(1, tagMultipv);
         boolean analyzeTags = noAnalyze ? false : (analyze || true);
         int maxOut = maxNew == null ? 128 : Math.max(1, maxNew);
-        return new PuzzleTextOptions(verbose, includeFen, analyzeTags, protoPath, nodesCap, durMs, mpv, tagMpv, plies,
-                threads, hash, wdl, noWdl, maxOut, modelPath, fen);
+        PuzzleTextOptions.Flags flags = new PuzzleTextOptions.Flags(verbose, includeFen, analyzeTags);
+        PuzzleTextOptions.EngineConfig engineConfig = new PuzzleTextOptions.EngineConfig(protoPath, mpv, tagMpv,
+                threads, hash);
+        PuzzleTextOptions.Limits limits = new PuzzleTextOptions.Limits(nodesCap, durMs, plies, maxOut);
+        PuzzleTextOptions.WdlConfig wdlConfig = new PuzzleTextOptions.WdlConfig(wdl, noWdl);
+        PuzzleTextOptions.InputConfig inputConfig = new PuzzleTextOptions.InputConfig(modelPath, fen);
+        return new PuzzleTextOptions(flags, engineConfig, limits, wdlConfig, inputConfig);
     }
 
     private static Position parsePositionOrExit(String fen, boolean verbose) {
@@ -201,21 +206,22 @@ public final class PuzzleTextCommand {
         }
         Analysis analysis = null;
         if (engine != null) {
-            analysis = analysePositionOrExit(engine, pos, opts.nodesCap, opts.durMs, CMD_PUZZLE_TEXT, opts.verbose);
+            analysis = analysePositionOrExit(engine, pos, opts.limits.nodesCap, opts.limits.durMs, CMD_PUZZLE_TEXT,
+                    opts.flags.verbose);
             if (analysis == null) {
-                return null;
+                return List.of();
             }
         }
         List<String> tags = Tagging.tags(pos, analysis);
         if (engine != null) {
-            List<String> threats = PuzzleTagsCommand.threatTagsForPuzzle(pos, analysis, engine, opts.nodesCap,
-                    opts.durMs, opts.verbose);
+            List<String> threats = PuzzleTagsCommand.threatTagsForPuzzle(pos, analysis, engine, opts.limits.nodesCap,
+                    opts.limits.durMs, opts.flags.verbose);
             if (!threats.isEmpty()) {
                 List<String> merged = new ArrayList<>(tags.size() + threats.size());
                 merged.addAll(tags);
                 merged.addAll(threats);
                 PuzzleTagsCommand.overrideInitiativeForPuzzle(merged);
-                tags = TagSort.sort(merged);
+                tags = Sort.sort(merged);
             }
         }
         cache.put(fen, new TagEntry(tags, analysis));
@@ -254,42 +260,81 @@ public final class PuzzleTextCommand {
     }
 
     private static final class PuzzleTextOptions {
-        private final boolean verbose;
-        private final boolean includeFen;
-        private final boolean analyzeTags;
-        private final String protoPath;
-        private final long nodesCap;
-        private final long durMs;
-        private final int multipv;
-        private final int tagMultipv;
-        private final int pvPlies;
-        private final Integer threads;
-        private final Integer hash;
-        private final boolean wdl;
-        private final boolean noWdl;
-        private final int maxNew;
-        private final String modelPath;
-        private final String fen;
+        private final Flags flags;
+        private final EngineConfig engineConfig;
+        private final Limits limits;
+        private final WdlConfig wdlConfig;
+        private final InputConfig inputConfig;
 
-        private PuzzleTextOptions(boolean verbose, boolean includeFen, boolean analyzeTags, String protoPath,
-                long nodesCap, long durMs, int multipv, int tagMultipv, int pvPlies, Integer threads, Integer hash,
-                boolean wdl, boolean noWdl, int maxNew, String modelPath, String fen) {
-            this.verbose = verbose;
-            this.includeFen = includeFen;
-            this.analyzeTags = analyzeTags;
-            this.protoPath = protoPath;
-            this.nodesCap = nodesCap;
-            this.durMs = durMs;
-            this.multipv = multipv;
-            this.tagMultipv = tagMultipv;
-            this.pvPlies = pvPlies;
-            this.threads = threads;
-            this.hash = hash;
-            this.wdl = wdl;
-            this.noWdl = noWdl;
-            this.maxNew = maxNew;
-            this.modelPath = modelPath;
-            this.fen = fen;
+        private PuzzleTextOptions(Flags flags, EngineConfig engineConfig, Limits limits, WdlConfig wdlConfig,
+                InputConfig inputConfig) {
+            this.flags = flags;
+            this.engineConfig = engineConfig;
+            this.limits = limits;
+            this.wdlConfig = wdlConfig;
+            this.inputConfig = inputConfig;
+        }
+
+        private static final class Flags {
+            private final boolean verbose;
+            private final boolean includeFen;
+            private final boolean analyzeTags;
+
+            private Flags(boolean verbose, boolean includeFen, boolean analyzeTags) {
+                this.verbose = verbose;
+                this.includeFen = includeFen;
+                this.analyzeTags = analyzeTags;
+            }
+        }
+
+        private static final class EngineConfig {
+            private final String protoPath;
+            private final int multipv;
+            private final int tagMultipv;
+            private final Integer threads;
+            private final Integer hash;
+
+            private EngineConfig(String protoPath, int multipv, int tagMultipv, Integer threads, Integer hash) {
+                this.protoPath = protoPath;
+                this.multipv = multipv;
+                this.tagMultipv = tagMultipv;
+                this.threads = threads;
+                this.hash = hash;
+            }
+        }
+
+        private static final class Limits {
+            private final long nodesCap;
+            private final long durMs;
+            private final int pvPlies;
+            private final int maxNew;
+
+            private Limits(long nodesCap, long durMs, int pvPlies, int maxNew) {
+                this.nodesCap = nodesCap;
+                this.durMs = durMs;
+                this.pvPlies = pvPlies;
+                this.maxNew = maxNew;
+            }
+        }
+
+        private static final class WdlConfig {
+            private final boolean wdl;
+            private final boolean noWdl;
+
+            private WdlConfig(boolean wdl, boolean noWdl) {
+                this.wdl = wdl;
+                this.noWdl = noWdl;
+            }
+        }
+
+        private static final class InputConfig {
+            private final String modelPath;
+            private final String fen;
+
+            private InputConfig(String modelPath, String fen) {
+                this.modelPath = modelPath;
+                this.fen = fen;
+            }
         }
     }
 
