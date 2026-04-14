@@ -16,6 +16,8 @@ import java.awt.event.MouseWheelEvent;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -40,9 +42,102 @@ public class Display extends JFrame {
 	private static final long serialVersionUID = 1L;
 
 	/**
+	 * Default title used for display windows.
+	 */
+	private static final String DEFAULT_WINDOW_TITLE = "Chess-RTK Board View";
+
+	/**
 	 * Panel responsible for rendering the buffered image.
 	 */
 	private DisplayPanel imageDisplay = null;
+
+	/**
+	 * Render source that can redraw itself at arbitrary display sizes.
+	 */
+	public interface ImageSource {
+
+		/**
+		 * Native source width.
+		 *
+		 * @return native width in pixels
+		 */
+		int width();
+
+		/**
+		 * Native source height.
+		 *
+		 * @return native height in pixels
+		 */
+		int height();
+
+		/**
+		 * Renders the source at the requested full output size.
+		 *
+		 * @param width requested output width
+		 * @param height requested output height
+		 * @return rendered image
+		 */
+		BufferedImage render(int width, int height);
+
+		/**
+		 * Whether cache misses during interaction should render the visible region immediately.
+		 *
+		 * @return {@code true} for vector/redrawable sources that can cheaply render a viewport
+		 */
+		default boolean renderRegionImmediately() {
+			return false;
+		}
+
+		/**
+		 * Whether this source can export a real SVG document.
+		 *
+		 * @return {@code true} when SVG export is available
+		 */
+		default boolean supportsSvgExport() {
+			return false;
+		}
+
+		/**
+		 * Renders this source as an SVG document.
+		 *
+		 * @param width requested SVG width
+		 * @param height requested SVG height
+		 * @return SVG source text
+		 */
+		default String renderSvg(int width, int height) {
+			throw new UnsupportedOperationException("SVG export is not supported by this image source");
+		}
+
+		/**
+		 * Renders a visible region from a scaled output image.
+		 *
+		 * @param scaledWidth full scaled output width
+		 * @param scaledHeight full scaled output height
+		 * @param sourceX x coordinate of the visible region within the scaled output
+		 * @param sourceY y coordinate of the visible region within the scaled output
+		 * @param width visible region width
+		 * @param height visible region height
+		 * @return rendered visible region
+		 */
+		default BufferedImage renderRegion(int scaledWidth, int scaledHeight, int sourceX, int sourceY,
+				int width, int height) {
+			BufferedImage full = render(scaledWidth, scaledHeight);
+			BufferedImage region = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
+			Graphics2D g2d = region.createGraphics();
+			g2d.drawImage(full,
+					0,
+					0,
+					width,
+					height,
+					sourceX,
+					sourceY,
+					sourceX + width,
+					sourceY + height,
+					null);
+			g2d.dispose();
+			return region;
+		}
+	}
 	
 	/**
 	 * Constructor method for {@code Display}.
@@ -57,13 +152,26 @@ public class Display extends JFrame {
 	 * @throws NullPointerException if {@code image} is {@code null}
 	 */
 	public Display(BufferedImage image, int width, int height, boolean light) {
-		BufferedImage validated = requireImage(image);
+		this(imageSource(image), width, height, light);
+	}
+
+	/**
+	 * Constructor method for vector/redrawable sources.
+	 *
+	 * @param source redrawable image source
+	 * @param width the width of the {@code JFrame} upon execution
+	 * @param height the height of the {@code JFrame} upon execution
+	 * @param light whether the window will be displayed in light mode
+	 */
+	public Display(ImageSource source, int width, int height, boolean light) {
+		ImageSource validated = requireImageSource(source);
+		BufferedImage iconSource = validated.render(validated.width(), validated.height());
 		imageDisplay = new DisplayPanel(validated, this, light);
 		this.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
 		this.setSize(width, height);
 		this.add(imageDisplay);
 		this.setVisible(true);
-		this.setIconImages(buildIconVariants(validated));
+		this.setIconImages(buildIconVariants(iconSource));
 	}
 	
 	/**
@@ -77,13 +185,18 @@ public class Display extends JFrame {
 	 * @throws NullPointerException if {@code image} is {@code null}
 	 */
 	public Display(BufferedImage image, int width, int height) {
-		BufferedImage validated = requireImage(image);
-		imageDisplay = new DisplayPanel(validated, this, true);
-		this.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
-		this.setSize(width, height);
-		this.add(imageDisplay);
-		this.setVisible(true);
-		this.setIconImages(buildIconVariants(validated));
+		this(imageSource(image), width, height, true);
+	}
+
+	/**
+	 * Constructor method for vector/redrawable sources.
+	 *
+	 * @param source redrawable image source
+	 * @param width the width of the {@code JFrame} upon execution
+	 * @param height the height of the {@code JFrame} upon execution
+	 */
+	public Display(ImageSource source, int width, int height) {
+		this(source, width, height, true);
 	}
 	
 	/**
@@ -96,13 +209,17 @@ public class Display extends JFrame {
 	 * @throws NullPointerException if {@code image} is {@code null}
 	 */
 	public Display(BufferedImage image, boolean light) {
-		BufferedImage validated = requireImage(image);
-		imageDisplay = new DisplayPanel(validated, this, light);
-		this.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
-		this.setSize(400, 400);
-		this.add(imageDisplay);
-		this.setVisible(true);
-		this.setIconImages(buildIconVariants(validated));
+		this(imageSource(image), 400, 400, light);
+	}
+
+	/**
+	 * Used for displaying a redrawable source in a 400x400 {@code JFrame}.
+	 *
+	 * @param source redrawable image source
+	 * @param light whether to display the frame in light mode
+	 */
+	public Display(ImageSource source, boolean light) {
+		this(source, 400, 400, light);
 	}
 	
 	/**
@@ -114,13 +231,16 @@ public class Display extends JFrame {
 	 * @throws NullPointerException if {@code image} is {@code null}
 	 */
 	public Display(BufferedImage image) {
-		BufferedImage validated = requireImage(image);
-		imageDisplay = new DisplayPanel(validated, this, true);
-		this.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
-		this.setSize(400, 400);
-		this.add(imageDisplay);
-		this.setVisible(true);
-		this.setIconImages(buildIconVariants(validated));
+		this(imageSource(image), 400, 400, true);
+	}
+
+	/**
+	 * Constructor method for a 400x400 light-mode frame backed by a redrawable source.
+	 *
+	 * @param source redrawable image source
+	 */
+	public Display(ImageSource source) {
+		this(source, 400, 400, true);
 	}
 
 	/**
@@ -133,7 +253,19 @@ public class Display extends JFrame {
 	 * @throws NullPointerException if {@code image} is {@code null}
 	 */
 	public Display setImage(BufferedImage image) {
-		imageDisplay.setImage(requireImage(image));
+		imageDisplay.setImageSource(imageSource(image));
+		repaint();
+		return this;
+	}
+
+	/**
+	 * Used for updating the displayed redrawable source after construction.
+	 *
+	 * @param source the new source to display
+	 * @return this {@code Display} instance for method chaining
+	 */
+	public Display setImageSource(ImageSource source) {
+		imageDisplay.setImageSource(requireImageSource(source));
 		repaint();
 		return this;
 	}
@@ -153,6 +285,17 @@ public class Display extends JFrame {
 	}
 
 	/**
+	 * Used for setting the base window title.
+	 *
+	 * @param title base title text
+	 * @return this {@code Display} instance for method chaining
+	 */
+	public Display setDisplayTitle(String title) {
+		imageDisplay.setTitlePrefix(title);
+		return this;
+	}
+
+	/**
 	 * Validate that the provided image is non-null, mirroring the null checks used across the constructors.
 	 *
 	 * @param image image to validate
@@ -161,6 +304,155 @@ public class Display extends JFrame {
 	 */
 	private static BufferedImage requireImage(BufferedImage image) {
 		return Objects.requireNonNull(image, "image must not be null");
+	}
+
+	/**
+	 * Wraps a buffered image in a redrawable source.
+	 *
+	 * @param image image to wrap
+	 * @return image source
+	 */
+	private static ImageSource imageSource(BufferedImage image) {
+		return new BufferedImageSource(requireImage(image));
+	}
+
+	/**
+	 * Validates an image source.
+	 *
+	 * @param source source to validate
+	 * @return the same source when valid
+	 */
+	private static ImageSource requireImageSource(ImageSource source) {
+		ImageSource validated = Objects.requireNonNull(source, "image source must not be null");
+		if (validated.width() <= 0 || validated.height() <= 0) {
+			throw new IllegalArgumentException("image source dimensions must be positive");
+		}
+		return validated;
+	}
+
+	/**
+	 * Redrawable wrapper for ordinary raster images.
+	 */
+	private static final class BufferedImageSource implements ImageSource {
+
+		/**
+		 * Backing image.
+		 */
+		private final BufferedImage image;
+
+		/**
+		 * Creates a wrapper around a buffered image.
+		 *
+		 * @param image backing image
+		 */
+		private BufferedImageSource(BufferedImage image) {
+			this.image = image;
+		}
+
+		@Override
+		public int width() {
+			return image.getWidth();
+		}
+
+		@Override
+		public int height() {
+			return image.getHeight();
+		}
+
+		@Override
+		public BufferedImage render(int width, int height) {
+			int w = Math.max(1, width);
+			int h = Math.max(1, height);
+			if (w == image.getWidth() && h == image.getHeight()) {
+				return image;
+			}
+			return scaleImage(image, w, h);
+		}
+
+		@Override
+		public BufferedImage renderRegion(int scaledWidth, int scaledHeight, int sourceX, int sourceY,
+				int width, int height) {
+			BufferedImage region = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
+			Graphics2D g2d = region.createGraphics();
+			g2d.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+			g2d.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+			g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+			Rectangle src = scaledToNativeSourceRect(
+					image.getWidth(),
+					image.getHeight(),
+					scaledWidth,
+					scaledHeight,
+					sourceX,
+					sourceY,
+					width,
+					height);
+			g2d.drawImage(image,
+					0,
+					0,
+					width,
+					height,
+					src.x,
+					src.y,
+					src.x + src.width,
+					src.y + src.height,
+					null);
+			g2d.dispose();
+			return region;
+		}
+	}
+
+	/**
+	 * Converts a visible rectangle in scaled-image coordinates to the corresponding native source rectangle.
+	 *
+	 * @param nativeWidth source image native width
+	 * @param nativeHeight source image native height
+	 * @param scaledWidth full scaled image width
+	 * @param scaledHeight full scaled image height
+	 * @param sourceX visible x coordinate inside the scaled image
+	 * @param sourceY visible y coordinate inside the scaled image
+	 * @param width visible width in scaled-image coordinates
+	 * @param height visible height in scaled-image coordinates
+	 * @return native source rectangle
+	 */
+	private static Rectangle scaledToNativeSourceRect(int nativeWidth, int nativeHeight, int scaledWidth,
+			int scaledHeight, int sourceX, int sourceY, int width, int height) {
+		if (nativeWidth <= 0 || nativeHeight <= 0 || scaledWidth <= 0 || scaledHeight <= 0) {
+			return new Rectangle(0, 0, Math.max(1, nativeWidth), Math.max(1, nativeHeight));
+		}
+
+		double scaleX = nativeWidth / (double) scaledWidth;
+		double scaleY = nativeHeight / (double) scaledHeight;
+		int x1 = clampIntStatic((int) Math.floor(sourceX * scaleX), 0, nativeWidth);
+		int y1 = clampIntStatic((int) Math.floor(sourceY * scaleY), 0, nativeHeight);
+		int x2 = clampIntStatic((int) Math.ceil((sourceX + width) * scaleX), 0, nativeWidth);
+		int y2 = clampIntStatic((int) Math.ceil((sourceY + height) * scaleY), 0, nativeHeight);
+		if (x2 <= x1) {
+			x2 = Math.min(nativeWidth, x1 + 1);
+			x1 = Math.max(0, x2 - 1);
+		}
+		if (y2 <= y1) {
+			y2 = Math.min(nativeHeight, y1 + 1);
+			y1 = Math.max(0, y2 - 1);
+		}
+		return new Rectangle(x1, y1, x2 - x1, y2 - y1);
+	}
+
+	/**
+	 * Clamps an integer without requiring a panel instance.
+	 *
+	 * @param value value to clamp
+	 * @param min minimum inclusive
+	 * @param max maximum inclusive
+	 * @return clamped value
+	 */
+	private static int clampIntStatic(int value, int min, int max) {
+		if (value < min) {
+			return min;
+		}
+		if (value > max) {
+			return max;
+		}
+		return value;
 	}
 	
 	/**
@@ -206,28 +498,6 @@ public class Display extends JFrame {
 		return scaled;
 	}
 
-	/**
-	 * Scale an image using nearest-neighbor interpolation (no smoothing).
-	 *
-	 * <p>This preserves hard pixel edges for crisp previews.</p>
-	 *
-	 * @param source the image to scale
-	 * @param width  target width
-	 * @param height target height
-	 * @return a new {@link BufferedImage} of the desired size
-	 * @throws NullPointerException if {@code source} is {@code null}
-	 */
-	private static BufferedImage scaleImageNearest(BufferedImage source, int width, int height) {
-		BufferedImage scaled = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
-		Graphics2D g2d = scaled.createGraphics();
-		g2d.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
-		g2d.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_SPEED);
-		g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_OFF);
-		g2d.drawImage(source, 0, 0, width, height, null);
-		g2d.dispose();
-		return scaled;
-	}
-	
 	/**
 	 * New {@code JPanel} class that draws the centered {@code BufferedImage}.
 	 *
@@ -312,14 +582,19 @@ public class Display extends JFrame {
 		private static final int HELP_BG_ALPHA = 200;
 
 		/**
+		 * Pixel-perfect border thickness around the displayed image.
+		 */
+		private static final int IMAGE_BORDER_THICKNESS = 1;
+
+		/**
 		 * Minimum zoom factor applied on top of fit-to-window scaling.
 		 */
-		private static final double MIN_ZOOM = 0.25;
+		private static final double MIN_ZOOM = 0.05;
 
 		/**
 		 * Maximum zoom factor applied on top of fit-to-window scaling.
 		 */
-		private static final double MAX_ZOOM = 4.0;
+		private static final double MAX_ZOOM = 64.0;
 
 		/**
 		 * Per-notch zoom multiplier for mouse wheel input.
@@ -327,9 +602,14 @@ public class Display extends JFrame {
 		private static final double ZOOM_STEP = 1.1;
 		
 		/**
-		 * A timestamp indicating when the application was launched
+		 * Base title shown in the window manager.
 		 */
-		private String timestamp = Dates.getTimestamp();
+		private String titlePrefix = DEFAULT_WINDOW_TITLE;
+
+		/**
+		 * Timestamp shown in the window title.
+		 */
+		private String titleTimestamp = Dates.getTimestamp();
 
 		/**
 		 * Default serialVersionUID
@@ -337,7 +617,12 @@ public class Display extends JFrame {
 		private static final long serialVersionUID = 1L;
 
 		/**
-		 * The image to be displayed
+		 * Redrawable source backing this display.
+		 */
+		private transient ImageSource imageSource;
+
+		/**
+		 * Native preview image used for fallback drawing and export.
 		 */
 		private transient BufferedImage image;
 
@@ -390,6 +675,26 @@ public class Display extends JFrame {
 		 * Cached scaled image height.
 		 */
 		private int scaledHeight = -1;
+
+		/**
+		 * X coordinate of the cached slice inside the scaled image.
+		 */
+		private int cachedSourceX = -1;
+
+		/**
+		 * Y coordinate of the cached slice inside the scaled image.
+		 */
+		private int cachedSourceY = -1;
+
+		/**
+		 * Width of the cached visible slice.
+		 */
+		private int cachedSliceWidth = -1;
+
+		/**
+		 * Height of the cached visible slice.
+		 */
+		private int cachedSliceHeight = -1;
 
 		/**
 		 * Reusable checkerboard texture for transparent background.
@@ -456,15 +761,16 @@ public class Display extends JFrame {
 		 *
 		 * <p>Initializes sizing state, theme colors, and event handlers for zoom/pan.</p>
 		 *
-		 * @param image the {@code BufferedImage} that is to be displayed
+		 * @param source redrawable source that is to be displayed
 		 * @param jframe owning frame used for title updates
 		 * @param light whether to use the light theme palette
 		 */
-		public DisplayPanel(BufferedImage image, JFrame jframe, boolean light) {
-			this.image = image;
+		public DisplayPanel(ImageSource source, JFrame jframe, boolean light) {
+			this.imageSource = requireImageSource(source);
+			this.image = imageSource.render(imageSource.width(), imageSource.height());
 			this.jframe = jframe;
-			this.imageWidth = image.getWidth();
-			this.imageHeight = image.getHeight();
+			this.imageWidth = imageSource.width();
+			this.imageHeight = imageSource.height();
 			if(light) {
 				backgroundColor = LIGHT_BACKGROUND;
 				borderColor = LIGHT_BORDER;
@@ -535,6 +841,7 @@ public class Display extends JFrame {
 			});
 			registerSaveShortcut();
 			registerCopyShortcut();
+			updateFrameTitle();
 		}
 
 		/**
@@ -568,27 +875,51 @@ public class Display extends JFrame {
 		}
 
 		/**
-		 * Updates the image reference and resets cached scaled data.
+		 * Updates the image source and resets cached render data.
 		 *
-		 * @param image the new {@code BufferedImage} to display
+		 * @param source the new image source to display
 		 */
-		private void setImage(BufferedImage image) {
-			this.image = image;
-			this.imageWidth = image.getWidth();
-			this.imageHeight = image.getHeight();
+		private void setImageSource(ImageSource source) {
+			this.imageSource = requireImageSource(source);
+			this.image = imageSource.render(imageSource.width(), imageSource.height());
+			this.imageWidth = imageSource.width();
+			this.imageHeight = imageSource.height();
 			this.panX = 0;
 			this.panY = 0;
 			this.lastDragPoint = null;
 			// Invalidate cache so the next scale request recalculates.
 			this.scaledWidth = -1;
 			this.scaledHeight = -1;
+			this.cachedSourceX = -1;
+			this.cachedSourceY = -1;
+			this.cachedSliceWidth = -1;
+			this.cachedSliceHeight = -1;
 			this.scaledImageCache = null;
 			this.interactionActive = false;
 			if (interactionTimer != null) {
 				interactionTimer.stop();
 			}
 			cancelScaleWorker();
+			updateFrameTitle();
 			scheduleScaleToFit();
+		}
+
+		/**
+		 * Updates the base title used by subsequent render status updates.
+		 *
+		 * @param title base title text
+		 */
+		private void setTitlePrefix(String title) {
+			String normalized = title == null ? "" : title.trim();
+			titlePrefix = normalized.isEmpty() ? DEFAULT_WINDOW_TITLE : normalized;
+			updateFrameTitle();
+		}
+
+		/**
+		 * Applies the current stable title prefix and timestamp to the frame.
+		 */
+		private void updateFrameTitle() {
+			jframe.setTitle(titlePrefix + " - " + titleTimestamp);
 		}
 
 		/**
@@ -597,17 +928,67 @@ public class Display extends JFrame {
 		 * @param zoom the new zoom factor
 		 */
 		private void setZoom(double zoom) {
+			setZoomAround(null, zoom);
+		}
+
+		/**
+		 * Updates the zoom factor while keeping an anchor point fixed on screen.
+		 *
+		 * @param anchor panel coordinate to zoom around, or {@code null} to use the center
+		 * @param zoom the new zoom factor
+		 */
+		private void setZoomAround(Point anchor, double zoom) {
 			double clamped = clampZoom(zoom);
 			if (Math.abs(this.zoom - clamped) < 0.0001) {
 				return;
 			}
+
+			int frameWidth = getWidth();
+			int frameHeight = getHeight();
+			Point pivot = resolveZoomPivot(anchor, frameWidth, frameHeight);
+			Dimension oldFit = computeFitSize(frameWidth, frameHeight);
+			double contentX = 0.5;
+			double contentY = 0.5;
+			if (oldFit.width > 0 && oldFit.height > 0 && frameWidth > 0 && frameHeight > 0) {
+				int oldBaseX = (int) ((frameWidth - oldFit.width) / 2.0);
+				int oldBaseY = (int) ((frameHeight - oldFit.height) / 2.0);
+				int oldX = clampPanAxis(oldBaseX, panX, frameWidth, oldFit.width);
+				int oldY = clampPanAxis(oldBaseY, panY, frameHeight, oldFit.height);
+				contentX = clampDouble((pivot.x - oldX) / (double) oldFit.width, 0.0, 1.0);
+				contentY = clampDouble((pivot.y - oldY) / (double) oldFit.height, 0.0, 1.0);
+			}
+
 			this.zoom = clamped;
+			Dimension newFit = computeFitSize(frameWidth, frameHeight);
+			if (newFit.width > 0 && newFit.height > 0 && frameWidth > 0 && frameHeight > 0) {
+				int newBaseX = (int) ((frameWidth - newFit.width) / 2.0);
+				int newBaseY = (int) ((frameHeight - newFit.height) / 2.0);
+				int targetX = (int) Math.round(pivot.x - contentX * newFit.width);
+				int targetY = (int) Math.round(pivot.y - contentY * newFit.height);
+				panX = targetX - newBaseX;
+				panY = targetY - newBaseY;
+			}
 			clampPanToBounds();
 			scheduleScaleToFit();
 			if (!interactionActive) {
 				triggerScaleToPendingSize();
 			}
 			repaint();
+		}
+
+		/**
+		 * Chooses the panel point that should remain fixed during zoom.
+		 *
+		 * @param anchor requested anchor point
+		 * @param frameWidth current panel width
+		 * @param frameHeight current panel height
+		 * @return usable anchor point
+		 */
+		private Point resolveZoomPivot(Point anchor, int frameWidth, int frameHeight) {
+			if (anchor != null) {
+				return anchor;
+			}
+			return new Point(Math.max(0, frameWidth / 2), Math.max(0, frameHeight / 2));
 		}
 
 		/**
@@ -707,10 +1088,16 @@ public class Display extends JFrame {
 			FileNameExtensionFilter pngFilter = new FileNameExtensionFilter("PNG Image (*.png)", "png");
 			FileNameExtensionFilter jpgFilter = new FileNameExtensionFilter("JPEG Image (*.jpg, *.jpeg)", "jpg", "jpeg");
 			FileNameExtensionFilter bmpFilter = new FileNameExtensionFilter("Bitmap Image (*.bmp)", "bmp");
+			FileNameExtensionFilter svgFilter = new FileNameExtensionFilter("SVG Image (*.svg)", "svg");
 			chooser.addChoosableFileFilter(pngFilter);
 			chooser.addChoosableFileFilter(jpgFilter);
 			chooser.addChoosableFileFilter(bmpFilter);
-			chooser.setFileFilter(pngFilter);
+			if (imageSource.supportsSvgExport()) {
+				chooser.addChoosableFileFilter(svgFilter);
+				chooser.setFileFilter(svgFilter);
+			} else {
+				chooser.setFileFilter(pngFilter);
+			}
 			chooser.setSelectedFile(buildDefaultSaveFile());
 
 			int result = chooser.showSaveDialog(this);
@@ -726,7 +1113,9 @@ public class Display extends JFrame {
 			}
 			File target = ensureExtension(selected, format);
 			try {
-				if (!ImageIO.write(image, format, target)) {
+				if ("svg".equals(format)) {
+					saveSvg(target);
+				} else if (!ImageIO.write(image, format, target)) {
 					throw new IOException("No ImageIO writer for format: " + format);
 				}
 			} catch (IOException ex) {
@@ -735,6 +1124,19 @@ public class Display extends JFrame {
 						SAVE_DIALOG_TITLE,
 						JOptionPane.ERROR_MESSAGE);
 			}
+		}
+
+		/**
+		 * Saves the current source as a real SVG document.
+		 *
+		 * @param target target file
+		 * @throws IOException when writing fails
+		 */
+		private void saveSvg(File target) throws IOException {
+			if (!imageSource.supportsSvgExport()) {
+				throw new IOException("The current image source cannot export SVG");
+			}
+			Files.writeString(target.toPath(), imageSource.renderSvg(imageWidth, imageHeight), StandardCharsets.UTF_8);
 		}
 
 		/**
@@ -818,6 +1220,7 @@ public class Display extends JFrame {
 				case "png" -> "png";
 				case "jpg", "jpeg" -> "jpg";
 				case "bmp" -> "bmp";
+				case "svg" -> "svg";
 				default -> null;
 			};
 		}
@@ -837,13 +1240,13 @@ public class Display extends JFrame {
 		 * @param event mouse wheel event to interpret as zoom deltas
 		 */
 		private void handleZoomWheel(MouseWheelEvent event) {
-			int rotation = event.getWheelRotation();
-			if (rotation == 0) {
+			double rotation = event.getPreciseWheelRotation();
+			if (Math.abs(rotation) < 0.0001) {
 				return;
 			}
 			startInteraction();
 			double factor = Math.pow(ZOOM_STEP, -rotation);
-			setZoom(zoom * factor);
+			setZoomAround(event.getPoint(), zoom * factor);
 		}
 
 		/**
@@ -866,6 +1269,7 @@ public class Display extends JFrame {
 			panY += dy;
 			lastDragPoint = point;
 			clampPanToBounds();
+			scheduleScaleToFit();
 			repaint();
 		}
 
@@ -938,6 +1342,24 @@ public class Display extends JFrame {
 		}
 
 		/**
+		 * Clamp a floating-point value to the given bounds.
+		 *
+		 * @param value value to clamp
+		 * @param min minimum inclusive
+		 * @param max maximum inclusive
+		 * @return clamped value
+		 */
+		private double clampDouble(double value, double min, double max) {
+			if (value < min) {
+				return min;
+			}
+			if (value > max) {
+				return max;
+			}
+			return value;
+		}
+
+		/**
 		 * Cancels any in-flight scaling worker task.
 		 * Clears the worker reference so future scale requests can proceed.
 		 */
@@ -975,38 +1397,42 @@ public class Display extends JFrame {
 			if (interactionActive) {
 				return;
 			}
-			int targetWidth = pendingScaledWidth;
-			int targetHeight = pendingScaledHeight;
-			if (targetWidth <= 0 || targetHeight <= 0) {
+			RenderState state = computeRenderState();
+			if (state == null) {
 				return;
 			}
-			if (scaledImageCache != null && targetWidth == scaledWidth && targetHeight == scaledHeight) {
+			if (hasMatchingCache(state)) {
 				return;
 			}
-			startScaleWorker(targetWidth, targetHeight);
+			startScaleWorker(state);
 		}
 
 		/**
-		 * Starts a background scaling job for the given target dimensions.
+		 * Starts a background render job for the visible region of the current zoom.
 		 * Cancels any previous job and updates the cache upon completion.
 		 *
-		 * @param targetWidth desired scaled width in pixels
-		 * @param targetHeight desired scaled height in pixels
+		 * @param state current render state
 		 */
-		private void startScaleWorker(int targetWidth, int targetHeight) {
+		private void startScaleWorker(RenderState state) {
 			cancelScaleWorker();
 			final long requestId = ++scaleRequestId;
-			final BufferedImage source = image;
+			final ImageSource source = imageSource;
+			final int targetWidth = state.width;
+			final int targetHeight = state.height;
+			final int sourceX = state.sourceX();
+			final int sourceY = state.sourceY();
+			final int sliceWidth = state.visible.width;
+			final int sliceHeight = state.visible.height;
 			scaleWorker = new SwingWorker<>() {
 
 				/**
-				 * Performs the scaling work off the EDT.
+				 * Performs the vector/raster render work off the EDT.
 				 *
-				 * @return newly scaled image buffer
+				 * @return newly rendered image buffer
 				 */
 				@Override
 				protected BufferedImage doInBackground() {
-					return scaleImageNearest(source, targetWidth, targetHeight);
+					return source.renderRegion(targetWidth, targetHeight, sourceX, sourceY, sliceWidth, sliceHeight);
 				}
 
 				/**
@@ -1019,13 +1445,17 @@ public class Display extends JFrame {
 					}
 					try {
 						BufferedImage scaled = get();
-						if (scaled == null || image != source) {
+						if (scaled == null || imageSource != source) {
 							return;
 						}
 						scaledImageCache = scaled;
 						scaledWidth = targetWidth;
 						scaledHeight = targetHeight;
-						jframe.setTitle("Image Display (" + targetWidth + "x" + targetHeight + ") " + timestamp);
+						cachedSourceX = sourceX;
+						cachedSourceY = sourceY;
+						cachedSliceWidth = sliceWidth;
+						cachedSliceHeight = sliceHeight;
+						updateFrameTitle();
 						repaint();
 					} catch (InterruptedException e) {
 						Thread.currentThread().interrupt();
@@ -1142,7 +1572,13 @@ public class Display extends JFrame {
 		 * @return {@code true} when the cached image is usable
 		 */
 		private boolean hasMatchingCache(RenderState state) {
-			return scaledImageCache != null && scaledWidth == state.width && scaledHeight == state.height;
+			return scaledImageCache != null
+					&& scaledWidth == state.width
+					&& scaledHeight == state.height
+					&& cachedSourceX == state.sourceX()
+					&& cachedSourceY == state.sourceY()
+					&& cachedSliceWidth == state.visible.width
+					&& cachedSliceHeight == state.visible.height;
 		}
 
 		/**
@@ -1152,37 +1588,70 @@ public class Display extends JFrame {
 		 * @param state render state describing the visible region
 		 */
 		private void drawCachedSlice(Graphics2D graphics2d, RenderState state) {
-			int srcX1 = state.visible.x - state.x;
-			int srcY1 = state.visible.y - state.y;
-			int srcX2 = srcX1 + state.visible.width;
-			int srcY2 = srcY1 + state.visible.height;
-			graphics2d.drawImage(scaledImageCache,
-					state.visible.x,
-					state.visible.y,
-					state.visible.x + state.visible.width,
-					state.visible.y + state.visible.height,
-					srcX1,
-					srcY1,
-					srcX2,
-					srcY2,
-					this);
+			graphics2d.drawImage(scaledImageCache, state.visible.x, state.visible.y, this);
 		}
 
 		/**
-		 * Draws the image using nearest-neighbor scaling as a fallback.
+		 * Renders and draws the visible region immediately from the backing source.
+		 *
+		 * @param graphics2d graphics context to draw into
+		 * @param state render state describing the target size
+		 * @return {@code true} when the immediate render succeeded
+		 */
+		private boolean drawImmediateRegion(Graphics2D graphics2d, RenderState state) {
+			BufferedImage rendered = imageSource.renderRegion(
+					state.width,
+					state.height,
+					state.sourceX(),
+					state.sourceY(),
+					state.visible.width,
+					state.visible.height);
+			if (rendered == null) {
+				return false;
+			}
+			scaledImageCache = rendered;
+			scaledWidth = state.width;
+			scaledHeight = state.height;
+			cachedSourceX = state.sourceX();
+			cachedSourceY = state.sourceY();
+			cachedSliceWidth = state.visible.width;
+			cachedSliceHeight = state.visible.height;
+			graphics2d.drawImage(rendered, state.visible.x, state.visible.y, this);
+			return true;
+		}
+
+		/**
+		 * Draws the native snapshot using smooth scaling as a temporary fallback.
 		 *
 		 * @param graphics2d graphics context to draw into
 		 * @param state render state describing the target size
 		 */
 		private void drawFallbackImage(Graphics2D graphics2d, RenderState state) {
-			graphics2d.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
-			graphics2d.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_SPEED);
-			graphics2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_OFF);
-			if (scaledImageCache != null) {
-				graphics2d.drawImage(scaledImageCache, state.x, state.y, state.width, state.height, this);
-			} else {
-				graphics2d.drawImage(image, state.x, state.y, state.width, state.height, this);
+			if (imageSource.renderRegionImmediately() && drawImmediateRegion(graphics2d, state)) {
+				return;
 			}
+			graphics2d.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+			graphics2d.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+			graphics2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+			Rectangle src = scaledToNativeSourceRect(
+					imageWidth,
+					imageHeight,
+					state.width,
+					state.height,
+					state.sourceX(),
+					state.sourceY(),
+					state.visible.width,
+					state.visible.height);
+			graphics2d.drawImage(image,
+					state.visible.x,
+					state.visible.y,
+					state.visible.x + state.visible.width,
+					state.visible.y + state.visible.height,
+					src.x,
+					src.y,
+					src.x + src.width,
+					src.y + src.height,
+					this);
 		}
 
 		/**
@@ -1201,8 +1670,26 @@ public class Display extends JFrame {
 				drawFallbackImage(graphics2d, state);
 			}
 			graphics2d.setClip(oldClip);
+			paintImageBorder(graphics2d, state);
+		}
+
+		/**
+		 * Paints a crisp one-pixel border around the image bounds.
+		 *
+		 * @param graphics2d graphics context to draw into
+		 * @param state render state snapshot
+		 */
+		private void paintImageBorder(Graphics2D graphics2d, RenderState state) {
 			graphics2d.setColor(borderColor);
-			graphics2d.drawRect(state.x - 1, state.y - 1, state.width + 2, state.height + 2);
+			int border = IMAGE_BORDER_THICKNESS;
+			int x = state.x - border;
+			int y = state.y - border;
+			int width = state.width + border * 2;
+			int height = state.height + border * 2;
+			graphics2d.fillRect(x, y, width, border);
+			graphics2d.fillRect(x, y + height - border, width, border);
+			graphics2d.fillRect(x, y + border, border, Math.max(0, height - border * 2));
+			graphics2d.fillRect(x + width - border, y + border, border, Math.max(0, height - border * 2));
 		}
 
 		/**
@@ -1224,7 +1711,8 @@ public class Display extends JFrame {
 			int boxY = baseline - metrics.getAscent() - 2;
 			int boxWidth = textWidth + 8;
 			int boxHeight = textHeight + 4;
-			Color bg = new Color(backgroundColor.getRed(), backgroundColor.getGreen(), backgroundColor.getBlue(), HELP_BG_ALPHA);
+			Color bg = new Color(backgroundColor.getRed(), backgroundColor.getGreen(), backgroundColor.getBlue(),
+					HELP_BG_ALPHA);
 			graphics2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 			graphics2d.setColor(bg);
 			graphics2d.fillRoundRect(boxX, boxY, boxWidth, boxHeight, 8, 8);
@@ -1234,6 +1722,39 @@ public class Display extends JFrame {
 			graphics2d.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
 			graphics2d.setColor(textColor);
 			graphics2d.drawString(HELP_TEXT, x, baseline);
+		}
+
+		/**
+		 * Paints volatile render stats above the bottom-left help HUD.
+		 *
+		 * @param graphics2d graphics context to draw into
+		 * @param state current render state
+		 */
+		private void paintStatusText(Graphics2D graphics2d, RenderState state) {
+			String text = String.format(Locale.ROOT, "Size %dx%d  Zoom %.2fx", state.width, state.height, zoom);
+			FontMetrics metrics = graphics2d.getFontMetrics();
+			int textWidth = metrics.stringWidth(text);
+			int textHeight = metrics.getHeight();
+			int boxWidth = textWidth + 8;
+			int boxHeight = textHeight + 4;
+			int helpBoxHeight = HELP_TEXT.isEmpty() ? 0 : textHeight + 4;
+			int helpBoxY = HELP_TEXT.isEmpty()
+					? getHeight() - HELP_PADDING
+					: getHeight() - HELP_PADDING - helpBoxHeight;
+			int boxX = HELP_PADDING - 4;
+			int boxY = Math.max(HELP_PADDING, helpBoxY - 4 - boxHeight);
+			int baseline = boxY + 2 + metrics.getAscent();
+			Color bg = new Color(backgroundColor.getRed(), backgroundColor.getGreen(), backgroundColor.getBlue(),
+					HELP_BG_ALPHA);
+			graphics2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+			graphics2d.setColor(bg);
+			graphics2d.fillRoundRect(boxX, boxY, boxWidth, boxHeight, 8, 8);
+			Color textColor = backgroundColor.equals(LIGHT_BACKGROUND)
+					? new Color(40, 40, 40)
+					: new Color(220, 220, 220);
+			graphics2d.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+			graphics2d.setColor(textColor);
+			graphics2d.drawString(text, boxX + 4, baseline);
 		}
 
 		/**
@@ -1281,6 +1802,24 @@ public class Display extends JFrame {
 				this.x = x;
 				this.y = y;
 				this.visible = visible;
+			}
+
+			/**
+			 * X coordinate of the visible region inside the scaled image.
+			 *
+			 * @return source x coordinate
+			 */
+			private int sourceX() {
+				return visible.x - x;
+			}
+
+			/**
+			 * Y coordinate of the visible region inside the scaled image.
+			 *
+			 * @return source y coordinate
+			 */
+			private int sourceY() {
+				return visible.y - y;
 			}
 		}
 
@@ -1371,6 +1910,7 @@ public class Display extends JFrame {
 			}
 			paintImage(graphics2d, state);
 			paintHelpText(graphics2d);
+			paintStatusText(graphics2d, state);
 		}
 	}
 }

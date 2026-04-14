@@ -176,12 +176,12 @@ Options:
 
 ## `render`
 
-Render a board image to disk (PNG/JPG/BMP).
+Render a board image to disk (PNG/JPG/BMP/SVG).
 
 Options:
 - `--fen "<FEN...>"` (or pass it positionally)
-- `--output|-o <path>`: output image path (required)
-- `--format <fmt>`: output format override (`png`, `jpg`, `bmp`)
+- `--output|-o <path>`: output image/SVG path (required)
+- `--format <fmt>`: output format override (`png`, `jpg`, `bmp`, `svg`)
 - `--arrow <uci>` / `--arrows <uci,uci,...>`: add arrow overlays
 - `--special-arrows`: include castling/en-passant hint arrows
 - `--circle <sq>` / `--circles <sq,sq,...>`: add circle overlays

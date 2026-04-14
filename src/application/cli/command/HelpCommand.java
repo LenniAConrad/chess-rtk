@@ -597,8 +597,8 @@ public final class HelpCommand {
 
 			render options:
 			  --fen FEN                  FEN string to render
-			  --output|-o PATH           Output image path
-			  --format FORMAT            Image format (png, jpg)
+			  --output|-o PATH           Output image/SVG path
+			  --format FORMAT            Image format (png, jpg, bmp, svg)
 			  --backend B                Renderer backend (default: best available)
 			  --show-backend             Print renderer backend info
 			  --flip                     Render from Black's perspective

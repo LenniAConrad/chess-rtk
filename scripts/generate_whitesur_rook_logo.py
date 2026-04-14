@@ -4,6 +4,9 @@
 from __future__ import annotations
 
 import argparse
+import shutil
+import subprocess
+import tempfile
 from pathlib import Path
 
 from PIL import Image, ImageChops, ImageDraw, ImageEnhance, ImageFilter
@@ -63,14 +66,43 @@ def style_piece_texture(src: Image.Image, piece_is_white: bool) -> Image.Image:
     return piece
 
 
-def is_white_piece(piece_png: Path) -> bool:
-    return piece_png.stem.startswith("white-")
+def is_white_piece(piece_path: Path) -> bool:
+    return piece_path.stem.startswith("white-")
 
 
-def draw_logo(piece_png: Path, size: int, aa_scale: int) -> Image.Image:
+def load_piece_art(piece_path: Path, render_size: int) -> Image.Image:
+    if piece_path.suffix.lower() != ".svg":
+        return Image.open(piece_path).convert("RGBA")
+
+    inkscape = shutil.which("inkscape")
+    if inkscape is None:
+        raise RuntimeError("SVG piece logo generation requires inkscape on PATH")
+
+    with tempfile.TemporaryDirectory() as tmp:
+        rendered = Path(tmp) / "piece.png"
+        subprocess.run(
+            [
+                inkscape,
+                str(piece_path),
+                "--export-type=png",
+                f"--export-filename={rendered}",
+                "--export-width",
+                str(render_size),
+                "--export-height",
+                str(render_size),
+            ],
+            check=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        with Image.open(rendered) as image:
+            return image.convert("RGBA")
+
+
+def draw_logo(piece_path: Path, size: int, aa_scale: int) -> Image.Image:
     work_size = size * aa_scale
     canvas = Image.new("RGBA", (work_size, work_size), (0, 0, 0, 0))
-    piece_is_white = is_white_piece(piece_png)
+    piece_is_white = is_white_piece(piece_path)
 
     tile_size = int(round(work_size * 0.86))
     tile_x = (work_size - tile_size) // 2
@@ -134,7 +166,7 @@ def draw_logo(piece_png: Path, size: int, aa_scale: int) -> Image.Image:
     border.putalpha(ImageChops.multiply(border.getchannel("A"), tile_mask))
     canvas.alpha_composite(border, (tile_x, tile_y))
 
-    piece = Image.open(piece_png).convert("RGBA")
+    piece = load_piece_art(piece_path, work_size)
     piece = trim_alpha(piece)
     piece = style_piece_texture(piece, piece_is_white)
 
@@ -166,14 +198,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--piece",
         type=Path,
-        default=Path("assets/embedded/pieces/black-rook.png"),
-        help="Source piece PNG for single render mode.",
+        default=Path("assets/embedded/pieces/black-rook.svg"),
+        help="Source piece SVG or PNG for single render mode.",
     )
     parser.add_argument(
         "--pieces-dir",
         type=Path,
         default=Path("assets/embedded/pieces"),
-        help="Directory containing black-*.png and white-*.png piece files.",
+        help="Directory containing black-* and white-* SVG or PNG piece files.",
     )
     parser.add_argument(
         "--all-pieces",
@@ -231,10 +263,12 @@ def main() -> int:
     args.out_dir.mkdir(parents=True, exist_ok=True)
 
     if args.all_pieces:
-        pieces = sorted(args.pieces_dir.glob("*.png"))
+        pieces = sorted(args.pieces_dir.glob("*.svg"))
+        if not pieces:
+            pieces = sorted(args.pieces_dir.glob("*.png"))
         pieces = [p for p in pieces if p.stem.startswith("black-") or p.stem.startswith("white-")]
         if not pieces:
-            raise FileNotFoundError(f"No piece PNGs found in: {args.pieces_dir}")
+            raise FileNotFoundError(f"No piece SVGs or PNGs found in: {args.pieces_dir}")
         for piece in pieces:
             logo = draw_logo(piece, args.size, args.aa_scale)
             write_outputs(logo, args.out_dir, f"{args.prefix}-{piece.stem}")

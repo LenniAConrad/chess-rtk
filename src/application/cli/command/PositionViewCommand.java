@@ -36,9 +36,10 @@ import static application.cli.PathOps.ensureParentDir;
 
 import java.awt.Color;
 import java.awt.Graphics2D;
-import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Locale;
@@ -155,14 +156,13 @@ public final class PositionViewCommand {
 
 			int windowWidth = resolveWindowDimension(opts.width(), opts.size(), DEFAULT_DISPLAY_WINDOW_SIZE);
 			int windowHeight = resolveWindowDimension(opts.height(), opts.size(), DEFAULT_DISPLAY_WINDOW_SIZE);
-			BufferedImage image = render.render();
 			if (opts.shadow()) {
-				image = applyDropShadow(image);
+				System.err.println("Warning: --shadow is ignored for vector display");
 			}
-			Display display = new Display(image, windowWidth, windowHeight, opts.light());
+			Display display = new Display(displaySource(render), windowWidth, windowHeight, opts.light());
 			display.setZoom(opts.zoom());
 			if (backendLabel != null) {
-				display.setTitle("Backend: " + backendLabel);
+				display.setDisplayTitle("Chess-RTK Board View - " + backendLabel);
 			}
 		} catch (IllegalArgumentException ex) {
 			System.err.println("Error: invalid display input. " + (ex.getMessage() == null ? "" : ex.getMessage()));
@@ -437,23 +437,34 @@ public final class PositionViewCommand {
 		applyDisplayOverlays(render, pos, opts.arrows(), opts.circles(), opts.legal(), opts.specialArrows());
 		applyDisplayEvaluatorOverlays(render, pos, opts.showBackend(), opts.ablation());
 
-		BufferedImage image = render.render();
-		int outWidth = resolveWindowDimension(opts.width(), opts.size(), image.getWidth());
-		int outHeight = resolveWindowDimension(opts.height(), opts.size(), image.getHeight());
-		if (outWidth <= 0 || outHeight <= 0) {
-			throw new IllegalArgumentException("render size must be positive");
-		}
-		if (outWidth != image.getWidth() || outHeight != image.getHeight()) {
-			image = scaleImage(image, outWidth, outHeight);
-		}
-		if (opts.shadow()) {
-			image = applyDropShadow(image);
-		}
-
 		Path output = Objects.requireNonNull(opts.output(), "output");
 		String format = resolveImageFormat(output, opts.format());
 		Path out = Objects.requireNonNull(ensureImageExtension(output, format), "output");
 		ensureParentDir(out);
+
+		if ("svg".equals(format)) {
+			int outWidth = resolveWindowDimension(opts.width(), opts.size(), render.renderedWidth());
+			int outHeight = resolveWindowDimension(opts.height(), opts.size(), render.renderedHeight());
+			if (outWidth <= 0 || outHeight <= 0) {
+				throw new IllegalArgumentException("render size must be positive");
+			}
+			if (opts.shadow()) {
+				System.err.println("Warning: --shadow is ignored for SVG output");
+			}
+			Files.writeString(out, render.renderSvg(outWidth, outHeight), StandardCharsets.UTF_8);
+			System.out.println("Saved board SVG: " + out.toAbsolutePath());
+			return;
+		}
+
+		int outWidth = resolveWindowDimension(opts.width(), opts.size(), render.renderedWidth());
+		int outHeight = resolveWindowDimension(opts.height(), opts.size(), render.renderedHeight());
+		if (outWidth <= 0 || outHeight <= 0) {
+			throw new IllegalArgumentException("render size must be positive");
+		}
+		BufferedImage image = render.render(outWidth, outHeight);
+		if (opts.shadow()) {
+			image = applyDropShadow(image);
+		}
 
 		BufferedImage toWrite = "jpg".equals(format) ? toOpaqueImage(image, Color.WHITE) : image;
 		if (!ImageIO.write(toWrite, format, out.toFile())) {
@@ -498,6 +509,53 @@ public final class PositionViewCommand {
 				.setShowBorder(showBorder)
 				.setShowCoordinates(showCoordinates)
 				.setShowCoordinatesOutside(showCoordinatesOutside);
+	}
+
+	/**
+	 * Wraps a renderer in a display source that redraws visible zoom regions from vector geometry.
+	 *
+	 * @param render renderer to display
+	 * @return redrawable display source
+	 */
+	private static Display.ImageSource displaySource(Render render) {
+		return new Display.ImageSource() {
+
+			@Override
+			public int width() {
+				return render.renderedWidth();
+			}
+
+			@Override
+			public int height() {
+				return render.renderedHeight();
+			}
+
+			@Override
+			public BufferedImage render(int width, int height) {
+				return render.render(width, height);
+			}
+
+			@Override
+			public boolean renderRegionImmediately() {
+				return true;
+			}
+
+			@Override
+			public boolean supportsSvgExport() {
+				return true;
+			}
+
+			@Override
+			public String renderSvg(int width, int height) {
+				return render.renderSvg(width, height);
+			}
+
+			@Override
+			public BufferedImage renderRegion(int scaledWidth, int scaledHeight, int sourceX, int sourceY,
+					int width, int height) {
+				return render.renderViewport(scaledWidth, scaledHeight, sourceX, sourceY, width, height);
+			}
+		};
 	}
 
 	/**
@@ -622,7 +680,7 @@ public final class PositionViewCommand {
 		if (format == null) {
 			if (ext == null || ext.isBlank()) {
 				throw new IllegalArgumentException(
-						"Missing image format (use --format png|jpg|bmp or add an extension)");
+						"Missing image format (use --format png|jpg|bmp|svg or add an extension)");
 			}
 			throw new IllegalArgumentException("Unsupported image format: " + ext);
 		}
@@ -644,7 +702,7 @@ public final class PositionViewCommand {
 			normalized = "jpg";
 		}
 		return switch (normalized) {
-			case "png", "jpg", "bmp" -> normalized;
+			case "png", "jpg", "bmp", "svg" -> normalized;
 			default -> null;
 		};
 	}
@@ -683,25 +741,6 @@ public final class PositionViewCommand {
 			return output.resolveSibling(output.getFileName().toString() + "." + format);
 		}
 		return output;
-	}
-
-	/**
-	 * Scales an image to the requested size with high-quality filtering.
-	 *
-	 * @param source source image
-	 * @param width  target width
-	 * @param height target height
-	 * @return scaled image
-	 */
-	private static BufferedImage scaleImage(BufferedImage source, int width, int height) {
-		BufferedImage scaled = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
-		Graphics2D g = scaled.createGraphics();
-		g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
-		g.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
-		g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-		g.drawImage(source, 0, 0, width, height, null);
-		g.dispose();
-		return scaled;
 	}
 
 	/**
