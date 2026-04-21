@@ -12,6 +12,7 @@ import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Predicate;
+import java.util.function.LongConsumer;
 
 import chess.core.Move;
 import chess.core.Position;
@@ -65,6 +66,26 @@ public class Converter {
      * @throws IllegalArgumentException if {@code recordFile} is {@code null}.
      */
     public static void recordToPlain(boolean exportAll, Filter arguments, Path recordFile, Path plainFile) {
+        recordToPlain(exportAll, arguments, recordFile, plainFile, null);
+    }
+
+    /**
+     * Used for stream-converting a JSON array file of records into one {@code .plain}
+     * file while reporting progress once per input record.
+     *
+     * @param exportAll include all exportable fields
+     * @param arguments optional filter; {@code null} = emit all
+     * @param recordFile input JSON array path
+     * @param plainFile output {@code .plain} path; if {@code null}, derived from
+     *                  {@code recordFile}
+     * @param byteProgress optional callback receiving cumulative bytes read
+     */
+    public static void recordToPlain(
+            boolean exportAll,
+            Filter arguments,
+            Path recordFile,
+            Path plainFile,
+            LongConsumer byteProgress) {
         if (recordFile == null) {
             throw new IllegalArgumentException("recordfile is null");
         }
@@ -83,7 +104,8 @@ public class Converter {
         try (BufferedWriter out = openWriter(tmp)) {
             Json.streamTopLevelObjects(
                     recordFile,
-                    objJson -> processRecordJson(arguments, objJson, exportAll, out, ok, bad));
+                    objJson -> processRecordJson(arguments, objJson, exportAll, out, ok, bad),
+                    byteProgress);
         } catch (Exception e) {
             cleanupTempQuietly(tmp);
             LogService.error(
@@ -142,6 +164,21 @@ public class Converter {
      * @throws IllegalArgumentException if {@code recordFile} is {@code null}.
      */
     public static void recordToCsv(Filter arguments, Path recordFile, Path csvFile) {
+        recordToCsv(arguments, recordFile, csvFile, null);
+    }
+
+    /**
+     * Used for stream-converting a JSON array file of records into one CSV file
+     * while reporting progress once per input record on the writing pass.
+     *
+     * @param arguments optional filter; {@code null} = emit all
+     * @param recordFile input JSON array path
+     * @param csvFile output {@code .csv} path; if {@code null}, derived from
+     *                {@code recordFile}
+     * @param byteProgress optional callback receiving cumulative bytes read across
+     *                     both CSV passes
+     */
+    public static void recordToCsv(Filter arguments, Path recordFile, Path csvFile, LongConsumer byteProgress) {
         if (recordFile == null) {
             throw new IllegalArgumentException("recordfile is null");
         }
@@ -152,6 +189,7 @@ public class Converter {
         final Path tmp = csvFile.resolveSibling(csvFile.getFileName().toString() + ".tmp");
         final AtomicLong ok = new AtomicLong();
         final AtomicLong bad = new AtomicLong();
+        final long inputSize = safeSize(recordFile);
 
         LogService.info(String.format(
                 "Converting records to CSV '%s' to '%s'.",
@@ -159,7 +197,7 @@ public class Converter {
 
         final int maxPv;
         try {
-            maxPv = computeMaxPivot(arguments, recordFile);
+            maxPv = computeMaxPivot(arguments, recordFile, byteProgress);
         } catch (Exception e) {
             cleanupTempQuietly(tmp);
             LogService.error(
@@ -171,6 +209,9 @@ public class Converter {
         }
 
         if (maxPv == 0) {
+            if (byteProgress != null) {
+                byteProgress.accept(inputSize * 2L);
+            }
             LogService.info(String.format(
                     "CSV conversion found no eligible records in '%s'; skipping output '%s'.",
                     recordFile, csvFile));
@@ -181,7 +222,8 @@ public class Converter {
             writeCsvHeader(out, maxPv);
             Json.streamTopLevelObjects(
                     recordFile,
-                    objJson -> processRecordCsv(arguments, objJson, maxPv, out, ok, bad));
+                    objJson -> processRecordCsv(arguments, objJson, maxPv, out, ok, bad),
+                    addBase(byteProgress, inputSize));
         } catch (Exception e) {
             cleanupTempQuietly(tmp);
             LogService.error(
@@ -307,7 +349,7 @@ public class Converter {
      * @return maximum PV index observed across accepted records.
      * @throws IOException if streaming fails.
      */
-    private static int computeMaxPivot(Filter arguments, Path recordFile) throws IOException {
+    private static int computeMaxPivot(Filter arguments, Path recordFile, LongConsumer byteProgress) throws IOException {
         final int[] maxPv = new int[1];
         Json.streamTopLevelObjects(recordFile, objJson -> {
             try {
@@ -323,7 +365,7 @@ public class Converter {
             } catch (IllegalArgumentException | NullPointerException ignore) {
                 // Skip invalid records in the sizing pass.
             }
-        });
+        }, byteProgress);
         return maxPv[0];
     }
 
@@ -413,6 +455,29 @@ public class Converter {
             bad.incrementAndGet();
         } catch (IOException io) {
             throw new UncheckedIOException(io);
+        }
+    }
+
+     /**
+     * Handles add base.
+     * @param progress progress
+     * @param base base
+     * @return computed value
+     */
+     private static LongConsumer addBase(LongConsumer progress, long base) {
+        return progress == null ? null : done -> progress.accept(base + done);
+    }
+
+     /**
+     * Handles safe size.
+     * @param path path
+     * @return computed value
+     */
+     private static long safeSize(Path path) {
+        try {
+            return Files.size(path);
+        } catch (IOException ex) {
+            return 0L;
         }
     }
 

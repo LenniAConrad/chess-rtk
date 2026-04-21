@@ -67,8 +67,7 @@ public final class GenFensCommand {
 		ensureDirectoryOrExit(CMD_GEN_FENS, outDir, verbose);
 
 		final long total = (long) files * (long) perFile;
-		final int barTotal = (total > Integer.MAX_VALUE) ? 0 : (int) total;
-		final Bar bar = new Bar(barTotal, "fens", ascii);
+		final Bar bar = new Bar(total, "fens", ascii);
 		final int width = Math.max(4, String.valueOf(Math.max(files - 1, 0)).length());
 
 		for (int i = 0; i < files; i++) {

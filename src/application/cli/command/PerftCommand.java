@@ -13,6 +13,7 @@ import static application.cli.Validation.requireNonNegative;
 
 import java.util.List;
 
+import application.console.Bar;
 import chess.core.Position;
 import chess.core.Setup;
 import chess.debug.LogService;
@@ -88,6 +89,11 @@ public final class PerftCommand {
 	 */
 	public static void runPerftSuite(Argv a) {
 		a.ensureConsumed();
-		Printer.testPerft();
+		Bar bar = new Bar(13, "perft-suite", false, System.err);
+		try {
+			Printer.testPerft(bar::step);
+		} finally {
+			bar.finish();
+		}
 	}
 }

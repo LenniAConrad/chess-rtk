@@ -36,6 +36,9 @@ import chess.core.Position;
  * @author Lennart A. Conrad
  */
 final class BoardPanel extends JPanel {
+
+	@java.io.Serial
+	private static final long serialVersionUID = 1L;
 		/**
 		 * DRAG_THRESHOLD constant.
 		 */

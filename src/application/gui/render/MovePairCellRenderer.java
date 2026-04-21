@@ -24,6 +24,9 @@ import application.gui.model.MovePair;
   * @author Lennart A. Conrad
  */
 public final class MovePairCellRenderer extends JPanel implements javax.swing.ListCellRenderer<MovePair> {
+
+	@java.io.Serial
+	private static final long serialVersionUID = 1L;
 	/**
 	 * History window supplying fonts, colors, and scaling.
 	 */

@@ -19,5 +19,17 @@
 
 ## `display --ablation` is slow or uses the classical backend
 
-- The evaluator tries to load `models/lc0_744706.bin` and falls back to a classical heuristic when LC0 is unavailable.
+- The evaluator tries to load local `models/leela_112planes-10blocksx128-policyhead80-valuehead32-policy4672-wdl3.bin` weights and falls back to a classical heuristic when LC0 is unavailable. Fetch the default weights with `./install.sh --models`.
 - If you want CUDA acceleration, build `native/cuda/` and run with `-Djava.library.path=...`.
+
+## Cover dimensions do not match the upload form
+
+- Pass the final printed interior page count explicitly with `chess-book-cover --pages <n>`.
+- Confirm the manifest `paperwidth` and `paperheight` are trim dimensions in centimeters, not full cover dimensions.
+- Use a current interior token: `white-bw`, `cream-bw`, `white-standard-color`, or `white-premium-color`.
+- Compare the dimensions printed by `chess-book-cover` with the publishing service's own cover calculator before upload.
+
+## T5 commands cannot find a model
+
+- Pass `--model /path/to/t5.bin`, or set `t5-model-path` in `config/cli.config.toml`.
+- Model binaries are local artifacts and are ignored by git; they are not bundled with a fresh clone.

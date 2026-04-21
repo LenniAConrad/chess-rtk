@@ -218,7 +218,16 @@ public final class Pool implements AutoCloseable {
         }
     }
 
-    private void analyseWithEngine(
+     /**
+     * Handles analyse with engine.
+     * @param eng eng
+     * @param rec rec
+     * @param accelerate accelerate
+     * @param maxNodes max nodes
+     * @param maxDurationMs max duration ms
+     * @throws InterruptedException if the operation fails
+     */
+     private void analyseWithEngine(
             Engine eng,
             Record rec,
             Filter accelerate,

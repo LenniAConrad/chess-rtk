@@ -36,17 +36,35 @@ import utility.Toml;
  */
 public final class Encyclopedia {
 
-    private static final int PARALLEL_PARSE_THRESHOLD = 512;
+     /**
+     * Shared parallel parse threshold constant.
+     */
+     private static final int PARALLEL_PARSE_THRESHOLD = 512;
 
-    private static final String PROP_PARALLEL_PARSE = "crtk.eco.parallel";
+     /**
+     * Shared prop parallel parse constant.
+     */
+     private static final String PROP_PARALLEL_PARSE = "crtk.eco.parallel";
 
-    private static final String ENV_PARALLEL_PARSE = "CRTK_ECO_PARALLEL";
+     /**
+     * Shared env parallel parse constant.
+     */
+     private static final String ENV_PARALLEL_PARSE = "CRTK_ECO_PARALLEL";
 
-    private static final String KEY_ECO = "eco";
+     /**
+     * Shared key eco constant.
+     */
+     private static final String KEY_ECO = "eco";
 
-    private static final String KEY_NAME = "name";
+     /**
+     * Shared key name constant.
+     */
+     private static final String KEY_NAME = "name";
 
-    private static final String KEY_MOVETEXT = "movetext";
+     /**
+     * Shared key movetext constant.
+     */
+     private static final String KEY_MOVETEXT = "movetext";
 
     /**
      * Used for pointing to the default ECO book read by
@@ -122,8 +140,14 @@ public final class Encyclopedia {
      * Each row stores the ECO code, the descriptive name, and the SAN movetext.
      * </p>
      */
-    private record Row(String eco, String name, String movetext) {
-        private Row {
+    private record Row(    String eco,     String name,     String movetext) {
+         /**
+         * Creates a new row instance.
+         * @param eco eco
+         * @param name name
+         * @param movetext movetext
+         */
+         private Row {
             Objects.requireNonNull(eco, KEY_ECO);
             Objects.requireNonNull(name, KEY_NAME);
             Objects.requireNonNull(movetext, KEY_MOVETEXT);
@@ -137,7 +161,7 @@ public final class Encyclopedia {
      * Exactly one of {@link #entry()} and {@link #error()} should be non-null to indicate success or failure.
      * </p>
      */
-    private record RowParseResult(Entry entry, String error) {
+    private record RowParseResult(    Entry entry,     String error) {
     }
 
     /**
@@ -239,16 +263,33 @@ public final class Encyclopedia {
         return o == null ? null : o.toString();
     }
 
-    private static String readToml(Path file) throws IOException {
+     /**
+     * Reads the toml.
+     * @param file file
+     * @return computed value
+     * @throws IOException if the operation fails
+     */
+     private static String readToml(Path file) throws IOException {
         return Files.readString(file, StandardCharsets.UTF_8);
     }
 
-    private static Map<String, List<Map<String, Object>>> parseTomlArrays(String tomlContent) throws IOException {
+     /**
+     * Parses the toml arrays.
+     * @param tomlContent toml content
+     * @return computed value
+     * @throws IOException if the operation fails
+     */
+     private static Map<String, List<Map<String, Object>>> parseTomlArrays(String tomlContent) throws IOException {
         Toml toml = Toml.load(new StringReader(tomlContent));
         return getTableArrays(toml);
     }
 
-    private static Entry[] loadEntries(Map<String, List<Map<String, Object>>> arrays) {
+     /**
+     * Handles load entries.
+     * @param arrays arrays
+     * @return computed value
+     */
+     private static Entry[] loadEntries(Map<String, List<Map<String, Object>>> arrays) {
         ArrayList<Entry> tmp = new ArrayList<>();
         if (shouldParallelParse()) {
             List<Row> rows = collectRows(arrays);
@@ -260,11 +301,20 @@ public final class Encyclopedia {
         return tmp.toArray(Entry[]::new);
     }
 
-    private static boolean shouldParallelParse() {
+     /**
+     * Handles should parallel parse.
+     * @return computed value
+     */
+     private static boolean shouldParallelParse() {
         return parallelParseEnabled() && Runtime.getRuntime().availableProcessors() > 1;
     }
 
-    private static List<Row> collectRows(Map<String, List<Map<String, Object>>> arrays) {
+     /**
+     * Handles collect rows.
+     * @param arrays arrays
+     * @return computed value
+     */
+     private static List<Row> collectRows(Map<String, List<Map<String, Object>>> arrays) {
         List<Row> rows = new ArrayList<>();
         for (Map.Entry<String, List<Map<String, Object>>> entry : arrays.entrySet()) {
             String eco = entry.getKey();
@@ -279,7 +329,12 @@ public final class Encyclopedia {
         return rows;
     }
 
-    private static RowParseResult[] parseRows(List<Row> rows) {
+     /**
+     * Parses the rows.
+     * @param rows rows
+     * @return computed value
+     */
+     private static RowParseResult[] parseRows(List<Row> rows) {
         RowParseResult[] parsed = new RowParseResult[rows.size()];
         if (rows.size() >= PARALLEL_PARSE_THRESHOLD) {
             IntStream.range(0, rows.size()).parallel().forEach(i -> parsed[i] = parseRow(rows.get(i)));
@@ -291,7 +346,13 @@ public final class Encyclopedia {
         return parsed;
     }
 
-    private static void appendParsedRows(List<Row> rows, RowParseResult[] parsed, ArrayList<Entry> tmp) {
+     /**
+     * Handles append parsed rows.
+     * @param rows rows
+     * @param parsed parsed
+     * @param tmp tmp
+     */
+     private static void appendParsedRows(List<Row> rows, RowParseResult[] parsed, ArrayList<Entry> tmp) {
         tmp.ensureCapacity(rows.size());
         for (int i = 0; i < rows.size(); i++) {
             RowParseResult result = parsed[i];
@@ -307,7 +368,12 @@ public final class Encyclopedia {
         }
     }
 
-    private static void parseSequential(Map<String, List<Map<String, Object>>> arrays, ArrayList<Entry> tmp) {
+     /**
+     * Parses the sequential.
+     * @param arrays arrays
+     * @param tmp tmp
+     */
+     private static void parseSequential(Map<String, List<Map<String, Object>>> arrays, ArrayList<Entry> tmp) {
         for (Map.Entry<String, List<Map<String, Object>>> entry : arrays.entrySet()) {
             String eco = entry.getKey();
             for (Map<String, Object> tbl : entry.getValue()) {
@@ -325,7 +391,12 @@ public final class Encyclopedia {
         }
     }
 
-    private static Map<Position, Entry> buildByPosition(Entry[] entries) {
+     /**
+     * Handles build by position.
+     * @param entries entries
+     * @return computed value
+     */
+     private static Map<Position, Entry> buildByPosition(Entry[] entries) {
         Map<Position, Entry> map = new HashMap<>(entries.length * 2);
         for (Entry n : entries) {
             map.put(n.position, n);
@@ -333,7 +404,12 @@ public final class Encyclopedia {
         return Collections.unmodifiableMap(map);
     }
 
-    private static Map<Long, Entry> buildByCoreSignature(Entry[] entries) {
+     /**
+     * Handles build by core signature.
+     * @param entries entries
+     * @return computed value
+     */
+     private static Map<Long, Entry> buildByCoreSignature(Entry[] entries) {
         Map<Long, Entry> coreMap = new HashMap<>(entries.length * 2);
         for (Entry n : entries) {
             long sig = n.position.signatureCore();
@@ -351,7 +427,12 @@ public final class Encyclopedia {
         return Collections.unmodifiableMap(coreMap);
     }
 
-    private static RowParseResult parseRow(Row row) {
+     /**
+     * Parses the row.
+     * @param row row
+     * @return computed value
+     */
+     private static RowParseResult parseRow(Row row) {
         try {
             return new RowParseResult(new Entry(row.eco(), row.name(), row.movetext()), null);
         } catch (IllegalArgumentException ex) {
@@ -359,7 +440,11 @@ public final class Encyclopedia {
         }
     }
 
-    private static boolean parallelParseEnabled() {
+     /**
+     * Handles parallel parse enabled.
+     * @return computed value
+     */
+     private static boolean parallelParseEnabled() {
         String prop = System.getProperty(PROP_PARALLEL_PARSE);
         if (prop != null) {
             return Boolean.parseBoolean(prop);

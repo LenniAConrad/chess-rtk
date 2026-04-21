@@ -22,6 +22,9 @@ import chess.uci.Evaluation;
   * @author Lennart A. Conrad
  */
 	final class EvalBar extends JPanel {
+
+	@java.io.Serial
+	private static final long serialVersionUID = 1L;
 	/**
 	 * Width of the evaluation column.
 	 */

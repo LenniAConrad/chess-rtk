@@ -5,16 +5,50 @@ session/*
 # Calculation results
 dump/*
 !dump/.gitkeep
+data/
+training/
+
+# Python caches / local tool state
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Deprecated local helper scripts
+scripts/deprecated/*
+!scripts/deprecated/
+!scripts/deprecated/README.md
 
 # Build artifacts
 out/
 out-*/
+*.class
 crtk.jar
 dist/
 
-# LC0 / model weights (large, third-party)
-models/*
-!models/README.md
+# LC0 / model weights and downloaded networks (large, third-party)
+models/*.bin
+models/**/*.bin
+models/*.bin.tmp
+models/**/*.bin.tmp
+models/*.pb
+models/**/*.pb
+models/*.pb.gz
+models/**/*.pb.gz
+models/*.onnx
+models/**/*.onnx
+models/*.nnue
+models/**/*.nnue
+models/*.pt
+models/**/*.pt
+models/*.pth
+models/**/*.pth
+models/*.safetensors
+models/**/*.safetensors
+models/*.part
+models/**/*.part
+nets/
 
 # Native GPU build artifacts
 native/cuda/build/
@@ -48,6 +82,3 @@ native/oneapi/**/*.dylib
 # VS Code settings
 .vscode/
 .directory
-
-# GUI package
-src/application/gui/

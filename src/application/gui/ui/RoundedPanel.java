@@ -16,6 +16,9 @@ import javax.swing.JPanel;
   * @author Lennart A. Conrad
  */
 public final class RoundedPanel extends JPanel {
+
+	@java.io.Serial
+	private static final long serialVersionUID = 1L;
 	/**
 	 * radius field.
 	 */

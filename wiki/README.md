@@ -4,7 +4,7 @@ This folder holds the long-form docs for ChessRTK (CLI: `crtk`). The root `READM
 
 Command compatibility note:
 - Use canonical command names only.
-- Removed commands: `gui2`, `cuda-info`, `mine`, `evaluate`.
+- Removed commands: `gui2`, `cuda-info`, `mine`, `evaluate`, `stack-to-dataset`.
 
 If you did **not** run `./install.sh`, replace `crtk <command> ...` with `java -cp out application.Main <command> ...` (after building).
 
@@ -14,6 +14,7 @@ If you did **not** run `./install.sh`, replace `crtk <command> ...` with `java -
 - [Configuration](configuration.md)
 - [Command reference](command-reference.md)
 - [Example commands](example-commands.md)
+- [Book publishing](book-publishing.md)
 - [Roadmap / ideas](roadmap.md)
 
 ## Deep dives
@@ -21,9 +22,9 @@ If you did **not** run `./install.sh`, replace `crtk <command> ...` with `java -
 - [Mining puzzles](mining.md)
 - [Filter DSL](filter-dsl.md)
 - [Outputs & logs](outputs-and-logs.md)
+- [Datasets](datasets.md)
 - [Lc0 (UCI weights + Java evaluator)](lc0.md)
 - [T5 tag-to-text pipeline](t5.md)
-- [Datasets](datasets.md)
 - [AI agents & automation](ai-agents.md)
 - [Troubleshooting](troubleshooting.md)
 

@@ -37,6 +37,14 @@ mkdir -p out
 javac --release 17 -d out $(find src -name "*.java")
 ```
 
+## Focused regression check
+
+Run the zero-dependency `Position` regression harness after a build:
+
+```bash
+java -cp out testing.PositionRegressionTest
+```
+
 ## Run
 
 ```bash
@@ -55,13 +63,28 @@ java -jar crtk.jar help
 
 `./install.sh` is a convenience installer that:
 - optionally installs OpenJDK 17 and Stockfish via `apt-get`
+- optionally downloads LC0 model weights into `models/`
 - compiles sources and builds `crtk.jar`
 - installs a launcher at `/usr/local/bin/crtk` that runs from this repo
 - optionally builds the CUDA JNI backend under `native/cuda/` (if you have the CUDA toolkit)
 
+Downloaded `models/*.bin` files are local artifacts and are ignored by git.
+
 ```bash
 ./install.sh
 crtk help
+```
+
+Fetch optional model weights without prompting:
+
+```bash
+./install.sh --models
+```
+
+Skip model weight downloads:
+
+```bash
+./install.sh --no-models
 ```
 
 Skip the CUDA backend build:
@@ -75,6 +98,24 @@ Force the CUDA backend build (installs missing CUDA build deps on Debian/Ubuntu)
 ```bash
 ./install.sh --cuda
 ```
+
+## Update
+
+Update the current git checkout with a fast-forward pull and rerun the installer:
+
+```bash
+./scripts/update.sh
+```
+
+Rebuild and reinstall the current checkout without pulling new commits:
+
+```bash
+./scripts/update.sh --no-pull
+```
+
+Notes:
+- `scripts/update.sh` refuses to pull if the git worktree has local changes.
+- Any remaining flags are passed through to `./install.sh`, for example `./scripts/update.sh --no-cuda`.
 
 ## Uninstall
 

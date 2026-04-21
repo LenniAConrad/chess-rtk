@@ -12,6 +12,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.function.Consumer;
+import java.util.function.LongConsumer;
 
 import chess.core.Position;
 import chess.nn.lc0.Encoder;
@@ -74,6 +75,21 @@ public final class RecordLc0Exporter {
      * @throws IOException if reading or writing fails
      */
     public static void export(Path recordFile, Path outStem, Path weights) throws IOException {
+        export(recordFile, outStem, weights, null);
+    }
+
+    /**
+     * Export a {@code .record} JSON array into LC0 tensors while reporting progress
+     * once per input record.
+     *
+     * @param recordFile input record JSON array
+     * @param outStem output stem path
+     * @param weights optional LC0 weights file to load a policy map for compression
+     *                (nullable)
+     * @param byteProgress optional callback receiving cumulative bytes read
+     * @throws IOException if reading or writing fails
+     */
+    public static void export(Path recordFile, Path outStem, Path weights, LongConsumer byteProgress) throws IOException {
         if (recordFile == null || outStem == null) {
             throw new IllegalArgumentException("recordFile and outStem must be non-null");
         }
@@ -119,7 +135,7 @@ public final class RecordLc0Exporter {
                 }
             };
 
-            Json.streamTopLevelObjects(recordFile, sink);
+            Json.streamTopLevelObjects(recordFile, sink, byteProgress);
             success = true;
         } catch (UncheckedIOException uio) {
             throw uio.getCause();
@@ -134,7 +150,18 @@ public final class RecordLc0Exporter {
         writeMetadata(metaPath, recordFile, counters[0], counters[1], policySize, policyMapSource);
     }
 
-    private static boolean exportRecordObject(
+     /**
+     * Handles export record object.
+     * @param json json
+     * @param inputsWriter inputs writer
+     * @param policyWriter policy writer
+     * @param valueWriter value writer
+     * @param policyBuffer policy buffer
+     * @param policyMapInverse policy map inverse
+     * @return computed value
+     * @throws IOException if the operation fails
+     */
+     private static boolean exportRecordObject(
             String json,
             NpyFloat32Writer inputsWriter,
             NpyFloat32Writer policyWriter,
@@ -200,7 +227,13 @@ public final class RecordLc0Exporter {
         return true;
     }
 
-    private static float valueFromEvaluation(Evaluation evaluation, Chances chances) {
+     /**
+     * Handles value from evaluation.
+     * @param evaluation evaluation
+     * @param chances chances
+     * @return computed value
+     */
+     private static float valueFromEvaluation(Evaluation evaluation, Chances chances) {
         if (chances != null) {
             float win = chances.getWinChance() / 1000.0f;
             float loss = chances.getLossChance() / 1000.0f;
@@ -217,7 +250,12 @@ public final class RecordLc0Exporter {
         return pawns / PAWN_CLAMP;
     }
 
-    private static int[] invertPolicyMap(int[] policyMap) {
+     /**
+     * Handles invert policy map.
+     * @param policyMap policy map
+     * @return computed value
+     */
+     private static int[] invertPolicyMap(int[] policyMap) {
         int maxIndex = -1;
         for (int value : policyMap) {
             if (value > maxIndex) {
@@ -235,7 +273,17 @@ public final class RecordLc0Exporter {
         return inverse;
     }
 
-    private static void writeMetadata(Path metaPath, Path recordFile, long written, long skipped,
+     /**
+     * Writes the metadata.
+     * @param metaPath meta path
+     * @param recordFile record file
+     * @param written written
+     * @param skipped skipped
+     * @param policySize policy size
+     * @param policyMapSource policy map source
+     * @throws IOException if the operation fails
+     */
+     private static void writeMetadata(Path metaPath, Path recordFile, long written, long skipped,
             int policySize, String policyMapSource) throws IOException {
         StringBuilder builder = new StringBuilder(1024);
         builder.append("{\n");
@@ -274,13 +322,25 @@ public final class RecordLc0Exporter {
         Files.writeString(metaPath, builder.toString(), StandardCharsets.UTF_8);
     }
 
-    private static String escapeJson(String value) {
+     /**
+     * Handles escape json.
+     * @param value value
+     * @return computed value
+     */
+     private static String escapeJson(String value) {
         return value
                 .replace("\\", "\\\\")
                 .replace("\"", "\\\"");
     }
 
-    private static float clamp(float value, float lo, float hi) {
+     /**
+     * Handles clamp.
+     * @param value value
+     * @param lo lo
+     * @param hi hi
+     * @return computed value
+     */
+     private static float clamp(float value, float lo, float hi) {
         if (value < lo) {
             return lo;
         }

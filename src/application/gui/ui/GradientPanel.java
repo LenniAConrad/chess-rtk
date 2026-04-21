@@ -17,6 +17,9 @@ import javax.swing.JPanel;
   * @author Lennart A. Conrad
  */
 public final class GradientPanel extends JPanel {
+
+	@java.io.Serial
+	private static final long serialVersionUID = 1L;
 	/**
 	 * top field.
 	 */

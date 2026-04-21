@@ -67,20 +67,6 @@ digraph crtk_pipeline_overview {
     tensors [label="features + labels\n(tensor files)"];
   }
 
-  subgraph cluster_stack {
-    label="Stack dataset export";
-    style="rounded";
-    color="#FFCC80";
-    fontcolor="#E65100";
-    penwidth=1.4;
-
-    node [shape=note, style="filled", fillcolor="#FFF3E0", color="#EF6C00", penwidth=1.2];
-    stack [label="Stack dump\n(Stack-*.json)"];
-
-    node [shape=box, style="rounded,filled", fillcolor="#FFF8E1", color="#EF6C00", penwidth=1.2];
-    stack_to_dataset [label="stack-to-dataset"];
-  }
-
   // Seed generation
   pgn -> pgn_to_fens;
   pgn_to_fens -> fens;
@@ -114,7 +100,4 @@ digraph crtk_pipeline_overview {
 
   record_to_dataset -> tensors;
 
-  // Stack dataset export
-  stack -> stack_to_dataset;
-  stack_to_dataset -> tensors;
 }

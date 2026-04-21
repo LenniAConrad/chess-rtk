@@ -90,7 +90,7 @@ public final class Endgame {
      * Tracks bishop-square colors for both sides.
  * @author Lennart A. Conrad
  * @since 2026
-     */
+ */
     private static final class BishopColorState {
 
         /**

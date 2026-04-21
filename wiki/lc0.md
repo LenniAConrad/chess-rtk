@@ -5,6 +5,10 @@ This repo contains two separate “Lc0” concerns:
 1) Using the **Lc0 UCI engine** for mining (needs `.pb.gz` weights).
 2) Using the **built-in Java LC0 evaluator** for fast local evaluation/ablation (needs an `LC0J` `.bin`).
 
+Model weights are not checked into this repo. Local `models/*.bin` files are
+gitignored; fetch the default LC0J weights with `./install.sh --models` or
+download them manually from `models/README.md`.
+
 ## 1) Lc0 as a UCI engine (mining)
 
 If your engine protocol points to `lc0` (see `config/lc0.engine.toml`), you typically also need to set:
@@ -42,7 +46,7 @@ Diagram source: `assets/diagrams/crtk-lc0-cnn.dot` (render with `dot -Tpng -Gdpi
 The Java evaluator lives under `src/chess/lc0/` and is used by `chess.eval.Evaluator`.
 
 Defaults:
-- weights: `models/lc0_744706.bin` (`chess.nn.lc0.Model.DEFAULT_WEIGHTS`)
+- weights path: `models/leela_112planes-10blocksx128-policyhead80-valuehead32-policy4672-wdl3.bin` (`chess.nn.lc0.Model.DEFAULT_WEIGHTS`)
 - backend: `cpu` unless the optional CUDA JNI backend is available
 
 Backend selection (system properties):

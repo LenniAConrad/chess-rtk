@@ -51,7 +51,12 @@ public final class SharedLibrarySupport {
      */
     private final int deviceCount;
 
-    private State(boolean loaded, int deviceCount) {
+     /**
+     * Creates a new state instance.
+     * @param loaded loaded
+     * @param deviceCount device count
+     */
+     private State(boolean loaded, int deviceCount) {
       this.loaded = loaded;
       this.deviceCount = deviceCount;
     }

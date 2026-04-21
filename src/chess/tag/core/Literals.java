@@ -612,7 +612,10 @@ public final class Literals {
      */
     public static final String JSON_NAME_SEPARATOR = "\":";
 
-    public static final String CENTER_CONTROL = "center_control";
+     /**
+     * Shared center control constant.
+     */
+     public static final String CENTER_CONTROL = "center_control";
 
     /**
      * The space-advantage field key.
@@ -1543,7 +1546,10 @@ public final class Literals {
      * The trapped prefix used in raw tactical text.
      */
     public static final String TRAPPED_PREFIX = "trapped ";
-    public static final String LOW_MOBILITY_PREFIX = "low mobility ";
+     /**
+     * Shared low mobility prefix constant.
+     */
+     public static final String LOW_MOBILITY_PREFIX = "low mobility ";
 
     /**
      * The high-mobility prefix used in raw tactical text.

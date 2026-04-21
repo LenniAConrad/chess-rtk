@@ -6,6 +6,9 @@ import static application.cli.Constants.CMD_BESTMOVE_BOTH;
 import static application.cli.Constants.CMD_BESTMOVE_SAN;
 import static application.cli.Constants.CMD_BESTMOVE_UCI;
 import static application.cli.Constants.CMD_CLEAN;
+import static application.cli.Constants.CMD_CHESS_BOOK;
+import static application.cli.Constants.CMD_CHESS_BOOK_COVER;
+import static application.cli.Constants.CMD_CHESS_PDF;
 import static application.cli.Constants.CMD_CONFIG;
 import static application.cli.Constants.CMD_DISPLAY;
 import static application.cli.Constants.CMD_EVAL;
@@ -16,6 +19,7 @@ import static application.cli.Constants.CMD_HELP;
 import static application.cli.Constants.CMD_HELP_LONG;
 import static application.cli.Constants.CMD_HELP_SHORT;
 import static application.cli.Constants.CMD_GUI;
+import static application.cli.Constants.CMD_GUI_WEB;
 import static application.cli.Constants.CMD_MINE_PUZZLES;
 import static application.cli.Constants.CMD_MOVES;
 import static application.cli.Constants.CMD_MOVES_BOTH;
@@ -35,10 +39,11 @@ import static application.cli.Constants.CMD_RECORD_TO_DATASET;
 import static application.cli.Constants.CMD_RECORD_TO_LC0;
 import static application.cli.Constants.CMD_RECORD_TO_PGN;
 import static application.cli.Constants.CMD_RECORD_TO_PLAIN;
+import static application.cli.Constants.CMD_RECORD_TO_CLASSIFIER;
 import static application.cli.Constants.CMD_RECORD_TO_PUZZLE_JSONL;
+import static application.cli.Constants.CMD_RECORD_TO_TRAINING_JSONL;
 import static application.cli.Constants.CMD_RECORD_ANALYSIS_DELTA;
 import static application.cli.Constants.CMD_RENDER;
-import static application.cli.Constants.CMD_STACK_TO_DATASET;
 import static application.cli.Constants.CMD_STATS;
 import static application.cli.Constants.CMD_STATS_TAGS;
 import static application.cli.Constants.CMD_TAGS;
@@ -55,11 +60,15 @@ import java.util.function.Consumer;
 
 import application.cli.command.AnalyzeCommand;
 import application.cli.command.BestMoveCommand;
+import application.cli.command.ChessPdfCommand;
+import application.cli.command.ChessBookCommand;
+import application.cli.command.ChessBookCoverCommand;
 import application.cli.command.CleanCommand;
 import application.cli.command.ConfigCommand;
 import application.cli.command.EvalCommand;
 import application.cli.command.GenFensCommand;
 import application.gui.GuiCommand;
+import application.gui.GuiWebCommand;
 import application.cli.command.GpuCommand;
 import application.cli.command.HelpCommand;
 import application.cli.command.LineCommand;
@@ -84,11 +93,11 @@ import utility.Argv;
  *
  * <p>
  * Recognized subcommands are {@code record-to-plain}, {@code record-to-csv},
- * {@code record-to-pgn}, {@code record-to-puzzle-jsonl}, {@code puzzles-to-pgn},
+ * {@code record-to-pgn}, {@code record-to-puzzle-jsonl}, {@code record-to-training-jsonl}, {@code puzzles-to-pgn},
  * {@code record-analysis-delta}, {@code records}, {@code record-to-dataset}, {@code record-to-lc0},
- * {@code stack-to-dataset}, {@code gpu-info},
+ * {@code record-to-classifier}, {@code gpu-info},
  * {@code gen-fens}, {@code mine-puzzles}, {@code print}, {@code display},
- * {@code render}, {@code gui}, {@code clean}, {@code config}, {@code stats},
+ * {@code render}, {@code chess-pdf}, {@code chess-book}, {@code chess-book-cover}, {@code gui}, {@code clean}, {@code config}, {@code stats},
  * {@code stats-tags}, {@code tags}, {@code moves}, {@code moves-uci},
  * {@code moves-san}, {@code moves-both}, {@code uci-to-san}, {@code san-to-uci},
  * {@code fen-after}, {@code play-line}, {@code analyze}, {@code bestmove},
@@ -102,27 +111,39 @@ import utility.Argv;
  */
 public final class Main {
 
+	/**
+	 * Shared subcommands constant.
+	 */
 	private static final Map<String, Consumer<Argv>> SUBCOMMANDS = buildSubcommands();
 
+	/**
+	 * Handles build subcommands.
+	 * @return computed value
+	 */
 	private static Map<String, Consumer<Argv>> buildSubcommands() {
 		Map<String, Consumer<Argv>> map = new HashMap<>(64);
 		map.put(CMD_RECORD_TO_PLAIN, RecordCommands::runRecordToPlain);
 		map.put(CMD_RECORD_TO_CSV, RecordCommands::runRecordToCsv);
 		map.put(CMD_RECORD_TO_DATASET, RecordCommands::runRecordToDataset);
 		map.put(CMD_RECORD_TO_LC0, RecordCommands::runRecordToLc0);
+		map.put(CMD_RECORD_TO_CLASSIFIER, RecordCommands::runRecordToClassifier);
 		map.put(CMD_RECORD_TO_PGN, RecordCommands::runRecordToPgn);
 		map.put(CMD_RECORD_TO_PUZZLE_JSONL, RecordCommands::runRecordToPuzzleJsonl);
+		map.put(CMD_RECORD_TO_TRAINING_JSONL, RecordCommands::runRecordToTrainingJsonl);
 		map.put(CMD_RECORD_ANALYSIS_DELTA, RecordAnalysisDeltaCommand::runRecordAnalysisDelta);
 		map.put(CMD_RECORDS, RecordCommands::runRecords);
 		map.put(CMD_PUZZLES_TO_PGN, RecordCommands::runPuzzlesToPgn);
-		map.put(CMD_STACK_TO_DATASET, RecordCommands::runStackToDataset);
 		map.put(CMD_GPU_INFO, GpuCommand::runGpuInfo);
 		map.put(CMD_GEN_FENS, GenFensCommand::runGenerateFens);
 		map.put(CMD_MINE_PUZZLES, MineCommand::runMine);
 		map.put(CMD_PRINT, PositionViewCommand::runPrint);
 		map.put(CMD_DISPLAY, PositionViewCommand::runDisplay);
 		map.put(CMD_RENDER, PositionViewCommand::runRenderImage);
+		map.put(CMD_CHESS_PDF, ChessPdfCommand::runChessPdf);
+		map.put(CMD_CHESS_BOOK, ChessBookCommand::runChessBook);
+		map.put(CMD_CHESS_BOOK_COVER, ChessBookCoverCommand::runChessBookCover);
 		map.put(CMD_GUI, GuiCommand::runGui);
+		map.put(CMD_GUI_WEB, GuiWebCommand::runGuiWeb);
 		map.put(CMD_CLEAN, CleanCommand::runClean);
 		map.put(CMD_CONFIG, ConfigCommand::runConfig);
 		map.put(CMD_STATS, StatsCommand::runStats);

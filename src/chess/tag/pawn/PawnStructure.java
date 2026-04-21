@@ -332,11 +332,16 @@ public final class PawnStructure {
      * </p>
  * @author Lennart A. Conrad
  * @since 2026
-     */
-    private record PawnCollection(List<Byte> whitePawns, List<Byte> blackPawns, int[] whiteFileCounts,
-            int[] blackFileCounts) {
+ */
+    private record PawnCollection(    List<Byte> whitePawns,     List<Byte> blackPawns,     int[] whiteFileCounts,
+                        int[] blackFileCounts) {
 
-        @Override
+         /**
+         * Handles equals.
+         * @param obj obj
+         * @return computed value
+         */
+         @Override
         public boolean equals(Object obj) {
             if (this == obj) {
                 return true;
@@ -349,7 +354,11 @@ public final class PawnStructure {
                     && Arrays.equals(blackFileCounts, other.blackFileCounts);
         }
 
-        @Override
+         /**
+         * Handles hash code.
+         * @return computed value
+         */
+         @Override
         public int hashCode() {
             int result = whitePawns.hashCode();
             result = 31 * result + blackPawns.hashCode();
@@ -358,7 +367,11 @@ public final class PawnStructure {
             return result;
         }
 
-        @Override
+         /**
+         * Converts this value to string.
+         * @return computed value
+         */
+         @Override
         public String toString() {
             return "PawnCollection[whitePawns=" + whitePawns + ", blackPawns=" + blackPawns + ", whiteFileCounts="
                     + Arrays.toString(whiteFileCounts) + ", blackFileCounts=" + Arrays.toString(blackFileCounts)
@@ -370,8 +383,8 @@ public final class PawnStructure {
      * Represents whether a pawn has adjacent support and the best supporting rank.
  * @author Lennart A. Conrad
  * @since 2026
-     */
-    private record AdjacentSupport(boolean hasAdjacent, int bestRank) {
+ */
+    private record AdjacentSupport(    boolean hasAdjacent,     int bestRank) {
 
         /**
          * Determines whether the supporting pawn is advanced enough to matter.

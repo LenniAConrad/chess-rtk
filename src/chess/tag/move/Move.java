@@ -12,7 +12,6 @@ import chess.core.MoveList;
 import chess.core.Piece;
 import chess.core.Position;
 import chess.core.SAN;
-import chess.tag.core.AttackUtils;
 import chess.tag.core.Text;
 
 /**
@@ -136,9 +135,8 @@ public final class Move {
     private static void addSafetyDetail(List<String> details, byte[] board, Position next, byte movingPiece,
             byte from, byte to) {
         boolean movingWhite = Piece.isWhite(movingPiece);
-        boolean attackedBefore = AttackUtils.countAttackers(board, !movingWhite, from) > 0;
-        byte[] nextBoard = next.getBoard();
-        boolean attackedAfter = AttackUtils.countAttackers(nextBoard, !movingWhite, to) > 0;
+        boolean attackedBefore = countAttackers(next, !movingWhite, from) > 0;
+        boolean attackedAfter = countAttackers(next, !movingWhite, to) > 0;
         if (attackedBefore && !attackedAfter) {
             details.add(ESCAPES_ATTACK);
         } else if (!attackedBefore && attackedAfter) {
@@ -198,6 +196,18 @@ public final class Move {
      */
     private static String oppositeColor(byte piece) {
         return Piece.isWhite(piece) ? BLACK : WHITE;
+    }
+
+    /**
+     * Counts attackers from one side using the core attack-query API.
+     *
+     * @param position the position whose attack map should be queried
+     * @param white whether to count White attackers or Black attackers
+     * @param square the target square
+     * @return the number of attackers from the requested side
+     */
+    private static int countAttackers(Position position, boolean white, byte square) {
+        return white ? position.countAttackersByWhite(square) : position.countAttackersByBlack(square);
     }
 
     /**
@@ -291,7 +301,7 @@ public final class Move {
      * Captures parsed move properties used while building a description.
  * @author Lennart A. Conrad
  * @since 2026
-     */
+ */
     private static final class MoveContext {
 
         /**
@@ -380,7 +390,7 @@ public final class Move {
      * Holds castling destination squares and rook movement details.
  * @author Lennart A. Conrad
  * @since 2026
-     */
+ */
     private static final class CastleInfo {
 
         /**

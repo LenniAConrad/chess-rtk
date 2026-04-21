@@ -5,7 +5,7 @@ This page is a lightweight backlog of **proposed** additions. Anything listed he
 ## Proposed CLI subcommands
 
 - `doctor`: sanity-check Java, engine discovery, config resolution, and optional CUDA backend availability.
-- `puzzles-to-pgn`: export mined puzzles (puzzle JSON / `Stack-*.json`) to PGN (with solution line(s), tags, and optional “fail move”).
+- `puzzles-to-pgn`: export mined puzzle JSON to PGN (with solution line(s), tags, and optional “fail move”).
 - `dump-filter` / `dump-grep`: apply Filter DSL to `.record` / puzzle dumps and emit JSONL/CSV subsets.
 - `dump-merge` + `dump-dedupe`: merge shards and deduplicate by `(fen, bestmove[, pv])` with stable ordering.
 - `uci-shell`: interactive UCI REPL (send commands, parse `info`, show PVs/WDL, quick presets like `go nodes` / `go movetime`).

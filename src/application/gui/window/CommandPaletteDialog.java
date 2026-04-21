@@ -45,6 +45,9 @@ import application.gui.ui.RoundedPanel;
   * @author Lennart A. Conrad
  */
 final class CommandPaletteDialog extends JDialog {
+
+	@java.io.Serial
+	private static final long serialVersionUID = 1L;
 	/**
 	 * Preferred dialog size before scaling.
 	 */
@@ -320,6 +323,9 @@ final class CommandPaletteDialog extends JDialog {
 	  * @author Lennart A. Conrad
 	 */
 	private static final class PaletteCellRenderer extends JPanel implements ListCellRenderer<PaletteCommand> {
+
+		@java.io.Serial
+		private static final long serialVersionUID = 1L;
 		/**
 		 * Owning window used for font scaling and theming.
 		 */

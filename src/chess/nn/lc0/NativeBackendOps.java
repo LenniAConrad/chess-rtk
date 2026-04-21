@@ -11,7 +11,10 @@ import java.util.function.LongConsumer;
  */
 public final class NativeBackendOps {
 
-    private NativeBackendOps() {}
+     /**
+     * Creates a new native backend ops instance.
+     */
+     private NativeBackendOps() {}
 
     /**
      * Common result of native backend creation.
@@ -19,7 +22,7 @@ public final class NativeBackendOps {
      * @param handle native backend handle
      * @param info parsed network metadata
      */
-    public record Created(long handle, Network.Info info) {}
+    public record Created(    long handle,     Network.Info info) {}
 
     /**
      * Functional interface for native evaluator creation.

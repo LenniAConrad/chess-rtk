@@ -2,9 +2,13 @@ package application.cli;
 
 import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.function.Consumer;
+import java.util.function.LongConsumer;
 
 import chess.struct.Record;
 import utility.Json;
@@ -18,7 +22,12 @@ import utility.Json;
  * @since 2025
  * @author Lennart A. Conrad
  */
-	public final class RecordIO {
+public final class RecordIO {
+
+	/**
+	 * Large text buffer used for bulk record and JSONL inputs.
+	 */
+	private static final int TEXT_BUFFER_SIZE = 1 << 20;
 
 	/**
 	 * Utility class; prevent instantiation.
@@ -62,11 +71,34 @@ import utility.Json;
 			boolean verbose,
 			String label,
 			RecordConsumer consumer) throws IOException {
+		streamRecordFile(input, verbose, label, consumer, null);
+	}
+
+	/**
+	 * Streams records from the specified file while reporting cumulative bytes read.
+	 *
+	 * @param input        path to a JSON array or newline-delimited records file
+	 * @param verbose      whether to print stack traces for skipped records
+	 * @param label        label printed with any parse errors
+	 * @param consumer     receiver for parsed records and invalid entries
+	 * @param byteProgress optional callback receiving cumulative bytes read
+	 * @throws IOException if reading the file fails
+	 */
+	public static void streamRecordFile(
+			Path input,
+			boolean verbose,
+			String label,
+			RecordConsumer consumer,
+			LongConsumer byteProgress) throws IOException {
 		if (isJsonArrayFile(input)) {
-			Json.streamTopLevelObjects(input, objJson -> handleRecordJson(objJson, verbose, label, consumer));
+			Json.streamTopLevelObjects(input, objJson -> handleRecordJson(objJson, verbose, label, consumer), byteProgress);
 			return;
 		}
-		try (BufferedReader reader = Files.newBufferedReader(input)) {
+		try (InputStream in = Files.newInputStream(input);
+				InputStream progressIn = Json.progressInput(in, byteProgress);
+				BufferedReader reader = new BufferedReader(
+						new InputStreamReader(progressIn, StandardCharsets.UTF_8),
+						TEXT_BUFFER_SIZE)) {
 			String line;
 			while ((line = reader.readLine()) != null) {
 				String trimmed = line.trim();
@@ -86,11 +118,28 @@ import utility.Json;
 	 * @throws IOException if reading the file fails
 	 */
 	public static void streamRecordJson(Path input, Consumer<String> consumer) throws IOException {
+		streamRecordJson(input, consumer, null);
+	}
+
+	/**
+	 * Streams raw JSON objects from a record file while reporting cumulative bytes
+	 * read.
+	 *
+	 * @param input        path to a JSON array or newline-delimited records file
+	 * @param consumer     receiver for each raw JSON object
+	 * @param byteProgress optional callback receiving cumulative bytes read
+	 * @throws IOException if reading the file fails
+	 */
+	public static void streamRecordJson(Path input, Consumer<String> consumer, LongConsumer byteProgress) throws IOException {
 		if (isJsonArrayFile(input)) {
-			Json.streamTopLevelObjects(input, consumer);
+			Json.streamTopLevelObjects(input, consumer, byteProgress);
 			return;
 		}
-		try (BufferedReader reader = Files.newBufferedReader(input)) {
+		try (InputStream in = Files.newInputStream(input);
+				InputStream progressIn = Json.progressInput(in, byteProgress);
+				BufferedReader reader = new BufferedReader(
+						new InputStreamReader(progressIn, StandardCharsets.UTF_8),
+						TEXT_BUFFER_SIZE)) {
 			String line;
 			while ((line = reader.readLine()) != null) {
 				String trimmed = line.trim();
@@ -139,7 +188,9 @@ import utility.Json;
 	 * @throws IOException when the file cannot be read
 	 */
 	public static boolean isJsonArrayFile(Path input) throws IOException {
-		try (BufferedReader reader = Files.newBufferedReader(input)) {
+		try (BufferedReader reader = new BufferedReader(
+				new InputStreamReader(Files.newInputStream(input), StandardCharsets.UTF_8),
+				TEXT_BUFFER_SIZE)) {
 			int c;
 			while ((c = reader.read()) != -1) {
 				boolean skip = c == '\uFEFF' || Character.isWhitespace(c);

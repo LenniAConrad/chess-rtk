@@ -22,6 +22,9 @@ import javax.swing.KeyStroke;
  */
 final class BoardEditorPane extends JPanel {
 
+	@java.io.Serial
+	private static final long serialVersionUID = 1L;
+
     /**
      * owner field.
      */

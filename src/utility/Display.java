@@ -349,17 +349,31 @@ public class Display extends JFrame {
 			this.image = image;
 		}
 
-		@Override
+		 /**
+		 * Handles width.
+		 * @return computed value
+		 */
+		 @Override
 		public int width() {
 			return image.getWidth();
 		}
 
-		@Override
+		 /**
+		 * Handles height.
+		 * @return computed value
+		 */
+		 @Override
 		public int height() {
 			return image.getHeight();
 		}
 
-		@Override
+		 /**
+		 * Handles render.
+		 * @param width width
+		 * @param height height
+		 * @return computed value
+		 */
+		 @Override
 		public BufferedImage render(int width, int height) {
 			int w = Math.max(1, width);
 			int h = Math.max(1, height);
@@ -369,7 +383,17 @@ public class Display extends JFrame {
 			return scaleImage(image, w, h);
 		}
 
-		@Override
+		 /**
+		 * Handles render region.
+		 * @param scaledWidth scaled width
+		 * @param scaledHeight scaled height
+		 * @param sourceX source x
+		 * @param sourceY source y
+		 * @param width width
+		 * @param height height
+		 * @return computed value
+		 */
+		 @Override
 		public BufferedImage renderRegion(int scaledWidth, int scaledHeight, int sourceX, int sourceY,
 				int width, int height) {
 			BufferedImage region = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
@@ -378,14 +402,8 @@ public class Display extends JFrame {
 			g2d.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
 			g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 			Rectangle src = scaledToNativeSourceRect(
-					image.getWidth(),
-					image.getHeight(),
-					scaledWidth,
-					scaledHeight,
-					sourceX,
-					sourceY,
-					width,
-					height);
+					new ScaleMapping(image.getWidth(), image.getHeight(), scaledWidth, scaledHeight),
+					new ScaledRegion(sourceX, sourceY, width, height));
 			g2d.drawImage(image,
 					0,
 					0,
@@ -404,28 +422,25 @@ public class Display extends JFrame {
 	/**
 	 * Converts a visible rectangle in scaled-image coordinates to the corresponding native source rectangle.
 	 *
-	 * @param nativeWidth source image native width
-	 * @param nativeHeight source image native height
-	 * @param scaledWidth full scaled image width
-	 * @param scaledHeight full scaled image height
-	 * @param sourceX visible x coordinate inside the scaled image
-	 * @param sourceY visible y coordinate inside the scaled image
-	 * @param width visible width in scaled-image coordinates
-	 * @param height visible height in scaled-image coordinates
+	 * @param scale source and scaled-image dimensions
+	 * @param region visible rectangle in scaled-image coordinates
 	 * @return native source rectangle
 	 */
-	private static Rectangle scaledToNativeSourceRect(int nativeWidth, int nativeHeight, int scaledWidth,
-			int scaledHeight, int sourceX, int sourceY, int width, int height) {
+	private static Rectangle scaledToNativeSourceRect(ScaleMapping scale, ScaledRegion region) {
+		int nativeWidth = scale.nativeWidth();
+		int nativeHeight = scale.nativeHeight();
+		int scaledWidth = scale.scaledWidth();
+		int scaledHeight = scale.scaledHeight();
 		if (nativeWidth <= 0 || nativeHeight <= 0 || scaledWidth <= 0 || scaledHeight <= 0) {
 			return new Rectangle(0, 0, Math.max(1, nativeWidth), Math.max(1, nativeHeight));
 		}
 
 		double scaleX = nativeWidth / (double) scaledWidth;
 		double scaleY = nativeHeight / (double) scaledHeight;
-		int x1 = clampIntStatic((int) Math.floor(sourceX * scaleX), 0, nativeWidth);
-		int y1 = clampIntStatic((int) Math.floor(sourceY * scaleY), 0, nativeHeight);
-		int x2 = clampIntStatic((int) Math.ceil((sourceX + width) * scaleX), 0, nativeWidth);
-		int y2 = clampIntStatic((int) Math.ceil((sourceY + height) * scaleY), 0, nativeHeight);
+		int x1 = clampIntStatic((int) Math.floor(region.x() * scaleX), 0, nativeWidth);
+		int y1 = clampIntStatic((int) Math.floor(region.y() * scaleY), 0, nativeHeight);
+		int x2 = clampIntStatic((int) Math.ceil((region.x() + region.width()) * scaleX), 0, nativeWidth);
+		int y2 = clampIntStatic((int) Math.ceil((region.y() + region.height()) * scaleY), 0, nativeHeight);
 		if (x2 <= x1) {
 			x2 = Math.min(nativeWidth, x1 + 1);
 			x1 = Math.max(0, x2 - 1);
@@ -435,6 +450,18 @@ public class Display extends JFrame {
 			y1 = Math.max(0, y2 - 1);
 		}
 		return new Rectangle(x1, y1, x2 - x1, y2 - y1);
+	}
+
+	/**
+	 * Source and target dimensions for scaled-to-native coordinate conversion.
+	 */
+	private record ScaleMapping(int nativeWidth, int nativeHeight, int scaledWidth, int scaledHeight) {
+	}
+
+	/**
+	 * Visible rectangle in scaled-image coordinates.
+	 */
+	private record ScaledRegion(int x, int y, int width, int height) {
 	}
 
 	/**
@@ -726,16 +753,6 @@ public class Display extends JFrame {
 		 */
 		private long scaleRequestId = 0L;
 
-		/**
-		 * Pending target dimensions for the next scale request.
-		 */
-		private int pendingScaledWidth = -1;
-
-		/**
-		 * Pending target dimensions for the next scale request.
-		 */
-		private int pendingScaledHeight = -1;
-		
 		/**
 		 * Used for holding the background color depending on light/dark mode.
 		 */
@@ -1382,15 +1399,13 @@ public class Display extends JFrame {
 			if (target.width <= 0 || target.height <= 0) {
 				return;
 			}
-			pendingScaledWidth = target.width;
-			pendingScaledHeight = target.height;
 			if (resizeDebounceTimer != null) {
 				resizeDebounceTimer.restart();
 			}
 		}
 
 		/**
-		 * Triggers scaling to the last computed target size if needed.
+		 * Triggers scaling to the current target size if needed.
 		 * Skips work when the cached image already matches the requested size.
 		 */
 		private void triggerScaleToPendingSize() {
@@ -1634,14 +1649,8 @@ public class Display extends JFrame {
 			graphics2d.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
 			graphics2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 			Rectangle src = scaledToNativeSourceRect(
-					imageWidth,
-					imageHeight,
-					state.width,
-					state.height,
-					state.sourceX(),
-					state.sourceY(),
-					state.visible.width,
-					state.visible.height);
+					new ScaleMapping(imageWidth, imageHeight, state.width, state.height),
+					new ScaledRegion(state.sourceX(), state.sourceY(), state.visible.width, state.visible.height));
 			graphics2d.drawImage(image,
 					state.visible.x,
 					state.visible.y,

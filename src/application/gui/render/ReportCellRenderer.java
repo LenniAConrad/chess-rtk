@@ -24,6 +24,9 @@ import application.gui.model.ReportEntry;
   * @author Lennart A. Conrad
  */
 public final class ReportCellRenderer extends JPanel implements javax.swing.ListCellRenderer<ReportEntry> {
+
+	@java.io.Serial
+	private static final long serialVersionUID = 1L;
 	/**
 	 * History window supplying fonts, colors, and data.
 	 */

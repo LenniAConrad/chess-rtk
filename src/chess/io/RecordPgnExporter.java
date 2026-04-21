@@ -3,6 +3,8 @@ package chess.io;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -19,6 +21,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
+import java.util.function.LongConsumer;
 import java.util.function.Predicate;
 
 import application.console.Bar;
@@ -51,6 +54,11 @@ public final class RecordPgnExporter {
      * Base score used when converting mate distances into sortable evaluation values.
      */
     private static final int MATE_SCORE_BASE = 100_000;
+
+    /**
+     * Large text buffer for record JSONL inputs.
+     */
+    private static final int TEXT_BUFFER_SIZE = 1 << 20;
 
     /**
      * Non-instantiable utility.
@@ -109,8 +117,8 @@ public final class RecordPgnExporter {
                 recordFile, pgnFile));
 
         try {
-            long totalRecords = countRecords(recordFile);
-            IndexData index = indexRecords(recordFile, ok, bad, badEdges, totalRecords, include);
+            long totalBytes = fileSize(recordFile);
+            IndexData index = indexRecords(recordFile, ok, bad, badEdges, totalBytes, include);
             if (index.positionsBySig.isEmpty()) {
                 LogService.info(String.format(
                         "No records parsed from '%s'; skipping PGN output '%s'.",
@@ -254,7 +262,7 @@ public final class RecordPgnExporter {
             AtomicLong ok,
             AtomicLong bad,
             AtomicLong badEdges,
-            long totalRecords,
+            long totalBytes,
             Predicate<String> include) throws IOException {
         final Map<String, String> positionsBySig = new LinkedHashMap<>();
         final Map<String, List<ChildInfo>> childrenByParentSig = new HashMap<>();
@@ -264,20 +272,17 @@ public final class RecordPgnExporter {
         final Map<String, String> descriptionBySig = new HashMap<>();
         final Map<String, Integer> evalScoreBySig = new HashMap<>();
 
-        Bar indexBar = progressBar(totalRecords, "Indexing records");
+        Bar indexBar = progressBar(totalBytes, "Indexing records");
         IndexMaps indexMaps = new IndexMaps(positionsBySig, childrenByParentSig, bestMoveBySig, descriptionBySig,
                 evalScoreBySig);
-        IndexContext indexCtx = new IndexContext(ok, bad, indexBar, indexMaps);
+        IndexContext indexCtx = new IndexContext(ok, bad, indexMaps);
         try {
             streamRecordObjects(recordFile, objJson -> {
                 if (!include.test(objJson)) {
-                    if (indexBar != null) {
-                        indexBar.step();
-                    }
                     return;
                 }
                 handleIndexRecord(objJson, indexCtx);
-            });
+            }, progressSetter(indexBar));
         } finally {
             if (indexBar != null) {
                 indexBar.finish();
@@ -288,7 +293,7 @@ public final class RecordPgnExporter {
         final Set<String> incoming = new HashSet<>();
         addDirectEdges(childrenByParentSig, positionsBySig, adjacency, incoming, badEdges, bestMoveBySig,
                 directChildren, edgeKeysByFrom);
-        Bar bridgeBar = progressBar(totalRecords, "Linking records");
+        Bar bridgeBar = progressBar(totalBytes, "Linking records");
         BridgeContext bridgeCtx = new BridgeContext(adjacency, incoming, badEdges, bestMoveBySig, directChildren,
                 edgeKeysByFrom, bridgeBar);
         addBridgedEdges(recordFile, childrenByParentSig, bridgeCtx, include);
@@ -312,17 +317,11 @@ public final class RecordPgnExporter {
         Record rec = safeParseRecord(objJson);
         if (rec == null || rec.getPosition() == null) {
             ctx.bad.incrementAndGet();
-            if (ctx.indexBar != null) {
-                ctx.indexBar.step();
-            }
             return;
         }
         ctx.ok.incrementAndGet();
         indexRecordData(rec, ctx.positionsBySig, ctx.childrenByParentSig, ctx.bestMoveBySig, ctx.descriptionBySig,
                 ctx.evalScoreBySig);
-        if (ctx.indexBar != null) {
-            ctx.indexBar.step();
-        }
     }
 
     /**
@@ -339,11 +338,6 @@ public final class RecordPgnExporter {
          * Counter for records that are skipped or invalid.
          */
         private final AtomicLong bad;
-
-        /**
-         * Progress bar for indexing.
-         */
-        private final Bar indexBar;
 
         /**
          * Map of signature to FEN string.
@@ -371,21 +365,18 @@ public final class RecordPgnExporter {
         private final Map<String, Integer> evalScoreBySig;
 
         /**
-         * Creates a context wrapper for indexing counters, progress bar, and map views.
+         * Creates a context wrapper for indexing counters and map views.
          *
          * @param ok       counter for successfully parsed records.
          * @param bad      counter for skipped or invalid records.
-         * @param indexBar progress bar for indexing, may be null.
          * @param maps     shared index maps backing this context.
          */
         private IndexContext(
                 AtomicLong ok,
                 AtomicLong bad,
-                Bar indexBar,
                 IndexMaps maps) {
             this.ok = ok;
             this.bad = bad;
-            this.indexBar = indexBar;
             this.positionsBySig = maps.positionsBySig;
             this.childrenByParentSig = maps.childrenByParentSig;
             this.bestMoveBySig = maps.bestMoveBySig;
@@ -578,8 +569,7 @@ public final class RecordPgnExporter {
                 if (include.test(objJson)) {
                     processBridgedRecord(objJson, childrenByParentSig, ctx);
                 }
-                stepBridgeBar(ctx);
-            });
+            }, progressSetter(ctx.bridgeBar));
         } finally {
             finishBridgeBar(ctx);
         }
@@ -643,17 +633,6 @@ public final class RecordPgnExporter {
             return Collections.emptyList();
         }
         return kids;
-    }
-
-    /**
-     * Advances the bridge progress bar by one step if present.
-     *
-     * @param ctx bridge context holding the bar.
-     */
-    private static void stepBridgeBar(BridgeContext ctx) {
-        if (ctx.bridgeBar != null) {
-            ctx.bridgeBar.step();
-        }
     }
 
     /**
@@ -1545,7 +1524,7 @@ public final class RecordPgnExporter {
      * @param order  ordered entries (tails and SAN groups).
      * @param groups map from SAN to options sharing that SAN.
      */
-    private record GroupResult(List<OrderEntry> order, Map<String, List<PathOption>> groups) {
+    private record GroupResult(    List<OrderEntry> order,     Map<String, List<PathOption>> groups) {
     }
 
     /**
@@ -1554,7 +1533,7 @@ public final class RecordPgnExporter {
      * @param san  SAN for the grouped entry (null for tails).
      * @param tail tail option when no further SAN strings remain.
      */
-    private record OrderEntry(String san, PathOption tail) {
+    private record OrderEntry(    String san,     PathOption tail) {
 
         /**
          * Creates an entry representing a SAN group.
@@ -1727,11 +1706,25 @@ public final class RecordPgnExporter {
      * @throws IOException when reading fails
      */
     private static void streamRecordObjects(Path recordFile, Consumer<String> consumer) throws IOException {
+        streamRecordObjects(recordFile, consumer, null);
+    }
+
+    /**
+     * Streams JSON objects and reports cumulative bytes read.
+     */
+    private static void streamRecordObjects(
+            Path recordFile,
+            Consumer<String> consumer,
+            LongConsumer byteProgress) throws IOException {
         if (isJsonArrayFile(recordFile)) {
-            Json.streamTopLevelObjects(recordFile, consumer);
+            Json.streamTopLevelObjects(recordFile, consumer, byteProgress);
             return;
         }
-        try (BufferedReader reader = Files.newBufferedReader(recordFile, StandardCharsets.UTF_8)) {
+        try (InputStream in = Files.newInputStream(recordFile);
+                InputStream progressIn = Json.progressInput(in, byteProgress);
+                BufferedReader reader = new BufferedReader(
+                        new InputStreamReader(progressIn, StandardCharsets.UTF_8),
+                        TEXT_BUFFER_SIZE)) {
             String line;
             while ((line = reader.readLine()) != null) {
                 String trimmed = line.trim();
@@ -1751,7 +1744,9 @@ public final class RecordPgnExporter {
      * @throws IOException when the file cannot be read
      */
     private static boolean isJsonArrayFile(Path input) throws IOException {
-        try (BufferedReader reader = Files.newBufferedReader(input, StandardCharsets.UTF_8)) {
+        try (BufferedReader reader = new BufferedReader(
+                new InputStreamReader(Files.newInputStream(input), StandardCharsets.UTF_8),
+                TEXT_BUFFER_SIZE)) {
             int c;
             while ((c = reader.read()) != -1) {
                 boolean skip = c == '\uFEFF' || Character.isWhitespace(c);
@@ -1763,26 +1758,17 @@ public final class RecordPgnExporter {
         return false;
     }
 
-    /**
-     * Counts top-level records for progress reporting; returns {@code 0} on failure.
-     *
-     * @param recordFile input JSON array or JSONL file.
-     * @return total record count, or {@code 0} when counting fails.
+     /**
+     * Handles file size.
+     * @param recordFile record file
+     * @return computed value
      */
-    private static long countRecords(Path recordFile) {
-        if (recordFile == null) {
-            return 0L;
-        }
-        final AtomicLong count = new AtomicLong();
+     private static long fileSize(Path recordFile) {
         try {
-            streamRecordObjects(recordFile, objJson -> count.incrementAndGet());
+            return recordFile == null ? 0L : Files.size(recordFile);
         } catch (IOException ex) {
-            LogService.warn(String.format(
-                    "Unable to count records in '%s'; progress bar disabled.",
-                    recordFile));
             return 0L;
         }
-        return count.get();
     }
 
     /**
@@ -1796,8 +1782,16 @@ public final class RecordPgnExporter {
         if (totalRecords <= 0) {
             return null;
         }
-        int capped = (totalRecords > Integer.MAX_VALUE) ? Integer.MAX_VALUE : (int) totalRecords;
-        return new Bar(capped, label);
+        return new Bar(totalRecords, label);
+    }
+
+     /**
+     * Handles progress setter.
+     * @param bar bar
+     * @return computed value
+     */
+     private static LongConsumer progressSetter(Bar bar) {
+        return bar == null ? null : bar::set;
     }
 
 }

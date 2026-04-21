@@ -19,6 +19,7 @@ import java.nio.file.Path;
 import java.util.List;
 
 import application.Config;
+import application.console.Bar;
 import chess.eval.Evaluator;
 import utility.Argv;
 
@@ -64,20 +65,26 @@ public final class EvalCommand {
 
 		List<String> fens = CommandSupport.resolveFenInputs(CMD_EVAL, input, fen);
 		boolean includeFen = input != null;
+		Bar bar = positionProgressBar(fens, CMD_EVAL);
 
 		if (classicalOnly) {
-			if (!evalClassicalEntries(fens, terminalAware, includeFen, verbose, CMD_EVAL)) {
+			if (!evalClassicalEntries(fens, terminalAware, includeFen, verbose, CMD_EVAL, progressStep(bar))) {
+				finishProgress(bar);
 				System.exit(2);
 			}
+			finishProgress(bar);
 			return;
 		}
 
 		Path weightsPath = (weights == null) ? Path.of(Config.getLc0ModelPath()) : weights;
 		try (Evaluator evaluator = new Evaluator(weightsPath, terminalAware)) {
-			if (!evalEvaluatorEntries(fens, evaluator, lc0Only, includeFen, verbose, CMD_EVAL)) {
+			if (!evalEvaluatorEntries(fens, evaluator, lc0Only, includeFen, verbose, CMD_EVAL, progressStep(bar))) {
+				finishProgress(bar);
 				System.exit(2);
 			}
+			finishProgress(bar);
 		} catch (Exception ex) {
+			finishProgress(bar);
 			System.err.println("eval: failed to initialize evaluator: " + ex.getMessage());
 			if (verbose) {
 				ex.printStackTrace(System.err);
@@ -104,8 +111,40 @@ public final class EvalCommand {
 
 		List<String> fens = CommandSupport.resolveFenInputs(CMD_EVAL_STATIC, input, fen);
 		boolean includeFen = input != null;
-		if (!evalClassicalEntries(fens, terminalAware, includeFen, verbose, CMD_EVAL_STATIC)) {
+		Bar bar = positionProgressBar(fens, CMD_EVAL_STATIC);
+		if (!evalClassicalEntries(fens, terminalAware, includeFen, verbose, CMD_EVAL_STATIC, progressStep(bar))) {
+			finishProgress(bar);
 			System.exit(2);
+		}
+		finishProgress(bar);
+	}
+
+	/**
+	 * Handles position progress bar.
+	 * @param fens fens
+	 * @param label label
+	 * @return computed value
+	 */
+	private static Bar positionProgressBar(List<String> fens, String label) {
+		return fens != null && fens.size() > 1 ? new Bar(fens.size(), label, false, System.err) : null;
+	}
+
+	/**
+	 * Handles progress step.
+	 * @param bar bar
+	 * @return computed value
+	 */
+	private static Runnable progressStep(Bar bar) {
+		return bar == null ? null : bar::step;
+	}
+
+	/**
+	 * Handles finish progress.
+	 * @param bar bar
+	 */
+	private static void finishProgress(Bar bar) {
+		if (bar != null) {
+			bar.finish();
 		}
 	}
 }

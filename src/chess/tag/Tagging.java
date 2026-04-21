@@ -72,7 +72,7 @@ public final class Tagging {
      * Provides a lazily created shared evaluator for callers that do not supply one.
  * @author Lennart A. Conrad
  * @since 2026
-     */
+ */
     private static final class SharedEvaluator {
 
         /**
@@ -1733,7 +1733,7 @@ public final class Tagging {
      * Holds the parsed tier components for a piece ablation tag.
  * @author Lennart A. Conrad
  * @since 2026
-     */
+ */
     private static final class ParsedPieceTier {
 
         /**
@@ -1776,7 +1776,7 @@ public final class Tagging {
      * Holds the parsed side, piece, and square components for piece activity tags.
  * @author Lennart A. Conrad
  * @since 2026
-     */
+ */
     private static final class ParsedPieceInfo {
 
         /**
@@ -1812,7 +1812,7 @@ public final class Tagging {
      * Captures king-safety properties while folding multiple tokens together.
  * @author Lennart A. Conrad
  * @since 2026
-     */
+ */
     private static final class KingSafety {
 
         /**
@@ -1840,7 +1840,7 @@ public final class Tagging {
      * Represents a candidate prefix and its normalized value.
  * @author Lennart A. Conrad
  * @since 2026
-     */
+ */
     private static final class ParsedPrefix {
 
         /**
@@ -1886,7 +1886,7 @@ public final class Tagging {
      * Tracks bishop-square colors for each side.
  * @author Lennart A. Conrad
  * @since 2026
-     */
+ */
     private static final class BishopColorState {
 
         /**
@@ -1952,7 +1952,7 @@ public final class Tagging {
      * Counts minor-material pieces and detects whether major material is present.
  * @author Lennart A. Conrad
  * @since 2026
-     */
+ */
     private static final class MinorMaterialCounts {
 
         /**
@@ -2063,7 +2063,7 @@ public final class Tagging {
      * Stores pawn-file and pawn-majority statistics for both sides.
  * @author Lennart A. Conrad
  * @since 2026
-     */
+ */
     private static final class PawnStats {
 
         /**
@@ -2187,7 +2187,7 @@ public final class Tagging {
      * Carries positional state across the tagging pipeline.
  * @author Lennart A. Conrad
  * @since 2026
-     */
+ */
     private static final class TagContext {
 
         /**

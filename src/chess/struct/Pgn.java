@@ -1,15 +1,20 @@
 package chess.struct;
 
+import java.io.BufferedReader;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.nio.charset.StandardCharsets;
+import java.util.function.LongConsumer;
 
 import chess.core.Position;
+import utility.Json;
 
 /**
  * Lightweight PGN utility that parses tags, comments, NAGs, and variations into
@@ -34,6 +39,11 @@ public final class Pgn {
     private static final Pattern RESULT_TOKEN = Pattern.compile("^(1-0|0-1|1/2-1/2|\\*)$");
 
     /**
+     * Large text buffer used for PGN files.
+     */
+    private static final int TEXT_BUFFER_SIZE = 1 << 20;
+
+    /**
      * Prevents instantiation of this utility class.
      */
     private Pgn() {
@@ -48,11 +58,79 @@ public final class Pgn {
      * @throws IOException if reading fails
      */
     public static List<Game> read(Path path) throws IOException {
+        return read(path, null);
+    }
+
+    /**
+     * Reads all PGN games from {@code path}, reporting cumulative bytes read.
+     *
+     * @param path PGN file
+     * @param byteProgress optional callback receiving cumulative bytes read
+     * @return list of parsed games (possibly empty)
+     * @throws IOException if reading fails
+     */
+    public static List<Game> read(Path path, LongConsumer byteProgress) throws IOException {
         if (path == null || !Files.exists(path)) {
             return List.of();
         }
-        String content = Files.readString(path);
-        return parseGames(content);
+        List<Game> games = new ArrayList<>();
+        try (InputStream in = Files.newInputStream(path);
+                InputStream progressIn = Json.progressInput(in, byteProgress);
+                BufferedReader reader = new BufferedReader(
+                        new InputStreamReader(progressIn, StandardCharsets.UTF_8),
+                        TEXT_BUFFER_SIZE)) {
+            readGames(reader, games);
+            if (byteProgress != null) {
+                byteProgress.accept(Files.size(path));
+            }
+        }
+        return games;
+    }
+
+    /**
+     * Reads PGN game blocks from a character stream and parses each block.
+     */
+    private static void readGames(BufferedReader reader, List<Game> games) throws IOException {
+        StringBuilder current = new StringBuilder();
+        boolean sawMoveText = false;
+        String line;
+        while ((line = reader.readLine()) != null) {
+            String trimmed = line.trim();
+            boolean blank = trimmed.isEmpty();
+
+            if (blank) {
+                if (sawMoveText && !current.isEmpty()) {
+                    addParsedGame(games, current);
+                    sawMoveText = false;
+                } else if (!current.isEmpty()) {
+                    current.append(System.lineSeparator());
+                }
+                continue;
+            }
+
+            if (!current.isEmpty()) {
+                current.append(System.lineSeparator());
+            }
+            current.append(line);
+
+            if (!trimmed.startsWith("[")) {
+                sawMoveText = true;
+            }
+        }
+        if (!current.isEmpty()) {
+            addParsedGame(games, current);
+        }
+    }
+
+    /**
+     * Parses the current PGN block and clears the buffer.
+     */
+    private static void addParsedGame(List<Game> games, StringBuilder current) {
+        Game game = parseGame(current.toString().trim());
+        if (game != null) {
+            games.add(game);
+        }
+        current.setLength(0);
     }
 
     /**
@@ -335,6 +413,12 @@ public final class Pgn {
                 blackToMove ? 1 : 0,
                 start != null ? start.getFullMove() : 1,
                 blackToMove);
+
+        for (Game.Node rootVariation : game.getRootVariations()) {
+            sb.append('(');
+            appendSequence(rootVariation, tracker.copy(), sb);
+            sb.append(") ");
+        }
 
         if (game.getMainline() != null) {
             appendSequence(game.getMainline(), tracker, sb);
@@ -649,12 +733,30 @@ public final class Pgn {
      * Enumeration of supported PGN token kinds.
      */
     private enum TokenKind {
-        MOVE,
-        VAR_OPEN,
-        VAR_CLOSE,
-        COMMENT,
-        NAG,
-        RESULT
+         /**
+         * Shared move constant.
+         */
+         MOVE,
+         /**
+         * Shared var open constant.
+         */
+         VAR_OPEN,
+         /**
+         * Shared var close constant.
+         */
+         VAR_CLOSE,
+         /**
+         * Shared comment constant.
+         */
+         COMMENT,
+         /**
+         * Shared nag constant.
+         */
+         NAG,
+         /**
+         * Shared result constant.
+         */
+         RESULT
     }
 
     /**

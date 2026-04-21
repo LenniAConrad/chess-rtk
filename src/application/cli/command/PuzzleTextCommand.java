@@ -52,11 +52,18 @@ import utility.Json;
  */
 public final class PuzzleTextCommand {
 
-    private PuzzleTextCommand() {
+     /**
+     * Creates a new puzzle text command instance.
+     */
+     private PuzzleTextCommand() {
         // utility
     }
 
-    public static void runPuzzleText(Argv a) {
+     /**
+     * Runs the puzzle text workflow.
+     * @param a a
+     */
+     public static void runPuzzleText(Argv a) {
         PuzzleTextOptions opts = parseOptions(a);
         Position root = parsePositionOrExit(opts.inputConfig.fen, opts.flags.verbose);
 
@@ -135,7 +142,12 @@ public final class PuzzleTextCommand {
         }
     }
 
-    private static PuzzleTextOptions parseOptions(Argv a) {
+     /**
+     * Parses the options.
+     * @param a a
+     * @return computed value
+     */
+     private static PuzzleTextOptions parseOptions(Argv a) {
         boolean verbose = a.flag(OPT_VERBOSE, OPT_VERBOSE_SHORT);
         boolean includeFen = a.flag(OPT_INCLUDE_FEN);
         boolean analyze = a.flag(OPT_ANALYZE);
@@ -189,7 +201,13 @@ public final class PuzzleTextCommand {
         return new PuzzleTextOptions(flags, engineConfig, limits, wdlConfig, inputConfig);
     }
 
-    private static Position parsePositionOrExit(String fen, boolean verbose) {
+     /**
+     * Parses the position or exit.
+     * @param fen fen
+     * @param verbose verbose
+     * @return computed value
+     */
+     private static Position parsePositionOrExit(String fen, boolean verbose) {
         Position pos = parsePositionOrNull(fen, CMD_PUZZLE_TEXT, verbose);
         if (pos == null) {
             System.exit(2);
@@ -197,7 +215,15 @@ public final class PuzzleTextCommand {
         return pos;
     }
 
-    private static List<String> tagsFor(Position pos, Engine engine, PuzzleTextOptions opts,
+     /**
+     * Handles tags for.
+     * @param pos pos
+     * @param engine engine
+     * @param opts opts
+     * @param cache cache
+     * @return computed value
+     */
+     private static List<String> tagsFor(Position pos, Engine engine, PuzzleTextOptions opts,
             Map<String, TagEntry> cache) {
         String fen = pos.toString();
         TagEntry cached = cache.get(fen);
@@ -228,7 +254,13 @@ public final class PuzzleTextCommand {
         return tags;
     }
 
-    private static MoveInfo inferMove(Position parent, Position child) {
+     /**
+     * Handles infer move.
+     * @param parent parent
+     * @param child child
+     * @return computed value
+     */
+     private static MoveInfo inferMove(Position parent, Position child) {
         short move = inferMoveCode(parent, child);
         if (move == Move.NO_MOVE) {
             return null;
@@ -242,7 +274,13 @@ public final class PuzzleTextCommand {
         return new MoveInfo(san, Move.toString(move));
     }
 
-    private static short inferMoveCode(Position from, Position to) {
+     /**
+     * Handles infer move code.
+     * @param from from
+     * @param to to
+     * @return computed value
+     */
+     private static short inferMoveCode(Position from, Position to) {
         long target = to.signatureCore();
         MoveList moves = from.getMoves();
         short found = Move.NO_MOVE;
@@ -259,14 +297,40 @@ public final class PuzzleTextCommand {
         return found;
     }
 
-    private static final class PuzzleTextOptions {
-        private final Flags flags;
-        private final EngineConfig engineConfig;
-        private final Limits limits;
-        private final WdlConfig wdlConfig;
-        private final InputConfig inputConfig;
+     /**
+     * Provides puzzle text options behavior.
+     */
+     private static final class PuzzleTextOptions {
+         /**
+         * Stores the flags.
+         */
+         private final Flags flags;
+         /**
+         * Stores the engine config.
+         */
+         private final EngineConfig engineConfig;
+         /**
+         * Stores the limits.
+         */
+         private final Limits limits;
+         /**
+         * Stores the wdl config.
+         */
+         private final WdlConfig wdlConfig;
+         /**
+         * Stores the input config.
+         */
+         private final InputConfig inputConfig;
 
-        private PuzzleTextOptions(Flags flags, EngineConfig engineConfig, Limits limits, WdlConfig wdlConfig,
+         /**
+         * Creates a new puzzle text options instance.
+         * @param flags flags
+         * @param engineConfig engine config
+         * @param limits limits
+         * @param wdlConfig wdl config
+         * @param inputConfig input config
+         */
+         private PuzzleTextOptions(Flags flags, EngineConfig engineConfig, Limits limits, WdlConfig wdlConfig,
                 InputConfig inputConfig) {
             this.flags = flags;
             this.engineConfig = engineConfig;
@@ -275,26 +339,70 @@ public final class PuzzleTextCommand {
             this.inputConfig = inputConfig;
         }
 
-        private static final class Flags {
-            private final boolean verbose;
-            private final boolean includeFen;
-            private final boolean analyzeTags;
+         /**
+         * Provides flags behavior.
+         */
+         private static final class Flags {
+             /**
+             * Stores the verbose.
+             */
+             private final boolean verbose;
+             /**
+             * Stores the include fen.
+             */
+             private final boolean includeFen;
+             /**
+             * Stores the analyze tags.
+             */
+             private final boolean analyzeTags;
 
-            private Flags(boolean verbose, boolean includeFen, boolean analyzeTags) {
+             /**
+             * Creates a new flags instance.
+             * @param verbose verbose
+             * @param includeFen include fen
+             * @param analyzeTags analyze tags
+             */
+             private Flags(boolean verbose, boolean includeFen, boolean analyzeTags) {
                 this.verbose = verbose;
                 this.includeFen = includeFen;
                 this.analyzeTags = analyzeTags;
             }
         }
 
-        private static final class EngineConfig {
-            private final String protoPath;
-            private final int multipv;
-            private final int tagMultipv;
-            private final Integer threads;
-            private final Integer hash;
+         /**
+         * Provides engine config behavior.
+         */
+         private static final class EngineConfig {
+             /**
+             * Stores the proto path.
+             */
+             private final String protoPath;
+             /**
+             * Stores the multipv.
+             */
+             private final int multipv;
+             /**
+             * Stores the tag multipv.
+             */
+             private final int tagMultipv;
+             /**
+             * Stores the threads.
+             */
+             private final Integer threads;
+             /**
+             * Stores the hash.
+             */
+             private final Integer hash;
 
-            private EngineConfig(String protoPath, int multipv, int tagMultipv, Integer threads, Integer hash) {
+             /**
+             * Creates a new engine config instance.
+             * @param protoPath proto path
+             * @param multipv multipv
+             * @param tagMultipv tag multipv
+             * @param threads threads
+             * @param hash hash
+             */
+             private EngineConfig(String protoPath, int multipv, int tagMultipv, Integer threads, Integer hash) {
                 this.protoPath = protoPath;
                 this.multipv = multipv;
                 this.tagMultipv = tagMultipv;
@@ -303,13 +411,35 @@ public final class PuzzleTextCommand {
             }
         }
 
-        private static final class Limits {
-            private final long nodesCap;
-            private final long durMs;
-            private final int pvPlies;
-            private final int maxNew;
+         /**
+         * Provides limits behavior.
+         */
+         private static final class Limits {
+             /**
+             * Stores the nodes cap.
+             */
+             private final long nodesCap;
+             /**
+             * Stores the dur ms.
+             */
+             private final long durMs;
+             /**
+             * Stores the pv plies.
+             */
+             private final int pvPlies;
+             /**
+             * Stores the max new.
+             */
+             private final int maxNew;
 
-            private Limits(long nodesCap, long durMs, int pvPlies, int maxNew) {
+             /**
+             * Creates a new limits instance.
+             * @param nodesCap nodes cap
+             * @param durMs dur ms
+             * @param pvPlies pv plies
+             * @param maxNew max new
+             */
+             private Limits(long nodesCap, long durMs, int pvPlies, int maxNew) {
                 this.nodesCap = nodesCap;
                 this.durMs = durMs;
                 this.pvPlies = pvPlies;
@@ -317,43 +447,99 @@ public final class PuzzleTextCommand {
             }
         }
 
-        private static final class WdlConfig {
-            private final boolean wdl;
-            private final boolean noWdl;
+         /**
+         * Provides wdl config behavior.
+         */
+         private static final class WdlConfig {
+             /**
+             * Stores the wdl.
+             */
+             private final boolean wdl;
+             /**
+             * Stores the no wdl.
+             */
+             private final boolean noWdl;
 
-            private WdlConfig(boolean wdl, boolean noWdl) {
+             /**
+             * Creates a new wdl config instance.
+             * @param wdl wdl
+             * @param noWdl no wdl
+             */
+             private WdlConfig(boolean wdl, boolean noWdl) {
                 this.wdl = wdl;
                 this.noWdl = noWdl;
             }
         }
 
-        private static final class InputConfig {
-            private final String modelPath;
-            private final String fen;
+         /**
+         * Provides input config behavior.
+         */
+         private static final class InputConfig {
+             /**
+             * Stores the model path.
+             */
+             private final String modelPath;
+             /**
+             * Stores the fen.
+             */
+             private final String fen;
 
-            private InputConfig(String modelPath, String fen) {
+             /**
+             * Creates a new input config instance.
+             * @param modelPath model path
+             * @param fen fen
+             */
+             private InputConfig(String modelPath, String fen) {
                 this.modelPath = modelPath;
                 this.fen = fen;
             }
         }
     }
 
-    private static final class TagEntry {
-        private final List<String> tags;
-        @SuppressWarnings("unused")
+     /**
+     * Provides tag entry behavior.
+     */
+     private static final class TagEntry {
+         /**
+         * Stores the tags.
+         */
+         private final List<String> tags;
+         /**
+         * Stores the analysis.
+         */
+         @SuppressWarnings("unused")
         private final Analysis analysis;
 
-        private TagEntry(List<String> tags, Analysis analysis) {
+         /**
+         * Creates a new tag entry instance.
+         * @param tags tags
+         * @param analysis analysis
+         */
+         private TagEntry(List<String> tags, Analysis analysis) {
             this.tags = tags;
             this.analysis = analysis;
         }
     }
 
-    private static final class MoveInfo {
-        private final String san;
-        private final String uci;
+     /**
+     * Provides move info behavior.
+     */
+     private static final class MoveInfo {
+         /**
+         * Stores the san.
+         */
+         private final String san;
+         /**
+         * Stores the uci.
+         */
+         private final String uci;
 
-        private MoveInfo(String san, String uci) {
+         /**
+         * Creates a new move info instance.
+         * @param san san
+         * @param uci uci
+         */
+         private MoveInfo(String san, String uci) {
             this.san = san;
             this.uci = uci;
         }

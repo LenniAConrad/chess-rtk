@@ -10,11 +10,19 @@ import java.util.List;
  */
 public final class TagPrompt {
 
-    private TagPrompt() {
+     /**
+     * Creates a new tag prompt instance.
+     */
+     private TagPrompt() {
         // utility
     }
 
-    public static String buildPositionPrompt(List<String> tags) {
+     /**
+     * Handles build position prompt.
+     * @param tags tags
+     * @return computed value
+     */
+     public static String buildPositionPrompt(List<String> tags) {
         StringBuilder sb = new StringBuilder(512);
         sb.append("TASK: puzzle_commentary\n");
         sb.append("Write a single-paragraph chess commentary.\n");

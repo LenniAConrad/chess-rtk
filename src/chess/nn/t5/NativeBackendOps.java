@@ -11,7 +11,10 @@ import java.util.function.LongConsumer;
  */
 public final class NativeBackendOps {
 
-  private NativeBackendOps() {}
+   /**
+   * Creates a new native backend ops instance.
+   */
+   private NativeBackendOps() {}
 
   /**
    * Functional interface for native model creation.

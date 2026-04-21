@@ -730,17 +730,30 @@ public class Engine implements AutoCloseable {
 
 	/**
 	 * Used for closing engine I/O streams and terminating the engine process.
-	 *
-	 * @throws IOException          if an I/O error occurs while closing streams
-	 * @throws InterruptedException if interrupted while waiting for the process to
-	 *                              terminate
 	 */
 	@Override
-	public void close() throws Exception {
+	public void close() {
 		LogService.info(String.format("%s is being closed", engineId));
-		output.close();
-		input.close();
-		process.destroy();
-		process.waitFor(1, TimeUnit.SECONDS);
+		if (output != null) {
+			output.close();
+		}
+		try {
+			if (input != null) {
+				input.close();
+			}
+		} catch (IOException ex) {
+			LogService.info(String.format("%s input stream close failed: %s", engineId, ex.getMessage()));
+		}
+		if (process != null) {
+			process.destroy();
+			try {
+				if (!process.waitFor(1, TimeUnit.SECONDS)) {
+					process.destroyForcibly();
+				}
+			} catch (InterruptedException ex) {
+				Thread.currentThread().interrupt();
+				LogService.error(ex, String.format("%s close interrupted", engineId));
+			}
+		}
 	}
 }

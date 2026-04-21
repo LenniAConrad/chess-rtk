@@ -48,6 +48,9 @@ public final class ThemedSplitPaneUI extends BasicSplitPaneUI {
 	  * @author Lennart A. Conrad
 	 */
 	private static final class ThemedDivider extends BasicSplitPaneDivider {
+
+		@java.io.Serial
+		private static final long serialVersionUID = 1L;
 		/**
 		 * color field.
 		 */

@@ -16,9 +16,11 @@ import static application.cli.PgnOps.writePgnFens;
 
 import java.io.BufferedWriter;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 
+import application.console.Bar;
 import utility.Argv;
 
 /**
@@ -53,7 +55,17 @@ public final class PgnCommand {
 			output = deriveOutputPath(input, ".txt");
 		}
 
-		List<chess.struct.Game> games = readPgnOrExit(input, verbose, CMD_PGN_TO_FENS);
+		Bar readBar = fileProgressBar(input, CMD_PGN_TO_FENS + " read");
+		List<chess.struct.Game> games;
+		try {
+			games = readPgnOrExit(
+					input,
+					verbose,
+					CMD_PGN_TO_FENS,
+					readBar == null ? null : readBar::set);
+		} finally {
+			finish(readBar);
+		}
 		if (games == null) {
 			return;
 		}
@@ -62,7 +74,9 @@ public final class PgnCommand {
 			if (writer == null) {
 				return;
 			}
-			long lines = writePgnFens(games, writer, mainline, pairs);
+			Bar bar = games.size() > 1 ? new Bar(games.size(), CMD_PGN_TO_FENS + " write", false, System.err) : null;
+			long lines = writePgnFens(games, writer, mainline, pairs, bar == null ? null : bar::step);
+			finish(bar);
 			System.out.printf("pgn-to-fens wrote %d lines to %s%n", lines, output.toAbsolutePath());
 		} catch (IOException ex) {
 			System.err.println("pgn-to-fens: failed to write output: " + ex.getMessage());
@@ -70,6 +84,27 @@ public final class PgnCommand {
 				ex.printStackTrace(System.err);
 			}
 			System.exit(2);
+		}
+	}
+
+	/**
+	 * Creates a byte-count progress bar for an input file when its size is known.
+	 */
+	private static Bar fileProgressBar(Path input, String label) {
+		try {
+			long size = Files.size(input);
+			return size > 0L ? new Bar(size, label, false, System.err) : null;
+		} catch (IOException ex) {
+			return null;
+		}
+	}
+
+	/**
+	 * Finishes a progress bar if one was created.
+	 */
+	private static void finish(Bar bar) {
+		if (bar != null) {
+			bar.finish();
 		}
 	}
 }

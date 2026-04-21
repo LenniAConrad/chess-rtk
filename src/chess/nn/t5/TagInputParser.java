@@ -168,7 +168,11 @@ public final class TagInputParser {
      */
     private int pos;
 
-    private Cursor(String input) {
+     /**
+     * Creates a new cursor instance.
+     * @param input input
+     */
+     private Cursor(String input) {
       this.input = input;
     }
 

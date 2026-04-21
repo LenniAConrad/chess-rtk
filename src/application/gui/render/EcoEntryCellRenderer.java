@@ -19,6 +19,9 @@ import chess.eco.Entry;
   * @author Lennart A. Conrad
  */
 public final class EcoEntryCellRenderer extends JLabel implements ListCellRenderer<Entry> {
+
+	@java.io.Serial
+	private static final long serialVersionUID = 1L;
 	/**
 	 * owner field.
 	 */

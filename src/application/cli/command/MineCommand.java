@@ -40,6 +40,7 @@ import java.util.function.Supplier;
 
 import application.Config;
 import application.Pool;
+import application.console.Bar;
 import chess.core.Position;
 import chess.core.Setup;
 import chess.debug.LogService;
@@ -245,37 +246,45 @@ public final class MineCommand {
 			MiningConfig config) throws IOException {
 		final Set<String> seenFen = new HashSet<>(frontier.size() * 2);
 		final AnalysisCache analyzedFen = new AnalysisCache(config.analysisCacheSize());
+		final Bar bar = miningProgressBar(config);
 
 		int waves = 0;
 		int processed = 0;
 
-		while (waves < config.maxWaves() && processed < config.maxTotal()) {
-			frontier = prepareFrontierForWave(frontier, config, seenFen, analyzedFen, processed, waves);
-			if (frontier.isEmpty()) {
-				break;
+		try {
+			while (waves < config.maxWaves() && processed < config.maxTotal()) {
+				frontier = prepareFrontierForWave(frontier, config, seenFen, analyzedFen, processed, waves);
+				if (frontier.isEmpty()) {
+					break;
+				}
+
+				frontier = capFrontier(frontier, config.maxFrontier());
+				updateMiningProgress(bar, processed, waves + 1, frontier.size(), 0, 0, "analyzing");
+				analyzeWave(pool, frontier, config.accel(), config.nodesCap(), config.durMs());
+
+				final WaveState state = processFrontier(
+						frontier,
+						config.verify(),
+						seenFen,
+						analyzedFen,
+						processed,
+						config.maxTotal());
+
+				if (!state.wavePuzzles.isEmpty()) {
+					flushJsonLines(config.outs().puzzles, state.wavePuzzles);
+				}
+				if (!state.waveNonPuzzles.isEmpty()) {
+					flushJsonLines(config.outs().nonpuzzles, state.waveNonPuzzles);
+				}
+
+				frontier = state.next;
+				processed = state.processed;
+				waves++;
+				updateMiningProgress(bar, processed, waves, frontier.size(), state.wavePuzzles.size(),
+						state.waveNonPuzzles.size(), "done");
 			}
-
-			frontier = capFrontier(frontier, config.maxFrontier());
-			analyzeWave(pool, frontier, config.accel(), config.nodesCap(), config.durMs());
-
-			final WaveState state = processFrontier(
-					frontier,
-					config.verify(),
-					seenFen,
-					analyzedFen,
-					processed,
-					config.maxTotal());
-
-			if (!state.wavePuzzles.isEmpty()) {
-				flushJsonLines(config.outs().puzzles, state.wavePuzzles);
-			}
-			if (!state.waveNonPuzzles.isEmpty()) {
-				flushJsonLines(config.outs().nonpuzzles, state.waveNonPuzzles);
-			}
-
-			frontier = state.next;
-			processed = state.processed;
-			waves++;
+		} finally {
+			finishProgress(bar);
 		}
 	}
 
@@ -297,29 +306,91 @@ public final class MineCommand {
 			MiningConfig config) {
 		final Set<String> seenFen = new HashSet<>(frontier.size() * 2);
 		final AnalysisCache analyzedFen = new AnalysisCache(config.analysisCacheSize());
+		final Bar bar = miningProgressBar(config);
 
 		int waves = 0;
 		int processed = 0;
 
-		while (waves < config.maxWaves() && processed < config.maxTotal()) {
-			frontier = prepareFrontierForWave(frontier, config, seenFen, analyzedFen, processed, waves);
-			if (frontier.isEmpty()) {
-				break;
+		try {
+			while (waves < config.maxWaves() && processed < config.maxTotal()) {
+				frontier = prepareFrontierForWave(frontier, config, seenFen, analyzedFen, processed, waves);
+				if (frontier.isEmpty()) {
+					break;
+				}
+
+				frontier = capFrontier(frontier, config.maxFrontier());
+				updateMiningProgress(bar, processed, waves + 1, frontier.size(), 0, 0, "analyzing");
+				final WaveState state = analyzeAndProcessWaveStdout(
+						pool,
+						frontier,
+						config,
+						seenFen,
+						analyzedFen,
+						processed,
+						config.maxTotal());
+
+				frontier = state.next;
+				processed = state.processed;
+				waves++;
+				updateMiningProgress(bar, processed, waves, frontier.size(), state.wavePuzzles.size(),
+						state.waveNonPuzzles.size(), "done");
 			}
+		} finally {
+			finishProgress(bar);
+		}
+	}
 
-			frontier = capFrontier(frontier, config.maxFrontier());
-			final WaveState state = analyzeAndProcessWaveStdout(
-					pool,
-					frontier,
-					config,
-					seenFen,
-					analyzedFen,
-					processed,
-					config.maxTotal());
+	/**
+	 * Handles mining progress bar.
+	 * @param config config
+	 * @return computed value
+	 */
+	private static Bar miningProgressBar(MiningConfig config) {
+		if (config == null || config.infinite() || config.maxTotal() == Long.MAX_VALUE) {
+			return null;
+		}
+		return new Bar(config.maxTotal(), "mine-puzzles", false, System.err);
+	}
 
-			frontier = state.next;
-			processed = state.processed;
-			waves++;
+	/**
+	 * Handles update mining progress.
+	 * @param bar bar
+	 * @param processed processed
+	 * @param wave wave
+	 * @param frontier frontier
+	 * @param puzzles puzzles
+	 * @param nonpuzzles nonpuzzles
+	 * @param phase phase
+	 */
+	private static void updateMiningProgress(
+			Bar bar,
+			long processed,
+			int wave,
+			int frontier,
+			int puzzles,
+			int nonpuzzles,
+			String phase) {
+		if (bar == null) {
+			return;
+		}
+		bar.setPostfix(String.format(
+				java.util.Locale.ROOT,
+				"wave=%d frontier=%d puzzles=%d nonpuzzles=%d %s",
+				wave,
+				frontier,
+				puzzles,
+				nonpuzzles,
+				phase));
+		bar.set(processed);
+	}
+
+	/**
+	 * Handles finish progress.
+	 * @param bar bar
+	 */
+	private static void finishProgress(Bar bar) {
+		if (bar != null) {
+			bar.finish();
 		}
 	}
 
@@ -486,7 +557,12 @@ public final class MineCommand {
 			this.maxSize = maxSize;
 			int initialCapacity = Math.min(maxSize, 16_384);
 			this.map = new LinkedHashMap<>(initialCapacity, 0.75f, true) {
-				@Override
+				 /**
+				 * Handles remove eldest entry.
+				 * @param eldest eldest
+				 * @return computed value
+				 */
+				 @Override
 				protected boolean removeEldestEntry(Map.Entry<String, Boolean> eldest) {
 					return size() > AnalysisCache.this.maxSize;
 				}
@@ -533,18 +609,18 @@ public final class MineCommand {
 	 * @param analysisCacheSize max analyzed positions to remember (LRU)
 	 */
 	private record MiningConfig(
-			Filter accel,
-			Filter verify,
-			long nodesCap,
-			long durMs,
-			OutputTargets outs,
-			boolean infinite,
-			boolean chess960,
-			int randomSeeds,
-			int maxFrontier,
-			int maxWaves,
-			long maxTotal,
-			int analysisCacheSize) {
+						Filter accel,
+						Filter verify,
+						long nodesCap,
+						long durMs,
+						OutputTargets outs,
+						boolean infinite,
+						boolean chess960,
+						int randomSeeds,
+						int maxFrontier,
+						int maxWaves,
+						long maxTotal,
+						int analysisCacheSize) {
 	}
 
 	/**

@@ -11,6 +11,8 @@ import static application.cli.Format.formatSigned;
 import static application.cli.RecordIO.streamRecordFile;
 import static application.cli.Validation.requirePositive;
 
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -20,6 +22,7 @@ import java.util.Locale;
 import java.util.Map;
 
 import application.cli.RecordIO.RecordConsumer;
+import application.console.Bar;
 import chess.struct.Record;
 import chess.uci.Analysis;
 import chess.uci.Evaluation;
@@ -54,9 +57,11 @@ public final class StatsCommand {
 		a.ensureConsumed();
 
 		StatsAccumulator stats = new StatsAccumulator();
+		Bar bar = fileProgressBar(input, CMD_STATS);
 		try {
-			streamRecordFile(input, verbose, CMD_STATS, stats);
+			streamRecordFile(input, verbose, CMD_STATS, stats, bar == null ? null : bar::set);
 		} catch (Exception ex) {
+			finishProgress(bar);
 			System.err.println("stats: failed to read input: " + ex.getMessage());
 			if (verbose) {
 				ex.printStackTrace(System.err);
@@ -65,6 +70,7 @@ public final class StatsCommand {
 			return;
 		}
 
+		finishProgress(bar);
 		stats.printSummary(input, top);
 	}
 
@@ -81,9 +87,11 @@ public final class StatsCommand {
 		a.ensureConsumed();
 
 		TagStatsAccumulator stats = new TagStatsAccumulator();
+		Bar bar = fileProgressBar(input, CMD_STATS_TAGS);
 		try {
-			streamRecordFile(input, verbose, CMD_STATS_TAGS, stats);
+			streamRecordFile(input, verbose, CMD_STATS_TAGS, stats, bar == null ? null : bar::set);
 		} catch (Exception ex) {
+			finishProgress(bar);
 			System.err.println("stats-tags: failed to read input: " + ex.getMessage());
 			if (verbose) {
 				ex.printStackTrace(System.err);
@@ -92,7 +100,33 @@ public final class StatsCommand {
 			return;
 		}
 
+		finishProgress(bar);
 		stats.printSummary(input, top);
+	}
+
+	/**
+	 * Handles file progress bar.
+	 * @param input input
+	 * @param label label
+	 * @return computed value
+	 */
+	private static Bar fileProgressBar(Path input, String label) {
+		try {
+			long size = Files.size(input);
+			return size > 0L ? new Bar(size, label) : null;
+		} catch (IOException ex) {
+			return null;
+		}
+	}
+
+	/**
+	 * Handles finish progress.
+	 * @param bar bar
+	 */
+	private static void finishProgress(Bar bar) {
+		if (bar != null) {
+			bar.finish();
+		}
 	}
 
 	/**

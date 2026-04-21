@@ -1,7 +1,6 @@
 package chess.tag.tactical;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 
@@ -22,30 +21,34 @@ import chess.tag.core.Text;
 public final class Attack {
 
     /**
-     * Relative knight move offsets used for attack generation.
+     * Cached knight targets for each source square.
      */
-    private static final int[][] KNIGHT_DELTAS = {
-            { 1, 2 }, { 2, 1 }, { 2, -1 }, { 1, -2 },
-            { -1, -2 }, { -2, -1 }, { -2, 1 }, { -1, 2 }
-    };
+    private static final byte[][] KNIGHT_TARGETS = Field.getJumps();
 
     /**
-     * Relative king move offsets used for attack generation.
+     * Cached king targets for each source square.
      */
-    private static final int[][] KING_DELTAS = {
-            { 1, 0 }, { 1, 1 }, { 0, 1 }, { -1, 1 },
-            { -1, 0 }, { -1, -1 }, { 0, -1 }, { 1, -1 }
-    };
+    private static final byte[][] KING_TARGETS = Field.getNeighbors();
 
     /**
-     * Sliding directions used for bishops.
+     * Cached White pawn capture targets for each source square.
      */
-    private static final int[][] BISHOP_DIRECTIONS = { { 1, 1 }, { 1, -1 }, { -1, 1 }, { -1, -1 } };
+    private static final byte[][] WHITE_PAWN_TARGETS = Field.getPawnCaptureWhite();
 
     /**
-     * Sliding directions used for rooks.
+     * Cached Black pawn capture targets for each source square.
      */
-    private static final int[][] ROOK_DIRECTIONS = { { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 } };
+    private static final byte[][] BLACK_PAWN_TARGETS = Field.getPawnCaptureBlack();
+
+    /**
+     * Cached bishop/queen diagonal rays for each source square.
+     */
+    private static final byte[][][] DIAGONAL_RAYS = Field.getDiagonals();
+
+    /**
+     * Cached rook/queen orthogonal rays for each source square.
+     */
+    private static final byte[][][] LINE_RAYS = Field.getLines();
 
     /**
      * Prevents instantiation of this utility class.
@@ -65,42 +68,32 @@ public final class Attack {
         Objects.requireNonNull(position, "position");
 
         byte[] board = position.getBoard();
-        List<String> attacks = new ArrayList<>();
+        List<String> attacks = new ArrayList<>(8);
 
         for (int index = 0; index < board.length; index++) {
             byte piece = board[index];
             if (piece == Piece.EMPTY) {
                 continue;
             }
-            appendAttacksForPiece(board, attacks, (byte) index, piece);
+            appendAttacksForPiece(position, board, attacks, (byte) index, piece);
         }
 
-        return Collections.unmodifiableList(attacks);
+        return List.copyOf(attacks);
     }
 
     /**
      * Collects all meaningful attacks for one attacker.
      *
+     * @param position the analyzed position
      * @param board the board array
      * @param attacks the mutable attack list
      * @param attackerSquare the attacker square
      * @param attackerPiece the attacker piece
      */
-    private static void appendAttacksForPiece(byte[] board, List<String> attacks, byte attackerSquare, byte attackerPiece) {
-        boolean attackerIsWhite = Piece.isWhite(attackerPiece);
-        List<Integer> targets = enumerateAttacks(board, attackerPiece, attackerSquare);
-        List<AttackTarget> meaningfulTargets = new ArrayList<>(4);
-
-        for (int i = 0; i < targets.size(); i++) {
-            int targetSquare = targets.get(i);
-            byte targetPiece = board[targetSquare];
-            if (targetPiece == Piece.EMPTY || Piece.isWhite(targetPiece) == attackerIsWhite) {
-                continue;
-            }
-            if (isMeaningfulAttack(board, attackerPiece, attackerSquare, (byte) targetSquare, targetPiece)) {
-                meaningfulTargets.add(new AttackTarget((byte) targetSquare, targetPiece));
-            }
-        }
+    private static void appendAttacksForPiece(Position position, byte[] board, List<String> attacks, byte attackerSquare,
+            byte attackerPiece) {
+        List<AttackTarget> meaningfulTargets = new ArrayList<>(2);
+        collectMeaningfulTargets(position, board, attackerSquare, attackerPiece, meaningfulTargets);
 
         if (meaningfulTargets.isEmpty()) {
             return;
@@ -114,107 +107,118 @@ public final class Attack {
     }
 
     /**
-     * Enumerates all squares a piece attacks geometrically.
+     * Collects all tactically meaningful enemy targets attacked by one piece.
      *
+     * @param position the analyzed position
      * @param board the board array
-     * @param piece the attacker piece
-     * @param square the attacker square
-     * @return the list of target squares
+     * @param attackerSquare the attacker square
+     * @param attackerPiece the attacker piece
+     * @param meaningfulTargets the mutable target list
      */
-    private static List<Integer> enumerateAttacks(byte[] board, byte piece, byte square) {
-        List<Integer> targets = new ArrayList<>();
-        int file = Field.getX(square);
-        int rank = Field.getY(square);
-        int absPiece = Math.abs(piece);
-
-        switch (absPiece) {
-            case Piece.WHITE_PAWN: {
-                int direction = Piece.isWhite(piece) ? 1 : -1;
-                addIfValid(targets, file - 1, rank + direction);
-                addIfValid(targets, file + 1, rank + direction);
-                break;
-            }
-            case Piece.WHITE_KNIGHT: {
-                for (int[] delta : KNIGHT_DELTAS) {
-                    addIfValid(targets, file + delta[0], rank + delta[1]);
-                }
-                break;
-            }
-            case Piece.WHITE_BISHOP: {
-                addSlidingTargets(targets, board, file, rank, BISHOP_DIRECTIONS);
-                break;
-            }
-            case Piece.WHITE_ROOK: {
-                addSlidingTargets(targets, board, file, rank, ROOK_DIRECTIONS);
-                break;
-            }
-            case Piece.WHITE_QUEEN: {
-                addSlidingTargets(targets, board, file, rank, BISHOP_DIRECTIONS);
-                addSlidingTargets(targets, board, file, rank, ROOK_DIRECTIONS);
-                break;
-            }
-            case Piece.WHITE_KING: {
-                for (int[] delta : KING_DELTAS) {
-                    addIfValid(targets, file + delta[0], rank + delta[1]);
-                }
-                break;
-            }
-            default:
-                break;
+    private static void collectMeaningfulTargets(Position position, byte[] board, byte attackerSquare, byte attackerPiece,
+            List<AttackTarget> meaningfulTargets) {
+        if (Piece.isPawn(attackerPiece)) {
+            byte[][] pawnTargets = Piece.isWhite(attackerPiece) ? WHITE_PAWN_TARGETS : BLACK_PAWN_TARGETS;
+            collectStaticTargets(position, board, attackerSquare, attackerPiece, pawnTargets[attackerSquare],
+                    meaningfulTargets);
+            return;
         }
 
-        return targets;
+        if (Piece.isKnight(attackerPiece)) {
+            collectStaticTargets(position, board, attackerSquare, attackerPiece, KNIGHT_TARGETS[attackerSquare],
+                    meaningfulTargets);
+            return;
+        }
+
+        if (Piece.isKing(attackerPiece)) {
+            collectStaticTargets(position, board, attackerSquare, attackerPiece, KING_TARGETS[attackerSquare],
+                    meaningfulTargets);
+            return;
+        }
+
+        if (Piece.isBishop(attackerPiece) || Piece.isQueen(attackerPiece)) {
+            collectSlidingTargets(position, board, attackerSquare, attackerPiece, DIAGONAL_RAYS[attackerSquare],
+                    meaningfulTargets);
+        }
+
+        if (Piece.isRook(attackerPiece) || Piece.isQueen(attackerPiece)) {
+            collectSlidingTargets(position, board, attackerSquare, attackerPiece, LINE_RAYS[attackerSquare],
+                    meaningfulTargets);
+        }
     }
 
     /**
-     * Adds all squares reachable by a sliding piece in the given directions.
+     * Collects meaningful targets from a non-sliding attack set.
      *
-     * @param targets the mutable target list
+     * @param position the analyzed position
      * @param board the board array
-     * @param file the source file
-     * @param rank the source rank
-     * @param directions the sliding directions to explore
+     * @param attackerSquare the attacker square
+     * @param attackerPiece the attacker piece
+     * @param targets the attacked squares to inspect
+     * @param meaningfulTargets the mutable target list
      */
-    private static void addSlidingTargets(List<Integer> targets, byte[] board, int file, int rank, int[][] directions) {
-        for (int[] dir : directions) {
-            int f = file + dir[0];
-            int r = rank + dir[1];
-            while (Field.isOnBoard(f, r)) {
-                int index = Field.toIndex(f, r);
-                targets.add(index);
-                if (board[index] != Piece.EMPTY) {
+    private static void collectStaticTargets(Position position, byte[] board, byte attackerSquare, byte attackerPiece,
+            byte[] targets, List<AttackTarget> meaningfulTargets) {
+        for (byte targetSquare : targets) {
+            maybeAddMeaningfulTarget(position, board, attackerSquare, attackerPiece, targetSquare, meaningfulTargets);
+        }
+    }
+
+    /**
+     * Collects meaningful targets from sliding rays.
+     *
+     * @param position the analyzed position
+     * @param board the board array
+     * @param attackerSquare the attacker square
+     * @param attackerPiece the attacker piece
+     * @param rays the directional rays to inspect
+     * @param meaningfulTargets the mutable target list
+     */
+    private static void collectSlidingTargets(Position position, byte[] board, byte attackerSquare, byte attackerPiece,
+            byte[][] rays, List<AttackTarget> meaningfulTargets) {
+        for (byte[] ray : rays) {
+            for (byte targetSquare : ray) {
+                maybeAddMeaningfulTarget(position, board, attackerSquare, attackerPiece, targetSquare,
+                        meaningfulTargets);
+                if (board[targetSquare] != Piece.EMPTY) {
                     break;
                 }
-                f += dir[0];
-                r += dir[1];
             }
         }
     }
 
     /**
-     * Adds a target square when it lies on the board.
+     * Adds one target when it is an enemy piece and the attack is meaningful.
      *
-     * @param targets the mutable target list
-     * @param file the target file
-     * @param rank the target rank
+     * @param position the analyzed position
+     * @param board the board array
+     * @param attackerSquare the attacker square
+     * @param attackerPiece the attacker piece
+     * @param targetSquare the target square
+     * @param meaningfulTargets the mutable target list
      */
-    private static void addIfValid(List<Integer> targets, int file, int rank) {
-        if (Field.isOnBoard(file, rank)) {
-            targets.add(Field.toIndex(file, rank));
+    private static void maybeAddMeaningfulTarget(Position position, byte[] board, byte attackerSquare, byte attackerPiece,
+            byte targetSquare, List<AttackTarget> meaningfulTargets) {
+        byte targetPiece = board[targetSquare];
+        if (targetPiece == Piece.EMPTY || Piece.isWhite(targetPiece) == Piece.isWhite(attackerPiece)) {
+            return;
+        }
+        if (isMeaningfulAttack(position, attackerPiece, attackerSquare, targetSquare, targetPiece)) {
+            meaningfulTargets.add(new AttackTarget(targetSquare, targetPiece));
         }
     }
 
     /**
      * Determines whether an attack is tactically meaningful.
      *
-     * @param board the board array
+     * @param position the analyzed position
      * @param attackerPiece the attacker piece
      * @param attackerSquare the attacker square
      * @param targetSquare the target square
      * @param targetPiece the target piece
      * @return {@code true} when the attack should be surfaced
      */
-    private static boolean isMeaningfulAttack(byte[] board, byte attackerPiece, byte attackerSquare,
+    private static boolean isMeaningfulAttack(Position position, byte attackerPiece, byte attackerSquare,
             byte targetSquare, byte targetPiece) {
         if (Piece.isKing(targetPiece)) {
             return true;
@@ -224,49 +228,27 @@ public final class Attack {
         if (targetValue > attackerValue) {
             return true;
         }
-        return !isDefended(board, targetSquare, Piece.isWhite(targetPiece), attackerSquare);
+        return !isDefended(position, targetSquare, Piece.isWhite(targetPiece), attackerSquare);
     }
 
     /**
      * Checks whether a target square is defended by its own side.
      *
-     * @param board the board array
+     * @param position the analyzed position
      * @param targetSquare the square being evaluated
      * @param targetIsWhite whether the target belongs to White
      * @param ignoreSquare a square to ignore when evaluating defenders
      * @return {@code true} when the square is defended
      */
-    private static boolean isDefended(byte[] board, byte targetSquare, boolean targetIsWhite, byte ignoreSquare) {
-        for (int index = 0; index < board.length; index++) {
-            byte piece = board[index];
-            if (isEligibleDefender(piece, index, targetIsWhite, targetSquare, ignoreSquare)) {
-                List<Integer> attacks = enumerateAttacks(board, piece, (byte) index);
-                for (int i = 0; i < attacks.size(); i++) {
-                    if (attacks.get(i) == targetSquare) {
-                        return true;
-                    }
-                }
+    private static boolean isDefended(Position position, byte targetSquare, boolean targetIsWhite, byte ignoreSquare) {
+        byte[] defenders = targetIsWhite ? position.getAttackersByWhite(targetSquare)
+                : position.getAttackersByBlack(targetSquare);
+        for (byte defender : defenders) {
+            if (defender != targetSquare && defender != ignoreSquare) {
+                return true;
             }
         }
         return false;
-    }
-
-    /**
-     * Checks whether a piece can defend the target square.
-     *
-     * @param piece the candidate defender
-     * @param index the defender square index
-     * @param targetIsWhite whether the defended piece belongs to White
-     * @param targetSquare the square being defended
-     * @param ignoreSquare a square to exclude from consideration
-     * @return {@code true} when the piece is a usable defender
-     */
-    private static boolean isEligibleDefender(byte piece, int index, boolean targetIsWhite, byte targetSquare,
-            byte ignoreSquare) {
-        return piece != Piece.EMPTY
-                && Piece.isWhite(piece) == targetIsWhite
-                && index != targetSquare
-                && index != ignoreSquare;
     }
 
     /**
@@ -315,7 +297,7 @@ public final class Attack {
      * Represents one tactically meaningful attacked target.
  * @author Lennart A. Conrad
  * @since 2026
-     */
+ */
     private static final class AttackTarget {
 
         /**

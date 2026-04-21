@@ -3,6 +3,7 @@ package utility;
 import java.util.ArrayList;
 import java.util.List;
 import java.io.BufferedReader;
+import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -10,7 +11,9 @@ import java.io.Reader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Locale;
 import java.util.function.Consumer;
+import java.util.function.LongConsumer;
 
 /**
  * Utility class for basic JSON operations including parsing and formatting.
@@ -38,6 +41,11 @@ public class Json {
      * The stream reader refuses to grow beyond this limit and throws if more space is required.
      */
     private static final int STREAM_OBJ_MAX_CAPACITY = 1 << 23; // ~8 MiB chars
+
+    /**
+     * Minimum byte delta between progress callbacks while streaming files.
+     */
+    private static final long STREAM_PROGRESS_INTERVAL_BYTES = 1L << 20; // 1 MiB
 
     /**
      * Prevents instantiation of this utility class.
@@ -114,9 +122,29 @@ public class Json {
      *                     we detect
      */
     public static void streamTopLevelObjects(Path path, Consumer<String> consumer) throws IOException {
+        streamTopLevelObjects(path, consumer, null);
+    }
+
+    /**
+     * Streams each top-level JSON object from a JSON array file while reporting
+     * bytes read by the underlying input stream.
+     *
+     * @param path         file path to a JSON array
+     * @param consumer     callback receiving each complete top-level object
+     * @param byteProgress optional callback receiving cumulative bytes read
+     * @throws IOException if streaming fails
+     */
+    public static void streamTopLevelObjects(
+            Path path,
+            Consumer<String> consumer,
+            LongConsumer byteProgress) throws IOException {
         try (InputStream in = Files.newInputStream(path);
-                Reader r = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8), 1 << 20)) {
+                InputStream progressIn = progressInput(in, byteProgress);
+                Reader r = new BufferedReader(new InputStreamReader(progressIn, StandardCharsets.UTF_8), 1 << 20)) {
             streamTopLevelObjects(r, consumer);
+            if (byteProgress != null) {
+                byteProgress.accept(Files.size(path));
+            }
         } catch (IOException e) {
             throw new IOException("Failed streaming top-level JSON objects from: " + path, e);
         }
@@ -208,6 +236,101 @@ public class Json {
 
         if (st.depth != 0) {
             throw new IOException("Unterminated JSON object at EOF");
+        }
+    }
+
+    /**
+     * Wraps an input stream with cumulative byte progress reporting.
+     */
+    public static InputStream progressInput(InputStream in, LongConsumer byteProgress) {
+        if (byteProgress == null) {
+            return in;
+        }
+        return new ProgressInputStream(in, byteProgress);
+    }
+
+    /**
+     * Input stream wrapper that reports cumulative bytes read.
+     */
+    private static final class ProgressInputStream extends FilterInputStream {
+
+        /**
+         * Receiver for cumulative bytes read.
+         */
+        private final LongConsumer byteProgress;
+
+        /**
+         * Total bytes read so far.
+         */
+        private long bytes;
+
+        /**
+         * Bytes reported to the callback so far.
+         */
+        private long reported;
+
+        /**
+         * Creates a progress-reporting input stream.
+         */
+        private ProgressInputStream(InputStream in, LongConsumer byteProgress) {
+            super(in);
+            this.byteProgress = byteProgress;
+        }
+
+         /**
+         * Reads the value.
+         * @return computed value
+         * @throws IOException if the operation fails
+         */
+         @Override
+        public int read() throws IOException {
+            int value = super.read();
+            if (value >= 0) {
+                add(1L);
+            } else {
+                reportCurrent();
+            }
+            return value;
+        }
+
+         /**
+         * Reads the value.
+         * @param b b
+         * @param off off
+         * @param len len
+         * @return computed value
+         * @throws IOException if the operation fails
+         */
+         @Override
+        public int read(byte[] b, int off, int len) throws IOException {
+            int read = super.read(b, off, len);
+            if (read > 0) {
+                add(read);
+            } else if (read < 0) {
+                reportCurrent();
+            }
+            return read;
+        }
+
+         /**
+         * Handles add.
+         * @param delta delta
+         */
+         private void add(long delta) {
+            bytes += delta;
+            if (bytes - reported >= STREAM_PROGRESS_INTERVAL_BYTES) {
+                reportCurrent();
+            }
+        }
+
+         /**
+         * Handles report current.
+         */
+         private void reportCurrent() {
+            if (bytes != reported) {
+                reported = bytes;
+                byteProgress.accept(bytes);
+            }
         }
     }
 
@@ -490,10 +613,10 @@ public class Json {
             char c = s.charAt(i);
             switch (c) {
                 case '\\':
-                    sb.append("\\");
+                    sb.append("\\\\");
                     break;
                 case '"':
-                    sb.append("\"");
+                    sb.append("\\\"");
                     break;
                 case '\n':
                     sb.append("\\n");
@@ -505,7 +628,11 @@ public class Json {
                     sb.append("\\t");
                     break;
                 default:
-                    sb.append(c);
+                    if (c < 0x20) {
+                        sb.append(String.format(Locale.ROOT, "\\u%04x", (int) c));
+                    } else {
+                        sb.append(c);
+                    }
             }
         }
         return sb.toString();
@@ -524,8 +651,17 @@ public class Json {
         if (idx < 0) {
             return null;
         }
-        int q1 = json.indexOf('"', idx + key.length());
-        if (q1 < 0) {
+        int q1 = idx + key.length();
+        while (q1 < json.length() && Character.isWhitespace(json.charAt(q1))) {
+            q1++;
+        }
+        if (q1 >= json.length()) {
+            return null;
+        }
+        if (json.startsWith("null", q1)) {
+            return null;
+        }
+        if (json.charAt(q1) != '"') {
             return null;
         }
         StringBuilder sb = new StringBuilder();

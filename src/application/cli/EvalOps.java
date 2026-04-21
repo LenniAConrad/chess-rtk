@@ -57,12 +57,26 @@ public final class EvalOps {
 			boolean includeFen,
 			boolean verbose,
 			String cmdLabel) {
+		return evalClassicalEntries(fens, terminalAware, includeFen, verbose, cmdLabel, null);
+	}
+
+	/**
+	 * Evaluates a list of FEN strings using the classical backend with optional
+	 * per-entry progress.
+	 */
+	public static boolean evalClassicalEntries(
+			List<String> fens,
+			boolean terminalAware,
+			boolean includeFen,
+			boolean verbose,
+			String cmdLabel,
+			Runnable progress) {
 		for (String entry : fens) {
-			Position pos = EngineOps.parsePositionOrNull(entry, cmdLabel, verbose);
-			if (pos == null) {
-				continue;
-			}
 			try {
+				Position pos = EngineOps.parsePositionOrNull(entry, cmdLabel, verbose);
+				if (pos == null) {
+					continue;
+				}
 				Result result = evaluateClassical(pos, terminalAware);
 				printEvalResult(pos, result, includeFen);
 			} catch (Exception ex) {
@@ -71,6 +85,8 @@ public final class EvalOps {
 					ex.printStackTrace(System.err);
 				}
 				return false;
+			} finally {
+				advance(progress);
 			}
 		}
 		return true;
@@ -94,12 +110,27 @@ public final class EvalOps {
 			boolean includeFen,
 			boolean verbose,
 			String cmdLabel) {
+		return evalEvaluatorEntries(fens, evaluator, lc0Only, includeFen, verbose, cmdLabel, null);
+	}
+
+	/**
+	 * Evaluates a list of FEN strings using an {@link Evaluator} with optional
+	 * per-entry progress.
+	 */
+	public static boolean evalEvaluatorEntries(
+			List<String> fens,
+			Evaluator evaluator,
+			boolean lc0Only,
+			boolean includeFen,
+			boolean verbose,
+			String cmdLabel,
+			Runnable progress) {
 		for (String entry : fens) {
-			Position pos = EngineOps.parsePositionOrNull(entry, cmdLabel, verbose);
-			if (pos == null) {
-				continue;
-			}
 			try {
+				Position pos = EngineOps.parsePositionOrNull(entry, cmdLabel, verbose);
+				if (pos == null) {
+					continue;
+				}
 				Result result = lc0Only
 						? evaluator.evaluateLc0(pos)
 						: evaluator.evaluate(pos);
@@ -116,9 +147,21 @@ public final class EvalOps {
 					ex.printStackTrace(System.err);
 				}
 				return false;
+			} finally {
+				advance(progress);
 			}
 		}
 		return true;
+	}
+
+	/**
+	 * Handles advance.
+	 * @param progress progress
+	 */
+	private static void advance(Runnable progress) {
+		if (progress != null) {
+			progress.run();
+		}
 	}
 
 	/**

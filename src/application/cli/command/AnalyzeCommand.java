@@ -32,6 +32,7 @@ import java.util.Locale;
 import java.util.Optional;
 
 import application.Config;
+import application.console.Bar;
 import chess.core.Move;
 import chess.core.Position;
 import chess.uci.Analysis;
@@ -99,21 +100,30 @@ public final class AnalyzeCommand {
 			configureEngine(CMD_ANALYZE, engine, threads, hash, multipv, wdlFlag);
 			String engineLabel = protocol.getName() != null ? protocol.getName() : protocol.getPath();
 			System.out.println("Engine: " + engineLabel);
-			for (int i = 0; i < fens.size(); i++) {
-				String entry = fens.get(i);
-				Position pos = parsePositionOrNull(entry, CMD_ANALYZE, verbose);
-				if (pos == null) {
-					continue;
-				}
-				Analysis analysis = analysePositionOrExit(engine, pos, nodesCap, durMs, CMD_ANALYZE, verbose);
-				if (analysis == null) {
-					return;
-				}
+			Bar bar = positionProgressBar(fens, CMD_ANALYZE);
+			try {
+				for (int i = 0; i < fens.size(); i++) {
+					try {
+						String entry = fens.get(i);
+						Position pos = parsePositionOrNull(entry, CMD_ANALYZE, verbose);
+						if (pos == null) {
+							continue;
+						}
+						Analysis analysis = analysePositionOrExit(engine, pos, nodesCap, durMs, CMD_ANALYZE, verbose);
+						if (analysis == null) {
+							return;
+						}
 
-				if (i > 0) {
-					System.out.println();
+						if (i > 0) {
+							System.out.println();
+						}
+						printAnalysisSummary(pos, analysis);
+					} finally {
+						step(bar);
+					}
 				}
-				printAnalysisSummary(pos, analysis);
+			} finally {
+				finish(bar);
 			}
 		} catch (Exception ex) {
 			System.err.println("analyze: failed to initialize engine: " + ex.getMessage());
@@ -121,6 +131,36 @@ public final class AnalyzeCommand {
 				ex.printStackTrace(System.err);
 			}
 			System.exit(2);
+		}
+	}
+
+	/**
+	 * Handles position progress bar.
+	 * @param fens fens
+	 * @param label label
+	 * @return computed value
+	 */
+	private static Bar positionProgressBar(List<String> fens, String label) {
+		return fens != null && fens.size() > 1 ? new Bar(fens.size(), label, false, System.err) : null;
+	}
+
+	/**
+	 * Handles step.
+	 * @param bar bar
+	 */
+	private static void step(Bar bar) {
+		if (bar != null) {
+			bar.step();
+		}
+	}
+
+	/**
+	 * Handles finish.
+	 * @param bar bar
+	 */
+	private static void finish(Bar bar) {
+		if (bar != null) {
+			bar.finish();
 		}
 	}
 

@@ -30,6 +30,7 @@ import java.util.List;
 import java.util.Optional;
 
 import application.Config;
+import application.console.Bar;
 import chess.core.Move;
 import chess.core.Position;
 import chess.uci.Analysis;
@@ -132,10 +133,49 @@ public final class ThreatsCommand {
 		System.out.println("Engine: " + engineLabel);
 
 		ThreatsRunState state = new ThreatsRunState(opts.engineConfig.multipv);
-		for (String entry : opts.fens) {
-			if (!processThreatEntry(engine, entry, opts, state)) {
-				return;
+		Bar bar = positionProgressBar(opts.fens, CMD_THREATS);
+		try {
+			for (String entry : opts.fens) {
+				try {
+					if (!processThreatEntry(engine, entry, opts, state)) {
+						return;
+					}
+				} finally {
+					step(bar);
+				}
 			}
+		} finally {
+			finish(bar);
+		}
+	}
+
+	/**
+	 * Handles position progress bar.
+	 * @param fens fens
+	 * @param label label
+	 * @return computed value
+	 */
+	private static Bar positionProgressBar(List<String> fens, String label) {
+		return fens != null && fens.size() > 1 ? new Bar(fens.size(), label, false, System.err) : null;
+	}
+
+	/**
+	 * Handles step.
+	 * @param bar bar
+	 */
+	private static void step(Bar bar) {
+		if (bar != null) {
+			bar.step();
+		}
+	}
+
+	/**
+	 * Handles finish.
+	 * @param bar bar
+	 */
+	private static void finish(Bar bar) {
+		if (bar != null) {
+			bar.finish();
 		}
 	}
 

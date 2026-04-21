@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.RecursiveAction;
 
+import chess.gpu.BackendNames;
 import chess.nn.lc0.cuda.Backend;
 
 /**
@@ -70,6 +71,26 @@ import chess.nn.lc0.cuda.Backend;
 public final class Network implements AutoCloseable {
 
     /**
+     * CPU backend identifier.
+     */
+    public static final String BACKEND_CPU = BackendNames.CPU;
+
+    /**
+     * CUDA backend identifier.
+     */
+    public static final String BACKEND_CUDA = BackendNames.CUDA;
+
+    /**
+     * ROCm backend identifier.
+     */
+    public static final String BACKEND_ROCM = BackendNames.ROCM;
+
+    /**
+     * oneAPI backend identifier.
+     */
+    public static final String BACKEND_ONEAPI = BackendNames.ONEAPI;
+
+    /**
      * CPU backend weights (null when a GPU backend is active).
      */
     private final Weights weights; // CPU backend (when non-null)
@@ -112,64 +133,167 @@ public final class Network implements AutoCloseable {
      *                     GPU backend fails to initialize
      */
     public static Network load(Path path) throws IOException {
-        String backend = System.getProperty("crtk.lc0.backend");
-        if (backend == null) {
-            backend = "auto";
+        BackendRequest request = BackendRequest.fromSystemProperty();
+        BackendAvailability availability = BackendAvailability.detect();
+        request.requireAvailable(availability);
+
+        Network accelerated = loadAccelerated(path, request, availability);
+        return accelerated != null ? accelerated : loadCpu(path);
+    }
+
+    /**
+     * Loads a network using the CPU backend.
+     *
+     * @param path path to the weights file
+     * @return CPU-backed network instance
+     * @throws IOException if the weights cannot be read or parsed
+     */
+    private static Network loadCpu(Path path) throws IOException {
+        return new Network(Weights.load(path), null, null, null);
+    }
+
+    /**
+     * Attempts requested GPU backends in priority order.
+     *
+     * @param path path to the weights file
+     * @param request requested backend preferences
+     * @param availability detected backend availability
+     * @return initialized accelerated network, or {@code null} to fall back to CPU
+     * @throws IOException if a forced backend fails to initialize
+     */
+    private static Network loadAccelerated(Path path, BackendRequest request, BackendAvailability availability)
+            throws IOException {
+        Network network = tryLoadBackend(path, request.preferCuda(), availability.cuda(), request.forceCuda(), "CUDA",
+                Network::loadCuda);
+        if (network != null) {
+            return network;
         }
-        backend = backend.trim().toLowerCase();
-        boolean preferCuda = backend.equals("auto") || backend.equals("cuda");
-        boolean preferRocm = backend.equals("auto") || backend.equals("rocm") || backend.equals("amd")
-                || backend.equals("hip");
-        boolean preferOneapi = backend.equals("auto") || backend.equals("oneapi") || backend.equals("intel");
-        boolean forceCuda = backend.equals("cuda");
-        boolean forceRocm = backend.equals("rocm") || backend.equals("amd") || backend.equals("hip");
-        boolean forceOneapi = backend.equals("oneapi") || backend.equals("intel");
+        network = tryLoadBackend(path, request.preferRocm(), availability.rocm(), request.forceRocm(), "ROCm",
+                Network::loadRocm);
+        if (network != null) {
+            return network;
+        }
+        return tryLoadBackend(path, request.preferOneapi(), availability.oneapi(), request.forceOneapi(), "oneAPI",
+                Network::loadOneapi);
+    }
 
-        boolean cudaAvailable = Backend.isAvailable();
-        boolean rocmAvailable = chess.nn.lc0.rocm.Backend.isAvailable();
-        boolean oneapiAvailable = chess.nn.lc0.oneapi.Backend.isAvailable();
+    /**
+     * Attempts one optional backend and preserves forced-backend failure behavior.
+     *
+     * @param path path to the weights file
+     * @param preferred whether this backend should be attempted
+     * @param available whether this backend is available
+     * @param forced whether failure should be fatal
+     * @param label user-facing backend label
+     * @param loader backend loader
+     * @return initialized network, or {@code null} when skipped or optional setup fails
+     * @throws IOException if a forced backend fails to initialize
+     */
+    private static Network tryLoadBackend(Path path, boolean preferred, boolean available, boolean forced, String label,
+            BackendLoader loader) throws IOException {
+        if (!preferred || !available) {
+            return null;
+        }
+        try {
+            return loader.load(path);
+        } catch (RuntimeException e) {
+            if (forced) {
+                throw new IOException(label + " backend requested but failed to initialize.", e);
+            }
+            return null;
+        }
+    }
 
-        if (forceCuda && !cudaAvailable) {
-            throw new IOException(
+    /**
+     * Backend loader callback.
+     */
+    @FunctionalInterface
+    private interface BackendLoader {
+
+        /**
+         * Loads a backend-specific network.
+         *
+         * @param path path to the weights file
+         * @return initialized network
+         */
+        Network load(Path path);
+    }
+
+    /**
+     * Parsed LC0 backend request.
+     */
+    private record BackendRequest(
+                        boolean preferCuda,
+                        boolean preferRocm,
+                        boolean preferOneapi,
+                        boolean forceCuda,
+                        boolean forceRocm,
+                        boolean forceOneapi) {
+
+        /**
+         * Parses {@code crtk.lc0.backend} into backend preferences.
+         *
+         * @return parsed backend request
+         */
+        static BackendRequest fromSystemProperty() {
+            String backend = System.getProperty("crtk.lc0.backend");
+            if (backend == null) {
+                backend = "auto";
+            }
+            backend = backend.trim().toLowerCase();
+            boolean auto = backend.equals("auto");
+            boolean cuda = backend.equals(BACKEND_CUDA);
+            boolean rocm = backend.equals(BACKEND_ROCM) || backend.equals("amd") || backend.equals("hip");
+            boolean oneapi = backend.equals(BACKEND_ONEAPI) || backend.equals("intel");
+            return new BackendRequest(auto || cuda, auto || rocm, auto || oneapi, cuda, rocm, oneapi);
+        }
+
+        /**
+         * Throws when a forced backend is unavailable.
+         *
+         * @param availability detected backend availability
+         * @throws IOException if a forced backend is unavailable
+         */
+        void requireAvailable(BackendAvailability availability) throws IOException {
+            requireBackendAvailable(forceCuda, availability.cuda(),
                     "CUDA backend requested but unavailable (JNI library not loaded and/or no CUDA device).");
-        }
-        if (forceRocm && !rocmAvailable) {
-            throw new IOException(
+            requireBackendAvailable(forceRocm, availability.rocm(),
                     "ROCm backend requested but unavailable (JNI library not loaded and/or no ROCm device).");
-        }
-        if (forceOneapi && !oneapiAvailable) {
-            throw new IOException(
+            requireBackendAvailable(forceOneapi, availability.oneapi(),
                     "oneAPI backend requested but unavailable (JNI library not loaded and/or no Intel GPU device).");
         }
+    }
 
-        if (preferCuda && cudaAvailable) {
-            try {
-                return loadCuda(path);
-            } catch (RuntimeException e) {
-                if (forceCuda) {
-                    throw new IOException("CUDA backend requested but failed to initialize.", e);
-                }
-            }
+    /**
+     * Detected LC0 backend availability.
+     */
+    private record BackendAvailability(    boolean cuda,     boolean rocm,     boolean oneapi) {
+
+        /**
+         * Detects available native backends.
+         *
+         * @return availability snapshot
+         */
+        static BackendAvailability detect() {
+            return new BackendAvailability(
+                    Backend.isAvailable(),
+                    chess.nn.lc0.rocm.Backend.isAvailable(),
+                    chess.nn.lc0.oneapi.Backend.isAvailable());
         }
-        if (preferRocm && rocmAvailable) {
-            try {
-                return loadRocm(path);
-            } catch (RuntimeException e) {
-                if (forceRocm) {
-                    throw new IOException("ROCm backend requested but failed to initialize.", e);
-                }
-            }
+    }
+
+    /**
+     * Throws when a forced backend is unavailable.
+     *
+     * @param forced whether the backend was explicitly requested
+     * @param available whether the backend is available
+     * @param message exception message
+     * @throws IOException if the forced backend is unavailable
+     */
+    private static void requireBackendAvailable(boolean forced, boolean available, String message) throws IOException {
+        if (forced && !available) {
+            throw new IOException(message);
         }
-        if (preferOneapi && oneapiAvailable) {
-            try {
-                return loadOneapi(path);
-            } catch (RuntimeException e) {
-                if (forceOneapi) {
-                    throw new IOException("oneAPI backend requested but failed to initialize.", e);
-                }
-            }
-        }
-        return new Network(Weights.load(path), null, null, null);
     }
 
     /**
@@ -280,17 +404,30 @@ public final class Network implements AutoCloseable {
      * Ensures the backend is closed on error paths.
      */
     private static final class RocmBackendHolder implements AutoCloseable {
-        private chess.nn.lc0.rocm.Backend backend;
+         /**
+         * Stores the backend.
+         */
+         private chess.nn.lc0.rocm.Backend backend;
 
-        private RocmBackendHolder(chess.nn.lc0.rocm.Backend backend) {
+         /**
+         * Creates a new rocm backend holder instance.
+         * @param backend backend
+         */
+         private RocmBackendHolder(chess.nn.lc0.rocm.Backend backend) {
             this.backend = backend;
         }
 
-        private void detach() {
+         /**
+         * Handles detach.
+         */
+         private void detach() {
             backend = null;
         }
 
-        @Override
+         /**
+         * Handles close.
+         */
+         @Override
         public void close() {
             if (backend != null) {
                 backend.close();
@@ -303,17 +440,30 @@ public final class Network implements AutoCloseable {
      * Ensures the backend is closed on error paths.
      */
     private static final class OneapiBackendHolder implements AutoCloseable {
-        private chess.nn.lc0.oneapi.Backend backend;
+         /**
+         * Stores the backend.
+         */
+         private chess.nn.lc0.oneapi.Backend backend;
 
-        private OneapiBackendHolder(chess.nn.lc0.oneapi.Backend backend) {
+         /**
+         * Creates a new oneapi backend holder instance.
+         * @param backend backend
+         */
+         private OneapiBackendHolder(chess.nn.lc0.oneapi.Backend backend) {
             this.backend = backend;
         }
 
-        private void detach() {
+         /**
+         * Handles detach.
+         */
+         private void detach() {
             backend = null;
         }
 
-        @Override
+         /**
+         * Handles close.
+         */
+         @Override
         public void close() {
             if (backend != null) {
                 backend.close();
@@ -328,15 +478,15 @@ public final class Network implements AutoCloseable {
      */
     public String backend() {
         if (cuda != null) {
-            return "cuda";
+            return BACKEND_CUDA;
         }
         if (rocm != null) {
-            return "rocm";
+            return BACKEND_ROCM;
         }
         if (oneapi != null) {
-            return "oneapi";
+            return BACKEND_ONEAPI;
         }
-        return "cpu";
+        return BACKEND_CPU;
     }
 
     /**
@@ -448,9 +598,9 @@ public final class Network implements AutoCloseable {
      * @since 2025
      * @author Lennart A. Conrad
      */
-    public record Info(int inputChannels, int trunkChannels, int residualBlocks,
-            int policyChannels, int valueChannels, int policySize,
-            long parameterCount) {
+    public record Info(    int inputChannels,     int trunkChannels,     int residualBlocks,
+                        int policyChannels,             int valueChannels,             int policySize,
+                        long parameterCount) {
     }
 
     /**
@@ -463,7 +613,7 @@ public final class Network implements AutoCloseable {
      * @since 2025
      * @author Lennart A. Conrad
      */
-    public record DebugValue(float[] rawWdl, boolean blackToMove) {
+    public record DebugValue(    float[] rawWdl,     boolean blackToMove) {
 
         /**
          * Compares the WDL arrays by content and the side-to-move flag by value.
@@ -517,7 +667,7 @@ public final class Network implements AutoCloseable {
      * @since 2025
      * @author Lennart A. Conrad
      */
-    public record Prediction(float[] policy, float[] wdl, float value) {
+    public record Prediction(    float[] policy,     float[] wdl,     float value) {
 
         /**
          * Equality compares {@link #value()} exactly (bitwise) and compares arrays by
@@ -578,15 +728,11 @@ public final class Network implements AutoCloseable {
     }
 
     /**
-     * Simple fork-join helper to parallelize over channel ranges.
+     * Fork-join helper used when channel counts justify parallel work.
      *
      * <p>
      * Use {@code -Dcrtk.lc0.threads=N} to override thread count (default:
      * {@code availableProcessors()}).
-     */
-
-    /**
-     * Fork-join helper used when channel counts justify parallel work.
      */
     private static final class Parallel {
 
@@ -666,6 +812,12 @@ public final class Network implements AutoCloseable {
          * Task used by {@link ForkJoinPool} to split channel ranges.
          */
         private static final class RangeTask extends RecursiveAction {
+
+		 /**
+		 * Shared serial version uid constant.
+		 */
+		 @java.io.Serial
+		private static final long serialVersionUID = 1L;
 
             /**
              * Grain size used to stop splitting ranges.
@@ -1071,7 +1223,7 @@ public final class Network implements AutoCloseable {
     /**
      * Residual block containing convolutional layers and an optional SE unit.
      */
-    private record ResidualBlock(ConvLayer conv1, ConvLayer conv2, SeUnit se) {
+    private record ResidualBlock(    ConvLayer conv1,     ConvLayer conv2,     SeUnit se) {
     }
 
     /**

@@ -3,6 +3,58 @@
 		"src"
 	],
 	"java.project.outputPath": "out",
+	"java.autobuild.enabled": false,
+	"java.server.launchMode": "LightWeight",
+	"java.import.gradle.enabled": false,
+	"java.import.maven.enabled": false,
+	"java.import.exclusions": [
+		"**/data/**",
+		"**/dump/**",
+		"**/models/**",
+		"**/native/**/build/**",
+		"**/out/**",
+		"**/session/**"
+	],
+	"java.project.resourceFilters": [
+		"node_modules",
+		"\\.git",
+		"data",
+		"dump",
+		"models",
+		"native/.*/build",
+		"out",
+		"session"
+	],
 	"C_Cpp.default.compileCommands": "${workspaceFolder}/native/cuda/build/compile_commands.json",
-	"cmake.sourceDirectory": "/home/lennart/Code/chess-rtk/native/cuda"
+	"cmake.sourceDirectory": "/home/lennart/Code/chess-rtk/native/cuda",
+	"files.watcherExclude": {
+		"**/data/**": true,
+		"**/dump/**": true,
+		"**/models/**": true,
+		"**/native/**/build/**": true,
+		"**/out/**": true,
+		"**/session/**": true,
+		"**/*.jsonl": true,
+		"**/*.bin": true
+	},
+	"search.exclude": {
+		"**/data/**": true,
+		"**/dump/**": true,
+		"**/models/**": true,
+		"**/native/**/build/**": true,
+		"**/out/**": true,
+		"**/session/**": true,
+		"**/*.jsonl": true,
+		"**/*.bin": true
+	},
+	"python.analysis.exclude": [
+		"data/**",
+		"dump/**",
+		"models/**",
+		"native/**/build/**",
+		"out/**",
+		"session/**"
+	],
+	"sonarlint.automaticAnalysis": false,
+	"sonarlint.analysisExcludesStandalone": "**/data/**,**/dump/**,**/models/**,**/native/**/build/**,**/out/**,**/session/**,**/*.jsonl,**/*.bin"
 }

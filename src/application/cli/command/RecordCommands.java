@@ -2,6 +2,7 @@ package application.cli.command;
 
 import static application.cli.Constants.OPT_FILTER;
 import static application.cli.Constants.OPT_FILTER_SHORT;
+import static application.cli.Constants.OPT_INCLUDE_ENGINE_METADATA;
 import static application.cli.Constants.OPT_INPUT;
 import static application.cli.Constants.OPT_INPUT_SHORT;
 import static application.cli.Constants.OPT_MAX_RECORDS;
@@ -16,27 +17,36 @@ import static application.cli.Constants.OPT_VERBOSE_SHORT;
 import static application.cli.Constants.OPT_EXPORT_ALL;
 import static application.cli.Constants.OPT_EXPORT_ALL_SHORT;
 import static application.cli.Constants.OPT_SIDELINES;
+import static application.cli.Constants.OPT_LABEL_FILTER;
+import static application.cli.Constants.OPT_MAX_NEGATIVES;
+import static application.cli.Constants.OPT_MAX_POSITIVES;
 import static application.cli.Constants.OPT_CSV;
 import static application.cli.Constants.OPT_CSV_OUTPUT;
 import static application.cli.Constants.OPT_CSV_OUTPUT_SHORT;
+import static application.cli.PathOps.deriveOutputPath;
 import static application.cli.PathOps.ensureParentDir;
 
 import java.io.BufferedWriter;
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
+import java.util.Set;
+import java.util.function.LongConsumer;
 
 import application.Config;
 import application.console.Bar;
 import chess.core.Move;
 import chess.io.Converter;
+import chess.io.ClassifierDatasetExporter;
 import chess.io.Writer;
 import chess.nn.lc0.Encoder;
 import chess.nn.lc0.Network;
@@ -64,11 +74,42 @@ public final class RecordCommands {
 	 * Maximum number of JSON records to buffer before flushing.
 	 */
 	private static final int RECORD_BATCH_SIZE = 1000;
+	/**
+	 * Shared ext json constant.
+	 */
 	private static final String EXT_JSON = ".json";
+	/**
+	 * Shared ext jsonl constant.
+	 */
 	private static final String EXT_JSONL = ".jsonl";
+	/**
+	 * Shared ext record constant.
+	 */
 	private static final String EXT_RECORD = ".record";
+	/**
+	 * Shared ext puzzle jsonl constant.
+	 */
 	private static final String EXT_PUZZLE_JSONL = ".puzzle.jsonl";
+	/**
+	 * Shared ext training jsonl constant.
+	 */
+	private static final String EXT_TRAINING_JSONL = ".training.jsonl";
+	/**
+	 * Shared puzzle jsonl format name constant.
+	 */
 	private static final String PUZZLE_JSONL_FORMAT_NAME = "puzzle-jsonl";
+	/**
+	 * Shared label known non puzzle constant.
+	 */
+	private static final String LABEL_KNOWN_NON_PUZZLE = "known_non_puzzle";
+	/**
+	 * Shared label verified near puzzle constant.
+	 */
+	private static final String LABEL_VERIFIED_NEAR_PUZZLE = "verified_near_puzzle";
+	/**
+	 * Shared label verified puzzle constant.
+	 */
+	private static final String LABEL_VERIFIED_PUZZLE = "verified_puzzle";
 
 	/**
 	 * Utility class; prevent instantiation.
@@ -96,9 +137,19 @@ public final class RecordCommands {
 			filter = FilterDSL.fromString(filterDsl);
 		}
 
-		Converter.recordToPlain(exportAll, filter, in, out);
+		Bar plainBar = fileProgressBar(in, 1, "record-to-plain");
+		try {
+			Converter.recordToPlain(exportAll, filter, in, out, byteProgress(plainBar));
+		} finally {
+			finishProgress(plainBar);
+		}
 		if (csv || csvOut != null) {
-			Converter.recordToCsv(filter, in, csvOut);
+			Bar csvBar = fileProgressBar(in, 2, "record-to-csv");
+			try {
+				Converter.recordToCsv(filter, in, csvOut, byteProgress(csvBar));
+			} finally {
+				finishProgress(csvBar);
+			}
 		}
 	}
 
@@ -118,7 +169,12 @@ public final class RecordCommands {
 			filter = FilterDSL.fromString(filterDsl);
 		}
 
-		Converter.recordToCsv(filter, in, out);
+		Bar bar = fileProgressBar(in, 2, "record-to-csv");
+		try {
+			Converter.recordToCsv(filter, in, out, byteProgress(bar));
+		} finally {
+			finishProgress(bar);
+		}
 	}
 
 	/**
@@ -140,12 +196,22 @@ public final class RecordCommands {
 			out = in.resolveSibling(stem + ".dataset");
 		}
 
+		Bar bar = fileProgressBar(in, 1, "record-to-dataset");
+		boolean progressFinished = false;
 		try {
-			chess.io.RecordDatasetExporter.export(in, out);
+			chess.io.RecordDatasetExporter.export(in, out, byteProgress(bar));
+			finishProgress(bar);
+			progressFinished = true;
 			System.out.printf("Wrote %s.features.npy and %s.labels.npy%n", out, out);
 		} catch (IOException e) {
+			finishProgress(bar);
+			progressFinished = true;
 			System.err.println("Failed to export dataset: " + e.getMessage());
 			System.exit(2);
+		} finally {
+			if (!progressFinished) {
+				finishProgress(bar);
+			}
 		}
 	}
 
@@ -169,14 +235,152 @@ public final class RecordCommands {
 			out = in.resolveSibling(stem + ".lc0");
 		}
 
+		Bar bar = fileProgressBar(in, 1, "record-to-lc0");
+		boolean progressFinished = false;
 		try {
-			chess.io.RecordLc0Exporter.export(in, out, weights);
+			chess.io.RecordLc0Exporter.export(in, out, weights, byteProgress(bar));
+			finishProgress(bar);
+			progressFinished = true;
 			System.out.printf(
 					"Wrote %s.lc0.inputs.npy, %s.lc0.policy.npy, %s.lc0.value.npy, %s.lc0.meta.json%n",
 					out, out, out, out);
 		} catch (IOException e) {
+			finishProgress(bar);
+			progressFinished = true;
 			System.err.println("Failed to export LC0 dataset: " + e.getMessage());
 			System.exit(2);
+		} finally {
+			if (!progressFinished) {
+				finishProgress(bar);
+			}
+		}
+	}
+
+	/**
+	 * Handles {@code record-to-classifier}.
+	 *
+	 * @param a argument parser for the subcommand
+	 */
+	public static void runRecordToClassifier(Argv a) {
+		boolean verbose = a.flag(OPT_VERBOSE, OPT_VERBOSE_SHORT);
+		boolean recursive = a.flag(OPT_RECURSIVE);
+		String rowFilterDsl = a.string(OPT_FILTER, OPT_FILTER_SHORT);
+		String labelFilterDsl = a.string(OPT_LABEL_FILTER);
+		Long maxPositivesOpt = a.lng(OPT_MAX_POSITIVES);
+		Long maxNegativesOpt = a.lng(OPT_MAX_NEGATIVES);
+		Path out = a.path(OPT_OUTPUT, OPT_OUTPUT_SHORT);
+
+		List<String> inputs = new ArrayList<>();
+		inputs.addAll(a.strings(OPT_INPUT, OPT_INPUT_SHORT));
+		inputs.addAll(a.positionals());
+		a.ensureConsumed();
+
+		if (inputs.isEmpty()) {
+			exitWithError("record-to-classifier: missing " + OPT_INPUT + " (or positional files/dirs)");
+		}
+
+		if (out == null) {
+			out = deriveClassifierOutputOrExit(inputs);
+		}
+
+		long maxPositives = maxPositivesOpt == null
+				? ClassifierDatasetExporter.NO_CLASS_CAP
+				: maxPositivesOpt.longValue();
+		long maxNegatives = maxNegativesOpt == null
+				? ClassifierDatasetExporter.NO_CLASS_CAP
+				: maxNegativesOpt.longValue();
+		if (maxPositives < 0) {
+			exitWithError("record-to-classifier: " + OPT_MAX_POSITIVES + " must be non-negative");
+		}
+		if (maxNegatives < 0) {
+			exitWithError("record-to-classifier: " + OPT_MAX_NEGATIVES + " must be non-negative");
+		}
+
+		Filter rowFilter = parseFilterOrExit("record-to-classifier", OPT_FILTER, rowFilterDsl, verbose);
+		Filter labelFilter = parseFilterOrExit("record-to-classifier", OPT_LABEL_FILTER, labelFilterDsl, verbose);
+
+		Config.reload();
+		Filter fallbackLabelFilter = labelFilter == null ? Config.getPuzzleVerify() : null;
+		String fallbackLabelFilterDsl = fallbackLabelFilter == null ? null : FilterDSL.toString(fallbackLabelFilter);
+
+		List<Path> inputFiles = collectRecordInputsOrExit("record-to-classifier", inputs, recursive, verbose);
+		if (inputFiles.isEmpty()) {
+			exitWithError("record-to-classifier: no input files found");
+		}
+
+		ClassifierDatasetExporter.Options options = new ClassifierDatasetExporter.Options(
+				rowFilter,
+				rowFilterDsl,
+				labelFilter,
+				labelFilterDsl,
+				fallbackLabelFilter,
+				fallbackLabelFilterDsl,
+				maxPositives,
+				maxNegatives);
+
+		Bar filesBar = progressBar(inputFiles.size(), "classifier files");
+		final boolean[] progressFinished = { false };
+		try {
+			ClassifierDatasetExporter.Summary summary =
+					ClassifierDatasetExporter.export(inputFiles, out, options,
+							filesBar == null ? null : progress -> updateClassifierProgress(filesBar, progress),
+							null);
+			finishProgress(filesBar);
+			progressFinished[0] = true;
+			System.out.printf(
+					"Wrote %s.classifier.inputs.npy and %s.classifier.labels.npy (%d rows: %d positive, %d negative; skipped %d invalid, %d unlabeled)%n",
+					out,
+					out,
+					summary.rowsWritten(),
+					summary.positives(),
+					summary.negatives(),
+					summary.skippedInvalid(),
+					summary.skippedUnlabeled());
+		} catch (IOException | RuntimeException ex) {
+			finishProgress(filesBar);
+			progressFinished[0] = true;
+			exitWithError("record-to-classifier: failed to export dataset: " + ex.getMessage(), ex, verbose);
+		} finally {
+			if (!progressFinished[0]) {
+				finishProgress(filesBar);
+			}
+		}
+	}
+
+	/**
+	 * Handles derive classifier output or exit.
+	 * @param inputs inputs
+	 * @return computed value
+	 */
+	private static Path deriveClassifierOutputOrExit(List<String> inputs) {
+		if (inputs.size() == 1) {
+			Path input = Paths.get(inputs.get(0));
+			if (!Files.isDirectory(input)) {
+				return deriveOutputPath(input, ".classifier");
+			}
+		}
+		exitWithError("record-to-classifier: missing " + OPT_OUTPUT
+				+ " when exporting multiple inputs or a directory");
+		return null;
+	}
+
+	/**
+	 * Parses the filter or exit.
+	 * @param command command
+	 * @param option option
+	 * @param filterDsl filter dsl
+	 * @param verbose verbose
+	 * @return computed value
+	 */
+	private static Filter parseFilterOrExit(String command, String option, String filterDsl, boolean verbose) {
+		if (filterDsl == null || filterDsl.isEmpty()) {
+			return null;
+		}
+		try {
+			return FilterDSL.fromString(filterDsl);
+		} catch (RuntimeException ex) {
+			exitWithError(command + ": invalid " + option + " expression: " + filterDsl, ex, verbose);
+			return null;
 		}
 	}
 
@@ -251,7 +455,7 @@ public final class RecordCommands {
 		} catch (IOException ex) {
 			exitWithError("record-to-puzzle-jsonl: failed to prepare output: " + ex.getMessage(), ex, verbose);
 		}
-		final Bar bar = progressBar(countRecords(in, verbose), "record-to-puzzle-jsonl");
+		final Bar bar = fileProgressBar(in, 1, "record-to-puzzle-jsonl");
 		final long[] seen = { 0 };
 		final long[] written = { 0 };
 		final long[] skipped = { 0 };
@@ -260,9 +464,6 @@ public final class RecordCommands {
 		try (Network net = network; BufferedWriter writer = Files.newBufferedWriter(out)) {
 			streamRecordJson(in, objJson -> {
 				seen[0]++;
-				if (bar != null) {
-					bar.step();
-				}
 				Record rec;
 				try {
 					rec = Record.fromJson(objJson);
@@ -308,7 +509,7 @@ public final class RecordCommands {
 					bar.setPostfix(String.format(Locale.ROOT,
 							"written=%d skipped=%d invalid=%d", written[0], skipped[0], invalid[0]));
 				}
-			});
+			}, byteProgress(bar));
 		} catch (IOException | UncheckedIOException ex) {
 			exitWithError("record-to-puzzle-jsonl: failed to write output: " + ex.getMessage(), ex, verbose);
 		}
@@ -329,6 +530,91 @@ public final class RecordCommands {
 	}
 
 	/**
+	 * Handles {@code record-to-training-jsonl}.
+	 *
+	 * <p>
+	 * The exporter writes one position per JSONL line and labels rows by record
+	 * relationships: puzzle-DSL matches are class 2, records with the same parent
+	 * as a puzzle are class 1, and the remaining records are class 0.
+	 * </p>
+	 *
+	 * @param a argument parser for the subcommand
+	 */
+	public static void runRecordToTrainingJsonl(Argv a) {
+		boolean verbose = a.flag(OPT_VERBOSE, OPT_VERBOSE_SHORT);
+		boolean recursive = a.flag(OPT_RECURSIVE);
+		boolean includeEngineMetadata = a.flag(OPT_INCLUDE_ENGINE_METADATA);
+		String puzzleFilterDsl = a.string(OPT_FILTER, OPT_FILTER_SHORT);
+		Long maxRecordsOpt = a.lng(OPT_MAX_RECORDS);
+		Path out = a.path(OPT_OUTPUT, OPT_OUTPUT_SHORT);
+
+		List<String> inputs = new ArrayList<>();
+		inputs.addAll(a.strings(OPT_INPUT, OPT_INPUT_SHORT));
+		inputs.addAll(a.positionals());
+		a.ensureConsumed();
+
+		if (inputs.isEmpty()) {
+			exitWithError("record-to-training-jsonl: missing " + OPT_INPUT + " (or positional files/dirs)");
+		}
+		if (out == null) {
+			out = deriveTrainingJsonlOutputOrExit(inputs);
+		}
+		long maxRecords = maxRecordsOpt == null ? 0L : maxRecordsOpt.longValue();
+		if (maxRecords < 0L) {
+			exitWithError("record-to-training-jsonl: " + OPT_MAX_RECORDS + " must be non-negative");
+		}
+
+		Filter puzzleFilter = resolveTrainingPuzzleFilter(puzzleFilterDsl, verbose);
+		List<Path> inputFiles = collectRecordInputsOrExit("record-to-training-jsonl", inputs, recursive, verbose);
+		if (inputFiles.isEmpty()) {
+			exitWithError("record-to-training-jsonl: no input files found");
+		}
+		validateTrainingOutputPath(inputFiles, out);
+
+		Bar bar = progressBar(inputFiles.size() * 2L, "training-jsonl files");
+		TrainingExportStats stats = new TrainingExportStats();
+		Set<String> puzzleParents;
+		try {
+			puzzleParents = collectPuzzleParentFens(inputFiles, puzzleFilter, verbose, bar);
+		} catch (IOException | RuntimeException ex) {
+			finishProgress(bar);
+			exitWithError("record-to-training-jsonl: failed while scanning puzzle parents: " + ex.getMessage(), ex,
+					verbose);
+			return;
+		}
+
+		stats.resetForWritePass();
+		try {
+			ensureParentDir(out);
+		} catch (IOException ex) {
+			finishProgress(bar);
+			exitWithError("record-to-training-jsonl: failed to prepare output: " + ex.getMessage(), ex, verbose);
+		}
+
+		try (BufferedWriter writer = Files.newBufferedWriter(out, StandardCharsets.UTF_8)) {
+			writeTrainingJsonl(inputFiles, writer, puzzleFilter, puzzleParents, includeEngineMetadata,
+					maxRecords, stats, verbose, bar);
+		} catch (StopTrainingExport ignored) {
+			// max-records reached cleanly
+		} catch (IOException | UncheckedIOException ex) {
+			finishProgress(bar);
+			exitWithError("record-to-training-jsonl: failed to write output: " + ex.getMessage(), ex, verbose);
+		}
+		finishProgress(bar);
+
+		System.out.printf(Locale.ROOT,
+				"record-to-training-jsonl: wrote %d/%d records to %s (puzzles=%d, similar=%d, random=%d, invalid=%d, puzzle-parents=%d)%n",
+				stats.written,
+				stats.seen,
+				out,
+				stats.puzzles,
+				stats.similar,
+				stats.random,
+				stats.invalid,
+				puzzleParents.size());
+	}
+
+	/**
 	 * Handles {@code puzzles-to-pgn}.
 	 *
 	 * @param a argument parser for the subcommand
@@ -341,34 +627,6 @@ public final class RecordCommands {
 		Config.reload();
 		Filter verify = Config.getPuzzleVerify();
 		Converter.puzzlesToPgn(in, out, objJson -> isPuzzleRecordJson(objJson, null, verify));
-	}
-
-	/**
-	 * Handles {@code stack-to-dataset}.
-	 *
-	 * @param a argument parser for the subcommand
-	 */
-	public static void runStackToDataset(Argv a) {
-		Path in = a.pathRequired(OPT_INPUT, OPT_INPUT_SHORT);
-		Path out = a.path(OPT_OUTPUT, OPT_OUTPUT_SHORT);
-		a.ensureConsumed();
-
-		if (out == null) {
-			String stem = in.getFileName().toString();
-			int dot = stem.lastIndexOf('.');
-			if (dot > 0) {
-				stem = stem.substring(0, dot);
-			}
-			out = in.resolveSibling(stem + ".dataset");
-		}
-
-		try {
-			chess.io.RecordDatasetExporter.exportStack(in, out);
-			System.out.printf("Wrote %s.features.npy and %s.labels.npy%n", out, out);
-		} catch (IOException e) {
-			System.err.println("Failed to export stack dataset: " + e.getMessage());
-			System.exit(2);
-		}
 	}
 
 	/**
@@ -390,8 +648,13 @@ public final class RecordCommands {
 
 		RecordBatchWriter writer = new RecordBatchWriter(request.output, request.maxRecords);
 		RecordStats stats = new RecordStats();
-		processRecordInputs(inputFiles, writer, stats, request, filters);
-		closeRecordWriterOrExit(writer, request.verbose);
+		Bar filesBar = progressBar(inputFiles.size(), "records files");
+		try {
+			processRecordInputs(inputFiles, writer, stats, request, filters, filesBar);
+			closeRecordWriterOrExit(writer, request.verbose);
+		} finally {
+			finishProgress(filesBar);
+		}
 
 		System.out.printf(
 				"records: wrote %d/%d records (skipped %d invalid) to %s%n",
@@ -401,6 +664,11 @@ public final class RecordCommands {
 				writer.describeOutputs());
 	}
 
+	/**
+	 * Parses the records request.
+	 * @param a a
+	 * @return computed value
+	 */
 	private static RecordsRequest parseRecordsRequest(Argv a) {
 		boolean verbose = a.flag(OPT_VERBOSE, OPT_VERBOSE_SHORT);
 		String filterDsl = a.string(OPT_FILTER, OPT_FILTER_SHORT);
@@ -438,6 +706,11 @@ public final class RecordCommands {
 		return new RecordsRequest(options, output, inputs);
 	}
 
+	/**
+	 * Handles build records filters.
+	 * @param request request
+	 * @return computed value
+	 */
 	private static RecordsFilters buildRecordsFilters(RecordsRequest request) {
 		Filter dslFilter = null;
 		if (request.filterDsl != null && !request.filterDsl.isEmpty()) {
@@ -456,15 +729,44 @@ public final class RecordCommands {
 		return new RecordsFilters(dslFilter, puzzleVerify);
 	}
 
+	/**
+	 * Handles collect record inputs or exit.
+	 * @param inputs inputs
+	 * @param recursive recursive
+	 * @param verbose verbose
+	 * @return computed value
+	 */
 	private static List<Path> collectRecordInputsOrExit(List<String> inputs, boolean recursive, boolean verbose) {
+		return collectRecordInputsOrExit("records", inputs, recursive, verbose);
+	}
+
+	/**
+	 * Handles collect record inputs or exit.
+	 * @param command command
+	 * @param inputs inputs
+	 * @param recursive recursive
+	 * @param verbose verbose
+	 * @return computed value
+	 */
+	private static List<Path> collectRecordInputsOrExit(
+			String command,
+			List<String> inputs,
+			boolean recursive,
+			boolean verbose) {
 		try {
 			return collectRecordInputs(inputs, recursive);
 		} catch (IOException ex) {
-			exitWithError("records: failed to read inputs: " + ex.getMessage(), ex, verbose);
+			exitWithError(command + ": failed to read inputs: " + ex.getMessage(), ex, verbose);
 			return List.of();
 		}
 	}
 
+	/**
+	 * Handles validate output path for inputs.
+	 * @param inputFiles input files
+	 * @param output output
+	 * @param maxRecords max records
+	 */
 	private static void validateOutputPathForInputs(List<Path> inputFiles, Path output, int maxRecords) {
 		if (maxRecords > 0) {
 			return;
@@ -477,15 +779,26 @@ public final class RecordCommands {
 		}
 	}
 
+	/**
+	 * Handles process record inputs.
+	 * @param inputFiles input files
+	 * @param writer writer
+	 * @param stats stats
+	 * @param request request
+	 * @param filters filters
+	 * @param filesBar files bar
+	 */
 	private static void processRecordInputs(
 			List<Path> inputFiles,
 			RecordBatchWriter writer,
 			RecordStats stats,
 			RecordsRequest request,
-			RecordsFilters filters) {
+			RecordsFilters filters,
+			Bar filesBar) {
 		for (Path input : inputFiles) {
 			try {
 				streamRecordJson(input, objJson -> handleRecordJson(objJson, writer, stats, request, filters));
+				updateRecordsProgress(filesBar, input, stats);
 			} catch (IOException ex) {
 				System.err.println("records: failed to read input: " + input + " (" + ex.getMessage() + ")");
 				if (request.verbose) {
@@ -508,6 +821,14 @@ public final class RecordCommands {
 		}
 	}
 
+	/**
+	 * Handles handle record json.
+	 * @param objJson obj json
+	 * @param writer writer
+	 * @param stats stats
+	 * @param request request
+	 * @param filters filters
+	 */
 	private static void handleRecordJson(
 			String objJson,
 			RecordBatchWriter writer,
@@ -545,6 +866,11 @@ public final class RecordCommands {
 		}
 	}
 
+	/**
+	 * Handles close record writer or exit.
+	 * @param writer writer
+	 * @param verbose verbose
+	 */
 	private static void closeRecordWriterOrExit(RecordBatchWriter writer, boolean verbose) {
 		try {
 			writer.close();
@@ -557,17 +883,50 @@ public final class RecordCommands {
 		}
 	}
 
+	/**
+	 * Provides records request behavior.
+	 */
 	private static final class RecordsRequest {
-		private final boolean verbose;
-		private final String filterDsl;
-		private final int maxRecords;
-		private final boolean puzzles;
-		private final boolean nonpuzzles;
-		private final boolean recursive;
-		private final Path output;
-		private final List<String> inputs;
+		 /**
+		 * Stores the verbose.
+		 */
+		 private final boolean verbose;
+		 /**
+		 * Stores the filter dsl.
+		 */
+		 private final String filterDsl;
+		 /**
+		 * Stores the max records.
+		 */
+		 private final int maxRecords;
+		 /**
+		 * Stores the puzzles.
+		 */
+		 private final boolean puzzles;
+		 /**
+		 * Stores the nonpuzzles.
+		 */
+		 private final boolean nonpuzzles;
+		 /**
+		 * Stores the recursive.
+		 */
+		 private final boolean recursive;
+		 /**
+		 * Stores the output.
+		 */
+		 private final Path output;
+		 /**
+		 * Stores the inputs.
+		 */
+		 private final List<String> inputs;
 
-		private RecordsRequest(
+		 /**
+		 * Creates a new records request instance.
+		 * @param options options
+		 * @param output output
+		 * @param inputs inputs
+		 */
+		 private RecordsRequest(
 				RecordsRequestOptions options,
 				Path output,
 				List<String> inputs) {
@@ -582,15 +941,45 @@ public final class RecordCommands {
 		}
 	}
 
+	/**
+	 * Provides records request options behavior.
+	 */
 	private static final class RecordsRequestOptions {
-		private final boolean verbose;
-		private final String filterDsl;
-		private final int maxRecords;
-		private final boolean puzzles;
-		private final boolean nonpuzzles;
-		private final boolean recursive;
+		 /**
+		 * Stores the verbose.
+		 */
+		 private final boolean verbose;
+		 /**
+		 * Stores the filter dsl.
+		 */
+		 private final String filterDsl;
+		 /**
+		 * Stores the max records.
+		 */
+		 private final int maxRecords;
+		 /**
+		 * Stores the puzzles.
+		 */
+		 private final boolean puzzles;
+		 /**
+		 * Stores the nonpuzzles.
+		 */
+		 private final boolean nonpuzzles;
+		 /**
+		 * Stores the recursive.
+		 */
+		 private final boolean recursive;
 
-		private RecordsRequestOptions(
+		 /**
+		 * Creates a new records request options instance.
+		 * @param verbose verbose
+		 * @param filterDsl filter dsl
+		 * @param maxRecords max records
+		 * @param puzzles puzzles
+		 * @param nonpuzzles nonpuzzles
+		 * @param recursive recursive
+		 */
+		 private RecordsRequestOptions(
 				boolean verbose,
 				String filterDsl,
 				int maxRecords,
@@ -606,20 +995,46 @@ public final class RecordCommands {
 		}
 	}
 
+	/**
+	 * Provides records filters behavior.
+	 */
 	private static final class RecordsFilters {
-		private final Filter dslFilter;
-		private final Filter puzzleVerify;
+		 /**
+		 * Stores the dsl filter.
+		 */
+		 private final Filter dslFilter;
+		 /**
+		 * Stores the puzzle verify.
+		 */
+		 private final Filter puzzleVerify;
 
-		private RecordsFilters(Filter dslFilter, Filter puzzleVerify) {
+		 /**
+		 * Creates a new records filters instance.
+		 * @param dslFilter dsl filter
+		 * @param puzzleVerify puzzle verify
+		 */
+		 private RecordsFilters(Filter dslFilter, Filter puzzleVerify) {
 			this.dslFilter = dslFilter;
 			this.puzzleVerify = puzzleVerify;
 		}
 	}
 
+	/**
+	 * Provides record stats behavior.
+	 */
 	private static final class RecordStats {
-		private long seen;
-		private long matched;
-		private long invalid;
+		 /**
+		 * Stores the seen.
+		 */
+		 private long seen;
+		 /**
+		 * Stores the matched.
+		 */
+		 private long matched;
+		 /**
+		 * Stores the invalid.
+		 */
+		 private long invalid;
 	}
 
 	/**
@@ -654,6 +1069,13 @@ public final class RecordCommands {
 		return puzzleVerify.apply(rec.getAnalysis());
 	}
 
+	/**
+	 * Converts this value to puzzle jsonl line.
+	 * @param rec rec
+	 * @param network network
+	 * @param policyMapInverse policy map inverse
+	 * @return computed value
+	 */
 	private static String toPuzzleJsonlLine(Record rec, Network network, int[] policyMapInverse) {
 		if (rec == null || rec.getPosition() == null || rec.getAnalysis() == null) {
 			return null;
@@ -693,30 +1115,690 @@ public final class RecordCommands {
 		return sb.toString();
 	}
 
-	private static long countRecords(Path input, boolean verbose) {
-		if (input == null) {
-			return 0L;
-		}
-		final long[] count = { 0 };
-		try {
-			streamRecordJson(input, objJson -> count[0]++);
-		} catch (IOException ex) {
-			if (verbose) {
-				System.err.println("record-to-puzzle-jsonl: unable to count records for progress bar: " + ex.getMessage());
+	/**
+	 * Handles derive training jsonl output or exit.
+	 * @param inputs inputs
+	 * @return computed value
+	 */
+	private static Path deriveTrainingJsonlOutputOrExit(List<String> inputs) {
+		if (inputs.size() == 1) {
+			Path input = Paths.get(inputs.get(0));
+			if (!Files.isDirectory(input)) {
+				return deriveOutputPath(input, EXT_TRAINING_JSONL);
 			}
-			return 0L;
 		}
-		return count[0];
+		exitWithError("record-to-training-jsonl: missing " + OPT_OUTPUT
+				+ " when exporting multiple inputs or a directory");
+		return null;
 	}
 
+	/**
+	 * Handles resolve training puzzle filter.
+	 * @param puzzleFilterDsl puzzle filter dsl
+	 * @param verbose verbose
+	 * @return computed value
+	 */
+	private static Filter resolveTrainingPuzzleFilter(String puzzleFilterDsl, boolean verbose) {
+		if (puzzleFilterDsl != null && !puzzleFilterDsl.isEmpty()) {
+			return parseFilterOrExit("record-to-training-jsonl", OPT_FILTER, puzzleFilterDsl, verbose);
+		}
+		Config.reload();
+		Filter puzzleFilter = Config.getPuzzleVerify();
+		if (puzzleFilter == null) {
+			exitWithError("record-to-training-jsonl: missing puzzle DSL; pass " + OPT_FILTER
+					+ " or configure puzzle verification filters");
+		}
+		return puzzleFilter;
+	}
+
+	/**
+	 * Handles validate training output path.
+	 * @param inputFiles input files
+	 * @param output output
+	 */
+	private static void validateTrainingOutputPath(List<Path> inputFiles, Path output) {
+		if (Files.isDirectory(output)) {
+			exitWithError("record-to-training-jsonl: " + OPT_OUTPUT + " must be a JSONL file path");
+		}
+		Path outputAbs = output.toAbsolutePath().normalize();
+		for (Path input : inputFiles) {
+			if (outputAbs.equals(input.toAbsolutePath().normalize())) {
+				exitWithError("record-to-training-jsonl: output cannot overwrite input file " + input);
+			}
+		}
+	}
+
+	/**
+	 * Handles collect puzzle parent fens.
+	 * @param inputFiles input files
+	 * @param puzzleFilter puzzle filter
+	 * @param verbose verbose
+	 * @param bar bar
+	 * @return computed value
+	 * @throws IOException if the operation fails
+	 */
+	private static Set<String> collectPuzzleParentFens(
+			List<Path> inputFiles,
+			Filter puzzleFilter,
+			boolean verbose,
+			Bar bar) throws IOException {
+		Set<String> puzzleParents = new HashSet<>();
+		for (Path input : inputFiles) {
+			streamRecordJson(input, objJson -> {
+				Record rec = parseTrainingRecord(objJson, verbose, "record-to-training-jsonl");
+				if (rec == null || rec.getParent() == null) {
+					return;
+				}
+				if (puzzleFilter.apply(rec.getAnalysis())) {
+					puzzleParents.add(rec.getParent().toString());
+				}
+			});
+			if (bar != null) {
+				bar.step(String.format(Locale.ROOT,
+						"pass=parents last=%s puzzle-parents=%d",
+						fileName(input),
+						puzzleParents.size()));
+			}
+		}
+		return puzzleParents;
+	}
+
+	/**
+	 * Writes the training jsonl.
+	 * @param inputFiles input files
+	 * @param writer writer
+	 * @param puzzleFilter puzzle filter
+	 * @param puzzleParents puzzle parents
+	 * @param includeEngineMetadata include engine metadata
+	 * @param maxRecords max records
+	 * @param stats stats
+	 * @param verbose verbose
+	 * @param bar bar
+	 * @throws IOException if the operation fails
+	 */
+	private static void writeTrainingJsonl(
+			List<Path> inputFiles,
+			BufferedWriter writer,
+			Filter puzzleFilter,
+			Set<String> puzzleParents,
+			boolean includeEngineMetadata,
+			long maxRecords,
+			TrainingExportStats stats,
+			boolean verbose,
+			Bar bar) throws IOException {
+		for (Path input : inputFiles) {
+			long[] sourceRecordIndex = { 0L };
+			streamRecordJson(input, objJson -> {
+				if (maxRecords > 0L && stats.written >= maxRecords) {
+					throw new StopTrainingExport();
+				}
+				long index = sourceRecordIndex[0]++;
+				stats.seen++;
+				Record rec = parseTrainingRecord(objJson, verbose, "record-to-training-jsonl");
+				if (rec == null || rec.getPosition() == null) {
+					stats.invalid++;
+					return;
+				}
+				TrainingLabel label = trainingLabelFor(rec, puzzleFilter, puzzleParents);
+				String line = toTrainingJsonlLine(rec, input, index, label, includeEngineMetadata);
+				try {
+					writer.write(line);
+					writer.newLine();
+				} catch (IOException ex) {
+					throw new UncheckedIOException(ex);
+				}
+				stats.recordWritten(label);
+			});
+			if (bar != null) {
+				bar.step(String.format(Locale.ROOT,
+						"pass=write last=%s written=%d invalid=%d",
+						fileName(input),
+						stats.written,
+						stats.invalid));
+			}
+			if (maxRecords > 0L && stats.written >= maxRecords) {
+				throw new StopTrainingExport();
+			}
+		}
+	}
+
+	/**
+	 * Parses the training record.
+	 * @param objJson obj json
+	 * @param verbose verbose
+	 * @param label label
+	 * @return computed value
+	 */
+	private static Record parseTrainingRecord(String objJson, boolean verbose, String label) {
+		try {
+			return Record.fromJson(objJson);
+		} catch (Exception ex) {
+			if (verbose) {
+				System.err.println(label + ": skipped invalid record: " + ex.getMessage());
+			}
+			return null;
+		}
+	}
+
+	/**
+	 * Handles training label for.
+	 * @param rec rec
+	 * @param puzzleFilter puzzle filter
+	 * @param puzzleParents puzzle parents
+	 * @return computed value
+	 */
+	private static TrainingLabel trainingLabelFor(Record rec, Filter puzzleFilter, Set<String> puzzleParents) {
+		if (puzzleFilter.apply(rec.getAnalysis())) {
+			return new TrainingLabel(LABEL_VERIFIED_PUZZLE, 1, 2, "puzzle_filter_matched");
+		}
+		if (rec.getParent() != null && puzzleParents.contains(rec.getParent().toString())) {
+			return new TrainingLabel(LABEL_VERIFIED_NEAR_PUZZLE, 1, 1, "sister_parent_matched");
+		}
+		return new TrainingLabel(LABEL_KNOWN_NON_PUZZLE, 0, 0, "random_position");
+	}
+
+	/**
+	 * Converts this value to training jsonl line.
+	 * @param rec rec
+	 * @param input input
+	 * @param sourceRecordIndex source record index
+	 * @param label label
+	 * @param includeEngineMetadata include engine metadata
+	 * @return computed value
+	 */
+	private static String toTrainingJsonlLine(
+			Record rec,
+			Path input,
+			long sourceRecordIndex,
+			TrainingLabel label,
+			boolean includeEngineMetadata) {
+		String parentGroup = null;
+		if (rec.getParent() != null
+				&& (LABEL_VERIFIED_PUZZLE.equals(label.status) || LABEL_VERIFIED_NEAR_PUZZLE.equals(label.status))) {
+			parentGroup = "crtk_parent_" + rec.getParent().signature();
+		}
+		StringBuilder sb = new StringBuilder(512);
+		sb.append('{');
+		appendJsonStringField(sb, "fen", rec.getPosition().toString());
+		appendJsonStringField(sb, "label_status", label.status);
+		appendJsonIntField(sb, "coarse_label", label.coarse);
+		appendJsonNullableIntField(sb, "fine_label", label.fine);
+		appendJsonStringField(sb, "source_kind", "crtk_record");
+		appendJsonStringField(sb, "source_file", fileName(input));
+		appendJsonLongField(sb, "source_record_index", sourceRecordIndex);
+		appendJsonNullField(sb, "source_group_id");
+		appendJsonStringField(sb, "sister_group_id", parentGroup);
+		appendJsonNullField(sb, "game_id");
+		appendJsonNullField(sb, "position_index");
+		appendJsonStringField(sb, "verification_status", label.verificationStatus);
+		if (includeEngineMetadata) {
+			appendTrainingEngineMetadata(sb, rec);
+		}
+		sb.append('}');
+		return sb.toString();
+	}
+
+	/**
+	 * Handles append training engine metadata.
+	 * @param sb sb
+	 * @param rec rec
+	 */
+	private static void appendTrainingEngineMetadata(StringBuilder sb, Record rec) {
+		chess.uci.Analysis analysis = rec.getAnalysis();
+		Output pv1 = analysis == null ? null : analysis.getBestOutput(1);
+		Output pv2 = analysis == null ? null : analysis.getBestOutput(2);
+		Integer pv1Cp = cpValue(pv1);
+		Integer pv2Cp = cpValue(pv2);
+		appendJsonStringField(sb, "best_move", firstMoveUci(pv1));
+		appendJsonNullableIntField(sb, "pv1_cp", pv1Cp);
+		appendJsonNullableIntField(sb, "pv2_cp", pv2Cp);
+		appendJsonNullableIntField(sb, "pv_gap_cp", pv1Cp != null && pv2Cp != null ? pv1Cp - pv2Cp : null);
+		appendJsonNullableIntField(sb, "pv1_mate", mateValue(pv1));
+		appendJsonNullableIntField(sb, "pv2_mate", mateValue(pv2));
+		appendJsonNullableLongField(sb, "stockfish_nodes", pv1 != null && pv1.getNodes() > 0L ? pv1.getNodes() : null);
+		appendJsonNullableIntField(sb, "stockfish_depth", pv1 != null ? (int) pv1.getDepth() : null);
+		appendJsonStringField(sb, "stockfish_version", rec.getEngine());
+		appendJsonStringField(sb, "engine_eval", formatEngineEvalWithKind(pv1 == null ? null : pv1.getEvaluation()));
+		appendJsonRawField(sb, "engine_wdl", toWdlJson(pv1 == null ? null : pv1.getChances()));
+		appendJsonRawField(sb, "multipv", multipvJson(analysis));
+	}
+
+	/**
+	 * Handles multipv json.
+	 * @param analysis analysis
+	 * @return computed value
+	 */
+	private static String multipvJson(chess.uci.Analysis analysis) {
+		if (analysis == null || analysis.isEmpty()) {
+			return "[]";
+		}
+		StringBuilder sb = new StringBuilder(256).append('[');
+		boolean first = true;
+		for (int rank = 1; rank <= analysis.getPivots(); rank++) {
+			Output output = analysis.getBestOutput(rank);
+			if (output == null || !output.hasContent()) {
+				continue;
+			}
+			if (!first) {
+				sb.append(',');
+			}
+			sb.append('{');
+			appendJsonIntField(sb, "rank", rank);
+			appendJsonStringField(sb, "move", firstMoveUci(output));
+			appendJsonNullableIntField(sb, "cp", cpValue(output));
+			appendJsonNullableIntField(sb, "mate", mateValue(output));
+			appendJsonRawField(sb, "pv", pvMovesJson(output.getMoves()));
+			sb.append('}');
+			first = false;
+		}
+		return sb.append(']').toString();
+	}
+
+	/**
+	 * Handles pv moves json.
+	 * @param moves moves
+	 * @return computed value
+	 */
+	private static String pvMovesJson(short[] moves) {
+		if (moves == null || moves.length == 0) {
+			return "[]";
+		}
+		StringBuilder sb = new StringBuilder(moves.length * 8).append('[');
+		for (int i = 0; i < moves.length; i++) {
+			if (i > 0) {
+				sb.append(',');
+			}
+			appendJsonStringValue(sb, Move.toString(moves[i]));
+		}
+		return sb.append(']').toString();
+	}
+
+	/**
+	 * Handles cp value.
+	 * @param output output
+	 * @return computed value
+	 */
+	private static Integer cpValue(Output output) {
+		Evaluation eval = output == null ? null : output.getEvaluation();
+		return eval != null && eval.isValid() && !eval.isMate() ? eval.getValue() : null;
+	}
+
+	/**
+	 * Handles mate value.
+	 * @param output output
+	 * @return computed value
+	 */
+	private static Integer mateValue(Output output) {
+		Evaluation eval = output == null ? null : output.getEvaluation();
+		return eval != null && eval.isValid() && eval.isMate() ? eval.getValue() : null;
+	}
+
+	/**
+	 * Handles first move uci.
+	 * @param output output
+	 * @return computed value
+	 */
+	private static String firstMoveUci(Output output) {
+		if (output == null || output.getMoves() == null || output.getMoves().length == 0) {
+			return null;
+		}
+		return Move.toString(output.getMoves()[0]);
+	}
+
+	/**
+	 * Handles format engine eval with kind.
+	 * @param eval eval
+	 * @return computed value
+	 */
+	private static String formatEngineEvalWithKind(Evaluation eval) {
+		if (eval == null || !eval.isValid()) {
+			return null;
+		}
+		return (eval.isMate() ? "mate " : "cp ") + eval.getValue();
+	}
+
+	/**
+	 * Handles append json string field.
+	 * @param sb sb
+	 * @param name name
+	 * @param value value
+	 */
+	private static void appendJsonStringField(StringBuilder sb, String name, String value) {
+		appendJsonFieldName(sb, name);
+		appendJsonStringValue(sb, value);
+	}
+
+	/**
+	 * Handles append json int field.
+	 * @param sb sb
+	 * @param name name
+	 * @param value value
+	 */
+	private static void appendJsonIntField(StringBuilder sb, String name, int value) {
+		appendJsonFieldName(sb, name);
+		sb.append(value);
+	}
+
+	/**
+	 * Handles append json long field.
+	 * @param sb sb
+	 * @param name name
+	 * @param value value
+	 */
+	private static void appendJsonLongField(StringBuilder sb, String name, long value) {
+		appendJsonFieldName(sb, name);
+		sb.append(value);
+	}
+
+	/**
+	 * Handles append json nullable int field.
+	 * @param sb sb
+	 * @param name name
+	 * @param value value
+	 */
+	private static void appendJsonNullableIntField(StringBuilder sb, String name, Integer value) {
+		appendJsonFieldName(sb, name);
+		if (value == null) {
+			sb.append("null");
+		} else {
+			sb.append(value.intValue());
+		}
+	}
+
+	/**
+	 * Handles append json nullable long field.
+	 * @param sb sb
+	 * @param name name
+	 * @param value value
+	 */
+	private static void appendJsonNullableLongField(StringBuilder sb, String name, Long value) {
+		appendJsonFieldName(sb, name);
+		if (value == null) {
+			sb.append("null");
+		} else {
+			sb.append(value.longValue());
+		}
+	}
+
+	/**
+	 * Handles append json null field.
+	 * @param sb sb
+	 * @param name name
+	 */
+	private static void appendJsonNullField(StringBuilder sb, String name) {
+		appendJsonFieldName(sb, name);
+		sb.append("null");
+	}
+
+	/**
+	 * Handles append json raw field.
+	 * @param sb sb
+	 * @param name name
+	 * @param rawJson raw json
+	 */
+	private static void appendJsonRawField(StringBuilder sb, String name, String rawJson) {
+		appendJsonFieldName(sb, name);
+		sb.append(rawJson == null || rawJson.isEmpty() ? "null" : rawJson);
+	}
+
+	/**
+	 * Handles append json field name.
+	 * @param sb sb
+	 * @param name name
+	 */
+	private static void appendJsonFieldName(StringBuilder sb, String name) {
+		if (sb.length() > 1 && sb.charAt(sb.length() - 1) != '{' && sb.charAt(sb.length() - 1) != '[') {
+			sb.append(',');
+		}
+		appendJsonStringValue(sb, name);
+		sb.append(':');
+	}
+
+	/**
+	 * Handles append json string value.
+	 * @param sb sb
+	 * @param value value
+	 */
+	private static void appendJsonStringValue(StringBuilder sb, String value) {
+		if (value == null) {
+			sb.append("null");
+			return;
+		}
+		sb.append('"');
+		for (int i = 0; i < value.length(); i++) {
+			char c = value.charAt(i);
+			switch (c) {
+				case '\\' -> sb.append("\\\\");
+				case '"' -> sb.append("\\\"");
+				case '\n' -> sb.append("\\n");
+				case '\r' -> sb.append("\\r");
+				case '\t' -> sb.append("\\t");
+				default -> {
+					if (c < 0x20) {
+						sb.append(String.format(Locale.ROOT, "\\u%04x", (int) c));
+					} else {
+						sb.append(c);
+					}
+				}
+			}
+		}
+		sb.append('"');
+	}
+
+	/**
+	 * Provides training label behavior.
+	 */
+	private static final class TrainingLabel {
+		 /**
+		 * Stores the status.
+		 */
+		 private final String status;
+		 /**
+		 * Stores the coarse.
+		 */
+		 private final int coarse;
+		 /**
+		 * Stores the fine.
+		 */
+		 private final Integer fine;
+		 /**
+		 * Stores the verification status.
+		 */
+		 private final String verificationStatus;
+
+		 /**
+		 * Creates a new training label instance.
+		 * @param status status
+		 * @param coarse coarse
+		 * @param fine fine
+		 * @param verificationStatus verification status
+		 */
+		 private TrainingLabel(String status, int coarse, Integer fine, String verificationStatus) {
+			this.status = status;
+			this.coarse = coarse;
+			this.fine = fine;
+			this.verificationStatus = verificationStatus;
+		}
+	}
+
+	/**
+	 * Provides training export stats behavior.
+	 */
+	private static final class TrainingExportStats {
+		 /**
+		 * Stores the seen.
+		 */
+		 private long seen;
+		 /**
+		 * Stores the written.
+		 */
+		 private long written;
+		 /**
+		 * Stores the invalid.
+		 */
+		 private long invalid;
+		 /**
+		 * Stores the puzzles.
+		 */
+		 private long puzzles;
+		 /**
+		 * Stores the similar.
+		 */
+		 private long similar;
+		 /**
+		 * Stores the random.
+		 */
+		 private long random;
+
+		 /**
+		 * Handles reset for write pass.
+		 */
+		 private void resetForWritePass() {
+			seen = 0L;
+			written = 0L;
+			invalid = 0L;
+			puzzles = 0L;
+			similar = 0L;
+			random = 0L;
+		}
+
+		 /**
+		 * Handles record written.
+		 * @param label label
+		 */
+		 private void recordWritten(TrainingLabel label) {
+			written++;
+			if (LABEL_VERIFIED_PUZZLE.equals(label.status)) {
+				puzzles++;
+			} else if (LABEL_VERIFIED_NEAR_PUZZLE.equals(label.status)) {
+				similar++;
+			} else {
+				random++;
+			}
+		}
+	}
+
+	/**
+	 * Provides stop training export behavior.
+	 */
+	private static final class StopTrainingExport extends RuntimeException {
+		 /**
+		 * Shared serial version uid constant.
+		 */
+		 private static final long serialVersionUID = 1L;
+	}
+
+	/**
+	 * Handles file progress bar.
+	 * @param input input
+	 * @param passes passes
+	 * @param label label
+	 * @return computed value
+	 */
+	private static Bar fileProgressBar(Path input, int passes, String label) {
+		long size = fileSize(input);
+		long total = size <= 0L ? 0L : size * Math.max(1, passes);
+		return progressBar(total, label);
+	}
+
+	/**
+	 * Handles file size.
+	 * @param input input
+	 * @return computed value
+	 */
+	private static long fileSize(Path input) {
+		try {
+			return input == null ? 0L : Files.size(input);
+		} catch (IOException ex) {
+			return 0L;
+		}
+	}
+
+	/**
+	 * Handles byte progress.
+	 * @param bar bar
+	 * @return computed value
+	 */
+	private static LongConsumer byteProgress(Bar bar) {
+		return bar == null ? null : bar::set;
+	}
+
+	/**
+	 * Handles finish progress.
+	 * @param bar bar
+	 */
+	private static void finishProgress(Bar bar) {
+		if (bar != null) {
+			bar.finish();
+		}
+	}
+
+	/**
+	 * Handles update classifier progress.
+	 * @param bar bar
+	 * @param progress progress
+	 */
+	private static void updateClassifierProgress(
+			Bar bar,
+			ClassifierDatasetExporter.FileProgress progress) {
+		if (bar == null || progress == null) {
+			return;
+		}
+		ClassifierDatasetExporter.Summary summary = progress.summary();
+		bar.step(String.format(Locale.ROOT,
+				"rows=%d bad=%d",
+				summary.rowsWritten(),
+				summary.skippedInvalid()));
+	}
+
+	/**
+	 * Handles update records progress.
+	 * @param bar bar
+	 * @param input input
+	 * @param stats stats
+	 */
+	private static void updateRecordsProgress(Bar bar, Path input, RecordStats stats) {
+		if (bar == null) {
+			return;
+		}
+		bar.step(String.format(Locale.ROOT,
+				"last=%s matched=%d seen=%d invalid=%d",
+				fileName(input),
+				stats.matched,
+				stats.seen,
+				stats.invalid));
+	}
+
+	/**
+	 * Handles file name.
+	 * @param path path
+	 * @return computed value
+	 */
+	private static String fileName(Path path) {
+		if (path == null || path.getFileName() == null) {
+			return "";
+		}
+		return path.getFileName().toString();
+	}
+
+	/**
+	 * Handles progress bar.
+	 * @param totalRecords total records
+	 * @param label label
+	 * @return computed value
+	 */
 	private static Bar progressBar(long totalRecords, String label) {
 		if (totalRecords <= 0) {
 			return null;
 		}
-		int capped = (totalRecords > Integer.MAX_VALUE) ? Integer.MAX_VALUE : (int) totalRecords;
-		return new Bar(capped, label);
+		return new Bar(totalRecords, label);
 	}
 
+	/**
+	 * Converts this value to critical move.
+	 * @param moves moves
+	 * @return computed value
+	 */
 	private static Short toCriticalMove(short[] moves) {
 		if (moves == null || moves.length == 0) {
 			return null;
@@ -730,6 +1812,11 @@ public final class RecordCommands {
 		return null;
 	}
 
+	/**
+	 * Converts this value to wdl json.
+	 * @param chances chances
+	 * @return computed value
+	 */
 	private static String toWdlJson(Chances chances) {
 		if (chances == null) {
 			return "null";
@@ -745,6 +1832,11 @@ public final class RecordCommands {
 				.toString();
 	}
 
+	/**
+	 * Handles format engine eval.
+	 * @param eval eval
+	 * @return computed value
+	 */
 	private static String formatEngineEval(Evaluation eval) {
 		if (eval == null || !eval.isValid()) {
 			return null;
@@ -755,6 +1847,11 @@ public final class RecordCommands {
 		return String.valueOf(eval.getValue());
 	}
 
+	/**
+	 * Handles invert policy map.
+	 * @param policyMap policy map
+	 * @return computed value
+	 */
 	private static int[] invertPolicyMap(int[] policyMap) {
 		if (policyMap == null || policyMap.length == 0) {
 			return null;
@@ -779,6 +1876,14 @@ public final class RecordCommands {
 		return inverse;
 	}
 
+	/**
+	 * Handles lc0 policy eval.
+	 * @param position position
+	 * @param network network
+	 * @param rawPolicyIndex raw policy index
+	 * @param policyMapInverse policy map inverse
+	 * @return computed value
+	 */
 	private static Lc0PolicyEval lc0PolicyEval(
 			chess.core.Position position,
 			Network network,
@@ -821,6 +1926,11 @@ public final class RecordCommands {
 		return new Lc0PolicyEval(prob != null ? prob * 100.0 : null, wdlJson);
 	}
 
+	/**
+	 * Converts this value to wdl json.
+	 * @param wdl wdl
+	 * @return computed value
+	 */
 	private static String toWdlJson(float[] wdl) {
 		if (wdl == null || wdl.length < 3) {
 			return "null";
@@ -836,15 +1946,34 @@ public final class RecordCommands {
 				.toString();
 	}
 
+	/**
+	 * Handles format percent.
+	 * @param value value
+	 * @return computed value
+	 */
 	private static String formatPercent(double value) {
 		return String.format(Locale.ROOT, "%.6f", value);
 	}
 
+	/**
+	 * Provides lc0 policy eval behavior.
+	 */
 	private static final class Lc0PolicyEval {
-		private final Double policyPercent;
-		private final String wdlJson;
+		 /**
+		 * Stores the policy percent.
+		 */
+		 private final Double policyPercent;
+		 /**
+		 * Stores the wdl json.
+		 */
+		 private final String wdlJson;
 
-		private Lc0PolicyEval(Double policyPercent, String wdlJson) {
+		 /**
+		 * Creates a new lc0 policy eval instance.
+		 * @param policyPercent policy percent
+		 * @param wdlJson wdl json
+		 */
+		 private Lc0PolicyEval(Double policyPercent, String wdlJson) {
 			this.policyPercent = policyPercent;
 			this.wdlJson = wdlJson;
 		}
@@ -1128,12 +2257,22 @@ public final class RecordCommands {
 		}
 	}
 
+	/**
+	 * Handles exit with error.
+	 * @param message message
+	 */
 	private static void exitWithError(String message) {
 		System.err.println(message);
 		System.exit(2);
 		throw new IllegalStateException(message);
 	}
 
+	/**
+	 * Handles exit with error.
+	 * @param message message
+	 * @param cause cause
+	 * @param verbose verbose
+	 */
 	private static void exitWithError(String message, Throwable cause, boolean verbose) {
 		System.err.println(message);
 		if (verbose && cause != null) {

@@ -8,8 +8,8 @@ Loaded on startup. If the file is missing, the CLI will create it with built-in 
 
 Common keys:
 - `protocol-path`: points to the engine protocol file (default `config/default.engine.toml`)
-- `lc0-model-path`: default LC0J weights path for evaluator-backed commands/features (default `models/lc0_744706.bin`)
-- `t5-model-path`: default T5 `.bin` path used by `tag-text` / `puzzle-text` when `--model` is omitted (default `models/t5.bin`)
+- `lc0-model-path`: default local LC0J weights path for evaluator-backed commands/features (default `models/leela_112planes-10blocksx128-policyhead80-valuehead32-policy4672-wdl3.bin`; fetch with `./install.sh --models`)
+- `t5-model-path`: default local T5 `.bin` path used by `tag-text` / `puzzle-text` when `--model` is omitted (default `models/t5.bin`)
 - `output`: default output root for `mine-puzzles` (default `dump/`)
 - `engine-instances`: how many engine processes to run in parallel
 - `max-nodes`: per-position node cap
@@ -21,6 +21,7 @@ Common keys:
 
 Notes:
 - CLI flags override TOML values for a single run.
+- Model binaries are not committed; local `models/*.bin` files are ignored by git.
 - For `mine-puzzles --output`, a directory produces timestamped outputs; a file-like root ending in `.json`/`.jsonl` produces `<stem>.puzzles.json` and `<stem>.nonpuzzles.json`.
 
 ### Switching to the included Lc0-tuned defaults

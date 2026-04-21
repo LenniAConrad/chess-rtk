@@ -18,6 +18,9 @@ import javax.swing.JPanel;
   * @author Lennart A. Conrad
  */
 final class EvalGraphPanel extends JPanel {
+
+	@java.io.Serial
+	private static final long serialVersionUID = 1L;
 	/**
 	 * MAX_CP field.
 	 */

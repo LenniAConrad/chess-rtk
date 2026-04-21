@@ -29,6 +29,9 @@ import application.gui.model.PvEntry;
   * @author Lennart A. Conrad
  */
 public final class PvCellRenderer extends JPanel implements javax.swing.ListCellRenderer<PvEntry> {
+
+	@java.io.Serial
+	private static final long serialVersionUID = 1L;
 	/**
 	 * History window that supplies theme data.
 	 */

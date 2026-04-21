@@ -16,7 +16,7 @@ Build and package:
 scripts/make_release_linux_cuda.sh --version vX.Y.Z
 ```
 
-To include `models/` in the bundle:
+To include local, gitignored model files in the bundle:
 
 ```bash
 scripts/make_release_linux_cuda.sh --version vX.Y.Z --include-models

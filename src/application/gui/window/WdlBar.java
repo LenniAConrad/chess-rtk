@@ -20,6 +20,9 @@ import chess.uci.Chances;
   * @author Lennart A. Conrad
  */
 final class WdlBar extends JPanel {
+
+	@java.io.Serial
+	private static final long serialVersionUID = 1L;
 	/**
 	 * Column width for the WDL strip.
 	 */

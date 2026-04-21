@@ -271,13 +271,14 @@ Output should be a single paragraph (140–220 words) that:
 6) Use the same prompt format for both training and inference.
 
 **Azure Tag‑Text (Responses API)**
-For batch tag‑to‑text generation with Azure OpenAI, use the built‑in script:
+The old batch tag‑to‑text helper is deprecated. If you still keep a local copy,
+store it under the ignored `scripts/deprecated/` folder:
 ```
 export AZURE_OPENAI_ENDPOINT="https://<resource>.openai.azure.com/openai/responses?api-version=2025-04-01-preview"
 export AZURE_OPENAI_API_KEY="<key>"
 export AZURE_OPENAI_MODEL="gpt-5-mini"
 
-python3 scripts/azure_tag_text.py \
+python3 scripts/deprecated/azure_tag_text.py \
   --input "/path/to/tags.jsonl" \
   --output "/path/to/tag_text.jsonl" \
   --temperature 0.3 \

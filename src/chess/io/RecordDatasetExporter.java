@@ -11,9 +11,8 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import java.util.function.Consumer;
+import java.util.function.LongConsumer;
 
 import chess.core.Field;
 import chess.core.Piece;
@@ -44,18 +43,6 @@ public final class RecordDatasetExporter {
 	 * Combines piece planes, castling, en-passant, and side-to-move features.
 	 */
 	private static final int INPUTS = 64 * 12 + 4 + 8 + 1; // 781
-
-	/**
-	 * Regex for extracting score kind/value from Stack analysis lines.
-	 * Matches both centipawn and mate evaluations.
-	 */
-	private static final Pattern STACK_SCORE_RE = Pattern.compile("score\\s+(cp|mate)\\s+(-?\\d+)");
-
-	/**
-	 * Regex for extracting depth from Stack analysis lines.
-	 * Used to pick the deepest multipv=1 line.
-	 */
-	private static final Pattern STACK_DEPTH_RE = Pattern.compile("depth\\s+(\\d+)");
 
 	/**
 	 * Strategy interface for exporting a JSON object into feature/label rows.
@@ -92,40 +79,23 @@ public final class RecordDatasetExporter {
 	 * @throws IOException if reading or writing fails
 	 */
 	public static void export(Path recordFile, Path outStem) throws IOException {
-		if (recordFile == null || outStem == null) {
-			throw new IllegalArgumentException("recordFile and outStem must be non-null");
-		}
-		exportInternal(recordFile, outStem, RecordDatasetExporter::exportRecordObject);
+		export(recordFile, outStem, null);
 	}
 
 	/**
-	 * Export a Stack-*.json puzzle dump (JSON array) to NPY tensors.
+	 * Exports a {@code .record} JSON array into NPY feature/label tensors while
+	 * reporting progress once per input record.
 	 *
-	 * <p>
-	 * Input objects are expected to contain:
-	 * <ul>
-	 * <li>{@code position}: FEN string</li>
-	 * <li>{@code analysis}: array of engine output lines</li>
-	 * </ul>
-	 * </p>
-	 *
-	 * <p>
-	 * Writes two files next to the requested output stem:
-	 * <ul>
-	 * <li>{@code <stem>.features.npy} shaped (N, 781)</li>
-	 * <li>{@code <stem>.labels.npy} shaped (N,)</li>
-	 * </ul>
-	 * </p>
-	 *
-	 * @param jsonFile input Stack JSON array file.
-	 * @param outStem  output stem path.
-	 * @throws IOException if writing fails.
+	 * @param recordFile input record JSON array file
+	 * @param outStem output stem path
+	 * @param byteProgress optional callback receiving cumulative bytes read
+	 * @throws IOException if reading or writing fails
 	 */
-	public static void exportStack(Path jsonFile, Path outStem) throws IOException {
-		if (jsonFile == null || outStem == null) {
-			throw new IllegalArgumentException("jsonFile and outStem must be non-null");
+	public static void export(Path recordFile, Path outStem, LongConsumer byteProgress) throws IOException {
+		if (recordFile == null || outStem == null) {
+			throw new IllegalArgumentException("recordFile and outStem must be non-null");
 		}
-		exportInternal(jsonFile, outStem, RecordDatasetExporter::exportStackObject);
+		exportInternal(recordFile, outStem, RecordDatasetExporter::exportRecordObject, byteProgress);
 	}
 
 	/**
@@ -147,7 +117,11 @@ public final class RecordDatasetExporter {
 	 * @param exporter object-to-row exporter implementation
 	 * @throws IOException if reading or writing fails
 	 */
-	private static void exportInternal(Path jsonFile, Path outStem, JsonObjectExporter exporter) throws IOException {
+	private static void exportInternal(
+			Path jsonFile,
+			Path outStem,
+			JsonObjectExporter exporter,
+			LongConsumer byteProgress) throws IOException {
 		Path featPath = outStem.resolveSibling(outStem.getFileName().toString() + ".features.npy");
 		Path labPath = outStem.resolveSibling(outStem.getFileName().toString() + ".labels.npy");
 
@@ -166,7 +140,7 @@ public final class RecordDatasetExporter {
 				}
 			};
 
-			Json.streamTopLevelObjects(jsonFile, sink);
+			Json.streamTopLevelObjects(jsonFile, sink, byteProgress);
 			success = true;
 		} catch (UncheckedIOException uio) {
 			throw uio.getCause();
@@ -210,139 +184,6 @@ public final class RecordDatasetExporter {
 		encodeInto(pos, featsBuf);
 		feat.writeRow(featsBuf);
 		lab.writeScalar(pawns);
-	}
-
-	/**
-	 * Exports a single stack dump object into the feature/label writers.
-	 * Skips entries that do not parse to a valid position or evaluation.
-	 *
-	 * @param obj JSON object text
-	 * @param featsBuf reusable feature buffer
-	 * @param feat feature writer
-	 * @param lab label writer
-	 * @throws IOException if writing fails
-	 */
-	private static void exportStackObject(String obj, float[] featsBuf, NpyFloat32Writer feat, NpyFloat32Writer lab)
-			throws IOException {
-		String posFen = Json.parseStringField(obj, "position");
-		if (posFen == null) return;
-
-		String[] analysis = Json.parseStringArrayField(obj, "analysis");
-		float pawns = selectBestStackEval(analysis);
-		if (Float.isNaN(pawns)) return;
-
-		Position pos;
-		try {
-			pos = new Position(posFen);
-		} catch (IllegalArgumentException e) {
-			return;
-		}
-
-		encodeInto(pos, featsBuf);
-		feat.writeRow(featsBuf);
-		lab.writeScalar(pawns);
-	}
-
-	/**
-	 * Selects the best evaluation from an array of UCI engine output lines in the
-	 * Stack puzzle dump format.
-	 *
-	 * <p>
-	 * Only lines containing {@code multipv 1} are considered. If multiple matching
-	 * lines exist, the one with the highest {@code depth} is selected. The score
-	 * is converted into pawn units and clamped to [-20, 20]. If no valid score is
-	 * found, returns {@link Float#NaN}.
-	 * </p>
-	 *
-	 * @param analysis array of UCI output lines
-	 * @return best evaluation in pawns, or {@link Float#NaN} if none
-	 */
-	private static float selectBestStackEval(String[] analysis) {
-		if (analysis == null || analysis.length == 0) {
-			return Float.NaN;
-		}
-		int bestDepth = -1;
-		float best = Float.NaN;
-		for (String line : analysis) {
-			StackEval parsed = parseStackEvalLine(line);
-			if (parsed == null) {
-				continue;
-			}
-			if (parsed.depth >= bestDepth) {
-				bestDepth = parsed.depth;
-				best = parsed.pawns;
-			}
-		}
-		return best;
-	}
-
-	/**
-	 * Parses a single stack analysis line into depth and pawn value.
-	 * Returns {@code null} when the line does not match expected patterns.
-	 *
-	 * @param line raw UCI output line
-	 * @return parsed stack evaluation, or {@code null} if not applicable
-	 */
-	private static StackEval parseStackEvalLine(String line) {
-		if (line == null || !line.contains("multipv 1")) {
-			return null;
-		}
-
-		Matcher scoreMatcher = STACK_SCORE_RE.matcher(line);
-		if (!scoreMatcher.find()) {
-			return null;
-		}
-
-		String kind = scoreMatcher.group(1);
-		int value;
-		try {
-			value = Integer.parseInt(scoreMatcher.group(2));
-		} catch (NumberFormatException e) {
-			return null;
-		}
-
-		int depth = 0;
-		Matcher depthMatcher = STACK_DEPTH_RE.matcher(line);
-		if (depthMatcher.find()) {
-			try {
-				depth = Integer.parseInt(depthMatcher.group(1));
-			} catch (NumberFormatException e) {
-				depth = 0;
-			}
-		}
-
-		float pawns = "cp".equals(kind) ? pawnsFromCp(value) : pawnsFromMate(value);
-		return new StackEval(depth, pawns);
-	}
-
-	/**
-	 * Parsed stack evaluation containing depth and pawn value.
-	 * Used to compare and select the best analysis line.
-	 */
-	private static final class StackEval {
-
-		/**
-		 * Search depth reported by the engine.
-		 * Used to pick the deepest line.
-		 */
-		private final int depth;
-
-		/**
-		 * Evaluation value in pawns after conversion/clamping.
-		 * Used as the training label.
-		 */
-		private final float pawns;
-
-		/**
-		 * Creates a parsed Stack evaluation summary.
-		 *
-		 * @param depth search depth
-		 * @param pawns evaluation in pawns
-		 */
-		private StackEval(int depth, float pawns) {
-			this.depth = depth;
-			this.pawns = pawns;
-		}
 	}
 
 	/**

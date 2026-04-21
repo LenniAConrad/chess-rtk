@@ -8,7 +8,7 @@ All commands are subcommands of `application.Main`.
 
 Compatibility note:
 - This reference lists the canonical commands only.
-- Removed commands: `gui2`, `cuda-info`, `mine`, `evaluate`.
+- Removed commands: `gui2`, `cuda-info`, `mine`, `evaluate`, `stack-to-dataset`.
 
 ## `record-to-plain`
 
@@ -38,6 +38,16 @@ Convert a `.record` JSON array into one or more PGN games.
 Options:
 - `--input|-i <path>`: input `.record` (required)
 - `--output|-o <path>`: output `.pgn` (optional; default derived from input)
+
+## `record-analysis-delta`
+
+Export one JSONL row per record with evaluation stability metrics: initial and
+final eval, delta type/value, fluctuation range, and time/depth to final value.
+
+Options:
+- `--input|-i <path>`: input record file (required)
+- `--output|-o <path>`: output `.analysis-delta.jsonl` path (optional; default derived from input)
+- `--verbose|-v`: print stack traces on failure
 
 ## `puzzles-to-pgn`
 
@@ -86,13 +96,58 @@ Options:
 - `--output|-o <path>`: output stem (optional; default derived when omitted)
 - `--weights <path>`: optional LC0 weights to compress the policy to the net's size
 
-## `stack-to-dataset`
+## `record-to-puzzle-jsonl`
 
-Convert a `Stack-*.json` JSON array (puzzle dump format) into the same NumPy tensors as `record-to-dataset`.
+Convert `.record` rows into puzzle JSONL with LC0 policy values. This command
+requires LC0J weights so it can use the network policy map.
 
 Options:
-- `--input|-i <path>`: input `Stack-*.json` (required)
-- `--output|-o <path>`: output stem (optional; default derived when omitted)
+- `--input|-i <path>`: input `.record` file (required)
+- `--output|-o <path>`: output `.jsonl` path (optional; default derived from input)
+- `--weights <path>`: LC0J weights path (required)
+- `--filter|-f <dsl>`: optional row-selection Filter DSL
+- `--puzzles`: keep only records classified as puzzles by the configured verify filter
+- `--nonpuzzles`: keep only records classified as non-puzzles
+- `--verbose|-v`: print stack traces on failure
+
+## `record-to-classifier`
+
+Convert one or more `.record` JSON/JSONL files into tensors for the one-logit
+binary classifier:
+- `<stem>.classifier.inputs.npy` shaped `(N, 21*64)` float32
+- `<stem>.classifier.labels.npy` shaped `(N,)` float32 (`0.0` negative, `1.0` positive)
+- `<stem>.classifier.meta.json` metadata
+
+Labeling:
+- `--label-filter <dsl>` overrides record kind and labels matching records as positive.
+- Without `--label-filter`, `kind:"puzzle"` and `kind:"nonpuzzle"` are used when present.
+- If `kind` is absent, the configured puzzle verification filter is used.
+
+Options:
+- `--input|-i <path>`: input record file or directory (repeatable; required)
+- `--output|-o <path>`: output stem (optional for a single file; required for multiple inputs/directories)
+- `--filter|-f <dsl>`: optional row-selection Filter DSL before labeling
+- `--label-filter <dsl>`: optional positive-label Filter DSL
+- `--max-positives <n>`: cap positive rows
+- `--max-negatives <n>`: cap negative rows
+- `--recursive`: recurse into input directories
+- `--verbose|-v`: print stack traces on failure
+
+## `record-to-training-jsonl`
+
+Convert one or more `.record` JSON/JSONL files into one-position-per-line
+training JSONL. Rows matching the puzzle DSL become verified puzzles, rows
+sharing a parent FEN with a puzzle become similar examples, and all remaining
+rows become random/negative examples.
+
+Options:
+- `--input|-i <path>`: input record file or directory (repeatable; required)
+- `--output|-o <path>`: output `.jsonl` path (optional for a single file; required for multiple inputs/directories)
+- `--filter|-f <dsl>`: puzzle Filter DSL; defaults to configured puzzle verification
+- `--recursive`: recurse into input directories
+- `--include-engine-metadata`: retain engine/PV details as metadata
+- `--max-records <n>`: stop after writing `n` rows (`0` or omitted means no cap)
+- `--verbose|-v`: print stack traces on failure
 
 ## `gpu-info`
 
@@ -198,6 +253,84 @@ Options:
 - `--shadow|--drop-shadow`: apply a subtle drop shadow
 - `--verbose|-v`: print stack traces on failure
 
+## `chess-book`
+
+Render a chess-book JSON or TOML manifest directly to a native PDF.
+The renderer builds cover/front matter, a generated table of contents, mirrored margins, puzzle/solution spreads, page numbers, running headers, and recurring solution tables.
+
+See also: `book-publishing.md`.
+
+Options:
+- `--input|-i <path>`: input book manifest (`.json`, `.toml`, or TOML-like text)
+- `--output|-o <path>`: output PDF path (optional; default derived from the input path)
+- `--title <text>`: title override
+- `--subtitle <text>`: subtitle override
+- `--limit <n>`: render only the first `n` puzzles from the source manifest and update obvious source-count references in front matter
+- `--free-watermark` / `--watermark`: add a noisy free-edition overlay to every page with visible print, resale, and unauthorized redistribution restrictions
+- `--verbose|-v`: print stack traces on failure
+
+## `chess-book-cover`
+
+Render a native vector PDF cover for a chess-book JSON or TOML manifest.
+The renderer builds the back blurb, front title/subtitle/author, spine text, barcode-safe box, and page-count-based spine width.
+
+See also: `book-publishing.md`.
+
+Dimension notes:
+- `paperback` adds 0.125 inch bleed on every outside edge.
+- `hardcover` adds 1.5 cm wrap and 1.0 cm hinge allowance.
+- Spine width is calculated from `--pages` (or manifest `pages`) times the selected interior paper thickness.
+
+Options:
+- `--input|-i <path>`: input book manifest (`.json`, `.toml`, or TOML-like text)
+- `--output|-o <path>`: output cover PDF path (optional; default derived from the input path as `*-cover.pdf`)
+- `--title <text>`: title override
+- `--subtitle <text>`: subtitle override
+- `--binding <type>`: `paperback`, `hardcover`, or `ebook` (default `paperback`)
+- `--interior <type>`: `white-bw`, `cream-bw`, `white-standard-color`, or `white-premium-color`
+- `--pages <n>`: printed page count for spine width (default from book metadata, then an estimate)
+- `--verbose|-v`: print stack traces on failure
+
+## `chess-pdf`
+
+Export chess diagrams to PDF from direct FEN input, a FEN list file, or a PGN file.
+PGN export currently uses one composition per game's mainline.
+
+Options:
+- `--fen "<FEN...>"`: input FEN (repeatable; a single positional FEN is also allowed)
+- `--input|-i <path>`: input FEN list or FEN-pair text file
+- `--pgn <path>`: input PGN file
+- `--output|-o <path>`: output PDF path (optional; default derived from input or `chess.pdf`)
+- `--title <text>`: document title override
+- `--page-size <size>`: `a4`, `a5`, or `letter`
+- `--diagrams-per-row <n>`: diagrams per row (default `2`)
+- `--board-pixels <n>`: raster size per diagram before embedding (default `900`)
+- `--flip|--black-down`: render Black at the bottom
+- `--no-fen`: hide FEN text below diagrams
+- `--verbose|-v`: print stack traces on failure
+
+## `gui`
+
+Launch the existing desktop Swing GUI.
+
+Options:
+- `--fen "<FEN...>"` (or pass it positionally)
+- `--flip|--black-down`: render Black at the bottom
+- `--dark|--dark-mode`: start in dark UI theme
+- `--light`: start in light UI theme
+- `-h|--help`: show help
+
+## `gui-web`
+
+Launch the chess-web-inspired desktop Swing GUI.
+
+Options:
+- `--fen "<FEN...>"` (or pass it positionally)
+- `--flip|--black-down`: render Black at the bottom
+- `--dark|--dark-mode`: start in dark UI theme
+- `--light`: start in light UI theme
+- `-h|--help`: show help
+
 ## `config`
 
 Show or validate CLI configuration.
@@ -230,12 +363,83 @@ Generate tags for a FEN or FEN list.
 
 Notes:
 - If `config/book.eco.toml` is present, tags may include `eco:` / `opening:` for positions that match the ECO book.
+- `--delta` emits JSONL records with parent/child tag differences instead of plain JSON arrays.
 
 Options:
-- `--input|-i <path>`: FEN list file (optional)
 - `--fen "<FEN...>"`: FEN string (or pass it positionally)
+- `--input|-i <path>`: FEN list, FEN-pair text file, or record-like position input
+- `--pgn <path>`: PGN input
+- `--include-fen`: include the FEN as a `META` tag when not using `--delta`
 - `--analyze`: run engine analysis to enrich tags (PV/mate/enables)
 - `--sequence`: interpret input as an ordered line (enable/disable tags)
+- `--delta`: emit per-move tag deltas as JSONL
+- `--mainline`: with `--pgn`, only export mainline positions
+- `--sidelines`: with `--pgn`, include variations
+- `--protocol|-p <path>`: engine protocol TOML file
+- `--max-nodes <n>`: max nodes per position
+- `--max-duration <duration>`: max duration per position (e.g. `5s`)
+- `--multipv <n>`: number of PVs
+- `--threads <n>`: engine threads
+- `--hash <n>`: engine hash (MB)
+- `--wdl`: enable WDL output (if supported)
+- `--no-wdl`: disable WDL output
+- `--verbose|-v`: print stack traces on failure
+
+## `puzzle-tags`
+
+Analyze a root puzzle position, expand engine PVs, and emit JSONL rows with
+per-move tags and tag deltas.
+
+Options:
+- `--fen "<FEN...>"`: root puzzle FEN (required; positional FEN is also accepted)
+- `--multipv <n>`: number of PVs to expand (default `3`)
+- `--pv-plies <n>`: plies to keep from each PV (default `12`)
+- `--tag-multipv <n>`: MultiPV used while enriching tags (default `1`)
+- `--analyze`: run engine analysis to enrich tags (default)
+- `--no-analyze`: skip per-move analysis and use static tags
+- `--protocol|-p <path>`: engine protocol TOML file
+- `--max-nodes <n>`: max nodes per position
+- `--max-duration <duration>`: max duration per position (e.g. `5s`)
+- `--threads <n>`: engine threads
+- `--hash <n>`: engine hash (MB)
+- `--wdl`: enable WDL output (if supported)
+- `--no-wdl`: disable WDL output
+- `--verbose|-v`: print stack traces on failure
+
+## `puzzle-text`
+
+Run the T5 tag-to-text model over a puzzle PV expansion.
+
+Options:
+- `--model <path>`: T5 `.bin` model path (defaults to `t5-model-path` in config)
+- `--fen "<FEN...>"`: root puzzle FEN (required; positional FEN is also accepted)
+- `--multipv <n>`: number of PVs to expand (default `3`)
+- `--pv-plies <n>`: plies to keep from each PV (default `12`)
+- `--tag-multipv <n>`: MultiPV used while enriching tags (default `1`)
+- `--max-new <n>`: max generated tokens (default `128`)
+- `--include-fen`: emit JSON with FEN, inferred move, and summary
+- `--analyze`: run engine analysis to enrich tags (default)
+- `--no-analyze`: skip per-move analysis and use static tags
+- `--protocol|-p <path>`: engine protocol TOML file
+- `--max-nodes <n>`: max nodes per position
+- `--max-duration <duration>`: max duration per position (e.g. `5s`)
+- `--threads <n>`: engine threads
+- `--hash <n>`: engine hash (MB)
+- `--wdl`: enable WDL output (if supported)
+- `--no-wdl`: disable WDL output
+- `--verbose|-v`: print stack traces on failure
+
+## `tag-text`
+
+Run the T5 tag-to-text model for one FEN or a FEN list.
+
+Options:
+- `--model <path>`: T5 `.bin` model path (defaults to `t5-model-path` in config)
+- `--fen "<FEN...>"`: FEN string (or pass it positionally)
+- `--input|-i <path>`: FEN list file
+- `--include-fen`: emit JSON with FEN and summary
+- `--max-new <n>`: max generated tokens (default `128`)
+- `--analyze`: run engine analysis to enrich tags
 - `--protocol|-p <path>`: engine protocol TOML file
 - `--max-nodes <n>`: max nodes per position
 - `--max-duration <duration>`: max duration per position (e.g. `5s`)

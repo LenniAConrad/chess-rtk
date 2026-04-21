@@ -73,10 +73,22 @@ public final class MovesCommand {
 	 * Supported output formats for move listings.
 	 */
 	private enum MovesFormat {
-		DEFAULT,
-		UCI,
-		SAN,
-		BOTH
+		 /**
+		 * Shared default constant.
+		 */
+		 DEFAULT,
+		 /**
+		 * Shared uci constant.
+		 */
+		 UCI,
+		 /**
+		 * Shared san constant.
+		 */
+		 SAN,
+		 /**
+		 * Shared both constant.
+		 */
+		 BOTH
 	}
 
 	/**

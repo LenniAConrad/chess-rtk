@@ -236,7 +236,7 @@ public final class Mainline {
      * Holds the SAN and turn context for a single ply in the line.
  * @author Lennart A. Conrad
  * @since 2026
-     */
+ */
     private static final class Ply {
 
         /**

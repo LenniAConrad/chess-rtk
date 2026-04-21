@@ -292,7 +292,7 @@ public final class Sequence {
      * Holds the parsed data for one ply in the line.
  * @author Lennart A. Conrad
  * @since 2026
-     */
+ */
     private static final class Ply {
 
         /**

@@ -27,7 +27,8 @@ public final class Model implements AutoCloseable {
     /**
      * Default LC0J weights path used by the CLI helpers and examples.
      */
-    public static final Path DEFAULT_WEIGHTS = Path.of("models/lc0_744706.bin");
+    public static final Path DEFAULT_WEIGHTS = Path.of(
+            "models/leela_112planes-10blocksx128-policyhead80-valuehead32-policy4672-wdl3.bin");
 
     /**
      * Underlying evaluator (CPU or CUDA, selected at load time).

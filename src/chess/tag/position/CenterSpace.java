@@ -9,7 +9,6 @@ import java.util.Objects;
 import chess.core.Field;
 import chess.core.Piece;
 import chess.core.Position;
-import chess.tag.core.AttackUtils;
 
 /**
  * Derives center-control, space, and center-structure tags from a position.
@@ -49,7 +48,7 @@ public final class CenterSpace {
         byte[] board = position.getBoard();
         List<String> tags = new ArrayList<>();
 
-        addCenterControl(tags, board);
+        addCenterControl(tags, position, board);
         addSpaceAdvantage(tags, board);
         addCenterStructure(tags, board);
 
@@ -60,9 +59,10 @@ public final class CenterSpace {
      * Adds a center-control tag based on attackers and occupation.
      *
      * @param tags the mutable tag accumulator
+     * @param position the analyzed position
      * @param board the board array
      */
-    private static void addCenterControl(List<String> tags, byte[] board) {
+    private static void addCenterControl(List<String> tags, Position position, byte[] board) {
         int whiteControl = 0;
         int blackControl = 0;
         for (byte square : CENTER_SQUARES) {
@@ -74,8 +74,8 @@ public final class CenterSpace {
                     blackControl++;
                 }
             }
-            whiteControl += AttackUtils.countAttackers(board, true, square);
-            blackControl += AttackUtils.countAttackers(board, false, square);
+            whiteControl += position.countAttackersByWhite(square);
+            blackControl += position.countAttackersByBlack(square);
         }
         int diff = whiteControl - blackControl;
         if (diff >= 2) {

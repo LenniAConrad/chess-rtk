@@ -20,6 +20,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 
+import application.console.Bar;
 import application.cli.RecordIO.RecordConsumer;
 import chess.core.Position;
 import chess.struct.Record;
@@ -37,6 +38,9 @@ import utility.Json;
  */
 public final class RecordAnalysisDeltaCommand {
 
+	/**
+	 * Shared ext analysis delta jsonl constant.
+	 */
 	private static final String EXT_ANALYSIS_DELTA_JSONL = ".analysis-delta.jsonl";
 	/**
 	 * Delta type for records with no valid initial/final evaluation.
@@ -72,6 +76,9 @@ public final class RecordAnalysisDeltaCommand {
 	 */
 	private static final String FLUCTUATION_MIXED = "mixed";
 
+	/**
+	 * Shared output order constant.
+	 */
 	private static final Comparator<Output> OUTPUT_ORDER = Comparator
 			.comparingInt((Output::getDepth))
 			.thenComparingLong(Output::getTime);
@@ -109,15 +116,18 @@ public final class RecordAnalysisDeltaCommand {
 			return;
 		}
 
+		Bar bar = fileProgressBar(input, CMD_RECORD_ANALYSIS_DELTA);
 		try (BufferedWriter out = Files.newBufferedWriter(output)) {
 			DeltaWriter writer = new DeltaWriter(out);
-			streamRecordFile(input, verbose, CMD_RECORD_ANALYSIS_DELTA, writer);
+			streamRecordFile(input, verbose, CMD_RECORD_ANALYSIS_DELTA, writer, bar == null ? null : bar::set);
+			finishProgress(bar);
 			System.out.printf(Locale.ROOT,
 					"record-analysis-delta: wrote %d records (%d invalid) to %s%n",
 					writer.writtenCount(),
 					writer.invalidCount(),
 					output);
 		} catch (IOException | UncheckedIOException ex) {
+			finishProgress(bar);
 			System.err.println("record-analysis-delta: failed to write output: " + ex.getMessage());
 			if (verbose) {
 				ex.printStackTrace(System.err);
@@ -126,6 +136,37 @@ public final class RecordAnalysisDeltaCommand {
 		}
 	}
 
+	/**
+	 * Handles file progress bar.
+	 * @param input input
+	 * @param label label
+	 * @return computed value
+	 */
+	private static Bar fileProgressBar(Path input, String label) {
+		try {
+			long size = Files.size(input);
+			return size > 0L ? new Bar(size, label) : null;
+		} catch (IOException ex) {
+			return null;
+		}
+	}
+
+	/**
+	 * Handles finish progress.
+	 * @param bar bar
+	 */
+	private static void finishProgress(Bar bar) {
+		if (bar != null) {
+			bar.finish();
+		}
+	}
+
+	/**
+	 * Handles derive output.
+	 * @param input input
+	 * @param suffix suffix
+	 * @return computed value
+	 */
 	private static Path deriveOutput(Path input, String suffix) {
 		String name = input.getFileName().toString();
 		int dot = name.lastIndexOf('.');
@@ -133,18 +174,41 @@ public final class RecordAnalysisDeltaCommand {
 		return input.resolveSibling(stem + suffix);
 	}
 
+	/**
+	 * Provides delta writer behavior.
+	 */
 	private static final class DeltaWriter implements RecordConsumer {
 
-		private final BufferedWriter out;
-		private long index;
-		private long invalid;
-		private long written;
+		 /**
+		 * Stores the out.
+		 */
+		 private final BufferedWriter out;
+		 /**
+		 * Stores the index.
+		 */
+		 private long index;
+		 /**
+		 * Stores the invalid.
+		 */
+		 private long invalid;
+		 /**
+		 * Stores the written.
+		 */
+		 private long written;
 
-		private DeltaWriter(BufferedWriter out) {
+		 /**
+		 * Creates a new delta writer instance.
+		 * @param out out
+		 */
+		 private DeltaWriter(BufferedWriter out) {
 			this.out = out;
 		}
 
-		@Override
+		 /**
+		 * Handles accept.
+		 * @param rec rec
+		 */
+		 @Override
 		public void accept(Record rec) {
 			String line = buildJsonLine(rec, index++);
 			try {
@@ -156,20 +220,37 @@ public final class RecordAnalysisDeltaCommand {
 			written++;
 		}
 
-		@Override
+		 /**
+		 * Handles invalid.
+		 */
+		 @Override
 		public void invalid() {
 			invalid++;
 		}
 
-		private long writtenCount() {
+		 /**
+		 * Handles written count.
+		 * @return computed value
+		 */
+		 private long writtenCount() {
 			return written;
 		}
 
-		private long invalidCount() {
+		 /**
+		 * Handles invalid count.
+		 * @return computed value
+		 */
+		 private long invalidCount() {
 			return invalid;
 		}
 	}
 
+	/**
+	 * Handles build json line.
+	 * @param rec rec
+	 * @param index index
+	 * @return computed value
+	 */
 	private static String buildJsonLine(Record rec, long index) {
 		Analysis analysis = (rec == null) ? null : rec.getAnalysis();
 		Position position = (rec == null) ? null : rec.getPosition();
@@ -215,14 +296,30 @@ public final class RecordAnalysisDeltaCommand {
 		return sb.append('}').toString();
 	}
 
+	/**
+	 * Handles first sample.
+	 * @param samples samples
+	 * @return computed value
+	 */
 	private static Output firstSample(List<Output> samples) {
 		return samples.isEmpty() ? null : samples.get(0);
 	}
 
+	/**
+	 * Handles last sample.
+	 * @param samples samples
+	 * @return computed value
+	 */
 	private static Output lastSample(List<Output> samples) {
 		return samples.isEmpty() ? null : samples.get(samples.size() - 1);
 	}
 
+	/**
+	 * Handles compute delta.
+	 * @param initialEval initial eval
+	 * @param finalEval final eval
+	 * @return computed value
+	 */
 	private static DeltaInfo computeDelta(Evaluation initialEval, Evaluation finalEval) {
 		String deltaType = DELTA_NONE;
 		Integer deltaValue = null;
@@ -237,6 +334,13 @@ public final class RecordAnalysisDeltaCommand {
 		return new DeltaInfo(deltaType, deltaValue);
 	}
 
+	/**
+	 * Handles compute fluctuation.
+	 * @param samples samples
+	 * @param finalEval final eval
+	 * @param deltaType delta type
+	 * @return computed value
+	 */
 	private static FluctuationInfo computeFluctuation(List<Output> samples, Evaluation finalEval, String deltaType) {
 		FluctuationInfo info = new FluctuationInfo();
 		if (!isValid(finalEval) || samples.isEmpty()) {
@@ -322,26 +426,69 @@ public final class RecordAnalysisDeltaCommand {
 		return info;
 	}
 
+	/**
+	 * Provides delta info behavior.
+	 */
 	private static final class DeltaInfo {
-		private final String type;
-		private final Integer value;
+		 /**
+		 * Stores the type.
+		 */
+		 private final String type;
+		 /**
+		 * Stores the value.
+		 */
+		 private final Integer value;
 
-		private DeltaInfo(String type, Integer value) {
+		 /**
+		 * Creates a new delta info instance.
+		 * @param type type
+		 * @param value value
+		 */
+		 private DeltaInfo(String type, Integer value) {
 			this.type = type;
 			this.value = value;
 		}
 	}
 
+	/**
+	 * Provides fluctuation info behavior.
+	 */
 	private static final class FluctuationInfo {
-		private Long timeToFinal;
-		private Integer depthToFinal;
-		private Integer maxAbsDelta;
-		private Integer range;
-		private Integer min;
-		private Integer max;
-		private String type = FLUCTUATION_NONE;
+		 /**
+		 * Stores the time to final.
+		 */
+		 private Long timeToFinal;
+		 /**
+		 * Stores the depth to final.
+		 */
+		 private Integer depthToFinal;
+		 /**
+		 * Stores the max abs delta.
+		 */
+		 private Integer maxAbsDelta;
+		 /**
+		 * Stores the range.
+		 */
+		 private Integer range;
+		 /**
+		 * Stores the min.
+		 */
+		 private Integer min;
+		 /**
+		 * Stores the max.
+		 */
+		 private Integer max;
+		 /**
+		 * Stores the type.
+		 */
+		 private String type = FLUCTUATION_NONE;
 	}
 
+	/**
+	 * Handles collect samples.
+	 * @param analysis analysis
+	 * @return computed value
+	 */
 	private static List<Output> collectSamples(Analysis analysis) {
 		Output[] outputs = analysis.getOutputs();
 		List<Output> list = new ArrayList<>();
@@ -362,10 +509,21 @@ public final class RecordAnalysisDeltaCommand {
 		return list;
 	}
 
+	/**
+	 * Returns whether valid.
+	 * @param eval eval
+	 * @return true when valid
+	 */
 	private static boolean isValid(Evaluation eval) {
 		return eval != null && eval.isValid();
 	}
 
+	/**
+	 * Handles same eval.
+	 * @param a a
+	 * @param b b
+	 * @return computed value
+	 */
 	private static boolean sameEval(Evaluation a, Evaluation b) {
 		if (!isValid(a) || !isValid(b)) {
 			return false;
@@ -373,6 +531,11 @@ public final class RecordAnalysisDeltaCommand {
 		return a.isMate() == b.isMate() && a.getValue() == b.getValue();
 	}
 
+	/**
+	 * Handles eval label.
+	 * @param eval eval
+	 * @return computed value
+	 */
 	private static String evalLabel(Evaluation eval) {
 		if (!isValid(eval)) {
 			return null;
@@ -383,18 +546,38 @@ public final class RecordAnalysisDeltaCommand {
 		return String.format(Locale.ROOT, "%+d", eval.getValue());
 	}
 
+	/**
+	 * Returns whether mate.
+	 * @param eval eval
+	 * @return true when mate
+	 */
 	private static Boolean isMate(Evaluation eval) {
 		return isValid(eval) ? eval.isMate() : null;
 	}
 
+	/**
+	 * Handles eval value.
+	 * @param eval eval
+	 * @return computed value
+	 */
 	private static Integer evalValue(Evaluation eval) {
 		return isValid(eval) ? eval.getValue() : null;
 	}
 
+	/**
+	 * Handles depth of.
+	 * @param out out
+	 * @return computed value
+	 */
 	private static Integer depthOf(Output out) {
 		return out == null ? null : (int) out.getDepth();
 	}
 
+	/**
+	 * Handles time of.
+	 * @param out out
+	 * @return computed value
+	 */
 	private static Long timeOf(Output out) {
 		if (out == null) {
 			return null;
@@ -403,6 +586,12 @@ public final class RecordAnalysisDeltaCommand {
 		return time > 0 ? time : null;
 	}
 
+	/**
+	 * Handles append field.
+	 * @param sb sb
+	 * @param name name
+	 * @param value value
+	 */
 	private static void appendField(StringBuilder sb, String name, String value) {
 		if (sb.length() > 1) {
 			sb.append(',');
@@ -410,6 +599,11 @@ public final class RecordAnalysisDeltaCommand {
 		sb.append('"').append(name).append("\":").append(value);
 	}
 
+	/**
+	 * Handles json string.
+	 * @param value value
+	 * @return computed value
+	 */
 	private static String jsonString(String value) {
 		if (value == null) {
 			return "null";
@@ -417,6 +611,11 @@ public final class RecordAnalysisDeltaCommand {
 		return "\"" + Json.esc(value) + "\"";
 	}
 
+	/**
+	 * Handles json boolean.
+	 * @param value value
+	 * @return computed value
+	 */
 	private static String jsonBoolean(Boolean value) {
 		if (value == null) {
 			return "null";
@@ -424,10 +623,20 @@ public final class RecordAnalysisDeltaCommand {
 		return value ? "true" : "false";
 	}
 
+	/**
+	 * Handles json int.
+	 * @param value value
+	 * @return computed value
+	 */
 	private static String jsonInt(Integer value) {
 		return value == null ? "null" : Integer.toString(value);
 	}
 
+	/**
+	 * Handles json long.
+	 * @param value value
+	 * @return computed value
+	 */
 	private static String jsonLong(Long value) {
 		return value == null ? "null" : Long.toString(value);
 	}

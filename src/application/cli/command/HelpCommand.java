@@ -6,12 +6,16 @@ import static application.cli.Constants.CMD_BESTMOVE_BOTH;
 import static application.cli.Constants.CMD_BESTMOVE_SAN;
 import static application.cli.Constants.CMD_BESTMOVE_UCI;
 import static application.cli.Constants.CMD_CLEAN;
+import static application.cli.Constants.CMD_CHESS_BOOK;
+import static application.cli.Constants.CMD_CHESS_BOOK_COVER;
+import static application.cli.Constants.CMD_CHESS_PDF;
 import static application.cli.Constants.CMD_CONFIG;
 import static application.cli.Constants.CMD_DISPLAY;
 import static application.cli.Constants.CMD_EVAL;
 import static application.cli.Constants.CMD_EVAL_STATIC;
 import static application.cli.Constants.CMD_GEN_FENS;
 import static application.cli.Constants.CMD_GUI;
+import static application.cli.Constants.CMD_GUI_WEB;
 import static application.cli.Constants.CMD_GPU_INFO;
 import static application.cli.Constants.CMD_HELP;
 import static application.cli.Constants.CMD_HELP_LONG;
@@ -29,10 +33,12 @@ import static application.cli.Constants.CMD_PUZZLES_TO_PGN;
 import static application.cli.Constants.CMD_RECORDS;
 import static application.cli.Constants.CMD_RECORD_TO_CSV;
 import static application.cli.Constants.CMD_RECORD_TO_DATASET;
+import static application.cli.Constants.CMD_RECORD_TO_LC0;
 import static application.cli.Constants.CMD_RECORD_TO_PGN;
 import static application.cli.Constants.CMD_RECORD_TO_PLAIN;
+import static application.cli.Constants.CMD_RECORD_TO_CLASSIFIER;
+import static application.cli.Constants.CMD_RECORD_TO_TRAINING_JSONL;
 import static application.cli.Constants.CMD_RENDER;
-import static application.cli.Constants.CMD_STACK_TO_DATASET;
 import static application.cli.Constants.CMD_STATS;
 import static application.cli.Constants.CMD_STATS_TAGS;
 import static application.cli.Constants.CMD_TAGS;
@@ -71,6 +77,23 @@ public final class HelpCommand {
 	private static final String RECORD_TO_DATASET_OPTIONS_MARKER = "record-to-dataset options:";
 
 	/**
+	 * Help marker for {@code record-to-lc0}.
+	 */
+	private static final String RECORD_TO_LC0_OPTIONS_MARKER = "record-to-lc0 options:";
+
+	/**
+	 * Help marker for {@code record-to-classifier}.
+	 */
+	private static final String RECORD_TO_CLASSIFIER_OPTIONS_MARKER =
+			"record-to-classifier options:";
+
+	/**
+	 * Help marker for {@code record-to-training-jsonl}.
+	 */
+	private static final String RECORD_TO_TRAINING_JSONL_OPTIONS_MARKER =
+			"record-to-training-jsonl options:";
+
+	/**
 	 * Help marker for {@code record-to-pgn}.
 	 */
 	private static final String RECORD_TO_PGN_OPTIONS_MARKER = "record-to-pgn options:";
@@ -84,11 +107,6 @@ public final class HelpCommand {
 	 * Help marker for {@code records}.
 	 */
 	private static final String RECORDS_OPTIONS_MARKER = "records options:";
-
-	/**
-	 * Help marker for {@code stack-to-dataset}.
-	 */
-	private static final String STACK_TO_DATASET_OPTIONS_MARKER = "stack-to-dataset options:";
 
 	/**
 	 * Help marker for {@code gpu-info}.
@@ -121,9 +139,29 @@ public final class HelpCommand {
 	private static final String RENDER_OPTIONS_MARKER = "render options:";
 
 	/**
+	 * Help marker for {@code chess-book}.
+	 */
+	private static final String CHESS_BOOK_OPTIONS_MARKER = "chess-book options:";
+
+	/**
+	 * Help marker for {@code chess-book-cover}.
+	 */
+	private static final String CHESS_BOOK_COVER_OPTIONS_MARKER = "chess-book-cover options:";
+
+	/**
+	 * Help marker for {@code chess-pdf}.
+	 */
+	private static final String CHESS_PDF_OPTIONS_MARKER = "chess-pdf options:";
+
+	/**
 	 * Help marker for {@code gui}.
 	 */
 	private static final String GUI_OPTIONS_MARKER = "gui options:";
+
+	/**
+	 * Help marker for {@code gui-web}.
+	 */
+	private static final String GUI_WEB_OPTIONS_MARKER = "gui-web options:";
 
 	/**
 	 * Help marker for {@code config}.
@@ -252,17 +290,23 @@ public final class HelpCommand {
 			Map.entry(CMD_RECORD_TO_PLAIN, RECORD_TO_PLAIN_OPTIONS_MARKER),
 			Map.entry(CMD_RECORD_TO_CSV, RECORD_TO_CSV_OPTIONS_MARKER),
 			Map.entry(CMD_RECORD_TO_DATASET, RECORD_TO_DATASET_OPTIONS_MARKER),
+			Map.entry(CMD_RECORD_TO_LC0, RECORD_TO_LC0_OPTIONS_MARKER),
+			Map.entry(CMD_RECORD_TO_CLASSIFIER, RECORD_TO_CLASSIFIER_OPTIONS_MARKER),
+			Map.entry(CMD_RECORD_TO_TRAINING_JSONL, RECORD_TO_TRAINING_JSONL_OPTIONS_MARKER),
 			Map.entry(CMD_RECORD_TO_PGN, RECORD_TO_PGN_OPTIONS_MARKER),
 			Map.entry(CMD_PUZZLES_TO_PGN, PUZZLES_TO_PGN_OPTIONS_MARKER),
 				Map.entry(CMD_RECORDS, RECORDS_OPTIONS_MARKER),
-				Map.entry(CMD_STACK_TO_DATASET, STACK_TO_DATASET_OPTIONS_MARKER),
 				Map.entry(CMD_GPU_INFO, GPU_INFO_OPTIONS_MARKER),
 				Map.entry(CMD_GEN_FENS, GEN_FENS_OPTIONS_MARKER),
 				Map.entry(CMD_MINE_PUZZLES, MINE_PUZZLES_OPTIONS_MARKER),
 				Map.entry(CMD_PRINT, PRINT_OPTIONS_MARKER),
 				Map.entry(CMD_DISPLAY, DISPLAY_OPTIONS_MARKER),
 			Map.entry(CMD_RENDER, RENDER_OPTIONS_MARKER),
+			Map.entry(CMD_CHESS_BOOK, CHESS_BOOK_OPTIONS_MARKER),
+			Map.entry(CMD_CHESS_BOOK_COVER, CHESS_BOOK_COVER_OPTIONS_MARKER),
+			Map.entry(CMD_CHESS_PDF, CHESS_PDF_OPTIONS_MARKER),
 			Map.entry(CMD_GUI, GUI_OPTIONS_MARKER),
+			Map.entry(CMD_GUI_WEB, GUI_WEB_OPTIONS_MARKER),
 			Map.entry(CMD_CONFIG, CONFIG_SUBCOMMANDS_MARKER),
 			Map.entry(CMD_STATS, STATS_OPTIONS_MARKER),
 			Map.entry(CMD_STATS_TAGS, STATS_TAGS_OPTIONS_MARKER),
@@ -336,14 +380,20 @@ public final class HelpCommand {
 				  puzzles-to-pgn    Convert mixed puzzle dumps to PGN games
 				  records           Merge/filter/split record files
 				  record-to-dataset Convert .record JSON to NPY tensors (features/labels)
-				  stack-to-dataset  Convert Stack-*.json puzzle dumps to NPY tensors
+				  record-to-lc0     Convert .record JSON to LC0 tensors
+				  record-to-classifier Convert .record JSON to classifier tensors
+				  record-to-training-jsonl Export FEN JSONL labels for training
 				  gpu-info          Print GPU JNI backend status
 				  gen-fens          Generate random legal FEN shards (standard + Chess960 mix)
 				  mine-puzzles      Mine chess puzzles (supports Chess960 / PGN / FEN list / random)
 				  print             Pretty-print a FEN
 				  display           Render a board image in a window
 				  render            Save a board image to disk
+				  chess-book        Render a chess-book JSON/TOML file to a native PDF
+				  chess-book-cover  Render a native PDF cover for a chess-book file
+				  chess-pdf         Export chess diagrams to a PDF
 				  gui               Launch the GUI
+				  gui-web           Launch the chess-web-inspired GUI
 				  config            Show/validate configuration
 				  stats             Summarize .record or puzzle dumps
 				  stats-tags        Summarize tag distributions
@@ -469,14 +519,20 @@ public final class HelpCommand {
 			  puzzles-to-pgn Convert mixed puzzle dumps to PGN games
 			  records   Merge/filter/split record files
 			  record-to-dataset Convert .record JSON to NPY tensors (features/labels)
-			  stack-to-dataset Convert Stack-*.json puzzle dumps to NPY tensors
+			  record-to-lc0 Convert .record JSON to LC0 tensors
+			  record-to-classifier Convert .record JSON to classifier tensors
+			  record-to-training-jsonl Export FEN JSONL labels for training
 			  gpu-info Print GPU JNI backend status
 			  gen-fens  Generate random legal FEN shards (standard + Chess960 mix)
 			  mine-puzzles Mine chess puzzles (supports Chess960 / PGN / FEN list / random)
 			  print     Pretty-print a FEN
 			  display   Render a board image in a window
 			  render    Save a board image to disk
+			  chess-book Render a chess-book JSON/TOML file to a native PDF
+			  chess-book-cover Render a native PDF cover for a chess-book file
+			  chess-pdf Export chess diagrams to a PDF
 			  gui       Launch the GUI
+			  gui-web   Launch the chess-web-inspired GUI
 			  config    Show/validate configuration
 			  stats     Summarize .record or puzzle dumps
 			  stats-tags Summarize tag distributions
@@ -519,6 +575,35 @@ public final class HelpCommand {
 			  --input|-i PATH            Input .record JSON file
 			  --output|-o PATH           Output dataset prefix (default: input stem + .dataset)
 
+			record-to-lc0 options:
+			  --input|-i PATH            Input .record JSON file
+			  --output|-o PATH           Output dataset prefix (default: input stem + .lc0)
+			  --weights PATH             Optional LC0 weights for policy-map compression
+
+			record-to-classifier options:
+			  --input|-i PATH            Input record file(s) or directories
+			  --output|-o PATH           Output dataset prefix (default: input stem + .classifier)
+			  --filter|-f DSL            Optional row-selection Filter DSL
+			  --label-filter DSL         Optional positive-label Filter DSL (overrides kind)
+			  --max-positives N          Cap positive rows
+			  --max-negatives N          Cap negative rows
+			  --recursive                Recurse into input directories
+			  --verbose|-v               Print stack trace on failure
+
+			record-to-training-jsonl options:
+			  --input|-i PATH            Input record file(s) or directories
+			  --output|-o PATH           Output JSONL file (default: input stem + .training.jsonl)
+			  --filter|-f DSL            Puzzle Filter DSL; matching rows become verified_puzzle
+			  --recursive                Recurse into input directories
+			  --include-engine-metadata  Include engine/PV metadata as metadata only
+			  --max-records N            Stop after writing N rows (0/default: no cap)
+			  --verbose|-v               Print stack trace on failure
+
+			  Writes one chess position per JSONL line. Rows matching the puzzle DSL
+			  get coarse_label=1/fine_label=2, rows with the same parent FEN as a
+			  puzzle get coarse_label=1/fine_label=1, and all remaining rows get
+			  coarse_label=0/fine_label=0. Engine metadata is not model input.
+
 			record-to-pgn options:
 			  --input|-i PATH            Input .record JSON file
 			  --output|-o PATH           Output PGN file (default: input stem + .pgn)
@@ -536,10 +621,6 @@ public final class HelpCommand {
 			  --max-records N            Split output after N records
 			  --recursive                Recurse into input directories
 			  --verbose|-v               Print stack trace on failure
-
-			stack-to-dataset options:
-			  --input|-i PATH            Input Stack-*.json dump file
-			  --output|-o PATH           Output dataset prefix (default: input stem + .dataset)
 
 			gpu-info options:
 			  --verbose|-v               Print detailed output
@@ -619,7 +700,47 @@ public final class HelpCommand {
 			  --ablation                 Overlay evaluator ablation heatmap
 			  --verbose|-v               Print stack trace on failure
 
+			chess-book options:
+			  --input|-i PATH            Input chess-book JSON/TOML file
+			  --output|-o PATH           Output PDF path (default: input stem + .pdf)
+			  --title TEXT               Optional title override
+			  --subtitle TEXT            Optional subtitle override
+			  --limit N                  Render first N puzzles and update count text
+			  --free-watermark|--watermark
+			                             Add noisy free-edition watermark and print restrictions
+			  --verbose|-v               Print stack trace on failure
+
+			chess-book-cover options:
+			  --input|-i PATH            Input chess-book JSON/TOML file
+			  --output|-o PATH           Output cover PDF path (default: input stem + -cover.pdf)
+			  --title TEXT               Optional title override
+			  --subtitle TEXT            Optional subtitle override
+			  --binding TYPE             paperback, hardcover, or ebook (default: paperback)
+			  --interior TYPE            white-bw, cream-bw, white-standard-color, or white-premium-color
+			  --pages N                  Printed page count for spine width (default: book pages/estimate)
+			  --verbose|-v               Print stack trace on failure
+
+			chess-pdf options:
+			  --fen FEN                  Input FEN (repeatable; positional FEN also allowed)
+			  --input|-i PATH            Input FEN list / FEN-pair text file
+			  --pgn PATH                 Input PGN file (exports one composition per mainline game)
+			  --output|-o PATH           Output PDF path
+			  --title TEXT               Document title override
+			  --page-size SIZE           Page size: a4, a5, letter (default: a4)
+			  --diagrams-per-row N       Diagrams per row (default: 2)
+			  --board-pixels N           Raster size per diagram before embedding (default: 900)
+			  --flip|--black-down        Render Black at the bottom
+			  --no-fen                   Hide FEN text under diagrams
+			  --verbose|-v               Print stack trace on failure
+
 			gui options:
+			  --fen FEN                  Start position (default: standard start FEN)
+			  --flip|--black-down        Render Black at the bottom
+			  --dark|--dark-mode         Start in dark UI theme
+			  --light                    Start in light UI theme
+			  -h|--help                  Show help
+
+			gui-web options:
 			  --fen FEN                  Start position (default: standard start FEN)
 			  --flip|--black-down        Render Black at the bottom
 			  --dark|--dark-mode         Start in dark UI theme

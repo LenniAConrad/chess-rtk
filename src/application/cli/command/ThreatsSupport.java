@@ -7,7 +7,10 @@ import chess.core.Position;
  */
 final class ThreatsSupport {
 
-    private ThreatsSupport() {
+     /**
+     * Creates a new threats support instance.
+     */
+     private ThreatsSupport() {
         // utility
     }
 

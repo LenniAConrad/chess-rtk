@@ -14,6 +14,13 @@ APP_HOME="$(cd -- "$SCRIPT_DIR" && pwd)"
 OUT_DIR="$APP_HOME/out"
 JAR_PATH="$APP_HOME/crtk.jar"
 LAUNCHER="/usr/local/bin/$APP_NAME"
+MODEL_DIR="$APP_HOME/models"
+MODEL_BASE_URL="https://media.githubusercontent.com/media/LenniAConrad/chess-models/main/models"
+MODEL_REMOTE_FILES=("lc0_610153.bin" "lc0_744706.bin")
+MODEL_LOCAL_FILES=(
+  "leela_112planes-30blocksx384-policyhead80-valuehead32-policy4672-wdl3.bin"
+  "leela_112planes-10blocksx128-policyhead80-valuehead32-policy4672-wdl3.bin"
+)
 
 CUDA_MODE="auto"      # auto|yes|no
 REQUIRE_CUDA=0
@@ -21,6 +28,7 @@ ROCM_MODE="auto"      # auto|yes|no
 REQUIRE_ROCM=0
 ONEAPI_MODE="auto"    # auto|yes|no
 REQUIRE_ONEAPI=0
+MODEL_MODE="auto"     # auto|yes|no
 INSTALL_LAUNCHER=1
 
 # Colors (opt-out with NO_COLOR or non-TTY)
@@ -41,8 +49,14 @@ fi
 title() {
   printf '%b\n' "${C_GREEN_BOLD}$*${C_RESET}"
 }
+section() {
+  printf '\n%b\n' "${C_BOLD}$*${C_RESET}"
+}
 step() {
-  printf '%b\n' "${C_GREEN_BOLD} >${C_RESET} $*"
+  printf '%b\n' "${C_GREEN_BOLD}  >${C_RESET} $*"
+}
+info() {
+  printf '    %s\n' "$*"
 }
 warn() {
   printf '%b\n' "${C_YELLOW}warning:${C_RESET} $*"
@@ -96,13 +110,21 @@ while [[ $# -gt 0 ]]; do
       INSTALL_LAUNCHER=0
       shift
       ;;
+    --models|--fetch-models)
+      MODEL_MODE="yes"
+      shift
+      ;;
+    --no-models|--no-fetch-models)
+      MODEL_MODE="no"
+      shift
+      ;;
     -h|--help)
-      echo "Usage: ./install.sh [--cuda|--require-cuda|--no-cuda] [--rocm|--require-rocm|--no-rocm] [--oneapi|--require-oneapi|--no-oneapi] [--no-launcher]"
+      echo "Usage: ./install.sh [--cuda|--require-cuda|--no-cuda] [--rocm|--require-rocm|--no-rocm] [--oneapi|--require-oneapi|--no-oneapi] [--models|--no-models] [--no-launcher]"
       exit 0
       ;;
     *)
       err "Unknown argument: $1"
-      echo "Usage: ./install.sh [--cuda|--require-cuda|--no-cuda] [--rocm|--require-rocm|--no-rocm] [--oneapi|--require-oneapi|--no-oneapi] [--no-launcher]" >&2
+      echo "Usage: ./install.sh [--cuda|--require-cuda|--no-cuda] [--rocm|--require-rocm|--no-rocm] [--oneapi|--require-oneapi|--no-oneapi] [--models|--no-models] [--no-launcher]" >&2
       exit 2
       ;;
   esac
@@ -155,6 +177,102 @@ apt_install() {
       return 1
     fi
   fi
+}
+
+download_file() {
+  # download_file URL DEST
+  local url="$1"
+  local dest="$2"
+  local tmp="${dest}.tmp"
+
+  rm -f "$tmp"
+  if command -v curl >/dev/null 2>&1; then
+    if ! curl -fL --progress-bar -o "$tmp" "$url"; then
+      rm -f "$tmp"
+      return 1
+    fi
+  elif command -v wget >/dev/null 2>&1; then
+    if ! wget -O "$tmp" "$url"; then
+      rm -f "$tmp"
+      return 1
+    fi
+  else
+    echo "Neither curl nor wget is installed." >&2
+    if confirm "Install curl now?" "Y"; then
+      apt_install curl || return 1
+      if ! curl -fL --progress-bar -o "$tmp" "$url"; then
+        rm -f "$tmp"
+        return 1
+      fi
+    else
+      return 1
+    fi
+  fi
+  mv "$tmp" "$dest"
+}
+
+fetch_model_weights() {
+  if [[ "$MODEL_MODE" == "no" ]]; then
+    MODEL_RESULT="skipped"
+    return 0
+  fi
+
+  local missing=()
+  local index
+  local remote
+  local file
+  for index in "${!MODEL_LOCAL_FILES[@]}"; do
+    remote="${MODEL_REMOTE_FILES[$index]}"
+    file="${MODEL_LOCAL_FILES[$index]}"
+    if [[ ! -s "$MODEL_DIR/$file" && -s "$MODEL_DIR/$remote" ]]; then
+      mv "$MODEL_DIR/$remote" "$MODEL_DIR/$file"
+    fi
+    if [[ ! -s "$MODEL_DIR/$file" ]]; then
+      missing+=("$index")
+    fi
+  done
+
+  if [[ ${#missing[@]} -eq 0 ]]; then
+    MODEL_RESULT="present"
+    step "Model weights already present in $MODEL_DIR"
+    return 0
+  fi
+
+  if [[ "$MODEL_MODE" == "auto" ]]; then
+    echo
+    echo "Missing optional model weights:"
+    for index in "${missing[@]}"; do
+      printf '  %s\n' "${MODEL_LOCAL_FILES[$index]}"
+    done
+    if ! confirm "Download model weights into models/ now?" "Y"; then
+      MODEL_RESULT="skipped"
+      warn "Skipping model weights. LC0-backed evaluation will use fallback behavior until weights are added."
+      return 0
+    fi
+  fi
+
+  mkdir -p "$MODEL_DIR"
+  local failed=0
+  for index in "${missing[@]}"; do
+    remote="${MODEL_REMOTE_FILES[$index]}"
+    file="${MODEL_LOCAL_FILES[$index]}"
+    echo
+    step "Downloading model weight: $file"
+    if download_file "$MODEL_BASE_URL/$remote" "$MODEL_DIR/$file"; then
+      step "Saved: $MODEL_DIR/$file"
+    else
+      failed=1
+      rm -f "$MODEL_DIR/$file.tmp"
+      warn "Failed to download $file"
+    fi
+  done
+
+  if [[ $failed -eq 0 ]]; then
+    MODEL_RESULT="downloaded"
+  else
+    MODEL_RESULT="failed"
+  fi
+  return 0
 }
 
 ubuntu_codename() {
@@ -391,6 +509,8 @@ JOBS=4
 if command -v nproc >/dev/null 2>&1; then
   JOBS="$(nproc)"
 fi
+
+MODEL_RESULT="skipped" # downloaded|present|skipped|failed
 
 CUDA_RESULT="skipped" # built|skipped|failed
 CUDA_BUILD_DIR="$APP_HOME/native/cuda/build"
@@ -803,12 +923,15 @@ try_build_oneapi_backend() {
   return 0
 }
 
-title "Installing chess research toolkit (crtk)..."
-echo "Repo path: $APP_HOME"
-step "Checking prerequisites..."
+title "ChessRTK installer"
+info "Repo: $APP_HOME"
+info "Launcher: $LAUNCHER"
+
+section "Prerequisites"
 JAVA_OK=0
 JAVAC_OK=0
 
+step "Checking Java runtime"
 if command -v java >/dev/null 2>&1; then
   # Try to detect major version (works for modern OpenJDK)
   ver="$(java -version 2>&1 | head -n1 | sed -E 's/.*version "?([0-9]+).*/\1/')"
@@ -821,6 +944,7 @@ else
   warn "Java not found."
 fi
 
+step "Checking Java compiler"
 if command -v javac >/dev/null 2>&1; then
   JAVAC_OK=1
 else
@@ -837,6 +961,7 @@ if [[ $JAVA_OK -eq 0 || $JAVAC_OK -eq 0 ]]; then
   fi
 fi
 
+step "Checking optional Stockfish engine"
 if command -v stockfish >/dev/null 2>&1; then
   step "Stockfish found at: $(command -v stockfish)"
 else
@@ -847,39 +972,42 @@ else
   fi
 fi
 
-echo
-step "Creating output & log directories... (laying out the board)"
+section "Workspace"
+step "Creating output and log directories"
 mkdir -p "$OUT_DIR" "$APP_HOME/dump" "$APP_HOME/session"
 
-step "Compiling sources (pure javac)... (herding the knights)"
+section "Model Weights"
+fetch_model_weights
+
+section "Java Build"
+step "Compiling sources with javac"
 find "$APP_HOME/src" -name "*.java" -print0 | xargs -0 javac --release 17 -d "$OUT_DIR"
 
-step "Packaging runnable jar... (boxing the pieces)"
+step "Packaging runnable jar"
 jar --create --file "$JAR_PATH" --main-class application.Main -C "$OUT_DIR" .
 
+section "Native Backends"
 try_build_cuda_backend
 if [[ $REQUIRE_CUDA -eq 1 && "$CUDA_RESULT" != "built" ]]; then
-  echo
   err "CUDA backend was required (--require-cuda) but was not built."
   exit 1
 fi
 
 try_build_rocm_backend
 if [[ $REQUIRE_ROCM -eq 1 && "$ROCM_RESULT" != "built" ]]; then
-  echo
   err "ROCm backend was required (--require-rocm/--require-amd) but was not built."
   exit 1
 fi
 
 try_build_oneapi_backend
 if [[ $REQUIRE_ONEAPI -eq 1 && "$ONEAPI_RESULT" != "built" ]]; then
-  echo
   err "oneAPI backend was required (--require-oneapi/--require-intel) but was not built."
   exit 1
 fi
 
+section "Launcher"
 if [[ $INSTALL_LAUNCHER -eq 1 ]]; then
-  step "Installing launcher to $LAUNCHER ..."
+  step "Installing launcher to $LAUNCHER"
   LAUNCHER_TMP="$(mktemp)"
   cat > "$LAUNCHER_TMP" <<EOF
 #!/usr/bin/env bash
@@ -913,8 +1041,8 @@ else
   warn "Skipping launcher install (--no-launcher)."
 fi
 
-echo
-title "Done."
+section "Summary"
+title "Done"
 if [[ $INSTALL_LAUNCHER -eq 1 ]]; then
   step "Launcher installed: $LAUNCHER"
 fi
@@ -933,8 +1061,14 @@ if [[ "$ONEAPI_RESULT" == "built" ]]; then
 elif [[ "$ONEAPI_RESULT" == "failed" ]]; then
   warn "oneAPI backend: not built (CPU fallback)"
 fi
-echo
-step "Next steps:"
-echo "  $APP_NAME help"
-echo "Tip: You can run from anywhere using '$APP_NAME'."
-echo "Tip: Forcing en passant is encouraged (in chess, not in life)."
+if [[ "$MODEL_RESULT" == "downloaded" ]]; then
+  step "Model weights: downloaded into $MODEL_DIR"
+elif [[ "$MODEL_RESULT" == "present" ]]; then
+  step "Model weights: already present in $MODEL_DIR"
+elif [[ "$MODEL_RESULT" == "failed" ]]; then
+  warn "Model weights: download failed (see models/README.md)"
+fi
+
+section "Next Steps"
+info "$APP_NAME help"
+info "Run from anywhere with '$APP_NAME'."

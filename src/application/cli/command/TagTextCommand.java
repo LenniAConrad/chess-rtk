@@ -28,6 +28,7 @@ import java.util.Optional;
 
 import application.Config;
 import application.cli.EngineOps;
+import application.console.Bar;
 import chess.core.Position;
 import chess.io.Reader;
 import chess.nn.t5.BinLoader;
@@ -48,11 +49,18 @@ import utility.Json;
  */
 public final class TagTextCommand {
 
-    private TagTextCommand() {
+     /**
+     * Creates a new tag text command instance.
+     */
+     private TagTextCommand() {
         // utility
     }
 
-    public static void runTagText(Argv a) {
+     /**
+     * Runs the tag text workflow.
+     * @param a a
+     */
+     public static void runTagText(Argv a) {
         TagTextOptions opts = parseOptions(a);
         List<Position> positions = loadPositions(opts);
         if (positions.isEmpty()) {
@@ -79,7 +87,12 @@ public final class TagTextCommand {
         }
     }
 
-    private static TagTextOptions parseOptions(Argv a) {
+     /**
+     * Parses the options.
+     * @param a a
+     * @return computed value
+     */
+     private static TagTextOptions parseOptions(Argv a) {
         boolean verbose = a.flag(OPT_VERBOSE, OPT_VERBOSE_SHORT);
         Path input = a.path(OPT_INPUT, OPT_INPUT_SHORT);
         boolean includeFen = a.flag(OPT_INCLUDE_FEN);
@@ -113,7 +126,12 @@ public final class TagTextCommand {
                 wdl, noWdl, maxNew, modelPath, fen, input);
     }
 
-    private static List<Position> loadPositions(TagTextOptions opts) {
+     /**
+     * Handles load positions.
+     * @param opts opts
+     * @return computed value
+     */
+     private static List<Position> loadPositions(TagTextOptions opts) {
         List<Position> positions = new ArrayList<>();
         if (opts.input != null) {
             try {
@@ -143,13 +161,28 @@ public final class TagTextCommand {
         return positions;
     }
 
-    private static void runWithoutAnalysis(TagTextOptions opts, List<Position> positions, Model model) {
+     /**
+     * Runs the without analysis workflow.
+     * @param opts opts
+     * @param positions positions
+     * @param model model
+     */
+     private static void runWithoutAnalysis(TagTextOptions opts, List<Position> positions, Model model) {
         try (Runner runner = new Runner(model)) {
-            for (Position pos : positions) {
-                List<String> tags = Tagging.tags(pos);
-                String prompt = TagPrompt.buildPositionPrompt(tags);
-                String summary = runner.generate(prompt, opts.maxNew);
-                printSummary(opts.includeFen, pos, summary);
+            Bar bar = positionProgressBar(positions, CMD_TAG_TEXT);
+            try {
+                for (Position pos : positions) {
+                    try {
+                        List<String> tags = Tagging.tags(pos);
+                        String prompt = TagPrompt.buildPositionPrompt(tags);
+                        String summary = runner.generate(prompt, opts.maxNew);
+                        printSummary(opts.includeFen, pos, summary);
+                    } finally {
+                        step(bar);
+                    }
+                }
+            } finally {
+                finish(bar);
             }
         } catch (Exception ex) {
             System.err.println(CMD_TAG_TEXT + ": inference failed: " + ex.getMessage());
@@ -160,21 +193,36 @@ public final class TagTextCommand {
         }
     }
 
-    private static void runWithAnalysis(TagTextOptions opts, List<Position> positions, Model model) {
+     /**
+     * Runs the with analysis workflow.
+     * @param opts opts
+     * @param positions positions
+     * @param model model
+     */
+     private static void runWithAnalysis(TagTextOptions opts, List<Position> positions, Model model) {
         Protocol protocol = EngineSupport.loadProtocolOrExit(opts.protoPath, opts.verbose);
         Optional<Boolean> wdlFlag = resolveWdlFlag(opts.wdl, opts.noWdl);
         try (Engine engine = new Engine(protocol); Runner runner = new Runner(model)) {
             configureEngine(CMD_TAG_TEXT, engine, opts.threads, opts.hash, opts.multipv, wdlFlag);
-            for (Position pos : positions) {
-                Analysis analysis = analysePositionOrExit(engine, pos, opts.nodesCap, opts.durMs, CMD_TAG_TEXT,
-                        opts.verbose);
-                if (analysis == null) {
-                    continue;
+            Bar bar = positionProgressBar(positions, CMD_TAG_TEXT);
+            try {
+                for (Position pos : positions) {
+                    try {
+                        Analysis analysis = analysePositionOrExit(engine, pos, opts.nodesCap, opts.durMs, CMD_TAG_TEXT,
+                                opts.verbose);
+                        if (analysis == null) {
+                            continue;
+                        }
+                        List<String> tags = Tagging.tags(pos, analysis);
+                        String prompt = TagPrompt.buildPositionPrompt(tags);
+                        String summary = runner.generate(prompt, opts.maxNew);
+                        printSummary(opts.includeFen, pos, summary);
+                    } finally {
+                        step(bar);
+                    }
                 }
-                List<String> tags = Tagging.tags(pos, analysis);
-                String prompt = TagPrompt.buildPositionPrompt(tags);
-                String summary = runner.generate(prompt, opts.maxNew);
-                printSummary(opts.includeFen, pos, summary);
+            } finally {
+                finish(bar);
             }
         } catch (Exception ex) {
             System.err.println(CMD_TAG_TEXT + ": inference failed: " + ex.getMessage());
@@ -185,7 +233,43 @@ public final class TagTextCommand {
         }
     }
 
-    private static void printSummary(boolean includeFen, Position pos, String summary) {
+     /**
+     * Handles position progress bar.
+     * @param positions positions
+     * @param label label
+     * @return computed value
+     */
+     private static Bar positionProgressBar(List<Position> positions, String label) {
+        return positions != null && positions.size() > 1 ? new Bar(positions.size(), label, false, System.err) : null;
+    }
+
+     /**
+     * Handles step.
+     * @param bar bar
+     */
+     private static void step(Bar bar) {
+        if (bar != null) {
+            bar.step();
+        }
+    }
+
+     /**
+     * Handles finish.
+     * @param bar bar
+     */
+     private static void finish(Bar bar) {
+        if (bar != null) {
+            bar.finish();
+        }
+    }
+
+     /**
+     * Handles print summary.
+     * @param includeFen include fen
+     * @param pos pos
+     * @param summary summary
+     */
+     private static void printSummary(boolean includeFen, Position pos, String summary) {
         if (!includeFen) {
             System.out.println(summary);
             return;
@@ -196,24 +280,90 @@ public final class TagTextCommand {
         System.out.println(sb.toString());
     }
 
-    private static final class TagTextOptions {
-        private final boolean verbose;
-        private final boolean includeFen;
-        private final boolean analyze;
-        private final String protoPath;
-        private final long nodesCap;
-        private final long durMs;
-        private final Integer multipv;
-        private final Integer threads;
-        private final Integer hash;
-        private final boolean wdl;
-        private final boolean noWdl;
-        private final int maxNew;
-        private final String modelPath;
-        private final String fen;
-        private final Path input;
+     /**
+     * Provides tag text options behavior.
+     */
+     private static final class TagTextOptions {
+         /**
+         * Stores the verbose.
+         */
+         private final boolean verbose;
+         /**
+         * Stores the include fen.
+         */
+         private final boolean includeFen;
+         /**
+         * Stores the analyze.
+         */
+         private final boolean analyze;
+         /**
+         * Stores the proto path.
+         */
+         private final String protoPath;
+         /**
+         * Stores the nodes cap.
+         */
+         private final long nodesCap;
+         /**
+         * Stores the dur ms.
+         */
+         private final long durMs;
+         /**
+         * Stores the multipv.
+         */
+         private final Integer multipv;
+         /**
+         * Stores the threads.
+         */
+         private final Integer threads;
+         /**
+         * Stores the hash.
+         */
+         private final Integer hash;
+         /**
+         * Stores the wdl.
+         */
+         private final boolean wdl;
+         /**
+         * Stores the no wdl.
+         */
+         private final boolean noWdl;
+         /**
+         * Stores the max new.
+         */
+         private final int maxNew;
+         /**
+         * Stores the model path.
+         */
+         private final String modelPath;
+         /**
+         * Stores the fen.
+         */
+         private final String fen;
+         /**
+         * Stores the input.
+         */
+         private final Path input;
 
-        private TagTextOptions(boolean verbose, boolean includeFen, boolean analyze, String protoPath, long nodesCap,
+         /**
+         * Creates a new tag text options instance.
+         * @param verbose verbose
+         * @param includeFen include fen
+         * @param analyze analyze
+         * @param protoPath proto path
+         * @param nodesCap nodes cap
+         * @param durMs dur ms
+         * @param multipv multipv
+         * @param threads threads
+         * @param hash hash
+         * @param wdl wdl
+         * @param noWdl no wdl
+         * @param maxNew max new
+         * @param modelPath model path
+         * @param fen fen
+         * @param input input
+         */
+         private TagTextOptions(boolean verbose, boolean includeFen, boolean analyze, String protoPath, long nodesCap,
                 long durMs, Integer multipv, Integer threads, Integer hash, boolean wdl, boolean noWdl, Integer maxNew,
                 String modelPath, String fen, Path input) {
             this.verbose = verbose;

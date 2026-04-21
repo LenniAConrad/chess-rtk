@@ -1,71 +1,65 @@
-# ENGINE PROTOCOL
-# Path to your UCI/TOML protocol file (command set) for the engine.
-# Most UCI engines are compatible with Stockfish-style commands, but minor
-# dialects exist—consult your engine’s docs and adjust if needed.
-# Ensure the engine binary is installed and the path below exists.
+# ChessRTK CLI configuration
+#
+# These are the default values used by the CLI. Most commands can override
+# them with flags for a single run.
+
+# Engine protocol
+# TOML file that describes how to talk to the UCI engine.
+# Stockfish-style commands work for most engines, but some engines need their
+# own protocol file.
 protocol-path = "config/default.engine.toml"
 
-# MODEL PATHS
-# Default LC0J model path used by evaluator-backed features.
-lc0-model-path = "models/lc0_744706.bin"
+# Local model paths
+# Model binaries are not committed to this repository. Fetch the default LC0J
+# weights with `./install.sh --models`, or place your own files under models/.
+lc0-model-path = "models/leela_112planes-10blocksx128-policyhead80-valuehead32-policy4672-wdl3.bin"
 
-# Default T5 model path used by `tag-text` / `puzzle-text` when --model is omitted.
+# Used by `tag-text` and `puzzle-text` when --model is omitted.
 t5-model-path = "models/t5.bin"
 
-# OUTPUT DIRECTORY
-# Directory where all computed outputs (e.g., puzzles) will be saved.
-# Must exist or be creatable by the application.
-# If empty or creation fails, results will be printed to standard output.
-# Options are:
-#  - ""
-#  - "DIRECTORYPATH"
-#  - "FILEPATH"
+# Output
+# Directory or file root for computed outputs such as mined puzzles.
+#
+# Common values:
+#   output = "dump/"        # write timestamped files under dump/
+#   output = "run.json"     # write run.puzzles.json / run.nonpuzzles.json
+#   output = ""             # print to stdout where supported
 output = "dump/"
 
-# ENGINE INSTANCES
-# Number of engine instances to run in parallel.
-# For example, setting this to 4 will run 4 separate copies of the engine (e.g., Stockfish)
-# concurrently. Useful for batch processing positions across multiple CPU cores.
-# Only increase if your system can handle the load and your engine is thread-safe.
+# Engine pool
+# Number of engine processes to run in parallel. Increase only if your machine
+# and engine can handle the load.
 engine-instances = 4
 
-# SEARCH LIMITS (per evaluated position)
-# Maximum nodes the engine may search before the run is stopped.
-# Passed as:  go nodes <max-nodes>
+# Search limits
+# Per-position engine budget.
 max-nodes = 50_000_000
-
-# Maximum wall time (ms) the engine may think before being aborted.
-# If a position exceeds this, the search is forcefully stopped.
 max-duration = 1_000_000
 
-# THREAT TAGS
-# Minimum centipawn advantage in null-move analysis to emit a threat tag.
+# Threat tags
+# Centipawn thresholds for null-move threat tagging.
 threat-min-cp = 150
-
-# Minimum disadvantage before considering an equalizing threat.
 threat-equalize-min-cp = 150
-
-# Maximum remaining disadvantage after an equalizing threat.
 threat-equalize-target-cp = 50
 
-# MINING DEDUP CACHE
-# Maximum number of analyzed positions to remember during mining.
-# When full, the oldest entries are evicted (LRU).
-# Rough memory estimate per cached position (FEN string + LinkedHashMap entry):
-#   ~200-400 bytes on a 64-bit JVM with compressed oops (depends on FEN length/JVM).
-#   1 GB RAM ~= 2.5-5.0 million cached positions.
+# Mining dedup cache
+# Maximum analyzed positions remembered during mining. When full, the oldest
+# entries are evicted.
+#
+# Rough memory estimate per cached position:
+#   200-400 bytes on a 64-bit JVM with compressed oops
+#   1 GB RAM ~= 2.5-5.0 million cached positions
 puzzle-analysis-cache = 5_000_000
 
-# PUZZLE FILTERS
-# The following filters are expressed in the Filter DSL.
-# They gate whether an analyzed position qualifies as a candidate puzzle.
-# Adjust for your hardware AND your engine’s eval “character”:
-#   Some engines evaluate more optimistically/pessimistically (net, contempt,
-#   pruning style, scale). Calibrate thresholds to your engine.
+# Puzzle filters
+# These filters use the Filter DSL. They decide whether an analyzed position is
+# accepted as a candidate puzzle.
+#
+# Calibrate these thresholds to your engine. Different engines can report evals
+# with different scale, contempt, pruning, and network behavior.
 
 # Quality gate:
-# Require ≥ 50M nodes on both PV1 and PV2 before accepting a position.
-# Rationale: ensures depth/confirmation rather than shallow “lucky” evals.
+# Require at least 50M nodes on both PV1 and PV2 before accepting a position.
 puzzle-quality = """
 gate=AND;null=false;empty=false;
 leaf[gate=AND;break=1;nodes>=50000000];
@@ -73,9 +67,7 @@ leaf[gate=AND;break=2;null=false;empty=false;nodes>=50000000];
 """
 
 # Winning puzzle:
-# PV1 ≥ +300 cp (clearly better) AND PV2 ≤ 0 cp (neutral or worse).
-# Intent: there is a single, clearly winning move.
-# NOTE: If your engine skews optimistic, raise the value; if pessimistic, lower it.
+# PV1 is clearly better (+300 cp or more), while PV2 is neutral or worse.
 puzzle-winning = """
 gate=AND;
 leaf[eval>=300];
@@ -83,21 +75,16 @@ leaf[break=2;null=false;eval<=0];
 """
 
 # Drawing puzzle:
-# PV1 ≥ 0 cp (hold equality or better) AND PV2 ≤ −300 cp (clearly worse).
-# Intent: there is a single, clearly drawing resource that avoids a big drop.
-# NOTE: Engines that undervalue defense may need a softer −300 (e.g., −250),
-#       so tune for your engine’s eval bias.
+# PV1 holds equality or better, while PV2 drops sharply.
 puzzle-drawing = """
 gate=AND;
 leaf[eval>=0];
 leaf[break=2;null=false;eval<=-300];
 """
 
-# Accelerate (prefilter):
-# Abort early on non-puzzles to save time:
-#   - Demand ≥ 2M nodes on PV1 and PV2 (cheap depth check)
-#   - AND not (winning) AND not (drawing) via relaxed eval guards
-# Keep conservative to avoid false negatives; tune for your engine’s eval bias.
+# Accelerate prefilter:
+# Reject clear non-puzzles early after a cheaper two-PV depth check.
+# Keep this conservative to avoid false negatives.
 puzzle-accelerate = """
 gate=AND;
 leaf[break=1;nodes>=2000000];

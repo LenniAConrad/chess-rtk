@@ -360,6 +360,16 @@ public class Printer {
 	 * positions and prints a neatly aligned comparison table.
 	 */
 	public static void testPerft() {
+		testPerft(null);
+	}
+
+	/**
+	 * Verifies the perft implementation at depth 6 while reporting progress once
+	 * per completed reference position.
+	 *
+	 * @param progress optional callback invoked after each reference position
+	 */
+	public static void testPerft(Runnable progress) {
 		System.out.println("Testing perft function (depth 6); this may take a few minutes...\n");
 
 		String[] fens = {
@@ -388,7 +398,15 @@ public class Printer {
 
 		long[] calculated = IntStream.range(0, fens.length)
 				.parallel()
-				.mapToLong(i -> new Position(fens[i]).perft(6))
+				.mapToLong(i -> {
+					try {
+						return new Position(fens[i]).perft(6);
+					} finally {
+						if (progress != null) {
+							progress.run();
+						}
+					}
+				})
 				.toArray();
 
 		int fenWidth = Arrays.stream(fens).mapToInt(String::length).max().orElse(0);

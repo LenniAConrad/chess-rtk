@@ -7,12 +7,8 @@ import java.util.List;
 import java.util.Objects;
 
 import chess.core.Field;
-import chess.core.Move;
-import chess.core.MoveList;
 import chess.core.Piece;
 import chess.core.Position;
-import chess.tag.core.AttackUtils;
-import chess.tag.core.PinUtils;
 import chess.tag.core.Text;
 
 /**
@@ -44,13 +40,11 @@ public final class PieceActivity {
         Objects.requireNonNull(position, POSITION);
 
         byte[] board = position.getBoard();
-        int[] mobility = mobilityCounts(position.getMoves());
+        int[] mobility = mobilityCounts(position, board);
         List<String> tags = new ArrayList<>();
-        byte whiteKing = position.getWhiteKing();
-        byte blackKing = position.getBlackKing();
 
         for (int index = 0; index < board.length; index++) {
-            addTagsForPiece(tags, board, mobility, whiteKing, blackKing, (byte) index);
+            addTagsForPiece(tags, position, board, mobility, (byte) index);
         }
 
         return List.copyOf(tags);
@@ -59,13 +53,16 @@ public final class PieceActivity {
     /**
      * Counts the number of legal moves originating from each square.
      *
-     * @param moves the legal move list to inspect
+     * @param position the analyzed position
+     * @param board the board array to inspect
      * @return an array of mobility counts indexed by source square
      */
-    private static int[] mobilityCounts(MoveList moves) {
+    private static int[] mobilityCounts(Position position, byte[] board) {
         int[] mobility = new int[64];
-        for (int i = 0, size = moves.size(); i < size; i++) {
-            mobility[Move.getFromIndex(moves.get(i))]++;
+        for (int index = 0; index < board.length; index++) {
+            if (board[index] != Piece.EMPTY) {
+                mobility[index] = position.countLegalMovesFrom((byte) index);
+            }
         }
         return mobility;
     }
@@ -74,38 +71,33 @@ public final class PieceActivity {
      * Applies pinned, outpost, and mobility tags to one board square.
      *
      * @param tags the mutable tag accumulator
+     * @param position the analyzed position
      * @param board the board array
      * @param mobility the mobility counts by source square
-     * @param whiteKing the White king square
-     * @param blackKing the Black king square
      * @param square the board square being inspected
      */
-    private static void addTagsForPiece(List<String> tags, byte[] board, int[] mobility, byte whiteKing,
-            byte blackKing, byte square) {
+    private static void addTagsForPiece(List<String> tags, Position position, byte[] board, int[] mobility,
+            byte square) {
         byte piece = board[square];
         if (piece == Piece.EMPTY) {
             return;
         }
         boolean white = Piece.isWhite(piece);
-        addPinnedTag(tags, board, whiteKing, blackKing, piece, white, square);
+        addPinnedTag(tags, position, piece, square);
         addOutpostTag(tags, board, piece, white, square);
-        addMobilityTag(tags, board, mobility[square], piece, white, square);
+        addMobilityTag(tags, position, mobility[square], piece, white, square);
     }
 
     /**
      * Adds a pinned-piece tag when the piece is pinned to its king.
      *
      * @param tags the mutable tag accumulator
-     * @param board the board array
-     * @param whiteKing the White king square
-     * @param blackKing the Black king square
+     * @param position the analyzed position
      * @param piece the piece being inspected
-     * @param white whether the piece belongs to White
      * @param square the piece square
      */
-    private static void addPinnedTag(List<String> tags, byte[] board, byte whiteKing, byte blackKing, byte piece,
-            boolean white, byte square) {
-        if (!Piece.isKing(piece) && PinUtils.isPinnedToKing(board, white, white ? whiteKing : blackKing, square)) {
+    private static void addPinnedTag(List<String> tags, Position position, byte piece, byte square) {
+        if (!Piece.isKing(piece) && position.isPinnedToOwnKing(square)) {
             tags.add(Text.colorNameLower(piece) + SPACE_TEXT + Text.pieceNameLower(piece) + SPACE_TEXT
                     + Text.squareNameLower(square) + PINNED_SUFFIX);
         }
@@ -131,18 +123,18 @@ public final class PieceActivity {
      * Adds trapped, low-mobility, or high-mobility tags for a piece.
      *
      * @param tags the mutable tag accumulator
-     * @param board the board array
+     * @param position the analyzed position
      * @param moveCount the number of legal moves for the piece
      * @param piece the piece being inspected
      * @param white whether the piece belongs to White
      * @param square the piece square
      */
-    private static void addMobilityTag(List<String> tags, byte[] board, int moveCount, byte piece, boolean white,
+    private static void addMobilityTag(List<String> tags, Position position, int moveCount, byte piece, boolean white,
             byte square) {
         if (Piece.isPawn(piece) || Piece.isKing(piece)) {
             return;
         }
-        if (moveCount == 0 && AttackUtils.countAttackers(board, !white, square) > 0) {
+        if (moveCount == 0 && countAttackers(position, !white, square) > 0) {
             tags.add(TRAPPED_PREFIX + Text.colorNameLower(piece) + SPACE_TEXT + Text.pieceNameLower(piece) + SPACE_TEXT
                     + Text.squareNameLower(square));
             return;
@@ -274,5 +266,17 @@ public final class PieceActivity {
             }
         }
         return false;
+    }
+
+    /**
+     * Counts attackers from one side using the core attack-query API.
+     *
+     * @param position the analyzed position
+     * @param white whether to count White attackers or Black attackers
+     * @param square the target square
+     * @return the number of attackers from the requested side
+     */
+    private static int countAttackers(Position position, boolean white, byte square) {
+        return white ? position.countAttackersByWhite(square) : position.countAttackersByBlack(square);
     }
 }

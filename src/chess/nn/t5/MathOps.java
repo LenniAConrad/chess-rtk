@@ -9,19 +9,37 @@ import java.util.stream.IntStream;
  * @author Lennart A. Conrad
  */
 public final class MathOps {
-  private static final int MATMUL_PARALLEL_THRESHOLD = 32_768;
-  private static final int LAYERNORM_PARALLEL_THRESHOLD = 8_192;
+   /**
+   * Shared matmul parallel threshold constant.
+   */
+   private static final int MATMUL_PARALLEL_THRESHOLD = 32_768;
+   /**
+   * Shared layernorm parallel threshold constant.
+   */
+   private static final int LAYERNORM_PARALLEL_THRESHOLD = 8_192;
   /**
    * Utility holder; instantiation is not allowed.
    */
   private MathOps() {}
 
-  private static boolean useParallel(int workItems, int threshold) {
+   /**
+   * Handles use parallel.
+   * @param workItems work items
+   * @param threshold threshold
+   * @return computed value
+   */
+   private static boolean useParallel(int workItems, int threshold) {
     int cores = Runtime.getRuntime().availableProcessors();
     return cores > 1 && workItems >= threshold;
   }
 
-  private static boolean useMatmulParallel(int m, int n) {
+   /**
+   * Handles use matmul parallel.
+   * @param m m
+   * @param n n
+   * @return computed value
+   */
+   private static boolean useMatmulParallel(int m, int n) {
     int cores = Runtime.getRuntime().availableProcessors();
     if (cores <= 1) {
       return false;
@@ -186,7 +204,16 @@ public final class MathOps {
     return out;
   }
 
-  private static void matmulNaive(float[] aData, float[] bData, float[] outData, int m, int n, int k) {
+   /**
+   * Handles matmul naive.
+   * @param aData a data
+   * @param bData b data
+   * @param outData out data
+   * @param m m
+   * @param n n
+   * @param k k
+   */
+   private static void matmulNaive(float[] aData, float[] bData, float[] outData, int m, int n, int k) {
     int unroll = k - (k % 4);
     for (int i = 0; i < m; i++) {
       int aOffset = i * k;
@@ -209,7 +236,16 @@ public final class MathOps {
     }
   }
 
-  private static void matmulParallelRows(float[] aData, float[] bData, float[] outData, int m, int n, int k) {
+   /**
+   * Handles matmul parallel rows.
+   * @param aData a data
+   * @param bData b data
+   * @param outData out data
+   * @param m m
+   * @param n n
+   * @param k k
+   */
+   private static void matmulParallelRows(float[] aData, float[] bData, float[] outData, int m, int n, int k) {
     int unroll = k - (k % 4);
     IntStream.range(0, m).parallel().forEach(i -> {
       int aOffset = i * k;

@@ -137,7 +137,7 @@ Run a tactics/EPD suite and score:
 
 #### `dump-validate`
 
-Validate dump files (`*.puzzles.json`, `*.record`, Stack dumps):
+Validate dump files (`*.puzzles.json`, `*.record`):
 
 - JSON parse, required keys, FEN validity
 - counts, schema version

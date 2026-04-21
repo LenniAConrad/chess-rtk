@@ -155,9 +155,18 @@ public class Output {
 	 * Used for storing whether the evaluation is an exact score or a bound.
 	 */
 	public enum Bound {
-		NONE,
-		LOWER,
-		UPPER
+		 /**
+		 * Shared none constant.
+		 */
+		 NONE,
+		 /**
+		 * Shared lower constant.
+		 */
+		 LOWER,
+		 /**
+		 * Shared upper constant.
+		 */
+		 UPPER
 	}
 
 	/**

@@ -32,6 +32,7 @@ import java.util.List;
 import java.util.Optional;
 
 import application.Config;
+import application.console.Bar;
 import chess.core.Move;
 import chess.core.Position;
 import chess.uci.Analysis;
@@ -72,29 +73,41 @@ public final class BestMoveCommand {
 	 * @param noWdl     disable WDL output
 	 */
 	private record BestMoveOptions(
-			boolean verbose,
-			boolean san,
-			boolean both,
-			Path input,
-			String fen,
-			String protoPath,
-			long nodesCap,
-			long durMs,
-			Integer multipv,
-			Integer threads,
-			Integer hash,
-			boolean wdl,
-			boolean noWdl) {
+						boolean verbose,
+						boolean san,
+						boolean both,
+						Path input,
+						String fen,
+						String protoPath,
+						long nodesCap,
+						long durMs,
+						Integer multipv,
+						Integer threads,
+						Integer hash,
+						boolean wdl,
+						boolean noWdl) {
 	}
 
 	/**
 	 * Supported output formats for best-move requests.
 	 */
 	private enum BestMoveFormat {
-		DEFAULT,
-		UCI,
-		SAN,
-		BOTH
+		 /**
+		 * Shared default constant.
+		 */
+		 DEFAULT,
+		 /**
+		 * Shared uci constant.
+		 */
+		 UCI,
+		 /**
+		 * Shared san constant.
+		 */
+		 SAN,
+		 /**
+		 * Shared both constant.
+		 */
+		 BOTH
 	}
 
 	/**
@@ -205,17 +218,26 @@ public final class BestMoveCommand {
 
 		try (Engine engine = new Engine(protocol)) {
 			configureEngine(cmdLabel, engine, opts.threads(), opts.hash(), opts.multipv(), wdlFlag);
-			for (String entry : fens) {
-				Position pos = parsePositionOrNull(entry, cmdLabel, opts.verbose());
-				if (pos == null) {
-					continue;
+			Bar bar = positionProgressBar(fens, cmdLabel);
+			try {
+				for (String entry : fens) {
+					try {
+						Position pos = parsePositionOrNull(entry, cmdLabel, opts.verbose());
+						if (pos == null) {
+							continue;
+						}
+						Analysis analysis = analysePositionOrExit(engine, pos, opts.nodesCap(), opts.durMs(), cmdLabel,
+								opts.verbose());
+						if (analysis == null) {
+							return;
+						}
+						printBestMove(entry, pos, analysis, opts.input(), opts.san(), opts.both());
+					} finally {
+						step(bar);
+					}
 				}
-				Analysis analysis = analysePositionOrExit(engine, pos, opts.nodesCap(), opts.durMs(), cmdLabel,
-						opts.verbose());
-				if (analysis == null) {
-					return;
-				}
-				printBestMove(entry, pos, analysis, opts.input(), opts.san(), opts.both());
+			} finally {
+				finish(bar);
 			}
 		} catch (Exception ex) {
 			System.err.println(cmdLabel + ": failed to initialize engine: " + ex.getMessage());
@@ -223,6 +245,36 @@ public final class BestMoveCommand {
 				ex.printStackTrace(System.err);
 			}
 			System.exit(2);
+		}
+	}
+
+	/**
+	 * Handles position progress bar.
+	 * @param fens fens
+	 * @param label label
+	 * @return computed value
+	 */
+	private static Bar positionProgressBar(List<String> fens, String label) {
+		return fens != null && fens.size() > 1 ? new Bar(fens.size(), label, false, System.err) : null;
+	}
+
+	/**
+	 * Handles step.
+	 * @param bar bar
+	 */
+	private static void step(Bar bar) {
+		if (bar != null) {
+			bar.step();
+		}
+	}
+
+	/**
+	 * Handles finish.
+	 * @param bar bar
+	 */
+	private static void finish(Bar bar) {
+		if (bar != null) {
+			bar.finish();
 		}
 	}
 

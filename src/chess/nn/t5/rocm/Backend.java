@@ -20,7 +20,11 @@ public final class Backend implements NativeGenerationBackend {
    */
   private final long handle;
 
-  private Backend(long handle) {
+   /**
+   * Creates a new backend instance.
+   * @param handle handle
+   */
+   private Backend(long handle) {
     this.handle = handle;
   }
 

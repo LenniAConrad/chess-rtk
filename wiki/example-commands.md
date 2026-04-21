@@ -34,13 +34,24 @@ Examples assume you installed the launcher (`crtk`). If you run from classes, re
 ## Export datasets (NumPy)
 
 - `crtk record-to-dataset -i dump/fens.puzzles.json -o training/pytorch/data/puzzles` — writes `puzzles.features.npy` + `puzzles.labels.npy`.
-- `crtk stack-to-dataset -i Stack-0001.json -o training/pytorch/data/stack_0001` — same tensor format from Stack dumps.
+- `crtk record-to-classifier -i dump/fens.puzzles.json -i dump/fens.nonpuzzles.json -o training/classifier/fens` — writes 21-plane classifier inputs + 0/1 labels.
+- `crtk record-to-training-jsonl -i dump/fens.puzzles.json -i dump/fens.nonpuzzles.json -o training/fens.training.jsonl` — writes coarse/fine JSONL labels.
+- `crtk record-analysis-delta -i dump/fens.puzzles.json -o dump/fens.analysis-delta.jsonl` — writes evaluation stability metrics.
+
+## Publish diagrams and books
+
+- `crtk chess-pdf --fen "<FEN>" -o dump/position.pdf` — export one diagram to PDF.
+- `crtk chess-pdf -i seeds.txt -o dump/sheet.pdf --title "Training Sheet"` — export a FEN list to a diagram sheet PDF.
+- `crtk chess-pdf --pgn games.pgn -o dump/games.pdf --page-size a5 --diagrams-per-row 1` — export PGN mainlines to PDF.
+- `crtk chess-book -i books/puzzles.toml -o dist/puzzles.pdf` — render a book manifest to a native vector PDF.
+- `crtk chess-book-cover -i books/puzzles.toml -o dist/puzzles-cover.pdf --binding paperback --interior white-bw --pages 120` — render a matching paperback cover.
 
 ## Display a position (GUI)
 
 - `crtk display --fen "r1bqk2r/ppppbppp/3n4/4R3/8/8/PPPP1PPP/RNBQ1BK1 b kq - 2 8" --special-arrows --arrow e5e1 --legal d6` — open a window.
 - `crtk display --fen "<FEN>" --arrow e2e4 --circle e4 --legal g1` — overlays for quick inspection.
 - `crtk display --fen "<FEN>" --ablation --show-backend` — show per-piece ablation (uses LC0 if available; otherwise classical).
+- `crtk gui-web --fen "r1bqk2r/ppppbppp/3n4/4R3/8/8/PPPP1PPP/RNBQ1BK1 b kq - 2 8" --dark` — launch the chess-web-inspired desktop GUI.
 
 ## Analyze positions / best move
 
@@ -55,6 +66,10 @@ Examples assume you installed the launcher (`crtk`). If you run from classes, re
 ## Tags / moves
 
 - `crtk tags --fen "<FEN>"` — emit tags as JSON.
+- `crtk tags --pgn games.pgn --delta --mainline` — emit per-move tag deltas as JSONL.
+- `crtk puzzle-tags --fen "<FEN>" --multipv 3 --pv-plies 12` — tag puzzle PV positions with per-move deltas.
+- `crtk tag-text --fen "<FEN>" --model models/t5.bin --include-fen` — summarize position tags with T5.
+- `crtk puzzle-text --fen "<FEN>" --model models/t5.bin --include-fen` — summarize a puzzle PV line with T5.
 - `crtk moves --fen "<FEN>" --both` — list legal moves (UCI + SAN).
 - `crtk moves-uci --fen "<FEN>"` — list legal moves (UCI shortcut).
 - `crtk moves-san --fen "<FEN>"` — list legal moves (SAN shortcut).

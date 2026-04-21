@@ -25,6 +25,9 @@ import application.gui.model.HistoryEntry;
   * @author Lennart A. Conrad
  */
 public final class TreeCellRenderer extends JPanel implements javax.swing.ListCellRenderer<HistoryEntry> {
+
+	@java.io.Serial
+	private static final long serialVersionUID = 1L;
 	/**
 	 * Owner window supplying theme details.
 	 */

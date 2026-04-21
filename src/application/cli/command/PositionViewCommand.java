@@ -214,24 +214,24 @@ public final class PositionViewCommand {
 	 * @param legal          legal move overlays
 	 */
 	private record DisplayOptions(
-			boolean verbose,
-			String fen,
-			boolean showBorder,
-			boolean whiteDown,
-			boolean light,
-			boolean showBackend,
-			boolean ablation,
-			int size,
-			int width,
-			int height,
-			double zoom,
-			List<String> arrows,
-			boolean specialArrows,
-			boolean details,
-			boolean detailsOutside,
-			boolean shadow,
-			List<String> circles,
-			List<String> legal) {
+						boolean verbose,
+						String fen,
+						boolean showBorder,
+						boolean whiteDown,
+						boolean light,
+						boolean showBackend,
+						boolean ablation,
+						int size,
+						int width,
+						int height,
+						double zoom,
+						List<String> arrows,
+						boolean specialArrows,
+						boolean details,
+						boolean detailsOutside,
+						boolean shadow,
+						List<String> circles,
+						List<String> legal) {
 	}
 
 	/**
@@ -257,24 +257,24 @@ public final class PositionViewCommand {
 	 * @param format         image format override
 	 */
 	private record RenderImageOptions(
-			boolean verbose,
-			String fen,
-			boolean showBorder,
-			boolean whiteDown,
-			boolean showBackend,
-			boolean ablation,
-			int size,
-			int width,
-			int height,
-			List<String> arrows,
-			boolean specialArrows,
-			boolean details,
-			boolean detailsOutside,
-			boolean shadow,
-			List<String> circles,
-			List<String> legal,
-			Path output,
-			String format) {
+						boolean verbose,
+						String fen,
+						boolean showBorder,
+						boolean whiteDown,
+						boolean showBackend,
+						boolean ablation,
+						int size,
+						int width,
+						int height,
+						List<String> arrows,
+						boolean specialArrows,
+						boolean details,
+						boolean detailsOutside,
+						boolean shadow,
+						List<String> circles,
+						List<String> legal,
+						Path output,
+						String format) {
 	}
 
 	/**
@@ -520,37 +520,75 @@ public final class PositionViewCommand {
 	private static Display.ImageSource displaySource(Render render) {
 		return new Display.ImageSource() {
 
-			@Override
+			 /**
+			 * Handles width.
+			 * @return computed value
+			 */
+			 @Override
 			public int width() {
 				return render.renderedWidth();
 			}
 
-			@Override
+			 /**
+			 * Handles height.
+			 * @return computed value
+			 */
+			 @Override
 			public int height() {
 				return render.renderedHeight();
 			}
 
-			@Override
+			 /**
+			 * Handles render.
+			 * @param width width
+			 * @param height height
+			 * @return computed value
+			 */
+			 @Override
 			public BufferedImage render(int width, int height) {
 				return render.render(width, height);
 			}
 
-			@Override
+			 /**
+			 * Handles render region immediately.
+			 * @return computed value
+			 */
+			 @Override
 			public boolean renderRegionImmediately() {
 				return true;
 			}
 
-			@Override
+			 /**
+			 * Handles supports svg export.
+			 * @return computed value
+			 */
+			 @Override
 			public boolean supportsSvgExport() {
 				return true;
 			}
 
-			@Override
+			 /**
+			 * Handles render svg.
+			 * @param width width
+			 * @param height height
+			 * @return computed value
+			 */
+			 @Override
 			public String renderSvg(int width, int height) {
 				return render.renderSvg(width, height);
 			}
 
-			@Override
+			 /**
+			 * Handles render region.
+			 * @param scaledWidth scaled width
+			 * @param scaledHeight scaled height
+			 * @param sourceX source x
+			 * @param sourceY source y
+			 * @param width width
+			 * @param height height
+			 * @return computed value
+			 */
+			 @Override
 			public BufferedImage renderRegion(int scaledWidth, int scaledHeight, int sourceX, int sourceY,
 					int width, int height) {
 				return render.renderViewport(scaledWidth, scaledHeight, sourceX, sourceY, width, height);

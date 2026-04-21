@@ -146,7 +146,11 @@ public final class Evaluator implements AutoCloseable {
         this.terminalAwareClassical = terminalAwareClassical;
     }
 
-    private static Path resolveDefaultWeights() {
+     /**
+     * Handles resolve default weights.
+     * @return computed value
+     */
+     private static Path resolveDefaultWeights() {
         String configured = System.getProperty(PROP_LC0_WEIGHTS);
         if (configured == null || configured.isBlank()) {
             return DEFAULT_WEIGHTS;
@@ -449,7 +453,7 @@ public final class Evaluator implements AutoCloseable {
      * @param signature position signature used as cache key
      * @param result evaluation result to cache
      */
-    private record CacheEntry(long signature, Result result) {
+    private record CacheEntry(    long signature,     Result result) {
 
         /**
          * Validates the cache entry inputs for a recorded evaluation.

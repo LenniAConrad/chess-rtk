@@ -724,6 +724,9 @@ final class BoardEditorShared {
      * @author Lennart A. Conrad
      */
     static final class PaletteButton extends JButton {
+
+		@java.io.Serial
+		private static final long serialVersionUID = 1L;
         /**
          * piece field.
          */
@@ -789,6 +792,9 @@ final class BoardEditorShared {
      * @author Lennart A. Conrad
      */
     static final class EditorBoardPanel extends JPanel {
+
+		@java.io.Serial
+		private static final long serialVersionUID = 1L;
         /**
          * owner field.
          */

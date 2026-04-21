@@ -36,6 +36,7 @@ import java.util.Optional;
 import application.Config;
 import application.cli.EngineOps;
 import application.cli.PgnOps;
+import application.console.Bar;
 import chess.core.Move;
 import chess.core.MoveList;
 import chess.core.Position;
@@ -61,11 +62,18 @@ import utility.Json;
  */
 public final class TagsCommand {
 
-    private TagsCommand() {
+     /**
+     * Creates a new tags command instance.
+     */
+     private TagsCommand() {
         // utility
     }
 
-    public static void runTags(Argv a) {
+     /**
+     * Runs the tags workflow.
+     * @param a a
+     */
+     public static void runTags(Argv a) {
         TagsOptions opts = parseOptions(a);
         TagsInputs inputs = loadInputs(opts);
         if (opts.flags.analyze) {
@@ -75,7 +83,12 @@ public final class TagsCommand {
         }
     }
 
-    private static TagsOptions parseOptions(Argv a) {
+     /**
+     * Parses the options.
+     * @param a a
+     * @return computed value
+     */
+     private static TagsOptions parseOptions(Argv a) {
         boolean verbose = a.flag(OPT_VERBOSE, OPT_VERBOSE_SHORT);
         Path input = a.path(OPT_INPUT, OPT_INPUT_SHORT);
         Path pgn = a.path(OPT_PGN);
@@ -126,7 +139,12 @@ public final class TagsCommand {
         return new TagsOptions(flags, protoPath, limits, engineConfig, wdlConfig, inputConfig);
     }
 
-    private static TagsInputs loadInputs(TagsOptions opts) {
+     /**
+     * Handles load inputs.
+     * @param opts opts
+     * @return computed value
+     */
+     private static TagsInputs loadInputs(TagsOptions opts) {
         if (opts.inputConfig.pgn != null) {
             return loadPgnInputs(opts);
         }
@@ -138,7 +156,12 @@ public final class TagsCommand {
         return loadSingleFenInput(opts);
     }
 
-    private static TagsInputs loadPgnInputs(TagsOptions opts) {
+     /**
+     * Handles load pgn inputs.
+     * @param opts opts
+     * @return computed value
+     */
+     private static TagsInputs loadPgnInputs(TagsOptions opts) {
         List<Game> games = PgnOps.readPgnOrExit(opts.inputConfig.pgn, opts.flags.verbose, CMD_TAGS);
         List<Record> records = new ArrayList<>();
         int gameIndex = 0;
@@ -149,14 +172,26 @@ public final class TagsCommand {
         return new TagsInputs(records);
     }
 
-    private static boolean includePgnSidelines(TagsOptions.Flags flags) {
+     /**
+     * Handles include pgn sidelines.
+     * @param flags flags
+     * @return computed value
+     */
+     private static boolean includePgnSidelines(TagsOptions.Flags flags) {
         if (flags.mainline) {
             return false;
         }
         return flags.sidelines;
     }
 
-    private static void addGameRecords(List<Record> records, Game game, int gameIndex, boolean includeSidelines) {
+     /**
+     * Handles add game records.
+     * @param records records
+     * @param game game
+     * @param gameIndex game index
+     * @param includeSidelines include sidelines
+     */
+     private static void addGameRecords(List<Record> records, Game game, int gameIndex, boolean includeSidelines) {
         List<Record> extracted = includeSidelines
                 ? PgnOps.extractRecordsWithVariations(game)
                 : PgnOps.extractRecordsMainline(game);
@@ -166,7 +201,12 @@ public final class TagsCommand {
         }
     }
 
-    private static TagsInputs loadRecordInputs(TagsOptions opts) {
+     /**
+     * Handles load record inputs.
+     * @param opts opts
+     * @return computed value
+     */
+     private static TagsInputs loadRecordInputs(TagsOptions opts) {
         List<Record> records = readInputRecordsOrExit(opts);
         if (opts.flags.sequence) {
             applySequenceParents(records);
@@ -174,7 +214,12 @@ public final class TagsCommand {
         return new TagsInputs(records);
     }
 
-    private static List<Record> readInputRecordsOrExit(TagsOptions opts) {
+     /**
+     * Reads the input records or exit.
+     * @param opts opts
+     * @return computed value
+     */
+     private static List<Record> readInputRecordsOrExit(TagsOptions opts) {
         try {
             return Reader.readPositionRecords(opts.inputConfig.input);
         } catch (Exception ex) {
@@ -187,7 +232,11 @@ public final class TagsCommand {
         }
     }
 
-    private static void applySequenceParents(List<Record> records) {
+     /**
+     * Handles apply sequence parents.
+     * @param records records
+     */
+     private static void applySequenceParents(List<Record> records) {
         Position prev = null;
         for (Record rec : records) {
             if (rec.getParent() == null && prev != null) {
@@ -198,7 +247,12 @@ public final class TagsCommand {
         }
     }
 
-    private static TagsInputs loadSingleFenInput(TagsOptions opts) {
+     /**
+     * Handles load single fen input.
+     * @param opts opts
+     * @return computed value
+     */
+     private static TagsInputs loadSingleFenInput(TagsOptions opts) {
         if (opts.inputConfig.fen == null || opts.inputConfig.fen.isBlank()) {
             System.err.println(CMD_TAGS + " requires a FEN (use --fen or --input)");
             System.exit(2);
@@ -209,31 +263,50 @@ public final class TagsCommand {
         return new TagsInputs(single);
     }
 
-    private static void runWithoutAnalysis(TagsOptions opts, TagsInputs inputs) {
+     /**
+     * Runs the without analysis workflow.
+     * @param opts opts
+     * @param inputs inputs
+     */
+     private static void runWithoutAnalysis(TagsOptions opts, TagsInputs inputs) {
         Map<String, List<String>> cache = new HashMap<>();
         long index = 0;
         boolean includeTagFen = opts.flags.includeFen && !opts.flags.delta;
-        for (Record rec : inputs.records) {
-            Position pos = rec.getPosition();
-            if (pos == null) {
-                continue;
-            }
-            List<String> tags = tagsFor(pos, null, cache, includeTagFen);
-            if (opts.flags.delta) {
-                Delta delta = null;
-                Position parent = rec.getParent();
-                if (parent != null) {
-                    List<String> parentTags = tagsFor(parent, null, cache, false);
-                    delta = Delta.diff(parentTags, tags);
+        Bar bar = recordProgressBar(inputs, CMD_TAGS);
+        try {
+            for (Record rec : inputs.records) {
+                try {
+                    Position pos = rec.getPosition();
+                    if (pos == null) {
+                        continue;
+                    }
+                    List<String> tags = tagsFor(pos, null, cache, includeTagFen);
+                    if (opts.flags.delta) {
+                        Delta delta = null;
+                        Position parent = rec.getParent();
+                        if (parent != null) {
+                            List<String> parentTags = tagsFor(parent, null, cache, false);
+                            delta = Delta.diff(parentTags, tags);
+                        }
+                        printDeltaJson(index++, rec, tags, delta);
+                    } else {
+                        System.out.println(Json.stringArray(tags.toArray(new String[0])));
+                    }
+                } finally {
+                    step(bar);
                 }
-                printDeltaJson(index++, rec, tags, delta);
-            } else {
-                System.out.println(Json.stringArray(tags.toArray(new String[0])));
             }
+        } finally {
+            finish(bar);
         }
     }
 
-    private static void runWithAnalysis(TagsOptions opts, TagsInputs inputs) {
+     /**
+     * Runs the with analysis workflow.
+     * @param opts opts
+     * @param inputs inputs
+     */
+     private static void runWithAnalysis(TagsOptions opts, TagsInputs inputs) {
         Protocol protocol = EngineSupport.loadProtocolOrExit(opts.protoPath, opts.flags.verbose);
         Optional<Boolean> wdlFlag = resolveWdlFlag(opts.wdlConfig.wdl, opts.wdlConfig.noWdl);
         try (Engine engine = new Engine(protocol)) {
@@ -242,8 +315,17 @@ public final class TagsCommand {
             Map<String, TagEntry> cache = new HashMap<>();
             long index = 0;
             boolean includeTagFen = opts.flags.includeFen && !opts.flags.delta;
-            for (Record rec : inputs.records) {
-                index = processAnalyzedRecord(rec, index, engine, opts, cache, includeTagFen);
+            Bar bar = recordProgressBar(inputs, CMD_TAGS);
+            try {
+                for (Record rec : inputs.records) {
+                    try {
+                        index = processAnalyzedRecord(rec, index, engine, opts, cache, includeTagFen);
+                    } finally {
+                        step(bar);
+                    }
+                }
+            } finally {
+                finish(bar);
             }
         } catch (Exception ex) {
             System.err.println(CMD_TAGS + ": failed to initialize engine: " + ex.getMessage());
@@ -254,7 +336,48 @@ public final class TagsCommand {
         }
     }
 
-    private static long processAnalyzedRecord(Record rec, long index, Engine engine, TagsOptions opts,
+     /**
+     * Handles record progress bar.
+     * @param inputs inputs
+     * @param label label
+     * @return computed value
+     */
+     private static Bar recordProgressBar(TagsInputs inputs, String label) {
+        int size = inputs == null || inputs.records == null ? 0 : inputs.records.size();
+        return size > 1 ? new Bar(size, label, false, System.err) : null;
+    }
+
+     /**
+     * Handles step.
+     * @param bar bar
+     */
+     private static void step(Bar bar) {
+        if (bar != null) {
+            bar.step();
+        }
+    }
+
+     /**
+     * Handles finish.
+     * @param bar bar
+     */
+     private static void finish(Bar bar) {
+        if (bar != null) {
+            bar.finish();
+        }
+    }
+
+     /**
+     * Handles process analyzed record.
+     * @param rec rec
+     * @param index index
+     * @param engine engine
+     * @param opts opts
+     * @param cache cache
+     * @param includeTagFen include tag fen
+     * @return computed value
+     */
+     private static long processAnalyzedRecord(Record rec, long index, Engine engine, TagsOptions opts,
             Map<String, TagEntry> cache, boolean includeTagFen) {
         Position pos = rec.getPosition();
         if (pos == null) {
@@ -269,7 +392,16 @@ public final class TagsCommand {
         return index;
     }
 
-    private static Delta deltaFor(Record rec, List<String> tags, Engine engine, TagsOptions opts,
+     /**
+     * Handles delta for.
+     * @param rec rec
+     * @param tags tags
+     * @param engine engine
+     * @param opts opts
+     * @param cache cache
+     * @return computed value
+     */
+     private static Delta deltaFor(Record rec, List<String> tags, Engine engine, TagsOptions opts,
             Map<String, TagEntry> cache) {
         Position parent = rec.getParent();
         if (parent == null) {
@@ -279,7 +411,16 @@ public final class TagsCommand {
         return Delta.diff(parentTags, tags);
     }
 
-    private static List<String> tagsFor(Position pos, Engine engine, TagsOptions opts, Map<String, TagEntry> cache,
+     /**
+     * Handles tags for.
+     * @param pos pos
+     * @param engine engine
+     * @param opts opts
+     * @param cache cache
+     * @param includeFen include fen
+     * @return computed value
+     */
+     private static List<String> tagsFor(Position pos, Engine engine, TagsOptions opts, Map<String, TagEntry> cache,
             boolean includeFen) {
         String fen = pos.toString();
         TagEntry cached = cache.get(fen);
@@ -310,7 +451,15 @@ public final class TagsCommand {
         return includeFen ? withFen(tags, fen) : tags;
     }
 
-    private static List<String> tagsFor(Position pos, Analysis analysis, Map<String, List<String>> cache,
+     /**
+     * Handles tags for.
+     * @param pos pos
+     * @param analysis analysis
+     * @param cache cache
+     * @param includeFen include fen
+     * @return computed value
+     */
+     private static List<String> tagsFor(Position pos, Analysis analysis, Map<String, List<String>> cache,
             boolean includeFen) {
         String fen = pos.toString();
         List<String> cached = cache.get(fen);
@@ -322,14 +471,24 @@ public final class TagsCommand {
         return includeFen ? withFen(tags, fen) : tags;
     }
 
-    private static List<String> withFen(List<String> tags, String fen) {
+     /**
+     * Handles with fen.
+     * @param tags tags
+     * @param fen fen
+     * @return computed value
+     */
+     private static List<String> withFen(List<String> tags, String fen) {
         List<String> withFen = new ArrayList<>(tags.size() + 1);
         withFen.add("META: fen=\"" + fen.replace("\"", "\\\"") + "\"");
         withFen.addAll(tags);
         return withFen;
     }
 
-    private static void overrideInitiative(List<String> tags) {
+     /**
+     * Handles override initiative.
+     * @param tags tags
+     */
+     private static void overrideInitiative(List<String> tags) {
         boolean threatWhite = false;
         boolean threatBlack = false;
         for (String tag : tags) {
@@ -352,7 +511,13 @@ public final class TagsCommand {
         tags.add("INITIATIVE: side=" + side);
     }
 
-    private static String initiativeSide(boolean threatWhite, boolean threatBlack) {
+     /**
+     * Handles initiative side.
+     * @param threatWhite threat white
+     * @param threatBlack threat black
+     * @return computed value
+     */
+     private static String initiativeSide(boolean threatWhite, boolean threatBlack) {
         if (threatWhite && !threatBlack) {
             return "white";
         }
@@ -362,7 +527,14 @@ public final class TagsCommand {
         return "equal";
     }
 
-    private static void printDeltaJson(long index, Record rec, List<String> tags, Delta delta) {
+     /**
+     * Handles print delta json.
+     * @param index index
+     * @param rec rec
+     * @param tags tags
+     * @param delta delta
+     */
+     private static void printDeltaJson(long index, Record rec, List<String> tags, Delta delta) {
         Position parent = rec.getParent();
         Position pos = rec.getPosition();
         MoveInfo moveInfo = (parent != null && pos != null) ? inferMove(parent, pos) : null;
@@ -379,7 +551,13 @@ public final class TagsCommand {
         System.out.println(sb.append('}'));
     }
 
-    private static MoveInfo inferMove(Position parent, Position child) {
+     /**
+     * Handles infer move.
+     * @param parent parent
+     * @param child child
+     * @return computed value
+     */
+     private static MoveInfo inferMove(Position parent, Position child) {
         short move = inferMoveCode(parent, child);
         if (move == Move.NO_MOVE) {
             return null;
@@ -393,7 +571,13 @@ public final class TagsCommand {
         return new MoveInfo(san, Move.toString(move));
     }
 
-    private static short inferMoveCode(Position from, Position to) {
+     /**
+     * Handles infer move code.
+     * @param from from
+     * @param to to
+     * @return computed value
+     */
+     private static short inferMoveCode(Position from, Position to) {
         long target = to.signatureCore();
         MoveList moves = from.getMoves();
         short found = Move.NO_MOVE;
@@ -410,7 +594,17 @@ public final class TagsCommand {
         return found;
     }
 
-    private static List<String> threatTags(Position base, Analysis baseAnalysis, Engine engine, long nodesCap,
+     /**
+     * Handles threat tags.
+     * @param base base
+     * @param baseAnalysis base analysis
+     * @param engine engine
+     * @param nodesCap nodes cap
+     * @param durMs dur ms
+     * @param verbose verbose
+     * @return computed value
+     */
+     private static List<String> threatTags(Position base, Analysis baseAnalysis, Engine engine, long nodesCap,
             long durMs, boolean verbose) {
         if (base.inCheck()) {
             return List.of();
@@ -454,7 +648,12 @@ public final class TagsCommand {
         return List.of(line);
     }
 
-    private static boolean isThreatStrong(Evaluation eval) {
+     /**
+     * Returns whether threat strong.
+     * @param eval eval
+     * @return true when threat strong
+     */
+     private static boolean isThreatStrong(Evaluation eval) {
         if (eval == null) {
             return false;
         }
@@ -464,7 +663,15 @@ public final class TagsCommand {
         return eval.getValue() >= Config.getThreatMinCp();
     }
 
-    private static boolean isEqualizingThreat(Position base, Analysis baseAnalysis, Position threatPos,
+     /**
+     * Returns whether equalizing threat.
+     * @param base base
+     * @param baseAnalysis base analysis
+     * @param threatPos threat pos
+     * @param threatAnalysis threat analysis
+     * @return true when equalizing threat
+     */
+     private static boolean isEqualizingThreat(Position base, Analysis baseAnalysis, Position threatPos,
             Analysis threatAnalysis) {
         if (baseAnalysis == null || baseAnalysis.isEmpty()) {
             return false;
@@ -492,7 +699,12 @@ public final class TagsCommand {
         return Math.abs(threatWhiteCp) < Math.abs(baseWhiteCp);
     }
 
-    private static ThreatInfo classifyThreatMove(String move) {
+     /**
+     * Handles classify threat move.
+     * @param move move
+     * @return computed value
+     */
+     private static ThreatInfo classifyThreatMove(String move) {
         if (move.contains("#")) {
             return new ThreatInfo("immediate", "mate");
         }
@@ -505,7 +717,13 @@ public final class TagsCommand {
         return new ThreatInfo("latent", "tactic");
     }
 
-    private static Integer evalToWhiteCp(Analysis analysis, boolean whiteToMove) {
+     /**
+     * Handles eval to white cp.
+     * @param analysis analysis
+     * @param whiteToMove white to move
+     * @return computed value
+     */
+     private static Integer evalToWhiteCp(Analysis analysis, boolean whiteToMove) {
         if (analysis == null) {
             return null;
         }
@@ -521,56 +739,126 @@ public final class TagsCommand {
         return whiteToMove ? value : -value;
     }
 
-    private static int mateAsCp(int mateValue) {
+     /**
+     * Handles mate as cp.
+     * @param mateValue mate value
+     * @return computed value
+     */
+     private static int mateAsCp(int mateValue) {
         if (mateValue == 0) {
             return 0;
         }
         return (mateValue > 0 ? 1 : -1) * 100_000;
     }
 
-    private static void appendField(StringBuilder sb, String name, String value) {
+     /**
+     * Handles append field.
+     * @param sb sb
+     * @param name name
+     * @param value value
+     */
+     private static void appendField(StringBuilder sb, String name, String value) {
         if (sb.length() > 1) {
             sb.append(',');
         }
         sb.append('"').append(name).append("\":").append(value);
     }
 
-    private static String jsonString(String value) {
+     /**
+     * Handles json string.
+     * @param value value
+     * @return computed value
+     */
+     private static String jsonString(String value) {
         if (value == null) {
             return "null";
         }
         return "\"" + Json.esc(value) + "\"";
     }
 
-    private static final class TagsInputs {
-        private final List<Record> records;
+     /**
+     * Provides tags inputs behavior.
+     */
+     private static final class TagsInputs {
+         /**
+         * Stores the records.
+         */
+         private final List<Record> records;
 
-        private TagsInputs(List<Record> records) {
+         /**
+         * Creates a new tags inputs instance.
+         * @param records records
+         */
+         private TagsInputs(List<Record> records) {
             this.records = records;
         }
     }
 
-    private static final class TagEntry {
-        private final List<String> tags;
-        @SuppressWarnings("unused")
+     /**
+     * Provides tag entry behavior.
+     */
+     private static final class TagEntry {
+         /**
+         * Stores the tags.
+         */
+         private final List<String> tags;
+         /**
+         * Stores the analysis.
+         */
+         @SuppressWarnings("unused")
         private final Analysis analysis;
 
-        private TagEntry(List<String> tags, Analysis analysis) {
+         /**
+         * Creates a new tag entry instance.
+         * @param tags tags
+         * @param analysis analysis
+         */
+         private TagEntry(List<String> tags, Analysis analysis) {
             this.tags = tags;
             this.analysis = analysis;
         }
     }
 
-    private static final class TagsOptions {
+     /**
+     * Provides tags options behavior.
+     */
+     private static final class TagsOptions {
 
-        private final Flags flags;
-        private final String protoPath;
-        private final Limits limits;
-        private final EngineConfig engineConfig;
-        private final WdlConfig wdlConfig;
-        private final InputConfig inputConfig;
+         /**
+         * Stores the flags.
+         */
+         private final Flags flags;
+         /**
+         * Stores the proto path.
+         */
+         private final String protoPath;
+         /**
+         * Stores the limits.
+         */
+         private final Limits limits;
+         /**
+         * Stores the engine config.
+         */
+         private final EngineConfig engineConfig;
+         /**
+         * Stores the wdl config.
+         */
+         private final WdlConfig wdlConfig;
+         /**
+         * Stores the input config.
+         */
+         private final InputConfig inputConfig;
 
-        private TagsOptions(Flags flags, String protoPath, Limits limits, EngineConfig engineConfig,
+         /**
+         * Creates a new tags options instance.
+         * @param flags flags
+         * @param protoPath proto path
+         * @param limits limits
+         * @param engineConfig engine config
+         * @param wdlConfig wdl config
+         * @param inputConfig input config
+         */
+         private TagsOptions(Flags flags, String protoPath, Limits limits, EngineConfig engineConfig,
                 WdlConfig wdlConfig, InputConfig inputConfig) {
             this.flags = flags;
             this.protoPath = protoPath;
@@ -580,16 +868,50 @@ public final class TagsCommand {
             this.inputConfig = inputConfig;
         }
 
-        private static final class Flags {
-            private final boolean verbose;
-            private final boolean analyze;
-            private final boolean sequence;
-            private final boolean delta;
-            private final boolean includeFen;
-            private final boolean mainline;
-            private final boolean sidelines;
+         /**
+         * Provides flags behavior.
+         */
+         private static final class Flags {
+             /**
+             * Stores the verbose.
+             */
+             private final boolean verbose;
+             /**
+             * Stores the analyze.
+             */
+             private final boolean analyze;
+             /**
+             * Stores the sequence.
+             */
+             private final boolean sequence;
+             /**
+             * Stores the delta.
+             */
+             private final boolean delta;
+             /**
+             * Stores the include fen.
+             */
+             private final boolean includeFen;
+             /**
+             * Stores the mainline.
+             */
+             private final boolean mainline;
+             /**
+             * Stores the sidelines.
+             */
+             private final boolean sidelines;
 
-            private Flags(boolean verbose, boolean analyze, boolean sequence, boolean delta, boolean includeFen,
+             /**
+             * Creates a new flags instance.
+             * @param verbose verbose
+             * @param analyze analyze
+             * @param sequence sequence
+             * @param delta delta
+             * @param includeFen include fen
+             * @param mainline mainline
+             * @param sidelines sidelines
+             */
+             private Flags(boolean verbose, boolean analyze, boolean sequence, boolean delta, boolean includeFen,
                     boolean mainline, boolean sidelines) {
                 this.verbose = verbose;
                 this.analyze = analyze;
@@ -601,44 +923,108 @@ public final class TagsCommand {
             }
         }
 
-        private static final class Limits {
-            private final long nodesCap;
-            private final long durMs;
+         /**
+         * Provides limits behavior.
+         */
+         private static final class Limits {
+             /**
+             * Stores the nodes cap.
+             */
+             private final long nodesCap;
+             /**
+             * Stores the dur ms.
+             */
+             private final long durMs;
 
-            private Limits(long nodesCap, long durMs) {
+             /**
+             * Creates a new limits instance.
+             * @param nodesCap nodes cap
+             * @param durMs dur ms
+             */
+             private Limits(long nodesCap, long durMs) {
                 this.nodesCap = nodesCap;
                 this.durMs = durMs;
             }
         }
 
-        private static final class EngineConfig {
-            private final Integer multipv;
-            private final Integer threads;
-            private final Integer hash;
+         /**
+         * Provides engine config behavior.
+         */
+         private static final class EngineConfig {
+             /**
+             * Stores the multipv.
+             */
+             private final Integer multipv;
+             /**
+             * Stores the threads.
+             */
+             private final Integer threads;
+             /**
+             * Stores the hash.
+             */
+             private final Integer hash;
 
-            private EngineConfig(Integer multipv, Integer threads, Integer hash) {
+             /**
+             * Creates a new engine config instance.
+             * @param multipv multipv
+             * @param threads threads
+             * @param hash hash
+             */
+             private EngineConfig(Integer multipv, Integer threads, Integer hash) {
                 this.multipv = multipv;
                 this.threads = threads;
                 this.hash = hash;
             }
         }
 
-        private static final class WdlConfig {
-            private final boolean wdl;
-            private final boolean noWdl;
+         /**
+         * Provides wdl config behavior.
+         */
+         private static final class WdlConfig {
+             /**
+             * Stores the wdl.
+             */
+             private final boolean wdl;
+             /**
+             * Stores the no wdl.
+             */
+             private final boolean noWdl;
 
-            private WdlConfig(boolean wdl, boolean noWdl) {
+             /**
+             * Creates a new wdl config instance.
+             * @param wdl wdl
+             * @param noWdl no wdl
+             */
+             private WdlConfig(boolean wdl, boolean noWdl) {
                 this.wdl = wdl;
                 this.noWdl = noWdl;
             }
         }
 
-        private static final class InputConfig {
-            private final String fen;
-            private final Path input;
-            private final Path pgn;
+         /**
+         * Provides input config behavior.
+         */
+         private static final class InputConfig {
+             /**
+             * Stores the fen.
+             */
+             private final String fen;
+             /**
+             * Stores the input.
+             */
+             private final Path input;
+             /**
+             * Stores the pgn.
+             */
+             private final Path pgn;
 
-            private InputConfig(String fen, Path input, Path pgn) {
+             /**
+             * Creates a new input config instance.
+             * @param fen fen
+             * @param input input
+             * @param pgn pgn
+             */
+             private InputConfig(String fen, Path input, Path pgn) {
                 this.fen = fen;
                 this.input = input;
                 this.pgn = pgn;
@@ -646,21 +1032,49 @@ public final class TagsCommand {
         }
     }
 
-    private static final class ThreatInfo {
-        private final String severity;
-        private final String type;
+     /**
+     * Provides threat info behavior.
+     */
+     private static final class ThreatInfo {
+         /**
+         * Stores the severity.
+         */
+         private final String severity;
+         /**
+         * Stores the type.
+         */
+         private final String type;
 
-        private ThreatInfo(String severity, String type) {
+         /**
+         * Creates a new threat info instance.
+         * @param severity severity
+         * @param type type
+         */
+         private ThreatInfo(String severity, String type) {
             this.severity = severity;
             this.type = type;
         }
     }
 
-    private static final class MoveInfo {
-        private final String san;
-        private final String uci;
+     /**
+     * Provides move info behavior.
+     */
+     private static final class MoveInfo {
+         /**
+         * Stores the san.
+         */
+         private final String san;
+         /**
+         * Stores the uci.
+         */
+         private final String uci;
 
-        private MoveInfo(String san, String uci) {
+         /**
+         * Creates a new move info instance.
+         * @param san san
+         * @param uci uci
+         */
+         private MoveInfo(String san, String uci) {
             this.san = san;
             this.uci = uci;
         }

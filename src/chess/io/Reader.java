@@ -1,6 +1,9 @@
 package chess.io;
 
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayDeque;
@@ -8,7 +11,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Deque;
 import java.util.List;
-import java.util.stream.Stream;
 
 import chess.core.Position;
 import chess.struct.Game;
@@ -23,6 +25,11 @@ import utility.Json;
  * @author Lennart A. Conrad
  */
 public final class Reader {
+
+  /**
+   * Large text buffer used for bulk CLI input files.
+   */
+  private static final int TEXT_BUFFER_SIZE = 1 << 20;
 
   /**
    * Used for preventing instantiation of this utility class.
@@ -44,10 +51,8 @@ public final class Reader {
     if (path == null || !Files.exists(path)) {
       return List.of();
     }
-    String s = Files.readString(path);
     List<Record> out = new ArrayList<>();
-    List<String> parts = Json.splitTopLevelObjects(s);
-    for (String obj : parts) {
+    Json.streamTopLevelObjects(path, obj -> {
       try {
         Record rec = Record.fromJson(obj);
         if (rec != null) {
@@ -56,7 +61,7 @@ public final class Reader {
       } catch (IllegalArgumentException ignored) {
         // Skip malformed records
       }
-    }
+    });
     return out;
   }
 
@@ -75,13 +80,17 @@ public final class Reader {
     if (path == null || !Files.exists(path)) {
       return List.of();
     }
-    try (Stream<String> lines = Files.lines(path)) {
-      return lines
-          .map(String::trim)
-          .filter(s -> !s.isEmpty())
-          .filter(s -> !(s.startsWith("#") || s.startsWith("//")))
-          .toList();
+    List<String> out = new ArrayList<>();
+    try (BufferedReader reader = openFastReader(path)) {
+      String line;
+      while ((line = reader.readLine()) != null) {
+        String trimmed = line.trim();
+        if (isDataLine(trimmed)) {
+          out.add(trimmed);
+        }
+      }
     }
+    return out;
   }
 
   /**
@@ -104,30 +113,61 @@ public final class Reader {
     }
 
     List<Record> records = new ArrayList<>();
-    try (Stream<String> lines = Files.lines(path)) {
-      lines.map(String::trim)
-          .filter(s -> !s.isEmpty())
-          .filter(s -> !(s.startsWith("#") || s.startsWith("//")))
-          .forEach(line -> {
-            List<String> fens = extractFens(line);
-            if (fens.isEmpty()) {
-              return;
-            }
-            try {
-              if (fens.size() == 1) {
-                Position pos = new Position(fens.get(0));
-                records.add(new Record().withPosition(pos));
-              } else {
-                Position parent = new Position(fens.get(0));
-                Position pos = new Position(fens.get(1));
-                records.add(new Record().withParent(parent).withPosition(pos));
-              }
-            } catch (IllegalArgumentException ignored) {
-              // skip malformed fen sequences on this line
-            }
-          });
+    try (BufferedReader reader = openFastReader(path)) {
+      String line;
+      while ((line = reader.readLine()) != null) {
+        String trimmed = line.trim();
+        if (isDataLine(trimmed)) {
+          addPositionRecord(records, trimmed);
+        }
+      }
     }
     return records;
+  }
+
+   /**
+   * Handles open fast reader.
+   * @param path path
+   * @return computed value
+   * @throws IOException if the operation fails
+   */
+   private static BufferedReader openFastReader(Path path) throws IOException {
+    return new BufferedReader(
+        new InputStreamReader(Files.newInputStream(path), StandardCharsets.UTF_8),
+        TEXT_BUFFER_SIZE);
+  }
+
+   /**
+   * Returns whether data line.
+   * @param line line
+   * @return true when data line
+   */
+   private static boolean isDataLine(String line) {
+    return line != null && !line.isEmpty() && !line.startsWith("#") && !line.startsWith("//");
+  }
+
+   /**
+   * Handles add position record.
+   * @param records records
+   * @param line line
+   */
+   private static void addPositionRecord(List<Record> records, String line) {
+    List<String> fens = extractFens(line);
+    if (fens.isEmpty()) {
+      return;
+    }
+    try {
+      if (fens.size() == 1) {
+        Position pos = new Position(fens.get(0));
+        records.add(new Record().withPosition(pos));
+      } else {
+        Position parent = new Position(fens.get(0));
+        Position pos = new Position(fens.get(1));
+        records.add(new Record().withParent(parent).withPosition(pos));
+      }
+    } catch (IllegalArgumentException ignored) {
+      // skip malformed fen sequences on this line
+    }
   }
 
   /**

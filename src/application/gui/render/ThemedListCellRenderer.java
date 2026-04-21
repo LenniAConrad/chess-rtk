@@ -15,6 +15,9 @@ import application.gui.window.GuiWindowHistory;
   * @author Lennart A. Conrad
  */
 public final class ThemedListCellRenderer extends DefaultListCellRenderer {
+
+	@java.io.Serial
+	private static final long serialVersionUID = 1L;
 	/**
 	 * owner field.
 	 */

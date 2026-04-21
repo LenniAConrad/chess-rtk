@@ -27,19 +27,39 @@ final class MoveCommandSupport {
 	 * Supported move parsing formats.
 	 */
 	enum MoveFormat {
-		AUTO,
-		UCI,
-		SAN
+		 /**
+		 * Shared auto constant.
+		 */
+		 AUTO,
+		 /**
+		 * Shared uci constant.
+		 */
+		 UCI,
+		 /**
+		 * Shared san constant.
+		 */
+		 SAN
 	}
 
 	/**
 	 * Parsed move command input (position + move tokens).
 	 */
 	static final class ParsedInput {
-		final Position position;
-		final List<String> moves;
+		 /**
+		 * Stores the position.
+		 */
+		 final Position position;
+		 /**
+		 * Stores the moves.
+		 */
+		 final List<String> moves;
 
-		private ParsedInput(Position position, List<String> moves) {
+		 /**
+		 * Creates a new parsed input instance.
+		 * @param position position
+		 * @param moves moves
+		 */
+		 private ParsedInput(Position position, List<String> moves) {
 			this.position = position;
 			this.moves = moves;
 		}
@@ -116,13 +136,13 @@ final class MoveCommandSupport {
 		String trimmed = token.trim();
 		return switch (format) {
 			case UCI -> parseUci(pos, trimmed);
-			case SAN -> SAN.fromAlgebraic(pos, normalizeSanToken(trimmed));
+			case SAN -> SAN.fromAlgebraic(pos, trimmed);
 			case AUTO -> {
 				String uciCandidate = trimmed.toLowerCase(Locale.ROOT);
 				if (Move.isMove(uciCandidate)) {
 					yield parseUci(pos, uciCandidate);
 				}
-				yield SAN.fromAlgebraic(pos, normalizeSanToken(trimmed));
+				yield SAN.fromAlgebraic(pos, trimmed);
 			}
 		};
 	}
@@ -149,6 +169,12 @@ final class MoveCommandSupport {
 		return Arrays.asList(cleaned.split("\\s+"));
 	}
 
+	/**
+	 * Parses the uci.
+	 * @param pos pos
+	 * @param token token
+	 * @return computed value
+	 */
 	private static short parseUci(Position pos, String token) {
 		String uci = token.toLowerCase(Locale.ROOT);
 		if (!Move.isMove(uci)) {
@@ -161,6 +187,13 @@ final class MoveCommandSupport {
 		return move;
 	}
 
+	/**
+	 * Parses the fen from tokens.
+	 * @param rest rest
+	 * @param cmd cmd
+	 * @param verbose verbose
+	 * @return computed value
+	 */
 	private static ParsedInput parseFenFromTokens(List<String> rest, String cmd, boolean verbose) {
 		int size = rest.size();
 		IllegalArgumentException last = null;
@@ -195,22 +228,13 @@ final class MoveCommandSupport {
 		return new ParsedInput(Setup.getStandardStartPosition(), List.of());
 	}
 
-	private static String normalizeSanToken(String token) {
-		if (token.startsWith("0-0-0")) {
-			return "O-O-O" + token.substring(5);
-		}
-		if (token.startsWith("0-0")) {
-			return "O-O" + token.substring(3);
-		}
-		if (token.startsWith("o-o-o") || token.startsWith("O-O-O")) {
-			return "O-O-O" + token.substring(5);
-		}
-		if (token.startsWith("o-o") || token.startsWith("O-O")) {
-			return "O-O" + token.substring(3);
-		}
-		return token;
-	}
-
+	/**
+	 * Parses the fen or exit.
+	 * @param fen fen
+	 * @param cmd cmd
+	 * @param verbose verbose
+	 * @return computed value
+	 */
 	private static Position parseFenOrExit(String fen, String cmd, boolean verbose) {
 		try {
 			return new Position(fen);
@@ -225,6 +249,12 @@ final class MoveCommandSupport {
 		}
 	}
 
+	/**
+	 * Handles join tokens.
+	 * @param tokens tokens
+	 * @param count count
+	 * @return computed value
+	 */
 	private static String joinTokens(List<String> tokens, int count) {
 		StringBuilder sb = new StringBuilder();
 		for (int i = 0; i < count; i++) {

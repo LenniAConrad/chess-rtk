@@ -11,8 +11,6 @@ import java.util.Objects;
 import chess.core.Field;
 import chess.core.Piece;
 import chess.core.Position;
-import chess.tag.core.AttackUtils;
-import chess.tag.core.PinUtils;
 import chess.tag.core.Text;
 
 /**
@@ -77,13 +75,13 @@ public final class Tactical {
         byte[] board = position.getBoard();
         List<String> tags = new ArrayList<>();
 
-        addPins(tags, board, true, position.getWhiteKing());
-        addPins(tags, board, false, position.getBlackKing());
+        addPins(tags, position, board, true);
+        addPins(tags, position, board, false);
         addSkewers(tags, board);
         addDiscoveredAttacks(tags, board);
-        addOverloadedDefenders(tags, board, true);
-        addOverloadedDefenders(tags, board, false);
-        addHangingPieces(tags, board);
+        addOverloadedDefenders(tags, position, board, true);
+        addOverloadedDefenders(tags, position, board, false);
+        addHangingPieces(tags, position, board);
 
         return List.copyOf(tags);
     }
@@ -92,16 +90,13 @@ public final class Tactical {
      * Adds pin tags for one side.
      *
      * @param tags the mutable tag accumulator
+     * @param position the analyzed position
      * @param board the board array
      * @param pinnedIsWhite whether the pinned side is White
-     * @param kingSquare the king square of the pinned side
      */
-    private static void addPins(List<String> tags, byte[] board, boolean pinnedIsWhite, byte kingSquare) {
-        if (kingSquare == Field.NO_SQUARE) {
-            return;
-        }
+    private static void addPins(List<String> tags, Position position, byte[] board, boolean pinnedIsWhite) {
         for (int index = 0; index < board.length; index++) {
-            String tag = pinTag(board, pinnedIsWhite, kingSquare, (byte) index);
+            String tag = pinTag(position, board, pinnedIsWhite, (byte) index);
             if (tag != null) {
                 tags.add(tag);
             }
@@ -111,18 +106,18 @@ public final class Tactical {
     /**
      * Builds a pin tag when the inspected piece is pinned to its king.
      *
+     * @param position the analyzed position
      * @param board the board array
      * @param pinnedIsWhite whether the pinned side is White
-     * @param kingSquare the king square of the pinned side
      * @param square the candidate pinned square
      * @return the formatted pin tag, or {@code null} when no pin exists
      */
-    private static String pinTag(byte[] board, boolean pinnedIsWhite, byte kingSquare, byte square) {
+    private static String pinTag(Position position, byte[] board, boolean pinnedIsWhite, byte square) {
         byte piece = board[square];
         if (!isPinnedCandidate(piece, pinnedIsWhite)) {
             return null;
         }
-        PinUtils.PinInfo info = PinUtils.findPinToKing(board, pinnedIsWhite, kingSquare, square);
+        Position.PinInfo info = position.findPinToOwnKing(square);
         if (info == null) {
             return null;
         }
@@ -525,13 +520,14 @@ public final class Tactical {
      * Adds overloaded-defender tags for one side.
      *
      * @param tags the mutable tag accumulator
+     * @param position the analyzed position
      * @param board the board array
      * @param white whether to inspect White or Black pieces
      */
-    private static void addOverloadedDefenders(List<String> tags, byte[] board, boolean white) {
+    private static void addOverloadedDefenders(List<String> tags, Position position, byte[] board, boolean white) {
         Map<Byte, List<Byte>> overloaded = new HashMap<>();
         for (int index = 0; index < board.length; index++) {
-            Byte defender = soleDefenderIfOverloaded(board, white, (byte) index);
+            Byte defender = soleDefenderIfOverloaded(position, board, white, (byte) index);
             if (defender != null) {
                 overloaded.computeIfAbsent(defender, k -> new ArrayList<>()).add((byte) index);
             }
@@ -552,21 +548,22 @@ public final class Tactical {
     /**
      * Returns the sole defender square when a piece is defended by exactly one friendly piece.
      *
+     * @param position the analyzed position
      * @param board the board array
      * @param white whether the inspected piece belongs to White
      * @param square the defended square
      * @return the sole defender square, or {@code null} if not overloaded
      */
-    private static Byte soleDefenderIfOverloaded(byte[] board, boolean white, byte square) {
+    private static Byte soleDefenderIfOverloaded(Position position, byte[] board, boolean white, byte square) {
         byte piece = board[square];
         if (piece == Piece.EMPTY || Piece.isWhite(piece) != white || Piece.isKing(piece)) {
             return null;
         }
-        if (AttackUtils.countAttackers(board, !white, square) == 0) {
+        if (countAttackers(position, !white, square) == 0) {
             return null;
         }
-        List<Byte> defenders = AttackUtils.attackers(board, white, square);
-        return defenders.size() == 1 ? defenders.get(0) : null;
+        byte[] defenders = getAttackers(position, white, square);
+        return defenders.length == 1 ? defenders[0] : null;
     }
 
     /**
@@ -590,11 +587,12 @@ public final class Tactical {
      * Adds hanging-piece tags for all pieces on the board.
      *
      * @param tags the mutable tag accumulator
+     * @param position the analyzed position
      * @param board the board array
      */
-    private static void addHangingPieces(List<String> tags, byte[] board) {
+    private static void addHangingPieces(List<String> tags, Position position, byte[] board) {
         for (int index = 0; index < board.length; index++) {
-            if (isHangingPiece(board, (byte) index)) {
+            if (isHangingPiece(position, board, (byte) index)) {
                 byte piece = board[index];
                 tags.add(formatTactical(HANGING_PREFIX + Text.colorNameLower(piece) + SPACE_TEXT
                         + Text.pieceNameLower(piece) + SPACE_TEXT + Text.squareNameLower((byte) index)));
@@ -605,18 +603,43 @@ public final class Tactical {
     /**
      * Checks whether a piece is hanging.
      *
+     * @param position the analyzed position
      * @param board the board array
      * @param square the square to inspect
      * @return {@code true} when the piece is attacked but not defended
      */
-    private static boolean isHangingPiece(byte[] board, byte square) {
+    private static boolean isHangingPiece(Position position, byte[] board, byte square) {
         byte piece = board[square];
         if (piece == Piece.EMPTY || Piece.isKing(piece)) {
             return false;
         }
         boolean white = Piece.isWhite(piece);
-        return AttackUtils.countAttackers(board, !white, square) > 0
-                && AttackUtils.countAttackers(board, white, square) == 0;
+        return countAttackers(position, !white, square) > 0
+                && countAttackers(position, white, square) == 0;
+    }
+
+    /**
+     * Counts attackers from one side using the core attack-query API.
+     *
+     * @param position the analyzed position
+     * @param white whether to count White attackers or Black attackers
+     * @param square the attacked square
+     * @return the number of attackers from the requested side
+     */
+    private static int countAttackers(Position position, boolean white, byte square) {
+        return white ? position.countAttackersByWhite(square) : position.countAttackersByBlack(square);
+    }
+
+    /**
+     * Returns the attacker squares for one side using the core attack-query API.
+     *
+     * @param position the analyzed position
+     * @param white whether to return White attackers or Black attackers
+     * @param square the attacked square
+     * @return the attacker squares from the requested side
+     */
+    private static byte[] getAttackers(Position position, boolean white, byte square) {
+        return white ? position.getAttackersByWhite(square) : position.getAttackersByBlack(square);
     }
 
     /**
@@ -701,7 +724,7 @@ public final class Tactical {
      * Holds one target discovered during ray scans.
  * @author Lennart A. Conrad
  * @since 2026
-     */
+ */
     private static final class LineTarget {
 
         /**

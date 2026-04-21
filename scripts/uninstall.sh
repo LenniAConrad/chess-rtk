@@ -16,6 +16,21 @@ REMOVE_BUILD=1
 REMOVE_DATA=0
 ASSUME_YES=0
 
+# Colors (opt-out with NO_COLOR or non-TTY)
+if [[ -t 1 && -z "${NO_COLOR:-}" ]]; then
+  C_RESET=$'\033[0m'
+  C_BOLD=$'\033[1m'
+  C_GREEN_BOLD=$'\033[1;92m'
+  C_YELLOW=$'\033[33m'
+  C_RED=$'\033[31m'
+else
+  C_RESET=""
+  C_BOLD=""
+  C_GREEN_BOLD=""
+  C_YELLOW=""
+  C_RED=""
+fi
+
 usage() {
   cat <<EOF
 Usage: ./uninstall.sh [--all|--remove-data] [--keep-build] [--keep-launcher] [-y|--yes]
@@ -26,6 +41,25 @@ Options:
   --keep-launcher        Keep /usr/local/bin/crtk
   -y, --yes              Assume yes for prompts
 EOF
+}
+
+title() {
+  printf '%b\n' "${C_GREEN_BOLD}$*${C_RESET}"
+}
+section() {
+  printf '\n%b\n' "${C_BOLD}$*${C_RESET}"
+}
+step() {
+  printf '%b\n' "${C_GREEN_BOLD}  >${C_RESET} $*"
+}
+info() {
+  printf '    %s\n' "$*"
+}
+warn() {
+  printf '%b\n' "${C_YELLOW}warning:${C_RESET} $*"
+}
+err() {
+  printf '%b\n' "${C_RED}error:${C_RESET} $*" >&2
 }
 
 while [[ $# -gt 0 ]]; do
@@ -51,7 +85,7 @@ while [[ $# -gt 0 ]]; do
       exit 0
       ;;
     *)
-      echo "Unknown argument: $1" >&2
+      err "Unknown argument: $1"
       usage >&2
       exit 2
       ;;
@@ -109,24 +143,25 @@ safe_remove_in_repo() {
   local resolved
   resolved="$(canonical_path "$target")"
   if [[ -z "$resolved" ]]; then
-    echo "Failed to resolve path: $target" >&2
+    err "Failed to resolve path: $target"
     return 1
   fi
   if [[ "$resolved" == "$APP_HOME" || "$resolved" == "/" ]]; then
-    echo "Refusing to remove repo root: $resolved" >&2
+    err "Refusing to remove repo root: $resolved"
     return 1
   fi
   if [[ "$resolved" != "$APP_HOME/"* ]]; then
-    echo "Refusing to remove path outside repo: $resolved" >&2
+    err "Refusing to remove path outside repo: $resolved"
     return 1
   fi
   rm -rf "$resolved"
 }
 
-echo "crtk uninstaller ~"
-echo "Repo path: $APP_HOME"
-echo
+title "ChessRTK uninstaller"
+info "Repo: $APP_HOME"
+info "Launcher: $LAUNCHER"
 
+section "Build Artifacts"
 if [[ $REMOVE_BUILD -eq 1 ]]; then
   build_targets=()
   if [[ -d "$APP_HOME/out" ]]; then
@@ -146,20 +181,26 @@ if [[ $REMOVE_BUILD -eq 1 ]]; then
   fi
 
   if [[ ${#build_targets[@]} -gt 0 ]]; then
-    echo "Build artifacts found:"
+    step "Build artifacts found"
     for t in "${build_targets[@]}"; do
-      echo "  - $t"
+      info "- $t"
     done
     if confirm "Remove these build artifacts?" "Y"; then
       for t in "${build_targets[@]}"; do
         safe_remove_in_repo "$t"
       done
+      step "Build artifacts removed"
     else
-      echo "Skipping build artifact removal."
+      warn "Skipping build artifact removal."
     fi
+  else
+    step "No build artifacts found"
   fi
+else
+  step "Keeping build artifacts (--keep-build)"
 fi
 
+section "Data Directories"
 if [[ $REMOVE_DATA -eq 1 ]]; then
   data_targets=()
   if [[ -d "$APP_HOME/dump" ]]; then
@@ -169,35 +210,46 @@ if [[ $REMOVE_DATA -eq 1 ]]; then
     data_targets+=("$APP_HOME/session")
   fi
   if [[ ${#data_targets[@]} -gt 0 ]]; then
-    echo "Data directories found:"
+    step "Data directories found"
     for t in "${data_targets[@]}"; do
-      echo "  - $t"
+      info "- $t"
     done
     if confirm "Remove these data directories?" "N"; then
       for t in "${data_targets[@]}"; do
         safe_remove_in_repo "$t"
       done
+      step "Data directories removed"
     else
-      echo "Skipping data directory removal."
+      warn "Skipping data directory removal."
     fi
+  else
+    step "No data directories found"
   fi
+else
+  step "Keeping data directories (use --remove-data to delete dump/ and session/)"
 fi
 
+section "Launcher"
 if [[ $REMOVE_LAUNCHER -eq 1 ]]; then
   if [[ -e "$LAUNCHER" ]]; then
     if [[ "${EUID:-$(id -u)}" -ne 0 && -z "$SUDO" ]]; then
-      echo "Cannot remove $LAUNCHER (need root or sudo). Skipping." >&2
+      warn "Cannot remove $LAUNCHER (need root or sudo)."
     else
       if confirm "Remove launcher at $LAUNCHER?" "Y"; then
         $SUDO rm -f "$LAUNCHER"
+        step "Launcher removed"
       else
-        echo "Skipping launcher removal."
+        warn "Skipping launcher removal."
       fi
     fi
+  else
+    step "No launcher found at $LAUNCHER"
   fi
+else
+  step "Keeping launcher (--keep-launcher)"
 fi
 
-echo
-echo "Done."
-echo
-echo " * Note: This does not uninstall system packages (e.g., OpenJDK, Stockfish, CUDA, ROCm, oneAPI)."
+section "Summary"
+title "Done"
+info "System packages were not removed."
+info "OpenJDK, Stockfish, CUDA, ROCm, and oneAPI stay installed if present."

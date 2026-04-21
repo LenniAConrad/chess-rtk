@@ -44,6 +44,13 @@ public final class MoveNotationCommand {
 		runConvert(a, MoveCommandSupport.MoveFormat.SAN, false, CMD_SAN_TO_UCI);
 	}
 
+	/**
+	 * Runs the convert workflow.
+	 * @param a a
+	 * @param format format
+	 * @param outputSan output san
+	 * @param cmdLabel cmd label
+	 */
 	private static void runConvert(Argv a, MoveCommandSupport.MoveFormat format, boolean outputSan, String cmdLabel) {
 		boolean verbose = a.flag(OPT_VERBOSE, OPT_VERBOSE_SHORT);
 		MoveCommandSupport.ParsedInput input = MoveCommandSupport.parseInputs(a, cmdLabel, true, verbose);

@@ -44,17 +44,35 @@ public final class PolicyEncoder {
      */
     public static final int RAW_POLICY_SIZE = POLICY_PLANES * 64;
 
-    private static final int PROMO_KNIGHT = 1;
-    private static final int PROMO_BISHOP = 2;
-    private static final int PROMO_ROOK = 3;
-    private static final int PROMO_QUEEN = 4;
+     /**
+     * Shared promo knight constant.
+     */
+     private static final int PROMO_KNIGHT = 1;
+     /**
+     * Shared promo bishop constant.
+     */
+     private static final int PROMO_BISHOP = 2;
+     /**
+     * Shared promo rook constant.
+     */
+     private static final int PROMO_ROOK = 3;
+     /**
+     * Shared promo queen constant.
+     */
+     private static final int PROMO_QUEEN = 4;
 
-    private static final int[][] KNIGHT_DELTAS = {
+     /**
+     * Shared knight deltas constant.
+     */
+     private static final int[][] KNIGHT_DELTAS = {
             { 1, 2 }, { 2, 1 }, { 2, -1 }, { 1, -2 },
             { -1, -2 }, { -2, -1 }, { -2, 1 }, { -1, 2 }
     };
 
-    private static final int[][] UNDERPROMO_DIRS = {
+     /**
+     * Shared underpromo dirs constant.
+     */
+     private static final int[][] UNDERPROMO_DIRS = {
             { 0, 1 },   // forward
             { -1, 1 },  // forward-left
             { 1, 1 }    // forward-right
@@ -124,7 +142,13 @@ public final class PolicyEncoder {
         return -1;
     }
 
-    private static int knightIndex(int deltaFile, int deltaRank) {
+     /**
+     * Handles knight index.
+     * @param deltaFile delta file
+     * @param deltaRank delta rank
+     * @return computed value
+     */
+     private static int knightIndex(int deltaFile, int deltaRank) {
         for (int index = 0; index < KNIGHT_DELTAS.length; index++) {
             int[] delta = KNIGHT_DELTAS[index];
             if (delta[0] == deltaFile && delta[1] == deltaRank) {
@@ -134,7 +158,13 @@ public final class PolicyEncoder {
         return -1;
     }
 
-    private static int slidePlaneIndex(int deltaFile, int deltaRank) {
+     /**
+     * Handles slide plane index.
+     * @param deltaFile delta file
+     * @param deltaRank delta rank
+     * @return computed value
+     */
+     private static int slidePlaneIndex(int deltaFile, int deltaRank) {
         if (deltaFile == 0 && deltaRank != 0) {
             return planeIndex(deltaRank > 0 ? 0 : 1, Math.abs(deltaRank));
         }
@@ -148,7 +178,13 @@ public final class PolicyEncoder {
         return -1;
     }
 
-    private static int diagonalDirectionIndex(int deltaFile, int deltaRank) {
+     /**
+     * Handles diagonal direction index.
+     * @param deltaFile delta file
+     * @param deltaRank delta rank
+     * @return computed value
+     */
+     private static int diagonalDirectionIndex(int deltaFile, int deltaRank) {
         if (deltaFile > 0 && deltaRank > 0) {
             return 4;
         }
@@ -164,14 +200,25 @@ public final class PolicyEncoder {
         return -1;
     }
 
-    private static int planeIndex(int directionIndex, int distance) {
+     /**
+     * Handles plane index.
+     * @param directionIndex direction index
+     * @param distance distance
+     * @return computed value
+     */
+     private static int planeIndex(int directionIndex, int distance) {
         if (directionIndex < 0 || distance < 1 || distance > 7) {
             return -1;
         }
         return directionIndex * 7 + (distance - 1);
     }
 
-    private static int underpromoPieceIndex(int promotion) {
+     /**
+     * Handles underpromo piece index.
+     * @param promotion promotion
+     * @return computed value
+     */
+     private static int underpromoPieceIndex(int promotion) {
         return switch (promotion) {
         case PROMO_KNIGHT -> 0;
         case PROMO_BISHOP -> 1;
@@ -180,7 +227,13 @@ public final class PolicyEncoder {
         };
     }
 
-    private static int underpromoDirectionIndex(int deltaFile, int deltaRank) {
+     /**
+     * Handles underpromo direction index.
+     * @param deltaFile delta file
+     * @param deltaRank delta rank
+     * @return computed value
+     */
+     private static int underpromoDirectionIndex(int deltaFile, int deltaRank) {
         for (int index = 0; index < UNDERPROMO_DIRS.length; index++) {
             int[] delta = UNDERPROMO_DIRS[index];
             if (delta[0] == deltaFile && delta[1] == deltaRank) {

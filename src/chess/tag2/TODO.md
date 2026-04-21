@@ -1,0 +1,182 @@
+# tag2 TODO
+
+Scope:
+- Heuristic-only tags. Do not depend on engines, centipawn search, neural text, or `chess.tag`.
+- Prefer concrete board predicates over puzzle-site metadata.
+- Keep source-site names as aliases where useful, but normalize duplicate ideas into one implementation.
+
+Sources checked on 2026-04-21:
+- ChessFox index and checkmate-pattern product page: `https://chessfox.com/index/`, `https://chessfox.com/tactical-patterns-checkmate-patterns/`
+- Chess.com tactics tag article: `https://www.chess.com/article/view/chess-tactics`
+- Lichess official puzzle-theme source: `https://raw.githubusercontent.com/lichess-org/lila/master/translation/source/puzzleTheme.xml`
+
+Already started:
+- [x] Position facts: side to move, phase, status, checkers, castling rights, en-passant square.
+- [x] Material facts: material balance, queen/rook presence, bishop pair.
+- [x] Move facts: legal move count, captures, checks, mates, promotions, castles.
+- [x] Pawn structure: advanced pawns, promotion-ready pawns, passed pawns, doubled pawns, isolated pawns.
+- [x] Basic tactics: pins, hanging pieces, simple forks.
+- [x] First mate recognizers: back-rank mate, smothered mate, support mate, corner mate, double-check mate, delivery piece.
+
+Checkmate-pattern backlog from ChessFox:
+- [x] Back Rank Mate
+- [x] Corner Mate
+- [x] Smothered Mate
+- [ ] Anastasia's Mate
+- [ ] Anderssen's Mate
+- [ ] Arabian Mate
+- [ ] Balestra Mate
+- [ ] Bishop and Knight Checkmate
+- [ ] Blackburne's Mate
+- [ ] Blind Swine Mate
+- [ ] Boden's Mate
+- [ ] Corridor Mate
+- [ ] Cozio's Mate
+- [ ] Damiano's Mate
+- [ ] David and Goliath Mate
+- [ ] Dovetail Mate
+- [ ] Epaulette Mate
+- [ ] Greco's Mate
+- [ ] H-file Mate
+- [ ] Hook Mate
+- [ ] Kill Box Mate
+- [ ] Ladder Trick
+- [ ] Lawnmower Mate
+- [ ] Legal's Mate
+- [ ] Lolli's Mate
+- [ ] Max Lange's Mate
+- [ ] Mayet's Mate
+- [ ] Morphy's Mate
+- [ ] Opera Mate
+- [ ] Pillsbury's Mate
+- [ ] Railroad Mate
+- [ ] Reti's Mate
+- [ ] Suffocation Mate
+- [ ] Swallow's Tail Mate
+- [ ] Triangle Mate
+- [ ] Vukovic Mate
+
+Excluded from the ChessFox mate list as low-value length/trap labels:
+- 2-Move Checkmate
+- 4-Move Checkmate
+- Fool's Mate
+- Scholar's Mate
+
+Chess.com tag backlog:
+- [x] Back Rank
+- [x] Fork / Double Attack
+- [x] Hanging Piece
+- [x] Mate in One
+- [x] Pin
+- [x] Smothered Mate
+- [x] Stalemate
+- [ ] Attacking f7/f2
+- [ ] Attacking the Castled King
+- [ ] Basic Checkmates
+- [ ] Clearance Sacrifice
+- [ ] Decoy / Deflection
+- [ ] Defense
+- [ ] Desperado
+- [ ] Discovered Attack / Check
+- [ ] Double Check
+- [ ] En Passant
+- [ ] Endgame Tactic
+- [ ] Exchange Sacrifice
+- [ ] Interference
+- [ ] Mate in Two
+- [ ] Mate in Three+
+- [ ] Mating Net
+- [ ] Overloading
+- [ ] Pawn Promotion
+- [ ] Perpetual Check
+- [ ] Queen Sacrifice
+- [ ] Removal of the Defender
+- [ ] Sacrifice
+- [ ] Simplification
+- [ ] Skewer
+- [ ] Support Mate
+- [ ] Trapped Piece
+- [ ] Underpromotion
+- [ ] Vulnerable King
+- [ ] Windmill
+- [ ] X-Ray Attack
+- [ ] Zugzwang / Zwischenzug
+
+Lichess tag backlog:
+- [x] Advanced pawn
+- [x] Back rank mate
+- [x] Castling
+- [x] Checkmate
+- [x] Corner mate
+- [x] Endgame
+- [x] Fork
+- [x] Hanging piece
+- [x] Mate in 1
+- [x] Middlegame
+- [x] Opening
+- [x] Pin
+- [x] Promotion
+- [x] Smothered mate
+- [ ] Advantage
+- [ ] Anastasia's mate
+- [ ] Arabian mate
+- [ ] Attacking f2 or f7
+- [ ] Attraction
+- [ ] Balestra mate
+- [ ] Blind Swine mate
+- [ ] Bishop endgame
+- [ ] Boden's mate
+- [ ] Capture the defender
+- [ ] Clearance
+- [ ] Collinear move
+- [ ] Crushing
+- [ ] Defensive move
+- [ ] Deflection
+- [ ] Discovered attack
+- [ ] Discovered check
+- [ ] Double bishop mate
+- [ ] Double check
+- [ ] Dovetail mate
+- [ ] En passant
+- [ ] Epaulette mate
+- [ ] Equality
+- [ ] Exposed king
+- [ ] Hook mate
+- [ ] Interference
+- [ ] Intermezzo
+- [ ] Kill box mate
+- [ ] Kingside attack
+- [ ] Knight endgame
+- [ ] Mate in 2
+- [ ] Mate in 3
+- [ ] Mate in 4
+- [ ] Mate in 5 or more
+- [ ] Morphy's mate
+- [ ] Opera mate
+- [ ] Pawn endgame
+- [ ] Pillsbury's mate
+- [ ] Queen and Rook
+- [ ] Queen endgame
+- [ ] Queenside attack
+- [ ] Quiet move
+- [ ] Rook endgame
+- [ ] Sacrifice
+- [ ] Skewer
+- [ ] Swallow's tail mate
+- [ ] Trapped piece
+- [ ] Triangle mate
+- [ ] Underpromotion
+- [ ] Vukovic mate
+- [ ] X-Ray attack
+- [ ] Zugzwang
+
+Excluded from Lichess as puzzle browsing metadata rather than chess-position tags:
+- Healthy mix
+- Player games
+- Master games
+- Master vs Master games
+- Super GM games
+- One-move puzzle
+- Short puzzle
+- Long puzzle
+- Very long puzzle

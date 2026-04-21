@@ -50,11 +50,18 @@ import utility.Json;
  */
 public final class PuzzleTagsCommand {
 
-    private PuzzleTagsCommand() {
+     /**
+     * Creates a new puzzle tags command instance.
+     */
+     private PuzzleTagsCommand() {
         // utility
     }
 
-    public static void runPuzzleTags(Argv a) {
+     /**
+     * Runs the puzzle tags workflow.
+     * @param a a
+     */
+     public static void runPuzzleTags(Argv a) {
         PuzzleOptions opts = parseOptions(a);
         Position root = parsePositionOrExit(opts.fen, opts.verbose);
 
@@ -111,7 +118,12 @@ public final class PuzzleTagsCommand {
         }
     }
 
-    private static PuzzleOptions parseOptions(Argv a) {
+     /**
+     * Parses the options.
+     * @param a a
+     * @return computed value
+     */
+     private static PuzzleOptions parseOptions(Argv a) {
         boolean verbose = a.flag(OPT_VERBOSE, OPT_VERBOSE_SHORT);
         boolean analyze = a.flag(OPT_ANALYZE);
         boolean noAnalyze = a.flag(OPT_NO_ANALYZE);
@@ -151,7 +163,13 @@ public final class PuzzleTagsCommand {
                 wdl, noWdl, fen);
     }
 
-    private static Position parsePositionOrExit(String fen, boolean verbose) {
+     /**
+     * Parses the position or exit.
+     * @param fen fen
+     * @param verbose verbose
+     * @return computed value
+     */
+     private static Position parsePositionOrExit(String fen, boolean verbose) {
         Position pos = parsePositionOrNull(fen, CMD_PUZZLE_TAGS, verbose);
         if (pos == null) {
             System.exit(2);
@@ -159,7 +177,15 @@ public final class PuzzleTagsCommand {
         return pos;
     }
 
-    private static List<String> tagsFor(Position pos, Engine engine, PuzzleOptions opts, Map<String, TagEntry> cache) {
+     /**
+     * Handles tags for.
+     * @param pos pos
+     * @param engine engine
+     * @param opts opts
+     * @param cache cache
+     * @return computed value
+     */
+     private static List<String> tagsFor(Position pos, Engine engine, PuzzleOptions opts, Map<String, TagEntry> cache) {
         String fen = pos.toString();
         TagEntry cached = cache.get(fen);
         if (cached != null) {
@@ -187,7 +213,11 @@ public final class PuzzleTagsCommand {
         return tags;
     }
 
-    static void overrideInitiativeForPuzzle(List<String> tags) {
+     /**
+     * Handles override initiative for puzzle.
+     * @param tags tags
+     */
+     static void overrideInitiativeForPuzzle(List<String> tags) {
         boolean threatWhite = false;
         boolean threatBlack = false;
         for (String tag : tags) {
@@ -212,7 +242,17 @@ public final class PuzzleTagsCommand {
         tags.add("INITIATIVE: side=" + side);
     }
 
-    static List<String> threatTagsForPuzzle(Position base, Analysis baseAnalysis, Engine engine, long nodesCap,
+     /**
+     * Handles threat tags for puzzle.
+     * @param base base
+     * @param baseAnalysis base analysis
+     * @param engine engine
+     * @param nodesCap nodes cap
+     * @param durMs dur ms
+     * @param verbose verbose
+     * @return computed value
+     */
+     static List<String> threatTagsForPuzzle(Position base, Analysis baseAnalysis, Engine engine, long nodesCap,
             long durMs, boolean verbose) {
         if (base.inCheck()) {
             return List.of();
@@ -256,7 +296,12 @@ public final class PuzzleTagsCommand {
         return List.of(line);
     }
 
-    private static boolean isThreatStrong(Evaluation eval) {
+     /**
+     * Returns whether threat strong.
+     * @param eval eval
+     * @return true when threat strong
+     */
+     private static boolean isThreatStrong(Evaluation eval) {
         if (eval == null) {
             return false;
         }
@@ -266,7 +311,15 @@ public final class PuzzleTagsCommand {
         return eval.getValue() >= Config.getThreatMinCp();
     }
 
-    private static boolean isEqualizingThreat(Position base, Analysis baseAnalysis, Position threatPos,
+     /**
+     * Returns whether equalizing threat.
+     * @param base base
+     * @param baseAnalysis base analysis
+     * @param threatPos threat pos
+     * @param threatAnalysis threat analysis
+     * @return true when equalizing threat
+     */
+     private static boolean isEqualizingThreat(Position base, Analysis baseAnalysis, Position threatPos,
             Analysis threatAnalysis) {
         if (baseAnalysis == null || baseAnalysis.isEmpty()) {
             return false;
@@ -297,7 +350,12 @@ public final class PuzzleTagsCommand {
         return true;
     }
 
-    private static ThreatInfo classifyThreatMove(String move) {
+     /**
+     * Handles classify threat move.
+     * @param move move
+     * @return computed value
+     */
+     private static ThreatInfo classifyThreatMove(String move) {
         if (move.contains("#")) {
             return new ThreatInfo("immediate", "mate");
         }
@@ -310,7 +368,13 @@ public final class PuzzleTagsCommand {
         return new ThreatInfo("latent", "tactic");
     }
 
-    private static Integer evalToWhiteCp(Analysis analysis, boolean whiteToMove) {
+     /**
+     * Handles eval to white cp.
+     * @param analysis analysis
+     * @param whiteToMove white to move
+     * @return computed value
+     */
+     private static Integer evalToWhiteCp(Analysis analysis, boolean whiteToMove) {
         if (analysis == null) {
             return null;
         }
@@ -326,14 +390,26 @@ public final class PuzzleTagsCommand {
         return whiteToMove ? value : -value;
     }
 
-    private static int mateAsCp(int mateValue) {
+     /**
+     * Handles mate as cp.
+     * @param mateValue mate value
+     * @return computed value
+     */
+     private static int mateAsCp(int mateValue) {
         if (mateValue == 0) {
             return 0;
         }
         return (mateValue > 0 ? 1 : -1) * 100_000;
     }
 
-    private static void printDeltaJson(long index, chess.struct.Record rec, List<String> tags, Delta delta) {
+     /**
+     * Handles print delta json.
+     * @param index index
+     * @param rec rec
+     * @param tags tags
+     * @param delta delta
+     */
+     private static void printDeltaJson(long index, chess.struct.Record rec, List<String> tags, Delta delta) {
         Position parent = rec.getParent();
         Position pos = rec.getPosition();
         MoveInfo moveInfo = (parent != null && pos != null) ? inferMove(parent, pos) : null;
@@ -349,7 +425,13 @@ public final class PuzzleTagsCommand {
         System.out.println(sb.append('}'));
     }
 
-    private static MoveInfo inferMove(Position parent, Position child) {
+     /**
+     * Handles infer move.
+     * @param parent parent
+     * @param child child
+     * @return computed value
+     */
+     private static MoveInfo inferMove(Position parent, Position child) {
         short move = inferMoveCode(parent, child);
         if (move == Move.NO_MOVE) {
             return null;
@@ -363,7 +445,13 @@ public final class PuzzleTagsCommand {
         return new MoveInfo(san, Move.toString(move));
     }
 
-    private static short inferMoveCode(Position from, Position to) {
+     /**
+     * Handles infer move code.
+     * @param from from
+     * @param to to
+     * @return computed value
+     */
+     private static short inferMoveCode(Position from, Position to) {
         long target = to.signatureCore();
         MoveList moves = from.getMoves();
         short found = Move.NO_MOVE;
@@ -380,36 +468,105 @@ public final class PuzzleTagsCommand {
         return found;
     }
 
-    private static void appendField(StringBuilder sb, String name, String value) {
+     /**
+     * Handles append field.
+     * @param sb sb
+     * @param name name
+     * @param value value
+     */
+     private static void appendField(StringBuilder sb, String name, String value) {
         if (sb.length() > 1) {
             sb.append(',');
         }
         sb.append('"').append(name).append("\":").append(value);
     }
 
-    private static String jsonString(String value) {
+     /**
+     * Handles json string.
+     * @param value value
+     * @return computed value
+     */
+     private static String jsonString(String value) {
         if (value == null) {
             return "null";
         }
         return "\"" + Json.esc(value) + "\"";
     }
 
-    private static final class PuzzleOptions {
-        private final boolean verbose;
-        private final boolean analyzeTags;
-        private final String protoPath;
-        private final long nodesCap;
-        private final long durMs;
-        private final int multipv;
-        private final int tagMultipv;
-        private final int pvPlies;
-        private final Integer threads;
-        private final Integer hash;
-        private final boolean wdl;
-        private final boolean noWdl;
-        private final String fen;
+     /**
+     * Provides puzzle options behavior.
+     */
+     private static final class PuzzleOptions {
+         /**
+         * Stores the verbose.
+         */
+         private final boolean verbose;
+         /**
+         * Stores the analyze tags.
+         */
+         private final boolean analyzeTags;
+         /**
+         * Stores the proto path.
+         */
+         private final String protoPath;
+         /**
+         * Stores the nodes cap.
+         */
+         private final long nodesCap;
+         /**
+         * Stores the dur ms.
+         */
+         private final long durMs;
+         /**
+         * Stores the multipv.
+         */
+         private final int multipv;
+         /**
+         * Stores the tag multipv.
+         */
+         private final int tagMultipv;
+         /**
+         * Stores the pv plies.
+         */
+         private final int pvPlies;
+         /**
+         * Stores the threads.
+         */
+         private final Integer threads;
+         /**
+         * Stores the hash.
+         */
+         private final Integer hash;
+         /**
+         * Stores the wdl.
+         */
+         private final boolean wdl;
+         /**
+         * Stores the no wdl.
+         */
+         private final boolean noWdl;
+         /**
+         * Stores the fen.
+         */
+         private final String fen;
 
-        private PuzzleOptions(boolean verbose, boolean analyzeTags, String protoPath, long nodesCap, long durMs,
+         /**
+         * Creates a new puzzle options instance.
+         * @param verbose verbose
+         * @param analyzeTags analyze tags
+         * @param protoPath proto path
+         * @param nodesCap nodes cap
+         * @param durMs dur ms
+         * @param multipv multipv
+         * @param tagMultipv tag multipv
+         * @param pvPlies pv plies
+         * @param threads threads
+         * @param hash hash
+         * @param wdl wdl
+         * @param noWdl no wdl
+         * @param fen fen
+         */
+         private PuzzleOptions(boolean verbose, boolean analyzeTags, String protoPath, long nodesCap, long durMs,
                 int multipv, int tagMultipv, int pvPlies, Integer threads, Integer hash, boolean wdl, boolean noWdl,
                 String fen) {
             this.verbose = verbose;
@@ -428,32 +585,74 @@ public final class PuzzleTagsCommand {
         }
     }
 
-    private static final class TagEntry {
-        private final List<String> tags;
-        @SuppressWarnings("unused")
+     /**
+     * Provides tag entry behavior.
+     */
+     private static final class TagEntry {
+         /**
+         * Stores the tags.
+         */
+         private final List<String> tags;
+         /**
+         * Stores the analysis.
+         */
+         @SuppressWarnings("unused")
         private final Analysis analysis;
 
-        private TagEntry(List<String> tags, Analysis analysis) {
+         /**
+         * Creates a new tag entry instance.
+         * @param tags tags
+         * @param analysis analysis
+         */
+         private TagEntry(List<String> tags, Analysis analysis) {
             this.tags = tags;
             this.analysis = analysis;
         }
     }
 
-    private static final class ThreatInfo {
-        private final String severity;
-        private final String type;
+     /**
+     * Provides threat info behavior.
+     */
+     private static final class ThreatInfo {
+         /**
+         * Stores the severity.
+         */
+         private final String severity;
+         /**
+         * Stores the type.
+         */
+         private final String type;
 
-        private ThreatInfo(String severity, String type) {
+         /**
+         * Creates a new threat info instance.
+         * @param severity severity
+         * @param type type
+         */
+         private ThreatInfo(String severity, String type) {
             this.severity = severity;
             this.type = type;
         }
     }
 
-    private static final class MoveInfo {
-        private final String san;
-        private final String uci;
+     /**
+     * Provides move info behavior.
+     */
+     private static final class MoveInfo {
+         /**
+         * Stores the san.
+         */
+         private final String san;
+         /**
+         * Stores the uci.
+         */
+         private final String uci;
 
-        private MoveInfo(String san, String uci) {
+         /**
+         * Creates a new move info instance.
+         * @param san san
+         * @param uci uci
+         */
+         private MoveInfo(String san, String uci) {
             this.san = san;
             this.uci = uci;
         }

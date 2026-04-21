@@ -6,6 +6,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.LongConsumer;
 
 import chess.core.Position;
 import chess.core.SAN;
@@ -37,8 +38,21 @@ public final class PgnOps {
 	 * @return list of {@link Game} instances found in the file
 	 */
 	public static List<Game> readPgnOrExit(Path input, boolean verbose, String cmd) {
+		return readPgnOrExit(input, verbose, cmd, null);
+	}
+
+	/**
+	 * Reads a PGN file and returns its parsed games or exits on failure.
+	 *
+	 * @param input        path to the PGN file
+	 * @param verbose      whether to print stack traces when parsing fails
+	 * @param cmd          label of the invoking command (used in error output)
+	 * @param byteProgress optional callback receiving cumulative bytes read
+	 * @return list of {@link Game} instances found in the file
+	 */
+	public static List<Game> readPgnOrExit(Path input, boolean verbose, String cmd, LongConsumer byteProgress) {
 		try {
-			return Pgn.read(input);
+			return Pgn.read(input, byteProgress);
 		} catch (Exception ex) {
 			System.err.println(cmd + ": failed to read PGN: " + ex.getMessage());
 			if (verbose) {
@@ -86,9 +100,27 @@ public final class PgnOps {
 			BufferedWriter writer,
 			boolean mainline,
 			boolean pairs) throws IOException {
+		return writePgnFens(games, writer, mainline, pairs, null);
+	}
+
+	/**
+	 * Writes FEN positions and reports progress once per game.
+	 */
+	public static long writePgnFens(
+			List<Game> games,
+			BufferedWriter writer,
+			boolean mainline,
+			boolean pairs,
+			Runnable progress) throws IOException {
 		long lines = 0;
 		for (Game game : games) {
-			lines += writeGameFens(game, writer, mainline, pairs);
+			try {
+				lines += writeGameFens(game, writer, mainline, pairs);
+			} finally {
+				if (progress != null) {
+					progress.run();
+				}
+			}
 		}
 		return lines;
 	}
@@ -229,7 +261,8 @@ public final class PgnOps {
 				}
 				positions.add(new Record().withParent(parent).withPosition(child.copyOf()));
 				for (Game.Node variation : cur.getVariations()) {
-					stack.push(new Work(variation, child.copyOf()));
+					// PGN variations branch from the position before the current move.
+					stack.push(new Work(variation, parent.copyOf()));
 				}
 				current = child;
 				cur = cur.getNext();

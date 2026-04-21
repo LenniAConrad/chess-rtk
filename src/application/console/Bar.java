@@ -1,7 +1,8 @@
 package application.console;
 
+import java.io.PrintStream;
 import java.time.Duration;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantLock;
 
 /**
@@ -61,12 +62,12 @@ public final class Bar {
 	/**
 	 * Used for tracking the total units of work being monitored.
 	 */
-	private final int total;
+	private final long total;
 
 	/**
 	 * How often to render progress (throttled for large totals).
 	 */
-	private final int renderEvery;
+	private final long renderEvery;
 
 	/**
 	 * Optional label prefix (e.g., "Perturb: ").
@@ -84,9 +85,14 @@ public final class Bar {
 	private final boolean useAscii;
 
 	/**
+	 * Stream used for progress rendering.
+	 */
+	private final PrintStream stream;
+
+	/**
 	 * Used for counting the number of completed units.
 	 */
-	private final AtomicInteger completed = new AtomicInteger();
+	private final AtomicLong completed = new AtomicLong();
 
 	/**
 	 * Used for throttling render frequency.
@@ -108,7 +114,7 @@ public final class Bar {
 	 *              stays disabled
 	 */
 	public Bar(int total) {
-		this(total, null, false);
+		this((long) total, null, false);
 	}
 
 	/**
@@ -117,7 +123,7 @@ public final class Bar {
 	 * @param label optional label prefix displayed before the bar
 	 */
 	public Bar(int total, String label) {
-		this(total, label, false);
+		this((long) total, label, false);
 	}
 
 	/**
@@ -128,9 +134,42 @@ public final class Bar {
 	 *                Unicode blocks (useful for terminals that do not support UTF-8)
 	 */
 	public Bar(int total, String label, boolean ascii) {
+		this((long) total, label, ascii);
+	}
+
+	/**
+	 * @param total total amount of work to track; when zero or negative, rendering
+	 *              stays disabled
+	 * @param label optional label prefix displayed before the bar
+	 */
+	public Bar(long total, String label) {
+		this(total, label, false);
+	}
+
+	/**
+	 * @param total total amount of work to track; when zero or negative, rendering
+	 *              stays disabled
+	 * @param label optional label prefix displayed before the bar
+	 * @param ascii when true, render the bar with ASCII characters instead of
+	 *              Unicode blocks
+	 */
+	public Bar(long total, String label, boolean ascii) {
+		this(total, label, ascii, System.out);
+	}
+
+	/**
+	 * @param total total amount of work to track; when zero or negative, rendering
+	 *              stays disabled
+	 * @param label optional label prefix displayed before the bar
+	 * @param ascii when true, render the bar with ASCII characters instead of
+	 *              Unicode blocks
+	 * @param stream stream used for progress rendering
+	 */
+	public Bar(long total, String label, boolean ascii, PrintStream stream) {
 		this.total = Math.max(0, total);
 		this.labelPrefix = (label == null || label.isBlank()) ? "" : label.trim() + ": ";
 		this.useAscii = ascii;
+		this.stream = stream == null ? System.out : stream;
 		this.renderEvery = chooseRenderEvery(this.total);
 		this.startNs = System.nanoTime();
 		if (this.total > 0) {
@@ -145,9 +184,53 @@ public final class Bar {
 		if (total <= 0) {
 			return;
 		}
-		int done = completed.incrementAndGet();
+		long done = completed.incrementAndGet();
 		long now = System.nanoTime();
 		renderMaybe(done, now, false, false, false);
+	}
+
+	/**
+	 * Used for advancing the bar by one unit while updating the trailing status text
+	 * before the render.
+	 *
+	 * @param postfix text to append inside the brackets; blank/empty clears it
+	 */
+	public void step(String postfix) {
+		if (total <= 0) {
+			return;
+		}
+		this.postfix = (postfix == null) ? "" : postfix.trim();
+		long done = completed.incrementAndGet();
+		long now = System.nanoTime();
+		renderMaybe(done, now, false, false, false);
+	}
+
+	/**
+	 * Used for advancing the bar by a variable number of units.
+	 *
+	 * @param amount completed units to add
+	 */
+	public void step(long amount) {
+		if (total <= 0 || amount <= 0) {
+			return;
+		}
+		long done = completed.addAndGet(amount);
+		long now = System.nanoTime();
+		renderMaybe(done, now, false, false, false);
+	}
+
+	/**
+	 * Used for setting absolute completion, useful for file byte counters.
+	 *
+	 * @param done absolute completed units
+	 */
+	public void set(long done) {
+		if (total <= 0) {
+			return;
+		}
+		long clamped = Math.max(0L, Math.min(done, total));
+		completed.set(clamped);
+		renderMaybe(clamped, System.nanoTime(), false, false, false);
 	}
 
 	/**
@@ -173,7 +256,7 @@ public final class Bar {
 		renderMaybe(completed.get(), System.nanoTime(), true, true, true);
 		RENDER_LOCK.lock();
 		try {
-			System.out.println();
+			stream.println();
 			lastRenderLength = 0;
 		} finally {
 			RENDER_LOCK.unlock();
@@ -189,14 +272,14 @@ public final class Bar {
 	 * @param ignoreThrottle    ignore the time-based throttle (e.g., final render)
 	 * @param forceWriteLock    when true, block to acquire the render lock
 	 */
-	private void renderMaybe(int done, long now, boolean ignoreRenderEvery, boolean ignoreThrottle, boolean forceWriteLock) {
+	private void renderMaybe(long done, long now, boolean ignoreRenderEvery, boolean ignoreThrottle, boolean forceWriteLock) {
 		if (total <= 0) {
 			return;
 		}
 		if (!shouldRender(done, now, ignoreRenderEvery, ignoreThrottle)) {
 			return;
 		}
-		final int clamped = Math.max(0, Math.min(done, total));
+		final long clamped = Math.max(0L, Math.min(done, total));
 		renderProgress(clamped, now, forceWriteLock);
 	}
 
@@ -206,7 +289,7 @@ public final class Bar {
 	 * @param done completed units
 	 * @return duration until completion or {@code null} when not enough data
 	 */
-	private Duration computeEta(int done) {
+	private Duration computeEta(long done) {
 		if (done <= 0 || done > total) {
 			return null;
 		}
@@ -214,7 +297,7 @@ public final class Bar {
 		if (elapsedNs == 0) {
 			return null;
 		}
-		final int remaining = total - done;
+		final long remaining = total - done;
 		if (remaining <= 0) {
 			return Duration.ZERO;
 		}
@@ -236,7 +319,7 @@ public final class Bar {
 	/**
 	 * Used for deciding whether to render based on throttling.
 	 */
-	private boolean shouldRender(int done, long now, boolean ignoreRenderEvery, boolean ignoreThrottle) {
+	private boolean shouldRender(long done, long now, boolean ignoreRenderEvery, boolean ignoreThrottle) {
 		if (done >= total) {
 			return true;
 		}
@@ -252,7 +335,7 @@ public final class Bar {
 	/**
 	 * Used for choosing a sensible render frequency for large totals.
 	 */
-	private static int chooseRenderEvery(int total) {
+	private static long chooseRenderEvery(long total) {
 		if (total <= 0) {
 			return 1;
 		}
@@ -304,7 +387,7 @@ public final class Bar {
 	 * @param now     current nanotime (for throttle bookkeeping)
 	 * @param forceWriteLock block and render even if another bar is writing
 	 */
-	private void renderProgress(int clamped, long now, boolean forceWriteLock) {
+	private void renderProgress(long clamped, long now, boolean forceWriteLock) {
 		final double fraction = (total == 0) ? 0.0 : (double) clamped / total;
 		final int percent = (int) Math.floor(fraction * 100.0);
 		final String bar = useAscii ? buildAsciiBar(fraction) : buildBlockBar(fraction);
@@ -392,7 +475,7 @@ public final class Bar {
 	 * @param elapsed elapsed duration
 	 * @return formatted throughput, e.g., {@code "15.26it/s"}
 	 */
-	private static String formatRate(int done, Duration elapsed) {
+	private static String formatRate(long done, Duration elapsed) {
 		if (done <= 0) {
 			return "?it/s";
 		}
@@ -413,14 +496,14 @@ public final class Bar {
 			return; // Skip render if another writer is active and we won't block
 		}
 		try {
-			System.out.print("\r");
+			stream.print("\r");
 			if (lastRenderLength > 0 && line.length() < lastRenderLength) {
-				System.out.print(" ".repeat(lastRenderLength));
-				System.out.print("\r");
+				stream.print(" ".repeat(lastRenderLength));
+				stream.print("\r");
 			}
-			System.out.print(line);
+			stream.print(line);
 			lastRenderLength = line.length();
-			System.out.flush();
+			stream.flush();
 		} finally {
 			RENDER_LOCK.unlock();
 		}

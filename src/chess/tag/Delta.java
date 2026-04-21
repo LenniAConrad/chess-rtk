@@ -25,7 +25,7 @@ public final class Delta {
      * text changed between two snapshots.
  * @author Lennart A. Conrad
  * @since 2026
-     */
+ */
     public static final class Change {
 
         /**

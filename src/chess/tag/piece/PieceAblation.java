@@ -243,7 +243,7 @@ public final class PieceAblation {
      * Captures the most relevant information about a piece for extrema tracking.
  * @author Lennart A. Conrad
  * @since 2026
-     */
+ */
     private static final class PieceSummary {
 
         /**
@@ -279,7 +279,7 @@ public final class PieceAblation {
      * Accumulates rendered tags and tracks the strongest and weakest pieces.
  * @author Lennart A. Conrad
  * @since 2026
-     */
+ */
     private static final class Accumulator {
 
         /**
@@ -434,7 +434,7 @@ public final class PieceAblation {
      * Strength tiers used to label the effect of removing a piece.
  * @author Lennart A. Conrad
  * @since 2026
-     */
+ */
     private enum Strength {
 
         /**

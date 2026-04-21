@@ -36,6 +36,11 @@ public final class Constants {
 	public static final String CMD_RECORD_TO_LC0 = "record-to-lc0";
 
 	/**
+	 * {@code record-to-classifier} subcommand token.
+	 */
+	public static final String CMD_RECORD_TO_CLASSIFIER = "record-to-classifier";
+
+	/**
 	 * {@code record-to-pgn} subcommand token.
 	 */
 	public static final String CMD_RECORD_TO_PGN = "record-to-pgn";
@@ -44,6 +49,11 @@ public final class Constants {
 	 * {@code record-to-puzzle-jsonl} subcommand token.
 	 */
 	public static final String CMD_RECORD_TO_PUZZLE_JSONL = "record-to-puzzle-jsonl";
+
+	/**
+	 * {@code record-to-training-jsonl} subcommand token.
+	 */
+	public static final String CMD_RECORD_TO_TRAINING_JSONL = "record-to-training-jsonl";
 
 	/**
 	 * {@code record-analysis-delta} subcommand token.
@@ -59,11 +69,6 @@ public final class Constants {
 	 * {@code puzzles-to-pgn} subcommand token.
 	 */
 	public static final String CMD_PUZZLES_TO_PGN = "puzzles-to-pgn";
-
-	/**
-	 * {@code stack-to-dataset} subcommand token.
-	 */
-	public static final String CMD_STACK_TO_DATASET = "stack-to-dataset";
 
 	/**
 	 * {@code gpu-info} subcommand token.
@@ -96,9 +101,29 @@ public final class Constants {
 	public static final String CMD_RENDER = "render";
 
 	/**
+	 * {@code chess-pdf} subcommand token.
+	 */
+	public static final String CMD_CHESS_PDF = "chess-pdf";
+
+	/**
+	 * {@code chess-book} subcommand token.
+	 */
+	public static final String CMD_CHESS_BOOK = "chess-book";
+
+	/**
+	 * {@code chess-book-cover} subcommand token.
+	 */
+	public static final String CMD_CHESS_BOOK_COVER = "chess-book-cover";
+
+	/**
 	 * {@code gui} subcommand token.
 	 */
 	public static final String CMD_GUI = "gui";
+
+	/**
+	 * {@code gui-web} subcommand token.
+	 */
+	public static final String CMD_GUI_WEB = "gui-web";
 
 	/**
 	 * {@code clean} subcommand token.
@@ -291,6 +316,66 @@ public final class Constants {
 	public static final String OPT_FORMAT = "--format";
 
 	/**
+	 * {@code --title} option flag.
+	 */
+	public static final String OPT_TITLE = "--title";
+
+	/**
+	 * {@code --subtitle} option flag.
+	 */
+	public static final String OPT_SUBTITLE = "--subtitle";
+
+	/**
+	 * {@code --limit} option flag.
+	 */
+	public static final String OPT_LIMIT = "--limit";
+
+	/**
+	 * {@code --pages} option flag.
+	 */
+	public static final String OPT_PAGES = "--pages";
+
+	/**
+	 * {@code --binding} option flag.
+	 */
+	public static final String OPT_BINDING = "--binding";
+
+	/**
+	 * {@code --interior} option flag.
+	 */
+	public static final String OPT_INTERIOR = "--interior";
+
+	/**
+	 * {@code --free-watermark} option flag.
+	 */
+	public static final String OPT_FREE_WATERMARK = "--free-watermark";
+
+	/**
+	 * {@code --watermark} option flag alias.
+	 */
+	public static final String OPT_WATERMARK = "--watermark";
+
+	/**
+	 * {@code --page-size} option flag.
+	 */
+	public static final String OPT_PAGE_SIZE = "--page-size";
+
+	/**
+	 * {@code --diagrams-per-row} option flag.
+	 */
+	public static final String OPT_DIAGRAMS_PER_ROW = "--diagrams-per-row";
+
+	/**
+	 * {@code --board-pixels} option flag.
+	 */
+	public static final String OPT_BOARD_PIXELS = "--board-pixels";
+
+	/**
+	 * {@code --no-fen} option flag.
+	 */
+	public static final String OPT_NO_FEN = "--no-fen";
+
+	/**
 	 * {@code --verbose} option flag.
 	 */
 	public static final String OPT_VERBOSE = "--verbose";
@@ -354,6 +439,26 @@ public final class Constants {
 	 * {@code --max-records} option flag.
 	 */
 	public static final String OPT_MAX_RECORDS = "--max-records";
+
+	/**
+	 * {@code --label-filter} option flag.
+	 */
+	public static final String OPT_LABEL_FILTER = "--label-filter";
+
+	/**
+	 * {@code --include-engine-metadata} option flag.
+	 */
+	public static final String OPT_INCLUDE_ENGINE_METADATA = "--include-engine-metadata";
+
+	/**
+	 * {@code --max-positives} option flag.
+	 */
+	public static final String OPT_MAX_POSITIVES = "--max-positives";
+
+	/**
+	 * {@code --max-negatives} option flag.
+	 */
+	public static final String OPT_MAX_NEGATIVES = "--max-negatives";
 
 	/**
 	 * {@code --puzzles} option flag.

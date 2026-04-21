@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-pattern='^(nets/|.*\.(pb\.gz|pb|onnx|nnue)$|.*weights.*)'
+pattern='^(nets/|models/.*\.bin$|.*\.(pb\.gz|pb|onnx|nnue)$)'
 
 if ! command -v git >/dev/null 2>&1; then
   echo "ERROR: git is required." >&2

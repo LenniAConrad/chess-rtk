@@ -218,6 +218,11 @@ public final class Render {
 	private boolean showCoordinatesOutside = false;
 
 	/**
+	 * Whether to draw castling-right and en-passant hint arrows automatically.
+	 */
+	private boolean showSpecialMoveHints = true;
+
+	/**
 	 * Scale factor for rendering piece images (1.0 = default size).
 	 */
 	private double pieceScale = 1.0;
@@ -346,6 +351,17 @@ public final class Render {
 	}
 
 	/**
+	 * Toggles automatic castling-right and en-passant hint arrows.
+	 *
+	 * @param value true to draw special-move hints for the current position
+	 * @return this renderer for chaining
+	 */
+	public Render setShowSpecialMoveHints(boolean value) {
+		this.showSpecialMoveHints = value;
+		return this;
+	}
+
+	/**
 	 * Sets a scale factor and vertical offset for piece rendering.
 	 *
 	 * @param scale scale multiplier (1.0 = default size)
@@ -362,12 +378,13 @@ public final class Render {
 	}
 
 	/**
-	 * Removes all arrows.
+	 * Removes explicit arrows and disables automatic special-move hint arrows.
 	 *
 	 * @return this renderer for chaining
 	 */
 	public Render clearArrows() {
 		arrows.clear();
+		showSpecialMoveHints = false;
 		return this;
 	}
 
@@ -709,6 +726,7 @@ public final class Render {
 		drawCoordinates(g, geometry.boardX, geometry.boardY);
 		drawPieces(g, geometry.boardX, geometry.boardY);
 		drawCircles(g, geometry.boardX, geometry.boardY);
+		drawSpecialMoveHints(g, geometry.boardX, geometry.boardY);
 		drawArrows(g, geometry.boardX, geometry.boardY);
 		drawSquareTexts(g, geometry.boardX, geometry.boardY, false);
 	}
@@ -755,6 +773,7 @@ public final class Render {
 		appendCoordinatesSvg(svg, geometry.boardX, geometry.boardY);
 		appendPiecesSvg(svg, geometry.boardX, geometry.boardY);
 		appendCirclesSvg(svg, geometry.boardX, geometry.boardY);
+		appendSpecialMoveHintsSvg(svg, geometry.boardX, geometry.boardY);
 		appendArrowsSvg(svg, geometry.boardX, geometry.boardY);
 		appendSquareTextsSvg(svg, geometry.boardX, geometry.boardY, false);
 		svg.append("</svg>\n");
@@ -921,9 +940,35 @@ public final class Render {
 	 */
 	private void appendArrowsSvg(StringBuilder svg, int boardX, int boardY) {
 		for (Arrow arrow : arrows) {
+			appendArrowSvg(svg, arrow, boardX, boardY);
+		}
+	}
+
+	/**
+	 * Appends automatic special-move hint arrows to an SVG document.
+	 *
+	 * @param svg SVG builder
+	 * @param boardX board origin x
+	 * @param boardY board origin y
+	 */
+	private void appendSpecialMoveHintsSvg(StringBuilder svg, int boardX, int boardY) {
+		for (Arrow arrow : specialMoveHintArrows()) {
+			appendArrowSvg(svg, arrow, boardX, boardY);
+		}
+	}
+
+	/**
+	 * Appends one arrow overlay to an SVG document.
+	 *
+	 * @param svg SVG builder
+	 * @param arrow arrow to append
+	 * @param boardX board origin x
+	 * @param boardY board origin y
+	 */
+	private void appendArrowSvg(StringBuilder svg, Arrow arrow, int boardX, int boardY) {
 			Polygon poly = arrow.polygon(boardX, boardY, tileWidth, tileHeight, whiteSideDown);
 			if (poly.npoints <= 0) {
-				continue;
+				return;
 			}
 			svg.append("  <polygon points=\"");
 			for (int i = 0; i < poly.npoints; i++) {
@@ -938,7 +983,6 @@ public final class Render {
 			svg.append(" stroke-linejoin=\"round\" stroke-width=\"");
 			appendNumber(svg, strokeWidth(arrow.stroke));
 			svg.append("\"/>\n");
-		}
 	}
 
 	/**
@@ -1244,13 +1288,125 @@ public final class Render {
 	 */
 	private void drawArrows(Graphics2D g, int boardX, int boardY) {
 		for (Arrow arrow : arrows) {
-			Polygon poly = arrow.polygon(boardX, boardY, tileWidth, tileHeight, whiteSideDown);
-			g.setStroke(arrow.stroke);
-			g.setPaint(arrow.fillColor);
-			g.fillPolygon(poly);
-			g.setPaint(arrow.borderColor);
-			g.drawPolygon(poly);
+			drawArrow(g, arrow, boardX, boardY);
 		}
+	}
+
+	/**
+	 * Draws automatic special-move hint arrows.
+	 *
+	 * @param g graphics context
+	 * @param boardX board origin x
+	 * @param boardY board origin y
+	 */
+	private void drawSpecialMoveHints(Graphics2D g, int boardX, int boardY) {
+		for (Arrow arrow : specialMoveHintArrows()) {
+			drawArrow(g, arrow, boardX, boardY);
+		}
+	}
+
+	/**
+	 * Draws one arrow overlaying the board.
+	 *
+	 * @param g graphics context
+	 * @param arrow arrow to draw
+	 * @param boardX board origin x
+	 * @param boardY board origin y
+	 */
+	private void drawArrow(Graphics2D g, Arrow arrow, int boardX, int boardY) {
+		Polygon poly = arrow.polygon(boardX, boardY, tileWidth, tileHeight, whiteSideDown);
+		g.setStroke(arrow.stroke);
+		g.setPaint(arrow.fillColor);
+		g.fillPolygon(poly);
+		g.setPaint(arrow.borderColor);
+		g.drawPolygon(poly);
+	}
+
+	/**
+	 * Builds the implicit special-move hint arrows for the current position.
+	 *
+	 * @return hint arrows, or an empty list when disabled
+	 */
+	private List<Arrow> specialMoveHintArrows() {
+		if (!showSpecialMoveHints) {
+			return List.of();
+		}
+		List<Arrow> hints = new ArrayList<>(5);
+		addEnPassantHint(position, hints);
+		addCastlingRightHints(position, hints);
+		return hints;
+	}
+
+	/**
+	 * Appends an en-passant hint arrow when the position contains an en-passant
+	 * target square.
+	 *
+	 * @param pos source position
+	 * @param target target arrow list
+	 */
+	private void addEnPassantHint(Position pos, List<Arrow> target) {
+		if (pos == null) {
+			return;
+		}
+		byte enPassant = pos.getEnPassant();
+		if (enPassant == Field.NO_SQUARE) {
+			return;
+		}
+		if (Field.isOn6thRank(enPassant)) {
+			target.add(hintArrow(Move.of((byte) (enPassant - 8), (byte) (enPassant + 8))));
+			return;
+		}
+		if (Field.isOn3rdRank(enPassant)) {
+			target.add(hintArrow(Move.of((byte) (enPassant + 8), (byte) (enPassant - 8))));
+		}
+	}
+
+	/**
+	 * Appends castling-right hint arrows for both sides.
+	 *
+	 * @param pos source position
+	 * @param target target arrow list
+	 */
+	private void addCastlingRightHints(Position pos, List<Arrow> target) {
+		if (pos == null) {
+			return;
+		}
+		byte whiteKing = pos.getWhiteKing();
+		byte blackKing = pos.getBlackKing();
+		if (whiteKing != Field.NO_SQUARE) {
+			addCastlingRightHint(whiteKing, pos.getWhiteKingside(), target);
+			addCastlingRightHint(whiteKing, pos.getWhiteQueenside(), target);
+		}
+		if (blackKing != Field.NO_SQUARE) {
+			addCastlingRightHint(blackKing, pos.getBlackKingside(), target);
+			addCastlingRightHint(blackKing, pos.getBlackQueenside(), target);
+		}
+	}
+
+	/**
+	 * Appends one castling-right hint arrow when the castling target is present.
+	 *
+	 * @param king king square
+	 * @param targetSquare castling target square
+	 * @param target target arrow list
+	 */
+	private void addCastlingRightHint(byte king, byte targetSquare, List<Arrow> target) {
+		if (targetSquare != Field.NO_SQUARE) {
+			target.add(hintArrow(Move.of(king, targetSquare)));
+		}
+	}
+
+	/**
+	 * Creates a default special-move hint arrow.
+	 *
+	 * @param move encoded move
+	 * @return hint arrow
+	 */
+	private Arrow hintArrow(short move) {
+		int head = (int) (tileWidth * DEFAULT_HINT_ARROW_HEAD_HEIGHT);
+		int start = (int) (tileWidth * DEFAULT_HINT_ARROW_START_SHORTENER);
+		int end = (int) (tileWidth * DEFAULT_HINT_ARROW_END_SHORTENER);
+		return new Arrow(move, head, start, end, DEFAULT_HINT_ARROW_BORDER, DEFAULT_HINT_ARROW_FILL, hintArrowStroke);
 	}
 
 	/**
@@ -1875,7 +2031,7 @@ public final class Render {
 	 * @param detail       whether to draw this label below pieces and overlays
 	 */
 	private record SquareText(byte index, String text, Color textColor, Color background, Color border,
-			Stroke borderStroke, Font baseFont, boolean bottomAligned, boolean detail) {
+						Stroke borderStroke, 			Font baseFont, 			boolean bottomAligned, 			boolean detail) {
 	}
 
 		/**

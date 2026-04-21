@@ -163,7 +163,8 @@ public final class Config {
     /**
      * Used for providing a default LC0J weights path.
      */
-    private static final String DEFAULT_LC0_MODEL_PATH = "models/lc0_744706.bin";
+    private static final String DEFAULT_LC0_MODEL_PATH =
+            "models/leela_112planes-10blocksx128-policyhead80-valuehead32-policy4672-wdl3.bin";
 
     /**
      * Used for providing a default T5 weights path.

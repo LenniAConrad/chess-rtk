@@ -23,6 +23,9 @@ import javax.swing.JPanel;
  */
 final class BoardEditorDialog extends JDialog {
 
+	@java.io.Serial
+	private static final long serialVersionUID = 1L;
+
     /**
      * owner field.
      */

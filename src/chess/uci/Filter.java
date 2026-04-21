@@ -291,7 +291,22 @@ public final class Filter {
      * These map to the natural ordering of the compared type.
      */
     public enum ComparisonOperator {
-        GREATER, GREATER_EQUAL, EQUAL, LESS_EQUAL, LESS
+         /**
+         * Shared greater constant.
+         */
+         GREATER,         /**
+         * Shared greater equal constant.
+          */
+GREATER_EQUAL,         /**
+         * Shared equal constant.
+          */
+EQUAL,         /**
+         * Shared less equal constant.
+          */
+LESS_EQUAL,         /**
+         * Shared less constant.
+          */
+LESS
     }
 
     /**
@@ -299,7 +314,31 @@ public final class Filter {
      * See {@link #reduceWithGate(boolean[])} for the exact semantics.
      */
     public enum Gate {
-        AND, NOT_AND, OR, NOT_OR, XOR, X_NOT_OR, SAME, NOT_SAME
+         /**
+         * Shared and constant.
+         */
+         AND,         /**
+         * Shared not and constant.
+          */
+NOT_AND,         /**
+         * Shared or constant.
+          */
+OR,         /**
+         * Shared not or constant.
+          */
+NOT_OR,         /**
+         * Shared xor constant.
+          */
+XOR,         /**
+         * Shared x not or constant.
+          */
+X_NOT_OR,         /**
+         * Shared same constant.
+          */
+SAME,         /**
+         * Shared not same constant.
+          */
+NOT_SAME
     }
 
     /**
@@ -1440,11 +1479,41 @@ public final class Filter {
          */
         enum Kind {
             // scalar ints
-            DEPTH, SELDEPTH, MULTIPV, HASHFULL,
+             /**
+             * Shared depth constant.
+             */
+             DEPTH,             /**
+             * Shared seldepth constant.
+              */
+SELDEPTH,             /**
+             * Shared multipv constant.
+              */
+MULTIPV,             /**
+             * Shared hashfull constant.
+              */
+HASHFULL,
             // scalar longs
-            NODES, NPS, TBHITS, TIME,
+             /**
+             * Shared nodes constant.
+             */
+             NODES,             /**
+             * Shared nps constant.
+              */
+NPS,             /**
+             * Shared tbhits constant.
+              */
+TBHITS,             /**
+             * Shared time constant.
+              */
+TIME,
             // complex types
-            EVAL, CHANCES
+             /**
+             * Shared eval constant.
+             */
+             EVAL,             /**
+             * Shared chances constant.
+              */
+CHANCES
         }
 
         /**
