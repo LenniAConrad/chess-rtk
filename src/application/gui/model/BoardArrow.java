@@ -11,5 +11,18 @@ package application.gui.model;
   * @since 2026
   * @author Lennart A. Conrad
  */
-public record BoardArrow(byte from, byte to, byte color) {
+public record BoardArrow(
+	/**
+	 * Stores the from.
+	 */
+	byte from,
+	/**
+	 * Stores the to.
+	 */
+	byte to,
+	/**
+	 * Stores the color.
+	 */
+	byte color
+) {
 }

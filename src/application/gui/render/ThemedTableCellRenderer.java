@@ -16,7 +16,10 @@ import application.gui.window.GuiWindowHistory;
  */
 public final class ThemedTableCellRenderer extends DefaultTableCellRenderer {
 
-	@java.io.Serial
+		/**
+	 * Serialization version identifier.
+	 */
+@java.io.Serial
 	private static final long serialVersionUID = 1L;
 	/**
 	 * owner field.
@@ -32,7 +35,17 @@ public final class ThemedTableCellRenderer extends DefaultTableCellRenderer {
 		setOpaque(true);
 	}
 
-	@Override
+		/**
+	 * Returns the table cell renderer component.
+	 * @param table table value
+	 * @param value value value
+	 * @param isSelected is selected value
+	 * @param hasFocus has focus value
+	 * @param row row value
+	 * @param column column value
+	 * @return computed value
+	 */
+@Override
 	/**
 	 * getTableCellRendererComponent method.
 	 *

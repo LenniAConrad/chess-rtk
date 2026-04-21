@@ -86,7 +86,7 @@ public final class ConfigOps {
 				warnings.add("Missing model file for " + key + ": " + path.toAbsolutePath());
 			}
 		} catch (RuntimeException ex) {
-			warnings.add("Invalid path for " + key + ": " + pathText);
+			warnings.add("Invalid path for " + key + ": " + pathText + " (" + ex.getMessage() + ")");
 		}
 	}
 

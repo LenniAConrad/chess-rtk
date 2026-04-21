@@ -1,6 +1,5 @@
 package application.cli.command;
 
-import static application.cli.Constants.CMD_CHESS_PDF;
 import static application.cli.Constants.CMD_HELP_LONG;
 import static application.cli.Constants.CMD_HELP_SHORT;
 import static application.cli.Constants.OPT_BLACK_DOWN;
@@ -42,12 +41,17 @@ import utility.Argv;
 import chess.pdf.document.PageSize;
 
 /**
- * Implements {@code chess-pdf}.
+ * Implements {@code book pdf}.
  *
  * @since 2026
  * @author Lennart A. Conrad
  */
 public final class ChessPdfCommand {
+
+	/**
+	 * Current command label used in diagnostics.
+	 */
+	private static final String COMMAND_LABEL = "book pdf";
 
 	/**
 	 * Supported page-size names for the command-line option.
@@ -65,13 +69,13 @@ public final class ChessPdfCommand {
 	}
 
 	/**
-	 * Handles {@code chess-pdf}.
+	 * Handles {@code book pdf}.
 	 *
 	 * @param a argument parser for the subcommand
 	 */
 	public static void runChessPdf(Argv a) {
 		if (a.flag(CMD_HELP_SHORT, CMD_HELP_LONG)) {
-			HelpCommand.runHelp(new Argv(new String[] { CMD_CHESS_PDF }));
+			HelpCommand.runHelp(new Argv(new String[] { "book", "pdf" }));
 			return;
 		}
 
@@ -109,24 +113,24 @@ public final class ChessPdfCommand {
 			Path resolvedOutput = resolveOutputPath(output, input);
 			Writer.writeComposition(resolvedOutput, composition, options);
 			System.out.printf(Locale.ROOT, "%s wrote %d diagram%s to %s%n",
-					CMD_CHESS_PDF,
+					COMMAND_LABEL,
 					fens.size(),
 					fens.size() == 1 ? "" : "s",
 					resolvedOutput.toAbsolutePath());
 		} catch (IllegalArgumentException ex) {
-			System.err.println(CMD_CHESS_PDF + ": " + ex.getMessage());
+			System.err.println(COMMAND_LABEL + ": " + ex.getMessage());
 			if (verbose) {
 				ex.printStackTrace(System.err);
 			}
 			System.exit(2);
 		} catch (IOException ex) {
-			System.err.println(CMD_CHESS_PDF + ": failed to generate PDF: " + ex.getMessage());
+			System.err.println(COMMAND_LABEL + ": failed to generate PDF: " + ex.getMessage());
 			if (verbose) {
 				ex.printStackTrace(System.err);
 			}
 			System.exit(3);
 		} catch (Exception ex) {
-			System.err.println(CMD_CHESS_PDF + ": unexpected failure: " + ex.getMessage());
+			System.err.println(COMMAND_LABEL + ": unexpected failure: " + ex.getMessage());
 			if (verbose) {
 				ex.printStackTrace(System.err);
 			}
@@ -146,7 +150,7 @@ public final class ChessPdfCommand {
 	 */
 	private static void runPgnExport(Path pgn, Path output, String title, Options options, boolean verbose)
 			throws IOException {
-		List<Game> games = PgnOps.readPgnOrExit(pgn, verbose, CMD_CHESS_PDF);
+		List<Game> games = PgnOps.readPgnOrExit(pgn, verbose, COMMAND_LABEL);
 		if (games.isEmpty()) {
 			throw new IllegalArgumentException("PGN input has no games: " + pgn.toAbsolutePath());
 		}
@@ -164,7 +168,7 @@ public final class ChessPdfCommand {
 		Path resolvedOutput = output != null ? output : deriveOutputPath(pgn, ".pdf");
 		Writer.writeCompositions(resolvedOutput, documentTitle, compositions, options);
 		System.out.printf(Locale.ROOT, "%s wrote %d game%s and %d diagram%s to %s%n",
-				CMD_CHESS_PDF,
+				COMMAND_LABEL,
 				games.size(),
 				games.size() == 1 ? "" : "s",
 				diagrams,
@@ -193,9 +197,9 @@ public final class ChessPdfCommand {
 		if (input != null) {
 			List<Record> records = Reader.readPositionRecords(input);
 			List<String> fens = new ArrayList<>(records.size());
-			for (Record record : records) {
-				if (record.getPosition() != null) {
-					fens.add(record.getPosition().toString());
+			for (Record positionRecord : records) {
+				if (positionRecord.getPosition() != null) {
+					fens.add(positionRecord.getPosition().toString());
 				}
 			}
 			if (fens.isEmpty()) {

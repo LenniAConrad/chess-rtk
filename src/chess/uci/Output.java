@@ -339,7 +339,9 @@ public class Output {
 		}
 	}
 
-	/** Used for consuming a parsed {@code short} value during token scanning. */
+	/**
+	 * Used for consuming a parsed {@code short} value during token scanning.
+	 */
 	@FunctionalInterface
 	private interface ShortConsumer {
 
@@ -351,7 +353,9 @@ public class Output {
 		void accept(short v);
 	}
 
-	/** Used for consuming a parsed {@code int} value during token scanning. */
+	/**
+	 * Used for consuming a parsed {@code int} value during token scanning.
+	 */
 	@FunctionalInterface
 	private interface IntConsumer {
 
@@ -363,7 +367,9 @@ public class Output {
 		void accept(int v);
 	}
 
-	/** Used for consuming a parsed {@code long} value during token scanning. */
+	/**
+	 * Used for consuming a parsed {@code long} value during token scanning.
+	 */
 	@FunctionalInterface
 	private interface LongConsumer {
 

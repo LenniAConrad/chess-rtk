@@ -1,6 +1,5 @@
 package application.cli.command;
 
-import static application.cli.Constants.CMD_GEN_FENS;
 import static application.cli.Constants.OPT_ASCII;
 import static application.cli.Constants.OPT_BATCH;
 import static application.cli.Constants.OPT_CHESS960;
@@ -28,12 +27,17 @@ import chess.core.Setup;
 import utility.Argv;
 
 /**
- * Implements the {@code gen-fens} CLI command.
+ * Implements the {@code fen generate} CLI command.
  *
  * @since 2026
  * @author Lennart A. Conrad
  */
 public final class GenFensCommand {
+
+	/**
+	 * Current command label used in diagnostics.
+	 */
+	private static final String COMMAND_LABEL = "fen generate";
 
 	/**
 	 * Utility class; prevent instantiation.
@@ -43,7 +47,7 @@ public final class GenFensCommand {
 	}
 
 	/**
-	 * Handles {@code gen-fens}.
+	 * Handles {@code fen generate}.
 	 *
 	 * @param a argument parser for the subcommand
 	 */
@@ -64,7 +68,7 @@ public final class GenFensCommand {
 			outDir = Paths.get("all_positions_shards");
 		}
 
-		ensureDirectoryOrExit(CMD_GEN_FENS, outDir, verbose);
+		ensureDirectoryOrExit(COMMAND_LABEL, outDir, verbose);
 
 		final long total = (long) files * (long) perFile;
 		final Bar bar = new Bar(total, "fens", ascii);
@@ -78,14 +82,14 @@ public final class GenFensCommand {
 
 		bar.finish();
 		System.out.printf(
-				"gen-fens wrote %d files (%d Chess960) to %s%n",
+				"fen generate wrote %d files (%d Chess960) to %s%n",
 				files,
 				chess960Files,
 				outDir.toAbsolutePath());
 	}
 
 	/**
-	 * Validates arguments for the {@code gen-fens} command and exits on violation.
+	 * Validates arguments for the {@code fen generate} command and exits on violation.
 	 *
 	 * @param files         number of output files requested
 	 * @param perFile       FENs per file
@@ -93,10 +97,10 @@ public final class GenFensCommand {
 	 * @param chess960Files number of Chess960 shards to emit
 	 */
 	private static void validateGenFensArgs(int files, int perFile, int batch, int chess960Files) {
-		requirePositive(CMD_GEN_FENS, OPT_FILES, files);
-		requirePositive(CMD_GEN_FENS, OPT_PER_FILE, perFile);
-		requirePositive(CMD_GEN_FENS, OPT_BATCH, batch);
-		requireBetweenInclusive(CMD_GEN_FENS, OPT_CHESS960_FILES, chess960Files, 0, files);
+		requirePositive(COMMAND_LABEL, OPT_FILES, files);
+		requirePositive(COMMAND_LABEL, OPT_PER_FILE, perFile);
+		requirePositive(COMMAND_LABEL, OPT_BATCH, batch);
+		requireBetweenInclusive(COMMAND_LABEL, OPT_CHESS960_FILES, chess960Files, 0, files);
 	}
 
 	/**
@@ -176,7 +180,7 @@ public final class GenFensCommand {
 		try {
 			writeFenShard(target, fenCount, chess960, batchSize, bar);
 		} catch (Exception e) {
-			System.err.println("gen-fens: failed to write " + target + ": " + e.getMessage());
+			System.err.println(COMMAND_LABEL + ": failed to write " + target + ": " + e.getMessage());
 			if (verbose) {
 				e.printStackTrace(System.err);
 			}

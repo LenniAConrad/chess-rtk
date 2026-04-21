@@ -17,7 +17,28 @@ import application.gui.window.PgnNode;
   * @since 2026
   * @author Lennart A. Conrad
  */
-public record HistoryEntry(PgnNode node, String san, String prefix, int depth, boolean current) {
+public record HistoryEntry(
+	/**
+	 * Stores the node.
+	 */
+	PgnNode node,
+	/**
+	 * Stores the san.
+	 */
+	String san,
+	/**
+	 * Stores the prefix.
+	 */
+	String prefix,
+	/**
+	 * Stores the depth.
+	 */
+	int depth,
+	/**
+	 * Stores the current.
+	 */
+	boolean current
+) {
 	/**
 	 * label method.
 	 * @return return value.
@@ -47,7 +68,11 @@ public record HistoryEntry(PgnNode node, String san, String prefix, int depth, b
 		return sb.toString().toLowerCase(Locale.ROOT);
 	}
 
-	@Override
+		/**
+	 * Returns the string representation.
+	 * @return computed value
+	 */
+@Override
 	/**
 	 * toString method.
 	 *

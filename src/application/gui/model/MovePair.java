@@ -13,5 +13,26 @@ package application.gui.model;
   * @since 2026
   * @author Lennart A. Conrad
  */
-public record MovePair(int moveNo, String whiteSan, String blackSan, int whiteIndex, int blackIndex) {
+public record MovePair(
+	/**
+	 * Stores the move no.
+	 */
+	int moveNo,
+	/**
+	 * Stores the white san.
+	 */
+	String whiteSan,
+	/**
+	 * Stores the black san.
+	 */
+	String blackSan,
+	/**
+	 * Stores the white index.
+	 */
+	int whiteIndex,
+	/**
+	 * Stores the black index.
+	 */
+	int blackIndex
+) {
 }

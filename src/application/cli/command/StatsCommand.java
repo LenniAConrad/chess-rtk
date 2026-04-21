@@ -1,7 +1,5 @@
 package application.cli.command;
 
-import static application.cli.Constants.CMD_STATS;
-import static application.cli.Constants.CMD_STATS_TAGS;
 import static application.cli.Constants.OPT_INPUT;
 import static application.cli.Constants.OPT_INPUT_SHORT;
 import static application.cli.Constants.OPT_TOP;
@@ -30,12 +28,22 @@ import chess.uci.Output;
 import utility.Argv;
 
 /**
- * Implements {@code stats} and {@code stats-tags}.
+ * Implements {@code record stats} and {@code record tag-stats}.
  *
  * @since 2026
  * @author Lennart A. Conrad
  */
 public final class StatsCommand {
+
+	/**
+	 * Current command label for record summary output.
+	 */
+	private static final String RECORD_STATS = "record stats";
+
+	/**
+	 * Current command label for tag distribution output.
+	 */
+	private static final String RECORD_TAG_STATS = "record tag-stats";
 
 	/**
 	 * Utility class; prevent instantiation.
@@ -45,7 +53,7 @@ public final class StatsCommand {
 	}
 
 	/**
-	 * Handles {@code stats}.
+	 * Handles {@code record stats}.
 	 *
 	 * @param a argument parser for the subcommand
 	 */
@@ -53,16 +61,16 @@ public final class StatsCommand {
 		boolean verbose = a.flag(OPT_VERBOSE, OPT_VERBOSE_SHORT);
 		Path input = a.pathRequired(OPT_INPUT, OPT_INPUT_SHORT);
 		int top = a.integerOr(10, OPT_TOP);
-		requirePositive(CMD_STATS, OPT_TOP, top);
+		requirePositive(RECORD_STATS, OPT_TOP, top);
 		a.ensureConsumed();
 
 		StatsAccumulator stats = new StatsAccumulator();
-		Bar bar = fileProgressBar(input, CMD_STATS);
+		Bar bar = fileProgressBar(input, RECORD_STATS);
 		try {
-			streamRecordFile(input, verbose, CMD_STATS, stats, bar == null ? null : bar::set);
+			streamRecordFile(input, verbose, RECORD_STATS, stats, bar == null ? null : bar::set);
 		} catch (Exception ex) {
 			finishProgress(bar);
-			System.err.println("stats: failed to read input: " + ex.getMessage());
+			System.err.println(RECORD_STATS + ": failed to read input: " + ex.getMessage());
 			if (verbose) {
 				ex.printStackTrace(System.err);
 			}
@@ -75,7 +83,7 @@ public final class StatsCommand {
 	}
 
 	/**
-	 * Handles {@code stats-tags}.
+	 * Handles {@code record tag-stats}.
 	 *
 	 * @param a argument parser for the subcommand
 	 */
@@ -83,16 +91,16 @@ public final class StatsCommand {
 		boolean verbose = a.flag(OPT_VERBOSE, OPT_VERBOSE_SHORT);
 		Path input = a.pathRequired(OPT_INPUT, OPT_INPUT_SHORT);
 		int top = a.integerOr(20, OPT_TOP);
-		requirePositive(CMD_STATS_TAGS, OPT_TOP, top);
+		requirePositive(RECORD_TAG_STATS, OPT_TOP, top);
 		a.ensureConsumed();
 
 		TagStatsAccumulator stats = new TagStatsAccumulator();
-		Bar bar = fileProgressBar(input, CMD_STATS_TAGS);
+		Bar bar = fileProgressBar(input, RECORD_TAG_STATS);
 		try {
-			streamRecordFile(input, verbose, CMD_STATS_TAGS, stats, bar == null ? null : bar::set);
+			streamRecordFile(input, verbose, RECORD_TAG_STATS, stats, bar == null ? null : bar::set);
 		} catch (Exception ex) {
 			finishProgress(bar);
-			System.err.println("stats-tags: failed to read input: " + ex.getMessage());
+			System.err.println(RECORD_TAG_STATS + ": failed to read input: " + ex.getMessage());
 			if (verbose) {
 				ex.printStackTrace(System.err);
 			}

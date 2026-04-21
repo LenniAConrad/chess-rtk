@@ -333,8 +333,24 @@ public final class PawnStructure {
  * @author Lennart A. Conrad
  * @since 2026
  */
-    private record PawnCollection(    List<Byte> whitePawns,     List<Byte> blackPawns,     int[] whiteFileCounts,
-                        int[] blackFileCounts) {
+    private record PawnCollection(
+        /**
+         * Stores the white pawns.
+         */
+        List<Byte> whitePawns,
+        /**
+         * Stores the black pawns.
+         */
+        List<Byte> blackPawns,
+        /**
+         * Stores the white file counts.
+         */
+        int[] whiteFileCounts,
+        /**
+         * Stores the black file counts.
+         */
+        int[] blackFileCounts
+    ) {
 
          /**
          * Handles equals.
@@ -384,7 +400,16 @@ public final class PawnStructure {
  * @author Lennart A. Conrad
  * @since 2026
  */
-    private record AdjacentSupport(    boolean hasAdjacent,     int bestRank) {
+    private record AdjacentSupport(
+        /**
+         * Stores the has adjacent.
+         */
+        boolean hasAdjacent,
+        /**
+         * Stores the best rank.
+         */
+        int bestRank
+    ) {
 
         /**
          * Determines whether the supporting pawn is advanced enough to matter.

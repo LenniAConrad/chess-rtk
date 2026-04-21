@@ -10,5 +10,14 @@ package application.gui.model;
   * @since 2026
   * @author Lennart A. Conrad
  */
-public record ReportUpdate(int completed, int total) {
+public record ReportUpdate(
+	/**
+	 * Stores the completed.
+	 */
+	int completed,
+	/**
+	 * Stores the total.
+	 */
+	int total
+) {
 }

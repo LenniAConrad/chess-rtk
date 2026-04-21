@@ -205,17 +205,32 @@ public final class EngineCardBuilder {
         body.add(Box.createVerticalStrut(8));
 
         engineSearchField.getDocument().addDocumentListener(new DocumentListener() {
-            @Override
+                        /**
+             * Handles insert update.
+             * @param e e value
+             */
+@Override
             public void insertUpdate(DocumentEvent e) {
                 filterSettings(); }
-            @Override
+                        /**
+             * Handles remove update.
+             * @param e e value
+             */
+@Override
             public void removeUpdate(DocumentEvent e) {
                 filterSettings(); }
-            @Override
+                        /**
+             * Handles changed update.
+             * @param e e value
+             */
+@Override
             public void changedUpdate(DocumentEvent e) {
                 filterSettings(); }
 
-            private void filterSettings() {
+                        /**
+             * Handles filter settings.
+             */
+private void filterSettings() {
                 String query = engineSearchField.getText();
                 String needle = query == null ? "" : query.trim().toLowerCase(java.util.Locale.ROOT);
                 for (JComponent row : settingRows) {
@@ -252,10 +267,18 @@ public final class EngineCardBuilder {
 
         DefaultListModel<PvEntry> pvListModel = new DefaultListModel<>();
         JList<PvEntry> pvList = new JList<>(pvListModel) {
-            @Override
+                        /**
+             * Returns the scrollable tracks viewport width.
+             * @return computed value
+             */
+@Override
             public boolean getScrollableTracksViewportWidth() {
                 return true; }
-            @Override
+                        /**
+             * Returns the preferred size.
+             * @return computed value
+             */
+@Override
             public Dimension getPreferredSize() {
                 Dimension d = super.getPreferredSize();
                 if (getParent() instanceof javax.swing.JViewport viewport && viewport.getWidth() > 0) {
@@ -266,14 +289,22 @@ public final class EngineCardBuilder {
         pvList.setBorder(BorderFactory.createEmptyBorder(4, 6, 4, 6));
         pvList.setCellRenderer(new application.gui.render.PvCellRenderer(ctx.owner()));
         pvList.addComponentListener(new java.awt.event.ComponentAdapter() {
-            @Override
+                        /**
+             * Handles component resized.
+             * @param e e value
+             */
+@Override
             public void componentResized(java.awt.event.ComponentEvent e) {
                 actions.refreshPvListCellHeight(null);
                 pvList.revalidate();
                 pvList.repaint(); }
         });
         pvList.addMouseMotionListener(new MouseAdapter() {
-            @Override
+                        /**
+             * Handles mouse moved.
+             * @param e e value
+             */
+@Override
             public void mouseMoved(MouseEvent e) {
                 int idx = pvList.locationToIndex(e.getPoint());
                 if (idx >= 0) {
@@ -301,11 +332,19 @@ public final class EngineCardBuilder {
                 actions.hideEnginePvMiniBoardPreview(); }
         });
         pvList.addMouseListener(new MouseAdapter() {
-            @Override
+                        /**
+             * Handles mouse exited.
+             * @param e e value
+             */
+@Override
             public void mouseExited(MouseEvent e) {
                 actions.stopPvHoverAnimation();
                 actions.hideEnginePvMiniBoardPreview(); }
-            @Override
+                        /**
+             * Handles mouse clicked.
+             * @param e e value
+             */
+@Override
             public void mouseClicked(MouseEvent e) {
                 if (e.getClickCount() == 1) {
                     int idx = pvList.locationToIndex(e.getPoint());
@@ -671,32 +710,117 @@ public final class EngineCardBuilder {
      * @author Lennart A. Conrad
      */
     public record Result(
-            RoundedPanel panel,
-            JLabel engineStatusLabel,
-            JLabel engineDepthValue,
-            JLabel engineNodesValue,
-            JLabel engineTimeValue,
-            JLabel engineNpsValue,
-            JButton engineStartButton,
-            JButton engineStopButton,
-            JButton engineBestButton,
-            JButton engineVsNewButton,
-            JButton engineVsContinueButton,
-            JButton engineVsStopButton,
-            JCheckBox vsEnginePlayWhiteToggle,
-            JTextField engineSearchField,
-            JTextField engineProtocolField,
-            JTextField engineNodesField,
-            JTextField engineTimeField,
-            JComboBox<Integer> engineMultiPvBox,
-            JComboBox<String> pvWrapModeBox,
-            JCheckBox engineEndlessToggle,
-            JButton engineManageButton,
-            JButton engineCopyPvButton,
-            JCheckBox engineLockPvToggle,
-            JTextArea engineBestArea,
-            DefaultListModel<PvEntry> pvListModel,
-            JList<PvEntry> pvList,
-            JScrollPane pvListScroll,
-            JTextArea engineOutputArea) {}
+        /**
+         * Stores the panel.
+         */
+        RoundedPanel panel,
+        /**
+         * Stores the engine status label.
+         */
+        JLabel engineStatusLabel,
+        /**
+         * Stores the engine depth value.
+         */
+        JLabel engineDepthValue,
+        /**
+         * Stores the engine nodes value.
+         */
+        JLabel engineNodesValue,
+        /**
+         * Stores the engine time value.
+         */
+        JLabel engineTimeValue,
+        /**
+         * Stores the engine nps value.
+         */
+        JLabel engineNpsValue,
+        /**
+         * Stores the engine start button.
+         */
+        JButton engineStartButton,
+        /**
+         * Stores the engine stop button.
+         */
+        JButton engineStopButton,
+        /**
+         * Stores the engine best button.
+         */
+        JButton engineBestButton,
+        /**
+         * Stores the engine vs new button.
+         */
+        JButton engineVsNewButton,
+        /**
+         * Stores the engine vs continue button.
+         */
+        JButton engineVsContinueButton,
+        /**
+         * Stores the engine vs stop button.
+         */
+        JButton engineVsStopButton,
+        /**
+         * Stores the vs engine play white toggle.
+         */
+        JCheckBox vsEnginePlayWhiteToggle,
+        /**
+         * Stores the engine search field.
+         */
+        JTextField engineSearchField,
+        /**
+         * Stores the engine protocol field.
+         */
+        JTextField engineProtocolField,
+        /**
+         * Stores the engine nodes field.
+         */
+        JTextField engineNodesField,
+        /**
+         * Stores the engine time field.
+         */
+        JTextField engineTimeField,
+        /**
+         * Stores the engine multi pv box.
+         */
+        JComboBox<Integer> engineMultiPvBox,
+        /**
+         * Stores the pv wrap mode box.
+         */
+        JComboBox<String> pvWrapModeBox,
+        /**
+         * Stores the engine endless toggle.
+         */
+        JCheckBox engineEndlessToggle,
+        /**
+         * Stores the engine manage button.
+         */
+        JButton engineManageButton,
+        /**
+         * Stores the engine copy pv button.
+         */
+        JButton engineCopyPvButton,
+        /**
+         * Stores the engine lock pv toggle.
+         */
+        JCheckBox engineLockPvToggle,
+        /**
+         * Stores the engine best area.
+         */
+        JTextArea engineBestArea,
+        /**
+         * Stores the pv list model.
+         */
+        DefaultListModel<PvEntry> pvListModel,
+        /**
+         * Stores the pv list.
+         */
+        JList<PvEntry> pvList,
+        /**
+         * Stores the pv list scroll.
+         */
+        JScrollPane pvListScroll,
+        /**
+         * Stores the engine output area.
+         */
+        JTextArea engineOutputArea
+    ) {}
 }

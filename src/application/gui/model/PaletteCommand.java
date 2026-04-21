@@ -10,7 +10,24 @@ import java.util.Locale;
   * @since 2026
   * @author Lennart A. Conrad
  */
-public record PaletteCommand(String label, String hint, String searchText, Runnable action) {
+public record PaletteCommand(
+	/**
+	 * Stores the label.
+	 */
+	String label,
+	/**
+	 * Stores the hint.
+	 */
+	String hint,
+	/**
+	 * Stores the search text.
+	 */
+	String searchText,
+	/**
+	 * Stores the action.
+	 */
+	Runnable action
+) {
 	/**
 	 * Creates a palette entry while normalizing the searchable keywords.
 	 *

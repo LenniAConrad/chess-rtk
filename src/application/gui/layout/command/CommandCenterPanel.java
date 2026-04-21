@@ -51,22 +51,71 @@ public final class CommandCenterPanel {
      * @author Lennart A. Conrad
      */
     public record Result(
-            RoundedPanel panel,
-            JComboBox<String> commandSelect,
-            JPanel commandFieldsPanel,
-            JPanel commandFenPanel,
-            JTextField commandFenField,
-            JLabel commandFenHint,
-            JTextField commandExtraArgsField,
-            JCheckBox useFenToggle,
-            JButton runButton,
-            JButton stopButton,
-            JButton helpButton,
-            DefaultListModel<RecentCommand> recentCommandModel,
-            JList<RecentCommand> recentCommandList,
-            JScrollPane recentCommandScroll,
-            Dimension recentScrollPref,
-            JTextArea commandOutput) {}
+        /**
+         * Stores the panel.
+         */
+        RoundedPanel panel,
+        /**
+         * Stores the command select.
+         */
+        JComboBox<String> commandSelect,
+        /**
+         * Stores the command fields panel.
+         */
+        JPanel commandFieldsPanel,
+        /**
+         * Stores the command fen panel.
+         */
+        JPanel commandFenPanel,
+        /**
+         * Stores the command fen field.
+         */
+        JTextField commandFenField,
+        /**
+         * Stores the command fen hint.
+         */
+        JLabel commandFenHint,
+        /**
+         * Stores the command extra args field.
+         */
+        JTextField commandExtraArgsField,
+        /**
+         * Stores the use fen toggle.
+         */
+        JCheckBox useFenToggle,
+        /**
+         * Stores the run button.
+         */
+        JButton runButton,
+        /**
+         * Stores the stop button.
+         */
+        JButton stopButton,
+        /**
+         * Stores the help button.
+         */
+        JButton helpButton,
+        /**
+         * Stores the recent command model.
+         */
+        DefaultListModel<RecentCommand> recentCommandModel,
+        /**
+         * Stores the recent command list.
+         */
+        JList<RecentCommand> recentCommandList,
+        /**
+         * Stores the recent command scroll.
+         */
+        JScrollPane recentCommandScroll,
+        /**
+         * Stores the recent scroll pref.
+         */
+        Dimension recentScrollPref,
+        /**
+         * Stores the command output.
+         */
+        JTextArea commandOutput
+    ) {}
 
     /**
      * build method.
@@ -135,7 +184,11 @@ public final class CommandCenterPanel {
         ctx.registerList(recentCommandList);
         recentCommandList.setBorder(BorderFactory.createEmptyBorder(4, 6, 4, 6));
         recentCommandList.addMouseListener(new MouseAdapter() {
-            @Override
+                        /**
+             * Handles mouse clicked.
+             * @param e e value
+             */
+@Override
             public void mouseClicked(MouseEvent e) {
                 if (e.getClickCount() == 2) {
                     int idx = recentCommandList.locationToIndex(e.getPoint());

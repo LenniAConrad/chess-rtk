@@ -17,8 +17,21 @@ import javax.swing.JTextField;
   * @author Lennart A. Conrad
  */
 public record CommandFieldBinding(
-		CommandFieldSpec spec,
-		JPanel container,
-		JCheckBox checkBox,
-		JTextField input) {
+	/**
+	 * Stores the spec.
+	 */
+	CommandFieldSpec spec,
+	/**
+	 * Stores the container.
+	 */
+	JPanel container,
+	/**
+	 * Stores the check box.
+	 */
+	JCheckBox checkBox,
+	/**
+	 * Stores the input.
+	 */
+	JTextField input
+) {
 }

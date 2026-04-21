@@ -53,7 +53,7 @@ import chess.uci.Filter.FilterDSL;
 import utility.Argv;
 
 /**
- * Implements the {@code mine-puzzles} subcommand.
+ * Implements the {@code puzzle mine} subcommand.
  *
  * @since 2026
  * @author Lennart A. Conrad
@@ -98,7 +98,7 @@ public final class MineCommand {
 	}
 
 	/**
-	 * Handles {@code mine-puzzles}.
+	 * Handles {@code puzzle mine}.
 	 *
 	 * <p>
 	 * Resolves runtime configuration and filters, loads or generates seed
@@ -349,7 +349,7 @@ public final class MineCommand {
 		if (config == null || config.infinite() || config.maxTotal() == Long.MAX_VALUE) {
 			return null;
 		}
-		return new Bar(config.maxTotal(), "mine-puzzles", false, System.err);
+		return new Bar(config.maxTotal(), "puzzle mine", false, System.err);
 	}
 
 	/**
@@ -609,18 +609,55 @@ public final class MineCommand {
 	 * @param analysisCacheSize max analyzed positions to remember (LRU)
 	 */
 	private record MiningConfig(
-						Filter accel,
-						Filter verify,
-						long nodesCap,
-						long durMs,
-						OutputTargets outs,
-						boolean infinite,
-						boolean chess960,
-						int randomSeeds,
-						int maxFrontier,
-						int maxWaves,
-						long maxTotal,
-						int analysisCacheSize) {
+		/**
+		 * Stores the accel.
+		 */
+		Filter accel,
+		/**
+		 * Stores the verify.
+		 */
+		Filter verify,
+		/**
+		 * Stores the nodes cap.
+		 */
+		long nodesCap,
+		/**
+		 * Stores the dur ms.
+		 */
+		long durMs,
+		/**
+		 * Stores the outs.
+		 */
+		OutputTargets outs,
+		/**
+		 * Stores the infinite.
+		 */
+		boolean infinite,
+		/**
+		 * Stores the chess960.
+		 */
+		boolean chess960,
+		/**
+		 * Stores the random seeds.
+		 */
+		int randomSeeds,
+		/**
+		 * Stores the max frontier.
+		 */
+		int maxFrontier,
+		/**
+		 * Stores the max waves.
+		 */
+		int maxWaves,
+		/**
+		 * Stores the max total.
+		 */
+		long maxTotal,
+		/**
+		 * Stores the analysis cache size.
+		 */
+		int analysisCacheSize
+	) {
 	}
 
 	/**

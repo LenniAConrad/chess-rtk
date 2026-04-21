@@ -1,6 +1,5 @@
 package application.cli.command;
 
-import static application.cli.Constants.CMD_PUZZLE_TEXT;
 import static application.cli.Constants.OPT_ANALYZE;
 import static application.cli.Constants.OPT_FEN;
 import static application.cli.Constants.OPT_HASH;
@@ -52,6 +51,11 @@ import utility.Json;
  */
 public final class PuzzleTextCommand {
 
+    /**
+     * Current command label used in diagnostics.
+     */
+    private static final String COMMAND_LABEL = "puzzle text";
+
      /**
      * Creates a new puzzle text command instance.
      */
@@ -66,80 +70,138 @@ public final class PuzzleTextCommand {
      public static void runPuzzleText(Argv a) {
         PuzzleTextOptions opts = parseOptions(a);
         Position root = parsePositionOrExit(opts.inputConfig.fen, opts.flags.verbose);
-
-        Model model;
-        try {
-            model = BinLoader.load(opts.inputConfig.modelPath);
-        } catch (Exception ex) {
-            System.err.println(CMD_PUZZLE_TEXT + ": failed to load model: " + ex.getMessage());
-            if (opts.flags.verbose) {
-                ex.printStackTrace(System.err);
-            }
-            System.exit(2);
-            return;
-        }
-
+        Model model = loadModelOrExit(opts.inputConfig.modelPath, opts.flags.verbose);
         Protocol protocol = EngineSupport.loadProtocolOrExit(opts.engineConfig.protoPath, opts.flags.verbose);
         Optional<Boolean> wdlFlag = resolveWdlFlag(opts.wdlConfig.wdl, opts.wdlConfig.noWdl);
 
         try (Engine engine = new Engine(protocol); Runner runner = new Runner(model)) {
-            configureEngine(CMD_PUZZLE_TEXT, engine, opts.engineConfig.threads, opts.engineConfig.hash,
-                    opts.engineConfig.multipv, wdlFlag);
-            Analysis analysis = analysePositionOrExit(engine, root, opts.limits.nodesCap, opts.limits.durMs,
-                    CMD_PUZZLE_TEXT, opts.flags.verbose);
-            if (analysis == null) {
-                return;
-            }
-
-            List<chess.struct.Record> records = PuzzleSupport.buildRecords(root, analysis, opts.limits.pvPlies,
-                    CMD_PUZZLE_TEXT, opts.flags.verbose);
-            if (records.isEmpty()) {
-                System.err.println(CMD_PUZZLE_TEXT + ": no records extracted from PVs");
-                System.exit(2);
-            }
-
+            List<chess.struct.Record> records = buildRecordsOrExit(root, engine, opts, wdlFlag);
             if (opts.flags.analyzeTags) {
-                int tagMultipv = Math.max(1, opts.engineConfig.tagMultipv);
-                configureEngine(CMD_PUZZLE_TEXT, engine, opts.engineConfig.threads, opts.engineConfig.hash, tagMultipv,
-                        wdlFlag);
+                configureTagAnalysis(engine, opts, wdlFlag);
             }
-
-            Map<String, TagEntry> cache = new HashMap<>();
-            for (chess.struct.Record rec : records) {
-                Position pos = rec.getPosition();
-                if (pos == null) {
-                    continue;
-                }
-                List<String> tags = tagsFor(pos, opts.flags.analyzeTags ? engine : null, opts, cache);
-                if (tags.isEmpty()) {
-                    continue;
-                }
-                String prompt = TagPrompt.buildPositionPrompt(tags);
-                String summary = runner.generate(prompt, opts.limits.maxNew);
-                if (opts.flags.includeFen) {
-                    MoveInfo moveInfo = null;
-                    if (rec.getParent() != null && pos != null) {
-                        moveInfo = inferMove(rec.getParent(), pos);
-                    }
-                    StringBuilder sb = new StringBuilder(256).append('{');
-                    sb.append("\"fen\":\"").append(Json.esc(pos.toString())).append("\",");
-                    sb.append("\"move_san\":").append(moveInfo == null ? "null" : "\"" + Json.esc(moveInfo.san) + "\"");
-                    sb.append(',');
-                    sb.append("\"move_uci\":").append(moveInfo == null ? "null" : "\"" + Json.esc(moveInfo.uci) + "\"");
-                    sb.append(',');
-                    sb.append("\"summary\":\"").append(Json.esc(summary)).append("\"}");
-                    System.out.println(sb.toString());
-                } else {
-                    System.out.println(summary);
-                }
-            }
+            emitSummaries(records, opts, engine, runner);
         } catch (Exception ex) {
-            System.err.println(CMD_PUZZLE_TEXT + ": inference failed: " + ex.getMessage());
+            System.err.println(COMMAND_LABEL + ": inference failed: " + ex.getMessage());
             if (opts.flags.verbose) {
                 ex.printStackTrace(System.err);
             }
             System.exit(2);
         }
+    }
+
+     /**
+     * Loads the T5 model or exits with a command error.
+     * @param modelPath model path
+     * @param verbose verbose mode flag
+     * @return loaded model
+     */
+     private static Model loadModelOrExit(String modelPath, boolean verbose) {
+        try {
+            return BinLoader.load(modelPath);
+        } catch (Exception ex) {
+            System.err.println(COMMAND_LABEL + ": failed to load model: " + ex.getMessage());
+            if (verbose) {
+                ex.printStackTrace(System.err);
+            }
+            System.exit(2);
+            return null;
+        }
+    }
+
+     /**
+     * Builds record samples from the root position analysis.
+     * @param root root position
+     * @param engine engine instance
+     * @param opts parsed options
+     * @param wdlFlag resolved WDL option
+     * @return extracted records
+     */
+     private static List<chess.struct.Record> buildRecordsOrExit(Position root, Engine engine, PuzzleTextOptions opts,
+            Optional<Boolean> wdlFlag) {
+        configureEngine(COMMAND_LABEL, engine, opts.engineConfig.threads, opts.engineConfig.hash,
+                opts.engineConfig.multipv, wdlFlag);
+        Analysis analysis = analysePositionOrExit(engine, root, opts.limits.nodesCap, opts.limits.durMs,
+                COMMAND_LABEL, opts.flags.verbose);
+        if (analysis == null) {
+            return List.of();
+        }
+
+        List<chess.struct.Record> records = PuzzleSupport.buildRecords(root, analysis, opts.limits.pvPlies,
+                COMMAND_LABEL, opts.flags.verbose);
+        if (records.isEmpty()) {
+            System.err.println(COMMAND_LABEL + ": no records extracted from PVs");
+            System.exit(2);
+        }
+        return records;
+    }
+
+     /**
+     * Reconfigures the engine for per-position tag analysis.
+     * @param engine engine instance
+     * @param opts parsed options
+     * @param wdlFlag resolved WDL option
+     */
+     private static void configureTagAnalysis(Engine engine, PuzzleTextOptions opts, Optional<Boolean> wdlFlag) {
+        int tagMultipv = Math.max(1, opts.engineConfig.tagMultipv);
+        configureEngine(COMMAND_LABEL, engine, opts.engineConfig.threads, opts.engineConfig.hash, tagMultipv,
+                wdlFlag);
+    }
+
+     /**
+     * Emits generated summaries for all usable records.
+     * @param records records extracted from the analyzed PV
+     * @param opts parsed options
+     * @param engine engine used for optional tag analysis
+     * @param runner loaded T5 runner
+     */
+     private static void emitSummaries(List<chess.struct.Record> records, PuzzleTextOptions opts, Engine engine,
+            Runner runner) {
+        Map<String, TagEntry> cache = new HashMap<>();
+        Engine tagEngine = opts.flags.analyzeTags ? engine : null;
+        for (chess.struct.Record rec : records) {
+            Position pos = rec.getPosition();
+            if (pos != null) {
+                List<String> tags = tagsFor(pos, tagEngine, opts, cache);
+                if (!tags.isEmpty()) {
+                    String prompt = TagPrompt.buildPositionPrompt(tags);
+                    String summary = runner.generate(prompt, opts.limits.maxNew);
+                    writeSummary(rec, pos, summary, opts.flags.includeFen);
+                }
+            }
+        }
+    }
+
+     /**
+     * Writes one generated summary in text or JSONL form.
+     * @param rec source record
+     * @param pos record position
+     * @param summary generated summary text
+     * @param includeFen whether to emit JSONL with FEN and move metadata
+     */
+     private static void writeSummary(chess.struct.Record rec, Position pos, String summary, boolean includeFen) {
+        if (!includeFen) {
+            System.out.println(summary);
+            return;
+        }
+        MoveInfo moveInfo = moveInfoFor(rec, pos);
+        StringBuilder sb = new StringBuilder(256).append('{');
+        sb.append("\"fen\":\"").append(Json.esc(pos.toString())).append("\",");
+        sb.append("\"move_san\":").append(moveInfo == null ? "null" : "\"" + Json.esc(moveInfo.san) + "\"");
+        sb.append(',');
+        sb.append("\"move_uci\":").append(moveInfo == null ? "null" : "\"" + Json.esc(moveInfo.uci) + "\"");
+        sb.append(',');
+        sb.append("\"summary\":\"").append(Json.esc(summary)).append("\"}");
+        System.out.println(sb.toString());
+    }
+
+     /**
+     * Infers the move metadata for a record when parent and child positions exist.
+     * @param rec source record
+     * @param pos child position
+     * @return move metadata or null
+     */
+     private static MoveInfo moveInfoFor(chess.struct.Record rec, Position pos) {
+        return rec.getParent() == null ? null : inferMove(rec.getParent(), pos);
     }
 
      /**
@@ -150,7 +212,7 @@ public final class PuzzleTextCommand {
      private static PuzzleTextOptions parseOptions(Argv a) {
         boolean verbose = a.flag(OPT_VERBOSE, OPT_VERBOSE_SHORT);
         boolean includeFen = a.flag(OPT_INCLUDE_FEN);
-        boolean analyze = a.flag(OPT_ANALYZE);
+        a.flag(OPT_ANALYZE);
         boolean noAnalyze = a.flag(OPT_NO_ANALYZE);
         String protoPath = CommandSupport.optional(a.string(OPT_PROTOCOL_PATH, OPT_PROTOCOL_PATH_SHORT),
                 Config.getProtocolPath());
@@ -174,23 +236,23 @@ public final class PuzzleTextCommand {
         }
         a.ensureConsumed();
         if (modelPath == null || modelPath.isBlank()) {
-            System.err.println(CMD_PUZZLE_TEXT + ": missing --model and config key t5-model-path is empty");
+            System.err.println(COMMAND_LABEL + ": missing --model and config key t5-model-path is empty");
             System.exit(2);
             return null;
         }
 
         if (wdl && noWdl) {
-            System.err.println(CMD_PUZZLE_TEXT + ": only one of --wdl or --no-wdl may be set");
+            System.err.println(COMMAND_LABEL + ": only one of --wdl or --no-wdl may be set");
             System.exit(2);
         }
         if (fen == null || fen.isBlank()) {
-            System.err.println(CMD_PUZZLE_TEXT + " requires --fen or a positional FEN");
+            System.err.println(COMMAND_LABEL + " requires --fen or a positional FEN");
             System.exit(2);
         }
         int mpv = multipv == null ? 3 : Math.max(1, multipv);
         int plies = pvPlies == null ? 12 : Math.max(1, pvPlies);
         int tagMpv = tagMultipv == null ? 1 : Math.max(1, tagMultipv);
-        boolean analyzeTags = noAnalyze ? false : (analyze || true);
+        boolean analyzeTags = !noAnalyze;
         int maxOut = maxNew == null ? 128 : Math.max(1, maxNew);
         PuzzleTextOptions.Flags flags = new PuzzleTextOptions.Flags(verbose, includeFen, analyzeTags);
         PuzzleTextOptions.EngineConfig engineConfig = new PuzzleTextOptions.EngineConfig(protoPath, mpv, tagMpv,
@@ -208,7 +270,7 @@ public final class PuzzleTextCommand {
      * @return computed value
      */
      private static Position parsePositionOrExit(String fen, boolean verbose) {
-        Position pos = parsePositionOrNull(fen, CMD_PUZZLE_TEXT, verbose);
+        Position pos = parsePositionOrNull(fen, COMMAND_LABEL, verbose);
         if (pos == null) {
             System.exit(2);
         }
@@ -232,7 +294,7 @@ public final class PuzzleTextCommand {
         }
         Analysis analysis = null;
         if (engine != null) {
-            analysis = analysePositionOrExit(engine, pos, opts.limits.nodesCap, opts.limits.durMs, CMD_PUZZLE_TEXT,
+            analysis = analysePositionOrExit(engine, pos, opts.limits.nodesCap, opts.limits.durMs, COMMAND_LABEL,
                     opts.flags.verbose);
             if (analysis == null) {
                 return List.of();
@@ -250,7 +312,7 @@ public final class PuzzleTextCommand {
                 tags = Sort.sort(merged);
             }
         }
-        cache.put(fen, new TagEntry(tags, analysis));
+        cache.put(fen, new TagEntry(tags));
         return tags;
     }
 
@@ -505,19 +567,11 @@ public final class PuzzleTextCommand {
          */
          private final List<String> tags;
          /**
-         * Stores the analysis.
-         */
-         @SuppressWarnings("unused")
-        private final Analysis analysis;
-
-         /**
          * Creates a new tag entry instance.
          * @param tags tags
-         * @param analysis analysis
          */
-         private TagEntry(List<String> tags, Analysis analysis) {
+         private TagEntry(List<String> tags) {
             this.tags = tags;
-            this.analysis = analysis;
         }
     }
 

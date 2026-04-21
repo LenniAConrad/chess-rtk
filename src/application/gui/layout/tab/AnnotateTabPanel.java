@@ -36,12 +36,32 @@ public final class AnnotateTabPanel {
 	 * @since 2026
 	 * @author Lennart A. Conrad
 	 */
-	public record Result(RoundedPanel panel,
+	public record Result(
+		/**
+		 * Stores the panel.
+		 */
+		RoundedPanel panel,
+		/**
+		 * Stores the move label.
+		 */
 		JLabel moveLabel,
+		/**
+		 * Stores the comment area.
+		 */
 		JTextArea commentArea,
+		/**
+		 * Stores the save button.
+		 */
 		JButton saveButton,
+		/**
+		 * Stores the clear comment button.
+		 */
 		JButton clearCommentButton,
-		JButton clearNagButton) {}
+		/**
+		 * Stores the clear nag button.
+		 */
+		JButton clearNagButton
+	) {}
 
 	/**
 	 * build method.
@@ -86,7 +106,11 @@ public final class AnnotateTabPanel {
 		commentArea.setLineWrap(true);
 		commentArea.setWrapStyleWord(true);
 		commentArea.addFocusListener(new FocusAdapter() {
-			@Override
+						/**
+			 * Handles focus lost.
+			 * @param e e value
+			 */
+@Override
 			public void focusLost(FocusEvent e) {
 				onCommentFocusLost.run();
 			}

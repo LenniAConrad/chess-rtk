@@ -37,7 +37,10 @@ import chess.core.Position;
  */
 final class BoardPanel extends JPanel {
 
-	@java.io.Serial
+		/**
+	 * Serialization version identifier.
+	 */
+@java.io.Serial
 	private static final long serialVersionUID = 1L;
 		/**
 		 * DRAG_THRESHOLD constant.
@@ -320,7 +323,20 @@ final class BoardPanel extends JPanel {
 		 * @since 2026
 		 * @author Lennart A. Conrad
 		 */
-		private record AnimatedPiece(byte from, byte to, byte piece) {
+		private record AnimatedPiece(
+			/**
+			 * Stores the from.
+			 */
+			byte from,
+			/**
+			 * Stores the to.
+			 */
+			byte to,
+			/**
+			 * Stores the piece.
+			 */
+			byte piece
+		) {
 	}
 
 		/**
@@ -331,7 +347,16 @@ final class BoardPanel extends JPanel {
 		 * @since 2026
 		 * @author Lennart A. Conrad
 		 */
-		private record AnimatedCapture(byte square, byte piece) {
+		private record AnimatedCapture(
+			/**
+			 * Stores the square.
+			 */
+			byte square,
+			/**
+			 * Stores the piece.
+			 */
+			byte piece
+		) {
 	}
 
 		/**
@@ -347,38 +372,66 @@ final class BoardPanel extends JPanel {
 		setFocusable(true);
 		setFocusTraversalKeysEnabled(false);
 		addFocusListener(new FocusAdapter() {
-			@Override
+						/**
+			 * Handles focus gained.
+			 * @param e e value
+			 */
+@Override
 			public void focusGained(FocusEvent e) {
 				repaint();
 			}
 
-			@Override
+						/**
+			 * Handles focus lost.
+			 * @param e e value
+			 */
+@Override
 			public void focusLost(FocusEvent e) {
 				repaint();
 			}
 		});
 		MouseAdapter mouseHandler = new MouseAdapter() {
-			@Override
+						/**
+			 * Handles mouse pressed.
+			 * @param e e value
+			 */
+@Override
 			public void mousePressed(MouseEvent e) {
 				handleMousePressed(e);
 			}
 
-			@Override
+						/**
+			 * Handles mouse dragged.
+			 * @param e e value
+			 */
+@Override
 			public void mouseDragged(MouseEvent e) {
 				handleMouseDragged(e);
 			}
 
-			@Override
+						/**
+			 * Handles mouse released.
+			 * @param e e value
+			 */
+@Override
 			public void mouseReleased(MouseEvent e) {
 				handleMouseReleased(e);
 			}
 
-			@Override
+						/**
+			 * Handles mouse moved.
+			 * @param e e value
+			 */
+@Override
 			public void mouseMoved(MouseEvent e) {
 				handleMouseMoved(e);
 			}
 
-			@Override
+						/**
+			 * Handles mouse exited.
+			 * @param e e value
+			 */
+@Override
 			public void mouseExited(MouseEvent e) {
 				handleMouseExit();
 			}
@@ -2096,7 +2149,11 @@ final class BoardPanel extends JPanel {
 		repaint();
 	}
 
-		@Override
+				/**
+		 * Handles paint component.
+		 * @param g g value
+		 */
+@Override
 	/**
 	 * paintComponent method.
 	 *

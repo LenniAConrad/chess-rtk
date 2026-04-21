@@ -12,5 +12,22 @@ package application.gui.model;
   * @since 2026
   * @author Lennart A. Conrad
  */
-public record CommandFieldSpec(String flag, String label, CommandFieldType type, String placeholder) {
+public record CommandFieldSpec(
+	/**
+	 * Stores the flag.
+	 */
+	String flag,
+	/**
+	 * Stores the label.
+	 */
+	String label,
+	/**
+	 * Stores the type.
+	 */
+	CommandFieldType type,
+	/**
+	 * Stores the placeholder.
+	 */
+	String placeholder
+) {
 }

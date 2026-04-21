@@ -10,3 +10,8 @@ Add agentic commands:
 - pgn-slice: extract plies from PGN to FENs
 - analyze-batch: analyze FEN list -> JSONL with caps
 - bestmove-batch: bestmove for FEN list -> JSONL with caps
+
+
+
+fix gui situation
+fix tagging situation

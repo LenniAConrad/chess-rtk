@@ -9,5 +9,18 @@ package chess.book.render;
  * @since 2026
  * @author Lennart A. Conrad
  */
-record TextBlock(double x, double y, double width) {
+record TextBlock(
+	/**
+	 * Stores the x.
+	 */
+	double x,
+	/**
+	 * Stores the y.
+	 */
+	double y,
+	/**
+	 * Stores the width.
+	 */
+	double width
+) {
 }

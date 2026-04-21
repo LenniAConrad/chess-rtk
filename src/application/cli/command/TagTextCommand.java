@@ -1,6 +1,5 @@
 package application.cli.command;
 
-import static application.cli.Constants.CMD_TAG_TEXT;
 import static application.cli.Constants.OPT_ANALYZE;
 import static application.cli.Constants.OPT_HASH;
 import static application.cli.Constants.OPT_INCLUDE_FEN;
@@ -49,6 +48,11 @@ import utility.Json;
  */
 public final class TagTextCommand {
 
+    /**
+     * Current command label used in diagnostics.
+     */
+    private static final String COMMAND_LABEL = "fen text";
+
      /**
      * Creates a new tag text command instance.
      */
@@ -64,7 +68,7 @@ public final class TagTextCommand {
         TagTextOptions opts = parseOptions(a);
         List<Position> positions = loadPositions(opts);
         if (positions.isEmpty()) {
-            System.err.println(CMD_TAG_TEXT + ": no valid positions provided");
+            System.err.println(COMMAND_LABEL + ": no valid positions provided");
             System.exit(2);
         }
 
@@ -72,7 +76,7 @@ public final class TagTextCommand {
         try {
             model = BinLoader.load(opts.modelPath);
         } catch (Exception ex) {
-            System.err.println(CMD_TAG_TEXT + ": failed to load model: " + ex.getMessage());
+            System.err.println(COMMAND_LABEL + ": failed to load model: " + ex.getMessage());
             if (opts.verbose) {
                 ex.printStackTrace(System.err);
             }
@@ -117,7 +121,7 @@ public final class TagTextCommand {
         }
         a.ensureConsumed();
         if (modelPath == null || modelPath.isBlank()) {
-            System.err.println(CMD_TAG_TEXT + ": missing --model and config key t5-model-path is empty");
+            System.err.println(COMMAND_LABEL + ": missing --model and config key t5-model-path is empty");
             System.exit(2);
             return null;
         }
@@ -136,14 +140,14 @@ public final class TagTextCommand {
         if (opts.input != null) {
             try {
                 for (String fen : Reader.readFenList(opts.input)) {
-                    Position pos = EngineOps.parsePositionOrNull(fen, CMD_TAG_TEXT, opts.verbose);
+                    Position pos = EngineOps.parsePositionOrNull(fen, COMMAND_LABEL, opts.verbose);
                     if (pos != null) {
                         positions.add(pos);
                     }
                 }
                 return positions;
             } catch (Exception ex) {
-                System.err.println(CMD_TAG_TEXT + ": failed to read input: " + ex.getMessage());
+                System.err.println(COMMAND_LABEL + ": failed to read input: " + ex.getMessage());
                 if (opts.verbose) {
                     ex.printStackTrace(System.err);
                 }
@@ -154,7 +158,7 @@ public final class TagTextCommand {
         if (opts.fen == null || opts.fen.isBlank()) {
             return List.of();
         }
-        Position pos = EngineOps.parsePositionOrNull(opts.fen, CMD_TAG_TEXT, opts.verbose);
+        Position pos = EngineOps.parsePositionOrNull(opts.fen, COMMAND_LABEL, opts.verbose);
         if (pos != null) {
             positions.add(pos);
         }
@@ -169,7 +173,7 @@ public final class TagTextCommand {
      */
      private static void runWithoutAnalysis(TagTextOptions opts, List<Position> positions, Model model) {
         try (Runner runner = new Runner(model)) {
-            Bar bar = positionProgressBar(positions, CMD_TAG_TEXT);
+            Bar bar = positionProgressBar(positions, COMMAND_LABEL);
             try {
                 for (Position pos : positions) {
                     try {
@@ -185,7 +189,7 @@ public final class TagTextCommand {
                 finish(bar);
             }
         } catch (Exception ex) {
-            System.err.println(CMD_TAG_TEXT + ": inference failed: " + ex.getMessage());
+            System.err.println(COMMAND_LABEL + ": inference failed: " + ex.getMessage());
             if (opts.verbose) {
                 ex.printStackTrace(System.err);
             }
@@ -203,12 +207,12 @@ public final class TagTextCommand {
         Protocol protocol = EngineSupport.loadProtocolOrExit(opts.protoPath, opts.verbose);
         Optional<Boolean> wdlFlag = resolveWdlFlag(opts.wdl, opts.noWdl);
         try (Engine engine = new Engine(protocol); Runner runner = new Runner(model)) {
-            configureEngine(CMD_TAG_TEXT, engine, opts.threads, opts.hash, opts.multipv, wdlFlag);
-            Bar bar = positionProgressBar(positions, CMD_TAG_TEXT);
+            configureEngine(COMMAND_LABEL, engine, opts.threads, opts.hash, opts.multipv, wdlFlag);
+            Bar bar = positionProgressBar(positions, COMMAND_LABEL);
             try {
                 for (Position pos : positions) {
                     try {
-                        Analysis analysis = analysePositionOrExit(engine, pos, opts.nodesCap, opts.durMs, CMD_TAG_TEXT,
+                        Analysis analysis = analysePositionOrExit(engine, pos, opts.nodesCap, opts.durMs, COMMAND_LABEL,
                                 opts.verbose);
                         if (analysis == null) {
                             continue;
@@ -225,7 +229,7 @@ public final class TagTextCommand {
                 finish(bar);
             }
         } catch (Exception ex) {
-            System.err.println(CMD_TAG_TEXT + ": inference failed: " + ex.getMessage());
+            System.err.println(COMMAND_LABEL + ": inference failed: " + ex.getMessage());
             if (opts.verbose) {
                 ex.printStackTrace(System.err);
             }

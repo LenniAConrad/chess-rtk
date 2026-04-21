@@ -88,17 +88,29 @@ public final class EcoExplorerCardBuilder {
         searchField.setPreferredSize(new Dimension(10, searchHeight));
         searchField.setMaximumSize(new Dimension(Integer.MAX_VALUE, searchHeight));
         searchField.getDocument().addDocumentListener(new DocumentListener() {
-            @Override
+                        /**
+             * Handles insert update.
+             * @param e e value
+             */
+@Override
             public void insertUpdate(DocumentEvent e) {
                 actions.filterEcoList();
             }
 
-            @Override
+                        /**
+             * Handles remove update.
+             * @param e e value
+             */
+@Override
             public void removeUpdate(DocumentEvent e) {
                 actions.filterEcoList();
             }
 
-            @Override
+                        /**
+             * Handles changed update.
+             * @param e e value
+             */
+@Override
             public void changedUpdate(DocumentEvent e) {
                 actions.filterEcoList();
             }
@@ -123,7 +135,11 @@ public final class EcoExplorerCardBuilder {
             actions.updateEcoDetails();
         });
         list.addMouseListener(new MouseAdapter() {
-            @Override
+                        /**
+             * Handles mouse clicked.
+             * @param e e value
+             */
+@Override
             public void mouseClicked(MouseEvent e) {
                 if (e.getClickCount() == 2) {
                     int idx = list.locationToIndex(e.getPoint());
@@ -287,14 +303,45 @@ public final class EcoExplorerCardBuilder {
      * @author Lennart A. Conrad
      */
     public record Result(
-            RoundedPanel panel,
-            JLabel currentLabel,
-            JLabel statusLabel,
-            JTextField searchField,
-            DefaultListModel<Entry> listModel,
-            JList<Entry> list,
-            JTextArea detailArea,
-            JScrollPane listScroll,
-            JButton loadLineButton,
-            JButton copyLineButton) {}
+        /**
+         * Stores the panel.
+         */
+        RoundedPanel panel,
+        /**
+         * Stores the current label.
+         */
+        JLabel currentLabel,
+        /**
+         * Stores the status label.
+         */
+        JLabel statusLabel,
+        /**
+         * Stores the search field.
+         */
+        JTextField searchField,
+        /**
+         * Stores the list model.
+         */
+        DefaultListModel<Entry> listModel,
+        /**
+         * Stores the list.
+         */
+        JList<Entry> list,
+        /**
+         * Stores the detail area.
+         */
+        JTextArea detailArea,
+        /**
+         * Stores the list scroll.
+         */
+        JScrollPane listScroll,
+        /**
+         * Stores the load line button.
+         */
+        JButton loadLineButton,
+        /**
+         * Stores the copy line button.
+         */
+        JButton copyLineButton
+    ) {}
 }

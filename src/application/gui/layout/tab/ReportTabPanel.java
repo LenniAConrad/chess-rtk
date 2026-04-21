@@ -40,13 +40,35 @@ public final class ReportTabPanel {
      * @author Lennart A. Conrad
      */
     public record Result(
-            JPanel panel,
-            JLabel statusLabel,
-            JButton analyzeButton,
-            JButton stopButton,
-            JButton applyNagButton,
-            DefaultListModel<ReportEntry> listModel,
-            JList<ReportEntry> list) {}
+        /**
+         * Stores the panel.
+         */
+        JPanel panel,
+        /**
+         * Stores the status label.
+         */
+        JLabel statusLabel,
+        /**
+         * Stores the analyze button.
+         */
+        JButton analyzeButton,
+        /**
+         * Stores the stop button.
+         */
+        JButton stopButton,
+        /**
+         * Stores the apply nag button.
+         */
+        JButton applyNagButton,
+        /**
+         * Stores the list model.
+         */
+        DefaultListModel<ReportEntry> listModel,
+        /**
+         * Stores the list.
+         */
+        JList<ReportEntry> list
+    ) {}
 
     /**
      * build method.
@@ -94,7 +116,11 @@ public final class ReportTabPanel {
         reportList.setCellRenderer(new ReportCellRenderer(owner));
         reportList.setFixedCellHeight(ctx.scaledRowHeight(22));
         reportList.addMouseMotionListener(new MouseAdapter() {
-            @Override
+                        /**
+             * Handles mouse moved.
+             * @param e e value
+             */
+@Override
             public void mouseMoved(MouseEvent e) {
                 int idx = reportList.locationToIndex(e.getPoint());
                 if (idx >= 0) {
@@ -109,7 +135,11 @@ public final class ReportTabPanel {
             }
         });
         reportList.addMouseListener(new MouseAdapter() {
-            @Override
+                        /**
+             * Handles mouse clicked.
+             * @param e e value
+             */
+@Override
             public void mouseClicked(MouseEvent e) {
                 if (e.getClickCount() == 2) {
                     int idx = reportList.locationToIndex(e.getPoint());
@@ -123,7 +153,11 @@ public final class ReportTabPanel {
                 }
             }
 
-            @Override
+                        /**
+             * Handles mouse exited.
+             * @param e e value
+             */
+@Override
             public void mouseExited(MouseEvent e) {
                 ctx.clearHoverPreviews();
             }

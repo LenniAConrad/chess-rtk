@@ -28,7 +28,10 @@ import chess.images.assets.Shapes;
  */
 final class WebBoardPanel extends JPanel {
 
-	@java.io.Serial
+		/**
+	 * Serialization version identifier.
+	 */
+@java.io.Serial
 	private static final long serialVersionUID = 1L;
 
 	/**
@@ -74,30 +77,72 @@ final class WebBoardPanel extends JPanel {
 	 * State listeners.
 	 */
 	private final SquareListener squareListener;
-	private final HoverListener hoverListener;
+		/**
+	 * Stores the hover listener.
+	 */
+private final HoverListener hoverListener;
 
 	/**
 	 * Paint state.
 	 */
 	private Position position;
-	private WebGuiTheme theme;
-	private boolean whiteDown;
-	private boolean showCoordinates;
-	private boolean glassEnabled;
-	private byte selectedSquare = Field.NO_SQUARE;
-	private byte hoverSquare = Field.NO_SQUARE;
-	private byte checkSquare = Field.NO_SQUARE;
-	private short lastMove = Move.NO_MOVE;
-	private final boolean[] legalTargets = new boolean[64];
-	private final boolean[] captureTargets = new boolean[64];
+		/**
+	 * Stores the theme.
+	 */
+private WebGuiTheme theme;
+		/**
+	 * Stores the white down.
+	 */
+private boolean whiteDown;
+		/**
+	 * Stores the show coordinates.
+	 */
+private boolean showCoordinates;
+		/**
+	 * Stores the glass enabled.
+	 */
+private boolean glassEnabled;
+		/**
+	 * Stores the selected square.
+	 */
+private byte selectedSquare = Field.NO_SQUARE;
+		/**
+	 * Stores the hover square.
+	 */
+private byte hoverSquare = Field.NO_SQUARE;
+		/**
+	 * Stores the check square.
+	 */
+private byte checkSquare = Field.NO_SQUARE;
+		/**
+	 * Stores the last move.
+	 */
+private short lastMove = Move.NO_MOVE;
+		/**
+	 * Stores the legal targets.
+	 */
+private final boolean[] legalTargets = new boolean[64];
+		/**
+	 * Stores the capture targets.
+	 */
+private final boolean[] captureTargets = new boolean[64];
 
 	/**
 	 * Cached board geometry for hit-testing.
 	 */
 	private int boardX;
-	private int boardY;
-	private int boardSize;
-	private int tileSize;
+		/**
+	 * Stores the board y.
+	 */
+private int boardY;
+		/**
+	 * Stores the board size.
+	 */
+private int boardSize;
+		/**
+	 * Stores the tile size.
+	 */
+private int tileSize;
 
 	/**
 	 * Creates the board panel.
@@ -116,17 +161,29 @@ final class WebBoardPanel extends JPanel {
 		setOpaque(false);
 		setFocusable(false);
 		MouseAdapter mouse = new MouseAdapter() {
-			@Override
+						/**
+			 * Handles mouse moved.
+			 * @param event event value
+			 */
+@Override
 			public void mouseMoved(MouseEvent event) {
 				updateHover(squareAt(event.getX(), event.getY()));
 			}
 
-			@Override
+						/**
+			 * Handles mouse exited.
+			 * @param event event value
+			 */
+@Override
 			public void mouseExited(MouseEvent event) {
 				updateHover(Field.NO_SQUARE);
 			}
 
-			@Override
+						/**
+			 * Handles mouse clicked.
+			 * @param event event value
+			 */
+@Override
 			public void mouseClicked(MouseEvent event) {
 				if (event.getButton() != MouseEvent.BUTTON1) {
 					return;
@@ -141,7 +198,11 @@ final class WebBoardPanel extends JPanel {
 		addMouseMotionListener(mouse);
 	}
 
-	@Override
+		/**
+	 * Returns the preferred size.
+	 * @return computed value
+	 */
+@Override
 	public java.awt.Dimension getPreferredSize() {
 		return new java.awt.Dimension(PREFERRED_SIZE, PREFERRED_SIZE);
 	}
@@ -187,7 +248,11 @@ final class WebBoardPanel extends JPanel {
 		repaint();
 	}
 
-	private void updateHover(byte square) {
+		/**
+	 * Handles update hover.
+	 * @param square square value
+	 */
+private void updateHover(byte square) {
 		if (hoverSquare == square) {
 			return;
 		}
@@ -197,7 +262,11 @@ final class WebBoardPanel extends JPanel {
 		repaint();
 	}
 
-	@Override
+		/**
+	 * Handles paint component.
+	 * @param graphics graphics value
+	 */
+@Override
 	protected void paintComponent(Graphics graphics) {
 		super.paintComponent(graphics);
 		Graphics2D g = (Graphics2D) graphics.create();
@@ -224,7 +293,10 @@ final class WebBoardPanel extends JPanel {
 		g.dispose();
 	}
 
-	private void computeGeometry() {
+		/**
+	 * Handles compute geometry.
+	 */
+private void computeGeometry() {
 		int usableWidth = Math.max(8, getWidth() - OUTER_PAD * 2);
 		int usableHeight = Math.max(8, getHeight() - OUTER_PAD * 2);
 		boardSize = Math.max(8, Math.min(usableWidth, usableHeight));
@@ -236,7 +308,11 @@ final class WebBoardPanel extends JPanel {
 		boardY = (getHeight() - boardSize) / 2;
 	}
 
-	private void paintShadow(Graphics2D g) {
+		/**
+	 * Handles paint shadow.
+	 * @param g g value
+	 */
+private void paintShadow(Graphics2D g) {
 		g.setColor(theme.boardShadow());
 		for (int i = 10; i >= 1; i--) {
 			int alpha = Math.max(8, 36 - i * 2);
@@ -247,7 +323,11 @@ final class WebBoardPanel extends JPanel {
 		}
 	}
 
-	private void paintSquares(Graphics2D g) {
+		/**
+	 * Handles paint squares.
+	 * @param g g value
+	 */
+private void paintSquares(Graphics2D g) {
 		for (int rank = 0; rank < 8; rank++) {
 			for (int file = 0; file < 8; file++) {
 				byte square = displayToSquare(file, rank);
@@ -258,7 +338,11 @@ final class WebBoardPanel extends JPanel {
 		}
 	}
 
-	private void paintHighlights(Graphics2D g) {
+		/**
+	 * Handles paint highlights.
+	 * @param g g value
+	 */
+private void paintHighlights(Graphics2D g) {
 		if (lastMove != Move.NO_MOVE) {
 			paintSquareOverlay(g, Move.getFromIndex(lastMove), theme.lastMove());
 			paintSquareOverlay(g, Move.getToIndex(lastMove), theme.lastMove());
@@ -275,14 +359,24 @@ final class WebBoardPanel extends JPanel {
 		}
 	}
 
-	private void paintSquareOverlay(Graphics2D g, byte square, Color color) {
+		/**
+	 * Handles paint square overlay.
+	 * @param g g value
+	 * @param square square value
+	 * @param color color value
+	 */
+private void paintSquareOverlay(Graphics2D g, byte square, Color color) {
 		int file = displayFile(square);
 		int rank = displayRank(square);
 		g.setColor(color);
 		g.fillRect(boardX + file * tileSize, boardY + rank * tileSize, tileSize, tileSize);
 	}
 
-	private void paintLegalTargets(Graphics2D g) {
+		/**
+	 * Handles paint legal targets.
+	 * @param g g value
+	 */
+private void paintLegalTargets(Graphics2D g) {
 		byte[] board = position.getBoard();
 		for (byte square = 0; square < 64; square++) {
 			if (!legalTargets[square]) {
@@ -307,7 +401,11 @@ final class WebBoardPanel extends JPanel {
 		}
 	}
 
-	private void paintGlass(Graphics2D g) {
+		/**
+	 * Handles paint glass.
+	 * @param g g value
+	 */
+private void paintGlass(Graphics2D g) {
 		Color tint = theme.boardGlass();
 		g.setColor(tint);
 		g.fillRect(boardX, boardY, boardSize, boardSize);
@@ -323,7 +421,11 @@ final class WebBoardPanel extends JPanel {
 		}
 	}
 
-	private void paintPieces(Graphics2D g) {
+		/**
+	 * Handles paint pieces.
+	 * @param g g value
+	 */
+private void paintPieces(Graphics2D g) {
 		byte[] board = position.getBoard();
 		for (byte square = 0; square < 64; square++) {
 			byte piece = board[square];
@@ -341,7 +443,11 @@ final class WebBoardPanel extends JPanel {
 		}
 	}
 
-	private void paintCoordinates(Graphics2D g) {
+		/**
+	 * Handles paint coordinates.
+	 * @param g g value
+	 */
+private void paintCoordinates(Graphics2D g) {
 		Font font = theme.smallFont().deriveFont(Font.BOLD, Math.max(11f, tileSize * 0.11f));
 		g.setFont(font);
 		for (int file = 0; file < 8; file++) {
@@ -362,7 +468,12 @@ final class WebBoardPanel extends JPanel {
 		}
 	}
 
-	private Color coordinateColor(byte square) {
+		/**
+	 * Handles coordinate color.
+	 * @param square square value
+	 * @return computed value
+	 */
+private Color coordinateColor(byte square) {
 		int file = displayFile(square);
 		int rank = displayRank(square);
 		boolean lightSquare = ((file + rank) & 1) == 0;
@@ -371,13 +482,23 @@ final class WebBoardPanel extends JPanel {
 		return contrast < 128 ? new Color(255, 255, 255, 185) : new Color(60, 50, 40, 185);
 	}
 
-	private void paintBorder(Graphics2D g) {
+		/**
+	 * Handles paint border.
+	 * @param g g value
+	 */
+private void paintBorder(Graphics2D g) {
 		g.setColor(theme.boardFrame());
 		g.setStroke(new BasicStroke(Math.max(2f, tileSize * 0.03f)));
 		g.drawRoundRect(boardX, boardY, boardSize, boardSize, BOARD_RADIUS, BOARD_RADIUS);
 	}
 
-	private byte squareAt(int x, int y) {
+		/**
+	 * Handles square at.
+	 * @param x x value
+	 * @param y y value
+	 * @return computed value
+	 */
+private byte squareAt(int x, int y) {
 		if (x < boardX || y < boardY || x >= boardX + boardSize || y >= boardY + boardSize || tileSize <= 0) {
 			return Field.NO_SQUARE;
 		}
@@ -389,18 +510,34 @@ final class WebBoardPanel extends JPanel {
 		return displayToSquare(file, rank);
 	}
 
-	private byte displayToSquare(int displayFile, int displayRank) {
+		/**
+	 * Handles display to square.
+	 * @param displayFile display file value
+	 * @param displayRank display rank value
+	 * @return computed value
+	 */
+private byte displayToSquare(int displayFile, int displayRank) {
 		int file = whiteDown ? displayFile : 7 - displayFile;
 		int rank = whiteDown ? displayRank : 7 - displayRank;
 		return (byte) (rank * 8 + file);
 	}
 
-	private int displayFile(byte square) {
+		/**
+	 * Handles display file.
+	 * @param square square value
+	 * @return computed value
+	 */
+private int displayFile(byte square) {
 		int file = Field.getX(square);
 		return whiteDown ? file : 7 - file;
 	}
 
-	private int displayRank(byte square) {
+		/**
+	 * Handles display rank.
+	 * @param square square value
+	 * @return computed value
+	 */
+private int displayRank(byte square) {
 		int rank = Field.getY(square);
 		return whiteDown ? rank : 7 - rank;
 	}

@@ -57,7 +57,10 @@ public final class GuiWebCommand {
 		SwingUtilities.invokeLater(() -> new WebGuiWindow(initialFen, whiteDown, startLight));
 	}
 
-	private static void printHelp() {
+		/**
+	 * Handles print help.
+	 */
+private static void printHelp() {
 		System.out.println("""
 				gui-web options:
 				  --fen FEN              Start position (default: standard start FEN)

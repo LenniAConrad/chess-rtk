@@ -6,6 +6,7 @@ import static application.cli.Constants.CMD_BESTMOVE_SAN;
 import static application.cli.Constants.CMD_BESTMOVE_UCI;
 import static application.cli.Constants.OPT_BOTH;
 import static application.cli.Constants.OPT_FEN;
+import static application.cli.Constants.OPT_FORMAT;
 import static application.cli.Constants.OPT_HASH;
 import static application.cli.Constants.OPT_INPUT;
 import static application.cli.Constants.OPT_INPUT_SHORT;
@@ -29,6 +30,7 @@ import static application.cli.Format.safeSan;
 
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 
 import application.Config;
@@ -73,41 +75,81 @@ public final class BestMoveCommand {
 	 * @param noWdl     disable WDL output
 	 */
 	private record BestMoveOptions(
-						boolean verbose,
-						boolean san,
-						boolean both,
-						Path input,
-						String fen,
-						String protoPath,
-						long nodesCap,
-						long durMs,
-						Integer multipv,
-						Integer threads,
-						Integer hash,
-						boolean wdl,
-						boolean noWdl) {
+		/**
+		 * Stores the verbose.
+		 */
+		boolean verbose,
+		/**
+		 * Stores the san.
+		 */
+		boolean san,
+		/**
+		 * Stores the both.
+		 */
+		boolean both,
+		/**
+		 * Stores the input.
+		 */
+		Path input,
+		/**
+		 * Stores the fen.
+		 */
+		String fen,
+		/**
+		 * Stores the proto path.
+		 */
+		String protoPath,
+		/**
+		 * Stores the nodes cap.
+		 */
+		long nodesCap,
+		/**
+		 * Stores the dur ms.
+		 */
+		long durMs,
+		/**
+		 * Stores the multipv.
+		 */
+		Integer multipv,
+		/**
+		 * Stores the threads.
+		 */
+		Integer threads,
+		/**
+		 * Stores the hash.
+		 */
+		Integer hash,
+		/**
+		 * Stores the wdl.
+		 */
+		boolean wdl,
+		/**
+		 * Stores the no wdl.
+		 */
+		boolean noWdl
+	) {
 	}
 
 	/**
 	 * Supported output formats for best-move requests.
 	 */
 	private enum BestMoveFormat {
-		 /**
+		/**
 		 * Shared default constant.
 		 */
-		 DEFAULT,
-		 /**
+		DEFAULT,
+		/**
 		 * Shared uci constant.
 		 */
-		 UCI,
-		 /**
+		UCI,
+		/**
 		 * Shared san constant.
 		 */
-		 SAN,
-		 /**
+		SAN,
+		/**
 		 * Shared both constant.
 		 */
-		 BOTH
+		BOTH
 	}
 
 	/**
@@ -154,7 +196,7 @@ public final class BestMoveCommand {
 	 * @param format   output format override
 	 */
 	private static void runBestMoveCommand(String cmdLabel, Argv a, BestMoveFormat format) {
-		BestMoveOptions opts = parseBestMoveOptions(a);
+		BestMoveOptions opts = parseBestMoveOptions(a, cmdLabel);
 		BestMoveOptions resolved = applyBestMoveFormat(opts, format);
 		runBestMoveWithOptions(cmdLabel, resolved);
 	}
@@ -284,10 +326,21 @@ public final class BestMoveCommand {
 	 * @param a argument parser for the subcommand
 	 * @return parsed option set
 	 */
-	private static BestMoveOptions parseBestMoveOptions(Argv a) {
+	private static BestMoveOptions parseBestMoveOptions(Argv a, String cmdLabel) {
 		boolean verbose = a.flag(OPT_VERBOSE, OPT_VERBOSE_SHORT);
 		boolean san = a.flag(OPT_SAN);
 		boolean both = a.flag(OPT_BOTH);
+		BestMoveFormat requestedFormat = parseFormat(a.string(OPT_FORMAT), san, both, cmdLabel);
+		if (requestedFormat == BestMoveFormat.SAN) {
+			san = true;
+			both = false;
+		} else if (requestedFormat == BestMoveFormat.BOTH) {
+			san = false;
+			both = true;
+		} else if (requestedFormat == BestMoveFormat.UCI) {
+			san = false;
+			both = false;
+		}
 		Path input = a.path(OPT_INPUT, OPT_INPUT_SHORT);
 		String fen = a.string(OPT_FEN);
 		String protoPath = CommandSupport.optional(a.string(OPT_PROTOCOL_PATH, OPT_PROTOCOL_PATH_SHORT),
@@ -319,6 +372,40 @@ public final class BestMoveCommand {
 				hash,
 				wdl,
 				noWdl);
+	}
+
+	/**
+	 * Resolves output format flags for {@code bestmove}.
+	 *
+	 * @param value    optional {@code --format} value.
+	 * @param san      whether {@code --san} was present.
+	 * @param both     whether {@code --both} was present.
+	 * @param cmdLabel command label for diagnostics.
+	 * @return resolved output format.
+	 */
+	private static BestMoveFormat parseFormat(String value, boolean san, boolean both, String cmdLabel) {
+		if (value == null || value.isBlank()) {
+			if (both) {
+				return BestMoveFormat.BOTH;
+			}
+			return san ? BestMoveFormat.SAN : BestMoveFormat.UCI;
+		}
+		if (san || both) {
+			System.err.println(cmdLabel + ": use either " + OPT_FORMAT + " or --san/--both, not both");
+			System.exit(2);
+			return BestMoveFormat.UCI;
+		}
+		return switch (value.trim().toLowerCase(Locale.ROOT)) {
+			case "uci" -> BestMoveFormat.UCI;
+			case "san" -> BestMoveFormat.SAN;
+			case "both" -> BestMoveFormat.BOTH;
+			default -> {
+				System.err.println(cmdLabel + ": unsupported " + OPT_FORMAT + " value: " + value
+						+ " (expected uci, san, or both)");
+				System.exit(2);
+				yield BestMoveFormat.UCI;
+			}
+		};
 	}
 
 	/**

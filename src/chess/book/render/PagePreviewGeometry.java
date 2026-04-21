@@ -21,8 +21,66 @@ package chess.book.render;
  * @since 2026
  * @author Lennart A. Conrad
  */
-record PagePreviewGeometry(double totalWidth, double totalHeight, double framedWidth,
-				double framedHeight, 		double border, 		double pageWidth, 		double pageHeight, 		double boardStartX,
-				double boardStartY, 		double boardSize, 		double horizontalGap, 		double verticalGap, 		int rows, 		int columns,
-				double shadowBlur) {
+record PagePreviewGeometry(
+	/**
+	 * Stores the total width.
+	 */
+	double totalWidth,
+	/**
+	 * Stores the total height.
+	 */
+	double totalHeight,
+	/**
+	 * Stores the framed width.
+	 */
+	double framedWidth,
+	/**
+	 * Stores the framed height.
+	 */
+	double framedHeight,
+	/**
+	 * Stores the border.
+	 */
+	double border,
+	/**
+	 * Stores the page width.
+	 */
+	double pageWidth,
+	/**
+	 * Stores the page height.
+	 */
+	double pageHeight,
+	/**
+	 * Stores the board start x.
+	 */
+	double boardStartX,
+	/**
+	 * Stores the board start y.
+	 */
+	double boardStartY,
+	/**
+	 * Stores the board size.
+	 */
+	double boardSize,
+	/**
+	 * Stores the horizontal gap.
+	 */
+	double horizontalGap,
+	/**
+	 * Stores the vertical gap.
+	 */
+	double verticalGap,
+	/**
+	 * Stores the rows.
+	 */
+	int rows,
+	/**
+	 * Stores the columns.
+	 */
+	int columns,
+	/**
+	 * Stores the shadow blur.
+	 */
+	double shadowBlur
+) {
 }

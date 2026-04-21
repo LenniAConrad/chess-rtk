@@ -57,7 +57,11 @@ public final class ThemedToggleIcon implements Icon {
 		this.height = height;
 	}
 
-	@Override
+		/**
+	 * Returns the icon width.
+	 * @return computed value
+	 */
+@Override
 	/**
 	 * getIconWidth method.
 	 *
@@ -67,7 +71,11 @@ public final class ThemedToggleIcon implements Icon {
 		return width;
 	}
 
-	@Override
+		/**
+	 * Returns the icon height.
+	 * @return computed value
+	 */
+@Override
 	/**
 	 * getIconHeight method.
 	 *
@@ -77,7 +85,14 @@ public final class ThemedToggleIcon implements Icon {
 		return height;
 	}
 
-	@Override
+		/**
+	 * Handles paint icon.
+	 * @param c c value
+	 * @param g g value
+	 * @param x x value
+	 * @param y y value
+	 */
+@Override
 	/**
 	 * paintIcon method.
 	 *

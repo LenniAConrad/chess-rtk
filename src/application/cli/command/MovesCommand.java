@@ -1,12 +1,9 @@
 package application.cli.command;
 
-import static application.cli.Constants.CMD_MOVES;
-import static application.cli.Constants.CMD_MOVES_BOTH;
-import static application.cli.Constants.CMD_MOVES_SAN;
-import static application.cli.Constants.CMD_MOVES_UCI;
 import static application.cli.Constants.ERR_INVALID_FEN;
 import static application.cli.Constants.MSG_FEN_REQUIRED_HINT;
 import static application.cli.Constants.OPT_BOTH;
+import static application.cli.Constants.OPT_FORMAT;
 import static application.cli.Constants.OPT_SAN;
 import static application.cli.Constants.OPT_VERBOSE;
 import static application.cli.Constants.OPT_VERBOSE_SHORT;
@@ -16,15 +13,36 @@ import chess.core.Move;
 import chess.core.MoveList;
 import chess.core.Position;
 import chess.debug.LogService;
+import java.util.Locale;
 import utility.Argv;
 
 /**
- * Implements the {@code moves} family of CLI commands.
+ * Implements the {@code move} family of CLI commands.
  *
  * @since 2026
  * @author Lennart A. Conrad
  */
 public final class MovesCommand {
+
+	/**
+	 * Current command label for format-selectable move listing.
+	 */
+	private static final String MOVE_LIST = "move list";
+
+	/**
+	 * Current command label for UCI move listing.
+	 */
+	private static final String MOVE_UCI = "move uci";
+
+	/**
+	 * Current command label for SAN move listing.
+	 */
+	private static final String MOVE_SAN = "move san";
+
+	/**
+	 * Current command label for UCI and SAN move listing.
+	 */
+	private static final String MOVE_BOTH = "move both";
 
 	/**
 	 * Utility class; prevent instantiation.
@@ -34,61 +52,61 @@ public final class MovesCommand {
 	}
 
 	/**
-	 * Handles {@code moves}.
+	 * Handles {@code move list}.
 	 *
 	 * @param a argument parser for the subcommand
 	 */
 	public static void runMoves(Argv a) {
-		runMovesCommand(a, MovesFormat.DEFAULT, CMD_MOVES);
+		runMovesCommand(a, MovesFormat.DEFAULT, MOVE_LIST);
 	}
 
 	/**
-	 * Handles {@code moves-uci}.
+	 * Handles {@code move uci}.
 	 *
 	 * @param a argument parser for the subcommand
 	 */
 	public static void runMovesUci(Argv a) {
-		runMovesCommand(a, MovesFormat.UCI, CMD_MOVES_UCI);
+		runMovesCommand(a, MovesFormat.UCI, MOVE_UCI);
 	}
 
 	/**
-	 * Handles {@code moves-san}.
+	 * Handles {@code move san}.
 	 *
 	 * @param a argument parser for the subcommand
 	 */
 	public static void runMovesSan(Argv a) {
-		runMovesCommand(a, MovesFormat.SAN, CMD_MOVES_SAN);
+		runMovesCommand(a, MovesFormat.SAN, MOVE_SAN);
 	}
 
 	/**
-	 * Handles {@code moves-both}.
+	 * Handles {@code move both}.
 	 *
 	 * @param a argument parser for the subcommand
 	 */
 	public static void runMovesBoth(Argv a) {
-		runMovesCommand(a, MovesFormat.BOTH, CMD_MOVES_BOTH);
+		runMovesCommand(a, MovesFormat.BOTH, MOVE_BOTH);
 	}
 
 	/**
 	 * Supported output formats for move listings.
 	 */
 	private enum MovesFormat {
-		 /**
+		/**
 		 * Shared default constant.
 		 */
-		 DEFAULT,
-		 /**
+		DEFAULT,
+		/**
 		 * Shared uci constant.
 		 */
-		 UCI,
-		 /**
+		UCI,
+		/**
 		 * Shared san constant.
 		 */
-		 SAN,
-		 /**
+		SAN,
+		/**
 		 * Shared both constant.
 		 */
-		 BOTH
+		BOTH
 	}
 
 	/**
@@ -102,15 +120,17 @@ public final class MovesCommand {
 		boolean verbose = a.flag(OPT_VERBOSE, OPT_VERBOSE_SHORT);
 		boolean san = a.flag(OPT_SAN);
 		boolean both = a.flag(OPT_BOTH);
+		MovesFormat requested = parseFormat(a.string(OPT_FORMAT), san, both, cmdLabel);
 		String fen = CommandSupport.resolveFenArgument(a);
+		MovesFormat resolved = format == MovesFormat.DEFAULT ? requested : format;
 
-		if (format == MovesFormat.UCI) {
+		if (resolved == MovesFormat.UCI) {
 			san = false;
 			both = false;
-		} else if (format == MovesFormat.SAN) {
+		} else if (resolved == MovesFormat.SAN) {
 			san = true;
 			both = false;
-		} else if (format == MovesFormat.BOTH) {
+		} else if (resolved == MovesFormat.BOTH) {
 			san = false;
 			both = true;
 		}
@@ -139,6 +159,40 @@ public final class MovesCommand {
 			}
 			System.exit(3);
 		}
+	}
+
+	/**
+	 * Resolves output format flags for {@code moves}.
+	 *
+	 * @param value    optional {@code --format} value.
+	 * @param san      whether {@code --san} was present.
+	 * @param both     whether {@code --both} was present.
+	 * @param cmdLabel command label for diagnostics.
+	 * @return resolved output format.
+	 */
+	private static MovesFormat parseFormat(String value, boolean san, boolean both, String cmdLabel) {
+		if (value == null || value.isBlank()) {
+			if (both) {
+				return MovesFormat.BOTH;
+			}
+			return san ? MovesFormat.SAN : MovesFormat.UCI;
+		}
+		if (san || both) {
+			System.err.println(cmdLabel + ": use either " + OPT_FORMAT + " or --san/--both, not both");
+			System.exit(2);
+			return MovesFormat.UCI;
+		}
+		return switch (value.trim().toLowerCase(Locale.ROOT)) {
+			case "uci" -> MovesFormat.UCI;
+			case "san" -> MovesFormat.SAN;
+			case "both" -> MovesFormat.BOTH;
+			default -> {
+				System.err.println(cmdLabel + ": unsupported " + OPT_FORMAT + " value: " + value
+						+ " (expected uci, san, or both)");
+				System.exit(2);
+				yield MovesFormat.UCI;
+			}
+		};
 	}
 
 	/**

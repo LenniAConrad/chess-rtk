@@ -2,8 +2,9 @@
 
 This folder holds the long-form docs for ChessRTK (CLI: `crtk`). The root `README.md` gives the project overview and quick build/run commands.
 
-Command compatibility note:
-- Use canonical command names only.
+Preferred CLI shape:
+- Use grouped commands for new scripts: `record`, `fen`, `move`, `engine`, `book`, and `puzzle`.
+- Legacy top-level shortcuts have been removed from the public CLI.
 - Removed commands: `gui2`, `cuda-info`, `mine`, `evaluate`, `stack-to-dataset`.
 
 If you did **not** run `./install.sh`, replace `crtk <command> ...` with `java -cp out application.Main <command> ...` (after building).

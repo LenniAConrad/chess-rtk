@@ -54,7 +54,11 @@ public final class ThemedSliderUI extends BasicSliderUI {
 		this.targetValue = slider.getValue();
 	}
 
-	@Override
+		/**
+	 * Handles install ui.
+	 * @param c c value
+	 */
+@Override
 	/**
 	 * installUI method.
 	 *
@@ -68,7 +72,11 @@ public final class ThemedSliderUI extends BasicSliderUI {
 		slider.addChangeListener(changeListener);
 	}
 
-	@Override
+		/**
+	 * Handles uninstall ui.
+	 * @param c c value
+	 */
+@Override
 	/**
 	 * uninstallUI method.
 	 *
@@ -86,7 +94,11 @@ public final class ThemedSliderUI extends BasicSliderUI {
 		super.uninstallUI(c);
 	}
 
-	@Override
+		/**
+	 * Handles paint track.
+	 * @param g g value
+	 */
+@Override
 	/**
 	 * paintTrack method.
 	 *
@@ -120,7 +132,11 @@ public final class ThemedSliderUI extends BasicSliderUI {
 		g2.dispose();
 	}
 
-	@Override
+		/**
+	 * Handles paint thumb.
+	 * @param g g value
+	 */
+@Override
 	/**
 	 * paintThumb method.
 	 *
@@ -147,7 +163,11 @@ public final class ThemedSliderUI extends BasicSliderUI {
 		g2.dispose();
 	}
 
-	@Override
+		/**
+	 * Returns the thumb size.
+	 * @return computed value
+	 */
+@Override
 	/**
 	 * getThumbSize method.
 	 *

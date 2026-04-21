@@ -13,5 +13,18 @@ import chess.pdf.document.Font;
  * @since 2026
  * @author Lennart A. Conrad
  */
-record TextStyle(Font font, double size, Color color) {
+record TextStyle(
+	/**
+	 * Stores the font.
+	 */
+	Font font,
+	/**
+	 * Stores the size.
+	 */
+	double size,
+	/**
+	 * Stores the color.
+	 */
+	Color color
+) {
 }

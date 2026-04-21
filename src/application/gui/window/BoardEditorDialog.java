@@ -23,7 +23,10 @@ import javax.swing.JPanel;
  */
 final class BoardEditorDialog extends JDialog {
 
-	@java.io.Serial
+		/**
+	 * Serialization version identifier.
+	 */
+@java.io.Serial
 	private static final long serialVersionUID = 1L;
 
     /**
@@ -34,8 +37,14 @@ final class BoardEditorDialog extends JDialog {
      * editorRoot field.
      */
     private final GradientPanel editorRoot;
-    private final BoardEditorShared.EditorBoardPanel editorBoard;
-    private final List<BoardEditorShared.PaletteButton> paletteButtons = new ArrayList<>();
+        /**
+     * Stores the editor board.
+     */
+private final BoardEditorShared.EditorBoardPanel editorBoard;
+        /**
+     * Stores the palette buttons.
+     */
+private final List<BoardEditorShared.PaletteButton> paletteButtons = new ArrayList<>();
     /**
      * originalBoard field.
      */
@@ -92,7 +101,10 @@ final class BoardEditorDialog extends JDialog {
      * legalityWrapWidth field.
      */
     private final int legalityWrapWidth;
-    private final List<javax.swing.JButton> actionButtons;
+        /**
+     * Stores the action buttons.
+     */
+private final List<javax.swing.JButton> actionButtons;
     /**
      * adjustingCastling field.
      */
@@ -161,7 +173,11 @@ final class BoardEditorDialog extends JDialog {
         pack();
         setLocationRelativeTo(owner.frame);
         addWindowListener(new WindowAdapter() {
-            @Override
+                        /**
+             * Handles window closed.
+             * @param e e value
+             */
+@Override
             public void windowClosed(WindowEvent e) {
                 owner.editorDialog = null;
             }

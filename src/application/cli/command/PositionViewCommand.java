@@ -214,24 +214,79 @@ public final class PositionViewCommand {
 	 * @param legal          legal move overlays
 	 */
 	private record DisplayOptions(
-						boolean verbose,
-						String fen,
-						boolean showBorder,
-						boolean whiteDown,
-						boolean light,
-						boolean showBackend,
-						boolean ablation,
-						int size,
-						int width,
-						int height,
-						double zoom,
-						List<String> arrows,
-						boolean specialArrows,
-						boolean details,
-						boolean detailsOutside,
-						boolean shadow,
-						List<String> circles,
-						List<String> legal) {
+		/**
+		 * Stores the verbose.
+		 */
+		boolean verbose,
+		/**
+		 * Stores the fen.
+		 */
+		String fen,
+		/**
+		 * Stores the show border.
+		 */
+		boolean showBorder,
+		/**
+		 * Stores the white down.
+		 */
+		boolean whiteDown,
+		/**
+		 * Stores the light.
+		 */
+		boolean light,
+		/**
+		 * Stores the show backend.
+		 */
+		boolean showBackend,
+		/**
+		 * Stores the ablation.
+		 */
+		boolean ablation,
+		/**
+		 * Stores the size.
+		 */
+		int size,
+		/**
+		 * Stores the width.
+		 */
+		int width,
+		/**
+		 * Stores the height.
+		 */
+		int height,
+		/**
+		 * Stores the zoom.
+		 */
+		double zoom,
+		/**
+		 * Stores the arrows.
+		 */
+		List<String> arrows,
+		/**
+		 * Stores the special arrows.
+		 */
+		boolean specialArrows,
+		/**
+		 * Stores the details.
+		 */
+		boolean details,
+		/**
+		 * Stores the details outside.
+		 */
+		boolean detailsOutside,
+		/**
+		 * Stores the shadow.
+		 */
+		boolean shadow,
+		/**
+		 * Stores the circles.
+		 */
+		List<String> circles,
+		/**
+		 * Stores the legal.
+		 */
+		List<String> legal
+	) {
 	}
 
 	/**
@@ -257,24 +312,79 @@ public final class PositionViewCommand {
 	 * @param format         image format override
 	 */
 	private record RenderImageOptions(
-						boolean verbose,
-						String fen,
-						boolean showBorder,
-						boolean whiteDown,
-						boolean showBackend,
-						boolean ablation,
-						int size,
-						int width,
-						int height,
-						List<String> arrows,
-						boolean specialArrows,
-						boolean details,
-						boolean detailsOutside,
-						boolean shadow,
-						List<String> circles,
-						List<String> legal,
-						Path output,
-						String format) {
+		/**
+		 * Stores the verbose.
+		 */
+		boolean verbose,
+		/**
+		 * Stores the fen.
+		 */
+		String fen,
+		/**
+		 * Stores the show border.
+		 */
+		boolean showBorder,
+		/**
+		 * Stores the white down.
+		 */
+		boolean whiteDown,
+		/**
+		 * Stores the show backend.
+		 */
+		boolean showBackend,
+		/**
+		 * Stores the ablation.
+		 */
+		boolean ablation,
+		/**
+		 * Stores the size.
+		 */
+		int size,
+		/**
+		 * Stores the width.
+		 */
+		int width,
+		/**
+		 * Stores the height.
+		 */
+		int height,
+		/**
+		 * Stores the arrows.
+		 */
+		List<String> arrows,
+		/**
+		 * Stores the special arrows.
+		 */
+		boolean specialArrows,
+		/**
+		 * Stores the details.
+		 */
+		boolean details,
+		/**
+		 * Stores the details outside.
+		 */
+		boolean detailsOutside,
+		/**
+		 * Stores the shadow.
+		 */
+		boolean shadow,
+		/**
+		 * Stores the circles.
+		 */
+		List<String> circles,
+		/**
+		 * Stores the legal.
+		 */
+		List<String> legal,
+		/**
+		 * Stores the output.
+		 */
+		Path output,
+		/**
+		 * Stores the format.
+		 */
+		String format
+	) {
 	}
 
 	/**

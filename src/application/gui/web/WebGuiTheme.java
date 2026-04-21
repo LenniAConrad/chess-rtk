@@ -50,47 +50,171 @@ import java.awt.Font;
  * @since 2026
  */
 public record WebGuiTheme(
-		Color pageTop,
-		Color pageBottom,
-		Color headerText,
-		Color headerMuted,
-		Color surface,
-		Color surfaceAlt,
-		Color surfaceBorder,
-		Color surfaceShadow,
-		Color inputBackground,
-		Color inputBorder,
-		Color inputText,
-		Color buttonBackground,
-		Color buttonHover,
-		Color buttonBorder,
-		Color buttonText,
-		Color toggleOnBackground,
-		Color toggleOnBorder,
-		Color toggleOffBackground,
-		Color toggleOffBorder,
-		Color boardLight,
-		Color boardDark,
-		Color boardFrame,
-		Color boardShadow,
-		Color boardGlass,
-		Color text,
-		Color textMuted,
-		Color textStrong,
-		Color accent,
-		Color accentSoft,
-		Color legalMove,
-		Color legalCapture,
-		Color lastMove,
-		Color selected,
-		Color check,
-		Color evalDark,
-		Color evalLight,
-		Color evalBorder,
-		Font titleFont,
-		Font bodyFont,
-		Font smallFont,
-		Font monoFont) {
+	/**
+	 * Stores the page top.
+	 */
+	Color pageTop,
+	/**
+	 * Stores the page bottom.
+	 */
+	Color pageBottom,
+	/**
+	 * Stores the header text.
+	 */
+	Color headerText,
+	/**
+	 * Stores the header muted.
+	 */
+	Color headerMuted,
+	/**
+	 * Stores the surface.
+	 */
+	Color surface,
+	/**
+	 * Stores the surface alt.
+	 */
+	Color surfaceAlt,
+	/**
+	 * Stores the surface border.
+	 */
+	Color surfaceBorder,
+	/**
+	 * Stores the surface shadow.
+	 */
+	Color surfaceShadow,
+	/**
+	 * Stores the input background.
+	 */
+	Color inputBackground,
+	/**
+	 * Stores the input border.
+	 */
+	Color inputBorder,
+	/**
+	 * Stores the input text.
+	 */
+	Color inputText,
+	/**
+	 * Stores the button background.
+	 */
+	Color buttonBackground,
+	/**
+	 * Stores the button hover.
+	 */
+	Color buttonHover,
+	/**
+	 * Stores the button border.
+	 */
+	Color buttonBorder,
+	/**
+	 * Stores the button text.
+	 */
+	Color buttonText,
+	/**
+	 * Stores the toggle on background.
+	 */
+	Color toggleOnBackground,
+	/**
+	 * Stores the toggle on border.
+	 */
+	Color toggleOnBorder,
+	/**
+	 * Stores the toggle off background.
+	 */
+	Color toggleOffBackground,
+	/**
+	 * Stores the toggle off border.
+	 */
+	Color toggleOffBorder,
+	/**
+	 * Stores the board light.
+	 */
+	Color boardLight,
+	/**
+	 * Stores the board dark.
+	 */
+	Color boardDark,
+	/**
+	 * Stores the board frame.
+	 */
+	Color boardFrame,
+	/**
+	 * Stores the board shadow.
+	 */
+	Color boardShadow,
+	/**
+	 * Stores the board glass.
+	 */
+	Color boardGlass,
+	/**
+	 * Stores the text.
+	 */
+	Color text,
+	/**
+	 * Stores the text muted.
+	 */
+	Color textMuted,
+	/**
+	 * Stores the text strong.
+	 */
+	Color textStrong,
+	/**
+	 * Stores the accent.
+	 */
+	Color accent,
+	/**
+	 * Stores the accent soft.
+	 */
+	Color accentSoft,
+	/**
+	 * Stores the legal move.
+	 */
+	Color legalMove,
+	/**
+	 * Stores the legal capture.
+	 */
+	Color legalCapture,
+	/**
+	 * Stores the last move.
+	 */
+	Color lastMove,
+	/**
+	 * Stores the selected.
+	 */
+	Color selected,
+	/**
+	 * Stores the check.
+	 */
+	Color check,
+	/**
+	 * Stores the eval dark.
+	 */
+	Color evalDark,
+	/**
+	 * Stores the eval light.
+	 */
+	Color evalLight,
+	/**
+	 * Stores the eval border.
+	 */
+	Color evalBorder,
+	/**
+	 * Stores the title font.
+	 */
+	Font titleFont,
+	/**
+	 * Stores the body font.
+	 */
+	Font bodyFont,
+	/**
+	 * Stores the small font.
+	 */
+	Font smallFont,
+	/**
+	 * Stores the mono font.
+	 */
+	Font monoFont
+) {
 
 	/**
 	 * Returns the light palette inspired by chess-web.

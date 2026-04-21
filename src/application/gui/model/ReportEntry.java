@@ -17,5 +17,34 @@ import application.gui.window.PgnNode;
   * @since 2026
   * @author Lennart A. Conrad
  */
-public record ReportEntry(PgnNode node, String prefix, String san, String eval, String loss, String nag, Integer lossCp) {
+public record ReportEntry(
+	/**
+	 * Stores the node.
+	 */
+	PgnNode node,
+	/**
+	 * Stores the prefix.
+	 */
+	String prefix,
+	/**
+	 * Stores the san.
+	 */
+	String san,
+	/**
+	 * Stores the eval.
+	 */
+	String eval,
+	/**
+	 * Stores the loss.
+	 */
+	String loss,
+	/**
+	 * Stores the nag.
+	 */
+	String nag,
+	/**
+	 * Stores the loss cp.
+	 */
+	Integer lossCp
+) {
 }

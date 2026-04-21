@@ -68,7 +68,11 @@ public final class HistoryMovesCardBuilder {
             actions.updateVariationButtons();
         });
         historyList.addMouseMotionListener(new MouseAdapter() {
-            @Override
+                        /**
+             * Handles mouse moved.
+             * @param e e value
+             */
+@Override
             public void mouseMoved(MouseEvent e) {
                 int idx = historyList.locationToIndex(e.getPoint());
                 if (idx >= 0) {
@@ -123,7 +127,11 @@ public final class HistoryMovesCardBuilder {
         historyMenu.add(historyClearCommentItem);
         historyMenu.add(annotateMenu);
         historyList.addMouseListener(new MouseAdapter() {
-            @Override
+                        /**
+             * Handles mouse clicked.
+             * @param e e value
+             */
+@Override
             public void mouseClicked(MouseEvent e) {
                 if (e.getClickCount() == 2) {
                     int idx = historyList.locationToIndex(e.getPoint());
@@ -136,17 +144,29 @@ public final class HistoryMovesCardBuilder {
                 }
             }
 
-            @Override
+                        /**
+             * Handles mouse pressed.
+             * @param e e value
+             */
+@Override
             public void mousePressed(MouseEvent e) {
                 actions.maybeShowHistoryMenu(historyList, e);
             }
 
-            @Override
+                        /**
+             * Handles mouse released.
+             * @param e e value
+             */
+@Override
             public void mouseReleased(MouseEvent e) {
                 actions.maybeShowHistoryMenu(historyList, e);
             }
 
-            @Override
+                        /**
+             * Handles mouse exited.
+             * @param e e value
+             */
+@Override
             public void mouseExited(MouseEvent e) {
                 actions.clearBoardPreview();
                 actions.hideEnginePreview();
@@ -346,20 +366,69 @@ public final class HistoryMovesCardBuilder {
      * @author Lennart A. Conrad
      */
     public record Result(
-            RoundedPanel panel,
-            DefaultListModel<HistoryEntry> historyListModel,
-            JList<HistoryEntry> historyList,
-            JScrollPane historyScroll,
-            Dimension historyScrollPref,
-            JPopupMenu historyMenu,
-            JMenuItem historyCopySanItem,
-            JMenuItem historyCopyUciItem,
-            JMenuItem historyJumpItem,
-            JMenuItem historyCommentItem,
-            JMenuItem historyClearCommentItem,
-            JMenuItem historyClearNagItem,
-            JButton historyDeleteButton,
-            JButton historyPromoteButton,
-            JButton historyVarUpButton,
-            JButton historyVarDownButton) {}
+        /**
+         * Stores the panel.
+         */
+        RoundedPanel panel,
+        /**
+         * Stores the history list model.
+         */
+        DefaultListModel<HistoryEntry> historyListModel,
+        /**
+         * Stores the history list.
+         */
+        JList<HistoryEntry> historyList,
+        /**
+         * Stores the history scroll.
+         */
+        JScrollPane historyScroll,
+        /**
+         * Stores the history scroll pref.
+         */
+        Dimension historyScrollPref,
+        /**
+         * Stores the history menu.
+         */
+        JPopupMenu historyMenu,
+        /**
+         * Stores the history copy san item.
+         */
+        JMenuItem historyCopySanItem,
+        /**
+         * Stores the history copy uci item.
+         */
+        JMenuItem historyCopyUciItem,
+        /**
+         * Stores the history jump item.
+         */
+        JMenuItem historyJumpItem,
+        /**
+         * Stores the history comment item.
+         */
+        JMenuItem historyCommentItem,
+        /**
+         * Stores the history clear comment item.
+         */
+        JMenuItem historyClearCommentItem,
+        /**
+         * Stores the history clear nag item.
+         */
+        JMenuItem historyClearNagItem,
+        /**
+         * Stores the history delete button.
+         */
+        JButton historyDeleteButton,
+        /**
+         * Stores the history promote button.
+         */
+        JButton historyPromoteButton,
+        /**
+         * Stores the history var up button.
+         */
+        JButton historyVarUpButton,
+        /**
+         * Stores the history var down button.
+         */
+        JButton historyVarDownButton
+    ) {}
 }

@@ -13,8 +13,25 @@ import java.util.List;
   * @since 2026
   * @author Lennart A. Conrad
  */
-public record RecentCommand(String label, String command, List<String> args) {
-	@Override
+public record RecentCommand(
+	/**
+	 * Stores the label.
+	 */
+	String label,
+	/**
+	 * Stores the command.
+	 */
+	String command,
+	/**
+	 * Stores the args.
+	 */
+	List<String> args
+) {
+		/**
+	 * Returns the string representation.
+	 * @return computed value
+	 */
+@Override
 	/**
 	 * toString method.
 	 *

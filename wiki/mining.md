@@ -1,6 +1,6 @@
-# Mining puzzles (`mine-puzzles`)
+# Mining puzzles (`puzzle mine`)
 
-`mine-puzzles` drives a UCI engine on many seed positions and emits two JSON files:
+`puzzle mine` drives a UCI engine on many seed positions and emits two JSON files:
 - puzzles (`*.puzzles.json`)
 - non-puzzles (`*.nonpuzzles.json`)
 
@@ -13,7 +13,7 @@ The mining logic is intentionally “data pipeline” shaped: start from seeds, 
 If you omit `--input`, seeds are generated randomly:
 
 ```bash
-crtk mine-puzzles --random-count 100 --output dump/
+crtk puzzle mine --random-count 100 --output dump/
 ```
 
 Use `--random-infinite` to keep generating seeds continuously (caps are disabled).

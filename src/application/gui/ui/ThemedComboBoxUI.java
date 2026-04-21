@@ -35,7 +35,11 @@ public final class ThemedComboBoxUI extends BasicComboBoxUI {
 		this.theme = theme;
 	}
 
-	@Override
+		/**
+	 * Handles create arrow button.
+	 * @return computed value
+	 */
+@Override
 	/**
 	 * createArrowButton method.
 	 *
@@ -53,7 +57,11 @@ public final class ThemedComboBoxUI extends BasicComboBoxUI {
 		return button;
 	}
 
-	@Override
+		/**
+	 * Handles create renderer.
+	 * @return computed value
+	 */
+@Override
 	/**
 	 * createRenderer method.
 	 *
@@ -61,7 +69,16 @@ public final class ThemedComboBoxUI extends BasicComboBoxUI {
 	 */
 	protected ListCellRenderer<Object> createRenderer() {
 		return new javax.swing.DefaultListCellRenderer() {
-			@Override
+						/**
+			 * Returns the list cell renderer component.
+			 * @param list list value
+			 * @param value value value
+			 * @param index index value
+			 * @param isSelected is selected value
+			 * @param cellHasFocus cell has focus value
+			 * @return computed value
+			 */
+@Override
 			public java.awt.Component getListCellRendererComponent(JList<?> list, Object value, int index,
 					boolean isSelected, boolean cellHasFocus) {
 				java.awt.Component c = super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
@@ -77,7 +94,11 @@ public final class ThemedComboBoxUI extends BasicComboBoxUI {
 		};
 	}
 
-	@Override
+		/**
+	 * Handles install ui.
+	 * @param c c value
+	 */
+@Override
 	/**
 	 * installUI method.
 	 *
@@ -95,7 +116,12 @@ public final class ThemedComboBoxUI extends BasicComboBoxUI {
 		}
 	}
 
-	@Override
+		/**
+	 * Handles paint.
+	 * @param g g value
+	 * @param c c value
+	 */
+@Override
 	/**
 	 * paint method.
 	 *

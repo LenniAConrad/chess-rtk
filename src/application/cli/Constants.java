@@ -16,74 +16,39 @@ public final class Constants {
 	}
 
 	/**
-	 * {@code record-to-plain} subcommand token.
+	 * {@code record} grouped subcommand token.
 	 */
-	public static final String CMD_RECORD_TO_PLAIN = "record-to-plain";
+	public static final String CMD_RECORD = "record";
 
 	/**
-	 * {@code record-to-csv} subcommand token.
+	 * {@code fen} grouped subcommand token.
 	 */
-	public static final String CMD_RECORD_TO_CSV = "record-to-csv";
+	public static final String CMD_FEN = "fen";
 
 	/**
-	 * {@code record-to-dataset} subcommand token.
+	 * {@code move} grouped subcommand token.
 	 */
-	public static final String CMD_RECORD_TO_DATASET = "record-to-dataset";
+	public static final String CMD_MOVE = "move";
 
 	/**
-	 * {@code record-to-lc0} subcommand token.
+	 * {@code engine} grouped subcommand token.
 	 */
-	public static final String CMD_RECORD_TO_LC0 = "record-to-lc0";
+	public static final String CMD_ENGINE = "engine";
 
 	/**
-	 * {@code record-to-classifier} subcommand token.
+	 * {@code book} grouped subcommand token.
 	 */
-	public static final String CMD_RECORD_TO_CLASSIFIER = "record-to-classifier";
+	public static final String CMD_BOOK = "book";
 
 	/**
-	 * {@code record-to-pgn} subcommand token.
+	 * {@code puzzle} grouped subcommand token.
 	 */
-	public static final String CMD_RECORD_TO_PGN = "record-to-pgn";
+	public static final String CMD_PUZZLE = "puzzle";
 
 	/**
-	 * {@code record-to-puzzle-jsonl} subcommand token.
+	 * {@code uci-smoke} subcommand token.
 	 */
-	public static final String CMD_RECORD_TO_PUZZLE_JSONL = "record-to-puzzle-jsonl";
-
-	/**
-	 * {@code record-to-training-jsonl} subcommand token.
-	 */
-	public static final String CMD_RECORD_TO_TRAINING_JSONL = "record-to-training-jsonl";
-
-	/**
-	 * {@code record-analysis-delta} subcommand token.
-	 */
-	public static final String CMD_RECORD_ANALYSIS_DELTA = "record-analysis-delta";
-
-	/**
-	 * {@code records} subcommand token.
-	 */
-	public static final String CMD_RECORDS = "records";
-
-	/**
-	 * {@code puzzles-to-pgn} subcommand token.
-	 */
-	public static final String CMD_PUZZLES_TO_PGN = "puzzles-to-pgn";
-
-	/**
-	 * {@code gpu-info} subcommand token.
-	 */
-	public static final String CMD_GPU_INFO = "gpu-info";
-
-	/**
-	 * {@code gen-fens} subcommand token.
-	 */
-	public static final String CMD_GEN_FENS = "gen-fens";
-
-	/**
-	 * {@code mine-puzzles} subcommand token.
-	 */
-	public static final String CMD_MINE_PUZZLES = "mine-puzzles";
+	public static final String CMD_UCI_SMOKE = "uci-smoke";
 
 	/**
 	 * {@code print} subcommand token.
@@ -101,19 +66,9 @@ public final class Constants {
 	public static final String CMD_RENDER = "render";
 
 	/**
-	 * {@code chess-pdf} subcommand token.
+	 * {@code chess960} subcommand token.
 	 */
-	public static final String CMD_CHESS_PDF = "chess-pdf";
-
-	/**
-	 * {@code chess-book} subcommand token.
-	 */
-	public static final String CMD_CHESS_BOOK = "chess-book";
-
-	/**
-	 * {@code chess-book-cover} subcommand token.
-	 */
-	public static final String CMD_CHESS_BOOK_COVER = "chess-book-cover";
+	public static final String CMD_CHESS960 = "chess960";
 
 	/**
 	 * {@code gui} subcommand token.
@@ -131,6 +86,11 @@ public final class Constants {
 	public static final String CMD_CLEAN = "clean";
 
 	/**
+	 * {@code doctor} subcommand token.
+	 */
+	public static final String CMD_DOCTOR = "doctor";
+
+	/**
 	 * {@code help} subcommand token.
 	 */
 	public static final String CMD_HELP = "help";
@@ -141,69 +101,9 @@ public final class Constants {
 	public static final String CMD_CONFIG = "config";
 
 	/**
-	 * {@code stats} subcommand token.
-	 */
-	public static final String CMD_STATS = "stats";
-
-	/**
 	 * {@code tags} subcommand token.
 	 */
 	public static final String CMD_TAGS = "tags";
-
-	/**
-	 * {@code puzzle-tags} subcommand token.
-	 */
-	public static final String CMD_PUZZLE_TAGS = "puzzle-tags";
-
-	/**
-	 * {@code puzzle-text} subcommand token.
-	 */
-	public static final String CMD_PUZZLE_TEXT = "puzzle-text";
-
-	/**
-	 * {@code tag-text} subcommand token.
-	 */
-	public static final String CMD_TAG_TEXT = "tag-text";
-
-	/**
-	 * {@code moves} subcommand token.
-	 */
-	public static final String CMD_MOVES = "moves";
-
-	/**
-	 * {@code moves-uci} subcommand token.
-	 */
-	public static final String CMD_MOVES_UCI = "moves-uci";
-
-	/**
-	 * {@code moves-san} subcommand token.
-	 */
-	public static final String CMD_MOVES_SAN = "moves-san";
-
-	/**
-	 * {@code moves-both} subcommand token.
-	 */
-	public static final String CMD_MOVES_BOTH = "moves-both";
-
-	/**
-	 * {@code uci-to-san} subcommand token.
-	 */
-	public static final String CMD_UCI_TO_SAN = "uci-to-san";
-
-	/**
-	 * {@code san-to-uci} subcommand token.
-	 */
-	public static final String CMD_SAN_TO_UCI = "san-to-uci";
-
-	/**
-	 * {@code fen-after} subcommand token.
-	 */
-	public static final String CMD_FEN_AFTER = "fen-after";
-
-	/**
-	 * {@code play-line} subcommand token.
-	 */
-	public static final String CMD_PLAY_LINE = "play-line";
 
 	/**
 	 * {@code analyze} subcommand token.
@@ -246,24 +146,9 @@ public final class Constants {
 	public static final String CMD_PERFT_SUITE = "perft-suite";
 
 	/**
-	 * {@code pgn-to-fens} subcommand token.
-	 */
-	public static final String CMD_PGN_TO_FENS = "pgn-to-fens";
-
-	/**
-	 * {@code stats-tags} subcommand token.
-	 */
-	public static final String CMD_STATS_TAGS = "stats-tags";
-
-	/**
 	 * {@code eval} subcommand token.
 	 */
 	public static final String CMD_EVAL = "eval";
-
-	/**
-	 * {@code eval-static} subcommand token.
-	 */
-	public static final String CMD_EVAL_STATIC = "eval-static";
 
 	/**
 	 * Short help flag alias.
@@ -314,6 +199,36 @@ public final class Constants {
 	 * {@code --format} option flag.
 	 */
 	public static final String OPT_FORMAT = "--format";
+
+	/**
+	 * {@code --index} option flag.
+	 */
+	public static final String OPT_INDEX = "--index";
+
+	/**
+	 * {@code --all} option flag.
+	 */
+	public static final String OPT_ALL = "--all";
+
+	/**
+	 * {@code --random} option flag.
+	 */
+	public static final String OPT_RANDOM = "--random";
+
+	/**
+	 * {@code --count} option flag.
+	 */
+	public static final String OPT_COUNT = "--count";
+
+	/**
+	 * {@code --check} option flag.
+	 */
+	public static final String OPT_CHECK = "--check";
+
+	/**
+	 * {@code --validate} option flag alias.
+	 */
+	public static final String OPT_VALIDATE = "--validate";
 
 	/**
 	 * {@code --title} option flag.

@@ -16,7 +16,7 @@ import chess.book.cover.Writer;
 import utility.Argv;
 
 /**
- * Zero-dependency regression checks for the {@code chess-book-cover} command.
+ * Zero-dependency regression checks for the {@code book cover} command.
  *
  * @since 2026
  * @author Lennart A. Conrad
@@ -117,6 +117,7 @@ public final class ChessBookCoverCommandRegressionTest {
 		testPaperbackDimensions();
 		testHardcoverDimensions();
 		testPaperbackCoverExport();
+		testCheckModeDoesNotWritePdf();
 		System.out.println("ChessBookCoverCommandRegressionTest: all checks passed");
 	}
 
@@ -216,10 +217,10 @@ public final class ChessBookCoverCommandRegressionTest {
 	 * @throws Exception if cover export fails
 	 */
 	private static void testPaperbackCoverExport() throws Exception {
-		Path input = Files.createTempFile("chess-book-cover-", ".json");
+		Path input = Files.createTempFile("book-cover-", ".json");
 		Files.writeString(input, sampleBook(), StandardCharsets.UTF_8);
 
-		Path output = Files.createTempFile("chess-book-cover-", ".pdf");
+		Path output = Files.createTempFile("book-cover-", ".pdf");
 		String console = captureStdout(() -> ChessBookCoverCommand.runChessBookCover(new Argv(new String[] {
 				"--input", input.toString(),
 					"--output", output.toString(),
@@ -237,6 +238,30 @@ public final class ChessBookCoverCommandRegressionTest {
 		assertTrue(text.contains("Cover CLI"), "front-cover title");
 		assertTrue(console.contains("paperback cover for " + COVER_PAGES + " pages"), "console summary");
 		assertFalse(text.contains("/Subtype /Image"), "cover raster image marker");
+	}
+
+	/**
+	 * Verifies validation mode checks cover dimensions without writing a PDF.
+	 *
+	 * @throws Exception if validation fails unexpectedly
+	 */
+	private static void testCheckModeDoesNotWritePdf() throws Exception {
+		Path input = Files.createTempFile("book-cover-check-", ".json");
+		Files.writeString(input, sampleBook(), StandardCharsets.UTF_8);
+
+		Path output = Files.createTempDirectory("book-cover-check-").resolve("cover.pdf");
+		String console = captureStdout(() -> ChessBookCoverCommand.runChessBookCover(new Argv(new String[] {
+				"--input", input.toString(),
+				"--output", output.toString(),
+				"--binding", "paperback",
+				"--interior", "cream-bw",
+				"--pages", String.valueOf(COVER_PAGES),
+				"--check"
+		})));
+
+		assertTrue(console.contains("book cover OK: paperback/cream-bw, 120 pages"),
+				"cover check mode summary");
+		assertFalse(Files.exists(output), "cover check mode skipped pdf output");
 	}
 
 	/**

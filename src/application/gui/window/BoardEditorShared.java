@@ -692,7 +692,16 @@ final class BoardEditorShared {
      * @since 2026
      * @author Lennart A. Conrad
      */
-    record ActionSpec(String label, ActionListener listener) {
+    record ActionSpec(
+        /**
+         * Stores the label.
+         */
+        String label,
+        /**
+         * Stores the listener.
+         */
+        ActionListener listener
+    ) {
     }
 
     /**
@@ -704,15 +713,43 @@ final class BoardEditorShared {
      * @author Lennart A. Conrad
      */
     record Layout(
-            GradientPanel root,
-            JLabel selectedLabel,
-            JLabel legalityLabel,
-            JCheckBox castleK,
-            JCheckBox castleQ,
-            JCheckBox castlek,
-            JCheckBox castleq,
-            int legalityWrapWidth,
-            List<JButton> actionButtons) {
+        /**
+         * Stores the root.
+         */
+        GradientPanel root,
+        /**
+         * Stores the selected label.
+         */
+        JLabel selectedLabel,
+        /**
+         * Stores the legality label.
+         */
+        JLabel legalityLabel,
+        /**
+         * Stores the castle k.
+         */
+        JCheckBox castleK,
+        /**
+         * Stores the castle q.
+         */
+        JCheckBox castleQ,
+        /**
+         * Stores the castlek.
+         */
+        JCheckBox castlek,
+        /**
+         * Stores the castleq.
+         */
+        JCheckBox castleq,
+        /**
+         * Stores the legality wrap width.
+         */
+        int legalityWrapWidth,
+        /**
+         * Stores the action buttons.
+         */
+        List<JButton> actionButtons
+    ) {
     }
 
     /**
@@ -725,7 +762,10 @@ final class BoardEditorShared {
      */
     static final class PaletteButton extends JButton {
 
-		@java.io.Serial
+				/**
+		 * Serialization version identifier.
+		 */
+@java.io.Serial
 		private static final long serialVersionUID = 1L;
         /**
          * piece field.
@@ -765,7 +805,10 @@ final class BoardEditorShared {
         }
     }
 
-    @FunctionalInterface
+        /**
+     * Defines byte supplier behavior.
+     */
+@FunctionalInterface
     /**
      * ByteSupplier interface.
      *
@@ -793,7 +836,10 @@ final class BoardEditorShared {
      */
     static final class EditorBoardPanel extends JPanel {
 
-		@java.io.Serial
+				/**
+		 * Serialization version identifier.
+		 */
+@java.io.Serial
 		private static final long serialVersionUID = 1L;
         /**
          * owner field.
@@ -858,7 +904,11 @@ final class BoardEditorShared {
              */
             setPreferredSize(new Dimension(520, 520));
             MouseAdapter mouseHandler = new MouseAdapter() {
-                @Override
+                                /**
+                 * Handles mouse pressed.
+                 * @param e e value
+                 */
+@Override
                 /**
                  * mousePressed method.
                  *
@@ -868,7 +918,11 @@ final class BoardEditorShared {
                     handlePaint(e);
                 }
 
-                @Override
+                                /**
+                 * Handles mouse dragged.
+                 * @param e e value
+                 */
+@Override
                 /**
                  * mouseDragged method.
                  *
@@ -959,7 +1013,11 @@ final class BoardEditorShared {
             return (byte) Field.toIndex(boardFile, boardRank);
         }
 
-        @Override
+                /**
+         * Handles paint component.
+         * @param g g value
+         */
+@Override
         /**
          * paintComponent method.
          *

@@ -10,7 +10,7 @@ import application.cli.command.ChessBookCommand;
 import utility.Argv;
 
 /**
- * Zero-dependency regression checks for the {@code chess-book} CLI command.
+ * Zero-dependency regression checks for the {@code book render} CLI command.
  *
  * @since 2026
  * @author Lennart A. Conrad
@@ -34,6 +34,7 @@ public final class ChessBookCommandRegressionTest {
 		testJsonBookExport();
 		testTomlBookExport();
 		testMetadataOverridesAndLimit();
+		testCheckModeDoesNotWritePdf();
 		testFreeWatermarkFlag();
 		System.out.println("ChessBookCommandRegressionTest: all checks passed");
 	}
@@ -44,10 +45,10 @@ public final class ChessBookCommandRegressionTest {
 	 * @throws Exception if export fails
 	 */
 	private static void testJsonBookExport() throws Exception {
-		Path input = Files.createTempFile("chess-book-", ".json");
+		Path input = Files.createTempFile("book-render-", ".json");
 		Files.writeString(input, sampleJson(16), StandardCharsets.UTF_8);
 
-		Path output = Files.createTempFile("chess-book-", ".pdf");
+		Path output = Files.createTempFile("book-render-", ".pdf");
 		ChessBookCommand.runChessBook(new Argv(new String[] {
 				"--input", input.toString(),
 				"--output", output.toString(),
@@ -68,10 +69,10 @@ public final class ChessBookCommandRegressionTest {
 	 * @throws Exception if export fails
 	 */
 	private static void testTomlBookExport() throws Exception {
-		Path input = Files.createTempFile("chess-book-", ".toml");
+		Path input = Files.createTempFile("book-render-", ".toml");
 		Files.writeString(input, sampleToml(16), StandardCharsets.UTF_8);
 
-		Path output = Files.createTempFile("chess-book-", ".pdf");
+		Path output = Files.createTempFile("book-render-", ".pdf");
 		ChessBookCommand.runChessBook(new Argv(new String[] {
 				input.toString(),
 				"--output", output.toString()
@@ -91,10 +92,10 @@ public final class ChessBookCommandRegressionTest {
 	 * @throws Exception if export fails
 	 */
 	private static void testMetadataOverridesAndLimit() throws Exception {
-		Path input = Files.createTempFile("chess-book-", ".json");
+		Path input = Files.createTempFile("book-render-", ".json");
 		Files.writeString(input, sampleJson(12), StandardCharsets.UTF_8);
 
-		Path output = Files.createTempFile("chess-book-", ".pdf");
+		Path output = Files.createTempFile("book-render-", ".pdf");
 		String console = captureStdout(() -> ChessBookCommand.runChessBook(new Argv(new String[] {
 					"--input", input.toString(),
 					"--output", output.toString(),
@@ -112,16 +113,37 @@ public final class ChessBookCommandRegressionTest {
 	}
 
 	/**
+	 * Verifies validation mode checks the manifest without writing a PDF.
+	 *
+	 * @throws Exception if validation fails unexpectedly
+	 */
+	private static void testCheckModeDoesNotWritePdf() throws Exception {
+		Path input = Files.createTempFile("book-render-check-", ".json");
+		Files.writeString(input, sampleJson(6), StandardCharsets.UTF_8);
+
+		Path output = Files.createTempDirectory("book-render-check-").resolve("book.pdf");
+		String console = captureStdout(() -> ChessBookCommand.runChessBook(new Argv(new String[] {
+				"--input", input.toString(),
+				"--output", output.toString(),
+				"--limit", "4",
+				"--check"
+		})));
+
+		assertTrue(console.contains("book render OK: 4 puzzles"), "check mode summary");
+		assertFalse(Files.exists(output), "check mode skipped pdf output");
+	}
+
+	/**
 	 * Verifies the CLI free-edition flag adds watermark metadata and vector opacity
 	 * resources.
 	 *
 	 * @throws Exception if export fails
 	 */
 	private static void testFreeWatermarkFlag() throws Exception {
-		Path input = Files.createTempFile("chess-book-watermark-", ".json");
+		Path input = Files.createTempFile("book-render-watermark-", ".json");
 		Files.writeString(input, sampleJson(8), StandardCharsets.UTF_8);
 
-		Path output = Files.createTempFile("chess-book-watermark-", ".pdf");
+		Path output = Files.createTempFile("book-render-watermark-", ".pdf");
 		String console = captureStdout(() -> ChessBookCommand.runChessBook(new Argv(new String[] {
 				"--input", input.toString(),
 				"--output", output.toString(),

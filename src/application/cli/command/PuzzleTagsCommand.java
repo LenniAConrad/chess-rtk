@@ -1,6 +1,5 @@
 package application.cli.command;
 
-import static application.cli.Constants.CMD_PUZZLE_TAGS;
 import static application.cli.Constants.OPT_ANALYZE;
 import static application.cli.Constants.OPT_FEN;
 import static application.cli.Constants.OPT_HASH;
@@ -50,6 +49,11 @@ import utility.Json;
  */
 public final class PuzzleTagsCommand {
 
+    /**
+     * Current command label used in diagnostics.
+     */
+    private static final String COMMAND_LABEL = "puzzle tags";
+
      /**
      * Creates a new puzzle tags command instance.
      */
@@ -69,23 +73,23 @@ public final class PuzzleTagsCommand {
         Optional<Boolean> wdlFlag = resolveWdlFlag(opts.wdl, opts.noWdl);
 
         try (Engine engine = new Engine(protocol)) {
-            configureEngine(CMD_PUZZLE_TAGS, engine, opts.threads, opts.hash, opts.multipv, wdlFlag);
-            Analysis analysis = analysePositionOrExit(engine, root, opts.nodesCap, opts.durMs, CMD_PUZZLE_TAGS,
+            configureEngine(COMMAND_LABEL, engine, opts.threads, opts.hash, opts.multipv, wdlFlag);
+            Analysis analysis = analysePositionOrExit(engine, root, opts.nodesCap, opts.durMs, COMMAND_LABEL,
                     opts.verbose);
             if (analysis == null) {
                 return;
             }
 
             List<chess.struct.Record> records = PuzzleSupport.buildRecords(root, analysis, opts.pvPlies,
-                    CMD_PUZZLE_TAGS, opts.verbose);
+                    COMMAND_LABEL, opts.verbose);
             if (records.isEmpty()) {
-                System.err.println(CMD_PUZZLE_TAGS + ": no records extracted from PVs");
+                System.err.println(COMMAND_LABEL + ": no records extracted from PVs");
                 System.exit(2);
             }
 
             if (opts.analyzeTags) {
                 int tagMultipv = Math.max(1, opts.tagMultipv);
-                configureEngine(CMD_PUZZLE_TAGS, engine, opts.threads, opts.hash, tagMultipv, wdlFlag);
+                configureEngine(COMMAND_LABEL, engine, opts.threads, opts.hash, tagMultipv, wdlFlag);
             }
 
             Map<String, TagEntry> cache = new HashMap<>();
@@ -110,7 +114,7 @@ public final class PuzzleTagsCommand {
                 printDeltaJson(index++, rec, tags, delta);
             }
         } catch (Exception ex) {
-            System.err.println(CMD_PUZZLE_TAGS + ": failed to initialize engine: " + ex.getMessage());
+            System.err.println(COMMAND_LABEL + ": failed to initialize engine: " + ex.getMessage());
             if (opts.verbose) {
                 ex.printStackTrace(System.err);
             }
@@ -125,7 +129,7 @@ public final class PuzzleTagsCommand {
      */
      private static PuzzleOptions parseOptions(Argv a) {
         boolean verbose = a.flag(OPT_VERBOSE, OPT_VERBOSE_SHORT);
-        boolean analyze = a.flag(OPT_ANALYZE);
+        a.flag(OPT_ANALYZE);
         boolean noAnalyze = a.flag(OPT_NO_ANALYZE);
         String protoPath = CommandSupport.optional(a.string(OPT_PROTOCOL_PATH, OPT_PROTOCOL_PATH_SHORT),
                 Config.getProtocolPath());
@@ -148,17 +152,17 @@ public final class PuzzleTagsCommand {
         a.ensureConsumed();
 
         if (wdl && noWdl) {
-            System.err.println(CMD_PUZZLE_TAGS + ": only one of --wdl or --no-wdl may be set");
+            System.err.println(COMMAND_LABEL + ": only one of --wdl or --no-wdl may be set");
             System.exit(2);
         }
         if (fen == null || fen.isBlank()) {
-            System.err.println(CMD_PUZZLE_TAGS + " requires --fen or a positional FEN");
+            System.err.println(COMMAND_LABEL + " requires --fen or a positional FEN");
             System.exit(2);
         }
         int mpv = multipv == null ? 3 : Math.max(1, multipv);
         int plies = pvPlies == null ? 12 : Math.max(1, pvPlies);
         int tagMpv = tagMultipv == null ? 1 : Math.max(1, tagMultipv);
-        boolean analyzeTags = noAnalyze ? false : (analyze || true);
+        boolean analyzeTags = !noAnalyze;
         return new PuzzleOptions(verbose, analyzeTags, protoPath, nodesCap, durMs, mpv, tagMpv, plies, threads, hash,
                 wdl, noWdl, fen);
     }
@@ -170,7 +174,7 @@ public final class PuzzleTagsCommand {
      * @return computed value
      */
      private static Position parsePositionOrExit(String fen, boolean verbose) {
-        Position pos = parsePositionOrNull(fen, CMD_PUZZLE_TAGS, verbose);
+        Position pos = parsePositionOrNull(fen, COMMAND_LABEL, verbose);
         if (pos == null) {
             System.exit(2);
         }
@@ -193,7 +197,7 @@ public final class PuzzleTagsCommand {
         }
         Analysis analysis = null;
         if (engine != null) {
-            analysis = analysePositionOrExit(engine, pos, opts.nodesCap, opts.durMs, CMD_PUZZLE_TAGS, opts.verbose);
+            analysis = analysePositionOrExit(engine, pos, opts.nodesCap, opts.durMs, COMMAND_LABEL, opts.verbose);
             if (analysis == null) {
                 return null;
             }
@@ -209,7 +213,7 @@ public final class PuzzleTagsCommand {
                 tags = Sort.sort(merged);
             }
         }
-        cache.put(fen, new TagEntry(tags, analysis));
+        cache.put(fen, new TagEntry(tags));
         return tags;
     }
 
@@ -262,11 +266,11 @@ public final class PuzzleTagsCommand {
             threatPos = ThreatsSupport.nullMovePosition(base);
         } catch (IllegalArgumentException ex) {
             if (verbose) {
-                System.err.println(CMD_PUZZLE_TAGS + ": threat analysis skipped: " + ex.getMessage());
+                System.err.println(COMMAND_LABEL + ": threat analysis skipped: " + ex.getMessage());
             }
             return List.of();
         }
-        Analysis threatAnalysis = analysePositionOrExit(engine, threatPos, nodesCap, durMs, CMD_PUZZLE_TAGS, verbose);
+        Analysis threatAnalysis = analysePositionOrExit(engine, threatPos, nodesCap, durMs, COMMAND_LABEL, verbose);
         if (threatAnalysis == null || threatAnalysis.isEmpty()) {
             return List.of();
         }
@@ -594,19 +598,11 @@ public final class PuzzleTagsCommand {
          */
          private final List<String> tags;
          /**
-         * Stores the analysis.
-         */
-         @SuppressWarnings("unused")
-        private final Analysis analysis;
-
-         /**
          * Creates a new tag entry instance.
          * @param tags tags
-         * @param analysis analysis
          */
-         private TagEntry(List<String> tags, Analysis analysis) {
+         private TagEntry(List<String> tags) {
             this.tags = tags;
-            this.analysis = analysis;
         }
     }
 

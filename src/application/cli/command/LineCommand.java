@@ -1,7 +1,5 @@
 package application.cli.command;
 
-import static application.cli.Constants.CMD_FEN_AFTER;
-import static application.cli.Constants.CMD_PLAY_LINE;
 import static application.cli.Constants.OPT_INTERMEDIATE;
 import static application.cli.Constants.OPT_VERBOSE;
 import static application.cli.Constants.OPT_VERBOSE_SHORT;
@@ -19,6 +17,16 @@ import utility.Argv;
 public final class LineCommand {
 
 	/**
+	 * Current command label for applying one move.
+	 */
+	private static final String MOVE_AFTER = "move after";
+
+	/**
+	 * Current command label for applying a move sequence.
+	 */
+	private static final String MOVE_PLAY = "move play";
+
+	/**
 	 * Utility class; prevent instantiation.
 	 */
 	private LineCommand() {
@@ -26,21 +34,21 @@ public final class LineCommand {
 	}
 
 	/**
-	 * Handles {@code fen-after}.
+	 * Handles {@code move after}.
 	 *
 	 * @param a argument parser for the subcommand
 	 */
 	public static void runFenAfter(Argv a) {
 		boolean verbose = a.flag(OPT_VERBOSE, OPT_VERBOSE_SHORT);
-		MoveCommandSupport.ParsedInput input = MoveCommandSupport.parseInputs(a, CMD_FEN_AFTER, true, verbose);
+		MoveCommandSupport.ParsedInput input = MoveCommandSupport.parseInputs(a, MOVE_AFTER, true, verbose);
 
 		if (input.moves.isEmpty()) {
-			System.err.println(CMD_FEN_AFTER + " requires a move (UCI or SAN)");
+			System.err.println(MOVE_AFTER + " requires a move (UCI or SAN)");
 			System.exit(2);
 			return;
 		}
 		if (input.moves.size() > 1) {
-			System.err.println(CMD_FEN_AFTER + " expects a single move; use play-line for sequences");
+			System.err.println(MOVE_AFTER + " expects a single move; use move play for sequences");
 			System.exit(2);
 			return;
 		}
@@ -53,16 +61,16 @@ public final class LineCommand {
 			pos.play(move);
 			System.out.println(pos.toString());
 		} catch (IllegalArgumentException ex) {
-			System.err.println(CMD_FEN_AFTER + ": " + ex.getMessage());
-			LogService.error(ex, CMD_FEN_AFTER + ": invalid move", "FEN: " + pos.toString(), "Move: " + token);
+			System.err.println(MOVE_AFTER + ": " + ex.getMessage());
+			LogService.error(ex, MOVE_AFTER + ": invalid move", "FEN: " + pos.toString(), "Move: " + token);
 			if (verbose) {
 				ex.printStackTrace(System.err);
 			}
 			System.exit(3);
 		} catch (Exception ex) {
-			System.err.println(CMD_FEN_AFTER + ": failed to apply move. "
+			System.err.println(MOVE_AFTER + ": failed to apply move. "
 					+ (ex.getMessage() == null ? "" : ex.getMessage()));
-			LogService.error(ex, CMD_FEN_AFTER + ": unexpected failure", "FEN: " + pos.toString(), "Move: " + token);
+			LogService.error(ex, MOVE_AFTER + ": unexpected failure", "FEN: " + pos.toString(), "Move: " + token);
 			if (verbose) {
 				ex.printStackTrace(System.err);
 			}
@@ -71,17 +79,17 @@ public final class LineCommand {
 	}
 
 	/**
-	 * Handles {@code play-line}.
+	 * Handles {@code move play}.
 	 *
 	 * @param a argument parser for the subcommand
 	 */
 	public static void runPlayLine(Argv a) {
 		boolean verbose = a.flag(OPT_VERBOSE, OPT_VERBOSE_SHORT);
 		boolean intermediate = a.flag(OPT_INTERMEDIATE);
-		MoveCommandSupport.ParsedInput input = MoveCommandSupport.parseInputs(a, CMD_PLAY_LINE, true, verbose);
+		MoveCommandSupport.ParsedInput input = MoveCommandSupport.parseInputs(a, MOVE_PLAY, true, verbose);
 
 		if (input.moves.isEmpty()) {
-			System.err.println(CMD_PLAY_LINE + " requires at least one move (UCI or SAN)");
+			System.err.println(MOVE_PLAY + " requires at least one move (UCI or SAN)");
 			System.exit(2);
 			return;
 		}
@@ -98,18 +106,18 @@ public final class LineCommand {
 					System.out.println(pos.toString());
 				}
 			} catch (IllegalArgumentException ex) {
-				System.err.println(CMD_PLAY_LINE + ": invalid move at ply " + ply + ": " + token
+				System.err.println(MOVE_PLAY + ": invalid move at ply " + ply + ": " + token
 						+ " (" + ex.getMessage() + ")");
-				LogService.error(ex, CMD_PLAY_LINE + ": invalid move", "Ply: " + ply,
+				LogService.error(ex, MOVE_PLAY + ": invalid move", "Ply: " + ply,
 						"FEN: " + pos.toString(), "Move: " + token);
 				if (verbose) {
 					ex.printStackTrace(System.err);
 				}
 				System.exit(3);
 			} catch (Exception ex) {
-				System.err.println(CMD_PLAY_LINE + ": failed to apply move at ply " + ply + ": " + token
+				System.err.println(MOVE_PLAY + ": failed to apply move at ply " + ply + ": " + token
 						+ ". " + (ex.getMessage() == null ? "" : ex.getMessage()));
-				LogService.error(ex, CMD_PLAY_LINE + ": unexpected failure", "Ply: " + ply,
+				LogService.error(ex, MOVE_PLAY + ": unexpected failure", "Ply: " + ply,
 						"FEN: " + pos.toString(), "Move: " + token);
 				if (verbose) {
 					ex.printStackTrace(System.err);

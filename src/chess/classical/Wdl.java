@@ -22,7 +22,20 @@ import chess.core.Position;
  * @since 2025
  * @author Lennart A. Conrad
  */
-public record Wdl(short win, short draw, short loss) {
+public record Wdl(
+    /**
+     * Stores the win.
+     */
+    short win,
+    /**
+     * Stores the draw.
+     */
+    short draw,
+    /**
+     * Stores the loss.
+     */
+    short loss
+) {
 
     /**
      * Total sum for the WDL triplet.
@@ -1275,19 +1288,29 @@ public record Wdl(short win, short draw, short loss) {
      */
     private static final class EvalScan {
 
-        /** White material total in centipawns (kings excluded). */
+        /**
+         * White material total in centipawns (kings excluded).
+         */
         int whiteMaterial;
 
-        /** Black material total in centipawns (kings excluded). */
+        /**
+         * Black material total in centipawns (kings excluded).
+         */
         int blackMaterial;
 
-        /** PST-derived score from White's perspective. */
+        /**
+         * PST-derived score from White's perspective.
+         */
         int score;
 
-        /** Number of White bishops on the board. */
+        /**
+         * Number of White bishops on the board.
+         */
         int whiteBishops;
 
-        /** Number of Black bishops on the board. */
+        /**
+         * Number of Black bishops on the board.
+         */
         int blackBishops;
     }
 }

@@ -183,7 +183,11 @@ abstract class GuiWindowHistoryCore extends GuiWindowBase {
 		 */
 		protected abstract void runCliCommand(String command, List<String> args);
 
-		protected abstract java.util.Map<String, CommandSpec> buildCommandSpecs();
+				/**
+		 * Handles build command specs.
+		 * @return computed value
+		 */
+protected abstract java.util.Map<String, CommandSpec> buildCommandSpecs();
 
 		/**
 		 * field method.
@@ -1290,7 +1294,10 @@ abstract class GuiWindowHistoryCore extends GuiWindowBase {
 			 * engineSearchField field.
 			 */
 			protected JTextField engineSearchField;
-			protected final java.util.Map<String, String> pgnTags = new java.util.LinkedHashMap<>();
+						/**
+			 * Stores the pgn tags.
+			 */
+protected final java.util.Map<String, String> pgnTags = new java.util.LinkedHashMap<>();
 			/**
 			 * pgnResult field.
 			 */
@@ -1433,7 +1440,10 @@ abstract class GuiWindowHistoryCore extends GuiWindowBase {
 			 */
 			protected final List<TabLabel> tabLabels = new ArrayList<>();
 
-		protected final HistoryUiFactory uiFactory = new HistoryUiFactory(
+				/**
+		 * Stores the ui factory.
+		 */
+protected final HistoryUiFactory uiFactory = new HistoryUiFactory(
 				() -> theme, cards, flatCards, buttons, iconButtons, strongLabels, mutedLabels, separators);
 		/**
 		 * commandFormBuilder field.
@@ -1452,7 +1462,10 @@ abstract class GuiWindowHistoryCore extends GuiWindowBase {
 			 * Constructor.
 			 */
 			protected final List<CommandFieldBinding> commandBindings = new ArrayList<>();
-			protected final java.util.Map<String, CommandSpec> commandSpecs = buildCommandSpecs();
+						/**
+			 * Stores the command specs.
+			 */
+protected final java.util.Map<String, CommandSpec> commandSpecs = buildCommandSpecs();
 	
 			/**
 			 * position field.
@@ -1586,7 +1599,10 @@ abstract class GuiWindowHistoryCore extends GuiWindowBase {
 			 * Pending transition move consumed by {@link BoardPanel} for one-shot animations.
 			 */
 			protected short pendingAnimationMove = Move.NO_MOVE;
-			protected java.awt.KeyEventDispatcher navigationDispatcher;
+						/**
+			 * Stores the navigation dispatcher.
+			 */
+protected java.awt.KeyEventDispatcher navigationDispatcher;
 			/**
 			 * One-shot flag to skip board animation on the next refresh.
 			 */
@@ -1956,7 +1972,11 @@ abstract class GuiWindowHistoryCore extends GuiWindowBase {
 			 */
 			private final class TabDependencies implements HistoryTabDependencies {
 
-				@Override
+								/**
+				 * Handles right tabs.
+				 * @return computed value
+				 */
+@Override
 				/**
 				 * rightTabs method.
 				 *
@@ -1966,7 +1986,11 @@ abstract class GuiWindowHistoryCore extends GuiWindowBase {
 					return GuiWindowHistoryCore.this.rightTabs;
 				}
 
-				@Override
+								/**
+				 * Handles tab labels.
+				 * @return computed value
+				 */
+@Override
 				/**
 				 * tabLabels method.
 				 *
@@ -1976,7 +2000,11 @@ abstract class GuiWindowHistoryCore extends GuiWindowBase {
 					return GuiWindowHistoryCore.this.tabLabels;
 				}
 
-				@Override
+								/**
+				 * Handles activity buttons.
+				 * @return computed value
+				 */
+@Override
 				/**
 				 * activityButtons method.
 				 *
@@ -1986,7 +2014,11 @@ abstract class GuiWindowHistoryCore extends GuiWindowBase {
 					return GuiWindowHistoryCore.this.activityButtons;
 				}
 
-				@Override
+								/**
+				 * Handles sidebar header label.
+				 * @return computed value
+				 */
+@Override
 				/**
 				 * sidebarHeaderLabel method.
 				 *
@@ -1996,7 +2028,11 @@ abstract class GuiWindowHistoryCore extends GuiWindowBase {
 					return GuiWindowHistoryCore.this.sidebarHeaderLabel;
 				}
 
-				@Override
+								/**
+				 * Handles status tab picker.
+				 * @return computed value
+				 */
+@Override
 				/**
 				 * statusTabPicker method.
 				 *
@@ -2006,7 +2042,11 @@ abstract class GuiWindowHistoryCore extends GuiWindowBase {
 					return GuiWindowHistoryCore.this.statusTabPicker;
 				}
 
-				@Override
+								/**
+				 * Handles theme.
+				 * @return computed value
+				 */
+@Override
 				/**
 				 * theme method.
 				 *
@@ -2016,7 +2056,12 @@ abstract class GuiWindowHistoryCore extends GuiWindowBase {
 					return GuiWindowHistoryCore.this.theme;
 				}
 
-				@Override
+								/**
+				 * Handles scale font.
+				 * @param base base value
+				 * @return computed value
+				 */
+@Override
 				/**
 				 * scaleFont method.
 				 *
@@ -2027,7 +2072,14 @@ abstract class GuiWindowHistoryCore extends GuiWindowBase {
 					return GuiWindowHistoryCore.this.scaleFont(base);
 				}
 
-				@Override
+								/**
+				 * Handles blend.
+				 * @param base base value
+				 * @param overlay overlay value
+				 * @param amount amount value
+				 * @return computed value
+				 */
+@Override
 				/**
 				 * blend method.
 				 *
@@ -2040,7 +2092,12 @@ abstract class GuiWindowHistoryCore extends GuiWindowBase {
 					return GuiWindowHistoryCore.this.blend(base, overlay, amount);
 				}
 
-				@Override
+								/**
+				 * Handles format title.
+				 * @param text text value
+				 * @return computed value
+				 */
+@Override
 				/**
 				 * formatTitle method.
 				 *
@@ -2051,7 +2108,11 @@ abstract class GuiWindowHistoryCore extends GuiWindowBase {
 					return uiFactory.formatTitle(text);
 				}
 
-				@Override
+								/**
+				 * Handles status tab updating.
+				 * @return computed value
+				 */
+@Override
 				/**
 				 * statusTabUpdating method.
 				 *
@@ -2061,7 +2122,11 @@ abstract class GuiWindowHistoryCore extends GuiWindowBase {
 					return GuiWindowHistoryCore.this.statusTabUpdating;
 				}
 
-				@Override
+								/**
+				 * Sets the status tab updating.
+				 * @param updating updating value
+				 */
+@Override
 				/**
 				 * setStatusTabUpdating method.
 				 *
@@ -2071,7 +2136,12 @@ abstract class GuiWindowHistoryCore extends GuiWindowBase {
 					GuiWindowHistoryCore.this.statusTabUpdating = updating;
 				}
 
-				@Override
+								/**
+				 * Handles scale dimension.
+				 * @param base base value
+				 * @return computed value
+				 */
+@Override
 				/**
 				 * scaleDimension method.
 				 *
@@ -2082,7 +2152,11 @@ abstract class GuiWindowHistoryCore extends GuiWindowBase {
 					return GuiWindowHistoryCore.this.scaleDimension(base);
 				}
 
-				@Override
+								/**
+				 * Returns whether light mode.
+				 * @return computed value
+				 */
+@Override
 				/**
 				 * isLightMode method.
 				 *
@@ -2092,7 +2166,10 @@ abstract class GuiWindowHistoryCore extends GuiWindowBase {
 					return GuiWindowHistoryCore.this.lightMode;
 				}
 
-				@Override
+								/**
+				 * Handles toggle theme.
+				 */
+@Override
 				/**
 				 * toggleTheme method.
 				 */
@@ -2100,7 +2177,11 @@ abstract class GuiWindowHistoryCore extends GuiWindowBase {
 					GuiWindowHistoryCore.this.toggleTheme();
 				}
 
-				@Override
+								/**
+				 * Handles panel visible.
+				 * @return computed value
+				 */
+@Override
 				/**
 				 * panelVisible method.
 				 *
@@ -2110,7 +2191,10 @@ abstract class GuiWindowHistoryCore extends GuiWindowBase {
 					return GuiWindowHistoryCore.this.panelVisible;
 				}
 
-				@Override
+								/**
+				 * Handles toggle panel.
+				 */
+@Override
 				/**
 				 * togglePanel method.
 				 */
@@ -2118,7 +2202,12 @@ abstract class GuiWindowHistoryCore extends GuiWindowBase {
 					GuiWindowHistoryCore.this.togglePanel();
 				}
 
-				@Override
+								/**
+				 * Sets the panel visible.
+				 * @param visible visible value
+				 * @param persist persist value
+				 */
+@Override
 				/**
 				 * setPanelVisible method.
 				 *
@@ -2129,7 +2218,11 @@ abstract class GuiWindowHistoryCore extends GuiWindowBase {
 					GuiWindowHistoryCore.this.setPanelVisible(visible, persist);
 				}
 
-				@Override
+								/**
+				 * Handles open panel tab.
+				 * @param title title value
+				 */
+@Override
 				/**
 				 * openPanelTab method.
 				 *
@@ -2139,7 +2232,10 @@ abstract class GuiWindowHistoryCore extends GuiWindowBase {
 					GuiWindowHistoryCore.this.openPanelTab(title);
 				}
 
-				@Override
+								/**
+				 * Handles toggle engine power.
+				 */
+@Override
 				/**
 				 * toggleEnginePower method.
 				 */
@@ -2147,7 +2243,11 @@ abstract class GuiWindowHistoryCore extends GuiWindowBase {
 					GuiWindowHistoryCore.this.toggleEnginePower();
 				}
 
-				@Override
+								/**
+				 * Handles select right tab.
+				 * @param index index value
+				 */
+@Override
 				/**
 				 * selectRightTab method.
 				 *
@@ -2157,7 +2257,11 @@ abstract class GuiWindowHistoryCore extends GuiWindowBase {
 					GuiWindowHistoryCore.this.selectRightTab(index);
 				}
 
-				@Override
+								/**
+				 * Handles register combo.
+				 * @param combo combo value
+				 */
+@Override
 				/**
 				 * registerCombo method.
 				 *

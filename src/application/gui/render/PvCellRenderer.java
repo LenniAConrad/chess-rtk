@@ -30,7 +30,10 @@ import application.gui.model.PvEntry;
  */
 public final class PvCellRenderer extends JPanel implements javax.swing.ListCellRenderer<PvEntry> {
 
-	@java.io.Serial
+		/**
+	 * Serialization version identifier.
+	 */
+@java.io.Serial
 	private static final long serialVersionUID = 1L;
 	/**
 	 * History window that supplies theme data.
@@ -96,7 +99,16 @@ public final class PvCellRenderer extends JPanel implements javax.swing.ListCell
 		setBorder(new EmptyBorder(4, 6, 4, 6));
 	}
 
-	@Override
+		/**
+	 * Returns the list cell renderer component.
+	 * @param list list value
+	 * @param value value value
+	 * @param index index value
+	 * @param isSelected is selected value
+	 * @param cellHasFocus cell has focus value
+	 * @return computed value
+	 */
+@Override
 	public java.awt.Component getListCellRendererComponent(javax.swing.JList<? extends PvEntry> list, PvEntry value,
 			int index, boolean isSelected, boolean cellHasFocus) {
 		String moves = value != null ? value.moves() : "";

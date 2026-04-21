@@ -2,9 +2,9 @@
 
 ChessRTK can produce native vector PDFs for three publishing jobs:
 
-- `chess-pdf`: quick diagram sheets from FEN lists or PGN mainlines.
-- `chess-book`: full puzzle books from JSON/TOML manifests.
-- `chess-book-cover`: matching paperback, hardcover, or ebook covers from the same manifest.
+- `book pdf`: quick diagram sheets from FEN lists or PGN mainlines.
+- `book render`: full puzzle books from JSON/TOML manifests.
+- `book cover`: matching paperback, hardcover, or ebook covers from the same manifest.
 
 No LaTeX step is required for these commands.
 
@@ -12,14 +12,21 @@ No LaTeX step is required for these commands.
 
 ```bash
 mkdir -p dist
-crtk chess-book -i books/puzzles.toml -o dist/puzzles.pdf
-crtk chess-book-cover -i books/puzzles.toml -o dist/puzzles-cover.pdf \
+crtk book render -i books/puzzles.toml --check
+crtk book render -i books/puzzles.toml -o dist/puzzles.pdf
+crtk book cover -i books/puzzles.toml --check \
+  --binding paperback --interior white-bw --pages 120
+crtk book cover -i books/puzzles.toml -o dist/puzzles-cover.pdf \
   --binding paperback --interior white-bw --pages 120
 ```
 
 Use `--pages` for the final printed page count after the interior PDF has been
 rendered. If omitted, the cover command uses `pages` from the manifest; if that
 is absent, it estimates from the puzzle grid and solution-table cadence.
+
+The `--check` flag is a dry run. For `book render`, it validates page geometry,
+FEN parsing, and solution moves. For `book cover`, it validates the same
+manifest and prints the calculated trim, spine, and full-cover dimensions.
 
 ## Manifest shape
 
@@ -67,7 +74,7 @@ Important fields:
 
 ## Cover dimensions
 
-`chess-book-cover` calculates dimensions from trim size, binding type, interior
+`book cover` calculates dimensions from trim size, binding type, interior
 paper, and printed page count.
 
 Bindings:
@@ -94,12 +101,12 @@ Spine width is `pages * paper-thickness`. The current constants are:
 
 ## Diagram sheets
 
-Use `chess-pdf` when you want a smaller document instead of a full puzzle book:
+Use `book pdf` when you want a smaller document instead of a full puzzle book:
 
 ```bash
-crtk chess-pdf --fen "<FEN>" -o dist/position.pdf
-crtk chess-pdf -i seeds.txt -o dist/sheet.pdf --title "Training Sheet"
-crtk chess-pdf --pgn games.pgn -o dist/games.pdf --page-size a5 --diagrams-per-row 1
+crtk book pdf --fen "<FEN>" -o dist/position.pdf
+crtk book pdf -i seeds.txt -o dist/sheet.pdf --title "Training Sheet"
+crtk book pdf --pgn games.pgn -o dist/games.pdf --page-size a5 --diagrams-per-row 1
 ```
 
 Input choices are exclusive: use exactly one of `--fen`, `--input`, or `--pgn`.
@@ -116,8 +123,8 @@ java -cp out testing.ChessBookCoverCommandRegressionTest
 ```
 
 For print-on-demand dimensions, compare the final values printed by
-`chess-book-cover` with the publishing service's own cover calculator before
-uploading.
+`book cover --check` with the publishing service's own cover calculator
+before uploading.
 
 References:
 

@@ -4,61 +4,34 @@ import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
 /**
- * Used for {@code boolean} algebra. Contains 'And', 'NotAnd', 'Or', 'NotOr',
- * 'XOr', 'XNotOr', 'Equal' and 'NotEqual' methods. Also simple boolean
- * utility-methods are made available here.
- * 
- * <p>
- * Logic table with all gates, where '0' represents {@code false} and '1'
- * represents {@code true}:
- * </p>
- * 
- * <style> table { border-collapse: collapse; } th, td { padding: 3px; }
- * </style>
- * 
- * <pre>
- * 	<table border=1>
- * 		<tr> <th> A </th> <th> B </th> <th> C </th> <th> {@link #and(boolean...) And} </th> <th> {@link #notAnd(boolean...) NotAnd} </th> <th> {@link #or(boolean...) Or} </th> <th> {@link #notOr(boolean...) NotOr} </th> <th> {@link #xOr(boolean...) XOr} </th> <th> {@link #xNotOr(boolean...) XNotOr} </th> <th> {@link #same(boolean...) Equal} </th> <th> {@link #NOT_SAME} </th> </tr>
- * 		<tr> <td> 1 </td> <td> 1 </td> <td> 1 </td> <td> 1 </td> <td> 0 </td> <td> 1 </td> <td> 0 </td> <td> 0 </td> <td> 1 </td> <td> 1 </td> <td> 0 </td> </tr>
- * 		<tr> <td> 1 </td> <td> 1 </td> <td> 0 </td> <td> 0 </td> <td> 1 </td> <td> 1 </td> <td> 0 </td> <td> 0 </td> <td> 1 </td> <td> 0 </td> <td> 1 </td> </tr>
- * 		<tr> <td> 1 </td> <td> 0 </td> <td> 1 </td> <td> 0 </td> <td> 1 </td> <td> 1 </td> <td> 0 </td> <td> 0 </td> <td> 1 </td> <td> 0 </td> <td> 1 </td> </tr>
- * 		<tr> <td> 1 </td> <td> 0 </td> <td> 0 </td> <td> 0 </td> <td> 1 </td> <td> 1 </td> <td> 0 </td> <td> 1 </td> <td> 0 </td> <td> 0 </td> <td> 1 </td> </tr>
- * 		<tr> <td> 0 </td> <td> 1 </td> <td> 1 </td> <td> 0 </td> <td> 1 </td> <td> 1 </td> <td> 0 </td> <td> 0 </td> <td> 1 </td> <td> 0 </td> <td> 1 </td> </tr>
- * 		<tr> <td> 0 </td> <td> 1 </td> <td> 0 </td> <td> 0 </td> <td> 1 </td> <td> 1 </td> <td> 0 </td> <td> 1 </td> <td> 0 </td> <td> 0 </td> <td> 1 </td> </tr>
- * 		<tr> <td> 0 </td> <td> 0 </td> <td> 1 </td> <td> 0 </td> <td> 1 </td> <td> 1 </td> <td> 0 </td> <td> 1 </td> <td> 0 </td> <td> 0 </td> <td> 1 </td> </tr>
- * 		<tr> <td> 0 </td> <td> 0 </td> <td> 0 </td> <td> 0 </td> <td> 1 </td> <td> 0 </td> <td> 1 </td> <td> 0 </td> <td> 1 </td> <td> 1 </td> <td> 0 </td> </tr>
- * 	</table>
- * </pre>
- * 
+ * Utility methods for boolean algebra, mutable boolean collection helpers, and
+ * bit-oriented boolean checks for primitive integer values.
+ *
  * @since 2023
  * @author Lennart A. Conrad
  */
 public class Booleans {
 
 	/**
-	 * This is a utility Class. Don't let anyone instantiate it.
+	 * This is a utility class. Do not instantiate it.
 	 */
 	private Booleans() {
-
 	}
 
 	/**
 	 * Used for gathering a randomized {@code boolean}.
-	 * 
-	 * @return A {@code boolean} with a random value.
+	 *
+	 * @return a {@code boolean} with a random value.
 	 */
 	public static boolean randomBoolean() {
 		return ThreadLocalRandom.current().nextBoolean();
 	}
 
 	/**
-	 * Used for inverting the {@code boolean} values of a given array. Will return
-	 * the same array, in which all {@code false} values have been converted to
-	 * {@code true} and all {@code true} values have been converted to
-	 * {@code false}.
-	 * 
-	 * @param values
-	 * @return The same list with inverted {@code boolean} values.
+	 * Used for inverting the {@code Boolean} values of a given list in place.
+	 *
+	 * @param values the list to mutate.
+	 * @return the same list with inverted values.
 	 */
 	public static List<Boolean> invert(List<Boolean> values) {
 		for (int i = 0; i < values.size(); i++) {
@@ -68,13 +41,10 @@ public class Booleans {
 	}
 
 	/**
-	 * Used for inverting the {@code boolean} values of a given list. Will return
-	 * the same list, in which all {@code false} values have been converted to
-	 * {@code true} and all {@code true} values have been converted to
-	 * {@code false}.
-	 * 
-	 * @param values
-	 * @return The same list with inverted {@code boolean} values.
+	 * Used for inverting the {@code boolean} values of a given array in place.
+	 *
+	 * @param values the array to mutate.
+	 * @return the same array with inverted values.
 	 */
 	public static boolean[] invert(boolean... values) {
 		for (int i = 0; i < values.length; i++) {
@@ -84,14 +54,11 @@ public class Booleans {
 	}
 
 	/**
-	 * Used for appending two {@code boolean} arrays. Will return a new array
-	 * consisting out of all the values from the first, followed by all the values
-	 * from the second.
-	 * 
-	 * @param first
-	 * @param second
-	 * @return A new array of {@code boolean} consisting out of the two input
-	 *         arrays.
+	 * Used for appending two {@code boolean} arrays.
+	 *
+	 * @param first  the leading values.
+	 * @param second the trailing values.
+	 * @return a new array containing {@code first} followed by {@code second}.
 	 */
 	public static boolean[] merge(boolean[] first, boolean[] second) {
 		boolean[] result = new boolean[first.length + second.length];
@@ -101,1389 +68,632 @@ public class Booleans {
 	}
 
 	/**
-	 * Used for determining if all values in a given array of {@code boolean} are
-	 * {@code true}.
-	 * 
-	 * <p>
-	 * Logic table, where '0' represents {@code false} and '1' represents
-	 * {@code true}:
-	 * </p>
-	 * 
-	 * <style> table { border-collapse: collapse; } th, td { padding: 3px; }
-	 * </style>
-	 * 
-	 * <pre>
-	 * 	<table border=1>
-	 * 		<tr> <th> A </th> <th> B </th> <th> C </th> <th> And </th> </tr>
-	 * 		<tr> <td> 1 </td> <td> 1 </td> <td> 1 </td> <td> 1 </td> </tr>
-	 * 		<tr> <td> 1 </td> <td> 1 </td> <td> 0 </td> <td> 0 </td> </tr>
-	 * 		<tr> <td> 1 </td> <td> 0 </td> <td> 1 </td> <td> 0 </td> </tr>
-	 * 		<tr> <td> 1 </td> <td> 0 </td> <td> 0 </td> <td> 0 </td> </tr>
-	 * 		<tr> <td> 0 </td> <td> 1 </td> <td> 1 </td> <td> 0 </td> </tr>
-	 * 		<tr> <td> 0 </td> <td> 1 </td> <td> 0 </td> <td> 0 </td> </tr>
-	 * 		<tr> <td> 0 </td> <td> 0 </td> <td> 1 </td> <td> 0 </td> </tr>
-	 * 		<tr> <td> 0 </td> <td> 0 </td> <td> 0 </td> <td> 0 </td> </tr>
-	 * 	</table>
-	 * </pre>
-	 * 
-	 * 
-	 * @param values
-	 * @return If all values are {@code true}, the method will return {@code true}
-	 *         else {@code false}.
-	 * @see #notAnd(boolean...)
-	 * @see #or(boolean...)
-	 * @see #notOr(boolean...)
-	 * @see #xOr(boolean...)
-	 * @see #xNotOr(boolean...)
-	 * @see #same(boolean...)
-	 * @see #notSame(boolean...)
+	 * Used for determining if all values are {@code true}.
+	 *
+	 * @param values the values to inspect.
+	 * @return {@code true} when every value is {@code true}.
 	 */
 	public static boolean and(boolean... values) {
-		for (int i = 0; i < values.length; i++) {
-			if (!values[i]) {
-				return false;
-			}
-		}
-		return true;
+		return trueCount(values) == values.length;
 	}
 
 	/**
-	 * Used for determining if all values in a given list of {@code boolean} are
-	 * {@code true}.
-	 * 
-	 * <p>
-	 * Logic table, where '0' represents {@code false} and '1' represents
-	 * {@code true}:
-	 * </p>
-	 * 
-	 * <style> table { border-collapse: collapse; } th, td { padding: 3px; }
-	 * </style>
-	 * 
-	 * <pre>
-	 * 	<table border=1>
-	 * 		<tr> <th> A </th> <th> B </th> <th> C </th> <th> And </th> </tr>
-	 * 		<tr> <td> 1 </td> <td> 1 </td> <td> 1 </td> <td> 1 </td> </tr>
-	 * 		<tr> <td> 1 </td> <td> 1 </td> <td> 0 </td> <td> 0 </td> </tr>
-	 * 		<tr> <td> 1 </td> <td> 0 </td> <td> 1 </td> <td> 0 </td> </tr>
-	 * 		<tr> <td> 1 </td> <td> 0 </td> <td> 0 </td> <td> 0 </td> </tr>
-	 * 		<tr> <td> 0 </td> <td> 1 </td> <td> 1 </td> <td> 0 </td> </tr>
-	 * 		<tr> <td> 0 </td> <td> 1 </td> <td> 0 </td> <td> 0 </td> </tr>
-	 * 		<tr> <td> 0 </td> <td> 0 </td> <td> 1 </td> <td> 0 </td> </tr>
-	 * 		<tr> <td> 0 </td> <td> 0 </td> <td> 0 </td> <td> 0 </td> </tr>
-	 * 	</table>
-	 * </pre>
-	 * 
-	 * 
-	 * @param values
-	 * @return If all values are {@code true}, the method will return {@code true}
-	 *         else {@code false}.
-	 * @see #notAnd(List)
-	 * @see #or(List)
-	 * @see #notOr(List)
-	 * @see #xOr(List)
-	 * @see #xNotOr(List)
-	 * @see #same(List)
-	 * @see #notSame(List)
+	 * Used for determining if all values are {@code true}.
+	 *
+	 * @param values the values to inspect.
+	 * @return {@code true} when every value is {@code true}.
 	 */
 	public static boolean and(List<Boolean> values) {
-		for (int i = 0; i < values.size(); i++) {
-			if (!values.get(i).booleanValue()) {
-				return false;
-			}
-		}
-		return true;
+		return trueCount(values) == values.size();
 	}
 
 	/**
-	 * Used for determining if not all values in a given array of {@code boolean}
-	 * are {@code true}.
-	 * 
-	 * <p>
-	 * Logic table, where '0' represents {@code false} and '1' represents
-	 * {@code true}:
-	 * </p>
-	 * 
-	 * <style> table { border-collapse: collapse; } th, td { padding: 3px; }
-	 * </style>
-	 * 
-	 * <pre>
-	 * 	<table border=1>
-	 * 		<tr> <th> A </th> <th> B </th> <th> C </th> <th> NotAnd </th> </tr>
-	 * 		<tr> <td> 1 </td> <td> 1 </td> <td> 1 </td> <td> 0 </td> </tr>
-	 * 		<tr> <td> 1 </td> <td> 1 </td> <td> 0 </td> <td> 1 </td> </tr>
-	 * 		<tr> <td> 1 </td> <td> 0 </td> <td> 1 </td> <td> 1 </td> </tr>
-	 * 		<tr> <td> 1 </td> <td> 0 </td> <td> 0 </td> <td> 1 </td> </tr>
-	 * 		<tr> <td> 0 </td> <td> 1 </td> <td> 1 </td> <td> 1 </td> </tr>
-	 * 		<tr> <td> 0 </td> <td> 1 </td> <td> 0 </td> <td> 1 </td> </tr>
-	 * 		<tr> <td> 0 </td> <td> 0 </td> <td> 1 </td> <td> 1 </td> </tr>
-	 * 		<tr> <td> 0 </td> <td> 0 </td> <td> 0 </td> <td> 1 </td> </tr>
-	 * 	</table>
-	 * </pre>
-	 * 
-	 * @param values
-	 * @return If not all values are {@code true}, the method will return
-	 *         {@code true} else {@code false}.
-	 * @see #and(boolean...)
-	 * @see #or(boolean...)
-	 * @see #notOr(boolean...)
-	 * @see #xOr(boolean...)
-	 * @see #xNotOr(boolean...)
-	 * @see #same(boolean...)
-	 * @see #notSame(boolean...)
+	 * Used for determining if not all values are {@code true}.
+	 *
+	 * @param values the values to inspect.
+	 * @return {@code true} when at least one value is {@code false}.
 	 */
 	public static boolean notAnd(boolean... values) {
 		return !and(values);
 	}
 
 	/**
-	 * Used for determining if not all values in a given list of {@code boolean} are
-	 * {@code true}.
-	 * 
-	 * <p>
-	 * Logic table, where '0' represents {@code false} and '1' represents
-	 * {@code true}:
-	 * </p>
-	 * 
-	 * <style> table { border-collapse: collapse; } th, td { padding: 3px; }
-	 * </style>
-	 * 
-	 * <pre>
-	 * 	<table border=1>
-	 * 		<tr> <th> A </th> <th> B </th> <th> C </th> <th> NotAnd </th> </tr>
-	 * 		<tr> <td> 1 </td> <td> 1 </td> <td> 1 </td> <td> 0 </td> </tr>
-	 * 		<tr> <td> 1 </td> <td> 1 </td> <td> 0 </td> <td> 1 </td> </tr>
-	 * 		<tr> <td> 1 </td> <td> 0 </td> <td> 1 </td> <td> 1 </td> </tr>
-	 * 		<tr> <td> 1 </td> <td> 0 </td> <td> 0 </td> <td> 1 </td> </tr>
-	 * 		<tr> <td> 0 </td> <td> 1 </td> <td> 1 </td> <td> 1 </td> </tr>
-	 * 		<tr> <td> 0 </td> <td> 1 </td> <td> 0 </td> <td> 1 </td> </tr>
-	 * 		<tr> <td> 0 </td> <td> 0 </td> <td> 1 </td> <td> 1 </td> </tr>
-	 * 		<tr> <td> 0 </td> <td> 0 </td> <td> 0 </td> <td> 1 </td> </tr>
-	 * 	</table>
-	 * </pre>
-	 * 
-	 * @param values
-	 * @return If not all values are {@code true}, the method will return
-	 *         {@code true} else {@code false}.
-	 * @see #and(List)
-	 * @see #or(List)
-	 * @see #notOr(List)
-	 * @see #xOr(List)
-	 * @see #xNotOr(List)
-	 * @see #same(List)
-	 * @see #notSame(List)
+	 * Used for determining if not all values are {@code true}.
+	 *
+	 * @param values the values to inspect.
+	 * @return {@code true} when at least one value is {@code false}.
 	 */
 	public static boolean notAnd(List<Boolean> values) {
 		return !and(values);
 	}
 
 	/**
-	 * Used for determining if at least one value in a given array of
-	 * {@code boolean} is {@code true}.
-	 * 
-	 * <p>
-	 * Logic table, where '0' represents {@code false} and '1' represents
-	 * {@code true}:
-	 * </p>
-	 * 
-	 * <style> table { border-collapse: collapse; } th, td { padding: 3px; }
-	 * </style>
-	 * 
-	 * <pre>
-	 * 	<table border=1>
-	 * 		<tr> <th> A </th> <th> B </th> <th> C </th> <th> Or </th> </tr>
-	 * 		<tr> <td> 1 </td> <td> 1 </td> <td> 1 </td> <td> 1 </td> </tr>
-	 * 		<tr> <td> 1 </td> <td> 1 </td> <td> 0 </td> <td> 1 </td> </tr>
-	 * 		<tr> <td> 1 </td> <td> 0 </td> <td> 1 </td> <td> 1 </td> </tr>
-	 * 		<tr> <td> 1 </td> <td> 0 </td> <td> 0 </td> <td> 1 </td> </tr>
-	 * 		<tr> <td> 0 </td> <td> 1 </td> <td> 1 </td> <td> 1 </td> </tr>
-	 * 		<tr> <td> 0 </td> <td> 1 </td> <td> 0 </td> <td> 1 </td> </tr>
-	 * 		<tr> <td> 0 </td> <td> 0 </td> <td> 1 </td> <td> 1 </td> </tr>
-	 * 		<tr> <td> 0 </td> <td> 0 </td> <td> 0 </td> <td> 0 </td> </tr>
-	 * 	</table>
-	 * </pre>
-	 * 
-	 * @param values
-	 * @return If at least one value is {@code true}, the method will return
-	 *         {@code true} else {@code false}.
-	 * @see #and(boolean...)
-	 * @see #notAnd(boolean...)
-	 * @see #notOr(boolean...)
-	 * @see #xOr(boolean...)
-	 * @see #xNotOr(boolean...)
-	 * @see #same(boolean...)
-	 * @see #notSame(boolean...)
+	 * Used for determining if at least one value is {@code true}.
+	 *
+	 * @param values the values to inspect.
+	 * @return {@code true} when any value is {@code true}.
 	 */
 	public static boolean or(boolean... values) {
-		for (int i = 0; i < values.length; i++) {
-			if (values[i]) {
-				return true;
-			}
-		}
-		return false;
+		return trueCount(values) > 0;
 	}
 
 	/**
-	 * Used for determining if at least one value in a given list of {@code boolean}
-	 * is {@code true}.
-	 * 
-	 * <p>
-	 * Logic table, where '0' represents {@code false} and '1' represents
-	 * {@code true}:
-	 * </p>
-	 * 
-	 * <style> table { border-collapse: collapse; } th, td { padding: 3px; }
-	 * </style>
-	 * 
-	 * <pre>
-	 * 	<table border=1>
-	 * 		<tr> <th> A </th> <th> B </th> <th> C </th> <th> Or </th> </tr>
-	 * 		<tr> <td> 1 </td> <td> 1 </td> <td> 1 </td> <td> 1 </td> </tr>
-	 * 		<tr> <td> 1 </td> <td> 1 </td> <td> 0 </td> <td> 1 </td> </tr>
-	 * 		<tr> <td> 1 </td> <td> 0 </td> <td> 1 </td> <td> 1 </td> </tr>
-	 * 		<tr> <td> 1 </td> <td> 0 </td> <td> 0 </td> <td> 1 </td> </tr>
-	 * 		<tr> <td> 0 </td> <td> 1 </td> <td> 1 </td> <td> 1 </td> </tr>
-	 * 		<tr> <td> 0 </td> <td> 1 </td> <td> 0 </td> <td> 1 </td> </tr>
-	 * 		<tr> <td> 0 </td> <td> 0 </td> <td> 1 </td> <td> 1 </td> </tr>
-	 * 		<tr> <td> 0 </td> <td> 0 </td> <td> 0 </td> <td> 0 </td> </tr>
-	 * 	</table>
-	 * </pre>
-	 * 
-	 * @param values
-	 * @return If at least one value is {@code true}, the method will return
-	 *         {@code true} else {@code false}.
-	 * @see #and(List)
-	 * @see #notAnd(List)
-	 * @see #notOr(List)
-	 * @see #xOr(List)
-	 * @see #xNotOr(List)
-	 * @see #same(List)
-	 * @see #notSame(List)
+	 * Used for determining if at least one value is {@code true}.
+	 *
+	 * @param values the values to inspect.
+	 * @return {@code true} when any value is {@code true}.
 	 */
 	public static boolean or(List<Boolean> values) {
-		for (int i = 0; i < values.size(); i++) {
-			if (values.get(i).booleanValue()) {
-				return true;
-			}
-		}
-		return false;
+		return trueCount(values) > 0;
 	}
 
 	/**
-	 * Used for determining if all values in a given array of {@code boolean} are
-	 * {@code false} or not.
-	 * 
-	 * <p>
-	 * Logic table, where '0' represents {@code false} and '1' represents
-	 * {@code true}:
-	 * </p>
-	 * 
-	 * <style> table { border-collapse: collapse; } th, td { padding: 3px; }
-	 * </style>
-	 * 
-	 * <pre>
-	 * 	<table border=1>
-	 * 		<tr> <th> A </th> <th> B </th> <th> C </th> <th> NotOr </th> </tr>
-	 * 		<tr> <td> 1 </td> <td> 1 </td> <td> 1 </td> <td> 0 </td> </tr>
-	 * 		<tr> <td> 1 </td> <td> 1 </td> <td> 0 </td> <td> 0 </td> </tr>
-	 * 		<tr> <td> 1 </td> <td> 0 </td> <td> 1 </td> <td> 0 </td> </tr>
-	 * 		<tr> <td> 1 </td> <td> 0 </td> <td> 0 </td> <td> 0 </td> </tr>
-	 * 		<tr> <td> 0 </td> <td> 1 </td> <td> 1 </td> <td> 0 </td> </tr>
-	 * 		<tr> <td> 0 </td> <td> 1 </td> <td> 0 </td> <td> 0 </td> </tr>
-	 * 		<tr> <td> 0 </td> <td> 0 </td> <td> 1 </td> <td> 0 </td> </tr>
-	 * 		<tr> <td> 0 </td> <td> 0 </td> <td> 0 </td> <td> 1 </td> </tr>
-	 * 	</table>
-	 * </pre>
-	 * 
-	 * @param values
-	 * @return If all values are {@code false} the method will return {@code true}
-	 *         else {@code false}.
-	 * @see #and(boolean...)
-	 * @see #notAnd(boolean...)
-	 * @see #or(boolean...)
-	 * @see #xOr(boolean...)
-	 * @see #xNotOr(boolean...)
-	 * @see #same(boolean...)
-	 * @see #notSame(boolean...)
+	 * Used for determining if all values are {@code false}.
+	 *
+	 * @param values the values to inspect.
+	 * @return {@code true} when every value is {@code false}.
 	 */
 	public static boolean notOr(boolean... values) {
 		return !or(values);
 	}
 
 	/**
-	 * Used for determining if all values in a given list of {@code boolean} are
-	 * {@code false} or not.
-	 * 
-	 * <p>
-	 * Logic table, where '0' represents {@code false} and '1' represents
-	 * {@code true}:
-	 * </p>
-	 * 
-	 * <style> table { border-collapse: collapse; } th, td { padding: 3px; }
-	 * </style>
-	 * 
-	 * <pre>
-	 * 	<table border=1>
-	 * 		<tr> <th> A </th> <th> B </th> <th> C </th> <th> NotOr </th> </tr>
-	 * 		<tr> <td> 1 </td> <td> 1 </td> <td> 1 </td> <td> 0 </td> </tr>
-	 * 		<tr> <td> 1 </td> <td> 1 </td> <td> 0 </td> <td> 0 </td> </tr>
-	 * 		<tr> <td> 1 </td> <td> 0 </td> <td> 1 </td> <td> 0 </td> </tr>
-	 * 		<tr> <td> 1 </td> <td> 0 </td> <td> 0 </td> <td> 0 </td> </tr>
-	 * 		<tr> <td> 0 </td> <td> 1 </td> <td> 1 </td> <td> 0 </td> </tr>
-	 * 		<tr> <td> 0 </td> <td> 1 </td> <td> 0 </td> <td> 0 </td> </tr>
-	 * 		<tr> <td> 0 </td> <td> 0 </td> <td> 1 </td> <td> 0 </td> </tr>
-	 * 		<tr> <td> 0 </td> <td> 0 </td> <td> 0 </td> <td> 1 </td> </tr>
-	 * 	</table>
-	 * </pre>
-	 * 
-	 * @param values
-	 * @return If all values are {@code false} the method will return {@code true}
-	 *         else {@code false}.
-	 * @see #and(List)
-	 * @see #notAnd(List)
-	 * @see #or(List)
-	 * @see #xOr(List)
-	 * @see #xNotOr(List)
-	 * @see #same(List)
-	 * @see #notSame(List)
+	 * Used for determining if all values are {@code false}.
+	 *
+	 * @param values the values to inspect.
+	 * @return {@code true} when every value is {@code false}.
 	 */
 	public static boolean notOr(List<Boolean> values) {
 		return !or(values);
 	}
 
 	/**
-	 * Used for determining if only one value in a given array of {@code boolean} is
-	 * true.
-	 * 
-	 * <p>
-	 * Logic table, where '0' represents {@code false} and '1' represents
-	 * {@code true}:
-	 * </p>
-	 * 
-	 * <style> table { border-collapse: collapse; } th, td { padding: 3px; }
-	 * </style>
-	 * 
-	 * <pre>
-	 * 	<table border=1>
-	 * 		<tr> <th> A </th> <th> B </th> <th> C </th> <th> XOr </th> </tr>
-	 * 		<tr> <td> 1 </td> <td> 1 </td> <td> 1 </td> <td> 0 </td> </tr>
-	 * 		<tr> <td> 1 </td> <td> 1 </td> <td> 0 </td> <td> 0 </td> </tr>
-	 * 		<tr> <td> 1 </td> <td> 0 </td> <td> 1 </td> <td> 0 </td> </tr>
-	 * 		<tr> <td> 1 </td> <td> 0 </td> <td> 0 </td> <td> 1 </td> </tr>
-	 * 		<tr> <td> 0 </td> <td> 1 </td> <td> 1 </td> <td> 0 </td> </tr>
-	 * 		<tr> <td> 0 </td> <td> 1 </td> <td> 0 </td> <td> 1 </td> </tr>
-	 * 		<tr> <td> 0 </td> <td> 0 </td> <td> 1 </td> <td> 1 </td> </tr>
-	 * 		<tr> <td> 0 </td> <td> 0 </td> <td> 0 </td> <td> 0 </td> </tr>
-	 * 	</table>
-	 * </pre>
-	 * 
-	 * @param values
-	 * @return If only one value is {@code true}, the method will return
-	 *         {@code true} else {@code false}.
-	 * @see #and(boolean...)
-	 * @see #notAnd(boolean...)
-	 * @see #or(boolean...)
-	 * @see #notOr(boolean...)
-	 * @see #xNotOr(boolean...)
-	 * @see #same(boolean...)
-	 * @see #notSame(boolean...)
+	 * Used for determining if exactly one value is {@code true}.
+	 *
+	 * @param values the values to inspect.
+	 * @return {@code true} when exactly one value is {@code true}.
 	 */
 	public static boolean xOr(boolean... values) {
-		boolean found = false;
-		for (int i = 1; i < values.length; i++) {
-			if (values[i]) {
-				if (found) {
-					return false;
-				}
-				found = true;
-			}
-		}
-		return true;
+		return trueCount(values) == 1;
 	}
 
 	/**
-	 * Used for determining if only one value in a given list of {@code boolean} is
-	 * true.
-	 * 
-	 * <p>
-	 * Logic table, where '0' represents {@code false} and '1' represents
-	 * {@code true}:
-	 * </p>
-	 * 
-	 * <style> table { border-collapse: collapse; } th, td { padding: 3px; }
-	 * </style>
-	 * 
-	 * <pre>
-	 * 	<table border=1>
-	 * 		<tr> <th> A </th> <th> B </th> <th> C </th> <th> XOr </th> </tr>
-	 * 		<tr> <td> 1 </td> <td> 1 </td> <td> 1 </td> <td> 0 </td> </tr>
-	 * 		<tr> <td> 1 </td> <td> 1 </td> <td> 0 </td> <td> 0 </td> </tr>
-	 * 		<tr> <td> 1 </td> <td> 0 </td> <td> 1 </td> <td> 0 </td> </tr>
-	 * 		<tr> <td> 1 </td> <td> 0 </td> <td> 0 </td> <td> 1 </td> </tr>
-	 * 		<tr> <td> 0 </td> <td> 1 </td> <td> 1 </td> <td> 0 </td> </tr>
-	 * 		<tr> <td> 0 </td> <td> 1 </td> <td> 0 </td> <td> 1 </td> </tr>
-	 * 		<tr> <td> 0 </td> <td> 0 </td> <td> 1 </td> <td> 1 </td> </tr>
-	 * 		<tr> <td> 0 </td> <td> 0 </td> <td> 0 </td> <td> 0 </td> </tr>
-	 * 	</table>
-	 * </pre>
-	 * 
-	 * 
-	 * @param values
-	 * @return If only one value is {@code true}, the method will return
-	 *         {@code true} else {@code false}.
-	 * @see #and(List)
-	 * @see #notAnd(List)
-	 * @see #or(List)
-	 * @see #notOr(List)
-	 * @see #xNotOr(List)
-	 * @see #same(List)
-	 * @see #notSame(List)
+	 * Used for determining if exactly one value is {@code true}.
+	 *
+	 * @param values the values to inspect.
+	 * @return {@code true} when exactly one value is {@code true}.
 	 */
 	public static boolean xOr(List<Boolean> values) {
-		boolean found = false;
-		for (int i = 1; i < values.size(); i++) {
-			if (values.get(i).booleanValue()) {
-				if (found) {
-					return false;
-				}
-				found = true;
-			}
-		}
-		return true;
+		return trueCount(values) == 1;
 	}
 
 	/**
-	 * Used for determining if not just one value in a given array of
-	 * {@code boolean} is {@code true}.
-	 * 
-	 * <p>
-	 * Logic table, where '0' represents {@code false} and '1' represents
-	 * {@code true}:
-	 * </p>
-	 * 
-	 * <style> table { border-collapse: collapse; } th, td { padding: 3px; }
-	 * </style>
-	 * 
-	 * <pre>
-	 * 	<table border=1>
-	 * 		<tr> <th> A </th> <th> B </th> <th> C </th> <th> XNotOr </th> </tr>
-	 * 		<tr> <td> 1 </td> <td> 1 </td> <td> 1 </td> <td> 1 </td> </tr>
-	 * 		<tr> <td> 1 </td> <td> 1 </td> <td> 0 </td> <td> 1 </td> </tr>
-	 * 		<tr> <td> 1 </td> <td> 0 </td> <td> 1 </td> <td> 1 </td> </tr>
-	 * 		<tr> <td> 1 </td> <td> 0 </td> <td> 0 </td> <td> 0 </td> </tr>
-	 * 		<tr> <td> 0 </td> <td> 1 </td> <td> 1 </td> <td> 1 </td> </tr>
-	 * 		<tr> <td> 0 </td> <td> 1 </td> <td> 0 </td> <td> 0 </td> </tr>
-	 * 		<tr> <td> 0 </td> <td> 0 </td> <td> 1 </td> <td> 0 </td> </tr>
-	 * 		<tr> <td> 0 </td> <td> 0 </td> <td> 0 </td> <td> 1 </td> </tr>
-	 * 	</table>
-	 * </pre>
-	 * 
-	 * @param values
-	 * @return If not just one value is {@code true}, the method will return
-	 *         {@code true} else {@code false}.
-	 * @see #and(boolean...)
-	 * @see #notAnd(boolean...)
-	 * @see #or(boolean...)
-	 * @see #notOr(boolean...)
-	 * @see #xOr(boolean...)
-	 * @see #same(boolean...)
-	 * @see #notSame(boolean...)
+	 * Used for determining if exactly one value is not {@code true}.
+	 *
+	 * @param values the values to inspect.
+	 * @return {@code true} when zero or more than one values are {@code true}.
 	 */
 	public static boolean xNotOr(boolean... values) {
 		return !xOr(values);
 	}
 
 	/**
-	 * Used for determining if not just one value in a given list of {@code boolean}
-	 * is {@code true}.
-	 * 
-	 * <p>
-	 * Logic table, where '0' represents {@code false} and '1' represents
-	 * {@code true}:
-	 * </p>
-	 * 
-	 * <style> table { border-collapse: collapse; } th, td { padding: 3px; }
-	 * </style>
-	 * 
-	 * <pre>
-	 * 	<table border=1>
-	 * 		<tr> <th> A </th> <th> B </th> <th> C </th> <th> XNotOr </th> </tr>
-	 * 		<tr> <td> 1 </td> <td> 1 </td> <td> 1 </td> <td> 1 </td> </tr>
-	 * 		<tr> <td> 1 </td> <td> 1 </td> <td> 0 </td> <td> 1 </td> </tr>
-	 * 		<tr> <td> 1 </td> <td> 0 </td> <td> 1 </td> <td> 1 </td> </tr>
-	 * 		<tr> <td> 1 </td> <td> 0 </td> <td> 0 </td> <td> 0 </td> </tr>
-	 * 		<tr> <td> 0 </td> <td> 1 </td> <td> 1 </td> <td> 1 </td> </tr>
-	 * 		<tr> <td> 0 </td> <td> 1 </td> <td> 0 </td> <td> 0 </td> </tr>
-	 * 		<tr> <td> 0 </td> <td> 0 </td> <td> 1 </td> <td> 0 </td> </tr>
-	 * 		<tr> <td> 0 </td> <td> 0 </td> <td> 0 </td> <td> 1 </td> </tr>
-	 * 	</table>
-	 * </pre>
-	 * 
-	 * @param values
-	 * @return If not just one value is {@code true}, the method will return
-	 *         {@code true} else {@code false}.
-	 * @see #and(List)
-	 * @see #notAnd(List)
-	 * @see #or(List)
-	 * @see #notOr(List)
-	 * @see #xOr(List)
-	 * @see #same(List)
-	 * @see #notSame(List)
+	 * Used for determining if exactly one value is not {@code true}.
+	 *
+	 * @param values the values to inspect.
+	 * @return {@code true} when zero or more than one values are {@code true}.
 	 */
 	public static boolean xNotOr(List<Boolean> values) {
 		return !xOr(values);
 	}
 
 	/**
-	 * Used for determining if all values in a given array of {@code boolean} are
-	 * equal.
-	 * 
-	 * <p>
-	 * Logic table, where '0' represents {@code false} and '1' represents
-	 * {@code true}:
-	 * </p>
-	 * 
-	 * <style> table { border-collapse: collapse; } th, td { padding: 3px; }
-	 * </style>
-	 * 
-	 * <pre>
-	 * 	<table border=1>
-	 * 		<tr> <th> A </th> <th> B </th> <th> C </th> <th> Equal </th> </tr>
-	 * 		<tr> <td> 1 </td> <td> 1 </td> <td> 1 </td> <td> 1 </td> </tr>
-	 * 		<tr> <td> 1 </td> <td> 1 </td> <td> 0 </td> <td> 0 </td> </tr>
-	 * 		<tr> <td> 1 </td> <td> 0 </td> <td> 1 </td> <td> 0 </td> </tr>
-	 * 		<tr> <td> 1 </td> <td> 0 </td> <td> 0 </td> <td> 0 </td> </tr>
-	 * 		<tr> <td> 0 </td> <td> 1 </td> <td> 1 </td> <td> 0 </td> </tr>
-	 * 		<tr> <td> 0 </td> <td> 1 </td> <td> 0 </td> <td> 0 </td> </tr>
-	 * 		<tr> <td> 0 </td> <td> 0 </td> <td> 1 </td> <td> 0 </td> </tr>
-	 * 		<tr> <td> 0 </td> <td> 0 </td> <td> 0 </td> <td> 1 </td> </tr>
-	 * 	</table>
-	 * </pre>
-	 * 
-	 * @param values
-	 * @return If all values are equal, the method will return {@code true} else
-	 *         {@code false}.
-	 * @see #and(boolean...)
-	 * @see #notAnd(boolean...)
-	 * @see #or(boolean...)
-	 * @see #notOr(boolean...)
-	 * @see #xNotOr(boolean...)
-	 * @see #same(boolean...)
-	 * @see #notSame(boolean...)
+	 * Used for determining if all values are equal.
+	 *
+	 * @param values the values to inspect.
+	 * @return {@code true} when all values are equal.
 	 */
 	public static boolean same(boolean... values) {
-		for (int i = 1; i < values.length; i++) {
-			if (values[i] != values[i - 1]) {
-				return false;
-			}
-		}
-		return true;
+		int count = trueCount(values);
+		return count == 0 || count == values.length;
 	}
 
 	/**
-	 * Used for determining if all values in a given list of {@code boolean} are
-	 * equal.
-	 * 
-	 * <p>
-	 * Logic table, where '0' represents {@code false} and '1' represents
-	 * {@code true}:
-	 * </p>
-	 * 
-	 * <style> table { border-collapse: collapse; } th, td { padding: 3px; }
-	 * </style>
-	 * 
-	 * <pre>
-	 * 	<table border=1>
-	 * 		<tr> <th> A </th> <th> B </th> <th> C </th> <th> Equal </th> </tr>
-	 * 		<tr> <td> 1 </td> <td> 1 </td> <td> 1 </td> <td> 1 </td> </tr>
-	 * 		<tr> <td> 1 </td> <td> 1 </td> <td> 0 </td> <td> 0 </td> </tr>
-	 * 		<tr> <td> 1 </td> <td> 0 </td> <td> 1 </td> <td> 0 </td> </tr>
-	 * 		<tr> <td> 1 </td> <td> 0 </td> <td> 0 </td> <td> 0 </td> </tr>
-	 * 		<tr> <td> 0 </td> <td> 1 </td> <td> 1 </td> <td> 0 </td> </tr>
-	 * 		<tr> <td> 0 </td> <td> 1 </td> <td> 0 </td> <td> 0 </td> </tr>
-	 * 		<tr> <td> 0 </td> <td> 0 </td> <td> 1 </td> <td> 0 </td> </tr>
-	 * 		<tr> <td> 0 </td> <td> 0 </td> <td> 0 </td> <td> 1 </td> </tr>
-	 * 	</table>
-	 * </pre>
-	 * 
-	 * @param values
-	 * @return If all values are equal, the method will return {@code true} else
-	 *         {@code false}.
-	 * @see #and(List)
-	 * @see #notAnd(List)
-	 * @see #or(List)
-	 * @see #notOr(List)
-	 * @see #xOr(List)
-	 * @see #xNotOr(List)
-	 * @see #notSame(List)
+	 * Used for determining if all values are equal.
+	 *
+	 * @param values the values to inspect.
+	 * @return {@code true} when all values are equal.
 	 */
 	public static boolean same(List<Boolean> values) {
-		for (int i = 1; i < values.size(); i++) {
-			if (values.get(i).booleanValue() != values.get(i - 1).booleanValue()) {
-				return false;
-			}
-		}
-		return true;
+		int count = trueCount(values);
+		return count == 0 || count == values.size();
 	}
 
 	/**
-	 * Used for determining if all values in a given array of {@code boolean} are
-	 * not equal.
-	 * 
-	 * <p>
-	 * Logic table, where '0' represents {@code false} and '1' represents
-	 * {@code true}:
-	 * </p>
-	 * 
-	 * <style> table { border-collapse: collapse; } th, td { padding: 3px; }
-	 * </style>
-	 * 
-	 * <pre>
-	 * 	<table border=1>
-	 * 		<tr> <th> A </th> <th> B </th> <th> C </th> <th> NotEqual </th> </tr>
-	 * 		<tr> <td> 1 </td> <td> 1 </td> <td> 1 </td> <td> 0 </td> </tr>
-	 * 		<tr> <td> 1 </td> <td> 1 </td> <td> 0 </td> <td> 1 </td> </tr>
-	 * 		<tr> <td> 1 </td> <td> 0 </td> <td> 1 </td> <td> 1 </td> </tr>
-	 * 		<tr> <td> 1 </td> <td> 0 </td> <td> 0 </td> <td> 1 </td> </tr>
-	 * 		<tr> <td> 0 </td> <td> 1 </td> <td> 1 </td> <td> 1 </td> </tr>
-	 * 		<tr> <td> 0 </td> <td> 1 </td> <td> 0 </td> <td> 1 </td> </tr>
-	 * 		<tr> <td> 0 </td> <td> 0 </td> <td> 1 </td> <td> 1 </td> </tr>
-	 * 		<tr> <td> 0 </td> <td> 0 </td> <td> 0 </td> <td> 0 </td> </tr>
-	 * 	</table>
-	 * </pre>
-	 * 
-	 * @param values
-	 * @return If all values are not equal, the method will return {@code true} else
-	 *         {@code false}.
-	 * @see #and(boolean...)
-	 * @see #notAnd(boolean...)
-	 * @see #or(boolean...)
-	 * @see #notOr(boolean...)
-	 * @see #xNotOr(boolean...)
-	 * @see #same(boolean...)
-	 * @see #notSame(boolean...)
+	 * Used for determining if not all values are equal.
+	 *
+	 * @param values the values to inspect.
+	 * @return {@code true} when at least one value differs.
 	 */
 	public static boolean notSame(boolean... values) {
 		return !same(values);
 	}
 
 	/**
-	 * Used for determining if all values in a given list of {@code boolean} are not
-	 * equal.
-	 * 
-	 * <p>
-	 * Logic table, where '0' represents {@code false} and '1' represents
-	 * {@code true}:
-	 * </p>
-	 * 
-	 * <style> table { border-collapse: collapse; } th, td { padding: 3px; }
-	 * </style>
-	 * 
-	 * <pre>
-	 * 	<table border=1>
-	 * 		<tr> <th> A </th> <th> B </th> <th> C </th> <th> NotEqual </th> </tr>
-	 * 		<tr> <td> 1 </td> <td> 1 </td> <td> 1 </td> <td> 0 </td> </tr>
-	 * 		<tr> <td> 1 </td> <td> 1 </td> <td> 0 </td> <td> 1 </td> </tr>
-	 * 		<tr> <td> 1 </td> <td> 0 </td> <td> 1 </td> <td> 1 </td> </tr>
-	 * 		<tr> <td> 1 </td> <td> 0 </td> <td> 0 </td> <td> 1 </td> </tr>
-	 * 		<tr> <td> 0 </td> <td> 1 </td> <td> 1 </td> <td> 1 </td> </tr>
-	 * 		<tr> <td> 0 </td> <td> 1 </td> <td> 0 </td> <td> 1 </td> </tr>
-	 * 		<tr> <td> 0 </td> <td> 0 </td> <td> 1 </td> <td> 1 </td> </tr>
-	 * 		<tr> <td> 0 </td> <td> 0 </td> <td> 0 </td> <td> 0 </td> </tr>
-	 * 	</table>
-	 * </pre>
-	 * 
-	 * @param values
-	 * @return If all values are not equal, the method will return {@code true} else
-	 *         {@code false}.
-	 * @see #and(List)
-	 * @see #notAnd(List)
-	 * @see #or(List)
-	 * @see #notOr(List)
-	 * @see #xOr(List)
-	 * @see #xNotOr(List)
-	 * @see #same(List)
+	 * Used for determining if not all values are equal.
+	 *
+	 * @param values the values to inspect.
+	 * @return {@code true} when at least one value differs.
 	 */
 	public static boolean notSame(List<Boolean> values) {
 		return !same(values);
 	}
 
 	/**
-	 * Used for converting a {@code Long} into a {@code Boolean} array. The
-	 * {@code Boolean} array will start from the rightmost to the leftmost
-	 * <i>bit</i>, from <i>bit</i><sub>0</sub> to <i>bit</i><sub>63</sub>.
-	 * 
-	 * <p>
-	 * Example:
-	 * </p>
-	 * 
-	 * <blockquote> {@code Long}
-	 * {@code 0b101000100100101011011111010110101101000100001011011101101100000L}
-	 * will be turned into {@code false}, {@code false}, {@code false},
-	 * {@code false}, {@code false}, {@code true}, {@code true}, {@code false},
-	 * {@code true}, {@code true}, {@code false}, {@code true}, {@code true},
-	 * {@code true}, {@code false}, {@code true}, {@code true}, {@code false},
-	 * {@code true}, {@code false}, {@code false}, {@code false}, {@code false},
-	 * {@code true}, {@code false}, {@code false}, {@code false}, {@code true},
-	 * {@code false}, {@code true}, {@code true}, {@code true}, {@code false},
-	 * {@code false}, {@code false}, {@code false}, {@code false}, {@code true},
-	 * {@code true}, {@code false}, {@code true}, {@code true}, {@code false},
-	 * {@code true}, {@code true}, {@code true}, {@code false}, {@code true},
-	 * {@code true}, {@code false}, {@code true}, {@code false}, {@code false},
-	 * {@code false}, {@code false}, {@code true}, {@code false}, {@code false},
-	 * {@code false}, {@code true}, {@code false}, {@code true}, {@code true},
-	 * {@code true}. </blockquote>
-	 * 
-	 * @param number
-	 * @return A {@code Boolean} array with the length of 64 that consists out of
-	 *         the bit values of the {@code Long}
+	 * Used for converting a {@code long} into one boolean per bit, least
+	 * significant bit first.
+	 *
+	 * @param number the value to convert.
+	 * @return a {@code boolean} array with length 64.
 	 */
 	public static boolean[] toBooleanArray(long number) {
-		boolean[] result = new boolean[Long.SIZE];
-		for (int i = 0; i < result.length; i++) {
-			result[i] = ((number & 0xFF) & (1 << i)) != 0;
-		}
-		return result;
+		return toBooleanArray(number, Long.SIZE);
 	}
 
 	/**
-	 * Used for converting a {@code Integer} into a {@code Boolean} array. The
-	 * {@code Boolean} array will start from the rightmost to the leftmost
-	 * <i>bit</i>, from <i>bit</i><sub>0</sub> to <i>bit</i><sub>31</sub>.
-	 * 
-	 * <p>
-	 * Example:
-	 * </p>
-	 * 
-	 * <blockquote> {@code Integer} {@code 0b1101011110110111001010011101110} will
-	 * be turned into {@code false}, {@code true}, {@code true}, {@code true},
-	 * {@code false}, {@code true}, {@code true}, {@code true}, {@code false},
-	 * {@code false}, {@code true}, {@code false}, {@code true}, {@code false},
-	 * {@code false}, {@code true}, {@code true}, {@code true}, {@code false},
-	 * {@code true}, {@code true}, {@code false}, {@code true}, {@code true},
-	 * {@code true}, {@code true}, {@code false}, {@code true}, {@code false},
-	 * {@code true}, {@code true}, {@code false}. </blockquote>
-	 * 
-	 * @param number
-	 * @return A {@code Boolean} array with the length of 32 that consists out of
-	 *         the bit values of the {@code Integer}
+	 * Used for converting an {@code int} into one boolean per bit, least
+	 * significant bit first.
+	 *
+	 * @param number the value to convert.
+	 * @return a {@code boolean} array with length 32.
 	 */
 	public static boolean[] toBooleanArray(int number) {
-		boolean[] result = new boolean[Integer.SIZE];
-		for (int i = 0; i < result.length; i++) {
-			result[i] = ((number & 0xFF) & (1 << i)) != 0;
-		}
-		return result;
+		return toBooleanArray(number, Integer.SIZE);
 	}
 
 	/**
-	 * Used for converting a {@code Short} into a {@code Boolean} array. The
-	 * {@code Boolean} array will start from the rightmost to the leftmost
-	 * <i>bit</i>, from <i>bit</i><sub>0</sub> to <i>bit</i><sub>15</sub>.
-	 * 
-	 * <p>
-	 * Example:
-	 * </p>
-	 * 
-	 * <blockquote> {@code Short} {@code 0b1100001111001101} will be turned into
-	 * {@code true}, {@code false}, {@code true}, {@code true}, {@code false},
-	 * {@code false}, {@code true}, {@code true}, {@code true}, {@code true},
-	 * {@code false}, {@code false}, {@code false}, {@code false}, {@code true},
-	 * {@code true}. </blockquote>
-	 * 
-	 * @param number
-	 * @return A {@code Boolean} array with the length of 16 that consists out of
-	 *         the bit values of the {@code Short}
+	 * Used for converting a {@code short} into one boolean per bit, least
+	 * significant bit first.
+	 *
+	 * @param number the value to convert.
+	 * @return a {@code boolean} array with length 16.
 	 */
 	public static boolean[] toBooleanArray(short number) {
-		boolean[] result = new boolean[Short.SIZE];
-		for (int i = 0; i < result.length; i++) {
-			result[i] = ((number & 0xFF) & (1 << i)) != 0;
-		}
-		return result;
+		return toBooleanArray(number, Short.SIZE);
 	}
 
 	/**
-	 * Used for converting a {@code Byte} into a {@code Boolean} array. The
-	 * {@code Boolean} array will start from the rightmost to the leftmost
-	 * <i>bit</i>, from <i>bit</i><sub>0</sub> to <i>bit</i><sub>7</sub>.
-	 * 
-	 * <p>
-	 * Example:
-	 * </p>
-	 * 
-	 * <blockquote> {@code Byte} {@code 0b10001101} will be turned into
-	 * {@code true}, {@code false}, {@code true}, {@code true}, {@code false},
-	 * {@code false}, {@code false}, {@code true}. </blockquote>
-	 * 
-	 * @param number
-	 * @return A {@code Boolean} array with the length of 8 that consists out of the
-	 *         bit values of the {@code Byte}
+	 * Used for converting a {@code byte} into one boolean per bit, least
+	 * significant bit first.
+	 *
+	 * @param number the value to convert.
+	 * @return a {@code boolean} array with length 8.
 	 */
 	public static boolean[] toBooleanArray(byte number) {
-		boolean[] result = new boolean[Byte.SIZE];
-		for (int i = 0; i < result.length; i++) {
-			result[i] = ((number & 0xFF) & (1 << i)) != 0;
-		}
-		return result;
+		return toBooleanArray(number, Byte.SIZE);
 	}
 
 	/**
-	 * Used for determining if every <i>bit</i> is set.
-	 * 
-	 * @param number
-	 * @return If every <i>bit</i> is set
-	 * @see #notAnd(long)
-	 * @see #or(long)
-	 * @see #notOr(long)
-	 * @see #xOr(long)
-	 * @see #xNotOr(long)
-	 * @see #same(long)
-	 * @see #notSame(long)
+	 * Used for determining if every {@code long} bit is set.
+	 *
+	 * @param number the value to inspect.
+	 * @return {@code true} when all 64 bits are set.
 	 */
 	public static boolean and(long number) {
-		return number == 0b11111111_11111111_11111111_11111111_11111111_11111111_11111111_11111111L;
+		return allBitsSet(number, Long.SIZE);
 	}
 
 	/**
-	 * Used for determining if not every <i>bit</i> set.
-	 * 
-	 * @param number
-	 * @return If not every <i>bit</i> is set
-	 * @see #and(long)
-	 * @see #or(long)
-	 * @see #notOr(long)
-	 * @see #xOr(long)
-	 * @see #xNotOr(long)
-	 * @see #same(long)
-	 * @see #notSame(long)
+	 * Used for determining if not every {@code long} bit is set.
+	 *
+	 * @param number the value to inspect.
+	 * @return {@code true} when at least one bit is clear.
 	 */
 	public static boolean notAnd(long number) {
 		return !and(number);
 	}
 
 	/**
-	 * Used for determining if at least one <i>bit</i> is set.
-	 * 
-	 * @param number
-	 * @return If at least one <i>bit</i> is set
-	 * @see #and(long)
-	 * @see #notAnd(long)
-	 * @see #notOr(long)
-	 * @see #xOr(long)
-	 * @see #xNotOr(long)
-	 * @see #same(long)
-	 * @see #notSame(long)
+	 * Used for determining if at least one {@code long} bit is set.
+	 *
+	 * @param number the value to inspect.
+	 * @return {@code true} when at least one bit is set.
 	 */
 	public static boolean or(long number) {
-		return number != 0b00000000_00000000_00000000_00000000_00000000_00000000_00000000_00000000L;
+		return anyBitSet(number, Long.SIZE);
 	}
 
 	/**
-	 * Used for determining if no <i>bit</i> is set.
-	 * 
-	 * @param number
-	 * @return If no <i>bit</i> is set
-	 * @see #and(long)
-	 * @see #notAnd(long)
-	 * @see #or(long)
-	 * @see #xOr(long)
-	 * @see #xNotOr(long)
-	 * @see #same(long)
-	 * @see #notSame(long)
+	 * Used for determining if no {@code long} bit is set.
+	 *
+	 * @param number the value to inspect.
+	 * @return {@code true} when all bits are clear.
 	 */
 	public static boolean notOr(long number) {
 		return !or(number);
 	}
 
 	/**
-	 * Used for determining if exactly one <i>bit</i> is set.
-	 * 
-	 * @param number
-	 * @return If exactly one <i>bit</i> is set
-	 * @see #and(long)
-	 * @see #notAnd(long)
-	 * @see #or(long)
-	 * @see #notOr(long)
-	 * @see #xNotOr(long)
-	 * @see #same(long)
-	 * @see #notSame(long)
+	 * Used for determining if exactly one {@code long} bit is set.
+	 *
+	 * @param number the value to inspect.
+	 * @return {@code true} when exactly one bit is set.
 	 */
 	public static boolean xOr(long number) {
-		return number != 0 && (number & (number - 1)) == 0;
+		return oneBitSet(number, Long.SIZE);
 	}
 
 	/**
-	 * Used for determining if not just one <i>bit</i> is set.
-	 * 
-	 * @param number
-	 * @return If not just one <i>bit</i> is set
-	 * @see #and(long)
-	 * @see #notAnd(long)
-	 * @see #or(long)
-	 * @see #notOr(long)
-	 * @see #xOr(long)
-	 * @see #same(long)
-	 * @see #notSame(long)
+	 * Used for determining if not exactly one {@code long} bit is set.
+	 *
+	 * @param number the value to inspect.
+	 * @return {@code true} when zero or multiple bits are set.
 	 */
 	public static boolean xNotOr(long number) {
 		return !xOr(number);
 	}
 
 	/**
-	 * Used for determining if every <i>bit</i> is equal to every other <i>bit</i>.
-	 * 
-	 * @param number
-	 * @return If every <i>bit</i> is equal to every other <i>bit</i>
-	 * @see #and(long)
-	 * @see #notAnd(long)
-	 * @see #or(long)
-	 * @see #notOr(long)
-	 * @see #xOr(long)
-	 * @see #xNotOr(long)
-	 * @see #notSame(long)
+	 * Used for determining if every {@code long} bit is equal.
+	 *
+	 * @param number the value to inspect.
+	 * @return {@code true} when all bits are clear or all bits are set.
 	 */
 	public static boolean same(long number) {
-		if (number == 0b11111111_11111111_11111111_11111111_11111111_11111111_11111111_11111111L) {
-			return true;
-		}
-		return number == 0b00000000_00000000_00000000_00000000_00000000_00000000_00000000_00000000L;
+		return allBitsEqual(number, Long.SIZE);
 	}
 
 	/**
-	 * Used for determining if every <i>bit</i> is not equal to every other
-	 * <i>bit</i>.
-	 * 
-	 * @param number
-	 * @return If every <i>bit</i> is not equal to every other <i>bit</i>
-	 * @see #and(long)
-	 * @see #notAnd(long)
-	 * @see #or(long)
-	 * @see #notOr(long)
-	 * @see #xOr(long)
-	 * @see #xNotOr(long)
-	 * @see #same(long)
+	 * Used for determining if not every {@code long} bit is equal.
+	 *
+	 * @param number the value to inspect.
+	 * @return {@code true} when the value contains both set and clear bits.
 	 */
 	public static boolean notEqual(long number) {
 		return !same(number);
 	}
 
 	/**
-	 * Used for determining if every <i>bit</i> is set.
-	 * 
-	 * @param number
-	 * @return If every <i>bit</i> is set
-	 * @see #notAnd(int)
-	 * @see #or(int)
-	 * @see #notOr(int)
-	 * @see #xOr(int)
-	 * @see #xNotOr(int)
-	 * @see #same(int)
-	 * @see #notSame(int)
+	 * Used for determining if every {@code int} bit is set.
+	 *
+	 * @param number the value to inspect.
+	 * @return {@code true} when all 32 bits are set.
 	 */
 	public static boolean and(int number) {
-		return number == 0b11111111_11111111_11111111_11111111;
+		return allBitsSet(number, Integer.SIZE);
 	}
 
 	/**
-	 * Used for determining if not every <i>bit</i> set.
-	 * 
-	 * @param number
-	 * @return If not every <i>bit</i> is set
-	 * @see #and(int)
-	 * @see #or(int)
-	 * @see #notOr(int)
-	 * @see #xOr(int)
-	 * @see #xNotOr(int)
-	 * @see #same(int)
-	 * @see #notSame(int)
+	 * Used for determining if not every {@code int} bit is set.
+	 *
+	 * @param number the value to inspect.
+	 * @return {@code true} when at least one bit is clear.
 	 */
 	public static boolean notAnd(int number) {
 		return !and(number);
 	}
 
 	/**
-	 * Used for determining if at least one <i>bit</i> is set.
-	 * 
-	 * @param number
-	 * @return If at least one <i>bit</i> is set
-	 * @see #and(int)
-	 * @see #notAnd(int)
-	 * @see #notOr(int)
-	 * @see #xOr(int)
-	 * @see #xNotOr(int)
-	 * @see #same(int)
-	 * @see #notSame(int)
+	 * Used for determining if at least one {@code int} bit is set.
+	 *
+	 * @param number the value to inspect.
+	 * @return {@code true} when at least one bit is set.
 	 */
 	public static boolean or(int number) {
-		return number != 0b00000000_00000000_00000000_00000000;
+		return anyBitSet(number, Integer.SIZE);
 	}
 
 	/**
-	 * Used for determining if no <i>bit</i> is set.
-	 * 
-	 * @param number
-	 * @return If no <i>bit</i> is set
-	 * @see #and(int)
-	 * @see #notAnd(int)
-	 * @see #or(int)
-	 * @see #xOr(int)
-	 * @see #xNotOr(int)
-	 * @see #same(int)
-	 * @see #notSame(int)
+	 * Used for determining if no {@code int} bit is set.
+	 *
+	 * @param number the value to inspect.
+	 * @return {@code true} when all bits are clear.
 	 */
 	public static boolean notOr(int number) {
 		return !or(number);
 	}
 
 	/**
-	 * Used for determining if exactly one <i>bit</i> is set.
-	 * 
-	 * @param number
-	 * @return If exactly one <i>bit</i> is set
-	 * @see #and(int)
-	 * @see #notAnd(int)
-	 * @see #or(int)
-	 * @see #notOr(int)
-	 * @see #xNotOr(int)
-	 * @see #same(int)
-	 * @see #notSame(int)
+	 * Used for determining if exactly one {@code int} bit is set.
+	 *
+	 * @param number the value to inspect.
+	 * @return {@code true} when exactly one bit is set.
 	 */
 	public static boolean xOr(int number) {
-		return number != 0 && (number & (number - 1)) == 0;
+		return oneBitSet(number, Integer.SIZE);
 	}
 
 	/**
-	 * Used for determining if not just one <i>bit</i> is set.
-	 * 
-	 * @param number
-	 * @return If not just one <i>bit</i> is set
-	 * @see #and(int)
-	 * @see #notAnd(int)
-	 * @see #or(int)
-	 * @see #notOr(int)
-	 * @see #xOr(int)
-	 * @see #same(int)
-	 * @see #notSame(int)
+	 * Used for determining if not exactly one {@code int} bit is set.
+	 *
+	 * @param number the value to inspect.
+	 * @return {@code true} when zero or multiple bits are set.
 	 */
 	public static boolean xNotOr(int number) {
 		return !xOr(number);
 	}
 
 	/**
-	 * Used for determining if every <i>bit</i> is equal to every other <i>bit</i>.
-	 * 
-	 * @param number
-	 * @return If every <i>bit</i> is equal to every other <i>bit</i>
-	 * @see #and(int)
-	 * @see #notAnd(int)
-	 * @see #or(int)
-	 * @see #notOr(int)
-	 * @see #xOr(int)
-	 * @see #xNotOr(int)
-	 * @see #notSame(int)
+	 * Used for determining if every {@code int} bit is equal.
+	 *
+	 * @param number the value to inspect.
+	 * @return {@code true} when all bits are clear or all bits are set.
 	 */
 	public static boolean same(int number) {
-		if (number == 0b11111111_11111111_11111111_11111111) {
-			return true;
-		}
-		return number == 0b00000000_00000000_00000000_00000000;
+		return allBitsEqual(number, Integer.SIZE);
 	}
 
 	/**
-	 * Used for determining if every <i>bit</i> is not equal to every other
-	 * <i>bit</i>.
-	 * 
-	 * @param number
-	 * @return If every <i>bit</i> is not equal to every other <i>bit</i>
-	 * @see #and(int)
-	 * @see #notAnd(int)
-	 * @see #or(int)
-	 * @see #notOr(int)
-	 * @see #xOr(int)
-	 * @see #xNotOr(int)
-	 * @see #same(int)
+	 * Used for determining if not every {@code int} bit is equal.
+	 *
+	 * @param number the value to inspect.
+	 * @return {@code true} when the value contains both set and clear bits.
 	 */
 	public static boolean notEqual(int number) {
 		return !same(number);
 	}
 
 	/**
-	 * Used for determining if every <i>bit</i> is set.
-	 * 
-	 * @param number
-	 * @return If every <i>bit</i> is set
-	 * @see #notAnd(short)
-	 * @see #or(short)
-	 * @see #notOr(short)
-	 * @see #xOr(short)
-	 * @see #xNotOr(short)
-	 * @see #same(short)
-	 * @see #notSame(short)
+	 * Used for determining if every {@code short} bit is set.
+	 *
+	 * @param number the value to inspect.
+	 * @return {@code true} when all 16 bits are set.
 	 */
 	public static boolean and(short number) {
-		return number == 0b11111111_11111111;
+		return allBitsSet(number, Short.SIZE);
 	}
 
 	/**
-	 * Used for determining if not every <i>bit</i> set.
-	 * 
-	 * @param number
-	 * @return If not every <i>bit</i> is set
-	 * @see #and(short)
-	 * @see #or(short)
-	 * @see #notOr(short)
-	 * @see #xOr(short)
-	 * @see #xNotOr(short)
-	 * @see #same(short)
-	 * @see #notSame(short)
+	 * Used for determining if not every {@code short} bit is set.
+	 *
+	 * @param number the value to inspect.
+	 * @return {@code true} when at least one bit is clear.
 	 */
 	public static boolean notAnd(short number) {
 		return !and(number);
 	}
 
 	/**
-	 * Used for determining if at least one <i>bit</i> is set.
-	 * 
-	 * @param number
-	 * @return If at least one <i>bit</i> is set
-	 * @see #and(short)
-	 * @see #notAnd(short)
-	 * @see #notOr(short)
-	 * @see #xOr(short)
-	 * @see #xNotOr(short)
-	 * @see #same(short)
-	 * @see #notSame(short)
+	 * Used for determining if at least one {@code short} bit is set.
+	 *
+	 * @param number the value to inspect.
+	 * @return {@code true} when at least one bit is set.
 	 */
 	public static boolean or(short number) {
-		return number != 0b00000000_00000000;
+		return anyBitSet(number, Short.SIZE);
 	}
 
 	/**
-	 * Used for determining if no <i>bit</i> is set.
-	 * 
-	 * @param number
-	 * @return If no <i>bit</i> is set
-	 * @see #and(short)
-	 * @see #notAnd(short)
-	 * @see #or(short)
-	 * @see #xOr(short)
-	 * @see #xNotOr(short)
-	 * @see #same(short)
-	 * @see #notSame(short)
+	 * Used for determining if no {@code short} bit is set.
+	 *
+	 * @param number the value to inspect.
+	 * @return {@code true} when all bits are clear.
 	 */
 	public static boolean notOr(short number) {
 		return !or(number);
 	}
 
 	/**
-	 * Used for determining if exactly one <i>bit</i> is set.
-	 * 
-	 * @param number
-	 * @return If exactly one <i>bit</i> is set
-	 * @see #and(short)
-	 * @see #notAnd(short)
-	 * @see #or(short)
-	 * @see #notOr(short)
-	 * @see #xNotOr(short)
-	 * @see #same(short)
-	 * @see #notSame(short)
+	 * Used for determining if exactly one {@code short} bit is set.
+	 *
+	 * @param number the value to inspect.
+	 * @return {@code true} when exactly one bit is set.
 	 */
 	public static boolean xOr(short number) {
-		return number != 0 && (number & (number - 1)) == 0;
+		return oneBitSet(number, Short.SIZE);
 	}
 
 	/**
-	 * Used for determining if not just one <i>bit</i> is set.
-	 * 
-	 * @param number
-	 * @return If not just one <i>bit</i> is set
-	 * @see #and(short)
-	 * @see #notAnd(short)
-	 * @see #or(short)
-	 * @see #notOr(short)
-	 * @see #xOr(short)
-	 * @see #same(short)
-	 * @see #notSame(short)
+	 * Used for determining if not exactly one {@code short} bit is set.
+	 *
+	 * @param number the value to inspect.
+	 * @return {@code true} when zero or multiple bits are set.
 	 */
 	public static boolean xNotOr(short number) {
 		return !xOr(number);
 	}
 
 	/**
-	 * Used for determining if every <i>bit</i> is equal to every other <i>bit</i>.
-	 * 
-	 * @param number
-	 * @return If every <i>bit</i> is equal to every other <i>bit</i>
-	 * @see #and(short)
-	 * @see #notAnd(short)
-	 * @see #or(short)
-	 * @see #notOr(short)
-	 * @see #xOr(short)
-	 * @see #xNotOr(short)
-	 * @see #notSame(short)
+	 * Used for determining if every {@code short} bit is equal.
+	 *
+	 * @param number the value to inspect.
+	 * @return {@code true} when all bits are clear or all bits are set.
 	 */
 	public static boolean same(short number) {
-		if (number == 0b11111111_11111111) {
-			return true;
-		}
-		return number == 0b00000000_00000000;
+		return allBitsEqual(number, Short.SIZE);
 	}
 
 	/**
-	 * Used for determining if every <i>bit</i> is not equal to every other
-	 * <i>bit</i>.
-	 * 
-	 * @param number
-	 * @return If every <i>bit</i> is not equal to every other <i>bit</i>
-	 * @see #and(short)
-	 * @see #notAnd(short)
-	 * @see #or(short)
-	 * @see #notOr(short)
-	 * @see #xOr(short)
-	 * @see #xNotOr(short)
-	 * @see #same(short)
+	 * Used for determining if not every {@code short} bit is equal.
+	 *
+	 * @param number the value to inspect.
+	 * @return {@code true} when the value contains both set and clear bits.
 	 */
 	public static boolean notSame(short number) {
 		return !same(number);
 	}
 
 	/**
-	 * Used for determining if every <i>bit</i> is set.
-	 * 
-	 * @param number
-	 * @return If every <i>bit</i> is set
-	 * @see #notAnd(byte)
-	 * @see #or(byte)
-	 * @see #notOr(byte)
-	 * @see #xOr(byte)
-	 * @see #xNotOr(byte)
-	 * @see #same(byte)
-	 * @see #notSame(byte)
+	 * Used for determining if every {@code byte} bit is set.
+	 *
+	 * @param number the value to inspect.
+	 * @return {@code true} when all 8 bits are set.
 	 */
 	public static boolean and(byte number) {
-		return number == 0b11111111;
+		return allBitsSet(number, Byte.SIZE);
 	}
 
 	/**
-	 * Used for determining if not every <i>bit</i> set.
-	 * 
-	 * @param number
-	 * @return If not every <i>bit</i> is set
-	 * @see #and(byte)
-	 * @see #or(byte)
-	 * @see #notOr(byte)
-	 * @see #xOr(byte)
-	 * @see #xNotOr(byte)
-	 * @see #same(byte)
-	 * @see #notSame(byte)
+	 * Used for determining if not every {@code byte} bit is set.
+	 *
+	 * @param number the value to inspect.
+	 * @return {@code true} when at least one bit is clear.
 	 */
 	public static boolean notAnd(byte number) {
 		return !and(number);
 	}
 
 	/**
-	 * Used for determining if at least one <i>bit</i> is set.
-	 * 
-	 * @param number
-	 * @return If at least one <i>bit</i> is set
-	 * @see #and(byte)
-	 * @see #notAnd(byte)
-	 * @see #notOr(byte)
-	 * @see #xOr(byte)
-	 * @see #xNotOr(byte)
-	 * @see #same(byte)
-	 * @see #notSame(byte)
+	 * Used for determining if at least one {@code byte} bit is set.
+	 *
+	 * @param number the value to inspect.
+	 * @return {@code true} when at least one bit is set.
 	 */
 	public static boolean or(byte number) {
-		return number != 0b00000000;
+		return anyBitSet(number, Byte.SIZE);
 	}
 
 	/**
-	 * Used for determining if no <i>bit</i> is set.
-	 * 
-	 * @param number
-	 * @return If no <i>bit</i> is set
-	 * @see #and(byte)
-	 * @see #notAnd(byte)
-	 * @see #or(byte)
-	 * @see #xOr(byte)
-	 * @see #xNotOr(byte)
-	 * @see #same(byte)
-	 * @see #notSame(byte)
+	 * Used for determining if no {@code byte} bit is set.
+	 *
+	 * @param number the value to inspect.
+	 * @return {@code true} when all bits are clear.
 	 */
 	public static boolean notOr(byte number) {
 		return !or(number);
 	}
 
 	/**
-	 * Used for determining if exactly one <i>bit</i> is set.
-	 * 
-	 * @param number
-	 * @return If exactly one <i>bit</i> is set
-	 * @see #and(byte)
-	 * @see #notAnd(byte)
-	 * @see #or(byte)
-	 * @see #notOr(byte)
-	 * @see #xNotOr(byte)
-	 * @see #same(byte)
-	 * @see #notSame(byte)
+	 * Used for determining if exactly one {@code byte} bit is set.
+	 *
+	 * @param number the value to inspect.
+	 * @return {@code true} when exactly one bit is set.
 	 */
 	public static boolean xOr(byte number) {
-		return number != 0 && (number & (number - 1)) == 0;
+		return oneBitSet(number, Byte.SIZE);
 	}
 
 	/**
-	 * Used for determining if not just one <i>bit</i> is set.
-	 * 
-	 * @param number
-	 * @return If not just one <i>bit</i> is set
-	 * @see #and(byte)
-	 * @see #notAnd(byte)
-	 * @see #or(byte)
-	 * @see #notOr(byte)
-	 * @see #xOr(byte)
-	 * @see #same(byte)
-	 * @see #notSame(byte)
+	 * Used for determining if not exactly one {@code byte} bit is set.
+	 *
+	 * @param number the value to inspect.
+	 * @return {@code true} when zero or multiple bits are set.
 	 */
 	public static boolean xNotOr(byte number) {
 		return !xOr(number);
 	}
 
 	/**
-	 * Used for determining if every <i>bit</i> is equal to every other <i>bit</i>.
-	 * 
-	 * @param number
-	 * @return If every <i>bit</i> is equal to every other <i>bit</i>
-	 * @see #and(byte)
-	 * @see #notAnd(byte)
-	 * @see #or(byte)
-	 * @see #notOr(byte)
-	 * @see #xOr(byte)
-	 * @see #xNotOr(byte)
-	 * @see #notSame(byte)
+	 * Used for determining if every {@code byte} bit is equal.
+	 *
+	 * @param number the value to inspect.
+	 * @return {@code true} when all bits are clear or all bits are set.
 	 */
 	public static boolean same(byte number) {
-		if (number == 0b11111111) {
-			return true;
-		}
-		return number == 0b00000000;
+		return allBitsEqual(number, Byte.SIZE);
 	}
 
 	/**
-	 * Used for determining if every <i>bit</i> is not equal to every other
-	 * <i>bit</i>.
-	 * 
-	 * @param number
-	 * @return If every <i>bit</i> is not equal to every other <i>bit</i>
-	 * @see #and(byte)
-	 * @see #notAnd(byte)
-	 * @see #or(byte)
-	 * @see #notOr(byte)
-	 * @see #xOr(byte)
-	 * @see #xNotOr(byte)
-	 * @see #same(byte)
+	 * Used for determining if not every {@code byte} bit is equal.
+	 *
+	 * @param number the value to inspect.
+	 * @return {@code true} when the value contains both set and clear bits.
 	 */
 	public static boolean notSame(byte number) {
 		return !same(number);
+	}
+
+	/**
+	 * Used for counting {@code true} values in an array.
+	 *
+	 * @param values the values to inspect.
+	 * @return number of {@code true} values.
+	 */
+	private static int trueCount(boolean[] values) {
+		int count = 0;
+		for (boolean value : values) {
+			if (value) {
+				count++;
+			}
+		}
+		return count;
+	}
+
+	/**
+	 * Used for counting {@code true} values in a list.
+	 *
+	 * @param values the values to inspect.
+	 * @return number of {@code true} values.
+	 */
+	private static int trueCount(List<Boolean> values) {
+		int count = 0;
+		for (Boolean value : values) {
+			if (value.booleanValue()) {
+				count++;
+			}
+		}
+		return count;
+	}
+
+	/**
+	 * Used for converting the low {@code bits} bits of a value to booleans.
+	 *
+	 * @param number the value to convert.
+	 * @param bits   number of low bits to inspect.
+	 * @return one boolean per inspected bit, least significant bit first.
+	 */
+	private static boolean[] toBooleanArray(long number, int bits) {
+		boolean[] result = new boolean[bits];
+		for (int i = 0; i < result.length; i++) {
+			result[i] = ((number >>> i) & 1L) != 0L;
+		}
+		return result;
+	}
+
+	/**
+	 * Used for determining if all inspected bits are set.
+	 *
+	 * @param number the value to inspect.
+	 * @param bits   number of low bits to inspect.
+	 * @return {@code true} when all inspected bits are set.
+	 */
+	private static boolean allBitsSet(long number, int bits) {
+		long mask = bitMask(bits);
+		return (number & mask) == mask;
+	}
+
+	/**
+	 * Used for determining if any inspected bit is set.
+	 *
+	 * @param number the value to inspect.
+	 * @param bits   number of low bits to inspect.
+	 * @return {@code true} when at least one inspected bit is set.
+	 */
+	private static boolean anyBitSet(long number, int bits) {
+		return (number & bitMask(bits)) != 0L;
+	}
+
+	/**
+	 * Used for determining if exactly one inspected bit is set.
+	 *
+	 * @param number the value to inspect.
+	 * @param bits   number of low bits to inspect.
+	 * @return {@code true} when one inspected bit is set.
+	 */
+	private static boolean oneBitSet(long number, int bits) {
+		return Long.bitCount(number & bitMask(bits)) == 1;
+	}
+
+	/**
+	 * Used for determining if all inspected bits are set or all are clear.
+	 *
+	 * @param number the value to inspect.
+	 * @param bits   number of low bits to inspect.
+	 * @return {@code true} when every inspected bit has the same value.
+	 */
+	private static boolean allBitsEqual(long number, int bits) {
+		long mask = bitMask(bits);
+		long lowBits = number & mask;
+		return lowBits == 0L || lowBits == mask;
+	}
+
+	/**
+	 * Used for building a low-bit mask.
+	 *
+	 * @param bits number of low bits to include.
+	 * @return a mask with {@code bits} low bits set.
+	 */
+	private static long bitMask(int bits) {
+		return bits == Long.SIZE ? -1L : (1L << bits) - 1L;
 	}
 }

@@ -141,7 +141,24 @@ public final class Writer {
 	 * @param width available width
 	 * @param height available height
 	 */
-	private record TextBox(double x, double y, double width, double height) {
+	private record TextBox(
+		/**
+		 * Stores the x.
+		 */
+		double x,
+		/**
+		 * Stores the y.
+		 */
+		double y,
+		/**
+		 * Stores the width.
+		 */
+		double width,
+		/**
+		 * Stores the height.
+		 */
+		double height
+	) {
 	}
 
 	/**
@@ -151,7 +168,20 @@ public final class Writer {
 	 * @param maxSize maximum font size
 	 * @param minSize minimum font size
 	 */
-	private record FontRange(Font font, double maxSize, double minSize) {
+	private record FontRange(
+		/**
+		 * Stores the font.
+		 */
+		Font font,
+		/**
+		 * Stores the max size.
+		 */
+		double maxSize,
+		/**
+		 * Stores the min size.
+		 */
+		double minSize
+	) {
 	}
 
 	/**
@@ -161,7 +191,20 @@ public final class Writer {
 	 * @param centerY center y coordinate
 	 * @param availableLength available rotated length
 	 */
-	private record RotatedLine(double centerX, double centerY, double availableLength) {
+	private record RotatedLine(
+		/**
+		 * Stores the center x.
+		 */
+		double centerX,
+		/**
+		 * Stores the center y.
+		 */
+		double centerY,
+		/**
+		 * Stores the available length.
+		 */
+		double availableLength
+	) {
 	}
 
 	/**

@@ -47,7 +47,10 @@ public final class ThemedScrollBarUI extends BasicScrollBarUI {
 		this.scrollBarWidth = thickness;
 	}
 
-	@Override
+		/**
+	 * Handles configure scroll bar colors.
+	 */
+@Override
 	/**
 	 * configureScrollBarColors method.
 	 */
@@ -59,7 +62,13 @@ public final class ThemedScrollBarUI extends BasicScrollBarUI {
 		thumbLightShadowColor = thumbColor;
 	}
 
-	@Override
+		/**
+	 * Handles paint track.
+	 * @param g g value
+	 * @param c c value
+	 * @param trackBounds track bounds value
+	 */
+@Override
 	/**
 	 * paintTrack method.
 	 *
@@ -76,7 +85,13 @@ public final class ThemedScrollBarUI extends BasicScrollBarUI {
 		g2.dispose();
 	}
 
-	@Override
+		/**
+	 * Handles paint thumb.
+	 * @param g g value
+	 * @param c c value
+	 * @param thumbBounds thumb bounds value
+	 */
+@Override
 	/**
 	 * paintThumb method.
 	 *
@@ -97,7 +112,12 @@ public final class ThemedScrollBarUI extends BasicScrollBarUI {
 		g2.dispose();
 	}
 
-	@Override
+		/**
+	 * Handles create decrease button.
+	 * @param orientation orientation value
+	 * @return computed value
+	 */
+@Override
 	/**
 	 * createDecreaseButton method.
 	 *
@@ -108,7 +128,12 @@ public final class ThemedScrollBarUI extends BasicScrollBarUI {
 		return createZeroButton();
 	}
 
-	@Override
+		/**
+	 * Handles create increase button.
+	 * @param orientation orientation value
+	 * @return computed value
+	 */
+@Override
 	/**
 	 * createIncreaseButton method.
 	 *

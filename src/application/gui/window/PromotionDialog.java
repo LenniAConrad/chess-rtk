@@ -35,7 +35,10 @@ import chess.core.Piece;
  */
 	final class PromotionDialog extends JDialog {
 
-	@java.io.Serial
+		/**
+	 * Serialization version identifier.
+	 */
+@java.io.Serial
 	private static final long serialVersionUID = 1L;
 	/**
 	 * Owning history window for theme/board helpers.
@@ -119,7 +122,11 @@ import chess.core.Piece;
 		owner.positionPromotionCard(this, shell, from, to, tile, pad);
 
 		overlay.addMouseListener(new MouseAdapter() {
-			@Override
+						/**
+			 * Handles mouse pressed.
+			 * @param e e value
+			 */
+@Override
 			public void mousePressed(MouseEvent e) {
 				if (!shell.getBounds().contains(e.getPoint())) {
 					cancelAndClose();
@@ -163,7 +170,10 @@ import chess.core.Piece;
 	 */
 	private final class PromotionButton extends JButton {
 
-		@java.io.Serial
+				/**
+		 * Serialization version identifier.
+		 */
+@java.io.Serial
 		private static final long serialVersionUID = 1L;
 		/**
 		 * Promotion code represented by this button.
@@ -190,7 +200,11 @@ import chess.core.Piece;
 			setToolTipText(owner.promoLabel(promo));
 		}
 
-		@Override
+				/**
+		 * Handles paint component.
+		 * @param g g value
+		 */
+@Override
 		/**
 		 * Paints the rounded button background and gloss for hover/press states.
 		 *

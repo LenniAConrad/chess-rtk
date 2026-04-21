@@ -10,8 +10,21 @@ import chess.eco.Entry;
   * @since 2026
   * @author Lennart A. Conrad
  */
-public record EcoListEntry(Entry entry, String label) {
-	@Override
+public record EcoListEntry(
+	/**
+	 * Stores the entry.
+	 */
+	Entry entry,
+	/**
+	 * Stores the label.
+	 */
+	String label
+) {
+		/**
+	 * Returns the string representation.
+	 * @return computed value
+	 */
+@Override
 	/**
 	 * toString method.
 	 *

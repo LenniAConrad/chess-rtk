@@ -12,26 +12,87 @@ import java.awt.Font;
   * @author Lennart A. Conrad
  */
 public record GuiTheme(
-		Color backgroundTop,
-		Color backgroundBottom,
-		Color surface,
-		Color surfaceAlt,
-		Color border,
-		Color shadow,
-		Color text,
-		Color textMuted,
-		Color textStrong,
-		Color accent,
-		Color accentText,
-		Color editor,
-		Color sidebar,
-		Color activityBar,
-		Color statusBar,
-		Color selection,
-		Color hover,
-		Font titleFont,
-		Font bodyFont,
-		Font monoFont) {
+	/**
+	 * Stores the background top.
+	 */
+	Color backgroundTop,
+	/**
+	 * Stores the background bottom.
+	 */
+	Color backgroundBottom,
+	/**
+	 * Stores the surface.
+	 */
+	Color surface,
+	/**
+	 * Stores the surface alt.
+	 */
+	Color surfaceAlt,
+	/**
+	 * Stores the border.
+	 */
+	Color border,
+	/**
+	 * Stores the shadow.
+	 */
+	Color shadow,
+	/**
+	 * Stores the text.
+	 */
+	Color text,
+	/**
+	 * Stores the text muted.
+	 */
+	Color textMuted,
+	/**
+	 * Stores the text strong.
+	 */
+	Color textStrong,
+	/**
+	 * Stores the accent.
+	 */
+	Color accent,
+	/**
+	 * Stores the accent text.
+	 */
+	Color accentText,
+	/**
+	 * Stores the editor.
+	 */
+	Color editor,
+	/**
+	 * Stores the sidebar.
+	 */
+	Color sidebar,
+	/**
+	 * Stores the activity bar.
+	 */
+	Color activityBar,
+	/**
+	 * Stores the status bar.
+	 */
+	Color statusBar,
+	/**
+	 * Stores the selection.
+	 */
+	Color selection,
+	/**
+	 * Stores the hover.
+	 */
+	Color hover,
+	/**
+	 * Stores the title font.
+	 */
+	Font titleFont,
+	/**
+	 * Stores the body font.
+	 */
+	Font bodyFont,
+	/**
+	 * Stores the mono font.
+	 */
+	Font monoFont
+) {
 
 	/**
 	 * Default light theme tuned to a neutral lichess-like palette.

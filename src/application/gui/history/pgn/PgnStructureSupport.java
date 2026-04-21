@@ -210,7 +210,12 @@ public final class PgnStructureSupport {
 		return null;
 	}
 
-	private static Game.Node buildGameNode(PgnNode node) {
+		/**
+	 * Handles build game node.
+	 * @param node node value
+	 * @return computed value
+	 */
+private static Game.Node buildGameNode(PgnNode node) {
 		if (node == null) {
 			return null;
 		}

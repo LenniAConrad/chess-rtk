@@ -1,7 +1,5 @@
 package application.cli.command;
 
-import static application.cli.Constants.CMD_EVAL;
-import static application.cli.Constants.CMD_EVAL_STATIC;
 import static application.cli.Constants.OPT_CLASSICAL;
 import static application.cli.Constants.OPT_FEN;
 import static application.cli.Constants.OPT_INPUT;
@@ -24,12 +22,22 @@ import chess.eval.Evaluator;
 import utility.Argv;
 
 /**
- * Implements {@code eval} and {@code eval-static}.
+ * Implements {@code engine eval} and {@code engine static}.
  *
  * @since 2026
  * @author Lennart A. Conrad
  */
 public final class EvalCommand {
+
+	/**
+	 * Current command label for evaluator-backed evaluation.
+	 */
+	private static final String ENGINE_EVAL = "engine eval";
+
+	/**
+	 * Current command label for classical evaluation.
+	 */
+	private static final String ENGINE_STATIC = "engine static";
 
 	/**
 	 * Utility class; prevent instantiation.
@@ -39,7 +47,7 @@ public final class EvalCommand {
 	}
 
 	/**
-	 * Handles {@code eval}.
+	 * Handles {@code engine eval}.
 	 *
 	 * @param a argument parser for the subcommand
 	 */
@@ -58,17 +66,17 @@ public final class EvalCommand {
 		a.ensureConsumed();
 
 		if (lc0Only && classicalOnly) {
-			System.err.println("eval: only one of " + OPT_LC0 + " or " + OPT_CLASSICAL + " may be set");
+			System.err.println(ENGINE_EVAL + ": only one of " + OPT_LC0 + " or " + OPT_CLASSICAL + " may be set");
 			System.exit(2);
 			return;
 		}
 
-		List<String> fens = CommandSupport.resolveFenInputs(CMD_EVAL, input, fen);
+		List<String> fens = CommandSupport.resolveFenInputs(ENGINE_EVAL, input, fen);
 		boolean includeFen = input != null;
-		Bar bar = positionProgressBar(fens, CMD_EVAL);
+		Bar bar = positionProgressBar(fens, ENGINE_EVAL);
 
 		if (classicalOnly) {
-			if (!evalClassicalEntries(fens, terminalAware, includeFen, verbose, CMD_EVAL, progressStep(bar))) {
+			if (!evalClassicalEntries(fens, terminalAware, includeFen, verbose, ENGINE_EVAL, progressStep(bar))) {
 				finishProgress(bar);
 				System.exit(2);
 			}
@@ -78,14 +86,14 @@ public final class EvalCommand {
 
 		Path weightsPath = (weights == null) ? Path.of(Config.getLc0ModelPath()) : weights;
 		try (Evaluator evaluator = new Evaluator(weightsPath, terminalAware)) {
-			if (!evalEvaluatorEntries(fens, evaluator, lc0Only, includeFen, verbose, CMD_EVAL, progressStep(bar))) {
+			if (!evalEvaluatorEntries(fens, evaluator, lc0Only, includeFen, verbose, ENGINE_EVAL, progressStep(bar))) {
 				finishProgress(bar);
 				System.exit(2);
 			}
 			finishProgress(bar);
 		} catch (Exception ex) {
 			finishProgress(bar);
-			System.err.println("eval: failed to initialize evaluator: " + ex.getMessage());
+			System.err.println(ENGINE_EVAL + ": failed to initialize evaluator: " + ex.getMessage());
 			if (verbose) {
 				ex.printStackTrace(System.err);
 			}
@@ -94,7 +102,7 @@ public final class EvalCommand {
 	}
 
 	/**
-	 * Handles {@code eval-static}.
+	 * Handles {@code engine static}.
 	 *
 	 * @param a argument parser for the subcommand
 	 */
@@ -109,10 +117,10 @@ public final class EvalCommand {
 		}
 		a.ensureConsumed();
 
-		List<String> fens = CommandSupport.resolveFenInputs(CMD_EVAL_STATIC, input, fen);
+		List<String> fens = CommandSupport.resolveFenInputs(ENGINE_STATIC, input, fen);
 		boolean includeFen = input != null;
-		Bar bar = positionProgressBar(fens, CMD_EVAL_STATIC);
-		if (!evalClassicalEntries(fens, terminalAware, includeFen, verbose, CMD_EVAL_STATIC, progressStep(bar))) {
+		Bar bar = positionProgressBar(fens, ENGINE_STATIC);
+		if (!evalClassicalEntries(fens, terminalAware, includeFen, verbose, ENGINE_STATIC, progressStep(bar))) {
 			finishProgress(bar);
 			System.exit(2);
 		}

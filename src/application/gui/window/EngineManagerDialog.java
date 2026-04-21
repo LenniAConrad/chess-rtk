@@ -29,7 +29,10 @@ import application.gui.ui.RoundedPanel;
  */
 final class EngineManagerDialog extends JDialog {
 
-	@java.io.Serial
+		/**
+	 * Serialization version identifier.
+	 */
+@java.io.Serial
 	private static final long serialVersionUID = 1L;
 	/**
 	 * History window parent for theming/state helpers.
@@ -133,7 +136,11 @@ final class EngineManagerDialog extends JDialog {
 		pack();
 		setLocationRelativeTo(owner.frame);
 		addWindowListener(new WindowAdapter() {
-			@Override
+						/**
+			 * Handles window closed.
+			 * @param e e value
+			 */
+@Override
 			public void windowClosed(WindowEvent e) {
 				owner.engineManagerDialog = null;
 			}

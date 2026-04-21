@@ -1,7 +1,5 @@
 package application.cli.command;
 
-import static application.cli.Constants.CMD_SAN_TO_UCI;
-import static application.cli.Constants.CMD_UCI_TO_SAN;
 import static application.cli.Constants.OPT_VERBOSE;
 import static application.cli.Constants.OPT_VERBOSE_SHORT;
 
@@ -20,6 +18,16 @@ import utility.Argv;
 public final class MoveNotationCommand {
 
 	/**
+	 * Current command label for UCI to SAN conversion.
+	 */
+	private static final String MOVE_TO_SAN = "move to-san";
+
+	/**
+	 * Current command label for SAN to UCI conversion.
+	 */
+	private static final String MOVE_TO_UCI = "move to-uci";
+
+	/**
 	 * Utility class; prevent instantiation.
 	 */
 	private MoveNotationCommand() {
@@ -27,21 +35,21 @@ public final class MoveNotationCommand {
 	}
 
 	/**
-	 * Handles {@code uci-to-san}.
+	 * Handles {@code move to-san}.
 	 *
 	 * @param a argument parser for the subcommand
 	 */
 	public static void runUciToSan(Argv a) {
-		runConvert(a, MoveCommandSupport.MoveFormat.UCI, true, CMD_UCI_TO_SAN);
+		runConvert(a, MoveCommandSupport.MoveFormat.UCI, true, MOVE_TO_SAN);
 	}
 
 	/**
-	 * Handles {@code san-to-uci}.
+	 * Handles {@code move to-uci}.
 	 *
 	 * @param a argument parser for the subcommand
 	 */
 	public static void runSanToUci(Argv a) {
-		runConvert(a, MoveCommandSupport.MoveFormat.SAN, false, CMD_SAN_TO_UCI);
+		runConvert(a, MoveCommandSupport.MoveFormat.SAN, false, MOVE_TO_UCI);
 	}
 
 	/**
@@ -61,7 +69,7 @@ public final class MoveNotationCommand {
 			return;
 		}
 		if (input.moves.size() > 1) {
-			System.err.println(cmdLabel + " expects a single move; use play-line for sequences");
+			System.err.println(cmdLabel + " expects a single move; use move play for sequences");
 			System.exit(2);
 			return;
 		}

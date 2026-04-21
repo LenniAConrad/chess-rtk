@@ -8,5 +8,14 @@ package chess.book.render;
  * @since 2026
  * @author Lennart A. Conrad
  */
-record TableCellStyle(TextStyle text, boolean centered) {
+record TableCellStyle(
+	/**
+	 * Stores the text.
+	 */
+	TextStyle text,
+	/**
+	 * Stores the centered.
+	 */
+	boolean centered
+) {
 }

@@ -4,10 +4,10 @@ ChessRTK is a reproducible, zero-dependency Java 17 toolkit for chess research: 
 
 CLI command: `crtk`
 
-Command compatibility:
-- Use canonical command names only.
-- Removed commands: `gui2`, `cuda-info`, `mine`, `evaluate`, `stack-to-dataset`.
-- Use instead: `gui`, `gpu-info`, `mine-puzzles`, `eval`.
+Preferred CLI shape:
+- Use grouped commands for new scripts: `record export csv`, `record dataset lc0`, `fen normalize`, `move list`, `engine bestmove`, `book render`, `puzzle mine`.
+- Legacy top-level shortcuts have been removed from the public CLI; use grouped commands.
+- Removed commands: `gui2`, `cuda-info`, `mine`, `evaluate`, `stack-to-dataset`; use `gui`, `engine gpu`, `puzzle mine`, and `engine eval` instead.
 
 Built for:
 - chess researchers / dataset builders / engine experimenters
@@ -24,14 +24,14 @@ Use the CLI as a set of small, scriptable tools:
 
 | Goal | Start with | Follow-up docs |
 | --- | --- | --- |
-| Inspect one position | `print`, `display`, `render`, `chess-pdf` | `wiki/example-commands.md` |
-| Ask an engine | `analyze`, `bestmove`, `threats` | `wiki/configuration.md`, `wiki/lc0.md` |
-| Generate seeds | `pgn-to-fens`, `gen-fens` | `wiki/mining.md` |
-| Mine puzzles | `mine-puzzles` | `wiki/mining.md`, `wiki/filter-dsl.md` |
-| Clean and split records | `records`, `record-analysis-delta` | `wiki/outputs-and-logs.md` |
-| Export training data | `record-to-dataset`, `record-to-lc0`, `record-to-classifier`, `record-to-training-jsonl` | `wiki/datasets.md` |
-| Publish diagrams or books | `chess-pdf`, `chess-book`, `chess-book-cover` | `wiki/book-publishing.md` |
-| Automate checks | `moves-*`, `bestmove-*`, `fen-after`, `play-line`, `perft-suite` | `wiki/ai-agents.md` |
+| Inspect one position | `fen print`, `fen display`, `fen render`, `book pdf` | `wiki/example-commands.md` |
+| Ask an engine | `engine analyze`, `engine bestmove`, `engine threats` | `wiki/configuration.md`, `wiki/lc0.md` |
+| Generate seeds | `fen pgn`, `fen generate`, `fen chess960` | `wiki/mining.md`, `wiki/command-reference.md` |
+| Mine puzzles | `puzzle mine` | `wiki/mining.md`, `wiki/filter-dsl.md` |
+| Clean and split records | `record files`, `record analysis-delta` | `wiki/outputs-and-logs.md` |
+| Export training data | `record dataset npy`, `record dataset lc0`, `record dataset classifier`, `record export training-jsonl` | `wiki/datasets.md` |
+| Publish diagrams or books | `book pdf`, `book render`, `book cover` | `wiki/book-publishing.md` |
+| Automate checks | `doctor`, `engine uci-smoke`, `move list --format`, `engine bestmove --format`, `fen normalize`, `fen validate`, `move after`, `move play`, `engine perft-suite` | `wiki/ai-agents.md` |
 
 ## Pipeline overview
 
@@ -46,10 +46,10 @@ Diagram source: `assets/diagrams/crtk-pipeline-overview.dot` (render with `dot -
 Mine puzzles from a PGN (via FEN seeds) and convert the results to CSV + PGN:
 
 ```bash
-crtk pgn-to-fens --input games.pgn --output seeds.txt
-crtk mine-puzzles --input seeds.txt --output dump/run.json --engine-instances 4 --max-duration 60s
-crtk record-to-csv --input dump/run.puzzles.json --output dump/run.puzzles.csv
-crtk record-to-pgn --input dump/run.puzzles.json --output dump/run.puzzles.pgn
+crtk fen pgn --input games.pgn --output seeds.txt
+crtk puzzle mine --input seeds.txt --output dump/run.json --engine-instances 4 --max-duration 60s
+crtk record export csv --input dump/run.puzzles.json --output dump/run.puzzles.csv
+crtk record export pgn --input dump/run.puzzles.json --output dump/run.puzzles.pgn
 ```
 
 ### Mining decision gates
@@ -60,13 +60,15 @@ Diagram source: `assets/diagrams/crtk-mining-gates.dot` (render with `dot -Tpng 
 
 Other common primitives:
 
-- Mine random seeds: `crtk mine-puzzles --random-count 200 --output dump/random.json` (or endless with `--random-infinite`)
-- Validate movegen: `crtk perft --depth 5`
-- Engine probing: `crtk analyze --fen "<FEN>" --max-duration 2s`, `crtk bestmove --fen "<FEN>" --max-duration 200`, `crtk threats --fen "<FEN>" --max-duration 2s`
-- Position inspection: `crtk print --fen "<FEN>"`, `crtk display --fen "<FEN>" --special-arrows`, `crtk render --fen "<FEN>" --output dump/pos.png`, `crtk chess-pdf --fen "<FEN>" -o dump/pos.pdf`, `crtk gui-web --fen "<FEN>" --dark`
-- Dataset export (NNUE): `crtk record-to-dataset --input dump/run.puzzles.json --output training/puzzles`
-- Dataset export (LC0): `crtk record-to-lc0 --input dump/run.puzzles.json --output training/puzzles`
-- Dataset export (classifier): `crtk record-to-classifier -i dump/run.puzzles.json -i dump/run.nonpuzzles.json -o training/classifier/run`
+- Mine random seeds: `crtk puzzle mine --random-count 200 --output dump/random.json` (or endless with `--random-infinite`)
+- Inspect a Chess960 start: `crtk fen chess960 518`, `crtk fen chess960 --all --format both`
+- Validate movegen: `crtk engine perft --depth 5`
+- Check local setup: `crtk doctor`, `crtk engine uci-smoke --nodes 1 --max-duration 5s`
+- Engine probing: `crtk engine analyze --fen "<FEN>" --max-duration 2s`, `crtk engine bestmove --fen "<FEN>" --max-duration 200`, `crtk engine threats --fen "<FEN>" --max-duration 2s`
+- Position inspection: `crtk fen print --fen "<FEN>"`, `crtk fen display --fen "<FEN>" --special-arrows`, `crtk fen render --fen "<FEN>" --output dump/pos.png`, `crtk book pdf --fen "<FEN>" -o dump/pos.pdf`, `crtk gui-web --fen "<FEN>" --dark`
+- Dataset export (NNUE): `crtk record dataset npy --input dump/run.puzzles.json --output training/puzzles`
+- Dataset export (LC0): `crtk record dataset lc0 --input dump/run.puzzles.json --output training/puzzles`
+- Dataset export (classifier): `crtk record dataset classifier -i dump/run.puzzles.json -i dump/run.nonpuzzles.json -o training/classifier/run`
 
 ## Book/PDF workflow (copy/paste)
 
@@ -74,15 +76,18 @@ Render a native puzzle book PDF, then generate a matching cover PDF from the
 same manifest:
 
 ```bash
-crtk chess-book -i books/puzzles.toml -o dist/puzzles.pdf
-crtk chess-book-cover -i books/puzzles.toml -o dist/puzzles-cover.pdf \
+crtk book render -i books/puzzles.toml --check
+crtk book render -i books/puzzles.toml -o dist/puzzles.pdf
+crtk book cover -i books/puzzles.toml --check \
+  --binding paperback --interior white-bw --pages 120
+crtk book cover -i books/puzzles.toml -o dist/puzzles-cover.pdf \
   --binding paperback --interior white-bw --pages 120
 ```
 
 Make a quick diagram sheet from PGN mainlines:
 
 ```bash
-crtk chess-pdf --pgn games.pgn -o dist/games.pdf --page-size a5 --diagrams-per-row 1
+crtk book pdf --pgn games.pgn -o dist/games.pdf --page-size a5 --diagrams-per-row 1
 ```
 
 ## Single-position toolbox
@@ -92,10 +97,12 @@ crtk chess-pdf --pgn games.pgn -o dist/games.pdf --page-size a5 --diagrams-per-r
 Diagram source: `assets/diagrams/crtk-position-toolbox.dot` (render with `dot -Tpng -Gdpi=160 -o assets/diagrams/crtk-position-toolbox.png assets/diagrams/crtk-position-toolbox.dot`).
 
 Agent-friendly shortcuts:
-- `moves-uci`, `moves-san`, `moves-both`
-- `bestmove-uci`, `bestmove-san`, `bestmove-both`
-- `uci-to-san`, `san-to-uci`, `fen-after`, `play-line`
-- `eval-static`, `perft-suite`, `records`, `puzzles-to-pgn`, `pgn-to-fens`
+- `doctor`, `engine uci-smoke`
+- `move list --format uci|san|both`, `move uci`, `move san`, `move both`
+- `engine bestmove --format uci|san|both`, `engine bestmove-uci`, `engine bestmove-san`, `engine bestmove-both`
+- `move to-san`, `move to-uci`, `move after`, `move play`
+- `fen normalize`, `fen validate`, `fen chess960`, `fen pgn`
+- `engine static`, `engine perft-suite`, `record files`, `puzzle pgn`
 
 ## Docs (full)
 
@@ -140,7 +147,9 @@ java -cp out testing.PositionRegressionTest
 Useful smoke checks after larger changes:
 
 ```bash
-java -cp out application.Main perft-suite
+java -cp out application.Main doctor
+java -cp out application.Main engine uci-smoke --nodes 1 --max-duration 5s
+java -cp out application.Main engine perft-suite
 java -cp out testing.BookRegressionTest
 java -cp out testing.ChessBookCommandRegressionTest
 java -cp out testing.ChessBookCoverCommandRegressionTest
@@ -184,37 +193,41 @@ More: `wiki/build-and-install.md`
 
 ## What It Does
 
-- `mine-puzzles`: evaluate lots of seeds (random / `.txt` / `.pgn`) and emit puzzles + non-puzzles JSON
-- `record-to-plain`, `record-to-csv`, `record-to-pgn`: convert `.record` analysis dumps to `.plain`, CSV, or PGN
-- `records`: merge/filter/split record files (with optional puzzle/DSL filtering)
-- `puzzles-to-pgn`: convert mixed puzzle/non-puzzle dumps to PGN games
-- `record-analysis-delta`: export per-record evaluation stability/shift metrics as JSONL
-- `record-to-dataset`: export eval-regression tensors for AI training (features `(N, 781)`)
-- `record-to-lc0`: export LC0-style tensors (inputs/policy/value)
-- `record-to-classifier`: export 21-plane inputs and 0/1 labels for the one-logit binary classifier
-- `record-to-training-jsonl`: export coarse/fine FEN labels for training pipelines
-- `record-to-puzzle-jsonl`: export LC0-policy-aware puzzle JSONL rows
-- `gen-fens`: generate large shards of random legal FENs
-- `print`: pretty-print a FEN as ASCII (includes tags)
-- `display`: open a small GUI board view (overlays + optional ablation)
-- `render`: save a board image to disk (PNG/JPG/BMP/SVG)
-- `chess-book`: render chess-book JSON/TOML manifests to native PDF
-- `chess-book-cover`: render native paperback, hardcover, or ebook cover PDFs for book manifests
-- `chess-pdf`: export one or more positions or PGN mainlines to PDF
+- `puzzle mine`: evaluate lots of seeds (random / `.txt` / `.pgn`) and emit puzzles + non-puzzles JSON
+- `record`: grouped record workflows (`export plain|csv|pgn|puzzle-jsonl|training-jsonl`, `dataset npy|lc0|classifier`, `files`, `stats`, `tag-stats`, `analysis-delta`)
+- `record export plain|csv|pgn`: convert `.record` analysis dumps to `.plain`, CSV, or PGN
+- `record files`: merge/filter/split record files (with optional puzzle/DSL filtering)
+- `puzzle pgn`: convert mixed puzzle/non-puzzle dumps to PGN games
+- `record analysis-delta`: export per-record evaluation stability/shift metrics as JSONL
+- `record dataset npy`: export eval-regression tensors for AI training (features `(N, 781)`)
+- `record dataset lc0`: export LC0-style tensors (inputs/policy/value)
+- `record dataset classifier`: export 21-plane inputs and 0/1 labels for the one-logit binary classifier
+- `record export training-jsonl`: export coarse/fine FEN labels for training pipelines
+- `record export puzzle-jsonl`: export LC0-policy-aware puzzle JSONL rows
+- `fen generate`: generate large shards of random legal FENs
+- `fen print`: pretty-print a FEN as ASCII (includes tags)
+- `fen display`: open a small GUI board view (overlays + optional ablation)
+- `fen render`: save a board image to disk (PNG/JPG/BMP/SVG)
+- `book render`: render chess-book JSON/TOML manifests to native PDF, or validate with `--check`
+- `book cover`: render native paperback, hardcover, or ebook cover PDFs for book manifests, or validate dimensions with `--check`
+- `book pdf`: export one or more positions or PGN mainlines to PDF
+- `fen chess960`: print Chess960 starting positions by Scharnagl index, all positions, or random samples
 - `gui`, `gui-web`: launch desktop Swing GUIs (`gui-web` uses the chess-web-inspired layout)
-- `gpu-info`: show LC0 GPU backend availability and device info (CUDA/ROCm/oneAPI)
-- `analyze`, `bestmove`, `threats`: engine probing and tactical checks on a FEN
-- `moves`, `moves-uci`, `moves-san`, `moves-both`: list legal moves for a FEN
-- `uci-to-san`, `san-to-uci`: convert a move between UCI and SAN
-- `fen-after`: apply a move and return the resulting FEN
-- `play-line`: apply a line of moves and return the final (or intermediate) FENs
-- `bestmove-uci`, `bestmove-san`, `bestmove-both`: best move shortcuts with fixed output format
-- `tags`: list tags for a FEN
-- `puzzle-tags`, `tag-text`, `puzzle-text`: generate tag deltas and optional T5 prose summaries
-- `stats`, `stats-tags`: summarize dumps or tag distributions
-- `perft`, `perft-suite`: validate move generation (single position or suite)
-- `pgn-to-fens`: extract FEN seeds from PGN files
-- `eval`, `eval-static`: evaluate a position with LC0 or classical heuristics
+- `doctor`: check Java, config, protocol, engine discovery, and local artifact paths
+- `engine gpu`: show LC0 GPU backend availability and device info (CUDA/ROCm/oneAPI)
+- `engine uci-smoke`: start the configured UCI engine and run a tiny bounded search
+- `engine analyze`, `engine bestmove`, `engine threats`: engine probing and tactical checks on a FEN
+- `move list`, `move uci`, `move san`, `move both`: list legal moves for a FEN (`move list --format uci|san|both` is the compact form)
+- `move to-san`, `move to-uci`: convert a move between UCI and SAN
+- `move after`: apply a move and return the resulting FEN
+- `move play`: apply a line of moves and return the final (or intermediate) FENs
+- `fen normalize`, `fen validate`: normalize or validate FEN text for scripts
+- `engine bestmove-uci`, `engine bestmove-san`, `engine bestmove-both`: best move shortcuts with fixed output format (`engine bestmove --format uci|san|both` is equivalent)
+- `fen tags`, `puzzle tags`, `fen text`, `puzzle text`: generate tag deltas and optional T5 prose summaries
+- `record stats`, `record tag-stats`: summarize dumps or tag distributions
+- `engine perft`, `engine perft-suite`: validate move generation (single position or suite)
+- `fen pgn`: extract FEN seeds from PGN files
+- `engine eval`, `engine static`: evaluate a position with LC0 or classical heuristics
 - `clean`: remove/clean derived artifacts
 - `config`: show/validate resolved configuration
 

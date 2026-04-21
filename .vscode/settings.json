@@ -4,7 +4,7 @@
 	],
 	"java.project.outputPath": "out",
 	"java.autobuild.enabled": false,
-	"java.server.launchMode": "LightWeight",
+	"java.server.launchMode": "Standard",
 	"java.import.gradle.enabled": false,
 	"java.import.maven.enabled": false,
 	"java.import.exclusions": [
@@ -55,6 +55,6 @@
 		"out/**",
 		"session/**"
 	],
-	"sonarlint.automaticAnalysis": false,
+	"sonarlint.automaticAnalysis": true,
 	"sonarlint.analysisExcludesStandalone": "**/data/**,**/dump/**,**/models/**,**/native/**/build/**,**/out/**,**/session/**,**/*.jsonl,**/*.bin"
 }

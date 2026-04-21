@@ -9,5 +9,18 @@ package chess.book.render;
  * @since 2026
  * @author Lennart A. Conrad
  */
-record ShadowBoxGeometry(double totalWidth, double totalHeight, double blur) {
+record ShadowBoxGeometry(
+	/**
+	 * Stores the total width.
+	 */
+	double totalWidth,
+	/**
+	 * Stores the total height.
+	 */
+	double totalHeight,
+	/**
+	 * Stores the blur.
+	 */
+	double blur
+) {
 }

@@ -188,7 +188,12 @@ class GuiWindowLayout extends GuiWindowEngine {
 			}
 		}
 
-		@Override
+				/**
+		 * Handles create muted label.
+		 * @param text text value
+		 * @return computed value
+		 */
+@Override
 		/**
 		 * createMutedLabel method.
 		 *
@@ -199,7 +204,13 @@ class GuiWindowLayout extends GuiWindowEngine {
 			return GuiWindowLayout.this.mutedLabel(text);
 		}
 
-		@Override
+				/**
+		 * Handles create themed button.
+		 * @param text text value
+		 * @param action action value
+		 * @return computed value
+		 */
+@Override
 		/**
 		 * createThemedButton method.
 		 *
@@ -211,7 +222,12 @@ class GuiWindowLayout extends GuiWindowEngine {
 			return GuiWindowLayout.this.themedButton(text, action);
 		}
 
-		@Override
+				/**
+		 * Handles muted label.
+		 * @param text text value
+		 * @return computed value
+		 */
+@Override
 		/**
 		 * mutedLabel method.
 		 *
@@ -222,7 +238,13 @@ class GuiWindowLayout extends GuiWindowEngine {
 			return GuiWindowLayout.this.mutedLabel(text);
 		}
 
-		@Override
+				/**
+		 * Handles themed button.
+		 * @param text text value
+		 * @param action action value
+		 * @return computed value
+		 */
+@Override
 		/**
 		 * themedButton method.
 		 *
@@ -234,7 +256,14 @@ class GuiWindowLayout extends GuiWindowEngine {
 			return GuiWindowLayout.this.themedButton(text, action);
 		}
 
-		@Override
+				/**
+		 * Handles create themed checkbox.
+		 * @param text text value
+		 * @param selected selected value
+		 * @param action action value
+		 * @return computed value
+		 */
+@Override
 		/**
 		 * createThemedCheckbox method.
 		 *
@@ -247,7 +276,12 @@ class GuiWindowLayout extends GuiWindowEngine {
 			return GuiWindowLayout.this.themedCheckbox(text, selected, action);
 		}
 
-		@Override
+				/**
+		 * Handles build flat card.
+		 * @param title title value
+		 * @return computed value
+		 */
+@Override
 		/**
 		 * buildFlatCard method.
 		 *
@@ -258,7 +292,12 @@ class GuiWindowLayout extends GuiWindowEngine {
 			return GuiWindowLayout.this.createFlatCard(title);
 		}
 
-		@Override
+				/**
+		 * Handles scaled dimension.
+		 * @param base base value
+		 * @return computed value
+		 */
+@Override
 		/**
 		 * scaledDimension method.
 		 *
@@ -269,7 +308,12 @@ class GuiWindowLayout extends GuiWindowEngine {
 			return scaleDimension(base);
 		}
 
-		@Override
+				/**
+		 * Handles scaled row height.
+		 * @param base base value
+		 * @return computed value
+		 */
+@Override
 		/**
 		 * scaledRowHeight method.
 		 *
@@ -280,7 +324,11 @@ class GuiWindowLayout extends GuiWindowEngine {
 			return Math.round(base * uiScale);
 		}
 
-		@Override
+				/**
+		 * Handles register flat card.
+		 * @param card card value
+		 */
+@Override
 		/**
 		 * registerFlatCard method.
 		 *
@@ -292,7 +340,11 @@ class GuiWindowLayout extends GuiWindowEngine {
 			}
 		}
 
-		@Override
+				/**
+		 * Handles register combo box.
+		 * @param combo combo value
+		 */
+@Override
 		/**
 		 * registerComboBox method.
 		 *
@@ -302,7 +354,11 @@ class GuiWindowLayout extends GuiWindowEngine {
 			track(combos, combo);
 		}
 
-		@Override
+				/**
+		 * Handles register text field.
+		 * @param field field value
+		 */
+@Override
 		/**
 		 * registerTextField method.
 		 *
@@ -312,7 +368,11 @@ class GuiWindowLayout extends GuiWindowEngine {
 			track(textFields, field);
 		}
 
-		@Override
+				/**
+		 * Handles register text area.
+		 * @param area area value
+		 */
+@Override
 		/**
 		 * registerTextArea method.
 		 *
@@ -322,7 +382,11 @@ class GuiWindowLayout extends GuiWindowEngine {
 			track(textAreas, area);
 		}
 
-		@Override
+				/**
+		 * Handles register list.
+		 * @param list list value
+		 */
+@Override
 		/**
 		 * registerList method.
 		 *
@@ -332,7 +396,11 @@ class GuiWindowLayout extends GuiWindowEngine {
 			track(lists, list);
 		}
 
-		@Override
+				/**
+		 * Handles register scroll pane.
+		 * @param scroll scroll value
+		 */
+@Override
 		/**
 		 * registerScrollPane method.
 		 *
@@ -342,7 +410,11 @@ class GuiWindowLayout extends GuiWindowEngine {
 			track(scrolls, scroll);
 		}
 
-		@Override
+				/**
+		 * Handles register button.
+		 * @param button button value
+		 */
+@Override
 		/**
 		 * registerButton method.
 		 *
@@ -352,7 +424,13 @@ class GuiWindowLayout extends GuiWindowEngine {
 			track(buttons, button);
 		}
 		
-		@Override
+				/**
+		 * Handles create flat card.
+		 * @param title title value
+		 * @param showTitle show title value
+		 * @return computed value
+		 */
+@Override
 		/**
 		 * createFlatCard method.
 		 *
@@ -364,7 +442,11 @@ class GuiWindowLayout extends GuiWindowEngine {
 			return GuiWindowLayout.this.createFlatCard(title, showTitle);
 		}
 
-		@Override
+				/**
+		 * Handles register table.
+		 * @param table table value
+		 */
+@Override
 		/**
 		 * registerTable method.
 		 *
@@ -374,7 +456,12 @@ class GuiWindowLayout extends GuiWindowEngine {
 			track(tables, table);
 		}
 		
-		@Override
+				/**
+		 * Handles preview node.
+		 * @param node node value
+		 * @param screenPoint screen point value
+		 */
+@Override
 		/**
 		 * previewNode method.
 		 *
@@ -385,7 +472,10 @@ class GuiWindowLayout extends GuiWindowEngine {
 			GuiWindowLayout.this.previewNodeHover(node, screenPoint);
 		}
 
-		@Override
+				/**
+		 * Handles clear hover previews.
+		 */
+@Override
 		/**
 		 * clearHoverPreviews method.
 		 */
@@ -393,7 +483,11 @@ class GuiWindowLayout extends GuiWindowEngine {
 			GuiWindowLayout.this.clearHoverPreviews();
 		}
 
-		@Override
+				/**
+		 * Handles apply pgn node.
+		 * @param node node value
+		 */
+@Override
 		/**
 		 * applyPgnNode method.
 		 *
@@ -405,7 +499,10 @@ class GuiWindowLayout extends GuiWindowEngine {
 			}
 		}
 
-		@Override
+				/**
+		 * Handles request fen toggle.
+		 */
+@Override
 		/**
 		 * requestFenToggle method.
 		 */
@@ -413,7 +510,10 @@ class GuiWindowLayout extends GuiWindowEngine {
 			toggleFenMode();
 		}
 
-		@Override
+				/**
+		 * Handles request command run.
+		 */
+@Override
 		/**
 		 * requestCommandRun method.
 		 */
@@ -421,7 +521,10 @@ class GuiWindowLayout extends GuiWindowEngine {
 			runCommandFromForm();
 		}
 
-		@Override
+				/**
+		 * Handles request command stop.
+		 */
+@Override
 		/**
 		 * requestCommandStop method.
 		 */
@@ -429,7 +532,10 @@ class GuiWindowLayout extends GuiWindowEngine {
 			stopCommand();
 		}
 
-		@Override
+				/**
+		 * Handles request command help.
+		 */
+@Override
 		/**
 		 * requestCommandHelp method.
 		 */
@@ -437,7 +543,11 @@ class GuiWindowLayout extends GuiWindowEngine {
 			runHelp();
 		}
 
-		@Override
+				/**
+		 * Handles request recent command.
+		 * @param index index value
+		 */
+@Override
 		/**
 		 * requestRecentCommand method.
 		 *
@@ -447,7 +557,10 @@ class GuiWindowLayout extends GuiWindowEngine {
 			runRecentCommand(index);
 		}
 
-		@Override
+				/**
+		 * Handles request command form update.
+		 */
+@Override
 		/**
 		 * requestCommandFormUpdate method.
 		 */
@@ -455,7 +568,13 @@ class GuiWindowLayout extends GuiWindowEngine {
 			updateCommandForm();
 		}
 
-		@Override
+				/**
+		 * Handles add nag button.
+		 * @param container container value
+		 * @param label label value
+		 * @param nag nag value
+		 */
+@Override
 		/**
 		 * addNagButton method.
 		 *
@@ -503,7 +622,11 @@ class GuiWindowLayout extends GuiWindowEngine {
 			this.frame.setLocationByPlatform(true);
 			this.frame.setIconImage(Pictures.BlackRook);
 			this.frame.addWindowListener(new WindowAdapter() {
-				@Override
+								/**
+				 * Handles window closing.
+				 * @param e e value
+				 */
+@Override
 				public void windowClosing(WindowEvent e) {
 					captureGuiState();
 					saveGuiState();
@@ -513,7 +636,11 @@ class GuiWindowLayout extends GuiWindowEngine {
 					stopEngine();
 					stopReportAnalysis();
 					shutdownEngineInstance(); }
-				@Override
+								/**
+				 * Handles window deactivated.
+				 * @param e e value
+				 */
+@Override
 				public void windowDeactivated(WindowEvent e) {
 					stopPvHoverAnimation();
 					if (boardPanel != null) {
@@ -813,11 +940,19 @@ class GuiWindowLayout extends GuiWindowEngine {
 			button.setToolTipText(tooltip);
 			button.putClientProperty("activityBaseLabel", label);
 			button.addMouseListener(new MouseAdapter() {
-				@Override
+								/**
+				 * Handles mouse entered.
+				 * @param e e value
+				 */
+@Override
 				public void mouseEntered(MouseEvent e) {
 					button.putClientProperty("activityHover", Boolean.TRUE);
 					updateActivitySelection(); }
-				@Override
+								/**
+				 * Handles mouse exited.
+				 * @param e e value
+				 */
+@Override
 				public void mouseExited(MouseEvent e) {
 					button.putClientProperty("activityHover", Boolean.FALSE);
 					updateActivitySelection(); }
@@ -1163,7 +1298,11 @@ class GuiWindowLayout extends GuiWindowEngine {
 			sliders.add(hueSlider);
 			hueValueLabel = mutedLabel(boardHueDegrees + "°");
 			hueSlider.addChangeListener(new ChangeListener() {
-				@Override
+								/**
+				 * Handles state changed.
+				 * @param e e value
+				 */
+@Override
 				public void stateChanged(ChangeEvent e) {
 					boardHueDegrees = hueSlider.getValue();
 					guiState.boardHueDegrees = boardHueDegrees;
@@ -1183,7 +1322,11 @@ class GuiWindowLayout extends GuiWindowEngine {
 			sliders.add(brightnessSlider);
 			brightnessValueLabel = mutedLabel(boardBrightness + "%");
 			brightnessSlider.addChangeListener(new ChangeListener() {
-				@Override
+								/**
+				 * Handles state changed.
+				 * @param e e value
+				 */
+@Override
 				public void stateChanged(ChangeEvent e) {
 					boardBrightness = brightnessSlider.getValue();
 					guiState.boardBrightness = boardBrightness;
@@ -1203,7 +1346,11 @@ class GuiWindowLayout extends GuiWindowEngine {
 			sliders.add(saturationSlider);
 			saturationValueLabel = mutedLabel(boardSaturation + "%");
 			saturationSlider.addChangeListener(new ChangeListener() {
-				@Override
+								/**
+				 * Handles state changed.
+				 * @param e e value
+				 */
+@Override
 				public void stateChanged(ChangeEvent e) {
 					boardSaturation = saturationSlider.getValue();
 					guiState.boardSaturation = boardSaturation;
@@ -1225,7 +1372,11 @@ class GuiWindowLayout extends GuiWindowEngine {
 			sliders.add(animationSlider);
 			animationValueLabel = mutedLabel(animationSlider.getValue() == 0 ? "Off" : (animationSlider.getValue() + " ms"));
 			animationSlider.addChangeListener(new ChangeListener() {
-				@Override
+								/**
+				 * Handles state changed.
+				 * @param e e value
+				 */
+@Override
 				public void stateChanged(ChangeEvent e) {
 					animationMillis = animationSlider.getValue();
 					guiState.animationMillis = animationMillis;
@@ -1440,7 +1591,13 @@ class GuiWindowLayout extends GuiWindowEngine {
 			header.add(ablationToggle, BorderLayout.EAST);
 			body.add(header, BorderLayout.NORTH);
 			ablationModel = new DefaultTableModel(new Object[] { "Piece", "Square", "Score" }, 0) {
-				@Override
+								/**
+				 * Returns whether cell editable.
+				 * @param row row value
+				 * @param column column value
+				 * @return computed value
+				 */
+@Override
 				public boolean isCellEditable(int row, int column) {
 					return false; }
 			};
@@ -1508,73 +1665,125 @@ class GuiWindowLayout extends GuiWindowEngine {
      */
     private RoundedPanel buildMovesCard() {
         HistoryMovesCardBuilder.Context ctx = new HistoryMovesCardBuilder.Context() {
-            @Override
+                        /**
+             * Handles ui factory.
+             * @return computed value
+             */
+@Override
             public HistoryUiFactory uiFactory() {
                 return uiFactory;
             }
 
-            @Override
+                        /**
+             * Handles ui scale.
+             * @return computed value
+             */
+@Override
             public float uiScale() {
                 return uiScale;
             }
 
-            @Override
+                        /**
+             * Handles scale dimension.
+             * @param base base value
+             * @return computed value
+             */
+@Override
             public Dimension scaleDimension(Dimension base) {
                 return GuiWindowLayout.this.scaleDimension(base);
             }
 
-            @Override
+                        /**
+             * Handles owner.
+             * @return computed value
+             */
+@Override
             public GuiWindowHistory owner() {
                 return GuiWindowLayout.this;
             }
 
-            @Override
+                        /**
+             * Handles register list.
+             * @param list list value
+             */
+@Override
             public void registerList(JList<?> list) {
                 layoutBuilderSupport.registerList(list);
             }
 
-            @Override
+                        /**
+             * Handles register scroll pane.
+             * @param scroll scroll value
+             */
+@Override
             public void registerScrollPane(JScrollPane scroll) {
                 layoutBuilderSupport.registerScrollPane(scroll);
             }
         };
         HistoryMovesCardBuilder.Actions actions = new HistoryMovesCardBuilder.Actions() {
-            @Override
+                        /**
+             * Handles copy history san.
+             */
+@Override
             public void copyHistorySan() {
                 GuiWindowLayout.this.copyHistorySan();
             }
 
-            @Override
+                        /**
+             * Handles copy history uci.
+             */
+@Override
             public void copyHistoryUci() {
                 GuiWindowLayout.this.copyHistoryUci();
             }
 
-            @Override
+                        /**
+             * Handles jump to selected history.
+             */
+@Override
             public void jumpToSelectedHistory() {
                 GuiWindowLayout.this.jumpToSelectedHistory();
             }
 
-            @Override
+                        /**
+             * Handles edit selected comment.
+             */
+@Override
             public void editSelectedComment() {
                 GuiWindowLayout.this.editSelectedComment();
             }
 
-            @Override
+                        /**
+             * Handles clear selected comment.
+             */
+@Override
             public void clearSelectedComment() {
                 GuiWindowLayout.this.clearSelectedComment();
             }
 
-            @Override
+                        /**
+             * Handles clear selected nag.
+             */
+@Override
             public void clearSelectedNag() {
                 GuiWindowLayout.this.clearSelectedNag();
             }
 
-            @Override
+                        /**
+             * Handles update variation buttons.
+             */
+@Override
             public void updateVariationButtons() {
                 GuiWindowLayout.this.updateVariationButtons();
             }
 
-            @Override
+                        /**
+             * Handles preview history hover.
+             * @param entry entry value
+             * @param index index value
+             * @param screenLocation screen location value
+             */
+@Override
             public void previewHistoryHover(HistoryEntry entry, int index, Point screenLocation) {
                 if (entry != null && entry.node() != null) {
                     GuiWindowLayout.this.previewNodeHover(entry.node(), screenLocation);
@@ -1583,42 +1792,73 @@ class GuiWindowLayout extends GuiWindowEngine {
                 GuiWindowLayout.this.previewHistoryHover(index, screenLocation);
             }
 
-            @Override
+                        /**
+             * Handles clear board preview.
+             */
+@Override
             public void clearBoardPreview() {
                 GuiWindowLayout.this.boardPanel.clearPreview();
             }
 
-            @Override
+                        /**
+             * Handles hide engine preview.
+             */
+@Override
             public void hideEnginePreview() {
                 GuiWindowLayout.this.hideEnginePvMiniBoardPreview();
             }
 
-            @Override
+                        /**
+             * Handles apply pgn node.
+             * @param node node value
+             */
+@Override
             public void applyPgnNode(PgnNode node) {
                 GuiWindowLayout.this.applyPgnNode(node);
             }
 
-            @Override
+                        /**
+             * Handles maybe show history menu.
+             * @param list list value
+             * @param event event value
+             */
+@Override
             public void maybeShowHistoryMenu(JList<HistoryEntry> list, MouseEvent event) {
                 GuiWindowLayout.this.maybeShowHistoryMenu(list, event);
             }
 
-            @Override
+                        /**
+             * Handles delete selected variation.
+             */
+@Override
             public void deleteSelectedVariation() {
                 GuiWindowLayout.this.deleteSelectedVariation();
             }
 
-            @Override
+                        /**
+             * Handles promote selected variation.
+             */
+@Override
             public void promoteSelectedVariation() {
                 GuiWindowLayout.this.promoteSelectedVariation();
             }
 
-            @Override
+                        /**
+             * Handles move selected variation.
+             * @param direction direction value
+             */
+@Override
             public void moveSelectedVariation(int direction) {
                 GuiWindowLayout.this.moveSelectedVariation(direction);
             }
 
-            @Override
+                        /**
+             * Handles create nag item.
+             * @param label label value
+             * @param nag nag value
+             * @return computed value
+             */
+@Override
             public JMenuItem createNagItem(String label, int nag) {
                 return GuiWindowLayout.this.createNagItem(label, nag);
             }
@@ -1654,29 +1894,49 @@ class GuiWindowLayout extends GuiWindowEngine {
 			underboardMoveList.setCellRenderer(new MovePairCellRenderer(this));
 			underboardMoveList.setFixedCellHeight(Math.round(24 * uiScale));
 			underboardMoveList.addMouseMotionListener(new MouseAdapter() {
-				@Override
+								/**
+				 * Handles mouse moved.
+				 * @param e e value
+				 */
+@Override
 				public void mouseMoved(MouseEvent e) {
 					int idx = historyIndexAtPoint(underboardMoveList, e.getPoint());
 					previewHistoryHover(idx, e.getLocationOnScreen()); }
 			});
 			underboardMoveList.addMouseListener(new MouseAdapter() {
-				@Override
+								/**
+				 * Handles mouse clicked.
+				 * @param e e value
+				 */
+@Override
 				public void mouseClicked(MouseEvent e) {
 					if (e.getClickCount() == 2) {
 						int idx = historyIndexAtPoint(underboardMoveList, e.getPoint());
 						if (idx >= 0) {
 							jumpToHistoryIndex(idx); } } }
-				@Override
+								/**
+				 * Handles mouse pressed.
+				 * @param e e value
+				 */
+@Override
 				public void mousePressed(MouseEvent e) {
 					if (!e.isPopupTrigger() && javax.swing.SwingUtilities.isLeftMouseButton(e)) {
 						int idx = historyIndexAtPoint(underboardMoveList, e.getPoint());
 						if (idx >= 0) {
 							selectHistoryNode(nodeAtHistoryIndex(idx)); } }
 					maybeShowUnderboardHistoryMenu(e); }
-				@Override
+								/**
+				 * Handles mouse released.
+				 * @param e e value
+				 */
+@Override
 				public void mouseReleased(MouseEvent e) {
 					maybeShowUnderboardHistoryMenu(e); }
-				@Override
+								/**
+				 * Handles mouse exited.
+				 * @param e e value
+				 */
+@Override
 				public void mouseExited(MouseEvent e) {
 					boardPanel.clearPreview();
 					hideEnginePvMiniBoardPreview(); }
@@ -1712,227 +1972,410 @@ class GuiWindowLayout extends GuiWindowEngine {
 		 */
 		private RoundedPanel buildEngineCard() {
 			EngineCardBuilder.Context ctx = new EngineCardBuilder.Context() {
-				@Override
+								/**
+				 * Handles ui factory.
+				 * @return computed value
+				 */
+@Override
 				public HistoryUiFactory uiFactory() {
 					return uiFactory;
 				}
 
-				@Override
+								/**
+				 * Handles ui scale.
+				 * @return computed value
+				 */
+@Override
 				public float uiScale() {
 					return GuiWindowLayout.this.uiScale;
 				}
 
-				@Override
+								/**
+				 * Handles scale dimension.
+				 * @param base base value
+				 * @return computed value
+				 */
+@Override
 				public Dimension scaleDimension(Dimension base) {
 					return GuiWindowLayout.this.scaleDimension(base);
 				}
 
-				@Override
+								/**
+				 * Handles owner.
+				 * @return computed value
+				 */
+@Override
 				public GuiWindowHistory owner() {
 					return GuiWindowLayout.this;
 				}
 
-				@Override
+								/**
+				 * Handles muted label.
+				 * @param text text value
+				 * @return computed value
+				 */
+@Override
 				public JLabel mutedLabel(String text) {
 					return GuiWindowLayout.this.mutedLabel(text);
 				}
 
-				@Override
+								/**
+				 * Handles labeled value.
+				 * @param label label value
+				 * @param value value value
+				 * @return computed value
+				 */
+@Override
 				public JPanel labeledValue(String label, JLabel value) {
 					return GuiWindowLayout.this.labeledValue(label, value);
 				}
 
-				@Override
+								/**
+				 * Handles labeled field.
+				 * @param label label value
+				 * @param field field value
+				 * @return computed value
+				 */
+@Override
 				public JPanel labeledField(String label, JTextField field) {
 					return GuiWindowLayout.this.labeledField(label, field);
 				}
 
-				@Override
+								/**
+				 * Sets the tings row.
+				 * @param label label value
+				 * @param control control value
+				 * @return computed value
+				 */
+@Override
 				public JPanel settingsRow(String label, JComponent control) {
 					return GuiWindowLayout.this.settingsRow(label, control);
 				}
 
-				@Override
+								/**
+				 * Handles themed checkbox.
+				 * @param text text value
+				 * @param selected selected value
+				 * @param action action value
+				 * @return computed value
+				 */
+@Override
 				public JCheckBox themedCheckbox(String text, boolean selected, java.awt.event.ActionListener action) {
 					return GuiWindowLayout.this.themedCheckbox(text, selected, action);
 				}
 
-				@Override
+								/**
+				 * Handles register strong label.
+				 * @param label label value
+				 */
+@Override
 				public void registerStrongLabel(JLabel label) {
 					if (label != null) {
 						strongLabels.add(label);
 					}
 				}
 
-				@Override
+								/**
+				 * Handles register text field.
+				 * @param field field value
+				 */
+@Override
 				public void registerTextField(JTextField field) {
 					layoutBuilderSupport.registerTextField(field);
 				}
 
-				@Override
+								/**
+				 * Handles register text area.
+				 * @param area area value
+				 */
+@Override
 				public void registerTextArea(JTextArea area) {
 					layoutBuilderSupport.registerTextArea(area);
 				}
 
-				@Override
+								/**
+				 * Handles register list.
+				 * @param list list value
+				 */
+@Override
 				public void registerList(JList<?> list) {
 					layoutBuilderSupport.registerList(list);
 				}
 
-				@Override
+								/**
+				 * Handles register scroll pane.
+				 * @param scroll scroll value
+				 */
+@Override
 				public void registerScrollPane(JScrollPane scroll) {
 					layoutBuilderSupport.registerScrollPane(scroll);
 				}
 
-				@Override
+								/**
+				 * Handles register combo box.
+				 * @param combo combo value
+				 */
+@Override
 				public void registerComboBox(JComboBox<?> combo) {
 					layoutBuilderSupport.registerComboBox(combo);
 				}
 
-				@Override
+								/**
+				 * Handles default protocol path.
+				 * @return computed value
+				 */
+@Override
 				public String defaultProtocolPath() {
 					return Config.getProtocolPath();
 				}
 
-				@Override
+								/**
+				 * Handles default engine nodes.
+				 * @return computed value
+				 */
+@Override
 				public long defaultEngineNodes() {
 					return GuiWindowLayout.this.defaultEngineNodes();
 				}
 
-				@Override
+								/**
+				 * Handles default engine duration.
+				 * @return computed value
+				 */
+@Override
 				public long defaultEngineDuration() {
 					return GuiWindowLayout.this.defaultEngineDuration();
 				}
 
-				@Override
+								/**
+				 * Handles vs engine human white.
+				 * @return computed value
+				 */
+@Override
 				public boolean vsEngineHumanWhite() {
 					return GuiWindowLayout.this.vsEngineHumanWhite;
 				}
 			};
 
 			EngineCardBuilder.Actions actions = new EngineCardBuilder.Actions() {
-				@Override
+								/**
+				 * Handles start engine.
+				 */
+@Override
 				public void startEngine() {
 					GuiWindowLayout.this.startEngine();
 				}
 
-				@Override
+								/**
+				 * Handles stop engine.
+				 */
+@Override
 				public void stopEngine() {
 					GuiWindowLayout.this.stopEngine();
 				}
 
-				@Override
+								/**
+				 * Handles play engine best.
+				 */
+@Override
 				public void playEngineBest() {
 					GuiWindowLayout.this.playEngineBest();
 				}
 
-				@Override
+								/**
+				 * Handles start vs engine new game.
+				 */
+@Override
 				public void startVsEngineNewGame() {
 					GuiWindowLayout.this.startVsEngineNewGame();
 				}
 
-				@Override
+								/**
+				 * Handles continue vs engine from current.
+				 */
+@Override
 				public void continueVsEngineFromCurrent() {
 					GuiWindowLayout.this.continueVsEngineFromCurrent();
 				}
 
-				@Override
+								/**
+				 * Handles stop vs engine game.
+				 */
+@Override
 				public void stopVsEngineGame() {
 					GuiWindowLayout.this.stopVsEngineGame();
 				}
 
-				@Override
+								/**
+				 * Handles refresh board.
+				 */
+@Override
 				public void refreshBoard() {
 					GuiWindowLayout.this.refreshBoard();
 				}
 
-				@Override
+								/**
+				 * Handles request vs engine reply if needed.
+				 */
+@Override
 				public void requestVsEngineReplyIfNeeded() {
 					GuiWindowLayout.this.requestVsEngineReplyIfNeeded();
 				}
 
-				@Override
+								/**
+				 * Handles refresh status bar.
+				 */
+@Override
 				public void refreshStatusBar() {
 					GuiWindowLayout.this.refreshStatusBar();
 				}
 
-				@Override
+								/**
+				 * Handles choose protocol file.
+				 */
+@Override
 				public void chooseProtocolFile() {
 					GuiWindowLayout.this.chooseProtocolFile();
 				}
 
-				@Override
+								/**
+				 * Handles copy engine pv.
+				 */
+@Override
 				public void copyEnginePv() {
 					GuiWindowLayout.this.copyEnginePv();
 				}
 
-				@Override
+								/**
+				 * Handles toggle engine lock pv.
+				 */
+@Override
 				public void toggleEngineLockPv() {
 					GuiWindowLayout.this.toggleEngineLockPv();
 				}
 
-				@Override
+								/**
+				 * Handles open engine manager.
+				 */
+@Override
 				public void openEngineManager() {
 					GuiWindowLayout.this.openEngineManager();
 				}
 
-				@Override
+								/**
+				 * Handles refresh pv list cell height.
+				 * @param entries entries value
+				 */
+@Override
 				public void refreshPvListCellHeight(java.util.List<PvEntry> entries) {
 					GuiWindowLayout.this.refreshPvListCellHeight(entries);
 				}
 
-				@Override
+								/**
+				 * Handles start pv hover animation.
+				 */
+@Override
 				public void startPvHoverAnimation() {
 					GuiWindowLayout.this.startPvHoverAnimation();
 				}
 
-				@Override
+								/**
+				 * Handles stop pv hover animation.
+				 */
+@Override
 				public void stopPvHoverAnimation() {
 					GuiWindowLayout.this.stopPvHoverAnimation();
 				}
 
-				@Override
+								/**
+				 * Handles preview engine pv.
+				 * @param pv pv value
+				 * @param ply ply value
+				 */
+@Override
 				public void previewEnginePv(int pv, int ply) {
 					GuiWindowLayout.this.previewEnginePv(pv, ply);
 				}
 
-				@Override
+								/**
+				 * Handles show engine pv mini board preview.
+				 * @param pv pv value
+				 * @param ply ply value
+				 * @param location location value
+				 */
+@Override
 				public void showEnginePvMiniBoardPreview(int pv, int ply, Point location) {
 					GuiWindowLayout.this.showEnginePvMiniBoardPreview(pv, ply, location);
 				}
 
-				@Override
+								/**
+				 * Handles hide engine pv mini board preview.
+				 */
+@Override
 				public void hideEnginePvMiniBoardPreview() {
 					GuiWindowLayout.this.hideEnginePvMiniBoardPreview();
 				}
 
-				@Override
+								/**
+				 * Handles play engine pv.
+				 * @param pv pv value
+				 * @param ply ply value
+				 */
+@Override
 				public void playEnginePv(int pv, int ply) {
 					GuiWindowLayout.this.playEnginePv(pv, ply);
 				}
 
-				@Override
+								/**
+				 * Handles toggle pv expanded.
+				 * @param entry entry value
+				 */
+@Override
 				public void togglePvExpanded(PvEntry entry) {
 					GuiWindowLayout.this.togglePvExpanded(entry);
 				}
 
-				@Override
+								/**
+				 * Returns whether pv expand toggle hit.
+				 * @param list list value
+				 * @param entry entry value
+				 * @param bounds bounds value
+				 * @param point point value
+				 * @return computed value
+				 */
+@Override
 				public boolean isPvExpandToggleHit(JList<? extends PvEntry> list, PvEntry entry,
 						Rectangle bounds, Point point) {
 					return GuiWindowLayout.this.isPvExpandToggleHit(list, entry, bounds, point);
 				}
 
-				@Override
+								/**
+				 * Handles pv ply at point.
+				 * @param entry entry value
+				 * @param listPoint list point value
+				 * @param cellBounds cell bounds value
+				 * @return computed value
+				 */
+@Override
 				public int pvPlyAtPoint(PvEntry entry, Point listPoint, Rectangle cellBounds) {
 					return GuiWindowLayout.this.pvPlyAtPoint(entry, listPoint, cellBounds);
 				}
 
-				@Override
+								/**
+				 * Handles pv total plies.
+				 * @param entry entry value
+				 * @return computed value
+				 */
+@Override
 				public int pvTotalPlies(PvEntry entry) {
 					return GuiWindowLayout.this.pvTotalPlies(entry);
 				}
 
-				@Override
+								/**
+				 * Handles on vs engine side change.
+				 * @param playWhite play white value
+				 */
+@Override
 				public void onVsEngineSideChange(boolean playWhite) {
 					GuiWindowLayout.this.vsEngineHumanWhite = playWhite;
 					GuiWindowLayout.this.refreshBoard();
@@ -1993,7 +2436,13 @@ class GuiWindowLayout extends GuiWindowEngine {
 			if (ecoTableModel != null) {
 				return; }
 			ecoTableModel = new DefaultTableModel(new Object[] { "ECO", "Name", "Moves" }, 0) {
-				@Override
+								/**
+				 * Returns whether cell editable.
+				 * @param row row value
+				 * @param column column value
+				 * @return computed value
+				 */
+@Override
 				public boolean isCellEditable(int row, int column) {
 					return false; }
 			}; }
@@ -2026,7 +2475,11 @@ class GuiWindowLayout extends GuiWindowEngine {
 					updateEcoDetails();
 				});
 				ecoTable.addMouseListener(new MouseAdapter() {
-					@Override
+										/**
+					 * Handles mouse clicked.
+					 * @param e e value
+					 */
+@Override
 					public void mouseClicked(MouseEvent e) {
 						if (e.getClickCount() == 2) {
 							int viewRow = ecoTable.getSelectedRow();
@@ -2050,93 +2503,156 @@ class GuiWindowLayout extends GuiWindowEngine {
 		 */
 		private RoundedPanel buildEcoCard() {
 			EcoExplorerCardBuilder.Context ctx = new EcoExplorerCardBuilder.Context() {
-				@Override
+								/**
+				 * Handles ui factory.
+				 * @return computed value
+				 */
+@Override
 				public HistoryUiFactory uiFactory() {
 					return uiFactory;
 				}
 
-				@Override
+								/**
+				 * Handles ui scale.
+				 * @return computed value
+				 */
+@Override
 				public float uiScale() {
 					return GuiWindowLayout.this.uiScale;
 				}
 
-				@Override
+								/**
+				 * Handles format title.
+				 * @param text text value
+				 * @return computed value
+				 */
+@Override
 				public String formatTitle(String text) {
 					return GuiWindowLayout.this.formatTitle(text);
 				}
 
-				@Override
+								/**
+				 * Handles muted label.
+				 * @param text text value
+				 * @return computed value
+				 */
+@Override
 				public JLabel mutedLabel(String text) {
 					return GuiWindowLayout.this.mutedLabel(text);
 				}
 
-				@Override
+								/**
+				 * Handles owner.
+				 * @return computed value
+				 */
+@Override
 				public GuiWindowHistory owner() {
 					return GuiWindowLayout.this;
 				}
 
-				@Override
+								/**
+				 * Handles register text field.
+				 * @param field field value
+				 */
+@Override
 				public void registerTextField(JTextField field) {
 					layoutBuilderSupport.registerTextField(field);
 				}
 
-				@Override
+								/**
+				 * Handles register text area.
+				 * @param area area value
+				 */
+@Override
 				public void registerTextArea(JTextArea area) {
 					layoutBuilderSupport.registerTextArea(area);
 				}
 
-				@Override
+								/**
+				 * Handles register list.
+				 * @param list list value
+				 */
+@Override
 				public void registerList(JList<?> list) {
 					layoutBuilderSupport.registerList(list);
 				}
 
-				@Override
+								/**
+				 * Handles register scroll pane.
+				 * @param scroll scroll value
+				 */
+@Override
 				public void registerScrollPane(JScrollPane scroll) {
 					layoutBuilderSupport.registerScrollPane(scroll);
 				}
 			};
 
 			EcoExplorerCardBuilder.Actions actions = new EcoExplorerCardBuilder.Actions() {
-				@Override
+								/**
+				 * Handles refresh eco list.
+				 */
+@Override
 				public void refreshEcoList() {
 					if (ensureEcoBook(true)) {
 						filterEcoList();
 					}
 				}
 
-				@Override
+								/**
+				 * Handles collapse explorer selection.
+				 */
+@Override
 				public void collapseExplorerSelection() {
 					if (ecoList != null) {
 						ecoList.clearSelection();
 					}
 				}
 
-				@Override
+								/**
+				 * Handles more explorer options.
+				 */
+@Override
 				public void moreExplorerOptions() {
 					// placeholder for future actions
 				}
 
-				@Override
+								/**
+				 * Handles filter eco list.
+				 */
+@Override
 				public void filterEcoList() {
 					GuiWindowLayout.this.filterEcoList();
 				}
 
-				@Override
+								/**
+				 * Handles update eco details.
+				 */
+@Override
 				public void updateEcoDetails() {
 					GuiWindowLayout.this.updateEcoDetails();
 				}
 
-				@Override
+								/**
+				 * Handles apply eco entry.
+				 * @param entry entry value
+				 */
+@Override
 				public void applyEcoEntry(Entry entry) {
 					GuiWindowLayout.this.applyEcoEntry(entry);
 				}
 
-				@Override
+								/**
+				 * Handles load current eco line.
+				 */
+@Override
 				public void loadCurrentEcoLine() {
 					GuiWindowLayout.this.applyEcoEntry(ecoSelected);
 				}
 
-				@Override
+								/**
+				 * Handles copy eco movetext.
+				 */
+@Override
 				public void copyEcoMovetext() {
 					GuiWindowLayout.this.copyEcoMovetext();
 				}

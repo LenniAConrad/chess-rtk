@@ -22,7 +22,16 @@ public final class NativeBackendOps {
      * @param handle native backend handle
      * @param info parsed network metadata
      */
-    public record Created(    long handle,     Network.Info info) {}
+    public record Created(
+        /**
+         * Stores the handle.
+         */
+        long handle,
+        /**
+         * Stores the info.
+         */
+        Network.Info info
+    ) {}
 
     /**
      * Functional interface for native evaluator creation.

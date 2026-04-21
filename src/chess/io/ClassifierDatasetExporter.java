@@ -71,14 +71,39 @@ public final class ClassifierDatasetExporter {
      * @param maxNegatives maximum negative samples to write
      */
     public record Options(
-                        Filter rowFilter,
-                        String rowFilterDsl,
-                        Filter labelFilter,
-                        String labelFilterDsl,
-                        Filter fallbackLabelFilter,
-                        String fallbackLabelFilterDsl,
-                        long maxPositives,
-                        long maxNegatives) {
+        /**
+         * Stores the row filter.
+         */
+        Filter rowFilter,
+        /**
+         * Stores the row filter dsl.
+         */
+        String rowFilterDsl,
+        /**
+         * Stores the label filter.
+         */
+        Filter labelFilter,
+        /**
+         * Stores the label filter dsl.
+         */
+        String labelFilterDsl,
+        /**
+         * Stores the fallback label filter.
+         */
+        Filter fallbackLabelFilter,
+        /**
+         * Stores the fallback label filter dsl.
+         */
+        String fallbackLabelFilterDsl,
+        /**
+         * Stores the max positives.
+         */
+        long maxPositives,
+        /**
+         * Stores the max negatives.
+         */
+        long maxNegatives
+    ) {
 
         /**
          * Creates a normalized option set.
@@ -107,15 +132,43 @@ public final class ClassifierDatasetExporter {
      * @param skippedClassCap records skipped because the class cap was reached
      */
     public record Summary(
-                        long seen,
-                        long rowsWritten,
-                        long positives,
-                        long negatives,
-                        long skippedInvalid,
-                        long skippedMissingPosition,
-                        long skippedRowFilter,
-                        long skippedUnlabeled,
-                        long skippedClassCap) {
+        /**
+         * Stores the seen.
+         */
+        long seen,
+        /**
+         * Stores the rows written.
+         */
+        long rowsWritten,
+        /**
+         * Stores the positives.
+         */
+        long positives,
+        /**
+         * Stores the negatives.
+         */
+        long negatives,
+        /**
+         * Stores the skipped invalid.
+         */
+        long skippedInvalid,
+        /**
+         * Stores the skipped missing position.
+         */
+        long skippedMissingPosition,
+        /**
+         * Stores the skipped row filter.
+         */
+        long skippedRowFilter,
+        /**
+         * Stores the skipped unlabeled.
+         */
+        long skippedUnlabeled,
+        /**
+         * Stores the skipped class cap.
+         */
+        long skippedClassCap
+    ) {
     }
 
     /**
@@ -126,7 +179,24 @@ public final class ClassifierDatasetExporter {
      * @param totalFiles total input files scheduled
      * @param summary cumulative export counters after this file
      */
-    public record FileProgress(    Path file,     int completedFiles,     int totalFiles,     Summary summary) {
+    public record FileProgress(
+        /**
+         * Stores the file.
+         */
+        Path file,
+        /**
+         * Stores the completed files.
+         */
+        int completedFiles,
+        /**
+         * Stores the total files.
+         */
+        int totalFiles,
+        /**
+         * Stores the summary.
+         */
+        Summary summary
+    ) {
     }
 
     /**

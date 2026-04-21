@@ -18,6 +18,30 @@ import chess.uci.Evaluation;
   * @since 2026
   * @author Lennart A. Conrad
  */
-public record EngineCacheEntry(String output, String bestMoves, Evaluation eval, Chances chances, Analysis analysis,
-		short bestMove) {
+public record EngineCacheEntry(
+	/**
+	 * Stores the output.
+	 */
+	String output,
+	/**
+	 * Stores the best moves.
+	 */
+	String bestMoves,
+	/**
+	 * Stores the eval.
+	 */
+	Evaluation eval,
+	/**
+	 * Stores the chances.
+	 */
+	Chances chances,
+	/**
+	 * Stores the analysis.
+	 */
+	Analysis analysis,
+	/**
+	 * Stores the best move.
+	 */
+	short bestMove
+) {
 }

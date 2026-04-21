@@ -12,5 +12,14 @@ import java.util.List;
   * @since 2026
   * @author Lennart A. Conrad
  */
-public record PgnMainline(List<String> fens, String error) {
+public record PgnMainline(
+	/**
+	 * Stores the fens.
+	 */
+	List<String> fens,
+	/**
+	 * Stores the error.
+	 */
+	String error
+) {
 }

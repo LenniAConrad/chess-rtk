@@ -22,7 +22,10 @@ import javax.swing.KeyStroke;
  */
 final class BoardEditorPane extends JPanel {
 
-	@java.io.Serial
+		/**
+	 * Serialization version identifier.
+	 */
+@java.io.Serial
 	private static final long serialVersionUID = 1L;
 
     /**
@@ -33,8 +36,14 @@ final class BoardEditorPane extends JPanel {
      * editorRoot field.
      */
     private final GradientPanel editorRoot;
-    private final BoardEditorShared.EditorBoardPanel editorBoard;
-    private final List<BoardEditorShared.PaletteButton> paletteButtons = new ArrayList<>();
+        /**
+     * Stores the editor board.
+     */
+private final BoardEditorShared.EditorBoardPanel editorBoard;
+        /**
+     * Stores the palette buttons.
+     */
+private final List<BoardEditorShared.PaletteButton> paletteButtons = new ArrayList<>();
 
     /**
      * originalBoard field.
@@ -94,7 +103,10 @@ final class BoardEditorPane extends JPanel {
      * legalityWrapWidth field.
      */
     private final int legalityWrapWidth;
-    private final List<javax.swing.JButton> actionButtons;
+        /**
+     * Stores the action buttons.
+     */
+private final List<javax.swing.JButton> actionButtons;
     /**
      * adjustingCastling field.
      */
@@ -149,7 +161,11 @@ final class BoardEditorPane extends JPanel {
         getInputMap(JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT)
                 .put(KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_ESCAPE, 0), "board-editor-abort");
         getActionMap().put("board-editor-abort", new AbstractAction() {
-            @Override
+                        /**
+             * Handles action performed.
+             * @param e e value
+             */
+@Override
             public void actionPerformed(java.awt.event.ActionEvent e) {
                 abortEditing();
             }

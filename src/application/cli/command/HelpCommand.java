@@ -1,51 +1,20 @@
 package application.cli.command;
 
-import static application.cli.Constants.CMD_ANALYZE;
-import static application.cli.Constants.CMD_BESTMOVE;
-import static application.cli.Constants.CMD_BESTMOVE_BOTH;
-import static application.cli.Constants.CMD_BESTMOVE_SAN;
-import static application.cli.Constants.CMD_BESTMOVE_UCI;
+import static application.cli.Constants.CMD_BOOK;
 import static application.cli.Constants.CMD_CLEAN;
-import static application.cli.Constants.CMD_CHESS_BOOK;
-import static application.cli.Constants.CMD_CHESS_BOOK_COVER;
-import static application.cli.Constants.CMD_CHESS_PDF;
 import static application.cli.Constants.CMD_CONFIG;
-import static application.cli.Constants.CMD_DISPLAY;
-import static application.cli.Constants.CMD_EVAL;
-import static application.cli.Constants.CMD_EVAL_STATIC;
-import static application.cli.Constants.CMD_GEN_FENS;
+import static application.cli.Constants.CMD_DOCTOR;
+import static application.cli.Constants.CMD_ENGINE;
+import static application.cli.Constants.CMD_FEN;
 import static application.cli.Constants.CMD_GUI;
 import static application.cli.Constants.CMD_GUI_WEB;
-import static application.cli.Constants.CMD_GPU_INFO;
 import static application.cli.Constants.CMD_HELP;
 import static application.cli.Constants.CMD_HELP_LONG;
 import static application.cli.Constants.CMD_HELP_SHORT;
-import static application.cli.Constants.CMD_MINE_PUZZLES;
-import static application.cli.Constants.CMD_MOVES;
-import static application.cli.Constants.CMD_MOVES_BOTH;
-import static application.cli.Constants.CMD_MOVES_SAN;
-import static application.cli.Constants.CMD_MOVES_UCI;
-import static application.cli.Constants.CMD_PERFT;
-import static application.cli.Constants.CMD_PERFT_SUITE;
-import static application.cli.Constants.CMD_PGN_TO_FENS;
-import static application.cli.Constants.CMD_PRINT;
-import static application.cli.Constants.CMD_PUZZLES_TO_PGN;
-import static application.cli.Constants.CMD_RECORDS;
-import static application.cli.Constants.CMD_RECORD_TO_CSV;
-import static application.cli.Constants.CMD_RECORD_TO_DATASET;
-import static application.cli.Constants.CMD_RECORD_TO_LC0;
-import static application.cli.Constants.CMD_RECORD_TO_PGN;
-import static application.cli.Constants.CMD_RECORD_TO_PLAIN;
-import static application.cli.Constants.CMD_RECORD_TO_CLASSIFIER;
-import static application.cli.Constants.CMD_RECORD_TO_TRAINING_JSONL;
-import static application.cli.Constants.CMD_RENDER;
-import static application.cli.Constants.CMD_STATS;
-import static application.cli.Constants.CMD_STATS_TAGS;
-import static application.cli.Constants.CMD_TAGS;
-import static application.cli.Constants.CMD_TAG_TEXT;
-import static application.cli.Constants.CMD_PUZZLE_TAGS;
-import static application.cli.Constants.CMD_PUZZLE_TEXT;
-import static application.cli.Constants.CMD_THREATS;
+import static application.cli.Constants.CMD_MOVE;
+import static application.cli.Constants.CMD_PUZZLE;
+import static application.cli.Constants.CMD_RECORD;
+import static application.cli.Constants.CMD_UCI_SMOKE;
 
 import java.util.Arrays;
 import java.util.List;
@@ -62,96 +31,158 @@ import utility.Argv;
 public final class HelpCommand {
 
 	/**
-	 * Help marker for {@code record-to-plain}.
+	 * Help marker for {@code record}.
 	 */
-	private static final String RECORD_TO_PLAIN_OPTIONS_MARKER = "record-to-plain options:";
+	private static final String RECORD_SUBCOMMANDS_MARKER = "record subcommands:";
 
 	/**
-	 * Help marker for {@code record-to-csv}.
+	 * Help marker for {@code record export}.
 	 */
-	private static final String RECORD_TO_CSV_OPTIONS_MARKER = "record-to-csv options:";
+	private static final String RECORD_EXPORT_SUBCOMMANDS_MARKER = "record export subcommands:";
 
 	/**
-	 * Help marker for {@code record-to-dataset}.
+	 * Help marker for {@code record dataset}.
 	 */
-	private static final String RECORD_TO_DATASET_OPTIONS_MARKER = "record-to-dataset options:";
+	private static final String RECORD_DATASET_SUBCOMMANDS_MARKER = "record dataset subcommands:";
 
 	/**
-	 * Help marker for {@code record-to-lc0}.
+	 * Help marker for {@code fen}.
 	 */
-	private static final String RECORD_TO_LC0_OPTIONS_MARKER = "record-to-lc0 options:";
+	private static final String FEN_SUBCOMMANDS_MARKER = "fen subcommands:";
 
 	/**
-	 * Help marker for {@code record-to-classifier}.
+	 * Help marker for {@code move}.
+	 */
+	private static final String MOVE_SUBCOMMANDS_MARKER = "move subcommands:";
+
+	/**
+	 * Help marker for {@code engine}.
+	 */
+	private static final String ENGINE_SUBCOMMANDS_MARKER = "engine subcommands:";
+
+	/**
+	 * Help marker for {@code book}.
+	 */
+	private static final String BOOK_SUBCOMMANDS_MARKER = "book subcommands:";
+
+	/**
+	 * Help marker for {@code puzzle}.
+	 */
+	private static final String PUZZLE_SUBCOMMANDS_MARKER = "puzzle subcommands:";
+
+	/**
+	 * Help marker for {@code record export plain}.
+	 */
+	private static final String RECORD_TO_PLAIN_OPTIONS_MARKER = "record export plain options:";
+
+	/**
+	 * Help marker for {@code record export csv}.
+	 */
+	private static final String RECORD_TO_CSV_OPTIONS_MARKER = "record export csv options:";
+
+	/**
+	 * Help marker for {@code record dataset npy}.
+	 */
+	private static final String RECORD_TO_DATASET_OPTIONS_MARKER = "record dataset npy options:";
+
+	/**
+	 * Help marker for {@code record dataset lc0}.
+	 */
+	private static final String RECORD_TO_LC0_OPTIONS_MARKER = "record dataset lc0 options:";
+
+	/**
+	 * Help marker for {@code record dataset classifier}.
 	 */
 	private static final String RECORD_TO_CLASSIFIER_OPTIONS_MARKER =
-			"record-to-classifier options:";
+			"record dataset classifier options:";
 
 	/**
-	 * Help marker for {@code record-to-training-jsonl}.
+	 * Help marker for {@code record export training-jsonl}.
 	 */
 	private static final String RECORD_TO_TRAINING_JSONL_OPTIONS_MARKER =
-			"record-to-training-jsonl options:";
+			"record export training-jsonl options:";
 
 	/**
-	 * Help marker for {@code record-to-pgn}.
+	 * Help marker for {@code record export puzzle-jsonl}.
 	 */
-	private static final String RECORD_TO_PGN_OPTIONS_MARKER = "record-to-pgn options:";
+	private static final String RECORD_TO_PUZZLE_JSONL_OPTIONS_MARKER =
+			"record export puzzle-jsonl options:";
 
 	/**
-	 * Help marker for {@code puzzles-to-pgn}.
+	 * Help marker for {@code record export pgn}.
 	 */
-	private static final String PUZZLES_TO_PGN_OPTIONS_MARKER = "puzzles-to-pgn options:";
+	private static final String RECORD_TO_PGN_OPTIONS_MARKER = "record export pgn options:";
 
 	/**
-	 * Help marker for {@code records}.
+	 * Help marker for {@code puzzle pgn}.
 	 */
-	private static final String RECORDS_OPTIONS_MARKER = "records options:";
+	private static final String PUZZLES_TO_PGN_OPTIONS_MARKER = "puzzle pgn options:";
 
 	/**
-	 * Help marker for {@code gpu-info}.
+	 * Help marker for {@code record files}.
 	 */
-	private static final String GPU_INFO_OPTIONS_MARKER = "gpu-info options:";
+	private static final String RECORDS_OPTIONS_MARKER = "record files options:";
 
 	/**
-	 * Help marker for {@code gen-fens}.
+	 * Help marker for {@code record analysis-delta}.
 	 */
-	private static final String GEN_FENS_OPTIONS_MARKER = "gen-fens options:";
+	private static final String RECORD_ANALYSIS_DELTA_OPTIONS_MARKER =
+			"record analysis-delta options:";
 
 	/**
-	 * Help marker for {@code mine-puzzles}.
+	 * Help marker for {@code engine gpu}.
 	 */
-	private static final String MINE_PUZZLES_OPTIONS_MARKER = "mine-puzzles options (overrides & inputs):";
+	private static final String GPU_INFO_OPTIONS_MARKER = "engine gpu options:";
 
 	/**
-	 * Help marker for {@code print}.
+	 * Help marker for {@code engine uci-smoke}.
 	 */
-	private static final String PRINT_OPTIONS_MARKER = "print options:";
+	private static final String UCI_SMOKE_OPTIONS_MARKER = "engine uci-smoke options:";
 
 	/**
-	 * Help marker for {@code display}.
+	 * Help marker for {@code fen generate}.
 	 */
-	private static final String DISPLAY_OPTIONS_MARKER = "display options:";
+	private static final String GEN_FENS_OPTIONS_MARKER = "fen generate options:";
 
 	/**
-	 * Help marker for {@code render}.
+	 * Help marker for {@code puzzle mine}.
 	 */
-	private static final String RENDER_OPTIONS_MARKER = "render options:";
+	private static final String MINE_PUZZLES_OPTIONS_MARKER = "puzzle mine options (overrides & inputs):";
 
 	/**
-	 * Help marker for {@code chess-book}.
+	 * Help marker for {@code fen print}.
 	 */
-	private static final String CHESS_BOOK_OPTIONS_MARKER = "chess-book options:";
+	private static final String PRINT_OPTIONS_MARKER = "fen print options:";
 
 	/**
-	 * Help marker for {@code chess-book-cover}.
+	 * Help marker for {@code fen display}.
 	 */
-	private static final String CHESS_BOOK_COVER_OPTIONS_MARKER = "chess-book-cover options:";
+	private static final String DISPLAY_OPTIONS_MARKER = "fen display options:";
 
 	/**
-	 * Help marker for {@code chess-pdf}.
+	 * Help marker for {@code fen render}.
 	 */
-	private static final String CHESS_PDF_OPTIONS_MARKER = "chess-pdf options:";
+	private static final String RENDER_OPTIONS_MARKER = "fen render options:";
+
+	/**
+	 * Help marker for {@code book render}.
+	 */
+	private static final String CHESS_BOOK_OPTIONS_MARKER = "book render options:";
+
+	/**
+	 * Help marker for {@code book cover}.
+	 */
+	private static final String CHESS_BOOK_COVER_OPTIONS_MARKER = "book cover options:";
+
+	/**
+	 * Help marker for {@code fen chess960}.
+	 */
+	private static final String CHESS960_OPTIONS_MARKER = "fen chess960 options:";
+
+	/**
+	 * Help marker for {@code book pdf}.
+	 */
+	private static final String CHESS_PDF_OPTIONS_MARKER = "book pdf options:";
 
 	/**
 	 * Help marker for {@code gui}.
@@ -169,114 +200,149 @@ public final class HelpCommand {
 	private static final String CONFIG_SUBCOMMANDS_MARKER = "config subcommands:";
 
 	/**
-	 * Help marker for {@code stats}.
+	 * Help marker for {@code record stats}.
 	 */
-	private static final String STATS_OPTIONS_MARKER = "stats options:";
+	private static final String STATS_OPTIONS_MARKER = "record stats options:";
 
 	/**
-	 * Help marker for {@code stats-tags}.
+	 * Help marker for {@code record tag-stats}.
 	 */
-	private static final String STATS_TAGS_OPTIONS_MARKER = "stats-tags options:";
+	private static final String STATS_TAGS_OPTIONS_MARKER = "record tag-stats options:";
 
 	/**
-	 * Help marker for {@code tags}.
+	 * Help marker for {@code fen tags}.
 	 */
-	private static final String TAGS_OPTIONS_MARKER = "tags options:";
+	private static final String TAGS_OPTIONS_MARKER = "fen tags options:";
 
 	/**
-	 * Help marker for {@code puzzle-tags}.
+	 * Help marker for {@code puzzle tags}.
 	 */
-	private static final String PUZZLE_TAGS_OPTIONS_MARKER = "puzzle-tags options:";
+	private static final String PUZZLE_TAGS_OPTIONS_MARKER = "puzzle tags options:";
 
 	/**
-	 * Help marker for {@code puzzle-text}.
+	 * Help marker for {@code puzzle text}.
 	 */
-	private static final String PUZZLE_TEXT_OPTIONS_MARKER = "puzzle-text options:";
+	private static final String PUZZLE_TEXT_OPTIONS_MARKER = "puzzle text options:";
 
 	/**
-	 * Help marker for {@code tag-text}.
+	 * Help marker for {@code fen text}.
 	 */
-	private static final String TAG_TEXT_OPTIONS_MARKER = "tag-text options:";
+	private static final String TAG_TEXT_OPTIONS_MARKER = "fen text options:";
 
 	/**
-	 * Help marker for {@code moves}.
+	 * Help marker for {@code move list}.
 	 */
-	private static final String MOVES_OPTIONS_MARKER = "moves options:";
+	private static final String MOVES_OPTIONS_MARKER = "move list options:";
 
 	/**
-	 * Help marker for {@code moves-uci}.
+	 * Help marker for {@code move uci}.
 	 */
-	private static final String MOVES_UCI_OPTIONS_MARKER = "moves-uci options:";
+	private static final String MOVES_UCI_OPTIONS_MARKER = "move uci options:";
 
 	/**
-	 * Help marker for {@code moves-san}.
+	 * Help marker for {@code move san}.
 	 */
-	private static final String MOVES_SAN_OPTIONS_MARKER = "moves-san options:";
+	private static final String MOVES_SAN_OPTIONS_MARKER = "move san options:";
 
 	/**
-	 * Help marker for {@code moves-both}.
+	 * Help marker for {@code move both}.
 	 */
-	private static final String MOVES_BOTH_OPTIONS_MARKER = "moves-both options:";
+	private static final String MOVES_BOTH_OPTIONS_MARKER = "move both options:";
 
 	/**
-	 * Help marker for {@code analyze}.
+	 * Help marker for {@code move to-san}.
 	 */
-	private static final String ANALYZE_OPTIONS_MARKER = "analyze options:";
+	private static final String UCI_TO_SAN_OPTIONS_MARKER = "move to-san options:";
 
 	/**
-	 * Help marker for {@code bestmove}.
+	 * Help marker for {@code move to-uci}.
 	 */
-	private static final String BESTMOVE_OPTIONS_MARKER = "bestmove options:";
+	private static final String SAN_TO_UCI_OPTIONS_MARKER = "move to-uci options:";
 
 	/**
-	 * Help marker for {@code bestmove-uci}.
+	 * Help marker for {@code move after}.
 	 */
-	private static final String BESTMOVE_UCI_OPTIONS_MARKER = "bestmove-uci options:";
+	private static final String FEN_AFTER_OPTIONS_MARKER = "move after options:";
 
 	/**
-	 * Help marker for {@code bestmove-san}.
+	 * Help marker for {@code move play}.
 	 */
-	private static final String BESTMOVE_SAN_OPTIONS_MARKER = "bestmove-san options:";
+	private static final String PLAY_LINE_OPTIONS_MARKER = "move play options:";
 
 	/**
-	 * Help marker for {@code bestmove-both}.
+	 * Help marker for {@code fen normalize}.
 	 */
-	private static final String BESTMOVE_BOTH_OPTIONS_MARKER = "bestmove-both options:";
+	private static final String FEN_NORMALIZE_OPTIONS_MARKER = "fen normalize options:";
 
 	/**
-	 * Help marker for {@code threats}.
+	 * Help marker for {@code fen validate}.
 	 */
-	private static final String THREATS_OPTIONS_MARKER = "threats options:";
+	private static final String FEN_VALIDATE_OPTIONS_MARKER = "fen validate options:";
 
 	/**
-	 * Help marker for {@code perft}.
+	 * Help marker for {@code engine analyze}.
 	 */
-	private static final String PERFT_OPTIONS_MARKER = "perft options:";
+	private static final String ANALYZE_OPTIONS_MARKER = "engine analyze options:";
 
 	/**
-	 * Help marker for {@code perft-suite}.
+	 * Help marker for {@code engine bestmove}.
 	 */
-	private static final String PERFT_SUITE_OPTIONS_MARKER = "perft-suite options:";
+	private static final String BESTMOVE_OPTIONS_MARKER = "engine bestmove options:";
 
 	/**
-	 * Help marker for {@code pgn-to-fens}.
+	 * Help marker for {@code engine bestmove-uci}.
 	 */
-	private static final String PGN_TO_FENS_OPTIONS_MARKER = "pgn-to-fens options:";
+	private static final String BESTMOVE_UCI_OPTIONS_MARKER = "engine bestmove-uci options:";
 
 	/**
-	 * Help marker for {@code eval}.
+	 * Help marker for {@code engine bestmove-san}.
 	 */
-	private static final String EVAL_OPTIONS_MARKER = "eval options:";
+	private static final String BESTMOVE_SAN_OPTIONS_MARKER = "engine bestmove-san options:";
 
 	/**
-	 * Help marker for {@code eval-static}.
+	 * Help marker for {@code engine bestmove-both}.
 	 */
-	private static final String EVAL_STATIC_OPTIONS_MARKER = "eval-static options:";
+	private static final String BESTMOVE_BOTH_OPTIONS_MARKER = "engine bestmove-both options:";
+
+	/**
+	 * Help marker for {@code engine threats}.
+	 */
+	private static final String THREATS_OPTIONS_MARKER = "engine threats options:";
+
+	/**
+	 * Help marker for {@code engine perft}.
+	 */
+	private static final String PERFT_OPTIONS_MARKER = "engine perft options:";
+
+	/**
+	 * Help marker for {@code engine perft-suite}.
+	 */
+	private static final String PERFT_SUITE_OPTIONS_MARKER = "engine perft-suite options:";
+
+	/**
+	 * Help marker for {@code fen pgn}.
+	 */
+	private static final String PGN_TO_FENS_OPTIONS_MARKER = "fen pgn options:";
+
+	/**
+	 * Help marker for {@code engine eval}.
+	 */
+	private static final String EVAL_OPTIONS_MARKER = "engine eval options:";
+
+	/**
+	 * Help marker for {@code engine static}.
+	 */
+	private static final String EVAL_STATIC_OPTIONS_MARKER = "engine static options:";
 
 	/**
 	 * Help marker for {@code clean}.
 	 */
 	private static final String CLEAN_OPTIONS_MARKER = "clean options:";
+
+	/**
+	 * Help marker for {@code doctor}.
+	 */
+	private static final String DOCTOR_OPTIONS_MARKER = "doctor options:";
 
 	/**
 	 * Help marker for {@code help} variants.
@@ -287,52 +353,100 @@ public final class HelpCommand {
 	 * Maps command names to their help section markers.
 	 */
 	private static final Map<String, String> HELP_MARKERS = Map.ofEntries(
-			Map.entry(CMD_RECORD_TO_PLAIN, RECORD_TO_PLAIN_OPTIONS_MARKER),
-			Map.entry(CMD_RECORD_TO_CSV, RECORD_TO_CSV_OPTIONS_MARKER),
-			Map.entry(CMD_RECORD_TO_DATASET, RECORD_TO_DATASET_OPTIONS_MARKER),
-			Map.entry(CMD_RECORD_TO_LC0, RECORD_TO_LC0_OPTIONS_MARKER),
-			Map.entry(CMD_RECORD_TO_CLASSIFIER, RECORD_TO_CLASSIFIER_OPTIONS_MARKER),
-			Map.entry(CMD_RECORD_TO_TRAINING_JSONL, RECORD_TO_TRAINING_JSONL_OPTIONS_MARKER),
-			Map.entry(CMD_RECORD_TO_PGN, RECORD_TO_PGN_OPTIONS_MARKER),
-			Map.entry(CMD_PUZZLES_TO_PGN, PUZZLES_TO_PGN_OPTIONS_MARKER),
-				Map.entry(CMD_RECORDS, RECORDS_OPTIONS_MARKER),
-				Map.entry(CMD_GPU_INFO, GPU_INFO_OPTIONS_MARKER),
-				Map.entry(CMD_GEN_FENS, GEN_FENS_OPTIONS_MARKER),
-				Map.entry(CMD_MINE_PUZZLES, MINE_PUZZLES_OPTIONS_MARKER),
-				Map.entry(CMD_PRINT, PRINT_OPTIONS_MARKER),
-				Map.entry(CMD_DISPLAY, DISPLAY_OPTIONS_MARKER),
-			Map.entry(CMD_RENDER, RENDER_OPTIONS_MARKER),
-			Map.entry(CMD_CHESS_BOOK, CHESS_BOOK_OPTIONS_MARKER),
-			Map.entry(CMD_CHESS_BOOK_COVER, CHESS_BOOK_COVER_OPTIONS_MARKER),
-			Map.entry(CMD_CHESS_PDF, CHESS_PDF_OPTIONS_MARKER),
+			Map.entry(CMD_RECORD, RECORD_SUBCOMMANDS_MARKER),
+			Map.entry("record export", RECORD_EXPORT_SUBCOMMANDS_MARKER),
+			Map.entry("record export plain", RECORD_TO_PLAIN_OPTIONS_MARKER),
+			Map.entry("record export csv", RECORD_TO_CSV_OPTIONS_MARKER),
+			Map.entry("record export pgn", RECORD_TO_PGN_OPTIONS_MARKER),
+			Map.entry("record export puzzle-jsonl", RECORD_TO_PUZZLE_JSONL_OPTIONS_MARKER),
+			Map.entry("record export training-jsonl", RECORD_TO_TRAINING_JSONL_OPTIONS_MARKER),
+			Map.entry("record dataset", RECORD_DATASET_SUBCOMMANDS_MARKER),
+			Map.entry("record dataset npy", RECORD_TO_DATASET_OPTIONS_MARKER),
+			Map.entry("record dataset lc0", RECORD_TO_LC0_OPTIONS_MARKER),
+			Map.entry("record dataset classifier", RECORD_TO_CLASSIFIER_OPTIONS_MARKER),
+			Map.entry("record files", RECORDS_OPTIONS_MARKER),
+			Map.entry("record stats", STATS_OPTIONS_MARKER),
+			Map.entry("record tag-stats", STATS_TAGS_OPTIONS_MARKER),
+			Map.entry("record analysis-delta", RECORD_ANALYSIS_DELTA_OPTIONS_MARKER),
+			Map.entry(CMD_FEN, FEN_SUBCOMMANDS_MARKER),
+			Map.entry("fen normalize", FEN_NORMALIZE_OPTIONS_MARKER),
+			Map.entry("fen validate", FEN_VALIDATE_OPTIONS_MARKER),
+			Map.entry("fen after", FEN_AFTER_OPTIONS_MARKER),
+			Map.entry("fen line", PLAY_LINE_OPTIONS_MARKER),
+			Map.entry("fen generate", GEN_FENS_OPTIONS_MARKER),
+			Map.entry("fen pgn", PGN_TO_FENS_OPTIONS_MARKER),
+			Map.entry("fen chess960", CHESS960_OPTIONS_MARKER),
+			Map.entry("fen print", PRINT_OPTIONS_MARKER),
+			Map.entry("fen display", DISPLAY_OPTIONS_MARKER),
+			Map.entry("fen render", RENDER_OPTIONS_MARKER),
+			Map.entry("fen tags", TAGS_OPTIONS_MARKER),
+			Map.entry("fen text", TAG_TEXT_OPTIONS_MARKER),
+			Map.entry(CMD_MOVE, MOVE_SUBCOMMANDS_MARKER),
+			Map.entry("move list", MOVES_OPTIONS_MARKER),
+			Map.entry("move uci", MOVES_UCI_OPTIONS_MARKER),
+			Map.entry("move san", MOVES_SAN_OPTIONS_MARKER),
+			Map.entry("move both", MOVES_BOTH_OPTIONS_MARKER),
+			Map.entry("move to-san", UCI_TO_SAN_OPTIONS_MARKER),
+			Map.entry("move to-uci", SAN_TO_UCI_OPTIONS_MARKER),
+			Map.entry("move after", FEN_AFTER_OPTIONS_MARKER),
+			Map.entry("move play", PLAY_LINE_OPTIONS_MARKER),
+			Map.entry(CMD_ENGINE, ENGINE_SUBCOMMANDS_MARKER),
+			Map.entry("engine analyze", ANALYZE_OPTIONS_MARKER),
+			Map.entry("engine bestmove", BESTMOVE_OPTIONS_MARKER),
+			Map.entry("engine bestmove-uci", BESTMOVE_UCI_OPTIONS_MARKER),
+			Map.entry("engine bestmove-san", BESTMOVE_SAN_OPTIONS_MARKER),
+			Map.entry("engine bestmove-both", BESTMOVE_BOTH_OPTIONS_MARKER),
+			Map.entry("engine threats", THREATS_OPTIONS_MARKER),
+			Map.entry("engine eval", EVAL_OPTIONS_MARKER),
+			Map.entry("engine static", EVAL_STATIC_OPTIONS_MARKER),
+			Map.entry("engine perft", PERFT_OPTIONS_MARKER),
+			Map.entry("engine perft-suite", PERFT_SUITE_OPTIONS_MARKER),
+			Map.entry("engine gpu", GPU_INFO_OPTIONS_MARKER),
+			Map.entry(CMD_ENGINE + " " + CMD_UCI_SMOKE, UCI_SMOKE_OPTIONS_MARKER),
+			Map.entry(CMD_BOOK, BOOK_SUBCOMMANDS_MARKER),
+			Map.entry("book render", CHESS_BOOK_OPTIONS_MARKER),
+			Map.entry("book cover", CHESS_BOOK_COVER_OPTIONS_MARKER),
+			Map.entry("book pdf", CHESS_PDF_OPTIONS_MARKER),
+			Map.entry(CMD_PUZZLE, PUZZLE_SUBCOMMANDS_MARKER),
+			Map.entry("puzzle mine", MINE_PUZZLES_OPTIONS_MARKER),
+			Map.entry("puzzle pgn", PUZZLES_TO_PGN_OPTIONS_MARKER),
+			Map.entry("puzzle tags", PUZZLE_TAGS_OPTIONS_MARKER),
+			Map.entry("puzzle text", PUZZLE_TEXT_OPTIONS_MARKER),
 			Map.entry(CMD_GUI, GUI_OPTIONS_MARKER),
 			Map.entry(CMD_GUI_WEB, GUI_WEB_OPTIONS_MARKER),
 			Map.entry(CMD_CONFIG, CONFIG_SUBCOMMANDS_MARKER),
-			Map.entry(CMD_STATS, STATS_OPTIONS_MARKER),
-			Map.entry(CMD_STATS_TAGS, STATS_TAGS_OPTIONS_MARKER),
-			Map.entry(CMD_TAGS, TAGS_OPTIONS_MARKER),
-			Map.entry(CMD_PUZZLE_TAGS, PUZZLE_TAGS_OPTIONS_MARKER),
-			Map.entry(CMD_PUZZLE_TEXT, PUZZLE_TEXT_OPTIONS_MARKER),
-			Map.entry(CMD_TAG_TEXT, TAG_TEXT_OPTIONS_MARKER),
-			Map.entry(CMD_MOVES, MOVES_OPTIONS_MARKER),
-			Map.entry(CMD_MOVES_UCI, MOVES_UCI_OPTIONS_MARKER),
-			Map.entry(CMD_MOVES_SAN, MOVES_SAN_OPTIONS_MARKER),
-			Map.entry(CMD_MOVES_BOTH, MOVES_BOTH_OPTIONS_MARKER),
-			Map.entry(CMD_ANALYZE, ANALYZE_OPTIONS_MARKER),
-			Map.entry(CMD_BESTMOVE, BESTMOVE_OPTIONS_MARKER),
-			Map.entry(CMD_BESTMOVE_UCI, BESTMOVE_UCI_OPTIONS_MARKER),
-			Map.entry(CMD_BESTMOVE_SAN, BESTMOVE_SAN_OPTIONS_MARKER),
-			Map.entry(CMD_BESTMOVE_BOTH, BESTMOVE_BOTH_OPTIONS_MARKER),
-			Map.entry(CMD_THREATS, THREATS_OPTIONS_MARKER),
-				Map.entry(CMD_PERFT, PERFT_OPTIONS_MARKER),
-				Map.entry(CMD_PERFT_SUITE, PERFT_SUITE_OPTIONS_MARKER),
-				Map.entry(CMD_PGN_TO_FENS, PGN_TO_FENS_OPTIONS_MARKER),
-				Map.entry(CMD_EVAL, EVAL_OPTIONS_MARKER),
-				Map.entry(CMD_EVAL_STATIC, EVAL_STATIC_OPTIONS_MARKER),
-				Map.entry(CMD_CLEAN, CLEAN_OPTIONS_MARKER),
+			Map.entry(CMD_CLEAN, CLEAN_OPTIONS_MARKER),
+			Map.entry(CMD_DOCTOR, DOCTOR_OPTIONS_MARKER),
 			Map.entry(CMD_HELP, HELP_OPTIONS_MARKER),
 			Map.entry(CMD_HELP_SHORT, HELP_OPTIONS_MARKER),
 			Map.entry(CMD_HELP_LONG, HELP_OPTIONS_MARKER));
+
+	/**
+	 * Width of the command-name column in command list output.
+	 */
+	private static final int COMMAND_NAME_WIDTH = 10;
+
+	/**
+	 * Spaces between the padded command name and its description.
+	 */
+	private static final int COMMAND_DESCRIPTION_GAP = 2;
+
+	/**
+	 * Shared command summary used by short and full help output.
+	 */
+	private static final String COMMAND_LIST = String.join("\n",
+			commandLine(CMD_RECORD, "Export, filter, split, and summarize .record files"),
+			commandLine(CMD_FEN, "Validate, normalize, generate, print, and transform FENs"),
+			commandLine(CMD_MOVE, "List, convert, and apply moves"),
+			commandLine(CMD_ENGINE, "Analyze, evaluate, search, and run movegen checks"),
+			commandLine(CMD_BOOK, "Render chess books, covers, and diagram PDFs"),
+			commandLine(CMD_PUZZLE, "Mine, convert, tag, and summarize puzzle lines"),
+			commandLine(CMD_GUI, "Launch the GUI"),
+			commandLine(CMD_GUI_WEB, "Launch the chess-web-inspired GUI"),
+			commandLine(CMD_CONFIG, "Show/validate configuration"),
+			commandLine(CMD_DOCTOR, "Check Java, config, protocol, engine, and local artifacts"),
+			commandLine(CMD_CLEAN, "Delete session cache/logs"),
+			commandLine(CMD_HELP, "Show command help"));
 
 	/**
 	 * Utility class; prevent instantiation.
@@ -352,7 +466,7 @@ public final class HelpCommand {
 		a.ensureConsumed();
 
 		if (!rest.isEmpty()) {
-			helpCommand(rest.get(0));
+			helpCommand(String.join(" ", rest));
 			return;
 		}
 
@@ -374,51 +488,7 @@ public final class HelpCommand {
 				usage: crtk <command> [options]
 
 				commands:
-				  record-to-plain   Convert .record JSON to .plain
-				  record-to-csv     Convert .record JSON to CSV (no .plain output)
-				  record-to-pgn     Convert .record JSON to PGN games
-				  puzzles-to-pgn    Convert mixed puzzle dumps to PGN games
-				  records           Merge/filter/split record files
-				  record-to-dataset Convert .record JSON to NPY tensors (features/labels)
-				  record-to-lc0     Convert .record JSON to LC0 tensors
-				  record-to-classifier Convert .record JSON to classifier tensors
-				  record-to-training-jsonl Export FEN JSONL labels for training
-				  gpu-info          Print GPU JNI backend status
-				  gen-fens          Generate random legal FEN shards (standard + Chess960 mix)
-				  mine-puzzles      Mine chess puzzles (supports Chess960 / PGN / FEN list / random)
-				  print             Pretty-print a FEN
-				  display           Render a board image in a window
-				  render            Save a board image to disk
-				  chess-book        Render a chess-book JSON/TOML file to a native PDF
-				  chess-book-cover  Render a native PDF cover for a chess-book file
-				  chess-pdf         Export chess diagrams to a PDF
-				  gui               Launch the GUI
-				  gui-web           Launch the chess-web-inspired GUI
-				  config            Show/validate configuration
-				  stats             Summarize .record or puzzle dumps
-				  stats-tags        Summarize tag distributions
-				  tags              Generate tags for a FEN (or list)
-				  puzzle-tags       Generate per-move tags for puzzle PVs
-				  puzzle-text       Run T5 over puzzle PVs
-				  tag-text          Tag text via T5 summary
-				  moves             List legal moves for a FEN
-				  moves-uci         List legal moves (UCI)
-				  moves-san         List legal moves (SAN)
-				  moves-both        List legal moves (UCI + SAN)
-				  analyze           Analyze a FEN with the engine
-				  bestmove          Print the best move for a FEN
-				  bestmove-uci      Print the best move (UCI)
-				  bestmove-san      Print the best move (SAN)
-				  bestmove-both     Print the best move (UCI + SAN)
-				  threats           Analyze opponent threats (null move)
-				  perft             Run perft on a FEN (movegen validation)
-				  perft-suite       Run a small perft regression suite
-				  pgn-to-fens       Convert PGN games to FEN lists
-				  eval              Evaluate a FEN with LC0 or classical
-				  eval-static       Evaluate a FEN with the classical backend
-				  clean             Delete session cache/logs
-				  help              Show command help
-
+				""" + COMMAND_LIST + "\n\n" + """
 				tips:
 				  crtk help <command>       Show help for one command
 				  crtk help --full          Show full help output
@@ -463,7 +533,29 @@ public final class HelpCommand {
 	 * @return marker line for the command, or {@code null} if not found
 	 */
 	private static String helpMarkerFor(String command) {
-		return HELP_MARKERS.get(command);
+		String marker = HELP_MARKERS.get(command);
+		while (marker == null) {
+			int split = command.lastIndexOf(' ');
+			if (split < 0) {
+				break;
+			}
+			command = command.substring(0, split);
+			marker = HELP_MARKERS.get(command);
+		}
+		return marker;
+	}
+
+	/**
+	 * Formats a command-list row with a stable command column.
+	 *
+	 * @param command     command token.
+	 * @param description command description.
+	 * @return formatted command-list row.
+	 */
+	private static String commandLine(String command, String description) {
+		int spaces = Math.max(COMMAND_DESCRIPTION_GAP,
+				COMMAND_NAME_WIDTH - command.length() + COMMAND_DESCRIPTION_GAP);
+		return "  " + command + " ".repeat(spaces) + description;
 	}
 
 	/**
@@ -513,52 +605,77 @@ public final class HelpCommand {
 			usage: crtk <command> [options]
 
 			commands:
-			  record-to-plain Convert .record JSON to .plain
-			  record-to-csv  Convert .record JSON to CSV (no .plain output)
-			  record-to-pgn  Convert .record JSON to PGN games
-			  puzzles-to-pgn Convert mixed puzzle dumps to PGN games
-			  records   Merge/filter/split record files
-			  record-to-dataset Convert .record JSON to NPY tensors (features/labels)
-			  record-to-lc0 Convert .record JSON to LC0 tensors
-			  record-to-classifier Convert .record JSON to classifier tensors
-			  record-to-training-jsonl Export FEN JSONL labels for training
-			  gpu-info Print GPU JNI backend status
-			  gen-fens  Generate random legal FEN shards (standard + Chess960 mix)
-			  mine-puzzles Mine chess puzzles (supports Chess960 / PGN / FEN list / random)
-			  print     Pretty-print a FEN
-			  display   Render a board image in a window
-			  render    Save a board image to disk
-			  chess-book Render a chess-book JSON/TOML file to a native PDF
-			  chess-book-cover Render a native PDF cover for a chess-book file
-			  chess-pdf Export chess diagrams to a PDF
-			  gui       Launch the GUI
-			  gui-web   Launch the chess-web-inspired GUI
-			  config    Show/validate configuration
-			  stats     Summarize .record or puzzle dumps
-			  stats-tags Summarize tag distributions
-			  tags      Generate tags (FEN list, PGN, variations, deltas)
-			  puzzle-tags Generate per-move tags for puzzle PVs
-			  puzzle-text Run T5 over puzzle PVs
-			  tag-text  Tag text via T5 summary
-			  moves     List legal moves for a FEN
-			  moves-uci List legal moves (UCI)
-			  moves-san List legal moves (SAN)
-			  moves-both List legal moves (UCI + SAN)
-			  analyze   Analyze a FEN with the engine
-			  bestmove  Print the best move for a FEN
-			  bestmove-uci Print the best move (UCI)
-			  bestmove-san Print the best move (SAN)
-			  bestmove-both Print the best move (UCI + SAN)
-			  threats   Analyze opponent threats (null move)
-			  perft     Run perft on a FEN (movegen validation)
-			  perft-suite Run a small perft regression suite
-			  pgn-to-fens Convert PGN games to FEN lists
-			  eval      Evaluate a FEN with LC0 or classical
-			  eval-static Evaluate a FEN with the classical backend
-			  clean     Delete session cache/logs
-			  help      Show command help
+			""" + COMMAND_LIST + "\n\n" + """
+			record subcommands:
+			  export FORMAT              Export records as plain, csv, pgn, puzzle-jsonl, or training-jsonl
+			  dataset KIND               Export tensors as npy, lc0, or classifier
+			  files                      Merge, filter, or split record files
+			  stats                      Summarize record files
+			  tag-stats                  Summarize tag distributions
+			  analysis-delta             Compare parent/child analysis changes
 
-			record-to-plain options:
+			record export subcommands:
+			  plain                      Convert .record JSON to .plain
+			  csv                        Convert .record JSON to CSV
+			  pgn                        Convert .record JSON to PGN games
+			  puzzle-jsonl               Export verified puzzle rows as JSONL
+			  training-jsonl             Export FEN JSONL labels for training
+
+			record dataset subcommands:
+			  npy                        Convert .record JSON to NPY tensors
+			  lc0                        Convert .record JSON to LC0 tensors
+			  classifier                 Convert .record JSON to classifier tensors
+
+			fen subcommands:
+			  normalize                  Normalize and validate a FEN
+			  validate                   Validate a FEN
+			  after                      Apply one move and print the resulting FEN
+			  line                       Apply a move line and print the resulting FEN
+			  generate                   Generate random legal FEN shards
+			  pgn                        Convert PGN games to FEN lists
+			  chess960                   Print Chess960 starting positions by index or range
+			  print                      Pretty-print a FEN
+			  display                    Render a board image in a window
+			  render                     Save a board image to disk
+			  tags                       Generate tags for FENs, PGNs, or variations
+			  text                       Summarize position tags with T5
+
+			move subcommands:
+			  list                       List legal moves for a FEN
+			  uci                        List legal moves in UCI
+			  san                        List legal moves in SAN
+			  both                       List legal moves in UCI and SAN
+			  to-san                     Convert one UCI move to SAN
+			  to-uci                     Convert one SAN move to UCI
+			  after                      Apply one move and print the resulting FEN
+			  play                       Apply a move line and print the resulting FEN
+
+			engine subcommands:
+			  analyze                    Analyze a FEN with the engine
+			  bestmove                   Print the best move for a FEN
+			  bestmove-uci               Print the best move in UCI
+			  bestmove-san               Print the best move in SAN
+			  bestmove-both              Print the best move in UCI and SAN
+			  threats                    Analyze opponent threats
+			  eval                       Evaluate a FEN with LC0 or classical
+			  static                     Evaluate a FEN with the classical backend
+			  perft                      Run perft on a FEN
+			  perft-suite                Run a small perft regression suite
+			  gpu                        Print GPU JNI backend status
+			  uci-smoke                  Start engine and run a tiny UCI search
+
+			book subcommands:
+			  render                     Render a chess-book JSON/TOML file to a native PDF
+			  cover                      Render a native PDF cover for a chess-book file
+			  pdf                        Export chess diagrams to a PDF
+
+			puzzle subcommands:
+			  mine                       Mine chess puzzles
+			  pgn                        Convert mixed puzzle dumps to PGN games
+			  tags                       Generate per-move tags for puzzle PVs
+			  text                       Run T5 over puzzle PVs
+
+			record export plain options:
 			  --input|-i PATH            Input .record JSON file
 			  --output|-o PATH           Output .plain file (default: input stem + .plain)
 			  --export-all|--sidelines   Include all sidelines (default: mainline only)
@@ -566,21 +683,21 @@ public final class HelpCommand {
 			  --csv                      Also export a CSV file
 			  --csv-output|-C PATH       Output CSV file path (default: input stem + .csv)
 
-			record-to-csv options:
+			record export csv options:
 			  --input|-i PATH            Input .record JSON file
 			  --output|-o PATH           Output CSV file (default: input stem + .csv)
 			  --filter|-f DSL            Filter-DSL to select records
 
-			record-to-dataset options:
+			record dataset npy options:
 			  --input|-i PATH            Input .record JSON file
 			  --output|-o PATH           Output dataset prefix (default: input stem + .dataset)
 
-			record-to-lc0 options:
+			record dataset lc0 options:
 			  --input|-i PATH            Input .record JSON file
 			  --output|-o PATH           Output dataset prefix (default: input stem + .lc0)
 			  --weights PATH             Optional LC0 weights for policy-map compression
 
-			record-to-classifier options:
+			record dataset classifier options:
 			  --input|-i PATH            Input record file(s) or directories
 			  --output|-o PATH           Output dataset prefix (default: input stem + .classifier)
 			  --filter|-f DSL            Optional row-selection Filter DSL
@@ -590,7 +707,16 @@ public final class HelpCommand {
 			  --recursive                Recurse into input directories
 			  --verbose|-v               Print stack trace on failure
 
-			record-to-training-jsonl options:
+			record export puzzle-jsonl options:
+			  --input|-i PATH            Input .record JSON file
+			  --output|-o PATH           Output JSONL file (default: input stem + .puzzle.jsonl)
+			  --weights PATH             LC0J weights path
+			  --filter|-f DSL            Optional row-selection Filter DSL
+			  --puzzles                  Keep only puzzle records
+			  --nonpuzzles               Keep only non-puzzle records
+			  --verbose|-v               Print stack trace on failure
+
+			record export training-jsonl options:
 			  --input|-i PATH            Input record file(s) or directories
 			  --output|-o PATH           Output JSONL file (default: input stem + .training.jsonl)
 			  --filter|-f DSL            Puzzle Filter DSL; matching rows become verified_puzzle
@@ -604,15 +730,15 @@ public final class HelpCommand {
 			  puzzle get coarse_label=1/fine_label=1, and all remaining rows get
 			  coarse_label=0/fine_label=0. Engine metadata is not model input.
 
-			record-to-pgn options:
+			record export pgn options:
 			  --input|-i PATH            Input .record JSON file
 			  --output|-o PATH           Output PGN file (default: input stem + .pgn)
 
-			puzzles-to-pgn options:
+			puzzle pgn options:
 			  --input|-i PATH            Input mixed puzzle dump file
 			  --output|-o PATH           Output PGN file (default: input stem + .pgn)
 
-			records options:
+			record files options:
 			  --input|-i PATH            Input record file(s) or directories
 			  --output|-o PATH           Output record file or directory
 			  --filter|-f DSL            Filter-DSL to select records
@@ -622,10 +748,25 @@ public final class HelpCommand {
 			  --recursive                Recurse into input directories
 			  --verbose|-v               Print stack trace on failure
 
-			gpu-info options:
+			record analysis-delta options:
+			  --input|-i PATH            Input record file
+			  --output|-o PATH           Output JSONL path (default: input stem + .analysis-delta.jsonl)
+			  --verbose|-v               Print stack trace on failure
+
+			engine gpu options:
 			  --verbose|-v               Print detailed output
 
-			gen-fens options:
+			engine uci-smoke options:
+			  --protocol-path|-P PATH    Engine protocol TOML file (default: config)
+			  --nodes|--max-nodes N      Nodes for the smoke search (default: 1)
+			  --max-duration D           Timeout for the smoke search (default: 5s)
+			  --threads N                Optional engine thread count
+			  --hash N                   Optional hash size in MB
+			  --wdl                      Enable WDL output (if supported)
+			  --no-wdl                   Disable WDL output
+			  --verbose|-v               Print stack trace on failure
+
+			fen generate options:
 			  --output|-o PATH           Output directory
 			  --files N                  Number of shard files to write
 			  --per-file N               FENs per shard file
@@ -633,7 +774,7 @@ public final class HelpCommand {
 			  --chess960-files N         Additional shard files with Chess960 FENs
 			  --verbose|-v               Print progress and output paths
 
-			mine-puzzles options (overrides & inputs):
+			puzzle mine options (overrides & inputs):
 			  --input|-i PATH            Input .txt (FENs) or .pgn (games) seed file
 			  --output|-o PATH           Output root file or directory ("-" for stdout)
 			  --protocol|-p PATH         Engine protocol TOML file
@@ -652,11 +793,11 @@ public final class HelpCommand {
 			  --chess960|-9              Generate Chess960 positions
 			  --verbose|-v               Print stack trace on failure
 
-			print options:
+			fen print options:
 			  --fen FEN                  FEN string to render
 			  --verbose|-v               Print stack trace on failure
 
-			display options:
+			fen display options:
 			  --fen FEN                  FEN string to render
 			  --backend B                Renderer backend (default: best available)
 			  --show-backend             Print renderer backend info
@@ -676,7 +817,7 @@ public final class HelpCommand {
 			  --ablation                 Overlay evaluator ablation heatmap
 			  --verbose|-v               Print stack trace on failure
 
-			render options:
+			fen render options:
 			  --fen FEN                  FEN string to render
 			  --output|-o PATH           Output image/SVG path
 			  --format FORMAT            Image format (png, jpg, bmp, svg)
@@ -700,17 +841,18 @@ public final class HelpCommand {
 			  --ablation                 Overlay evaluator ablation heatmap
 			  --verbose|-v               Print stack trace on failure
 
-			chess-book options:
+			book render options:
 			  --input|-i PATH            Input chess-book JSON/TOML file
 			  --output|-o PATH           Output PDF path (default: input stem + .pdf)
 			  --title TEXT               Optional title override
 			  --subtitle TEXT            Optional subtitle override
 			  --limit N                  Render first N puzzles and update count text
+			  --check|--validate         Validate manifest, dimensions, FENs, and solution lines without writing
 			  --free-watermark|--watermark
 			                             Add noisy free-edition watermark and print restrictions
 			  --verbose|-v               Print stack trace on failure
 
-			chess-book-cover options:
+			book cover options:
 			  --input|-i PATH            Input chess-book JSON/TOML file
 			  --output|-o PATH           Output cover PDF path (default: input stem + -cover.pdf)
 			  --title TEXT               Optional title override
@@ -718,9 +860,18 @@ public final class HelpCommand {
 			  --binding TYPE             paperback, hardcover, or ebook (default: paperback)
 			  --interior TYPE            white-bw, cream-bw, white-standard-color, or white-premium-color
 			  --pages N                  Printed page count for spine width (default: book pages/estimate)
+			  --check|--validate         Validate manifest and cover dimensions without writing
 			  --verbose|-v               Print stack trace on failure
 
-			chess-pdf options:
+			fen chess960 options:
+			  --index N                  Print one Chess960 start position by Scharnagl index
+			  --random                   Print one random Chess960 start position
+			  --count N                  Number of random positions with --random
+			  --all                      Print all 960 positions in index order
+			  --format FORMAT            fen, layout, or both (default: fen)
+			  N                          Positional shorthand for --index N
+
+			book pdf options:
 			  --fen FEN                  Input FEN (repeatable; positional FEN also allowed)
 			  --input|-i PATH            Input FEN list / FEN-pair text file
 			  --pgn PATH                 Input PGN file (exports one composition per mainline game)
@@ -751,17 +902,17 @@ public final class HelpCommand {
 			  show                       Print config values
 			  validate                   Validate config file
 
-			stats options:
+			record stats options:
 			  --input|-i PATH            Input record file
 			  --top N                    Number of top tags/engines to show
 			  --verbose|-v               Print stack trace on failure
 
-			stats-tags options:
+			record tag-stats options:
 			  --input|-i PATH            Input record file
 			  --top N                    Number of top tags to show
 			  --verbose|-v               Print stack trace on failure
 
-			tags options:
+			fen tags options:
 			  --fen FEN                  Input FEN (default: stdin)
 			  --input|-i PATH            Input FEN list (supports parent/child pairs)
 			  --pgn PATH                 Input PGN (use --sidelines for variations)
@@ -781,7 +932,7 @@ public final class HelpCommand {
 			  --no-wdl                   Disable WDL output
 			  --verbose|-v               Print stack trace on failure
 
-			puzzle-tags options:
+			puzzle tags options:
 			  --fen FEN                  Root puzzle FEN (required)
 			  --multipv N                Number of PVs to expand (default: 3)
 			  --pv-plies N               PV plies per line (default: 12)
@@ -797,7 +948,7 @@ public final class HelpCommand {
 			  --no-wdl                   Disable WDL output
 			  --verbose|-v               Print stack trace on failure
 
-			puzzle-text options:
+			puzzle text options:
 			  --model PATH               T5 .bin model path (default: config t5-model-path)
 			  --fen FEN                  Root puzzle FEN (required)
 			  --multipv N                Number of PVs to expand (default: 3)
@@ -816,7 +967,7 @@ public final class HelpCommand {
 			  --no-wdl                   Disable WDL output
 			  --verbose|-v               Print stack trace on failure
 
-			tag-text options:
+			fen text options:
 			  --model PATH               T5 .bin model path (default: config t5-model-path)
 			  --fen FEN                  Input FEN (default: stdin)
 			  --input|-i PATH            Input FEN file
@@ -833,27 +984,55 @@ public final class HelpCommand {
 			  --no-wdl                   Disable WDL output
 			  --verbose|-v               Print stack trace on failure
 
-			moves options:
+			move list options:
 			  --fen FEN                  Input FEN (default: stdin)
-			  --include-fen              Include FEN in output
+			  --format FORMAT            uci, san, or both (default: uci)
+			  --san                      Alias for --format san
+			  --both                     Alias for --format both
 			  --verbose|-v               Print stack trace on failure
 
-			moves-uci options:
+			move uci options:
 			  --fen FEN                  Input FEN (default: stdin)
-			  --include-fen              Include FEN in output
 			  --verbose|-v               Print stack trace on failure
 
-			moves-san options:
+			move san options:
 			  --fen FEN                  Input FEN (default: stdin)
-			  --include-fen              Include FEN in output
 			  --verbose|-v               Print stack trace on failure
 
-			moves-both options:
+			move both options:
 			  --fen FEN                  Input FEN (default: stdin)
-			  --include-fen              Include FEN in output
 			  --verbose|-v               Print stack trace on failure
 
-			analyze options:
+			move to-san options:
+			  --fen FEN                  Starting FEN (default: standard start)
+			  MOVE                       UCI move to convert
+			  --verbose|-v               Print stack trace on failure
+
+			move to-uci options:
+			  --fen FEN                  Starting FEN (default: standard start)
+			  MOVE                       SAN move to convert
+			  --verbose|-v               Print stack trace on failure
+
+			move after options:
+			  --fen FEN                  Starting FEN (default: standard start)
+			  MOVE                       UCI or SAN move to apply
+			  --verbose|-v               Print stack trace on failure
+
+			move play options:
+			  --fen FEN                  Starting FEN (default: standard start)
+			  MOVES                      UCI/SAN move sequence to apply
+			  --intermediate             Print FEN after each ply
+			  --verbose|-v               Print stack trace on failure
+
+			fen normalize options:
+			  --fen FEN                  FEN to normalize, or positional FEN
+			  --verbose|-v               Print stack trace on failure
+
+			fen validate options:
+			  --fen FEN                  FEN to validate, or positional FEN
+			  --verbose|-v               Print stack trace on failure
+
+			engine analyze options:
 			  --fen FEN                  Input FEN (default: stdin)
 			  --input|-i PATH            Input FEN file
 			  --protocol|-p PATH         Engine protocol TOML file
@@ -866,9 +1045,10 @@ public final class HelpCommand {
 			  --no-wdl                   Disable WDL output
 			  --verbose|-v               Print stack trace on failure
 
-			bestmove options:
+			engine bestmove options:
 			  --fen FEN                  Input FEN (default: stdin)
 			  --input|-i PATH            Input FEN file
+			  --format FORMAT            uci, san, or both (default: uci)
 			  --protocol|-p PATH         Engine protocol TOML file
 			  --max-nodes N              Max nodes per position
 			  --max-duration D           Max duration per position (e.g. 5s)
@@ -881,7 +1061,7 @@ public final class HelpCommand {
 			  --both                     Print UCI + SAN output
 			  --verbose|-v               Print stack trace on failure
 
-			bestmove-uci options:
+			engine bestmove-uci options:
 			  --fen FEN                  Input FEN (default: stdin)
 			  --input|-i PATH            Input FEN file
 			  --protocol|-p PATH         Engine protocol TOML file
@@ -894,7 +1074,7 @@ public final class HelpCommand {
 			  --no-wdl                   Disable WDL output
 			  --verbose|-v               Print stack trace on failure
 
-			bestmove-san options:
+			engine bestmove-san options:
 			  --fen FEN                  Input FEN (default: stdin)
 			  --input|-i PATH            Input FEN file
 			  --protocol|-p PATH         Engine protocol TOML file
@@ -907,7 +1087,7 @@ public final class HelpCommand {
 			  --no-wdl                   Disable WDL output
 			  --verbose|-v               Print stack trace on failure
 
-			bestmove-both options:
+			engine bestmove-both options:
 			  --fen FEN                  Input FEN (default: stdin)
 			  --input|-i PATH            Input FEN file
 			  --protocol|-p PATH         Engine protocol TOML file
@@ -920,7 +1100,7 @@ public final class HelpCommand {
 			  --no-wdl                   Disable WDL output
 			  --verbose|-v               Print stack trace on failure
 
-			threats options:
+			engine threats options:
 			  --fen FEN                  Input FEN (default: stdin)
 			  --protocol|-p PATH         Engine protocol TOML file
 			  --max-nodes N              Max nodes per position
@@ -932,22 +1112,22 @@ public final class HelpCommand {
 			  --no-wdl                   Disable WDL output
 			  --verbose|-v               Print stack trace on failure
 
-			perft options:
+			engine perft options:
 			  --fen FEN                  Input FEN
 			  --depth N                  Depth for perft
 			  --divide                   Print divide output
 
-			perft-suite options:
+			engine perft-suite options:
 			  (no options)
 
-			pgn-to-fens options:
+			fen pgn options:
 			  --input|-i PATH            Input PGN file
 			  --output|-o PATH           Output FEN list (default: input stem + .txt)
 			  --mainline                 Only output mainline positions
 			  --pairs                    Output (parent, child) pairs
 			  --verbose|-v               Print stack trace on failure
 
-			eval options:
+			engine eval options:
 			  --fen FEN                  Input FEN (default: stdin)
 			  --input|-i PATH            Input FEN file
 			  --lc0                      Use LC0 evaluator only
@@ -956,13 +1136,17 @@ public final class HelpCommand {
 			  --weights PATH             LC0 weights path
 			  --verbose|-v               Print stack trace on failure
 
-			eval-static options:
+			engine static options:
 			  --fen FEN                  Input FEN (default: stdin)
 			  --input|-i PATH            Input FEN file
 			  --terminal-aware|--terminal Enable terminal-aware evaluation
 			  --verbose|-v               Print stack trace on failure
 
 			clean options:
+			  --verbose|-v               Print stack trace on failure
+
+			doctor options:
+			  --strict                   Exit non-zero when warnings are present
 			  --verbose|-v               Print stack trace on failure
 
 			help options:

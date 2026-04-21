@@ -246,7 +246,16 @@ final class SvgPath {
 	 * @param value numeric value
 	 * @param endIndex first index after the token
 	 */
-	private record NumberToken(double value, int endIndex) {
+	private record NumberToken(
+		/**
+		 * Stores the value.
+		 */
+		double value,
+		/**
+		 * Stores the end index.
+		 */
+		int endIndex
+	) {
 	}
 
 	/**

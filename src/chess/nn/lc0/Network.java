@@ -223,12 +223,31 @@ public final class Network implements AutoCloseable {
      * Parsed LC0 backend request.
      */
     private record BackendRequest(
-                        boolean preferCuda,
-                        boolean preferRocm,
-                        boolean preferOneapi,
-                        boolean forceCuda,
-                        boolean forceRocm,
-                        boolean forceOneapi) {
+        /**
+         * Stores the prefer cuda.
+         */
+        boolean preferCuda,
+        /**
+         * Stores the prefer rocm.
+         */
+        boolean preferRocm,
+        /**
+         * Stores the prefer oneapi.
+         */
+        boolean preferOneapi,
+        /**
+         * Stores the force cuda.
+         */
+        boolean forceCuda,
+        /**
+         * Stores the force rocm.
+         */
+        boolean forceRocm,
+        /**
+         * Stores the force oneapi.
+         */
+        boolean forceOneapi
+    ) {
 
         /**
          * Parses {@code crtk.lc0.backend} into backend preferences.
@@ -267,7 +286,20 @@ public final class Network implements AutoCloseable {
     /**
      * Detected LC0 backend availability.
      */
-    private record BackendAvailability(    boolean cuda,     boolean rocm,     boolean oneapi) {
+    private record BackendAvailability(
+        /**
+         * Stores the cuda.
+         */
+        boolean cuda,
+        /**
+         * Stores the rocm.
+         */
+        boolean rocm,
+        /**
+         * Stores the oneapi.
+         */
+        boolean oneapi
+    ) {
 
         /**
          * Detects available native backends.
@@ -598,9 +630,36 @@ public final class Network implements AutoCloseable {
      * @since 2025
      * @author Lennart A. Conrad
      */
-    public record Info(    int inputChannels,     int trunkChannels,     int residualBlocks,
-                        int policyChannels,             int valueChannels,             int policySize,
-                        long parameterCount) {
+    public record Info(
+        /**
+         * Stores the input channels.
+         */
+        int inputChannels,
+        /**
+         * Stores the trunk channels.
+         */
+        int trunkChannels,
+        /**
+         * Stores the residual blocks.
+         */
+        int residualBlocks,
+        /**
+         * Stores the policy channels.
+         */
+        int policyChannels,
+        /**
+         * Stores the value channels.
+         */
+        int valueChannels,
+        /**
+         * Stores the policy size.
+         */
+        int policySize,
+        /**
+         * Stores the parameter count.
+         */
+        long parameterCount
+    ) {
     }
 
     /**
@@ -613,7 +672,16 @@ public final class Network implements AutoCloseable {
      * @since 2025
      * @author Lennart A. Conrad
      */
-    public record DebugValue(    float[] rawWdl,     boolean blackToMove) {
+    public record DebugValue(
+        /**
+         * Stores the raw wdl.
+         */
+        float[] rawWdl,
+        /**
+         * Stores the black to move.
+         */
+        boolean blackToMove
+    ) {
 
         /**
          * Compares the WDL arrays by content and the side-to-move flag by value.
@@ -667,7 +735,20 @@ public final class Network implements AutoCloseable {
      * @since 2025
      * @author Lennart A. Conrad
      */
-    public record Prediction(    float[] policy,     float[] wdl,     float value) {
+    public record Prediction(
+        /**
+         * Stores the policy.
+         */
+        float[] policy,
+        /**
+         * Stores the wdl.
+         */
+        float[] wdl,
+        /**
+         * Stores the value.
+         */
+        float value
+    ) {
 
         /**
          * Equality compares {@link #value()} exactly (bitwise) and compares arrays by
@@ -720,10 +801,14 @@ public final class Network implements AutoCloseable {
      */
     private enum Activation {
 
-        /** Rectified linear unit. */
+        /**
+         * Rectified linear unit.
+         */
         RELU,
 
-        /** No activation (identity). */
+        /**
+         * No activation (identity).
+         */
         NONE
     }
 
@@ -1059,7 +1144,9 @@ public final class Network implements AutoCloseable {
          */
         final int[] square;
 
-        /** Flattened list of kernel tap indices aligned with {@link #square}. */
+        /**
+         * Flattened list of kernel tap indices aligned with {@link #square}.
+         */
         final int[] kernelIndex;
 
         /**
@@ -1223,7 +1310,20 @@ public final class Network implements AutoCloseable {
     /**
      * Residual block containing convolutional layers and an optional SE unit.
      */
-    private record ResidualBlock(    ConvLayer conv1,     ConvLayer conv2,     SeUnit se) {
+    private record ResidualBlock(
+        /**
+         * Stores the conv1.
+         */
+        ConvLayer conv1,
+        /**
+         * Stores the conv2.
+         */
+        ConvLayer conv2,
+        /**
+         * Stores the se.
+         */
+        SeUnit se
+    ) {
     }
 
     /**
@@ -1700,40 +1800,64 @@ public final class Network implements AutoCloseable {
          */
         private static final class Workspace {
 
-            /** Current trunk activations [trunkChannels, 64]. */
+            /**
+             * Current trunk activations [trunkChannels, 64].
+             */
             float[] current = new float[0];
 
-            /** Next trunk activations [trunkChannels, 64] used for residual updates. */
+            /**
+             * Next trunk activations [trunkChannels, 64] used for residual updates.
+             */
             float[] next = new float[0];
 
-            /** Temporary buffer for intermediate conv output [trunkChannels, 64]. */
+            /**
+             * Temporary buffer for intermediate conv output [trunkChannels, 64].
+             */
             float[] tmp = new float[0];
 
-            /** Scratch buffer for conv output [trunkChannels, 64]. */
+            /**
+             * Scratch buffer for conv output [trunkChannels, 64].
+             */
             float[] scratch = new float[0];
 
-            /** Policy stem activations [trunkChannels, 64]. */
+            /**
+             * Policy stem activations [trunkChannels, 64].
+             */
             float[] policyHidden = new float[0];
 
-            /** Raw policy planes [policyChannels, 64]. */
+            /**
+             * Raw policy planes [policyChannels, 64].
+             */
             float[] policyPlanes = new float[0];
 
-            /** Value head conv activations [valueChannels, 64]. */
+            /**
+             * Value head conv activations [valueChannels, 64].
+             */
             float[] valueInput = new float[0];
 
-            /** Value head hidden activations (dense). */
+            /**
+             * Value head hidden activations (dense).
+             */
             float[] fc1 = new float[0];
 
-            /** Value head logits (dense). */
+            /**
+             * Value head logits (dense).
+             */
             float[] logits = new float[0];
 
-            /** SE pooled vector (per-channel mean). */
+            /**
+             * SE pooled vector (per-channel mean).
+             */
             float[] sePooled = new float[0];
 
-            /** SE hidden activations. */
+            /**
+             * SE hidden activations.
+             */
             float[] seHidden = new float[0];
 
-            /** SE gate outputs (gamma and beta concatenated). */
+            /**
+             * SE gate outputs (gamma and beta concatenated).
+             */
             float[] seGates = new float[0];
 
             /**

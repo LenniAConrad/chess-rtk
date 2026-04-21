@@ -1024,7 +1024,9 @@ NOT_SAME
      */
     public static final class FilterDSL {
 
-        /** Hidden constructor for static-only utility class. */
+        /**
+         * Hidden constructor for static-only utility class.
+         */
         private FilterDSL() {
 
         }

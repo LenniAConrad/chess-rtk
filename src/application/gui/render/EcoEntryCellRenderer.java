@@ -20,7 +20,10 @@ import chess.eco.Entry;
  */
 public final class EcoEntryCellRenderer extends JLabel implements ListCellRenderer<Entry> {
 
-	@java.io.Serial
+		/**
+	 * Serialization version identifier.
+	 */
+@java.io.Serial
 	private static final long serialVersionUID = 1L;
 	/**
 	 * owner field.
@@ -37,7 +40,16 @@ public final class EcoEntryCellRenderer extends JLabel implements ListCellRender
 		setBorder(new EmptyBorder(4, 6, 4, 6));
 	}
 
-	@Override
+		/**
+	 * Returns the list cell renderer component.
+	 * @param list list value
+	 * @param value value value
+	 * @param index index value
+	 * @param isSelected is selected value
+	 * @param cellHasFocus cell has focus value
+	 * @return computed value
+	 */
+@Override
 	/**
 	 * getListCellRendererComponent method.
 	 *

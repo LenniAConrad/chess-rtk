@@ -112,7 +112,12 @@ public final class FigurineSanFormatter {
 		return out.toString();
 	}
 
-	private static char figurinePiece(char piece) {
+		/**
+	 * Handles figurine piece.
+	 * @param piece piece value
+	 * @return computed value
+	 */
+private static char figurinePiece(char piece) {
 		return switch (piece) {
 			case 'K' -> '\u2654';
 			case 'Q' -> '\u2655';

@@ -30,7 +30,11 @@ public final class TransferableImage implements Transferable, ClipboardOwner {
 		this.image = image;
 	}
 
-	@Override
+		/**
+	 * Returns the transfer data flavors.
+	 * @return computed value
+	 */
+@Override
 	/**
 	 * getTransferDataFlavors method.
 	 *
@@ -40,7 +44,12 @@ public final class TransferableImage implements Transferable, ClipboardOwner {
 		return new DataFlavor[] { DataFlavor.imageFlavor };
 	}
 
-	@Override
+		/**
+	 * Returns whether data flavor supported.
+	 * @param flavor flavor value
+	 * @return computed value
+	 */
+@Override
 	/**
 	 * isDataFlavorSupported method.
 	 *
@@ -51,7 +60,13 @@ public final class TransferableImage implements Transferable, ClipboardOwner {
 		return DataFlavor.imageFlavor.equals(flavor);
 	}
 
-	@Override
+		/**
+	 * Returns the transfer data.
+	 * @param flavor flavor value
+	 * @return computed value
+	 * @throws UnsupportedFlavorException if the operation fails
+	 */
+@Override
 	/**
 	 * {@inheritDoc}
 	 *
@@ -66,7 +81,12 @@ public final class TransferableImage implements Transferable, ClipboardOwner {
 		return image;
 	}
 
-	@Override
+		/**
+	 * Handles lost ownership.
+	 * @param clipboard clipboard value
+	 * @param contents contents value
+	 */
+@Override
 	/**
 	 * lostOwnership method.
 	 *

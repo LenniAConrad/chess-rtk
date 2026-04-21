@@ -2,7 +2,7 @@
 
 This repo can export training tensors from mined or imported analysis dumps.
 
-## From `.record` JSON: `record-to-dataset`
+## From `.record` JSON: `record dataset npy`
 
 Input: a `.record` JSON array (see `chess.struct.Record`).
 
@@ -13,10 +13,10 @@ Output (NumPy `.npy`, float32):
 Example:
 
 ```bash
-crtk record-to-dataset -i dump/run.puzzles.json -o training/pytorch/data/puzzles
+crtk record dataset npy -i dump/run.puzzles.json -o training/pytorch/data/puzzles
 ```
 
-## From `.record` JSON: `record-to-lc0`
+## From `.record` JSON: `record dataset lc0`
 
 Exports LC0-style inputs/policy/value tensors:
 
@@ -33,10 +33,10 @@ Weights are local artifacts; fetch the default LC0J weights with
 Example:
 
 ```bash
-crtk record-to-lc0 -i dump/run.puzzles.json -o training/lc0/puzzles --weights models/leela_112planes-10blocksx128-policyhead80-valuehead32-policy4672-wdl3.bin
+crtk record dataset lc0 -i dump/run.puzzles.json -o training/lc0/puzzles --weights models/leela_112planes-10blocksx128-policyhead80-valuehead32-policy4672-wdl3.bin
 ```
 
-## For binary classification: `record-to-classifier`
+## For binary classification: `record dataset classifier`
 
 Exports inputs and binary labels for the `chess.nn.classifier` one-logit
 model. With mined puzzle/non-puzzle dumps, the positive class is a puzzle:
@@ -58,19 +58,19 @@ exports.
 Examples:
 
 ```bash
-crtk record-to-classifier \
+crtk record dataset classifier \
   -i dump/run.puzzles.json \
   -i dump/run.nonpuzzles.json \
   -o training/classifier/run
 
-crtk record-to-classifier \
+crtk record dataset classifier \
   -i dump/run.records.json \
   -o training/classifier/custom \
   --filter 'gate=AND;break=1;nodes>=50000000;' \
   --label-filter 'gate=AND;eval>=3.0;leaf[break=2;eval<=0.0];'
 ```
 
-## JSONL labels for text or classifier pipelines: `record-to-training-jsonl`
+## JSONL labels for text or classifier pipelines: `record export training-jsonl`
 
 Exports one position per JSONL line. The command labels rows using the puzzle
 Filter DSL and parent-position relationships:
@@ -85,7 +85,7 @@ By default, engine/PV details are omitted from model input. Add
 Example:
 
 ```bash
-crtk record-to-training-jsonl \
+crtk record export training-jsonl \
   -i dump/run.puzzles.json \
   -i dump/run.nonpuzzles.json \
   -o training/run.training.jsonl \
@@ -93,7 +93,7 @@ crtk record-to-training-jsonl \
   --max-records 100000
 ```
 
-## Puzzle JSONL with LC0 policy values: `record-to-puzzle-jsonl`
+## Puzzle JSONL with LC0 policy values: `record export puzzle-jsonl`
 
 Exports puzzle rows as JSONL with LC0 policy information. This path requires
 LC0J weights because it uses the weights' policy map.
@@ -101,7 +101,7 @@ LC0J weights because it uses the weights' policy map.
 Example:
 
 ```bash
-crtk record-to-puzzle-jsonl \
+crtk record export puzzle-jsonl \
   -i dump/run.puzzles.json \
   -o training/run.puzzle.jsonl \
   --weights models/leela_112planes-10blocksx128-policyhead80-valuehead32-policy4672-wdl3.bin \
@@ -120,7 +120,7 @@ useful for filtering out unstable engine samples before training.
 Example:
 
 ```bash
-crtk record-analysis-delta \
+crtk record analysis-delta \
   -i dump/run.puzzles.json \
   -o dump/run.analysis-delta.jsonl
 ```

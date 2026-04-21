@@ -344,13 +344,23 @@ public final class HistoryInputSupport {
 	 */
 	public static void installDragAndDrop(JComponent target, DropHandler handler) {
 		TransferHandler transferHandler = new TransferHandler() {
-			@Override
+						/**
+			 * Handles can import.
+			 * @param support support value
+			 * @return computed value
+			 */
+@Override
 			public boolean canImport(javax.swing.TransferHandler.TransferSupport support) {
 				return support.isDataFlavorSupported(DataFlavor.javaFileListFlavor)
 						|| support.isDataFlavorSupported(DataFlavor.stringFlavor);
 			}
 
-			@Override
+						/**
+			 * Handles import data.
+			 * @param support support value
+			 * @return computed value
+			 */
+@Override
 			public boolean importData(javax.swing.TransferHandler.TransferSupport support) {
 				if (!canImport(support)) {
 					return false;
@@ -392,7 +402,11 @@ public final class HistoryInputSupport {
 		im.put(KeyStroke.getKeyStroke(keyCode, modifiers), id);
 		am.put(id, new AbstractAction() {
 
-			@Override
+						/**
+			 * Handles action performed.
+			 * @param e e value
+			 */
+@Override
 			/**
 			 * actionPerformed method.
 			 *
@@ -422,7 +436,11 @@ public final class HistoryInputSupport {
 		im.put(KeyStroke.getKeyStroke(keyCode, modifiers), id);
 		am.put(id, new AbstractAction() {
 
-			@Override
+						/**
+			 * Handles action performed.
+			 * @param e e value
+			 */
+@Override
 			/**
 			 * actionPerformed method.
 			 *

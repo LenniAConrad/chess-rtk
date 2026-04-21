@@ -1,6 +1,5 @@
 package application.cli.command;
 
-import static application.cli.Constants.CMD_PGN_TO_FENS;
 import static application.cli.Constants.OPT_INPUT;
 import static application.cli.Constants.OPT_INPUT_SHORT;
 import static application.cli.Constants.OPT_MAINLINE;
@@ -32,6 +31,11 @@ import utility.Argv;
 public final class PgnCommand {
 
 	/**
+	 * Current command label used in diagnostics.
+	 */
+	private static final String COMMAND_LABEL = "fen pgn";
+
+	/**
 	 * Utility class; prevent instantiation.
 	 */
 	private PgnCommand() {
@@ -39,7 +43,7 @@ public final class PgnCommand {
 	}
 
 	/**
-	 * Handles {@code pgn-to-fens}.
+	 * Handles {@code fen pgn}.
 	 *
 	 * @param a argument parser for the subcommand
 	 */
@@ -55,13 +59,13 @@ public final class PgnCommand {
 			output = deriveOutputPath(input, ".txt");
 		}
 
-		Bar readBar = fileProgressBar(input, CMD_PGN_TO_FENS + " read");
+		Bar readBar = fileProgressBar(input, COMMAND_LABEL + " read");
 		List<chess.struct.Game> games;
 		try {
 			games = readPgnOrExit(
 					input,
 					verbose,
-					CMD_PGN_TO_FENS,
+					COMMAND_LABEL,
 					readBar == null ? null : readBar::set);
 		} finally {
 			finish(readBar);
@@ -70,16 +74,16 @@ public final class PgnCommand {
 			return;
 		}
 
-		try (BufferedWriter writer = openWriterOrExit(output, verbose, CMD_PGN_TO_FENS)) {
+		try (BufferedWriter writer = openWriterOrExit(output, verbose, COMMAND_LABEL)) {
 			if (writer == null) {
 				return;
 			}
-			Bar bar = games.size() > 1 ? new Bar(games.size(), CMD_PGN_TO_FENS + " write", false, System.err) : null;
+			Bar bar = games.size() > 1 ? new Bar(games.size(), COMMAND_LABEL + " write", false, System.err) : null;
 			long lines = writePgnFens(games, writer, mainline, pairs, bar == null ? null : bar::step);
 			finish(bar);
-			System.out.printf("pgn-to-fens wrote %d lines to %s%n", lines, output.toAbsolutePath());
+			System.out.printf("fen pgn wrote %d lines to %s%n", lines, output.toAbsolutePath());
 		} catch (IOException ex) {
-			System.err.println("pgn-to-fens: failed to write output: " + ex.getMessage());
+			System.err.println(COMMAND_LABEL + ": failed to write output: " + ex.getMessage());
 			if (verbose) {
 				ex.printStackTrace(System.err);
 			}

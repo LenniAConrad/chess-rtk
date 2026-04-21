@@ -13,7 +13,20 @@ import java.util.List;
   * @since 2026
   * @author Lennart A. Conrad
  */
-public record CommandSpec(String name, boolean supportsFen, List<CommandFieldSpec> fields) {
+public record CommandSpec(
+	/**
+	 * Stores the name.
+	 */
+	String name,
+	/**
+	 * Stores the supports fen.
+	 */
+	boolean supportsFen,
+	/**
+	 * Stores the fields.
+	 */
+	List<CommandFieldSpec> fields
+) {
 	/**
 	 * withName method.
 	 * @param name parameter.

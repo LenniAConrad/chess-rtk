@@ -11,5 +11,18 @@ import java.awt.Color;
  * @since 2026
  * @author Lennart A. Conrad
  */
-record SvgStroke(Color color, double opacity, double width) {
+record SvgStroke(
+	/**
+	 * Stores the color.
+	 */
+	Color color,
+	/**
+	 * Stores the opacity.
+	 */
+	double opacity,
+	/**
+	 * Stores the width.
+	 */
+	double width
+) {
 }

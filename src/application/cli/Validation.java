@@ -34,6 +34,20 @@ public final class Validation {
 	}
 
 	/**
+	 * Ensures the supplied option value is strictly positive.
+	 *
+	 * @param cmd   label of the invoking command (used in diagnostics)
+	 * @param opt   name of the option being validated
+	 * @param value value provided by the user
+	 */
+	public static void requirePositive(String cmd, String opt, long value) {
+		if (value <= 0L) {
+			System.err.printf("%s: %s must be positive%n", cmd, opt);
+			System.exit(2);
+		}
+	}
+
+	/**
 	 * Ensures the supplied option value is zero or greater.
 	 *
 	 * @param cmd   label of the invoking command (used in diagnostics)

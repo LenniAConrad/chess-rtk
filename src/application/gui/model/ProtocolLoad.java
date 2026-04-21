@@ -12,5 +12,14 @@ import chess.uci.Protocol;
   * @since 2026
   * @author Lennart A. Conrad
  */
-public record ProtocolLoad(Protocol protocol, String error) {
+public record ProtocolLoad(
+	/**
+	 * Stores the protocol.
+	 */
+	Protocol protocol,
+	/**
+	 * Stores the error.
+	 */
+	String error
+) {
 }

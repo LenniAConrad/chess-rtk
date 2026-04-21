@@ -1524,7 +1524,16 @@ public final class RecordPgnExporter {
      * @param order  ordered entries (tails and SAN groups).
      * @param groups map from SAN to options sharing that SAN.
      */
-    private record GroupResult(    List<OrderEntry> order,     Map<String, List<PathOption>> groups) {
+    private record GroupResult(
+        /**
+         * Stores the order.
+         */
+        List<OrderEntry> order,
+        /**
+         * Stores the groups.
+         */
+        Map<String, List<PathOption>> groups
+    ) {
     }
 
     /**
@@ -1533,7 +1542,16 @@ public final class RecordPgnExporter {
      * @param san  SAN for the grouped entry (null for tails).
      * @param tail tail option when no further SAN strings remain.
      */
-    private record OrderEntry(    String san,     PathOption tail) {
+    private record OrderEntry(
+        /**
+         * Stores the san.
+         */
+        String san,
+        /**
+         * Stores the tail.
+         */
+        PathOption tail
+    ) {
 
         /**
          * Creates an entry representing a SAN group.

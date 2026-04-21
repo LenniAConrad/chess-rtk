@@ -12,5 +12,22 @@ package application.gui.model;
   * @since 2026
   * @author Lennart A. Conrad
  */
-public record PvEntry(int pv, String moves, String eval, String depth) {
+public record PvEntry(
+	/**
+	 * Stores the pv.
+	 */
+	int pv,
+	/**
+	 * Stores the moves.
+	 */
+	String moves,
+	/**
+	 * Stores the eval.
+	 */
+	String eval,
+	/**
+	 * Stores the depth.
+	 */
+	String depth
+) {
 }

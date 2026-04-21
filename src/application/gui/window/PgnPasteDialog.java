@@ -24,7 +24,10 @@ import application.gui.ui.RoundedPanel;
  */
 	final class PgnPasteDialog extends JDialog {
 
-	@java.io.Serial
+		/**
+	 * Serialization version identifier.
+	 */
+@java.io.Serial
 	private static final long serialVersionUID = 1L;
 	/**
 	 * Owning history window for theme and parsing helpers.
@@ -83,7 +86,11 @@ import application.gui.ui.RoundedPanel;
 		pack();
 		setLocationRelativeTo(owner.frame);
 		addWindowListener(new WindowAdapter() {
-			@Override
+						/**
+			 * Handles window closed.
+			 * @param e e value
+			 */
+@Override
 			public void windowClosed(WindowEvent e) {
 				owner.pgnDialog = null;
 			}

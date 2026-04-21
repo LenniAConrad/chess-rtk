@@ -223,7 +223,10 @@ class GuiWindowEngine extends GuiWindowHistory {
 		return image != null && imageIcon.getIconWidth() > 0 && imageIcon.getIconHeight() > 0;
 	}
 
-		@Override
+				/**
+		 * Handles clear mini board preview.
+		 */
+@Override
 	/**
 	 * clearMiniBoardPreview method.
 	 */
@@ -267,7 +270,11 @@ class GuiWindowEngine extends GuiWindowHistory {
 					helpButton.setEnabled(false);
 
 					SwingWorker<Void, String> worker = new SwingWorker<>() {
-						@Override
+												/**
+						 * Handles do in background.
+						 * @return computed value
+						 */
+@Override
 						protected Void doInBackground() {
 							ProcessBuilder builder = new ProcessBuilder(commandLine);
 							builder.redirectErrorStream(true);
@@ -291,14 +298,21 @@ class GuiWindowEngine extends GuiWindowHistory {
 							return null;
 						}
 
-						@Override
+												/**
+						 * Handles process.
+						 * @param chunks chunks value
+						 */
+@Override
 						protected void process(List<String> chunks) {
 							for (String chunk : chunks) {
 								appendOutput(chunk);
 							}
 						}
 
-						@Override
+												/**
+						 * Handles done.
+						 */
+@Override
 						protected void done() {
 							runButton.setEnabled(true);
 							stopButton.setEnabled(false);
@@ -322,7 +336,11 @@ class GuiWindowEngine extends GuiWindowHistory {
 					}
 				}
 
-				protected java.util.Map<String, CommandSpec> buildCommandSpecs() {
+								/**
+				 * Handles build command specs.
+				 * @return computed value
+				 */
+protected java.util.Map<String, CommandSpec> buildCommandSpecs() {
 					java.util.Map<String, CommandSpec> specs = new java.util.LinkedHashMap<>();
 					specs.put("bestmove-uci", new CommandSpec("bestmove-uci", true, List.of(
 							field("--max-nodes", "Nodes", CommandFieldType.NUMBER, "e.g. 1000000"),
@@ -459,7 +477,11 @@ class GuiWindowEngine extends GuiWindowHistory {
 					setEvalBarVisible(true);
 
 					engineWorker = new SwingWorker<>() {
-						@Override
+												/**
+						 * Handles do in background.
+						 * @return computed value
+						 */
+@Override
 						protected Void doInBackground() {
 							ProtocolLoad protocolLoad = loadProtocol(engineProtocolField.getText());
 							if (protocolLoad.protocol() == null) {
@@ -583,7 +605,11 @@ class GuiWindowEngine extends GuiWindowHistory {
 							return null;
 						}
 
-						@Override
+												/**
+						 * Handles process.
+						 * @param updates updates value
+						 */
+@Override
 						protected void process(List<EngineUpdate> updates) {
 							if (updates.isEmpty()) {
 								return;
@@ -689,7 +715,10 @@ class GuiWindowEngine extends GuiWindowHistory {
 							}
 						}
 
-						@Override
+												/**
+						 * Handles done.
+						 */
+@Override
 						protected void done() {
 							engineWorker = null;
 							engineStopRequested = false;
@@ -783,9 +812,16 @@ class GuiWindowEngine extends GuiWindowHistory {
 					}
 
 					reportWorker = new SwingWorker<>() {
-						private String failureMessage;
+												/**
+						 * Stores the failure message.
+						 */
+private String failureMessage;
 
-						@Override
+												/**
+						 * Handles do in background.
+						 * @return computed value
+						 */
+@Override
 						protected Void doInBackground() {
 							Engine engine = null;
 							try {
@@ -830,7 +866,11 @@ class GuiWindowEngine extends GuiWindowHistory {
 							return null;
 						}
 
-						@Override
+												/**
+						 * Handles process.
+						 * @param updates updates value
+						 */
+@Override
 						protected void process(List<ReportUpdate> updates) {
 							if (updates == null || updates.isEmpty()) {
 								return;
@@ -842,7 +882,10 @@ class GuiWindowEngine extends GuiWindowHistory {
 							rebuildReportList();
 						}
 
-						@Override
+												/**
+						 * Handles done.
+						 */
+@Override
 						protected void done() {
 							boolean stopped = reportStopRequested || isCancelled();
 							reportWorker = null;
@@ -1505,7 +1548,11 @@ class GuiWindowEngine extends GuiWindowHistory {
 						pvPreviewWindow = new JWindow(frame);
 						pvPreviewWindow.setFocusableWindowState(false);
 						MouseAdapter autoHideListener = new MouseAdapter() {
-							@Override
+														/**
+							 * Handles mouse exited.
+							 * @param e e value
+							 */
+@Override
 							public void mouseExited(MouseEvent e) {
 								maybeHidePvPreviewOnMouseExit();
 							}
@@ -1834,7 +1881,10 @@ class GuiWindowEngine extends GuiWindowHistory {
 							bestMove, "Running", false);
 				}
 
-				@Override
+								/**
+				 * Handles refresh figurine san engine views.
+				 */
+@Override
 				/**
 				 * refreshFigurineSanEngineViews method.
 				 */
@@ -1922,7 +1972,13 @@ class GuiWindowEngine extends GuiWindowHistory {
 					return best;
 				}
 
-								protected java.util.Map<Integer, Output> distinctPvSelection(Analysis analysis, int multipv) {
+																/**
+								 * Handles distinct pv selection.
+								 * @param analysis analysis value
+								 * @param multipv multipv value
+								 * @return computed value
+								 */
+protected java.util.Map<Integer, Output> distinctPvSelection(Analysis analysis, int multipv) {
 					java.util.Map<Integer, Output> selected = new java.util.LinkedHashMap<>();
 					if (analysis == null || analysis.isEmpty()) {
 						return selected;

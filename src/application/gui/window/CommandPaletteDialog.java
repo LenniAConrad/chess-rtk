@@ -46,7 +46,10 @@ import application.gui.ui.RoundedPanel;
  */
 final class CommandPaletteDialog extends JDialog {
 
-	@java.io.Serial
+		/**
+	 * Serialization version identifier.
+	 */
+@java.io.Serial
 	private static final long serialVersionUID = 1L;
 	/**
 	 * Preferred dialog size before scaling.
@@ -126,24 +129,40 @@ final class CommandPaletteDialog extends JDialog {
 		dialogRoot.add(card, BorderLayout.CENTER);
 
 		searchField.getDocument().addDocumentListener(new DocumentListener() {
-			@Override
+						/**
+			 * Handles insert update.
+			 * @param e e value
+			 */
+@Override
 			public void insertUpdate(DocumentEvent e) {
 				filter();
 			}
 
-			@Override
+						/**
+			 * Handles remove update.
+			 * @param e e value
+			 */
+@Override
 			public void removeUpdate(DocumentEvent e) {
 				filter();
 			}
 
-			@Override
+						/**
+			 * Handles changed update.
+			 * @param e e value
+			 */
+@Override
 			public void changedUpdate(DocumentEvent e) {
 				filter();
 			}
 		});
 
 		list.addMouseListener(new MouseAdapter() {
-			@Override
+						/**
+			 * Handles mouse clicked.
+			 * @param e e value
+			 */
+@Override
 			public void mouseClicked(MouseEvent e) {
 				if (e.getClickCount() == 2) {
 					runSelected();
@@ -309,7 +328,11 @@ final class CommandPaletteDialog extends JDialog {
 		String id = "palette-" + keyCode + "-" + modifiers;
 		im.put(KeyStroke.getKeyStroke(keyCode, modifiers), id);
 		am.put(id, new AbstractAction() {
-			@Override
+						/**
+			 * Handles action performed.
+			 * @param e e value
+			 */
+@Override
 			public void actionPerformed(java.awt.event.ActionEvent e) {
 				action.run();
 			}
@@ -324,7 +347,10 @@ final class CommandPaletteDialog extends JDialog {
 	 */
 	private static final class PaletteCellRenderer extends JPanel implements ListCellRenderer<PaletteCommand> {
 
-		@java.io.Serial
+				/**
+		 * Serialization version identifier.
+		 */
+@java.io.Serial
 		private static final long serialVersionUID = 1L;
 		/**
 		 * Owning window used for font scaling and theming.
@@ -356,7 +382,16 @@ final class CommandPaletteDialog extends JDialog {
 			setBorder(new EmptyBorder(6, 10, 6, 10));
 		}
 
-		@Override
+				/**
+		 * Returns the list cell renderer component.
+		 * @param list list value
+		 * @param value value value
+		 * @param index index value
+		 * @param isSelected is selected value
+		 * @param cellHasFocus cell has focus value
+		 * @return computed value
+		 */
+@Override
 		public java.awt.Component getListCellRendererComponent(JList<? extends PaletteCommand> list, PaletteCommand value,
 				int index, boolean isSelected, boolean cellHasFocus) {
 			String label = value != null ? value.label() : "";

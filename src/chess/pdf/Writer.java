@@ -715,7 +715,24 @@ public final class Writer {
 	 * @since 2026
 	 * @author Lennart A. Conrad
 	 */
-	private record PdfTextStyle(Font font, double size, double leading, Color color) {
+	private record PdfTextStyle(
+		/**
+		 * Stores the font.
+		 */
+		Font font,
+		/**
+		 * Stores the size.
+		 */
+		double size,
+		/**
+		 * Stores the leading.
+		 */
+		double leading,
+		/**
+		 * Stores the color.
+		 */
+		Color color
+	) {
 	}
 
 	/**

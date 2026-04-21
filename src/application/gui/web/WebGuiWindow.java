@@ -68,7 +68,10 @@ import chess.tag.Tagging;
  */
 public final class WebGuiWindow extends JFrame {
 
-	@java.io.Serial
+		/**
+	 * Serialization version identifier.
+	 */
+@java.io.Serial
 	private static final long serialVersionUID = 1L;
 
 	/**
@@ -86,54 +89,168 @@ public final class WebGuiWindow extends JFrame {
 	 * Timeline state.
 	 */
 	private final List<Position> positions = new ArrayList<>();
-	private final List<Short> moves = new ArrayList<>();
-	private final List<String> sanMoves = new ArrayList<>();
+		/**
+	 * Stores the moves.
+	 */
+private final List<Short> moves = new ArrayList<>();
+		/**
+	 * Stores the san moves.
+	 */
+private final List<String> sanMoves = new ArrayList<>();
 
 	/**
 	 * View state.
 	 */
 	private boolean whiteDown;
-	private boolean lightMode;
-	private boolean glassEnabled = true;
-	private boolean showCoordinates = true;
-	private int currentPly;
-	private byte selectedSquare = Field.NO_SQUARE;
-	private byte hoverSquare = Field.NO_SQUARE;
-	private final boolean[] legalTargets = new boolean[64];
-	private final boolean[] captureTargets = new boolean[64];
-	private long tagRequestId;
+		/**
+	 * Stores the light mode.
+	 */
+private boolean lightMode;
+		/**
+	 * Stores the glass enabled.
+	 */
+private boolean glassEnabled = true;
+		/**
+	 * Stores the show coordinates.
+	 */
+private boolean showCoordinates = true;
+		/**
+	 * Stores the current ply.
+	 */
+private int currentPly;
+		/**
+	 * Stores the selected square.
+	 */
+private byte selectedSquare = Field.NO_SQUARE;
+		/**
+	 * Stores the hover square.
+	 */
+private byte hoverSquare = Field.NO_SQUARE;
+		/**
+	 * Stores the legal targets.
+	 */
+private final boolean[] legalTargets = new boolean[64];
+		/**
+	 * Stores the capture targets.
+	 */
+private final boolean[] captureTargets = new boolean[64];
+		/**
+	 * Stores the tag request id.
+	 */
+private long tagRequestId;
 
 	/**
 	 * Theme and widgets.
 	 */
 	private WebGuiTheme theme;
-	private BackgroundPanel rootPanel;
-	private RoundedPanel sideSurface;
-	private JLabel brandLabel;
-	private JLabel brandMetaLabel;
-	private JLabel titleLabel;
-	private JLabel subtitleLabel;
-	private JLabel evalLabel;
-	private JLabel statusLabel;
-	private JLabel hoverLabel;
-	private JTextField fenField;
-	private JButton loadFenButton;
-	private JButton copyFenButton;
-	private JButton resetButton;
-	private JButton undoButton;
-	private JButton flipButton;
-	private JButton themeButton;
-	private JToggleButton glassToggle;
-	private JToggleButton coordToggle;
-	private WebBoardPanel boardPanel;
-	private EvalBarPanel evalBarPanel;
-	private final DefaultListModel<String> historyModel = new DefaultListModel<>();
-	private final DefaultListModel<MoveEntry> moveModel = new DefaultListModel<>();
-	private final DefaultListModel<String> tagModel = new DefaultListModel<>();
-	private JList<String> historyList;
-	private JList<MoveEntry> moveList;
-	private JList<String> tagList;
-	private boolean syncingHistorySelection;
+		/**
+	 * Stores the root panel.
+	 */
+private BackgroundPanel rootPanel;
+		/**
+	 * Stores the side surface.
+	 */
+private RoundedPanel sideSurface;
+		/**
+	 * Stores the brand label.
+	 */
+private JLabel brandLabel;
+		/**
+	 * Stores the brand meta label.
+	 */
+private JLabel brandMetaLabel;
+		/**
+	 * Stores the title label.
+	 */
+private JLabel titleLabel;
+		/**
+	 * Stores the subtitle label.
+	 */
+private JLabel subtitleLabel;
+		/**
+	 * Stores the eval label.
+	 */
+private JLabel evalLabel;
+		/**
+	 * Stores the status label.
+	 */
+private JLabel statusLabel;
+		/**
+	 * Stores the hover label.
+	 */
+private JLabel hoverLabel;
+		/**
+	 * Stores the fen field.
+	 */
+private JTextField fenField;
+		/**
+	 * Stores the load fen button.
+	 */
+private JButton loadFenButton;
+		/**
+	 * Stores the copy fen button.
+	 */
+private JButton copyFenButton;
+		/**
+	 * Stores the reset button.
+	 */
+private JButton resetButton;
+		/**
+	 * Stores the undo button.
+	 */
+private JButton undoButton;
+		/**
+	 * Stores the flip button.
+	 */
+private JButton flipButton;
+		/**
+	 * Stores the theme button.
+	 */
+private JButton themeButton;
+		/**
+	 * Stores the glass toggle.
+	 */
+private JToggleButton glassToggle;
+		/**
+	 * Stores the coord toggle.
+	 */
+private JToggleButton coordToggle;
+		/**
+	 * Stores the board panel.
+	 */
+private WebBoardPanel boardPanel;
+		/**
+	 * Stores the eval bar panel.
+	 */
+private EvalBarPanel evalBarPanel;
+		/**
+	 * Stores the history model.
+	 */
+private final DefaultListModel<String> historyModel = new DefaultListModel<>();
+		/**
+	 * Stores the move model.
+	 */
+private final DefaultListModel<MoveEntry> moveModel = new DefaultListModel<>();
+		/**
+	 * Stores the tag model.
+	 */
+private final DefaultListModel<String> tagModel = new DefaultListModel<>();
+		/**
+	 * Stores the history list.
+	 */
+private JList<String> historyList;
+		/**
+	 * Stores the move list.
+	 */
+private JList<MoveEntry> moveList;
+		/**
+	 * Stores the tag list.
+	 */
+private JList<String> tagList;
+		/**
+	 * Stores the syncing history selection.
+	 */
+private boolean syncingHistorySelection;
 
 	/**
 	 * Creates the alternate GUI window.
@@ -159,7 +276,10 @@ public final class WebGuiWindow extends JFrame {
 		setVisible(true);
 	}
 
-	private void buildUi() {
+		/**
+	 * Handles build ui.
+	 */
+private void buildUi() {
 		rootPanel = new BackgroundPanel();
 		rootPanel.setLayout(new BorderLayout(0, 24));
 		rootPanel.setBorder(new EmptyBorder(18, 22, 22, 22));
@@ -169,7 +289,11 @@ public final class WebGuiWindow extends JFrame {
 		registerShortcuts();
 	}
 
-	private JPanel buildHeader() {
+		/**
+	 * Handles build header.
+	 * @return computed value
+	 */
+private JPanel buildHeader() {
 		JPanel header = new JPanel(new BorderLayout());
 		header.setOpaque(false);
 
@@ -202,7 +326,11 @@ public final class WebGuiWindow extends JFrame {
 		return header;
 	}
 
-	private JPanel buildMainRow() {
+		/**
+	 * Handles build main row.
+	 * @return computed value
+	 */
+private JPanel buildMainRow() {
 		JPanel row = new JPanel(new GridBagLayout());
 		row.setOpaque(false);
 		GridBagConstraints gbc = new GridBagConstraints();
@@ -238,7 +366,11 @@ public final class WebGuiWindow extends JFrame {
 		return row;
 	}
 
-	private JPanel buildSidePanel() {
+		/**
+	 * Handles build side panel.
+	 * @return computed value
+	 */
+private JPanel buildSidePanel() {
 		JPanel panel = new JPanel(new GridBagLayout());
 		panel.setOpaque(false);
 		panel.setBorder(new EmptyBorder(18, 18, 18, 18));
@@ -270,7 +402,11 @@ public final class WebGuiWindow extends JFrame {
 		return panel;
 	}
 
-	private JPanel buildStatusBlock() {
+		/**
+	 * Handles build status block.
+	 * @return computed value
+	 */
+private JPanel buildStatusBlock() {
 		JPanel block = new JPanel(new GridBagLayout());
 		block.setOpaque(false);
 		GridBagConstraints gbc = new GridBagConstraints();
@@ -293,7 +429,11 @@ public final class WebGuiWindow extends JFrame {
 		return block;
 	}
 
-	private JPanel buildFenBlock() {
+		/**
+	 * Handles build fen block.
+	 * @return computed value
+	 */
+private JPanel buildFenBlock() {
 		JPanel block = new JPanel(new GridBagLayout());
 		block.setOpaque(false);
 		GridBagConstraints gbc = new GridBagConstraints();
@@ -309,7 +449,11 @@ public final class WebGuiWindow extends JFrame {
 		fenField = new JTextField();
 		fenField.addActionListener(event -> loadFenFromField());
 		fenField.addKeyListener(new KeyAdapter() {
-			@Override
+						/**
+			 * Handles key pressed.
+			 * @param event event value
+			 */
+@Override
 			public void keyPressed(KeyEvent event) {
 				if (event.getKeyCode() == KeyEvent.VK_ESCAPE) {
 					fenField.setText(currentPosition().toString());
@@ -331,7 +475,11 @@ public final class WebGuiWindow extends JFrame {
 		return block;
 	}
 
-	private JPanel buildControlsBlock() {
+		/**
+	 * Handles build controls block.
+	 * @return computed value
+	 */
+private JPanel buildControlsBlock() {
 		JPanel block = new JPanel(new GridBagLayout());
 		block.setOpaque(false);
 		GridBagConstraints gbc = new GridBagConstraints();
@@ -372,7 +520,11 @@ public final class WebGuiWindow extends JFrame {
 		return block;
 	}
 
-	private JComponent buildListsBlock() {
+		/**
+	 * Handles build lists block.
+	 * @return computed value
+	 */
+private JComponent buildListsBlock() {
 		JPanel block = new JPanel(new GridBagLayout());
 		block.setOpaque(false);
 		GridBagConstraints gbc = new GridBagConstraints();
@@ -396,7 +548,11 @@ public final class WebGuiWindow extends JFrame {
 		moveList = new JList<>(moveModel);
 		moveList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
 		moveList.addMouseListener(new java.awt.event.MouseAdapter() {
-			@Override
+						/**
+			 * Handles mouse clicked.
+			 * @param event event value
+			 */
+@Override
 			public void mouseClicked(java.awt.event.MouseEvent event) {
 				if (event.getClickCount() == 2) {
 					playSelectedMove();
@@ -404,7 +560,11 @@ public final class WebGuiWindow extends JFrame {
 			}
 		});
 		moveList.addKeyListener(new KeyAdapter() {
-			@Override
+						/**
+			 * Handles key pressed.
+			 * @param event event value
+			 */
+@Override
 			public void keyPressed(KeyEvent event) {
 				if (event.getKeyCode() == KeyEvent.VK_ENTER) {
 					playSelectedMove();
@@ -429,7 +589,13 @@ public final class WebGuiWindow extends JFrame {
 		return block;
 	}
 
-	private JPanel buildListSection(String title, JScrollPane scrollPane) {
+		/**
+	 * Handles build list section.
+	 * @param title title value
+	 * @param scrollPane scroll pane value
+	 * @return computed value
+	 */
+private JPanel buildListSection(String title, JScrollPane scrollPane) {
 		JPanel block = new JPanel(new BorderLayout(0, 8));
 		block.setOpaque(false);
 		JLabel label = new JLabel(title);
@@ -438,7 +604,13 @@ public final class WebGuiWindow extends JFrame {
 		return block;
 	}
 
-	private JScrollPane wrapList(JList<?> list, int preferredHeight) {
+		/**
+	 * Handles wrap list.
+	 * @param list list value
+	 * @param preferredHeight preferred height value
+	 * @return computed value
+	 */
+private JScrollPane wrapList(JList<?> list, int preferredHeight) {
 		JScrollPane scrollPane = new JScrollPane(list);
 		scrollPane.setBorder(BorderFactory.createEmptyBorder());
 		scrollPane.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
@@ -448,7 +620,13 @@ public final class WebGuiWindow extends JFrame {
 		return scrollPane;
 	}
 
-	private JButton buildButton(String text, java.awt.event.ActionListener action) {
+		/**
+	 * Handles build button.
+	 * @param text text value
+	 * @param action action value
+	 * @return computed value
+	 */
+private JButton buildButton(String text, java.awt.event.ActionListener action) {
 		JButton button = new JButton(text);
 		button.addActionListener(action);
 		button.setFocusPainted(false);
@@ -458,7 +636,14 @@ public final class WebGuiWindow extends JFrame {
 		return button;
 	}
 
-	private JToggleButton buildToggle(String text, boolean selected, java.awt.event.ActionListener action) {
+		/**
+	 * Handles build toggle.
+	 * @param text text value
+	 * @param selected selected value
+	 * @param action action value
+	 * @return computed value
+	 */
+private JToggleButton buildToggle(String text, boolean selected, java.awt.event.ActionListener action) {
 		JToggleButton button = new JToggleButton(text, selected);
 		button.addActionListener(action);
 		button.setFocusPainted(false);
@@ -467,11 +652,18 @@ public final class WebGuiWindow extends JFrame {
 		return button;
 	}
 
-	private void registerShortcuts() {
+		/**
+	 * Handles register shortcuts.
+	 */
+private void registerShortcuts() {
 		rootPanel.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).put(
 				javax.swing.KeyStroke.getKeyStroke(KeyEvent.VK_LEFT, 0), "undo-ply");
 		rootPanel.getActionMap().put("undo-ply", new javax.swing.AbstractAction() {
-			@Override
+						/**
+			 * Handles action performed.
+			 * @param event event value
+			 */
+@Override
 			public void actionPerformed(java.awt.event.ActionEvent event) {
 				navigateToPly(Math.max(0, currentPly - 1));
 			}
@@ -479,7 +671,11 @@ public final class WebGuiWindow extends JFrame {
 		rootPanel.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).put(
 				javax.swing.KeyStroke.getKeyStroke(KeyEvent.VK_HOME, 0), "root-pos");
 		rootPanel.getActionMap().put("root-pos", new javax.swing.AbstractAction() {
-			@Override
+						/**
+			 * Handles action performed.
+			 * @param event event value
+			 */
+@Override
 			public void actionPerformed(java.awt.event.ActionEvent event) {
 				navigateToPly(0);
 			}
@@ -487,7 +683,11 @@ public final class WebGuiWindow extends JFrame {
 		rootPanel.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).put(
 				javax.swing.KeyStroke.getKeyStroke(KeyEvent.VK_F, 0), "flip-board");
 		rootPanel.getActionMap().put("flip-board", new javax.swing.AbstractAction() {
-			@Override
+						/**
+			 * Handles action performed.
+			 * @param event event value
+			 */
+@Override
 			public void actionPerformed(java.awt.event.ActionEvent event) {
 				whiteDown = !whiteDown;
 				refreshUi();
@@ -496,7 +696,11 @@ public final class WebGuiWindow extends JFrame {
 		rootPanel.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).put(
 				javax.swing.KeyStroke.getKeyStroke(KeyEvent.VK_T, 0), "toggle-theme");
 		rootPanel.getActionMap().put("toggle-theme", new javax.swing.AbstractAction() {
-			@Override
+						/**
+			 * Handles action performed.
+			 * @param event event value
+			 */
+@Override
 			public void actionPerformed(java.awt.event.ActionEvent event) {
 				lightMode = !lightMode;
 				theme = lightMode ? WebGuiTheme.light() : WebGuiTheme.dark();
@@ -506,7 +710,10 @@ public final class WebGuiWindow extends JFrame {
 		});
 	}
 
-	private void loadFenFromField() {
+		/**
+	 * Handles load fen from field.
+	 */
+private void loadFenFromField() {
 		String fen = fenField.getText().trim();
 		try {
 			resetTimeline(new Position(fen));
@@ -517,11 +724,17 @@ public final class WebGuiWindow extends JFrame {
 		}
 	}
 
-	private void copyCurrentFen() {
+		/**
+	 * Handles copy current fen.
+	 */
+private void copyCurrentFen() {
 		copyToClipboard(currentPosition().toString());
 	}
 
-	private void copyCurrentLine() {
+		/**
+	 * Handles copy current line.
+	 */
+private void copyCurrentLine() {
 		if (sanMoves.isEmpty()) {
 			copyToClipboard("(start position)");
 			return;
@@ -529,11 +742,20 @@ public final class WebGuiWindow extends JFrame {
 		copyToClipboard(String.join(" ", sanMoves.subList(0, currentPly)));
 	}
 
-	private void copyToClipboard(String text) {
+		/**
+	 * Handles copy to clipboard.
+	 * @param text text value
+	 */
+private void copyToClipboard(String text) {
 		Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new StringSelection(text), null);
 	}
 
-	private Position parseFenOrDefault(String fen) {
+		/**
+	 * Handles parse fen or default.
+	 * @param fen fen value
+	 * @return computed value
+	 */
+private Position parseFenOrDefault(String fen) {
 		try {
 			return new Position(fen == null || fen.isBlank() ? DEFAULT_FEN : fen);
 		} catch (IllegalArgumentException ex) {
@@ -545,7 +767,11 @@ public final class WebGuiWindow extends JFrame {
 		}
 	}
 
-	private void resetTimeline(Position root) {
+		/**
+	 * Handles reset timeline.
+	 * @param root root value
+	 */
+private void resetTimeline(Position root) {
 		positions.clear();
 		moves.clear();
 		sanMoves.clear();
@@ -555,13 +781,21 @@ public final class WebGuiWindow extends JFrame {
 		refreshUi();
 	}
 
-	private void navigateToPly(int targetPly) {
+		/**
+	 * Handles navigate to ply.
+	 * @param targetPly target ply value
+	 */
+private void navigateToPly(int targetPly) {
 		currentPly = Math.max(0, Math.min(targetPly, moves.size()));
 		selectedSquare = Field.NO_SQUARE;
 		refreshUi();
 	}
 
-	private void handleBoardSquare(byte square) {
+		/**
+	 * Handles handle board square.
+	 * @param square square value
+	 */
+private void handleBoardSquare(byte square) {
 		Position position = currentPosition();
 		byte[] board = position.getBoard();
 		List<Short> options = matchingMoves(square);
@@ -594,14 +828,21 @@ public final class WebGuiWindow extends JFrame {
 		}
 	}
 
-	private void playSelectedMove() {
+		/**
+	 * Handles play selected move.
+	 */
+private void playSelectedMove() {
 		MoveEntry entry = moveList.getSelectedValue();
 		if (entry != null) {
 			playMove(entry.move());
 		}
 	}
 
-	private void playMove(short move) {
+		/**
+	 * Handles play move.
+	 * @param move move value
+	 */
+private void playMove(short move) {
 		Position before = currentPosition().copyOf();
 		if (!before.isLegalMove(move)) {
 			return;
@@ -617,7 +858,10 @@ public final class WebGuiWindow extends JFrame {
 		refreshUi();
 	}
 
-	private void truncateFuture() {
+		/**
+	 * Handles truncate future.
+	 */
+private void truncateFuture() {
 		while (moves.size() > currentPly) {
 			moves.remove(moves.size() - 1);
 			sanMoves.remove(sanMoves.size() - 1);
@@ -627,7 +871,12 @@ public final class WebGuiWindow extends JFrame {
 		}
 	}
 
-	private short resolveMove(List<Short> matches) {
+		/**
+	 * Handles resolve move.
+	 * @param matches matches value
+	 * @return computed value
+	 */
+private short resolveMove(List<Short> matches) {
 		if (matches.size() == 1) {
 			return matches.get(0);
 		}
@@ -650,7 +899,12 @@ public final class WebGuiWindow extends JFrame {
 		return Move.NO_MOVE;
 	}
 
-	private List<Short> matchingMoves(byte from) {
+		/**
+	 * Handles matching moves.
+	 * @param from from value
+	 * @return computed value
+	 */
+private List<Short> matchingMoves(byte from) {
 		List<Short> result = new ArrayList<>();
 		MoveList legal = currentPosition().getMoves();
 		for (int i = 0; i < legal.size(); i++) {
@@ -662,7 +916,13 @@ public final class WebGuiWindow extends JFrame {
 		return result;
 	}
 
-	private List<Short> matchingMoves(byte from, byte to) {
+		/**
+	 * Handles matching moves.
+	 * @param from from value
+	 * @param to to value
+	 * @return computed value
+	 */
+private List<Short> matchingMoves(byte from, byte to) {
 		List<Short> result = new ArrayList<>();
 		MoveList legal = currentPosition().getMoves();
 		for (int i = 0; i < legal.size(); i++) {
@@ -674,15 +934,26 @@ public final class WebGuiWindow extends JFrame {
 		return result;
 	}
 
-	private Position currentPosition() {
+		/**
+	 * Handles current position.
+	 * @return computed value
+	 */
+private Position currentPosition() {
 		return positions.get(currentPly);
 	}
 
-	private short currentLastMove() {
+		/**
+	 * Handles current last move.
+	 * @return computed value
+	 */
+private short currentLastMove() {
 		return currentPly == 0 ? Move.NO_MOVE : moves.get(currentPly - 1);
 	}
 
-	private void refreshUi() {
+		/**
+	 * Handles refresh ui.
+	 */
+private void refreshUi() {
 		if (rootPanel == null) {
 			return;
 		}
@@ -693,7 +964,10 @@ public final class WebGuiWindow extends JFrame {
 		refreshTagsAsync();
 	}
 
-	private void refreshStatus() {
+		/**
+	 * Handles refresh status.
+	 */
+private void refreshStatus() {
 		Position position = currentPosition();
 		Result eval = EvalOps.evaluateClassical(position, true);
 		Integer cp = eval.centipawns();
@@ -712,7 +986,10 @@ public final class WebGuiWindow extends JFrame {
 		refreshHoverLabel();
 	}
 
-	private void refreshHoverLabel() {
+		/**
+	 * Handles refresh hover label.
+	 */
+private void refreshHoverLabel() {
 		if (hoverLabel == null) {
 			return;
 		}
@@ -729,7 +1006,12 @@ public final class WebGuiWindow extends JFrame {
 		}
 	}
 
-	private String buildStatusText(Position position) {
+		/**
+	 * Handles build status text.
+	 * @param position position value
+	 * @return computed value
+	 */
+private String buildStatusText(Position position) {
 		MoveList legal = position.getMoves();
 		if (position.isMate()) {
 			return position.isWhiteTurn() ? "Black delivered mate" : "White delivered mate";
@@ -744,7 +1026,13 @@ public final class WebGuiWindow extends JFrame {
 				+ " | move " + position.getFullMove();
 	}
 
-	private String describePosition(Result eval, Position position) {
+		/**
+	 * Handles describe position.
+	 * @param eval eval value
+	 * @param position position value
+	 * @return computed value
+	 */
+private String describePosition(Result eval, Position position) {
 		if (position.isMate()) {
 			return "terminal";
 		}
@@ -758,11 +1046,19 @@ public final class WebGuiWindow extends JFrame {
 		return "Balanced";
 	}
 
-	private String formatEvalCp(int whiteCp) {
+		/**
+	 * Handles format eval cp.
+	 * @param whiteCp white cp value
+	 * @return computed value
+	 */
+private String formatEvalCp(int whiteCp) {
 		return String.format(Locale.ROOT, "%+.2f", whiteCp / 100.0);
 	}
 
-	private void refreshHistoryModel() {
+		/**
+	 * Handles refresh history model.
+	 */
+private void refreshHistoryModel() {
 		historyModel.clear();
 		for (int i = 0; i < sanMoves.size(); i++) {
 			String prefix = (i % 2 == 0) ? ((i / 2) + 1) + ". " : ((i / 2) + 1) + "... ";
@@ -781,7 +1077,10 @@ public final class WebGuiWindow extends JFrame {
 		}
 	}
 
-	private void refreshMoveModel() {
+		/**
+	 * Handles refresh move model.
+	 */
+private void refreshMoveModel() {
 		moveModel.clear();
 		Arrays.fill(legalTargets, false);
 		Arrays.fill(captureTargets, false);
@@ -795,7 +1094,10 @@ public final class WebGuiWindow extends JFrame {
 		updateSelectionTargets();
 	}
 
-	private void updateSelectionTargets() {
+		/**
+	 * Handles update selection targets.
+	 */
+private void updateSelectionTargets() {
 		Arrays.fill(legalTargets, false);
 		Arrays.fill(captureTargets, false);
 		if (selectedSquare == Field.NO_SQUARE) {
@@ -816,20 +1118,30 @@ public final class WebGuiWindow extends JFrame {
 		}
 	}
 
-	private void refreshBoard() {
+		/**
+	 * Handles refresh board.
+	 */
+private void refreshBoard() {
 		updateSelectionTargets();
 		boardPanel.updateBoard(currentPosition(), currentLastMove(), selectedSquare, legalTargets, captureTargets,
 				whiteDown, showCoordinates, glassEnabled, theme);
 		boardPanel.repaint();
 	}
 
-	private void refreshTagsAsync() {
+		/**
+	 * Handles refresh tags async.
+	 */
+private void refreshTagsAsync() {
 		final long request = ++tagRequestId;
 		final Position snapshot = currentPosition().copyOf();
 		tagModel.clear();
 		tagModel.addElement("Loading tags...");
 		new SwingWorker<List<String>, Void>() {
-			@Override
+						/**
+			 * Handles do in background.
+			 * @return computed value
+			 */
+@Override
 			protected List<String> doInBackground() {
 				List<String> tags = Tagging.tags(snapshot);
 				if (tags.size() <= MAX_VISIBLE_TAGS) {
@@ -838,7 +1150,10 @@ public final class WebGuiWindow extends JFrame {
 				return new ArrayList<>(tags.subList(0, MAX_VISIBLE_TAGS));
 			}
 
-			@Override
+						/**
+			 * Handles done.
+			 */
+@Override
 			protected void done() {
 				if (request != tagRequestId) {
 					return;
@@ -858,7 +1173,10 @@ public final class WebGuiWindow extends JFrame {
 		}.execute();
 	}
 
-	private void applyTheme() {
+		/**
+	 * Handles apply theme.
+	 */
+private void applyTheme() {
 		rootPanel.setTheme(theme);
 		sideSurface.setTheme(theme.surface(), theme.surfaceBorder());
 		sideSurface.setShadow(theme.surfaceShadow(), 10);
@@ -905,7 +1223,11 @@ public final class WebGuiWindow extends JFrame {
 		rootPanel.repaint();
 	}
 
-	private void styleButton(JButton button) {
+		/**
+	 * Handles style button.
+	 * @param button button value
+	 */
+private void styleButton(JButton button) {
 		button.setBackground(theme.buttonBackground());
 		button.setForeground(theme.buttonText());
 		button.setFont(theme.bodyFont());
@@ -916,7 +1238,11 @@ public final class WebGuiWindow extends JFrame {
 		button.setOpaque(true);
 	}
 
-	private void styleToggle(JToggleButton button) {
+		/**
+	 * Handles style toggle.
+	 * @param button button value
+	 */
+private void styleToggle(JToggleButton button) {
 		Color background = button.isSelected() ? theme.toggleOnBackground() : theme.toggleOffBackground();
 		Color border = button.isSelected() ? theme.toggleOnBorder() : theme.toggleOffBorder();
 		button.setBackground(background);
@@ -927,7 +1253,11 @@ public final class WebGuiWindow extends JFrame {
 		button.setOpaque(true);
 	}
 
-	private void styleList(JList<?> list) {
+		/**
+	 * Handles style list.
+	 * @param list list value
+	 */
+private void styleList(JList<?> list) {
 		list.setBackground(theme.surfaceAlt());
 		list.setForeground(theme.text());
 		list.setSelectionBackground(theme.accentSoft());
@@ -935,7 +1265,11 @@ public final class WebGuiWindow extends JFrame {
 		list.setBorder(new EmptyBorder(6, 6, 6, 6));
 	}
 
-	private void styleScroll(JScrollPane scrollPane) {
+		/**
+	 * Handles style scroll.
+	 * @param scrollPane scroll pane value
+	 */
+private void styleScroll(JScrollPane scrollPane) {
 		if (scrollPane == null) {
 			return;
 		}
@@ -946,7 +1280,12 @@ public final class WebGuiWindow extends JFrame {
 				new EmptyBorder(0, 0, 0, 0)));
 	}
 
-	private String pieceLabel(byte piece) {
+		/**
+	 * Handles piece label.
+	 * @param piece piece value
+	 * @return computed value
+	 */
+private String pieceLabel(byte piece) {
 		String color = Piece.isWhite(piece) ? "White " : "Black ";
 		String name = switch (Math.abs(piece)) {
 			case Piece.PAWN -> "pawn";
@@ -965,15 +1304,29 @@ public final class WebGuiWindow extends JFrame {
 	 */
 	private static final class BackgroundPanel extends JPanel {
 
-		@java.io.Serial
+				/**
+		 * Serialization version identifier.
+		 */
+@java.io.Serial
 		private static final long serialVersionUID = 1L;
-		private WebGuiTheme theme;
+				/**
+		 * Stores the theme.
+		 */
+private WebGuiTheme theme;
 
-		void setTheme(WebGuiTheme theme) {
+				/**
+		 * Sets the theme.
+		 * @param theme theme value
+		 */
+void setTheme(WebGuiTheme theme) {
 			this.theme = theme;
 		}
 
-		@Override
+				/**
+		 * Handles paint component.
+		 * @param graphics graphics value
+		 */
+@Override
 		protected void paintComponent(Graphics graphics) {
 			super.paintComponent(graphics);
 			if (theme == null) {
@@ -992,28 +1345,52 @@ public final class WebGuiWindow extends JFrame {
 	 */
 	private static final class EvalBarPanel extends JPanel {
 
-		@java.io.Serial
+				/**
+		 * Serialization version identifier.
+		 */
+@java.io.Serial
 		private static final long serialVersionUID = 1L;
-		private WebGuiTheme theme = WebGuiTheme.light();
-		private int whiteAdvantageCp;
+				/**
+		 * Stores the theme.
+		 */
+private WebGuiTheme theme = WebGuiTheme.light();
+				/**
+		 * Stores the white advantage cp.
+		 */
+private int whiteAdvantageCp;
 
-		EvalBarPanel() {
+				/**
+		 * Creates a new instance.
+		 */
+EvalBarPanel() {
 			setOpaque(false);
 			setPreferredSize(new Dimension(30, 640));
 			setMinimumSize(new Dimension(30, 220));
 		}
 
-		void setTheme(WebGuiTheme theme) {
+				/**
+		 * Sets the theme.
+		 * @param theme theme value
+		 */
+void setTheme(WebGuiTheme theme) {
 			this.theme = theme;
 			repaint();
 		}
 
-		void setWhiteAdvantageCp(int whiteAdvantageCp) {
+				/**
+		 * Sets the white advantage cp.
+		 * @param whiteAdvantageCp white advantage cp value
+		 */
+void setWhiteAdvantageCp(int whiteAdvantageCp) {
 			this.whiteAdvantageCp = whiteAdvantageCp;
 			repaint();
 		}
 
-		@Override
+				/**
+		 * Handles paint component.
+		 * @param graphics graphics value
+		 */
+@Override
 		protected void paintComponent(Graphics graphics) {
 			super.paintComponent(graphics);
 			Graphics2D g = (Graphics2D) graphics.create();
@@ -1046,7 +1423,20 @@ public final class WebGuiWindow extends JFrame {
 	 * @param san SAN text
 	 * @param uci UCI text
 	 */
-	private record MoveEntry(short move, String san, String uci) {
+	private record MoveEntry(
+		/**
+		 * Stores the move.
+		 */
+		short move,
+		/**
+		 * Stores the san.
+		 */
+		String san,
+		/**
+		 * Stores the uci.
+		 */
+		String uci
+	) {
 	}
 
 	/**
@@ -1054,15 +1444,34 @@ public final class WebGuiWindow extends JFrame {
 	 */
 	private final class StringListRenderer extends DefaultListCellRenderer {
 
-		@java.io.Serial
+				/**
+		 * Serialization version identifier.
+		 */
+@java.io.Serial
 		private static final long serialVersionUID = 1L;
-		private final boolean mono;
+				/**
+		 * Stores the mono.
+		 */
+private final boolean mono;
 
-		private StringListRenderer(boolean mono) {
+				/**
+		 * Creates a new instance.
+		 * @param mono mono value
+		 */
+private StringListRenderer(boolean mono) {
 			this.mono = mono;
 		}
 
-		@Override
+				/**
+		 * Returns the list cell renderer component.
+		 * @param list list value
+		 * @param value value value
+		 * @param index index value
+		 * @param isSelected is selected value
+		 * @param cellHasFocus cell has focus value
+		 * @return computed value
+		 */
+@Override
 		public Component getListCellRendererComponent(JList<?> list, Object value, int index, boolean isSelected,
 				boolean cellHasFocus) {
 			JLabel label = (JLabel) super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
@@ -1080,9 +1489,21 @@ public final class WebGuiWindow extends JFrame {
 	 */
 	private final class MoveListRenderer extends DefaultListCellRenderer {
 
-		@java.io.Serial
+				/**
+		 * Serialization version identifier.
+		 */
+@java.io.Serial
 		private static final long serialVersionUID = 1L;
-		@Override
+				/**
+		 * Returns the list cell renderer component.
+		 * @param list list value
+		 * @param value value value
+		 * @param index index value
+		 * @param isSelected is selected value
+		 * @param cellHasFocus cell has focus value
+		 * @return computed value
+		 */
+@Override
 		public Component getListCellRendererComponent(JList<?> list, Object value, int index, boolean isSelected,
 				boolean cellHasFocus) {
 			MoveEntry entry = (MoveEntry) value;

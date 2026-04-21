@@ -3,7 +3,7 @@ package application.cli.command;
 import utility.Argv;
 
 /**
- * Implements the {@code gpu-info} CLI command.
+ * Implements the {@code engine gpu} CLI command.
  *
  * @since 2026
  * @author Lennart A. Conrad
@@ -18,7 +18,7 @@ public final class GpuCommand {
 	}
 
 	/**
-	 * Handles {@code gpu-info}.
+	 * Handles {@code engine gpu}.
 	 *
 	 * @param a argument parser for the subcommand
 	 */

@@ -1,8 +1,8 @@
 package application.cli.command;
 
-import static application.cli.Constants.CMD_CHESS_BOOK;
 import static application.cli.Constants.CMD_HELP_LONG;
 import static application.cli.Constants.CMD_HELP_SHORT;
+import static application.cli.Constants.OPT_CHECK;
 import static application.cli.Constants.OPT_INPUT;
 import static application.cli.Constants.OPT_INPUT_SHORT;
 import static application.cli.Constants.OPT_FREE_WATERMARK;
@@ -11,6 +11,7 @@ import static application.cli.Constants.OPT_OUTPUT;
 import static application.cli.Constants.OPT_OUTPUT_SHORT;
 import static application.cli.Constants.OPT_SUBTITLE;
 import static application.cli.Constants.OPT_TITLE;
+import static application.cli.Constants.OPT_VALIDATE;
 import static application.cli.Constants.OPT_VERBOSE;
 import static application.cli.Constants.OPT_VERBOSE_SHORT;
 import static application.cli.Constants.OPT_WATERMARK;
@@ -28,7 +29,7 @@ import chess.book.render.Writer;
 import utility.Argv;
 
 /**
- * Implements {@code chess-book}.
+ * Implements {@code book render}.
  *
  * <p>
  * The command reads a JSON or TOML book manifest and renders it directly through
@@ -41,6 +42,11 @@ import utility.Argv;
 public final class ChessBookCommand {
 
 	/**
+	 * Current command label used in diagnostics.
+	 */
+	private static final String COMMAND_LABEL = "book render";
+
+	/**
 	 * Utility class; prevent instantiation.
 	 */
 	private ChessBookCommand() {
@@ -48,13 +54,13 @@ public final class ChessBookCommand {
 	}
 
 	/**
-	 * Handles {@code chess-book}.
+	 * Handles {@code book render}.
 	 *
 	 * @param a argument parser for the subcommand
 	 */
 	public static void runChessBook(Argv a) {
 		if (a.flag(CMD_HELP_SHORT, CMD_HELP_LONG)) {
-			HelpCommand.runHelp(new Argv(new String[] { CMD_CHESS_BOOK }));
+			HelpCommand.runHelp(new Argv(new String[] { "book", "render" }));
 			return;
 		}
 
@@ -64,6 +70,7 @@ public final class ChessBookCommand {
 		String titleOverride = trimToNull(a.string(OPT_TITLE));
 		String subtitleOverride = trimToNull(a.string(OPT_SUBTITLE));
 		int limit = a.integerOr(0, OPT_LIMIT);
+		boolean check = a.flag(OPT_CHECK, OPT_VALIDATE);
 		boolean freeWatermark = a.flag(OPT_FREE_WATERMARK, OPT_WATERMARK);
 		List<String> rest = a.positionals();
 		a.ensureConsumed();
@@ -91,34 +98,61 @@ public final class ChessBookCommand {
 			if (subtitleOverride != null) {
 				book.setSubtitle(subtitleOverride);
 			}
+			if (check) {
+				printValidationSummary(book);
+				return;
+			}
 
 			Path resolvedOutput = output != null ? output : deriveOutputPath(input, ".pdf");
 			Writer.write(resolvedOutput, book, freeWatermark);
 			System.out.printf(Locale.ROOT, "%s wrote %d puzzle%s to %s%s%n",
-					CMD_CHESS_BOOK,
+					COMMAND_LABEL,
 					book.getElements().length,
 					book.getElements().length == 1 ? "" : "s",
 					resolvedOutput.toAbsolutePath(),
 					freeWatermark ? " (free watermarked PDF)" : "");
 		} catch (IllegalArgumentException ex) {
-			System.err.println(CMD_CHESS_BOOK + ": " + ex.getMessage());
+			System.err.println(COMMAND_LABEL + ": " + ex.getMessage());
 			if (verbose) {
 				ex.printStackTrace(System.err);
 			}
 			System.exit(2);
 		} catch (IOException ex) {
-			System.err.println(CMD_CHESS_BOOK + ": failed to generate PDF: " + ex.getMessage());
+			System.err.println(COMMAND_LABEL + ": failed to generate PDF: " + ex.getMessage());
 			if (verbose) {
 				ex.printStackTrace(System.err);
 			}
 			System.exit(3);
 		} catch (Exception ex) {
-			System.err.println(CMD_CHESS_BOOK + ": unexpected failure: " + ex.getMessage());
+			System.err.println(COMMAND_LABEL + ": unexpected failure: " + ex.getMessage());
 			if (verbose) {
 				ex.printStackTrace(System.err);
 			}
 			System.exit(3);
 		}
+	}
+
+	/**
+	 * Prints validation details without writing a PDF.
+	 *
+	 * @param book loaded and option-adjusted book.
+	 */
+	private static void printValidationSummary(Book book) {
+		ChessBookValidation.Summary summary = ChessBookValidation.validateBook(book);
+		System.out.printf(Locale.ROOT,
+				"%s OK: %d puzzle%s, %.2f x %.2f cm, margins %.2f/%.2f/%.2f/%.2f cm, grid %dx%d, table frequency %d%n",
+				COMMAND_LABEL,
+				summary.puzzles(),
+				summary.puzzles() == 1 ? "" : "s",
+				summary.paperWidthCm(),
+				summary.paperHeightCm(),
+				summary.innerMarginCm(),
+				summary.outerMarginCm(),
+				summary.topMarginCm(),
+				summary.bottomMarginCm(),
+				summary.puzzleRows(),
+				summary.puzzleColumns(),
+				summary.tableFrequency());
 	}
 
 	/**

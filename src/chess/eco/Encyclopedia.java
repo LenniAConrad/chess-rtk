@@ -140,7 +140,20 @@ public final class Encyclopedia {
      * Each row stores the ECO code, the descriptive name, and the SAN movetext.
      * </p>
      */
-    private record Row(    String eco,     String name,     String movetext) {
+    private record Row(
+        /**
+         * Stores the eco.
+         */
+        String eco,
+        /**
+         * Stores the name.
+         */
+        String name,
+        /**
+         * Stores the movetext.
+         */
+        String movetext
+    ) {
          /**
          * Creates a new row instance.
          * @param eco eco
@@ -161,7 +174,16 @@ public final class Encyclopedia {
      * Exactly one of {@link #entry()} and {@link #error()} should be non-null to indicate success or failure.
      * </p>
      */
-    private record RowParseResult(    Entry entry,     String error) {
+    private record RowParseResult(
+        /**
+         * Stores the entry.
+         */
+        Entry entry,
+        /**
+         * Stores the error.
+         */
+        String error
+    ) {
     }
 
     /**

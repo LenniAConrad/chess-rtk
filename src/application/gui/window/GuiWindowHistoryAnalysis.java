@@ -312,7 +312,11 @@ abstract class GuiWindowHistoryAnalysis extends GuiWindowHistoryTheme {
 				}
 				list.putClientProperty("hoverInstalled", Boolean.TRUE);
 				list.addMouseMotionListener(new MouseAdapter() {
-					@Override
+										/**
+					 * Handles mouse moved.
+					 * @param e e value
+					 */
+@Override
 					public void mouseMoved(MouseEvent e) {
 						int idx = list.locationToIndex(e.getPoint());
 						Object current = list.getClientProperty("hoverIndex");
@@ -324,7 +328,11 @@ abstract class GuiWindowHistoryAnalysis extends GuiWindowHistoryTheme {
 					}
 				});
 				list.addMouseListener(new MouseAdapter() {
-					@Override
+										/**
+					 * Handles mouse exited.
+					 * @param e e value
+					 */
+@Override
 					public void mouseExited(MouseEvent e) {
 						list.putClientProperty("hoverIndex", -1);
 						list.repaint();
@@ -345,7 +353,11 @@ abstract class GuiWindowHistoryAnalysis extends GuiWindowHistoryTheme {
 				}
 				table.putClientProperty("hoverInstalled", Boolean.TRUE);
 				table.addMouseMotionListener(new MouseAdapter() {
-					@Override
+										/**
+					 * Handles mouse moved.
+					 * @param e e value
+					 */
+@Override
 					public void mouseMoved(MouseEvent e) {
 						int row = table.rowAtPoint(e.getPoint());
 						Object current = table.getClientProperty("hoverRow");
@@ -357,7 +369,11 @@ abstract class GuiWindowHistoryAnalysis extends GuiWindowHistoryTheme {
 					}
 				});
 				table.addMouseListener(new MouseAdapter() {
-					@Override
+										/**
+					 * Handles mouse exited.
+					 * @param e e value
+					 */
+@Override
 					public void mouseExited(MouseEvent e) {
 						table.putClientProperty("hoverRow", -1);
 						table.repaint();
@@ -1247,7 +1263,11 @@ abstract class GuiWindowHistoryAnalysis extends GuiWindowHistoryTheme {
 				Position snapshot = position.copyOf();
 				long requestVersion = ++ablationVersion;
 				SwingWorker<AblationResult, Void> worker = new SwingWorker<>() {
-					@Override
+										/**
+					 * Handles do in background.
+					 * @return computed value
+					 */
+@Override
 					protected AblationResult doInBackground() {
 						int[][] matrix = ablationEvaluator.ablation(snapshot);
 						AblationSupport.normalizeForWhite(snapshot, matrix);
@@ -1268,7 +1288,10 @@ abstract class GuiWindowHistoryAnalysis extends GuiWindowHistoryTheme {
 						return new AblationResult(rows, matrix, labels);
 					}
 
-					@Override
+										/**
+					 * Handles done.
+					 */
+@Override
 					protected void done() {
 						if (requestVersion != ablationVersion) {
 							return;

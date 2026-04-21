@@ -120,8 +120,32 @@ public final class Network implements AutoCloseable {
      * @param outputSize     number of scalar outputs
      * @param parameterCount total number of parameters
      */
-    public record Info(    int inputChannels,     int trunkChannels,     int residualBlocks,
-                        int headChannels,             int outputSize,             long parameterCount) {
+    public record Info(
+        /**
+         * Stores the input channels.
+         */
+        int inputChannels,
+        /**
+         * Stores the trunk channels.
+         */
+        int trunkChannels,
+        /**
+         * Stores the residual blocks.
+         */
+        int residualBlocks,
+        /**
+         * Stores the head channels.
+         */
+        int headChannels,
+        /**
+         * Stores the output size.
+         */
+        int outputSize,
+        /**
+         * Stores the parameter count.
+         */
+        long parameterCount
+    ) {
     }
 
     /**
@@ -129,7 +153,12 @@ public final class Network implements AutoCloseable {
      *
      * @param logit raw classifier logit for the positive class
      */
-    public record Prediction(    float logit) {
+    public record Prediction(
+        /**
+         * Stores the logit.
+         */
+        float logit
+    ) {
 
         /**
          * Returns the sigmoid probability implied by {@link #logit()}.
@@ -155,10 +184,14 @@ public final class Network implements AutoCloseable {
      */
     private enum Activation {
 
-        /** Rectified linear unit. */
+        /**
+         * Rectified linear unit.
+         */
         RELU,
 
-        /** No activation (identity). */
+        /**
+         * No activation (identity).
+         */
         NONE
     }
 
@@ -622,7 +655,16 @@ public final class Network implements AutoCloseable {
     /**
      * Residual block containing two convolutional layers.
      */
-    private record ResidualBlock(    ConvLayer conv1,     ConvLayer conv2) {
+    private record ResidualBlock(
+        /**
+         * Stores the conv1.
+         */
+        ConvLayer conv1,
+        /**
+         * Stores the conv2.
+         */
+        ConvLayer conv2
+    ) {
     }
 
     /**
@@ -966,25 +1008,39 @@ public final class Network implements AutoCloseable {
          */
         private static final class Workspace {
 
-            /** Current trunk activations [trunkChannels, 64]. */
+            /**
+             * Current trunk activations [trunkChannels, 64].
+             */
             float[] current = new float[0];
 
-            /** Next trunk activations [trunkChannels, 64]. */
+            /**
+             * Next trunk activations [trunkChannels, 64].
+             */
             float[] next = new float[0];
 
-            /** Temporary buffer for intermediate conv output [trunkChannels, 64]. */
+            /**
+             * Temporary buffer for intermediate conv output [trunkChannels, 64].
+             */
             float[] tmp = new float[0];
 
-            /** Scratch buffer for conv output [trunkChannels, 64]. */
+            /**
+             * Scratch buffer for conv output [trunkChannels, 64].
+             */
             float[] scratch = new float[0];
 
-            /** Head activations [headChannels, 64]. */
+            /**
+             * Head activations [headChannels, 64].
+             */
             float[] head = new float[0];
 
-            /** Global-average-pooled head activations [headChannels]. */
+            /**
+             * Global-average-pooled head activations [headChannels].
+             */
             float[] pooled = new float[0];
 
-            /** Output logits [outputSize]. */
+            /**
+             * Output logits [outputSize].
+             */
             float[] logits = new float[0];
 
             /**

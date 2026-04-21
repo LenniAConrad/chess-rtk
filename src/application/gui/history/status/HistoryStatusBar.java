@@ -149,7 +149,11 @@ public final class HistoryStatusBar {
         statusEngineLabel.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         statusEngineLabel.setToolTipText("Toggle engine (Ctrl+S)");
         statusEngineLabel.addMouseListener(new MouseAdapter() {
-            @Override
+                        /**
+             * Handles mouse clicked.
+             * @param e e value
+             */
+@Override
             public void mouseClicked(MouseEvent e) {
                 deps.toggleEnginePower();
             }
@@ -158,7 +162,11 @@ public final class HistoryStatusBar {
         statusThemeLabel.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         statusThemeLabel.setToolTipText("Toggle theme");
         statusThemeLabel.addMouseListener(new MouseAdapter() {
-            @Override
+                        /**
+             * Handles mouse clicked.
+             * @param e e value
+             */
+@Override
             public void mouseClicked(MouseEvent e) {
                 deps.toggleTheme();
             }
@@ -168,7 +176,11 @@ public final class HistoryStatusBar {
         statusProblemLabel.setToolTipText("Open Problems (Ctrl+Shift+M)");
         statusProblemLabel.setVisible(false);
         statusProblemLabel.addMouseListener(new MouseAdapter() {
-            @Override
+                        /**
+             * Handles mouse clicked.
+             * @param e e value
+             */
+@Override
             public void mouseClicked(MouseEvent e) {
                 deps.setPanelVisible(true, true);
                 deps.openPanelTab("Problems");
@@ -178,7 +190,11 @@ public final class HistoryStatusBar {
         statusPanelLabel.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         statusPanelLabel.setToolTipText("Toggle panel (Ctrl+J)");
         statusPanelLabel.addMouseListener(new MouseAdapter() {
-            @Override
+                        /**
+             * Handles mouse clicked.
+             * @param e e value
+             */
+@Override
             public void mouseClicked(MouseEvent e) {
                 deps.togglePanel();
             }

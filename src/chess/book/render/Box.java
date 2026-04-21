@@ -10,5 +10,22 @@ package chess.book.render;
  * @since 2026
  * @author Lennart A. Conrad
  */
-record Box(double x, double y, double width, double height) {
+record Box(
+	/**
+	 * Stores the x.
+	 */
+	double x,
+	/**
+	 * Stores the y.
+	 */
+	double y,
+	/**
+	 * Stores the width.
+	 */
+	double width,
+	/**
+	 * Stores the height.
+	 */
+	double height
+) {
 }

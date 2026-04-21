@@ -33,7 +33,10 @@ public final class ThemedTabbedPaneUI extends BasicTabbedPaneUI {
 		this.theme = theme;
 	}
 
-	@Override
+		/**
+	 * Handles install defaults.
+	 */
+@Override
 	/**
 	 * installDefaults method.
 	 */
@@ -61,7 +64,14 @@ public final class ThemedTabbedPaneUI extends BasicTabbedPaneUI {
 		return tabPane != null && Boolean.TRUE.equals(tabPane.getClientProperty("editorTabs"));
 	}
 
-	@Override
+		/**
+	 * Handles calculate tab area height.
+	 * @param tabPlacement tab placement value
+	 * @param horizRunCount horiz run count value
+	 * @param maxTabHeight max tab height value
+	 * @return computed value
+	 */
+@Override
 	/**
 	 * calculateTabAreaHeight method.
 	 *
@@ -77,7 +87,14 @@ public final class ThemedTabbedPaneUI extends BasicTabbedPaneUI {
 		return super.calculateTabAreaHeight(tabPlacement, horizRunCount, maxTabHeight);
 	}
 
-	@Override
+		/**
+	 * Handles calculate tab area width.
+	 * @param tabPlacement tab placement value
+	 * @param vertRunCount vert run count value
+	 * @param maxTabWidth max tab width value
+	 * @return computed value
+	 */
+@Override
 	/**
 	 * calculateTabAreaWidth method.
 	 *
@@ -93,7 +110,12 @@ public final class ThemedTabbedPaneUI extends BasicTabbedPaneUI {
 		return super.calculateTabAreaWidth(tabPlacement, vertRunCount, maxTabWidth);
 	}
 
-	@Override
+		/**
+	 * Returns the tab area insets.
+	 * @param tabPlacement tab placement value
+	 * @return computed value
+	 */
+@Override
 	/**
 	 * getTabAreaInsets method.
 	 *
@@ -107,7 +129,18 @@ public final class ThemedTabbedPaneUI extends BasicTabbedPaneUI {
 		return super.getTabAreaInsets(tabPlacement);
 	}
 
-	@Override
+		/**
+	 * Handles paint tab background.
+	 * @param g g value
+	 * @param tabPlacement tab placement value
+	 * @param tabIndex tab index value
+	 * @param x x value
+	 * @param y y value
+	 * @param w w value
+	 * @param h h value
+	 * @param isSelected is selected value
+	 */
+@Override
 	/**
 	 * paintTabBackground method.
 	 *
@@ -137,7 +170,13 @@ public final class ThemedTabbedPaneUI extends BasicTabbedPaneUI {
 		g2.dispose();
 	}
 
-	@Override
+		/**
+	 * Handles paint tab area.
+	 * @param g g value
+	 * @param tabPlacement tab placement value
+	 * @param selectedIndex selected index value
+	 */
+@Override
 	/**
 	 * paintTabArea method.
 	 *
@@ -156,7 +195,18 @@ public final class ThemedTabbedPaneUI extends BasicTabbedPaneUI {
 		super.paintTabArea(g, tabPlacement, selectedIndex);
 	}
 
-	@Override
+		/**
+	 * Handles paint tab border.
+	 * @param g g value
+	 * @param tabPlacement tab placement value
+	 * @param tabIndex tab index value
+	 * @param x x value
+	 * @param y y value
+	 * @param w w value
+	 * @param h h value
+	 * @param isSelected is selected value
+	 */
+@Override
 	/**
 	 * paintTabBorder method.
 	 *
@@ -189,7 +239,18 @@ public final class ThemedTabbedPaneUI extends BasicTabbedPaneUI {
 		g2.dispose();
 	}
 
-	@Override
+		/**
+	 * Handles paint text.
+	 * @param g g value
+	 * @param tabPlacement tab placement value
+	 * @param font font value
+	 * @param metrics metrics value
+	 * @param tabIndex tab index value
+	 * @param title title value
+	 * @param textRect text rect value
+	 * @param isSelected is selected value
+	 */
+@Override
 	/**
 	 * paintText method.
 	 *
@@ -217,7 +278,13 @@ public final class ThemedTabbedPaneUI extends BasicTabbedPaneUI {
 		g.drawString(title, x, y);
 	}
 
-	@Override
+		/**
+	 * Handles paint content border.
+	 * @param g g value
+	 * @param tabPlacement tab placement value
+	 * @param selectedIndex selected index value
+	 */
+@Override
 	/**
 	 * paintContentBorder method.
 	 *
@@ -232,7 +299,17 @@ public final class ThemedTabbedPaneUI extends BasicTabbedPaneUI {
 		g2.dispose();
 	}
 
-	@Override
+		/**
+	 * Handles paint focus indicator.
+	 * @param g g value
+	 * @param tabPlacement tab placement value
+	 * @param rects rects value
+	 * @param tabIndex tab index value
+	 * @param iconRect icon rect value
+	 * @param textRect text rect value
+	 * @param isSelected is selected value
+	 */
+@Override
 	/**
 	 * paintFocusIndicator method.
 	 *

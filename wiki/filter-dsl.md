@@ -66,4 +66,4 @@ leaf[gate=OR;eval<0;leaf[break=2;eval>-300]];
 ## Where filters live
 
 - Default mining filters are stored in `config/cli.config.toml` as TOML multi-line strings.
-- You can override them per run via `mine-puzzles --puzzle-quality <dsl>`, etc.
+- You can override them per run via `puzzle mine --puzzle-quality <dsl>`, etc.

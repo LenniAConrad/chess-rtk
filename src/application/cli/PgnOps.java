@@ -235,7 +235,16 @@ public final class PgnOps {
 		 * @param node node to process
 		 * @param pos position at the node
 		 */
-		record Work(Game.Node node, Position pos) {
+		record Work(
+			/**
+			 * Stores the node.
+			 */
+			Game.Node node,
+			/**
+			 * Stores the pos.
+			 */
+			Position pos
+		) {
 		}
 
 		java.util.ArrayDeque<Work> stack = new java.util.ArrayDeque<>();

@@ -9,7 +9,20 @@ package chess.pdf.document;
  * @since 2026
  * @author Lennart A. Conrad
  */
-public record PageSize(String name, double width, double height) {
+public record PageSize(
+	/**
+	 * Stores the name.
+	 */
+	String name,
+	/**
+	 * Stores the width.
+	 */
+	double width,
+	/**
+	 * Stores the height.
+	 */
+	double height
+) {
 
 	/**
 	 * ISO A4 portrait page size.

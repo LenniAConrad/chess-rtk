@@ -29,7 +29,7 @@ Outputs:
 Quick smoke test (from the extracted artifact directory):
 
 ```bash
-./crtk gpu-info
+./crtk engine gpu
 ./crtk help
 ```
 

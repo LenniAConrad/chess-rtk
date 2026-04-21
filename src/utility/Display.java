@@ -455,13 +455,47 @@ public class Display extends JFrame {
 	/**
 	 * Source and target dimensions for scaled-to-native coordinate conversion.
 	 */
-	private record ScaleMapping(int nativeWidth, int nativeHeight, int scaledWidth, int scaledHeight) {
+	private record ScaleMapping(
+		/**
+		 * Stores the native width.
+		 */
+		int nativeWidth,
+		/**
+		 * Stores the native height.
+		 */
+		int nativeHeight,
+		/**
+		 * Stores the scaled width.
+		 */
+		int scaledWidth,
+		/**
+		 * Stores the scaled height.
+		 */
+		int scaledHeight
+	) {
 	}
 
 	/**
 	 * Visible rectangle in scaled-image coordinates.
 	 */
-	private record ScaledRegion(int x, int y, int width, int height) {
+	private record ScaledRegion(
+		/**
+		 * Stores the x.
+		 */
+		int x,
+		/**
+		 * Stores the y.
+		 */
+		int y,
+		/**
+		 * Stores the width.
+		 */
+		int width,
+		/**
+		 * Stores the height.
+		 */
+		int height
+	) {
 	}
 
 	/**

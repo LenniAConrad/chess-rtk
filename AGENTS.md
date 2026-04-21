@@ -4,10 +4,11 @@ This repo is safe for automation and LLM-driven workflows. For full guidance, se
 - `wiki/ai-agents.md`
 
 Quick highlights:
-- Deterministic move outputs: `moves-uci`, `moves-san`, `moves-both`
-- Best move shortcuts: `bestmove-uci`, `bestmove-san`, `bestmove-both`
-- Move conversion / line application: `uci-to-san`, `san-to-uci`, `fen-after`, `play-line`
-- Regression checks: `perft-suite`
+- Deterministic move outputs: `move list --format uci|san|both`, `move uci`, `move san`, `move both`
+- Best move shortcuts: `engine bestmove --format uci|san|both`, `engine bestmove-uci`, `engine bestmove-san`, `engine bestmove-both`
+- Move conversion / line application: `move to-san`, `move to-uci`, `move after`, `move play`
+- FEN and setup helpers: `fen normalize`, `fen validate`, `fen chess960`
+- Regression checks: `engine perft-suite`
 
 CLI entry point:
 - `crtk <command> [options]`

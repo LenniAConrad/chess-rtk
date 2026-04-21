@@ -17,7 +17,10 @@ import javax.swing.JPanel;
  */
 public final class RoundedPanel extends JPanel {
 
-	@java.io.Serial
+		/**
+	 * Serialization version identifier.
+	 */
+@java.io.Serial
 	private static final long serialVersionUID = 1L;
 	/**
 	 * radius field.
@@ -78,7 +81,11 @@ public final class RoundedPanel extends JPanel {
         add(content, java.awt.BorderLayout.CENTER);
     }
 
-	@Override
+		/**
+	 * Handles paint component.
+	 * @param g g value
+	 */
+@Override
 	/**
 	 * paintComponent method.
 	 *

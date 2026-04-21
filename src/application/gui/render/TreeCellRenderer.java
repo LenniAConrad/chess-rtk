@@ -26,7 +26,10 @@ import application.gui.model.HistoryEntry;
  */
 public final class TreeCellRenderer extends JPanel implements javax.swing.ListCellRenderer<HistoryEntry> {
 
-	@java.io.Serial
+		/**
+	 * Serialization version identifier.
+	 */
+@java.io.Serial
 	private static final long serialVersionUID = 1L;
 	/**
 	 * Owner window supplying theme details.
@@ -70,7 +73,16 @@ public final class TreeCellRenderer extends JPanel implements javax.swing.ListCe
 		setBorder(new EmptyBorder(2, 6, 2, 6));
 	}
 
-	@Override
+		/**
+	 * Returns the list cell renderer component.
+	 * @param list list value
+	 * @param value value value
+	 * @param index index value
+	 * @param isSelected is selected value
+	 * @param cellHasFocus cell has focus value
+	 * @return computed value
+	 */
+@Override
 	public java.awt.Component getListCellRendererComponent(javax.swing.JList<? extends HistoryEntry> list,
 			HistoryEntry value, int index, boolean isSelected, boolean cellHasFocus) {
 		String prefix = value != null ? value.prefix() : "";

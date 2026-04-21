@@ -23,7 +23,10 @@ import chess.uci.Evaluation;
  */
 	final class EvalBar extends JPanel {
 
-	@java.io.Serial
+		/**
+	 * Serialization version identifier.
+	 */
+@java.io.Serial
 	private static final long serialVersionUID = 1L;
 	/**
 	 * Width of the evaluation column.
@@ -80,20 +83,32 @@ import chess.uci.Evaluation;
 		setPreferredSize(new Dimension(BAR_WIDTH, 420));
 		setMinimumSize(new Dimension(BAR_WIDTH, 200));
 		MouseAdapter handler = new MouseAdapter() {
-			@Override
+						/**
+			 * Handles mouse entered.
+			 * @param e e value
+			 */
+@Override
 			public void mouseEntered(MouseEvent e) {
 				hoverActive = true;
 				updateTooltip();
 			}
 
-			@Override
+						/**
+			 * Handles mouse exited.
+			 * @param e e value
+			 */
+@Override
 			public void mouseExited(MouseEvent e) {
 				hoverActive = false;
 				dragActive = false;
 				setToolTipText(null);
 			}
 
-			@Override
+						/**
+			 * Handles mouse moved.
+			 * @param e e value
+			 */
+@Override
 			public void mouseMoved(MouseEvent e) {
 				if (!hoverActive) {
 					hoverActive = true;
@@ -101,19 +116,31 @@ import chess.uci.Evaluation;
 				updateTooltip();
 			}
 
-			@Override
+						/**
+			 * Handles mouse pressed.
+			 * @param e e value
+			 */
+@Override
 			public void mousePressed(MouseEvent e) {
 				dragActive = true;
 				updateTooltip();
 			}
 
-			@Override
+						/**
+			 * Handles mouse released.
+			 * @param e e value
+			 */
+@Override
 			public void mouseReleased(MouseEvent e) {
 				dragActive = false;
 				updateTooltip();
 			}
 
-			@Override
+						/**
+			 * Handles mouse dragged.
+			 * @param e e value
+			 */
+@Override
 			public void mouseDragged(MouseEvent e) {
 				dragActive = true;
 				updateTooltip();

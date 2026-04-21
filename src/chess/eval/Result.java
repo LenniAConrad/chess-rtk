@@ -26,7 +26,24 @@ import chess.classical.Wdl;
  * @since 2025
  * @author Lennart A. Conrad
  */
-public record Result(Backend backend, Wdl wdl, double value, Integer centipawns) {
+public record Result(
+    /**
+     * Stores the backend.
+     */
+    Backend backend,
+    /**
+     * Stores the wdl.
+     */
+    Wdl wdl,
+    /**
+     * Stores the value.
+     */
+    double value,
+    /**
+     * Stores the centipawns.
+     */
+    Integer centipawns
+) {
 
     /**
      * Validates the evaluation result components.

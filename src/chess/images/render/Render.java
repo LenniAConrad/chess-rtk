@@ -2002,7 +2002,24 @@ public final class Render {
 	 * @param boardX board origin x
 	 * @param boardY board origin y
 	 */
-	private record RenderGeometry(int width, int height, int boardX, int boardY) {
+	private record RenderGeometry(
+		/**
+		 * Stores the width.
+		 */
+		int width,
+		/**
+		 * Stores the height.
+		 */
+		int height,
+		/**
+		 * Stores the board x.
+		 */
+		int boardX,
+		/**
+		 * Stores the board y.
+		 */
+		int boardY
+	) {
 	}
 
 	/**
@@ -2014,7 +2031,28 @@ public final class Render {
 	 * @param fill     fill color
 	 * @param stroke   outline stroke
 	 */
-	private record Circle(byte index, int diameter, Color border, Color fill, Stroke stroke) {
+	private record Circle(
+		/**
+		 * Stores the index.
+		 */
+		byte index,
+		/**
+		 * Stores the diameter.
+		 */
+		int diameter,
+		/**
+		 * Stores the border.
+		 */
+		Color border,
+		/**
+		 * Stores the fill.
+		 */
+		Color fill,
+		/**
+		 * Stores the stroke.
+		 */
+		Stroke stroke
+	) {
 	}
 
 	/**
@@ -2030,8 +2068,44 @@ public final class Render {
 	 * @param bottomAligned whether to align the background box to the bottom of the tile
 	 * @param detail       whether to draw this label below pieces and overlays
 	 */
-	private record SquareText(byte index, String text, Color textColor, Color background, Color border,
-						Stroke borderStroke, 			Font baseFont, 			boolean bottomAligned, 			boolean detail) {
+	private record SquareText(
+		/**
+		 * Stores the index.
+		 */
+		byte index,
+		/**
+		 * Stores the text.
+		 */
+		String text,
+		/**
+		 * Stores the text color.
+		 */
+		Color textColor,
+		/**
+		 * Stores the background.
+		 */
+		Color background,
+		/**
+		 * Stores the border.
+		 */
+		Color border,
+		/**
+		 * Stores the border stroke.
+		 */
+		Stroke borderStroke,
+		/**
+		 * Stores the base font.
+		 */
+		Font baseFont,
+		/**
+		 * Stores the bottom aligned.
+		 */
+		boolean bottomAligned,
+		/**
+		 * Stores the detail.
+		 */
+		boolean detail
+	) {
 	}
 
 		/**

@@ -961,7 +961,24 @@ final class Svg {
 	 * @param width view-box width
 	 * @param height view-box height
 	 */
-	private record ViewBox(double x, double y, double width, double height) {
+	private record ViewBox(
+		/**
+		 * Stores the x.
+		 */
+		double x,
+		/**
+		 * Stores the y.
+		 */
+		double y,
+		/**
+		 * Stores the width.
+		 */
+		double width,
+		/**
+		 * Stores the height.
+		 */
+		double height
+	) {
 	}
 
 	/**
@@ -984,8 +1001,36 @@ final class Svg {
 	 * @param start first gradient stop
 	 * @param end final gradient stop
 	 */
-	private record LinearGradient(String id, double x1, double y1, double x2, double y2,
-						GradientStop start, 			GradientStop end) implements GradientPaint {
+	private record LinearGradient(
+		/**
+		 * Stores the id.
+		 */
+		String id,
+		/**
+		 * Stores the x1.
+		 */
+		double x1,
+		/**
+		 * Stores the y1.
+		 */
+		double y1,
+		/**
+		 * Stores the x2.
+		 */
+		double x2,
+		/**
+		 * Stores the y2.
+		 */
+		double y2,
+		/**
+		 * Stores the start.
+		 */
+		GradientStop start,
+		/**
+		 * Stores the end.
+		 */
+		GradientStop end
+	) implements GradientPaint {
 	}
 
 	/**
@@ -998,8 +1043,32 @@ final class Svg {
 	 * @param start first gradient stop
 	 * @param end final gradient stop
 	 */
-	private record RadialGradient(String id, double cx, double cy, double r,
-						GradientStop start, 			GradientStop end) implements GradientPaint {
+	private record RadialGradient(
+		/**
+		 * Stores the id.
+		 */
+		String id,
+		/**
+		 * Stores the cx.
+		 */
+		double cx,
+		/**
+		 * Stores the cy.
+		 */
+		double cy,
+		/**
+		 * Stores the r.
+		 */
+		double r,
+		/**
+		 * Stores the start.
+		 */
+		GradientStop start,
+		/**
+		 * Stores the end.
+		 */
+		GradientStop end
+	) implements GradientPaint {
 	}
 
 	/**
@@ -1008,7 +1077,16 @@ final class Svg {
 	 * @param offset stop offset in the unit interval
 	 * @param color stop color
 	 */
-	private record GradientStop(double offset, Color color) {
+	private record GradientStop(
+		/**
+		 * Stores the offset.
+		 */
+		double offset,
+		/**
+		 * Stores the color.
+		 */
+		Color color
+	) {
 	}
 
 	/**
@@ -1017,7 +1095,16 @@ final class Svg {
 	 * @param start first gradient stop
 	 * @param end final gradient stop
 	 */
-	private record GradientStops(GradientStop start, GradientStop end) {
+	private record GradientStops(
+		/**
+		 * Stores the start.
+		 */
+		GradientStop start,
+		/**
+		 * Stores the end.
+		 */
+		GradientStop end
+	) {
 	}
 
 	/**

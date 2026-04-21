@@ -38,7 +38,16 @@ public final class FocusBorder implements Border {
 		this.focusColor = focusColor;
 	}
 
-	@Override
+		/**
+	 * Handles paint border.
+	 * @param c c value
+	 * @param g g value
+	 * @param x x value
+	 * @param y y value
+	 * @param width width value
+	 * @param height height value
+	 */
+@Override
 	/**
 	 * paintBorder method.
 	 *
@@ -64,7 +73,12 @@ public final class FocusBorder implements Border {
 		g2.dispose();
 	}
 
-	@Override
+		/**
+	 * Returns the border insets.
+	 * @param c c value
+	 * @return computed value
+	 */
+@Override
 	/**
 	 * getBorderInsets method.
 	 *
@@ -75,7 +89,11 @@ public final class FocusBorder implements Border {
 		return inner == null ? new Insets(0, 0, 0, 0) : inner.getBorderInsets(c);
 	}
 
-	@Override
+		/**
+	 * Returns whether border opaque.
+	 * @return computed value
+	 */
+@Override
 	/**
 	 * isBorderOpaque method.
 	 *

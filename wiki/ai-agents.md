@@ -15,12 +15,17 @@ Diagram source: `assets/diagrams/crtk-agentic-commands.dot` (render with `dot -T
 
 ## What's already available
 
-- `moves-uci`, `moves-san`, `moves-both` for deterministic move lists.
-- `bestmove-uci`, `bestmove-san`, `bestmove-both` for fixed-format best moves.
-- `uci-to-san`, `san-to-uci`, `fen-after`, `play-line` for move conversion and line application.
-- `eval-static` for classical evaluation.
-- `perft-suite` for quick regression checks.
-- `records`, `puzzles-to-pgn`, `pgn-to-fens` for dataset plumbing.
+- `move list --format uci|san|both`, plus `move uci`, `move san`, `move both`, for deterministic move lists.
+- `engine bestmove --format uci|san|both`, plus `engine bestmove-uci`, `engine bestmove-san`, `engine bestmove-both`, for fixed-format best moves.
+- `move to-san`, `move to-uci`, `move after`, `move play` for move conversion and line application.
+- `fen normalize` and `fen validate` for FEN parse/serialize checks.
+- `fen chess960` for stable Scharnagl-indexed Chess960 start positions.
+- `record` for grouped record workflows.
+- `engine static` for classical evaluation.
+- `doctor` for local Java/config/protocol/artifact diagnostics.
+- `engine uci-smoke` for a bounded UCI engine startup and search check.
+- `engine perft-suite` for quick regression checks.
+- `record files`, `puzzle pgn`, `fen pgn` for dataset plumbing.
 
 ## What AI agents need (contract)
 
@@ -28,10 +33,10 @@ Diagram source: `assets/diagrams/crtk-agentic-commands.dot` (render with `dot -T
 
 For commands that are commonly composed in pipelines, add `--format json` (or `--json`) to emit a single JSON object per run (or JSONL for streams). Suggested:
 
-- `analyze`, `bestmove`, `eval`
-- `moves`, `tags`
-- `perft`
-- `stats`, `stats-tags`
+- `engine analyze`, `engine bestmove`, `engine eval`
+- `move list`, `fen tags`
+- `engine perft`
+- `record stats`, `record tag-stats`
 
 Keep the default human-readable output, but make JSON the “no ambiguity” mode for agents.
 
@@ -67,9 +72,9 @@ For JSON/JSONL outputs that are consumed by tools:
 
 ### A) Testing / correctness
 
-#### `perft-suite`
+#### `engine perft-suite`
 
-Run perft on a known set of positions with expected node counts.
+Extend the existing perft suite so it can read external expected-node files.
 
 - Input: `--suite <file>` (CSV/JSON/EPD-like) with `fen, depth, nodes`
 - Output: summary + per-position diffs; `--format json`
@@ -81,7 +86,7 @@ Fast invariant checks on move generation:
 
 - legality (king not left in check)
 - reversible move round-trips (make/unmake)
-- FEN parse → serialize stability (`fen-normalize`)
+- FEN parse → serialize stability (already available through `fen normalize`)
 
 #### `pgn-validate`
 
@@ -93,12 +98,12 @@ Parse a PGN file and report:
 
 ### B) Engine health & reproducibility
 
-#### `uci-smoke`
+#### `engine uci-smoke --format json`
 
-Start an engine and validate the protocol:
+Extend the existing engine health check with machine-readable output:
 
-- `uci`, `isready`, `ucinewgame`, optional `setoption`
-- prints parsed `id`, `options`, and whether `go` works
+- include engine identity, executable path, elapsed time, depth, nodes, and PV
+- use a stable schema suitable for CI logs and agent checks
 
 #### `analyze-batch`
 
@@ -166,5 +171,5 @@ These are small additions that massively improve automation:
 
 ## If you want one thing to implement first
 
-Implement `perft-suite` + `--format json` on `analyze`/`bestmove`.
+Implement `--format json` on `engine perft-suite`, `engine analyze`, and `engine bestmove`.
 Those two unlock reliable CI, regression testing, and agent-driven evaluation workflows.

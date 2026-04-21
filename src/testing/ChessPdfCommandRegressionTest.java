@@ -8,7 +8,7 @@ import application.cli.command.ChessPdfCommand;
 import utility.Argv;
 
 /**
- * Zero-dependency regression checks for the {@code chess-pdf} CLI command.
+ * Zero-dependency regression checks for the {@code book pdf} CLI command.
  *
  * @since 2026
  * @author Lennart A. Conrad
@@ -40,13 +40,13 @@ public final class ChessPdfCommandRegressionTest {
 	 * @throws Exception if export fails
 	 */
 	private static void testFenListExport() throws Exception {
-		Path input = Files.createTempFile("chess-pdf-fens-", ".txt");
+		Path input = Files.createTempFile("book-pdf-fens-", ".txt");
 		Files.writeString(input,
 				"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1\n"
 						+ "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1\n",
 				StandardCharsets.UTF_8);
 
-		Path output = Files.createTempFile("chess-pdf-fens-", ".pdf");
+		Path output = Files.createTempFile("book-pdf-fens-", ".pdf");
 		ChessPdfCommand.runChessPdf(new Argv(new String[] {
 				"--input", input.toString(),
 				"--output", output.toString(),
@@ -65,7 +65,7 @@ public final class ChessPdfCommandRegressionTest {
 	 * @throws Exception if export fails
 	 */
 	private static void testPgnExport() throws Exception {
-		Path input = Files.createTempFile("chess-pdf-games-", ".pgn");
+		Path input = Files.createTempFile("book-pdf-games-", ".pgn");
 		Files.writeString(input,
 				"[Event \"Regression\"]\n"
 						+ "[White \"Alpha\"]\n"
@@ -74,7 +74,7 @@ public final class ChessPdfCommandRegressionTest {
 						+ "1. e4 e5 2. Nf3 Nc6 *\n",
 				StandardCharsets.UTF_8);
 
-		Path output = Files.createTempFile("chess-pdf-games-", ".pdf");
+		Path output = Files.createTempFile("book-pdf-games-", ".pdf");
 		ChessPdfCommand.runChessPdf(new Argv(new String[] {
 				"--pgn", input.toString(),
 				"--output", output.toString(),

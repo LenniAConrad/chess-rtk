@@ -36,9 +36,19 @@ public final class VariationTabPanel {
      * @author Lennart A. Conrad
      */
     public record Result(
-            JPanel panel,
-            DefaultTableModel model,
-            JTable table) {}
+        /**
+         * Stores the panel.
+         */
+        JPanel panel,
+        /**
+         * Stores the model.
+         */
+        DefaultTableModel model,
+        /**
+         * Stores the table.
+         */
+        JTable table
+    ) {}
 
     /**
      * build method.
@@ -57,7 +67,13 @@ public final class VariationTabPanel {
         body.setOpaque(false);
 
         DefaultTableModel model = new DefaultTableModel(new Object[] { "Start", "Line" }, 0) {
-            @Override
+                        /**
+             * Returns whether cell editable.
+             * @param row row value
+             * @param column column value
+             * @return computed value
+             */
+@Override
             /**
              * isCellEditable method.
              *
@@ -78,7 +94,11 @@ public final class VariationTabPanel {
         table.setIntercellSpacing(new Dimension(0, 0));
         table.setAutoCreateRowSorter(true);
         table.addMouseMotionListener(new MouseAdapter() {
-            @Override
+                        /**
+             * Handles mouse moved.
+             * @param e e value
+             */
+@Override
             public void mouseMoved(MouseEvent e) {
                 int viewRow = table.rowAtPoint(e.getPoint());
                 if (viewRow >= 0) {
@@ -93,7 +113,11 @@ public final class VariationTabPanel {
             }
         });
         table.addMouseListener(new MouseAdapter() {
-            @Override
+                        /**
+             * Handles mouse clicked.
+             * @param e e value
+             */
+@Override
             public void mouseClicked(MouseEvent e) {
                 if (e.getClickCount() == 2) {
                     int viewRow = table.getSelectedRow();
@@ -107,7 +131,11 @@ public final class VariationTabPanel {
                 }
             }
 
-            @Override
+                        /**
+             * Handles mouse exited.
+             * @param e e value
+             */
+@Override
             public void mouseExited(MouseEvent e) {
                 ctx.clearHoverPreviews();
             }

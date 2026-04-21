@@ -18,8 +18,32 @@ public final class VariationTreeSupport {
 	 * @since 2026
 	 * @author Lennart A. Conrad
 	 */
-	public record VariationUiState(boolean hasNode, boolean isVariation, boolean canUp, boolean canDown,
-			boolean hasComment, boolean hasNag) {
+	public record VariationUiState(
+		/**
+		 * Stores the has node.
+		 */
+		boolean hasNode,
+		/**
+		 * Stores the is variation.
+		 */
+		boolean isVariation,
+		/**
+		 * Stores the can up.
+		 */
+		boolean canUp,
+		/**
+		 * Stores the can down.
+		 */
+		boolean canDown,
+		/**
+		 * Stores the has comment.
+		 */
+		boolean hasComment,
+		/**
+		 * Stores the has nag.
+		 */
+		boolean hasNag
+	) {
 	}
 
 	/**
@@ -30,7 +54,20 @@ public final class VariationTreeSupport {
 	 * @since 2026
 	 * @author Lennart A. Conrad
 	 */
-	public record DeleteResult(boolean changed, boolean currentWasInsideDeletedBranch, PgnNode fallbackNode) {
+	public record DeleteResult(
+		/**
+		 * Stores the changed.
+		 */
+		boolean changed,
+		/**
+		 * Stores the current was inside deleted branch.
+		 */
+		boolean currentWasInsideDeletedBranch,
+		/**
+		 * Stores the fallback node.
+		 */
+		PgnNode fallbackNode
+	) {
 	}
 
 	/**

@@ -6,11 +6,102 @@ All commands are subcommands of `application.Main`.
 - From classes: `java -cp out application.Main <command> ...`
 - Proposed/future additions: `roadmap.md`
 
-Compatibility note:
-- This reference lists the canonical commands only.
+Preferred shape:
+- Use grouped commands for new scripts: `record`, `fen`, `move`, `engine`, `book`, and `puzzle`.
+- Legacy top-level shortcuts have been removed from the public CLI.
 - Removed commands: `gui2`, `cuda-info`, `mine`, `evaluate`, `stack-to-dataset`.
 
-## `record-to-plain`
+## `record`
+
+Grouped record workflows. This keeps export, dataset, stats, and file-management
+operations under one entry point.
+
+Usage:
+- `crtk record export plain ...`: convert `.record` JSON to `.plain`
+- `crtk record export csv ...`: convert `.record` JSON to CSV
+- `crtk record export pgn ...`: convert `.record` JSON to PGN games
+- `crtk record export puzzle-jsonl ...`: export LC0-policy-aware puzzle JSONL rows
+- `crtk record export training-jsonl ...`: export coarse/fine FEN labels
+- `crtk record dataset npy ...`: export eval-regression tensors
+- `crtk record dataset lc0 ...`: export LC0-style tensors
+- `crtk record dataset classifier ...`: export binary classifier tensors
+- `crtk record files ...`: merge/filter/split record files
+- `crtk record stats ...`: summarize record files
+- `crtk record tag-stats ...`: summarize tag distributions
+- `crtk record analysis-delta ...`: export evaluation stability metrics
+
+Short record forms such as `crtk record csv ...` still resolve to the same implementations.
+
+## `fen`
+
+Grouped FEN and position workflows.
+
+Usage:
+- `crtk fen normalize ...`: normalize and validate a FEN
+- `crtk fen validate ...`: validate a FEN
+- `crtk fen after ...`: apply one move and print the resulting FEN
+- `crtk fen line ...`: apply a move line and print the resulting FEN
+- `crtk fen generate ...`: generate random legal FEN shards
+- `crtk fen pgn ...`: convert PGN games to FEN lists
+- `crtk fen chess960 ...`: print Chess960 starting positions
+- `crtk fen print ...`: pretty-print a FEN
+- `crtk fen display ...`: render a board image in a window
+- `crtk fen render ...`: save a board image to disk
+- `crtk fen tags ...`: generate tags for FENs, PGNs, or variations
+- `crtk fen text ...`: summarize position tags with T5
+
+## `move`
+
+Grouped move-listing, notation, and application workflows.
+
+Usage:
+- `crtk move list ...`: list legal moves for a FEN
+- `crtk move uci ...`: list legal moves in UCI
+- `crtk move san ...`: list legal moves in SAN
+- `crtk move both ...`: list legal moves in UCI and SAN
+- `crtk move to-san ...`: convert one UCI move to SAN
+- `crtk move to-uci ...`: convert one SAN move to UCI
+- `crtk move after ...`: apply one move and print the resulting FEN
+- `crtk move play ...`: apply a move line and print the resulting FEN
+
+## `engine`
+
+Grouped engine, evaluator, and move-generation workflows.
+
+Usage:
+- `crtk engine analyze ...`: analyze a FEN with the configured engine
+- `crtk engine bestmove ...`: print the best move for a FEN
+- `crtk engine bestmove-uci ...`: print the best move in UCI
+- `crtk engine bestmove-san ...`: print the best move in SAN
+- `crtk engine bestmove-both ...`: print the best move in UCI and SAN
+- `crtk engine threats ...`: analyze opponent threats
+- `crtk engine eval ...`: evaluate a FEN with LC0 or classical heuristics
+- `crtk engine static ...`: evaluate a FEN with the classical backend
+- `crtk engine perft ...`: run perft on a FEN
+- `crtk engine perft-suite ...`: run the perft regression suite
+- `crtk engine gpu ...`: print GPU JNI backend status
+- `crtk engine uci-smoke ...`: start the engine and run a tiny bounded search
+
+## `book`
+
+Grouped book and diagram PDF workflows.
+
+Usage:
+- `crtk book render ...`: render a chess-book JSON/TOML file to a native PDF
+- `crtk book cover ...`: render a native PDF cover for a chess-book file
+- `crtk book pdf ...`: export chess diagrams to a PDF
+
+## `puzzle`
+
+Grouped puzzle mining, conversion, tag, and text workflows.
+
+Usage:
+- `crtk puzzle mine ...`: mine chess puzzles
+- `crtk puzzle pgn ...`: convert mixed puzzle dumps to PGN games
+- `crtk puzzle tags ...`: generate per-move tags for puzzle PVs
+- `crtk puzzle text ...`: run T5 over puzzle PVs
+
+## `record export plain`
 
 Convert a `.record` JSON array into Leela-style `.plain` blocks.
 
@@ -22,7 +113,7 @@ Options:
 - `--csv`: also emit a CSV export (default path derived)
 - `--csv-output|-c <path>`: explicit CSV output path (also enables CSV export)
 
-## `record-to-csv`
+## `record export csv`
 
 Convert a `.record` JSON array directly to CSV (no `.plain` output).
 
@@ -31,7 +122,7 @@ Options:
 - `--output|-o <path>`: output `.csv` (optional; default derived from input)
 - `--filter|-f <dsl>`: Filter DSL to select which records are exported
 
-## `record-to-pgn`
+## `record export pgn`
 
 Convert a `.record` JSON array into one or more PGN games.
 
@@ -39,7 +130,7 @@ Options:
 - `--input|-i <path>`: input `.record` (required)
 - `--output|-o <path>`: output `.pgn` (optional; default derived from input)
 
-## `record-analysis-delta`
+## `record analysis-delta`
 
 Export one JSONL row per record with evaluation stability metrics: initial and
 final eval, delta type/value, fluctuation range, and time/depth to final value.
@@ -49,7 +140,7 @@ Options:
 - `--output|-o <path>`: output `.analysis-delta.jsonl` path (optional; default derived from input)
 - `--verbose|-v`: print stack traces on failure
 
-## `puzzles-to-pgn`
+## `puzzle pgn`
 
 Convert a mixed puzzle/non-puzzle dump into PGN games (filters to puzzles).
 If entries include a `kind` field, only `kind:"puzzle"` is kept; otherwise the
@@ -59,7 +150,7 @@ Options:
 - `--input|-i <path>`: input dump (JSON array or JSONL)
 - `--output|-o <path>`: output `.pgn` (optional; default derived from input)
 
-## `records`
+## `record files`
 
 Merge/filter/split record files.
 
@@ -73,7 +164,7 @@ Options:
 - `--recursive`: recurse into directories
 - `--verbose|-v`: print stack traces on failure
 
-## `record-to-dataset`
+## `record dataset npy`
 
 Convert a `.record` JSON array into NumPy tensors:
 - `<stem>.features.npy` shaped `(N, 781)` float32
@@ -83,7 +174,7 @@ Options:
 - `--input|-i <path>`: input `.record` (required)
 - `--output|-o <path>`: output stem (optional; default derived when omitted)
 
-## `record-to-lc0`
+## `record dataset lc0`
 
 Convert a `.record` JSON array into LC0-style tensors:
 - `<stem>.lc0.inputs.npy` shaped `(N, 112*64)` float32
@@ -96,7 +187,7 @@ Options:
 - `--output|-o <path>`: output stem (optional; default derived when omitted)
 - `--weights <path>`: optional LC0 weights to compress the policy to the net's size
 
-## `record-to-puzzle-jsonl`
+## `record export puzzle-jsonl`
 
 Convert `.record` rows into puzzle JSONL with LC0 policy values. This command
 requires LC0J weights so it can use the network policy map.
@@ -110,7 +201,7 @@ Options:
 - `--nonpuzzles`: keep only records classified as non-puzzles
 - `--verbose|-v`: print stack traces on failure
 
-## `record-to-classifier`
+## `record dataset classifier`
 
 Convert one or more `.record` JSON/JSONL files into tensors for the one-logit
 binary classifier:
@@ -133,7 +224,7 @@ Options:
 - `--recursive`: recurse into input directories
 - `--verbose|-v`: print stack traces on failure
 
-## `record-to-training-jsonl`
+## `record export training-jsonl`
 
 Convert one or more `.record` JSON/JSONL files into one-position-per-line
 training JSONL. Rows matching the puzzle DSL become verified puzzles, rows
@@ -149,14 +240,30 @@ Options:
 - `--max-records <n>`: stop after writing `n` rows (`0` or omitted means no cap)
 - `--verbose|-v`: print stack traces on failure
 
-## `gpu-info`
+## `engine gpu`
 
 Print whether the optional GPU JNI backends are available (CUDA/ROCm/oneAPI) and what devices they see.
 
 Notes:
 - If you built a native library under `native/cuda/`, run with `-Djava.library.path=native/cuda/build`.
 
-## `gen-fens`
+## `engine uci-smoke`
+
+Start the configured UCI engine, apply optional engine settings, run a tiny
+bounded search from the standard start position, and print a concise health
+report. Use this before long mining or analysis jobs to catch bad engine paths,
+bad protocol TOML, and startup failures.
+
+Options:
+- `--protocol-path|-P <toml>`: override `Config.getProtocolPath()`
+- `--max-nodes|--nodes <n>`: search node cap (default `1`)
+- `--max-duration <dur>`: wall-clock search cap (default `5s`)
+- `--threads <n>`: set engine thread count
+- `--hash <mb>`: set engine hash size
+- `--wdl|--no-wdl`: enable/disable WDL output
+- `--verbose|-v`: print stack traces on failure
+
+## `fen generate`
 
 Generate random legal FEN shards to disk (standard + Chess960 mix).
 
@@ -169,7 +276,7 @@ Options:
 - `--ascii`: ASCII progress bar (useful when Unicode is borked)
 - `--verbose|-v`: print stack trace on failure
 
-## `mine-puzzles`
+## `puzzle mine`
 
 Drive a UCI engine, apply Filter DSL gates, and emit JSON outputs for puzzles and non-puzzles.
 
@@ -198,7 +305,7 @@ Filter overrides:
 - `--puzzle-accelerate <dsl>`
 - `--verbose|-v`: print stack traces on failure
 
-## `print`
+## `fen print`
 
 Pretty-print a FEN as ASCII (board + metadata + tags).
 
@@ -206,7 +313,7 @@ Options:
 - `--fen "<FEN...>"` (or pass it positionally)
 - `--verbose|-v`: print stack traces on failure
 
-## `display`
+## `fen display`
 
 Render a board image in a window (with optional overlays).
 
@@ -229,7 +336,7 @@ Options:
 - `--shadow|--drop-shadow`: apply a subtle drop shadow
 - `--verbose|-v`: print stack traces on failure
 
-## `render`
+## `fen render`
 
 Render a board image to disk (PNG/JPG/BMP/SVG).
 
@@ -253,7 +360,7 @@ Options:
 - `--shadow|--drop-shadow`: apply a subtle drop shadow
 - `--verbose|-v`: print stack traces on failure
 
-## `chess-book`
+## `book render`
 
 Render a chess-book JSON or TOML manifest directly to a native PDF.
 The renderer builds cover/front matter, a generated table of contents, mirrored margins, puzzle/solution spreads, page numbers, running headers, and recurring solution tables.
@@ -266,10 +373,11 @@ Options:
 - `--title <text>`: title override
 - `--subtitle <text>`: subtitle override
 - `--limit <n>`: render only the first `n` puzzles from the source manifest and update obvious source-count references in front matter
+- `--check|--validate`: validate layout, FENs, and solution lines without writing a PDF
 - `--free-watermark` / `--watermark`: add a noisy free-edition overlay to every page with visible print, resale, and unauthorized redistribution restrictions
 - `--verbose|-v`: print stack traces on failure
 
-## `chess-book-cover`
+## `book cover`
 
 Render a native vector PDF cover for a chess-book JSON or TOML manifest.
 The renderer builds the back blurb, front title/subtitle/author, spine text, barcode-safe box, and page-count-based spine width.
@@ -289,9 +397,24 @@ Options:
 - `--binding <type>`: `paperback`, `hardcover`, or `ebook` (default `paperback`)
 - `--interior <type>`: `white-bw`, `cream-bw`, `white-standard-color`, or `white-premium-color`
 - `--pages <n>`: printed page count for spine width (default from book metadata, then an estimate)
+- `--check|--validate`: validate the manifest and print calculated cover dimensions without writing a PDF
 - `--verbose|-v`: print stack traces on failure
 
-## `chess-pdf`
+## `fen chess960`
+
+Print Chess960 starting positions in Scharnagl index order.
+
+Modes:
+- `crtk fen chess960 <index>` or `crtk fen chess960 --index <n>`: print one position.
+- `crtk fen chess960 --all`: print all 960 positions in order.
+- `crtk fen chess960 --random --count <n>`: print random positions.
+
+Options:
+- `--format fen`: print FEN only (default)
+- `--format layout`: print the white back-rank layout only
+- `--format both`: print `index<TAB>layout<TAB>fen`
+
+## `book pdf`
 
 Export chess diagrams to PDF from direct FEN input, a FEN list file, or a PGN file.
 PGN export currently uses one composition per game's mainline.
@@ -339,7 +462,7 @@ Subcommands:
 - `show`: print resolved configuration values
 - `validate`: validate config + protocol files
 
-## `stats`
+## `record stats`
 
 Summarize a `.record` or puzzle JSON dump.
 
@@ -348,7 +471,7 @@ Options:
 - `--top <n>`: show top-N tags/engines (default `10`)
 - `--verbose|-v`: print stack traces on failure
 
-## `stats-tags`
+## `record tag-stats`
 
 Summarize tag distributions in a dump.
 
@@ -357,7 +480,7 @@ Options:
 - `--top <n>`: show top-N tags (default `20`)
 - `--verbose|-v`: print stack traces on failure
 
-## `tags`
+## `fen tags`
 
 Generate tags for a FEN or FEN list.
 
@@ -385,7 +508,7 @@ Options:
 - `--no-wdl`: disable WDL output
 - `--verbose|-v`: print stack traces on failure
 
-## `puzzle-tags`
+## `puzzle tags`
 
 Analyze a root puzzle position, expand engine PVs, and emit JSONL rows with
 per-move tags and tag deltas.
@@ -406,7 +529,7 @@ Options:
 - `--no-wdl`: disable WDL output
 - `--verbose|-v`: print stack traces on failure
 
-## `puzzle-text`
+## `puzzle text`
 
 Run the T5 tag-to-text model over a puzzle PV expansion.
 
@@ -429,7 +552,7 @@ Options:
 - `--no-wdl`: disable WDL output
 - `--verbose|-v`: print stack traces on failure
 
-## `tag-text`
+## `fen text`
 
 Run the T5 tag-to-text model for one FEN or a FEN list.
 
@@ -450,17 +573,18 @@ Options:
 - `--no-wdl`: disable WDL output
 - `--verbose|-v`: print stack traces on failure
 
-## `moves`
+## `move list`
 
 List legal moves for a FEN.
 
 Options:
 - `--fen "<FEN...>"`: FEN string (or pass it positionally)
+- `--format <uci|san|both>`: output format (default `uci`)
 - `--san`: output SAN instead of UCI
 - `--both`: output UCI + SAN per move
 - `--verbose|-v`: print stack traces on failure
 
-## `moves-uci`
+## `move uci`
 
 List legal moves for a FEN (UCI only).
 
@@ -468,7 +592,7 @@ Options:
 - `--fen "<FEN...>"`: FEN string (or pass it positionally)
 - `--verbose|-v`: print stack traces on failure
 
-## `moves-san`
+## `move san`
 
 List legal moves for a FEN (SAN only).
 
@@ -476,7 +600,7 @@ Options:
 - `--fen "<FEN...>"`: FEN string (or pass it positionally)
 - `--verbose|-v`: print stack traces on failure
 
-## `moves-both`
+## `move both`
 
 List legal moves for a FEN (UCI + SAN).
 
@@ -484,7 +608,7 @@ Options:
 - `--fen "<FEN...>"`: FEN string (or pass it positionally)
 - `--verbose|-v`: print stack traces on failure
 
-## `uci-to-san`
+## `move to-san`
 
 Convert a single UCI move to SAN in the given position.
 
@@ -496,7 +620,7 @@ Options:
 - `<move>`: UCI move token (e.g. `e2e4`, `a7a8q`)
 - `--verbose|-v`: print stack traces on failure
 
-## `san-to-uci`
+## `move to-uci`
 
 Convert a single SAN move to UCI in the given position.
 
@@ -508,7 +632,7 @@ Options:
 - `<move>`: SAN move token (e.g. `Nf3`, `exd5`, `O-O`)
 - `--verbose|-v`: print stack traces on failure
 
-## `fen-after`
+## `move after`
 
 Apply a single move (UCI or SAN) and print the resulting FEN.
 
@@ -520,7 +644,7 @@ Options:
 - `<move>`: move token (UCI or SAN)
 - `--verbose|-v`: print stack traces on failure
 
-## `play-line`
+## `move play`
 
 Apply a move sequence (UCI or SAN) and print the resulting FEN.
 
@@ -534,7 +658,23 @@ Options:
 - `--intermediate`: print intermediate FENs after each move instead of only the final FEN
 - `--verbose|-v`: print stack traces on failure
 
-## `analyze`
+## `fen normalize`
+
+Parse a FEN and print the normalized FEN used internally by ChessRTK.
+
+Options:
+- `--fen "<FEN...>"`: FEN string (or pass it positionally)
+- `--verbose|-v`: print stack traces on failure
+
+## `fen validate`
+
+Validate a FEN and print `valid<TAB><normalized-fen>` on success.
+
+Options:
+- `--fen "<FEN...>"`: FEN string (or pass it positionally)
+- `--verbose|-v`: print stack traces on failure
+
+## `engine analyze`
 
 Analyze a position with the engine and print PV summaries.
 
@@ -550,7 +690,7 @@ Options:
 - `--wdl|--no-wdl`: enable/disable WDL output
 - `--verbose|-v`: print stack traces on failure
 
-## `threats`
+## `engine threats`
 
 Compute opponent "threats" via a null move: the side to move is swapped, en-passant is cleared, and the resulting position is analyzed with MultiPV. The resulting PV best moves are the threats.
 
@@ -570,13 +710,14 @@ Options:
 - `--wdl|--no-wdl`: enable/disable WDL output
 - `--verbose|-v`: print stack traces on failure
 
-## `bestmove`
+## `engine bestmove`
 
 Return the best move for a FEN.
 
 Options:
 - `--input|-i <path>`: FEN list file (optional)
 - `--fen "<FEN...>"`: FEN string (or pass it positionally)
+- `--format <uci|san|both>`: output format (default `uci`)
 - `--san`: output SAN instead of UCI
 - `--both`: output UCI + SAN
 - `--protocol-path|-P <toml>`: override `Config.getProtocolPath()`
@@ -588,7 +729,7 @@ Options:
 - `--wdl|--no-wdl`: enable/disable WDL output
 - `--verbose|-v`: print stack traces on failure
 
-## `bestmove-uci`
+## `engine bestmove-uci`
 
 Return the best move for a FEN (UCI only).
 
@@ -604,7 +745,7 @@ Options:
 - `--wdl|--no-wdl`: enable/disable WDL output
 - `--verbose|-v`: print stack traces on failure
 
-## `bestmove-san`
+## `engine bestmove-san`
 
 Return the best move for a FEN (SAN only).
 
@@ -620,7 +761,7 @@ Options:
 - `--wdl|--no-wdl`: enable/disable WDL output
 - `--verbose|-v`: print stack traces on failure
 
-## `bestmove-both`
+## `engine bestmove-both`
 
 Return the best move for a FEN (UCI + SAN).
 
@@ -636,7 +777,7 @@ Options:
 - `--wdl|--no-wdl`: enable/disable WDL output
 - `--verbose|-v`: print stack traces on failure
 
-## `perft`
+## `engine perft`
 
 Run perft on a position (move generation validation).
 
@@ -646,14 +787,24 @@ Options:
 - `--divide|--per-move`: print per-move breakdown
 - `--verbose|-v`: print stack traces on failure
 
-## `perft-suite`
+## `engine perft-suite`
 
 Run a compact perft regression suite with known node counts.
 
 Options:
 - (no options)
 
-## `pgn-to-fens`
+## `doctor`
+
+Check the local Java runtime, main config file, configured engine protocol,
+engine executable discovery, model paths, and output directory path. Missing
+model files are warnings because models are optional local artifacts.
+
+Options:
+- `--strict`: exit non-zero when warnings are present
+- `--verbose|-v`: print stack traces on failure
+
+## `fen pgn`
 
 Convert PGN games to a FEN list that can be used as seeds.
 
@@ -664,7 +815,7 @@ Options:
 - `--mainline`: only output the mainline (skip variations)
 - `--verbose|-v`: print stack traces on failure
 
-## `eval`
+## `engine eval`
 
 Evaluate a position using LC0 or the classical evaluator.
 
@@ -677,7 +828,7 @@ Options:
 - `--terminal-aware`: use terminal-aware classical evaluation
 - `--verbose|-v`: print stack traces on failure
 
-## `eval-static`
+## `engine static`
 
 Evaluate a position using the classical evaluator only.
 

@@ -1,9 +1,9 @@
 package application.cli.command;
 
-import static application.cli.Constants.CMD_CHESS_BOOK_COVER;
 import static application.cli.Constants.CMD_HELP_LONG;
 import static application.cli.Constants.CMD_HELP_SHORT;
 import static application.cli.Constants.OPT_BINDING;
+import static application.cli.Constants.OPT_CHECK;
 import static application.cli.Constants.OPT_INPUT;
 import static application.cli.Constants.OPT_INPUT_SHORT;
 import static application.cli.Constants.OPT_INTERIOR;
@@ -12,6 +12,7 @@ import static application.cli.Constants.OPT_OUTPUT_SHORT;
 import static application.cli.Constants.OPT_PAGES;
 import static application.cli.Constants.OPT_SUBTITLE;
 import static application.cli.Constants.OPT_TITLE;
+import static application.cli.Constants.OPT_VALIDATE;
 import static application.cli.Constants.OPT_VERBOSE;
 import static application.cli.Constants.OPT_VERBOSE_SHORT;
 import static application.cli.PathOps.deriveOutputPath;
@@ -30,12 +31,17 @@ import chess.book.cover.Writer;
 import utility.Argv;
 
 /**
- * Implements {@code chess-book-cover}.
+ * Implements {@code book cover}.
  *
  * @since 2026
  * @author Lennart A. Conrad
  */
 public final class ChessBookCoverCommand {
+
+	/**
+	 * Current command label used in diagnostics.
+	 */
+	private static final String COMMAND_LABEL = "book cover";
 
 	/**
 	 * Utility class; prevent instantiation.
@@ -45,13 +51,13 @@ public final class ChessBookCoverCommand {
 	}
 
 	/**
-	 * Handles {@code chess-book-cover}.
+	 * Handles {@code book cover}.
 	 *
 	 * @param a argument parser for the subcommand
 	 */
 	public static void runChessBookCover(Argv a) {
 		if (a.flag(CMD_HELP_SHORT, CMD_HELP_LONG)) {
-			HelpCommand.runHelp(new Argv(new String[] { CMD_CHESS_BOOK_COVER }));
+			HelpCommand.runHelp(new Argv(new String[] { "book", "cover" }));
 			return;
 		}
 
@@ -63,6 +69,7 @@ public final class ChessBookCoverCommand {
 		Binding binding = Binding.parse(a.string(OPT_BINDING));
 		Interior interior = Interior.parse(a.string(OPT_INTERIOR));
 		int pages = a.integerOr(0, OPT_PAGES);
+		boolean check = a.flag(OPT_CHECK, OPT_VALIDATE);
 		List<String> rest = a.positionals();
 		a.ensureConsumed();
 
@@ -90,11 +97,16 @@ public final class ChessBookCoverCommand {
 					.setInterior(interior)
 					.setPages(pages);
 			Dimensions dimensions = Writer.calculateDimensions(book, options);
+			if (check) {
+				ChessBookValidation.validateBook(book);
+				printValidationSummary(dimensions);
+				return;
+			}
 			Path resolvedOutput = output != null ? output : deriveOutputPath(input, "-cover.pdf");
 			Writer.write(resolvedOutput, book, options);
 			System.out.printf(Locale.ROOT,
 					"%s wrote %s cover for %d pages (spine %.2f cm, %.2f x %.2f cm) to %s%n",
-					CMD_CHESS_BOOK_COVER,
+					COMMAND_LABEL,
 					dimensions.binding().token(),
 					dimensions.pages(),
 					dimensions.spineWidthCm(),
@@ -102,24 +114,43 @@ public final class ChessBookCoverCommand {
 					dimensions.fullHeightCm(),
 					resolvedOutput.toAbsolutePath());
 		} catch (IllegalArgumentException ex) {
-			System.err.println(CMD_CHESS_BOOK_COVER + ": " + ex.getMessage());
+			System.err.println(COMMAND_LABEL + ": " + ex.getMessage());
 			if (verbose) {
 				ex.printStackTrace(System.err);
 			}
 			System.exit(2);
 		} catch (IOException ex) {
-			System.err.println(CMD_CHESS_BOOK_COVER + ": failed to generate cover PDF: " + ex.getMessage());
+			System.err.println(COMMAND_LABEL + ": failed to generate cover PDF: " + ex.getMessage());
 			if (verbose) {
 				ex.printStackTrace(System.err);
 			}
 			System.exit(3);
 		} catch (Exception ex) {
-			System.err.println(CMD_CHESS_BOOK_COVER + ": unexpected failure: " + ex.getMessage());
+			System.err.println(COMMAND_LABEL + ": unexpected failure: " + ex.getMessage());
 			if (verbose) {
 				ex.printStackTrace(System.err);
 			}
 			System.exit(3);
 		}
+	}
+
+	/**
+	 * Prints cover validation details without writing a PDF.
+	 *
+	 * @param dimensions calculated cover dimensions.
+	 */
+	private static void printValidationSummary(Dimensions dimensions) {
+		System.out.printf(Locale.ROOT,
+				"%s OK: %s/%s, %d pages, trim %.2f x %.2f cm, spine %.2f cm, cover %.2f x %.2f cm%n",
+				COMMAND_LABEL,
+				dimensions.binding().token(),
+				dimensions.interior().token(),
+				dimensions.pages(),
+				dimensions.trimWidthCm(),
+				dimensions.trimHeightCm(),
+				dimensions.spineWidthCm(),
+				dimensions.fullWidthCm(),
+				dimensions.fullHeightCm());
 	}
 
 	/**

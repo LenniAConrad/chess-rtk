@@ -21,17 +21,51 @@ import chess.pdf.document.PageSize;
  * @author Lennart A. Conrad
  */
 public record Dimensions(
-				Binding binding,
-				Interior interior,
-				int pages,
-				double trimWidthCm,
-				double trimHeightCm,
-				double spineWidthCm,
-				double fullWidthCm,
-				double fullHeightCm,
-				Area back,
-				Area spine,
-				Area front) {
+	/**
+	 * Stores the binding.
+	 */
+	Binding binding,
+	/**
+	 * Stores the interior.
+	 */
+	Interior interior,
+	/**
+	 * Stores the pages.
+	 */
+	int pages,
+	/**
+	 * Stores the trim width cm.
+	 */
+	double trimWidthCm,
+	/**
+	 * Stores the trim height cm.
+	 */
+	double trimHeightCm,
+	/**
+	 * Stores the spine width cm.
+	 */
+	double spineWidthCm,
+	/**
+	 * Stores the full width cm.
+	 */
+	double fullWidthCm,
+	/**
+	 * Stores the full height cm.
+	 */
+	double fullHeightCm,
+	/**
+	 * Stores the back.
+	 */
+	Area back,
+	/**
+	 * Stores the spine.
+	 */
+	Area spine,
+	/**
+	 * Stores the front.
+	 */
+	Area front
+) {
 
 	/**
 	 * Creates one validated dimension set.
@@ -92,7 +126,24 @@ public record Dimensions(
 	 * @param widthCm width
 	 * @param heightCm height
 	 */
-	public record Area(double xCm, double yCm, double widthCm, double heightCm) {
+	public record Area(
+		/**
+		 * Stores the x cm.
+		 */
+		double xCm,
+		/**
+		 * Stores the y cm.
+		 */
+		double yCm,
+		/**
+		 * Stores the width cm.
+		 */
+		double widthCm,
+		/**
+		 * Stores the height cm.
+		 */
+		double heightCm
+	) {
 
 		/**
 		 * Shared empty area.

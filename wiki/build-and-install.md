@@ -45,6 +45,29 @@ Run the zero-dependency `Position` regression harness after a build:
 java -cp out testing.PositionRegressionTest
 ```
 
+## Quality checks
+
+The VS Code workspace enables SonarLint automatic analysis and excludes local
+artifact directories such as `data/`, `dump/`, `models/`, `out/`, and
+`session/`. There is no required SonarQube server for local development.
+
+Use these local checks before committing Java changes:
+
+```bash
+javac -Xlint:all -d out $(find src -name "*.java")
+java -cp out testing.CliCommandRegressionTest
+java -cp out testing.PositionRegressionTest
+java -cp out application.Main doctor
+java -cp out application.Main engine uci-smoke --nodes 1 --max-duration 5s
+git diff --check
+```
+
+Run the full perft validation when changing move generation or Chess960 setup:
+
+```bash
+java -cp out application.Main engine perft-suite
+```
+
 ## Run
 
 ```bash

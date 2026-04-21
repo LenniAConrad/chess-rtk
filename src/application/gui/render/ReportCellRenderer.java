@@ -25,7 +25,10 @@ import application.gui.model.ReportEntry;
  */
 public final class ReportCellRenderer extends JPanel implements javax.swing.ListCellRenderer<ReportEntry> {
 
-	@java.io.Serial
+		/**
+	 * Serialization version identifier.
+	 */
+@java.io.Serial
 	private static final long serialVersionUID = 1L;
 	/**
 	 * History window supplying fonts, colors, and data.
@@ -90,7 +93,16 @@ public final class ReportCellRenderer extends JPanel implements javax.swing.List
 		setBorder(new EmptyBorder(4, 6, 4, 6));
 	}
 
-	@Override
+		/**
+	 * Returns the list cell renderer component.
+	 * @param list list value
+	 * @param value value value
+	 * @param index index value
+	 * @param isSelected is selected value
+	 * @param cellHasFocus cell has focus value
+	 * @return computed value
+	 */
+@Override
 	public java.awt.Component getListCellRendererComponent(javax.swing.JList<? extends ReportEntry> list,
 			ReportEntry value, int index, boolean isSelected, boolean cellHasFocus) {
 		String prefix = value != null ? value.prefix() : "";

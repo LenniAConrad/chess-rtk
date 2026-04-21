@@ -19,7 +19,10 @@ import javax.swing.JPanel;
  */
 final class EvalGraphPanel extends JPanel {
 
-	@java.io.Serial
+		/**
+	 * Serialization version identifier.
+	 */
+@java.io.Serial
 	private static final long serialVersionUID = 1L;
 	/**
 	 * MAX_CP field.
@@ -78,7 +81,11 @@ final class EvalGraphPanel extends JPanel {
 		repaint();
 	}
 
-	@Override
+		/**
+	 * Handles paint component.
+	 * @param g g value
+	 */
+@Override
 	/**
 	 * paintComponent method.
 	 *

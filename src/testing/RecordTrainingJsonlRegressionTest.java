@@ -5,11 +5,11 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 
-import application.cli.command.RecordCommands;
+import application.cli.command.RecordGroupCommand;
 import utility.Argv;
 
 /**
- * Focused regression harness for {@code record-to-training-jsonl}.
+ * Focused regression harness for {@code record export training-jsonl}.
  */
 public final class RecordTrainingJsonlRegressionTest {
 
@@ -44,7 +44,8 @@ public final class RecordTrainingJsonlRegressionTest {
 						"info depth 1 multipv 1 score cp 10 nodes 10 pv b8c6"));
 		Files.write(input, records, StandardCharsets.UTF_8);
 
-		RecordCommands.runRecordToTrainingJsonl(new Argv(new String[] {
+		RecordGroupCommand.runRecord(new Argv(new String[] {
+				"export", "training-jsonl",
 				"--input", input.toString(),
 				"--output", output.toString(),
 				"--filter", "depth>=10",

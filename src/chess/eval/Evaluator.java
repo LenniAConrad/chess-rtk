@@ -453,7 +453,16 @@ public final class Evaluator implements AutoCloseable {
      * @param signature position signature used as cache key
      * @param result evaluation result to cache
      */
-    private record CacheEntry(    long signature,     Result result) {
+    private record CacheEntry(
+        /**
+         * Stores the signature.
+         */
+        long signature,
+        /**
+         * Stores the result.
+         */
+        Result result
+    ) {
 
         /**
          * Validates the cache entry inputs for a recorded evaluation.

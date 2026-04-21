@@ -13,5 +13,18 @@ import javax.swing.JLabel;
   * @since 2026
   * @author Lennart A. Conrad
  */
-public record TabLabel(int index, JLabel icon, JLabel text) {
+public record TabLabel(
+	/**
+	 * Stores the index.
+	 */
+	int index,
+	/**
+	 * Stores the icon.
+	 */
+	JLabel icon,
+	/**
+	 * Stores the text.
+	 */
+	JLabel text
+) {
 }

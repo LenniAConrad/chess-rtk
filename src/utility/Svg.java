@@ -171,26 +171,27 @@ public final class Svg {
      * @param shapes        list of drawable shapes
      */
     public record DocumentModel(
-            /**
-             * View box x origin.
-             */
-            double viewBoxX,
-            /**
-             * View box y origin.
-             */
-            double viewBoxY,
-            /**
-             * View box width.
-             */
-            double viewBoxWidth,
-            /**
-             * View box height.
-             */
-            double viewBoxHeight,
-            /**
-             * Drawable shapes in document order.
-             */
-            List<ShapeModel> shapes) {
+        /**
+         * Stores the view box x.
+         */
+        double viewBoxX,
+        /**
+         * Stores the view box y.
+         */
+        double viewBoxY,
+        /**
+         * Stores the view box width.
+         */
+        double viewBoxWidth,
+        /**
+         * Stores the view box height.
+         */
+        double viewBoxHeight,
+        /**
+         * Stores the shapes.
+         */
+        List<ShapeModel> shapes
+    ) {
         /**
          * Canonical constructor that freezes the shape list.
          */
@@ -207,18 +208,19 @@ public final class Svg {
      * @param transform local transform for the shape
      */
     public record ShapeModel(
-            /**
-             * Shape geometry.
-             */
-            Shape path,
-            /**
-             * Fill color (null means no fill).
-             */
-            Color fill,
-            /**
-             * Local transform applied before rendering.
-             */
-            AffineTransform transform) {
+        /**
+         * Stores the path.
+         */
+        Shape path,
+        /**
+         * Stores the fill.
+         */
+        Color fill,
+        /**
+         * Stores the transform.
+         */
+        AffineTransform transform
+    ) {
         /**
          * Canonical constructor that ensures a non-null transform.
          */
@@ -426,14 +428,15 @@ public final class Svg {
          * @param alphaMae normalized mean absolute alpha error
          */
         private record Metrics(
-                /**
-                 * Alpha intersection-over-union.
-                 */
-                double alphaIoU,
-                /**
-                 * Normalized mean absolute alpha error.
-                 */
-                double alphaMae) {
+            /**
+             * Stores the alpha io u.
+             */
+            double alphaIoU,
+            /**
+             * Stores the alpha mae.
+             */
+            double alphaMae
+        ) {
             /**
              * Checks whether the metrics satisfy the acceptance thresholds.
              *
@@ -969,14 +972,15 @@ public final class Svg {
      * @param args operation arguments
      */
     private record TransformOp(
-            /**
-             * Transform operation name.
-             */
-            String name,
-            /**
-             * Transform operation arguments.
-             */
-            double[] args) {
+        /**
+         * Stores the name.
+         */
+        String name,
+        /**
+         * Stores the args.
+         */
+        double[] args
+    ) {
         /**
          * Converts the operation into an affine transform.
          *

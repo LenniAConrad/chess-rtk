@@ -1,6 +1,5 @@
 package application.cli.command;
 
-import static application.cli.Constants.CMD_RECORD_ANALYSIS_DELTA;
 import static application.cli.Constants.OPT_INPUT;
 import static application.cli.Constants.OPT_INPUT_SHORT;
 import static application.cli.Constants.OPT_OUTPUT;
@@ -31,12 +30,17 @@ import utility.Argv;
 import utility.Json;
 
 /**
- * Implements {@code record-analysis-delta}.
+ * Implements {@code record analysis-delta}.
  *
  * @since 2026
  * @author Lennart A. Conrad
  */
 public final class RecordAnalysisDeltaCommand {
+
+	/**
+	 * Current command label used in diagnostics.
+	 */
+	private static final String COMMAND_LABEL = "record analysis-delta";
 
 	/**
 	 * Shared ext analysis delta jsonl constant.
@@ -80,7 +84,7 @@ public final class RecordAnalysisDeltaCommand {
 	 * Shared output order constant.
 	 */
 	private static final Comparator<Output> OUTPUT_ORDER = Comparator
-			.comparingInt((Output::getDepth))
+			.comparingInt(Output::getDepth)
 			.thenComparingLong(Output::getTime);
 
 	/**
@@ -91,7 +95,7 @@ public final class RecordAnalysisDeltaCommand {
 	}
 
 	/**
-	 * Handles {@code record-analysis-delta}.
+	 * Handles {@code record analysis-delta}.
 	 *
 	 * @param a argument parser for the subcommand
 	 */
@@ -108,7 +112,7 @@ public final class RecordAnalysisDeltaCommand {
 		try {
 			ensureParentDir(output);
 		} catch (IOException ex) {
-			System.err.println("record-analysis-delta: failed to prepare output: " + ex.getMessage());
+			System.err.println(COMMAND_LABEL + ": failed to prepare output: " + ex.getMessage());
 			if (verbose) {
 				ex.printStackTrace(System.err);
 			}
@@ -116,19 +120,19 @@ public final class RecordAnalysisDeltaCommand {
 			return;
 		}
 
-		Bar bar = fileProgressBar(input, CMD_RECORD_ANALYSIS_DELTA);
+		Bar bar = fileProgressBar(input, COMMAND_LABEL);
 		try (BufferedWriter out = Files.newBufferedWriter(output)) {
 			DeltaWriter writer = new DeltaWriter(out);
-			streamRecordFile(input, verbose, CMD_RECORD_ANALYSIS_DELTA, writer, bar == null ? null : bar::set);
+			streamRecordFile(input, verbose, COMMAND_LABEL, writer, bar == null ? null : bar::set);
 			finishProgress(bar);
 			System.out.printf(Locale.ROOT,
-					"record-analysis-delta: wrote %d records (%d invalid) to %s%n",
+					"record analysis-delta: wrote %d records (%d invalid) to %s%n",
 					writer.writtenCount(),
 					writer.invalidCount(),
 					output);
 		} catch (IOException | UncheckedIOException ex) {
 			finishProgress(bar);
-			System.err.println("record-analysis-delta: failed to write output: " + ex.getMessage());
+			System.err.println(COMMAND_LABEL + ": failed to write output: " + ex.getMessage());
 			if (verbose) {
 				ex.printStackTrace(System.err);
 			}

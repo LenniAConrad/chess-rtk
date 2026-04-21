@@ -31,7 +31,11 @@ public final class ThemedSplitPaneUI extends BasicSplitPaneUI {
 		this.theme = theme;
 	}
 
-	@Override
+		/**
+	 * Handles create default divider.
+	 * @return computed value
+	 */
+@Override
 	/**
 	 * createDefaultDivider method.
 	 *
@@ -49,7 +53,10 @@ public final class ThemedSplitPaneUI extends BasicSplitPaneUI {
 	 */
 	private static final class ThemedDivider extends BasicSplitPaneDivider {
 
-		@java.io.Serial
+				/**
+		 * Serialization version identifier.
+		 */
+@java.io.Serial
 		private static final long serialVersionUID = 1L;
 		/**
 		 * color field.
@@ -68,7 +75,11 @@ public final class ThemedSplitPaneUI extends BasicSplitPaneUI {
 			setBorder(new EmptyBorder(0, 0, 0, 0));
 		}
 
-		@Override
+				/**
+		 * Handles paint.
+		 * @param g g value
+		 */
+@Override
 		/**
 		 * paint method.
 		 *

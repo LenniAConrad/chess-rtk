@@ -25,7 +25,10 @@ import application.gui.model.MovePair;
  */
 public final class MovePairCellRenderer extends JPanel implements javax.swing.ListCellRenderer<MovePair> {
 
-	@java.io.Serial
+		/**
+	 * Serialization version identifier.
+	 */
+@java.io.Serial
 	private static final long serialVersionUID = 1L;
 	/**
 	 * History window supplying fonts, colors, and scaling.
@@ -63,7 +66,16 @@ public final class MovePairCellRenderer extends JPanel implements javax.swing.Li
 		setBorder(new EmptyBorder(2, 6, 2, 6));
 	}
 
-	@Override
+		/**
+	 * Returns the list cell renderer component.
+	 * @param list list value
+	 * @param value value value
+	 * @param index index value
+	 * @param isSelected is selected value
+	 * @param cellHasFocus cell has focus value
+	 * @return computed value
+	 */
+@Override
 	public java.awt.Component getListCellRendererComponent(javax.swing.JList<? extends MovePair> list, MovePair value,
 			int index, boolean isSelected, boolean cellHasFocus) {
 		String moveNo = value != null ? value.moveNo() + "." : "";

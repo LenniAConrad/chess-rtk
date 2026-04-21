@@ -1121,14 +1121,21 @@ abstract class GuiWindowHistoryNavigation extends GuiWindowHistoryActions {
 			HistoryInputSupport.installDragAndDrop(root, new HistoryDropHandler());
 		}
 
-		private HistoryInputSupport.NavigationActions navigationActions() {
+				/**
+		 * Handles navigation actions.
+		 * @return computed value
+		 */
+private HistoryInputSupport.NavigationActions navigationActions() {
 			if (navigationActions == null) {
 				navigationActions = new NavigationActionsImpl();
 			}
 			return navigationActions;
 		}
 
-		private HistoryInputSupport.NavigationActions navigationActions;
+				/**
+		 * Stores the navigation actions.
+		 */
+private HistoryInputSupport.NavigationActions navigationActions;
 
 		/**
 		 * NavigationActionsImpl class.
@@ -1140,7 +1147,11 @@ abstract class GuiWindowHistoryNavigation extends GuiWindowHistoryActions {
 		 */
 		private final class NavigationActionsImpl implements HistoryInputSupport.NavigationActions {
 
-			@Override
+						/**
+			 * Returns whether text focus.
+			 * @return computed value
+			 */
+@Override
 			/**
 			 * isTextFocus method.
 			 *
@@ -1150,7 +1161,10 @@ abstract class GuiWindowHistoryNavigation extends GuiWindowHistoryActions {
 				return GuiWindowHistoryNavigation.this.isTextFocus();
 			}
 
-			@Override
+						/**
+			 * Handles navigate prev.
+			 */
+@Override
 			/**
 			 * navigatePrev method.
 			 */
@@ -1158,7 +1172,10 @@ abstract class GuiWindowHistoryNavigation extends GuiWindowHistoryActions {
 				GuiWindowHistoryNavigation.this.navigatePrev();
 			}
 
-			@Override
+						/**
+			 * Handles navigate next.
+			 */
+@Override
 			/**
 			 * navigateNext method.
 			 */
@@ -1166,7 +1183,10 @@ abstract class GuiWindowHistoryNavigation extends GuiWindowHistoryActions {
 				GuiWindowHistoryNavigation.this.navigateNext();
 			}
 
-			@Override
+						/**
+			 * Handles navigate start.
+			 */
+@Override
 			/**
 			 * navigateStart method.
 			 */
@@ -1174,7 +1194,10 @@ abstract class GuiWindowHistoryNavigation extends GuiWindowHistoryActions {
 				GuiWindowHistoryNavigation.this.navigateStart();
 			}
 
-			@Override
+						/**
+			 * Handles navigate end.
+			 */
+@Override
 			/**
 			 * navigateEnd method.
 			 */
@@ -1182,7 +1205,10 @@ abstract class GuiWindowHistoryNavigation extends GuiWindowHistoryActions {
 				GuiWindowHistoryNavigation.this.navigateEnd();
 			}
 
-			@Override
+						/**
+			 * Handles navigate up.
+			 */
+@Override
 			/**
 			 * navigateUp method.
 			 */
@@ -1190,7 +1216,10 @@ abstract class GuiWindowHistoryNavigation extends GuiWindowHistoryActions {
 				GuiWindowHistoryNavigation.this.navigateUp();
 			}
 
-			@Override
+						/**
+			 * Handles navigate down.
+			 */
+@Override
 			/**
 			 * navigateDown method.
 			 */
@@ -1198,7 +1227,10 @@ abstract class GuiWindowHistoryNavigation extends GuiWindowHistoryActions {
 				GuiWindowHistoryNavigation.this.navigateDown();
 			}
 
-			@Override
+						/**
+			 * Handles play engine best.
+			 */
+@Override
 			/**
 			 * playEngineBest method.
 			 */
@@ -1206,7 +1238,10 @@ abstract class GuiWindowHistoryNavigation extends GuiWindowHistoryActions {
 				GuiWindowHistoryNavigation.this.playEngineBest();
 			}
 
-			@Override
+						/**
+			 * Handles undo move.
+			 */
+@Override
 			/**
 			 * undoMove method.
 			 */
@@ -1214,7 +1249,10 @@ abstract class GuiWindowHistoryNavigation extends GuiWindowHistoryActions {
 				GuiWindowHistoryNavigation.this.undoMove();
 			}
 
-			@Override
+						/**
+			 * Handles flip board.
+			 */
+@Override
 			/**
 			 * flipBoard method.
 			 */
@@ -1222,7 +1260,10 @@ abstract class GuiWindowHistoryNavigation extends GuiWindowHistoryActions {
 				GuiWindowHistoryNavigation.this.flipBoard();
 			}
 
-			@Override
+						/**
+			 * Handles clear annotations.
+			 */
+@Override
 			/**
 			 * clearAnnotations method.
 			 */
@@ -1232,7 +1273,10 @@ abstract class GuiWindowHistoryNavigation extends GuiWindowHistoryActions {
 				}
 			}
 
-			@Override
+						/**
+			 * Handles toggle legal hints.
+			 */
+@Override
 			/**
 			 * toggleLegalHints method.
 			 */
@@ -1244,7 +1288,10 @@ abstract class GuiWindowHistoryNavigation extends GuiWindowHistoryActions {
 				}
 			}
 
-			@Override
+						/**
+			 * Handles toggle coords.
+			 */
+@Override
 			/**
 			 * toggleCoords method.
 			 */
@@ -1257,7 +1304,10 @@ abstract class GuiWindowHistoryNavigation extends GuiWindowHistoryActions {
 				}
 			}
 
-			@Override
+						/**
+			 * Handles open board editor.
+			 */
+@Override
 			/**
 			 * openBoardEditor method.
 			 */
@@ -1265,7 +1315,10 @@ abstract class GuiWindowHistoryNavigation extends GuiWindowHistoryActions {
 				GuiWindowHistoryNavigation.this.openBoardEditor();
 			}
 
-			@Override
+						/**
+			 * Handles toggle engine analysis.
+			 */
+@Override
 			/**
 			 * toggleEngineAnalysis method.
 			 */
@@ -1277,7 +1330,10 @@ abstract class GuiWindowHistoryNavigation extends GuiWindowHistoryActions {
 				}
 			}
 
-			@Override
+						/**
+			 * Handles open command palette.
+			 */
+@Override
 			/**
 			 * openCommandPalette method.
 			 */
@@ -1285,7 +1341,10 @@ abstract class GuiWindowHistoryNavigation extends GuiWindowHistoryActions {
 				GuiWindowHistoryNavigation.this.openCommandPalette();
 			}
 
-			@Override
+						/**
+			 * Handles copy fen.
+			 */
+@Override
 			/**
 			 * copyFen method.
 			 */
@@ -1293,7 +1352,10 @@ abstract class GuiWindowHistoryNavigation extends GuiWindowHistoryActions {
 				GuiWindowHistoryNavigation.this.copyFen();
 			}
 
-			@Override
+						/**
+			 * Handles copy board image.
+			 */
+@Override
 			/**
 			 * copyBoardImage method.
 			 */
@@ -1301,7 +1363,10 @@ abstract class GuiWindowHistoryNavigation extends GuiWindowHistoryActions {
 				GuiWindowHistoryNavigation.this.copyBoardImage();
 			}
 
-			@Override
+						/**
+			 * Handles save board image.
+			 */
+@Override
 			/**
 			 * saveBoardImage method.
 			 */
@@ -1309,7 +1374,10 @@ abstract class GuiWindowHistoryNavigation extends GuiWindowHistoryActions {
 				GuiWindowHistoryNavigation.this.saveBoardImage();
 			}
 
-			@Override
+						/**
+			 * Handles toggle sidebar.
+			 */
+@Override
 			/**
 			 * toggleSidebar method.
 			 */
@@ -1317,7 +1385,10 @@ abstract class GuiWindowHistoryNavigation extends GuiWindowHistoryActions {
 				GuiWindowHistoryNavigation.this.toggleSidebar();
 			}
 
-			@Override
+						/**
+			 * Handles toggle panel.
+			 */
+@Override
 			/**
 			 * togglePanel method.
 			 */
@@ -1325,7 +1396,10 @@ abstract class GuiWindowHistoryNavigation extends GuiWindowHistoryActions {
 				GuiWindowHistoryNavigation.this.togglePanel();
 			}
 
-			@Override
+						/**
+			 * Handles show problems.
+			 */
+@Override
 			/**
 			 * showProblems method.
 			 */
@@ -1334,7 +1408,10 @@ abstract class GuiWindowHistoryNavigation extends GuiWindowHistoryActions {
 				openPanelTab("Problems");
 			}
 
-			@Override
+						/**
+			 * Handles show output.
+			 */
+@Override
 			/**
 			 * showOutput method.
 			 */
@@ -1343,7 +1420,10 @@ abstract class GuiWindowHistoryNavigation extends GuiWindowHistoryActions {
 				openPanelTab("Output");
 			}
 
-			@Override
+						/**
+			 * Handles toggle focus mode.
+			 */
+@Override
 			/**
 			 * toggleFocusMode method.
 			 */
@@ -1351,7 +1431,10 @@ abstract class GuiWindowHistoryNavigation extends GuiWindowHistoryActions {
 				GuiWindowHistoryNavigation.this.toggleFocusMode();
 			}
 
-			@Override
+						/**
+			 * Handles focus exit.
+			 */
+@Override
 			/**
 			 * focusExit method.
 			 */
@@ -1383,7 +1466,12 @@ abstract class GuiWindowHistoryNavigation extends GuiWindowHistoryActions {
 		 */
 		private final class HistoryDropHandler implements HistoryInputSupport.DropHandler {
 
-			@Override
+						/**
+			 * Handles can handle files.
+			 * @param files files value
+			 * @return computed value
+			 */
+@Override
 			/**
 			 * canHandleFiles method.
 			 *
@@ -1394,7 +1482,12 @@ abstract class GuiWindowHistoryNavigation extends GuiWindowHistoryActions {
 				return files != null && !files.isEmpty();
 			}
 
-			@Override
+						/**
+			 * Handles handle files.
+			 * @param files files value
+			 * @return computed value
+			 */
+@Override
 			/**
 			 * handleFiles method.
 			 *
@@ -1405,7 +1498,12 @@ abstract class GuiWindowHistoryNavigation extends GuiWindowHistoryActions {
 				return handleDroppedFiles(files);
 			}
 
-			@Override
+						/**
+			 * Handles can handle text.
+			 * @param text text value
+			 * @return computed value
+			 */
+@Override
 			/**
 			 * canHandleText method.
 			 *
@@ -1416,7 +1514,12 @@ abstract class GuiWindowHistoryNavigation extends GuiWindowHistoryActions {
 				return text != null && !text.isBlank();
 			}
 
-			@Override
+						/**
+			 * Handles handle text.
+			 * @param text text value
+			 * @return computed value
+			 */
+@Override
 			/**
 			 * handleText method.
 			 *
@@ -1433,13 +1536,21 @@ abstract class GuiWindowHistoryNavigation extends GuiWindowHistoryActions {
 		 */
 			protected void installStateListeners() {
 				frame.addComponentListener(new java.awt.event.ComponentAdapter() {
-					@Override
+										/**
+					 * Handles component resized.
+					 * @param e e value
+					 */
+@Override
 					public void componentResized(java.awt.event.ComponentEvent e) {
 						captureGuiState();
 						scheduleGuiStateSave();
 					}
 
-					@Override
+										/**
+					 * Handles component moved.
+					 * @param e e value
+					 */
+@Override
 					public void componentMoved(java.awt.event.ComponentEvent e) {
 						captureGuiState();
 						scheduleGuiStateSave();
@@ -1477,7 +1588,11 @@ abstract class GuiWindowHistoryNavigation extends GuiWindowHistoryActions {
 			protected void bindNav(InputMap im, ActionMap am, String id, int keyCode, int modifiers, Runnable action) {
 				im.put(KeyStroke.getKeyStroke(keyCode, modifiers), id);
 				am.put(id, new AbstractAction() {
-					@Override
+										/**
+					 * Handles action performed.
+					 * @param e e value
+					 */
+@Override
 					public void actionPerformed(java.awt.event.ActionEvent e) {
 						if (isTextFocus()) {
 							return;
@@ -1499,7 +1614,11 @@ abstract class GuiWindowHistoryNavigation extends GuiWindowHistoryActions {
 			protected void bindNavAlways(InputMap im, ActionMap am, String id, int keyCode, int modifiers, Runnable action) {
 				im.put(KeyStroke.getKeyStroke(keyCode, modifiers), id);
 				am.put(id, new AbstractAction() {
-					@Override
+										/**
+					 * Handles action performed.
+					 * @param e e value
+					 */
+@Override
 					public void actionPerformed(java.awt.event.ActionEvent e) {
 						action.run();
 					}

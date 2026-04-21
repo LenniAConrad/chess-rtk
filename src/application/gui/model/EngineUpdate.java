@@ -21,6 +21,42 @@ import chess.uci.Evaluation;
   * @since 2026
   * @author Lennart A. Conrad
  */
-public record EngineUpdate(long version, String output, String bestMoves, Evaluation eval, Chances chances, Analysis analysis,
-		short bestMove, String status, boolean error) {
+public record EngineUpdate(
+	/**
+	 * Stores the version.
+	 */
+	long version,
+	/**
+	 * Stores the output.
+	 */
+	String output,
+	/**
+	 * Stores the best moves.
+	 */
+	String bestMoves,
+	/**
+	 * Stores the eval.
+	 */
+	Evaluation eval,
+	/**
+	 * Stores the chances.
+	 */
+	Chances chances,
+	/**
+	 * Stores the analysis.
+	 */
+	Analysis analysis,
+	/**
+	 * Stores the best move.
+	 */
+	short bestMove,
+	/**
+	 * Stores the status.
+	 */
+	String status,
+	/**
+	 * Stores the error.
+	 */
+	boolean error
+) {
 }
