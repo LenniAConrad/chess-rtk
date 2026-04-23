@@ -81,7 +81,7 @@ abstract class GuiWindowHistoryTheme extends GuiWindowHistoryCore {
                         || useFenToggle == null || commandFenPanel == null) {
                     return;
                 }
-                CommandSpec spec = commandSpecs.get((String) commandSelect.getSelectedItem());
+                CommandSpec spec = commandSpecs.get(commandSelect.getSelectedItem());
                 if (spec == null) {
                     commandFieldsPanel.removeAll();
                     commandBindings.clear();
@@ -372,7 +372,6 @@ abstract class GuiWindowHistoryTheme extends GuiWindowHistoryCore {
 				if (mainSplit != null) {
 					mainSplit.setBackground(theme.editor());
 				}
-				Border borderLine = new MatteBorder(0, 0, 0, 0, theme.border());
 				Border emptyBorder = BorderFactory.createEmptyBorder();
 				UIManager.put("TabbedPane.borderHightlightColor", theme.border());
 				UIManager.put("TabbedPane.borderHighlightColor", theme.border());

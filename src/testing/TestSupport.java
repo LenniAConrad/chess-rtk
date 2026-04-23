@@ -34,7 +34,11 @@ final class TestSupport {
         ByteArrayOutputStream buffer = new ByteArrayOutputStream();
         try (PrintStream replacement = new PrintStream(buffer, true, StandardCharsets.UTF_8)) {
             System.setOut(replacement);
-            Main.main(args);
+            int exitCode = Main.run(args);
+            if (exitCode != 0) {
+                throw new AssertionError("command failed with exit code " + exitCode + ": "
+                        + String.join(" ", args));
+            }
         } finally {
             System.setOut(original);
         }

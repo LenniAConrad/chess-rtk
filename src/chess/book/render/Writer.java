@@ -543,9 +543,9 @@ public final class Writer {
 		if (output == null) {
 			throw new IllegalArgumentException("output cannot be null");
 		}
-		Book safeBook = requireBook(book);
-		SolutionInfo[] solutions = buildSolutions(safeBook);
-		String safeWatermarkId = freeWatermark ? buildWatermarkId(safeBook, watermarkId) : "";
+		Book safeBook = WriterSupport.requireBook(book);
+		SolutionInfo[] solutions = WriterSupport.buildSolutions(safeBook);
+		String safeWatermarkId = freeWatermark ? WriterSupport.buildWatermarkId(safeBook, watermarkId) : "";
 
 		int tocPages = 1;
 		LayoutResult preview = null;
@@ -602,139 +602,13 @@ public final class Writer {
 	 * @return configured PDF document
 	 */
 	private static Document createDocument(Book book, boolean freeWatermark, String watermarkId) {
-		String subject = freeWatermark ? watermarkSubject(watermarkId) : SUBJECT;
+		String subject = freeWatermark ? WriterSupport.watermarkSubject(FREE_WATERMARK_SUBJECT, watermarkId) : SUBJECT;
 		return new Document()
 				.setTitle(book.getFullTitle())
 				.setAuthor(book.getAuthor())
 				.setSubject(subject)
 				.setCreator(CREATOR)
 				.setProducer(PRODUCER);
-	}
-
-	/**
-	 * Builds subject metadata for a watermarked PDF.
-	 *
-	 * @param watermarkId visible watermark identifier
-	 * @return PDF subject metadata
-	 */
-	private static String watermarkSubject(String watermarkId) {
-		String id = normalizeWatermarkId(watermarkId);
-		return id.isBlank() ? FREE_WATERMARK_SUBJECT : FREE_WATERMARK_SUBJECT + "; Watermark ID " + id;
-	}
-
-	/**
-	 * Returns either the caller-supplied watermark identifier or a deterministic
-	 * book fingerprint.
-	 *
-	 * @param book source book metadata
-	 * @param watermarkId optional caller-supplied identifier
-	 * @return display-safe watermark identifier
-	 */
-	private static String buildWatermarkId(Book book, String watermarkId) {
-		String explicit = normalizeWatermarkId(watermarkId);
-		if (!explicit.isBlank()) {
-			return explicit;
-		}
-		StringBuilder key = new StringBuilder(1024 + book.getElements().length * 96)
-				.append(blankTo(book.getFullTitle(), "")).append('\n')
-				.append(blankTo(book.getAuthor(), "")).append('\n')
-				.append(blankTo(book.getTime(), "")).append('\n')
-				.append(blankTo(book.getLocation(), "")).append('\n')
-				.append(book.getElements().length).append('\n');
-		for (Element element : book.getElements()) {
-			key.append(blankTo(element.getPosition(), "")).append('\n')
-					.append(blankTo(element.getMoves(), "")).append('\n');
-		}
-		String hex = String.format(Locale.ROOT, "%016X", fnv1a64(key.toString()));
-		return "CRTK-" + hex.substring(0, 4) + "-" + hex.substring(4, 8)
-				+ "-" + hex.substring(8, 12) + "-" + hex.substring(12, 16);
-	}
-
-	/**
-	 * Normalizes a watermark identifier for PDF text and metadata.
-	 *
-	 * @param watermarkId source identifier
-	 * @return printable ASCII identifier, or empty string when absent
-	 */
-	private static String normalizeWatermarkId(String watermarkId) {
-		String safe = normalizeWhitespace(watermarkId);
-		if (safe.isBlank()) {
-			return "";
-		}
-		StringBuilder normalized = new StringBuilder(Math.min(safe.length(), 72));
-		for (int i = 0; i < safe.length(); i++) {
-			char ch = safe.charAt(i);
-			normalized.append(ch >= 32 && ch <= 126 ? ch : '?');
-			if (normalized.length() >= 72) {
-				break;
-			}
-		}
-		return normalized.toString();
-	}
-
-	/**
-	 * Computes a stable 64-bit FNV-1a fingerprint.
-	 *
-	 * @param text source text
-	 * @return unsigned hash bits stored in a Java long
-	 */
-	private static long fnv1a64(String text) {
-		long hash = 0xcbf29ce484222325L;
-		for (int i = 0; i < text.length(); i++) {
-			hash ^= text.charAt(i);
-			hash *= 0x100000001b3L;
-		}
-		return hash;
-	}
-
-	/**
-	 * Validates the requested book model.
-	 *
-	 * @param book requested book instance
-	 * @return the validated book instance
-	 */
-	private static Book requireBook(Book book) {
-		if (book == null) {
-			throw new IllegalArgumentException("book cannot be null");
-		}
-		if (book.getElements().length == 0) {
-			throw new IllegalArgumentException("book has no puzzle elements");
-		}
-		return book;
-	}
-
-	/**
-	 * Pre-parses every puzzle solution into a final position and last move.
-	 *
-	 * @param book source book
-	 * @return per-puzzle solution cache
-	 */
-	private static SolutionInfo[] buildSolutions(Book book) {
-		Element[] elements = book.getElements();
-		SolutionInfo[] solutions = new SolutionInfo[elements.length];
-		for (int i = 0; i < elements.length; i++) {
-			solutions[i] = buildSolution(elements[i]);
-		}
-		return solutions;
-	}
-
-	/**
-	 * Parses one puzzle solution line.
-	 *
-	 * @param element puzzle element to parse
-	 * @return parsed solution information
-	 */
-	private static SolutionInfo buildSolution(Element element) {
-		Position start = new Position(element.getPosition());
-		SAN.PlayedLine line = SAN.playLine(start, element.getMoves());
-		if (line.isParsed()) {
-			return new SolutionInfo(line.getResult(), line.getLastMove(),
-					MoveText.figurine(line.lastSanWithMoveNumber()));
-		}
-
-		String fallbackSan = SAN.lastMoveToken(element.getMoves());
-		String label = line.hasLastMove() ? line.lastSanWithMoveNumber() : fallbackSan;
-		return new SolutionInfo(start.copy(), Move.NO_MOVE, MoveText.figurine(label));
 	}
 
 	/**
@@ -789,16 +663,7 @@ public final class Writer {
 	 * @return copyright lines
 	 */
 	private static String[] buildCoverCopyright(Book book) {
-		String year = blankTo(book.getTime(), "");
-		String author = blankTo(book.getAuthor(), "");
-		StringBuilder builder = new StringBuilder(64);
-		builder.append("Copyright (c) ");
-		if (!year.isBlank()) {
-			builder.append(year).append(' ');
-		}
-		builder.append("by ");
-		builder.append(author.isBlank() ? book.getFullTitle() : author);
-		return new String[] { builder.toString().trim(), "All rights reserved" };
+		return WriterSupport.buildCoverCopyright(book);
 	}
 
 	/**
@@ -2252,7 +2117,7 @@ public final class Writer {
 	 */
 	private static void drawRepeatedFreeWatermarkText(Canvas canvas, double width, double height,
 			String watermarkId) {
-		String repeated = FREE_WATERMARK_REPEAT + " - " + normalizeWatermarkId(watermarkId);
+		String repeated = FREE_WATERMARK_REPEAT + " - " + WriterSupport.normalizeWatermarkId(watermarkId);
 		double fontSize = Math.max(5.0, Math.min(6.8, width / 88.0));
 		double textWidth = textWidth(Font.LATIN_MODERN_BOLD, fontSize, repeated);
 		double stepX = Math.max(104.0, textWidth + 30.0);
@@ -2340,7 +2205,7 @@ public final class Writer {
 	 * @return page-specific label
 	 */
 	private static String watermarkPageLabel(String watermarkId, int pageNumber, int totalPages) {
-		return "WATERMARK ID " + normalizeWatermarkId(watermarkId)
+		return "WATERMARK ID " + WriterSupport.normalizeWatermarkId(watermarkId)
 				+ " - PAGE " + pageNumber + " OF " + Math.max(pageNumber, totalPages);
 	}
 

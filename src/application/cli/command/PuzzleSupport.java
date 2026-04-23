@@ -30,10 +30,9 @@ final class PuzzleSupport {
      * @param analysis analysis
      * @param pvPlies pv plies
      * @param cmd cmd
-     * @param verbose verbose
      * @return computed value
      */
-     static List<Record> buildRecords(Position root, Analysis analysis, int pvPlies, String cmd, boolean verbose) {
+     static List<Record> buildRecords(Position root, Analysis analysis, int pvPlies, String cmd) {
         if (analysis == null || analysis.isEmpty()) {
             System.err.println(cmd + ": analysis unavailable for puzzle line");
             System.exit(2);
@@ -168,8 +167,8 @@ final class PuzzleSupport {
                 moveNo++;
             }
             if (i == 0 && variations != null && !variations.isEmpty()) {
-                for (String var : variations) {
-                    sb.append(' ').append(var);
+                for (String variation : variations) {
+                    sb.append(' ').append(variation);
                 }
             }
             white = !white;

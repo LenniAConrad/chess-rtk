@@ -57,7 +57,94 @@
 	],
 	"sonarlint.automaticAnalysis": true,
 	"sonarlint.rules": {
+		"java:S107": {
+			"level": "off"
+		},
 		"java:S106": {
+			"level": "off"
+		},
+		"java:S1118": {
+			"level": "off"
+		},
+		"java:S110": {
+			"level": "off"
+		},
+		"java:S112": {
+			"level": "off"
+		},
+		"java:S1144": {
+			"level": "off"
+		},
+		"java:S1168": {
+			"level": "off"
+		},
+		"java:S1172": {
+			"level": "off"
+		},
+		"java:S1192": {
+			"level": "off"
+		},
+		"java:S127": {
+			"level": "off"
+		},
+		"java:S135": {
+			"level": "off"
+		},
+		"java:S1604": {
+			"level": "off"
+		},
+		"java:S1948": {
+			"level": "off"
+		},
+		"java:S1905": {
+			"level": "off"
+		},
+		"java:S3252": {
+			"level": "off"
+		},
+		"java:S3358": {
+			"level": "off"
+		},
+		"java:S3398": {
+			"level": "off"
+		},
+		"java:S3776": {
+			"level": "off"
+		},
+		"java:S4276": {
+			"level": "off"
+		},
+		"java:S4968": {
+			"level": "off"
+		},
+		"java:S6126": {
+			"level": "off"
+		},
+		"java:S1141": {
+			"level": "off"
+		},
+		"java:S3078": {
+			"level": "off"
+		},
+		"java:S6201": {
+			"level": "off"
+		},
+		"java:S6206": {
+			"level": "off"
+		},
+		"java:S6208": {
+			"level": "off"
+		},
+		"java:S6213": {
+			"level": "off"
+		},
+		"java:S6218": {
+			"level": "off"
+		},
+		"java:S6541": {
+			"level": "off"
+		},
+		"java:S1068": {
 			"level": "off"
 		}
 	},

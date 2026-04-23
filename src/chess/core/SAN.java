@@ -179,14 +179,10 @@ public final class SAN {
         Position initial = start.copy();
         Position current = start.copy();
         String cleaned = cleanMoveString(movetext);
+        PlayedMoveState state = PlayedMoveState.empty();
         if (cleaned.isEmpty()) {
-            return new PlayedLine(initial, current, chess.core.Move.NO_MOVE, "", 0, true, 0, false, "");
+            return new PlayedLine(initial, current, state, false, "");
         }
-        short lastMove = chess.core.Move.NO_MOVE;
-        String lastSan = "";
-        int lastMoveNumber = 0;
-        boolean lastMoveWasWhite = true;
-        int plies = 0;
         int tokenStart = 0;
         for (int i = 0; i <= cleaned.length(); i++) {
             if (i == cleaned.length() || cleaned.charAt(i) == ' ') {
@@ -194,21 +190,16 @@ public final class SAN {
                     String token = cleaned.substring(tokenStart, i);
                     try {
                         short move = fromAlgebraic(current, token);
-                        lastMove = move;
-                        lastSan = token;
-                        lastMoveNumber = current.fullMoveNumber();
-                        lastMoveWasWhite = current.isWhiteToMove();
+                        state = state.played(move, token, current.fullMoveNumber(), current.isWhiteToMove());
                         current.play(move);
-                        plies++;
                     } catch (IllegalArgumentException ex) {
-                        return new PlayedLine(initial, current, lastMove, lastSan, lastMoveNumber,
-                                lastMoveWasWhite, plies, false, token);
+                        return new PlayedLine(initial, current, state, false, token);
                     }
                 }
                 tokenStart = i + 1;
             }
         }
-        return new PlayedLine(initial, current, lastMove, lastSan, lastMoveNumber, lastMoveWasWhite, plies, true, "");
+        return new PlayedLine(initial, current, state, true, "");
     }
 
     /**
@@ -250,13 +241,9 @@ public final class SAN {
             char ch = i == movetext.length() ? ' ' : movetext.charAt(i);
             if (commentDepth > 0) {
                 commentDepth = updateCommentDepth(commentDepth, ch);
-                continue;
-            }
-            if (variationDepth > 0) {
+            } else if (variationDepth > 0) {
                 variationDepth = updateVariationDepth(variationDepth, ch);
-                continue;
-            }
-            if (ch == '{') {
+            } else if (ch == '{') {
                 appendCleanToken(result, token);
                 commentDepth++;
             } else if (ch == '(') {
@@ -644,20 +631,16 @@ public final class SAN {
         private PlayedLine(
                 Position start,
                 Position result,
-                short lastMove,
-                String lastSan,
-                int lastMoveNumber,
-                boolean lastMoveWasWhite,
-                int pliesPlayed,
+                PlayedMoveState progress,
                 boolean parsed,
                 String invalidToken) {
             this.start = start.copy();
             this.result = result.copy();
-            this.lastMove = lastMove;
-            this.lastSan = lastSan == null ? "" : lastSan;
-            this.lastMoveNumber = Math.max(0, lastMoveNumber);
-            this.lastMoveWasWhite = lastMoveWasWhite;
-            this.pliesPlayed = Math.max(0, pliesPlayed);
+            this.lastMove = progress.lastMove();
+            this.lastSan = progress.lastSan();
+            this.lastMoveNumber = progress.lastMoveNumber();
+            this.lastMoveWasWhite = progress.lastMoveWasWhite();
+            this.pliesPlayed = progress.pliesPlayed();
             this.parsed = parsed;
             this.invalidToken = invalidToken == null ? "" : invalidToken;
         }
@@ -762,6 +745,50 @@ public final class SAN {
          */
         public String getInvalidToken() {
             return invalidToken;
+        }
+    }
+
+    /**
+     * Parse progress captured for the most recent valid move.
+     *
+     * @param lastMove last successfully parsed move
+     * @param lastSan last successfully parsed SAN token
+     * @param lastMoveNumber full-move number before the last move
+     * @param lastMoveWasWhite whether White played the last move
+     * @param pliesPlayed number of plies successfully applied
+     */
+    private record PlayedMoveState(
+            short lastMove,
+            String lastSan,
+            int lastMoveNumber,
+            boolean lastMoveWasWhite,
+            int pliesPlayed) {
+
+        /**
+         * Returns the initial empty parse state.
+         *
+         * @return empty state
+         */
+        private static PlayedMoveState empty() {
+            return new PlayedMoveState(chess.core.Move.NO_MOVE, "", 0, true, 0);
+        }
+
+        /**
+         * Returns the state after one move was applied.
+         *
+         * @param move applied move
+         * @param san parsed SAN token
+         * @param moveNumber full-move number before the move
+         * @param moveWasWhite whether White played the move
+         * @return updated state
+         */
+        private PlayedMoveState played(short move, String san, int moveNumber, boolean moveWasWhite) {
+            return new PlayedMoveState(
+                    move,
+                    san == null ? "" : san,
+                    Math.max(0, moveNumber),
+                    moveWasWhite,
+                    pliesPlayed + 1);
         }
     }
 }

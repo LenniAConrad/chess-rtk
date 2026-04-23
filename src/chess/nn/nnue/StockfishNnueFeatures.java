@@ -273,7 +273,7 @@ final class StockfishNnueFeatures {
                     if (board[from] != attacker) {
                         continue;
                     }
-                    appendThreatsFrom(board, perspective, attacker, from, kingSquare, tables, active);
+                    appendThreatsFrom(board, new ThreatContext(perspective, attacker, from, kingSquare, tables, active));
                 }
             }
         }
@@ -428,20 +428,15 @@ final class StockfishNnueFeatures {
      */
     private static void appendThreatsFrom(
             int[] board,
-            int perspective,
-            int attacker,
-            int from,
-            int kingSquare,
-            ThreatTables tables,
-            IntList active) {
-        int type = typeOf(attacker);
+            ThreatContext ctx) {
+        int type = typeOf(ctx.attacker);
         if (type == PAWN) {
-            appendPawnThreats(board, perspective, attacker, from, kingSquare, tables, active);
+            appendPawnThreats(board, ctx);
             return;
         }
         if (type == KNIGHT || type == KING) {
-            for (int to : pseudoTargets(type, colorOf(attacker), from)) {
-                appendThreatIfOccupied(board, perspective, attacker, from, to, kingSquare, tables, active);
+            for (int to : pseudoTargets(type, colorOf(ctx.attacker), ctx.from)) {
+                appendThreatIfOccupied(board, ctx, to);
             }
             return;
         }
@@ -453,12 +448,12 @@ final class StockfishNnueFeatures {
         default -> throw new IllegalArgumentException("Unsupported attacker type: " + type);
         };
         for (int[] direction : directions) {
-            int file = file(from) + direction[0];
-            int rank = rank(from) + direction[1];
+            int file = file(ctx.from) + direction[0];
+            int rank = rank(ctx.from) + direction[1];
             while (onBoard(file, rank)) {
                 int to = square(file, rank);
                 if (board[to] != 0) {
-                    appendThreat(board, perspective, attacker, from, to, board[to], kingSquare, tables, active);
+                    appendThreat(ctx, to, board[to]);
                     break;
                 }
                 file += direction[0];
@@ -471,39 +466,29 @@ final class StockfishNnueFeatures {
      * Appends pawn capture and blocked-pawn threats.
      *
      * @param board Stockfish-order board
-     * @param perspective perspective color
-     * @param attacker attacker pawn
-     * @param from pawn square
-     * @param kingSquare perspective king square
-     * @param tables variant-specific tables
-     * @param active output list
+     * @param ctx threat-emission context
      */
     private static void appendPawnThreats(
             int[] board,
-            int perspective,
-            int attacker,
-            int from,
-            int kingSquare,
-            ThreatTables tables,
-            IntList active) {
-        int color = colorOf(attacker);
+            ThreatContext ctx) {
+        int color = colorOf(ctx.attacker);
         int forward = color == WHITE ? 1 : -1;
-        int nextRank = rank(from) + forward;
+        int nextRank = rank(ctx.from) + forward;
         if (nextRank >= 0 && nextRank < 8) {
-            int leftFile = file(from) - 1;
-            int rightFile = file(from) + 1;
+            int leftFile = file(ctx.from) - 1;
+            int rightFile = file(ctx.from) + 1;
             if (leftFile >= 0) {
                 int to = square(leftFile, nextRank);
-                appendThreatIfOccupied(board, perspective, attacker, from, to, kingSquare, tables, active);
+                appendThreatIfOccupied(board, ctx, to);
             }
             if (rightFile < 8) {
                 int to = square(rightFile, nextRank);
-                appendThreatIfOccupied(board, perspective, attacker, from, to, kingSquare, tables, active);
+                appendThreatIfOccupied(board, ctx, to);
             }
 
-            int pushTo = square(file(from), nextRank);
+            int pushTo = square(file(ctx.from), nextRank);
             if (typeOf(board[pushTo]) == PAWN) {
-                appendThreat(board, perspective, attacker, from, pushTo, board[pushTo], kingSquare, tables, active);
+                appendThreat(ctx, pushTo, board[pushTo]);
             }
         }
     }
@@ -512,55 +497,30 @@ final class StockfishNnueFeatures {
      * Appends a threat only when the target square is occupied.
      *
      * @param board Stockfish-order board
-     * @param perspective perspective color
-     * @param attacker attacker piece
-     * @param from attacker square
+     * @param ctx threat-emission context
      * @param to target square
-     * @param kingSquare perspective king square
-     * @param tables variant-specific tables
-     * @param active output list
      */
     private static void appendThreatIfOccupied(
             int[] board,
-            int perspective,
-            int attacker,
-            int from,
-            int to,
-            int kingSquare,
-            ThreatTables tables,
-            IntList active) {
+            ThreatContext ctx,
+            int to) {
         int attacked = board[to];
         if (attacked != 0) {
-            appendThreat(board, perspective, attacker, from, to, attacked, kingSquare, tables, active);
+            appendThreat(ctx, to, attacked);
         }
     }
 
     /**
      * Appends one threat if it is valid for the variant.
      *
-     * @param board unused board context
-     * @param perspective perspective color
-     * @param attacker attacker piece
-     * @param from attacker square
+     * @param ctx threat-emission context
      * @param to target square
      * @param attacked attacked piece
-     * @param kingSquare perspective king square
-     * @param tables variant-specific tables
-     * @param active output list
      */
-    private static void appendThreat(
-            int[] board,
-            int perspective,
-            int attacker,
-            int from,
-            int to,
-            int attacked,
-            int kingSquare,
-            ThreatTables tables,
-            IntList active) {
-        int index = threatIndex(perspective, attacker, from, to, attacked, kingSquare, tables);
-        if (index < tables.dimensions) {
-            active.add(index);
+    private static void appendThreat(ThreatContext ctx, int to, int attacked) {
+        int index = threatIndex(ctx.perspective, ctx.attacker, ctx.from, to, attacked, ctx.kingSquare, ctx.tables);
+        if (index < ctx.tables.dimensions) {
+            ctx.active.add(index);
         }
     }
 
@@ -866,32 +826,124 @@ final class StockfishNnueFeatures {
          */
         private int[][][] initIndexLut1() {
             int[][][] indices = new int[PIECE_NB][PIECE_NB][2];
+            fillMissingThreatIndices(indices);
+            for (int attacker : ALL_PIECES) {
+                for (int attacked : ALL_PIECES) {
+                    populateIndexLut1(indices, attacker, attacked);
+                }
+            }
+            return indices;
+        }
+
+        /**
+         * Fills the lookup table with the default out-of-range marker.
+         *
+         * @param indices lookup table under construction
+         */
+        private void fillMissingThreatIndices(int[][][] indices) {
             for (int[][] byAttacked : indices) {
                 for (int[] order : byAttacked) {
                     Arrays.fill(order, dimensions);
                 }
             }
+        }
 
-            for (int attacker : ALL_PIECES) {
-                for (int attacked : ALL_PIECES) {
-                    boolean enemy = (attacker ^ attacked) == 8;
-                    int attackerType = typeOf(attacker);
-                    int attackedType = typeOf(attacked);
-                    int mapped = map[attackerType - 1][attackedType - 1];
-                    boolean excluded = mapped < 0;
-                    boolean semiExcluded = attackerType == attackedType && (enemy || attackerType != PAWN);
-                    int feature = dimensions;
-                    if (!excluded) {
-                        feature = helperOffsets[attacker].cumulativeOffset
-                                + (colorOf(attacked) * (numValidTargets[attacker] / 2) + mapped)
-                                        * helperOffsets[attacker].cumulativePieceOffset;
-                    }
-
-                    indices[attacker][attacked][0] = excluded ? dimensions : feature;
-                    indices[attacker][attacked][1] = excluded || semiExcluded ? dimensions : feature;
-                }
+        /**
+         * Populates one attacker/attacked entry in the lookup table.
+         *
+         * @param indices lookup table under construction
+         * @param attacker attacking piece
+         * @param attacked attacked piece
+         */
+        private void populateIndexLut1(int[][][] indices, int attacker, int attacked) {
+            int attackerType = typeOf(attacker);
+            int attackedType = typeOf(attacked);
+            int mapped = map[attackerType - 1][attackedType - 1];
+            if (mapped < 0) {
+                return;
             }
-            return indices;
+            int feature = helperOffsets[attacker].cumulativeOffset
+                    + (colorOf(attacked) * (numValidTargets[attacker] / 2) + mapped)
+                            * helperOffsets[attacker].cumulativePieceOffset;
+            indices[attacker][attacked][0] = feature;
+            if (!isSemiExcluded(attacker, attacked, attackerType)) {
+                indices[attacker][attacked][1] = feature;
+            }
+        }
+
+        /**
+         * Returns whether the ordered-target feature should be suppressed.
+         *
+         * @param attacker attacking piece
+         * @param attacked attacked piece
+         * @param attackerType normalized attacker type
+         * @return true when the ordered entry should remain excluded
+         */
+        private boolean isSemiExcluded(int attacker, int attacked, int attackerType) {
+            boolean enemy = (attacker ^ attacked) == 8;
+            int attackedType = typeOf(attacked);
+            return attackerType == attackedType && (enemy || attackerType != PAWN);
+        }
+    }
+
+    /**
+     * Shared context for threat feature emission from one attacker square.
+     */
+    private static final class ThreatContext {
+
+        /**
+         * Perspective color.
+         */
+        private final int perspective;
+
+        /**
+         * Attacking piece.
+         */
+        private final int attacker;
+
+        /**
+         * Attacker square.
+         */
+        private final int from;
+
+        /**
+         * Perspective king square.
+         */
+        private final int kingSquare;
+
+        /**
+         * Variant-specific tables.
+         */
+        private final ThreatTables tables;
+
+        /**
+         * Output feature list.
+         */
+        private final IntList active;
+
+        /**
+         * Creates one threat-emission context.
+         *
+         * @param perspective perspective color
+         * @param attacker attacking piece
+         * @param from attacker square
+         * @param kingSquare perspective king square
+         * @param tables variant-specific tables
+         * @param active output feature list
+         */
+        private ThreatContext(
+                int perspective,
+                int attacker,
+                int from,
+                int kingSquare,
+                ThreatTables tables,
+                IntList active) {
+            this.perspective = perspective;
+            this.attacker = attacker;
+            this.from = from;
+            this.kingSquare = kingSquare;
+            this.tables = tables;
+            this.active = active;
         }
     }
 

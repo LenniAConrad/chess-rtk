@@ -6,6 +6,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.LinkedHashMap;
@@ -194,9 +195,16 @@ public final class Document {
 			byte[] contentBytes = page.contentStream().getBytes(StandardCharsets.US_ASCII);
 			int contentId = addStreamObject(objects, "", contentBytes);
 			List<Integer> annotationObjectIds = createAnnotationObjects(objects, page, pageIds);
+			PageObjectContext pageContext = new PageObjectContext(
+					pagesId,
+					fontObjectIds,
+					imageObjectIds,
+					opacityObjectIds,
+					shadingObjectIds,
+					annotationObjectIds,
+					contentId);
 			setObject(objects, pageIds.get(index),
-					buildPageObject(page, pagesId, fontObjectIds, imageObjectIds, opacityObjectIds,
-							shadingObjectIds, annotationObjectIds, contentId));
+					buildPageObject(page, pageContext));
 		}
 
 		setObject(objects, pagesId, buildPagesObject(pageIds));
@@ -448,71 +456,148 @@ public final class Document {
 	 * Builds the dictionary for one PDF page object.
 	 *
 	 * @param page page to serialize
-	 * @param pagesId parent pages-tree object id
-	 * @param fontObjectIds font resource object ids
-	 * @param imageObjectIds image resource object ids
-	 * @param opacityObjectIds opacity state object ids
-	 * @param shadingObjectIds shading resource object ids
-	 * @param annotationObjectIds annotation object ids
-	 * @param contentId content-stream object id
+	 * @param context page-object dependencies and resource ids
 	 * @return page-object dictionary
 	 */
-	private String buildPageObject(Page page, int pagesId, Map<Font, Integer> fontObjectIds,
-			Map<String, Integer> imageObjectIds, Map<String, Integer> opacityObjectIds,
-			Map<String, Integer> shadingObjectIds, List<Integer> annotationObjectIds, int contentId) {
+	private String buildPageObject(Page page, PageObjectContext context) {
 		StringBuilder resources = new StringBuilder(256);
 		resources.append("<< /ProcSet [/PDF /Text /ImageC]");
-		if (!page.usedFonts().isEmpty()) {
-			resources.append(" /Font <<");
-			for (Font font : page.usedFonts()) {
-				resources.append(" /").append(font.resourceName()).append(" ")
-						.append(indirectReference(fontObjectIds.get(font)));
-			}
-			resources.append(" >>");
-		}
-		if (!imageObjectIds.isEmpty()) {
-			resources.append(" /XObject <<");
-			for (Map.Entry<String, Integer> entry : imageObjectIds.entrySet()) {
-				resources.append(" /").append(entry.getKey()).append(" ")
-						.append(indirectReference(entry.getValue()));
-			}
-			resources.append(" >>");
-		}
-		if (!opacityObjectIds.isEmpty()) {
-			resources.append(" /ExtGState <<");
-			for (Map.Entry<String, Integer> entry : opacityObjectIds.entrySet()) {
-				resources.append(" /").append(entry.getKey()).append(" ")
-						.append(indirectReference(entry.getValue()));
-			}
-			resources.append(" >>");
-		}
-		if (!shadingObjectIds.isEmpty()) {
-			resources.append(" /Shading <<");
-			for (Map.Entry<String, Integer> entry : shadingObjectIds.entrySet()) {
-				resources.append(" /").append(entry.getKey()).append(" ")
-						.append(indirectReference(entry.getValue()));
-			}
-			resources.append(" >>");
-		}
+		appendFontResources(resources, page.usedFonts(), context.fontObjectIds);
+		appendNamedResources(resources, "XObject", context.imageObjectIds);
+		appendNamedResources(resources, "ExtGState", context.opacityObjectIds);
+		appendNamedResources(resources, "Shading", context.shadingObjectIds);
 		resources.append(" >>");
 
 		StringBuilder pageObject = new StringBuilder(256);
-		pageObject.append("<< /Type /Page /Parent ").append(indirectReference(pagesId)).append(" /MediaBox [0 0 ")
+		pageObject.append("<< /Type /Page /Parent ").append(indirectReference(context.pagesId)).append(" /MediaBox [0 0 ")
 				.append(number(page.getWidth())).append(' ')
 				.append(number(page.getHeight())).append("] /Resources ")
-				.append(resources).append(" /Contents ").append(indirectReference(contentId));
-		if (!annotationObjectIds.isEmpty()) {
+				.append(resources).append(" /Contents ").append(indirectReference(context.contentId));
+		if (!context.annotationObjectIds.isEmpty()) {
 			pageObject.append(" /Annots [");
-			for (int i = 0; i < annotationObjectIds.size(); i++) {
+			for (int i = 0; i < context.annotationObjectIds.size(); i++) {
 				if (i > 0) {
 					pageObject.append(' ');
 				}
-				pageObject.append(indirectReference(annotationObjectIds.get(i)));
+				pageObject.append(indirectReference(context.annotationObjectIds.get(i)));
 			}
 			pageObject.append(']');
 		}
 		pageObject.append(" >>");
 		return pageObject.toString();
+	}
+
+	/**
+	 * Appends font resources used by one page.
+	 *
+	 * @param resources page resource builder
+	 * @param usedFonts fonts used on the page
+	 * @param fontObjectIds font resource object ids
+	 */
+	private void appendFontResources(
+			StringBuilder resources,
+			Collection<Font> usedFonts,
+			Map<Font, Integer> fontObjectIds) {
+		if (usedFonts.isEmpty()) {
+			return;
+		}
+		resources.append(" /Font <<");
+		for (Font font : usedFonts) {
+			resources.append(" /").append(font.resourceName()).append(" ")
+					.append(indirectReference(fontObjectIds.get(font)));
+		}
+		resources.append(" >>");
+	}
+
+	/**
+	 * Appends a named resource dictionary when entries exist.
+	 *
+	 * @param resources page resource builder
+	 * @param resourceName PDF resource category name
+	 * @param objectIds resource-name to object-id mapping
+	 */
+	private void appendNamedResources(
+			StringBuilder resources,
+			String resourceName,
+			Map<String, Integer> objectIds) {
+		if (objectIds.isEmpty()) {
+			return;
+		}
+		resources.append(" /").append(resourceName).append(" <<");
+		for (Map.Entry<String, Integer> entry : objectIds.entrySet()) {
+			resources.append(" /").append(entry.getKey()).append(" ")
+					.append(indirectReference(entry.getValue()));
+		}
+		resources.append(" >>");
+	}
+
+	/**
+	 * Dependencies required to serialize one page object.
+	 */
+	private static final class PageObjectContext {
+
+		/**
+		 * Parent pages-tree object id.
+		 */
+		private final int pagesId;
+
+		/**
+		 * Font resource object ids.
+		 */
+		private final Map<Font, Integer> fontObjectIds;
+
+		/**
+		 * Image resource object ids.
+		 */
+		private final Map<String, Integer> imageObjectIds;
+
+		/**
+		 * Opacity resource object ids.
+		 */
+		private final Map<String, Integer> opacityObjectIds;
+
+		/**
+		 * Shading resource object ids.
+		 */
+		private final Map<String, Integer> shadingObjectIds;
+
+		/**
+		 * Annotation object ids.
+		 */
+		private final List<Integer> annotationObjectIds;
+
+		/**
+		 * Page content-stream object id.
+		 */
+		private final int contentId;
+
+		/**
+		 * Creates a page-object context.
+		 *
+		 * @param pagesId parent pages-tree object id
+		 * @param fontObjectIds font resource object ids
+		 * @param imageObjectIds image resource object ids
+		 * @param opacityObjectIds opacity state object ids
+		 * @param shadingObjectIds shading resource object ids
+		 * @param annotationObjectIds annotation object ids
+		 * @param contentId content-stream object id
+		 */
+		private PageObjectContext(
+				int pagesId,
+				Map<Font, Integer> fontObjectIds,
+				Map<String, Integer> imageObjectIds,
+				Map<String, Integer> opacityObjectIds,
+				Map<String, Integer> shadingObjectIds,
+				List<Integer> annotationObjectIds,
+				int contentId) {
+			this.pagesId = pagesId;
+			this.fontObjectIds = fontObjectIds;
+			this.imageObjectIds = imageObjectIds;
+			this.opacityObjectIds = opacityObjectIds;
+			this.shadingObjectIds = shadingObjectIds;
+			this.annotationObjectIds = annotationObjectIds;
+			this.contentId = contentId;
+		}
 	}
 
 	/**

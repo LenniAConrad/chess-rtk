@@ -107,7 +107,6 @@ public final class ThreatsCommand {
 		if (wdl && noWdl) {
 			System.err.println(String.format("threats: only one of %s or %s may be set", OPT_WDL, OPT_NO_WDL));
 			System.exit(2);
-			return null;
 		}
 
 		List<String> fens = CommandSupport.resolveFenInputs(CMD_THREATS, input, fen);
@@ -135,13 +134,13 @@ public final class ThreatsCommand {
 		ThreatsRunState state = new ThreatsRunState(opts.engineConfig.multipv);
 		Bar bar = positionProgressBar(opts.fens, CMD_THREATS);
 		try {
-			for (String entry : opts.fens) {
-				try {
-					if (!processThreatEntry(engine, entry, opts, state)) {
-						return;
-					}
-				} finally {
-					CommandSupport.step(bar);
+				for (String entry : opts.fens) {
+					try {
+						if (!processThreatEntry(engine, entry, opts, state)) {
+							break;
+						}
+					} finally {
+						CommandSupport.step(bar);
 				}
 			}
 		} finally {

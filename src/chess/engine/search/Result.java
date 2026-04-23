@@ -90,6 +90,49 @@ public record Result(
         return Arrays.copyOf(principalVariation, principalVariation.length);
     }
 
+    @Override
+    public boolean equals(Object other) {
+        return other instanceof Result that
+                && bestMove == that.bestMove
+                && scoreCentipawns == that.scoreCentipawns
+                && depth == that.depth
+                && nodes == that.nodes
+                && elapsedMillis == that.elapsedMillis
+                && stopped == that.stopped
+                && Arrays.equals(principalVariation, that.principalVariation);
+    }
+
+    @Override
+    public int hashCode() {
+        int result = Short.hashCode(bestMove);
+        result = 31 * result + Integer.hashCode(scoreCentipawns);
+        result = 31 * result + Integer.hashCode(depth);
+        result = 31 * result + Long.hashCode(nodes);
+        result = 31 * result + Long.hashCode(elapsedMillis);
+        result = 31 * result + Boolean.hashCode(stopped);
+        result = 31 * result + Arrays.hashCode(principalVariation);
+        return result;
+    }
+
+    @Override
+    public String toString() {
+        return "Result[bestMove="
+                + bestMove
+                + ", scoreCentipawns="
+                + scoreCentipawns
+                + ", depth="
+                + depth
+                + ", nodes="
+                + nodes
+                + ", elapsedMillis="
+                + elapsedMillis
+                + ", stopped="
+                + stopped
+                + ", principalVariation="
+                + Arrays.toString(principalVariation)
+                + "]";
+    }
+
     /**
      * Returns whether a concrete root move was found.
      *

@@ -20,9 +20,9 @@ mkdir -p dist
 crtk book render -i books/puzzles.toml --check
 crtk book render -i books/puzzles.toml -o dist/puzzles.pdf
 crtk book cover -i books/puzzles.toml --check \
-  --binding paperback --interior white-bw --pages 120
+  --pdf dist/puzzles.pdf --binding paperback --interior white-bw
 crtk book cover -i books/puzzles.toml -o dist/puzzles-cover.pdf \
-  --binding paperback --interior white-bw --pages 120
+  --pdf dist/puzzles.pdf --binding paperback --interior white-bw
 ```
 
 For reviewer or free-edition copies, generate a traceable watermarked PDF:
@@ -35,9 +35,12 @@ crtk book render -i books/puzzles.toml -o dist/puzzles-review.pdf \
 `--watermark-id` implies `--watermark`; it adds page-specific overlay text,
 corner marks, and matching PDF metadata.
 
-Use `--pages` for the final printed page count after the interior PDF has been
-rendered. If omitted, the cover command uses `pages` from the manifest; if that
-is absent, it estimates from the puzzle grid and solution-table cadence.
+Pass the rendered interior PDF to `book cover --pdf <path>` so the cover
+command can read the actual trim width, trim height, and page count from the
+interior file. If `--pdf` is omitted, the cover command falls back to manifest
+`paperwidth` / `paperheight`, then manifest `pages`, then an estimate from the
+puzzle grid and solution-table cadence. `--pages` still overrides the inferred
+page count when you need a manual spine width.
 
 The `--check` flag is a dry run. For `book render`, it validates page geometry,
 FEN parsing, and solution moves. For `book cover`, it validates the same

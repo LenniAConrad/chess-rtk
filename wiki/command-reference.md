@@ -473,16 +473,17 @@ See also: `book-publishing.md`.
 Dimension notes:
 - `paperback` adds 0.125 inch bleed on every outside edge.
 - `hardcover` adds 1.5 cm wrap and 1.0 cm hinge allowance.
-- Spine width is calculated from `--pages` (or manifest `pages`) times the selected interior paper thickness.
+- Spine width is calculated from `--pages`, or else the supplied interior PDF page count, or else manifest `pages`, times the selected interior paper thickness.
 
 Options:
 - `--input|-i <path>`: input book manifest (`.json`, `.toml`, or TOML-like text)
+- `--pdf <path>`: interior PDF used to infer trim size and page count
 - `--output|-o <path>`: output cover PDF path (optional; default derived from the input path as `*-cover.pdf`)
 - `--title <text>`: title override
 - `--subtitle <text>`: subtitle override
 - `--binding <type>`: `paperback`, `hardcover`, or `ebook` (default `paperback`)
 - `--interior <type>`: `white-bw`, `cream-bw`, `white-standard-color`, or `white-premium-color`
-- `--pages <n>`: printed page count for spine width (default from book metadata, then an estimate)
+- `--pages <n>`: printed page count for spine width (default from the interior PDF, then book metadata, then an estimate)
 - `--check|--validate`: validate the manifest and print calculated cover dimensions without writing a PDF
 - `--verbose|-v`: print stack traces on failure
 

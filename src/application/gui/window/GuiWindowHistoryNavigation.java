@@ -662,10 +662,8 @@ abstract class GuiWindowHistoryNavigation extends GuiWindowHistoryActions {
 					return false;
 				}
 				String trimmed = text.trim();
-				if (looksLikePgn(trimmed)) {
-					if (loadPgnText(trimmed)) {
-						return true;
-					}
+				if (looksLikePgn(trimmed) && loadPgnText(trimmed)) {
+					return true;
 				}
 				if (trimmed.contains("\n") || trimmed.contains("\r")) {
 					String[] lines = trimmed.split("\\R");
@@ -1424,8 +1422,7 @@ private HistoryInputSupport.NavigationActions navigationActions;
 					 */
 @Override
 					public void componentResized(java.awt.event.ComponentEvent e) {
-						captureGuiState();
-						scheduleGuiStateSave();
+						captureAndScheduleGuiStateSave();
 					}
 
 										/**
@@ -1434,10 +1431,17 @@ private HistoryInputSupport.NavigationActions navigationActions;
 					 */
 @Override
 					public void componentMoved(java.awt.event.ComponentEvent e) {
-						captureGuiState();
-						scheduleGuiStateSave();
+						captureAndScheduleGuiStateSave();
 					}
 				});
+			}
+
+			/**
+			 * Captures the current GUI state and schedules it for persistence.
+			 */
+			private void captureAndScheduleGuiStateSave() {
+				captureGuiState();
+				scheduleGuiStateSave();
 			}
 
 			/**

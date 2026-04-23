@@ -78,23 +78,27 @@ public final class BuiltInEngineRegressionTest {
 	 */
 	private static void testStartPositionSearch() {
 		Position position = new Position(START_FEN);
-		Result result = new AlphaBeta().search(position, new Limits(2, 0L, 0L));
-		assertTrue(result.hasBestMove(), "start position has a best move");
-		assertTrue(position.isLegalMove(result.bestMove()), "start position best move is legal");
-		assertEquals(2, result.depth(), "start position search depth");
-		assertTrue(result.nodes() > 0L, "start position node count");
+		try (AlphaBeta searcher = new AlphaBeta()) {
+			Result result = searcher.search(position, new Limits(2, 0L, 0L));
+			assertTrue(result.hasBestMove(), "start position has a best move");
+			assertTrue(position.isLegalMove(result.bestMove()), "start position best move is legal");
+			assertEquals(2, result.depth(), "start position search depth");
+			assertTrue(result.nodes() > 0L, "start position node count");
+		}
 	}
 
 	/**
 	 * Verifies mate scores and best-move output on a forced mate in one.
 	 */
 	private static void testMateInOne() {
-		Result result = new AlphaBeta().search(
-				new Position(MATE_IN_ONE_FEN),
-				new Limits(1, 0L, 0L));
-		assertEquals("g6g7", Move.toString(result.bestMove()), "mate-in-one best move");
-		assertEquals(1, result.mateIn(), "mate-in-one score");
-		assertTrue(result.scoreLabel().equals("#1"), "mate-in-one score label");
+		try (AlphaBeta searcher = new AlphaBeta()) {
+			Result result = searcher.search(
+					new Position(MATE_IN_ONE_FEN),
+					new Limits(1, 0L, 0L));
+			assertEquals("g6g7", Move.toString(result.bestMove()), "mate-in-one best move");
+			assertEquals(1, result.mateIn(), "mate-in-one score");
+			assertTrue(result.scoreLabel().equals("#1"), "mate-in-one score label");
+		}
 	}
 
 	/**
@@ -108,20 +112,24 @@ public final class BuiltInEngineRegressionTest {
 		assertTrue(after.isCheckmate(), "sparse-material move gives checkmate");
 		assertFalse(after.isInsufficientMaterial(), "opposite-colored bishops are not dead material");
 
-		Result result = new AlphaBeta().search(position, new Limits(1, 0L, 0L));
-		assertEquals("d2c3", Move.toString(result.bestMove()), "sparse-material mate best move");
-		assertEquals(1, result.mateIn(), "sparse-material mate score");
+		try (AlphaBeta searcher = new AlphaBeta()) {
+			Result result = searcher.search(position, new Limits(1, 0L, 0L));
+			assertEquals("d2c3", Move.toString(result.bestMove()), "sparse-material mate best move");
+			assertEquals(1, result.mateIn(), "sparse-material mate score");
+		}
 	}
 
 	/**
 	 * Verifies node budgets stop search while still returning a fallback move.
 	 */
 	private static void testNodeBudgetStop() {
-		Result result = new AlphaBeta().search(
-				new Position(START_FEN),
-				new Limits(5, 1L, 0L));
-		assertTrue(result.stopped(), "node budget stop flag");
-		assertTrue(result.hasBestMove(), "node budget fallback best move");
+		try (AlphaBeta searcher = new AlphaBeta()) {
+			Result result = searcher.search(
+					new Position(START_FEN),
+					new Limits(5, 1L, 0L));
+			assertTrue(result.stopped(), "node budget stop flag");
+			assertTrue(result.hasBestMove(), "node budget fallback best move");
+		}
 	}
 
 	/**

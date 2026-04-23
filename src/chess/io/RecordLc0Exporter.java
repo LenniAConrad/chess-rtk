@@ -165,65 +165,105 @@ public final class RecordLc0Exporter {
             float[] policyBuffer,
             int[] policyMapInverse) throws IOException {
         Record parsedRecord = Record.fromJson(json);
-        if (parsedRecord == null) {
+        Output best = bestOutput(parsedRecord);
+        if (best == null) {
             return false;
         }
-
         Position position = parsedRecord.getPosition();
         if (position == null) {
             return false;
         }
-
-        Analysis analysis = parsedRecord.getAnalysis();
-        if (analysis == null) {
-            return false;
-        }
-
-        Output best = analysis.getBestOutput();
-        if (best == null || best.getMoves() == null || best.getMoves().length == 0) {
-            return false;
-        }
-
         Evaluation evaluation = best.getEvaluation();
         Chances chances = best.getChances();
-        if ((evaluation == null || !evaluation.isValid()) && chances == null) {
+        if (!hasUsableValue(evaluation, chances)) {
             return false;
         }
-
-        short bestMove = best.getMoves()[0];
-        if (!position.isLegalMove(bestMove)) {
+        int policyIndex = resolvePolicyIndex(position, best, policyMapInverse);
+        if (policyIndex < 0) {
             return false;
         }
-        int rawIndex = PolicyEncoder.rawPolicyIndex(position, bestMove);
-        if (rawIndex < 0) {
+        float[] inputs = encodeInputs(position);
+        if (inputs == null) {
             return false;
         }
-
-        int policyIndex = rawIndex;
-        if (policyMapInverse != null) {
-            if (rawIndex >= policyMapInverse.length) {
-                return false;
-            }
-            policyIndex = policyMapInverse[rawIndex];
-            if (policyIndex < 0) {
-                return false;
-            }
-        }
-
-        float[] inputs = Encoder.encode(position);
-        if (inputs.length != INPUTS) {
-            return false;
-        }
-
         Arrays.fill(policyBuffer, 0.0f);
         policyBuffer[policyIndex] = 1.0f;
-
         float value = valueFromEvaluation(evaluation, chances);
 
         inputsWriter.writeRow(inputs);
         policyWriter.writeRow(policyBuffer);
         valueWriter.writeScalar(value);
         return true;
+    }
+
+     /**
+     * Returns the best usable engine output for one record.
+     *
+     * @param parsedRecord parsed record
+     * @return best output, or {@code null} when unavailable
+     */
+     private static Output bestOutput(Record parsedRecord) {
+        if (parsedRecord == null) {
+            return null;
+        }
+        Analysis analysis = parsedRecord.getAnalysis();
+        if (analysis == null) {
+            return null;
+        }
+        Output best = analysis.getBestOutput();
+        if (best == null || best.getMoves() == null || best.getMoves().length == 0) {
+            return null;
+        }
+        return best;
+    }
+
+     /**
+     * Returns whether the record contains a usable scalar value target.
+     *
+     * @param evaluation centipawn or mate evaluation
+     * @param chances optional WDL chances
+     * @return true when a value target can be derived
+     */
+     private static boolean hasUsableValue(Evaluation evaluation, Chances chances) {
+        return chances != null || (evaluation != null && evaluation.isValid());
+    }
+
+     /**
+     * Resolves the policy row index for the best move.
+     *
+     * @param position training position
+     * @param best best engine output
+     * @param policyMapInverse optional policy-map inverse
+     * @return policy index, or {@code -1} when invalid
+     */
+     private static int resolvePolicyIndex(Position position, Output best, int[] policyMapInverse) {
+        short bestMove = best.getMoves()[0];
+        if (!position.isLegalMove(bestMove)) {
+            return -1;
+        }
+        int rawIndex = PolicyEncoder.rawPolicyIndex(position, bestMove);
+        if (rawIndex < 0) {
+            return -1;
+        }
+        if (policyMapInverse == null) {
+            return rawIndex;
+        }
+        if (rawIndex >= policyMapInverse.length) {
+            return -1;
+        }
+        int policyIndex = policyMapInverse[rawIndex];
+        return policyIndex >= 0 ? policyIndex : -1;
+    }
+
+     /**
+     * Encodes the input planes for one training row.
+     *
+     * @param position training position
+     * @return encoded inputs, or {@code null} when the encoder shape is unexpected
+     */
+     private static float[] encodeInputs(Position position) {
+        float[] inputs = Encoder.encode(position);
+        return inputs.length == INPUTS ? inputs : null;
     }
 
      /**

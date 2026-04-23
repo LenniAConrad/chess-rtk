@@ -68,7 +68,7 @@ public final class FocusBorder implements Border {
 		Graphics2D g2 = (Graphics2D) g.create();
 		g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 		g2.setColor(focusColor);
-		int arc = Math.max(6, Math.round(8));
+		int arc = Math.max(6, 8);
 		g2.drawRoundRect(x + 1, y + 1, Math.max(0, width - 3), Math.max(0, height - 3), arc, arc);
 		g2.dispose();
 	}

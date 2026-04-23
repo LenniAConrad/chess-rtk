@@ -56,8 +56,8 @@ Examples assume you installed the launcher (`crtk`). If you run from classes, re
 - `crtk book pdf --pgn games.pgn -o dump/games.pdf --page-size a5 --diagrams-per-row 1` — export PGN mainlines to PDF.
 - `crtk book render -i books/puzzles.toml --check` — validate book layout, FENs, and solution lines without writing.
 - `crtk book render -i books/puzzles.toml -o dist/puzzles.pdf` — render a book manifest to a native vector PDF.
-- `crtk book cover -i books/puzzles.toml --check --binding paperback --interior white-bw --pages 120` — verify cover dimensions before rendering.
-- `crtk book cover -i books/puzzles.toml -o dist/puzzles-cover.pdf --binding paperback --interior white-bw --pages 120` — render a matching paperback cover.
+- `crtk book cover -i books/puzzles.toml --pdf dist/puzzles.pdf --check --binding paperback --interior white-bw` — verify cover dimensions from the rendered interior PDF before rendering.
+- `crtk book cover -i books/puzzles.toml --pdf dist/puzzles.pdf -o dist/puzzles-cover.pdf --binding paperback --interior white-bw` — render a matching paperback cover from the interior PDF geometry.
 
 ## Display a position (GUI)
 

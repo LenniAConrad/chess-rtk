@@ -81,7 +81,7 @@ public final class PuzzleTagsCommand {
             }
 
             List<chess.struct.Record> records = PuzzleSupport.buildRecords(root, analysis, opts.pvPlies,
-                    COMMAND_LABEL, opts.verbose);
+                    COMMAND_LABEL);
             if (records.isEmpty()) {
                 System.err.println(COMMAND_LABEL + ": no records extracted from PVs");
                 System.exit(2);
@@ -242,8 +242,25 @@ public final class PuzzleTagsCommand {
             return;
         }
         tags.removeIf(tag -> tag != null && tag.trim().startsWith("INITIATIVE:"));
-        String side = threatWhite && !threatBlack ? "white" : (threatBlack && !threatWhite ? "black" : "equal");
+        String side = initiativeSide(threatWhite, threatBlack);
         tags.add("INITIATIVE: side=" + side);
+    }
+
+    /**
+     * Returns the initiative side derived from threat ownership.
+     *
+     * @param threatWhite whether White has a threat
+     * @param threatBlack whether Black has a threat
+     * @return initiative side label
+     */
+    private static String initiativeSide(boolean threatWhite, boolean threatBlack) {
+        if (threatWhite && !threatBlack) {
+            return "white";
+        }
+        if (threatBlack && !threatWhite) {
+            return "black";
+        }
+        return "equal";
     }
 
      /**
@@ -351,7 +368,7 @@ public final class PuzzleTagsCommand {
         if (Math.abs(threatWhiteCp) >= Math.abs(baseWhiteCp)) {
             return false;
         }
-        return true;
+        return Math.abs(threatWhiteCp) < Math.abs(baseWhiteCp);
     }
 
      /**

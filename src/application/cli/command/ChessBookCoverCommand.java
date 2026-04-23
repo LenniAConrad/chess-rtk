@@ -10,6 +10,7 @@ import static application.cli.Constants.OPT_INTERIOR;
 import static application.cli.Constants.OPT_OUTPUT;
 import static application.cli.Constants.OPT_OUTPUT_SHORT;
 import static application.cli.Constants.OPT_PAGES;
+import static application.cli.Constants.OPT_PDF;
 import static application.cli.Constants.OPT_SUBTITLE;
 import static application.cli.Constants.OPT_TITLE;
 import static application.cli.Constants.OPT_VALIDATE;
@@ -29,6 +30,8 @@ import chess.book.cover.Interior;
 import chess.book.cover.Options;
 import chess.book.cover.Writer;
 import utility.Argv;
+import chess.pdf.DocumentMetrics;
+import chess.pdf.Inspector;
 
 /**
  * Implements {@code book cover}.
@@ -63,6 +66,7 @@ public final class ChessBookCoverCommand {
 
 		boolean verbose = a.flag(OPT_VERBOSE, OPT_VERBOSE_SHORT);
 		Path input = a.path(OPT_INPUT, OPT_INPUT_SHORT);
+		Path pdf = a.path(OPT_PDF);
 		Path output = a.path(OPT_OUTPUT, OPT_OUTPUT_SHORT);
 		String titleOverride = trimToNull(a.string(OPT_TITLE));
 		String subtitleOverride = trimToNull(a.string(OPT_SUBTITLE));
@@ -92,10 +96,12 @@ public final class ChessBookCoverCommand {
 			if (subtitleOverride != null) {
 				book.setSubtitle(subtitleOverride);
 			}
+			DocumentMetrics interiorPdfMetrics = pdf == null ? null : Inspector.inspect(pdf);
 			Options options = new Options()
 					.setBinding(binding)
 					.setInterior(interior)
-					.setPages(pages);
+					.setPages(pages)
+					.setInteriorPdfMetrics(interiorPdfMetrics);
 			Dimensions dimensions = Writer.calculateDimensions(book, options);
 			if (check) {
 				ChessBookValidation.validateBook(book);

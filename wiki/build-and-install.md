@@ -54,6 +54,26 @@ Run the zero-dependency `Position` regression harness after a build:
 java -cp out testing.PositionRegressionTest
 ```
 
+## Local regression runner
+
+Use the shared runner to keep local checks aligned with CI:
+
+```bash
+./scripts/run_regression_suite.sh recommended
+```
+
+Useful focused suites:
+
+```bash
+./scripts/run_regression_suite.sh build
+./scripts/run_regression_suite.sh lint
+./scripts/run_regression_suite.sh core
+./scripts/run_regression_suite.sh cli
+./scripts/run_regression_suite.sh uci
+./scripts/run_regression_suite.sh perft-smoke
+./scripts/run_regression_suite.sh release
+```
+
 ## Quality checks
 
 The VS Code workspace enables SonarLint automatic analysis and excludes local
@@ -63,34 +83,27 @@ artifact directories such as `data/`, `dump/`, `models/`, `out/`, and
 Use these local checks before committing Java changes:
 
 ```bash
-javac -Xlint:all --release 17 -d out $(find src -name "*.java")
-java -cp out testing.CliCommandRegressionTest
-java -cp out testing.PositionRegressionTest
-java -cp out testing.CoreMoveGenerationRegressionTest
-java -cp out testing.BuiltInEngineRegressionTest
-java -cp out application.Main doctor
-git diff --check
+./scripts/run_regression_suite.sh recommended
 ```
 
 If the workflow depends on a configured external UCI engine, also run:
 
 ```bash
-java -cp out application.Main engine uci-smoke --nodes 1 --max-duration 5s
+CRTK_REQUIRE_STOCKFISH=1 ./scripts/run_regression_suite.sh uci
 ```
 
 For rendering and PDF checks on a headless machine, pass the AWT headless flag:
 
 ```bash
-java -Djava.awt.headless=true -cp out testing.BookRegressionTest
-java -Djava.awt.headless=true -cp out testing.ChessPdfRegressionTest
+./scripts/run_regression_suite.sh book
 ```
 
 Run the full internal perft validation when changing move generation, FEN
 validation, SAN, make/undo, or Chess960 setup:
 
 ```bash
-java -cp out application.Main engine perft-suite
-java -cp out application.Main engine perft-suite --depth 6 --threads 4
+./scripts/run_regression_suite.sh perft-smoke
+CRTK_PERFT_SUITE_DEPTH=6 CRTK_PERFT_THREADS=4 ./scripts/run_regression_suite.sh perft-smoke
 ```
 
 The perft suite uses stored truth values and the Java core move generator. It

@@ -1412,8 +1412,8 @@ final class BoardPanel extends JPanel {
 		int fromY = originY + screenRank(from) * tile + tile / 2;
 		int toX = originX + screenFile(to) * tile + tile / 2;
 		int toY = originY + screenRank(to) * tile + tile / 2;
-		double dx = toX - fromX;
-		double dy = toY - fromY;
+		double dx = (double) toX - fromX;
+		double dy = (double) toY - fromY;
 		double len = Math.hypot(dx, dy);
 		if (len < 1.0) {
 			return;
@@ -2069,7 +2069,7 @@ final class BoardPanel extends JPanel {
 			next.play(move);
 			applied++;
 		}
-		if (applied == 0 || firstMove == Move.NO_MOVE) {
+		if (applied == 0) {
 			clearPreview();
 			return;
 		}

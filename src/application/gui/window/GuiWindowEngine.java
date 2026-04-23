@@ -749,9 +749,7 @@ private String failureMessage;
 						 */
 @Override
 						protected Void doInBackground() {
-							Engine engine = null;
-							try {
-								engine = new Engine(protocolLoad.protocol());
+							try (Engine engine = new Engine(protocolLoad.protocol())) {
 								engine.newGame();
 								engine.setMultiPivot(1);
 								engine.showWinDrawLoss(wdl);
@@ -780,14 +778,6 @@ private String failureMessage;
 								}
 							} catch (Exception ex) {
 								failureMessage = ex.getMessage();
-							} finally {
-								if (engine != null) {
-									try {
-										engine.close();
-									} catch (Exception ignored) {
-										// best effort
-									}
-								}
 							}
 							return null;
 						}
@@ -1384,7 +1374,6 @@ private String failureMessage;
 					if (pvPreviewBoardLabel == null || pvPreviewWindow == null) {
 						return;
 					}
-					String historyFen = previewPosition.toString();
 					BufferedImage image = renderMiniBoard(previewPosition, PV_PREVIEW_BOARD_SIZE);
 					if (image == null || image.getWidth() <= 0 || image.getHeight() <= 0) {
 						hideEnginePvMiniBoardPreview();

@@ -291,8 +291,9 @@ public final class RecordPgnExporter {
 
         final Map<String, List<Edge>> adjacency = new LinkedHashMap<>();
         final Set<String> incoming = new HashSet<>();
-        addDirectEdges(childrenByParentSig, positionsBySig, adjacency, incoming, badEdges, bestMoveBySig,
-                directChildren, edgeKeysByFrom);
+        BridgeContext directCtx = new BridgeContext(adjacency, incoming, badEdges, bestMoveBySig, directChildren,
+                edgeKeysByFrom, null);
+        addDirectEdges(childrenByParentSig, positionsBySig, directCtx);
         Bar bridgeBar = progressBar(totalBytes, "Linking records");
         BridgeContext bridgeCtx = new BridgeContext(adjacency, incoming, badEdges, bestMoveBySig, directChildren,
                 edgeKeysByFrom, bridgeBar);
@@ -519,33 +520,39 @@ public final class RecordPgnExporter {
     private static void addDirectEdges(
             Map<String, List<ChildInfo>> childrenByParentSig,
             Map<String, String> positionsBySig,
-            Map<String, List<Edge>> adjacency,
-            Set<String> incoming,
-            AtomicLong badEdges,
-            Map<String, String> bestMoveBySig,
-            Map<String, Set<String>> directChildren,
-            Map<String, Set<EdgeKey>> edgeKeysByFrom) {
+            BridgeContext ctx) {
         for (Map.Entry<String, List<ChildInfo>> entry : childrenByParentSig.entrySet()) {
             String parentSig = entry.getKey();
             if (!positionsBySig.containsKey(parentSig)) {
                 continue;
             }
             for (ChildInfo child : entry.getValue()) {
-                if (child.parentToPositionSan == null) {
-                    badEdges.incrementAndGet();
-                    continue;
-                }
-                if (!matchesRecordedBestMove(parentSig, child.parentToPositionSan, bestMoveBySig)) {
-                    continue;
-                }
-                directChildren
-                        .computeIfAbsent(parentSig, k -> new HashSet<>())
-                        .add(child.positionSig);
-                addEdge(adjacency, edgeKeysByFrom, parentSig,
-                        new Edge(child.positionSig, new String[] { child.parentToPositionSan }));
-                incoming.add(child.positionSig);
+                addDirectEdge(parentSig, child, ctx);
             }
         }
+    }
+
+    /**
+     * Adds one explicit parent-child edge when the record data is usable.
+     *
+     * @param parentSig parent signature
+     * @param child child edge descriptor
+     * @param ctx shared edge-building context
+     */
+    private static void addDirectEdge(String parentSig, ChildInfo child, BridgeContext ctx) {
+        String san = child.parentToPositionSan;
+        if (san == null) {
+            ctx.badEdges.incrementAndGet();
+            return;
+        }
+        if (!matchesRecordedBestMove(parentSig, san, ctx.bestMoveBySig)) {
+            return;
+        }
+        ctx.directChildren
+                .computeIfAbsent(parentSig, k -> new HashSet<>())
+                .add(child.positionSig);
+        addEdge(ctx.adjacency, ctx.edgeKeysByFrom, parentSig, new Edge(child.positionSig, new String[] { san }));
+        ctx.incoming.add(child.positionSig);
     }
 
     /**

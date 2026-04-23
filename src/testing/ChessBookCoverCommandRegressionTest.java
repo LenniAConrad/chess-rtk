@@ -5,6 +5,7 @@ import static testing.TestSupport.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Locale;
 
 import application.cli.command.ChessBookCoverCommand;
 import chess.book.model.Book;
@@ -13,6 +14,10 @@ import chess.book.cover.Dimensions;
 import chess.book.cover.Interior;
 import chess.book.cover.Options;
 import chess.book.cover.Writer;
+import chess.pdf.DocumentMetrics;
+import chess.pdf.Inspector;
+import chess.pdf.document.Document;
+import chess.pdf.document.PageSize;
 import utility.Argv;
 
 /**
@@ -42,6 +47,21 @@ public final class ChessBookCoverCommandRegressionTest {
 	 * Sample trim height.
 	 */
 	private static final double TRIM_HEIGHT_CM = 27.94;
+
+	/**
+	 * Sample interior-PDF page count used to override manifest metadata.
+	 */
+	private static final int PDF_PAGES = 64;
+
+	/**
+	 * Sample interior-PDF trim width.
+	 */
+	private static final double PDF_TRIM_WIDTH_CM = 15.24;
+
+	/**
+	 * Sample interior-PDF trim height.
+	 */
+	private static final double PDF_TRIM_HEIGHT_CM = 22.86;
 
 	/**
 	 * White paper spine multiplier in inches per page.
@@ -116,7 +136,9 @@ public final class ChessBookCoverCommandRegressionTest {
 		testSupportedInteriorSet();
 		testPaperbackDimensions();
 		testHardcoverDimensions();
+		testInteriorPdfOverridesManifestMetadata();
 		testPaperbackCoverExport();
+		testCliUsesInteriorPdfMetadata();
 		testCheckModeDoesNotWritePdf();
 		System.out.println("ChessBookCoverCommandRegressionTest: all checks passed");
 	}
@@ -212,6 +234,33 @@ public final class ChessBookCoverCommandRegressionTest {
 	}
 
 	/**
+	 * Verifies that interior-PDF metadata overrides manifest trim and page data.
+	 *
+	 * @throws Exception if PDF inspection fails
+	 */
+	private static void testInteriorPdfOverridesManifestMetadata() throws Exception {
+		Book book = Book.fromJson(sampleBook());
+		Path pdf = writeInteriorPdf(PDF_TRIM_WIDTH_CM, PDF_TRIM_HEIGHT_CM, PDF_PAGES);
+		DocumentMetrics metrics = Inspector.inspect(pdf);
+		Options options = new Options()
+				.setBinding(Binding.PAPERBACK)
+				.setInterior(Interior.WHITE_PAPER_BLACK_AND_WHITE)
+				.setInteriorPdfMetrics(metrics);
+		Dimensions dimensions = Writer.calculateDimensions(book, options);
+		double bleed = cm(PAPERBACK_BLEED_INCHES);
+		double spineWidth = PDF_PAGES * Interior.WHITE_PAPER_BLACK_AND_WHITE.getPaperThicknessCm();
+
+		assertEquals(PDF_PAGES, dimensions.pages(), "pdf-derived page count");
+		assertNear(PDF_TRIM_WIDTH_CM, dimensions.trimWidthCm(), DIMENSION_EPSILON, "pdf-derived trim width");
+		assertNear(PDF_TRIM_HEIGHT_CM, dimensions.trimHeightCm(), DIMENSION_EPSILON, "pdf-derived trim height");
+		assertNear(spineWidth, dimensions.spineWidthCm(), DIMENSION_EPSILON, "pdf-derived spine width");
+		assertNear(both(PDF_TRIM_WIDTH_CM) + spineWidth + both(bleed), dimensions.fullWidthCm(), DIMENSION_EPSILON,
+				"pdf-derived full width");
+		assertNear(PDF_TRIM_HEIGHT_CM + both(bleed), dimensions.fullHeightCm(), DIMENSION_EPSILON,
+				"pdf-derived full height");
+	}
+
+	/**
 	 * Verifies that the CLI can render a paperback cover PDF.
 	 *
 	 * @throws Exception if cover export fails
@@ -241,6 +290,31 @@ public final class ChessBookCoverCommandRegressionTest {
 	}
 
 	/**
+	 * Verifies that the CLI can derive cover trim and pages from an interior PDF.
+	 *
+	 * @throws Exception if PDF inspection or validation fails
+	 */
+	private static void testCliUsesInteriorPdfMetadata() throws Exception {
+		Path input = Files.createTempFile("book-cover-pdf-", ".json");
+		Files.writeString(input, sampleBook(), StandardCharsets.UTF_8);
+		Path pdf = writeInteriorPdf(PDF_TRIM_WIDTH_CM, PDF_TRIM_HEIGHT_CM, PDF_PAGES);
+
+		String console = captureStdout(() -> ChessBookCoverCommand.runChessBookCover(new Argv(new String[] {
+				"--input", input.toString(),
+				"--pdf", pdf.toString(),
+				"--binding", "paperback",
+				"--interior", "cream-bw",
+				"--check"
+		})));
+
+		assertTrue(console.contains("book cover OK: paperback/cream-bw, " + PDF_PAGES + " pages"),
+				"cover check mode pdf page count");
+		assertTrue(console.contains(String.format(Locale.ROOT, "trim %.2f x %.2f cm",
+				PDF_TRIM_WIDTH_CM, PDF_TRIM_HEIGHT_CM)),
+				"cover check mode pdf trim");
+	}
+
+	/**
 	 * Verifies validation mode checks cover dimensions without writing a PDF.
 	 *
 	 * @throws Exception if validation fails unexpectedly
@@ -262,6 +336,26 @@ public final class ChessBookCoverCommandRegressionTest {
 		assertTrue(console.contains("book cover OK: paperback/cream-bw, 120 pages"),
 				"cover check mode summary");
 		assertFalse(Files.exists(output), "cover check mode skipped pdf output");
+	}
+
+	/**
+	 * Writes a plain interior PDF with a uniform custom page size.
+	 *
+	 * @param widthCm page width in centimeters
+	 * @param heightCm page height in centimeters
+	 * @param pages page count
+	 * @return written PDF path
+	 * @throws Exception if the PDF cannot be written
+	 */
+	private static Path writeInteriorPdf(double widthCm, double heightCm, int pages) throws Exception {
+		Document document = new Document().setTitle("Interior");
+		PageSize size = new PageSize("Interior", Book.cmToPoints(widthCm), Book.cmToPoints(heightCm));
+		for (int i = 0; i < pages; i++) {
+			document.addPage(size);
+		}
+		Path output = Files.createTempFile("book-cover-interior-", ".pdf");
+		document.write(output);
+		return output;
 	}
 
 	/**

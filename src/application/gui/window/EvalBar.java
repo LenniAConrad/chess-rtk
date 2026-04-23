@@ -122,8 +122,7 @@ import chess.uci.Evaluation;
 			 */
 @Override
 			public void mousePressed(MouseEvent e) {
-				dragActive = true;
-				updateTooltip();
+				setDragActive(true);
 			}
 
 						/**
@@ -132,8 +131,7 @@ import chess.uci.Evaluation;
 			 */
 @Override
 			public void mouseReleased(MouseEvent e) {
-				dragActive = false;
-				updateTooltip();
+				setDragActive(false);
 			}
 
 						/**
@@ -142,12 +140,21 @@ import chess.uci.Evaluation;
 			 */
 @Override
 			public void mouseDragged(MouseEvent e) {
-				dragActive = true;
-				updateTooltip();
+				setDragActive(true);
 			}
 		};
 		addMouseListener(handler);
 		addMouseMotionListener(handler);
+	}
+
+	/**
+	 * Updates the drag state and refreshes the tooltip.
+	 *
+	 * @param active whether a drag gesture is active
+	 */
+	private void setDragActive(boolean active) {
+		dragActive = active;
+		updateTooltip();
 	}
 
 	/**

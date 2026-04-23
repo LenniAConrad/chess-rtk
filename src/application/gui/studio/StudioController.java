@@ -34,7 +34,6 @@ public final class StudioController {
 	private String positionNote = "";
 	private long positionVersion;
 	private StudioEngineSnapshot engineSnapshot;
-	private String engineConfigKey = "";
 	private int fenIndex = -1;
 
 	/**
@@ -289,7 +288,7 @@ public final class StudioController {
 	 * @param wdl wdl flag
 	 */
 	public void startEngine(StudioEngineProfile profile, long nodes, int multipv, boolean wdl) {
-		engineConfigKey = StudioEngineService.configKey(profile, nodes, multipv, wdl);
+		String engineConfigKey = StudioEngineService.configKey(profile, nodes, multipv, wdl);
 		long version = positionVersion;
 		engineSnapshot = new StudioEngineSnapshot(version, engineConfigKey, "Starting", "-", "-", "-", "-",
 				"", Move.NO_MOVE, false);

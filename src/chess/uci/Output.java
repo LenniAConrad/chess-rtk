@@ -266,82 +266,178 @@ public class Output {
 	 */
 	private int dispatchToken(String input, String tok, int from, int end) {
 		final String key = tok.toLowerCase(java.util.Locale.ROOT);
-		switch (key) {
-			case "bestmove":
-				return -1;
-			case "upperbound":
-				bound = Bound.UPPER;
-				setFlag(F_BOUND);
-				return from;
-			case "lowerbound":
-				bound = Bound.LOWER;
-				setFlag(F_BOUND);
-				return from;
-			case "depth":
-				return readShortInto(input, from, end, v -> {
-					depth = v;
-					setFlag(F_DEPTH);
-				});
-			case "seldepth":
-				return readShortInto(input, from, end, v -> {
-					selectiveDepth = v;
-					setFlag(F_SELDEPTH);
-				});
-			case "multipv":
-				return readShortInto(input, from, end, v -> {
-					principalVariation = v;
-					setFlag(F_PV);
-				});
-			case "cp":
-				return readIntInto(input, from, end, v -> {
-					evaluation = new Evaluation(false, v);
-					setFlag(F_EVAL);
-				});
-			case "mate":
-				return readIntInto(input, from, end, v -> {
-					evaluation = new Evaluation(true, v);
-					setFlag(F_EVAL);
-				});
-			case "wdl":
-				return readTripleShortsInto(input, from, end, (a, b, c) -> {
-					try {
-						chances = new Chances(a, b, c);
-						setFlag(F_CHANCES);
-					} catch (IllegalArgumentException ignored) {
-						// Invalid optional WDL triples are ignored so one malformed info field does
-						// not abort an otherwise usable analysis line.
-					}
-				});
-			case "nodes":
-				return readLongInto(input, from, end, v -> {
-					nodes = v;
-					setFlag(F_NODES);
-				});
-			case "nps":
-				return readLongInto(input, from, end, v -> {
-					nodesPerSecond = v;
-					setFlag(F_NPS);
-				});
-			case "hashfull":
-				return readShortInto(input, from, end, v -> {
-					hashfull = v;
-					setFlag(F_HASHFULL);
-				});
-			case "tbhits":
-				return readLongInto(input, from, end, v -> {
-					tableBaseHits = v;
-					setFlag(F_TBHITS);
-				});
-			case "time":
-				return readLongInto(input, from, end, v -> {
-					time = v;
-					setFlag(F_TIME);
-				});
-			case "pv":
-				return handlePvStreaming(input, from, end);
-			default:
-				return from;
+		int dispatched = dispatchImmediateToken(key, from);
+		if (dispatched != Integer.MIN_VALUE) {
+			return dispatched;
 		}
+		dispatched = dispatchValueToken(key, input, from, end);
+		if (dispatched != Integer.MIN_VALUE) {
+			return dispatched;
+		}
+		return "pv".equals(key) ? handlePvStreaming(input, from, end) : from;
+	}
+
+	/**
+	 * Dispatches tokens that only flip flags or terminate parsing.
+	 *
+	 * @param key normalized token key
+	 * @param from index to continue scanning from
+	 * @return next scan index, or {@link Integer#MIN_VALUE} when unhandled
+	 */
+	private int dispatchImmediateToken(String key, int from) {
+		return switch (key) {
+			case "bestmove" -> -1;
+			case "upperbound" -> markBound(Bound.UPPER, from);
+			case "lowerbound" -> markBound(Bound.LOWER, from);
+			default -> Integer.MIN_VALUE;
+		};
+	}
+
+	/**
+	 * Dispatches tokens that read numeric payloads.
+	 *
+	 * @param key normalized token key
+	 * @param input full input line
+	 * @param from current scan index
+	 * @param end exclusive upper bound
+	 * @return next scan index, or {@link Integer#MIN_VALUE} when unhandled
+	 */
+	private int dispatchValueToken(String key, String input, int from, int end) {
+		return switch (key) {
+			case "depth" -> readShortInto(input, from, end, this::setDepth);
+			case "seldepth" -> readShortInto(input, from, end, this::setSelectiveDepth);
+			case "multipv" -> readShortInto(input, from, end, this::setPrincipalVariation);
+			case "cp" -> readIntInto(input, from, end, v -> setEvaluation(false, v));
+			case "mate" -> readIntInto(input, from, end, v -> setEvaluation(true, v));
+			case "wdl" -> readTripleShortsInto(input, from, end, this::setChances);
+			case "nodes" -> readLongInto(input, from, end, this::setNodes);
+			case "nps" -> readLongInto(input, from, end, this::setNodesPerSecond);
+			case "hashfull" -> readShortInto(input, from, end, this::setHashfull);
+			case "tbhits" -> readLongInto(input, from, end, this::setTableBaseHits);
+			case "time" -> readLongInto(input, from, end, this::setTime);
+			default -> Integer.MIN_VALUE;
+		};
+	}
+
+	/**
+	 * Marks the current output as bounded.
+	 *
+	 * @param newBound bound value
+	 * @param from index to continue scanning from
+	 * @return next scan index
+	 */
+	private int markBound(Bound newBound, int from) {
+		bound = newBound;
+		setFlag(F_BOUND);
+		return from;
+	}
+
+	/**
+	 * Stores the parsed depth.
+	 *
+	 * @param value parsed depth
+	 */
+	private void setDepth(short value) {
+		depth = value;
+		setFlag(F_DEPTH);
+	}
+
+	/**
+	 * Stores the parsed selective depth.
+	 *
+	 * @param value parsed selective depth
+	 */
+	private void setSelectiveDepth(short value) {
+		selectiveDepth = value;
+		setFlag(F_SELDEPTH);
+	}
+
+	/**
+	 * Stores the parsed principal variation index.
+	 *
+	 * @param value parsed multipv value
+	 */
+	private void setPrincipalVariation(short value) {
+		principalVariation = value;
+		setFlag(F_PV);
+	}
+
+	/**
+	 * Stores the parsed evaluation.
+	 *
+	 * @param mate true when the value is mate-in-N
+	 * @param value parsed evaluation value
+	 */
+	private void setEvaluation(boolean mate, int value) {
+		evaluation = new Evaluation(mate, value);
+		setFlag(F_EVAL);
+	}
+
+	/**
+	 * Stores the parsed WDL chances if they form a valid triple.
+	 *
+	 * @param win win probability
+	 * @param draw draw probability
+	 * @param loss loss probability
+	 */
+	private void setChances(short win, short draw, short loss) {
+		try {
+			chances = new Chances(win, draw, loss);
+			setFlag(F_CHANCES);
+		} catch (IllegalArgumentException ignored) {
+			// Invalid optional WDL triples are ignored so one malformed info field does
+			// not abort an otherwise usable analysis line.
+		}
+	}
+
+	/**
+	 * Stores the parsed node count.
+	 *
+	 * @param value parsed node count
+	 */
+	private void setNodes(long value) {
+		nodes = value;
+		setFlag(F_NODES);
+	}
+
+	/**
+	 * Stores the parsed nodes-per-second metric.
+	 *
+	 * @param value parsed nps
+	 */
+	private void setNodesPerSecond(long value) {
+		nodesPerSecond = value;
+		setFlag(F_NPS);
+	}
+
+	/**
+	 * Stores the parsed hashfull value.
+	 *
+	 * @param value parsed hashfull
+	 */
+	private void setHashfull(short value) {
+		hashfull = value;
+		setFlag(F_HASHFULL);
+	}
+
+	/**
+	 * Stores the parsed tablebase hit count.
+	 *
+	 * @param value parsed tbhits
+	 */
+	private void setTableBaseHits(long value) {
+		tableBaseHits = value;
+		setFlag(F_TBHITS);
+	}
+
+	/**
+	 * Stores the parsed elapsed time.
+	 *
+	 * @param value parsed time in milliseconds
+	 */
+	private void setTime(long value) {
+		time = value;
+		setFlag(F_TIME);
 	}
 
 	/**

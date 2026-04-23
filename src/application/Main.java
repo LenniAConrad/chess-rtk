@@ -24,6 +24,7 @@ import java.util.function.Consumer;
 import application.cli.command.BookGroupCommand;
 import application.cli.command.CleanCommand;
 import application.cli.command.ConfigCommand;
+import application.cli.command.CommandFailure;
 import application.cli.command.DoctorCommand;
 import application.cli.command.FenGroupCommand;
 import application.gui.GuiCommand;
@@ -104,28 +105,47 @@ public final class Main {
 	 *             subcommand
 	 */
 	public static void main(String[] argv) {
+		int exitCode = run(argv);
+		if (exitCode != 0) {
+			System.exit(exitCode);
+		}
+	}
+
+	/**
+	 * Runs the CLI dispatcher and returns the process exit code instead of exiting.
+	 *
+	 * @param argv raw command-line arguments; first positional must be a valid
+	 *             subcommand
+	 * @return process exit code
+	 */
+	public static int run(String[] argv) {
 		Argv a = new Argv(argv);
 
-		List<String> head = a.positionals();
+		try {
+			List<String> head = a.positionals();
 
-		a.ensureConsumed();
+			a.ensureConsumed();
 
-		if (head.isEmpty()) {
+			if (head.isEmpty()) {
+				HelpCommand.helpSummary();
+				return 0;
+			}
+
+			String sub = head.get(0);
+			String[] tail = head.subList(1, head.size()).toArray(new String[0]);
+			Argv b = new Argv(tail);
+
+			Consumer<Argv> handler = SUBCOMMANDS.get(sub);
+			if (handler != null) {
+				handler.accept(b);
+				return 0;
+			}
+			System.err.println("Unknown command: " + sub);
 			HelpCommand.helpSummary();
-			return;
+			return 2;
+		} catch (CommandFailure failure) {
+			failure.printTo(System.err);
+			return failure.exitCode();
 		}
-
-		String sub = head.get(0);
-		String[] tail = head.subList(1, head.size()).toArray(new String[0]);
-		Argv b = new Argv(tail);
-
-		Consumer<Argv> handler = SUBCOMMANDS.get(sub);
-		if (handler != null) {
-			handler.accept(b);
-			return;
-		}
-		System.err.println("Unknown command: " + sub);
-		HelpCommand.helpSummary();
-		System.exit(2);
 	}
 }

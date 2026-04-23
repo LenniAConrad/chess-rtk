@@ -428,46 +428,6 @@ public final class StockfishNnueNetwork implements AutoCloseable {
     }
 
     /**
-     * Combines feature hashes the same way Stockfish's feature transformer does.
-     *
-     * @param hashes component hashes
-     * @return combined hash
-     */
-    private static int combineFeatureHashes(int... hashes) {
-        int hash = 0;
-        for (int component : hashes) {
-            hash = (hash << 1) | (hash >>> 31);
-            hash ^= component;
-        }
-        return hash;
-    }
-
-    /**
-     * Computes a Stockfish affine-layer hash.
-     *
-     * @param previous previous layer hash
-     * @param outputDimensions output dimensions
-     * @return layer hash
-     */
-    private static int affineHash(int previous, int outputDimensions) {
-        int hash = 0xCC03DAE4;
-        hash += outputDimensions;
-        hash ^= previous >>> 1;
-        hash ^= previous << 31;
-        return hash;
-    }
-
-    /**
-     * Computes a Stockfish clipped-ReLU hash.
-     *
-     * @param previous previous layer hash
-     * @return layer hash
-     */
-    private static int clippedReluHash(int previous) {
-        return 0x538D24C7 + previous;
-    }
-
-    /**
      * Stockfish NNUE metadata.
      *
      * @param variant variant
@@ -645,14 +605,25 @@ public final class StockfishNnueNetwork implements AutoCloseable {
          * @return hash
          */
         int featureHash() {
-            int base = useThreats
-                    ? (variant.combinedBigFeatureHash
-                            ? combineFeatureHashes(
-                                    StockfishNnueFeatures.FULL_THREATS_HASH,
-                                    StockfishNnueFeatures.HALF_KA_HASH)
-                            : StockfishNnueFeatures.FULL_THREATS_HASH)
-                    : StockfishNnueFeatures.HALF_KA_HASH;
+            int base = baseFeatureHash();
             return base ^ (transformedDimensions * 2);
+        }
+
+        /**
+         * Returns the feature hash before the transformed-dimension mix-in.
+         *
+         * @return base feature hash
+         */
+        private int baseFeatureHash() {
+            if (!useThreats) {
+                return StockfishNnueFeatures.HALF_KA_HASH;
+            }
+            if (!variant.combinedBigFeatureHash) {
+                return StockfishNnueFeatures.FULL_THREATS_HASH;
+            }
+            return combineFeatureHashes(
+                    StockfishNnueFeatures.FULL_THREATS_HASH,
+                    StockfishNnueFeatures.HALF_KA_HASH);
         }
 
         /**
@@ -678,6 +649,46 @@ public final class StockfishNnueNetwork implements AutoCloseable {
          */
         int networkHash() {
             return featureHash() ^ archHash();
+        }
+
+        /**
+         * Combines feature hashes the same way Stockfish's feature transformer does.
+         *
+         * @param hashes component hashes
+         * @return combined hash
+         */
+        private static int combineFeatureHashes(int... hashes) {
+            int hash = 0;
+            for (int component : hashes) {
+                hash = (hash << 1) | (hash >>> 31);
+                hash ^= component;
+            }
+            return hash;
+        }
+
+        /**
+         * Computes a Stockfish affine-layer hash.
+         *
+         * @param previous previous layer hash
+         * @param outputDimensions output dimensions
+         * @return layer hash
+         */
+        private static int affineHash(int previous, int outputDimensions) {
+            int hash = 0xCC03DAE4;
+            hash += outputDimensions;
+            hash ^= previous >>> 1;
+            hash ^= previous << 31;
+            return hash;
+        }
+
+        /**
+         * Computes a Stockfish clipped-ReLU hash.
+         *
+         * @param previous previous layer hash
+         * @return layer hash
+         */
+        private static int clippedReluHash(int previous) {
+            return 0x538D24C7 + previous;
         }
     }
 
@@ -796,16 +807,13 @@ public final class StockfishNnueNetwork implements AutoCloseable {
             int[][] threatPsqtAccumulation = layout.useThreats ? new int[2][LAYER_STACKS] : null;
 
             for (int perspective = StockfishNnueFeatures.WHITE; perspective <= StockfishNnueFeatures.BLACK; perspective++) {
-                copyBias(psqAccumulation[perspective]);
-                int[] psqFeatures = StockfishNnueFeatures.activeHalfKa(board, perspective);
-                addShortFeatures(psqAccumulation[perspective], psqtAccumulation[perspective],
-                        psqFeatures, psqWeights, psqtWeights);
-
-                if (layout.useThreats) {
-                    int[] threatFeatures = StockfishNnueFeatures.activeThreats(board, perspective, layout.variant);
-                    addByteFeatures(threatAccumulation[perspective], threatPsqtAccumulation[perspective],
-                            threatFeatures, threatWeights, threatPsqtWeights);
-                }
+                accumulatePerspectiveFeatures(
+                        board,
+                        perspective,
+                        psqAccumulation[perspective],
+                        psqtAccumulation[perspective],
+                        threatAccumulation == null ? null : threatAccumulation[perspective],
+                        threatPsqtAccumulation == null ? null : threatPsqtAccumulation[perspective]);
             }
 
             int stm = StockfishNnueFeatures.sideToMove(position);
@@ -823,18 +831,13 @@ public final class StockfishNnueNetwork implements AutoCloseable {
             for (int p = 0; p < 2; p++) {
                 int perspective = p == 0 ? stm : opponent;
                 int offset = half * p;
-                for (int j = 0; j < half; j++) {
-                    int sum0 = psqAccumulation[perspective][j];
-                    int sum1 = psqAccumulation[perspective][j + half];
-                    if (layout.useThreats) {
-                        sum0 = Numbers.clamp(sum0 + threatAccumulation[perspective][j], 0, 255);
-                        sum1 = Numbers.clamp(sum1 + threatAccumulation[perspective][j + half], 0, 255);
-                    } else {
-                        sum0 = Numbers.clamp(sum0, 0, smallClamp);
-                        sum1 = Numbers.clamp(sum1, 0, smallClamp);
-                    }
-                    transformed[offset + j] = (sum0 * sum1) / 512;
-                }
+                writePerspectiveFeatures(
+                        transformed,
+                        offset,
+                        psqAccumulation[perspective],
+                        threatAccumulation == null ? null : threatAccumulation[perspective],
+                        half,
+                        smallClamp);
             }
             return new TransformOutput(transformed, psqt);
         }
@@ -856,6 +859,64 @@ public final class StockfishNnueNetwork implements AutoCloseable {
         private void copyBias(int[] target) {
             for (int i = 0; i < target.length; i++) {
                 target[i] = biases[i];
+            }
+        }
+
+        /**
+         * Accumulates active PSQ and optional threat features for one perspective.
+         *
+         * @param board Stockfish-order board
+         * @param perspective perspective color
+         * @param psqAccumulation hidden PSQ accumulator
+         * @param psqtAccumulation PSQT accumulator
+         * @param threatAccumulation hidden threat accumulator, or {@code null}
+         * @param threatPsqtAccumulation threat PSQT accumulator, or {@code null}
+         */
+        private void accumulatePerspectiveFeatures(
+                int[] board,
+                int perspective,
+                int[] psqAccumulation,
+                int[] psqtAccumulation,
+                int[] threatAccumulation,
+                int[] threatPsqtAccumulation) {
+            copyBias(psqAccumulation);
+            int[] psqFeatures = StockfishNnueFeatures.activeHalfKa(board, perspective);
+            addShortFeatures(psqAccumulation, psqtAccumulation, psqFeatures, psqWeights, psqtWeights);
+            if (!layout.useThreats) {
+                return;
+            }
+            int[] threatFeatures = StockfishNnueFeatures.activeThreats(board, perspective, layout.variant);
+            addByteFeatures(threatAccumulation, threatPsqtAccumulation, threatFeatures, threatWeights, threatPsqtWeights);
+        }
+
+        /**
+         * Writes transformed features for one perspective half.
+         *
+         * @param transformed output feature vector
+         * @param offset destination half offset
+         * @param psqAccumulation PSQ accumulator
+         * @param threatAccumulation threat accumulator, or {@code null}
+         * @param half half-width of the transformed vector
+         * @param smallClamp clamp value for small networks without threats
+         */
+        private void writePerspectiveFeatures(
+                int[] transformed,
+                int offset,
+                int[] psqAccumulation,
+                int[] threatAccumulation,
+                int half,
+                int smallClamp) {
+            for (int j = 0; j < half; j++) {
+                int sum0 = psqAccumulation[j];
+                int sum1 = psqAccumulation[j + half];
+                if (threatAccumulation != null) {
+                    sum0 = Numbers.clamp(sum0 + threatAccumulation[j], 0, 255);
+                    sum1 = Numbers.clamp(sum1 + threatAccumulation[j + half], 0, 255);
+                } else {
+                    sum0 = Numbers.clamp(sum0, 0, smallClamp);
+                    sum1 = Numbers.clamp(sum1, 0, smallClamp);
+                }
+                transformed[offset + j] = (sum0 * sum1) / 512;
             }
         }
 
@@ -938,6 +999,45 @@ public final class StockfishNnueNetwork implements AutoCloseable {
             if (layout.useThreats) {
                 requireLength(threatWeights, (long) layout.threatDimensions() * transformedDimensions, "threatWeights");
                 requireLength(threatPsqtWeights, (long) layout.threatDimensions() * LAYER_STACKS, "threatPsqtWeights");
+            }
+        }
+
+        /**
+         * Validates array length.
+         *
+         * @param values array
+         * @param expected expected length
+         * @param label label
+         */
+        private void requireLength(short[] values, long expected, String label) {
+            if (values == null || values.length != checkedLength(expected, label)) {
+                throw new IllegalArgumentException(label + " length mismatch.");
+            }
+        }
+
+        /**
+         * Validates array length.
+         *
+         * @param values array
+         * @param expected expected length
+         * @param label label
+         */
+        private void requireLength(int[] values, long expected, String label) {
+            if (values == null || values.length != checkedLength(expected, label)) {
+                throw new IllegalArgumentException(label + " length mismatch.");
+            }
+        }
+
+        /**
+         * Validates array length.
+         *
+         * @param values array
+         * @param expected expected length
+         * @param label label
+         */
+        private void requireLength(byte[] values, long expected, String label) {
+            if (values == null || values.length != checkedLength(expected, label)) {
+                throw new IllegalArgumentException(label + " length mismatch.");
             }
         }
     }
@@ -1036,6 +1136,28 @@ public final class StockfishNnueNetwork implements AutoCloseable {
             int fwdOut = fc0Out[layout.l2] * (600 * OUTPUT_SCALE) / (127 * (1 << WEIGHT_SCALE_BITS));
             return output + fwdOut;
         }
+
+        /**
+         * Clipped ReLU.
+         *
+         * @param value int32 input
+         * @return uint8-like output
+         */
+        private static int clippedRelu(int value) {
+            return Numbers.clamp(value >> WEIGHT_SCALE_BITS, 0, 127);
+        }
+
+        /**
+         * Squared clipped ReLU.
+         *
+         * @param value int32 input
+         * @return uint8-like output
+         */
+        private static int sqrClippedRelu(int value) {
+            long squared = (long) value * value;
+            long shifted = squared >> (2 * WEIGHT_SCALE_BITS + 7);
+            return (int) Math.min(127L, shifted);
+        }
     }
 
     /**
@@ -1130,92 +1252,92 @@ public final class StockfishNnueNetwork implements AutoCloseable {
             requireLength(biases, outputDimensions, "affine biases");
             requireLength(weights, (long) outputDimensions * paddedInputDimensions, "affine weights");
         }
+
+        /**
+         * Rounds up to a multiple.
+         *
+         * @param value value
+         * @param multiple multiple
+         * @return rounded value
+         */
+        private static int ceilToMultiple(int value, int multiple) {
+            return ((value + multiple - 1) / multiple) * multiple;
+        }
+
+        /**
+         * Validates array length.
+         *
+         * @param values array
+         * @param expected expected length
+         * @param label label
+         */
+        private void requireLength(int[] values, long expected, String label) {
+            if (values == null || values.length != checkedLength(expected, label)) {
+                throw new IllegalArgumentException(label + " length mismatch.");
+            }
+        }
+
+        /**
+         * Validates array length.
+         *
+         * @param values array
+         * @param expected expected length
+         * @param label label
+         */
+        private void requireLength(byte[] values, long expected, String label) {
+            if (values == null || values.length != checkedLength(expected, label)) {
+                throw new IllegalArgumentException(label + " length mismatch.");
+            }
+        }
     }
 
     /**
      * Feature-transform output.
      */
-    private record TransformOutput(
+    private static final class TransformOutput {
+
         /**
          * Stores transformed features.
          */
-        int[] features,
+        private final int[] features;
+
         /**
          * Stores PSQT output.
          */
-        int psqt
-    ) {
-    }
+        private final int psqt;
 
-    /**
-     * Clipped ReLU.
-     *
-     * @param value int32 input
-     * @return uint8-like output
-     */
-    private static int clippedRelu(int value) {
-        return Numbers.clamp(value >> WEIGHT_SCALE_BITS, 0, 127);
-    }
-
-    /**
-     * Squared clipped ReLU.
-     *
-     * @param value int32 input
-     * @return uint8-like output
-     */
-    private static int sqrClippedRelu(int value) {
-        long squared = (long) value * value;
-        long shifted = squared >> (2 * WEIGHT_SCALE_BITS + 7);
-        return (int) Math.min(127L, shifted);
-    }
-
-    /**
-     * Rounds up to a multiple.
-     *
-     * @param value value
-     * @param multiple multiple
-     * @return rounded value
-     */
-    private static int ceilToMultiple(int value, int multiple) {
-        return ((value + multiple - 1) / multiple) * multiple;
-    }
-
-    /**
-     * Validates array length.
-     *
-     * @param values array
-     * @param expected expected length
-     * @param label label
-     */
-    private static void requireLength(short[] values, long expected, String label) {
-        if (values == null || values.length != checkedLength(expected, label)) {
-            throw new IllegalArgumentException(label + " length mismatch.");
+        /**
+         * Creates one feature-transform output snapshot.
+         *
+         * @param features transformed features
+         * @param psqt PSQT output
+         */
+        private TransformOutput(int[] features, int psqt) {
+            this.features = features == null ? new int[0] : features.clone();
+            this.psqt = psqt;
         }
-    }
 
-    /**
-     * Validates array length.
-     *
-     * @param values array
-     * @param expected expected length
-     * @param label label
-     */
-    private static void requireLength(int[] values, long expected, String label) {
-        if (values == null || values.length != checkedLength(expected, label)) {
-            throw new IllegalArgumentException(label + " length mismatch.");
+        @Override
+        public boolean equals(Object other) {
+            return other instanceof TransformOutput that
+                    && psqt == that.psqt
+                    && Arrays.equals(features, that.features);
         }
-    }
 
-    /**
-     * Validates array length.
-     *
-     * @param values array
-     * @param expected expected length
-     * @param label label
-     */
-    private static void requireLength(byte[] values, long expected, String label) {
-        if (values == null || values.length != checkedLength(expected, label)) {
-            throw new IllegalArgumentException(label + " length mismatch.");
+        @Override
+        public int hashCode() {
+            int result = Arrays.hashCode(features);
+            result = 31 * result + Integer.hashCode(psqt);
+            return result;
+        }
+
+        @Override
+        public String toString() {
+            return "TransformOutput[features="
+                    + Arrays.toString(features)
+                    + ", psqt="
+                    + psqt
+                    + "]";
         }
     }
 

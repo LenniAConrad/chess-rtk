@@ -125,7 +125,7 @@ public final class PuzzleTextCommand {
         }
 
         List<chess.struct.Record> records = PuzzleSupport.buildRecords(root, analysis, opts.limits.pvPlies,
-                COMMAND_LABEL, opts.flags.verbose);
+                COMMAND_LABEL);
         if (records.isEmpty()) {
             System.err.println(COMMAND_LABEL + ": no records extracted from PVs");
             System.exit(2);

@@ -6,7 +6,6 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Comparator;
 import java.util.List;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
@@ -61,7 +60,7 @@ public final class SessionCache {
 			List<Path> targets = walk
 					.filter(p -> !p.equals(SESSION_DIR))
 					.sorted(Comparator.reverseOrder())
-					.collect(Collectors.toList());
+					.toList();
 			for (Path p : targets) {
 				Files.deleteIfExists(p);
 			}

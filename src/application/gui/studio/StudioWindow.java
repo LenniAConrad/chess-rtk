@@ -246,12 +246,8 @@ public final class StudioWindow extends JFrame implements StudioController.Studi
 		JPanel nav = row();
 		nav.add(button("Back", e -> controller.previousNode()));
 		nav.add(button("Forward", e -> controller.nextNode()));
-		nav.add(button("Promote", e -> {
-			controller.promoteNode(nodeList.getSelectedValue());
-		}));
-		nav.add(button("Delete", e -> {
-			controller.deleteNode(nodeList.getSelectedValue());
-		}));
+		nav.add(button("Promote", e -> controller.promoteNode(nodeList.getSelectedValue())));
+		nav.add(button("Delete", e -> controller.deleteNode(nodeList.getSelectedValue())));
 		panel.add(nav);
 		panel.add(label("Comment"));
 		panel.add(new JScrollPane(commentArea));

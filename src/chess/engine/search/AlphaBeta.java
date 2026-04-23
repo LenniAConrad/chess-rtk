@@ -338,52 +338,59 @@ public final class AlphaBeta implements AutoCloseable {
         short ttMove = context.transpositions.bestMove(root.signature());
         short[] moves = orderedMoves(root, legalMoves, preferredMove, ttMove, context, 0);
         Position.State state = new Position.State();
-        int originalAlpha = alpha;
-        int bestScore = -INF;
-        short bestMove = Move.NO_MOVE;
-        int bestLength = 0;
-        short[] bestPv = new short[Math.max(1, depth)];
-        int searchedMoves = 0;
+        RootSearchState searchState = new RootSearchState(depth, alpha);
 
         for (short move : moves) {
-            root.play(move, state);
-            int score;
-            try {
-                if (searchedMoves == 0) {
-                    score = -negamax(context, root, depth - 1, -beta, -alpha, 1, true);
-                } else {
-                    score = -negamax(context, root, depth - 1, -alpha - 1, -alpha, 1, false);
-                    if (score > alpha && score < beta) {
-                        score = -negamax(context, root, depth - 1, -beta, -alpha, 1, true);
-                    }
-                }
-            } finally {
-                root.undo(move, state);
-            }
-            searchedMoves++;
-
-            if (score > bestScore || bestMove == Move.NO_MOVE) {
-                bestScore = score;
-                bestMove = move;
-                bestPv[0] = move;
-                int childLength = context.pvLength[1];
-                if (childLength > 0) {
-                    System.arraycopy(context.pv[1], 0, bestPv, 1, Math.min(childLength, bestPv.length - 1));
-                }
-                bestLength = Math.min(depth, childLength + 1);
-            }
-            if (score > alpha) {
-                alpha = score;
-            }
-            if (alpha >= beta) {
+            int score = searchRootMove(context, root, move, depth, beta, searchState, state);
+            searchState.recordScore(context, move, score, depth);
+            if (searchState.alpha >= beta) {
                 recordCutoff(root, context, move, depth, 0);
                 break;
             }
         }
-        byte flag = transpositionFlag(bestScore, originalAlpha, beta);
-        context.transpositions.store(root.signature(), depth, bestScore, flag, bestMove, context.generation);
+        byte flag = transpositionFlag(searchState.bestScore, searchState.originalAlpha, beta);
+        context.transpositions.store(
+                root.signature(),
+                depth,
+                searchState.bestScore,
+                flag,
+                searchState.bestMove,
+                context.generation);
+        return searchState.toOutcome();
+    }
 
-        return new RootOutcome(bestMove, bestScore, Arrays.copyOf(bestPv, bestLength));
+    /**
+     * Searches one root move with PVS re-search rules.
+     *
+     * @param context search context
+     * @param root mutable root position
+     * @param depth target search depth
+     * @param beta beta bound
+     * @param searchState mutable root-search state
+     * @param state reusable position state
+     * @return score for the searched root move
+     */
+    private static int searchRootMove(
+            SearchContext context,
+            Position root,
+            short move,
+            int depth,
+            int beta,
+            RootSearchState searchState,
+            Position.State state) {
+        root.play(move, state);
+        try {
+            if (searchState.searchedMoves == 0) {
+                return -negamax(context, root, depth - 1, -beta, -searchState.alpha, 1, true);
+            }
+            int score = -negamax(context, root, depth - 1, -searchState.alpha - 1, -searchState.alpha, 1, false);
+            if (score > searchState.alpha && score < beta) {
+                score = -negamax(context, root, depth - 1, -beta, -searchState.alpha, 1, true);
+            }
+            return score;
+        } finally {
+            root.undo(move, state);
+        }
     }
 
     /**
@@ -408,28 +415,53 @@ public final class AlphaBeta implements AutoCloseable {
             boolean pvNode) {
         context.visitNode();
         context.pvLength[ply] = 0;
+        NegamaxSetup setup = prepareNegamax(context, position, depth, alpha, beta, ply, pvNode);
+        if (setup.resolved()) {
+            return setup.resolvedScore();
+        }
+        return searchNegamaxMoves(context, position, depth, beta, ply, pvNode, setup);
+    }
 
+    /**
+     * Prepares one negamax node and resolves any early-return conditions.
+     *
+     * @param context search context
+     * @param position mutable current position
+     * @param depth remaining depth
+     * @param alpha alpha bound
+     * @param beta beta bound
+     * @param ply current ply from root
+     * @param pvNode true when this node lies on the principal variation
+     * @return prepared search setup, or a resolved early-return score
+     */
+    private static NegamaxSetup prepareNegamax(
+            SearchContext context,
+            Position position,
+            int depth,
+            int alpha,
+            int beta,
+            int ply,
+            boolean pvNode) {
         MoveList legalMoves = null;
         boolean inCheck = position.inCheck();
         if (inCheck) {
             legalMoves = position.legalMoves();
             if (legalMoves.isEmpty()) {
-                return terminalScore(position, ply);
+                return NegamaxSetup.resolved(terminalScore(position, ply));
             }
         }
         if (isDraw(position)) {
-            return 0;
+            return NegamaxSetup.resolved(0);
         }
         if (depth <= 0) {
-            return quiescence(context, position, alpha, beta, ply, 0);
+            return NegamaxSetup.resolved(quiescence(context, position, alpha, beta, ply, 0));
         }
 
-        int originalAlpha = alpha;
         long key = position.signature();
         Transposition entry = context.transpositions.probe(key);
         int transpositionScore = transpositionScore(entry, depth, alpha, beta);
         if (transpositionScore != NO_SCORE) {
-            return transpositionScore;
+            return NegamaxSetup.resolved(transpositionScore);
         }
 
         int staticEval = NO_SCORE;
@@ -437,7 +469,7 @@ public final class AlphaBeta implements AutoCloseable {
             staticEval = staticScore(context, position);
             int nullScore = tryNullMovePruning(context, position, depth, beta, ply, pvNode, staticEval);
             if (nullScore != NO_SCORE) {
-                return nullScore;
+                return NegamaxSetup.resolved(nullScore);
             }
         }
 
@@ -445,64 +477,101 @@ public final class AlphaBeta implements AutoCloseable {
             legalMoves = position.legalMoves();
         }
         if (legalMoves.isEmpty()) {
-            return terminalScore(position, ply);
+            return NegamaxSetup.resolved(terminalScore(position, ply));
         }
+        return NegamaxSetup.search(inCheck, legalMoves, alpha, staticEval, key, entry);
+    }
 
-        short ttMove = entry == null ? Move.NO_MOVE : entry.bestMove;
-        short[] moves = orderedMoves(position, legalMoves, Move.NO_MOVE, ttMove, context, ply);
+    /**
+     * Searches the legal moves for one prepared negamax node.
+     *
+     * @param context search context
+     * @param position mutable current position
+     * @param depth remaining depth
+     * @param alpha alpha bound
+     * @param beta beta bound
+     * @param ply current ply from root
+     * @param pvNode true when this node lies on the principal variation
+     * @param setup prepared node setup
+     * @return best score found for the node
+     */
+    private static int searchNegamaxMoves(
+            SearchContext context,
+            Position position,
+            int depth,
+            int beta,
+            int ply,
+            boolean pvNode,
+            NegamaxSetup setup) {
+        short ttMove = setup.entry() == null ? Move.NO_MOVE : setup.entry().bestMove;
+        short[] moves = orderedMoves(position, setup.legalMoves(), Move.NO_MOVE, ttMove, context, ply);
         Position.State state = context.state(ply);
-        int bestScore = -INF;
-        short bestMove = Move.NO_MOVE;
-        int searchedMoves = 0;
+        NegamaxSearchState searchState = new NegamaxSearchState(setup.alpha());
         for (short move : moves) {
             boolean tactical = isTacticalMove(position, move);
-            if (shouldFutilityPrune(
-                    staticEval,
-                    alpha,
+            MoveDecision decision = new MoveDecision(
+                    setup.staticEval(),
+                    searchState.alpha,
                     depth,
-                    searchedMoves,
+                    searchState.searchedMoves,
                     pvNode,
-                    inCheck,
+                    setup.inCheck(),
                     tactical,
                     move,
-                    context,
-                    ply)) {
-                continue;
-            }
-
-            int childDepth = depth - 1;
-            int reduction = lateMoveReduction(depth, searchedMoves, pvNode, inCheck, tactical, move, context, ply);
-            position.play(move, state);
-            int score;
-            try {
-                if (searchedMoves == 0) {
-                    score = -negamax(context, position, childDepth, -beta, -alpha, ply + 1, pvNode);
-                } else {
-                    score = searchLateMove(context, position, childDepth, reduction, alpha, beta, ply);
+                    ply);
+            if (!shouldFutilityPrune(context, decision)) {
+                int score = searchNegamaxMove(context, position, state, depth, beta, pvNode, decision);
+                searchState.recordScore(context, ply, move, score);
+                if (searchState.alpha >= beta) {
+                    recordCutoff(position, context, move, depth, ply);
+                    break;
                 }
-            } finally {
-                position.undo(move, state);
             }
-            searchedMoves++;
+        }
+        byte flag = transpositionFlag(searchState.bestScore, searchState.originalAlpha, beta);
+        if (!isMateScore(searchState.bestScore)) {
+            context.transpositions.store(
+                    setup.key(),
+                    depth,
+                    searchState.bestScore,
+                    flag,
+                    searchState.bestMove,
+                    context.generation);
+        }
+        return searchState.bestScore;
+    }
 
-            if (score > bestScore) {
-                bestScore = score;
-                bestMove = move;
+    /**
+     * Searches one move from a prepared negamax node.
+     *
+     * @param context search context
+     * @param position mutable child position
+     * @param state reusable position state
+     * @param depth remaining depth at the parent node
+     * @param beta beta bound
+     * @param pvNode true when the parent node is a PV node
+     * @param decision move-decision inputs
+     * @return score for the move
+     */
+    private static int searchNegamaxMove(
+            SearchContext context,
+            Position position,
+            Position.State state,
+            int depth,
+            int beta,
+            boolean pvNode,
+            MoveDecision decision) {
+        int childDepth = depth - 1;
+        int reduction = lateMoveReduction(context, decision);
+        position.play(decision.move(), state);
+        try {
+            if (decision.searchedMoves() == 0) {
+                return -negamax(context, position, childDepth, -beta, -decision.alpha(), decision.ply() + 1, pvNode);
             }
-            if (score > alpha) {
-                alpha = score;
-                updatePrincipalVariation(context, ply, move);
-            }
-            if (alpha >= beta) {
-                recordCutoff(position, context, move, depth, ply);
-                break;
-            }
+            return searchLateMove(context, position, childDepth, reduction, decision.alpha(), beta, decision.ply());
+        } finally {
+            position.undo(decision.move(), state);
         }
-        byte flag = transpositionFlag(bestScore, originalAlpha, beta);
-        if (!isMateScore(bestScore)) {
-            context.transpositions.store(key, depth, bestScore, flag, bestMove, context.generation);
-        }
-        return bestScore;
     }
 
     /**
@@ -610,26 +679,16 @@ public final class AlphaBeta implements AutoCloseable {
      * @param ply current ply from root
      * @return true when the move can be skipped
      */
-    private static boolean shouldFutilityPrune(
-            int staticEval,
-            int alpha,
-            int depth,
-            int searchedMoves,
-            boolean pvNode,
-            boolean inCheck,
-            boolean tactical,
-            short move,
-            SearchContext context,
-            int ply) {
-        return staticEval != NO_SCORE
-                && !pvNode
-                && !inCheck
-                && !tactical
-                && searchedMoves > 0
-                && depth <= FUTILITY_MAX_DEPTH
-                && !context.isKiller(move, ply)
-                && Math.abs(alpha) < MATE_THRESHOLD
-                && staticEval + FUTILITY_MARGIN * depth <= alpha;
+    private static boolean shouldFutilityPrune(SearchContext context, MoveDecision decision) {
+        return decision.staticEval() != NO_SCORE
+                && !decision.pvNode()
+                && !decision.inCheck()
+                && !decision.tactical()
+                && decision.searchedMoves() > 0
+                && decision.depth() <= FUTILITY_MAX_DEPTH
+                && !context.isKiller(decision.move(), decision.ply())
+                && Math.abs(decision.alpha()) < MATE_THRESHOLD
+                && decision.staticEval() + FUTILITY_MARGIN * decision.depth() <= decision.alpha();
     }
 
     /**
@@ -645,31 +704,23 @@ public final class AlphaBeta implements AutoCloseable {
      * @param ply current ply from root
      * @return reduction in plies, or zero for a full-depth search
      */
-    private static int lateMoveReduction(
-            int depth,
-            int searchedMoves,
-            boolean pvNode,
-            boolean inCheck,
-            boolean tactical,
-            short move,
-            SearchContext context,
-            int ply) {
-        if (pvNode
-                || inCheck
-                || tactical
-                || depth < 3
-                || searchedMoves < 3
-                || context.isKiller(move, ply)) {
+    private static int lateMoveReduction(SearchContext context, MoveDecision decision) {
+        if (decision.pvNode()
+                || decision.inCheck()
+                || decision.tactical()
+                || decision.depth() < 3
+                || decision.searchedMoves() < 3
+                || context.isKiller(decision.move(), decision.ply())) {
             return 0;
         }
         int reduction = 1;
-        if (depth >= 6 && searchedMoves >= 6) {
+        if (decision.depth() >= 6 && decision.searchedMoves() >= 6) {
             reduction++;
         }
-        if (depth >= 10 && searchedMoves >= 10) {
+        if (decision.depth() >= 10 && decision.searchedMoves() >= 10) {
             reduction++;
         }
-        return Math.min(depth - 1, reduction);
+        return Math.min(decision.depth() - 1, reduction);
     }
 
     /**
@@ -733,57 +784,118 @@ public final class AlphaBeta implements AutoCloseable {
             int qply) {
         context.visitNode();
         context.pvLength[ply] = 0;
+        QuiescenceSetup setup = prepareQuiescence(context, position, alpha, beta, ply, qply);
+        if (setup.resolved()) {
+            return setup.resolvedScore();
+        }
 
+        short[] moves = orderedMoves(position, setup.legalMoves(), Move.NO_MOVE, Move.NO_MOVE, context, ply);
+        int currentAlpha = setup.alpha();
+        for (short move : moves) {
+            if (shouldSearchQuiescenceMove(position, move, setup.inCheck(), setup.standPat(), currentAlpha)) {
+                int score = searchQuiescenceMove(context, position, currentAlpha, beta, ply, qply, move);
+                if (score >= beta) {
+                    return score;
+                }
+                if (score > currentAlpha) {
+                    currentAlpha = score;
+                    updatePrincipalVariation(context, ply, move);
+                }
+            }
+        }
+        return currentAlpha;
+    }
+
+    /**
+     * Prepares quiescence search and resolves terminal or horizon cases.
+     *
+     * @param context search context
+     * @param position mutable position
+     * @param alpha alpha bound
+     * @param beta beta bound
+     * @param ply current ply from root
+     * @param qply quiescence ply
+     * @return prepared quiescence setup
+     */
+    private static QuiescenceSetup prepareQuiescence(
+            SearchContext context,
+            Position position,
+            int alpha,
+            int beta,
+            int ply,
+            int qply) {
         boolean inCheck = position.inCheck();
         MoveList legalMoves = position.legalMoves();
         if (legalMoves.isEmpty()) {
-            return terminalScore(position, ply);
+            return QuiescenceSetup.resolved(terminalScore(position, ply));
         }
         if (isDraw(position)) {
-            return 0;
+            return QuiescenceSetup.resolved(0);
         }
-
-        int standPat = NO_SCORE;
         if (inCheck) {
-            if (qply >= QUIESCENCE_MAX_PLY) {
-                return staticScore(context, position);
-            }
-        } else {
-            standPat = staticScore(context, position);
-            if (standPat >= beta) {
-                return standPat;
-            }
-            if (qply >= QUIESCENCE_MAX_PLY) {
-                return Math.max(alpha, standPat);
-            }
-            alpha = Math.max(alpha, standPat);
+            return qply >= QUIESCENCE_MAX_PLY
+                    ? QuiescenceSetup.resolved(staticScore(context, position))
+                    : QuiescenceSetup.search(legalMoves, true, NO_SCORE, alpha);
         }
 
-        short[] moves = orderedMoves(position, legalMoves, Move.NO_MOVE, Move.NO_MOVE, context, ply);
-        Position.State state = context.state(ply);
-        for (short move : moves) {
-            if (!inCheck && !isTacticalMove(position, move)) {
-                continue;
-            }
-            if (shouldDeltaPrune(position, move, standPat, alpha, inCheck)) {
-                continue;
-            }
-            position.play(move, state);
-            int score;
-            try {
-                score = -quiescence(context, position, -beta, -alpha, ply + 1, qply + 1);
-            } finally {
-                position.undo(move, state);
-            }
-            if (score >= beta) {
-                return score;
-            }
-            if (score > alpha) {
-                alpha = score;
-                updatePrincipalVariation(context, ply, move);
-            }
+        int standPat = staticScore(context, position);
+        if (standPat >= beta) {
+            return QuiescenceSetup.resolved(standPat);
         }
-        return alpha;
+        if (qply >= QUIESCENCE_MAX_PLY) {
+            return QuiescenceSetup.resolved(Math.max(alpha, standPat));
+        }
+        return QuiescenceSetup.search(legalMoves, false, standPat, Math.max(alpha, standPat));
+    }
+
+    /**
+     * Returns whether one move should be searched in quiescence.
+     *
+     * @param position current position
+     * @param move move being considered
+     * @param inCheck true when the side to move is in check
+     * @param standPat current stand-pat score
+     * @param alpha current alpha bound
+     * @return true when the move should be searched
+     */
+    private static boolean shouldSearchQuiescenceMove(
+            Position position,
+            short move,
+            boolean inCheck,
+            int standPat,
+            int alpha) {
+        return (inCheck || isTacticalMove(position, move))
+                && !shouldDeltaPrune(position, move, standPat, alpha, inCheck);
+    }
+
+    /**
+     * Searches one quiescence move and restores the parent position afterwards.
+     *
+     * @param context search context
+     * @param position mutable position
+     * @param state reusable position state
+     * @param alpha alpha bound
+     * @param beta beta bound
+     * @param ply current ply from root
+     * @param qply quiescence ply
+     * @param move move being considered
+     * @return quiescence score for the move
+     */
+    private static int searchQuiescenceMove(
+            SearchContext context,
+            Position position,
+            int alpha,
+            int beta,
+            int ply,
+            int qply,
+            short move) {
+        Position.State state = context.state(ply);
+        position.play(move, state);
+        try {
+            return -quiescence(context, position, -beta, -alpha, ply + 1, qply + 1);
+        } finally {
+            position.undo(move, state);
+        }
     }
 
     /**
@@ -1159,6 +1271,273 @@ public final class AlphaBeta implements AutoCloseable {
     }
 
     /**
+     * Mutable state for one root search iteration.
+     */
+    private static final class RootSearchState {
+
+        /**
+         * Alpha bound before the iteration started.
+         */
+        private final int originalAlpha;
+
+        /**
+         * Current alpha bound.
+         */
+        private int alpha;
+
+        /**
+         * Best score found so far.
+         */
+        private int bestScore = -INF;
+
+        /**
+         * Best move found so far.
+         */
+        private short bestMove = Move.NO_MOVE;
+
+        /**
+         * Principal variation buffer.
+         */
+        private final short[] bestPv;
+
+        /**
+         * Principal variation length.
+         */
+        private int bestLength;
+
+        /**
+         * Number of moves searched so far.
+         */
+        private int searchedMoves;
+
+        /**
+         * Creates a root-search state.
+         *
+         * @param depth search depth
+         * @param alpha initial alpha bound
+         */
+        private RootSearchState(int depth, int alpha) {
+            this.originalAlpha = alpha;
+            this.alpha = alpha;
+            this.bestPv = new short[Math.max(1, depth)];
+        }
+
+        /**
+         * Records one searched root move.
+         *
+         * @param context search context
+         * @param move move that was searched
+         * @param score returned score
+         * @param depth current iteration depth
+         */
+        private void recordScore(SearchContext context, short move, int score, int depth) {
+            if (score > bestScore || bestMove == Move.NO_MOVE) {
+                bestScore = score;
+                bestMove = move;
+                bestPv[0] = move;
+                int childLength = context.pvLength[1];
+                if (childLength > 0) {
+                    System.arraycopy(context.pv[1], 0, bestPv, 1, Math.min(childLength, bestPv.length - 1));
+                }
+                bestLength = Math.min(depth, childLength + 1);
+            }
+            if (score > alpha) {
+                alpha = score;
+            }
+            searchedMoves++;
+        }
+
+        /**
+         * Returns the final root outcome snapshot.
+         *
+         * @return root outcome
+         */
+        private RootOutcome toOutcome() {
+            return new RootOutcome(bestMove, bestScore, Arrays.copyOf(bestPv, bestLength));
+        }
+    }
+
+    /**
+     * Immutable move-decision inputs used by pruning and reduction heuristics.
+     *
+     * @param staticEval static evaluation of the node
+     * @param alpha current alpha bound
+     * @param depth remaining depth
+     * @param searchedMoves number of moves already searched
+     * @param pvNode true for principal-variation nodes
+     * @param inCheck true when the side to move is in check
+     * @param tactical true for captures, promotions, and en-passant
+     * @param move move being considered
+     * @param ply current ply from root
+     */
+    private record MoveDecision(
+            int staticEval,
+            int alpha,
+            int depth,
+            int searchedMoves,
+            boolean pvNode,
+            boolean inCheck,
+            boolean tactical,
+            short move,
+            int ply) {
+    }
+
+    /**
+     * Prepared negamax node data or an already-resolved score.
+     *
+     * @param resolved whether the node resolved before move search
+     * @param resolvedScore resolved score when {@code resolved} is true
+     * @param inCheck true when the side to move is in check
+     * @param legalMoves legal moves to search
+     * @param staticEval cached static evaluation, or {@link #NO_SCORE}
+     * @param key position signature
+     * @param entry transposition-table entry
+     */
+    private record NegamaxSetup(
+            boolean resolved,
+            int resolvedScore,
+            boolean inCheck,
+            MoveList legalMoves,
+            int alpha,
+            int staticEval,
+            long key,
+            Transposition entry) {
+
+        /**
+         * Creates a resolved setup.
+         *
+         * @param score resolved score
+         * @return resolved setup
+         */
+        private static NegamaxSetup resolved(int score) {
+            return new NegamaxSetup(true, score, false, null, NO_SCORE, NO_SCORE, 0L, null);
+        }
+
+        /**
+         * Creates a prepared setup for normal move search.
+         *
+         * @param inCheck true when the side to move is in check
+         * @param legalMoves legal moves to search
+         * @param staticEval cached static evaluation, or {@link #NO_SCORE}
+         * @param key position signature
+         * @param entry transposition-table entry
+         * @return search setup
+         */
+        private static NegamaxSetup search(
+                boolean inCheck,
+                MoveList legalMoves,
+                int alpha,
+                int staticEval,
+                long key,
+                Transposition entry) {
+            return new NegamaxSetup(false, NO_SCORE, inCheck, legalMoves, alpha, staticEval, key, entry);
+        }
+    }
+
+    /**
+     * Mutable negamax move-search state.
+     */
+    private static final class NegamaxSearchState {
+
+        /**
+         * Alpha bound before move search started.
+         */
+        private final int originalAlpha;
+
+        /**
+         * Current alpha bound.
+         */
+        private int alpha;
+
+        /**
+         * Best score found so far.
+         */
+        private int bestScore = -INF;
+
+        /**
+         * Best move found so far.
+         */
+        private short bestMove = Move.NO_MOVE;
+
+        /**
+         * Number of moves searched so far.
+         */
+        private int searchedMoves;
+
+        /**
+         * Creates a negamax search state.
+         *
+         * @param alpha initial alpha bound
+         */
+        private NegamaxSearchState(int alpha) {
+            this.originalAlpha = alpha;
+            this.alpha = alpha;
+        }
+
+        /**
+         * Records one searched move.
+         *
+         * @param context search context
+         * @param ply current ply
+         * @param move move that was searched
+         * @param score returned score
+         */
+        private void recordScore(SearchContext context, int ply, short move, int score) {
+            if (score > bestScore) {
+                bestScore = score;
+                bestMove = move;
+            }
+            if (score > alpha) {
+                alpha = score;
+                updatePrincipalVariation(context, ply, move);
+            }
+            searchedMoves++;
+        }
+    }
+
+    /**
+     * Prepared quiescence state or an already-resolved score.
+     *
+     * @param resolved whether quiescence resolved before move search
+     * @param resolvedScore resolved score when {@code resolved} is true
+     * @param legalMoves legal moves to search
+     * @param inCheck true when the side to move is in check
+     * @param standPat stand-pat score, or {@link #NO_SCORE}
+     * @param alpha current alpha bound
+     */
+    private record QuiescenceSetup(
+            boolean resolved,
+            int resolvedScore,
+            MoveList legalMoves,
+            boolean inCheck,
+            int standPat,
+            int alpha) {
+
+        /**
+         * Creates a resolved quiescence setup.
+         *
+         * @param score resolved score
+         * @return resolved setup
+         */
+        private static QuiescenceSetup resolved(int score) {
+            return new QuiescenceSetup(true, score, null, false, NO_SCORE, NO_SCORE);
+        }
+
+        /**
+         * Creates a prepared quiescence setup.
+         *
+         * @param legalMoves legal moves to search
+         * @param inCheck true when the side to move is in check
+         * @param standPat stand-pat score, or {@link #NO_SCORE}
+         * @param alpha current alpha bound
+         * @return search setup
+         */
+        private static QuiescenceSetup search(MoveList legalMoves, boolean inCheck, int standPat, int alpha) {
+            return new QuiescenceSetup(false, NO_SCORE, legalMoves, inCheck, standPat, alpha);
+        }
+    }
+
+    /**
      * Mutable per-search context.
      *
      * <p>
@@ -1377,7 +1756,7 @@ public final class AlphaBeta implements AutoCloseable {
          * @return history-table index
          */
         private static int historyIndex(short move) {
-            return (Move.getFromIndex(move) << 6) | Move.getToIndex(move);
+            return ((Move.getFromIndex(move) & 0xff) << 6) | (Move.getToIndex(move) & 0xff);
         }
 
         /**
@@ -1648,22 +2027,7 @@ public final class AlphaBeta implements AutoCloseable {
      * @param principalVariation principal variation beginning with
      *        {@code bestMove}
      */
-    private static final class RootOutcome {
-
-        /**
-         * Best move selected at the root.
-         */
-        private final short bestMove;
-
-        /**
-         * Root-perspective score for the selected move.
-         */
-        private final int score;
-
-        /**
-         * Principal variation beginning with {@link #bestMove}.
-         */
-        private final short[] principalVariation;
+    private record RootOutcome(short bestMove, int score, short[] principalVariation) {
 
         /**
          * Creates an immutable root outcome.
@@ -1673,47 +2037,17 @@ public final class AlphaBeta implements AutoCloseable {
          * @param principalVariation principal variation beginning with
          *        {@code bestMove}
          */
-        private RootOutcome(short bestMove, int score, short[] principalVariation) {
-            this.bestMove = bestMove;
-            this.score = score;
-            this.principalVariation = principalVariation == null
+        private RootOutcome {
+            principalVariation = principalVariation == null
                     ? new short[0]
                     : Arrays.copyOf(principalVariation, principalVariation.length);
         }
 
-        /**
-         * Returns the best root move.
-         *
-         * @return best root move
-         */
-        private short bestMove() {
-            return bestMove;
-        }
-
-        /**
-         * Returns the root score.
-         *
-         * @return root-perspective score
-         */
-        private int score() {
-            return score;
-        }
-
-        /**
-         * Returns a copy of the principal variation.
-         *
-         * @return root principal variation
-         */
-        private short[] principalVariation() {
+        @Override
+        public short[] principalVariation() {
             return Arrays.copyOf(principalVariation, principalVariation.length);
         }
 
-        /**
-         * Compares root outcomes by value, including principal-variation content.
-         *
-         * @param other candidate object
-         * @return true when all fields match
-         */
         @Override
         public boolean equals(Object other) {
             return other instanceof RootOutcome that
@@ -1722,11 +2056,6 @@ public final class AlphaBeta implements AutoCloseable {
                     && Arrays.equals(principalVariation, that.principalVariation);
         }
 
-        /**
-         * Computes a hash from every outcome field.
-         *
-         * @return content-based hash
-         */
         @Override
         public int hashCode() {
             int result = Short.hashCode(bestMove);
@@ -1735,11 +2064,6 @@ public final class AlphaBeta implements AutoCloseable {
             return result;
         }
 
-        /**
-         * Formats the outcome with readable principal-variation contents.
-         *
-         * @return diagnostic text
-         */
         @Override
         public String toString() {
             return "RootOutcome[bestMove="

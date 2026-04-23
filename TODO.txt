@@ -11,17 +11,27 @@ Add agentic commands:
 - analyze-batch: analyze FEN list -> JSONL with caps
 - bestmove-batch: bestmove for FEN list -> JSONL with caps
 
+CLI and command interface improvements:
+- Standardize global flags across commands: `--format`, `--quiet`, `--verbose`, `--color`, `--output`, `--stdin`.
+- Standardize position input across commands: `--fen`, positional FEN where sensible, `--file`, `--pgn`, and `-` for stdin.
+- Standardize output modes everywhere: human-readable text, stable tables, `--json`, and `--jsonl`.
+- Standardize exit codes and error behavior: short user-facing errors by default, stack traces only with `--verbose`.
+- Unify command naming around a small verb set such as `list`, `show`, `validate`, `convert`, `play`, `analyze`, and `benchmark`.
+- Reduce overlapping command names and aliases; keep one canonical command path per action.
+- Add shell completion for bash, zsh, and fish.
+- Expand help output with examples, related commands, and grouped command categories.
+- Add a central command metadata registry so help, docs, aliases, completion, and validation come from one source of truth.
+- Improve composability for scripts: consistent stdin/stdout behavior, `--no-header`, `--fields`, and batch-friendly JSONL output.
+- Add `position show`, `position diff`, `engine benchmark`, `engine compare`, and `selftest` as high-value workflow commands.
+- Add CLI snapshot/golden tests for help output, table output, JSON output, and common error messages.
+- Tighten defaults so common commands work well without excessive flags.
+- Keep command handlers thin: orchestration in CLI, chess logic in core/engine packages.
 
 
 fix gui situation
 fix tagging situation
 
 Repo quality improvements:
-- Add CI workflow for build, lint, core regressions, CLI regressions, UCI regressions, and perft smoke checks.
-- Add a single local test runner script or Makefile/justfile target for the recommended regression suite.
-- Keep `git diff --check` clean; remove trailing whitespace before commits.
-- Split oversized classes into smaller modules, starting with book rendering, GUI layout, record commands, and core position logic.
-- Add a release readiness checklist covering clean worktree, fresh compile, regression suite, perft suite, docs update, and jar build.
 - Decide whether the current non-commercial/no-derivatives license is intentional; if wider adoption matters, choose a standard open-source license.
 - Reduce direct `System.exit` and raw stack-trace printing in command handlers where practical so command logic is easier to test and reuse.
 - Add contributor docs for coding style, test commands, release process, and expected Java version.

@@ -16,7 +16,6 @@ import application.gui.layout.tab.ReportTabContext;
 import application.gui.layout.tab.ReportTabPanel;
 import application.gui.layout.tab.VariationTabContext;
 import application.gui.layout.tab.VariationTabPanel;
-import application.gui.render.MovePairCellRenderer;
 import application.gui.model.HistoryEntry;
 import application.gui.model.PvEntry;
 import java.awt.BorderLayout;
@@ -55,7 +54,6 @@ import javax.swing.SwingConstants;
 import javax.swing.border.EmptyBorder;
 import javax.swing.border.MatteBorder;
 import javax.swing.event.ChangeEvent;
-import javax.swing.event.ChangeListener;
 import javax.swing.table.DefaultTableModel;
 import chess.core.Position;
 import chess.eco.Entry;
@@ -72,7 +70,7 @@ class GuiWindowLayout extends GuiWindowEngine {
 	/**
 	 * layoutBuilderSupport field.
 	 */
-	private final LayoutBuilderSupport layoutBuilderSupport = new LayoutBuilderSupport();
+	private final GuiWindowLayoutBuilderSupport layoutBuilderSupport = new GuiWindowLayoutBuilderSupport(this);
 	/**
 	 * commandCenterContext field.
 	 */
@@ -82,422 +80,157 @@ class GuiWindowLayout extends GuiWindowEngine {
 	 */
 	private final AnnotateTabContext annotateTabContext = layoutBuilderSupport;
 	/**
-	 * LayoutBuilderSupport class.
-	 *
-	 * Provides class behavior for the GUI module.
-	 *
-	 * @since 2026
-	 * @author Lennart A. Conrad
+	 * Shared copy-fen tooltip constant.
 	 */
-	private final class LayoutBuilderSupport implements CommandCenterContext, AnnotateTabContext, ReportTabContext, VariationTabContext {
-		/**
-		 * track method.
-		 *
-		 * @param list parameter.
-		 * @param value parameter.
-		 */
-		private <T> void track(List<T> list, T value) {
-			if (list != null && value != null) {
-				list.add(value);
-			}
-		}
+	private static final String TOOLTIP_COPY_FEN = "Copy FEN (Ctrl+Shift+C)";
+	/**
+	 * Shared undo tooltip constant.
+	 */
+	private static final String TOOLTIP_UNDO = "Undo (Ctrl+Z)";
+	/**
+	 * Shared flip-board tooltip constant.
+	 */
+	private static final String TOOLTIP_FLIP_BOARD = "Flip board (F)";
+	/**
+	 * Shared analysis tab label constant.
+	 */
+	private static final String TAB_ANALYSIS = "Analysis";
+	/**
+	 * Shared explorer tab label constant.
+	 */
+	private static final String TAB_EXPLORER = "Explorer";
+	/**
+	 * Shared annotate tab label constant.
+	 */
+	private static final String TAB_ANNOTATE = "Annotate";
+	/**
+	 * Shared report tab label constant.
+	 */
+	private static final String TAB_REPORT = "Report";
+	/**
+	 * Shared variations tab label constant.
+	 */
+	private static final String TAB_VARIATIONS = "Variations";
+	/**
+	 * Shared ablation tab label constant.
+	 */
+	private static final String TAB_ABLATION = "Ablation";
+	/**
+	 * Shared commands tab label constant.
+	 */
+	private static final String TAB_COMMANDS = "Commands";
+	/**
+	 * Shared moves label constant.
+	 */
+	private static final String LABEL_MOVES = "Moves";
 
-				/**
-		 * Handles create muted label.
-		 * @param text text value
-		 * @return computed value
-		 */
-@Override
-		/**
-		 * createMutedLabel method.
-		 *
-		 * @param text parameter.
-		 * @return return value.
-		 */
-		public JLabel createMutedLabel(String text) {
-			return GuiWindowLayout.this.mutedLabel(text);
-		}
+	JLabel builderMutedLabel(String text) {
+		return mutedLabel(text);
+	}
 
-				/**
-		 * Handles create themed button.
-		 * @param text text value
-		 * @param action action value
-		 * @return computed value
-		 */
-@Override
-		/**
-		 * createThemedButton method.
-		 *
-		 * @param text parameter.
-		 * @param action parameter.
-		 * @return return value.
-		 */
-		public JButton createThemedButton(String text, ActionListener action) {
-			return GuiWindowLayout.this.themedButton(text, action);
-		}
+	JButton builderThemedButton(String text, ActionListener action) {
+		return themedButton(text, action);
+	}
 
-				/**
-		 * Handles muted label.
-		 * @param text text value
-		 * @return computed value
-		 */
-@Override
-		/**
-		 * mutedLabel method.
-		 *
-		 * @param text parameter.
-		 * @return return value.
-		 */
-		public JLabel mutedLabel(String text) {
-			return GuiWindowLayout.this.mutedLabel(text);
-		}
+	JCheckBox builderThemedCheckbox(String text, boolean selected, ActionListener action) {
+		return themedCheckbox(text, selected, action);
+	}
 
-				/**
-		 * Handles themed button.
-		 * @param text text value
-		 * @param action action value
-		 * @return computed value
-		 */
-@Override
-		/**
-		 * themedButton method.
-		 *
-		 * @param text parameter.
-		 * @param action parameter.
-		 * @return return value.
-		 */
-		public JButton themedButton(String text, ActionListener action) {
-			return GuiWindowLayout.this.themedButton(text, action);
-		}
+	RoundedPanel builderFlatCard(String title) {
+		return createFlatCard(title);
+	}
 
-				/**
-		 * Handles create themed checkbox.
-		 * @param text text value
-		 * @param selected selected value
-		 * @param action action value
-		 * @return computed value
-		 */
-@Override
-		/**
-		 * createThemedCheckbox method.
-		 *
-		 * @param text parameter.
-		 * @param selected parameter.
-		 * @param action parameter.
-		 * @return return value.
-		 */
-		public JCheckBox createThemedCheckbox(String text, boolean selected, ActionListener action) {
-			return GuiWindowLayout.this.themedCheckbox(text, selected, action);
-		}
+	RoundedPanel builderFlatCard(String title, boolean showTitle) {
+		return createFlatCard(title, showTitle);
+	}
 
-				/**
-		 * Handles build flat card.
-		 * @param title title value
-		 * @return computed value
-		 */
-@Override
-		/**
-		 * buildFlatCard method.
-		 *
-		 * @param title parameter.
-		 * @return return value.
-		 */
-		public RoundedPanel buildFlatCard(String title) {
-			return GuiWindowLayout.this.createFlatCard(title);
-		}
+	Dimension builderScaledDimension(Dimension base) {
+		return scaleDimension(base);
+	}
 
-				/**
-		 * Handles scaled dimension.
-		 * @param base base value
-		 * @return computed value
-		 */
-@Override
-		/**
-		 * scaledDimension method.
-		 *
-		 * @param base parameter.
-		 * @return return value.
-		 */
-		public Dimension scaledDimension(Dimension base) {
-			return scaleDimension(base);
-		}
+	int builderScaledRowHeight(int base) {
+		return Math.round(base * uiScale);
+	}
 
-				/**
-		 * Handles scaled row height.
-		 * @param base base value
-		 * @return computed value
-		 */
-@Override
-		/**
-		 * scaledRowHeight method.
-		 *
-		 * @param base parameter.
-		 * @return return value.
-		 */
-		public int scaledRowHeight(int base) {
-			return Math.round(base * uiScale);
+	void builderRegisterFlatCard(RoundedPanel card) {
+		if (card != null && !flatCards.contains(card)) {
+			flatCards.add(card);
 		}
+	}
 
-				/**
-		 * Handles register flat card.
-		 * @param card card value
-		 */
-@Override
-		/**
-		 * registerFlatCard method.
-		 *
-		 * @param card parameter.
-		 */
-		public void registerFlatCard(RoundedPanel card) {
-			if (card != null && !flatCards.contains(card)) {
-				flatCards.add(card);
-			}
-		}
+	void builderRegisterComboBox(JComboBox<?> combo) {
+		trackBuilderComponent(combos, combo);
+	}
 
-				/**
-		 * Handles register combo box.
-		 * @param combo combo value
-		 */
-@Override
-		/**
-		 * registerComboBox method.
-		 *
-		 * @param combo parameter.
-		 */
-		public void registerComboBox(JComboBox<?> combo) {
-			track(combos, combo);
-		}
+	void builderRegisterTextField(JTextField field) {
+		trackBuilderComponent(textFields, field);
+	}
 
-				/**
-		 * Handles register text field.
-		 * @param field field value
-		 */
-@Override
-		/**
-		 * registerTextField method.
-		 *
-		 * @param field parameter.
-		 */
-		public void registerTextField(JTextField field) {
-			track(textFields, field);
-		}
+	void builderRegisterTextArea(JTextArea area) {
+		trackBuilderComponent(textAreas, area);
+	}
 
-				/**
-		 * Handles register text area.
-		 * @param area area value
-		 */
-@Override
-		/**
-		 * registerTextArea method.
-		 *
-		 * @param area parameter.
-		 */
-		public void registerTextArea(JTextArea area) {
-			track(textAreas, area);
-		}
+	void builderRegisterList(JList<?> list) {
+		trackBuilderComponent(lists, list);
+	}
 
-				/**
-		 * Handles register list.
-		 * @param list list value
-		 */
-@Override
-		/**
-		 * registerList method.
-		 *
-		 * @param list parameter.
-		 */
-		public void registerList(JList<?> list) {
-			track(lists, list);
-		}
+	void builderRegisterScrollPane(JScrollPane scroll) {
+		trackBuilderComponent(scrolls, scroll);
+	}
 
-				/**
-		 * Handles register scroll pane.
-		 * @param scroll scroll value
-		 */
-@Override
-		/**
-		 * registerScrollPane method.
-		 *
-		 * @param scroll parameter.
-		 */
-		public void registerScrollPane(JScrollPane scroll) {
-			track(scrolls, scroll);
-		}
+	void builderRegisterButton(JButton button) {
+		trackBuilderComponent(buttons, button);
+	}
 
-				/**
-		 * Handles register button.
-		 * @param button button value
-		 */
-@Override
-		/**
-		 * registerButton method.
-		 *
-		 * @param button parameter.
-		 */
-		public void registerButton(JButton button) {
-			track(buttons, button);
-		}
-		
-				/**
-		 * Handles create flat card.
-		 * @param title title value
-		 * @param showTitle show title value
-		 * @return computed value
-		 */
-@Override
-		/**
-		 * createFlatCard method.
-		 *
-		 * @param title parameter.
-		 * @param showTitle parameter.
-		 * @return return value.
-		 */
-		public RoundedPanel createFlatCard(String title, boolean showTitle) {
-			return GuiWindowLayout.this.createFlatCard(title, showTitle);
-		}
+	void builderRegisterTable(JTable table) {
+		trackBuilderComponent(tables, table);
+	}
 
-				/**
-		 * Handles register table.
-		 * @param table table value
-		 */
-@Override
-		/**
-		 * registerTable method.
-		 *
-		 * @param table parameter.
-		 */
-		public void registerTable(JTable table) {
-			track(tables, table);
-		}
-		
-				/**
-		 * Handles preview node.
-		 * @param node node value
-		 * @param screenPoint screen point value
-		 */
-@Override
-		/**
-		 * previewNode method.
-		 *
-		 * @param node parameter.
-		 * @param screenPoint parameter.
-		 */
-		public void previewNode(PgnNode node, Point screenPoint) {
-			GuiWindowLayout.this.previewNodeHover(node, screenPoint);
-		}
+	void builderPreviewNode(PgnNode node, Point screenPoint) {
+		previewNodeHover(node, screenPoint);
+	}
 
-				/**
-		 * Handles clear hover previews.
-		 */
-@Override
-		/**
-		 * clearHoverPreviews method.
-		 */
-		public void clearHoverPreviews() {
-			GuiWindowLayout.this.clearHoverPreviews();
-		}
+	void builderClearHoverPreviews() {
+		clearHoverPreviews();
+	}
 
-				/**
-		 * Handles apply pgn node.
-		 * @param node node value
-		 */
-@Override
-		/**
-		 * applyPgnNode method.
-		 *
-		 * @param node parameter.
-		 */
-		public void applyPgnNode(PgnNode node) {
-			if (node != null) {
-				GuiWindowLayout.this.applyPgnNode(node);
-			}
+	void builderApplyPgnNode(PgnNode node) {
+		if (node != null) {
+			applyPgnNode(node);
 		}
+	}
 
-				/**
-		 * Handles request fen toggle.
-		 */
-@Override
-		/**
-		 * requestFenToggle method.
-		 */
-		public void requestFenToggle() {
-			toggleFenMode();
-		}
+	void builderRequestFenToggle() {
+		toggleFenMode();
+	}
 
-				/**
-		 * Handles request command run.
-		 */
-@Override
-		/**
-		 * requestCommandRun method.
-		 */
-		public void requestCommandRun() {
-			runCommandFromForm();
-		}
+	void builderRequestCommandRun() {
+		runCommandFromForm();
+	}
 
-				/**
-		 * Handles request command stop.
-		 */
-@Override
-		/**
-		 * requestCommandStop method.
-		 */
-		public void requestCommandStop() {
-			stopCommand();
-		}
+	void builderRequestCommandStop() {
+		stopCommand();
+	}
 
-				/**
-		 * Handles request command help.
-		 */
-@Override
-		/**
-		 * requestCommandHelp method.
-		 */
-		public void requestCommandHelp() {
-			runHelp();
-		}
+	void builderRequestCommandHelp() {
+		runHelp();
+	}
 
-				/**
-		 * Handles request recent command.
-		 * @param index index value
-		 */
-@Override
-		/**
-		 * requestRecentCommand method.
-		 *
-		 * @param index parameter.
-		 */
-		public void requestRecentCommand(int index) {
-			runRecentCommand(index);
-		}
+	void builderRequestRecentCommand(int index) {
+		runRecentCommand(index);
+	}
 
-				/**
-		 * Handles request command form update.
-		 */
-@Override
-		/**
-		 * requestCommandFormUpdate method.
-		 */
-		public void requestCommandFormUpdate() {
-			updateCommandForm();
-		}
+	void builderRequestCommandFormUpdate() {
+		updateCommandForm();
+	}
 
-				/**
-		 * Handles add nag button.
-		 * @param container container value
-		 * @param label label value
-		 * @param nag nag value
-		 */
-@Override
-		/**
-		 * addNagButton method.
-		 *
-		 * @param container parameter.
-		 * @param label parameter.
-		 * @param nag parameter.
-		 */
-		public void addNagButton(JPanel container, String label, int nag) {
-			GuiWindowLayout.this.addNagButton(container, label, nag);
+	void builderAddNagButton(JPanel container, String label, int nag) {
+		addNagButton(container, label, nag);
+	}
+
+	private <T> void trackBuilderComponent(List<T> list, T value) {
+		if (list != null && value != null) {
+			list.add(value);
 		}
 	}
 
@@ -576,6 +309,7 @@ class GuiWindowLayout extends GuiWindowEngine {
 			focusCornerHost = focusCornerRow;
 			left.add(focusCornerRow, BorderLayout.NORTH);
 			this.boardPanel = new BoardPanel(this);
+			buildBoardMenu();
 			this.baseBoardMin = new Dimension(520, 520);
 			this.boardPanel.setMinimumSize(scaleDimension(baseBoardMin));
 			this.evalBar = new EvalBar(this);
@@ -720,7 +454,7 @@ class GuiWindowLayout extends GuiWindowEngine {
 			JButton editButton = iconButton("Edit", e -> openBoardEditor());
 			editButton.setToolTipText("Open board editor (E)");
 			JButton copyFenButton = iconButton("FEN", e -> copyFen());
-			copyFenButton.setToolTipText("Copy FEN (Ctrl+Shift+C)");
+			copyFenButton.setToolTipText(TOOLTIP_COPY_FEN);
 			JButton cmdButton = iconButton("Cmd", e -> openCommandPalette());
 			cmdButton.setToolTipText("Command palette (Ctrl+P)");
 			utilityActions.add(bestButton);
@@ -746,9 +480,9 @@ class GuiWindowLayout extends GuiWindowEngine {
 			JPanel quickActions = new JPanel(new java.awt.GridLayout(1, 0, 8, 8));
 			quickActions.setOpaque(false);
 			JButton copyFen = themedButton("Copy FEN", e -> copyFen());
-			copyFen.setToolTipText("Copy FEN (Ctrl+Shift+C)");
+			copyFen.setToolTipText(TOOLTIP_COPY_FEN);
 			JButton undoMove = themedButton("Undo", e -> undoMove());
-			undoMove.setToolTipText("Undo (Ctrl+Z)");
+			undoMove.setToolTipText(TOOLTIP_UNDO);
 			JButton resetPos = themedButton("Reset", e -> resetPosition());
 			resetPos.setToolTipText("Reset position");
 			JButton paletteButton = themedButton("Palette", e -> openCommandPalette());
@@ -788,13 +522,13 @@ class GuiWindowLayout extends GuiWindowEngine {
 			bar.setPreferredSize(rail);
 			bar.setMinimumSize(rail);
 			bar.add(Box.createVerticalStrut(8));
-			addActivityTabButton(bar, "◉", "Analysis", "Analysis");
-			addActivityTabButton(bar, "♟", "Explorer", "Explorer");
-			addActivityTabButton(bar, "✎", "Annotate", "Annotate");
-			addActivityTabButton(bar, "≡", "Report", "Report");
-			addActivityTabButton(bar, "⋯", "Variations", "Variations");
-			addActivityTabButton(bar, "Δ", "Ablation", "Ablation");
-			addActivityTabButton(bar, "⌘", "Commands", "Commands");
+			addActivityTabButton(bar, "◉", TAB_ANALYSIS, TAB_ANALYSIS);
+			addActivityTabButton(bar, "♟", TAB_EXPLORER, TAB_EXPLORER);
+			addActivityTabButton(bar, "✎", TAB_ANNOTATE, TAB_ANNOTATE);
+			addActivityTabButton(bar, "≡", TAB_REPORT, TAB_REPORT);
+			addActivityTabButton(bar, "⋯", TAB_VARIATIONS, TAB_VARIATIONS);
+			addActivityTabButton(bar, "Δ", TAB_ABLATION, TAB_ABLATION);
+			addActivityTabButton(bar, "⌘", TAB_COMMANDS, TAB_COMMANDS);
 			addActivityTabButton(bar, "ℹ", "Info", "Info");
 			bar.add(Box.createVerticalGlue());
 			addActivityActionButton(bar, "⌕", "Command Palette (Ctrl+P)", this::openCommandPalette);
@@ -945,41 +679,9 @@ class GuiWindowLayout extends GuiWindowEngine {
 			panel.setPreferredSize(scaleDimension(new Dimension(10, 160)));
 			panel.setVisible(panelVisible);
 			return panel; }
-		/**
-		 * buildBoardControlsRow method.
-		 *
-		 * @return return value.
-		 */
-		private JPanel buildBoardControlsRow() {
-			JPanel row = new JPanel(new BorderLayout(8, 8));
-			boardControlsRow = row;
-			row.setOpaque(false);
-			JPanel left = new JPanel(new java.awt.GridLayout(1, 0, 8, 8));
-			left.setOpaque(false);
-			JButton prev = iconButton("Prev", e -> navigatePrev());
-			JButton next = iconButton("Next", e -> navigateNext());
-			JButton undo = iconButton("Undo", e -> undoMove());
-			JButton flip = iconButton("Flip", e -> flipBoard());
-			prev.setToolTipText("Previous (Left)");
-			next.setToolTipText("Next (Right)");
-			undo.setToolTipText("Undo (Ctrl+Z)");
-			flip.setToolTipText("Flip board (F)");
-			left.add(prev);
-			left.add(next);
-			left.add(undo);
-			left.add(flip);
-			row.add(left, BorderLayout.WEST);
-			JPanel right = new JPanel(new java.awt.GridLayout(1, 0, 8, 8));
-			right.setOpaque(false);
-			boardBestButton = iconButton("Best", e -> playEngineBest());
-			boardBestButton.setToolTipText("Play best move (Space)");
-			boardBestButton.setEnabled(false);
-			right.add(boardBestButton);
-			row.add(right, BorderLayout.EAST);
-			return row; }
-		/**
-		 * buildBoardActionStrip method.
-		 *
+			/**
+			 * buildBoardActionStrip method.
+			 *
 		 * @return return value.
 		 */
 		private JPanel buildBoardActionStrip() {
@@ -996,7 +698,7 @@ class GuiWindowLayout extends GuiWindowEngine {
 			JButton clear = iconButton("Clear", e -> boardPanel.clearShapes());
 			clear.setToolTipText("Clear arrows/markers");
 			JButton flip = iconButton("Flip", e -> flipBoard());
-			flip.setToolTipText("Flip board (F)");
+			flip.setToolTipText(TOOLTIP_FLIP_BOARD);
 			strip.add(snap);
 			strip.add(Box.createVerticalStrut(6));
 			strip.add(copy);
@@ -1025,56 +727,13 @@ class GuiWindowLayout extends GuiWindowEngine {
 			boardMenu.add(flip);
 			boardMenu.addSeparator();
 			boardMenu.add(clear); }
-		/**
-		 * buildPositionCard method.
-		 *
-		 * @return return value.
-		 */
-		private RoundedPanel buildPositionCard() {
-			RoundedPanel card = createFlatCard("Position");
-			JPanel body = new JPanel();
-			body.setOpaque(false);
-			body.setLayout(new BoxLayout(body, BoxLayout.Y_AXIS));
-			JPanel row1 = new JPanel(new BorderLayout(8, 8));
-			row1.setOpaque(false);
-			JPanel row1Buttons = new JPanel(new java.awt.FlowLayout(java.awt.FlowLayout.LEFT, 8, 0));
-			row1Buttons.setOpaque(false);
-			JButton resetButton = iconButton("Rst", e -> resetPosition());
-			resetButton.setToolTipText("Reset position");
-			JButton undoButton = iconButton("Undo", e -> undoMove());
-			undoButton.setToolTipText("Undo (Ctrl+Z)");
-			JButton flipButton = iconButton("Flip", e -> flipBoard());
-			flipButton.setToolTipText("Flip board (F)");
-			JButton editButton = iconButton("Edit", e -> openBoardEditor());
-			editButton.setToolTipText("Board editor (E)");
-			row1Buttons.add(resetButton);
-			row1Buttons.add(undoButton);
-			row1Buttons.add(flipButton);
-			row1Buttons.add(editButton);
-			row1.add(row1Buttons, BorderLayout.CENTER);
-			JPanel row2 = new JPanel(new java.awt.FlowLayout(java.awt.FlowLayout.LEFT, 8, 0));
-			row2.setOpaque(false);
-			JButton copyImage = iconButton("Copy", e -> copyBoardImage());
-			copyImage.setToolTipText("Copy board image (Ctrl+Shift+I)");
-			JButton saveImage = iconButton("Save", e -> saveBoardImage());
-			saveImage.setToolTipText("Save board image (Ctrl+Shift+S)");
-			JButton copyFenButton = iconButton("FEN", e -> copyFen());
-			copyFenButton.setToolTipText("Copy FEN (Ctrl+Shift+C)");
-			row2.add(copyImage);
-			row2.add(saveImage);
-			row2.add(copyFenButton);
-			body.add(row1);
-			body.add(Box.createVerticalStrut(8));
-			body.add(row2);
-			card.setContent(body);
-			return card; }
-		/**
-		 * buildExplorerCard method.
-		 *
+			/**
+			 * buildExplorerCard method.
+			 *
 		 * @return return value.
 		 */
 		private RoundedPanel buildExplorerCard() {
-			RoundedPanel card = createFlatCard("Explorer");
+			RoundedPanel card = createFlatCard(TAB_EXPLORER);
 			JPanel body = new JPanel();
 			body.setOpaque(false);
 			body.setLayout(new BoxLayout(body, BoxLayout.Y_AXIS));
@@ -1126,181 +785,39 @@ class GuiWindowLayout extends GuiWindowEngine {
 		 *
 		 * @return return value.
 		 */
-		private RoundedPanel buildViewCard() {
-			RoundedPanel card = createFlatCard("View");
-			JPanel body = new JPanel();
-			body.setOpaque(false);
-			body.setLayout(new BoxLayout(body, BoxLayout.Y_AXIS));
-			JPanel togglesRow1 = new JPanel(new java.awt.GridLayout(1, 0, 8, 8));
-			togglesRow1.setOpaque(false);
-			legalToggle = themedCheckbox("Legal hints", guiState.showLegal, e -> {
-				guiState.showLegal = legalToggle.isSelected();
-				refreshBoard();
-			});
-			legalToggle.setToolTipText("Toggle legal hints (L)");
-			hoverLegalToggle = themedCheckbox("Hover hints", guiState.hoverLegal, e -> {
-				hoverLegal = hoverLegalToggle.isSelected();
-				guiState.hoverLegal = hoverLegal;
-				if (!hoverLegal) {
-					hoverOnlyLegal = false;
-					if (hoverOnlyToggle != null) {
-						hoverOnlyToggle.setSelected(false);
-						hoverOnlyToggle.setEnabled(false); }
-					guiState.hoverOnlyLegal = false;
-				} else if (hoverOnlyToggle != null) {
-					hoverOnlyToggle.setEnabled(true); }
-				refreshBoard();
-			});
-			hoverHighlightToggle = themedCheckbox("Hover glow", guiState.hoverHighlight, e -> {
-				hoverHighlight = hoverHighlightToggle.isSelected();
-				guiState.hoverHighlight = hoverHighlight;
-				refreshBoard();
-			});
-			hoverOnlyToggle = themedCheckbox("Hover only", guiState.hoverOnlyLegal, e -> {
-				hoverOnlyLegal = hoverOnlyToggle.isSelected();
-				guiState.hoverOnlyLegal = hoverOnlyLegal;
-				refreshBoard();
-			});
-			hoverOnlyToggle.setEnabled(guiState.hoverLegal);
-			togglesRow1.add(legalToggle);
-			togglesRow1.add(hoverLegalToggle);
-			togglesRow1.add(hoverHighlightToggle);
-			togglesRow1.add(hoverOnlyToggle);
-			JPanel togglesRow2 = new JPanel(new java.awt.GridLayout(1, 0, 8, 8));
-			togglesRow2.setOpaque(false);
-			coordsToggle = themedCheckbox("Coordinates", guiState.showCoords, e -> {
-				showCoords = coordsToggle.isSelected();
-				guiState.showCoords = showCoords;
-				refreshBoard();
-			});
-			movesToggle = themedCheckbox("Moves", guiState.showMoves, e -> {
-				guiState.showMoves = movesToggle.isSelected();
-				toggleMoves();
-			});
-			tagsToggle = themedCheckbox("Tags", guiState.showTags, e -> {
-				guiState.showTags = tagsToggle.isSelected();
-				toggleTags();
-			});
-			bestMoveToggle = themedCheckbox("Best move", guiState.showBestMove, e -> {
-				guiState.showBestMove = bestMoveToggle.isSelected();
-				refreshBoard();
-			});
-			togglesRow2.add(coordsToggle);
-			togglesRow2.add(movesToggle);
-			togglesRow2.add(tagsToggle);
-			togglesRow2.add(bestMoveToggle);
-			JPanel togglesRow3 = new JPanel(new java.awt.GridLayout(1, 0, 8, 8));
-			togglesRow3.setOpaque(false);
-			darkToggle = themedCheckbox("Dark mode", !lightMode, e -> toggleTheme());
-			contrastToggle = themedCheckbox("High contrast", highContrast, e -> toggleContrast());
-			compactToggle = themedCheckbox("Compact", compactMode, e -> {
-				compactMode = compactToggle.isSelected();
-				guiState.compactMode = compactMode;
-				applyTheme();
-				frame.revalidate();
-			});
-			figurineSanToggle = themedCheckbox("Figurine SAN", figurineSan, e ->
-				applyFigurineSanSetting(figurineSanToggle.isSelected()));
-			togglesRow3.add(darkToggle);
-			togglesRow3.add(contrastToggle);
-			togglesRow3.add(compactToggle);
-			togglesRow3.add(figurineSanToggle);
-			JPanel hueRow = new JPanel(new BorderLayout(8, 8));
-			hueRow.setOpaque(false);
-			hueRow.add(mutedLabel("Board hue"), BorderLayout.WEST);
-			hueSlider = new JSlider(0, 360, boardHueDegrees);
-			sliders.add(hueSlider);
-			hueValueLabel = mutedLabel(boardHueDegrees + "°");
-			hueSlider.addChangeListener(new ChangeListener() {
-								/**
-				 * Handles state changed.
-				 * @param e e value
-				 */
-@Override
-				public void stateChanged(ChangeEvent e) {
-					boardHueDegrees = hueSlider.getValue();
-					guiState.boardHueDegrees = boardHueDegrees;
-					hueValueLabel.setText(boardHueDegrees + "°");
-					refreshBoard();
-					if (editorDialog != null) {
-						editorDialog.repaintBoard(); }
-					if (boardEditorPane != null) {
-						boardEditorPane.repaintBoard(); } }
-			});
-			hueRow.add(hueSlider, BorderLayout.CENTER);
-			hueRow.add(hueValueLabel, BorderLayout.EAST);
-			JPanel brightnessRow = new JPanel(new BorderLayout(8, 8));
-			brightnessRow.setOpaque(false);
-			brightnessRow.add(mutedLabel("Board brightness"), BorderLayout.WEST);
-			brightnessSlider = new JSlider(40, 200, boardBrightness);
-			sliders.add(brightnessSlider);
-			brightnessValueLabel = mutedLabel(boardBrightness + "%");
-			brightnessSlider.addChangeListener(new ChangeListener() {
-								/**
-				 * Handles state changed.
-				 * @param e e value
-				 */
-@Override
-				public void stateChanged(ChangeEvent e) {
-					boardBrightness = brightnessSlider.getValue();
-					guiState.boardBrightness = boardBrightness;
-					brightnessValueLabel.setText(boardBrightness + "%");
-					refreshBoard();
-					if (editorDialog != null) {
-						editorDialog.repaintBoard(); }
-					if (boardEditorPane != null) {
-						boardEditorPane.repaintBoard(); } }
-			});
-			brightnessRow.add(brightnessSlider, BorderLayout.CENTER);
-			brightnessRow.add(brightnessValueLabel, BorderLayout.EAST);
-			JPanel saturationRow = new JPanel(new BorderLayout(8, 8));
-			saturationRow.setOpaque(false);
-			saturationRow.add(mutedLabel("Board saturation"), BorderLayout.WEST);
-			saturationSlider = new JSlider(40, 200, boardSaturation);
-			sliders.add(saturationSlider);
-			saturationValueLabel = mutedLabel(boardSaturation + "%");
-			saturationSlider.addChangeListener(new ChangeListener() {
-								/**
-				 * Handles state changed.
-				 * @param e e value
-				 */
-@Override
-				public void stateChanged(ChangeEvent e) {
-					boardSaturation = saturationSlider.getValue();
-					guiState.boardSaturation = boardSaturation;
-					saturationValueLabel.setText(boardSaturation + "%");
-					refreshBoard();
-					if (editorDialog != null) {
-						editorDialog.repaintBoard(); }
-					if (boardEditorPane != null) {
-						boardEditorPane.repaintBoard(); } }
-			});
-			saturationRow.add(saturationSlider, BorderLayout.CENTER);
-			saturationRow.add(saturationValueLabel, BorderLayout.EAST);
-			JPanel animationRow = new JPanel(new BorderLayout(8, 8));
-			animationRow.setOpaque(false);
-			animationRow.add(mutedLabel("Animation"), BorderLayout.WEST);
-			animationSlider = new JSlider(0, 1000, Math.max(0, Math.min(1000, animationMillis)));
-			animationMillis = animationSlider.getValue();
-			guiState.animationMillis = animationMillis;
-			sliders.add(animationSlider);
-			animationValueLabel = mutedLabel(animationSlider.getValue() == 0 ? "Off" : (animationSlider.getValue() + " ms"));
-			animationSlider.addChangeListener(new ChangeListener() {
-								/**
-				 * Handles state changed.
-				 * @param e e value
-				 */
-@Override
-				public void stateChanged(ChangeEvent e) {
-					animationMillis = animationSlider.getValue();
-					guiState.animationMillis = animationMillis;
-					animationValueLabel.setText(animationMillis == 0 ? "Off" : (animationMillis + " ms")); }
-			});
-			animationRow.add(animationSlider, BorderLayout.CENTER);
-			animationRow.add(animationValueLabel, BorderLayout.EAST);
-			body.add(togglesRow1);
-			body.add(Box.createVerticalStrut(8));
-			body.add(togglesRow2);
+			private RoundedPanel buildViewCard() {
+				RoundedPanel card = createFlatCard("View");
+				JPanel body = new JPanel();
+				body.setOpaque(false);
+				body.setLayout(new BoxLayout(body, BoxLayout.Y_AXIS));
+				JPanel togglesRow1 = buildViewToggleRowOne();
+				JPanel togglesRow2 = buildViewToggleRowTwo();
+				JPanel togglesRow3 = buildViewToggleRowThree();
+				hueSlider = new JSlider(0, 360, boardHueDegrees);
+				sliders.add(hueSlider);
+				hueValueLabel = mutedLabel(boardHueDegrees + "°");
+				hueSlider.addChangeListener(this::handleHueSliderChanged);
+				JPanel hueRow = createViewSliderRow("Board hue", hueSlider, hueValueLabel);
+				brightnessSlider = new JSlider(40, 200, boardBrightness);
+				sliders.add(brightnessSlider);
+				brightnessValueLabel = mutedLabel(boardBrightness + "%");
+				brightnessSlider.addChangeListener(this::handleBrightnessSliderChanged);
+				JPanel brightnessRow = createViewSliderRow("Board brightness", brightnessSlider, brightnessValueLabel);
+				saturationSlider = new JSlider(40, 200, boardSaturation);
+				sliders.add(saturationSlider);
+				saturationValueLabel = mutedLabel(boardSaturation + "%");
+				saturationSlider.addChangeListener(this::handleSaturationSliderChanged);
+				JPanel saturationRow = createViewSliderRow("Board saturation", saturationSlider, saturationValueLabel);
+				animationSlider = new JSlider(0, 1000, Math.max(0, Math.min(1000, animationMillis)));
+				animationMillis = animationSlider.getValue();
+				guiState.animationMillis = animationMillis;
+				sliders.add(animationSlider);
+				animationValueLabel = mutedLabel(animationSlider.getValue() == 0 ? "Off" : (animationSlider.getValue() + " ms"));
+				animationSlider.addChangeListener(this::handleAnimationSliderChanged);
+				JPanel animationRow = createViewSliderRow("Animation", animationSlider, animationValueLabel);
+				body.add(togglesRow1);
+				body.add(Box.createVerticalStrut(8));
+				body.add(togglesRow2);
 			body.add(Box.createVerticalStrut(8));
 			body.add(togglesRow3);
 			body.add(Box.createVerticalStrut(8));
@@ -1310,12 +827,248 @@ class GuiWindowLayout extends GuiWindowEngine {
 			body.add(Box.createVerticalStrut(8));
 			body.add(saturationRow);
 			body.add(Box.createVerticalStrut(8));
-			body.add(animationRow);
-			card.setContent(body);
-			return card; }
-		/**
-		 * buildSidebar method.
+				body.add(animationRow);
+				card.setContent(body);
+				return card; }
+
+			/**
+			 * Builds the first row of board-visibility toggles.
+			 *
+			 * @return configured toggle row
+			 */
+			private JPanel buildViewToggleRowOne() {
+				JPanel row = createViewToggleRow();
+				legalToggle = themedCheckbox("Legal hints", guiState.showLegal, e -> applyLegalHintsToggle());
+				legalToggle.setToolTipText("Toggle legal hints (L)");
+				hoverLegalToggle = themedCheckbox("Hover hints", guiState.hoverLegal, e -> applyHoverHintsToggle());
+				hoverHighlightToggle = themedCheckbox("Hover glow", guiState.hoverHighlight,
+						e -> applyHoverHighlightToggle());
+				hoverOnlyToggle = themedCheckbox("Hover only", guiState.hoverOnlyLegal, e -> applyHoverOnlyToggle());
+				hoverOnlyToggle.setEnabled(guiState.hoverLegal);
+				row.add(legalToggle);
+				row.add(hoverLegalToggle);
+				row.add(hoverHighlightToggle);
+				row.add(hoverOnlyToggle);
+				return row;
+			}
+
+			/**
+			 * Builds the second row of board-visibility toggles.
+			 *
+			 * @return configured toggle row
+			 */
+			private JPanel buildViewToggleRowTwo() {
+				JPanel row = createViewToggleRow();
+				coordsToggle = themedCheckbox("Coordinates", guiState.showCoords, e -> applyCoordinatesToggle());
+				movesToggle = themedCheckbox(LABEL_MOVES, guiState.showMoves, e -> applyMovesToggle());
+				tagsToggle = themedCheckbox("Tags", guiState.showTags, e -> applyTagsToggle());
+				bestMoveToggle = themedCheckbox("Best move", guiState.showBestMove, e -> applyBestMoveToggle());
+				row.add(coordsToggle);
+				row.add(movesToggle);
+				row.add(tagsToggle);
+				row.add(bestMoveToggle);
+				return row;
+			}
+
+			/**
+			 * Builds the third row of theme toggles.
+			 *
+			 * @return configured toggle row
+			 */
+			private JPanel buildViewToggleRowThree() {
+				JPanel row = createViewToggleRow();
+				darkToggle = themedCheckbox("Dark mode", !lightMode, e -> toggleTheme());
+				contrastToggle = themedCheckbox("High contrast", highContrast, e -> toggleContrast());
+				compactToggle = themedCheckbox("Compact", compactMode, e -> applyCompactModeToggle());
+				figurineSanToggle = themedCheckbox("Figurine SAN", figurineSan,
+						e -> applyFigurineSanSetting(figurineSanToggle.isSelected()));
+				row.add(darkToggle);
+				row.add(contrastToggle);
+				row.add(compactToggle);
+				row.add(figurineSanToggle);
+				return row;
+			}
+
+			/**
+			 * Creates a shared toggle row container for the view card.
+			 *
+			 * @return configured row panel
+			 */
+			private JPanel createViewToggleRow() {
+				JPanel row = new JPanel(new java.awt.GridLayout(1, 0, 8, 8));
+				row.setOpaque(false);
+				return row;
+			}
+
+			/**
+			 * Creates a labeled slider row for the view card.
+			 *
+			 * @param label row label
+			 * @param slider row slider
+			 * @param valueLabel trailing value label
+			 * @return configured row panel
+			 */
+			private JPanel createViewSliderRow(String label, JSlider slider, JLabel valueLabel) {
+				JPanel row = new JPanel(new BorderLayout(8, 8));
+				row.setOpaque(false);
+				row.add(mutedLabel(label), BorderLayout.WEST);
+				row.add(slider, BorderLayout.CENTER);
+				row.add(valueLabel, BorderLayout.EAST);
+				return row;
+			}
+
+			/**
+			 * Applies the legal-hints toggle.
+			 */
+			private void applyLegalHintsToggle() {
+				guiState.showLegal = legalToggle.isSelected();
+				refreshBoard();
+			}
+
+			/**
+			 * Applies the hover-hints toggle and keeps dependent controls in sync.
+			 */
+			private void applyHoverHintsToggle() {
+				hoverLegal = hoverLegalToggle.isSelected();
+				guiState.hoverLegal = hoverLegal;
+				if (!hoverLegal) {
+					hoverOnlyLegal = false;
+					if (hoverOnlyToggle != null) {
+						hoverOnlyToggle.setSelected(false);
+						hoverOnlyToggle.setEnabled(false);
+					}
+					guiState.hoverOnlyLegal = false;
+				} else if (hoverOnlyToggle != null) {
+					hoverOnlyToggle.setEnabled(true);
+				}
+				refreshBoard();
+			}
+
+			/**
+			 * Applies the hover-highlight toggle.
+			 */
+			private void applyHoverHighlightToggle() {
+				hoverHighlight = hoverHighlightToggle.isSelected();
+				guiState.hoverHighlight = hoverHighlight;
+				refreshBoard();
+			}
+
+			/**
+			 * Applies the hover-only toggle.
+			 */
+			private void applyHoverOnlyToggle() {
+				hoverOnlyLegal = hoverOnlyToggle.isSelected();
+				guiState.hoverOnlyLegal = hoverOnlyLegal;
+				refreshBoard();
+			}
+
+			/**
+			 * Applies the coordinate toggle.
+			 */
+			private void applyCoordinatesToggle() {
+				showCoords = coordsToggle.isSelected();
+				guiState.showCoords = showCoords;
+				refreshBoard();
+			}
+
+			/**
+			 * Applies the move-list visibility toggle.
+			 */
+			private void applyMovesToggle() {
+				guiState.showMoves = movesToggle.isSelected();
+				toggleMoves();
+			}
+
+			/**
+			 * Applies the tag-list visibility toggle.
+			 */
+			private void applyTagsToggle() {
+				guiState.showTags = tagsToggle.isSelected();
+				toggleTags();
+			}
+
+			/**
+			 * Applies the best-move highlight toggle.
+			 */
+			private void applyBestMoveToggle() {
+				guiState.showBestMove = bestMoveToggle.isSelected();
+				refreshBoard();
+			}
+
+			/**
+			 * Applies the compact-mode toggle.
+			 */
+			private void applyCompactModeToggle() {
+				compactMode = compactToggle.isSelected();
+				guiState.compactMode = compactMode;
+				applyTheme();
+				frame.revalidate();
+			}
+
+			/**
+			 * Handles hue slider changes.
 		 *
+		 * @param event change event
+		 */
+		private void handleHueSliderChanged(ChangeEvent event) {
+			boardHueDegrees = hueSlider.getValue();
+			guiState.boardHueDegrees = boardHueDegrees;
+			hueValueLabel.setText(boardHueDegrees + "°");
+			refreshBoard();
+			repaintBoardEditors();
+		}
+
+		/**
+		 * Handles brightness slider changes.
+		 *
+		 * @param event change event
+		 */
+		private void handleBrightnessSliderChanged(ChangeEvent event) {
+			boardBrightness = brightnessSlider.getValue();
+			guiState.boardBrightness = boardBrightness;
+			brightnessValueLabel.setText(boardBrightness + "%");
+			refreshBoard();
+			repaintBoardEditors();
+		}
+
+		/**
+		 * Handles saturation slider changes.
+		 *
+		 * @param event change event
+		 */
+		private void handleSaturationSliderChanged(ChangeEvent event) {
+			boardSaturation = saturationSlider.getValue();
+			guiState.boardSaturation = boardSaturation;
+			saturationValueLabel.setText(boardSaturation + "%");
+			refreshBoard();
+			repaintBoardEditors();
+		}
+
+		/**
+		 * Handles animation slider changes.
+		 *
+		 * @param event change event
+		 */
+		private void handleAnimationSliderChanged(ChangeEvent event) {
+			animationMillis = animationSlider.getValue();
+			guiState.animationMillis = animationMillis;
+			animationValueLabel.setText(animationMillis == 0 ? "Off" : (animationMillis + " ms"));
+		}
+
+		/**
+		 * Repaints any open board editors after board-theme changes.
+		 */
+		private void repaintBoardEditors() {
+			if (editorDialog != null) {
+				editorDialog.repaintBoard();
+			}
+			if (boardEditorPane != null) {
+				boardEditorPane.repaintBoard();
+			}
+		}
+			/**
+			 * buildSidebar method.
+			 *
 		 * @return return value.
 		 */
 		private JScrollPane buildSidebar() {
@@ -1332,14 +1085,14 @@ class GuiWindowLayout extends GuiWindowEngine {
 					scheduleGuiStateSave(); }
 				updateTabLabelStyles();
 			});
-			rightTabs.addTab("Analysis", wrapTabComponent(analysisView));
-			rightTabs.addTab("Explorer", wrapTab(buildEcoCard()));
-			rightTabs.addTab("Annotate", wrapTabComponent(buildAnnotateTab()));
-			rightTabs.addTab("Report", wrapTabComponent(buildReportTab()));
-			rightTabs.addTab("Variations", wrapTabComponent(buildVariationsTab()));
-			rightTabs.addTab("Ablation", wrapTabComponent(buildAblationTab()));
+			rightTabs.addTab(TAB_ANALYSIS, wrapTabComponent(analysisView));
+			rightTabs.addTab(TAB_EXPLORER, wrapTab(buildEcoCard()));
+			rightTabs.addTab(TAB_ANNOTATE, wrapTabComponent(buildAnnotateTab()));
+			rightTabs.addTab(TAB_REPORT, wrapTabComponent(buildReportTab()));
+			rightTabs.addTab(TAB_VARIATIONS, wrapTabComponent(buildVariationsTab()));
+			rightTabs.addTab(TAB_ABLATION, wrapTabComponent(buildAblationTab()));
 			rightTabs.addTab("Controls", wrapTabComponent(buildControls()));
-			rightTabs.addTab("Commands", wrapTab(buildCommandCard()));
+			rightTabs.addTab(TAB_COMMANDS, wrapTab(buildCommandCard()));
 			rightTabs.addTab("Info", wrapTab(buildInfoCard()));
 			installTabLabels();
 			JScrollPane scroll = new JScrollPane(rightTabs);
@@ -1347,7 +1100,7 @@ class GuiWindowLayout extends GuiWindowEngine {
 			JPanel header = new JPanel(new BorderLayout());
 			sidebarHeader = header;
 			header.setOpaque(true);
-			sidebarHeaderLabel = titleLabel("Analysis");
+			sidebarHeaderLabel = titleLabel(TAB_ANALYSIS);
 			header.add(sidebarHeaderLabel, BorderLayout.WEST);
 			header.setBorder(new EmptyBorder(6, 12, 6, 12));
 			scroll.setColumnHeaderView(header);
@@ -1398,7 +1151,7 @@ class GuiWindowLayout extends GuiWindowEngine {
 			JPanel left = new JPanel();
 			left.setOpaque(false);
 			left.setLayout(new BoxLayout(left, BoxLayout.Y_AXIS));
-			left.add(sectionHeader("Moves"));
+			left.add(sectionHeader(LABEL_MOVES));
 			left.add(flattenCard(moves));
 			RoundedPanel evalGraphCard = buildEvalGraphCard();
 			JTabbedPane detailTabs = new JTabbedPane();
@@ -1795,77 +1548,9 @@ class GuiWindowLayout extends GuiWindowEngine {
         historyVarDownButton = result.historyVarDownButton();
         return result.panel();
     }
-		/**
-		 * buildUnderboardCard method.
-		 *
-		 * @return return value.
-		 */
-		private RoundedPanel buildUnderboardCard() {
-			RoundedPanel card = createFlatCard("Moves", true);
-			underboardMoveModel = new DefaultListModel<>();
-			underboardMoveList = new JList<>(underboardMoveModel);
-			underboardMoveList.setBorder(BorderFactory.createEmptyBorder(4, 6, 4, 6));
-			underboardMoveList.setCellRenderer(new MovePairCellRenderer(this));
-			underboardMoveList.setFixedCellHeight(Math.round(24 * uiScale));
-			underboardMoveList.addMouseMotionListener(new MouseAdapter() {
-								/**
-				 * Handles mouse moved.
-				 * @param e e value
-				 */
-@Override
-				public void mouseMoved(MouseEvent e) {
-					int idx = historyIndexAtPoint(underboardMoveList, e.getPoint());
-					previewHistoryHover(idx, e.getLocationOnScreen()); }
-			});
-			underboardMoveList.addMouseListener(new MouseAdapter() {
-								/**
-				 * Handles mouse clicked.
-				 * @param e e value
-				 */
-@Override
-				public void mouseClicked(MouseEvent e) {
-					if (e.getClickCount() == 2) {
-						int idx = historyIndexAtPoint(underboardMoveList, e.getPoint());
-						if (idx >= 0) {
-							jumpToHistoryIndex(idx); } } }
-								/**
-				 * Handles mouse pressed.
-				 * @param e e value
-				 */
-@Override
-				public void mousePressed(MouseEvent e) {
-					if (!e.isPopupTrigger() && javax.swing.SwingUtilities.isLeftMouseButton(e)) {
-						int idx = historyIndexAtPoint(underboardMoveList, e.getPoint());
-						if (idx >= 0) {
-							selectHistoryNode(nodeAtHistoryIndex(idx)); } }
-					maybeShowUnderboardHistoryMenu(e); }
-								/**
-				 * Handles mouse released.
-				 * @param e e value
-				 */
-@Override
-				public void mouseReleased(MouseEvent e) {
-					maybeShowUnderboardHistoryMenu(e); }
-								/**
-				 * Handles mouse exited.
-				 * @param e e value
-				 */
-@Override
-				public void mouseExited(MouseEvent e) {
-					boardPanel.clearPreview();
-					hideEnginePvMiniBoardPreview(); }
-			});
-			lists.add(underboardMoveList);
-			underboardMoveScroll = new JScrollPane(underboardMoveList);
-			underboardMoveScroll.setBorder(BorderFactory.createEmptyBorder());
-			this.baseUnderboardScrollPref = new Dimension(260, 160);
-			underboardMoveScroll.setPreferredSize(scaleDimension(baseUnderboardScrollPref));
-			scrolls.add(underboardMoveScroll);
-			card.setContent(underboardMoveScroll);
-			return card; }
-		/**
-		 * buildTagsCard method.
-		 *
+			/**
+			 * buildTagsCard method.
+			 *
 		 * @return return value.
 		 */
 		private RoundedPanel buildTagsCard() {
@@ -2349,7 +2034,7 @@ class GuiWindowLayout extends GuiWindowEngine {
 		private void ensureEcoTableModel() {
 			if (ecoTableModel != null) {
 				return; }
-			ecoTableModel = new DefaultTableModel(new Object[] { "ECO", "Name", "Moves" }, 0) {
+			ecoTableModel = new DefaultTableModel(new Object[] { "ECO", "Name", LABEL_MOVES }, 0) {
 								/**
 				 * Returns whether cell editable.
 				 * @param row row value
@@ -2365,54 +2050,84 @@ class GuiWindowLayout extends GuiWindowEngine {
 		 *
 		 * @return return value.
 		 */
-		private JComponent buildEcoEditorTab() {
-			ensureEcoTableModel();
-			if (ecoTable == null) {
+			private JComponent buildEcoEditorTab() {
+				ensureEcoTable();
+				JScrollPane scroll = new JScrollPane(ecoTable);
+				scroll.setBorder(BorderFactory.createEmptyBorder());
+				scrolls.add(scroll);
+				JPanel panel = new JPanel(new BorderLayout());
+				panel.setOpaque(false);
+				panel.add(scroll, BorderLayout.CENTER);
+				return panel; }
+
+			/**
+			 * Creates the ECO editor table on first use.
+			 */
+			private void ensureEcoTable() {
+				ensureEcoTableModel();
+				if (ecoTable != null) {
+					return;
+				}
 				ecoTable = new JTable(ecoTableModel);
 				ecoTable.setFillsViewportHeight(true);
 				ecoTable.setRowHeight(Math.round(22 * uiScale));
 				ecoTable.setShowGrid(false);
 				ecoTable.setIntercellSpacing(new Dimension(0, 0));
 				ecoTable.setAutoCreateRowSorter(true);
-				ecoTable.getSelectionModel().addListSelectionListener(e -> {
-					if (e.getValueIsAdjusting()) {
-						return; }
-					int viewRow = ecoTable.getSelectedRow();
-					if (viewRow < 0) {
-						ecoSelected = null;
-					} else {
-						int modelRow = ecoTable.convertRowIndexToModel(viewRow);
-						if (modelRow >= 0 && modelRow < ecoFilteredEntries.size()) {
-							ecoSelected = ecoFilteredEntries.get(modelRow);
-						} else {
-							ecoSelected = null; } }
-					updateEcoDetails();
-				});
+				ecoTable.getSelectionModel().addListSelectionListener(e -> handleEcoSelectionChanged(e.getValueIsAdjusting()));
 				ecoTable.addMouseListener(new MouseAdapter() {
-										/**
-					 * Handles mouse clicked.
-					 * @param e e value
-					 */
-@Override
+					@Override
 					public void mouseClicked(MouseEvent e) {
 						if (e.getClickCount() == 2) {
-							int viewRow = ecoTable.getSelectedRow();
-							if (viewRow >= 0) {
-								int modelRow = ecoTable.convertRowIndexToModel(viewRow);
-								if (modelRow >= 0 && modelRow < ecoFilteredEntries.size()) {
-									applyEcoEntry(ecoFilteredEntries.get(modelRow)); } } } }
+							applySelectedEcoEntry();
+						}
+					}
 				});
-				tables.add(ecoTable); }
-			JScrollPane scroll = new JScrollPane(ecoTable);
-			scroll.setBorder(BorderFactory.createEmptyBorder());
-			scrolls.add(scroll);
-			JPanel panel = new JPanel(new BorderLayout());
-			panel.setOpaque(false);
-			panel.add(scroll, BorderLayout.CENTER);
-			return panel; }
-		/**
-		 * buildEcoCard method.
-		 *
+				tables.add(ecoTable);
+			}
+
+			/**
+			 * Handles ECO table selection changes.
+			 *
+			 * @param adjusting whether the selection is still adjusting
+			 */
+			private void handleEcoSelectionChanged(boolean adjusting) {
+				if (adjusting) {
+					return;
+				}
+				ecoSelected = ecoEntryAtViewRow(ecoTable.getSelectedRow());
+				updateEcoDetails();
+			}
+
+			/**
+			 * Applies the currently selected ECO entry.
+			 */
+			private void applySelectedEcoEntry() {
+				Entry entry = ecoEntryAtViewRow(ecoTable.getSelectedRow());
+				if (entry != null) {
+					applyEcoEntry(entry);
+				}
+			}
+
+			/**
+			 * Resolves an ECO entry from the table view row.
+			 *
+			 * @param viewRow selected table row in view coordinates
+			 * @return matching ECO entry or {@code null}
+			 */
+			private Entry ecoEntryAtViewRow(int viewRow) {
+				if (viewRow < 0) {
+					return null;
+				}
+				int modelRow = ecoTable.convertRowIndexToModel(viewRow);
+				if (modelRow < 0 || modelRow >= ecoFilteredEntries.size()) {
+					return null;
+				}
+				return ecoFilteredEntries.get(modelRow);
+			}
+			/**
+			 * buildEcoCard method.
+			 *
 		 * @return return value.
 		 */
 		private RoundedPanel buildEcoCard() {

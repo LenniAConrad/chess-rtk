@@ -261,7 +261,7 @@ public final class BookRegressionTest {
 		Path file = Files.createTempFile("chess-book-toc-links-", ".pdf");
 		Writer.write(file, sampleBook(1));
 
-		String text = Files.readString(file, StandardCharsets.ISO_8859_1);
+		String text = java.util.Objects.requireNonNull(Files.readString(file, StandardCharsets.ISO_8859_1));
 		assertTrue(countOccurrences(text, "/Subtype /Link") > 1, "toc link annotations");
 		assertTrue(text.contains("/S /GoTo"), "toc internal link action");
 	}

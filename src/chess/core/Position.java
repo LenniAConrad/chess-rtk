@@ -246,23 +246,8 @@ public class Position implements Comparable<Position> {
      * @param source source position
      */
     private Position(Position source) {
-        this.pieces = Arrays.copyOf(source.pieces, source.pieces.length);
-        this.board = Arrays.copyOf(source.board, source.board.length);
-        this.whiteOccupancy = source.whiteOccupancy;
-        this.blackOccupancy = source.blackOccupancy;
-        this.occupancy = source.occupancy;
-        this.whiteKingSquare = source.whiteKingSquare;
-        this.blackKingSquare = source.blackKingSquare;
-        this.whiteToMove = source.whiteToMove;
-        this.castlingRights = source.castlingRights;
-        this.enPassantSquare = source.enPassantSquare;
-        this.halfMoveClock = source.halfMoveClock;
-        this.fullMoveNumber = source.fullMoveNumber;
-        this.chess960Castling = source.chess960Castling;
-        this.whiteKingsideRookSquare = source.whiteKingsideRookSquare;
-        this.whiteQueensideRookSquare = source.whiteQueensideRookSquare;
-        this.blackKingsideRookSquare = source.blackKingsideRookSquare;
-        this.blackQueensideRookSquare = source.blackQueensideRookSquare;
+        this();
+        PositionStateSupport.copyState(source, this);
     }
 
     /**
@@ -271,23 +256,7 @@ public class Position implements Comparable<Position> {
      * @param source source position
      */
     private void copyStateFrom(Position source) {
-        System.arraycopy(source.pieces, 0, pieces, 0, pieces.length);
-        System.arraycopy(source.board, 0, board, 0, board.length);
-        whiteOccupancy = source.whiteOccupancy;
-        blackOccupancy = source.blackOccupancy;
-        occupancy = source.occupancy;
-        whiteKingSquare = source.whiteKingSquare;
-        blackKingSquare = source.blackKingSquare;
-        whiteToMove = source.whiteToMove;
-        castlingRights = source.castlingRights;
-        enPassantSquare = source.enPassantSquare;
-        halfMoveClock = source.halfMoveClock;
-        fullMoveNumber = source.fullMoveNumber;
-        chess960Castling = source.chess960Castling;
-        whiteKingsideRookSquare = source.whiteKingsideRookSquare;
-        whiteQueensideRookSquare = source.whiteQueensideRookSquare;
-        blackKingsideRookSquare = source.blackKingsideRookSquare;
-        blackQueensideRookSquare = source.blackQueensideRookSquare;
+        PositionStateSupport.copyState(source, this);
     }
 
     /**
@@ -2296,20 +2265,7 @@ public class Position implements Comparable<Position> {
      * @param square square
      */
     void setPiece(int piece, int square) {
-        long mask = 1L << square;
-        pieces[piece] |= mask;
-        board[square] = (byte) piece;
-        if (piece < BLACK_PAWN) {
-            whiteOccupancy |= mask;
-        } else {
-            blackOccupancy |= mask;
-        }
-        occupancy |= mask;
-        if (piece == WHITE_KING) {
-            whiteKingSquare = (byte) square;
-        } else if (piece == BLACK_KING) {
-            blackKingSquare = (byte) square;
-        }
+        PositionStateSupport.setPiece(this, piece, square);
     }
 
     /**
@@ -2344,20 +2300,7 @@ public class Position implements Comparable<Position> {
      * @param square square
      */
     private void clearPiece(int piece, int square) {
-        long mask = 1L << square;
-        pieces[piece] &= ~mask;
-        board[square] = -1;
-        if (piece < BLACK_PAWN) {
-            whiteOccupancy &= ~mask;
-        } else {
-            blackOccupancy &= ~mask;
-        }
-        occupancy &= ~mask;
-        if (piece == WHITE_KING) {
-            whiteKingSquare = Field.NO_SQUARE;
-        } else if (piece == BLACK_KING) {
-            blackKingSquare = Field.NO_SQUARE;
-        }
+        PositionStateSupport.clearPiece(this, piece, square);
     }
 
     /**
@@ -2368,8 +2311,7 @@ public class Position implements Comparable<Position> {
      * @param to target
      */
     private void movePiece(int piece, int from, int to) {
-        clearPiece(piece, from);
-        setPiece(piece, to);
+        PositionStateSupport.movePiece(this, piece, from, to);
     }
 
     /**
@@ -2380,17 +2322,7 @@ public class Position implements Comparable<Position> {
      * @return piece index
      */
     private int promotionPieceIndex(int moving, int promotion) {
-        if (promotion == 0 || (moving != WHITE_PAWN && moving != BLACK_PAWN)) {
-            return moving;
-        }
-        boolean white = moving == WHITE_PAWN;
-        return switch (promotion) {
-            case PROMOTION_KNIGHT -> white ? WHITE_KNIGHT : BLACK_KNIGHT;
-            case PROMOTION_BISHOP -> white ? WHITE_BISHOP : BLACK_BISHOP;
-            case PROMOTION_ROOK -> white ? WHITE_ROOK : BLACK_ROOK;
-            case PROMOTION_QUEEN -> white ? WHITE_QUEEN : BLACK_QUEEN;
-            default -> moving;
-        };
+        return PositionStateSupport.promotionPieceIndex(moving, promotion);
     }
 
     /**

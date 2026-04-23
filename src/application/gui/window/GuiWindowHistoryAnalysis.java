@@ -16,6 +16,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutionException;
 import javax.swing.JCheckBox;
 import javax.swing.JDialog;
 import javax.swing.JList;
@@ -200,7 +201,7 @@ abstract class GuiWindowHistoryAnalysis extends GuiWindowHistoryTheme {
 					public void mouseMoved(MouseEvent e) {
 						int idx = list.locationToIndex(e.getPoint());
 						Object current = list.getClientProperty("hoverIndex");
-						int currentIdx = current instanceof Integer ? (Integer) current : -1;
+						int currentIdx = current instanceof Integer integer ? integer : -1;
 						if (idx != currentIdx) {
 							list.putClientProperty("hoverIndex", idx);
 							list.repaint();
@@ -241,7 +242,7 @@ abstract class GuiWindowHistoryAnalysis extends GuiWindowHistoryTheme {
 					public void mouseMoved(MouseEvent e) {
 						int row = table.rowAtPoint(e.getPoint());
 						Object current = table.getClientProperty("hoverRow");
-						int currentRow = current instanceof Integer ? (Integer) current : -1;
+						int currentRow = current instanceof Integer integer ? integer : -1;
 						if (row != currentRow) {
 							table.putClientProperty("hoverRow", row);
 							table.repaint();
@@ -272,7 +273,7 @@ abstract class GuiWindowHistoryAnalysis extends GuiWindowHistoryTheme {
 					return false;
 				}
 				Object value = list.getClientProperty("hoverIndex");
-				return value instanceof Integer && ((Integer) value) == index;
+				return value instanceof Integer integer && integer == index;
 			}
 
 			/**
@@ -360,7 +361,7 @@ abstract class GuiWindowHistoryAnalysis extends GuiWindowHistoryTheme {
 					return false;
 				}
 				Object value = table.getClientProperty("hoverRow");
-				return value instanceof Integer && ((Integer) value) == row;
+				return value instanceof Integer integer && integer == row;
 			}
 
 			/**
@@ -374,7 +375,7 @@ abstract class GuiWindowHistoryAnalysis extends GuiWindowHistoryTheme {
 					return;
 				}
 				String[] parts = pos.toString().split(" ");
-				historyStartWhite = parts.length > 1 ? "w".equals(parts[1]) : true;
+				historyStartWhite = parts.length <= 1 || "w".equals(parts[1]);
 				if (parts.length > 5) {
 					try {
 						historyStartFullmove = Integer.parseInt(parts[5]);
@@ -866,10 +867,8 @@ abstract class GuiWindowHistoryAnalysis extends GuiWindowHistoryTheme {
 						historyList.ensureIndexIsVisible(Math.min(lastVisibleIndex, historyListModel.getSize() - 1));
 					}
 				}
-				if (underboardMoveList != null && underboardMoveModel != null && !moveHistory.isEmpty()) {
-					if (stickToEnd) {
-						underboardMoveList.ensureIndexIsVisible(Math.max(0, underboardMoveModel.getSize() - 1));
-					}
+				if (stickToEnd && underboardMoveList != null && underboardMoveModel != null && !moveHistory.isEmpty()) {
+					underboardMoveList.ensureIndexIsVisible(Math.max(0, underboardMoveModel.getSize() - 1));
 				}
 				updateVariationButtons();
 			}
@@ -1179,7 +1178,10 @@ abstract class GuiWindowHistoryAnalysis extends GuiWindowHistoryTheme {
 						try {
 							AblationResult result = get();
 							SwingUtilities.invokeLater(() -> applyAblationResult(result));
-						} catch (Exception ex) {
+						} catch (InterruptedException ex) {
+							Thread.currentThread().interrupt();
+							SwingUtilities.invokeLater(() -> clearAblation());
+						} catch (ExecutionException ex) {
 							SwingUtilities.invokeLater(() -> clearAblation());
 						}
 					}

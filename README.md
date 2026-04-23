@@ -166,6 +166,40 @@ crtk engine perft-suite --depth 6 --threads 4
 positions through the Java core move generator and prints a progress bar followed
 by a `Truth` / `Calculated` / `Speed` / `Match` table.
 
+Start-position depth-8 detailed divide run:
+
+```bash
+crtk engine perft \
+  --fen "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1" \
+  --depth 8 --threads 12 --divide
+```
+
+| Move | Nodes | Captures | En-passant | Castles | Promotions | Checks | Checkmates |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| `a2a3` | 2863411653 | 113558832 | 271826 | 817354 | 0 | 29978154 | 394468 |
+| `a2a4` | 3676309619 | 141101295 | 331446 | 1031603 | 0 | 37335535 | 467803 |
+| `b1a3` | 3193522577 | 127182592 | 305284 | 878550 | 0 | 34089600 | 431766 |
+| `b1c3` | 3926684340 | 146419658 | 337907 | 1117423 | 0 | 31785958 | 472466 |
+| `b2b3` | 3579299617 | 126872451 | 301576 | 966814 | 0 | 36198333 | 478444 |
+| `b2b4` | 3569067629 | 188043397 | 333510 | 854736 | 0 | 31357534 | 466125 |
+| `c2c3` | 3806229124 | 136372610 | 304129 | 1129730 | 0 | 26360185 | 386119 |
+| `c2c4` | 4199667616 | 182245919 | 372641 | 1147131 | 0 | 41978320 | 426934 |
+| `d2d3` | 6093248619 | 222520642 | 458241 | 1575843 | 0 | 104496344 | 166701 |
+| `d2d4` | 7184581950 | 345921667 | 564581 | 1927577 | 0 | 123831364 | 234546 |
+| `e2e3` | 8039390919 | 312030442 | 553545 | 2401727 | 0 | 74189864 | 96296 |
+| `e2e4` | 8102108221 | 402191506 | 605162 | 2321721 | 0 | 90233448 | 225443 |
+| `f2f3` | 2728615868 | 90868333 | 246376 | 752702 | 0 | 50920765 | 1205498 |
+| `f2f4` | 3199039406 | 134509503 | 314794 | 924630 | 0 | 56636856 | 1162705 |
+| `g1f3` | 3937354096 | 148963219 | 340055 | 1074811 | 0 | 32478728 | 139890 |
+| `g1h3` | 3221278282 | 126706434 | 307711 | 882360 | 0 | 32693823 | 84953 |
+| `g2g3` | 3641432923 | 128897981 | 305434 | 1008801 | 0 | 31715033 | 425274 |
+| `g2g4` | 3466204702 | 179208541 | 329217 | 960427 | 0 | 35199463 | 1648128 |
+| `h2h3` | 2860408680 | 110574933 | 271801 | 788358 | 0 | 29939917 | 591179 |
+| `h2h4` | 3711123115 | 159550151 | 332741 | 1042907 | 0 | 37562369 | 347298 |
+| **Total** | **84998978956** | **3523740106** | **7187977** | **23605205** | **0** | **968981593** | **9852036** |
+
+Example runtime for that run: `189.9M nps`, `447677.707 ms`.
+
 Generate tags, text, and diagrams:
 
 ```bash
@@ -260,9 +294,9 @@ Render a full puzzle book and a matching cover from the same manifest:
 crtk book render -i books/puzzles.toml --check
 crtk book render -i books/puzzles.toml -o dist/puzzles.pdf
 crtk book cover -i books/puzzles.toml --check \
-  --binding paperback --interior white-bw --pages 120
+  --pdf dist/puzzles.pdf --binding paperback --interior white-bw
 crtk book cover -i books/puzzles.toml -o dist/puzzles-cover.pdf \
-  --binding paperback --interior white-bw --pages 120
+  --pdf dist/puzzles.pdf --binding paperback --interior white-bw
 ```
 
 Make a quick diagram sheet from a FEN list or PGN mainlines:
@@ -430,6 +464,7 @@ java -Djava.awt.headless=true -cp out testing.ChessBookCoverCommandRegressionTes
 - [LC0](wiki/lc0.md)
 - [T5 tag-to-text](wiki/t5.md)
 - [AI agents and automation](wiki/ai-agents.md)
+- [Releasing](wiki/releasing.md)
 - [Troubleshooting](wiki/troubleshooting.md)
 
 ## Citing
@@ -440,3 +475,10 @@ tag so your workflow can be reproduced.
 ## License
 
 See [LICENSE.txt](LICENSE.txt).
+
+The current license is intentionally restrictive source-available licensing, not
+a standard open-source license: it allows evaluation and personal
+non-commercial use, and it forbids redistribution and derivative works without
+permission. If broader external adoption matters, replace it intentionally with
+a standard license before release rather than assuming the current text already
+covers that goal.

@@ -25,6 +25,11 @@ import static application.cli.Constants.OPT_CSV_OUTPUT;
 import static application.cli.Constants.OPT_CSV_OUTPUT_SHORT;
 import static application.cli.PathOps.deriveOutputPath;
 import static application.cli.PathOps.ensureParentDir;
+import static application.cli.command.RecordCommandSupport.byteProgress;
+import static application.cli.command.RecordCommandSupport.exitWithError;
+import static application.cli.command.RecordCommandSupport.fileProgressBar;
+import static application.cli.command.RecordCommandSupport.finishProgress;
+import static application.cli.command.RecordCommandSupport.requireReadableFile;
 
 import java.io.BufferedWriter;
 import java.io.IOException;
@@ -40,7 +45,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Set;
-import java.util.function.LongConsumer;
 
 import application.Config;
 import application.console.Bar;
@@ -118,6 +122,26 @@ public final class RecordCommands {
 	 * Current command label for CSV export diagnostics.
 	 */
 	private static final String RECORD_EXPORT_CSV = "record export csv";
+	/**
+	 * Shared classifier command label constant.
+	 */
+	private static final String COMMAND_RECORD_DATASET_CLASSIFIER = "record dataset classifier";
+	/**
+	 * Shared puzzle-jsonl command label constant.
+	 */
+	private static final String COMMAND_RECORD_EXPORT_PUZZLE_JSONL = "record export puzzle-jsonl";
+	/**
+	 * Shared training-jsonl command label constant.
+	 */
+	private static final String COMMAND_RECORD_EXPORT_TRAINING_JSONL = "record export training-jsonl";
+	/**
+	 * Shared positional input hint constant.
+	 */
+	private static final String INPUTS_OR_POSITIONAL_HINT = " (or positional files/dirs)";
+	/**
+	 * Shared non-negative error suffix constant.
+	 */
+	private static final String MUST_BE_NON_NEGATIVE = " must be non-negative";
 
 	/**
 	 * Utility class; prevent instantiation.
@@ -146,14 +170,14 @@ public final class RecordCommands {
 			filter = FilterDSL.fromString(filterDsl);
 		}
 
-		Bar plainBar = fileProgressBar(in, 1, "record export plain");
+		Bar plainBar = fileProgressBar(in, 1, RECORD_EXPORT_PLAIN);
 		try {
 			Converter.recordToPlain(exportAll, filter, in, out, byteProgress(plainBar));
 		} finally {
 			finishProgress(plainBar);
 		}
 		if (csv || csvOut != null) {
-			Bar csvBar = fileProgressBar(in, 2, "record export csv");
+			Bar csvBar = fileProgressBar(in, 2, RECORD_EXPORT_CSV);
 			try {
 				Converter.recordToCsv(filter, in, csvOut, byteProgress(csvBar));
 			} finally {
@@ -179,7 +203,7 @@ public final class RecordCommands {
 			filter = FilterDSL.fromString(filterDsl);
 		}
 
-		Bar bar = fileProgressBar(in, 2, "record export csv");
+		Bar bar = fileProgressBar(in, 2, RECORD_EXPORT_CSV);
 		try {
 			Converter.recordToCsv(filter, in, out, byteProgress(bar));
 		} finally {
@@ -216,8 +240,7 @@ public final class RecordCommands {
 		} catch (IOException e) {
 			finishProgress(bar);
 			progressFinished = true;
-			System.err.println("Failed to export dataset: " + e.getMessage());
-			System.exit(2);
+			exitWithError("record dataset npy: failed to export dataset: " + e.getMessage(), e, false);
 		} finally {
 			if (!progressFinished) {
 				finishProgress(bar);
@@ -257,8 +280,7 @@ public final class RecordCommands {
 		} catch (IOException e) {
 			finishProgress(bar);
 			progressFinished = true;
-			System.err.println("Failed to export LC0 dataset: " + e.getMessage());
-			System.exit(2);
+			exitWithError("record dataset lc0: failed to export LC0 dataset: " + e.getMessage(), e, false);
 		} finally {
 			if (!progressFinished) {
 				finishProgress(bar);
@@ -286,7 +308,7 @@ public final class RecordCommands {
 		a.ensureConsumed();
 
 		if (inputs.isEmpty()) {
-			exitWithError("record dataset classifier: missing " + OPT_INPUT + " (or positional files/dirs)");
+			exitWithError(COMMAND_RECORD_DATASET_CLASSIFIER + ": missing " + OPT_INPUT + INPUTS_OR_POSITIONAL_HINT);
 		}
 
 		if (out == null) {
@@ -300,22 +322,23 @@ public final class RecordCommands {
 				? ClassifierDatasetExporter.NO_CLASS_CAP
 				: maxNegativesOpt.longValue();
 		if (maxPositives < 0) {
-			exitWithError("record dataset classifier: " + OPT_MAX_POSITIVES + " must be non-negative");
+			exitWithError(COMMAND_RECORD_DATASET_CLASSIFIER + ": " + OPT_MAX_POSITIVES + MUST_BE_NON_NEGATIVE);
 		}
 		if (maxNegatives < 0) {
-			exitWithError("record dataset classifier: " + OPT_MAX_NEGATIVES + " must be non-negative");
+			exitWithError(COMMAND_RECORD_DATASET_CLASSIFIER + ": " + OPT_MAX_NEGATIVES + MUST_BE_NON_NEGATIVE);
 		}
 
-		Filter rowFilter = parseFilterOrExit("record dataset classifier", OPT_FILTER, rowFilterDsl, verbose);
-		Filter labelFilter = parseFilterOrExit("record dataset classifier", OPT_LABEL_FILTER, labelFilterDsl, verbose);
+		Filter rowFilter = parseFilterOrExit(COMMAND_RECORD_DATASET_CLASSIFIER, OPT_FILTER, rowFilterDsl, verbose);
+		Filter labelFilter = parseFilterOrExit(COMMAND_RECORD_DATASET_CLASSIFIER, OPT_LABEL_FILTER,
+				labelFilterDsl, verbose);
 
 		Config.reload();
 		Filter fallbackLabelFilter = labelFilter == null ? Config.getPuzzleVerify() : null;
 		String fallbackLabelFilterDsl = fallbackLabelFilter == null ? null : FilterDSL.toString(fallbackLabelFilter);
 
-		List<Path> inputFiles = collectRecordInputsOrExit("record dataset classifier", inputs, recursive, verbose);
+		List<Path> inputFiles = collectRecordInputsOrExit(COMMAND_RECORD_DATASET_CLASSIFIER, inputs, recursive, verbose);
 		if (inputFiles.isEmpty()) {
-			exitWithError("record dataset classifier: no input files found");
+			exitWithError(COMMAND_RECORD_DATASET_CLASSIFIER + ": no input files found");
 		}
 
 		ClassifierDatasetExporter.Options options = new ClassifierDatasetExporter.Options(
@@ -346,10 +369,11 @@ public final class RecordCommands {
 					summary.negatives(),
 					summary.skippedInvalid(),
 					summary.skippedUnlabeled());
-		} catch (IOException | RuntimeException ex) {
-			finishProgress(filesBar);
-			progressFinished[0] = true;
-			exitWithError("record dataset classifier: failed to export dataset: " + ex.getMessage(), ex, verbose);
+			} catch (IOException | RuntimeException ex) {
+				finishProgress(filesBar);
+				progressFinished[0] = true;
+				exitWithError(COMMAND_RECORD_DATASET_CLASSIFIER + ": failed to export dataset: " + ex.getMessage(),
+						ex, verbose);
 		} finally {
 			if (!progressFinished[0]) {
 				finishProgress(filesBar);
@@ -369,9 +393,9 @@ public final class RecordCommands {
 				return deriveOutputPath(input, ".classifier");
 			}
 		}
-		exitWithError("record dataset classifier: missing " + OPT_OUTPUT
+		exitWithError(COMMAND_RECORD_DATASET_CLASSIFIER + ": missing " + OPT_OUTPUT
 				+ " when exporting multiple inputs or a directory");
-		return null;
+		throw unreachable();
 	}
 
 	/**
@@ -390,8 +414,18 @@ public final class RecordCommands {
 			return FilterDSL.fromString(filterDsl);
 		} catch (RuntimeException ex) {
 			exitWithError(command + ": invalid " + option + " expression: " + filterDsl, ex, verbose);
-			return null;
+			throw unreachable();
 		}
+	}
+
+	/**
+	 * Marks code paths after {@code exitWithError(...)} as unreachable.
+	 *
+	 * @param <T> inferred return type
+	 * @return never returns normally
+	 */
+	private static IllegalStateException unreachable() {
+		return new IllegalStateException("unreachable");
 	}
 
 	/**
@@ -422,121 +456,360 @@ public final class RecordCommands {
 		Path out = a.path(OPT_OUTPUT, OPT_OUTPUT_SHORT);
 		a.ensureConsumed();
 
+		validatePuzzleJsonlArguments(puzzles, nonpuzzles, weights);
+		Filter filter = parseFilterOrExit(COMMAND_RECORD_EXPORT_PUZZLE_JSONL, OPT_FILTER, filterDsl, verbose);
+		Filter puzzleVerify = resolvePuzzleJsonlVerify(puzzles, nonpuzzles);
+		Path output = defaultOutputPath(in, out, EXT_PUZZLE_JSONL);
+		Lc0Artifacts lc0 = loadLc0Artifacts(weights, verbose, COMMAND_RECORD_EXPORT_PUZZLE_JSONL);
+		exportPuzzleJsonl(in, output,
+				new PuzzleJsonlExportContext(filter, puzzleVerify, puzzles, nonpuzzles, verbose, lc0),
+				new PuzzleJsonlExportStats());
+	}
+
+	/**
+	 * Validates puzzle-jsonl flags before export starts.
+	 *
+	 * @param puzzles only export puzzles
+	 * @param nonpuzzles only export non-puzzles
+	 * @param weights LC0 weights path
+	 */
+	private static void validatePuzzleJsonlArguments(boolean puzzles, boolean nonpuzzles, Path weights) {
 		if (puzzles && nonpuzzles) {
-			exitWithError("record export puzzle-jsonl: cannot combine " + OPT_PUZZLES + " and " + OPT_NONPUZZLES);
+			exitWithError(COMMAND_RECORD_EXPORT_PUZZLE_JSONL + ": cannot combine "
+					+ OPT_PUZZLES + " and " + OPT_NONPUZZLES);
 		}
 		if (weights == null) {
-			exitWithError("record export puzzle-jsonl: missing " + OPT_WEIGHTS + " for LC0 policy values");
+			exitWithError(COMMAND_RECORD_EXPORT_PUZZLE_JSONL + ": missing "
+					+ OPT_WEIGHTS + " for LC0 policy values");
 		}
+	}
 
-		final Filter filter = (filterDsl != null && !filterDsl.isEmpty())
-				? FilterDSL.fromString(filterDsl)
-				: null;
-
-		final Filter puzzleVerify;
-		if (puzzles || nonpuzzles) {
-			Config.reload();
-			puzzleVerify = Config.getPuzzleVerify();
-		} else {
-			puzzleVerify = null;
+	/**
+	 * Resolves the optional puzzle verifier for puzzle-jsonl export.
+	 *
+	 * @param puzzles only export puzzles
+	 * @param nonpuzzles only export non-puzzles
+	 * @return verifier filter or {@code null}
+	 */
+	private static Filter resolvePuzzleJsonlVerify(boolean puzzles, boolean nonpuzzles) {
+		if (!(puzzles || nonpuzzles)) {
+			return null;
 		}
+		Config.reload();
+		return Config.getPuzzleVerify();
+	}
 
-		if (out == null) {
-			String stem = in.getFileName().toString();
-			int dot = stem.lastIndexOf('.');
-			if (dot > 0) {
-				stem = stem.substring(0, dot);
-			}
-			out = in.resolveSibling(stem + EXT_PUZZLE_JSONL);
+	/**
+	 * Returns the explicit output path or a sibling path with the requested suffix.
+	 *
+	 * @param input source input file
+	 * @param output explicit output path
+	 * @param suffix default output suffix
+	 * @return resolved output path
+	 */
+	private static Path defaultOutputPath(Path input, Path output, String suffix) {
+		if (output != null) {
+			return output;
 		}
+		String stem = input.getFileName().toString();
+		int dot = stem.lastIndexOf('.');
+		if (dot > 0) {
+			stem = stem.substring(0, dot);
+		}
+		return input.resolveSibling(stem + suffix);
+	}
 
-		final Network network;
-		final int[] policyMapInverse;
+	/**
+	 * Loads LC0 network artifacts for puzzle-jsonl export.
+	 *
+	 * @param weights LC0 weights path
+	 * @param verbose whether verbose diagnostics are enabled
+	 * @param command command label for diagnostics
+	 * @return loaded LC0 artifacts
+	 */
+	private static Lc0Artifacts loadLc0Artifacts(Path weights, boolean verbose, String command) {
 		try {
-			network = Network.load(weights);
-			policyMapInverse = invertPolicyMap(Network.loadPolicyMap(weights));
+			return new Lc0Artifacts(Network.load(weights), invertPolicyMap(Network.loadPolicyMap(weights)));
 		} catch (IOException ex) {
-			exitWithError("record export puzzle-jsonl: failed to load LC0 weights: " + ex.getMessage(), ex, verbose);
+			exitWithError(command + ": failed to load LC0 weights: " + ex.getMessage(), ex, verbose);
+			throw unreachable();
+		}
+	}
+
+	/**
+	 * Streams puzzle-jsonl output and prints a final summary.
+	 *
+	 * @param input source record file
+	 * @param output target jsonl file
+	 * @param context export settings
+	 * @param stats running counters
+	 */
+	private static void exportPuzzleJsonl(
+			Path input,
+			Path output,
+			PuzzleJsonlExportContext context,
+			PuzzleJsonlExportStats stats) {
+		try {
+			ensureParentDir(output);
+		} catch (IOException ex) {
+			exitWithError(COMMAND_RECORD_EXPORT_PUZZLE_JSONL + ": failed to prepare output: " + ex.getMessage(),
+					ex, context.verbose);
+		}
+		Bar bar = fileProgressBar(input, 1, COMMAND_RECORD_EXPORT_PUZZLE_JSONL);
+		try (Network network = context.lc0.network;
+				BufferedWriter writer = Files.newBufferedWriter(output)) {
+			PuzzleJsonlWriteContext writeContext =
+					new PuzzleJsonlWriteContext(context, network, writer, bar);
+			streamRecordJson(input,
+					objJson -> writePuzzleJsonlRecord(objJson, writeContext, stats),
+					byteProgress(bar));
+		} catch (IOException | UncheckedIOException ex) {
+			exitWithError(COMMAND_RECORD_EXPORT_PUZZLE_JSONL + ": failed to write output: " + ex.getMessage(),
+					ex, context.verbose);
+		}
+		finishPuzzleJsonlExport(bar, stats);
+		System.out.printf(
+				COMMAND_RECORD_EXPORT_PUZZLE_JSONL + ": wrote %d/%d %s records (skipped %d invalid, %d filtered) to %s%n",
+				stats.written,
+				stats.seen,
+				PUZZLE_JSONL_FORMAT_NAME,
+				stats.invalid,
+				stats.skipped,
+				output);
+	}
+
+	/**
+	 * Writes one puzzle-jsonl record when it passes the active filters.
+	 *
+	 * @param objJson raw record json
+	 * @param context active write context
+	 * @param stats running counters
+	 */
+	private static void writePuzzleJsonlRecord(
+			String objJson,
+			PuzzleJsonlWriteContext context,
+			PuzzleJsonlExportStats stats) {
+		stats.seen++;
+		Record rec = parseTrainingRecord(objJson, context.options.verbose, COMMAND_RECORD_EXPORT_PUZZLE_JSONL);
+		if (rec == null) {
+			stats.invalid++;
+			updatePuzzleJsonlProgress(context.bar, stats);
 			return;
 		}
-
+		if (!acceptPuzzleJsonlRecord(objJson, rec, context.options)) {
+			stats.skipped++;
+			updatePuzzleJsonlProgress(context.bar, stats);
+			return;
+		}
+		String line = toPuzzleJsonlLine(rec, context.network, context.options.lc0.policyMapInverse);
+		if (line == null) {
+			stats.skipped++;
+			updatePuzzleJsonlProgress(context.bar, stats);
+			return;
+		}
 		try {
-			ensureParentDir(out);
+			context.writer.write(line);
+			context.writer.newLine();
 		} catch (IOException ex) {
-			exitWithError("record export puzzle-jsonl: failed to prepare output: " + ex.getMessage(), ex, verbose);
+			throw new UncheckedIOException(ex);
 		}
-		final Bar bar = fileProgressBar(in, 1, "record export puzzle-jsonl");
-		final long[] seen = { 0 };
-		final long[] written = { 0 };
-		final long[] skipped = { 0 };
-		final long[] invalid = { 0 };
+		stats.written++;
+		updatePuzzleJsonlProgress(context.bar, stats);
+	}
 
-		try (Network net = network; BufferedWriter writer = Files.newBufferedWriter(out)) {
-			streamRecordJson(in, objJson -> {
-				seen[0]++;
-				Record rec;
-				try {
-					rec = Record.fromJson(objJson);
-				} catch (Exception ex) {
-					invalid[0]++;
-					if (verbose) {
-						System.err.println("record export puzzle-jsonl: skipped invalid record: " + ex.getMessage());
-					}
-					return;
-				}
-				if (rec == null) {
-					invalid[0]++;
-					return;
-				}
-				if (filter != null && !filter.apply(rec.getAnalysis())) {
-					skipped[0]++;
-					return;
-				}
-				if (puzzles || nonpuzzles) {
-					boolean isPuzzle = isPuzzleRecordJson(objJson, rec, puzzleVerify);
-					if (puzzles && !isPuzzle) {
-						skipped[0]++;
-						return;
-					}
-					if (nonpuzzles && isPuzzle) {
-						skipped[0]++;
-						return;
-					}
-				}
-				String line = toPuzzleJsonlLine(rec, net, policyMapInverse);
-				if (line == null) {
-					skipped[0]++;
-					return;
-				}
-				try {
-					writer.write(line);
-					writer.newLine();
-				} catch (IOException e) {
-					throw new UncheckedIOException(e);
-				}
-				written[0]++;
-				if (bar != null && (seen[0] % 1000L == 0L)) {
-					bar.setPostfix(String.format(Locale.ROOT,
-							"written=%d skipped=%d invalid=%d", written[0], skipped[0], invalid[0]));
-				}
-			}, byteProgress(bar));
-		} catch (IOException | UncheckedIOException ex) {
-			exitWithError("record export puzzle-jsonl: failed to write output: " + ex.getMessage(), ex, verbose);
+	/**
+	 * Checks whether a puzzle-jsonl candidate record should be exported.
+	 *
+	 * @param objJson raw record json
+	 * @param rec parsed record
+	 * @param options export settings
+	 * @return {@code true} when the record should be written
+	 */
+	private static boolean acceptPuzzleJsonlRecord(
+			String objJson,
+			Record rec,
+			PuzzleJsonlExportContext options) {
+		if (options.filter != null && !options.filter.apply(rec.getAnalysis())) {
+			return false;
 		}
+		if (!(options.puzzlesOnly || options.nonpuzzlesOnly)) {
+			return true;
+		}
+		boolean isPuzzle = isPuzzleRecordJson(objJson, rec, options.puzzleVerify);
+		if (options.puzzlesOnly) {
+			return isPuzzle;
+		}
+		return !isPuzzle;
+	}
+
+	/**
+	 * Refreshes puzzle-jsonl progress output periodically.
+	 *
+	 * @param bar optional progress bar
+	 * @param stats running counters
+	 */
+	private static void updatePuzzleJsonlProgress(Bar bar, PuzzleJsonlExportStats stats) {
+		if (bar != null && stats.seen % 1000L == 0L) {
+			bar.setPostfix(String.format(Locale.ROOT,
+					"written=%d skipped=%d invalid=%d", stats.written, stats.skipped, stats.invalid));
+		}
+	}
+
+	/**
+	 * Finalizes the puzzle-jsonl progress bar.
+	 *
+	 * @param bar optional progress bar
+	 * @param stats running counters
+	 */
+	private static void finishPuzzleJsonlExport(Bar bar, PuzzleJsonlExportStats stats) {
 		if (bar != null) {
 			bar.setPostfix(String.format(Locale.ROOT,
-					"written=%d skipped=%d invalid=%d", written[0], skipped[0], invalid[0]));
-			bar.finish();
+					"written=%d skipped=%d invalid=%d", stats.written, stats.skipped, stats.invalid));
 		}
+		finishProgress(bar);
+	}
 
-		System.out.printf(
-				"record export puzzle-jsonl: wrote %d/%d %s records (skipped %d invalid, %d filtered) to %s%n",
-				written[0],
-				seen[0],
-				PUZZLE_JSONL_FORMAT_NAME,
-				invalid[0],
-				skipped[0],
-				out);
+	/**
+	 * Holds LC0 resources needed by JSONL exporters.
+	 */
+	private static final class Lc0Artifacts {
+		/**
+		 * Loaded network instance.
+		 */
+		private final Network network;
+		/**
+		 * Inverse policy-map lookup.
+		 */
+		private final int[] policyMapInverse;
+
+		/**
+		 * Creates a new LC0 artifact bundle.
+		 *
+		 * @param network loaded network
+		 * @param policyMapInverse inverse policy-map lookup
+		 */
+		private Lc0Artifacts(Network network, int[] policyMapInverse) {
+			this.network = network;
+			this.policyMapInverse = policyMapInverse;
+		}
+	}
+
+	/**
+	 * Immutable configuration for puzzle-jsonl export.
+	 */
+	private static final class PuzzleJsonlExportContext {
+		/**
+		 * Optional row filter.
+		 */
+		private final Filter filter;
+		/**
+		 * Optional puzzle verifier.
+		 */
+		private final Filter puzzleVerify;
+		/**
+		 * Whether only puzzle rows should be written.
+		 */
+		private final boolean puzzlesOnly;
+		/**
+		 * Whether only non-puzzle rows should be written.
+		 */
+		private final boolean nonpuzzlesOnly;
+		/**
+		 * Whether verbose diagnostics are enabled.
+		 */
+		private final boolean verbose;
+		/**
+		 * Loaded LC0 resources.
+		 */
+		private final Lc0Artifacts lc0;
+
+		/**
+		 * Creates a new puzzle-jsonl export context.
+		 *
+		 * @param filter optional row filter
+		 * @param puzzleVerify optional puzzle verifier
+		 * @param puzzlesOnly whether only puzzles should be written
+		 * @param nonpuzzlesOnly whether only non-puzzles should be written
+		 * @param verbose whether verbose diagnostics are enabled
+		 * @param lc0 loaded LC0 resources
+		 */
+		private PuzzleJsonlExportContext(
+				Filter filter,
+				Filter puzzleVerify,
+				boolean puzzlesOnly,
+				boolean nonpuzzlesOnly,
+				boolean verbose,
+				Lc0Artifacts lc0) {
+			this.filter = filter;
+			this.puzzleVerify = puzzleVerify;
+			this.puzzlesOnly = puzzlesOnly;
+			this.nonpuzzlesOnly = nonpuzzlesOnly;
+			this.verbose = verbose;
+			this.lc0 = lc0;
+		}
+	}
+
+	/**
+	 * Mutable state for a single puzzle-jsonl write pass.
+	 */
+	private static final class PuzzleJsonlWriteContext {
+		/**
+		 * Shared export options.
+		 */
+		private final PuzzleJsonlExportContext options;
+		/**
+		 * Loaded network to use for the current write pass.
+		 */
+		private final Network network;
+		/**
+		 * Destination writer.
+		 */
+		private final BufferedWriter writer;
+		/**
+		 * Optional progress bar.
+		 */
+		private final Bar bar;
+
+		/**
+		 * Creates a new write context.
+		 *
+		 * @param options shared export options
+		 * @param network loaded network
+		 * @param writer destination writer
+		 * @param bar optional progress bar
+		 */
+		private PuzzleJsonlWriteContext(
+				PuzzleJsonlExportContext options,
+				Network network,
+				BufferedWriter writer,
+				Bar bar) {
+			this.options = options;
+			this.network = network;
+			this.writer = writer;
+			this.bar = bar;
+		}
+	}
+
+	/**
+	 * Running counters for puzzle-jsonl export.
+	 */
+	private static final class PuzzleJsonlExportStats {
+		/**
+		 * Total input rows seen.
+		 */
+		private long seen;
+		/**
+		 * Rows written to output.
+		 */
+		private long written;
+		/**
+		 * Rows skipped by filters or empty conversions.
+		 */
+		private long skipped;
+		/**
+		 * Invalid input rows.
+		 */
+		private long invalid;
 	}
 
 	/**
@@ -551,6 +824,34 @@ public final class RecordCommands {
 	 * @param a argument parser for the subcommand
 	 */
 	public static void runRecordToTrainingJsonl(Argv a) {
+		TrainingJsonlRequest request = parseTrainingJsonlRequest(a);
+		Bar bar = progressBar(request.inputFiles.size() * 2L, "training-jsonl files");
+		TrainingExportStats stats = new TrainingExportStats();
+		Set<String> puzzleParents = collectPuzzleParentsOrExit(request, bar);
+		stats.resetForWritePass();
+		ensureTrainingOutputReady(request.output, request.verbose, bar);
+		writeTrainingJsonlOutput(request, puzzleParents, stats, bar);
+		finishProgress(bar);
+		System.out.printf(Locale.ROOT,
+				COMMAND_RECORD_EXPORT_TRAINING_JSONL
+						+ ": wrote %d/%d records to %s (puzzles=%d, similar=%d, random=%d, invalid=%d, puzzle-parents=%d)%n",
+				stats.written,
+				stats.seen,
+				request.output,
+				stats.puzzles,
+				stats.similar,
+				stats.random,
+				stats.invalid,
+				puzzleParents.size());
+	}
+
+	/**
+	 * Parses and validates a training-jsonl export request.
+	 *
+	 * @param a command arguments
+	 * @return normalized export request
+	 */
+	private static TrainingJsonlRequest parseTrainingJsonlRequest(Argv a) {
 		boolean verbose = a.flag(OPT_VERBOSE, OPT_VERBOSE_SHORT);
 		boolean recursive = a.flag(OPT_RECURSIVE);
 		boolean includeEngineMetadata = a.flag(OPT_INCLUDE_ENGINE_METADATA);
@@ -564,64 +865,86 @@ public final class RecordCommands {
 		a.ensureConsumed();
 
 		if (inputs.isEmpty()) {
-			exitWithError("record export training-jsonl: missing " + OPT_INPUT + " (or positional files/dirs)");
+			exitWithError(COMMAND_RECORD_EXPORT_TRAINING_JSONL + ": missing "
+					+ OPT_INPUT + INPUTS_OR_POSITIONAL_HINT);
 		}
 		if (out == null) {
 			out = deriveTrainingJsonlOutputOrExit(inputs);
 		}
 		long maxRecords = maxRecordsOpt == null ? 0L : maxRecordsOpt.longValue();
 		if (maxRecords < 0L) {
-			exitWithError("record export training-jsonl: " + OPT_MAX_RECORDS + " must be non-negative");
+			exitWithError(COMMAND_RECORD_EXPORT_TRAINING_JSONL + ": "
+					+ OPT_MAX_RECORDS + MUST_BE_NON_NEGATIVE);
 		}
 
 		Filter puzzleFilter = resolveTrainingPuzzleFilter(puzzleFilterDsl, verbose);
-		List<Path> inputFiles = collectRecordInputsOrExit("record export training-jsonl", inputs, recursive, verbose);
+		List<Path> inputFiles =
+				collectRecordInputsOrExit(COMMAND_RECORD_EXPORT_TRAINING_JSONL, inputs, recursive, verbose);
 		if (inputFiles.isEmpty()) {
-			exitWithError("record export training-jsonl: no input files found");
+			exitWithError(COMMAND_RECORD_EXPORT_TRAINING_JSONL + ": no input files found");
 		}
 		validateTrainingOutputPath(inputFiles, out);
+		return new TrainingJsonlRequest(out, inputFiles, puzzleFilter, includeEngineMetadata, maxRecords, verbose);
+	}
 
-		Bar bar = progressBar(inputFiles.size() * 2L, "training-jsonl files");
-		TrainingExportStats stats = new TrainingExportStats();
-		Set<String> puzzleParents;
+	/**
+	 * Collects puzzle-parent groups for training-jsonl export.
+	 *
+	 * @param request export request
+	 * @param bar optional progress bar
+	 * @return set of puzzle-parent FENs
+	 */
+	private static Set<String> collectPuzzleParentsOrExit(TrainingJsonlRequest request, Bar bar) {
 		try {
-			puzzleParents = collectPuzzleParentFens(inputFiles, puzzleFilter, verbose, bar);
+			return collectPuzzleParentFens(request.inputFiles, request.puzzleFilter, request.verbose, bar);
 		} catch (IOException | RuntimeException ex) {
 			finishProgress(bar);
-			exitWithError("record export training-jsonl: failed while scanning puzzle parents: " + ex.getMessage(), ex,
-					verbose);
-			return;
+			exitWithError(COMMAND_RECORD_EXPORT_TRAINING_JSONL
+					+ ": failed while scanning puzzle parents: " + ex.getMessage(), ex, request.verbose);
+			throw unreachable();
 		}
+	}
 
-		stats.resetForWritePass();
+	/**
+	 * Creates the destination directory for training-jsonl export.
+	 *
+	 * @param output output path
+	 * @param verbose whether verbose diagnostics are enabled
+	 * @param bar optional progress bar
+	 */
+	private static void ensureTrainingOutputReady(Path output, boolean verbose, Bar bar) {
 		try {
-			ensureParentDir(out);
+			ensureParentDir(output);
 		} catch (IOException ex) {
 			finishProgress(bar);
-			exitWithError("record export training-jsonl: failed to prepare output: " + ex.getMessage(), ex, verbose);
+			exitWithError(COMMAND_RECORD_EXPORT_TRAINING_JSONL
+					+ ": failed to prepare output: " + ex.getMessage(), ex, verbose);
 		}
+	}
 
-		try (BufferedWriter writer = Files.newBufferedWriter(out, StandardCharsets.UTF_8)) {
-			writeTrainingJsonl(inputFiles, writer, puzzleFilter, puzzleParents, includeEngineMetadata,
-					maxRecords, stats, verbose, bar);
+	/**
+	 * Executes the training-jsonl write pass.
+	 *
+	 * @param request export request
+	 * @param puzzleParents parent-group lookup
+	 * @param stats running counters
+	 * @param bar optional progress bar
+	 */
+	private static void writeTrainingJsonlOutput(
+			TrainingJsonlRequest request,
+			Set<String> puzzleParents,
+			TrainingExportStats stats,
+			Bar bar) {
+		try (BufferedWriter writer = Files.newBufferedWriter(request.output, StandardCharsets.UTF_8)) {
+			writeTrainingJsonl(request.inputFiles, writer,
+					new TrainingWriteContext(request, puzzleParents, stats, bar));
 		} catch (StopTrainingExport ignored) {
 			// max-records reached cleanly
 		} catch (IOException | UncheckedIOException ex) {
 			finishProgress(bar);
-			exitWithError("record export training-jsonl: failed to write output: " + ex.getMessage(), ex, verbose);
+			exitWithError(COMMAND_RECORD_EXPORT_TRAINING_JSONL
+					+ ": failed to write output: " + ex.getMessage(), ex, request.verbose);
 		}
-		finishProgress(bar);
-
-		System.out.printf(Locale.ROOT,
-				"record export training-jsonl: wrote %d/%d records to %s (puzzles=%d, similar=%d, random=%d, invalid=%d, puzzle-parents=%d)%n",
-				stats.written,
-				stats.seen,
-				out,
-				stats.puzzles,
-				stats.similar,
-				stats.random,
-				stats.invalid,
-				puzzleParents.size());
 	}
 
 	/**
@@ -650,9 +973,7 @@ public final class RecordCommands {
 
 		List<Path> inputFiles = collectRecordInputsOrExit(request.inputs, request.recursive, request.verbose);
 		if (inputFiles.isEmpty()) {
-			System.err.println("records: no input files found");
-			System.exit(2);
-			return;
+			exitWithError("records: no input files found");
 		}
 		validateOutputPathForInputs(inputFiles, request.output, request.maxRecords);
 
@@ -694,7 +1015,7 @@ public final class RecordCommands {
 		a.ensureConsumed();
 
 		if (inputs.isEmpty()) {
-			exitWithError("records: missing " + OPT_INPUT + " (or positional files/dirs)");
+			exitWithError("records: missing " + OPT_INPUT + INPUTS_OR_POSITIONAL_HINT);
 		}
 		if (output == null) {
 			exitWithError("records: missing " + OPT_OUTPUT + " for output");
@@ -705,7 +1026,7 @@ public final class RecordCommands {
 
 		int maxRecords = (maxRecordsOpt == null) ? 0 : maxRecordsOpt;
 		if (maxRecords < 0) {
-			exitWithError("records: " + OPT_MAX_RECORDS + " must be non-negative");
+			exitWithError("records: " + OPT_MAX_RECORDS + MUST_BE_NON_NEGATIVE);
 		}
 		if (maxRecords <= 0 && Files.isDirectory(output)) {
 			exitWithError("records: " + OPT_OUTPUT + " must be a file when not splitting");
@@ -810,21 +1131,12 @@ public final class RecordCommands {
 				streamRecordJson(input, objJson -> handleRecordJson(objJson, writer, stats, request, filters));
 				updateRecordsProgress(filesBar, input, stats);
 			} catch (IOException ex) {
-				System.err.println("records: failed to read input: " + input + " (" + ex.getMessage() + ")");
-				if (request.verbose) {
-					ex.printStackTrace(System.err);
-				}
-				System.exit(2);
-				return;
+				exitWithError("records: failed to read input: " + input + " (" + ex.getMessage() + ")", ex,
+						request.verbose);
 			} catch (RuntimeException ex) {
 				Throwable cause = ex.getCause();
 				if (cause instanceof IOException io) {
-					System.err.println("records: failed to write output: " + io.getMessage());
-					if (request.verbose) {
-						io.printStackTrace(System.err);
-					}
-					System.exit(2);
-					return;
+					exitWithError("records: failed to write output: " + io.getMessage(), io, request.verbose);
 				}
 				throw ex;
 			}
@@ -885,11 +1197,7 @@ public final class RecordCommands {
 		try {
 			writer.close();
 		} catch (IOException ex) {
-			System.err.println("records: failed to finalize output: " + ex.getMessage());
-			if (verbose) {
-				ex.printStackTrace(System.err);
-			}
-			System.exit(2);
+			exitWithError("records: failed to finalize output: " + ex.getMessage(), ex, verbose);
 		}
 	}
 
@@ -1140,9 +1448,9 @@ public final class RecordCommands {
 				return deriveOutputPath(input, EXT_TRAINING_JSONL);
 			}
 		}
-		exitWithError("record export training-jsonl: missing " + OPT_OUTPUT
+		exitWithError(COMMAND_RECORD_EXPORT_TRAINING_JSONL + ": missing " + OPT_OUTPUT
 				+ " when exporting multiple inputs or a directory");
-		return null;
+		throw unreachable();
 	}
 
 	/**
@@ -1153,12 +1461,12 @@ public final class RecordCommands {
 	 */
 	private static Filter resolveTrainingPuzzleFilter(String puzzleFilterDsl, boolean verbose) {
 		if (puzzleFilterDsl != null && !puzzleFilterDsl.isEmpty()) {
-			return parseFilterOrExit("record export training-jsonl", OPT_FILTER, puzzleFilterDsl, verbose);
+			return parseFilterOrExit(COMMAND_RECORD_EXPORT_TRAINING_JSONL, OPT_FILTER, puzzleFilterDsl, verbose);
 		}
 		Config.reload();
 		Filter puzzleFilter = Config.getPuzzleVerify();
 		if (puzzleFilter == null) {
-			exitWithError("record export training-jsonl: missing puzzle DSL; pass " + OPT_FILTER
+			exitWithError(COMMAND_RECORD_EXPORT_TRAINING_JSONL + ": missing puzzle DSL; pass " + OPT_FILTER
 					+ " or configure puzzle verification filters");
 		}
 		return puzzleFilter;
@@ -1171,12 +1479,12 @@ public final class RecordCommands {
 	 */
 	private static void validateTrainingOutputPath(List<Path> inputFiles, Path output) {
 		if (Files.isDirectory(output)) {
-			exitWithError("record export training-jsonl: " + OPT_OUTPUT + " must be a JSONL file path");
+			exitWithError(COMMAND_RECORD_EXPORT_TRAINING_JSONL + ": " + OPT_OUTPUT + " must be a JSONL file path");
 		}
 		Path outputAbs = output.toAbsolutePath().normalize();
 		for (Path input : inputFiles) {
-			if (outputAbs.equals(input.toAbsolutePath().normalize())) {
-				exitWithError("record export training-jsonl: output cannot overwrite input file " + input);
+				if (outputAbs.equals(input.toAbsolutePath().normalize())) {
+					exitWithError(COMMAND_RECORD_EXPORT_TRAINING_JSONL + ": output cannot overwrite input file " + input);
 			}
 		}
 	}
@@ -1197,8 +1505,8 @@ public final class RecordCommands {
 			Bar bar) throws IOException {
 		Set<String> puzzleParents = new HashSet<>();
 		for (Path input : inputFiles) {
-			streamRecordJson(input, objJson -> {
-				Record rec = parseTrainingRecord(objJson, verbose, "record export training-jsonl");
+				streamRecordJson(input, objJson -> {
+					Record rec = parseTrainingRecord(objJson, verbose, COMMAND_RECORD_EXPORT_TRAINING_JSONL);
 				if (rec == null || rec.getParent() == null) {
 					return;
 				}
@@ -1232,47 +1540,72 @@ public final class RecordCommands {
 	private static void writeTrainingJsonl(
 			List<Path> inputFiles,
 			BufferedWriter writer,
-			Filter puzzleFilter,
-			Set<String> puzzleParents,
-			boolean includeEngineMetadata,
-			long maxRecords,
-			TrainingExportStats stats,
-			boolean verbose,
-			Bar bar) throws IOException {
+			TrainingWriteContext context) throws IOException {
 		for (Path input : inputFiles) {
-			long[] sourceRecordIndex = { 0L };
-			streamRecordJson(input, objJson -> {
-				if (maxRecords > 0L && stats.written >= maxRecords) {
-					throw new StopTrainingExport();
-				}
-				long index = sourceRecordIndex[0]++;
-				stats.seen++;
-				Record rec = parseTrainingRecord(objJson, verbose, "record export training-jsonl");
-				if (rec == null || rec.getPosition() == null) {
-					stats.invalid++;
-					return;
-				}
-				TrainingLabel label = trainingLabelFor(rec, puzzleFilter, puzzleParents);
-				String line = toTrainingJsonlLine(rec, input, index, label, includeEngineMetadata);
-				try {
-					writer.write(line);
-					writer.newLine();
-				} catch (IOException ex) {
-					throw new UncheckedIOException(ex);
-				}
-				stats.recordWritten(label);
-			});
-			if (bar != null) {
-				bar.step(String.format(Locale.ROOT,
+			writeTrainingJsonlFile(input, writer, context);
+			if (context.bar != null) {
+				context.bar.step(String.format(Locale.ROOT,
 						"pass=write last=%s written=%d invalid=%d",
 						fileName(input),
-						stats.written,
-						stats.invalid));
+						context.stats.written,
+						context.stats.invalid));
 			}
-			if (maxRecords > 0L && stats.written >= maxRecords) {
+			if (context.hasReachedLimit()) {
 				throw new StopTrainingExport();
 			}
 		}
+	}
+
+	/**
+	 * Writes all training-jsonl rows for a single input file.
+	 *
+	 * @param input source input file
+	 * @param writer destination writer
+	 * @param context write context
+	 * @throws IOException if the input stream fails
+	 */
+	private static void writeTrainingJsonlFile(
+			Path input,
+			BufferedWriter writer,
+			TrainingWriteContext context) throws IOException {
+		long[] sourceRecordIndex = { 0L };
+		streamRecordJson(input,
+				objJson -> writeTrainingJsonlRecord(objJson, input, sourceRecordIndex[0]++, writer, context));
+	}
+
+	/**
+	 * Writes one training-jsonl row.
+	 *
+	 * @param objJson raw input json
+	 * @param input source file
+	 * @param sourceRecordIndex source-record index within the input file
+	 * @param writer destination writer
+	 * @param context write context
+	 */
+	private static void writeTrainingJsonlRecord(
+			String objJson,
+			Path input,
+			long sourceRecordIndex,
+			BufferedWriter writer,
+			TrainingWriteContext context) {
+		if (context.hasReachedLimit()) {
+			throw new StopTrainingExport();
+		}
+		context.stats.seen++;
+		Record rec = parseTrainingRecord(objJson, context.verbose, COMMAND_RECORD_EXPORT_TRAINING_JSONL);
+		if (rec == null || rec.getPosition() == null) {
+			context.stats.invalid++;
+			return;
+		}
+		TrainingLabel label = trainingLabelFor(rec, context.puzzleFilter, context.puzzleParents);
+		String line = toTrainingJsonlLine(rec, input, sourceRecordIndex, label, context.includeEngineMetadata);
+		try {
+			writer.write(line);
+			writer.newLine();
+		} catch (IOException ex) {
+			throw new UncheckedIOException(ex);
+		}
+		context.stats.recordWritten(label);
 	}
 
 	/**
@@ -1599,6 +1932,126 @@ public final class RecordCommands {
 	}
 
 	/**
+	 * Immutable request for training-jsonl export.
+	 */
+	private static final class TrainingJsonlRequest {
+		/**
+		 * Destination output path.
+		 */
+		private final Path output;
+		/**
+		 * Sorted input files.
+		 */
+		private final List<Path> inputFiles;
+		/**
+		 * Puzzle classification filter.
+		 */
+		private final Filter puzzleFilter;
+		/**
+		 * Whether engine metadata should be included.
+		 */
+		private final boolean includeEngineMetadata;
+		/**
+		 * Maximum number of records to write.
+		 */
+		private final long maxRecords;
+		/**
+		 * Whether verbose diagnostics are enabled.
+		 */
+		private final boolean verbose;
+
+		/**
+		 * Creates a new training-jsonl request.
+		 *
+		 * @param output destination output path
+		 * @param inputFiles sorted input files
+		 * @param puzzleFilter puzzle classification filter
+		 * @param includeEngineMetadata whether engine metadata should be included
+		 * @param maxRecords maximum number of records to write
+		 * @param verbose whether verbose diagnostics are enabled
+		 */
+		private TrainingJsonlRequest(
+				Path output,
+				List<Path> inputFiles,
+				Filter puzzleFilter,
+				boolean includeEngineMetadata,
+				long maxRecords,
+				boolean verbose) {
+			this.output = output;
+			this.inputFiles = inputFiles;
+			this.puzzleFilter = puzzleFilter;
+			this.includeEngineMetadata = includeEngineMetadata;
+			this.maxRecords = maxRecords;
+			this.verbose = verbose;
+		}
+	}
+
+	/**
+	 * Mutable context for the training-jsonl write pass.
+	 */
+	private static final class TrainingWriteContext {
+		/**
+		 * Puzzle classification filter.
+		 */
+		private final Filter puzzleFilter;
+		/**
+		 * Parent-group lookup.
+		 */
+		private final Set<String> puzzleParents;
+		/**
+		 * Whether engine metadata should be included.
+		 */
+		private final boolean includeEngineMetadata;
+		/**
+		 * Maximum number of records to write.
+		 */
+		private final long maxRecords;
+		/**
+		 * Whether verbose diagnostics are enabled.
+		 */
+		private final boolean verbose;
+		/**
+		 * Running output counters.
+		 */
+		private final TrainingExportStats stats;
+		/**
+		 * Optional progress bar.
+		 */
+		private final Bar bar;
+
+		/**
+		 * Creates a new training write context.
+		 *
+		 * @param request export request
+		 * @param puzzleParents parent-group lookup
+		 * @param stats running counters
+		 * @param bar optional progress bar
+		 */
+		private TrainingWriteContext(
+				TrainingJsonlRequest request,
+				Set<String> puzzleParents,
+				TrainingExportStats stats,
+				Bar bar) {
+			this.puzzleFilter = request.puzzleFilter;
+			this.puzzleParents = puzzleParents;
+			this.includeEngineMetadata = request.includeEngineMetadata;
+			this.maxRecords = request.maxRecords;
+			this.verbose = request.verbose;
+			this.stats = stats;
+			this.bar = bar;
+		}
+
+		/**
+		 * Returns whether the configured max-record limit was reached.
+		 *
+		 * @return {@code true} when writing should stop
+		 */
+		private boolean hasReachedLimit() {
+			return maxRecords > 0L && stats.written >= maxRecords;
+		}
+	}
+
+	/**
 	 * Provides training label behavior.
 	 */
 	private static final class TrainingLabel {
@@ -1699,65 +2152,6 @@ public final class RecordCommands {
 		 * Shared serial version uid constant.
 		 */
 		 private static final long serialVersionUID = 1L;
-	}
-
-	/**
-	 * Handles file progress bar.
-	 * @param input input
-	 * @param passes passes
-	 * @param label label
-	 * @return computed value
-	 */
-	private static Bar fileProgressBar(Path input, int passes, String label) {
-		long size = fileSize(input);
-		long total = size <= 0L ? 0L : size * Math.max(1, passes);
-		return progressBar(total, label);
-	}
-
-	/**
-	 * Handles file size.
-	 * @param input input
-	 * @return computed value
-	 */
-	private static long fileSize(Path input) {
-		try {
-			return input == null ? 0L : Files.size(input);
-		} catch (IOException ex) {
-			return 0L;
-		}
-	}
-
-	/**
-	 * Handles byte progress.
-	 * @param bar bar
-	 * @return computed value
-	 */
-	private static LongConsumer byteProgress(Bar bar) {
-		return bar == null ? null : bar::set;
-	}
-
-	/**
-	 * Handles finish progress.
-	 * @param bar bar
-	 */
-	private static void finishProgress(Bar bar) {
-		if (bar != null) {
-			bar.finish();
-		}
-	}
-
-	/**
-	 * Verifies that a record conversion input exists before calling conversion
-	 * helpers that log and return on read failure.
-	 *
-	 * @param input input path to validate
-	 * @param label command label for diagnostics
-	 */
-	private static void requireReadableFile(Path input, String label) {
-		if (input == null || !Files.isRegularFile(input) || !Files.isReadable(input)) {
-			System.err.println(label + ": input file not found or not readable: " + input);
-			System.exit(3);
-		}
 	}
 
 	/**
@@ -2284,28 +2678,4 @@ public final class RecordCommands {
 		}
 	}
 
-	/**
-	 * Handles exit with error.
-	 * @param message message
-	 */
-	private static void exitWithError(String message) {
-		System.err.println(message);
-		System.exit(2);
-		throw new IllegalStateException(message);
-	}
-
-	/**
-	 * Handles exit with error.
-	 * @param message message
-	 * @param cause cause
-	 * @param verbose verbose
-	 */
-	private static void exitWithError(String message, Throwable cause, boolean verbose) {
-		System.err.println(message);
-		if (verbose && cause != null) {
-			cause.printStackTrace(System.err);
-		}
-		System.exit(2);
-		throw new IllegalStateException(message, cause);
-	}
 }

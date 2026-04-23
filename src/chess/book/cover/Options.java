@@ -1,5 +1,7 @@
 package chess.book.cover;
 
+import chess.pdf.DocumentMetrics;
+
 /**
  * Mutable options for native book-cover rendering.
  *
@@ -22,6 +24,11 @@ public final class Options {
 	 * Explicit printed page count; zero means infer from the book metadata.
 	 */
 	private int pages = 0;
+
+	/**
+	 * Optional interior-PDF metrics used to infer trim size and page count.
+	 */
+	private DocumentMetrics interiorPdfMetrics = null;
 
 	/**
 	 * Returns the binding layout.
@@ -80,6 +87,26 @@ public final class Options {
 	 */
 	public Options setPages(int pages) {
 		this.pages = Math.max(0, pages);
+		return this;
+	}
+
+	/**
+	 * Returns optional interior-PDF metrics.
+	 *
+	 * @return interior-PDF metrics, or {@code null} when not supplied
+	 */
+	public DocumentMetrics getInteriorPdfMetrics() {
+		return interiorPdfMetrics;
+	}
+
+	/**
+	 * Sets optional interior-PDF metrics.
+	 *
+	 * @param interiorPdfMetrics interior-PDF metrics
+	 * @return this options object
+	 */
+	public Options setInteriorPdfMetrics(DocumentMetrics interiorPdfMetrics) {
+		this.interiorPdfMetrics = interiorPdfMetrics;
 		return this;
 	}
 }

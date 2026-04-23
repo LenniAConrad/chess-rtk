@@ -489,30 +489,14 @@ public class Engine implements AutoCloseable {
 		setPosition(position);
 		print("go infinite");
 
-		boolean engineUnresponsive = false;
-		long lastOutput = System.currentTimeMillis();
-		long stopTimestamp = 0;
-		boolean stopIssued = false;
+		InfiniteAnalysisState state = new InfiniteAnalysisState();
 
 		while (searchOngoing(engineOutput) && process.isAlive()) {
-			if (!stopIssued && stopSignal != null && stopSignal.getAsBoolean()) {
-				stop();
-				stopIssued = true;
-			}
-			if (input.ready()) {
-				engineUnresponsive = false;
-				processEngineOutput(analysis, arguments);
-				lastOutput = System.currentTimeMillis();
-				if (onUpdate != null) {
-					onUpdate.accept(analysis);
-				}
-			} else if (stallTimeout > 0 && System.currentTimeMillis() - lastOutput >= stallTimeout) {
-				if (engineUnresponsive) {
-					stopTimestamp = terminateIfStalled(stopTimestamp);
-				} else {
-					stopTimestamp = markUnresponsive(stallTimeout);
-					engineUnresponsive = true;
-				}
+			maybeIssueInfiniteStop(stopSignal, state);
+			if (consumeInfiniteOutput(analysis, arguments, onUpdate, state)) {
+				// output consumed
+			} else if (handleInfiniteStall(stallTimeout, state)) {
+				// timeout handling applied
 			} else {
 				yieldForEngineOutput();
 			}
@@ -521,6 +505,92 @@ public class Engine implements AutoCloseable {
 		checkProcessAlive(position);
 		engineOutput = "";
 		return this;
+	}
+
+	/**
+	 * Issues a single stop command when the external stop signal becomes true.
+	 *
+	 * @param stopSignal external stop signal
+	 * @param state infinite-analysis loop state
+	 */
+	private void maybeIssueInfiniteStop(BooleanSupplier stopSignal, InfiniteAnalysisState state) {
+		if (!state.stopIssued && stopSignal != null && stopSignal.getAsBoolean()) {
+			stop();
+			state.stopIssued = true;
+		}
+	}
+
+	/**
+	 * Consumes ready engine output during infinite analysis.
+	 *
+	 * @param analysis target analysis buffer
+	 * @param arguments optional output filter
+	 * @param onUpdate optional update callback
+	 * @param state infinite-analysis loop state
+	 * @return true when output was consumed
+	 * @throws IOException if reading or parsing fails
+	 */
+	private boolean consumeInfiniteOutput(
+			Analysis analysis,
+			Filter arguments,
+			Consumer<Analysis> onUpdate,
+			InfiniteAnalysisState state) throws IOException {
+		if (!input.ready()) {
+			return false;
+		}
+		state.engineUnresponsive = false;
+		processEngineOutput(analysis, arguments);
+		state.lastOutput = System.currentTimeMillis();
+		if (onUpdate != null) {
+			onUpdate.accept(analysis);
+		}
+		return true;
+	}
+
+	/**
+	 * Handles the unresponsive-engine timeout logic for infinite analysis.
+	 *
+	 * @param stallTimeout max idle time before the engine is treated as stalled
+	 * @param state infinite-analysis loop state
+	 * @return true when timeout handling was applied
+	 */
+	private boolean handleInfiniteStall(long stallTimeout, InfiniteAnalysisState state) {
+		if (stallTimeout <= 0 || System.currentTimeMillis() - state.lastOutput < stallTimeout) {
+			return false;
+		}
+		if (state.engineUnresponsive) {
+			state.stopTimestamp = terminateIfStalled(state.stopTimestamp);
+		} else {
+			state.stopTimestamp = markUnresponsive(stallTimeout);
+			state.engineUnresponsive = true;
+		}
+		return true;
+	}
+
+	/**
+	 * Mutable state for one infinite-analysis loop.
+	 */
+	private static final class InfiniteAnalysisState {
+
+		/**
+		 * Whether the engine was already flagged as unresponsive.
+		 */
+		private boolean engineUnresponsive;
+
+		/**
+		 * Wall-clock timestamp of the last parsed output line.
+		 */
+		private long lastOutput = System.currentTimeMillis();
+
+		/**
+		 * Timestamp of the stop command issued for stall handling.
+		 */
+		private long stopTimestamp;
+
+		/**
+		 * Whether an external stop command was already sent.
+		 */
+		private boolean stopIssued;
 	}
 
 	/**

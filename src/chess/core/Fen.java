@@ -164,44 +164,99 @@ public final class Fen {
      * @param source complete normalized FEN for diagnostics
      */
     private static void parsePlacement(Position position, String placement, String source) {
-        int square = 0;
-        int rankSquares = 0;
-        int ranks = 0;
+        PlacementState state = new PlacementState();
         for (int i = 0; i < placement.length(); i++) {
-            char ch = placement.charAt(i);
-            if (ch == '/') {
-                if (rankSquares != 8) {
-                    throw new IllegalArgumentException("Invalid FEN '" + source + "' rank width: " + placement);
-                }
-                rankSquares = 0;
-                ranks++;
-                continue;
-            }
-            if (ch >= '1' && ch <= '8') {
-                int empty = ch - '0';
-                rankSquares += empty;
-                square += empty;
-            } else {
-                int piece = pieceIndexFromFen(ch);
-                if (piece < 0) {
-                    throw new IllegalArgumentException("Invalid FEN '" + source + "' piece: " + ch);
-                }
-                if (square >= 64) {
-                    throw new IllegalArgumentException("Too many squares in FEN '" + source + "': " + placement);
-                }
-                position.setPiece(piece, square++);
-                rankSquares++;
-            }
-            if (rankSquares > 8 || square > 64) {
-                throw new IllegalArgumentException("Too many squares in FEN '" + source + "': " + placement);
-            }
+            parsePlacementCharacter(position, placement, source, state, placement.charAt(i));
         }
-        if (rankSquares != 8) {
+        if (state.rankSquares != 8) {
             throw new IllegalArgumentException("Invalid FEN '" + source + "' rank width: " + placement);
         }
-        ranks++;
-        if (ranks != 8 || square != 64) {
+        state.ranks++;
+        if (state.ranks != 8 || state.square != 64) {
             throw new IllegalArgumentException("Invalid FEN '" + source + "' board size: " + placement);
+        }
+    }
+
+    /**
+     * Applies one placement character to the current parse state.
+     *
+     * @param position target position
+     * @param placement placement field
+     * @param source complete normalized FEN for diagnostics
+     * @param state mutable placement state
+     * @param ch current placement character
+     */
+    private static void parsePlacementCharacter(
+            Position position,
+            String placement,
+            String source,
+            PlacementState state,
+            char ch) {
+        if (ch == '/') {
+            finishPlacementRank(placement, source, state);
+            return;
+        }
+        if (ch >= '1' && ch <= '8') {
+            state.rankSquares += ch - '0';
+            state.square += ch - '0';
+            validatePlacementBounds(placement, source, state);
+            return;
+        }
+        placeFenPiece(position, placement, source, state, ch);
+    }
+
+    /**
+     * Completes one rank separator in the placement field.
+     *
+     * @param placement placement field
+     * @param source complete normalized FEN for diagnostics
+     * @param state mutable placement state
+     */
+    private static void finishPlacementRank(String placement, String source, PlacementState state) {
+        if (state.rankSquares != 8) {
+            throw new IllegalArgumentException("Invalid FEN '" + source + "' rank width: " + placement);
+        }
+        state.rankSquares = 0;
+        state.ranks++;
+    }
+
+    /**
+     * Places one piece while parsing the placement field.
+     *
+     * @param position target position
+     * @param placement placement field
+     * @param source complete normalized FEN for diagnostics
+     * @param state mutable placement state
+     * @param ch piece character
+     */
+    private static void placeFenPiece(
+            Position position,
+            String placement,
+            String source,
+            PlacementState state,
+            char ch) {
+        int piece = pieceIndexFromFen(ch);
+        if (piece < 0) {
+            throw new IllegalArgumentException("Invalid FEN '" + source + "' piece: " + ch);
+        }
+        if (state.square >= 64) {
+            throw new IllegalArgumentException("Too many squares in FEN '" + source + "': " + placement);
+        }
+        position.setPiece(piece, state.square++);
+        state.rankSquares++;
+        validatePlacementBounds(placement, source, state);
+    }
+
+    /**
+     * Validates placement bounds after one placement token.
+     *
+     * @param placement placement field
+     * @param source complete normalized FEN for diagnostics
+     * @param state mutable placement state
+     */
+    private static void validatePlacementBounds(String placement, String source, PlacementState state) {
+        if (state.rankSquares > 8 || state.square > 64) {
+            throw new IllegalArgumentException("Too many squares in FEN '" + source + "': " + placement);
         }
     }
 
@@ -300,16 +355,35 @@ public final class Fen {
                 }
                 seenWhiteQueenside |= parseWhiteChess960Castling(
                         position, ch - 'A', seenWhiteQueenside, source, castling);
-                continue;
-            }
-            if (ch >= 'a' && ch <= 'h') {
+            } else if (ch >= 'a' && ch <= 'h') {
                 seenBlack = true;
                 seenBlackQueenside |= parseBlackChess960Castling(
                         position, ch - 'a', seenBlackQueenside, source, castling);
-                continue;
+            } else {
+                throw new IllegalArgumentException("Invalid FEN '" + source + "' castling character: " + ch);
             }
-            throw new IllegalArgumentException("Invalid FEN '" + source + "' castling character: " + ch);
         }
+    }
+
+    /**
+     * Mutable counters used while parsing the placement field.
+     */
+    private static final class PlacementState {
+
+        /**
+         * Current board square index.
+         */
+        private int square;
+
+        /**
+         * Squares consumed in the current rank.
+         */
+        private int rankSquares;
+
+        /**
+         * Completed rank count.
+         */
+        private int ranks;
     }
 
     /**

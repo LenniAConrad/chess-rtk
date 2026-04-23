@@ -32,6 +32,36 @@ import chess.struct.Game;
 public final class Render {
 
 	/**
+	 * Serif font family used for coordinate/detail overlays.
+	 */
+	private static final String FONT_TIMES_NEW_ROMAN = "Times New Roman";
+
+	/**
+	 * Shared SVG width attribute fragment.
+	 */
+	private static final String SVG_WIDTH_ATTRIBUTE = "\" width=\"";
+
+	/**
+	 * Shared SVG height attribute fragment.
+	 */
+	private static final String SVG_HEIGHT_ATTRIBUTE = "\" height=\"";
+
+	/**
+	 * Shared SVG y attribute fragment.
+	 */
+	private static final String SVG_Y_ATTRIBUTE = "\" y=\"";
+
+	/**
+	 * Shared closing fragment for one translated SVG group.
+	 */
+	private static final String SVG_GROUP_END = "  </g>\n";
+
+	/**
+	 * Shared SVG stroke attribute name.
+	 */
+	private static final String SVG_STROKE = "stroke";
+
+	/**
 	 * Default fill color for arrows.
 	 */
 	private static final Color DEFAULT_ARROW_FILL = new Color(1.0f, 1.0f, 1.0f, 1.0f);
@@ -275,7 +305,7 @@ public final class Render {
 	/**
 	 * Base font used for detail overlays (Times New Roman) at {@link #detailTextStartingFontSize}.
 	 */
-	private final Font detailTextBaseFont = new Font("Times New Roman", Font.PLAIN, detailTextStartingFontSize);
+	private final Font detailTextBaseFont = new Font(FONT_TIMES_NEW_ROMAN, Font.PLAIN, detailTextStartingFontSize);
 
 	/**
 	 * Mutable style configuration used during square text rendering.
@@ -760,8 +790,8 @@ public final class Render {
 		RenderGeometry geometry = renderGeometry();
 		StringBuilder svg = new StringBuilder(192_000);
 		svg.append("<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 ")
-				.append(geometry.width).append(' ').append(geometry.height).append("\" width=\"")
-				.append(outputWidth).append("\" height=\"").append(outputHeight)
+				.append(geometry.width).append(' ').append(geometry.height).append(SVG_WIDTH_ATTRIBUTE)
+				.append(outputWidth).append(SVG_HEIGHT_ATTRIBUTE).append(outputHeight)
 				.append("\" role=\"img\" aria-labelledby=\"title\">\n")
 				.append("  <title id=\"title\">Chess position</title>\n");
 
@@ -837,8 +867,8 @@ public final class Render {
 			frameW = geometry.width;
 			frameH = geometry.height;
 		}
-		svg.append("  <rect x=\"").append(frameX).append("\" y=\"").append(frameY)
-				.append("\" width=\"").append(frameW).append("\" height=\"").append(frameH).append("\"");
+		svg.append("  <rect x=\"").append(frameX).append(SVG_Y_ATTRIBUTE).append(frameY)
+				.append(SVG_WIDTH_ATTRIBUTE).append(frameW).append(SVG_HEIGHT_ATTRIBUTE).append(frameH).append("\"");
 		appendColorAttribute(svg, "fill", DEFAULT_FRAME);
 		svg.append("/>\n");
 	}
@@ -853,7 +883,7 @@ public final class Render {
 	private static void appendBoardSvg(StringBuilder svg, int boardX, int boardY) {
 		svg.append("  <g transform=\"translate(").append(boardX).append(' ').append(boardY).append(")\">\n");
 		appendEmbeddedSvgBody(svg, SvgShapes.board(), "    ");
-		svg.append("  </g>\n");
+		svg.append(SVG_GROUP_END);
 	}
 
 	/**
@@ -898,7 +928,7 @@ public final class Render {
 			}
 			svg.append("\">\n");
 			appendEmbeddedSvgBody(svg, pieceSvg, "    ");
-			svg.append("  </g>\n");
+			svg.append(SVG_GROUP_END);
 		}
 	}
 
@@ -924,7 +954,7 @@ public final class Render {
 			appendNumber(svg, radius);
 			svg.append('"');
 			appendColorAttribute(svg, "fill", c.fill);
-			appendColorAttribute(svg, "stroke", c.border);
+			appendColorAttribute(svg, SVG_STROKE, c.border);
 			svg.append(" stroke-width=\"");
 			appendNumber(svg, strokeWidth(c.stroke));
 			svg.append("\"/>\n");
@@ -979,7 +1009,7 @@ public final class Render {
 			}
 			svg.append('"');
 			appendColorAttribute(svg, "fill", arrow.fillColor);
-			appendColorAttribute(svg, "stroke", arrow.borderColor);
+			appendColorAttribute(svg, SVG_STROKE, arrow.borderColor);
 			svg.append(" stroke-linejoin=\"round\" stroke-width=\"");
 			appendNumber(svg, strokeWidth(arrow.stroke));
 			svg.append("\"/>\n");
@@ -1048,13 +1078,13 @@ public final class Render {
 		}
 		int arc = Math.max(4, boxHeight / 2);
 
-		svg.append("  <rect x=\"").append(boxX).append("\" y=\"").append(boxY)
-				.append("\" width=\"").append(boxWidth).append("\" height=\"").append(boxHeight)
+		svg.append("  <rect x=\"").append(boxX).append(SVG_Y_ATTRIBUTE).append(boxY)
+				.append(SVG_WIDTH_ATTRIBUTE).append(boxWidth).append(SVG_HEIGHT_ATTRIBUTE).append(boxHeight)
 				.append("\" rx=\"").append(Math.max(1, arc / 2)).append("\" ry=\"")
 				.append(Math.max(1, arc / 2)).append('"');
 		appendColorAttribute(svg, "fill", style.background);
 		if (style.border != null) {
-			appendColorAttribute(svg, "stroke", style.border);
+			appendColorAttribute(svg, SVG_STROKE, style.border);
 			svg.append(" stroke-width=\"");
 			appendNumber(svg, strokeWidth(style.borderStroke));
 			svg.append('"');
@@ -1063,7 +1093,7 @@ public final class Render {
 
 		int textX = boxX + (boxWidth - layout.textWidth) / 2;
 		int textY = boxY + (boxHeight - layout.textHeight) / 2 + layout.fm.getAscent();
-		svg.append("  <text x=\"").append(textX).append("\" y=\"").append(textY).append('"');
+		svg.append("  <text x=\"").append(textX).append(SVG_Y_ATTRIBUTE).append(textY).append('"');
 		appendFontAttributes(svg, layout.font);
 		appendColorAttribute(svg, "fill", style.textColor);
 		svg.append('>').append(escapeText(text)).append("</text>\n");
@@ -1089,7 +1119,7 @@ public final class Render {
 		}
 
 		int fontStyle = showCoordinatesOutside ? Font.BOLD : Font.PLAIN;
-		Font font = new Font("Times New Roman", fontStyle, fontSize);
+		Font font = new Font(FONT_TIMES_NEW_ROMAN, fontStyle, fontSize);
 		Color detailColor = showCoordinatesOutside ? DEFAULT_FRAME : DEFAULT_DETAIL_TEXT_COLOR;
 
 		BufferedImage scratch = new BufferedImage(1, 1, BufferedImage.TYPE_INT_ARGB);
@@ -1107,7 +1137,7 @@ public final class Render {
 		} else {
 			appendInlineCoordinatesSvg(svg, fm, boardX, boardY);
 		}
-		svg.append("  </g>\n");
+		svg.append(SVG_GROUP_END);
 
 		g.dispose();
 	}
@@ -1428,12 +1458,14 @@ public final class Render {
 		SquareTextStyle style = squareTextStyle;
 		TextLayout layout = squareTextLayout;
 		IntPoint tile = squareTextTile;
+		SquareTextRenderContext renderContext =
+				new SquareTextRenderContext(metrics, boardX, boardY, style, layout, tile);
 
 		for (SquareText label : squareTexts) {
 			if (!hasVisibleText(label) || label.detail != details) {
 				continue;
 			}
-			drawSquareText(g, metrics, boardX, boardY, label, style, layout, tile);
+			drawSquareText(g, label, renderContext);
 		}
 
 		metrics.dispose();
@@ -1442,46 +1474,42 @@ public final class Render {
 		g.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, prevTextAA);
 	}
 
-		/**
-		 * Determines whether the provided square label contains text worth drawing.
-		 *
-		 * <p>A label is visible when it is not {@code null} and contains non-whitespace
-		 * characters.</p>
-		 *
-		 * @param label label to inspect
-		 * @return {@code true} when the label has non-blank text
-		 */
-		private static boolean hasVisibleText(SquareText label) {
-			return label != null && label.text != null && !label.text.isBlank();
-		}
+	/**
+	 * Determines whether the provided square label contains text worth drawing.
+	 *
+	 * <p>A label is visible when it is not {@code null} and contains non-whitespace
+	 * characters.</p>
+	 *
+	 * @param label label to inspect
+	 * @return {@code true} when the label has non-blank text
+	 */
+	private static boolean hasVisibleText(SquareText label) {
+		return label != null && label.text != null && !label.text.isBlank();
+	}
 
-		/**
-		 * Renders a single square text item with its background box.
-		 *
-		 * <p>The method resolves styling, computes the tile origin, sizes the font,
-		 * and draws the background plus glyph in one pass.</p>
-		 *
-		 * @param g graphics context for drawing
-		 * @param metrics graphics context used only for unscaled font metrics
-		 * @param boardX board origin x coordinate
-		 * @param boardY board origin y coordinate
-		 * @param label square text label descriptor
-		 * @param style reusable style object to write resolved colors into
-		 * @param layout reusable layout buffer for font metrics
-		 * @param tile reusable point used for tile coordinates
-		 */
-		private void drawSquareText(Graphics2D g, Graphics2D metrics, int boardX, int boardY, SquareText label,
-				SquareTextStyle style, TextLayout layout, IntPoint tile) {
-			String text = label.text;
-			int boardIndex = toSquareIndex(label.index);
-			byte piece = position.getBoard()[boardIndex];
+	/**
+	 * Renders a single square text item with its background box.
+	 *
+	 * <p>The method resolves styling, computes the tile origin, sizes the font,
+	 * and draws the background plus glyph in one pass.</p>
+	 *
+	 * @param g graphics context for drawing
+	 * @param label square text label descriptor
+	 * @param renderContext reusable rendering context for layout and coordinates
+	 */
+	private void drawSquareText(Graphics2D g, SquareText label, SquareTextRenderContext renderContext) {
+		String text = label.text;
+		int boardIndex = toSquareIndex(label.index);
+		byte piece = position.getBoard()[boardIndex];
 
-		resolveSquareTextStyle(label, piece, style);
-		tileOrigin(label.index, boardX, boardY, tile);
+		resolveSquareTextStyle(label, piece, renderContext.style);
+		tileOrigin(label.index, renderContext.boardX, renderContext.boardY, renderContext.tile);
 		double maxWidthScale = label.bottomAligned ? 0.75 : 1.0;
 		double maxHeightScale = label.bottomAligned ? 0.75 : 1.0;
-		fitSquareTextFont(metrics, text, label.baseFont, layout, maxWidthScale, maxHeightScale);
-		drawSquareTextBoxAndText(g, text, tile.x, tile.y, style, layout, label.bottomAligned);
+		fitSquareTextFont(renderContext.metrics, text, label.baseFont, renderContext.layout,
+				maxWidthScale, maxHeightScale);
+		drawSquareTextBoxAndText(g, text, renderContext.tile.x, renderContext.tile.y,
+				renderContext.style, renderContext.layout, label.bottomAligned);
 	}
 
 	/**
@@ -1509,7 +1537,7 @@ public final class Render {
 		}
 
 		int fontStyle = showCoordinatesOutside ? Font.BOLD : Font.PLAIN;
-		Font font = new Font("Times New Roman", fontStyle, fontSize);
+		Font font = new Font(FONT_TIMES_NEW_ROMAN, fontStyle, fontSize);
 		g.setFont(font);
 		BufferedImage scratch = new BufferedImage(1, 1, BufferedImage.TYPE_INT_ARGB);
 		Graphics2D metrics = scratch.createGraphics();
@@ -1849,7 +1877,7 @@ public final class Render {
 	 * @param text text content
 	 */
 	private static void appendTextElement(StringBuilder svg, String indent, int x, int y, String text) {
-		svg.append(indent).append("<text x=\"").append(x).append("\" y=\"").append(y)
+		svg.append(indent).append("<text x=\"").append(x).append(SVG_Y_ATTRIBUTE).append(y)
 				.append("\">").append(escapeText(text)).append("</text>\n");
 	}
 
@@ -1897,8 +1925,8 @@ public final class Render {
 	private static String svgFontFamily(Font font) {
 		String name = font.getName();
 		String family = font.getFamily(Locale.ROOT);
-		if ("Times New Roman".equalsIgnoreCase(name) || "Serif".equalsIgnoreCase(family)) {
-			return "Times New Roman, Times, serif";
+		if (FONT_TIMES_NEW_ROMAN.equalsIgnoreCase(name) || "Serif".equalsIgnoreCase(family)) {
+			return FONT_TIMES_NEW_ROMAN + ", Times, serif";
 		}
 		if (Font.SANS_SERIF.equalsIgnoreCase(name) || "SansSerif".equalsIgnoreCase(family)) {
 			return "Arial, Helvetica, sans-serif";
@@ -2108,11 +2136,11 @@ public final class Render {
 	) {
 	}
 
-		/**
-		 * Reusable mutable holder for square text colors and strokes.
-		 * Keeps allocations low during the render loop.
-		 */
-		private static final class SquareTextStyle {
+	/**
+	 * Reusable mutable holder for square text colors and strokes.
+	 * Keeps allocations low during the render loop.
+	 */
+	private static final class SquareTextStyle {
 
 			/**
 			 * Background fill color for the text box.
@@ -2133,6 +2161,67 @@ public final class Render {
 			 * Stroke used when drawing the border.
 			 */
 			private Stroke borderStroke;
+		}
+
+		/**
+		 * Reusable render context for one square-text paint pass.
+		 */
+		private static final class SquareTextRenderContext {
+
+			/**
+			 * Metrics graphics used only for text measurement.
+			 */
+			private final Graphics2D metrics;
+
+			/**
+			 * Board origin x coordinate.
+			 */
+			private final int boardX;
+
+			/**
+			 * Board origin y coordinate.
+			 */
+			private final int boardY;
+
+			/**
+			 * Mutable style scratch object.
+			 */
+			private final SquareTextStyle style;
+
+			/**
+			 * Mutable layout scratch object.
+			 */
+			private final TextLayout layout;
+
+			/**
+			 * Mutable tile-coordinate scratch object.
+			 */
+			private final IntPoint tile;
+
+			/**
+			 * Creates one reusable render context.
+			 *
+			 * @param metrics metrics graphics
+			 * @param boardX board origin x coordinate
+			 * @param boardY board origin y coordinate
+			 * @param style mutable style scratch object
+			 * @param layout mutable layout scratch object
+			 * @param tile mutable tile-coordinate scratch object
+			 */
+			private SquareTextRenderContext(
+					Graphics2D metrics,
+					int boardX,
+					int boardY,
+					SquareTextStyle style,
+					TextLayout layout,
+					IntPoint tile) {
+				this.metrics = metrics;
+				this.boardX = boardX;
+				this.boardY = boardY;
+				this.style = style;
+				this.layout = layout;
+				this.tile = tile;
+			}
 		}
 
 		/**

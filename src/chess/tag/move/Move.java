@@ -67,7 +67,7 @@ public final class Move {
             details.add(CHECKMATE_TEXT);
         } else {
             Position next = position.copy().play(move);
-            addSafetyDetail(details, board, next, board[from], from, safetyTo);
+            addSafetyDetail(details, next, board[from], from, safetyTo);
             if (!next.inCheck() && next.legalMoves().isEmpty()) {
                 details.add(STALEMATE_TEXT);
             }
@@ -126,14 +126,12 @@ public final class Move {
      * Adds safety-related details based on attacker counts before and after the move.
      *
      * @param details the mutable detail list
-     * @param board the position board before the move
      * @param next the position after the move
      * @param movingPiece the moving piece code
      * @param from the source square
      * @param to the target square
      */
-    private static void addSafetyDetail(List<String> details, byte[] board, Position next, byte movingPiece,
-            byte from, byte to) {
+    private static void addSafetyDetail(List<String> details, Position next, byte movingPiece, byte from, byte to) {
         boolean movingWhite = Piece.isWhite(movingPiece);
         boolean attackedBefore = countAttackers(next, !movingWhite, from) > 0;
         boolean attackedAfter = countAttackers(next, !movingWhite, to) > 0;

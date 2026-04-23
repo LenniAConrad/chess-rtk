@@ -22,39 +22,13 @@ public final class Main {
   public static void main(String[] args) throws IOException {
     System.out.println("Starting T5 CLI");
     System.out.flush();
-    String modelPath = null;
-    String inputPath = null;
-    int maxNew = 128;
-    boolean debug = false;
-
-    for (int i = 0; i < args.length; i++) {
-      String arg = args[i];
-      if ("--model".equals(arg)) {
-        if (i + 1 < args.length) {
-          modelPath = args[i + 1];
-          i++;
-        }
-      } else if ("--input".equals(arg)) {
-        if (i + 1 < args.length) {
-          inputPath = args[i + 1];
-          i++;
-        }
-      } else if ("--max-new".equals(arg)) {
-        if (i + 1 < args.length) {
-          maxNew = Integer.parseInt(args[i + 1]);
-          i++;
-        }
-      } else if ("--debug".equals(arg)) {
-        debug = true;
-      }
-    }
-
-    if (modelPath == null) {
+    CliOptions options = parseOptions(args);
+    if (options.modelPath == null) {
       System.err.println("Missing --model path");
       return;
     }
 
-    String input = readInput(inputPath);
+    String input = readInput(options.inputPath);
     TagInputParser parser = new TagInputParser();
     List<String> tags = parser.parse(input);
     if (tags.isEmpty()) {
@@ -63,20 +37,86 @@ public final class Main {
     }
 
     String prompt = buildPrompt(tags);
-    Model model = BinLoader.load(modelPath);
+    Model model = BinLoader.load(options.modelPath);
     try (Runner runner = new Runner(model)) {
-      if (debug) {
+      if (options.debug) {
         System.err.println("Prompt length=" + prompt.length());
         System.err.println("Tokens=" + model.tokenizer.encode(prompt).size());
-        List<Integer> outIds = runner.generateIds(prompt, maxNew);
+        List<Integer> outIds = runner.generateIds(prompt, options.maxNew);
         System.err.println("Output ids=" + outIds);
         Tensor logits = runner.decodeOnce(List.of(model.config.decoderStartId), runner.encodePrompt(prompt));
         printTop(logits, 5);
       }
-      String output = runner.generate(prompt, maxNew);
+      String output = runner.generate(prompt, options.maxNew);
       System.out.println(output);
       System.out.flush();
     }
+  }
+
+  /**
+   * Parses CLI options.
+   *
+   * @param args command-line arguments
+   * @return parsed options
+   */
+  private static CliOptions parseOptions(String[] args) {
+    CliOptions options = new CliOptions();
+    int index = 0;
+    while (index < args.length) {
+      index = applyOption(args, index, options);
+    }
+    return options;
+  }
+
+  /**
+   * Applies one CLI option and returns the next unread argument index.
+   *
+   * @param args command-line arguments
+   * @param index current argument index
+   * @param options mutable target options
+   * @return next unread argument index
+   */
+  private static int applyOption(String[] args, int index, CliOptions options) {
+    String arg = args[index];
+    if ("--model".equals(arg)) {
+      String value = optionValue(args, index);
+      if (value != null) {
+        options.modelPath = value;
+        return index + 2;
+      }
+      return index + 1;
+    }
+    if ("--input".equals(arg)) {
+      String value = optionValue(args, index);
+      if (value != null) {
+        options.inputPath = value;
+        return index + 2;
+      }
+      return index + 1;
+    }
+    if ("--max-new".equals(arg)) {
+      String value = optionValue(args, index);
+      if (value != null) {
+        options.maxNew = Integer.parseInt(value);
+        return index + 2;
+      }
+      return index + 1;
+    }
+    if ("--debug".equals(arg)) {
+      options.debug = true;
+    }
+    return index + 1;
+  }
+
+  /**
+   * Returns the argument value following one CLI option, if present.
+   *
+   * @param args command-line arguments
+   * @param index option index
+   * @return following argument, or {@code null} when absent
+   */
+  private static String optionValue(String[] args, int index) {
+    return index + 1 < args.length ? args[index + 1] : null;
   }
 
   /**
@@ -148,5 +188,30 @@ public final class Main {
       System.err.print(bestIdx[i] + ":" + bestVal[i] + " ");
     }
     System.err.println();
+  }
+
+  /**
+   * Mutable CLI options.
+   */
+  private static final class CliOptions {
+    /**
+     * Model path.
+     */
+    private String modelPath;
+
+    /**
+     * Optional input path.
+     */
+    private String inputPath;
+
+    /**
+     * Maximum number of generated tokens.
+     */
+    private int maxNew = 128;
+
+    /**
+     * Whether debug output is enabled.
+     */
+    private boolean debug;
   }
 }

@@ -9,6 +9,7 @@ import java.util.Locale;
 
 import chess.book.model.Book;
 import chess.book.model.Language;
+import chess.pdf.DocumentMetrics;
 import chess.pdf.document.Canvas;
 import chess.pdf.document.Document;
 import chess.pdf.document.Font;
@@ -257,9 +258,10 @@ public final class Writer {
 		Options safeOptions = options == null ? new Options() : options;
 		Binding binding = safeOptions.getBinding();
 		Interior interior = safeOptions.getInterior();
-		int pages = resolvePages(book, safeOptions);
-		double trimWidth = trimDimension(book.getPaperWidthCm());
-		double trimHeight = trimDimension(book.getPaperHeightCm());
+		DocumentMetrics interiorPdf = safeOptions.getInteriorPdfMetrics();
+		int pages = resolvePages(book, safeOptions, interiorPdf);
+		double trimWidth = resolveTrimWidth(book, interiorPdf);
+		double trimHeight = resolveTrimHeight(book, interiorPdf);
 		double spineWidth = binding == Binding.EBOOK ? 0.0 : pages * interior.getPaperThicknessCm();
 
 		if (binding == Binding.HARDCOVER) {
@@ -812,14 +814,45 @@ public final class Writer {
 	 * @param options cover rendering options
 	 * @return positive page count
 	 */
-	private static int resolvePages(Book book, Options options) {
+	private static int resolvePages(Book book, Options options, DocumentMetrics interiorPdf) {
 		if (options.getPages() > 0) {
 			return options.getPages();
+		}
+		if (interiorPdf != null) {
+			return interiorPdf.pageCount();
 		}
 		if (book.getPages() > 0) {
 			return book.getPages();
 		}
 		return estimatePages(book);
+	}
+
+	/**
+	 * Resolves the trim width used by the cover sheet.
+	 *
+	 * @param book source book metadata
+	 * @param interiorPdf optional interior-PDF metrics
+	 * @return positive trim width in centimeters
+	 */
+	private static double resolveTrimWidth(Book book, DocumentMetrics interiorPdf) {
+		if (interiorPdf != null) {
+			return trimDimension(interiorPdf.pageWidthCm());
+		}
+		return trimDimension(book.getPaperWidthCm());
+	}
+
+	/**
+	 * Resolves the trim height used by the cover sheet.
+	 *
+	 * @param book source book metadata
+	 * @param interiorPdf optional interior-PDF metrics
+	 * @return positive trim height in centimeters
+	 */
+	private static double resolveTrimHeight(Book book, DocumentMetrics interiorPdf) {
+		if (interiorPdf != null) {
+			return trimDimension(interiorPdf.pageHeightCm());
+		}
+		return trimDimension(book.getPaperHeightCm());
 	}
 
 	/**

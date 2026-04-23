@@ -39,8 +39,8 @@
 
 ## Cover dimensions do not match the upload form
 
-- Pass the final printed interior page count explicitly with `book cover --pages <n>`.
-- Confirm the manifest `paperwidth` and `paperheight` are trim dimensions in centimeters, not full cover dimensions.
+- Pass the rendered interior PDF to `book cover --pdf <interior.pdf>` so trim size and page count come from the actual file.
+- Use `book cover --pages <n>` only when you need to override the PDF-derived spine count.
 - Use a current interior token: `white-bw`, `cream-bw`, `white-standard-color`, or `white-premium-color`.
 - Compare the dimensions printed by `book cover` with the publishing service's own cover calculator before upload.
 

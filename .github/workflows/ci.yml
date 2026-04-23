@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  regressions:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Install Stockfish
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y stockfish
+
+      - name: Build
+        run: ./scripts/run_regression_suite.sh build
+
+      - name: Lint
+        run: ./scripts/run_regression_suite.sh lint
+
+      - name: Core regressions
+        run: ./scripts/run_regression_suite.sh core
+
+      - name: CLI regressions
+        run: ./scripts/run_regression_suite.sh cli
+
+      - name: UCI regressions
+        env:
+          CRTK_REQUIRE_STOCKFISH: "1"
+        run: ./scripts/run_regression_suite.sh uci
+
+      - name: Perft smoke
+        env:
+          CRTK_PERFT_THREADS: "2"
+          CRTK_PERFT_DEPTH: "4"
+          CRTK_PERFT_SUITE_DEPTH: "4"
+        run: ./scripts/run_regression_suite.sh perft-smoke

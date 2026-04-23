@@ -4,10 +4,9 @@ package chess.core;
  * Sliding-piece attack calculator for bishops and rooks.
  *
  * <p>
- * Runtime attack queries use hyperbola-style line arithmetic. The compact tables
- * are still built and exposed for regression checks of relevant blocker masks,
- * keeping the implementation easy to audit without adding magic constants or
- * external generated data.
+ * Runtime attack queries use hyperbola-style line arithmetic. Per-square tables
+ * are retained only for relevant blocker mask checks, keeping the implementation
+ * easy to audit without adding magic constants or external generated data.
  * </p>
  *
  * @since 2025
@@ -150,14 +149,7 @@ public final class SlidingAttacks {
     private static Table[] buildTables(int[][] directions) {
         Table[] tables = new Table[64];
         for (int square = 0; square < tables.length; square++) {
-            long mask = relevantBlockers(square, directions);
-            int[] bits = maskBits(mask);
-            long[] attacks = new long[1 << bits.length];
-            for (int index = 0; index < attacks.length; index++) {
-                long blockers = blockerSubset(index, bits);
-                attacks[index] = rayAttacks(square, blockers, directions);
-            }
-            tables[square] = new Table(mask, bits, attacks);
+            tables[square] = new Table(relevantBlockers(square, directions));
         }
         return tables;
     }
@@ -190,73 +182,6 @@ public final class SlidingAttacks {
             }
         }
         return mask;
-    }
-
-    /**
-     * Returns the set-bit square indexes in a mask.
-     *
-     * @param mask source mask
-     * @return square indexes in least-significant-bit order
-     */
-    private static int[] maskBits(long mask) {
-        int[] bits = new int[Long.bitCount(mask)];
-        int index = 0;
-        while (mask != 0L) {
-            int square = Bits.lsb(mask);
-            mask = Bits.withoutLsb(mask);
-            bits[index++] = square;
-        }
-        return bits;
-    }
-
-    /**
-     * Expands a compact table index into a blocker bitboard.
-     *
-     * @param index compact index
-     * @param bits relevant square list
-     * @return blocker bitboard
-     */
-    private static long blockerSubset(int index, int[] bits) {
-        long out = 0L;
-        for (int bit = 0; bit < bits.length; bit++) {
-            if ((index & (1 << bit)) != 0) {
-                out |= Bits.bit(bits[bit]);
-            }
-        }
-        return out;
-    }
-
-    /**
-     * Computes sliding attacks by walking rays.
-     *
-     * <p>
-     * This intentionally simple implementation is used only while building the
-     * compact validation tables.
-     * </p>
-     *
-     * @param square origin square
-     * @param occupancy occupied squares
-     * @param directions ray direction vectors
-     * @return attack mask
-     */
-    private static long rayAttacks(int square, long occupancy, int[][] directions) {
-        long attacks = 0L;
-        int file = Bits.file(square);
-        int rank = Bits.rank(square);
-        for (int[] direction : directions) {
-            int targetFile = file + direction[0];
-            int targetRank = rank + direction[1];
-            while (Field.isOnBoard(targetFile, targetRank)) {
-                int target = Bits.square(targetFile, targetRank);
-                attacks |= Bits.bit(target);
-                if ((occupancy & Bits.bit(target)) != 0L) {
-                    break;
-                }
-                targetFile += direction[0];
-                targetRank += direction[1];
-            }
-        }
-        return attacks;
     }
 
     /**
@@ -315,45 +240,12 @@ public final class SlidingAttacks {
         private final long mask;
 
         /**
-         * Single-square masks for every relevant blocker square.
-         */
-        private final long[] bitMasks;
-
-        /**
-         * Attack masks indexed by compressed relevant occupancy.
-         */
-        private final long[] attacks;
-
-        /**
          * Creates a compact attack table.
          *
          * @param mask relevant blocker mask
-         * @param bits relevant blocker square indexes
-         * @param attacks attack masks indexed by compressed occupancy
          */
-        private Table(long mask, int[] bits, long[] attacks) {
+        private Table(long mask) {
             this.mask = mask;
-            this.bitMasks = new long[bits.length];
-            for (int i = 0; i < bits.length; i++) {
-                this.bitMasks[i] = 1L << bits[i];
-            }
-            this.attacks = attacks;
-        }
-
-        /**
-         * Compresses relevant occupancy bits into a table index.
-         *
-         * @param relevantOccupancy occupancy masked to relevant squares
-         * @return compact index
-         */
-        private int index(long relevantOccupancy) {
-            int out = 0;
-            for (int bit = 0; bit < bitMasks.length; bit++) {
-                if ((relevantOccupancy & bitMasks[bit]) != 0L) {
-                    out |= 1 << bit;
-                }
-            }
-            return out;
         }
     }
 }

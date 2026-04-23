@@ -170,7 +170,7 @@ public final class UciRegressionTest {
 		Path log = dir.resolve("commands.log");
 		Path fakeEngine = dir.resolve("fake-uci.sh");
 		Files.writeString(fakeEngine, fakeEngineScript(log));
-		fakeEngine.toFile().setExecutable(true);
+		assertTrue(fakeEngine.toFile().setExecutable(true), "fake engine marked executable");
 
 		Protocol protocol = new Protocol()
 				.setPath(fakeEngine.toString())
@@ -202,7 +202,7 @@ public final class UciRegressionTest {
 		Path log = dir.resolve("commands.log");
 		Path fakeEngine = dir.resolve("fake-uci.sh");
 		Files.writeString(fakeEngine, fakeEngineScript(log));
-		fakeEngine.toFile().setExecutable(true);
+		assertTrue(fakeEngine.toFile().setExecutable(true), "fake engine marked executable");
 
 		Protocol protocol = new Protocol()
 				.setPath(fakeEngine.toString())

@@ -197,7 +197,7 @@ final class CommandPaletteDialog extends JDialog {
 		}
 		setVisible(true);
 		toFront();
-		SwingUtilities.invokeLater(() -> searchField.requestFocusInWindow());
+		SwingUtilities.invokeLater(searchField::requestFocusInWindow);
 	}
 
 	/**

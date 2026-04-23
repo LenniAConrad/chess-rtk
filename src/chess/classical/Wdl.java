@@ -1068,17 +1068,60 @@ public record Wdl(
      * @return true if the position is treated as trivially drawn
      */
     private static boolean isInsufficientMaterial(byte[] board) {
-        int whiteKnights = 0;
-        int whiteBishops = 0;
-        int blackKnights = 0;
-        int blackBishops = 0;
-        int whiteBishopColor = -1;
-        int blackBishopColor = -1;
-
+        MinorMaterialState state = new MinorMaterialState();
         for (int square = 0; square < board.length; square++) {
-            byte piece = board[square];
+            if (!state.accept(square, board[square])) {
+                return false;
+            }
+        }
+        return state.isInsufficient();
+    }
+
+    /**
+     * Tracks the minor-material counts used for dead-position detection.
+     */
+    private static final class MinorMaterialState {
+
+        /**
+         * White knight count.
+         */
+        private int whiteKnights;
+
+        /**
+         * White bishop count.
+         */
+        private int whiteBishops;
+
+        /**
+         * Black knight count.
+         */
+        private int blackKnights;
+
+        /**
+         * Black bishop count.
+         */
+        private int blackBishops;
+
+        /**
+         * White bishop square color, when present.
+         */
+        private int whiteBishopColor = -1;
+
+        /**
+         * Black bishop square color, when present.
+         */
+        private int blackBishopColor = -1;
+
+        /**
+         * Consumes one board square for material tracking.
+         *
+         * @param square board square
+         * @param piece piece on the square
+         * @return true when the position still qualifies for insufficient-material checks
+         */
+        private boolean accept(int square, byte piece) {
             if (piece == Piece.EMPTY || Piece.isKing(piece)) {
-                continue;
+                return true;
             }
             if (Piece.isPawn(piece) || Piece.isRook(piece) || Piece.isQueen(piece)) {
                 return false;
@@ -1089,47 +1132,57 @@ public record Wdl(
                 } else {
                     blackKnights++;
                 }
-            } else if (Piece.isBishop(piece)) {
-                if (Piece.isWhite(piece)) {
-                    whiteBishops++;
-                    whiteBishopColor = squareColor(square);
-                } else {
-                    blackBishops++;
-                    blackBishopColor = squareColor(square);
-                }
-            } else {
+                return true;
+            }
+            if (!Piece.isBishop(piece)) {
                 return false;
             }
-        }
-
-        int whiteMinors = whiteKnights + whiteBishops;
-        int blackMinors = blackKnights + blackBishops;
-
-        if (whiteMinors == 0 && blackMinors == 0) {
-            return true;
-        }
-        if (whiteMinors == 1 && blackMinors == 0) {
-            return true;
-        }
-        if (whiteMinors == 0 && blackMinors == 1) {
+            if (Piece.isWhite(piece)) {
+                whiteBishops++;
+                whiteBishopColor = bishopSquareColor(square);
+            } else {
+                blackBishops++;
+                blackBishopColor = bishopSquareColor(square);
+            }
             return true;
         }
 
-        return whiteKnights == 0
-                && blackKnights == 0
-                && whiteBishops == 1
-                && blackBishops == 1
-                && whiteBishopColor == blackBishopColor;
-    }
+        /**
+         * Returns whether the collected minor material is trivially drawn.
+         *
+         * @return true when no mating material remains
+         */
+        private boolean isInsufficient() {
+            int whiteMinors = whiteKnights + whiteBishops;
+            int blackMinors = blackKnights + blackBishops;
+            return (whiteMinors == 0 && blackMinors == 0)
+                    || (whiteMinors == 1 && blackMinors == 0)
+                    || (whiteMinors == 0 && blackMinors == 1)
+                    || sameColorBishopDraw();
+        }
 
-    /**
-     * Returns a square color index for bishop-only dead-material checks.
-     *
-     * @param square board square, 0..63
-     * @return 0 for one color complex, 1 for the other
-     */
-    private static int squareColor(int square) {
-        return ((square & 7) + (square >>> 3)) & 1;
+        /**
+         * Returns whether both sides only retain same-color bishops.
+         *
+         * @return true when the position is bishop-only dead material
+         */
+        private boolean sameColorBishopDraw() {
+            return whiteKnights == 0
+                    && blackKnights == 0
+                    && whiteBishops == 1
+                    && blackBishops == 1
+                    && whiteBishopColor == blackBishopColor;
+        }
+
+        /**
+         * Returns a square color index for bishop-only dead-material checks.
+         *
+         * @param square board square, 0..63
+         * @return 0 for one color complex, 1 for the other
+         */
+        private int bishopSquareColor(int square) {
+            return ((square & 7) + (square >>> 3)) & 1;
+        }
     }
 
     /**

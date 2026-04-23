@@ -190,7 +190,7 @@ private int tileSize;
 				}
 				byte square = squareAt(event.getX(), event.getY());
 				if (square != Field.NO_SQUARE) {
-					squareListener.onSquare(square);
+					WebBoardPanel.this.squareListener.onSquare(square);
 				}
 			}
 		};
@@ -408,7 +408,7 @@ private void paintGlass(Graphics2D g) {
 		Color tint = theme.boardGlass();
 		g.setColor(tint);
 		g.fillRect(boardX, boardY, boardSize, boardSize);
-		g.setPaint(new GradientPaint(boardX, boardY, new Color(255, 255, 255, 36), boardX, boardY + boardSize,
+		g.setPaint(new GradientPaint(boardX, boardY, new Color(255, 255, 255, 36), boardX, boardY + (float) boardSize,
 				new Color(255, 255, 255, 0)));
 		g.fillRect(boardX, boardY, boardSize, boardSize / 2);
 		g.setColor(new Color(255, 255, 255, 18));

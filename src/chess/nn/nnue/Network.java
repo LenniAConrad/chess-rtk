@@ -398,8 +398,7 @@ public final class Network implements AutoCloseable {
          * @return parameter count
          */
         long parameterCount() {
-            return (long) featureBias.length + (long) featureWeights.length
-                    + (long) outputWeights.length + 1L;
+            return featureBias.length + (long) featureWeights.length + outputWeights.length + 1L;
         }
 
         /**
@@ -410,8 +409,8 @@ public final class Network implements AutoCloseable {
                 throw new IllegalArgumentException("hiddenSize must be positive.");
             }
             requireLength(featureBias, hiddenSize, "featureBias");
-            requireLength(featureWeights, (long) FeatureEncoder.FEATURE_COUNT * hiddenSize, "featureWeights");
-            requireLength(outputWeights, (long) hiddenSize * 2L, "outputWeights");
+            requireLength(featureWeights, FeatureEncoder.FEATURE_COUNT * (long) hiddenSize, "featureWeights");
+            requireLength(outputWeights, hiddenSize * 2L, "outputWeights");
             if (!Float.isFinite(outputBias)) {
                 throw new IllegalArgumentException("outputBias must be finite.");
             }

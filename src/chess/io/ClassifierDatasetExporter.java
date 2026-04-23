@@ -52,6 +52,11 @@ public final class ClassifierDatasetExporter {
     public static final long NO_CLASS_CAP = Long.MAX_VALUE;
 
     /**
+     * Shared closing fragment for top-level metadata sections.
+     */
+    private static final String METADATA_SECTION_END = "  },\n";
+
+    /**
      * Utility class; prevent instantiation.
      */
     private ClassifierDatasetExporter() {
@@ -508,7 +513,7 @@ public final class ClassifierDatasetExporter {
         builder.append("    \"row_filter\": ").append(summary.skippedRowFilter()).append(",\n");
         builder.append("    \"unlabeled\": ").append(summary.skippedUnlabeled()).append(",\n");
         builder.append("    \"class_cap\": ").append(summary.skippedClassCap()).append("\n");
-        builder.append("  },\n");
+        builder.append(METADATA_SECTION_END);
         builder.append("  \"inputs\": {\n");
         builder.append("    \"encoder\": \"classifier-21planes\",\n");
         builder.append("    \"shape\": [").append(summary.rowsWritten()).append(", ").append(INPUTS).append("],\n");
@@ -516,7 +521,7 @@ public final class ClassifierDatasetExporter {
         builder.append("    \"squares\": 64,\n");
         builder.append("    \"order\": \"channel-major (plane * 64 + square), a1..h8\",\n");
         builder.append("    \"side_to_move_perspective\": true\n");
-        builder.append("  },\n");
+        builder.append(METADATA_SECTION_END);
         builder.append("  \"labels\": {\n");
         builder.append("    \"target\": \"binary_class\",\n");
         builder.append("    \"negative\": 0.0,\n");
@@ -534,7 +539,7 @@ public final class ClassifierDatasetExporter {
             builder.append("null");
         }
         builder.append("\n");
-        builder.append("  },\n");
+        builder.append(METADATA_SECTION_END);
         builder.append("  \"class_caps\": {\n");
         builder.append("    \"max_positives\": ").append(formatCap(options.maxPositives())).append(",\n");
         builder.append("    \"max_negatives\": ").append(formatCap(options.maxNegatives())).append("\n");

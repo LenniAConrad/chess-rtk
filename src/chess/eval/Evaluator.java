@@ -311,7 +311,7 @@ public final class Evaluator implements AutoCloseable {
             if (piece == Piece.EMPTY) {
                 continue;
             }
-            working.removePieceAt(index, piece);
+            working.removePieceAt(index);
             int ablated = useLc0
                     ? scoreForAblation(evaluateLc0(working))
                     : scoreForAblation(evaluate(working));
@@ -670,7 +670,7 @@ public final class Evaluator implements AutoCloseable {
          * @param index square index 0..63
          * @return piece code at the square
          */
-        private void removePieceAt(int index, byte piece) {
+        private void removePieceAt(int index) {
             clearAnalysisSquare(index);
         }
 

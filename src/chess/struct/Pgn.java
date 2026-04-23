@@ -382,16 +382,54 @@ public final class Pgn {
     public static String toPgn(Game game) {
         StringBuilder sb = new StringBuilder(256);
         Position start = game.getStartPosition();
-        boolean nonStandardStart = start != null && !Game.STANDARD_START_FEN.equals(start.toString());
+        boolean nonStandardStart = hasNonStandardStart(start);
+        appendSetupTags(sb, start, nonStandardStart);
+        appendGameTags(sb, game, nonStandardStart);
+        sb.append(System.lineSeparator());
+        appendPreambleComments(sb, game);
+        PlyTracker tracker = createTracker(start);
+        appendRootVariations(sb, game, tracker);
+        appendMainline(sb, game, tracker);
+        sb.append(resultToken(game));
+        return sb.toString().trim();
+    }
 
-        if (nonStandardStart) {
-            sb.append("[SetUp \"1\"]").append(System.lineSeparator());
-            sb.append("[FEN \"").append(start.toString()).append("\"]").append(System.lineSeparator());
+    /**
+     * Returns whether the starting position is non-standard.
+     *
+     * @param start starting position
+     * @return true when SetUp/FEN tags should be emitted
+     */
+    private static boolean hasNonStandardStart(Position start) {
+        return start != null && !Game.STANDARD_START_FEN.equals(start.toString());
+    }
+
+    /**
+     * Appends setup tags for a non-standard starting position.
+     *
+     * @param sb output builder
+     * @param start starting position
+     * @param nonStandardStart whether setup tags should be emitted
+     */
+    private static void appendSetupTags(StringBuilder sb, Position start, boolean nonStandardStart) {
+        if (!nonStandardStart) {
+            return;
         }
+        sb.append("[SetUp \"1\"]").append(System.lineSeparator());
+        sb.append("[FEN \"").append(start).append("\"]").append(System.lineSeparator());
+    }
 
+    /**
+     * Appends PGN tag pairs, skipping setup tags already emitted above.
+     *
+     * @param sb output builder
+     * @param game game to serialize
+     * @param nonStandardStart whether setup tags were emitted
+     */
+    private static void appendGameTags(StringBuilder sb, Game game, boolean nonStandardStart) {
         for (var entry : game.getTags().entrySet()) {
             String key = entry.getKey();
-            if (nonStandardStart && ("FEN".equalsIgnoreCase(key) || "SetUp".equalsIgnoreCase(key))) {
+            if (shouldSkipSetupTag(key, nonStandardStart)) {
                 continue;
             }
             sb.append('[')
@@ -401,32 +439,83 @@ public final class Pgn {
                     .append("\"]")
                     .append(System.lineSeparator());
         }
+    }
 
-        sb.append(System.lineSeparator());
+    /**
+     * Returns whether one tag is already covered by emitted setup tags.
+     *
+     * @param key tag key
+     * @param nonStandardStart whether setup tags were emitted
+     * @return true when the tag should be skipped
+     */
+    private static boolean shouldSkipSetupTag(String key, boolean nonStandardStart) {
+        return nonStandardStart && ("FEN".equalsIgnoreCase(key) || "SetUp".equalsIgnoreCase(key));
+    }
 
-        for (String c : game.getPreambleComments()) {
-            sb.append('{').append(c).append("} ");
+    /**
+     * Appends comments that appear before the first move.
+     *
+     * @param sb output builder
+     * @param game game to serialize
+     */
+    private static void appendPreambleComments(StringBuilder sb, Game game) {
+        for (String comment : game.getPreambleComments()) {
+            sb.append('{').append(comment).append("} ");
         }
+    }
 
+    /**
+     * Creates the move-number tracker for one game.
+     *
+     * @param start starting position
+     * @return initialized tracker
+     */
+    private static PlyTracker createTracker(Position start) {
         boolean blackToMove = start != null && !start.isWhiteToMove();
-        PlyTracker tracker = new PlyTracker(
+        return new PlyTracker(
                 blackToMove ? 1 : 0,
                 start != null ? start.fullMoveNumber() : 1,
                 blackToMove);
+    }
 
+    /**
+     * Appends root variations before the mainline.
+     *
+     * @param sb output builder
+     * @param game game to serialize
+     * @param tracker mainline tracker
+     */
+    private static void appendRootVariations(StringBuilder sb, Game game, PlyTracker tracker) {
         for (Game.Node rootVariation : game.getRootVariations()) {
             sb.append('(');
             appendSequence(rootVariation, tracker.copy(), sb);
             sb.append(") ");
         }
+    }
 
-        if (game.getMainline() != null) {
-            appendSequence(game.getMainline(), tracker, sb);
-            sb.append(' ');
+    /**
+     * Appends the mainline when present.
+     *
+     * @param sb output builder
+     * @param game game to serialize
+     * @param tracker move-number tracker
+     */
+    private static void appendMainline(StringBuilder sb, Game game, PlyTracker tracker) {
+        if (game.getMainline() == null) {
+            return;
         }
+        appendSequence(game.getMainline(), tracker, sb);
+        sb.append(' ');
+    }
 
-        sb.append(game.getResult() != null ? game.getResult() : "*");
-        return sb.toString().trim();
+    /**
+     * Returns the serialized result token.
+     *
+     * @param game game to serialize
+     * @return result token
+     */
+    private static String resultToken(Game game) {
+        return game.getResult() != null ? game.getResult() : "*";
     }
 
     /**

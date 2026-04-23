@@ -872,12 +872,13 @@ public final class HelpCommand {
 
 			book cover options:
 			  --input|-i PATH            Input chess-book JSON/TOML file
+			  --pdf PATH                 Interior PDF used to infer trim size and page count
 			  --output|-o PATH           Output cover PDF path (default: input stem + -cover.pdf)
 			  --title TEXT               Optional title override
 			  --subtitle TEXT            Optional subtitle override
 			  --binding TYPE             paperback, hardcover, or ebook (default: paperback)
 			  --interior TYPE            white-bw, cream-bw, white-standard-color, or white-premium-color
-			  --pages N                  Printed page count for spine width (default: book pages/estimate)
+			  --pages N                  Printed page count for spine width (default: interior PDF, book pages, estimate)
 			  --check|--validate         Validate manifest and cover dimensions without writing
 			  --verbose|-v               Print stack trace on failure
 

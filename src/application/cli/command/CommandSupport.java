@@ -55,28 +55,21 @@ public final class CommandSupport {
 	 */
 	public static List<String> resolveFenInputs(String cmd, Path input, String fen) {
 		if (input != null && fen != null) {
-			System.err.println(cmd + ": provide either " + OPT_INPUT + " or a single FEN, not both");
-			System.exit(2);
-			return List.of();
+			throw new CommandFailure(cmd + ": provide either " + OPT_INPUT + " or a single FEN, not both", 2);
 		}
 		if (input != null) {
 			try {
 				List<String> fens = Reader.readFenList(input);
 				if (fens.isEmpty()) {
-					System.err.println(cmd + ": input file has no FENs");
-					System.exit(2);
+					throw new CommandFailure(cmd + ": input file has no FENs", 2);
 				}
 				return fens;
 			} catch (IOException ex) {
-				System.err.println(cmd + ": failed to read input: " + ex.getMessage());
-				System.exit(2);
-				return List.of();
+				throw new CommandFailure(cmd + ": failed to read input: " + ex.getMessage(), ex, 2, false);
 			}
 		}
 		if (fen == null || fen.isEmpty()) {
-			System.err.println(cmd + " requires a FEN (" + MSG_FEN_REQUIRED_HINT + ")");
-			System.exit(2);
-			return List.of();
+			throw new CommandFailure(cmd + " requires a FEN (" + MSG_FEN_REQUIRED_HINT + ")", 2);
 		}
 		return List.of(fen);
 	}
@@ -157,10 +150,6 @@ public final class CommandSupport {
 	 */
 	public static void exitWithError(String commandLabel, String message, Throwable failure, int exitCode,
 			boolean verbose) {
-		System.err.println(commandLabel + ": " + message);
-		if (verbose && failure != null) {
-			failure.printStackTrace(System.err);
-		}
-		System.exit(exitCode);
+		throw new CommandFailure(commandLabel + ": " + message, failure, exitCode, verbose);
 	}
 }

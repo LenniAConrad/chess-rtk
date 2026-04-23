@@ -181,6 +181,11 @@ public final class Constants {
 	public static final String OPT_PGN = "--pgn";
 
 	/**
+	 * {@code --pdf} option flag.
+	 */
+	public static final String OPT_PDF = "--pdf";
+
+	/**
 	 * {@code --fen} option flag.
 	 */
 	public static final String OPT_FEN = "--fen";

@@ -144,29 +144,9 @@ final class SvgTransform {
 		return new AffineTransform(args[0], args[1], args[2], args[3], args[4], args[5]);
 	}
 
-	/**
-	 * Skips SVG numeric-list separators.
-	 *
-	 * @param data source string
-	 * @param index starting index
-	 * @return index after separators
-	 */
-	private static int skipSeparators(String data, int index) {
-		int i = index;
-		while (i < data.length()) {
-			char ch = data.charAt(i);
-			if (Character.isWhitespace(ch) || ch == ',') {
-				i++;
-			} else {
-				break;
-			}
-		}
-		return i;
-	}
-
-	/**
-	 * Cursor for parsing SVG transform lists.
-	 */
+    /**
+     * Cursor for parsing SVG transform lists.
+     */
 	private static final class TransformCursor {
 
 		/**
@@ -193,10 +173,10 @@ final class SvgTransform {
 		 *
 		 * @return true when more content is available
 		 */
-		private boolean hasMore() {
-			index = skipSeparators(value, index);
-			return index < value.length();
-		}
+        private boolean hasMore() {
+            index = skipSeparators(index);
+            return index < value.length();
+        }
 
 		/**
 		 * Reads the next transform function name.
@@ -223,11 +203,11 @@ final class SvgTransform {
 		 * @param name transform function name
 		 * @return raw argument string
 		 */
-		private String readArgs(String name) {
-			index = skipSeparators(value, index);
-			if (index >= value.length() || value.charAt(index) != '(') {
-				throw new IllegalArgumentException("Expected '(' after transform " + name);
-			}
+        private String readArgs(String name) {
+            index = skipSeparators(index);
+            if (index >= value.length() || value.charAt(index) != '(') {
+                throw new IllegalArgumentException("Expected '(' after transform " + name);
+            }
 
 			int depth = 1;
 			int start = ++index;
@@ -240,10 +220,29 @@ final class SvgTransform {
 				}
 				index++;
 			}
-			if (depth != 0) {
-				throw new IllegalArgumentException("Unclosed transform arguments for " + name);
-			}
-			return value.substring(start, index - 1);
-		}
-	}
+            if (depth != 0) {
+                throw new IllegalArgumentException("Unclosed transform arguments for " + name);
+            }
+            return value.substring(start, index - 1);
+        }
+
+        /**
+         * Skips SVG numeric-list separators.
+         *
+         * @param start starting index
+         * @return index after separators
+         */
+        private int skipSeparators(int start) {
+            int i = start;
+            while (i < value.length()) {
+                char ch = value.charAt(i);
+                if (Character.isWhitespace(ch) || ch == ',') {
+                    i++;
+                } else {
+                    break;
+                }
+            }
+            return i;
+        }
+    }
 }
