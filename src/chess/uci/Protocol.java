@@ -115,6 +115,11 @@ public class Protocol {
 	private static final String KEY_SHOW_UCI = "showUci";
 
 	/**
+	 * Used for identifying the key for the UCI initialization response.
+	 */
+	private static final String KEY_UCIOK = "uciok";
+
+	/**
 	 * Used for identifying the key for enabling or disabling WDL stats.
 	 */
 	private static final String KEY_SHOW_WDL = "showWinDrawLoss";
@@ -203,6 +208,11 @@ public class Protocol {
 	protected String showUci = "uci";
 
 	/**
+	 * The UCI response indicating that initialization completed.
+	 */
+	protected String uciok = KEY_UCIOK;
+
+	/**
 	 * The UCI command to enable or disable showing win/draw/loss statistics.
 	 */
 	protected String showWinDrawLoss = "setoption name UCI_ShowWDL value %b";
@@ -227,7 +237,6 @@ public class Protocol {
 	public Protocol fromToml(String tomlContent) throws IOException {
 		Toml parser = Toml.load(new StringReader(tomlContent));
 
-		// always-assigned fields
 		this.path = parser.getString(KEY_PATH);
 		this.name = parser.getString(KEY_NAME);
 		this.settings = parser.getString(KEY_SETTINGS);
@@ -236,58 +245,22 @@ public class Protocol {
 		this.stop = parser.getString(KEY_STOP);
 		this.newGame = parser.getString(KEY_NEW_GAME);
 		this.showUci = parser.getString(KEY_SHOW_UCI);
-
-		// only-if-valid placeholders
-		String v;
-		if ((v = validPlaceholder(parser, KEY_SEARCH_DEPTH, "%d")) != null) {
-			this.searchDepth = v;
-		}
-		if ((v = validPlaceholder(parser, KEY_SEARCH_NODES, "%d")) != null) {
-			this.searchNodes = v;
-		}
-		if ((v = validPlaceholder(parser, KEY_SEARCH_TIME, "%d")) != null) {
-			this.searchTime = v;
-		}
-		if ((v = validPlaceholder(parser, KEY_POSITION, "%s")) != null) {
-			this.setPosition = v;
-		}
-		if ((v = validPlaceholder(parser, KEY_CHESS960, "%b")) != null) {
-			this.setChess960 = v;
-		}
-		if ((v = validPlaceholder(parser, KEY_HASH_SIZE, "%d")) != null) {
-			this.setHashSize = v;
-		}
-		if ((v = validPlaceholder(parser, KEY_MULTI_PIVOT_AMOUNT, "%d")) != null) {
-			this.setMultiPivotAmount = v;
-		}
-		if ((v = validPlaceholder(parser, KEY_THREAD_AMOUNT, "%d")) != null) {
-			this.setThreadAmount = v;
-		}
-		if ((v = validPlaceholder(parser, KEY_SHOW_WDL, "%b")) != null) {
-			this.showWinDrawLoss = v;
-		}
+		this.uciok = parser.getString(KEY_UCIOK);
+		this.searchDepth = parser.getString(KEY_SEARCH_DEPTH);
+		this.searchNodes = parser.getString(KEY_SEARCH_NODES);
+		this.searchTime = parser.getString(KEY_SEARCH_TIME);
+		this.setPosition = parser.getString(KEY_POSITION);
+		this.setChess960 = parser.getString(KEY_CHESS960);
+		this.setHashSize = parser.getString(KEY_HASH_SIZE);
+		this.setMultiPivotAmount = parser.getString(KEY_MULTI_PIVOT_AMOUNT);
+		this.setThreadAmount = parser.getString(KEY_THREAD_AMOUNT);
+		this.showWinDrawLoss = parser.getString(KEY_SHOW_WDL);
 
 		// optional setup array
 		List<String> setupList = parser.getStringList(KEY_SETUP);
-		if (setupList != null) {
-			this.setup = setupList.toArray(new String[0]);
-		}
+		this.setup = setupList == null ? null : setupList.toArray(new String[0]);
 
 		return this;
-	}
-
-	/**
-	 * Returns the raw TOML value for `key` if—and only if—it contains exactly one
-	 * occurrence of `placeholder` and no other ‘%’ characters; otherwise null.
-	 */
-	private String validPlaceholder(Toml parser, String key, String placeholder) {
-		String raw = parser.getString(key);
-		if (raw != null
-				&& countMatches(raw, placeholder) == 1
-				&& countMatches(raw, "%") == 1) {
-			return raw;
-		}
-		return null;
 	}
 
 	/**
@@ -311,6 +284,7 @@ public class Protocol {
 		this.setThreadAmount = other.setThreadAmount;
 		this.settings = other.settings;
 		this.showUci = other.showUci;
+		this.uciok = other.uciok;
 		this.showWinDrawLoss = other.showWinDrawLoss;
 		this.stop = other.stop;
 		this.setup = (other.setup == null)
@@ -366,25 +340,22 @@ public class Protocol {
 		if (newGame == null) {
 			return false;
 		}
-		if (setChess960 == null || countMatches(setChess960, "%b") != 1) {
+		if (!hasOnlyPlaceholder(setChess960, "%b")) {
 			return false;
 		}
-		if (setHashSize == null || countMatches(setHashSize, "%d") != 1) {
+		if (!hasOnlyPlaceholder(setHashSize, "%d")) {
 			return false;
 		}
-		if (setMultiPivotAmount == null || countMatches(setMultiPivotAmount, "%d") != 1) {
+		if (!hasOnlyPlaceholder(setMultiPivotAmount, "%d")) {
 			return false;
 		}
-		if (setThreadAmount == null || countMatches(setThreadAmount, "%d") != 1) {
+		if (!hasOnlyPlaceholder(setThreadAmount, "%d")) {
 			return false;
 		}
 		if (settings == null) {
 			return false;
 		}
-		if (showUci == null) {
-			return false;
-		}
-		if (showWinDrawLoss == null || countMatches(showWinDrawLoss, "%b") != 1) {
+		if (!hasOnlyPlaceholder(showWinDrawLoss, "%b")) {
 			return false;
 		}
 		return setup != null;
@@ -408,16 +379,22 @@ public class Protocol {
 		if (readyok == null) {
 			return false;
 		}
-		if (searchDepth == null || countMatches(searchDepth, "%d") != 1) {
+		if (showUci == null) {
 			return false;
 		}
-		if (searchNodes == null || countMatches(searchNodes, "%d") != 1) {
+		if (uciok == null) {
 			return false;
 		}
-		if (searchTime == null || countMatches(searchTime, "%d") != 1) {
+		if (!hasOnlyPlaceholder(searchDepth, "%d")) {
 			return false;
 		}
-		if (setPosition == null || countMatches(setPosition, "%s") != 1) {
+		if (!hasOnlyPlaceholder(searchNodes, "%d")) {
+			return false;
+		}
+		if (!hasOnlyPlaceholder(searchTime, "%d")) {
+			return false;
+		}
+		if (!hasOnlyPlaceholder(setPosition, "%s")) {
 			return false;
 		}
 		return stop != null;
@@ -440,7 +417,6 @@ public class Protocol {
 		checkField(errors, KEY_MULTI_PIVOT_AMOUNT, setMultiPivotAmount, false, "%d");
 		checkField(errors, KEY_THREAD_AMOUNT, setThreadAmount, false, "%d");
 		checkField(errors, KEY_SETTINGS, settings, false, null);
-		checkField(errors, KEY_SHOW_UCI, showUci, false, null);
 		checkField(errors, KEY_SHOW_WDL, showWinDrawLoss, false, "%b");
 
 		// explicit array check for setup (non-essential)
@@ -452,6 +428,8 @@ public class Protocol {
 		checkField(errors, KEY_PATH, path, true, null);
 		checkField(errors, KEY_ISREADY, isready, true, null);
 		checkField(errors, KEY_READYOK, readyok, true, null);
+		checkField(errors, KEY_SHOW_UCI, showUci, true, null);
+		checkField(errors, KEY_UCIOK, uciok, true, null);
 		checkField(errors, KEY_SEARCH_DEPTH, searchDepth, true, "%d");
 		checkField(errors, KEY_SEARCH_NODES, searchNodes, true, "%d");
 		checkField(errors, KEY_POSITION, setPosition, true, "%s");
@@ -481,14 +459,29 @@ public class Protocol {
 					(essential ? " cannot be null" : " should not be null"));
 			return;
 		}
-		if (placeholder != null && countMatches(value, placeholder) != 1) {
-			errors.add("'" + fieldName + "' must contain exactly one '" + placeholder + "'");
+		if (placeholder != null && !hasOnlyPlaceholder(value, placeholder)) {
+			errors.add("'" + fieldName + "' must contain exactly one '" + placeholder
+					+ "' and no other '%' placeholders");
 		}
 	}
 
 	/**
+	 * Checks whether a command template contains exactly one expected placeholder and
+	 * no other percent placeholders.
+	 *
+	 * @param value       command template
+	 * @param placeholder expected placeholder
+	 * @return true when the template is safe to format with one argument
+	 */
+	private static boolean hasOnlyPlaceholder(String value, String placeholder) {
+		return value != null
+				&& countMatches(value, placeholder) == 1
+				&& countMatches(value, "%") == 1;
+	}
+
+	/**
 	 * Used for determining the file path to the {@code Engine} executable.
-	 * 
+	 *
 	 * @return The file path to the {@code Engine} executable
 	 */
 	public String getPath() {
@@ -497,7 +490,7 @@ public class Protocol {
 
 	/**
 	 * Used for determining the UCI 'isready' command.
-	 * 
+	 *
 	 * @return The UCI 'isready' command
 	 */
 	public String getIsready() {
@@ -506,7 +499,7 @@ public class Protocol {
 
 	/**
 	 * Used for determining the {@code Engine} name.
-	 * 
+	 *
 	 * @return the {@code Engine} name
 	 */
 	public String getName() {
@@ -515,7 +508,7 @@ public class Protocol {
 
 	/**
 	 * Used for determining the UCI 'newgame' command.
-	 * 
+	 *
 	 * @return The UCI 'newgame' command
 	 */
 	public String getNewGame() {
@@ -524,7 +517,7 @@ public class Protocol {
 
 	/**
 	 * Used for determining the UCI 'readyok' response.
-	 * 
+	 *
 	 * @return The UCI 'readyok' response
 	 */
 	public String getReadyok() {
@@ -533,7 +526,7 @@ public class Protocol {
 
 	/**
 	 * Used for determining the UCI 'go depth ' command.
-	 * 
+	 *
 	 * @return The UCI 'go depth ' command
 	 */
 	public String getSearchDepth() {
@@ -542,7 +535,7 @@ public class Protocol {
 
 	/**
 	 * Used for determining the UCI 'go nodes ' command.
-	 * 
+	 *
 	 * @return The UCI 'go nodes ' command
 	 */
 	public String getSearchNodes() {
@@ -551,7 +544,7 @@ public class Protocol {
 
 	/**
 	 * Used for determining the UCI 'go movetime ' command (milliseconds).
-	 * 
+	 *
 	 * @return The UCI 'go movetime ' command
 	 */
 	public String getSearchTime() {
@@ -560,7 +553,7 @@ public class Protocol {
 
 	/**
 	 * Used for determining the UCI command to enable Chess960.
-	 * 
+	 *
 	 * @return The UCI command to enable Chess960
 	 */
 	public String getSetChess960() {
@@ -569,7 +562,7 @@ public class Protocol {
 
 	/**
 	 * Used for determining the UCI command for setting the amount of usable memory.
-	 * 
+	 *
 	 * @return the UCI command for setting the amount of usable memory
 	 */
 	public String getSetHashSize() {
@@ -578,7 +571,7 @@ public class Protocol {
 
 	/**
 	 * Used for determining the UCI command for setting the amount of usable memory.
-	 * 
+	 *
 	 * @return the UCI command for setting the amount of usable memory
 	 */
 	public String getSetMultiPivotAmount() {
@@ -588,7 +581,7 @@ public class Protocol {
 	/**
 	 * Used for determining the UCI command for setting the chess {@code Position}
 	 * as a FEN.
-	 * 
+	 *
 	 * @return The UCI command for setting the chess {@code Position} as a FEN
 	 */
 	public String getSetPosition() {
@@ -598,7 +591,7 @@ public class Protocol {
 	/**
 	 * Used for determining the UCI command to set the thread amount used by the
 	 * {@code Engine}.
-	 * 
+	 *
 	 * @return The UCI command to set the thread amount used by the {@code Engine}
 	 */
 	public String getSetThreadAmount() {
@@ -607,7 +600,7 @@ public class Protocol {
 
 	/**
 	 * Used for determining the changes made to the {@code Engine}.
-	 * 
+	 *
 	 * @return The changes made to the {@code Engine}
 	 */
 	public String getSettings() {
@@ -621,6 +614,15 @@ public class Protocol {
 	 */
 	public String getShowUci() {
 		return showUci;
+	}
+
+	/**
+	 * Used for retrieving the UCI initialization response.
+	 *
+	 * @return the uciok response token
+	 */
+	public String getUciok() {
+		return uciok;
 	}
 
 	/**
@@ -647,7 +649,7 @@ public class Protocol {
 	 * @return the setup commands
 	 */
 	public String[] getSetup() {
-		return setup;
+		return setup == null ? null : Arrays.copyOf(setup, setup.length);
 	}
 
 	/**
@@ -731,7 +733,7 @@ public class Protocol {
 
 	/**
 	 * Used for setting the searchTime command and returning this protocol instance.
-	 * 
+	 *
 	 * @param searchTime the UCI fixed-time search command (must contain exactly one
 	 *                   %d)
 	 * @return this Protocol instance
@@ -824,6 +826,18 @@ public class Protocol {
 	}
 
 	/**
+	 * Used for setting the UCI initialization response and returning this protocol
+	 * instance.
+	 *
+	 * @param uciok the UCI initialization response
+	 * @return this Protocol instance
+	 */
+	public Protocol setUciok(String uciok) {
+		this.uciok = uciok;
+		return this;
+	}
+
+	/**
 	 * Used for setting the showWinDrawLoss command and returning this protocol
 	 * instance.
 	 *
@@ -854,7 +868,7 @@ public class Protocol {
 	 * @return this Protocol instance
 	 */
 	public Protocol setSetup(String[] setup) {
-		this.setup = setup;
+		this.setup = setup == null ? null : Arrays.copyOf(setup, setup.length);
 		return this;
 	}
 
@@ -894,6 +908,10 @@ public class Protocol {
 				new String[] { KEY_STOP, stop, "Used for identifying the key for the UCI stop command." },
 				new String[] { KEY_NEW_GAME, newGame,
 						"Used for identifying the key for the UCI new game command. (not essential)" },
+				new String[] { KEY_SHOW_UCI, showUci,
+						"Used for identifying the key for displaying UCI options." },
+				new String[] { KEY_UCIOK, uciok,
+						"Used for identifying the key for the UCI initialization response." },
 				new String[] { KEY_CHESS960, setChess960,
 						"Used for identifying the key for enabling or disabling Chess960. (not essential)" },
 				new String[] { KEY_HASH_SIZE, setHashSize,
@@ -902,8 +920,6 @@ public class Protocol {
 						"Used for identifying the key for setting the number of multi-pivot variations. (not essential)" },
 				new String[] { KEY_THREAD_AMOUNT, setThreadAmount,
 						"Used for identifying the key for setting the thread count. (not essential)" },
-				new String[] { KEY_SHOW_UCI, showUci,
-						"Used for identifying the key for displaying UCI options. (not essential)" },
 				new String[] { KEY_SHOW_WDL, showWinDrawLoss,
 						"Used for identifying the key for enabling or disabling WDL stats. (not essential)" });
 
@@ -944,12 +960,14 @@ public class Protocol {
 		// Setup section
 		sb.append("\n# The inputs that will be fed into the Engine once it is ready (Optional)\n");
 		sb.append(KEY_SETUP).append(" = [\n");
-		for (int i = 0; i < setup.length; i++) {
-			sb.append("   \"").append(setup[i]).append("\"");
-			if (i + 1 < setup.length) {
-				sb.append(",\n");
-			} else {
-				sb.append("\n");
+		if (setup != null) {
+			for (int i = 0; i < setup.length; i++) {
+				sb.append("   \"").append(setup[i]).append("\"");
+				if (i + 1 < setup.length) {
+					sb.append(",\n");
+				} else {
+					sb.append("\n");
+				}
 			}
 		}
 		sb.append("]\n");

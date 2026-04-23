@@ -347,7 +347,7 @@ public final class StockfishNnueNetwork implements AutoCloseable {
      *
      * @return backend identifier
      */
-    public String backend() {
+    public String backendName() {
         return BACKEND;
     }
 

@@ -21,7 +21,8 @@ setChess960           = "setoption name UCI_Chess960 value %b"   # Used for iden
 setHashSize           = "setoption name Hash value %d"           # Used for identifying the key for setting the transposition table size. (not essential)
 setMultiPivotAmount   = "setoption name multipv value %d"        # Used for identifying the key for setting the number of multi-pivot variations. (not essential)
 setThreadAmount       = "setoption name threads value %d"        # Used for identifying the key for setting the thread count. (not essential)
-showUci               = "uci"                                    # Used for identifying the key for displaying UCI options. (not essential)
+showUci               = "uci"                                    # Used for identifying the key for displaying UCI options.
+uciok                 = "uciok"                                  # Used for identifying the key for the UCI initialization response.
 showWinDrawLoss       = "setoption name UCI_ShowWDL value %b"    # Used for identifying the key for enabling or disabling WDL stats. (not essential)
 
 # The inputs that will be fed into the Engine once it is ready (Optional)

@@ -22,6 +22,7 @@ setHashSize           = "setoption name Cache value %d"           # LCZero cache
 setMultiPivotAmount   = "setoption name MultiPV value %d"
 setThreadAmount       = "setoption name Threads value %d"         # Helper CPU threads; GPU work stays on the card.
 showUci               = "uci"
+uciok                 = "uciok"
 showWinDrawLoss       = "setoption name UCI_ShowWDL value %b"
 
 # The inputs that will be fed into the Engine once it is ready (Optional)

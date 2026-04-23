@@ -4,6 +4,11 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
+import java.util.concurrent.CompletionService;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorCompletionService;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import chess.core.MoveGenerator;
 import chess.core.MoveList;
@@ -49,6 +54,26 @@ public final class Perft {
     }
 
     /**
+     * Runs detailed perft from a root position, optionally splitting legal root
+     * moves across worker threads.
+     *
+     * @param position root position
+     * @param depth non-negative perft depth
+     * @param threads worker thread count
+     * @return timed detailed perft result
+     * @throws InterruptedException when interrupted while waiting for workers
+     */
+    public static Result run(Position position, int depth, int threads) throws InterruptedException {
+        requireDepth(depth);
+        requireThreads(threads);
+        if (threads == 1 || depth == 0) {
+            return run(position, depth);
+        }
+        DivideResult divide = divide(position, depth, threads);
+        return new Result(depth, divide.total(), divide.nanos());
+    }
+
+    /**
      * Runs detailed divide perft from a root position.
      *
      * <p>
@@ -73,6 +98,163 @@ public final class Perft {
         }
         return new DivideResult(depth, total.toStats(), Collections.unmodifiableList(entries),
                 System.nanoTime() - start);
+    }
+
+    /**
+     * Runs detailed divide perft, optionally splitting legal root moves across
+     * worker threads.
+     *
+     * @param position root position
+     * @param depth non-negative perft depth
+     * @param threads worker thread count
+     * @return timed divide result
+     * @throws InterruptedException when interrupted while waiting for workers
+     */
+    public static DivideResult divide(Position position, int depth, int threads) throws InterruptedException {
+        requireDepth(depth);
+        requireThreads(threads);
+        if (threads == 1 || depth == 0) {
+            return divide(position, depth);
+        }
+        long start = System.nanoTime();
+        List<IndexedDivideEntry> indexedEntries = calculateRootEntries(position, depth, threads,
+                Perft::detailedRootEntry);
+        List<DivideEntry> entries = entries(indexedEntries);
+        entries.sort(Comparator.comparing(entry -> Move.toString(entry.move())));
+        Counter total = sum(entries);
+        return new DivideResult(depth, total.toStats(), Collections.unmodifiableList(entries),
+                System.nanoTime() - start);
+    }
+
+    /**
+     * Runs node-only divide perft from a root position.
+     *
+     * <p>
+     * This is intended for Stockfish-style divide output where only per-root
+     * node counts are printed. Detailed counters in the returned stats are zero
+     * except for nodes.
+     * </p>
+     *
+     * @param position root position
+     * @param depth non-negative perft depth
+     * @return timed divide result
+     */
+    public static DivideResult divideNodes(Position position, int depth) {
+        requireDepth(depth);
+        long start = System.nanoTime();
+        Counter total = new Counter();
+        List<DivideEntry> entries = new ArrayList<>();
+        if (depth == 0) {
+            total.nodes = 1L;
+        } else {
+            addNodeOnlyDivideEntries(position, depth, total, entries);
+        }
+        return new DivideResult(depth, total.toStats(), Collections.unmodifiableList(entries),
+                System.nanoTime() - start);
+    }
+
+    /**
+     * Runs node-only divide perft, optionally splitting legal root moves across
+     * worker threads.
+     *
+     * @param position root position
+     * @param depth non-negative perft depth
+     * @param threads worker thread count
+     * @return timed divide result
+     * @throws InterruptedException when interrupted while waiting for workers
+     */
+    public static DivideResult divideNodes(Position position, int depth, int threads) throws InterruptedException {
+        requireDepth(depth);
+        requireThreads(threads);
+        if (threads == 1 || depth == 0) {
+            return divideNodes(position, depth);
+        }
+        long start = System.nanoTime();
+        List<IndexedDivideEntry> indexedEntries = calculateRootEntries(position, depth, threads,
+                Perft::nodeRootEntry);
+        indexedEntries.sort(Comparator.comparingInt(IndexedDivideEntry::index));
+        List<DivideEntry> entries = entries(indexedEntries);
+        Counter total = sum(entries);
+        return new DivideResult(depth, total.toStats(), Collections.unmodifiableList(entries),
+                System.nanoTime() - start);
+    }
+
+    /**
+     * Calculates one divide entry for every legal root move in parallel.
+     *
+     * @param position root position
+     * @param depth non-zero perft depth
+     * @param threads worker thread count
+     * @param calculator entry calculator
+     * @return indexed divide entries
+     * @throws InterruptedException when interrupted while waiting for workers
+     */
+    private static List<IndexedDivideEntry> calculateRootEntries(
+            Position position,
+            int depth,
+            int threads,
+            RootEntryCalculator calculator) throws InterruptedException {
+        short[] rootMoves = position.legalMoves().toArray();
+        if (rootMoves.length == 0) {
+            return List.of();
+        }
+        int workerCount = Math.min(threads, rootMoves.length);
+        ExecutorService executor = Executors.newFixedThreadPool(workerCount);
+        CompletionService<IndexedDivideEntry> completion = new ExecutorCompletionService<>(executor);
+        try {
+            for (int i = 0; i < rootMoves.length; i++) {
+                final int index = i;
+                final short move = rootMoves[i];
+                completion.submit(() -> new IndexedDivideEntry(index,
+                        calculator.calculate(position.copy(), depth, move)));
+            }
+            List<IndexedDivideEntry> entries = new ArrayList<>(rootMoves.length);
+            for (int completed = 0; completed < rootMoves.length; completed++) {
+                entries.add(completion.take().get());
+            }
+            return entries;
+        } catch (ExecutionException ex) {
+            throw unwrapExecutionException(ex);
+        } finally {
+            executor.shutdownNow();
+        }
+    }
+
+    /**
+     * Calculates one detailed root-move entry.
+     *
+     * @param position root position copy
+     * @param depth root perft depth
+     * @param move legal root move
+     * @return divide entry
+     */
+    private static DivideEntry detailedRootEntry(Position position, int depth, short move) {
+        Counter child = new Counter();
+        Position.State state = new Position.State();
+        position.play(move, state);
+        PerftContext context = new PerftContext(depth);
+        if (depth == 1) {
+            addLeaf(child, move, state, position, context, 1);
+        } else {
+            perft(position, depth - 1, context, 1, child);
+        }
+        return new DivideEntry(move, child.toStats());
+    }
+
+    /**
+     * Calculates one node-only root-move entry.
+     *
+     * @param position root position copy
+     * @param depth root perft depth
+     * @param move legal root move
+     * @return divide entry
+     */
+    private static DivideEntry nodeRootEntry(Position position, int depth, short move) {
+        Position.State state = new Position.State();
+        position.play(move, state);
+        Counter child = new Counter();
+        child.nodes = depth == 1 ? 1L : MoveGenerator.perft(position, depth - 1);
+        return new DivideEntry(move, child.toStats());
     }
 
     /**
@@ -109,6 +291,78 @@ public final class Perft {
             position.undo(move, state);
         }
         entries.sort(Comparator.comparing(entry -> Move.toString(entry.move())));
+    }
+
+    /**
+     * Adds node-only counters for every legal root move.
+     *
+     * @param position root position
+     * @param depth non-zero perft depth
+     * @param total total counter to update
+     * @param entries divide entries to update
+     */
+    private static void addNodeOnlyDivideEntries(
+            Position position,
+            int depth,
+            Counter total,
+            List<DivideEntry> entries) {
+        MoveList moves = position.legalMoves();
+        Position.State state = new Position.State();
+        for (int i = 0; i < moves.size(); i++) {
+            short move = moves.raw(i);
+            position.play(move, state);
+            long nodes = depth == 1 ? 1L : MoveGenerator.perft(position, depth - 1);
+            position.undo(move, state);
+            Counter child = new Counter();
+            child.nodes = nodes;
+            total.add(child);
+            entries.add(new DivideEntry(move, child.toStats()));
+        }
+    }
+
+    /**
+     * Removes root-move indexes from calculated divide entries.
+     *
+     * @param indexedEntries indexed entries
+     * @return divide entries
+     */
+    private static List<DivideEntry> entries(List<IndexedDivideEntry> indexedEntries) {
+        List<DivideEntry> out = new ArrayList<>(indexedEntries.size());
+        for (IndexedDivideEntry indexed : indexedEntries) {
+            out.add(indexed.entry());
+        }
+        return out;
+    }
+
+    /**
+     * Sums divide entry stats.
+     *
+     * @param entries divide entries
+     * @return counter containing the sum
+     */
+    private static Counter sum(List<DivideEntry> entries) {
+        Counter total = new Counter();
+        for (DivideEntry entry : entries) {
+            total.add(entry.stats());
+        }
+        return total;
+    }
+
+    /**
+     * Converts worker failures to unchecked exceptions.
+     *
+     * @param ex execution failure
+     * @return runtime exception to throw
+     */
+    private static RuntimeException unwrapExecutionException(ExecutionException ex) {
+        Throwable cause = ex.getCause();
+        if (cause instanceof RuntimeException runtime) {
+            return runtime;
+        }
+        if (cause instanceof Error error) {
+            throw error;
+        }
+        return new IllegalStateException(cause);
     }
 
     /**
@@ -236,6 +490,17 @@ public final class Perft {
     }
 
     /**
+     * Validates that a requested worker count is positive.
+     *
+     * @param threads worker thread count
+     */
+    private static void requireThreads(int threads) {
+        if (threads <= 0) {
+            throw new IllegalArgumentException("threads must be positive");
+        }
+    }
+
+    /**
      * Immutable detailed perft counters.
      *
      * @param nodes leaf nodes
@@ -314,6 +579,34 @@ public final class Perft {
     }
 
     /**
+     * Calculates one root move's divide entry.
+     */
+    @FunctionalInterface
+    private interface RootEntryCalculator {
+
+        /**
+         * Calculates a divide entry.
+         *
+         * @param position root position copy
+         * @param depth perft depth
+         * @param move legal root move
+         * @return divide entry
+         */
+        DivideEntry calculate(Position position, int depth, short move);
+    }
+
+    /**
+     * Divide entry tagged with its legal-move index.
+     *
+     * @param index root legal-move index
+     * @param entry divide entry
+     */
+    private record IndexedDivideEntry(
+            int index,
+            DivideEntry entry) {
+    }
+
+    /**
      * Mutable counter accumulator used during recursive traversal.
      */
     private static final class Counter {
@@ -366,6 +659,21 @@ public final class Perft {
             promotions += other.promotions;
             checks += other.checks;
             checkmates += other.checkmates;
+        }
+
+        /**
+         * Adds immutable stats into this accumulator.
+         *
+         * @param stats source stats
+         */
+        private void add(Stats stats) {
+            nodes += stats.nodes();
+            captures += stats.captures();
+            enPassant += stats.enPassant();
+            castles += stats.castles();
+            promotions += stats.promotions();
+            checks += stats.checks();
+            checkmates += stats.checkmates();
         }
 
         /**

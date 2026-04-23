@@ -1,7 +1,6 @@
 package chess.debug;
 
 import java.io.PrintStream;
-import java.io.IOException;
 
 import chess.core.Field;
 import chess.core.Move;
@@ -335,17 +334,14 @@ public class Printer {
 	 */
 	public static void testPerft(Runnable progress) {
 		try {
-			PerftSuite.Summary summary = PerftSuite.compareWithStockfish(
+			PerftSuite.Summary summary = PerftSuite.validate(
 					PerftSuite.DEFAULT_MAX_DEPTH,
-					PerftSuite.DEFAULT_STOCKFISH,
 					1,
 					progress);
 			PerftSuite.print(summary);
-		} catch (IOException ex) {
-			throw new IllegalStateException("Stockfish comparison failed", ex);
 		} catch (InterruptedException ex) {
 			Thread.currentThread().interrupt();
-			throw new IllegalStateException("Stockfish comparison interrupted", ex);
+			throw new IllegalStateException("perft validation interrupted", ex);
 		}
 	}
 

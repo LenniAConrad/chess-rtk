@@ -1,9 +1,10 @@
-package chess.engine;
+package chess.eval;
 
 import chess.core.Position;
+import chess.engine.search.AlphaBeta;
 
 /**
- * Static position evaluator used by {@link Searcher}.
+ * Static centipawn evaluator used by {@link AlphaBeta}.
  *
  * <p>
  * Implementations return centipawns from the side-to-move perspective. Search
@@ -15,7 +16,7 @@ import chess.core.Position;
  * @author Lennart A. Conrad
  */
 @FunctionalInterface
-public interface PositionEvaluator extends AutoCloseable {
+public interface CentipawnEvaluator extends AutoCloseable {
 
     /**
      * Evaluates one position.

@@ -1,14 +1,19 @@
-package chess.engine;
+package chess.eval;
 
 import java.util.Locale;
 
 /**
- * Built-in evaluator families.
+ * In-process centipawn evaluator families.
+ *
+ * <p>
+ * Values are intentionally small and CLI-oriented: each enum constant maps to
+ * one evaluator implementation supported by the built-in searcher.
+ * </p>
  *
  * @since 2026
  * @author Lennart A. Conrad
  */
-public enum EvaluatorKind {
+public enum Kind {
 
     /**
      * Classical handcrafted evaluator.
@@ -26,23 +31,23 @@ public enum EvaluatorKind {
     LC0("lc0");
 
     /**
-     * CLI label.
+     * Stable lowercase token accepted by CLI flags and shown in engine output.
      */
     private final String label;
 
     /**
      * Creates an evaluator kind.
      *
-     * @param label CLI label
+     * @param label stable lowercase CLI label
      */
-    EvaluatorKind(String label) {
+    Kind(String label) {
         this.label = label;
     }
 
     /**
      * Returns the CLI label.
      *
-     * @return label
+     * @return stable lowercase label
      */
     public String label() {
         return label;
@@ -53,9 +58,9 @@ public enum EvaluatorKind {
      *
      * @param value raw label
      * @return evaluator kind
-     * @throws IllegalArgumentException when unsupported
+     * @throws IllegalArgumentException when the label is unsupported
      */
-    public static EvaluatorKind parse(String value) {
+    public static Kind parse(String value) {
         if (value == null || value.isBlank()) {
             return CLASSICAL;
         }

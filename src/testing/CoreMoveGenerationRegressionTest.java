@@ -47,12 +47,27 @@ public final class CoreMoveGenerationRegressionTest {
             DEFAULT_DETAILED_CPW_MAX_DEPTH);
 
     /**
+     * Standard chess starting position.
+     */
+    private static final String START_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+
+    /**
+     * Open standard-castling position for both sides.
+     */
+    private static final String STANDARD_CASTLES_FEN = "r3k2r/8/8/8/8/8/8/R3K2R w KQkq - 0 1";
+
+    /**
+     * SAN token for a queen-side castle.
+     */
+    private static final String QUEENSIDE_CASTLE_SAN = "O-O-O";
+
+    /**
      * Chessprogramming Wiki perft positions and published node counts.
      */
     private static final PerftCase[] CPW_PERFT = {
             new PerftCase(
                     "CPW initial position",
-                    "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+                    START_FEN,
                     new long[] { 1L, 20L, 400L, 8902L, 197281L, 4865609L, 119060324L }),
             new PerftCase(
                     "CPW position 2 Kiwipete",
@@ -86,7 +101,7 @@ public final class CoreMoveGenerationRegressionTest {
     private static final DetailedPerftCase[] CPW_DETAILED_PERFT = {
             new DetailedPerftCase(
                     "CPW initial position",
-                    "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+                    START_FEN,
                     new Perft.Stats[] {
                             stats(1L, 0L, 0L, 0L, 0L, 0L, 0L),
                             stats(20L, 0L, 0L, 0L, 0L, 0L, 0L),
@@ -154,6 +169,7 @@ public final class CoreMoveGenerationRegressionTest {
         testCpwMoveSetParity();
         testCpwPerftResults();
         testChess960CastlingSupport();
+        testInvalidFenMetadataRejected();
         System.out.println("CoreMoveGenerationRegressionTest: all checks passed");
     }
 
@@ -169,7 +185,7 @@ public final class CoreMoveGenerationRegressionTest {
         assertEquals(0L, startDepth2.promotions(), "start position detailed perft depth 2 promotions");
 
         Perft.Stats castles = Perft.run(
-                chess.core.Position.fromFen("r3k2r/8/8/8/8/8/8/R3K2R w KQkq - 0 1"), 1).stats();
+                chess.core.Position.fromFen(STANDARD_CASTLES_FEN), 1).stats();
         assertEquals(2L, castles.castles(), "detailed perft castles");
 
         Perft.Stats enPassant = Perft.run(
@@ -213,7 +229,7 @@ public final class CoreMoveGenerationRegressionTest {
      * Verifies direct core FEN and SAN conversion paths.
      */
     private static void testFenAndSanHelpers() {
-        String start = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+        String start = START_FEN;
         assertEquals(start, chess.core.Position.fromFen(start).toString(), "core FEN round trip");
         assertEquals(start, Fen.normalize(
                 "  rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR   w   KQkq   -   0  1  "),
@@ -230,10 +246,10 @@ public final class CoreMoveGenerationRegressionTest {
                 "core SAN pawn parse");
 
         chess.core.Position castlePosition = chess.core.Position.fromFen(
-                "r3k2r/8/8/8/8/8/8/R3K2R w KQkq - 0 1");
+                STANDARD_CASTLES_FEN);
         assertEquals("O-O", SAN.toAlgebraic(castlePosition, Move.parse("e1g1")),
                 "core SAN standard kingside castle");
-        assertEquals("O-O-O", SAN.toAlgebraic(castlePosition, Move.parse("e1c1")),
+        assertEquals(QUEENSIDE_CASTLE_SAN, SAN.toAlgebraic(castlePosition, Move.parse("e1c1")),
                 "core SAN standard queenside castle");
         assertEquals("e1g1", Move.toString(SAN.fromAlgebraic(castlePosition, "0-0!")),
                 "core SAN normalized castle parse");
@@ -241,9 +257,9 @@ public final class CoreMoveGenerationRegressionTest {
         chess.core.Position chess960Castle = chess.core.Position.fromFen(chess960);
         assertEquals("O-O", SAN.toAlgebraic(chess960Castle, Move.parse("b1h1")),
                 "core SAN Chess960 kingside castle");
-        assertEquals("O-O-O", SAN.toAlgebraic(chess960Castle, Move.parse("b1a1")),
+        assertEquals(QUEENSIDE_CASTLE_SAN, SAN.toAlgebraic(chess960Castle, Move.parse("b1a1")),
                 "core SAN Chess960 queenside castle");
-        assertEquals("b1a1", Move.toString(SAN.fromAlgebraic(chess960Castle, "O-O-O")),
+        assertEquals("b1a1", Move.toString(SAN.fromAlgebraic(chess960Castle, QUEENSIDE_CASTLE_SAN)),
                 "core SAN Chess960 castle parse");
 
         chess.core.Position promotion = chess.core.Position.fromFen("7k/P7/8/8/8/8/8/7K w - - 0 1");
@@ -292,6 +308,16 @@ public final class CoreMoveGenerationRegressionTest {
         assertEquals(bit.hashCode(), bit.copy().hashCode(), "helper hash copy");
         assertEquals(bit.signature(), bit.copy().signature(), "helper signature copy");
 
+        chess.core.Position nullProbe = chess.core.Position.fromFen("k7/8/8/8/3Pp3/8/8/7K b - d3 0 1");
+        chess.core.Position nullBefore = nullProbe.copy();
+        chess.core.Position.State nullState = new chess.core.Position.State();
+        nullProbe.playNull(nullState);
+        assertTrue(nullProbe.isWhiteToMove(), "helper null move flips side");
+        assertEquals(Field.NO_SQUARE, nullProbe.enPassantSquare(), "helper null move clears en-passant");
+        nullProbe.undoNull(nullState);
+        assertTrue(nullProbe.equals(nullBefore), "helper null move undo restores position");
+        assertEquals(nullBefore.signature(), nullProbe.signature(), "helper null move undo restores signature");
+
         chess.core.Position start = chess.core.Position.fromFen(CPW_PERFT[0].fen);
         chess.core.Position startDifferentClock = chess.core.Position.fromFen(
                 "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 7 12");
@@ -316,7 +342,7 @@ public final class CoreMoveGenerationRegressionTest {
         assertThrows(() -> start.pieces(12), "helper invalid piece rejected");
 
         chess.core.Position castle = chess.core.Position.fromFen(
-                "r3k2r/8/8/8/8/8/8/R3K2R w KQkq - 0 1");
+                STANDARD_CASTLES_FEN);
         assertTrue(castle.isCastle(Move.parse("e1g1")), "helper castle classifier");
         assertEquals(Field.G1, castle.actualToSquare(Move.parse("e1g1")), "helper castle target");
 
@@ -417,6 +443,22 @@ public final class CoreMoveGenerationRegressionTest {
                 "Chess960 start 0",
                 "bbqnnrkr/pppppppp/8/8/8/8/PPPPPPPP/BBQNNRKR w HFhf - 0 1",
                 new long[] { 1L, 20L }));
+    }
+
+    /**
+     * Verifies malformed castling and en-passant metadata is rejected at parse
+     * time.
+     */
+    private static void testInvalidFenMetadataRejected() {
+        assertThrows(
+                () -> chess.core.Position.fromFen("4k3/8/8/8/4K3/8/8/R6R w HA - 0 1"),
+                "Chess960 castling with king off home rank rejected");
+        assertThrows(
+                () -> chess.core.Position.fromFen("7k/8/3N4/3pP3/8/8/8/4K3 w - d6 0 1"),
+                "en-passant target occupied by own piece rejected");
+        assertThrows(
+                () -> chess.core.Position.fromFen("7k/8/3n4/3pP3/8/8/8/4K3 w - d6 0 1"),
+                "en-passant target occupied by enemy piece rejected");
     }
 
     /**
@@ -532,6 +574,66 @@ public final class CoreMoveGenerationRegressionTest {
              * Node counts indexed by depth.
              */
             long[] nodes) {
+
+        /**
+         * Creates an immutable perft case.
+         */
+        private PerftCase {
+            nodes = nodes.clone();
+        }
+
+        /**
+         * Returns a defensive copy of the node table.
+         *
+         * @return node counts indexed by depth
+         */
+        @Override
+        public long[] nodes() {
+            return nodes.clone();
+        }
+
+        /**
+         * Compares cases by value, including array contents.
+         *
+         * @param other candidate object
+         * @return true when all fields match
+         */
+        @Override
+        public boolean equals(Object other) {
+            return other instanceof PerftCase that
+                    && name.equals(that.name)
+                    && fen.equals(that.fen)
+                    && java.util.Arrays.equals(nodes, that.nodes);
+        }
+
+        /**
+         * Computes a content-based hash.
+         *
+         * @return hash for all fields
+         */
+        @Override
+        public int hashCode() {
+            int result = name.hashCode();
+            result = 31 * result + fen.hashCode();
+            result = 31 * result + java.util.Arrays.hashCode(nodes);
+            return result;
+        }
+
+        /**
+         * Formats the case with readable node counts.
+         *
+         * @return diagnostic text
+         */
+        @Override
+        public String toString() {
+            return "PerftCase[name="
+                    + name
+                    + ", fen="
+                    + fen
+                    + ", nodes="
+                    + java.util.Arrays.toString(nodes)
+                    + "]";
+        }
     }
 
     /**
@@ -550,5 +652,65 @@ public final class CoreMoveGenerationRegressionTest {
              * Detailed counters indexed by depth.
              */
             Perft.Stats[] stats) {
+
+        /**
+         * Creates an immutable detailed perft case.
+         */
+        private DetailedPerftCase {
+            stats = stats.clone();
+        }
+
+        /**
+         * Returns a defensive copy of the detailed counter table.
+         *
+         * @return detailed counters indexed by depth
+         */
+        @Override
+        public Perft.Stats[] stats() {
+            return stats.clone();
+        }
+
+        /**
+         * Compares cases by value, including array contents.
+         *
+         * @param other candidate object
+         * @return true when all fields match
+         */
+        @Override
+        public boolean equals(Object other) {
+            return other instanceof DetailedPerftCase that
+                    && name.equals(that.name)
+                    && fen.equals(that.fen)
+                    && java.util.Arrays.equals(stats, that.stats);
+        }
+
+        /**
+         * Computes a content-based hash.
+         *
+         * @return hash for all fields
+         */
+        @Override
+        public int hashCode() {
+            int result = name.hashCode();
+            result = 31 * result + fen.hashCode();
+            result = 31 * result + java.util.Arrays.hashCode(stats);
+            return result;
+        }
+
+        /**
+         * Formats the case with readable detailed counters.
+         *
+         * @return diagnostic text
+         */
+        @Override
+        public String toString() {
+            return "DetailedPerftCase[name="
+                    + name
+                    + ", fen="
+                    + fen
+                    + ", stats="
+                    + java.util.Arrays.toString(stats)
+                    + "]";
+        }
     }
 }

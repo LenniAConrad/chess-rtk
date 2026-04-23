@@ -2,10 +2,12 @@
 
 ![ChessRTK banner](assets/banner/github/crtk-github-banner.png)
 
-ChessRTK is a reproducible, zero-dependency Java 17 toolkit for chess research,
-puzzle mining, move-generation validation, engine experiments, dataset export,
-tagging, rendering, and chess-book publishing. It turns chess work into
-inspectable files, commands, diagrams, tensors, PDFs, and repeatable runs.
+ChessRTK is a reproducible Java 17 toolkit for chess research, puzzle mining,
+move-generation validation, engine experiments, dataset export, tagging,
+rendering, and chess-book publishing. The core chess stack is dependency-free
+Java; UCI engines, neural weights, and native GPU backends are optional local
+artifacts layered on top. It turns chess work into inspectable files, commands,
+diagrams, tensors, PDFs, and repeatable runs.
 
 The project has one practical bias: keep the interesting chess work explicit.
 Positions are FENs, moves can be UCI or SAN, searches have limits, records keep
@@ -37,7 +39,7 @@ java -cp out application.Main <command> [options]
 | List, convert, and apply moves | `move list`, `move uci`, `move san`, `move both`, `move to-san`, `move to-uci`, `move after`, `move play` |
 | Verify move generation | `engine perft`, `engine perft-suite` |
 | Run an external UCI engine | `engine analyze`, `engine bestmove`, `engine threats`, `engine uci-smoke` |
-| Search without an external engine | `engine builtin`, `engine static`, `engine eval` |
+| Search and evaluate in-process | `engine builtin`, `engine static`, `engine eval` |
 | Generate and extract positions | `fen generate`, `fen pgn`, `fen chess960` |
 | Tag positions and puzzle lines | `fen tags`, `puzzle tags`, `fen text`, `puzzle text` |
 | Mine tactical puzzles | `puzzle mine`, `puzzle pgn` |
@@ -66,13 +68,16 @@ ChessRTK combines a Java-native chess core with research and publishing tools:
 - Bitboard-backed legal move generation with make/undo, Chess960 castling,
   SAN/FEN support, attack helpers, pin helpers, and perft counters.
 - Detailed perft reporting for nodes, captures, en-passant captures, castles,
-  promotions, checks, and checkmates.
-- A perft suite for critical standard and Chess960 positions, with optional
-  multithreading for suite execution.
+  promotions, checks, and checkmates, with detailed, table, and engine-compatible
+  `move: nodes` divide output.
+- A self-contained perft suite for critical standard, Chess960, en-passant,
+  promotion, castling, and stress positions. It compares stored truth values to
+  the Java core move generator and never starts an external engine process.
 - UCI engine orchestration for analysis, best moves, threats, WDL, MultiPV,
   node/time limits, threads, hash, and smoke checks.
-- An in-process Java engine with classical, NNUE, and LC0 value evaluators for
-  bounded fallback search and reproducible automation.
+- An in-process alpha-beta Java engine with a transposition table,
+  quiescence search, move ordering, and classical, NNUE, or LC0 value
+  evaluators for bounded local search and reproducible automation.
 - Static and engine-enriched position tags covering facts, material, pawn
   structure, king safety, piece activity, tactics, eval buckets, WDL, phase,
   mobility, initiative, and development.
@@ -92,8 +97,10 @@ ChessRTK combines a Java-native chess core with research and publishing tools:
 Requirements:
 
 - Java 17+ JDK with `javac`
-- A UCI engine on `PATH` for engine-driven workflows, or a config in
-  `config/*.engine.toml`
+- Optional: a UCI engine on `PATH`, or a config in `config/*.engine.toml`, for
+  external engine analysis and mining
+- Optional: LC0/NNUE/T5 model files under `models/` for evaluator and text
+  workflows
 
 Build directly, with no Maven or Gradle:
 
@@ -149,10 +156,15 @@ Check the engine and core move generation:
 crtk doctor
 crtk engine uci-smoke --nodes 1 --max-duration 5s
 crtk engine builtin --depth 3 --format summary --fen "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
-crtk engine perft --depth 4
-crtk engine perft --fen "<FEN>" --depth 5 --divide
+crtk engine perft --depth 4 --threads 4
+crtk engine perft --fen "<FEN>" --depth 5 --divide --threads 4
+crtk engine perft --depth 3 --format stockfish --threads 4
 crtk engine perft-suite --depth 6 --threads 4
 ```
+
+`engine perft-suite` is an internal regression check. It runs stored reference
+positions through the Java core move generator and prints a progress bar followed
+by a `Truth` / `Calculated` / `Speed` / `Match` table.
 
 Generate tags, text, and diagrams:
 
@@ -294,8 +306,8 @@ Core command groups:
 - `fen`: normalize, validate, generate, render, display, tag, summarize, and
   extract positions
 - `move`: list legal moves, convert notation, apply one move, or play a line
-- `engine`: analyze, choose best moves, search with the in-house fallback
-  engine, evaluate, inspect threats, run perft, and smoke-test UCI engines
+- `engine`: analyze, choose best moves, search with the in-house Java engine,
+  evaluate, inspect threats, run perft, and smoke-test UCI engines
 - `puzzle`: mine puzzles, convert puzzle dumps to PGN, tag positions, and
   generate text summaries
 - `record`: export, filter, merge, split, summarize, and convert record files
@@ -312,7 +324,7 @@ Full command reference: [wiki/command-reference.md](wiki/command-reference.md)
 The chess rules implementation is the Java-native `chess.core` package. It
 contains the bitboard-backed `Position`, strict FEN/SAN helpers, Chess960 setup
 logic, legal move generation, make/undo support, attack/pin helpers, and
-perft-facing APIs. Detailed perft and Stockfish-backed validation live in
+perft-facing APIs. Detailed perft and the self-contained reference suite live in
 `chess.debug`, so the debug tools exercise the same move generator used by the
 CLI, tags, renderer, and engine.
 
@@ -324,9 +336,9 @@ More: [wiki/development-notes.md](wiki/development-notes.md)
 
 ## Built-In Engine and Optional Evaluators
 
-`engine builtin` is ChessRTK's in-house Java engine. It exists mainly as an
-in-process fallback and benchmarking target, not as a top-tier engine meant to
-compete with Stockfish or LC0. It is useful when you need deterministic CLI
+`engine builtin` is ChessRTK's in-house Java engine. It exists as an
+in-process search and benchmarking target, not as a top-tier engine meant to
+compete with mature UCI engines. It is useful when you need deterministic CLI
 search without starting a UCI process, when a workflow needs bounded search on
 a machine with no engine configured, or when you want a reproducible baseline
 for puzzle-solve timing.
@@ -340,13 +352,16 @@ crtk engine builtin --lc0 --weights models/leela_112planes-10blocksx128-policyhe
 
 ChessRTK supports two LC0-related paths:
 
-- LC0 as a UCI engine for mining, usually with `.pb.gz` weights
+- LC0 as a UCI engine for mining and analysis, usually with `.pb.gz` weights
 - the built-in Java LC0 evaluator for `engine eval`, `fen display`, and
   ablation-style inspection, using local `models/*.bin` weights
 
-The built-in search uses alpha-beta and can choose the classical, NNUE, or LC0
-value evaluator at the frontier. External engine commands remain the right path
-for strength-sensitive analysis, MultiPV production, and long mining runs.
+The built-in search uses alpha-beta, quiescence search, move ordering, and
+internal transposition/evaluation caches. It can choose the classical, NNUE, or
+LC0 value evaluator at the frontier. `engine eval` is a single-position
+evaluator command that prefers LC0 and falls back to classical unless
+`--classical` or `--lc0` is specified. External engine commands remain the right
+path for strength-sensitive analysis, MultiPV production, and long mining runs.
 
 See [wiki/in-house-engine.md](wiki/in-house-engine.md),
 [wiki/lc0.md](wiki/lc0.md), and [models/README.md](models/README.md).
@@ -380,11 +395,16 @@ gitignored model files bundled into the archive.
 Focused checks after core changes:
 
 ```bash
+javac --release 17 -d out $(find src -name "*.java")
 java -cp out testing.PositionRegressionTest
+java -cp out testing.CoreMoveGenerationRegressionTest
+java -cp out testing.BuiltInEngineRegressionTest
 java -cp out application.Main doctor
-java -cp out application.Main engine uci-smoke --nodes 1 --max-duration 5s
-java -cp out application.Main engine perft-suite
+java -cp out application.Main engine perft-suite --depth 6 --threads 4
 ```
+
+`engine uci-smoke --nodes 1 --max-duration 5s` is the matching setup check when
+external UCI analysis is part of the workflow.
 
 Publishing checks:
 

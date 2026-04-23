@@ -33,7 +33,7 @@ Supported keys:
 - `depth`, `seldepth`, `multipv`, `hashfull`
 - `nodes`, `nps`, `tbhits`, `time` (ms)
 - `eval` (centipawns or mate; decimals are allowed as pawns, e.g. `300` == `3.0`, `#-2`)
-- `chances` (WDL), e.g. `wdl 790 200 10` or `1000/0/0`
+- `chances` (WDL), e.g. `790/200/10` or `1000/0/0`
 
 ## Examples
 

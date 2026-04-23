@@ -15,3 +15,13 @@ Add agentic commands:
 
 fix gui situation
 fix tagging situation
+
+Repo quality improvements:
+- Add CI workflow for build, lint, core regressions, CLI regressions, UCI regressions, and perft smoke checks.
+- Add a single local test runner script or Makefile/justfile target for the recommended regression suite.
+- Keep `git diff --check` clean; remove trailing whitespace before commits.
+- Split oversized classes into smaller modules, starting with book rendering, GUI layout, record commands, and core position logic.
+- Add a release readiness checklist covering clean worktree, fresh compile, regression suite, perft suite, docs update, and jar build.
+- Decide whether the current non-commercial/no-derivatives license is intentional; if wider adoption matters, choose a standard open-source license.
+- Reduce direct `System.exit` and raw stack-trace printing in command handlers where practical so command logic is easier to test and reuse.
+- Add contributor docs for coding style, test commands, release process, and expected Java version.

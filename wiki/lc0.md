@@ -59,10 +59,11 @@ evaluation, display, and dataset paths.
 
 Defaults:
 - weights path: `models/leela_112planes-10blocksx128-policyhead80-valuehead32-policy4672-wdl3.bin` (`chess.nn.lc0.Model.DEFAULT_WEIGHTS`)
-- backend: `cpu` unless the optional CUDA JNI backend is available
+- backend: `auto`, which uses an available native GPU backend before falling
+  back to the pure Java CPU evaluator
 
 Backend selection (system properties):
-- `-Dcrtk.lc0.backend=auto|cpu|cuda` (default `auto`)
+- `-Dcrtk.lc0.backend=auto|cpu|cuda|rocm|amd|hip|oneapi|intel` (default `auto`)
 - `-Dcrtk.lc0.threads=N` (CPU backend only)
 
 Evaluate a position:
@@ -86,7 +87,21 @@ Display evaluator ablation and backend information:
 crtk fen display --fen "<FEN>" --ablation --show-backend
 ```
 
-### CUDA backend (optional)
+Check native GPU backend availability:
+
+```bash
+crtk engine gpu
+```
+
+### Native GPU Backends (Optional)
+
+The LC0 Java evaluator can run on the pure Java CPU backend with no native
+library. Optional JNI backends are available for CUDA, ROCm/HIP, and oneAPI.
+Use `-Djava.library.path=...` to point Java at the backend build directory and
+`-Dcrtk.lc0.backend=...` to force a backend. Leaving the backend as `auto`
+chooses the first available native backend and then falls back to CPU.
+
+CUDA build example:
 
 Build the JNI library:
 
@@ -104,4 +119,5 @@ java -cp out \
   application.Main fen display --fen "<FEN>" --ablation --show-backend
 ```
 
-See `native/cuda/README.md` for more details.
+See `native/cuda/README.md`, `native/rocm/README.md`, and
+`native/oneapi/README.md` for backend-specific build notes.

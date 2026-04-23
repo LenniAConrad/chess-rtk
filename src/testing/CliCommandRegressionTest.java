@@ -108,10 +108,27 @@ public final class CliCommandRegressionTest {
 		assertTrue(output.contains("time-ms:"), "engine perft timing");
 		assertTrue(output.contains("nps:"), "engine perft throughput");
 
+		String threaded = TestSupport.runMain("engine", "perft", "--depth", "2", "--threads", "2");
+		assertTrue(threaded.contains("nodes: 400"), "engine perft threaded node count");
+
 		String divide = TestSupport.runMain("engine", "perft", "--depth", "1", "--divide");
-		assertTrue(divide.contains("a2a3: nodes=1"), "engine perft divide row");
-		assertTrue(divide.contains("total:"), "engine perft divide total");
-		assertTrue(divide.contains("nodes: 20"), "engine perft divide total nodes");
+		assertTrue(divide.contains("Perft divide (depth 1)"), "engine perft divide title");
+		assertTrue(divide.contains("Move") && divide.contains("Captures"), "engine perft divide table header");
+		assertTrue(divide.matches("(?s).*a2a3\\s+1\\s+0\\s+0\\s+0\\s+0\\s+0\\s+0.*"),
+				"engine perft divide table row");
+		assertTrue(divide.matches("(?s).*Total\\s+20\\s+0\\s+0\\s+0\\s+0\\s+0\\s+0.*"),
+				"engine perft divide table total");
+		assertTrue(divide.contains("Summary: moves=20 nodes=20"), "engine perft divide summary");
+
+		String detailDivide = TestSupport.runMain("engine", "perft", "--depth", "1", "--divide", "--format", "detail");
+		assertTrue(detailDivide.contains("a2a3: nodes=1"), "engine perft detail divide row");
+		assertTrue(detailDivide.contains("total:"), "engine perft detail divide total");
+
+		String stockfish = TestSupport.runMain("engine", "perft", "--depth", "1", "--format", "stockfish",
+				"--threads", "2");
+		assertTrue(stockfish.contains("a2a3: 1"), "engine perft stockfish divide row");
+		assertTrue(stockfish.contains("Nodes searched: 20"), "engine perft stockfish total");
+		assertFalse(stockfish.contains("FEN:"), "engine perft stockfish omits crtk heading");
 	}
 
 	/**
@@ -149,11 +166,14 @@ public final class CliCommandRegressionTest {
 
 		String enginePerft = TestSupport.runMain("help", "engine", "perft");
 		assertTrue(enginePerft.contains("engine perft options:"), "help engine perft options");
+		assertTrue(enginePerft.contains("--format FMT"), "help engine perft format option");
+		assertTrue(enginePerft.contains("--threads N"), "help engine perft threads option");
 
 		String enginePerftSuite = TestSupport.runMain("help", "engine", "perft-suite");
 		assertTrue(enginePerftSuite.contains("engine perft-suite options:"),
 				"help engine perft-suite options");
 		assertTrue(enginePerftSuite.contains("--threads N"), "help engine perft-suite threads option");
+		assertFalse(enginePerftSuite.contains("--stockfish"), "help engine perft-suite does not expose stockfish");
 
 		String uciSmoke = TestSupport.runMain("help", "engine", "uci-smoke");
 		assertTrue(uciSmoke.contains("engine uci-smoke options:"), "help engine uci-smoke options");

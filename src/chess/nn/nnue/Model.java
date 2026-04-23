@@ -14,6 +14,13 @@ import chess.core.Position;
  * {@link #load(Path)} auto-detects the simple CRTK NNUE format and supported
  * Stockfish NNUE files.
  * </p>
+ *
+ * <p>
+ * The wrapper exposes a single prediction API over both native CRTK-format
+ * networks and supported Stockfish-format networks. When used by the built-in
+ * engine without explicit weights, {@link #loadDefaultOrFallback()} can supply
+ * a neutral fallback model for smoke testing.
+ * </p>
  */
 public final class Model implements AutoCloseable {
 
@@ -23,12 +30,14 @@ public final class Model implements AutoCloseable {
     public static final Path DEFAULT_WEIGHTS = Path.of("models/crtk-halfkp.nnue");
 
     /**
-     * Underlying CRTK NNUE network.
+     * Underlying CRTK-format NNUE network. This field is null when the wrapper
+     * is backed by a Stockfish-format network.
      */
     private final Network network;
 
     /**
-     * Underlying Stockfish NNUE network.
+     * Underlying Stockfish-format NNUE network. This field is null when the
+     * wrapper is backed by a CRTK-format network.
      */
     private final StockfishNnueNetwork stockfishNetwork;
 
@@ -91,7 +100,7 @@ public final class Model implements AutoCloseable {
      * @throws IOException if the default file exists but cannot be read or parsed
      */
     public static Model loadDefaultOrFallback() throws IOException {
-        if (Files.exists(DEFAULT_WEIGHTS)) {
+        if (Files.isRegularFile(DEFAULT_WEIGHTS)) {
             return loadDefault();
         }
         return fallback();
@@ -99,6 +108,11 @@ public final class Model implements AutoCloseable {
 
     /**
      * Creates a tiny neutral fallback model.
+     *
+     * <p>
+     * The fallback has one hidden unit, zero feature weights, and unit output
+     * scale, so every position evaluates to a neutral score.
+     * </p>
      *
      * @return fallback model
      */
@@ -143,9 +157,9 @@ public final class Model implements AutoCloseable {
      */
     public String backend() {
         if (stockfishNetwork != null) {
-            return stockfishNetwork.backend();
+            return stockfishNetwork.backendName();
         }
-        return network.backend();
+        return network.backendName();
     }
 
     /**

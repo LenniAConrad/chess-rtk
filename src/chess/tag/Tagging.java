@@ -1953,26 +1953,18 @@ public final class Tagging {
         private final int blackBishops;
 
         /**
-         * Whether any major material is present.
-         */
-        private final boolean hasMajorMaterial;
-
-        /**
          * Creates a material-count snapshot.
          *
          * @param whiteKnights the white knight count
          * @param whiteBishops the white bishop count
          * @param blackKnights the black knight count
          * @param blackBishops the black bishop count
-         * @param hasMajorMaterial whether major material exists
          */
-        private MinorMaterialCounts(int whiteKnights, int whiteBishops, int blackKnights, int blackBishops,
-                boolean hasMajorMaterial) {
+        private MinorMaterialCounts(int whiteKnights, int whiteBishops, int blackKnights, int blackBishops) {
             this.whiteKnights = whiteKnights;
             this.whiteBishops = whiteBishops;
             this.blackKnights = blackKnights;
             this.blackBishops = blackBishops;
-            this.hasMajorMaterial = hasMajorMaterial;
         }
 
         /**
@@ -1986,7 +1978,6 @@ public final class Tagging {
             int whiteBishops = 0;
             int blackKnights = 0;
             int blackBishops = 0;
-            boolean hasMajorMaterial = false;
             for (byte piece : board) {
                 if (Piece.isKnight(piece)) {
                     if (Piece.isWhite(piece)) {
@@ -2000,39 +1991,9 @@ public final class Tagging {
                     } else {
                         blackBishops++;
                     }
-                } else if (isMajorMaterialPiece(piece)) {
-                    hasMajorMaterial = true;
                 }
             }
-            return new MinorMaterialCounts(whiteKnights, whiteBishops, blackKnights, blackBishops, hasMajorMaterial);
-        }
-
-        /**
-         * Checks whether a piece counts as major material for insufficient-material logic.
-         *
-         * @param piece the piece code to inspect
-         * @return {@code true} for pawns, queens, and rooks
-         */
-        private static boolean isMajorMaterialPiece(byte piece) {
-            return Piece.isPawn(piece) || Piece.isQueen(piece) || Piece.isRook(piece);
-        }
-
-        /**
-         * Returns the total count of White's minor pieces.
-         *
-         * @return White knights plus White bishops
-         */
-        private int whiteMinors() {
-            return whiteKnights + whiteBishops;
-        }
-
-        /**
-         * Returns the total count of Black's minor pieces.
-         *
-         * @return Black knights plus Black bishops
-         */
-        private int blackMinors() {
-            return blackKnights + blackBishops;
+            return new MinorMaterialCounts(whiteKnights, whiteBishops, blackKnights, blackBishops);
         }
     }
 

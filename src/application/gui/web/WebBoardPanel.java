@@ -76,11 +76,11 @@ final class WebBoardPanel extends JPanel {
 	/**
 	 * State listeners.
 	 */
-	private final SquareListener squareListener;
+	private final transient SquareListener squareListener;
 		/**
 	 * Stores the hover listener.
 	 */
-private final HoverListener hoverListener;
+private final transient HoverListener hoverListener;
 
 	/**
 	 * Paint state.
@@ -330,8 +330,7 @@ private void paintShadow(Graphics2D g) {
 private void paintSquares(Graphics2D g) {
 		for (int rank = 0; rank < 8; rank++) {
 			for (int file = 0; file < 8; file++) {
-				byte square = displayToSquare(file, rank);
-				Color fill = (((file + rank) & 1) == 0) ? theme.boardLight() : theme.boardDark();
+					Color fill = (((file + rank) & 1) == 0) ? theme.boardLight() : theme.boardDark();
 				g.setColor(fill);
 				g.fillRect(boardX + file * tileSize, boardY + rank * tileSize, tileSize, tileSize);
 			}

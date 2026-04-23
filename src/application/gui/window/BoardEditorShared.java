@@ -846,15 +846,15 @@ final class BoardEditorShared {
         /**
          * boardSupplier field.
          */
-        private final Supplier<byte[]> boardSupplier;
+        private final transient Supplier<byte[]> boardSupplier;
         /**
          * selectedPieceSupplier field.
          */
-        private final ByteSupplier selectedPieceSupplier;
+        private final transient ByteSupplier selectedPieceSupplier;
         /**
          * onBoardChanged field.
          */
-        private final Runnable onBoardChanged;
+        private final transient Runnable onBoardChanged;
         /**
          * boardX field.
          */

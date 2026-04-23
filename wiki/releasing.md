@@ -1,6 +1,8 @@
 # Releasing ChessRTK (`crtk`)
 
-This repo is intentionally build-tool light: the CLI is a runnable Java 17 jar, and the optional CUDA backend is a small JNI library under `native/cuda/`.
+This repo is intentionally build-tool light: the CLI is a runnable Java 17 jar.
+Optional native GPU backends live under `native/cuda/`, `native/rocm/`, and
+`native/oneapi/`. The release script below packages the CUDA Linux artifact.
 
 ## Linux (x86_64) + CUDA release artifact
 

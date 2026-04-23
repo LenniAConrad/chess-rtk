@@ -86,8 +86,10 @@ crtk engine builtin --fen "<FEN>" --depth 4 --format summary
 crtk engine builtin --fen "<FEN>" --nodes 100000 --max-duration 500ms --format uci
 ```
 
-Use explicit `--nodes`, `--max-duration`, `--threads`, and `--hash` values when
-you need reproducible engine behavior.
+For UCI engine commands, use explicit `--nodes`, `--max-duration`, `--threads`,
+and `--hash` values when you need reproducible behavior. For the built-in
+engine, use `--depth`, `--nodes`, `--max-duration`, and the evaluator flags;
+it does not spawn an engine process or accept UCI `--threads`/`--hash` options.
 
 ## Move-Generation Checks
 
@@ -95,7 +97,8 @@ Single-position counters:
 
 ```bash
 crtk engine perft --fen "<FEN>" --depth 5
-crtk engine perft --fen "<FEN>" --depth 5 --divide
+crtk engine perft --fen "<FEN>" --depth 5 --divide --threads 4
+crtk engine perft --fen "<FEN>" --depth 5 --format stockfish --threads 4
 ```
 
 Regression suite:

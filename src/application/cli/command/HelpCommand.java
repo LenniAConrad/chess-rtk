@@ -1152,13 +1152,14 @@ public final class HelpCommand {
 			engine perft options:
 			  --fen FEN                  Input FEN
 			  --depth|-d N               Depth for perft
-			  --divide|--per-move        Print per-root-move detailed counters
+			  --divide|--per-move        Print per-root-move table
+			  --format FMT               Output: detail, table, stockfish
+			  --threads N                Worker threads for root moves (default: 1)
 			  --verbose|-v               Print stack trace on failure
 
 			engine perft-suite options:
-			  --depth|-d N               Depth to compare (default: 6)
+			  --depth|-d N               Depth to validate, 1..6 (default: 6)
 			  --threads N                Worker threads for positions (default: 1)
-			  --stockfish PATH           Stockfish executable (default: stockfish)
 
 			fen pgn options:
 			  --input|-i PATH            Input PGN file

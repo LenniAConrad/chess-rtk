@@ -2,7 +2,10 @@
 
 ChessRTK (`crtk`) is a Java 17 command-line toolkit for chess research,
 position handling, move-generation validation, engine orchestration, puzzle
-mining, dataset export, tagging, rendering, and book publishing.
+mining, dataset export, tagging, rendering, and book publishing. The chess core
+and built-in search are Java-native and run without external dependencies;
+configured UCI engines, model weights, and native GPU libraries are optional
+extensions for heavier analysis workflows.
 
 If the launcher is not installed, replace `crtk <command> ...` with
 `java -cp out application.Main <command> ...` after compiling the project.
@@ -22,9 +25,9 @@ If the launcher is not installed, replace `crtk <command> ...` with
 | Validate, normalize, and print positions | `fen validate`, `fen normalize`, `fen print` | [Command reference](command-reference.md) |
 | Generate and extract positions | `fen generate`, `fen pgn`, `fen chess960` | [Mining puzzles](mining.md) |
 | List, convert, and apply moves | `move list`, `move to-san`, `move to-uci`, `move after`, `move play` | [AI agents and automation](ai-agents.md) |
-| Verify move generation | `engine perft`, `engine perft-suite` | [Development notes](development-notes.md) |
+| Verify move generation | `engine perft`, `engine perft-suite` | [Development notes](development-notes.md), [AI agents and automation](ai-agents.md) |
 | Analyze with UCI engines | `engine analyze`, `engine bestmove`, `engine threats`, `engine uci-smoke` | [Configuration](configuration.md) |
-| Search in-process | `engine builtin`, `engine static`, `engine eval` | [In-house Java engine](in-house-engine.md) |
+| Search and evaluate in-process | `engine builtin`, `engine static`, `engine eval` | [In-house Java engine](in-house-engine.md), [LC0 UCI weights and Java evaluator](lc0.md) |
 | Mine and export puzzles | `puzzle mine`, `puzzle pgn`, `record files` | [Mining puzzles](mining.md), [Filter DSL](filter-dsl.md) |
 | Tag positions and lines | `fen tags`, `puzzle tags` | [Tagging implementation plan](tagging-implementation-plan.md), [Piece tags](piece-tags.md) |
 | Generate text from tags | `fen text`, `puzzle text` | [T5 tag-to-text pipeline](t5.md) |
@@ -38,10 +41,11 @@ If the launcher is not installed, replace `crtk <command> ...` with
 2. Validate configuration with `crtk doctor` and `crtk config validate`.
 3. Create seed positions from FEN files, PGNs, random legal generation, or
    Chess960 starts.
-4. Inspect and validate the chess core with `move list`, `fen normalize`,
-   `engine perft`, and `engine perft-suite`.
-5. Analyze positions with a configured UCI engine or with the built-in Java
-   search and evaluators.
+4. Inspect and validate the Java core with `move list`, `fen normalize`,
+   `engine perft`, and `engine perft-suite`. The suite compares stored truth
+   values against the in-process move generator; it does not start a UCI engine.
+5. Analyze positions with a configured UCI engine, or stay fully in-process with
+   `engine builtin`, `engine eval`, and `engine static`.
 6. Mine, filter, and summarize puzzle/record dumps with the `puzzle` and
    `record` command groups.
 7. Export the resulting data to PGN, CSV, JSONL, NumPy tensors, LC0-style

@@ -10,6 +10,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.function.LongConsumer;
 
@@ -347,13 +348,14 @@ public final class ClassifierDatasetExporter {
             return;
         }
 
-        Boolean label = resolveLabel(objJson, rec, options);
-        if (label == null) {
+        Optional<Boolean> label = resolveLabel(objJson, rec, options);
+        if (label.isEmpty()) {
             stats.skippedUnlabeled++;
             return;
         }
 
-        if (label.booleanValue()) {
+        boolean positive = label.get().booleanValue();
+        if (positive) {
             if (stats.positives >= options.maxPositives()) {
                 stats.skippedClassCap++;
                 return;
@@ -365,10 +367,10 @@ public final class ClassifierDatasetExporter {
 
         float[] encoded = Encoder.encode(position);
         inputsWriter.writeRow(encoded);
-        labelsWriter.writeScalar(label.booleanValue() ? 1.0f : 0.0f);
+        labelsWriter.writeScalar(positive ? 1.0f : 0.0f);
 
         stats.rowsWritten++;
-        if (label.booleanValue()) {
+        if (positive) {
             stats.positives++;
         } else {
             stats.negatives++;
@@ -378,41 +380,34 @@ public final class ClassifierDatasetExporter {
     /**
      * Resolves the binary label for a record.
      */
-    private static Boolean resolveLabel(String objJson, Record rec, Options options) {
+    private static Optional<Boolean> resolveLabel(String objJson, Record rec, Options options) {
         if (options.labelFilter() != null) {
             Analysis analysis = rec.getAnalysis();
             if (analysis == null) {
-                return null;
+                return Optional.empty();
             }
-            return options.labelFilter().apply(analysis);
+            return Optional.of(options.labelFilter().apply(analysis));
         }
 
         String kind = Json.parseStringField(objJson, "kind");
         if (kind != null && !kind.isBlank()) {
             if ("puzzle".equalsIgnoreCase(kind)) {
-                return Boolean.TRUE;
+                return Optional.of(Boolean.TRUE);
             }
             if ("nonpuzzle".equalsIgnoreCase(kind) || "non-puzzle".equalsIgnoreCase(kind)) {
-                return Boolean.FALSE;
+                return Optional.of(Boolean.FALSE);
             }
-            return null;
+            return Optional.empty();
         }
 
         if (options.fallbackLabelFilter() != null) {
             Analysis analysis = rec.getAnalysis();
             if (analysis == null) {
-                return null;
+                return Optional.empty();
             }
-            return options.fallbackLabelFilter().apply(analysis);
+            return Optional.of(options.fallbackLabelFilter().apply(analysis));
         }
-        return null;
-    }
-
-    /**
-     * Streams raw record JSON objects from either a JSON array or JSONL file.
-     */
-    private static void streamRecordJson(Path input, Consumer<String> consumer) throws IOException {
-        streamRecordJson(input, consumer, null);
+        return Optional.empty();
     }
 
     /**

@@ -3,11 +3,11 @@
 ChessRTK includes a small built-in Java engine exposed through
 `crtk engine builtin` and `crtk engine java`.
 
-The engine is mainly a fallback alternative and benchmarking tool. It is not
-intended to be a top-tier engine competing with Stockfish or LC0. Use it when an
-in-process, zero-dependency search is valuable, when a workflow should continue
-without a configured UCI engine, or when you want to benchmark engine tasks such
-as puzzle solve speed.
+The engine is an in-process search and benchmarking tool. It is not intended
+to be a top-tier engine competing with mature UCI engines. Use it when
+an in-process, zero-dependency search is valuable, when a workflow should
+continue without a configured UCI engine, or when you want to benchmark engine
+tasks such as puzzle solve speed.
 
 ## CLI usage
 
@@ -16,6 +16,7 @@ Search one FEN with the default classical evaluator:
 ```bash
 crtk engine builtin --fen "<FEN>" --depth 20
 crtk engine builtin --fen "<FEN>" --depth 4 --format summary
+crtk engine java --fen "<FEN>" --depth 4 --format both
 ```
 
 Cap the search by nodes or time:
@@ -40,11 +41,21 @@ Select an evaluator:
 
 ```bash
 crtk engine builtin --evaluator classical --fen "<FEN>"
+crtk engine builtin --classical --depth 6 --fen "<FEN>"
 crtk engine builtin --evaluator nnue --weights models/crtk-halfkp.nnue --fen "<FEN>"
 crtk engine builtin --evaluator lc0 --weights models/leela_112planes-10blocksx128-policyhead80-valuehead32-policy4672-wdl3.bin --fen "<FEN>"
 ```
 
 Shortcut flags are also available: `--classical`, `--nnue`, and `--lc0`.
+
+Defaults:
+
+- If `--depth` is omitted, the command searches to depth `3` with a `250000`
+  node budget and a `5s` wall-clock budget.
+- If `--depth` is provided and no budget is provided, the command attempts to
+  complete that depth without the default node/time caps.
+- `--nodes` and `--max-nodes` are aliases. A value of `0` means unlimited.
+- `--max-duration 0` means unlimited time.
 
 ## Evaluators
 
@@ -70,11 +81,17 @@ The search is deterministic and supports:
 - iterative deepening
 - negamax alpha-beta search
 - quiescence search for noisy leaf positions
-- transposition and static-evaluation caches
+- internal transposition and static-evaluation caches
 - principal variation output
 - move ordering with principal variation, transposition-table, capture,
   promotion, killer-move, and history signals
 - `--depth`, `--nodes`, and `--max-duration` limits
+
+The transposition table is built into the searcher and is not currently exposed
+as a user-tunable `--hash` option. External UCI commands still support
+`--threads` and `--hash` because those options are sent to the configured UCI
+engine; the in-house engine is single-threaded search with deterministic
+in-process state.
 
 Output formats:
 
@@ -97,8 +114,10 @@ Use the built-in engine for:
 - small smoke tests in CI
 - bounded puzzle-solve timing
 - evaluator experiments with the same search shell
-- fallback analysis when no UCI engine is configured
+- local analysis when no UCI engine is configured
 - quick comparisons between classical, NNUE, and LC0 value evaluators
+- local workflows where process startup and protocol parsing would dominate the
+  work
 
 Use a mature UCI engine for:
 
@@ -125,9 +144,16 @@ Compare move-generation correctness separately from search quality:
 
 ```bash
 crtk engine perft --fen "<FEN>" --depth 5
-crtk engine perft --fen "<FEN>" --depth 5 --divide
+crtk engine perft --fen "<FEN>" --depth 5 --divide --threads 4
+crtk engine perft --fen "<FEN>" --depth 5 --format stockfish --threads 4
 crtk engine perft-suite --depth 6 --threads 4
 ```
+
+`engine perft` and `engine perft-suite` use `chess.core` directly. The suite
+checks stored truth values for critical standard positions, Chess960 castling,
+en-passant, promotions, open castling lanes, and a knight-heavy stress position.
+It prints a progress bar first, then a table with `Truth`, `Calculated`,
+`Speed`, and `Match`.
 
 Use external engine commands when you want a reference move or PV:
 

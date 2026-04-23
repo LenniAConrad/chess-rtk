@@ -9,6 +9,11 @@ All commands are subcommands of `application.Main`.
 Use grouped commands for scripts and automation: `record`, `fen`, `move`,
 `engine`, `book`, and `puzzle`.
 
+The Java-native commands (`fen`, `move`, `engine perft`, `engine perft-suite`,
+`engine builtin --classical`, and `engine static`) do not require an external
+engine. External UCI configuration is only needed for UCI-backed analysis,
+best-move, threat, smoke-test, and mining workflows.
+
 ## Capability Overview
 
 | Area | Commands |
@@ -18,7 +23,7 @@ Use grouped commands for scripts and automation: `record`, `fen`, `move`,
 | Move primitives | `move list`, `move uci`, `move san`, `move both`, `move to-san`, `move to-uci`, `move after`, `move play` |
 | Move-generation validation | `engine perft`, `engine perft-suite` |
 | External UCI engines | `engine analyze`, `engine bestmove`, `engine threats`, `engine uci-smoke` |
-| Built-in search and evaluation | `engine builtin`, `engine java`, `engine eval`, `engine static` |
+| In-process search and evaluation | `engine builtin`, `engine java`, `engine eval`, `engine static` |
 | Puzzle mining and conversion | `puzzle mine`, `puzzle pgn` |
 | Tagging and text generation | `fen tags`, `puzzle tags`, `fen text`, `puzzle text` |
 | Record processing | `record files`, `record stats`, `record tag-stats`, `record analysis-delta` |
@@ -89,7 +94,7 @@ Usage:
 - `crtk engine bestmove-uci ...`: print the best move in UCI
 - `crtk engine bestmove-san ...`: print the best move in SAN
 - `crtk engine bestmove-both ...`: print the best move in UCI and SAN
-- `crtk engine builtin ...`: search with the in-house Java fallback engine
+- `crtk engine builtin ...`: search with the in-house Java engine
 - `crtk engine java ...`: run the same built-in Java engine
 - `crtk engine threats ...`: analyze opponent threats
 - `crtk engine eval ...`: evaluate a FEN with LC0 or classical heuristics
@@ -104,10 +109,10 @@ Usage:
 Search a position with ChessRTK's in-house Java engine. `engine java` runs the
 same implementation.
 
-The built-in engine is mainly a fallback and benchmarking engine. It is useful
-for deterministic in-process search, smoke tests, puzzle-solve timing, and
+The built-in engine is an in-process search and benchmarking engine. It is
+useful for deterministic local search, smoke tests, puzzle-solve timing, and
 automation that should not depend on spawning a UCI engine. It is not intended
-to be a top-tier engine competing with Stockfish or LC0.
+to be a top-tier engine competing with mature UCI engines.
 
 Examples:
 
@@ -149,6 +154,9 @@ Evaluator notes:
 
 Search notes:
 - The engine uses alpha-beta search, not LC0-style MCTS.
+- The search is single-threaded and owns an internal transposition table plus a
+  static-evaluation cache. The table size is fixed in code; `--threads` and
+  `--hash` are UCI-engine options, not built-in-engine options.
 - The default `uci-info` format prints one UCI-style `info depth ... pv ...`
   line for each completed depth, then a final `bestmove ...` line.
 - If a slow evaluator exhausts the budget before depth 1 completes, `uci-info`
@@ -875,24 +883,27 @@ castles, promotions, checks, checkmates, elapsed time, and nodes per second.
 Options:
 - `--fen "<FEN...>"`: FEN string (or pass it positionally; defaults to start position)
 - `--depth|-d <n>`: perft depth (required)
-- `--divide|--per-move`: print per-root-move detailed counters
+- `--divide|--per-move`: print per-root-move detailed counters as a table
+- `--format <detail|table|stockfish>`: output format. `table` and `stockfish`
+  imply divide; `detail` preserves the key-value divide rows.
+- `--threads <n>`: worker threads for legal root moves (default: 1)
 - `--verbose|-v`: print stack traces on failure
 
 ## `engine perft-suite`
 
 Compare each critical standard and Chess960 perft position at one requested
-depth against Stockfish as the independent truth source. The command shows a
-progress bar while the rows run, then prints an aligned table with `Truth`,
-`Calculated`, `Speed`, and `Match` columns.
+depth against stored in-repo truth values. The command shows a progress bar
+while the rows run, then prints an aligned table with `Truth`, `Calculated`,
+`Speed`, and `Match` columns. It never starts Stockfish or any other external
+engine process.
 
 The suite covers the standard start, Kiwipete, promotion, en-passant, open
 castling lanes, Chess960 starts/midgames, and a knight-heavy stress position.
 `Calculated` is always produced by the in-process Java core move generator.
 
 Options:
-- `--depth|-d <n>`: depth to compare (default: 6)
+- `--depth|-d <n>`: depth to validate, 1 through 6 (default: 6)
 - `--threads <n>`: worker threads for independent positions (default: 1)
-- `--stockfish <path>`: Stockfish executable (default: `stockfish`)
 
 ## `doctor`
 
@@ -917,14 +928,15 @@ Options:
 
 ## `engine eval`
 
-Evaluate a position using LC0 or the classical evaluator.
+Evaluate a position using the Java LC0 evaluator with classical fallback, or
+force one backend explicitly. This command does not use a UCI engine.
 
 Options:
 - `--input|-i <path>`: FEN list file (optional)
 - `--fen "<FEN...>"`: FEN string (or pass it positionally)
-- `--lc0`: force LC0 evaluation
+- `--lc0`: force LC0 evaluation and fail if LC0 cannot run
 - `--classical`: force classical evaluation
-- `--weights <path>`: LC0 weights path (optional)
+- `--weights <path>`: LC0J `.bin` weights path (optional)
 - `--terminal-aware`: use terminal-aware classical evaluation
 - `--verbose|-v`: print stack traces on failure
 

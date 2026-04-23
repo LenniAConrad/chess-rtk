@@ -5,6 +5,7 @@ import static testing.TestSupport.*;
 import java.awt.Point;
 import java.awt.Rectangle;
 import java.awt.image.BufferedImage;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -37,9 +38,9 @@ public final class StudioGuiRegressionTest {
 	 * Runs all Studio checks.
 	 *
 	 * @param args ignored
-	 * @throws Exception on unexpected failure
+	 * @throws IOException on filesystem failures
 	 */
-	public static void main(String[] args) throws Exception {
+	public static void main(String[] args) throws IOException {
 		testBoardMapping();
 		testGameTreeVariationsAndPgn();
 		testProjectSave();
@@ -75,7 +76,7 @@ public final class StudioGuiRegressionTest {
 		assertTrue(parsed.nodes().size() >= 2, "PGN roundtrip nodes");
 	}
 
-	private static void testProjectSave() throws Exception {
+	private static void testProjectSave() throws IOException {
 		Path dir = Files.createTempDirectory("crtk-studio-test");
 		StudioProject project = StudioProject.open(dir);
 		StudioGameTree tree = StudioGameTree.fromPosition(new Position(Game.STANDARD_START_FEN));
@@ -112,11 +113,14 @@ public final class StudioGuiRegressionTest {
 		assertTrue(nonTransparent > 200, "nonblank board render");
 	}
 
-	private static void testStudioFileGuardrail() throws Exception {
+	private static void testStudioFileGuardrail() throws IOException {
 		Path root = Path.of("src", "application", "gui", "studio");
 		try (var stream = Files.walk(root)) {
 			for (Path path : stream.filter(p -> p.toString().endsWith(".java")).toList()) {
-				long lines = Files.lines(path).count();
+				long lines;
+				try (var fileLines = Files.lines(path)) {
+					lines = fileLines.count();
+				}
 				if (lines > 800) {
 					throw new AssertionError(path + " exceeds 800 lines: " + lines);
 				}

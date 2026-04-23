@@ -40,9 +40,9 @@ public final class ThemedSliderUI extends BasicSliderUI {
 	 */
 	private Timer timer;
 	/**
-	 * changeListener field.
+	 * Listener that tracks slider value changes.
 	 */
-	private ChangeListener changeListener;
+	private ChangeListener sliderValueListener;
 
 	/**
 	 * @param slider slider to decorate.
@@ -69,8 +69,8 @@ public final class ThemedSliderUI extends BasicSliderUI {
 		super.installUI(c);
 		animatedValue = slider.getValue();
 		targetValue = slider.getValue();
-		changeListener = e -> onSliderChanged();
-		slider.addChangeListener(changeListener);
+		sliderValueListener = e -> onSliderChanged();
+		slider.addChangeListener(sliderValueListener);
 	}
 
 		/**
@@ -88,9 +88,9 @@ public final class ThemedSliderUI extends BasicSliderUI {
 			timer.stop();
 			timer = null;
 		}
-		if (changeListener != null) {
-			slider.removeChangeListener(changeListener);
-			changeListener = null;
+		if (sliderValueListener != null) {
+			slider.removeChangeListener(sliderValueListener);
+			sliderValueListener = null;
 		}
 		super.uninstallUI(c);
 	}

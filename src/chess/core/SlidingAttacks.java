@@ -315,11 +315,6 @@ public final class SlidingAttacks {
         private final long mask;
 
         /**
-         * Relevant blocker square indexes in table-bit order.
-         */
-        private final int[] bits;
-
-        /**
          * Single-square masks for every relevant blocker square.
          */
         private final long[] bitMasks;
@@ -338,22 +333,11 @@ public final class SlidingAttacks {
          */
         private Table(long mask, int[] bits, long[] attacks) {
             this.mask = mask;
-            this.bits = bits;
             this.bitMasks = new long[bits.length];
             for (int i = 0; i < bits.length; i++) {
                 this.bitMasks[i] = 1L << bits[i];
             }
             this.attacks = attacks;
-        }
-
-        /**
-         * Looks up attacks for an occupancy using the relevant blocker subset.
-         *
-         * @param occupancy occupied squares
-         * @return attack mask
-         */
-        private long attacks(long occupancy) {
-            return attacks[index(occupancy & mask)];
         }
 
         /**

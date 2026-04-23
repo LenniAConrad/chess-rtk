@@ -530,7 +530,7 @@ class GuiWindowLayout extends GuiWindowEngine {
 			this.theme = this.lightMode ? GuiTheme.light() : GuiTheme.dark();
 			updateHistoryStart(position);
 			this.frame = new JFrame("ChessRTK GUI");
-			this.frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+			this.frame.setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
 			this.baseFrameMin = new Dimension(1040, 760);
 			this.frame.setMinimumSize(scaleDimension(baseFrameMin));
 			this.frame.setLocationByPlatform(true);

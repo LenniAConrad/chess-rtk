@@ -114,7 +114,7 @@ public final class Network implements AutoCloseable {
      *
      * @return backend name
      */
-    public String backend() {
+    public String backendName() {
         return BACKEND;
     }
 

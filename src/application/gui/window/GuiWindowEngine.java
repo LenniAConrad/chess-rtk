@@ -113,11 +113,6 @@ class GuiWindowEngine extends GuiWindowHistory {
 		 */
 		private boolean pvPreviewCachedWhiteDown = true;
 		/**
-		 * pvPreviewCachedHistoryFen field.
-		 */
-		private String pvPreviewCachedHistoryFen;
-
-		/**
 		 * resetPvPreviewCache method.
 		 */
 		private void resetPvPreviewCache() {
@@ -128,7 +123,6 @@ class GuiWindowEngine extends GuiWindowHistory {
 		pvPreviewCachedBrightness = Integer.MIN_VALUE;
 		pvPreviewCachedSaturation = Integer.MIN_VALUE;
 		pvPreviewCachedWhiteDown = true;
-		pvPreviewCachedHistoryFen = null;
 		if (pvPreviewBoardLabel != null) {
 			pvPreviewBoardLabel.setIcon(null);
 		}
@@ -309,6 +303,7 @@ protected java.util.Map<String, CommandSpec> buildCommandSpecs() {
 					specs.put("moves-both", new CommandSpec("moves-both", true, List.of()));
 					specs.put("perft", new CommandSpec("perft", true, List.of(
 							field("--depth", "Depth", CommandFieldType.NUMBER, "e.g. 4"),
+							field("--threads", "Threads", CommandFieldType.NUMBER, "e.g. 4"),
 							field("--divide", "Divide", CommandFieldType.FLAG, "")
 					)));
 					specs.put("threats", new CommandSpec("threats", true, List.of(
@@ -1366,7 +1361,6 @@ private String failureMessage;
 						pvPreviewCachedBrightness = boardBrightness;
 						pvPreviewCachedSaturation = boardSaturation;
 						pvPreviewCachedWhiteDown = whiteDown;
-						pvPreviewCachedHistoryFen = null;
 						pvPreviewWindow.pack();
 					}
 					positionPvPreviewWindow(screenPoint);
@@ -1406,7 +1400,6 @@ private String failureMessage;
 					pvPreviewCachedBrightness = boardBrightness;
 					pvPreviewCachedSaturation = boardSaturation;
 					pvPreviewCachedWhiteDown = whiteDown;
-					pvPreviewCachedHistoryFen = historyFen;
 					pvPreviewWindow.pack();
 					positionPvPreviewWindow(screenPoint);
 					if (!pvPreviewWindow.isVisible()) {

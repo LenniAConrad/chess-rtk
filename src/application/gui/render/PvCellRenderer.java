@@ -30,6 +30,11 @@ import application.gui.model.PvEntry;
  */
 public final class PvCellRenderer extends JPanel implements javax.swing.ListCellRenderer<PvEntry> {
 
+	/**
+	 * Shared empty token range used when no token is available.
+	 */
+	private static final int[] NO_TOKEN_RANGE = new int[0];
+
 		/**
 	 * Serialization version identifier.
 	 */
@@ -228,7 +233,7 @@ public final class PvCellRenderer extends JPanel implements javax.swing.ListCell
 			return;
 		}
 		int[] range = tokenRange(text, hoverPly);
-		if (range == null) {
+		if (range.length == 0) {
 			return;
 		}
 		float amount = owner.getPvHoverHighlightAmount();
@@ -249,7 +254,7 @@ public final class PvCellRenderer extends JPanel implements javax.swing.ListCell
 	 */
 	private int[] tokenRange(String text, int tokenIndex1Based) {
 		if (tokenIndex1Based <= 0 || text == null || text.isBlank()) {
-			return null;
+			return NO_TOKEN_RANGE;
 		}
 		int token = 0;
 		int i = 0;
@@ -271,6 +276,6 @@ public final class PvCellRenderer extends JPanel implements javax.swing.ListCell
 				return new int[] { start, end };
 			}
 		}
-		return null;
+		return NO_TOKEN_RANGE;
 	}
 }

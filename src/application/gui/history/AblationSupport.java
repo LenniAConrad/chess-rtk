@@ -14,6 +14,11 @@ import chess.core.Position;
 public final class AblationSupport {
 
 	/**
+	 * Shared empty label array for invalid ablation inputs.
+	 */
+	private static final String[] NO_LABELS = new String[0];
+
+	/**
 	 * AblationSupport method.
 	 */
 	private AblationSupport() {
@@ -86,7 +91,7 @@ public final class AblationSupport {
 	 */
 	public static String[] buildLabels(int[][] matrix, byte[] board) {
 		if (matrix == null || board == null) {
-			return null;
+			return NO_LABELS;
 		}
 		double[] scales = materialScales(matrix, board);
 		String[] labels = new String[64];

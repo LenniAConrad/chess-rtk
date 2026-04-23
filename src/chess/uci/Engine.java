@@ -46,11 +46,20 @@ import chess.tag.Tagging;
 public class Engine implements AutoCloseable {
 
 	/**
-	 * Used for destroying the {@code Engine} process, if {@code stop()} does not
-	 * exit the search or does not finish resting. The value represents 600000
-	 * milliseconds or 10 minutes.
+	 * Used for limiting how long startup protocol handshakes may wait.
 	 */
-	private static final long STOP_TIMEOUT = 600_000;
+	private static final long STARTUP_TIMEOUT_MS = 30_000;
+
+	/**
+	 * Used for limiting how long readiness checks may wait.
+	 */
+	private static final long READY_TIMEOUT_MS = 30_000;
+
+	/**
+	 * Used for limiting how long a stopped search may remain unresponsive before
+	 * the process is killed.
+	 */
+	private static final long STOP_GRACE_TIMEOUT_MS = 5_000;
 
 	/**
 	 * Used for throttling the busy wait loop when polling the engine output. Tuned
@@ -58,6 +67,11 @@ public class Engine implements AutoCloseable {
 	 * latency.
 	 */
 	private static final long OUTPUT_POLL_SLEEP_MS = 5;
+
+	/**
+	 * Sentinel used before any position has been sent to the engine.
+	 */
+	private static final String NO_POSITION_SET = "no position set";
 
 	/**
 	 * Logs the last output of the chess {@code Engine}.
@@ -73,7 +87,7 @@ public class Engine implements AutoCloseable {
 	 * Logs the last position that the chess {@code Engine} has been fed into as a
 	 * FEN.
 	 */
-	private String setPosition = "no position set";
+	private String setPosition = NO_POSITION_SET;
 
 	/**
 	 * Logs the number of threads that the chess {@code Engine} should use.
@@ -115,6 +129,11 @@ public class Engine implements AutoCloseable {
 	 * Used for tracking if the engine is set to Chess960 variant.
 	 */
 	private boolean setChess960;
+
+	/**
+	 * Tracks whether the last position supplied to the engine was Chess960.
+	 */
+	private boolean positionChess960;
 
 	/**
 	 * The ID of the chess {@code Engine} used for logging and debugging.
@@ -164,13 +183,8 @@ public class Engine implements AutoCloseable {
 		engineId = String.format("Engine '%s' (%s)", this.protocol.getName(), this.protocol.getPath());
 
 		try {
-			process = new ProcessBuilder(this.protocol.getPath()).redirectErrorStream(true).start();
-			output = new PrintStream(process.getOutputStream());
-			input = new BufferedReader(new InputStreamReader(process.getInputStream()));
-
-			processId = process.pid();
-			engineId = getEngineId();
-
+			startProcess();
+			initializeUci();
 			rest();
 			setup();
 			rest();
@@ -195,6 +209,32 @@ public class Engine implements AutoCloseable {
 	}
 
 	/**
+	 * Starts the engine process and wires up its streams.
+	 *
+	 * @throws IOException when the process cannot be started
+	 */
+	private void startProcess() throws IOException {
+		process = new ProcessBuilder(this.protocol.getPath()).redirectErrorStream(true).start();
+		output = new PrintStream(process.getOutputStream());
+		input = new BufferedReader(new InputStreamReader(process.getInputStream()));
+		processId = process.pid();
+		engineId = getEngineId();
+	}
+
+	/**
+	 * Sends the initial UCI command and waits for the engine's {@code uciok}
+	 * response.
+	 *
+	 * @return itself
+	 * @throws IOException if the engine does not complete UCI initialization
+	 */
+	private synchronized Engine initializeUci() throws IOException {
+		print(protocol.showUci);
+		waitForLine(protocol.uciok, STARTUP_TIMEOUT_MS, "initialize UCI");
+		return this;
+	}
+
+	/**
 	 * Used for waiting until the engine is ready by sending “isready” and blocking
 	 * until
 	 * “readyok” is received or the timeout elapses.
@@ -206,30 +246,45 @@ public class Engine implements AutoCloseable {
 	 */
 	private synchronized Engine rest() throws IOException {
 		print(protocol.isready);
-		long deadline = System.currentTimeMillis() + STOP_TIMEOUT;
+		waitForLine(protocol.readyok, READY_TIMEOUT_MS, "get ready");
+		return this;
+	}
+
+	/**
+	 * Waits until a specific output line is received from the engine.
+	 *
+	 * @param expected  exact line to wait for
+	 * @param timeoutMs timeout in milliseconds
+	 * @param action    action label used in diagnostics
+	 * @throws IOException when the stream closes, process exits, or timeout expires
+	 */
+	private void waitForLine(String expected, long timeoutMs, String action) throws IOException {
+		long deadline = System.currentTimeMillis() + timeoutMs;
 		while (System.currentTimeMillis() < deadline) {
 			if (input.ready()) {
 				String line = input.readLine();
 				if (line == null) {
-					String message = String.format("%s process died or stream closed while getting ready! (%dms timeout)",
-							engineId, STOP_TIMEOUT);
+					String message = String.format("%s process died or stream closed while trying to %s (%dms timeout)",
+							engineId, action, timeoutMs);
 					LogService.error(null, message);
 					throw new IOException(message);
 				}
-				if (line.equals(protocol.readyok)) {
-					return this;
+				engineOutput = line;
+				if (line.equals(expected)) {
+					return;
 				}
 			} else {
 				if (!process.isAlive()) {
-					String message = String.format("%s process died while getting ready! (%dms timeout)",
-							engineId, STOP_TIMEOUT);
+					String message = String.format("%s process died while trying to %s (%dms timeout)",
+							engineId, action, timeoutMs);
 					LogService.error(null, message);
 					throw new IOException(message);
 				}
 				yieldForEngineOutput();
 			}
 		}
-		String message = String.format("%s did not get ready! (%dms timeout)", engineId, STOP_TIMEOUT);
+		String message = String.format("%s failed to %s (%dms timeout; expected '%s', last output '%s')",
+				engineId, action, timeoutMs, expected, engineOutput);
 		LogService.error(null, message);
 		throw new IOException(message);
 	}
@@ -270,18 +325,20 @@ public class Engine implements AutoCloseable {
 		}
 
 		try {
-			process = new ProcessBuilder(protocol.getPath())
-					.redirectErrorStream(true)
-					.start();
-			output = new PrintStream(process.getOutputStream());
-			input = new BufferedReader(new InputStreamReader(process.getInputStream()));
-
 			long oldProcessId = processId;
-			processId = process.pid();
-			engineId = getEngineId();
+			String previousPosition = setPosition;
+			boolean previousPositionChess960 = positionChess960;
 
+			startProcess();
+			setChess960 = !previousPositionChess960;
+			initializeUci();
 			rest();
 			setup();
+			setChess960(previousPositionChess960);
+
+			if (!NO_POSITION_SET.equals(previousPosition)) {
+				print(String.format(protocol.setPosition, previousPosition));
+			}
 
 			if (setMultipv > 0) {
 				setMultiPivot(setMultipv);
@@ -525,8 +582,9 @@ public class Engine implements AutoCloseable {
 	private void processEngineOutput(Analysis analysis, Filter arguments) throws IOException {
 		engineOutput = input.readLine();
 		if (engineOutput == null) {
-			LogService.error(null, String.format("%s output stream closed during analysis", engineId));
-			return;
+			String message = String.format("%s output stream closed during analysis", engineId);
+			LogService.error(null, message);
+			throw new IOException(message);
 		}
 		analysis.add(new Output(engineOutput));
 		if (arguments != null && arguments.apply(analysis)) {
@@ -581,10 +639,10 @@ public class Engine implements AutoCloseable {
 	 * @return the new timestamp if terminated, otherwise the previous value
 	 */
 	private long terminateIfStalled(long stopTimestamp) {
-		if (System.currentTimeMillis() - stopTimestamp >= STOP_TIMEOUT) {
+		if (System.currentTimeMillis() - stopTimestamp >= STOP_GRACE_TIMEOUT_MS) {
 			LogService.error(null, String.format(
 					"%s failed to respond after %dms and will be terminated",
-					engineId, STOP_TIMEOUT));
+					engineId, STOP_GRACE_TIMEOUT_MS));
 			process.destroyForcibly();
 			return System.currentTimeMillis();
 		}
@@ -597,12 +655,14 @@ public class Engine implements AutoCloseable {
 	 *
 	 * @param position the chess position being analysed
 	 */
-	private void checkProcessAlive(Position position) {
+	private void checkProcessAlive(Position position) throws IOException {
 		if (!process.isAlive()) {
-			LogService.error(null, String.format(
+			String message = String.format(
 					"%s died whilst analysing position '%s', multipivot '%d', hashsize '%d' "
 							+ "and last input '%s'",
-					engineId, position, setMultipv, setHashSize, engineInput));
+					engineId, position, setMultipv, setHashSize, engineInput);
+			LogService.error(null, message);
+			throw new IOException(message);
 		}
 	}
 
@@ -618,8 +678,7 @@ public class Engine implements AutoCloseable {
 		if (string == null) {
 			return false;
 		}
-		return !string.startsWith("bestmove ") && !string.equals("info depth 0 score mate 0")
-				&& !string.equals("info depth 0 score cp 0");
+		return !string.startsWith("bestmove ");
 	}
 
 	/**
@@ -632,7 +691,8 @@ public class Engine implements AutoCloseable {
 	 */
 	public Engine setPosition(Position position) {
 		setPosition = position.toString();
-		setChess960(position.isChess960());
+		positionChess960 = position.isChess960();
+		setChess960(positionChess960);
 		print(String.format(protocol.setPosition, setPosition));
 		return this;
 	}
@@ -690,6 +750,11 @@ public class Engine implements AutoCloseable {
 	private Engine setChess960(boolean value) {
 		if (value != setChess960) {
 			setChess960 = value;
+			if (protocol.setChess960 == null) {
+				LogService.warn(String.format("%s cannot set Chess960=%s because the protocol command is missing",
+						engineId, value));
+				return this;
+			}
 			print(String.format(protocol.setChess960, value));
 		}
 		return this;

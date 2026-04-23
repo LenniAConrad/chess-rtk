@@ -10,11 +10,11 @@ import java.nio.file.Path;
 
 import chess.core.Move;
 import chess.core.Position;
-import chess.engine.ClassicalEvaluator;
-import chess.engine.EvaluatorKind;
-import chess.engine.Searcher;
-import chess.engine.SearchLimits;
-import chess.engine.SearchResult;
+import chess.engine.search.AlphaBeta;
+import chess.engine.search.Limits;
+import chess.engine.search.Result;
+import chess.eval.Classical;
+import chess.eval.Kind;
 import chess.nn.nnue.FeatureEncoder;
 
 /**
@@ -78,7 +78,7 @@ public final class BuiltInEngineRegressionTest {
 	 */
 	private static void testStartPositionSearch() {
 		Position position = new Position(START_FEN);
-		SearchResult result = new Searcher().search(position, new SearchLimits(2, 0L, 0L));
+		Result result = new AlphaBeta().search(position, new Limits(2, 0L, 0L));
 		assertTrue(result.hasBestMove(), "start position has a best move");
 		assertTrue(position.isLegalMove(result.bestMove()), "start position best move is legal");
 		assertEquals(2, result.depth(), "start position search depth");
@@ -89,9 +89,9 @@ public final class BuiltInEngineRegressionTest {
 	 * Verifies mate scores and best-move output on a forced mate in one.
 	 */
 	private static void testMateInOne() {
-		SearchResult result = new Searcher().search(
+		Result result = new AlphaBeta().search(
 				new Position(MATE_IN_ONE_FEN),
-				new SearchLimits(1, 0L, 0L));
+				new Limits(1, 0L, 0L));
 		assertEquals("g6g7", Move.toString(result.bestMove()), "mate-in-one best move");
 		assertEquals(1, result.mateIn(), "mate-in-one score");
 		assertTrue(result.scoreLabel().equals("#1"), "mate-in-one score label");
@@ -108,7 +108,7 @@ public final class BuiltInEngineRegressionTest {
 		assertTrue(after.isCheckmate(), "sparse-material move gives checkmate");
 		assertFalse(after.isInsufficientMaterial(), "opposite-colored bishops are not dead material");
 
-		SearchResult result = new Searcher().search(position, new SearchLimits(1, 0L, 0L));
+		Result result = new AlphaBeta().search(position, new Limits(1, 0L, 0L));
 		assertEquals("d2c3", Move.toString(result.bestMove()), "sparse-material mate best move");
 		assertEquals(1, result.mateIn(), "sparse-material mate score");
 	}
@@ -117,9 +117,9 @@ public final class BuiltInEngineRegressionTest {
 	 * Verifies node budgets stop search while still returning a fallback move.
 	 */
 	private static void testNodeBudgetStop() {
-		SearchResult result = new Searcher().search(
+		Result result = new AlphaBeta().search(
 				new Position(START_FEN),
-				new SearchLimits(5, 1L, 0L));
+				new Limits(5, 1L, 0L));
 		assertTrue(result.stopped(), "node budget stop flag");
 		assertTrue(result.hasBestMove(), "node budget fallback best move");
 	}
@@ -128,15 +128,15 @@ public final class BuiltInEngineRegressionTest {
 	 * Verifies evaluator kind parsing and explicit evaluator injection.
 	 */
 	private static void testEvaluatorSelection() {
-		assertTrue(EvaluatorKind.parse("classical") == EvaluatorKind.CLASSICAL,
+		assertTrue(Kind.parse("classical") == Kind.CLASSICAL,
 				"classical evaluator parse");
-		assertTrue(EvaluatorKind.parse("nnue") == EvaluatorKind.NNUE,
+		assertTrue(Kind.parse("nnue") == Kind.NNUE,
 				"nnue evaluator parse");
-		assertTrue(EvaluatorKind.parse("lc0") == EvaluatorKind.LC0,
+		assertTrue(Kind.parse("lc0") == Kind.LC0,
 				"lc0 evaluator parse");
 
-		try (Searcher searcher = new Searcher(new ClassicalEvaluator())) {
-			SearchResult result = searcher.search(new Position(SIMPLE_FEN), new SearchLimits(1, 0L, 0L));
+		try (AlphaBeta searcher = new AlphaBeta(new Classical())) {
+			Result result = searcher.search(new Position(SIMPLE_FEN), new Limits(1, 0L, 0L));
 			assertTrue(result.hasBestMove(), "explicit classical evaluator best move");
 			assertTrue(searcher.evaluatorName().equals("classical"), "explicit classical evaluator label");
 		}

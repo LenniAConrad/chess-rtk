@@ -11,8 +11,11 @@
   - `chess.debug`: perft runners, perft validation suite, board/move printers, and logging helpers
   - `chess.uci`: engine protocol + analysis parsing + Filter DSL
   - `chess.io`: converters, readers/writers, dataset exporters
-  - `chess.eval`: evaluation backend used by `display` (LC0 when available; fallback to classical)
-  - `chess.nn.lc0`: pure-Java LC0 forward pass (+ optional `native/cuda/` backend)
+  - `chess.engine.search`: in-process alpha-beta search used by `engine builtin`
+  - `chess.eval`: in-process evaluator facade used by `engine eval`,
+    `engine static`, `engine builtin`, display ablation, and tag helpers
+  - `chess.nn.lc0`: pure-Java LC0 forward pass with optional CUDA, ROCm, and
+    oneAPI native backends
 
 ## Core chess implementation
 
@@ -30,9 +33,9 @@ Important classes:
 - `SAN`: SAN formatting, SAN parsing, and move-line application.
 - `Setup`: standard starts, Chess960 starts, and random position helpers.
 
-Detailed perft is intentionally in `chess.debug.Perft`, while the Stockfish
+Detailed perft is intentionally in `chess.debug.Perft`, while the stored-truth
 validation suite is in `chess.debug.PerftSuite`. Both use `chess.core`
-positions and move generation.
+positions and move generation, and neither path depends on an external engine.
 
 ## Shared helpers
 

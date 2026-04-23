@@ -3,7 +3,11 @@
 ## Requirements
 
 - Java 17+ JDK (needs `javac` to build)
-- A UCI chess engine (e.g. Stockfish) either on `PATH` or configured via `config/default.engine.toml`
+- Optional: a UCI chess engine either on `PATH` or configured via
+  `config/default.engine.toml` for `engine analyze`, `engine bestmove`,
+  `engine threats`, `engine uci-smoke`, and puzzle mining
+- Optional: local model weights under `models/` for LC0, NNUE, and T5-backed
+  evaluator/text workflows
 
 ## Debian/Ubuntu packages
 
@@ -12,8 +16,13 @@ Minimal install (build + run):
 ```bash
 sudo apt-get update && sudo apt-get install -y \
   git ca-certificates \
-  openjdk-17-jdk \
-  stockfish
+  openjdk-17-jdk
+```
+
+Install a UCI engine only if you want external-engine analysis or mining:
+
+```bash
+sudo apt-get install -y stockfish
 ```
 
 Optional (recommended if you use `./install.sh` and/or build the CUDA JNI backend):
@@ -57,9 +66,16 @@ Use these local checks before committing Java changes:
 javac -Xlint:all --release 17 -d out $(find src -name "*.java")
 java -cp out testing.CliCommandRegressionTest
 java -cp out testing.PositionRegressionTest
+java -cp out testing.CoreMoveGenerationRegressionTest
+java -cp out testing.BuiltInEngineRegressionTest
 java -cp out application.Main doctor
-java -cp out application.Main engine uci-smoke --nodes 1 --max-duration 5s
 git diff --check
+```
+
+If the workflow depends on a configured external UCI engine, also run:
+
+```bash
+java -cp out application.Main engine uci-smoke --nodes 1 --max-duration 5s
 ```
 
 For rendering and PDF checks on a headless machine, pass the AWT headless flag:
@@ -69,12 +85,16 @@ java -Djava.awt.headless=true -cp out testing.BookRegressionTest
 java -Djava.awt.headless=true -cp out testing.ChessPdfRegressionTest
 ```
 
-Run the full perft validation when changing move generation or Chess960 setup:
+Run the full internal perft validation when changing move generation, FEN
+validation, SAN, make/undo, or Chess960 setup:
 
 ```bash
 java -cp out application.Main engine perft-suite
 java -cp out application.Main engine perft-suite --depth 6 --threads 4
 ```
+
+The perft suite uses stored truth values and the Java core move generator. It
+does not launch Stockfish or any other external process.
 
 ## Run
 

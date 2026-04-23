@@ -33,7 +33,7 @@ public final class StudioBoardPanel extends JPanel {
 
 	private BoardViewModel model = BoardViewModel.of(new Position(Position.fromFen(
 			chess.struct.Game.STANDARD_START_FEN).toString()), true, StudioTheme.light());
-	private BoardListener listener;
+	private transient BoardListener listener;
 	private byte leftPressSquare = Field.NO_SQUARE;
 	private byte rightPressSquare = Field.NO_SQUARE;
 

@@ -1881,7 +1881,7 @@ public final class RecordCommands {
 	 */
 	private static int[] invertPolicyMap(int[] policyMap) {
 		if (policyMap == null || policyMap.length == 0) {
-			return null;
+			return new int[0];
 		}
 		int max = -1;
 		for (int value : policyMap) {
@@ -1890,7 +1890,7 @@ public final class RecordCommands {
 			}
 		}
 		if (max < 0) {
-			return null;
+			return new int[0];
 		}
 		int[] inverse = new int[max + 1];
 		java.util.Arrays.fill(inverse, -1);

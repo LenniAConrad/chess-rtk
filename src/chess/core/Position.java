@@ -727,6 +727,65 @@ public class Position implements Comparable<Position> {
     }
 
     /**
+     * Applies a reversible null move for search pruning.
+     *
+     * <p>
+     * A null move is not a legal chess move; it is a search heuristic that passes
+     * the turn after clearing any en-passant target. Castling rights, piece
+     * placement, and move counters are intentionally left unchanged so the method
+     * can be used only as a temporary make/undo operation inside search.
+     * </p>
+     *
+     * @param state target undo state
+     * @return this position
+     * @throws IllegalStateException if the side to move is currently in check
+     */
+    public Position playNull(State state) {
+        if (inCheck()) {
+            throw new IllegalStateException("Cannot play a null move while in check");
+        }
+        saveNullUndoState(state);
+        enPassantSquare = Field.NO_SQUARE;
+        whiteToMove = !whiteToMove;
+        return this;
+    }
+
+    /**
+     * Stores reversible state for {@link #playNull(State)}.
+     *
+     * @param state target undo state
+     */
+    private void saveNullUndoState(State state) {
+        state.moving = -1;
+        state.captured = -1;
+        state.capturedSquare = Field.NO_SQUARE;
+        state.kingTo = Field.NO_SQUARE;
+        state.castlingRights = castlingRights;
+        state.enPassantSquare = enPassantSquare;
+        state.halfMoveClock = halfMoveClock;
+        state.fullMoveNumber = fullMoveNumber;
+        state.whiteToMove = whiteToMove;
+        state.rook = -1;
+        state.rookFrom = Field.NO_SQUARE;
+        state.rookTo = Field.NO_SQUARE;
+        state.enPassantCapture = false;
+        state.castle = false;
+    }
+
+    /**
+     * Undoes a null move previously made with {@link #playNull(State)}.
+     *
+     * @param state undo state filled by the matching null move
+     */
+    public void undoNull(State state) {
+        castlingRights = state.castlingRights;
+        enPassantSquare = state.enPassantSquare;
+        halfMoveClock = state.halfMoveClock;
+        fullMoveNumber = state.fullMoveNumber;
+        whiteToMove = state.whiteToMove;
+    }
+
+    /**
      * Generates all legal moves for the side to move.
      *
      * @return legal move list for the current side
@@ -2379,7 +2438,7 @@ public class Position implements Comparable<Position> {
      * <p>
      * Instances are owned by callers and reused per search ply. The fields mirror
      * every reversible part of {@link Position} that can change during
-     * {@link #play(short, State)}.
+     * {@link #play(short, State)} or {@link #playNull(State)}.
      * </p>
      */
     public static final class State {

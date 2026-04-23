@@ -176,17 +176,11 @@ import chess.core.Piece;
 @java.io.Serial
 		private static final long serialVersionUID = 1L;
 		/**
-		 * Promotion code represented by this button.
-		 */
-		private final byte promo;
-
-		/**
 		 * @param image piece icon image.
 		 * @param promo promotion code.
 		 * @param size size of the button.
 		 */
 		PromotionButton(BufferedImage image, byte promo, int size) {
-			this.promo = promo;
 			setPreferredSize(new Dimension(size, size));
 			setMinimumSize(new Dimension(size, size));
 			setMaximumSize(new Dimension(size, size));

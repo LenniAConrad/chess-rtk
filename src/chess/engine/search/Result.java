@@ -1,6 +1,7 @@
-package chess.engine;
+package chess.engine.search;
 
 import java.util.Arrays;
+import java.util.Locale;
 
 import chess.core.Move;
 
@@ -24,41 +25,56 @@ import chess.core.Move;
  * @since 2026
  * @author Lennart A. Conrad
  */
-public record SearchResult(
+public record Result(
     /**
-     * Stores the best move.
+     * Best root move selected by the search. The value is {@link Move#NO_MOVE}
+     * when the root position is terminal or no move completed before a stop.
      */
     short bestMove,
     /**
-     * Stores the score centipawns.
+     * Root-perspective evaluation in centipawns, or a mate sentinel score when
+     * the search found a forced mate line.
      */
     int scoreCentipawns,
     /**
-     * Stores the depth.
+     * Last fully completed iterative-deepening depth. A value of zero means only
+     * the deterministic static fallback was available.
      */
     int depth,
     /**
-     * Stores the nodes.
+     * Number of visited search nodes accumulated across completed and partial
+     * iterations.
      */
     long nodes,
     /**
-     * Stores the elapsed millis.
+     * Wall-clock runtime in milliseconds measured from the beginning of the root
+     * search.
      */
     long elapsedMillis,
     /**
-     * Stores the stopped.
+     * Whether the final iteration ended because a time or node budget was
+     * exhausted.
      */
     boolean stopped,
     /**
-     * Stores the principal variation.
+     * Principal variation from the root in internal move encoding. The compact
+     * constructor defensively copies this mutable array.
      */
     short[] principalVariation
 ) {
 
     /**
      * Normalizes mutable array input.
+     *
+     * @param bestMove best root move, or {@link Move#NO_MOVE}
+     * @param scoreCentipawns root-perspective centipawn or mate score
+     * @param depth last fully completed search depth
+     * @param nodes visited search nodes
+     * @param elapsedMillis elapsed wall-clock time in milliseconds
+     * @param stopped true when a budget stopped the final iteration
+     * @param principalVariation principal variation moves from the root
      */
-    public SearchResult {
+    public Result {
         principalVariation = principalVariation == null
                 ? new short[0]
                 : Arrays.copyOf(principalVariation, principalVariation.length);
@@ -89,7 +105,7 @@ public record SearchResult(
      * @return true for mate scores
      */
     public boolean isMateScore() {
-        return Math.abs(scoreCentipawns) >= Searcher.MATE_THRESHOLD;
+        return Math.abs(scoreCentipawns) >= AlphaBeta.MATE_THRESHOLD;
     }
 
     /**
@@ -107,7 +123,7 @@ public record SearchResult(
         if (!isMateScore()) {
             return 0;
         }
-        int plies = Math.max(0, Searcher.MATE_SCORE - Math.abs(scoreCentipawns));
+        int plies = Math.max(0, AlphaBeta.MATE_SCORE - Math.abs(scoreCentipawns));
         int moves = (plies + 1) / 2;
         return scoreCentipawns > 0 ? moves : -moves;
     }
@@ -119,7 +135,7 @@ public record SearchResult(
      */
     public String scoreLabel() {
         if (!isMateScore()) {
-            return String.format("%+d", scoreCentipawns);
+            return String.format(Locale.ROOT, "%+d", scoreCentipawns);
         }
         int mate = mateIn();
         if (mate == 0 && scoreCentipawns < 0) {
@@ -136,8 +152,8 @@ public record SearchResult(
      * @param updatedStopped updated stopped flag
      * @return adjusted result
      */
-    SearchResult withRuntime(long updatedNodes, long updatedElapsedMillis, boolean updatedStopped) {
-        return new SearchResult(
+    Result withRuntime(long updatedNodes, long updatedElapsedMillis, boolean updatedStopped) {
+        return new Result(
                 bestMove,
                 scoreCentipawns,
                 depth,

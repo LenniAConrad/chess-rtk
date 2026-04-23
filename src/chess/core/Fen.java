@@ -549,7 +549,39 @@ public final class Fen {
             return false;
         }
         byte king = rook < BLACK_PAWN ? position.whiteKingSquare : position.blackKingSquare;
-        return position.chess960Castling || king == standardKingSquare;
+        if (king == Field.NO_SQUARE) {
+            return false;
+        }
+        if (!position.chess960Castling) {
+            return king == standardKingSquare;
+        }
+        return validChess960CastlingGeometry(right, king, rookSquare, standardKingSquare);
+    }
+
+    /**
+     * Validates the king and rook geometry for one Chess960 castling right.
+     *
+     * @param right castling-right bit
+     * @param king king source square
+     * @param rook rook source square
+     * @param standardKingSquare standard home square for the moving king
+     * @return true when king and rook are on the correct home rank and side
+     */
+    private static boolean validChess960CastlingGeometry(
+            int right,
+            int king,
+            int rook,
+            byte standardKingSquare) {
+        if (Bits.rank(king) != Bits.rank(standardKingSquare) || Bits.rank(rook) != Bits.rank(standardKingSquare)) {
+            return false;
+        }
+        int kingFile = Bits.file(king);
+        int rookFile = Bits.file(rook);
+        if (rookFile == kingFile) {
+            return false;
+        }
+        boolean kingside = right == WHITE_KINGSIDE || right == BLACK_KINGSIDE;
+        return kingside ? rookFile > kingFile : rookFile < kingFile;
     }
 
     /**
@@ -562,6 +594,9 @@ public final class Fen {
         int target = position.enPassantSquare;
         if (target == Field.NO_SQUARE) {
             return true;
+        }
+        if (position.pieceIndexAt(target) >= 0) {
+            return false;
         }
         if (position.whiteToMove) {
             return Field.isOn6thRank((byte) target)

@@ -1,15 +1,21 @@
-package chess.engine;
+package chess.eval;
 
 import chess.classical.Wdl;
 import chess.core.Position;
 
 /**
- * Classical handcrafted evaluator backed by {@link Wdl}.
+ * Classical handcrafted centipawn evaluator backed by {@link Wdl}.
+ *
+ * <p>
+ * This evaluator has no external model dependency and is the default fallback
+ * for the built-in searcher. It exposes the existing CRTK WDL heuristic as a
+ * side-to-move centipawn score suitable for alpha-beta leaf evaluation.
+ * </p>
  *
  * @since 2026
  * @author Lennart A. Conrad
  */
-public final class ClassicalEvaluator implements PositionEvaluator {
+public final class Classical implements CentipawnEvaluator {
 
     /**
      * Evaluates one position.
@@ -25,10 +31,10 @@ public final class ClassicalEvaluator implements PositionEvaluator {
     /**
      * Returns the evaluator label.
      *
-     * @return label
+     * @return stable label used in engine output
      */
     @Override
     public String name() {
-        return EvaluatorKind.CLASSICAL.label();
+        return Kind.CLASSICAL.label();
     }
 }

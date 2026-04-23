@@ -292,6 +292,15 @@ public class Chances implements Comparable<Chances> {
 	}
 
 	/**
+	 * Formats this WDL triple as a compact, whitespace-free DSL token.
+	 *
+	 * @return canonical WDL text in {@code win/draw/loss} basis-point form
+	 */
+	public String toUciString() {
+		return win + "/" + draw + "/" + loss;
+	}
+
+	/**
 	 * Compares this instance against another {@code Chances} object using the three
 	 * supplied operators.
 	 *
@@ -309,7 +318,7 @@ public class Chances implements Comparable<Chances> {
 	 *         or if any argument is {@code null}; {@code true} otherwise
 	 */
 	public boolean compare(ComparisonOperator win, ComparisonOperator draw, ComparisonOperator loss, Chances chances) {
-		if (win == null || draw == null || loss == null) {
+		if (win == null || draw == null || loss == null || chances == null) {
 			return false;
 		}
 		boolean winapplies = false;

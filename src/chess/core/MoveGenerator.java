@@ -827,8 +827,7 @@ public final class MoveGenerator {
         long occupancy = position.occupancy();
         long empty = ~occupancy;
         long enemies = position.blackOccupancy() & ~position.pieces(Position.BLACK_KING);
-        int enPassant = position.enPassantSquare();
-        long enPassantMask = enPassant == Field.NO_SQUARE ? 0L : 1L << enPassant;
+        long enPassantMask = enPassantMask(position, true);
         long capturable = enemies | enPassantMask;
 
         long single = (pawns >>> 8) & empty;
@@ -851,8 +850,7 @@ public final class MoveGenerator {
         long occupancy = position.occupancy();
         long empty = ~occupancy;
         long enemies = position.whiteOccupancy() & ~position.pieces(Position.WHITE_KING);
-        int enPassant = position.enPassantSquare();
-        long enPassantMask = enPassant == Field.NO_SQUARE ? 0L : 1L << enPassant;
+        long enPassantMask = enPassantMask(position, false);
         long capturable = enemies | enPassantMask;
 
         long single = (pawns << 8) & empty;
@@ -862,6 +860,24 @@ public final class MoveGenerator {
         addPawnTargets(moves, ((single & Bits.RANK_6) << 8) & empty, -16, false);
         addPawnTargets(moves, ((pawns & ~Bits.FILE_A) << 7) & capturable, -7, false);
         addPawnTargets(moves, ((pawns & ~Bits.FILE_H) << 9) & capturable, -9, false);
+    }
+
+    /**
+     * Builds a safe en-passant capture target mask for the side to move.
+     *
+     * @param position position containing en-passant metadata
+     * @param white true for White pawn moves
+     * @return en-passant target bit, or zero when metadata is not usable
+     */
+    private static long enPassantMask(Position position, boolean white) {
+        int enPassant = position.enPassantSquare();
+        if (enPassant == Field.NO_SQUARE || position.pieceIndexAt(enPassant) >= 0) {
+            return 0L;
+        }
+        boolean validRank = white
+                ? Field.isOn6thRank((byte) enPassant)
+                : Field.isOn3rdRank((byte) enPassant);
+        return validRank ? 1L << enPassant : 0L;
     }
 
     /**
@@ -1041,6 +1057,7 @@ public final class MoveGenerator {
                 || rookFrom == Field.NO_SQUARE
                 || position.pieceAt(kingFrom) != (white ? Piece.WHITE_KING : Piece.BLACK_KING)
                 || position.pieceAt(rookFrom) != (white ? Piece.WHITE_ROOK : Piece.BLACK_ROOK)
+                || !validCastleGeometry(white, right, kingFrom, rookFrom)
                 || isSquareAttacked(position, kingFrom, !white)) {
             return;
         }
@@ -1053,6 +1070,29 @@ public final class MoveGenerator {
             return;
         }
         moves.addFast(move(kingFrom, position.castlingMoveTarget(right)));
+    }
+
+    /**
+     * Returns whether the king and rook have valid same-rank castling geometry.
+     *
+     * @param white true for White
+     * @param right castling right to test
+     * @param kingFrom king source square
+     * @param rookFrom rook source square
+     * @return true when king and rook are on the home rank and expected side
+     */
+    private static boolean validCastleGeometry(boolean white, int right, int kingFrom, int rookFrom) {
+        int homeRank = white ? 0 : 7;
+        if (Bits.rank(kingFrom) != homeRank || Bits.rank(rookFrom) != homeRank) {
+            return false;
+        }
+        int kingFile = Bits.file(kingFrom);
+        int rookFile = Bits.file(rookFrom);
+        if (rookFile == kingFile) {
+            return false;
+        }
+        boolean kingside = right == Position.WHITE_KINGSIDE || right == Position.BLACK_KINGSIDE;
+        return kingside ? rookFile > kingFile : rookFile < kingFile;
     }
 
     /**

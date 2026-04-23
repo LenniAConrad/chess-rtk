@@ -1,4 +1,4 @@
-package chess.engine;
+package chess.eval;
 
 import java.io.IOException;
 import java.nio.file.Path;
@@ -6,7 +6,7 @@ import java.nio.file.Path;
 import chess.core.Position;
 
 /**
- * LC0 evaluator backed by {@link chess.nn.lc0.Model}.
+ * LC0 centipawn evaluator backed by {@link chess.nn.lc0.Model}.
  *
  * <p>
  * The LC0 value head returns WDL probabilities. This evaluator maps expected
@@ -17,10 +17,10 @@ import chess.core.Position;
  * @since 2026
  * @author Lennart A. Conrad
  */
-public final class Lc0Evaluator implements PositionEvaluator {
+public final class Lc0 implements CentipawnEvaluator {
 
     /**
-     * Loaded LC0 model.
+     * Loaded LC0 policy/value model used for every leaf evaluation.
      */
     private final chess.nn.lc0.Model model;
 
@@ -30,7 +30,7 @@ public final class Lc0Evaluator implements PositionEvaluator {
      * @param weights LC0J weights path
      * @throws IOException if the model cannot be loaded
      */
-    public Lc0Evaluator(Path weights) throws IOException {
+    public Lc0(Path weights) throws IOException {
         this(chess.nn.lc0.Model.load(weights == null ? chess.nn.lc0.Model.DEFAULT_WEIGHTS : weights));
     }
 
@@ -38,8 +38,9 @@ public final class Lc0Evaluator implements PositionEvaluator {
      * Creates an evaluator from an already loaded model.
      *
      * @param model loaded model
+     * @throws IllegalArgumentException if the model is null
      */
-    public Lc0Evaluator(chess.nn.lc0.Model model) {
+    public Lc0(chess.nn.lc0.Model model) {
         if (model == null) {
             throw new IllegalArgumentException("model == null");
         }
@@ -60,11 +61,11 @@ public final class Lc0Evaluator implements PositionEvaluator {
     /**
      * Returns the evaluator label.
      *
-     * @return label
+     * @return label including the active LC0 backend
      */
     @Override
     public String name() {
-        return EvaluatorKind.LC0.label() + "(" + model.backend() + ")";
+        return Kind.LC0.label() + "(" + model.backend() + ")";
     }
 
     /**
@@ -78,8 +79,14 @@ public final class Lc0Evaluator implements PositionEvaluator {
     /**
      * Converts WDL probabilities into a centipawn-like score.
      *
+     * <p>
+     * The mapping treats win plus half draw as expected score and applies the
+     * same logistic display transform used elsewhere in CRTK.
+     * </p>
+     *
      * @param wdl WDL probabilities in win/draw/loss order
      * @return centipawn-like score
+     * @throws IllegalStateException if LC0 returns an invalid WDL vector
      */
     private static int wdlToCentipawns(float[] wdl) {
         if (wdl == null || wdl.length != 3) {
@@ -103,7 +110,8 @@ public final class Lc0Evaluator implements PositionEvaluator {
      *
      * @param value component value
      * @param label component label
-     * @return value as double
+     * @return validated component as a double
+     * @throws IllegalStateException if the component is negative or non-finite
      */
     private static double finiteNonNegative(float value, String label) {
         if (!Float.isFinite(value) || value < 0.0f) {

@@ -5,6 +5,19 @@
 - Verify your engine binary exists and is executable (check `path = ...` in your engine protocol TOML).
 - Run `crtk help` and confirm you’re passing `--protocol-path` to the right file.
 - If your engine is on `PATH`, try `which stockfish` / `which lc0`.
+- Commands such as `move list`, `engine perft`, `engine perft-suite`,
+  `engine static`, and `engine builtin --classical` do not start a UCI engine;
+  use them to isolate whether a failure is in the chess core or in external
+  engine configuration.
+
+## Perft validation fails
+
+- `engine perft-suite` compares stored truth values against the Java core move
+  generator. It does not call Stockfish or any other external process.
+- Re-run a failing row directly with `engine perft --fen "<FEN>" --depth <n>
+  --divide` to inspect per-root-move counts.
+- Recent edits to FEN parsing, Chess960 castling metadata, en-passant handling,
+  SAN move application, make/undo, or attack detection can all affect perft.
 
 ## Filters don’t seem to “stick”
 
@@ -20,7 +33,9 @@
 ## `fen display --ablation` is slow or uses the classical backend
 
 - The evaluator tries to load local `models/leela_112planes-10blocksx128-policyhead80-valuehead32-policy4672-wdl3.bin` weights and falls back to a classical heuristic when LC0 is unavailable. Fetch the default weights with `./install.sh --models`.
-- If you want CUDA acceleration, build `native/cuda/` and run with `-Djava.library.path=...`.
+- If you want native GPU acceleration, build the matching backend under
+  `native/cuda/`, `native/rocm/`, or `native/oneapi/` and run with
+  `-Djava.library.path=...`.
 
 ## Cover dimensions do not match the upload form
 

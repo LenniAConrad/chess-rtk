@@ -30,12 +30,12 @@ import application.cli.Validation;
 import application.console.Bar;
 import chess.core.Move;
 import chess.core.Position;
-import chess.engine.EvaluatorFactory;
-import chess.engine.EvaluatorKind;
-import chess.engine.Searcher;
-import chess.engine.PositionEvaluator;
-import chess.engine.SearchLimits;
-import chess.engine.SearchResult;
+import chess.engine.search.Limits;
+import chess.engine.search.Result;
+import chess.engine.search.AlphaBeta;
+import chess.eval.CentipawnEvaluator;
+import chess.eval.Factory;
+import chess.eval.Kind;
 import utility.Argv;
 
 /**
@@ -121,7 +121,7 @@ public final class BuiltInEngineCommand {
 		/**
 		 * Stores the limits.
 		 */
-		SearchLimits limits,
+		Limits limits,
 		/**
 		 * Stores the format.
 		 */
@@ -129,7 +129,7 @@ public final class BuiltInEngineCommand {
 		/**
 		 * Stores the evaluator.
 		 */
-		EvaluatorKind evaluator,
+		Kind evaluator,
 		/**
 		 * Stores the weights.
 		 */
@@ -145,7 +145,7 @@ public final class BuiltInEngineCommand {
 	public static void runBuiltIn(Argv a) {
 		Options opts = parseOptions(a);
 		List<String> fens = CommandSupport.resolveFenInputs(CMD_BUILTIN, opts.input(), opts.fen());
-		try (Searcher searcher = new Searcher(createEvaluator(opts))) {
+		try (AlphaBeta searcher = new AlphaBeta(createEvaluator(opts))) {
 			Bar bar = progressBar(fens);
 			for (int i = 0; i < fens.size(); i++) {
 				try {
@@ -157,7 +157,7 @@ public final class BuiltInEngineCommand {
 					if (opts.format() == OutputFormat.UCI_INFO && opts.input() != null) {
 						System.out.println("info string fen " + entry);
 					}
-					SearchResult result = search(searcher, position, opts);
+					Result result = search(searcher, position, opts);
 					printResult(entry, position, result, searcher.evaluatorName(), opts.input() != null, opts.format(), i > 0);
 				} catch (RuntimeException ex) {
 					System.err.println(CMD_BUILTIN + ": search failed: " + ex.getMessage());
@@ -196,11 +196,11 @@ public final class BuiltInEngineCommand {
 		boolean lc0 = a.flag(OPT_LC0);
 		Path weights = a.path(OPT_WEIGHTS);
 		Integer depthOpt = a.integer(OPT_DEPTH, OPT_DEPTH_SHORT);
-		int depth = depthOpt == null ? SearchLimits.DEFAULT_DEPTH : depthOpt;
+		int depth = depthOpt == null ? Limits.DEFAULT_DEPTH : depthOpt;
 		Long nodesOpt = a.lng(OPT_MAX_NODES, OPT_NODES);
 		Duration durationOpt = a.duration(OPT_MAX_DURATION);
-		long defaultNodes = depthOpt == null ? SearchLimits.DEFAULT_MAX_NODES : 0L;
-		long defaultDuration = depthOpt == null ? SearchLimits.DEFAULT_MAX_DURATION_MILLIS : 0L;
+		long defaultNodes = depthOpt == null ? Limits.DEFAULT_MAX_NODES : 0L;
+		long defaultDuration = depthOpt == null ? Limits.DEFAULT_MAX_DURATION_MILLIS : 0L;
 		long maxNodes = nodesOpt == null ? defaultNodes : nodesOpt;
 		long maxDuration = CommandSupport.optionalDurationMs(durationOpt, defaultDuration);
 		List<String> rest = a.positionals();
@@ -209,7 +209,7 @@ public final class BuiltInEngineCommand {
 		}
 		a.ensureConsumed();
 
-		Validation.requireBetweenInclusive(CMD_BUILTIN, OPT_DEPTH, depth, 1, Searcher.MAX_DEPTH);
+		Validation.requireBetweenInclusive(CMD_BUILTIN, OPT_DEPTH, depth, 1, AlphaBeta.MAX_DEPTH);
 		if (maxNodes < 0L) {
 			System.err.println(CMD_BUILTIN + ": " + OPT_MAX_NODES + " must be non-negative");
 			System.exit(2);
@@ -219,9 +219,9 @@ public final class BuiltInEngineCommand {
 			System.exit(2);
 		}
 
-		SearchLimits limits = new SearchLimits(depth, maxNodes, maxDuration);
-		EvaluatorKind evaluator = resolveEvaluator(evaluatorValue, classical, nnue, lc0);
-		if (weights != null && evaluator == EvaluatorKind.CLASSICAL) {
+		Limits limits = new Limits(depth, maxNodes, maxDuration);
+		Kind evaluator = resolveEvaluator(evaluatorValue, classical, nnue, lc0);
+		if (weights != null && evaluator == Kind.CLASSICAL) {
 			System.err.println(CMD_BUILTIN + ": " + OPT_WEIGHTS + " requires " + OPT_EVALUATOR + " nnue or lc0");
 			System.exit(2);
 		}
@@ -237,7 +237,7 @@ public final class BuiltInEngineCommand {
 	 * @param lc0 whether {@code --lc0} was provided
 	 * @return evaluator kind
 	 */
-	private static EvaluatorKind resolveEvaluator(String value, boolean classical, boolean nnue, boolean lc0) {
+	private static Kind resolveEvaluator(String value, boolean classical, boolean nnue, boolean lc0) {
 		int flags = (classical ? 1 : 0) + (nnue ? 1 : 0) + (lc0 ? 1 : 0);
 		if (value != null && flags > 0) {
 			System.err.println(CMD_BUILTIN + ": use either " + OPT_EVALUATOR + " or evaluator shortcut flags, not both");
@@ -249,19 +249,19 @@ public final class BuiltInEngineCommand {
 		}
 		if (value != null) {
 			try {
-				return EvaluatorKind.parse(value);
+				return Kind.parse(value);
 			} catch (IllegalArgumentException ex) {
 				System.err.println(CMD_BUILTIN + ": " + ex.getMessage());
 				System.exit(2);
 			}
 		}
 		if (nnue) {
-			return EvaluatorKind.NNUE;
+			return Kind.NNUE;
 		}
 		if (lc0) {
-			return EvaluatorKind.LC0;
+			return Kind.LC0;
 		}
-		return EvaluatorKind.CLASSICAL;
+		return Kind.CLASSICAL;
 	}
 
 	/**
@@ -271,12 +271,12 @@ public final class BuiltInEngineCommand {
 	 * @return evaluator
 	 * @throws IOException if model weights cannot be loaded
 	 */
-	private static PositionEvaluator createEvaluator(Options opts) throws IOException {
+	private static CentipawnEvaluator createEvaluator(Options opts) throws IOException {
 		Path weights = opts.weights();
-		if (weights == null && opts.evaluator() == EvaluatorKind.LC0) {
+		if (weights == null && opts.evaluator() == Kind.LC0) {
 			weights = Path.of(Config.getLc0ModelPath());
 		}
-		return EvaluatorFactory.create(opts.evaluator(), weights);
+		return Factory.create(opts.evaluator(), weights);
 	}
 
 	/**
@@ -313,7 +313,7 @@ public final class BuiltInEngineCommand {
 	 * @param opts parsed options
 	 * @return final search result
 	 */
-	private static SearchResult search(Searcher searcher, Position position, Options opts) {
+	private static Result search(AlphaBeta searcher, Position position, Options opts) {
 		if (opts.format() != OutputFormat.UCI_INFO) {
 			return searcher.search(position, opts.limits());
 		}
@@ -334,7 +334,7 @@ public final class BuiltInEngineCommand {
 	private static void printResult(
 			String entry,
 			Position position,
-			SearchResult result,
+			Result result,
 			String evaluator,
 			boolean includeFen,
 			OutputFormat format,
@@ -364,7 +364,7 @@ public final class BuiltInEngineCommand {
 	 *
 	 * @param result completed-depth result
 	 */
-	private static void printUciInfo(SearchResult result) {
+	private static void printUciInfo(Result result) {
 		StringBuilder sb = new StringBuilder();
 		sb.append("info depth ").append(result.depth())
 				.append(" score ").append(uciScore(result))
@@ -385,7 +385,7 @@ public final class BuiltInEngineCommand {
 	 * @param result search result
 	 * @return UCI score field value
 	 */
-	private static String uciScore(SearchResult result) {
+	private static String uciScore(Result result) {
 		if (result.isMateScore()) {
 			return "mate " + result.mateIn();
 		}
@@ -398,7 +398,7 @@ public final class BuiltInEngineCommand {
 	 * @param result search result
 	 * @return nodes per second
 	 */
-	private static long nodesPerSecond(SearchResult result) {
+	private static long nodesPerSecond(Result result) {
 		long elapsed = Math.max(1L, result.elapsedMillis());
 		return Math.max(0L, result.nodes() * 1_000L / elapsed);
 	}
@@ -408,7 +408,7 @@ public final class BuiltInEngineCommand {
 	 *
 	 * @param result final result
 	 */
-	private static void printBestMove(SearchResult result) {
+	private static void printBestMove(Result result) {
 		String uci = result.hasBestMove() ? Move.toString(result.bestMove()) : "0000";
 		System.out.println("bestmove " + uci);
 	}
@@ -425,7 +425,7 @@ public final class BuiltInEngineCommand {
 	private static void printSummary(
 			String entry,
 			Position position,
-			SearchResult result,
+			Result result,
 			String evaluator,
 			boolean separate) {
 		if (separate) {

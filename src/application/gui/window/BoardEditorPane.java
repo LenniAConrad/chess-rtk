@@ -63,21 +63,21 @@ private final List<BoardEditorShared.PaletteButton> paletteButtons = new ArrayLi
      */
     private final JCheckBox whiteToMoveToggle;
     /**
-     * castleK field.
+     * White king-side castling checkbox.
      */
-    private final JCheckBox castleK;
+    private final JCheckBox whiteKingCastle;
     /**
-     * castleQ field.
+     * White queen-side castling checkbox.
      */
-    private final JCheckBox castleQ;
+    private final JCheckBox whiteQueenCastle;
     /**
-     * castlek field.
+     * Black king-side castling checkbox.
      */
-    private final JCheckBox castlek;
+    private final JCheckBox blackKingCastle;
     /**
-     * castleq field.
+     * Black queen-side castling checkbox.
      */
-    private final JCheckBox castleq;
+    private final JCheckBox blackQueenCastle;
     /**
      * enPassant field.
      */
@@ -145,18 +145,18 @@ private final List<javax.swing.JButton> actionButtons;
         editorRoot = layout.root();
         selectedLabel = layout.selectedLabel();
         legalityLabel = layout.legalityLabel();
-        castleK = layout.castleK();
-        castleQ = layout.castleQ();
-        castlek = layout.castlek();
-        castleq = layout.castleq();
+        whiteKingCastle = layout.castleK();
+        whiteQueenCastle = layout.castleQ();
+        blackKingCastle = layout.castlek();
+        blackQueenCastle = layout.castleq();
         legalityWrapWidth = layout.legalityWrapWidth();
         actionButtons = layout.actionButtons();
         add(editorRoot, BorderLayout.CENTER);
 
-        castleK.addActionListener(e -> updateLegality());
-        castleQ.addActionListener(e -> updateLegality());
-        castlek.addActionListener(e -> updateLegality());
-        castleq.addActionListener(e -> updateLegality());
+        whiteKingCastle.addActionListener(e -> updateLegality());
+        whiteQueenCastle.addActionListener(e -> updateLegality());
+        blackKingCastle.addActionListener(e -> updateLegality());
+        blackQueenCastle.addActionListener(e -> updateLegality());
 
         getInputMap(JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT)
                 .put(KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_ESCAPE, 0), "board-editor-abort");
@@ -191,10 +191,10 @@ private final List<javax.swing.JButton> actionButtons;
         board = Arrays.copyOf(owner.position.getBoard(), owner.position.getBoard().length);
         originalBoard = Arrays.copyOf(board, board.length);
         whiteToMoveToggle.setSelected(!"b".equals(side));
-        castleK.setSelected(castling.contains("K"));
-        castleQ.setSelected(castling.contains("Q"));
-        castlek.setSelected(castling.contains("k"));
-        castleq.setSelected(castling.contains("q"));
+        whiteKingCastle.setSelected(castling.contains("K"));
+        whiteQueenCastle.setSelected(castling.contains("Q"));
+        blackKingCastle.setSelected(castling.contains("k"));
+        blackQueenCastle.setSelected(castling.contains("q"));
         editorBoard.repaint();
         updateLegality();
     }
@@ -284,7 +284,11 @@ private final List<javax.swing.JButton> actionButtons;
     private String buildFen() {
         String placement = owner.buildPiecePlacement(board);
         String side = whiteToMoveToggle.isSelected() ? "w" : "b";
-        String castling = BoardEditorShared.buildCastling(castleK, castleQ, castlek, castleq);
+        String castling = BoardEditorShared.buildCastling(
+                whiteKingCastle,
+                whiteQueenCastle,
+                blackKingCastle,
+                blackQueenCastle);
         return placement + " " + side + " " + castling + " " + enPassant + " " + halfmove + " " + fullmove;
     }
 
@@ -348,7 +352,12 @@ private final List<javax.swing.JButton> actionButtons;
         }
         adjustingCastling = true;
         try {
-            BoardEditorShared.updateCastlingAvailability(board, castleK, castleQ, castlek, castleq);
+            BoardEditorShared.updateCastlingAvailability(
+                    board,
+                    whiteKingCastle,
+                    whiteQueenCastle,
+                    blackKingCastle,
+                    blackQueenCastle);
         } finally {
             adjustingCastling = false;
         }

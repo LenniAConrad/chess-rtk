@@ -266,11 +266,15 @@ final class BoardPanel extends JPanel {
 		/**
 		 * PIECE_CACHE_OFFSET constant.
 		 */
-		private static final int PIECE_CACHE_OFFSET = 6;
-		/**
-		 * scaledPieces field.
-		 */
-		private final BufferedImage[] scaledPieces = new BufferedImage[PIECE_CACHE_SIZE];
+			private static final int PIECE_CACHE_OFFSET = 6;
+			/**
+			 * Shared empty bounds array for "no ghost" results.
+			 */
+			private static final int[] NO_GHOST_BOUNDS = new int[0];
+			/**
+			 * scaledPieces field.
+			 */
+			private final transient BufferedImage[] scaledPieces = new BufferedImage[PIECE_CACHE_SIZE];
 		/**
 		 * scaledPieceSize field.
 		 */
@@ -278,7 +282,7 @@ final class BoardPanel extends JPanel {
 		/**
 		 * cachedLayer field.
 		 */
-		private BufferedImage cachedLayer;
+			private transient BufferedImage cachedLayer;
 		/**
 		 * renderVersion field.
 		 */
@@ -1106,17 +1110,17 @@ final class BoardPanel extends JPanel {
 
 		int ghostPad = Math.max(3, pieceSize / 6);
 		int[] ghostOld = ghostBounds(oldX, oldY, tile, pieceSize, ghostPad);
-		if (ghostOld != null) {
-			minX = Math.min(minX, ghostOld[0]);
-			minY = Math.min(minY, ghostOld[1]);
-			maxX = Math.max(maxX, ghostOld[2]);
-			maxY = Math.max(maxY, ghostOld[3]);
-		}
-		int[] ghostNew = ghostBounds(newX, newY, tile, pieceSize, ghostPad);
-		if (ghostNew != null) {
-			minX = Math.min(minX, ghostNew[0]);
-			minY = Math.min(minY, ghostNew[1]);
-			maxX = Math.max(maxX, ghostNew[2]);
+			if (ghostOld.length != 0) {
+				minX = Math.min(minX, ghostOld[0]);
+				minY = Math.min(minY, ghostOld[1]);
+				maxX = Math.max(maxX, ghostOld[2]);
+				maxY = Math.max(maxY, ghostOld[3]);
+			}
+			int[] ghostNew = ghostBounds(newX, newY, tile, pieceSize, ghostPad);
+			if (ghostNew.length != 0) {
+				minX = Math.min(minX, ghostNew[0]);
+				minY = Math.min(minY, ghostNew[1]);
+				maxX = Math.max(maxX, ghostNew[2]);
 			maxY = Math.max(maxY, ghostNew[3]);
 		}
 		repaint(minX, minY, Math.max(1, maxX - minX), Math.max(1, maxY - minY));
@@ -1132,14 +1136,14 @@ final class BoardPanel extends JPanel {
 		 * @param pad parameter.
 		 * @return return value.
 		 */
-		private int[] ghostBounds(int x, int y, int tile, int pieceSize, int pad) {
-		byte target = squareFromPoint(x, y);
-		if (target == Field.NO_SQUARE || target == dragFrom) {
-			return null;
-		}
-		if (showLegal && !legalTargets[target]) {
-			return null;
-		}
+			private int[] ghostBounds(int x, int y, int tile, int pieceSize, int pad) {
+			byte target = squareFromPoint(x, y);
+			if (target == Field.NO_SQUARE || target == dragFrom) {
+				return NO_GHOST_BOUNDS;
+			}
+			if (showLegal && !legalTargets[target]) {
+				return NO_GHOST_BOUNDS;
+			}
 		int sx = screenFile(target);
 		int sy = screenRank(target);
 		int piecePad = (tile - pieceSize) / 2;

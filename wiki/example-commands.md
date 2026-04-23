@@ -11,6 +11,7 @@ Examples assume you installed the launcher (`crtk`). If you run from classes, re
 - `crtk config validate` — validate config + protocol file paths.
 - `crtk engine uci-smoke --nodes 1 --max-duration 5s` — start the configured engine and run a tiny bounded search.
 - `crtk engine gpu` — check whether the optional GPU JNI backends are usable (CUDA/ROCm/oneAPI).
+- `crtk engine perft-suite --depth 6 --threads 4` — validate critical stored-truth positions with the Java move generator.
 - `crtk fen print --fen "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"` — print the starting position.
 - `crtk config show` — dump resolved config values.
 
@@ -68,7 +69,7 @@ Examples assume you installed the launcher (`crtk`). If you run from classes, re
 - `crtk gui-web --fen "r1bqk2r/ppppbppp/3n4/4R3/8/8/PPPP1PPP/RNBQ1BK1 b kq - 2 8" --dark` — launch the chess-web-inspired desktop GUI.
 - `crtk gui-next --fen "<FEN>" --dark` — launch the Studio research workbench.
 
-## Analyze positions / best move
+## Analyze positions / best move with a UCI engine
 
 - `crtk engine analyze --fen "<FEN>" --max-duration 5s` — print PV summaries for a single position.
 - `crtk engine analyze -i positions.txt --max-nodes 1000000 --multipv 3 --threads 4 --hash 256` — analyze a FEN list with bounded UCI engine settings.
@@ -111,17 +112,20 @@ Examples assume you installed the launcher (`crtk`). If you run from classes, re
 
 - `crtk engine perft --depth 4` — perft from the standard start position.
 - `crtk engine perft --fen "<FEN>" --depth 5` — detailed counters for nodes, captures, en-passant captures, castles, promotions, checks, and checkmates.
-- `crtk engine perft --fen "<FEN>" --depth 5 --divide` — per-root-move breakdown with the same detailed counters.
-- `crtk engine perft-suite --depth 6 --threads 4` — compare critical standard and Chess960 positions against truth values from Stockfish.
+- `crtk engine perft --fen "<FEN>" --depth 5 --divide --threads 4` — per-root-move table with the same detailed counters.
+- `crtk engine perft --depth 3 --format stockfish --threads 4` — Stockfish-style `move: nodes` divide output.
+- `crtk engine perft-suite --depth 6 --threads 4` — compare critical standard, Chess960, promotion, en-passant, castling, and stress positions against stored truth values without starting an external engine.
 - `crtk fen pgn -i games.pgn -o seeds.txt` — extract FEN seeds from PGN.
 - `crtk fen pgn -i games.pgn -o pairs.txt --pairs --mainline` — extract parent/child FEN pairs from mainlines.
 
-## Eval
+## In-process eval and built-in search
 
-- `crtk engine eval --fen "<FEN>"` — evaluate with LC0 (fallback to classical).
+- `crtk engine eval --fen "<FEN>"` — evaluate with the Java LC0 evaluator and classical fallback.
+- `crtk engine eval --fen "<FEN>" --lc0 --weights models/leela_112planes-10blocksx128-policyhead80-valuehead32-policy4672-wdl3.bin` — force Java LC0 evaluation.
 - `crtk engine eval --fen "<FEN>" --classical` — force classical evaluation.
 - `crtk engine static --fen "<FEN>"` — classical evaluation shortcut.
 - `crtk engine builtin --fen "<FEN>" --depth 4 --format summary` — search with the built-in Java engine.
+- `crtk engine builtin --fen "<FEN>" --classical --depth 6 --nodes 250000 --format both` — bounded classical built-in search.
 - `crtk engine builtin --fen "<FEN>" --evaluator nnue --weights models/crtk-halfkp.nnue --depth 3 --format both` — use the Java NNUE evaluator at the search frontier.
 - `crtk engine builtin --fen "<FEN>" --lc0 --weights models/leela_112planes-10blocksx128-policyhead80-valuehead32-policy4672-wdl3.bin --depth 2 --format summary` — use the Java LC0 value evaluator at the search frontier.
 

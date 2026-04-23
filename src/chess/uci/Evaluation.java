@@ -261,7 +261,7 @@ public class Evaluation implements Comparable<Evaluation> {
      * @return true if this evaluation is more beneficial than the other
      */
     public boolean isGreater(Evaluation evaluation) {
-        if (!valid || !evaluation.valid) {
+        if (!valid || evaluation == null || !evaluation.valid) {
             return false;
         }
         return compareMate(evaluation) > 0;
@@ -288,7 +288,7 @@ public class Evaluation implements Comparable<Evaluation> {
      * @return true if this evaluation has a greater or equal value than the other
      */
     public boolean isGreaterEqual(Evaluation evaluation) {
-        if (!valid || !evaluation.valid) {
+        if (!valid || evaluation == null || !evaluation.valid) {
             return false;
         }
         return compareMate(evaluation) >= 0;
@@ -306,7 +306,7 @@ public class Evaluation implements Comparable<Evaluation> {
      * @return true if both evaluations are valid, have the same mate status, and equal value
      */
     public boolean isEqual(Evaluation evaluation) {
-        if (!valid || !evaluation.valid) {
+        if (!valid || evaluation == null || !evaluation.valid) {
             return false;
         }
         return this.mate == evaluation.mate && this.value == evaluation.value;
@@ -333,7 +333,7 @@ public class Evaluation implements Comparable<Evaluation> {
      * @return true if this evaluation is less beneficial than the other
      */
     public boolean isLess(Evaluation evaluation) {
-        if (!valid || !evaluation.valid) {
+        if (!valid || evaluation == null || !evaluation.valid) {
             return false;
         }
         return compareMate(evaluation) < 0;
@@ -360,7 +360,7 @@ public class Evaluation implements Comparable<Evaluation> {
      * @return true if this evaluation has a lesser or equal value than the other
      */
     public boolean isLessEqual(Evaluation evaluation) {
-        if (!valid || !evaluation.valid) {
+        if (!valid || evaluation == null || !evaluation.valid) {
             return false;
         }
         return compareMate(evaluation) <= 0;
@@ -372,14 +372,20 @@ public class Evaluation implements Comparable<Evaluation> {
      */
     private int compareMate(Evaluation other) {
         if (this.mate && other.mate) {
+            if (this.value > 0 && other.value < 0) {
+                return 1;
+            }
+            if (this.value < 0 && other.value > 0) {
+                return -1;
+            }
             return other.value - this.value;
         }
         if (this.mate) {
-			return 1;
-		}
-		if (other.mate) { 
-			return -1;
-		}
+            return this.value > 0 ? 1 : -1;
+        }
+        if (other.mate) {
+            return other.value > 0 ? -1 : 1;
+        }
         return this.value - other.value;
     }
 

@@ -103,15 +103,21 @@ public class Analysis {
 	 * @return this analysis instance for chaining
 	 */
 	public Analysis add(Output output) {
-		if (!output.hasContent()) {
+		if (output == null || !output.hasContent()) {
 			return this;
 		}
 		final int pvIdx = output.getPrincipalVariation() - 1;
+		if (pvIdx < 0) {
+			return this;
+		}
 		while (pvIdx >= pvOutputs.size()) {
 			pvOutputs.add(null);
 		}
 		Output[] row = pvOutputs.get(pvIdx);
-		final int depth = output.getDepth();
+		final int depth = output.hasDepth() ? output.getDepth() : 0;
+		if (depth < 0) {
+			return this;
+		}
 		row = ensure(row, depth + 1);
 		row[depth] = output;
 		pvOutputs.set(pvIdx, row);

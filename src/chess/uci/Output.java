@@ -304,8 +304,13 @@ public class Output {
 				});
 			case "wdl":
 				return readTripleShortsInto(input, from, end, (a, b, c) -> {
-					chances = new Chances(a, b, c);
-					setFlag(F_CHANCES);
+					try {
+						chances = new Chances(a, b, c);
+						setFlag(F_CHANCES);
+					} catch (IllegalArgumentException ignored) {
+						// Invalid optional WDL triples are ignored so one malformed info field does
+						// not abort an otherwise usable analysis line.
+					}
 				});
 			case "nodes":
 				return readLongInto(input, from, end, v -> {
@@ -546,7 +551,7 @@ public class Output {
 		while (e1 < n && s.charAt(e1) > ' ') {
 			e1++;
 		}
-		short a = parseShortSafe(s, i, e1);
+			Short a = parseShortOrNull(s, i, e1);
 
 		// second
 		i = e1;
@@ -557,7 +562,7 @@ public class Output {
 		while (e2 < n && s.charAt(e2) > ' ') {
 			e2++;
 		}
-		short b = parseShortSafe(s, i, e2);
+			Short b = parseShortOrNull(s, i, e2);
 
 		// third
 		i = e2;
@@ -568,29 +573,29 @@ public class Output {
 		while (e3 < n && s.charAt(e3) > ' ') {
 			e3++;
 		}
-		short c3 = parseShortSafe(s, i, e3);
+			Short c3 = parseShortOrNull(s, i, e3);
 
-		c.accept(a, b, c3);
-		return e3;
-	}
+			if (a != null && b != null && c3 != null) {
+				c.accept(a, b, c3);
+			}
+			return e3;
+		}
 
 	/**
-	 * Used for parsing a {@code short} from the substring {@code s[from:to]},
-	 * returning {@code 0}
-	 * when the input is not a valid number.
+	 * Used for parsing a {@code short} from the substring {@code s[from:to]}.
 	 *
 	 * @param s    source string
 	 * @param from start index (inclusive)
 	 * @param to   end index (exclusive)
-	 * @return parsed {@code short} value, or {@code 0} on failure
+	 * @return parsed {@code short} value, or {@code null} on failure
 	 */
-	private static short parseShortSafe(String s, int from, int to) {
-		try {
-			return Short.parseShort(s.substring(from, to));
-		} catch (NumberFormatException ignored) {
-			return 0;
+		private static Short parseShortOrNull(String s, int from, int to) {
+			try {
+				return Short.parseShort(s.substring(from, to));
+			} catch (NumberFormatException ignored) {
+				return null;
+			}
 		}
-	}
 
 	/**
 	 * Used for handling the "pv" (principal variation) move sequence without
@@ -761,7 +766,7 @@ public class Output {
 	 * @return the {@code Moves} of the current {@code Output}
 	 */
 	public short[] getMoves() {
-		return moves;
+		return moves == null ? null : Arrays.copyOf(moves, moves.length);
 	}
 
 	/**
@@ -800,6 +805,97 @@ public class Output {
 	 */
 	public boolean hasContent() {
 		return flags != 0 || (moves != null && moves.length > 0);
+	}
+
+	/**
+	 * Checks whether a depth value was present in the parsed output line.
+	 *
+	 * @return true when {@code depth} was parsed
+	 */
+	public boolean hasDepth() {
+		return isSet(F_DEPTH);
+	}
+
+	/**
+	 * Checks whether a selective depth value was present in the parsed output line.
+	 *
+	 * @return true when {@code seldepth} was parsed
+	 */
+	public boolean hasSelectiveDepth() {
+		return isSet(F_SELDEPTH);
+	}
+
+	/**
+	 * Checks whether a principal variation index was present in the parsed output
+	 * line.
+	 *
+	 * @return true when {@code multipv} was parsed
+	 */
+	public boolean hasPrincipalVariation() {
+		return isSet(F_PV);
+	}
+
+	/**
+	 * Checks whether a hash fullness value was present in the parsed output line.
+	 *
+	 * @return true when {@code hashfull} was parsed
+	 */
+	public boolean hasHashfull() {
+		return isSet(F_HASHFULL);
+	}
+
+	/**
+	 * Checks whether elapsed search time was present in the parsed output line.
+	 *
+	 * @return true when {@code time} was parsed
+	 */
+	public boolean hasTime() {
+		return isSet(F_TIME);
+	}
+
+	/**
+	 * Checks whether tablebase hits were present in the parsed output line.
+	 *
+	 * @return true when {@code tbhits} was parsed
+	 */
+	public boolean hasTableBaseHits() {
+		return isSet(F_TBHITS);
+	}
+
+	/**
+	 * Checks whether searched node count was present in the parsed output line.
+	 *
+	 * @return true when {@code nodes} was parsed
+	 */
+	public boolean hasNodes() {
+		return isSet(F_NODES);
+	}
+
+	/**
+	 * Checks whether nodes-per-second was present in the parsed output line.
+	 *
+	 * @return true when {@code nps} was parsed
+	 */
+	public boolean hasNodesPerSecond() {
+		return isSet(F_NPS);
+	}
+
+	/**
+	 * Checks whether an evaluation was present in the parsed output line.
+	 *
+	 * @return true when a score was parsed
+	 */
+	public boolean hasEvaluation() {
+		return isSet(F_EVAL) && evaluation != null;
+	}
+
+	/**
+	 * Checks whether a WDL triple was present and valid in the parsed output line.
+	 *
+	 * @return true when valid WDL chances were parsed
+	 */
+	public boolean hasChances() {
+		return isSet(F_CHANCES) && chances != null;
 	}
 
 	/**

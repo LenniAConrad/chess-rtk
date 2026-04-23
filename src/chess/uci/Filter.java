@@ -2,6 +2,7 @@ package chess.uci;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -562,7 +563,7 @@ NOT_SAME
          */
         public Builder withNodes(ComparisonOperator op, long threshold) {
             Objects.requireNonNull(op, "nodes op");
-            attributePredicates.add(o -> o != null && compareLong(o.getNodes(), op, threshold));
+            attributePredicates.add(o -> o != null && o.hasNodes() && compareLong(o.getNodes(), op, threshold));
             predicateSpecs.add(new PredicateSpec(PredicateSpec.Kind.NODES, op, Long.toString(threshold)));
             return this;
         }
@@ -576,7 +577,8 @@ NOT_SAME
          */
         public Builder withNps(ComparisonOperator op, long threshold) {
             Objects.requireNonNull(op, "nps op");
-            attributePredicates.add(o -> o != null && compareLong(o.getNodesPerSecond(), op, threshold));
+            attributePredicates.add(o -> o != null && o.hasNodesPerSecond()
+                    && compareLong(o.getNodesPerSecond(), op, threshold));
             predicateSpecs.add(new PredicateSpec(PredicateSpec.Kind.NPS, op, Long.toString(threshold)));
             return this;
         }
@@ -590,7 +592,8 @@ NOT_SAME
          */
         public Builder withTbhits(ComparisonOperator op, long threshold) {
             Objects.requireNonNull(op, "tbhits op");
-            attributePredicates.add(o -> o != null && compareLong(o.getTableBaseHits(), op, threshold));
+            attributePredicates.add(o -> o != null && o.hasTableBaseHits()
+                    && compareLong(o.getTableBaseHits(), op, threshold));
             predicateSpecs.add(new PredicateSpec(PredicateSpec.Kind.TBHITS, op, Long.toString(threshold)));
             return this;
         }
@@ -604,7 +607,7 @@ NOT_SAME
          */
         public Builder withTime(ComparisonOperator op, long threshold) {
             Objects.requireNonNull(op, "time op");
-            attributePredicates.add(o -> o != null && compareLong(o.getTime(), op, threshold));
+            attributePredicates.add(o -> o != null && o.hasTime() && compareLong(o.getTime(), op, threshold));
             predicateSpecs.add(new PredicateSpec(PredicateSpec.Kind.TIME, op, Long.toString(threshold)));
             return this;
         }
@@ -618,7 +621,7 @@ NOT_SAME
          */
         public Builder withDepth(ComparisonOperator op, int threshold) {
             Objects.requireNonNull(op, "depth op");
-            attributePredicates.add(o -> o != null && compareInt(o.getDepth(), op, threshold));
+            attributePredicates.add(o -> o != null && o.hasDepth() && compareInt(o.getDepth(), op, threshold));
             predicateSpecs.add(new PredicateSpec(PredicateSpec.Kind.DEPTH, op, Integer.toString(threshold)));
             return this;
         }
@@ -632,7 +635,8 @@ NOT_SAME
          */
         public Builder withSelDepth(ComparisonOperator op, int threshold) {
             Objects.requireNonNull(op, "seldepth op");
-            attributePredicates.add(o -> o != null && compareInt(o.getSelectiveDepth(), op, threshold));
+            attributePredicates.add(o -> o != null && o.hasSelectiveDepth()
+                    && compareInt(o.getSelectiveDepth(), op, threshold));
             predicateSpecs.add(new PredicateSpec(PredicateSpec.Kind.SELDEPTH, op, Integer.toString(threshold)));
             return this;
         }
@@ -647,7 +651,8 @@ NOT_SAME
          */
         public Builder withMultiPV(ComparisonOperator op, int threshold) {
             Objects.requireNonNull(op, "multipv op");
-            attributePredicates.add(o -> o != null && compareInt(o.getPrincipalVariation(), op, threshold));
+            attributePredicates.add(o -> o != null && o.hasPrincipalVariation()
+                    && compareInt(o.getPrincipalVariation(), op, threshold));
             predicateSpecs.add(new PredicateSpec(PredicateSpec.Kind.MULTIPV, op, Integer.toString(threshold)));
             return this;
         }
@@ -661,7 +666,7 @@ NOT_SAME
          */
         public Builder withHashfull(ComparisonOperator op, int threshold) {
             Objects.requireNonNull(op, "hashfull op");
-            attributePredicates.add(o -> o != null && compareInt(o.getHashfull(), op, threshold));
+            attributePredicates.add(o -> o != null && o.hasHashfull() && compareInt(o.getHashfull(), op, threshold));
             predicateSpecs.add(new PredicateSpec(PredicateSpec.Kind.HASHFULL, op, Integer.toString(threshold)));
             return this;
         }
@@ -704,7 +709,7 @@ NOT_SAME
             attributePredicates
                     .add(o -> o != null && o.getChances() != null && compareChances(o.getChances(), op, target));
             // Choose a stable/compact string representation for Chances:
-            String ch = (target == null) ? DslLiterals.NULL_LITERAL : target.toString();
+            String ch = (target == null) ? DslLiterals.NULL_LITERAL : target.toUciString();
             predicateSpecs.add(new PredicateSpec(PredicateSpec.Kind.CHANCES, op, ch));
             return this;
         }
@@ -771,6 +776,9 @@ NOT_SAME
          * @return {@code true} if the comparison holds
          */
         private static boolean compareEval(Evaluation e, ComparisonOperator op, Evaluation t) {
+            if (e == null || t == null) {
+                return false;
+            }
             return switch (op) {
                 case GREATER -> e.isGreater(t);
                 case GREATER_EQUAL -> e.isGreaterEqual(t);
@@ -822,6 +830,9 @@ NOT_SAME
          * @return {@code true} if the comparison holds
          */
         private static boolean compareChances(Chances c, ComparisonOperator op, Chances t) {
+            if (c == null || t == null) {
+                return false;
+            }
             // Preserve original tri-operator semantics:
             return switch (op) {
                 case GREATER -> c.compare(
@@ -1119,7 +1130,7 @@ NOT_SAME
              * @param input DSL text (non-null)
              */
             Parser(String input) {
-                this.input = Objects.requireNonNull(input).trim();
+                this.input = Objects.requireNonNull(input, "dsl").trim();
             }
 
             /**
@@ -1134,7 +1145,7 @@ NOT_SAME
                 while (pos < input.length()) {
                     skipWs();
                     if (!dispatchToken(b)) {
-                        pos++;
+                        throw unknownToken();
                     }
                     skipDelims();
                 }
@@ -1150,22 +1161,25 @@ NOT_SAME
             private boolean dispatchToken(Filter.Builder b) {
                 if (peek(DslLiterals.KEY_GATE)) {
                     pos += 5;
-                    b.gate(Filter.Gate.valueOf(readToken()));
+                    b.gate(Filter.Gate.valueOf(readToken().toUpperCase(Locale.ROOT)));
                     return true;
                 }
                 if (peek(DslLiterals.KEY_NULL)) {
                     pos += 5;
-                    b.returnUponNull(Boolean.parseBoolean(readToken()));
+                    b.returnUponNull(parseBoolean(readToken()));
                     return true;
                 }
                 if (peek(DslLiterals.KEY_EMPTY)) {
                     pos += 6;
-                    b.returnUponEmpty(Boolean.parseBoolean(readToken()));
+                    b.returnUponEmpty(parseBoolean(readToken()));
                     return true;
                 }
                 if (peek(DslLiterals.KEY_BREAK)) {
                     pos += 6;
                     b.breakPrincipalVariation(parseInt(readToken()));
+                    return true;
+                }
+                if (handleBareGate(b)) {
                     return true;
                 }
                 if (handleLongComparisons(b)) {
@@ -1187,30 +1201,48 @@ NOT_SAME
             }
 
             /**
+             * Accepts compact nested gate tokens such as {@code leaf[or;...]} in
+             * addition to the canonical {@code gate=OR} spelling.
+             */
+            private boolean handleBareGate(Filter.Builder b) {
+                int saved = pos;
+                String token = readToken();
+                if (token.isEmpty()) {
+                    pos = saved;
+                    return false;
+                }
+                try {
+                    b.gate(Filter.Gate.valueOf(token.toUpperCase(Locale.ROOT)));
+                    return true;
+                } catch (IllegalArgumentException ex) {
+                    pos = saved;
+                    return false;
+                }
+            }
+
+            /**
              * Used for handling long-valued comparison tokens: nodes, nps, tbhits, time.
              *
-             * <|diff_marker|> ADD A2060
-             * 
              * @param b Used for receiving the predicates.
              * @return Used for indicating whether a token was matched.
              */
             private boolean handleLongComparisons(Filter.Builder b) {
-                if (peek(DslLiterals.PRED_NODES)) {
+                if (peekComparisonKey(DslLiterals.PRED_NODES)) {
                     long v = parseLongCompAndValue();
                     b.withNodes(lastOp, v);
                     return true;
                 }
-                if (peek(DslLiterals.PRED_NPS)) {
+                if (peekComparisonKey(DslLiterals.PRED_NPS)) {
                     long v = parseLongCompAndValue();
                     b.withNps(lastOp, v);
                     return true;
                 }
-                if (peek(DslLiterals.PRED_TBHITS)) {
+                if (peekComparisonKey(DslLiterals.PRED_TBHITS)) {
                     long v = parseLongCompAndValue();
                     b.withTbhits(lastOp, v);
                     return true;
                 }
-                if (peek(DslLiterals.PRED_TIME)) {
+                if (peekComparisonKey(DslLiterals.PRED_TIME)) {
                     long v = parseLongCompAndValue();
                     b.withTime(lastOp, v);
                     return true;
@@ -1226,22 +1258,22 @@ NOT_SAME
              * @return Used for indicating whether a token was matched.
              */
             private boolean handleIntComparisons(Filter.Builder b) {
-                if (peek(DslLiterals.PRED_DEPTH)) {
+                if (peekComparisonKey(DslLiterals.PRED_DEPTH)) {
                     int v = parseIntCompAndValue();
                     b.withDepth(lastOp, v);
                     return true;
                 }
-                if (peek(DslLiterals.PRED_SELDEPTH)) {
+                if (peekComparisonKey(DslLiterals.PRED_SELDEPTH)) {
                     int v = parseIntCompAndValue();
                     b.withSelDepth(lastOp, v);
                     return true;
                 }
-                if (peek(DslLiterals.PRED_MULTIPV)) {
+                if (peekComparisonKey(DslLiterals.PRED_MULTIPV)) {
                     int v = parseIntCompAndValue();
                     b.withMultiPV(lastOp, v);
                     return true;
                 }
-                if (peek(DslLiterals.PRED_HASHFULL)) {
+                if (peekComparisonKey(DslLiterals.PRED_HASHFULL)) {
                     int v = parseIntCompAndValue();
                     b.withHashfull(lastOp, v);
                     return true;
@@ -1260,13 +1292,13 @@ NOT_SAME
              * @param b Used for receiving the parsed comparison.
              * @return Used for indicating whether a token was matched.
              */
-            private boolean handleEval(Filter.Builder b) {
-                if (!peek(DslLiterals.PRED_EVAL)) {
-                    return false;
-                }
+	            private boolean handleEval(Filter.Builder b) {
+	                if (!peekComparisonKey(DslLiterals.PRED_EVAL)) {
+	                    return false;
+	                }
                 String token = readComparison(); // e.g., "eval>=300" or "eval>=#3"
                 Filter.ComparisonOperator op = parseOp(token);
-                String raw = token.replaceAll("[^0-9#.+-]", "");
+                String raw = valuePart(token);
                 Evaluation eval = (raw.isEmpty() || DslLiterals.NULL_LITERAL.equals(raw)) ? null : parseEval(raw);
                 b.withEvaluation(op, eval);
                 return true;
@@ -1307,14 +1339,14 @@ NOT_SAME
              * @param b Used for receiving the predicate.
              * @return Used for indicating whether a token was matched.
              */
-            private boolean handleChances(Filter.Builder b) {
-                if (!peek(DslLiterals.PRED_CHANCES)) {
-                    return false;
-                }
+	            private boolean handleChances(Filter.Builder b) {
+	                if (!peekComparisonKey(DslLiterals.PRED_CHANCES)) {
+	                    return false;
+	                }
                 String token = readComparison();
                 Filter.ComparisonOperator op = parseOp(token);
-                String value = token.replaceAll("\\s", "");
-                b.withChances(op, Chances.parse(value));
+                String value = valuePart(token).replaceAll("\\s", "");
+                b.withChances(op, DslLiterals.NULL_LITERAL.equals(value) ? null : Chances.parse(value));
                 return true;
             }
 
@@ -1352,6 +1384,9 @@ NOT_SAME
                     } else if (c == ']') {
                         depth--;
                     }
+                }
+                if (depth != 0) {
+                    throw new IllegalArgumentException("Unclosed leaf block starting at " + start);
                 }
                 String sub = input.substring(start, pos - 1);
                 b.addLeaf(new Parser(sub).parse());
@@ -1402,6 +1437,61 @@ NOT_SAME
             }
 
             /**
+             * Extracts the right-hand side of a comparison token.
+             */
+            private static String valuePart(String token) {
+                int idx = token.indexOf(DslLiterals.OP_SYMBOL_GREATER_EQUAL);
+                if (idx >= 0) {
+                    return token.substring(idx + DslLiterals.OP_SYMBOL_GREATER_EQUAL.length()).trim();
+                }
+                idx = token.indexOf(DslLiterals.OP_SYMBOL_LESS_EQUAL);
+                if (idx >= 0) {
+                    return token.substring(idx + DslLiterals.OP_SYMBOL_LESS_EQUAL.length()).trim();
+                }
+                idx = token.indexOf(DslLiterals.OP_SYMBOL_GREATER);
+                if (idx >= 0) {
+                    return token.substring(idx + DslLiterals.OP_SYMBOL_GREATER.length()).trim();
+                }
+                idx = token.indexOf(DslLiterals.OP_SYMBOL_LESS);
+                if (idx >= 0) {
+                    return token.substring(idx + DslLiterals.OP_SYMBOL_LESS.length()).trim();
+                }
+                idx = token.indexOf(DslLiterals.OP_SYMBOL_EQUAL);
+                if (idx >= 0) {
+                    return token.substring(idx + DslLiterals.OP_SYMBOL_EQUAL.length()).trim();
+                }
+                throw new IllegalArgumentException("Missing comparison operator in token: " + token);
+            }
+
+            /**
+             * Parses booleans strictly so configuration typos do not silently become
+             * {@code false}.
+             */
+            private static boolean parseBoolean(String token) {
+                if ("true".equalsIgnoreCase(token)) {
+                    return true;
+                }
+                if ("false".equalsIgnoreCase(token)) {
+                    return false;
+                }
+                throw new IllegalArgumentException("Expected boolean literal, got: " + token);
+            }
+
+            /**
+             * Builds an exception for an unrecognized token without advancing past
+             * surrounding valid input.
+             */
+            private IllegalArgumentException unknownToken() {
+                int start = pos;
+                String token = readToken();
+                if (token.isEmpty() && pos < input.length()) {
+                    token = Character.toString(input.charAt(pos));
+                }
+                return new IllegalArgumentException(
+                        "Unknown filter token at " + start + ": " + token);
+            }
+
+            /**
              * Skips ASCII whitespace.
              */
             private void skipWs() {
@@ -1428,6 +1518,25 @@ NOT_SAME
              */
             private boolean peek(String s) {
                 return input.startsWith(s, pos);
+            }
+
+            /**
+             * Checks whether the next token starts with a predicate key followed by a
+             * comparison operator. This prevents misspelled keys that merely share a
+             * prefix from being accepted.
+             */
+            private boolean peekComparisonKey(String key) {
+                int opIndex = pos + key.length();
+                return input.startsWith(key, pos)
+                        && opIndex < input.length()
+                        && isComparisonStart(input.charAt(opIndex));
+            }
+
+            /**
+             * @return whether {@code c} can begin a comparison operator.
+             */
+            private static boolean isComparisonStart(char c) {
+                return c == '>' || c == '<' || c == '=';
             }
 
             /**
