@@ -1,14 +1,16 @@
 package testing;
 
+import static testing.TestSupport.*;
+
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
 import chess.book.model.Book;
 import chess.book.model.Element;
+import chess.book.render.MoveText;
 import chess.book.render.Writer;
 import chess.pdf.document.PageSize;
-import chess.text.ChessMoveText;
 
 /**
  * Zero-dependency regression checks for native chess-book PDF generation.
@@ -37,7 +39,7 @@ public final class BookRegressionTest {
 		testPrettyPrintedJsonBookParsing();
 		testBookExport();
 		testLongSolutionTableRows();
-		testLegacyFenWhitespace();
+		testFenWhitespace();
 		testDefaultHowToReadAndMoveLabels();
 		testSolutionLineParsingUsesCoreSanHelpers();
 		testFreeEditionWatermark();
@@ -53,7 +55,7 @@ public final class BookRegressionTest {
 	 * without changing ordinary text.
 	 */
 	private static void testFigurineMoveTextFormatter() {
-		String formatted = ChessMoveText.figurine("1. Qxe8+ Nbd6 2. bxa8=Q# LONGTABLEMARKER");
+		String formatted = MoveText.figurine("1. Qxe8+ Nbd6 2. bxa8=Q# LONGTABLEMARKER");
 
 		assertTrue(formatted.contains("\u2655\u00D7e8+"), "queen capture figurine");
 		assertTrue(formatted.contains("\u2658bd6"), "knight disambiguation figurine");
@@ -156,15 +158,15 @@ public final class BookRegressionTest {
 	}
 
 	/**
-	 * Verifies that FENs with repeated whitespace still render.
+	 * Verifies that strict FENs with repeated whitespace still render.
 	 *
 	 * @throws Exception if export fails
 	 */
-	private static void testLegacyFenWhitespace() throws Exception {
+	private static void testFenWhitespace() throws Exception {
 		Path file = Files.createTempFile("chess-book-fen-whitespace-", ".pdf");
 		Book book = sampleBook(1);
 		Element[] elements = book.getElements();
-		elements[0].setPosition("1k4nr/ppp3pp/8/8/1b6/3r1P2/PP1B1P1P/R2KR3 w  - 0 1");
+		elements[0].setPosition("1k4nr/ppp3pp/8/8/1b6/3r1P2/PP1B1P1P/R2KR3   w  -  -  0  1");
 		elements[0].setMoves("1. Re8+ Rd8 2. Rxd8#");
 		book.setElements(elements);
 		Writer.write(file, book);
@@ -237,13 +239,14 @@ public final class BookRegressionTest {
 	 */
 	private static void testFreeEditionWatermark() throws Exception {
 		Path file = Files.createTempFile("chess-book-free-watermark-", ".pdf");
-		Writer.write(file, sampleBook(8), true);
+		Writer.write(file, sampleBook(8), true, "ARC-REGRESSION-42");
 
 		byte[] bytes = Files.readAllBytes(file);
 		String text = new String(bytes, StandardCharsets.ISO_8859_1);
 		assertTrue(bytes.length > 60_000, "free watermark pdf size");
 		assertTrue(text.contains("Free electronic copy; printing, resale, and unauthorized redistribution not allowed"),
 				"free watermark metadata");
+		assertTrue(text.contains("Watermark ID ARC-REGRESSION-42"), "free watermark id metadata");
 		assertTrue(text.contains("/ExtGState"), "free watermark opacity resources");
 		assertFalse(text.contains("/Subtype /Image"), "free watermark raster image marker");
 	}
@@ -387,44 +390,6 @@ public final class BookRegressionTest {
 		elements[0].setMoves(moves.toString());
 		book.setElements(elements);
 		return book;
-	}
-
-	/**
-	 * Fails when the supplied condition is false.
-	 *
-	 * @param condition condition to verify
-	 * @param label failure label
-	 */
-	private static void assertTrue(boolean condition, String label) {
-		if (!condition) {
-			throw new AssertionError(label + ": expected true");
-		}
-	}
-
-	/**
-	 * Fails when the supplied condition is true.
-	 *
-	 * @param condition condition to verify
-	 * @param label failure label
-	 */
-	private static void assertFalse(boolean condition, String label) {
-		if (condition) {
-			throw new AssertionError(label + ": expected false");
-		}
-	}
-
-	/**
-	 * Fails when the supplied values differ by more than the tolerance.
-	 *
-	 * @param expected expected value
-	 * @param actual actual value
-	 * @param tolerance accepted absolute difference
-	 * @param label failure label
-	 */
-	private static void assertNear(double expected, double actual, double tolerance, String label) {
-		if (Math.abs(expected - actual) > tolerance) {
-			throw new AssertionError(label + ": expected " + expected + " but was " + actual);
-		}
 	}
 
 	/**

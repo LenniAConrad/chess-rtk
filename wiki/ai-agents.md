@@ -1,175 +1,137 @@
-# AI agents & automation
+# AI Agents and Automation
 
-ChessRTK (CLI: `crtk`) is already a solid “research pipeline” CLI. To make it *excellent* for AI agents (LLM tools, CI bots, dataset builders), focus on two things:
-
-1) **Machine contracts** (stable output + exit codes).
-2) **Batchable primitives** (suite runners and comparators).
-
-This page is a design checklist + backlog of high-value subcommands and flags for agentic use.
-
----
+ChessRTK exposes deterministic chess primitives that work well in CI, scripts,
+and LLM tool workflows. The safest pattern is to use the narrowest command for
+the task: move conversion for notation, FEN commands for position validity,
+perft commands for move-generation checks, and bounded engine commands for
+analysis.
 
 ![Agentic command contracts](../assets/diagrams/crtk-agentic-commands.png)
 
-Diagram source: `assets/diagrams/crtk-agentic-commands.dot` (render with `dot -Tpng -Gdpi=160 -o assets/diagrams/crtk-agentic-commands.png assets/diagrams/crtk-agentic-commands.dot`).
+Diagram source: `assets/diagrams/crtk-agentic-commands.dot`.
 
-## What's already available
+## Command Contracts
 
-- `move list --format uci|san|both`, plus `move uci`, `move san`, `move both`, for deterministic move lists.
-- `engine bestmove --format uci|san|both`, plus `engine bestmove-uci`, `engine bestmove-san`, `engine bestmove-both`, for fixed-format best moves.
-- `move to-san`, `move to-uci`, `move after`, `move play` for move conversion and line application.
-- `fen normalize` and `fen validate` for FEN parse/serialize checks.
-- `fen chess960` for stable Scharnagl-indexed Chess960 start positions.
-- `record` for grouped record workflows.
-- `engine static` for classical evaluation.
-- `doctor` for local Java/config/protocol/artifact diagnostics.
-- `engine uci-smoke` for a bounded UCI engine startup and search check.
-- `engine perft-suite` for quick regression checks.
-- `record files`, `puzzle pgn`, `fen pgn` for dataset plumbing.
+| Need | Command shape | Output contract |
+| --- | --- | --- |
+| Legal moves | `move list --format uci|san|both` | one move per line, deterministic order |
+| UCI move list | `move uci --fen "<FEN>"` | one UCI move per line |
+| SAN move list | `move san --fen "<FEN>"` | one SAN move per line |
+| UCI and SAN together | `move both --fen "<FEN>"` | `uci<TAB>san` per line |
+| Convert one move | `move to-san`, `move to-uci` | one converted move |
+| Apply one move | `move after --fen "<FEN>" <move>` | resulting FEN |
+| Apply a line | `move play --fen "<FEN>" <moves...>` | final FEN, or every FEN with `--intermediate` |
+| Validate FEN | `fen validate --fen "<FEN>"` | `valid<TAB><normalized-fen>` on success |
+| Normalize FEN | `fen normalize --fen "<FEN>"` | normalized FEN |
+| Chess960 starts | `fen chess960 <index>` | deterministic Scharnagl-indexed FEN |
+| Best move | `engine bestmove --format uci|san|both` | one best move row |
+| Built-in fallback search | `engine builtin --format uci|san|both|summary` | bounded in-process search output |
+| Static evaluation | `engine static`, `engine eval` | one evaluation per input position |
+| Movegen counters | `engine perft` | nodes and detailed counters |
+| Movegen regression | `engine perft-suite` | progress bar, then truth/calculated table |
+| Setup health | `doctor`, `config validate`, `engine uci-smoke` | diagnostics and process exit status |
 
-## What AI agents need (contract)
+## Recommended Agent Workflow
 
-### 1) JSON everywhere (opt-in)
+1. Run `crtk doctor` and `crtk config validate` before long jobs.
+2. Normalize input FENs with `fen normalize`.
+3. Use `move list --format both` to expose legal moves with both UCI and SAN.
+4. Use `move after` or `move play` to advance positions instead of editing FENs.
+5. Use `engine bestmove --format both` when a configured UCI engine is
+   available.
+6. Use `engine builtin --format summary` when in-process bounded search is
+   preferable.
+7. Run `engine perft-suite --depth 6 --threads <n>` after core move-generation
+   changes.
 
-For commands that are commonly composed in pipelines, add `--format json` (or `--json`) to emit a single JSON object per run (or JSONL for streams). Suggested:
+## Deterministic Move Tasks
 
-- `engine analyze`, `engine bestmove`, `engine eval`
-- `move list`, `fen tags`
-- `engine perft`
-- `record stats`, `record tag-stats`
+List legal moves:
 
-Keep the default human-readable output, but make JSON the “no ambiguity” mode for agents.
+```bash
+crtk move list --fen "<FEN>" --format both
+```
 
-### 2) Stable exit codes
+Convert moves:
 
-Make exit codes predictable so agents can branch:
+```bash
+crtk move to-san --fen "<FEN>" e2e4
+crtk move to-uci --fen "<FEN>" Nf3
+```
 
-- `0`: success
-- `1`: runtime error (IO, engine crash, parse error, unexpected exception)
-- `2`: usage error (unknown flag, invalid arg)
-- `3`: validation failed (a test/suite assertion failed)
+Apply a SAN or UCI line:
 
-### 3) Determinism switches
+```bash
+crtk move play --fen "<FEN>" "e4 e5 Nf3 Nc6"
+crtk move play --fen "<FEN>" e2e4 e7e5 g1f3 --intermediate
+```
 
-Add flags to make runs reproducible:
+These commands are better for automation than parsing board diagrams because
+they have compact, line-oriented output.
 
-- `--seed <n>`: deterministic random position generation
-- `--limit <n>`: cap processed items (even in “infinite” modes)
-- `--shuffle/--no-shuffle`: control ordering
-- `--time-control` / fixed `--nodes` presets to reduce run-to-run variance
+## Engine Tasks
 
-### 4) Schema versioning
+External UCI engine:
 
-For JSON/JSONL outputs that are consumed by tools:
+```bash
+crtk engine bestmove --fen "<FEN>" --format both --max-duration 5s
+crtk engine analyze --fen "<FEN>" --multipv 3 --max-nodes 1000000
+crtk engine threats --fen "<FEN>" --max-duration 2s
+```
 
-- include `schemaVersion`
-- include `toolVersion` (or git hash)
-- include the effective config (or a `configHash`)
+Built-in Java engine:
 
----
+```bash
+crtk engine builtin --fen "<FEN>" --depth 4 --format summary
+crtk engine builtin --fen "<FEN>" --nodes 100000 --max-duration 500ms --format uci
+```
 
-## High-value commands to add (agent-first)
+Use explicit `--nodes`, `--max-duration`, `--threads`, and `--hash` values when
+you need reproducible engine behavior.
 
-### A) Testing / correctness
+## Move-Generation Checks
 
-#### `engine perft-suite`
+Single-position counters:
 
-Extend the existing perft suite so it can read external expected-node files.
+```bash
+crtk engine perft --fen "<FEN>" --depth 5
+crtk engine perft --fen "<FEN>" --depth 5 --divide
+```
 
-- Input: `--suite <file>` (CSV/JSON/EPD-like) with `fen, depth, nodes`
-- Output: summary + per-position diffs; `--format json`
-- Exit code `3` if any mismatch
+Regression suite:
 
-#### `rules-test`
+```bash
+crtk engine perft-suite --depth 6 --threads 4
+```
 
-Fast invariant checks on move generation:
+The suite prints a progress bar while positions run. After the progress bar
+finishes, it prints a table with `No`, `Depth`, `FEN`, `Truth`, `Calculated`,
+`Speed`, and `Match`.
 
-- legality (king not left in check)
-- reversible move round-trips (make/unmake)
-- FEN parse → serialize stability (already available through `fen normalize`)
+## Record and Dataset Plumbing
 
-#### `pgn-validate`
+Agents can keep data transformations explicit:
 
-Parse a PGN file and report:
+```bash
+crtk record files -i dump/ -o dump/merged.json --recursive --puzzles
+crtk record stats -i dump/merged.json
+crtk record tag-stats -i dump/merged.json
+crtk record analysis-delta -i dump/merged.json -o dump/merged.analysis-delta.jsonl
+```
 
-- parse failures with offsets
-- illegal moves / ambiguous SAN
-- number of games/plies
+Dataset exports:
 
-### B) Engine health & reproducibility
+```bash
+crtk record dataset npy -i dump/merged.json -o training/npy/merged
+crtk record dataset classifier -i dump/puzzles.json -i dump/nonpuzzles.json -o training/classifier/run
+crtk record export training-jsonl -i dump/puzzles.json -i dump/nonpuzzles.json -o training/run.jsonl
+```
 
-#### `engine uci-smoke --format json`
+## Practical Rules
 
-Extend the existing engine health check with machine-readable output:
-
-- include engine identity, executable path, elapsed time, depth, nodes, and PV
-- use a stable schema suitable for CI logs and agent checks
-
-#### `analyze-batch`
-
-Analyze many FENs with strict resource limits and stable structured output:
-
-- `--input <fens.txt>` + `--output <jsonl>`
-- supports `--nodes` / `--max-duration` / `--multipv`
-- emits one JSON object per position (PV(s), eval, wdl, nodes, nps, time)
-
-### C) Evaluation + comparison (research)
-
-#### `eval-diff`
-
-Compare two evaluators/engines on the same positions:
-
-- engine A vs engine B or engine vs classical
-- produces correlation stats, disagreement buckets, “top deltas”
-- outputs CSV/JSON for plots
-
-#### `bestmove-diff`
-
-Compare best moves across engines/settings:
-
-- match rate, blunder-like disagreements (thresholded by eval swing)
-- optionally request `k` candidates (`--multipv`)
-
-#### `tactical-suite`
-
-Run a tactics/EPD suite and score:
-
-- solved / failed / timeouts
-- score by mate-in-n or eval threshold
-- emit a report and per-position trace
-
-### D) Data pipeline utilities
-
-#### `dump-validate`
-
-Validate dump files (`*.puzzles.json`, `*.record`):
-
-- JSON parse, required keys, FEN validity
-- counts, schema version
-
-#### `dump-shard`
-
-Split large JSON arrays into shards (size or count based), ideally as JSONL.
-
-#### `dump-dedupe`
-
-Deduplicate by `(fen, bestmove[, pv])` with stable ordering and stats.
-
----
-
-## Recommended “agent defaults” (flags)
-
-These are small additions that massively improve automation:
-
-- `--quiet`: suppress non-essential logs
-- `--progress none|bar|ascii`: predictable progress output
-- `--fail-fast`: stop on first error in batch mode
-- `--strict`: treat warnings as errors (exit `3`)
-- `--format json|text` and `--output -` (stdout)
-
----
-
-## If you want one thing to implement first
-
-Implement `--format json` on `engine perft-suite`, `engine analyze`, and `engine bestmove`.
-Those two unlock reliable CI, regression testing, and agent-driven evaluation workflows.
+- Prefer `--format uci|san|both|summary` flags over parsing prose.
+- Prefer FEN and UCI/SAN commands over GUI or image output for agent decisions.
+- Put engine budgets on every automated analysis command.
+- Keep `--verbose` off in normal pipelines and enable it only for failures.
+- Treat `doctor --strict`, `config validate`, and `engine uci-smoke` as setup
+  gates for CI jobs.

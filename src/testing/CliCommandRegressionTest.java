@@ -1,10 +1,6 @@
 package testing;
 
-import java.io.ByteArrayOutputStream;
-import java.io.PrintStream;
-import java.nio.charset.StandardCharsets;
-
-import application.Main;
+import static testing.TestSupport.*;
 
 /**
  * Regression checks for lightweight CLI command routing and formatting.
@@ -43,6 +39,7 @@ public final class CliCommandRegressionTest {
 		testFenHelpers();
 		testMovesFormatOption();
 		testGroupedFenAndMoveCommands();
+		testCorePerftCommand();
 		testHelpListsNewCommands();
 		System.out.println("CliCommandRegressionTest: all checks passed");
 	}
@@ -51,7 +48,7 @@ public final class CliCommandRegressionTest {
 	 * Verifies grouped Chess960 lookup by stable Scharnagl index.
 	 */
 	private static void testChess960Lookup() {
-		String output = run("fen", "chess960", "518");
+		String output = TestSupport.runMain("fen", "chess960", "518");
 		assertEquals(CHESS960_STANDARD_FEN, output.strip(), "Chess960 index 518");
 	}
 
@@ -59,7 +56,7 @@ public final class CliCommandRegressionTest {
 	 * Verifies all-layout export keeps the full 960-position order.
 	 */
 	private static void testChess960AllLayouts() {
-		String[] lines = run("fen", "chess960", "--all", "--format", "layout").strip().split("\\R");
+		String[] lines = TestSupport.runMain("fen", "chess960", "--all", "--format", "layout").strip().split("\\R");
 		assertEquals(960, lines.length, "Chess960 layout count");
 		assertEquals("BBQNNRKR", lines[0], "Chess960 first layout");
 		assertEquals("RKRNNQBB", lines[959], "Chess960 last layout");
@@ -69,8 +66,8 @@ public final class CliCommandRegressionTest {
 	 * Verifies FEN normalization and validation helpers return deterministic text.
 	 */
 	private static void testFenHelpers() {
-		assertEquals(SIMPLE_FEN, run("fen", "normalize", SIMPLE_FEN).strip(), "fen normalize output");
-		assertEquals("valid\t" + SIMPLE_FEN, run("fen", "validate", "--fen", SIMPLE_FEN).strip(),
+		assertEquals(SIMPLE_FEN, TestSupport.runMain("fen", "normalize", SIMPLE_FEN).strip(), "fen normalize output");
+		assertEquals("valid\t" + SIMPLE_FEN, TestSupport.runMain("fen", "validate", "--fen", SIMPLE_FEN).strip(),
 				"fen-validate output");
 	}
 
@@ -78,7 +75,7 @@ public final class CliCommandRegressionTest {
 	 * Verifies the generic {@code moves} command accepts the shared format option.
 	 */
 	private static void testMovesFormatOption() {
-		String output = run("move", "list", "--format", "both", "--fen", SIMPLE_FEN);
+		String output = TestSupport.runMain("move", "list", "--format", "both", "--fen", SIMPLE_FEN);
 		assertTrue(output.contains("\t"), "move list --format both tab separator");
 		assertTrue(output.contains("a1"), "move list --format both UCI output");
 		assertTrue(output.contains("K"), "move list --format both SAN output");
@@ -88,22 +85,40 @@ public final class CliCommandRegressionTest {
 	 * Verifies grouped command routing delegates to the same underlying helpers.
 	 */
 	private static void testGroupedFenAndMoveCommands() {
-		assertEquals(SIMPLE_FEN, run("fen", "normalize", SIMPLE_FEN).strip(), "fen normalize output");
-		assertEquals("valid\t" + SIMPLE_FEN, run("fen", "validate", "--fen", SIMPLE_FEN).strip(),
+		assertEquals(SIMPLE_FEN, TestSupport.runMain("fen", "normalize", SIMPLE_FEN).strip(), "fen normalize output");
+		assertEquals("valid\t" + SIMPLE_FEN, TestSupport.runMain("fen", "validate", "--fen", SIMPLE_FEN).strip(),
 				"fen validate output");
-		assertEquals("Ka2", run("move", "to-san", "--fen", SIMPLE_FEN, "a1a2").strip(),
+		assertEquals("Ka2", TestSupport.runMain("move", "to-san", "--fen", SIMPLE_FEN, "a1a2").strip(),
 				"move to-san output");
-		assertEquals("a1a2", run("move", "to-uci", "--fen", SIMPLE_FEN, "Ka2").strip(),
+		assertEquals("a1a2", TestSupport.runMain("move", "to-uci", "--fen", SIMPLE_FEN, "Ka2").strip(),
 				"move to-uci output");
-		String groupedMoves = run("move", "list", "--format", "both", "--fen", SIMPLE_FEN);
+		String groupedMoves = TestSupport.runMain("move", "list", "--format", "both", "--fen", SIMPLE_FEN);
 		assertTrue(groupedMoves.contains("\t"), "move list --format both tab separator");
+	}
+
+	/**
+	 * Verifies detailed perft output stays parseable.
+	 */
+	private static void testCorePerftCommand() {
+		String output = TestSupport.runMain("engine", "perft", "--depth", "2");
+		assertTrue(output.contains("perft depth 2"), "engine perft heading");
+		assertTrue(output.contains("nodes: 400"), "engine perft node count");
+		assertTrue(output.contains("captures: 0"), "engine perft capture count");
+		assertTrue(output.contains("checks: 0"), "engine perft check count");
+		assertTrue(output.contains("time-ms:"), "engine perft timing");
+		assertTrue(output.contains("nps:"), "engine perft throughput");
+
+		String divide = TestSupport.runMain("engine", "perft", "--depth", "1", "--divide");
+		assertTrue(divide.contains("a2a3: nodes=1"), "engine perft divide row");
+		assertTrue(divide.contains("total:"), "engine perft divide total");
+		assertTrue(divide.contains("nodes: 20"), "engine perft divide total nodes");
 	}
 
 	/**
 	 * Verifies help output exposes the new grouped and helper commands.
 	 */
 	private static void testHelpListsNewCommands() {
-		String summary = run("help");
+		String summary = TestSupport.runMain("help");
 		assertTrue(summary.contains("record"), "help lists record group");
 		assertTrue(summary.contains("fen"), "help lists fen group");
 		assertTrue(summary.contains("move"), "help lists move group");
@@ -113,85 +128,37 @@ public final class CliCommandRegressionTest {
 		assertTrue(summary.contains("doctor"), "help lists doctor");
 		assertTrue(!summary.contains("record-to-plain"), "short help omits removed record converter");
 
-		String chess960 = run("help", "fen", "chess960");
+		String chess960 = TestSupport.runMain("help", "fen", "chess960");
 		assertTrue(chess960.contains("usage: crtk fen chess960"), "help fen chess960 usage");
 
-		String record = run("help", "record");
+		String record = TestSupport.runMain("help", "record");
 		assertTrue(record.contains("record subcommands:"), "help record subcommands");
 		assertTrue(record.contains("export FORMAT"), "help record export");
 
-		String recordExport = run("help", "record", "export");
+		String recordExport = TestSupport.runMain("help", "record", "export");
 		assertTrue(recordExport.contains("record export subcommands:"), "help record export subcommands");
 
-		String recordExportPlain = run("help", "record", "export", "plain");
+		String recordExportPlain = TestSupport.runMain("help", "record", "export", "plain");
 		assertTrue(recordExportPlain.contains("record export plain options:"), "help record export plain options");
 
-		String fen = run("help", "fen");
+		String fen = TestSupport.runMain("help", "fen");
 		assertTrue(fen.contains("fen subcommands:"), "help fen subcommands");
 
-		String engine = run("help", "engine");
+		String engine = TestSupport.runMain("help", "engine");
 		assertTrue(engine.contains("uci-smoke"), "help engine lists uci-smoke");
 
-		String uciSmoke = run("help", "engine", "uci-smoke");
+		String enginePerft = TestSupport.runMain("help", "engine", "perft");
+		assertTrue(enginePerft.contains("engine perft options:"), "help engine perft options");
+
+		String enginePerftSuite = TestSupport.runMain("help", "engine", "perft-suite");
+		assertTrue(enginePerftSuite.contains("engine perft-suite options:"),
+				"help engine perft-suite options");
+		assertTrue(enginePerftSuite.contains("--threads N"), "help engine perft-suite threads option");
+
+		String uciSmoke = TestSupport.runMain("help", "engine", "uci-smoke");
 		assertTrue(uciSmoke.contains("engine uci-smoke options:"), "help engine uci-smoke options");
 
-		String doctor = run("help", "doctor");
+		String doctor = TestSupport.runMain("help", "doctor");
 		assertTrue(doctor.contains("doctor options:"), "help doctor options");
-	}
-
-	/**
-	 * Captures standard output while invoking the application entry point.
-	 *
-	 * @param args command-line arguments to pass to {@link Main#main(String[])}
-	 * @return captured standard output
-	 */
-	private static String run(String... args) {
-		PrintStream original = System.out;
-		ByteArrayOutputStream buffer = new ByteArrayOutputStream();
-		try (PrintStream replacement = new PrintStream(buffer, true, StandardCharsets.UTF_8)) {
-			System.setOut(replacement);
-			Main.main(args);
-		} finally {
-			System.setOut(original);
-		}
-		return buffer.toString(StandardCharsets.UTF_8);
-	}
-
-	/**
-	 * Verifies equality for integer values.
-	 *
-	 * @param expected expected value
-	 * @param actual   actual value
-	 * @param label    assertion label
-	 */
-	private static void assertEquals(int expected, int actual, String label) {
-		if (expected != actual) {
-			throw new AssertionError(label + ": expected " + expected + ", got " + actual);
-		}
-	}
-
-	/**
-	 * Verifies equality for string values.
-	 *
-	 * @param expected expected value
-	 * @param actual   actual value
-	 * @param label    assertion label
-	 */
-	private static void assertEquals(String expected, String actual, String label) {
-		if (!expected.equals(actual)) {
-			throw new AssertionError(label + ": expected " + expected + ", got " + actual);
-		}
-	}
-
-	/**
-	 * Fails when the supplied condition is false.
-	 *
-	 * @param condition condition to verify
-	 * @param label     assertion label
-	 */
-	private static void assertTrue(boolean condition, String label) {
-		if (!condition) {
-			throw new AssertionError(label + ": expected true");
-		}
 	}
 }

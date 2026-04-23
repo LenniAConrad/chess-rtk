@@ -565,7 +565,7 @@ public final class Render {
 		if (pos == null) {
 			return this;
 		}
-		MoveList list = pos.getMoves();
+		MoveList list = pos.legalMoves();
 		for (int i = 0; i < list.size(); i++) {
 			short m = list.get(i);
 			if (Move.getFromIndex(m) == fromIndex) {
@@ -585,7 +585,7 @@ public final class Render {
 		if (pos == null) {
 			return this;
 		}
-		byte enPassant = pos.getEnPassant();
+		byte enPassant = pos.enPassantSquare();
 		if (enPassant == Field.NO_SQUARE) {
 			return this;
 		}
@@ -615,16 +615,16 @@ public final class Render {
 		if (pos == null) {
 			return this;
 		}
-		byte whiteKing = pos.getWhiteKing();
-		byte blackKing = pos.getBlackKing();
+		byte whiteKing = pos.kingSquare(true);
+		byte blackKing = pos.kingSquare(false);
 		if (whiteKing != Field.NO_SQUARE) {
-			byte whiteKingside = pos.getWhiteKingside();
+			byte whiteKingside = pos.activeCastlingMoveTarget(Position.WHITE_KINGSIDE);
 			if (whiteKingside != Field.NO_SQUARE) {
 				addArrow(Move.of(whiteKing, whiteKingside), DEFAULT_HINT_ARROW_BORDER, DEFAULT_HINT_ARROW_FILL,
 						hintArrowStroke, DEFAULT_HINT_ARROW_START_SHORTENER, DEFAULT_HINT_ARROW_END_SHORTENER,
 						DEFAULT_HINT_ARROW_HEAD_HEIGHT);
 			}
-			byte whiteQueenside = pos.getWhiteQueenside();
+			byte whiteQueenside = pos.activeCastlingMoveTarget(Position.WHITE_QUEENSIDE);
 			if (whiteQueenside != Field.NO_SQUARE) {
 				addArrow(Move.of(whiteKing, whiteQueenside), DEFAULT_HINT_ARROW_BORDER, DEFAULT_HINT_ARROW_FILL,
 						hintArrowStroke, DEFAULT_HINT_ARROW_START_SHORTENER, DEFAULT_HINT_ARROW_END_SHORTENER,
@@ -632,13 +632,13 @@ public final class Render {
 			}
 		}
 		if (blackKing != Field.NO_SQUARE) {
-			byte blackKingside = pos.getBlackKingside();
+			byte blackKingside = pos.activeCastlingMoveTarget(Position.BLACK_KINGSIDE);
 			if (blackKingside != Field.NO_SQUARE) {
 				addArrow(Move.of(blackKing, blackKingside), DEFAULT_HINT_ARROW_BORDER, DEFAULT_HINT_ARROW_FILL,
 						hintArrowStroke, DEFAULT_HINT_ARROW_START_SHORTENER, DEFAULT_HINT_ARROW_END_SHORTENER,
 						DEFAULT_HINT_ARROW_HEAD_HEIGHT);
 			}
-			byte blackQueenside = pos.getBlackQueenside();
+			byte blackQueenside = pos.activeCastlingMoveTarget(Position.BLACK_QUEENSIDE);
 			if (blackQueenside != Field.NO_SQUARE) {
 				addArrow(Move.of(blackKing, blackQueenside), DEFAULT_HINT_ARROW_BORDER, DEFAULT_HINT_ARROW_FILL,
 						hintArrowStroke, DEFAULT_HINT_ARROW_START_SHORTENER, DEFAULT_HINT_ARROW_END_SHORTENER,
@@ -1348,7 +1348,7 @@ public final class Render {
 		if (pos == null) {
 			return;
 		}
-		byte enPassant = pos.getEnPassant();
+		byte enPassant = pos.enPassantSquare();
 		if (enPassant == Field.NO_SQUARE) {
 			return;
 		}
@@ -1371,15 +1371,15 @@ public final class Render {
 		if (pos == null) {
 			return;
 		}
-		byte whiteKing = pos.getWhiteKing();
-		byte blackKing = pos.getBlackKing();
+		byte whiteKing = pos.kingSquare(true);
+		byte blackKing = pos.kingSquare(false);
 		if (whiteKing != Field.NO_SQUARE) {
-			addCastlingRightHint(whiteKing, pos.getWhiteKingside(), target);
-			addCastlingRightHint(whiteKing, pos.getWhiteQueenside(), target);
+			addCastlingRightHint(whiteKing, pos.activeCastlingMoveTarget(Position.WHITE_KINGSIDE), target);
+			addCastlingRightHint(whiteKing, pos.activeCastlingMoveTarget(Position.WHITE_QUEENSIDE), target);
 		}
 		if (blackKing != Field.NO_SQUARE) {
-			addCastlingRightHint(blackKing, pos.getBlackKingside(), target);
-			addCastlingRightHint(blackKing, pos.getBlackQueenside(), target);
+			addCastlingRightHint(blackKing, pos.activeCastlingMoveTarget(Position.BLACK_KINGSIDE), target);
+			addCastlingRightHint(blackKing, pos.activeCastlingMoveTarget(Position.BLACK_QUEENSIDE), target);
 		}
 	}
 

@@ -143,7 +143,7 @@ public final class HistoryTabController {
         int selected = tabs.getSelectedIndex();
         for (JButton button : buttons) {
             Object idxObj = button.getClientProperty("activityTabIndex");
-            int idx = idxObj instanceof Integer ? (Integer) idxObj : -1;
+            int idx = idxObj instanceof Integer integer ? integer : -1;
             boolean active = idx == selected;
             boolean hover = Boolean.TRUE.equals(button.getClientProperty("activityHover"));
             Color stripe = active ? deps.theme().accent() : (hover ? deps.theme().border() : deps.theme().activityBar());
@@ -156,7 +156,7 @@ public final class HistoryTabController {
                     new javax.swing.border.MatteBorder(0, 1, 0, 0, stripe),
                     new javax.swing.border.EmptyBorder(0, 0, 0, 0)));
             Object baseLabel = button.getClientProperty("activityBaseLabel");
-            String label = baseLabel instanceof String ? (String) baseLabel : button.getText();
+            String label = baseLabel instanceof String string ? string : button.getText();
             button.setText(label);
         }
     }

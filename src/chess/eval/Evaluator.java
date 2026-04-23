@@ -670,25 +670,8 @@ public final class Evaluator implements AutoCloseable {
          * @param index square index 0..63
          * @return piece code at the square
          */
-        private byte pieceAt(int index) {
-            return board[index];
-        }
-
-        /**
-         * Removes a piece from the board and updates king tracking if needed.
-         *
-         * @param index square index 0..63
-         * @param piece piece code currently on the square
-         */
         private void removePieceAt(int index, byte piece) {
-            board[index] = Piece.EMPTY;
-            if (Piece.isKing(piece)) {
-                if (Piece.isWhite(piece)) {
-                    whiteKing = Field.NO_SQUARE;
-                } else {
-                    blackKing = Field.NO_SQUARE;
-                }
-            }
+            clearAnalysisSquare(index);
         }
 
         /**
@@ -698,14 +681,7 @@ public final class Evaluator implements AutoCloseable {
          * @param piece piece code to restore
          */
         private void restorePieceAt(int index, byte piece) {
-            board[index] = piece;
-            if (Piece.isKing(piece)) {
-                if (Piece.isWhite(piece)) {
-                    whiteKing = (byte) index;
-                } else {
-                    blackKing = (byte) index;
-                }
-            }
+            setAnalysisSquare(index, piece);
         }
 
         /**
@@ -715,10 +691,10 @@ public final class Evaluator implements AutoCloseable {
          */
         @Override
         public boolean inCheck() {
-            if (whitesTurn) {
-                return whiteKing != Field.NO_SQUARE && super.inCheck();
+            if (isWhiteToMove()) {
+                return kingSquare(true) != Field.NO_SQUARE && super.inCheck();
             }
-            return blackKing != Field.NO_SQUARE && super.inCheck();
+            return kingSquare(false) != Field.NO_SQUARE && super.inCheck();
         }
     }
 }

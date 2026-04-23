@@ -1,5 +1,7 @@
 package testing;
 
+import static testing.TestSupport.*;
+
 import java.util.HashSet;
 import java.util.Set;
 
@@ -71,32 +73,6 @@ public final class Chess960SetupRegressionTest {
 			}
 		}
 		assertEquals(960, fens.size(), "Chess960 unique FEN count");
-	}
-
-	/**
-	 * Verifies equality for integer values.
-	 *
-	 * @param expected the expected value.
-	 * @param actual   the actual value.
-	 * @param label    the assertion label.
-	 */
-	private static void assertEquals(int expected, int actual, String label) {
-		if (expected != actual) {
-			throw new AssertionError(label + ": expected " + expected + ", got " + actual);
-		}
-	}
-
-	/**
-	 * Verifies equality for string values.
-	 *
-	 * @param expected the expected value.
-	 * @param actual   the actual value.
-	 * @param label    the assertion label.
-	 */
-	private static void assertEquals(String expected, String actual, String label) {
-		if (!expected.equals(actual)) {
-			throw new AssertionError(label + ": expected " + expected + ", got " + actual);
-		}
 	}
 
 	/**

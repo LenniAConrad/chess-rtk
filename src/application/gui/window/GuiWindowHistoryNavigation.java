@@ -1,162 +1,44 @@
 package application.gui.window;
-import application.Config;
 import application.cli.Format;
-import application.cli.command.CommandSupport;
-import application.gui.model.CommandFieldBinding;
-import application.gui.model.CommandFieldSpec;
-import application.gui.model.CommandFieldType;
-import application.gui.model.CommandSpec;
-import application.gui.model.EngineCacheEntry;
-import application.gui.model.EngineUpdate;
-import application.gui.model.HistoryEntry;
-import application.gui.model.MovePair;
-import application.gui.model.PaletteCommand;
 import application.gui.model.PgnMainline;
-import application.gui.model.PvEntry;
-import application.gui.model.RecentCommand;
-import application.gui.model.ReportEntry;
-import application.gui.model.ReportUpdate;
-import application.gui.model.TabLabel;
-import application.gui.history.AblationSupport;
-import application.gui.history.FigurineSanFormatter;
-import application.gui.history.PvTextFormatter;
 import application.gui.history.input.HistoryInputSupport;
 import application.gui.history.pgn.PgnStructureSupport;
 import application.gui.history.text.HistoryTextSupport;
 import application.gui.history.ui.HistoryFileDialogSupport;
-import application.gui.ui.GradientPanel;
-import application.gui.ui.RoundedPanel;
-import application.gui.ui.FocusBorder;
-import application.gui.ui.ThemedScrollBarUI;
-import application.gui.ui.ThemedSliderUI;
-import application.gui.ui.ThemedSplitPaneUI;
-import application.gui.ui.ThemedTabbedPaneUI;
-import application.gui.ui.ThemedComboBoxUI;
-import application.gui.ui.ThemedToggleIcon;
 import application.gui.util.TransferableImage;
-import java.awt.BasicStroke;
-import java.awt.BorderLayout;
-import java.awt.Color;
-import java.awt.Component;
-import java.awt.Composite;
-import java.awt.Container;
-import java.awt.Cursor;
 import java.awt.Desktop;
-import java.awt.Dimension;
-import java.awt.Font;
-import java.awt.Graphics;
-import java.awt.Graphics2D;
-import java.awt.Image;
-import java.awt.AlphaComposite;
-import java.awt.GridLayout;
-import java.awt.Insets;
-import java.awt.Point;
-import java.awt.Rectangle;
-import java.awt.RenderingHints;
 import java.awt.datatransfer.Clipboard;
-import java.awt.datatransfer.DataFlavor;
-import java.awt.datatransfer.StringSelection;
-import java.awt.Toolkit;
 import java.awt.KeyboardFocusManager;
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
-import java.awt.event.KeyEvent;
-import java.awt.event.WindowAdapter;
-import java.awt.event.WindowEvent;
 import java.awt.image.BufferedImage;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
-import java.util.Properties;
-import java.util.Random;
-import java.util.Set;
 import javax.imageio.ImageIO;
-import javax.swing.BorderFactory;
-import javax.swing.Box;
-import javax.swing.BoxLayout;
-import javax.swing.ButtonGroup;
-import javax.swing.DefaultListModel;
-import javax.swing.JButton;
-import javax.swing.JCheckBox;
 import javax.swing.JComboBox;
-import javax.swing.JDialog;
 import javax.swing.JFileChooser;
-import javax.swing.JFrame;
-import javax.swing.JLabel;
-import javax.swing.JList;
-import javax.swing.JMenu;
-import javax.swing.JMenuItem;
 import javax.swing.JOptionPane;
-import javax.swing.JPanel;
-import javax.swing.JPopupMenu;
-import javax.swing.JScrollPane;
-import javax.swing.JScrollBar;
-import javax.swing.JTabbedPane;
-import javax.swing.JSlider;
-import javax.swing.JSplitPane;
-import javax.swing.JTable;
-import javax.swing.plaf.SplitPaneUI;
-import javax.swing.JTextArea;
-import javax.swing.JTextField;
-import javax.swing.SwingWorker;
-import javax.swing.SwingUtilities;
 import javax.swing.Timer;
-import javax.swing.ImageIcon;
 import javax.swing.JComponent;
 import javax.swing.AbstractAction;
 import javax.swing.KeyStroke;
 import javax.swing.ActionMap;
 import javax.swing.InputMap;
-import javax.swing.SwingConstants;
-import javax.swing.UIManager;
 import javax.swing.text.JTextComponent;
-import javax.swing.border.Border;
-import javax.swing.border.BevelBorder;
-import javax.swing.border.CompoundBorder;
-import javax.swing.border.EmptyBorder;
-import javax.swing.border.EtchedBorder;
-import javax.swing.border.LineBorder;
-import javax.swing.border.MatteBorder;
-import javax.swing.border.TitledBorder;
-import javax.swing.event.ChangeEvent;
-import javax.swing.event.ChangeListener;
-import javax.swing.event.DocumentEvent;
-import javax.swing.event.DocumentListener;
 import javax.swing.filechooser.FileNameExtensionFilter;
-import javax.swing.table.DefaultTableModel;
-import javax.swing.table.JTableHeader;
-import chess.core.Field;
 import chess.core.Move;
 import chess.core.MoveList;
-import chess.core.Piece;
 import chess.core.Position;
 import chess.core.SAN;
-import chess.core.Setup;
-import chess.eval.Evaluator;
-import chess.eco.Encyclopedia;
-import chess.eco.Entry;
-import chess.images.assets.Pictures;
 import chess.struct.Game;
 import chess.struct.Pgn;
-import chess.tag.Tagging;
-import chess.uci.Analysis;
-import chess.uci.Chances;
-import chess.uci.Evaluation;
-import chess.uci.Engine;
 import chess.uci.Output;
-import chess.uci.Protocol;
 
 /**
  * GuiWindowHistoryNavigation class.
@@ -177,7 +59,7 @@ abstract class GuiWindowHistoryNavigation extends GuiWindowHistoryActions {
 				if (!vsEngineMode || position == null) {
 					return true;
 				}
-				return position.isWhiteTurn() == vsEngineHumanWhite;
+				return position.isWhiteToMove() == vsEngineHumanWhite;
 			}
 
 			/**
@@ -185,7 +67,7 @@ abstract class GuiWindowHistoryNavigation extends GuiWindowHistoryActions {
 			 * @return return value.
 			 */
 			protected boolean isVsEngineEngineTurn() {
-				return vsEngineMode && position != null && position.isWhiteTurn() != vsEngineHumanWhite;
+				return vsEngineMode && position != null && position.isWhiteToMove() != vsEngineHumanWhite;
 			}
 
 			/**
@@ -475,7 +357,7 @@ abstract class GuiWindowHistoryNavigation extends GuiWindowHistoryActions {
 			 * @return return value.
 			 */
 			protected boolean hasPromotionMove(byte from, byte to) {
-				MoveList moves = position.getMoves();
+				MoveList moves = position.legalMoves();
 				for (int i = 0; i < moves.size(); i++) {
 					short move = moves.get(i);
 					if (Move.getFromIndex(move) != from || Move.getToIndex(move) != to) {
@@ -527,8 +409,8 @@ abstract class GuiWindowHistoryNavigation extends GuiWindowHistoryActions {
 				}
 				PgnNode next = findChildByMove(base, move);
 				if (next == null) {
-					Position after = base.positionAfter.copyOf().play(move);
-					next = new PgnNode(san, base, after.copyOf(), move, base.ply + 1);
+					Position after = base.positionAfter.copy().play(move);
+					next = new PgnNode(san, base, after.copy(), move, base.ply + 1);
 					if (base.mainNext == null) {
 						base.mainNext = next;
 					} else {
@@ -546,18 +428,18 @@ abstract class GuiWindowHistoryNavigation extends GuiWindowHistoryActions {
 				if (pgnNavigator != null) {
 					return;
 				}
-				Position start = history.isEmpty() ? position.copyOf() : history.get(0).copyOf();
-				PgnNode root = new PgnNode(null, null, start.copyOf(), Move.NO_MOVE, 0);
+				Position start = history.isEmpty() ? position.copy() : history.get(0).copy();
+				PgnNode root = new PgnNode(null, null, start.copy(), Move.NO_MOVE, 0);
 				PgnNode cursor = root;
-				Position current = start.copyOf();
+				Position current = start.copy();
 				for (String san : moveHistory) {
 					if (san == null || san.isBlank()) {
 						continue;
 					}
 					try {
 						short move = SAN.fromAlgebraic(current, san);
-						Position after = current.copyOf().play(move);
-						PgnNode next = new PgnNode(san, cursor, after.copyOf(), move, cursor.ply + 1);
+						Position after = current.copy().play(move);
+						PgnNode next = new PgnNode(san, cursor, after.copy(), move, cursor.ply + 1);
 						cursor.mainNext = next;
 						cursor = next;
 						current = after;
@@ -890,19 +772,19 @@ abstract class GuiWindowHistoryNavigation extends GuiWindowHistoryActions {
 					sb.append(event);
 				}
 				if (!site.isBlank()) {
-					if (sb.length() > 0) {
+						if (!sb.isEmpty()) {
 						sb.append(" — ");
 					}
 					sb.append(site);
 				}
 				if (!date.isBlank()) {
-					if (sb.length() > 0) {
+						if (!sb.isEmpty()) {
 						sb.append(" — ");
 					}
 					sb.append(date);
 				}
 				if (!white.isBlank() || !black.isBlank()) {
-					if (sb.length() > 0) {
+						if (!sb.isEmpty()) {
 						sb.append(" | ");
 					}
 					sb.append(white.isBlank() ? "?" : white);
@@ -910,12 +792,12 @@ abstract class GuiWindowHistoryNavigation extends GuiWindowHistoryActions {
 					sb.append(black.isBlank() ? "?" : black);
 				}
 				if (pgnResult != null && !pgnResult.isBlank() && !"*".equals(pgnResult)) {
-					if (sb.length() > 0) {
+						if (!sb.isEmpty()) {
 						sb.append(" | ");
 					}
 					sb.append(pgnResult);
 				}
-				if (sb.length() == 0) {
+					if (sb.isEmpty()) {
 					sb.append("PGN loaded");
 				}
 				pgnSummaryLabel.setText(truncate(sb.toString(), 72));
@@ -975,9 +857,9 @@ abstract class GuiWindowHistoryNavigation extends GuiWindowHistoryActions {
 			protected PgnMainline buildPgnMainline(Game game) {
 				List<String> fens = new ArrayList<>();
 				Position start = game.getStartPosition() != null
-						? game.getStartPosition().copyOf()
+						? game.getStartPosition().copy()
 						: new Position(Game.STANDARD_START_FEN);
-				Position current = start.copyOf();
+				Position current = start.copy();
 				fens.add(current.toString());
 				Game.Node node = game.getMainline();
 				int ply = 0;
@@ -985,7 +867,7 @@ abstract class GuiWindowHistoryNavigation extends GuiWindowHistoryActions {
 					String san = node.getSan();
 					try {
 						short move = SAN.fromAlgebraic(current, san);
-						current = current.copyOf().play(move);
+						current = current.copy().play(move);
 						fens.add(current.toString());
 						ply++;
 					} catch (IllegalArgumentException ex) {
@@ -1019,7 +901,7 @@ abstract class GuiWindowHistoryNavigation extends GuiWindowHistoryActions {
 				}
 				pgnResult = game.getResult();
 				if (game.getStartPosition() != null) {
-					pgnStartPosition = game.getStartPosition().copyOf();
+					pgnStartPosition = game.getStartPosition().copy();
 				}
 				for (java.util.Map.Entry<String, String> entry : game.getTags().entrySet()) {
 					if (entry.getKey() == null) {
@@ -1057,7 +939,7 @@ abstract class GuiWindowHistoryNavigation extends GuiWindowHistoryActions {
 					pgnNavigator.current = node;
 				}
 				if (node.parent == null) {
-					position = node.positionAfter.copyOf();
+					position = node.positionAfter.copy();
 					fenField.setText(position.toString());
 					updateHistoryStart(position);
 					lastMove = Move.NO_MOVE;
@@ -1074,14 +956,14 @@ abstract class GuiWindowHistoryNavigation extends GuiWindowHistoryActions {
 				java.util.Collections.reverse(path);
 				for (PgnNode step : path) {
 					if (step.parent != null && step.parent.positionAfter != null) {
-						history.add(step.parent.positionAfter.copyOf());
+						history.add(step.parent.positionAfter.copy());
 					}
 					if (step.san != null) {
 						moveHistory.add(step.san);
 						currentLineNodes.add(step);
 					}
 				}
-				position = node.positionAfter.copyOf();
+				position = node.positionAfter.copy();
 				fenField.setText(position.toString());
 				if (pgnNavigator != null && pgnNavigator.root != null && pgnNavigator.root.positionAfter != null) {
 					updateHistoryStart(pgnNavigator.root.positionAfter);

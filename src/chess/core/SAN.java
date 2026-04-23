@@ -1,595 +1,767 @@
 package chess.core;
 
+import static chess.core.Position.*;
+
 /**
- * Used for conversion between moves and Standard Algebraic Notation (SAN).
+ * Standard Algebraic Notation helpers backed by core move generation.
+ *
  * <p>
- * This class supports:
- * <ul>
- * <li>Generating SAN from a given {@link Position} and {@link Move}, including
- * disambiguation, captures, promotions, and check/checkmate indicators.</li>
- * <li>Parsing a SAN string back into a legal {@link Move} in a given
- * position.</li>
- * </ul>
+ * The helper generates SAN by inspecting legal moves directly. It
+ * handles captures, disambiguation, promotions, standard castling, Chess960
+ * castling, check suffixes, and checkmate suffixes without converting through
+ * another position representation.
  * </p>
- * 
- * @author Lennart A. Conrad
+ *
  * @since 2025
+ * @author Lennart A. Conrad
  */
-public class SAN {
+public final class SAN {
 
-	/**
-	 * Used for notation of kingside castling in SAN.
-	 */
-	private static final String CASTLING_KINGSIDE = "O-O";
+    /**
+     * SAN token for king-side castling.
+     */
+    private static final String CASTLING_KINGSIDE = "O-O";
 
-	/**
-	 * Used for notation of queenside castling in SAN.
-	 */
-	private static final String CASTLING_QUEENSIDE = "O-O-O";
+    /**
+     * SAN token for queen-side castling.
+     */
+    private static final String CASTLING_QUEENSIDE = "O-O-O";
 
-	/**
-	 * Used for the result token representing a White win.
-	 */
-	public static final String RESULT_WHITE_WIN = "1-0";
+    /**
+     * Result token representing a White win.
+     */
+    public static final String RESULT_WHITE_WIN = "1-0";
 
-	/**
-	 * Used for the result token representing a Black win.
-	 */
-	public static final String RESULT_BLACK_WIN = "0-1";
+    /**
+     * Result token representing a Black win.
+     */
+    public static final String RESULT_BLACK_WIN = "0-1";
 
-	/**
-	 * Used for the result token representing a draw.
-	 */
-	public static final String RESULT_DRAW = "1/2-1/2";
+    /**
+     * Result token representing a draw.
+     */
+    public static final String RESULT_DRAW = "1/2-1/2";
 
-	/**
-	 * Used for the result token representing an undefined or ongoing game.
-	 */
-	public static final String RESULT_UNKNOWN = "*";
+    /**
+     * Result token representing an unknown or ongoing game.
+     */
+    public static final String RESULT_UNKNOWN = "*";
 
-	/**
-	 * Private constructor to prevent instantiation of this class.
-	 */
-	private SAN() {
-		// Prevent instantiation
-	}
+    /**
+     * Utility class; prevents instantiation.
+     */
+    private SAN() {
+        // utility
+    }
 
-	/**
-	 * Converts a move into Standard Algebraic Notation (SAN) within the supplied context.
-	 *
-	 * <p>
-	 * Handles castling, pawn promotions, captures with file disambiguation, and
-	 * check/checkmate suffixes determined by {@link #algebraicEnding(Position, short)}.
-	 * </p>
-	 *
-	 * @param context the current position before the move
-	 * @param move move to describe
-	 * @return SAN string describing the move
-	 */
-	public static String toAlgebraic(Position context, short move) {
-		String ending = algebraicEnding(context, move);
+    /**
+     * Converts one legal move to SAN in the supplied position.
+     *
+     * @param context position before the move
+     * @param move encoded move
+     * @return SAN text
+     * @throws IllegalArgumentException when the move has no moving piece
+     */
+    public static String toAlgebraic(Position context, short move) {
+        return toAlgebraic(context, move, null);
+    }
 
-		if (Move.isKingsideCastle(context, move)) {
-			return CASTLING_KINGSIDE + ending;
-		}
+    /**
+     * Converts one legal move to SAN with an optional legal-move cache.
+     *
+     * @param context position before the move
+     * @param move encoded move
+     * @param legalMoves legal moves for {@code context}, or null when unavailable
+     * @return SAN text
+     * @throws IllegalArgumentException when the move has no moving piece
+     */
+    private static String toAlgebraic(Position context, short move, MoveList legalMoves) {
+        if (context == null) {
+            throw new IllegalArgumentException("context == null");
+        }
+        int from = move & 0x3F;
+        int to = (move >>> 6) & 0x3F;
+        int promotion = (move >>> 12) & 0x7;
+        int moving = context.pieceIndexAt(from);
+        if (moving < 0) {
+            throw new IllegalArgumentException("No piece on " + Bits.name(from));
+        }
 
-		if (Move.isQueensideCastle(context, move)) {
-			return CASTLING_QUEENSIDE + ending;
-		}
+        String ending = algebraicEnding(context, move);
+        int castleRight = context.castlingRightForMove(moving, to);
+        if (castleRight != 0) {
+            return isKingsideCastle(castleRight) ? CASTLING_KINGSIDE + ending : CASTLING_QUEENSIDE + ending;
+        }
 
-		byte moveto = Move.getToIndex(move);
-		byte movefrom = Move.getFromIndex(move);
-		byte promotion = Move.getPromotion(move);
+        boolean capture = context.pieceIndexAt(to) >= 0 || isEnPassantCapture(context, moving, to);
+        StringBuilder result = new StringBuilder(8);
+        String piece = pieceSymbol(moving);
+        result.append(piece);
+        if (!piece.isEmpty()) {
+            result.append(disambiguation(context, move, moving, legalMoves));
+        } else if (capture) {
+            result.append(Field.getFile((byte) from));
+        }
+        if (capture) {
+            result.append('x');
+        }
+        result.append(Field.toString((byte) to));
+        appendPromotion(result, promotion);
+        result.append(ending);
+        return result.toString();
+    }
 
-		boolean iscapture = context.isCapture(movefrom, moveto);
-		byte piece = context.board[movefrom];
-		String disambiguation = buildDisambiguation(context, move, piece);
-		String capture = iscapture ? "x" : "";
+    /**
+     * Parses a SAN token to the matching legal move.
+     *
+     * @param context position before the move
+     * @param algebraic SAN token
+     * @return encoded legal move
+     * @throws IllegalArgumentException when no legal move matches
+     */
+    public static short fromAlgebraic(Position context, String algebraic) {
+        if (context == null) {
+            throw new IllegalArgumentException("context == null");
+        }
+        String san = stripAnnotations(normalizeMoveToken(algebraic));
+        MoveList moves = MoveGenerator.generateLegalMoves(context);
+        for (int i = 0; i < moves.size(); i++) {
+            short move = moves.raw(i);
+            if (toAlgebraic(context, move, moves).equals(san)) {
+                return move;
+            }
+        }
+        throw new IllegalArgumentException("Invalid SAN '" + algebraic + "' in position '" + context + "'");
+    }
 
-		if (iscapture && Piece.isPawn(piece)) {
-			capture = Field.getFile(movefrom) + capture;
-		}
+    /**
+     * Normalizes one SAN token before matching.
+     *
+     * <p>
+     * This accepts common zero and lowercase-o castling spellings while
+     * preserving suffixes such as {@code +}, {@code #}, {@code !}, and
+     * {@code ?}.
+     * </p>
+     *
+     * @param token raw SAN token
+     * @return normalized SAN token
+     */
+    public static String normalizeMoveToken(String token) {
+        if (token == null) {
+            return "";
+        }
+        String trimmed = token.trim();
+        if (startsWithCastle(trimmed, "0-0-0") || startsWithCastle(trimmed, "o-o-o")) {
+            return CASTLING_QUEENSIDE + trimmed.substring(5);
+        }
+        if (startsWithCastle(trimmed, "0-0") || startsWithCastle(trimmed, "o-o")) {
+            return CASTLING_KINGSIDE + trimmed.substring(3);
+        }
+        return trimmed;
+    }
 
-		String destination = Field.toString(moveto);
-		String promotions = buildPromotionSuffix(promotion);
+    /**
+     * Applies a SAN move line to a starting position.
+     *
+     * <p>
+     * Parsing stops at the first invalid token and returns the position reached
+     * by the valid prefix together with metadata for the last parsed move.
+     * </p>
+     *
+     * @param start starting position
+     * @param movetext SAN move text
+     * @return parsed line result
+     */
+    public static PlayedLine playLine(Position start, String movetext) {
+        if (start == null) {
+            throw new IllegalArgumentException("start == null");
+        }
+        Position initial = start.copy();
+        Position current = start.copy();
+        String cleaned = cleanMoveString(movetext);
+        if (cleaned.isEmpty()) {
+            return new PlayedLine(initial, current, chess.core.Move.NO_MOVE, "", 0, true, 0, false, "");
+        }
+        short lastMove = chess.core.Move.NO_MOVE;
+        String lastSan = "";
+        int lastMoveNumber = 0;
+        boolean lastMoveWasWhite = true;
+        int plies = 0;
+        int tokenStart = 0;
+        for (int i = 0; i <= cleaned.length(); i++) {
+            if (i == cleaned.length() || cleaned.charAt(i) == ' ') {
+                if (i > tokenStart) {
+                    String token = cleaned.substring(tokenStart, i);
+                    try {
+                        short move = fromAlgebraic(current, token);
+                        lastMove = move;
+                        lastSan = token;
+                        lastMoveNumber = current.fullMoveNumber();
+                        lastMoveWasWhite = current.isWhiteToMove();
+                        current.play(move);
+                        plies++;
+                    } catch (IllegalArgumentException ex) {
+                        return new PlayedLine(initial, current, lastMove, lastSan, lastMoveNumber,
+                                lastMoveWasWhite, plies, false, token);
+                    }
+                }
+                tokenStart = i + 1;
+            }
+        }
+        return new PlayedLine(initial, current, lastMove, lastSan, lastMoveNumber, lastMoveWasWhite, plies, true, "");
+    }
 
-		return new StringBuilder(7)
-				.append(getPieceSymbol(piece))
-				.append(disambiguation)
-				.append(capture)
-				.append(destination)
-				.append(promotions)
-				.append(ending)
-				.toString();
-	}
+    /**
+     * Returns the last SAN-like move token from raw movetext.
+     *
+     * @param movetext raw SAN/PGN movetext
+     * @return last move token, or an empty string when none is present
+     */
+    public static String lastMoveToken(String movetext) {
+        String cleaned = cleanMoveString(movetext);
+        if (cleaned.isBlank()) {
+            return "";
+        }
+        int index = cleaned.lastIndexOf(' ');
+        return index < 0 ? cleaned : cleaned.substring(index + 1);
+    }
 
-	/**
-	 * Generates the check/mate suffix for a SAN string.
-	 *
-	 * <p>
-	 * A move results in {@code "+"} when the resulting position leaves the opponent
-	 * in check, and {@code "#"} when no legal moves remain (checkmate).
-	 * </p>
-	 *
-	 * @param context the position before the move
-	 * @param move move being played
-	 * @return {@code "+"} for check, {@code "#"} for mate, or {@code ""} otherwise
-	 */
-	private static String algebraicEnding(Position context, short move) {
-		Position next = context.copyOf().play(move);
-		if (!next.inCheck()) {
-			return "";
-		}
+    /**
+     * Cleans simple PGN movetext to SAN tokens separated by single spaces.
+     *
+     * <p>
+     * Comments, parenthesized variations, move numbers, NAGs, and result tokens
+     * are skipped. This method is intentionally allocation-light and regex-free
+     * for common engine and CLI conversion paths.
+     * </p>
+     *
+     * @param movetext raw SAN or PGN-style movetext
+     * @return cleaned SAN token stream
+     */
+    public static String cleanMoveString(String movetext) {
+        if (movetext == null || movetext.isEmpty()) {
+            return "";
+        }
+        StringBuilder result = new StringBuilder(movetext.length());
+        StringBuilder token = new StringBuilder(16);
+        int commentDepth = 0;
+        int variationDepth = 0;
+        for (int i = 0; i <= movetext.length(); i++) {
+            char ch = i == movetext.length() ? ' ' : movetext.charAt(i);
+            if (commentDepth > 0) {
+                commentDepth = updateCommentDepth(commentDepth, ch);
+                continue;
+            }
+            if (variationDepth > 0) {
+                variationDepth = updateVariationDepth(variationDepth, ch);
+                continue;
+            }
+            if (ch == '{') {
+                appendCleanToken(result, token);
+                commentDepth++;
+            } else if (ch == '(') {
+                appendCleanToken(result, token);
+                variationDepth++;
+            } else if (Character.isWhitespace(ch)) {
+                appendCleanToken(result, token);
+            } else {
+                token.append(ch);
+            }
+        }
+        return result.toString();
+    }
 
-		return next.getMoves().size == 0
-				? "#"
-				: "+";
-	}
+    /**
+     * Updates the current brace-comment nesting depth.
+     *
+     * @param depth current depth
+     * @param ch current character
+     * @return updated depth
+     */
+    private static int updateCommentDepth(int depth, char ch) {
+        return ch == '}' ? depth - 1 : depth;
+    }
 
-	/**
-	 * Maps a piece code to the algebraic symbol used in SAN.
-	 *
-	 * <p>
-	 * Returns uppercase letters for minor/major pieces and an empty string for
-	 * pawns, whose origin file is printed explicitly when capturing.
-	 * </p>
-	 *
-	 * @param piece the piece code
-	 * @return single-character notation or {@code ""} for pawns
-	 */
-	private static String getPieceSymbol(byte piece) {
-		switch (piece) {
-			case Piece.BLACK_BISHOP, Piece.WHITE_BISHOP:
-				return "B";
-			case Piece.BLACK_KING, Piece.WHITE_KING:
-				return "K";
-			case Piece.BLACK_KNIGHT, Piece.WHITE_KNIGHT:
-				return "N";
-			case Piece.BLACK_QUEEN, Piece.WHITE_QUEEN:
-				return "Q";
-			case Piece.BLACK_ROOK, Piece.WHITE_ROOK:
-				return "R";
-			case Piece.BLACK_PAWN, Piece.WHITE_PAWN:
-				return "";
-			default:
-				return "?";
-		}
-	}
+    /**
+     * Updates the current parenthesized-variation nesting depth.
+     *
+     * @param depth current depth
+     * @param ch current character
+     * @return updated depth
+     */
+    private static int updateVariationDepth(int depth, char ch) {
+        if (ch == '(') {
+            return depth + 1;
+        }
+        return ch == ')' ? depth - 1 : depth;
+    }
 
-	/**
-	 * Builds the disambiguation string when multiple pieces of the same type can reach the destination.
-	 *
-	 * <p>
-	 * Checks every legal move in the position and returns either the moving piece's file,
-	 * rank, or both (ordered) just enough to make the SAN string unambiguous.
-	 * </p>
-	 *
-	 * @param context the current position
-	 * @param move    the move that requires disambiguation
-	 * @param piece   the moving piece code
-	 * @return file and/or rank string or {@code ""} when uniquely identified
-	 */
-	private static String buildDisambiguation(Position context, short move, byte piece) {
-		MoveList moves = context.getMoves();
-		byte movefrom = Move.getFromIndex(move);
-		byte moveto = Move.getToIndex(move);
-		char file = Field.getFile(movefrom);
-		char rank = Field.getRank(movefrom);
-		String fileString = "";
-		String rankString = "";
+    /**
+     * Cleans PGN move text while preserving variation parentheses.
+     *
+     * @param movetext raw PGN move text
+     * @return cleaned text with variation grouping preserved
+     */
+    public static String cleanMoveStringKeepVariationsRegex(String movetext) {
+        if (movetext == null || movetext.isEmpty()) {
+            return "";
+        }
+        return movetext
+                .replaceAll("\\{[^}]*\\}", " ")
+                .replaceAll("(?m);[^\\r\\n]*", " ")
+                .replaceAll("\\$\\d+", " ")
+                .replaceAll("\\d+\\.(?:\\.\\.)?", " ")
+                .replaceAll("(?<!\\S)(?:1-0|0-1|1/2-1/2|\\*)(?!\\S)", " ")
+                .replaceAll("\\s*\\(\\s*", " ( ")
+                .replaceAll("\\s*\\)\\s*", " ) ")
+                .replaceAll("\\s+", " ")
+                .trim();
+    }
 
-		if (!Piece.isPawn(piece)) {
-			for (int i = 0; i < moves.size; i++) {
-				short m = moves.moves[i];
-				byte mfrom = Move.getFromIndex(m);
-				byte mto = Move.getToIndex(m);
-				if (movefrom != mfrom && moveto == mto && piece == context.board[mfrom]) {
-					if (file != Field.getFile(mfrom)) {
-						fileString = String.valueOf(file);
-					} else if (rank != Field.getRank(mfrom)) {
-						rankString = String.valueOf(rank);
-					}
-				}
-			}
-		}
+    /**
+     * Appends a normalized token unless it is PGN metadata.
+     *
+     * @param result cleaned movetext builder
+     * @param token current token builder
+     */
+    private static void appendCleanToken(StringBuilder result, StringBuilder token) {
+        if (token.isEmpty()) {
+            return;
+        }
+        String value = token.toString();
+        token.setLength(0);
+        value = stripMoveNumberPrefix(value);
+        if (value.isEmpty()) {
+            return;
+        }
+        if (isMoveNumber(value) || isNag(value) || isResult(value)) {
+            return;
+        }
+        if (!result.isEmpty()) {
+            result.append(' ');
+        }
+        result.append(value);
+    }
 
-		return fileString + rankString;
-	}
+    /**
+     * Computes the check or checkmate suffix for a move.
+     *
+     * @param context position before the move
+     * @param move encoded move
+     * @return {@code +}, {@code #}, or an empty string
+     */
+    private static String algebraicEnding(Position context, short move) {
+        Position after = context.copy().play(move);
+        boolean checkedSide = after.isWhiteToMove();
+        if (!MoveGenerator.isKingAttacked(after, checkedSide)) {
+            return "";
+        }
+        return MoveGenerator.hasLegalMove(after) ? "+" : "#";
+    }
 
-	/**
-	 * Builds the promotion suffix added to a SAN move.
-	 *
-	 * @param promotion promotion piece code from the move
-	 * @return string like {@code =Q} when promotion occurs, otherwise {@code ""}
-	 */
-	private static String buildPromotionSuffix(byte promotion) {
-		switch (promotion) {
-			case Move.PROMOTION_BISHOP:
-				return "=B";
-			case Move.PROMOTION_KNIGHT:
-				return "=N";
-			case Move.PROMOTION_QUEEN:
-				return "=Q";
-			case Move.PROMOTION_ROOK:
-				return "=R";
-			default:
-				return "";
-		}
-	}
+    /**
+     * Returns whether a castling right is king-side.
+     *
+     * @param right castling-right bit
+     * @return true for king-side castling
+     */
+    private static boolean isKingsideCastle(int right) {
+        return right == WHITE_KINGSIDE || right == BLACK_KINGSIDE;
+    }
 
-	/**
-	 * Parses a SAN string back into the corresponding legal move in the
-	 * supplied position.
-	 *
-	 * <p>
-	 * Accepts strings with trailing annotations such as {@code !} or {@code ?}
-	 * and matches them against the generated SAN list to ensure legality.
-	 * </p>
-	 *
-	 * @param context   the current position
-	 * @param algebraic the SAN string of the move (may include annotations like {@code !} or {@code ?})
-	 * @return the matching {@link Move}
-	 * @throws IllegalArgumentException if no matching legal move is found
-	 */
-	public static short fromAlgebraic(Position context, String algebraic) throws IllegalArgumentException {
-		String san = normalizeMoveToken(algebraic).replaceAll("[!?]+", "");
+    /**
+     * Returns whether a move is an en-passant capture.
+     *
+     * @param context position before the move
+     * @param moving moving piece index
+     * @param to target square
+     * @return true when the move captures en-passant
+     */
+    private static boolean isEnPassantCapture(Position context, int moving, int to) {
+        return (moving == WHITE_PAWN || moving == BLACK_PAWN)
+                && to == context.enPassantSquare
+                && context.pieceIndexAt(to) < 0;
+    }
 
-		MoveList moveList = context.getMoves();
-		for (int i = 0; i < moveList.size; i++) {
-			short move = moveList.moves[i];
-			if (toAlgebraic(context, move).equals(san)) {
-				return move;
-			}
-		}
+    /**
+     * Builds SAN disambiguation for a non-pawn piece move.
+     *
+     * @param context position before the move
+     * @param move encoded move
+     * @param moving moving piece index
+     * @return minimal file/rank disambiguation
+     */
+    private static String disambiguation(Position context, short move, int moving, MoveList legalMoves) {
+        if (moving == WHITE_PAWN || moving == BLACK_PAWN) {
+            return "";
+        }
+        int from = move & 0x3F;
+        int to = (move >>> 6) & 0x3F;
+        char file = Field.getFile((byte) from);
+        char rank = Field.getRank((byte) from);
+        boolean ambiguous = false;
+        boolean sameFile = false;
+        boolean sameRank = false;
+        MoveList moves = legalMoves == null ? MoveGenerator.generateLegalMoves(context) : legalMoves;
+        for (int i = 0; i < moves.size(); i++) {
+            short candidate = moves.raw(i);
+            int candidateFrom = candidate & 0x3F;
+            int candidateTo = (candidate >>> 6) & 0x3F;
+            if (candidateFrom == from || candidateTo != to || context.pieceIndexAt(candidateFrom) != moving) {
+                continue;
+            }
+            ambiguous = true;
+            sameFile |= Field.getFile((byte) candidateFrom) == file;
+            sameRank |= Field.getRank((byte) candidateFrom) == rank;
+        }
+        if (!ambiguous) {
+            return "";
+        }
+        if (!sameFile) {
+            return String.valueOf(file);
+        }
+        if (!sameRank) {
+            return String.valueOf(rank);
+        }
+        return new String(new char[] { file, rank });
+    }
 
-		throw new IllegalArgumentException("Invalid SAN '" + algebraic + "' in position '" + context.toString() + "'");
-	}
+    /**
+     * Maps an internal piece index to a SAN piece symbol.
+     *
+     * @param piece piece index
+     * @return uppercase piece symbol, or an empty string for pawns
+     */
+    private static String pieceSymbol(int piece) {
+        return switch (piece) {
+            case WHITE_KNIGHT, BLACK_KNIGHT -> "N";
+            case WHITE_BISHOP, BLACK_BISHOP -> "B";
+            case WHITE_ROOK, BLACK_ROOK -> "R";
+            case WHITE_QUEEN, BLACK_QUEEN -> "Q";
+            case WHITE_KING, BLACK_KING -> "K";
+            case WHITE_PAWN, BLACK_PAWN -> "";
+            default -> "?";
+        };
+    }
 
-	/**
-	 * Applies a SAN move line to a starting position.
-	 *
-	 * <p>
-	 * The input may contain PGN-style comments, move numbers, NAGs, variations, and
-	 * result markers accepted by {@link #cleanMoveString(String)}. Parsing stops at
-	 * the first invalid token and returns the position reached by all valid prefix
-	 * moves together with the offending token.
-	 * </p>
-	 *
-	 * @param start starting position
-	 * @param movetext raw SAN/PGN movetext
-	 * @return parsed line result
-	 * @throws IllegalArgumentException if {@code start} is null
-	 */
-	public static PlayedLine playLine(Position start, String movetext) {
-		if (start == null) {
-			throw new IllegalArgumentException("start position cannot be null");
-		}
-		Position initial = start.copyOf();
-		Position current = start.copyOf();
-		String cleaned = cleanMoveString(movetext);
-		if (cleaned.isBlank()) {
-			return new PlayedLine(initial, current, Move.NO_MOVE, "", 0, true, 0, false, "");
-		}
+    /**
+     * Appends a SAN promotion suffix.
+     *
+     * @param result target builder
+     * @param promotion promotion code
+     */
+    private static void appendPromotion(StringBuilder result, int promotion) {
+        switch (promotion) {
+            case PROMOTION_QUEEN -> result.append("=Q");
+            case PROMOTION_ROOK -> result.append("=R");
+            case PROMOTION_BISHOP -> result.append("=B");
+            case PROMOTION_KNIGHT -> result.append("=N");
+            default -> {
+                // no promotion
+            }
+        }
+    }
 
-		short lastMove = Move.NO_MOVE;
-		String lastSan = "";
-		int lastMoveNumber = 0;
-		boolean lastMoveWasWhite = true;
-		int plies = 0;
-		String[] tokens = cleaned.split("\\s+");
-		for (String token : tokens) {
-			if (token == null || token.isBlank()) {
-				continue;
-			}
-			try {
-				short move = fromAlgebraic(current, token);
-				lastMove = move;
-				lastSan = token;
-				lastMoveNumber = current.getFullMove();
-				lastMoveWasWhite = current.isWhiteTurn();
-				current.play(move);
-				plies++;
-			} catch (IllegalArgumentException ex) {
-				return new PlayedLine(initial, current, lastMove, lastSan, lastMoveNumber, lastMoveWasWhite, plies,
-						false, token);
-			}
-		}
-		return new PlayedLine(initial, current, lastMove, lastSan, lastMoveNumber, lastMoveWasWhite, plies, true, "");
-	}
+    /**
+     * Strips trailing annotation glyphs accepted by the SAN parser.
+     *
+     * @param token normalized SAN token
+     * @return token without trailing {@code !} and {@code ?}
+     */
+    private static String stripAnnotations(String token) {
+        int end = token.length();
+        while (end > 0) {
+            char ch = token.charAt(end - 1);
+            if (ch != '!' && ch != '?') {
+                break;
+            }
+            end--;
+        }
+        return end == token.length() ? token : token.substring(0, end);
+    }
 
-	/**
-	 * Returns the last SAN-like move token from raw movetext.
-	 *
-	 * <p>
-	 * Comments, move numbers, NAGs, variations, and result markers are ignored in
-	 * the same way as {@link #cleanMoveString(String)}.
-	 * </p>
-	 *
-	 * @param movetext raw SAN/PGN movetext
-	 * @return last move token, or an empty string when none is present
-	 */
-	public static String lastMoveToken(String movetext) {
-		String cleaned = cleanMoveString(movetext);
-		if (cleaned.isBlank()) {
-			return "";
-		}
-		String[] parts = cleaned.split("\\s+");
-		return parts.length == 0 ? "" : parts[parts.length - 1];
-	}
+    /**
+     * Removes a compact PGN move-number prefix from one token.
+     *
+     * @param value token text
+     * @return token without a leading {@code 12.} or {@code 12...} prefix
+     */
+    private static String stripMoveNumberPrefix(String value) {
+        int i = 0;
+        while (i < value.length() && Character.isDigit(value.charAt(i))) {
+            i++;
+        }
+        if (i == 0 || i == value.length() || value.charAt(i) != '.') {
+            return value;
+        }
+        while (i < value.length() && value.charAt(i) == '.') {
+            i++;
+        }
+        return value.substring(i);
+    }
 
-	/**
-	 * Normalizes one SAN move token before matching it against legal moves.
-	 *
-	 * <p>
-	 * This accepts common zero and lowercase-o castling spellings while preserving
-	 * suffixes such as {@code +}, {@code #}, {@code !}, and {@code ?}.
-	 * </p>
-	 *
-	 * @param token raw move token
-	 * @return normalized SAN token
-	 */
-	public static String normalizeMoveToken(String token) {
-		if (token == null) {
-			return "";
-		}
-		String trimmed = token.trim();
-		if (trimmed.startsWith("0-0-0")) {
-			return CASTLING_QUEENSIDE + trimmed.substring(5);
-		}
-		if (trimmed.startsWith("0-0")) {
-			return CASTLING_KINGSIDE + trimmed.substring(3);
-		}
-		if (trimmed.startsWith("o-o-o") || trimmed.startsWith("O-O-O")) {
-			return CASTLING_QUEENSIDE + trimmed.substring(5);
-		}
-		if (trimmed.startsWith("o-o") || trimmed.startsWith("O-O")) {
-			return CASTLING_KINGSIDE + trimmed.substring(3);
-		}
-		return trimmed;
-	}
+    /**
+     * Checks one normalized castling spelling.
+     *
+     * @param value token to inspect
+     * @param castle lowercase or zero castle prefix
+     * @return true when the token starts with the castle prefix
+     */
+    private static boolean startsWithCastle(String value, String castle) {
+        if (value.length() < castle.length()) {
+            return false;
+        }
+        for (int i = 0; i < castle.length(); i++) {
+            char expected = castle.charAt(i);
+            char actual = value.charAt(i);
+            if (expected == 'o' && actual != 'o' && actual != 'O') {
+                return false;
+            }
+            if (expected != 'o' && actual != expected) {
+                return false;
+            }
+        }
+        return true;
+    }
 
-	/**
-	 * Cleans raw PGN move text by removing comments, variations, NAGs,
-	 * move numbers, and result tokens, leaving only SAN move tokens separated
-	 * by single spaces.
-	 *
-	 * <p>
-	 * Example:
-	 * </p>
-	 * <pre>
-	 * String before = "1. e4 e5 (2. Nc3) 2... Nc6 {[%clk 2:34:56]} 3. Bb5 a6 $5 4. Ba4 Nf6 1-0";
-	 * String after = cleanMoveString(before); // "e4 e5 Nc6 Bb5 a6 Ba4 Nf6"
-	 * </pre>
-	 *
-	 * @param movetext the raw PGN move string (including comments, variations, clocks, etc.)
-	 * @return a cleaned string containing only SAN moves separated by spaces; empty when none found
-	 */
-	public static String cleanMoveString(String movetext) {
-		if (movetext == null || movetext.isEmpty()) {
-			return "";
-		}
-		return movetext.replaceAll("\\{[^}]*\\}", " ").replaceAll("\\([^)]*\\)", " ").replaceAll("\\$\\d+", " ")
-				.replaceAll("\\d+\\.(?:\\.\\.)?", " ").replaceAll("\\b1-0\\b|\\b0-1\\b|1/2-1/2|\\*", " ").trim()
-				.replaceAll("\\s+", " ");
-	}
+    /**
+     * Returns whether a token is a PGN move number.
+     *
+     * @param value token text
+     * @return true for tokens such as {@code 12.} or {@code 12...}
+     */
+    private static boolean isMoveNumber(String value) {
+        int i = 0;
+        while (i < value.length() && Character.isDigit(value.charAt(i))) {
+            i++;
+        }
+        if (i == 0 || i == value.length()) {
+            return false;
+        }
+        while (i < value.length() && value.charAt(i) == '.') {
+            i++;
+        }
+        return i == value.length();
+    }
 
-	/**
-	 * Cleans PGN move text while preserving variation parentheses.
-	 *
-	 * <p>
-	 * Block/line comments, NAGs, move numbers, and result tokens are removed, but
-	 * variation groups remain (with spacing normalized) so downstream parsers can
-	 * still detect sideline content.
-	 * </p>
-	 *
-	 * <pre>
-	 * String before = "1. e4 e5 (2. Nc3) 2... Nc6 {[%clk 2:34:56]} 3. Bb5 a6";
-	 * String after = cleanMoveStringKeepVariationsRegex(before);
-	 * // result: "e4 e5 (Nc3) Nc6 Bb5 a6"
-	 * </pre>
-	 *
-	 * @param movetext the raw PGN move string (including comments, variations, clocks, etc.)
-	 * @return a cleaned string with SAN moves and variations preserved, or empty if input is null/empty
-	 */
-	public static String cleanMoveStringKeepVariationsRegex(String movetext) {
-		if (movetext == null || movetext.isEmpty()) {
-			return "";
-		}
-		// Remove: {…} comments, ; line comments, $N NAGs, move numbers, result tokens.
-		movetext = movetext
-				.replaceAll("\\{[^}]*\\}", " ") // block comments
-				.replaceAll("(?m);[^\\r\\n]*", " ") // line comments
-				.replaceAll("\\$\\d+", " ") // NAGs
-				.replaceAll("\\d+\\.(?:\\.\\.)?", " ") // 12. or 12...
-				.replaceAll("(?<!\\S)(?:1-0|0-1|1/2-1/2|\\*)(?!\\S)", " "); // results w/ token boundaries
+    /**
+     * Returns whether a token is a numeric annotation glyph.
+     *
+     * @param value token text
+     * @return true for NAG tokens such as {@code $5}
+     */
+    private static boolean isNag(String value) {
+        if (value.length() < 2 || value.charAt(0) != '$') {
+            return false;
+        }
+        for (int i = 1; i < value.length(); i++) {
+            if (!Character.isDigit(value.charAt(i))) {
+                return false;
+            }
+        }
+        return true;
+    }
 
-		// Normalize spacing while preserving variations
-		movetext = movetext.replaceAll("\\s*\\(\\s*", " ( "); // space before '('; none after
-		movetext = movetext.replaceAll("\\s*\\)\\s*", " ) "); // space after ')'; none before
-		movetext = movetext.replaceAll("\\s+", " ").trim();
-		return movetext;
-	}
+    /**
+     * Returns whether a token is a game result marker.
+     *
+     * @param value token text
+     * @return true for PGN result tokens
+     */
+    private static boolean isResult(String value) {
+        return RESULT_WHITE_WIN.equals(value)
+                || RESULT_BLACK_WIN.equals(value)
+                || RESULT_DRAW.equals(value)
+                || RESULT_UNKNOWN.equals(value);
+    }
 
-	/**
-	 * Result of applying a SAN move line.
-	 *
-	 * @since 2026
-	 * @author Lennart A. Conrad
-	 */
-	public static final class PlayedLine {
+    /**
+     * Result of applying a SAN move line.
+     *
+     * @since 2026
+     * @author Lennart A. Conrad
+     */
+    public static final class PlayedLine {
 
-		/**
-		 * Original starting position.
-		 */
-		private final Position start;
+        /**
+         * Original starting position.
+         */
+        private final Position start;
 
-		/**
-		 * Position reached by the valid prefix of the line.
-		 */
-		private final Position result;
+        /**
+         * Position reached by the valid prefix of the line.
+         */
+        private final Position result;
 
-		/**
-		 * Last successfully parsed move.
-		 */
-		private final short lastMove;
+        /**
+         * Last successfully parsed move.
+         */
+        private final short lastMove;
 
-		/**
-		 * Last successfully parsed SAN token.
-		 */
-		private final String lastSan;
+        /**
+         * Last successfully parsed SAN token.
+         */
+        private final String lastSan;
 
-		/**
-		 * Full-move number before the last successfully parsed move.
-		 */
-		private final int lastMoveNumber;
+        /**
+         * Full-move number before the last successfully parsed move.
+         */
+        private final int lastMoveNumber;
 
-		/**
-		 * Whether the last successfully parsed move was played by White.
-		 */
-		private final boolean lastMoveWasWhite;
+        /**
+         * Whether the last successfully parsed move was played by White.
+         */
+        private final boolean lastMoveWasWhite;
 
-		/**
-		 * Number of plies successfully parsed.
-		 */
-		private final int pliesPlayed;
+        /**
+         * Number of successfully parsed plies.
+         */
+        private final int pliesPlayed;
 
-		/**
-		 * Whether every cleaned token parsed successfully.
-		 */
-		private final boolean parsed;
+        /**
+         * Whether every cleaned token parsed successfully.
+         */
+        private final boolean parsed;
 
-		/**
-		 * First invalid token, or an empty string when the line parsed completely.
-		 */
-		private final String invalidToken;
+        /**
+         * First invalid token, or an empty string when the line parsed completely.
+         */
+        private final String invalidToken;
 
-		/**
-		 * Creates one parsed-line result.
-		 *
-		 * @param start starting position
-		 * @param result resulting position
-		 * @param lastMove last move
-		 * @param lastSan last SAN token
-		 * @param lastMoveNumber last move number
-		 * @param lastMoveWasWhite true when the last move was by White
-		 * @param pliesPlayed number of plies played
-		 * @param parsed true when the entire line parsed
-		 * @param invalidToken first invalid token
-		 */
-		private PlayedLine(Position start, Position result, short lastMove, String lastSan, int lastMoveNumber,
-				boolean lastMoveWasWhite, int pliesPlayed, boolean parsed, String invalidToken) {
-			this.start = start.copyOf();
-			this.result = result.copyOf();
-			this.lastMove = lastMove;
-			this.lastSan = lastSan == null ? "" : lastSan;
-			this.lastMoveNumber = Math.max(0, lastMoveNumber);
-			this.lastMoveWasWhite = lastMoveWasWhite;
-			this.pliesPlayed = Math.max(0, pliesPlayed);
-			this.parsed = parsed;
-			this.invalidToken = invalidToken == null ? "" : invalidToken;
-		}
+        /**
+         * Creates one parsed-line result.
+         *
+         * @param start starting position
+         * @param result resulting position
+         * @param lastMove last parsed move
+         * @param lastSan last parsed SAN token
+         * @param lastMoveNumber last full-move number
+         * @param lastMoveWasWhite true when last move was White
+         * @param pliesPlayed number of plies parsed
+         * @param parsed true when all tokens parsed
+         * @param invalidToken first invalid token
+         */
+        private PlayedLine(
+                Position start,
+                Position result,
+                short lastMove,
+                String lastSan,
+                int lastMoveNumber,
+                boolean lastMoveWasWhite,
+                int pliesPlayed,
+                boolean parsed,
+                String invalidToken) {
+            this.start = start.copy();
+            this.result = result.copy();
+            this.lastMove = lastMove;
+            this.lastSan = lastSan == null ? "" : lastSan;
+            this.lastMoveNumber = Math.max(0, lastMoveNumber);
+            this.lastMoveWasWhite = lastMoveWasWhite;
+            this.pliesPlayed = Math.max(0, pliesPlayed);
+            this.parsed = parsed;
+            this.invalidToken = invalidToken == null ? "" : invalidToken;
+        }
 
-		/**
-		 * Returns the original starting position.
-		 *
-		 * @return defensive position copy
-		 */
-		public Position getStart() {
-			return start.copyOf();
-		}
+        /**
+         * Returns the original starting position.
+         *
+         * @return defensive position copy
+         */
+        public Position getStart() {
+            return start.copy();
+        }
 
-		/**
-		 * Returns the position reached by the valid prefix of the line.
-		 *
-		 * @return defensive position copy
-		 */
-		public Position getResult() {
-			return result.copyOf();
-		}
+        /**
+         * Returns the reached position.
+         *
+         * @return defensive position copy
+         */
+        public Position getResult() {
+            return result.copy();
+        }
 
-		/**
-		 * Returns the last successfully parsed move.
-		 *
-		 * @return move, or {@link Move#NO_MOVE}
-		 */
-		public short getLastMove() {
-			return lastMove;
-		}
+        /**
+         * Returns the last successfully parsed move.
+         *
+         * @return move, or {@link chess.core.Move#NO_MOVE}
+         */
+        public short getLastMove() {
+            return lastMove;
+        }
 
-		/**
-		 * Returns whether at least one move parsed successfully.
-		 *
-		 * @return true when a last move is available
-		 */
-		public boolean hasLastMove() {
-			return lastMove != Move.NO_MOVE;
-		}
+        /**
+         * Returns whether at least one move parsed successfully.
+         *
+         * @return true when a last move exists
+         */
+        public boolean hasLastMove() {
+            return lastMove != chess.core.Move.NO_MOVE;
+        }
 
-		/**
-		 * Returns the last successfully parsed SAN token.
-		 *
-		 * @return SAN token, or empty string
-		 */
-		public String getLastSan() {
-			return lastSan;
-		}
+        /**
+         * Returns the last successfully parsed SAN token.
+         *
+         * @return SAN token, or an empty string
+         */
+        public String getLastSan() {
+            return lastSan;
+        }
 
-		/**
-		 * Returns the full-move number before the last parsed move.
-		 *
-		 * @return full-move number, or zero when no move parsed
-		 */
-		public int getLastMoveNumber() {
-			return lastMoveNumber;
-		}
+        /**
+         * Returns the full-move number before the last parsed move.
+         *
+         * @return full-move number, or zero when no move parsed
+         */
+        public int getLastMoveNumber() {
+            return lastMoveNumber;
+        }
 
-		/**
-		 * Returns whether the last parsed move was played by White.
-		 *
-		 * @return true for White, false for Black
-		 */
-		public boolean isLastMoveByWhite() {
-			return lastMoveWasWhite;
-		}
+        /**
+         * Returns whether the last parsed move was played by White.
+         *
+         * @return true for White, false for Black
+         */
+        public boolean isLastMoveByWhite() {
+            return lastMoveWasWhite;
+        }
 
-		/**
-		 * Returns the last SAN token with a move-number prefix.
-		 *
-		 * @return move-numbered SAN, or empty string when no move parsed
-		 */
-		public String lastSanWithMoveNumber() {
-			if (!hasLastMove() || lastSan.isBlank() || lastMoveNumber <= 0) {
-				return "";
-			}
-			return lastMoveNumber + (lastMoveWasWhite ? ". " : "... ") + lastSan;
-		}
+        /**
+         * Returns the last SAN token with a move-number prefix.
+         *
+         * @return move-numbered SAN, or empty string when no move parsed
+         */
+        public String lastSanWithMoveNumber() {
+            if (!hasLastMove() || lastSan.isBlank() || lastMoveNumber <= 0) {
+                return "";
+            }
+            return lastMoveNumber + (lastMoveWasWhite ? ". " : "... ") + lastSan;
+        }
 
-		/**
-		 * Returns the number of successfully parsed plies.
-		 *
-		 * @return ply count
-		 */
-		public int getPliesPlayed() {
-			return pliesPlayed;
-		}
+        /**
+         * Returns the number of successfully parsed plies.
+         *
+         * @return ply count
+         */
+        public int getPliesPlayed() {
+            return pliesPlayed;
+        }
 
-		/**
-		 * Returns whether the whole non-empty line parsed successfully.
-		 *
-		 * @return true when every token parsed
-		 */
-		public boolean isParsed() {
-			return parsed;
-		}
+        /**
+         * Returns whether the whole non-empty line parsed successfully.
+         *
+         * @return true when every token parsed
+         */
+        public boolean isParsed() {
+            return parsed;
+        }
 
-		/**
-		 * Returns the first invalid token.
-		 *
-		 * @return invalid token, or empty string
-		 */
-		public String getInvalidToken() {
-			return invalidToken;
-		}
-	}
-
+        /**
+         * Returns the first invalid token.
+         *
+         * @return invalid token, or empty string
+         */
+        public String getInvalidToken() {
+            return invalidToken;
+        }
+    }
 }

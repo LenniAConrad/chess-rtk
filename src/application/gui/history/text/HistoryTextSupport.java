@@ -75,7 +75,7 @@ public final class HistoryTextSupport {
 		if (moves == null || moves.length == 0) {
 			return "";
 		}
-		Position cursor = base.copyOf();
+		Position cursor = base.copy();
 		StringBuilder sb = new StringBuilder();
 		int count = 0;
 		for (short move : moves) {
@@ -89,11 +89,11 @@ public final class HistoryTextSupport {
 			if (san == null || san.isBlank()) {
 				break;
 			}
-			if (sb.length() > 0) {
+			if (!sb.isEmpty()) {
 				sb.append(' ');
 			}
 			sb.append(sanFormatter != null ? sanFormatter.apply(san) : san);
-			cursor = cursor.copyOf().play(move);
+			cursor = cursor.copy().play(move);
 			count++;
 			if (count >= maxMoves) {
 				break;
@@ -187,12 +187,12 @@ public final class HistoryTextSupport {
 			if (comment == null || comment.isBlank()) {
 				continue;
 			}
-			if (sb.length() > 0) {
+			if (!sb.isEmpty()) {
 				sb.append('\n');
 			}
 			sb.append(comment.trim());
 		}
-		return sb.length() == 0 ? null : sb.toString();
+		return sb.isEmpty() ? null : sb.toString();
 	}
 
 	/**

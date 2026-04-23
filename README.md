@@ -1,49 +1,187 @@
-# ChessRTK (crtk) — chess research toolkit
+# ChessRTK (`crtk`)
 
-ChessRTK is a reproducible, zero-dependency Java 17 toolkit for chess research: drive UCI engines, mine tactical puzzles, convert/inspect analysis dumps, and export ML-ready datasets for AI experiments and training (currently emitted as tensor files) without needing a GUI.
+![ChessRTK banner](assets/banner/github/crtk-github-banner.png)
 
-CLI command: `crtk`
+ChessRTK is a reproducible, zero-dependency Java 17 toolkit for chess research,
+puzzle mining, move-generation validation, engine experiments, dataset export,
+tagging, rendering, and chess-book publishing. It turns chess work into
+inspectable files, commands, diagrams, tensors, PDFs, and repeatable runs.
 
-Preferred CLI shape:
-- Use grouped commands for new scripts: `record export csv`, `record dataset lc0`, `fen normalize`, `move list`, `engine bestmove`, `book render`, `puzzle mine`.
-- Legacy top-level shortcuts have been removed from the public CLI; use grouped commands.
-- Removed commands: `gui2`, `cuda-info`, `mine`, `evaluate`, `stack-to-dataset`; use `gui`, `engine gpu`, `puzzle mine`, and `engine eval` instead.
+The project has one practical bias: keep the interesting chess work explicit.
+Positions are FENs, moves can be UCI or SAN, searches have limits, records keep
+engine evidence, datasets ship metadata, and book output is generated directly
+from source manifests. The same primitives work from a terminal, scripts, CI, or
+agent workflows.
 
-Built for:
-- chess researchers / dataset builders / engine experimenters
-- high-throughput, scriptable pipelines (CLI-first)
+If ChessRTK saves you time, inspires an experiment, or helps you publish
+something useful, please star the repository so other chess builders can find it.
 
-Not a:
-- playing app or chess GUI
+CLI entry point:
 
----
+```bash
+crtk <command> [options]
+```
 
-## Workflow map
+Without installing the launcher:
 
-Use the CLI as a set of small, scriptable tools:
+```bash
+java -cp out application.Main <command> [options]
+```
 
-| Goal | Start with | Follow-up docs |
-| --- | --- | --- |
-| Inspect one position | `fen print`, `fen display`, `fen render`, `book pdf` | `wiki/example-commands.md` |
-| Ask an engine | `engine analyze`, `engine bestmove`, `engine threats` | `wiki/configuration.md`, `wiki/lc0.md` |
-| Generate seeds | `fen pgn`, `fen generate`, `fen chess960` | `wiki/mining.md`, `wiki/command-reference.md` |
-| Mine puzzles | `puzzle mine` | `wiki/mining.md`, `wiki/filter-dsl.md` |
-| Clean and split records | `record files`, `record analysis-delta` | `wiki/outputs-and-logs.md` |
-| Export training data | `record dataset npy`, `record dataset lc0`, `record dataset classifier`, `record export training-jsonl` | `wiki/datasets.md` |
-| Publish diagrams or books | `book pdf`, `book render`, `book cover` | `wiki/book-publishing.md` |
-| Automate checks | `doctor`, `engine uci-smoke`, `move list --format`, `engine bestmove --format`, `fen normalize`, `fen validate`, `move after`, `move play`, `engine perft-suite` | `wiki/ai-agents.md` |
+## What It Can Do
 
-## Pipeline overview
+| Goal | Commands to start with |
+| --- | --- |
+| Validate and normalize positions | `fen validate`, `fen normalize`, `fen chess960` |
+| Inspect a board | `fen print`, `fen display`, `fen render`, `book pdf` |
+| List, convert, and apply moves | `move list`, `move uci`, `move san`, `move both`, `move to-san`, `move to-uci`, `move after`, `move play` |
+| Verify move generation | `engine perft`, `engine perft-suite` |
+| Run an external UCI engine | `engine analyze`, `engine bestmove`, `engine threats`, `engine uci-smoke` |
+| Search without an external engine | `engine builtin`, `engine static`, `engine eval` |
+| Generate and extract positions | `fen generate`, `fen pgn`, `fen chess960` |
+| Tag positions and puzzle lines | `fen tags`, `puzzle tags`, `fen text`, `puzzle text` |
+| Mine tactical puzzles | `puzzle mine`, `puzzle pgn` |
+| Filter and reshape record dumps | `record files`, `record stats`, `record tag-stats`, `record analysis-delta` |
+| Export ML datasets | `record dataset npy`, `record dataset lc0`, `record dataset classifier`, `record export training-jsonl`, `record export puzzle-jsonl` |
+| Publish diagrams and books | `book pdf`, `book render`, `book cover` |
+| Work in GUIs | `gui`, `gui-web`, `gui-next` |
+| Check local setup | `doctor`, `config show`, `config validate`, `engine gpu` |
+
+ChessRTK is a good fit for:
+
+- chess researchers and engine experimenters
+- puzzle miners and dataset builders
+- authors producing diagram sheets, puzzle books, or covers
+- automation workflows that need deterministic CLI output
+- AI agents that need reliable chess primitives
+
+It is not trying to be a consumer chess-playing app. It can display boards and
+run desktop workbenches, but the heart of the project is deterministic command
+execution.
+
+## Core Capabilities
+
+ChessRTK combines a Java-native chess core with research and publishing tools:
+
+- Bitboard-backed legal move generation with make/undo, Chess960 castling,
+  SAN/FEN support, attack helpers, pin helpers, and perft counters.
+- Detailed perft reporting for nodes, captures, en-passant captures, castles,
+  promotions, checks, and checkmates.
+- A perft suite for critical standard and Chess960 positions, with optional
+  multithreading for suite execution.
+- UCI engine orchestration for analysis, best moves, threats, WDL, MultiPV,
+  node/time limits, threads, hash, and smoke checks.
+- An in-process Java engine with classical, NNUE, and LC0 value evaluators for
+  bounded fallback search and reproducible automation.
+- Static and engine-enriched position tags covering facts, material, pawn
+  structure, king safety, piece activity, tactics, eval buckets, WDL, phase,
+  mobility, initiative, and development.
+- Record pipelines that merge, filter, split, summarize, export, and convert
+  analysis dumps into PGN, CSV, JSONL, NumPy, LC0-style tensors, and classifier
+  tensors.
+- Native PDF generation for diagram sheets, book interiors, and print covers.
+- Board image rendering to windows, PNG/JPG/BMP/SVG files, and PDFs with
+  arrows, circles, legal-move dots, board flipping, dark mode, and evaluator
+  ablation overlays.
+- Agent-friendly command shapes for deterministic move lists, notation
+  conversion, FEN normalization, line application, best-move output, and
+  regression checks.
+
+## Quickstart
+
+Requirements:
+
+- Java 17+ JDK with `javac`
+- A UCI engine on `PATH` for engine-driven workflows, or a config in
+  `config/*.engine.toml`
+
+Build directly, with no Maven or Gradle:
+
+```bash
+mkdir -p out
+javac --release 17 -d out $(find src -name "*.java")
+java -cp out application.Main help
+```
+
+Install the `crtk` launcher on Debian/Ubuntu-style systems:
+
+```bash
+./install.sh
+crtk doctor
+crtk help
+```
+
+Fetch optional LC0J model weights:
+
+```bash
+./install.sh --models
+```
+
+Model files are local artifacts and are ignored by git. The default weights can
+also be downloaded manually from:
+
+- https://github.com/LenniAConrad/chess-models
+
+More setup details: [wiki/build-and-install.md](wiki/build-and-install.md)
+
+## First Commands
+
+Inspect a position:
+
+```bash
+crtk fen print --fen "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+crtk move list --format both --fen "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+crtk engine bestmove --format both --fen "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1" --max-duration 2s
+```
+
+Normalize, validate, and transform FENs:
+
+```bash
+crtk fen normalize --fen "<FEN>"
+crtk fen validate --fen "<FEN>"
+crtk move after --fen "<FEN>" e2e4
+crtk move play --fen "<FEN>" "e4 e5 Nf3 Nc6"
+```
+
+Check the engine and core move generation:
+
+```bash
+crtk doctor
+crtk engine uci-smoke --nodes 1 --max-duration 5s
+crtk engine builtin --depth 3 --format summary --fen "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+crtk engine perft --depth 4
+crtk engine perft --fen "<FEN>" --depth 5 --divide
+crtk engine perft-suite --depth 6 --threads 4
+```
+
+Generate tags, text, and diagrams:
+
+```bash
+crtk fen tags --fen "<FEN>" --include-fen
+crtk fen tags --pgn games.pgn --delta --mainline
+crtk puzzle tags --fen "<FEN>" --multipv 3 --pv-plies 12
+crtk fen text --fen "<FEN>" --model models/t5.bin --include-fen
+crtk fen render --fen "<FEN>" -o dist/position.png --arrow e2e4 --circle e4
+```
+
+## Pipeline Overview
 
 ![ChessRTK pipeline overview](assets/diagrams/crtk-pipeline-overview.png)
 
-Diagram source: `assets/diagrams/crtk-pipeline-overview.dot` (render with `dot -Tpng -Gdpi=160 -o assets/diagrams/crtk-pipeline-overview.png assets/diagrams/crtk-pipeline-overview.dot`).
+ChessRTK is organized as small tools that compose:
 
----
+1. Create or import positions from FEN, PGN, random legal generation, or
+   Chess960 starts.
+2. Analyze positions with a UCI engine or built-in evaluators.
+3. Keep the useful records, measure stability, and filter with the DSL.
+4. Export to CSV, PGN, JSONL, NumPy tensors, LC0-style tensors, diagrams, or
+   PDFs.
 
-## Research workflow (copy/paste)
+Diagram source: `assets/diagrams/crtk-pipeline-overview.dot`
 
-Mine puzzles from a PGN (via FEN seeds) and convert the results to CSV + PGN:
+## Research Workflow
+
+Mine puzzles from a PGN, then export the accepted results to CSV and PGN:
 
 ```bash
 crtk fen pgn --input games.pgn --output seeds.txt
@@ -52,28 +190,59 @@ crtk record export csv --input dump/run.puzzles.json --output dump/run.puzzles.c
 crtk record export pgn --input dump/run.puzzles.json --output dump/run.puzzles.pgn
 ```
 
-### Mining decision gates
+Common puzzle-mining primitives:
+
+- Mine random seeds: `crtk puzzle mine --random-count 200 --output dump/random.json`
+- Mine continuously: `crtk puzzle mine --random-infinite --output dump/endless.json`
+- Extract FEN seeds from games: `crtk fen pgn --input games.pgn --output seeds.txt`
+- Filter records: `crtk record files -i dump/ -o filtered.json --recursive --puzzles`
+- Measure stability: `crtk record analysis-delta -i dump/run.puzzles.json -o dump/run.analysis-delta.jsonl`
+
+### Mining Gates
 
 ![ChessRTK mining decision gates](assets/diagrams/crtk-mining-gates.png)
 
-Diagram source: `assets/diagrams/crtk-mining-gates.dot` (render with `dot -Tpng -Gdpi=100 -o assets/diagrams/crtk-mining-gates.png assets/diagrams/crtk-mining-gates.dot`).
+The mining pipeline uses explicit gates for quality, forcing moves, winning
+tactics, drawing resources, and other tactical signals. The goal is not just to
+find engine-approved moves, but to leave behind data that can be inspected,
+filtered, replayed, and reused.
 
-Other common primitives:
+Diagram source: `assets/diagrams/crtk-mining-gates.dot`
 
-- Mine random seeds: `crtk puzzle mine --random-count 200 --output dump/random.json` (or endless with `--random-infinite`)
-- Inspect a Chess960 start: `crtk fen chess960 518`, `crtk fen chess960 --all --format both`
-- Validate movegen: `crtk engine perft --depth 5`
-- Check local setup: `crtk doctor`, `crtk engine uci-smoke --nodes 1 --max-duration 5s`
-- Engine probing: `crtk engine analyze --fen "<FEN>" --max-duration 2s`, `crtk engine bestmove --fen "<FEN>" --max-duration 200`, `crtk engine threats --fen "<FEN>" --max-duration 2s`
-- Position inspection: `crtk fen print --fen "<FEN>"`, `crtk fen display --fen "<FEN>" --special-arrows`, `crtk fen render --fen "<FEN>" --output dump/pos.png`, `crtk book pdf --fen "<FEN>" -o dump/pos.pdf`, `crtk gui-web --fen "<FEN>" --dark`
-- Dataset export (NNUE): `crtk record dataset npy --input dump/run.puzzles.json --output training/puzzles`
-- Dataset export (LC0): `crtk record dataset lc0 --input dump/run.puzzles.json --output training/puzzles`
-- Dataset export (classifier): `crtk record dataset classifier -i dump/run.puzzles.json -i dump/run.nonpuzzles.json -o training/classifier/run`
+## Dataset Workflow
 
-## Book/PDF workflow (copy/paste)
+Export tensors from mined or imported analysis records:
 
-Render a native puzzle book PDF, then generate a matching cover PDF from the
-same manifest:
+```bash
+crtk record dataset npy \
+  --input dump/run.puzzles.json \
+  --output training/puzzles
+
+crtk record dataset lc0 \
+  --input dump/run.puzzles.json \
+  --output training/lc0/puzzles \
+  --weights models/leela_112planes-10blocksx128-policyhead80-valuehead32-policy4672-wdl3.bin
+
+crtk record dataset classifier \
+  -i dump/run.puzzles.json \
+  -i dump/run.nonpuzzles.json \
+  -o training/classifier/run
+```
+
+Available dataset shapes:
+
+- `record dataset npy`: eval-regression tensors, including features shaped
+  `(N, 781)`
+- `record dataset lc0`: LC0-style input, policy, value, and metadata tensors
+- `record dataset classifier`: 21-plane inputs and binary labels
+- `record export training-jsonl`: coarse/fine FEN labels for training pipelines
+- `record export puzzle-jsonl`: puzzle rows with LC0 policy information
+
+More: [wiki/datasets.md](wiki/datasets.md)
+
+## Publishing Workflow
+
+Render a full puzzle book and a matching cover from the same manifest:
 
 ```bash
 crtk book render -i books/puzzles.toml --check
@@ -84,209 +253,170 @@ crtk book cover -i books/puzzles.toml -o dist/puzzles-cover.pdf \
   --binding paperback --interior white-bw --pages 120
 ```
 
-Make a quick diagram sheet from PGN mainlines:
+Make a quick diagram sheet from a FEN list or PGN mainlines:
 
 ```bash
+crtk book pdf --fen "<FEN>" -o dist/position.pdf
+crtk book pdf -i seeds.txt -o dist/sheet.pdf --title "Training Sheet"
 crtk book pdf --pgn games.pgn -o dist/games.pdf --page-size a5 --diagrams-per-row 1
 ```
 
-## Single-position toolbox
+ChessRTK writes native PDFs, so the publishing path does not require LaTeX.
+Book and diagram rendering share the same `chess.book.render` helpers; SAN
+solution text is converted to figurine algebraic notation before it is written
+into tables and captions.
+
+More: [wiki/book-publishing.md](wiki/book-publishing.md)
+
+## Single-Position Toolbox
 
 ![ChessRTK single-position toolbox](assets/diagrams/crtk-position-toolbox.png)
 
-Diagram source: `assets/diagrams/crtk-position-toolbox.dot` (render with `dot -Tpng -Gdpi=160 -o assets/diagrams/crtk-position-toolbox.png assets/diagrams/crtk-position-toolbox.dot`).
+Useful commands when you are studying, scripting, or giving an AI agent a
+deterministic chess primitive:
 
-Agent-friendly shortcuts:
-- `doctor`, `engine uci-smoke`
-- `move list --format uci|san|both`, `move uci`, `move san`, `move both`
-- `engine bestmove --format uci|san|both`, `engine bestmove-uci`, `engine bestmove-san`, `engine bestmove-both`
-- `move to-san`, `move to-uci`, `move after`, `move play`
+- `move list --format uci|san|both`
+- `move uci`, `move san`, `move both`
+- `move to-san`, `move to-uci`
+- `move after`, `move play`
+- `engine bestmove --format uci|san|both`
+- `engine bestmove-uci`, `engine bestmove-san`, `engine bestmove-both`
+- `engine builtin --format uci|san|both|summary`
 - `fen normalize`, `fen validate`, `fen chess960`, `fen pgn`
 - `engine static`, `engine perft-suite`, `record files`, `puzzle pgn`
 
-## Docs (full)
+Diagram source: `assets/diagrams/crtk-position-toolbox.dot`
 
-- Start here: `wiki/README.md`
-- Commands: `wiki/command-reference.md`
-- Examples: `wiki/example-commands.md`
-- Config: `wiki/configuration.md`
-- Mining: `wiki/mining.md`
-- Datasets: `wiki/datasets.md`
-- Book publishing: `wiki/book-publishing.md`
-- Filter DSL: `wiki/filter-dsl.md`
-- T5 tag-to-text: `wiki/t5.md`
-- AI agents & automation: `wiki/ai-agents.md`
+## Command Map
 
----
+Core command groups:
 
-## Quickstart
+- `fen`: normalize, validate, generate, render, display, tag, summarize, and
+  extract positions
+- `move`: list legal moves, convert notation, apply one move, or play a line
+- `engine`: analyze, choose best moves, search with the in-house fallback
+  engine, evaluate, inspect threats, run perft, and smoke-test UCI engines
+- `puzzle`: mine puzzles, convert puzzle dumps to PGN, tag positions, and
+  generate text summaries
+- `record`: export, filter, merge, split, summarize, and convert record files
+  into training datasets
+- `book`: render diagram PDFs, puzzle-book interiors, and covers
+- `gui-next`: launch the Studio GUI v3 research workbench
+- `config`: show and validate resolved configuration
+- `doctor`: check the local runtime, config, engines, and artifact paths
 
-Requirements:
-- Java 17+ JDK (needs `javac`)
-- A UCI engine on `PATH` (e.g. Stockfish) or configured via `config/*.engine.toml`
+Full command reference: [wiki/command-reference.md](wiki/command-reference.md)
 
-Model files are not stored in this repo. The installer can fetch the default
-LC0J weights, or you can download them manually from:
-- https://github.com/LenniAConrad/chess-models
+## Implementation Notes
 
-Downloaded `models/*.bin` files are local artifacts and are ignored by git.
+The chess rules implementation is the Java-native `chess.core` package. It
+contains the bitboard-backed `Position`, strict FEN/SAN helpers, Chess960 setup
+logic, legal move generation, make/undo support, attack/pin helpers, and
+perft-facing APIs. Detailed perft and Stockfish-backed validation live in
+`chess.debug`, so the debug tools exercise the same move generator used by the
+CLI, tags, renderer, and engine.
 
-Build (no Maven/Gradle):
+Rendering-specific movetext formatting lives with the book renderer as
+`chess.book.render.MoveText`; shared numeric clamp helpers live in
+`utility.Numbers` to keep small generic utilities in one place.
 
-```bash
-mkdir -p out
-javac --release 17 -d out $(find src -name "*.java")
-```
+More: [wiki/development-notes.md](wiki/development-notes.md)
 
-Run the focused core regression harness:
+## Built-In Engine and Optional Evaluators
 
-```bash
-java -cp out testing.PositionRegressionTest
-```
-
-Useful smoke checks after larger changes:
-
-```bash
-java -cp out application.Main doctor
-java -cp out application.Main engine uci-smoke --nodes 1 --max-duration 5s
-java -cp out application.Main engine perft-suite
-java -cp out testing.BookRegressionTest
-java -cp out testing.ChessBookCommandRegressionTest
-java -cp out testing.ChessBookCoverCommandRegressionTest
-```
-
-Run:
+`engine builtin` is ChessRTK's in-house Java engine. It exists mainly as an
+in-process fallback and benchmarking target, not as a top-tier engine meant to
+compete with Stockfish or LC0. It is useful when you need deterministic CLI
+search without starting a UCI process, when a workflow needs bounded search on
+a machine with no engine configured, or when you want a reproducible baseline
+for puzzle-solve timing.
 
 ```bash
-java -cp out application.Main help
-java -cp out application.Main <command> [options]
+crtk engine builtin --depth 4 --nodes 100000 --format summary --fen "<FEN>"
+crtk engine builtin --depth 20 --fen "<FEN>"   # UCI-style info depth lines + bestmove
+crtk engine builtin --evaluator nnue --weights models/crtk-halfkp.nnue --fen "<FEN>"
+crtk engine builtin --lc0 --weights models/leela_112planes-10blocksx128-policyhead80-valuehead32-policy4672-wdl3.bin --fen "<FEN>"
 ```
 
-Linux convenience installer (Debian/Ubuntu):
+ChessRTK supports two LC0-related paths:
 
-```bash
-./install.sh
-crtk help
-```
+- LC0 as a UCI engine for mining, usually with `.pb.gz` weights
+- the built-in Java LC0 evaluator for `engine eval`, `fen display`, and
+  ablation-style inspection, using local `models/*.bin` weights
 
-Fetch optional model weights without prompting:
+The built-in search uses alpha-beta and can choose the classical, NNUE, or LC0
+value evaluator at the frontier. External engine commands remain the right path
+for strength-sensitive analysis, MultiPV production, and long mining runs.
 
-```bash
-./install.sh --models
-```
+See [wiki/in-house-engine.md](wiki/in-house-engine.md),
+[wiki/lc0.md](wiki/lc0.md), and [models/README.md](models/README.md).
 
-Update an existing checkout and reinstall:
+## Maintenance
+
+Update an existing checkout and reinstall the launcher:
 
 ```bash
 ./scripts/update.sh
 ```
 
-Uninstall (removes launcher + local build artifacts):
+Uninstall the launcher and local build artifacts:
 
 ```bash
 ./scripts/uninstall.sh
 ```
 
-More: `wiki/build-and-install.md`
-
----
-
-## What It Does
-
-- `puzzle mine`: evaluate lots of seeds (random / `.txt` / `.pgn`) and emit puzzles + non-puzzles JSON
-- `record`: grouped record workflows (`export plain|csv|pgn|puzzle-jsonl|training-jsonl`, `dataset npy|lc0|classifier`, `files`, `stats`, `tag-stats`, `analysis-delta`)
-- `record export plain|csv|pgn`: convert `.record` analysis dumps to `.plain`, CSV, or PGN
-- `record files`: merge/filter/split record files (with optional puzzle/DSL filtering)
-- `puzzle pgn`: convert mixed puzzle/non-puzzle dumps to PGN games
-- `record analysis-delta`: export per-record evaluation stability/shift metrics as JSONL
-- `record dataset npy`: export eval-regression tensors for AI training (features `(N, 781)`)
-- `record dataset lc0`: export LC0-style tensors (inputs/policy/value)
-- `record dataset classifier`: export 21-plane inputs and 0/1 labels for the one-logit binary classifier
-- `record export training-jsonl`: export coarse/fine FEN labels for training pipelines
-- `record export puzzle-jsonl`: export LC0-policy-aware puzzle JSONL rows
-- `fen generate`: generate large shards of random legal FENs
-- `fen print`: pretty-print a FEN as ASCII (includes tags)
-- `fen display`: open a small GUI board view (overlays + optional ablation)
-- `fen render`: save a board image to disk (PNG/JPG/BMP/SVG)
-- `book render`: render chess-book JSON/TOML manifests to native PDF, or validate with `--check`
-- `book cover`: render native paperback, hardcover, or ebook cover PDFs for book manifests, or validate dimensions with `--check`
-- `book pdf`: export one or more positions or PGN mainlines to PDF
-- `fen chess960`: print Chess960 starting positions by Scharnagl index, all positions, or random samples
-- `gui`, `gui-web`: launch desktop Swing GUIs (`gui-web` uses the chess-web-inspired layout)
-- `doctor`: check Java, config, protocol, engine discovery, and local artifact paths
-- `engine gpu`: show LC0 GPU backend availability and device info (CUDA/ROCm/oneAPI)
-- `engine uci-smoke`: start the configured UCI engine and run a tiny bounded search
-- `engine analyze`, `engine bestmove`, `engine threats`: engine probing and tactical checks on a FEN
-- `move list`, `move uci`, `move san`, `move both`: list legal moves for a FEN (`move list --format uci|san|both` is the compact form)
-- `move to-san`, `move to-uci`: convert a move between UCI and SAN
-- `move after`: apply a move and return the resulting FEN
-- `move play`: apply a line of moves and return the final (or intermediate) FENs
-- `fen normalize`, `fen validate`: normalize or validate FEN text for scripts
-- `engine bestmove-uci`, `engine bestmove-san`, `engine bestmove-both`: best move shortcuts with fixed output format (`engine bestmove --format uci|san|both` is equivalent)
-- `fen tags`, `puzzle tags`, `fen text`, `puzzle text`: generate tag deltas and optional T5 prose summaries
-- `record stats`, `record tag-stats`: summarize dumps or tag distributions
-- `engine perft`, `engine perft-suite`: validate move generation (single position or suite)
-- `fen pgn`: extract FEN seeds from PGN files
-- `engine eval`, `engine static`: evaluate a position with LC0 or classical heuristics
-- `clean`: remove/clean derived artifacts
-- `config`: show/validate resolved configuration
-
----
-
-## Configuration / Filters / Outputs / Logs
-
-- Configuration: `wiki/configuration.md`
-- Mining pipeline: `wiki/mining.md`
-- Filter DSL: `wiki/filter-dsl.md`
-- Book publishing: `wiki/book-publishing.md`
-- Outputs & logs: `wiki/outputs-and-logs.md`
-- More examples: `wiki/example-commands.md`
-
----
-
-## Citing
-
-If you use ChessRTK in research, consider citing the repository and pinning a commit hash/tag for reproducibility.
-
----
-
-## Optional evaluators
-
-ChessRTK supports two different “LC0” paths:
-
-- LC0 as a UCI engine for mining (usually needs `.pb.gz` weights): see `wiki/lc0.md`
-- Built-in Java LC0 evaluator for `eval`/`display`/ablation (looks for local, gitignored `models/leela_112planes-10blocksx128-policyhead80-valuehead32-policy4672-wdl3.bin`): see `wiki/lc0.md` and `models/README.md`
-
----
-
-## Release (Linux CUDA)
-
-This repo includes an optional CUDA JNI backend under `native/cuda/`.
-
-To build and package a CUDA-enabled Linux x86_64 release artifact:
+Build a Linux x86_64 CUDA release bundle:
 
 ```bash
 scripts/make_release_linux_cuda.sh --version v0.0.0
 ```
 
-To include local, gitignored model files in the release bundle:
+The release script writes `dist/crtk-<version>-linux-x86_64-cuda.tar.gz` and
+`dist/SHA256SUMS`. Add `--include-models` only when you intentionally want local,
+gitignored model files bundled into the archive.
+
+## Regression Checks
+
+Focused checks after core changes:
 
 ```bash
-scripts/make_release_linux_cuda.sh --version v0.0.0 --include-models
+java -cp out testing.PositionRegressionTest
+java -cp out application.Main doctor
+java -cp out application.Main engine uci-smoke --nodes 1 --max-duration 5s
+java -cp out application.Main engine perft-suite
 ```
 
-Outputs:
-- `dist/crtk-<version>-linux-x86_64-cuda.tar.gz`
-- `dist/SHA256SUMS`
+Publishing checks:
 
----
+```bash
+java -Djava.awt.headless=true -cp out testing.BookRegressionTest
+java -Djava.awt.headless=true -cp out testing.ChessBookCommandRegressionTest
+java -Djava.awt.headless=true -cp out testing.ChessBookCoverCommandRegressionTest
+```
 
-## Roadmap / ideas
+## Documentation
 
-A short list of proposed future subcommands and contributor tooling lives in `wiki/roadmap.md`.
+- [Docs index](wiki/README.md)
+- [Build and install](wiki/build-and-install.md)
+- [Command reference](wiki/command-reference.md)
+- [Example commands](wiki/example-commands.md)
+- [Configuration](wiki/configuration.md)
+- [Mining puzzles](wiki/mining.md)
+- [Filter DSL](wiki/filter-dsl.md)
+- [Datasets](wiki/datasets.md)
+- [Book publishing](wiki/book-publishing.md)
+- [Tagging implementation plan](wiki/tagging-implementation-plan.md)
+- [Outputs and logs](wiki/outputs-and-logs.md)
+- [LC0](wiki/lc0.md)
+- [T5 tag-to-text](wiki/t5.md)
+- [AI agents and automation](wiki/ai-agents.md)
+- [Troubleshooting](wiki/troubleshooting.md)
 
----
+## Citing
+
+If you use ChessRTK in research, cite the repository and pin a commit hash or
+tag so your workflow can be reproduced.
 
 ## License
 
-See `LICENSE.txt`.
+See [LICENSE.txt](LICENSE.txt).

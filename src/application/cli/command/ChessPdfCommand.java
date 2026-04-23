@@ -27,18 +27,18 @@ import java.util.Locale;
 import java.util.Map;
 
 import application.cli.PgnOps;
+import chess.book.render.MoveText;
 import chess.core.Move;
 import chess.core.Position;
 import chess.core.SAN;
 import chess.io.Reader;
-import chess.pdf.Writer;
-import chess.pdf.Options;
 import chess.pdf.Composition;
+import chess.pdf.Options;
+import chess.pdf.Writer;
+import chess.pdf.document.PageSize;
 import chess.struct.Game;
 import chess.struct.Record;
-import chess.text.ChessMoveText;
 import utility.Argv;
-import chess.pdf.document.PageSize;
 
 /**
  * Implements {@code book pdf}.
@@ -118,23 +118,11 @@ public final class ChessPdfCommand {
 					fens.size() == 1 ? "" : "s",
 					resolvedOutput.toAbsolutePath());
 		} catch (IllegalArgumentException ex) {
-			System.err.println(COMMAND_LABEL + ": " + ex.getMessage());
-			if (verbose) {
-				ex.printStackTrace(System.err);
-			}
-			System.exit(2);
+			CommandSupport.exitWithError(COMMAND_LABEL, ex.getMessage(), ex, 2, verbose);
 		} catch (IOException ex) {
-			System.err.println(COMMAND_LABEL + ": failed to generate PDF: " + ex.getMessage());
-			if (verbose) {
-				ex.printStackTrace(System.err);
-			}
-			System.exit(3);
+			CommandSupport.exitWithError(COMMAND_LABEL, "failed to generate PDF: " + ex.getMessage(), ex, 3, verbose);
 		} catch (Exception ex) {
-			System.err.println(COMMAND_LABEL + ": unexpected failure: " + ex.getMessage());
-			if (verbose) {
-				ex.printStackTrace(System.err);
-			}
-			System.exit(3);
+			CommandSupport.exitWithError(COMMAND_LABEL, "unexpected failure: " + ex.getMessage(), ex, 3, verbose);
 		}
 	}
 
@@ -289,7 +277,7 @@ public final class ChessPdfCommand {
 	 */
 	private static Composition compositionFromGame(Game game, int index, String titleOverride) {
 		Position start = game.getStartPosition() != null
-				? game.getStartPosition().copyOf()
+				? game.getStartPosition().copy()
 				: new Position(Game.STANDARD_START_FEN);
 
 		Composition composition = new Composition()
@@ -299,7 +287,7 @@ public final class ChessPdfCommand {
 
 		composition.addFigure(start, "Start", startDetail(start), "");
 
-		Position current = start.copyOf();
+		Position current = start.copy();
 		Game.Node node = game.getMainline();
 		while (node != null) {
 			short move;
@@ -314,7 +302,7 @@ public final class ChessPdfCommand {
 
 			String caption = moveCaption(current, node.getSan());
 			String detail = moveDetail(node);
-			Position next = current.copyOf().play(move);
+			Position next = current.copy().play(move);
 			composition.addFigure(next, caption, detail, Move.toString(move));
 			current = next;
 			node = node.getNext();
@@ -331,9 +319,9 @@ public final class ChessPdfCommand {
 	 * @return figurine move caption
 	 */
 	private static String moveCaption(Position before, String san) {
-		return before.isWhiteTurn()
-				? before.getFullMove() + ". " + ChessMoveText.figurine(san)
-				: before.getFullMove() + "... " + ChessMoveText.figurine(san);
+		return before.isWhiteToMove()
+				? before.fullMoveNumber() + ". " + MoveText.figurine(san)
+				: before.fullMoveNumber() + "... " + MoveText.figurine(san);
 	}
 
 	/**

@@ -253,7 +253,10 @@ public final class Bar {
 		if (total <= 0) {
 			return;
 		}
-		renderMaybe(completed.get(), System.nanoTime(), true, true, true);
+		long done = completed.get();
+		if (done < total || lastRenderLength == 0) {
+			renderMaybe(done, System.nanoTime(), true, true, true);
+		}
 		RENDER_LOCK.lock();
 		try {
 			stream.println();

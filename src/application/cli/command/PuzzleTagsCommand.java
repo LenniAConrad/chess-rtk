@@ -30,7 +30,7 @@ import java.util.Optional;
 
 import application.Config;
 import chess.core.Move;
-import chess.core.MoveList;
+import chess.core.MoveInference;
 import chess.core.Position;
 import chess.core.SAN;
 import chess.tag.Delta;
@@ -288,7 +288,7 @@ public final class PuzzleTagsCommand {
         } catch (RuntimeException ex) {
             san = Move.toString(bestMove);
         }
-        String side = base.isWhiteTurn() ? "black" : "white";
+        String side = base.isWhiteToMove() ? "black" : "white";
         boolean strong = isThreatStrong(best.getEvaluation());
         boolean equalizing = isEqualizingThreat(base, baseAnalysis, threatPos, threatAnalysis);
         if (!strong && !equalizing) {
@@ -328,8 +328,8 @@ public final class PuzzleTagsCommand {
         if (baseAnalysis == null || baseAnalysis.isEmpty()) {
             return false;
         }
-        Integer baseWhiteCp = evalToWhiteCp(baseAnalysis, base.isWhiteTurn());
-        Integer threatWhiteCp = evalToWhiteCp(threatAnalysis, threatPos.isWhiteTurn());
+        Integer baseWhiteCp = evalToWhiteCp(baseAnalysis, base.isWhiteToMove());
+        Integer threatWhiteCp = evalToWhiteCp(threatAnalysis, threatPos.isWhiteToMove());
         if (baseWhiteCp == null || threatWhiteCp == null) {
             return false;
         }
@@ -338,7 +338,7 @@ public final class PuzzleTagsCommand {
         if (Math.abs(baseWhiteCp) < min) {
             return false;
         }
-        boolean threatByBlack = base.isWhiteTurn();
+        boolean threatByBlack = base.isWhiteToMove();
         if (threatByBlack && baseWhiteCp <= 0) {
             return false;
         }
@@ -416,60 +416,17 @@ public final class PuzzleTagsCommand {
      private static void printDeltaJson(long index, chess.struct.Record rec, List<String> tags, Delta delta) {
         Position parent = rec.getParent();
         Position pos = rec.getPosition();
-        MoveInfo moveInfo = (parent != null && pos != null) ? inferMove(parent, pos) : null;
+        MoveInference.Notation moveInfo = (parent != null && pos != null) ? MoveInference.notation(parent, pos) : null;
         StringBuilder sb = new StringBuilder(256).append('{');
         appendField(sb, "index", Long.toString(index));
         appendField(sb, "game_index", jsonString(null));
         appendField(sb, "parent", jsonString(parent == null ? null : parent.toString()));
         appendField(sb, "fen", jsonString(pos == null ? null : pos.toString()));
-        appendField(sb, "move_san", jsonString(moveInfo == null ? null : moveInfo.san));
-        appendField(sb, "move_uci", jsonString(moveInfo == null ? null : moveInfo.uci));
+        appendField(sb, "move_san", jsonString(moveInfo == null ? null : moveInfo.san()));
+        appendField(sb, "move_uci", jsonString(moveInfo == null ? null : moveInfo.uci()));
         appendField(sb, "tags", Json.stringArray(tags.toArray(new String[0])));
         appendField(sb, "delta", delta == null ? "null" : delta.toJson());
         System.out.println(sb.append('}'));
-    }
-
-     /**
-     * Handles infer move.
-     * @param parent parent
-     * @param child child
-     * @return computed value
-     */
-     private static MoveInfo inferMove(Position parent, Position child) {
-        short move = inferMoveCode(parent, child);
-        if (move == Move.NO_MOVE) {
-            return null;
-        }
-        String san;
-        try {
-            san = SAN.toAlgebraic(parent, move);
-        } catch (RuntimeException ex) {
-            san = Move.toString(move);
-        }
-        return new MoveInfo(san, Move.toString(move));
-    }
-
-     /**
-     * Handles infer move code.
-     * @param from from
-     * @param to to
-     * @return computed value
-     */
-     private static short inferMoveCode(Position from, Position to) {
-        long target = to.signatureCore();
-        MoveList moves = from.getMoves();
-        short found = Move.NO_MOVE;
-        for (int i = 0; i < moves.size(); i++) {
-            short move = moves.get(i);
-            Position candidate = from.copyOf().play(move);
-            if (candidate.signatureCore() == target) {
-                if (found != Move.NO_MOVE) {
-                    return Move.NO_MOVE;
-                }
-                found = move;
-            }
-        }
-        return found;
     }
 
      /**
@@ -630,27 +587,4 @@ public final class PuzzleTagsCommand {
         }
     }
 
-     /**
-     * Provides move info behavior.
-     */
-     private static final class MoveInfo {
-         /**
-         * Stores the san.
-         */
-         private final String san;
-         /**
-         * Stores the uci.
-         */
-         private final String uci;
-
-         /**
-         * Creates a new move info instance.
-         * @param san san
-         * @param uci uci
-         */
-         private MoveInfo(String san, String uci) {
-            this.san = san;
-            this.uci = uci;
-        }
-    }
 }

@@ -1,5 +1,7 @@
 package testing;
 
+import static testing.TestSupport.*;
+
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -74,7 +76,7 @@ public final class ChessPdfRegressionTest {
 	 */
 	private static void testSingleCompositionExport() throws Exception {
 		Position start = new Position(Game.STANDARD_START_FEN);
-		Position afterE4 = start.copyOf().play(Move.parse("e2e4"));
+		Position afterE4 = start.copy().play(Move.parse("e2e4"));
 
 		Composition composition = new Composition()
 				.setId("sample-001")
@@ -153,30 +155,6 @@ public final class ChessPdfRegressionTest {
 		String text = new String(bytes, StandardCharsets.ISO_8859_1);
 		assertTrue(text.contains("/Title (Puzzle Sheet)"), "title metadata");
 		assertTrue(text.contains("/Type /Pages /Count "), "page tree count");
-	}
-
-	/**
-	 * Fails when the supplied condition is false.
-	 *
-	 * @param condition condition to verify
-	 * @param label failure label
-	 */
-	private static void assertTrue(boolean condition, String label) {
-		if (!condition) {
-			throw new AssertionError(label + ": expected true");
-		}
-	}
-
-	/**
-	 * Fails when the supplied condition is true.
-	 *
-	 * @param condition condition to verify
-	 * @param label failure label
-	 */
-	private static void assertFalse(boolean condition, String label) {
-		if (condition) {
-			throw new AssertionError(label + ": expected false");
-		}
 	}
 
 	/**

@@ -151,7 +151,7 @@ public final class Plain {
      */
     private static int toPly(Position pos) {
         Objects.requireNonNull(pos, "pos");
-        return 2 * (pos.getFullMove() - 1) + (pos.isBlackTurn() ? 1 : 0);
+        return 2 * (pos.fullMoveNumber() - 1) + (!pos.isWhiteToMove() ? 1 : 0);
     }
 
     /**
@@ -427,7 +427,7 @@ public final class Plain {
                 ev = new Evaluation(true, ev.getValue() - 1);
             }
 
-            Position child = root.copyOf().play(moves[0]).play(moves[1]);
+            Position child = root.copy().play(moves[0]).play(moves[1]);
             String uci = Move.toString(moves[2]);
 
             sb.append(KEY_FEN).append(child).append(NEW_LINE)

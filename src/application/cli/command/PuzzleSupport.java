@@ -44,7 +44,7 @@ final class PuzzleSupport {
             System.exit(2);
         }
         String pgn = buildPgn(root, pvs);
-        Game game = parseSingleGame(pgn, cmd, verbose);
+        Game game = parseSingleGame(pgn, cmd);
         return application.cli.PgnOps.extractRecordsWithVariations(game);
     }
 
@@ -85,7 +85,7 @@ final class PuzzleSupport {
      private static List<String> toSanMoves(Position root, short[] moves, int pvPlies) {
         int limit = pvPlies > 0 ? Math.min(pvPlies, moves.length) : moves.length;
         List<String> sanMoves = new ArrayList<>(limit);
-        Position cursor = root.copyOf();
+        Position cursor = root.copy();
         for (int i = 0; i < limit; i++) {
             short move = moves[i];
             if (move == Move.NO_MOVE) {
@@ -117,8 +117,8 @@ final class PuzzleSupport {
         if (pvs.isEmpty() || pvs.get(0).isEmpty()) {
             throw new IllegalArgumentException("Missing PV1 for puzzle PGN");
         }
-        boolean whiteToMove = root.isWhiteTurn();
-        int fullMove = root.getFullMove();
+        boolean whiteToMove = root.isWhiteToMove();
+        int fullMove = root.fullMoveNumber();
 
         List<String> variations = new ArrayList<>();
         for (int i = 1; i < pvs.size(); i++) {
@@ -184,10 +184,9 @@ final class PuzzleSupport {
      * Parses the single game.
      * @param pgn pgn
      * @param cmd cmd
-     * @param verbose verbose
      * @return computed value
      */
-     private static Game parseSingleGame(String pgn, String cmd, boolean verbose) {
+     private static Game parseSingleGame(String pgn, String cmd) {
         List<Game> games = Pgn.parseGames(pgn);
         if (games.isEmpty()) {
             System.err.println(cmd + ": failed to parse generated PGN");

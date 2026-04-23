@@ -161,7 +161,7 @@ public final class Format {
 		if (pos == null) {
 			return formatPvMoves(moves);
 		}
-		Position cursor = pos.copyOf();
+		Position cursor = pos.copy();
 		StringBuilder sb = new StringBuilder(moves.length * 6);
 		boolean first = true;
 		boolean canAdvance = true;

@@ -2,6 +2,7 @@ package chess.classical;
 
 import chess.core.Piece;
 import chess.core.Position;
+import utility.Numbers;
 
 /**
  * Heuristic win/draw/loss (WDL) evaluator for {@link Position}.
@@ -304,11 +305,11 @@ public record Wdl(
         }
 
         if (terminalAware) {
-            // Note: isMate() and getMoves() can be expensive; keep it opt-in.
-            if (pos.isMate()) {
+            // Note: isCheckmate() and legalMoves() can be expensive; keep it opt-in.
+            if (pos.isCheckmate()) {
                 return new Wdl((short) 0, (short) 0, TOTAL);
             }
-            if (!pos.inCheck() && pos.getMoves().isEmpty()) {
+            if (!pos.inCheck() && pos.legalMoves().isEmpty()) {
                 return new Wdl((short) 0, TOTAL, (short) 0);
             }
         }
@@ -321,7 +322,7 @@ public record Wdl(
         EvalBuffers buffers = BUFFERS.get();
         buffers.reset();
         int whiteScoreCp = evaluateWhiteCentipawns(pos, board, buffers);
-        int stmScoreCp = pos.isWhiteTurn() ? whiteScoreCp : -whiteScoreCp;
+        int stmScoreCp = pos.isWhiteToMove() ? whiteScoreCp : -whiteScoreCp;
 
         double materialFactor = buffers.phase; // == totalMaterial / START_TOTAL_MATERIAL_CP, clamped
         double endgame = 1.0 - materialFactor;
@@ -336,8 +337,8 @@ public record Wdl(
         double pLoss = sigmoid((-stmScoreCp - margin) / scale);
 
         // Clamp for pathological numeric cases, then derive draw.
-        pWin = clamp01(pWin);
-        pLoss = clamp01(pLoss);
+        pWin = Numbers.clamp01(pWin);
+        pLoss = Numbers.clamp01(pLoss);
         double winLossSum = pWin + pLoss;
         if (winLossSum > 1.0) {
             double renorm = winLossSum != 0.0 ? (1.0 / winLossSum) : 0.0;
@@ -373,7 +374,7 @@ public record Wdl(
         EvalBuffers buffers = BUFFERS.get();
         buffers.reset();
         int whiteScore = evaluateWhiteCentipawns(pos, board, buffers);
-        return pos.isWhiteTurn() ? whiteScore : -whiteScore;
+        return pos.isWhiteToMove() ? whiteScore : -whiteScore;
     }
 
     /**
@@ -639,7 +640,7 @@ public record Wdl(
      */
     private static double updatePhase(EvalScan scan, EvalBuffers buffers) {
         int totalMaterial = scan.whiteMaterial + scan.blackMaterial;
-        double phase = clamp01(totalMaterial / (double) START_TOTAL_MATERIAL_CP); // 1.0 = opening, 0.0 = endgame
+        double phase = Numbers.clamp01(totalMaterial / (double) START_TOTAL_MATERIAL_CP); // 1.0 = opening, 0.0 = endgame
         buffers.phase = phase;
         return phase;
     }
@@ -673,12 +674,12 @@ public record Wdl(
      */
     private static int kingSafetyCp(Position pos, double phase) {
         int score = 0;
-        int whiteKing = pos.getWhiteKing();
+        int whiteKing = pos.kingSquare(true);
         if (whiteKing >= 0) {
             int psq = whiteKing;
             score += (int) Math.round(KING_PST_OPENING[psq] * phase + KING_PST_ENDGAME[psq] * (1.0 - phase));
         }
-        int blackKing = pos.getBlackKing();
+        int blackKing = pos.kingSquare(false);
         if (blackKing >= 0) {
             int psq = flip(blackKing);
             score -= (int) Math.round(KING_PST_OPENING[psq] * phase + KING_PST_ENDGAME[psq] * (1.0 - phase));
@@ -693,7 +694,7 @@ public record Wdl(
      * @return centipawn bonus (positive when White to move, negative otherwise)
      */
     private static int tempoCp(Position pos) {
-        return pos.isWhiteTurn() ? TEMPO_CP : -TEMPO_CP;
+        return pos.isWhiteToMove() ? TEMPO_CP : -TEMPO_CP;
     }
 
     /**
@@ -706,7 +707,7 @@ public record Wdl(
         if (!pos.inCheck()) {
             return 0;
         }
-        return pos.isWhiteTurn() ? -IN_CHECK_CP : IN_CHECK_CP;
+        return pos.isWhiteToMove() ? -IN_CHECK_CP : IN_CHECK_CP;
     }
 
     /**
@@ -986,9 +987,9 @@ public record Wdl(
      * @return WDL triplet summing to {@link #TOTAL}
      */
     private static Wdl fromProbabilities(double pWin, double pDraw, double pLoss) {
-        pWin = clamp01(pWin);
-        pDraw = clamp01(pDraw);
-        pLoss = clamp01(pLoss);
+        pWin = Numbers.clamp01(pWin);
+        pDraw = Numbers.clamp01(pDraw);
+        pLoss = Numbers.clamp01(pLoss);
 
         double sum = pWin + pDraw + pLoss;
         if (sum <= 0.0) {
@@ -1047,22 +1048,6 @@ public record Wdl(
     }
 
     /**
-     * Clamp a value to the [0,1] range.
-     *
-     * @param v raw value
-     * @return clamped value in [0,1]
-     */
-    private static double clamp01(double v) {
-        if (v <= 0.0) {
-            return 0.0;
-        }
-        if (v >= 1.0) {
-            return 1.0;
-        }
-        return v;
-    }
-
-    /**
      * Returns true for a few common configurations where mate is impossible.
      *
      * <p>
@@ -1076,107 +1061,75 @@ public record Wdl(
      * <ul>
      * <li>K vs K</li>
      * <li>K + (B|N) vs K</li>
-     * <li>K + (B|N) vs K + (B|N)</li>
-     * <li>K + NN vs K</li>
+     * <li>K + B vs K + B when both bishops live on the same square color</li>
      * </ul>
      *
      * @param board raw 64-square board array
      * @return true if the position is treated as trivially drawn
      */
     private static boolean isInsufficientMaterial(byte[] board) {
-        int packedCounts = countMinorPiecesPacked(board);
-        return packedCounts != SUFFICIENT_MATERIAL && isTriviallyDrawn(packedCounts);
-    }
-
-    /**
-     * Sentinel indicating a position has sufficient material to avoid quick draw claims.
-     *
-     * <p>Used when non-minor material is detected during insufficiency checks.</p>
-     */
-    private static final int SUFFICIENT_MATERIAL = -1;
-
-    /**
-     * Counts minor pieces and packs the result into a 32-bit int.
-     *
-     * <p>Layout: {@code [blackBishops][blackKnights][whiteBishops][whiteKnights]}.</p>
-     *
-     * @param board raw 64-square board array
-     * @return packed count, or {@link #SUFFICIENT_MATERIAL} when non-minors exist
-     */
-    private static int countMinorPiecesPacked(byte[] board) {
         int whiteKnights = 0;
         int whiteBishops = 0;
         int blackKnights = 0;
         int blackBishops = 0;
+        int whiteBishopColor = -1;
+        int blackBishopColor = -1;
 
         for (int square = 0; square < board.length; square++) {
             byte piece = board[square];
-            int kind = classifyNonKingPiece(piece);
-            if (kind == 0) {
+            if (piece == Piece.EMPTY || Piece.isKing(piece)) {
                 continue;
             }
-            if (kind < 0) {
-                return SUFFICIENT_MATERIAL;
+            if (Piece.isPawn(piece) || Piece.isRook(piece) || Piece.isQueen(piece)) {
+                return false;
             }
-            if ((kind & 1) != 0) {
-                whiteKnights += (kind >>> 1) & 1;
-                whiteBishops += (kind >>> 2) & 1;
+            if (Piece.isKnight(piece)) {
+                if (Piece.isWhite(piece)) {
+                    whiteKnights++;
+                } else {
+                    blackKnights++;
+                }
+            } else if (Piece.isBishop(piece)) {
+                if (Piece.isWhite(piece)) {
+                    whiteBishops++;
+                    whiteBishopColor = squareColor(square);
+                } else {
+                    blackBishops++;
+                    blackBishopColor = squareColor(square);
+                }
             } else {
-                blackKnights += (kind >>> 1) & 1;
-                blackBishops += (kind >>> 2) & 1;
+                return false;
             }
         }
-
-        return whiteKnights | (whiteBishops << 8) | (blackKnights << 16) | (blackBishops << 24);
-    }
-
-    /**
-     * Classifies a non-king piece for minor-material detection.
-     *
-     * <p>Returns 0 for empty/king, negative for sufficient material, and a small
-     * bit-encoded value for minor pieces.</p>
-     *
-     * @param piece piece code from {@link Piece}
-     * @return classification code for the caller to interpret
-     */
-    private static int classifyNonKingPiece(byte piece) {
-        if (piece == Piece.EMPTY || Piece.isKing(piece)) {
-            return 0;
-        }
-        if (Piece.isPawn(piece) || Piece.isRook(piece) || Piece.isQueen(piece)) {
-            return -1;
-        }
-        if (Piece.isKnight(piece)) {
-            return Piece.isWhite(piece) ? 0b0011 : 0b0010;
-        }
-        if (Piece.isBishop(piece)) {
-            return Piece.isWhite(piece) ? 0b0101 : 0b0100;
-        }
-        // Any other piece type (shouldn't exist) => assume sufficient.
-        return -1;
-    }
-
-    /**
-     * Checks whether a packed minor-piece configuration is a trivial draw.
-     *
-     * @param packedCounts packed minor piece counts from {@link #countMinorPiecesPacked(byte[])}
-     * @return true if the position is treated as insufficient material
-     */
-    private static boolean isTriviallyDrawn(int packedCounts) {
-        int whiteKnights = packedCounts & 0xFF;
-        int whiteBishops = (packedCounts >>> 8) & 0xFF;
-        int blackKnights = (packedCounts >>> 16) & 0xFF;
-        int blackBishops = (packedCounts >>> 24) & 0xFF;
 
         int whiteMinors = whiteKnights + whiteBishops;
         int blackMinors = blackKnights + blackBishops;
 
-        if (whiteMinors <= 1 && blackMinors <= 1) {
+        if (whiteMinors == 0 && blackMinors == 0) {
+            return true;
+        }
+        if (whiteMinors == 1 && blackMinors == 0) {
+            return true;
+        }
+        if (whiteMinors == 0 && blackMinors == 1) {
             return true;
         }
 
-        return (whiteKnights == 2 && whiteBishops == 0 && blackMinors == 0)
-                || (blackKnights == 2 && blackBishops == 0 && whiteMinors == 0);
+        return whiteKnights == 0
+                && blackKnights == 0
+                && whiteBishops == 1
+                && blackBishops == 1
+                && whiteBishopColor == blackBishopColor;
+    }
+
+    /**
+     * Returns a square color index for bishop-only dead-material checks.
+     *
+     * @param square board square, 0..63
+     * @return 0 for one color complex, 1 for the other
+     */
+    private static int squareColor(int square) {
+        return ((square & 7) + (square >>> 3)) & 1;
     }
 
     /**

@@ -3,7 +3,6 @@ package application.cli.command;
 import static application.cli.ConfigOps.validateConfigToml;
 import static application.cli.ConfigOps.validateModelPath;
 import static application.cli.ConfigOps.validateProtocolConfig;
-import static application.cli.Constants.CMD_DOCTOR;
 import static application.cli.Constants.OPT_VERBOSE;
 import static application.cli.Constants.OPT_VERBOSE_SHORT;
 

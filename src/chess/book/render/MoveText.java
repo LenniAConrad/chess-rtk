@@ -1,4 +1,4 @@
-package chess.text;
+package chess.book.render;
 
 import java.util.regex.Pattern;
 
@@ -8,7 +8,7 @@ import java.util.regex.Pattern;
  * @since 2026
  * @author Lennart A. Conrad
  */
-public final class ChessMoveText {
+public final class MoveText {
 
 	/**
 	 * White king figurine used by standard figurine algebraic notation.
@@ -41,7 +41,7 @@ public final class ChessMoveText {
 	private static final String PAWN = "\u2659";
 
 	/**
-	 * Multiplication sign used for captures in legacy Chaqi-style movetext.
+	 * Multiplication sign used for rendered capture text.
 	 */
 	private static final String CAPTURE = "\u00D7";
 
@@ -60,7 +60,7 @@ public final class ChessMoveText {
 	/**
 	 * Utility class; prevent instantiation.
 	 */
-	private ChessMoveText() {
+	private MoveText() {
 		// utility
 	}
 
@@ -100,7 +100,7 @@ public final class ChessMoveText {
 	 * @param token pending token buffer
 	 */
 	private static void appendFormattedToken(StringBuilder result, StringBuilder token) {
-		if (token.length() == 0) {
+		if (token.isEmpty()) {
 			return;
 		}
 		result.append(formatToken(token.toString()));

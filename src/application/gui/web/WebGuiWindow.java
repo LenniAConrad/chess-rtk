@@ -492,7 +492,7 @@ private JPanel buildControlsBlock() {
 		actions.setOpaque(false);
 		resetButton = buildButton("Start position", event -> resetTimeline(parseFenOrDefault(DEFAULT_FEN)));
 		undoButton = buildButton("Undo", event -> navigateToPly(Math.max(0, currentPly - 1)));
-		JButton startFromCurrent = buildButton("Snapshot root", event -> resetTimeline(currentPosition().copyOf()));
+		JButton startFromCurrent = buildButton("Snapshot root", event -> resetTimeline(currentPosition().copy()));
 		JButton copyMoveList = buildButton("Copy line", event -> copyCurrentLine());
 		actions.add(resetButton);
 		actions.add(undoButton);
@@ -775,7 +775,7 @@ private void resetTimeline(Position root) {
 		positions.clear();
 		moves.clear();
 		sanMoves.clear();
-		positions.add(root.copyOf());
+		positions.add(root.copy());
 		currentPly = 0;
 		selectedSquare = Field.NO_SQUARE;
 		refreshUi();
@@ -798,9 +798,9 @@ private void navigateToPly(int targetPly) {
 private void handleBoardSquare(byte square) {
 		Position position = currentPosition();
 		byte[] board = position.getBoard();
-		List<Short> options = matchingMoves(square);
+		MoveList options = matchingMoves(square);
 		boolean ownPiece = square != Field.NO_SQUARE && Piece.isPiece(board[square])
-				&& (position.isWhiteTurn() ? Piece.isWhite(board[square]) : Piece.isBlack(board[square]));
+				&& (position.isWhiteToMove() ? Piece.isWhite(board[square]) : Piece.isBlack(board[square]));
 
 		if (selectedSquare != Field.NO_SQUARE) {
 			if (square == selectedSquare) {
@@ -808,7 +808,7 @@ private void handleBoardSquare(byte square) {
 				refreshBoard();
 				return;
 			}
-			List<Short> matches = matchingMoves(selectedSquare, square);
+			MoveList matches = matchingMoves(selectedSquare, square);
 			if (!matches.isEmpty()) {
 				playMove(resolveMove(matches));
 				return;
@@ -843,13 +843,13 @@ private void playSelectedMove() {
 	 * @param move move value
 	 */
 private void playMove(short move) {
-		Position before = currentPosition().copyOf();
+		Position before = currentPosition().copy();
 		if (!before.isLegalMove(move)) {
 			return;
 		}
 		truncateFuture();
 		String san = SAN.toAlgebraic(before, move);
-		Position after = before.copyOf().play(move);
+		Position after = before.copy().play(move);
 		moves.add(move);
 		sanMoves.add(san);
 		positions.add(after);
@@ -876,9 +876,9 @@ private void truncateFuture() {
 	 * @param matches matches value
 	 * @return computed value
 	 */
-private short resolveMove(List<Short> matches) {
+private short resolveMove(MoveList matches) {
 		if (matches.size() == 1) {
-			return matches.get(0);
+			return matches.raw(0);
 		}
 		String[] options = { "Queen", "Knight", "Rook", "Bishop" };
 		int picked = JOptionPane.showOptionDialog(this, "Choose promotion piece", "Promotion",
@@ -890,7 +890,8 @@ private short resolveMove(List<Short> matches) {
 			case 0 -> 'q';
 			default -> '\u0000';
 		};
-		for (short move : matches) {
+		for (int i = 0; i < matches.size(); i++) {
+			short move = matches.raw(i);
 			String uci = Move.toString(move);
 			if (uci.length() == 5 && uci.charAt(4) == promotion) {
 				return move;
@@ -904,16 +905,8 @@ private short resolveMove(List<Short> matches) {
 	 * @param from from value
 	 * @return computed value
 	 */
-private List<Short> matchingMoves(byte from) {
-		List<Short> result = new ArrayList<>();
-		MoveList legal = currentPosition().getMoves();
-		for (int i = 0; i < legal.size(); i++) {
-			short move = legal.get(i);
-			if (Move.getFromIndex(move) == from) {
-				result.add(move);
-			}
-		}
-		return result;
+private MoveList matchingMoves(byte from) {
+		return currentPosition().legalMovesFrom(from);
 	}
 
 		/**
@@ -922,16 +915,8 @@ private List<Short> matchingMoves(byte from) {
 	 * @param to to value
 	 * @return computed value
 	 */
-private List<Short> matchingMoves(byte from, byte to) {
-		List<Short> result = new ArrayList<>();
-		MoveList legal = currentPosition().getMoves();
-		for (int i = 0; i < legal.size(); i++) {
-			short move = legal.get(i);
-			if (Move.getFromIndex(move) == from && Move.getToIndex(move) == to) {
-				result.add(move);
-			}
-		}
-		return result;
+private MoveList matchingMoves(byte from, byte to) {
+		return currentPosition().legalMovesBetween(from, to);
 	}
 
 		/**
@@ -971,10 +956,10 @@ private void refreshStatus() {
 		Position position = currentPosition();
 		Result eval = EvalOps.evaluateClassical(position, true);
 		Integer cp = eval.centipawns();
-		int whiteCp = cp == null ? 0 : (position.isWhiteTurn() ? cp : -cp);
+		int whiteCp = cp == null ? 0 : (position.isWhiteToMove() ? cp : -cp);
 
-		titleLabel.setText(position.isMate() ? "Checkmate" : "Current position");
-		subtitleLabel.setText(position.isWhiteTurn() ? "White to move" : "Black to move");
+		titleLabel.setText(position.isCheckmate() ? "Checkmate" : "Current position");
+		subtitleLabel.setText(position.isWhiteToMove() ? "White to move" : "Black to move");
 		evalLabel.setText("Static eval " + formatEvalCp(whiteCp) + " | " + describePosition(eval, position));
 		statusLabel.setText(buildStatusText(position));
 		fenField.setText(position.toString());
@@ -1012,9 +997,9 @@ private void refreshHoverLabel() {
 	 * @return computed value
 	 */
 private String buildStatusText(Position position) {
-		MoveList legal = position.getMoves();
-		if (position.isMate()) {
-			return position.isWhiteTurn() ? "Black delivered mate" : "White delivered mate";
+		MoveList legal = position.legalMoves();
+		if (position.isCheckmate()) {
+			return position.isWhiteToMove() ? "Black delivered mate" : "White delivered mate";
 		}
 		if (legal.isEmpty()) {
 			return "Stalemate";
@@ -1022,8 +1007,8 @@ private String buildStatusText(Position position) {
 		if (position.inCheck()) {
 			return "Check | " + legal.size() + " legal moves";
 		}
-		return legal.size() + " legal moves | halfmove " + position.getHalfMove()
-				+ " | move " + position.getFullMove();
+		return legal.size() + " legal moves | halfmove " + position.halfMoveClock()
+				+ " | move " + position.fullMoveNumber();
 	}
 
 		/**
@@ -1033,10 +1018,10 @@ private String buildStatusText(Position position) {
 	 * @return computed value
 	 */
 private String describePosition(Result eval, Position position) {
-		if (position.isMate()) {
+		if (position.isCheckmate()) {
 			return "terminal";
 		}
-		int whiteCp = position.isWhiteTurn() ? eval.centipawns() : -eval.centipawns();
+		int whiteCp = position.isWhiteToMove() ? eval.centipawns() : -eval.centipawns();
 		if (whiteCp > 120) {
 			return "White better";
 		}
@@ -1085,7 +1070,7 @@ private void refreshMoveModel() {
 		Arrays.fill(legalTargets, false);
 		Arrays.fill(captureTargets, false);
 		Position position = currentPosition();
-		MoveList legal = position.getMoves();
+		MoveList legal = position.legalMoves();
 		for (int i = 0; i < legal.size(); i++) {
 			short move = legal.get(i);
 			String san = SAN.toAlgebraic(position, move);
@@ -1105,7 +1090,7 @@ private void updateSelectionTargets() {
 		}
 		Position position = currentPosition();
 		byte[] board = position.getBoard();
-		MoveList legal = position.getMoves();
+		MoveList legal = position.legalMoves();
 		for (int i = 0; i < legal.size(); i++) {
 			short move = legal.get(i);
 			if (Move.getFromIndex(move) != selectedSquare) {
@@ -1114,7 +1099,7 @@ private void updateSelectionTargets() {
 			byte to = Move.getToIndex(move);
 			legalTargets[to] = true;
 			captureTargets[to] = Piece.isPiece(board[to])
-					|| (Piece.isPawn(board[selectedSquare]) && to == position.getEnPassant());
+					|| (Piece.isPawn(board[selectedSquare]) && to == position.enPassantSquare());
 		}
 	}
 
@@ -1133,7 +1118,7 @@ private void refreshBoard() {
 	 */
 private void refreshTagsAsync() {
 		final long request = ++tagRequestId;
-		final Position snapshot = currentPosition().copyOf();
+		final Position snapshot = currentPosition().copy();
 		tagModel.clear();
 		tagModel.addElement("Loading tags...");
 		new SwingWorker<List<String>, Void>() {
@@ -1163,12 +1148,15 @@ private void refreshTagsAsync() {
 					for (String tag : get()) {
 						tagModel.addElement(tag);
 					}
-					if (tagModel.isEmpty()) {
-						tagModel.addElement("(no tags)");
+						if (tagModel.isEmpty()) {
+							tagModel.addElement("(no tags)");
+						}
+					} catch (InterruptedException ex) {
+						Thread.currentThread().interrupt();
+						tagModel.addElement("Tagging interrupted");
+					} catch (Exception ex) {
+						tagModel.addElement("Tagging unavailable: " + ex.getMessage());
 					}
-				} catch (Exception ex) {
-					tagModel.addElement("Tagging unavailable: " + ex.getMessage());
-				}
 			}
 		}.execute();
 	}

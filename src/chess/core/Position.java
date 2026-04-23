@@ -3,3859 +3,2494 @@ package chess.core;
 import java.util.Arrays;
 
 /**
- * Used for representing a chess position, encapsulating board state, side to
- * move, castling
- * rights, en-passant target, half-move clock, and full-move number.
+ * Mutable chess position backed by piece bitboards.
  *
  * <p>
- * The implementation of this class prioritizes correctness,
- * clarity, and long-term maintainability over raw performance. It deliberately
- * avoids bitboard or magic-bitboard techniques so the code remains
- * approachable,
- * robust, and easy to debug and extend.
+ * The position keeps both aggregate occupancy masks and a square-to-piece table.
+ * That combination makes move generation fast while still allowing cheap
+ * captures, promotions, Chess960 castling, and undo operations during perft
+ * recursion.
  * </p>
- * 
- * <p>
- * This implementation supports both <strong>standard chess</strong> and
- * <strong>Chess960</strong>. Main capabilities:
- * </p>
- * <ul>
- * <li>Parse and validate FEN strings.</li>
- * <li>Generate and play all legal moves, including castling and
- * en&nbsp;passant.</li>
- * <li>Detect check, check-mate, attackers, and pin situations.</li>
- * <li>Serialize the current position back to FEN.</li>
- * <li>Counting material & pieces</li>
- * <li>Generating subpositions</li>
- * </ul>
- * 
- * <hr>
- * </hr>
  *
- * <h4>Example&nbsp;– FENs</h4>
- * <ul>
- * <li><strong>Starting Position</strong>:
- * rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w QKqk - 0 1</li>
- * <li><strong>Endgame Puzzle</strong>: 8/p1p3Q1/1p4r1/5qk1/5pp1/P7/1P5R/K7 w -
- * - 0 1</li>
- * <li><strong>Double Checkmate</strong>: 2rkr3/2p1p3/4N3/8/5K2/8/8/3R4 b - - 0
- * 1</li>
- * <li><strong>Standard Perft Testing</strong>:
- * r4rk1/1pp1qppp/p1np1n2/2b1p1B1/2B1P1b1/P1NP1N2/1PP1QPPP/R4RK1 w - - 0 10</li>
- * <li><strong>Chess960 Perft Testing</strong>:
- * bb3rkr/pq1p2pp/1p2pn2/2p2p2/2P2PnP/1P2PN2/PQBP1NP1/B4RKR w HFhf - 9 10</li>
- * </ul>
- * 
- * <hr>
- * </hr>
- * 
  * @since 2025 (since 2023 but heavily modified in 2025)
  * @author Lennart A. Conrad
  */
 public class Position implements Comparable<Position> {
 
-	/**
-	 * All possible combinations of a standard Chess castling string
-	 * 
-	 * The allowed default castling order.
-	 * <p>
-	 * In the default castling system, the allowed order is given as a sequence of
-	 * characters.
-	 * Uppercase characters denote one side's castling rights, and lowercase denote
-	 * the other side's.
-	 * For example, in this default order, 'K' is considered the highest priority
-	 * for kingside castling,
-	 * while 'q' is considered the lowest priority for queenside castling.
-	 * </p>
-	 */
-	private static final String[] STANDARD_CHESS_CASTLING_STRINGS = { "-", "K", "KQ", "KQk", "KQkq", "KQq", "Kk", "Kkq",
-			"Kq", "Q", "Qk", "Qkq", "Qq", "k", "kq", "q" };
-
-	/**
-	 * All Chess960 castling-rights strings in KQkq order, sorted alphabetically.
-	 *
-	 * <p>
-	 * Format:
-	 * <ul>
-	 * <li>0-2 uppercase letters for White, 0-2 lowercase letters for Black</li>
-	 * <li>Within each side, letters are in kingside-then-queenside order</li>
-	 * <li>Includes all legal mid-game subsets derived from any Chess960 start</li>
-	 * <li>Use "-" to indicate no castling rights at all</li>
-	 * </ul>
-	 * Letters represent the rook files eligible for castling.
-	 * </p>
-	 */
-	private static final String[] CHESS_960_CASTLING_STRINGS = {
-		"-", "A", "Aa", "Ac", "Aca", "Ad", "Ada", "Ae", "Aea", "Af", "Afa", "Ag",
-		"Aga", "Ah", "Aha", "B", "Bb", "Bd", "Bdb", "Be", "Beb", "Bf", "Bfb", "Bg",
-		"Bgb", "Bh", "Bhb", "C", "CA", "CAa", "CAc", "CAca", "Ca", "Cc", "Cca", "Ce",
-		"Cec", "Cf", "Cfc", "Cg", "Cgc", "Ch", "Chc", "D", "DA", "DAa", "DAd", "DAda",
-		"DB", "DBb", "DBd", "DBdb", "Da", "Db", "Dd", "Dda", "Ddb", "Df", "Dfd", "Dg",
-		"Dgd", "Dh", "Dhd", "E", "EA", "EAa", "EAe", "EAea", "EB", "EBb", "EBe", "EBeb",
-		"EC", "ECc", "ECe", "ECec", "Ea", "Eb", "Ec", "Ee", "Eea", "Eeb", "Eec", "Eg",
-		"Ege", "Eh", "Ehe", "F", "FA", "FAa", "FAf", "FAfa", "FB", "FBb", "FBf", "FBfb",
-		"FC", "FCc", "FCf", "FCfc", "FD", "FDd", "FDf", "FDfd", "Fa", "Fb", "Fc", "Fd",
-		"Ff", "Ffa", "Ffb", "Ffc", "Ffd", "Fh", "Fhf", "G", "GA", "GAa", "GAg", "GAga",
-		"GB", "GBb", "GBg", "GBgb", "GC", "GCc", "GCg", "GCgc", "GD", "GDd", "GDg", "GDgd",
-		"GE", "GEe", "GEg", "GEge", "Ga", "Gb", "Gc", "Gd", "Ge", "Gg", "Gga", "Ggb",
-		"Ggc", "Ggd", "Gge", "H", "HA", "HAa", "HAh", "HAha", "HB", "HBb", "HBh", "HBhb",
-		"HC", "HCc", "HCh", "HChc", "HD", "HDd", "HDh", "HDhd", "HE", "HEe", "HEh", "HEhe",
-		"HF", "HFf", "HFh", "HFhf", "Ha", "Hb", "Hc", "Hd", "He", "Hf", "Hh", "Hha",
-		"Hhb", "Hhc", "Hhd", "Hhe", "Hhf", "a", "b", "c", "ca", "d", "da", "db",
-		"e", "ea", "eb", "ec", "f", "fa", "fb", "fc", "fd", "g", "ga", "gb",
-		"gc", "gd", "ge", "h", "ha", "hb", "hc", "hd", "he", "hf"
-	};
-
-	/**
-	 * The en passant target square. If there is no en passant target, this is set
-	 * to {@link Field#NO_SQUARE}.
-	 */
-	protected byte enPassant = Field.NO_SQUARE;
-
-	/**
-	 * The index of the White king on the board.
-	 * If the White king is not present, this is set to {@link Field#NO_SQUARE}.
-	 */
-	protected byte whiteKing = Field.NO_SQUARE;
-
-	/**
-	 * The index of the Black king on the board.
-	 * If the Black king is not present, this is set to {@link Field#NO_SQUARE}.
-	 */
-	protected byte blackKing = Field.NO_SQUARE;
-
-	/**
-	 * The half-move clock, which counts the number of half-moves since the last
-	 * pawn move or capture.
-	 * This is used for the fifty-move rule.
-	 */
-	protected short halfMove = 0;
-
-	/**
-	 * The full move number, which starts at 1 and increments after each Black move.
-	 * This is used to track the progress of the game.
-	 */
-	protected short fullMove = 1;
-
-	/**
-	 * Indicates whether the position is in Chess960 format.
-	 * If true, the castling rights and piece positions follow the Chess960 rules.
-	 */
-	protected boolean chess960 = false;
-
-	/**
-	 * Indicates whether it is White's turn to move.
-	 * If true, it is White's turn; if false, it is Black's turn.
-	 */
-	protected boolean whitesTurn = true;
-
-	/**
-	 * The kingside castling index of the position. If Chess960, then it is the
-	 * index of the rook.
-	 * If castling to this side is not possible, this is set to
-	 * {@link Field#NO_SQUARE}.
-	 */
-	protected byte whiteKingside = Field.NO_SQUARE;
-
-	/**
-	 * The queenside castling index of the position. If Chess960, then it is the
-	 * index of the rook.
-	 * If castling to this side is not possible, this is set to
-	 * {@link Field#NO_SQUARE}.
-	 */
-	protected byte whiteQueenside = Field.NO_SQUARE;
-
-	/**
-	 * The kingside castling index of the position. If Chess960, then it is the
-	 * index of the rook.
-	 * If castling to this side is not possible, this is set to
-	 * {@link Field#NO_SQUARE}.
-	 */
-	protected byte blackKingside = Field.NO_SQUARE;
-
-	/**
-	 * The queenside castling index of the position. If Chess960, then it is the
-	 * index of the rook.
-	 * If castling to this side is not possible, this is set to
-	 * {@link Field#NO_SQUARE}.
-	 */
-	protected byte blackQueenside = Field.NO_SQUARE;
-
-	/**
-	 * A byte array representing the pieces on the board.
-	 */
-	protected byte[] board = new byte[64]; // Simpler and easier to modify than bitboards.
-
-	/**
-	 * Constructs an empty Position.
-	 * 
-	 * <p>
-	 * This constructor initializes the position with no pieces, no castling rights,
-	 * no en passant target, and sets the half-move clock and full move number to
-	 * zero.
-	 * </p>
-	 */
-	private Position() {
-		// empty constructor for creating an empty position
-	}
-
-	/**
-	 * Used for creating a deep copy of this Position.
-	 * <p>
-	 * This method performs a full duplication of the current board state,
-	 * including piece placement, castling rights, en passant target square,
-	 * half-move clock, full-move number, and active player. The returned
-	 * instance is a completely independent object, so subsequent modifications
-	 * to it do not affect the original.
-	 * </p>
-	 *
-	 * @return a new Position object representing an exact copy of this one
-	 */
-	public Position copyOf() {
-		Position copy = new Position();
-		copy.board = Arrays.copyOf(this.board, this.board.length);
-		copy.whitesTurn = this.whitesTurn;
-		copy.whiteKing = this.whiteKing;
-		copy.blackKing = this.blackKing;
-		copy.whiteQueenside = this.whiteQueenside;
-		copy.whiteKingside = this.whiteKingside;
-		copy.blackQueenside = this.blackQueenside;
-		copy.blackKingside = this.blackKingside;
-		copy.enPassant = this.enPassant;
-		copy.halfMove = this.halfMove;
-		copy.fullMove = this.fullMove;
-		copy.chess960 = this.chess960;
-		return copy;
-	}
-
-	/**
-	 * Used for constructing a Position from a FEN string.
-	 *
-	 * @param fen the FEN string to parse.
-	 * @throws IllegalArgumentException if the FEN string is invalid, contains empty
-	 *                                  fields, numeric fields are not shorts, or
-	 *                                  the resulting position is illegal.
-	 */
-	public Position(String fen) {
-		String normalizedFen = Fen.normalize(fen);
-		String[] parts = normalizedFen.split(" ");
-
-		if (parts.length < 4 || parts.length > 6) {
-			throw new IllegalArgumentException(
-					"Invalid FEN '" + normalizedFen + "' contains " + parts.length + " fields, expected 4 to 6.");
-		}
-		if (parts.length == 5) {
-			throw new IllegalArgumentException(
-					"Invalid FEN '" + normalizedFen + "' contains 5 fields, expected 4 or 6.");
-		}
-
-		if (parts[0].isEmpty() || parts[1].isEmpty() || parts[2].isEmpty() || parts[3].isEmpty()) {
-			throw new IllegalArgumentException("Invalid FEN '" + normalizedFen + "' contains empty fields.");
-		}
-
-		if (parts.length > 4) {
-			try {
-				Short.parseShort(parts[4]);
-			} catch (NumberFormatException e) {
-				throw new IllegalArgumentException(
-						"Invalid FEN '" + normalizedFen + "' half move clock (not a short): '" + parts[4] + "'", e);
-			}
-		}
-
-		if (parts.length > 5) {
-			try {
-				Short.parseShort(parts[5]);
-			} catch (NumberFormatException e) {
-				throw new IllegalArgumentException(
-						"Invalid FEN '" + normalizedFen + "' full move number (not a short): '" + parts[5] + "'", e);
-			}
-		}
-
-		initializePieces(parts[0])
-				.initializeColor(parts[1])
-				.initializeCastling(parts[2])
-				.initializeEnPassant(parts[3]);
-
-		if (parts.length > 4) {
-			initializeHalfMoveClock(parts[4])
-					.initializeFullMove(parts[5]);
-		}
-
-		if (!isLegalPosition()) {
-			throw new IllegalArgumentException("Invalid FEN '" + normalizedFen + "' results in an illegal position.");
-		}
-	}
-
-	/**
-	 * Used for initializing board pieces from a FEN string segment.
-	 *
-	 * @param pieces the piece placement field of the FEN string
-	 * @return itself
-	 * @throws IllegalArgumentException if there are too many pieces or invalid
-	 *                                  characters
-	 */
-	private Position initializePieces(String pieces) {
-		int index = 0;
-		int rankSquares = 0;
-		int ranks = 0;
-		for (int i = 0; i < pieces.length(); i++) {
-			switch (pieces.charAt(i)) {
-				case '/': {
-					if (rankSquares != 8) {
-						throw new IllegalArgumentException("Invalid FEN rank width: " + pieces);
-					}
-					rankSquares = 0;
-					ranks++;
-					break;
-				}
-				case '1', '2', '3', '4', '5', '6', '7', '8': {
-					int empty = pieces.charAt(i) - '0';
-					rankSquares += empty;
-					index += empty; // add empty squares
-					break;
-				}
-				case 'P': {
-					board[index++] = Piece.WHITE_PAWN;
-					rankSquares++;
-					break;
-				}
-				case 'R': {
-					board[index++] = Piece.WHITE_ROOK;
-					rankSquares++;
-					break;
-				}
-				case 'N': {
-					board[index++] = Piece.WHITE_KNIGHT;
-					rankSquares++;
-					break;
-				}
-				case 'B': {
-					board[index++] = Piece.WHITE_BISHOP;
-					rankSquares++;
-					break;
-				}
-				case 'Q': {
-					board[index++] = Piece.WHITE_QUEEN;
-					rankSquares++;
-					break;
-				}
-				case 'K': {
-					whiteKing = (byte) (index);
-					board[index++] = Piece.WHITE_KING;
-					rankSquares++;
-					break;
-				}
-				case 'p': {
-					board[index++] = Piece.BLACK_PAWN;
-					rankSquares++;
-					break;
-				}
-				case 'r': {
-					board[index++] = Piece.BLACK_ROOK;
-					rankSquares++;
-					break;
-				}
-				case 'n': {
-					board[index++] = Piece.BLACK_KNIGHT;
-					rankSquares++;
-					break;
-				}
-				case 'b': {
-					board[index++] = Piece.BLACK_BISHOP;
-					rankSquares++;
-					break;
-				}
-				case 'q': {
-					board[index++] = Piece.BLACK_QUEEN;
-					rankSquares++;
-					break;
-				}
-				case 'k': {
-					blackKing = (byte) (index);
-					board[index++] = Piece.BLACK_KING;
-					rankSquares++;
-					break;
-				}
-				default: {
-					throw new IllegalArgumentException("Invalid character in FEN string: " + pieces.charAt(i));
-				}
-			}
-			if (rankSquares > 8 || index > board.length) {
-				throw new IllegalArgumentException("Too many squares in FEN string: " + pieces);
-			}
-		}
-		if (rankSquares != 8) {
-			throw new IllegalArgumentException("Invalid FEN rank width: " + pieces);
-		}
-		ranks++;
-		if (ranks != 8 || index != board.length) {
-			throw new IllegalArgumentException("Invalid FEN board size: " + pieces);
-		}
-		return this;
-	}
-
-	/**
-	 * Used for setting the active color from a FEN string segment.
-	 *
-	 * @param color the active color field ('w' or 'b')
-	 * @return itself
-	 * @throws IllegalArgumentException if the color is not 'w' or 'b'
-	 */
-	private Position initializeColor(String color) {
-		if (color.equals("b")) {
-			whitesTurn = false;
-		} else if (color.equals("w")) {
-			whitesTurn = true;
-		} else {
-			throw new IllegalArgumentException("Invalid color in FEN string: " + color);
-		}
-		return this;
-	}
-
-	/**
-	 * Validates a default castling string against the default castling order.
-	 * <p>
-	 * A valid default castling string must satisfy all of the following:
-	 * <ul>
-	 * <li>It is either a single dash "-" (representing no castling rights) or has a
-	 * length between 1 and 4.</li>
-	 * <li>Each character in the string is one of the allowed castling characters
-	 * defined in {@code STANDARD_CHESS_CASTLING_STRINGS}.</li>
-	 * <li>The characters appear in the strict order defined by
-	 * {@code STANDARD_CHESS_CASTLING_STRINGS}
-	 * (although some characters may be omitted).</li>
-	 * </ul>
-	 * For example, "KQ" is valid because 'K' appears before 'Q', while "QK" is
-	 * invalid.
-	 * </p>
-	 *
-	 * @param string the castling string to validate (must not be {@code null})
-	 * @return {@code true} if the string is valid according to the default castling
-	 *         rules; {@code false} otherwise
-	 * @implNote The input is assumed to be non-{@code null}.
-	 */
-	private static boolean isStandardCastling(String string) {
-		return Arrays.binarySearch(STANDARD_CHESS_CASTLING_STRINGS, string) >= 0;
-	}
-
-	/**
-	 * Validates a Chess960 castling string against the Chess960 castling order.
-	 * <p>
-	 * A valid Chess960 castling string must satisfy all of the following:
-	 * <ul>
-	 * <li>It is either a single dash "-" (representing no castling rights) or has a
-	 * length between 1 and 4.</li>
-	 * <li>Each character in the string is one of the allowed castling characters
-	 * defined in {@code CHESS_960_CASTLING_STRINGS}.</li>
-	 * <li>The characters appear in the strict order defined by
-	 * {@code CHESS_960_CASTLING_STRINGS}
-	 * (although some characters may be omitted).</li>
-	 * </ul>
-	 * For example, "HFAh" is valid because 'H' comes first, then 'F', then 'A',
-	 * then 'h', whereas "HAF" is invalid because the order is incorrect.
-	 * </p>
-	 *
-	 * @param string the castling string to validate (must not be {@code null})
-	 * @return {@code true} if the string is valid according to the Chess960
-	 *         castling rules; {@code false} otherwise
-	 * @implNote This method assumes that the input string is non-{@code null} and
-	 *           only verifies that it is a valid subsequence of
-	 *           {@code CHESS_960_CASTLING_STRINGS}.
-	 *           It does not enforce that the castling rights are mirrored between
-	 *           both sides (e.g. "HAha" is accepted even if not symmetric).
-	 */
-	private static boolean is960Castling(String string) {
-		return Arrays.binarySearch(CHESS_960_CASTLING_STRINGS, string) >= 0;
-	}
-
-	/**
-	 * Sets the default castling rights based on a standard castling string.
-	 * <p>
-	 * The castling string is expected to be valid and non-{@code null}. A single
-	 * dash ("-")
-	 * indicates that no castling rights are available. Otherwise, the string
-	 * contains between 1
-	 * and 4 characters. Uppercase letters represent White's castling rights and are
-	 * mapped to
-	 * the corresponding square on White's back rank (A1–H1), while lowercase
-	 * letters represent
-	 */
-	private Position initializeStandardCastling(String string) {
-		whiteKingside = whiteQueenside = blackKingside = blackQueenside = Field.NO_SQUARE;
-		if (string.equals("-")) {
-			return this;
-		}
-		for (int i = 0; i < string.length(); i++) {
-			switch (string.charAt(i)) {
-				case 'K': {
-					whiteKingside = Field.WHITE_KINGSIDE_CASTLE_KING_TO_INDEX;
-					break;
-				}
-				case 'Q': {
-					whiteQueenside = Field.WHITE_QUEENSIDE_CASTLE_KING_TO_INDEX;
-					break;
-				}
-				case 'k': {
-					blackKingside = Field.BLACK_KINGSIDE_CASTLE_KING_TO_INDEX;
-					break;
-				}
-				case 'q': {
-					blackQueenside = Field.BLACK_QUEENSIDE_CASTLE_KING_TO_INDEX;
-					break;
-				}
-				default: {
-					break;
-				}
-			}
-		}
-		return this;
-	}
-
-	/**
-	 * Extracts the Chess960 castling rights from the provided castling string.
-	 * <p>
-	 * The castling string is expected to be valid and non-{@code null}. A single
-	 * dash ("-")
-	 * indicates that no castling rights are available. Otherwise, the string
-	 * contains between 1
-	 * and 4 characters. Uppercase letters represent White's castling rights and are
-	 * mapped to
-	 * the corresponding square on White's back rank (A1–H1), while lowercase
-	 * letters represent
-	 * Black's rights and are mapped to the corresponding square on Black's back
-	 * rank (A8–H8).
-	 * <br>
-	 * The first encountered letter for a given color is interpreted as the kingside
-	 * right,
-	 * and a second letter (if present) as the queenside right.
-	 * </p>
-	 *
-	 * @param string - the Chess960 castling string (must be non-{@code null} and
-	 *               already validated)
-	 */
-	private Position initialize960Castling(String string) {
-		whiteKingside = whiteQueenside = blackKingside = blackQueenside = Field.NO_SQUARE;
-		if (string.equals("-")) {
-			return this;
-		}
-		for (int i = 0; i < string.length(); i++) {
-			char character = string.charAt(i);
-			if (Character.isUpperCase(character)) {
-				if (whiteKingside == Field.NO_SQUARE) {
-					whiteKingside = (byte) (Field.A1 + (character - 'A'));
-				} else {
-					whiteQueenside = (byte) (Field.A1 + (character - 'A'));
-				}
-			} else {
-				if (blackKingside == Field.NO_SQUARE) {
-					blackKingside = (byte) (character - 'a');
-				} else {
-					blackQueenside = (byte) (character - 'a');
-				}
-			}
-		}
-		return this;
-	}
-
-	/**
-	 * Used for configuring castling rights from a FEN string segment.
-	 *
-	 * @param castling the castling availability field
-	 * @return itself
-	 * @throws IllegalArgumentException if the castling string is invalid
-	 */
-	private Position initializeCastling(String castling) {
-		if (isStandardCastling(castling)) {
-			initializeStandardCastling(castling);
-		} else if (is960Castling(castling)) {
-			chess960 = true;
-			initialize960Castling(castling);
-		} else {
-			throw new IllegalArgumentException("Invalid castling string: " + castling);
-		}
-		return this;
-	}
-
-	/**
-	 * Used for parsing and setting the en passant target square from FEN.
-	 *
-	 * @param enPassant the en passant field (square or '-')
-	 * @return itself
-	 */
-	private Position initializeEnPassant(String enPassant) {
-		if (!Field.isField(enPassant)) {
-			throw new IllegalArgumentException("Invalid En-Passant string: " + enPassant);
-		}
-		this.enPassant = Field.toIndex(enPassant);
-		return this;
-	}
-
-	/**
-	 * Used for parsing and setting the halfmove clock from FEN.
-	 *
-	 * @param halfMoveClock the halfmove clock field as string
-	 * @return itself
-	 */
-	private Position initializeHalfMoveClock(String halfMoveClock) {
-		this.halfMove = Short.parseShort(halfMoveClock);
-		if (this.halfMove < 0) {
-			throw new IllegalArgumentException("Invalid halfmove clock: " + halfMoveClock + ", must be >= 0.");
-		}
-		return this;
-	}
-
-	/**
-	 * Used for parsing and setting the full move number from FEN.
-	 *
-	 * @param fullMove the full move number field as string
-	 * @return itself
-	 */
-	private Position initializeFullMove(String fullMove) {
-		this.fullMove = Short.parseShort(fullMove);
-		if (this.fullMove < 1) {
-			throw new IllegalArgumentException("Invalid full move number: " + fullMove + ", must be >= 1.");
-		}
-		return this;
-	}
-
-	/**
-	 * Used for verifying whether the current position is legal.
-	 *
-	 * @return true if the position is legal; false otherwise
-	 */
-	private boolean isLegalPosition() {
-		// Kings must be present (only 1 black and only 1 white) and not in check
-		if (!validKings()) {
-			return false;
-		}
-
-		// No pawns on rank 1 or 8 and no more than 8 pawns per side
-		if (!validPawns()) {
-			return false;
-		}
-
-		// En passant: ensure pawn is present and en passant is technically possible
-		if (!validEnPassant()) {
-			return false;
-		}
-
-		// Castling: king and corresponding rook must be present and on correct square
-		return validCastlingRights();
-	}
-
-	/**
-	 * Used for validating that each side owns exactly one king, both
-	 * {@code whiteKing} and
-	 * {@code blackKing} indices are set, and the side not having the move is not
-	 * currently in
-	 * check.
-	 *
-	 * @return {@code true} if king placement and check status are legal;
-	 *         {@code false} otherwise
-	 */
-	private boolean validKings() {
-		int whiteKingCount = 0;
-		int blackKingCount = 0;
-		for (byte square : board) {
-			if (square == Piece.WHITE_KING) {
-				whiteKingCount++;
-			}
-			if (square == Piece.BLACK_KING) {
-				blackKingCount++;
-			}
-		}
-		if (whiteKingCount != 1 || blackKingCount != 1) {
-			return false;
-		}
-		if (whiteKing == Field.NO_SQUARE || blackKing == Field.NO_SQUARE) {
-			return false;
-		}
-		if (!whitesTurn && whiteKingInCheck()) {
-			return false;
-		}
-		return !(whitesTurn && blackKingInCheck());
-	}
-
-	/**
-	 * Used for guaranteeing that no pawn occupies the first or eighth rank and that
-	 * each side
-	 * has at most eight pawns on the board.
-	 *
-	 * @return {@code true} if all pawns reside on legal ranks and counts do not
-	 *         exceed eight
-	 */
-	private boolean validPawns() {
-		int whitePawns = 0;
-		int blackPawns = 0;
-		for (int i = 0; i < board.length; i++) {
-			byte piece = board[i];
-			if (!Piece.isPawn(piece)) {
-				continue;
-			}
-			if (Field.isOn1stRank((byte) i) || Field.isOn8thRank((byte) i)) {
-				return false;
-			}
-			if (piece == Piece.WHITE_PAWN) {
-				whitePawns++;
-			} else if (piece == Piece.BLACK_PAWN) {
-				blackPawns++;
-			}
-		}
-		return whitePawns <= 8 && blackPawns <= 8;
-	}
-
-	/**
-	 * Used for validating the {@code enPassant} target square against both the
-	 * board state and
-	 * the side to move, delegating to colour-specific helpers.
-	 *
-	 * @return {@code true} if the stored en-passant target permits at least one
-	 *         legal capture;
-	 *         {@code false} otherwise
-	 */
-	private boolean validEnPassant() {
-		if (enPassant == Field.NO_SQUARE) {
-			return true;
-		}
-
-		if (whitesTurn) {
-			return validWhiteEnPassant();
-		}
-
-		return validBlackEnPassant();
-	}
-
-	/**
-	 * Used for validating that an en-passant target allows at least one legal White
-	 * capture.
-	 *
-	 * @return {@code true} if a legal White en-passant capture exists
-	 */
-	private boolean validWhiteEnPassant() {
-		if (!Field.isOn6thRank(enPassant)) {
-			return false;
-		}
-
-		byte enPassantTarget = Field.uprank(enPassant);
-
-		if (board[enPassantTarget] != Piece.BLACK_PAWN) {
-			return false;
-		}
-
-		byte leftSquare = Field.leftOf(enPassantTarget);
-		byte rightSquare = Field.rightOf(enPassantTarget);
-
-		board[enPassantTarget] = Piece.EMPTY;
-		boolean leftCapture = Field.isOn5thRank(leftSquare) && isLegalWhiteMove(Move.of(leftSquare, enPassant));
-		boolean rightCapture = Field.isOn5thRank(rightSquare) && isLegalWhiteMove(Move.of(rightSquare, enPassant));
-		board[enPassantTarget] = Piece.BLACK_PAWN;
-
-		return leftCapture || rightCapture;
-	}
-
-	/**
-	 * Used for validating that an en-passant target allows at least one legal Black
-	 * capture.
-	 *
-	 * @return {@code true} if a legal Black en-passant capture exists
-	 */
-	private boolean validBlackEnPassant() {
-		if (!Field.isOn3rdRank(enPassant)) {
-			return false;
-		}
-
-		byte enPassantTarget = Field.downrank(enPassant);
-
-		if (board[enPassantTarget] != Piece.WHITE_PAWN) {
-			return false;
-		}
-
-		byte leftSquare = Field.leftOf(enPassantTarget);
-		byte rightSquare = Field.rightOf(enPassantTarget);
-
-		board[enPassantTarget] = Piece.EMPTY;
-		boolean leftCapture = Field.isOn4thRank(leftSquare) && isLegalBlackMove(Move.of(leftSquare, enPassant));
-		boolean rightCapture = Field.isOn4thRank(rightSquare) && isLegalBlackMove(Move.of(rightSquare, enPassant));
-		board[enPassantTarget] = Piece.WHITE_PAWN;
-
-		return leftCapture || rightCapture;
-	}
-
-	/**
-	 * Used for verifying if castling rights are valid based on piece positions.
-	 *
-	 * @return true if castling rights correspond to existing rooks and king; false
-	 *         otherwise
-	 */
-	private boolean validCastlingRights() {
-		return checkCastling(whiteKingside, chess960 ? whiteKingside : Field.H1, Piece.WHITE_ROOK,
-				chess960 ? Field.NO_SQUARE : Field.E1, whiteKing)
-				&& checkCastling(whiteQueenside, chess960 ? whiteQueenside : Field.A1, Piece.WHITE_ROOK,
-						chess960 ? Field.NO_SQUARE : Field.E1, whiteKing)
-				&& checkCastling(blackKingside, chess960 ? blackKingside : Field.H8, Piece.BLACK_ROOK,
-						chess960 ? Field.NO_SQUARE : Field.E8, blackKing)
-				&& checkCastling(blackQueenside, chess960 ? blackQueenside : Field.A8, Piece.BLACK_ROOK,
-						chess960 ? Field.NO_SQUARE : Field.E8, blackKing);
-	}
-
-	/**
-	 * Used for checking a single castling flag against board state.
-	 *
-	 * @param flagSquare         the castling flag square (or NO_SQUARE if no right)
-	 * @param rookSquare         the square where the rook should be located
-	 * @param rookPiece          the expected rook piece constant
-	 * @param requiredKingSquare the king's home square for standard castling, or
-	 *                           NO_SQUARE for Chess960
-	 * @param actualKingPosition the current king position square
-	 * @return true if the castling flag is valid; false otherwise
-	 */
-	private boolean checkCastling(byte flagSquare, byte rookSquare, byte rookPiece, byte requiredKingSquare,
-			byte actualKingPosition) {
-		// no right → always valid
-		if (flagSquare == Field.NO_SQUARE) {
-			return true;
-		}
-		// rook must be in place and king must exist
-		if (board[rookSquare] != rookPiece || actualKingPosition == Field.NO_SQUARE) {
-			return false;
-		}
-
-		// for standard chess, king must also be on its home square; for Chess960
-		// requiredKingSquare == NO_SQUARE so this check is skipped
-		return requiredKingSquare == Field.NO_SQUARE
-				|| actualKingPosition == requiredKingSquare;
-	}
-
-	/**
-	 * Used for checking if the white king is checkmated.
-	 *
-	 * @return true if the white king is checkmated, false otherwise.
-	 */
-	private boolean whiteCheckmated() {
-		return whiteKingInCheck() && getWhiteMoves(new MoveList()).isEmpty();
-	}
-
-	/**
-	 * Used for checking if the black king is checkmated.
-	 *
-	 * @return true if the black king is checkmated, false otherwise.
-	 */
-	private boolean blackCheckmated() {
-		return blackKingInCheck() && getBlackMoves(new MoveList()).isEmpty();
-	}
-
-	/**
-	 * Used for checking if the current player's king is checkmated.
-	 *
-	 * @return true if the active player's king is checkmated; false otherwise
-	 */
-	public boolean isMate() {
-		if (whitesTurn) {
-			return whiteCheckmated();
-		}
-
-		return blackCheckmated();
-	}
-
-	/**
-	 * Used for checking if a sliding piece (bishop, rook, or queen) attacks a
-	 * square.
-	 *
-	 * @param field     the index of the square being attacked
-	 * @param attacker1 the first possible attacking piece
-	 * @param attacker2 the second possible attacking piece
-	 * @param options   movement directions and ranges from each square
-	 * @return true if either attacker is found before obstruction; false otherwise
-	 */
-	private boolean slidingAttack(int field, byte attacker1, byte attacker2, byte[][][] options) {
-		for (byte[] ray : options[field]) {
-			for (byte square : ray) {
-				byte value = board[square];
-				boolean stop = value != Piece.EMPTY;
-				if (value == attacker1 || value == attacker2) {
-					return true;
-				}
-				if (stop) {
-					break;
-				}
-			}
-		}
-		return false;
-	}
-
-	/**
-	 * Used for checking if a non-sliding piece attacks a square.
-	 *
-	 * @param field    the index of the square being attacked
-	 * @param attacker the attacking piece type
-	 * @param options  array of offset positions
-	 * @return true if the attacker is found at any offset; false otherwise
-	 */
-	private boolean staticAttack(int field, byte attacker, byte[][] options) {
-		for (int i = 0; i < options[field].length; i++) {
-			if (board[options[field][i]] == attacker) {
-				return true;
-			}
-		}
-		return false;
-	}
-
-	/**
-	 * Counts how many sliding pieces attack a square along the supplied rays.
-	 *
-	 * @param field     the target square index
-	 * @param attacker1 the first sliding attacker type
-	 * @param attacker2 the second sliding attacker type
-	 * @param options   the precomputed rays to inspect
-	 * @return the number of matching sliding attackers that reach {@code field}
-	 */
-	private int slidingAttackCount(int field, byte attacker1, byte attacker2, byte[][][] options) {
-		int count = 0;
-		for (byte[] ray : options[field]) {
-			for (byte square : ray) {
-				byte value = board[square];
-				boolean stop = value != Piece.EMPTY;
-				if (value == attacker1 || value == attacker2) {
-					count++;
-				}
-				if (stop) {
-					break;
-				}
-			}
-		}
-		return count;
-	}
-
-	/**
-	 * Counts how many non-sliding pieces attack a square from fixed offsets.
-	 *
-	 * @param field    the target square index
-	 * @param attacker the attacker type to look for
-	 * @param options  the precomputed candidate origin squares
-	 * @return the number of matching attackers
-	 */
-	private int staticAttackCount(int field, byte attacker, byte[][] options) {
-		int count = 0;
-		for (int i = 0; i < options[field].length; i++) {
-			if (board[options[field][i]] == attacker) {
-				count++;
-			}
-		}
-		return count;
-	}
-
-	/**
-	 * Returns true if the given square is attacked by the opponent's pieces.
-	 * This is a pure geometric attack test; it does not verify side to move.
-	 *
-	 * @param field target square index (0..63)
-	 * @return true if any opponent piece attacks {@code field}
-	 */
-	protected boolean attacked(int field) {
-		if (whitesTurn) {
-			return attackedByBlack(field);
-		}
-		return attackedByWhite(field);
-	}
-
-	/**
-	 * Used for determining if a square is attacked by any Black piece.
-	 *
-	 * @param field the index of the square to check
-	 * @return true if the square is attacked by Black; false otherwise
-	 */
-	protected boolean attackedByBlack(int field) {
-		return staticAttack(field, Piece.BLACK_KNIGHT, Field.JUMPS)
-				|| staticAttack(field, Piece.BLACK_KING, Field.NEIGHBORS)
-				|| staticAttack(field, Piece.BLACK_PAWN, Field.PAWN_CAPTURE_WHITE)
-				|| slidingAttack(field, Piece.BLACK_BISHOP, Piece.BLACK_QUEEN, Field.DIAGONALS)
-				|| slidingAttack(field, Piece.BLACK_ROOK, Piece.BLACK_QUEEN, Field.LINES);
-	}
-
-	/**
-	 * Used for determining if a square is attacked by any White piece.
-	 *
-	 * @param field the index of the square to check
-	 * @return true if the square is attacked by White; false otherwise
-	 */
-	protected boolean attackedByWhite(int field) {
-		return staticAttack(field, Piece.WHITE_KNIGHT, Field.JUMPS)
-				|| staticAttack(field, Piece.WHITE_KING, Field.NEIGHBORS)
-				|| staticAttack(field, Piece.WHITE_PAWN, Field.PAWN_CAPTURE_BLACK)
-				|| slidingAttack(field, Piece.WHITE_BISHOP, Piece.WHITE_QUEEN, Field.DIAGONALS)
-				|| slidingAttack(field, Piece.WHITE_ROOK, Piece.WHITE_QUEEN, Field.LINES);
-	}
-
-	/**
-	 * Checks whether a square is attacked by any White piece.
-	 *
-	 * <p>
-	 * This is a geometric attack query on the current board state. It does not
-	 * depend on {@link #whitesTurn} and does not require the target square to be
-	 * occupied.
-	 * </p>
-	 *
-	 * @param square the square to inspect
-	 * @return {@code true} if at least one White piece attacks {@code square}
-	 */
-	public boolean isAttackedByWhite(byte square) {
-		return attackedByWhite(square);
-	}
-
-	/**
-	 * Checks whether a square is attacked by any Black piece.
-	 *
-	 * <p>
-	 * This is a geometric attack query on the current board state. It does not
-	 * depend on {@link #whitesTurn} and does not require the target square to be
-	 * occupied.
-	 * </p>
-	 *
-	 * @param square the square to inspect
-	 * @return {@code true} if at least one Black piece attacks {@code square}
-	 */
-	public boolean isAttackedByBlack(byte square) {
-		return attackedByBlack(square);
-	}
-
-	/**
-	 * Counts how many White pieces attack a square.
-	 *
-	 * <p>
-	 * The count includes all direct geometric attackers currently reaching the
-	 * square, including multiple sliders arriving from different rays.
-	 * </p>
-	 *
-	 * @param square the square to inspect
-	 * @return the number of White attackers on {@code square}
-	 */
-	public int countAttackersByWhite(byte square) {
-		return staticAttackCount(square, Piece.WHITE_KNIGHT, Field.JUMPS)
-				+ staticAttackCount(square, Piece.WHITE_KING, Field.NEIGHBORS)
-				+ staticAttackCount(square, Piece.WHITE_PAWN, Field.PAWN_CAPTURE_BLACK)
-				+ slidingAttackCount(square, Piece.WHITE_BISHOP, Piece.WHITE_QUEEN, Field.DIAGONALS)
-				+ slidingAttackCount(square, Piece.WHITE_ROOK, Piece.WHITE_QUEEN, Field.LINES);
-	}
-
-	/**
-	 * Counts how many Black pieces attack a square.
-	 *
-	 * <p>
-	 * The count includes all direct geometric attackers currently reaching the
-	 * square, including multiple sliders arriving from different rays.
-	 * </p>
-	 *
-	 * @param square the square to inspect
-	 * @return the number of Black attackers on {@code square}
-	 */
-	public int countAttackersByBlack(byte square) {
-		return staticAttackCount(square, Piece.BLACK_KNIGHT, Field.JUMPS)
-				+ staticAttackCount(square, Piece.BLACK_KING, Field.NEIGHBORS)
-				+ staticAttackCount(square, Piece.BLACK_PAWN, Field.PAWN_CAPTURE_WHITE)
-				+ slidingAttackCount(square, Piece.BLACK_BISHOP, Piece.BLACK_QUEEN, Field.DIAGONALS)
-				+ slidingAttackCount(square, Piece.BLACK_ROOK, Piece.BLACK_QUEEN, Field.LINES);
-	}
-
-	/**
-	 * Used for checking if the White king is in check.
-	 *
-	 * @return true if the White king is attacked; false otherwise
-	 */
-	private boolean whiteKingInCheck() {
-		return attackedByBlack(whiteKing);
-	}
-
-	/**
-	 * Used for checking if the Black king is in check.
-	 *
-	 * @return true if the Black king is attacked; false otherwise
-	 */
-	private boolean blackKingInCheck() {
-		return attackedByWhite(blackKing);
-	}
-
-	/**
-	 * Used for checking if the chosen player's king is in check.
-	 *
-	 * @return true if the chosen player's king is under attack; false otherwise
-	 */
-	private boolean inCheck(boolean whitesTurn) {
-		if (whitesTurn) {
-			return whiteKingInCheck();
-		}
-		return blackKingInCheck();
-	}
-
-	/**
-	 * Used for checking if the current player's king is in check.
-	 *
-	 * @return true if the active player's king is under attack; false otherwise
-	 */
-	public boolean inCheck() {
-		return inCheck(whitesTurn);
-	}
-
-	/**
-	 * Used for checking if a sliding piece (bishop, rook, or queen) attacks a
-	 * square.
-	 *
-	 * @param buffer    the array to store attacking positions
-	 * @param index     the current index in the buffer
-	 * @param field     the index of the square being attacked
-	 * @param attacker1 the first possible attacking piece
-	 * @param attacker2 the second possible attacking piece
-	 * @param options   movement directions and ranges from each square
-	 * @return updated index after storing attack positions
-	 */
-	private int slidingAttackBuffer(byte[] buffer, int index, int field, byte attacker1, byte attacker2,
-			byte[][][] options) {
-		for (byte[] ray : options[field]) {
-			for (byte sq : ray) {
-				byte value = board[sq];
-				boolean isAttacker = (value == attacker1 || value == attacker2);
-				boolean stop = isAttacker || !Piece.isEmpty(value);
-				if (isAttacker) {
-					buffer[index++] = sq;
-				}
-				if (stop) {
-					break;
-				}
-			}
-		}
-		return index;
-	}
-
-	/**
-	 * Used for checking if a non-sliding piece attacks a square.
-	 *
-	 * @param buffer   the array to store attacking positions
-	 * @param index    the current index in the buffer
-	 * @param field    the index of the square being attacked
-	 * @param attacker the attacking piece type
-	 * @param options  array of offset positions
-	 * @return updated index after storing attack positions
-	 */
-	private int staticAttackBuffer(byte[] buffer, int index, int field, byte attacker, byte[][] options) {
-		for (int i = 0; i < options[field].length; i++) {
-			if (board[options[field][i]] == attacker) {
-				buffer[index] = options[field][i];
-				index++;
-			}
-		}
-		return index;
-	}
-
-	/**
-	 * Used for finding which squares are attacking a black piece at the given
-	 * field.
-	 *
-	 * @param field the square index of the black piece being checked.
-	 * @return an array of square indices from which white pieces attack the
-	 *         specified field.
-	 */
-	protected byte[] attacksByWhite(int field) {
-		byte[] buffer = new byte[32];
-		int index = 0;
-		index = staticAttackBuffer(buffer, index, field, Piece.WHITE_KNIGHT, Field.JUMPS);
-		index = staticAttackBuffer(buffer, index, field, Piece.WHITE_KING, Field.NEIGHBORS);
-		index = staticAttackBuffer(buffer, index, field, Piece.WHITE_PAWN, Field.PAWN_CAPTURE_BLACK);
-		index = slidingAttackBuffer(buffer, index, field, Piece.WHITE_BISHOP, Piece.WHITE_QUEEN, Field.DIAGONALS);
-		index = slidingAttackBuffer(buffer, index, field, Piece.WHITE_ROOK, Piece.WHITE_QUEEN, Field.LINES);
-		return Arrays.copyOf(buffer, index);
-	}
-
-	/**
-	 * Used for finding which squares are attacking a white piece at the given
-	 * field.
-	 *
-	 * @param field the square index of the white piece being checked.
-	 * @return an array of square indices from which black pieces attack the
-	 *         specified field.
-	 */
-	protected byte[] attacksByBlack(int field) {
-		byte[] buffer = new byte[32];
-		int index = 0;
-		index = staticAttackBuffer(buffer, index, field, Piece.BLACK_KNIGHT, Field.JUMPS);
-		index = staticAttackBuffer(buffer, index, field, Piece.BLACK_KING, Field.NEIGHBORS);
-		index = staticAttackBuffer(buffer, index, field, Piece.BLACK_PAWN, Field.PAWN_CAPTURE_WHITE);
-		index = slidingAttackBuffer(buffer, index, field, Piece.BLACK_BISHOP, Piece.BLACK_QUEEN, Field.DIAGONALS);
-		index = slidingAttackBuffer(buffer, index, field, Piece.BLACK_ROOK, Piece.BLACK_QUEEN, Field.LINES);
-		return Arrays.copyOf(buffer, index);
-	}
-
-	/**
-	 * Returns the White pieces that currently attack a square.
-	 *
-	 * <p>
-	 * Each returned byte is a board index identifying an attacking White piece.
-	 * The returned array is a fresh copy and may be safely modified by the caller.
-	 * </p>
-	 *
-	 * @param square the square being attacked
-	 * @return the squares of all White attackers
-	 */
-	public byte[] getAttackersByWhite(byte square) {
-		return attacksByWhite(square);
-	}
-
-	/**
-	 * Returns the Black pieces that currently attack a square.
-	 *
-	 * <p>
-	 * Each returned byte is a board index identifying an attacking Black piece.
-	 * The returned array is a fresh copy and may be safely modified by the caller.
-	 * </p>
-	 *
-	 * @param square the square being attacked
-	 * @return the squares of all Black attackers
-	 */
-	public byte[] getAttackersByBlack(byte square) {
-		return attacksByBlack(square);
-	}
-
-	/**
-	 * Used for getting the squares that are attacking the king of the current
-	 * player.
-	 * 
-	 * @return an array of indices representing the squares that are attacking the
-	 *         king
-	 */
-	public byte[] getCheckers() {
-		if (whitesTurn) {
-			return attacksByBlack(whiteKing);
-		}
-		return attacksByWhite(blackKing);
-	}
-
-	/**
-	 * Finds pin information for the piece on a square relative to its own king.
-	 *
-	 * <p>
-	 * A piece is considered pinned when:
-	 * </p>
-	 * <ul>
-	 * <li>the square contains a non-king piece,</li>
-	 * <li>that piece and its own king lie on the same rank, file, or diagonal,</li>
-	 * <li>no other piece stands between the king and the candidate piece, and</li>
-	 * <li>an opposing bishop, rook, or queen lies beyond it on the same line.</li>
-	 * </ul>
-	 *
-	 * @param square the candidate pinned piece square
-	 * @return pin metadata, or {@code null} if the piece is not pinned to its own king
-	 */
-	public PinInfo findPinToOwnKing(byte square) {
-		byte piece = board[square];
-		if (piece == Piece.EMPTY || Piece.isKing(piece)) {
-			return null;
-		}
-		boolean white = Piece.isWhite(piece);
-		byte kingSquare = white ? whiteKing : blackKing;
-		return findPinToKing(square, white, kingSquare);
-	}
-
-	/**
-	 * Checks whether the piece on a square is pinned to its own king.
-	 *
-	 * @param square the candidate pinned piece square
-	 * @return {@code true} if the piece is pinned to its own king
-	 */
-	public boolean isPinnedToOwnKing(byte square) {
-		return findPinToOwnKing(square) != null;
-	}
-
-	/**
-	 * Finds pin metadata for a candidate piece relative to a specific king.
-	 *
-	 * @param pieceSquare the candidate pinned piece square
-	 * @param pinnedWhite whether the candidate piece belongs to White
-	 * @param kingSquare  the corresponding own-king square
-	 * @return pin metadata, or {@code null} if no pin exists
-	 */
-	private PinInfo findPinToKing(byte pieceSquare, boolean pinnedWhite, byte kingSquare) {
-		if (kingSquare == Field.NO_SQUARE || pieceSquare == kingSquare) {
-			return null;
-		}
-
-		int kx = Field.getX(kingSquare);
-		int ky = Field.getY(kingSquare);
-		int px = Field.getX(pieceSquare);
-		int py = Field.getY(pieceSquare);
-		int diffX = px - kx;
-		int diffY = py - ky;
-
-		if (!(diffX == 0 || diffY == 0 || Math.abs(diffX) == Math.abs(diffY))) {
-			return null;
-		}
-
-		int stepX = Integer.signum(diffX);
-		int stepY = Integer.signum(diffY);
-
-		int x = kx + stepX;
-		int y = ky + stepY;
-		while (x != px || y != py) {
-			if (board[Field.toIndex(x, y)] != Piece.EMPTY) {
-				return null;
-			}
-			x += stepX;
-			y += stepY;
-		}
-
-		x = px + stepX;
-		y = py + stepY;
-		while (Field.isOnBoard(x, y)) {
-			int idx = Field.toIndex(x, y);
-			byte pinner = board[idx];
-			if (pinner != Piece.EMPTY) {
-				if (Piece.isWhite(pinner) != pinnedWhite && isPinningSliderForLine(pinner, stepX, stepY)) {
-					return new PinInfo(pieceSquare, (byte) idx, pinner);
-				}
-				return null;
-			}
-			x += stepX;
-			y += stepY;
-		}
-
-		return null;
-	}
-
-	/**
-	 * Checks whether a piece can pin along the specified line.
-	 *
-	 * @param piece the potential pinning piece
-	 * @param stepX the file direction of the line
-	 * @param stepY the rank direction of the line
-	 * @return {@code true} if the piece can pin along that line
-	 */
-	private boolean isPinningSliderForLine(byte piece, int stepX, int stepY) {
-		boolean diagonal = stepX != 0 && stepY != 0;
-		if (diagonal) {
-			return Piece.isBishop(piece) || Piece.isQueen(piece);
-		}
-		return Piece.isRook(piece) || Piece.isQueen(piece);
-	}
-
-	/**
-	 * Returns true if the destination square contains an opponent piece (regular
-	 * capture),
-	 * excluding en passant.
-	 *
-	 * @param moveto destination square index (0..63)
-	 * @return true if a regular capture occurs on {@code moveto}
-	 */
-	protected boolean isRegularCapture(short moveto) {
-		if (whitesTurn) {
-			return Piece.isBlack(board[moveto]);
-		}
-
-		return Piece.isWhite(board[moveto]);
-	}
-
-	/**
-	 * Used for executing the given move on this Position.
-	 * <p>
-	 * Applies all standard updates required by chess rules: moves the piece,
-	 * updates castling rights if a rook or king moves, sets en passant target
-	 * when a pawn advances two squares, increments the half-move clock for
-	 * the fifty-move rule, advances the full-move counter after Black's move,
-	 * and toggles the active player. Assumes the move is legal in the current
-	 * context.
-	 * </p>
-	 *
-	 * @param move the Move to apply; must be legal and validated beforehand
-	 * @return this Position after applying the move, for method chaining
-	 * @throws IllegalArgumentException if the move is illegal or inconsistent
-	 */
-	public Position play(short move) {
-		boolean isCaptureOrPawnMove;
-
-		enPassant = Field.NO_SQUARE;
-
-		if (whitesTurn) {
-			isCaptureOrPawnMove = playWhite(move);
-		} else {
-			isCaptureOrPawnMove = playBlack(move);
-			// Full-move counter increments after black's move
-			fullMove++;
-		}
-
-		// Update half-move clock (for 50-move rule)
-		if (isCaptureOrPawnMove) {
-			halfMove = 0;
-		} else {
-			halfMove++;
-		}
-
-		// Switch active player
-		whitesTurn = !whitesTurn;
-
-		return this;
-	}
-
-	/**
-	 * Used for executing a non-special move (queen, rook, bishop or knight) and
-	 * reporting captures.
-	 *
-	 * @param move the move to apply
-	 * @return {@code true} if a piece was captured, otherwise {@code false}
-	 */
-	private boolean playRegular(byte movefrom, byte moveto) {
-		boolean captured = isRegularCapture(moveto);
-		board[moveto] = board[movefrom];
-		board[movefrom] = Piece.EMPTY;
-		return captured;
-	}
-
-	/**
-	 * Used for performing White's move and updating clocks, en-passant and castling
-	 * metadata.
-	 *
-	 * @param move the move chosen for White
-	 * @return {@code true} if the half-move clock must be reset
-	 */
-	private boolean playWhite(short move) {
-		byte movefrom = Move.getFromIndex(move);
-		byte moveto = Move.getToIndex(move);
-
-		updateBlackCastlingRights(moveto);
-		return switch (board[movefrom]) {
-			case Piece.WHITE_PAWN -> playWhitePawn(movefrom, moveto, Move.getPromotion(move));
-			case Piece.WHITE_KING -> playWhiteKing(movefrom, moveto);
-			case Piece.WHITE_ROOK -> playWhiteRook(movefrom, moveto);
-			case Piece.WHITE_BISHOP, Piece.WHITE_KNIGHT, Piece.WHITE_QUEEN -> playRegular(movefrom, moveto);
-			default -> false; // something went wrong, this should never trigger
-		};
-	}
-
-	/**
-	 * Used for updating Black's castling rights when a rook on its initial square
-	 * gets captured or when the king/rook moves to {@code moveto}.
-	 *
-	 * @param moveto destination square index (0..63) that may clear Black's rights
-	 */
-	private void updateBlackCastlingRights(short moveto) {
-		byte queensideRookStart = chess960 ? blackQueenside : Field.BLACK_QUEENSIDE_CASTLE_ROOK_FROM_INDEX;
-		byte kingsideRookStart = chess960 ? blackKingside : Field.BLACK_KINGSIDE_CASTLE_ROOK_FROM_INDEX;
-		if (moveto == queensideRookStart) {
-			blackQueenside = Field.NO_SQUARE;
-		} else if (moveto == kingsideRookStart) {
-			blackKingside = Field.NO_SQUARE;
-		}
-	}
-
-	/**
-	 * Used for simulating an en passant move for white. If legal, sets the en
-	 * passant
-	 * target square for the position and returns true.
-	 *
-	 * @param from       the moving pawn’s origin square
-	 * @param to         the moving pawn’s destination square
-	 * @param capturedSq the square behind {@code to} where the capture would occur
-	 * @param pawnSq     the adjacent opponent pawn square to test
-	 * @see #playWhitePawn(byte, byte, byte)
-	 * @return true if the en passant right is legal for White
-	 */
-	private boolean simulateWhiteEnPassant(int from, int to, byte capturedSq, byte pawnSq) {
-		if (!Field.isOn4thRank(pawnSq) || board[pawnSq] != Piece.BLACK_PAWN) {
-			return false;
-		}
-
-		byte saveTo = board[to];
-		byte saveFrom = board[from];
-		byte saveTarget = board[capturedSq];
-		byte savePawn = board[pawnSq];
-		board[to] = Piece.EMPTY;
-		board[from] = Piece.EMPTY;
-		board[capturedSq] = savePawn;
-		board[pawnSq] = Piece.EMPTY;
-		boolean legal = !blackKingInCheck();
-		if (legal) {
-			enPassant = capturedSq;
-		}
-		// restore
-		board[to] = saveTo;
-		board[from] = saveFrom;
-		board[capturedSq] = saveTarget;
-		board[pawnSq] = savePawn;
-		return legal;
-	}
-
-	/**
-	 * Performs the movement of a white pawn, updates the board and castling rights,
-	 * and returns whether a piece has been captured or a pawn has moved.
-	 * <p>
-	 * This method handles special pawn moves including:
-	 * <ul>
-	 * <li>Double-square advances (sets en passant opportunities)</li>
-	 * <li>En passant captures</li>
-	 * <li>Pawn promotions</li>
-	 * <li>Clearing of en passant markers</li>
-	 * </ul>
-	 * 
-	 * @param movefrom  origin square (0..63)
-	 * @param moveto    destination square (0..63)
-	 * @param promotion promotion code (0=none, 1=knight, 2=bishop, 3=rook, 4=queen)
-	 */
-	private boolean playWhitePawn(byte movefrom, byte moveto, byte promotion) {
-		// Enable En-Passant for Black
-		if (Field.isOn2ndRank(movefrom) && Field.isOn4thRank(moveto)) {
-			byte enPassantTarget = Field.uprank(moveto); // Square behind destination
-
-			// Check left and right for potential en passant opportunities
-			byte leftSquare = Field.leftOf(moveto);
-			simulateWhiteEnPassant(movefrom, moveto, enPassantTarget, leftSquare);
-
-			byte rightSquare = Field.rightOf(moveto);
-			simulateWhiteEnPassant(movefrom, moveto, enPassantTarget, rightSquare);
-		}
-
-		// Clear en passant marker on non-capture moves
-		else if (board[moveto] == Piece.EMPTY) {
-			board[Field.uprank(moveto)] = Piece.EMPTY;
-		}
-
-		// Execute the pawn move
-		board[movefrom] = Piece.EMPTY;
-
-		// Handle promotion if specified
-		switch (promotion) {
-			case Move.NO_PROMOTION:
-				board[moveto] = Piece.WHITE_PAWN;
-				break;
-			case Move.PROMOTION_QUEEN:
-				board[moveto] = Piece.WHITE_QUEEN;
-				break;
-			case Move.PROMOTION_ROOK:
-				board[moveto] = Piece.WHITE_ROOK;
-				break;
-			case Move.PROMOTION_BISHOP:
-				board[moveto] = Piece.WHITE_BISHOP;
-				break;
-			case Move.PROMOTION_KNIGHT:
-				board[moveto] = Piece.WHITE_KNIGHT;
-				break;
-			default:
-				break;
-		}
-		return true; // Pawn always moves, so return true
-	}
-
-	/**
-	 * Handles the movement of the White king, including standard and Chess960
-	 * castling,
-	 * updates castling rights, and returns whether a capture occurred.
-	 *
-	 * @param movefrom origin square (0..63)
-	 * @param moveto   destination square (0..63)
-	 * @return true if a piece was captured, false otherwise (including castling)
-	 */
-	private boolean playWhiteKing(byte movefrom, byte moveto) {
-		// Chess960: Castling occurs when the king captures his own rook
-		boolean isKingsideCastle = moveto == whiteKingside && board[moveto] == Piece.WHITE_ROOK;
-		boolean isQueensideCastle = moveto == whiteQueenside && board[moveto] == Piece.WHITE_ROOK;
-
-		// King moved: permanently revoke both castling rights
-		whiteQueenside = Field.NO_SQUARE;
-		whiteKingside = Field.NO_SQUARE;
-
-		whiteKing = moveto;
-
-		if (chess960) {
-			if (isKingsideCastle) {
-				return executeWhiteCastling(
-						movefrom,
-						Field.WHITE_KINGSIDE_CASTLE_KING_TO_INDEX,
-						moveto,
-						Field.WHITE_KINGSIDE_CASTLE_ROOK_TO_INDEX);
-			} else if (isQueensideCastle) {
-				return executeWhiteCastling(
-						movefrom,
-						Field.WHITE_QUEENSIDE_CASTLE_KING_TO_INDEX,
-						moveto,
-						Field.WHITE_QUEENSIDE_CASTLE_ROOK_TO_INDEX);
-			}
-		} else {
-			// Standard chess: Castling is identified by king moving two squares
-			boolean isStartingPosition = movefrom == Field.WHITE_KING_STANDARD_INDEX;
-			boolean isKingsideMove = moveto == Field.WHITE_KINGSIDE_CASTLE_KING_TO_INDEX;
-			boolean isQueensideMove = moveto == Field.WHITE_QUEENSIDE_CASTLE_KING_TO_INDEX;
-
-			if (isStartingPosition) {
-				if (isKingsideMove) {
-					return executeWhiteCastling(
-							movefrom,
-							moveto,
-							Field.WHITE_KINGSIDE_CASTLE_ROOK_FROM_INDEX,
-							Field.WHITE_KINGSIDE_CASTLE_ROOK_TO_INDEX);
-				} else if (isQueensideMove) {
-					return executeWhiteCastling(
-							movefrom,
-							moveto,
-							Field.WHITE_QUEENSIDE_CASTLE_ROOK_FROM_INDEX,
-							Field.WHITE_QUEENSIDE_CASTLE_ROOK_TO_INDEX);
-				}
-			}
-		}
-
-		// Regular king move (non-castling)
-		return playRegular(movefrom, moveto);
-	}
-
-	/**
-	 * Used for executing White castling by relocating the king and rook to their
-	 * destination squares.
-	 *
-	 * @param kingFrom the king's starting square
-	 * @param kingTo   the king's target square
-	 * @param rookFrom the rook's starting square
-	 * @param rookTo   the rook's target square
-	 * @return always {@code false} – castling never captures
-	 */
-	private boolean executeWhiteCastling(byte kingFrom, byte kingTo, byte rookFrom, byte rookTo) {
-		// Clear original positions
-		board[kingFrom] = Piece.EMPTY;
-		board[rookFrom] = Piece.EMPTY;
-
-		// Place pieces in new positions
-		board[kingTo] = Piece.WHITE_KING;
-		board[rookTo] = Piece.WHITE_ROOK;
-
-		// Update king position
-		whiteKing = kingTo;
-
-		return false;
-	}
-
-	/**
-	 * Used for handling a White rook move and clearing obsolete castling rights.
-	 *
-	 * @param movefrom origin square (0..63)
-	 * @param moveto   destination square (0..63)
-	 * @return {@code true} when a capture occurs, otherwise {@code false}
-	 */
-	private boolean playWhiteRook(byte movefrom, byte moveto) {
-		byte queensideStart = chess960 ? whiteQueenside : Field.WHITE_QUEENSIDE_CASTLE_ROOK_FROM_INDEX;
-		byte kingsideStart = chess960 ? whiteKingside : Field.WHITE_KINGSIDE_CASTLE_ROOK_FROM_INDEX;
-		if (movefrom == queensideStart) {
-			whiteQueenside = Field.NO_SQUARE;
-		} else if (movefrom == kingsideStart) {
-			whiteKingside = Field.NO_SQUARE;
-		}
-		return playRegular(movefrom, moveto);
-	}
-
-	/**
-	 * Used for performing Black's move and updating clocks, en-passant and castling
-	 * metadata.
-	 *
-	 * @param move the move chosen for Black
-	 * @return {@code true} if the half-move clock must be reset
-	 */
-	private boolean playBlack(short move) {
-		byte movefrom = Move.getFromIndex(move);
-		byte moveto = Move.getToIndex(move);
-
-		updateWhiteCastlingRights(moveto);
-
-		return switch (board[movefrom]) {
-			case Piece.BLACK_PAWN -> playBlackPawn(movefrom, moveto, Move.getPromotion(move));
-			case Piece.BLACK_KING -> playBlackKing(movefrom, moveto);
-			case Piece.BLACK_ROOK -> playBlackRook(movefrom, moveto);
-			case Piece.BLACK_BISHOP, Piece.BLACK_KNIGHT, Piece.BLACK_QUEEN -> playRegular(movefrom, moveto);
-			default -> false; // something went wrong, this should never trigger
-		};
-	}
-
-	/**
-	 * Used for updating White's castling rights when a rook on its initial square
-	 * gets captured or when the king/rook moves to {@code moveto}.
-	 *
-	 * @param moveto destination square index (0..63) that may clear White's rights
-	 */
-	private void updateWhiteCastlingRights(short moveto) {
-		byte queensideRookStart = chess960 ? whiteQueenside : Field.WHITE_QUEENSIDE_CASTLE_ROOK_FROM_INDEX;
-		byte kingsideRookStart = chess960 ? whiteKingside : Field.WHITE_KINGSIDE_CASTLE_ROOK_FROM_INDEX;
-		if (moveto == queensideRookStart) {
-			whiteQueenside = Field.NO_SQUARE;
-		} else if (moveto == kingsideRookStart) {
-			whiteKingside = Field.NO_SQUARE;
-		}
-	}
-
-	/**
-	 * Used for simulating an en passant move for black. If legal, sets the en
-	 * passant
-	 * target square for the position and returns true.
-	 *
-	 * @param from       the moving pawn’s origin square
-	 * @param to         the moving pawn’s destination square
-	 * @param capturedSq the square behind {@code to} where the capture would occur
-	 * @param pawnSq     the adjacent opponent pawn square to test
-	 * @see #playBlackPawn(byte, byte, byte)
-	 * @return true if the en passant right is legal for Black
-	 */
-	private boolean simulateBlackEnPassant(int from, int to, byte capturedSq, byte pawnSq) {
-		if (!Field.isOn5thRank(pawnSq) || board[pawnSq] != Piece.WHITE_PAWN) {
-			return false;
-		}
-
-		byte saveTo = board[to];
-		byte saveFrom = board[from];
-		byte saveTarget = board[capturedSq];
-		byte savePawn = board[pawnSq];
-		board[to] = Piece.EMPTY;
-		board[from] = Piece.EMPTY;
-		board[capturedSq] = savePawn;
-		board[pawnSq] = Piece.EMPTY;
-		boolean legal = !whiteKingInCheck();
-		if (legal) {
-			enPassant = capturedSq;
-		}
-
-		// restore
-		board[to] = saveTo;
-		board[from] = saveFrom;
-		board[capturedSq] = saveTarget;
-		board[pawnSq] = savePawn;
-		return legal;
-	}
-
-	/**
-	 * Performs the movement of a black pawn, updates the board and castling rights,
-	 * and returns whether a piece has been captured or a pawn has moved.
-	 * <p>
-	 * This method handles special pawn moves including:
-	 * <ul>
-	 * <li>Double-square advances (sets en passant opportunities)</li>
-	 * <li>En passant captures</li>
-	 * <li>Pawn promotions</li>
-	 * <li>Clearing of en passant markers</li>
-	 * </ul>
-	 * 
-	 * @param move the move to execute
-	 * @return true if a piece was captured or pawn moved (always true for pawn
-	 *         moves)
-	 * @see #playBlack(Move)
-	 */
-	private boolean playBlackPawn(byte movefrom, byte moveto, byte promotion) {
-		// Enable En-Passant for Black
-		if (Field.isOn7thRank(movefrom) && Field.isOn5thRank(moveto)) {
-			byte enPassantTarget = Field.downrank(moveto); // Square behind destination
-
-			// Check left and right for potential en passant opportunities
-			byte leftSquare = Field.leftOf(moveto);
-			simulateBlackEnPassant(movefrom, moveto, enPassantTarget, leftSquare);
-
-			byte rightSquare = Field.rightOf(moveto);
-			simulateBlackEnPassant(movefrom, moveto, enPassantTarget, rightSquare);
-		}
-
-		// Clear en passant marker on non-capture moves
-		else if (board[moveto] == Piece.EMPTY) {
-			board[Field.downrank(moveto)] = Piece.EMPTY;
-		}
-
-		// Execute the pawn move
-		board[movefrom] = Piece.EMPTY;
-
-		// Handle promotion if specified
-		switch (promotion) {
-			case Move.NO_PROMOTION:
-				board[moveto] = Piece.BLACK_PAWN;
-				break;
-			case Move.PROMOTION_QUEEN:
-				board[moveto] = Piece.BLACK_QUEEN;
-				break;
-			case Move.PROMOTION_ROOK:
-				board[moveto] = Piece.BLACK_ROOK;
-				break;
-			case Move.PROMOTION_BISHOP:
-				board[moveto] = Piece.BLACK_BISHOP;
-				break;
-			case Move.PROMOTION_KNIGHT:
-				board[moveto] = Piece.BLACK_KNIGHT;
-				break;
-			default:
-				break;
-		}
-		return true; // Pawn always moves, so return true
-	}
-
-	/**
-	 * Handles the movement of the Black king, including standard and Chess960
-	 * castling,
-	 * updates castling rights, and returns whether a capture occurred.
-	 *
-	 * @param move the king move
-	 * @see #playWhite(Move)
-	 * @return true if a piece was captured, false otherwise (including castling)
-	 */
-	private boolean playBlackKing(byte movefrom, byte moveto) {
-		// Chess960: Castling occurs when the king captures his own rook
-		boolean isKingsideCastle = moveto == blackKingside && board[moveto] == Piece.BLACK_ROOK;
-		boolean isQueensideCastle = moveto == blackQueenside && board[moveto] == Piece.BLACK_ROOK;
-
-		// King moved: permanently revoke both castling rights
-		blackQueenside = Field.NO_SQUARE;
-		blackKingside = Field.NO_SQUARE;
-
-		blackKing = moveto;
-
-		if (chess960) {
-			if (isKingsideCastle) {
-				return executeBlackCastling(
-						movefrom,
-						Field.BLACK_KINGSIDE_CASTLE_KING_TO_INDEX,
-						moveto,
-						Field.BLACK_KINGSIDE_CASTLE_ROOK_TO_INDEX);
-			} else if (isQueensideCastle) {
-				return executeBlackCastling(
-						movefrom,
-						Field.BLACK_QUEENSIDE_CASTLE_KING_TO_INDEX,
-						moveto,
-						Field.BLACK_QUEENSIDE_CASTLE_ROOK_TO_INDEX);
-			}
-		} else {
-			// Standard chess: Castling is identified by king moving two squares
-			boolean isStartingPosition = movefrom == Field.BLACK_KING_STANDARD_INDEX;
-			boolean isKingsideMove = moveto == Field.BLACK_KINGSIDE_CASTLE_KING_TO_INDEX;
-			boolean isQueensideMove = moveto == Field.BLACK_QUEENSIDE_CASTLE_KING_TO_INDEX;
-
-			if (isStartingPosition) {
-				if (isKingsideMove) {
-					return executeBlackCastling(
-							movefrom,
-							moveto,
-							Field.BLACK_KINGSIDE_CASTLE_ROOK_FROM_INDEX,
-							Field.BLACK_KINGSIDE_CASTLE_ROOK_TO_INDEX);
-				} else if (isQueensideMove) {
-					return executeBlackCastling(
-							movefrom,
-							moveto,
-							Field.BLACK_QUEENSIDE_CASTLE_ROOK_FROM_INDEX,
-							Field.BLACK_QUEENSIDE_CASTLE_ROOK_TO_INDEX);
-				}
-			}
-		}
-
-		// Regular king move (non-castling)
-		return playRegular(movefrom, moveto);
-	}
-
-	/**
-	 * Used for executing Black castling by relocating the king and rook to their
-	 * destination squares.
-	 *
-	 * @param kingFrom the king's starting square
-	 * @param kingTo   the king's target square
-	 * @param rookFrom the rook's starting square
-	 * @param rookTo   the rook's target square
-	 * @return always {@code false} – castling never captures
-	 */
-	private boolean executeBlackCastling(byte kingFrom, byte kingTo, byte rookFrom, byte rookTo) {
-		// Clear original positions
-		board[kingFrom] = Piece.EMPTY;
-		board[rookFrom] = Piece.EMPTY;
-
-		// Place pieces in new positions
-		board[kingTo] = Piece.BLACK_KING;
-		board[rookTo] = Piece.BLACK_ROOK;
-
-		// Update king position
-		blackKing = kingTo;
-
-		return false;
-	}
-
-	/**
-	 * Used for handling a Black rook move and clearing obsolete castling rights.
-	 *
-	 * @param move the rook move to execute
-	 * @return {@code true} when a capture occurs, otherwise {@code false}
-	 */
-	private boolean playBlackRook(byte movefrom, byte moveto) {
-		byte queensideStart = chess960 ? blackQueenside : Field.BLACK_QUEENSIDE_CASTLE_ROOK_FROM_INDEX;
-		byte kingsideStart = chess960 ? blackKingside : Field.BLACK_KINGSIDE_CASTLE_ROOK_FROM_INDEX;
-		if (movefrom == queensideStart) {
-			blackQueenside = Field.NO_SQUARE;
-		} else if (movefrom == kingsideStart) {
-			blackKingside = Field.NO_SQUARE;
-		}
-		return playRegular(movefrom, moveto);
-	}
-
-	/**
-	 * Used for determining if a given move captures an opponent's piece.
-	 *
-	 * @param movefrom origin square index (0..63)
-	 * @param moveto   destination square index (0..63)
-	 * @return true if the move is a regular or en passant capture; false otherwise
-	 */
-	public boolean isCapture(byte movefrom, byte moveto) {
-		return isRegularCapture(moveto) || isEnPassantCapture(movefrom, moveto);
-	}
-
-	/**
-	 * Used for determining if a given move is an en passant capture.
-	 *
-	 * @param movefrom origin square index (0..63)
-	 * @param moveto   destination square index (0..63)
-	 * @return true if the move is an en passant capture; false otherwise
-	 */
-	public boolean isEnPassantCapture(short movefrom, short moveto) {
-		return Piece.isPawn(board[movefrom]) && moveto == enPassant;
-	}
-
-	/**
-	 * Used for returning a FEN (Forsyth-Edwards Notation) string representing
-	 * the current chess position.
-	 * <p>
-	 * Constructs the FEN by serializing piece placement row by row,
-	 * followed by active player, castling availability, en passant target,
-	 * half-move clock, and full-move number. This string can be used
-	 * to reconstruct the position state in other chess engines or tools.
-	 * </p>
-	 *
-	 * @return the FEN representation of this position
-	 */
-	@Override
-	public String toString() {
-		StringBuilder sb = new StringBuilder(90);
-		sb.append(buildPiecePlacement())
-				.append(' ')
-				.append(whitesTurn ? 'w' : 'b')
-				.append(' ')
-				.append(buildCastlingAvailability())
-				.append(' ')
-				.append(Field.toString(enPassant))
-				.append(' ')
-				.append(halfMove)
-				.append(' ')
-				.append(fullMove);
-		return sb.toString();
-	}
-
-	/**
-	 * Builds the piece placement part of the FEN string.
-	 * <p>
-	 * The piece placement is represented as a series of ranks, with each rank
-	 * separated by a '/'.
-	 * Each piece is represented by its corresponding character, and empty squares
-	 * are represented
-	 * by numbers indicating the count of consecutive empty squares.
-	 * </p>
-	 * for the character representation of pieces.
-	 * 
-	 * @see #toString()
-	 * @return the piece placement string for the FEN representation.
-	 */
-	private String buildPiecePlacement() {
-		StringBuilder placement = new StringBuilder(64);
-		for (int rank = 0; rank < 8; rank++) {
-			int emptyCount = 0;
-			for (int file = 0; file < 8; file++) {
-				byte p = board[rank * 8 + file];
-				if (p == Piece.EMPTY) {
-					emptyCount++;
-				} else {
-					if (emptyCount > 0) {
-						placement.append(emptyCount);
-						emptyCount = 0;
-					}
-					placement.append(Piece.toLowerCaseChar(p));
-				}
-			}
-			if (emptyCount > 0) {
-				placement.append(emptyCount);
-			}
-			if (rank < 7) {
-				placement.append('/');
-			}
-		}
-		return placement.toString();
-	}
-
-	/**
-	 * Used for building the castling availability portion of the FEN string.
-	 *
-	 * @return the FEN string segment representing castling availability.
-	 */
-	private String buildCastlingAvailability() {
-		StringBuilder rights = new StringBuilder(4);
-		if (chess960) {
-			appendChess960Castling(rights);
-		} else {
-			appendStandardCastling(rights);
-		}
-		return !rights.isEmpty() ? rights.toString() : "-";
-	}
-
-	/**
-	 * Used for appending standard chess castling symbols to the builder.
-	 *
-	 * @param rights the StringBuilder to append to.
-	 */
-	private void appendStandardCastling(StringBuilder rights) {
-		if (whiteKingside != Field.NO_SQUARE) {
-			rights.append('K');
-		}
-		if (whiteQueenside != Field.NO_SQUARE) {
-			rights.append('Q');
-		}
-		if (blackKingside != Field.NO_SQUARE) {
-			rights.append('k');
-		}
-		if (blackQueenside != Field.NO_SQUARE) {
-			rights.append('q');
-		}
-	}
-
-	/**
-	 * Used for appending Chess960 castling file letters to the builder.
-	 *
-	 * @param rights the StringBuilder to append to.
-	 */
-	private void appendChess960Castling(StringBuilder rights) {
-		if (whiteKingside != Field.NO_SQUARE) {
-			rights.append(Field.getFileUppercase(whiteKingside));
-		}
-		if (whiteQueenside != Field.NO_SQUARE) {
-			rights.append(Field.getFileUppercase(whiteQueenside));
-		}
-		if (blackKingside != Field.NO_SQUARE) {
-			rights.append(Field.getFile(blackKingside));
-		}
-		if (blackQueenside != Field.NO_SQUARE) {
-			rights.append(Field.getFile(blackQueenside));
-		}
-	}
-
-	/**
-	 * Used for generating all legal moves for the current player.
-	 * <p>
-	 * Scans the board to identify each piece belonging to the active side,
-	 * computes its pseudo-legal moves, filters out those that would leave the
-	 * king in check, and returns a consolidated MoveList. The computation
-	 * runs in O(P * M) time, where P is the number of pieces and M the
-	 * average moves per piece.
-	 * </p>
-	 *
-	 * @return a MoveList containing every valid move for the active side
-	 */
-	public MoveList getMoves() {
-		MoveList moves = new MoveList();
-
-		if (whitesTurn) {
-			return getWhiteMoves(moves);
-		}
-
-		return getBlackMoves(moves);
-	}
-
-	/**
-	 * Counts the legal moves that originate from one square.
-	 *
-	 * <p>
-	 * This query is intended for piece-local analysis such as mobility scoring. If
-	 * the square is empty, the result is {@code 0}. If the piece belongs to the
-	 * side not currently having the move, the count is still computed for that
-	 * piece's side on the current board layout. Castling rights remain available
-	 * because they are part of the board state, while en-passant captures are only
-	 * counted when the queried piece belongs to the actual side to move.
-	 * </p>
-	 *
-	 * <p>
-	 * The implementation mirrors the existing legality and move-generation helpers
-	 * but counts inline so piece-local callers do not need a temporary
-	 * {@link MoveList}.
-	 * </p>
-	 *
-	 * @param square the source square to inspect
-	 * @return the number of legal moves that start on {@code square}
-	 */
-	public int countLegalMovesFrom(byte square) {
-		byte piece = board[square];
-		if (piece == Piece.EMPTY) {
-			return 0;
-		}
-
-		if (Piece.isWhite(piece)) {
-			return countWhiteMovesFrom(square, whitesTurn);
-		}
-
-		return countBlackMovesFrom(square, !whitesTurn);
-	}
-
-	/**
-	 * Counts the legal moves for one White piece on the current board layout.
-	 *
-	 * @param square the piece square to inspect
-	 * @param includeEnPassant whether current en-passant rights apply to the query
-	 * @return the number of legal White moves from {@code square}
-	 */
-	private int countWhiteMovesFrom(byte square, boolean includeEnPassant) {
-		byte piece = board[square];
-		if (!Piece.isWhite(piece)) {
-			return 0;
-		}
-
-		switch (piece) {
-			case Piece.WHITE_PAWN:
-				return countWhitePawnMoves(square) + (includeEnPassant ? countWhiteEnPassantMoves(square) : 0);
-			case Piece.WHITE_KING:
-				return countWhiteKingMoves(square, Field.NEIGHBORS) + countWhiteCastlingMoves(square);
-			case Piece.WHITE_ROOK:
-				return countWhiteSlidingMoves(square, Field.LINES);
-			case Piece.WHITE_BISHOP:
-				return countWhiteSlidingMoves(square, Field.DIAGONALS);
-			case Piece.WHITE_KNIGHT:
-				return countWhiteStaticMoves(square, Field.JUMPS);
-			case Piece.WHITE_QUEEN:
-				return countWhiteSlidingMoves(square, Field.DIAGONALS) + countWhiteSlidingMoves(square, Field.LINES);
-			default:
-				return 0;
-		}
-	}
-
-	/**
-	 * Counts the legal moves for one Black piece on the current board layout.
-	 *
-	 * @param square the piece square to inspect
-	 * @param includeEnPassant whether current en-passant rights apply to the query
-	 * @return the number of legal Black moves from {@code square}
-	 */
-	private int countBlackMovesFrom(byte square, boolean includeEnPassant) {
-		byte piece = board[square];
-		if (!Piece.isBlack(piece)) {
-			return 0;
-		}
-
-		switch (piece) {
-			case Piece.BLACK_PAWN:
-				return countBlackPawnMoves(square) + (includeEnPassant ? countBlackEnPassantMoves(square) : 0);
-			case Piece.BLACK_KING:
-				return countBlackKingMoves(square, Field.NEIGHBORS) + countBlackCastlingMoves(square);
-			case Piece.BLACK_ROOK:
-				return countBlackSlidingMoves(square, Field.LINES);
-			case Piece.BLACK_BISHOP:
-				return countBlackSlidingMoves(square, Field.DIAGONALS);
-			case Piece.BLACK_KNIGHT:
-				return countBlackStaticMoves(square, Field.JUMPS);
-			case Piece.BLACK_QUEEN:
-				return countBlackSlidingMoves(square, Field.DIAGONALS) + countBlackSlidingMoves(square, Field.LINES);
-			default:
-				return 0;
-		}
-	}
-
-	/**
-	 * Counts legal knight-style White moves from one square.
-	 *
-	 * @param index the piece square
-	 * @param options precomputed destinations for the piece
-	 * @return the number of legal moves
-	 */
-	private int countWhiteStaticMoves(byte index, byte[][] options) {
-		int count = 0;
-		for (byte to : options[index]) {
-			if (Piece.isWhite(board[to])) {
-				continue;
-			}
-			if (isLegalWhiteMove(Move.of(index, to))) {
-				count++;
-			}
-		}
-		return count;
-	}
-
-	/**
-	 * Counts legal White king moves from one square.
-	 *
-	 * @param index the king square
-	 * @param options precomputed neighboring squares
-	 * @return the number of legal king moves
-	 */
-	private int countWhiteKingMoves(byte index, byte[][] options) {
-		int count = 0;
-		for (byte to : options[index]) {
-			if (Piece.isWhite(board[to])) {
-				continue;
-			}
-			whiteKing = to;
-			if (isLegalWhiteMove(Move.of(index, to))) {
-				count++;
-			}
-			whiteKing = index;
-		}
-		return count;
-	}
-
-	/**
-	 * Counts legal White sliding moves from one square.
-	 *
-	 * @param index the piece square
-	 * @param options precomputed directional rays
-	 * @return the number of legal sliding moves
-	 */
-	private int countWhiteSlidingMoves(byte index, byte[][][] options) {
-		int count = 0;
-		for (byte[] ray : options[index]) {
-			for (byte to : ray) {
-				if (!Piece.isWhite(board[to]) && isLegalWhiteMove(Move.of(index, to))) {
-					count++;
-				}
-				if (!Piece.isEmpty(board[to])) {
-					break;
-				}
-			}
-		}
-		return count;
-	}
-
-	/**
-	 * Counts legal White castling moves for the king on one square.
-	 *
-	 * @param index the queried king square
-	 * @return the number of legal castling moves
-	 */
-	private int countWhiteCastlingMoves(byte index) {
-		if (index != whiteKing || whiteKingInCheck()) {
-			return 0;
-		}
-
-		if (chess960) {
-			return countWhite960CastlingMoves();
-		}
-		return countWhiteStandardCastlingMoves();
-	}
-
-	/**
-	 * Counts legal White standard castling moves.
-	 *
-	 * @return the number of available standard castling moves
-	 */
-	private int countWhiteStandardCastlingMoves() {
-		int count = 0;
-
-		if (whiteKingside != Field.NO_SQUARE
-				&& Piece.isEmpty(board[Field.F1])
-				&& Piece.isEmpty(board[Field.G1])
-				&& !attackedByBlack(Field.F1)
-				&& !attackedByBlack(Field.G1)) {
-			count++;
-		}
-
-		if (whiteQueenside != Field.NO_SQUARE
-				&& Piece.isEmpty(board[Field.D1])
-				&& Piece.isEmpty(board[Field.C1])
-				&& Piece.isEmpty(board[Field.B1])
-				&& !attackedByBlack(Field.D1)
-				&& !attackedByBlack(Field.C1)) {
-			count++;
-		}
-
-		return count;
-	}
-
-	/**
-	 * Counts legal White Chess960 castling moves.
-	 *
-	 * @return the number of available Chess960 castling moves
-	 */
-	private int countWhite960CastlingMoves() {
-		int count = 0;
-		if (canWhiteCastleTo(whiteKingside, Field.WHITE_KINGSIDE_CASTLE_KING_TO_INDEX,
-				Field.WHITE_KINGSIDE_CASTLE_ROOK_TO_INDEX)) {
-			count++;
-		}
-		if (canWhiteCastleTo(whiteQueenside, Field.WHITE_QUEENSIDE_CASTLE_KING_TO_INDEX,
-				Field.WHITE_QUEENSIDE_CASTLE_ROOK_TO_INDEX)) {
-			count++;
-		}
-		return count;
-	}
-
-	/**
-	 * Checks whether one White Chess960 castling move is legal.
-	 *
-	 * @param rookSquare the rook that participates in castling
-	 * @param kingTarget the king destination square
-	 * @param rookTarget the rook destination square
-	 * @return {@code true} when the castling move is legal
-	 */
-	private boolean canWhiteCastleTo(byte rookSquare, int kingTarget, int rookTarget) {
-		if (rookSquare == Field.NO_SQUARE) {
-			return false;
-		}
-		if (!isPathClearExcluding(whiteKing, kingTarget, rookSquare)) {
-			return false;
-		}
-		if (attackedByBlack(kingTarget)) {
-			return false;
-		}
-		for (int sq : squaresBetween(whiteKing, kingTarget)) {
-			if (attackedByBlack(sq)) {
-				return false;
-			}
-		}
-		return isPathClearExcluding(rookSquare, rookTarget, whiteKing);
-	}
-
-	/**
-	 * Counts legal White pawn moves from one square, excluding en passant.
-	 *
-	 * @param index the pawn square
-	 * @return the number of legal non-en-passant pawn moves
-	 */
-	private int countWhitePawnMoves(byte index) {
-		int count = 0;
-		byte[] pushRay = Field.PAWN_PUSH_WHITE[index];
-		for (byte to : pushRay) {
-			if (Piece.isEmpty(board[to])) {
-				count += countWhitePawnOptions(index, to);
-			} else {
-				break;
-			}
-		}
-
-		byte[] capRay = Field.PAWN_CAPTURE_WHITE[index];
-		for (byte to : capRay) {
-			if (Piece.isBlack(board[to])) {
-				count += countWhitePawnOptions(index, to);
-			}
-		}
-		return count;
-	}
-
-	/**
-	 * Counts legal White promotion or non-promotion moves for one pawn target.
-	 *
-	 * @param from the pawn square
-	 * @param to the target square
-	 * @return the number of legal moves represented by this target
-	 */
-	private int countWhitePawnOptions(byte from, byte to) {
-		short test = Move.of(from, to);
-		if (!isLegalWhiteMove(test)) {
-			return 0;
-		}
-		return Field.isOn8thRank(to) ? 4 : 1;
-	}
-
-	/**
-	 * Counts legal White en-passant captures for one pawn.
-	 *
-	 * @param index the pawn square
-	 * @return the number of legal en-passant captures
-	 */
-	private int countWhiteEnPassantMoves(byte index) {
-		if (enPassant == Field.NO_SQUARE) {
-			return 0;
-		}
-
-		byte uprank = Field.uprank(enPassant);
-		byte left = Field.leftOf(uprank);
-		byte right = Field.rightOf(uprank);
-		int count = 0;
-
-		board[uprank] = Piece.EMPTY;
-		if (index == left && Field.isOn5thRank(left) && board[left] == Piece.WHITE_PAWN
-				&& isLegalWhiteMove(Move.of(left, enPassant))) {
-			count++;
-		}
-		if (index == right && Field.isOn5thRank(right) && board[right] == Piece.WHITE_PAWN
-				&& isLegalWhiteMove(Move.of(right, enPassant))) {
-			count++;
-		}
-		board[uprank] = Piece.BLACK_PAWN;
-
-		return count;
-	}
-
-	/**
-	 * Counts legal knight-style Black moves from one square.
-	 *
-	 * @param index the piece square
-	 * @param options precomputed destinations for the piece
-	 * @return the number of legal moves
-	 */
-	private int countBlackStaticMoves(byte index, byte[][] options) {
-		int count = 0;
-		for (byte to : options[index]) {
-			if (Piece.isBlack(board[to])) {
-				continue;
-			}
-			if (isLegalBlackMove(Move.of(index, to))) {
-				count++;
-			}
-		}
-		return count;
-	}
-
-	/**
-	 * Counts legal Black king moves from one square.
-	 *
-	 * @param index the king square
-	 * @param options precomputed neighboring squares
-	 * @return the number of legal king moves
-	 */
-	private int countBlackKingMoves(byte index, byte[][] options) {
-		int count = 0;
-		for (byte to : options[index]) {
-			if (Piece.isBlack(board[to])) {
-				continue;
-			}
-			blackKing = to;
-			if (isLegalBlackMove(Move.of(index, to))) {
-				count++;
-			}
-			blackKing = index;
-		}
-		return count;
-	}
-
-	/**
-	 * Counts legal Black sliding moves from one square.
-	 *
-	 * @param index the piece square
-	 * @param options precomputed directional rays
-	 * @return the number of legal sliding moves
-	 */
-	private int countBlackSlidingMoves(byte index, byte[][][] options) {
-		int count = 0;
-		for (byte[] ray : options[index]) {
-			for (byte to : ray) {
-				if (!Piece.isBlack(board[to]) && isLegalBlackMove(Move.of(index, to))) {
-					count++;
-				}
-				if (!Piece.isEmpty(board[to])) {
-					break;
-				}
-			}
-		}
-		return count;
-	}
-
-	/**
-	 * Counts legal Black castling moves for the king on one square.
-	 *
-	 * @param index the queried king square
-	 * @return the number of legal castling moves
-	 */
-	private int countBlackCastlingMoves(byte index) {
-		if (index != blackKing || blackKingInCheck()) {
-			return 0;
-		}
-
-		if (chess960) {
-			return countBlack960CastlingMoves();
-		}
-		return countBlackStandardCastlingMoves();
-	}
-
-	/**
-	 * Counts legal Black standard castling moves.
-	 *
-	 * @return the number of available standard castling moves
-	 */
-	private int countBlackStandardCastlingMoves() {
-		int count = 0;
-
-		if (blackKingside != Field.NO_SQUARE
-				&& Piece.isEmpty(board[Field.F8])
-				&& Piece.isEmpty(board[Field.G8])
-				&& !attackedByWhite(Field.F8)
-				&& !attackedByWhite(Field.G8)) {
-			count++;
-		}
-
-		if (blackQueenside != Field.NO_SQUARE
-				&& Piece.isEmpty(board[Field.D8])
-				&& Piece.isEmpty(board[Field.C8])
-				&& Piece.isEmpty(board[Field.B8])
-				&& !attackedByWhite(Field.D8)
-				&& !attackedByWhite(Field.C8)) {
-			count++;
-		}
-
-		return count;
-	}
-
-	/**
-	 * Counts legal Black Chess960 castling moves.
-	 *
-	 * @return the number of available Chess960 castling moves
-	 */
-	private int countBlack960CastlingMoves() {
-		int count = 0;
-		if (canBlackCastleTo(blackKingside, Field.BLACK_KINGSIDE_CASTLE_KING_TO_INDEX,
-				Field.BLACK_KINGSIDE_CASTLE_ROOK_TO_INDEX)) {
-			count++;
-		}
-		if (canBlackCastleTo(blackQueenside, Field.BLACK_QUEENSIDE_CASTLE_KING_TO_INDEX,
-				Field.BLACK_QUEENSIDE_CASTLE_ROOK_TO_INDEX)) {
-			count++;
-		}
-		return count;
-	}
-
-	/**
-	 * Checks whether one Black Chess960 castling move is legal.
-	 *
-	 * @param rookSquare the rook that participates in castling
-	 * @param kingTarget the king destination square
-	 * @param rookTarget the rook destination square
-	 * @return {@code true} when the castling move is legal
-	 */
-	private boolean canBlackCastleTo(byte rookSquare, int kingTarget, int rookTarget) {
-		if (rookSquare == Field.NO_SQUARE) {
-			return false;
-		}
-		if (!isPathClearExcluding(blackKing, kingTarget, rookSquare)) {
-			return false;
-		}
-		if (attackedByWhite(kingTarget)) {
-			return false;
-		}
-		for (int sq : squaresBetween(blackKing, kingTarget)) {
-			if (attackedByWhite(sq)) {
-				return false;
-			}
-		}
-		return isPathClearExcluding(rookSquare, rookTarget, blackKing);
-	}
-
-	/**
-	 * Counts legal Black pawn moves from one square, excluding en passant.
-	 *
-	 * @param index the pawn square
-	 * @return the number of legal non-en-passant pawn moves
-	 */
-	private int countBlackPawnMoves(byte index) {
-		int count = 0;
-		byte[] pushRay = Field.PAWN_PUSH_BLACK[index];
-		for (byte to : pushRay) {
-			if (Piece.isEmpty(board[to])) {
-				count += countBlackPawnOptions(index, to);
-			} else {
-				break;
-			}
-		}
-
-		byte[] capRay = Field.PAWN_CAPTURE_BLACK[index];
-		for (byte to : capRay) {
-			if (Piece.isWhite(board[to])) {
-				count += countBlackPawnOptions(index, to);
-			}
-		}
-		return count;
-	}
-
-	/**
-	 * Counts legal Black promotion or non-promotion moves for one pawn target.
-	 *
-	 * @param from the pawn square
-	 * @param to the target square
-	 * @return the number of legal moves represented by this target
-	 */
-	private int countBlackPawnOptions(byte from, byte to) {
-		short test = Move.of(from, to);
-		if (!isLegalBlackMove(test)) {
-			return 0;
-		}
-		return Field.isOn1stRank(to) ? 4 : 1;
-	}
-
-	/**
-	 * Counts legal Black en-passant captures for one pawn.
-	 *
-	 * @param index the pawn square
-	 * @return the number of legal en-passant captures
-	 */
-	private int countBlackEnPassantMoves(byte index) {
-		if (enPassant == Field.NO_SQUARE) {
-			return 0;
-		}
-
-		byte down = Field.downrank(enPassant);
-		byte left = Field.leftOf(down);
-		byte right = Field.rightOf(down);
-		int count = 0;
-
-		board[down] = Piece.EMPTY;
-		if (index == left && Field.isOn4thRank(left) && board[left] == Piece.BLACK_PAWN
-				&& isLegalBlackMove(Move.of(left, enPassant))) {
-			count++;
-		}
-		if (index == right && Field.isOn4thRank(right) && board[right] == Piece.BLACK_PAWN
-				&& isLegalBlackMove(Move.of(right, enPassant))) {
-			count++;
-		}
-		board[down] = Piece.WHITE_PAWN;
-
-		return count;
-	}
-
-	/**
-	 * Used for checking that every square strictly between two given squares is
-	 * empty,
-	 * except for a specified square to ignore (occupied by the other piece).
-	 *
-	 * @param a            start square (0..63)
-	 * @param b            end square (0..63)
-	 * @param ignoreSquare a square to treat as empty during the check, or -1 for
-	 *                     none
-	 * @return true if the path is clear (excluding endpoints)
-	 */
-	private boolean isPathClearExcluding(int a, int b, int ignoreSquare) {
-		int step = Integer.signum(b - a);
-		for (int sq = a + step; sq != b + step; sq += step) {
-			if (sq == ignoreSquare)
-				continue;
-			if (!Piece.isEmpty(board[sq]))
-				return false;
-		}
-		return true;
-	}
-
-	/**
-	 * Used for retrieving the list of squares strictly between two given square
-	 * indices.
-	 *
-	 * @param a start square (0..63)
-	 * @param b end square (0..63)
-	 * @return an array of intermediate squares in board index order
-	 */
-	private int[] squaresBetween(int a, int b) {
-		int dist = Math.abs(b - a) - 1;
-		if (dist < 0) {
-			return new int[0]; // No squares between a and b
-		}
-		int step = Integer.signum(b - a);
-		int[] path = new int[dist];
-		for (int i = 0, sq = a + step; i < dist; i++, sq += step) {
-			path[i] = sq;
-		}
-		return path;
-	}
-
-	/**
-	 * Used for generating all legal white moves for the current board state.
-	 *
-	 * @param moves the list to which valid moves will be added
-	 * @return the updated move list containing all valid white moves
-	 */
-	private MoveList getWhiteMoves(MoveList moves) {
-		addWhiteEnPassantMoves(moves);
-		addWhiteCastlingMoves(moves);
-		for (byte i = 0; i < board.length; i++) {
-			byte piece = board[i];
-			if (piece == Piece.WHITE_PAWN) {
-				addWhitePawnMoves(moves, i);
-			} else if (piece == Piece.WHITE_KING) {
-				addWhiteKingMoves(moves, i, Field.NEIGHBORS);
-			} else if (piece == Piece.WHITE_ROOK) {
-				addWhiteSlidingMoves(moves, i, Field.LINES);
-			} else if (piece == Piece.WHITE_BISHOP) {
-				addWhiteSlidingMoves(moves, i, Field.DIAGONALS);
-			} else if (piece == Piece.WHITE_KNIGHT) {
-				addWhiteStaticMoves(moves, i, Field.JUMPS);
-			} else if (piece == Piece.WHITE_QUEEN) {
-				addWhiteSlidingMoves(moves, i, Field.DIAGONALS);
-				addWhiteSlidingMoves(moves, i, Field.LINES);
-			}
-		}
-		return moves;
-	}
-
-	/**
-	 * Used for adding all legal non-sliding moves (knight) for a White piece.
-	 *
-	 * @param moves   the list to append to
-	 * @param index   the piece's square
-	 * @param options pre-computed destination offsets
-	 * @return the updated {@code moves} list
-	 */
-	private MoveList addWhiteStaticMoves(MoveList moves, byte index, byte[][] options) {
-		for (byte to : options[index]) {
-			if (Piece.isWhite(board[to]))
-				continue;
-			short move = Move.of(index, to);
-			if (isLegalWhiteMove(move)) {
-				moves.add(move);
-			}
-		}
-		return moves;
-	}
-
-	/**
-	 * Used for adding all legal king moves for White while ensuring the king stays
-	 * out of check.
-	 *
-	 * @param moves   the list to append to
-	 * @param index   the king's square
-	 * @param options one-square neighbor offsets
-	 * @return the updated {@code moves} list
-	 */
-	private MoveList addWhiteKingMoves(MoveList moves, byte index, byte[][] options) {
-		for (byte to : options[index]) {
-			if (Piece.isWhite(board[to]))
-				continue;
-			short move = Move.of(index, to);
-			whiteKing = to;
-			if (isLegalWhiteMove(move)) {
-				moves.add(move);
-			}
-			whiteKing = index;
-		}
-		return moves;
-	}
-
-	/**
-	 * Used for adding legal sliding piece moves (bishop, rook, queen) for white
-	 * pieces.
-	 *
-	 * @param moves   the list to which valid sliding moves will be added
-	 * @param index   the starting square of the sliding piece
-	 * @param options the move rays available for each square on the board
-	 * @return the updated move list containing all valid sliding moves
-	 */
-	private MoveList addWhiteSlidingMoves(MoveList moves, byte index, byte[][][] options) {
-		// for each direction ray from 'index'
-		for (byte[] ray : options[index]) {
-			// walk square by square
-			for (byte to : ray) {
-				short move = Move.of(index, to);
-
-				// if empty or enemy‐occupied, try the move
-				if (!Piece.isWhite(board[to]) && isLegalWhiteMove(move)) {
-					moves.add(move);
-				}
-
-				// stop ray on any occupied square (own or enemy)
-				if (!Piece.isEmpty(board[to])) {
-					break;
-				}
-			}
-		}
-		return moves;
-	}
-
-	/**
-	 * Used for adding legal white castling moves to the move list.
-	 *
-	 * @param moves the current move list to append castling moves to.
-	 * @return the move list including any valid castling moves.
-	 */
-	private MoveList addWhiteCastlingMoves(MoveList moves) {
-		if (whiteKingInCheck()) {
-			return moves;
-		}
-
-		if (chess960) {
-			return addWhite960CastlingMoves(moves);
-		}
-		return addWhiteStandardCastlingMoves(moves);
-	}
-
-	/**
-	 * Used for adding standard chess white castling moves to the move list.
-	 *
-	 * @param moves the move list to append to.
-	 * @return the move list including any valid castling moves.
-	 */
-	private MoveList addWhiteStandardCastlingMoves(MoveList moves) {
-		if (whiteKingside != Field.NO_SQUARE
-				&& Piece.isEmpty(board[Field.F1])
-				&& Piece.isEmpty(board[Field.G1])
-				&& !attackedByBlack(Field.F1)
-				&& !attackedByBlack(Field.G1)) {
-			moves.add(Move.of(whiteKing, whiteKingside));
-		}
-
-		if (whiteQueenside != Field.NO_SQUARE
-				&& Piece.isEmpty(board[Field.D1])
-				&& Piece.isEmpty(board[Field.C1])
-				&& Piece.isEmpty(board[Field.B1])
-				&& !attackedByBlack(Field.D1)
-				&& !attackedByBlack(Field.C1)) {
-			moves.add(Move.of(whiteKing, whiteQueenside));
-		}
-
-		return moves;
-	}
-
-	/**
-	 * Used for generating white Chess960 castling moves.
-	 *
-	 * @param moves the current move list to append castling moves to.
-	 * @return the move list including any valid castling moves.
-	 */
-	private MoveList addWhite960CastlingMoves(MoveList moves) {
-		addWhiteCastlingMove(moves, whiteKingside, Field.WHITE_KINGSIDE_CASTLE_KING_TO_INDEX,
-				Field.WHITE_KINGSIDE_CASTLE_ROOK_TO_INDEX);
-		addWhiteCastlingMove(moves, whiteQueenside, Field.WHITE_QUEENSIDE_CASTLE_KING_TO_INDEX,
-				Field.WHITE_QUEENSIDE_CASTLE_ROOK_TO_INDEX);
-		return moves;
-	}
-
-	/**
-	 * Used for attempting to add a single white castling move if legal under
-	 * Chess960.
-	 *
-	 * @param moves      the move list to append to.
-	 * @param rookSquare the starting square of the rook.
-	 * @param kingTarget the destination square of the king (e.g. G1 or C1).
-	 * @param rookTarget the destination square of the rook (e.g. F1 or D1).
-	 */
-	private void addWhiteCastlingMove(MoveList moves,
-			byte rookSquare,
-			int kingTarget,
-			int rookTarget) {
-		if (rookSquare == Field.NO_SQUARE)
-			return;
-
-		// 1) King's path: from whiteKing → kingTarget (excluding rookSquare) must be
-		// empty and not attacked.
-		if (!isPathClearExcluding(whiteKing, kingTarget, rookSquare)) {
-			return;
-		}
-
-		if (attackedByBlack(kingTarget)) {
-			return;
-		}
-
-		for (int sq : squaresBetween(whiteKing, kingTarget)) {
-			if (attackedByBlack(sq))
-				return;
-		}
-
-		// 2) Rook's path: from rookSquare → rookTarget (excluding whiteKing) must be
-		// empty.
-		if (!isPathClearExcluding(rookSquare, rookTarget, whiteKing))
-			return;
-
-		// All conditions satisfied → add castling move (king→rookSquare,
-		// rook→rookTarget)
-		moves.add(Move.of(whiteKing, rookSquare));
-	}
-
-	/**
-	 * Used for adding promotion and normal move options for a white pawn.
-	 *
-	 * @param moves the list to which valid moves will be added
-	 * @param from  the starting square of the pawn
-	 * @param to    the target square of the move
-	 */
-	private void addWhitePawnOptions(MoveList moves, byte from, byte to) {
-		short test = Move.of(from, to);
-		if (!isLegalWhiteMove(test)) {
-			return;
-		}
-
-		if (Field.isOn8thRank(to)) {
-			moves.add(Move.of(from, to, Move.PROMOTION_QUEEN));
-			moves.add(Move.of(from, to, Move.PROMOTION_ROOK));
-			moves.add(Move.of(from, to, Move.PROMOTION_BISHOP));
-			moves.add(Move.of(from, to, Move.PROMOTION_KNIGHT));
-		} else {
-			moves.add(test);
-		}
-	}
-
-	/**
-	 * Used for generating all legal pawn moves for a white pawn at a given index.
-	 *
-	 * @param moves the list to which valid pawn moves will be added
-	 * @param index the board index of the white pawn
-	 * @return the updated move list containing all valid pawn moves
-	 */
-	private MoveList addWhitePawnMoves(MoveList moves, byte index) {
-		// pawn pushes
-		byte[] pushRay = Field.PAWN_PUSH_WHITE[index];
-		for (int i = 0; i < pushRay.length; i++) {
-			byte to = pushRay[i];
-			if (Piece.isEmpty(board[to])) {
-				addWhitePawnOptions(moves, index, to);
-			} else {
-				// blocked - stop looking further
-				break;
-			}
-		}
-
-		// pawn captures (excluding en passant)
-		byte[] capRay = Field.PAWN_CAPTURE_WHITE[index];
-		for (int i = 0; i < capRay.length; i++) {
-			byte to = capRay[i];
-			if (Piece.isBlack(board[to])) {
-				addWhitePawnOptions(moves, index, to);
-			}
-		}
-
-		return moves;
-	}
-
-	/**
-	 * Used for adding en passant moves for white pawns to the given move list.
-	 *
-	 * @param moves the list to which legal en passant moves will be added
-	 * @return the updated move list containing any valid en passant moves
-	 */
-	private MoveList addWhiteEnPassantMoves(MoveList moves) {
-		if (enPassant == Field.NO_SQUARE) {
-			return moves;
-		}
-
-		byte uprank = Field.uprank(enPassant);
-		byte left = Field.leftOf(uprank);
-		byte right = Field.rightOf(uprank);
-
-		short lefttakes = Move.of(left, enPassant);
-		short righttakes = Move.of(right, enPassant);
-
-		board[uprank] = Piece.EMPTY;
-
-		if (Field.isOn5thRank(left) && board[left] == Piece.WHITE_PAWN && isLegalWhiteMove(lefttakes)) {
-			moves.add(lefttakes);
-		}
-
-		if (Field.isOn5thRank(right) && board[right] == Piece.WHITE_PAWN && isLegalWhiteMove(righttakes)) {
-			moves.add(righttakes);
-		}
-
-		board[uprank] = Piece.BLACK_PAWN;
-
-		return moves;
-	}
-
-	/**
-	 * Used for checking if a white move is legal based on king safety.
-	 *
-	 * @param move the move to be validated
-	 * @return true if the move does not leave the white king in check
-	 */
-	private boolean isLegalWhiteMove(short move) {
-		byte movefrom = Move.getFromIndex(move);
-		byte moveto = Move.getToIndex(move);
-
-		byte buffer = board[moveto];
-
-		board[moveto] = board[movefrom];
-		board[movefrom] = Piece.EMPTY;
-
-		boolean legal = !whiteKingInCheck();
-
-		board[movefrom] = board[moveto];
-		board[moveto] = buffer;
-
-		return legal;
-	}
-
-	/**
-	 * Used for generating every legal Black move from the current position.
-	 *
-	 * @param moves the list to populate
-	 * @return the populated {@code moves} list
-	 */
-	private MoveList getBlackMoves(MoveList moves) {
-		addBlackEnPassantMoves(moves);
-		addBlackCastlingMoves(moves);
-		for (byte i = 0; i < board.length; i++) {
-			byte piece = board[i];
-			if (piece == Piece.BLACK_PAWN) {
-				addBlackPawnMoves(moves, i);
-			} else if (piece == Piece.BLACK_KING) {
-				addBlackKingMoves(moves, i, Field.NEIGHBORS);
-			} else if (piece == Piece.BLACK_ROOK) {
-				addBlackSlidingMoves(moves, i, Field.LINES);
-			} else if (piece == Piece.BLACK_BISHOP) {
-				addBlackSlidingMoves(moves, i, Field.DIAGONALS);
-			} else if (piece == Piece.BLACK_KNIGHT) {
-				addBlackStaticMoves(moves, i, Field.JUMPS);
-			} else if (piece == Piece.BLACK_QUEEN) {
-				addBlackSlidingMoves(moves, i, Field.DIAGONALS);
-				addBlackSlidingMoves(moves, i, Field.LINES);
-			}
-		}
-		return moves;
-	}
-
-	/**
-	 * Used for adding all legal non-sliding moves (knight or king) for a Black
-	 * piece.
-	 *
-	 * @param moves   the list to append to
-	 * @param index   the piece's square
-	 * @param options pre-computed destination offsets
-	 * @return the updated {@code moves} list
-	 */
-	private MoveList addBlackStaticMoves(MoveList moves, byte index, byte[][] options) {
-		for (byte to : options[index]) {
-			if (Piece.isBlack(board[to]))
-				continue;
-			short move = Move.of(index, to);
-			if (isLegalBlackMove(move)) {
-				moves.add(move);
-			}
-		}
-		return moves;
-	}
-
-	/**
-	 * Used for adding all legal king moves for Black while ensuring the king stays
-	 * out of check.
-	 *
-	 * @param moves   the list to append to
-	 * @param index   the king's square
-	 * @param options one-square neighbor offsets
-	 * @return the updated {@code moves} list
-	 */
-	private MoveList addBlackKingMoves(MoveList moves, byte index, byte[][] options) {
-		for (byte to : options[index]) {
-			if (Piece.isBlack(board[to]))
-				continue;
-			short move = Move.of(index, to);
-			blackKing = to;
-			if (isLegalBlackMove(move)) {
-				moves.add(move);
-			}
-			blackKing = index;
-		}
-		return moves;
-	}
-
-	/**
-	 * Used for adding all legal sliding moves (bishop, rook, queen) for a Black
-	 * piece.
-	 *
-	 * @param moves   the list to append to
-	 * @param index   the piece's square
-	 * @param options directional rays generated per square
-	 * @return the updated {@code moves} list
-	 */
-	private MoveList addBlackSlidingMoves(MoveList moves, byte index, byte[][][] options) {
-		// for each direction ray from 'index'
-		for (byte[] ray : options[index]) {
-			// walk square by square
-			for (byte to : ray) {
-				short move = Move.of(index, to);
-
-				// if empty or enemy‐occupied, try the move
-				if (!Piece.isBlack(board[to]) && isLegalBlackMove(move)) {
-					moves.add(move);
-				}
-
-				// stop ray on any occupied square (own or enemy)
-				if (!Piece.isEmpty(board[to])) {
-					break;
-				}
-			}
-		}
-		return moves;
-	}
-
-	/**
-	 * Used for adding every legal Black castling move (standard or Chess960) to
-	 * {@code moves}.
-	 *
-	 * @param moves the list to append to
-	 * @return the updated {@code moves} list
-	 */
-	private MoveList addBlackCastlingMoves(MoveList moves) {
-		// Can't castle out of check
-		if (blackKingInCheck()) {
-			return moves;
-		}
-
-		if (chess960) {
-			return addBlack960CastlingMoves(moves);
-		}
-		return addBlackStandardCastlingMoves(moves);
-	}
-
-	/**
-	 * Used for adding standard-chess Black castling moves to {@code moves}.
-	 *
-	 * @param moves the list to append to
-	 * @return the updated {@code moves} list
-	 */
-	private MoveList addBlackStandardCastlingMoves(MoveList moves) {
-		// Kingside castling to G8
-		if (blackKingside != Field.NO_SQUARE
-				&& Piece.isEmpty(board[Field.F8])
-				&& Piece.isEmpty(board[Field.G8])
-				&& !attackedByWhite(Field.F8)
-				&& !attackedByWhite(Field.G8)) {
-			moves.add(Move.of(blackKing, blackKingside));
-		}
-
-		// Queenside castling to C8
-		if (blackQueenside != Field.NO_SQUARE
-				&& Piece.isEmpty(board[Field.D8])
-				&& Piece.isEmpty(board[Field.C8])
-				&& Piece.isEmpty(board[Field.B8])
-				&& !attackedByWhite(Field.D8)
-				&& !attackedByWhite(Field.C8)) {
-			moves.add(Move.of(blackKing, blackQueenside));
-		}
-
-		return moves;
-	}
-
-	/**
-	 * Used for adding Black Chess960 castling moves to {@code moves}.
-	 *
-	 * @param moves the list to append to
-	 * @return the updated {@code moves} list
-	 */
-	private MoveList addBlack960CastlingMoves(MoveList moves) {
-		addBlackCastlingMove(moves, blackKingside, Field.BLACK_KINGSIDE_CASTLE_KING_TO_INDEX,
-				Field.BLACK_KINGSIDE_CASTLE_ROOK_TO_INDEX);
-		addBlackCastlingMove(moves, blackQueenside, Field.BLACK_QUEENSIDE_CASTLE_KING_TO_INDEX,
-				Field.BLACK_QUEENSIDE_CASTLE_ROOK_TO_INDEX);
-		return moves;
-	}
-
-	/**
-	 * Used for attempting to add a single black castling move if legal under
-	 * Chess960.
-	 *
-	 * @param moves      the move list to append to.
-	 * @param rookSquare the starting square of the rook.
-	 * @param kingTarget the destination square of the king (e.g. G8 or C8).
-	 * @param rookTarget the destination square of the rook (e.g. F8 or D8).
-	 */
-	private void addBlackCastlingMove(MoveList moves,
-			byte rookSquare,
-			int kingTarget,
-			int rookTarget) {
-		if (rookSquare == Field.NO_SQUARE)
-			return;
-
-		// 1) King's path: from blackKing → kingTarget (excluding rookSquare) must be
-		// empty and not attacked.
-		if (!isPathClearExcluding(blackKing, kingTarget, rookSquare)) {
-			return;
-		}
-
-		if (attackedByWhite(kingTarget)) {
-			return;
-		}
-
-		for (int sq : squaresBetween(blackKing, kingTarget)) {
-			if (attackedByWhite(sq))
-				return;
-		}
-
-		// 2) Rook's path: from rookSquare → rookTarget (excluding blackKing) must be
-		// empty.
-		if (!isPathClearExcluding(rookSquare, rookTarget, blackKing))
-			return;
-
-		// All conditions satisfied → add castling move (king→rookSquare,
-		// rook→rookTarget)
-		moves.add(Move.of(blackKing, rookSquare));
-	}
-
-	/**
-	 * Used for adding promotion and quiet-move options for a Black pawn to
-	 * {@code moves}.
-	 *
-	 * @param moves the list to append to
-	 * @param from  the pawn's origin square
-	 * @param to    the candidate destination square
-	 */
-	private void addBlackPawnOptions(MoveList moves, byte from, byte to) {
-		short test = Move.of(from, to);
-		if (!isLegalBlackMove(test))
-			return;
-
-		if (Field.isOn1stRank(to)) {
-			moves.add(Move.of(from, to, Move.PROMOTION_QUEEN));
-			moves.add(Move.of(from, to, Move.PROMOTION_ROOK));
-			moves.add(Move.of(from, to, Move.PROMOTION_BISHOP));
-			moves.add(Move.of(from, to, Move.PROMOTION_KNIGHT));
-		} else {
-			moves.add(test);
-		}
-	}
-
-	/**
-	 * Used for generating all legal (non-en-passant) pawn moves for a Black pawn at
-	 * {@code index}.
-	 *
-	 * @param moves the list to append to
-	 * @param index the pawn's square
-	 * @return the same {@code moves} instance for chaining
-	 */
-	private MoveList addBlackPawnMoves(MoveList moves, byte index) {
-		// pawn pushes
-		byte[] pushRay = Field.PAWN_PUSH_BLACK[index];
-		for (int i = 0; i < pushRay.length; i++) {
-			byte to = pushRay[i];
-			if (Piece.isEmpty(board[to])) {
-				addBlackPawnOptions(moves, index, to);
-			} else {
-				// blocked - stop looking further
-				break;
-			}
-		}
-
-		// pawn captures (excluding en passant)
-		byte[] capRay = Field.PAWN_CAPTURE_BLACK[index];
-		for (int i = 0; i < capRay.length; i++) {
-			byte to = capRay[i];
-			if (Piece.isWhite(board[to])) {
-				addBlackPawnOptions(moves, index, to);
-			}
-		}
-
-		return moves;
-	}
-
-	/**
-	 * Used for appending legal Black en-passant captures to {@code moves}.
-	 *
-	 * @param moves the list to append to
-	 * @return the updated {@code moves} list
-	 */
-	private MoveList addBlackEnPassantMoves(MoveList moves) {
-		if (enPassant == Field.NO_SQUARE) {
-			return moves;
-		}
-
-		byte down = Field.downrank(enPassant);
-		byte left = Field.leftOf(down);
-		byte right = Field.rightOf(down);
-
-		short lefttakes = Move.of(left, enPassant);
-		short righttakes = Move.of(right, enPassant);
-
-		board[down] = Piece.EMPTY;
-
-		if (Field.isOn4thRank(left) && board[left] == Piece.BLACK_PAWN && isLegalBlackMove(lefttakes)) {
-			moves.add(lefttakes);
-		}
-
-		if (Field.isOn4thRank(right) && board[right] == Piece.BLACK_PAWN && isLegalBlackMove(righttakes)) {
-			moves.add(righttakes);
-		}
-
-		board[down] = Piece.WHITE_PAWN;
-
-		return moves;
-	}
-
-	/**
-	 * Used for checking if a black move is legal based on king safety.
-	 *
-	 * @param move the move to be validated
-	 * @return true if the move does not leave the black king in check
-	 */
-	private boolean isLegalBlackMove(short move) {
-		byte movefrom = Move.getFromIndex(move);
-		byte moveto = Move.getToIndex(move);
-
-		byte buffer = board[moveto];
-
-		board[moveto] = board[movefrom];
-		board[movefrom] = Piece.EMPTY;
-
-		boolean legal = !blackKingInCheck();
-
-		board[movefrom] = board[moveto];
-		board[moveto] = buffer;
-
-		return legal;
-	}
-
-	/**
-	 * Used for performing a perft search to count all legal moves up to a given
-	 * depth.
-	 * <p>
-	 * This method is a convenience wrapper that starts the perft search from the
-	 * current position.
-	 * </p>
-	 *
-	 * @param depth the depth to search down to
-	 * @return the total number of legal moves at the specified depth
-	 */
-	public long perft(int depth) {
-		if (depth < 0) {
-			throw new IllegalArgumentException("Depth (" + depth + ") must be non-negative");
-		}
-		if (depth == 0) {
-			return 1;
-		}
-		return perft(depth, this);
-	}
-
-	/**
-	 * Used for performing a perft search to count all legal moves up to a given
-	 * depth.
-	 * <p>
-	 * This method recursively counts all legal moves from the current position
-	 * down to the specified depth, returning the total number of leaf nodes.
-	 * </p>
-	 *
-	 * @param depth    the depth to search down to
-	 * @param position the current position to evaluate
-	 * @return the total number of legal moves at the specified depth
-	 */
-	private static long perft(int depth, Position position) {
-		if (depth == 1) {
-			return position.getMoves().size();
-		}
-		long amount = 0;
-		MoveList moves = position.getMoves();
-		for (int i = 0; i < moves.size(); i++) {
-			Position next = position.copyOf();
-			next.play(moves.moves[i]);
-			amount += perft(depth - 1, next);
-		}
-		return amount;
-	}
-
-	/**
-	 * Used for returning the total centipawn value of all White pieces on the
-	 * board.
-	 *
-	 * @return total centipawn value of all White pieces on the board.
-	 */
-	public int countWhiteMaterial() {
-		int sum = 0;
-		for (byte piece : board) {
-			if (Piece.isWhite(piece)) {
-				sum += Piece.getValue(piece);
-			}
-		}
-		return sum;
-	}
-
-	/**
-	 * Used for returning the total centipawn value of all Black pieces on the
-	 * board.
-	 *
-	 * @return total centipawn value of all Black pieces on the board.
-	 */
-	public int countBlackMaterial() {
-		int sum = 0;
-		for (byte piece : board) {
-			if (Piece.isBlack(piece)) {
-				sum += Piece.getValue(piece);
-			}
-		}
-		return sum;
-	}
-
-	/**
-	 * Used for returning the total centipawn value of all pieces on the board,
-	 * regardless of colour.
-	 *
-	 * @return total centipawn value of all pieces.
-	 */
-	public int countTotalMaterial() {
-		return countWhiteMaterial() + countBlackMaterial();
-	}
-
-	/**
-	 * Used for returning the centipawn balance (White minus Black).
-	 *
-	 * @return centipawn balance (White minus Black).
-	 */
-	public int materialDiscrepancy() {
-		return countWhiteMaterial() - countBlackMaterial();
-	}
-
-	/**
-	 * Used for counting the number of White pieces currently on the board.
-	 *
-	 * @return number of White pieces.
-	 */
-	public int countWhitePieces() {
-		int count = 0;
-		for (byte piece : board) {
-			if (Piece.isWhite(piece)) {
-				count++;
-			}
-		}
-		return count;
-	}
-
-	/**
-	 * Used for counting the number of Black pieces currently on the board.
-	 *
-	 * @return number of Black pieces.
-	 */
-	public int countBlackPieces() {
-		int count = 0;
-		for (byte piece : board) {
-			if (Piece.isBlack(piece)) {
-				count++;
-			}
-		}
-		return count;
-	}
-
-	/**
-	 * Used for counting the number of occurrences of a specific piece code.
-	 *
-	 * @param piece piece code to count (including color)
-	 * @return number of matching pieces on the board
-	 */
-	public int countPieces(byte piece) {
-		int count = 0;
-		for (byte current : board) {
-			if (current == piece) {
-				count++;
-			}
-		}
-		return count;
-	}
-
-	/**
-	 * Used for returning the total number of pieces on the board.
-	 *
-	 * @return total number of pieces.
-	 */
-	public int countTotalPieces() {
-		return countWhitePieces() + countBlackPieces();
-	}
-
-	/**
-	 * Used for returning the piece-count balance (White minus Black).
-	 *
-	 * @return piece-count balance (White minus Black).
-	 */
-	public int countPieceDiscrepancy() {
-		return countWhitePieces() - countBlackPieces();
-	}
-
-	/**
-	 * Used for generating all successor positions by playing each legal move.
-	 *
-	 * @return an array containing a Position for each legal move.
-	 */
-	public Position[] generateSubPositions() {
-		MoveList moveList = getMoves();
-		Position[] positions = new Position[moveList.size()];
-		for (int i = 0; i < positions.length; i++) {
-			positions[i] = copyOf().play(moveList.moves[i]);
-		}
-		return positions;
-	}
-
-	/**
-	 * Used for checking if the given move is legal in this position.
-	 *
-	 * @param move the move to check
-	 * @return true if the move is legal in this position; false otherwise
-	 */
-	public boolean isLegalMove(short move) {
-		MoveList moveList = getMoves();
-		for (int i = 0; i < moveList.size; i++) {
-			if (Move.equals(moveList.moves[i], move)) {
-				return true;
-			}
-		}
-		return false;
-	}
-
-	/**
-	 * Used for retrieving the full-move number (increments after each Black move).
-	 *
-	 * @return the full-move number
-	 */
-	public short getFullMove() {
-		return fullMove;
-	}
-
-	/**
-	 * Used for retrieving the half-move clock (since the last capture or pawn
-	 * move).
-	 *
-	 * @return the half-move clock
-	 */
-	public short getHalfMove() {
-		return halfMove;
-	}
-
-	/**
-	 * Used for retrieving the en-passant target square.
-	 *
-	 * @return the en-passant target square
-	 */
-	public byte getEnPassant() {
-		return enPassant;
-	}
-
-	/**
-	 * Used for retrieving White's king square index.
-	 *
-	 * @return the White king index
-	 */
-	public byte getWhiteKing() {
-		return whiteKing;
-	}
-
-	/**
-	 * Used for retrieving Black's king square index.
-	 *
-	 * @return the Black king index
-	 */
-	public byte getBlackKing() {
-		return blackKing;
-	}
-
-	/**
-	 * Used for retrieving the White kingside-castling rook square (or
-	 * {@code NO_SQUARE}).
-	 *
-	 * @return the White kingside rook square
-	 */
-	public byte getWhiteKingside() {
-		return whiteKingside;
-	}
-
-	/**
-	 * Used for retrieving the White queenside-castling rook square (or
-	 * {@code NO_SQUARE}).
-	 *
-	 * @return the White queenside rook square
-	 */
-	public byte getWhiteQueenside() {
-		return whiteQueenside;
-	}
-
-	/**
-	 * Used for retrieving the Black kingside-castling rook square (or
-	 * {@code NO_SQUARE}).
-	 *
-	 * @return the Black kingside rook square
-	 */
-	public byte getBlackKingside() {
-		return blackKingside;
-	}
-
-	/**
-	 * Used for retrieving the Black queenside-castling rook square (or
-	 * {@code NO_SQUARE}).
-	 *
-	 * @return the Black queenside rook square
-	 */
-	public byte getBlackQueenside() {
-		return blackQueenside;
-	}
-
-	/**
-	 * Used for checking whether it is White's turn.
-	 *
-	 * @return {@code true} if White moves next
-	 */
-	public boolean isWhiteTurn() {
-		return whitesTurn;
-	}
-
-	/**
-	 * Used for checking whether it is Black's turn.
-	 *
-	 * @return {@code true} if Black moves next
-	 */
-	public boolean isBlackTurn() {
-		return !whitesTurn;
-	}
-
-	/**
-	 * Used for checking whether this position follows Chess960 castling rules.
-	 *
-	 * @return {@code true} if the position is Chess960
-	 */
-	public boolean isChess960() {
-		return chess960;
-	}
-
-	/**
-	 * Used for obtaining a defensive copy of the board array.
-	 *
-	 * @return a copy of the board representation
-	 */
-	public byte[] getBoard() {
-		return Arrays.copyOf(board, board.length);
-	}
-
-	/**
-	 * Describes a piece pinned to its own king by a sliding enemy piece.
-	 *
-	 * <p>
-	 * The record stores the pinned piece square and the enemy piece that creates
-	 * the pin.
-	 * </p>
-	 */
-	public static final class PinInfo {
-
-		/**
-		 * The square of the pinned piece.
-		 */
-		public final byte pinnedSquare;
-
-		/**
-		 * The square of the pinning enemy piece.
-		 */
-		public final byte pinnerSquare;
-
-		/**
-		 * The pinning enemy piece code.
-		 */
-		public final byte pinnerPiece;
-
-		/**
-		 * Creates immutable pin metadata.
-		 *
-		 * @param pinnedSquare the square of the pinned piece
-		 * @param pinnerSquare the square of the pinning enemy piece
-		 * @param pinnerPiece the pinning enemy piece code
-		 */
-		private PinInfo(byte pinnedSquare, byte pinnerSquare, byte pinnerPiece) {
-			this.pinnedSquare = pinnedSquare;
-			this.pinnerSquare = pinnerSquare;
-			this.pinnerPiece = pinnerPiece;
-		}
-	}
-
-	/**
-	 * Compares this position to another for natural ordering.
-	 * <p>
-	 * First, the board arrays are compared. If equal, turn and castling flags
-	 * are compared. Finally, en passant, king positions, and move counters
-	 * are compared.
-	 * </p>
-	 *
-	 * @param other the position to compare against
-	 * @return a negative integer, zero, or a positive integer as this position
-	 *         is less than, equal to, or greater than the specified position
-	 * @throws NullPointerException if {@code other} is {@code null}
-	 */
-	@Override
-	public int compareTo(Position other) {
-		if (other == null) {
-			throw new NullPointerException("other");
-		}
-		int result = compareCoreFields(other);
-		if (result != 0) {
-			return result;
-		}
-		return compareAdditionalFields(other);
-	}
-
-	/**
-	 * Compares the core fields of two positions: board layout, side to move,
-	 * and castling rights.
-	 *
-	 * @param other the position to compare against
-	 * @return a non-zero comparison result if any core fields differ,
-	 *         otherwise zero
-	 */
-	private int compareCoreFields(Position other) {
-		// Compare piece placement
-		int cmp = Arrays.compare(board, other.board);
-		if (cmp != 0)
-			return cmp;
-
-		// Compare side to move
-		if (whitesTurn != other.whitesTurn) {
-			return whitesTurn ? 1 : -1;
-		}
-		// Compare Chess960 flag
-		if (chess960 != other.chess960) {
-			return chess960 ? 1 : -1;
-		}
-
-		// Compare castling rights
-		cmp = Byte.compare(whiteKingside, other.whiteKingside);
-		if (cmp != 0)
-			return cmp;
-		cmp = Byte.compare(whiteQueenside, other.whiteQueenside);
-		if (cmp != 0)
-			return cmp;
-		cmp = Byte.compare(blackKingside, other.blackKingside);
-		if (cmp != 0)
-			return cmp;
-		return Byte.compare(blackQueenside, other.blackQueenside);
-	}
-
-	/**
-	 * Compares additional fields of two positions: en passant target,
-	 * king positions, and move counters (half-move and full-move).
-	 *
-	 * @param other the position to compare against
-	 * @return a non-zero comparison result if any additional fields differ,
-	 *         otherwise zero
-	 */
-	private int compareAdditionalFields(Position other) {
-		// Compare en passant target square
-		int cmp = Byte.compare(enPassant, other.enPassant);
-		if (cmp != 0) {
-			return cmp;
-		}
-
-		// Compare king positions
-		cmp = Byte.compare(whiteKing, other.whiteKing);
-		if (cmp != 0) {
-			return cmp;
-		}
-
-		cmp = Byte.compare(blackKing, other.blackKing);
-		if (cmp != 0) {
-			return cmp;
-		}
-
-		// Compare move counters
-		cmp = Short.compare(halfMove, other.halfMove);
-		if (cmp != 0) {
-			return cmp;
-		}
-
-		return Short.compare(fullMove, other.fullMove);
-	}
-
-	/**
-	 * Used for testing structural equality between two positions.
-	 *
-	 * @param obj the object to compare with
-	 * @return {@code true} if all fields match, otherwise {@code false}
-	 */
-	@Override
-	public boolean equals(Object obj) {
-		if (this == obj) {
-			return true;
-		}
-
-		if (!(obj instanceof Position other)) {
-			return false;
-		}
-
-		return Arrays.equals(board, other.board) &&
-				whitesTurn == other.whitesTurn &&
-				chess960 == other.chess960 &&
-				whiteKingside == other.whiteKingside &&
-				whiteQueenside == other.whiteQueenside &&
-				blackKingside == other.blackKingside &&
-				blackQueenside == other.blackQueenside &&
-				enPassant == other.enPassant &&
-				whiteKing == other.whiteKing &&
-				blackKing == other.blackKing &&
-				halfMove == other.halfMove &&
-				fullMove == other.fullMove;
-	}
-
-	/**
-	 * Used for computing a hash code consistent with {@link #equals(Object)}.
-	 *
-	 * @return the hash code for this position
-	 */
-	@Override
-	public int hashCode() {
-		int result = Arrays.hashCode(board);
-		result = 31 * result + Boolean.hashCode(whitesTurn);
-		result = 31 * result + Boolean.hashCode(chess960);
-		result = 31 * result + Byte.hashCode(whiteKingside);
-		result = 31 * result + Byte.hashCode(whiteQueenside);
-		result = 31 * result + Byte.hashCode(blackKingside);
-		result = 31 * result + Byte.hashCode(blackQueenside);
-		result = 31 * result + Byte.hashCode(enPassant);
-		result = 31 * result + Byte.hashCode(whiteKing);
-		result = 31 * result + Byte.hashCode(blackKing);
-		result = 31 * result + Short.hashCode(halfMove);
-		result = 31 * result + Short.hashCode(fullMove);
-		return result;
-	}
-
-	/**
-	 * Returns a 64-bit signature of the full position state.
-	 *
-	 * <p>
-	 * This is intended as a fast, allocation-free key for memoization and caching.
-	 * It incorporates the same state components as {@link #equals(Object)} /
-	 * {@link #hashCode()} (board, turn, castling rights, en-passant, king squares,
-	 * and move counters).
-	 * </p>
-	 *
-	 * @return 64-bit signature for the current position state
-	 */
-	public long signature() {
-		long h = 1469598103934665603L; // FNV-1a 64-bit offset basis
-		for (byte piece : board) {
-			h ^= (piece & 0xFFL);
-			h *= 1099511628211L; // FNV prime
-		}
-
-		h ^= whitesTurn ? 1L : 0L;
-		h *= 1099511628211L;
-		h ^= chess960 ? 1L : 0L;
-		h *= 1099511628211L;
-
-		h ^= (whiteKingside & 0xFFL);
-		h *= 1099511628211L;
-		h ^= (whiteQueenside & 0xFFL);
-		h *= 1099511628211L;
-		h ^= (blackKingside & 0xFFL);
-		h *= 1099511628211L;
-		h ^= (blackQueenside & 0xFFL);
-		h *= 1099511628211L;
-		h ^= (enPassant & 0xFFL);
-		h *= 1099511628211L;
-		h ^= (whiteKing & 0xFFL);
-		h *= 1099511628211L;
-		h ^= (blackKing & 0xFFL);
-		h *= 1099511628211L;
-
-		h ^= (halfMove & 0xFFFFL);
-		h *= 1099511628211L;
-		h ^= (fullMove & 0xFFFFL);
-		h *= 1099511628211L;
-
-		return h;
-	}
-
-	/**
-	 * Returns a 64-bit signature of the core position state (without move counters).
-	 *
-	 * <p>
-	 * This is equivalent to {@link #signature()} but excludes the half-move clock and
-	 * full-move number. It is useful for lookups where those counters are not meaningful
-	 * (e.g. opening/ECO mapping) while still keeping all move-legality-relevant state
-	 * (board, side to move, castling rights, en-passant, king squares, and Chess960 flag).
-	 * </p>
-	 *
-	 * @return 64-bit signature without half/full move counters
-	 */
-	public long signatureCore() {
-		long h = 1469598103934665603L; // FNV-1a 64-bit offset basis
-		for (byte piece : board) {
-			h ^= (piece & 0xFFL);
-			h *= 1099511628211L; // FNV prime
-		}
-
-		h ^= whitesTurn ? 1L : 0L;
-		h *= 1099511628211L;
-		h ^= chess960 ? 1L : 0L;
-		h *= 1099511628211L;
-
-		h ^= (whiteKingside & 0xFFL);
-		h *= 1099511628211L;
-		h ^= (whiteQueenside & 0xFFL);
-		h *= 1099511628211L;
-		h ^= (blackKingside & 0xFFL);
-		h *= 1099511628211L;
-		h ^= (blackQueenside & 0xFFL);
-		h *= 1099511628211L;
-		h ^= (enPassant & 0xFFL);
-		h *= 1099511628211L;
-		h ^= (whiteKing & 0xFFL);
-		h *= 1099511628211L;
-		h ^= (blackKing & 0xFFL);
-		h *= 1099511628211L;
-
-		return h;
-	}
+    /**
+     * Piece index for White pawns in the {@link #pieces} array.
+     */
+    public static final int WHITE_PAWN = 0;
+
+    /**
+     * Piece index for White knights in the {@link #pieces} array.
+     */
+    public static final int WHITE_KNIGHT = 1;
+
+    /**
+     * Piece index for White bishops in the {@link #pieces} array.
+     */
+    public static final int WHITE_BISHOP = 2;
+
+    /**
+     * Piece index for White rooks in the {@link #pieces} array.
+     */
+    public static final int WHITE_ROOK = 3;
+
+    /**
+     * Piece index for the White queen in the {@link #pieces} array.
+     */
+    public static final int WHITE_QUEEN = 4;
+
+    /**
+     * Piece index for the White king in the {@link #pieces} array.
+     */
+    public static final int WHITE_KING = 5;
+
+    /**
+     * Piece index for Black pawns in the {@link #pieces} array.
+     */
+    public static final int BLACK_PAWN = 6;
+
+    /**
+     * Piece index for Black knights in the {@link #pieces} array.
+     */
+    public static final int BLACK_KNIGHT = 7;
+
+    /**
+     * Piece index for Black bishops in the {@link #pieces} array.
+     */
+    public static final int BLACK_BISHOP = 8;
+
+    /**
+     * Piece index for Black rooks in the {@link #pieces} array.
+     */
+    public static final int BLACK_ROOK = 9;
+
+    /**
+     * Piece index for the Black queen in the {@link #pieces} array.
+     */
+    public static final int BLACK_QUEEN = 10;
+
+    /**
+     * Piece index for the Black king in the {@link #pieces} array.
+     */
+    public static final int BLACK_KING = 11;
+
+    /**
+     * Castling-right bit for White king-side castling.
+     */
+    public static final int WHITE_KINGSIDE = 1;
+
+    /**
+     * Castling-right bit for White queen-side castling.
+     */
+    public static final int WHITE_QUEENSIDE = 2;
+
+    /**
+     * Castling-right bit for Black king-side castling.
+     */
+    public static final int BLACK_KINGSIDE = 4;
+
+    /**
+     * Castling-right bit for Black queen-side castling.
+     */
+    public static final int BLACK_QUEENSIDE = 8;
+
+    /**
+     * Promotion code for knight promotions, matching {@code chess.core.Move}.
+     */
+    static final byte PROMOTION_KNIGHT = 1;
+
+    /**
+     * Promotion code for bishop promotions, matching {@code chess.core.Move}.
+     */
+    static final byte PROMOTION_BISHOP = 2;
+
+    /**
+     * Promotion code for rook promotions, matching {@code chess.core.Move}.
+     */
+    static final byte PROMOTION_ROOK = 3;
+
+    /**
+     * Promotion code for queen promotions, matching {@code chess.core.Move}.
+     */
+    static final byte PROMOTION_QUEEN = 4;
+
+    /**
+     * Piece bitboards indexed by the public piece-index constants.
+     */
+    final long[] pieces;
+
+    /**
+     * Square-to-piece table using the same piece indexes as {@link #pieces}.
+     *
+     * <p>
+     * A value of {@code -1} marks an empty square. The table avoids scanning
+     * piece bitboards when making and undoing moves.
+     * </p>
+     */
+    final byte[] board;
+
+    /**
+     * Cached occupancy mask for all White pieces.
+     */
+    long whiteOccupancy;
+
+    /**
+     * Cached occupancy mask for all Black pieces.
+     */
+    long blackOccupancy;
+
+    /**
+     * Cached occupancy mask for every piece on the board.
+     */
+    long occupancy;
+
+    /**
+     * Cached square index for the White king, or {@link Field#NO_SQUARE}.
+     */
+    byte whiteKingSquare;
+
+    /**
+     * Cached square index for the Black king, or {@link Field#NO_SQUARE}.
+     */
+    byte blackKingSquare;
+
+    /**
+     * Side-to-move flag; {@code true} means White is to move.
+     */
+    boolean whiteToMove;
+
+    /**
+     * Current castling rights represented by the public castling bit constants.
+     */
+    int castlingRights;
+
+    /**
+     * En-passant target square for the current side to move.
+     *
+     * <p>
+     * The value is {@link Field#NO_SQUARE} when no en-passant capture is
+     * currently available.
+     * </p>
+     */
+    byte enPassantSquare;
+
+    /**
+     * Halfmove clock from the FEN state.
+     */
+    short halfMoveClock;
+
+    /**
+     * Fullmove number from the FEN state.
+     */
+    short fullMoveNumber;
+
+    /**
+     * Whether castling moves use Chess960 source-rook move encoding.
+     */
+    boolean chess960Castling;
+
+    /**
+     * Current White king-side castling rook square, or {@link Field#NO_SQUARE}.
+     */
+    byte whiteKingsideRookSquare;
+
+    /**
+     * Current White queen-side castling rook square, or {@link Field#NO_SQUARE}.
+     */
+    byte whiteQueensideRookSquare;
+
+    /**
+     * Current Black king-side castling rook square, or {@link Field#NO_SQUARE}.
+     */
+    byte blackKingsideRookSquare;
+
+    /**
+     * Current Black queen-side castling rook square, or {@link Field#NO_SQUARE}.
+     */
+    byte blackQueensideRookSquare;
+
+    /**
+     * Creates an empty mutable position with no pieces and default counters.
+     */
+    Position() {
+        this.pieces = new long[12];
+        this.board = new byte[64];
+        Arrays.fill(this.board, (byte) -1);
+        this.whiteKingSquare = Field.NO_SQUARE;
+        this.blackKingSquare = Field.NO_SQUARE;
+        this.enPassantSquare = Field.NO_SQUARE;
+        this.fullMoveNumber = 1;
+        this.whiteKingsideRookSquare = Field.NO_SQUARE;
+        this.whiteQueensideRookSquare = Field.NO_SQUARE;
+        this.blackKingsideRookSquare = Field.NO_SQUARE;
+        this.blackQueensideRookSquare = Field.NO_SQUARE;
+    }
+
+    /**
+     * Creates a position from FEN text.
+     *
+     * @param fen FEN string to parse
+     * @throws IllegalArgumentException when the FEN is invalid
+     */
+    public Position(String fen) {
+        this();
+        copyStateFrom(Fen.parse(fen));
+    }
+
+    /**
+     * Creates a deep copy of another bitboard position.
+     *
+     * @param source source position
+     */
+    private Position(Position source) {
+        this.pieces = Arrays.copyOf(source.pieces, source.pieces.length);
+        this.board = Arrays.copyOf(source.board, source.board.length);
+        this.whiteOccupancy = source.whiteOccupancy;
+        this.blackOccupancy = source.blackOccupancy;
+        this.occupancy = source.occupancy;
+        this.whiteKingSquare = source.whiteKingSquare;
+        this.blackKingSquare = source.blackKingSquare;
+        this.whiteToMove = source.whiteToMove;
+        this.castlingRights = source.castlingRights;
+        this.enPassantSquare = source.enPassantSquare;
+        this.halfMoveClock = source.halfMoveClock;
+        this.fullMoveNumber = source.fullMoveNumber;
+        this.chess960Castling = source.chess960Castling;
+        this.whiteKingsideRookSquare = source.whiteKingsideRookSquare;
+        this.whiteQueensideRookSquare = source.whiteQueensideRookSquare;
+        this.blackKingsideRookSquare = source.blackKingsideRookSquare;
+        this.blackQueensideRookSquare = source.blackQueensideRookSquare;
+    }
+
+    /**
+     * Copies all mutable state from another position into this one.
+     *
+     * @param source source position
+     */
+    private void copyStateFrom(Position source) {
+        System.arraycopy(source.pieces, 0, pieces, 0, pieces.length);
+        System.arraycopy(source.board, 0, board, 0, board.length);
+        whiteOccupancy = source.whiteOccupancy;
+        blackOccupancy = source.blackOccupancy;
+        occupancy = source.occupancy;
+        whiteKingSquare = source.whiteKingSquare;
+        blackKingSquare = source.blackKingSquare;
+        whiteToMove = source.whiteToMove;
+        castlingRights = source.castlingRights;
+        enPassantSquare = source.enPassantSquare;
+        halfMoveClock = source.halfMoveClock;
+        fullMoveNumber = source.fullMoveNumber;
+        chess960Castling = source.chess960Castling;
+        whiteKingsideRookSquare = source.whiteKingsideRookSquare;
+        whiteQueensideRookSquare = source.whiteQueensideRookSquare;
+        blackKingsideRookSquare = source.blackKingsideRookSquare;
+        blackQueensideRookSquare = source.blackQueensideRookSquare;
+    }
+
+    /**
+     * Builds a position from a FEN string.
+     *
+     * @param fen FEN
+     * @return parsed position
+     */
+    public static Position fromFen(String fen) {
+        return Fen.parse(fen);
+    }
+
+    /**
+     * Returns a deep copy of this position.
+     *
+     * @return copy
+     */
+    public Position copy() {
+        return new Position(this);
+    }
+
+    /**
+     * Serializes this position to FEN.
+     *
+     * @return FEN text
+     */
+    @Override
+    public String toString() {
+        return Fen.format(this);
+    }
+
+    /**
+     * Compares this position to another bitboard position.
+     *
+     * <p>
+     * The ordering follows the same state components as the core position:
+     * board layout, side to move, Chess960 flag, castling rights, en-passant
+     * square, king squares, and move counters.
+     * </p>
+     *
+     * @param other position to compare
+     * @return comparison result
+     * @throws NullPointerException when {@code other} is null
+     */
+    @Override
+    public int compareTo(Position other) {
+        if (other == null) {
+            throw new NullPointerException("other");
+        }
+        int cmp = Arrays.compare(board, other.board);
+        if (cmp != 0) {
+            return cmp;
+        }
+        cmp = Boolean.compare(whiteToMove, other.whiteToMove);
+        if (cmp != 0) {
+            return cmp;
+        }
+        cmp = Boolean.compare(chess960Castling, other.chess960Castling);
+        if (cmp != 0) {
+            return cmp;
+        }
+        cmp = Integer.compare(castlingRights, other.castlingRights);
+        if (cmp != 0) {
+            return cmp;
+        }
+        cmp = Byte.compare(whiteKingsideRookSquare, other.whiteKingsideRookSquare);
+        if (cmp != 0) {
+            return cmp;
+        }
+        cmp = Byte.compare(whiteQueensideRookSquare, other.whiteQueensideRookSquare);
+        if (cmp != 0) {
+            return cmp;
+        }
+        cmp = Byte.compare(blackKingsideRookSquare, other.blackKingsideRookSquare);
+        if (cmp != 0) {
+            return cmp;
+        }
+        cmp = Byte.compare(blackQueensideRookSquare, other.blackQueensideRookSquare);
+        if (cmp != 0) {
+            return cmp;
+        }
+        cmp = Byte.compare(enPassantSquare, other.enPassantSquare);
+        if (cmp != 0) {
+            return cmp;
+        }
+        cmp = Byte.compare(whiteKingSquare, other.whiteKingSquare);
+        if (cmp != 0) {
+            return cmp;
+        }
+        cmp = Byte.compare(blackKingSquare, other.blackKingSquare);
+        if (cmp != 0) {
+            return cmp;
+        }
+        cmp = Short.compare(halfMoveClock, other.halfMoveClock);
+        if (cmp != 0) {
+            return cmp;
+        }
+        return Short.compare(fullMoveNumber, other.fullMoveNumber);
+    }
+
+    /**
+     * Tests structural equality between two bitboard positions.
+     *
+     * @param obj object to compare
+     * @return true when all position-state fields match
+     */
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) {
+            return true;
+        }
+        if (!(obj instanceof Position other)) {
+            return false;
+        }
+        return Arrays.equals(board, other.board)
+                && whiteToMove == other.whiteToMove
+                && chess960Castling == other.chess960Castling
+                && castlingRights == other.castlingRights
+                && whiteKingsideRookSquare == other.whiteKingsideRookSquare
+                && whiteQueensideRookSquare == other.whiteQueensideRookSquare
+                && blackKingsideRookSquare == other.blackKingsideRookSquare
+                && blackQueensideRookSquare == other.blackQueensideRookSquare
+                && enPassantSquare == other.enPassantSquare
+                && whiteKingSquare == other.whiteKingSquare
+                && blackKingSquare == other.blackKingSquare
+                && halfMoveClock == other.halfMoveClock
+                && fullMoveNumber == other.fullMoveNumber;
+    }
+
+    /**
+     * Computes a hash code consistent with {@link #equals(Object)}.
+     *
+     * @return structural hash code
+     */
+    @Override
+    public int hashCode() {
+        int result = Arrays.hashCode(board);
+        result = 31 * result + Boolean.hashCode(whiteToMove);
+        result = 31 * result + Boolean.hashCode(chess960Castling);
+        result = 31 * result + Integer.hashCode(castlingRights);
+        result = 31 * result + Byte.hashCode(whiteKingsideRookSquare);
+        result = 31 * result + Byte.hashCode(whiteQueensideRookSquare);
+        result = 31 * result + Byte.hashCode(blackKingsideRookSquare);
+        result = 31 * result + Byte.hashCode(blackQueensideRookSquare);
+        result = 31 * result + Byte.hashCode(enPassantSquare);
+        result = 31 * result + Byte.hashCode(whiteKingSquare);
+        result = 31 * result + Byte.hashCode(blackKingSquare);
+        result = 31 * result + Short.hashCode(halfMoveClock);
+        result = 31 * result + Short.hashCode(fullMoveNumber);
+        return result;
+    }
+
+    /**
+     * Returns a 64-bit signature of the full position state.
+     *
+     * <p>
+     * This is intended as a fast, allocation-free cache key and includes the
+     * same fields used by {@link #equals(Object)} and {@link #hashCode()}.
+     * </p>
+     *
+     * @return 64-bit full-state signature
+     */
+    public long signature() {
+        long h = signatureCore();
+        h ^= halfMoveClock & 0xFFFFL;
+        h *= 1099511628211L;
+        h ^= fullMoveNumber & 0xFFFFL;
+        h *= 1099511628211L;
+        return h;
+    }
+
+    /**
+     * Returns a 64-bit signature without the halfmove and fullmove counters.
+     *
+     * <p>
+     * The core signature keeps all move-legality-relevant state and omits only
+     * counters that are usually irrelevant for opening, ECO, and tag caches.
+     * </p>
+     *
+     * @return 64-bit core-state signature
+     */
+    public long signatureCore() {
+        long h = 1469598103934665603L;
+        for (byte piece : board) {
+            h ^= piece & 0xFFL;
+            h *= 1099511628211L;
+        }
+        h ^= whiteToMove ? 1L : 0L;
+        h *= 1099511628211L;
+        h ^= chess960Castling ? 1L : 0L;
+        h *= 1099511628211L;
+        h ^= castlingRights & 0xFFL;
+        h *= 1099511628211L;
+        h ^= whiteKingsideRookSquare & 0xFFL;
+        h *= 1099511628211L;
+        h ^= whiteQueensideRookSquare & 0xFFL;
+        h *= 1099511628211L;
+        h ^= blackKingsideRookSquare & 0xFFL;
+        h *= 1099511628211L;
+        h ^= blackQueensideRookSquare & 0xFFL;
+        h *= 1099511628211L;
+        h ^= enPassantSquare & 0xFFL;
+        h *= 1099511628211L;
+        h ^= whiteKingSquare & 0xFFL;
+        h *= 1099511628211L;
+        h ^= blackKingSquare & 0xFFL;
+        h *= 1099511628211L;
+        return h;
+    }
+
+    /**
+     * Applies a legal or pseudo-legal move to this position.
+     *
+     * <p>
+     * This convenience overload allocates an undo state. Perft code should use
+     * {@link #play(short, State)} with caller-owned state objects.
+     * </p>
+     *
+     * @param move encoded move
+     * @return this position
+     */
+    public Position play(short move) {
+        if (!isEncodedMove(move)) {
+            throw new IllegalArgumentException("Invalid encoded move: " + (move & 0xFFFF));
+        }
+        return play(move, new State());
+    }
+
+    /**
+     * Applies a legal or pseudo-legal move and fills caller-owned undo state.
+     *
+     * <p>
+     * The method updates piece bitboards, square table, occupancy caches,
+     * castling rights, en-passant state, move counters, and cached king squares.
+     * It does not validate king safety; callers decide whether a pseudo-legal
+     * move is legal.
+     * </p>
+     *
+     * @param move encoded move
+     * @param state target undo state
+     * @return this position
+     */
+    public Position play(short move, State state) {
+        int from = move & 0x3F;
+        int to = (move >>> 6) & 0x3F;
+        int promotion = (move >>> 12) & 0x7;
+        int moving = pieceIndexAt(from);
+        if (moving < 0) {
+            throw new IllegalArgumentException("No piece on " + Bits.name(from));
+        }
+
+        boolean white = moving < BLACK_PAWN;
+        int castleRight = castlingRightForMove(moving, to);
+        boolean castleMove = castleRight != 0;
+        int actualTo = castleMove ? castlingKingTarget(castleRight) : to;
+        int captured = castleMove ? -1 : pieceIndexAt(actualTo);
+        int capturedSquare = actualTo;
+        boolean capture = !castleMove && captured >= 0;
+        boolean pawnMove = moving == WHITE_PAWN || moving == BLACK_PAWN;
+        saveUndoState(state, moving, captured, capturedSquare, actualTo);
+
+        if (castlingRights != 0) {
+            castlingRights &= castlingKeepMask(from, to);
+        }
+
+        clearPiece(moving, from);
+        if (captured >= 0) {
+            clearPiece(captured, actualTo);
+        }
+
+        if (pawnMove && actualTo == enPassantSquare && captured < 0) {
+            applyEnPassantCapture(state, white, actualTo);
+            capture = true;
+        }
+
+        int delta = actualTo - from;
+        if (castleMove) {
+            moveCastlingRook(white, castleRight, state);
+            state.castle = true;
+        }
+
+        int placed = promotion == 0 ? moving : promotionPieceIndex(moving, promotion);
+        setPiece(placed, actualTo);
+        enPassantSquare = nextEnPassantSquare(pawnMove, delta, from, actualTo, white);
+        updateHalfMoveClock(pawnMove || capture);
+        if (!whiteToMove) {
+            fullMoveNumber++;
+        }
+        whiteToMove = !whiteToMove;
+        return this;
+    }
+
+    /**
+     * Stores all reversible state needed to undo one move.
+     *
+     * @param state target undo state
+     * @param moving moving piece index
+     * @param captured captured piece index, or -1
+     * @param capturedSquare square where the captured piece is removed
+     * @param kingTo actual king target square for castling moves
+     */
+    private void saveUndoState(
+            State state,
+            int moving,
+            int captured,
+            int capturedSquare,
+            int kingTo) {
+        state.moving = moving;
+        state.captured = captured;
+        state.capturedSquare = capturedSquare;
+        state.kingTo = kingTo;
+        state.castlingRights = castlingRights;
+        state.enPassantSquare = enPassantSquare;
+        state.halfMoveClock = halfMoveClock;
+        state.fullMoveNumber = fullMoveNumber;
+        state.whiteToMove = whiteToMove;
+        state.rook = -1;
+        state.rookFrom = Field.NO_SQUARE;
+        state.rookTo = Field.NO_SQUARE;
+        state.enPassantCapture = false;
+        state.castle = false;
+    }
+
+    /**
+     * Removes the pawn captured by an en-passant move.
+     *
+     * @param state undo state receiving capture metadata
+     * @param white true when White made the capture
+     * @param actualTo en-passant target square
+     */
+    private void applyEnPassantCapture(State state, boolean white, int actualTo) {
+        int capturedSquare = white ? actualTo + 8 : actualTo - 8;
+        int captured = white ? BLACK_PAWN : WHITE_PAWN;
+        state.captured = captured;
+        state.capturedSquare = capturedSquare;
+        state.enPassantCapture = true;
+        clearPiece(captured, capturedSquare);
+    }
+
+    /**
+     * Calculates the next en-passant square after a move.
+     *
+     * @param pawnMove true when the moving piece was a pawn
+     * @param delta target minus origin
+     * @param from origin square
+     * @param actualTo final target square
+     * @param white true when the moving piece was White
+     * @return en-passant target square, or {@link Field#NO_SQUARE}
+     */
+    private byte nextEnPassantSquare(boolean pawnMove, int delta, int from, int actualTo, boolean white) {
+        if (!pawnMove || (delta != 16 && delta != -16)) {
+            return Field.NO_SQUARE;
+        }
+        int target = (from + actualTo) / 2;
+        long enemyPawns = pieces[white ? BLACK_PAWN : WHITE_PAWN];
+        long attackers = white ? MoveGenerator.WHITE_PAWN_ATTACKS[target] : MoveGenerator.BLACK_PAWN_ATTACKS[target];
+        return (attackers & enemyPawns) == 0L ? Field.NO_SQUARE : (byte) target;
+    }
+
+    /**
+     * Updates the halfmove clock after a move.
+     *
+     * @param reset true when a pawn move or capture resets the clock
+     */
+    private void updateHalfMoveClock(boolean reset) {
+        if (reset) {
+            halfMoveClock = 0;
+        } else {
+            halfMoveClock++;
+        }
+    }
+
+    /**
+     * Undoes a move previously made with {@link #play(short, State)}.
+     *
+     * <p>
+     * The supplied state must be the exact state object filled by the matching
+     * call to {@code play}. No validation is performed in the hot undo path.
+     * </p>
+     *
+     * @param move encoded move
+     * @param state undo state
+     */
+    public void undo(short move, State state) {
+        int from = move & 0x3F;
+        int to = state.castle ? state.kingTo : (move >>> 6) & 0x3F;
+        int promotion = (move >>> 12) & 0x7;
+        int placed = promotion == 0 ? state.moving : promotionPieceIndex(state.moving, promotion);
+        boolean white = state.moving < BLACK_PAWN;
+        long fromMask = 1L << from;
+        long toMask = 1L << to;
+
+        pieces[placed] &= ~toMask;
+        board[to] = -1;
+        if (white) {
+            whiteOccupancy &= ~toMask;
+        } else {
+            blackOccupancy &= ~toMask;
+        }
+        occupancy &= ~toMask;
+        if (state.rook >= 0) {
+            clearPiece(state.rook, state.rookTo);
+        }
+        pieces[state.moving] |= fromMask;
+        board[from] = (byte) state.moving;
+        if (white) {
+            whiteOccupancy |= fromMask;
+        } else {
+            blackOccupancy |= fromMask;
+        }
+        occupancy |= fromMask;
+        if (state.moving == WHITE_KING) {
+            whiteKingSquare = (byte) from;
+        } else if (state.moving == BLACK_KING) {
+            blackKingSquare = (byte) from;
+        }
+        if (state.rook >= 0) {
+            setPiece(state.rook, state.rookFrom);
+        }
+        if (state.captured >= 0) {
+            long capturedMask = 1L << state.capturedSquare;
+            pieces[state.captured] |= capturedMask;
+            board[state.capturedSquare] = (byte) state.captured;
+            if (state.captured < BLACK_PAWN) {
+                whiteOccupancy |= capturedMask;
+            } else {
+                blackOccupancy |= capturedMask;
+            }
+            occupancy |= capturedMask;
+        }
+
+        castlingRights = state.castlingRights;
+        enPassantSquare = state.enPassantSquare;
+        halfMoveClock = state.halfMoveClock;
+        fullMoveNumber = state.fullMoveNumber;
+        whiteToMove = state.whiteToMove;
+    }
+
+    /**
+     * Generates all legal moves for the side to move.
+     *
+     * @return legal move list for the current side
+     */
+    public MoveList legalMoves() {
+        return MoveGenerator.generateLegalMoves(this);
+    }
+
+    /**
+     * Generates pseudo-legal moves for the side to move.
+     *
+     * <p>
+     * Pseudo-legal moves obey piece movement but may leave the moving side's
+     * king in check. This is mainly useful for diagnostics and lightweight
+     * feature extraction.
+     * </p>
+     *
+     * @return pseudo-legal move list
+     */
+    public MoveList pseudoLegalMoves() {
+        return MoveGenerator.generatePseudoLegalMoves(this);
+    }
+
+    /**
+     * Counts legal moves for the side to move.
+     *
+     * @return legal move count
+     */
+    public int legalMoveCount() {
+        return MoveGenerator.legalMoveCount(this);
+    }
+
+    /**
+     * Returns whether the side to move has at least one legal move.
+     *
+     * @return true when a legal move exists
+     */
+    public boolean hasLegalMove() {
+        return MoveGenerator.hasLegalMove(this);
+    }
+
+    /**
+     * Tests whether an encoded move is legal in this position.
+     *
+     * @param move encoded move to test
+     * @return true when the move is currently legal
+     */
+    public boolean isLegalMove(short move) {
+        if (!isEncodedMove(move)) {
+            return false;
+        }
+        return legalMoves().contains(move);
+    }
+
+    /**
+     * Returns all legal moves from one origin square.
+     *
+     * @param square origin square, 0..63
+     * @return legal moves whose origin is {@code square}
+     */
+    public MoveList legalMovesFrom(int square) {
+        Bits.requireSquare(square);
+        Position context = queryContextForSquare(square);
+        MoveList all = context == null ? new MoveList(1) : context.legalMoves();
+        MoveList out = new MoveList(Math.max(1, all.size()));
+        for (int i = 0; i < all.size(); i++) {
+            short move = all.raw(i);
+            if ((move & 0x3F) == square) {
+                out.add(move);
+            }
+        }
+        return out;
+    }
+
+    /**
+     * Returns all legal moves between one origin and one encoded target square.
+     *
+     * <p>
+     * Promotion moves can return multiple entries for the same square pair. For
+     * Chess960 castling, the target is the encoded rook source square, matching
+     * the compact move representation.
+     * </p>
+     *
+     * @param from origin square, 0..63
+     * @param to encoded target square, 0..63
+     * @return legal moves from {@code from} to {@code to}
+     */
+    public MoveList legalMovesBetween(int from, int to) {
+        Bits.requireSquare(from);
+        Bits.requireSquare(to);
+        MoveList candidates = legalMovesFrom(from);
+        MoveList out = new MoveList(Math.max(1, candidates.size()));
+        for (int i = 0; i < candidates.size(); i++) {
+            short move = candidates.raw(i);
+            if (((move >>> 6) & 0x3F) == to) {
+                out.add(move);
+            }
+        }
+        return out;
+    }
+
+    /**
+     * Returns legal move target squares from one origin square.
+     *
+     * <p>
+     * The returned mask uses encoded move targets. For Chess960 castling, that
+     * means the castling rook source square, matching the move encoding.
+     * </p>
+     *
+     * @param square origin square, 0..63
+     * @return target-square mask
+     */
+    public long legalTargetsFrom(int square) {
+        Bits.requireSquare(square);
+        MoveList moves = legalMovesFrom(square);
+        long targets = 0L;
+        for (int i = 0; i < moves.size(); i++) {
+            short move = moves.raw(i);
+            if ((move & 0x3F) == square) {
+                targets |= 1L << ((move >>> 6) & 0x3F);
+            }
+        }
+        return targets;
+    }
+
+    /**
+     * Builds the correct side-to-move context for piece-local queries.
+     *
+     * @param square origin square
+     * @return this position or a temporary copy, or null for an empty square
+     */
+    private Position queryContextForSquare(int square) {
+        int piece = pieceIndexAt(square);
+        if (piece < 0) {
+            return null;
+        }
+        boolean pieceWhite = piece < BLACK_PAWN;
+        if (pieceWhite == whiteToMove) {
+            return this;
+        }
+        Position copy = copy();
+        copy.whiteToMove = pieceWhite;
+        copy.enPassantSquare = Field.NO_SQUARE;
+        return copy;
+    }
+
+    /**
+     * Returns whether the requested side's king is currently in check.
+     *
+     * @param white true to inspect the White king
+     * @return true when that king is attacked
+     */
+    public boolean inCheck(boolean white) {
+        return MoveGenerator.isKingAttacked(this, white);
+    }
+
+    /**
+     * Returns whether the side to move is currently in check.
+     *
+     * @return true when the side to move is in check
+     */
+    public boolean inCheck() {
+        return inCheck(whiteToMove);
+    }
+
+    /**
+     * Returns whether the side to move is checkmated.
+     *
+     * @return true when the side to move is in check and has no legal move
+     */
+    public boolean isCheckmate() {
+        return inCheck() && !hasLegalMove();
+    }
+
+    /**
+     * Returns whether the side to move is stalemated.
+     *
+     * @return true when the side to move is not in check and has no legal move
+     */
+    public boolean isStalemate() {
+        return !inCheck() && !hasLegalMove();
+    }
+
+    /**
+     * Returns whether neither side has enough material for any legal checkmate.
+     *
+     * <p>
+     * This intentionally stays conservative because search uses this predicate
+     * for draw pruning. Positions such as king and bishop versus king and bishop
+     * on opposite colors, king and knight versus king and knight, or king and two
+     * knights versus king can contain legal mate positions and are not treated as
+     * automatic draws here.
+     * </p>
+     *
+     * @return true for basic insufficient-material positions
+     */
+    public boolean isInsufficientMaterial() {
+        if ((pieces[WHITE_PAWN] | pieces[BLACK_PAWN]
+                | pieces[WHITE_ROOK] | pieces[BLACK_ROOK]
+                | pieces[WHITE_QUEEN] | pieces[BLACK_QUEEN]) != 0L) {
+            return false;
+        }
+        int whiteKnights = Long.bitCount(pieces[WHITE_KNIGHT]);
+        int whiteBishops = Long.bitCount(pieces[WHITE_BISHOP]);
+        int blackKnights = Long.bitCount(pieces[BLACK_KNIGHT]);
+        int blackBishops = Long.bitCount(pieces[BLACK_BISHOP]);
+        int whiteMinors = whiteKnights + whiteBishops;
+        int blackMinors = blackKnights + blackBishops;
+        if (whiteMinors == 0 && blackMinors == 0) {
+            return true;
+        }
+        if (whiteMinors == 1 && blackMinors == 0) {
+            return true;
+        }
+        if (whiteMinors == 0 && blackMinors == 1) {
+            return true;
+        }
+        return whiteKnights == 0
+                && blackKnights == 0
+                && whiteBishops == 1
+                && blackBishops == 1
+                && sameSquareColor(pieces[WHITE_BISHOP], pieces[BLACK_BISHOP]);
+    }
+
+    /**
+     * Returns whether two one-bit bishop masks occupy the same square color.
+     *
+     * @param first first bishop bitboard
+     * @param second second bishop bitboard
+     * @return true when both bishops are bound to the same color complex
+     */
+    private static boolean sameSquareColor(long first, long second) {
+        return squareColor(Long.numberOfTrailingZeros(first)) == squareColor(Long.numberOfTrailingZeros(second));
+    }
+
+    /**
+     * Returns a defensive board snapshot using repository piece codes.
+     *
+     * <p>
+     * Empty squares contain {@link Piece#EMPTY}. Occupied squares contain the
+     * same signed piece codes used by {@code chess.core.Position}, which makes
+     * the snapshot convenient for existing tag-formatting helpers.
+     * </p>
+     *
+     * @return 64-entry board copy
+     */
+    public byte[] getBoard() {
+        byte[] out = new byte[64];
+        for (int square = 0; square < board.length; square++) {
+            int piece = board[square];
+            out[square] = piece < 0 ? Piece.EMPTY : pieceCode(piece);
+        }
+        return out;
+    }
+
+    /**
+     * Returns a defensive board snapshot using internal piece indexes.
+     *
+     * <p>
+     * Empty squares contain {@code -1}. Occupied squares contain one of this
+     * class's public piece-index constants.
+     * </p>
+     *
+     * @return 64-entry internal board copy
+     */
+    public byte[] pieceIndexes() {
+        return Arrays.copyOf(board, board.length);
+    }
+
+    /**
+     * Returns whether a square is empty.
+     *
+     * @param square board square, 0..63
+     * @return true when no piece occupies the square
+     */
+    public boolean isEmpty(int square) {
+        Bits.requireSquare(square);
+        return board[square] < 0;
+    }
+
+    /**
+     * Returns whether any piece occupies a square.
+     *
+     * @param square board square, 0..63
+     * @return true when occupied
+     */
+    public boolean hasPiece(int square) {
+        return !isEmpty(square);
+    }
+
+    /**
+     * Returns whether a specific internal piece occupies a square.
+     *
+     * @param square board square, 0..63
+     * @param pieceIndex one of the public piece-index constants
+     * @return true when that piece occupies the square
+     */
+    public boolean hasPiece(int square, int pieceIndex) {
+        Bits.requireSquare(square);
+        requirePieceIndex(pieceIndex);
+        return board[square] == pieceIndex;
+    }
+
+    /**
+     * Returns whether a White piece occupies a square.
+     *
+     * @param square board square, 0..63
+     * @return true when the square holds a White piece
+     */
+    public boolean isWhitePieceAt(int square) {
+        Bits.requireSquare(square);
+        int piece = board[square];
+        return piece >= WHITE_PAWN && piece <= WHITE_KING;
+    }
+
+    /**
+     * Returns whether a Black piece occupies a square.
+     *
+     * @param square board square, 0..63
+     * @return true when the square holds a Black piece
+     */
+    public boolean isBlackPieceAt(int square) {
+        Bits.requireSquare(square);
+        return board[square] >= BLACK_PAWN;
+    }
+
+    /**
+     * Counts pieces of one internal type.
+     *
+     * @param pieceIndex one of the public piece-index constants
+     * @return number of pieces of that type
+     */
+    public int countPieces(int pieceIndex) {
+        requirePieceIndex(pieceIndex);
+        return Long.bitCount(pieces[pieceIndex]);
+    }
+
+    /**
+     * Counts pieces matching one repository piece code.
+     *
+     * @param piece repository piece code
+     * @return number of matching pieces
+     */
+    public int countPieces(byte piece) {
+        int index = pieceIndex(piece);
+        return index < 0 ? 0 : countPieces(index);
+    }
+
+    /**
+     * Counts all White pieces.
+     *
+     * @return White piece count
+     */
+    public int countWhitePieces() {
+        return Long.bitCount(whiteOccupancy);
+    }
+
+    /**
+     * Counts all Black pieces.
+     *
+     * @return Black piece count
+     */
+    public int countBlackPieces() {
+        return Long.bitCount(blackOccupancy);
+    }
+
+    /**
+     * Counts all pieces on the board.
+     *
+     * @return total piece count
+     */
+    public int countTotalPieces() {
+        return Long.bitCount(occupancy);
+    }
+
+    /**
+     * Returns the piece-count balance from White's perspective.
+     *
+     * @return White piece count minus Black piece count
+     */
+    public int countPieceDiscrepancy() {
+        return countWhitePieces() - countBlackPieces();
+    }
+
+    /**
+     * Returns White's material value in centipawns.
+     *
+     * @return total White material
+     */
+    public int countWhiteMaterial() {
+        return material(true);
+    }
+
+    /**
+     * Returns Black's material value in centipawns.
+     *
+     * @return total Black material
+     */
+    public int countBlackMaterial() {
+        return material(false);
+    }
+
+    /**
+     * Returns the total material value for both sides.
+     *
+     * @return combined centipawn material
+     */
+    public int countTotalMaterial() {
+        return countWhiteMaterial() + countBlackMaterial();
+    }
+
+    /**
+     * Returns the material balance from White's perspective.
+     *
+     * @return White material minus Black material
+     */
+    public int materialDiscrepancy() {
+        return countWhiteMaterial() - countBlackMaterial();
+    }
+
+    /**
+     * Returns whether both sides have at least one bishop and the bishop colors differ.
+     *
+     * @return true when the position has opposite-colored bishops
+     */
+    public boolean hasOppositeColoredBishops() {
+        long white = pieces[WHITE_BISHOP];
+        long black = pieces[BLACK_BISHOP];
+        if (white == 0L || black == 0L) {
+            return false;
+        }
+        boolean whiteLight = hasBishopOnColor(white, 0);
+        boolean whiteDark = hasBishopOnColor(white, 1);
+        boolean blackLight = hasBishopOnColor(black, 0);
+        boolean blackDark = hasBishopOnColor(black, 1);
+        return (whiteLight && blackDark) || (whiteDark && blackLight);
+    }
+
+    /**
+     * Counts pawns of one side on a file.
+     *
+     * @param white true for White pawns
+     * @param file file index, 0 for file a and 7 for file h
+     * @return pawn count on the file
+     */
+    public int pawnFileCount(boolean white, int file) {
+        if (file < 0 || file >= 8) {
+            throw new IllegalArgumentException("Invalid file: " + file);
+        }
+        return Long.bitCount(pieces[white ? WHITE_PAWN : BLACK_PAWN] & fileMask(file));
+    }
+
+    /**
+     * Returns doubled pawns for one side.
+     *
+     * <p>
+     * A pawn is included when another friendly pawn shares its file.
+     * </p>
+     *
+     * @param white true for White pawns
+     * @return mask of doubled pawns
+     */
+    public long doubledPawns(boolean white) {
+        long pawns = pieces[white ? WHITE_PAWN : BLACK_PAWN];
+        long out = 0L;
+        for (int file = 0; file < 8; file++) {
+            long filePawns = pawns & fileMask(file);
+            if (Long.bitCount(filePawns) > 1) {
+                out |= filePawns;
+            }
+        }
+        return out;
+    }
+
+    /**
+     * Returns isolated pawns for one side.
+     *
+     * <p>
+     * A pawn is isolated when no friendly pawn exists on either adjacent file.
+     * </p>
+     *
+     * @param white true for White pawns
+     * @return mask of isolated pawns
+     */
+    public long isolatedPawns(boolean white) {
+        long pawns = pieces[white ? WHITE_PAWN : BLACK_PAWN];
+        long out = 0L;
+        long scan = pawns;
+        while (scan != 0L) {
+            int square = Bits.lsb(scan);
+            scan = Bits.withoutLsb(scan);
+            int file = square & 7;
+            long adjacent = 0L;
+            if (file > 0) {
+                adjacent |= fileMask(file - 1);
+            }
+            if (file < 7) {
+                adjacent |= fileMask(file + 1);
+            }
+            if ((pawns & adjacent) == 0L) {
+                out |= 1L << square;
+            }
+        }
+        return out;
+    }
+
+    /**
+     * Returns passed pawns for one side.
+     *
+     * <p>
+     * A pawn is passed when no enemy pawn exists on its file or adjacent files
+     * ahead of it.
+     * </p>
+     *
+     * @param white true for White pawns
+     * @return mask of passed pawns
+     */
+    public long passedPawns(boolean white) {
+        long pawns = pieces[white ? WHITE_PAWN : BLACK_PAWN];
+        long out = 0L;
+        long scan = pawns;
+        while (scan != 0L) {
+            int square = Bits.lsb(scan);
+            scan = Bits.withoutLsb(scan);
+            if (isPassedPawn(square)) {
+                out |= 1L << square;
+            }
+        }
+        return out;
+    }
+
+    /**
+     * Returns whether the pawn on a square is passed.
+     *
+     * @param square pawn square, 0..63
+     * @return true when the square contains a passed pawn
+     */
+    public boolean isPassedPawn(int square) {
+        Bits.requireSquare(square);
+        int pawn = board[square];
+        if (pawn != WHITE_PAWN && pawn != BLACK_PAWN) {
+            return false;
+        }
+        boolean white = pawn == WHITE_PAWN;
+        long enemies = pieces[white ? BLACK_PAWN : WHITE_PAWN];
+        int file = square & 7;
+        int rank = Bits.rank(square);
+        long blockers = 0L;
+        for (int targetFile = Math.max(0, file - 1); targetFile <= Math.min(7, file + 1); targetFile++) {
+            blockers |= fileMask(targetFile);
+        }
+        long scan = enemies & blockers;
+        while (scan != 0L) {
+            int enemy = Bits.lsb(scan);
+            scan = Bits.withoutLsb(scan);
+            int enemyRank = Bits.rank(enemy);
+            if ((white && enemyRank > rank) || (!white && enemyRank < rank)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Returns the attack mask produced by the piece on a square.
+     *
+     * <p>
+     * The mask describes geometric attacks, not legal moves. Pawn entries are
+     * diagonal attack squares. Sliding pieces stop at the first occupied square.
+     * Empty squares return {@code 0}.
+     * </p>
+     *
+     * @param square occupied square to inspect
+     * @return attack mask for the piece on the square
+     */
+    public long attacksFrom(int square) {
+        Bits.requireSquare(square);
+        return switch (board[square]) {
+            case WHITE_PAWN -> MoveGenerator.pawnAttacks(square, true);
+            case BLACK_PAWN -> MoveGenerator.pawnAttacks(square, false);
+            case WHITE_KNIGHT, BLACK_KNIGHT -> MoveGenerator.knightAttacks(square);
+            case WHITE_BISHOP, BLACK_BISHOP -> MoveGenerator.bishopAttacks(square, occupancy);
+            case WHITE_ROOK, BLACK_ROOK -> MoveGenerator.rookAttacks(square, occupancy);
+            case WHITE_QUEEN, BLACK_QUEEN -> MoveGenerator.bishopAttacks(square, occupancy)
+                    | MoveGenerator.rookAttacks(square, occupancy);
+            case WHITE_KING, BLACK_KING -> MoveGenerator.kingAttacks(square);
+            default -> 0L;
+        };
+    }
+
+    /**
+     * Returns all attackers of one side against a square.
+     *
+     * @param byWhite true to return White attackers
+     * @param square target square, 0..63
+     * @return mask of attacking pieces
+     */
+    public long attackerMask(boolean byWhite, int square) {
+        Bits.requireSquare(square);
+        if (byWhite) {
+            return (MoveGenerator.BLACK_PAWN_ATTACKS[square] & pieces[WHITE_PAWN])
+                    | (MoveGenerator.KNIGHT_ATTACKS[square] & pieces[WHITE_KNIGHT])
+                    | (MoveGenerator.KING_ATTACKS[square] & pieces[WHITE_KING])
+                    | (MoveGenerator.bishopAttacks(square, occupancy) & (pieces[WHITE_BISHOP] | pieces[WHITE_QUEEN]))
+                    | (MoveGenerator.rookAttacks(square, occupancy) & (pieces[WHITE_ROOK] | pieces[WHITE_QUEEN]));
+        }
+        return (MoveGenerator.WHITE_PAWN_ATTACKS[square] & pieces[BLACK_PAWN])
+                | (MoveGenerator.KNIGHT_ATTACKS[square] & pieces[BLACK_KNIGHT])
+                | (MoveGenerator.KING_ATTACKS[square] & pieces[BLACK_KING])
+                | (MoveGenerator.bishopAttacks(square, occupancy) & (pieces[BLACK_BISHOP] | pieces[BLACK_QUEEN]))
+                | (MoveGenerator.rookAttacks(square, occupancy) & (pieces[BLACK_ROOK] | pieces[BLACK_QUEEN]));
+    }
+
+    /**
+     * Returns attacker squares for one side against a square.
+     *
+     * @param byWhite true to return White attackers
+     * @param square target square, 0..63
+     * @return attacking square indexes
+     */
+    public byte[] attackerSquares(boolean byWhite, int square) {
+        return squares(attackerMask(byWhite, square));
+    }
+
+    /**
+     * Counts attackers of one side against a square.
+     *
+     * @param byWhite true to count White attackers
+     * @param square target square, 0..63
+     * @return attacker count
+     */
+    public int countAttackers(boolean byWhite, int square) {
+        return Long.bitCount(attackerMask(byWhite, square));
+    }
+
+    /**
+     * Returns whether a square is attacked by one side.
+     *
+     * @param square target square, 0..63
+     * @param byWhite true to test White attacks
+     * @return true when at least one piece attacks the square
+     */
+    public boolean isSquareAttacked(int square, boolean byWhite) {
+        return attackerMask(byWhite, square) != 0L;
+    }
+
+    /**
+     * Returns whether a square is attacked by White.
+     *
+     * @param square target square
+     * @return true when White attacks the square
+     */
+    public boolean isAttackedByWhite(byte square) {
+        return isSquareAttacked(square, true);
+    }
+
+    /**
+     * Returns whether a square is attacked by Black.
+     *
+     * @param square target square
+     * @return true when Black attacks the square
+     */
+    public boolean isAttackedByBlack(byte square) {
+        return isSquareAttacked(square, false);
+    }
+
+    /**
+     * Counts White attackers against a square.
+     *
+     * @param square target square
+     * @return White attacker count
+     */
+    public int countAttackersByWhite(byte square) {
+        return countAttackers(true, square);
+    }
+
+    /**
+     * Counts Black attackers against a square.
+     *
+     * @param square target square
+     * @return Black attacker count
+     */
+    public int countAttackersByBlack(byte square) {
+        return countAttackers(false, square);
+    }
+
+    /**
+     * Returns White attacker squares against a square.
+     *
+     * @param square target square
+     * @return White attacker square indexes
+     */
+    public byte[] getAttackersByWhite(byte square) {
+        return attackerSquares(true, square);
+    }
+
+    /**
+     * Returns Black attacker squares against a square.
+     *
+     * @param square target square
+     * @return Black attacker square indexes
+     */
+    public byte[] getAttackersByBlack(byte square) {
+        return attackerSquares(false, square);
+    }
+
+    /**
+     * Finds pin metadata for the piece on a square relative to its own king.
+     *
+     * @param square candidate pinned-piece square
+     * @return pin metadata, or null when the piece is not pinned
+     */
+    public PinInfo findPinToOwnKing(byte square) {
+        Bits.requireSquare(square);
+        int piece = board[square];
+        if (!canBePinned(piece)) {
+            return null;
+        }
+        boolean white = piece < BLACK_PAWN;
+        int king = kingSquare(white);
+        if (king == Field.NO_SQUARE) {
+            return null;
+        }
+        int kingFile = king & 7;
+        int kingRow = king >>> 3;
+        int pieceFile = square & 7;
+        int pieceRow = square >>> 3;
+        int fileDelta = Integer.compare(pieceFile, kingFile);
+        int rowDelta = Integer.compare(pieceRow, kingRow);
+        if (!aligned(kingFile, kingRow, pieceFile, pieceRow)) {
+            return null;
+        }
+        if (hasPieceBetween(kingFile, kingRow, pieceFile, pieceRow, fileDelta, rowDelta)) {
+            return null;
+        }
+        return pinnerBeyond(square, white, fileDelta, rowDelta);
+    }
+
+    /**
+     * Returns whether a piece index can be pinned to its own king.
+     *
+     * @param piece piece index
+     * @return true for non-king pieces on the board
+     */
+    private static boolean canBePinned(int piece) {
+        return piece >= 0 && piece != WHITE_KING && piece != BLACK_KING;
+    }
+
+    /**
+     * Returns whether any piece stands strictly between two aligned squares.
+     *
+     * @param kingFile king file
+     * @param kingRow king rank
+     * @param pieceFile candidate piece file
+     * @param pieceRow candidate piece rank
+     * @param fileDelta file step from king toward piece
+     * @param rowDelta rank step from king toward piece
+     * @return true when the line is blocked before the candidate piece
+     */
+    private boolean hasPieceBetween(
+            int kingFile,
+            int kingRow,
+            int pieceFile,
+            int pieceRow,
+            int fileDelta,
+            int rowDelta) {
+        int file = kingFile + fileDelta;
+        int row = kingRow + rowDelta;
+        while (file != pieceFile || row != pieceRow) {
+            if (board[row * 8 + file] >= 0) {
+                return true;
+            }
+            file += fileDelta;
+            row += rowDelta;
+        }
+        return false;
+    }
+
+    /**
+     * Finds an enemy slider beyond a candidate pinned piece.
+     *
+     * @param square candidate pinned-piece square
+     * @param white true when the candidate piece is White
+     * @param fileDelta file step away from the king
+     * @param rowDelta rank step away from the king
+     * @return pin metadata, or null when no pinner exists
+     */
+    private PinInfo pinnerBeyond(byte square, boolean white, int fileDelta, int rowDelta) {
+        int file = (square & 7) + fileDelta;
+        int row = (square >>> 3) + rowDelta;
+        boolean diagonal = fileDelta != 0 && rowDelta != 0;
+        while (file >= 0 && file < 8 && row >= 0 && row < 8) {
+            int target = row * 8 + file;
+            int pinner = board[target];
+            if (pinner >= 0) {
+                if (isEnemySliderForPin(pinner, white, diagonal)) {
+                    return new PinInfo(square, (byte) target, pieceCode(pinner));
+                }
+                return null;
+            }
+            file += fileDelta;
+            row += rowDelta;
+        }
+        return null;
+    }
+
+    /**
+     * Returns whether the piece on a square is pinned to its own king.
+     *
+     * @param square candidate pinned-piece square
+     * @return true when pinned
+     */
+    public boolean isPinnedToOwnKing(byte square) {
+        return findPinToOwnKing(square) != null;
+    }
+
+    /**
+     * Returns the internal piece moved by an encoded move.
+     *
+     * @param move encoded move
+     * @return moving piece index, or -1 when the origin is empty
+     */
+    public int movingPiece(short move) {
+        if (!isEncodedMove(move)) {
+            return -1;
+        }
+        return board[move & 0x3F];
+    }
+
+    /**
+     * Returns the final target square for a move.
+     *
+     * <p>
+     * For standard moves this is the encoded target. For castling, this is the
+     * final king square.
+     * </p>
+     *
+     * @param move encoded move
+     * @return actual target square, or {@link Field#NO_SQUARE} for an empty origin
+     */
+    public byte actualToSquare(short move) {
+        int moving = movingPiece(move);
+        if (moving < 0) {
+            return Field.NO_SQUARE;
+        }
+        int to = (move >>> 6) & 0x3F;
+        int castleRight = castlingRightForMove(moving, to);
+        return castleRight == 0 ? (byte) to : castlingKingTarget(castleRight);
+    }
+
+    /**
+     * Returns whether a move is a castling move in this position.
+     *
+     * @param move encoded move
+     * @return true when the move castles
+     */
+    public boolean isCastle(short move) {
+        int moving = movingPiece(move);
+        return moving >= 0 && castlingRightForMove(moving, (move >>> 6) & 0x3F) != 0;
+    }
+
+    /**
+     * Returns whether a move promotes a pawn.
+     *
+     * @param move encoded move
+     * @return true when the promotion field is non-zero
+     */
+    public boolean isPromotion(short move) {
+        if (!isEncodedMove(move)) {
+            return false;
+        }
+        return ((move >>> 12) & 0x7) != 0;
+    }
+
+    /**
+     * Returns whether a move captures a piece.
+     *
+     * @param move encoded move
+     * @return true for normal and en-passant captures
+     */
+    public boolean isCapture(short move) {
+        return capturedPiece(move) >= 0;
+    }
+
+    /**
+     * Returns whether a move from one square to another captures.
+     *
+     * @param movefrom origin square
+     * @param moveto target square
+     * @return true for normal and en-passant captures
+     */
+    public boolean isCapture(byte movefrom, byte moveto) {
+        if (movefrom < 0 || movefrom >= 64 || moveto < 0 || moveto >= 64) {
+            return false;
+        }
+        return pieceIndexAt(moveto) >= 0 || isEnPassantCapture(movefrom, moveto);
+    }
+
+    /**
+     * Returns whether a move is an en-passant capture.
+     *
+     * @param move encoded move
+     * @return true when the move captures en-passant
+     */
+    public boolean isEnPassantCapture(short move) {
+        int moving = movingPiece(move);
+        int to = (move >>> 6) & 0x3F;
+        return (moving == WHITE_PAWN || moving == BLACK_PAWN)
+                && to == enPassantSquare
+                && board[to] < 0;
+    }
+
+    /**
+     * Returns whether a move from one square to another captures en-passant.
+     *
+     * @param movefrom origin square
+     * @param moveto target square
+     * @return true when the square pair is an en-passant capture
+     */
+    public boolean isEnPassantCapture(short movefrom, short moveto) {
+        if (movefrom < 0 || movefrom >= 64 || moveto < 0 || moveto >= 64) {
+            return false;
+        }
+        int moving = pieceIndexAt(movefrom);
+        return (moving == WHITE_PAWN || moving == BLACK_PAWN)
+                && moveto == enPassantSquare
+                && board[moveto] < 0;
+    }
+
+    /**
+     * Returns the captured piece for a move.
+     *
+     * @param move encoded move
+     * @return captured internal piece index, or -1 when no piece is captured
+     */
+    public int capturedPiece(short move) {
+        if (isCastle(move)) {
+            return -1;
+        }
+        if (isEnPassantCapture(move)) {
+            return movingPiece(move) == WHITE_PAWN ? BLACK_PAWN : WHITE_PAWN;
+        }
+        byte target = actualToSquare(move);
+        return target == Field.NO_SQUARE ? -1 : board[target];
+    }
+
+    /**
+     * Returns the square containing the captured piece for a move.
+     *
+     * @param move encoded move
+     * @return captured square, or {@link Field#NO_SQUARE} when no capture occurs
+     */
+    public byte capturedSquare(short move) {
+        if (isEnPassantCapture(move)) {
+            return movingPiece(move) == WHITE_PAWN
+                    ? (byte) (((move >>> 6) & 0x3F) + 8)
+                    : (byte) (((move >>> 6) & 0x3F) - 8);
+        }
+        return capturedPiece(move) >= 0 ? actualToSquare(move) : Field.NO_SQUARE;
+    }
+
+    /**
+     * Counts legal moves originating from one square.
+     *
+     * @param square origin square
+     * @return number of legal moves from that square
+     */
+    public int countLegalMovesFrom(byte square) {
+        return legalMovesFrom(square).size();
+    }
+
+    /**
+     * Generates all legal successor positions.
+     *
+     * @return successor positions, one per legal move
+     */
+    public Position[] generateSubPositions() {
+        MoveList moves = legalMoves();
+        Position[] positions = new Position[moves.size()];
+        for (int i = 0; i < positions.length; i++) {
+            positions[i] = copy().play(moves.raw(i));
+        }
+        return positions;
+    }
+
+    /**
+     * Runs node-only perft from this position.
+     *
+     * @param depth non-negative depth
+     * @return legal leaf-node count
+     */
+    public long perft(int depth) {
+        return MoveGenerator.perft(copy(), depth);
+    }
+
+    /**
+     * Returns the current checkers against the side to move.
+     *
+     * @return attacker squares checking the active king
+     */
+    public byte[] getCheckers() {
+        byte king = kingSquare(whiteToMove);
+        return king == Field.NO_SQUARE ? new byte[0] : attackerSquares(!whiteToMove, king);
+    }
+
+    /**
+     * Returns the bitboard for one piece type.
+     *
+     * @param pieceIndex one of the public piece-index constants
+     * @return bitboard for that piece type
+     */
+    public long pieces(int pieceIndex) {
+        requirePieceIndex(pieceIndex);
+        return pieces[pieceIndex];
+    }
+
+    /**
+     * Returns the occupancy mask for all White pieces.
+     *
+     * @return White occupancy mask
+     */
+    public long whiteOccupancy() {
+        return whiteOccupancy;
+    }
+
+    /**
+     * Returns the occupancy mask for all Black pieces.
+     *
+     * @return Black occupancy mask
+     */
+    public long blackOccupancy() {
+        return blackOccupancy;
+    }
+
+    /**
+     * Returns the occupancy mask for every piece on the board.
+     *
+     * @return combined occupancy mask
+     */
+    public long occupancy() {
+        return occupancy;
+    }
+
+    /**
+     * Returns the occupancy mask for one side.
+     *
+     * @param white true for White
+     * @return side occupancy mask
+     */
+    public long occupancy(boolean white) {
+        return white ? whiteOccupancy() : blackOccupancy();
+    }
+
+    /**
+     * Returns whether White is to move.
+     *
+     * @return true for White
+     */
+    public boolean isWhiteToMove() {
+        return whiteToMove;
+    }
+
+    /**
+     * Returns the current castling-right bit mask.
+     *
+     * @return mask composed from the public castling constants
+     */
+    public int castlingRights() {
+        return castlingRights;
+    }
+
+    /**
+     * Returns whether one castling right is present.
+     *
+     * @param right one of the public castling constants
+     * @return true when present
+     */
+    public boolean canCastle(int right) {
+        return (castlingRights & right) != 0;
+    }
+
+    /**
+     * Returns the current en-passant target square.
+     *
+     * @return square or {@link Field#NO_SQUARE}
+     */
+    public byte enPassantSquare() {
+        return enPassantSquare;
+    }
+
+    /**
+     * Returns the halfmove clock.
+     *
+     * @return halfmove clock from the FEN state
+     */
+    public short halfMoveClock() {
+        return halfMoveClock;
+    }
+
+    /**
+     * Returns the fullmove number.
+     *
+     * @return fullmove number from the FEN state
+     */
+    public short fullMoveNumber() {
+        return fullMoveNumber;
+    }
+
+    /**
+     * Returns the cached king square for one side.
+     *
+     * @param white true for White
+     * @return square, or {@link Field#NO_SQUARE}
+     */
+    public byte kingSquare(boolean white) {
+        return white ? whiteKingSquare : blackKingSquare;
+    }
+
+    /**
+     * Returns whether this position uses Chess960 castling encoding.
+     *
+     * @return true for Chess960 castling metadata
+     */
+    public boolean isChess960() {
+        return chess960Castling;
+    }
+
+    /**
+     * Returns the rook source square for a current castling right.
+     *
+     * @param right one of the public castling constants
+     * @return rook source square, or {@link Field#NO_SQUARE}
+     */
+    public byte castlingRookSquare(int right) {
+        return switch (right) {
+            case WHITE_KINGSIDE -> whiteKingsideRookSquare;
+            case WHITE_QUEENSIDE -> whiteQueensideRookSquare;
+            case BLACK_KINGSIDE -> blackKingsideRookSquare;
+            case BLACK_QUEENSIDE -> blackQueensideRookSquare;
+            default -> Field.NO_SQUARE;
+        };
+    }
+
+    /**
+     * Returns the encoded king target used for a castling move.
+     *
+     * <p>
+     * Standard chess keeps normal UCI encoding, where the king target is c/g.
+     * Chess960 uses the rook source square, matching UCI's Chess960 castling
+     * convention and avoiding ambiguity when the king already starts on c/g.
+     * </p>
+     *
+     * @param right one castling right
+     * @return encoded move target square
+     */
+    public byte castlingMoveTarget(int right) {
+        return chess960Castling ? castlingRookSquare(right) : castlingKingTarget(right);
+    }
+
+    /**
+     * Returns the encoded move target for an available castling right.
+     *
+     * @param right one castling right
+     * @return encoded target, or {@link Field#NO_SQUARE} when the right is absent
+     */
+    public byte activeCastlingMoveTarget(int right) {
+        return canCastle(right) ? castlingMoveTarget(right) : Field.NO_SQUARE;
+    }
+
+    /**
+     * Returns the final king square for a castling right.
+     *
+     * @param right one castling right
+     * @return final king square, or {@link Field#NO_SQUARE}
+     */
+    public byte castlingKingTarget(int right) {
+        return switch (right) {
+            case WHITE_KINGSIDE -> Field.G1;
+            case WHITE_QUEENSIDE -> Field.C1;
+            case BLACK_KINGSIDE -> Field.G8;
+            case BLACK_QUEENSIDE -> Field.C8;
+            default -> Field.NO_SQUARE;
+        };
+    }
+
+    /**
+     * Returns the final rook square for a castling right.
+     *
+     * @param right one castling right
+     * @return final rook square, or {@link Field#NO_SQUARE}
+     */
+    public byte castlingRookTarget(int right) {
+        return switch (right) {
+            case WHITE_KINGSIDE -> Field.F1;
+            case WHITE_QUEENSIDE -> Field.D1;
+            case BLACK_KINGSIDE -> Field.F8;
+            case BLACK_QUEENSIDE -> Field.D8;
+            default -> Field.NO_SQUARE;
+        };
+    }
+
+    /**
+     * Returns the repository piece code on a square.
+     *
+     * @param square board square, 0..63
+     * @return {@link Piece} code, or {@link Piece#EMPTY}
+     */
+    public byte pieceAt(int square) {
+        Bits.requireSquare(square);
+        int index = pieceIndexAt(square);
+        return index < 0 ? Piece.EMPTY : pieceCode(index);
+    }
+
+    /**
+     * Returns the internal piece index on a square.
+     *
+     * @param square board square, 0..63
+     * @return index, or -1
+     */
+    int pieceIndexAt(int square) {
+        return board[square];
+    }
+
+    /**
+     * Converts a repository piece code to an internal piece index.
+     *
+     * @param piece {@link Piece} code
+     * @return piece index, or -1 for empty/unknown pieces
+     */
+    static int pieceIndex(byte piece) {
+        return switch (piece) {
+            case Piece.WHITE_PAWN -> WHITE_PAWN;
+            case Piece.WHITE_KNIGHT -> WHITE_KNIGHT;
+            case Piece.WHITE_BISHOP -> WHITE_BISHOP;
+            case Piece.WHITE_ROOK -> WHITE_ROOK;
+            case Piece.WHITE_QUEEN -> WHITE_QUEEN;
+            case Piece.WHITE_KING -> WHITE_KING;
+            case Piece.BLACK_PAWN -> BLACK_PAWN;
+            case Piece.BLACK_KNIGHT -> BLACK_KNIGHT;
+            case Piece.BLACK_BISHOP -> BLACK_BISHOP;
+            case Piece.BLACK_ROOK -> BLACK_ROOK;
+            case Piece.BLACK_QUEEN -> BLACK_QUEEN;
+            case Piece.BLACK_KING -> BLACK_KING;
+            default -> -1;
+        };
+    }
+
+    /**
+     * Converts an internal piece index to a repository piece code.
+     *
+     * @param index piece index
+     * @return {@link Piece} code, or {@link Piece#EMPTY}
+     */
+    static byte pieceCode(int index) {
+        return switch (index) {
+            case WHITE_PAWN -> Piece.WHITE_PAWN;
+            case WHITE_KNIGHT -> Piece.WHITE_KNIGHT;
+            case WHITE_BISHOP -> Piece.WHITE_BISHOP;
+            case WHITE_ROOK -> Piece.WHITE_ROOK;
+            case WHITE_QUEEN -> Piece.WHITE_QUEEN;
+            case WHITE_KING -> Piece.WHITE_KING;
+            case BLACK_PAWN -> Piece.BLACK_PAWN;
+            case BLACK_KNIGHT -> Piece.BLACK_KNIGHT;
+            case BLACK_BISHOP -> Piece.BLACK_BISHOP;
+            case BLACK_ROOK -> Piece.BLACK_ROOK;
+            case BLACK_QUEEN -> Piece.BLACK_QUEEN;
+            case BLACK_KING -> Piece.BLACK_KING;
+            default -> Piece.EMPTY;
+        };
+    }
+
+    /**
+     * Validates an internal piece index.
+     *
+     * @param pieceIndex candidate piece index
+     */
+    private static void requirePieceIndex(int pieceIndex) {
+        if (pieceIndex < WHITE_PAWN || pieceIndex > BLACK_KING) {
+            throw new IllegalArgumentException("Invalid piece index: " + pieceIndex);
+        }
+    }
+
+    /**
+     * Returns whether a compact move value is usable by this position.
+     *
+     * @param move candidate encoded move
+     * @return true when the value is not the sentinel and has a valid promotion
+     */
+    private static boolean isEncodedMove(short move) {
+        if (move == Move.NO_MOVE || move < 0) {
+            return false;
+        }
+        return ((move >>> 12) & 0x7) <= PROMOTION_QUEEN;
+    }
+
+    /**
+     * Returns material for one side.
+     *
+     * @param white true for White material
+     * @return centipawn material
+     */
+    private int material(boolean white) {
+        int start = white ? WHITE_PAWN : BLACK_PAWN;
+        int end = white ? WHITE_KING : BLACK_KING;
+        int value = 0;
+        for (int piece = start; piece <= end; piece++) {
+            value += Long.bitCount(pieces[piece]) * Piece.getValue(pieceCode(piece));
+        }
+        return value;
+    }
+
+    /**
+     * Returns the mask for one file.
+     *
+     * @param file file index, 0..7
+     * @return file mask
+     */
+    private static long fileMask(int file) {
+        return switch (file) {
+            case 0 -> Bits.FILE_A;
+            case 1 -> Bits.FILE_B;
+            case 2 -> Bits.FILE_C;
+            case 3 -> Bits.FILE_D;
+            case 4 -> Bits.FILE_E;
+            case 5 -> Bits.FILE_F;
+            case 6 -> Bits.FILE_G;
+            case 7 -> Bits.FILE_H;
+            default -> throw new IllegalArgumentException("Invalid file: " + file);
+        };
+    }
+
+    /**
+     * Checks whether a bishop mask contains at least one bishop on a square color.
+     *
+     * @param bishops bishop mask
+     * @param color square color, 0 or 1
+     * @return true when present
+     */
+    private static boolean hasBishopOnColor(long bishops, int color) {
+        long scan = bishops;
+        while (scan != 0L) {
+            int square = Bits.lsb(scan);
+            scan = Bits.withoutLsb(scan);
+            if (squareColor(square) == color) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Returns the checkerboard color of a square.
+     *
+     * @param square board square, 0..63
+     * @return square color, 0 or 1
+     */
+    private static int squareColor(int square) {
+        return (Bits.file(square) + Bits.rank(square)) & 1;
+    }
+
+    /**
+     * Converts a bitboard mask to square indexes.
+     *
+     * @param mask square mask
+     * @return squares in least-significant-bit order
+     */
+    private static byte[] squares(long mask) {
+        byte[] out = new byte[Long.bitCount(mask)];
+        int index = 0;
+        while (mask != 0L) {
+            int square = Bits.lsb(mask);
+            mask = Bits.withoutLsb(mask);
+            out[index++] = (byte) square;
+        }
+        return out;
+    }
+
+    /**
+     * Returns whether two squares share a rank, file, or diagonal.
+     *
+     * @param firstFile first square file
+     * @param firstRow first square row
+     * @param secondFile second square file
+     * @param secondRow second square row
+     * @return true when aligned
+     */
+    private static boolean aligned(int firstFile, int firstRow, int secondFile, int secondRow) {
+        return firstFile == secondFile
+                || firstRow == secondRow
+                || Math.abs(firstFile - secondFile) == Math.abs(firstRow - secondRow);
+    }
+
+    /**
+     * Checks whether a piece can pin along the inspected line.
+     *
+     * @param piece candidate pinning piece index
+     * @param pinnedWhite true when the pinned piece is White
+     * @param diagonal true for a diagonal pin line
+     * @return true when the enemy slider pins along that line
+     */
+    private static boolean isEnemySliderForPin(int piece, boolean pinnedWhite, boolean diagonal) {
+        boolean enemy = pinnedWhite ? piece >= BLACK_PAWN : piece >= WHITE_PAWN && piece <= WHITE_KING;
+        if (!enemy) {
+            return false;
+        }
+        if (diagonal) {
+            return piece == WHITE_BISHOP || piece == BLACK_BISHOP
+                    || piece == WHITE_QUEEN || piece == BLACK_QUEEN;
+        }
+        return piece == WHITE_ROOK || piece == BLACK_ROOK
+                || piece == WHITE_QUEEN || piece == BLACK_QUEEN;
+    }
+
+    /**
+     * Computes the castling rights retained after touching two squares.
+     *
+     * <p>
+     * Earlier versions stored a 64-entry table on each Chess960 position. The
+     * same mask can be derived from the current king and rook squares, avoiding a
+     * per-position array allocation while preserving the branch-free call site
+     * when no castling rights remain.
+     * </p>
+     *
+     * @param first first touched square
+     * @param second second touched square
+     * @return castling-right mask retained after both squares are touched
+     */
+    private int castlingKeepMask(int first, int second) {
+        return castlingKeepMask(first) & castlingKeepMask(second);
+    }
+
+    /**
+     * Computes the castling rights retained after touching one square.
+     *
+     * @param square touched square
+     * @return castling-right mask retained after touching the square
+     */
+    private int castlingKeepMask(int square) {
+        int keep = WHITE_KINGSIDE | WHITE_QUEENSIDE | BLACK_KINGSIDE | BLACK_QUEENSIDE;
+        if (square == whiteKingSquare) {
+            keep &= ~(WHITE_KINGSIDE | WHITE_QUEENSIDE);
+        }
+        if (square == blackKingSquare) {
+            keep &= ~(BLACK_KINGSIDE | BLACK_QUEENSIDE);
+        }
+        if (square == whiteKingsideRookSquare) {
+            keep &= ~WHITE_KINGSIDE;
+        }
+        if (square == whiteQueensideRookSquare) {
+            keep &= ~WHITE_QUEENSIDE;
+        }
+        if (square == blackKingsideRookSquare) {
+            keep &= ~BLACK_KINGSIDE;
+        }
+        if (square == blackQueensideRookSquare) {
+            keep &= ~BLACK_QUEENSIDE;
+        }
+        return keep;
+    }
+
+    /**
+     * Returns the castling right represented by a king move target.
+     *
+     * @param moving moving piece index
+     * @param target encoded move target
+     * @return castling-right bit or zero
+     */
+    int castlingRightForMove(int moving, int target) {
+        if (moving == WHITE_KING) {
+            if (canCastle(WHITE_KINGSIDE) && target == castlingMoveTarget(WHITE_KINGSIDE)) {
+                return WHITE_KINGSIDE;
+            }
+            if (canCastle(WHITE_QUEENSIDE) && target == castlingMoveTarget(WHITE_QUEENSIDE)) {
+                return WHITE_QUEENSIDE;
+            }
+        } else if (moving == BLACK_KING) {
+            if (canCastle(BLACK_KINGSIDE) && target == castlingMoveTarget(BLACK_KINGSIDE)) {
+                return BLACK_KINGSIDE;
+            }
+            if (canCastle(BLACK_QUEENSIDE) && target == castlingMoveTarget(BLACK_QUEENSIDE)) {
+                return BLACK_QUEENSIDE;
+            }
+        }
+        return 0;
+    }
+
+    /**
+     * Moves the rook for a standard or Chess960 castling move.
+     *
+     * @param white true for White
+     * @param right castling-right bit
+     * @param state undo state receiving rook-move metadata
+     */
+    private void moveCastlingRook(boolean white, int right, State state) {
+        int rook = white ? WHITE_ROOK : BLACK_ROOK;
+        int rookFrom = castlingRookSquare(right);
+        int rookTo = castlingRookTarget(right);
+        state.rook = rook;
+        state.rookFrom = rookFrom;
+        state.rookTo = rookTo;
+        movePiece(rook, rookFrom, rookTo);
+    }
+
+    /**
+     * Places one piece on a square and updates all cached occupancy data.
+     *
+     * @param piece piece index
+     * @param square square
+     */
+    void setPiece(int piece, int square) {
+        long mask = 1L << square;
+        pieces[piece] |= mask;
+        board[square] = (byte) piece;
+        if (piece < BLACK_PAWN) {
+            whiteOccupancy |= mask;
+        } else {
+            blackOccupancy |= mask;
+        }
+        occupancy |= mask;
+        if (piece == WHITE_KING) {
+            whiteKingSquare = (byte) square;
+        } else if (piece == BLACK_KING) {
+            blackKingSquare = (byte) square;
+        }
+    }
+
+    /**
+     * Removes any piece from a square for controlled analysis-only mutation.
+     *
+     * @param square square to clear
+     */
+    protected void clearAnalysisSquare(int square) {
+        int piece = pieceIndexAt(square);
+        if (piece >= 0) {
+            clearPiece(piece, square);
+        }
+    }
+
+    /**
+     * Places a repository piece code on a square for controlled analysis-only mutation.
+     *
+     * @param square target square
+     * @param piece repository piece code
+     */
+    protected void setAnalysisSquare(int square, byte piece) {
+        int index = pieceIndex(piece);
+        if (index >= 0) {
+            setPiece(index, square);
+        }
+    }
+
+    /**
+     * Removes one piece from a square and updates all cached occupancy data.
+     *
+     * @param piece piece index
+     * @param square square
+     */
+    private void clearPiece(int piece, int square) {
+        long mask = 1L << square;
+        pieces[piece] &= ~mask;
+        board[square] = -1;
+        if (piece < BLACK_PAWN) {
+            whiteOccupancy &= ~mask;
+        } else {
+            blackOccupancy &= ~mask;
+        }
+        occupancy &= ~mask;
+        if (piece == WHITE_KING) {
+            whiteKingSquare = Field.NO_SQUARE;
+        } else if (piece == BLACK_KING) {
+            blackKingSquare = Field.NO_SQUARE;
+        }
+    }
+
+    /**
+     * Moves one piece between two squares using the shared set/clear helpers.
+     *
+     * @param piece piece index
+     * @param from origin
+     * @param to target
+     */
+    private void movePiece(int piece, int from, int to) {
+        clearPiece(piece, from);
+        setPiece(piece, to);
+    }
+
+    /**
+     * Returns the piece index that should occupy the target square after a move.
+     *
+     * @param moving moving piece
+     * @param promotion promotion code
+     * @return piece index
+     */
+    private int promotionPieceIndex(int moving, int promotion) {
+        if (promotion == 0 || (moving != WHITE_PAWN && moving != BLACK_PAWN)) {
+            return moving;
+        }
+        boolean white = moving == WHITE_PAWN;
+        return switch (promotion) {
+            case PROMOTION_KNIGHT -> white ? WHITE_KNIGHT : BLACK_KNIGHT;
+            case PROMOTION_BISHOP -> white ? WHITE_BISHOP : BLACK_BISHOP;
+            case PROMOTION_ROOK -> white ? WHITE_ROOK : BLACK_ROOK;
+            case PROMOTION_QUEEN -> white ? WHITE_QUEEN : BLACK_QUEEN;
+            default -> moving;
+        };
+    }
+
+    /**
+     * Describes a piece pinned to its own king by an enemy slider.
+     *
+     * <p>
+     * The piece code is stored in repository {@link Piece} format so callers can
+     * feed it directly into existing tag text helpers.
+     * </p>
+     */
+    public static final class PinInfo {
+
+        /**
+         * Square occupied by the pinned piece.
+         */
+        public final byte pinnedSquare;
+
+        /**
+         * Square occupied by the pinning enemy piece.
+         */
+        public final byte pinnerSquare;
+
+        /**
+         * Repository piece code for the pinning enemy piece.
+         */
+        public final byte pinnerPiece;
+
+        /**
+         * Creates immutable pin metadata.
+         *
+         * @param pinnedSquare square occupied by the pinned piece
+         * @param pinnerSquare square occupied by the pinning piece
+         * @param pinnerPiece repository piece code for the pinning piece
+         */
+        private PinInfo(byte pinnedSquare, byte pinnerSquare, byte pinnerPiece) {
+            this.pinnedSquare = pinnedSquare;
+            this.pinnerSquare = pinnerSquare;
+            this.pinnerPiece = pinnerPiece;
+        }
+    }
+
+    /**
+     * Mutable undo state for allocation-free make/undo recursion.
+     *
+     * <p>
+     * Instances are owned by callers and reused per search ply. The fields mirror
+     * every reversible part of {@link Position} that can change during
+     * {@link #play(short, State)}.
+     * </p>
+     */
+    public static final class State {
+
+        /**
+         * Creates an empty undo state for one make/undo slot.
+         */
+        public State() {
+            // filled by Position.play(short, State)
+        }
+
+        /**
+         * Piece index moved by the encoded move.
+         */
+        private int moving;
+
+        /**
+         * Captured piece index, or -1 when the move was not a capture.
+         */
+        private int captured;
+
+        /**
+         * Square where the captured piece was removed.
+         *
+         * <p>
+         * This differs from the move target square for en-passant captures.
+         * </p>
+         */
+        private int capturedSquare;
+
+        /**
+         * Actual king target square for a castling move.
+         */
+        private int kingTo;
+
+        /**
+         * Castling-right mask before the move was applied.
+         */
+        private int castlingRights;
+
+        /**
+         * En-passant target square before the move was applied.
+         */
+        private byte enPassantSquare;
+
+        /**
+         * Halfmove clock before the move was applied.
+         */
+        private short halfMoveClock;
+
+        /**
+         * Fullmove number before the move was applied.
+         */
+        private short fullMoveNumber;
+
+        /**
+         * Side-to-move flag before the move was applied.
+         */
+        private boolean whiteToMove;
+
+        /**
+         * Castling rook piece index, or -1 when the move was not castling.
+         */
+        private int rook;
+
+        /**
+         * Castling rook origin square.
+         */
+        private int rookFrom;
+
+        /**
+         * Castling rook target square.
+         */
+        private int rookTo;
+
+        /**
+         * Whether the move captured by en-passant.
+         */
+        private boolean enPassantCapture;
+
+        /**
+         * Whether the move was castling.
+         */
+        private boolean castle;
+
+        /**
+         * Returns whether the move captured a piece.
+         *
+         * @return true when captured
+         */
+        public boolean capture() {
+            return captured >= 0;
+        }
+
+        /**
+         * Returns whether the move was an en-passant capture.
+         *
+         * @return true when en-passant
+         */
+        public boolean enPassantCapture() {
+            return enPassantCapture;
+        }
+
+        /**
+         * Returns whether the move was standard castling.
+         *
+         * @return true when castling
+         */
+        public boolean castle() {
+            return castle;
+        }
+    }
 
 }

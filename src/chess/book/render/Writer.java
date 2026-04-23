@@ -17,7 +17,6 @@ import chess.core.Position;
 import chess.core.SAN;
 import chess.images.assets.shape.SvgShapes;
 import chess.images.render.Render;
-import chess.text.ChessMoveText;
 import chess.pdf.document.Canvas;
 import chess.pdf.document.Document;
 import chess.pdf.document.Font;
@@ -59,15 +58,21 @@ public final class Writer {
 	private static final String SUBJECT = "Chess Book";
 
 	/**
+	 * Restriction text embedded in free-edition metadata and page overlays.
+	 */
+	private static final String FREE_WATERMARK_RESTRICTION =
+			"Free electronic copy; printing, resale, and unauthorized redistribution not allowed";
+
+	/**
 	 * Subject metadata written into watermarked free-edition PDFs.
 	 */
 	private static final String FREE_WATERMARK_SUBJECT =
-			"Chess Book - Free electronic copy; printing, resale, and unauthorized redistribution not allowed";
+			"Chess Book - " + FREE_WATERMARK_RESTRICTION;
 
 	/**
 	 * Main diagonal text for watermarked free-edition PDFs.
 	 */
-	private static final String FREE_WATERMARK_MAIN = "FREE ELECTRONIC VERSION";
+	private static final String FREE_WATERMARK_MAIN = "FREE ELECTRONIC COPY";
 
 	/**
 	 * Short repeated text used as a dense free-edition anti-print pattern.
@@ -208,17 +213,22 @@ public final class Writer {
 	/**
 	 * Large watermark color.
 	 */
-	private static final Color FREE_WATERMARK_LARGE = new Color(82, 82, 82, 36);
+	private static final Color FREE_WATERMARK_LARGE = new Color(68, 68, 68, 44);
 
 	/**
 	 * Repeated watermark color.
 	 */
-	private static final Color FREE_WATERMARK_SMALL = new Color(70, 70, 70, 24);
+	private static final Color FREE_WATERMARK_SMALL = new Color(70, 70, 70, 22);
 
 	/**
 	 * Edge notice color for watermarked free-edition PDFs.
 	 */
-	private static final Color FREE_WATERMARK_NOTICE = new Color(36, 36, 36, 96);
+	private static final Color FREE_WATERMARK_NOTICE = new Color(34, 34, 34, 118);
+
+	/**
+	 * Page-identifier watermark color.
+	 */
+	private static final Color FREE_WATERMARK_ID = new Color(34, 34, 34, 90);
 
 	/**
 	 * Gap between grid cells.
@@ -393,12 +403,12 @@ public final class Writer {
 	/**
 	 * Base number of vector speckles drawn on each A4-equivalent watermarked page.
 	 */
-	private static final int FREE_WATERMARK_DOTS_A4 = 220;
+	private static final int FREE_WATERMARK_DOTS_A4 = 260;
 
 	/**
 	 * Base number of short vector scratches drawn on each A4-equivalent watermarked page.
 	 */
-	private static final int FREE_WATERMARK_SCRATCHES_A4 = 52;
+	private static final int FREE_WATERMARK_SCRATCHES_A4 = 64;
 
 	/**
 	 * Angle used for large free-edition watermark text.
@@ -517,16 +527,30 @@ public final class Writer {
 	 * @throws IOException if the target file cannot be written
 	 */
 	public static void write(Path output, Book book, boolean freeWatermark) throws IOException {
+		write(output, book, freeWatermark, null);
+	}
+
+	/**
+	 * Writes a fully rendered chess book to the requested output path.
+	 *
+	 * @param output target PDF path
+	 * @param book book metadata and puzzle payload
+	 * @param freeWatermark whether to create a noisy watermarked free-edition PDF
+	 * @param watermarkId optional visible identifier for traceable copies
+	 * @throws IOException if the target file cannot be written
+	 */
+	public static void write(Path output, Book book, boolean freeWatermark, String watermarkId) throws IOException {
 		if (output == null) {
 			throw new IllegalArgumentException("output cannot be null");
 		}
 		Book safeBook = requireBook(book);
 		SolutionInfo[] solutions = buildSolutions(safeBook);
+		String safeWatermarkId = freeWatermark ? buildWatermarkId(safeBook, watermarkId) : "";
 
 		int tocPages = 1;
 		LayoutResult preview = null;
 		for (int i = 0; i < 6; i++) {
-			preview = layout(safeBook, solutions, tocPages, false, false);
+			preview = layout(safeBook, solutions, tocPages, false, false, "");
 			int measured = measureTocPages(safeBook, preview.tocEntries);
 			if (measured == tocPages) {
 				break;
@@ -534,7 +558,7 @@ public final class Writer {
 			tocPages = measured;
 		}
 
-		LayoutResult rendered = layout(safeBook, solutions, tocPages, true, freeWatermark);
+		LayoutResult rendered = layout(safeBook, solutions, tocPages, true, freeWatermark, safeWatermarkId);
 		rendered.document.write(output);
 	}
 
@@ -546,13 +570,14 @@ public final class Writer {
 	 * @param tocPages reserved table-of-contents page count
 	 * @param render whether real PDF pages should be created
 	 * @param freeWatermark whether to add noisy free-edition watermark overlays
+	 * @param watermarkId visible watermark identifier
 	 * @return layout summary for the pass
 	 */
 	private static LayoutResult layout(Book book, SolutionInfo[] solutions, int tocPages, boolean render,
-			boolean freeWatermark) {
-		Document document = render ? createDocument(book, freeWatermark) : null;
+			boolean freeWatermark, String watermarkId) {
+		Document document = render ? createDocument(book, freeWatermark, watermarkId) : null;
 
-		LayoutState state = new LayoutState(book, solutions, document, tocPages);
+		LayoutState state = new LayoutState(book, solutions, document, tocPages, watermarkId);
 		renderCover(state);
 		renderDedication(state);
 		reserveTocPages(state);
@@ -573,16 +598,93 @@ public final class Writer {
 	 *
 	 * @param book source book metadata
 	 * @param freeWatermark whether the free-edition subject should be written
+	 * @param watermarkId visible watermark identifier
 	 * @return configured PDF document
 	 */
-	private static Document createDocument(Book book, boolean freeWatermark) {
-		String subject = freeWatermark ? FREE_WATERMARK_SUBJECT : SUBJECT;
+	private static Document createDocument(Book book, boolean freeWatermark, String watermarkId) {
+		String subject = freeWatermark ? watermarkSubject(watermarkId) : SUBJECT;
 		return new Document()
 				.setTitle(book.getFullTitle())
 				.setAuthor(book.getAuthor())
 				.setSubject(subject)
 				.setCreator(CREATOR)
 				.setProducer(PRODUCER);
+	}
+
+	/**
+	 * Builds subject metadata for a watermarked PDF.
+	 *
+	 * @param watermarkId visible watermark identifier
+	 * @return PDF subject metadata
+	 */
+	private static String watermarkSubject(String watermarkId) {
+		String id = normalizeWatermarkId(watermarkId);
+		return id.isBlank() ? FREE_WATERMARK_SUBJECT : FREE_WATERMARK_SUBJECT + "; Watermark ID " + id;
+	}
+
+	/**
+	 * Returns either the caller-supplied watermark identifier or a deterministic
+	 * book fingerprint.
+	 *
+	 * @param book source book metadata
+	 * @param watermarkId optional caller-supplied identifier
+	 * @return display-safe watermark identifier
+	 */
+	private static String buildWatermarkId(Book book, String watermarkId) {
+		String explicit = normalizeWatermarkId(watermarkId);
+		if (!explicit.isBlank()) {
+			return explicit;
+		}
+		StringBuilder key = new StringBuilder(1024 + book.getElements().length * 96)
+				.append(blankTo(book.getFullTitle(), "")).append('\n')
+				.append(blankTo(book.getAuthor(), "")).append('\n')
+				.append(blankTo(book.getTime(), "")).append('\n')
+				.append(blankTo(book.getLocation(), "")).append('\n')
+				.append(book.getElements().length).append('\n');
+		for (Element element : book.getElements()) {
+			key.append(blankTo(element.getPosition(), "")).append('\n')
+					.append(blankTo(element.getMoves(), "")).append('\n');
+		}
+		String hex = String.format(Locale.ROOT, "%016X", fnv1a64(key.toString()));
+		return "CRTK-" + hex.substring(0, 4) + "-" + hex.substring(4, 8)
+				+ "-" + hex.substring(8, 12) + "-" + hex.substring(12, 16);
+	}
+
+	/**
+	 * Normalizes a watermark identifier for PDF text and metadata.
+	 *
+	 * @param watermarkId source identifier
+	 * @return printable ASCII identifier, or empty string when absent
+	 */
+	private static String normalizeWatermarkId(String watermarkId) {
+		String safe = normalizeWhitespace(watermarkId);
+		if (safe.isBlank()) {
+			return "";
+		}
+		StringBuilder normalized = new StringBuilder(Math.min(safe.length(), 72));
+		for (int i = 0; i < safe.length(); i++) {
+			char ch = safe.charAt(i);
+			normalized.append(ch >= 32 && ch <= 126 ? ch : '?');
+			if (normalized.length() >= 72) {
+				break;
+			}
+		}
+		return normalized.toString();
+	}
+
+	/**
+	 * Computes a stable 64-bit FNV-1a fingerprint.
+	 *
+	 * @param text source text
+	 * @return unsigned hash bits stored in a Java long
+	 */
+	private static long fnv1a64(String text) {
+		long hash = 0xcbf29ce484222325L;
+		for (int i = 0; i < text.length(); i++) {
+			hash ^= text.charAt(i);
+			hash *= 0x100000001b3L;
+		}
+		return hash;
 	}
 
 	/**
@@ -627,12 +729,12 @@ public final class Writer {
 		SAN.PlayedLine line = SAN.playLine(start, element.getMoves());
 		if (line.isParsed()) {
 			return new SolutionInfo(line.getResult(), line.getLastMove(),
-					ChessMoveText.figurine(line.lastSanWithMoveNumber()));
+					MoveText.figurine(line.lastSanWithMoveNumber()));
 		}
 
 		String fallbackSan = SAN.lastMoveToken(element.getMoves());
 		String label = line.hasLastMove() ? line.lastSanWithMoveNumber() : fallbackSan;
-		return new SolutionInfo(start.copyOf(), Move.NO_MOVE, ChessMoveText.figurine(label));
+		return new SolutionInfo(start.copy(), Move.NO_MOVE, MoveText.figurine(label));
 	}
 
 	/**
@@ -1185,10 +1287,10 @@ public final class Writer {
 			int leftIndex = startIndex + i;
 			int rightIndex = leftIndex + 1;
 			String leftId = Integer.toString(leftIndex + 1);
-			String leftMoves = ChessMoveText.figurine(normalizeWhitespace(elements[leftIndex].getMoves()));
+			String leftMoves = MoveText.figurine(normalizeWhitespace(elements[leftIndex].getMoves()));
 			String rightId = rightIndex < startIndex + count ? Integer.toString(rightIndex + 1) : "";
 			String rightMoves = rightIndex < startIndex + count
-					? ChessMoveText.figurine(normalizeWhitespace(elements[rightIndex].getMoves()))
+					? MoveText.figurine(normalizeWhitespace(elements[rightIndex].getMoves()))
 					: "";
 			rows.add(new TableRow(leftId, leftMoves, rightId, rightMoves));
 		}
@@ -2038,7 +2140,7 @@ public final class Writer {
 	 */
 	private static String renderSolutionSvg(SolutionInfo solution) {
 		Render render = new Render()
-				.setPosition(solution.result.copyOf())
+				.setPosition(solution.result.copy())
 				.setWhiteSideDown(true)
 				.setShowBorder(true)
 				.setShowSpecialMoveHints(false);
@@ -2129,8 +2231,13 @@ public final class Writer {
 		double height = state.pageSize.getHeight();
 		frame.canvas.drawSvg(renderFreeWatermarkNoiseSvg(width, height, frame.pageNumber, state.book.getFullTitle()),
 				0.0, 0.0, width, height);
-		drawRepeatedFreeWatermarkText(frame.canvas, width, height);
-		drawPrimaryFreeWatermarkText(frame.canvas, width, height);
+		drawRepeatedFreeWatermarkText(frame.canvas, width, height, state.watermarkId);
+		drawPrimaryFreeWatermarkText(frame.canvas, width, height, state.watermarkId, frame.pageNumber,
+				state.pageFrames.size());
+		drawEdgeFreeWatermarkText(frame.canvas, width, height, state.watermarkId, frame.pageNumber,
+				state.pageFrames.size());
+		frame.canvas.drawSvg(renderFreeWatermarkCornerSvg(width, height, frame.pageNumber, state.watermarkId),
+				0.0, 0.0, width, height);
 		frame.canvas.drawSvg(renderFreeWatermarkScratchSvg(width, height, frame.pageNumber, state.book.getFullTitle()),
 				0.0, 0.0, width, height);
 	}
@@ -2141,10 +2248,13 @@ public final class Writer {
 	 * @param canvas target canvas
 	 * @param width page width
 	 * @param height page height
+	 * @param watermarkId visible watermark identifier
 	 */
-	private static void drawRepeatedFreeWatermarkText(Canvas canvas, double width, double height) {
+	private static void drawRepeatedFreeWatermarkText(Canvas canvas, double width, double height,
+			String watermarkId) {
+		String repeated = FREE_WATERMARK_REPEAT + " - " + normalizeWatermarkId(watermarkId);
 		double fontSize = Math.max(5.0, Math.min(6.8, width / 88.0));
-		double textWidth = textWidth(Font.LATIN_MODERN_BOLD, fontSize, FREE_WATERMARK_REPEAT);
+		double textWidth = textWidth(Font.LATIN_MODERN_BOLD, fontSize, repeated);
 		double stepX = Math.max(104.0, textWidth + 30.0);
 		double stepY = Math.max(FREE_WATERMARK_REPEAT_STEP, fontSize * 6.3);
 		double diagonal = Math.hypot(width, height);
@@ -2157,7 +2267,7 @@ public final class Writer {
 			double rowOffset = (row & 1) == 0 ? 0.0 : stepX * 0.5;
 			for (double x = minX - rowOffset; x <= maxX; x += stepX) {
 				canvas.drawTextRotatedEncoded(x, y, FREE_WATERMARK_ANGLE, width / 2.0, height / 2.0,
-						Font.LATIN_MODERN_BOLD, fontSize, FREE_WATERMARK_SMALL, FREE_WATERMARK_REPEAT);
+						Font.LATIN_MODERN_BOLD, fontSize, FREE_WATERMARK_SMALL, repeated);
 			}
 			row++;
 		}
@@ -2169,8 +2279,12 @@ public final class Writer {
 	 * @param canvas target canvas
 	 * @param width page width
 	 * @param height page height
+	 * @param watermarkId visible watermark identifier
+	 * @param pageNumber one-based page number
+	 * @param totalPages total page count
 	 */
-	private static void drawPrimaryFreeWatermarkText(Canvas canvas, double width, double height) {
+	private static void drawPrimaryFreeWatermarkText(Canvas canvas, double width, double height, String watermarkId,
+			int pageNumber, int totalPages) {
 		double margin = Math.max(36.0, width * 0.07);
 		double mainSize = fittedRotatedFontSize(Font.LATIN_MODERN_BOLD, FREE_WATERMARK_MAIN,
 				Math.max(24.0, Math.min(46.0, width * 0.078)), 22.0, width, height, margin);
@@ -2182,13 +2296,52 @@ public final class Writer {
 		drawCenteredRotatedTextOutline(canvas, width / 2.0, height * 0.58, FREE_WATERMARK_ANGLE,
 				textStyle(Font.LATIN_MODERN_BOLD, Math.max(10.5, mainSize * 0.25), FREE_WATERMARK_LARGE),
 				"UNAUTHORIZED REDISTRIBUTION NOT ALLOWED");
+		drawCenteredRotatedTextOutline(canvas, width / 2.0, height * 0.645, FREE_WATERMARK_ANGLE,
+				textStyle(Font.LATIN_MODERN_BOLD, Math.max(6.6, mainSize * 0.16), FREE_WATERMARK_ID),
+				watermarkPageLabel(watermarkId, pageNumber, totalPages));
+	}
 
-		String notice = "FREE ELECTRONIC COPY - NO PRINTING, RESALE, OR UNAUTHORIZED REDISTRIBUTION";
+	/**
+	 * Draws top, bottom, and side notices with the page-specific watermark label.
+	 *
+	 * @param canvas target canvas
+	 * @param width page width
+	 * @param height page height
+	 * @param watermarkId visible watermark identifier
+	 * @param pageNumber one-based page number
+	 * @param totalPages total page count
+	 */
+	private static void drawEdgeFreeWatermarkText(Canvas canvas, double width, double height, String watermarkId,
+			int pageNumber, int totalPages) {
+		String pageLabel = watermarkPageLabel(watermarkId, pageNumber, totalPages);
+		String notice = "FREE ELECTRONIC COPY - NO PRINTING, RESALE, OR UNAUTHORIZED REDISTRIBUTION | " + pageLabel;
 		double noticeSize = fittedFontSize(Font.LATIN_MODERN_BOLD, notice, Math.max(6.2, Math.min(8.0, width / 80.0)),
 				5.1, width - 32.0);
-		canvas.drawTextOutline(16.0, 10.0, Font.LATIN_MODERN_BOLD, noticeSize, FREE_WATERMARK_NOTICE, notice);
+		String fittedNotice = fitText(notice, Font.LATIN_MODERN_BOLD, noticeSize, width - 32.0);
+		canvas.drawTextOutline(16.0, 10.0, Font.LATIN_MODERN_BOLD, noticeSize, FREE_WATERMARK_NOTICE, fittedNotice);
 		canvas.drawTextOutline(16.0, height - noticeSize - 12.0, Font.LATIN_MODERN_BOLD, noticeSize,
-				FREE_WATERMARK_NOTICE, notice);
+				FREE_WATERMARK_NOTICE, fittedNotice);
+
+		String sideNotice = fitText("FREE ELECTRONIC COPY | " + pageLabel, Font.LATIN_MODERN_BOLD, 6.6,
+				height - 48.0);
+		double sideSize = fittedFontSize(Font.LATIN_MODERN_BOLD, sideNotice, 6.6, 4.8, height - 48.0);
+		drawCenteredRotatedTextOutline(canvas, 14.0, height / 2.0, -90.0,
+				textStyle(Font.LATIN_MODERN_BOLD, sideSize, FREE_WATERMARK_NOTICE), sideNotice);
+		drawCenteredRotatedTextOutline(canvas, width - 14.0, height / 2.0, 90.0,
+				textStyle(Font.LATIN_MODERN_BOLD, sideSize, FREE_WATERMARK_NOTICE), sideNotice);
+	}
+
+	/**
+	 * Builds the visible per-page watermark label.
+	 *
+	 * @param watermarkId document watermark identifier
+	 * @param pageNumber one-based page number
+	 * @param totalPages total page count
+	 * @return page-specific label
+	 */
+	private static String watermarkPageLabel(String watermarkId, int pageNumber, int totalPages) {
+		return "WATERMARK ID " + normalizeWatermarkId(watermarkId)
+				+ " - PAGE " + pageNumber + " OF " + Math.max(pageNumber, totalPages);
 	}
 
 	/**
@@ -2293,6 +2446,54 @@ public final class Writer {
 			appendCircle(svg, x, y, radius, new Color(gray, gray, gray), 0.028);
 		}
 		return closeSvg(svg);
+	}
+
+	/**
+	 * Builds small page-specific corner marks that survive cropping and make page
+	 * screenshots easier to trace.
+	 *
+	 * @param width page width
+	 * @param height page height
+	 * @param pageNumber page number
+	 * @param watermarkId visible watermark identifier
+	 * @return SVG corner-mark overlay
+	 */
+	private static String renderFreeWatermarkCornerSvg(double width, double height, int pageNumber,
+			String watermarkId) {
+		StringBuilder svg = openSvg(width, height, 2048);
+		Random random = freeWatermarkRandom(pageNumber, watermarkId, 0xd5L);
+		double cell = Math.max(2.0, Math.min(3.2, width / 190.0));
+		double pitch = cell * 1.45;
+		double side = pitch * 7.0;
+		double margin = Math.max(14.0, width * 0.025);
+		appendCornerMark(svg, margin, margin, cell, pitch, random);
+		appendCornerMark(svg, width - margin - side, margin, cell, pitch, random);
+		appendCornerMark(svg, margin, height - margin - side, cell, pitch, random);
+		appendCornerMark(svg, width - margin - side, height - margin - side, cell, pitch, random);
+		return closeSvg(svg);
+	}
+
+	/**
+	 * Appends one small deterministic corner mark.
+	 *
+	 * @param svg target SVG builder
+	 * @param left left edge
+	 * @param top top edge
+	 * @param cell filled square size
+	 * @param pitch grid pitch
+	 * @param random deterministic source
+	 */
+	private static void appendCornerMark(StringBuilder svg, double left, double top, double cell, double pitch,
+			Random random) {
+		Color color = new Color(36, 36, 36);
+		for (int row = 0; row < 7; row++) {
+			for (int col = 0; col < 7; col++) {
+				boolean anchor = row == 0 || col == 0 || row == 6 || col == 6;
+				if (anchor || random.nextBoolean()) {
+					appendRect(svg, left + col * pitch, top + row * pitch, cell, cell, color, anchor ? 0.20 : 0.13);
+				}
+			}
+		}
 	}
 
 	/**

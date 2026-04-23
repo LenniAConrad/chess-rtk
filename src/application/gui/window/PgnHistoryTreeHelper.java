@@ -53,7 +53,7 @@ public final class PgnHistoryTreeHelper {
 		StringBuilder sb = new StringBuilder();
 		PgnNode cursor = start;
 		while (cursor != null && cursor.san != null && !cursor.san.isBlank()) {
-			if (sb.length() > 0) {
+			if (!sb.isEmpty()) {
 				sb.append(' ');
 			}
 			sb.append(sanFormatter != null ? sanFormatter.apply(cursor.san) : cursor.san);

@@ -202,7 +202,7 @@ final class BoardEditorShared {
          * @param null parameter.
          * @param PieceEMPTY parameter.
          */
-        addPaletteButton(owner, grid, paletteButtons, onSelection, "Empty", null, Piece.EMPTY);
+        addPaletteButton(grid, paletteButtons, onSelection, "Empty", null, Piece.EMPTY);
         /**
          * addPaletteButton method.
          *
@@ -214,7 +214,7 @@ final class BoardEditorShared {
          * @param PicturesWhiteKing parameter.
          * @param PieceWHITE_KING parameter.
          */
-        addPaletteButton(owner, grid, paletteButtons, onSelection, "White King", Pictures.WhiteKing, Piece.WHITE_KING);
+        addPaletteButton(grid, paletteButtons, onSelection, "White King", Pictures.WhiteKing, Piece.WHITE_KING);
         /**
          * addPaletteButton method.
          *
@@ -226,7 +226,7 @@ final class BoardEditorShared {
          * @param PicturesWhiteQueen parameter.
          * @param PieceWHITE_QUEEN parameter.
          */
-        addPaletteButton(owner, grid, paletteButtons, onSelection, "White Queen", Pictures.WhiteQueen, Piece.WHITE_QUEEN);
+        addPaletteButton(grid, paletteButtons, onSelection, "White Queen", Pictures.WhiteQueen, Piece.WHITE_QUEEN);
         /**
          * addPaletteButton method.
          *
@@ -238,7 +238,7 @@ final class BoardEditorShared {
          * @param PicturesWhiteRook parameter.
          * @param PieceWHITE_ROOK parameter.
          */
-        addPaletteButton(owner, grid, paletteButtons, onSelection, "White Rook", Pictures.WhiteRook, Piece.WHITE_ROOK);
+        addPaletteButton(grid, paletteButtons, onSelection, "White Rook", Pictures.WhiteRook, Piece.WHITE_ROOK);
         /**
          * addPaletteButton method.
          *
@@ -250,7 +250,7 @@ final class BoardEditorShared {
          * @param PicturesWhiteBishop parameter.
          * @param PieceWHITE_BISHOP parameter.
          */
-        addPaletteButton(owner, grid, paletteButtons, onSelection, "White Bishop", Pictures.WhiteBishop, Piece.WHITE_BISHOP);
+        addPaletteButton(grid, paletteButtons, onSelection, "White Bishop", Pictures.WhiteBishop, Piece.WHITE_BISHOP);
         /**
          * addPaletteButton method.
          *
@@ -262,7 +262,7 @@ final class BoardEditorShared {
          * @param PicturesWhiteKnight parameter.
          * @param PieceWHITE_KNIGHT parameter.
          */
-        addPaletteButton(owner, grid, paletteButtons, onSelection, "White Knight", Pictures.WhiteKnight, Piece.WHITE_KNIGHT);
+        addPaletteButton(grid, paletteButtons, onSelection, "White Knight", Pictures.WhiteKnight, Piece.WHITE_KNIGHT);
         /**
          * addPaletteButton method.
          *
@@ -274,7 +274,7 @@ final class BoardEditorShared {
          * @param PicturesWhitePawn parameter.
          * @param PieceWHITE_PAWN parameter.
          */
-        addPaletteButton(owner, grid, paletteButtons, onSelection, "White Pawn", Pictures.WhitePawn, Piece.WHITE_PAWN);
+        addPaletteButton(grid, paletteButtons, onSelection, "White Pawn", Pictures.WhitePawn, Piece.WHITE_PAWN);
         /**
          * addPaletteButton method.
          *
@@ -286,7 +286,7 @@ final class BoardEditorShared {
          * @param PicturesBlackKing parameter.
          * @param PieceBLACK_KING parameter.
          */
-        addPaletteButton(owner, grid, paletteButtons, onSelection, "Black King", Pictures.BlackKing, Piece.BLACK_KING);
+        addPaletteButton(grid, paletteButtons, onSelection, "Black King", Pictures.BlackKing, Piece.BLACK_KING);
         /**
          * addPaletteButton method.
          *
@@ -298,7 +298,7 @@ final class BoardEditorShared {
          * @param PicturesBlackQueen parameter.
          * @param PieceBLACK_QUEEN parameter.
          */
-        addPaletteButton(owner, grid, paletteButtons, onSelection, "Black Queen", Pictures.BlackQueen, Piece.BLACK_QUEEN);
+        addPaletteButton(grid, paletteButtons, onSelection, "Black Queen", Pictures.BlackQueen, Piece.BLACK_QUEEN);
         /**
          * addPaletteButton method.
          *
@@ -310,7 +310,7 @@ final class BoardEditorShared {
          * @param PicturesBlackRook parameter.
          * @param PieceBLACK_ROOK parameter.
          */
-        addPaletteButton(owner, grid, paletteButtons, onSelection, "Black Rook", Pictures.BlackRook, Piece.BLACK_ROOK);
+        addPaletteButton(grid, paletteButtons, onSelection, "Black Rook", Pictures.BlackRook, Piece.BLACK_ROOK);
         /**
          * addPaletteButton method.
          *
@@ -322,7 +322,7 @@ final class BoardEditorShared {
          * @param PicturesBlackBishop parameter.
          * @param PieceBLACK_BISHOP parameter.
          */
-        addPaletteButton(owner, grid, paletteButtons, onSelection, "Black Bishop", Pictures.BlackBishop, Piece.BLACK_BISHOP);
+        addPaletteButton(grid, paletteButtons, onSelection, "Black Bishop", Pictures.BlackBishop, Piece.BLACK_BISHOP);
         /**
          * addPaletteButton method.
          *
@@ -334,7 +334,7 @@ final class BoardEditorShared {
          * @param PicturesBlackKnight parameter.
          * @param PieceBLACK_KNIGHT parameter.
          */
-        addPaletteButton(owner, grid, paletteButtons, onSelection, "Black Knight", Pictures.BlackKnight, Piece.BLACK_KNIGHT);
+        addPaletteButton(grid, paletteButtons, onSelection, "Black Knight", Pictures.BlackKnight, Piece.BLACK_KNIGHT);
         /**
          * addPaletteButton method.
          *
@@ -346,7 +346,7 @@ final class BoardEditorShared {
          * @param PicturesBlackPawn parameter.
          * @param PieceBLACK_PAWN parameter.
          */
-        addPaletteButton(owner, grid, paletteButtons, onSelection, "Black Pawn", Pictures.BlackPawn, Piece.BLACK_PAWN);
+        addPaletteButton(grid, paletteButtons, onSelection, "Black Pawn", Pictures.BlackPawn, Piece.BLACK_PAWN);
         JPanel panel = new JPanel(new BorderLayout());
         panel.setOpaque(false);
         panel.setBorder(BorderFactory.createEmptyBorder(4, 4, 4, 4));
@@ -357,7 +357,6 @@ final class BoardEditorShared {
     /**
      * addPaletteButton method.
      *
-     * @param owner parameter.
      * @param grid parameter.
      * @param paletteButtons parameter.
      * @param onSelection parameter.
@@ -366,7 +365,6 @@ final class BoardEditorShared {
      * @param piece parameter.
      */
     private static void addPaletteButton(
-            GuiWindowHistory owner,
             JPanel grid,
             List<PaletteButton> paletteButtons,
             Consumer<Byte> onSelection,
@@ -457,7 +455,7 @@ final class BoardEditorShared {
         if (castleq != null && castleq.isSelected()) {
             sb.append('q');
         }
-        return sb.length() == 0 ? "-" : sb.toString();
+        return sb.isEmpty() ? "-" : sb.toString();
     }
 
     /**

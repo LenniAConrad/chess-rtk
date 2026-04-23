@@ -45,8 +45,8 @@ public final class KingSafety {
 
         List<String> tags = new ArrayList<>();
         byte[] board = position.getBoard();
-        addKingTags(tags, board, true, position.getWhiteKing());
-        addKingTags(tags, board, false, position.getBlackKing());
+        addKingTags(tags, board, true, position.kingSquare(true));
+        addKingTags(tags, board, false, position.kingSquare(false));
         return List.copyOf(tags);
     }
 

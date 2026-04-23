@@ -10,6 +10,8 @@ import java.util.EnumSet;
 import java.util.List;
 import java.util.zip.DeflaterOutputStream;
 
+import utility.Numbers;
+
 /**
  * One PDF page with a drawing canvas, text content stream, and image resources.
  *
@@ -179,8 +181,8 @@ public final class Page {
 	 * @return graphics-state resource name, or null for fully opaque drawing
 	 */
 	String addOpacity(double fillOpacity, double strokeOpacity) {
-		double safeFill = clampOpacity(fillOpacity);
-		double safeStroke = clampOpacity(strokeOpacity);
+		double safeFill = Numbers.clamp01(fillOpacity);
+		double safeStroke = Numbers.clamp01(strokeOpacity);
 		if (safeFill >= 0.999 && safeStroke >= 0.999) {
 			return null;
 		}
@@ -274,22 +276,6 @@ public final class Page {
 	 */
 	private static boolean sameOpacity(double left, double right) {
 		return Math.abs(left - right) < 0.0001;
-	}
-
-	/**
-	 * Clamps an opacity value into the PDF-supported unit interval.
-	 *
-	 * @param value source opacity
-	 * @return clamped opacity
-	 */
-	private static double clampOpacity(double value) {
-		if (value <= 0.0) {
-			return 0.0;
-		}
-		if (value >= 1.0) {
-			return 1.0;
-		}
-		return value;
 	}
 
 	/**

@@ -40,20 +40,20 @@ public final class Castling {
         Objects.requireNonNull(position, POSITION);
 
         List<String> tags = new ArrayList<>(8);
-        addRights(tags, WHITE, position.getWhiteKingside(), position.getWhiteQueenside());
-        addRights(tags, BLACK, position.getBlackKingside(), position.getBlackQueenside());
+        addRights(tags, WHITE, position.activeCastlingMoveTarget(Position.WHITE_KINGSIDE), position.activeCastlingMoveTarget(Position.WHITE_QUEENSIDE));
+        addRights(tags, BLACK, position.activeCastlingMoveTarget(Position.BLACK_KINGSIDE), position.activeCastlingMoveTarget(Position.BLACK_QUEENSIDE));
 
         if (!position.isChess960()) {
-            addStatus(tags, WHITE, position.getWhiteKing());
-            addStatus(tags, BLACK, position.getBlackKing());
+            addStatus(tags, WHITE, position.kingSquare(true));
+            addStatus(tags, BLACK, position.kingSquare(false));
         }
 
-        if (position.isWhiteTurn()) {
-            addCastleNowTags(tags, WHITE, position.getWhiteKing(),
-                    position.getWhiteKingside(), position.getWhiteQueenside(), position.getMoves());
+        if (position.isWhiteToMove()) {
+            addCastleNowTags(tags, WHITE, position.kingSquare(true),
+                    position.activeCastlingMoveTarget(Position.WHITE_KINGSIDE), position.activeCastlingMoveTarget(Position.WHITE_QUEENSIDE), position.legalMoves());
         } else {
-            addCastleNowTags(tags, BLACK, position.getBlackKing(),
-                    position.getBlackKingside(), position.getBlackQueenside(), position.getMoves());
+            addCastleNowTags(tags, BLACK, position.kingSquare(false),
+                    position.activeCastlingMoveTarget(Position.BLACK_KINGSIDE), position.activeCastlingMoveTarget(Position.BLACK_QUEENSIDE), position.legalMoves());
         }
 
         return List.copyOf(tags);

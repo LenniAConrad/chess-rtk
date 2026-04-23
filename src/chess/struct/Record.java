@@ -120,8 +120,8 @@ public class Record {
         return new Record(
                 created,
                 engine,
-                parent != null ? parent.copyOf() : null,
-                position != null ? position.copyOf() : null,
+                parent != null ? parent.copy() : null,
+                position != null ? position.copy() : null,
                 description != null ? description : "",
                 Arrays.copyOf(tags, tags.length),
                 analysis != null ? analysis.copyOf() : new Analysis());

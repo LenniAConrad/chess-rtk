@@ -107,7 +107,7 @@ public final class PolicyEncoder {
         int toFile = Field.getX((byte) toIndex);
         int toRank = Field.getY((byte) toIndex);
 
-        boolean weAreBlack = !position.isWhiteTurn();
+        boolean weAreBlack = !position.isWhiteToMove();
         if (weAreBlack) {
             fromRank = 7 - fromRank;
             toRank = 7 - toRank;

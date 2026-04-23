@@ -16,7 +16,7 @@ import java.nio.file.Path;
  *   <li>{@code -Dcrtk.lc0.backend=auto|cpu|cuda|rocm|amd|hip|oneapi|intel}</li>
  *   <li>{@code -Dcrtk.lc0.threads=N} (CPU only)</li>
  *   <li>{@code -Djava.library.path=...} (required to load the CUDA JNI library)</li>
- *   <li>No legacy aliases are accepted.</li>
+ *   <li>Only the current backend property names are accepted.</li>
  * </ul>
  *
  * @since 2025

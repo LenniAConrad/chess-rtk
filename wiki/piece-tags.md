@@ -1,116 +1,183 @@
-# Piece Tags (`chess.tag`)
+# Position and Piece Tags
 
-This project can emit **piece tags** (short lines like `weak white f4 pawn`). The goal is to provide compact signals that an LLM (or a human) can turn into a coherent, natural-language description of a position.
+ChessRTK emits compact, deterministic tags for positions, pieces, pawn
+structure, king safety, material, tactics, engine evaluations, and puzzle
+lines. Tags are used by:
+
+- `fen tags`
+- `puzzle tags`
+- `record tag-stats`
+- `fen text`
+- `puzzle text`
+- dataset and filtering workflows that consume tag strings
 
 ![Tagging pipeline](../assets/diagrams/crtk-tagging-flow.png)
 
-Diagram source: `assets/diagrams/crtk-tagging-flow.dot` (render with `dot -Tpng -Gdpi=160 -o assets/diagrams/crtk-tagging-flow.png assets/diagrams/crtk-tagging-flow.dot`).
+Diagram source: `assets/diagrams/crtk-tagging-flow.dot`.
 
-## Tag Format
+## Tag Shape
 
-Each non-empty square produces one line:
+Tags use a stable family prefix followed by ordered key/value fields:
 
-`<tier> <side> <square> <piece>`
+```text
+FAMILY: key=value key=value
+```
 
 Examples:
 
-- `weak white f4 pawn`
-- `very strong black f5 queen`
-- `neutral black e8 king`
+```text
+META: to_move=white
+FACT: status=normal
+MATERIAL: balance=equal
+PIECE: tier=very_strong side=white piece=knight square=f5
+PAWN: structure=passed side=white square=e7
+KING: safety=exposed side=black
+TACTIC: motif=pin side=white piece=bishop square=e2 by=black_rook@e8
+CHECKMATE: pattern=back_rank_mate
+```
 
-Two extra summary lines are appended:
+Tags are strings, but they are intentionally structured so they can be sorted,
+deduplicated, filtered, counted, and converted into text.
 
-- `strongest: <side> <piece> <square>`
-- `weakest: <side> <piece> <square>`
-- `strongest white: <side> <piece> <square>`
-- `weakest white: <side> <piece> <square>`
-- `strongest black: <side> <piece> <square>`
-- `weakest black: <side> <piece> <square>`
+## Tag Families
 
-Example:
+| Family | Meaning |
+| --- | --- |
+| `META` | side to move, phase, source, difficulty, evaluation buckets, WDL, ECO/opening metadata |
+| `FACT` | game status, check state, castling rights, en-passant state, center facts |
+| `MATERIAL` | material balance, piece counts, bishop pair, exchange-style imbalances |
+| `MOVE` | legal move and one-ply move-count facts |
+| `PV` | principal variation facts from engine analysis |
+| `CAND` | candidate move facts from engine analysis |
+| `IDEA` | concise strategic ideas derived from static or analyzed facts |
+| `THREAT` | threats discovered from analysis or reply searches |
+| `KING` | king safety, castling state, shelter, back-rank and exposure facts |
+| `PAWN` | pawn islands, doubled/isolated/passed/advanced/promotion facts |
+| `PIECE` | piece placement tiers, activity, outposts, hanging pieces, defenders, attackers |
+| `TACTIC` | pins, forks, skewers, discovered attacks, overloads, forcing motifs |
+| `CHECKMATE` | mate status, winner/defender, delivery, and named mate patterns |
+| `ENDGAME` | material endgame classes and practical endgame themes |
+| `OPENING` | ECO and opening labels when an ECO table is configured |
+| `SPACE` | space and center-control signals |
+| `DEVELOPMENT` | undeveloped pieces and development lead |
+| `MOBILITY` | mobility comparisons and restricted-piece signals |
+| `INITIATIVE` | forcing-move and tempo signals |
 
-- `strongest: black queen f5`
-- `weakest: black king g5`
-- `strongest white: white queen d4`
-- `weakest white: white knight b1`
-- `strongest black: black queen f5`
-- `weakest black: black king g5`
+Not every family appears for every position. Engine-derived families appear
+when analysis is requested or supplied.
 
-## Field Meanings
+## Commands
 
-### `tier`
-One of:
+Tag one position:
 
-- `very strong`
-- `strong`
-- `slightly strong`
-- `neutral`
-- `slightly weak`
-- `weak`
-- `very weak`
+```bash
+crtk fen tags --fen "<FEN>"
+```
 
-Interpretation: how good/bad the piece is **on its current square**.
+Include the FEN in the output:
 
-### `side`
-`white` or `black` — the owner of the piece being described.
+```bash
+crtk fen tags --fen "<FEN>" --include-fen
+```
 
-### `square`
-Algebraic square in lowercase (e.g., `f4`, `e8`).
+Tag a FEN file:
 
-### `piece`
-Lowercase: `pawn`, `knight`, `bishop`, `rook`, `queen`, `king`.
+```bash
+crtk fen tags -i positions.txt
+```
 
-## How To Use These Tags In A Description
+Tag PGN mainlines or sidelines:
 
-The tags are best treated as **hints** and **priorities**, not as strict tactics.
+```bash
+crtk fen tags --pgn games.pgn --delta --mainline
+crtk fen tags --pgn games.pgn --delta --sidelines
+```
 
-### What Matters Most (Importance Ranking)
+Tag puzzle PVs:
 
-Use this ordering when deciding what to mention:
+```bash
+crtk puzzle tags --fen "<FEN>" --multipv 3 --pv-plies 12
+```
 
-1. `strongest:` and `weakest:` lines (global highlights; mention these first).
-2. `strongest white:` / `weakest white:` / `strongest black:` / `weakest black:` (side-specific anchors).
-2. Any `very strong` / `very weak` pieces (big features).
-3. Any `strong` / `weak` pieces (notable features).
-4. `slightly strong` / `slightly weak` pieces (supporting details; mention only if needed).
-5. `neutral` pieces (usually omit; include only for completeness or if the piece is critical context).
+Use engine-enriched tags:
 
-### What Each Tier Suggests (Natural Language)
+```bash
+crtk fen tags \
+  --fen "<FEN>" \
+  --analyze \
+  --max-duration 2s \
+  --multipv 3 \
+  --wdl
+```
 
-When converting tags into prose, these mappings are usually reasonable:
+Use static tags only:
 
-- `very strong`: “excellent piece”, “dominant”, “key attacker/defender”, “very well placed”
-- `strong`: “well placed”, “active”, “useful”
-- `slightly strong`: “somewhat active”, “slightly improved placement”
-- `neutral`: “normal placement”, “no clear issue”
-- `slightly weak`: “a bit awkward”, “slightly misplaced”
-- `weak`: “poorly placed”, “target”, “awkward”, “likely needs improvement/defense”
-- `very weak`: “major problem”, “severely misplaced/exposed”, “urgent weakness”
+```bash
+crtk puzzle tags --fen "<FEN>" --no-analyze --multipv 2
+```
 
-### How To Turn Tags Into A Coherent Summary
+## Delta Tags
 
-Good summaries usually follow this structure:
+`--delta` emits JSONL rows that describe how tags change from a parent position
+to a child position. This is useful for move explanations, puzzle-line
+summaries, and training rows that need "what changed after this move" evidence.
 
-1. One sentence for each side’s most important feature (often starts from the `strongest:` line).
-2. One sentence mentioning the biggest weakness (often starts from the `weakest:` line).
-3. Optional: 1–3 supporting details from `strong`/`weak` tiers.
+```bash
+crtk fen tags -i pairs.txt --delta --include-fen
+```
 
-Example template:
+For FEN pair input, each line can contain:
 
-- “`<side>`’s key piece is the `<piece>` on `<square>`.”
-- “The main problem is the `<side>` `<piece>` on `<square>`.”
-- “Supporting details: `<tier> <side> <square> <piece>`, …”
+```text
+<parent-fen> <child-fen>
+```
 
-### The `strongest` / `weakest` Lines (Explicit Meaning)
+For PGN input, parent/child relationships are created from the parsed movetext.
 
-- `strongest: black queen f5` means: the single most important *positive* piece placement on the board is the black queen on f5.
-- `weakest: black king g5` means: the single most important *negative* piece placement on the board is the black king on g5.
+## Text Generation
 
-These lines are often the best anchors for an LLM to build a narrative around.
+The T5 commands consume tags and generate short natural-language summaries:
 
-### The Side-Specific Extremes
+```bash
+crtk fen text --fen "<FEN>" --model models/t5.bin --include-fen
+crtk puzzle text --fen "<FEN>" --model models/t5.bin --include-fen
+```
 
-- `strongest white: white queen d4` means: White's most important *positive* piece placement is the queen on d4.
-- `weakest white: white knight b1` means: White's most important *negative* piece placement is the knight on b1.
-- `strongest black: black queen f5` means: Black's most important *positive* piece placement is the queen on f5.
-- `weakest black: black king g5` means: Black's most important *negative* piece placement is the king on g5.
+The text commands can use static tags or engine-enriched tags. Keep engine
+limits explicit when using them in batch jobs:
+
+```bash
+crtk fen text \
+  -i positions.txt \
+  --model models/t5.bin \
+  --analyze \
+  --max-duration 2s \
+  --multipv 2
+```
+
+## Interpreting Piece Tags
+
+`PIECE` tags describe placement and activity. Common fields include:
+
+- `tier`: placement tier such as `very_strong`, `strong`, `neutral`, `weak`,
+  or `very_weak`
+- `activity`: mobility or activity fact such as `low_mobility`
+- `extreme`: strongest/weakest piece anchors for the whole board or one side
+- `side`: `white` or `black`
+- `piece`: `pawn`, `knight`, `bishop`, `rook`, `queen`, or `king`
+- `square`: algebraic square
+
+Treat these tags as auditable hints. Tactical and king-safety tags should carry
+more weight than a generic placement tier when explaining a forcing sequence.
+
+## Counting Tags
+
+Summarize tags in record dumps:
+
+```bash
+crtk record tag-stats -i dump/run.puzzles.json
+crtk record tag-stats -i dump/run.puzzles.json --top 50
+```
+
+Use this before training or publishing from mined data. It exposes class
+imbalance, missing families, and overly common generic tags.

@@ -33,6 +33,7 @@ import chess.uci.Analysis;
 import chess.uci.Chances;
 import chess.uci.Evaluation;
 import chess.uci.Output;
+import utility.Numbers;
 
 /**
  * Builds the canonical tag set for a chess position.
@@ -226,7 +227,7 @@ public final class Tagging {
      */
     private static void addMeta(List<String> tags, TagContext ctx, Position position, Evaluator evaluator,
             Analysis analysis) {
-        tags.add(META_TO_MOVE_PREFIX + (position.isWhiteTurn() ? WHITE : BLACK));
+        tags.add(META_TO_MOVE_PREFIX + (position.isWhiteToMove() ? WHITE : BLACK));
         tags.add(META_PHASE_PREFIX + phaseLabel(position));
         addMetaEvaluation(tags, ctx, position, evaluator, analysis);
         addMetaWdl(tags, ctx, position, evaluator, analysis);
@@ -306,7 +307,7 @@ public final class Tagging {
         }
         int limit = Math.min(6, moves.length);
         List<String> sanMoves = new ArrayList<>(limit);
-        Position cursor = position.copyOf();
+        Position cursor = position.copy();
         for (int i = 0; i < limit; i++) {
             short move = moves[i];
             if (move == Move.NO_MOVE) {
@@ -402,7 +403,7 @@ public final class Tagging {
         }
         Integer cp = evalCentipawns(evaluator, position, analysisEval);
         if (cp != null) {
-            ctx.evalCpWhite = position.isWhiteTurn() ? cp : -cp;
+            ctx.evalCpWhite = position.isWhiteToMove() ? cp : -cp;
             tags.add(META_EVAL_CP_PREFIX + cp);
             addEvalBucket(tags, ctx.evalCpWhite);
         }
@@ -461,7 +462,7 @@ public final class Tagging {
         tags.add(STATUS_PREFIX + status);
         String inCheckSide = NONE;
         if (position.inCheck()) {
-            inCheckSide = position.isWhiteTurn() ? WHITE : BLACK;
+            inCheckSide = position.isWhiteToMove() ? WHITE : BLACK;
         }
         tags.add(FACT_IN_CHECK_PREFIX + inCheckSide);
     }
@@ -486,7 +487,7 @@ public final class Tagging {
      * @param position the position being tagged
      */
     private static void addEnPassantFact(List<String> tags, Position position) {
-        byte enPassant = position.getEnPassant();
+        byte enPassant = position.enPassantSquare();
         if (enPassant != Field.NO_SQUARE) {
             tags.add(FACT_EN_PASSANT_PREFIX + Text.squareNameLower(enPassant));
         }
@@ -1036,10 +1037,10 @@ public final class Tagging {
      * @return the status label for the position
      */
     private static String statusLabel(Position position) {
-        if (position.isMate()) {
+        if (position.isCheckmate()) {
             return CHECKMATED;
         }
-        MoveList moves = position.getMoves();
+        MoveList moves = position.legalMoves();
         if (moves.isEmpty()) {
             return position.inCheck() ? CHECKMATED : STALEMATE;
         }
@@ -1057,16 +1058,16 @@ public final class Tagging {
      */
     private static String castleRightsLabel(Position position) {
         StringBuilder sb = new StringBuilder(4);
-        if (position.getWhiteKingside() != Field.NO_SQUARE) {
+        if (position.activeCastlingMoveTarget(Position.WHITE_KINGSIDE) != Field.NO_SQUARE) {
             sb.append(WHITE_KINGSIDE_RIGHT);
         }
-        if (position.getWhiteQueenside() != Field.NO_SQUARE) {
+        if (position.activeCastlingMoveTarget(Position.WHITE_QUEENSIDE) != Field.NO_SQUARE) {
             sb.append(WHITE_QUEENSIDE_RIGHT);
         }
-        if (position.getBlackKingside() != Field.NO_SQUARE) {
+        if (position.activeCastlingMoveTarget(Position.BLACK_KINGSIDE) != Field.NO_SQUARE) {
             sb.append(BLACK_KINGSIDE_RIGHT);
         }
-        if (position.getBlackQueenside() != Field.NO_SQUARE) {
+        if (position.activeCastlingMoveTarget(Position.BLACK_QUEENSIDE) != Field.NO_SQUARE) {
             sb.append(BLACK_QUEENSIDE_RIGHT);
         }
         if (sb.isEmpty()) {
@@ -1133,26 +1134,10 @@ public final class Tagging {
      * @return a normalized difficulty value in the range {@code [0,1]}
      */
     private static double logarithmicDifficulty(double expectedScore) {
-        double linear = clamp01(1.0 - expectedScore);
+        double linear = Numbers.clamp01(1.0 - expectedScore);
         double k = 3.0;
         double difficulty = Math.log1p(k * linear) / Math.log1p(k);
-        return clamp01(difficulty);
-    }
-
-    /**
-     * Clamps a double into the inclusive range {@code [0,1]}.
-     *
-     * @param v the value to clamp
-     * @return the clamped value
-     */
-    private static double clamp01(double v) {
-        if (v <= 0.0) {
-            return 0.0;
-        }
-        if (v >= 1.0) {
-            return 1.0;
-        }
-        return v;
+        return Numbers.clamp01(difficulty);
     }
 
     /**
@@ -1526,15 +1511,7 @@ public final class Tagging {
      * @return {@code true} when the remaining material cannot force mate
      */
     private static boolean isInsufficientMaterial(Position position) {
-        MinorMaterialCounts counts = MinorMaterialCounts.from(position.getBoard());
-        if (counts.hasMajorMaterial) {
-            return false;
-        }
-        if (counts.whiteMinors() <= 1 && counts.blackMinors() <= 1) {
-            return true;
-        }
-        return counts.whiteKnights == 2 && counts.whiteBishops == 0 && counts.blackMinors() == 0
-                || counts.blackKnights == 2 && counts.blackBishops == 0 && counts.whiteMinors() == 0;
+        return position.isInsufficientMaterial();
     }
 
     /**
@@ -1698,18 +1675,18 @@ public final class Tagging {
      * @return the number of legal moves for the requested side
      */
     private static int mobilityForSide(Position position, boolean white) {
-        if (position.isWhiteTurn() == white) {
-            return position.getMoves().size();
+        if (position.isWhiteToMove() == white) {
+            return position.legalMoves().size();
         }
         String flipped = flipSideToMove(position.toString(), white);
         if (flipped == null) {
-            return position.getMoves().size();
+            return position.legalMoves().size();
         }
         try {
             Position other = new Position(flipped);
-            return other.getMoves().size();
+            return other.legalMoves().size();
         } catch (IllegalArgumentException ex) {
-            return position.getMoves().size();
+            return position.legalMoves().size();
         }
     }
 

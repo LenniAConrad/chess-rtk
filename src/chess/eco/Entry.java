@@ -94,7 +94,7 @@ public class Entry {
     * @return position after applying movetext
     */
    public Position getPosition() {
-      return position == null ? null : position.copyOf();
+      return position == null ? null : position.copy();
    }
 
    /**

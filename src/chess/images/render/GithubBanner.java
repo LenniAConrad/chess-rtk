@@ -17,6 +17,7 @@ import javax.imageio.ImageIO;
 import chess.core.Position;
 import chess.struct.Game;
 import utility.Images;
+import utility.Numbers;
 
 /**
  * Generates a GitHub banner image for ChessRTK.
@@ -120,8 +121,8 @@ public final class GithubBanner {
 				.render();
 
 		int minDim = Math.min(width, height);
-		int outerMargin = clamp((int) Math.round(minDim * 0.09), 36, 96);
-		int coordsPad = clamp((int) Math.round(minDim * 0.055), 24, 72);
+		int outerMargin = Numbers.clamp((int) Math.round(minDim * 0.09), 36, 96);
+		int coordsPad = Numbers.clamp((int) Math.round(minDim * 0.055), 24, 72);
 
 		int maxBoard = Math.min(width - 2 * outerMargin - 2 * coordsPad, height - 2 * outerMargin - 2 * coordsPad);
 		int boardSize = (maxBoard / 8) * 8;
@@ -130,7 +131,7 @@ public final class GithubBanner {
 		BufferedImage scaledBoard = scale(baseBoard, boardSize, boardSize);
 		BufferedImage boardWithCoords = drawCoordinates(scaledBoard, coordsPad);
 
-		int shadowBlur = clamp((int) Math.round(minDim * 0.02), 10, 28);
+		int shadowBlur = Numbers.clamp((int) Math.round(minDim * 0.02), 10, 28);
 		BufferedImage boardWithShadow = Images.addDropShadow(boardWithCoords, shadowBlur, new Color(0, 0, 0, 140));
 
 		BufferedImage banner = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
@@ -183,13 +184,13 @@ public final class GithubBanner {
 		g.drawImage(board, pad, pad, null);
 
 		// Board frame/border.
-		float borderStroke = clamp((int) Math.round(tile * 0.08), 2, 8);
+		float borderStroke = Numbers.clamp((int) Math.round(tile * 0.08), 2, 8);
 		g.setStroke(new BasicStroke(borderStroke, BasicStroke.CAP_SQUARE, BasicStroke.JOIN_MITER));
 		g.setPaint(new Color(65, 65, 65, 210));
 		float inset = borderStroke / 2.0f;
 		g.draw(new java.awt.geom.Rectangle2D.Float(pad + inset, pad + inset, boardW - borderStroke, boardH - borderStroke));
 
-		int fontSize = clamp((int) Math.round(pad * 0.55), 12, 36);
+		int fontSize = Numbers.clamp((int) Math.round(pad * 0.55), 12, 36);
 		Font font = new Font("Times New Roman", Font.BOLD, fontSize);
 		g.setFont(font);
 		FontMetrics fm = g.getFontMetrics();
@@ -269,18 +270,6 @@ public final class GithubBanner {
 		g.drawImage(src, 0, 0, w, h, null);
 		g.dispose();
 		return out;
-	}
-
-	/**
-	 * Clamps an integer to the inclusive range {@code [lo, hi]}.
-	 *
-	 * @param v value to clamp
-	 * @param lo lower bound (inclusive)
-	 * @param hi upper bound (inclusive)
-	 * @return clamped value
-	 */
-	private static int clamp(int v, int lo, int hi) {
-		return Math.max(lo, Math.min(hi, v));
 	}
 
 	/**

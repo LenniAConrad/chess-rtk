@@ -56,5 +56,10 @@
 		"session/**"
 	],
 	"sonarlint.automaticAnalysis": true,
+	"sonarlint.rules": {
+		"java:S106": {
+			"level": "off"
+		}
+	},
 	"sonarlint.analysisExcludesStandalone": "**/data/**,**/dump/**,**/models/**,**/native/**/build/**,**/out/**,**/session/**,**/*.jsonl,**/*.bin"
 }

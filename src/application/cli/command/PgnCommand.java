@@ -68,7 +68,7 @@ public final class PgnCommand {
 					COMMAND_LABEL,
 					readBar == null ? null : readBar::set);
 		} finally {
-			finish(readBar);
+			CommandSupport.finish(readBar);
 		}
 		if (games == null) {
 			return;
@@ -80,7 +80,7 @@ public final class PgnCommand {
 			}
 			Bar bar = games.size() > 1 ? new Bar(games.size(), COMMAND_LABEL + " write", false, System.err) : null;
 			long lines = writePgnFens(games, writer, mainline, pairs, bar == null ? null : bar::step);
-			finish(bar);
+			CommandSupport.finish(bar);
 			System.out.printf("fen pgn wrote %d lines to %s%n", lines, output.toAbsolutePath());
 		} catch (IOException ex) {
 			System.err.println(COMMAND_LABEL + ": failed to write output: " + ex.getMessage());
@@ -103,12 +103,4 @@ public final class PgnCommand {
 		}
 	}
 
-	/**
-	 * Finishes a progress bar if one was created.
-	 */
-	private static void finish(Bar bar) {
-		if (bar != null) {
-			bar.finish();
-		}
-	}
 }

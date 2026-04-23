@@ -10,6 +10,7 @@ import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.event.FocusAdapter;
 import java.awt.event.FocusEvent;
+import java.awt.event.InputEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.image.BufferedImage;
@@ -493,8 +494,8 @@ final class BoardPanel extends JPanel {
 			lastMoveTo = Field.NO_SQUARE;
 		}
 		if (position.inCheck()) {
-			checkSquare = findKingSquare(position.isWhiteTurn());
-			checkMate = position.isMate();
+			checkSquare = findKingSquare(position.isWhiteToMove());
+			checkMate = position.isCheckmate();
 		} else {
 			checkSquare = Field.NO_SQUARE;
 			checkMate = false;
@@ -769,8 +770,8 @@ final class BoardPanel extends JPanel {
 		this.showCoords = showCoords;
 		this.boardState = position.getBoard();
 		if (position.inCheck()) {
-			checkSquare = findKingSquare(position.isWhiteTurn());
-			checkMate = position.isMate();
+			checkSquare = findKingSquare(position.isWhiteToMove());
+			checkMate = position.isCheckmate();
 		} else {
 			checkSquare = Field.NO_SQUARE;
 			checkMate = false;
@@ -853,12 +854,10 @@ final class BoardPanel extends JPanel {
 		 * @param e parameter.
 		 */
 		private void handleMouseDragged(MouseEvent e) {
-		if (dragFrom == Field.NO_SQUARE) {
-			if (rightDragFrom == Field.NO_SQUARE) {
+			if (dragFrom == Field.NO_SQUARE && rightDragFrom == Field.NO_SQUARE) {
 				return;
 			}
-		}
-		if (rightDragFrom != Field.NO_SQUARE && (e.getModifiersEx() & MouseEvent.BUTTON3_DOWN_MASK) != 0) {
+			if (rightDragFrom != Field.NO_SQUARE && (e.getModifiersEx() & InputEvent.BUTTON3_DOWN_MASK) != 0) {
 			int dx = e.getX() - rightDragStartX;
 			int dy = e.getY() - rightDragStartY;
 			if (!rightDragging && dx * dx + dy * dy > DRAG_THRESHOLD * DRAG_THRESHOLD) {
@@ -1169,7 +1168,7 @@ final class BoardPanel extends JPanel {
 		if (!showLegal || source == Field.NO_SQUARE || !canSelectSquare(source)) {
 			return;
 		}
-		MoveList moves = owner.position.getMoves();
+		MoveList moves = owner.position.legalMoves();
 		for (int i = 0; i < moves.size(); i++) {
 			short move = moves.get(i);
 			if (Move.getFromIndex(move) != source) {
@@ -1197,9 +1196,9 @@ final class BoardPanel extends JPanel {
 		byte piece = boardState[square];
 		if (Piece.isEmpty(piece)) {
 			return false;
-		}
-		return (owner.position.isWhiteTurn() && Piece.isWhite(piece))
-				|| (owner.position.isBlackTurn() && Piece.isBlack(piece));
+			}
+			return (owner.position.isWhiteToMove() && Piece.isWhite(piece))
+					|| (!owner.position.isWhiteToMove() && Piece.isBlack(piece));
 	}
 
 		/**
@@ -1732,10 +1731,10 @@ final class BoardPanel extends JPanel {
 		if (Piece.isEmpty(piece)) {
 			return false;
 		}
-		if (owner.position.isWhiteTurn() && !Piece.isWhite(piece)) {
+		if (owner.position.isWhiteToMove() && !Piece.isWhite(piece)) {
 			return false;
 		}
-		if (owner.position.isBlackTurn() && !Piece.isBlack(piece)) {
+			if (!owner.position.isWhiteToMove() && !Piece.isBlack(piece)) {
 			return false;
 		}
 		return Piece.isEmpty(previewBoard[square]);
@@ -2047,7 +2046,7 @@ final class BoardPanel extends JPanel {
 			return;
 		}
 		int limit = Math.max(1, maxPlies);
-		Position next = owner.position.copyOf();
+		Position next = owner.position.copy();
 		short firstMove = Move.NO_MOVE;
 		int applied = 0;
 		for (short move : moves) {

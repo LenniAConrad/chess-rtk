@@ -1,5 +1,7 @@
 package testing;
 
+import static testing.TestSupport.*;
+
 import java.util.Arrays;
 
 import chess.core.Fen;
@@ -45,16 +47,15 @@ public final class PositionRegressionTest {
 	}
 
 	/**
-	 * Verifies shared FEN normalization for whitespace and legacy omitted
-	 * en-passant fields.
+	 * Verifies shared FEN normalization for whitespace.
 	 */
 	private static void testFenNormalization() {
-		String legacy = " rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR \t w  KQkq  0  1 ";
+		String fen = " rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR \t w  KQkq  -  0  1 ";
 		String expected = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
 		assertEquals("", Fen.normalize(null), "null FEN normalization");
-		assertEquals(expected, Fen.normalize(legacy), "legacy five-field FEN normalization");
-		assertEquals(expected, new Position(legacy).toString(), "constructor FEN normalization");
+		assertEquals(expected, Fen.normalize(fen), "FEN whitespace normalization");
+		assertEquals(expected, new Position(fen).toString(), "constructor FEN normalization");
 	}
 
 	/**
@@ -145,81 +146,6 @@ public final class PositionRegressionTest {
 		Position blackCastle = new Position("r3k2r/8/8/8/8/8/8/2K5 w kq - 0 1");
 		assertEquals(7, blackCastle.countLegalMovesFrom(Field.toIndex("e8")),
 				"black king move count should include castling moves off-turn");
-	}
-
-	/**
-	 * Verifies equality for integer values.
-	 *
-	 * @param expected the expected value
-	 * @param actual the actual value
-	 * @param label the assertion label
-	 */
-	private static void assertEquals(int expected, int actual, String label) {
-		if (expected != actual) {
-			throw new AssertionError(label + ": expected " + expected + ", got " + actual);
-		}
-	}
-
-	/**
-	 * Verifies equality for byte values.
-	 *
-	 * @param expected the expected value
-	 * @param actual the actual value
-	 * @param label the assertion label
-	 */
-	private static void assertEquals(byte expected, byte actual, String label) {
-		if (expected != actual) {
-			throw new AssertionError(label + ": expected " + expected + ", got " + actual);
-		}
-	}
-
-	/**
-	 * Verifies equality for string values.
-	 *
-	 * @param expected the expected value
-	 * @param actual the actual value
-	 * @param label the assertion label
-	 */
-	private static void assertEquals(String expected, String actual, String label) {
-		if (!expected.equals(actual)) {
-			throw new AssertionError(label + ": expected '" + expected + "', got '" + actual + "'");
-		}
-	}
-
-	/**
-	 * Verifies that an object reference is not {@code null}.
-	 *
-	 * @param value the value to inspect
-	 * @param label the assertion label
-	 */
-	private static void assertNotNull(Object value, String label) {
-		if (value == null) {
-			throw new AssertionError(label + ": expected non-null value");
-		}
-	}
-
-	/**
-	 * Verifies that a condition is {@code true}.
-	 *
-	 * @param condition the condition to inspect
-	 * @param label the assertion label
-	 */
-	private static void assertTrue(boolean condition, String label) {
-		if (!condition) {
-			throw new AssertionError(label + ": expected true");
-		}
-	}
-
-	/**
-	 * Verifies that a condition is {@code false}.
-	 *
-	 * @param condition the condition to inspect
-	 * @param label the assertion label
-	 */
-	private static void assertFalse(boolean condition, String label) {
-		if (condition) {
-			throw new AssertionError(label + ": expected false");
-		}
 	}
 
 	/**

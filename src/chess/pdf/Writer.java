@@ -448,7 +448,7 @@ public final class Writer {
 	}
 
 	/**
-	 * Resolves an optional figure list entry with legacy off-by-one handling.
+	 * Resolves an optional figure list entry with off-by-one tolerant handling.
 	 *
 	 * @param list source list
 	 * @param index requested figure index

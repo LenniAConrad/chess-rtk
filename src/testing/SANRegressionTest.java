@@ -1,5 +1,7 @@
 package testing;
 
+import static testing.TestSupport.*;
+
 import chess.core.Move;
 import chess.core.Position;
 import chess.core.SAN;
@@ -80,55 +82,5 @@ public final class SANRegressionTest {
 		String raw = "1. e4 e5 (1... c5) 2. Nf3 $1 {comment} 1-0";
 		assertEquals("Nf3", SAN.lastMoveToken(raw), "last SAN token");
 		assertEquals("", SAN.lastMoveToken("1-0"), "empty last SAN token");
-	}
-
-	/**
-	 * Verifies string equality.
-	 *
-	 * @param expected expected value
-	 * @param actual actual value
-	 * @param label assertion label
-	 */
-	private static void assertEquals(String expected, String actual, String label) {
-		if (!expected.equals(actual)) {
-			throw new AssertionError(label + ": expected '" + expected + "', got '" + actual + "'");
-		}
-	}
-
-	/**
-	 * Verifies integer equality.
-	 *
-	 * @param expected expected value
-	 * @param actual actual value
-	 * @param label assertion label
-	 */
-	private static void assertEquals(int expected, int actual, String label) {
-		if (expected != actual) {
-			throw new AssertionError(label + ": expected " + expected + ", got " + actual);
-		}
-	}
-
-	/**
-	 * Verifies that a condition is true.
-	 *
-	 * @param condition condition to inspect
-	 * @param label assertion label
-	 */
-	private static void assertTrue(boolean condition, String label) {
-		if (!condition) {
-			throw new AssertionError(label + ": expected true");
-		}
-	}
-
-	/**
-	 * Verifies that a condition is false.
-	 *
-	 * @param condition condition to inspect
-	 * @param label assertion label
-	 */
-	private static void assertFalse(boolean condition, String label) {
-		if (condition) {
-			throw new AssertionError(label + ": expected false");
-		}
 	}
 }

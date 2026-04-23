@@ -26,6 +26,8 @@ import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 
+import utility.Numbers;
+
 /**
  * Minimal dependency-free SVG-to-PDF vector translator for the embedded chess
  * artwork.
@@ -628,7 +630,8 @@ final class Svg {
 	private static GradientStop parseGradientStop(Element element) {
 		double offset = normalizeStopOffset(attribute(element, "offset"));
 		Color color = parseStopColor(attribute(element, "stop-color"));
-		double opacity = clamp01(parseSize(attribute(element, "stop-opacity"), 1.0) * (color.getAlpha() / 255.0));
+		double opacity = Numbers.clamp01(parseSize(attribute(element, "stop-opacity"), 1.0)
+				* (color.getAlpha() / 255.0));
 		return new GradientStop(offset, compositeOverWhite(color, opacity));
 	}
 
@@ -656,7 +659,7 @@ final class Svg {
 		if (value != null && value.contains("%")) {
 			offset /= 100.0;
 		}
-		return clamp01(offset);
+		return Numbers.clamp01(offset);
 	}
 
 	/**
@@ -667,11 +670,11 @@ final class Svg {
 	 * @return opaque color equivalent on white paper
 	 */
 	private static Color compositeOverWhite(Color color, double opacity) {
-		double alpha = clamp01(opacity);
+		double alpha = Numbers.clamp01(opacity);
 		int red = (int) Math.round(color.getRed() * alpha + 255.0 * (1.0 - alpha));
 		int green = (int) Math.round(color.getGreen() * alpha + 255.0 * (1.0 - alpha));
 		int blue = (int) Math.round(color.getBlue() * alpha + 255.0 * (1.0 - alpha));
-		return new Color(clampColor(red), clampColor(green), clampColor(blue));
+		return new Color(Numbers.clampByte(red), Numbers.clampByte(green), Numbers.clampByte(blue));
 	}
 
 	/**
@@ -908,39 +911,7 @@ final class Svg {
 		if (values.length < 3) {
 			throw new IllegalArgumentException("Unsupported color: " + original);
 		}
-		return new Color(clampColor(values[0]), clampColor(values[1]), clampColor(values[2]));
-	}
-
-	/**
-	 * Clamps a color channel into the 8-bit range.
-	 *
-	 * @param value source channel
-	 * @return clamped channel
-	 */
-	private static int clampColor(double value) {
-		if (value <= 0.0) {
-			return 0;
-		}
-		if (value >= 255.0) {
-			return 255;
-		}
-		return (int) Math.round(value);
-	}
-
-	/**
-	 * Clamps a double into the unit interval.
-	 *
-	 * @param value source value
-	 * @return clamped value
-	 */
-	private static double clamp01(double value) {
-		if (value <= 0.0) {
-			return 0.0;
-		}
-		if (value >= 1.0) {
-			return 1.0;
-		}
-		return value;
+		return new Color(Numbers.clampByte(values[0]), Numbers.clampByte(values[1]), Numbers.clampByte(values[2]));
 	}
 
 	/**
@@ -1222,7 +1193,7 @@ final class Svg {
 			if (fill == null) {
 				return 0.0;
 			}
-			return clamp01(opacity * fillOpacity * (fill.getAlpha() / 255.0));
+			return Numbers.clamp01(opacity * fillOpacity * (fill.getAlpha() / 255.0));
 		}
 
 		/**
@@ -1234,7 +1205,7 @@ final class Svg {
 			if (stroke == null) {
 				return 0.0;
 			}
-			return clamp01(opacity * strokeOpacity * (stroke.getAlpha() / 255.0));
+			return Numbers.clamp01(opacity * strokeOpacity * (stroke.getAlpha() / 255.0));
 		}
 
 		/**
@@ -1286,11 +1257,13 @@ final class Svg {
 				nextFill = nextFillReference == null ? parseColor(fillAttr) : null;
 			}
 			Color nextStroke = strokeAttr == null ? stroke : parseColor(strokeAttr);
-			double nextOpacity = opacityAttr == null ? opacity : clamp01(opacity * parseSize(opacityAttr, 1.0));
-			double nextFillOpacity = fillOpacityAttr == null ? fillOpacity : clamp01(parseSize(fillOpacityAttr, fillOpacity));
+			double nextOpacity = opacityAttr == null ? opacity : Numbers.clamp01(opacity * parseSize(opacityAttr, 1.0));
+			double nextFillOpacity = fillOpacityAttr == null
+					? fillOpacity
+					: Numbers.clamp01(parseSize(fillOpacityAttr, fillOpacity));
 			double nextStrokeOpacity = strokeOpacityAttr == null
 					? strokeOpacity
-					: clamp01(parseSize(strokeOpacityAttr, strokeOpacity));
+					: Numbers.clamp01(parseSize(strokeOpacityAttr, strokeOpacity));
 			double nextStrokeWidth = strokeWidthAttr == null ? strokeWidth : Math.max(0.0, parseSize(strokeWidthAttr, 1.0));
 			String nextFillRule = fillRuleAttr == null ? fillRule : safeLower(fillRuleAttr);
 			String nextLineJoin = lineJoinAttr == null ? lineJoin : safeLower(lineJoinAttr);

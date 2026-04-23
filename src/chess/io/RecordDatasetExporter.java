@@ -1,13 +1,7 @@
 package chess.io;
 
-import java.io.Closeable;
 import java.io.IOException;
-import java.io.RandomAccessFile;
 import java.io.UncheckedIOException;
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
-import java.nio.channels.FileChannel;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
@@ -22,6 +16,7 @@ import chess.uci.Analysis;
 import chess.uci.Evaluation;
 import chess.uci.Output;
 import utility.Json;
+import utility.Numbers;
 
 /**
  * Exporter that converts {@code .record} JSON arrays into Numpy-compatible
@@ -194,7 +189,7 @@ public final class RecordDatasetExporter {
 	 * @return evaluation in pawns, clamped to [-20, 20]
 	 */
 	private static float pawnsFromCp(int centipawns) {
-		return clamp(centipawns / 100.0f, -20.0f, 20.0f);
+		return Numbers.clamp(centipawns / 100.0f, -20.0f, 20.0f);
 	}
 
 	/**
@@ -238,19 +233,19 @@ public final class RecordDatasetExporter {
 		}
 
 		int idx = 64 * 12;
-		feats[idx++] = position.getWhiteKingside() != Field.NO_SQUARE ? 1.0f : 0.0f;
-		feats[idx++] = position.getWhiteQueenside() != Field.NO_SQUARE ? 1.0f : 0.0f;
-		feats[idx++] = position.getBlackKingside() != Field.NO_SQUARE ? 1.0f : 0.0f;
-		feats[idx++] = position.getBlackQueenside() != Field.NO_SQUARE ? 1.0f : 0.0f;
+		feats[idx++] = position.activeCastlingMoveTarget(Position.WHITE_KINGSIDE) != Field.NO_SQUARE ? 1.0f : 0.0f;
+		feats[idx++] = position.activeCastlingMoveTarget(Position.WHITE_QUEENSIDE) != Field.NO_SQUARE ? 1.0f : 0.0f;
+		feats[idx++] = position.activeCastlingMoveTarget(Position.BLACK_KINGSIDE) != Field.NO_SQUARE ? 1.0f : 0.0f;
+		feats[idx++] = position.activeCastlingMoveTarget(Position.BLACK_QUEENSIDE) != Field.NO_SQUARE ? 1.0f : 0.0f;
 
-		byte ep = position.getEnPassant();
+		byte ep = position.enPassantSquare();
 		if (ep != Field.NO_SQUARE) {
 			int file = Field.getX(ep);
 			feats[idx + file] = 1.0f;
 		}
 		idx += 8;
 
-		feats[idx] = position.isWhiteTurn() ? 1.0f : -1.0f;
+		feats[idx] = position.isWhiteToMove() ? 1.0f : -1.0f;
 	}
 
 	/**
@@ -276,325 +271,5 @@ public final class RecordDatasetExporter {
 		case Piece.BLACK_KING -> 11;
 		default -> -1;
 		};
-	}
-
-	/**
-	 * Clamps a value to the provided inclusive range.
-	 * Used to keep training targets bounded.
-	 *
-	 * @param v value to clamp
-	 * @param lo lower bound
-	 * @param hi upper bound
-	 * @return clamped value
-	 */
-	private static float clamp(float v, float lo, float hi) {
-		if (v < lo) {
-			return lo;
-		}
-		if (v > hi) {
-			return hi;
-		}
-		return v;
-	}
-
-	/**
-	 * Streaming .npy float32 writer that writes a placeholder header and patches
-	 * the row count in-place on close. Constant memory.
-	 */
-	private static final class NpyFloat32Writer implements Closeable {
-
-		/**
-		 * Width of the row-count placeholder field in the header.
-		 * Keeps header patching stable even for very large datasets.
-		 */
-		private static final int ROWS_FIELD_WIDTH = 20;
-
-		/**
-		 * Random-access file backing the output.
-		 * Used to patch the header on close.
-		 */
-		private final RandomAccessFile raf;
-
-		/**
-		 * File channel used for streaming writes.
-		 * Keeps payload writes efficient and sequential.
-		 */
-		private final FileChannel ch;
-
-		/**
-		 * Whether the output is one-dimensional (labels).
-		 * Controls header shape and write behavior.
-		 */
-		private final boolean oneD;
-
-		/**
-		 * Column count for 2D outputs (features).
-		 * Ignored for 1D label outputs.
-		 */
-		private final int cols;
-
-		/**
-		 * Offset in the file where the row-count digits begin.
-		 * Used to patch the placeholder on close.
-		 */
-		private final long rowsFieldOffsetInFile; // where the rows digits/spaces begin
-
-		/**
-		 * Width of the row-count field in the header.
-		 * Matches the placeholder length.
-		 */
-		private final int rowsFieldWidth;
-
-		/**
-		 * Reusable buffer for writing full feature rows.
-		 * Avoids per-row allocations.
-		 */
-		private final ByteBuffer rowBuf;
-
-		/**
-		 * Reusable buffer for writing scalar labels.
-		 * Avoids per-write allocations.
-		 */
-		private final ByteBuffer scalarBuf;
-
-		/**
-		 * Number of rows written so far.
-		 * Incremented after each successful write.
-		 */
-		private long rows = 0;
-
-		/**
-		 * Whether the writer has been closed.
-		 * Prevents double-close operations.
-		 */
-		private boolean closed = false;
-
-		/**
-		 * Opens a 2D writer for feature rows.
-		 * Uses the provided column count for the header shape.
-		 *
-		 * @param path output file path
-		 * @param cols number of columns per row
-		 * @return new writer instance
-		 * @throws IOException if the file cannot be created
-		 */
-		static NpyFloat32Writer open2D(Path path, int cols) throws IOException {
-			return new NpyFloat32Writer(path, false, cols);
-		}
-
-		/**
-		 * Opens a 1D writer for scalar labels.
-		 * Writes a single-column shape in the header.
-		 *
-		 * @param path output file path
-		 * @return new writer instance
-		 * @throws IOException if the file cannot be created
-		 */
-		static NpyFloat32Writer open1D(Path path) throws IOException {
-			return new NpyFloat32Writer(path, true, -1);
-		}
-
-		/**
-		 * Creates a streaming .npy writer and writes the header placeholder.
-		 *
-		 * @param path output path
-		 * @param oneD whether the output is 1D (labels) or 2D (features)
-		 * @param cols number of columns for 2D output, ignored for 1D
-		 * @throws IOException if the file cannot be created or initialized
-		 */
-		private NpyFloat32Writer(Path path, boolean oneD, int cols) throws IOException {
-			this.oneD = oneD;
-			this.cols = cols;
-
-			Path parent = path.toAbsolutePath().getParent();
-			if (parent != null) {
-				Files.createDirectories(parent);
-			}
-
-			RandomAccessFile localRaf = new RandomAccessFile(path.toFile(), "rw");
-			FileChannel localCh = localRaf.getChannel();
-
-			long localRowsFieldOffsetInFile;
-			int localRowsFieldWidth;
-			ByteBuffer localRowBuf;
-			ByteBuffer localScalarBuf;
-
-			try {
-				localRaf.setLength(0);
-
-				// Build header with fixed-width rows field using spaces (NOT leading zeros).
-				String rowsPlaceholder = padLeft(0L, ROWS_FIELD_WIDTH);
-
-				String shape = oneD
-						? "(" + rowsPlaceholder + ",)"
-						: "(" + rowsPlaceholder + ", " + cols + ",)";
-
-				String header = "{'descr': '<f4', 'fortran_order': False, 'shape': " + shape + ", }";
-
-				// NPY v1.0 header: magic(6) + version(2) + headerlen(2) + header bytes, padded to 16-byte alignment.
-				int preamble = 10;
-				int headerLenNoPad = header.length() + 1; // + '\n'
-				int pad = (16 - ((preamble + headerLenNoPad) % 16)) % 16;
-				String headerPadded = header + " ".repeat(pad) + "\n";
-				byte[] headerBytes = headerPadded.getBytes(StandardCharsets.US_ASCII);
-
-				// Locate where the placeholder lives within the header bytes so we can patch it later.
-				int idx = headerPadded.indexOf(rowsPlaceholder);
-				if (idx < 0) {
-					throw new IOException("Internal error: rows placeholder not found in header");
-				}
-				localRowsFieldOffsetInFile = (long) preamble + idx;
-				localRowsFieldWidth = rowsPlaceholder.length();
-
-				// Write magic + version
-				localRaf.write(new byte[] { (byte) 0x93, 'N', 'U', 'M', 'P', 'Y' });
-				localRaf.write(new byte[] { 1, 0 }); // v1.0
-
-				// header length (uint16 little-endian)
-				int hlen = headerBytes.length;
-				if (hlen > 0xFFFF) {
-					throw new IOException("NPY header too large for v1.0: " + hlen);
-				}
-				localRaf.write((byte) (hlen & 0xFF));
-				localRaf.write((byte) ((hlen >>> 8) & 0xFF));
-
-				// header bytes
-				localRaf.write(headerBytes);
-
-				// Payload buffers (reused; no per-row allocations)
-				localScalarBuf = ByteBuffer.allocate(4).order(ByteOrder.LITTLE_ENDIAN);
-				localRowBuf = oneD
-						? ByteBuffer.allocate(4).order(ByteOrder.LITTLE_ENDIAN)
-						: ByteBuffer.allocate(cols * 4).order(ByteOrder.LITTLE_ENDIAN);
-			} catch (IOException e) {
-				try {
-					localCh.close();
-				} catch (IOException closeEx) {
-					e.addSuppressed(closeEx);
-				}
-				try {
-					localRaf.close();
-				} catch (IOException closeEx) {
-					e.addSuppressed(closeEx);
-				}
-				throw e;
-			}
-
-			this.raf = localRaf;
-			this.ch = localCh;
-			this.rowsFieldOffsetInFile = localRowsFieldOffsetInFile;
-			this.rowsFieldWidth = localRowsFieldWidth;
-			this.rowBuf = localRowBuf;
-			this.scalarBuf = localScalarBuf;
-		}
-
-		/**
-		 * Writes a single feature row to the output file.
-		 * Increments the row count after a successful write.
-		 *
-		 * @param row feature row to write
-		 * @throws IOException if writing fails
-		 */
-		void writeRow(float[] row) throws IOException {
-			if (oneD) {
-				throw new IllegalStateException("This writer is 1D; use writeScalar()");
-			}
-			if (row.length != cols) {
-				throw new IllegalArgumentException("Expected row length " + cols + " but got " + row.length);
-			}
-
-			rowBuf.clear();
-			for (int i = 0; i < cols; i++) {
-				rowBuf.putFloat(row[i]);
-			}
-			rowBuf.flip();
-			while (rowBuf.hasRemaining()) {
-				ch.write(rowBuf);
-			}
-			rows++;
-		}
-
-		/**
-		 * Writes a single scalar label to the output file.
-		 * Increments the row count after a successful write.
-		 *
-		 * @param v scalar value to write
-		 * @throws IOException if writing fails
-		 */
-		void writeScalar(float v) throws IOException {
-			scalarBuf.clear();
-			scalarBuf.putFloat(v);
-			scalarBuf.flip();
-			while (scalarBuf.hasRemaining()) {
-				ch.write(scalarBuf);
-			}
-			rows++;
-		}
-
-		/**
-		 * Patches the header with the final row count and closes the file.
-		 * Ensures the NPY header stays consistent with the written payload.
-		 *
-		 * @throws IOException if flushing or closing fails
-		 */
-		@Override
-		public void close() throws IOException {
-			if (closed) return;
-			closed = true;
-
-			IOException failure = null;
-			try {
-				// Patch the rows field in-place using spaces (valid Python integer literal formatting).
-				String rowsStr = padLeft(rows, rowsFieldWidth);
-				byte[] rowsBytes = rowsStr.getBytes(StandardCharsets.US_ASCII);
-
-				raf.seek(rowsFieldOffsetInFile);
-				raf.write(rowsBytes);
-
-				ch.force(false);
-			} catch (IOException e) {
-				failure = e;
-			}
-
-			try {
-				ch.close();
-			} catch (IOException e) {
-				if (failure == null) {
-					failure = e;
-				} else {
-					failure.addSuppressed(e);
-				}
-			}
-			try {
-				raf.close();
-			} catch (IOException e) {
-				if (failure == null) {
-					failure = e;
-				} else {
-					failure.addSuppressed(e);
-				}
-			}
-
-			if (failure != null) {
-				throw failure;
-			}
-		}
-
-		/**
-		 * Pads a numeric value with leading spaces to a fixed width.
-		 * Used for the NPY header row-count placeholder.
-		 *
-		 * @param value value to format
-		 * @param width field width to pad to
-		 * @return padded string representation
-		 */
-		private static String padLeft(long value, int width) {
-			String s = Long.toString(value);
-			int pad = width - s.length();
-			if (pad <= 0) {
-				return s;
-			}
-			return " ".repeat(pad) + s;
-		}
 	}
 }

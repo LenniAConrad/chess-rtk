@@ -15,7 +15,7 @@ import chess.nn.lc0.Network;
  * </ul>
  *
  * <p>{@link Network#load(Path)} selects this backend automatically when {@code -Dcrtk.lc0.backend=auto} and ROCm is available
- * (no legacy system properties).
+ * (current system properties only).
  *
  * <p>This class is a thin wrapper around native code. It owns native resources and must be closed.
  *

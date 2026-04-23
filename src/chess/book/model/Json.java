@@ -8,9 +8,9 @@ import java.util.List;
  *
  * <p>
  * The repo-wide JSON helper is intentionally limited and expects compact
- * {@code "key":} spellings. Legacy book files often contain pretty-printed
- * fields, so the book loader keeps this whitespace-tolerant reader local to the
- * book package.
+ * {@code "key":} spellings. Book files may contain pretty-printed fields, so
+ * the book loader keeps this whitespace-tolerant reader local to the book
+ * package.
  * </p>
  *
  * @since 2026

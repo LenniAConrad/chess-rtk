@@ -1,5 +1,7 @@
 package testing;
 
+import static testing.TestSupport.*;
+
 import java.nio.charset.StandardCharsets;
 
 import chess.pdf.document.Document;
@@ -48,29 +50,5 @@ public final class PdfDocumentRegressionTest {
 		assertTrue(text.contains("0 0 1 rg"), "style fill override");
 		assertTrue(text.contains("0 1 0 RG"), "style stroke override");
 		assertFalse(text.contains("1 0 0 rg"), "presentation fill overridden");
-	}
-
-	/**
-	 * Fails when the supplied condition is false.
-	 *
-	 * @param condition condition to verify
-	 * @param label failure label
-	 */
-	private static void assertTrue(boolean condition, String label) {
-		if (!condition) {
-			throw new AssertionError(label + ": expected true");
-		}
-	}
-
-	/**
-	 * Fails when the supplied condition is true.
-	 *
-	 * @param condition condition to verify
-	 * @param label failure label
-	 */
-	private static void assertFalse(boolean condition, String label) {
-		if (condition) {
-			throw new AssertionError(label + ": expected false");
-		}
 	}
 }

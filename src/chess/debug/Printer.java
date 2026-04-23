@@ -1,8 +1,7 @@
 package chess.debug;
 
 import java.io.PrintStream;
-import java.util.Arrays;
-import java.util.stream.IntStream;
+import java.io.IOException;
 
 import chess.core.Field;
 import chess.core.Move;
@@ -115,10 +114,10 @@ public class Printer {
 		java.util.List<String> metaLines = new java.util.ArrayList<>();
 
 		addMeta(metaLines, "Fen", position.toString());
-		addMeta(metaLines, "Side to move", position.isWhiteTurn() ? "White" : "Black");
-		addMeta(metaLines, "En passant", Field.toString(position.getEnPassant()));
-		addMeta(metaLines, "Half move clock", Integer.toString(position.getHalfMove()));
-		addMeta(metaLines, "Full move number", Integer.toString(position.getFullMove()));
+		addMeta(metaLines, "Side to move", position.isWhiteToMove() ? "White" : "Black");
+		addMeta(metaLines, "En passant", Field.toString(position.enPassantSquare()));
+		addMeta(metaLines, "Half move clock", Integer.toString(position.halfMoveClock()));
+		addMeta(metaLines, "Full move number", Integer.toString(position.fullMoveNumber()));
 
 		String whiteCast = buildCastlingRights(position, true);
 		String blackCast = buildCastlingRights(position, false);
@@ -127,8 +126,8 @@ public class Printer {
 
 		addMeta(metaLines, "Checkers", buildCheckersString(position));
 		addMeta(metaLines, "Chess960", Boolean.toString(position.isChess960()));
-		addMeta(metaLines, "White King", Field.toString(position.getWhiteKing()));
-		addMeta(metaLines, "Black King", Field.toString(position.getBlackKing()));
+		addMeta(metaLines, "White King", Field.toString(position.kingSquare(true)));
+		addMeta(metaLines, "Black King", Field.toString(position.kingSquare(false)));
 
 		addMoveLines(position, metaLines);
 		return metaLines;
@@ -171,11 +170,11 @@ public class Printer {
 	private static String buildStandardCastlingRights(Position position, boolean white) {
 		StringBuilder sb = new StringBuilder();
 		if (white) {
-			sb.append(position.getWhiteKingside() != Field.NO_SQUARE ? "K" : "");
-			sb.append(position.getWhiteQueenside() != Field.NO_SQUARE ? "Q" : "-");
+			sb.append(position.activeCastlingMoveTarget(Position.WHITE_KINGSIDE) != Field.NO_SQUARE ? "K" : "");
+			sb.append(position.activeCastlingMoveTarget(Position.WHITE_QUEENSIDE) != Field.NO_SQUARE ? "Q" : "-");
 		} else {
-			sb.append(position.getBlackKingside() != Field.NO_SQUARE ? "k" : "");
-			sb.append(position.getBlackQueenside() != Field.NO_SQUARE ? "q" : "-");
+			sb.append(position.activeCastlingMoveTarget(Position.BLACK_KINGSIDE) != Field.NO_SQUARE ? "k" : "");
+			sb.append(position.activeCastlingMoveTarget(Position.BLACK_QUEENSIDE) != Field.NO_SQUARE ? "q" : "-");
 		}
 		String result = sb.toString();
 		return result.isEmpty() ? "-" : result;
@@ -191,11 +190,11 @@ public class Printer {
 	private static String buildChess960CastlingRights(Position position, boolean white) {
 		StringBuilder sb = new StringBuilder();
 		if (white) {
-			appendFileIfSquare(position.getWhiteKingside(), sb, true);
-			appendFileIfSquare(position.getWhiteQueenside(), sb, true);
+			appendFileIfSquare(position.activeCastlingMoveTarget(Position.WHITE_KINGSIDE), sb, true);
+			appendFileIfSquare(position.activeCastlingMoveTarget(Position.WHITE_QUEENSIDE), sb, true);
 		} else {
-			appendFileIfSquare(position.getBlackKingside(), sb, false);
-			appendFileIfSquare(position.getBlackQueenside(), sb, false);
+			appendFileIfSquare(position.activeCastlingMoveTarget(Position.BLACK_KINGSIDE), sb, false);
+			appendFileIfSquare(position.activeCastlingMoveTarget(Position.BLACK_QUEENSIDE), sb, false);
 		}
 		String result = sb.toString();
 		return result.isEmpty() ? "-" : result;
@@ -247,7 +246,7 @@ public class Printer {
 	 * @param metaLines the metadata lines list to append to
 	 */
 	private static void addMoveLines(Position position, java.util.List<String> metaLines) {
-		MoveList moves = position.getMoves();
+		MoveList moves = position.legalMoves();
 		StringBuilder allMoves = new StringBuilder();
 		for (int i = 0; i < moves.size(); i++) {
 			if (i > 0) {
@@ -290,69 +289,34 @@ public class Printer {
 	 */
 	public static void perft(Position position, int depth) {
 		depth = Math.max(depth, 1);
-
-		MoveList moveList = position.getMoves();
-		int numMoves = moveList.size();
-
-		// collect move-strings and determine max width
-		String[] moves = new String[numMoves];
-		int maxMoveLen = "Move".length();
-		for (int i = 0; i < numMoves; i++) {
-			moves[i] = Move.toString(moveList.get(i));
-			maxMoveLen = Math.max(maxMoveLen, moves[i].length());
+		Position root = position.copy();
+		Perft.DivideResult result = Perft.divide(root, depth);
+		int maxMoveLen = Math.max("Move".length(), result.entries().stream()
+				.mapToInt(entry -> Move.toString(entry.move()).length())
+				.max()
+				.orElse(0));
+		String headerFmt = String.format("%%-%ds %%12s %%10s %%10s %%10s %%10s %%10s%n", maxMoveLen);
+		String rowFmt = String.format("%%-%ds %%12d %%10d %%10d %%10d %%10d %%10d%n", maxMoveLen);
+		System.out.printf(headerFmt, "Move", "Nodes", "Captures", "EP", "Castles", "Promos", "Checks");
+		for (Perft.DivideEntry entry : result.entries()) {
+			Perft.Stats stats = entry.stats();
+			System.out.printf(rowFmt,
+					Move.toString(entry.move()),
+					stats.nodes(),
+					stats.captures(),
+					stats.enPassant(),
+					stats.castles(),
+					stats.promotions(),
+					stats.checks());
 		}
-
-		long[] nodesPerMove = new long[numMoves];
-		long[] timePerMove = new long[numMoves];
-		long totalNodes = 0L;
-		long globalStart = System.nanoTime();
-
-		for (int i = 0; i < numMoves; i++) {
-			Position posCopy = position.copyOf();
-			posCopy.play(moveList.get(i));
-			long start = System.nanoTime();
-			long nodes = posCopy.perft(depth - 1);
-			timePerMove[i] = System.nanoTime() - start;
-			nodesPerMove[i] = nodes;
-			totalNodes += nodes;
-		}
-
-		long globalDuration = System.nanoTime() - globalStart;
-		double totalSeconds = globalDuration / 1_000_000_000.0;
-
-		// avoid division by zero on numMoves
-		double avgBranching = numMoves > 0
-				? (double) totalNodes / numMoves
-				: 0.0;
-
-		// build format strings with dynamic width for the Move column
-		String headerFmt = String.format("%%%ds %%12s %%12s %%10s%n", maxMoveLen);
-		String rowFmt = String.format("%%%ds %%12d %%12.3f %%10.0f (%%.2f%%%%)%n", maxMoveLen);
-
-		// print header
-		System.out.printf(headerFmt, "Move", "Nodes", "Time(s)", "NPS");
-
-		// print each line, all right-aligned
-		for (int i = 0; i < numMoves; i++) {
-			double seconds = timePerMove[i] / 1_000_000_000.0;
-			double nps = seconds > 0
-					? nodesPerMove[i] / seconds
-					: 0.0;
-
-			// avoid division by zero on totalNodes
-			double pct = totalNodes > 0
-					? (nodesPerMove[i] * 100.0 / totalNodes)
-					: 0.0;
-
-			System.out.printf(rowFmt, moves[i], nodesPerMove[i], seconds, nps, pct);
-		}
-
-		System.out.println("\nPerft for position '" + position.toString() + "'");
-
-		// summary
+		System.out.println("\nPerft for position '" + position + "'");
 		System.out.printf(
-				"Total at depth %d: %d nodes in %.3f s, branches: %d, avg branch: %.2f%n",
-				depth, totalNodes, totalSeconds, numMoves, avgBranching);
+				"Total at depth %d: %d nodes in %.3f s, branches: %d, nps: %.0f%n",
+				depth,
+				result.total().nodes(),
+				result.nanos() / 1_000_000_000.0,
+				result.entries().size(),
+				result.nodesPerSecond());
 	}
 
 	/**
@@ -370,63 +334,18 @@ public class Printer {
 	 * @param progress optional callback invoked after each reference position
 	 */
 	public static void testPerft(Runnable progress) {
-		System.out.println("Testing perft function (depth 6); this may take a few minutes...\n");
-
-		String[] fens = {
-				"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
-				"r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1",
-				"8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - - 0 1",
-				"r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P2PP/R2Q1RK1 w kq - 0 1",
-				"rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 1 8",
-				"r4rk1/1pp1qppp/p1np1n2/2b1p1B1/2B1P1b1/P1NP1N2/1PP1QPPP/R4RK1 w - - 0 10",
-				"bb3rkr/pq1p2pp/1p2pn2/2p2p2/2P2PnP/1P2PN2/PQBP1NP1/B4RKR w HFhf - 9 10",
-				"brkqrbnn/pppppppp/8/8/8/8/PPPPPPPP/BRKQRBNN w EBeb - 0 1",
-				"1qrkr2n/pp1ppbpp/4np2/2p1b3/8/2P1NPN1/PPBPPBPP/Q1RKR3 w ECec - 4 7",
-				"3r1kr1/8/8/3bb3/3BB3/8/8/3R1KR1 w GDgd - 0 1",
-				"rk4r1/8/8/3nn3/3NN3/8/8/RK4R1 b GAga - 0 1",
-				"3rkr2/8/8/3nn3/3NN3/8/8/3RKR2 b FDfd - 0 1",
-				"krN1N1N1/pp1N1N1N/N1N1N1N1/1N1N1N1N/N1N1N1N1/1N1N1N1N/N1N1N1N1/1N1N1N1K w - - 0 1",
-		};
-
-		long[] targets = {
-				119060324L, 8031647685L, 11030083L,
-				706045033L, 3048196529L, 6923051137L,
-				2412004068L, 89994927L, 2257539632L,
-				1966029236L, 1858702397L, 819354710L,
-				528930290L,
-		};
-
-		long[] calculated = IntStream.range(0, fens.length)
-				.parallel()
-				.mapToLong(i -> {
-					try {
-						return new Position(fens[i]).perft(6);
-					} finally {
-						if (progress != null) {
-							progress.run();
-						}
-					}
-				})
-				.toArray();
-
-		int fenWidth = Arrays.stream(fens).mapToInt(String::length).max().orElse(0);
-		int numberWidth = 3; // “No” column width
-		int decimalWidth = 15; // width for big integers
-		int booleanWidth = 5; // “true” / “false”
-
-		String headerFmt = "%-" + numberWidth + "s %-" + fenWidth + "s %" + decimalWidth + "s %" +
-				decimalWidth + "s %" + booleanWidth + "s%n";
-		String rowFmt = "%-" + numberWidth + "d %-" + fenWidth + "s %" + decimalWidth + "d %" +
-				decimalWidth + "d %" + booleanWidth + "b%n";
-
-		System.out.printf(headerFmt, "No", "FEN", "Target", "Calculated", "Match");
-		for (int i = 0; i < fens.length; i++) {
-			System.out.printf(rowFmt,
-					i + 1,
-					fens[i],
-					targets[i],
-					calculated[i],
-					targets[i] == calculated[i]);
+		try {
+			PerftSuite.Summary summary = PerftSuite.compareWithStockfish(
+					PerftSuite.DEFAULT_MAX_DEPTH,
+					PerftSuite.DEFAULT_STOCKFISH,
+					1,
+					progress);
+			PerftSuite.print(summary);
+		} catch (IOException ex) {
+			throw new IllegalStateException("Stockfish comparison failed", ex);
+		} catch (InterruptedException ex) {
+			Thread.currentThread().interrupt();
+			throw new IllegalStateException("Stockfish comparison interrupted", ex);
 		}
 	}
 

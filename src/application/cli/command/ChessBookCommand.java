@@ -15,6 +15,7 @@ import static application.cli.Constants.OPT_VALIDATE;
 import static application.cli.Constants.OPT_VERBOSE;
 import static application.cli.Constants.OPT_VERBOSE_SHORT;
 import static application.cli.Constants.OPT_WATERMARK;
+import static application.cli.Constants.OPT_WATERMARK_ID;
 import static application.cli.PathOps.deriveOutputPath;
 
 import java.io.IOException;
@@ -71,7 +72,8 @@ public final class ChessBookCommand {
 		String subtitleOverride = trimToNull(a.string(OPT_SUBTITLE));
 		int limit = a.integerOr(0, OPT_LIMIT);
 		boolean check = a.flag(OPT_CHECK, OPT_VALIDATE);
-		boolean freeWatermark = a.flag(OPT_FREE_WATERMARK, OPT_WATERMARK);
+		String watermarkId = trimToNull(a.string(OPT_WATERMARK_ID));
+		boolean freeWatermark = a.flag(OPT_FREE_WATERMARK, OPT_WATERMARK) || watermarkId != null;
 		List<String> rest = a.positionals();
 		a.ensureConsumed();
 
@@ -104,31 +106,19 @@ public final class ChessBookCommand {
 			}
 
 			Path resolvedOutput = output != null ? output : deriveOutputPath(input, ".pdf");
-			Writer.write(resolvedOutput, book, freeWatermark);
+			Writer.write(resolvedOutput, book, freeWatermark, watermarkId);
 			System.out.printf(Locale.ROOT, "%s wrote %d puzzle%s to %s%s%n",
 					COMMAND_LABEL,
 					book.getElements().length,
 					book.getElements().length == 1 ? "" : "s",
 					resolvedOutput.toAbsolutePath(),
-					freeWatermark ? " (free watermarked PDF)" : "");
+					watermarkSuffix(freeWatermark, watermarkId));
 		} catch (IllegalArgumentException ex) {
-			System.err.println(COMMAND_LABEL + ": " + ex.getMessage());
-			if (verbose) {
-				ex.printStackTrace(System.err);
-			}
-			System.exit(2);
+			CommandSupport.exitWithError(COMMAND_LABEL, ex.getMessage(), ex, 2, verbose);
 		} catch (IOException ex) {
-			System.err.println(COMMAND_LABEL + ": failed to generate PDF: " + ex.getMessage());
-			if (verbose) {
-				ex.printStackTrace(System.err);
-			}
-			System.exit(3);
+			CommandSupport.exitWithError(COMMAND_LABEL, "failed to generate PDF: " + ex.getMessage(), ex, 3, verbose);
 		} catch (Exception ex) {
-			System.err.println(COMMAND_LABEL + ": unexpected failure: " + ex.getMessage());
-			if (verbose) {
-				ex.printStackTrace(System.err);
-			}
-			System.exit(3);
+			CommandSupport.exitWithError(COMMAND_LABEL, "unexpected failure: " + ex.getMessage(), ex, 3, verbose);
 		}
 	}
 
@@ -153,6 +143,21 @@ public final class ChessBookCommand {
 				summary.puzzleRows(),
 				summary.puzzleColumns(),
 				summary.tableFrequency());
+	}
+
+	/**
+	 * Builds the console suffix for watermarked renders.
+	 *
+	 * @param freeWatermark whether a watermarked PDF was generated
+	 * @param watermarkId optional explicit watermark identifier
+	 * @return status suffix
+	 */
+	private static String watermarkSuffix(boolean freeWatermark, String watermarkId) {
+		if (!freeWatermark) {
+			return "";
+		}
+		return watermarkId == null ? " (free watermarked PDF)"
+				: " (free watermarked PDF, watermark ID embedded)";
 	}
 
 	/**

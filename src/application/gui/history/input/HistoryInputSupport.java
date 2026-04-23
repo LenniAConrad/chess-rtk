@@ -2,6 +2,7 @@ package application.gui.history.input;
 
 import java.awt.KeyboardFocusManager;
 import java.awt.KeyEventDispatcher;
+import java.awt.event.InputEvent;
 import java.awt.event.KeyEvent;
 import java.awt.datatransfer.DataFlavor;
 import java.io.File;
@@ -14,7 +15,6 @@ import javax.swing.JComponent;
 import javax.swing.KeyStroke;
 import javax.swing.TransferHandler;
 
-import application.gui.history.input.HistoryInputSupport.DropHandler.NavigationOutcome;
 
 /**
  * Shared keyboard and drag/drop wiring for history navigation.
@@ -241,42 +241,42 @@ public final class HistoryInputSupport {
 	public static void installNavigationBindings(JComponent target, NavigationActions actions) {
 		InputMap im = target.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW);
 		ActionMap am = target.getActionMap();
-		bindNav(im, am, "nav-prev", KeyEvent.VK_LEFT, 0, () -> actions.navigatePrev(), actions);
-		bindNav(im, am, "nav-next", KeyEvent.VK_RIGHT, 0, () -> actions.navigateNext(), actions);
-		bindNav(im, am, "nav-start", KeyEvent.VK_HOME, 0, () -> actions.navigateStart(), actions);
-		bindNav(im, am, "nav-end", KeyEvent.VK_END, 0, () -> actions.navigateEnd(), actions);
-		bindNav(im, am, "nav-up", KeyEvent.VK_UP, 0, () -> actions.navigateUp(), actions);
-		bindNav(im, am, "nav-down", KeyEvent.VK_DOWN, 0, () -> actions.navigateDown(), actions);
-		bindNav(im, am, "nav-best", KeyEvent.VK_SPACE, 0, () -> actions.playEngineBest(), actions);
-		bindNav(im, am, "nav-undo", KeyEvent.VK_Z, KeyEvent.CTRL_DOWN_MASK, () -> actions.undoMove(), actions);
-		bindNav(im, am, "nav-flip", KeyEvent.VK_F, 0, () -> actions.flipBoard(), actions);
-		bindNav(im, am, "nav-clear-annotations", KeyEvent.VK_X, 0, () -> actions.clearAnnotations(), actions);
-		bindNav(im, am, "nav-legal", KeyEvent.VK_L, 0, () -> actions.toggleLegalHints(), actions);
-		bindNav(im, am, "nav-coords", KeyEvent.VK_C, 0, () -> actions.toggleCoords(), actions);
-		bindNav(im, am, "nav-editor", KeyEvent.VK_E, 0, () -> actions.openBoardEditor(), actions);
-		bindNav(im, am, "nav-engine", KeyEvent.VK_S, KeyEvent.CTRL_DOWN_MASK, () -> actions.toggleEngineAnalysis(),
+		bindNav(im, am, "nav-prev", KeyEvent.VK_LEFT, 0, actions::navigatePrev, actions);
+		bindNav(im, am, "nav-next", KeyEvent.VK_RIGHT, 0, actions::navigateNext, actions);
+		bindNav(im, am, "nav-start", KeyEvent.VK_HOME, 0, actions::navigateStart, actions);
+		bindNav(im, am, "nav-end", KeyEvent.VK_END, 0, actions::navigateEnd, actions);
+		bindNav(im, am, "nav-up", KeyEvent.VK_UP, 0, actions::navigateUp, actions);
+		bindNav(im, am, "nav-down", KeyEvent.VK_DOWN, 0, actions::navigateDown, actions);
+		bindNav(im, am, "nav-best", KeyEvent.VK_SPACE, 0, actions::playEngineBest, actions);
+		bindNav(im, am, "nav-undo", KeyEvent.VK_Z, InputEvent.CTRL_DOWN_MASK, actions::undoMove, actions);
+		bindNav(im, am, "nav-flip", KeyEvent.VK_F, 0, actions::flipBoard, actions);
+		bindNav(im, am, "nav-clear-annotations", KeyEvent.VK_X, 0, actions::clearAnnotations, actions);
+		bindNav(im, am, "nav-legal", KeyEvent.VK_L, 0, actions::toggleLegalHints, actions);
+		bindNav(im, am, "nav-coords", KeyEvent.VK_C, 0, actions::toggleCoords, actions);
+		bindNav(im, am, "nav-editor", KeyEvent.VK_E, 0, actions::openBoardEditor, actions);
+		bindNav(im, am, "nav-engine", KeyEvent.VK_S, InputEvent.CTRL_DOWN_MASK, actions::toggleEngineAnalysis,
 				actions);
-		bindNavAlways(im, am, "nav-palette", KeyEvent.VK_P, KeyEvent.CTRL_DOWN_MASK,
-				() -> actions.openCommandPalette());
+		bindNavAlways(im, am, "nav-palette", KeyEvent.VK_P, InputEvent.CTRL_DOWN_MASK,
+				actions::openCommandPalette);
 		bindNavAlways(im, am, "nav-palette-shift", KeyEvent.VK_P,
-				KeyEvent.CTRL_DOWN_MASK | KeyEvent.SHIFT_DOWN_MASK, () -> actions.openCommandPalette());
+				InputEvent.CTRL_DOWN_MASK | InputEvent.SHIFT_DOWN_MASK, actions::openCommandPalette);
 		bindNav(im, am, "nav-copy-fen", KeyEvent.VK_C,
-				KeyEvent.CTRL_DOWN_MASK | KeyEvent.SHIFT_DOWN_MASK, () -> actions.copyFen(), actions);
+				InputEvent.CTRL_DOWN_MASK | InputEvent.SHIFT_DOWN_MASK, actions::copyFen, actions);
 		bindNav(im, am, "nav-copy-image", KeyEvent.VK_I,
-				KeyEvent.CTRL_DOWN_MASK | KeyEvent.SHIFT_DOWN_MASK, () -> actions.copyBoardImage(), actions);
+				InputEvent.CTRL_DOWN_MASK | InputEvent.SHIFT_DOWN_MASK, actions::copyBoardImage, actions);
 		bindNav(im, am, "nav-save-image", KeyEvent.VK_S,
-				KeyEvent.CTRL_DOWN_MASK | KeyEvent.SHIFT_DOWN_MASK, () -> actions.saveBoardImage(), actions);
+				InputEvent.CTRL_DOWN_MASK | InputEvent.SHIFT_DOWN_MASK, actions::saveBoardImage, actions);
 		bindNav(im, am, "nav-sidebar", KeyEvent.VK_B,
-				KeyEvent.CTRL_DOWN_MASK | KeyEvent.SHIFT_DOWN_MASK, () -> actions.toggleSidebar(), actions);
-		bindNav(im, am, "nav-sidebar-simple", KeyEvent.VK_B, KeyEvent.CTRL_DOWN_MASK,
-				() -> actions.toggleSidebar(), actions);
-		bindNavAlways(im, am, "nav-panel", KeyEvent.VK_J, KeyEvent.CTRL_DOWN_MASK, () -> actions.togglePanel());
+				InputEvent.CTRL_DOWN_MASK | InputEvent.SHIFT_DOWN_MASK, actions::toggleSidebar, actions);
+		bindNav(im, am, "nav-sidebar-simple", KeyEvent.VK_B, InputEvent.CTRL_DOWN_MASK,
+				actions::toggleSidebar, actions);
+		bindNavAlways(im, am, "nav-panel", KeyEvent.VK_J, InputEvent.CTRL_DOWN_MASK, actions::togglePanel);
 		bindNavAlways(im, am, "nav-problems", KeyEvent.VK_M,
-				KeyEvent.CTRL_DOWN_MASK | KeyEvent.SHIFT_DOWN_MASK, () -> actions.showProblems());
+				InputEvent.CTRL_DOWN_MASK | InputEvent.SHIFT_DOWN_MASK, actions::showProblems);
 		bindNavAlways(im, am, "nav-output", KeyEvent.VK_U,
-				KeyEvent.CTRL_DOWN_MASK | KeyEvent.SHIFT_DOWN_MASK, () -> actions.showOutput());
-		bindNav(im, am, "nav-focus", KeyEvent.VK_F11, 0, () -> actions.toggleFocusMode(), actions);
-		bindNav(im, am, "nav-focus-exit", KeyEvent.VK_ESCAPE, 0, () -> actions.focusExit(), actions);
+				InputEvent.CTRL_DOWN_MASK | InputEvent.SHIFT_DOWN_MASK, actions::showOutput);
+		bindNav(im, am, "nav-focus", KeyEvent.VK_F11, 0, actions::toggleFocusMode, actions);
+		bindNav(im, am, "nav-focus-exit", KeyEvent.VK_ESCAPE, 0, actions::focusExit, actions);
 	}
 
 	/**

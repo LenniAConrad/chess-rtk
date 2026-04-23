@@ -1213,17 +1213,17 @@ public final class Literals {
     public static final String OVERLOADED_DEFENDER_HEADER = "overloaded defender:";
 
     /**
-     * The castling-right prefix used by legacy tags.
+     * The castling-right prefix used by tag output.
      */
     public static final String CASTLING_RIGHT_PREFIX = FACT_PREFIX + "castling_right side=";
 
     /**
-     * The can-castle prefix used by legacy tags.
+     * The can-castle prefix used by tag output.
      */
     public static final String CAN_CASTLE_PREFIX = FACT_PREFIX + "can_castle side=";
 
     /**
-     * The castling-status prefix used by legacy tags.
+     * The castling-status prefix used by tag output.
      */
     public static final String CASTLING_STATUS_PREFIX = FACT_PREFIX + "castling_status side=";
 

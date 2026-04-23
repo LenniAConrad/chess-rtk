@@ -66,9 +66,9 @@ public final class Move {
         if (ctx.isCheckmate) {
             details.add(CHECKMATE_TEXT);
         } else {
-            Position next = position.copyOf().play(move);
+            Position next = position.copy().play(move);
             addSafetyDetail(details, board, next, board[from], from, safetyTo);
-            if (!next.inCheck() && next.getMoves().isEmpty()) {
+            if (!next.inCheck() && next.legalMoves().isEmpty()) {
                 details.add(STALEMATE_TEXT);
             }
         }
@@ -249,7 +249,7 @@ public final class Move {
     private static String formatCastleDetail(Position position, byte kingFrom, boolean kingside) {
         CastleInfo castle = CastleInfo.from(position, kingside);
         StringBuilder detail = new StringBuilder(64);
-        detail.append(position.isWhiteTurn() ? WHITE : BLACK)
+        detail.append(position.isWhiteToMove() ? WHITE : BLACK)
                 .append(SPACE_TEXT).append(CASTLE_WORD).append(SPACE_TEXT)
                 .append(kingside ? KINGSIDE : QUEENSIDE)
                 .append(COLON_SPACE).append(KING_NAME).append(SPACE_TEXT)
@@ -273,7 +273,7 @@ public final class Move {
      * @return the king destination square
      */
     private static byte resolveCastleKingTarget(Position position, boolean kingside) {
-        if (position.isWhiteTurn()) {
+        if (position.isWhiteToMove()) {
             return kingside ? Field.WHITE_KINGSIDE_CASTLE_KING_TO_INDEX : Field.WHITE_QUEENSIDE_CASTLE_KING_TO_INDEX;
         }
         return kingside ? Field.BLACK_KINGSIDE_CASTLE_KING_TO_INDEX : Field.BLACK_QUEENSIDE_CASTLE_KING_TO_INDEX;
@@ -429,7 +429,7 @@ public final class Move {
          * @return the resolved castling information
          */
         private static CastleInfo from(Position position, boolean kingside) {
-            return position.isWhiteTurn()
+            return position.isWhiteToMove()
                     ? whiteCastleInfo(position, kingside)
                     : blackCastleInfo(position, kingside);
         }
@@ -445,7 +445,7 @@ public final class Move {
             byte kingTo = kingside ? Field.WHITE_KINGSIDE_CASTLE_KING_TO_INDEX : Field.WHITE_QUEENSIDE_CASTLE_KING_TO_INDEX;
             byte rookTo = kingside ? Field.WHITE_KINGSIDE_CASTLE_ROOK_TO_INDEX : Field.WHITE_QUEENSIDE_CASTLE_ROOK_TO_INDEX;
             byte rookFrom = position.isChess960()
-                    ? selectRook(position.getWhiteKingside(), position.getWhiteQueenside(), kingside)
+                    ? selectRook(position.activeCastlingMoveTarget(Position.WHITE_KINGSIDE), position.activeCastlingMoveTarget(Position.WHITE_QUEENSIDE), kingside)
                     : selectRook(Field.WHITE_KINGSIDE_CASTLE_ROOK_FROM_INDEX,
                             Field.WHITE_QUEENSIDE_CASTLE_ROOK_FROM_INDEX, kingside);
             return new CastleInfo(kingTo, rookFrom, rookTo);
@@ -462,7 +462,7 @@ public final class Move {
             byte kingTo = kingside ? Field.BLACK_KINGSIDE_CASTLE_KING_TO_INDEX : Field.BLACK_QUEENSIDE_CASTLE_KING_TO_INDEX;
             byte rookTo = kingside ? Field.BLACK_KINGSIDE_CASTLE_ROOK_TO_INDEX : Field.BLACK_QUEENSIDE_CASTLE_ROOK_TO_INDEX;
             byte rookFrom = position.isChess960()
-                    ? selectRook(position.getBlackKingside(), position.getBlackQueenside(), kingside)
+                    ? selectRook(position.activeCastlingMoveTarget(Position.BLACK_KINGSIDE), position.activeCastlingMoveTarget(Position.BLACK_QUEENSIDE), kingside)
                     : selectRook(Field.BLACK_KINGSIDE_CASTLE_ROOK_FROM_INDEX,
                             Field.BLACK_QUEENSIDE_CASTLE_ROOK_FROM_INDEX, kingside);
             return new CastleInfo(kingTo, rookFrom, rookTo);

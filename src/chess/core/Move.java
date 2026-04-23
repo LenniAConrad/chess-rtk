@@ -178,9 +178,15 @@ public final class Move {
 		if (move == NO_MOVE) {
 			return "0000";
 		}
+		if (move < 0) {
+			throw new IllegalArgumentException("Invalid encoded move: " + (move & 0xFFFF));
+		}
 		byte from = getFromIndex(move);
 		byte to = getToIndex(move);
 		byte promotion = getPromotion(move);
+		if (promotion < NO_PROMOTION || promotion > PROMOTION_QUEEN) {
+			throw new IllegalArgumentException("Invalid encoded move promotion: " + promotion);
+		}
 		if (promotion == NO_PROMOTION) {
 			return new String(new char[] {
 					(char) ('a' + Field.getX(from)),
@@ -358,10 +364,9 @@ public final class Move {
 	 * @return {@code true} if the move is a kingside castle
 	 */
 	protected static boolean isKingsideCastle(Position position, short move) {
-		byte from = getFromIndex(move);
 		byte to = getToIndex(move);
-		return (to == position.whiteKingside && position.board[from] == Piece.WHITE_KING)
-				|| (to == position.blackKingside && position.board[from] == Piece.BLACK_KING);
+		return position.isCastle(move)
+				&& (to == position.activeCastlingMoveTarget(Position.WHITE_KINGSIDE) || to == position.activeCastlingMoveTarget(Position.BLACK_KINGSIDE));
 	}
 
 	/**
@@ -373,10 +378,9 @@ public final class Move {
 	 * @return {@code true} if the move is a queenside castle
 	 */
 	protected static boolean isQueensideCastle(Position position, short move) {
-		byte from = getFromIndex(move);
 		byte to = getToIndex(move);
-		return (to == position.whiteQueenside && position.board[from] == Piece.WHITE_KING)
-				|| (to == position.blackQueenside && position.board[from] == Piece.BLACK_KING);
+		return position.isCastle(move)
+				&& (to == position.activeCastlingMoveTarget(Position.WHITE_QUEENSIDE) || to == position.activeCastlingMoveTarget(Position.BLACK_QUEENSIDE));
 	}
 
 	/**
@@ -398,9 +402,7 @@ public final class Move {
 	 * @return {@code true} if the move is an en passant capture
 	 */
 	protected static boolean isEnPassantCapture(Position position, short move) {
-		byte from = getFromIndex(move);
-		byte to = getToIndex(move);
-		return Piece.isPawn(position.board[from]) && to == position.enPassant;
+		return position.isEnPassantCapture(move);
 	}
 
 	/**

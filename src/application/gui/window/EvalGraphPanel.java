@@ -175,7 +175,7 @@ final class EvalGraphPanel extends JPanel {
 				g2.fillOval(currentPoint[0] - 4, currentPoint[1] - 4, 8, 8);
 			}
 			if (currentLabel != null && !currentLabel.isBlank()) {
-				drawLabel(g2, currentLabel, x, top, plotW, plotH);
+				drawLabel(g2, currentLabel, x, top, plotW);
 			}
 		}
 
@@ -213,9 +213,8 @@ final class EvalGraphPanel extends JPanel {
 	 * @param x parameter.
 	 * @param top parameter.
 	 * @param plotW parameter.
-	 * @param plotH parameter.
 	 */
-	private void drawLabel(Graphics2D g2, String text, int x, int top, int plotW, int plotH) {
+	private void drawLabel(Graphics2D g2, String text, int x, int top, int plotW) {
 		Font base = owner.theme.monoFont();
 		Font font = base.deriveFont(Font.BOLD, Math.max(10f, base.getSize2D() * 0.9f));
 		g2.setFont(font);

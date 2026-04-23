@@ -130,7 +130,7 @@ public final class HistorySelectionSupport {
 		}
 		PgnNode node = nodeAtHistoryIndex(idx, currentLineNodes);
 		if (node != null && node.getPositionAfter() != null) {
-			return node.getPositionAfter().copyOf();
+			return node.getPositionAfter().copy();
 		}
 		if (history == null || moveHistory == null || idx >= history.size() || idx >= moveHistory.size()) {
 			return null;
@@ -144,7 +144,7 @@ public final class HistorySelectionSupport {
 			if (!before.isLegalMove(move)) {
 				return null;
 			}
-			return before.copyOf().play(move);
+			return before.copy().play(move);
 		} catch (RuntimeException ex) {
 			return null;
 		}

@@ -9,11 +9,9 @@ import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Point;
 import java.awt.Rectangle;
-import java.awt.event.ActionListener;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import javax.swing.BorderFactory;
 import javax.swing.Box;
@@ -236,7 +234,7 @@ private void filterSettings() {
                 for (JComponent row : settingRows) {
                     boolean pinned = Boolean.TRUE.equals(row.getClientProperty("settingPinned"));
                     Object key = row.getClientProperty("settingLabel");
-                    String label = key instanceof String ? (String) key : "";
+                    String label = key instanceof String string ? string : "";
                     boolean show = pinned || needle.isEmpty() || label.contains(needle);
                     row.setVisible(show);
                 }
@@ -317,8 +315,8 @@ private void filterSettings() {
                             int previewPly = Math.max(1, Math.min(totalPlies, hoverPly));
                             Object prevIdxObj = pvList.getClientProperty("pvHoverMoveIndex");
                             Object prevPlyObj = pvList.getClientProperty("pvHoverPly");
-                            int prevIdx = prevIdxObj instanceof Integer ? (Integer) prevIdxObj : -1;
-                            int prevPly = prevPlyObj instanceof Integer ? (Integer) prevPlyObj : -1;
+                            int prevIdx = prevIdxObj instanceof Integer previousIndex ? previousIndex : -1;
+                            int prevPly = prevPlyObj instanceof Integer previousPly ? previousPly : -1;
                             boolean changed = prevIdx != idx || prevPly != hoverPly;
                             if (changed) {
                                 pvList.putClientProperty("pvHoverMoveIndex", idx);

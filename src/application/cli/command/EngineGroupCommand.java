@@ -57,6 +57,7 @@ public final class EngineGroupCommand {
 			case CMD_BESTMOVE_UCI -> BestMoveCommand.runBestMoveUci(nested);
 			case CMD_BESTMOVE_SAN -> BestMoveCommand.runBestMoveSan(nested);
 			case CMD_BESTMOVE_BOTH -> BestMoveCommand.runBestMoveBoth(nested);
+			case "builtin", "java" -> BuiltInEngineCommand.runBuiltIn(nested);
 			case CMD_THREATS -> ThreatsCommand.runThreats(nested);
 			case CMD_EVAL -> EvalCommand.runEval(nested);
 			case "static" -> EvalCommand.runEvalStatic(nested);
@@ -84,6 +85,8 @@ public final class EngineGroupCommand {
 				  bestmove-uci    Print the best move in UCI
 				  bestmove-san    Print the best move in SAN
 				  bestmove-both   Print the best move in UCI and SAN
+				  builtin         Search with the built-in Java engine
+				  java            Alias for builtin
 				  threats         Analyze opponent threats
 				  eval            Evaluate a FEN
 				  static          Evaluate a FEN with the classical backend

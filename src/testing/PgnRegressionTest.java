@@ -1,5 +1,7 @@
 package testing;
 
+import static testing.TestSupport.*;
+
 import java.util.List;
 
 import application.cli.PgnOps;
@@ -100,28 +102,5 @@ public final class PgnRegressionTest {
 			}
 		}
 		throw new AssertionError("Missing record parent=" + parentFen + " position=" + positionFen);
-	}
-
-	/**
-	 * Handles assert equals.
-	 * @param expected expected
-	 * @param actual actual
-	 * @param label label
-	 */
-	private static void assertEquals(int expected, int actual, String label) {
-		if (expected != actual) {
-			throw new AssertionError(label + ": expected " + expected + " but got " + actual);
-		}
-	}
-
-	/**
-	 * Handles assert true.
-	 * @param condition condition
-	 * @param label label
-	 */
-	private static void assertTrue(boolean condition, String label) {
-		if (!condition) {
-			throw new AssertionError(label + ": expected true");
-		}
 	}
 }

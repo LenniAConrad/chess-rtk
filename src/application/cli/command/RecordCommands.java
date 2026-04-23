@@ -1096,6 +1096,9 @@ public final class RecordCommands {
 		if (criticalMove == null) {
 			return null;
 		}
+		if (!rec.getPosition().isLegalMove(criticalMove)) {
+			return null;
+		}
 		String fen = rec.getPosition().toString();
 		int policyIndex = PolicyEncoder.rawPolicyIndex(rec.getPosition(), criticalMove);
 		Lc0PolicyEval lc0 = lc0PolicyEval(rec.getPosition(), network, policyIndex, policyMapInverse);

@@ -4,119 +4,179 @@ import java.util.Arrays;
 import java.util.concurrent.ThreadLocalRandom;
 
 /**
- * Used for storing and managing a dynamic list of generated moves.
- * 
+ * Growable list of compact encoded moves.
+ *
+ * <p>
+ * Checked methods are available for general callers. Hot-path methods skip
+ * selected checks when the caller already owns capacity and bounds invariants.
+ * </p>
+ *
  * @since 2025
  * @author Lennart A. Conrad
  */
 public final class MoveList {
 
-	/**
-	 * Used for storing the moves in the list.
-	 */
-	protected short[] moves;
+    /**
+     * Backing array containing encoded moves.
+     *
+     * <p>
+     * Only entries in the range {@code [0, size)} are valid.
+     * </p>
+     */
+    private short[] moves;
 
-	/**
-	 * Used for tracking the number of moves currently in the list.
-	 */
-	protected int size;
+    /**
+     * Number of valid moves currently stored in {@link #moves}.
+     */
+    private int size;
 
-	/**
-	 * Used for constructing a MoveList with a specific initial capacity.
-	 *
-	 * @param capacity the initial capacity of the move array
-	 */
-	protected MoveList(int capacity) {
-		this.moves = new short[capacity];
-		this.size = 0;
-	}
+    /**
+     * Creates a move list with the default capacity used by perft scratch lists.
+     */
+    public MoveList() {
+        this(256);
+    }
 
-	/**
-	 * Used for constructing a MoveList with a default capacity of 128.
-	 */
-	protected MoveList() {
-		this(128);
-	}
+    /**
+     * Creates a move list with a caller-selected initial capacity.
+     *
+     * @param capacity initial capacity
+     */
+    public MoveList(int capacity) {
+        if (capacity < 1) {
+            throw new IllegalArgumentException("capacity must be positive");
+        }
+        this.moves = new short[capacity];
+    }
 
-	/**
-	 * Used for retrieving the number of moves currently in the list.
-	 *
-	 * @return the number of moves in the list
-	 */
-	public int size() {
-		return size;
-	}
+    /**
+     * Adds one move, growing the backing array when needed.
+     *
+     * @param move encoded move
+     */
+    public void add(short move) {
+        if (size == moves.length) {
+            moves = Arrays.copyOf(moves, moves.length * 2);
+        }
+        moves[size++] = move;
+    }
 
-	/**
-	 * Used for checking if the move list is empty.
-	 *
-	 * @return true if the list has no moves; false otherwise
-	 */
-	public boolean isEmpty() {
-		return size == 0;
-	}
+    /**
+     * Adds one move without checking capacity.
+     *
+     * <p>
+     * This is intended for generator hot paths that use the default capacity and
+     * know the current position cannot exceed it.
+     * </p>
+     *
+     * @param move encoded move
+     */
+    void addFast(short move) {
+        moves[size++] = move;
+    }
 
-	/**
-	 * Used for adding a move to the end of the list. Automatically grows the array
-	 * if full.
-	 *
-	 * @param m the move to be added
-	 */
-	public void add(short m) {
-		if (size == moves.length) {
-			moves = Arrays.copyOf(moves, moves.length * 2);
-		}
-		moves[size++] = m;
-	}
+    /**
+     * Returns one move with bounds checking.
+     *
+     * @param index list index
+     * @return encoded move
+     */
+    public short get(int index) {
+        if (index < 0 || index >= size) {
+            throw new IndexOutOfBoundsException(index + " / " + size);
+        }
+        return moves[index];
+    }
 
-	/**
-	 * Used for retrieving the move at a specific index.
-	 *
-	 * @param index the index of the move to retrieve
-	 * @return the move at the specified index
-	 * @throws IndexOutOfBoundsException if the index is out of range
-	 */
-	public short get(int index) {
-		if (index < 0 || index >= size) {
-			throw new IndexOutOfBoundsException(index + " / " + size);
-		}
-		return moves[index];
-	}
+    /**
+     * Returns a random stored move.
+     *
+     * @return random move, or {@link Move#NO_MOVE} when the list is empty
+     */
+    public short getRandomMove() {
+        if (size == 0) {
+            return Move.NO_MOVE;
+        }
+        return moves[ThreadLocalRandom.current().nextInt(size)];
+    }
 
-	/**
-	 * Used for retrieving a random move from the list.
-	 *
-	 * @return a random move, or {@link Move#NO_MOVE} if the list is empty
-	 */
-	public short getRandomMove() {
-		if (size == 0) {
-			return Move.NO_MOVE;
-		}
-		return moves[ThreadLocalRandom.current().nextInt(0, size)];
-	}
+    /**
+     * Returns the number of stored moves.
+     *
+     * @return move count
+     */
+    public int size() {
+        return size;
+    }
 
-	/**
-	 * Used for removing the move at the specified index by shifting subsequent
-	 * elements left.
-	 *
-	 * @param index the index of the move to remove
-	 */
-	public void removeAt(int index) {
-		int numMoved = size - index - 1;
-		if (numMoved > 0) {
-			System.arraycopy(moves, index + 1, moves, index, numMoved);
-		}
-		moves[--size] = Move.NO_MOVE;
-	}
+    /**
+     * Returns whether the list contains no moves.
+     *
+     * @return true when empty
+     */
+    public boolean isEmpty() {
+        return size == 0;
+    }
 
-	/**
-	 * Used for clearing all moves from the list while retaining the array's
-	 * capacity.
-	 */
-	public void clear() {
-		for (int i = 0; i < size; i++) {
-			moves[i] = Move.NO_MOVE;
-		}
-		size = 0;
-	}
+    /**
+     * Clears the list while keeping the allocated backing array.
+     */
+    public void clear() {
+        size = 0;
+    }
+
+    /**
+     * Removes one move by shifting later entries left.
+     *
+     * @param index move index to remove
+     */
+    public void removeAt(int index) {
+        if (index < 0 || index >= size) {
+            throw new IndexOutOfBoundsException(index + " / " + size);
+        }
+        int count = size - index - 1;
+        if (count > 0) {
+            System.arraycopy(moves, index + 1, moves, index, count);
+        }
+        moves[--size] = Move.NO_MOVE;
+    }
+
+    /**
+     * Returns one move without bounds checks.
+     *
+     * <p>
+     * Performance-sensitive callers use this while iterating up to
+     * {@link #size()}.
+     * </p>
+     *
+     * @param index list index known to be valid
+     * @return encoded move
+     */
+    public short raw(int index) {
+        return moves[index];
+    }
+
+    /**
+     * Returns a compact copy of the stored moves.
+     *
+     * @return array whose length is exactly {@link #size()}
+     */
+    public short[] toArray() {
+        return Arrays.copyOf(moves, size);
+    }
+
+    /**
+     * Returns whether an equivalent encoded move is present.
+     *
+     * @param move encoded move to find
+     * @return true when present
+     */
+    public boolean contains(short move) {
+        for (int i = 0; i < size; i++) {
+            if (Move.equals(moves[i], move)) {
+                return true;
+            }
+        }
+        return false;
+    }
 }

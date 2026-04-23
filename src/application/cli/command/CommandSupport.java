@@ -10,6 +10,7 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Locale;
 
+import application.console.Bar;
 import chess.io.Reader;
 import utility.Argv;
 
@@ -121,5 +122,45 @@ public final class CommandSupport {
 	 */
 	public static String formatCount(long value) {
 		return String.format(Locale.ROOT, "%,d", value);
+	}
+
+	/**
+	 * Advances a progress bar when one is active.
+	 *
+	 * @param bar optional progress bar
+	 */
+	public static void step(Bar bar) {
+		if (bar != null) {
+			bar.step();
+		}
+	}
+
+	/**
+	 * Finishes a progress bar when one is active.
+	 *
+	 * @param bar optional progress bar
+	 */
+	public static void finish(Bar bar) {
+		if (bar != null) {
+			bar.finish();
+		}
+	}
+
+	/**
+	 * Prints a command error, optionally prints its stack trace, and exits.
+	 *
+	 * @param commandLabel command label for diagnostics
+	 * @param message user-facing error detail
+	 * @param failure original failure
+	 * @param exitCode process exit code
+	 * @param verbose whether to print stack traces
+	 */
+	public static void exitWithError(String commandLabel, String message, Throwable failure, int exitCode,
+			boolean verbose) {
+		System.err.println(commandLabel + ": " + message);
+		if (verbose && failure != null) {
+			failure.printStackTrace(System.err);
+		}
+		System.exit(exitCode);
 	}
 }

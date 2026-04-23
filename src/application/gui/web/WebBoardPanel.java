@@ -223,7 +223,7 @@ private int tileSize;
 	void updateBoard(Position position, short lastMove, byte selectedSquare, boolean[] legalTargets,
 			boolean[] captureTargets, boolean whiteDown, boolean showCoordinates, boolean glassEnabled,
 			WebGuiTheme theme) {
-		this.position = position.copyOf();
+		this.position = position.copy();
 		this.lastMove = lastMove;
 		this.selectedSquare = selectedSquare;
 		this.whiteDown = whiteDown;
@@ -241,7 +241,7 @@ private int tileSize;
 					Math.min(this.captureTargets.length, captureTargets.length));
 		}
 		if (this.position.inCheck()) {
-			this.checkSquare = this.position.isWhiteTurn() ? this.position.getWhiteKing() : this.position.getBlackKing();
+			this.checkSquare = this.position.isWhiteToMove() ? this.position.kingSquare(true) : this.position.kingSquare(false);
 		} else {
 			this.checkSquare = Field.NO_SQUARE;
 		}

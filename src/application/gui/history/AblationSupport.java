@@ -26,7 +26,7 @@ public final class AblationSupport {
 	 * @param matrix parameter.
 	 */
 	public static void normalizeForWhite(Position position, int[][] matrix) {
-		if (position == null || matrix == null || position.isWhiteTurn()) {
+		if (position == null || matrix == null || position.isWhiteToMove()) {
 			return;
 		}
 		for (int rank = 0; rank < matrix.length; rank++) {

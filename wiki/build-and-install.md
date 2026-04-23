@@ -54,7 +54,7 @@ artifact directories such as `data/`, `dump/`, `models/`, `out/`, and
 Use these local checks before committing Java changes:
 
 ```bash
-javac -Xlint:all -d out $(find src -name "*.java")
+javac -Xlint:all --release 17 -d out $(find src -name "*.java")
 java -cp out testing.CliCommandRegressionTest
 java -cp out testing.PositionRegressionTest
 java -cp out application.Main doctor
@@ -62,10 +62,18 @@ java -cp out application.Main engine uci-smoke --nodes 1 --max-duration 5s
 git diff --check
 ```
 
+For rendering and PDF checks on a headless machine, pass the AWT headless flag:
+
+```bash
+java -Djava.awt.headless=true -cp out testing.BookRegressionTest
+java -Djava.awt.headless=true -cp out testing.ChessPdfRegressionTest
+```
+
 Run the full perft validation when changing move generation or Chess960 setup:
 
 ```bash
 java -cp out application.Main engine perft-suite
+java -cp out application.Main engine perft-suite --depth 6 --threads 4
 ```
 
 ## Run

@@ -408,10 +408,10 @@ public final class Pgn {
             sb.append('{').append(c).append("} ");
         }
 
-        boolean blackToMove = start != null && start.isBlackTurn();
+        boolean blackToMove = start != null && !start.isWhiteToMove();
         PlyTracker tracker = new PlyTracker(
                 blackToMove ? 1 : 0,
-                start != null ? start.getFullMove() : 1,
+                start != null ? start.fullMoveNumber() : 1,
                 blackToMove);
 
         for (Game.Node rootVariation : game.getRootVariations()) {

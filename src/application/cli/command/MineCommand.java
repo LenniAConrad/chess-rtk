@@ -787,7 +787,7 @@ public final class MineCommand {
 			int processed,
 			long maxTotal) {
 		final short best = r.getAnalysis().getBestMove();
-		final Position parent = r.getPosition().copyOf().play(best);
+		final Position parent = r.getPosition().copy().play(best);
 
 		for (Position child : parent.generateSubPositions()) {
 			final String fen = child.toString(); // assumes FEN canonicalization

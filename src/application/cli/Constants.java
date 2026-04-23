@@ -81,6 +81,11 @@ public final class Constants {
 	public static final String CMD_GUI_WEB = "gui-web";
 
 	/**
+	 * {@code gui-next} subcommand token.
+	 */
+	public static final String CMD_GUI_NEXT = "gui-next";
+
+	/**
 	 * {@code clean} subcommand token.
 	 */
 	public static final String CMD_CLEAN = "clean";
@@ -269,6 +274,11 @@ public final class Constants {
 	 * {@code --watermark} option flag alias.
 	 */
 	public static final String OPT_WATERMARK = "--watermark";
+
+	/**
+	 * {@code --watermark-id} option flag.
+	 */
+	public static final String OPT_WATERMARK_ID = "--watermark-id";
 
 	/**
 	 * {@code --page-size} option flag.

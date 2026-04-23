@@ -88,7 +88,7 @@ public final class PieceAblation {
 
         int[][] ablation = evaluator.ablation(position);
         byte[] board = position.getBoard();
-        boolean whiteToMove = position.isWhiteTurn();
+        boolean whiteToMove = position.isWhiteToMove();
         Accumulator acc = new Accumulator(includeColor);
 
         for (int index = 0; index < board.length; index++) {

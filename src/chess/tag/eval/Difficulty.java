@@ -8,6 +8,7 @@ import chess.classical.Wdl;
 import chess.core.Position;
 import chess.eval.Evaluator;
 import chess.eval.Result;
+import utility.Numbers;
 
 /**
  * Converts an engine evaluation into a human-readable difficulty tag.
@@ -79,26 +80,10 @@ public final class Difficulty {
      * @return the normalized difficulty score
      */
     private static double logarithmicDifficulty(double expectedScore) {
-        double linear = clamp01(1.0 - expectedScore);
+        double linear = Numbers.clamp01(1.0 - expectedScore);
         double k = 3.0;
         double difficulty = Math.log1p(k * linear) / Math.log1p(k);
-        return clamp01(difficulty);
-    }
-
-    /**
-     * Clamps a floating-point value into the inclusive {@code [0,1]} range.
-     *
-     * @param v the value to clamp
-     * @return the clamped value
-     */
-    private static double clamp01(double v) {
-        if (v < 0.0) {
-            return 0.0;
-        }
-        if (v > 1.0) {
-            return 1.0;
-        }
-        return v;
+        return Numbers.clamp01(difficulty);
     }
 
     /**

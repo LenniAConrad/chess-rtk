@@ -3,10 +3,10 @@ package testing;
 import java.util.List;
 
 import chess.core.Position;
-import chess.tag2.Tagging;
+import chess.tag.Tagging;
 
 /**
- * Small no-framework regression checks for the second heuristic tagger.
+ * Small no-framework regression checks for canonical position tagging.
  */
 public final class TaggingRegressionTest {
 
@@ -38,8 +38,7 @@ public final class TaggingRegressionTest {
         assertContains(tags, "META: to_move=white");
         assertContains(tags, "META: phase=opening");
         assertContains(tags, "FACT: status=normal");
-        assertContains(tags, "FACT: castling=KQkq");
-        assertContains(tags, "MOVE: legal=20");
+        assertContains(tags, "FACT: castle_rights=KQkq");
         assertContains(tags, "MATERIAL: balance=equal");
     }
 
@@ -48,10 +47,9 @@ public final class TaggingRegressionTest {
      */
      private static void testBackRankMate() {
         List<String> tags = Tagging.tags(new Position("4R1k1/5ppp/8/8/8/8/8/6K1 b - - 0 1"));
-        assertContains(tags, "FACT: status=checkmate");
-        assertContains(tags, "CHECKMATE: winner=white");
-        assertContains(tags, "CHECKMATE: pattern=back_rank_mate");
-        assertContains(tags, "CHECKMATE: delivery=rook");
+        assertContains(tags, "FACT: status=checkmated");
+        assertContains(tags, "FACT: in_check=black");
+        assertContains(tags, "PIECE: activity=high_mobility side=white piece=rook square=e8");
     }
 
      /**
@@ -59,7 +57,8 @@ public final class TaggingRegressionTest {
      */
      private static void testPin() {
         List<String> tags = Tagging.tags(new Position("4r1k1/8/8/8/8/8/4B3/4K3 w - - 0 1"));
-        assertContains(tags, "TACTIC: pin side=white piece=bishop square=e2 by=black_rook@e8");
+        assertContains(tags, "TACTIC: motif=pin side=black detail=\"pin: black rook e8 pins white bishop e2 to king\"");
+        assertContains(tags, "PIECE: activity=pin side=white piece=bishop square=e2");
     }
 
      /**
@@ -67,7 +66,7 @@ public final class TaggingRegressionTest {
      */
      private static void testHangingPiece() {
         List<String> tags = Tagging.tags(new Position("4k3/8/8/8/8/8/4q3/4R1K1 w - - 0 1"));
-        assertContains(tags, "TACTIC: hanging side=black piece=queen square=e2");
+        assertContains(tags, "TACTIC: motif=hanging side=black detail=\"hanging black queen e2\"");
     }
 
      /**
@@ -75,10 +74,10 @@ public final class TaggingRegressionTest {
      */
      private static void testPawnStructure() {
         List<String> tags = Tagging.tags(new Position("4k3/4P3/8/8/8/P7/P7/4K3 w - - 0 1"));
-        assertContains(tags, "PAWN: doubled side=white file=a count=2");
-        assertContains(tags, "PAWN: isolated side=white file=a");
-        assertContains(tags, "PAWN: passed side=white square=e7");
-        assertContains(tags, "PAWN: promotion_ready side=white square=e7");
+        assertContains(tags, "PAWN: structure=doubled side=white file=a");
+        assertContains(tags, "PAWN: structure=isolated side=white square=a2");
+        assertContains(tags, "PAWN: structure=passed side=white square=e7");
+        assertContains(tags, "MATERIAL: imbalance=rookless");
     }
 
      /**

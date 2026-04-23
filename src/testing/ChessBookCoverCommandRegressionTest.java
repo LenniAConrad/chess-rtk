@@ -1,7 +1,7 @@
 package testing;
 
-import java.io.ByteArrayOutputStream;
-import java.io.PrintStream;
+import static testing.TestSupport.*;
+
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -265,24 +265,6 @@ public final class ChessBookCoverCommandRegressionTest {
 	}
 
 	/**
-	 * Captures standard output while running a small regression action.
-	 *
-	 * @param action action to run
-	 * @return captured standard output as UTF-8-compatible text
-	 */
-	private static String captureStdout(Runnable action) {
-		PrintStream original = System.out;
-		ByteArrayOutputStream buffer = new ByteArrayOutputStream();
-		try (PrintStream replacement = new PrintStream(buffer, true, StandardCharsets.UTF_8)) {
-			System.setOut(replacement);
-			action.run();
-		} finally {
-			System.setOut(original);
-		}
-		return buffer.toString(StandardCharsets.UTF_8);
-	}
-
-	/**
 	 * Builds a minimal book JSON document.
 	 *
 	 * @return JSON book source text
@@ -308,44 +290,6 @@ public final class ChessBookCoverCommandRegressionTest {
 				  ]
 				}
 				""".formatted(COVER_PAGES, TRIM_WIDTH_CM, TRIM_HEIGHT_CM);
-	}
-
-	/**
-	 * Fails when the supplied condition is false.
-	 *
-	 * @param condition condition to verify
-	 * @param label failure label
-	 */
-	private static void assertTrue(boolean condition, String label) {
-		if (!condition) {
-			throw new AssertionError(label + ": expected true");
-		}
-	}
-
-	/**
-	 * Fails when the supplied condition is true.
-	 *
-	 * @param condition condition to verify
-	 * @param label failure label
-	 */
-	private static void assertFalse(boolean condition, String label) {
-		if (condition) {
-			throw new AssertionError(label + ": expected false");
-		}
-	}
-
-	/**
-	 * Fails when the supplied values differ by more than the tolerance.
-	 *
-	 * @param expected expected value
-	 * @param actual   actual value
-	 * @param epsilon  accepted absolute error
-	 * @param label    failure label
-	 */
-	private static void assertNear(double expected, double actual, double epsilon, String label) {
-		if (Math.abs(expected - actual) > epsilon) {
-			throw new AssertionError(label + ": expected " + expected + " but got " + actual);
-		}
 	}
 
 	/**

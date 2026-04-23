@@ -141,11 +141,11 @@ public final class ThreatsCommand {
 						return;
 					}
 				} finally {
-					step(bar);
+					CommandSupport.step(bar);
 				}
 			}
 		} finally {
-			finish(bar);
+			CommandSupport.finish(bar);
 		}
 	}
 
@@ -157,26 +157,6 @@ public final class ThreatsCommand {
 	 */
 	private static Bar positionProgressBar(List<String> fens, String label) {
 		return fens != null && fens.size() > 1 ? new Bar(fens.size(), label, false, System.err) : null;
-	}
-
-	/**
-	 * Handles step.
-	 * @param bar bar
-	 */
-	private static void step(Bar bar) {
-		if (bar != null) {
-			bar.step();
-		}
-	}
-
-	/**
-	 * Handles finish.
-	 * @param bar bar
-	 */
-	private static void finish(Bar bar) {
-		if (bar != null) {
-			bar.finish();
-		}
 	}
 
 	/**
@@ -236,7 +216,7 @@ public final class ThreatsCommand {
 		if (state.requestedMultiPv != null) {
 			return;
 		}
-		int all = Math.max(1, threatPos.getMoves().size());
+		int all = Math.max(1, threatPos.legalMoves().size());
 		if (state.lastMultiPv == null || state.lastMultiPv.intValue() != all) {
 			engine.setMultiPivot(all);
 			state.lastMultiPv = all;
@@ -251,7 +231,7 @@ public final class ThreatsCommand {
 	 * @param analysis  analysis results for threat side
 	 */
 	private static void printThreatsSummary(Position base, Position threatPos, Analysis analysis) {
-		String side = base.isWhiteTurn() ? "black" : "white";
+		String side = base.isWhiteToMove() ? "black" : "white";
 		System.out.println(String.format("FEN: %s", base.toString()));
 		System.out.println(String.format("threats-for: %s", side));
 		System.out.println(String.format("threats-fen: %s", threatPos.toString()));

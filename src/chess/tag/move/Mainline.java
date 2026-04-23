@@ -71,8 +71,8 @@ public final class Mainline {
         int maxPlies = Math.min(moves.length, MAX_PLIES);
         List<Ply> plies = new ArrayList<>(maxPlies);
         List<Position> positions = new ArrayList<>(maxPlies + 1);
-        Position current = position.copyOf();
-        positions.add(current.copyOf());
+        Position current = position.copy();
+        positions.add(current.copy());
 
         for (int i = 0; i < maxPlies; i++) {
             short move = moves[i];
@@ -80,9 +80,9 @@ public final class Mainline {
                 break;
             }
             String san = SAN.toAlgebraic(current, move);
-            plies.add(new Ply(move, san, current.getFullMove(), current.isWhiteTurn()));
+            plies.add(new Ply(move, san, current.fullMoveNumber(), current.isWhiteToMove()));
             current.play(move);
-            positions.add(current.copyOf());
+            positions.add(current.copy());
         }
 
         if (plies.isEmpty()) {
@@ -132,7 +132,7 @@ public final class Mainline {
      * @return the formatted disable tag, or {@code null} when no clear disable was found
      */
     private static String findDisableTag(Position previous, Position current, Ply disabler) {
-        MoveList prevMoves = previous.getMoves();
+        MoveList prevMoves = previous.legalMoves();
         byte disablerFrom = chess.core.Move.getFromIndex(disabler.move);
         for (int i = 0; i < prevMoves.size(); i++) {
             short move = prevMoves.get(i);
@@ -225,8 +225,8 @@ public final class Mainline {
      */
     private static String formatMove(Position position, short move) {
         String san = SAN.toAlgebraic(position, move);
-        int moveNumber = position.getFullMove();
-        if (position.isWhiteTurn()) {
+        int moveNumber = position.fullMoveNumber();
+        if (position.isWhiteToMove()) {
             return moveNumber + DOT_SPACE + san;
         }
         return moveNumber + ELLIPSIS_SPACE + san;

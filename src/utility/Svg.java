@@ -647,27 +647,13 @@ public final class Svg {
             if (trimmed.startsWith("rgb")) {
                 double[] values = parseNumbers(trimmed);
                 if (values.length >= 3) {
-                    return new Color(clamp(values[0]), clamp(values[1]), clamp(values[2]));
+                    return new Color(Numbers.clampByte(values[0]), Numbers.clampByte(values[1]),
+                            Numbers.clampByte(values[2]));
                 }
             }
             throw new IllegalArgumentException("Unsupported color: " + value);
         }
 
-        /**
-         * Clamps a double to the {@code [0,255]} color channel range.
-         *
-         * @param value channel value
-         * @return clamped integer channel
-         */
-        private static int clamp(double value) {
-            if (value <= 0) {
-                return 0;
-            }
-            if (value >= 255) {
-                return 255;
-            }
-            return (int) Math.round(value);
-        }
     }
 
     /**

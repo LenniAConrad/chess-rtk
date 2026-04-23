@@ -57,7 +57,7 @@ public final class FenCommand {
 		try {
 			System.out.println(new Position(Fen.normalize(fen)).toString());
 		} catch (IllegalArgumentException ex) {
-			printFenError(FEN_NORMALIZE, ex, verbose);
+			printFenError(ex, verbose);
 		}
 	}
 
@@ -84,18 +84,17 @@ public final class FenCommand {
 			Position position = new Position(Fen.normalize(fen));
 			System.out.println("valid\t" + position.toString());
 		} catch (IllegalArgumentException ex) {
-			printFenError(FEN_VALIDATE, ex, verbose);
+			printFenError(ex, verbose);
 		}
 	}
 
 	/**
 	 * Prints a consistent invalid-FEN diagnostic and exits.
 	 *
-	 * @param cmd     command label.
 	 * @param ex      parsing failure.
 	 * @param verbose whether to print a stack trace.
 	 */
-	private static void printFenError(String cmd, IllegalArgumentException ex, boolean verbose) {
+	private static void printFenError(IllegalArgumentException ex, boolean verbose) {
 		System.err.println(ERR_INVALID_FEN + (ex.getMessage() == null ? "" : ex.getMessage()));
 		if (verbose) {
 			ex.printStackTrace(System.err);

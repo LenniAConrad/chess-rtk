@@ -278,7 +278,7 @@ public class Setup {
 	 * @return A Chess960 {@code Position} by its index.
 	 */
 	public static Position getChess960ByIndex(int index) {
-		return CHESS_960_POSITIONS[index].copyOf();
+		return CHESS_960_POSITIONS[index].copy();
 	}
 
 	/**
@@ -289,7 +289,7 @@ public class Setup {
 	public static Position[] getAllChess960Positions() {
 		Position[] positions = new Position[CHESS_960_POSITIONS.length];
 		for (int i = 0; i < CHESS_960_POSITIONS.length; i++) {
-			positions[i] = CHESS_960_POSITIONS[i].copyOf();
+			positions[i] = CHESS_960_POSITIONS[i].copy();
 		}
 		return positions;
 	}
@@ -300,7 +300,7 @@ public class Setup {
 	 * @return The standard starting {@code Position} of a chess game
 	 */
 	public static Position getStandardStartPosition() {
-		return STANDARD_START_POSITION.copyOf();
+		return STANDARD_START_POSITION.copy();
 	}
 
 	/**
@@ -362,7 +362,7 @@ public class Setup {
 
 		List<PositionSeed> positions = new ArrayList<>(count);
 		List<Position> pool = new ArrayList<>(Math.max(32, count));
-		pool.add(seed.copyOf());
+		pool.add(seed.copy());
 
 		while (positions.size() < count) {
 			Position base = chooseBase(pool, branchProb, rnd);
@@ -375,7 +375,7 @@ public class Setup {
 				int kick = randomRange(rnd, warmupMinPlies / 2, warmupMaxPlies / 2);
 				holder[0] = null;
 				playRandomPlies(restart, kick, holder);
-				pool.add(restart.copyOf());
+				pool.add(restart.copy());
 				continue;
 			}
 
@@ -422,7 +422,7 @@ public class Setup {
 	 * @return true if no move could be played or an error occurred
 	 */
 	private static boolean stopOnNoMove(Position position, Position[] lastParent) {
-		MoveList moves = position.getMoves();
+		MoveList moves = position.legalMoves();
 		if (moves == null || sizeIsZeroSafe(moves)) {
 			return true;
 		}
@@ -433,7 +433,7 @@ public class Setup {
 		}
 
 		if (lastParent != null) {
-			lastParent[0] = position.copyOf();
+			lastParent[0] = position.copy();
 		}
 
 		try {
@@ -472,9 +472,9 @@ public class Setup {
 	 */
 	private static Position chooseBase(List<Position> pool, double branchProb, ThreadLocalRandom rnd) {
 		if (pool.size() > 1 && rnd.nextDouble() < branchProb) {
-			return pool.get(rnd.nextInt(pool.size())).copyOf();
+			return pool.get(rnd.nextInt(pool.size())).copy();
 		}
-		return pool.get(pool.size() - 1).copyOf();
+		return pool.get(pool.size() - 1).copy();
 	}
 
 	/**
@@ -499,7 +499,7 @@ public class Setup {
 	 */
 	private static boolean isTerminal(Position position) {
 		try {
-			MoveList moves = position.getMoves();
+			MoveList moves = position.legalMoves();
 			return moves == null || sizeIsZeroSafe(moves);
 		} catch (Exception ignore) {
 			return true;
@@ -529,8 +529,8 @@ public class Setup {
 	 * @param parent optional parent position to copy into the seed.
 	 */
 	private static void addSnapshot(List<PositionSeed> out, List<Position> pool, Position src, Position parent) {
-		Position copy = src.copyOf();
-		out.add(new PositionSeed(parent != null ? parent.copyOf() : null, copy));
+		Position copy = src.copy();
+		out.add(new PositionSeed(parent != null ? parent.copy() : null, copy));
 		pool.add(copy);
 	}
 

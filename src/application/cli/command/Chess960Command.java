@@ -13,7 +13,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.ThreadLocalRandom;
 
-import chess.core.Position;
 import chess.core.Setup;
 import utility.Argv;
 

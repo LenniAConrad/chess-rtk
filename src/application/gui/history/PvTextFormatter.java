@@ -146,7 +146,7 @@ public final class PvTextFormatter {
 				continue;
 			}
 			int originalLen = visible.length();
-			if (visible.length() > 0) {
+			if (!visible.isEmpty()) {
 				visible.append(' ');
 			}
 			visible.append(token);
@@ -159,19 +159,19 @@ public final class PvTextFormatter {
 		if (!overflow) {
 			return text;
 		}
-		if (visible.length() == 0) {
+		if (visible.isEmpty()) {
 			String ellipsis = "\u2026";
 			StringBuilder chunk = new StringBuilder();
 			for (int i = 0; i < text.length(); i++) {
 				chunk.append(text.charAt(i));
-				if (fm.stringWidth(chunk + ellipsis) > maxWidthPx) {
-					if (chunk.length() > 0) {
+					if (fm.stringWidth(chunk + ellipsis) > maxWidthPx) {
+						if (!chunk.isEmpty()) {
 						chunk.setLength(chunk.length() - 1);
 					}
 					break;
 				}
 			}
-			return chunk.length() == 0 ? ellipsis : chunk + ellipsis;
+			return chunk.isEmpty() ? ellipsis : chunk + ellipsis;
 		}
 		String result = visible + " \u2026";
 		while (fm.stringWidth(result) > maxWidthPx) {

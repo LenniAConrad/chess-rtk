@@ -119,11 +119,11 @@ public final class AnalyzeCommand {
 						}
 						printAnalysisSummary(pos, analysis);
 					} finally {
-						step(bar);
+						CommandSupport.step(bar);
 					}
 				}
 			} finally {
-				finish(bar);
+				CommandSupport.finish(bar);
 			}
 		} catch (Exception ex) {
 			System.err.println("analyze: failed to initialize engine: " + ex.getMessage());
@@ -142,26 +142,6 @@ public final class AnalyzeCommand {
 	 */
 	private static Bar positionProgressBar(List<String> fens, String label) {
 		return fens != null && fens.size() > 1 ? new Bar(fens.size(), label, false, System.err) : null;
-	}
-
-	/**
-	 * Handles step.
-	 * @param bar bar
-	 */
-	private static void step(Bar bar) {
-		if (bar != null) {
-			bar.step();
-		}
-	}
-
-	/**
-	 * Handles finish.
-	 * @param bar bar
-	 */
-	private static void finish(Bar bar) {
-		if (bar != null) {
-			bar.finish();
-		}
 	}
 
 	/**

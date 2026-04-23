@@ -7,6 +7,7 @@ import static application.cli.Constants.CMD_DOCTOR;
 import static application.cli.Constants.CMD_ENGINE;
 import static application.cli.Constants.CMD_FEN;
 import static application.cli.Constants.CMD_GUI;
+import static application.cli.Constants.CMD_GUI_NEXT;
 import static application.cli.Constants.CMD_GUI_WEB;
 import static application.cli.Constants.CMD_HELP;
 import static application.cli.Constants.CMD_HELP_LONG;
@@ -195,6 +196,11 @@ public final class HelpCommand {
 	private static final String GUI_WEB_OPTIONS_MARKER = "gui-web options:";
 
 	/**
+	 * Help marker for {@code gui-next}.
+	 */
+	private static final String GUI_NEXT_OPTIONS_MARKER = "gui-next options:";
+
+	/**
 	 * Help marker for {@code config}.
 	 */
 	private static final String CONFIG_SUBCOMMANDS_MARKER = "config subcommands:";
@@ -305,6 +311,11 @@ public final class HelpCommand {
 	private static final String BESTMOVE_BOTH_OPTIONS_MARKER = "engine bestmove-both options:";
 
 	/**
+	 * Help marker for {@code engine builtin}.
+	 */
+	private static final String BUILTIN_ENGINE_OPTIONS_MARKER = "engine builtin options:";
+
+	/**
 	 * Help marker for {@code engine threats}.
 	 */
 	private static final String THREATS_OPTIONS_MARKER = "engine threats options:";
@@ -396,6 +407,8 @@ public final class HelpCommand {
 			Map.entry("engine bestmove-uci", BESTMOVE_UCI_OPTIONS_MARKER),
 			Map.entry("engine bestmove-san", BESTMOVE_SAN_OPTIONS_MARKER),
 			Map.entry("engine bestmove-both", BESTMOVE_BOTH_OPTIONS_MARKER),
+			Map.entry("engine builtin", BUILTIN_ENGINE_OPTIONS_MARKER),
+			Map.entry("engine java", BUILTIN_ENGINE_OPTIONS_MARKER),
 			Map.entry("engine threats", THREATS_OPTIONS_MARKER),
 			Map.entry("engine eval", EVAL_OPTIONS_MARKER),
 			Map.entry("engine static", EVAL_STATIC_OPTIONS_MARKER),
@@ -414,6 +427,7 @@ public final class HelpCommand {
 			Map.entry("puzzle text", PUZZLE_TEXT_OPTIONS_MARKER),
 			Map.entry(CMD_GUI, GUI_OPTIONS_MARKER),
 			Map.entry(CMD_GUI_WEB, GUI_WEB_OPTIONS_MARKER),
+			Map.entry(CMD_GUI_NEXT, GUI_NEXT_OPTIONS_MARKER),
 			Map.entry(CMD_CONFIG, CONFIG_SUBCOMMANDS_MARKER),
 			Map.entry(CMD_CLEAN, CLEAN_OPTIONS_MARKER),
 			Map.entry(CMD_DOCTOR, DOCTOR_OPTIONS_MARKER),
@@ -443,6 +457,7 @@ public final class HelpCommand {
 			commandLine(CMD_PUZZLE, "Mine, convert, tag, and summarize puzzle lines"),
 			commandLine(CMD_GUI, "Launch the GUI"),
 			commandLine(CMD_GUI_WEB, "Launch the chess-web-inspired GUI"),
+			commandLine(CMD_GUI_NEXT, "Launch the Studio GUI v3"),
 			commandLine(CMD_CONFIG, "Show/validate configuration"),
 			commandLine(CMD_DOCTOR, "Check Java, config, protocol, engine, and local artifacts"),
 			commandLine(CMD_CLEAN, "Delete session cache/logs"),
@@ -656,6 +671,8 @@ public final class HelpCommand {
 			  bestmove-uci               Print the best move in UCI
 			  bestmove-san               Print the best move in SAN
 			  bestmove-both              Print the best move in UCI and SAN
+			  builtin                    Search with the built-in Java engine
+			  java                       Run the built-in Java engine
 			  threats                    Analyze opponent threats
 			  eval                       Evaluate a FEN with LC0 or classical
 			  static                     Evaluate a FEN with the classical backend
@@ -808,10 +825,10 @@ public final class HelpCommand {
 			  --height N                 Override window height
 			  --zoom Z                   Zoom factor (default: 1)
 			  --dark|--dark-mode         Use dark theme
-			  --arrows MOVES             Draw arrow overlays (comma-separated squares)
-			  --special-arrows MOVES     Draw special arrow overlays
-			  --circles SQUARES          Draw circle overlays
-			  --show-legal               Overlay legal move dots
+			  --arrow|--arrows MOVES     Draw arrow overlays (comma-separated squares)
+			  --special-arrows           Draw special arrow overlays
+			  --circle|--circles SQUARES Draw circle overlays
+			  --legal SQUARE             Overlay legal move dots from a square
 			  --details-inside           Show eval details inside board
 			  --details-outside          Show eval details outside board
 			  --ablation                 Overlay evaluator ablation heatmap
@@ -832,10 +849,10 @@ public final class HelpCommand {
 			  --dark|--dark-mode         Use dark theme
 			  --drop-shadow|--shadow     Add a subtle drop shadow
 			  --no-border                Hide the outer border
-			  --arrows MOVES             Draw arrow overlays (comma-separated squares)
-			  --special-arrows MOVES     Draw special arrow overlays
-			  --circles SQUARES          Draw circle overlays
-			  --show-legal               Overlay legal move dots
+			  --arrow|--arrows MOVES     Draw arrow overlays (comma-separated squares)
+			  --special-arrows           Draw special arrow overlays
+			  --circle|--circles SQUARES Draw circle overlays
+			  --legal SQUARE             Overlay legal move dots from a square
 			  --details-inside           Show eval details inside board
 			  --details-outside          Show eval details outside board
 			  --ablation                 Overlay evaluator ablation heatmap
@@ -850,6 +867,7 @@ public final class HelpCommand {
 			  --check|--validate         Validate manifest, dimensions, FENs, and solution lines without writing
 			  --free-watermark|--watermark
 			                             Add noisy free-edition watermark and print restrictions
+			  --watermark-id TEXT        Add a traceable ID to the watermark; implies --watermark
 			  --verbose|-v               Print stack trace on failure
 
 			book cover options:
@@ -892,6 +910,13 @@ public final class HelpCommand {
 			  -h|--help                  Show help
 
 			gui-web options:
+			  --fen FEN                  Start position (default: standard start FEN)
+			  --flip|--black-down        Render Black at the bottom
+			  --dark|--dark-mode         Start in dark UI theme
+			  --light                    Start in light UI theme
+			  -h|--help                  Show help
+
+			gui-next options:
 			  --fen FEN                  Start position (default: standard start FEN)
 			  --flip|--black-down        Render Black at the bottom
 			  --dark|--dark-mode         Start in dark UI theme
@@ -1100,6 +1125,18 @@ public final class HelpCommand {
 			  --no-wdl                   Disable WDL output
 			  --verbose|-v               Print stack trace on failure
 
+			engine builtin options:
+			  --fen FEN                  Input FEN
+			  --input|-i PATH            Input FEN file
+			  --evaluator KIND           classical, nnue, or lc0 (default: classical)
+			  --classical|--nnue|--lc0   Shortcut evaluator selectors
+			  --weights PATH             NNUE or LC0 weights path
+			  --depth|-d N               Search depth in plies (default: 3)
+			  --max-nodes|--nodes N      Node budget; 0 means unlimited; omitted means unlimited with --depth
+			  --max-duration D           Time budget, e.g. 5s; 0 means unlimited; omitted means unlimited with --depth
+			  --format FORMAT            uci-info, uci, san, both, or summary (default: uci-info)
+			  --verbose|-v               Print stack trace on failure
+
 			engine threats options:
 			  --fen FEN                  Input FEN (default: stdin)
 			  --protocol|-p PATH         Engine protocol TOML file
@@ -1114,11 +1151,14 @@ public final class HelpCommand {
 
 			engine perft options:
 			  --fen FEN                  Input FEN
-			  --depth N                  Depth for perft
-			  --divide                   Print divide output
+			  --depth|-d N               Depth for perft
+			  --divide|--per-move        Print per-root-move detailed counters
+			  --verbose|-v               Print stack trace on failure
 
 			engine perft-suite options:
-			  (no options)
+			  --depth|-d N               Depth to compare (default: 6)
+			  --threads N                Worker threads for positions (default: 1)
+			  --stockfish PATH           Stockfish executable (default: stockfish)
 
 			fen pgn options:
 			  --input|-i PATH            Input PGN file

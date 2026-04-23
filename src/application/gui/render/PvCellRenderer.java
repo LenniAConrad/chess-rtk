@@ -206,11 +206,9 @@ public final class PvCellRenderer extends JPanel implements javax.swing.ListCell
 		}
 		Object hoverIdxObj = list.getClientProperty("pvHoverMoveIndex");
 		Object hoverPlyObj = list.getClientProperty("pvHoverPly");
-		if (!(hoverIdxObj instanceof Integer) || !(hoverPlyObj instanceof Integer)) {
+		if (!(hoverIdxObj instanceof Integer hoverIdx) || !(hoverPlyObj instanceof Integer hoverPly)) {
 			return -1;
 		}
-		int hoverIdx = (Integer) hoverIdxObj;
-		int hoverPly = (Integer) hoverPlyObj;
 		if (hoverIdx != index || hoverPly <= 0) {
 			return -1;
 		}

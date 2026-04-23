@@ -41,6 +41,11 @@ final class LayoutState {
 	final int tocPages;
 
 	/**
+	 * Visible and metadata watermark identifier for protected free editions.
+	 */
+	final String watermarkId;
+
+	/**
 	 * Table-of-contents entries collected during layout.
 	 */
 	final List<TocEntry> tocEntries = new ArrayList<>();
@@ -95,11 +100,25 @@ final class LayoutState {
 	 * @param tocPages reserved TOC page count
 	 */
 	LayoutState(Book book, SolutionInfo[] solutions, Document document, int tocPages) {
+		this(book, solutions, document, tocPages, "");
+	}
+
+	/**
+	 * Creates a new layout-state container.
+	 *
+	 * @param book book to render
+	 * @param solutions parsed solution cache
+	 * @param document target PDF document or {@code null}
+	 * @param tocPages reserved TOC page count
+	 * @param watermarkId visible watermark identifier
+	 */
+	LayoutState(Book book, SolutionInfo[] solutions, Document document, int tocPages, String watermarkId) {
 		this.book = book;
 		this.solutions = solutions;
 		this.document = document;
 		this.pageSize = book.toPageSize();
 		this.tocPages = tocPages;
+		this.watermarkId = watermarkId == null ? "" : watermarkId;
 		this.innerMargin = Book.cmToPoints(book.getInnerMarginCm());
 		this.outerMargin = Book.cmToPoints(book.getOuterMarginCm());
 		this.topMargin = Book.cmToPoints(book.getTopMarginCm());

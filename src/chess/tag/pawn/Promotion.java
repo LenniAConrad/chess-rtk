@@ -45,7 +45,7 @@ public final class Promotion {
     public static List<String> tags(Position position) {
         Objects.requireNonNull(position, POSITION);
 
-        MoveList moves = position.getMoves();
+        MoveList moves = position.legalMoves();
         if (moves.isEmpty()) {
             return Collections.emptyList();
         }

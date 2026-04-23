@@ -203,7 +203,7 @@ public final class MovesCommand {
 	 * @param both whether to print UCI and SAN side-by-side
 	 */
 	private static void printMoves(Position pos, boolean san, boolean both) {
-		MoveList moves = pos.getMoves();
+		MoveList moves = pos.legalMoves();
 		for (int i = 0; i < moves.size(); i++) {
 			printMoveLine(pos, moves.get(i), san, both);
 		}

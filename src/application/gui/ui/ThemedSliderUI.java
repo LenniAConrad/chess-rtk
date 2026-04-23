@@ -9,6 +9,7 @@ import java.awt.RenderingHints;
 
 import javax.swing.JSlider;
 import javax.swing.JComponent;
+import javax.swing.SwingConstants;
 import javax.swing.Timer;
 import javax.swing.event.ChangeListener;
 import javax.swing.plaf.basic.BasicSliderUI;
@@ -114,7 +115,7 @@ public final class ThemedSliderUI extends BasicSliderUI {
 		int h = trackRect.height;
 		float frac = fraction();
 		g2.setColor(theme.surfaceAlt());
-		if (slider.getOrientation() == JSlider.HORIZONTAL) {
+		if (slider.getOrientation() == SwingConstants.HORIZONTAL) {
 			int trackY = y + (h - trackThickness) / 2;
 			g2.fillRoundRect(x, trackY, w, trackThickness, trackThickness, trackThickness);
 			int fill = Math.round(w * frac);
@@ -149,7 +150,7 @@ public final class ThemedSliderUI extends BasicSliderUI {
 		float frac = fraction();
 		int x;
 		int y;
-		if (slider.getOrientation() == JSlider.HORIZONTAL) {
+		if (slider.getOrientation() == SwingConstants.HORIZONTAL) {
 			x = trackRect.x + Math.round((trackRect.width - size) * frac);
 			y = trackRect.y + (trackRect.height - size) / 2;
 		} else {

@@ -594,7 +594,7 @@ public final class RecordPgnExporter {
         if (pos == null) {
             return;
         }
-        MoveList moves = pos.getMoves();
+        MoveList moves = pos.legalMoves();
         if (moves == null || moves.size() == 0) {
             return;
         }
@@ -602,7 +602,7 @@ public final class RecordPgnExporter {
         Set<String> directKids = ctx.directChildren.get(fromSig);
         for (int i = 0; i < moves.size(); i++) {
             short move = moves.get(i);
-            Position next = pos.copyOf().play(move);
+            Position next = pos.copy().play(move);
             String nextSig = fenSignature(next);
             List<ChildInfo> kids = getBridgeKids(childrenByParentSig, directKids, nextSig);
             if (kids == null) {
@@ -784,7 +784,7 @@ public final class RecordPgnExporter {
             Position startPos,
             PgnContext ctx) {
         Game game = new Game();
-        game.setStartPosition(startPos != null ? startPos.copyOf() : null);
+        game.setStartPosition(startPos != null ? startPos.copy() : null);
         if (ctx.descriptionBySig != null) {
             String rootComment = ctx.descriptionBySig.get(startSig);
             if (rootComment != null && !rootComment.isEmpty()) {
@@ -1221,10 +1221,10 @@ public final class RecordPgnExporter {
             return null;
         }
         String target = fenSignature(child);
-        MoveList moves = parent.getMoves();
+        MoveList moves = parent.legalMoves();
         for (int i = 0; i < moves.size(); i++) {
             short move = moves.get(i);
-            Position next = parent.copyOf().play(move);
+            Position next = parent.copy().play(move);
             if (fenSignature(next).equals(target)) {
                 return SAN.toAlgebraic(parent, move);
             }
@@ -1603,7 +1603,7 @@ public final class RecordPgnExporter {
         if (lastSan == null || !lastSan.endsWith("#")) {
             return null;
         }
-        boolean startBlack = startPos.isBlackTurn();
+        boolean startBlack = !startPos.isWhiteToMove();
         boolean lastByWhite = startBlack ? (plies % 2 == 0) : (plies % 2 == 1);
         return lastByWhite ? SAN.RESULT_WHITE_WIN : SAN.RESULT_BLACK_WIN;
     }

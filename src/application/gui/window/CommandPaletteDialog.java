@@ -27,6 +27,7 @@ import javax.swing.JTextField;
 import javax.swing.KeyStroke;
 import javax.swing.ListCellRenderer;
 import javax.swing.SwingUtilities;
+import javax.swing.WindowConstants;
 import javax.swing.border.EmptyBorder;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
@@ -97,7 +98,7 @@ final class CommandPaletteDialog extends JDialog {
 		super(owner.frame, "Command Palette", false);
 		this.owner = owner;
 		setModalityType(ModalityType.MODELESS);
-		setDefaultCloseOperation(JDialog.HIDE_ON_CLOSE);
+		setDefaultCloseOperation(WindowConstants.HIDE_ON_CLOSE);
 
 		dialogRoot = new GradientPanel(owner.theme.backgroundTop(), owner.theme.backgroundBottom());
 		dialogRoot.setLayout(new BorderLayout(12, 12));

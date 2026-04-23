@@ -1,5 +1,7 @@
 package testing;
 
+import static testing.TestSupport.*;
+
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -86,29 +88,5 @@ public final class ChessPdfCommandRegressionTest {
 		assertTrue(bytes.length > 8_000, "pgn output size");
 		assertTrue(text.contains("/Title (PGN Export)"), "pgn title metadata");
 		assertFalse(text.contains("/Subtype /Image"), "pgn raster image embedding");
-	}
-
-	/**
-	 * Fails when the supplied condition is false.
-	 *
-	 * @param condition condition to verify
-	 * @param label failure label
-	 */
-	private static void assertTrue(boolean condition, String label) {
-		if (!condition) {
-			throw new AssertionError(label + ": expected true");
-		}
-	}
-
-	/**
-	 * Fails when the supplied condition is true.
-	 *
-	 * @param condition condition to verify
-	 * @param label failure label
-	 */
-	private static void assertFalse(boolean condition, String label) {
-		if (condition) {
-			throw new AssertionError(label + ": expected false");
-		}
 	}
 }

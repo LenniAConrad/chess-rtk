@@ -114,23 +114,12 @@ public final class ChessBookCoverCommand {
 					dimensions.fullHeightCm(),
 					resolvedOutput.toAbsolutePath());
 		} catch (IllegalArgumentException ex) {
-			System.err.println(COMMAND_LABEL + ": " + ex.getMessage());
-			if (verbose) {
-				ex.printStackTrace(System.err);
-			}
-			System.exit(2);
+			CommandSupport.exitWithError(COMMAND_LABEL, ex.getMessage(), ex, 2, verbose);
 		} catch (IOException ex) {
-			System.err.println(COMMAND_LABEL + ": failed to generate cover PDF: " + ex.getMessage());
-			if (verbose) {
-				ex.printStackTrace(System.err);
-			}
-			System.exit(3);
+			CommandSupport.exitWithError(COMMAND_LABEL, "failed to generate cover PDF: " + ex.getMessage(), ex, 3,
+					verbose);
 		} catch (Exception ex) {
-			System.err.println(COMMAND_LABEL + ": unexpected failure: " + ex.getMessage());
-			if (verbose) {
-				ex.printStackTrace(System.err);
-			}
-			System.exit(3);
+			CommandSupport.exitWithError(COMMAND_LABEL, "unexpected failure: " + ex.getMessage(), ex, 3, verbose);
 		}
 	}
 

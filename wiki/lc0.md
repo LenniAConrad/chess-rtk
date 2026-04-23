@@ -1,15 +1,17 @@
-# Lc0 (UCI weights + Java evaluator)
+# LC0 (UCI Engine and Java Evaluator)
 
-This repo contains two separate “Lc0” concerns:
+ChessRTK supports two LC0-related workflows:
 
-1) Using the **Lc0 UCI engine** for mining (needs `.pb.gz` weights).
-2) Using the **built-in Java LC0 evaluator** for fast local evaluation/ablation (needs an `LC0J` `.bin`).
+1. LC0 as an external UCI engine for analysis and mining, usually with
+   `.pb.gz` weights.
+2. A Java LC0 value evaluator for `engine eval`, `engine builtin --lc0`,
+   board display, and ablation overlays, using LC0J `.bin` weights.
 
 Model weights are not checked into this repo. Local `models/*.bin` files are
 gitignored; fetch the default LC0J weights with `./install.sh --models` or
 download them manually from `models/README.md`.
 
-## 1) Lc0 as a UCI engine (mining)
+## LC0 as a UCI Engine
 
 If your engine protocol points to `lc0` (see `config/lc0.engine.toml`), you typically also need to set:
 
@@ -37,13 +39,23 @@ Guardrail (fail if weights are tracked by git):
 ./scripts/check_no_weights_tracked.sh
 ```
 
-## 2) Built-in Java LC0 evaluator (display/ablation)
+Use the configured UCI engine through the normal engine commands:
+
+```bash
+crtk engine uci-smoke --nodes 1 --max-duration 5s
+crtk engine analyze --fen "<FEN>" --max-duration 10s --multipv 3
+crtk engine bestmove --fen "<FEN>" --format both --max-duration 5s
+crtk puzzle mine --input seeds.txt --output dump/lc0.json --engine-instances 2
+```
+
+## Java LC0 Evaluator
 
 ![LC0 CNN evaluator flow](../assets/diagrams/crtk-lc0-cnn.png)
 
 Diagram source: `assets/diagrams/crtk-lc0-cnn.dot` (render with `dot -Tpng -Gdpi=160 -o assets/diagrams/crtk-lc0-cnn.png assets/diagrams/crtk-lc0-cnn.dot`).
 
-The Java evaluator lives under `src/chess/lc0/` and is used by `chess.eval.Evaluator`.
+The Java evaluator lives under `src/chess/nn/lc0/` and is used by LC0-aware
+evaluation, display, and dataset paths.
 
 Defaults:
 - weights path: `models/leela_112planes-10blocksx128-policyhead80-valuehead32-policy4672-wdl3.bin` (`chess.nn.lc0.Model.DEFAULT_WEIGHTS`)
@@ -52,12 +64,26 @@ Defaults:
 Backend selection (system properties):
 - `-Dcrtk.lc0.backend=auto|cpu|cuda` (default `auto`)
 - `-Dcrtk.lc0.threads=N` (CPU backend only)
-- Command aliases are not accepted.
 
-To see which backend is being used in practice (opens a window), run:
+Evaluate a position:
 
 ```bash
-crtk display --fen "<FEN>" --show-backend
+crtk engine eval --fen "<FEN>" --lc0 \
+  --weights models/leela_112planes-10blocksx128-policyhead80-valuehead32-policy4672-wdl3.bin
+```
+
+Use LC0 value evaluation at the frontier of the built-in alpha-beta search:
+
+```bash
+crtk engine builtin --fen "<FEN>" --lc0 \
+  --weights models/leela_112planes-10blocksx128-policyhead80-valuehead32-policy4672-wdl3.bin \
+  --depth 2 --format summary
+```
+
+Display evaluator ablation and backend information:
+
+```bash
+crtk fen display --fen "<FEN>" --ablation --show-backend
 ```
 
 ### CUDA backend (optional)
@@ -72,7 +98,10 @@ cmake --build native/cuda/build -j
 Then run Java with the library on `java.library.path`:
 
 ```bash
-java -cp out -Djava.library.path=native/cuda/build -Dcrtk.lc0.backend=cuda application.Main display --fen "<FEN>" --show-backend
+java -cp out \
+  -Djava.library.path=native/cuda/build \
+  -Dcrtk.lc0.backend=cuda \
+  application.Main fen display --fen "<FEN>" --ablation --show-backend
 ```
 
 See `native/cuda/README.md` for more details.

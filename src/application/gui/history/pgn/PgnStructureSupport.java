@@ -1,6 +1,5 @@
 package application.gui.history.pgn;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -36,14 +35,14 @@ public final class PgnStructureSupport {
 		if (game == null) {
 			return null;
 		}
-		Position start = game.getStartPosition() != null ? game.getStartPosition().copyOf()
+		Position start = game.getStartPosition() != null ? game.getStartPosition().copy()
 				: new Position(Game.STANDARD_START_FEN);
-		PgnNode root = new PgnNode(null, null, start.copyOf(), Move.NO_MOVE, 0);
+		PgnNode root = new PgnNode(null, null, start.copy(), Move.NO_MOVE, 0);
 		Game.Node mainline = game.getMainline();
-		PgnNode mainNode = buildPgnNode(root, mainline, start.copyOf());
+		PgnNode mainNode = buildPgnNode(root, mainline, start.copy());
 		root.setMainNext(mainNode);
 		for (Game.Node variation : game.getRootVariations()) {
-			PgnNode varNode = buildPgnNode(root, variation, start.copyOf());
+			PgnNode varNode = buildPgnNode(root, variation, start.copy());
 			if (varNode != null) {
 				root.getVariations().add(varNode);
 			}
@@ -69,14 +68,14 @@ public final class PgnStructureSupport {
 		} catch (IllegalArgumentException ex) {
 			return null;
 		}
-		Position after = pos.copyOf().play(move);
-		PgnNode current = new PgnNode(node.getSan(), parent, after.copyOf(), move, parent.getPly() + 1);
+		Position after = pos.copy().play(move);
+		PgnNode current = new PgnNode(node.getSan(), parent, after.copy(), move, parent.getPly() + 1);
 		current.setComment(joinComments(node.getCommentsAfter()));
 		current.setNag(pickNag(node.getNags()));
-		PgnNode mainNext = buildPgnNode(current, node.getNext(), after.copyOf());
+		PgnNode mainNext = buildPgnNode(current, node.getNext(), after.copy());
 		current.setMainNext(mainNext);
 		for (Game.Node variation : node.getVariations()) {
-			PgnNode varNode = buildPgnNode(current, variation, after.copyOf());
+			PgnNode varNode = buildPgnNode(current, variation, after.copy());
 			if (varNode != null) {
 				current.getVariations().add(varNode);
 			}
@@ -99,12 +98,12 @@ public final class PgnStructureSupport {
 			if (comment == null || comment.isBlank()) {
 				continue;
 			}
-			if (sb.length() > 0) {
+			if (!sb.isEmpty()) {
 				sb.append('\n');
 			}
 			sb.append(comment.trim());
 		}
-		return sb.length() == 0 ? null : sb.toString();
+		return sb.isEmpty() ? null : sb.toString();
 	}
 
 	/**
@@ -199,13 +198,13 @@ public final class PgnStructureSupport {
 	 */
 	private static Position chooseStartPosition(PgnNavigator navigator, Position startPosition, List<Position> history) {
 		if (navigator != null && navigator.getRoot() != null && navigator.getRoot().getPositionAfter() != null) {
-			return navigator.getRoot().getPositionAfter().copyOf();
+			return navigator.getRoot().getPositionAfter().copy();
 		}
 		if (startPosition != null) {
-			return startPosition.copyOf();
+			return startPosition.copy();
 		}
 		if (history != null && !history.isEmpty()) {
-			return history.get(0).copyOf();
+			return history.get(0).copy();
 		}
 		return null;
 	}

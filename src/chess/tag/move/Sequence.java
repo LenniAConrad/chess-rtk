@@ -7,6 +7,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 
+import chess.core.MoveInference;
 import chess.core.MoveList;
 import chess.core.Position;
 import chess.core.SAN;
@@ -125,7 +126,7 @@ public final class Sequence {
         for (int i = start; i < end; i++) {
             Position from = positions.get(i);
             Position to = positions.get(i + 1);
-            short move = inferMove(from, to);
+            short move = MoveInference.uniqueMove(from, to);
             if (move == chess.core.Move.NO_MOVE) {
                 processPlies(positions, tags, plies, segmentStart);
                 plies.clear();
@@ -133,7 +134,7 @@ public final class Sequence {
                 continue;
             }
             String san = SAN.toAlgebraic(from, move);
-            plies.add(new Ply(move, san, from.getFullMove(), from.isWhiteTurn(), i));
+            plies.add(new Ply(move, san, from.fullMoveNumber(), from.isWhiteToMove(), i));
         }
         processPlies(positions, tags, plies, segmentStart);
     }
@@ -178,30 +179,6 @@ public final class Sequence {
     }
 
     /**
-     * Infers the unique legal move that transforms one position into another.
-     *
-     * @param from the source position
-     * @param to the target position
-     * @return the inferred move, or {@code NO_MOVE} when none or multiple moves match
-     */
-    private static short inferMove(Position from, Position to) {
-        long target = to.signatureCore();
-        MoveList moves = from.getMoves();
-        short found = chess.core.Move.NO_MOVE;
-        for (int i = 0; i < moves.size(); i++) {
-            short move = moves.get(i);
-            Position candidate = from.copyOf().play(move);
-            if (candidate.signatureCore() == target) {
-                if (found != chess.core.Move.NO_MOVE) {
-                    return chess.core.Move.NO_MOVE;
-                }
-                found = move;
-            }
-        }
-        return found;
-    }
-
-    /**
      * Finds a move that becomes illegal after the disabler ply.
      *
      * @param previous the position before the disabler
@@ -210,7 +187,7 @@ public final class Sequence {
      * @return the formatted disable tag, or {@code null} when none is found
      */
     private static String findDisableTag(Position previous, Position current, Ply disabler) {
-        MoveList prevMoves = previous.getMoves();
+        MoveList prevMoves = previous.legalMoves();
         byte disablerFrom = chess.core.Move.getFromIndex(disabler.move);
         for (int i = 0; i < prevMoves.size(); i++) {
             short move = prevMoves.get(i);
@@ -281,8 +258,8 @@ public final class Sequence {
      */
     private static String formatMove(Position position, short move) {
         String san = SAN.toAlgebraic(position, move);
-        int moveNumber = position.getFullMove();
-        if (position.isWhiteTurn()) {
+        int moveNumber = position.fullMoveNumber();
+        if (position.isWhiteToMove()) {
             return moveNumber + DOT_SPACE + san;
         }
         return moveNumber + ELLIPSIS_SPACE + san;

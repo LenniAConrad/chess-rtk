@@ -8,6 +8,11 @@ ChessRTK can produce native vector PDFs for three publishing jobs:
 
 No LaTeX step is required for these commands.
 
+The native book renderer keeps publishing-specific text helpers in
+`chess.book.render`. Solution SAN in captions and tables is converted to
+figurine algebraic notation, so moves such as `Qxe8+` render with chess
+figurines and a multiplication sign for captures.
+
 ## Minimal workflow
 
 ```bash
@@ -19,6 +24,16 @@ crtk book cover -i books/puzzles.toml --check \
 crtk book cover -i books/puzzles.toml -o dist/puzzles-cover.pdf \
   --binding paperback --interior white-bw --pages 120
 ```
+
+For reviewer or free-edition copies, generate a traceable watermarked PDF:
+
+```bash
+crtk book render -i books/puzzles.toml -o dist/puzzles-review.pdf \
+  --watermark-id "ARC reviewer@example.com 2026-04-22"
+```
+
+`--watermark-id` implies `--watermark`; it adds page-specific overlay text,
+corner marks, and matching PDF metadata.
 
 Use `--pages` for the final printed page count after the interior PDF has been
 rendered. If omitted, the cover command uses `pages` from the manifest; if that
@@ -117,10 +132,13 @@ After editing publishing code or manifests, these checks cover the native PDF
 paths:
 
 ```bash
-java -cp out testing.BookRegressionTest
-java -cp out testing.ChessBookCommandRegressionTest
-java -cp out testing.ChessBookCoverCommandRegressionTest
+java -Djava.awt.headless=true -cp out testing.BookRegressionTest
+java -Djava.awt.headless=true -cp out testing.ChessBookCommandRegressionTest
+java -Djava.awt.headless=true -cp out testing.ChessBookCoverCommandRegressionTest
 ```
+
+Use `-Djava.awt.headless=true` on machines without a reachable display server,
+including CI and many remote shells.
 
 For print-on-demand dimensions, compare the final values printed by
 `book cover --check` with the publishing service's own cover calculator

@@ -1,7 +1,7 @@
 package testing;
 
-import java.io.ByteArrayOutputStream;
-import java.io.PrintStream;
+import static testing.TestSupport.*;
+
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -147,7 +147,7 @@ public final class ChessBookCommandRegressionTest {
 		String console = captureStdout(() -> ChessBookCommand.runChessBook(new Argv(new String[] {
 				"--input", input.toString(),
 				"--output", output.toString(),
-				"--free-watermark"
+				"--watermark-id", "CLI-ARC-42"
 		})));
 
 		byte[] bytes = Files.readAllBytes(output);
@@ -155,27 +155,10 @@ public final class ChessBookCommandRegressionTest {
 		assertTrue(bytes.length > 45_000, "watermarked pdf size");
 		assertTrue(text.contains("Free electronic copy; printing, resale, and unauthorized redistribution not allowed"),
 				"watermarked subject metadata");
+		assertTrue(text.contains("Watermark ID CLI-ARC-42"), "watermarked id metadata");
 		assertTrue(text.contains("/ExtGState"), "watermark opacity resources");
-		assertTrue(console.contains("free watermarked PDF"), "watermark console marker");
+		assertTrue(console.contains("watermark ID embedded"), "watermark console marker");
 		assertFalse(text.contains("/Subtype /Image"), "watermark raster image marker");
-	}
-
-	/**
-	 * Captures standard output while running a small regression action.
-	 *
-	 * @param action action to run
-	 * @return captured standard output as UTF-8-compatible text
-	 */
-	private static String captureStdout(Runnable action) {
-		PrintStream original = System.out;
-		ByteArrayOutputStream buffer = new ByteArrayOutputStream();
-		try (PrintStream replacement = new PrintStream(buffer, true, StandardCharsets.UTF_8)) {
-			System.setOut(replacement);
-			action.run();
-		} finally {
-			System.setOut(original);
-		}
-		return buffer.toString(StandardCharsets.UTF_8);
 	}
 
 	/**
@@ -245,29 +228,5 @@ public final class ChessBookCommandRegressionTest {
 					.append("moves = \"").append(moves[i % moves.length]).append("\"\n\n");
 		}
 		return builder.toString();
-	}
-
-	/**
-	 * Fails when the supplied condition is false.
-	 *
-	 * @param condition condition to verify
-	 * @param label failure label
-	 */
-	private static void assertTrue(boolean condition, String label) {
-		if (!condition) {
-			throw new AssertionError(label + ": expected true");
-		}
-	}
-
-	/**
-	 * Fails when the supplied condition is true.
-	 *
-	 * @param condition condition to verify
-	 * @param label failure label
-	 */
-	private static void assertFalse(boolean condition, String label) {
-		if (condition) {
-			throw new AssertionError(label + ": expected false");
-		}
 	}
 }

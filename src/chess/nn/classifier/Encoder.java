@@ -1,7 +1,6 @@
 package chess.nn.classifier;
 
 import chess.core.Field;
-import chess.core.Piece;
 import chess.core.Position;
 
 /**
@@ -40,8 +39,8 @@ public final class Encoder {
      * @return encoded planes (length {@code 21 * 64})
      */
     public static float[] encode(Position position) {
-        boolean weAreBlack = !position.isWhiteTurn();
-        long[] pieceBitboards = collectPieceBitboards(position.getBoard());
+        boolean weAreBlack = !position.isWhiteToMove();
+        long[] pieceBitboards = collectPieceBitboards(position);
         long[] perspective = toSideToMovePerspective(pieceBitboards, weAreBlack);
 
         float[] planes = new float[TOTAL_CHANNELS * 64];
@@ -51,41 +50,30 @@ public final class Encoder {
     }
 
     /**
-     * Collects per-piece bitboards from a {@link Position} board.
+     * Collects per-piece bitboards from a {@link Position}.
      *
      * <p>Output order: WP,WN,WB,WR,WQ,WK,BP,BN,BB,BR,BQ,BK.
      *
-     * @param board board array from {@link Position}
+     * @param position source position
      * @return per-piece bitboards in white-first order
      */
-    private static long[] collectPieceBitboards(byte[] board) {
+    private static long[] collectPieceBitboards(Position position) {
         long[] bits = new long[12];
-
-        for (int i = 0; i < 64; i++) {
-            byte piece = board[i];
-            int abs = piece < 0 ? -piece : piece;
-            if (piece != Piece.EMPTY && abs >= Piece.PAWN && abs <= Piece.KING) {
-                int square = positionIndexToPlaneSquare(i);
-                long mask = 1L << square;
-                int typeIndex = abs - 1;
-                int colorOffset = piece < 0 ? 6 : 0;
-                bits[colorOffset + typeIndex] |= mask;
-            }
+        for (int i = 0; i < bits.length; i++) {
+            bits[i] = positionToPlaneBits(position.pieces(i));
         }
         return bits;
     }
 
     /**
-     * Converts {@link Position}'s board indexing ({@code 0=a8..63=h1}) to plane
-     * indexing ({@code 0=a1..63=h8}).
+     * Converts core bitboard indexing ({@code 0=a8..63=h1}) to plane indexing
+     * ({@code 0=a1..63=h8}).
      *
-     * @param positionIndex square index in {@link Position}
-     * @return square index in plane ordering
+     * @param bits core-indexed bitboard
+     * @return plane-indexed bitboard
      */
-    private static int positionIndexToPlaneSquare(int positionIndex) {
-        int rankFromTop = positionIndex >>> 3;
-        int file = positionIndex & 7;
-        return ((7 - rankFromTop) << 3) | file;
+    private static long positionToPlaneBits(long bits) {
+        return mirrorRanks(bits);
     }
 
     /**
@@ -132,10 +120,10 @@ public final class Encoder {
      * @param weAreBlack {@code true} when encoding from black's perspective
      */
     private static void writeAuxPlanes(float[] planes, Position position, boolean weAreBlack) {
-        boolean whiteCastleK = position.getWhiteKingside() != Field.NO_SQUARE;
-        boolean whiteCastleQ = position.getWhiteQueenside() != Field.NO_SQUARE;
-        boolean blackCastleK = position.getBlackKingside() != Field.NO_SQUARE;
-        boolean blackCastleQ = position.getBlackQueenside() != Field.NO_SQUARE;
+        boolean whiteCastleK = position.activeCastlingMoveTarget(Position.WHITE_KINGSIDE) != Field.NO_SQUARE;
+        boolean whiteCastleQ = position.activeCastlingMoveTarget(Position.WHITE_QUEENSIDE) != Field.NO_SQUARE;
+        boolean blackCastleK = position.activeCastlingMoveTarget(Position.BLACK_KINGSIDE) != Field.NO_SQUARE;
+        boolean blackCastleQ = position.activeCastlingMoveTarget(Position.BLACK_QUEENSIDE) != Field.NO_SQUARE;
 
         boolean weCastleQ = weAreBlack ? blackCastleQ : whiteCastleQ;
         boolean weCastleK = weAreBlack ? blackCastleK : whiteCastleK;
@@ -158,7 +146,7 @@ public final class Encoder {
             fillOnes(planes, BLACK_TO_MOVE_PLANE);
         }
 
-        fillConstant(planes, 18, position.getHalfMove());
+        fillConstant(planes, 18, position.halfMoveClock());
         fillOnes(planes, 20);
     }
 

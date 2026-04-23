@@ -191,21 +191,21 @@ public final class PgnOps {
 	public static List<Record> extractRecordsMainline(Game game) {
 		List<Record> positions = new ArrayList<>();
 		Position start = game.getStartPosition() != null
-				? game.getStartPosition().copyOf()
+				? game.getStartPosition().copy()
 				: new Position(Game.STANDARD_START_FEN);
 
 		Game.Node cur = game.getMainline();
-		Position current = start.copyOf();
+		Position current = start.copy();
 		while (cur != null) {
-			Position parent = current.copyOf();
+			Position parent = current.copy();
 			Position child;
 			try {
 				short move = SAN.fromAlgebraic(parent, cur.getSan());
-				child = parent.copyOf().play(move);
+				child = parent.copy().play(move);
 			} catch (IllegalArgumentException ex) {
 				break;
 			}
-			positions.add(new Record().withParent(parent).withPosition(child.copyOf()));
+			positions.add(new Record().withParent(parent).withPosition(child.copy()));
 			current = child;
 			cur = cur.getNext();
 		}
@@ -225,7 +225,7 @@ public final class PgnOps {
 	public static List<Record> extractRecordsWithVariations(Game game) {
 		List<Record> positions = new ArrayList<>();
 		Position start = game.getStartPosition() != null
-				? game.getStartPosition().copyOf()
+				? game.getStartPosition().copy()
 				: new Position(Game.STANDARD_START_FEN);
 
 		/**
@@ -249,10 +249,10 @@ public final class PgnOps {
 
 		java.util.ArrayDeque<Work> stack = new java.util.ArrayDeque<>();
 		if (game.getMainline() != null) {
-			stack.push(new Work(game.getMainline(), start.copyOf()));
+			stack.push(new Work(game.getMainline(), start.copy()));
 		}
 		for (Game.Node rootVar : game.getRootVariations()) {
-			stack.push(new Work(rootVar, start.copyOf()));
+			stack.push(new Work(rootVar, start.copy()));
 		}
 
 		while (!stack.isEmpty()) {
@@ -260,18 +260,18 @@ public final class PgnOps {
 			Position current = work.pos();
 			Game.Node cur = work.node();
 			while (cur != null) {
-				Position parent = current.copyOf();
+				Position parent = current.copy();
 				Position child;
 				try {
 					short move = SAN.fromAlgebraic(parent, cur.getSan());
-					child = parent.copyOf().play(move);
+					child = parent.copy().play(move);
 				} catch (IllegalArgumentException ex) {
 					break;
 				}
-				positions.add(new Record().withParent(parent).withPosition(child.copyOf()));
+				positions.add(new Record().withParent(parent).withPosition(child.copy()));
 				for (Game.Node variation : cur.getVariations()) {
 					// PGN variations branch from the position before the current move.
-					stack.push(new Work(variation, parent.copyOf()));
+					stack.push(new Work(variation, parent.copy()));
 				}
 				current = child;
 				cur = cur.getNext();

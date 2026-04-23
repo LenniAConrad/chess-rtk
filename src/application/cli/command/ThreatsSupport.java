@@ -30,7 +30,7 @@ final class ThreatsSupport {
             throw new IllegalArgumentException("unexpected FEN: " + base);
         }
 
-        boolean wasWhite = base.isWhiteTurn();
+        boolean wasWhite = base.isWhiteToMove();
         String newTurn = wasWhite ? "b" : "w";
 
         String placement = parts[0];

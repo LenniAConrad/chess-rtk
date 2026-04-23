@@ -1,5 +1,7 @@
 package testing;
 
+import static testing.TestSupport.*;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -132,69 +134,5 @@ public final class BooleansRegressionTest {
 		assertTrue(Booleans.same((byte) -1), "byte all bits equal set");
 		assertTrue(Booleans.xOr((byte) 0x40), "byte exactly one bit");
 		assertTrue(Booleans.notSame((byte) 3), "byte mixed bits");
-	}
-
-	/**
-	 * Verifies truth.
-	 *
-	 * @param actual the value to inspect.
-	 * @param label  the assertion label.
-	 */
-	private static void assertTrue(boolean actual, String label) {
-		if (!actual) {
-			throw new AssertionError(label + ": expected true");
-		}
-	}
-
-	/**
-	 * Verifies falsehood.
-	 *
-	 * @param actual the value to inspect.
-	 * @param label  the assertion label.
-	 */
-	private static void assertFalse(boolean actual, String label) {
-		if (actual) {
-			throw new AssertionError(label + ": expected false");
-		}
-	}
-
-	/**
-	 * Verifies object identity.
-	 *
-	 * @param expected the expected object.
-	 * @param actual   the actual object.
-	 * @param label    the assertion label.
-	 */
-	private static void assertSame(Object expected, Object actual, String label) {
-		if (expected != actual) {
-			throw new AssertionError(label + ": expected same object");
-		}
-	}
-
-	/**
-	 * Verifies object equality.
-	 *
-	 * @param expected the expected object.
-	 * @param actual   the actual object.
-	 * @param label    the assertion label.
-	 */
-	private static void assertEquals(Object expected, Object actual, String label) {
-		if (!expected.equals(actual)) {
-			throw new AssertionError(label + ": expected " + expected + ", got " + actual);
-		}
-	}
-
-	/**
-	 * Verifies boolean-array equality.
-	 *
-	 * @param expected the expected array.
-	 * @param actual   the actual array.
-	 * @param label    the assertion label.
-	 */
-	private static void assertArrayEquals(boolean[] expected, boolean[] actual, String label) {
-		if (!Arrays.equals(expected, actual)) {
-			throw new AssertionError(label + ": expected " + Arrays.toString(expected)
-					+ ", got " + Arrays.toString(actual));
-		}
 	}
 }

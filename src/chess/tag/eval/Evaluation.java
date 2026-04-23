@@ -63,15 +63,15 @@ public final class Evaluation {
         Objects.requireNonNull(evaluator, EVALUATOR);
 
         List<String> tags = new ArrayList<>(3);
-        tags.add(META_TO_MOVE_PREFIX + (position.isWhiteTurn() ? WHITE : BLACK));
+        tags.add(META_TO_MOVE_PREFIX + (position.isWhiteToMove() ? WHITE : BLACK));
 
-        if (position.isMate()) {
+        if (position.isCheckmate()) {
             tags.add(STATUS_PREFIX + CHECKMATED);
             addPuzzleTagIfAny(tags, analysis);
             return List.copyOf(tags);
         }
 
-        MoveList moves = position.getMoves();
+        MoveList moves = position.legalMoves();
         if (moves.isEmpty()) {
             if (!position.inCheck()) {
                 tags.add(STATUS_PREFIX + STALEMATE);
@@ -92,8 +92,8 @@ public final class Evaluation {
         }
 
         for (int i = 0; i < moves.size(); i++) {
-            Position next = position.copyOf().play(moves.get(i));
-            if (next.isMate()) {
+            Position next = position.copy().play(moves.get(i));
+            if (next.isCheckmate()) {
                 tags.add(META_MATE_IN_PREFIX + 1);
                 addPuzzleTagIfAny(tags, analysis);
                 return List.copyOf(tags);

@@ -1,36 +1,71 @@
-# ChessRTK docs (CLI: `crtk`)
+# ChessRTK Documentation
 
-This folder holds the long-form docs for ChessRTK (CLI: `crtk`). The root `README.md` gives the project overview and quick build/run commands.
+ChessRTK (`crtk`) is a Java 17 command-line toolkit for chess research,
+position handling, move-generation validation, engine orchestration, puzzle
+mining, dataset export, tagging, rendering, and book publishing.
 
-Preferred CLI shape:
-- Use grouped commands for new scripts: `record`, `fen`, `move`, `engine`, `book`, and `puzzle`.
-- Legacy top-level shortcuts have been removed from the public CLI.
-- Removed commands: `gui2`, `cuda-info`, `mine`, `evaluate`, `stack-to-dataset`.
+If the launcher is not installed, replace `crtk <command> ...` with
+`java -cp out application.Main <command> ...` after compiling the project.
 
-If you did **not** run `./install.sh`, replace `crtk <command> ...` with `java -cp out application.Main <command> ...` (after building).
+## Start Here
 
-## Start here
-
-- [Build & install](build-and-install.md)
+- [Build and install](build-and-install.md)
 - [Configuration](configuration.md)
 - [Command reference](command-reference.md)
 - [Example commands](example-commands.md)
-- [Book publishing](book-publishing.md)
-- [Roadmap / ideas](roadmap.md)
+- [Troubleshooting](troubleshooting.md)
 
-## Deep dives
+## Capability Map
+
+| Task | Main commands | Docs |
+| --- | --- | --- |
+| Validate, normalize, and print positions | `fen validate`, `fen normalize`, `fen print` | [Command reference](command-reference.md) |
+| Generate and extract positions | `fen generate`, `fen pgn`, `fen chess960` | [Mining puzzles](mining.md) |
+| List, convert, and apply moves | `move list`, `move to-san`, `move to-uci`, `move after`, `move play` | [AI agents and automation](ai-agents.md) |
+| Verify move generation | `engine perft`, `engine perft-suite` | [Development notes](development-notes.md) |
+| Analyze with UCI engines | `engine analyze`, `engine bestmove`, `engine threats`, `engine uci-smoke` | [Configuration](configuration.md) |
+| Search in-process | `engine builtin`, `engine static`, `engine eval` | [In-house Java engine](in-house-engine.md) |
+| Mine and export puzzles | `puzzle mine`, `puzzle pgn`, `record files` | [Mining puzzles](mining.md), [Filter DSL](filter-dsl.md) |
+| Tag positions and lines | `fen tags`, `puzzle tags` | [Tagging implementation plan](tagging-implementation-plan.md), [Piece tags](piece-tags.md) |
+| Generate text from tags | `fen text`, `puzzle text` | [T5 tag-to-text pipeline](t5.md) |
+| Export training data | `record dataset npy`, `record dataset lc0`, `record dataset classifier`, `record export training-jsonl`, `record export puzzle-jsonl` | [Datasets](datasets.md) |
+| Render images and PDFs | `fen render`, `fen display`, `book pdf`, `book render`, `book cover` | [Book publishing](book-publishing.md) |
+| Automate safely | `doctor`, `config validate`, deterministic move/bestmove commands | [AI agents and automation](ai-agents.md) |
+
+## Core Workflow
+
+1. Build the project with the JDK or install the `crtk` launcher.
+2. Validate configuration with `crtk doctor` and `crtk config validate`.
+3. Create seed positions from FEN files, PGNs, random legal generation, or
+   Chess960 starts.
+4. Inspect and validate the chess core with `move list`, `fen normalize`,
+   `engine perft`, and `engine perft-suite`.
+5. Analyze positions with a configured UCI engine or with the built-in Java
+   search and evaluators.
+6. Mine, filter, and summarize puzzle/record dumps with the `puzzle` and
+   `record` command groups.
+7. Export the resulting data to PGN, CSV, JSONL, NumPy tensors, LC0-style
+   tensors, classifier tensors, diagrams, or PDFs.
+
+## Deep Dives
 
 - [Mining puzzles](mining.md)
 - [Filter DSL](filter-dsl.md)
-- [Outputs & logs](outputs-and-logs.md)
+- [Outputs and logs](outputs-and-logs.md)
 - [Datasets](datasets.md)
-- [Lc0 (UCI weights + Java evaluator)](lc0.md)
+- [In-house Java engine](in-house-engine.md)
+- [LC0 UCI weights and Java evaluator](lc0.md)
 - [T5 tag-to-text pipeline](t5.md)
-- [AI agents & automation](ai-agents.md)
-- [Troubleshooting](troubleshooting.md)
-
-## Misc
-
-- [Piece tags](piece-tags.md)
+- [AI agents and automation](ai-agents.md)
 - [Development notes](development-notes.md)
+
+## Publishing
+
+- [Book publishing](book-publishing.md)
+- [Piece tags](piece-tags.md)
+- [Tagging implementation plan](tagging-implementation-plan.md)
+
+## Maintenance
+
 - [Releasing](releasing.md)
+- [Roadmap and ideas](roadmap.md)

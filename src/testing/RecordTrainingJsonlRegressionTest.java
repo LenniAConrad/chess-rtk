@@ -1,5 +1,7 @@
 package testing;
 
+import static testing.TestSupport.*;
+
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -93,18 +95,6 @@ public final class RecordTrainingJsonlRegressionTest {
 	private static void assertContains(String value, String needle) {
 		if (!value.contains(needle)) {
 			throw new AssertionError("Expected to find " + needle + " in " + value);
-		}
-	}
-
-	/**
-	 * Handles assert equals.
-	 * @param expected expected
-	 * @param actual actual
-	 * @param label label
-	 */
-	private static void assertEquals(int expected, int actual, String label) {
-		if (expected != actual) {
-			throw new AssertionError(label + ": expected " + expected + " but got " + actual);
 		}
 	}
 }

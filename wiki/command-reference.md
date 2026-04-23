@@ -4,12 +4,27 @@ All commands are subcommands of `application.Main`.
 
 - Installed launcher: `crtk <command> ...`
 - From classes: `java -cp out application.Main <command> ...`
-- Proposed/future additions: `roadmap.md`
+- Built-in usage text: `crtk help --full`
 
-Preferred shape:
-- Use grouped commands for new scripts: `record`, `fen`, `move`, `engine`, `book`, and `puzzle`.
-- Legacy top-level shortcuts have been removed from the public CLI.
-- Removed commands: `gui2`, `cuda-info`, `mine`, `evaluate`, `stack-to-dataset`.
+Use grouped commands for scripts and automation: `record`, `fen`, `move`,
+`engine`, `book`, and `puzzle`.
+
+## Capability Overview
+
+| Area | Commands |
+| --- | --- |
+| Position parsing and generation | `fen normalize`, `fen validate`, `fen generate`, `fen pgn`, `fen chess960` |
+| Board inspection and rendering | `fen print`, `fen display`, `fen render`, `book pdf` |
+| Move primitives | `move list`, `move uci`, `move san`, `move both`, `move to-san`, `move to-uci`, `move after`, `move play` |
+| Move-generation validation | `engine perft`, `engine perft-suite` |
+| External UCI engines | `engine analyze`, `engine bestmove`, `engine threats`, `engine uci-smoke` |
+| Built-in search and evaluation | `engine builtin`, `engine java`, `engine eval`, `engine static` |
+| Puzzle mining and conversion | `puzzle mine`, `puzzle pgn` |
+| Tagging and text generation | `fen tags`, `puzzle tags`, `fen text`, `puzzle text` |
+| Record processing | `record files`, `record stats`, `record tag-stats`, `record analysis-delta` |
+| Dataset export | `record dataset npy`, `record dataset lc0`, `record dataset classifier`, `record export training-jsonl`, `record export puzzle-jsonl` |
+| Publishing | `book render`, `book cover`, `book pdf` |
+| Local health checks | `doctor`, `config show`, `config validate`, `engine gpu` |
 
 ## `record`
 
@@ -30,7 +45,7 @@ Usage:
 - `crtk record tag-stats ...`: summarize tag distributions
 - `crtk record analysis-delta ...`: export evaluation stability metrics
 
-Short record forms such as `crtk record csv ...` still resolve to the same implementations.
+Use the full `record export ...` and `record dataset ...` forms in scripts.
 
 ## `fen`
 
@@ -74,6 +89,8 @@ Usage:
 - `crtk engine bestmove-uci ...`: print the best move in UCI
 - `crtk engine bestmove-san ...`: print the best move in SAN
 - `crtk engine bestmove-both ...`: print the best move in UCI and SAN
+- `crtk engine builtin ...`: search with the in-house Java fallback engine
+- `crtk engine java ...`: run the same built-in Java engine
 - `crtk engine threats ...`: analyze opponent threats
 - `crtk engine eval ...`: evaluate a FEN with LC0 or classical heuristics
 - `crtk engine static ...`: evaluate a FEN with the classical backend
@@ -81,6 +98,64 @@ Usage:
 - `crtk engine perft-suite ...`: run the perft regression suite
 - `crtk engine gpu ...`: print GPU JNI backend status
 - `crtk engine uci-smoke ...`: start the engine and run a tiny bounded search
+
+## `engine builtin`
+
+Search a position with ChessRTK's in-house Java engine. `engine java` runs the
+same implementation.
+
+The built-in engine is mainly a fallback and benchmarking engine. It is useful
+for deterministic in-process search, smoke tests, puzzle-solve timing, and
+automation that should not depend on spawning a UCI engine. It is not intended
+to be a top-tier engine competing with Stockfish or LC0.
+
+Examples:
+
+```bash
+crtk engine builtin --fen "<FEN>" --depth 20
+crtk engine builtin --fen "<FEN>" --depth 4 --format summary
+crtk engine builtin --fen "<FEN>" --depth 5 --nodes 250000 --format both
+crtk engine builtin --fen "<FEN>" --depth 8 --max-duration 2s --format summary
+crtk engine builtin --input positions.txt --depth 3 --format uci
+crtk engine builtin --evaluator nnue --weights models/crtk-halfkp.nnue --fen "<FEN>"
+crtk engine builtin --lc0 --weights models/leela_112planes-10blocksx128-policyhead80-valuehead32-policy4672-wdl3.bin --fen "<FEN>"
+```
+
+Options:
+- `--input|-i <path>`: FEN list file (optional)
+- `--fen "<FEN...>"`: FEN string (or pass it positionally)
+- `--evaluator <classical|nnue|lc0>`: static evaluator family (default `classical`)
+- `--classical`: shortcut for `--evaluator classical`
+- `--nnue`: shortcut for `--evaluator nnue`
+- `--lc0`: shortcut for `--evaluator lc0`
+- `--weights <path>`: NNUE or LC0 evaluator weights path
+- `--depth|-d <n>`: maximum iterative-deepening depth in plies (default `3`)
+- `--max-nodes|--nodes <n>`: node budget; `0` means unlimited. If omitted,
+  the default is `250000` without `--depth`, and unlimited when `--depth` is
+  explicit.
+- `--max-duration <dur>`: wall-clock budget; `0` means unlimited. If omitted,
+  the default is `5s` without `--depth`, and unlimited when `--depth` is
+  explicit.
+- `--format <uci-info|uci|san|both|summary>`: output format (default
+  `uci-info`)
+- `--verbose|-v`: print stack traces on failure
+
+Evaluator notes:
+- `classical`: handcrafted evaluator with no model dependency.
+- `nnue`: pure-Java NNUE evaluator using `models/crtk-halfkp.nnue` by default,
+  or an explicit `--weights` path.
+- `lc0`: pure-Java LC0 value evaluator using the configured LC0J model path by
+  default, or an explicit `--weights` path.
+
+Search notes:
+- The engine uses alpha-beta search, not LC0-style MCTS.
+- The default `uci-info` format prints one UCI-style `info depth ... pv ...`
+  line for each completed depth, then a final `bestmove ...` line.
+- If a slow evaluator exhausts the budget before depth 1 completes, `uci-info`
+  prints the static root fallback as `info depth 0 ... pv ...`.
+- Use `--format uci` for best-move-only UCI coordinate output.
+- `--format summary` prints the evaluator, best move, score, completed depth,
+  nodes, elapsed time, stopped flag, and principal variation.
 
 ## `book`
 
@@ -364,6 +439,8 @@ Options:
 
 Render a chess-book JSON or TOML manifest directly to a native PDF.
 The renderer builds cover/front matter, a generated table of contents, mirrored margins, puzzle/solution spreads, page numbers, running headers, and recurring solution tables.
+Solution moves are rendered as figurine algebraic notation in captions and
+tables.
 
 See also: `book-publishing.md`.
 
@@ -375,6 +452,7 @@ Options:
 - `--limit <n>`: render only the first `n` puzzles from the source manifest and update obvious source-count references in front matter
 - `--check|--validate`: validate layout, FENs, and solution lines without writing a PDF
 - `--free-watermark` / `--watermark`: add a noisy free-edition overlay to every page with visible print, resale, and unauthorized redistribution restrictions
+- `--watermark-id <text>`: embed a traceable watermark ID in page overlays and PDF metadata; implies `--watermark`
 - `--verbose|-v`: print stack traces on failure
 
 ## `book cover`
@@ -446,6 +524,17 @@ Options:
 ## `gui-web`
 
 Launch the chess-web-inspired desktop Swing GUI.
+
+Options:
+- `--fen "<FEN...>"` (or pass it positionally)
+- `--flip|--black-down`: render Black at the bottom
+- `--dark|--dark-mode`: start in dark UI theme
+- `--light`: start in light UI theme
+- `-h|--help`: show help
+
+## `gui-next`
+
+Launch the ChessRTK Studio GUI v3 research workbench.
 
 Options:
 - `--fen "<FEN...>"` (or pass it positionally)
@@ -779,20 +868,31 @@ Options:
 
 ## `engine perft`
 
-Run perft on a position (move generation validation).
+Run detailed perft on a position using the Java-native `chess.core` move
+generator. The output includes leaf nodes, captures, en-passant captures,
+castles, promotions, checks, checkmates, elapsed time, and nodes per second.
 
 Options:
 - `--fen "<FEN...>"`: FEN string (or pass it positionally; defaults to start position)
 - `--depth|-d <n>`: perft depth (required)
-- `--divide|--per-move`: print per-move breakdown
+- `--divide|--per-move`: print per-root-move detailed counters
 - `--verbose|-v`: print stack traces on failure
 
 ## `engine perft-suite`
 
-Run a compact perft regression suite with known node counts.
+Compare each critical standard and Chess960 perft position at one requested
+depth against Stockfish as the independent truth source. The command shows a
+progress bar while the rows run, then prints an aligned table with `Truth`,
+`Calculated`, `Speed`, and `Match` columns.
+
+The suite covers the standard start, Kiwipete, promotion, en-passant, open
+castling lanes, Chess960 starts/midgames, and a knight-heavy stress position.
+`Calculated` is always produced by the in-process Java core move generator.
 
 Options:
-- (no options)
+- `--depth|-d <n>`: depth to compare (default: 6)
+- `--threads <n>`: worker threads for independent positions (default: 1)
+- `--stockfish <path>`: Stockfish executable (default: `stockfish`)
 
 ## `doctor`
 

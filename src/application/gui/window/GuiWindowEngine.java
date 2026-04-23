@@ -3,7 +3,6 @@ package application.gui.window;
 import application.Config;
 import application.cli.Format;
 import application.cli.command.CommandSupport;
-import application.gui.model.CommandFieldBinding;
 import application.gui.model.CommandFieldSpec;
 import application.gui.model.CommandFieldType;
 import application.gui.model.CommandSpec;
@@ -12,45 +11,21 @@ import application.gui.model.EngineUpdate;
 import application.gui.model.ProtocolLoad;
 import application.gui.model.PvEntry;
 import application.gui.model.ReportUpdate;
-import application.gui.ui.GradientPanel;
-import application.gui.ui.RoundedPanel;
-import application.gui.ui.ThemedScrollBarUI;
-import application.gui.ui.ThemedSliderUI;
-import application.gui.ui.ThemedTabbedPaneUI;
-import application.gui.ui.ThemedToggleIcon;
-import application.gui.util.TransferableImage;
 
-import java.awt.BasicStroke;
 import java.awt.BorderLayout;
 import java.awt.Color;
-import java.awt.Composite;
-import java.awt.Cursor;
-import java.awt.Desktop;
 import java.awt.Dimension;
 import java.awt.Font;
-import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.Image;
-import java.awt.AlphaComposite;
-import java.awt.GridLayout;
-import java.awt.Insets;
 import java.awt.Point;
 import java.awt.Rectangle;
-import java.awt.RenderingHints;
-import java.awt.datatransfer.Clipboard;
-import java.awt.datatransfer.DataFlavor;
-import java.awt.datatransfer.StringSelection;
 import java.awt.Toolkit;
-import java.awt.KeyboardFocusManager;
 import java.awt.MouseInfo;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
-import java.awt.event.KeyEvent;
-import java.awt.event.WindowAdapter;
-import java.awt.event.WindowEvent;
 import java.awt.image.BufferedImage;
 import java.io.BufferedReader;
-import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
@@ -58,72 +33,25 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
-import java.util.Properties;
-import java.util.Random;
 
-import javax.imageio.ImageIO;
 import javax.swing.BorderFactory;
-import javax.swing.Box;
-import javax.swing.BoxLayout;
-import javax.swing.DefaultListModel;
-import javax.swing.JButton;
-import javax.swing.JCheckBox;
-import javax.swing.JComboBox;
-import javax.swing.JDialog;
 import javax.swing.JFileChooser;
-import javax.swing.JFrame;
 import javax.swing.JLabel;
-import javax.swing.JList;
-import javax.swing.JMenu;
-import javax.swing.JMenuItem;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
-import javax.swing.JPopupMenu;
-import javax.swing.JScrollPane;
-import javax.swing.JScrollBar;
-import javax.swing.JTabbedPane;
-import javax.swing.JSlider;
-import javax.swing.JSplitPane;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.SwingWorker;
-import javax.swing.Timer;
 import javax.swing.ImageIcon;
-import javax.swing.JComponent;
-import javax.swing.AbstractAction;
-import javax.swing.KeyStroke;
-import javax.swing.ActionMap;
-import javax.swing.InputMap;
-import javax.swing.TransferHandler;
-import javax.swing.SwingConstants;
 import javax.swing.JWindow;
-import javax.swing.text.JTextComponent;
-import javax.swing.border.Border;
-import javax.swing.border.EmptyBorder;
-import javax.swing.event.ChangeEvent;
-import javax.swing.event.ChangeListener;
-import javax.swing.event.DocumentEvent;
-import javax.swing.event.DocumentListener;
 import javax.swing.filechooser.FileNameExtensionFilter;
 
 import chess.core.Field;
 import chess.core.Move;
-import chess.core.MoveList;
 import chess.core.Piece;
 import chess.core.Position;
-import chess.core.SAN;
-import chess.core.Setup;
-import chess.eco.Encyclopedia;
-import chess.eco.Entry;
-import chess.images.assets.Pictures;
-import chess.struct.Game;
-import chess.struct.Pgn;
-import chess.tag.Tagging;
 import chess.uci.Analysis;
 import chess.uci.Chances;
 import chess.uci.Evaluation;
@@ -290,9 +218,12 @@ class GuiWindowEngine extends GuiWindowHistory {
 								}
 								int exit = process.waitFor();
 								publish("\n[exit " + exit + "]\n");
-							} catch (IOException | InterruptedException ex) {
-								publish("Error: " + ex.getMessage() + "\n");
-							} finally {
+								} catch (InterruptedException ex) {
+									Thread.currentThread().interrupt();
+									publish("Error: " + ex.getMessage() + "\n");
+								} catch (IOException ex) {
+									publish("Error: " + ex.getMessage() + "\n");
+								} finally {
 								currentProcess = null;
 							}
 							return null;
@@ -517,7 +448,7 @@ protected java.util.Map<String, CommandSpec> buildCommandSpecs() {
 										sleepQuietly(80);
 										continue;
 									}
-									Position pos = position.copyOf();
+									Position pos = position.copy();
 									String cacheKey = engineCacheKey(configKey, pos);
 									if (!endless) {
 										EngineCacheEntry cached = engineCache.get(cacheKey);
@@ -663,7 +594,7 @@ protected java.util.Map<String, CommandSpec> buildCommandSpecs() {
 							}
 							if (evalBar != null) {
 								if (update.eval() != null) {
-									evalBar.setEvaluation(update.eval(), position.isWhiteTurn());
+									evalBar.setEvaluation(update.eval(), position.isWhiteToMove());
 									repaintBoard = true;
 								} else {
 									evalBar.markPending();
@@ -838,7 +769,7 @@ private String failureMessage;
 										publish(new ReportUpdate(i + 1, targets.size()));
 										continue;
 									}
-									Position pos = node.positionAfter.copyOf();
+									Position pos = node.positionAfter.copy();
 									Analysis analysis = new Analysis();
 									engine.analyse(pos, analysis, null, nodes, duration);
 									Output best = analysis.getBestOutput(1);
@@ -1187,7 +1118,7 @@ private String failureMessage;
 						if (moves.isBlank()) {
 							continue;
 						}
-						String evalLabel = formatEvalLabelForWhite(out.getEvaluation(), position.isWhiteTurn());
+						String evalLabel = formatEvalLabelForWhite(out.getEvaluation(), position.isWhiteToMove());
 						String depthLabel = out.getDepth() + "/" + out.getSelectiveDepth();
 						nextEntries.add(new PvEntry(pv, moves, evalLabel, depthLabel));
 					}
@@ -1237,7 +1168,7 @@ private String failureMessage;
 					if (start == null || moves == null || moves.length == 0) {
 						return "";
 					}
-					Position cursor = start.copyOf();
+					Position cursor = start.copy();
 					StringBuilder sb = new StringBuilder(moves.length * 8);
 					boolean firstToken = true;
 					for (short move : moves) {
@@ -1248,13 +1179,13 @@ private String failureMessage;
 							break;
 						}
 						String san = Format.safeSan(cursor, move);
-						if (sb.length() > 0) {
+							if (!sb.isEmpty()) {
 							sb.append(' ');
 						}
-						if (cursor.isWhiteTurn()) {
-							sb.append(cursor.getFullMove()).append('.').append(displaySan(san));
+						if (cursor.isWhiteToMove()) {
+							sb.append(cursor.fullMoveNumber()).append('.').append(displaySan(san));
 						} else if (firstToken) {
-							sb.append(cursor.getFullMove()).append("...").append(displaySan(san));
+							sb.append(cursor.fullMoveNumber()).append("...").append(displaySan(san));
 						} else {
 							sb.append(displaySan(san));
 						}
@@ -1509,7 +1440,7 @@ private String failureMessage;
 								 * @param screenPoint parameter.
 								 */
 								protected void previewNodeHover(PgnNode node, Point screenPoint) {
-					Position previewPosition = node != null && node.positionAfter != null ? node.positionAfter.copyOf() : null;
+					Position previewPosition = node != null && node.positionAfter != null ? node.positionAfter.copy() : null;
 					short move = node != null ? node.move : Move.NO_MOVE;
 					if (boardPanel != null) {
 						boardPanel.setPreviewPosition(previewPosition, move);
@@ -1629,7 +1560,7 @@ private String failureMessage;
 					if (moves == null || moves.length == 0) {
 						return null;
 					}
-					Position preview = position.copyOf();
+					Position preview = position.copy();
 					int applied = 0;
 					for (short move : moves) {
 						if (move == Move.NO_MOVE || applied >= maxPlies) {
@@ -1792,7 +1723,7 @@ private String failureMessage;
 							bestMoves.append('\n');
 						}
 						String bestSan = Format.safeSan(pos, pvBest);
-						String evalLabel = formatEvalLabelForWhite(out.getEvaluation(), pos.isWhiteTurn());
+						String evalLabel = formatEvalLabelForWhite(out.getEvaluation(), pos.isWhiteToMove());
 						bestMoves.append(pv).append(". ").append(displaySan(bestSan));
 						if (!evalLabel.isBlank()) {
 							bestMoves.append("  ").append(evalLabel);
@@ -1868,7 +1799,7 @@ private String failureMessage;
 							bestMoves.append('\n');
 						}
 						String bestSan = Format.safeSan(pos, pvBest);
-						String evalLabel = formatEvalLabelForWhite(out.getEvaluation(), pos.isWhiteTurn());
+						String evalLabel = formatEvalLabelForWhite(out.getEvaluation(), pos.isWhiteToMove());
 						bestMoves.append(pv).append(". ").append(displaySan(bestSan));
 						if (!evalLabel.isBlank()) {
 							bestMoves.append("  ").append(evalLabel);
@@ -1876,7 +1807,7 @@ private String failureMessage;
 						firstBestLine = false;
 						firstBlock = false;
 					}
-					String output = sb.length() == 0 ? "analysis: (no pv moves yet)" : sb.toString().trim();
+						String output = sb.isEmpty() ? "analysis: (no pv moves yet)" : sb.toString().trim();
 					return new EngineUpdate(version, output, bestMoves.toString().trim(), bestEval, bestChances, analysis,
 							bestMove, "Running", false);
 				}
@@ -2133,8 +2064,8 @@ protected java.util.Map<Integer, Output> distinctPvSelection(Analysis analysis, 
 								 */
 								protected int getMultiPv() {
 					Object selected = engineMultiPvBox.getSelectedItem();
-					if (selected instanceof Integer) {
-						return Math.max(1, (Integer) selected);
+						if (selected instanceof Integer integer) {
+							return Math.max(1, integer);
 					}
 					return 1;
 				}
@@ -2316,7 +2247,7 @@ protected java.util.Map<Integer, Output> distinctPvSelection(Analysis analysis, 
 							continue;
 						}
 						if (Character.isWhitespace(c)) {
-							if (current.length() > 0) {
+								if (!current.isEmpty()) {
 								out.add(current.toString());
 								current.setLength(0);
 							}
@@ -2324,7 +2255,7 @@ protected java.util.Map<Integer, Output> distinctPvSelection(Analysis analysis, 
 						}
 						current.append(c);
 					}
-					if (current.length() > 0) {
+					if (!current.isEmpty()) {
 						out.add(current.toString());
 					}
 					return out;

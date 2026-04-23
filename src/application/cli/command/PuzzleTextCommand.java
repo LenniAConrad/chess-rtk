@@ -30,10 +30,8 @@ import java.util.Map;
 import java.util.Optional;
 
 import application.Config;
-import chess.core.Move;
-import chess.core.MoveList;
+import chess.core.MoveInference;
 import chess.core.Position;
-import chess.core.SAN;
 import chess.nn.t5.BinLoader;
 import chess.nn.t5.Model;
 import chess.nn.t5.Runner;
@@ -183,12 +181,12 @@ public final class PuzzleTextCommand {
             System.out.println(summary);
             return;
         }
-        MoveInfo moveInfo = moveInfoFor(rec, pos);
+        MoveInference.Notation moveInfo = moveInfoFor(rec, pos);
         StringBuilder sb = new StringBuilder(256).append('{');
         sb.append("\"fen\":\"").append(Json.esc(pos.toString())).append("\",");
-        sb.append("\"move_san\":").append(moveInfo == null ? "null" : "\"" + Json.esc(moveInfo.san) + "\"");
+        sb.append("\"move_san\":").append(moveInfo == null ? "null" : "\"" + Json.esc(moveInfo.san()) + "\"");
         sb.append(',');
-        sb.append("\"move_uci\":").append(moveInfo == null ? "null" : "\"" + Json.esc(moveInfo.uci) + "\"");
+        sb.append("\"move_uci\":").append(moveInfo == null ? "null" : "\"" + Json.esc(moveInfo.uci()) + "\"");
         sb.append(',');
         sb.append("\"summary\":\"").append(Json.esc(summary)).append("\"}");
         System.out.println(sb.toString());
@@ -200,8 +198,8 @@ public final class PuzzleTextCommand {
      * @param pos child position
      * @return move metadata or null
      */
-     private static MoveInfo moveInfoFor(chess.struct.Record rec, Position pos) {
-        return rec.getParent() == null ? null : inferMove(rec.getParent(), pos);
+     private static MoveInference.Notation moveInfoFor(chess.struct.Record rec, Position pos) {
+        return rec.getParent() == null ? null : MoveInference.notation(rec.getParent(), pos);
     }
 
      /**
@@ -314,49 +312,6 @@ public final class PuzzleTextCommand {
         }
         cache.put(fen, new TagEntry(tags));
         return tags;
-    }
-
-     /**
-     * Handles infer move.
-     * @param parent parent
-     * @param child child
-     * @return computed value
-     */
-     private static MoveInfo inferMove(Position parent, Position child) {
-        short move = inferMoveCode(parent, child);
-        if (move == Move.NO_MOVE) {
-            return null;
-        }
-        String san;
-        try {
-            san = SAN.toAlgebraic(parent, move);
-        } catch (RuntimeException ex) {
-            san = Move.toString(move);
-        }
-        return new MoveInfo(san, Move.toString(move));
-    }
-
-     /**
-     * Handles infer move code.
-     * @param from from
-     * @param to to
-     * @return computed value
-     */
-     private static short inferMoveCode(Position from, Position to) {
-        long target = to.signatureCore();
-        MoveList moves = from.getMoves();
-        short found = Move.NO_MOVE;
-        for (int i = 0; i < moves.size(); i++) {
-            short move = moves.get(i);
-            Position candidate = from.copyOf().play(move);
-            if (candidate.signatureCore() == target) {
-                if (found != Move.NO_MOVE) {
-                    return Move.NO_MOVE;
-                }
-                found = move;
-            }
-        }
-        return found;
     }
 
      /**
@@ -575,27 +530,4 @@ public final class PuzzleTextCommand {
         }
     }
 
-     /**
-     * Provides move info behavior.
-     */
-     private static final class MoveInfo {
-         /**
-         * Stores the san.
-         */
-         private final String san;
-         /**
-         * Stores the uci.
-         */
-         private final String uci;
-
-         /**
-         * Creates a new move info instance.
-         * @param san san
-         * @param uci uci
-         */
-         private MoveInfo(String san, String uci) {
-            this.san = san;
-            this.uci = uci;
-        }
-    }
 }

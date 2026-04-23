@@ -1,160 +1,40 @@
 package application.gui.window;
-import application.Config;
-import application.cli.Format;
-import application.cli.command.CommandSupport;
-import application.gui.model.CommandFieldBinding;
-import application.gui.model.CommandFieldSpec;
-import application.gui.model.CommandFieldType;
-import application.gui.model.CommandSpec;
 import application.gui.model.EngineCacheEntry;
-import application.gui.model.EngineUpdate;
 import application.gui.model.HistoryEntry;
 import application.gui.model.MovePair;
-import application.gui.model.PaletteCommand;
-import application.gui.model.PgnMainline;
-import application.gui.model.PvEntry;
-import application.gui.model.RecentCommand;
 import application.gui.model.ReportEntry;
-import application.gui.model.ReportUpdate;
-import application.gui.model.TabLabel;
 import application.gui.history.AblationSupport;
-import application.gui.history.FigurineSanFormatter;
-import application.gui.history.PvTextFormatter;
 import application.gui.history.text.HistoryTextSupport;
-import application.gui.ui.GradientPanel;
-import application.gui.ui.RoundedPanel;
-import application.gui.ui.FocusBorder;
-import application.gui.ui.ThemedScrollBarUI;
-import application.gui.ui.ThemedSliderUI;
-import application.gui.ui.ThemedSplitPaneUI;
-import application.gui.ui.ThemedTabbedPaneUI;
-import application.gui.ui.ThemedComboBoxUI;
-import application.gui.ui.ThemedToggleIcon;
-import application.gui.util.TransferableImage;
-import java.awt.BasicStroke;
-import java.awt.BorderLayout;
 import java.awt.Color;
-import java.awt.Component;
-import java.awt.Composite;
-import java.awt.Container;
-import java.awt.Cursor;
-import java.awt.Desktop;
-import java.awt.Dimension;
-import java.awt.Font;
-import java.awt.Graphics;
 import java.awt.Graphics2D;
-import java.awt.Image;
-import java.awt.AlphaComposite;
-import java.awt.GridLayout;
-import java.awt.Insets;
 import java.awt.Point;
-import java.awt.Rectangle;
 import java.awt.RenderingHints;
-import java.awt.datatransfer.Clipboard;
-import java.awt.datatransfer.DataFlavor;
-import java.awt.datatransfer.StringSelection;
-import java.awt.Toolkit;
-import java.awt.KeyboardFocusManager;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
-import java.awt.event.KeyEvent;
-import java.awt.event.WindowAdapter;
-import java.awt.event.WindowEvent;
 import java.awt.image.BufferedImage;
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
-import java.util.Properties;
-import java.util.Random;
-import java.util.Set;
-import javax.imageio.ImageIO;
-import javax.swing.BorderFactory;
-import javax.swing.Box;
-import javax.swing.BoxLayout;
-import javax.swing.ButtonGroup;
-import javax.swing.DefaultListModel;
-import javax.swing.JButton;
 import javax.swing.JCheckBox;
-import javax.swing.JComboBox;
 import javax.swing.JDialog;
-import javax.swing.JFileChooser;
-import javax.swing.JFrame;
-import javax.swing.JLabel;
 import javax.swing.JList;
-import javax.swing.JMenu;
-import javax.swing.JMenuItem;
-import javax.swing.JOptionPane;
-import javax.swing.JPanel;
-import javax.swing.JPopupMenu;
-import javax.swing.JScrollPane;
 import javax.swing.JScrollBar;
-import javax.swing.JTabbedPane;
-import javax.swing.JSlider;
-import javax.swing.JSplitPane;
 import javax.swing.JTable;
-import javax.swing.plaf.SplitPaneUI;
-import javax.swing.JTextArea;
-import javax.swing.JTextField;
 import javax.swing.SwingWorker;
 import javax.swing.SwingUtilities;
 import javax.swing.Timer;
 import javax.swing.ImageIcon;
 import javax.swing.JComponent;
-import javax.swing.AbstractAction;
-import javax.swing.KeyStroke;
-import javax.swing.ActionMap;
-import javax.swing.InputMap;
-import javax.swing.TransferHandler;
-import javax.swing.SwingConstants;
-import javax.swing.UIManager;
-import javax.swing.text.JTextComponent;
-import javax.swing.border.Border;
-import javax.swing.border.BevelBorder;
-import javax.swing.border.CompoundBorder;
-import javax.swing.border.EmptyBorder;
-import javax.swing.border.EtchedBorder;
-import javax.swing.border.LineBorder;
-import javax.swing.border.MatteBorder;
-import javax.swing.border.TitledBorder;
-import javax.swing.event.ChangeEvent;
-import javax.swing.event.ChangeListener;
-import javax.swing.event.DocumentEvent;
-import javax.swing.event.DocumentListener;
-import javax.swing.filechooser.FileNameExtensionFilter;
-import javax.swing.table.DefaultTableModel;
-import javax.swing.table.JTableHeader;
 import chess.core.Field;
 import chess.core.Move;
-import chess.core.MoveList;
 import chess.core.Piece;
 import chess.core.Position;
 import chess.core.SAN;
-import chess.core.Setup;
-import chess.eval.Evaluator;
-import chess.eco.Encyclopedia;
-import chess.eco.Entry;
 import chess.images.assets.Pictures;
-import chess.struct.Game;
-import chess.struct.Pgn;
 import chess.tag.Tagging;
-import chess.uci.Analysis;
-import chess.uci.Chances;
 import chess.uci.Evaluation;
-import chess.uci.Engine;
 import chess.uci.Output;
-import chess.uci.Protocol;
 
 /**
  * GuiWindowHistoryAnalysis class.
@@ -204,8 +84,8 @@ abstract class GuiWindowHistoryAnalysis extends GuiWindowHistoryTheme {
 				if (statusLeftLabel == null || statusRightLabel == null || position == null) {
 					return;
 				}
-				String side = position.isWhiteTurn() ? "White" : "Black";
-				String left = "Move " + position.getFullMove() + " | " + side + " to move";
+				String side = position.isWhiteToMove() ? "White" : "Black";
+				String left = "Move " + position.fullMoveNumber() + " | " + side + " to move";
 				statusLeftLabel.setText(left);
 
 				if (statusMiddleLabel != null) {
@@ -224,7 +104,7 @@ abstract class GuiWindowHistoryAnalysis extends GuiWindowHistoryTheme {
 					Output out = latestAnalysis.getBestOutput(1);
 					if (out != null) {
 						right.append("Depth ").append(out.getDepth());
-						String evalText = formatEvalLabelForWhite(out.getEvaluation(), position.isWhiteTurn());
+						String evalText = formatEvalLabelForWhite(out.getEvaluation(), position.isWhiteToMove());
 						if (!evalText.isBlank()) {
 							right.append(" • Eval ").append(evalText);
 						}
@@ -1159,7 +1039,7 @@ abstract class GuiWindowHistoryAnalysis extends GuiWindowHistoryTheme {
 						Evaluation eval = cachedEvalFor(cursor.positionAfter);
 						if (eval != null && eval.isValid()) {
 							int value = eval.getValue();
-							if (!cursor.positionAfter.isWhiteTurn()) {
+							if (!cursor.positionAfter.isWhiteToMove()) {
 								value = -value;
 							}
 							currentLabel = formatEvalLabel(value, eval.isMate());
@@ -1207,7 +1087,7 @@ abstract class GuiWindowHistoryAnalysis extends GuiWindowHistoryTheme {
 					return null;
 				}
 				int value = eval.getValue();
-				if (!pos.isWhiteTurn()) {
+				if (!pos.isWhiteToMove()) {
 					value = -value;
 				}
 				if (eval.isMate()) {
@@ -1260,7 +1140,7 @@ abstract class GuiWindowHistoryAnalysis extends GuiWindowHistoryTheme {
 					clearAblation();
 					return;
 				}
-				Position snapshot = position.copyOf();
+				Position snapshot = position.copy();
 				long requestVersion = ++ablationVersion;
 				SwingWorker<AblationResult, Void> worker = new SwingWorker<>() {
 										/**
@@ -1574,7 +1454,7 @@ abstract class GuiWindowHistoryAnalysis extends GuiWindowHistoryTheme {
 					int nag = nagFromLoss(loss);
 					String nagLabel = nagGlyphFromCode(nag);
 					String evalLabel = formatEvalLabelForWhite(node.analysisEval,
-							node.positionAfter != null && node.positionAfter.isWhiteTurn());
+							node.positionAfter != null && node.positionAfter.isWhiteToMove());
 					String lossLabel = loss == null ? "—" : loss + " cp";
 					String prefix = formatMovePrefix(node);
 					reportListModel.addElement(new ReportEntry(node, prefix, node.san, evalLabel, lossLabel, nagLabel, loss));
@@ -1582,7 +1462,7 @@ abstract class GuiWindowHistoryAnalysis extends GuiWindowHistoryTheme {
 						selectedIndex = i;
 					}
 					if (loss != null && parent != null && parent.positionAfter != null) {
-						boolean whiteMove = parent.positionAfter.isWhiteTurn();
+						boolean whiteMove = parent.positionAfter.isWhiteToMove();
 						if (whiteMove) {
 							whiteLoss += loss;
 							whiteCount++;

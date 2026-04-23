@@ -182,11 +182,11 @@ public final class TagTextCommand {
                         String summary = runner.generate(prompt, opts.maxNew);
                         printSummary(opts.includeFen, pos, summary);
                     } finally {
-                        step(bar);
+                        CommandSupport.step(bar);
                     }
                 }
             } finally {
-                finish(bar);
+                CommandSupport.finish(bar);
             }
         } catch (Exception ex) {
             System.err.println(COMMAND_LABEL + ": inference failed: " + ex.getMessage());
@@ -222,11 +222,11 @@ public final class TagTextCommand {
                         String summary = runner.generate(prompt, opts.maxNew);
                         printSummary(opts.includeFen, pos, summary);
                     } finally {
-                        step(bar);
+                        CommandSupport.step(bar);
                     }
                 }
             } finally {
-                finish(bar);
+                CommandSupport.finish(bar);
             }
         } catch (Exception ex) {
             System.err.println(COMMAND_LABEL + ": inference failed: " + ex.getMessage());
@@ -245,26 +245,6 @@ public final class TagTextCommand {
      */
      private static Bar positionProgressBar(List<Position> positions, String label) {
         return positions != null && positions.size() > 1 ? new Bar(positions.size(), label, false, System.err) : null;
-    }
-
-     /**
-     * Handles step.
-     * @param bar bar
-     */
-     private static void step(Bar bar) {
-        if (bar != null) {
-            bar.step();
-        }
-    }
-
-     /**
-     * Handles finish.
-     * @param bar bar
-     */
-     private static void finish(Bar bar) {
-        if (bar != null) {
-            bar.finish();
-        }
     }
 
      /**
