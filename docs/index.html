@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>ChessRTK Wiki Home | ChessRTK Wiki</title>
+  <title>ChessRTK Wiki | ChessRTK Wiki</title>
   <link rel="stylesheet" href="styles.css">
   <script defer src="search-index.js"></script>
   <script defer src="site.js"></script>
@@ -21,6 +21,8 @@
       <nav class="nav"><section class="nav-section"><h2>Start Here</h2>
 <a class="active" href="index.html" data-title="home">Home</a>
 <a class="" href="getting-started.html" data-title="getting started">Getting Started</a>
+<a class="" href="use-cases.html" data-title="use cases">Use Cases</a>
+<a class="" href="command-cheatsheet.html" data-title="command cheatsheet">Command Cheatsheet</a>
 <a class="" href="faq.html" data-title="faq">FAQ</a>
 <a class="" href="command-reference.html" data-title="command reference">Command Reference</a>
 <a class="" href="example-commands.html" data-title="example commands">Example Commands</a>
@@ -45,6 +47,7 @@
 </section>
 <section class="nav-section"><h2>Development</h2>
 <a class="" href="architecture.html" data-title="architecture">Architecture</a>
+<a class="" href="quality-and-testing.html" data-title="quality &amp; testing">Quality &amp; Testing</a>
 <a class="" href="development-notes.html" data-title="development notes">Development Notes</a>
 <a class="" href="releasing.html" data-title="releasing">Releasing</a>
 <a class="" href="roadmap.html" data-title="roadmap">Roadmap</a>
@@ -57,7 +60,7 @@
       <header class="topbar">
         <div>
           <span>Start Here</span>
-          <strong>ChessRTK Wiki Home</strong>
+          <strong>ChessRTK Wiki</strong>
         </div>
         <nav>
           <a href="index.html">Home</a>
@@ -77,52 +80,213 @@
 
       <main class="content-layout">
         <article class="content">
-          <h1 id="chessrtk-wiki-home">ChessRTK Wiki Home</h1>
-<p>ChessRTK (<code>crtk</code>) is a Java 17 toolkit for chess research, automation, puzzle mining, dataset export, and publishing. It is built around a shared legal move generator and position model so commands agree about FENs, SAN, UCI moves, Chess960, perft, tags, records, diagrams, and books.</p>
-<h2 id="for-users">For Users</h2>
-<ul>
-<li><a href="getting-started.html">Getting started</a></li>
-<li><a href="faq.html">FAQ</a></li>
-<li><a href="command-reference.html">Command reference</a></li>
-<li><a href="example-commands.html">Example commands</a></li>
-<li><a href="configuration.html">Configuration</a></li>
-<li><a href="troubleshooting.html">Troubleshooting</a></li>
-</ul>
-<h2 id="for-workflows">For Workflows</h2>
-<ul>
-<li><a href="mining.html">Mining puzzles</a></li>
-<li><a href="filter-dsl.html">Filter DSL</a></li>
-<li><a href="datasets.html">Datasets</a></li>
-<li><a href="book-publishing.html">Book publishing</a></li>
-<li><a href="piece-tags.html">Piece and position tags</a></li>
-<li><a href="outputs-and-logs.html">Outputs and logs</a></li>
-<li><a href="ai-agents.html">AI agents and automation</a></li>
-</ul>
-<h2 id="for-developers">For Developers</h2>
-<ul>
-<li><a href="architecture.html">Architecture</a></li>
-<li><a href="development-notes.html">Development notes</a></li>
-<li><a href="in-house-engine.html">In-house Java engine</a></li>
-<li><a href="lc0.html">LC0 UCI engine and Java evaluator</a></li>
-<li><a href="t5.html">T5 tag-to-text pipeline</a></li>
-<li><a href="releasing.html">Releasing</a></li>
-<li><a href="roadmap.html">Roadmap and ideas</a></li>
-<li><a href="glossary.html">Glossary</a></li>
-</ul>
-<h2 id="first-commands">First Commands</h2>
+          <h1 id="chessrtk-wiki">ChessRTK Wiki</h1>
+<p><img src="assets/banner/github/crtk-github-banner.png" alt="ChessRTK banner" loading="lazy"></p>
+<p>ChessRTK (<code>crtk</code>) is a Java 17 chess research toolkit for deterministic chess workflows: FEN and SAN handling, legal move generation, perft validation, engine analysis, puzzle mining, dataset export, board rendering, and native PDF book publishing.</p>
+<p>The project is organized around one shared position model. That means the same rules implementation drives command-line move lists, built-in search, UCI analysis, tags, datasets, diagrams, GUI views, and book output.</p>
+<h2 id="pick-your-path">Pick Your Path</h2>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>If you want to...</th>
+<th>Read this</th>
+<th>Then run</th>
+</tr></thead><tbody>
+<tr>
+<td>Install and verify ChessRTK</td>
+<td><a href="getting-started.html">Getting Started</a></td>
+<td><code>crtk doctor</code></td>
+</tr>
+<tr>
+<td>Choose the right workflow</td>
+<td><a href="use-cases.html">Use Cases</a></td>
+<td>start with the row that matches your job</td>
+</tr>
+<tr>
+<td>Copy useful recipes</td>
+<td><a href="command-cheatsheet.html">Command Cheatsheet</a></td>
+<td><code>crtk move list --startpos --format both</code></td>
+</tr>
+<tr>
+<td>Learn the command shape</td>
+<td><a href="command-reference.html">Command Reference</a></td>
+<td><code>crtk help --full</code></td>
+</tr>
+<tr>
+<td>Configure Stockfish or LC0</td>
+<td><a href="configuration.html">Configuration</a></td>
+<td><code>crtk engine uci-smoke --nodes 1</code></td>
+</tr>
+<tr>
+<td>Mine tactical data</td>
+<td><a href="mining.html">Mining Puzzles</a></td>
+<td><code>crtk puzzle mine --random-count 50 --output dump/</code></td>
+</tr>
+<tr>
+<td>Export training tensors</td>
+<td><a href="datasets.html">Datasets</a></td>
+<td><code>crtk record dataset npy -i dump/run.puzzles.json -o training/run</code></td>
+</tr>
+<tr>
+<td>Publish diagrams or books</td>
+<td><a href="book-publishing.html">Book Publishing</a></td>
+<td><code>crtk book render -i books/puzzles.toml --check</code></td>
+</tr>
+<tr>
+<td>Automate with stable outputs</td>
+<td><a href="ai-agents.html">AI Agents and Automation</a></td>
+<td><code>crtk move both --fen &quot;&lt;FEN&gt;&quot;</code></td>
+</tr>
+<tr>
+<td>Check quality before pushing</td>
+<td><a href="quality-and-testing.html">Quality and Testing</a></td>
+<td><code>./scripts/run_regression_suite.sh recommended</code></td>
+</tr>
+<tr>
+<td>Diagnose a failure</td>
+<td><a href="troubleshooting.html">Troubleshooting</a></td>
+<td>start with the matching failure section</td>
+</tr>
+</tbody></table></div>
+<h2 id="copy-paste-smoke-test">Copy-Paste Smoke Test</h2>
 <pre><code class="language-bash">crtk doctor
 crtk fen print --startpos
 crtk move list --startpos --format both
-crtk engine perft --startpos --depth 4
+crtk engine perft --startpos --depth 4 --threads 4
 crtk engine builtin --startpos --depth 3 --format summary</code></pre>
+<p>If the launcher is not installed, use:</p>
+<pre><code class="language-bash">java -cp out application.Main &lt;area&gt; &lt;action&gt; [options]</code></pre>
+<h2 id="the-three-documentation-surfaces">The Three Documentation Surfaces</h2>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Surface</th>
+<th>Best for</th>
+<th>Link</th>
+</tr></thead><tbody>
+<tr>
+<td>GitHub Wiki</td>
+<td>browsing project knowledge inside GitHub</td>
+<td>this wiki</td>
+</tr>
+<tr>
+<td>GitHub Pages site</td>
+<td>website-style docs with a custom layout</td>
+<td><a href="https://LenniAConrad.github.io/chess-rtk/">LenniAConrad.github.io/chess-rtk</a></td>
+</tr>
+<tr>
+<td>CLI help</td>
+<td>exact installed command options</td>
+<td><code>crtk help --full</code></td>
+</tr>
+</tbody></table></div>
+<h2 id="what-chessrtk-covers">What ChessRTK Covers</h2>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Area</th>
+<th>Main commands</th>
+<th>Notes</th>
+</tr></thead><tbody>
+<tr>
+<td>Position handling</td>
+<td><code>fen validate</code>, <code>fen normalize</code>, <code>fen print</code>, <code>fen chess960</code></td>
+<td>Runs in-process; no UCI engine needed</td>
+</tr>
+<tr>
+<td>Move primitives</td>
+<td><code>move list</code>, <code>move to-san</code>, <code>move to-uci</code>, <code>move after</code>, <code>move play</code></td>
+<td>Stable outputs for scripts and agents</td>
+</tr>
+<tr>
+<td>Move generation checks</td>
+<td><code>engine perft</code>, <code>engine perft-suite</code></td>
+<td>Uses stored truth positions, not Stockfish</td>
+</tr>
+<tr>
+<td>Engine analysis</td>
+<td><code>engine analyze</code>, <code>engine bestmove</code>, <code>engine threats</code></td>
+<td>Uses configured UCI engines</td>
+</tr>
+<tr>
+<td>Built-in search</td>
+<td><code>engine builtin</code>, <code>engine java</code></td>
+<td>Java alpha-beta fallback and benchmark target</td>
+</tr>
+<tr>
+<td>Records and filters</td>
+<td><code>record files</code>, <code>record stats</code>, <code>record analysis-delta</code></td>
+<td>Reusable analysis dumps</td>
+</tr>
+<tr>
+<td>Dataset export</td>
+<td><code>record dataset npy</code>, <code>record dataset lc0</code>, <code>record dataset classifier</code></td>
+<td>Writes portable files directly</td>
+</tr>
+<tr>
+<td>Publishing</td>
+<td><code>book pdf</code>, <code>book render</code>, <code>book cover</code></td>
+<td>Native PDFs, no LaTeX required</td>
+</tr>
+</tbody></table></div>
+<h2 id="most-common-workflows">Most Common Workflows</h2>
+<h3 id="study-one-position">Study One Position</h3>
+<pre><code class="language-bash">crtk fen print --fen &quot;&lt;FEN&gt;&quot;
+crtk move list --fen &quot;&lt;FEN&gt;&quot; --format both
+crtk engine bestmove --fen &quot;&lt;FEN&gt;&quot; --format both --max-duration 2s</code></pre>
+<h3 id="validate-the-core">Validate The Core</h3>
+<pre><code class="language-bash">./scripts/run_regression_suite.sh core
+crtk engine perft-suite --depth 6 --threads 4</code></pre>
+<h3 id="mine-and-export-puzzles">Mine And Export Puzzles</h3>
+<pre><code class="language-bash">crtk fen pgn --input games.pgn --output seeds.txt
+crtk puzzle mine --input seeds.txt --output dump/run.json --engine-instances 4
+crtk record export pgn --input dump/run.puzzles.json --output dump/run.pgn</code></pre>
+<h2 id="architecture-at-a-glance">Architecture At A Glance</h2>
+<p><img src="assets/diagrams/crtk-position-toolbox.png" alt="ChessRTK position toolbox" loading="lazy"></p>
+<p>The main design rule is simple: avoid separate chess implementations for separate tools. FEN parsing, SAN conversion, legality, make/undo, perft, search, rendering, tagging, and export paths all meet at the same Java core.</p>
+<h2 id="core-documentation">Core Documentation</h2>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Section</th>
+<th>Pages</th>
+</tr></thead><tbody>
+<tr>
+<td>User setup</td>
+<td><a href="getting-started.html">Getting Started</a>, <a href="build-and-install.html">Build &amp; Install</a>, <a href="configuration.html">Configuration</a>, <a href="faq.html">FAQ</a>, <a href="troubleshooting.html">Troubleshooting</a></td>
+</tr>
+<tr>
+<td>Commands</td>
+<td><a href="command-cheatsheet.html">Command Cheatsheet</a>, <a href="command-reference.html">Command Reference</a>, <a href="example-commands.html">Example Commands</a></td>
+</tr>
+<tr>
+<td>Workflows</td>
+<td><a href="mining.html">Mining Puzzles</a>, <a href="filter-dsl.html">Filter DSL</a>, <a href="datasets.html">Datasets</a>, <a href="book-publishing.html">Book Publishing</a>, <a href="piece-tags.html">Tags</a></td>
+</tr>
+<tr>
+<td>Engines</td>
+<td><a href="in-house-engine.html">In-House Engine</a>, <a href="lc0.html">LC0</a>, <a href="t5.html">T5 Text</a></td>
+</tr>
+<tr>
+<td>Developers</td>
+<td><a href="architecture.html">Architecture</a>, <a href="quality-and-testing.html">Quality and Testing</a>, <a href="development-notes.html">Development Notes</a>, <a href="releasing.html">Releasing</a>, <a href="roadmap.html">Roadmap</a>, <a href="glossary.html">Glossary</a></td>
+</tr>
+</tbody></table></div>
+<h2 id="website-version">Website Version</h2>
+<p>GitHub Wiki pages use GitHub&#x27;s built-in Markdown renderer. For the website-style version with the custom sidebar, page table of contents, and generated HTML layout, use:</p>
+<pre><code class="language-text">https://LenniAConrad.github.io/chess-rtk/</code></pre>
 <h2 id="support">Support</h2>
-<p>Start with <a href="troubleshooting.html">Troubleshooting</a>. If you are reporting a bug, include the exact command, input FEN or file, Java version, operating system, engine protocol TOML if relevant, and whether <code>./scripts/run_regression_suite.sh recommended</code> passes locally.</p>
+<p>Start with <a href="troubleshooting.html">Troubleshooting</a>. If you are reporting a bug, include the exact command, input FEN or file, Java version, operating system, engine protocol TOML if relevant, and whether this passes:</p>
+<pre><code class="language-bash">./scripts/run_regression_suite.sh recommended</code></pre>
         </article>
         <aside class="toc"><h2>On This Page</h2>
-<a class="toc-h2" href="#for-users">For Users</a>
-<a class="toc-h2" href="#for-workflows">For Workflows</a>
-<a class="toc-h2" href="#for-developers">For Developers</a>
-<a class="toc-h2" href="#first-commands">First Commands</a>
+<a class="toc-h2" href="#pick-your-path">Pick Your Path</a>
+<a class="toc-h2" href="#copy-paste-smoke-test">Copy-Paste Smoke Test</a>
+<a class="toc-h2" href="#the-three-documentation-surfaces">The Three Documentation Surfaces</a>
+<a class="toc-h2" href="#what-chessrtk-covers">What ChessRTK Covers</a>
+<a class="toc-h2" href="#most-common-workflows">Most Common Workflows</a>
+<a class="toc-h3" href="#study-one-position">Study One Position</a>
+<a class="toc-h3" href="#validate-the-core">Validate The Core</a>
+<a class="toc-h3" href="#mine-and-export-puzzles">Mine And Export Puzzles</a>
+<a class="toc-h2" href="#architecture-at-a-glance">Architecture At A Glance</a>
+<a class="toc-h2" href="#core-documentation">Core Documentation</a>
+<a class="toc-h2" href="#website-version">Website Version</a>
 <a class="toc-h2" href="#support">Support</a></aside>
       </main>
       <footer class="footer">

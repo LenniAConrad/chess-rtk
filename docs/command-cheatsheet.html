@@ -1,0 +1,368 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Command Cheatsheet | ChessRTK Wiki</title>
+  <link rel="stylesheet" href="styles.css">
+  <script defer src="search-index.js"></script>
+  <script defer src="site.js"></script>
+</head>
+<body>
+  <button class="menu-toggle" type="button" aria-label="Toggle navigation">Menu</button>
+  <div class="site-shell">
+    <aside class="sidebar">
+      <a class="brand" href="index.html">
+        <span class="brand-mark">CR</span>
+        <span><strong>ChessRTK</strong><small>Wiki</small></span>
+      </a>
+      <label class="search-label" for="doc-search">Search pages</label>
+      <input id="doc-search" class="search" type="search" placeholder="Search docs...">
+      <nav class="nav"><section class="nav-section"><h2>Start Here</h2>
+<a class="" href="index.html" data-title="home">Home</a>
+<a class="" href="getting-started.html" data-title="getting started">Getting Started</a>
+<a class="" href="use-cases.html" data-title="use cases">Use Cases</a>
+<a class="active" href="command-cheatsheet.html" data-title="command cheatsheet">Command Cheatsheet</a>
+<a class="" href="faq.html" data-title="faq">FAQ</a>
+<a class="" href="command-reference.html" data-title="command reference">Command Reference</a>
+<a class="" href="example-commands.html" data-title="example commands">Example Commands</a>
+<a class="" href="troubleshooting.html" data-title="troubleshooting">Troubleshooting</a>
+</section>
+<section class="nav-section"><h2>User Guides</h2>
+<a class="" href="build-and-install.html" data-title="build &amp; install">Build &amp; Install</a>
+<a class="" href="configuration.html" data-title="configuration">Configuration</a>
+<a class="" href="in-house-engine.html" data-title="in-house engine">In-House Engine</a>
+<a class="" href="lc0.html" data-title="lc0">LC0</a>
+<a class="" href="outputs-and-logs.html" data-title="outputs &amp; logs">Outputs &amp; Logs</a>
+<a class="" href="support.html" data-title="support">Support</a>
+</section>
+<section class="nav-section"><h2>Workflows</h2>
+<a class="" href="mining.html" data-title="mining puzzles">Mining Puzzles</a>
+<a class="" href="filter-dsl.html" data-title="filter dsl">Filter DSL</a>
+<a class="" href="datasets.html" data-title="datasets">Datasets</a>
+<a class="" href="book-publishing.html" data-title="book publishing">Book Publishing</a>
+<a class="" href="piece-tags.html" data-title="tags">Tags</a>
+<a class="" href="t5.html" data-title="t5 text">T5 Text</a>
+<a class="" href="ai-agents.html" data-title="ai agents">AI Agents</a>
+</section>
+<section class="nav-section"><h2>Development</h2>
+<a class="" href="architecture.html" data-title="architecture">Architecture</a>
+<a class="" href="quality-and-testing.html" data-title="quality &amp; testing">Quality &amp; Testing</a>
+<a class="" href="development-notes.html" data-title="development notes">Development Notes</a>
+<a class="" href="releasing.html" data-title="releasing">Releasing</a>
+<a class="" href="roadmap.html" data-title="roadmap">Roadmap</a>
+<a class="" href="glossary.html" data-title="glossary">Glossary</a>
+<a class="" href="tagging-implementation-plan.html" data-title="tagging plan">Tagging Plan</a>
+<a class="" href="wiki-index.html" data-title="wiki index">Wiki Index</a>
+</section></nav>
+    </aside>
+    <div class="page">
+      <header class="topbar">
+        <div>
+          <span>Start Here</span>
+          <strong>Command Cheatsheet</strong>
+        </div>
+        <nav>
+          <a href="index.html">Home</a>
+          <a href="wiki-index.html">Wiki Index</a>
+          <a href="command-reference.html">Commands</a>
+        </nav>
+      </header>
+      
+      <main class="content-layout">
+        <article class="content">
+          <h1 id="command-cheatsheet">Command Cheatsheet</h1>
+<p>This page is the shortest path from &quot;what do I want?&quot; to the command to run. For complete options, use <code>crtk help --full</code> or open <a href="command-reference.html">Command Reference</a>.</p>
+<h2 id="one-minute-demo">One-Minute Demo</h2>
+<pre><code class="language-bash">crtk doctor
+crtk fen print --startpos
+crtk move list --startpos --format both
+crtk engine builtin --startpos --depth 3 --format summary</code></pre>
+<h2 id="setup-and-health">Setup And Health</h2>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Task</th>
+<th>Command</th>
+</tr></thead><tbody>
+<tr>
+<td>Show top-level help</td>
+<td><code>crtk help</code></td>
+</tr>
+<tr>
+<td>Show complete help</td>
+<td><code>crtk help --full</code></td>
+</tr>
+<tr>
+<td>Check local setup</td>
+<td><code>crtk doctor</code></td>
+</tr>
+<tr>
+<td>Validate config</td>
+<td><code>crtk config validate</code></td>
+</tr>
+<tr>
+<td>Smoke-test UCI engine</td>
+<td><code>crtk engine uci-smoke --nodes 1 --max-duration 5s</code></td>
+</tr>
+<tr>
+<td>Run recommended checks</td>
+<td><code>./scripts/run_regression_suite.sh recommended</code></td>
+</tr>
+</tbody></table></div>
+<h2 id="fen-and-board-inspection">FEN And Board Inspection</h2>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Task</th>
+<th>Command</th>
+</tr></thead><tbody>
+<tr>
+<td>Print the start position</td>
+<td><code>crtk fen print --startpos</code></td>
+</tr>
+<tr>
+<td>Validate a FEN</td>
+<td><code>crtk fen validate --fen &quot;&lt;FEN&gt;&quot;</code></td>
+</tr>
+<tr>
+<td>Normalize a FEN</td>
+<td><code>crtk fen normalize --fen &quot;&lt;FEN&gt;&quot;</code></td>
+</tr>
+<tr>
+<td>Generate Chess960 start</td>
+<td><code>crtk fen chess960 518</code></td>
+</tr>
+<tr>
+<td>Render a PNG board</td>
+<td><code>crtk fen render --fen &quot;&lt;FEN&gt;&quot; -o board.png</code></td>
+</tr>
+<tr>
+<td>Open a board window</td>
+<td><code>crtk fen display --fen &quot;&lt;FEN&gt;&quot;</code></td>
+</tr>
+</tbody></table></div>
+<h2 id="moves">Moves</h2>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Task</th>
+<th>Command</th>
+</tr></thead><tbody>
+<tr>
+<td>List legal moves as UCI</td>
+<td><code>crtk move list --fen &quot;&lt;FEN&gt;&quot; --format uci</code></td>
+</tr>
+<tr>
+<td>List legal moves as SAN</td>
+<td><code>crtk move list --fen &quot;&lt;FEN&gt;&quot; --format san</code></td>
+</tr>
+<tr>
+<td>List both UCI and SAN</td>
+<td><code>crtk move list --fen &quot;&lt;FEN&gt;&quot; --format both</code></td>
+</tr>
+<tr>
+<td>Convert UCI to SAN</td>
+<td><code>crtk move to-san --fen &quot;&lt;FEN&gt;&quot; e2e4</code></td>
+</tr>
+<tr>
+<td>Convert SAN to UCI</td>
+<td><code>crtk move to-uci --fen &quot;&lt;FEN&gt;&quot; Nf3</code></td>
+</tr>
+<tr>
+<td>Apply one move</td>
+<td><code>crtk move after --fen &quot;&lt;FEN&gt;&quot; e2e4</code></td>
+</tr>
+<tr>
+<td>Apply a line</td>
+<td><code>crtk move play --fen &quot;&lt;FEN&gt;&quot; &quot;e4 e5 Nf3 Nc6&quot;</code></td>
+</tr>
+</tbody></table></div>
+<h2 id="engine-work">Engine Work</h2>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Task</th>
+<th>Command</th>
+</tr></thead><tbody>
+<tr>
+<td>Best move with UCI engine</td>
+<td><code>crtk engine bestmove --fen &quot;&lt;FEN&gt;&quot; --format both --max-duration 2s</code></td>
+</tr>
+<tr>
+<td>Analyze with UCI engine</td>
+<td><code>crtk engine analyze --fen &quot;&lt;FEN&gt;&quot; --multipv 3 --max-duration 5s</code></td>
+</tr>
+<tr>
+<td>Search in-process</td>
+<td><code>crtk engine builtin --fen &quot;&lt;FEN&gt;&quot; --depth 4 --format summary</code></td>
+</tr>
+<tr>
+<td>Classical static eval</td>
+<td><code>crtk engine static --fen &quot;&lt;FEN&gt;&quot;</code></td>
+</tr>
+<tr>
+<td>Java evaluator eval</td>
+<td><code>crtk engine eval --fen &quot;&lt;FEN&gt;&quot;</code></td>
+</tr>
+<tr>
+<td>Threat analysis</td>
+<td><code>crtk engine threats --fen &quot;&lt;FEN&gt;&quot; --max-duration 2s</code></td>
+</tr>
+</tbody></table></div>
+<h2 id="move-generation-verification">Move-Generation Verification</h2>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Task</th>
+<th>Command</th>
+</tr></thead><tbody>
+<tr>
+<td>Perft from startpos</td>
+<td><code>crtk engine perft --startpos --depth 4 --threads 4</code></td>
+</tr>
+<tr>
+<td>Perft one FEN</td>
+<td><code>crtk engine perft --fen &quot;&lt;FEN&gt;&quot; --depth 5 --divide --threads 4</code></td>
+</tr>
+<tr>
+<td>Stockfish-style divide</td>
+<td><code>crtk engine perft --depth 3 --format stockfish</code></td>
+</tr>
+<tr>
+<td>Regression suite</td>
+<td><code>crtk engine perft-suite --depth 6 --threads 4</code></td>
+</tr>
+</tbody></table></div>
+<h2 id="puzzle-mining">Puzzle Mining</h2>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Task</th>
+<th>Command</th>
+</tr></thead><tbody>
+<tr>
+<td>Extract FENs from PGN</td>
+<td><code>crtk fen pgn --input games.pgn --output seeds.txt</code></td>
+</tr>
+<tr>
+<td>Mine from FENs</td>
+<td><code>crtk puzzle mine --input seeds.txt --output dump/run.json --engine-instances 4</code></td>
+</tr>
+<tr>
+<td>Mine random positions</td>
+<td><code>crtk puzzle mine --random-count 100 --output dump/</code></td>
+</tr>
+<tr>
+<td>Convert puzzles to PGN</td>
+<td><code>crtk puzzle pgn -i dump/run.puzzles.json -o dump/run.pgn</code></td>
+</tr>
+<tr>
+<td>Filter record files</td>
+<td><code>crtk record files -i dump/ -o dump/filtered.json --recursive --puzzles</code></td>
+</tr>
+</tbody></table></div>
+<h2 id="datasets">Datasets</h2>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Task</th>
+<th>Command</th>
+</tr></thead><tbody>
+<tr>
+<td>Export NPY tensors</td>
+<td><code>crtk record dataset npy -i dump/run.puzzles.json -o training/run</code></td>
+</tr>
+<tr>
+<td>Export LC0 tensors</td>
+<td><code>crtk record dataset lc0 -i dump/run.puzzles.json -o training/lc0/run --weights models/leela_112planes-10blocksx128-policyhead80-valuehead32-policy4672-wdl3.bin</code></td>
+</tr>
+<tr>
+<td>Export classifier tensors</td>
+<td><code>crtk record dataset classifier -i dump/run.puzzles.json -i dump/run.nonpuzzles.json -o training/classifier/run</code></td>
+</tr>
+<tr>
+<td>Export training JSONL</td>
+<td><code>crtk record export training-jsonl -i dump/run.puzzles.json -o training/run.jsonl</code></td>
+</tr>
+<tr>
+<td>Summarize records</td>
+<td><code>crtk record stats -i dump/run.puzzles.json</code></td>
+</tr>
+<tr>
+<td>Tag distribution</td>
+<td><code>crtk record tag-stats -i dump/run.puzzles.json</code></td>
+</tr>
+</tbody></table></div>
+<h2 id="publishing">Publishing</h2>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Task</th>
+<th>Command</th>
+</tr></thead><tbody>
+<tr>
+<td>Single diagram PDF</td>
+<td><code>crtk book pdf --fen &quot;&lt;FEN&gt;&quot; -o dist/position.pdf</code></td>
+</tr>
+<tr>
+<td>Diagram sheet</td>
+<td><code>crtk book pdf -i seeds.txt -o dist/sheet.pdf --title &quot;Training Sheet&quot;</code></td>
+</tr>
+<tr>
+<td>Validate book</td>
+<td><code>crtk book render -i books/puzzles.toml --check</code></td>
+</tr>
+<tr>
+<td>Render book</td>
+<td><code>crtk book render -i books/puzzles.toml -o dist/puzzles.pdf</code></td>
+</tr>
+<tr>
+<td>Validate cover</td>
+<td><code>crtk book cover -i books/puzzles.toml --pdf dist/puzzles.pdf --check --binding paperback --interior white-bw</code></td>
+</tr>
+<tr>
+<td>Render cover</td>
+<td><code>crtk book cover -i books/puzzles.toml --pdf dist/puzzles.pdf -o dist/puzzles-cover.pdf --binding paperback --interior white-bw</code></td>
+</tr>
+</tbody></table></div>
+<h2 id="agent-friendly-commands">Agent-Friendly Commands</h2>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Need</th>
+<th>Command</th>
+</tr></thead><tbody>
+<tr>
+<td>Deterministic legal moves</td>
+<td><code>crtk move list --fen &quot;&lt;FEN&gt;&quot; --format both</code></td>
+</tr>
+<tr>
+<td>Normalize input</td>
+<td><code>crtk fen normalize --fen &quot;&lt;FEN&gt;&quot;</code></td>
+</tr>
+<tr>
+<td>Apply a line safely</td>
+<td><code>crtk move play --fen &quot;&lt;FEN&gt;&quot; &quot;e4 e5 Nf3&quot;</code></td>
+</tr>
+<tr>
+<td>One best move row</td>
+<td><code>crtk engine bestmove --fen &quot;&lt;FEN&gt;&quot; --format both --max-duration 2s</code></td>
+</tr>
+<tr>
+<td>In-process fallback</td>
+<td><code>crtk engine builtin --fen &quot;&lt;FEN&gt;&quot; --depth 3 --format summary</code></td>
+</tr>
+</tbody></table></div>
+        </article>
+        <aside class="toc"><h2>On This Page</h2>
+<a class="toc-h2" href="#one-minute-demo">One-Minute Demo</a>
+<a class="toc-h2" href="#setup-and-health">Setup And Health</a>
+<a class="toc-h2" href="#fen-and-board-inspection">FEN And Board Inspection</a>
+<a class="toc-h2" href="#moves">Moves</a>
+<a class="toc-h2" href="#engine-work">Engine Work</a>
+<a class="toc-h2" href="#move-generation-verification">Move-Generation Verification</a>
+<a class="toc-h2" href="#puzzle-mining">Puzzle Mining</a>
+<a class="toc-h2" href="#datasets">Datasets</a>
+<a class="toc-h2" href="#publishing">Publishing</a>
+<a class="toc-h2" href="#agent-friendly-commands">Agent-Friendly Commands</a></aside>
+      </main>
+      <footer class="footer">
+        <span>Generated from <code>wiki/command-cheatsheet.md</code>.</span>
+        <span>Build with <code>python3 scripts/build_docs_site.py</code>.</span>
+      </footer>
+    </div>
+  </div>
+</body>
+</html>

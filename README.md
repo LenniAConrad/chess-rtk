@@ -12,6 +12,8 @@ explicit enough for terminals, scripts, CI, and AI-agent workflows.
 [Website docs](docs/index.html) |
 [Markdown wiki](wiki/README.md) |
 [Getting started](wiki/getting-started.md) |
+[Use cases](wiki/use-cases.md) |
+[Cheatsheet](wiki/command-cheatsheet.md) |
 [Command reference](wiki/command-reference.md) |
 [FAQ](wiki/faq.md) |
 [Troubleshooting](wiki/troubleshooting.md)
@@ -226,8 +228,11 @@ The wiki is organized like a project handbook:
 
 - [Home](wiki/Home.md)
 - [Getting started](wiki/getting-started.md)
+- [Use cases](wiki/use-cases.md)
+- [Command cheatsheet](wiki/command-cheatsheet.md)
 - [FAQ](wiki/faq.md)
 - [Architecture](wiki/architecture.md)
+- [Quality and testing](wiki/quality-and-testing.md)
 - [Command reference](wiki/command-reference.md)
 - [Configuration](wiki/configuration.md)
 - [Example commands](wiki/example-commands.md)

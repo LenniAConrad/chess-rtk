@@ -32,6 +32,8 @@ NAVIGATION: list[tuple[str, list[tuple[str, str]]]] = [
         [
             ("Home.md", "Home"),
             ("getting-started.md", "Getting Started"),
+            ("use-cases.md", "Use Cases"),
+            ("command-cheatsheet.md", "Command Cheatsheet"),
             ("faq.md", "FAQ"),
             ("command-reference.md", "Command Reference"),
             ("example-commands.md", "Example Commands"),
@@ -65,6 +67,7 @@ NAVIGATION: list[tuple[str, list[tuple[str, str]]]] = [
         "Development",
         [
             ("architecture.md", "Architecture"),
+            ("quality-and-testing.md", "Quality & Testing"),
             ("development-notes.md", "Development Notes"),
             ("releasing.md", "Releasing"),
             ("roadmap.md", "Roadmap"),
@@ -123,6 +126,8 @@ def convert_href(target: str) -> str:
     suffix = f"#{anchor}" if anchor else ""
     if file_part.endswith(".md"):
         return page_href(Path(file_part).name) + suffix
+    if "/" not in file_part and (WIKI / f"{file_part}.md").exists():
+        return page_href(f"{file_part}.md") + suffix
     if file_part.startswith("../assets/"):
         return "assets/" + file_part[len("../assets/") :] + suffix
     if file_part.startswith("assets/"):

@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Quality And Testing | ChessRTK Wiki</title>
+  <link rel="stylesheet" href="styles.css">
+  <script defer src="search-index.js"></script>
+  <script defer src="site.js"></script>
+</head>
+<body>
+  <button class="menu-toggle" type="button" aria-label="Toggle navigation">Menu</button>
+  <div class="site-shell">
+    <aside class="sidebar">
+      <a class="brand" href="index.html">
+        <span class="brand-mark">CR</span>
+        <span><strong>ChessRTK</strong><small>Wiki</small></span>
+      </a>
+      <label class="search-label" for="doc-search">Search pages</label>
+      <input id="doc-search" class="search" type="search" placeholder="Search docs...">
+      <nav class="nav"><section class="nav-section"><h2>Start Here</h2>
+<a class="" href="index.html" data-title="home">Home</a>
+<a class="" href="getting-started.html" data-title="getting started">Getting Started</a>
+<a class="" href="use-cases.html" data-title="use cases">Use Cases</a>
+<a class="" href="command-cheatsheet.html" data-title="command cheatsheet">Command Cheatsheet</a>
+<a class="" href="faq.html" data-title="faq">FAQ</a>
+<a class="" href="command-reference.html" data-title="command reference">Command Reference</a>
+<a class="" href="example-commands.html" data-title="example commands">Example Commands</a>
+<a class="" href="troubleshooting.html" data-title="troubleshooting">Troubleshooting</a>
+</section>
+<section class="nav-section"><h2>User Guides</h2>
+<a class="" href="build-and-install.html" data-title="build &amp; install">Build &amp; Install</a>
+<a class="" href="configuration.html" data-title="configuration">Configuration</a>
+<a class="" href="in-house-engine.html" data-title="in-house engine">In-House Engine</a>
+<a class="" href="lc0.html" data-title="lc0">LC0</a>
+<a class="" href="outputs-and-logs.html" data-title="outputs &amp; logs">Outputs &amp; Logs</a>
+<a class="" href="support.html" data-title="support">Support</a>
+</section>
+<section class="nav-section"><h2>Workflows</h2>
+<a class="" href="mining.html" data-title="mining puzzles">Mining Puzzles</a>
+<a class="" href="filter-dsl.html" data-title="filter dsl">Filter DSL</a>
+<a class="" href="datasets.html" data-title="datasets">Datasets</a>
+<a class="" href="book-publishing.html" data-title="book publishing">Book Publishing</a>
+<a class="" href="piece-tags.html" data-title="tags">Tags</a>
+<a class="" href="t5.html" data-title="t5 text">T5 Text</a>
+<a class="" href="ai-agents.html" data-title="ai agents">AI Agents</a>
+</section>
+<section class="nav-section"><h2>Development</h2>
+<a class="" href="architecture.html" data-title="architecture">Architecture</a>
+<a class="active" href="quality-and-testing.html" data-title="quality &amp; testing">Quality &amp; Testing</a>
+<a class="" href="development-notes.html" data-title="development notes">Development Notes</a>
+<a class="" href="releasing.html" data-title="releasing">Releasing</a>
+<a class="" href="roadmap.html" data-title="roadmap">Roadmap</a>
+<a class="" href="glossary.html" data-title="glossary">Glossary</a>
+<a class="" href="tagging-implementation-plan.html" data-title="tagging plan">Tagging Plan</a>
+<a class="" href="wiki-index.html" data-title="wiki index">Wiki Index</a>
+</section></nav>
+    </aside>
+    <div class="page">
+      <header class="topbar">
+        <div>
+          <span>Development</span>
+          <strong>Quality And Testing</strong>
+        </div>
+        <nav>
+          <a href="index.html">Home</a>
+          <a href="wiki-index.html">Wiki Index</a>
+          <a href="command-reference.html">Commands</a>
+        </nav>
+      </header>
+      
+      <main class="content-layout">
+        <article class="content">
+          <h1 id="quality-and-testing">Quality And Testing</h1>
+<p>ChessRTK is correctness-sensitive. FEN parsing, SAN conversion, Chess960 castling, en-passant, promotion, make/undo state, and move generation all feed engine analysis, datasets, rendering, and publishing.</p>
+<h2 id="default-check-before-pushing">Default Check Before Pushing</h2>
+<pre><code class="language-bash">./scripts/run_regression_suite.sh recommended</code></pre>
+<p>This is the normal local confidence pass. It builds the project, runs lint, and executes the core regression groups used most often during development.</p>
+<h2 id="focused-suites">Focused Suites</h2>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Suite</th>
+<th>Use when</th>
+</tr></thead><tbody>
+<tr>
+<td><code>build</code></td>
+<td>checking compilation only</td>
+</tr>
+<tr>
+<td><code>lint</code></td>
+<td>checking source quality guardrails</td>
+</tr>
+<tr>
+<td><code>core</code></td>
+<td>changing <code>chess.core</code>, FEN, SAN, move generation, or make/undo</td>
+</tr>
+<tr>
+<td><code>cli</code></td>
+<td>changing command parsing or command output</td>
+</tr>
+<tr>
+<td><code>uci</code></td>
+<td>changing external-engine orchestration</td>
+</tr>
+<tr>
+<td><code>perft-smoke</code></td>
+<td>changing legality, Chess960, castling, en-passant, or promotion behavior</td>
+</tr>
+<tr>
+<td><code>release</code></td>
+<td>preparing a packaged release</td>
+</tr>
+</tbody></table></div>
+<p>Examples:</p>
+<pre><code class="language-bash">./scripts/run_regression_suite.sh build
+./scripts/run_regression_suite.sh lint
+./scripts/run_regression_suite.sh core</code></pre>
+<h2 id="move-generation-confidence">Move-Generation Confidence</h2>
+<p>Use perft whenever a change can affect legal moves or board state.</p>
+<pre><code class="language-bash">crtk engine perft --startpos --depth 4 --threads 4
+crtk engine perft --fen &quot;&lt;FEN&gt;&quot; --depth 5 --divide --threads 4
+crtk engine perft-suite --depth 6 --threads 4</code></pre>
+<p><code>engine perft-suite</code> compares stored truth positions against the Java move generator. It does not start Stockfish or any other external engine.</p>
+<h2 id="engine-and-uci-confidence">Engine And UCI Confidence</h2>
+<p>Use UCI smoke tests when external engine setup or protocol handling changed.</p>
+<pre><code class="language-bash">crtk config validate
+crtk engine uci-smoke --nodes 1 --max-duration 5s --verbose</code></pre>
+<p>Use the built-in engine regression when <code>chess.engine</code> or evaluator integration changed:</p>
+<pre><code class="language-bash">java -cp out testing.BuiltInEngineRegressionTest</code></pre>
+<h2 id="publishing-confidence">Publishing Confidence</h2>
+<p>Use these checks for book, PDF, or rendering changes:</p>
+<pre><code class="language-bash">java -Djava.awt.headless=true -cp out testing.BookRegressionTest
+java -Djava.awt.headless=true -cp out testing.ChessBookCommandRegressionTest
+java -Djava.awt.headless=true -cp out testing.ChessBookCoverCommandRegressionTest</code></pre>
+<h2 id="documentation-confidence">Documentation Confidence</h2>
+<p>The website-style docs are generated from the repository wiki source:</p>
+<pre><code class="language-bash">python3 scripts/build_docs_site.py</code></pre>
+<p>Then check links/assets in <code>docs/</code> before publishing. The GitHub Wiki is a separate repository, so changes pushed there should also pass a simple internal link check.</p>
+<h2 id="recommended-bug-report-baseline">Recommended Bug Report Baseline</h2>
+<p>When reporting a bug, include:</p>
+<ul>
+<li>exact command</li>
+<li>full FEN or input file shape</li>
+<li>Java version and operating system</li>
+<li>UCI engine protocol TOML when relevant</li>
+<li>whether <code>./scripts/run_regression_suite.sh recommended</code> passes</li>
+<li>any failing perft row or regression test name</li>
+</ul>
+        </article>
+        <aside class="toc"><h2>On This Page</h2>
+<a class="toc-h2" href="#default-check-before-pushing">Default Check Before Pushing</a>
+<a class="toc-h2" href="#focused-suites">Focused Suites</a>
+<a class="toc-h2" href="#move-generation-confidence">Move-Generation Confidence</a>
+<a class="toc-h2" href="#engine-and-uci-confidence">Engine And UCI Confidence</a>
+<a class="toc-h2" href="#publishing-confidence">Publishing Confidence</a>
+<a class="toc-h2" href="#documentation-confidence">Documentation Confidence</a>
+<a class="toc-h2" href="#recommended-bug-report-baseline">Recommended Bug Report Baseline</a></aside>
+      </main>
+      <footer class="footer">
+        <span>Generated from <code>wiki/quality-and-testing.md</code>.</span>
+        <span>Build with <code>python3 scripts/build_docs_site.py</code>.</span>
+      </footer>
+    </div>
+  </div>
+</body>
+</html>

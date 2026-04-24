@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Use Cases | ChessRTK Wiki</title>
+  <link rel="stylesheet" href="styles.css">
+  <script defer src="search-index.js"></script>
+  <script defer src="site.js"></script>
+</head>
+<body>
+  <button class="menu-toggle" type="button" aria-label="Toggle navigation">Menu</button>
+  <div class="site-shell">
+    <aside class="sidebar">
+      <a class="brand" href="index.html">
+        <span class="brand-mark">CR</span>
+        <span><strong>ChessRTK</strong><small>Wiki</small></span>
+      </a>
+      <label class="search-label" for="doc-search">Search pages</label>
+      <input id="doc-search" class="search" type="search" placeholder="Search docs...">
+      <nav class="nav"><section class="nav-section"><h2>Start Here</h2>
+<a class="" href="index.html" data-title="home">Home</a>
+<a class="" href="getting-started.html" data-title="getting started">Getting Started</a>
+<a class="active" href="use-cases.html" data-title="use cases">Use Cases</a>
+<a class="" href="command-cheatsheet.html" data-title="command cheatsheet">Command Cheatsheet</a>
+<a class="" href="faq.html" data-title="faq">FAQ</a>
+<a class="" href="command-reference.html" data-title="command reference">Command Reference</a>
+<a class="" href="example-commands.html" data-title="example commands">Example Commands</a>
+<a class="" href="troubleshooting.html" data-title="troubleshooting">Troubleshooting</a>
+</section>
+<section class="nav-section"><h2>User Guides</h2>
+<a class="" href="build-and-install.html" data-title="build &amp; install">Build &amp; Install</a>
+<a class="" href="configuration.html" data-title="configuration">Configuration</a>
+<a class="" href="in-house-engine.html" data-title="in-house engine">In-House Engine</a>
+<a class="" href="lc0.html" data-title="lc0">LC0</a>
+<a class="" href="outputs-and-logs.html" data-title="outputs &amp; logs">Outputs &amp; Logs</a>
+<a class="" href="support.html" data-title="support">Support</a>
+</section>
+<section class="nav-section"><h2>Workflows</h2>
+<a class="" href="mining.html" data-title="mining puzzles">Mining Puzzles</a>
+<a class="" href="filter-dsl.html" data-title="filter dsl">Filter DSL</a>
+<a class="" href="datasets.html" data-title="datasets">Datasets</a>
+<a class="" href="book-publishing.html" data-title="book publishing">Book Publishing</a>
+<a class="" href="piece-tags.html" data-title="tags">Tags</a>
+<a class="" href="t5.html" data-title="t5 text">T5 Text</a>
+<a class="" href="ai-agents.html" data-title="ai agents">AI Agents</a>
+</section>
+<section class="nav-section"><h2>Development</h2>
+<a class="" href="architecture.html" data-title="architecture">Architecture</a>
+<a class="" href="quality-and-testing.html" data-title="quality &amp; testing">Quality &amp; Testing</a>
+<a class="" href="development-notes.html" data-title="development notes">Development Notes</a>
+<a class="" href="releasing.html" data-title="releasing">Releasing</a>
+<a class="" href="roadmap.html" data-title="roadmap">Roadmap</a>
+<a class="" href="glossary.html" data-title="glossary">Glossary</a>
+<a class="" href="tagging-implementation-plan.html" data-title="tagging plan">Tagging Plan</a>
+<a class="" href="wiki-index.html" data-title="wiki index">Wiki Index</a>
+</section></nav>
+    </aside>
+    <div class="page">
+      <header class="topbar">
+        <div>
+          <span>Start Here</span>
+          <strong>Use Cases</strong>
+        </div>
+        <nav>
+          <a href="index.html">Home</a>
+          <a href="wiki-index.html">Wiki Index</a>
+          <a href="command-reference.html">Commands</a>
+        </nav>
+      </header>
+      
+      <main class="content-layout">
+        <article class="content">
+          <h1 id="use-cases">Use Cases</h1>
+<p>ChessRTK is broad, so the easiest way to learn it is to start from the job you want done.</p>
+<h2 id="i-want-to-study-one-position">I Want To Study One Position</h2>
+<p>Use the position and move primitives first. They run in-process and do not need a configured UCI engine.</p>
+<pre><code class="language-bash">crtk fen print --fen &quot;&lt;FEN&gt;&quot;
+crtk fen normalize --fen &quot;&lt;FEN&gt;&quot;
+crtk move list --fen &quot;&lt;FEN&gt;&quot; --format both
+crtk move play --fen &quot;&lt;FEN&gt;&quot; &quot;e4 e5 Nf3 Nc6&quot;</code></pre>
+<p>Then ask an engine:</p>
+<pre><code class="language-bash">crtk engine bestmove --fen &quot;&lt;FEN&gt;&quot; --format both --max-duration 2s
+crtk engine analyze --fen &quot;&lt;FEN&gt;&quot; --multipv 3 --max-duration 5s</code></pre>
+<p>Read next:</p>
+<ul>
+<li><a href="command-cheatsheet.html">Command Cheatsheet</a></li>
+<li><a href="configuration.html">Configuration</a></li>
+<li><a href="in-house-engine.html">In-House Engine</a></li>
+</ul>
+<h2 id="i-want-to-verify-move-generation">I Want To Verify Move Generation</h2>
+<p>Use perft and the stored regression suite. These commands validate ChessRTK&#x27;s Java move generator directly.</p>
+<pre><code class="language-bash">crtk engine perft --startpos --depth 4 --threads 4
+crtk engine perft --fen &quot;&lt;FEN&gt;&quot; --depth 5 --divide --threads 4
+crtk engine perft-suite --depth 6 --threads 4</code></pre>
+<p>Read next:</p>
+<ul>
+<li><a href="quality-and-testing.html">Quality and Testing</a></li>
+<li><a href="architecture.html">Architecture</a></li>
+<li><a href="development-notes.html">Development Notes</a></li>
+</ul>
+<h2 id="i-want-to-mine-puzzles">I Want To Mine Puzzles</h2>
+<p>Start from PGN or FEN seeds, run bounded UCI analysis, then keep accepted and rejected records for later filtering or training.</p>
+<pre><code class="language-bash">crtk fen pgn --input games.pgn --output seeds.txt
+crtk puzzle mine --input seeds.txt --output dump/run.json --engine-instances 4 --max-duration 60s
+crtk record stats --input dump/run.puzzles.json
+crtk puzzle pgn --input dump/run.puzzles.json --output dump/run.pgn</code></pre>
+<p>Read next:</p>
+<ul>
+<li><a href="mining.html">Mining Puzzles</a></li>
+<li><a href="filter-dsl.html">Filter DSL</a></li>
+<li><a href="outputs-and-logs.html">Outputs and Logs</a></li>
+</ul>
+<h2 id="i-want-to-build-training-data">I Want To Build Training Data</h2>
+<p>Use <code>record</code> commands after mining or importing analysis records.</p>
+<pre><code class="language-bash">crtk record files -i dump/ -o dump/merged.json --recursive --puzzles
+crtk record dataset npy -i dump/merged.json -o training/run
+crtk record dataset classifier -i dump/run.puzzles.json -i dump/run.nonpuzzles.json -o training/classifier/run</code></pre>
+<p>Read next:</p>
+<ul>
+<li><a href="datasets.html">Datasets</a></li>
+<li><a href="piece-tags.html">Piece and Position Tags</a></li>
+<li><a href="filter-dsl.html">Filter DSL</a></li>
+</ul>
+<h2 id="i-want-to-publish-diagrams-or-books">I Want To Publish Diagrams Or Books</h2>
+<p>Use <code>book pdf</code> for quick diagram sheets and <code>book render</code> / <code>book cover</code> for full book projects.</p>
+<pre><code class="language-bash">crtk book pdf --fen &quot;&lt;FEN&gt;&quot; -o dist/position.pdf
+crtk book render -i books/puzzles.toml --check
+crtk book render -i books/puzzles.toml -o dist/puzzles.pdf
+crtk book cover -i books/puzzles.toml --pdf dist/puzzles.pdf --check --binding paperback --interior white-bw</code></pre>
+<p>Read next:</p>
+<ul>
+<li><a href="book-publishing.html">Book Publishing</a></li>
+<li><a href="example-commands.html">Example Commands</a></li>
+</ul>
+<h2 id="i-want-agent-friendly-chess-primitives">I Want Agent-Friendly Chess Primitives</h2>
+<p>Prefer deterministic command shapes with explicit formats and bounded engine work.</p>
+<pre><code class="language-bash">crtk fen normalize --fen &quot;&lt;FEN&gt;&quot;
+crtk move list --fen &quot;&lt;FEN&gt;&quot; --format both
+crtk move after --fen &quot;&lt;FEN&gt;&quot; e2e4
+crtk engine bestmove --fen &quot;&lt;FEN&gt;&quot; --format both --max-duration 2s</code></pre>
+<p>Read next:</p>
+<ul>
+<li><a href="ai-agents.html">AI Agents and Automation</a></li>
+<li><a href="command-cheatsheet.html">Command Cheatsheet</a></li>
+</ul>
+<h2 id="i-want-to-work-on-chessrtk-itself">I Want To Work On ChessRTK Itself</h2>
+<p>Run focused checks for your edit area and the recommended suite before pushing.</p>
+<pre><code class="language-bash">./scripts/run_regression_suite.sh build
+./scripts/run_regression_suite.sh lint
+./scripts/run_regression_suite.sh recommended</code></pre>
+<p>Read next:</p>
+<ul>
+<li><a href="quality-and-testing.html">Quality and Testing</a></li>
+<li><a href="architecture.html">Architecture</a></li>
+<li><a href="releasing.html">Releasing</a></li>
+</ul>
+        </article>
+        <aside class="toc"><h2>On This Page</h2>
+<a class="toc-h2" href="#i-want-to-study-one-position">I Want To Study One Position</a>
+<a class="toc-h2" href="#i-want-to-verify-move-generation">I Want To Verify Move Generation</a>
+<a class="toc-h2" href="#i-want-to-mine-puzzles">I Want To Mine Puzzles</a>
+<a class="toc-h2" href="#i-want-to-build-training-data">I Want To Build Training Data</a>
+<a class="toc-h2" href="#i-want-to-publish-diagrams-or-books">I Want To Publish Diagrams Or Books</a>
+<a class="toc-h2" href="#i-want-agent-friendly-chess-primitives">I Want Agent-Friendly Chess Primitives</a>
+<a class="toc-h2" href="#i-want-to-work-on-chessrtk-itself">I Want To Work On ChessRTK Itself</a></aside>
+      </main>
+      <footer class="footer">
+        <span>Generated from <code>wiki/use-cases.md</code>.</span>
+        <span>Build with <code>python3 scripts/build_docs_site.py</code>.</span>
+      </footer>
+    </div>
+  </div>
+</body>
+</html>

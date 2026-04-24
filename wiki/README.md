@@ -5,62 +5,65 @@ starts with installation and first commands, then moves into configuration,
 engine workflows, mining, datasets, publishing, architecture, and maintenance.
 
 For a website-style version with sidebar navigation and readable page layout,
-open `docs/index.html` from the repository root or publish the `docs/`
-directory with GitHub Pages.
+open `https://LenniAConrad.github.io/chess-rtk/`.
 
 If the launcher is not installed, replace `crtk <command> ...` with
 `java -cp out application.Main <command> ...` after building the project.
 
 ## Start Here
 
-- [Getting started](getting-started.md) - build, install, verify, and run the
+- [Getting started](getting-started) - build, install, verify, and run the
   first useful commands
-- [FAQ](faq.md) - practical answers for new users
-- [Command reference](command-reference.md) - grouped CLI surface and options
-- [Example commands](example-commands.md) - copyable command recipes
-- [Troubleshooting](troubleshooting.md) - common setup and runtime failures
+- [FAQ](faq) - practical answers for new users
+- [Use cases](use-cases) - workflow paths by role or job
+- [Command cheatsheet](command-cheatsheet) - fastest path from goal to command
+- [Command reference](command-reference) - grouped CLI surface and options
+- [Example commands](example-commands) - copyable command recipes
+- [Troubleshooting](troubleshooting) - common setup and runtime failures
 
 ## Guides For Users
 
-- [Build and install](build-and-install.md)
-- [Configuration](configuration.md)
-- [Running engines](in-house-engine.md)
-- [LC0 UCI engine and Java evaluator](lc0.md)
-- [Outputs and logs](outputs-and-logs.md)
-- [Support](support.md)
+- [Build and install](build-and-install)
+- [Configuration](configuration)
+- [Running engines](in-house-engine)
+- [LC0 UCI engine and Java evaluator](lc0)
+- [Quality and testing](quality-and-testing)
+- [Outputs and logs](outputs-and-logs)
+- [Support](support)
 
 ## Workflows
 
-- [Mining puzzles](mining.md)
-- [Filter DSL](filter-dsl.md)
-- [Datasets](datasets.md)
-- [Book publishing](book-publishing.md)
-- [Piece and position tags](piece-tags.md)
-- [T5 tag-to-text pipeline](t5.md)
-- [AI agents and automation](ai-agents.md)
+- [Mining puzzles](mining)
+- [Filter DSL](filter-dsl)
+- [Datasets](datasets)
+- [Book publishing](book-publishing)
+- [Piece and position tags](piece-tags)
+- [T5 tag-to-text pipeline](t5)
+- [AI agents and automation](ai-agents)
 
 ## Developer Documentation
 
-- [Architecture](architecture.md)
-- [Development notes](development-notes.md)
-- [Releasing](releasing.md)
-- [Roadmap and ideas](roadmap.md)
-- [Glossary](glossary.md)
+- [Architecture](architecture)
+- [Quality and testing](quality-and-testing)
+- [Development notes](development-notes)
+- [Releasing](releasing)
+- [Roadmap and ideas](roadmap)
+- [Glossary](glossary)
 
 ## Capability Map
 
 | Task | Main commands | Docs |
 | --- | --- | --- |
-| Validate, normalize, and print positions | `fen validate`, `fen normalize`, `fen print` | [Getting started](getting-started.md), [Command reference](command-reference.md) |
-| List, convert, and apply moves | `move list`, `move to-san`, `move to-uci`, `move after`, `move play` | [AI agents and automation](ai-agents.md), [Command reference](command-reference.md) |
-| Verify move generation | `engine perft`, `engine perft-suite` | [Architecture](architecture.md), [Development notes](development-notes.md) |
-| Analyze with UCI engines | `engine analyze`, `engine bestmove`, `engine threats`, `engine uci-smoke` | [Configuration](configuration.md), [Troubleshooting](troubleshooting.md) |
-| Search in-process | `engine builtin`, `engine java` | [In-house Java engine](in-house-engine.md) |
-| Mine and export puzzles | `puzzle mine`, `puzzle pgn`, `record files` | [Mining puzzles](mining.md), [Filter DSL](filter-dsl.md) |
-| Tag positions and lines | `fen tags`, `puzzle tags`, `record tag-stats` | [Piece and position tags](piece-tags.md) |
-| Export training data | `record dataset npy`, `record dataset lc0`, `record dataset classifier` | [Datasets](datasets.md) |
-| Render diagrams and books | `fen render`, `book pdf`, `book render`, `book cover` | [Book publishing](book-publishing.md) |
-| Automate safely | `doctor`, `config validate`, deterministic move and bestmove commands | [AI agents and automation](ai-agents.md) |
+| Validate, normalize, and print positions | `fen validate`, `fen normalize`, `fen print` | [Getting started](getting-started), [Command reference](command-reference) |
+| List, convert, and apply moves | `move list`, `move to-san`, `move to-uci`, `move after`, `move play` | [AI agents and automation](ai-agents), [Command reference](command-reference) |
+| Verify move generation | `engine perft`, `engine perft-suite` | [Architecture](architecture), [Development notes](development-notes) |
+| Analyze with UCI engines | `engine analyze`, `engine bestmove`, `engine threats`, `engine uci-smoke` | [Configuration](configuration), [Troubleshooting](troubleshooting) |
+| Search in-process | `engine builtin`, `engine java` | [In-house Java engine](in-house-engine) |
+| Mine and export puzzles | `puzzle mine`, `puzzle pgn`, `record files` | [Mining puzzles](mining), [Filter DSL](filter-dsl) |
+| Tag positions and lines | `fen tags`, `puzzle tags`, `record tag-stats` | [Piece and position tags](piece-tags) |
+| Export training data | `record dataset npy`, `record dataset lc0`, `record dataset classifier` | [Datasets](datasets) |
+| Render diagrams and books | `fen render`, `book pdf`, `book render`, `book cover` | [Book publishing](book-publishing) |
+| Automate safely | `doctor`, `config validate`, deterministic move and bestmove commands | [AI agents and automation](ai-agents) |
 
 ## Architecture At A Glance
 
