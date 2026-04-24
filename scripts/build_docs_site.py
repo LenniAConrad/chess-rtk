@@ -405,6 +405,7 @@ def render_page(page: Page, pages: list[Page]) -> tuple[str, str]:
         <nav>
           <a href="index.html">Home</a>
           <a href="wiki-index.html">Wiki Index</a>
+          <a href="chessrtk-manual.pdf">Manual PDF</a>
           <a href="command-reference.html">Commands</a>
         </nav>
       </header>

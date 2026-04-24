@@ -66,6 +66,7 @@
         <nav>
           <a href="index.html">Home</a>
           <a href="wiki-index.html">Wiki Index</a>
+          <a href="chessrtk-manual.pdf">Manual PDF</a>
           <a href="command-reference.html">Commands</a>
         </nav>
       </header>
@@ -136,6 +137,8 @@ java -Djava.awt.headless=true -cp out testing.ChessBookCoverCommandRegressionTes
 <h2 id="documentation-confidence">Documentation Confidence</h2>
 <p>The website-style docs are generated from the repository wiki source:</p>
 <pre><code class="language-bash">python3 scripts/build_docs_site.py</code></pre>
+<p>The printable manual uses the same wiki source and writes both <code>docs/manual.html</code> and <code>docs/chessrtk-manual.pdf</code>:</p>
+<pre><code class="language-bash">python3 scripts/build_manual_pdf.py</code></pre>
 <p>Then check links/assets in <code>docs/</code> before publishing. The GitHub Wiki is a separate repository, so changes pushed there should also pass a simple internal link check.</p>
 <h2 id="recommended-bug-report-baseline">Recommended Bug Report Baseline</h2>
 <p>When reporting a bug, include:</p>

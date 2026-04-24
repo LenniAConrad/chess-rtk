@@ -66,6 +66,7 @@
         <nav>
           <a href="index.html">Home</a>
           <a href="wiki-index.html">Wiki Index</a>
+          <a href="chessrtk-manual.pdf">Manual PDF</a>
           <a href="command-reference.html">Commands</a>
         </nav>
       </header>
@@ -159,7 +160,7 @@ crtk engine perft --startpos --depth 4 --threads 4
 crtk engine builtin --startpos --depth 3 --format summary</code></pre>
 <p>If the launcher is not installed, use:</p>
 <pre><code class="language-bash">java -cp out application.Main &lt;area&gt; &lt;action&gt; [options]</code></pre>
-<h2 id="the-three-documentation-surfaces">The Three Documentation Surfaces</h2>
+<h2 id="documentation-surfaces">Documentation Surfaces</h2>
 <div class="table-wrap"><table>
 <thead><tr>
 <th>Surface</th>
@@ -175,6 +176,11 @@ crtk engine builtin --startpos --depth 3 --format summary</code></pre>
 <td>GitHub Pages site</td>
 <td>website-style docs with a custom layout</td>
 <td><a href="https://LenniAConrad.github.io/chess-rtk/">LenniAConrad.github.io/chess-rtk</a></td>
+</tr>
+<tr>
+<td>PDF manual</td>
+<td>offline reading, printing, and release attachments</td>
+<td><a href="https://LenniAConrad.github.io/chess-rtk/chessrtk-manual.pdf">chessrtk-manual.pdf</a></td>
 </tr>
 <tr>
 <td>CLI help</td>
@@ -275,6 +281,8 @@ crtk record export pgn --input dump/run.puzzles.json --output dump/run.pgn</code
 <h2 id="website-version">Website Version</h2>
 <p>GitHub Wiki pages use GitHub&#x27;s built-in Markdown renderer. For the website-style version with the custom sidebar, page table of contents, and generated HTML layout, use:</p>
 <pre><code class="language-text">https://LenniAConrad.github.io/chess-rtk/</code></pre>
+<p>For a single printable document, use:</p>
+<pre><code class="language-text">https://LenniAConrad.github.io/chess-rtk/chessrtk-manual.pdf</code></pre>
 <h2 id="support">Support</h2>
 <p>Start with <a href="troubleshooting.html">Troubleshooting</a>. If you are reporting a bug, include the exact command, input FEN or file, Java version, operating system, engine protocol TOML if relevant, and whether this passes:</p>
 <pre><code class="language-bash">./scripts/run_regression_suite.sh recommended</code></pre>
@@ -282,7 +290,7 @@ crtk record export pgn --input dump/run.puzzles.json --output dump/run.pgn</code
         <aside class="toc"><h2>On This Page</h2>
 <a class="toc-h2" href="#pick-your-path">Pick Your Path</a>
 <a class="toc-h2" href="#copy-paste-smoke-test">Copy-Paste Smoke Test</a>
-<a class="toc-h2" href="#the-three-documentation-surfaces">The Three Documentation Surfaces</a>
+<a class="toc-h2" href="#documentation-surfaces">Documentation Surfaces</a>
 <a class="toc-h2" href="#what-chessrtk-covers">What ChessRTK Covers</a>
 <a class="toc-h2" href="#most-common-workflows">Most Common Workflows</a>
 <a class="toc-h3" href="#study-one-position">Study One Position</a>

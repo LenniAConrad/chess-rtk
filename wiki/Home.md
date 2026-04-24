@@ -43,12 +43,13 @@ If the launcher is not installed, use:
 java -cp out application.Main <area> <action> [options]
 ```
 
-## The Three Documentation Surfaces
+## Documentation Surfaces
 
 | Surface | Best for | Link |
 | --- | --- | --- |
 | GitHub Wiki | browsing project knowledge inside GitHub | this wiki |
 | GitHub Pages site | website-style docs with a custom layout | [LenniAConrad.github.io/chess-rtk](https://LenniAConrad.github.io/chess-rtk/) |
+| PDF manual | offline reading, printing, and release attachments | [chessrtk-manual.pdf](https://LenniAConrad.github.io/chess-rtk/chessrtk-manual.pdf) |
 | CLI help | exact installed command options | `crtk help --full` |
 
 ## What ChessRTK Covers
@@ -115,6 +116,12 @@ layout, use:
 
 ```text
 https://LenniAConrad.github.io/chess-rtk/
+```
+
+For a single printable document, use:
+
+```text
+https://LenniAConrad.github.io/chess-rtk/chessrtk-manual.pdf
 ```
 
 ## Support

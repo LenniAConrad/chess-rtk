@@ -10,6 +10,7 @@ checking, mining, exporting, and publishing chess work with commands that are
 explicit enough for terminals, scripts, CI, and AI-agent workflows.
 
 [Website docs](docs/index.html) |
+[PDF manual](docs/chessrtk-manual.pdf) |
 [Markdown wiki](wiki/README.md) |
 [Getting started](wiki/getting-started.md) |
 [Use cases](wiki/use-cases.md) |
@@ -223,6 +224,13 @@ More:
 The browsable documentation site is generated under [docs/index.html](docs/index.html).
 Open it directly in a browser, or publish the `docs/` directory with GitHub
 Pages. The Markdown source lives under [wiki/](wiki/).
+
+For offline reading or printing, use the generated
+[PDF manual](docs/chessrtk-manual.pdf). Rebuild the site and manual with:
+
+```bash
+python3 scripts/build_manual_pdf.py
+```
 
 The wiki is organized like a project handbook:
 

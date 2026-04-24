@@ -80,6 +80,13 @@ The website-style docs are generated from the repository wiki source:
 python3 scripts/build_docs_site.py
 ```
 
+The printable manual uses the same wiki source and writes both
+`docs/manual.html` and `docs/chessrtk-manual.pdf`:
+
+```bash
+python3 scripts/build_manual_pdf.py
+```
+
 Then check links/assets in `docs/` before publishing. The GitHub Wiki is a
 separate repository, so changes pushed there should also pass a simple internal
 link check.
