@@ -337,9 +337,23 @@ def strip_markup(value: str) -> str:
     return value
 
 
+def markdown_for_page(page: Page) -> str:
+    """Return Markdown prepared for the generated website."""
+    markdown = (WIKI / page.source).read_text(encoding="utf-8")
+    if page.source == "Home.md":
+        markdown = re.sub(
+            r"^# [^\n]+\n\n!\[[^\]]*banner[^\]]*\]\([^)]+\)\n\n",
+            "",
+            markdown,
+            count=1,
+            flags=re.IGNORECASE,
+        )
+    return markdown
+
+
 def render_page(page: Page, pages: list[Page]) -> tuple[str, str]:
     """Render one full HTML page."""
-    markdown = (WIKI / page.source).read_text(encoding="utf-8")
+    markdown = markdown_for_page(page)
     body, toc, search_text = render_markdown(markdown)
     page_title = title_from_markdown(WIKI / page.source)
     hero = ""
@@ -350,6 +364,11 @@ def render_page(page: Page, pages: list[Page]) -> tuple[str, str]:
     <p class="eyebrow">ChessRTK documentation</p>
     <h1>Chess tools, engine workflows, datasets, and publishing in one CLI.</h1>
     <p>Use the sidebar to browse guides, command references, architecture notes, and workflow docs.</p>
+    <p class="hero-actions">
+      <a href="getting-started.html">Get started</a>
+      <a href="command-cheatsheet.html">Command cheatsheet</a>
+      <a href="architecture.html">Architecture</a>
+    </p>
   </div>
   <img src="assets/banner/github/crtk-github-banner.png" alt="ChessRTK banner">
 </section>
@@ -374,6 +393,7 @@ def render_page(page: Page, pages: list[Page]) -> tuple[str, str]:
       </a>
       <label class="search-label" for="doc-search">Search pages</label>
       <input id="doc-search" class="search" type="search" placeholder="Search docs...">
+      <div id="search-results" class="search-results" hidden></div>
       <nav class="nav">{nav_html(pages, page.href)}</nav>
     </aside>
     <div class="page">
@@ -470,7 +490,9 @@ STYLES = r"""
   --shadow: 0 18px 45px rgba(24, 37, 28, 0.10);
 }
 
-* {
+*,
+*::before,
+*::after {
   box-sizing: border-box;
 }
 
@@ -568,7 +590,7 @@ img {
   margin: 0 0 8px;
   color: var(--muted);
   font-size: 0.76rem;
-  letter-spacing: 0.04em;
+  letter-spacing: 0;
   text-transform: uppercase;
 }
 
@@ -643,7 +665,7 @@ img {
   color: var(--accent);
   font-weight: 800;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0;
 }
 
 .content-layout {
@@ -666,7 +688,7 @@ img {
 
 .content h1 {
   margin-top: 0;
-  font-size: clamp(2rem, 4vw, 3.2rem);
+  font-size: 2.65rem;
   line-height: 1.08;
 }
 
@@ -757,7 +779,7 @@ tr:last-child td {
   font-size: 0.8rem;
   color: var(--muted);
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0;
 }
 
 .toc a {
@@ -868,6 +890,356 @@ tr:last-child td {
     display: block;
   }
 }
+
+/* Visual polish layer. Keep this at the end so generated docs stay stable
+   while the site can evolve without changing the Markdown source. */
+:root {
+  --bg: #edf2ee;
+  --panel: #fffefb;
+  --panel-soft: #eef5ef;
+  --text: #17221b;
+  --muted: #647268;
+  --border: #d6dfd7;
+  --accent: #2e7d57;
+  --accent-strong: #123b2b;
+  --accent-soft: #e4f4ea;
+  --gold: #d8a63a;
+  --sidebar-bg: #0e1913;
+  --sidebar-bg-2: #14251b;
+  --sidebar-text: #dce9df;
+  --sidebar-muted: #91a697;
+  --shadow: 0 24px 70px rgba(19, 35, 25, 0.14);
+}
+
+body {
+  background:
+    linear-gradient(135deg, rgba(46, 125, 87, 0.10) 0%, transparent 36%),
+    linear-gradient(180deg, rgba(216, 166, 58, 0.08) 0%, transparent 28%),
+    linear-gradient(180deg, #f7faf7 0%, var(--bg) 46%, #e9efe9 100%);
+}
+
+.site-shell {
+  grid-template-columns: 304px minmax(0, 1fr);
+}
+
+.sidebar {
+  background:
+    linear-gradient(180deg, rgba(216, 166, 58, 0.08), transparent 18rem),
+    linear-gradient(180deg, var(--sidebar-bg), var(--sidebar-bg-2));
+  border-right: 0;
+  box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.08);
+}
+
+.brand {
+  color: var(--sidebar-text);
+}
+
+.brand-mark {
+  background: linear-gradient(135deg, #2e7d57, #d8a63a);
+  color: #06100b;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.24);
+}
+
+.brand small,
+.search-label,
+.nav-section h2 {
+  color: var(--sidebar-muted);
+}
+
+.search {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.14);
+  color: var(--sidebar-text);
+  outline-color: var(--gold);
+}
+
+.search::placeholder {
+  color: rgba(220, 233, 223, 0.55);
+}
+
+.search-results {
+  margin-top: 8px;
+  padding: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.18);
+}
+
+.search-results a {
+  display: block;
+  padding: 8px 9px;
+  border-radius: 7px;
+  color: var(--sidebar-text);
+  text-decoration: none;
+}
+
+.search-results a:hover {
+  background: rgba(255, 255, 255, 0.09);
+}
+
+.search-results small {
+  display: block;
+  color: var(--sidebar-muted);
+  font-size: 0.75rem;
+}
+
+.nav-section a {
+  color: var(--sidebar-text);
+}
+
+.nav-section a:hover,
+.nav-section a.active {
+  background: linear-gradient(90deg, rgba(46, 125, 87, 0.28), rgba(216, 166, 58, 0.10));
+  color: #ffffff;
+}
+
+.nav-section a.active {
+  box-shadow: inset 3px 0 0 var(--gold);
+}
+
+.topbar {
+  background: rgba(255, 254, 251, 0.86);
+  box-shadow: 0 1px 0 rgba(20, 37, 27, 0.04), 0 12px 34px rgba(20, 37, 27, 0.06);
+}
+
+.topbar strong {
+  color: var(--accent-strong);
+}
+
+.topbar nav a {
+  color: var(--accent-strong);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.hero {
+  max-width: 1220px;
+  width: calc(100% - 64px);
+  padding: 42px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  background:
+    linear-gradient(120deg, rgba(216, 166, 58, 0.18), transparent 42%),
+    linear-gradient(135deg, #0d1c14 0%, #163823 54%, #102018 100%);
+  box-shadow: var(--shadow);
+}
+
+.hero div {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.hero h1 {
+  max-width: 720px;
+  margin: 0;
+  color: #ffffff;
+  font-size: 4.15rem;
+  line-height: 0.98;
+  overflow-wrap: break-word;
+}
+
+.hero p {
+  max-width: 680px;
+  color: #d9e7dd;
+}
+
+.hero .eyebrow {
+  color: var(--gold);
+}
+
+.hero img {
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 22px 55px rgba(0, 0, 0, 0.30);
+}
+
+.hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 24px 0 0;
+}
+
+.hero-actions a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 8px;
+  padding: 0 14px;
+  background: rgba(255, 255, 255, 0.10);
+  color: #ffffff;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.hero-actions a:first-child {
+  background: var(--gold);
+  color: #07110c;
+}
+
+.content-layout {
+  max-width: 1220px;
+  grid-template-columns: minmax(0, 900px) 250px;
+}
+
+.content {
+  border-color: rgba(19, 59, 43, 0.12);
+}
+
+.content h1 {
+  color: var(--accent-strong);
+  letter-spacing: 0;
+}
+
+.content h2 {
+  border-top: 0;
+  padding-top: 0;
+  color: var(--accent-strong);
+}
+
+.content h2::before {
+  content: "";
+  display: block;
+  width: 48px;
+  height: 4px;
+  margin: 0 0 13px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--accent), var(--gold));
+}
+
+.content h3 {
+  color: #243a2b;
+}
+
+.content blockquote {
+  margin: 1.4rem 0;
+  padding: 0.9rem 1rem;
+  border-left: 4px solid var(--accent);
+  border-radius: 0 8px 8px 0;
+  background: var(--accent-soft);
+}
+
+.content pre {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.content :not(pre) > code {
+  border: 1px solid rgba(46, 125, 87, 0.13);
+}
+
+.table-wrap {
+  box-shadow: 0 12px 34px rgba(20, 37, 27, 0.06);
+}
+
+th {
+  background: #f0f6f1;
+  color: var(--accent-strong);
+}
+
+tbody tr:nth-child(even) td {
+  background: #fbfcfa;
+}
+
+.toc {
+  border-color: rgba(19, 59, 43, 0.12);
+  box-shadow: 0 16px 42px rgba(20, 37, 27, 0.08);
+}
+
+.toc a:hover {
+  color: var(--accent);
+}
+
+.footer {
+  max-width: 1220px;
+}
+
+@media (max-width: 980px) {
+  .sidebar {
+    background:
+      linear-gradient(180deg, rgba(216, 166, 58, 0.08), transparent 18rem),
+      linear-gradient(180deg, var(--sidebar-bg), var(--sidebar-bg-2));
+  }
+
+  .hero {
+    margin-top: 22px;
+    width: calc(100% - 32px);
+    padding: 30px;
+  }
+
+  .hero h1 {
+    font-size: 3.2rem;
+  }
+}
+
+@media (max-width: 720px) {
+  body {
+    overflow-x: hidden;
+  }
+
+  .hero {
+    width: calc(100vw - 24px);
+    max-width: calc(100vw - 24px);
+    margin-left: 12px;
+    margin-right: 12px;
+    padding: 24px 18px;
+  }
+
+  .hero h1 {
+    max-width: 17ch;
+    font-size: 1.85rem;
+    line-height: 1.12;
+  }
+
+  .hero p {
+    max-width: 32ch;
+    font-size: 0.95rem;
+  }
+
+  .hero-actions {
+    max-width: calc(100vw - 60px);
+  }
+
+  .hero img {
+    display: block;
+    width: 100%;
+    max-width: calc(100vw - 60px);
+    height: auto;
+  }
+
+  .content h1 {
+    font-size: 2rem;
+  }
+
+  .hero-actions a {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .hero,
+  .content-layout,
+  .footer {
+    width: calc(100% - 24px);
+    max-width: 366px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .content-layout,
+  .footer {
+    padding-left: 0;
+    padding-right: 0;
+  }
+
+  .hero-actions,
+  .hero img {
+    max-width: 330px;
+  }
+}
 """
 
 
@@ -875,7 +1247,16 @@ SCRIPT = r"""
 (function () {
   const toggle = document.querySelector(".menu-toggle");
   const search = document.querySelector("#doc-search");
+  const results = document.querySelector("#search-results");
   const links = Array.from(document.querySelectorAll(".nav-section a"));
+  const index = window.CRTK_SEARCH_INDEX || [];
+  const escapeHtml = (value) => String(value).replace(/[&<>"']/g, (char) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    "\"": "&quot;",
+    "'": "&#39;",
+  }[char]));
 
   if (toggle) {
     toggle.addEventListener("click", () => {
@@ -896,6 +1277,29 @@ SCRIPT = r"""
         const title = link.dataset.title || "";
         link.hidden = Boolean(query) && !title.includes(query);
       });
+      if (!results) {
+        return;
+      }
+      if (!query) {
+        results.hidden = true;
+        results.innerHTML = "";
+        return;
+      }
+      const matches = index
+        .filter((page) => `${page.title} ${page.category} ${page.text}`.toLowerCase().includes(query))
+        .slice(0, 6);
+      if (!matches.length) {
+        results.hidden = false;
+        results.innerHTML = "<small>No page matches</small>";
+        return;
+      }
+      results.hidden = false;
+      results.innerHTML = matches
+        .map((page) => {
+          const href = escapeHtml(encodeURI(page.href));
+          return `<a href="${href}">${escapeHtml(page.title)}<small>${escapeHtml(page.category)}</small></a>`;
+        })
+        .join("");
     });
   }
 })();

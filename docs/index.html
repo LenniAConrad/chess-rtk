@@ -18,6 +18,7 @@
       </a>
       <label class="search-label" for="doc-search">Search pages</label>
       <input id="doc-search" class="search" type="search" placeholder="Search docs...">
+      <div id="search-results" class="search-results" hidden></div>
       <nav class="nav"><section class="nav-section"><h2>Start Here</h2>
 <a class="active" href="index.html" data-title="home">Home</a>
 <a class="" href="getting-started.html" data-title="getting started">Getting Started</a>
@@ -74,15 +75,18 @@
     <p class="eyebrow">ChessRTK documentation</p>
     <h1>Chess tools, engine workflows, datasets, and publishing in one CLI.</h1>
     <p>Use the sidebar to browse guides, command references, architecture notes, and workflow docs.</p>
+    <p class="hero-actions">
+      <a href="getting-started.html">Get started</a>
+      <a href="command-cheatsheet.html">Command cheatsheet</a>
+      <a href="architecture.html">Architecture</a>
+    </p>
   </div>
   <img src="assets/banner/github/crtk-github-banner.png" alt="ChessRTK banner">
 </section>
 
       <main class="content-layout">
         <article class="content">
-          <h1 id="chessrtk-wiki">ChessRTK Wiki</h1>
-<p><img src="assets/banner/github/crtk-github-banner.png" alt="ChessRTK banner" loading="lazy"></p>
-<p>ChessRTK (<code>crtk</code>) is a Java 17 chess research toolkit for deterministic chess workflows: FEN and SAN handling, legal move generation, perft validation, engine analysis, puzzle mining, dataset export, board rendering, and native PDF book publishing.</p>
+          <p>ChessRTK (<code>crtk</code>) is a Java 17 chess research toolkit for deterministic chess workflows: FEN and SAN handling, legal move generation, perft validation, engine analysis, puzzle mining, dataset export, board rendering, and native PDF book publishing.</p>
 <p>The project is organized around one shared position model. That means the same rules implementation drives command-line move lists, built-in search, UCI analysis, tags, datasets, diagrams, GUI views, and book output.</p>
 <h2 id="pick-your-path">Pick Your Path</h2>
 <div class="table-wrap"><table>
