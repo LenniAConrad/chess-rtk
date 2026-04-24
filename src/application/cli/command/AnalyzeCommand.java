@@ -1,21 +1,8 @@
 package application.cli.command;
 
 import static application.cli.Constants.CMD_ANALYZE;
-import static application.cli.Constants.OPT_FEN;
-import static application.cli.Constants.OPT_HASH;
-import static application.cli.Constants.OPT_INPUT;
-import static application.cli.Constants.OPT_INPUT_SHORT;
-import static application.cli.Constants.OPT_MAX_DURATION;
-import static application.cli.Constants.OPT_MAX_NODES;
-import static application.cli.Constants.OPT_MULTIPV;
-import static application.cli.Constants.OPT_NODES;
-import static application.cli.Constants.OPT_NO_WDL;
-import static application.cli.Constants.OPT_PROTOCOL_PATH;
-import static application.cli.Constants.OPT_PROTOCOL_PATH_SHORT;
-import static application.cli.Constants.OPT_THREADS;
 import static application.cli.Constants.OPT_VERBOSE;
 import static application.cli.Constants.OPT_VERBOSE_SHORT;
-import static application.cli.Constants.OPT_WDL;
 import static application.cli.EngineOps.analysePositionOrExit;
 import static application.cli.EngineOps.configureEngine;
 import static application.cli.EngineOps.parsePositionOrNull;
@@ -26,12 +13,10 @@ import static application.cli.Format.formatEvaluation;
 import static application.cli.Format.formatPvMovesSan;
 import static application.cli.Format.safeSan;
 
-import java.nio.file.Path;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 
-import application.Config;
 import application.console.Bar;
 import chess.core.Move;
 import chess.core.Position;
@@ -68,36 +53,13 @@ public final class AnalyzeCommand {
 	 */
 	public static void runAnalyze(Argv a) {
 		boolean verbose = a.flag(OPT_VERBOSE, OPT_VERBOSE_SHORT);
-		Path input = a.path(OPT_INPUT, OPT_INPUT_SHORT);
-		String fen = a.string(OPT_FEN);
-		String protoPath = CommandSupport.optional(a.string(OPT_PROTOCOL_PATH, OPT_PROTOCOL_PATH_SHORT),
-				Config.getProtocolPath());
-		long nodesCap = Math.max(1, CommandSupport.optional(a.lng(OPT_MAX_NODES, OPT_NODES), Config.getMaxNodes()));
-		long durMs = Math.max(1,
-				CommandSupport.optionalDurationMs(a.duration(OPT_MAX_DURATION), Config.getMaxDuration()));
-		Integer multipv = a.integer(OPT_MULTIPV);
-		Integer threads = a.integer(OPT_THREADS);
-		Integer hash = a.integer(OPT_HASH);
-		boolean wdl = a.flag(OPT_WDL);
-		boolean noWdl = a.flag(OPT_NO_WDL);
-		List<String> rest = a.positionals();
-		if (fen == null && !rest.isEmpty()) {
-			fen = String.join(" ", rest);
-		}
-		a.ensureConsumed();
-
-		if (wdl && noWdl) {
-			System.err.println(String.format("analyze: only one of %s or %s may be set", OPT_WDL, OPT_NO_WDL));
-			System.exit(2);
-			return;
-		}
-
-		List<String> fens = CommandSupport.resolveFenInputs(CMD_ANALYZE, input, fen);
-		Protocol protocol = EngineSupport.loadProtocolOrExit(protoPath, verbose);
-		Optional<Boolean> wdlFlag = resolveWdlFlag(wdl, noWdl);
+		EngineSupport.UciOptions opts = EngineSupport.parseUciOptions(a, CMD_ANALYZE, false);
+		List<String> fens = CommandSupport.resolveFenInputs(CMD_ANALYZE, opts.input(), opts.fen());
+		Protocol protocol = EngineSupport.loadProtocolOrExit(opts.protocolPath(), verbose);
+		Optional<Boolean> wdlFlag = resolveWdlFlag(opts.wdl(), opts.noWdl());
 
 		try (Engine engine = new Engine(protocol)) {
-			configureEngine(CMD_ANALYZE, engine, threads, hash, multipv, wdlFlag);
+			configureEngine(CMD_ANALYZE, engine, opts.threads(), opts.hash(), opts.multipv(), wdlFlag);
 			String engineLabel = protocol.getName() != null ? protocol.getName() : protocol.getPath();
 			System.out.println("Engine: " + engineLabel);
 			Bar bar = positionProgressBar(fens, CMD_ANALYZE);
@@ -109,7 +71,8 @@ public final class AnalyzeCommand {
 						if (pos == null) {
 							continue;
 						}
-						Analysis analysis = analysePositionOrExit(engine, pos, nodesCap, durMs, CMD_ANALYZE, verbose);
+						Analysis analysis = analysePositionOrExit(engine, pos, opts.nodesCap(), opts.durationMillis(),
+								CMD_ANALYZE, verbose);
 						if (analysis == null) {
 							return;
 						}

@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Releasing ChessRTK (`crtk`) | ChessRTK Wiki</title>
+  <link rel="stylesheet" href="styles.css">
+  <script defer src="search-index.js"></script>
+  <script defer src="site.js"></script>
+</head>
+<body>
+  <button class="menu-toggle" type="button" aria-label="Toggle navigation">Menu</button>
+  <div class="site-shell">
+    <aside class="sidebar">
+      <a class="brand" href="index.html">
+        <span class="brand-mark">CR</span>
+        <span><strong>ChessRTK</strong><small>Wiki</small></span>
+      </a>
+      <label class="search-label" for="doc-search">Search pages</label>
+      <input id="doc-search" class="search" type="search" placeholder="Search docs...">
+      <nav class="nav"><section class="nav-section"><h2>Start Here</h2>
+<a class="" href="index.html" data-title="home">Home</a>
+<a class="" href="getting-started.html" data-title="getting started">Getting Started</a>
+<a class="" href="faq.html" data-title="faq">FAQ</a>
+<a class="" href="command-reference.html" data-title="command reference">Command Reference</a>
+<a class="" href="example-commands.html" data-title="example commands">Example Commands</a>
+<a class="" href="troubleshooting.html" data-title="troubleshooting">Troubleshooting</a>
+</section>
+<section class="nav-section"><h2>User Guides</h2>
+<a class="" href="build-and-install.html" data-title="build &amp; install">Build &amp; Install</a>
+<a class="" href="configuration.html" data-title="configuration">Configuration</a>
+<a class="" href="in-house-engine.html" data-title="in-house engine">In-House Engine</a>
+<a class="" href="lc0.html" data-title="lc0">LC0</a>
+<a class="" href="outputs-and-logs.html" data-title="outputs &amp; logs">Outputs &amp; Logs</a>
+<a class="" href="support.html" data-title="support">Support</a>
+</section>
+<section class="nav-section"><h2>Workflows</h2>
+<a class="" href="mining.html" data-title="mining puzzles">Mining Puzzles</a>
+<a class="" href="filter-dsl.html" data-title="filter dsl">Filter DSL</a>
+<a class="" href="datasets.html" data-title="datasets">Datasets</a>
+<a class="" href="book-publishing.html" data-title="book publishing">Book Publishing</a>
+<a class="" href="piece-tags.html" data-title="tags">Tags</a>
+<a class="" href="t5.html" data-title="t5 text">T5 Text</a>
+<a class="" href="ai-agents.html" data-title="ai agents">AI Agents</a>
+</section>
+<section class="nav-section"><h2>Development</h2>
+<a class="" href="architecture.html" data-title="architecture">Architecture</a>
+<a class="" href="development-notes.html" data-title="development notes">Development Notes</a>
+<a class="active" href="releasing.html" data-title="releasing">Releasing</a>
+<a class="" href="roadmap.html" data-title="roadmap">Roadmap</a>
+<a class="" href="glossary.html" data-title="glossary">Glossary</a>
+<a class="" href="tagging-implementation-plan.html" data-title="tagging plan">Tagging Plan</a>
+<a class="" href="wiki-index.html" data-title="wiki index">Wiki Index</a>
+</section></nav>
+    </aside>
+    <div class="page">
+      <header class="topbar">
+        <div>
+          <span>Development</span>
+          <strong>Releasing ChessRTK (`crtk`)</strong>
+        </div>
+        <nav>
+          <a href="index.html">Home</a>
+          <a href="wiki-index.html">Wiki Index</a>
+          <a href="command-reference.html">Commands</a>
+        </nav>
+      </header>
+      
+      <main class="content-layout">
+        <article class="content">
+          <h1 id="releasing-chessrtk-crtk">Releasing ChessRTK (<code>crtk</code>)</h1>
+<p>This repo is intentionally build-tool light: the CLI is a runnable Java 17 jar. Optional native GPU backends live under <code>native/cuda/</code>, <code>native/rocm/</code>, and <code>native/oneapi/</code>. The release script below packages the CUDA Linux artifact.</p>
+<h2 id="linux-x86-64-cuda-release-artifact">Linux (x86_64) + CUDA release artifact</h2>
+<p>Prerequisites:</p>
+<ul>
+<li>Java 17+ JDK (<code>javac</code>, <code>jar</code>)</li>
+<li>CMake 3.18+</li>
+<li>CUDA toolkit (<code>nvcc</code>)</li>
+<li>NVIDIA driver (runtime)</li>
+</ul>
+<p>Build and package:</p>
+<pre><code class="language-bash">scripts/make_release_linux_cuda.sh --version vX.Y.Z</code></pre>
+<p>To include local, gitignored model files in the bundle:</p>
+<pre><code class="language-bash">scripts/make_release_linux_cuda.sh --version vX.Y.Z --include-models</code></pre>
+<p>Outputs:</p>
+<ul>
+<li><code>dist/crtk-vX.Y.Z-linux-x86_64-cuda.tar.gz</code></li>
+<li><code>dist/SHA256SUMS</code></li>
+</ul>
+<p>Quick smoke test (from the extracted artifact directory):</p>
+<pre><code class="language-bash">./crtk engine gpu
+./crtk help</code></pre>
+<h2 id="github-release-checklist">GitHub release checklist</h2>
+<h2 id="release-readiness-checklist">Release readiness checklist</h2>
+<ol>
+<li>Ensure the working tree is clean:</li>
+</ol>
+<p><code>git status --short</code></p>
+<ol>
+<li>Run a fresh compile and lint pass:</li>
+</ol>
+<p><code>./scripts/run_regression_suite.sh build</code> <code>./scripts/run_regression_suite.sh lint</code></p>
+<ol>
+<li>Run the recommended local regression suite:</li>
+</ol>
+<p><code>./scripts/run_regression_suite.sh recommended</code></p>
+<ol>
+<li>Run a deeper perft suite after move-generation or notation changes:</li>
+</ol>
+<p><code>CRTK_PERFT_SUITE_DEPTH=6 CRTK_PERFT_THREADS=4 ./scripts/run_regression_suite.sh perft-smoke</code></p>
+<ol>
+<li>Update docs that changed with the release:</li>
+</ol>
+<p><code>README.md</code>, <code>wiki/command-reference.md</code>, <code>wiki/build-and-install.md</code>, and any new feature notes</p>
+<ol>
+<li>Build a fresh runnable jar:</li>
+</ol>
+<p><code>./scripts/run_regression_suite.sh jar</code></p>
+<ol>
+<li>Confirm release artifacts include the current license file:</li>
+</ol>
+<p>keep <code>LICENSE.txt</code> bundled with packaged releases and distributed archives</p>
+<h2 id="github-release-workflow">GitHub release workflow</h2>
+<ol>
+<li>Ensure the release-readiness checklist above is complete.</li>
+<li>Decide on version <code>vX.Y.Z</code> and tag it:</li>
+</ol>
+<ul>
+<li><code>git tag -a vX.Y.Z -m &quot;vX.Y.Z&quot;</code></li>
+<li><code>git push origin vX.Y.Z</code></li>
+</ul>
+<ol>
+<li>Run the release build:</li>
+</ol>
+<ul>
+<li><code>scripts/make_release_linux_cuda.sh --version vX.Y.Z</code></li>
+<li>or at minimum <code>./scripts/run_regression_suite.sh release</code></li>
+</ul>
+<ol>
+<li>Create a GitHub Release for tag <code>vX.Y.Z</code> and upload:</li>
+</ol>
+<ul>
+<li><code>dist/crtk-vX.Y.Z-linux-x86_64-cuda.tar.gz</code></li>
+<li><code>dist/SHA256SUMS</code></li>
+</ul>
+        </article>
+        <aside class="toc"><h2>On This Page</h2>
+<a class="toc-h2" href="#linux-x86-64-cuda-release-artifact">Linux (x86_64) + CUDA release artifact</a>
+<a class="toc-h2" href="#github-release-checklist">GitHub release checklist</a>
+<a class="toc-h2" href="#release-readiness-checklist">Release readiness checklist</a>
+<a class="toc-h2" href="#github-release-workflow">GitHub release workflow</a></aside>
+      </main>
+      <footer class="footer">
+        <span>Generated from <code>wiki/releasing.md</code>.</span>
+        <span>Build with <code>python3 scripts/build_docs_site.py</code>.</span>
+      </footer>
+    </div>
+  </div>
+</body>
+</html>

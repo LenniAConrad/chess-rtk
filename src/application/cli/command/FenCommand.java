@@ -47,7 +47,7 @@ public final class FenCommand {
 		}
 
 		boolean verbose = a.flag(OPT_VERBOSE, OPT_VERBOSE_SHORT);
-		String fen = CommandSupport.resolveFenArgument(a);
+		String fen = CommandSupport.resolveFenArgument(a, FEN_NORMALIZE, false);
 		if (fen == null || fen.isBlank()) {
 			System.err.println(FEN_NORMALIZE + " requires a FEN");
 			System.exit(2);
@@ -73,7 +73,7 @@ public final class FenCommand {
 		}
 
 		boolean verbose = a.flag(OPT_VERBOSE, OPT_VERBOSE_SHORT);
-		String fen = CommandSupport.resolveFenArgument(a);
+		String fen = CommandSupport.resolveFenArgument(a, FEN_VALIDATE, false);
 		if (fen == null || fen.isBlank()) {
 			System.err.println(FEN_VALIDATE + " requires a FEN");
 			System.exit(2);

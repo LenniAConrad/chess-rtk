@@ -11,16 +11,60 @@ import chess.core.Move;
  */
 public final class StudioGameNode {
 
+	/**
+	 * Parent node, or null for the root.
+	 */
 	private final StudioGameNode parent;
+
+	/**
+	 * Mutable child list owned by this node.
+	 */
 	private final List<StudioGameNode> children = new ArrayList<>();
+
+	/**
+	 * Encoded move that reaches this node.
+	 */
 	private final short move;
+
+	/**
+	 * SAN label for the move.
+	 */
 	private final String san;
+
+	/**
+	 * UCI label for the move.
+	 */
 	private final String uci;
+
+	/**
+	 * FEN before the move was played.
+	 */
 	private final String beforeFen;
+
+	/**
+	 * FEN after the move was played.
+	 */
 	private final String afterFen;
+
+	/**
+	 * Numeric annotation glyphs attached to the node.
+	 */
 	private final List<Integer> nags = new ArrayList<>();
+
+	/**
+	 * Free-form comment attached to the node.
+	 */
 	private String comment = "";
 
+	/**
+	 * Constructor.
+	 *
+	 * @param parent parent node
+	 * @param move encoded move
+	 * @param san SAN label
+	 * @param beforeFen FEN before the move
+	 * @param afterFen FEN after the move
+	 */
 	StudioGameNode(StudioGameNode parent, short move, String san, String beforeFen, String afterFen) {
 		this.parent = parent;
 		this.move = move;
@@ -30,6 +74,15 @@ public final class StudioGameNode {
 		this.afterFen = afterFen;
 	}
 
+	/**
+	 * Creates and appends a child node.
+	 *
+	 * @param childMove child move
+	 * @param childSan child SAN label
+	 * @param childBeforeFen child before-FEN
+	 * @param childAfterFen child after-FEN
+	 * @return created child node
+	 */
 	StudioGameNode addChild(short childMove, String childSan, String childBeforeFen, String childAfterFen) {
 		StudioGameNode child = new StudioGameNode(this, childMove, childSan, childBeforeFen, childAfterFen);
 		children.add(child);
@@ -54,6 +107,11 @@ public final class StudioGameNode {
 		return Collections.unmodifiableList(children);
 	}
 
+	/**
+	 * Returns the mutable child list for tree maintenance.
+	 *
+	 * @return mutable children
+	 */
 	List<StudioGameNode> mutableChildren() {
 		return children;
 	}
@@ -151,6 +209,11 @@ public final class StudioGameNode {
 		nags.add(nag);
 	}
 
+	/**
+	 * Formats the node label used by Swing list renderers.
+	 *
+	 * @return display label
+	 */
 	@Override
 	public String toString() {
 		return parent == null ? "Start" : san;

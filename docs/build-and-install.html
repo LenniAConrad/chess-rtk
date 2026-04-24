@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Build &amp; install | ChessRTK Wiki</title>
+  <link rel="stylesheet" href="styles.css">
+  <script defer src="search-index.js"></script>
+  <script defer src="site.js"></script>
+</head>
+<body>
+  <button class="menu-toggle" type="button" aria-label="Toggle navigation">Menu</button>
+  <div class="site-shell">
+    <aside class="sidebar">
+      <a class="brand" href="index.html">
+        <span class="brand-mark">CR</span>
+        <span><strong>ChessRTK</strong><small>Wiki</small></span>
+      </a>
+      <label class="search-label" for="doc-search">Search pages</label>
+      <input id="doc-search" class="search" type="search" placeholder="Search docs...">
+      <nav class="nav"><section class="nav-section"><h2>Start Here</h2>
+<a class="" href="index.html" data-title="home">Home</a>
+<a class="" href="getting-started.html" data-title="getting started">Getting Started</a>
+<a class="" href="faq.html" data-title="faq">FAQ</a>
+<a class="" href="command-reference.html" data-title="command reference">Command Reference</a>
+<a class="" href="example-commands.html" data-title="example commands">Example Commands</a>
+<a class="" href="troubleshooting.html" data-title="troubleshooting">Troubleshooting</a>
+</section>
+<section class="nav-section"><h2>User Guides</h2>
+<a class="active" href="build-and-install.html" data-title="build &amp; install">Build &amp; Install</a>
+<a class="" href="configuration.html" data-title="configuration">Configuration</a>
+<a class="" href="in-house-engine.html" data-title="in-house engine">In-House Engine</a>
+<a class="" href="lc0.html" data-title="lc0">LC0</a>
+<a class="" href="outputs-and-logs.html" data-title="outputs &amp; logs">Outputs &amp; Logs</a>
+<a class="" href="support.html" data-title="support">Support</a>
+</section>
+<section class="nav-section"><h2>Workflows</h2>
+<a class="" href="mining.html" data-title="mining puzzles">Mining Puzzles</a>
+<a class="" href="filter-dsl.html" data-title="filter dsl">Filter DSL</a>
+<a class="" href="datasets.html" data-title="datasets">Datasets</a>
+<a class="" href="book-publishing.html" data-title="book publishing">Book Publishing</a>
+<a class="" href="piece-tags.html" data-title="tags">Tags</a>
+<a class="" href="t5.html" data-title="t5 text">T5 Text</a>
+<a class="" href="ai-agents.html" data-title="ai agents">AI Agents</a>
+</section>
+<section class="nav-section"><h2>Development</h2>
+<a class="" href="architecture.html" data-title="architecture">Architecture</a>
+<a class="" href="development-notes.html" data-title="development notes">Development Notes</a>
+<a class="" href="releasing.html" data-title="releasing">Releasing</a>
+<a class="" href="roadmap.html" data-title="roadmap">Roadmap</a>
+<a class="" href="glossary.html" data-title="glossary">Glossary</a>
+<a class="" href="tagging-implementation-plan.html" data-title="tagging plan">Tagging Plan</a>
+<a class="" href="wiki-index.html" data-title="wiki index">Wiki Index</a>
+</section></nav>
+    </aside>
+    <div class="page">
+      <header class="topbar">
+        <div>
+          <span>User Guides</span>
+          <strong>Build &amp; install</strong>
+        </div>
+        <nav>
+          <a href="index.html">Home</a>
+          <a href="wiki-index.html">Wiki Index</a>
+          <a href="command-reference.html">Commands</a>
+        </nav>
+      </header>
+      
+      <main class="content-layout">
+        <article class="content">
+          <h1 id="build-install">Build &amp; install</h1>
+<h2 id="requirements">Requirements</h2>
+<ul>
+<li>Java 17+ JDK (needs <code>javac</code> to build)</li>
+<li>Optional: a UCI chess engine either on <code>PATH</code> or configured via</li>
+</ul>
+<p><code>config/default.engine.toml</code> for <code>engine analyze</code>, <code>engine bestmove</code>, <code>engine threats</code>, <code>engine uci-smoke</code>, and puzzle mining</p>
+<ul>
+<li>Optional: local model weights under <code>models/</code> for LC0, NNUE, and T5-backed</li>
+</ul>
+<p>evaluator/text workflows</p>
+<h2 id="debian-ubuntu-packages">Debian/Ubuntu packages</h2>
+<p>Minimal install (build + run):</p>
+<pre><code class="language-bash">sudo apt-get update &amp;&amp; sudo apt-get install -y \
+  git ca-certificates \
+  openjdk-17-jdk</code></pre>
+<p>Install a UCI engine only if you want external-engine analysis or mining:</p>
+<pre><code class="language-bash">sudo apt-get install -y stockfish</code></pre>
+<p>Optional (recommended if you use <code>./install.sh</code> and/or build the CUDA JNI backend):</p>
+<pre><code class="language-bash">sudo apt-get install -y \
+  curl \
+  build-essential \
+  cmake \
+  nvidia-cuda-toolkit</code></pre>
+<p>Notes:</p>
+<ul>
+<li><code>git</code> is included so a fresh machine can <code>git clone</code> this repo (and <code>ca-certificates</code> enables HTTPS downloads).</li>
+<li><code>nvidia-cuda-toolkit</code> is large and only needed to build the optional CUDA JNI backend under <code>native/cuda/</code>.</li>
+</ul>
+<h2 id="build-no-maven-gradle">Build (no Maven/Gradle)</h2>
+<pre><code class="language-bash">mkdir -p out
+javac --release 17 -d out $(find src -name &quot;*.java&quot;)</code></pre>
+<h2 id="focused-regression-check">Focused regression check</h2>
+<p>Run the zero-dependency <code>Position</code> regression harness after a build:</p>
+<pre><code class="language-bash">java -cp out testing.PositionRegressionTest</code></pre>
+<h2 id="local-regression-runner">Local regression runner</h2>
+<p>Use the shared runner to keep local checks aligned with CI:</p>
+<pre><code class="language-bash">./scripts/run_regression_suite.sh recommended</code></pre>
+<p>Useful focused suites:</p>
+<pre><code class="language-bash">./scripts/run_regression_suite.sh build
+./scripts/run_regression_suite.sh lint
+./scripts/run_regression_suite.sh core
+./scripts/run_regression_suite.sh cli
+./scripts/run_regression_suite.sh uci
+./scripts/run_regression_suite.sh perft-smoke
+./scripts/run_regression_suite.sh release</code></pre>
+<h2 id="quality-checks">Quality checks</h2>
+<p>The VS Code workspace enables SonarLint automatic analysis and excludes local artifact directories such as <code>data/</code>, <code>dump/</code>, <code>models/</code>, <code>out/</code>, and <code>session/</code>. There is no required SonarQube server for local development.</p>
+<p>Use these local checks before committing Java changes:</p>
+<pre><code class="language-bash">./scripts/run_regression_suite.sh recommended</code></pre>
+<p>If the workflow depends on a configured external UCI engine, also run:</p>
+<pre><code class="language-bash">CRTK_REQUIRE_STOCKFISH=1 ./scripts/run_regression_suite.sh uci</code></pre>
+<p>For rendering and PDF checks on a headless machine, pass the AWT headless flag:</p>
+<pre><code class="language-bash">./scripts/run_regression_suite.sh book</code></pre>
+<p>Run the full internal perft validation when changing move generation, FEN validation, SAN, make/undo, or Chess960 setup:</p>
+<pre><code class="language-bash">./scripts/run_regression_suite.sh perft-smoke
+CRTK_PERFT_SUITE_DEPTH=6 CRTK_PERFT_THREADS=4 ./scripts/run_regression_suite.sh perft-smoke</code></pre>
+<p>The perft suite uses stored truth values and the Java core move generator. It does not launch Stockfish or any other external process.</p>
+<h2 id="run">Run</h2>
+<pre><code class="language-bash">java -cp out application.Main help
+java -cp out application.Main &lt;command&gt; [options]</code></pre>
+<h2 id="package-a-runnable-jar-optional">Package a runnable JAR (optional)</h2>
+<pre><code class="language-bash">jar --create --file crtk.jar --main-class application.Main -C out .
+java -jar crtk.jar help</code></pre>
+<h2 id="linux-installer-debian-ubuntu">Linux installer (Debian/Ubuntu)</h2>
+<p><code>./install.sh</code> is a convenience installer that:</p>
+<ul>
+<li>optionally installs OpenJDK 17 and Stockfish via <code>apt-get</code></li>
+<li>optionally downloads NNUE and LC0 model weights into <code>models/</code></li>
+<li>compiles sources and builds <code>crtk.jar</code></li>
+<li>installs a launcher at <code>/usr/local/bin/crtk</code> that runs from this repo</li>
+<li>optionally builds the CUDA JNI backend under <code>native/cuda/</code> (if you have the CUDA toolkit)</li>
+</ul>
+<p>Downloaded <code>models/*.bin</code> files are local artifacts and are ignored by git.</p>
+<pre><code class="language-bash">./install.sh
+crtk help</code></pre>
+<p>Fetch optional model weights without prompting:</p>
+<pre><code class="language-bash">./install.sh --models</code></pre>
+<p>Skip model weight downloads:</p>
+<pre><code class="language-bash">./install.sh --no-models</code></pre>
+<p>Skip the CUDA backend build:</p>
+<pre><code class="language-bash">./install.sh --no-cuda</code></pre>
+<p>Force the CUDA backend build (installs missing CUDA build deps on Debian/Ubuntu):</p>
+<pre><code class="language-bash">./install.sh --cuda</code></pre>
+<h2 id="update">Update</h2>
+<p>Update the current git checkout with a fast-forward pull and rerun the installer:</p>
+<pre><code class="language-bash">./scripts/update.sh</code></pre>
+<p>Rebuild and reinstall the current checkout without pulling new commits:</p>
+<pre><code class="language-bash">./scripts/update.sh --no-pull</code></pre>
+<p>Notes:</p>
+<ul>
+<li><code>scripts/update.sh</code> refuses to pull if the git worktree has local changes.</li>
+<li>Any remaining flags are passed through to <code>./install.sh</code>, for example <code>./scripts/update.sh --no-cuda</code>.</li>
+</ul>
+<h2 id="uninstall">Uninstall</h2>
+<p>Remove the launcher and local build artifacts:</p>
+<pre><code class="language-bash">./scripts/uninstall.sh</code></pre>
+<p>Also remove data directories created by the app (<code>dump/</code>, <code>session/</code>):</p>
+<pre><code class="language-bash">./scripts/uninstall.sh --remove-data</code></pre>
+        </article>
+        <aside class="toc"><h2>On This Page</h2>
+<a class="toc-h2" href="#requirements">Requirements</a>
+<a class="toc-h2" href="#debian-ubuntu-packages">Debian/Ubuntu packages</a>
+<a class="toc-h2" href="#build-no-maven-gradle">Build (no Maven/Gradle)</a>
+<a class="toc-h2" href="#focused-regression-check">Focused regression check</a>
+<a class="toc-h2" href="#local-regression-runner">Local regression runner</a>
+<a class="toc-h2" href="#quality-checks">Quality checks</a>
+<a class="toc-h2" href="#run">Run</a>
+<a class="toc-h2" href="#package-a-runnable-jar-optional">Package a runnable JAR (optional)</a>
+<a class="toc-h2" href="#linux-installer-debian-ubuntu">Linux installer (Debian/Ubuntu)</a>
+<a class="toc-h2" href="#update">Update</a>
+<a class="toc-h2" href="#uninstall">Uninstall</a></aside>
+      </main>
+      <footer class="footer">
+        <span>Generated from <code>wiki/build-and-install.md</code>.</span>
+        <span>Build with <code>python3 scripts/build_docs_site.py</code>.</span>
+      </footer>
+    </div>
+  </div>
+</body>
+</html>

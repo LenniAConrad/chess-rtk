@@ -1,11 +1,9 @@
 package application.cli.command;
 
 import static application.cli.Constants.CMD_PERFT;
-import static application.cli.Constants.ERR_INVALID_FEN;
 import static application.cli.Constants.OPT_DEPTH;
 import static application.cli.Constants.OPT_DEPTH_SHORT;
 import static application.cli.Constants.OPT_DIVIDE;
-import static application.cli.Constants.OPT_FEN;
 import static application.cli.Constants.OPT_FORMAT;
 import static application.cli.Constants.OPT_PER_MOVE;
 import static application.cli.Constants.OPT_THREADS;
@@ -21,7 +19,6 @@ import java.util.function.ToLongFunction;
 import application.console.Bar;
 import chess.core.Move;
 import chess.core.Position;
-import chess.core.Setup;
 import chess.debug.LogService;
 import chess.debug.Perft;
 import chess.debug.Perft.DivideEntry;
@@ -134,12 +131,7 @@ public final class PerftCommand {
 		String formatValue = a.string(OPT_FORMAT);
 		PerftFormat format = parseFormat(formatValue, commandName);
 		boolean divide = divideFlag || format == PerftFormat.TABLE || format == PerftFormat.STOCKFISH;
-		String fen = a.string(OPT_FEN);
-		List<String> rest = a.positionals();
-		if (fen == null && !rest.isEmpty()) {
-			fen = String.join(" ", rest);
-		}
-		a.ensureConsumed();
+		Position position = CommandSupport.resolvePositionArgument(a, commandName, true, verbose);
 
 		if (depth == null) {
 			System.err.println(commandName + " requires " + OPT_DEPTH + " <n>");
@@ -149,21 +141,6 @@ public final class PerftCommand {
 		requireNonNegative(commandName, OPT_DEPTH, depth);
 		int workerThreads = threads == null ? 1 : threads;
 		requirePositive(commandName, OPT_THREADS, workerThreads);
-
-		Position position;
-		try {
-			position = (fen == null || fen.isEmpty())
-					? Setup.getStandardStartPosition()
-					: new Position(fen.trim());
-		} catch (IllegalArgumentException ex) {
-			System.err.println(ERR_INVALID_FEN + (ex.getMessage() == null ? "" : ex.getMessage()));
-			LogService.error(ex, commandName + ": invalid FEN", "FEN: " + fen);
-			if (verbose) {
-				ex.printStackTrace(System.err);
-			}
-			System.exit(3);
-			return;
-		}
 
 		try {
 			if (divide) {

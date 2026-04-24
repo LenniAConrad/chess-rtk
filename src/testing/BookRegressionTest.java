@@ -21,6 +21,21 @@ import chess.pdf.document.PageSize;
 public final class BookRegressionTest {
 
 	/**
+	 * Marker used to ensure long table text survives pagination.
+	 */
+	private static final String LONG_TABLE_MARKER = "LONGTABLEMARKER";
+
+	/**
+	 * PDF link annotation marker.
+	 */
+	private static final String PDF_LINK_MARKER = "/Subtype /Link";
+
+	/**
+	 * PDF image annotation marker.
+	 */
+	private static final String PDF_IMAGE_MARKER = "/Subtype /Image";
+
+	/**
 	 * Utility class; prevent instantiation.
 	 */
 	private BookRegressionTest() {
@@ -55,12 +70,12 @@ public final class BookRegressionTest {
 	 * without changing ordinary text.
 	 */
 	private static void testFigurineMoveTextFormatter() {
-		String formatted = MoveText.figurine("1. Qxe8+ Nbd6 2. bxa8=Q# LONGTABLEMARKER");
+		String formatted = MoveText.figurine("1. Qxe8+ Nbd6 2. bxa8=Q# " + LONG_TABLE_MARKER);
 
 		assertTrue(formatted.contains("\u2655\u00D7e8+"), "queen capture figurine");
 		assertTrue(formatted.contains("\u2658bd6"), "knight disambiguation figurine");
 		assertTrue(formatted.contains("b\u00D7a8=\u2655#"), "promotion figurine");
-		assertTrue(formatted.contains("LONGTABLEMARKER"), "ordinary text preserved");
+		assertTrue(formatted.contains(LONG_TABLE_MARKER), "ordinary text preserved");
 	}
 
 	/**
@@ -135,9 +150,9 @@ public final class BookRegressionTest {
 		assertTrue(text.contains("Contents"), "toc text");
 		assertTrue(text.contains("Puzzles"), "puzzle heading");
 		assertTrue(text.contains("Full solutions at page"), "solution footnote");
-		assertTrue(text.contains("/Subtype /Link"), "solution footnote link annotation");
+		assertTrue(text.contains(PDF_LINK_MARKER), "solution footnote link annotation");
 		assertTrue(text.contains("/S /GoTo"), "solution footnote internal link action");
-		assertFalse(text.contains("/Subtype /Image"), "raster image marker");
+		assertFalse(text.contains(PDF_IMAGE_MARKER), "raster image marker");
 	}
 
 	/**
@@ -153,8 +168,8 @@ public final class BookRegressionTest {
 		byte[] bytes = Files.readAllBytes(file);
 		String text = new String(bytes, StandardCharsets.ISO_8859_1);
 		assertTrue(bytes.length > 20_000, "long-table pdf size");
-		assertTrue(text.contains("LONGTABLEMARKER"), "long-table text marker");
-		assertFalse(text.contains("/Subtype /Image"), "long-table raster image marker");
+		assertTrue(text.contains(LONG_TABLE_MARKER), "long-table text marker");
+		assertFalse(text.contains(PDF_IMAGE_MARKER), "long-table raster image marker");
 	}
 
 	/**
@@ -201,8 +216,8 @@ public final class BookRegressionTest {
 		assertTrue(text.contains("Solve the Puzzles:"), "list item label");
 		assertTrue(text.contains("Reference the Solutions:"), "second list item label");
 		assertTrue(text.contains("Full solutions at page"), "footnote wording");
-		assertTrue(text.contains("/Subtype /Link"), "footnote hyperlink");
-		assertFalse(text.contains("/Subtype /Image"), "default how-to raster image marker");
+		assertTrue(text.contains(PDF_LINK_MARKER), "footnote hyperlink");
+		assertFalse(text.contains(PDF_IMAGE_MARKER), "default how-to raster image marker");
 	}
 
 	/**
@@ -228,7 +243,7 @@ public final class BookRegressionTest {
 		String text = Files.readString(file, StandardCharsets.ISO_8859_1);
 		assertTrue(text.contains("1 \\(1. O-O\\)") || text.contains("1 (1. O-O)"),
 				"core SAN castling label");
-		assertFalse(text.contains("/Subtype /Image"), "core SAN raster image marker");
+		assertFalse(text.contains(PDF_IMAGE_MARKER), "core SAN raster image marker");
 	}
 
 	/**
@@ -248,7 +263,7 @@ public final class BookRegressionTest {
 				"free watermark metadata");
 		assertTrue(text.contains("Watermark ID ARC-REGRESSION-42"), "free watermark id metadata");
 		assertTrue(text.contains("/ExtGState"), "free watermark opacity resources");
-		assertFalse(text.contains("/Subtype /Image"), "free watermark raster image marker");
+		assertFalse(text.contains(PDF_IMAGE_MARKER), "free watermark raster image marker");
 	}
 
 	/**
@@ -262,7 +277,7 @@ public final class BookRegressionTest {
 		Writer.write(file, sampleBook(1));
 
 		String text = java.util.Objects.requireNonNull(Files.readString(file, StandardCharsets.ISO_8859_1));
-		assertTrue(countOccurrences(text, "/Subtype /Link") > 1, "toc link annotations");
+		assertTrue(countOccurrences(text, PDF_LINK_MARKER) > 1, "toc link annotations");
 		assertTrue(text.contains("/S /GoTo"), "toc internal link action");
 	}
 
@@ -287,7 +302,7 @@ public final class BookRegressionTest {
 		assertTrue(bytes.length > 18_000, "list pdf size");
 		assertTrue(text.contains("First Item:"), "bullet list label");
 		assertTrue(text.contains("Numbered Item:"), "numbered list label");
-		assertFalse(text.contains("/Subtype /Image"), "list raster image marker");
+		assertFalse(text.contains(PDF_IMAGE_MARKER), "list raster image marker");
 	}
 
 	/**
@@ -311,7 +326,7 @@ public final class BookRegressionTest {
 		assertTrue(text.contains("benchmark-can you beat the clock"), "normalized em dash text");
 		assertTrue(text.contains("you're interested"), "normalized apostrophe text");
 		assertTrue(text.contains("\"Art of Chess Puzzles\""), "normalized quote text");
-		assertFalse(text.contains("/Subtype /Image"), "punctuation raster image marker");
+		assertFalse(text.contains(PDF_IMAGE_MARKER), "punctuation raster image marker");
 	}
 
 	/**
@@ -332,7 +347,7 @@ public final class BookRegressionTest {
 		byte[] bytes = Files.readAllBytes(file);
 		String text = new String(bytes, StandardCharsets.ISO_8859_1);
 		assertTrue(bytes.length > 18_000, "i18n pdf size");
-		assertFalse(text.contains("/Subtype /Image"), "i18n raster image marker");
+		assertFalse(text.contains(PDF_IMAGE_MARKER), "i18n raster image marker");
 	}
 
 	/**
@@ -383,7 +398,7 @@ public final class BookRegressionTest {
 				.setPuzzleRows(1)
 				.setPuzzleColumns(2);
 		Element[] elements = book.getElements();
-		StringBuilder moves = new StringBuilder("LONGTABLEMARKER");
+		StringBuilder moves = new StringBuilder(LONG_TABLE_MARKER);
 		for (int i = 0; i < 180; i++) {
 			moves.append(' ').append("verylongsolutiontoken").append(i);
 		}

@@ -51,6 +51,8 @@ Examples assume you installed the launcher (`crtk`). If you run from classes, re
 
 ## Publish diagrams and books
 
+- `crtk book ilovechess -i dump/mate1.json -o books/mate1.book.toml --subtitle "4,000 Mate in 1 Puzzles" --pdf-output dist/mate1.pdf --cover-output dist/mate1-cover.pdf --binding paperback --interior white-bw` — build an I Love Chess-style manifest from analyzed records and render the matching interior + cover.
+- `crtk book artofchess -i books/art-of-chess.json --manifest-output books/art-of-chess.toml -o dist/art-of-chess.pdf --cover-output dist/art-of-chess-cover.pdf --binding paperback --interior white-bw` — render a richer annotated Art of Chess manifest and optionally normalize it to TOML.
 - `crtk book pdf --fen "<FEN>" -o dump/position.pdf` — export one diagram to PDF.
 - `crtk book pdf -i seeds.txt -o dump/sheet.pdf --title "Training Sheet"` — export a FEN list to a diagram sheet PDF.
 - `crtk book pdf --pgn games.pgn -o dump/games.pdf --page-size a5 --diagrams-per-row 1` — export PGN mainlines to PDF.
@@ -111,6 +113,8 @@ Examples assume you installed the launcher (`crtk`). If you run from classes, re
 ## Perft / PGN conversion
 
 - `crtk engine perft --depth 4` — perft from the standard start position.
+- `crtk engine perft --startpos --depth 4` — same as the default start-position run, but explicit.
+- `crtk engine perft --randompos --depth 4` — perft from a reachable random legal standard-chess position.
 - `crtk engine perft --fen "<FEN>" --depth 5` — detailed counters for nodes, captures, en-passant captures, castles, promotions, checks, and checkmates.
 - `crtk engine perft --fen "<FEN>" --depth 5 --divide --threads 4` — per-root-move table with the same detailed counters.
 - `crtk engine perft --depth 3 --format stockfish --threads 4` — Stockfish-style `move: nodes` divide output.

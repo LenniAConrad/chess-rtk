@@ -22,6 +22,9 @@ import utility.Argv;
  */
 public final class GuiNextCommand {
 
+	/**
+	 * Utility constructor.
+	 */
 	private GuiNextCommand() {
 		// utility
 	}
@@ -53,6 +56,9 @@ public final class GuiNextCommand {
 		SwingUtilities.invokeLater(() -> new StudioWindow(initialFen, whiteDown, startLight));
 	}
 
+	/**
+	 * Prints command usage.
+	 */
 	private static void printHelp() {
 		System.out.println("""
 				gui-next options:

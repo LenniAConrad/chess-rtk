@@ -17,10 +17,13 @@ import static application.cli.Constants.CMD_PUZZLE;
 import static application.cli.Constants.CMD_RECORD;
 import static application.cli.Constants.CMD_UCI_SMOKE;
 
+import java.io.PrintStream;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
+import application.cli.CliCommand;
+import application.cli.CliRegistry;
 import utility.Argv;
 
 /**
@@ -174,6 +177,16 @@ public final class HelpCommand {
 	 * Help marker for {@code book cover}.
 	 */
 	private static final String CHESS_BOOK_COVER_OPTIONS_MARKER = "book cover options:";
+
+	/**
+	 * Help marker for {@code book ilovechess}.
+	 */
+	private static final String ILOVECHESS_BOOK_OPTIONS_MARKER = "book ilovechess options:";
+
+	/**
+	 * Help marker for {@code book artofchess}.
+	 */
+	private static final String ARTOFCHESS_BOOK_OPTIONS_MARKER = "book artofchess options:";
 
 	/**
 	 * Help marker for {@code fen chess960}.
@@ -417,6 +430,8 @@ public final class HelpCommand {
 			Map.entry("engine gpu", GPU_INFO_OPTIONS_MARKER),
 			Map.entry(CMD_ENGINE + " " + CMD_UCI_SMOKE, UCI_SMOKE_OPTIONS_MARKER),
 			Map.entry(CMD_BOOK, BOOK_SUBCOMMANDS_MARKER),
+			Map.entry("book ilovechess", ILOVECHESS_BOOK_OPTIONS_MARKER),
+			Map.entry("book artofchess", ARTOFCHESS_BOOK_OPTIONS_MARKER),
 			Map.entry("book render", CHESS_BOOK_OPTIONS_MARKER),
 			Map.entry("book cover", CHESS_BOOK_COVER_OPTIONS_MARKER),
 			Map.entry("book pdf", CHESS_PDF_OPTIONS_MARKER),
@@ -438,7 +453,7 @@ public final class HelpCommand {
 	/**
 	 * Width of the command-name column in command list output.
 	 */
-	private static final int COMMAND_NAME_WIDTH = 10;
+	private static final int COMMAND_NAME_WIDTH = 14;
 
 	/**
 	 * Spaces between the padded command name and its description.
@@ -448,20 +463,7 @@ public final class HelpCommand {
 	/**
 	 * Shared command summary used by short and full help output.
 	 */
-	private static final String COMMAND_LIST = String.join("\n",
-			commandLine(CMD_RECORD, "Export, filter, split, and summarize .record files"),
-			commandLine(CMD_FEN, "Validate, normalize, generate, print, and transform FENs"),
-			commandLine(CMD_MOVE, "List, convert, and apply moves"),
-			commandLine(CMD_ENGINE, "Analyze, evaluate, search, and run movegen checks"),
-			commandLine(CMD_BOOK, "Render chess books, covers, and diagram PDFs"),
-			commandLine(CMD_PUZZLE, "Mine, convert, tag, and summarize puzzle lines"),
-			commandLine(CMD_GUI, "Launch the GUI"),
-			commandLine(CMD_GUI_WEB, "Launch the chess-web-inspired GUI"),
-			commandLine(CMD_GUI_NEXT, "Launch the Studio GUI v3"),
-			commandLine(CMD_CONFIG, "Show/validate configuration"),
-			commandLine(CMD_DOCTOR, "Check Java, config, protocol, engine, and local artifacts"),
-			commandLine(CMD_CLEAN, "Delete session cache/logs"),
-			commandLine(CMD_HELP, "Show command help"));
+	private static final String COMMAND_LIST = buildCommandList();
 
 	/**
 	 * Utility class; prevent instantiation.
@@ -477,11 +479,16 @@ public final class HelpCommand {
 	 */
 	public static void runHelp(Argv a) {
 		boolean full = a.flag("--full");
+		boolean self = a.flag(CMD_HELP_SHORT, CMD_HELP_LONG);
 		List<String> rest = a.positionals();
 		a.ensureConsumed();
 
+		if (self) {
+			printCommandHelp(CliRegistry.resolve(List.of(CMD_HELP)), CMD_HELP, System.out);
+			return;
+		}
 		if (!rest.isEmpty()) {
-			helpCommand(String.join(" ", rest));
+			helpCommand(rest);
 			return;
 		}
 
@@ -497,16 +504,34 @@ public final class HelpCommand {
 	 * Shows the command list along with quick usage tips.
 	 */
 	public static void helpSummary() {
-		System.out.println("""
+		helpSummary(System.out);
+	}
+
+	/**
+	 * Prints the short help summary to the provided stream.
+	 *
+	 * @param out target stream
+	 */
+	public static void helpSummary(PrintStream out) {
+		out.println("""
 				crtk — ChessRTK (chess research toolkit)
 
-				usage: crtk <command> [options]
+				usage:
+				  crtk <area> <action> [options] [args]
+				  crtk help [command...]
 
-				commands:
+				areas:
 				""" + COMMAND_LIST + "\n\n" + """
-				tips:
-				  crtk help <command>       Show help for one command
-				  crtk help --full          Show full help output
+				command style:
+				  Use noun groups plus actions, for example `crtk move list` or `crtk engine bestmove`.
+				  Prefer named flags for structured values: `--fen`, `--input`, `--output`, `--format`.
+				  Put options before free-form args when scripting, and use `--` if a value could look like a flag.
+
+				help:
+				  crtk --help                Show this summary
+				  crtk move --help           Show help for one area
+				  crtk move list --help      Show help for one command
+				  crtk help --full           Show the built-in command reference
 				""");
 	}
 
@@ -524,40 +549,54 @@ public final class HelpCommand {
 	 *
 	 * @param command command name to display help for
 	 */
-	private static void helpCommand(String command) {
-		String marker = helpMarkerFor(command);
-		if (marker == null) {
-			System.err.println("Unknown command for help: " + command);
-			helpSummary();
+	private static void helpCommand(List<String> pathTokens) {
+		CliCommand command = CliRegistry.resolve(pathTokens);
+		if (command == null || command.isRoot()) {
+			System.err.println("Unknown command for help: " + String.join(" ", pathTokens));
+			helpSummary(System.err);
 			return;
 		}
-		String section = extractHelpSection(HELP_FULL_TEXT, marker);
-		if (section == null) {
-			System.err.println("No help available for: " + command);
-			helpSummary();
-			return;
-		}
-		System.out.println("usage: crtk " + command + " [options]\n\n" + section);
+		printCommandHelp(command, String.join(" ", pathTokens), System.out);
 	}
 
 	/**
-	 * Resolves the section marker used inside the full help text.
-	 * Returns {@code null} when the command is unknown.
+	 * Prints contextual help for the provided command node.
 	 *
-	 * @param command command name to look up
-	 * @return marker line for the command, or {@code null} if not found
+	 * @param command       command node to render
+	 * @param requestedPath command path as requested by the user
+	 * @param out           target stream
 	 */
-	private static String helpMarkerFor(String command) {
-		String marker = HELP_MARKERS.get(command);
-		while (marker == null) {
-			int split = command.lastIndexOf(' ');
-			if (split < 0) {
-				break;
-			}
-			command = command.substring(0, split);
-			marker = HELP_MARKERS.get(command);
+	public static void printCommandHelp(CliCommand command, String requestedPath, PrintStream out) {
+		String displayPath = (requestedPath == null || requestedPath.isBlank())
+				? command.commandPath()
+				: requestedPath;
+		out.println("usage: " + renderUsage(command, displayPath));
+		out.println();
+		if (command.about() != null && !command.about().isBlank()) {
+			out.println(command.about());
+			out.println();
 		}
-		return marker;
+		if (requestedPath != null && !requestedPath.isBlank() && !requestedPath.equals(command.commandPath())) {
+			out.println("canonical command:");
+			out.println("  crtk " + command.commandPath());
+			out.println();
+		}
+		printList(out, "aliases", prefixCommand(command.aliasPaths()));
+		printList(out, "conventions", command.conventions());
+		if (command.hasChildren()) {
+			out.println(command.isRoot() ? "areas:" : command.commandPath() + " subcommands:");
+			for (CliCommand child : command.children()) {
+				out.println(commandLine(child.name(), child.summary()));
+			}
+			out.println();
+		}
+		String section = helpSection(command.helpKey());
+		if (section != null && !command.hasChildren()) {
+			out.println(section);
+			out.println();
+		}
+		printList(out, "examples", command.examples());
+		printList(out, "related", prefixCommand(command.related()));
 	}
 
 	/**
@@ -571,6 +610,24 @@ public final class HelpCommand {
 		int spaces = Math.max(COMMAND_DESCRIPTION_GAP,
 				COMMAND_NAME_WIDTH - command.length() + COMMAND_DESCRIPTION_GAP);
 		return "  " + command + " ".repeat(spaces) + description;
+	}
+
+	/**
+	 * Builds the summary list from the central command registry.
+	 *
+	 * @return formatted command list
+	 */
+	private static String buildCommandList() {
+		StringBuilder sb = new StringBuilder();
+		List<CliCommand> commands = CliRegistry.root().children();
+		for (int i = 0; i < commands.size(); i++) {
+			CliCommand command = commands.get(i);
+			if (i > 0) {
+				sb.append('\n');
+			}
+			sb.append(commandLine(command.name(), command.summary()));
+		}
+		return sb.toString();
 	}
 
 	/**
@@ -611,16 +668,95 @@ public final class HelpCommand {
 	}
 
 	/**
+	 * Returns the extracted detailed help section for a command key.
+	 *
+	 * @param command help key or command path
+	 * @return extracted help block or {@code null}
+	 */
+	private static String helpSection(String command) {
+		if (command == null || command.isBlank()) {
+			return null;
+		}
+		String marker = HELP_MARKERS.get(command);
+		while (marker == null) {
+			int split = command.lastIndexOf(' ');
+			if (split < 0) {
+				break;
+			}
+			command = command.substring(0, split);
+			marker = HELP_MARKERS.get(command);
+		}
+		return marker == null ? null : extractHelpSection(HELP_FULL_TEXT, marker);
+	}
+
+	/**
+	 * Renders a contextual usage line.
+	 *
+	 * @param command     command node
+	 * @param displayPath path to show in the usage line
+	 * @return usage string
+	 */
+	private static String renderUsage(CliCommand command, String displayPath) {
+		String tail = command.usageTail();
+		if (command.isRoot()) {
+			tail = "<area> <action> [options] [args]";
+			return "crtk " + tail;
+		}
+		if (tail == null) {
+			tail = command.hasChildren() ? "<subcommand> [options]" : "[options]";
+		}
+		return "crtk " + displayPath + (tail.isBlank() ? "" : " " + tail);
+	}
+
+	/**
+	 * Prints a titled list when it is non-empty.
+	 *
+	 * @param out    target stream
+	 * @param title  section title
+	 * @param values section values
+	 */
+	private static void printList(PrintStream out, String title, List<String> values) {
+		if (values == null || values.isEmpty()) {
+			return;
+		}
+		out.println(title + ":");
+		for (String value : values) {
+			out.println("  " + value);
+		}
+		out.println();
+	}
+
+	/**
+	 * Prefixes command paths with the launcher name.
+	 *
+	 * @param commands command paths
+	 * @return prefixed command strings
+	 */
+	private static List<String> prefixCommand(List<String> commands) {
+		if (commands == null || commands.isEmpty()) {
+			return List.of();
+		}
+		return commands.stream().map(command -> "crtk " + command).toList();
+	}
+
+	/**
 	 * Full help text used by the {@code help} command.
 	 * Contains per-command option blocks for the CLI.
 	 */
 	private static final String HELP_FULL_TEXT = """
 			crtk — ChessRTK (chess research toolkit)
 
-			usage: crtk <command> [options]
+			usage:
+			  crtk <area> <action> [options] [args]
+			  crtk help [command...]
 
-			commands:
+			areas:
 			""" + COMMAND_LIST + "\n\n" + """
+			command style:
+			  Use noun groups plus actions, for example `crtk move list` or `crtk engine bestmove`.
+			  Prefer named flags for structured values: `--fen`, `--input`, `--output`, `--format`.
+			  Put options before free-form args when scripting, and use `--` if a value could look like a flag.
+
 			record subcommands:
 			  export FORMAT              Export records as plain, csv, pgn, puzzle-jsonl, or training-jsonl
 			  dataset KIND               Export tensors as npy, lc0, or classifier
@@ -649,9 +785,9 @@ public final class HelpCommand {
 			  generate                   Generate random legal FEN shards
 			  pgn                        Convert PGN games to FEN lists
 			  chess960                   Print Chess960 starting positions by index or range
-			  print                      Pretty-print a FEN
-			  display                    Render a board image in a window
-			  render                     Save a board image to disk
+			  print                      Pretty-print a position
+			  display                    Render a position in a window
+			  render                     Save a position image to disk
 			  tags                       Generate tags for FENs, PGNs, or variations
 			  text                       Summarize position tags with T5
 
@@ -666,22 +802,24 @@ public final class HelpCommand {
 			  play                       Apply a move line and print the resulting FEN
 
 			engine subcommands:
-			  analyze                    Analyze a FEN with the engine
-			  bestmove                   Print the best move for a FEN
+			  analyze                    Analyze a position with the engine
+			  bestmove                   Print the best move for a position
 			  bestmove-uci               Print the best move in UCI
 			  bestmove-san               Print the best move in SAN
 			  bestmove-both              Print the best move in UCI and SAN
 			  builtin                    Search with the built-in Java engine
 			  java                       Run the built-in Java engine
 			  threats                    Analyze opponent threats
-			  eval                       Evaluate a FEN with LC0 or classical
-			  static                     Evaluate a FEN with the classical backend
-			  perft                      Run perft on a FEN
+			  eval                       Evaluate a position with LC0 or classical
+			  static                     Evaluate a position with the classical backend
+			  perft                      Run perft on a position
 			  perft-suite                Run a small perft regression suite
 			  gpu                        Print GPU JNI backend status
 			  uci-smoke                  Start engine and run a tiny UCI search
 
 			book subcommands:
+			  ilovechess                 Build an I Love Chess-style book from record JSON/JSONL
+			  artofchess                 Render an annotated Art of Chess book from JSON/TOML
 			  render                     Render a chess-book JSON/TOML file to a native PDF
 			  cover                      Render a native PDF cover for a chess-book file
 			  pdf                        Export chess diagrams to a PDF
@@ -812,10 +950,14 @@ public final class HelpCommand {
 
 			fen print options:
 			  --fen FEN                  FEN string to render
+			  --startpos                 Use the standard chess start position
+			  --randompos                Use a reachable random legal standard position
 			  --verbose|-v               Print stack trace on failure
 
 			fen display options:
 			  --fen FEN                  FEN string to render
+			  --startpos                 Use the standard chess start position
+			  --randompos                Use a reachable random legal standard position
 			  --backend B                Renderer backend (default: best available)
 			  --show-backend             Print renderer backend info
 			  --flip                     Render from Black's perspective
@@ -836,6 +978,8 @@ public final class HelpCommand {
 
 			fen render options:
 			  --fen FEN                  FEN string to render
+			  --startpos                 Use the standard chess start position
+			  --randompos                Use a reachable random legal standard position
 			  --output|-o PATH           Output image/SVG path
 			  --format FORMAT            Image format (png, jpg, bmp, svg)
 			  --backend B                Renderer backend (default: best available)
@@ -856,6 +1000,61 @@ public final class HelpCommand {
 			  --details-inside           Show eval details inside board
 			  --details-outside          Show eval details outside board
 			  --ablation                 Overlay evaluator ablation heatmap
+			  --verbose|-v               Print stack trace on failure
+
+			book ilovechess options:
+			  --input|-i PATH            Input record JSON or JSONL with position + analysis PV
+			  --output|-o PATH           Output TOML manifest path (default: input stem + .book.toml)
+			  --pdf-output PATH          Also render the interior PDF to this path
+			  --cover-output PATH        Also render the matching cover PDF to this path
+			  --title TEXT               Book title (default: I Love Chess)
+			  --subtitle TEXT            Optional subtitle; defaults to "<count> Chess Puzzles"
+			  --author TEXT              Author credit (default: Lennart A. Conrad)
+			  --time TEXT                Publication time string
+			  --location TEXT            Publication location string
+			  --language TEXT            Book language token (default: English)
+			  --pages N                  Printed page-count hint for the manifest and cover
+			  --limit N                  Import at most N records from the source file
+			  --table-frequency N        Puzzle pages between solution tables (default: 6)
+			  --puzzle-rows N            Puzzle grid rows per page (default: 5)
+			  --puzzle-columns N         Puzzle grid columns per page (default: 4)
+			  --imprint TEXT             Repeatable imprint line
+			  --dedication TEXT          Repeatable dedication line
+			  --introduction TEXT        Repeatable introduction paragraph
+			  --how-to-read TEXT         Repeatable custom how-to-read paragraph
+			  --blurb TEXT               Repeatable back-cover blurb paragraph
+			  --link TEXT                Repeatable purchase link
+			  --afterword TEXT           Repeatable closing paragraph
+			  --binding TYPE             paperback, hardcover, or ebook for --cover-output
+			  --interior TYPE            white-bw, cream-bw, white-standard-color, or white-premium-color
+			  --free-watermark|--watermark
+			                             Add noisy free-edition watermark to --pdf-output
+			  --watermark-id TEXT        Add a traceable ID to the watermark; implies --watermark
+			  --check|--validate         Validate the generated book model without writing files
+			  --verbose|-v               Print stack trace on failure
+
+			book artofchess options:
+			  --input|-i PATH            Input Art of Chess JSON/TOML manifest
+			  --output|-o PATH           Output interior PDF path (default: input stem + .pdf when no other output is requested)
+			  --manifest-output PATH     Also write a normalized TOML manifest to this path
+			  --cover-output PATH        Also render the matching native cover PDF
+			  --title TEXT               Optional book title override
+			  --subtitle TEXT            Optional subtitle override
+			  --author TEXT              Optional author override
+			  --time TEXT                Optional publication time override
+			  --location TEXT            Optional publication location override
+			  --blurb TEXT               Repeatable back-cover blurb paragraph override
+			  --link TEXT                Repeatable purchase-link override
+			  --pages N                  Printed page count for spine width / cover metadata
+			  --page-size SIZE           Page size: a4, a5, letter
+			  --margin N                 Page margin in PostScript points
+			  --diagrams-per-row N       Diagrams per row override
+			  --board-pixels N           Raster size per diagram before embedding
+			  --flip|--black-down        Render Black at the bottom
+			  --no-fen                   Hide FEN text under diagrams
+			  --binding TYPE             paperback, hardcover, or ebook for --cover-output
+			  --interior TYPE            white-bw, cream-bw, white-standard-color, or white-premium-color
+			  --check|--validate         Validate the manifest and layout without writing files
 			  --verbose|-v               Print stack trace on failure
 
 			book render options:
@@ -939,7 +1138,7 @@ public final class HelpCommand {
 			  --verbose|-v               Print stack trace on failure
 
 			fen tags options:
-			  --fen FEN                  Input FEN (default: stdin)
+			  --fen FEN                  Input FEN (required unless --input or --pgn is set)
 			  --input|-i PATH            Input FEN list (supports parent/child pairs)
 			  --pgn PATH                 Input PGN (use --sidelines for variations)
 			  --include-fen              Include FEN in output
@@ -995,7 +1194,7 @@ public final class HelpCommand {
 
 			fen text options:
 			  --model PATH               T5 .bin model path (default: config t5-model-path)
-			  --fen FEN                  Input FEN (default: stdin)
+			  --fen FEN                  Input FEN (required unless --input is set)
 			  --input|-i PATH            Input FEN file
 			  --include-fen              Emit JSON with fen + summary
 			  --max-new N                Max generated tokens (default: 128)
@@ -1011,55 +1210,77 @@ public final class HelpCommand {
 			  --verbose|-v               Print stack trace on failure
 
 			move list options:
-			  --fen FEN                  Input FEN (default: stdin)
+			  --fen FEN                  Input FEN
+			  --startpos                 Use the standard chess start position
+			  --randompos                Use a reachable random legal standard position
 			  --format FORMAT            uci, san, or both (default: uci)
 			  --san                      Alias for --format san
 			  --both                     Alias for --format both
 			  --verbose|-v               Print stack trace on failure
 
 			move uci options:
-			  --fen FEN                  Input FEN (default: stdin)
+			  --fen FEN                  Input FEN
+			  --startpos                 Use the standard chess start position
+			  --randompos                Use a reachable random legal standard position
 			  --verbose|-v               Print stack trace on failure
 
 			move san options:
-			  --fen FEN                  Input FEN (default: stdin)
+			  --fen FEN                  Input FEN
+			  --startpos                 Use the standard chess start position
+			  --randompos                Use a reachable random legal standard position
 			  --verbose|-v               Print stack trace on failure
 
 			move both options:
-			  --fen FEN                  Input FEN (default: stdin)
+			  --fen FEN                  Input FEN
+			  --startpos                 Use the standard chess start position
+			  --randompos                Use a reachable random legal standard position
 			  --verbose|-v               Print stack trace on failure
 
 			move to-san options:
 			  --fen FEN                  Starting FEN (default: standard start)
+			  --startpos                 Use the standard chess start position explicitly
+			  --randompos                Use a reachable random legal standard position
 			  MOVE                       UCI move to convert
 			  --verbose|-v               Print stack trace on failure
 
 			move to-uci options:
 			  --fen FEN                  Starting FEN (default: standard start)
+			  --startpos                 Use the standard chess start position explicitly
+			  --randompos                Use a reachable random legal standard position
 			  MOVE                       SAN move to convert
 			  --verbose|-v               Print stack trace on failure
 
 			move after options:
 			  --fen FEN                  Starting FEN (default: standard start)
+			  --startpos                 Use the standard chess start position explicitly
+			  --randompos                Use a reachable random legal standard position
 			  MOVE                       UCI or SAN move to apply
 			  --verbose|-v               Print stack trace on failure
 
 			move play options:
 			  --fen FEN                  Starting FEN (default: standard start)
+			  --startpos                 Use the standard chess start position explicitly
+			  --randompos                Use a reachable random legal standard position
 			  MOVES                      UCI/SAN move sequence to apply
 			  --intermediate             Print FEN after each ply
 			  --verbose|-v               Print stack trace on failure
 
 			fen normalize options:
 			  --fen FEN                  FEN to normalize, or positional FEN
+			  --startpos                 Use the standard chess start position
+			  --randompos                Use a reachable random legal standard position
 			  --verbose|-v               Print stack trace on failure
 
 			fen validate options:
 			  --fen FEN                  FEN to validate, or positional FEN
+			  --startpos                 Use the standard chess start position
+			  --randompos                Use a reachable random legal standard position
 			  --verbose|-v               Print stack trace on failure
 
 			engine analyze options:
-			  --fen FEN                  Input FEN (default: stdin)
+			  --fen FEN                  Input FEN
+			  --startpos                 Use the standard chess start position
+			  --randompos                Use a reachable random legal standard position
 			  --input|-i PATH            Input FEN file
 			  --protocol|-p PATH         Engine protocol TOML file
 			  --max-nodes N              Max nodes per position
@@ -1072,7 +1293,9 @@ public final class HelpCommand {
 			  --verbose|-v               Print stack trace on failure
 
 			engine bestmove options:
-			  --fen FEN                  Input FEN (default: stdin)
+			  --fen FEN                  Input FEN
+			  --startpos                 Use the standard chess start position
+			  --randompos                Use a reachable random legal standard position
 			  --input|-i PATH            Input FEN file
 			  --format FORMAT            uci, san, or both (default: uci)
 			  --protocol|-p PATH         Engine protocol TOML file
@@ -1088,7 +1311,9 @@ public final class HelpCommand {
 			  --verbose|-v               Print stack trace on failure
 
 			engine bestmove-uci options:
-			  --fen FEN                  Input FEN (default: stdin)
+			  --fen FEN                  Input FEN
+			  --startpos                 Use the standard chess start position
+			  --randompos                Use a reachable random legal standard position
 			  --input|-i PATH            Input FEN file
 			  --protocol|-p PATH         Engine protocol TOML file
 			  --max-nodes N              Max nodes per position
@@ -1101,7 +1326,9 @@ public final class HelpCommand {
 			  --verbose|-v               Print stack trace on failure
 
 			engine bestmove-san options:
-			  --fen FEN                  Input FEN (default: stdin)
+			  --fen FEN                  Input FEN
+			  --startpos                 Use the standard chess start position
+			  --randompos                Use a reachable random legal standard position
 			  --input|-i PATH            Input FEN file
 			  --protocol|-p PATH         Engine protocol TOML file
 			  --max-nodes N              Max nodes per position
@@ -1114,7 +1341,9 @@ public final class HelpCommand {
 			  --verbose|-v               Print stack trace on failure
 
 			engine bestmove-both options:
-			  --fen FEN                  Input FEN (default: stdin)
+			  --fen FEN                  Input FEN
+			  --startpos                 Use the standard chess start position
+			  --randompos                Use a reachable random legal standard position
 			  --input|-i PATH            Input FEN file
 			  --protocol|-p PATH         Engine protocol TOML file
 			  --max-nodes N              Max nodes per position
@@ -1128,6 +1357,8 @@ public final class HelpCommand {
 
 			engine builtin options:
 			  --fen FEN                  Input FEN
+			  --startpos                 Use the standard chess start position
+			  --randompos                Use a reachable random legal standard position
 			  --input|-i PATH            Input FEN file
 			  --evaluator KIND           classical, nnue, or lc0 (default: classical)
 			  --classical|--nnue|--lc0   Shortcut evaluator selectors
@@ -1139,7 +1370,9 @@ public final class HelpCommand {
 			  --verbose|-v               Print stack trace on failure
 
 			engine threats options:
-			  --fen FEN                  Input FEN (default: stdin)
+			  --fen FEN                  Input FEN
+			  --startpos                 Use the standard chess start position
+			  --randompos                Use a reachable random legal standard position
 			  --protocol|-p PATH         Engine protocol TOML file
 			  --max-nodes N              Max nodes per position
 			  --max-duration D           Max duration per position (e.g. 5s)
@@ -1152,6 +1385,8 @@ public final class HelpCommand {
 
 			engine perft options:
 			  --fen FEN                  Input FEN
+			  --startpos                 Use the standard chess start position
+			  --randompos                Use a reachable random legal standard position
 			  --depth|-d N               Depth for perft
 			  --divide|--per-move        Print per-root-move table
 			  --format FMT               Output: detail, table, stockfish
@@ -1170,7 +1405,9 @@ public final class HelpCommand {
 			  --verbose|-v               Print stack trace on failure
 
 			engine eval options:
-			  --fen FEN                  Input FEN (default: stdin)
+			  --fen FEN                  Input FEN
+			  --startpos                 Use the standard chess start position
+			  --randompos                Use a reachable random legal standard position
 			  --input|-i PATH            Input FEN file
 			  --lc0                      Use LC0 evaluator only
 			  --classical                Use classical evaluator only
@@ -1179,7 +1416,9 @@ public final class HelpCommand {
 			  --verbose|-v               Print stack trace on failure
 
 			engine static options:
-			  --fen FEN                  Input FEN (default: stdin)
+			  --fen FEN                  Input FEN
+			  --startpos                 Use the standard chess start position
+			  --randompos                Use a reachable random legal standard position
 			  --input|-i PATH            Input FEN file
 			  --terminal-aware|--terminal Enable terminal-aware evaluation
 			  --verbose|-v               Print stack trace on failure

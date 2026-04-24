@@ -59,6 +59,65 @@ public final class Nnue implements CentipawnEvaluator {
     }
 
     /**
+     * Opens optional per-search NNUE incremental state.
+     *
+     * @param root root position
+     * @param searchPlies maximum ply count
+     * @return incremental search state, or {@code null} when unsupported
+     */
+    @Override
+    public SearchState openSearchState(Position root, int searchPlies) {
+        chess.nn.nnue.Model.SearchState state = model.newSearchState(root, searchPlies);
+        if (state == null) {
+            return null;
+	        }
+	        return new SearchState() {
+	            /**
+	             * Forwards a played-move notification to the model search state.
+	             *
+	             * @param position child position after the move
+	             * @param move encoded move that was played
+	             * @param undoState undo state filled by the move application
+	             * @param ply child ply from the root
+	             */
+	            @Override
+	            public void movePlayed(Position position, short move, Position.State undoState, int ply) {
+	                state.movePlayed(position, move, undoState, ply);
+	            }
+
+	            /**
+	             * Forwards a null-move notification to the model search state.
+	             *
+	             * @param ply child ply from the root
+	             */
+	            @Override
+	            public void nullMovePlayed(int ply) {
+	                state.nullMovePlayed(ply);
+	            }
+
+	            /**
+	             * Evaluates a position through the model search state.
+	             *
+	             * @param position current position
+	             * @param ply current ply from the root
+	             * @return NNUE centipawns from the side-to-move perspective
+	             */
+	            @Override
+	            public int evaluate(Position position, int ply) {
+	                return state.evaluate(position, ply);
+	            }
+
+	            /**
+	             * Releases the wrapped model search state.
+	             */
+	            @Override
+	            public void close() {
+	                state.close();
+            }
+        };
+    }
+
+    /**
      * Returns the evaluator label.
      *
      * @return label including the active NNUE backend

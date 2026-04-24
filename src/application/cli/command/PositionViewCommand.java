@@ -14,7 +14,6 @@ import static application.cli.Constants.OPT_DARK_MODE;
 import static application.cli.Constants.OPT_DETAILS_INSIDE;
 import static application.cli.Constants.OPT_DETAILS_OUTSIDE;
 import static application.cli.Constants.OPT_DROP_SHADOW;
-import static application.cli.Constants.OPT_FEN;
 import static application.cli.Constants.OPT_FLIP;
 import static application.cli.Constants.OPT_FORMAT;
 import static application.cli.Constants.OPT_HEIGHT;
@@ -94,7 +93,7 @@ public final class PositionViewCommand {
 	 */
 	public static void runPrint(Argv a) {
 		boolean verbose = a.flag(OPT_VERBOSE, OPT_VERBOSE_SHORT);
-		String fen = CommandSupport.resolveFenArgument(a);
+		String fen = CommandSupport.resolveFenArgument(a, "print", false);
 
 		if (fen == null || fen.isEmpty()) {
 			System.err.println("print requires a FEN (" + MSG_FEN_REQUIRED_HINT + ")");
@@ -395,7 +394,6 @@ public final class PositionViewCommand {
 	 */
 	private static DisplayOptions parseDisplayOptions(Argv a) {
 		boolean verbose = a.flag(OPT_VERBOSE, OPT_VERBOSE_SHORT);
-		String fen = a.string(OPT_FEN);
 		boolean showBorder = !a.flag(OPT_NO_BORDER);
 		boolean whiteDown = !a.flag(OPT_FLIP, OPT_BLACK_DOWN);
 		boolean light = !a.flag(OPT_DARK, OPT_DARK_MODE);
@@ -413,12 +411,7 @@ public final class PositionViewCommand {
 		boolean shadow = a.flag(OPT_SHADOW, OPT_DROP_SHADOW);
 		List<String> circles = a.strings(OPT_CIRCLE, OPT_CIRCLES);
 		List<String> legal = a.strings(OPT_LEGAL);
-		List<String> rest = a.positionals();
-		if (fen == null && !rest.isEmpty()) {
-			fen = String.join(" ", rest);
-		}
-
-		a.ensureConsumed();
+		String fen = CommandSupport.resolveFenArgument(a, "display", false);
 		return new DisplayOptions(
 				verbose,
 				fen,
@@ -448,7 +441,6 @@ public final class PositionViewCommand {
 	 */
 	private static RenderImageOptions parseRenderImageOptions(Argv a) {
 		boolean verbose = a.flag(OPT_VERBOSE, OPT_VERBOSE_SHORT);
-		String fen = a.string(OPT_FEN);
 		boolean showBorder = !a.flag(OPT_NO_BORDER);
 		boolean whiteDown = !a.flag(OPT_FLIP, OPT_BLACK_DOWN);
 
@@ -467,12 +459,7 @@ public final class PositionViewCommand {
 		Path output = a.path(OPT_OUTPUT, OPT_OUTPUT_SHORT);
 		String format = a.string(OPT_FORMAT);
 		a.flag(OPT_DARK, OPT_DARK_MODE);
-		List<String> rest = a.positionals();
-		if (fen == null && !rest.isEmpty()) {
-			fen = String.join(" ", rest);
-		}
-
-		a.ensureConsumed();
+		String fen = CommandSupport.resolveFenArgument(a, "render", false);
 		return new RenderImageOptions(
 				verbose,
 				fen,

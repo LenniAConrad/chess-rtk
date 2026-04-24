@@ -127,7 +127,7 @@ java -jar crtk.jar help
 
 `./install.sh` is a convenience installer that:
 - optionally installs OpenJDK 17 and Stockfish via `apt-get`
-- optionally downloads LC0 model weights into `models/`
+- optionally downloads NNUE and LC0 model weights into `models/`
 - compiles sources and builds `crtk.jar`
 - installs a launcher at `/usr/local/bin/crtk` that runs from this repo
 - optionally builds the CUDA JNI backend under `native/cuda/` (if you have the CUDA toolkit)

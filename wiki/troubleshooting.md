@@ -37,6 +37,11 @@
   `native/cuda/`, `native/rocm/`, or `native/oneapi/` and run with
   `-Djava.library.path=...`.
 
+## `engine builtin --nnue` says default weights are missing
+
+- Run `./install.sh --models` to download `models/crtk-halfkp.nnue` and the bundled LC0 weights.
+- Or pass `--weights /path/to/file.nnue` explicitly. Supported Stockfish NNUE files work here too.
+
 ## Cover dimensions do not match the upload form
 
 - Pass the rendered interior PDF to `book cover --pdf <interior.pdf>` so trim size and page count come from the actual file.

@@ -14,7 +14,6 @@ import chess.book.model.Book;
 import chess.book.model.Element;
 import chess.core.Move;
 import chess.core.Position;
-import chess.core.SAN;
 import chess.images.assets.shape.SvgShapes;
 import chess.images.render.Render;
 import chess.pdf.document.Canvas;

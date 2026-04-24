@@ -1,6 +1,7 @@
 package chess.book.model;
 
 import chess.core.Fen;
+import utility.JsonFields;
 
 /**
  * Represents one puzzle entry inside a chess book.
@@ -100,8 +101,8 @@ public final class Element implements Comparable<Element> {
 	 */
 	public static Element fromJson(String json) {
 		return new Element(
-				Json.stringField(json, "position"),
-				Json.stringField(json, "moves"));
+				JsonFields.stringField(json, "position"),
+				JsonFields.stringField(json, "moves"));
 	}
 
 	/**

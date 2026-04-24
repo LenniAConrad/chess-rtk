@@ -15,8 +15,16 @@ import chess.core.Position;
  */
 public final class StudioProject {
 
+	/**
+	 * Root project directory.
+	 */
 	private final Path root;
 
+	/**
+	 * Constructor.
+	 *
+	 * @param root project root
+	 */
 	private StudioProject(Path root) {
 		this.root = root;
 	}
@@ -115,12 +123,24 @@ public final class StudioProject {
 		return root.resolve("outputs");
 	}
 
+	/**
+	 * Creates an empty file when it does not already exist.
+	 *
+	 * @param path file path
+	 * @throws IOException on write failure
+	 */
 	private static void touch(Path path) throws IOException {
 		if (!Files.exists(path)) {
 			Files.writeString(path, "", StandardCharsets.UTF_8);
 		}
 	}
 
+	/**
+	 * Escapes a string for the small JSONL records written by this class.
+	 *
+	 * @param text source text
+	 * @return escaped JSON string content
+	 */
 	private static String escape(String text) {
 		if (text == null) {
 			return "";

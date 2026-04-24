@@ -1724,17 +1724,6 @@ public final class RecordPgnExporter {
     }
 
     /**
-     * Streams JSON objects from either a top-level array or JSONL file.
-     *
-     * @param recordFile input JSON path
-     * @param consumer   receiver for each JSON object
-     * @throws IOException when reading fails
-     */
-    private static void streamRecordObjects(Path recordFile, Consumer<String> consumer) throws IOException {
-        streamRecordObjects(recordFile, consumer, null);
-    }
-
-    /**
      * Streams JSON objects and reports cumulative bytes read.
      */
     private static void streamRecordObjects(

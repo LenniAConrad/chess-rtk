@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Filter DSL | ChessRTK Wiki</title>
+  <link rel="stylesheet" href="styles.css">
+  <script defer src="search-index.js"></script>
+  <script defer src="site.js"></script>
+</head>
+<body>
+  <button class="menu-toggle" type="button" aria-label="Toggle navigation">Menu</button>
+  <div class="site-shell">
+    <aside class="sidebar">
+      <a class="brand" href="index.html">
+        <span class="brand-mark">CR</span>
+        <span><strong>ChessRTK</strong><small>Wiki</small></span>
+      </a>
+      <label class="search-label" for="doc-search">Search pages</label>
+      <input id="doc-search" class="search" type="search" placeholder="Search docs...">
+      <nav class="nav"><section class="nav-section"><h2>Start Here</h2>
+<a class="" href="index.html" data-title="home">Home</a>
+<a class="" href="getting-started.html" data-title="getting started">Getting Started</a>
+<a class="" href="faq.html" data-title="faq">FAQ</a>
+<a class="" href="command-reference.html" data-title="command reference">Command Reference</a>
+<a class="" href="example-commands.html" data-title="example commands">Example Commands</a>
+<a class="" href="troubleshooting.html" data-title="troubleshooting">Troubleshooting</a>
+</section>
+<section class="nav-section"><h2>User Guides</h2>
+<a class="" href="build-and-install.html" data-title="build &amp; install">Build &amp; Install</a>
+<a class="" href="configuration.html" data-title="configuration">Configuration</a>
+<a class="" href="in-house-engine.html" data-title="in-house engine">In-House Engine</a>
+<a class="" href="lc0.html" data-title="lc0">LC0</a>
+<a class="" href="outputs-and-logs.html" data-title="outputs &amp; logs">Outputs &amp; Logs</a>
+<a class="" href="support.html" data-title="support">Support</a>
+</section>
+<section class="nav-section"><h2>Workflows</h2>
+<a class="" href="mining.html" data-title="mining puzzles">Mining Puzzles</a>
+<a class="active" href="filter-dsl.html" data-title="filter dsl">Filter DSL</a>
+<a class="" href="datasets.html" data-title="datasets">Datasets</a>
+<a class="" href="book-publishing.html" data-title="book publishing">Book Publishing</a>
+<a class="" href="piece-tags.html" data-title="tags">Tags</a>
+<a class="" href="t5.html" data-title="t5 text">T5 Text</a>
+<a class="" href="ai-agents.html" data-title="ai agents">AI Agents</a>
+</section>
+<section class="nav-section"><h2>Development</h2>
+<a class="" href="architecture.html" data-title="architecture">Architecture</a>
+<a class="" href="development-notes.html" data-title="development notes">Development Notes</a>
+<a class="" href="releasing.html" data-title="releasing">Releasing</a>
+<a class="" href="roadmap.html" data-title="roadmap">Roadmap</a>
+<a class="" href="glossary.html" data-title="glossary">Glossary</a>
+<a class="" href="tagging-implementation-plan.html" data-title="tagging plan">Tagging Plan</a>
+<a class="" href="wiki-index.html" data-title="wiki index">Wiki Index</a>
+</section></nav>
+    </aside>
+    <div class="page">
+      <header class="topbar">
+        <div>
+          <span>Workflows</span>
+          <strong>Filter DSL</strong>
+        </div>
+        <nav>
+          <a href="index.html">Home</a>
+          <a href="wiki-index.html">Wiki Index</a>
+          <a href="command-reference.html">Commands</a>
+        </nav>
+      </header>
+      
+      <main class="content-layout">
+        <article class="content">
+          <h1 id="filter-dsl">Filter DSL</h1>
+<p>Mining gates (and some converters) use a compact, round-trippable DSL implemented by <code>chess.uci.Filter</code>.</p>
+<p>If you only want to tweak mining behavior, you generally only need:</p>
+<ul>
+<li>the list of supported predicates</li>
+<li>how <code>gate=...</code>, <code>break=...</code>, <code>null=...</code>, <code>empty=...</code> interact</li>
+</ul>
+<h2 id="shape">Shape</h2>
+<p>A filter is a tree of blocks. Each block:</p>
+<ul>
+<li>picks a MultiPV line to inspect (<code>break=&lt;n&gt;</code>, where 1 = PV1, 2 = PV2, …)</li>
+<li>evaluates predicates against that PV output</li>
+<li>optionally evaluates nested blocks (<code>leaf[ ... ]</code>)</li>
+<li>combines all booleans using <code>gate=&lt;...&gt;</code></li>
+</ul>
+<p>Separators:</p>
+<ul>
+<li>predicates/keys are delimited by <code>;</code></li>
+<li>whitespace is ignored</li>
+</ul>
+<h2 id="core-keys">Core keys</h2>
+<ul>
+<li><code>gate=&lt;AND|NOT_AND|OR|NOT_OR|XOR|X_NOT_OR|SAME|NOT_SAME&gt;</code></li>
+<li><code>break=&lt;n&gt;</code>: which PV line to inspect (1 = best line)</li>
+<li><code>null=&lt;true|false&gt;</code>: return value when PV data is missing</li>
+<li><code>empty=&lt;true|false&gt;</code>: return value when the block has no predicates/leaves</li>
+</ul>
+<h2 id="predicates-keys">Predicates (keys)</h2>
+<p>Predicates compare an output attribute using one of: <code>&gt;</code>, <code>&gt;=</code>, <code>=</code>, <code>&lt;=</code>, <code>&lt;</code>.</p>
+<p>Supported keys:</p>
+<ul>
+<li><code>depth</code>, <code>seldepth</code>, <code>multipv</code>, <code>hashfull</code></li>
+<li><code>nodes</code>, <code>nps</code>, <code>tbhits</code>, <code>time</code> (ms)</li>
+<li><code>eval</code> (centipawns or mate; decimals are allowed as pawns, e.g. <code>300</code> == <code>3.0</code>, <code>#-2</code>)</li>
+<li><code>chances</code> (WDL), e.g. <code>790/200/10</code> or <code>1000/0/0</code></li>
+</ul>
+<h2 id="examples">Examples</h2>
+<h3 id="quality-demand-enough-effort-on-pv1-and-pv2">“Quality”: demand enough effort on PV1 and PV2</h3>
+<pre><code class="language-txt">gate=AND;null=false;empty=false;
+leaf[gate=AND;break=1;nodes&gt;=50000000];
+leaf[gate=AND;break=2;null=false;empty=false;nodes&gt;=50000000];</code></pre>
+<h3 id="winning-puzzle-best-line-clearly-good-second-line-not">“Winning puzzle”: best line clearly good, second line not</h3>
+<pre><code class="language-txt">gate=AND;
+leaf[eval&gt;=300];
+leaf[break=2;null=false;eval&lt;=0];</code></pre>
+<h3 id="accelerate-cheap-reject-to-avoid-wasting-time">“Accelerate”: cheap reject to avoid wasting time</h3>
+<pre><code class="language-txt">gate=AND;
+leaf[break=1;nodes&gt;=2000000];
+leaf[break=2;null=false;nodes&gt;=2000000];
+leaf[gate=OR;eval&lt;300;leaf[break=2;eval&gt;0]];
+leaf[gate=OR;eval&lt;0;leaf[break=2;eval&gt;-300]];</code></pre>
+<h2 id="where-filters-live">Where filters live</h2>
+<ul>
+<li>Default mining filters are stored in <code>config/cli.config.toml</code> as TOML multi-line strings.</li>
+<li>You can override them per run via <code>puzzle mine --puzzle-quality &lt;dsl&gt;</code>, etc.</li>
+</ul>
+        </article>
+        <aside class="toc"><h2>On This Page</h2>
+<a class="toc-h2" href="#shape">Shape</a>
+<a class="toc-h2" href="#core-keys">Core keys</a>
+<a class="toc-h2" href="#predicates-keys">Predicates (keys)</a>
+<a class="toc-h2" href="#examples">Examples</a>
+<a class="toc-h3" href="#quality-demand-enough-effort-on-pv1-and-pv2">“Quality”: demand enough effort on PV1 and PV2</a>
+<a class="toc-h3" href="#winning-puzzle-best-line-clearly-good-second-line-not">“Winning puzzle”: best line clearly good, second line not</a>
+<a class="toc-h3" href="#accelerate-cheap-reject-to-avoid-wasting-time">“Accelerate”: cheap reject to avoid wasting time</a>
+<a class="toc-h2" href="#where-filters-live">Where filters live</a></aside>
+      </main>
+      <footer class="footer">
+        <span>Generated from <code>wiki/filter-dsl.md</code>.</span>
+        <span>Build with <code>python3 scripts/build_docs_site.py</code>.</span>
+      </footer>
+    </div>
+  </div>
+</body>
+</html>

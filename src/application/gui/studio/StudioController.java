@@ -21,29 +21,99 @@ import chess.tag.Tagging;
  */
 public final class StudioController {
 
+	/**
+	 * Persistent UI settings used by the window.
+	 */
 	private final StudioSettings settings;
+
+	/**
+	 * Background engine-analysis service.
+	 */
 	private final StudioEngineService engineService = new StudioEngineService();
+
+	/**
+	 * Current mutable game tree.
+	 */
 	private StudioGameTree gameTree;
+
+	/**
+	 * Open studio project, when one is loaded.
+	 */
 	private StudioProject project;
+
+	/**
+	 * Listener notified when controller state changes.
+	 */
 	private StudioListener listener;
+
+	/**
+	 * Current board annotations.
+	 */
 	private final List<BoardMark> marks = new ArrayList<>();
+
+	/**
+	 * Loaded FEN list entries.
+	 */
 	private final List<String> fenList = new ArrayList<>();
+
+	/**
+	 * Tags computed for the current position.
+	 */
 	private final List<String> tags = new ArrayList<>();
+
+	/**
+	 * Currently selected source square.
+	 */
 	private byte selectedSquare = Field.NO_SQUARE;
+
+	/**
+	 * Last move played or navigated to.
+	 */
 	private short lastMove = Move.NO_MOVE;
+
+	/**
+	 * Note associated with the current position.
+	 */
 	private String positionNote = "";
+
+	/**
+	 * Version incremented after each position-changing action.
+	 */
 	private long positionVersion;
+
+	/**
+	 * Most recent engine snapshot for the current position.
+	 */
 	private StudioEngineSnapshot engineSnapshot;
+
+	/**
+	 * Current index in the loaded FEN list.
+	 */
 	private int fenIndex = -1;
 
 	/**
 	 * Listener for state changes.
 	 */
 	public interface StudioListener {
+		/**
+		 * Handles a controller state change.
+		 */
 		void stateChanged();
 
+		/**
+		 * Handles a status message from the controller.
+		 *
+		 * @param message status text
+		 */
 		void status(String message);
 
+		/**
+		 * Requests a promotion piece from the user.
+		 *
+		 * @param from source square
+		 * @param to promotion square
+		 * @return promotion piece character
+		 */
 		char choosePromotion(byte from, byte to);
 	}
 
@@ -377,42 +447,92 @@ public final class StudioController {
 		return settings.isLightMode() ? StudioTheme.light() : StudioTheme.dark();
 	}
 
+	/**
+	 * Returns mutable Studio UI settings.
+	 *
+	 * @return studio settings
+	 */
 	public StudioSettings settings() {
 		return settings;
 	}
 
+	/**
+	 * Returns the editable game tree.
+	 *
+	 * @return current game tree
+	 */
 	public StudioGameTree gameTree() {
 		return gameTree;
 	}
 
+	/**
+	 * Returns current position tags.
+	 *
+	 * @return immutable tag snapshot
+	 */
 	public List<String> tags() {
 		return List.copyOf(tags);
 	}
 
+	/**
+	 * Returns the latest engine snapshot.
+	 *
+	 * @return engine snapshot, or null when no analysis is active
+	 */
 	public StudioEngineSnapshot engineSnapshot() {
 		return engineSnapshot;
 	}
 
+	/**
+	 * Returns the note attached to the current position.
+	 *
+	 * @return position note text
+	 */
 	public String positionNote() {
 		return positionNote;
 	}
 
+	/**
+	 * Updates the note attached to the current position.
+	 *
+	 * @param note new note text
+	 */
 	public void setPositionNote(String note) {
 		positionNote = note == null ? "" : note;
 	}
 
+	/**
+	 * Returns the active FEN-list index.
+	 *
+	 * @return zero-based FEN index, or {@code -1} when no FEN list is loaded
+	 */
 	public int fenIndex() {
 		return fenIndex;
 	}
 
+	/**
+	 * Returns the number of loaded FEN-list entries.
+	 *
+	 * @return FEN-list size
+	 */
 	public int fenCount() {
 		return fenList.size();
 	}
 
+	/**
+	 * Returns the monotonically increasing position version.
+	 *
+	 * @return position version
+	 */
 	public long positionVersion() {
 		return positionVersion;
 	}
 
+	/**
+	 * Applies an encoded legal move to the game tree.
+	 *
+	 * @param move encoded move
+	 */
 	private void playMove(short move) {
 		try {
 			gameTree.play(move);
@@ -424,6 +544,9 @@ public final class StudioController {
 		}
 	}
 
+	/**
+	 * Updates derived state after the board position changes.
+	 */
 	private void positionChanged() {
 		positionVersion++;
 		engineSnapshot = null;
@@ -432,12 +555,21 @@ public final class StudioController {
 		notifyState();
 	}
 
+	/**
+	 * Updates state after navigating inside the move tree.
+	 */
 	private void navigationChanged() {
 		selectedSquare = Field.NO_SQUARE;
 		lastMove = gameTree.current().move();
 		positionChanged();
 	}
 
+	/**
+	 * Fills legal target and capture arrays for the selected piece.
+	 *
+	 * @param legal legal-target array
+	 * @param captures capture-target array
+	 */
 	private void fillLegalTargets(boolean[] legal, boolean[] captures) {
 		Arrays.fill(legal, false);
 		Arrays.fill(captures, false);
@@ -455,14 +587,36 @@ public final class StudioController {
 		}
 	}
 
+	/**
+	 * Returns whether moving between two squares is legal.
+	 *
+	 * @param from source square
+	 * @param to target square
+	 * @return true when at least one legal move matches
+	 */
 	private boolean isLegalTarget(byte from, byte to) {
 		return !matchingMoves(from, to).isEmpty();
 	}
 
+	/**
+	 * Finds legal moves between two squares.
+	 *
+	 * @param from source square
+	 * @param to target square
+	 * @return matching legal moves
+	 */
 	private MoveList matchingMoves(byte from, byte to) {
 		return position().legalMovesBetween(from, to);
 	}
 
+	/**
+	 * Chooses the matching promotion move requested by the listener.
+	 *
+	 * @param from source square
+	 * @param to promotion square
+	 * @param matches legal promotion candidates
+	 * @return selected promotion move
+	 */
 	private short choosePromotionMove(byte from, byte to, MoveList matches) {
 		char promotion = listener == null ? 'q' : listener.choosePromotion(from, to);
 		for (int i = 0; i < matches.size(); i++) {
@@ -475,42 +629,61 @@ public final class StudioController {
 		return matches.raw(0);
 	}
 
+	/**
+	 * Refreshes asynchronously computed tags for the current position.
+	 */
 	private void refreshTags() {
 		long version = positionVersion;
 		Position snapshot = position().copy();
 		new SwingWorker<List<String>, Void>() {
+			/**
+			 * Computes tags for the captured position off the EDT.
+			 *
+			 * @return computed tag labels
+			 */
 			@Override
 			protected List<String> doInBackground() {
 				return Tagging.tags(snapshot);
 			}
 
+			/**
+			 * Applies computed tags when the position version still matches.
+			 */
 			@Override
 			protected void done() {
 				if (version != positionVersion) {
 					return;
 				}
-					try {
-						tags.clear();
-						tags.addAll(get());
-					} catch (InterruptedException ex) {
-						Thread.currentThread().interrupt();
-						tags.clear();
-						tags.add("tagging interrupted");
-					} catch (Exception ex) {
-						tags.clear();
-						tags.add("tagging unavailable: " + ex.getMessage());
-					}
+				try {
+					tags.clear();
+					tags.addAll(get());
+				} catch (InterruptedException ex) {
+					Thread.currentThread().interrupt();
+					tags.clear();
+					tags.add("tagging interrupted");
+				} catch (Exception ex) {
+					tags.clear();
+					tags.add("tagging unavailable: " + ex.getMessage());
+				}
 				notifyState();
 			}
 		}.execute();
 	}
 
+	/**
+	 * Notifies the listener of a state change.
+	 */
 	private void notifyState() {
 		if (listener != null) {
 			listener.stateChanged();
 		}
 	}
 
+	/**
+	 * Sends a status message to the listener.
+	 *
+	 * @param message status text
+	 */
 	private void status(String message) {
 		if (listener != null) {
 			listener.status(message);

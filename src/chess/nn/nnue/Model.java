@@ -11,18 +11,60 @@ import chess.core.Position;
  * weights.
  *
  * <p>
- * {@link #load(Path)} auto-detects the simple CRTK NNUE format and supported
- * Stockfish NNUE files.
+ * See the package documentation for the architecture overview. This wrapper
+ * auto-detects the compact CRTK NNUE format and supported Stockfish NNUE
+ * files, then exposes one prediction API over both.
  * </p>
  *
  * <p>
- * The wrapper exposes a single prediction API over both native CRTK-format
- * networks and supported Stockfish-format networks. When used by the built-in
- * engine without explicit weights, {@link #loadDefaultOrFallback()} can supply
- * a neutral fallback model for smoke testing.
+ * When used by the built-in engine without explicit weights,
+ * {@link #loadDefaultOrFallback()} can supply a neutral fallback model for
+ * smoke testing.
  * </p>
  */
 public final class Model implements AutoCloseable {
+
+    /**
+     * Optional per-search NNUE state for incremental evaluation.
+     */
+    public interface SearchState extends AutoCloseable {
+
+        /**
+         * Notifies the state that a normal move has just been played.
+         *
+         * @param position child position after the move
+         * @param move encoded move that was played
+         * @param state undo state filled by the move application
+         * @param ply child ply from the root
+         */
+        void movePlayed(Position position, short move, Position.State state, int ply);
+
+        /**
+         * Notifies the state that a null move has just been played.
+         *
+         * @param ply child ply from the root
+         */
+        default void nullMovePlayed(int ply) {
+            // default search state does not need null-move handling
+        }
+
+        /**
+         * Evaluates a position using the incremental state at one ply.
+         *
+         * @param position current position
+         * @param ply current ply from the root
+         * @return centipawn score
+         */
+        int evaluate(Position position, int ply);
+
+        /**
+         * Releases per-search resources.
+         */
+        @Override
+        default void close() {
+            // default search state has no resources
+        }
+    }
 
     /**
      * Default NNUE weights path used by helpers and examples.
@@ -39,7 +81,7 @@ public final class Model implements AutoCloseable {
      * Underlying Stockfish-format NNUE network. This field is null when the
      * wrapper is backed by a CRTK-format network.
      */
-    private final StockfishNnueNetwork stockfishNetwork;
+    private final UpstreamNetwork upstreamNetwork;
 
     /**
      * Creates a wrapper around a loaded CRTK network.
@@ -48,17 +90,17 @@ public final class Model implements AutoCloseable {
      */
     private Model(Network network) {
         this.network = network;
-        this.stockfishNetwork = null;
+        this.upstreamNetwork = null;
     }
 
     /**
      * Creates a wrapper around a loaded Stockfish network.
      *
-     * @param stockfishNetwork underlying Stockfish network
+     * @param upstreamNetwork underlying Stockfish network
      */
-    private Model(StockfishNnueNetwork stockfishNetwork) {
+    private Model(UpstreamNetwork upstreamNetwork) {
         this.network = null;
-        this.stockfishNetwork = stockfishNetwork;
+        this.upstreamNetwork = upstreamNetwork;
     }
 
     /**
@@ -70,8 +112,8 @@ public final class Model implements AutoCloseable {
      */
     public static Model load(Path weightsPath) throws IOException {
         byte[] header = Files.readAllBytes(weightsPath);
-        if (StockfishNnueNetwork.hasStockfishHeader(header)) {
-            return new Model(StockfishNnueNetwork.load(weightsPath));
+        if (UpstreamNetwork.hasUpstreamHeader(header)) {
+            return new Model(UpstreamNetwork.load(weightsPath));
         }
         return new Model(Network.load(weightsPath));
     }
@@ -133,8 +175,8 @@ public final class Model implements AutoCloseable {
      * @return network metadata
      */
     public Network.Info info() {
-        if (stockfishNetwork != null) {
-            StockfishNnueNetwork.Info info = stockfishNetwork.info();
+        if (upstreamNetwork != null) {
+            UpstreamNetwork.Info info = upstreamNetwork.info();
             return new Network.Info(info.inputFeatures(), info.transformedDimensions(), 0L);
         }
         return network.info();
@@ -146,8 +188,8 @@ public final class Model implements AutoCloseable {
      *
      * @return Stockfish metadata, or {@code null} for CRTK-format networks
      */
-    public StockfishNnueNetwork.Info stockfishInfo() {
-        return stockfishNetwork == null ? null : stockfishNetwork.info();
+    public UpstreamNetwork.Info upstreamInfo() {
+        return upstreamNetwork == null ? null : upstreamNetwork.info();
     }
 
     /**
@@ -156,8 +198,8 @@ public final class Model implements AutoCloseable {
      * @return backend identifier
      */
     public String backend() {
-        if (stockfishNetwork != null) {
-            return stockfishNetwork.backendName();
+        if (upstreamNetwork != null) {
+            return upstreamNetwork.backendName();
         }
         return network.backendName();
     }
@@ -169,8 +211,8 @@ public final class Model implements AutoCloseable {
      * @return NNUE prediction
      */
     public Network.Prediction predict(Position position) {
-        if (stockfishNetwork != null) {
-            return new Network.Prediction(stockfishNetwork.predict(position).centipawns());
+        if (upstreamNetwork != null) {
+            return new Network.Prediction(upstreamNetwork.predict(position).centipawns());
         }
         return network.predict(position);
     }
@@ -186,13 +228,33 @@ public final class Model implements AutoCloseable {
     }
 
     /**
+     * Opens optional per-search incremental state.
+     *
+     * @param root root position at ply 0
+     * @param searchPlies maximum ply count the search may reach
+     * @return incremental state, or {@code null} when unsupported
+     */
+    public SearchState newSearchState(Position root, int searchPlies) {
+        if (root == null) {
+            throw new IllegalArgumentException("root == null");
+        }
+        if (searchPlies <= 0) {
+            throw new IllegalArgumentException("searchPlies must be positive");
+        }
+        if (upstreamNetwork != null) {
+            return upstreamNetwork.newSearchState(root, searchPlies);
+        }
+        return network.newSearchState(root, searchPlies);
+    }
+
+    /**
      * Creates an accumulator for repeated or incremental evaluation.
      *
      * @return fresh accumulator
      */
     public Accumulator newAccumulator() {
-        if (stockfishNetwork != null) {
-            throw new UnsupportedOperationException("Stockfish NNUE accumulators are internal to StockfishNnueNetwork.");
+        if (upstreamNetwork != null) {
+            throw new UnsupportedOperationException("Stockfish NNUE accumulators are internal to UpstreamNetwork.");
         }
         return network.newAccumulator();
     }
@@ -204,8 +266,8 @@ public final class Model implements AutoCloseable {
      * @return initialized accumulator
      */
     public Accumulator newAccumulator(Position position) {
-        if (stockfishNetwork != null) {
-            throw new UnsupportedOperationException("Stockfish NNUE accumulators are internal to StockfishNnueNetwork.");
+        if (upstreamNetwork != null) {
+            throw new UnsupportedOperationException("Stockfish NNUE accumulators are internal to UpstreamNetwork.");
         }
         return network.newAccumulator(position);
     }
@@ -218,7 +280,7 @@ public final class Model implements AutoCloseable {
      * @return NNUE prediction
      */
     public Network.Prediction predict(Accumulator accumulator, boolean whiteToMove) {
-        if (stockfishNetwork != null) {
+        if (upstreamNetwork != null) {
             throw new UnsupportedOperationException("Stockfish NNUE accumulator prediction is not exposed by Model.");
         }
         return network.predict(accumulator, whiteToMove);
@@ -229,8 +291,8 @@ public final class Model implements AutoCloseable {
      */
     @Override
     public void close() {
-        if (stockfishNetwork != null) {
-            stockfishNetwork.close();
+        if (upstreamNetwork != null) {
+            upstreamNetwork.close();
         } else {
             network.close();
         }

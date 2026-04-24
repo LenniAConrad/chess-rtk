@@ -8,6 +8,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
 
+import chess.core.Move;
+import chess.core.Piece;
 import chess.core.Position;
 import chess.gpu.BackendNames;
 
@@ -15,17 +17,10 @@ import chess.gpu.BackendNames;
  * Pure-Java NNUE evaluator with a HalfKP-style sparse input transformer.
  *
  * <p>
- * The implemented architecture is intentionally compact:
- * </p>
- *
- * <pre>
- * sparse HalfKP features -> perspective accumulators -> clipped ReLU
- * concatenated side-to-move/opponent accumulators -> linear centipawn output
- * </pre>
- *
- * <p>
- * The accumulator can be rebuilt from a {@link Position} or updated by applying
- * sparse feature deltas, which is the efficient-update part of NNUE.
+ * See the package documentation for the architecture overview, feature layout,
+ * and the relationship between the compact CRTK format and supported Stockfish
+ * loaders. This class is the compact CRTK-format implementation with public
+ * accumulator and incremental-search APIs.
  * </p>
  */
 public final class Network implements AutoCloseable {
@@ -138,6 +133,23 @@ public final class Network implements AutoCloseable {
     }
 
     /**
+     * Opens per-search incremental state backed by accumulator deltas.
+     *
+     * @param root root position at ply 0
+     * @param searchPlies maximum ply count the search may reach
+     * @return incremental search state
+     */
+    public Model.SearchState newSearchState(Position root, int searchPlies) {
+        if (root == null) {
+            throw new IllegalArgumentException("root == null");
+        }
+        if (searchPlies <= 0) {
+            throw new IllegalArgumentException("searchPlies must be positive");
+        }
+        return new IncrementalState(root, searchPlies);
+    }
+
+    /**
      * Evaluates a position by rebuilding accumulators from scratch.
      *
      * @param position position to evaluate
@@ -182,6 +194,292 @@ public final class Network implements AutoCloseable {
     @Override
     public void close() {
         // no native resources
+    }
+
+    /**
+     * Per-search incremental state backed by accumulator deltas.
+     */
+    private final class IncrementalState implements Model.SearchState {
+
+        /**
+         * Dedicated accumulator buffers indexed by ply.
+         */
+        private final Accumulator[] buffers;
+
+        /**
+         * Active accumulator views indexed by ply.
+         */
+        private final Accumulator[] active;
+
+        /**
+         * Creates incremental state rooted at one position.
+         *
+         * @param root root position
+         * @param searchPlies maximum ply count
+         */
+        private IncrementalState(Position root, int searchPlies) {
+            this.buffers = new Accumulator[searchPlies];
+            this.active = new Accumulator[searchPlies];
+            for (int ply = 0; ply < searchPlies; ply++) {
+                buffers[ply] = newAccumulator();
+            }
+            buffers[0].refresh(root);
+            active[0] = buffers[0];
+        }
+
+	        /**
+	         * Updates the child ply accumulator after a normal move.
+	         *
+	         * @param position child position after the move
+	         * @param move encoded move that was played
+	         * @param state undo state filled by the move application
+	         * @param ply child ply from the root
+	         */
+	        @Override
+	        public void movePlayed(Position position, short move, Position.State state, int ply) {
+	            Accumulator child = buffers[ply];
+	            copyAccumulator(child, active[ply - 1]);
+            active[ply] = child;
+            updatePerspective(child, position, move, state, true);
+	            updatePerspective(child, position, move, state, false);
+	        }
+
+	        /**
+	         * Reuses the parent accumulator for a null-move child ply.
+	         *
+	         * @param ply child ply from the root
+	         */
+	        @Override
+	        public void nullMovePlayed(int ply) {
+	            active[ply] = active[ply - 1];
+	        }
+
+	        /**
+	         * Evaluates the active accumulator at one search ply.
+	         *
+	         * @param position current position
+	         * @param ply current ply from the root
+	         * @return centipawn score from the side-to-move perspective
+	         */
+	        @Override
+	        public int evaluate(Position position, int ply) {
+	            return predict(active[ply], position.isWhiteToMove()).roundedCentipawns();
+        }
+
+        /**
+         * Updates one perspective after a played move.
+         *
+         * @param accumulator child accumulator
+         * @param position child position
+         * @param move encoded move
+         * @param state undo state filled by the move application
+         * @param whitePerspective true for White's perspective
+         */
+        private void updatePerspective(
+                Accumulator accumulator,
+                Position position,
+                short move,
+                Position.State state,
+                boolean whitePerspective) {
+            int moving = state.movingPiece();
+            if (moving == kingPieceIndex(whitePerspective)) {
+                refreshPerspective(accumulator, position, whitePerspective);
+                return;
+            }
+
+            updatePieceMove(
+                    accumulator,
+                    position,
+                    whitePerspective,
+                    moving,
+                    Move.getFromIndex(move),
+                    state.actualToSquare(),
+                    promotedPieceIndex(moving, Move.getPromotion(move)));
+            if (state.capture()) {
+                updatePieceRemoval(
+                        accumulator,
+                        position,
+                        whitePerspective,
+                        state.capturedPiece(),
+                        state.capturedSquare());
+            }
+            if (state.castle()) {
+                updatePieceMove(
+                        accumulator,
+                        position,
+                        whitePerspective,
+                        state.rookPiece(),
+                        state.rookFromSquare(),
+                        state.rookToSquare(),
+                        state.rookPiece());
+            }
+        }
+    }
+
+    /**
+     * Copies one accumulator into another.
+     *
+     * @param target destination accumulator
+     * @param source source accumulator
+     */
+    private static void copyAccumulator(Accumulator target, Accumulator source) {
+        System.arraycopy(source.values(true), 0, target.values(true), 0, source.hiddenSize());
+        System.arraycopy(source.values(false), 0, target.values(false), 0, source.hiddenSize());
+    }
+
+    /**
+     * Rebuilds one perspective accumulator from the child position.
+     *
+     * @param accumulator accumulator to update
+     * @param position child position
+     * @param whitePerspective true for White's perspective
+     */
+    private void refreshPerspective(Accumulator accumulator, Position position, boolean whitePerspective) {
+        System.arraycopy(weights.featureBias, 0, accumulator.values(whitePerspective), 0, weights.hiddenSize);
+        accumulator.addFeatures(whitePerspective, FeatureEncoder.activeFeatures(position, whitePerspective));
+    }
+
+    /**
+     * Applies one moved-piece feature delta for one perspective.
+     *
+     * @param accumulator accumulator to update
+     * @param position child position
+     * @param whitePerspective true for White's perspective
+     * @param sourcePiece moving piece before the move
+     * @param fromSquare origin square in {@link Position} order
+     * @param toSquare destination square in {@link Position} order
+     * @param targetPiece placed piece after the move
+     */
+    private static void updatePieceMove(
+            Accumulator accumulator,
+            Position position,
+            boolean whitePerspective,
+            int sourcePiece,
+            int fromSquare,
+            int toSquare,
+            int targetPiece) {
+        int kingSquare = FeatureEncoder.perspectiveKingSquare(position, whitePerspective);
+        int removeFeature = featureIndex(whitePerspective, kingSquare, sourcePiece, fromSquare);
+        int addFeature = featureIndex(whitePerspective, kingSquare, targetPiece, toSquare);
+        applyFeatureDelta(accumulator, whitePerspective, removeFeature, addFeature);
+    }
+
+    /**
+     * Applies one removed-piece feature delta for one perspective.
+     *
+     * @param accumulator accumulator to update
+     * @param position child position
+     * @param whitePerspective true for White's perspective
+     * @param piece removed piece
+     * @param square removed-piece square in {@link Position} order
+     */
+    private static void updatePieceRemoval(
+            Accumulator accumulator,
+            Position position,
+            boolean whitePerspective,
+            int piece,
+            int square) {
+        int kingSquare = FeatureEncoder.perspectiveKingSquare(position, whitePerspective);
+        int feature = featureIndex(whitePerspective, kingSquare, piece, square);
+        applyFeatureDelta(accumulator, whitePerspective, feature, -1);
+    }
+
+    /**
+     * Applies a sparse feature delta to one perspective.
+     *
+     * @param accumulator accumulator to update
+     * @param whitePerspective true for White's perspective
+     * @param removeFeature feature to remove, or {@code -1}
+     * @param addFeature feature to add, or {@code -1}
+     */
+    private static void applyFeatureDelta(
+            Accumulator accumulator,
+            boolean whitePerspective,
+            int removeFeature,
+            int addFeature) {
+        if (removeFeature >= 0 && addFeature >= 0) {
+            accumulator.replaceFeature(whitePerspective, removeFeature, addFeature);
+        } else if (removeFeature >= 0) {
+            accumulator.removeFeature(whitePerspective, removeFeature);
+        } else if (addFeature >= 0) {
+            accumulator.addFeature(whitePerspective, addFeature);
+        }
+    }
+
+    /**
+     * Returns the sparse feature index for one piece and square.
+     *
+     * @param whitePerspective true for White's perspective
+     * @param kingSquare perspective king square in NNUE order
+     * @param pieceIndex internal piece index
+     * @param square square in {@link Position} order
+     * @return feature index, or {@code -1} when the piece is not represented
+     */
+    private static int featureIndex(boolean whitePerspective, int kingSquare, int pieceIndex, int square) {
+        byte piece = pieceCode(pieceIndex);
+        int plane = FeatureEncoder.piecePlane(piece, whitePerspective);
+        if (plane < 0) {
+            return -1;
+        }
+        int orientedSquare = FeatureEncoder.orientSquare(
+                FeatureEncoder.squareFromPositionIndex(square),
+                whitePerspective);
+        return FeatureEncoder.encodeFeature(kingSquare, plane, orientedSquare);
+    }
+
+    /**
+     * Returns the internal king piece index for one perspective.
+     *
+     * @param whitePerspective true for White
+     * @return internal king piece index
+     */
+    private static int kingPieceIndex(boolean whitePerspective) {
+        return whitePerspective ? Position.WHITE_KING : Position.BLACK_KING;
+    }
+
+    /**
+     * Returns the placed piece index after a move.
+     *
+     * @param movingPiece moving piece before the move
+     * @param promotion promotion code
+     * @return placed internal piece index
+     */
+    private static int promotedPieceIndex(int movingPiece, int promotion) {
+        if (promotion == 0) {
+            return movingPiece;
+        }
+        boolean white = movingPiece < Position.BLACK_PAWN;
+        return switch (promotion) {
+            case 1 -> white ? Position.WHITE_KNIGHT : Position.BLACK_KNIGHT;
+            case 2 -> white ? Position.WHITE_BISHOP : Position.BLACK_BISHOP;
+            case 3 -> white ? Position.WHITE_ROOK : Position.BLACK_ROOK;
+            case 4 -> white ? Position.WHITE_QUEEN : Position.BLACK_QUEEN;
+            default -> movingPiece;
+        };
+    }
+
+    /**
+     * Maps an internal piece index to the repository piece code.
+     *
+     * @param pieceIndex internal piece index
+     * @return repository piece code, or {@link Piece#EMPTY}
+     */
+    private static byte pieceCode(int pieceIndex) {
+        return switch (pieceIndex) {
+            case Position.WHITE_PAWN -> Piece.WHITE_PAWN;
+            case Position.WHITE_KNIGHT -> Piece.WHITE_KNIGHT;
+            case Position.WHITE_BISHOP -> Piece.WHITE_BISHOP;
+            case Position.WHITE_ROOK -> Piece.WHITE_ROOK;
+            case Position.WHITE_QUEEN -> Piece.WHITE_QUEEN;
+            case Position.WHITE_KING -> Piece.WHITE_KING;
+            case Position.BLACK_PAWN -> Piece.BLACK_PAWN;
+            case Position.BLACK_KNIGHT -> Piece.BLACK_KNIGHT;
+            case Position.BLACK_BISHOP -> Piece.BLACK_BISHOP;
+            case Position.BLACK_ROOK -> Piece.BLACK_ROOK;
+            case Position.BLACK_QUEEN -> Piece.BLACK_QUEEN;
+            case Position.BLACK_KING -> Piece.BLACK_KING;
+            default -> Piece.EMPTY;
+        };
     }
 
     /**

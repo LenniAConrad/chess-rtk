@@ -12,6 +12,8 @@ import static application.cli.Constants.OPT_NODES;
 import static application.cli.Constants.OPT_NO_WDL;
 import static application.cli.Constants.OPT_PROTOCOL_PATH;
 import static application.cli.Constants.OPT_PROTOCOL_PATH_SHORT;
+import static application.cli.Constants.OPT_RANDOMPOS;
+import static application.cli.Constants.OPT_STARTPOS;
 import static application.cli.Constants.OPT_THREADS;
 import static application.cli.Constants.OPT_VERBOSE;
 import static application.cli.Constants.OPT_VERBOSE_SHORT;
@@ -86,34 +88,13 @@ public final class ThreatsCommand {
 	 */
 	private static ThreatsOptions parseThreatsOptions(Argv a) {
 		boolean verbose = a.flag(OPT_VERBOSE, OPT_VERBOSE_SHORT);
-		java.nio.file.Path input = a.path(OPT_INPUT, OPT_INPUT_SHORT);
-		String fen = a.string(OPT_FEN);
-		String protoPath = CommandSupport.optional(a.string(OPT_PROTOCOL_PATH, OPT_PROTOCOL_PATH_SHORT),
-				Config.getProtocolPath());
-		long nodesCap = Math.max(1, CommandSupport.optional(a.lng(OPT_MAX_NODES, OPT_NODES), Config.getMaxNodes()));
-		long durMs = Math.max(1,
-				CommandSupport.optionalDurationMs(a.duration(OPT_MAX_DURATION), Config.getMaxDuration()));
-		Integer multipv = a.integer(OPT_MULTIPV);
-		Integer threads = a.integer(OPT_THREADS);
-		Integer hash = a.integer(OPT_HASH);
-		boolean wdl = a.flag(OPT_WDL);
-		boolean noWdl = a.flag(OPT_NO_WDL);
-		List<String> rest = a.positionals();
-		if (fen == null && !rest.isEmpty()) {
-			fen = String.join(" ", rest);
-		}
-		a.ensureConsumed();
-
-		if (wdl && noWdl) {
-			System.err.println(String.format("threats: only one of %s or %s may be set", OPT_WDL, OPT_NO_WDL));
-			System.exit(2);
-		}
-
-		List<String> fens = CommandSupport.resolveFenInputs(CMD_THREATS, input, fen);
-		ThreatsOptions.Limits limits = new ThreatsOptions.Limits(nodesCap, durMs);
-		ThreatsOptions.EngineConfig engineConfig = new ThreatsOptions.EngineConfig(multipv, threads, hash);
-		ThreatsOptions.WdlConfig wdlConfig = new ThreatsOptions.WdlConfig(wdl, noWdl);
-		return new ThreatsOptions(verbose, protoPath, limits, engineConfig, wdlConfig, fens);
+		EngineSupport.UciOptions engine = EngineSupport.parseUciOptions(a, CMD_THREATS, false);
+		List<String> fens = CommandSupport.resolveFenInputs(CMD_THREATS, engine.input(), engine.fen());
+		ThreatsOptions.Limits limits = new ThreatsOptions.Limits(engine.nodesCap(), engine.durationMillis());
+		ThreatsOptions.EngineConfig engineConfig = new ThreatsOptions.EngineConfig(engine.multipv(), engine.threads(),
+				engine.hash());
+		ThreatsOptions.WdlConfig wdlConfig = new ThreatsOptions.WdlConfig(engine.wdl(), engine.noWdl());
+		return new ThreatsOptions(verbose, engine.protocolPath(), limits, engineConfig, wdlConfig, fens);
 	}
 
 	/**

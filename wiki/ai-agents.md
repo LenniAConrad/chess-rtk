@@ -6,9 +6,38 @@ the task: move conversion for notation, FEN commands for position validity,
 perft commands for move-generation checks, and bounded engine commands for
 analysis.
 
+These commands are worth using because they are built on the same correctness
+surface as the rest of the toolkit: one shared position model, deterministic
+output shapes, and regression-backed move-generation checks instead of ad hoc
+string parsing or GUI scraping.
+
 ![Agentic command contracts](../assets/diagrams/crtk-agentic-commands.png)
 
 Diagram source: `assets/diagrams/crtk-agentic-commands.dot`.
+
+## Why Agents Can Trust This
+
+- Machine-oriented commands prefer line-based formats, explicit flags, stable
+  exit codes, and bounded search budgets.
+- Core move generation is validated against stored perft truth positions and
+  detailed counters, so legality-sensitive workflows do not depend on an
+  external engine.
+- The same core is reused for notation conversion, line application, perft
+  checks, builtin search, exporters, and higher-level automation workflows.
+- `./scripts/run_regression_suite.sh core` and
+  `./scripts/run_regression_suite.sh recommended` provide repeatable regression
+  entry points before longer CI or agent runs.
+
+## Quick Verification
+
+Before using the commands in longer automated runs, a fast smoke pass is:
+
+```bash
+mkdir -p out
+javac --release 17 -d out $(find src -name "*.java")
+java -cp out testing.CoreMoveGenerationRegressionTest
+java -cp out application.Main move list --format both --fen "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+```
 
 ## Command Contracts
 
@@ -97,6 +126,7 @@ Single-position counters:
 
 ```bash
 crtk engine perft --fen "<FEN>" --depth 5
+crtk engine perft --randompos --depth 4
 crtk engine perft --fen "<FEN>" --depth 5 --divide --threads 4
 crtk engine perft --fen "<FEN>" --depth 5 --format stockfish --threads 4
 ```

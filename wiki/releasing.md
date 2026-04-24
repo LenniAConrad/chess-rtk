@@ -52,9 +52,8 @@ Quick smoke test (from the extracted artifact directory):
    `README.md`, `wiki/command-reference.md`, `wiki/build-and-install.md`, and any new feature notes
 6. Build a fresh runnable jar:
    `./scripts/run_regression_suite.sh jar`
-7. Confirm license intent before publishing:
-   current `LICENSE.txt` is source-available and restrictive (non-commercial / no-derivatives), not a standard open-source license
-   if broader adoption matters, replace it intentionally before release with a standard license such as `MIT`, `Apache-2.0`, or `BSD-2-Clause`
+7. Confirm release artifacts include the current license file:
+   keep `LICENSE.txt` bundled with packaged releases and distributed archives
 
 ## GitHub release workflow
 

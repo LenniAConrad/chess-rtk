@@ -1,0 +1,277 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AI Agents and Automation | ChessRTK Wiki</title>
+  <link rel="stylesheet" href="styles.css">
+  <script defer src="search-index.js"></script>
+  <script defer src="site.js"></script>
+</head>
+<body>
+  <button class="menu-toggle" type="button" aria-label="Toggle navigation">Menu</button>
+  <div class="site-shell">
+    <aside class="sidebar">
+      <a class="brand" href="index.html">
+        <span class="brand-mark">CR</span>
+        <span><strong>ChessRTK</strong><small>Wiki</small></span>
+      </a>
+      <label class="search-label" for="doc-search">Search pages</label>
+      <input id="doc-search" class="search" type="search" placeholder="Search docs...">
+      <nav class="nav"><section class="nav-section"><h2>Start Here</h2>
+<a class="" href="index.html" data-title="home">Home</a>
+<a class="" href="getting-started.html" data-title="getting started">Getting Started</a>
+<a class="" href="faq.html" data-title="faq">FAQ</a>
+<a class="" href="command-reference.html" data-title="command reference">Command Reference</a>
+<a class="" href="example-commands.html" data-title="example commands">Example Commands</a>
+<a class="" href="troubleshooting.html" data-title="troubleshooting">Troubleshooting</a>
+</section>
+<section class="nav-section"><h2>User Guides</h2>
+<a class="" href="build-and-install.html" data-title="build &amp; install">Build &amp; Install</a>
+<a class="" href="configuration.html" data-title="configuration">Configuration</a>
+<a class="" href="in-house-engine.html" data-title="in-house engine">In-House Engine</a>
+<a class="" href="lc0.html" data-title="lc0">LC0</a>
+<a class="" href="outputs-and-logs.html" data-title="outputs &amp; logs">Outputs &amp; Logs</a>
+<a class="" href="support.html" data-title="support">Support</a>
+</section>
+<section class="nav-section"><h2>Workflows</h2>
+<a class="" href="mining.html" data-title="mining puzzles">Mining Puzzles</a>
+<a class="" href="filter-dsl.html" data-title="filter dsl">Filter DSL</a>
+<a class="" href="datasets.html" data-title="datasets">Datasets</a>
+<a class="" href="book-publishing.html" data-title="book publishing">Book Publishing</a>
+<a class="" href="piece-tags.html" data-title="tags">Tags</a>
+<a class="" href="t5.html" data-title="t5 text">T5 Text</a>
+<a class="active" href="ai-agents.html" data-title="ai agents">AI Agents</a>
+</section>
+<section class="nav-section"><h2>Development</h2>
+<a class="" href="architecture.html" data-title="architecture">Architecture</a>
+<a class="" href="development-notes.html" data-title="development notes">Development Notes</a>
+<a class="" href="releasing.html" data-title="releasing">Releasing</a>
+<a class="" href="roadmap.html" data-title="roadmap">Roadmap</a>
+<a class="" href="glossary.html" data-title="glossary">Glossary</a>
+<a class="" href="tagging-implementation-plan.html" data-title="tagging plan">Tagging Plan</a>
+<a class="" href="wiki-index.html" data-title="wiki index">Wiki Index</a>
+</section></nav>
+    </aside>
+    <div class="page">
+      <header class="topbar">
+        <div>
+          <span>Workflows</span>
+          <strong>AI Agents and Automation</strong>
+        </div>
+        <nav>
+          <a href="index.html">Home</a>
+          <a href="wiki-index.html">Wiki Index</a>
+          <a href="command-reference.html">Commands</a>
+        </nav>
+      </header>
+      
+      <main class="content-layout">
+        <article class="content">
+          <h1 id="ai-agents-and-automation">AI Agents and Automation</h1>
+<p>ChessRTK exposes deterministic chess primitives that work well in CI, scripts, and LLM tool workflows. The safest pattern is to use the narrowest command for the task: move conversion for notation, FEN commands for position validity, perft commands for move-generation checks, and bounded engine commands for analysis.</p>
+<p>These commands are worth using because they are built on the same correctness surface as the rest of the toolkit: one shared position model, deterministic output shapes, and regression-backed move-generation checks instead of ad hoc string parsing or GUI scraping.</p>
+<p><img src="assets/diagrams/crtk-agentic-commands.png" alt="Agentic command contracts" loading="lazy"></p>
+<p>Diagram source: <code>assets/diagrams/crtk-agentic-commands.dot</code>.</p>
+<h2 id="why-agents-can-trust-this">Why Agents Can Trust This</h2>
+<ul>
+<li>Machine-oriented commands prefer line-based formats, explicit flags, stable</li>
+</ul>
+<p>exit codes, and bounded search budgets.</p>
+<ul>
+<li>Core move generation is validated against stored perft truth positions and</li>
+</ul>
+<p>detailed counters, so legality-sensitive workflows do not depend on an external engine.</p>
+<ul>
+<li>The same core is reused for notation conversion, line application, perft</li>
+</ul>
+<p>checks, builtin search, exporters, and higher-level automation workflows.</p>
+<ul>
+<li><code>./scripts/run_regression_suite.sh core</code> and</li>
+</ul>
+<p><code>./scripts/run_regression_suite.sh recommended</code> provide repeatable regression entry points before longer CI or agent runs.</p>
+<h2 id="quick-verification">Quick Verification</h2>
+<p>Before using the commands in longer automated runs, a fast smoke pass is:</p>
+<pre><code class="language-bash">mkdir -p out
+javac --release 17 -d out $(find src -name &quot;*.java&quot;)
+java -cp out testing.CoreMoveGenerationRegressionTest
+java -cp out application.Main move list --format both --fen &quot;rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1&quot;</code></pre>
+<h2 id="command-contracts">Command Contracts</h2>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Need</th>
+<th>Command shape</th>
+<th>Output contract</th>
+</tr></thead><tbody>
+<tr>
+<td>Legal moves</td>
+<td>`move list --format uci</td>
+<td>san</td>
+<td>both`</td>
+<td>one move per line, deterministic order</td>
+</tr>
+<tr>
+<td>UCI move list</td>
+<td><code>move uci --fen &quot;&lt;FEN&gt;&quot;</code></td>
+<td>one UCI move per line</td>
+</tr>
+<tr>
+<td>SAN move list</td>
+<td><code>move san --fen &quot;&lt;FEN&gt;&quot;</code></td>
+<td>one SAN move per line</td>
+</tr>
+<tr>
+<td>UCI and SAN together</td>
+<td><code>move both --fen &quot;&lt;FEN&gt;&quot;</code></td>
+<td><code>uci&lt;TAB&gt;san</code> per line</td>
+</tr>
+<tr>
+<td>Convert one move</td>
+<td><code>move to-san</code>, <code>move to-uci</code></td>
+<td>one converted move</td>
+</tr>
+<tr>
+<td>Apply one move</td>
+<td><code>move after --fen &quot;&lt;FEN&gt;&quot; &lt;move&gt;</code></td>
+<td>resulting FEN</td>
+</tr>
+<tr>
+<td>Apply a line</td>
+<td><code>move play --fen &quot;&lt;FEN&gt;&quot; &lt;moves...&gt;</code></td>
+<td>final FEN, or every FEN with <code>--intermediate</code></td>
+</tr>
+<tr>
+<td>Validate FEN</td>
+<td><code>fen validate --fen &quot;&lt;FEN&gt;&quot;</code></td>
+<td><code>valid&lt;TAB&gt;&lt;normalized-fen&gt;</code> on success</td>
+</tr>
+<tr>
+<td>Normalize FEN</td>
+<td><code>fen normalize --fen &quot;&lt;FEN&gt;&quot;</code></td>
+<td>normalized FEN</td>
+</tr>
+<tr>
+<td>Chess960 starts</td>
+<td><code>fen chess960 &lt;index&gt;</code></td>
+<td>deterministic Scharnagl-indexed FEN</td>
+</tr>
+<tr>
+<td>Best move</td>
+<td>`engine bestmove --format uci</td>
+<td>san</td>
+<td>both`</td>
+<td>one best move row</td>
+</tr>
+<tr>
+<td>Built-in fallback search</td>
+<td>`engine builtin --format uci</td>
+<td>san</td>
+<td>both</td>
+<td>summary`</td>
+<td>bounded in-process search output</td>
+</tr>
+<tr>
+<td>Static evaluation</td>
+<td><code>engine static</code>, <code>engine eval</code></td>
+<td>one evaluation per input position</td>
+</tr>
+<tr>
+<td>Movegen counters</td>
+<td><code>engine perft</code></td>
+<td>nodes and detailed counters</td>
+</tr>
+<tr>
+<td>Movegen regression</td>
+<td><code>engine perft-suite</code></td>
+<td>progress bar, then truth/calculated table</td>
+</tr>
+<tr>
+<td>Setup health</td>
+<td><code>doctor</code>, <code>config validate</code>, <code>engine uci-smoke</code></td>
+<td>diagnostics and process exit status</td>
+</tr>
+</tbody></table></div>
+<h2 id="recommended-agent-workflow">Recommended Agent Workflow</h2>
+<ol>
+<li>Run <code>crtk doctor</code> and <code>crtk config validate</code> before long jobs.</li>
+<li>Normalize input FENs with <code>fen normalize</code>.</li>
+<li>Use <code>move list --format both</code> to expose legal moves with both UCI and SAN.</li>
+<li>Use <code>move after</code> or <code>move play</code> to advance positions instead of editing FENs.</li>
+<li>Use <code>engine bestmove --format both</code> when a configured UCI engine is</li>
+</ol>
+<p>available.</p>
+<ol>
+<li>Use <code>engine builtin --format summary</code> when in-process bounded search is</li>
+</ol>
+<p>preferable.</p>
+<ol>
+<li>Run <code>engine perft-suite --depth 6 --threads &lt;n&gt;</code> after core move-generation</li>
+</ol>
+<p>changes.</p>
+<h2 id="deterministic-move-tasks">Deterministic Move Tasks</h2>
+<p>List legal moves:</p>
+<pre><code class="language-bash">crtk move list --fen &quot;&lt;FEN&gt;&quot; --format both</code></pre>
+<p>Convert moves:</p>
+<pre><code class="language-bash">crtk move to-san --fen &quot;&lt;FEN&gt;&quot; e2e4
+crtk move to-uci --fen &quot;&lt;FEN&gt;&quot; Nf3</code></pre>
+<p>Apply a SAN or UCI line:</p>
+<pre><code class="language-bash">crtk move play --fen &quot;&lt;FEN&gt;&quot; &quot;e4 e5 Nf3 Nc6&quot;
+crtk move play --fen &quot;&lt;FEN&gt;&quot; e2e4 e7e5 g1f3 --intermediate</code></pre>
+<p>These commands are better for automation than parsing board diagrams because they have compact, line-oriented output.</p>
+<h2 id="engine-tasks">Engine Tasks</h2>
+<p>External UCI engine:</p>
+<pre><code class="language-bash">crtk engine bestmove --fen &quot;&lt;FEN&gt;&quot; --format both --max-duration 5s
+crtk engine analyze --fen &quot;&lt;FEN&gt;&quot; --multipv 3 --max-nodes 1000000
+crtk engine threats --fen &quot;&lt;FEN&gt;&quot; --max-duration 2s</code></pre>
+<p>Built-in Java engine:</p>
+<pre><code class="language-bash">crtk engine builtin --fen &quot;&lt;FEN&gt;&quot; --depth 4 --format summary
+crtk engine builtin --fen &quot;&lt;FEN&gt;&quot; --nodes 100000 --max-duration 500ms --format uci</code></pre>
+<p>For UCI engine commands, use explicit <code>--nodes</code>, <code>--max-duration</code>, <code>--threads</code>, and <code>--hash</code> values when you need reproducible behavior. For the built-in engine, use <code>--depth</code>, <code>--nodes</code>, <code>--max-duration</code>, and the evaluator flags; it does not spawn an engine process or accept UCI <code>--threads</code>/<code>--hash</code> options.</p>
+<h2 id="move-generation-checks">Move-Generation Checks</h2>
+<p>Single-position counters:</p>
+<pre><code class="language-bash">crtk engine perft --fen &quot;&lt;FEN&gt;&quot; --depth 5
+crtk engine perft --randompos --depth 4
+crtk engine perft --fen &quot;&lt;FEN&gt;&quot; --depth 5 --divide --threads 4
+crtk engine perft --fen &quot;&lt;FEN&gt;&quot; --depth 5 --format stockfish --threads 4</code></pre>
+<p>Regression suite:</p>
+<pre><code class="language-bash">crtk engine perft-suite --depth 6 --threads 4</code></pre>
+<p>The suite prints a progress bar while positions run. After the progress bar finishes, it prints a table with <code>No</code>, <code>Depth</code>, <code>FEN</code>, <code>Truth</code>, <code>Calculated</code>, <code>Speed</code>, and <code>Match</code>.</p>
+<h2 id="record-and-dataset-plumbing">Record and Dataset Plumbing</h2>
+<p>Agents can keep data transformations explicit:</p>
+<pre><code class="language-bash">crtk record files -i dump/ -o dump/merged.json --recursive --puzzles
+crtk record stats -i dump/merged.json
+crtk record tag-stats -i dump/merged.json
+crtk record analysis-delta -i dump/merged.json -o dump/merged.analysis-delta.jsonl</code></pre>
+<p>Dataset exports:</p>
+<pre><code class="language-bash">crtk record dataset npy -i dump/merged.json -o training/npy/merged
+crtk record dataset classifier -i dump/puzzles.json -i dump/nonpuzzles.json -o training/classifier/run
+crtk record export training-jsonl -i dump/puzzles.json -i dump/nonpuzzles.json -o training/run.jsonl</code></pre>
+<h2 id="practical-rules">Practical Rules</h2>
+<ul>
+<li>Prefer <code>--format uci|san|both|summary</code> flags over parsing prose.</li>
+<li>Prefer FEN and UCI/SAN commands over GUI or image output for agent decisions.</li>
+<li>Put engine budgets on every automated analysis command.</li>
+<li>Keep <code>--verbose</code> off in normal pipelines and enable it only for failures.</li>
+<li>Treat <code>doctor --strict</code>, <code>config validate</code>, and <code>engine uci-smoke</code> as setup</li>
+</ul>
+<p>gates for CI jobs.</p>
+        </article>
+        <aside class="toc"><h2>On This Page</h2>
+<a class="toc-h2" href="#why-agents-can-trust-this">Why Agents Can Trust This</a>
+<a class="toc-h2" href="#quick-verification">Quick Verification</a>
+<a class="toc-h2" href="#command-contracts">Command Contracts</a>
+<a class="toc-h2" href="#recommended-agent-workflow">Recommended Agent Workflow</a>
+<a class="toc-h2" href="#deterministic-move-tasks">Deterministic Move Tasks</a>
+<a class="toc-h2" href="#engine-tasks">Engine Tasks</a>
+<a class="toc-h2" href="#move-generation-checks">Move-Generation Checks</a>
+<a class="toc-h2" href="#record-and-dataset-plumbing">Record and Dataset Plumbing</a>
+<a class="toc-h2" href="#practical-rules">Practical Rules</a></aside>
+      </main>
+      <footer class="footer">
+        <span>Generated from <code>wiki/ai-agents.md</code>.</span>
+        <span>Build with <code>python3 scripts/build_docs_site.py</code>.</span>
+      </footer>
+    </div>
+  </div>
+</body>
+</html>

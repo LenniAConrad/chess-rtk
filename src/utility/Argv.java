@@ -14,7 +14,8 @@ import java.util.List;
  * <code>-f</code></li>
  * <li>Options: <code>--key value</code> | <code>--key=value</code> |
  * <code>-k value</code> | <code>-kVALUE</code></li>
- * <li>End-of-opts marker: <code>--</code> (everything after is positional)</li>
+ * <li>End-of-opts marker: <code>--</code> or <code>--end-of-options</code>
+ * (everything after is positional)</li>
  * <li>Typed accessors and required/default helpers</li>
  * <li>Remaining positionals retrieval</li>
  * </ul>
@@ -74,7 +75,7 @@ public final class Argv {
                 continue; // single allowed continue (Sonar S135)
             }
 
-            if ("--".equals(raw)) {
+            if ("--".equals(raw) || "--end-of-options".equals(raw)) {
                 posStart = tokens.size();
                 tokens.add("--");
             } else if (raw.startsWith("--")) {

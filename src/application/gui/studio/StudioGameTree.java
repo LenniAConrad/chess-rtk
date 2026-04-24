@@ -16,10 +16,26 @@ import chess.struct.Pgn;
  */
 public final class StudioGameTree {
 
+	/**
+	 * Root node representing the start position.
+	 */
 	private final StudioGameNode root;
+
+	/**
+	 * Editable PGN tag map.
+	 */
 	private final Map<String, String> tags = new LinkedHashMap<>();
+
+	/**
+	 * Currently selected node in the tree.
+	 */
 	private StudioGameNode current;
 
+	/**
+	 * Constructor.
+	 *
+	 * @param start starting position
+	 */
 	private StudioGameTree(Position start) {
 		root = new StudioGameNode(null, Move.NO_MOVE, "", start.toString(), start.toString());
 		current = root;
@@ -253,6 +269,9 @@ public final class StudioGameTree {
 		return String.join(" ", tokens);
 	}
 
+	/**
+	 * Installs the default PGN tags for a new tree.
+	 */
 	private void defaultTags() {
 		tags.put("Event", "ChessRTK Studio");
 		tags.put("Site", "?");
@@ -263,6 +282,13 @@ public final class StudioGameTree {
 		tags.put("Result", "*");
 	}
 
+	/**
+	 * Appends a parsed PGN node sequence under a Studio node.
+	 *
+	 * @param parent parent Studio node
+	 * @param start start position for the sequence
+	 * @param source first parsed PGN node
+	 */
 	private static void appendSequence(StudioGameNode parent, Position start, Game.Node source) {
 		Game.Node cursor = source;
 		StudioGameNode targetParent = parent;
@@ -285,6 +311,12 @@ public final class StudioGameTree {
 		}
 	}
 
+	/**
+	 * Converts a Studio node and its children to a PGN game node.
+	 *
+	 * @param node Studio node
+	 * @return PGN node
+	 */
 	private static Game.Node toGameNode(StudioGameNode node) {
 		Game.Node result = new Game.Node(node.san());
 		if (!node.comment().isBlank()) {
@@ -302,6 +334,12 @@ public final class StudioGameTree {
 		return result;
 	}
 
+	/**
+	 * Adds nodes to a preorder result list.
+	 *
+	 * @param node node to traverse
+	 * @param result destination list
+	 */
 	private static void addNodes(StudioGameNode node, List<StudioGameNode> result) {
 		for (StudioGameNode child : node.children()) {
 			result.add(child);
@@ -309,6 +347,13 @@ public final class StudioGameTree {
 		}
 	}
 
+	/**
+	 * Returns whether one node is an ancestor of another.
+	 *
+	 * @param ancestor possible ancestor
+	 * @param node candidate descendant
+	 * @return true when ancestor is on node's parent chain
+	 */
 	private static boolean isAncestor(StudioGameNode ancestor, StudioGameNode node) {
 		StudioGameNode cursor = node;
 		while (cursor != null) {
@@ -320,6 +365,12 @@ public final class StudioGameTree {
 		return false;
 	}
 
+	/**
+	 * Removes inline NAG tokens from SAN text.
+	 *
+	 * @param san SAN text
+	 * @return cleaned SAN text
+	 */
 	private static String cleanSan(String san) {
 		if (san == null) {
 			return "";

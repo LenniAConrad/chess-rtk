@@ -1,7 +1,6 @@
 package application.cli.command;
 
 import static application.cli.Constants.OPT_CLASSICAL;
-import static application.cli.Constants.OPT_FEN;
 import static application.cli.Constants.OPT_INPUT;
 import static application.cli.Constants.OPT_INPUT_SHORT;
 import static application.cli.Constants.OPT_LC0;
@@ -54,16 +53,11 @@ public final class EvalCommand {
 	public static void runEval(Argv a) {
 		boolean verbose = a.flag(OPT_VERBOSE, OPT_VERBOSE_SHORT);
 		Path input = a.path(OPT_INPUT, OPT_INPUT_SHORT);
-		String fen = a.string(OPT_FEN);
 		boolean lc0Only = a.flag(OPT_LC0);
 		boolean classicalOnly = a.flag(OPT_CLASSICAL);
 		boolean terminalAware = a.flag(OPT_TERMINAL_AWARE, OPT_TERMINAL);
 		Path weights = a.path(OPT_WEIGHTS);
-		List<String> rest = a.positionals();
-		if (fen == null && !rest.isEmpty()) {
-			fen = String.join(" ", rest);
-		}
-		a.ensureConsumed();
+		String fen = CommandSupport.resolveFenArgument(a, ENGINE_EVAL, false);
 
 		if (lc0Only && classicalOnly) {
 			System.err.println(ENGINE_EVAL + ": only one of " + OPT_LC0 + " or " + OPT_CLASSICAL + " may be set");
@@ -109,13 +103,8 @@ public final class EvalCommand {
 	public static void runEvalStatic(Argv a) {
 		boolean verbose = a.flag(OPT_VERBOSE, OPT_VERBOSE_SHORT);
 		Path input = a.path(OPT_INPUT, OPT_INPUT_SHORT);
-		String fen = a.string(OPT_FEN);
 		boolean terminalAware = a.flag(OPT_TERMINAL_AWARE, OPT_TERMINAL);
-		List<String> rest = a.positionals();
-		if (fen == null && !rest.isEmpty()) {
-			fen = String.join(" ", rest);
-		}
-		a.ensureConsumed();
+		String fen = CommandSupport.resolveFenArgument(a, ENGINE_STATIC, false);
 
 		List<String> fens = CommandSupport.resolveFenInputs(ENGINE_STATIC, input, fen);
 		boolean includeFen = input != null;

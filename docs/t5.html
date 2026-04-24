@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>T5 tag-to-text pipeline | ChessRTK Wiki</title>
+  <link rel="stylesheet" href="styles.css">
+  <script defer src="search-index.js"></script>
+  <script defer src="site.js"></script>
+</head>
+<body>
+  <button class="menu-toggle" type="button" aria-label="Toggle navigation">Menu</button>
+  <div class="site-shell">
+    <aside class="sidebar">
+      <a class="brand" href="index.html">
+        <span class="brand-mark">CR</span>
+        <span><strong>ChessRTK</strong><small>Wiki</small></span>
+      </a>
+      <label class="search-label" for="doc-search">Search pages</label>
+      <input id="doc-search" class="search" type="search" placeholder="Search docs...">
+      <nav class="nav"><section class="nav-section"><h2>Start Here</h2>
+<a class="" href="index.html" data-title="home">Home</a>
+<a class="" href="getting-started.html" data-title="getting started">Getting Started</a>
+<a class="" href="faq.html" data-title="faq">FAQ</a>
+<a class="" href="command-reference.html" data-title="command reference">Command Reference</a>
+<a class="" href="example-commands.html" data-title="example commands">Example Commands</a>
+<a class="" href="troubleshooting.html" data-title="troubleshooting">Troubleshooting</a>
+</section>
+<section class="nav-section"><h2>User Guides</h2>
+<a class="" href="build-and-install.html" data-title="build &amp; install">Build &amp; Install</a>
+<a class="" href="configuration.html" data-title="configuration">Configuration</a>
+<a class="" href="in-house-engine.html" data-title="in-house engine">In-House Engine</a>
+<a class="" href="lc0.html" data-title="lc0">LC0</a>
+<a class="" href="outputs-and-logs.html" data-title="outputs &amp; logs">Outputs &amp; Logs</a>
+<a class="" href="support.html" data-title="support">Support</a>
+</section>
+<section class="nav-section"><h2>Workflows</h2>
+<a class="" href="mining.html" data-title="mining puzzles">Mining Puzzles</a>
+<a class="" href="filter-dsl.html" data-title="filter dsl">Filter DSL</a>
+<a class="" href="datasets.html" data-title="datasets">Datasets</a>
+<a class="" href="book-publishing.html" data-title="book publishing">Book Publishing</a>
+<a class="" href="piece-tags.html" data-title="tags">Tags</a>
+<a class="active" href="t5.html" data-title="t5 text">T5 Text</a>
+<a class="" href="ai-agents.html" data-title="ai agents">AI Agents</a>
+</section>
+<section class="nav-section"><h2>Development</h2>
+<a class="" href="architecture.html" data-title="architecture">Architecture</a>
+<a class="" href="development-notes.html" data-title="development notes">Development Notes</a>
+<a class="" href="releasing.html" data-title="releasing">Releasing</a>
+<a class="" href="roadmap.html" data-title="roadmap">Roadmap</a>
+<a class="" href="glossary.html" data-title="glossary">Glossary</a>
+<a class="" href="tagging-implementation-plan.html" data-title="tagging plan">Tagging Plan</a>
+<a class="" href="wiki-index.html" data-title="wiki index">Wiki Index</a>
+</section></nav>
+    </aside>
+    <div class="page">
+      <header class="topbar">
+        <div>
+          <span>Workflows</span>
+          <strong>T5 tag-to-text pipeline</strong>
+        </div>
+        <nav>
+          <a href="index.html">Home</a>
+          <a href="wiki-index.html">Wiki Index</a>
+          <a href="command-reference.html">Commands</a>
+        </nav>
+      </header>
+      
+      <main class="content-layout">
+        <article class="content">
+          <h1 id="t5-tag-to-text-pipeline">T5 tag-to-text pipeline</h1>
+<p>ChessRTK includes a no-deps T5 runtime that turns tag lists into short prose summaries. It expects a custom <code>.bin</code> export and uses the same tag vocabulary as <code>crtk fen tags</code>.</p>
+<p><img src="assets/diagrams/crtk-t5-pipeline.png" alt="T5 tag-to-text pipeline" loading="lazy"></p>
+<p>Diagram source: <code>assets/diagrams/crtk-t5-pipeline.dot</code> (render with <code>dot -Tpng -Gdpi=160 -o assets/diagrams/crtk-t5-pipeline.png assets/diagrams/crtk-t5-pipeline.dot</code>).</p>
+<h2 id="inputs">Inputs</h2>
+<ul>
+<li>Tag lines as newline-separated text.</li>
+<li>Or a JSON array of strings (the default <code>crtk tags</code> output).</li>
+<li>A T5 <code>.bin</code> weights export passed via <code>--model</code>.</li>
+</ul>
+<h2 id="running-position-summaries">Running position summaries</h2>
+<p>Use <code>fen text</code> when you want a short summary for one FEN or a FEN file:</p>
+<pre><code class="language-bash">crtk fen text --fen &quot;&lt;FEN&gt;&quot; --model models/t5.bin
+crtk fen text -i seeds.txt --model models/t5.bin --include-fen</code></pre>
+<p>Useful options:</p>
+<ul>
+<li><code>--include-fen</code>: emit JSON with <code>fen</code> and <code>summary</code>.</li>
+<li><code>--analyze</code>: enrich tags with engine analysis before summarization.</li>
+<li><code>--max-new &lt;n&gt;</code>: cap generated tokens, default <code>128</code>.</li>
+<li><code>--protocol|-p</code>, <code>--max-nodes</code>, <code>--max-duration</code>, <code>--multipv</code>, <code>--threads</code>, <code>--hash</code>, <code>--wdl</code>, <code>--no-wdl</code>: engine options used with <code>--analyze</code>.</li>
+</ul>
+<h2 id="running-puzzle-line-summaries">Running puzzle-line summaries</h2>
+<p>Use <code>puzzle text</code> when you want summaries for the root PV and expanded puzzle continuations:</p>
+<pre><code class="language-bash">crtk puzzle text --fen &quot;&lt;FEN&gt;&quot; --model models/t5.bin --multipv 3 --pv-plies 12
+crtk puzzle text --fen &quot;&lt;FEN&gt;&quot; --model models/t5.bin --include-fen --no-analyze</code></pre>
+<p>Related command:</p>
+<pre><code class="language-bash">crtk puzzle tags --fen &quot;&lt;FEN&gt;&quot; --multipv 3 --pv-plies 12</code></pre>
+<p><code>puzzle tags</code> emits JSONL with per-move tag deltas. <code>puzzle text</code> runs the same expanded positions through the T5 summarizer.</p>
+<h2 id="low-level-runner">Low-level runner</h2>
+<p>Pipe tags directly:</p>
+<pre><code class="language-bash">crtk fen tags --fen &quot;&lt;FEN&gt;&quot; | java -cp out chess.nn.t5.Main --model /path/to/t5.bin</code></pre>
+<p>Or read from a file:</p>
+<pre><code class="language-bash">java -cp out chess.nn.t5.Main --model /path/to/t5.bin --input tags.txt</code></pre>
+<p>Options:</p>
+<ul>
+<li><code>--model &lt;path&gt;</code> optional (defaults to <code>t5-model-path</code> from <code>config/cli.config.toml</code>).</li>
+<li><code>--input &lt;path&gt;</code> optional (reads stdin if omitted).</li>
+<li><code>--max-new &lt;n&gt;</code> max generated tokens (default <code>128</code>).</li>
+<li><code>--debug</code> prints token counts and top logits.</li>
+</ul>
+<h2 id="backends">Backends</h2>
+<p>By default the runner uses the CPU path. You can override the backend selection with:</p>
+<ul>
+<li><code>-Dcrtk.t5.backend=auto|cpu|cuda|rocm|oneapi</code></li>
+</ul>
+<p>When optional native backends are present, they are tried in the requested order with CPU fallback.</p>
+        </article>
+        <aside class="toc"><h2>On This Page</h2>
+<a class="toc-h2" href="#inputs">Inputs</a>
+<a class="toc-h2" href="#running-position-summaries">Running position summaries</a>
+<a class="toc-h2" href="#running-puzzle-line-summaries">Running puzzle-line summaries</a>
+<a class="toc-h2" href="#low-level-runner">Low-level runner</a>
+<a class="toc-h2" href="#backends">Backends</a></aside>
+      </main>
+      <footer class="footer">
+        <span>Generated from <code>wiki/t5.md</code>.</span>
+        <span>Build with <code>python3 scripts/build_docs_site.py</code>.</span>
+      </footer>
+    </div>
+  </div>
+</body>
+</html>

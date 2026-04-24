@@ -179,6 +179,8 @@ public class Json {
      * whitespace is ignored).</li>
      * <li>If EOF occurs while an object is still open, throws
      * {@link IOException}.</li>
+     * <li>If one streamed object exceeds the configured per-object buffer limit,
+     * throws {@link IOException}.</li>
      * </ul>
      *
      * <h3>Performance characteristics</h3>
@@ -452,14 +454,29 @@ public class Json {
      * @param st scanner state to update
      * @param c current character from the stream
      * @param consumer sink for completed object payloads
+     * @throws IOException if the current object exceeds the streaming buffer limit
      */
-    private static void handleInsideObject(StreamScan st, char c, Consumer<String> consumer) {
-        st.obj.append(c);
+    private static void handleInsideObject(StreamScan st, char c, Consumer<String> consumer) throws IOException {
+        appendObjectChar(st, c);
         if (st.inStr) {
             handleStringChar(st, c);
         } else {
             handleNonStringChar(st, c, consumer);
         }
+    }
+
+    /**
+     * Appends one object character while enforcing the per-object memory limit.
+     *
+     * @param st scanner state to update
+     * @param c current character from the stream
+     * @throws IOException if appending would exceed the configured object limit
+     */
+    private static void appendObjectChar(StreamScan st, char c) throws IOException {
+        if (st.obj.length() >= STREAM_OBJ_MAX_CAPACITY) {
+            throw new IOException("JSON object exceeds streaming limit of " + STREAM_OBJ_MAX_CAPACITY + " chars");
+        }
+        st.obj.append(c);
     }
 
     /**

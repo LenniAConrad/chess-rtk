@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FAQ | ChessRTK Wiki</title>
+  <link rel="stylesheet" href="styles.css">
+  <script defer src="search-index.js"></script>
+  <script defer src="site.js"></script>
+</head>
+<body>
+  <button class="menu-toggle" type="button" aria-label="Toggle navigation">Menu</button>
+  <div class="site-shell">
+    <aside class="sidebar">
+      <a class="brand" href="index.html">
+        <span class="brand-mark">CR</span>
+        <span><strong>ChessRTK</strong><small>Wiki</small></span>
+      </a>
+      <label class="search-label" for="doc-search">Search pages</label>
+      <input id="doc-search" class="search" type="search" placeholder="Search docs...">
+      <nav class="nav"><section class="nav-section"><h2>Start Here</h2>
+<a class="" href="index.html" data-title="home">Home</a>
+<a class="" href="getting-started.html" data-title="getting started">Getting Started</a>
+<a class="active" href="faq.html" data-title="faq">FAQ</a>
+<a class="" href="command-reference.html" data-title="command reference">Command Reference</a>
+<a class="" href="example-commands.html" data-title="example commands">Example Commands</a>
+<a class="" href="troubleshooting.html" data-title="troubleshooting">Troubleshooting</a>
+</section>
+<section class="nav-section"><h2>User Guides</h2>
+<a class="" href="build-and-install.html" data-title="build &amp; install">Build &amp; Install</a>
+<a class="" href="configuration.html" data-title="configuration">Configuration</a>
+<a class="" href="in-house-engine.html" data-title="in-house engine">In-House Engine</a>
+<a class="" href="lc0.html" data-title="lc0">LC0</a>
+<a class="" href="outputs-and-logs.html" data-title="outputs &amp; logs">Outputs &amp; Logs</a>
+<a class="" href="support.html" data-title="support">Support</a>
+</section>
+<section class="nav-section"><h2>Workflows</h2>
+<a class="" href="mining.html" data-title="mining puzzles">Mining Puzzles</a>
+<a class="" href="filter-dsl.html" data-title="filter dsl">Filter DSL</a>
+<a class="" href="datasets.html" data-title="datasets">Datasets</a>
+<a class="" href="book-publishing.html" data-title="book publishing">Book Publishing</a>
+<a class="" href="piece-tags.html" data-title="tags">Tags</a>
+<a class="" href="t5.html" data-title="t5 text">T5 Text</a>
+<a class="" href="ai-agents.html" data-title="ai agents">AI Agents</a>
+</section>
+<section class="nav-section"><h2>Development</h2>
+<a class="" href="architecture.html" data-title="architecture">Architecture</a>
+<a class="" href="development-notes.html" data-title="development notes">Development Notes</a>
+<a class="" href="releasing.html" data-title="releasing">Releasing</a>
+<a class="" href="roadmap.html" data-title="roadmap">Roadmap</a>
+<a class="" href="glossary.html" data-title="glossary">Glossary</a>
+<a class="" href="tagging-implementation-plan.html" data-title="tagging plan">Tagging Plan</a>
+<a class="" href="wiki-index.html" data-title="wiki index">Wiki Index</a>
+</section></nav>
+    </aside>
+    <div class="page">
+      <header class="topbar">
+        <div>
+          <span>Start Here</span>
+          <strong>FAQ</strong>
+        </div>
+        <nav>
+          <a href="index.html">Home</a>
+          <a href="wiki-index.html">Wiki Index</a>
+          <a href="command-reference.html">Commands</a>
+        </nav>
+      </header>
+      
+      <main class="content-layout">
+        <article class="content">
+          <h1 id="faq">FAQ</h1>
+<h2 id="what-is-chessrtk">What is ChessRTK?</h2>
+<p>ChessRTK is a Java 17 command-line toolkit for chess research, automation, engine workflows, puzzle mining, dataset export, rendering, and book publishing.</p>
+<h2 id="is-this-a-chess-engine">Is this a chess engine?</h2>
+<p>Partly. ChessRTK includes <code>engine builtin</code>, a small in-process Java alpha-beta searcher, but the project is broader than an engine. It also provides FEN, move, perft, record, dataset, rendering, GUI, and publishing tools.</p>
+<p>For strength-sensitive analysis, use an external UCI engine through <code>engine analyze</code>, <code>engine bestmove</code>, or <code>puzzle mine</code>.</p>
+<h2 id="do-i-need-stockfish-or-lc0">Do I need Stockfish or LC0?</h2>
+<p>No for core commands. These run in-process:</p>
+<ul>
+<li><code>fen normalize</code>, <code>fen validate</code>, <code>fen print</code></li>
+<li><code>move list</code>, <code>move to-san</code>, <code>move to-uci</code>, <code>move after</code>, <code>move play</code></li>
+<li><code>engine perft</code>, <code>engine perft-suite</code></li>
+<li><code>engine static</code></li>
+<li><code>engine builtin --classical</code></li>
+</ul>
+<p>You need a UCI engine for UCI-backed analysis, best-move, threat, smoke-test, and mining workflows.</p>
+<h2 id="why-not-use-maven-or-gradle">Why not use Maven or Gradle?</h2>
+<p>The repo is intentionally build-tool light. A JDK is enough:</p>
+<pre><code class="language-bash">javac --release 17 -d out $(find src -name &quot;*.java&quot;)</code></pre>
+<p>The regression runner wraps the common local checks.</p>
+<h2 id="where-do-model-files-go">Where do model files go?</h2>
+<p>Put local model files under <code>models/</code>. They are intentionally ignored by git. Use <code>./install.sh --models</code> for the default model artifacts, or pass explicit paths with options such as <code>--weights</code> and <code>--model</code>.</p>
+<h2 id="what-is-a-record-file">What is a <code>.record</code> file?</h2>
+<p>It is ChessRTK&#x27;s reusable analysis-record JSON shape. Record commands can filter, merge, summarize, export, and convert those records into PGN, CSV, JSONL, NumPy tensors, LC0-style tensors, classifier tensors, and diagnostics.</p>
+<h2 id="how-do-i-know-move-generation-is-correct">How do I know move generation is correct?</h2>
+<p>Run:</p>
+<pre><code class="language-bash">crtk engine perft-suite --depth 6 --threads 4</code></pre>
+<p>The suite compares stored reference positions against the Java move generator and reports whether every calculated node count matches the expected truth.</p>
+<h2 id="what-should-i-run-before-opening-a-pr-or-publishing-a-change">What should I run before opening a PR or publishing a change?</h2>
+<pre><code class="language-bash">./scripts/run_regression_suite.sh recommended</code></pre>
+<p>If you touched move generation, FEN, SAN, Chess960, or make/undo logic, also run a deeper perft smoke pass:</p>
+<pre><code class="language-bash">CRTK_PERFT_SUITE_DEPTH=6 CRTK_PERFT_THREADS=4 ./scripts/run_regression_suite.sh perft-smoke</code></pre>
+<h2 id="where-should-generated-files-go">Where should generated files go?</h2>
+<p>Use local artifact directories such as <code>dump/</code>, <code>data/</code>, <code>dist/</code>, <code>models/</code>, and <code>out/</code>. Do not commit generated PDFs, model weights, build output, or large analysis dumps unless a specific small fixture is required by a regression test.</p>
+        </article>
+        <aside class="toc"><h2>On This Page</h2>
+<a class="toc-h2" href="#what-is-chessrtk">What is ChessRTK?</a>
+<a class="toc-h2" href="#is-this-a-chess-engine">Is this a chess engine?</a>
+<a class="toc-h2" href="#do-i-need-stockfish-or-lc0">Do I need Stockfish or LC0?</a>
+<a class="toc-h2" href="#why-not-use-maven-or-gradle">Why not use Maven or Gradle?</a>
+<a class="toc-h2" href="#where-do-model-files-go">Where do model files go?</a>
+<a class="toc-h2" href="#what-is-a-record-file">What is a .record file?</a>
+<a class="toc-h2" href="#how-do-i-know-move-generation-is-correct">How do I know move generation is correct?</a>
+<a class="toc-h2" href="#what-should-i-run-before-opening-a-pr-or-publishing-a-change">What should I run before opening a PR or publishing a change?</a>
+<a class="toc-h2" href="#where-should-generated-files-go">Where should generated files go?</a></aside>
+      </main>
+      <footer class="footer">
+        <span>Generated from <code>wiki/faq.md</code>.</span>
+        <span>Build with <code>python3 scripts/build_docs_site.py</code>.</span>
+      </footer>
+    </div>
+  </div>
+</body>
+</html>

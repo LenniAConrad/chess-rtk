@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Datasets | ChessRTK Wiki</title>
+  <link rel="stylesheet" href="styles.css">
+  <script defer src="search-index.js"></script>
+  <script defer src="site.js"></script>
+</head>
+<body>
+  <button class="menu-toggle" type="button" aria-label="Toggle navigation">Menu</button>
+  <div class="site-shell">
+    <aside class="sidebar">
+      <a class="brand" href="index.html">
+        <span class="brand-mark">CR</span>
+        <span><strong>ChessRTK</strong><small>Wiki</small></span>
+      </a>
+      <label class="search-label" for="doc-search">Search pages</label>
+      <input id="doc-search" class="search" type="search" placeholder="Search docs...">
+      <nav class="nav"><section class="nav-section"><h2>Start Here</h2>
+<a class="" href="index.html" data-title="home">Home</a>
+<a class="" href="getting-started.html" data-title="getting started">Getting Started</a>
+<a class="" href="faq.html" data-title="faq">FAQ</a>
+<a class="" href="command-reference.html" data-title="command reference">Command Reference</a>
+<a class="" href="example-commands.html" data-title="example commands">Example Commands</a>
+<a class="" href="troubleshooting.html" data-title="troubleshooting">Troubleshooting</a>
+</section>
+<section class="nav-section"><h2>User Guides</h2>
+<a class="" href="build-and-install.html" data-title="build &amp; install">Build &amp; Install</a>
+<a class="" href="configuration.html" data-title="configuration">Configuration</a>
+<a class="" href="in-house-engine.html" data-title="in-house engine">In-House Engine</a>
+<a class="" href="lc0.html" data-title="lc0">LC0</a>
+<a class="" href="outputs-and-logs.html" data-title="outputs &amp; logs">Outputs &amp; Logs</a>
+<a class="" href="support.html" data-title="support">Support</a>
+</section>
+<section class="nav-section"><h2>Workflows</h2>
+<a class="" href="mining.html" data-title="mining puzzles">Mining Puzzles</a>
+<a class="" href="filter-dsl.html" data-title="filter dsl">Filter DSL</a>
+<a class="active" href="datasets.html" data-title="datasets">Datasets</a>
+<a class="" href="book-publishing.html" data-title="book publishing">Book Publishing</a>
+<a class="" href="piece-tags.html" data-title="tags">Tags</a>
+<a class="" href="t5.html" data-title="t5 text">T5 Text</a>
+<a class="" href="ai-agents.html" data-title="ai agents">AI Agents</a>
+</section>
+<section class="nav-section"><h2>Development</h2>
+<a class="" href="architecture.html" data-title="architecture">Architecture</a>
+<a class="" href="development-notes.html" data-title="development notes">Development Notes</a>
+<a class="" href="releasing.html" data-title="releasing">Releasing</a>
+<a class="" href="roadmap.html" data-title="roadmap">Roadmap</a>
+<a class="" href="glossary.html" data-title="glossary">Glossary</a>
+<a class="" href="tagging-implementation-plan.html" data-title="tagging plan">Tagging Plan</a>
+<a class="" href="wiki-index.html" data-title="wiki index">Wiki Index</a>
+</section></nav>
+    </aside>
+    <div class="page">
+      <header class="topbar">
+        <div>
+          <span>Workflows</span>
+          <strong>Datasets</strong>
+        </div>
+        <nav>
+          <a href="index.html">Home</a>
+          <a href="wiki-index.html">Wiki Index</a>
+          <a href="command-reference.html">Commands</a>
+        </nav>
+      </header>
+      
+      <main class="content-layout">
+        <article class="content">
+          <h1 id="datasets">Datasets</h1>
+<p>ChessRTK exports machine-learning datasets from mined or imported analysis records. The dataset commands are dependency-free Java writers: they create NumPy <code>.npy</code>, JSONL, and metadata files directly from record dumps.</p>
+<p>The usual inputs are:</p>
+<ul>
+<li><code><em>.puzzles.json</code> and <code></em>.nonpuzzles.json</code> from <code>puzzle mine</code></li>
+<li><code>.record</code> JSON arrays from analysis pipelines</li>
+<li>JSONL record streams accepted by <code>record</code> utilities</li>
+<li>filtered/merged files produced by <code>record files</code></li>
+</ul>
+<p>Use <code>record stats</code>, <code>record tag-stats</code>, and <code>record analysis-delta</code> before exporting large datasets. They make it easier to catch unstable evaluations, unexpected tag distributions, and class imbalance.</p>
+<h2 id="export-inventory">Export Inventory</h2>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Command</th>
+<th>Output</th>
+<th>Typical use</th>
+</tr></thead><tbody>
+<tr>
+<td><code>record dataset npy</code></td>
+<td><code>(N, 781)</code> float32 features plus scalar eval labels</td>
+<td>quick PyTorch/JAX/regression experiments</td>
+</tr>
+<tr>
+<td><code>record dataset lc0</code></td>
+<td>112-plane LC0-style inputs, policy, value, metadata</td>
+<td>policy/value experiments and LC0-compatible preprocessing checks</td>
+</tr>
+<tr>
+<td><code>record dataset classifier</code></td>
+<td>21-plane inputs plus binary labels</td>
+<td>puzzle/non-puzzle or custom binary classifiers</td>
+</tr>
+<tr>
+<td><code>record export training-jsonl</code></td>
+<td>one JSON object per position with coarse/fine labels</td>
+<td>text, tabular, or custom feature pipelines</td>
+</tr>
+<tr>
+<td><code>record export puzzle-jsonl</code></td>
+<td>puzzle JSONL with LC0 policy-map information</td>
+<td>policy-aware puzzle training rows</td>
+</tr>
+<tr>
+<td><code>record analysis-delta</code></td>
+<td>JSONL evaluation stability diagnostics</td>
+<td>filtering and dataset quality reports</td>
+</tr>
+</tbody></table></div>
+<h2 id="eval-regression-record-dataset-npy">Eval Regression: <code>record dataset npy</code></h2>
+<p>Input: a <code>.record</code> JSON array.</p>
+<p>Output:</p>
+<ul>
+<li><code>&lt;stem&gt;.features.npy</code> shaped <code>(N, 781)</code> float32</li>
+<li><code>&lt;stem&gt;.labels.npy</code> shaped <code>(N,)</code> float32</li>
+</ul>
+<p>Labels are evaluations in pawns, clamped to <code>[-20, +20]</code>.</p>
+<pre><code class="language-bash">crtk record dataset npy \
+  -i dump/run.puzzles.json \
+  -o training/pytorch/data/puzzles</code></pre>
+<p>Use this export when you want compact numeric features without a chess-engine specific plane layout.</p>
+<h2 id="lc0-style-tensors-record-dataset-lc0">LC0-Style Tensors: <code>record dataset lc0</code></h2>
+<p>Input: a <code>.record</code> JSON array.</p>
+<p>Output:</p>
+<ul>
+<li><code>&lt;stem&gt;.lc0.inputs.npy</code> shaped <code>(N, 112*64)</code> float32</li>
+<li><code>&lt;stem&gt;.lc0.policy.npy</code> shaped <code>(N, policySize)</code> float32</li>
+<li><code>&lt;stem&gt;.lc0.value.npy</code> shaped <code>(N,)</code> float32 in <code>[-1, 1]</code></li>
+<li><code>&lt;stem&gt;.lc0.meta.json</code> with policy encoding, compression, value scale, and</li>
+</ul>
+<p>source metadata</p>
+<p>Policy rows are one-hot. If <code>--weights</code> is supplied, ChessRTK reads the LC0J weights policy map and compresses policy targets to the network&#x27;s policy size. Without weights, the raw 73-plane policy size (<code>4672</code>) is used.</p>
+<pre><code class="language-bash">crtk record dataset lc0 \
+  -i dump/run.puzzles.json \
+  -o training/lc0/puzzles \
+  --weights models/leela_112planes-10blocksx128-policyhead80-valuehead32-policy4672-wdl3.bin</code></pre>
+<p>This export is useful when you want to verify LC0-style feature encoding, inspect policy targets, or train/evaluate tooling that expects LC0-shaped planes.</p>
+<h2 id="binary-classifier-record-dataset-classifier">Binary Classifier: <code>record dataset classifier</code></h2>
+<p>Input: one or more record files or directories.</p>
+<p>Output:</p>
+<ul>
+<li><code>&lt;stem&gt;.classifier.inputs.npy</code> shaped <code>(N, 21*64)</code> float32</li>
+<li><code>&lt;stem&gt;.classifier.labels.npy</code> shaped <code>(N,)</code> float32</li>
+<li><code>&lt;stem&gt;.classifier.meta.json</code> with sources, filters, class counts, and</li>
+</ul>
+<p>positive-class weight</p>
+<p>Labels are resolved in this order:</p>
+<ol>
+<li><code>--label-filter &lt;dsl&gt;</code> marks matching rows positive and non-matching rows</li>
+</ol>
+<p>negative.</p>
+<ol>
+<li>A record <code>kind</code> field of <code>puzzle</code> or <code>nonpuzzle</code> is used when present.</li>
+<li>The configured puzzle verification Filter DSL is used when <code>kind</code> is absent.</li>
+</ol>
+<p>Use <code>--filter &lt;dsl&gt;</code> to select eligible rows before labeling. Use <code>--max-positives</code> and <code>--max-negatives</code> to cap classes for balanced smoke datasets.</p>
+<pre><code class="language-bash">crtk record dataset classifier \
+  -i dump/run.puzzles.json \
+  -i dump/run.nonpuzzles.json \
+  -o training/classifier/run
+
+crtk record dataset classifier \
+  -i dump/run.records.json \
+  -o training/classifier/custom \
+  --filter &#x27;gate=AND;break=1;nodes&gt;=50000000;&#x27; \
+  --label-filter &#x27;gate=AND;eval&gt;=3.0;leaf[break=2;eval&lt;=0.0];&#x27;</code></pre>
+<h2 id="jsonl-labels-record-export-training-jsonl">JSONL Labels: <code>record export training-jsonl</code></h2>
+<p>This command writes one position per JSONL line. It is designed for pipelines that prefer structured text over tensor files.</p>
+<p>Label policy:</p>
+<ul>
+<li><code>coarse_label=1</code>, <code>fine_label=2</code>: rows matching the puzzle DSL</li>
+<li><code>coarse_label=1</code>, <code>fine_label=1</code>: rows sharing a parent FEN with a puzzle</li>
+<li><code>coarse_label=0</code>, <code>fine_label=0</code>: remaining rows</li>
+</ul>
+<p>Engine/PV details are omitted from model input by default. Add <code>--include-engine-metadata</code> when you want those details retained as metadata.</p>
+<pre><code class="language-bash">crtk record export training-jsonl \
+  -i dump/run.puzzles.json \
+  -i dump/run.nonpuzzles.json \
+  -o training/run.training.jsonl \
+  --recursive \
+  --max-records 100000</code></pre>
+<h2 id="puzzle-jsonl-record-export-puzzle-jsonl">Puzzle JSONL: <code>record export puzzle-jsonl</code></h2>
+<p>This command writes puzzle rows with LC0 policy information. It requires LC0J weights because it uses the weights policy map.</p>
+<pre><code class="language-bash">crtk record export puzzle-jsonl \
+  -i dump/run.puzzles.json \
+  -o training/run.puzzle.jsonl \
+  --weights models/leela_112planes-10blocksx128-policyhead80-valuehead32-policy4672-wdl3.bin \
+  --puzzles</code></pre>
+<p>Use <code>--filter &lt;dsl&gt;</code> for row selection. Use <code>--nonpuzzles</code> to export negative examples through the same shape.</p>
+<h2 id="stability-features-record-analysis-delta">Stability Features: <code>record analysis-delta</code></h2>
+<p><code>record analysis-delta</code> writes one JSONL row per record with:</p>
+<ul>
+<li>initial and final evaluation</li>
+<li>delta type and delta magnitude</li>
+<li>fluctuation range</li>
+<li>depth/time to final value</li>
+<li>diagnostics useful for filtering unstable engine samples</li>
+</ul>
+<pre><code class="language-bash">crtk record analysis-delta \
+  -i dump/run.puzzles.json \
+  -o dump/run.analysis-delta.jsonl</code></pre>
+<h2 id="recommended-export-flow">Recommended Export Flow</h2>
+<ol>
+<li>Merge and filter source dumps with <code>record files</code>.</li>
+<li>Inspect counts with <code>record stats</code> and <code>record tag-stats</code>.</li>
+<li>Generate <code>record analysis-delta</code> and remove unstable rows if needed.</li>
+<li>Export one tensor or JSONL shape for the target training code.</li>
+<li>Keep the generated <code>*.meta.json</code> next to tensor files so model runs can be</li>
+</ol>
+<p>traced back to sources, filters, and label policy.</p>
+<h2 id="converting-npy-to-framework-shards">Converting <code>.npy</code> to Framework Shards</h2>
+<p>ChessRTK writes portable <code>.npy</code> files. Framework-specific shards can be built by loading those files in the training stack and saving the native format for that framework.</p>
+        </article>
+        <aside class="toc"><h2>On This Page</h2>
+<a class="toc-h2" href="#export-inventory">Export Inventory</a>
+<a class="toc-h2" href="#eval-regression-record-dataset-npy">Eval Regression: record dataset npy</a>
+<a class="toc-h2" href="#lc0-style-tensors-record-dataset-lc0">LC0-Style Tensors: record dataset lc0</a>
+<a class="toc-h2" href="#binary-classifier-record-dataset-classifier">Binary Classifier: record dataset classifier</a>
+<a class="toc-h2" href="#jsonl-labels-record-export-training-jsonl">JSONL Labels: record export training-jsonl</a>
+<a class="toc-h2" href="#puzzle-jsonl-record-export-puzzle-jsonl">Puzzle JSONL: record export puzzle-jsonl</a>
+<a class="toc-h2" href="#stability-features-record-analysis-delta">Stability Features: record analysis-delta</a>
+<a class="toc-h2" href="#recommended-export-flow">Recommended Export Flow</a>
+<a class="toc-h2" href="#converting-npy-to-framework-shards">Converting .npy to Framework Shards</a></aside>
+      </main>
+      <footer class="footer">
+        <span>Generated from <code>wiki/datasets.md</code>.</span>
+        <span>Build with <code>python3 scripts/build_docs_site.py</code>.</span>
+      </footer>
+    </div>
+  </div>
+</body>
+</html>

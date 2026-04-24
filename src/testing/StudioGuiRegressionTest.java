@@ -30,6 +30,9 @@ import chess.struct.Game;
  */
 public final class StudioGuiRegressionTest {
 
+	/**
+	 * Utility constructor.
+	 */
 	private StudioGuiRegressionTest() {
 		// utility
 	}
@@ -50,6 +53,9 @@ public final class StudioGuiRegressionTest {
 		System.out.println("StudioGuiRegressionTest: all checks passed");
 	}
 
+	/**
+	 * Verifies board square mapping for both orientations.
+	 */
 	private static void testBoardMapping() {
 		Rectangle board = new Rectangle(10, 20, 800, 800);
 		assertEquals(Field.A8, StudioBoardMapper.squareAt(new Point(20, 30), board, true), "white a8");
@@ -58,6 +64,9 @@ public final class StudioGuiRegressionTest {
 		assertEquals(Field.A8, StudioBoardMapper.squareAt(new Point(799, 810), board, false), "black a8");
 	}
 
+	/**
+	 * Verifies variation promotion and PGN round-trip behavior.
+	 */
 	private static void testGameTreeVariationsAndPgn() {
 		StudioGameTree tree = StudioGameTree.fromPosition(new Position(Game.STANDARD_START_FEN));
 		StudioGameNode e4 = tree.play(Move.parse("e2e4"));
@@ -76,6 +85,11 @@ public final class StudioGuiRegressionTest {
 		assertTrue(parsed.nodes().size() >= 2, "PGN roundtrip nodes");
 	}
 
+	/**
+	 * Verifies project file creation and append behavior.
+	 *
+	 * @throws IOException on filesystem failures
+	 */
 	private static void testProjectSave() throws IOException {
 		Path dir = Files.createTempDirectory("crtk-studio-test");
 		StudioProject project = StudioProject.open(dir);
@@ -89,6 +103,9 @@ public final class StudioGuiRegressionTest {
 		assertTrue(Files.readString(dir.resolve("analysis.jsonl")).contains("\"ok\""), "analysis file");
 	}
 
+	/**
+	 * Verifies generated CLI command previews.
+	 */
 	private static void testTaskPreview() {
 		StudioTaskCatalog catalog = StudioTaskCatalog.defaults();
 		StudioTask task = catalog.find("legal-both").orElseThrow();
@@ -98,6 +115,9 @@ public final class StudioGuiRegressionTest {
 		assertTrue(preview.contains("'x y'"), "preview quoted value");
 	}
 
+	/**
+	 * Verifies board rendering produces visible pixels.
+	 */
 	private static void testBoardPaintSmoke() {
 		StudioBoardPanel panel = new StudioBoardPanel();
 		panel.setViewModel(BoardViewModel.of(new Position(Game.STANDARD_START_FEN), true, StudioTheme.light()));
@@ -113,6 +133,11 @@ public final class StudioGuiRegressionTest {
 		assertTrue(nonTransparent > 200, "nonblank board render");
 	}
 
+	/**
+	 * Verifies Studio source files stay below the GUI guardrail size.
+	 *
+	 * @throws IOException on filesystem failures
+	 */
 	private static void testStudioFileGuardrail() throws IOException {
 		Path root = Path.of("src", "application", "gui", "studio");
 		try (var stream = Files.walk(root)) {

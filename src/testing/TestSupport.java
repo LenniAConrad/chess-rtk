@@ -17,6 +17,29 @@ import application.Main;
 final class TestSupport {
 
     /**
+     * Captured command failure details.
+     *
+     * @param exitCode process exit code
+     * @param stdout captured standard output
+     * @param stderr captured standard error
+     */
+    record FailureResult(
+        /**
+         * Stores the process exit code.
+         */
+        int exitCode,
+        /**
+         * Stores captured standard output.
+         */
+        String stdout,
+        /**
+         * Stores captured standard error.
+         */
+        String stderr
+    ) {
+    }
+
+    /**
      * Prevents instantiation of this utility class.
      */
     private TestSupport() {
@@ -43,6 +66,36 @@ final class TestSupport {
             System.setOut(original);
         }
         return buffer.toString(StandardCharsets.UTF_8);
+    }
+
+    /**
+     * Captures standard output and standard error for a command that is expected
+     * to fail.
+     *
+     * @param args command-line arguments to pass to {@link Main#main(String[])}
+     * @return captured exit status and streams
+     */
+    static FailureResult runMainExpectFailure(String... args) {
+        PrintStream originalOut = System.out;
+        PrintStream originalErr = System.err;
+        ByteArrayOutputStream stdoutBuffer = new ByteArrayOutputStream();
+        ByteArrayOutputStream stderrBuffer = new ByteArrayOutputStream();
+        try (PrintStream outReplacement = new PrintStream(stdoutBuffer, true, StandardCharsets.UTF_8);
+                PrintStream errReplacement = new PrintStream(stderrBuffer, true, StandardCharsets.UTF_8)) {
+            System.setOut(outReplacement);
+            System.setErr(errReplacement);
+            int exitCode = Main.run(args);
+            if (exitCode == 0) {
+                throw new AssertionError("command unexpectedly succeeded: " + String.join(" ", args));
+            }
+            return new FailureResult(
+                    exitCode,
+                    stdoutBuffer.toString(StandardCharsets.UTF_8),
+                    stderrBuffer.toString(StandardCharsets.UTF_8));
+        } finally {
+            System.setOut(originalOut);
+            System.setErr(originalErr);
+        }
     }
 
     /**

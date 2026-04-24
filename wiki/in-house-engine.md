@@ -42,6 +42,7 @@ Select an evaluator:
 ```bash
 crtk engine builtin --evaluator classical --fen "<FEN>"
 crtk engine builtin --classical --depth 6 --fen "<FEN>"
+crtk engine builtin --nnue --fen "<FEN>"   # after ./install.sh --models
 crtk engine builtin --evaluator nnue --weights models/crtk-halfkp.nnue --fen "<FEN>"
 crtk engine builtin --evaluator lc0 --weights models/leela_112planes-10blocksx128-policyhead80-valuehead32-policy4672-wdl3.bin --fen "<FEN>"
 ```
@@ -62,9 +63,9 @@ Defaults:
 - `classical`: handcrafted material, piece-square, mobility, king safety, pawn
   structure, and terminal-position scoring.
 - `nnue`: pure-Java NNUE evaluator using `models/crtk-halfkp.nnue` by default,
-  or an explicit `--weights` path. If the default file is absent, `--nnue`
-  uses a tiny neutral in-memory fallback for smoke tests; provide real weights
-  for meaningful NNUE analysis.
+  or an explicit `--weights` path. `./install.sh --models` installs the default
+  file. If the default file is absent, `--nnue` fails with a missing-weights
+  error instead of silently using the smoke-test fallback.
 - `lc0`: pure-Java LC0 value evaluator using the configured LC0J model path by
   default, or an explicit `--weights` path.
 
@@ -73,6 +74,25 @@ search itself is still a classical alpha-beta search; choosing `--lc0` does not
 turn the engine into an LC0-style MCTS engine. LC0 evaluation is much more
 expensive than the handcrafted evaluator, so high alpha-beta depths with
 `--lc0` can take a long time.
+
+## NNUE architecture
+
+The Java NNUE path is intentionally small and explicit.
+
+- The compact CRTK-format network uses HalfKP-style sparse features:
+  `64 king buckets x 10 relative piece planes x 64 piece squares = 40,960`
+  possible features.
+- For each perspective, active sparse features are accumulated into one hidden
+  vector, clipped ReLU is applied, and the side-to-move and opponent activations
+  are projected through one linear output layer to a centipawn score.
+- `FeatureEncoder` maps a `Position` into sparse feature indices, and
+  `Accumulator` stores the hidden sums so the searcher can update deltas
+  incrementally after moves instead of rebuilding from scratch each time.
+- `Model.load(path)` auto-detects both the compact CRTK format and supported
+  Stockfish `.nnue` files. The compact CRTK path exposes public incremental
+  search-state helpers; the Stockfish path is compatibility-oriented inference.
+
+For source-level package docs, see `src/chess/nn/nnue/package-info.java`.
 
 ## Search behavior
 

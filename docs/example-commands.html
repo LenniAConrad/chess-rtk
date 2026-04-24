@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Example commands | ChessRTK Wiki</title>
+  <link rel="stylesheet" href="styles.css">
+  <script defer src="search-index.js"></script>
+  <script defer src="site.js"></script>
+</head>
+<body>
+  <button class="menu-toggle" type="button" aria-label="Toggle navigation">Menu</button>
+  <div class="site-shell">
+    <aside class="sidebar">
+      <a class="brand" href="index.html">
+        <span class="brand-mark">CR</span>
+        <span><strong>ChessRTK</strong><small>Wiki</small></span>
+      </a>
+      <label class="search-label" for="doc-search">Search pages</label>
+      <input id="doc-search" class="search" type="search" placeholder="Search docs...">
+      <nav class="nav"><section class="nav-section"><h2>Start Here</h2>
+<a class="" href="index.html" data-title="home">Home</a>
+<a class="" href="getting-started.html" data-title="getting started">Getting Started</a>
+<a class="" href="faq.html" data-title="faq">FAQ</a>
+<a class="" href="command-reference.html" data-title="command reference">Command Reference</a>
+<a class="active" href="example-commands.html" data-title="example commands">Example Commands</a>
+<a class="" href="troubleshooting.html" data-title="troubleshooting">Troubleshooting</a>
+</section>
+<section class="nav-section"><h2>User Guides</h2>
+<a class="" href="build-and-install.html" data-title="build &amp; install">Build &amp; Install</a>
+<a class="" href="configuration.html" data-title="configuration">Configuration</a>
+<a class="" href="in-house-engine.html" data-title="in-house engine">In-House Engine</a>
+<a class="" href="lc0.html" data-title="lc0">LC0</a>
+<a class="" href="outputs-and-logs.html" data-title="outputs &amp; logs">Outputs &amp; Logs</a>
+<a class="" href="support.html" data-title="support">Support</a>
+</section>
+<section class="nav-section"><h2>Workflows</h2>
+<a class="" href="mining.html" data-title="mining puzzles">Mining Puzzles</a>
+<a class="" href="filter-dsl.html" data-title="filter dsl">Filter DSL</a>
+<a class="" href="datasets.html" data-title="datasets">Datasets</a>
+<a class="" href="book-publishing.html" data-title="book publishing">Book Publishing</a>
+<a class="" href="piece-tags.html" data-title="tags">Tags</a>
+<a class="" href="t5.html" data-title="t5 text">T5 Text</a>
+<a class="" href="ai-agents.html" data-title="ai agents">AI Agents</a>
+</section>
+<section class="nav-section"><h2>Development</h2>
+<a class="" href="architecture.html" data-title="architecture">Architecture</a>
+<a class="" href="development-notes.html" data-title="development notes">Development Notes</a>
+<a class="" href="releasing.html" data-title="releasing">Releasing</a>
+<a class="" href="roadmap.html" data-title="roadmap">Roadmap</a>
+<a class="" href="glossary.html" data-title="glossary">Glossary</a>
+<a class="" href="tagging-implementation-plan.html" data-title="tagging plan">Tagging Plan</a>
+<a class="" href="wiki-index.html" data-title="wiki index">Wiki Index</a>
+</section></nav>
+    </aside>
+    <div class="page">
+      <header class="topbar">
+        <div>
+          <span>Start Here</span>
+          <strong>Example commands</strong>
+        </div>
+        <nav>
+          <a href="index.html">Home</a>
+          <a href="wiki-index.html">Wiki Index</a>
+          <a href="command-reference.html">Commands</a>
+        </nav>
+      </header>
+      
+      <main class="content-layout">
+        <article class="content">
+          <h1 id="example-commands">Example commands</h1>
+<p>Examples assume you installed the launcher (<code>crtk</code>). If you run from classes, replace <code>crtk</code> with <code>java -cp out application.Main</code>.</p>
+<h2 id="quick-sanity-checks">Quick sanity checks</h2>
+<ul>
+<li><code>crtk help</code> — show all commands + flags.</li>
+<li><code>crtk help --full</code> — show subcommands and detailed option groups.</li>
+<li><code>crtk doctor</code> — check Java, config, protocol, engine discovery, and local artifact paths.</li>
+<li><code>crtk doctor --strict</code> — treat setup warnings as failures.</li>
+<li><code>crtk config validate</code> — validate config + protocol file paths.</li>
+<li><code>crtk engine uci-smoke --nodes 1 --max-duration 5s</code> — start the configured engine and run a tiny bounded search.</li>
+<li><code>crtk engine gpu</code> — check whether the optional GPU JNI backends are usable (CUDA/ROCm/oneAPI).</li>
+<li><code>crtk engine perft-suite --depth 6 --threads 4</code> — validate critical stored-truth positions with the Java move generator.</li>
+<li><code>crtk fen print --fen &quot;rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1&quot;</code> — print the starting position.</li>
+<li><code>crtk config show</code> — dump resolved config values.</li>
+</ul>
+<h2 id="convert-record-plain-csv">Convert <code>.record</code> → <code>.plain</code> / CSV</h2>
+<ul>
+<li><code>crtk record export plain -i data/input.record</code> — writes <code>data/input.plain</code>.</li>
+<li><code>crtk record export plain -i data/input.record --sidelines --csv</code> — also writes <code>data/input.csv</code>.</li>
+<li><code>crtk record export csv -i data/input.record -o dump/input.csv</code> — CSV only.</li>
+<li><code>crtk record export plain -i data/input.record -f &quot;gate=AND;eval&gt;=300&quot;</code> — export only records matching a Filter DSL.</li>
+<li><code>crtk record files -i dump/ -o dump/merged.json</code> — merge many record files into one JSON array.</li>
+<li><code>crtk record files -i dump/ -o dump/merged.json --max-records 100000</code> — merge and split into 100k-sized parts.</li>
+<li><code>crtk record files -i dump/mixed.json -o dump/puzzles.json --puzzles</code> — keep only puzzle records.</li>
+</ul>
+<h2 id="mine-puzzles">Mine puzzles</h2>
+<ul>
+<li><code>crtk puzzle mine --random-count 50 --output dump/</code> — mine 50 random seeds into timestamped outputs under <code>dump/</code>.</li>
+<li><code>crtk puzzle mine --input seeds/fens.txt --output dump/fens.json</code> — mine from a <code>.txt</code> file; writes <code>dump/fens.puzzles.json</code> + <code>dump/fens.nonpuzzles.json</code>.</li>
+<li><code>crtk puzzle mine --input games.pgn --output dump/pgn.json --engine-instances 4 --max-duration 60s</code> — mine from PGN.</li>
+<li><code>crtk puzzle mine --chess960 --random-count 200 --output dump/</code> — Chess960 random mining.</li>
+<li><code>crtk puzzle pgn -i dump/fens.puzzles.json -o dump/fens.pgn</code> — convert accepted puzzle records to PGN.</li>
+<li><code>crtk record files -i dump/ -o dump/filtered.json --recursive --puzzles</code> — collect puzzle records from a directory tree.</li>
+</ul>
+<h2 id="generate-random-fen-shards">Generate random FEN shards</h2>
+<ul>
+<li><code>crtk fen generate --output shards/ --files 2 --per-file 20 --chess960-files 1</code> — writes 2 shard files (first one Chess960).</li>
+<li><code>crtk fen chess960 518</code> — print the standard start position by its Chess960 index.</li>
+<li><code>crtk fen chess960 --all --format both &gt; chess960.tsv</code> — export <code>index</code>, back-rank layout, and FEN for all 960 starts.</li>
+</ul>
+<h2 id="export-datasets-numpy">Export datasets (NumPy)</h2>
+<ul>
+<li><code>crtk record dataset npy -i dump/fens.puzzles.json -o training/pytorch/data/puzzles</code> — writes <code>puzzles.features.npy</code> + <code>puzzles.labels.npy</code>.</li>
+<li><code>crtk record dataset lc0 -i dump/fens.puzzles.json -o training/lc0/puzzles --weights models/leela_112planes-10blocksx128-policyhead80-valuehead32-policy4672-wdl3.bin</code> — write LC0-style input, policy, value, and metadata tensors.</li>
+<li><code>crtk record dataset classifier -i dump/fens.puzzles.json -i dump/fens.nonpuzzles.json -o training/classifier/fens</code> — writes 21-plane classifier inputs + 0/1 labels.</li>
+<li><code>crtk record export training-jsonl -i dump/fens.puzzles.json -i dump/fens.nonpuzzles.json -o training/fens.training.jsonl</code> — writes coarse/fine JSONL labels.</li>
+<li><code>crtk record export puzzle-jsonl -i dump/fens.puzzles.json -o training/fens.puzzle.jsonl --weights models/leela_112planes-10blocksx128-policyhead80-valuehead32-policy4672-wdl3.bin --puzzles</code> — write JSONL puzzle rows with LC0 policy indices.</li>
+<li><code>crtk record analysis-delta -i dump/fens.puzzles.json -o dump/fens.analysis-delta.jsonl</code> — writes evaluation stability metrics.</li>
+</ul>
+<h2 id="publish-diagrams-and-books">Publish diagrams and books</h2>
+<ul>
+<li><code>crtk book ilovechess -i dump/mate1.json -o books/mate1.book.toml --subtitle &quot;4,000 Mate in 1 Puzzles&quot; --pdf-output dist/mate1.pdf --cover-output dist/mate1-cover.pdf --binding paperback --interior white-bw</code> — build an I Love Chess-style manifest from analyzed records and render the matching interior + cover.</li>
+<li><code>crtk book artofchess -i books/art-of-chess.json --manifest-output books/art-of-chess.toml -o dist/art-of-chess.pdf --cover-output dist/art-of-chess-cover.pdf --binding paperback --interior white-bw</code> — render a richer annotated Art of Chess manifest and optionally normalize it to TOML.</li>
+<li><code>crtk book pdf --fen &quot;&lt;FEN&gt;&quot; -o dump/position.pdf</code> — export one diagram to PDF.</li>
+<li><code>crtk book pdf -i seeds.txt -o dump/sheet.pdf --title &quot;Training Sheet&quot;</code> — export a FEN list to a diagram sheet PDF.</li>
+<li><code>crtk book pdf --pgn games.pgn -o dump/games.pdf --page-size a5 --diagrams-per-row 1</code> — export PGN mainlines to PDF.</li>
+<li><code>crtk book render -i books/puzzles.toml --check</code> — validate book layout, FENs, and solution lines without writing.</li>
+<li><code>crtk book render -i books/puzzles.toml -o dist/puzzles.pdf</code> — render a book manifest to a native vector PDF.</li>
+<li><code>crtk book cover -i books/puzzles.toml --pdf dist/puzzles.pdf --check --binding paperback --interior white-bw</code> — verify cover dimensions from the rendered interior PDF before rendering.</li>
+<li><code>crtk book cover -i books/puzzles.toml --pdf dist/puzzles.pdf -o dist/puzzles-cover.pdf --binding paperback --interior white-bw</code> — render a matching paperback cover from the interior PDF geometry.</li>
+</ul>
+<h2 id="display-a-position-gui">Display a position (GUI)</h2>
+<ul>
+<li><code>crtk fen display --fen &quot;r1bqk2r/ppppbppp/3n4/4R3/8/8/PPPP1PPP/RNBQ1BK1 b kq - 2 8&quot; --special-arrows --arrow e5e1 --legal d6</code> — open a window.</li>
+<li><code>crtk fen display --fen &quot;&lt;FEN&gt;&quot; --arrow e2e4 --circle e4 --legal g1</code> — overlays for quick inspection.</li>
+<li><code>crtk fen display --fen &quot;&lt;FEN&gt;&quot; --ablation --show-backend</code> — show per-piece ablation (uses LC0 if available; otherwise classical).</li>
+<li><code>crtk fen render --fen &quot;&lt;FEN&gt;&quot; -o dump/position.png --arrow e2e4 --circle e4 --size 1200</code> — save a board image.</li>
+<li><code>crtk fen render --fen &quot;&lt;FEN&gt;&quot; -o dump/position.svg --format svg --flip</code> — save a vector board from Black&#x27;s perspective.</li>
+<li><code>crtk gui-web --fen &quot;r1bqk2r/ppppbppp/3n4/4R3/8/8/PPPP1PPP/RNBQ1BK1 b kq - 2 8&quot; --dark</code> — launch the chess-web-inspired desktop GUI.</li>
+<li><code>crtk gui-next --fen &quot;&lt;FEN&gt;&quot; --dark</code> — launch the Studio research workbench.</li>
+</ul>
+<h2 id="analyze-positions-best-move-with-a-uci-engine">Analyze positions / best move with a UCI engine</h2>
+<ul>
+<li><code>crtk engine analyze --fen &quot;&lt;FEN&gt;&quot; --max-duration 5s</code> — print PV summaries for a single position.</li>
+<li><code>crtk engine analyze -i positions.txt --max-nodes 1000000 --multipv 3 --threads 4 --hash 256</code> — analyze a FEN list with bounded UCI engine settings.</li>
+<li><code>crtk engine threats --fen &quot;&lt;FEN&gt;&quot; --max-duration 2s</code> — analyze opponent threats via a null move (MultiPV).</li>
+<li><code>crtk engine bestmove --fen &quot;&lt;FEN&gt;&quot;</code> — print the best move (UCI).</li>
+<li><code>crtk engine bestmove --fen &quot;&lt;FEN&gt;&quot; --format san</code> — print the best move (SAN).</li>
+<li><code>crtk engine bestmove-uci --fen &quot;&lt;FEN&gt;&quot;</code> — best move (UCI shortcut).</li>
+<li><code>crtk engine bestmove-san --fen &quot;&lt;FEN&gt;&quot;</code> — best move (SAN shortcut).</li>
+<li><code>crtk engine bestmove-both --fen &quot;&lt;FEN&gt;&quot;</code> — best move (UCI + SAN).</li>
+</ul>
+<h2 id="tags-moves">Tags / moves</h2>
+<ul>
+<li><code>crtk fen tags --fen &quot;&lt;FEN&gt;&quot;</code> — emit tags as JSON.</li>
+<li><code>crtk fen tags --fen &quot;&lt;FEN&gt;&quot; --analyze --max-duration 2s --multipv 3 --wdl</code> — add engine-enriched tags.</li>
+<li><code>crtk fen tags -i positions.txt --sequence --delta --include-fen</code> — tag an ordered line and emit parent/child deltas.</li>
+<li><code>crtk fen tags --pgn games.pgn --delta --mainline</code> — emit per-move tag deltas as JSONL.</li>
+<li><code>crtk fen tags --pgn games.pgn --delta --sidelines</code> — include PGN variations in tag deltas.</li>
+<li><code>crtk puzzle tags --fen &quot;&lt;FEN&gt;&quot; --multipv 3 --pv-plies 12</code> — tag puzzle PV positions with per-move deltas.</li>
+<li><code>crtk puzzle tags --fen &quot;&lt;FEN&gt;&quot; --no-analyze --multipv 2</code> — tag puzzle PV positions using static tags only.</li>
+<li><code>crtk fen text --fen &quot;&lt;FEN&gt;&quot; --model models/t5.bin --include-fen</code> — summarize position tags with T5.</li>
+<li><code>crtk puzzle text --fen &quot;&lt;FEN&gt;&quot; --model models/t5.bin --include-fen</code> — summarize a puzzle PV line with T5.</li>
+<li><code>crtk fen normalize --fen &quot;&lt;FEN&gt;&quot;</code> — parse and print ChessRTK&#x27;s normalized FEN.</li>
+<li><code>crtk fen validate --fen &quot;&lt;FEN&gt;&quot;</code> — print <code>valid</code> plus the normalized FEN on success.</li>
+<li><code>crtk move list --fen &quot;&lt;FEN&gt;&quot; --format both</code> — list legal moves (UCI + SAN).</li>
+<li><code>crtk move uci --fen &quot;&lt;FEN&gt;&quot;</code> — list legal moves (UCI shortcut).</li>
+<li><code>crtk move san --fen &quot;&lt;FEN&gt;&quot;</code> — list legal moves (SAN shortcut).</li>
+<li><code>crtk move both --fen &quot;&lt;FEN&gt;&quot;</code> — list legal moves (UCI + SAN shortcut).</li>
+<li><code>crtk move to-san --fen &quot;&lt;FEN&gt;&quot; e2e4</code> — convert a single move to SAN.</li>
+<li><code>crtk move to-uci --fen &quot;&lt;FEN&gt;&quot; Nf3</code> — convert a single move to UCI.</li>
+<li><code>crtk move after --fen &quot;&lt;FEN&gt;&quot; e2e4</code> — apply one move and print the resulting FEN.</li>
+<li><code>crtk move play --fen &quot;&lt;FEN&gt;&quot; e2e4 e7e5 g1f3</code> — apply a move sequence and print the final FEN.</li>
+<li><code>crtk move play --fen &quot;&lt;FEN&gt;&quot; e4 e5 Nf3 --intermediate</code> — apply a SAN line and print each intermediate FEN.</li>
+</ul>
+<h2 id="stats">Stats</h2>
+<ul>
+<li><code>crtk record stats -i dump/fens.puzzles.json</code> — summarize a puzzle dump.</li>
+<li><code>crtk record tag-stats -i dump/fens.puzzles.json</code> — summarize tag distributions.</li>
+</ul>
+<h2 id="perft-pgn-conversion">Perft / PGN conversion</h2>
+<ul>
+<li><code>crtk engine perft --depth 4</code> — perft from the standard start position.</li>
+<li><code>crtk engine perft --startpos --depth 4</code> — same as the default start-position run, but explicit.</li>
+<li><code>crtk engine perft --randompos --depth 4</code> — perft from a reachable random legal standard-chess position.</li>
+<li><code>crtk engine perft --fen &quot;&lt;FEN&gt;&quot; --depth 5</code> — detailed counters for nodes, captures, en-passant captures, castles, promotions, checks, and checkmates.</li>
+<li><code>crtk engine perft --fen &quot;&lt;FEN&gt;&quot; --depth 5 --divide --threads 4</code> — per-root-move table with the same detailed counters.</li>
+<li><code>crtk engine perft --depth 3 --format stockfish --threads 4</code> — Stockfish-style <code>move: nodes</code> divide output.</li>
+<li><code>crtk engine perft-suite --depth 6 --threads 4</code> — compare critical standard, Chess960, promotion, en-passant, castling, and stress positions against stored truth values without starting an external engine.</li>
+<li><code>crtk fen pgn -i games.pgn -o seeds.txt</code> — extract FEN seeds from PGN.</li>
+<li><code>crtk fen pgn -i games.pgn -o pairs.txt --pairs --mainline</code> — extract parent/child FEN pairs from mainlines.</li>
+</ul>
+<h2 id="in-process-eval-and-built-in-search">In-process eval and built-in search</h2>
+<ul>
+<li><code>crtk engine eval --fen &quot;&lt;FEN&gt;&quot;</code> — evaluate with the Java LC0 evaluator and classical fallback.</li>
+<li><code>crtk engine eval --fen &quot;&lt;FEN&gt;&quot; --lc0 --weights models/leela_112planes-10blocksx128-policyhead80-valuehead32-policy4672-wdl3.bin</code> — force Java LC0 evaluation.</li>
+<li><code>crtk engine eval --fen &quot;&lt;FEN&gt;&quot; --classical</code> — force classical evaluation.</li>
+<li><code>crtk engine static --fen &quot;&lt;FEN&gt;&quot;</code> — classical evaluation shortcut.</li>
+<li><code>crtk engine builtin --fen &quot;&lt;FEN&gt;&quot; --depth 4 --format summary</code> — search with the built-in Java engine.</li>
+<li><code>crtk engine builtin --fen &quot;&lt;FEN&gt;&quot; --classical --depth 6 --nodes 250000 --format both</code> — bounded classical built-in search.</li>
+<li><code>crtk engine builtin --fen &quot;&lt;FEN&gt;&quot; --evaluator nnue --weights models/crtk-halfkp.nnue --depth 3 --format both</code> — use the Java NNUE evaluator at the search frontier.</li>
+<li><code>crtk engine builtin --fen &quot;&lt;FEN&gt;&quot; --lc0 --weights models/leela_112planes-10blocksx128-policyhead80-valuehead32-policy4672-wdl3.bin --depth 2 --format summary</code> — use the Java LC0 value evaluator at the search frontier.</li>
+</ul>
+<h2 id="useful-helpers">Useful helpers</h2>
+<ul>
+<li><code>./scripts/fetch_lc0_net.sh --url &lt;URL&gt; --out nets</code> — download an Lc0 UCI network (kept local under <code>nets/</code>).</li>
+<li><code>./scripts/check_no_weights_tracked.sh</code> — guardrail: fail if weight files are accidentally tracked by git.</li>
+</ul>
+        </article>
+        <aside class="toc"><h2>On This Page</h2>
+<a class="toc-h2" href="#quick-sanity-checks">Quick sanity checks</a>
+<a class="toc-h2" href="#convert-record-plain-csv">Convert .record → .plain / CSV</a>
+<a class="toc-h2" href="#mine-puzzles">Mine puzzles</a>
+<a class="toc-h2" href="#generate-random-fen-shards">Generate random FEN shards</a>
+<a class="toc-h2" href="#export-datasets-numpy">Export datasets (NumPy)</a>
+<a class="toc-h2" href="#publish-diagrams-and-books">Publish diagrams and books</a>
+<a class="toc-h2" href="#display-a-position-gui">Display a position (GUI)</a>
+<a class="toc-h2" href="#analyze-positions-best-move-with-a-uci-engine">Analyze positions / best move with a UCI engine</a>
+<a class="toc-h2" href="#tags-moves">Tags / moves</a>
+<a class="toc-h2" href="#stats">Stats</a>
+<a class="toc-h2" href="#perft-pgn-conversion">Perft / PGN conversion</a>
+<a class="toc-h2" href="#in-process-eval-and-built-in-search">In-process eval and built-in search</a>
+<a class="toc-h2" href="#useful-helpers">Useful helpers</a></aside>
+      </main>
+      <footer class="footer">
+        <span>Generated from <code>wiki/example-commands.md</code>.</span>
+        <span>Build with <code>python3 scripts/build_docs_site.py</code>.</span>
+      </footer>
+    </div>
+  </div>
+</body>
+</html>

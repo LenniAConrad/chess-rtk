@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Outputs &amp; logs | ChessRTK Wiki</title>
+  <link rel="stylesheet" href="styles.css">
+  <script defer src="search-index.js"></script>
+  <script defer src="site.js"></script>
+</head>
+<body>
+  <button class="menu-toggle" type="button" aria-label="Toggle navigation">Menu</button>
+  <div class="site-shell">
+    <aside class="sidebar">
+      <a class="brand" href="index.html">
+        <span class="brand-mark">CR</span>
+        <span><strong>ChessRTK</strong><small>Wiki</small></span>
+      </a>
+      <label class="search-label" for="doc-search">Search pages</label>
+      <input id="doc-search" class="search" type="search" placeholder="Search docs...">
+      <nav class="nav"><section class="nav-section"><h2>Start Here</h2>
+<a class="" href="index.html" data-title="home">Home</a>
+<a class="" href="getting-started.html" data-title="getting started">Getting Started</a>
+<a class="" href="faq.html" data-title="faq">FAQ</a>
+<a class="" href="command-reference.html" data-title="command reference">Command Reference</a>
+<a class="" href="example-commands.html" data-title="example commands">Example Commands</a>
+<a class="" href="troubleshooting.html" data-title="troubleshooting">Troubleshooting</a>
+</section>
+<section class="nav-section"><h2>User Guides</h2>
+<a class="" href="build-and-install.html" data-title="build &amp; install">Build &amp; Install</a>
+<a class="" href="configuration.html" data-title="configuration">Configuration</a>
+<a class="" href="in-house-engine.html" data-title="in-house engine">In-House Engine</a>
+<a class="" href="lc0.html" data-title="lc0">LC0</a>
+<a class="active" href="outputs-and-logs.html" data-title="outputs &amp; logs">Outputs &amp; Logs</a>
+<a class="" href="support.html" data-title="support">Support</a>
+</section>
+<section class="nav-section"><h2>Workflows</h2>
+<a class="" href="mining.html" data-title="mining puzzles">Mining Puzzles</a>
+<a class="" href="filter-dsl.html" data-title="filter dsl">Filter DSL</a>
+<a class="" href="datasets.html" data-title="datasets">Datasets</a>
+<a class="" href="book-publishing.html" data-title="book publishing">Book Publishing</a>
+<a class="" href="piece-tags.html" data-title="tags">Tags</a>
+<a class="" href="t5.html" data-title="t5 text">T5 Text</a>
+<a class="" href="ai-agents.html" data-title="ai agents">AI Agents</a>
+</section>
+<section class="nav-section"><h2>Development</h2>
+<a class="" href="architecture.html" data-title="architecture">Architecture</a>
+<a class="" href="development-notes.html" data-title="development notes">Development Notes</a>
+<a class="" href="releasing.html" data-title="releasing">Releasing</a>
+<a class="" href="roadmap.html" data-title="roadmap">Roadmap</a>
+<a class="" href="glossary.html" data-title="glossary">Glossary</a>
+<a class="" href="tagging-implementation-plan.html" data-title="tagging plan">Tagging Plan</a>
+<a class="" href="wiki-index.html" data-title="wiki index">Wiki Index</a>
+</section></nav>
+    </aside>
+    <div class="page">
+      <header class="topbar">
+        <div>
+          <span>User Guides</span>
+          <strong>Outputs &amp; logs</strong>
+        </div>
+        <nav>
+          <a href="index.html">Home</a>
+          <a href="wiki-index.html">Wiki Index</a>
+          <a href="command-reference.html">Commands</a>
+        </nav>
+      </header>
+      
+      <main class="content-layout">
+        <article class="content">
+          <h1 id="outputs-logs">Outputs &amp; logs</h1>
+<h2 id="output-directory-dump">Output directory (<code>dump/</code>)</h2>
+<p>By default, outputs are written under <code>dump/</code> (configurable via <code>config/cli.config.toml</code> or <code>puzzle mine --output ...</code>).</p>
+<p><code>puzzle mine --output</code> behavior:</p>
+<ul>
+<li>directory output: <code>standard-&lt;timestamp&gt;.puzzles.json</code> / <code>standard-&lt;timestamp&gt;.nonpuzzles.json</code> (or <code>chess960-...</code>)</li>
+<li>file-like root (<code>.json</code> or <code>.jsonl</code>): <code>&lt;stem&gt;.puzzles.json</code> / <code>&lt;stem&gt;.nonpuzzles.json</code></li>
+</ul>
+<p>Mining outputs are single top-level JSON arrays (objects appended incrementally).</p>
+<h2 id="derived-record-outputs">Derived record outputs</h2>
+<p>Common converters derive output names from the input stem when <code>--output</code> is omitted:</p>
+<ul>
+<li><code>record export plain</code>: <code>&lt;stem&gt;.plain</code></li>
+<li><code>record export csv</code>: <code>&lt;stem&gt;.csv</code></li>
+<li><code>record export pgn</code>: <code>&lt;stem&gt;.pgn</code></li>
+<li><code>puzzle pgn</code>: <code>&lt;stem&gt;.pgn</code></li>
+<li><code>record analysis-delta</code>: <code>&lt;stem&gt;.analysis-delta.jsonl</code></li>
+<li><code>record export training-jsonl</code>: <code>&lt;stem&gt;.training.jsonl</code></li>
+</ul>
+<p>Tensor exporters write multiple files from one output stem:</p>
+<ul>
+<li><code>record dataset npy</code>: <code>&lt;stem&gt;.features.npy</code>, <code>&lt;stem&gt;.labels.npy</code></li>
+<li><code>record dataset lc0</code>: <code>&lt;stem&gt;.lc0.inputs.npy</code>, <code>&lt;stem&gt;.lc0.policy.npy</code>, <code>&lt;stem&gt;.lc0.value.npy</code>, <code>&lt;stem&gt;.lc0.meta.json</code></li>
+<li><code>record dataset classifier</code>: <code>&lt;stem&gt;.classifier.inputs.npy</code>, <code>&lt;stem&gt;.classifier.labels.npy</code>, <code>&lt;stem&gt;.classifier.meta.json</code></li>
+</ul>
+<p>Publishing commands follow the same convention:</p>
+<ul>
+<li><code>book pdf</code>: defaults to the input stem plus <code>.pdf</code> when an input path exists.</li>
+<li><code>book render</code>: defaults to the manifest stem plus <code>.pdf</code>.</li>
+<li><code>book cover</code>: defaults to the manifest stem plus <code>-cover.pdf</code>.</li>
+</ul>
+<h2 id="session-logs-session">Session logs (<code>session/</code>)</h2>
+<p>The CLI writes logs under <code>session/</code> via <code>chess.debug.LogService</code>.</p>
+<p>To clear session artifacts:</p>
+<pre><code class="language-bash">crtk clean</code></pre>
+        </article>
+        <aside class="toc"><h2>On This Page</h2>
+<a class="toc-h2" href="#output-directory-dump">Output directory (dump/)</a>
+<a class="toc-h2" href="#derived-record-outputs">Derived record outputs</a>
+<a class="toc-h2" href="#session-logs-session">Session logs (session/)</a></aside>
+      </main>
+      <footer class="footer">
+        <span>Generated from <code>wiki/outputs-and-logs.md</code>.</span>
+        <span>Build with <code>python3 scripts/build_docs_site.py</code>.</span>
+      </footer>
+    </div>
+  </div>
+</body>
+</html>

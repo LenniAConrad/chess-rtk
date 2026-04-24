@@ -1,0 +1,4126 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tagging Implementation Plan | ChessRTK Wiki</title>
+  <link rel="stylesheet" href="styles.css">
+  <script defer src="search-index.js"></script>
+  <script defer src="site.js"></script>
+</head>
+<body>
+  <button class="menu-toggle" type="button" aria-label="Toggle navigation">Menu</button>
+  <div class="site-shell">
+    <aside class="sidebar">
+      <a class="brand" href="index.html">
+        <span class="brand-mark">CR</span>
+        <span><strong>ChessRTK</strong><small>Wiki</small></span>
+      </a>
+      <label class="search-label" for="doc-search">Search pages</label>
+      <input id="doc-search" class="search" type="search" placeholder="Search docs...">
+      <nav class="nav"><section class="nav-section"><h2>Start Here</h2>
+<a class="" href="index.html" data-title="home">Home</a>
+<a class="" href="getting-started.html" data-title="getting started">Getting Started</a>
+<a class="" href="faq.html" data-title="faq">FAQ</a>
+<a class="" href="command-reference.html" data-title="command reference">Command Reference</a>
+<a class="" href="example-commands.html" data-title="example commands">Example Commands</a>
+<a class="" href="troubleshooting.html" data-title="troubleshooting">Troubleshooting</a>
+</section>
+<section class="nav-section"><h2>User Guides</h2>
+<a class="" href="build-and-install.html" data-title="build &amp; install">Build &amp; Install</a>
+<a class="" href="configuration.html" data-title="configuration">Configuration</a>
+<a class="" href="in-house-engine.html" data-title="in-house engine">In-House Engine</a>
+<a class="" href="lc0.html" data-title="lc0">LC0</a>
+<a class="" href="outputs-and-logs.html" data-title="outputs &amp; logs">Outputs &amp; Logs</a>
+<a class="" href="support.html" data-title="support">Support</a>
+</section>
+<section class="nav-section"><h2>Workflows</h2>
+<a class="" href="mining.html" data-title="mining puzzles">Mining Puzzles</a>
+<a class="" href="filter-dsl.html" data-title="filter dsl">Filter DSL</a>
+<a class="" href="datasets.html" data-title="datasets">Datasets</a>
+<a class="" href="book-publishing.html" data-title="book publishing">Book Publishing</a>
+<a class="" href="piece-tags.html" data-title="tags">Tags</a>
+<a class="" href="t5.html" data-title="t5 text">T5 Text</a>
+<a class="" href="ai-agents.html" data-title="ai agents">AI Agents</a>
+</section>
+<section class="nav-section"><h2>Development</h2>
+<a class="" href="architecture.html" data-title="architecture">Architecture</a>
+<a class="" href="development-notes.html" data-title="development notes">Development Notes</a>
+<a class="" href="releasing.html" data-title="releasing">Releasing</a>
+<a class="" href="roadmap.html" data-title="roadmap">Roadmap</a>
+<a class="" href="glossary.html" data-title="glossary">Glossary</a>
+<a class="active" href="tagging-implementation-plan.html" data-title="tagging plan">Tagging Plan</a>
+<a class="" href="wiki-index.html" data-title="wiki index">Wiki Index</a>
+</section></nav>
+    </aside>
+    <div class="page">
+      <header class="topbar">
+        <div>
+          <span>Development</span>
+          <strong>Tagging Implementation Plan</strong>
+        </div>
+        <nav>
+          <a href="index.html">Home</a>
+          <a href="wiki-index.html">Wiki Index</a>
+          <a href="command-reference.html">Commands</a>
+        </nav>
+      </header>
+      
+      <main class="content-layout">
+        <article class="content">
+          <h1 id="tagging-implementation-plan">Tagging Implementation Plan</h1>
+<p>This document is the implementation plan for completing ChessRTK&#x27;s position, move, tactic, and puzzle-theme tags.</p>
+<p>The goal is not just to add many strings. The goal is to build a deterministic, auditable tagging layer that can serve three consumers:</p>
+<ul>
+<li>CLI users running <code>fen tags</code>, <code>puzzle tags</code>, <code>record tag-stats</code>, and <code>record analysis-delta</code>.</li>
+<li>Dataset builders using tags as labels, filters, or training text inputs.</li>
+<li>LLM/agent workflows that need compact, stable chess facts instead of prose.</li>
+</ul>
+<h2 id="current-state">Current State</h2>
+<p>There is one public tag implementation:</p>
+<ul>
+<li><code>chess.tag</code>: canonical tag pipeline used by CLI, GUI, records, tests, and</li>
+</ul>
+<p>engine analysis workflows.</p>
+<p>No duplicate tag pipeline is part of the documented CLI surface.</p>
+<h2 id="guiding-rules">Guiding Rules</h2>
+<ol>
+<li>Tags must be deterministic for the same position, analysis input, and config.</li>
+<li>Heuristic tags must not require an engine, neural model, or network access.</li>
+<li>Engine-derived tags must be clearly separated and only emitted when analysis</li>
+</ol>
+<p>was requested or supplied.</p>
+<ol>
+<li>Tags must be stable strings. Renames need migration notes because users may</li>
+</ol>
+<p>train models or write filters against them.</p>
+<ol>
+<li>Prefer exact board predicates over vague names. A tag should explain why it</li>
+</ol>
+<p>was emitted or encode enough fields to reconstruct the reason.</p>
+<ol>
+<li>Avoid duplicate concepts. Chess.com, Lichess, and ChessFox labels should map</li>
+</ol>
+<p>into canonical tags where possible.</p>
+<ol>
+<li>Each additional tag family needs positive and negative regression positions.</li>
+<li>Keep tag generation allocation-conscious. It will be used in batch pipelines.</li>
+</ol>
+<h2 id="canonical-tag-shape">Canonical Tag Shape</h2>
+<p>Use the existing family style:</p>
+<pre><code class="language-text">FAMILY: key=value key=value</code></pre>
+<p>Examples:</p>
+<pre><code class="language-text">META: to_move=white
+FACT: status=normal
+MATERIAL: balance=white
+PAWN: structure=passed side=white square=e7
+TACTIC: motif=pin side=white piece=bishop square=e2 by=black_rook@e8
+CHECKMATE: pattern=back_rank_mate</code></pre>
+<p>Keep the canonical internal output structured enough for <code>Line</code>, <code>Identity</code>, and <code>Sort</code>; compatibility converters should live outside the tag pipeline.</p>
+<h2 id="tag-families">Tag Families</h2>
+<p>The complete family set should be:</p>
+<ul>
+<li><code>META</code>: side to move, phase, source, evaluator metadata, difficulty, ECO/opening metadata.</li>
+<li><code>FACT</code>: status, check state, checkers, castling, en-passant, legal state facts.</li>
+<li><code>MATERIAL</code>: material totals, imbalance, piece counts, bishop pair, exchange state.</li>
+<li><code>MOVE</code>: legal move counts and one-ply tactical move counts.</li>
+<li><code>CAND</code>: candidate moves from engine or bounded tactical search.</li>
+<li><code>PV</code>: principal variation tags from engine analysis.</li>
+<li><code>IDEA</code>: concise strategic idea tags derived from facts or analysis.</li>
+<li><code>THREAT</code>: threats from engine or bounded reply search.</li>
+<li><code>KING</code>: king safety, exposure, flight squares, pawn shield, back-rank issues.</li>
+<li><code>PAWN</code>: pawn structure and promotion facts.</li>
+<li><code>PIECE</code>: piece activity, outposts, trapped pieces, hanging pieces, overloaded defenders.</li>
+<li><code>TACTIC</code>: tactical motifs and forcing mechanisms.</li>
+<li><code>CHECKMATE</code>: checkmate status and named mate patterns.</li>
+<li><code>ENDGAME</code>: material endgame classes and practical endgame themes.</li>
+<li><code>OPENING</code>: ECO code and opening name.</li>
+<li><code>SPACE</code>: center/side space information.</li>
+<li><code>DEVELOPMENT</code>: undeveloped pieces and development lead.</li>
+<li><code>MOBILITY</code>: side and piece mobility.</li>
+<li><code>INITIATIVE</code>: forcing-move and tempo indicators.</li>
+</ul>
+<p><code>Sort</code> and <code>Identity</code> must understand every family and every identity-relevant field. Any additional family gets added there before it is exposed by CLI commands.</p>
+<h2 id="target-architecture">Target Architecture</h2>
+<h3 id="package-layout">Package Layout</h3>
+<p>Keep <code>chess.tag</code> as the public API. Split implementation into focused modules:</p>
+<pre><code class="language-text">src/chess/tag/
+  Tagging.java              public facade and orchestration
+  TagContext.java           shared immutable/scratch context
+  TagEmitter.java           string builder / canonical field emitter
+  Identity.java             semantic identity keys
+  Sort.java                 stable family-aware sort/dedupe
+  Line.java                 tag parser
+  core/
+    Literals.java
+    Text.java
+  fact/
+    Facts.java
+    MoveFacts.java
+  material/
+    Material.java
+    Endgame.java
+  pawn/
+    PawnStructure.java
+    Promotion.java
+  piece/
+    PieceActivity.java
+    PiecePressure.java
+    Outpost.java
+  position/
+    Castling.java
+    CenterSpace.java
+    Development.java
+    KingSafety.java
+    Mobility.java
+    Opening.java
+  tactical/
+    Tactical.java
+    AttackMap.java
+    MatePatterns.java
+    MotifDetectors.java
+  move/
+    Move.java
+    Mainline.java
+    Sequence.java
+  eval/
+    Evaluation.java
+    Difficulty.java</code></pre>
+<p>The exact filenames can change, but the rule is simple: one large <code>Tagging</code> class should not accumulate every motif.</p>
+<h3 id="tag-context">Tag Context</h3>
+<p>Create a reusable context object for one position:</p>
+<ul>
+<li><code>Position position</code></li>
+<li><code>byte[] board</code></li>
+<li><code>MoveList legalMoves</code></li>
+<li>side to move</li>
+<li>king squares</li>
+<li>material counts and material phase</li>
+<li>attack maps by side</li>
+<li>defenders by square</li>
+<li>attackers by square</li>
+<li>pinned pieces by side</li>
+<li>checkers</li>
+<li>pawn file counts</li>
+<li>optional <code>Analysis</code></li>
+<li>optional <code>Evaluator</code></li>
+</ul>
+<p>The context should compute expensive values lazily and cache them for all detectors. This avoids repeated legal move generation and repeated attack scans.</p>
+<h3 id="tag-emitter">Tag Emitter</h3>
+<p>Introduce a small helper for canonical tags:</p>
+<pre><code class="language-java">TagEmitter.tag(&quot;PAWN&quot;)
+    .field(&quot;structure&quot;, &quot;passed&quot;)
+    .field(&quot;side&quot;, &quot;white&quot;)
+    .field(&quot;square&quot;, &quot;e7&quot;)
+    .emit(tags);</code></pre>
+<p>This reduces typo risk and makes field ordering consistent. It also makes it easy to enforce escaping rules if a field value ever contains spaces.</p>
+<h3 id="detector-contract">Detector Contract</h3>
+<p>Each detector should follow this shape:</p>
+<pre><code class="language-java">interface TagDetector {
+    void addTags(TagContext ctx, List&lt;String&gt; tags);
+}</code></pre>
+<p>No detector should call the engine or load config unless it is explicitly an engine/config detector. Heuristic detectors should be pure functions over the position and cached context.</p>
+<h2 id="implementation-phases">Implementation Phases</h2>
+<h3 id="phase-0-stabilize-the-contract">Phase 0: Stabilize The Contract</h3>
+<p>Deliverables:</p>
+<ul>
+<li>Document canonical tag grammar in <code>wiki/piece-tags.md</code> or a dedicated tag reference.</li>
+<li>Add a <code>TagEmitter</code>.</li>
+<li>Add <code>TagContext</code>.</li>
+<li>Add <code>TagDetector</code> or an equivalent internal pattern.</li>
+<li>Update <code>Sort.FAMILY_ORDER</code> with the final family set.</li>
+<li>Update <code>Identity</code> to handle all planned family keys gracefully.</li>
+<li>Add a no-engine golden test harness for tag fixtures.</li>
+</ul>
+<p>Definition of done:</p>
+<ul>
+<li>Existing <code>fen tags</code> output is unchanged except for intentional normalizations.</li>
+<li><code>TaggingRegressionTest</code> still passes.</li>
+<li>Parser tests prove every planned family can be parsed and sorted.</li>
+</ul>
+<h3 id="phase-1-canonical-tag-consolidation">Phase 1: Canonical Tag Consolidation</h3>
+<p>Keep all additional detectors in <code>chess.tag</code> modules.</p>
+<p>Port first:</p>
+<ul>
+<li><code>META: to_move</code></li>
+<li><code>META: phase</code></li>
+<li><code>FACT: status</code></li>
+<li><code>FACT: in_check</code></li>
+<li><code>FACT: castling</code></li>
+<li><code>FACT: en_passant</code></li>
+<li><code>FACT: checker</code></li>
+<li><code>MATERIAL: cp_white</code></li>
+<li><code>MATERIAL: cp_black</code></li>
+<li><code>MATERIAL: balance</code></li>
+<li><code>MATERIAL: queens</code></li>
+<li><code>MATERIAL: rooks</code></li>
+<li><code>MATERIAL: bishop_pair</code></li>
+<li><code>MOVE: legal</code></li>
+<li><code>MOVE: captures</code></li>
+<li><code>MOVE: checks</code></li>
+<li><code>MOVE: mates</code></li>
+<li><code>MOVE: promotions</code></li>
+<li><code>MOVE: castles</code></li>
+<li><code>KING: attackers</code></li>
+<li><code>KING: exposed</code></li>
+<li><code>PAWN: doubled</code></li>
+<li><code>PAWN: isolated</code></li>
+<li><code>PAWN: advanced</code></li>
+<li><code>PAWN: promotion_ready</code></li>
+<li><code>PAWN: passed</code></li>
+<li><code>TACTIC: pin</code></li>
+<li><code>TACTIC: hanging</code></li>
+<li><code>TACTIC: fork</code></li>
+<li><code>CHECKMATE: winner</code></li>
+<li><code>CHECKMATE: defender</code></li>
+<li><code>CHECKMATE: delivery</code></li>
+<li><code>CHECKMATE: pattern=double_check</code></li>
+<li><code>CHECKMATE: pattern=back_rank_mate</code></li>
+<li><code>CHECKMATE: pattern=smothered_mate</code></li>
+<li><code>CHECKMATE: pattern=support_mate</code></li>
+<li><code>CHECKMATE: pattern=corner_mate</code></li>
+</ul>
+<p>Definition of done:</p>
+<ul>
+<li><code>chess.tag.Tagging.tags(position)</code> covers the fixture categories used by the</li>
+</ul>
+<p>regression tests.</p>
+<ul>
+<li>No duplicate tag package exists in <code>src</code>.</li>
+</ul>
+<h3 id="phase-2-core-facts-and-status">Phase 2: Core Facts And Status</h3>
+<p>Add robust position-state facts:</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Tag</th>
+<th>Meaning</th>
+<th>Detector</th>
+</tr></thead><tbody>
+<tr>
+<td><code>FACT: status=normal</code></td>
+<td>legal non-terminal position</td>
+<td>facts</td>
+</tr>
+<tr>
+<td><code>FACT: status=checkmate</code></td>
+<td>side to move has no legal move and is in check</td>
+<td>facts</td>
+</tr>
+<tr>
+<td><code>FACT: status=stalemate</code></td>
+<td>side to move has no legal move and is not in check</td>
+<td>facts</td>
+</tr>
+<tr>
+<td>`FACT: in_check=white</td>
+<td>black</td>
+<td>none`</td>
+<td>checked side</td>
+<td>facts</td>
+</tr>
+<tr>
+<td><code>FACT: checker=&lt;side&gt;_&lt;piece&gt;@&lt;square&gt;</code></td>
+<td>checking piece</td>
+<td>facts</td>
+</tr>
+<tr>
+<td>`FACT: castling=KQkq</td>
+<td>-`</td>
+<td>FEN castling rights</td>
+<td>castling</td>
+</tr>
+<tr>
+<td>`FACT: castled side=&lt;side&gt; flank=&lt;king</td>
+<td>queen&gt;`</td>
+<td>king has castled inferred from structure where safe</td>
+<td>castling</td>
+</tr>
+<tr>
+<td><code>FACT: en_passant=&lt;square&gt;</code></td>
+<td>current en-passant square</td>
+<td>facts</td>
+</tr>
+<tr>
+<td><code>FACT: halfmove_clock=&lt;n&gt;</code></td>
+<td>optional draw clock metadata</td>
+<td>facts</td>
+</tr>
+<tr>
+<td><code>FACT: fullmove=&lt;n&gt;</code></td>
+<td>current fullmove number</td>
+<td>facts</td>
+</tr>
+<tr>
+<td><code>FACT: chess960=true</code></td>
+<td>Chess960 castling metadata is active</td>
+<td>facts</td>
+</tr>
+</tbody></table></div>
+<p>Notes:</p>
+<ul>
+<li>Do not emit noisy clock tags by default if they hurt tag stability. Consider a</li>
+</ul>
+<p><code>--include-counters</code> flag later.</p>
+<ul>
+<li><code>castled</code> inference should be conservative. If uncertain, omit it.</li>
+</ul>
+<h3 id="phase-3-material-and-imbalance-tags">Phase 3: Material And Imbalance Tags</h3>
+<p>Complete material facts:</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Tag</th>
+<th>Meaning</th>
+</tr></thead><tbody>
+<tr>
+<td><code>MATERIAL: cp_white=&lt;n&gt;</code></td>
+<td>White material in centipawns</td>
+</tr>
+<tr>
+<td><code>MATERIAL: cp_black=&lt;n&gt;</code></td>
+<td>Black material in centipawns</td>
+</tr>
+<tr>
+<td>`MATERIAL: balance=white</td>
+<td>black</td>
+<td>equal`</td>
+<td>material leader</td>
+</tr>
+<tr>
+<td>`MATERIAL: imbalance=&lt;minor</td>
+<td>rook</td>
+<td>queen</td>
+<td>large&gt;`</td>
+<td>coarse imbalance</td>
+</tr>
+<tr>
+<td><code>MATERIAL: piece_count side=&lt;side&gt; piece=&lt;piece&gt; count=&lt;n&gt;</code></td>
+<td>exact piece counts</td>
+</tr>
+<tr>
+<td>`MATERIAL: queens=white</td>
+<td>black</td>
+<td>both</td>
+<td>none`</td>
+<td>queen presence</td>
+</tr>
+<tr>
+<td>`MATERIAL: rooks=white</td>
+<td>black</td>
+<td>both</td>
+<td>none`</td>
+<td>rook presence</td>
+</tr>
+<tr>
+<td>`MATERIAL: bishop_pair=white</td>
+<td>black</td>
+<td>both`</td>
+<td>bishop pair</td>
+</tr>
+<tr>
+<td><code>MATERIAL: opposite_bishops=true</code></td>
+<td>opposite-colored bishops with no same-color pair</td>
+</tr>
+<tr>
+<td><code>MATERIAL: exchange side=&lt;side&gt;</code></td>
+<td>exchange-up side</td>
+</tr>
+<tr>
+<td><code>MATERIAL: minor_exchange side=&lt;side&gt;</code></td>
+<td>bishop/knight imbalance</td>
+</tr>
+<tr>
+<td><code>MATERIAL: bare_king side=&lt;side&gt;</code></td>
+<td>no non-king material</td>
+</tr>
+<tr>
+<td><code>MATERIAL: insufficient=true</code></td>
+<td>conservative insufficient mating material</td>
+</tr>
+</tbody></table></div>
+<p>Implementation details:</p>
+<ul>
+<li>Material code should use <code>Position.pieceCount</code>-style helpers or bitboards,</li>
+</ul>
+<p>not repeated board scans in every detector.</p>
+<ul>
+<li>For <code>insufficient</code>, keep the rule conservative:</li>
+<li>K vs K</li>
+<li>K+B vs K</li>
+<li>K+N vs K</li>
+<li>K+B vs K+B with bishops on same color, if implemented confidently</li>
+</ul>
+<h3 id="phase-4-move-facts-and-forcing-move-counts">Phase 4: Move Facts And Forcing Move Counts</h3>
+<p>Add move-level aggregate facts:</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Tag</th>
+<th>Meaning</th>
+</tr></thead><tbody>
+<tr>
+<td><code>MOVE: legal=&lt;n&gt;</code></td>
+<td>legal moves</td>
+</tr>
+<tr>
+<td><code>MOVE: captures=&lt;n&gt;</code></td>
+<td>legal captures</td>
+</tr>
+<tr>
+<td><code>MOVE: checks=&lt;n&gt;</code></td>
+<td>legal checking moves</td>
+</tr>
+<tr>
+<td><code>MOVE: mates=&lt;n&gt;</code></td>
+<td>legal mate-in-one moves</td>
+</tr>
+<tr>
+<td><code>MOVE: promotions=&lt;n&gt;</code></td>
+<td>legal promotions</td>
+</tr>
+<tr>
+<td><code>MOVE: castles=&lt;n&gt;</code></td>
+<td>legal castling moves</td>
+</tr>
+<tr>
+<td><code>MOVE: quiet=&lt;n&gt;</code></td>
+<td>legal non-capture non-check moves</td>
+</tr>
+<tr>
+<td><code>MOVE: only=&lt;uci&gt;</code></td>
+<td>only legal move</td>
+</tr>
+<tr>
+<td><code>MOVE: forced=true</code></td>
+<td>only one legal move</td>
+</tr>
+<tr>
+<td><code>MOVE: evasions=&lt;n&gt;</code></td>
+<td>legal replies while in check</td>
+</tr>
+<tr>
+<td><code>MOVE: en_passant=&lt;n&gt;</code></td>
+<td>legal en-passant captures</td>
+</tr>
+<tr>
+<td><code>MOVE: underpromotions=&lt;n&gt;</code></td>
+<td>legal non-queen promotions</td>
+</tr>
+</tbody></table></div>
+<p>Implementation details:</p>
+<ul>
+<li>Use one <code>MoveList</code> generated in <code>TagContext</code>.</li>
+<li>Use <code>Position.State</code> and <code>play/undo</code> for low-allocation move consequence checks.</li>
+<li>Do not copy the position once per move in hot paths.</li>
+</ul>
+<h3 id="phase-5-pawn-structure">Phase 5: Pawn Structure</h3>
+<p>Add complete pawn themes:</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Tag</th>
+<th>Meaning</th>
+</tr></thead><tbody>
+<tr>
+<td><code>PAWN: structure=doubled side=&lt;side&gt; file=&lt;file&gt; count=&lt;n&gt;</code></td>
+<td>doubled pawns</td>
+</tr>
+<tr>
+<td><code>PAWN: structure=tripled side=&lt;side&gt; file=&lt;file&gt; count=&lt;n&gt;</code></td>
+<td>tripled pawns</td>
+</tr>
+<tr>
+<td><code>PAWN: structure=isolated side=&lt;side&gt; file=&lt;file&gt;</code></td>
+<td>isolated pawn file</td>
+</tr>
+<tr>
+<td><code>PAWN: structure=passed side=&lt;side&gt; square=&lt;square&gt;</code></td>
+<td>passed pawn</td>
+</tr>
+<tr>
+<td><code>PAWN: structure=protected_passed side=&lt;side&gt; square=&lt;square&gt;</code></td>
+<td>passed pawn defended by pawn/piece</td>
+</tr>
+<tr>
+<td><code>PAWN: structure=connected_passed side=&lt;side&gt; squares=&lt;a,b&gt;</code></td>
+<td>adjacent passed pawns</td>
+</tr>
+<tr>
+<td><code>PAWN: structure=candidate_passed side=&lt;side&gt; square=&lt;square&gt;</code></td>
+<td>candidate passer</td>
+</tr>
+<tr>
+<td><code>PAWN: structure=backward side=&lt;side&gt; square=&lt;square&gt;</code></td>
+<td>backward pawn</td>
+</tr>
+<tr>
+<td><code>PAWN: structure=advanced side=&lt;side&gt; square=&lt;square&gt;</code></td>
+<td>advanced pawn</td>
+</tr>
+<tr>
+<td><code>PAWN: structure=promotion_ready side=&lt;side&gt; square=&lt;square&gt;</code></td>
+<td>pawn on 7th/2nd</td>
+</tr>
+<tr>
+<td><code>PAWN: structure=chain side=&lt;side&gt; base=&lt;square&gt; head=&lt;square&gt;</code></td>
+<td>pawn chain</td>
+</tr>
+<tr>
+<td><code>PAWN: structure=phalanx side=&lt;side&gt; squares=&lt;a,b&gt;</code></td>
+<td>side-by-side pawns</td>
+</tr>
+<tr>
+<td><code>PAWN: structure=hanging side=&lt;side&gt; files=&lt;files&gt;</code></td>
+<td>hanging pawns</td>
+</tr>
+<tr>
+<td><code>PAWN: islands side=&lt;side&gt; count=&lt;n&gt;</code></td>
+<td>pawn islands</td>
+</tr>
+<tr>
+<td>`PAWN: majority side=&lt;side&gt; flank=&lt;queen</td>
+<td>king</td>
+<td>center&gt;`</td>
+<td>pawn majority</td>
+</tr>
+<tr>
+<td><code>PAWN: lever side=&lt;side&gt; square=&lt;square&gt; target=&lt;square&gt;</code></td>
+<td>pawn break lever</td>
+</tr>
+<tr>
+<td><code>PAWN: ram side=&lt;side&gt; square=&lt;square&gt; target=&lt;square&gt;</code></td>
+<td>locked opposing pawns</td>
+</tr>
+<tr>
+<td><code>PAWN: underpromotion_available side=&lt;side&gt; move=&lt;uci&gt;</code></td>
+<td>underpromotion exists</td>
+</tr>
+</tbody></table></div>
+<p>Implementation details:</p>
+<ul>
+<li>Build file/rank pawn masks once per side.</li>
+<li>Distinguish structural pawn tags from move tags. A pawn on the 7th rank gets</li>
+</ul>
+<p><code>promotion_ready</code>; a legal promotion move gets <code>MOVE: promotions</code>.</p>
+<ul>
+<li>Keep candidate-passer rules conservative until tests are strong.</li>
+</ul>
+<h3 id="phase-6-king-safety">Phase 6: King Safety</h3>
+<p>Add king safety facts and themes:</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Tag</th>
+<th>Meaning</th>
+</tr></thead><tbody>
+<tr>
+<td><code>KING: side=&lt;side&gt; attackers=&lt;n&gt;</code></td>
+<td>attackers on king square</td>
+</tr>
+<tr>
+<td><code>KING: exposed side=&lt;side&gt;</code></td>
+<td>low cover and attacked nearby squares</td>
+</tr>
+<tr>
+<td><code>KING: vulnerable side=&lt;side&gt;</code></td>
+<td>high attack pressure or weak cover</td>
+</tr>
+<tr>
+<td><code>KING: flight_squares side=&lt;side&gt; count=&lt;n&gt;</code></td>
+<td>legal-ish escape squares</td>
+</tr>
+<tr>
+<td><code>KING: no_flight side=&lt;side&gt;</code></td>
+<td>no safe adjacent escape squares</td>
+</tr>
+<tr>
+<td><code>KING: back_rank_weak side=&lt;side&gt;</code></td>
+<td>back-rank mate risk</td>
+</tr>
+<tr>
+<td>`KING: pawn_shield side=&lt;side&gt; quality=&lt;good</td>
+<td>thin</td>
+<td>broken</td>
+<td>none&gt;`</td>
+<td>pawn cover</td>
+</tr>
+<tr>
+<td><code>KING: open_file_near side=&lt;side&gt; file=&lt;file&gt;</code></td>
+<td>open file near king</td>
+</tr>
+<tr>
+<td><code>KING: diagonal_weakness side=&lt;side&gt; diagonal=&lt;name&gt;</code></td>
+<td>diagonal pressure</td>
+</tr>
+<tr>
+<td>`KING: castling_rights side=&lt;side&gt; value=&lt;none</td>
+<td>king</td>
+<td>queen</td>
+<td>both&gt;`</td>
+<td>rights per side</td>
+</tr>
+<tr>
+<td>`KING: castled side=&lt;side&gt; flank=&lt;king</td>
+<td>queen&gt;`</td>
+<td>conservative castled inference</td>
+</tr>
+<tr>
+<td><code>KING: trapped side=&lt;side&gt;</code></td>
+<td>own pieces/opponent coverage restrict king</td>
+</tr>
+</tbody></table></div>
+<p>Implementation details:</p>
+<ul>
+<li>Use attack maps for enemy attacks and pawn maps for pawn shield.</li>
+<li>Avoid over-tagging every small weakness. Emit only meaningful thresholds.</li>
+<li>Keep &quot;vulnerable king&quot; and &quot;attacking castled king&quot; derived from this module.</li>
+</ul>
+<h3 id="phase-7-piece-activity-and-pressure">Phase 7: Piece Activity And Pressure</h3>
+<p>Complete piece-specific placement tags:</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Tag</th>
+<th>Meaning</th>
+</tr></thead><tbody>
+<tr>
+<td><code>PIECE: tier=&lt;tier&gt; side=&lt;side&gt; piece=&lt;piece&gt; square=&lt;square&gt;</code></td>
+<td>placement strength</td>
+</tr>
+<tr>
+<td><code>PIECE: extreme=strongest ...</code></td>
+<td>strongest placement</td>
+</tr>
+<tr>
+<td><code>PIECE: extreme=weakest ...</code></td>
+<td>weakest placement</td>
+</tr>
+<tr>
+<td><code>PIECE: activity=active side=&lt;side&gt; piece=&lt;piece&gt; square=&lt;square&gt;</code></td>
+<td>active piece</td>
+</tr>
+<tr>
+<td><code>PIECE: activity=passive ...</code></td>
+<td>passive piece</td>
+</tr>
+<tr>
+<td><code>PIECE: outpost side=&lt;side&gt; piece=knight square=&lt;square&gt;</code></td>
+<td>knight/bishop outpost</td>
+</tr>
+<tr>
+<td><code>PIECE: trapped side=&lt;side&gt; piece=&lt;piece&gt; square=&lt;square&gt;</code></td>
+<td>low mobility, capturable or boxed</td>
+</tr>
+<tr>
+<td><code>PIECE: hanging side=&lt;side&gt; piece=&lt;piece&gt; square=&lt;square&gt;</code></td>
+<td>attacked and undefended</td>
+</tr>
+<tr>
+<td><code>PIECE: loose side=&lt;side&gt; piece=&lt;piece&gt; square=&lt;square&gt;</code></td>
+<td>undefended but not attacked</td>
+</tr>
+<tr>
+<td><code>PIECE: overloaded side=&lt;side&gt; piece=&lt;piece&gt; square=&lt;square&gt;</code></td>
+<td>defends multiple critical targets</td>
+</tr>
+<tr>
+<td><code>PIECE: defender side=&lt;side&gt; piece=&lt;piece&gt; square=&lt;square&gt; target=&lt;square&gt;</code></td>
+<td>defender relationship</td>
+</tr>
+<tr>
+<td><code>PIECE: battery side=&lt;side&gt; pieces=&lt;pieces&gt; line=&lt;line&gt;</code></td>
+<td>queen/bishop/rook battery</td>
+</tr>
+<tr>
+<td><code>PIECE: rook_open_file side=&lt;side&gt; square=&lt;square&gt; file=&lt;file&gt;</code></td>
+<td>rook on open file</td>
+</tr>
+<tr>
+<td><code>PIECE: rook_seventh side=&lt;side&gt; square=&lt;square&gt;</code></td>
+<td>rook on 7th/2nd rank</td>
+</tr>
+<tr>
+<td><code>PIECE: bishop_pair side=&lt;side&gt;</code></td>
+<td>duplicate material signal if useful</td>
+</tr>
+<tr>
+<td><code>PIECE: bad_bishop side=&lt;side&gt; square=&lt;square&gt;</code></td>
+<td>bishop blocked by own pawns</td>
+</tr>
+<tr>
+<td><code>PIECE: knight_outpost side=&lt;side&gt; square=&lt;square&gt;</code></td>
+<td>named shortcut if needed</td>
+</tr>
+</tbody></table></div>
+<p>Implementation details:</p>
+<ul>
+<li>Keep the piece activity score explainable.</li>
+<li>Use piece-square heuristics, mobility, attacks, defended status, and king</li>
+</ul>
+<p>proximity, but do not hide a huge opaque formula in one method.</p>
+<ul>
+<li>Existing <code>wiki/piece-tags.md</code> should become the reference for this family.</li>
+</ul>
+<h3 id="phase-8-space-development-mobility-initiative">Phase 8: Space, Development, Mobility, Initiative</h3>
+<p>Add strategic tags:</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Tag</th>
+<th>Meaning</th>
+</tr></thead><tbody>
+<tr>
+<td>`SPACE: advantage=white</td>
+<td>black</td>
+<td>equal`</td>
+<td>central/territorial space</td>
+</tr>
+<tr>
+<td><code>SPACE: center_control side=&lt;side&gt; count=&lt;n&gt;</code></td>
+<td>control of e4/d4/e5/d5</td>
+</tr>
+<tr>
+<td>`SPACE: flank_control side=&lt;side&gt; flank=&lt;king</td>
+<td>queen&gt;`</td>
+<td>flank space</td>
+</tr>
+<tr>
+<td>`DEVELOPMENT: lead=white</td>
+<td>black</td>
+<td>equal`</td>
+<td>development lead</td>
+</tr>
+<tr>
+<td><code>DEVELOPMENT: undeveloped side=&lt;side&gt; piece=&lt;piece&gt; square=&lt;square&gt;</code></td>
+<td>undeveloped minor/rook</td>
+</tr>
+<tr>
+<td><code>DEVELOPMENT: king_uncastled side=&lt;side&gt;</code></td>
+<td>king still central with castling unavailable/unused</td>
+</tr>
+<tr>
+<td><code>MOBILITY: side=&lt;side&gt; legal=&lt;n&gt;</code></td>
+<td>legal moves by side</td>
+</tr>
+<tr>
+<td><code>MOBILITY: piece=&lt;piece&gt; side=&lt;side&gt; square=&lt;square&gt; moves=&lt;n&gt;</code></td>
+<td>piece mobility</td>
+</tr>
+<tr>
+<td><code>MOBILITY: restricted side=&lt;side&gt;</code></td>
+<td>low legal mobility</td>
+</tr>
+<tr>
+<td><code>INITIATIVE: side=&lt;side&gt;</code></td>
+<td>forcing-move advantage</td>
+</tr>
+<tr>
+<td><code>INITIATIVE: forcing_moves side=&lt;side&gt; count=&lt;n&gt;</code></td>
+<td>checks/captures/threats count</td>
+</tr>
+<tr>
+<td><code>INITIATIVE: tempo side=&lt;side&gt;</code></td>
+<td>side has immediate forcing tempo</td>
+</tr>
+</tbody></table></div>
+<p>Implementation details:</p>
+<ul>
+<li><code>MOBILITY</code> for the side not to move requires generating moves after flipping</li>
+</ul>
+<p>side to move. This must be cached and should not be done unless requested by detectors that need it.</p>
+<ul>
+<li><code>INITIATIVE</code> should be conservative and probably combine forcing move counts,</li>
+</ul>
+<p>king vulnerability, and engine/PV data when available.</p>
+<h3 id="phase-9-tactical-motifs">Phase 9: Tactical Motifs</h3>
+<p>Implement tactical themes in increasing complexity.</p>
+<h4 id="simple-board-motifs">Simple Board Motifs</h4>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Tag</th>
+<th>Meaning</th>
+</tr></thead><tbody>
+<tr>
+<td><code>TACTIC: motif=pin ...</code></td>
+<td>absolute or relative pin</td>
+</tr>
+<tr>
+<td><code>TACTIC: motif=fork ...</code></td>
+<td>one piece attacks two valuable targets</td>
+</tr>
+<tr>
+<td><code>TACTIC: motif=hanging ...</code></td>
+<td>attacked undefended piece</td>
+</tr>
+<tr>
+<td><code>TACTIC: motif=skewer ...</code></td>
+<td>high-value piece in front of lower-value piece</td>
+</tr>
+<tr>
+<td><code>TACTIC: motif=xray ...</code></td>
+<td>line pressure through piece</td>
+</tr>
+<tr>
+<td><code>TACTIC: motif=discovered_attack ...</code></td>
+<td>moving piece reveals attack</td>
+</tr>
+<tr>
+<td><code>TACTIC: motif=discovered_check ...</code></td>
+<td>moving piece reveals check</td>
+</tr>
+<tr>
+<td><code>TACTIC: motif=double_check ...</code></td>
+<td>move gives two checks</td>
+</tr>
+<tr>
+<td><code>TACTIC: motif=trapped_piece ...</code></td>
+<td>piece has no safe moves and is attacked/trappable</td>
+</tr>
+</tbody></table></div>
+<h4 id="defender-motifs">Defender Motifs</h4>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Tag</th>
+<th>Meaning</th>
+</tr></thead><tbody>
+<tr>
+<td><code>TACTIC: motif=overloading ...</code></td>
+<td>defender has multiple critical duties</td>
+</tr>
+<tr>
+<td><code>TACTIC: motif=removal_of_defender ...</code></td>
+<td>capture/deflection removes defender</td>
+</tr>
+<tr>
+<td><code>TACTIC: motif=deflection ...</code></td>
+<td>move lures defender away</td>
+</tr>
+<tr>
+<td><code>TACTIC: motif=decoy ...</code></td>
+<td>move lures target onto bad square</td>
+</tr>
+<tr>
+<td><code>TACTIC: motif=attraction ...</code></td>
+<td>alias/canonical mapping to decoy if desired</td>
+</tr>
+<tr>
+<td><code>TACTIC: motif=interference ...</code></td>
+<td>move blocks defender line</td>
+</tr>
+<tr>
+<td><code>TACTIC: motif=clearance ...</code></td>
+<td>move vacates a square/line for another piece</td>
+</tr>
+</tbody></table></div>
+<h4 id="sacrifice-and-forcing-motifs">Sacrifice And Forcing Motifs</h4>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Tag</th>
+<th>Meaning</th>
+</tr></thead><tbody>
+<tr>
+<td><code>TACTIC: motif=sacrifice piece=&lt;piece&gt; square=&lt;square&gt;</code></td>
+<td>material sacrifice candidate</td>
+</tr>
+<tr>
+<td><code>TACTIC: motif=queen_sacrifice ...</code></td>
+<td>queen sacrifice candidate</td>
+</tr>
+<tr>
+<td><code>TACTIC: motif=exchange_sacrifice ...</code></td>
+<td>rook-for-minor style sacrifice</td>
+</tr>
+<tr>
+<td><code>TACTIC: motif=desperado ...</code></td>
+<td>doomed piece captures before loss</td>
+</tr>
+<tr>
+<td><code>TACTIC: motif=zwischenzug ...</code></td>
+<td>in-between forcing move</td>
+</tr>
+<tr>
+<td><code>TACTIC: motif=intermezzo ...</code></td>
+<td>alias to zwischenzug</td>
+</tr>
+<tr>
+<td><code>TACTIC: motif=quiet_move ...</code></td>
+<td>non-capture non-check forcing move</td>
+</tr>
+<tr>
+<td><code>TACTIC: motif=simplification ...</code></td>
+<td>trades into favorable material/endgame</td>
+</tr>
+<tr>
+<td><code>TACTIC: motif=perpetual_check ...</code></td>
+<td>repeated checking resource</td>
+</tr>
+<tr>
+<td><code>TACTIC: motif=windmill ...</code></td>
+<td>repeated discovered checks/attacks</td>
+</tr>
+</tbody></table></div>
+<p>Implementation order:</p>
+<ol>
+<li>Pins, forks, hanging, skewers, x-rays.</li>
+<li>Discovered attack/check and double check.</li>
+<li>Trapped piece.</li>
+<li>Removal/deflection/decoy/overload/interference/clearance.</li>
+<li>Sacrifice, desperado, quiet move, zwischenzug.</li>
+<li>Windmill and perpetual check.</li>
+</ol>
+<p>Important constraint:</p>
+<ul>
+<li>Some motifs are not reliable from static position alone. For those, emit only</li>
+</ul>
+<p>when a legal move demonstrates the motif. Prefer move-specific fields: <code>move=&lt;uci&gt;</code>, <code>san=&lt;san&gt;</code>, <code>target=&lt;square&gt;</code>, <code>victim=&lt;piece&gt;@&lt;square&gt;</code>.</p>
+<h3 id="phase-10-checkmate-pattern-tags">Phase 10: Checkmate Pattern Tags</h3>
+<p>Use <code>CHECKMATE</code> for actual mating positions and <code>TACTIC</code> or <code>THREAT</code> for mating nets that are not yet mate.</p>
+<p>Canonical coverage currently includes:</p>
+<ul>
+<li>back-rank mate</li>
+<li>corner mate</li>
+<li>smothered mate</li>
+<li>support mate</li>
+<li>double-check mate</li>
+<li>delivery piece</li>
+</ul>
+<p>Implement named mate recognizers:</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Pattern</th>
+<th>Priority</th>
+<th>Core predicate</th>
+</tr></thead><tbody>
+<tr>
+<td><code>anastasias_mate</code></td>
+<td>high</td>
+<td>knight controls escape, rook/queen mates on file/rank, trapped king</td>
+</tr>
+<tr>
+<td><code>arabian_mate</code></td>
+<td>high</td>
+<td>rook + knight mate near corner</td>
+</tr>
+<tr>
+<td><code>boden_mate</code></td>
+<td>high</td>
+<td>two bishops crossfire around castled/boxed king</td>
+</tr>
+<tr>
+<td><code>dovetail_mate</code></td>
+<td>high</td>
+<td>queen mates adjacent king, own pieces cover diagonals</td>
+</tr>
+<tr>
+<td><code>epaulette_mate</code></td>
+<td>high</td>
+<td>king boxed by own pieces on both sides, queen/rook delivers</td>
+</tr>
+<tr>
+<td><code>hook_mate</code></td>
+<td>high</td>
+<td>rook/queen plus knight/pawn hook covers escape</td>
+</tr>
+<tr>
+<td><code>kill_box_mate</code></td>
+<td>high</td>
+<td>queen/rook creates boxed king with support</td>
+</tr>
+<tr>
+<td><code>swallow_tail_mate</code></td>
+<td>high</td>
+<td>queen mate with king&#x27;s own pieces blocking diagonals</td>
+</tr>
+<tr>
+<td><code>triangle_mate</code></td>
+<td>high</td>
+<td>queen/king or queen/support triangle pattern</td>
+</tr>
+<tr>
+<td><code>vukovic_mate</code></td>
+<td>high</td>
+<td>rook + knight/pawn against castled king</td>
+</tr>
+<tr>
+<td><code>blind_swine_mate</code></td>
+<td>medium</td>
+<td>two rooks on 7th/2nd rank mate/trap king</td>
+</tr>
+<tr>
+<td><code>corridor_mate</code></td>
+<td>medium</td>
+<td>king trapped in corridor by own pieces/files</td>
+</tr>
+<tr>
+<td><code>h_file_mate</code></td>
+<td>medium</td>
+<td>rook/queen mate on h-file against castled king</td>
+</tr>
+<tr>
+<td><code>lolli_mate</code></td>
+<td>medium</td>
+<td>queen + pawn/king support near castled king</td>
+</tr>
+<tr>
+<td><code>morphys_mate</code></td>
+<td>medium</td>
+<td>bishop/rook battery on castled king</td>
+</tr>
+<tr>
+<td><code>opera_mate</code></td>
+<td>medium</td>
+<td>rook + bishop pattern resembling Morphy&#x27;s Opera mate</td>
+</tr>
+<tr>
+<td><code>pillsburys_mate</code></td>
+<td>medium</td>
+<td>rook/queen plus bishop/knight net</td>
+</tr>
+<tr>
+<td><code>reti_mate</code></td>
+<td>medium</td>
+<td>bishop + rook/queen geometry pattern</td>
+</tr>
+<tr>
+<td><code>balestra_mate</code></td>
+<td>low</td>
+<td>bishop/queen diagonal net</td>
+</tr>
+<tr>
+<td><code>blackburnes_mate</code></td>
+<td>low</td>
+<td>bishops + knight mate pattern</td>
+</tr>
+<tr>
+<td><code>cozios_mate</code></td>
+<td>low</td>
+<td>queen/king boxed pattern</td>
+</tr>
+<tr>
+<td><code>damianos_mate</code></td>
+<td>low</td>
+<td>queen + pawn support near king</td>
+</tr>
+<tr>
+<td><code>grecos_mate</code></td>
+<td>low</td>
+<td>bishop/queen/rook classical pattern</td>
+</tr>
+<tr>
+<td><code>max_langes_mate</code></td>
+<td>low</td>
+<td>queen/bishop pattern</td>
+</tr>
+<tr>
+<td><code>mayets_mate</code></td>
+<td>low</td>
+<td>bishop + rook/queen pattern</td>
+</tr>
+<tr>
+<td><code>railroad_mate</code></td>
+<td>low</td>
+<td>two heavy pieces confine king</td>
+</tr>
+<tr>
+<td><code>suffocation_mate</code></td>
+<td>low</td>
+<td>own pieces fully block king, non-knight delivery</td>
+</tr>
+<tr>
+<td><code>bishop_and_knight_checkmate</code></td>
+<td>medium</td>
+<td>final mate with only B+N mating material for winner, no non-king material for loser, and bishop+knight+king covering all flights</td>
+</tr>
+<tr>
+<td><code>lawnmower_mate</code></td>
+<td>medium</td>
+<td>queen+rook or two rooks deliver adjacent rank/file ladder mate</td>
+</tr>
+<tr>
+<td><code>legals_mate</code></td>
+<td>context-only</td>
+<td>emit only from PGN context that proves the Legal trap pattern; omit from FEN-only tagging</td>
+</tr>
+<tr>
+<td><code>anderssens_mate</code></td>
+<td>excluded</td>
+<td>do not emit until the project owns a fixture-backed predicate</td>
+</tr>
+<tr>
+<td><code>david_and_goliath_mate</code></td>
+<td>excluded</td>
+<td>do not emit until the project owns a fixture-backed predicate</td>
+</tr>
+<tr>
+<td><code>ladder_trick</code></td>
+<td>excluded</td>
+<td>not a final mate-pattern tag; map to concrete endgame/tactic tags when known</td>
+</tr>
+</tbody></table></div>
+<p>Implementation approach:</p>
+<ol>
+<li>Add a <code>MateContext</code> built only when <code>status=checkmate</code>.</li>
+<li>Identify mated king, delivery move/piece if possible, checkers, blockers,</li>
+</ol>
+<p>escape squares, and supporting attackers.</p>
+<ol>
+<li>Implement each named pattern as a small predicate class or method.</li>
+<li>Emit multiple pattern tags if multiple names genuinely apply.</li>
+<li>Add one positive FEN and at least one near-miss negative FEN per pattern.</li>
+</ol>
+<p>Avoid implementing names that require game history unless we can detect them from the final position. Opening-trap names such as Legal&#x27;s Mate require PGN line context, not just FEN. Excluded labels are intentionally not emitted in normal output; this prevents source-site names from appearing without a concrete reason the user can inspect.</p>
+<h3 id="phase-11-endgame-tags">Phase 11: Endgame Tags</h3>
+<p>Add practical endgame classification:</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Tag</th>
+<th>Meaning</th>
+</tr></thead><tbody>
+<tr>
+<td><code>ENDGAME: type=pawn</code></td>
+<td>pawn endgame</td>
+</tr>
+<tr>
+<td><code>ENDGAME: type=rook</code></td>
+<td>rook endgame</td>
+</tr>
+<tr>
+<td><code>ENDGAME: type=queen</code></td>
+<td>queen endgame</td>
+</tr>
+<tr>
+<td><code>ENDGAME: type=bishop</code></td>
+<td>bishop-only minor endgame</td>
+</tr>
+<tr>
+<td><code>ENDGAME: type=knight</code></td>
+<td>knight-only minor endgame</td>
+</tr>
+<tr>
+<td><code>ENDGAME: type=minor_piece</code></td>
+<td>minor-piece endgame</td>
+</tr>
+<tr>
+<td><code>ENDGAME: type=opposite_bishops</code></td>
+<td>opposite bishops</td>
+</tr>
+<tr>
+<td><code>ENDGAME: type=same_color_bishops</code></td>
+<td>same-color bishops</td>
+</tr>
+<tr>
+<td><code>ENDGAME: type=rook_vs_minor</code></td>
+<td>rook vs minor</td>
+</tr>
+<tr>
+<td><code>ENDGAME: type=queen_vs_rook</code></td>
+<td>queen vs rook</td>
+</tr>
+<tr>
+<td><code>ENDGAME: type=king_and_pawn</code></td>
+<td>K+P style</td>
+</tr>
+<tr>
+<td><code>ENDGAME: theme=outside_passer</code></td>
+<td>outside passed pawn</td>
+</tr>
+<tr>
+<td><code>ENDGAME: theme=connected_passers</code></td>
+<td>connected passers</td>
+</tr>
+<tr>
+<td><code>ENDGAME: theme=wrong_rook_pawn</code></td>
+<td>wrong rook pawn with bishop</td>
+</tr>
+<tr>
+<td><code>ENDGAME: theme=fortress_candidate</code></td>
+<td>static fortress-like material/structure</td>
+</tr>
+<tr>
+<td><code>ENDGAME: theme=zugzwang_candidate</code></td>
+<td>low-move endgame pressure</td>
+</tr>
+</tbody></table></div>
+<p>No tablebase dependency. These are heuristic labels, not perfect theoretical outcomes.</p>
+<h3 id="phase-12-opening-tags">Phase 12: Opening Tags</h3>
+<p>Opening tags remain config-backed:</p>
+<ul>
+<li><code>OPENING: eco=&lt;code&gt;</code></li>
+<li><code>OPENING: name=&lt;name&gt;</code></li>
+<li><code>OPENING: family=&lt;family&gt;</code> if we add family extraction</li>
+<li><code>OPENING: variation=&lt;variation&gt;</code> if config supports it</li>
+</ul>
+<p>Plan:</p>
+<ol>
+<li>Keep <code>config/book.eco.toml</code> optional.</li>
+<li>Cache ECO lookup once.</li>
+<li>Add tests for missing config, malformed config, exact match, and no match.</li>
+<li>Avoid engine dependency.</li>
+</ol>
+<h3 id="phase-13-engine-enriched-tags">Phase 13: Engine-Enriched Tags</h3>
+<p>Only emit these when analysis is supplied or requested:</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Tag</th>
+<th>Meaning</th>
+</tr></thead><tbody>
+<tr>
+<td><code>META: eval_cp=&lt;n&gt;</code></td>
+<td>engine/static eval</td>
+</tr>
+<tr>
+<td><code>META: wdl=&lt;w&gt;/&lt;d&gt;/&lt;l&gt;</code></td>
+<td>WDL</td>
+</tr>
+<tr>
+<td><code>META: difficulty=&lt;label&gt;</code></td>
+<td>difficulty bucket</td>
+</tr>
+<tr>
+<td>`PV: ply=&lt;n&gt; move=&lt;san</td>
+<td>uci&gt;`</td>
+<td>principal variation moves</td>
+</tr>
+<tr>
+<td><code>CAND: rank=&lt;n&gt; move=&lt;move&gt; eval=&lt;...&gt;</code></td>
+<td>candidate move</td>
+</tr>
+<tr>
+<td><code>THREAT: type=&lt;motif&gt; side=&lt;side&gt;</code></td>
+<td>engine-supported threat</td>
+</tr>
+<tr>
+<td><code>IDEA: ...</code></td>
+<td>analysis-derived idea</td>
+</tr>
+<tr>
+<td><code>TACTIC: motif=mate_in_&lt;n&gt;</code></td>
+<td>bounded mate from engine/PV</td>
+</tr>
+<tr>
+<td>`TACTIC: motif=advantage</td>
+<td>crushing</td>
+<td>equality`</td>
+<td>evaluation result bucket</td>
+</tr>
+</tbody></table></div>
+<p>Rules:</p>
+<ul>
+<li>Engine tags must include enough metadata to avoid confusing them with static</li>
+</ul>
+<p>facts.</p>
+<ul>
+<li>If Stockfish/LC0 analysis is unavailable, do not fake engine tags from</li>
+</ul>
+<p>heuristics.</p>
+<ul>
+<li>Keep engine tags optional in CLI output for deterministic no-engine workflows.</li>
+</ul>
+<h3 id="phase-14-sequence-and-delta-tags">Phase 14: Sequence And Delta Tags</h3>
+<p>The existing sequence/delta workflow should remain stable, but it needs richer identity handling for new tags.</p>
+<p>Add or verify:</p>
+<ul>
+<li><code>Delta</code> can compare all new canonical family identities.</li>
+<li><code>Sequence</code> can identify enabled/disabled tactics across a move line.</li>
+<li><code>record analysis-delta</code> can aggregate new families.</li>
+<li>CLI <code>--delta</code> output includes stable identities and raw tag strings.</li>
+</ul>
+<p>Useful sequence tags:</p>
+<ul>
+<li><code>move: &lt;ply&gt; enables ... &lt;tag&gt;</code></li>
+<li><code>move: &lt;ply&gt; disables ... &lt;tag&gt;</code></li>
+<li><code>IDEA: move=&lt;uci&gt; creates=&lt;tag-id&gt;</code></li>
+<li><code>IDEA: move=&lt;uci&gt; removes=&lt;tag-id&gt;</code></li>
+</ul>
+<h2 id="computational-definitions">Computational Definitions</h2>
+<p>This section defines how each tag should be computed reliably. If a tag cannot meet its evidence rule, it should not be emitted. The default behavior should be &quot;quiet unless there is a clear reason&quot;, not &quot;guess and hope&quot;.</p>
+<h3 id="shared-primitives">Shared Primitives</h3>
+<p>All detectors should use these primitives through <code>TagContext</code> rather than reimplementing them locally.</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Primitive</th>
+<th>Definition</th>
+</tr></thead><tbody>
+<tr>
+<td><code>side(square)</code></td>
+<td>owner of the piece on <code>square</code>, or none</td>
+</tr>
+<tr>
+<td><code>piece(square)</code></td>
+<td>piece type on <code>square</code>, or empty</td>
+</tr>
+<tr>
+<td><code>value(piece)</code></td>
+<td>pawn=100, knight=320, bishop=330, rook=500, queen=900, king=infinite</td>
+</tr>
+<tr>
+<td><code>attackers(side, square)</code></td>
+<td>pieces of <code>side</code> attacking <code>square</code>, using legal attack geometry, not only legal moves</td>
+</tr>
+<tr>
+<td><code>defenders(side, square)</code></td>
+<td>friendly pieces attacking/defending <code>square</code></td>
+</tr>
+<tr>
+<td><code>isAttacked(side, square)</code></td>
+<td><code>attackers(side, square)</code> is non-empty</td>
+</tr>
+<tr>
+<td><code>isDefended(side, square)</code></td>
+<td><code>defenders(side, square)</code> is non-empty</td>
+</tr>
+<tr>
+<td><code>leastAttacker(side, square)</code></td>
+<td>lowest-value attacker of <code>square</code></td>
+</tr>
+<tr>
+<td><code>leastDefender(side, square)</code></td>
+<td>lowest-value defender of <code>square</code></td>
+</tr>
+<tr>
+<td><code>netCaptureGain(square)</code></td>
+<td>approximate static exchange result using attacker/defender values</td>
+</tr>
+<tr>
+<td><code>ray(a, b)</code></td>
+<td>squares on the same rank, file, or diagonal between <code>a</code> and <code>b</code></td>
+</tr>
+<tr>
+<td><code>lineSlider(piece)</code></td>
+<td>rook/queen for ranks/files, bishop/queen for diagonals</td>
+</tr>
+<tr>
+<td><code>kingZone(side)</code></td>
+<td>enemy king square plus adjacent squares and the three pawn-shield files</td>
+</tr>
+<tr>
+<td><code>safeFor(side, square)</code></td>
+<td>square is not occupied by own piece and not attacked by opponent</td>
+</tr>
+<tr>
+<td><code>legalAfter(move)</code></td>
+<td>result of applying a legal move with <code>play/undo</code></td>
+</tr>
+<tr>
+<td><code>givesCheck(move)</code></td>
+<td>opponent king is attacked after legal move</td>
+</tr>
+<tr>
+<td><code>givesMate(move)</code></td>
+<td><code>givesCheck(move)</code> and opponent has no legal replies</td>
+</tr>
+<tr>
+<td><code>criticalTarget(square)</code></td>
+<td>king, queen, rook, advanced passer, mate-defense square, or attacked high-value piece</td>
+</tr>
+</tbody></table></div>
+<p>Implementation notes:</p>
+<ul>
+<li>Attack maps are pseudo-legal attack maps, but king safety checks still use</li>
+</ul>
+<p>legal move validation.</p>
+<ul>
+<li>Pawn attacks are attacks even if the pawn cannot legally move there.</li>
+<li>A pinned piece still attacks for geometric pressure tags, but the pin must be</li>
+</ul>
+<p>recorded because it may not be a legal defender.</p>
+<ul>
+<li>When a detector needs a legal move consequence, use <code>play(move, state)</code> and</li>
+</ul>
+<p><code>undo(move, state)</code>.</p>
+<ul>
+<li>If a predicate depends on a multi-ply result and no engine/PV proof exists,</li>
+</ul>
+<p>emit a candidate tag only when the static evidence is very strong.</p>
+<h3 id="reliability-levels">Reliability Levels</h3>
+<p>Use these internal levels when deciding whether to emit:</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Level</th>
+<th>Meaning</th>
+<th>Default output</th>
+</tr></thead><tbody>
+<tr>
+<td><code>exact</code></td>
+<td>direct FEN/legal-move fact</td>
+<td>emit</td>
+</tr>
+<tr>
+<td><code>static-strong</code></td>
+<td>heuristic with concrete board evidence and low false-positive risk</td>
+<td>emit</td>
+</tr>
+<tr>
+<td><code>static-weak</code></td>
+<td>plausible but may surprise users</td>
+<td>omit by default or hide behind debug/explain mode</td>
+</tr>
+<tr>
+<td><code>engine-proved</code></td>
+<td>shown by engine/PV/search</td>
+<td>emit only in engine profile</td>
+</tr>
+<tr>
+<td><code>history-dependent</code></td>
+<td>cannot be known from FEN alone</td>
+<td>omit unless PGN line context exists</td>
+</tr>
+</tbody></table></div>
+<p>For normal <code>fen tags</code>, emit only <code>exact</code> and <code>static-strong</code>.</p>
+<h3 id="meta-tags">META Tags</h3>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Tag</th>
+<th>Evidence rule</th>
+<th>Omit rule</th>
+</tr></thead><tbody>
+<tr>
+<td><code>META: to_move=&lt;side&gt;</code></td>
+<td>direct from <code>Position.isWhiteToMove()</code></td>
+<td>never omit</td>
+</tr>
+<tr>
+<td><code>META: phase=opening</code></td>
+<td>non-king material ratio <code>&gt;= 0.75</code> or full opening material with undeveloped back rank</td>
+<td>never omit</td>
+</tr>
+<tr>
+<td><code>META: phase=middlegame</code></td>
+<td>non-king material ratio <code>&gt;= 0.35</code> and <code>&lt; 0.75</code></td>
+<td>never omit</td>
+</tr>
+<tr>
+<td><code>META: phase=endgame</code></td>
+<td>non-king material ratio <code>&lt; 0.35</code></td>
+<td>never omit</td>
+</tr>
+<tr>
+<td><code>META: source=&lt;value&gt;</code></td>
+<td>caller supplies source label</td>
+<td>omit when absent</td>
+</tr>
+<tr>
+<td><code>META: fen=&lt;fen&gt;</code></td>
+<td>CLI requests <code>--include-fen</code></td>
+<td>omit by default</td>
+</tr>
+<tr>
+<td><code>META: eval_cp=&lt;n&gt;</code></td>
+<td>evaluator/analysis supplies centipawns</td>
+<td>omit without evaluator/analysis</td>
+</tr>
+<tr>
+<td><code>META: wdl=&lt;w&gt;/&lt;d&gt;/&lt;l&gt;</code></td>
+<td>evaluator/analysis supplies WDL</td>
+<td>omit without WDL</td>
+</tr>
+<tr>
+<td><code>META: difficulty=&lt;label&gt;</code></td>
+<td>WDL exists; map expected score to difficulty</td>
+<td>omit without WDL</td>
+</tr>
+<tr>
+<td><code>META: evaluator=&lt;name&gt;</code></td>
+<td>engine/evaluator profile known</td>
+<td>omit for static-only tags</td>
+</tr>
+</tbody></table></div>
+<p>Difficulty definition:</p>
+<ul>
+<li>expected score = <code>win + 0.5 * draw</code>.</li>
+<li>difficulty = logarithmic scale of <code>1.0 - expected</code>.</li>
+<li>labels:</li>
+<li><code>very_easy</code>: <code>&lt;= 0.20</code></li>
+<li><code>easy</code>: <code>&lt;= 0.35</code></li>
+<li><code>medium</code>: <code>&lt;= 0.55</code></li>
+<li><code>hard</code>: <code>&lt;= 0.70</code></li>
+<li><code>very_hard</code>: <code>&gt; 0.70</code></li>
+</ul>
+<h3 id="fact-tags">FACT Tags</h3>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Tag</th>
+<th>Evidence rule</th>
+<th>Omit rule</th>
+</tr></thead><tbody>
+<tr>
+<td><code>FACT: status=normal</code></td>
+<td>legal moves exist and side to move is not checkmated/stalemated</td>
+<td>never omit</td>
+</tr>
+<tr>
+<td><code>FACT: status=checkmate</code></td>
+<td><code>position.isCheckmate()</code></td>
+<td>never omit</td>
+</tr>
+<tr>
+<td><code>FACT: status=stalemate</code></td>
+<td>no legal moves and side to move not in check</td>
+<td>never omit</td>
+</tr>
+<tr>
+<td><code>FACT: in_check=&lt;side&gt;</code></td>
+<td><code>position.inCheck()</code> and side to move is checked</td>
+<td>emit <code>none</code> if using full fact profile</td>
+</tr>
+<tr>
+<td><code>FACT: checker=&lt;side&gt;_&lt;piece&gt;@&lt;square&gt;</code></td>
+<td>checked side has checker list</td>
+<td>omit if not in check</td>
+</tr>
+<tr>
+<td><code>FACT: castling=&lt;rights&gt;</code></td>
+<td>format current castling rights as <code>KQkq</code> subset or <code>-</code></td>
+<td>never omit</td>
+</tr>
+<tr>
+<td><code>FACT: en_passant=&lt;square&gt;</code></td>
+<td><code>enPassantSquare != NO_SQUARE</code></td>
+<td>omit if none</td>
+</tr>
+<tr>
+<td><code>FACT: chess960=true</code></td>
+<td><code>Position.isChess960()</code></td>
+<td>omit if false</td>
+</tr>
+<tr>
+<td><code>FACT: halfmove_clock=&lt;n&gt;</code></td>
+<td>user requested counters/debug tags</td>
+<td>omit by default</td>
+</tr>
+<tr>
+<td><code>FACT: fullmove=&lt;n&gt;</code></td>
+<td>user requested counters/debug tags</td>
+<td>omit by default</td>
+</tr>
+</tbody></table></div>
+<p>The status tags are exact. They must never be inferred from material or evaluation.</p>
+<h3 id="material-tags">MATERIAL Tags</h3>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Tag</th>
+<th>Evidence rule</th>
+<th>Omit rule</th>
+</tr></thead><tbody>
+<tr>
+<td><code>MATERIAL: cp_white=&lt;n&gt;</code></td>
+<td>sum piece values excluding king</td>
+<td>never omit in material profile</td>
+</tr>
+<tr>
+<td><code>MATERIAL: cp_black=&lt;n&gt;</code></td>
+<td>sum piece values excluding king</td>
+<td>never omit in material profile</td>
+</tr>
+<tr>
+<td><code>MATERIAL: balance=white</code></td>
+<td>white material lead <code>&gt;= 150cp</code></td>
+<td>use <code>equal</code> below threshold</td>
+</tr>
+<tr>
+<td><code>MATERIAL: balance=black</code></td>
+<td>black material lead <code>&gt;= 150cp</code></td>
+<td>use <code>equal</code> below threshold</td>
+</tr>
+<tr>
+<td><code>MATERIAL: balance=equal</code></td>
+<td>absolute material difference <code>&lt; 150cp</code></td>
+<td>never omit in material profile</td>
+</tr>
+<tr>
+<td><code>MATERIAL: imbalance=minor</code></td>
+<td>lead in <code>[150, 399]</code> cp</td>
+<td>omit if equal</td>
+</tr>
+<tr>
+<td><code>MATERIAL: imbalance=rook</code></td>
+<td>lead in <code>[400, 699]</code> cp</td>
+<td>omit if lower</td>
+</tr>
+<tr>
+<td><code>MATERIAL: imbalance=queen</code></td>
+<td>lead in <code>[700, 1199]</code> cp</td>
+<td>omit if lower</td>
+</tr>
+<tr>
+<td><code>MATERIAL: imbalance=large</code></td>
+<td>lead <code>&gt;= 1200</code> cp</td>
+<td>omit if lower</td>
+</tr>
+<tr>
+<td><code>MATERIAL: piece_count side=&lt;side&gt; piece=&lt;piece&gt; count=&lt;n&gt;</code></td>
+<td>exact count requested</td>
+<td>omit by default if too noisy</td>
+</tr>
+<tr>
+<td>`MATERIAL: queens=&lt;white</td>
+<td>black</td>
+<td>both</td>
+<td>none&gt;`</td>
+<td>queen count presence</td>
+<td>emit in compact form</td>
+</tr>
+<tr>
+<td>`MATERIAL: rooks=&lt;white</td>
+<td>black</td>
+<td>both</td>
+<td>none&gt;`</td>
+<td>rook count presence</td>
+<td>emit in compact form</td>
+</tr>
+<tr>
+<td>`MATERIAL: bishop_pair=&lt;side</td>
+<td>both&gt;`</td>
+<td>side has two or more bishops</td>
+<td>omit if neither side has pair</td>
+</tr>
+<tr>
+<td><code>MATERIAL: opposite_bishops=true</code></td>
+<td>both sides have exactly one bishop and bishops are on opposite colors</td>
+<td>omit otherwise</td>
+</tr>
+<tr>
+<td><code>MATERIAL: exchange side=&lt;side&gt;</code></td>
+<td>side has rook vs opponent minor-piece material shape and net material lead resembles exchange</td>
+<td>omit if queens/extra rooks make it ambiguous</td>
+</tr>
+<tr>
+<td><code>MATERIAL: minor_exchange side=&lt;side&gt;</code></td>
+<td>bishop-vs-knight imbalance with equal other material</td>
+<td>omit if multiple minor imbalances</td>
+</tr>
+<tr>
+<td><code>MATERIAL: bare_king side=&lt;side&gt;</code></td>
+<td>side has no non-king pieces</td>
+<td>omit otherwise</td>
+</tr>
+<tr>
+<td><code>MATERIAL: insufficient=true</code></td>
+<td>conservative insufficient mating material</td>
+<td>omit if any uncertainty</td>
+</tr>
+</tbody></table></div>
+<p>Insufficient material exact rules:</p>
+<ul>
+<li>K vs K.</li>
+<li>K+B vs K.</li>
+<li>K+N vs K.</li>
+<li>K+B vs K+B with same-colored bishops and no pawns.</li>
+</ul>
+<p>Do not tag insufficient material for K+NN vs K, K+B+N vs K, or positions with pawns.</p>
+<h3 id="move-tags">MOVE Tags</h3>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Tag</th>
+<th>Evidence rule</th>
+<th>Omit rule</th>
+</tr></thead><tbody>
+<tr>
+<td><code>MOVE: legal=&lt;n&gt;</code></td>
+<td>count legal moves</td>
+<td>never omit</td>
+</tr>
+<tr>
+<td><code>MOVE: captures=&lt;n&gt;</code></td>
+<td>legal moves capturing occupied target or en-passant</td>
+<td>omit if zero</td>
+</tr>
+<tr>
+<td><code>MOVE: checks=&lt;n&gt;</code></td>
+<td>legal moves where opponent is in check after move</td>
+<td>omit if zero</td>
+</tr>
+<tr>
+<td><code>MOVE: mates=&lt;n&gt;</code></td>
+<td>legal moves that checkmate</td>
+<td>omit if zero</td>
+</tr>
+<tr>
+<td><code>MOVE: promotions=&lt;n&gt;</code></td>
+<td>legal promotion moves</td>
+<td>omit if zero</td>
+</tr>
+<tr>
+<td><code>MOVE: underpromotions=&lt;n&gt;</code></td>
+<td>legal promotions to rook, bishop, or knight</td>
+<td>omit if zero</td>
+</tr>
+<tr>
+<td><code>MOVE: castles=&lt;n&gt;</code></td>
+<td>legal castling moves</td>
+<td>omit if zero</td>
+</tr>
+<tr>
+<td><code>MOVE: en_passant=&lt;n&gt;</code></td>
+<td>legal en-passant captures</td>
+<td>omit if zero</td>
+</tr>
+<tr>
+<td><code>MOVE: quiet=&lt;n&gt;</code></td>
+<td>legal moves that are not captures, promotions, castles, or checks</td>
+<td>omit by default unless debug/profile asks</td>
+</tr>
+<tr>
+<td><code>MOVE: only=&lt;uci&gt;</code></td>
+<td>exactly one legal move</td>
+<td>omit otherwise</td>
+</tr>
+<tr>
+<td><code>MOVE: forced=true</code></td>
+<td>exactly one legal move</td>
+<td>omit otherwise</td>
+</tr>
+<tr>
+<td><code>MOVE: evasions=&lt;n&gt;</code></td>
+<td>side to move is in check; legal move count</td>
+<td>omit if not in check</td>
+</tr>
+</tbody></table></div>
+<p>Mate-in-one:</p>
+<ul>
+<li><code>MOVE: mates=&lt;n&gt;</code> is exact and static.</li>
+<li><code>TACTIC: motif=mate_in_1 move=&lt;uci&gt;</code> may be emitted for each mating move if</li>
+</ul>
+<p>detailed tactical tags are requested.</p>
+<h3 id="pawn-tags">PAWN Tags</h3>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Tag</th>
+<th>Evidence rule</th>
+<th>Omit rule</th>
+</tr></thead><tbody>
+<tr>
+<td><code>PAWN: structure=doubled side=&lt;side&gt; file=&lt;file&gt; count=&lt;n&gt;</code></td>
+<td>side has at least two pawns on file</td>
+<td>omit otherwise</td>
+</tr>
+<tr>
+<td><code>PAWN: structure=tripled side=&lt;side&gt; file=&lt;file&gt; count=&lt;n&gt;</code></td>
+<td>side has at least three pawns on file</td>
+<td>can emit in addition to doubled</td>
+</tr>
+<tr>
+<td><code>PAWN: structure=isolated side=&lt;side&gt; file=&lt;file&gt;</code></td>
+<td>side has pawn(s) on file and no friendly pawn on adjacent files</td>
+<td>omit otherwise</td>
+</tr>
+<tr>
+<td><code>PAWN: structure=passed side=&lt;side&gt; square=&lt;square&gt;</code></td>
+<td>no enemy pawns on same/adjacent files ahead of pawn</td>
+<td>omit otherwise</td>
+</tr>
+<tr>
+<td><code>PAWN: structure=protected_passed side=&lt;side&gt; square=&lt;square&gt;</code></td>
+<td>passed pawn defended by own pawn or piece</td>
+<td>omit if passed but undefended</td>
+</tr>
+<tr>
+<td><code>PAWN: structure=connected_passed side=&lt;side&gt; squares=&lt;a,b&gt;</code></td>
+<td>adjacent passed pawns on neighboring files whose ranks differ by at most one</td>
+<td>omit otherwise</td>
+</tr>
+<tr>
+<td><code>PAWN: structure=candidate_passed side=&lt;side&gt; square=&lt;square&gt;</code></td>
+<td>non-passed pawn can become passed after one legal/credible pawn advance or capture and is not blockaded by a lower-value enemy piece</td>
+<td>omit if ambiguous</td>
+</tr>
+<tr>
+<td><code>PAWN: structure=backward side=&lt;side&gt; square=&lt;square&gt;</code></td>
+<td>pawn cannot safely advance, has no friendly pawn support from adjacent files, and enemy controls advance square</td>
+<td>omit if it can safely advance</td>
+</tr>
+<tr>
+<td><code>PAWN: structure=advanced side=&lt;side&gt; square=&lt;square&gt;</code></td>
+<td>white pawn on rank 5+ or black pawn on rank 4-</td>
+<td>omit otherwise</td>
+</tr>
+<tr>
+<td><code>PAWN: structure=promotion_ready side=&lt;side&gt; square=&lt;square&gt;</code></td>
+<td>white pawn on rank 7 or black pawn on rank 2</td>
+<td>omit otherwise</td>
+</tr>
+<tr>
+<td><code>PAWN: structure=chain side=&lt;side&gt; base=&lt;square&gt; head=&lt;square&gt;</code></td>
+<td>diagonal pawn chain of length at least three, base is rearmost pawn, head foremost</td>
+<td>omit for two-pawn pairs</td>
+</tr>
+<tr>
+<td><code>PAWN: structure=phalanx side=&lt;side&gt; squares=&lt;a,b&gt;</code></td>
+<td>two friendly pawns adjacent horizontally on same rank</td>
+<td>omit otherwise</td>
+</tr>
+<tr>
+<td><code>PAWN: structure=hanging side=&lt;side&gt; files=&lt;files&gt;</code></td>
+<td>two adjacent friendly pawns with no friendly pawns on neighboring outer files and both are attackable/advance-constrained</td>
+<td>omit if only one pawn</td>
+</tr>
+<tr>
+<td><code>PAWN: islands side=&lt;side&gt; count=&lt;n&gt;</code></td>
+<td>count groups of occupied pawn files</td>
+<td>emit if <code>n &gt;= 2</code>; omit one island</td>
+</tr>
+<tr>
+<td>`PAWN: majority side=&lt;side&gt; flank=&lt;queen</td>
+<td>king</td>
+<td>center&gt;`</td>
+<td>side has more pawns than opponent on flank</td>
+<td>omit equal flank counts</td>
+</tr>
+<tr>
+<td><code>PAWN: lever side=&lt;side&gt; square=&lt;square&gt; target=&lt;square&gt;</code></td>
+<td>pawn can advance/capture to challenge enemy pawn chain or create break</td>
+<td>omit if move illegal</td>
+</tr>
+<tr>
+<td><code>PAWN: ram side=&lt;side&gt; square=&lt;square&gt; target=&lt;square&gt;</code></td>
+<td>opposing pawns block each other directly on same file</td>
+<td>omit otherwise</td>
+</tr>
+<tr>
+<td><code>PAWN: underpromotion_available side=&lt;side&gt; move=&lt;uci&gt;</code></td>
+<td>legal underpromotion exists and underpromotion gives check, mate, avoids stalemate, or wins material compared to queen promotion</td>
+<td>omit routine underpromotions</td>
+</tr>
+</tbody></table></div>
+<p>Reliability notes:</p>
+<ul>
+<li>Passed pawns and doubled pawns are exact static tags.</li>
+<li>Backward, candidate, lever, and hanging-pawn tags are heuristic. Emit only</li>
+</ul>
+<p>when all listed conditions are met.</p>
+<ul>
+<li>Underpromotion should not fire just because underpromotion moves are legal.</li>
+</ul>
+<p>It needs a reason.</p>
+<h3 id="king-tags">KING Tags</h3>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Tag</th>
+<th>Evidence rule</th>
+<th>Omit rule</th>
+</tr></thead><tbody>
+<tr>
+<td><code>KING: side=&lt;side&gt; attackers=&lt;n&gt;</code></td>
+<td>enemy attackers on king square or king zone, depending field name chosen</td>
+<td>emit count in king profile</td>
+</tr>
+<tr>
+<td><code>KING: exposed side=&lt;side&gt;</code></td>
+<td>king has <code>&lt;= 1</code> friendly adjacent cover piece and at least two adjacent squares attacked</td>
+<td>omit otherwise</td>
+</tr>
+<tr>
+<td><code>KING: vulnerable side=&lt;side&gt;</code></td>
+<td>enemy has at least three attackers into king zone, or queen/rook/bishop battery plus weak pawn shield</td>
+<td>omit if only one weak signal</td>
+</tr>
+<tr>
+<td><code>KING: flight_squares side=&lt;side&gt; count=&lt;n&gt;</code></td>
+<td>adjacent squares that are empty/enemy-occupied and not enemy attacked</td>
+<td>emit in king profile</td>
+</tr>
+<tr>
+<td><code>KING: no_flight side=&lt;side&gt;</code></td>
+<td><code>flight_squares == 0</code> and king is under pressure or in check</td>
+<td>omit if safe/no pressure</td>
+</tr>
+<tr>
+<td><code>KING: back_rank_weak side=&lt;side&gt;</code></td>
+<td>king on home rank, adjacent escape squares blocked by own pieces/pawns, and enemy rook/queen can plausibly check along back rank</td>
+<td>omit without heavy-piece pressure</td>
+</tr>
+<tr>
+<td>`KING: pawn_shield side=&lt;side&gt; quality=&lt;good</td>
+<td>thin</td>
+<td>broken</td>
+<td>none&gt;`</td>
+<td>evaluate three files around king for friendly pawns on shield ranks</td>
+<td>emit only if castled/king near flank</td>
+</tr>
+<tr>
+<td><code>KING: open_file_near side=&lt;side&gt; file=&lt;file&gt;</code></td>
+<td>open or half-open file adjacent to king with enemy rook/queen line potential</td>
+<td>omit without enemy heavy piece</td>
+</tr>
+<tr>
+<td><code>KING: diagonal_weakness side=&lt;side&gt; diagonal=&lt;name&gt;</code></td>
+<td>bishop/queen diagonal to king zone with at most one removable blocker</td>
+<td>omit otherwise</td>
+</tr>
+<tr>
+<td>`KING: castling_rights side=&lt;side&gt; value=&lt;none</td>
+<td>king</td>
+<td>queen</td>
+<td>both&gt;`</td>
+<td>parse castling rights per side</td>
+<td>emit in king/castling profile</td>
+</tr>
+<tr>
+<td>`KING: castled side=&lt;side&gt; flank=&lt;king</td>
+<td>queen&gt;`</td>
+<td>king on g/c-file style castled square or Chess960 final castled square with rook placement consistent</td>
+<td>omit if uncertain</td>
+</tr>
+<tr>
+<td><code>KING: trapped side=&lt;side&gt;</code></td>
+<td>no flight squares and own pieces occupy/block most adjacent squares</td>
+<td>omit unless pressure exists</td>
+</tr>
+</tbody></table></div>
+<p>Pawn shield quality:</p>
+<ul>
+<li><code>good</code>: at least two shield pawns close to king and no adjacent open file.</li>
+<li><code>thin</code>: one shield pawn missing or advanced.</li>
+<li><code>broken</code>: two or more shield pawns missing/advanced or direct open file.</li>
+<li><code>none</code>: no friendly pawn shield near flank king.</li>
+</ul>
+<h3 id="piece-tags">PIECE Tags</h3>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Tag</th>
+<th>Evidence rule</th>
+<th>Omit rule</th>
+</tr></thead><tbody>
+<tr>
+<td><code>PIECE: tier=&lt;tier&gt; side=&lt;side&gt; piece=&lt;piece&gt; square=&lt;square&gt;</code></td>
+<td>piece activity score crosses tier thresholds</td>
+<td>emit for every piece only in piece-profile; otherwise top extremes</td>
+</tr>
+<tr>
+<td><code>PIECE: extreme=strongest ...</code></td>
+<td>highest positive piece activity score</td>
+<td>emit when piece-profile enabled</td>
+</tr>
+<tr>
+<td><code>PIECE: extreme=weakest ...</code></td>
+<td>lowest piece activity score</td>
+<td>emit when piece-profile enabled</td>
+</tr>
+<tr>
+<td><code>PIECE: activity=active ...</code></td>
+<td>mobility, attacks, defended status, and central/king-zone role exceed active threshold</td>
+<td>omit neutral pieces</td>
+</tr>
+<tr>
+<td><code>PIECE: activity=passive ...</code></td>
+<td>low mobility and poor placement for that piece type</td>
+<td>omit if blocked only temporarily but has legal improving move</td>
+</tr>
+<tr>
+<td><code>PIECE: outpost side=&lt;side&gt; piece=&lt;piece&gt; square=&lt;square&gt;</code></td>
+<td>knight or bishop on enemy half, defended by pawn/piece, cannot be attacked by enemy pawns</td>
+<td>omit otherwise</td>
+</tr>
+<tr>
+<td><code>PIECE: trapped side=&lt;side&gt; piece=&lt;piece&gt; square=&lt;square&gt;</code></td>
+<td>non-king piece has no safe legal moves and is attacked or can be attacked by a lower-value piece</td>
+<td>omit if piece can trade or escape</td>
+</tr>
+<tr>
+<td><code>PIECE: hanging side=&lt;side&gt; piece=&lt;piece&gt; square=&lt;square&gt;</code></td>
+<td>piece is attacked by enemy, not defended by legal defender, and not tactically immune</td>
+<td>omit kings and pawns unless profile asks</td>
+</tr>
+<tr>
+<td><code>PIECE: loose side=&lt;side&gt; piece=&lt;piece&gt; square=&lt;square&gt;</code></td>
+<td>piece is undefended but not currently attacked</td>
+<td>omit low-value pieces unless many loose pieces</td>
+</tr>
+<tr>
+<td><code>PIECE: overloaded side=&lt;side&gt; piece=&lt;piece&gt; square=&lt;square&gt;</code></td>
+<td>piece is sole legal defender of at least two critical targets</td>
+<td>omit if other defenders can recapture</td>
+</tr>
+<tr>
+<td><code>PIECE: defender side=&lt;side&gt; piece=&lt;piece&gt; square=&lt;square&gt; target=&lt;square&gt;</code></td>
+<td>piece is sole/important defender of critical target</td>
+<td>omit ordinary defended pawns</td>
+</tr>
+<tr>
+<td><code>PIECE: battery side=&lt;side&gt; pieces=&lt;pieces&gt; line=&lt;line&gt;</code></td>
+<td>queen+rook, rook+rook, queen+bishop, or bishop+bishop aligned toward king/critical target</td>
+<td>omit harmless alignment</td>
+</tr>
+<tr>
+<td><code>PIECE: rook_open_file side=&lt;side&gt; square=&lt;square&gt; file=&lt;file&gt;</code></td>
+<td>rook on open file, no friendly/enemy pawns on file</td>
+<td>omit if file blocked by own piece directly ahead</td>
+</tr>
+<tr>
+<td><code>PIECE: rook_seventh side=&lt;side&gt; square=&lt;square&gt;</code></td>
+<td>rook on 7th rank for white or 2nd rank for black attacking pawns/king zone</td>
+<td>omit if trapped and irrelevant</td>
+</tr>
+<tr>
+<td><code>PIECE: bad_bishop side=&lt;side&gt; square=&lt;square&gt;</code></td>
+<td>bishop blocked by own pawns on same color and low mobility <code>&lt;= 3</code></td>
+<td>omit if active diagonal exists</td>
+</tr>
+<tr>
+<td><code>PIECE: knight_outpost side=&lt;side&gt; square=&lt;square&gt;</code></td>
+<td>alias of outpost for knights</td>
+<td>prefer canonical <code>outpost</code> unless UI wants shortcut</td>
+</tr>
+</tbody></table></div>
+<p>Piece activity score should be explainable:</p>
+<ul>
+<li>mobility component by piece type</li>
+<li>attacks on enemy half/king zone</li>
+<li>defended status</li>
+<li>centralization for knights/bishops</li>
+<li>open-file and rank bonuses for rooks</li>
+<li>queen activity tempered by vulnerability</li>
+<li>penalties for trapped, pinned, blocked, or undefended high-value pieces</li>
+</ul>
+<h3 id="space-tags">SPACE Tags</h3>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Tag</th>
+<th>Evidence rule</th>
+<th>Omit rule</th>
+</tr></thead><tbody>
+<tr>
+<td>`SPACE: advantage=white</td>
+<td>black</td>
+<td>equal`</td>
+<td>compare controlled safe squares in opponent half and center; lead threshold <code>&gt;= 4</code> squares</td>
+<td>emit <code>equal</code> only in space profile</td>
+</tr>
+<tr>
+<td><code>SPACE: center_control side=&lt;side&gt; count=&lt;n&gt;</code></td>
+<td>count attacks/occupancy on d4/e4/d5/e5</td>
+<td>emit in space profile</td>
+</tr>
+<tr>
+<td>`SPACE: flank_control side=&lt;side&gt; flank=&lt;king</td>
+<td>queen&gt;`</td>
+<td>side controls at least three more relevant flank squares than opponent</td>
+<td>omit if small edge</td>
+</tr>
+</tbody></table></div>
+<p>Space should not be based on pawns alone. Use safe controlled squares that pieces can plausibly use.</p>
+<h3 id="development-tags">DEVELOPMENT Tags</h3>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Tag</th>
+<th>Evidence rule</th>
+<th>Omit rule</th>
+</tr></thead><tbody>
+<tr>
+<td>`DEVELOPMENT: lead=white</td>
+<td>black</td>
+<td>equal`</td>
+<td>compare developed minor pieces, rooks connected, castling/king safety, queen not prematurely exposed</td>
+<td>emit only opening/middlegame</td>
+</tr>
+<tr>
+<td><code>DEVELOPMENT: undeveloped side=&lt;side&gt; piece=&lt;piece&gt; square=&lt;square&gt;</code></td>
+<td>minor piece on original square after move 8 or phase still opening but opponent developed</td>
+<td>omit in endgames</td>
+</tr>
+<tr>
+<td><code>DEVELOPMENT: king_uncastled side=&lt;side&gt;</code></td>
+<td>king on original/central square, castling rights gone or unsafe, and phase not endgame</td>
+<td>omit if castling still easy/safe</td>
+</tr>
+</tbody></table></div>
+<p>Development tags are opening/middlegame-only. Do not emit &quot;undeveloped&quot; in simplified endgames.</p>
+<h3 id="mobility-tags">MOBILITY Tags</h3>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Tag</th>
+<th>Evidence rule</th>
+<th>Omit rule</th>
+</tr></thead><tbody>
+<tr>
+<td><code>MOBILITY: side=&lt;side&gt; legal=&lt;n&gt;</code></td>
+<td>legal move count for side</td>
+<td>emit in mobility profile</td>
+</tr>
+<tr>
+<td><code>MOBILITY: piece=&lt;piece&gt; side=&lt;side&gt; square=&lt;square&gt; moves=&lt;n&gt;</code></td>
+<td>legal or pseudo-legal safe moves for piece</td>
+<td>emit only for unusually high/low mobility</td>
+</tr>
+<tr>
+<td><code>MOBILITY: restricted side=&lt;side&gt;</code></td>
+<td>legal move count <code>&lt;= 5</code> outside checkmate/stalemate, or piece mobility broadly constrained</td>
+<td>omit if side is simply in check unless evasions low</td>
+</tr>
+</tbody></table></div>
+<p>For side not to move, mobility requires a temporary side-to-move flip and legal move generation. Cache it and do it only if needed.</p>
+<h3 id="initiative-tags">INITIATIVE Tags</h3>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Tag</th>
+<th>Evidence rule</th>
+<th>Omit rule</th>
+</tr></thead><tbody>
+<tr>
+<td><code>INITIATIVE: side=&lt;side&gt;</code></td>
+<td>side has materially meaningful forcing-move lead: checks + threats + captures against king zone exceed opponent by threshold</td>
+<td>omit if only one checking move with no follow-up</td>
+</tr>
+<tr>
+<td><code>INITIATIVE: forcing_moves side=&lt;side&gt; count=&lt;n&gt;</code></td>
+<td>count legal checks, mate threats, high-value captures, promotions</td>
+<td>emit in initiative profile</td>
+</tr>
+<tr>
+<td><code>INITIATIVE: tempo side=&lt;side&gt;</code></td>
+<td>legal move creates immediate threat against king/queen or wins material while opponent has no equal forcing reply</td>
+<td>omit without one-ply evidence</td>
+</tr>
+</tbody></table></div>
+<p>Initiative is vague on many puzzle sites. Our definition is: &quot;a side has the initiative if it has multiple forcing moves or one forcing move that creates a concrete high-value threat while the opponent lacks an equivalent immediate forcing reply.&quot;</p>
+<h3 id="tactic-tags">TACTIC Tags</h3>
+<p>All tactical tags should include <code>move=&lt;uci&gt;</code> when the motif is move-dependent. Static relation tags can omit <code>move</code> only when the motif already exists in the position.</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Tag</th>
+<th>Reliable definition</th>
+<th>Do not emit when</th>
+</tr></thead><tbody>
+<tr>
+<td><code>TACTIC: motif=pin</code></td>
+<td>line slider attacks valuable piece/king through exactly one enemy piece; pinned piece cannot legally move without exposing higher-value target or king</td>
+<td>blocker can freely move or target is not valuable</td>
+</tr>
+<tr>
+<td><code>TACTIC: motif=absolute_pin</code></td>
+<td>pinned piece shields own king</td>
+<td>use <code>pin subtype=absolute</code> if fields support it</td>
+</tr>
+<tr>
+<td><code>TACTIC: motif=relative_pin</code></td>
+<td>pinned piece shields queen/rook or mate-defense square</td>
+<td>target is not critical</td>
+</tr>
+<tr>
+<td><code>TACTIC: motif=fork</code></td>
+<td>one piece attacks at least two critical targets after legal move or in current position</td>
+<td>one target can capture for free and wins material</td>
+</tr>
+<tr>
+<td><code>TACTIC: motif=double_attack</code></td>
+<td>same as fork but non-piece target included, such as mate threat + queen</td>
+<td>no two critical targets</td>
+</tr>
+<tr>
+<td><code>TACTIC: motif=hanging</code></td>
+<td>attacked undefended non-king piece</td>
+<td>defended or tactically poisoned</td>
+</tr>
+<tr>
+<td><code>TACTIC: motif=skewer</code></td>
+<td>line attack hits high-value front piece; legal/forced move exposes lower piece behind</td>
+<td>front piece can capture attacker safely or line not forced</td>
+</tr>
+<tr>
+<td><code>TACTIC: motif=xray</code></td>
+<td>slider attacks/pressures target through intervening piece, and intervening piece is pinned, overloaded, or removable</td>
+<td>merely aligned pieces with no pressure</td>
+</tr>
+<tr>
+<td><code>TACTIC: motif=discovered_attack</code></td>
+<td>legal move by front piece reveals attack by back slider on critical target</td>
+<td>revealed target not critical</td>
+</tr>
+<tr>
+<td><code>TACTIC: motif=discovered_check</code></td>
+<td>legal move by front piece reveals check by back slider</td>
+<td>move illegal or checking line blocked</td>
+</tr>
+<tr>
+<td><code>TACTIC: motif=double_check</code></td>
+<td>legal move results in two independent attacks on king</td>
+<td>only one checker after move</td>
+</tr>
+<tr>
+<td><code>TACTIC: motif=trapped_piece</code></td>
+<td>piece has no safe legal squares and is attacked/can be attacked by lower-value piece</td>
+<td>piece can trade for equal or better material</td>
+</tr>
+<tr>
+<td><code>TACTIC: motif=overloading</code></td>
+<td>one defender is sole legal defender of two or more critical targets; legal move attacks one target and wins the other</td>
+<td>other defender can replace it</td>
+</tr>
+<tr>
+<td><code>TACTIC: motif=removal_of_defender</code></td>
+<td>legal capture/removal of a defender makes a critical target undefended and tactically winnable</td>
+<td>removed piece not a key defender</td>
+</tr>
+<tr>
+<td><code>TACTIC: motif=deflection</code></td>
+<td>legal move attacks/lures sole defender away from critical duty; if accepted, target falls or mate occurs</td>
+<td>defender can decline without loss</td>
+</tr>
+<tr>
+<td><code>TACTIC: motif=decoy</code></td>
+<td>legal forcing move lures king/queen/piece onto a square where a known tactic follows</td>
+<td>no forcing acceptance or no follow-up proof</td>
+</tr>
+<tr>
+<td><code>TACTIC: motif=attraction</code></td>
+<td>alias of decoy for external mapping; internally prefer decoy</td>
+<td>do not emit both unless alias mode requested</td>
+</tr>
+<tr>
+<td><code>TACTIC: motif=interference</code></td>
+<td>legal move occupies line between defender and critical target, breaking defense or attack</td>
+<td>line was not important</td>
+</tr>
+<tr>
+<td><code>TACTIC: motif=clearance</code></td>
+<td>legal move vacates square/line so another piece gains check, mate, or material win</td>
+<td>vacated line does not matter</td>
+</tr>
+<tr>
+<td><code>TACTIC: motif=sacrifice</code></td>
+<td>legal move gives up material of at least pawn value and creates mate, wins more material within proof window, or engine/PV confirms compensation</td>
+<td>speculative sacrifice with no proof</td>
+</tr>
+<tr>
+<td><code>TACTIC: motif=queen_sacrifice</code></td>
+<td>sacrifice where moving/lost piece is queen and compensation is mate/material proof</td>
+<td>queen trade or simple recapture equalization</td>
+</tr>
+<tr>
+<td><code>TACTIC: motif=exchange_sacrifice</code></td>
+<td>rook intentionally trades for bishop/knight/pawn with concrete follow-up or engine/PV proof</td>
+<td>forced losing exchange without compensation</td>
+</tr>
+<tr>
+<td><code>TACTIC: motif=desperado</code></td>
+<td>attacked high-value piece has no safe retreat, but legal capture/check wins material before it is lost</td>
+<td>piece has safe retreat</td>
+</tr>
+<tr>
+<td><code>TACTIC: motif=zwischenzug</code></td>
+<td>legal forcing move inserted before expected recapture changes material/check result favorably</td>
+<td>ordinary check with no in-between context</td>
+</tr>
+<tr>
+<td><code>TACTIC: motif=intermezzo</code></td>
+<td>alias of zwischenzug</td>
+<td>do not emit both unless alias mode requested</td>
+</tr>
+<tr>
+<td><code>TACTIC: motif=quiet_move</code></td>
+<td>legal non-capture non-check move creates unavoidable mate/material threat in one, or engine/PV proves it</td>
+<td>positional improving move only</td>
+</tr>
+<tr>
+<td><code>TACTIC: motif=simplification</code></td>
+<td>legal sequence/trade reduces material into clearly winning/equalizing endgame by material/eval proof</td>
+<td>routine trade with no result change</td>
+</tr>
+<tr>
+<td><code>TACTIC: motif=perpetual_check</code></td>
+<td>engine/PV or bounded repetition search finds repeated checks with no escape and non-losing eval</td>
+<td>single checking resource only</td>
+</tr>
+<tr>
+<td><code>TACTIC: motif=windmill</code></td>
+<td>repeated discovered checks/attacks possible by same two pieces, winning at least rook value or mating</td>
+<td>one discovered check only</td>
+</tr>
+<tr>
+<td><code>TACTIC: motif=defensive_move</code></td>
+<td>only or best legal move prevents mate, wins back material, or restores equality according to static proof/engine</td>
+<td>any normal developing move</td>
+</tr>
+<tr>
+<td><code>TACTIC: motif=attacking_f2_f7</code></td>
+<td>move/piece attacks f2/f7 before castling or around king, with queen/bishop/knight support and king still vulnerable</td>
+<td>pawn attack only or no king relevance</td>
+</tr>
+<tr>
+<td><code>TACTIC: motif=mating_net</code></td>
+<td>king has no or one flight square, multiple escape squares controlled, and side has legal checking continuation or engine proof</td>
+<td>vague pressure with many escapes</td>
+</tr>
+<tr>
+<td><code>TACTIC: motif=mate_in_1</code></td>
+<td>legal move gives mate</td>
+<td>no legal mating move</td>
+</tr>
+<tr>
+<td><code>TACTIC: motif=mate_in_2+</code></td>
+<td>bounded engine/PV proves mate distance</td>
+<td>static guess without search</td>
+</tr>
+<tr>
+<td><code>TACTIC: motif=advantage</code></td>
+<td>engine/static eval bucket crosses advantage threshold</td>
+<td>static tags alone</td>
+</tr>
+<tr>
+<td><code>TACTIC: motif=crushing</code></td>
+<td>engine/static eval bucket crosses crushing threshold or mate is forced</td>
+<td>static tags alone</td>
+</tr>
+<tr>
+<td><code>TACTIC: motif=equality</code></td>
+<td>engine/static eval near zero after forced line or defensive resource</td>
+<td>static material equality alone</td>
+</tr>
+</tbody></table></div>
+<p>Evaluation buckets:</p>
+<ul>
+<li><code>equality</code>: absolute eval <code>&lt;= 50cp</code>.</li>
+<li><code>advantage</code>: <code>150cp..499cp</code>.</li>
+<li><code>crushing</code>: <code>&gt;= 500cp</code> or forced mate.</li>
+<li>These should be engine/static-evaluator profile tags, not pure board facts.</li>
+</ul>
+<h3 id="checkmate-tags">CHECKMATE Tags</h3>
+<p>All named mate tags require <code>FACT: status=checkmate</code>. If the position is not mate, use <code>TACTIC: motif=mating_net</code> or <code>THREAT</code> instead.</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Tag</th>
+<th>Reliable definition</th>
+</tr></thead><tbody>
+<tr>
+<td><code>CHECKMATE: winner=&lt;side&gt;</code></td>
+<td>opposite of mated side</td>
+</tr>
+<tr>
+<td><code>CHECKMATE: defender=&lt;side&gt;</code></td>
+<td>side to move in checkmate</td>
+</tr>
+<tr>
+<td><code>CHECKMATE: delivery=&lt;piece&gt;</code></td>
+<td>checker piece if exactly one checker; <code>multiple</code> if double check</td>
+</tr>
+<tr>
+<td><code>CHECKMATE: pattern=double_check</code></td>
+<td>final mate has at least two checkers</td>
+</tr>
+<tr>
+<td><code>CHECKMATE: pattern=back_rank_mate</code></td>
+<td>mated king on home rank, own pieces/pawns block flight squares, rook/queen delivers rank/file mate</td>
+</tr>
+<tr>
+<td><code>CHECKMATE: pattern=smothered_mate</code></td>
+<td>knight delivers mate, king surrounded mostly by own pieces, no flight squares</td>
+</tr>
+<tr>
+<td><code>CHECKMATE: pattern=support_mate</code></td>
+<td>checking piece is protected by another piece and king cannot capture it</td>
+</tr>
+<tr>
+<td><code>CHECKMATE: pattern=corner_mate</code></td>
+<td>mated king on corner square and all adjacent squares controlled/blocked</td>
+</tr>
+<tr>
+<td><code>CHECKMATE: pattern=anastasias_mate</code></td>
+<td>rook/queen checks along file/rank near edge; knight controls key escape squares around castled/edge king</td>
+</tr>
+<tr>
+<td><code>CHECKMATE: pattern=arabian_mate</code></td>
+<td>rook delivers mate with knight support controlling escape/capture squares near corner</td>
+</tr>
+<tr>
+<td><code>CHECKMATE: pattern=boden_mate</code></td>
+<td>two bishops create crossing diagonal controls around king, usually with king boxed by own pieces</td>
+</tr>
+<tr>
+<td><code>CHECKMATE: pattern=dovetail_mate</code></td>
+<td>queen adjacent/near king delivers mate; two diagonal escape squares blocked by defender&#x27;s own pieces</td>
+</tr>
+<tr>
+<td><code>CHECKMATE: pattern=epaulette_mate</code></td>
+<td>king has own pieces on both horizontal shoulders and queen/rook delivers direct mate</td>
+</tr>
+<tr>
+<td><code>CHECKMATE: pattern=hook_mate</code></td>
+<td>rook/queen delivery plus knight or pawn hook controls the main flight square</td>
+</tr>
+<tr>
+<td><code>CHECKMATE: pattern=kill_box_mate</code></td>
+<td>queen/rook and king/supporting piece form a box where all flights are controlled, not necessarily corner</td>
+</tr>
+<tr>
+<td><code>CHECKMATE: pattern=swallow_tail_mate</code></td>
+<td>queen mates king whose diagonal rear squares are blocked by own pieces</td>
+</tr>
+<tr>
+<td><code>CHECKMATE: pattern=triangle_mate</code></td>
+<td>queen and support piece/king form triangular coverage of king and all flights</td>
+</tr>
+<tr>
+<td><code>CHECKMATE: pattern=vukovic_mate</code></td>
+<td>rook/queen attacks castled king with knight/pawn support controlling h/g or a/b escape complex</td>
+</tr>
+<tr>
+<td><code>CHECKMATE: pattern=blind_swine_mate</code></td>
+<td>two rooks or rook+queen on 7th/2nd rank trap king along back rank</td>
+</tr>
+<tr>
+<td><code>CHECKMATE: pattern=corridor_mate</code></td>
+<td>king trapped in a rank/file corridor by own pieces or board edge, rook/queen controls corridor</td>
+</tr>
+<tr>
+<td><code>CHECKMATE: pattern=h_file_mate</code></td>
+<td>rook/queen mates on h-file against king-side king with h-file opened and escape squares covered</td>
+</tr>
+<tr>
+<td><code>CHECKMATE: pattern=lolli_mate</code></td>
+<td>queen delivers near castled king with pawn on g/h or b/a support controlling escape</td>
+</tr>
+<tr>
+<td><code>CHECKMATE: pattern=morphys_mate</code></td>
+<td>rook delivers on open file/rank with bishop controlling escape diagonal against castled king</td>
+</tr>
+<tr>
+<td><code>CHECKMATE: pattern=opera_mate</code></td>
+<td>rook and bishop coordinate against trapped king in Morphy-like geometry; final position must match rook+bishop confinement</td>
+</tr>
+<tr>
+<td><code>CHECKMATE: pattern=pillsburys_mate</code></td>
+<td>rook/queen delivery supported by bishop/knight controlling both escape and capture squares</td>
+</tr>
+<tr>
+<td><code>CHECKMATE: pattern=reti_mate</code></td>
+<td>bishop plus rook/queen geometry traps king with diagonal and rank/file control</td>
+</tr>
+<tr>
+<td><code>CHECKMATE: pattern=balestra_mate</code></td>
+<td>queen and bishop form diagonal net where queen cuts off king and bishop supports</td>
+</tr>
+<tr>
+<td><code>CHECKMATE: pattern=blackburnes_mate</code></td>
+<td>two bishops plus knight/heavy-piece support cover all escapes</td>
+</tr>
+<tr>
+<td><code>CHECKMATE: pattern=cozios_mate</code></td>
+<td>queen mates a boxed king with own pieces restricting escape on both sides</td>
+</tr>
+<tr>
+<td><code>CHECKMATE: pattern=damianos_mate</code></td>
+<td>queen supported by pawn or bishop mates near castled king on h/a-file complex</td>
+</tr>
+<tr>
+<td><code>CHECKMATE: pattern=grecos_mate</code></td>
+<td>bishop controls long diagonal while queen/rook mates exposed king on edge/castled area</td>
+</tr>
+<tr>
+<td><code>CHECKMATE: pattern=max_langes_mate</code></td>
+<td>queen/bishop/king geometry controls all adjacent squares near edge</td>
+</tr>
+<tr>
+<td><code>CHECKMATE: pattern=mayets_mate</code></td>
+<td>bishop controls diagonal escape while rook/queen mates along rank/file</td>
+</tr>
+<tr>
+<td><code>CHECKMATE: pattern=railroad_mate</code></td>
+<td>two heavy pieces confine king along adjacent ranks/files like rails</td>
+</tr>
+<tr>
+<td><code>CHECKMATE: pattern=suffocation_mate</code></td>
+<td>mated king&#x27;s own pieces block nearly every flight; delivery is not the standard knight smother</td>
+</tr>
+<tr>
+<td><code>CHECKMATE: pattern=lawnmower_mate</code></td>
+<td>two heavy pieces or queen+rook form adjacent-file/rank ladder mate</td>
+</tr>
+</tbody></table></div>
+<p>Special mate-name rules:</p>
+<ul>
+<li><code>legals_mate</code>: emit only from PGN sequence context where the opening trap is</li>
+</ul>
+<p>actually proven. Do not emit it from a final FEN alone.</p>
+<ul>
+<li><code>bishop_and_knight_checkmate</code>: require actual checkmate, winning side has</li>
+</ul>
+<p>bishop+knight+king only, losing side has king only, and the bishop/knight/king jointly cover every flight square.</p>
+<ul>
+<li><code>lawnmower_mate</code>: require actual checkmate by queen+rook or two rooks using</li>
+</ul>
+<p>adjacent rank/file confinement.</p>
+<ul>
+<li><code>anderssens_mate</code>, <code>david_and_goliath_mate</code>, and <code>ladder_trick</code>: excluded</li>
+</ul>
+<p>from normal output until they have fixture-backed project predicates. If a source imports these labels, keep them as external metadata, not canonical generated tags.</p>
+<p>Named mate reliability rule:</p>
+<ul>
+<li>It is acceptable to emit multiple mate pattern tags when the geometry truly</li>
+</ul>
+<p>overlaps.</p>
+<ul>
+<li>It is better to emit only <code>CHECKMATE: delivery=queen</code> than to force a named</li>
+</ul>
+<p>pattern on a generic mate.</p>
+<h3 id="endgame-tags">ENDGAME Tags</h3>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Tag</th>
+<th>Evidence rule</th>
+<th>Omit rule</th>
+</tr></thead><tbody>
+<tr>
+<td><code>ENDGAME: type=pawn</code></td>
+<td>only kings and pawns remain</td>
+<td>omit if any piece remains</td>
+</tr>
+<tr>
+<td><code>ENDGAME: type=rook</code></td>
+<td>at least one rook and no queens; minor pieces absent or symmetrical enough for rook-endgame classification</td>
+<td>omit if queen present</td>
+</tr>
+<tr>
+<td><code>ENDGAME: type=queen</code></td>
+<td>queen(s) present, rooks absent, low total material</td>
+<td>omit in middlegame material</td>
+</tr>
+<tr>
+<td><code>ENDGAME: type=bishop</code></td>
+<td>bishops are only non-pawn pieces</td>
+<td>omit if knights/rooks/queens</td>
+</tr>
+<tr>
+<td><code>ENDGAME: type=knight</code></td>
+<td>knights are only non-pawn pieces</td>
+<td>omit if bishops/rooks/queens</td>
+</tr>
+<tr>
+<td><code>ENDGAME: type=minor_piece</code></td>
+<td>only bishops/knights and pawns remain</td>
+<td>omit if rook/queen</td>
+</tr>
+<tr>
+<td><code>ENDGAME: type=opposite_bishops</code></td>
+<td>exactly one bishop each, opposite colors, no other pieces or only light extra material</td>
+<td>omit if multiple bishops</td>
+</tr>
+<tr>
+<td><code>ENDGAME: type=same_color_bishops</code></td>
+<td>exactly one bishop each, same color</td>
+<td>omit otherwise</td>
+</tr>
+<tr>
+<td><code>ENDGAME: type=rook_vs_minor</code></td>
+<td>one side has rook, other has bishop/knight, no queens</td>
+<td>omit with extra heavy pieces</td>
+</tr>
+<tr>
+<td><code>ENDGAME: type=queen_vs_rook</code></td>
+<td>queen vs rook primary material, no extra queens</td>
+<td>omit with many pieces</td>
+</tr>
+<tr>
+<td><code>ENDGAME: type=king_and_pawn</code></td>
+<td>synonym/profile alias for pawn endgame</td>
+<td>prefer <code>type=pawn</code> canonical</td>
+</tr>
+<tr>
+<td><code>ENDGAME: theme=outside_passer</code></td>
+<td>passed pawn on flank farthest from both kings compared to main pawn mass</td>
+<td>omit if not passed</td>
+</tr>
+<tr>
+<td><code>ENDGAME: theme=connected_passers</code></td>
+<td>two adjacent passed pawns</td>
+<td>reuse pawn evidence</td>
+</tr>
+<tr>
+<td><code>ENDGAME: theme=wrong_rook_pawn</code></td>
+<td>rook pawn promotes on color not controlled by only bishop, defending king can reach corner</td>
+<td>omit if unsure</td>
+</tr>
+<tr>
+<td><code>ENDGAME: theme=fortress_candidate</code></td>
+<td>material down side has blocked pawns, opposite bishops or rook-pawn fortress geometry, and no clear pawn breaks</td>
+<td>static-weak; omit by default unless profile asks</td>
+</tr>
+<tr>
+<td><code>ENDGAME: theme=zugzwang_candidate</code></td>
+<td>low material, side to move has only king/pawn moves and all legal moves worsen static facts</td>
+<td>omit unless verified by move comparison or engine</td>
+</tr>
+</tbody></table></div>
+<p>Endgame tags are classification and heuristic tags, not tablebase claims.</p>
+<h3 id="opening-tags">OPENING Tags</h3>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Tag</th>
+<th>Evidence rule</th>
+<th>Omit rule</th>
+</tr></thead><tbody>
+<tr>
+<td><code>OPENING: eco=&lt;code&gt;</code></td>
+<td>exact normalized FEN/signature match in configured ECO book</td>
+<td>omit if no match</td>
+</tr>
+<tr>
+<td><code>OPENING: name=&lt;name&gt;</code></td>
+<td>ECO match includes name</td>
+<td>omit if no match</td>
+</tr>
+<tr>
+<td><code>OPENING: family=&lt;family&gt;</code></td>
+<td>name can be split reliably by known family rules or config field</td>
+<td>omit if parser uncertain</td>
+</tr>
+<tr>
+<td><code>OPENING: variation=&lt;variation&gt;</code></td>
+<td>config provides variation field or reliable split</td>
+<td>omit if uncertain</td>
+</tr>
+</tbody></table></div>
+<p>Opening names are config-derived. Do not infer named openings from piece shapes unless a real opening book entry matches.</p>
+<h3 id="cand-pv-threat-idea-tags">CAND, PV, THREAT, IDEA Tags</h3>
+<p>These are engine/analysis or sequence tags, not static position tags.</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Tag</th>
+<th>Evidence rule</th>
+<th>Omit rule</th>
+</tr></thead><tbody>
+<tr>
+<td><code>CAND: rank=&lt;n&gt; move=&lt;move&gt; eval=&lt;...&gt;</code></td>
+<td>MultiPV or candidate search produced move</td>
+<td>omit without analysis</td>
+</tr>
+<tr>
+<td><code>PV: ply=&lt;n&gt; move=&lt;move&gt;</code></td>
+<td>principal variation exists</td>
+<td>omit without PV</td>
+</tr>
+<tr>
+<td><code>THREAT: type=&lt;motif&gt; side=&lt;side&gt;</code></td>
+<td>opponent has a concrete next-move tactic/mate/material win after null/quiet model or engine threat analysis</td>
+<td>omit if just &quot;pressure&quot;</td>
+</tr>
+<tr>
+<td><code>IDEA: move=&lt;uci&gt; creates=&lt;tag-id&gt;</code></td>
+<td>applying move creates a canonical tag absent before</td>
+<td>omit if tag identity cannot be compared</td>
+</tr>
+<tr>
+<td><code>IDEA: move=&lt;uci&gt; removes=&lt;tag-id&gt;</code></td>
+<td>applying move removes a bad/threat tag</td>
+<td>omit if removal is unrelated/noisy</td>
+</tr>
+<tr>
+<td><code>IDEA: plan=&lt;text&gt;</code></td>
+<td>curated deterministic mapping from tag cluster to short idea</td>
+<td>omit free-form generated text from core tags</td>
+</tr>
+</tbody></table></div>
+<p>Threat definition:</p>
+<ul>
+<li>A threat is an opponent legal move after the current side makes no tactically</li>
+</ul>
+<p>relevant improvement, or a PV-supported next move, that produces one of: mate, winning queen/rook, promotion, decisive discovered attack, or material swing above threshold.</p>
+<ul>
+<li>Avoid <code>THREAT</code> for &quot;the king looks unsafe&quot; without a concrete move.</li>
+</ul>
+<h3 id="vague-puzzle-tags-with-project-definitions">Vague Puzzle Tags With Project Definitions</h3>
+<p>Some puzzle-site tags are too broad. ChessRTK should define them narrowly:</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Vague label</th>
+<th>ChessRTK definition</th>
+</tr></thead><tbody>
+<tr>
+<td><code>advantage</code></td>
+<td>evaluator or static material/king-safety score indicates <code>&gt;= 150cp</code> and no immediate tactical refutation</td>
+</tr>
+<tr>
+<td><code>crushing</code></td>
+<td>evaluator <code>&gt;= 500cp</code>, forced mate, or material win of rook+ with safe king</td>
+</tr>
+<tr>
+<td><code>equality</code></td>
+<td>evaluator within <code>50cp</code> or defensive move restores material/status to equal</td>
+</tr>
+<tr>
+<td><code>defensive move</code></td>
+<td>legal move is the only move, prevents mate, saves a critical piece, or changes eval bucket from losing to equal/advantage</td>
+</tr>
+<tr>
+<td><code>mating net</code></td>
+<td>enemy king has <code>&lt;= 1</code> flight square, checking side controls all escape corridors, and at least one legal checking move keeps the net</td>
+</tr>
+<tr>
+<td><code>quiet move</code></td>
+<td>non-capture non-check legal move creates mate/material threat that opponent cannot ignore</td>
+</tr>
+<tr>
+<td><code>zugzwang</code></td>
+<td>low-material position where every legal move worsens a static evaluation bucket or loses critical opposition/pawn; engine confirmation preferred</td>
+</tr>
+<tr>
+<td><code>endgame tactic</code></td>
+<td>any tactic motif emitted while <code>META: phase=endgame</code> or an endgame type tag exists</td>
+</tr>
+<tr>
+<td><code>attacking castled king</code></td>
+<td>king is castled or flank-placed, pawn shield is broken/thin, and attacker has at least two pieces aimed at king zone</td>
+</tr>
+<tr>
+<td><code>kingside attack</code></td>
+<td>same as attacking castled king on files e-h</td>
+</tr>
+<tr>
+<td><code>queenside attack</code></td>
+<td>same as attacking castled king on files a-d or king placed queenside</td>
+</tr>
+<tr>
+<td><code>basic checkmates</code></td>
+<td>do not emit as a canonical tag; use specific mate/endgame pattern</td>
+</tr>
+<tr>
+<td><code>mate in three+</code></td>
+<td>engine/PV only; no static guess</td>
+</tr>
+</tbody></table></div>
+<p>If a user asks why a tag appeared, the implementation should be able to point to the exact rule above.</p>
+<h2 id="pseudocode">Pseudocode</h2>
+<p>The pseudocode below is Java-like, but intentionally not final source. It shows the control flow, shared caches, evidence checks, and conservative emit rules that should drive the real implementation.</p>
+<h3 id="tagging-pipeline">Tagging Pipeline</h3>
+<pre><code class="language-java">TagResult tag(Position position, TagOptions options) {
+    TagContext ctx = TagContext.build(position, options);
+    TagEmitter out = new TagEmitter(options);
+
+    runExactDetectors(ctx, out);
+
+    if (options.includesStatic()) {
+        runStaticStrongDetectors(ctx, out);
+    }
+
+    if (options.includesWeakDebug()) {
+        runStaticWeakDetectors(ctx, out);
+    }
+
+    if (options.includesEngine() &amp;&amp; options.analysis() != null) {
+        runEngineDetectors(ctx, out);
+    }
+
+    if (options.includesAliases()) {
+        mapAliases(ctx, out);
+    }
+
+    return out.sortedResult();
+}
+
+void runExactDetectors(TagContext ctx, TagEmitter out) {
+    detectMeta(ctx, out);
+    detectFacts(ctx, out);
+    detectMaterial(ctx, out);
+    detectLegalMoveCounts(ctx, out);
+    detectExactPawns(ctx, out);
+    detectExactEndgames(ctx, out);
+    detectOpenings(ctx, out);
+
+    if (ctx.isCheckmate()) {
+        detectCheckmatePatterns(ctx, out);
+    }
+}
+
+void runStaticStrongDetectors(TagContext ctx, TagEmitter out) {
+    detectKingSafety(ctx, out);
+    detectPieceActivity(ctx, out);
+    detectSpace(ctx, out);
+    detectDevelopment(ctx, out);
+    detectMobility(ctx, out);
+    detectInitiative(ctx, out);
+    detectStaticTactics(ctx, out);
+    detectStrongPawnHeuristics(ctx, out);
+    detectStrongEndgameThemes(ctx, out);
+}</code></pre>
+<h3 id="context-construction">Context Construction</h3>
+<pre><code class="language-java">final class TagContext {
+    Position root;
+    TagOptions options;
+    Side stm;
+
+    long[] piecesByTypeAndSide;
+    long occupied;
+    long empty;
+
+    AttackMap whiteAttacks;
+    AttackMap blackAttacks;
+    LegalMoves legalMovesForStm;
+    LegalMoves legalMovesForOtherSide; // lazy
+
+    MaterialSummary material;
+    KingSummary whiteKing;
+    KingSummary blackKing;
+    Phase phase;
+
+    static TagContext build(Position position, TagOptions options) {
+        TagContext ctx = new TagContext();
+        ctx.root = position;
+        ctx.options = options;
+        ctx.stm = position.sideToMove();
+
+        ctx.piecesByTypeAndSide = position.pieceBitboards();
+        ctx.occupied = position.occupied();
+        ctx.empty = ~ctx.occupied;
+
+        ctx.whiteAttacks = AttackMap.from(position, WHITE);
+        ctx.blackAttacks = AttackMap.from(position, BLACK);
+        ctx.legalMovesForStm = LegalMoves.generate(position);
+
+        ctx.material = MaterialSummary.from(position);
+        ctx.phase = Phase.fromMaterial(ctx.material, position.fullmoveNumber());
+        ctx.whiteKing = KingSummary.from(ctx, WHITE);
+        ctx.blackKing = KingSummary.from(ctx, BLACK);
+        return ctx;
+    }
+
+    LegalMoves legalMovesFor(Side side) {
+        if (side == stm) {
+            return legalMovesForStm;
+        }
+        if (legalMovesForOtherSide == null) {
+            legalMovesForOtherSide = generateWithTemporarySideToMove(root, side);
+        }
+        return legalMovesForOtherSide;
+    }
+
+    MoveEffect effectOf(Move move) {
+        State state = root.play(move);
+        try {
+            return MoveEffect.from(root, move);
+        } finally {
+            root.undo(move, state);
+        }
+    }
+}</code></pre>
+<h3 id="emission-gate">Emission Gate</h3>
+<pre><code class="language-java">final class TagEmitter {
+    void emit(Tag tag, Reliability reliability, Evidence evidence) {
+        if (!options.allows(tag.family())) {
+            return;
+        }
+        if (!options.allowsReliability(reliability)) {
+            return;
+        }
+        if (!evidence.isConcrete()) {
+            return;
+        }
+        tags.add(tag.withEvidence(evidence));
+    }
+
+    void exact(Tag tag, Evidence evidence) {
+        emit(tag, EXACT, evidence);
+    }
+
+    void strong(Tag tag, Evidence evidence) {
+        emit(tag, STATIC_STRONG, evidence);
+    }
+
+    void weak(Tag tag, Evidence evidence) {
+        emit(tag, STATIC_WEAK, evidence);
+    }
+}</code></pre>
+<p>A detector should never create a tag before it has a short evidence object. The same evidence object can later power <code>--explain-tags</code>.</p>
+<h3 id="meta-fact-and-material">META, FACT, and MATERIAL</h3>
+<pre><code class="language-java">void detectMeta(TagContext ctx, TagEmitter out) {
+    out.exact(tag(&quot;META&quot;, &quot;to_move&quot;, ctx.stm), evidence(&quot;fen side-to-move&quot;));
+    out.exact(tag(&quot;META&quot;, &quot;phase&quot;, ctx.phase), evidence(ctx.material.summary()));
+
+    if (ctx.options.includeFen()) {
+        out.exact(tag(&quot;META&quot;, &quot;fen&quot;, ctx.root.toFen()), evidence(&quot;requested&quot;));
+    }
+    if (ctx.options.analysis() != null) {
+        Analysis a = ctx.options.analysis();
+        out.exact(tag(&quot;META&quot;, &quot;eval_cp&quot;, a.centipawns()), evidence(&quot;analysis&quot;));
+        out.exact(tag(&quot;META&quot;, &quot;wdl&quot;, a.wdl()), evidence(&quot;analysis&quot;));
+        out.exact(tag(&quot;META&quot;, &quot;difficulty&quot;, difficulty(a.wdl())), evidence(&quot;wdl&quot;));
+    }
+}
+
+void detectFacts(TagContext ctx, TagEmitter out) {
+    if (ctx.root.isCheckmate()) {
+        out.exact(tag(&quot;FACT&quot;, &quot;status&quot;, &quot;checkmate&quot;), evidence(&quot;no legal moves and in check&quot;));
+    } else if (ctx.root.isStalemate()) {
+        out.exact(tag(&quot;FACT&quot;, &quot;status&quot;, &quot;stalemate&quot;), evidence(&quot;no legal moves and not in check&quot;));
+    } else {
+        out.exact(tag(&quot;FACT&quot;, &quot;status&quot;, &quot;normal&quot;), evidence(&quot;legal moves exist&quot;));
+    }
+
+    if (ctx.root.inCheck()) {
+        out.exact(tag(&quot;FACT&quot;, &quot;in_check&quot;, ctx.stm), evidence(&quot;king attacked&quot;));
+        for (Square checker : checkers(ctx, ctx.stm)) {
+            out.exact(tag(&quot;FACT&quot;, &quot;checker&quot;, checkerPiece(ctx, checker)), evidence(&quot;direct checker&quot;));
+        }
+    }
+
+    out.exact(tag(&quot;FACT&quot;, &quot;castling&quot;, ctx.root.castlingRights()), evidence(&quot;fen rights&quot;));
+    if (ctx.root.enPassantSquare().exists()) {
+        out.exact(tag(&quot;FACT&quot;, &quot;en_passant&quot;, ctx.root.enPassantSquare()), evidence(&quot;fen square&quot;));
+    }
+    if (ctx.root.isChess960()) {
+        out.exact(tag(&quot;FACT&quot;, &quot;chess960&quot;, true), evidence(&quot;position mode&quot;));
+    }
+}
+
+void detectMaterial(TagContext ctx, TagEmitter out) {
+    int white = ctx.material.cp(WHITE);
+    int black = ctx.material.cp(BLACK);
+    int diff = white - black;
+
+    out.exact(tag(&quot;MATERIAL&quot;, &quot;cp_white&quot;, white), evidence(&quot;piece values&quot;));
+    out.exact(tag(&quot;MATERIAL&quot;, &quot;cp_black&quot;, black), evidence(&quot;piece values&quot;));
+
+    if (Math.abs(diff) &lt; 150) {
+        out.exact(tag(&quot;MATERIAL&quot;, &quot;balance&quot;, &quot;equal&quot;), evidence(&quot;diff under threshold&quot;));
+    } else {
+        Side leader = diff &gt; 0 ? WHITE : BLACK;
+        out.exact(tag(&quot;MATERIAL&quot;, &quot;balance&quot;, leader), evidence(&quot;diff=&quot; + Math.abs(diff)));
+        out.exact(tag(&quot;MATERIAL&quot;, &quot;imbalance&quot;, imbalanceBucket(Math.abs(diff))), evidence(&quot;diff bucket&quot;));
+    }
+
+    emitPresenceTags(ctx, out, QUEEN);
+    emitPresenceTags(ctx, out, ROOK);
+    emitBishopPairTags(ctx, out);
+    emitOppositeBishopTag(ctx, out);
+    emitInsufficientMaterialTag(ctx, out);
+}</code></pre>
+<h3 id="move-counters">MOVE Counters</h3>
+<pre><code class="language-java">void detectLegalMoveCounts(TagContext ctx, TagEmitter out) {
+    MoveCounters c = new MoveCounters();
+
+    for (Move move : ctx.legalMovesForStm) {
+        MoveEffect effect = ctx.effectOf(move);
+        c.legal++;
+
+        if (effect.isCapture()) c.captures++;
+        if (effect.isPromotion()) c.promotions++;
+        if (effect.isUnderpromotion()) c.underpromotions++;
+        if (effect.isCastle()) c.castles++;
+        if (effect.isEnPassant()) c.enPassant++;
+        if (effect.givesCheck()) c.checks++;
+        if (effect.givesMate()) c.mates++;
+        if (effect.isQuietNonCheck()) c.quiet++;
+    }
+
+    out.exact(tag(&quot;MOVE&quot;, &quot;legal&quot;, c.legal), evidence(&quot;legal generator&quot;));
+    emitPositive(out, tag(&quot;MOVE&quot;, &quot;captures&quot;, c.captures), c.captures);
+    emitPositive(out, tag(&quot;MOVE&quot;, &quot;checks&quot;, c.checks), c.checks);
+    emitPositive(out, tag(&quot;MOVE&quot;, &quot;mates&quot;, c.mates), c.mates);
+    emitPositive(out, tag(&quot;MOVE&quot;, &quot;promotions&quot;, c.promotions), c.promotions);
+    emitPositive(out, tag(&quot;MOVE&quot;, &quot;underpromotions&quot;, c.underpromotions), c.underpromotions);
+    emitPositive(out, tag(&quot;MOVE&quot;, &quot;castles&quot;, c.castles), c.castles);
+    emitPositive(out, tag(&quot;MOVE&quot;, &quot;en_passant&quot;, c.enPassant), c.enPassant);
+
+    if (c.legal == 1) {
+        Move only = ctx.legalMovesForStm.first();
+        out.exact(tag(&quot;MOVE&quot;, &quot;only&quot;, only.uci()), evidence(&quot;single legal move&quot;));
+        out.exact(tag(&quot;MOVE&quot;, &quot;forced&quot;, true), evidence(&quot;single legal move&quot;));
+    }
+    if (ctx.root.inCheck()) {
+        out.exact(tag(&quot;MOVE&quot;, &quot;evasions&quot;, c.legal), evidence(&quot;side to move in check&quot;));
+    }
+}</code></pre>
+<h3 id="pawn-structure">PAWN Structure</h3>
+<pre><code class="language-java">void detectExactPawns(TagContext ctx, TagEmitter out) {
+    for (Side side : SIDES) {
+        for (File file : FILES) {
+            int count = ctx.pawns(side).countOn(file);
+            if (count &gt;= 2) {
+                out.exact(tag(&quot;PAWN&quot;, &quot;structure&quot;, &quot;doubled&quot;, side, file, count), evidence(&quot;same file&quot;));
+            }
+            if (count &gt;= 3) {
+                out.exact(tag(&quot;PAWN&quot;, &quot;structure&quot;, &quot;tripled&quot;, side, file, count), evidence(&quot;same file&quot;));
+            }
+            if (count &gt; 0 &amp;&amp; noFriendlyPawnsOnAdjacentFiles(ctx, side, file)) {
+                out.exact(tag(&quot;PAWN&quot;, &quot;structure&quot;, &quot;isolated&quot;, side, file), evidence(&quot;no adjacent pawn files&quot;));
+            }
+        }
+
+        for (Square pawn : ctx.pawns(side)) {
+            if (isPassedPawn(ctx, side, pawn)) {
+                out.exact(tag(&quot;PAWN&quot;, &quot;structure&quot;, &quot;passed&quot;, side, pawn), evidence(&quot;no enemy pawn ahead&quot;));
+                if (isDefended(ctx, side, pawn)) {
+                    out.strong(tag(&quot;PAWN&quot;, &quot;structure&quot;, &quot;protected_passed&quot;, side, pawn), evidence(&quot;passed and defended&quot;));
+                }
+                if (isPromotionReady(side, pawn)) {
+                    out.exact(tag(&quot;PAWN&quot;, &quot;structure&quot;, &quot;promotion_ready&quot;, side, pawn), evidence(&quot;rank 7 or 2&quot;));
+                }
+            }
+            if (isAdvancedPawn(side, pawn)) {
+                out.exact(tag(&quot;PAWN&quot;, &quot;structure&quot;, &quot;advanced&quot;, side, pawn), evidence(&quot;advanced rank&quot;));
+            }
+        }
+
+        emitPawnIslands(ctx, out, side);
+        emitPawnMajorities(ctx, out, side);
+        emitChainsAndPhalanxes(ctx, out, side);
+    }
+}
+
+void detectStrongPawnHeuristics(TagContext ctx, TagEmitter out) {
+    for (Side side : SIDES) {
+        for (Square pawn : ctx.pawns(side)) {
+            if (isBackwardPawn(ctx, side, pawn)) {
+                out.strong(tag(&quot;PAWN&quot;, &quot;structure&quot;, &quot;backward&quot;, side, pawn), evidence(&quot;blocked, unsupported, controlled&quot;));
+            }
+            if (isCandidatePassedPawn(ctx, side, pawn)) {
+                out.strong(tag(&quot;PAWN&quot;, &quot;structure&quot;, &quot;candidate_passed&quot;, side, pawn), evidence(&quot;one credible break from passed&quot;));
+            }
+            if (isPawnLever(ctx, side, pawn)) {
+                out.strong(tag(&quot;PAWN&quot;, &quot;lever&quot;, side, pawn, leverTarget(ctx, side, pawn)), evidence(&quot;legal pawn break&quot;));
+            }
+        }
+        emitHangingPawnsIfBothConstrained(ctx, out, side);
+    }
+}</code></pre>
+<h3 id="king-safety">KING Safety</h3>
+<pre><code class="language-java">void detectKingSafety(TagContext ctx, TagEmitter out) {
+    for (Side side : SIDES) {
+        KingSummary k = ctx.king(side);
+
+        if (k.flightSquares == 0 &amp;&amp; k.hasPressure()) {
+            out.strong(tag(&quot;KING&quot;, &quot;no_flight&quot;, side), evidence(k.reason()));
+        }
+        if (k.exposed()) {
+            out.strong(tag(&quot;KING&quot;, &quot;exposed&quot;, side), evidence(&quot;low cover and attacked flights&quot;));
+        }
+        if (k.vulnerable()) {
+            out.strong(tag(&quot;KING&quot;, &quot;vulnerable&quot;, side), evidence(&quot;king-zone attackers&quot;));
+        }
+        if (k.backRankWeak()) {
+            out.strong(tag(&quot;KING&quot;, &quot;back_rank_weak&quot;, side), evidence(&quot;blocked escape and heavy-piece pressure&quot;));
+        }
+
+        out.strong(tag(&quot;KING&quot;, &quot;pawn_shield&quot;, side, k.shieldQuality()), evidence(k.shieldEvidence()));
+
+        for (File file : filesNear(k.square())) {
+            if (openFileNearKingWithEnemyHeavy(ctx, side, file)) {
+                out.strong(tag(&quot;KING&quot;, &quot;open_file_near&quot;, side, file), evidence(&quot;open file plus rook/queen&quot;));
+            }
+        }
+
+        if (isConservativelyCastled(ctx, side)) {
+            out.exact(tag(&quot;KING&quot;, &quot;castled&quot;, side, castledFlank(ctx, side)), evidence(&quot;king/rook castled geometry&quot;));
+        }
+    }
+}</code></pre>
+<h3 id="piece-activity-and-static-piece-tags">PIECE Activity and Static Piece Tags</h3>
+<pre><code class="language-java">void detectPieceActivity(TagContext ctx, TagEmitter out) {
+    PieceScore best = null;
+    PieceScore worst = null;
+
+    for (Side side : SIDES) {
+        for (Square square : ctx.occupiedBy(side)) {
+            Piece piece = ctx.piece(square);
+            PieceScore score = scorePiece(ctx, side, piece, square);
+            best = max(best, score);
+            worst = min(worst, score);
+
+            if (score.isActive()) {
+                out.strong(tag(&quot;PIECE&quot;, &quot;activity&quot;, &quot;active&quot;, side, piece, square), evidence(score.explain()));
+            }
+            if (score.isPassive()) {
+                out.strong(tag(&quot;PIECE&quot;, &quot;activity&quot;, &quot;passive&quot;, side, piece, square), evidence(score.explain()));
+            }
+            if (isOutpost(ctx, side, piece, square)) {
+                out.strong(tag(&quot;PIECE&quot;, &quot;outpost&quot;, side, piece, square), evidence(&quot;defended and cannot be chased by pawns&quot;));
+            }
+            if (isHangingPiece(ctx, side, piece, square)) {
+                out.strong(tag(&quot;PIECE&quot;, &quot;hanging&quot;, side, piece, square), evidence(&quot;attacked and not legally defended&quot;));
+            }
+            if (isLoosePiece(ctx, side, piece, square)) {
+                out.strong(tag(&quot;PIECE&quot;, &quot;loose&quot;, side, piece, square), evidence(&quot;undefended&quot;));
+            }
+            if (isTrappedPiece(ctx, side, piece, square)) {
+                out.strong(tag(&quot;PIECE&quot;, &quot;trapped&quot;, side, piece, square), evidence(&quot;no safe squares and under threat&quot;));
+            }
+            if (isOverloaded(ctx, side, square)) {
+                out.strong(tag(&quot;PIECE&quot;, &quot;overloaded&quot;, side, piece, square), evidence(&quot;sole defender of multiple critical targets&quot;));
+            }
+        }
+    }
+
+    if (ctx.options.pieceProfile()) {
+        out.strong(tag(&quot;PIECE&quot;, &quot;extreme&quot;, &quot;strongest&quot;, best.identity()), evidence(best.explain()));
+        out.strong(tag(&quot;PIECE&quot;, &quot;extreme&quot;, &quot;weakest&quot;, worst.identity()), evidence(worst.explain()));
+    }
+}
+
+PieceScore scorePiece(TagContext ctx, Side side, Piece piece, Square square) {
+    int score = 0;
+    score += mobilityBonus(piece, safeMoves(ctx, side, square));
+    score += targetBonus(attacksCriticalTargets(ctx, side, square));
+    score += centerBonus(piece, square);
+    score += kingZoneBonus(ctx, side, square);
+    score += rookFileBonus(ctx, side, piece, square);
+    score -= vulnerabilityPenalty(ctx, side, piece, square);
+    score -= pinnedPenalty(ctx, side, square);
+    return new PieceScore(piece, square, score);
+}</code></pre>
+<h3 id="space-development-mobility-and-initiative">SPACE, DEVELOPMENT, MOBILITY, and INITIATIVE</h3>
+<pre><code class="language-java">void detectSpace(TagContext ctx, TagEmitter out) {
+    int white = safeControlledSquaresInEnemyHalf(ctx, WHITE);
+    int black = safeControlledSquaresInEnemyHalf(ctx, BLACK);
+    int diff = white - black;
+
+    if (Math.abs(diff) &gt;= 4) {
+        out.strong(tag(&quot;SPACE&quot;, &quot;advantage&quot;, diff &gt; 0 ? WHITE : BLACK), evidence(&quot;safe-square lead=&quot; + Math.abs(diff)));
+    } else if (ctx.options.spaceProfile()) {
+        out.strong(tag(&quot;SPACE&quot;, &quot;advantage&quot;, &quot;equal&quot;), evidence(&quot;safe-square lead below threshold&quot;));
+    }
+}
+
+void detectDevelopment(TagContext ctx, TagEmitter out) {
+    if (ctx.phase == ENDGAME) {
+        return;
+    }
+    DevelopmentScore white = developmentScore(ctx, WHITE);
+    DevelopmentScore black = developmentScore(ctx, BLACK);
+    emitDevelopmentLeadIfClear(out, white, black);
+    emitUndevelopedBackRankPieces(ctx, out);
+    emitUncastledKingIfUnsafe(ctx, out);
+}
+
+void detectMobility(TagContext ctx, TagEmitter out) {
+    for (Side side : SIDES) {
+        LegalMoves moves = ctx.legalMovesFor(side);
+        if (ctx.options.mobilityProfile()) {
+            out.exact(tag(&quot;MOBILITY&quot;, &quot;legal&quot;, side, moves.size()), evidence(&quot;legal generator&quot;));
+        }
+        if (moves.size() &lt;= 5 &amp;&amp; !ctx.root.isCheckmate() &amp;&amp; !ctx.root.isStalemate()) {
+            out.strong(tag(&quot;MOBILITY&quot;, &quot;restricted&quot;, side), evidence(&quot;low legal move count&quot;));
+        }
+    }
+}
+
+void detectInitiative(TagContext ctx, TagEmitter out) {
+    ForceScore white = forcingMoveScore(ctx, WHITE);
+    ForceScore black = forcingMoveScore(ctx, BLACK);
+    ForceScore lead = white.minus(black);
+
+    if (lead.sideHasClearEdge()) {
+        out.strong(tag(&quot;INITIATIVE&quot;, &quot;side&quot;, lead.side()), evidence(lead.explain()));
+    }
+}</code></pre>
+<h3 id="tactical-motifs">Tactical Motifs</h3>
+<pre><code class="language-java">void detectStaticTactics(TagContext ctx, TagEmitter out) {
+    detectPins(ctx, out);
+    detectForksAndDoubleAttacks(ctx, out);
+    detectSkewers(ctx, out);
+    detectXrays(ctx, out);
+    detectDiscoveredAttacks(ctx, out);
+    detectTrappedPiecesAsTactics(ctx, out);
+    detectOverloadingAndDefenders(ctx, out);
+    detectRemovalDeflectionDecoy(ctx, out);
+    detectInterferenceAndClearance(ctx, out);
+    detectSacrifices(ctx, out);
+    detectDesperado(ctx, out);
+    detectQuietMoves(ctx, out);
+    detectMatingNets(ctx, out);
+
+    if (ctx.options.hasEngineOrLineContext()) {
+        detectZwischenzug(ctx, out);
+        detectPerpetualCheck(ctx, out);
+        detectWindmill(ctx, out);
+        detectMateInTwoPlus(ctx, out);
+    }
+}
+
+void detectPins(TagContext ctx, TagEmitter out) {
+    for (Side attacker : SIDES) {
+        Side defender = attacker.opposite();
+        for (Square target : criticalTargets(ctx, defender)) {
+            for (Ray ray : raysFrom(target)) {
+                PinCandidate c = firstEnemyBlockerThenSlider(ctx, attacker, defender, target, ray);
+                if (c.exists() &amp;&amp; !canLegallyMoveWithoutLoss(ctx, defender, c.blocker(), target)) {
+                    String motif = targetContainsKing(ctx, target) ? &quot;absolute_pin&quot; : &quot;relative_pin&quot;;
+                    out.strong(tag(&quot;TACTIC&quot;, &quot;motif&quot;, motif, &quot;piece&quot;, c.blocker(), &quot;target&quot;, target),
+                               evidence(&quot;single blocker on slider line&quot;));
+                }
+            }
+        }
+    }
+}
+
+void detectForksAndDoubleAttacks(TagContext ctx, TagEmitter out) {
+    for (Move move : ctx.legalMovesForStm) {
+        MoveEffect effect = ctx.effectOf(move);
+        List&lt;Square&gt; targets = criticalTargetsAttackedByMovedPiece(effect);
+        targets.removeIf(target -&gt; targetIsTacticallyPoisoned(ctx, move, target));
+
+        if (targets.size() &gt;= 2) {
+            String motif = allTargetsArePieces(targets) ? &quot;fork&quot; : &quot;double_attack&quot;;
+            out.strong(tag(&quot;TACTIC&quot;, &quot;motif&quot;, motif, &quot;move&quot;, move.uci(), &quot;targets&quot;, targets),
+                       evidence(&quot;moved piece attacks multiple critical targets&quot;));
+        }
+    }
+}
+
+void detectSkewers(TagContext ctx, TagEmitter out) {
+    for (LineAttack attack : sliderLineAttacks(ctx)) {
+        if (value(attack.front()) &gt; value(attack.behind())
+                &amp;&amp; attack.frontCanBeForcedToMove()
+                &amp;&amp; !attack.frontCanCaptureAttackerSafely()) {
+            out.strong(tag(&quot;TACTIC&quot;, &quot;motif&quot;, &quot;skewer&quot;, &quot;target&quot;, attack.front(), &quot;behind&quot;, attack.behind()),
+                       evidence(&quot;high-value front piece exposes piece behind&quot;));
+        }
+    }
+}
+
+void detectXrays(TagContext ctx, TagEmitter out) {
+    for (LineAttack attack : sliderLineAttacksThroughOnePiece(ctx)) {
+        if (attack.behindIsCritical() &amp;&amp; attack.blockerIsPinnedOverloadedOrRemovable()) {
+            out.strong(tag(&quot;TACTIC&quot;, &quot;motif&quot;, &quot;xray&quot;, &quot;target&quot;, attack.behind()),
+                       evidence(&quot;critical target behind constrained blocker&quot;));
+        }
+    }
+}
+
+void detectDiscoveredAttacks(TagContext ctx, TagEmitter out) {
+    for (Move move : ctx.legalMovesForStm) {
+        MoveEffect effect = ctx.effectOf(move);
+        if (effect.opensSliderAttackOnCriticalTarget()) {
+            String motif = effect.revealedCheck() ? &quot;discovered_check&quot; : &quot;discovered_attack&quot;;
+            out.strong(tag(&quot;TACTIC&quot;, &quot;motif&quot;, motif, &quot;move&quot;, move.uci(), &quot;target&quot;, effect.revealedTarget()),
+                       evidence(&quot;front piece vacates slider line&quot;));
+        }
+        if (effect.checkerCount() &gt;= 2) {
+            out.exact(tag(&quot;TACTIC&quot;, &quot;motif&quot;, &quot;double_check&quot;, &quot;move&quot;, move.uci()), evidence(&quot;two checkers after move&quot;));
+        }
+    }
+}</code></pre>
+<h3 id="tactical-proof-windows">Tactical Proof Windows</h3>
+<p>Some motifs need a bounded proof because static geometry alone is too noisy.</p>
+<pre><code class="language-java">void detectSacrifices(TagContext ctx, TagEmitter out) {
+    for (Move move : ctx.legalMovesForStm) {
+        if (!moveLosesMaterialImmediately(ctx, move)) {
+            continue;
+        }
+        Proof proof = proofAfterMove(ctx, move, 1);
+        if (proof.mates() || proof.winsMaterialAtLeast(value(PAWN)) || proof.engineConfirms()) {
+            String motif = sacrificeMotif(move);
+            out.strong(tag(&quot;TACTIC&quot;, &quot;motif&quot;, motif, &quot;move&quot;, move.uci()), evidence(proof.explain()));
+        }
+    }
+}
+
+void detectQuietMoves(TagContext ctx, TagEmitter out) {
+    for (Move move : ctx.legalMovesForStm) {
+        if (!move.isQuiet() || ctx.effectOf(move).givesCheck()) {
+            continue;
+        }
+        Threat threat = strongestThreatAfter(ctx, move);
+        if (threat.isConcrete() &amp;&amp; opponentCannotIgnore(ctx, move, threat)) {
+            out.strong(tag(&quot;TACTIC&quot;, &quot;motif&quot;, &quot;quiet_move&quot;, &quot;move&quot;, move.uci()), evidence(threat.explain()));
+        }
+    }
+}
+
+void detectRemovalDeflectionDecoy(TagContext ctx, TagEmitter out) {
+    for (Move move : ctx.legalMovesForStm) {
+        MoveEffect effect = ctx.effectOf(move);
+
+        if (effect.removesSoleDefenderOfCriticalTarget()) {
+            out.strong(tag(&quot;TACTIC&quot;, &quot;motif&quot;, &quot;removal_of_defender&quot;, &quot;move&quot;, move.uci()),
+                       evidence(&quot;sole defender removed&quot;));
+        }
+        if (effect.attacksOrLuresSoleDefenderAway() &amp;&amp; forcedAcceptanceLoses(ctx, move)) {
+            out.strong(tag(&quot;TACTIC&quot;, &quot;motif&quot;, &quot;deflection&quot;, &quot;move&quot;, move.uci()),
+                       evidence(&quot;defender cannot keep critical duty&quot;));
+        }
+        if (effect.luresCriticalPieceToTacticalSquare() &amp;&amp; forcedLineExists(ctx, move, 2)) {
+            out.strong(tag(&quot;TACTIC&quot;, &quot;motif&quot;, &quot;decoy&quot;, &quot;move&quot;, move.uci()),
+                       evidence(&quot;forced lure with follow-up&quot;));
+        }
+    }
+}
+
+void detectZwischenzug(TagContext ctx, TagEmitter out) {
+    if (!ctx.hasPreviousCaptureOrExpectedRecapture()) {
+        return;
+    }
+    for (Move move : ctx.legalMovesForStm) {
+        if (move.isExpectedRecapture()) {
+            continue;
+        }
+        if (move.isForcing() &amp;&amp; resultAfter(move).beatsExpectedRecapture()) {
+            out.strong(tag(&quot;TACTIC&quot;, &quot;motif&quot;, &quot;zwischenzug&quot;, &quot;move&quot;, move.uci()),
+                       evidence(&quot;forcing move improves expected recapture result&quot;));
+        }
+    }
+}</code></pre>
+<h3 id="checkmate-patterns">CHECKMATE Patterns</h3>
+<pre><code class="language-java">void detectCheckmatePatterns(TagContext ctx, TagEmitter out) {
+    MateContext mate = MateContext.from(ctx);
+
+    out.exact(tag(&quot;CHECKMATE&quot;, &quot;winner&quot;, mate.winner()), evidence(&quot;checkmate&quot;));
+    out.exact(tag(&quot;CHECKMATE&quot;, &quot;defender&quot;, mate.defender()), evidence(&quot;checkmate&quot;));
+    out.exact(tag(&quot;CHECKMATE&quot;, &quot;delivery&quot;, mate.deliveryPieceOrMultiple()), evidence(&quot;checker list&quot;));
+
+    for (MatePattern pattern : MatePattern.values()) {
+        if (pattern.matches(mate)) {
+            out.strong(tag(&quot;CHECKMATE&quot;, &quot;pattern&quot;, pattern.id()), evidence(pattern.explain(mate)));
+        }
+    }
+}
+
+boolean backRankMate(MateContext m) {
+    return m.kingOnHomeRank()
+        &amp;&amp; m.deliveryBy(ROOK, QUEEN)
+        &amp;&amp; m.deliveryAlongRankOrFile()
+        &amp;&amp; m.flightSquares() == 0
+        &amp;&amp; m.escapeSquaresBlockedMostlyByOwnPiecesOrPawns();
+}
+
+boolean smotheredMate(MateContext m) {
+    return m.singleCheckerIs(KNIGHT)
+        &amp;&amp; m.flightSquares() == 0
+        &amp;&amp; m.adjacentSquaresMostlyOccupiedByDefender()
+        &amp;&amp; !m.kingCanCaptureChecker();
+}
+
+boolean arabianMate(MateContext m) {
+    return m.kingNearCorner()
+        &amp;&amp; m.singleCheckerIs(ROOK)
+        &amp;&amp; m.hasSupportPiece(KNIGHT)
+        &amp;&amp; m.knightControlsKeyFlights()
+        &amp;&amp; m.flightSquares() == 0;
+}
+
+boolean bodenMate(MateContext m) {
+    return m.hasTwoAttackingBishops()
+        &amp;&amp; m.bishopsControlCrossingDiagonalsAroundKing()
+        &amp;&amp; m.defenderPiecesOrBoardBlockRemainingFlights();
+}
+
+boolean lawnmowerMate(MateContext m) {
+    return m.deliveryBy(ROOK, QUEEN)
+        &amp;&amp; m.hasSecondHeavyPieceConfiningAdjacentRankOrFile()
+        &amp;&amp; m.kingConfinedByParallelHeavyPieceLines()
+        &amp;&amp; m.flightSquares() == 0;
+}
+
+boolean legalsMate(MateContext m) {
+    return m.hasPgnContext()
+        &amp;&amp; m.pgnContext().matchesLegalTrapSequence()
+        &amp;&amp; m.positionIsCheckmate();
+}</code></pre>
+<p>Every named mate predicate should be written as a positive geometry test plus at least one near-miss rejection. If no near-miss can be expressed, the tag is not ready.</p>
+<h3 id="endgame-and-opening">ENDGAME and OPENING</h3>
+<pre><code class="language-java">void detectExactEndgames(TagContext ctx, TagEmitter out) {
+    if (onlyKingsAndPawns(ctx)) {
+        out.exact(tag(&quot;ENDGAME&quot;, &quot;type&quot;, &quot;pawn&quot;), evidence(&quot;only kings and pawns&quot;));
+    }
+    if (onlyPieceFamily(ctx, ROOK)) {
+        out.exact(tag(&quot;ENDGAME&quot;, &quot;type&quot;, &quot;rook&quot;), evidence(&quot;rook-only non-pawn pieces&quot;));
+    }
+    if (onlyPieceFamily(ctx, BISHOP)) {
+        out.exact(tag(&quot;ENDGAME&quot;, &quot;type&quot;, &quot;bishop&quot;), evidence(&quot;bishop-only non-pawn pieces&quot;));
+    }
+    if (onlyPieceFamily(ctx, KNIGHT)) {
+        out.exact(tag(&quot;ENDGAME&quot;, &quot;type&quot;, &quot;knight&quot;), evidence(&quot;knight-only non-pawn pieces&quot;));
+    }
+    if (onlyMinorPiecesAndPawns(ctx)) {
+        out.exact(tag(&quot;ENDGAME&quot;, &quot;type&quot;, &quot;minor_piece&quot;), evidence(&quot;minor pieces only&quot;));
+    }
+    emitOppositeAndSameColorBishopEndgames(ctx, out);
+    emitPrimaryMaterialEndgames(ctx, out);
+}
+
+void detectStrongEndgameThemes(TagContext ctx, TagEmitter out) {
+    if (ctx.phase != ENDGAME) {
+        return;
+    }
+    emitOutsidePasser(ctx, out);
+    emitConnectedPassers(ctx, out);
+    emitWrongRookPawnIfDefenderCanReachCorner(ctx, out);
+
+    if (ctx.options.includesWeakDebug() &amp;&amp; looksLikeFortress(ctx)) {
+        out.weak(tag(&quot;ENDGAME&quot;, &quot;theme&quot;, &quot;fortress_candidate&quot;), evidence(&quot;blocked geometry&quot;));
+    }
+    if (ctx.options.includesWeakDebug() &amp;&amp; looksLikeZugzwang(ctx)) {
+        out.weak(tag(&quot;ENDGAME&quot;, &quot;theme&quot;, &quot;zugzwang_candidate&quot;), evidence(&quot;all moves worsen static facts&quot;));
+    }
+}
+
+void detectOpenings(TagContext ctx, TagEmitter out) {
+    OpeningMatch match = ctx.options.openingBook().find(ctx.root.normalizedOpeningKey());
+    if (match == null) {
+        return;
+    }
+    out.exact(tag(&quot;OPENING&quot;, &quot;eco&quot;, match.eco()), evidence(&quot;book match&quot;));
+    out.exact(tag(&quot;OPENING&quot;, &quot;name&quot;, match.name()), evidence(&quot;book match&quot;));
+    if (match.familyKnown()) {
+        out.exact(tag(&quot;OPENING&quot;, &quot;family&quot;, match.family()), evidence(&quot;book field&quot;));
+    }
+    if (match.variationKnown()) {
+        out.exact(tag(&quot;OPENING&quot;, &quot;variation&quot;, match.variation()), evidence(&quot;book field&quot;));
+    }
+}</code></pre>
+<h3 id="cand-pv-threat-and-idea">CAND, PV, THREAT, and IDEA</h3>
+<pre><code class="language-java">void detectAnalysisTags(TagContext ctx, TagEmitter out) {
+    Analysis analysis = ctx.options.analysis();
+    if (analysis == null) {
+        return;
+    }
+
+    for (Candidate c : analysis.candidates()) {
+        out.emit(tag(&quot;CAND&quot;, &quot;rank&quot;, c.rank(), &quot;move&quot;, c.move(), &quot;eval&quot;, c.eval()),
+                 ENGINE_PROVED, evidence(&quot;analysis candidate&quot;));
+    }
+    for (int ply = 0; ply &lt; analysis.pv().size(); ply++) {
+        out.emit(tag(&quot;PV&quot;, &quot;ply&quot;, ply + 1, &quot;move&quot;, analysis.pv().get(ply)),
+                 ENGINE_PROVED, evidence(&quot;principal variation&quot;));
+    }
+    for (Threat threat : analysis.threats()) {
+        if (threat.isConcrete()) {
+            out.emit(tag(&quot;THREAT&quot;, &quot;type&quot;, threat.type(), &quot;side&quot;, threat.side()),
+                     ENGINE_PROVED, evidence(threat.explain()));
+        }
+    }
+}
+
+void detectIdeaTags(TagContext ctx, TagEmitter out) {
+    TagSet before = tag(ctx.root, ctx.options.staticOnly()).withoutIdeaTags();
+
+    for (Move move : ctx.legalMovesForStm) {
+        State state = ctx.root.play(move);
+        try {
+            TagSet after = tag(ctx.root, ctx.options.staticOnly()).withoutIdeaTags();
+            for (Tag created : after.minus(before).importantOnly()) {
+                out.strong(tag(&quot;IDEA&quot;, &quot;move&quot;, move.uci(), &quot;creates&quot;, created.identity()),
+                           evidence(&quot;tag appears after legal move&quot;));
+            }
+            for (Tag removed : before.minus(after).badOrThreatOnly()) {
+                out.strong(tag(&quot;IDEA&quot;, &quot;move&quot;, move.uci(), &quot;removes&quot;, removed.identity()),
+                           evidence(&quot;tag disappears after legal move&quot;));
+            }
+        } finally {
+            ctx.root.undo(move, state);
+        }
+    }
+}</code></pre>
+<h3 id="fixture-runner">Fixture Runner</h3>
+<pre><code class="language-java">void runTagFixtures(Path root) {
+    int rows = 0;
+    int failures = 0;
+
+    for (Path file : fixtureFiles(root)) {
+        for (Fixture fixture : readFixture(file)) {
+            rows++;
+            Position position = Position.fromFen(fixture.fen());
+            TagResult tags = tag(position, fixture.options());
+
+            for (Tag expected : fixture.mustContain()) {
+                if (!tags.contains(expected)) {
+                    failures++;
+                    printMissing(file, fixture, expected, tags);
+                }
+            }
+            for (Tag forbidden : fixture.mustNotContain()) {
+                if (tags.contains(forbidden)) {
+                    failures++;
+                    printUnexpected(file, fixture, forbidden, tags.explain(forbidden));
+                }
+            }
+        }
+    }
+
+    printSummary(rows, failures);
+    if (failures &gt; 0) {
+        throw new AssertionError(&quot;tag fixture failures&quot;);
+    }
+}</code></pre>
+<h3 id="reliability-checklist-per-detector">Reliability Checklist Per Detector</h3>
+<p>Before adding a detector, write the following in code comments or fixture notes:</p>
+<pre><code class="language-text">detector: &lt;family/name&gt;
+input facts: &lt;bitboards, legal moves, attacks, analysis, PGN context&gt;
+positive rule: &lt;when to emit&gt;
+omit rule: &lt;near-miss conditions&gt;
+reliability: exact | static-strong | static-weak | engine-proved | history-dependent
+fixtures: &lt;positive ids&gt;
+near misses: &lt;negative ids&gt;
+explain text: &lt;short reason shown by --explain-tags&gt;</code></pre>
+<h2 id="external-theme-mapping">External Theme Mapping</h2>
+<p>The canonical tags should cover source-site names without duplicating concepts.</p>
+<h3 id="lichess-theme-mapping">Lichess Theme Mapping</h3>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Lichess theme</th>
+<th>Canonical tag</th>
+</tr></thead><tbody>
+<tr>
+<td><code>advancedPawn</code></td>
+<td><code>PAWN: structure=advanced ...</code></td>
+</tr>
+<tr>
+<td><code>advantage</code></td>
+<td>engine <code>TACTIC: motif=advantage</code> or eval bucket</td>
+</tr>
+<tr>
+<td><code>anastasiaMate</code></td>
+<td><code>CHECKMATE: pattern=anastasias_mate</code></td>
+</tr>
+<tr>
+<td><code>arabianMate</code></td>
+<td><code>CHECKMATE: pattern=arabian_mate</code></td>
+</tr>
+<tr>
+<td><code>attackingF2F7</code></td>
+<td><code>TACTIC: motif=attacking_f2_f7 ...</code></td>
+</tr>
+<tr>
+<td><code>attraction</code></td>
+<td><code>TACTIC: motif=decoy ...</code> or <code>motif=attraction</code> alias</td>
+</tr>
+<tr>
+<td><code>backRankMate</code></td>
+<td><code>CHECKMATE: pattern=back_rank_mate</code></td>
+</tr>
+<tr>
+<td><code>bishopEndgame</code></td>
+<td><code>ENDGAME: type=bishop</code></td>
+</tr>
+<tr>
+<td><code>bodenMate</code></td>
+<td><code>CHECKMATE: pattern=boden_mate</code></td>
+</tr>
+<tr>
+<td><code>capturingDefender</code></td>
+<td><code>TACTIC: motif=removal_of_defender ...</code></td>
+</tr>
+<tr>
+<td><code>castling</code></td>
+<td><code>MOVE: castles=&lt;n&gt;</code> or <code>FACT: castling=...</code></td>
+</tr>
+<tr>
+<td><code>clearance</code></td>
+<td><code>TACTIC: motif=clearance ...</code></td>
+</tr>
+<tr>
+<td><code>crushing</code></td>
+<td>engine eval bucket</td>
+</tr>
+<tr>
+<td><code>defensiveMove</code></td>
+<td><code>TACTIC: motif=defensive_move move=&lt;uci&gt;</code></td>
+</tr>
+<tr>
+<td><code>deflection</code></td>
+<td><code>TACTIC: motif=deflection ...</code></td>
+</tr>
+<tr>
+<td><code>discoveredAttack</code></td>
+<td><code>TACTIC: motif=discovered_attack ...</code></td>
+</tr>
+<tr>
+<td><code>doubleCheck</code></td>
+<td><code>TACTIC: motif=double_check ...</code></td>
+</tr>
+<tr>
+<td><code>dovetailMate</code></td>
+<td><code>CHECKMATE: pattern=dovetail_mate</code></td>
+</tr>
+<tr>
+<td><code>endgame</code></td>
+<td><code>META: phase=endgame</code></td>
+</tr>
+<tr>
+<td><code>enPassant</code></td>
+<td><code>MOVE: en_passant=&lt;n&gt;</code> or <code>FACT: en_passant=&lt;square&gt;</code></td>
+</tr>
+<tr>
+<td><code>equality</code></td>
+<td>engine eval bucket</td>
+</tr>
+<tr>
+<td><code>exposedKing</code></td>
+<td><code>KING: exposed side=&lt;side&gt;</code></td>
+</tr>
+<tr>
+<td><code>fork</code></td>
+<td><code>TACTIC: motif=fork ...</code></td>
+</tr>
+<tr>
+<td><code>hangingPiece</code></td>
+<td><code>PIECE: hanging ...</code> or <code>TACTIC: motif=hanging ...</code></td>
+</tr>
+<tr>
+<td><code>interference</code></td>
+<td><code>TACTIC: motif=interference ...</code></td>
+</tr>
+<tr>
+<td><code>intermezzo</code></td>
+<td><code>TACTIC: motif=zwischenzug ...</code></td>
+</tr>
+<tr>
+<td><code>kingsideAttack</code></td>
+<td><code>KING: vulnerable side=&lt;side&gt;</code> plus flank field</td>
+</tr>
+<tr>
+<td><code>knightEndgame</code></td>
+<td><code>ENDGAME: type=knight</code></td>
+</tr>
+<tr>
+<td><code>mateIn1</code></td>
+<td><code>MOVE: mates=&lt;n&gt;</code> and/or <code>TACTIC: motif=mate_in_1</code></td>
+</tr>
+<tr>
+<td><code>mateIn2+</code></td>
+<td>bounded engine/PV tag</td>
+</tr>
+<tr>
+<td><code>middlegame</code></td>
+<td><code>META: phase=middlegame</code></td>
+</tr>
+<tr>
+<td><code>opening</code></td>
+<td><code>META: phase=opening</code> or <code>OPENING: ...</code></td>
+</tr>
+<tr>
+<td><code>pawnEndgame</code></td>
+<td><code>ENDGAME: type=pawn</code></td>
+</tr>
+<tr>
+<td><code>pin</code></td>
+<td><code>TACTIC: motif=pin ...</code></td>
+</tr>
+<tr>
+<td><code>promotion</code></td>
+<td><code>MOVE: promotions=&lt;n&gt;</code> / <code>PAWN: promotion_ready ...</code></td>
+</tr>
+<tr>
+<td><code>queenEndgame</code></td>
+<td><code>ENDGAME: type=queen</code></td>
+</tr>
+<tr>
+<td><code>queensideAttack</code></td>
+<td>king/flank attack tags</td>
+</tr>
+<tr>
+<td><code>quietMove</code></td>
+<td><code>TACTIC: motif=quiet_move move=&lt;uci&gt;</code></td>
+</tr>
+<tr>
+<td><code>rookEndgame</code></td>
+<td><code>ENDGAME: type=rook</code></td>
+</tr>
+<tr>
+<td><code>sacrifice</code></td>
+<td><code>TACTIC: motif=sacrifice ...</code></td>
+</tr>
+<tr>
+<td><code>skewer</code></td>
+<td><code>TACTIC: motif=skewer ...</code></td>
+</tr>
+<tr>
+<td><code>smotheredMate</code></td>
+<td><code>CHECKMATE: pattern=smothered_mate</code></td>
+</tr>
+<tr>
+<td><code>trappedPiece</code></td>
+<td><code>PIECE: trapped ...</code></td>
+</tr>
+<tr>
+<td><code>underPromotion</code></td>
+<td><code>PAWN: underpromotion_available ...</code></td>
+</tr>
+<tr>
+<td><code>xRayAttack</code></td>
+<td><code>TACTIC: motif=xray ...</code></td>
+</tr>
+<tr>
+<td><code>zugzwang</code></td>
+<td><code>ENDGAME: theme=zugzwang_candidate</code> or engine-confirmed tag</td>
+</tr>
+</tbody></table></div>
+<h3 id="chess-com-theme-mapping">Chess.com Theme Mapping</h3>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Chess.com tag</th>
+<th>Canonical tag</th>
+</tr></thead><tbody>
+<tr>
+<td>Back Rank</td>
+<td><code>KING: back_rank_weak</code> or <code>CHECKMATE: pattern=back_rank_mate</code></td>
+</tr>
+<tr>
+<td>Fork / Double Attack</td>
+<td><code>TACTIC: motif=fork</code></td>
+</tr>
+<tr>
+<td>Hanging Piece</td>
+<td><code>PIECE: hanging</code></td>
+</tr>
+<tr>
+<td>Mate in One</td>
+<td><code>MOVE: mates</code> / <code>TACTIC: motif=mate_in_1</code></td>
+</tr>
+<tr>
+<td>Pin</td>
+<td><code>TACTIC: motif=pin</code></td>
+</tr>
+<tr>
+<td>Smothered Mate</td>
+<td><code>CHECKMATE: pattern=smothered_mate</code></td>
+</tr>
+<tr>
+<td>Stalemate</td>
+<td><code>FACT: status=stalemate</code></td>
+</tr>
+<tr>
+<td>Attacking f7/f2</td>
+<td><code>TACTIC: motif=attacking_f2_f7</code></td>
+</tr>
+<tr>
+<td>Attacking the Castled King</td>
+<td>`KING: vulnerable ... flank=&lt;king</td>
+<td>queen&gt;`</td>
+</tr>
+<tr>
+<td>Clearance Sacrifice</td>
+<td><code>TACTIC: motif=clearance</code> plus <code>motif=sacrifice</code></td>
+</tr>
+<tr>
+<td>Decoy / Deflection</td>
+<td><code>TACTIC: motif=decoy</code> / <code>motif=deflection</code></td>
+</tr>
+<tr>
+<td>Defense</td>
+<td><code>TACTIC: motif=defensive_move</code></td>
+</tr>
+<tr>
+<td>Desperado</td>
+<td><code>TACTIC: motif=desperado</code></td>
+</tr>
+<tr>
+<td>Discovered Attack / Check</td>
+<td><code>TACTIC: motif=discovered_attack/check</code></td>
+</tr>
+<tr>
+<td>Double Check</td>
+<td><code>TACTIC: motif=double_check</code></td>
+</tr>
+<tr>
+<td>En Passant</td>
+<td><code>MOVE: en_passant</code></td>
+</tr>
+<tr>
+<td>Endgame Tactic</td>
+<td><code>META: phase=endgame</code> plus tactic motif</td>
+</tr>
+<tr>
+<td>Exchange Sacrifice</td>
+<td><code>TACTIC: motif=exchange_sacrifice</code></td>
+</tr>
+<tr>
+<td>Interference</td>
+<td><code>TACTIC: motif=interference</code></td>
+</tr>
+<tr>
+<td>Mating Net</td>
+<td><code>TACTIC: motif=mating_net</code></td>
+</tr>
+<tr>
+<td>Overloading</td>
+<td><code>TACTIC: motif=overloading</code></td>
+</tr>
+<tr>
+<td>Pawn Promotion</td>
+<td><code>MOVE: promotions</code></td>
+</tr>
+<tr>
+<td>Perpetual Check</td>
+<td><code>TACTIC: motif=perpetual_check</code></td>
+</tr>
+<tr>
+<td>Queen Sacrifice</td>
+<td><code>TACTIC: motif=queen_sacrifice</code></td>
+</tr>
+<tr>
+<td>Removal of Defender</td>
+<td><code>TACTIC: motif=removal_of_defender</code></td>
+</tr>
+<tr>
+<td>Sacrifice</td>
+<td><code>TACTIC: motif=sacrifice</code></td>
+</tr>
+<tr>
+<td>Simplification</td>
+<td><code>TACTIC: motif=simplification</code></td>
+</tr>
+<tr>
+<td>Skewer</td>
+<td><code>TACTIC: motif=skewer</code></td>
+</tr>
+<tr>
+<td>Trapped Piece</td>
+<td><code>PIECE: trapped</code></td>
+</tr>
+<tr>
+<td>Underpromotion</td>
+<td><code>PAWN: underpromotion_available</code></td>
+</tr>
+<tr>
+<td>Vulnerable King</td>
+<td><code>KING: vulnerable</code></td>
+</tr>
+<tr>
+<td>Windmill</td>
+<td><code>TACTIC: motif=windmill</code></td>
+</tr>
+<tr>
+<td>X-Ray Attack</td>
+<td><code>TACTIC: motif=xray</code></td>
+</tr>
+<tr>
+<td>Zugzwang / Zwischenzug</td>
+<td><code>ENDGAME: theme=zugzwang_candidate</code> / <code>TACTIC: motif=zwischenzug</code></td>
+</tr>
+</tbody></table></div>
+<h2 id="fixture-strategy">Fixture Strategy</h2>
+<p>Create test fixtures under:</p>
+<pre><code class="language-text">testdata/tags/
+  facts.tsv
+  material.tsv
+  pawns.tsv
+  king.tsv
+  tactics.tsv
+  mates.tsv
+  endgames.tsv
+  openings.tsv</code></pre>
+<p>Each row:</p>
+<pre><code class="language-text">id&lt;TAB&gt;fen&lt;TAB&gt;must_contain_tags&lt;TAB&gt;must_not_contain_tags</code></pre>
+<p>Use <code>;</code> to separate tags inside the tag columns.</p>
+<p>Example:</p>
+<pre><code class="language-text">back_rank_mate_001	4R1k1/5ppp/8/8/8/8/8/6K1 b - - 0 1	CHECKMATE: pattern=back_rank_mate;FACT: status=checkmate	CHECKMATE: pattern=smothered_mate</code></pre>
+<p>Add a small zero-dependency runner:</p>
+<pre><code class="language-text">testing.TagFixtureRegressionTest</code></pre>
+<p>The runner should:</p>
+<ol>
+<li>Load every TSV.</li>
+<li>Parse FEN with <code>Position.fromFen</code>.</li>
+<li>Generate tags with canonical <code>chess.tag.Tagging</code>.</li>
+<li>Assert every required tag exists.</li>
+<li>Assert every forbidden tag is absent.</li>
+<li>Print a concise summary.</li>
+</ol>
+<h2 id="regression-test-plan">Regression Test Plan</h2>
+<p>Required tests:</p>
+<ul>
+<li><code>TaggingRegressionTest</code>: smoke tests for key existing tags.</li>
+<li><code>TagFixtureRegressionTest</code>: broad fixture-driven coverage.</li>
+<li><code>TagParserRegressionTest</code>: <code>Line</code>, <code>Identity</code>, <code>Sort</code>, and delta identity behavior.</li>
+<li><code>TagDeltaRegressionTest</code>: enabled/disabled tags across a short line.</li>
+<li><code>TagPerformanceRegressionTest</code>: optional, local-only benchmark on hundreds of FENs.</li>
+</ul>
+<p>Test categories:</p>
+<ul>
+<li>positive fixtures</li>
+<li>near-miss negative fixtures</li>
+<li>malformed FEN rejection via existing FEN parser</li>
+<li>Chess960 fixtures</li>
+<li>promotion/en-passant/castling fixtures</li>
+<li>low-material endgame fixtures</li>
+<li>tactical ambiguity fixtures</li>
+</ul>
+<h2 id="performance-budget">Performance Budget</h2>
+<p>Initial target:</p>
+<ul>
+<li>Static tags: under 1 ms per ordinary middlegame FEN on a development laptop.</li>
+<li>Heavy static tactics: under 3 ms per FEN.</li>
+<li>No-engine batch tagging: capable of tens of thousands of FENs per minute.</li>
+<li>Engine-enriched tags: budget controlled by existing engine search limits.</li>
+</ul>
+<p>Rules:</p>
+<ul>
+<li>Generate legal moves once per side unless a detector explicitly needs more.</li>
+<li>Prefer attack maps and bitboards over repeated board scans.</li>
+<li>Use <code>play/undo</code> with reusable state for move consequence checks.</li>
+<li>Avoid allocating <code>Position.copy()</code> inside per-move loops except in simple</li>
+</ul>
+<p>non-hot code or tests.</p>
+<ul>
+<li>Add benchmark commands only after correctness is stable.</li>
+</ul>
+<h2 id="cli-plan">CLI Plan</h2>
+<p>Existing commands should stay:</p>
+<ul>
+<li><code>fen tags</code></li>
+<li><code>puzzle tags</code></li>
+<li><code>record tag-stats</code></li>
+<li><code>record analysis-delta</code></li>
+<li><code>fen text</code></li>
+<li><code>puzzle text</code></li>
+</ul>
+<p>Add flags only when needed:</p>
+<ul>
+<li><code>--tag-profile static|engine|all</code></li>
+<li><code>--tag-family &lt;family&gt;</code> repeated or comma-separated</li>
+<li><code>--include-counters</code></li>
+<li><code>--include-debug-reasons</code></li>
+<li><code>--format text|json|jsonl</code></li>
+<li><code>--explain-tags</code> for one position, with detector reasons</li>
+</ul>
+<p>Do not add flags before the static pipeline is stable.</p>
+<h2 id="documentation-plan">Documentation Plan</h2>
+<p>Update:</p>
+<ul>
+<li><code>wiki/piece-tags.md</code>: keep as piece activity reference.</li>
+<li><code>wiki/tagging-implementation-plan.md</code>: this plan.</li>
+<li><code>wiki/command-reference.md</code>: tag command flags and output examples.</li>
+<li><code>wiki/example-commands.md</code>: examples for <code>fen tags</code>, <code>record tag-stats</code>,</li>
+</ul>
+<p>deltas, and fixture verification.</p>
+<ul>
+<li><code>wiki/ai-agents.md</code>: recommended deterministic tag commands.</li>
+<li><code>README.md</code>: one-line link to tag docs when tag work lands.</li>
+</ul>
+<p>Add a dedicated reference page when the tag set is broad enough:</p>
+<pre><code class="language-text">wiki/tag-reference.md</code></pre>
+<p>That page should list every canonical tag, fields, examples, and whether the tag is static, engine-derived, or config-derived.</p>
+<h2 id="regression-fixtures">Regression Fixtures</h2>
+<p>Regression coverage targets canonical <code>Tagging</code> output for:</p>
+<ul>
+<li>start position</li>
+<li>checkmate</li>
+<li>pin</li>
+<li>hanging piece</li>
+<li>pawn structure</li>
+<li>Chess960 castling</li>
+<li>en-passant</li>
+<li>promotion</li>
+</ul>
+<h2 id="milestone-checklist">Milestone Checklist</h2>
+<h3 id="milestone-a-foundation">Milestone A: Foundation</h3>
+<ul>
+<li>[ ] Add <code>TagContext</code>.</li>
+<li>[ ] Add <code>TagEmitter</code>.</li>
+<li>[ ] Add detector contract.</li>
+<li>[ ] Add fixture regression runner.</li>
+<li>[ ] Add tag reference skeleton.</li>
+<li>[ ] Confirm current <code>chess.tag</code> output stays stable.</li>
+</ul>
+<h3 id="milestone-b-prototype-parity">Milestone B: Prototype Parity</h3>
+<ul>
+<li>[ ] Port meta tags.</li>
+<li>[ ] Port fact tags.</li>
+<li>[ ] Port material tags.</li>
+<li>[ ] Port move count tags.</li>
+<li>[ ] Port king exposure tags.</li>
+<li>[ ] Port pawn structure tags.</li>
+<li>[ ] Port pin/hanging/fork tags.</li>
+<li>[ ] Port existing checkmate tags.</li>
+<li>[x] Switch <code>TaggingRegressionTest</code> to <code>chess.tag</code>.</li>
+<li>[x] Keep one canonical tag package.</li>
+</ul>
+<h3 id="milestone-c-structure-tags">Milestone C: Structure Tags</h3>
+<ul>
+<li>[ ] Add complete pawn structure.</li>
+<li>[ ] Add king safety.</li>
+<li>[ ] Add piece activity and pressure.</li>
+<li>[ ] Add space/development/mobility.</li>
+<li>[ ] Add endgame classifiers.</li>
+</ul>
+<h3 id="milestone-d-tactical-tags">Milestone D: Tactical Tags</h3>
+<ul>
+<li>[ ] Add skewers.</li>
+<li>[ ] Add x-rays.</li>
+<li>[ ] Add discovered attacks.</li>
+<li>[ ] Add discovered checks.</li>
+<li>[ ] Add double checks.</li>
+<li>[ ] Add trapped pieces.</li>
+<li>[ ] Add overloading.</li>
+<li>[ ] Add removal of defender.</li>
+<li>[ ] Add deflection/decoy.</li>
+<li>[ ] Add clearance/interference.</li>
+<li>[ ] Add sacrifices.</li>
+<li>[ ] Add quiet moves.</li>
+<li>[ ] Add zwischenzug.</li>
+<li>[ ] Add perpetual-check and windmill candidates.</li>
+</ul>
+<h3 id="milestone-e-mate-patterns">Milestone E: Mate Patterns</h3>
+<ul>
+<li>[ ] Add mate context.</li>
+<li>[ ] Add all high-priority named mates.</li>
+<li>[ ] Add medium-priority named mates.</li>
+<li>[ ] Add low-priority named mates only when predicates are clear.</li>
+<li>[ ] Document excluded/history-dependent mate names.</li>
+</ul>
+<h3 id="milestone-f-engine-enriched-tags">Milestone F: Engine-Enriched Tags</h3>
+<ul>
+<li>[ ] Normalize eval/WDL tags.</li>
+<li>[ ] Normalize PV tags.</li>
+<li>[ ] Normalize candidate move tags.</li>
+<li>[ ] Add threat tags from bounded analysis.</li>
+<li>[ ] Add mate-in-N tags from PV/engine.</li>
+<li>[ ] Add <code>--tag-profile</code> if needed.</li>
+</ul>
+<h3 id="milestone-g-docs-and-release-readiness">Milestone G: Docs And Release Readiness</h3>
+<ul>
+<li>[ ] Write <code>wiki/tag-reference.md</code>.</li>
+<li>[ ] Update command examples.</li>
+<li>[ ] Add performance notes.</li>
+<li>[ ] Add migration notes for renamed tags.</li>
+<li>[ ] Run full regression suite.</li>
+</ul>
+<h2 id="definition-of-done-for-all-tags">Definition Of Done For &quot;All Tags&quot;</h2>
+<p>The tag implementation is complete enough when:</p>
+<ol>
+<li>Every implemented tag is documented with fields and examples.</li>
+<li>Every tag family has fixture coverage.</li>
+<li>Every backlog item is either implemented, mapped to another canonical tag,</li>
+</ol>
+<p>or explicitly excluded with a reason.</p>
+<ol>
+<li>No duplicate tag pipeline exists.</li>
+<li><code>fen tags</code> works without engine dependencies by default.</li>
+<li>Engine-enriched tags are opt-in and clearly marked by source/profile.</li>
+<li><code>record tag-stats</code> remains useful and does not explode with duplicate aliases.</li>
+<li>Tag output is stable across repeated runs.</li>
+<li>Performance is acceptable for large FEN batches.</li>
+</ol>
+<h2 id="risks">Risks</h2>
+<ul>
+<li>Some named mate patterns are historically defined by move sequence, not final</li>
+</ul>
+<p>position. Those should not be forced into FEN-only detection.</p>
+<ul>
+<li>Some tactical motifs need engine or multi-ply proof. Static approximations can</li>
+</ul>
+<p>create false positives if emitted too confidently.</p>
+<ul>
+<li>Over-tagging can make outputs noisy and reduce usefulness for LLM summaries.</li>
+<li>Renaming tags can break user filters and training labels.</li>
+<li>Adding many detectors without shared context can slow batch tagging.</li>
+</ul>
+<h2 id="recommended-next-task">Recommended Next Task</h2>
+<p>Start with Milestone A and the remaining canonical detector work:</p>
+<ol>
+<li>Add <code>TagContext</code>.</li>
+<li>Add a small <code>TagEmitter</code>.</li>
+<li>Move repeated detector logic into small canonical modules.</li>
+<li>Expand fixture coverage for every emitted tag family.</li>
+</ol>
+<p>That gives the project one tag pipeline before the larger motif backlog begins.</p>
+        </article>
+        <aside class="toc"><h2>On This Page</h2>
+<a class="toc-h2" href="#current-state">Current State</a>
+<a class="toc-h2" href="#guiding-rules">Guiding Rules</a>
+<a class="toc-h2" href="#canonical-tag-shape">Canonical Tag Shape</a>
+<a class="toc-h2" href="#tag-families">Tag Families</a>
+<a class="toc-h2" href="#target-architecture">Target Architecture</a>
+<a class="toc-h3" href="#package-layout">Package Layout</a>
+<a class="toc-h3" href="#tag-context">Tag Context</a>
+<a class="toc-h3" href="#tag-emitter">Tag Emitter</a>
+<a class="toc-h3" href="#detector-contract">Detector Contract</a>
+<a class="toc-h2" href="#implementation-phases">Implementation Phases</a>
+<a class="toc-h3" href="#phase-0-stabilize-the-contract">Phase 0: Stabilize The Contract</a>
+<a class="toc-h3" href="#phase-1-canonical-tag-consolidation">Phase 1: Canonical Tag Consolidation</a>
+<a class="toc-h3" href="#phase-2-core-facts-and-status">Phase 2: Core Facts And Status</a>
+<a class="toc-h3" href="#phase-3-material-and-imbalance-tags">Phase 3: Material And Imbalance Tags</a>
+<a class="toc-h3" href="#phase-4-move-facts-and-forcing-move-counts">Phase 4: Move Facts And Forcing Move Counts</a>
+<a class="toc-h3" href="#phase-5-pawn-structure">Phase 5: Pawn Structure</a>
+<a class="toc-h3" href="#phase-6-king-safety">Phase 6: King Safety</a>
+<a class="toc-h3" href="#phase-7-piece-activity-and-pressure">Phase 7: Piece Activity And Pressure</a></aside>
+      </main>
+      <footer class="footer">
+        <span>Generated from <code>wiki/tagging-implementation-plan.md</code>.</span>
+        <span>Build with <code>python3 scripts/build_docs_site.py</code>.</span>
+      </footer>
+    </div>
+  </div>
+</body>
+</html>

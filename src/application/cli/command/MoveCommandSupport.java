@@ -3,6 +3,8 @@ package application.cli.command;
 import static application.cli.Constants.ERR_INVALID_FEN;
 import static application.cli.Constants.MSG_FEN_REQUIRED_HINT;
 import static application.cli.Constants.OPT_FEN;
+import static application.cli.Constants.OPT_RANDOMPOS;
+import static application.cli.Constants.OPT_STARTPOS;
 
 import java.util.Arrays;
 import java.util.List;
@@ -82,12 +84,25 @@ final class MoveCommandSupport {
 	 * @return parsed input (position + move tokens)
 	 */
 	static ParsedInput parseInputs(Argv a, String cmd, boolean allowDefaultStart, boolean verbose) {
+		boolean startPos = a.flag(OPT_STARTPOS);
+		boolean randomPos = a.flag(OPT_RANDOMPOS);
 		String fen = a.string(OPT_FEN);
 		List<String> rest = a.positionals();
 		a.ensureConsumed();
 
+		if (startPos || randomPos) {
+			if ((fen != null && !fen.isBlank()) || looksLikeFenTokens(rest)) {
+				System.err.println(
+						cmd + ": choose at most one of " + OPT_FEN + " <FEN>, " + OPT_STARTPOS + ", or " + OPT_RANDOMPOS);
+				System.exit(2);
+				return new ParsedInput(Setup.getStandardStartPosition(), List.of());
+			}
+			Position pos = startPos ? Setup.getStandardStartPosition() : CommandSupport.randomPlayablePosition();
+			return new ParsedInput(pos, tokenizeMoves(rest));
+		}
+
 		if (fen != null && !fen.isBlank()) {
-			Position pos = parseFenOrExit(fen.trim(), cmd, verbose);
+			Position pos = CommandSupport.parsePositionOrExit(fen.trim(), cmd, verbose);
 			return new ParsedInput(pos, tokenizeMoves(rest));
 		}
 
@@ -103,7 +118,7 @@ final class MoveCommandSupport {
 		String first = rest.get(0);
 		if (first.contains("/")) {
 			if (first.indexOf(' ') >= 0) {
-				Position pos = parseFenOrExit(first.trim(), cmd, verbose);
+				Position pos = CommandSupport.parsePositionOrExit(first.trim(), cmd, verbose);
 				return new ParsedInput(pos, tokenizeMoves(rest.subList(1, rest.size())));
 			}
 			return parseFenFromTokens(rest, cmd, verbose);
@@ -116,6 +131,16 @@ final class MoveCommandSupport {
 		}
 
 		return new ParsedInput(Setup.getStandardStartPosition(), tokenizeMoves(rest));
+	}
+
+	/**
+	 * Returns whether the positional tail looks like a FEN instead of move tokens.
+	 *
+	 * @param tokens positional CLI tail
+	 * @return true when the first token looks like a FEN board field
+	 */
+	private static boolean looksLikeFenTokens(List<String> tokens) {
+		return tokens != null && !tokens.isEmpty() && tokens.get(0) != null && tokens.get(0).contains("/");
 	}
 
 	/**
@@ -226,27 +251,6 @@ final class MoveCommandSupport {
 		}
 		System.exit(3);
 		return new ParsedInput(Setup.getStandardStartPosition(), List.of());
-	}
-
-	/**
-	 * Parses the fen or exit.
-	 * @param fen fen
-	 * @param cmd cmd
-	 * @param verbose verbose
-	 * @return computed value
-	 */
-	private static Position parseFenOrExit(String fen, String cmd, boolean verbose) {
-		try {
-			return new Position(fen);
-		} catch (IllegalArgumentException ex) {
-			System.err.println(ERR_INVALID_FEN + (ex.getMessage() == null ? "" : ex.getMessage()));
-			LogService.error(ex, cmd + ": invalid FEN", "FEN: " + fen);
-			if (verbose) {
-				ex.printStackTrace(System.err);
-			}
-			System.exit(3);
-			return Setup.getStandardStartPosition();
-		}
 	}
 
 	/**

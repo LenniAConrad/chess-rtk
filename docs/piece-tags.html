@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Position and Piece Tags | ChessRTK Wiki</title>
+  <link rel="stylesheet" href="styles.css">
+  <script defer src="search-index.js"></script>
+  <script defer src="site.js"></script>
+</head>
+<body>
+  <button class="menu-toggle" type="button" aria-label="Toggle navigation">Menu</button>
+  <div class="site-shell">
+    <aside class="sidebar">
+      <a class="brand" href="index.html">
+        <span class="brand-mark">CR</span>
+        <span><strong>ChessRTK</strong><small>Wiki</small></span>
+      </a>
+      <label class="search-label" for="doc-search">Search pages</label>
+      <input id="doc-search" class="search" type="search" placeholder="Search docs...">
+      <nav class="nav"><section class="nav-section"><h2>Start Here</h2>
+<a class="" href="index.html" data-title="home">Home</a>
+<a class="" href="getting-started.html" data-title="getting started">Getting Started</a>
+<a class="" href="faq.html" data-title="faq">FAQ</a>
+<a class="" href="command-reference.html" data-title="command reference">Command Reference</a>
+<a class="" href="example-commands.html" data-title="example commands">Example Commands</a>
+<a class="" href="troubleshooting.html" data-title="troubleshooting">Troubleshooting</a>
+</section>
+<section class="nav-section"><h2>User Guides</h2>
+<a class="" href="build-and-install.html" data-title="build &amp; install">Build &amp; Install</a>
+<a class="" href="configuration.html" data-title="configuration">Configuration</a>
+<a class="" href="in-house-engine.html" data-title="in-house engine">In-House Engine</a>
+<a class="" href="lc0.html" data-title="lc0">LC0</a>
+<a class="" href="outputs-and-logs.html" data-title="outputs &amp; logs">Outputs &amp; Logs</a>
+<a class="" href="support.html" data-title="support">Support</a>
+</section>
+<section class="nav-section"><h2>Workflows</h2>
+<a class="" href="mining.html" data-title="mining puzzles">Mining Puzzles</a>
+<a class="" href="filter-dsl.html" data-title="filter dsl">Filter DSL</a>
+<a class="" href="datasets.html" data-title="datasets">Datasets</a>
+<a class="" href="book-publishing.html" data-title="book publishing">Book Publishing</a>
+<a class="active" href="piece-tags.html" data-title="tags">Tags</a>
+<a class="" href="t5.html" data-title="t5 text">T5 Text</a>
+<a class="" href="ai-agents.html" data-title="ai agents">AI Agents</a>
+</section>
+<section class="nav-section"><h2>Development</h2>
+<a class="" href="architecture.html" data-title="architecture">Architecture</a>
+<a class="" href="development-notes.html" data-title="development notes">Development Notes</a>
+<a class="" href="releasing.html" data-title="releasing">Releasing</a>
+<a class="" href="roadmap.html" data-title="roadmap">Roadmap</a>
+<a class="" href="glossary.html" data-title="glossary">Glossary</a>
+<a class="" href="tagging-implementation-plan.html" data-title="tagging plan">Tagging Plan</a>
+<a class="" href="wiki-index.html" data-title="wiki index">Wiki Index</a>
+</section></nav>
+    </aside>
+    <div class="page">
+      <header class="topbar">
+        <div>
+          <span>Workflows</span>
+          <strong>Position and Piece Tags</strong>
+        </div>
+        <nav>
+          <a href="index.html">Home</a>
+          <a href="wiki-index.html">Wiki Index</a>
+          <a href="command-reference.html">Commands</a>
+        </nav>
+      </header>
+      
+      <main class="content-layout">
+        <article class="content">
+          <h1 id="position-and-piece-tags">Position and Piece Tags</h1>
+<p>ChessRTK emits compact, deterministic tags for positions, pieces, pawn structure, king safety, material, tactics, engine evaluations, and puzzle lines. Tags are used by:</p>
+<ul>
+<li><code>fen tags</code></li>
+<li><code>puzzle tags</code></li>
+<li><code>record tag-stats</code></li>
+<li><code>fen text</code></li>
+<li><code>puzzle text</code></li>
+<li>dataset and filtering workflows that consume tag strings</li>
+</ul>
+<p><img src="assets/diagrams/crtk-tagging-flow.png" alt="Tagging pipeline" loading="lazy"></p>
+<p>Diagram source: <code>assets/diagrams/crtk-tagging-flow.dot</code>.</p>
+<h2 id="tag-shape">Tag Shape</h2>
+<p>Tags use a stable family prefix followed by ordered key/value fields:</p>
+<pre><code class="language-text">FAMILY: key=value key=value</code></pre>
+<p>Examples:</p>
+<pre><code class="language-text">META: to_move=white
+FACT: status=normal
+MATERIAL: balance=equal
+PIECE: tier=very_strong side=white piece=knight square=f5
+PAWN: structure=passed side=white square=e7
+KING: safety=exposed side=black
+TACTIC: motif=pin side=white piece=bishop square=e2 by=black_rook@e8
+CHECKMATE: pattern=back_rank_mate</code></pre>
+<p>Tags are strings, but they are intentionally structured so they can be sorted, deduplicated, filtered, counted, and converted into text.</p>
+<h2 id="tag-families">Tag Families</h2>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Family</th>
+<th>Meaning</th>
+</tr></thead><tbody>
+<tr>
+<td><code>META</code></td>
+<td>side to move, phase, source, difficulty, evaluation buckets, WDL, ECO/opening metadata</td>
+</tr>
+<tr>
+<td><code>FACT</code></td>
+<td>game status, check state, castling rights, en-passant state, center facts</td>
+</tr>
+<tr>
+<td><code>MATERIAL</code></td>
+<td>material balance, piece counts, bishop pair, exchange-style imbalances</td>
+</tr>
+<tr>
+<td><code>MOVE</code></td>
+<td>legal move and one-ply move-count facts</td>
+</tr>
+<tr>
+<td><code>PV</code></td>
+<td>principal variation facts from engine analysis</td>
+</tr>
+<tr>
+<td><code>CAND</code></td>
+<td>candidate move facts from engine analysis</td>
+</tr>
+<tr>
+<td><code>IDEA</code></td>
+<td>concise strategic ideas derived from static or analyzed facts</td>
+</tr>
+<tr>
+<td><code>THREAT</code></td>
+<td>threats discovered from analysis or reply searches</td>
+</tr>
+<tr>
+<td><code>KING</code></td>
+<td>king safety, castling state, shelter, back-rank and exposure facts</td>
+</tr>
+<tr>
+<td><code>PAWN</code></td>
+<td>pawn islands, doubled/isolated/passed/advanced/promotion facts</td>
+</tr>
+<tr>
+<td><code>PIECE</code></td>
+<td>piece placement tiers, activity, outposts, hanging pieces, defenders, attackers</td>
+</tr>
+<tr>
+<td><code>TACTIC</code></td>
+<td>pins, forks, skewers, discovered attacks, overloads, forcing motifs</td>
+</tr>
+<tr>
+<td><code>CHECKMATE</code></td>
+<td>mate status, winner/defender, delivery, and named mate patterns</td>
+</tr>
+<tr>
+<td><code>ENDGAME</code></td>
+<td>material endgame classes and practical endgame themes</td>
+</tr>
+<tr>
+<td><code>OPENING</code></td>
+<td>ECO and opening labels when an ECO table is configured</td>
+</tr>
+<tr>
+<td><code>SPACE</code></td>
+<td>space and center-control signals</td>
+</tr>
+<tr>
+<td><code>DEVELOPMENT</code></td>
+<td>undeveloped pieces and development lead</td>
+</tr>
+<tr>
+<td><code>MOBILITY</code></td>
+<td>mobility comparisons and restricted-piece signals</td>
+</tr>
+<tr>
+<td><code>INITIATIVE</code></td>
+<td>forcing-move and tempo signals</td>
+</tr>
+</tbody></table></div>
+<p>Not every family appears for every position. Engine-derived families appear when analysis is requested or supplied.</p>
+<h2 id="commands">Commands</h2>
+<p>Tag one position:</p>
+<pre><code class="language-bash">crtk fen tags --fen &quot;&lt;FEN&gt;&quot;</code></pre>
+<p>Include the FEN in the output:</p>
+<pre><code class="language-bash">crtk fen tags --fen &quot;&lt;FEN&gt;&quot; --include-fen</code></pre>
+<p>Tag a FEN file:</p>
+<pre><code class="language-bash">crtk fen tags -i positions.txt</code></pre>
+<p>Tag PGN mainlines or sidelines:</p>
+<pre><code class="language-bash">crtk fen tags --pgn games.pgn --delta --mainline
+crtk fen tags --pgn games.pgn --delta --sidelines</code></pre>
+<p>Tag puzzle PVs:</p>
+<pre><code class="language-bash">crtk puzzle tags --fen &quot;&lt;FEN&gt;&quot; --multipv 3 --pv-plies 12</code></pre>
+<p>Use engine-enriched tags:</p>
+<pre><code class="language-bash">crtk fen tags \
+  --fen &quot;&lt;FEN&gt;&quot; \
+  --analyze \
+  --max-duration 2s \
+  --multipv 3 \
+  --wdl</code></pre>
+<p>Use static tags only:</p>
+<pre><code class="language-bash">crtk puzzle tags --fen &quot;&lt;FEN&gt;&quot; --no-analyze --multipv 2</code></pre>
+<h2 id="delta-tags">Delta Tags</h2>
+<p><code>--delta</code> emits JSONL rows that describe how tags change from a parent position to a child position. This is useful for move explanations, puzzle-line summaries, and training rows that need &quot;what changed after this move&quot; evidence.</p>
+<pre><code class="language-bash">crtk fen tags -i pairs.txt --delta --include-fen</code></pre>
+<p>For FEN pair input, each line can contain:</p>
+<pre><code class="language-text">&lt;parent-fen&gt; &lt;child-fen&gt;</code></pre>
+<p>For PGN input, parent/child relationships are created from the parsed movetext.</p>
+<h2 id="text-generation">Text Generation</h2>
+<p>The T5 commands consume tags and generate short natural-language summaries:</p>
+<pre><code class="language-bash">crtk fen text --fen &quot;&lt;FEN&gt;&quot; --model models/t5.bin --include-fen
+crtk puzzle text --fen &quot;&lt;FEN&gt;&quot; --model models/t5.bin --include-fen</code></pre>
+<p>The text commands can use static tags or engine-enriched tags. Keep engine limits explicit when using them in batch jobs:</p>
+<pre><code class="language-bash">crtk fen text \
+  -i positions.txt \
+  --model models/t5.bin \
+  --analyze \
+  --max-duration 2s \
+  --multipv 2</code></pre>
+<h2 id="interpreting-piece-tags">Interpreting Piece Tags</h2>
+<p><code>PIECE</code> tags describe placement and activity. Common fields include:</p>
+<ul>
+<li><code>tier</code>: placement tier such as <code>very_strong</code>, <code>strong</code>, <code>neutral</code>, <code>weak</code>,</li>
+</ul>
+<p>or <code>very_weak</code></p>
+<ul>
+<li><code>activity</code>: mobility or activity fact such as <code>low_mobility</code></li>
+<li><code>extreme</code>: strongest/weakest piece anchors for the whole board or one side</li>
+<li><code>side</code>: <code>white</code> or <code>black</code></li>
+<li><code>piece</code>: <code>pawn</code>, <code>knight</code>, <code>bishop</code>, <code>rook</code>, <code>queen</code>, or <code>king</code></li>
+<li><code>square</code>: algebraic square</li>
+</ul>
+<p>Treat these tags as auditable hints. Tactical and king-safety tags should carry more weight than a generic placement tier when explaining a forcing sequence.</p>
+<h2 id="counting-tags">Counting Tags</h2>
+<p>Summarize tags in record dumps:</p>
+<pre><code class="language-bash">crtk record tag-stats -i dump/run.puzzles.json
+crtk record tag-stats -i dump/run.puzzles.json --top 50</code></pre>
+<p>Use this before training or publishing from mined data. It exposes class imbalance, missing families, and overly common generic tags.</p>
+        </article>
+        <aside class="toc"><h2>On This Page</h2>
+<a class="toc-h2" href="#tag-shape">Tag Shape</a>
+<a class="toc-h2" href="#tag-families">Tag Families</a>
+<a class="toc-h2" href="#commands">Commands</a>
+<a class="toc-h2" href="#delta-tags">Delta Tags</a>
+<a class="toc-h2" href="#text-generation">Text Generation</a>
+<a class="toc-h2" href="#interpreting-piece-tags">Interpreting Piece Tags</a>
+<a class="toc-h2" href="#counting-tags">Counting Tags</a></aside>
+      </main>
+      <footer class="footer">
+        <span>Generated from <code>wiki/piece-tags.md</code>.</span>
+        <span>Build with <code>python3 scripts/build_docs_site.py</code>.</span>
+      </footer>
+    </div>
+  </div>
+</body>
+</html>

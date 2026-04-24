@@ -16,8 +16,9 @@ JAR_PATH="$APP_HOME/crtk.jar"
 LAUNCHER="/usr/local/bin/$APP_NAME"
 MODEL_DIR="$APP_HOME/models"
 MODEL_BASE_URL="https://media.githubusercontent.com/media/LenniAConrad/chess-models/main/models"
-MODEL_REMOTE_FILES=("lc0_610153.bin" "lc0_744706.bin")
+MODEL_REMOTE_FILES=("nn-f68ec79f0fe3.nnue" "lc0_610153.bin" "lc0_744706.bin")
 MODEL_LOCAL_FILES=(
+  "crtk-halfkp.nnue"
   "leela_112planes-30blocksx384-policyhead80-valuehead32-policy4672-wdl3.bin"
   "leela_112planes-10blocksx128-policyhead80-valuehead32-policy4672-wdl3.bin"
 )
@@ -246,7 +247,7 @@ fetch_model_weights() {
     done
     if ! confirm "Download model weights into models/ now?" "Y"; then
       MODEL_RESULT="skipped"
-      warn "Skipping model weights. LC0-backed evaluation will use fallback behavior until weights are added."
+      warn "Skipping model weights. engine builtin --nnue will require models/crtk-halfkp.nnue or --weights, and LC0-backed evaluation will use fallback behavior until weights are added."
       return 0
     fi
   fi

@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>In-house Java engine | ChessRTK Wiki</title>
+  <link rel="stylesheet" href="styles.css">
+  <script defer src="search-index.js"></script>
+  <script defer src="site.js"></script>
+</head>
+<body>
+  <button class="menu-toggle" type="button" aria-label="Toggle navigation">Menu</button>
+  <div class="site-shell">
+    <aside class="sidebar">
+      <a class="brand" href="index.html">
+        <span class="brand-mark">CR</span>
+        <span><strong>ChessRTK</strong><small>Wiki</small></span>
+      </a>
+      <label class="search-label" for="doc-search">Search pages</label>
+      <input id="doc-search" class="search" type="search" placeholder="Search docs...">
+      <nav class="nav"><section class="nav-section"><h2>Start Here</h2>
+<a class="" href="index.html" data-title="home">Home</a>
+<a class="" href="getting-started.html" data-title="getting started">Getting Started</a>
+<a class="" href="faq.html" data-title="faq">FAQ</a>
+<a class="" href="command-reference.html" data-title="command reference">Command Reference</a>
+<a class="" href="example-commands.html" data-title="example commands">Example Commands</a>
+<a class="" href="troubleshooting.html" data-title="troubleshooting">Troubleshooting</a>
+</section>
+<section class="nav-section"><h2>User Guides</h2>
+<a class="" href="build-and-install.html" data-title="build &amp; install">Build &amp; Install</a>
+<a class="" href="configuration.html" data-title="configuration">Configuration</a>
+<a class="active" href="in-house-engine.html" data-title="in-house engine">In-House Engine</a>
+<a class="" href="lc0.html" data-title="lc0">LC0</a>
+<a class="" href="outputs-and-logs.html" data-title="outputs &amp; logs">Outputs &amp; Logs</a>
+<a class="" href="support.html" data-title="support">Support</a>
+</section>
+<section class="nav-section"><h2>Workflows</h2>
+<a class="" href="mining.html" data-title="mining puzzles">Mining Puzzles</a>
+<a class="" href="filter-dsl.html" data-title="filter dsl">Filter DSL</a>
+<a class="" href="datasets.html" data-title="datasets">Datasets</a>
+<a class="" href="book-publishing.html" data-title="book publishing">Book Publishing</a>
+<a class="" href="piece-tags.html" data-title="tags">Tags</a>
+<a class="" href="t5.html" data-title="t5 text">T5 Text</a>
+<a class="" href="ai-agents.html" data-title="ai agents">AI Agents</a>
+</section>
+<section class="nav-section"><h2>Development</h2>
+<a class="" href="architecture.html" data-title="architecture">Architecture</a>
+<a class="" href="development-notes.html" data-title="development notes">Development Notes</a>
+<a class="" href="releasing.html" data-title="releasing">Releasing</a>
+<a class="" href="roadmap.html" data-title="roadmap">Roadmap</a>
+<a class="" href="glossary.html" data-title="glossary">Glossary</a>
+<a class="" href="tagging-implementation-plan.html" data-title="tagging plan">Tagging Plan</a>
+<a class="" href="wiki-index.html" data-title="wiki index">Wiki Index</a>
+</section></nav>
+    </aside>
+    <div class="page">
+      <header class="topbar">
+        <div>
+          <span>User Guides</span>
+          <strong>In-house Java engine</strong>
+        </div>
+        <nav>
+          <a href="index.html">Home</a>
+          <a href="wiki-index.html">Wiki Index</a>
+          <a href="command-reference.html">Commands</a>
+        </nav>
+      </header>
+      
+      <main class="content-layout">
+        <article class="content">
+          <h1 id="in-house-java-engine">In-house Java engine</h1>
+<p>ChessRTK includes a small built-in Java engine exposed through <code>crtk engine builtin</code> and <code>crtk engine java</code>.</p>
+<p>The engine is an in-process search and benchmarking tool. It is not intended to be a top-tier engine competing with mature UCI engines. Use it when an in-process, zero-dependency search is valuable, when a workflow should continue without a configured UCI engine, or when you want to benchmark engine tasks such as puzzle solve speed.</p>
+<h2 id="cli-usage">CLI usage</h2>
+<p>Search one FEN with the default classical evaluator:</p>
+<pre><code class="language-bash">crtk engine builtin --fen &quot;&lt;FEN&gt;&quot; --depth 20
+crtk engine builtin --fen &quot;&lt;FEN&gt;&quot; --depth 4 --format summary
+crtk engine java --fen &quot;&lt;FEN&gt;&quot; --depth 4 --format both</code></pre>
+<p>Cap the search by nodes or time:</p>
+<pre><code class="language-bash">crtk engine builtin --fen &quot;&lt;FEN&gt;&quot; --depth 5 --nodes 250000 --format both
+crtk engine builtin --fen &quot;&lt;FEN&gt;&quot; --depth 8 --max-duration 2s --format summary</code></pre>
+<p>When <code>--depth</code> is explicit and <code>--nodes</code>/<code>--max-duration</code> are omitted, the search tries to complete that depth without the default node/time caps. Add <code>--nodes</code> or <code>--max-duration</code> when you want depth to act as a maximum inside a budget.</p>
+<p>Read a file with one FEN per line:</p>
+<pre><code class="language-bash">crtk engine builtin --input positions.txt --depth 3 --format both</code></pre>
+<p>Select an evaluator:</p>
+<pre><code class="language-bash">crtk engine builtin --evaluator classical --fen &quot;&lt;FEN&gt;&quot;
+crtk engine builtin --classical --depth 6 --fen &quot;&lt;FEN&gt;&quot;
+crtk engine builtin --nnue --fen &quot;&lt;FEN&gt;&quot;   # after ./install.sh --models
+crtk engine builtin --evaluator nnue --weights models/crtk-halfkp.nnue --fen &quot;&lt;FEN&gt;&quot;
+crtk engine builtin --evaluator lc0 --weights models/leela_112planes-10blocksx128-policyhead80-valuehead32-policy4672-wdl3.bin --fen &quot;&lt;FEN&gt;&quot;</code></pre>
+<p>Shortcut flags are also available: <code>--classical</code>, <code>--nnue</code>, and <code>--lc0</code>.</p>
+<p>Defaults:</p>
+<ul>
+<li>If <code>--depth</code> is omitted, the command searches to depth <code>3</code> with a <code>250000</code></li>
+</ul>
+<p>node budget and a <code>5s</code> wall-clock budget.</p>
+<ul>
+<li>If <code>--depth</code> is provided and no budget is provided, the command attempts to</li>
+</ul>
+<p>complete that depth without the default node/time caps.</p>
+<ul>
+<li><code>--nodes</code> and <code>--max-nodes</code> are aliases. A value of <code>0</code> means unlimited.</li>
+<li><code>--max-duration 0</code> means unlimited time.</li>
+</ul>
+<h2 id="evaluators">Evaluators</h2>
+<ul>
+<li><code>classical</code>: handcrafted material, piece-square, mobility, king safety, pawn</li>
+</ul>
+<p>structure, and terminal-position scoring.</p>
+<ul>
+<li><code>nnue</code>: pure-Java NNUE evaluator using <code>models/crtk-halfkp.nnue</code> by default,</li>
+</ul>
+<p>or an explicit <code>--weights</code> path. <code>./install.sh --models</code> installs the default file. If the default file is absent, <code>--nnue</code> fails with a missing-weights error instead of silently using the smoke-test fallback.</p>
+<ul>
+<li><code>lc0</code>: pure-Java LC0 value evaluator using the configured LC0J model path by</li>
+</ul>
+<p>default, or an explicit <code>--weights</code> path.</p>
+<p>The evaluator is used as the static score at the search frontier. The engine search itself is still a classical alpha-beta search; choosing <code>--lc0</code> does not turn the engine into an LC0-style MCTS engine. LC0 evaluation is much more expensive than the handcrafted evaluator, so high alpha-beta depths with <code>--lc0</code> can take a long time.</p>
+<h2 id="nnue-architecture">NNUE architecture</h2>
+<p>The Java NNUE path is intentionally small and explicit.</p>
+<ul>
+<li>The compact CRTK-format network uses HalfKP-style sparse features:</li>
+</ul>
+<p><code>64 king buckets x 10 relative piece planes x 64 piece squares = 40,960</code> possible features.</p>
+<ul>
+<li>For each perspective, active sparse features are accumulated into one hidden</li>
+</ul>
+<p>vector, clipped ReLU is applied, and the side-to-move and opponent activations are projected through one linear output layer to a centipawn score.</p>
+<ul>
+<li><code>FeatureEncoder</code> maps a <code>Position</code> into sparse feature indices, and</li>
+</ul>
+<p><code>Accumulator</code> stores the hidden sums so the searcher can update deltas incrementally after moves instead of rebuilding from scratch each time.</p>
+<ul>
+<li><code>Model.load(path)</code> auto-detects both the compact CRTK format and supported</li>
+</ul>
+<p>Stockfish <code>.nnue</code> files. The compact CRTK path exposes public incremental search-state helpers; the Stockfish path is compatibility-oriented inference.</p>
+<p>For source-level package docs, see <code>src/chess/nn/nnue/package-info.java</code>.</p>
+<h2 id="search-behavior">Search behavior</h2>
+<p>The search is deterministic and supports:</p>
+<ul>
+<li>iterative deepening</li>
+<li>negamax alpha-beta search</li>
+<li>quiescence search for noisy leaf positions</li>
+<li>internal transposition and static-evaluation caches</li>
+<li>principal variation output</li>
+<li>move ordering with principal variation, transposition-table, capture,</li>
+</ul>
+<p>promotion, killer-move, and history signals</p>
+<ul>
+<li><code>--depth</code>, <code>--nodes</code>, and <code>--max-duration</code> limits</li>
+</ul>
+<p>The transposition table is built into the searcher and is not currently exposed as a user-tunable <code>--hash</code> option. External UCI commands still support <code>--threads</code> and <code>--hash</code> because those options are sent to the configured UCI engine; the in-house engine is single-threaded search with deterministic in-process state.</p>
+<p>Output formats:</p>
+<ul>
+<li>default / <code>--format uci-info</code>: UCI-style <code>info depth ... pv ...</code> lines,</li>
+</ul>
+<p>followed by <code>bestmove ...</code></p>
+<ul>
+<li>if a slow evaluator exhausts its budget before depth 1 completes, <code>uci-info</code></li>
+</ul>
+<p>emits the static fallback as <code>info depth 0 ... pv ...</code></p>
+<ul>
+<li><code>--format uci</code>: best move only, e.g. <code>e2e4</code></li>
+<li><code>--format san</code>: best move only, e.g. <code>e4</code></li>
+<li><code>--format both</code>: UCI and SAN separated by a tab</li>
+<li><code>--format summary</code>: FEN, evaluator, best move, score, completed depth, nodes,</li>
+</ul>
+<p>elapsed time, stopped flag, and PV</p>
+<h2 id="practical-uses">Practical Uses</h2>
+<p>Use the built-in engine for:</p>
+<ul>
+<li>deterministic best-move output in scripts that should not spawn an external</li>
+</ul>
+<p>process</p>
+<ul>
+<li>small smoke tests in CI</li>
+<li>bounded puzzle-solve timing</li>
+<li>evaluator experiments with the same search shell</li>
+<li>local analysis when no UCI engine is configured</li>
+<li>quick comparisons between classical, NNUE, and LC0 value evaluators</li>
+<li>local workflows where process startup and protocol parsing would dominate the</li>
+</ul>
+<p>work</p>
+<p>Use a mature UCI engine for:</p>
+<ul>
+<li>strength-sensitive analysis</li>
+<li>long MultiPV analysis</li>
+<li>production puzzle mining</li>
+<li>large-scale tactical validation</li>
+</ul>
+<h2 id="benchmarking-and-validation">Benchmarking and Validation</h2>
+<p>The built-in engine reports completed depth, nodes, elapsed time, stopped flag, score, and PV in <code>--format summary</code>:</p>
+<pre><code class="language-bash">crtk engine builtin \
+  --fen &quot;&lt;FEN&gt;&quot; \
+  --depth 5 \
+  --nodes 250000 \
+  --max-duration 2s \
+  --format summary</code></pre>
+<p>Compare move-generation correctness separately from search quality:</p>
+<pre><code class="language-bash">crtk engine perft --fen &quot;&lt;FEN&gt;&quot; --depth 5
+crtk engine perft --fen &quot;&lt;FEN&gt;&quot; --depth 5 --divide --threads 4
+crtk engine perft --fen &quot;&lt;FEN&gt;&quot; --depth 5 --format stockfish --threads 4
+crtk engine perft-suite --depth 6 --threads 4</code></pre>
+<p><code>engine perft</code> and <code>engine perft-suite</code> use <code>chess.core</code> directly. The suite checks stored truth values for critical standard positions, Chess960 castling, en-passant, promotions, open castling lanes, and a knight-heavy stress position. It prints a progress bar first, then a table with <code>Truth</code>, <code>Calculated</code>, <code>Speed</code>, and <code>Match</code>.</p>
+<p>Use external engine commands when you want a reference move or PV:</p>
+<pre><code class="language-bash">crtk engine bestmove --fen &quot;&lt;FEN&gt;&quot; --format both --max-duration 5s
+crtk engine analyze --fen &quot;&lt;FEN&gt;&quot; --multipv 3 --max-nodes 1000000</code></pre>
+<p>When comparing engines, keep the limits explicit. Depth, node budgets, time budgets, evaluator choice, thread count, hash size, and startup overhead all change what a result means.</p>
+        </article>
+        <aside class="toc"><h2>On This Page</h2>
+<a class="toc-h2" href="#cli-usage">CLI usage</a>
+<a class="toc-h2" href="#evaluators">Evaluators</a>
+<a class="toc-h2" href="#nnue-architecture">NNUE architecture</a>
+<a class="toc-h2" href="#search-behavior">Search behavior</a>
+<a class="toc-h2" href="#practical-uses">Practical Uses</a>
+<a class="toc-h2" href="#benchmarking-and-validation">Benchmarking and Validation</a></aside>
+      </main>
+      <footer class="footer">
+        <span>Generated from <code>wiki/in-house-engine.md</code>.</span>
+        <span>Build with <code>python3 scripts/build_docs_site.py</code>.</span>
+      </footer>
+    </div>
+  </div>
+</body>
+</html>

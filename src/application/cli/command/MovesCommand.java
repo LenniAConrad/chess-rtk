@@ -121,7 +121,7 @@ public final class MovesCommand {
 		boolean san = a.flag(OPT_SAN);
 		boolean both = a.flag(OPT_BOTH);
 		MovesFormat requested = parseFormat(a.string(OPT_FORMAT), san, both, cmdLabel);
-		String fen = CommandSupport.resolveFenArgument(a);
+		String fen = CommandSupport.resolveFenArgument(a, cmdLabel, false);
 		MovesFormat resolved = format == MovesFormat.DEFAULT ? requested : format;
 
 		if (resolved == MovesFormat.UCI) {

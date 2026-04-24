@@ -11,8 +11,16 @@ import java.util.Optional;
  */
 public final class StudioTaskCatalog {
 
+	/**
+	 * Immutable list of known tasks.
+	 */
 	private final List<StudioTask> tasks;
 
+	/**
+	 * Constructor.
+	 *
+	 * @param tasks task definitions
+	 */
 	private StudioTaskCatalog(List<StudioTask> tasks) {
 		this.tasks = List.copyOf(tasks);
 	}
@@ -111,11 +119,29 @@ public final class StudioTaskCatalog {
 		return new LinkedHashMap<>();
 	}
 
+	/**
+	 * Creates a task descriptor.
+	 *
+	 * @param id task id
+	 * @param label display label
+	 * @param group task group
+	 * @param description task description
+	 * @param args base CRTK arguments
+	 * @param supportsFen whether the task accepts a FEN argument
+	 * @param advanced whether the task is advanced
+	 * @return task descriptor
+	 */
 	private static StudioTask task(String id, String label, String group, String description,
 			List<String> args, boolean supportsFen, boolean advanced) {
 		return new StudioTask(id, label, group, description, args, supportsFen, advanced);
 	}
 
+	/**
+	 * Joins command parts for shell display.
+	 *
+	 * @param parts command parts
+	 * @return shell command
+	 */
 	private static String shellJoin(List<String> parts) {
 		StringBuilder sb = new StringBuilder();
 		for (String part : parts) {
@@ -127,6 +153,12 @@ public final class StudioTaskCatalog {
 		return sb.toString();
 	}
 
+	/**
+	 * Quotes one shell command part when needed.
+	 *
+	 * @param part command part
+	 * @return quoted command part
+	 */
 	private static String quote(String part) {
 		if (part == null) {
 			return "''";

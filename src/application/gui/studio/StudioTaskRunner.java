@@ -14,7 +14,14 @@ import javax.swing.SwingWorker;
  */
 public final class StudioTaskRunner {
 
+	/**
+	 * Active background worker, or null when no task is running.
+	 */
 	private SwingWorker<Integer, String> worker;
+
+	/**
+	 * Active subprocess owned by {@link #worker}.
+	 */
 	private Process process;
 
 	/**
@@ -27,6 +34,12 @@ public final class StudioTaskRunner {
 	public void start(List<String> args, Consumer<String> onOutput, Consumer<Integer> onDone) {
 		cancel();
 		worker = new SwingWorker<>() {
+			/**
+			 * Runs the CRTK subprocess and streams stdout lines.
+			 *
+			 * @return process exit code
+			 * @throws Exception if process startup or waiting fails
+			 */
 			@Override
 			protected Integer doInBackground() throws Exception {
 				List<String> command = new ArrayList<>();
@@ -47,6 +60,11 @@ public final class StudioTaskRunner {
 				return process.waitFor();
 			}
 
+			/**
+			 * Delivers output chunks on the event-dispatch thread.
+			 *
+			 * @param chunks output chunks published by the worker
+			 */
 			@Override
 			protected void process(List<String> chunks) {
 				if (onOutput != null) {
@@ -56,6 +74,9 @@ public final class StudioTaskRunner {
 				}
 			}
 
+			/**
+			 * Delivers the final process exit code.
+			 */
 			@Override
 			protected void done() {
 				int code = -1;

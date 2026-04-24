@@ -104,14 +104,49 @@ public final class MoveGenerator {
      */
     public static MoveList generateLegalMoves(Position position) {
         MoveList pseudo = new MoveList();
+        MoveList legal = new MoveList();
+        Position.State state = new Position.State();
+        generateLegalMoves(position, pseudo, legal, state);
+        return legal;
+    }
+
+    /**
+     * Generates all legal moves into caller-owned scratch lists.
+     *
+     * <p>
+     * Both lists are cleared before use and retain their backing arrays across
+     * calls, which helps search hot paths avoid per-node allocations.
+     * </p>
+     *
+     * @param position position
+     * @param pseudo caller-owned pseudo-legal move scratch list
+     * @param legal caller-owned legal move output list
+     * @param state caller-owned undo state for legality validation
+     */
+    public static void generateLegalMoves(
+            Position position,
+            MoveList pseudo,
+            MoveList legal,
+            Position.State state) {
+        if (position == null) {
+            throw new IllegalArgumentException("position == null");
+        }
+        if (pseudo == null) {
+            throw new IllegalArgumentException("pseudo == null");
+        }
+        if (legal == null) {
+            throw new IllegalArgumentException("legal == null");
+        }
+        if (state == null) {
+            throw new IllegalArgumentException("state == null");
+        }
         generatePseudoLegalMoves(position, pseudo);
-        MoveList legal = new MoveList(Math.max(1, pseudo.size()));
+        legal.clear();
         boolean white = position.isWhiteToMove();
         boolean inCheck = isKingAttacked(position, white);
         long pinned = inCheck ? 0L : pinnedPieces(position, white);
         int king = position.kingSquare(white);
         int enPassant = position.enPassantSquare();
-        Position.State state = new Position.State();
         for (int i = 0; i < pseudo.size(); i++) {
             short move = pseudo.raw(i);
             if (!inCheck && isUsuallyLegal(position, move, pinned, king, enPassant)) {
@@ -124,7 +159,6 @@ public final class MoveGenerator {
             }
             position.undo(move, state);
         }
-        return legal;
     }
 
     /**

@@ -32,6 +32,5 @@ fix gui situation
 fix tagging situation
 
 Repo quality improvements:
-- Decide whether the current non-commercial/no-derivatives license is intentional; if wider adoption matters, choose a standard open-source license.
 - Reduce direct `System.exit` and raw stack-trace printing in command handlers where practical so command logic is easier to test and reuse.
 - Add contributor docs for coding style, test commands, release process, and expected Java version.

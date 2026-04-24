@@ -2,7 +2,6 @@ package application.cli.command;
 
 import static application.cli.Constants.OPT_DEPTH;
 import static application.cli.Constants.OPT_DEPTH_SHORT;
-import static application.cli.Constants.OPT_FEN;
 import static application.cli.Constants.OPT_FORMAT;
 import static application.cli.Constants.OPT_INPUT;
 import static application.cli.Constants.OPT_INPUT_SHORT;
@@ -19,6 +18,7 @@ import static application.cli.Format.formatPvMovesSan;
 import static application.cli.Format.safeSan;
 
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.List;
@@ -30,9 +30,9 @@ import application.cli.Validation;
 import application.console.Bar;
 import chess.core.Move;
 import chess.core.Position;
-import chess.engine.search.Limits;
-import chess.engine.search.Result;
-import chess.engine.search.AlphaBeta;
+import chess.engine.AlphaBeta;
+import chess.engine.Limits;
+import chess.engine.Result;
 import chess.eval.CentipawnEvaluator;
 import chess.eval.Factory;
 import chess.eval.Kind;
@@ -188,7 +188,6 @@ public final class BuiltInEngineCommand {
 	private static Options parseOptions(Argv a) {
 		boolean verbose = a.flag(OPT_VERBOSE, OPT_VERBOSE_SHORT);
 		Path input = a.path(OPT_INPUT, OPT_INPUT_SHORT);
-		String fen = a.string(OPT_FEN);
 		String format = a.string(OPT_FORMAT);
 		String evaluatorValue = a.string(OPT_EVALUATOR);
 		boolean classical = a.flag(OPT_CLASSICAL);
@@ -203,11 +202,7 @@ public final class BuiltInEngineCommand {
 		long defaultDuration = depthOpt == null ? Limits.DEFAULT_MAX_DURATION_MILLIS : 0L;
 		long maxNodes = nodesOpt == null ? defaultNodes : nodesOpt;
 		long maxDuration = CommandSupport.optionalDurationMs(durationOpt, defaultDuration);
-		List<String> rest = a.positionals();
-		if (fen == null && !rest.isEmpty()) {
-			fen = String.join(" ", rest);
-		}
-		a.ensureConsumed();
+		String fen = CommandSupport.resolveFenArgument(a, CMD_BUILTIN, false);
 
 		Validation.requireBetweenInclusive(CMD_BUILTIN, OPT_DEPTH, depth, 1, AlphaBeta.MAX_DEPTH);
 		if (maxNodes < 0L) {
@@ -273,10 +268,39 @@ public final class BuiltInEngineCommand {
 	 */
 	private static CentipawnEvaluator createEvaluator(Options opts) throws IOException {
 		Path weights = opts.weights();
-		if (weights == null && opts.evaluator() == Kind.LC0) {
+		if (opts.evaluator() == Kind.NNUE) {
+			weights = resolveNnueWeights(weights);
+		} else if (weights == null && opts.evaluator() == Kind.LC0) {
 			weights = Path.of(Config.getLc0ModelPath());
 		}
 		return Factory.create(opts.evaluator(), weights);
+	}
+
+	/**
+	 * Resolves NNUE weights for the built-in engine.
+	 *
+	 * <p>
+	 * User-facing NNUE search must never silently fall back to the synthetic
+	 * all-zero smoke-test model because that produces flat scores and misleading
+	 * best moves. The low-level NNUE API still exposes the fallback for isolated
+	 * tests, but the CLI requires real weights.
+	 * </p>
+	 *
+	 * @param weights explicit weights path, or null for the default path
+	 * @return resolved NNUE weights path
+	 */
+	private static Path resolveNnueWeights(Path weights) {
+		if (weights != null) {
+			return weights;
+		}
+		Path defaultWeights = chess.nn.nnue.Model.DEFAULT_WEIGHTS;
+		if (Files.isRegularFile(defaultWeights)) {
+			return defaultWeights;
+		}
+		throw new CommandFailure(
+				CMD_BUILTIN + ": default NNUE weights not found at " + defaultWeights
+						+ "; install that file, run ./install.sh --models, or pass " + OPT_WEIGHTS + " <path>",
+				2);
 	}
 
 	/**

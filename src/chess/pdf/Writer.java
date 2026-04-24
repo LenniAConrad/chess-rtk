@@ -172,10 +172,10 @@ public final class Writer {
 
 		Document pdf = new Document()
 				.setTitle(documentTitle == null ? "" : documentTitle)
-				.setAuthor("chess-rtk")
-				.setSubject("Chess PDF export")
-				.setCreator("chess.pdf.Writer")
-				.setProducer("chess-rtk pdf");
+				.setAuthor(safeOptions.getDocumentAuthor())
+				.setSubject(safeOptions.getDocumentSubject())
+				.setCreator(safeOptions.getDocumentCreator())
+				.setProducer(safeOptions.getDocumentProducer());
 
 		for (int i = 0; i < compositions.size(); i++) {
 			renderComposition(pdf, compositions.get(i), i + 1, safeOptions);

@@ -12,6 +12,9 @@ import chess.core.SAN;
  */
 public final class StudioReport {
 
+	/**
+	 * Utility constructor.
+	 */
 	private StudioReport() {
 		// utility
 	}

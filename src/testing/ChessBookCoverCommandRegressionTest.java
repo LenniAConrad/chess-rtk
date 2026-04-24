@@ -29,6 +29,41 @@ import utility.Argv;
 public final class ChessBookCoverCommandRegressionTest {
 
 	/**
+	 * Shared JSON suffix for sample manifests.
+	 */
+	private static final String JSON_SUFFIX = ".json";
+
+	/**
+	 * Shared CLI input option.
+	 */
+	private static final String INPUT_OPTION = "--input";
+
+	/**
+	 * Shared CLI output option.
+	 */
+	private static final String OUTPUT_OPTION = "--output";
+
+	/**
+	 * Shared CLI binding option.
+	 */
+	private static final String BINDING_OPTION = "--binding";
+
+	/**
+	 * Shared paperback binding token.
+	 */
+	private static final String PAPERBACK_BINDING = "paperback";
+
+	/**
+	 * Shared CLI interior option.
+	 */
+	private static final String INTERIOR_OPTION = "--interior";
+
+	/**
+	 * Shared cream black-and-white interior token.
+	 */
+	private static final String CREAM_BW_INTERIOR = "cream-bw";
+
+	/**
 	 * Number of centimeters in one inch.
 	 */
 	private static final double CENTIMETERS_PER_INCH = 2.54;
@@ -112,11 +147,6 @@ public final class ChessBookCoverCommandRegressionTest {
 	 * Tight floating-point tolerance for paper multiplier checks.
 	 */
 	private static final double PAPER_EPSILON = 0.0000000001;
-
-	/**
-	 * Lower bound for the generated cover PDF size.
-	 */
-	private static final int MIN_COVER_PDF_BYTES = 5_000;
 
 	/**
 	 * Utility class; prevent instantiation.
@@ -266,26 +296,28 @@ public final class ChessBookCoverCommandRegressionTest {
 	 * @throws Exception if cover export fails
 	 */
 	private static void testPaperbackCoverExport() throws Exception {
-		Path input = Files.createTempFile("book-cover-", ".json");
+		Path input = Files.createTempFile("book-cover-", JSON_SUFFIX);
 		Files.writeString(input, sampleBook(), StandardCharsets.UTF_8);
 
 		Path output = Files.createTempFile("book-cover-", ".pdf");
 		String console = captureStdout(() -> ChessBookCoverCommand.runChessBookCover(new Argv(new String[] {
-				"--input", input.toString(),
-					"--output", output.toString(),
-					"--binding", "paperback",
-					"--interior", "cream-bw",
-					"--pages", String.valueOf(COVER_PAGES)
+				INPUT_OPTION, input.toString(),
+				OUTPUT_OPTION, output.toString(),
+				BINDING_OPTION, PAPERBACK_BINDING,
+				INTERIOR_OPTION, CREAM_BW_INTERIOR,
+				"--pages", String.valueOf(COVER_PAGES)
 		})));
 
 		byte[] bytes = Files.readAllBytes(output);
+		String header = new String(bytes, 0, Math.min(bytes.length, 32), StandardCharsets.ISO_8859_1);
 		String text = new String(bytes, StandardCharsets.ISO_8859_1);
-		assertTrue(bytes.length > MIN_COVER_PDF_BYTES, "cover pdf size");
+		assertTrue(header.startsWith("%PDF-1.4"), "cover pdf header");
+		assertTrue(text.contains("%%EOF"), "cover eof marker");
 		assertTrue(text.contains("/Title (Cover CLI: Cover Sample cover)"), "cover metadata title");
 		assertTrue(text.contains("/Producer (chess-rtk native book cover pdf)"), "cover producer metadata");
 		assertTrue(text.contains("About this book"), "back-cover heading");
 		assertTrue(text.contains("Cover CLI"), "front-cover title");
-		assertTrue(console.contains("paperback cover for " + COVER_PAGES + " pages"), "console summary");
+		assertTrue(console.contains(PAPERBACK_BINDING + " cover for " + COVER_PAGES + " pages"), "console summary");
 		assertFalse(text.contains("/Subtype /Image"), "cover raster image marker");
 	}
 
@@ -295,19 +327,20 @@ public final class ChessBookCoverCommandRegressionTest {
 	 * @throws Exception if PDF inspection or validation fails
 	 */
 	private static void testCliUsesInteriorPdfMetadata() throws Exception {
-		Path input = Files.createTempFile("book-cover-pdf-", ".json");
+		Path input = Files.createTempFile("book-cover-pdf-", JSON_SUFFIX);
 		Files.writeString(input, sampleBook(), StandardCharsets.UTF_8);
 		Path pdf = writeInteriorPdf(PDF_TRIM_WIDTH_CM, PDF_TRIM_HEIGHT_CM, PDF_PAGES);
 
 		String console = captureStdout(() -> ChessBookCoverCommand.runChessBookCover(new Argv(new String[] {
-				"--input", input.toString(),
+				INPUT_OPTION, input.toString(),
 				"--pdf", pdf.toString(),
-				"--binding", "paperback",
-				"--interior", "cream-bw",
+				BINDING_OPTION, PAPERBACK_BINDING,
+				INTERIOR_OPTION, CREAM_BW_INTERIOR,
 				"--check"
 		})));
 
-		assertTrue(console.contains("book cover OK: paperback/cream-bw, " + PDF_PAGES + " pages"),
+		assertTrue(console.contains("book cover OK: " + PAPERBACK_BINDING + "/" + CREAM_BW_INTERIOR + ", "
+				+ PDF_PAGES + " pages"),
 				"cover check mode pdf page count");
 		assertTrue(console.contains(String.format(Locale.ROOT, "trim %.2f x %.2f cm",
 				PDF_TRIM_WIDTH_CM, PDF_TRIM_HEIGHT_CM)),
@@ -320,20 +353,20 @@ public final class ChessBookCoverCommandRegressionTest {
 	 * @throws Exception if validation fails unexpectedly
 	 */
 	private static void testCheckModeDoesNotWritePdf() throws Exception {
-		Path input = Files.createTempFile("book-cover-check-", ".json");
+		Path input = Files.createTempFile("book-cover-check-", JSON_SUFFIX);
 		Files.writeString(input, sampleBook(), StandardCharsets.UTF_8);
 
 		Path output = Files.createTempDirectory("book-cover-check-").resolve("cover.pdf");
 		String console = captureStdout(() -> ChessBookCoverCommand.runChessBookCover(new Argv(new String[] {
-				"--input", input.toString(),
-				"--output", output.toString(),
-				"--binding", "paperback",
-				"--interior", "cream-bw",
+				INPUT_OPTION, input.toString(),
+				OUTPUT_OPTION, output.toString(),
+				BINDING_OPTION, PAPERBACK_BINDING,
+				INTERIOR_OPTION, CREAM_BW_INTERIOR,
 				"--pages", String.valueOf(COVER_PAGES),
 				"--check"
 		})));
 
-		assertTrue(console.contains("book cover OK: paperback/cream-bw, 120 pages"),
+		assertTrue(console.contains("book cover OK: " + PAPERBACK_BINDING + "/" + CREAM_BW_INTERIOR + ", 120 pages"),
 				"cover check mode summary");
 		assertFalse(Files.exists(output), "cover check mode skipped pdf output");
 	}

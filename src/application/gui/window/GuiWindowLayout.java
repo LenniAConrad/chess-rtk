@@ -228,6 +228,13 @@ class GuiWindowLayout extends GuiWindowEngine {
 		addNagButton(container, label, nag);
 	}
 
+	/**
+	 * Tracks a builder-created component when the target list exists.
+	 *
+	 * @param <T> component type
+	 * @param list optional tracking list
+	 * @param value component value
+	 */
 	private <T> void trackBuilderComponent(List<T> list, T value) {
 		if (list != null && value != null) {
 			list.add(value);
@@ -2076,6 +2083,11 @@ class GuiWindowLayout extends GuiWindowEngine {
 				ecoTable.setAutoCreateRowSorter(true);
 				ecoTable.getSelectionModel().addListSelectionListener(e -> handleEcoSelectionChanged(e.getValueIsAdjusting()));
 				ecoTable.addMouseListener(new MouseAdapter() {
+					/**
+					 * Applies the selected ECO entry after a double click.
+					 *
+					 * @param e mouse event
+					 */
 					@Override
 					public void mouseClicked(MouseEvent e) {
 						if (e.getClickCount() == 2) {

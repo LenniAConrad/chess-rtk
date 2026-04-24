@@ -2,12 +2,23 @@
 
 All commands are subcommands of `application.Main`.
 
-- Installed launcher: `crtk <command> ...`
-- From classes: `java -cp out application.Main <command> ...`
+- Installed launcher: `crtk <area> <action> [options] [args]`
+- From classes: `java -cp out application.Main <area> <action> [options] [args]`
 - Built-in usage text: `crtk help --full`
 
 Use grouped commands for scripts and automation: `record`, `fen`, `move`,
 `engine`, `book`, and `puzzle`.
+
+Command style:
+
+- Prefer the full grouped form in scripts: `crtk record export ...`,
+  `crtk record dataset ...`, `crtk move list ...`, `crtk engine bestmove ...`.
+- Use named flags for structured values such as `--fen`, `--input`, `--output`,
+  and `--format`.
+- Put options before free-form args when scripting. Use `--` or
+  `--end-of-options` if a value could be parsed as an option.
+- Contextual help works with either `crtk help move list` or
+  `crtk move list --help`.
 
 The Java-native commands (`fen`, `move`, `engine perft`, `engine perft-suite`,
 `engine builtin --classical`, and `engine static`) do not require an external
@@ -28,7 +39,7 @@ best-move, threat, smoke-test, and mining workflows.
 | Tagging and text generation | `fen tags`, `puzzle tags`, `fen text`, `puzzle text` |
 | Record processing | `record files`, `record stats`, `record tag-stats`, `record analysis-delta` |
 | Dataset export | `record dataset npy`, `record dataset lc0`, `record dataset classifier`, `record export training-jsonl`, `record export puzzle-jsonl` |
-| Publishing | `book render`, `book cover`, `book pdf` |
+| Publishing | `book ilovechess`, `book artofchess`, `book render`, `book cover`, `book pdf` |
 | Local health checks | `doctor`, `config show`, `config validate`, `engine gpu` |
 
 ## `record`
@@ -99,7 +110,7 @@ Usage:
 - `crtk engine threats ...`: analyze opponent threats
 - `crtk engine eval ...`: evaluate a FEN with LC0 or classical heuristics
 - `crtk engine static ...`: evaluate a FEN with the classical backend
-- `crtk engine perft ...`: run perft on a FEN
+- `crtk engine perft ...`: run perft on a position
 - `crtk engine perft-suite ...`: run the perft regression suite
 - `crtk engine gpu ...`: print GPU JNI backend status
 - `crtk engine uci-smoke ...`: start the engine and run a tiny bounded search
@@ -148,7 +159,9 @@ Options:
 Evaluator notes:
 - `classical`: handcrafted evaluator with no model dependency.
 - `nnue`: pure-Java NNUE evaluator using `models/crtk-halfkp.nnue` by default,
-  or an explicit `--weights` path.
+  or an explicit `--weights` path. If no NNUE weights are available, the
+  command fails with a missing-weights error instead of silently using the
+  smoke-test fallback.
 - `lc0`: pure-Java LC0 value evaluator using the configured LC0J model path by
   default, or an explicit `--weights` path.
 
@@ -170,6 +183,8 @@ Search notes:
 Grouped book and diagram PDF workflows.
 
 Usage:
+- `crtk book ilovechess ...`: build an I Love Chess-style book manifest from record JSON/JSONL
+- `crtk book artofchess ...`: render an annotated Art of Chess manifest to PDF, cover, and optional normalized TOML
 - `crtk book render ...`: render a chess-book JSON/TOML file to a native PDF
 - `crtk book cover ...`: render a native PDF cover for a chess-book file
 - `crtk book pdf ...`: export chess diagrams to a PDF
@@ -461,6 +476,78 @@ Options:
 - `--check|--validate`: validate layout, FENs, and solution lines without writing a PDF
 - `--free-watermark` / `--watermark`: add a noisy free-edition overlay to every page with visible print, resale, and unauthorized redistribution restrictions
 - `--watermark-id <text>`: embed a traceable watermark ID in page overlays and PDF metadata; implies `--watermark`
+- `--verbose|-v`: print stack traces on failure
+
+## `book ilovechess`
+
+Build an I Love Chess-style book manifest from analyzed record JSON/JSONL.
+The command converts the first PV in each accepted record into move-numbered
+SAN, writes a TOML manifest, and can optionally render the interior PDF and
+matching cover.
+
+See also: `book-publishing.md`.
+
+Options:
+- `--input|-i <path>`: input record JSON/JSONL file with `position` and `analysis`
+- `--output|-o <path>`: output TOML manifest path (optional; default derived from the input path as `*.book.toml`)
+- `--pdf-output <path>`: also render the interior PDF to this path
+- `--cover-output <path>`: also render the matching cover PDF to this path
+- `--title <text>`: book title (default `I Love Chess`)
+- `--subtitle <text>`: subtitle override (default `"<count> Chess Puzzles"`)
+- `--author <text>`: author credit (default `Lennart A. Conrad`)
+- `--time <text>`: publication time string
+- `--location <text>`: publication location string
+- `--language <text>`: book language token (default `English`)
+- `--pages <n>`: printed page-count hint for the manifest and optional cover
+- `--limit <n>`: import at most the first `n` records from the source file
+- `--table-frequency <n>`: puzzle pages between solution tables (default `6`)
+- `--puzzle-rows <n>`: puzzle grid rows per page (default `5`)
+- `--puzzle-columns <n>`: puzzle grid columns per page (default `4`)
+- `--imprint <text>`: repeatable imprint line
+- `--dedication <text>`: repeatable dedication line
+- `--introduction <text>`: repeatable introduction paragraph
+- `--how-to-read <text>`: repeatable custom how-to-read paragraph
+- `--blurb <text>`: repeatable back-cover blurb paragraph
+- `--link <text>`: repeatable purchase link
+- `--afterword <text>`: repeatable closing paragraph
+- `--binding <type>`: `paperback`, `hardcover`, or `ebook` for `--cover-output`
+- `--interior <type>`: `white-bw`, `cream-bw`, `white-standard-color`, or `white-premium-color`
+- `--free-watermark` / `--watermark`: add a noisy free-edition overlay to `--pdf-output`
+- `--watermark-id <text>`: embed a traceable watermark ID in the interior PDF; implies `--watermark`
+- `--check|--validate`: validate the generated book model without writing files
+- `--verbose|-v`: print stack traces on failure
+
+## `book artofchess`
+
+Render an Art of Chess annotated book from a richer JSON or TOML manifest.
+This command keeps the composition-style fields intact: per-entry description
+text, comments, hints, analysis, and explicit figure lists. It can also write a
+normalized TOML manifest and render a matching cover in one pass.
+
+See also: `book-publishing.md`.
+
+Options:
+- `--input|-i <path>`: input Art of Chess manifest (`.json` or `.toml`)
+- `--output|-o <path>`: output interior PDF path (optional; defaults to `*.pdf` when no other output is requested)
+- `--manifest-output <path>`: also write a normalized TOML manifest
+- `--cover-output <path>`: also render the matching native cover PDF
+- `--title <text>`: book title override
+- `--subtitle <text>`: subtitle override
+- `--author <text>`: author override
+- `--time <text>`: publication time override
+- `--location <text>`: publication location override
+- `--blurb <text>`: repeatable back-cover blurb override
+- `--link <text>`: repeatable cover-link override
+- `--pages <n>`: printed page count for cover metadata / spine width
+- `--page-size <size>`: `a4`, `a5`, or `letter`
+- `--margin <n>`: page margin in PostScript points
+- `--diagrams-per-row <n>`: diagrams per row override
+- `--board-pixels <n>`: raster size per diagram before embedding
+- `--flip|--black-down`: render Black at the bottom
+- `--no-fen`: hide FEN text below diagrams
+- `--binding <type>`: `paperback`, `hardcover`, or `ebook` for `--cover-output`
+- `--interior <type>`: `white-bw`, `cream-bw`, `white-standard-color`, or `white-premium-color`
+- `--check|--validate`: validate the manifest and composition layout without writing files
 - `--verbose|-v`: print stack traces on failure
 
 ## `book cover`
@@ -880,9 +967,13 @@ Options:
 Run detailed perft on a position using the Java-native `chess.core` move
 generator. The output includes leaf nodes, captures, en-passant captures,
 castles, promotions, checks, checkmates, elapsed time, and nodes per second.
+When no position selector is provided, the command defaults to the standard
+start position.
 
 Options:
 - `--fen "<FEN...>"`: FEN string (or pass it positionally; defaults to start position)
+- `--startpos`: use the standard chess start position explicitly
+- `--randompos`: use one reachable random legal standard-chess position
 - `--depth|-d <n>`: perft depth (required)
 - `--divide|--per-move`: print per-root-move detailed counters as a table
 - `--format <detail|table|stockfish>`: output format. `table` and `stockfish`

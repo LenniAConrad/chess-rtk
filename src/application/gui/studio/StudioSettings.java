@@ -13,15 +13,50 @@ import java.util.Properties;
  */
 public final class StudioSettings {
 
+	/**
+	 * Default window width in pixels.
+	 */
 	private static final int DEFAULT_WIDTH = 1320;
+
+	/**
+	 * Default window height in pixels.
+	 */
 	private static final int DEFAULT_HEIGHT = 860;
 
+	/**
+	 * Whether the light theme is enabled.
+	 */
 	private boolean lightMode;
+
+	/**
+	 * Whether White is displayed at the bottom of the board.
+	 */
 	private boolean whiteDown;
+
+	/**
+	 * Whether side panels are hidden.
+	 */
 	private boolean focusMode;
+
+	/**
+	 * Stored window width in pixels.
+	 */
 	private int width;
+
+	/**
+	 * Stored window height in pixels.
+	 */
 	private int height;
 
+	/**
+	 * Constructor.
+	 *
+	 * @param lightMode initial light-mode flag
+	 * @param whiteDown initial board orientation
+	 * @param focusMode initial focus-mode flag
+	 * @param width initial window width
+	 * @param height initial window height
+	 */
 	private StudioSettings(boolean lightMode, boolean whiteDown, boolean focusMode, int width, int height) {
 		this.lightMode = lightMode;
 		this.whiteDown = whiteDown;
@@ -88,11 +123,27 @@ public final class StudioSettings {
 		return Paths.get(System.getProperty("user.home"), ".crtk", "gui-v3.properties");
 	}
 
+	/**
+	 * Reads a boolean property with a fallback.
+	 *
+	 * @param props settings properties
+	 * @param key property key
+	 * @param fallback fallback value
+	 * @return parsed boolean or fallback
+	 */
 	private static boolean readBool(Properties props, String key, boolean fallback) {
 		String value = props.getProperty(key);
 		return value == null ? fallback : Boolean.parseBoolean(value);
 	}
 
+	/**
+	 * Reads an integer property with a fallback.
+	 *
+	 * @param props settings properties
+	 * @param key property key
+	 * @param fallback fallback value
+	 * @return parsed integer or fallback
+	 */
 	private static int readInt(Properties props, String key, int fallback) {
 		try {
 			return Integer.parseInt(props.getProperty(key, String.valueOf(fallback)));
@@ -101,42 +152,92 @@ public final class StudioSettings {
 		}
 	}
 
+	/**
+	 * Returns whether the light theme is active.
+	 *
+	 * @return true for light mode
+	 */
 	public boolean isLightMode() {
 		return lightMode;
 	}
 
+	/**
+	 * Sets whether the light theme is active.
+	 *
+	 * @param lightMode true for light mode
+	 */
 	public void setLightMode(boolean lightMode) {
 		this.lightMode = lightMode;
 	}
 
+	/**
+	 * Returns whether White is displayed at the bottom of the board.
+	 *
+	 * @return true when White is down
+	 */
 	public boolean isWhiteDown() {
 		return whiteDown;
 	}
 
+	/**
+	 * Sets whether White is displayed at the bottom of the board.
+	 *
+	 * @param whiteDown true when White is down
+	 */
 	public void setWhiteDown(boolean whiteDown) {
 		this.whiteDown = whiteDown;
 	}
 
+	/**
+	 * Returns whether focus mode hides side panels.
+	 *
+	 * @return true when focus mode is active
+	 */
 	public boolean isFocusMode() {
 		return focusMode;
 	}
 
+	/**
+	 * Sets whether focus mode hides side panels.
+	 *
+	 * @param focusMode true to enable focus mode
+	 */
 	public void setFocusMode(boolean focusMode) {
 		this.focusMode = focusMode;
 	}
 
+	/**
+	 * Returns the stored window width.
+	 *
+	 * @return window width in pixels
+	 */
 	public int getWidth() {
 		return width;
 	}
 
+	/**
+	 * Sets the stored window width with a minimum bound.
+	 *
+	 * @param width requested window width in pixels
+	 */
 	public void setWidth(int width) {
 		this.width = Math.max(900, width);
 	}
 
+	/**
+	 * Returns the stored window height.
+	 *
+	 * @return window height in pixels
+	 */
 	public int getHeight() {
 		return height;
 	}
 
+	/**
+	 * Sets the stored window height with a minimum bound.
+	 *
+	 * @param height requested window height in pixels
+	 */
 	public void setHeight(int height) {
 		this.height = Math.max(640, height);
 	}

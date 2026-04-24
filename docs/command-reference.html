@@ -1,0 +1,1104 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Command reference | ChessRTK Wiki</title>
+  <link rel="stylesheet" href="styles.css">
+  <script defer src="search-index.js"></script>
+  <script defer src="site.js"></script>
+</head>
+<body>
+  <button class="menu-toggle" type="button" aria-label="Toggle navigation">Menu</button>
+  <div class="site-shell">
+    <aside class="sidebar">
+      <a class="brand" href="index.html">
+        <span class="brand-mark">CR</span>
+        <span><strong>ChessRTK</strong><small>Wiki</small></span>
+      </a>
+      <label class="search-label" for="doc-search">Search pages</label>
+      <input id="doc-search" class="search" type="search" placeholder="Search docs...">
+      <nav class="nav"><section class="nav-section"><h2>Start Here</h2>
+<a class="" href="index.html" data-title="home">Home</a>
+<a class="" href="getting-started.html" data-title="getting started">Getting Started</a>
+<a class="" href="faq.html" data-title="faq">FAQ</a>
+<a class="active" href="command-reference.html" data-title="command reference">Command Reference</a>
+<a class="" href="example-commands.html" data-title="example commands">Example Commands</a>
+<a class="" href="troubleshooting.html" data-title="troubleshooting">Troubleshooting</a>
+</section>
+<section class="nav-section"><h2>User Guides</h2>
+<a class="" href="build-and-install.html" data-title="build &amp; install">Build &amp; Install</a>
+<a class="" href="configuration.html" data-title="configuration">Configuration</a>
+<a class="" href="in-house-engine.html" data-title="in-house engine">In-House Engine</a>
+<a class="" href="lc0.html" data-title="lc0">LC0</a>
+<a class="" href="outputs-and-logs.html" data-title="outputs &amp; logs">Outputs &amp; Logs</a>
+<a class="" href="support.html" data-title="support">Support</a>
+</section>
+<section class="nav-section"><h2>Workflows</h2>
+<a class="" href="mining.html" data-title="mining puzzles">Mining Puzzles</a>
+<a class="" href="filter-dsl.html" data-title="filter dsl">Filter DSL</a>
+<a class="" href="datasets.html" data-title="datasets">Datasets</a>
+<a class="" href="book-publishing.html" data-title="book publishing">Book Publishing</a>
+<a class="" href="piece-tags.html" data-title="tags">Tags</a>
+<a class="" href="t5.html" data-title="t5 text">T5 Text</a>
+<a class="" href="ai-agents.html" data-title="ai agents">AI Agents</a>
+</section>
+<section class="nav-section"><h2>Development</h2>
+<a class="" href="architecture.html" data-title="architecture">Architecture</a>
+<a class="" href="development-notes.html" data-title="development notes">Development Notes</a>
+<a class="" href="releasing.html" data-title="releasing">Releasing</a>
+<a class="" href="roadmap.html" data-title="roadmap">Roadmap</a>
+<a class="" href="glossary.html" data-title="glossary">Glossary</a>
+<a class="" href="tagging-implementation-plan.html" data-title="tagging plan">Tagging Plan</a>
+<a class="" href="wiki-index.html" data-title="wiki index">Wiki Index</a>
+</section></nav>
+    </aside>
+    <div class="page">
+      <header class="topbar">
+        <div>
+          <span>Start Here</span>
+          <strong>Command reference</strong>
+        </div>
+        <nav>
+          <a href="index.html">Home</a>
+          <a href="wiki-index.html">Wiki Index</a>
+          <a href="command-reference.html">Commands</a>
+        </nav>
+      </header>
+      
+      <main class="content-layout">
+        <article class="content">
+          <h1 id="command-reference">Command reference</h1>
+<p>All commands are subcommands of <code>application.Main</code>.</p>
+<ul>
+<li>Installed launcher: <code>crtk &lt;area&gt; &lt;action&gt; [options] [args]</code></li>
+<li>From classes: <code>java -cp out application.Main &lt;area&gt; &lt;action&gt; [options] [args]</code></li>
+<li>Built-in usage text: <code>crtk help --full</code></li>
+</ul>
+<p>Use grouped commands for scripts and automation: <code>record</code>, <code>fen</code>, <code>move</code>, <code>engine</code>, <code>book</code>, and <code>puzzle</code>.</p>
+<p>Command style:</p>
+<ul>
+<li>Prefer the full grouped form in scripts: <code>crtk record export ...</code>,</li>
+</ul>
+<p><code>crtk record dataset ...</code>, <code>crtk move list ...</code>, <code>crtk engine bestmove ...</code>.</p>
+<ul>
+<li>Use named flags for structured values such as <code>--fen</code>, <code>--input</code>, <code>--output</code>,</li>
+</ul>
+<p>and <code>--format</code>.</p>
+<ul>
+<li>Put options before free-form args when scripting. Use <code>--</code> or</li>
+</ul>
+<p><code>--end-of-options</code> if a value could be parsed as an option.</p>
+<ul>
+<li>Contextual help works with either <code>crtk help move list</code> or</li>
+</ul>
+<p><code>crtk move list --help</code>.</p>
+<p>The Java-native commands (<code>fen</code>, <code>move</code>, <code>engine perft</code>, <code>engine perft-suite</code>, <code>engine builtin --classical</code>, and <code>engine static</code>) do not require an external engine. External UCI configuration is only needed for UCI-backed analysis, best-move, threat, smoke-test, and mining workflows.</p>
+<h2 id="capability-overview">Capability Overview</h2>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Area</th>
+<th>Commands</th>
+</tr></thead><tbody>
+<tr>
+<td>Position parsing and generation</td>
+<td><code>fen normalize</code>, <code>fen validate</code>, <code>fen generate</code>, <code>fen pgn</code>, <code>fen chess960</code></td>
+</tr>
+<tr>
+<td>Board inspection and rendering</td>
+<td><code>fen print</code>, <code>fen display</code>, <code>fen render</code>, <code>book pdf</code></td>
+</tr>
+<tr>
+<td>Move primitives</td>
+<td><code>move list</code>, <code>move uci</code>, <code>move san</code>, <code>move both</code>, <code>move to-san</code>, <code>move to-uci</code>, <code>move after</code>, <code>move play</code></td>
+</tr>
+<tr>
+<td>Move-generation validation</td>
+<td><code>engine perft</code>, <code>engine perft-suite</code></td>
+</tr>
+<tr>
+<td>External UCI engines</td>
+<td><code>engine analyze</code>, <code>engine bestmove</code>, <code>engine threats</code>, <code>engine uci-smoke</code></td>
+</tr>
+<tr>
+<td>In-process search and evaluation</td>
+<td><code>engine builtin</code>, <code>engine java</code>, <code>engine eval</code>, <code>engine static</code></td>
+</tr>
+<tr>
+<td>Puzzle mining and conversion</td>
+<td><code>puzzle mine</code>, <code>puzzle pgn</code></td>
+</tr>
+<tr>
+<td>Tagging and text generation</td>
+<td><code>fen tags</code>, <code>puzzle tags</code>, <code>fen text</code>, <code>puzzle text</code></td>
+</tr>
+<tr>
+<td>Record processing</td>
+<td><code>record files</code>, <code>record stats</code>, <code>record tag-stats</code>, <code>record analysis-delta</code></td>
+</tr>
+<tr>
+<td>Dataset export</td>
+<td><code>record dataset npy</code>, <code>record dataset lc0</code>, <code>record dataset classifier</code>, <code>record export training-jsonl</code>, <code>record export puzzle-jsonl</code></td>
+</tr>
+<tr>
+<td>Publishing</td>
+<td><code>book ilovechess</code>, <code>book artofchess</code>, <code>book render</code>, <code>book cover</code>, <code>book pdf</code></td>
+</tr>
+<tr>
+<td>Local health checks</td>
+<td><code>doctor</code>, <code>config show</code>, <code>config validate</code>, <code>engine gpu</code></td>
+</tr>
+</tbody></table></div>
+<h2 id="record"><code>record</code></h2>
+<p>Grouped record workflows. This keeps export, dataset, stats, and file-management operations under one entry point.</p>
+<p>Usage:</p>
+<ul>
+<li><code>crtk record export plain ...</code>: convert <code>.record</code> JSON to <code>.plain</code></li>
+<li><code>crtk record export csv ...</code>: convert <code>.record</code> JSON to CSV</li>
+<li><code>crtk record export pgn ...</code>: convert <code>.record</code> JSON to PGN games</li>
+<li><code>crtk record export puzzle-jsonl ...</code>: export LC0-policy-aware puzzle JSONL rows</li>
+<li><code>crtk record export training-jsonl ...</code>: export coarse/fine FEN labels</li>
+<li><code>crtk record dataset npy ...</code>: export eval-regression tensors</li>
+<li><code>crtk record dataset lc0 ...</code>: export LC0-style tensors</li>
+<li><code>crtk record dataset classifier ...</code>: export binary classifier tensors</li>
+<li><code>crtk record files ...</code>: merge/filter/split record files</li>
+<li><code>crtk record stats ...</code>: summarize record files</li>
+<li><code>crtk record tag-stats ...</code>: summarize tag distributions</li>
+<li><code>crtk record analysis-delta ...</code>: export evaluation stability metrics</li>
+</ul>
+<p>Use the full <code>record export ...</code> and <code>record dataset ...</code> forms in scripts.</p>
+<h2 id="fen"><code>fen</code></h2>
+<p>Grouped FEN and position workflows.</p>
+<p>Usage:</p>
+<ul>
+<li><code>crtk fen normalize ...</code>: normalize and validate a FEN</li>
+<li><code>crtk fen validate ...</code>: validate a FEN</li>
+<li><code>crtk fen after ...</code>: apply one move and print the resulting FEN</li>
+<li><code>crtk fen line ...</code>: apply a move line and print the resulting FEN</li>
+<li><code>crtk fen generate ...</code>: generate random legal FEN shards</li>
+<li><code>crtk fen pgn ...</code>: convert PGN games to FEN lists</li>
+<li><code>crtk fen chess960 ...</code>: print Chess960 starting positions</li>
+<li><code>crtk fen print ...</code>: pretty-print a FEN</li>
+<li><code>crtk fen display ...</code>: render a board image in a window</li>
+<li><code>crtk fen render ...</code>: save a board image to disk</li>
+<li><code>crtk fen tags ...</code>: generate tags for FENs, PGNs, or variations</li>
+<li><code>crtk fen text ...</code>: summarize position tags with T5</li>
+</ul>
+<h2 id="move"><code>move</code></h2>
+<p>Grouped move-listing, notation, and application workflows.</p>
+<p>Usage:</p>
+<ul>
+<li><code>crtk move list ...</code>: list legal moves for a FEN</li>
+<li><code>crtk move uci ...</code>: list legal moves in UCI</li>
+<li><code>crtk move san ...</code>: list legal moves in SAN</li>
+<li><code>crtk move both ...</code>: list legal moves in UCI and SAN</li>
+<li><code>crtk move to-san ...</code>: convert one UCI move to SAN</li>
+<li><code>crtk move to-uci ...</code>: convert one SAN move to UCI</li>
+<li><code>crtk move after ...</code>: apply one move and print the resulting FEN</li>
+<li><code>crtk move play ...</code>: apply a move line and print the resulting FEN</li>
+</ul>
+<h2 id="engine"><code>engine</code></h2>
+<p>Grouped engine, evaluator, and move-generation workflows.</p>
+<p>Usage:</p>
+<ul>
+<li><code>crtk engine analyze ...</code>: analyze a FEN with the configured engine</li>
+<li><code>crtk engine bestmove ...</code>: print the best move for a FEN</li>
+<li><code>crtk engine bestmove-uci ...</code>: print the best move in UCI</li>
+<li><code>crtk engine bestmove-san ...</code>: print the best move in SAN</li>
+<li><code>crtk engine bestmove-both ...</code>: print the best move in UCI and SAN</li>
+<li><code>crtk engine builtin ...</code>: search with the in-house Java engine</li>
+<li><code>crtk engine java ...</code>: run the same built-in Java engine</li>
+<li><code>crtk engine threats ...</code>: analyze opponent threats</li>
+<li><code>crtk engine eval ...</code>: evaluate a FEN with LC0 or classical heuristics</li>
+<li><code>crtk engine static ...</code>: evaluate a FEN with the classical backend</li>
+<li><code>crtk engine perft ...</code>: run perft on a position</li>
+<li><code>crtk engine perft-suite ...</code>: run the perft regression suite</li>
+<li><code>crtk engine gpu ...</code>: print GPU JNI backend status</li>
+<li><code>crtk engine uci-smoke ...</code>: start the engine and run a tiny bounded search</li>
+</ul>
+<h2 id="engine-builtin"><code>engine builtin</code></h2>
+<p>Search a position with ChessRTK&#x27;s in-house Java engine. <code>engine java</code> runs the same implementation.</p>
+<p>The built-in engine is an in-process search and benchmarking engine. It is useful for deterministic local search, smoke tests, puzzle-solve timing, and automation that should not depend on spawning a UCI engine. It is not intended to be a top-tier engine competing with mature UCI engines.</p>
+<p>Examples:</p>
+<pre><code class="language-bash">crtk engine builtin --fen &quot;&lt;FEN&gt;&quot; --depth 20
+crtk engine builtin --fen &quot;&lt;FEN&gt;&quot; --depth 4 --format summary
+crtk engine builtin --fen &quot;&lt;FEN&gt;&quot; --depth 5 --nodes 250000 --format both
+crtk engine builtin --fen &quot;&lt;FEN&gt;&quot; --depth 8 --max-duration 2s --format summary
+crtk engine builtin --input positions.txt --depth 3 --format uci
+crtk engine builtin --evaluator nnue --weights models/crtk-halfkp.nnue --fen &quot;&lt;FEN&gt;&quot;
+crtk engine builtin --lc0 --weights models/leela_112planes-10blocksx128-policyhead80-valuehead32-policy4672-wdl3.bin --fen &quot;&lt;FEN&gt;&quot;</code></pre>
+<p>Options:</p>
+<ul>
+<li><code>--input|-i &lt;path&gt;</code>: FEN list file (optional)</li>
+<li><code>--fen &quot;&lt;FEN...&gt;&quot;</code>: FEN string (or pass it positionally)</li>
+<li><code>--evaluator &lt;classical|nnue|lc0&gt;</code>: static evaluator family (default <code>classical</code>)</li>
+<li><code>--classical</code>: shortcut for <code>--evaluator classical</code></li>
+<li><code>--nnue</code>: shortcut for <code>--evaluator nnue</code></li>
+<li><code>--lc0</code>: shortcut for <code>--evaluator lc0</code></li>
+<li><code>--weights &lt;path&gt;</code>: NNUE or LC0 evaluator weights path</li>
+<li><code>--depth|-d &lt;n&gt;</code>: maximum iterative-deepening depth in plies (default <code>3</code>)</li>
+<li><code>--max-nodes|--nodes &lt;n&gt;</code>: node budget; <code>0</code> means unlimited. If omitted,</li>
+</ul>
+<p>the default is <code>250000</code> without <code>--depth</code>, and unlimited when <code>--depth</code> is explicit.</p>
+<ul>
+<li><code>--max-duration &lt;dur&gt;</code>: wall-clock budget; <code>0</code> means unlimited. If omitted,</li>
+</ul>
+<p>the default is <code>5s</code> without <code>--depth</code>, and unlimited when <code>--depth</code> is explicit.</p>
+<ul>
+<li><code>--format &lt;uci-info|uci|san|both|summary&gt;</code>: output format (default</li>
+</ul>
+<p><code>uci-info</code>)</p>
+<ul>
+<li><code>--verbose|-v</code>: print stack traces on failure</li>
+</ul>
+<p>Evaluator notes:</p>
+<ul>
+<li><code>classical</code>: handcrafted evaluator with no model dependency.</li>
+<li><code>nnue</code>: pure-Java NNUE evaluator using <code>models/crtk-halfkp.nnue</code> by default,</li>
+</ul>
+<p>or an explicit <code>--weights</code> path. If no NNUE weights are available, the command fails with a missing-weights error instead of silently using the smoke-test fallback.</p>
+<ul>
+<li><code>lc0</code>: pure-Java LC0 value evaluator using the configured LC0J model path by</li>
+</ul>
+<p>default, or an explicit <code>--weights</code> path.</p>
+<p>Search notes:</p>
+<ul>
+<li>The engine uses alpha-beta search, not LC0-style MCTS.</li>
+<li>The search is single-threaded and owns an internal transposition table plus a</li>
+</ul>
+<p>static-evaluation cache. The table size is fixed in code; <code>--threads</code> and <code>--hash</code> are UCI-engine options, not built-in-engine options.</p>
+<ul>
+<li>The default <code>uci-info</code> format prints one UCI-style <code>info depth ... pv ...</code></li>
+</ul>
+<p>line for each completed depth, then a final <code>bestmove ...</code> line.</p>
+<ul>
+<li>If a slow evaluator exhausts the budget before depth 1 completes, <code>uci-info</code></li>
+</ul>
+<p>prints the static root fallback as <code>info depth 0 ... pv ...</code>.</p>
+<ul>
+<li>Use <code>--format uci</code> for best-move-only UCI coordinate output.</li>
+<li><code>--format summary</code> prints the evaluator, best move, score, completed depth,</li>
+</ul>
+<p>nodes, elapsed time, stopped flag, and principal variation.</p>
+<h2 id="book"><code>book</code></h2>
+<p>Grouped book and diagram PDF workflows.</p>
+<p>Usage:</p>
+<ul>
+<li><code>crtk book ilovechess ...</code>: build an I Love Chess-style book manifest from record JSON/JSONL</li>
+<li><code>crtk book artofchess ...</code>: render an annotated Art of Chess manifest to PDF, cover, and optional normalized TOML</li>
+<li><code>crtk book render ...</code>: render a chess-book JSON/TOML file to a native PDF</li>
+<li><code>crtk book cover ...</code>: render a native PDF cover for a chess-book file</li>
+<li><code>crtk book pdf ...</code>: export chess diagrams to a PDF</li>
+</ul>
+<h2 id="puzzle"><code>puzzle</code></h2>
+<p>Grouped puzzle mining, conversion, tag, and text workflows.</p>
+<p>Usage:</p>
+<ul>
+<li><code>crtk puzzle mine ...</code>: mine chess puzzles</li>
+<li><code>crtk puzzle pgn ...</code>: convert mixed puzzle dumps to PGN games</li>
+<li><code>crtk puzzle tags ...</code>: generate per-move tags for puzzle PVs</li>
+<li><code>crtk puzzle text ...</code>: run T5 over puzzle PVs</li>
+</ul>
+<h2 id="record-export-plain"><code>record export plain</code></h2>
+<p>Convert a <code>.record</code> JSON array into Leela-style <code>.plain</code> blocks.</p>
+<p>Options:</p>
+<ul>
+<li><code>--input|-i &lt;path&gt;</code>: input <code>.record</code> (required)</li>
+<li><code>--output|-o &lt;path&gt;</code>: output <code>.plain</code> (optional; default derived from input)</li>
+<li><code>--filter|-f &lt;dsl&gt;</code>: Filter DSL to select which records are exported</li>
+<li><code>--sidelines|--export-all|-a</code>: include sidelines / export additional PVs when present</li>
+<li><code>--csv</code>: also emit a CSV export (default path derived)</li>
+<li><code>--csv-output|-c &lt;path&gt;</code>: explicit CSV output path (also enables CSV export)</li>
+</ul>
+<h2 id="record-export-csv"><code>record export csv</code></h2>
+<p>Convert a <code>.record</code> JSON array directly to CSV (no <code>.plain</code> output).</p>
+<p>Options:</p>
+<ul>
+<li><code>--input|-i &lt;path&gt;</code>: input <code>.record</code> (required)</li>
+<li><code>--output|-o &lt;path&gt;</code>: output <code>.csv</code> (optional; default derived from input)</li>
+<li><code>--filter|-f &lt;dsl&gt;</code>: Filter DSL to select which records are exported</li>
+</ul>
+<h2 id="record-export-pgn"><code>record export pgn</code></h2>
+<p>Convert a <code>.record</code> JSON array into one or more PGN games.</p>
+<p>Options:</p>
+<ul>
+<li><code>--input|-i &lt;path&gt;</code>: input <code>.record</code> (required)</li>
+<li><code>--output|-o &lt;path&gt;</code>: output <code>.pgn</code> (optional; default derived from input)</li>
+</ul>
+<h2 id="record-analysis-delta"><code>record analysis-delta</code></h2>
+<p>Export one JSONL row per record with evaluation stability metrics: initial and final eval, delta type/value, fluctuation range, and time/depth to final value.</p>
+<p>Options:</p>
+<ul>
+<li><code>--input|-i &lt;path&gt;</code>: input record file (required)</li>
+<li><code>--output|-o &lt;path&gt;</code>: output <code>.analysis-delta.jsonl</code> path (optional; default derived from input)</li>
+<li><code>--verbose|-v</code>: print stack traces on failure</li>
+</ul>
+<h2 id="puzzle-pgn"><code>puzzle pgn</code></h2>
+<p>Convert a mixed puzzle/non-puzzle dump into PGN games (filters to puzzles). If entries include a <code>kind</code> field, only <code>kind:&quot;puzzle&quot;</code> is kept; otherwise the configured puzzle verify filter is applied.</p>
+<p>Options:</p>
+<ul>
+<li><code>--input|-i &lt;path&gt;</code>: input dump (JSON array or JSONL)</li>
+<li><code>--output|-o &lt;path&gt;</code>: output <code>.pgn</code> (optional; default derived from input)</li>
+</ul>
+<h2 id="record-files"><code>record files</code></h2>
+<p>Merge/filter/split record files.</p>
+<p>Options:</p>
+<ul>
+<li><code>--input|-i &lt;path&gt;</code>: input file or directory (repeatable; positionals allowed)</li>
+<li><code>--output|-o &lt;path&gt;</code>: output <code>.json</code> file or directory (required)</li>
+<li><code>--filter|-f &lt;dsl&gt;</code>: Filter-DSL string to select records</li>
+<li><code>--puzzles</code>: keep only puzzle records (uses <code>kind</code> or puzzle verify filter)</li>
+<li><code>--nonpuzzles</code>: keep only non-puzzle records</li>
+<li><code>--max-records &lt;n&gt;</code>: split output into parts with at most <code>n</code> records each</li>
+<li><code>--recursive</code>: recurse into directories</li>
+<li><code>--verbose|-v</code>: print stack traces on failure</li>
+</ul>
+<h2 id="record-dataset-npy"><code>record dataset npy</code></h2>
+<p>Convert a <code>.record</code> JSON array into NumPy tensors:</p>
+<ul>
+<li><code>&lt;stem&gt;.features.npy</code> shaped <code>(N, 781)</code> float32</li>
+<li><code>&lt;stem&gt;.labels.npy</code> shaped <code>(N,)</code> float32 (pawns)</li>
+</ul>
+<p>Options:</p>
+<ul>
+<li><code>--input|-i &lt;path&gt;</code>: input <code>.record</code> (required)</li>
+<li><code>--output|-o &lt;path&gt;</code>: output stem (optional; default derived when omitted)</li>
+</ul>
+<h2 id="record-dataset-lc0"><code>record dataset lc0</code></h2>
+<p>Convert a <code>.record</code> JSON array into LC0-style tensors:</p>
+<ul>
+<li><code>&lt;stem&gt;.lc0.inputs.npy</code> shaped <code>(N, 112*64)</code> float32</li>
+<li><code>&lt;stem&gt;.lc0.policy.npy</code> shaped <code>(N, policySize)</code> float32 (one-hot)</li>
+<li><code>&lt;stem&gt;.lc0.value.npy</code> shaped <code>(N,)</code> float32 (scalar in <code>[-1,1]</code>)</li>
+<li><code>&lt;stem&gt;.lc0.meta.json</code> metadata</li>
+</ul>
+<p>Options:</p>
+<ul>
+<li><code>--input|-i &lt;path&gt;</code>: input <code>.record</code> (required)</li>
+<li><code>--output|-o &lt;path&gt;</code>: output stem (optional; default derived when omitted)</li>
+<li><code>--weights &lt;path&gt;</code>: optional LC0 weights to compress the policy to the net&#x27;s size</li>
+</ul>
+<h2 id="record-export-puzzle-jsonl"><code>record export puzzle-jsonl</code></h2>
+<p>Convert <code>.record</code> rows into puzzle JSONL with LC0 policy values. This command requires LC0J weights so it can use the network policy map.</p>
+<p>Options:</p>
+<ul>
+<li><code>--input|-i &lt;path&gt;</code>: input <code>.record</code> file (required)</li>
+<li><code>--output|-o &lt;path&gt;</code>: output <code>.jsonl</code> path (optional; default derived from input)</li>
+<li><code>--weights &lt;path&gt;</code>: LC0J weights path (required)</li>
+<li><code>--filter|-f &lt;dsl&gt;</code>: optional row-selection Filter DSL</li>
+<li><code>--puzzles</code>: keep only records classified as puzzles by the configured verify filter</li>
+<li><code>--nonpuzzles</code>: keep only records classified as non-puzzles</li>
+<li><code>--verbose|-v</code>: print stack traces on failure</li>
+</ul>
+<h2 id="record-dataset-classifier"><code>record dataset classifier</code></h2>
+<p>Convert one or more <code>.record</code> JSON/JSONL files into tensors for the one-logit binary classifier:</p>
+<ul>
+<li><code>&lt;stem&gt;.classifier.inputs.npy</code> shaped <code>(N, 21*64)</code> float32</li>
+<li><code>&lt;stem&gt;.classifier.labels.npy</code> shaped <code>(N,)</code> float32 (<code>0.0</code> negative, <code>1.0</code> positive)</li>
+<li><code>&lt;stem&gt;.classifier.meta.json</code> metadata</li>
+</ul>
+<p>Labeling:</p>
+<ul>
+<li><code>--label-filter &lt;dsl&gt;</code> overrides record kind and labels matching records as positive.</li>
+<li>Without <code>--label-filter</code>, <code>kind:&quot;puzzle&quot;</code> and <code>kind:&quot;nonpuzzle&quot;</code> are used when present.</li>
+<li>If <code>kind</code> is absent, the configured puzzle verification filter is used.</li>
+</ul>
+<p>Options:</p>
+<ul>
+<li><code>--input|-i &lt;path&gt;</code>: input record file or directory (repeatable; required)</li>
+<li><code>--output|-o &lt;path&gt;</code>: output stem (optional for a single file; required for multiple inputs/directories)</li>
+<li><code>--filter|-f &lt;dsl&gt;</code>: optional row-selection Filter DSL before labeling</li>
+<li><code>--label-filter &lt;dsl&gt;</code>: optional positive-label Filter DSL</li>
+<li><code>--max-positives &lt;n&gt;</code>: cap positive rows</li>
+<li><code>--max-negatives &lt;n&gt;</code>: cap negative rows</li>
+<li><code>--recursive</code>: recurse into input directories</li>
+<li><code>--verbose|-v</code>: print stack traces on failure</li>
+</ul>
+<h2 id="record-export-training-jsonl"><code>record export training-jsonl</code></h2>
+<p>Convert one or more <code>.record</code> JSON/JSONL files into one-position-per-line training JSONL. Rows matching the puzzle DSL become verified puzzles, rows sharing a parent FEN with a puzzle become similar examples, and all remaining rows become random/negative examples.</p>
+<p>Options:</p>
+<ul>
+<li><code>--input|-i &lt;path&gt;</code>: input record file or directory (repeatable; required)</li>
+<li><code>--output|-o &lt;path&gt;</code>: output <code>.jsonl</code> path (optional for a single file; required for multiple inputs/directories)</li>
+<li><code>--filter|-f &lt;dsl&gt;</code>: puzzle Filter DSL; defaults to configured puzzle verification</li>
+<li><code>--recursive</code>: recurse into input directories</li>
+<li><code>--include-engine-metadata</code>: retain engine/PV details as metadata</li>
+<li><code>--max-records &lt;n&gt;</code>: stop after writing <code>n</code> rows (<code>0</code> or omitted means no cap)</li>
+<li><code>--verbose|-v</code>: print stack traces on failure</li>
+</ul>
+<h2 id="engine-gpu"><code>engine gpu</code></h2>
+<p>Print whether the optional GPU JNI backends are available (CUDA/ROCm/oneAPI) and what devices they see.</p>
+<p>Notes:</p>
+<ul>
+<li>If you built a native library under <code>native/cuda/</code>, run with <code>-Djava.library.path=native/cuda/build</code>.</li>
+</ul>
+<h2 id="engine-uci-smoke"><code>engine uci-smoke</code></h2>
+<p>Start the configured UCI engine, apply optional engine settings, run a tiny bounded search from the standard start position, and print a concise health report. Use this before long mining or analysis jobs to catch bad engine paths, bad protocol TOML, and startup failures.</p>
+<p>Options:</p>
+<ul>
+<li><code>--protocol-path|-P &lt;toml&gt;</code>: override <code>Config.getProtocolPath()</code></li>
+<li><code>--max-nodes|--nodes &lt;n&gt;</code>: search node cap (default <code>1</code>)</li>
+<li><code>--max-duration &lt;dur&gt;</code>: wall-clock search cap (default <code>5s</code>)</li>
+<li><code>--threads &lt;n&gt;</code>: set engine thread count</li>
+<li><code>--hash &lt;mb&gt;</code>: set engine hash size</li>
+<li><code>--wdl|--no-wdl</code>: enable/disable WDL output</li>
+<li><code>--verbose|-v</code>: print stack traces on failure</li>
+</ul>
+<h2 id="fen-generate"><code>fen generate</code></h2>
+<p>Generate random legal FEN shards to disk (standard + Chess960 mix).</p>
+<p>Options:</p>
+<ul>
+<li><code>--output|-o &lt;dir&gt;</code>: output directory (default <code>all_positions_shards/</code>)</li>
+<li><code>--files &lt;n&gt;</code>: number of shard files to generate (default <code>1000</code>)</li>
+<li><code>--per-file &lt;n&gt;</code> / <code>--fens-per-file &lt;n&gt;</code>: FENs per file (default <code>100000</code>)</li>
+<li><code>--chess960-files &lt;n&gt;</code> / <code>--chess960 &lt;n&gt;</code>: how many of the first shard files use Chess960 starts (default <code>100</code>)</li>
+<li><code>--batch &lt;n&gt;</code>: positions generated per batch (default <code>2048</code>)</li>
+<li><code>--ascii</code>: ASCII progress bar (useful when Unicode is borked)</li>
+<li><code>--verbose|-v</code>: print stack trace on failure</li>
+</ul>
+<h2 id="puzzle-mine"><code>puzzle mine</code></h2>
+<p>Drive a UCI engine, apply Filter DSL gates, and emit JSON outputs for puzzles and non-puzzles.</p>
+<p>Inputs &amp; outputs:</p>
+<ul>
+<li><code>--chess960|-9</code>: enable Chess960 mining</li>
+<li><code>--input|-i &lt;path&gt;</code>: <code>.pgn</code> or <code>.txt</code> seeds; omit to mine random seeds</li>
+<li><code>--output|-o &lt;path&gt;</code>: output directory or file-like root (<code>.json</code> / <code>.jsonl</code>)</li>
+</ul>
+<p>Engine &amp; limits:</p>
+<ul>
+<li><code>--protocol-path|-P &lt;toml&gt;</code>: override <code>Config.getProtocolPath()</code></li>
+<li><code>--engine-instances|-e &lt;n&gt;</code>: override <code>Config.getEngineInstances()</code></li>
+<li><code>--max-nodes &lt;n&gt;</code>: override <code>Config.getMaxNodes()</code> (per position)</li>
+<li><code>--max-duration &lt;dur&gt;</code>: override <code>Config.getMaxDuration()</code> (per position), e.g. <code>60s</code>, <code>2m</code>, <code>60000</code></li>
+</ul>
+<p>Random generation &amp; bounds:</p>
+<ul>
+<li><code>--random-count &lt;n&gt;</code>: random seeds to generate (default <code>100</code>)</li>
+<li><code>--random-infinite</code>: continuously add random seeds (ignores wave/total caps)</li>
+<li><code>--max-waves &lt;n&gt;</code>: max waves (default <code>100</code>; ignored with <code>--random-infinite</code>)</li>
+<li><code>--max-frontier &lt;n&gt;</code>: frontier cap (default <code>5000</code>)</li>
+<li><code>--max-total &lt;n&gt;</code>: total processed cap (default <code>500000</code>; ignored with <code>--random-infinite</code>)</li>
+</ul>
+<p>Filter overrides:</p>
+<ul>
+<li><code>--puzzle-quality &lt;dsl&gt;</code></li>
+<li><code>--puzzle-winning &lt;dsl&gt;</code></li>
+<li><code>--puzzle-drawing &lt;dsl&gt;</code></li>
+<li><code>--puzzle-accelerate &lt;dsl&gt;</code></li>
+<li><code>--verbose|-v</code>: print stack traces on failure</li>
+</ul>
+<h2 id="fen-print"><code>fen print</code></h2>
+<p>Pretty-print a FEN as ASCII (board + metadata + tags).</p>
+<p>Options:</p>
+<ul>
+<li><code>--fen &quot;&lt;FEN...&gt;&quot;</code> (or pass it positionally)</li>
+<li><code>--verbose|-v</code>: print stack traces on failure</li>
+</ul>
+<h2 id="fen-display"><code>fen display</code></h2>
+<p>Render a board image in a window (with optional overlays).</p>
+<p>Options:</p>
+<ul>
+<li><code>--fen &quot;&lt;FEN...&gt;&quot;</code> (or pass it positionally)</li>
+<li><code>--arrow &lt;uci&gt;</code> / <code>--arrows &lt;uci,uci,...&gt;</code>: add arrow overlays</li>
+<li><code>--special-arrows</code>: include castling/en-passant hint arrows</li>
+<li><code>--circle &lt;sq&gt;</code> / <code>--circles &lt;sq,sq,...&gt;</code>: add circle overlays</li>
+<li><code>--legal &lt;sq&gt;</code>: highlight legal moves from a square (repeatable)</li>
+<li><code>--ablation</code>: overlay inverted per-piece ablation scores</li>
+<li><code>--show-backend|--backend</code>: print which evaluator backend was used</li>
+<li><code>--flip|--black-down</code>: render Black at the bottom</li>
+<li><code>--no-border</code>: hide the board frame</li>
+<li><code>--size &lt;px&gt;</code>: window size (square)</li>
+<li><code>--width &lt;px&gt;</code>, <code>--height &lt;px&gt;</code>: window size override</li>
+<li><code>--zoom &lt;factor&gt;</code>: zoom multiplier (1.0 = fit-to-window)</li>
+<li><code>--dark|--dark-mode</code>: dark window styling</li>
+<li><code>--details-inside</code>: show coordinates inside the board</li>
+<li><code>--details-outside</code>: show coordinates outside the board</li>
+<li><code>--shadow|--drop-shadow</code>: apply a subtle drop shadow</li>
+<li><code>--verbose|-v</code>: print stack traces on failure</li>
+</ul>
+<h2 id="fen-render"><code>fen render</code></h2>
+<p>Render a board image to disk (PNG/JPG/BMP/SVG).</p>
+<p>Options:</p>
+<ul>
+<li><code>--fen &quot;&lt;FEN...&gt;&quot;</code> (or pass it positionally)</li>
+<li><code>--output|-o &lt;path&gt;</code>: output image/SVG path (required)</li>
+<li><code>--format &lt;fmt&gt;</code>: output format override (<code>png</code>, <code>jpg</code>, <code>bmp</code>, <code>svg</code>)</li>
+<li><code>--arrow &lt;uci&gt;</code> / <code>--arrows &lt;uci,uci,...&gt;</code>: add arrow overlays</li>
+<li><code>--special-arrows</code>: include castling/en-passant hint arrows</li>
+<li><code>--circle &lt;sq&gt;</code> / <code>--circles &lt;sq,sq,...&gt;</code>: add circle overlays</li>
+<li><code>--legal &lt;sq&gt;</code>: highlight legal moves from a square (repeatable)</li>
+<li><code>--ablation</code>: overlay inverted per-piece ablation scores</li>
+<li><code>--show-backend|--backend</code>: print which evaluator backend was used</li>
+<li><code>--flip|--black-down</code>: render Black at the bottom</li>
+<li><code>--no-border</code>: hide the board frame</li>
+<li><code>--size &lt;px&gt;</code>: board size (square)</li>
+<li><code>--width &lt;px&gt;</code>, <code>--height &lt;px&gt;</code>: image size override</li>
+<li><code>--dark|--dark-mode</code>: dark board styling</li>
+<li><code>--details-inside</code>: show coordinates inside the board</li>
+<li><code>--details-outside</code>: show coordinates outside the board</li>
+<li><code>--shadow|--drop-shadow</code>: apply a subtle drop shadow</li>
+<li><code>--verbose|-v</code>: print stack traces on failure</li>
+</ul>
+<h2 id="book-render"><code>book render</code></h2>
+<p>Render a chess-book JSON or TOML manifest directly to a native PDF. The renderer builds cover/front matter, a generated table of contents, mirrored margins, puzzle/solution spreads, page numbers, running headers, and recurring solution tables. Solution moves are rendered as figurine algebraic notation in captions and tables.</p>
+<p>See also: <code>book-publishing.md</code>.</p>
+<p>Options:</p>
+<ul>
+<li><code>--input|-i &lt;path&gt;</code>: input book manifest (<code>.json</code>, <code>.toml</code>, or TOML-like text)</li>
+<li><code>--output|-o &lt;path&gt;</code>: output PDF path (optional; default derived from the input path)</li>
+<li><code>--title &lt;text&gt;</code>: title override</li>
+<li><code>--subtitle &lt;text&gt;</code>: subtitle override</li>
+<li><code>--limit &lt;n&gt;</code>: render only the first <code>n</code> puzzles from the source manifest and update obvious source-count references in front matter</li>
+<li><code>--check|--validate</code>: validate layout, FENs, and solution lines without writing a PDF</li>
+<li><code>--free-watermark</code> / <code>--watermark</code>: add a noisy free-edition overlay to every page with visible print, resale, and unauthorized redistribution restrictions</li>
+<li><code>--watermark-id &lt;text&gt;</code>: embed a traceable watermark ID in page overlays and PDF metadata; implies <code>--watermark</code></li>
+<li><code>--verbose|-v</code>: print stack traces on failure</li>
+</ul>
+<h2 id="book-ilovechess"><code>book ilovechess</code></h2>
+<p>Build an I Love Chess-style book manifest from analyzed record JSON/JSONL. The command converts the first PV in each accepted record into move-numbered SAN, writes a TOML manifest, and can optionally render the interior PDF and matching cover.</p>
+<p>See also: <code>book-publishing.md</code>.</p>
+<p>Options:</p>
+<ul>
+<li><code>--input|-i &lt;path&gt;</code>: input record JSON/JSONL file with <code>position</code> and <code>analysis</code></li>
+<li><code>--output|-o &lt;path&gt;</code>: output TOML manifest path (optional; default derived from the input path as <code>*.book.toml</code>)</li>
+<li><code>--pdf-output &lt;path&gt;</code>: also render the interior PDF to this path</li>
+<li><code>--cover-output &lt;path&gt;</code>: also render the matching cover PDF to this path</li>
+<li><code>--title &lt;text&gt;</code>: book title (default <code>I Love Chess</code>)</li>
+<li><code>--subtitle &lt;text&gt;</code>: subtitle override (default <code>&quot;&lt;count&gt; Chess Puzzles&quot;</code>)</li>
+<li><code>--author &lt;text&gt;</code>: author credit (default <code>Lennart A. Conrad</code>)</li>
+<li><code>--time &lt;text&gt;</code>: publication time string</li>
+<li><code>--location &lt;text&gt;</code>: publication location string</li>
+<li><code>--language &lt;text&gt;</code>: book language token (default <code>English</code>)</li>
+<li><code>--pages &lt;n&gt;</code>: printed page-count hint for the manifest and optional cover</li>
+<li><code>--limit &lt;n&gt;</code>: import at most the first <code>n</code> records from the source file</li>
+<li><code>--table-frequency &lt;n&gt;</code>: puzzle pages between solution tables (default <code>6</code>)</li>
+<li><code>--puzzle-rows &lt;n&gt;</code>: puzzle grid rows per page (default <code>5</code>)</li>
+<li><code>--puzzle-columns &lt;n&gt;</code>: puzzle grid columns per page (default <code>4</code>)</li>
+<li><code>--imprint &lt;text&gt;</code>: repeatable imprint line</li>
+<li><code>--dedication &lt;text&gt;</code>: repeatable dedication line</li>
+<li><code>--introduction &lt;text&gt;</code>: repeatable introduction paragraph</li>
+<li><code>--how-to-read &lt;text&gt;</code>: repeatable custom how-to-read paragraph</li>
+<li><code>--blurb &lt;text&gt;</code>: repeatable back-cover blurb paragraph</li>
+<li><code>--link &lt;text&gt;</code>: repeatable purchase link</li>
+<li><code>--afterword &lt;text&gt;</code>: repeatable closing paragraph</li>
+<li><code>--binding &lt;type&gt;</code>: <code>paperback</code>, <code>hardcover</code>, or <code>ebook</code> for <code>--cover-output</code></li>
+<li><code>--interior &lt;type&gt;</code>: <code>white-bw</code>, <code>cream-bw</code>, <code>white-standard-color</code>, or <code>white-premium-color</code></li>
+<li><code>--free-watermark</code> / <code>--watermark</code>: add a noisy free-edition overlay to <code>--pdf-output</code></li>
+<li><code>--watermark-id &lt;text&gt;</code>: embed a traceable watermark ID in the interior PDF; implies <code>--watermark</code></li>
+<li><code>--check|--validate</code>: validate the generated book model without writing files</li>
+<li><code>--verbose|-v</code>: print stack traces on failure</li>
+</ul>
+<h2 id="book-artofchess"><code>book artofchess</code></h2>
+<p>Render an Art of Chess annotated book from a richer JSON or TOML manifest. This command keeps the composition-style fields intact: per-entry description text, comments, hints, analysis, and explicit figure lists. It can also write a normalized TOML manifest and render a matching cover in one pass.</p>
+<p>See also: <code>book-publishing.md</code>.</p>
+<p>Options:</p>
+<ul>
+<li><code>--input|-i &lt;path&gt;</code>: input Art of Chess manifest (<code>.json</code> or <code>.toml</code>)</li>
+<li><code>--output|-o &lt;path&gt;</code>: output interior PDF path (optional; defaults to <code>*.pdf</code> when no other output is requested)</li>
+<li><code>--manifest-output &lt;path&gt;</code>: also write a normalized TOML manifest</li>
+<li><code>--cover-output &lt;path&gt;</code>: also render the matching native cover PDF</li>
+<li><code>--title &lt;text&gt;</code>: book title override</li>
+<li><code>--subtitle &lt;text&gt;</code>: subtitle override</li>
+<li><code>--author &lt;text&gt;</code>: author override</li>
+<li><code>--time &lt;text&gt;</code>: publication time override</li>
+<li><code>--location &lt;text&gt;</code>: publication location override</li>
+<li><code>--blurb &lt;text&gt;</code>: repeatable back-cover blurb override</li>
+<li><code>--link &lt;text&gt;</code>: repeatable cover-link override</li>
+<li><code>--pages &lt;n&gt;</code>: printed page count for cover metadata / spine width</li>
+<li><code>--page-size &lt;size&gt;</code>: <code>a4</code>, <code>a5</code>, or <code>letter</code></li>
+<li><code>--margin &lt;n&gt;</code>: page margin in PostScript points</li>
+<li><code>--diagrams-per-row &lt;n&gt;</code>: diagrams per row override</li>
+<li><code>--board-pixels &lt;n&gt;</code>: raster size per diagram before embedding</li>
+<li><code>--flip|--black-down</code>: render Black at the bottom</li>
+<li><code>--no-fen</code>: hide FEN text below diagrams</li>
+<li><code>--binding &lt;type&gt;</code>: <code>paperback</code>, <code>hardcover</code>, or <code>ebook</code> for <code>--cover-output</code></li>
+<li><code>--interior &lt;type&gt;</code>: <code>white-bw</code>, <code>cream-bw</code>, <code>white-standard-color</code>, or <code>white-premium-color</code></li>
+<li><code>--check|--validate</code>: validate the manifest and composition layout without writing files</li>
+<li><code>--verbose|-v</code>: print stack traces on failure</li>
+</ul>
+<h2 id="book-cover"><code>book cover</code></h2>
+<p>Render a native vector PDF cover for a chess-book JSON or TOML manifest. The renderer builds the back blurb, front title/subtitle/author, spine text, barcode-safe box, and page-count-based spine width.</p>
+<p>See also: <code>book-publishing.md</code>.</p>
+<p>Dimension notes:</p>
+<ul>
+<li><code>paperback</code> adds 0.125 inch bleed on every outside edge.</li>
+<li><code>hardcover</code> adds 1.5 cm wrap and 1.0 cm hinge allowance.</li>
+<li>Spine width is calculated from <code>--pages</code>, or else the supplied interior PDF page count, or else manifest <code>pages</code>, times the selected interior paper thickness.</li>
+</ul>
+<p>Options:</p>
+<ul>
+<li><code>--input|-i &lt;path&gt;</code>: input book manifest (<code>.json</code>, <code>.toml</code>, or TOML-like text)</li>
+<li><code>--pdf &lt;path&gt;</code>: interior PDF used to infer trim size and page count</li>
+<li><code>--output|-o &lt;path&gt;</code>: output cover PDF path (optional; default derived from the input path as <code>*-cover.pdf</code>)</li>
+<li><code>--title &lt;text&gt;</code>: title override</li>
+<li><code>--subtitle &lt;text&gt;</code>: subtitle override</li>
+<li><code>--binding &lt;type&gt;</code>: <code>paperback</code>, <code>hardcover</code>, or <code>ebook</code> (default <code>paperback</code>)</li>
+<li><code>--interior &lt;type&gt;</code>: <code>white-bw</code>, <code>cream-bw</code>, <code>white-standard-color</code>, or <code>white-premium-color</code></li>
+<li><code>--pages &lt;n&gt;</code>: printed page count for spine width (default from the interior PDF, then book metadata, then an estimate)</li>
+<li><code>--check|--validate</code>: validate the manifest and print calculated cover dimensions without writing a PDF</li>
+<li><code>--verbose|-v</code>: print stack traces on failure</li>
+</ul>
+<h2 id="fen-chess960"><code>fen chess960</code></h2>
+<p>Print Chess960 starting positions in Scharnagl index order.</p>
+<p>Modes:</p>
+<ul>
+<li><code>crtk fen chess960 &lt;index&gt;</code> or <code>crtk fen chess960 --index &lt;n&gt;</code>: print one position.</li>
+<li><code>crtk fen chess960 --all</code>: print all 960 positions in order.</li>
+<li><code>crtk fen chess960 --random --count &lt;n&gt;</code>: print random positions.</li>
+</ul>
+<p>Options:</p>
+<ul>
+<li><code>--format fen</code>: print FEN only (default)</li>
+<li><code>--format layout</code>: print the white back-rank layout only</li>
+<li><code>--format both</code>: print <code>index&lt;TAB&gt;layout&lt;TAB&gt;fen</code></li>
+</ul>
+<h2 id="book-pdf"><code>book pdf</code></h2>
+<p>Export chess diagrams to PDF from direct FEN input, a FEN list file, or a PGN file. PGN export currently uses one composition per game&#x27;s mainline.</p>
+<p>Options:</p>
+<ul>
+<li><code>--fen &quot;&lt;FEN...&gt;&quot;</code>: input FEN (repeatable; a single positional FEN is also allowed)</li>
+<li><code>--input|-i &lt;path&gt;</code>: input FEN list or FEN-pair text file</li>
+<li><code>--pgn &lt;path&gt;</code>: input PGN file</li>
+<li><code>--output|-o &lt;path&gt;</code>: output PDF path (optional; default derived from input or <code>chess.pdf</code>)</li>
+<li><code>--title &lt;text&gt;</code>: document title override</li>
+<li><code>--page-size &lt;size&gt;</code>: <code>a4</code>, <code>a5</code>, or <code>letter</code></li>
+<li><code>--diagrams-per-row &lt;n&gt;</code>: diagrams per row (default <code>2</code>)</li>
+<li><code>--board-pixels &lt;n&gt;</code>: raster size per diagram before embedding (default <code>900</code>)</li>
+<li><code>--flip|--black-down</code>: render Black at the bottom</li>
+<li><code>--no-fen</code>: hide FEN text below diagrams</li>
+<li><code>--verbose|-v</code>: print stack traces on failure</li>
+</ul>
+<h2 id="gui"><code>gui</code></h2>
+<p>Launch the existing desktop Swing GUI.</p>
+<p>Options:</p>
+<ul>
+<li><code>--fen &quot;&lt;FEN...&gt;&quot;</code> (or pass it positionally)</li>
+<li><code>--flip|--black-down</code>: render Black at the bottom</li>
+<li><code>--dark|--dark-mode</code>: start in dark UI theme</li>
+<li><code>--light</code>: start in light UI theme</li>
+<li><code>-h|--help</code>: show help</li>
+</ul>
+<h2 id="gui-web"><code>gui-web</code></h2>
+<p>Launch the chess-web-inspired desktop Swing GUI.</p>
+<p>Options:</p>
+<ul>
+<li><code>--fen &quot;&lt;FEN...&gt;&quot;</code> (or pass it positionally)</li>
+<li><code>--flip|--black-down</code>: render Black at the bottom</li>
+<li><code>--dark|--dark-mode</code>: start in dark UI theme</li>
+<li><code>--light</code>: start in light UI theme</li>
+<li><code>-h|--help</code>: show help</li>
+</ul>
+<h2 id="gui-next"><code>gui-next</code></h2>
+<p>Launch the ChessRTK Studio GUI v3 research workbench.</p>
+<p>Options:</p>
+<ul>
+<li><code>--fen &quot;&lt;FEN...&gt;&quot;</code> (or pass it positionally)</li>
+<li><code>--flip|--black-down</code>: render Black at the bottom</li>
+<li><code>--dark|--dark-mode</code>: start in dark UI theme</li>
+<li><code>--light</code>: start in light UI theme</li>
+<li><code>-h|--help</code>: show help</li>
+</ul>
+<h2 id="config"><code>config</code></h2>
+<p>Show or validate CLI configuration.</p>
+<p>Subcommands:</p>
+<ul>
+<li><code>show</code>: print resolved configuration values</li>
+<li><code>validate</code>: validate config + protocol files</li>
+</ul>
+<h2 id="record-stats"><code>record stats</code></h2>
+<p>Summarize a <code>.record</code> or puzzle JSON dump.</p>
+<p>Options:</p>
+<ul>
+<li><code>--input|-i &lt;path&gt;</code>: input JSON array/JSONL (required)</li>
+<li><code>--top &lt;n&gt;</code>: show top-N tags/engines (default <code>10</code>)</li>
+<li><code>--verbose|-v</code>: print stack traces on failure</li>
+</ul>
+<h2 id="record-tag-stats"><code>record tag-stats</code></h2>
+<p>Summarize tag distributions in a dump.</p>
+<p>Options:</p>
+<ul>
+<li><code>--input|-i &lt;path&gt;</code>: input JSON array/JSONL (required)</li>
+<li><code>--top &lt;n&gt;</code>: show top-N tags (default <code>20</code>)</li>
+<li><code>--verbose|-v</code>: print stack traces on failure</li>
+</ul>
+<h2 id="fen-tags"><code>fen tags</code></h2>
+<p>Generate tags for a FEN or FEN list.</p>
+<p>Notes:</p>
+<ul>
+<li>If <code>config/book.eco.toml</code> is present, tags may include <code>eco:</code> / <code>opening:</code> for positions that match the ECO book.</li>
+<li><code>--delta</code> emits JSONL records with parent/child tag differences instead of plain JSON arrays.</li>
+</ul>
+<p>Options:</p>
+<ul>
+<li><code>--fen &quot;&lt;FEN...&gt;&quot;</code>: FEN string (or pass it positionally)</li>
+<li><code>--input|-i &lt;path&gt;</code>: FEN list, FEN-pair text file, or record-like position input</li>
+<li><code>--pgn &lt;path&gt;</code>: PGN input</li>
+<li><code>--include-fen</code>: include the FEN as a <code>META</code> tag when not using <code>--delta</code></li>
+<li><code>--analyze</code>: run engine analysis to enrich tags (PV/mate/enables)</li>
+<li><code>--sequence</code>: interpret input as an ordered line (enable/disable tags)</li>
+<li><code>--delta</code>: emit per-move tag deltas as JSONL</li>
+<li><code>--mainline</code>: with <code>--pgn</code>, only export mainline positions</li>
+<li><code>--sidelines</code>: with <code>--pgn</code>, include variations</li>
+<li><code>--protocol|-p &lt;path&gt;</code>: engine protocol TOML file</li>
+<li><code>--max-nodes &lt;n&gt;</code>: max nodes per position</li>
+<li><code>--max-duration &lt;duration&gt;</code>: max duration per position (e.g. <code>5s</code>)</li>
+<li><code>--multipv &lt;n&gt;</code>: number of PVs</li>
+<li><code>--threads &lt;n&gt;</code>: engine threads</li>
+<li><code>--hash &lt;n&gt;</code>: engine hash (MB)</li>
+<li><code>--wdl</code>: enable WDL output (if supported)</li>
+<li><code>--no-wdl</code>: disable WDL output</li>
+<li><code>--verbose|-v</code>: print stack traces on failure</li>
+</ul>
+<h2 id="puzzle-tags"><code>puzzle tags</code></h2>
+<p>Analyze a root puzzle position, expand engine PVs, and emit JSONL rows with per-move tags and tag deltas.</p>
+<p>Options:</p>
+<ul>
+<li><code>--fen &quot;&lt;FEN...&gt;&quot;</code>: root puzzle FEN (required; positional FEN is also accepted)</li>
+<li><code>--multipv &lt;n&gt;</code>: number of PVs to expand (default <code>3</code>)</li>
+<li><code>--pv-plies &lt;n&gt;</code>: plies to keep from each PV (default <code>12</code>)</li>
+<li><code>--tag-multipv &lt;n&gt;</code>: MultiPV used while enriching tags (default <code>1</code>)</li>
+<li><code>--analyze</code>: run engine analysis to enrich tags (default)</li>
+<li><code>--no-analyze</code>: skip per-move analysis and use static tags</li>
+<li><code>--protocol|-p &lt;path&gt;</code>: engine protocol TOML file</li>
+<li><code>--max-nodes &lt;n&gt;</code>: max nodes per position</li>
+<li><code>--max-duration &lt;duration&gt;</code>: max duration per position (e.g. <code>5s</code>)</li>
+<li><code>--threads &lt;n&gt;</code>: engine threads</li>
+<li><code>--hash &lt;n&gt;</code>: engine hash (MB)</li>
+<li><code>--wdl</code>: enable WDL output (if supported)</li>
+<li><code>--no-wdl</code>: disable WDL output</li>
+<li><code>--verbose|-v</code>: print stack traces on failure</li>
+</ul>
+<h2 id="puzzle-text"><code>puzzle text</code></h2>
+<p>Run the T5 tag-to-text model over a puzzle PV expansion.</p>
+<p>Options:</p>
+<ul>
+<li><code>--model &lt;path&gt;</code>: T5 <code>.bin</code> model path (defaults to <code>t5-model-path</code> in config)</li>
+<li><code>--fen &quot;&lt;FEN...&gt;&quot;</code>: root puzzle FEN (required; positional FEN is also accepted)</li>
+<li><code>--multipv &lt;n&gt;</code>: number of PVs to expand (default <code>3</code>)</li>
+<li><code>--pv-plies &lt;n&gt;</code>: plies to keep from each PV (default <code>12</code>)</li>
+<li><code>--tag-multipv &lt;n&gt;</code>: MultiPV used while enriching tags (default <code>1</code>)</li>
+<li><code>--max-new &lt;n&gt;</code>: max generated tokens (default <code>128</code>)</li>
+<li><code>--include-fen</code>: emit JSON with FEN, inferred move, and summary</li>
+<li><code>--analyze</code>: run engine analysis to enrich tags (default)</li>
+<li><code>--no-analyze</code>: skip per-move analysis and use static tags</li>
+<li><code>--protocol|-p &lt;path&gt;</code>: engine protocol TOML file</li>
+<li><code>--max-nodes &lt;n&gt;</code>: max nodes per position</li>
+<li><code>--max-duration &lt;duration&gt;</code>: max duration per position (e.g. <code>5s</code>)</li>
+<li><code>--threads &lt;n&gt;</code>: engine threads</li>
+<li><code>--hash &lt;n&gt;</code>: engine hash (MB)</li>
+<li><code>--wdl</code>: enable WDL output (if supported)</li>
+<li><code>--no-wdl</code>: disable WDL output</li>
+<li><code>--verbose|-v</code>: print stack traces on failure</li>
+</ul>
+<h2 id="fen-text"><code>fen text</code></h2>
+<p>Run the T5 tag-to-text model for one FEN or a FEN list.</p>
+<p>Options:</p>
+<ul>
+<li><code>--model &lt;path&gt;</code>: T5 <code>.bin</code> model path (defaults to <code>t5-model-path</code> in config)</li>
+<li><code>--fen &quot;&lt;FEN...&gt;&quot;</code>: FEN string (or pass it positionally)</li>
+<li><code>--input|-i &lt;path&gt;</code>: FEN list file</li>
+<li><code>--include-fen</code>: emit JSON with FEN and summary</li>
+<li><code>--max-new &lt;n&gt;</code>: max generated tokens (default <code>128</code>)</li>
+<li><code>--analyze</code>: run engine analysis to enrich tags</li>
+<li><code>--protocol|-p &lt;path&gt;</code>: engine protocol TOML file</li>
+<li><code>--max-nodes &lt;n&gt;</code>: max nodes per position</li>
+<li><code>--max-duration &lt;duration&gt;</code>: max duration per position (e.g. <code>5s</code>)</li>
+<li><code>--multipv &lt;n&gt;</code>: number of PVs</li>
+<li><code>--threads &lt;n&gt;</code>: engine threads</li>
+<li><code>--hash &lt;n&gt;</code>: engine hash (MB)</li>
+<li><code>--wdl</code>: enable WDL output (if supported)</li>
+<li><code>--no-wdl</code>: disable WDL output</li>
+<li><code>--verbose|-v</code>: print stack traces on failure</li>
+</ul>
+<h2 id="move-list"><code>move list</code></h2>
+<p>List legal moves for a FEN.</p>
+<p>Options:</p>
+<ul>
+<li><code>--fen &quot;&lt;FEN...&gt;&quot;</code>: FEN string (or pass it positionally)</li>
+<li><code>--format &lt;uci|san|both&gt;</code>: output format (default <code>uci</code>)</li>
+<li><code>--san</code>: output SAN instead of UCI</li>
+<li><code>--both</code>: output UCI + SAN per move</li>
+<li><code>--verbose|-v</code>: print stack traces on failure</li>
+</ul>
+<h2 id="move-uci"><code>move uci</code></h2>
+<p>List legal moves for a FEN (UCI only).</p>
+<p>Options:</p>
+<ul>
+<li><code>--fen &quot;&lt;FEN...&gt;&quot;</code>: FEN string (or pass it positionally)</li>
+<li><code>--verbose|-v</code>: print stack traces on failure</li>
+</ul>
+<h2 id="move-san"><code>move san</code></h2>
+<p>List legal moves for a FEN (SAN only).</p>
+<p>Options:</p>
+<ul>
+<li><code>--fen &quot;&lt;FEN...&gt;&quot;</code>: FEN string (or pass it positionally)</li>
+<li><code>--verbose|-v</code>: print stack traces on failure</li>
+</ul>
+<h2 id="move-both"><code>move both</code></h2>
+<p>List legal moves for a FEN (UCI + SAN).</p>
+<p>Options:</p>
+<ul>
+<li><code>--fen &quot;&lt;FEN...&gt;&quot;</code>: FEN string (or pass it positionally)</li>
+<li><code>--verbose|-v</code>: print stack traces on failure</li>
+</ul>
+<h2 id="move-to-san"><code>move to-san</code></h2>
+<p>Convert a single UCI move to SAN in the given position.</p>
+<p>Notes:</p>
+<ul>
+<li>If no FEN is provided, the standard start position is used.</li>
+</ul>
+<p>Options:</p>
+<ul>
+<li><code>--fen &quot;&lt;FEN...&gt;&quot;</code>: FEN string (or pass it positionally)</li>
+<li><code>&lt;move&gt;</code>: UCI move token (e.g. <code>e2e4</code>, <code>a7a8q</code>)</li>
+<li><code>--verbose|-v</code>: print stack traces on failure</li>
+</ul>
+<h2 id="move-to-uci"><code>move to-uci</code></h2>
+<p>Convert a single SAN move to UCI in the given position.</p>
+<p>Notes:</p>
+<ul>
+<li>If no FEN is provided, the standard start position is used.</li>
+</ul>
+<p>Options:</p>
+<ul>
+<li><code>--fen &quot;&lt;FEN...&gt;&quot;</code>: FEN string (or pass it positionally)</li>
+<li><code>&lt;move&gt;</code>: SAN move token (e.g. <code>Nf3</code>, <code>exd5</code>, <code>O-O</code>)</li>
+<li><code>--verbose|-v</code>: print stack traces on failure</li>
+</ul>
+<h2 id="move-after"><code>move after</code></h2>
+<p>Apply a single move (UCI or SAN) and print the resulting FEN.</p>
+<p>Notes:</p>
+<ul>
+<li>If no FEN is provided, the standard start position is used.</li>
+</ul>
+<p>Options:</p>
+<ul>
+<li><code>--fen &quot;&lt;FEN...&gt;&quot;</code>: FEN string (or pass it positionally)</li>
+<li><code>&lt;move&gt;</code>: move token (UCI or SAN)</li>
+<li><code>--verbose|-v</code>: print stack traces on failure</li>
+</ul>
+<h2 id="move-play"><code>move play</code></h2>
+<p>Apply a move sequence (UCI or SAN) and print the resulting FEN.</p>
+<p>Notes:</p>
+<ul>
+<li>If no FEN is provided, the standard start position is used.</li>
+<li>Move lists are cleaned using the PGN sanitizer (move numbers and comments are ignored).</li>
+</ul>
+<p>Options:</p>
+<ul>
+<li><code>--fen &quot;&lt;FEN...&gt;&quot;</code>: FEN string (or pass it positionally)</li>
+<li><code>&lt;moves...&gt;</code>: move sequence (UCI or SAN)</li>
+<li><code>--intermediate</code>: print intermediate FENs after each move instead of only the final FEN</li>
+<li><code>--verbose|-v</code>: print stack traces on failure</li>
+</ul>
+<h2 id="fen-normalize"><code>fen normalize</code></h2>
+<p>Parse a FEN and print the normalized FEN used internally by ChessRTK.</p>
+<p>Options:</p>
+<ul>
+<li><code>--fen &quot;&lt;FEN...&gt;&quot;</code>: FEN string (or pass it positionally)</li>
+<li><code>--verbose|-v</code>: print stack traces on failure</li>
+</ul>
+<h2 id="fen-validate"><code>fen validate</code></h2>
+<p>Validate a FEN and print <code>valid&lt;TAB&gt;&lt;normalized-fen&gt;</code> on success.</p>
+<p>Options:</p>
+<ul>
+<li><code>--fen &quot;&lt;FEN...&gt;&quot;</code>: FEN string (or pass it positionally)</li>
+<li><code>--verbose|-v</code>: print stack traces on failure</li>
+</ul>
+<h2 id="engine-analyze"><code>engine analyze</code></h2>
+<p>Analyze a position with the engine and print PV summaries.</p>
+<p>Options:</p>
+<ul>
+<li><code>--input|-i &lt;path&gt;</code>: FEN list file (optional)</li>
+<li><code>--fen &quot;&lt;FEN...&gt;&quot;</code>: FEN string (or pass it positionally)</li>
+<li><code>--protocol-path|-P &lt;toml&gt;</code>: override <code>Config.getProtocolPath()</code></li>
+<li><code>--max-nodes|--nodes &lt;n&gt;</code>: override <code>Config.getMaxNodes()</code></li>
+<li><code>--max-duration &lt;dur&gt;</code>: override <code>Config.getMaxDuration()</code>, e.g. <code>60s</code>, <code>2m</code>, <code>60000</code></li>
+<li><code>--multipv &lt;n&gt;</code>: set engine MultiPV</li>
+<li><code>--threads &lt;n&gt;</code>: set engine thread count</li>
+<li><code>--hash &lt;mb&gt;</code>: set engine hash size</li>
+<li><code>--wdl|--no-wdl</code>: enable/disable WDL output</li>
+<li><code>--verbose|-v</code>: print stack traces on failure</li>
+</ul>
+<h2 id="engine-threats"><code>engine threats</code></h2>
+<p>Compute opponent &quot;threats&quot; via a null move: the side to move is swapped, en-passant is cleared, and the resulting position is analyzed with MultiPV. The resulting PV best moves are the threats.</p>
+<p>Notes:</p>
+<ul>
+<li>Positions where the side to move is in check are skipped (null move would be illegal).</li>
+<li>If <code>--multipv</code> is not set, MultiPV defaults to all legal opponent moves in the null-move position.</li>
+</ul>
+<p>Options:</p>
+<ul>
+<li><code>--input|-i &lt;path&gt;</code>: FEN list file (optional)</li>
+<li><code>--fen &quot;&lt;FEN...&gt;&quot;</code>: FEN string (or pass it positionally)</li>
+<li><code>--protocol-path|-P &lt;toml&gt;</code>: override <code>Config.getProtocolPath()</code></li>
+<li><code>--max-nodes|--nodes &lt;n&gt;</code>: override <code>Config.getMaxNodes()</code></li>
+<li><code>--max-duration &lt;dur&gt;</code>: override <code>Config.getMaxDuration()</code>, e.g. <code>60s</code>, <code>2m</code>, <code>60000</code></li>
+<li><code>--multipv &lt;n&gt;</code>: set engine MultiPV (default: all legal opponent moves)</li>
+<li><code>--threads &lt;n&gt;</code>: set engine thread count</li>
+<li><code>--hash &lt;mb&gt;</code>: set engine hash size</li>
+<li><code>--wdl|--no-wdl</code>: enable/disable WDL output</li>
+<li><code>--verbose|-v</code>: print stack traces on failure</li>
+</ul>
+<h2 id="engine-bestmove"><code>engine bestmove</code></h2>
+<p>Return the best move for a FEN.</p>
+<p>Options:</p>
+<ul>
+<li><code>--input|-i &lt;path&gt;</code>: FEN list file (optional)</li>
+<li><code>--fen &quot;&lt;FEN...&gt;&quot;</code>: FEN string (or pass it positionally)</li>
+<li><code>--format &lt;uci|san|both&gt;</code>: output format (default <code>uci</code>)</li>
+<li><code>--san</code>: output SAN instead of UCI</li>
+<li><code>--both</code>: output UCI + SAN</li>
+<li><code>--protocol-path|-P &lt;toml&gt;</code>: override <code>Config.getProtocolPath()</code></li>
+<li><code>--max-nodes|--nodes &lt;n&gt;</code>: override <code>Config.getMaxNodes()</code></li>
+<li><code>--max-duration &lt;dur&gt;</code>: override <code>Config.getMaxDuration()</code>, e.g. <code>60s</code>, <code>2m</code>, <code>60000</code></li>
+<li><code>--multipv &lt;n&gt;</code>: set engine MultiPV</li>
+<li><code>--threads &lt;n&gt;</code>: set engine thread count</li>
+<li><code>--hash &lt;mb&gt;</code>: set engine hash size</li>
+<li><code>--wdl|--no-wdl</code>: enable/disable WDL output</li>
+<li><code>--verbose|-v</code>: print stack traces on failure</li>
+</ul>
+<h2 id="engine-bestmove-uci"><code>engine bestmove-uci</code></h2>
+<p>Return the best move for a FEN (UCI only).</p>
+<p>Options:</p>
+<ul>
+<li><code>--input|-i &lt;path&gt;</code>: FEN list file (optional)</li>
+<li><code>--fen &quot;&lt;FEN...&gt;&quot;</code>: FEN string (or pass it positionally)</li>
+<li><code>--protocol-path|-P &lt;toml&gt;</code>: override <code>Config.getProtocolPath()</code></li>
+<li><code>--max-nodes|--nodes &lt;n&gt;</code>: override <code>Config.getMaxNodes()</code></li>
+<li><code>--max-duration &lt;dur&gt;</code>: override <code>Config.getMaxDuration()</code>, e.g. <code>60s</code>, <code>2m</code>, <code>60000</code></li>
+<li><code>--multipv &lt;n&gt;</code>: set engine MultiPV</li>
+<li><code>--threads &lt;n&gt;</code>: set engine thread count</li>
+<li><code>--hash &lt;mb&gt;</code>: set engine hash size</li>
+<li><code>--wdl|--no-wdl</code>: enable/disable WDL output</li>
+<li><code>--verbose|-v</code>: print stack traces on failure</li>
+</ul>
+<h2 id="engine-bestmove-san"><code>engine bestmove-san</code></h2>
+<p>Return the best move for a FEN (SAN only).</p>
+<p>Options:</p>
+<ul>
+<li><code>--input|-i &lt;path&gt;</code>: FEN list file (optional)</li>
+<li><code>--fen &quot;&lt;FEN...&gt;&quot;</code>: FEN string (or pass it positionally)</li>
+<li><code>--protocol-path|-P &lt;toml&gt;</code>: override <code>Config.getProtocolPath()</code></li>
+<li><code>--max-nodes|--nodes &lt;n&gt;</code>: override <code>Config.getMaxNodes()</code></li>
+<li><code>--max-duration &lt;dur&gt;</code>: override <code>Config.getMaxDuration()</code>, e.g. <code>60s</code>, <code>2m</code>, <code>60000</code></li>
+<li><code>--multipv &lt;n&gt;</code>: set engine MultiPV</li>
+<li><code>--threads &lt;n&gt;</code>: set engine thread count</li>
+<li><code>--hash &lt;mb&gt;</code>: set engine hash size</li>
+<li><code>--wdl|--no-wdl</code>: enable/disable WDL output</li>
+<li><code>--verbose|-v</code>: print stack traces on failure</li>
+</ul>
+<h2 id="engine-bestmove-both"><code>engine bestmove-both</code></h2>
+<p>Return the best move for a FEN (UCI + SAN).</p>
+<p>Options:</p>
+<ul>
+<li><code>--input|-i &lt;path&gt;</code>: FEN list file (optional)</li>
+<li><code>--fen &quot;&lt;FEN...&gt;&quot;</code>: FEN string (or pass it positionally)</li>
+<li><code>--protocol-path|-P &lt;toml&gt;</code>: override <code>Config.getProtocolPath()</code></li>
+<li><code>--max-nodes|--nodes &lt;n&gt;</code>: override <code>Config.getMaxNodes()</code></li>
+<li><code>--max-duration &lt;dur&gt;</code>: override <code>Config.getMaxDuration()</code>, e.g. <code>60s</code>, <code>2m</code>, <code>60000</code></li>
+<li><code>--multipv &lt;n&gt;</code>: set engine MultiPV</li>
+<li><code>--threads &lt;n&gt;</code>: set engine thread count</li>
+<li><code>--hash &lt;mb&gt;</code>: set engine hash size</li>
+<li><code>--wdl|--no-wdl</code>: enable/disable WDL output</li>
+<li><code>--verbose|-v</code>: print stack traces on failure</li>
+</ul>
+<h2 id="engine-perft"><code>engine perft</code></h2>
+<p>Run detailed perft on a position using the Java-native <code>chess.core</code> move generator. The output includes leaf nodes, captures, en-passant captures, castles, promotions, checks, checkmates, elapsed time, and nodes per second. When no position selector is provided, the command defaults to the standard start position.</p>
+<p>Options:</p>
+<ul>
+<li><code>--fen &quot;&lt;FEN...&gt;&quot;</code>: FEN string (or pass it positionally; defaults to start position)</li>
+<li><code>--startpos</code>: use the standard chess start position explicitly</li>
+<li><code>--randompos</code>: use one reachable random legal standard-chess position</li>
+<li><code>--depth|-d &lt;n&gt;</code>: perft depth (required)</li>
+<li><code>--divide|--per-move</code>: print per-root-move detailed counters as a table</li>
+<li><code>--format &lt;detail|table|stockfish&gt;</code>: output format. <code>table</code> and <code>stockfish</code></li>
+</ul>
+<p>imply divide; <code>detail</code> preserves the key-value divide rows.</p>
+<ul>
+<li><code>--threads &lt;n&gt;</code>: worker threads for legal root moves (default: 1)</li>
+<li><code>--verbose|-v</code>: print stack traces on failure</li>
+</ul>
+<h2 id="engine-perft-suite"><code>engine perft-suite</code></h2>
+<p>Compare each critical standard and Chess960 perft position at one requested depth against stored in-repo truth values. The command shows a progress bar while the rows run, then prints an aligned table with <code>Truth</code>, <code>Calculated</code>, <code>Speed</code>, and <code>Match</code> columns. It never starts Stockfish or any other external engine process.</p>
+<p>The suite covers the standard start, Kiwipete, promotion, en-passant, open castling lanes, Chess960 starts/midgames, and a knight-heavy stress position. <code>Calculated</code> is always produced by the in-process Java core move generator.</p>
+<p>Options:</p>
+<ul>
+<li><code>--depth|-d &lt;n&gt;</code>: depth to validate, 1 through 6 (default: 6)</li>
+<li><code>--threads &lt;n&gt;</code>: worker threads for independent positions (default: 1)</li>
+</ul>
+<h2 id="doctor"><code>doctor</code></h2>
+<p>Check the local Java runtime, main config file, configured engine protocol, engine executable discovery, model paths, and output directory path. Missing model files are warnings because models are optional local artifacts.</p>
+<p>Options:</p>
+<ul>
+<li><code>--strict</code>: exit non-zero when warnings are present</li>
+<li><code>--verbose|-v</code>: print stack traces on failure</li>
+</ul>
+<h2 id="fen-pgn"><code>fen pgn</code></h2>
+<p>Convert PGN games to a FEN list that can be used as seeds.</p>
+<p>Options:</p>
+<ul>
+<li><code>--input|-i &lt;path&gt;</code>: input PGN file (required)</li>
+<li><code>--output|-o &lt;path&gt;</code>: output <code>.txt</code> (optional; default derived)</li>
+<li><code>--pairs</code>: write &quot;parent child&quot; FEN pairs per line</li>
+<li><code>--mainline</code>: only output the mainline (skip variations)</li>
+<li><code>--verbose|-v</code>: print stack traces on failure</li>
+</ul>
+<h2 id="engine-eval"><code>engine eval</code></h2>
+<p>Evaluate a position using the Java LC0 evaluator with classical fallback, or force one backend explicitly. This command does not use a UCI engine.</p>
+<p>Options:</p>
+<ul>
+<li><code>--input|-i &lt;path&gt;</code>: FEN list file (optional)</li>
+<li><code>--fen &quot;&lt;FEN...&gt;&quot;</code>: FEN string (or pass it positionally)</li>
+<li><code>--lc0</code>: force LC0 evaluation and fail if LC0 cannot run</li>
+<li><code>--classical</code>: force classical evaluation</li>
+<li><code>--weights &lt;path&gt;</code>: LC0J <code>.bin</code> weights path (optional)</li>
+<li><code>--terminal-aware</code>: use terminal-aware classical evaluation</li>
+<li><code>--verbose|-v</code>: print stack traces on failure</li>
+</ul>
+<h2 id="engine-static"><code>engine static</code></h2>
+<p>Evaluate a position using the classical evaluator only.</p>
+<p>Options:</p>
+<ul>
+<li><code>--input|-i &lt;path&gt;</code>: FEN list file (optional)</li>
+<li><code>--fen &quot;&lt;FEN...&gt;&quot;</code>: FEN string (or pass it positionally)</li>
+<li><code>--terminal-aware</code>: use terminal-aware classical evaluation</li>
+<li><code>--verbose|-v</code>: print stack traces on failure</li>
+</ul>
+<h2 id="clean"><code>clean</code></h2>
+<p>Delete session cache/logs under <code>session/</code>.</p>
+<p>Options:</p>
+<ul>
+<li><code>--verbose|-v</code>: print stack traces on failure</li>
+</ul>
+<h2 id="help"><code>help</code></h2>
+<p>Print the built-in usage text.</p>
+        </article>
+        <aside class="toc"><h2>On This Page</h2>
+<a class="toc-h2" href="#capability-overview">Capability Overview</a>
+<a class="toc-h2" href="#record">record</a>
+<a class="toc-h2" href="#fen">fen</a>
+<a class="toc-h2" href="#move">move</a>
+<a class="toc-h2" href="#engine">engine</a>
+<a class="toc-h2" href="#engine-builtin">engine builtin</a>
+<a class="toc-h2" href="#book">book</a>
+<a class="toc-h2" href="#puzzle">puzzle</a>
+<a class="toc-h2" href="#record-export-plain">record export plain</a>
+<a class="toc-h2" href="#record-export-csv">record export csv</a>
+<a class="toc-h2" href="#record-export-pgn">record export pgn</a>
+<a class="toc-h2" href="#record-analysis-delta">record analysis-delta</a>
+<a class="toc-h2" href="#puzzle-pgn">puzzle pgn</a>
+<a class="toc-h2" href="#record-files">record files</a>
+<a class="toc-h2" href="#record-dataset-npy">record dataset npy</a>
+<a class="toc-h2" href="#record-dataset-lc0">record dataset lc0</a>
+<a class="toc-h2" href="#record-export-puzzle-jsonl">record export puzzle-jsonl</a>
+<a class="toc-h2" href="#record-dataset-classifier">record dataset classifier</a></aside>
+      </main>
+      <footer class="footer">
+        <span>Generated from <code>wiki/command-reference.md</code>.</span>
+        <span>Build with <code>python3 scripts/build_docs_site.py</code>.</span>
+      </footer>
+    </div>
+  </div>
+</body>
+</html>

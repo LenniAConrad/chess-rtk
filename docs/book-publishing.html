@@ -1,0 +1,277 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Book publishing | ChessRTK Wiki</title>
+  <link rel="stylesheet" href="styles.css">
+  <script defer src="search-index.js"></script>
+  <script defer src="site.js"></script>
+</head>
+<body>
+  <button class="menu-toggle" type="button" aria-label="Toggle navigation">Menu</button>
+  <div class="site-shell">
+    <aside class="sidebar">
+      <a class="brand" href="index.html">
+        <span class="brand-mark">CR</span>
+        <span><strong>ChessRTK</strong><small>Wiki</small></span>
+      </a>
+      <label class="search-label" for="doc-search">Search pages</label>
+      <input id="doc-search" class="search" type="search" placeholder="Search docs...">
+      <nav class="nav"><section class="nav-section"><h2>Start Here</h2>
+<a class="" href="index.html" data-title="home">Home</a>
+<a class="" href="getting-started.html" data-title="getting started">Getting Started</a>
+<a class="" href="faq.html" data-title="faq">FAQ</a>
+<a class="" href="command-reference.html" data-title="command reference">Command Reference</a>
+<a class="" href="example-commands.html" data-title="example commands">Example Commands</a>
+<a class="" href="troubleshooting.html" data-title="troubleshooting">Troubleshooting</a>
+</section>
+<section class="nav-section"><h2>User Guides</h2>
+<a class="" href="build-and-install.html" data-title="build &amp; install">Build &amp; Install</a>
+<a class="" href="configuration.html" data-title="configuration">Configuration</a>
+<a class="" href="in-house-engine.html" data-title="in-house engine">In-House Engine</a>
+<a class="" href="lc0.html" data-title="lc0">LC0</a>
+<a class="" href="outputs-and-logs.html" data-title="outputs &amp; logs">Outputs &amp; Logs</a>
+<a class="" href="support.html" data-title="support">Support</a>
+</section>
+<section class="nav-section"><h2>Workflows</h2>
+<a class="" href="mining.html" data-title="mining puzzles">Mining Puzzles</a>
+<a class="" href="filter-dsl.html" data-title="filter dsl">Filter DSL</a>
+<a class="" href="datasets.html" data-title="datasets">Datasets</a>
+<a class="active" href="book-publishing.html" data-title="book publishing">Book Publishing</a>
+<a class="" href="piece-tags.html" data-title="tags">Tags</a>
+<a class="" href="t5.html" data-title="t5 text">T5 Text</a>
+<a class="" href="ai-agents.html" data-title="ai agents">AI Agents</a>
+</section>
+<section class="nav-section"><h2>Development</h2>
+<a class="" href="architecture.html" data-title="architecture">Architecture</a>
+<a class="" href="development-notes.html" data-title="development notes">Development Notes</a>
+<a class="" href="releasing.html" data-title="releasing">Releasing</a>
+<a class="" href="roadmap.html" data-title="roadmap">Roadmap</a>
+<a class="" href="glossary.html" data-title="glossary">Glossary</a>
+<a class="" href="tagging-implementation-plan.html" data-title="tagging plan">Tagging Plan</a>
+<a class="" href="wiki-index.html" data-title="wiki index">Wiki Index</a>
+</section></nav>
+    </aside>
+    <div class="page">
+      <header class="topbar">
+        <div>
+          <span>Workflows</span>
+          <strong>Book publishing</strong>
+        </div>
+        <nav>
+          <a href="index.html">Home</a>
+          <a href="wiki-index.html">Wiki Index</a>
+          <a href="command-reference.html">Commands</a>
+        </nav>
+      </header>
+      
+      <main class="content-layout">
+        <article class="content">
+          <h1 id="book-publishing">Book publishing</h1>
+<p>ChessRTK can produce native vector PDFs for five publishing jobs:</p>
+<ul>
+<li><code>book ilovechess</code>: build an I Love Chess-style TOML manifest from record JSON/JSONL, with optional interior and cover PDF output.</li>
+<li><code>book artofchess</code>: render a richer annotated Art of Chess manifest with hints, analysis text, comments, and figure lists.</li>
+<li><code>book pdf</code>: quick diagram sheets from FEN lists or PGN mainlines.</li>
+<li><code>book render</code>: full puzzle books from JSON/TOML manifests.</li>
+<li><code>book cover</code>: matching paperback, hardcover, or ebook covers from the same manifest.</li>
+</ul>
+<p>No LaTeX step is required for these commands.</p>
+<p>The native book renderer keeps publishing-specific text helpers in <code>chess.book.render</code>. Solution SAN in captions and tables is converted to figurine algebraic notation, so moves such as <code>Qxe8+</code> render with chess figurines and a multiplication sign for captures.</p>
+<h2 id="minimal-workflow">Minimal workflow</h2>
+<pre><code class="language-bash">mkdir -p dist
+crtk book render -i books/puzzles.toml --check
+crtk book render -i books/puzzles.toml -o dist/puzzles.pdf
+crtk book cover -i books/puzzles.toml --check \
+  --pdf dist/puzzles.pdf --binding paperback --interior white-bw
+crtk book cover -i books/puzzles.toml -o dist/puzzles-cover.pdf \
+  --pdf dist/puzzles.pdf --binding paperback --interior white-bw</code></pre>
+<p>For reviewer or free-edition copies, generate a traceable watermarked PDF:</p>
+<pre><code class="language-bash">crtk book render -i books/puzzles.toml -o dist/puzzles-review.pdf \
+  --watermark-id &quot;ARC reviewer@example.com 2026-04-22&quot;</code></pre>
+<p><code>--watermark-id</code> implies <code>--watermark</code>; it adds page-specific overlay text, corner marks, and matching PDF metadata.</p>
+<p>Pass the rendered interior PDF to <code>book cover --pdf &lt;path&gt;</code> so the cover command can read the actual trim width, trim height, and page count from the interior file. If <code>--pdf</code> is omitted, the cover command falls back to manifest <code>paperwidth</code> / <code>paperheight</code>, then manifest <code>pages</code>, then an estimate from the puzzle grid and solution-table cadence. <code>--pages</code> still overrides the inferred page count when you need a manual spine width.</p>
+<p>The <code>--check</code> flag is a dry run. For <code>book render</code>, it validates page geometry, FEN parsing, and solution moves. For <code>book cover</code>, it validates the same manifest and prints the calculated trim, spine, and full-cover dimensions.</p>
+<h2 id="i-love-chess-workflow">I Love Chess workflow</h2>
+<p>Use <code>book ilovechess</code> when your source material is a record JSON/JSONL dump with a starting <code>position</code> and a PV in <code>analysis</code>. The command converts the first PV into move-numbered SAN, writes a TOML manifest, and can optionally render the interior and cover in one pass.</p>
+<pre><code class="language-bash">crtk book ilovechess -i dump/mate1.json -o books/mate1.book.toml \
+  --title &quot;I Love Chess&quot; \
+  --subtitle &quot;4,000 Mate in 1 Puzzles&quot; \
+  --author &quot;Lennart A. Conrad&quot; \
+  --time &quot;2026&quot; \
+  --location &quot;Shanghai&quot; \
+  --pdf-output dist/mate1.pdf \
+  --cover-output dist/mate1-cover.pdf \
+  --binding paperback \
+  --interior white-bw</code></pre>
+<p>If you omit <code>--subtitle</code>, the command falls back to a generic <code>&quot;&lt;count&gt; Chess Puzzles&quot;</code> subtitle. If you omit front-matter paragraphs, the builder supplies a compact default introduction and leaves the native how-to-read and afterword fallbacks in place.</p>
+<h2 id="art-of-chess-workflow">Art of Chess workflow</h2>
+<p>Use <code>book artofchess</code> when you already have richer annotated content and want to keep per-entry description text, comments, hints, and figure lists.</p>
+<pre><code class="language-bash">crtk book artofchess -i books/art-of-chess.json \
+  --manifest-output books/art-of-chess.toml \
+  -o dist/art-of-chess.pdf \
+  --cover-output dist/art-of-chess-cover.pdf \
+  --title &quot;Art of Chess Puzzles&quot; \
+  --subtitle &quot;400 Annotated Studies&quot; \
+  --author &quot;Lennart A. Conrad&quot; \
+  --binding paperback \
+  --interior white-bw</code></pre>
+<p>This command accepts JSON or TOML input, can write a normalized TOML manifest, renders the composition-style interior PDF, and can build a matching cover in one pass. The manifest stays separate from the lean <code>book render</code> model on purpose: <code>book artofchess</code> keeps the richer <code>Composition</code> fields instead of collapsing everything into <code>position + moves</code>.</p>
+<p>Example TOML:</p>
+<pre><code class="language-toml">title = &quot;Art of Chess Puzzles&quot;
+subtitle = &quot;Annotated Sample&quot;
+author = &quot;ChessRTK&quot;
+time = &quot;2026&quot;
+location = &quot;Shanghai&quot;
+pageSize = &quot;a5&quot;
+margin = 42.0
+diagramsPerRow = 1
+boardPixels = 720
+whiteSideDown = false
+showFen = false
+blurb = [&quot;Annotated positions with guided hints and commentary.&quot;]
+link = [&quot;example.com/art&quot;]
+
+[[compositions]]
+title = &quot;Mate in One&quot;
+description = &quot;White to move and mate in one.&quot;
+analysis = &quot;1. Qh8#.&quot;
+hintLevel1 = &quot;Look at the back rank.&quot;
+figureMovesAlgebraic = [&quot;Start&quot;, &quot;1. Qh8#&quot;]
+figureMovesDetail = [&quot;Initial position&quot;, &quot;Mate&quot;]
+figureFens = [
+  &quot;6k1/5ppp/8/8/8/8/5PPP/6KQ w - - 0 1&quot;,
+  &quot;7Q/5pkp/8/8/8/8/5PPP/6K1 b - - 0 1&quot;,
+]
+figureArrows = [&quot;h1h8&quot;, &quot;&quot;]
+
+[[compositions]]
+title = &quot;Punished Weakness&quot;
+comment = &quot;Black exploits the loosened kingside dark squares.&quot;
+analysis = &quot;2... Qh4#&quot;
+id = &quot;A2&quot;
+figureMovesAlgebraic = [&quot;Final&quot;]
+figureFens = [&quot;rnb1kbnr/pppp1ppp/8/4p3/6Pq/5P2/PPPPP2P/RNBQKBNR w KQkq - 1 3&quot;]</code></pre>
+<p>Important Art-of-Chess fields:</p>
+<ul>
+<li><code>[[compositions]]</code> is the repeated annotated entry list.</li>
+<li><code>description</code>, <code>comment</code>, <code>analysis</code>, and <code>hintLevel1..4</code> map directly to the rendered section blocks.</li>
+<li><code>figureFens</code> is the diagram backbone; <code>figureMovesAlgebraic</code>, <code>figureMovesDetail</code>, and <code>figureArrows</code> stay aligned with it.</li>
+<li><code>pageSize</code>, <code>margin</code>, <code>diagramsPerRow</code>, <code>boardPixels</code>, <code>whiteSideDown</code>, and <code>showFen</code> control the composition-PDF layout.</li>
+</ul>
+<h2 id="manifest-shape">Manifest shape</h2>
+<p>Both JSON and TOML are accepted. TOML is usually easier to maintain:</p>
+<pre><code class="language-toml">title = &quot;Tactical Positions&quot;
+subtitle = &quot;100 exercises&quot;
+author = &quot;ChessRTK&quot;
+time = &quot;2026&quot;
+location = &quot;Hangzhou&quot;
+language = &quot;English&quot;
+pages = 120
+
+paperwidth = 15.24
+paperheight = 22.86
+innermargin = 2.0
+outermargin = 1.5
+topmargin = 2.0
+bottommargin = 2.0
+
+tablefrequency = 6
+puzzlerows = 2
+puzzlecolumns = 2
+
+imprint = [&quot;Generated with ChessRTK&quot;]
+dedication = [&quot;For careful solvers.&quot;]
+introduction = [&quot;Solve each position before checking the answer.&quot;]
+howToRead = [&quot;White is shown at the bottom unless the position requires otherwise.&quot;]
+blurb = [&quot;A compact set of tactical exercises with full solutions.&quot;]
+afterword = [&quot;Thanks for reading.&quot;]
+
+[[elements]]
+position = &quot;rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1&quot;
+moves = &quot;1. e4&quot;</code></pre>
+<p>Important fields:</p>
+<ul>
+<li><code>paperwidth</code> / <code>paperheight</code> are trim dimensions in centimeters.</li>
+<li><code>pages</code> is used by cover generation for spine width.</li>
+<li><code>puzzlerows</code> and <code>puzzlecolumns</code> control how many diagrams appear on each puzzle page.</li>
+<li>Each <code>[[elements]]</code> entry needs a starting FEN in <code>position</code> and a SAN solution line in <code>moves</code>.</li>
+<li><code>blurb</code> is reused on the back cover.</li>
+</ul>
+<h2 id="cover-dimensions">Cover dimensions</h2>
+<p><code>book cover</code> calculates dimensions from trim size, binding type, interior paper, and printed page count.</p>
+<p>Bindings:</p>
+<ul>
+<li><code>paperback</code>: wraparound back + spine + front cover with 0.125 inch bleed on each outside edge.</li>
+<li><code>hardcover</code>: case-laminate cover with 1.5 cm wrap and 1.0 cm hinge allowance.</li>
+<li><code>ebook</code>: front-cover-only PDF; spine and back cover are omitted.</li>
+</ul>
+<p>Interior tokens:</p>
+<ul>
+<li><code>white-bw</code>: white paper, black-and-white printing.</li>
+<li><code>cream-bw</code>: cream paper, black-and-white printing.</li>
+<li><code>white-standard-color</code>: white paper, standard color.</li>
+<li><code>white-premium-color</code>: white paper, premium color.</li>
+</ul>
+<p>Spine width is <code>pages * paper-thickness</code>. The current constants are:</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Interior</th>
+<th>Inches per page</th>
+</tr></thead><tbody>
+<tr>
+<td><code>white-bw</code></td>
+<td><code>0.002252</code></td>
+</tr>
+<tr>
+<td><code>cream-bw</code></td>
+<td><code>0.0025</code></td>
+</tr>
+<tr>
+<td><code>white-standard-color</code></td>
+<td><code>0.002252</code></td>
+</tr>
+<tr>
+<td><code>white-premium-color</code></td>
+<td><code>0.002347</code></td>
+</tr>
+</tbody></table></div>
+<h2 id="diagram-sheets">Diagram sheets</h2>
+<p>Use <code>book pdf</code> when you want a smaller document instead of a full puzzle book:</p>
+<pre><code class="language-bash">crtk book pdf --fen &quot;&lt;FEN&gt;&quot; -o dist/position.pdf
+crtk book pdf -i seeds.txt -o dist/sheet.pdf --title &quot;Training Sheet&quot;
+crtk book pdf --pgn games.pgn -o dist/games.pdf --page-size a5 --diagrams-per-row 1</code></pre>
+<p>Input choices are exclusive: use exactly one of <code>--fen</code>, <code>--input</code>, or <code>--pgn</code>.</p>
+<h2 id="checks">Checks</h2>
+<p>After editing publishing code or manifests, these checks cover the native PDF paths:</p>
+<pre><code class="language-bash">java -Djava.awt.headless=true -cp out testing.BookRegressionTest
+java -Djava.awt.headless=true -cp out testing.ChessBookCommandRegressionTest
+java -Djava.awt.headless=true -cp out testing.ChessBookCoverCommandRegressionTest
+java -Djava.awt.headless=true -cp out testing.ChessArtOfChessCommandRegressionTest
+java -Djava.awt.headless=true -cp out testing.ChessILoveChessCommandRegressionTest</code></pre>
+<p>Use <code>-Djava.awt.headless=true</code> on machines without a reachable display server, including CI and many remote shells.</p>
+<p>For print-on-demand dimensions, compare the final values printed by <code>book cover --check</code> with the publishing service&#x27;s own cover calculator before uploading.</p>
+<p>References:</p>
+<ul>
+<li>KDP print cover calculator: https://kdp.amazon.com/en_US/help/topic/G201953020</li>
+<li>KDP paperback submission guidelines: https://kdp.amazon.com/en_US/help/topic/GDTKFJPNQCBTMRV6</li>
+</ul>
+        </article>
+        <aside class="toc"><h2>On This Page</h2>
+<a class="toc-h2" href="#minimal-workflow">Minimal workflow</a>
+<a class="toc-h2" href="#i-love-chess-workflow">I Love Chess workflow</a>
+<a class="toc-h2" href="#art-of-chess-workflow">Art of Chess workflow</a>
+<a class="toc-h2" href="#manifest-shape">Manifest shape</a>
+<a class="toc-h2" href="#cover-dimensions">Cover dimensions</a>
+<a class="toc-h2" href="#diagram-sheets">Diagram sheets</a>
+<a class="toc-h2" href="#checks">Checks</a></aside>
+      </main>
+      <footer class="footer">
+        <span>Generated from <code>wiki/book-publishing.md</code>.</span>
+        <span>Build with <code>python3 scripts/build_docs_site.py</code>.</span>
+      </footer>
+    </div>
+  </div>
+</body>
+</html>

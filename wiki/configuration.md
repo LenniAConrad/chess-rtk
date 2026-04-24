@@ -66,8 +66,9 @@ Use your package manager (e.g. `apt-get install stockfish`) or build engines you
 
 The Java evaluators use model files directly and do not start UCI engines:
 
-- `engine builtin --nnue` loads NNUE weights from `--weights`, or uses the
-  default/fallback NNUE model path.
+- `engine builtin --nnue` loads NNUE weights from `--weights`, or from the
+  default NNUE model path; `./install.sh --models` populates that default. If
+  neither exists, it fails with a missing-weights error.
 - `engine builtin --lc0` loads LC0J `.bin` weights from `--weights`, or from
   `lc0-model-path`.
 - `engine eval` prefers the Java LC0 evaluator and falls back to classical

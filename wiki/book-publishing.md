@@ -1,7 +1,9 @@
 # Book publishing
 
-ChessRTK can produce native vector PDFs for three publishing jobs:
+ChessRTK can produce native vector PDFs for five publishing jobs:
 
+- `book ilovechess`: build an I Love Chess-style TOML manifest from record JSON/JSONL, with optional interior and cover PDF output.
+- `book artofchess`: render a richer annotated Art of Chess manifest with hints, analysis text, comments, and figure lists.
 - `book pdf`: quick diagram sheets from FEN lists or PGN mainlines.
 - `book render`: full puzzle books from JSON/TOML manifests.
 - `book cover`: matching paperback, hardcover, or ebook covers from the same manifest.
@@ -45,6 +47,100 @@ page count when you need a manual spine width.
 The `--check` flag is a dry run. For `book render`, it validates page geometry,
 FEN parsing, and solution moves. For `book cover`, it validates the same
 manifest and prints the calculated trim, spine, and full-cover dimensions.
+
+## I Love Chess workflow
+
+Use `book ilovechess` when your source material is a record JSON/JSONL dump
+with a starting `position` and a PV in `analysis`. The command converts the
+first PV into move-numbered SAN, writes a TOML manifest, and can optionally
+render the interior and cover in one pass.
+
+```bash
+crtk book ilovechess -i dump/mate1.json -o books/mate1.book.toml \
+  --title "I Love Chess" \
+  --subtitle "4,000 Mate in 1 Puzzles" \
+  --author "Lennart A. Conrad" \
+  --time "2026" \
+  --location "Shanghai" \
+  --pdf-output dist/mate1.pdf \
+  --cover-output dist/mate1-cover.pdf \
+  --binding paperback \
+  --interior white-bw
+```
+
+If you omit `--subtitle`, the command falls back to a generic
+`"<count> Chess Puzzles"` subtitle. If you omit front-matter paragraphs, the
+builder supplies a compact default introduction and leaves the native
+how-to-read and afterword fallbacks in place.
+
+## Art of Chess workflow
+
+Use `book artofchess` when you already have richer annotated content and want
+to keep per-entry description text, comments, hints, and figure lists.
+
+```bash
+crtk book artofchess -i books/art-of-chess.json \
+  --manifest-output books/art-of-chess.toml \
+  -o dist/art-of-chess.pdf \
+  --cover-output dist/art-of-chess-cover.pdf \
+  --title "Art of Chess Puzzles" \
+  --subtitle "400 Annotated Studies" \
+  --author "Lennart A. Conrad" \
+  --binding paperback \
+  --interior white-bw
+```
+
+This command accepts JSON or TOML input, can write a normalized TOML manifest,
+renders the composition-style interior PDF, and can build a matching cover in
+one pass. The manifest stays separate from the lean `book render` model on
+purpose: `book artofchess` keeps the richer `Composition` fields instead of
+collapsing everything into `position + moves`.
+
+Example TOML:
+
+```toml
+title = "Art of Chess Puzzles"
+subtitle = "Annotated Sample"
+author = "ChessRTK"
+time = "2026"
+location = "Shanghai"
+pageSize = "a5"
+margin = 42.0
+diagramsPerRow = 1
+boardPixels = 720
+whiteSideDown = false
+showFen = false
+blurb = ["Annotated positions with guided hints and commentary."]
+link = ["example.com/art"]
+
+[[compositions]]
+title = "Mate in One"
+description = "White to move and mate in one."
+analysis = "1. Qh8#."
+hintLevel1 = "Look at the back rank."
+figureMovesAlgebraic = ["Start", "1. Qh8#"]
+figureMovesDetail = ["Initial position", "Mate"]
+figureFens = [
+  "6k1/5ppp/8/8/8/8/5PPP/6KQ w - - 0 1",
+  "7Q/5pkp/8/8/8/8/5PPP/6K1 b - - 0 1",
+]
+figureArrows = ["h1h8", ""]
+
+[[compositions]]
+title = "Punished Weakness"
+comment = "Black exploits the loosened kingside dark squares."
+analysis = "2... Qh4#"
+id = "A2"
+figureMovesAlgebraic = ["Final"]
+figureFens = ["rnb1kbnr/pppp1ppp/8/4p3/6Pq/5P2/PPPPP2P/RNBQKBNR w KQkq - 1 3"]
+```
+
+Important Art-of-Chess fields:
+
+- `[[compositions]]` is the repeated annotated entry list.
+- `description`, `comment`, `analysis`, and `hintLevel1..4` map directly to the rendered section blocks.
+- `figureFens` is the diagram backbone; `figureMovesAlgebraic`, `figureMovesDetail`, and `figureArrows` stay aligned with it.
+- `pageSize`, `margin`, `diagramsPerRow`, `boardPixels`, `whiteSideDown`, and `showFen` control the composition-PDF layout.
 
 ## Manifest shape
 
@@ -138,6 +234,8 @@ paths:
 java -Djava.awt.headless=true -cp out testing.BookRegressionTest
 java -Djava.awt.headless=true -cp out testing.ChessBookCommandRegressionTest
 java -Djava.awt.headless=true -cp out testing.ChessBookCoverCommandRegressionTest
+java -Djava.awt.headless=true -cp out testing.ChessArtOfChessCommandRegressionTest
+java -Djava.awt.headless=true -cp out testing.ChessILoveChessCommandRegressionTest
 ```
 
 Use `-Djava.awt.headless=true` on machines without a reachable display server,

@@ -18,6 +18,31 @@ import utility.Argv;
 public final class ChessBookCommandRegressionTest {
 
 	/**
+	 * Shared temp-file prefix for book-render sources and outputs.
+	 */
+	private static final String BOOK_RENDER_PREFIX = "book-render-";
+
+	/**
+	 * Shared JSON suffix for sample manifests.
+	 */
+	private static final String JSON_SUFFIX = ".json";
+
+	/**
+	 * Shared CLI input option.
+	 */
+	private static final String INPUT_OPTION = "--input";
+
+	/**
+	 * Shared CLI output option.
+	 */
+	private static final String OUTPUT_OPTION = "--output";
+
+	/**
+	 * Marker indicating a raster image was embedded in the generated PDF.
+	 */
+	private static final String PDF_IMAGE_MARKER = "/Subtype /Image";
+
+	/**
 	 * Utility class; prevent instantiation.
 	 */
 	private ChessBookCommandRegressionTest() {
@@ -45,13 +70,13 @@ public final class ChessBookCommandRegressionTest {
 	 * @throws Exception if export fails
 	 */
 	private static void testJsonBookExport() throws Exception {
-		Path input = Files.createTempFile("book-render-", ".json");
+		Path input = Files.createTempFile(BOOK_RENDER_PREFIX, JSON_SUFFIX);
 		Files.writeString(input, sampleJson(16), StandardCharsets.UTF_8);
 
-		Path output = Files.createTempFile("book-render-", ".pdf");
+		Path output = Files.createTempFile(BOOK_RENDER_PREFIX, ".pdf");
 		ChessBookCommand.runChessBook(new Argv(new String[] {
-				"--input", input.toString(),
-				"--output", output.toString(),
+				INPUT_OPTION, input.toString(),
+				OUTPUT_OPTION, output.toString(),
 				"--title", "CLI Book"
 		}));
 
@@ -59,7 +84,7 @@ public final class ChessBookCommandRegressionTest {
 		String text = new String(bytes, StandardCharsets.ISO_8859_1);
 		assertTrue(bytes.length > 16_000, "pdf size");
 		assertTrue(text.contains("/Title (CLI Book: Command Sample)"), "title metadata");
-		assertFalse(text.contains("/Subtype /Image"), "raster image marker");
+		assertFalse(text.contains(PDF_IMAGE_MARKER), "raster image marker");
 	}
 
 	/**
@@ -69,13 +94,13 @@ public final class ChessBookCommandRegressionTest {
 	 * @throws Exception if export fails
 	 */
 	private static void testTomlBookExport() throws Exception {
-		Path input = Files.createTempFile("book-render-", ".toml");
+		Path input = Files.createTempFile(BOOK_RENDER_PREFIX, ".toml");
 		Files.writeString(input, sampleToml(16), StandardCharsets.UTF_8);
 
-		Path output = Files.createTempFile("book-render-", ".pdf");
+		Path output = Files.createTempFile(BOOK_RENDER_PREFIX, ".pdf");
 		ChessBookCommand.runChessBook(new Argv(new String[] {
 				input.toString(),
-				"--output", output.toString()
+				OUTPUT_OPTION, output.toString()
 		}));
 
 		byte[] bytes = Files.readAllBytes(output);
@@ -83,7 +108,7 @@ public final class ChessBookCommandRegressionTest {
 		assertTrue(bytes.length > 16_000, "toml pdf size");
 		assertTrue(text.contains("/Title (TOML Book Regression: Command Sample)"), "toml title metadata");
 		assertTrue(text.contains("Full solutions at page"), "toml solution footnote");
-		assertFalse(text.contains("/Subtype /Image"), "toml raster image marker");
+		assertFalse(text.contains(PDF_IMAGE_MARKER), "toml raster image marker");
 	}
 
 	/**
@@ -92,13 +117,13 @@ public final class ChessBookCommandRegressionTest {
 	 * @throws Exception if export fails
 	 */
 	private static void testMetadataOverridesAndLimit() throws Exception {
-		Path input = Files.createTempFile("book-render-", ".json");
+		Path input = Files.createTempFile(BOOK_RENDER_PREFIX, JSON_SUFFIX);
 		Files.writeString(input, sampleJson(12), StandardCharsets.UTF_8);
 
-		Path output = Files.createTempFile("book-render-", ".pdf");
+		Path output = Files.createTempFile(BOOK_RENDER_PREFIX, ".pdf");
 		String console = captureStdout(() -> ChessBookCommand.runChessBook(new Argv(new String[] {
-					"--input", input.toString(),
-					"--output", output.toString(),
+					INPUT_OPTION, input.toString(),
+					OUTPUT_OPTION, output.toString(),
 					"--title", "Art of Chess Puzzles",
 					"--subtitle", "400 Mate in 2 Puzzles",
 					"--limit", "5"
@@ -118,13 +143,13 @@ public final class ChessBookCommandRegressionTest {
 	 * @throws Exception if validation fails unexpectedly
 	 */
 	private static void testCheckModeDoesNotWritePdf() throws Exception {
-		Path input = Files.createTempFile("book-render-check-", ".json");
+		Path input = Files.createTempFile(BOOK_RENDER_PREFIX + "check-", JSON_SUFFIX);
 		Files.writeString(input, sampleJson(6), StandardCharsets.UTF_8);
 
 		Path output = Files.createTempDirectory("book-render-check-").resolve("book.pdf");
 		String console = captureStdout(() -> ChessBookCommand.runChessBook(new Argv(new String[] {
-				"--input", input.toString(),
-				"--output", output.toString(),
+				INPUT_OPTION, input.toString(),
+				OUTPUT_OPTION, output.toString(),
 				"--limit", "4",
 				"--check"
 		})));
@@ -140,13 +165,13 @@ public final class ChessBookCommandRegressionTest {
 	 * @throws Exception if export fails
 	 */
 	private static void testFreeWatermarkFlag() throws Exception {
-		Path input = Files.createTempFile("book-render-watermark-", ".json");
+		Path input = Files.createTempFile(BOOK_RENDER_PREFIX + "watermark-", JSON_SUFFIX);
 		Files.writeString(input, sampleJson(8), StandardCharsets.UTF_8);
 
-		Path output = Files.createTempFile("book-render-watermark-", ".pdf");
+		Path output = Files.createTempFile(BOOK_RENDER_PREFIX + "watermark-", ".pdf");
 		String console = captureStdout(() -> ChessBookCommand.runChessBook(new Argv(new String[] {
-				"--input", input.toString(),
-				"--output", output.toString(),
+				INPUT_OPTION, input.toString(),
+				OUTPUT_OPTION, output.toString(),
 				"--watermark-id", "CLI-ARC-42"
 		})));
 
@@ -158,7 +183,7 @@ public final class ChessBookCommandRegressionTest {
 		assertTrue(text.contains("Watermark ID CLI-ARC-42"), "watermarked id metadata");
 		assertTrue(text.contains("/ExtGState"), "watermark opacity resources");
 		assertTrue(console.contains("watermark ID embedded"), "watermark console marker");
-		assertFalse(text.contains("/Subtype /Image"), "watermark raster image marker");
+		assertFalse(text.contains(PDF_IMAGE_MARKER), "watermark raster image marker");
 	}
 
 	/**

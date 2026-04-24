@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Development notes | ChessRTK Wiki</title>
+  <link rel="stylesheet" href="styles.css">
+  <script defer src="search-index.js"></script>
+  <script defer src="site.js"></script>
+</head>
+<body>
+  <button class="menu-toggle" type="button" aria-label="Toggle navigation">Menu</button>
+  <div class="site-shell">
+    <aside class="sidebar">
+      <a class="brand" href="index.html">
+        <span class="brand-mark">CR</span>
+        <span><strong>ChessRTK</strong><small>Wiki</small></span>
+      </a>
+      <label class="search-label" for="doc-search">Search pages</label>
+      <input id="doc-search" class="search" type="search" placeholder="Search docs...">
+      <nav class="nav"><section class="nav-section"><h2>Start Here</h2>
+<a class="" href="index.html" data-title="home">Home</a>
+<a class="" href="getting-started.html" data-title="getting started">Getting Started</a>
+<a class="" href="faq.html" data-title="faq">FAQ</a>
+<a class="" href="command-reference.html" data-title="command reference">Command Reference</a>
+<a class="" href="example-commands.html" data-title="example commands">Example Commands</a>
+<a class="" href="troubleshooting.html" data-title="troubleshooting">Troubleshooting</a>
+</section>
+<section class="nav-section"><h2>User Guides</h2>
+<a class="" href="build-and-install.html" data-title="build &amp; install">Build &amp; Install</a>
+<a class="" href="configuration.html" data-title="configuration">Configuration</a>
+<a class="" href="in-house-engine.html" data-title="in-house engine">In-House Engine</a>
+<a class="" href="lc0.html" data-title="lc0">LC0</a>
+<a class="" href="outputs-and-logs.html" data-title="outputs &amp; logs">Outputs &amp; Logs</a>
+<a class="" href="support.html" data-title="support">Support</a>
+</section>
+<section class="nav-section"><h2>Workflows</h2>
+<a class="" href="mining.html" data-title="mining puzzles">Mining Puzzles</a>
+<a class="" href="filter-dsl.html" data-title="filter dsl">Filter DSL</a>
+<a class="" href="datasets.html" data-title="datasets">Datasets</a>
+<a class="" href="book-publishing.html" data-title="book publishing">Book Publishing</a>
+<a class="" href="piece-tags.html" data-title="tags">Tags</a>
+<a class="" href="t5.html" data-title="t5 text">T5 Text</a>
+<a class="" href="ai-agents.html" data-title="ai agents">AI Agents</a>
+</section>
+<section class="nav-section"><h2>Development</h2>
+<a class="" href="architecture.html" data-title="architecture">Architecture</a>
+<a class="active" href="development-notes.html" data-title="development notes">Development Notes</a>
+<a class="" href="releasing.html" data-title="releasing">Releasing</a>
+<a class="" href="roadmap.html" data-title="roadmap">Roadmap</a>
+<a class="" href="glossary.html" data-title="glossary">Glossary</a>
+<a class="" href="tagging-implementation-plan.html" data-title="tagging plan">Tagging Plan</a>
+<a class="" href="wiki-index.html" data-title="wiki index">Wiki Index</a>
+</section></nav>
+    </aside>
+    <div class="page">
+      <header class="topbar">
+        <div>
+          <span>Development</span>
+          <strong>Development notes</strong>
+        </div>
+        <nav>
+          <a href="index.html">Home</a>
+          <a href="wiki-index.html">Wiki Index</a>
+          <a href="command-reference.html">Commands</a>
+        </nav>
+      </header>
+      
+      <main class="content-layout">
+        <article class="content">
+          <h1 id="development-notes">Development notes</h1>
+<h2 id="project-shape">Project shape</h2>
+<ul>
+<li><code>src/application/</code> — CLI entry point, config loading, session/log plumbing</li>
+<li><code>application.Main</code>: subcommand parsing + dispatch</li>
+<li><code>application.Config</code>: loads <code>config/cli.config.toml</code> (auto-seeded if missing)</li>
+<li><code>src/chess/</code> — chess core, UCI protocol, mining pipeline, render/display helpers</li>
+<li><code>chess.core</code>: Java-native board state, FEN/SAN helpers, legal move generation, and make/unmake</li>
+<li><code>chess.book.render</code>: native puzzle-book layout, table text, and figurine movetext formatting</li>
+<li><code>chess.debug</code>: perft runners, perft validation suite, board/move printers, and logging helpers</li>
+<li><code>chess.uci</code>: engine protocol + analysis parsing + Filter DSL</li>
+<li><code>chess.io</code>: converters, readers/writers, dataset exporters</li>
+<li><code>chess.engine</code>: in-process alpha-beta search used by <code>engine builtin</code></li>
+<li><code>chess.eval</code>: in-process evaluator facade used by <code>engine eval</code>,</li>
+</ul>
+<p><code>engine static</code>, <code>engine builtin</code>, display ablation, and tag helpers</p>
+<ul>
+<li><code>chess.nn.lc0</code>: pure-Java LC0 forward pass with optional CUDA, ROCm, and</li>
+</ul>
+<p>oneAPI native backends</p>
+<h2 id="core-chess-implementation">Core chess implementation</h2>
+<p>The current chess rules implementation lives in <code>chess.core</code>. There is no separate public <code>bitboard</code> package: the optimized bitboard-backed code is the core implementation.</p>
+<p>Important classes:</p>
+<ul>
+<li><code>Position</code>: mutable position state, FEN round-tripping, legal move helpers,</li>
+</ul>
+<p><code>play(...)</code>, and <code>undo(...)</code>.</p>
+<ul>
+<li><code>MoveGenerator</code>: pseudo-legal/legal move generation, attack tests, pinned</li>
+</ul>
+<p>piece detection, and node-only perft.</p>
+<ul>
+<li><code>MoveList</code>: compact mutable list for encoded <code>short</code> moves.</li>
+<li><code>Fen</code>: strict FEN parse/format helpers, including Chess960 castling metadata.</li>
+<li><code>SAN</code>: SAN formatting, SAN parsing, and move-line application.</li>
+<li><code>Setup</code>: standard starts, Chess960 starts, and random position helpers.</li>
+</ul>
+<p>Detailed perft is intentionally in <code>chess.debug.Perft</code>, while the stored-truth validation suite is in <code>chess.debug.PerftSuite</code>. Both use <code>chess.core</code> positions and move generation, and neither path depends on an external engine.</p>
+<h2 id="shared-helpers">Shared helpers</h2>
+<p>Keep small cross-package helpers in <code>utility</code> when the behavior is genuinely generic. Current examples:</p>
+<ul>
+<li><code>utility.Numbers</code>: inclusive numeric clamping, unit-interval clamping, and</li>
+</ul>
+<p>8-bit color-channel clamping.</p>
+<ul>
+<li><code>utility.Argv</code>: command-line option parsing.</li>
+<li><code>utility.Json</code>, <code>utility.Toml</code>, and <code>utility.Svg</code>: dependency-free structured</li>
+</ul>
+<p>text and rendering helpers.</p>
+<p>Rendering-specific text belongs near the renderer. For example, <code>chess.book.render.MoveText</code> converts SAN-like solution text to figurine algebraic notation for book tables and PDF captions.</p>
+<h2 id="adding-changing-cli-commands">Adding/changing CLI commands</h2>
+<ol>
+<li>Add a new <code>case</code> in <code>application.Main.main(...)</code>.</li>
+<li>Implement a <code>runXxx(Argv a)</code> handler (use <code>utility.Argv</code> for parsing).</li>
+<li>Update the help text in <code>application.Main.help()</code>.</li>
+<li>Update docs:</li>
+</ol>
+<ul>
+<li><code>wiki/command-reference.md</code></li>
+<li><code>wiki/example-commands.md</code></li>
+</ul>
+<h2 id="docs-policy">Docs policy</h2>
+<p>The root <code>README.md</code> should carry the first-screen framing: what ChessRTK is, why it is technically hard, how to verify it quickly, and where the main system boundaries are. Longer explanations, workflows, and reference material live under <code>wiki/</code>.</p>
+<h2 id="optional-tooling">Optional tooling</h2>
+<p>If you plan to iterate on ChessRTK regularly, consider adding a small layer of local tooling:</p>
+<ul>
+<li><code>just</code> (or a <code>Makefile</code>) for common tasks like build/release/smoke tests</li>
+<li><code>pre-commit</code> hooks for <code>shellcheck</code> (shell scripts) and <code>google-java-format</code> (Java)</li>
+<li><code>jlink</code> / <code>jpackage</code> for optional self-contained distributions</li>
+</ul>
+<p>Related: <code>wiki/roadmap.md</code>.</p>
+        </article>
+        <aside class="toc"><h2>On This Page</h2>
+<a class="toc-h2" href="#project-shape">Project shape</a>
+<a class="toc-h2" href="#core-chess-implementation">Core chess implementation</a>
+<a class="toc-h2" href="#shared-helpers">Shared helpers</a>
+<a class="toc-h2" href="#adding-changing-cli-commands">Adding/changing CLI commands</a>
+<a class="toc-h2" href="#docs-policy">Docs policy</a>
+<a class="toc-h2" href="#optional-tooling">Optional tooling</a></aside>
+      </main>
+      <footer class="footer">
+        <span>Generated from <code>wiki/development-notes.md</code>.</span>
+        <span>Build with <code>python3 scripts/build_docs_site.py</code>.</span>
+      </footer>
+    </div>
+  </div>
+</body>
+</html>

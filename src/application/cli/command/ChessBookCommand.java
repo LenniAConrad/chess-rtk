@@ -17,6 +17,9 @@ import static application.cli.Constants.OPT_VERBOSE_SHORT;
 import static application.cli.Constants.OPT_WATERMARK;
 import static application.cli.Constants.OPT_WATERMARK_ID;
 import static application.cli.PathOps.deriveOutputPath;
+import static application.cli.command.CommandSupport.failUsage;
+import static application.cli.command.CommandSupport.resolveSingleInputPath;
+import static application.cli.command.CommandSupport.trimToNull;
 
 import java.io.IOException;
 import java.nio.file.Path;
@@ -80,14 +83,9 @@ public final class ChessBookCommand {
 		if (limit < 0) {
 			failUsage("--limit must be zero or greater");
 		}
-
-		if (input == null && rest.size() == 1) {
-			input = Path.of(rest.get(0));
-		} else if (input != null && !rest.isEmpty()) {
-			failUsage("provide the input book either as --input or as one positional path");
-		} else if (input == null) {
-			failUsage("missing input book JSON path");
-		}
+		input = resolveSingleInputPath(input, rest,
+				"provide the input book either as --input or as one positional path",
+				"missing input book JSON path");
 
 		try {
 			Book book = Book.load(input);
@@ -161,15 +159,6 @@ public final class ChessBookCommand {
 	}
 
 	/**
-	 * Throws a usage error for invalid command-line combinations.
-	 *
-	 * @param message explanation of the invalid input
-	 */
-	private static void failUsage(String message) {
-		throw new IllegalArgumentException(message);
-	}
-
-	/**
 	 * Limits the puzzle list and updates obvious source-count references.
 	 *
 	 * @param book  loaded book model
@@ -223,17 +212,4 @@ public final class ChessBookCommand {
 				.replace(Integer.toString(originalCount), replacement);
 	}
 
-	/**
-	 * Normalizes optional strings by trimming and converting blank values to null.
-	 *
-	 * @param value raw option value
-	 * @return trimmed value or {@code null}
-	 */
-	private static String trimToNull(String value) {
-		if (value == null) {
-			return null;
-		}
-		String trimmed = value.trim();
-		return trimmed.isEmpty() ? null : trimmed;
-	}
 }

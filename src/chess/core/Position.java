@@ -2466,6 +2466,82 @@ public class Position implements Comparable<Position> {
         }
 
         /**
+         * Returns the moved internal piece index.
+         *
+         * @return moved piece index
+         */
+        public int movingPiece() {
+            return moving;
+        }
+
+        /**
+         * Returns the captured internal piece index.
+         *
+         * @return captured piece index, or {@code -1}
+         */
+        public int capturedPiece() {
+            return captured;
+        }
+
+        /**
+         * Returns the square from which the captured piece was removed.
+         *
+         * @return captured square, or {@link Field#NO_SQUARE}
+         */
+        public int capturedSquare() {
+            return capturedSquare;
+        }
+
+        /**
+         * Returns the final king target square used by the move.
+         *
+         * <p>
+         * For non-castling moves this is the move's normal destination square.
+         * </p>
+         *
+         * @return actual destination square
+         */
+        public int actualToSquare() {
+            return kingTo;
+        }
+
+        /**
+         * Returns the side to move before the move was applied.
+         *
+         * @return true when White moved
+         */
+        public boolean whiteToMove() {
+            return whiteToMove;
+        }
+
+        /**
+         * Returns the castling rook piece index.
+         *
+         * @return rook piece index, or {@code -1}
+         */
+        public int rookPiece() {
+            return rook;
+        }
+
+        /**
+         * Returns the castling rook origin square.
+         *
+         * @return rook origin, or {@link Field#NO_SQUARE}
+         */
+        public int rookFromSquare() {
+            return rookFrom;
+        }
+
+        /**
+         * Returns the castling rook target square.
+         *
+         * @return rook target, or {@link Field#NO_SQUARE}
+         */
+        public int rookToSquare() {
+            return rookTo;
+        }
+
+        /**
          * Returns whether the move was an en-passant capture.
          *
          * @return true when en-passant

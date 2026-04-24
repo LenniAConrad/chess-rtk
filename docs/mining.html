@@ -1,0 +1,259 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mining Puzzles | ChessRTK Wiki</title>
+  <link rel="stylesheet" href="styles.css">
+  <script defer src="search-index.js"></script>
+  <script defer src="site.js"></script>
+</head>
+<body>
+  <button class="menu-toggle" type="button" aria-label="Toggle navigation">Menu</button>
+  <div class="site-shell">
+    <aside class="sidebar">
+      <a class="brand" href="index.html">
+        <span class="brand-mark">CR</span>
+        <span><strong>ChessRTK</strong><small>Wiki</small></span>
+      </a>
+      <label class="search-label" for="doc-search">Search pages</label>
+      <input id="doc-search" class="search" type="search" placeholder="Search docs...">
+      <nav class="nav"><section class="nav-section"><h2>Start Here</h2>
+<a class="" href="index.html" data-title="home">Home</a>
+<a class="" href="getting-started.html" data-title="getting started">Getting Started</a>
+<a class="" href="faq.html" data-title="faq">FAQ</a>
+<a class="" href="command-reference.html" data-title="command reference">Command Reference</a>
+<a class="" href="example-commands.html" data-title="example commands">Example Commands</a>
+<a class="" href="troubleshooting.html" data-title="troubleshooting">Troubleshooting</a>
+</section>
+<section class="nav-section"><h2>User Guides</h2>
+<a class="" href="build-and-install.html" data-title="build &amp; install">Build &amp; Install</a>
+<a class="" href="configuration.html" data-title="configuration">Configuration</a>
+<a class="" href="in-house-engine.html" data-title="in-house engine">In-House Engine</a>
+<a class="" href="lc0.html" data-title="lc0">LC0</a>
+<a class="" href="outputs-and-logs.html" data-title="outputs &amp; logs">Outputs &amp; Logs</a>
+<a class="" href="support.html" data-title="support">Support</a>
+</section>
+<section class="nav-section"><h2>Workflows</h2>
+<a class="active" href="mining.html" data-title="mining puzzles">Mining Puzzles</a>
+<a class="" href="filter-dsl.html" data-title="filter dsl">Filter DSL</a>
+<a class="" href="datasets.html" data-title="datasets">Datasets</a>
+<a class="" href="book-publishing.html" data-title="book publishing">Book Publishing</a>
+<a class="" href="piece-tags.html" data-title="tags">Tags</a>
+<a class="" href="t5.html" data-title="t5 text">T5 Text</a>
+<a class="" href="ai-agents.html" data-title="ai agents">AI Agents</a>
+</section>
+<section class="nav-section"><h2>Development</h2>
+<a class="" href="architecture.html" data-title="architecture">Architecture</a>
+<a class="" href="development-notes.html" data-title="development notes">Development Notes</a>
+<a class="" href="releasing.html" data-title="releasing">Releasing</a>
+<a class="" href="roadmap.html" data-title="roadmap">Roadmap</a>
+<a class="" href="glossary.html" data-title="glossary">Glossary</a>
+<a class="" href="tagging-implementation-plan.html" data-title="tagging plan">Tagging Plan</a>
+<a class="" href="wiki-index.html" data-title="wiki index">Wiki Index</a>
+</section></nav>
+    </aside>
+    <div class="page">
+      <header class="topbar">
+        <div>
+          <span>Workflows</span>
+          <strong>Mining Puzzles</strong>
+        </div>
+        <nav>
+          <a href="index.html">Home</a>
+          <a href="wiki-index.html">Wiki Index</a>
+          <a href="command-reference.html">Commands</a>
+        </nav>
+      </header>
+      
+      <main class="content-layout">
+        <article class="content">
+          <h1 id="mining-puzzles">Mining Puzzles</h1>
+<p><code>puzzle mine</code> drives a configured UCI engine across many seed positions, applies Filter DSL gates, and writes accepted puzzles and rejected/non-puzzle examples as reusable record dumps.</p>
+<p>The command is built for long-running data work:</p>
+<ul>
+<li>seed positions can come from random legal generation, FEN lists, FEN</li>
+</ul>
+<p>parent/child pairs, PGN mainlines, PGN variations, or Chess960 starts</p>
+<ul>
+<li>UCI analysis is bounded by node and wall-clock limits</li>
+<li>quality, winning-resource, drawing-resource, and accelerate gates are</li>
+</ul>
+<p>explicit Filter DSL programs</p>
+<ul>
+<li>accepted and rejected rows are both preserved, which makes classifier and</li>
+</ul>
+<p>ablation datasets easier to build</p>
+<ul>
+<li>outputs are JSON arrays that downstream <code>record</code> commands can merge, filter,</li>
+</ul>
+<p>split, summarize, and export</p>
+<h2 id="basic-runs">Basic Runs</h2>
+<p>Mine random standard positions:</p>
+<pre><code class="language-bash">crtk puzzle mine --random-count 100 --output dump/</code></pre>
+<p>Mine from a FEN list:</p>
+<pre><code class="language-bash">crtk puzzle mine \
+  --input seeds/fens.txt \
+  --output dump/fens.json \
+  --engine-instances 4 \
+  --max-duration 60s</code></pre>
+<p>Mine from PGN:</p>
+<pre><code class="language-bash">crtk puzzle mine \
+  --input games.pgn \
+  --output dump/games.json \
+  --engine-instances 4 \
+  --max-nodes 5000000</code></pre>
+<p>Mine Chess960 positions:</p>
+<pre><code class="language-bash">crtk puzzle mine --chess960 --random-count 200 --output dump/</code></pre>
+<h2 id="seed-sources">Seed Sources</h2>
+<h3 id="random-seeds">Random Seeds</h3>
+<p>If <code>--input</code> is omitted, ChessRTK generates random legal positions. Use <code>--random-count &lt;n&gt;</code> for a finite batch or <code>--random-infinite</code> for continuous generation.</p>
+<p>Useful caps:</p>
+<ul>
+<li><code>--max-waves &lt;n&gt;</code> limits expansion waves</li>
+<li><code>--max-frontier &lt;n&gt;</code> limits the frontier size per wave</li>
+<li><code>--max-total &lt;n&gt;</code> limits total processed positions</li>
+</ul>
+<p>The infinite mode ignores wave and total caps because it is designed for continuous runs.</p>
+<h3 id="fen-lists">FEN Lists</h3>
+<p><code>--input seeds.txt</code> accepts one or two FENs per line:</p>
+<ul>
+<li>one FEN: the row&#x27;s <code>position</code></li>
+<li>two or more FENs: the first is treated as <code>parent</code>, the second as <code>position</code></li>
+</ul>
+<p>Blank lines and lines starting with <code>#</code> or <code>//</code> are ignored. Parent/child pairs are useful when you want to preserve the move that created the candidate position.</p>
+<p>Create FEN lists from PGN:</p>
+<pre><code class="language-bash">crtk fen pgn -i games.pgn -o seeds.txt
+crtk fen pgn -i games.pgn -o pairs.txt --pairs --mainline</code></pre>
+<h3 id="pgn-inputs">PGN Inputs</h3>
+<p><code>--input games.pgn</code> parses games and extracts positions from movetext. PGN variations are preserved by the parser, and <code>fen pgn</code> can be used separately when you want to inspect or reuse the extracted seed file before mining.</p>
+<h3 id="chess960">Chess960</h3>
+<p>Use <code>--chess960</code> or <code>-9</code> to:</p>
+<ul>
+<li>generate Chess960 random starts during random mining</li>
+<li>toggle Chess960 mode in the UCI protocol when the protocol template supports</li>
+</ul>
+<p>it</p>
+<p><code>fen chess960</code> is useful for deterministic seed generation:</p>
+<pre><code class="language-bash">crtk fen chess960 518
+crtk fen chess960 --all --format both &gt; chess960.tsv</code></pre>
+<h2 id="engine-limits">Engine Limits</h2>
+<p>Each evaluated position is searched up to:</p>
+<ul>
+<li><code>--max-nodes &lt;n&gt;</code>: UCI <code>go nodes &lt;n&gt;</code></li>
+<li><code>--max-duration &lt;duration&gt;</code>: wall-clock safety net, such as <code>5s</code>, <code>2m</code>, or</li>
+</ul>
+<p><code>60000</code></p>
+<ul>
+<li><code>--engine-instances &lt;n&gt;</code>: number of UCI engine processes used by the miner</li>
+</ul>
+<p>Defaults are read from <code>config/cli.config.toml</code>; command-line flags override those values for the run.</p>
+<p>Run a smoke check before long jobs:</p>
+<pre><code class="language-bash">crtk doctor
+crtk config validate
+crtk engine uci-smoke --nodes 1 --max-duration 5s</code></pre>
+<h2 id="gates">Gates</h2>
+<p>Mining uses Filter DSL programs to decide which positions deserve more work and which records count as puzzles.</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Gate</th>
+<th>Purpose</th>
+</tr></thead><tbody>
+<tr>
+<td><code>puzzle-accelerate</code></td>
+<td>fast prefilter for positions that are unlikely to survive expensive checks</td>
+</tr>
+<tr>
+<td><code>puzzle-quality</code></td>
+<td>effort/depth/shape gate before a row can be accepted</td>
+</tr>
+<tr>
+<td><code>puzzle-winning</code></td>
+<td>single winning move or decisive tactical resource</td>
+</tr>
+<tr>
+<td><code>puzzle-drawing</code></td>
+<td>single drawing resource or defensive save</td>
+</tr>
+</tbody></table></div>
+<p>The acceptance check is:</p>
+<pre><code class="language-text">quality AND (winning OR drawing)</code></pre>
+<p>Override gates on the command line when you want a run-specific definition:</p>
+<pre><code class="language-bash">crtk puzzle mine \
+  --input seeds.txt \
+  --output dump/custom.json \
+  --puzzle-quality &#x27;gate=AND;nodes&gt;=1000000;&#x27; \
+  --puzzle-winning &#x27;gate=AND;eval&gt;=3.0;&#x27;</code></pre>
+<p>See <a href="filter-dsl.html">Filter DSL</a> for syntax and examples.</p>
+<h2 id="outputs">Outputs</h2>
+<p><code>--output</code> accepts either a directory or a file-like root.</p>
+<p>Directory output:</p>
+<ul>
+<li>standard mining writes <code>standard-&lt;timestamp&gt;.puzzles.json</code></li>
+<li>standard mining writes <code>standard-&lt;timestamp&gt;.nonpuzzles.json</code></li>
+<li>Chess960 mining uses <code>chess960-&lt;timestamp&gt;...</code> stems</li>
+</ul>
+<p>File-like output:</p>
+<ul>
+<li><code>--output dump/run.json</code> writes <code>dump/run.puzzles.json</code></li>
+<li><code>--output dump/run.json</code> writes <code>dump/run.nonpuzzles.json</code></li>
+<li><code>.jsonl</code> roots use the same stem behavior</li>
+</ul>
+<p>The files are JSON arrays that are appended incrementally while staying valid. Downstream commands can process them without loading every row into custom scripts.</p>
+<h2 id="follow-up-commands">Follow-Up Commands</h2>
+<p>Inspect and filter records:</p>
+<pre><code class="language-bash">crtk record stats -i dump/run.puzzles.json
+crtk record tag-stats -i dump/run.puzzles.json
+crtk record files -i dump/ -o dump/merged.puzzles.json --recursive --puzzles
+crtk record analysis-delta -i dump/run.puzzles.json -o dump/run.analysis-delta.jsonl</code></pre>
+<p>Convert accepted puzzles:</p>
+<pre><code class="language-bash">crtk puzzle pgn -i dump/run.puzzles.json -o dump/run.pgn
+crtk record export csv -i dump/run.puzzles.json -o dump/run.csv
+crtk record export training-jsonl \
+  -i dump/run.puzzles.json \
+  -i dump/run.nonpuzzles.json \
+  -o training/run.training.jsonl</code></pre>
+<p>Export tensors:</p>
+<pre><code class="language-bash">crtk record dataset npy -i dump/run.puzzles.json -o training/npy/run
+crtk record dataset classifier \
+  -i dump/run.puzzles.json \
+  -i dump/run.nonpuzzles.json \
+  -o training/classifier/run</code></pre>
+<p>Render study material:</p>
+<pre><code class="language-bash">crtk book pdf -i seeds.txt -o dist/seeds.pdf --title &quot;Candidate Positions&quot;
+crtk book render -i books/puzzles.toml -o dist/puzzles.pdf</code></pre>
+<h2 id="reliability-checks">Reliability Checks</h2>
+<p>Before trusting a large run:</p>
+<ol>
+<li>Run <code>crtk doctor --strict</code> on the target machine.</li>
+<li>Run <code>crtk engine uci-smoke</code> with the protocol, thread, and hash settings</li>
+</ol>
+<p>intended for mining.</p>
+<ol>
+<li>Run <code>crtk engine perft-suite --depth 6 --threads &lt;n&gt;</code> after core changes.</li>
+<li>Mine a small batch, inspect <code>record stats</code>, and open a few converted PGNs.</li>
+<li>Keep the config file, protocol TOML, and command line with the produced</li>
+</ol>
+<p>dumps so results can be reproduced.</p>
+        </article>
+        <aside class="toc"><h2>On This Page</h2>
+<a class="toc-h2" href="#basic-runs">Basic Runs</a>
+<a class="toc-h2" href="#seed-sources">Seed Sources</a>
+<a class="toc-h3" href="#random-seeds">Random Seeds</a>
+<a class="toc-h3" href="#fen-lists">FEN Lists</a>
+<a class="toc-h3" href="#pgn-inputs">PGN Inputs</a>
+<a class="toc-h3" href="#chess960">Chess960</a>
+<a class="toc-h2" href="#engine-limits">Engine Limits</a>
+<a class="toc-h2" href="#gates">Gates</a>
+<a class="toc-h2" href="#outputs">Outputs</a>
+<a class="toc-h2" href="#follow-up-commands">Follow-Up Commands</a>
+<a class="toc-h2" href="#reliability-checks">Reliability Checks</a></aside>
+      </main>
+      <footer class="footer">
+        <span>Generated from <code>wiki/mining.md</code>.</span>
+        <span>Build with <code>python3 scripts/build_docs_site.py</code>.</span>
+      </footer>
+    </div>
+  </div>
+</body>
+</html>

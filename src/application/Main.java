@@ -1,40 +1,18 @@
 package application;
 
-import static application.cli.Constants.CMD_BOOK;
-import static application.cli.Constants.CMD_CLEAN;
-import static application.cli.Constants.CMD_CONFIG;
-import static application.cli.Constants.CMD_DOCTOR;
-import static application.cli.Constants.CMD_ENGINE;
-import static application.cli.Constants.CMD_FEN;
 import static application.cli.Constants.CMD_HELP;
 import static application.cli.Constants.CMD_HELP_LONG;
 import static application.cli.Constants.CMD_HELP_SHORT;
-import static application.cli.Constants.CMD_GUI;
-import static application.cli.Constants.CMD_GUI_NEXT;
-import static application.cli.Constants.CMD_GUI_WEB;
-import static application.cli.Constants.CMD_MOVE;
-import static application.cli.Constants.CMD_PUZZLE;
-import static application.cli.Constants.CMD_RECORD;
 
-import java.util.HashMap;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
 import java.util.function.Consumer;
 
-import application.cli.command.BookGroupCommand;
-import application.cli.command.CleanCommand;
-import application.cli.command.ConfigCommand;
+import application.cli.CliCommand;
+import application.cli.CliRegistry;
 import application.cli.command.CommandFailure;
-import application.cli.command.DoctorCommand;
-import application.cli.command.FenGroupCommand;
-import application.gui.GuiCommand;
-import application.gui.GuiNextCommand;
-import application.gui.GuiWebCommand;
 import application.cli.command.HelpCommand;
-import application.cli.command.EngineGroupCommand;
-import application.cli.command.MoveGroupCommand;
-import application.cli.command.PuzzleGroupCommand;
-import application.cli.command.RecordGroupCommand;
 import utility.Argv;
 
 /**
@@ -51,35 +29,6 @@ import utility.Argv;
  * @author Lennart A. Conrad
  */
 public final class Main {
-
-	/**
-	 * Shared subcommands constant.
-	 */
-	private static final Map<String, Consumer<Argv>> SUBCOMMANDS = buildSubcommands();
-
-	/**
-	 * Handles build subcommands.
-	 * @return computed value
-	 */
-	private static Map<String, Consumer<Argv>> buildSubcommands() {
-		Map<String, Consumer<Argv>> map = new HashMap<>(64);
-		map.put(CMD_RECORD, RecordGroupCommand::runRecord);
-		map.put(CMD_FEN, FenGroupCommand::runFen);
-		map.put(CMD_MOVE, MoveGroupCommand::runMove);
-		map.put(CMD_ENGINE, EngineGroupCommand::runEngine);
-		map.put(CMD_BOOK, BookGroupCommand::runBook);
-		map.put(CMD_PUZZLE, PuzzleGroupCommand::runPuzzle);
-		map.put(CMD_GUI, GuiCommand::runGui);
-		map.put(CMD_GUI_WEB, GuiWebCommand::runGuiWeb);
-		map.put(CMD_GUI_NEXT, GuiNextCommand::runGuiNext);
-		map.put(CMD_CLEAN, CleanCommand::runClean);
-		map.put(CMD_DOCTOR, DoctorCommand::runDoctor);
-		map.put(CMD_CONFIG, ConfigCommand::runConfig);
-		map.put(CMD_HELP, HelpCommand::runHelp);
-		map.put(CMD_HELP_SHORT, HelpCommand::runHelp);
-		map.put(CMD_HELP_LONG, HelpCommand::runHelp);
-		return map;
-	}
 
 	/**
 	 * Utility class; prevent instantiation.
@@ -119,33 +68,123 @@ public final class Main {
 	 * @return process exit code
 	 */
 	public static int run(String[] argv) {
-		Argv a = new Argv(argv);
-
 		try {
-			List<String> head = a.positionals();
-
-			a.ensureConsumed();
-
-			if (head.isEmpty()) {
+			if (argv == null || argv.length == 0) {
 				HelpCommand.helpSummary();
 				return 0;
 			}
-
-			String sub = head.get(0);
-			String[] tail = head.subList(1, head.size()).toArray(new String[0]);
-			Argv b = new Argv(tail);
-
-			Consumer<Argv> handler = SUBCOMMANDS.get(sub);
-			if (handler != null) {
-				handler.accept(b);
-				return 0;
-			}
-			System.err.println("Unknown command: " + sub);
-			HelpCommand.helpSummary();
-			return 2;
+			return dispatch(argv);
 		} catch (CommandFailure failure) {
 			failure.printTo(System.err);
 			return failure.exitCode();
+		} catch (IllegalArgumentException ex) {
+			System.err.println(ex.getMessage());
+			return 2;
 		}
+	}
+
+	/**
+	 * Dispatches a command path from the central registry.
+	 *
+	 * @param argv raw command-line arguments
+	 * @return process exit code
+	 */
+	private static int dispatch(String[] argv) {
+		if (argv.length == 0) {
+			HelpCommand.helpSummary();
+			return 0;
+		}
+		if (CMD_HELP.equals(argv[0])) {
+			HelpCommand.runHelp(new Argv(Arrays.copyOfRange(argv, 1, argv.length)));
+			return 0;
+		}
+		if (isHelpFlag(argv[0])) {
+			HelpCommand.helpSummary();
+			return 0;
+		}
+
+		CliCommand current = CliRegistry.root();
+		List<String> matched = new ArrayList<>();
+		int index = 0;
+		while (index < argv.length) {
+			String token = argv[index];
+			if (isEndOfOptions(token) || token.startsWith("-")) {
+				break;
+			}
+			CliCommand next = current.child(token);
+			if (next == null) {
+				break;
+			}
+			current = next;
+			matched.add(token);
+			index++;
+		}
+
+		String[] tail = Arrays.copyOfRange(argv, index, argv.length);
+		String requestedPath = String.join(" ", matched);
+		if (current.isRoot() && matched.isEmpty()) {
+			System.err.println("Unknown command: " + argv[0]);
+			HelpCommand.helpSummary(System.err);
+			return 2;
+		}
+		if (containsHelpFlag(tail)) {
+			HelpCommand.printCommandHelp(current, requestedPath, System.out);
+			return 0;
+		}
+
+		if (!current.isRunnable()) {
+			if (tail.length == 0) {
+				System.err.println("Missing subcommand for: " + current.commandPath());
+			} else {
+				System.err.println("Unknown command: " + current.commandPath() + " " + tail[0]);
+			}
+			HelpCommand.printCommandHelp(current, requestedPath, System.err);
+			return 2;
+		}
+
+		Consumer<Argv> handler = current.handler();
+		handler.accept(new Argv(tail));
+		return 0;
+	}
+
+	/**
+	 * Returns whether the token is a help flag.
+	 *
+	 * @param token CLI token
+	 * @return true for help flags
+	 */
+	private static boolean isHelpFlag(String token) {
+		return CMD_HELP_SHORT.equals(token) || CMD_HELP_LONG.equals(token);
+	}
+
+	/**
+	 * Returns whether the token terminates option parsing.
+	 *
+	 * @param token CLI token
+	 * @return true for end-of-options markers
+	 */
+	private static boolean isEndOfOptions(String token) {
+		return "--".equals(token) || "--end-of-options".equals(token);
+	}
+
+	/**
+	 * Returns whether a tail contains a help flag before end-of-options.
+	 *
+	 * @param tail remaining CLI tail
+	 * @return true when help was requested
+	 */
+	private static boolean containsHelpFlag(String[] tail) {
+		if (tail == null) {
+			return false;
+		}
+		for (String token : tail) {
+			if (isEndOfOptions(token)) {
+				break;
+			}
+			if (isHelpFlag(token)) {
+				return true;
+			}
+		}
+		return false;
 	}
 }

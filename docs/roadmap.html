@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Roadmap / ideas | ChessRTK Wiki</title>
+  <link rel="stylesheet" href="styles.css">
+  <script defer src="search-index.js"></script>
+  <script defer src="site.js"></script>
+</head>
+<body>
+  <button class="menu-toggle" type="button" aria-label="Toggle navigation">Menu</button>
+  <div class="site-shell">
+    <aside class="sidebar">
+      <a class="brand" href="index.html">
+        <span class="brand-mark">CR</span>
+        <span><strong>ChessRTK</strong><small>Wiki</small></span>
+      </a>
+      <label class="search-label" for="doc-search">Search pages</label>
+      <input id="doc-search" class="search" type="search" placeholder="Search docs...">
+      <nav class="nav"><section class="nav-section"><h2>Start Here</h2>
+<a class="" href="index.html" data-title="home">Home</a>
+<a class="" href="getting-started.html" data-title="getting started">Getting Started</a>
+<a class="" href="faq.html" data-title="faq">FAQ</a>
+<a class="" href="command-reference.html" data-title="command reference">Command Reference</a>
+<a class="" href="example-commands.html" data-title="example commands">Example Commands</a>
+<a class="" href="troubleshooting.html" data-title="troubleshooting">Troubleshooting</a>
+</section>
+<section class="nav-section"><h2>User Guides</h2>
+<a class="" href="build-and-install.html" data-title="build &amp; install">Build &amp; Install</a>
+<a class="" href="configuration.html" data-title="configuration">Configuration</a>
+<a class="" href="in-house-engine.html" data-title="in-house engine">In-House Engine</a>
+<a class="" href="lc0.html" data-title="lc0">LC0</a>
+<a class="" href="outputs-and-logs.html" data-title="outputs &amp; logs">Outputs &amp; Logs</a>
+<a class="" href="support.html" data-title="support">Support</a>
+</section>
+<section class="nav-section"><h2>Workflows</h2>
+<a class="" href="mining.html" data-title="mining puzzles">Mining Puzzles</a>
+<a class="" href="filter-dsl.html" data-title="filter dsl">Filter DSL</a>
+<a class="" href="datasets.html" data-title="datasets">Datasets</a>
+<a class="" href="book-publishing.html" data-title="book publishing">Book Publishing</a>
+<a class="" href="piece-tags.html" data-title="tags">Tags</a>
+<a class="" href="t5.html" data-title="t5 text">T5 Text</a>
+<a class="" href="ai-agents.html" data-title="ai agents">AI Agents</a>
+</section>
+<section class="nav-section"><h2>Development</h2>
+<a class="" href="architecture.html" data-title="architecture">Architecture</a>
+<a class="" href="development-notes.html" data-title="development notes">Development Notes</a>
+<a class="" href="releasing.html" data-title="releasing">Releasing</a>
+<a class="active" href="roadmap.html" data-title="roadmap">Roadmap</a>
+<a class="" href="glossary.html" data-title="glossary">Glossary</a>
+<a class="" href="tagging-implementation-plan.html" data-title="tagging plan">Tagging Plan</a>
+<a class="" href="wiki-index.html" data-title="wiki index">Wiki Index</a>
+</section></nav>
+    </aside>
+    <div class="page">
+      <header class="topbar">
+        <div>
+          <span>Development</span>
+          <strong>Roadmap / ideas</strong>
+        </div>
+        <nav>
+          <a href="index.html">Home</a>
+          <a href="wiki-index.html">Wiki Index</a>
+          <a href="command-reference.html">Commands</a>
+        </nav>
+      </header>
+      
+      <main class="content-layout">
+        <article class="content">
+          <h1 id="roadmap-ideas">Roadmap / ideas</h1>
+<p>This page is a lightweight backlog of <strong>proposed</strong> additions. Anything listed here may change, and is not implemented unless it appears in <code>wiki/command-reference.md</code>.</p>
+<h2 id="implemented-from-this-list">Implemented from this list</h2>
+<ul>
+<li><code>doctor</code>: sanity-check Java, config resolution, engine protocol, engine discovery, and local artifact paths.</li>
+<li><code>engine uci-smoke</code>: engine health check suitable for CI and agents.</li>
+</ul>
+<h2 id="proposed-cli-subcommands">Proposed CLI subcommands</h2>
+<ul>
+<li><code>puzzle pgn</code>: extend mined puzzle PGN export with richer solution tags and optional “fail move” annotations.</li>
+<li><code>dump-filter</code> / <code>dump-grep</code>: apply Filter DSL to <code>.record</code> / puzzle dumps and emit JSONL/CSV subsets.</li>
+<li><code>dump-merge</code> + <code>dump-dedupe</code>: merge shards and deduplicate by <code>(fen, bestmove[, pv])</code> with stable ordering.</li>
+<li><code>uci-shell</code>: interactive UCI REPL (send commands, parse <code>info</code>, show PVs/WDL, quick presets like <code>go nodes</code> / <code>go movetime</code>).</li>
+<li><code>arena</code>: engine-vs-engine matches (time controls, opening suite, PGN output, Elo summary).</li>
+<li><code>engine perft-suite --suite &lt;file&gt;</code>: let the existing perft regression command read custom expected-node suites.</li>
+<li><code>analyze-batch</code>: analyze many FENs into JSONL with strict limits (<code>--nodes</code>/<code>--max-duration</code>) and stable schemas.</li>
+<li><code>eval-diff</code> / <code>bestmove-diff</code>: compare engines/evaluators over a position set and emit summary stats + CSV/JSON for plots.</li>
+</ul>
+<h2 id="developer-tooling-optional">Developer tooling (optional)</h2>
+<ul>
+<li><code>just</code> (or a <code>Makefile</code>): one-liner entrypoints for <code>build</code>, <code>release</code>, <code>install</code>, and quick smoke tests.</li>
+<li><code>pre-commit</code> hooks: run <code>shellcheck</code> on <code>install.sh</code> / <code>scripts/</code> and apply <code>google-java-format</code> consistently.</li>
+<li><code>jlink</code> / <code>jpackage</code>: optional self-contained distributions so users can run without a system JDK.</li>
+</ul>
+        </article>
+        <aside class="toc"><h2>On This Page</h2>
+<a class="toc-h2" href="#implemented-from-this-list">Implemented from this list</a>
+<a class="toc-h2" href="#proposed-cli-subcommands">Proposed CLI subcommands</a>
+<a class="toc-h2" href="#developer-tooling-optional">Developer tooling (optional)</a></aside>
+      </main>
+      <footer class="footer">
+        <span>Generated from <code>wiki/roadmap.md</code>.</span>
+        <span>Build with <code>python3 scripts/build_docs_site.py</code>.</span>
+      </footer>
+    </div>
+  </div>
+</body>
+</html>

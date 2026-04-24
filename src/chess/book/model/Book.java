@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Map;
 
 import chess.pdf.document.PageSize;
+import utility.JsonFields;
 import utility.Toml;
 
 /**
@@ -217,29 +218,29 @@ public final class Book {
 	 */
 	public static Book fromJson(String json) {
 		Book book = new Book();
-		book.title = fallback(Json.stringField(json, "title"), book.title);
-		book.subtitle = fallback(Json.stringField(json, "subtitle"), book.subtitle);
-		book.author = fallback(Json.stringField(json, "author"), book.author);
-		book.time = fallback(Json.stringField(json, "time"), book.time);
-		book.location = fallback(Json.stringField(json, "location"), book.location);
-		book.language = Language.parse(Json.stringField(json, "language"));
-		book.pages = Json.intField(json, "pages", book.pages);
-		book.tableFrequency = Json.intField(json, "tablefrequency", book.tableFrequency);
-		book.puzzleRows = Json.intField(json, "puzzlerows", book.puzzleRows);
-		book.puzzleColumns = Json.intField(json, "puzzlecolumns", book.puzzleColumns);
-		book.paperWidthCm = Json.doubleField(json, "paperwidth", book.paperWidthCm);
-		book.paperHeightCm = Json.doubleField(json, "paperheight", book.paperHeightCm);
-		book.innerMarginCm = Json.doubleField(json, "innermargin", book.innerMarginCm);
-		book.outerMarginCm = Json.doubleField(json, "outermargin", book.outerMarginCm);
-		book.topMarginCm = Json.doubleField(json, "topmargin", book.topMarginCm);
-		book.bottomMarginCm = Json.doubleField(json, "bottommargin", book.bottomMarginCm);
-		book.imprint = Json.stringArrayField(json, "imprint");
-		book.dedication = Json.stringArrayField(json, "dedication");
-		book.introduction = Json.stringArrayField(json, "introduction");
-		book.howToRead = Json.stringArrayField(json, "howToRead");
-		book.blurb = Json.stringArrayField(json, "blurb");
-		book.link = Json.stringArrayField(json, "link");
-		book.afterword = Json.stringArrayField(json, "afterword");
+		book.title = fallback(JsonFields.stringField(json, "title"), book.title);
+		book.subtitle = fallback(JsonFields.stringField(json, "subtitle"), book.subtitle);
+		book.author = fallback(JsonFields.stringField(json, "author"), book.author);
+		book.time = fallback(JsonFields.stringField(json, "time"), book.time);
+		book.location = fallback(JsonFields.stringField(json, "location"), book.location);
+		book.language = Language.parse(JsonFields.stringField(json, "language"));
+		book.pages = JsonFields.intField(json, "pages", book.pages);
+		book.tableFrequency = JsonFields.intField(json, "tablefrequency", book.tableFrequency);
+		book.puzzleRows = JsonFields.intField(json, "puzzlerows", book.puzzleRows);
+		book.puzzleColumns = JsonFields.intField(json, "puzzlecolumns", book.puzzleColumns);
+		book.paperWidthCm = JsonFields.doubleField(json, "paperwidth", book.paperWidthCm);
+		book.paperHeightCm = JsonFields.doubleField(json, "paperheight", book.paperHeightCm);
+		book.innerMarginCm = JsonFields.doubleField(json, "innermargin", book.innerMarginCm);
+		book.outerMarginCm = JsonFields.doubleField(json, "outermargin", book.outerMarginCm);
+		book.topMarginCm = JsonFields.doubleField(json, "topmargin", book.topMarginCm);
+		book.bottomMarginCm = JsonFields.doubleField(json, "bottommargin", book.bottomMarginCm);
+		book.imprint = JsonFields.stringArrayField(json, "imprint");
+		book.dedication = JsonFields.stringArrayField(json, "dedication");
+		book.introduction = JsonFields.stringArrayField(json, "introduction");
+		book.howToRead = JsonFields.stringArrayField(json, "howToRead");
+		book.blurb = JsonFields.stringArrayField(json, "blurb");
+		book.link = JsonFields.stringArrayField(json, "link");
+		book.afterword = JsonFields.stringArrayField(json, "afterword");
 		book.elements = parseElements(json);
 		book.sanitizeLayout();
 		return book;
@@ -502,12 +503,34 @@ public final class Book {
 	}
 
 	/**
+	 * Sets the paper width in centimeters.
+	 *
+	 * @param paperWidthCm width in centimeters
+	 * @return this book for chaining
+	 */
+	public Book setPaperWidthCm(double paperWidthCm) {
+		this.paperWidthCm = positiveOrDefault(paperWidthCm, DEFAULT_PAPER_WIDTH_CM);
+		return this;
+	}
+
+	/**
 	 * Returns the paper height in centimeters.
 	 *
 	 * @return height in centimeters
 	 */
 	public double getPaperHeightCm() {
 		return paperHeightCm;
+	}
+
+	/**
+	 * Sets the paper height in centimeters.
+	 *
+	 * @param paperHeightCm height in centimeters
+	 * @return this book for chaining
+	 */
+	public Book setPaperHeightCm(double paperHeightCm) {
+		this.paperHeightCm = positiveOrDefault(paperHeightCm, DEFAULT_PAPER_HEIGHT_CM);
+		return this;
 	}
 
 	/**
@@ -520,12 +543,34 @@ public final class Book {
 	}
 
 	/**
+	 * Sets the inner margin in centimeters.
+	 *
+	 * @param innerMarginCm inner margin
+	 * @return this book for chaining
+	 */
+	public Book setInnerMarginCm(double innerMarginCm) {
+		this.innerMarginCm = nonNegativeOrDefault(innerMarginCm, DEFAULT_INNER_MARGIN_CM);
+		return this;
+	}
+
+	/**
 	 * Returns the outer margin in centimeters.
 	 *
 	 * @return outer margin
 	 */
 	public double getOuterMarginCm() {
 		return outerMarginCm;
+	}
+
+	/**
+	 * Sets the outer margin in centimeters.
+	 *
+	 * @param outerMarginCm outer margin
+	 * @return this book for chaining
+	 */
+	public Book setOuterMarginCm(double outerMarginCm) {
+		this.outerMarginCm = nonNegativeOrDefault(outerMarginCm, DEFAULT_OUTER_MARGIN_CM);
+		return this;
 	}
 
 	/**
@@ -538,12 +583,34 @@ public final class Book {
 	}
 
 	/**
+	 * Sets the top margin in centimeters.
+	 *
+	 * @param topMarginCm top margin
+	 * @return this book for chaining
+	 */
+	public Book setTopMarginCm(double topMarginCm) {
+		this.topMarginCm = nonNegativeOrDefault(topMarginCm, DEFAULT_TOP_MARGIN_CM);
+		return this;
+	}
+
+	/**
 	 * Returns the bottom margin in centimeters.
 	 *
 	 * @return bottom margin
 	 */
 	public double getBottomMarginCm() {
 		return bottomMarginCm;
+	}
+
+	/**
+	 * Sets the bottom margin in centimeters.
+	 *
+	 * @param bottomMarginCm bottom margin
+	 * @return this book for chaining
+	 */
+	public Book setBottomMarginCm(double bottomMarginCm) {
+		this.bottomMarginCm = nonNegativeOrDefault(bottomMarginCm, DEFAULT_BOTTOM_MARGIN_CM);
+		return this;
 	}
 
 	/**
@@ -636,12 +703,34 @@ public final class Book {
 	}
 
 	/**
+	 * Sets the blurb lines.
+	 *
+	 * @param blurb blurb lines
+	 * @return this book for chaining
+	 */
+	public Book setBlurb(String[] blurb) {
+		this.blurb = safeArray(blurb);
+		return this;
+	}
+
+	/**
 	 * Returns the purchase links.
 	 *
 	 * @return purchase links, never null
 	 */
 	public String[] getLink() {
 		return link.clone();
+	}
+
+	/**
+	 * Sets the purchase links.
+	 *
+	 * @param link purchase links
+	 * @return this book for chaining
+	 */
+	public Book setLink(String[] link) {
+		this.link = safeArray(link);
+		return this;
 	}
 
 	/**
@@ -733,7 +822,7 @@ public final class Book {
 	 * @return parsed element array
 	 */
 	private static Element[] parseElements(String json) {
-		String rawArray = Json.arrayField(json, "elements");
+		String rawArray = JsonFields.arrayField(json, "elements");
 		if (rawArray == null) {
 			return new Element[0];
 		}

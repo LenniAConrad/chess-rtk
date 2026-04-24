@@ -10,7 +10,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 import application.Config;
-import utility.Argv;
 
 /**
  * Implements {@code config} subcommands.
@@ -28,40 +27,9 @@ public final class ConfigCommand {
 	}
 
 	/**
-	 * Handles {@code config}.
-	 *
-	 * @param a argument parser for the subcommand
-	 */
-	public static void runConfig(Argv a) {
-		List<String> rest = a.positionals();
-		a.ensureConsumed();
-
-		if (rest.isEmpty()) {
-			System.err.println("config requires a subcommand: show | validate");
-			System.exit(2);
-			return;
-		}
-		if (rest.size() > 1) {
-			System.err.println("config accepts only one subcommand: show | validate");
-			System.exit(2);
-			return;
-		}
-
-		String sub = rest.get(0);
-		switch (sub) {
-			case "show" -> runConfigShow();
-			case "validate" -> runConfigValidate();
-			default -> {
-				System.err.println("Unknown config subcommand: " + sub);
-				System.exit(2);
-			}
-		}
-	}
-
-	/**
 	 * Prints resolved configuration values to standard output.
 	 */
-	private static void runConfigShow() {
+	public static void runConfigShow() {
 		Config.reload();
 		Path configPath = Config.getConfigPath();
 		System.out.println("Config path: " + configPath.toAbsolutePath());
@@ -82,7 +50,7 @@ public final class ConfigCommand {
 	/**
 	 * Validates config and protocol files, printing any warnings/errors.
 	 */
-	private static void runConfigValidate() {
+	public static void runConfigValidate() {
 		Config.reload();
 
 		List<String> warnings = new ArrayList<>();

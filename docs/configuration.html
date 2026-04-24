@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Configuration | ChessRTK Wiki</title>
+  <link rel="stylesheet" href="styles.css">
+  <script defer src="search-index.js"></script>
+  <script defer src="site.js"></script>
+</head>
+<body>
+  <button class="menu-toggle" type="button" aria-label="Toggle navigation">Menu</button>
+  <div class="site-shell">
+    <aside class="sidebar">
+      <a class="brand" href="index.html">
+        <span class="brand-mark">CR</span>
+        <span><strong>ChessRTK</strong><small>Wiki</small></span>
+      </a>
+      <label class="search-label" for="doc-search">Search pages</label>
+      <input id="doc-search" class="search" type="search" placeholder="Search docs...">
+      <nav class="nav"><section class="nav-section"><h2>Start Here</h2>
+<a class="" href="index.html" data-title="home">Home</a>
+<a class="" href="getting-started.html" data-title="getting started">Getting Started</a>
+<a class="" href="faq.html" data-title="faq">FAQ</a>
+<a class="" href="command-reference.html" data-title="command reference">Command Reference</a>
+<a class="" href="example-commands.html" data-title="example commands">Example Commands</a>
+<a class="" href="troubleshooting.html" data-title="troubleshooting">Troubleshooting</a>
+</section>
+<section class="nav-section"><h2>User Guides</h2>
+<a class="" href="build-and-install.html" data-title="build &amp; install">Build &amp; Install</a>
+<a class="active" href="configuration.html" data-title="configuration">Configuration</a>
+<a class="" href="in-house-engine.html" data-title="in-house engine">In-House Engine</a>
+<a class="" href="lc0.html" data-title="lc0">LC0</a>
+<a class="" href="outputs-and-logs.html" data-title="outputs &amp; logs">Outputs &amp; Logs</a>
+<a class="" href="support.html" data-title="support">Support</a>
+</section>
+<section class="nav-section"><h2>Workflows</h2>
+<a class="" href="mining.html" data-title="mining puzzles">Mining Puzzles</a>
+<a class="" href="filter-dsl.html" data-title="filter dsl">Filter DSL</a>
+<a class="" href="datasets.html" data-title="datasets">Datasets</a>
+<a class="" href="book-publishing.html" data-title="book publishing">Book Publishing</a>
+<a class="" href="piece-tags.html" data-title="tags">Tags</a>
+<a class="" href="t5.html" data-title="t5 text">T5 Text</a>
+<a class="" href="ai-agents.html" data-title="ai agents">AI Agents</a>
+</section>
+<section class="nav-section"><h2>Development</h2>
+<a class="" href="architecture.html" data-title="architecture">Architecture</a>
+<a class="" href="development-notes.html" data-title="development notes">Development Notes</a>
+<a class="" href="releasing.html" data-title="releasing">Releasing</a>
+<a class="" href="roadmap.html" data-title="roadmap">Roadmap</a>
+<a class="" href="glossary.html" data-title="glossary">Glossary</a>
+<a class="" href="tagging-implementation-plan.html" data-title="tagging plan">Tagging Plan</a>
+<a class="" href="wiki-index.html" data-title="wiki index">Wiki Index</a>
+</section></nav>
+    </aside>
+    <div class="page">
+      <header class="topbar">
+        <div>
+          <span>User Guides</span>
+          <strong>Configuration</strong>
+        </div>
+        <nav>
+          <a href="index.html">Home</a>
+          <a href="wiki-index.html">Wiki Index</a>
+          <a href="command-reference.html">Commands</a>
+        </nav>
+      </header>
+      
+      <main class="content-layout">
+        <article class="content">
+          <h1 id="configuration">Configuration</h1>
+<p>This repo uses TOML for configuration and keeps defaults in <code>config/</code>. Most core commands do not need any configured external program: FEN handling, move listing, SAN/UCI conversion, perft, perft-suite, tagging without <code>--analyze</code>, <code>engine static</code>, and <code>engine builtin --classical</code> all run in-process.</p>
+<h2 id="cli-config-config-cli-config-toml">CLI config: <code>config/cli.config.toml</code></h2>
+<p>Loaded on startup. If the file is missing, the CLI will create it with built-in defaults (see <code>src/application/Config.java</code>).</p>
+<p>Common keys:</p>
+<ul>
+<li><code>protocol-path</code>: points to the UCI engine protocol file used by external</li>
+</ul>
+<p>engine commands (default <code>config/default.engine.toml</code>)</p>
+<ul>
+<li><code>lc0-model-path</code>: default local LC0J <code>.bin</code> weights path for evaluator-backed</li>
+</ul>
+<p>commands/features (default <code>models/leela_112planes-10blocksx128-policyhead80-valuehead32-policy4672-wdl3.bin</code>; fetch with <code>./install.sh --models</code>)</p>
+<ul>
+<li><code>t5-model-path</code>: default local T5 <code>.bin</code> path used by <code>fen text</code> / <code>puzzle text</code> when <code>--model</code> is omitted (default <code>models/t5.bin</code>)</li>
+<li><code>output</code>: default output root for <code>puzzle mine</code> (default <code>dump/</code>)</li>
+<li><code>engine-instances</code>: how many engine processes to run in parallel</li>
+<li><code>max-nodes</code>: per-position node cap</li>
+<li><code>max-duration</code>: per-position time cap (ms)</li>
+<li><code>threat-min-cp</code>: minimum centipawn advantage in null-move analysis to emit a threat tag</li>
+<li><code>threat-equalize-min-cp</code>: minimum disadvantage before considering equalizing threats</li>
+<li><code>threat-equalize-target-cp</code>: maximum remaining disadvantage after an equalizing threat</li>
+<li><code>puzzle-quality</code>, <code>puzzle-winning</code>, <code>puzzle-drawing</code>, <code>puzzle-accelerate</code>: Filter DSL strings for mining</li>
+</ul>
+<p>Notes:</p>
+<ul>
+<li>CLI flags override TOML values for a single run.</li>
+<li>Model binaries are not committed; local <code>models/*.bin</code> files are ignored by git.</li>
+<li>For <code>puzzle mine --output</code>, a directory produces timestamped outputs; a file-like root ending in <code>.json</code>/<code>.jsonl</code> produces <code>&lt;stem&gt;.puzzles.json</code> and <code>&lt;stem&gt;.nonpuzzles.json</code>.</li>
+</ul>
+<h3 id="switching-to-the-included-lc0-tuned-defaults">Switching to the included Lc0-tuned defaults</h3>
+<p>The repo ships <code>config/cli.lc0.config.toml</code> as an alternative baseline. To use it, copy it over <code>config/cli.config.toml</code> (or move/swap the files).</p>
+<h2 id="external-uci-engine-protocol-config-engine-toml">External UCI Engine Protocol: <code>config/*.engine.toml</code></h2>
+<p>Engine protocol files describe how to talk to a specific external engine via UCI: how to set options, how to send <code>position</code>, and how to issue <code>go</code> commands. They are used by <code>engine analyze</code>, <code>engine bestmove</code>, <code>engine threats</code>, <code>engine uci-smoke</code>, and puzzle mining. They are not used by <code>engine perft</code>, <code>engine perft-suite</code>, or the built-in Java search.</p>
+<p>Shipped files:</p>
+<ul>
+<li><code>config/default.engine.toml</code>: Stockfish-style UCI defaults (expects</li>
+</ul>
+<p><code>stockfish</code> on <code>PATH</code> unless <code>path</code> is changed)</p>
+<ul>
+<li><code>config/lc0.engine.toml</code>: Lc0-style UCI defaults (expects <code>lc0</code> on <code>PATH</code></li>
+</ul>
+<p>unless <code>path</code> is changed)</p>
+<p>Key fields (examples from <code>config/default.engine.toml</code>):</p>
+<ul>
+<li><code>path</code>: engine executable (name on <code>PATH</code> or absolute path)</li>
+<li><code>showUci</code> / <code>uciok</code>: initialization command and response used before readiness checks</li>
+<li><code>setPosition</code>: template for <code>position fen %s</code></li>
+<li><code>searchNodes</code>: template for <code>go nodes %d</code></li>
+<li><code>setMultiPivotAmount</code>: template to set MultiPV (mining expects MultiPV ≥ 2)</li>
+<li><code>setup = [ ... ]</code>: UCI commands sent after <code>uci</code>/<code>isready</code></li>
+</ul>
+<h3 id="building-engines-locally-optional">Building engines locally (optional)</h3>
+<p>This repo no longer ships helper scripts for building engines from source.</p>
+<p>Use your package manager (e.g. <code>apt-get install stockfish</code>) or build engines yourself, then point <code>path</code> in your <code>config/*.engine.toml</code> to the resulting executable.</p>
+<h2 id="in-process-evaluator-models">In-Process Evaluator Models</h2>
+<p>The Java evaluators use model files directly and do not start UCI engines:</p>
+<ul>
+<li><code>engine builtin --nnue</code> loads NNUE weights from <code>--weights</code>, or from the</li>
+</ul>
+<p>default NNUE model path; <code>./install.sh --models</code> populates that default. If neither exists, it fails with a missing-weights error.</p>
+<ul>
+<li><code>engine builtin --lc0</code> loads LC0J <code>.bin</code> weights from <code>--weights</code>, or from</li>
+</ul>
+<p><code>lc0-model-path</code>.</p>
+<ul>
+<li><code>engine eval</code> prefers the Java LC0 evaluator and falls back to classical</li>
+</ul>
+<p>evaluation unless <code>--lc0</code> or <code>--classical</code> is specified.</p>
+<ul>
+<li><code>engine static</code> is always the classical evaluator.</li>
+</ul>
+<p>LC0 as a UCI engine usually uses <code>.pb.gz</code> weights through the engine&#x27;s own <code>WeightsFile</code> option. The Java LC0 evaluator uses ChessRTK&#x27;s <code>.bin</code> model format. See <a href="lc0.html">LC0</a> for the two workflows.</p>
+<h2 id="optional-eco-book-config-book-eco-toml">Optional ECO book: <code>config/book.eco.toml</code></h2>
+<p>An ECO dictionary used for opening lookups (tags / printing).</p>
+<p>When present, the tagging subsystem (used by <code>tags</code>, <code>print</code>, and by mined records) will add:</p>
+<ul>
+<li><code>eco: &lt;code&gt;</code> (e.g. <code>eco: A00</code>)</li>
+<li><code>opening: &lt;name&gt;</code> (e.g. <code>opening: Amar Opening</code>)</li>
+</ul>
+<p>If the file is missing, opening tags are simply omitted.</p>
+        </article>
+        <aside class="toc"><h2>On This Page</h2>
+<a class="toc-h2" href="#cli-config-config-cli-config-toml">CLI config: config/cli.config.toml</a>
+<a class="toc-h3" href="#switching-to-the-included-lc0-tuned-defaults">Switching to the included Lc0-tuned defaults</a>
+<a class="toc-h2" href="#external-uci-engine-protocol-config-engine-toml">External UCI Engine Protocol: config/.engine.toml</a>
+<a class="toc-h3" href="#building-engines-locally-optional">Building engines locally (optional)</a>
+<a class="toc-h2" href="#in-process-evaluator-models">In-Process Evaluator Models</a>
+<a class="toc-h2" href="#optional-eco-book-config-book-eco-toml">Optional ECO book: config/book.eco.toml</a></aside>
+      </main>
+      <footer class="footer">
+        <span>Generated from <code>wiki/configuration.md</code>.</span>
+        <span>Build with <code>python3 scripts/build_docs_site.py</code>.</span>
+      </footer>
+    </div>
+  </div>
+</body>
+</html>

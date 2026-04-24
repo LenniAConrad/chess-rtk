@@ -41,6 +41,26 @@ public final class Options {
 	private boolean showFen = true;
 
 	/**
+	 * PDF metadata author string.
+	 */
+	private String documentAuthor = "chess-rtk";
+
+	/**
+	 * PDF metadata subject string.
+	 */
+	private String documentSubject = "Chess PDF export";
+
+	/**
+	 * PDF metadata creator string.
+	 */
+	private String documentCreator = "chess.pdf.Writer";
+
+	/**
+	 * PDF metadata producer string.
+	 */
+	private String documentProducer = "chess-rtk pdf";
+
+	/**
 	 * Returns the PDF page size.
 	 *
 	 * @return page size
@@ -167,5 +187,100 @@ public final class Options {
 	public Options setShowFen(boolean showFen) {
 		this.showFen = showFen;
 		return this;
+	}
+
+	/**
+	 * Returns the PDF metadata author string.
+	 *
+	 * @return author metadata
+	 */
+	public String getDocumentAuthor() {
+		return documentAuthor;
+	}
+
+	/**
+	 * Sets the PDF metadata author string.
+	 *
+	 * @param documentAuthor author metadata
+	 * @return this options object
+	 */
+	public Options setDocumentAuthor(String documentAuthor) {
+		this.documentAuthor = normalizeMetadata(documentAuthor, "chess-rtk");
+		return this;
+	}
+
+	/**
+	 * Returns the PDF metadata subject string.
+	 *
+	 * @return subject metadata
+	 */
+	public String getDocumentSubject() {
+		return documentSubject;
+	}
+
+	/**
+	 * Sets the PDF metadata subject string.
+	 *
+	 * @param documentSubject subject metadata
+	 * @return this options object
+	 */
+	public Options setDocumentSubject(String documentSubject) {
+		this.documentSubject = normalizeMetadata(documentSubject, "Chess PDF export");
+		return this;
+	}
+
+	/**
+	 * Returns the PDF metadata creator string.
+	 *
+	 * @return creator metadata
+	 */
+	public String getDocumentCreator() {
+		return documentCreator;
+	}
+
+	/**
+	 * Sets the PDF metadata creator string.
+	 *
+	 * @param documentCreator creator metadata
+	 * @return this options object
+	 */
+	public Options setDocumentCreator(String documentCreator) {
+		this.documentCreator = normalizeMetadata(documentCreator, "chess.pdf.Writer");
+		return this;
+	}
+
+	/**
+	 * Returns the PDF metadata producer string.
+	 *
+	 * @return producer metadata
+	 */
+	public String getDocumentProducer() {
+		return documentProducer;
+	}
+
+	/**
+	 * Sets the PDF metadata producer string.
+	 *
+	 * @param documentProducer producer metadata
+	 * @return this options object
+	 */
+	public Options setDocumentProducer(String documentProducer) {
+		this.documentProducer = normalizeMetadata(documentProducer, "chess-rtk pdf");
+		return this;
+	}
+
+	/**
+	 * Normalizes document metadata while preserving the built-in defaults.
+	 *
+	 * @param value raw metadata text
+	 * @param fallback default value
+	 * @return normalized metadata text
+	 */
+	private static String normalizeMetadata(String value, String fallback) {
+		if (value == null) {
+			return fallback;
+		}
+		String trimmed = value.trim();
+		return trimmed.isEmpty() ? fallback : trimmed;
 	}
 }

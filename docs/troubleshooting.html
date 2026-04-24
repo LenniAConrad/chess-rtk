@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Troubleshooting | ChessRTK Wiki</title>
+  <link rel="stylesheet" href="styles.css">
+  <script defer src="search-index.js"></script>
+  <script defer src="site.js"></script>
+</head>
+<body>
+  <button class="menu-toggle" type="button" aria-label="Toggle navigation">Menu</button>
+  <div class="site-shell">
+    <aside class="sidebar">
+      <a class="brand" href="index.html">
+        <span class="brand-mark">CR</span>
+        <span><strong>ChessRTK</strong><small>Wiki</small></span>
+      </a>
+      <label class="search-label" for="doc-search">Search pages</label>
+      <input id="doc-search" class="search" type="search" placeholder="Search docs...">
+      <nav class="nav"><section class="nav-section"><h2>Start Here</h2>
+<a class="" href="index.html" data-title="home">Home</a>
+<a class="" href="getting-started.html" data-title="getting started">Getting Started</a>
+<a class="" href="faq.html" data-title="faq">FAQ</a>
+<a class="" href="command-reference.html" data-title="command reference">Command Reference</a>
+<a class="" href="example-commands.html" data-title="example commands">Example Commands</a>
+<a class="active" href="troubleshooting.html" data-title="troubleshooting">Troubleshooting</a>
+</section>
+<section class="nav-section"><h2>User Guides</h2>
+<a class="" href="build-and-install.html" data-title="build &amp; install">Build &amp; Install</a>
+<a class="" href="configuration.html" data-title="configuration">Configuration</a>
+<a class="" href="in-house-engine.html" data-title="in-house engine">In-House Engine</a>
+<a class="" href="lc0.html" data-title="lc0">LC0</a>
+<a class="" href="outputs-and-logs.html" data-title="outputs &amp; logs">Outputs &amp; Logs</a>
+<a class="" href="support.html" data-title="support">Support</a>
+</section>
+<section class="nav-section"><h2>Workflows</h2>
+<a class="" href="mining.html" data-title="mining puzzles">Mining Puzzles</a>
+<a class="" href="filter-dsl.html" data-title="filter dsl">Filter DSL</a>
+<a class="" href="datasets.html" data-title="datasets">Datasets</a>
+<a class="" href="book-publishing.html" data-title="book publishing">Book Publishing</a>
+<a class="" href="piece-tags.html" data-title="tags">Tags</a>
+<a class="" href="t5.html" data-title="t5 text">T5 Text</a>
+<a class="" href="ai-agents.html" data-title="ai agents">AI Agents</a>
+</section>
+<section class="nav-section"><h2>Development</h2>
+<a class="" href="architecture.html" data-title="architecture">Architecture</a>
+<a class="" href="development-notes.html" data-title="development notes">Development Notes</a>
+<a class="" href="releasing.html" data-title="releasing">Releasing</a>
+<a class="" href="roadmap.html" data-title="roadmap">Roadmap</a>
+<a class="" href="glossary.html" data-title="glossary">Glossary</a>
+<a class="" href="tagging-implementation-plan.html" data-title="tagging plan">Tagging Plan</a>
+<a class="" href="wiki-index.html" data-title="wiki index">Wiki Index</a>
+</section></nav>
+    </aside>
+    <div class="page">
+      <header class="topbar">
+        <div>
+          <span>Start Here</span>
+          <strong>Troubleshooting</strong>
+        </div>
+        <nav>
+          <a href="index.html">Home</a>
+          <a href="wiki-index.html">Wiki Index</a>
+          <a href="command-reference.html">Commands</a>
+        </nav>
+      </header>
+      
+      <main class="content-layout">
+        <article class="content">
+          <h1 id="troubleshooting">Troubleshooting</h1>
+<h2 id="mining-fails-to-start-an-engine">Mining fails to start an engine</h2>
+<ul>
+<li>Verify your engine binary exists and is executable (check <code>path = ...</code> in your engine protocol TOML).</li>
+<li>Run <code>crtk help</code> and confirm you’re passing <code>--protocol-path</code> to the right file.</li>
+<li>If your engine is on <code>PATH</code>, try <code>which stockfish</code> / <code>which lc0</code>.</li>
+<li>Commands such as <code>move list</code>, <code>engine perft</code>, <code>engine perft-suite</code>,</li>
+</ul>
+<p><code>engine static</code>, and <code>engine builtin --classical</code> do not start a UCI engine; use them to isolate whether a failure is in the chess core or in external engine configuration.</p>
+<h2 id="perft-validation-fails">Perft validation fails</h2>
+<ul>
+<li><code>engine perft-suite</code> compares stored truth values against the Java core move</li>
+</ul>
+<p>generator. It does not call Stockfish or any other external process.</p>
+<ul>
+<li>Re-run a failing row directly with `engine perft --fen &quot;&lt;FEN&gt;&quot; --depth &lt;n&gt;</li>
+</ul>
+<p>--divide` to inspect per-root-move counts.</p>
+<ul>
+<li>Recent edits to FEN parsing, Chess960 castling metadata, en-passant handling,</li>
+</ul>
+<p>SAN move application, make/undo, or attack detection can all affect perft.</p>
+<h2 id="filters-don-t-seem-to-stick">Filters don’t seem to “stick”</h2>
+<ul>
+<li>If a Filter DSL string is invalid, the CLI logs an error and falls back to the defaults.</li>
+<li>Prefer editing <code>config/cli.config.toml</code> first (then override per-run once you’re happy).</li>
+</ul>
+<h2 id="mining-is-too-slow">Mining is too slow</h2>
+<ul>
+<li>Lower <code>--max-nodes</code> / <code>--max-duration</code>.</li>
+<li>Reduce <code>--engine-instances</code>.</li>
+<li>Relax the quality gate (<code>puzzle-quality</code>) and/or the accelerate prefilter (<code>puzzle-accelerate</code>).</li>
+</ul>
+<h2 id="fen-display-ablation-is-slow-or-uses-the-classical-backend"><code>fen display --ablation</code> is slow or uses the classical backend</h2>
+<ul>
+<li>The evaluator tries to load local <code>models/leela_112planes-10blocksx128-policyhead80-valuehead32-policy4672-wdl3.bin</code> weights and falls back to a classical heuristic when LC0 is unavailable. Fetch the default weights with <code>./install.sh --models</code>.</li>
+<li>If you want native GPU acceleration, build the matching backend under</li>
+</ul>
+<p><code>native/cuda/</code>, <code>native/rocm/</code>, or <code>native/oneapi/</code> and run with <code>-Djava.library.path=...</code>.</p>
+<h2 id="engine-builtin-nnue-says-default-weights-are-missing"><code>engine builtin --nnue</code> says default weights are missing</h2>
+<ul>
+<li>Run <code>./install.sh --models</code> to download <code>models/crtk-halfkp.nnue</code> and the bundled LC0 weights.</li>
+<li>Or pass <code>--weights /path/to/file.nnue</code> explicitly. Supported Stockfish NNUE files work here too.</li>
+</ul>
+<h2 id="cover-dimensions-do-not-match-the-upload-form">Cover dimensions do not match the upload form</h2>
+<ul>
+<li>Pass the rendered interior PDF to <code>book cover --pdf &lt;interior.pdf&gt;</code> so trim size and page count come from the actual file.</li>
+<li>Use <code>book cover --pages &lt;n&gt;</code> only when you need to override the PDF-derived spine count.</li>
+<li>Use a current interior token: <code>white-bw</code>, <code>cream-bw</code>, <code>white-standard-color</code>, or <code>white-premium-color</code>.</li>
+<li>Compare the dimensions printed by <code>book cover</code> with the publishing service&#x27;s own cover calculator before upload.</li>
+</ul>
+<h2 id="t5-commands-cannot-find-a-model">T5 commands cannot find a model</h2>
+<ul>
+<li>Pass <code>--model /path/to/t5.bin</code>, or set <code>t5-model-path</code> in <code>config/cli.config.toml</code>.</li>
+<li>Model binaries are local artifacts and are ignored by git; they are not bundled with a fresh clone.</li>
+</ul>
+        </article>
+        <aside class="toc"><h2>On This Page</h2>
+<a class="toc-h2" href="#mining-fails-to-start-an-engine">Mining fails to start an engine</a>
+<a class="toc-h2" href="#perft-validation-fails">Perft validation fails</a>
+<a class="toc-h2" href="#filters-don-t-seem-to-stick">Filters don’t seem to “stick”</a>
+<a class="toc-h2" href="#mining-is-too-slow">Mining is too slow</a>
+<a class="toc-h2" href="#fen-display-ablation-is-slow-or-uses-the-classical-backend">fen display --ablation is slow or uses the classical backend</a>
+<a class="toc-h2" href="#engine-builtin-nnue-says-default-weights-are-missing">engine builtin --nnue says default weights are missing</a>
+<a class="toc-h2" href="#cover-dimensions-do-not-match-the-upload-form">Cover dimensions do not match the upload form</a>
+<a class="toc-h2" href="#t5-commands-cannot-find-a-model">T5 commands cannot find a model</a></aside>
+      </main>
+      <footer class="footer">
+        <span>Generated from <code>wiki/troubleshooting.md</code>.</span>
+        <span>Build with <code>python3 scripts/build_docs_site.py</code>.</span>
+      </footer>
+    </div>
+  </div>
+</body>
+</html>

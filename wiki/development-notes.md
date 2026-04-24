@@ -11,7 +11,7 @@
   - `chess.debug`: perft runners, perft validation suite, board/move printers, and logging helpers
   - `chess.uci`: engine protocol + analysis parsing + Filter DSL
   - `chess.io`: converters, readers/writers, dataset exporters
-  - `chess.engine.search`: in-process alpha-beta search used by `engine builtin`
+  - `chess.engine`: in-process alpha-beta search used by `engine builtin`
   - `chess.eval`: in-process evaluator facade used by `engine eval`,
     `engine static`, `engine builtin`, display ablation, and tag helpers
   - `chess.nn.lc0`: pure-Java LC0 forward pass with optional CUDA, ROCm, and
@@ -62,7 +62,10 @@ algebraic notation for book tables and PDF captions.
 
 ## Docs policy
 
-The root `README.md` should stay as a quickstart. Longer explanations live under `wiki/`.
+The root `README.md` should carry the first-screen framing: what ChessRTK is,
+why it is technically hard, how to verify it quickly, and where the main system
+boundaries are. Longer explanations, workflows, and reference material live
+under `wiki/`.
 
 ## Optional tooling
 

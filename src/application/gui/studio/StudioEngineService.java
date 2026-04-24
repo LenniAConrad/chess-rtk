@@ -17,8 +17,19 @@ import chess.uci.Protocol;
  */
 public final class StudioEngineService {
 
+	/**
+	 * Current background analysis worker.
+	 */
 	private SwingWorker<Void, StudioEngineSnapshot> worker;
+
+	/**
+	 * Reused engine instance for the active profile path.
+	 */
 	private Engine engine;
+
+	/**
+	 * Normalized path key for the reused engine.
+	 */
 	private String enginePathKey = "";
 
 	/**
@@ -37,6 +48,11 @@ public final class StudioEngineService {
 		stop();
 		String configKey = configKey(profile, nodes, multipv, wdl);
 		worker = new SwingWorker<>() {
+			/**
+			 * Runs engine analysis away from the Swing event thread.
+			 *
+			 * @return always null
+			 */
 			@Override
 			protected Void doInBackground() {
 				try {
@@ -55,6 +71,11 @@ public final class StudioEngineService {
 				return null;
 			}
 
+			/**
+			 * Delivers engine snapshots on the Swing event thread.
+			 *
+			 * @param chunks published snapshots
+			 */
 			@Override
 			protected void process(List<StudioEngineSnapshot> chunks) {
 				if (onUpdate != null) {
@@ -111,6 +132,13 @@ public final class StudioEngineService {
 				+ multipv + "|wdl=" + wdl;
 	}
 
+	/**
+	 * Returns a reusable engine for the requested profile.
+	 *
+	 * @param profile engine profile
+	 * @return engine instance
+	 * @throws IOException when the protocol file cannot be read
+	 */
 	private Engine ensureEngine(StudioEngineProfile profile) throws IOException {
 		String key = profile.path().toAbsolutePath().normalize().toString();
 		if (engine != null && key.equals(enginePathKey)) {

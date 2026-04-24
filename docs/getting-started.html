@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Getting Started | ChessRTK Wiki</title>
+  <link rel="stylesheet" href="styles.css">
+  <script defer src="search-index.js"></script>
+  <script defer src="site.js"></script>
+</head>
+<body>
+  <button class="menu-toggle" type="button" aria-label="Toggle navigation">Menu</button>
+  <div class="site-shell">
+    <aside class="sidebar">
+      <a class="brand" href="index.html">
+        <span class="brand-mark">CR</span>
+        <span><strong>ChessRTK</strong><small>Wiki</small></span>
+      </a>
+      <label class="search-label" for="doc-search">Search pages</label>
+      <input id="doc-search" class="search" type="search" placeholder="Search docs...">
+      <nav class="nav"><section class="nav-section"><h2>Start Here</h2>
+<a class="" href="index.html" data-title="home">Home</a>
+<a class="active" href="getting-started.html" data-title="getting started">Getting Started</a>
+<a class="" href="faq.html" data-title="faq">FAQ</a>
+<a class="" href="command-reference.html" data-title="command reference">Command Reference</a>
+<a class="" href="example-commands.html" data-title="example commands">Example Commands</a>
+<a class="" href="troubleshooting.html" data-title="troubleshooting">Troubleshooting</a>
+</section>
+<section class="nav-section"><h2>User Guides</h2>
+<a class="" href="build-and-install.html" data-title="build &amp; install">Build &amp; Install</a>
+<a class="" href="configuration.html" data-title="configuration">Configuration</a>
+<a class="" href="in-house-engine.html" data-title="in-house engine">In-House Engine</a>
+<a class="" href="lc0.html" data-title="lc0">LC0</a>
+<a class="" href="outputs-and-logs.html" data-title="outputs &amp; logs">Outputs &amp; Logs</a>
+<a class="" href="support.html" data-title="support">Support</a>
+</section>
+<section class="nav-section"><h2>Workflows</h2>
+<a class="" href="mining.html" data-title="mining puzzles">Mining Puzzles</a>
+<a class="" href="filter-dsl.html" data-title="filter dsl">Filter DSL</a>
+<a class="" href="datasets.html" data-title="datasets">Datasets</a>
+<a class="" href="book-publishing.html" data-title="book publishing">Book Publishing</a>
+<a class="" href="piece-tags.html" data-title="tags">Tags</a>
+<a class="" href="t5.html" data-title="t5 text">T5 Text</a>
+<a class="" href="ai-agents.html" data-title="ai agents">AI Agents</a>
+</section>
+<section class="nav-section"><h2>Development</h2>
+<a class="" href="architecture.html" data-title="architecture">Architecture</a>
+<a class="" href="development-notes.html" data-title="development notes">Development Notes</a>
+<a class="" href="releasing.html" data-title="releasing">Releasing</a>
+<a class="" href="roadmap.html" data-title="roadmap">Roadmap</a>
+<a class="" href="glossary.html" data-title="glossary">Glossary</a>
+<a class="" href="tagging-implementation-plan.html" data-title="tagging plan">Tagging Plan</a>
+<a class="" href="wiki-index.html" data-title="wiki index">Wiki Index</a>
+</section></nav>
+    </aside>
+    <div class="page">
+      <header class="topbar">
+        <div>
+          <span>Start Here</span>
+          <strong>Getting Started</strong>
+        </div>
+        <nav>
+          <a href="index.html">Home</a>
+          <a href="wiki-index.html">Wiki Index</a>
+          <a href="command-reference.html">Commands</a>
+        </nav>
+      </header>
+      
+      <main class="content-layout">
+        <article class="content">
+          <h1 id="getting-started">Getting Started</h1>
+<p>This page gets a fresh checkout from source code to useful commands.</p>
+<h2 id="requirements">Requirements</h2>
+<ul>
+<li>Java 17+ JDK with <code>javac</code></li>
+<li>Optional: <code>stockfish</code> or another UCI engine on <code>PATH</code></li>
+<li>Optional: local model files under <code>models/</code> for NNUE, LC0, and T5 workflows</li>
+</ul>
+<p>Core FEN, move, perft, and classical built-in search commands do not require an external chess engine.</p>
+<h2 id="build-from-source">Build From Source</h2>
+<pre><code class="language-bash">mkdir -p out
+javac --release 17 -d out $(find src -name &quot;*.java&quot;)
+java -cp out application.Main help</code></pre>
+<h2 id="install-the-launcher">Install The Launcher</h2>
+<pre><code class="language-bash">./install.sh
+crtk doctor
+crtk help</code></pre>
+<p>If you do not install the launcher, use:</p>
+<pre><code class="language-bash">java -cp out application.Main &lt;area&gt; &lt;action&gt; [options]</code></pre>
+<h2 id="verify-the-checkout">Verify The Checkout</h2>
+<pre><code class="language-bash">./scripts/run_regression_suite.sh build
+./scripts/run_regression_suite.sh lint
+./scripts/run_regression_suite.sh core</code></pre>
+<p>Recommended broader pass:</p>
+<pre><code class="language-bash">./scripts/run_regression_suite.sh recommended</code></pre>
+<h2 id="learn-the-command-shape">Learn The Command Shape</h2>
+<p>ChessRTK commands use a noun group plus an action:</p>
+<pre><code class="language-bash">crtk &lt;area&gt; &lt;action&gt; [options] [args]</code></pre>
+<p>Examples:</p>
+<pre><code class="language-bash">crtk move list --startpos --format both
+crtk engine bestmove --fen &quot;&lt;FEN&gt;&quot; --format san
+crtk record dataset npy --input dump/run.puzzles.json --output training/run</code></pre>
+<p>Help works at each level:</p>
+<pre><code class="language-bash">crtk help
+crtk move --help
+crtk move list --help
+crtk help --full</code></pre>
+<h2 id="first-position-workflow">First Position Workflow</h2>
+<pre><code class="language-bash">crtk fen print --startpos
+crtk move list --startpos --format both
+crtk move after --startpos e2e4
+crtk move play --startpos &quot;e4 e5 Nf3 Nc6&quot;</code></pre>
+<h2 id="first-engine-workflow">First Engine Workflow</h2>
+<p>Use the in-process engine when you want no external process:</p>
+<pre><code class="language-bash">crtk engine builtin --startpos --depth 3 --format summary</code></pre>
+<p>Use a configured UCI engine when strength matters:</p>
+<pre><code class="language-bash">crtk engine uci-smoke --nodes 1 --max-duration 5s
+crtk engine bestmove --startpos --format both --max-duration 2s</code></pre>
+<h2 id="first-publishing-workflow">First Publishing Workflow</h2>
+<pre><code class="language-bash">crtk book pdf --fen &quot;rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1&quot; -o dist/startpos.pdf</code></pre>
+<p>For full books and covers, continue with <a href="book-publishing.html">Book publishing</a>.</p>
+<h2 id="next-pages">Next Pages</h2>
+<ul>
+<li><a href="configuration.html">Configuration</a></li>
+<li><a href="command-reference.html">Command reference</a></li>
+<li><a href="example-commands.html">Example commands</a></li>
+<li><a href="faq.html">FAQ</a></li>
+<li><a href="troubleshooting.html">Troubleshooting</a></li>
+</ul>
+        </article>
+        <aside class="toc"><h2>On This Page</h2>
+<a class="toc-h2" href="#requirements">Requirements</a>
+<a class="toc-h2" href="#build-from-source">Build From Source</a>
+<a class="toc-h2" href="#install-the-launcher">Install The Launcher</a>
+<a class="toc-h2" href="#verify-the-checkout">Verify The Checkout</a>
+<a class="toc-h2" href="#learn-the-command-shape">Learn The Command Shape</a>
+<a class="toc-h2" href="#first-position-workflow">First Position Workflow</a>
+<a class="toc-h2" href="#first-engine-workflow">First Engine Workflow</a>
+<a class="toc-h2" href="#first-publishing-workflow">First Publishing Workflow</a>
+<a class="toc-h2" href="#next-pages">Next Pages</a></aside>
+      </main>
+      <footer class="footer">
+        <span>Generated from <code>wiki/getting-started.md</code>.</span>
+        <span>Build with <code>python3 scripts/build_docs_site.py</code>.</span>
+      </footer>
+    </div>
+  </div>
+</body>
+</html>

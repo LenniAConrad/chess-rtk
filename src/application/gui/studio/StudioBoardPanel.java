@@ -28,25 +28,68 @@ import chess.images.assets.Pictures;
  */
 public final class StudioBoardPanel extends JPanel {
 
+	/**
+	 * Serialization identifier for Swing component compatibility.
+	 */
 	private static final long serialVersionUID = 1L;
+
+	/**
+	 * Fraction of a square occupied by a rendered piece image.
+	 */
 	private static final float PIECE_SCALE = 0.88f;
 
+	/**
+	 * Current immutable board view state.
+	 */
 	private BoardViewModel model = BoardViewModel.of(new Position(Position.fromFen(
 			chess.struct.Game.STANDARD_START_FEN).toString()), true, StudioTheme.light());
+
+	/**
+	 * Listener receiving board input events.
+	 */
 	private transient BoardListener listener;
+
+	/**
+	 * Square where the current left-button drag started.
+	 */
 	private byte leftPressSquare = Field.NO_SQUARE;
+
+	/**
+	 * Square where the current right-button drag started.
+	 */
 	private byte rightPressSquare = Field.NO_SQUARE;
 
 	/**
 	 * Board event listener.
 	 */
 	public interface BoardListener {
+		/**
+		 * Handles selection of a board square.
+		 *
+		 * @param square selected square
+		 */
 		void squareSelected(byte square);
 
+		/**
+		 * Handles a requested move between two board squares.
+		 *
+		 * @param from source square
+		 * @param to destination square
+		 */
 		void moveRequested(byte from, byte to);
 
+		/**
+		 * Handles a requested board mark.
+		 *
+		 * @param mark mark request
+		 */
 		void markRequested(BoardMark mark);
 
+		/**
+		 * Handles hover changes over the board.
+		 *
+		 * @param square hovered square or {@link Field#NO_SQUARE}
+		 */
 		void hoverSquare(byte square);
 	}
 
@@ -58,6 +101,11 @@ public final class StudioBoardPanel extends JPanel {
 		setMinimumSize(new Dimension(360, 360));
 		setFocusable(true);
 		MouseAdapter mouse = new MouseAdapter() {
+			/**
+			 * Records the square where a left or right press starts.
+			 *
+			 * @param e mouse event
+			 */
 			@Override
 			public void mousePressed(MouseEvent e) {
 				requestFocusInWindow();
@@ -69,6 +117,11 @@ public final class StudioBoardPanel extends JPanel {
 				}
 			}
 
+			/**
+			 * Dispatches a selection, move, or mark request when the mouse is released.
+			 *
+			 * @param e mouse event
+			 */
 			@Override
 			public void mouseReleased(MouseEvent e) {
 				byte square = squareAt(e.getPoint());
@@ -79,6 +132,11 @@ public final class StudioBoardPanel extends JPanel {
 				}
 			}
 
+			/**
+			 * Reports the board square currently under the pointer.
+			 *
+			 * @param e mouse event
+			 */
 			@Override
 			public void mouseMoved(MouseEvent e) {
 				if (listener != null) {
@@ -86,6 +144,11 @@ public final class StudioBoardPanel extends JPanel {
 				}
 			}
 
+			/**
+			 * Clears hover state when the pointer leaves the board.
+			 *
+			 * @param e mouse event
+			 */
 			@Override
 			public void mouseExited(MouseEvent e) {
 				if (listener != null) {
@@ -133,6 +196,11 @@ public final class StudioBoardPanel extends JPanel {
 		return image;
 	}
 
+	/**
+	 * Paints the themed board surface.
+	 *
+	 * @param graphics graphics context
+	 */
 	@Override
 	protected void paintComponent(Graphics graphics) {
 		super.paintComponent(graphics);
@@ -146,6 +214,12 @@ public final class StudioBoardPanel extends JPanel {
 		}
 	}
 
+	/**
+	 * Paints all board layers inside the supplied board rectangle.
+	 *
+	 * @param g graphics context
+	 * @param board board bounds
+	 */
 	private void paintBoard(Graphics2D g, Rectangle board) {
 		g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 		int tile = board.width / 8;
@@ -158,6 +232,13 @@ public final class StudioBoardPanel extends JPanel {
 		drawCoordinates(g, board, tile);
 	}
 
+	/**
+	 * Draws the checkerboard squares and border.
+	 *
+	 * @param g graphics context
+	 * @param board board bounds
+	 * @param tile square size in pixels
+	 */
 	private void drawSquares(Graphics2D g, Rectangle board, int tile) {
 		for (int rank = 0; rank < 8; rank++) {
 			for (int file = 0; file < 8; file++) {
@@ -170,6 +251,12 @@ public final class StudioBoardPanel extends JPanel {
 		g.drawRect(board.x, board.y, board.width - 1, board.height - 1);
 	}
 
+	/**
+	 * Highlights the previous move, when one is available.
+	 *
+	 * @param g graphics context
+	 * @param board board bounds
+	 */
 	private void drawLastMove(Graphics2D g, Rectangle board) {
 		if (model.lastMove() == Move.NO_MOVE) {
 			return;
@@ -179,6 +266,12 @@ public final class StudioBoardPanel extends JPanel {
 		fillSquare(g, board, Move.getToIndex(model.lastMove()));
 	}
 
+	/**
+	 * Highlights the currently selected square.
+	 *
+	 * @param g graphics context
+	 * @param board board bounds
+	 */
 	private void drawSelection(Graphics2D g, Rectangle board) {
 		if (model.selectedSquare() == Field.NO_SQUARE) {
 			return;
@@ -187,6 +280,13 @@ public final class StudioBoardPanel extends JPanel {
 		fillSquare(g, board, model.selectedSquare());
 	}
 
+	/**
+	 * Draws legal move targets and capture rings for the selected piece.
+	 *
+	 * @param g graphics context
+	 * @param board board bounds
+	 * @param tile square size in pixels
+	 */
 	private void drawLegalTargets(Graphics2D g, Rectangle board, int tile) {
 		boolean[] legal = model.legalTargets();
 		boolean[] captures = model.captureTargets();
@@ -209,6 +309,13 @@ public final class StudioBoardPanel extends JPanel {
 		}
 	}
 
+	/**
+	 * Draws user-created circles and arrows.
+	 *
+	 * @param g graphics context
+	 * @param board board bounds
+	 * @param tile square size in pixels
+	 */
 	private void drawMarks(Graphics2D g, Rectangle board, int tile) {
 		List<BoardMark> marks = model.marks();
 		if (marks == null) {
@@ -226,6 +333,13 @@ public final class StudioBoardPanel extends JPanel {
 		}
 	}
 
+	/**
+	 * Draws all piece images at their current squares.
+	 *
+	 * @param g graphics context
+	 * @param board board bounds
+	 * @param tile square size in pixels
+	 */
 	private void drawPieces(Graphics2D g, Rectangle board, int tile) {
 		byte[] pieces = model.position().getBoard();
 		int pieceSize = Math.round(tile * PIECE_SCALE);
@@ -240,6 +354,13 @@ public final class StudioBoardPanel extends JPanel {
 		}
 	}
 
+	/**
+	 * Draws file and rank labels for the current orientation.
+	 *
+	 * @param g graphics context
+	 * @param board board bounds
+	 * @param tile square size in pixels
+	 */
 	private void drawCoordinates(Graphics2D g, Rectangle board, int tile) {
 		g.setColor(new Color(0, 0, 0, model.theme().lightMode() ? 120 : 170));
 		for (int i = 0; i < 8; i++) {
@@ -251,11 +372,28 @@ public final class StudioBoardPanel extends JPanel {
 		}
 	}
 
+	/**
+	 * Fills a single board square.
+	 *
+	 * @param g graphics context
+	 * @param board board bounds
+	 * @param square square to fill
+	 */
 	private void fillSquare(Graphics2D g, Rectangle board, byte square) {
 		Rectangle r = StudioBoardMapper.squareBounds(square, board, model.whiteDown());
 		g.fillRect(r.x, r.y, r.width, r.height);
 	}
 
+	/**
+	 * Draws an arrow between two board squares.
+	 *
+	 * @param g graphics context
+	 * @param board board bounds
+	 * @param tile square size in pixels
+	 * @param from source square
+	 * @param to target square
+	 * @param color arrow color
+	 */
 	private void drawArrow(Graphics2D g, Rectangle board, int tile, byte from, byte to, Color color) {
 		if (from == Field.NO_SQUARE || to == Field.NO_SQUARE || from == to) {
 			return;
@@ -283,9 +421,15 @@ public final class StudioBoardPanel extends JPanel {
 				(int) Math.round(endY - uy * head + ux * head * 0.55));
 		poly.addPoint((int) Math.round(endX - ux * head + uy * head * 0.55),
 				(int) Math.round(endY - uy * head - ux * head * 0.55));
-		g.fillPolygon(poly);
-	}
+			g.fillPolygon(poly);
+		}
 
+	/**
+	 * Maps a mark color index to a translucent drawing color.
+	 *
+	 * @param index mark color index
+	 * @return drawing color
+	 */
 	private Color markColor(int index) {
 		Color[] colors = {
 				new Color(112, 153, 78, 190),
@@ -296,6 +440,12 @@ public final class StudioBoardPanel extends JPanel {
 		return colors[Math.floorMod(index, colors.length)];
 	}
 
+	/**
+	 * Returns the image asset for a piece code.
+	 *
+	 * @param piece piece code
+	 * @return piece image, or null for empty squares
+	 */
 	private Image pieceImage(byte piece) {
 		return switch (piece) {
 			case Position.WHITE_PAWN -> Pictures.WhitePawn;
@@ -314,11 +464,22 @@ public final class StudioBoardPanel extends JPanel {
 		};
 	}
 
+	/**
+	 * Converts a component point to a board square.
+	 *
+	 * @param point component point
+	 * @return square index or {@link Field#NO_SQUARE}
+	 */
 	private byte squareAt(Point point) {
 		return StudioBoardMapper.squareAt(point, StudioBoardMapper.centeredBoard(getWidth(), getHeight()),
 				model.whiteDown());
 	}
 
+	/**
+	 * Handles release of the left mouse button.
+	 *
+	 * @param square release square
+	 */
 	private void handleLeftRelease(byte square) {
 		if (listener == null || leftPressSquare == Field.NO_SQUARE || square == Field.NO_SQUARE) {
 			leftPressSquare = Field.NO_SQUARE;
@@ -332,6 +493,11 @@ public final class StudioBoardPanel extends JPanel {
 		leftPressSquare = Field.NO_SQUARE;
 	}
 
+	/**
+	 * Handles release of the right mouse button.
+	 *
+	 * @param square release square
+	 */
 	private void handleRightRelease(byte square) {
 		if (listener == null || rightPressSquare == Field.NO_SQUARE || square == Field.NO_SQUARE) {
 			rightPressSquare = Field.NO_SQUARE;

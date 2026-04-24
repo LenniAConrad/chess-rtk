@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Architecture | ChessRTK Wiki</title>
+  <link rel="stylesheet" href="styles.css">
+  <script defer src="search-index.js"></script>
+  <script defer src="site.js"></script>
+</head>
+<body>
+  <button class="menu-toggle" type="button" aria-label="Toggle navigation">Menu</button>
+  <div class="site-shell">
+    <aside class="sidebar">
+      <a class="brand" href="index.html">
+        <span class="brand-mark">CR</span>
+        <span><strong>ChessRTK</strong><small>Wiki</small></span>
+      </a>
+      <label class="search-label" for="doc-search">Search pages</label>
+      <input id="doc-search" class="search" type="search" placeholder="Search docs...">
+      <nav class="nav"><section class="nav-section"><h2>Start Here</h2>
+<a class="" href="index.html" data-title="home">Home</a>
+<a class="" href="getting-started.html" data-title="getting started">Getting Started</a>
+<a class="" href="faq.html" data-title="faq">FAQ</a>
+<a class="" href="command-reference.html" data-title="command reference">Command Reference</a>
+<a class="" href="example-commands.html" data-title="example commands">Example Commands</a>
+<a class="" href="troubleshooting.html" data-title="troubleshooting">Troubleshooting</a>
+</section>
+<section class="nav-section"><h2>User Guides</h2>
+<a class="" href="build-and-install.html" data-title="build &amp; install">Build &amp; Install</a>
+<a class="" href="configuration.html" data-title="configuration">Configuration</a>
+<a class="" href="in-house-engine.html" data-title="in-house engine">In-House Engine</a>
+<a class="" href="lc0.html" data-title="lc0">LC0</a>
+<a class="" href="outputs-and-logs.html" data-title="outputs &amp; logs">Outputs &amp; Logs</a>
+<a class="" href="support.html" data-title="support">Support</a>
+</section>
+<section class="nav-section"><h2>Workflows</h2>
+<a class="" href="mining.html" data-title="mining puzzles">Mining Puzzles</a>
+<a class="" href="filter-dsl.html" data-title="filter dsl">Filter DSL</a>
+<a class="" href="datasets.html" data-title="datasets">Datasets</a>
+<a class="" href="book-publishing.html" data-title="book publishing">Book Publishing</a>
+<a class="" href="piece-tags.html" data-title="tags">Tags</a>
+<a class="" href="t5.html" data-title="t5 text">T5 Text</a>
+<a class="" href="ai-agents.html" data-title="ai agents">AI Agents</a>
+</section>
+<section class="nav-section"><h2>Development</h2>
+<a class="active" href="architecture.html" data-title="architecture">Architecture</a>
+<a class="" href="development-notes.html" data-title="development notes">Development Notes</a>
+<a class="" href="releasing.html" data-title="releasing">Releasing</a>
+<a class="" href="roadmap.html" data-title="roadmap">Roadmap</a>
+<a class="" href="glossary.html" data-title="glossary">Glossary</a>
+<a class="" href="tagging-implementation-plan.html" data-title="tagging plan">Tagging Plan</a>
+<a class="" href="wiki-index.html" data-title="wiki index">Wiki Index</a>
+</section></nav>
+    </aside>
+    <div class="page">
+      <header class="topbar">
+        <div>
+          <span>Development</span>
+          <strong>Architecture</strong>
+        </div>
+        <nav>
+          <a href="index.html">Home</a>
+          <a href="wiki-index.html">Wiki Index</a>
+          <a href="command-reference.html">Commands</a>
+        </nav>
+      </header>
+      
+      <main class="content-layout">
+        <article class="content">
+          <h1 id="architecture">Architecture</h1>
+<p>ChessRTK is organized around one shared Java position model. The goal is that a FEN accepted by one command means the same thing to every other command: notation conversion, legal move lists, perft, search, tags, datasets, rendering, and publishing all depend on the same chess rules implementation.</p>
+<h2 id="high-level-layers">High-Level Layers</h2>
+<p><img src="assets/diagrams/crtk-pipeline-overview.png" alt="ChessRTK pipeline overview" loading="lazy"></p>
+<ol>
+<li><code>chess.core</code></li>
+</ol>
+<ul>
+<li>mutable position state</li>
+<li>legal move generation</li>
+<li>make/undo state</li>
+<li>attack and pin helpers</li>
+<li>FEN, SAN, UCI move helpers</li>
+<li>Chess960 setup and castling behavior</li>
+</ul>
+<ol>
+<li><code>chess.debug</code></li>
+</ol>
+<ul>
+<li>perft and divide tools</li>
+<li>reference-suite validation</li>
+<li>diagnostics and logging helpers</li>
+</ul>
+<ol>
+<li><code>chess.engine</code> and <code>chess.eval</code></li>
+</ol>
+<ul>
+<li>built-in alpha-beta search</li>
+<li>classical, NNUE, and LC0-facing evaluator hooks</li>
+</ul>
+<ol>
+<li><code>chess.uci</code></li>
+</ol>
+<ul>
+<li>external engine protocol orchestration</li>
+<li>analysis parsing</li>
+<li>MultiPV, WDL, node, time, thread, and hash options</li>
+</ul>
+<ol>
+<li><code>application.cli</code></li>
+</ol>
+<ul>
+<li>stable command contracts</li>
+<li>grouped command dispatch</li>
+<li>config resolution and validation</li>
+</ul>
+<ol>
+<li>Workflow layers</li>
+</ol>
+<ul>
+<li>puzzle mining</li>
+<li>record filtering and export</li>
+<li>dataset generation</li>
+<li>image and PDF rendering</li>
+<li>Studio GUI and other GUI entry points</li>
+</ul>
+<h2 id="why-one-core-matters">Why One Core Matters</h2>
+<p>Chess workflows are coupled. If notation conversion and move generation use different assumptions, downstream results become hard to trust. ChessRTK avoids that by letting the same core answer these questions:</p>
+<ul>
+<li>Is the FEN legal?</li>
+<li>Which moves are legal?</li>
+<li>What is the SAN for this move?</li>
+<li>What position results after this line?</li>
+<li>Do perft counts match known reference positions?</li>
+<li>What should the renderer, tagger, dataset exporter, and book generator show?</li>
+</ul>
+<h2 id="command-flow">Command Flow</h2>
+<p>Most commands follow this shape:</p>
+<ol>
+<li>Parse CLI flags with <code>utility.Argv</code>.</li>
+<li>Resolve defaults through <code>application.Config</code>.</li>
+<li>Build a <code>Position</code> from FEN, PGN, generated input, or record data.</li>
+<li>Execute the command against the shared chess core.</li>
+<li>Emit a deterministic text, JSON, image, tensor, or PDF output.</li>
+</ol>
+<p>Commands that need engine analysis either:</p>
+<ul>
+<li>call the in-process Java engine through <code>chess.engine</code>, or</li>
+<li>start a configured UCI engine through <code>chess.uci</code>.</li>
+</ul>
+<h2 id="data-flow">Data Flow</h2>
+<p>Typical research pipeline:</p>
+<pre><code class="language-text">PGN/FEN/random seeds
+  -&gt; puzzle mine / engine analyze
+  -&gt; record files
+  -&gt; stats, tag-stats, analysis-delta
+  -&gt; PGN, CSV, JSONL, NPY, LC0 tensors, classifier tensors
+  -&gt; diagrams, books, or downstream training jobs</code></pre>
+<h2 id="important-design-constraints">Important Design Constraints</h2>
+<ul>
+<li>Keep core commands deterministic by default.</li>
+<li>Make node and time budgets explicit for engine work.</li>
+<li>Keep model files, engine binaries, dumps, and generated PDFs as local</li>
+</ul>
+<p>artifacts.</p>
+<ul>
+<li>Prefer line-based or structured outputs that are easy to script.</li>
+<li>Verify legality-sensitive changes with perft and SAN/FEN regressions.</li>
+</ul>
+<h2 id="related-pages">Related Pages</h2>
+<ul>
+<li><a href="development-notes.html">Development notes</a></li>
+<li><a href="command-reference.html">Command reference</a></li>
+<li><a href="in-house-engine.html">In-house Java engine</a></li>
+<li><a href="lc0.html">LC0 UCI engine and Java evaluator</a></li>
+<li><a href="datasets.html">Datasets</a></li>
+</ul>
+        </article>
+        <aside class="toc"><h2>On This Page</h2>
+<a class="toc-h2" href="#high-level-layers">High-Level Layers</a>
+<a class="toc-h2" href="#why-one-core-matters">Why One Core Matters</a>
+<a class="toc-h2" href="#command-flow">Command Flow</a>
+<a class="toc-h2" href="#data-flow">Data Flow</a>
+<a class="toc-h2" href="#important-design-constraints">Important Design Constraints</a>
+<a class="toc-h2" href="#related-pages">Related Pages</a></aside>
+      </main>
+      <footer class="footer">
+        <span>Generated from <code>wiki/architecture.md</code>.</span>
+        <span>Build with <code>python3 scripts/build_docs_site.py</code>.</span>
+      </footer>
+    </div>
+  </div>
+</body>
+</html>

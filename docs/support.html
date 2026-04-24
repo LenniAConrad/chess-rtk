@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Support | ChessRTK Wiki</title>
+  <link rel="stylesheet" href="styles.css">
+  <script defer src="search-index.js"></script>
+  <script defer src="site.js"></script>
+</head>
+<body>
+  <button class="menu-toggle" type="button" aria-label="Toggle navigation">Menu</button>
+  <div class="site-shell">
+    <aside class="sidebar">
+      <a class="brand" href="index.html">
+        <span class="brand-mark">CR</span>
+        <span><strong>ChessRTK</strong><small>Wiki</small></span>
+      </a>
+      <label class="search-label" for="doc-search">Search pages</label>
+      <input id="doc-search" class="search" type="search" placeholder="Search docs...">
+      <nav class="nav"><section class="nav-section"><h2>Start Here</h2>
+<a class="" href="index.html" data-title="home">Home</a>
+<a class="" href="getting-started.html" data-title="getting started">Getting Started</a>
+<a class="" href="faq.html" data-title="faq">FAQ</a>
+<a class="" href="command-reference.html" data-title="command reference">Command Reference</a>
+<a class="" href="example-commands.html" data-title="example commands">Example Commands</a>
+<a class="" href="troubleshooting.html" data-title="troubleshooting">Troubleshooting</a>
+</section>
+<section class="nav-section"><h2>User Guides</h2>
+<a class="" href="build-and-install.html" data-title="build &amp; install">Build &amp; Install</a>
+<a class="" href="configuration.html" data-title="configuration">Configuration</a>
+<a class="" href="in-house-engine.html" data-title="in-house engine">In-House Engine</a>
+<a class="" href="lc0.html" data-title="lc0">LC0</a>
+<a class="" href="outputs-and-logs.html" data-title="outputs &amp; logs">Outputs &amp; Logs</a>
+<a class="active" href="support.html" data-title="support">Support</a>
+</section>
+<section class="nav-section"><h2>Workflows</h2>
+<a class="" href="mining.html" data-title="mining puzzles">Mining Puzzles</a>
+<a class="" href="filter-dsl.html" data-title="filter dsl">Filter DSL</a>
+<a class="" href="datasets.html" data-title="datasets">Datasets</a>
+<a class="" href="book-publishing.html" data-title="book publishing">Book Publishing</a>
+<a class="" href="piece-tags.html" data-title="tags">Tags</a>
+<a class="" href="t5.html" data-title="t5 text">T5 Text</a>
+<a class="" href="ai-agents.html" data-title="ai agents">AI Agents</a>
+</section>
+<section class="nav-section"><h2>Development</h2>
+<a class="" href="architecture.html" data-title="architecture">Architecture</a>
+<a class="" href="development-notes.html" data-title="development notes">Development Notes</a>
+<a class="" href="releasing.html" data-title="releasing">Releasing</a>
+<a class="" href="roadmap.html" data-title="roadmap">Roadmap</a>
+<a class="" href="glossary.html" data-title="glossary">Glossary</a>
+<a class="" href="tagging-implementation-plan.html" data-title="tagging plan">Tagging Plan</a>
+<a class="" href="wiki-index.html" data-title="wiki index">Wiki Index</a>
+</section></nav>
+    </aside>
+    <div class="page">
+      <header class="topbar">
+        <div>
+          <span>User Guides</span>
+          <strong>Support</strong>
+        </div>
+        <nav>
+          <a href="index.html">Home</a>
+          <a href="wiki-index.html">Wiki Index</a>
+          <a href="command-reference.html">Commands</a>
+        </nav>
+      </header>
+      
+      <main class="content-layout">
+        <article class="content">
+          <h1 id="support">Support</h1>
+<p>This page describes the information that makes ChessRTK issues actionable.</p>
+<h2 id="before-reporting">Before Reporting</h2>
+<p>Run the local health checks that match the failure:</p>
+<pre><code class="language-bash">crtk doctor
+crtk config validate
+./scripts/run_regression_suite.sh recommended</code></pre>
+<p>For UCI engine problems:</p>
+<pre><code class="language-bash">crtk engine uci-smoke --nodes 1 --max-duration 5s --verbose</code></pre>
+<p>For move-generation or notation problems:</p>
+<pre><code class="language-bash">crtk engine perft-suite --depth 6 --threads 4
+crtk move list --fen &quot;&lt;FEN&gt;&quot; --format both</code></pre>
+<h2 id="include-this-in-bug-reports">Include This In Bug Reports</h2>
+<ul>
+<li>exact command line</li>
+<li>full FEN, PGN snippet, or input file shape</li>
+<li>expected behavior</li>
+<li>actual output or stack trace</li>
+<li>Java version from <code>java -version</code></li>
+<li>operating system</li>
+<li>whether the launcher or <code>java -cp out application.Main</code> was used</li>
+<li>external engine path and protocol TOML when UCI is involved</li>
+<li>whether <code>./scripts/run_regression_suite.sh recommended</code> passes</li>
+</ul>
+<h2 id="common-places-to-start">Common Places To Start</h2>
+<ul>
+<li>Setup failure: <a href="build-and-install.html">Build and install</a></li>
+<li>Engine failure: <a href="configuration.html">Configuration</a></li>
+<li>Command syntax: <a href="command-reference.html">Command reference</a></li>
+<li>Model files: <a href="lc0.html">LC0</a>, <a href="t5.html">T5</a>, and <code>models/README.md</code></li>
+<li>Generated outputs: <a href="outputs-and-logs.html">Outputs and logs</a></li>
+<li>Known operational issues: <a href="troubleshooting.html">Troubleshooting</a></li>
+</ul>
+<h2 id="security-notes">Security Notes</h2>
+<p>Do not paste private engine paths, private dataset paths, unpublished book manuscripts, or proprietary model locations unless they are needed and safe to share. Replace them with equivalent local examples where possible.</p>
+        </article>
+        <aside class="toc"><h2>On This Page</h2>
+<a class="toc-h2" href="#before-reporting">Before Reporting</a>
+<a class="toc-h2" href="#include-this-in-bug-reports">Include This In Bug Reports</a>
+<a class="toc-h2" href="#common-places-to-start">Common Places To Start</a>
+<a class="toc-h2" href="#security-notes">Security Notes</a></aside>
+      </main>
+      <footer class="footer">
+        <span>Generated from <code>wiki/support.md</code>.</span>
+        <span>Build with <code>python3 scripts/build_docs_site.py</code>.</span>
+      </footer>
+    </div>
+  </div>
+</body>
+</html>

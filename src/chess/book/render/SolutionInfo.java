@@ -1,6 +1,5 @@
 package chess.book.render;
 
-import chess.core.Move;
 import chess.core.Position;
 
 /**
@@ -17,7 +16,7 @@ final class SolutionInfo {
 	final Position result;
 
 	/**
-	 * Last move in compact internal form, or {@link Move#NO_MOVE}.
+	 * Last move in compact internal form, or {@link chess.core.Move#NO_MOVE}.
 	 */
 	final short lastMove;
 
@@ -30,7 +29,7 @@ final class SolutionInfo {
 	 * Creates a parsed solution description.
 	 *
 	 * @param result final position
-	 * @param lastMove last move, or {@link Move#NO_MOVE}
+	 * @param lastMove last move, or {@link chess.core.Move#NO_MOVE}
 	 * @param lastSanLabel move-numbered last SAN label
 	 */
 	SolutionInfo(Position result, short lastMove, String lastSanLabel) {

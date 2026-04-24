@@ -18,13 +18,13 @@ import static application.cli.Constants.OPT_TITLE;
 import static application.cli.Constants.OPT_VERBOSE;
 import static application.cli.Constants.OPT_VERBOSE_SHORT;
 import static application.cli.PathOps.deriveOutputPath;
+import static application.cli.command.CommandSupport.trimToNull;
 
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 
 import application.cli.PgnOps;
 import chess.book.render.MoveText;
@@ -35,7 +35,6 @@ import chess.io.Reader;
 import chess.pdf.Composition;
 import chess.pdf.Options;
 import chess.pdf.Writer;
-import chess.pdf.document.PageSize;
 import chess.struct.Game;
 import chess.struct.Record;
 import utility.Argv;
@@ -52,14 +51,6 @@ public final class ChessPdfCommand {
 	 * Current command label used in diagnostics.
 	 */
 	private static final String COMMAND_LABEL = "book pdf";
-
-	/**
-	 * Supported page-size names for the command-line option.
-	 */
-	private static final Map<String, PageSize> PAGE_SIZES = Map.of(
-			"a4", PageSize.A4,
-			"a5", PageSize.A5,
-			"letter", PageSize.LETTER);
 
 	/**
 	 * Utility class; prevent instantiation.
@@ -97,7 +88,7 @@ public final class ChessPdfCommand {
 			validateExclusiveSources(fenOptions, rest, input, pgn);
 
 			Options options = new Options()
-					.setPageSize(parsePageSize(pageSizeText))
+					.setPageSize(PdfCommandSupport.parsePageSize(pageSizeText))
 					.setDiagramsPerRow(diagramsPerRow)
 					.setBoardPixels(boardPixels)
 					.setWhiteSideDown(!blackDown)
@@ -449,23 +440,6 @@ public final class ChessPdfCommand {
 	}
 
 	/**
-	 * Parses the command-line page-size value.
-	 *
-	 * @param text page-size option text
-	 * @return matching page size
-	 */
-	private static PageSize parsePageSize(String text) {
-		if (text == null) {
-			return PageSize.A4;
-		}
-		PageSize pageSize = PAGE_SIZES.get(text.toLowerCase(Locale.ROOT));
-		if (pageSize == null) {
-			throw new IllegalArgumentException("unsupported page size '" + text + "' (use a4, a5, or letter)");
-		}
-		return pageSize;
-	}
-
-	/**
 	 * Resolves the default output path for a FEN-based export.
 	 *
 	 * @param output explicit output path
@@ -512,17 +486,4 @@ public final class ChessPdfCommand {
 		return dot > 0 ? name.substring(0, dot) : name;
 	}
 
-	/**
-	 * Trims a string and maps blanks to {@code null}.
-	 *
-	 * @param value source value
-	 * @return trimmed value or {@code null}
-	 */
-	private static String trimToNull(String value) {
-		if (value == null) {
-			return null;
-		}
-		String trimmed = value.trim();
-		return trimmed.isEmpty() ? null : trimmed;
-	}
 }

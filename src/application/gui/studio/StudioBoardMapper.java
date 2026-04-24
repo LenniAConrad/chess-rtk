@@ -10,6 +10,9 @@ import chess.core.Field;
  */
 public final class StudioBoardMapper {
 
+	/**
+	 * Utility constructor.
+	 */
 	private StudioBoardMapper() {
 		// utility
 	}

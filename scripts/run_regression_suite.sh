@@ -64,16 +64,17 @@ run_core() {
   run_test testing.PositionRegressionTest
   run_test testing.CoreMoveGenerationRegressionTest
   run_test testing.SANRegressionTest
+  run_test testing.JsonRegressionTest
   run_test testing.Chess960SetupRegressionTest
 }
 
 run_cli() {
   ensure_compiled
-  run_test testing.CliCommandRegressionTest
-  run_test testing.PgnRegressionTest
+  run_test testing.CLICommandRegressionTest
+  run_test testing.PGNRegressionTest
   run_test testing.ChessBookCommandRegressionTest
   run_test testing.ChessBookCoverCommandRegressionTest
-  run_test testing.ChessPdfCommandRegressionTest
+  run_test testing.ChessPDFCommandRegressionTest
 }
 
 run_engine() {
@@ -83,7 +84,7 @@ run_engine() {
 
 run_uci() {
   ensure_compiled
-  run_test testing.UciRegressionTest
+  run_test testing.UCIRegressionTest
   if command -v stockfish >/dev/null 2>&1; then
     run_java -cp out application.Main engine uci-smoke --nodes 1 --max-duration 5s
   elif [[ "$REQUIRE_STOCKFISH" == "1" ]]; then
@@ -97,8 +98,8 @@ run_uci() {
 run_book() {
   ensure_compiled
   run_headless_test testing.BookRegressionTest
-  run_headless_test testing.ChessPdfRegressionTest
-  run_test testing.PdfDocumentRegressionTest
+  run_headless_test testing.ChessPDFRegressionTest
+  run_test testing.PDFDocumentRegressionTest
 }
 
 run_perft_smoke() {

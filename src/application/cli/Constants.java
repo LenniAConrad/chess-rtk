@@ -191,6 +191,16 @@ public final class Constants {
 	public static final String OPT_FEN = "--fen";
 
 	/**
+	 * {@code --startpos} option flag.
+	 */
+	public static final String OPT_STARTPOS = "--startpos";
+
+	/**
+	 * {@code --randompos} option flag.
+	 */
+	public static final String OPT_RANDOMPOS = "--randompos";
+
+	/**
 	 * {@code --include-fen} option flag.
 	 */
 	public static final String OPT_INCLUDE_FEN = "--include-fen";
@@ -768,5 +778,6 @@ public final class Constants {
 	/**
 	 * Shared hint for commands that accept a FEN either via flag or positional input.
 	 */
-	public static final String MSG_FEN_REQUIRED_HINT = "use " + OPT_FEN + " or positional";
+	public static final String MSG_FEN_REQUIRED_HINT =
+			"use " + OPT_FEN + ", " + OPT_STARTPOS + ", " + OPT_RANDOMPOS + ", or positional";
 }

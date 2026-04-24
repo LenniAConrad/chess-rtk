@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ChessRTK Wiki | ChessRTK Wiki</title>
+  <link rel="stylesheet" href="styles.css">
+  <script defer src="search-index.js"></script>
+  <script defer src="site.js"></script>
+</head>
+<body>
+  <button class="menu-toggle" type="button" aria-label="Toggle navigation">Menu</button>
+  <div class="site-shell">
+    <aside class="sidebar">
+      <a class="brand" href="index.html">
+        <span class="brand-mark">CR</span>
+        <span><strong>ChessRTK</strong><small>Wiki</small></span>
+      </a>
+      <label class="search-label" for="doc-search">Search pages</label>
+      <input id="doc-search" class="search" type="search" placeholder="Search docs...">
+      <nav class="nav"><section class="nav-section"><h2>Start Here</h2>
+<a class="" href="index.html" data-title="home">Home</a>
+<a class="" href="getting-started.html" data-title="getting started">Getting Started</a>
+<a class="" href="faq.html" data-title="faq">FAQ</a>
+<a class="" href="command-reference.html" data-title="command reference">Command Reference</a>
+<a class="" href="example-commands.html" data-title="example commands">Example Commands</a>
+<a class="" href="troubleshooting.html" data-title="troubleshooting">Troubleshooting</a>
+</section>
+<section class="nav-section"><h2>User Guides</h2>
+<a class="" href="build-and-install.html" data-title="build &amp; install">Build &amp; Install</a>
+<a class="" href="configuration.html" data-title="configuration">Configuration</a>
+<a class="" href="in-house-engine.html" data-title="in-house engine">In-House Engine</a>
+<a class="" href="lc0.html" data-title="lc0">LC0</a>
+<a class="" href="outputs-and-logs.html" data-title="outputs &amp; logs">Outputs &amp; Logs</a>
+<a class="" href="support.html" data-title="support">Support</a>
+</section>
+<section class="nav-section"><h2>Workflows</h2>
+<a class="" href="mining.html" data-title="mining puzzles">Mining Puzzles</a>
+<a class="" href="filter-dsl.html" data-title="filter dsl">Filter DSL</a>
+<a class="" href="datasets.html" data-title="datasets">Datasets</a>
+<a class="" href="book-publishing.html" data-title="book publishing">Book Publishing</a>
+<a class="" href="piece-tags.html" data-title="tags">Tags</a>
+<a class="" href="t5.html" data-title="t5 text">T5 Text</a>
+<a class="" href="ai-agents.html" data-title="ai agents">AI Agents</a>
+</section>
+<section class="nav-section"><h2>Development</h2>
+<a class="" href="architecture.html" data-title="architecture">Architecture</a>
+<a class="" href="development-notes.html" data-title="development notes">Development Notes</a>
+<a class="" href="releasing.html" data-title="releasing">Releasing</a>
+<a class="" href="roadmap.html" data-title="roadmap">Roadmap</a>
+<a class="" href="glossary.html" data-title="glossary">Glossary</a>
+<a class="" href="tagging-implementation-plan.html" data-title="tagging plan">Tagging Plan</a>
+<a class="active" href="wiki-index.html" data-title="wiki index">Wiki Index</a>
+</section></nav>
+    </aside>
+    <div class="page">
+      <header class="topbar">
+        <div>
+          <span>Development</span>
+          <strong>ChessRTK Wiki</strong>
+        </div>
+        <nav>
+          <a href="index.html">Home</a>
+          <a href="wiki-index.html">Wiki Index</a>
+          <a href="command-reference.html">Commands</a>
+        </nav>
+      </header>
+      
+      <main class="content-layout">
+        <article class="content">
+          <h1 id="chessrtk-wiki">ChessRTK Wiki</h1>
+<p>Welcome to the ChessRTK documentation. This wiki is the project handbook: it starts with installation and first commands, then moves into configuration, engine workflows, mining, datasets, publishing, architecture, and maintenance.</p>
+<p>For a website-style version with sidebar navigation and readable page layout, open <code>docs/index.html</code> from the repository root or publish the <code>docs/</code> directory with GitHub Pages.</p>
+<p>If the launcher is not installed, replace <code>crtk &lt;command&gt; ...</code> with <code>java -cp out application.Main &lt;command&gt; ...</code> after building the project.</p>
+<h2 id="start-here">Start Here</h2>
+<ul>
+<li><a href="getting-started.html">Getting started</a> - build, install, verify, and run the</li>
+</ul>
+<p>first useful commands</p>
+<ul>
+<li><a href="faq.html">FAQ</a> - practical answers for new users</li>
+<li><a href="command-reference.html">Command reference</a> - grouped CLI surface and options</li>
+<li><a href="example-commands.html">Example commands</a> - copyable command recipes</li>
+<li><a href="troubleshooting.html">Troubleshooting</a> - common setup and runtime failures</li>
+</ul>
+<h2 id="guides-for-users">Guides For Users</h2>
+<ul>
+<li><a href="build-and-install.html">Build and install</a></li>
+<li><a href="configuration.html">Configuration</a></li>
+<li><a href="in-house-engine.html">Running engines</a></li>
+<li><a href="lc0.html">LC0 UCI engine and Java evaluator</a></li>
+<li><a href="outputs-and-logs.html">Outputs and logs</a></li>
+<li><a href="support.html">Support</a></li>
+</ul>
+<h2 id="workflows">Workflows</h2>
+<ul>
+<li><a href="mining.html">Mining puzzles</a></li>
+<li><a href="filter-dsl.html">Filter DSL</a></li>
+<li><a href="datasets.html">Datasets</a></li>
+<li><a href="book-publishing.html">Book publishing</a></li>
+<li><a href="piece-tags.html">Piece and position tags</a></li>
+<li><a href="t5.html">T5 tag-to-text pipeline</a></li>
+<li><a href="ai-agents.html">AI agents and automation</a></li>
+</ul>
+<h2 id="developer-documentation">Developer Documentation</h2>
+<ul>
+<li><a href="architecture.html">Architecture</a></li>
+<li><a href="development-notes.html">Development notes</a></li>
+<li><a href="releasing.html">Releasing</a></li>
+<li><a href="roadmap.html">Roadmap and ideas</a></li>
+<li><a href="glossary.html">Glossary</a></li>
+</ul>
+<h2 id="capability-map">Capability Map</h2>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Task</th>
+<th>Main commands</th>
+<th>Docs</th>
+</tr></thead><tbody>
+<tr>
+<td>Validate, normalize, and print positions</td>
+<td><code>fen validate</code>, <code>fen normalize</code>, <code>fen print</code></td>
+<td><a href="getting-started.html">Getting started</a>, <a href="command-reference.html">Command reference</a></td>
+</tr>
+<tr>
+<td>List, convert, and apply moves</td>
+<td><code>move list</code>, <code>move to-san</code>, <code>move to-uci</code>, <code>move after</code>, <code>move play</code></td>
+<td><a href="ai-agents.html">AI agents and automation</a>, <a href="command-reference.html">Command reference</a></td>
+</tr>
+<tr>
+<td>Verify move generation</td>
+<td><code>engine perft</code>, <code>engine perft-suite</code></td>
+<td><a href="architecture.html">Architecture</a>, <a href="development-notes.html">Development notes</a></td>
+</tr>
+<tr>
+<td>Analyze with UCI engines</td>
+<td><code>engine analyze</code>, <code>engine bestmove</code>, <code>engine threats</code>, <code>engine uci-smoke</code></td>
+<td><a href="configuration.html">Configuration</a>, <a href="troubleshooting.html">Troubleshooting</a></td>
+</tr>
+<tr>
+<td>Search in-process</td>
+<td><code>engine builtin</code>, <code>engine java</code></td>
+<td><a href="in-house-engine.html">In-house Java engine</a></td>
+</tr>
+<tr>
+<td>Mine and export puzzles</td>
+<td><code>puzzle mine</code>, <code>puzzle pgn</code>, <code>record files</code></td>
+<td><a href="mining.html">Mining puzzles</a>, <a href="filter-dsl.html">Filter DSL</a></td>
+</tr>
+<tr>
+<td>Tag positions and lines</td>
+<td><code>fen tags</code>, <code>puzzle tags</code>, <code>record tag-stats</code></td>
+<td><a href="piece-tags.html">Piece and position tags</a></td>
+</tr>
+<tr>
+<td>Export training data</td>
+<td><code>record dataset npy</code>, <code>record dataset lc0</code>, <code>record dataset classifier</code></td>
+<td><a href="datasets.html">Datasets</a></td>
+</tr>
+<tr>
+<td>Render diagrams and books</td>
+<td><code>fen render</code>, <code>book pdf</code>, <code>book render</code>, <code>book cover</code></td>
+<td><a href="book-publishing.html">Book publishing</a></td>
+</tr>
+<tr>
+<td>Automate safely</td>
+<td><code>doctor</code>, <code>config validate</code>, deterministic move and bestmove commands</td>
+<td><a href="ai-agents.html">AI agents and automation</a></td>
+</tr>
+</tbody></table></div>
+<h2 id="architecture-at-a-glance">Architecture At A Glance</h2>
+<p><img src="assets/diagrams/crtk-position-toolbox.png" alt="ChessRTK position toolbox" loading="lazy"></p>
+<p>ChessRTK is built around one shared Java position model. The same legality and notation code drives the CLI, perft validation, built-in search, tagging, dataset export, rendering, GUI tools, and publishing output.</p>
+<h2 id="quick-verification">Quick Verification</h2>
+<pre><code class="language-bash">mkdir -p out
+javac --release 17 -d out $(find src -name &quot;*.java&quot;)
+java -cp out testing.CoreMoveGenerationRegressionTest
+java -cp out application.Main move list --startpos --format both
+java -cp out application.Main engine builtin --startpos --depth 3 --format summary</code></pre>
+<p>For a broader pass:</p>
+<pre><code class="language-bash">./scripts/run_regression_suite.sh recommended</code></pre>
+<h2 id="project-policy-notes">Project Policy Notes</h2>
+<ul>
+<li>Java source and shell scripts are tracked.</li>
+<li>Local analysis dumps, models, generated PDFs, and build output are local</li>
+</ul>
+<p>artifacts and should stay out of git.</p>
+<ul>
+<li>UCI engines and model weights are optional. Core FEN, move, perft, and</li>
+</ul>
+<p>classical built-in search commands run in-process.</p>
+<ul>
+<li>Wiki pages describe implemented behavior unless a page is explicitly marked</li>
+</ul>
+<p>as roadmap or planning material.</p>
+        </article>
+        <aside class="toc"><h2>On This Page</h2>
+<a class="toc-h2" href="#start-here">Start Here</a>
+<a class="toc-h2" href="#guides-for-users">Guides For Users</a>
+<a class="toc-h2" href="#workflows">Workflows</a>
+<a class="toc-h2" href="#developer-documentation">Developer Documentation</a>
+<a class="toc-h2" href="#capability-map">Capability Map</a>
+<a class="toc-h2" href="#architecture-at-a-glance">Architecture At A Glance</a>
+<a class="toc-h2" href="#quick-verification">Quick Verification</a>
+<a class="toc-h2" href="#project-policy-notes">Project Policy Notes</a></aside>
+      </main>
+      <footer class="footer">
+        <span>Generated from <code>wiki/README.md</code>.</span>
+        <span>Build with <code>python3 scripts/build_docs_site.py</code>.</span>
+      </footer>
+    </div>
+  </div>
+</body>
+</html>
