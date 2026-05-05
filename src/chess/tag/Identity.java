@@ -53,12 +53,18 @@ final class Identity {
                 return tacticIdentity(line);
             case THREAT:
                 return THREAT + COLON + line.fields.get(TYPE) + COLON + line.fields.get(SIDE);
+            case CAND:
+                return CAND + COLON + line.fields.getOrDefault(ROLE, firstKey(line));
+            case PV:
+                return PV;
             case SPACE, INITIATIVE, DEVELOPMENT, MOBILITY:
                 return fam;
             case OUTPOST:
                 return OUTPOST + COLON + line.fields.get(SIDE) + COLON + line.fields.get(SQUARE) + COLON
                         + line.fields.get(PIECE_KEY);
-            case ENDGAME, OPENING:
+            case ENDGAME:
+                return firstFieldIdentity(ENDGAME, line);
+            case OPENING:
                 return fam + COLON + firstKey(line);
             default:
                 return line.raw;
@@ -79,7 +85,29 @@ final class Identity {
         if (hasFields(line, PIECE_KEY, COUNT, SIDE)) {
             return MATERIAL + COLON + PIECE_COUNT + COLON + line.fields.get(SIDE) + COLON + line.fields.get(PIECE_KEY);
         }
+        if (line.fields.containsKey(IMBALANCE)) {
+            return MATERIAL + COLON + IMBALANCE + COLON + line.fields.get(IMBALANCE);
+        }
         return MATERIAL + COLON + firstKey(line);
+    }
+
+    /**
+     * Builds an identity from the first field key and value.
+     * <p>
+     * This is used for families that can emit several entries with the same key
+     * but different enum values.
+     * </p>
+     *
+     * @param family the tag family
+     * @param line the parsed tag line
+     * @return the identity using the first field key and value
+     */
+    private static String firstFieldIdentity(String family, Line line) {
+        String key = firstKey(line);
+        if (key.isEmpty()) {
+            return family + COLON;
+        }
+        return family + COLON + key + COLON + line.fields.get(key);
     }
 
     /**
@@ -162,6 +190,10 @@ final class Identity {
      * @return the normalized tactical identity
      */
     private static String tacticIdentity(Line line) {
+        if (line.fields.containsKey(MOVE)) {
+            return TACTIC + COLON + line.fields.get(MOTIF) + COLON + line.fields.get(MOVE)
+                    + tacticMoveSuffix(line);
+        }
         if (line.fields.containsKey(DETAIL)) {
             return TACTIC + COLON + line.fields.get(MOTIF) + COLON + line.fields.get(DETAIL);
         }
@@ -169,6 +201,28 @@ final class Identity {
             return TACTIC + COLON + line.fields.get(MOTIF) + COLON + line.fields.get(SIDE);
         }
         return TACTIC + COLON + line.fields.get(MOTIF);
+    }
+
+    /**
+     * Builds a distinguishing suffix for move-specific tactical tags.
+     *
+     * @param line the tactical tag line
+     * @return a suffix that distinguishes multiple tags for the same move
+     */
+    private static String tacticMoveSuffix(Line line) {
+        if (line.fields.containsKey("target")) {
+            return COLON + line.fields.get("target");
+        }
+        if (line.fields.containsKey("front") || line.fields.containsKey("behind")) {
+            return COLON + line.fields.get("front") + COLON + line.fields.get("behind");
+        }
+        if (line.fields.containsKey("targets")) {
+            return COLON + line.fields.get("targets");
+        }
+        if (line.fields.containsKey(SQUARE)) {
+            return COLON + line.fields.get(SQUARE);
+        }
+        return EMPTY;
     }
 
     /**

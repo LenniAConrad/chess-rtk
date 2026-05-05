@@ -690,6 +690,10 @@ final class Svg {
 		if (value.contains("courier") || value.contains("mono")) {
 			return Font.COURIER;
 		}
+		if (value.contains("sans-serif") || value.contains("arial") || value.contains("helvetica")
+				|| value.contains("nimbus sans")) {
+			return bold ? Font.HELVETICA_BOLD : Font.HELVETICA;
+		}
 		if (value.contains("times") || value.contains("serif")) {
 			return bold ? Font.TIMES_BOLD : Font.TIMES_ROMAN;
 		}

@@ -190,11 +190,12 @@ public final class NNUERegressionTest {
 		float[] featureBias = new float[hidden];
 		float[] featureWeights = new float[FeatureEncoder.FEATURE_COUNT * hidden];
 		float[] outputWeights = new float[hidden * 2];
-		for (int feature = 0; feature < FeatureEncoder.FEATURE_COUNT; feature++) {
-			int base = feature * hidden;
-			featureWeights[base] = ((feature % 29) - 14) * 0.0006f;
-			featureWeights[base + 1] = (((feature / 29) % 23) - 11) * 0.0005f;
-		}
+			for (int feature = 0; feature < FeatureEncoder.FEATURE_COUNT; feature++) {
+				int base = feature * hidden;
+				int featureBand = (feature / 29) % 23;
+				featureWeights[base] = ((feature % 29) - 14) * 0.0006f;
+				featureWeights[base + 1] = (featureBand - 11) * 0.0005f;
+			}
 		outputWeights[0] = 850.0f;
 		outputWeights[1] = -675.0f;
 		outputWeights[hidden] = -725.0f;

@@ -9,6 +9,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 
+import chess.classical.Wdl;
 import chess.core.Move;
 import chess.core.Position;
 import chess.engine.AlphaBeta;
@@ -25,6 +26,7 @@ import chess.nn.nnue.FeatureEncoder;
  * @since 2026
  * @author Lennart A. Conrad
  */
+@SuppressWarnings({"java:S1192", "squid:S1192"})
 public final class BuiltInEngineRegressionTest {
 
 	/**
@@ -58,6 +60,11 @@ public final class BuiltInEngineRegressionTest {
 	private static final String SUMMARY_FORMAT = "summary";
 
 	/**
+	 * Summary prefix for the reported best move.
+	 */
+	private static final String BEST_PREFIX = "best: ";
+
+	/**
 	 * Shared classical-evaluator token.
 	 */
 	private static final String CLASSICAL_EVALUATOR = "classical";
@@ -87,6 +94,18 @@ public final class BuiltInEngineRegressionTest {
 			"8/8/8/8/8/8/8/K6k w - - 0 1";
 
 	/**
+	 * Legal position where White has an extra queen.
+	 */
+	private static final String WHITE_UP_QUEEN_FEN =
+			"4k3/8/8/8/8/8/8/Q3K3 w - - 0 1";
+
+	/**
+	 * Legal position where Black has an extra queen.
+	 */
+	private static final String BLACK_UP_QUEEN_FEN =
+			"q3k3/8/8/8/8/8/8/4K3 b - - 0 1";
+
+	/**
 	 * Utility class; prevent instantiation.
 	 */
 	private BuiltInEngineRegressionTest() {
@@ -106,6 +125,7 @@ public final class BuiltInEngineRegressionTest {
 		testNodeBudgetStop();
 		testPrimedRootFallbackOrdering();
 		testEvaluatorSelection();
+		testClassicalEvaluatorSanity();
 		testCliFormats();
 		testNnueCliEvaluator();
 		System.out.println("BuiltInEngineRegressionTest: all checks passed");
@@ -202,6 +222,28 @@ public final class BuiltInEngineRegressionTest {
 	}
 
 	/**
+	 * Verifies basic classical-evaluator sign and material sanity without pinning
+	 * exact centipawn constants.
+	 */
+	private static void testClassicalEvaluatorSanity() {
+		Position start = new Position(START_FEN);
+		assertTrue(Math.abs(Wdl.evaluateWhiteCentipawns(start)) < 50,
+				"classical start position near equal");
+
+		Position whiteUpQueen = new Position(WHITE_UP_QUEEN_FEN);
+		assertTrue(Wdl.evaluateWhiteCentipawns(whiteUpQueen) > 700,
+				"classical white extra queen is clearly winning");
+		assertTrue(Wdl.evaluateStmCentipawns(whiteUpQueen) > 700,
+				"classical white-to-move score follows side to move");
+
+		Position blackUpQueen = new Position(BLACK_UP_QUEEN_FEN);
+		assertTrue(Wdl.evaluateWhiteCentipawns(blackUpQueen) < -700,
+				"classical black extra queen is clearly winning");
+		assertTrue(Wdl.evaluateStmCentipawns(blackUpQueen) > 700,
+				"classical black-to-move score follows side to move");
+	}
+
+	/**
 	 * Verifies the CLI wrapper exposes compact and summary formats.
 	 */
 	private static void testCliFormats() {
@@ -214,7 +256,7 @@ public final class BuiltInEngineRegressionTest {
 		String summary = TestSupport.runMain(ENGINE_COMMAND, "java", FEN_OPTION, MATE_IN_ONE_FEN, DEPTH_OPTION, "1",
 				"--evaluator", CLASSICAL_EVALUATOR, FORMAT_OPTION, SUMMARY_FORMAT);
 		assertTrue(summary.contains("evaluator: " + CLASSICAL_EVALUATOR), "engine java summary evaluator");
-		assertTrue(summary.contains("best: g6g7 (Qg7#)"), "engine java summary best move");
+		assertTrue(summary.contains(BEST_PREFIX + "g6g7 (Qg7#)"), "engine java summary best move");
 		assertTrue(summary.contains("score: #1"), "engine java summary score");
 
 		String uciInfo = TestSupport.runMain(ENGINE_COMMAND, BUILTIN_COMMAND, FEN_OPTION, SIMPLE_FEN,
@@ -225,11 +267,11 @@ public final class BuiltInEngineRegressionTest {
 
 		String startSummary = TestSupport.runMain(
 				ENGINE_COMMAND, BUILTIN_COMMAND, "--startpos", DEPTH_OPTION, "1", FORMAT_OPTION, SUMMARY_FORMAT);
-		assertTrue(startSummary.contains("best: "), "engine builtin --startpos summary best move");
+		assertTrue(startSummary.contains(BEST_PREFIX), "engine builtin --startpos summary best move");
 
 		String randomSummary = TestSupport.runMain(
 				ENGINE_COMMAND, BUILTIN_COMMAND, "--randompos", DEPTH_OPTION, "1", FORMAT_OPTION, SUMMARY_FORMAT);
-		assertTrue(randomSummary.contains("best: "), "engine builtin --randompos summary best move");
+		assertTrue(randomSummary.contains(BEST_PREFIX), "engine builtin --randompos summary best move");
 
 		String capped = TestSupport.runMain(ENGINE_COMMAND, BUILTIN_COMMAND, FEN_OPTION, START_FEN,
 				DEPTH_OPTION, "10", "--max-duration", "1ms");

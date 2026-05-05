@@ -46,6 +46,7 @@ import utility.Json;
  *
  * @since 2026
  */
+@SuppressWarnings("java:S107")
 public final class TagTextCommand {
 
     /**

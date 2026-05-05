@@ -1,7 +1,7 @@
 package chess.classical;
 
-import chess.core.Field;
-import chess.core.Piece;
+import chess.core.Bits;
+import chess.core.MoveGenerator;
 import chess.core.Position;
 
 /**
@@ -9,7 +9,7 @@ import chess.core.Position;
  *
  * <p>
  * Mobility here means the number of <strong>pseudo-legal</strong> destinations
- * available to each side from the current board layout:
+ * available to each side from the current bitboard layout:
  * </p>
  * <ul>
  * <li>Moves are counted if the destination square is empty or occupied by an
@@ -56,84 +56,6 @@ public final class Mobility {
     private static final double MOBILITY_WEIGHT = 0.08;
 
     /**
-     * Precomputed diagonal rays used for bishop and queen mobility scans.
-     *
-     * <p>
-     * Indexed as {@code rays[fromSquare][rayIndex][stepIndex]} and contains only
-     * on-board squares.
-     * </p>
-     */
-    private static final byte[][][] DIAGONAL_RAYS = Field.getDiagonals();
-
-    /**
-     * Precomputed orthogonal rays used for rook and queen mobility scans.
-     *
-     * <p>
-     * Indexed as {@code rays[fromSquare][rayIndex][stepIndex]} and contains only
-     * on-board squares.
-     * </p>
-     */
-    private static final byte[][][] ORTHOGONAL_RAYS = Field.getLines();
-
-    /**
-     * Candidate destination offsets for knights.
-     *
-     * <p>
-     * Indexed as {@code jumps[fromSquare][i]}.
-     * </p>
-     */
-    private static final byte[][] KNIGHT_JUMPS = Field.getJumps();
-
-    /**
-     * Candidate destination offsets for kings.
-     *
-     * <p>
-     * Indexed as {@code neighbors[fromSquare][i]}.
-     * </p>
-     */
-    private static final byte[][] KING_NEIGHBORS = Field.getNeighbors();
-
-    /**
-     * Pawn push targets for White.
-     *
-     * <p>
-     * Typically includes one-step and (where applicable) two-step pushes. The
-     * caller stops scanning pushes on the first occupied square.
-     * </p>
-     */
-    private static final byte[][] PAWN_PUSH_WHITE = Field.getPawnPushWhite();
-
-    /**
-     * Pawn push targets for Black.
-     *
-     * <p>
-     * Typically includes one-step and (where applicable) two-step pushes. The
-     * caller stops scanning pushes on the first occupied square.
-     * </p>
-     */
-    private static final byte[][] PAWN_PUSH_BLACK = Field.getPawnPushBlack();
-
-    /**
-     * Pawn capture targets for White.
-     *
-     * <p>
-     * Note: en passant is not represented here; only direct captures onto an
-     * occupied enemy square are counted.
-     * </p>
-     */
-    private static final byte[][] PAWN_CAPTURE_WHITE = Field.getPawnCaptureWhite();
-
-    /**
-     * Pawn capture targets for Black.
-     *
-     * <p>
-     * Note: en passant is not represented here; only direct captures onto an
-     * occupied enemy square are counted.
-     * </p>
-     */
-    private static final byte[][] PAWN_CAPTURE_BLACK = Field.getPawnCaptureBlack();
-
-    /**
      * Private constructor to prevent instantiation of this utility class.
      */
     private Mobility() {
@@ -149,9 +71,9 @@ public final class Mobility {
      *         dominates
      */
     public static double evaluate(Position pos) {
-        byte[] board = pos.getBoard();
-        int whiteMobility = countSideMobility(board, true);
-        int blackMobility = countSideMobility(board, false);
+        long occupancy = pos.occupancy();
+        int whiteMobility = countSideMobility(pos, true, occupancy);
+        int blackMobility = countSideMobility(pos, false, occupancy);
         return (whiteMobility - blackMobility) * MOBILITY_WEIGHT;
     }
 
@@ -159,43 +81,36 @@ public final class Mobility {
      * Counts all pseudo-legal target squares reachable by the given side.
      *
      * <p>
-     * This is a board-only scan (no side-to-move, no check constraints). It is
+     * This is a bitboard-only scan (no side-to-move, no check constraints). It is
      * therefore suitable as a cheap feature in other evaluators.
      * </p>
      *
-     * @param board the board array to evaluate
-     * @param white {@code true} to count White's mobility; {@code false} for Black
+     * @param pos       the position to evaluate
+     * @param white     {@code true} to count White's mobility; {@code false} for Black
+     * @param occupancy occupied-square mask for both sides
      * @return the mobility count for the requested side
      */
-    private static int countSideMobility(byte[] board, boolean white) {
+    private static int countSideMobility(Position pos, boolean white, long occupancy) {
         int mobility = 0;
-        for (int square = 0; square < board.length; square++) {
-            byte piece = board[square];
-            if (piece == Piece.EMPTY || white != Piece.isWhite(piece)) {
-                continue;
-            }
-
-            if (Piece.isPawn(piece)) {
-                mobility += countPawnMobility(board, square, white);
-            } else if (Piece.isKnight(piece)) {
-                mobility += countStaticMoves(board, square, KNIGHT_JUMPS, white);
-            } else if (Piece.isKing(piece)) {
-                mobility += countStaticMoves(board, square, KING_NEIGHBORS, white);
-            } else if (Piece.isBishop(piece)) {
-                mobility += countSlidingMoves(board, square, DIAGONAL_RAYS, white);
-            } else if (Piece.isRook(piece)) {
-                mobility += countSlidingMoves(board, square, ORTHOGONAL_RAYS, white);
-            } else if (Piece.isQueen(piece)) {
-                mobility += countSlidingMoves(board, square, DIAGONAL_RAYS, white);
-                mobility += countSlidingMoves(board, square, ORTHOGONAL_RAYS, white);
-            }
-        }
+        long own = pos.occupancy(white);
+        long enemyKing = pos.pieces(white ? Position.BLACK_KING : Position.WHITE_KING);
+        mobility += countPawnMobility(pos, white, occupancy);
+        mobility += countLeaperMobility(pos.pieces(white ? Position.WHITE_KNIGHT : Position.BLACK_KNIGHT),
+                own, enemyKing, true);
+        mobility += countLeaperMobility(pos.pieces(white ? Position.WHITE_KING : Position.BLACK_KING),
+                own, enemyKing, false);
+        mobility += countBishopMobility(pos.pieces(white ? Position.WHITE_BISHOP : Position.BLACK_BISHOP),
+                own, enemyKing, occupancy);
+        mobility += countRookMobility(pos.pieces(white ? Position.WHITE_ROOK : Position.BLACK_ROOK),
+                own, enemyKing, occupancy);
+        mobility += countQueenMobility(pos.pieces(white ? Position.WHITE_QUEEN : Position.BLACK_QUEEN),
+                own, enemyKing, occupancy);
         return mobility;
     }
 
     /**
-     * Counts how many pawn pushes and captures are currently available from the
-     * given square.
+     * Counts how many pawn pushes and captures are currently available for all
+     * pawns of one side.
      *
      * <p>
      * Pushes are counted in-order (one-step, then optional two-step) and stop at
@@ -203,30 +118,25 @@ public final class Mobility {
      * present on the target square.
      * </p>
      *
-     * @param board  current board layout
-     * @param square square containing the pawn
-     * @param white  {@code true} if the pawn belongs to White
+     * @param pos       current position
+     * @param white     {@code true} if the pawn belongs to White
+     * @param occupancy occupied-square mask for both sides
      * @return number of reachable pawn target squares
      */
-    private static int countPawnMobility(byte[] board, int square, boolean white) {
-        int mobility = 0;
-        byte[][] pushTargets = white ? PAWN_PUSH_WHITE : PAWN_PUSH_BLACK;
-        byte[][] captureTargets = white ? PAWN_CAPTURE_WHITE : PAWN_CAPTURE_BLACK;
-
-        for (byte to : pushTargets[square]) {
-            if (Piece.isEmpty(board[to])) {
-                mobility++;
-            } else {
-                break;
-            }
+    private static int countPawnMobility(Position pos, boolean white, long occupancy) {
+        long pawns = pos.pieces(white ? Position.WHITE_PAWN : Position.BLACK_PAWN);
+        long empty = ~occupancy;
+        long enemies = pos.occupancy(!white) & ~pos.pieces(white ? Position.BLACK_KING : Position.WHITE_KING);
+        if (white) {
+            long single = (pawns >>> 8) & empty;
+            long doubles = ((single & Bits.RANK_3) >>> 8) & empty;
+            long captures = (((pawns & ~Bits.FILE_A) >>> 9) | ((pawns & ~Bits.FILE_H) >>> 7)) & enemies;
+            return Long.bitCount(single) + Long.bitCount(doubles) + Long.bitCount(captures);
         }
-
-        for (byte to : captureTargets[square]) {
-            if (isEnemy(white, board[to])) {
-                mobility++;
-            }
-        }
-        return mobility;
+        long single = (pawns << 8) & empty;
+        long doubles = ((single & Bits.RANK_6) << 8) & empty;
+        long captures = (((pawns & ~Bits.FILE_A) << 7) | ((pawns & ~Bits.FILE_H) << 9)) & enemies;
+        return Long.bitCount(single) + Long.bitCount(doubles) + Long.bitCount(captures);
     }
 
     /**
@@ -237,19 +147,20 @@ public final class Mobility {
      * Friendly-occupied squares are not counted.
      * </p>
      *
-     * @param board   current board layout
-     * @param square  source square
-     * @param offsets precomputed offsets for the piece
-     * @param white   whether the piece belongs to White
+     * @param pieces    source-piece bitboard
+     * @param own       own occupancy
+     * @param enemyKing enemy king mask, excluded from pseudo-captures
+     * @param knight    true for knights, false for kings
      * @return number of target squares that are empty or contain enemy pieces
      */
-    private static int countStaticMoves(byte[] board, int square, byte[][] offsets, boolean white) {
+    private static int countLeaperMobility(long pieces, long own, long enemyKing, boolean knight) {
         int mobility = 0;
-        for (byte to : offsets[square]) {
-            byte occupant = board[to];
-            if (Piece.isEmpty(occupant) || isEnemy(white, occupant)) {
-                mobility++;
-            }
+        long forbidden = own | enemyKing;
+        while (pieces != 0L) {
+            int from = Long.numberOfTrailingZeros(pieces);
+            pieces &= pieces - 1L;
+            long attacks = knight ? MoveGenerator.knightAttacks(from) : MoveGenerator.kingAttacks(from);
+            mobility += Long.bitCount(attacks & ~forbidden);
         }
         return mobility;
     }
@@ -263,45 +174,61 @@ public final class Mobility {
      * terminates.
      * </p>
      *
-     * @param board  current board state
-     * @param square source square
-     * @param rays   precomputed rays to traverse
-     * @param white  whether the sliding piece belongs to White
+     * @param pieces    source-piece bitboard
+     * @param own       own occupancy
+     * @param enemyKing enemy king mask, excluded from pseudo-captures
+     * @param occupancy occupied-square mask for both sides
      * @return number of legal destinations along the rays
      */
-    private static int countSlidingMoves(byte[] board, int square, byte[][][] rays, boolean white) {
+    private static int countBishopMobility(long pieces, long own, long enemyKing, long occupancy) {
         int mobility = 0;
-        for (byte[] ray : rays[square]) {
-            for (byte to : ray) {
-                byte occupant = board[to];
-                if (Piece.isEmpty(occupant)) {
-                    mobility++;
-                } else {
-                    if (isEnemy(white, occupant)) {
-                        mobility++;
-                    }
-                    break;
-                }
-            }
+        long forbidden = own | enemyKing;
+        while (pieces != 0L) {
+            int from = Long.numberOfTrailingZeros(pieces);
+            pieces &= pieces - 1L;
+            mobility += Long.bitCount(MoveGenerator.bishopAttacks(from, occupancy) & ~forbidden);
         }
         return mobility;
     }
 
     /**
-     * Determines whether a piece belongs to the opposing side.
+     * Counts reachable squares for rooks.
      *
-     * <p>
-     * This helper treats {@link Piece#EMPTY} as "not an enemy".
-     * </p>
-     *
-     * @param white reference color (true for White)
-     * @param piece the piece to test
-     * @return {@code true} if {@code piece} belongs to the opponent
+     * @param pieces    source-piece bitboard
+     * @param own       own occupancy
+     * @param enemyKing enemy king mask, excluded from pseudo-captures
+     * @param occupancy occupied-square mask for both sides
+     * @return number of legal destinations along rook rays
      */
-    private static boolean isEnemy(boolean white, byte piece) {
-        if (Piece.isEmpty(piece)) {
-            return false;
+    private static int countRookMobility(long pieces, long own, long enemyKing, long occupancy) {
+        int mobility = 0;
+        long forbidden = own | enemyKing;
+        while (pieces != 0L) {
+            int from = Long.numberOfTrailingZeros(pieces);
+            pieces &= pieces - 1L;
+            mobility += Long.bitCount(MoveGenerator.rookAttacks(from, occupancy) & ~forbidden);
         }
-        return white ? Piece.isBlack(piece) : Piece.isWhite(piece);
+        return mobility;
+    }
+
+    /**
+     * Counts reachable squares for queens.
+     *
+     * @param pieces    source-piece bitboard
+     * @param own       own occupancy
+     * @param enemyKing enemy king mask, excluded from pseudo-captures
+     * @param occupancy occupied-square mask for both sides
+     * @return number of legal destinations along queen rays
+     */
+    private static int countQueenMobility(long pieces, long own, long enemyKing, long occupancy) {
+        int mobility = 0;
+        long forbidden = own | enemyKing;
+        while (pieces != 0L) {
+            int from = Long.numberOfTrailingZeros(pieces);
+            pieces &= pieces - 1L;
+            long attacks = MoveGenerator.bishopAttacks(from, occupancy) | MoveGenerator.rookAttacks(from, occupancy);
+            mobility += Long.bitCount(attacks & ~forbidden);
+        }
+        return mobility;
     }
 }

@@ -637,6 +637,17 @@ crtk puzzle pgn --input dump/run.puzzles.json --output dump/run.pgn</code></pre>
 <li><a href="#chapter-filter-dsl">Filter DSL</a></li>
 <li><a href="#chapter-outputs-and-logs">Outputs and Logs</a></li>
 </ul>
+<h2 id="chapter-use-cases-i-want-to-generate-filtered-position-sets">I Want To Generate Filtered Position Sets</h2>
+<p>Use <code>gen fens</code> when you need reusable FEN shards for training, test corpora, or targeted engine checks. Filters combine with AND, so every selected condition must match.</p>
+<pre><code class="language-bash">crtk gen fens --output endgames/ --files 2 --per-file 500 --endgame --max-material-imbalance 300
+crtk gen fens --output rook-endgames/ --files 1 --per-file 200 --rook-endgame --rooks 2
+crtk gen fens --output specials/ --files 1 --per-file 50 --promotion --capture --max-attempts 1000000</code></pre>
+<p>Read next:</p>
+<ul>
+<li><a href="#chapter-command-reference">Command Reference</a></li>
+<li><a href="#chapter-example-commands">Example Commands</a></li>
+<li><a href="#chapter-datasets">Datasets</a></li>
+</ul>
 <h2 id="chapter-use-cases-i-want-to-build-training-data">I Want To Build Training Data</h2>
 <p>Use <code>record</code> commands after mining or importing analysis records.</p>
 <pre><code class="language-bash">crtk record files -i dump/ -o dump/merged.json --recursive --puzzles
@@ -746,6 +757,18 @@ crtk engine builtin --startpos --depth 3 --format summary</code></pre>
 <tr>
 <td>Generate Chess960 start</td>
 <td><code>crtk fen chess960 518</code></td>
+</tr>
+<tr>
+<td>Generate random FEN shards</td>
+<td><code>crtk fen generate --output shards/ --files 2 --per-file 20 --chess960-files 1</code></td>
+</tr>
+<tr>
+<td>Generate endgame shards</td>
+<td><code>crtk gen fens --output endgames/ --files 1 --per-file 100 --endgame</code></td>
+</tr>
+<tr>
+<td>Generate special-move shards</td>
+<td><code>crtk gen fens --output specials/ --files 1 --per-file 25 --en-passant --max-attempts 250000</code></td>
 </tr>
 <tr>
 <td>Render a PNG board</td>
@@ -1081,7 +1104,7 @@ crtk engine builtin --startpos --depth 3 --format summary</code></pre>
 </tr>
 <tr>
 <td>Publishing</td>
-<td><code>book ilovechess</code>, <code>book artofchess</code>, <code>book render</code>, <code>book cover</code>, <code>book pdf</code></td>
+<td><code>book collection</code>, <code>book study</code>, <code>book render</code>, <code>book cover</code>, <code>book pdf</code></td>
 </tr>
 <tr>
 <td>Local health checks</td>
@@ -1223,11 +1246,16 @@ crtk engine builtin --lc0 --weights models/leela_112planes-10blocksx128-policyhe
 <p>Grouped book and diagram PDF workflows.</p>
 <p>Usage:</p>
 <ul>
-<li><code>crtk book ilovechess ...</code>: build an I Love Chess-style book manifest from record JSON/JSONL</li>
-<li><code>crtk book artofchess ...</code>: render an annotated Art of Chess manifest to PDF, cover, and optional normalized TOML</li>
+<li><code>crtk book collection ...</code>: build a dense puzzle-collection book manifest from record JSON/JSONL</li>
+<li><code>crtk book study ...</code>: render annotated puzzle studies to PDF, cover, and optional normalized TOML</li>
 <li><code>crtk book render ...</code>: render a chess-book JSON/TOML file to a native PDF</li>
 <li><code>crtk book cover ...</code>: render a native PDF cover for a chess-book file</li>
 <li><code>crtk book pdf ...</code>: export chess diagrams to a PDF</li>
+</ul>
+<p>Compatibility aliases:</p>
+<ul>
+<li><code>book ilovechess</code> -&gt; <code>book collection</code></li>
+<li><code>book artofchess</code> / <code>book art</code> -&gt; <code>book study</code></li>
 </ul>
 <h2 id="chapter-command-reference-puzzle"><code>puzzle</code></h2>
 <p>Grouped puzzle mining, conversion, tag, and text workflows.</p>
@@ -1392,8 +1420,51 @@ crtk engine builtin --lc0 --weights models/leela_112planes-10blocksx128-policyhe
 <li><code>--per-file &lt;n&gt;</code> / <code>--fens-per-file &lt;n&gt;</code>: FENs per file (default <code>100000</code>)</li>
 <li><code>--chess960-files &lt;n&gt;</code> / <code>--chess960 &lt;n&gt;</code>: how many of the first shard files use Chess960 starts (default <code>100</code>)</li>
 <li><code>--batch &lt;n&gt;</code>: positions generated per batch (default <code>2048</code>)</li>
+<li><code>--max-attempts &lt;n&gt;</code>: maximum candidate positions sampled per shard when filters are selective</li>
 <li><code>--ascii</code>: ASCII progress bar (useful when Unicode is borked)</li>
 <li><code>--verbose|-v</code>: print stack trace on failure</li>
+</ul>
+<p>Filters combine with AND: every selected condition must match.</p>
+<p>Filtering presets:</p>
+<ul>
+<li><code>--stage &lt;name&gt;</code>: <code>endgame</code>, <code>late-endgame</code>, <code>king-pawn</code>, <code>minor</code>, <code>rook</code>, or <code>queenless</code></li>
+<li><code>--endgame</code>: queenless positions with at most 14 total pieces</li>
+<li><code>--late-endgame</code>: queenless positions with at most 8 total pieces</li>
+<li><code>--king-pawn-endgame</code>: no queens, rooks, bishops, or knights</li>
+<li><code>--minor-endgame</code>: queenless minor-piece endgames without rooks</li>
+<li><code>--rook-endgame</code>: queenless rook endgames without minor pieces</li>
+<li><code>--queenless</code>, <code>--opposite-bishops</code></li>
+</ul>
+<p>Move-state filters:</p>
+<ul>
+<li><code>--side white|black|w|b</code></li>
+<li><code>--in-check</code>, <code>--not-in-check</code>, <code>--checkmate</code>, <code>--stalemate</code></li>
+<li><code>--en-passant</code> / <code>--ep</code>: legal en-passant capture available</li>
+<li><code>--promotion</code>, <code>--underpromotion</code>, <code>--capture</code></li>
+<li><code>--castle-rights</code>, <code>--legal-castle</code></li>
+</ul>
+<p>Count and material filters:</p>
+<ul>
+<li><code>--pieces &lt;n&gt;</code>, <code>--min-pieces &lt;n&gt;</code>, <code>--max-pieces &lt;n&gt;</code></li>
+<li><code>--white-pieces &lt;n&gt;</code>, <code>--black-pieces &lt;n&gt;</code> plus <code>--min-<em></code> / <code>--max-</em></code> forms</li>
+<li><code>--pawns|--knights|--bishops|--rooks|--queens &lt;n&gt;</code> plus <code>--min-<em></code> / <code>--max-</em></code> forms</li>
+<li><code>--white-rooks &lt;n&gt;</code>, <code>--black-rooks &lt;n&gt;</code> and the same side-specific forms for pawns, knights, bishops, and queens</li>
+<li><code>--material &lt;cp&gt;</code>, <code>--min-material &lt;cp&gt;</code>, <code>--max-material &lt;cp&gt;</code></li>
+<li><code>--material-diff &lt;cp&gt;</code>, <code>--min-material-diff &lt;cp&gt;</code>, <code>--max-material-diff &lt;cp&gt;</code></li>
+<li><code>--max-material-imbalance &lt;cp&gt;</code></li>
+<li><code>--legal-moves &lt;n&gt;</code>, <code>--fullmove &lt;n&gt;</code>, <code>--halfmove &lt;n&gt;</code> plus <code>--min-<em></code> / <code>--max-</em></code> forms</li>
+</ul>
+<p>Shortcut:</p>
+<ul>
+<li><code>crtk gen fens ...</code> is an alias for <code>crtk fen generate ...</code></li>
+</ul>
+<p>Examples:</p>
+<ul>
+<li><code>crtk fen generate --output shards/ --files 2 --per-file 20 --chess960-files 1</code></li>
+<li><code>crtk gen fens --output endgames/ --files 1 --per-file 100 --endgame --max-material-imbalance 300</code></li>
+<li><code>crtk gen fens --output rook-endgames/ --files 1 --per-file 200 --rook-endgame --rooks 2</code></li>
+<li><code>crtk gen fens --output specials/ --files 1 --per-file 25 --en-passant --max-attempts 250000</code></li>
+<li><code>crtk gen fens --output promotions/ --files 1 --per-file 50 --promotion --capture --max-attempts 1000000</code></li>
 </ul>
 <h2 id="chapter-command-reference-puzzle-mine"><code>puzzle mine</code></h2>
 <p>Drive a UCI engine, apply Filter DSL gates, and emit JSON outputs for puzzles and non-puzzles.</p>
@@ -1493,8 +1564,8 @@ crtk engine builtin --lc0 --weights models/leela_112planes-10blocksx128-policyhe
 <li><code>--watermark-id &lt;text&gt;</code>: embed a traceable watermark ID in page overlays and PDF metadata; implies <code>--watermark</code></li>
 <li><code>--verbose|-v</code>: print stack traces on failure</li>
 </ul>
-<h2 id="chapter-command-reference-book-ilovechess"><code>book ilovechess</code></h2>
-<p>Build an I Love Chess-style book manifest from analyzed record JSON/JSONL. The command converts the first PV in each accepted record into move-numbered SAN, writes a TOML manifest, and can optionally render the interior PDF and matching cover.</p>
+<h2 id="chapter-command-reference-book-collection"><code>book collection</code></h2>
+<p>Build a puzzle-collection book manifest from analyzed record JSON/JSONL. The command converts the first PV in each accepted record into move-numbered SAN, writes a TOML manifest, and can optionally render the interior PDF and matching cover.</p>
 <p>See also: <code>book-publishing.md</code>.</p>
 <p>Options:</p>
 <ul>
@@ -1502,7 +1573,7 @@ crtk engine builtin --lc0 --weights models/leela_112planes-10blocksx128-policyhe
 <li><code>--output|-o &lt;path&gt;</code>: output TOML manifest path (optional; default derived from the input path as <code>*.book.toml</code>)</li>
 <li><code>--pdf-output &lt;path&gt;</code>: also render the interior PDF to this path</li>
 <li><code>--cover-output &lt;path&gt;</code>: also render the matching cover PDF to this path</li>
-<li><code>--title &lt;text&gt;</code>: book title (default <code>I Love Chess</code>)</li>
+<li><code>--title &lt;text&gt;</code>: book title (default <code>Chess Puzzle Collection</code>)</li>
 <li><code>--subtitle &lt;text&gt;</code>: subtitle override (default <code>&quot;&lt;count&gt; Chess Puzzles&quot;</code>)</li>
 <li><code>--author &lt;text&gt;</code>: author credit (default <code>Lennart A. Conrad</code>)</li>
 <li><code>--time &lt;text&gt;</code>: publication time string</li>
@@ -1527,12 +1598,12 @@ crtk engine builtin --lc0 --weights models/leela_112planes-10blocksx128-policyhe
 <li><code>--check|--validate</code>: validate the generated book model without writing files</li>
 <li><code>--verbose|-v</code>: print stack traces on failure</li>
 </ul>
-<h2 id="chapter-command-reference-book-artofchess"><code>book artofchess</code></h2>
-<p>Render an Art of Chess annotated book from a richer JSON or TOML manifest. This command keeps the composition-style fields intact: per-entry description text, comments, hints, analysis, and explicit figure lists. It can also write a normalized TOML manifest and render a matching cover in one pass.</p>
+<h2 id="chapter-command-reference-book-study"><code>book study</code></h2>
+<p>Render deeply annotated puzzle studies from a richer JSON or TOML manifest. This command keeps the composition-style fields intact: per-entry description text, comments, hints, analysis, and explicit figure lists. It can also write a normalized TOML manifest and render a matching cover in one pass.</p>
 <p>See also: <code>book-publishing.md</code>.</p>
 <p>Options:</p>
 <ul>
-<li><code>--input|-i &lt;path&gt;</code>: input Art of Chess manifest (<code>.json</code> or <code>.toml</code>)</li>
+<li><code>--input|-i &lt;path&gt;</code>: input puzzle-study manifest (<code>.json</code> or <code>.toml</code>)</li>
 <li><code>--output|-o &lt;path&gt;</code>: output interior PDF path (optional; defaults to <code>*.pdf</code> when no other output is requested)</li>
 <li><code>--manifest-output &lt;path&gt;</code>: also write a normalized TOML manifest</li>
 <li><code>--cover-output &lt;path&gt;</code>: also render the matching native cover PDF</li>
@@ -2055,6 +2126,11 @@ crtk engine builtin --lc0 --weights models/leela_112planes-10blocksx128-policyhe
 <h2 id="chapter-example-commands-generate-random-fen-shards">Generate random FEN shards</h2>
 <ul>
 <li><code>crtk fen generate --output shards/ --files 2 --per-file 20 --chess960-files 1</code> — writes 2 shard files (first one Chess960).</li>
+<li><code>crtk gen fens --output endgames/ --files 2 --per-file 500 --endgame --max-material-imbalance 300</code> — generate broad queenless endgame seeds with bounded material imbalance.</li>
+<li><code>crtk gen fens --output endgames/ --files 1 --per-file 100 --rook-endgame --rooks 2 --max-material-imbalance 200</code> — generate balanced rook endgame seeds.</li>
+<li><code>crtk gen fens --output specials/ --files 1 --per-file 25 --en-passant --max-attempts 250000</code> — keep only positions where en passant is legally available.</li>
+<li><code>crtk gen fens --output promotions/ --files 1 --per-file 50 --promotion --capture --max-attempts 1000000</code> — keep positions with a legal promotion that also have at least one legal capture.</li>
+<li><code>crtk gen fens --output quiet-black/ --files 1 --per-file 100 --side black --not-in-check --min-pieces 10 --max-pieces 20</code> — keep quiet-ish Black-to-move middlegame/endgame positions by piece count.</li>
 <li><code>crtk fen chess960 518</code> — print the standard start position by its Chess960 index.</li>
 <li><code>crtk fen chess960 --all --format both &gt; chess960.tsv</code> — export <code>index</code>, back-rank layout, and FEN for all 960 starts.</li>
 </ul>
@@ -2069,8 +2145,8 @@ crtk engine builtin --lc0 --weights models/leela_112planes-10blocksx128-policyhe
 </ul>
 <h2 id="chapter-example-commands-publish-diagrams-and-books">Publish diagrams and books</h2>
 <ul>
-<li><code>crtk book ilovechess -i dump/mate1.json -o books/mate1.book.toml --subtitle &quot;4,000 Mate in 1 Puzzles&quot; --pdf-output dist/mate1.pdf --cover-output dist/mate1-cover.pdf --binding paperback --interior white-bw</code> — build an I Love Chess-style manifest from analyzed records and render the matching interior + cover.</li>
-<li><code>crtk book artofchess -i books/art-of-chess.json --manifest-output books/art-of-chess.toml -o dist/art-of-chess.pdf --cover-output dist/art-of-chess-cover.pdf --binding paperback --interior white-bw</code> — render a richer annotated Art of Chess manifest and optionally normalize it to TOML.</li>
+<li><code>crtk book collection -i dump/mate1.json -o books/mate1.book.toml --subtitle &quot;4,000 Mate in 1 Puzzles&quot; --pdf-output dist/mate1.pdf --cover-output dist/mate1-cover.pdf --binding paperback --interior white-bw</code> — build a puzzle-collection manifest from analyzed records and render the matching interior + cover.</li>
+<li><code>crtk book study -i books/puzzle-studies.json --manifest-output books/puzzle-studies.toml -o dist/puzzle-studies.pdf --cover-output dist/puzzle-studies-cover.pdf --binding paperback --interior white-bw</code> — render richer annotated puzzle studies and optionally normalize them to TOML.</li>
 <li><code>crtk book pdf --fen &quot;&lt;FEN&gt;&quot; -o dump/position.pdf</code> — export one diagram to PDF.</li>
 <li><code>crtk book pdf -i seeds.txt -o dump/sheet.pdf --title &quot;Training Sheet&quot;</code> — export a FEN list to a diagram sheet PDF.</li>
 <li><code>crtk book pdf --pgn games.pgn -o dump/games.pdf --page-size a5 --diagrams-per-row 1</code> — export PGN mainlines to PDF.</li>
@@ -3114,13 +3190,13 @@ crtk record dataset classifier \
   <div class="chapter-body">
     <p>ChessRTK can produce native vector PDFs for five publishing jobs:</p>
 <ul>
-<li><code>book ilovechess</code>: build an I Love Chess-style TOML manifest from record JSON/JSONL, with optional interior and cover PDF output.</li>
-<li><code>book artofchess</code>: render a richer annotated Art of Chess manifest with hints, analysis text, comments, and figure lists.</li>
+<li><code>book collection</code>: build a dense puzzle-collection TOML manifest from record JSON/JSONL, with optional interior and cover PDF output.</li>
+<li><code>book study</code>: render richer annotated puzzle studies with hints, analysis text, comments, and figure lists.</li>
 <li><code>book pdf</code>: quick diagram sheets from FEN lists or PGN mainlines.</li>
 <li><code>book render</code>: full puzzle books from JSON/TOML manifests.</li>
 <li><code>book cover</code>: matching paperback, hardcover, or ebook covers from the same manifest.</li>
 </ul>
-<p>No LaTeX step is required for these commands.</p>
+<p>No LaTeX step is required for these commands. Legacy aliases <code>book ilovechess</code> and <code>book artofchess</code> still resolve to <code>book collection</code> and <code>book study</code>.</p>
 <p>The native book renderer keeps publishing-specific text helpers in <code>chess.book.render</code>. Solution SAN in captions and tables is converted to figurine algebraic notation, so moves such as <code>Qxe8+</code> render with chess figurines and a multiplication sign for captures.</p>
 <h2 id="chapter-book-publishing-minimal-workflow">Minimal workflow</h2>
 <pre><code class="language-bash">mkdir -p dist
@@ -3136,10 +3212,10 @@ crtk book cover -i books/puzzles.toml -o dist/puzzles-cover.pdf \
 <p><code>--watermark-id</code> implies <code>--watermark</code>; it adds page-specific overlay text, corner marks, and matching PDF metadata.</p>
 <p>Pass the rendered interior PDF to <code>book cover --pdf &lt;path&gt;</code> so the cover command can read the actual trim width, trim height, and page count from the interior file. If <code>--pdf</code> is omitted, the cover command falls back to manifest <code>paperwidth</code> / <code>paperheight</code>, then manifest <code>pages</code>, then an estimate from the puzzle grid and solution-table cadence. <code>--pages</code> still overrides the inferred page count when you need a manual spine width.</p>
 <p>The <code>--check</code> flag is a dry run. For <code>book render</code>, it validates page geometry, FEN parsing, and solution moves. For <code>book cover</code>, it validates the same manifest and prints the calculated trim, spine, and full-cover dimensions.</p>
-<h2 id="chapter-book-publishing-i-love-chess-workflow">I Love Chess workflow</h2>
-<p>Use <code>book ilovechess</code> when your source material is a record JSON/JSONL dump with a starting <code>position</code> and a PV in <code>analysis</code>. The command converts the first PV into move-numbered SAN, writes a TOML manifest, and can optionally render the interior and cover in one pass.</p>
-<pre><code class="language-bash">crtk book ilovechess -i dump/mate1.json -o books/mate1.book.toml \
-  --title &quot;I Love Chess&quot; \
+<h2 id="chapter-book-publishing-puzzle-collection-workflow">Puzzle collection workflow</h2>
+<p>Use <code>book collection</code> when your source material is a record JSON/JSONL dump with a starting <code>position</code> and a PV in <code>analysis</code>. The command converts the first PV into move-numbered SAN, writes a TOML manifest, and can optionally render the interior and cover in one pass.</p>
+<pre><code class="language-bash">crtk book collection -i dump/mate1.json -o books/mate1.book.toml \
+  --title &quot;Chess Puzzle Collection&quot; \
   --subtitle &quot;4,000 Mate in 1 Puzzles&quot; \
   --author &quot;Lennart A. Conrad&quot; \
   --time &quot;2026&quot; \
@@ -3149,20 +3225,20 @@ crtk book cover -i books/puzzles.toml -o dist/puzzles-cover.pdf \
   --binding paperback \
   --interior white-bw</code></pre>
 <p>If you omit <code>--subtitle</code>, the command falls back to a generic <code>&quot;&lt;count&gt; Chess Puzzles&quot;</code> subtitle. If you omit front-matter paragraphs, the builder supplies a compact default introduction and leaves the native how-to-read and afterword fallbacks in place.</p>
-<h2 id="chapter-book-publishing-art-of-chess-workflow">Art of Chess workflow</h2>
-<p>Use <code>book artofchess</code> when you already have richer annotated content and want to keep per-entry description text, comments, hints, and figure lists.</p>
-<pre><code class="language-bash">crtk book artofchess -i books/art-of-chess.json \
-  --manifest-output books/art-of-chess.toml \
-  -o dist/art-of-chess.pdf \
-  --cover-output dist/art-of-chess-cover.pdf \
-  --title &quot;Art of Chess Puzzles&quot; \
+<h2 id="chapter-book-publishing-puzzle-study-workflow">Puzzle study workflow</h2>
+<p>Use <code>book study</code> when you already have richer annotated content and want to keep per-entry description text, comments, hints, and figure lists.</p>
+<pre><code class="language-bash">crtk book study -i books/puzzle-studies.json \
+  --manifest-output books/puzzle-studies.toml \
+  -o dist/puzzle-studies.pdf \
+  --cover-output dist/puzzle-studies-cover.pdf \
+  --title &quot;Chess Puzzle Studies&quot; \
   --subtitle &quot;400 Annotated Studies&quot; \
   --author &quot;Lennart A. Conrad&quot; \
   --binding paperback \
   --interior white-bw</code></pre>
-<p>This command accepts JSON or TOML input, can write a normalized TOML manifest, renders the composition-style interior PDF, and can build a matching cover in one pass. The manifest stays separate from the lean <code>book render</code> model on purpose: <code>book artofchess</code> keeps the richer <code>Composition</code> fields instead of collapsing everything into <code>position + moves</code>.</p>
+<p>This command accepts JSON or TOML input, can write a normalized TOML manifest, renders the composition-style interior PDF, and can build a matching cover in one pass. The manifest stays separate from the lean <code>book render</code> model on purpose: <code>book study</code> keeps the richer <code>Composition</code> fields instead of collapsing everything into <code>position + moves</code>.</p>
 <p>Example TOML:</p>
-<pre><code class="language-toml">title = &quot;Art of Chess Puzzles&quot;
+<pre><code class="language-toml">title = &quot;Chess Puzzle Studies&quot;
 subtitle = &quot;Annotated Sample&quot;
 author = &quot;ChessRTK&quot;
 time = &quot;2026&quot;
@@ -3196,7 +3272,7 @@ analysis = &quot;2... Qh4#&quot;
 id = &quot;A2&quot;
 figureMovesAlgebraic = [&quot;Final&quot;]
 figureFens = [&quot;rnb1kbnr/pppp1ppp/8/4p3/6Pq/5P2/PPPPP2P/RNBQKBNR w KQkq - 1 3&quot;]</code></pre>
-<p>Important Art-of-Chess fields:</p>
+<p>Important puzzle-study fields:</p>
 <ul>
 <li><code>[[compositions]]</code> is the repeated annotated entry list.</li>
 <li><code>description</code>, <code>comment</code>, <code>analysis</code>, and <code>hintLevel1..4</code> map directly to the rendered section blocks.</li>
@@ -3291,8 +3367,8 @@ crtk book pdf --pgn games.pgn -o dist/games.pdf --page-size a5 --diagrams-per-ro
 <pre><code class="language-bash">java -Djava.awt.headless=true -cp out testing.BookRegressionTest
 java -Djava.awt.headless=true -cp out testing.ChessBookCommandRegressionTest
 java -Djava.awt.headless=true -cp out testing.ChessBookCoverCommandRegressionTest
-java -Djava.awt.headless=true -cp out testing.ChessArtOfChessCommandRegressionTest
-java -Djava.awt.headless=true -cp out testing.ChessILoveChessCommandRegressionTest</code></pre>
+java -Djava.awt.headless=true -cp out testing.PuzzleStudyCommandRegressionTest
+java -Djava.awt.headless=true -cp out testing.PuzzleCollectionCommandRegressionTest</code></pre>
 <p>Use <code>-Djava.awt.headless=true</code> on machines without a reachable display server, including CI and many remote shells.</p>
 <p>For print-on-demand dimensions, compare the final values printed by <code>book cover --check</code> with the publishing service&#x27;s own cover calculator before uploading.</p>
 <p>References:</p>
@@ -8232,6 +8308,11 @@ explain text: &lt;short reason shown by --explain-tags&gt;</code></pre>
 <td>Validate, normalize, and print positions</td>
 <td><code>fen validate</code>, <code>fen normalize</code>, <code>fen print</code></td>
 <td><a href="#chapter-getting-started">Getting started</a>, <a href="#chapter-command-reference">Command reference</a></td>
+</tr>
+<tr>
+<td>Generate random or filtered FEN shards</td>
+<td><code>fen generate</code>, <code>gen fens</code></td>
+<td><a href="#chapter-command-cheatsheet">Command cheatsheet</a>, <a href="#chapter-example-commands">Example commands</a>, <a href="#chapter-command-reference">Command reference</a></td>
 </tr>
 <tr>
 <td>List, convert, and apply moves</td>

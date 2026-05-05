@@ -14,6 +14,7 @@ import utility.Argv;
  * @since 2026
  * @author Lennart A. Conrad
  */
+@SuppressWarnings({"java:S1192", "java:S3776"})
 public final class LineCommand {
 
 	/**

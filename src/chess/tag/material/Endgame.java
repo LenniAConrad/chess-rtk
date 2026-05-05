@@ -62,7 +62,7 @@ public final class Endgame {
             tags.add(FACT_ENDGAME_PREFIX + ROOK_ENDGAME);
         }
 
-        if (whiteBishops > 0 && blackBishops > 0 && hasOppositeColoredBishops(position.getBoard())) {
+        if (queenless && whiteBishops == 1 && blackBishops == 1 && hasOppositeColoredBishops(position.getBoard())) {
             tags.add(FACT_OPPOSITE_COLORED_BISHOPS_PREFIX + TRUE);
         }
 

@@ -6,7 +6,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
-import application.cli.command.ChessPdfCommand;
+import application.cli.command.book.BookPdfCommand;
 import utility.Argv;
 
 /**
@@ -49,7 +49,7 @@ public final class ChessPDFCommandRegressionTest {
 				StandardCharsets.UTF_8);
 
 		Path output = Files.createTempFile("book-pdf-fens-", ".pdf");
-		ChessPdfCommand.runChessPdf(new Argv(new String[] {
+		BookPdfCommand.runBookPdf(new Argv(new String[] {
 				"--input", input.toString(),
 				"--output", output.toString(),
 				"--title", "Fen Sheet"
@@ -77,7 +77,7 @@ public final class ChessPDFCommandRegressionTest {
 				StandardCharsets.UTF_8);
 
 		Path output = Files.createTempFile("book-pdf-games-", ".pdf");
-		ChessPdfCommand.runChessPdf(new Argv(new String[] {
+		BookPdfCommand.runBookPdf(new Argv(new String[] {
 				"--pgn", input.toString(),
 				"--output", output.toString(),
 				"--title", "PGN Export"

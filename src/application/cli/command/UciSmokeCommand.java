@@ -33,6 +33,7 @@ import utility.Argv;
  * @since 2026
  * @author Lennart A. Conrad
  */
+@SuppressWarnings("java:S107")
 public final class UciSmokeCommand {
 
 	/**

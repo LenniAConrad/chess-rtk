@@ -840,7 +840,7 @@ public class Json {
         for (int i = start, n = json.length(); i < n && !done; i++) {
             char c = json.charAt(i);
             if (st.inStr) {
-                handleInString(c, st, cur, out);
+                handleInString(json, i, c, st, cur, out);
             } else {
                 done = handleTopLevel(c, st, cur);
             }
@@ -851,24 +851,68 @@ public class Json {
     /**
      * Used for handling characters within a quoted JSON string.
      *
-     * @param c   the current character being parsed
-     * @param st  the current string parsing state
+     * @param json the full JSON-ish source
+     * @param index the current character index
+     * @param c the current character being parsed
+     * @param st the current string parsing state
      * @param cur the current string builder accumulating the string content
      * @param out the output list of strings
      */
-    private static void handleInString(char c, StrState st, StringBuilder cur, List<String> out) {
+    private static void handleInString(String json, int index, char c, StrState st, StringBuilder cur,
+            List<String> out) {
         if (st.esc) {
             int k = ESC.indexOf(c);
             cur.append(k >= 0 ? MAP[k] : c);
             st.esc = false;
         } else if (c == '\\') {
             st.esc = true;
-        } else if (c == '"') {
+        } else if (c == '"' && isStringArrayTerminator(json, index)) {
             out.add(cur.toString());
             st.inStr = false;
+        } else if (c == '"') {
+            cur.append(c);
         } else {
             cur.append(c);
         }
+    }
+
+    /**
+     * Detects whether a quote ends a string-array element.
+     *
+     * <p>
+     * Some historical record dumps contain tags like
+     * {@code detail="hanging queen"} without escaping the inner quotes. This
+     * parser remains strict enough for normal arrays by accepting a terminator only
+     * when the quote is followed by a comma or closing bracket. If two quotes appear
+     * before the separator, the first quote is treated as literal detail text and
+     * the second quote closes the array element.
+     * </p>
+     */
+    private static boolean isStringArrayTerminator(String json, int quoteIndex) {
+        int next = nextNonWhitespace(json, quoteIndex + 1);
+        if (next >= json.length()) {
+            return true;
+        }
+        char c = json.charAt(next);
+        if (c == ',' || c == ']') {
+            return true;
+        }
+        if (c == '"') {
+            int after = nextNonWhitespace(json, next + 1);
+            return after < json.length() && json.charAt(after) != ',' && json.charAt(after) != ']';
+        }
+        return false;
+    }
+
+    /**
+     * Finds the next non-whitespace index.
+     */
+    private static int nextNonWhitespace(String json, int from) {
+        int i = Math.max(0, from);
+        while (i < json.length() && Character.isWhitespace(json.charAt(i))) {
+            i++;
+        }
+        return i;
     }
 
     /**

@@ -32,6 +32,11 @@ public final class Lc0 implements CentipawnEvaluator {
      */
     private static final int POLICY_CACHE_ENTRIES = 128;
 
+	/**
+	 * Empty policy sentinel for positions whose policy logits are not cached.
+	 */
+    private static final float[] NO_POLICY = new float[0];
+
     /**
      * Loaded LC0 policy/value model used for every leaf evaluation.
      */
@@ -119,7 +124,7 @@ public final class Lc0 implements CentipawnEvaluator {
             return;
         }
         float[] policy = policy(position.signature());
-        if (policy == null) {
+        if (policy.length == 0) {
             return;
         }
 
@@ -187,7 +192,7 @@ public final class Lc0 implements CentipawnEvaluator {
     private float[] ensurePolicy(Position position) {
         long signature = position.signature();
         float[] policy = policy(signature);
-        if (policy != null) {
+        if (policy.length > 0) {
             return policy;
         }
         return predict(position).policy();
@@ -197,7 +202,7 @@ public final class Lc0 implements CentipawnEvaluator {
      * Returns a cached policy array for a signature when available.
      *
      * @param signature position signature
-     * @return cached policy logits or {@code null}
+     * @return cached policy logits, or an empty array when absent
      */
     private float[] policy(long signature) {
         float[] policy = lastPolicy;
@@ -206,9 +211,12 @@ public final class Lc0 implements CentipawnEvaluator {
         }
         int index = policyCacheIndex(signature);
         if (policyCacheKeys[index] != signature) {
-            return null;
+            return NO_POLICY;
         }
         policy = policyCacheValues[index];
+        if (policy == null) {
+            return NO_POLICY;
+        }
         lastPolicySignature = signature;
         lastPolicy = policy;
         return policy;

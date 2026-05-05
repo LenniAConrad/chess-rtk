@@ -28,6 +28,7 @@ import utility.Argv;
  * @since 2025
  * @author Lennart A. Conrad
  */
+@SuppressWarnings({"java:S135", "java:S3776"})
 public final class Main {
 
 	/**

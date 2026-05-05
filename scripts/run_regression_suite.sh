@@ -75,11 +75,14 @@ run_cli() {
   run_test testing.ChessBookCommandRegressionTest
   run_test testing.ChessBookCoverCommandRegressionTest
   run_test testing.ChessPDFCommandRegressionTest
+  run_test testing.PuzzleCollectionCommandRegressionTest
+  run_test testing.PuzzleStudyCommandRegressionTest
 }
 
 run_engine() {
   ensure_compiled
   run_test testing.BuiltInEngineRegressionTest
+  run_test testing.PuzzleDifficultyRegressionTest
 }
 
 run_uci() {

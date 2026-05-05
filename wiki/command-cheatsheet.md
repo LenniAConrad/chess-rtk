@@ -32,6 +32,9 @@ crtk engine builtin --startpos --depth 3 --format summary
 | Validate a FEN | `crtk fen validate --fen "<FEN>"` |
 | Normalize a FEN | `crtk fen normalize --fen "<FEN>"` |
 | Generate Chess960 start | `crtk fen chess960 518` |
+| Generate random FEN shards | `crtk fen generate --output shards/ --files 2 --per-file 20 --chess960-files 1` |
+| Generate endgame shards | `crtk gen fens --output endgames/ --files 1 --per-file 100 --endgame` |
+| Generate special-move shards | `crtk gen fens --output specials/ --files 1 --per-file 25 --en-passant --max-attempts 250000` |
 | Render a PNG board | `crtk fen render --fen "<FEN>" -o board.png` |
 | Open a board window | `crtk fen display --fen "<FEN>"` |
 

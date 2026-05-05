@@ -84,6 +84,14 @@ crtk move after --fen "<FEN>" e2e4
 crtk move play --fen "<FEN>" "e4 e5 Nf3 Nc6"
 ```
 
+Generate reusable position seeds:
+
+```bash
+crtk fen generate --output shards/ --files 2 --per-file 20 --chess960-files 1
+crtk gen fens --output endgames/ --files 1 --per-file 100 --rook-endgame --rooks 2
+crtk gen fens --output specials/ --files 1 --per-file 25 --en-passant --max-attempts 250000
+```
+
 Ask for a move:
 
 ```bash
@@ -104,6 +112,7 @@ crtk engine uci-smoke --nodes 1 --max-duration 5s
 | Goal | Start with |
 | --- | --- |
 | Validate, normalize, and print positions | `fen validate`, `fen normalize`, `fen print` |
+| Generate random or filtered FEN shards | `fen generate`, `gen fens` |
 | List and convert legal moves | `move list`, `move uci`, `move san`, `move both`, `move to-san`, `move to-uci` |
 | Apply one move or a line | `move after`, `move play`, `fen after`, `fen line` |
 | Verify move generation | `engine perft`, `engine perft-suite` |
@@ -115,7 +124,7 @@ crtk engine uci-smoke --nodes 1 --max-duration 5s
 | Generate text from tags | `fen text`, `puzzle text` |
 | Merge, filter, and summarize records | `record files`, `record stats`, `record tag-stats`, `record analysis-delta` |
 | Export ML datasets | `record dataset npy`, `record dataset lc0`, `record dataset classifier` |
-| Publish diagrams and books | `book pdf`, `book render`, `book cover`, `book ilovechess`, `book artofchess` |
+| Publish diagrams and books | `book pdf`, `book render`, `book cover`, `book collection`, `book study` |
 | Use a desktop workbench | `gui`, `gui-web`, `gui-next` |
 
 For the full command surface, run:
@@ -150,6 +159,36 @@ crtk puzzle mine \
 crtk record stats --input dump/run.puzzles.json
 crtk record export pgn --input dump/run.puzzles.json --output dump/run.puzzles.pgn
 ```
+
+### Generate Filtered FEN Seeds
+
+```bash
+crtk gen fens \
+  --output training/endgames \
+  --files 4 \
+  --per-file 500 \
+  --endgame \
+  --max-material-imbalance 300
+
+crtk gen fens \
+  --output training/rook-endgames \
+  --files 2 \
+  --per-file 250 \
+  --rook-endgame \
+  --rooks 2 \
+  --max-attempts 500000
+
+crtk gen fens \
+  --output training/tactical-states \
+  --files 1 \
+  --per-file 100 \
+  --promotion \
+  --capture \
+  --max-attempts 1000000
+```
+
+Filters combine with AND, so each generated FEN must satisfy every selected
+condition.
 
 ### Export Training Data
 

@@ -25,6 +25,7 @@ import utility.Numbers;
  * CRTK-format NNUE implementation.
  * </p>
  */
+@SuppressWarnings("java:S3398")
 public final class UpstreamNetwork implements AutoCloseable {
 
     /**

@@ -134,6 +134,18 @@ crtk engine builtin --startpos --depth 3 --format summary</code></pre>
 <td><code>crtk fen chess960 518</code></td>
 </tr>
 <tr>
+<td>Generate random FEN shards</td>
+<td><code>crtk fen generate --output shards/ --files 2 --per-file 20 --chess960-files 1</code></td>
+</tr>
+<tr>
+<td>Generate endgame shards</td>
+<td><code>crtk gen fens --output endgames/ --files 1 --per-file 100 --endgame</code></td>
+</tr>
+<tr>
+<td>Generate special-move shards</td>
+<td><code>crtk gen fens --output specials/ --files 1 --per-file 25 --en-passant --max-attempts 250000</code></td>
+</tr>
+<tr>
 <td>Render a PNG board</td>
 <td><code>crtk fen render --fen &quot;&lt;FEN&gt;&quot; -o board.png</code></td>
 </tr>

@@ -14,7 +14,6 @@ import chess.book.model.Book;
 import chess.book.model.Element;
 import chess.core.Move;
 import chess.core.Position;
-import chess.images.assets.shape.SvgShapes;
 import chess.images.render.Render;
 import chess.pdf.document.Canvas;
 import chess.pdf.document.Document;
@@ -278,36 +277,6 @@ public final class Writer {
 	 * Padding applied inside each table row cell.
 	 */
 	private static final double TABLE_CELL_PADDING = 2.0;
-
-	/**
-	 * White-king figurine placeholder used before native SVG notation rendering.
-	 */
-	private static final char NOTATION_KING = '\u2654';
-
-	/**
-	 * White-queen figurine placeholder used before native SVG notation rendering.
-	 */
-	private static final char NOTATION_QUEEN = '\u2655';
-
-	/**
-	 * White-rook figurine placeholder used before native SVG notation rendering.
-	 */
-	private static final char NOTATION_ROOK = '\u2656';
-
-	/**
-	 * White-bishop figurine placeholder used before native SVG notation rendering.
-	 */
-	private static final char NOTATION_BISHOP = '\u2657';
-
-	/**
-	 * White-knight figurine placeholder used before native SVG notation rendering.
-	 */
-	private static final char NOTATION_KNIGHT = '\u2658';
-
-	/**
-	 * White-pawn figurine placeholder used before native SVG notation rendering.
-	 */
-	private static final char NOTATION_PAWN = '\u2659';
 
 	/**
 	 * Scale applied to inline piece SVG boxes relative to the surrounding text.
@@ -2855,7 +2824,7 @@ public final class Writer {
 		StringBuilder run = new StringBuilder();
 		for (int i = 0; i < safe.length(); i++) {
 			char ch = safe.charAt(i);
-			String pieceSvg = notationPieceSvg(ch);
+			String pieceSvg = NotationPieceSvg.svg(ch);
 			if (pieceSvg == null) {
 				run.append(ch);
 				continue;
@@ -3201,7 +3170,7 @@ public final class Writer {
 		StringBuilder run = new StringBuilder();
 		for (int i = 0; i < safe.length(); i++) {
 			char ch = safe.charAt(i);
-			if (notationPieceSvg(ch) == null) {
+			if (!NotationPieceSvg.isPlaceholder(ch)) {
 				run.append(ch);
 				continue;
 			}
@@ -3221,29 +3190,11 @@ public final class Writer {
 	private static boolean containsNotationPiece(String text) {
 		String safe = blankTo(text, "");
 		for (int i = 0; i < safe.length(); i++) {
-			if (notationPieceSvg(safe.charAt(i)) != null) {
+			if (NotationPieceSvg.isPlaceholder(safe.charAt(i))) {
 				return true;
 			}
 		}
 		return false;
-	}
-
-	/**
-	 * Resolves the embedded SVG source for a notation piece placeholder.
-	 *
-	 * @param ch notation placeholder character
-	 * @return embedded SVG source, or null when the character is ordinary text
-	 */
-	private static String notationPieceSvg(char ch) {
-		return switch (ch) {
-			case NOTATION_KING -> SvgShapes.whiteKing();
-			case NOTATION_QUEEN -> SvgShapes.whiteQueen();
-			case NOTATION_ROOK -> SvgShapes.whiteRook();
-			case NOTATION_BISHOP -> SvgShapes.whiteBishop();
-			case NOTATION_KNIGHT -> SvgShapes.whiteKnight();
-			case NOTATION_PAWN -> SvgShapes.whitePawn();
-			default -> null;
-		};
 	}
 
 	/**

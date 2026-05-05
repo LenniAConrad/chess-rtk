@@ -32,6 +32,7 @@ import utility.Argv;
  * @since 2026
  * @author Lennart A. Conrad
  */
+@SuppressWarnings("java:S1192")
 public final class HelpCommand {
 
 	/**
@@ -113,6 +114,12 @@ public final class HelpCommand {
 			"record export puzzle-jsonl options:";
 
 	/**
+	 * Help marker for {@code record export puzzle-elo-jsonl}.
+	 */
+	private static final String RECORD_TO_PUZZLE_ELO_JSONL_OPTIONS_MARKER =
+			"record export puzzle-elo-jsonl options:";
+
+	/**
 	 * Help marker for {@code record export pgn}.
 	 */
 	private static final String RECORD_TO_PGN_OPTIONS_MARKER = "record export pgn options:";
@@ -179,14 +186,14 @@ public final class HelpCommand {
 	private static final String CHESS_BOOK_COVER_OPTIONS_MARKER = "book cover options:";
 
 	/**
-	 * Help marker for {@code book ilovechess}.
+	 * Help marker for {@code book collection}.
 	 */
-	private static final String ILOVECHESS_BOOK_OPTIONS_MARKER = "book ilovechess options:";
+	private static final String PUZZLE_COLLECTION_OPTIONS_MARKER = "book collection options:";
 
 	/**
-	 * Help marker for {@code book artofchess}.
+	 * Help marker for {@code book study}.
 	 */
-	private static final String ARTOFCHESS_BOOK_OPTIONS_MARKER = "book artofchess options:";
+	private static final String PUZZLE_STUDY_OPTIONS_MARKER = "book study options:";
 
 	/**
 	 * Help marker for {@code fen chess960}.
@@ -383,6 +390,7 @@ public final class HelpCommand {
 			Map.entry("record export csv", RECORD_TO_CSV_OPTIONS_MARKER),
 			Map.entry("record export pgn", RECORD_TO_PGN_OPTIONS_MARKER),
 			Map.entry("record export puzzle-jsonl", RECORD_TO_PUZZLE_JSONL_OPTIONS_MARKER),
+			Map.entry("record export puzzle-elo-jsonl", RECORD_TO_PUZZLE_ELO_JSONL_OPTIONS_MARKER),
 			Map.entry("record export training-jsonl", RECORD_TO_TRAINING_JSONL_OPTIONS_MARKER),
 			Map.entry("record dataset", RECORD_DATASET_SUBCOMMANDS_MARKER),
 			Map.entry("record dataset npy", RECORD_TO_DATASET_OPTIONS_MARKER),
@@ -430,8 +438,10 @@ public final class HelpCommand {
 			Map.entry("engine gpu", GPU_INFO_OPTIONS_MARKER),
 			Map.entry(CMD_ENGINE + " " + CMD_UCI_SMOKE, UCI_SMOKE_OPTIONS_MARKER),
 			Map.entry(CMD_BOOK, BOOK_SUBCOMMANDS_MARKER),
-			Map.entry("book ilovechess", ILOVECHESS_BOOK_OPTIONS_MARKER),
-			Map.entry("book artofchess", ARTOFCHESS_BOOK_OPTIONS_MARKER),
+			Map.entry("book collection", PUZZLE_COLLECTION_OPTIONS_MARKER),
+			Map.entry("book ilovechess", PUZZLE_COLLECTION_OPTIONS_MARKER),
+			Map.entry("book study", PUZZLE_STUDY_OPTIONS_MARKER),
+			Map.entry("book artofchess", PUZZLE_STUDY_OPTIONS_MARKER),
 			Map.entry("book render", CHESS_BOOK_OPTIONS_MARKER),
 			Map.entry("book cover", CHESS_BOOK_COVER_OPTIONS_MARKER),
 			Map.entry("book pdf", CHESS_PDF_OPTIONS_MARKER),
@@ -653,7 +663,7 @@ public final class HelpCommand {
 		int end = lines.length;
 		for (int i = start + 1; i < lines.length; i++) {
 			String trimmed = lines[i].trim();
-			if ((trimmed.endsWith("options:") || trimmed.endsWith("subcommands:")) && !trimmed.equals(marker)) {
+			if (isHelpSectionHeader(trimmed) && !trimmed.equals(marker)) {
 				end = i;
 				break;
 			}
@@ -665,6 +675,18 @@ public final class HelpCommand {
 			end--;
 		}
 		return String.join("\n", Arrays.copyOfRange(lines, start, end));
+	}
+
+	/**
+	 * Returns whether a full-help line starts a command section.
+	 *
+	 * @param trimmed trimmed help line
+	 * @return true for section headers
+	 */
+	private static boolean isHelpSectionHeader(String trimmed) {
+		return trimmed.endsWith("options:")
+				|| trimmed.endsWith("subcommands:")
+				|| (trimmed.contains(" options ") && trimmed.endsWith(":"));
 	}
 
 	/**
@@ -758,7 +780,7 @@ public final class HelpCommand {
 			  Put options before free-form args when scripting, and use `--` if a value could look like a flag.
 
 			record subcommands:
-			  export FORMAT              Export records as plain, csv, pgn, puzzle-jsonl, or training-jsonl
+			  export FORMAT              Export records as plain, csv, pgn, puzzle-jsonl, puzzle-elo-jsonl, or training-jsonl
 			  dataset KIND               Export tensors as npy, lc0, or classifier
 			  files                      Merge, filter, or split record files
 			  stats                      Summarize record files
@@ -770,6 +792,7 @@ public final class HelpCommand {
 			  csv                        Convert .record JSON to CSV
 			  pgn                        Convert .record JSON to PGN games
 			  puzzle-jsonl               Export verified puzzle rows as JSONL
+			  puzzle-elo-jsonl           Export verified puzzle records with Elo and position tags
 			  training-jsonl             Export FEN JSONL labels for training
 
 			record dataset subcommands:
@@ -790,6 +813,9 @@ public final class HelpCommand {
 			  render                     Save a position image to disk
 			  tags                       Generate tags for FENs, PGNs, or variations
 			  text                       Summarize position tags with T5
+
+			gen subcommands:
+			  fens                       Alias for `fen generate`
 
 			move subcommands:
 			  list                       List legal moves for a FEN
@@ -818,8 +844,8 @@ public final class HelpCommand {
 			  uci-smoke                  Start engine and run a tiny UCI search
 
 			book subcommands:
-			  ilovechess                 Build an I Love Chess-style book from record JSON/JSONL
-			  artofchess                 Render an annotated Art of Chess book from JSON/TOML
+			  collection                 Build a dense puzzle collection from record JSON/JSONL
+			  study                      Render deeply annotated puzzle studies from JSON/TOML
 			  render                     Render a chess-book JSON/TOML file to a native PDF
 			  cover                      Render a native PDF cover for a chess-book file
 			  pdf                        Export chess diagrams to a PDF
@@ -869,6 +895,15 @@ public final class HelpCommand {
 			  --filter|-f DSL            Optional row-selection Filter DSL
 			  --puzzles                  Keep only puzzle records
 			  --nonpuzzles               Keep only non-puzzle records
+			  --verbose|-v               Print stack trace on failure
+
+			record export puzzle-elo-jsonl options:
+			  --input|-i PATH            Input record file(s) or directories
+			  --output|-o PATH           Output JSONL file (default: input stem + .puzzle-elo.jsonl)
+			  --recursive                Recurse into input directories
+			  --max-records N            Score at most N verified puzzles (0/default: no cap)
+			  --threads N                Tree-scoring worker threads (default: available processors)
+			  --ratings-csv PATH         Reuse an existing scored rating CSV for a one-pass re-export
 			  --verbose|-v               Print stack trace on failure
 
 			record export training-jsonl options:
@@ -926,8 +961,49 @@ public final class HelpCommand {
 			  --files N                  Number of shard files to write
 			  --per-file N               FENs per shard file
 			  --batch N                  Positions per RNG batch
-			  --chess960-files N         Additional shard files with Chess960 FENs
+			  --chess960-files N         Number of first shard files seeded from Chess960 starts
+			  --max-attempts N           Candidate cap per shard when filters are selective
+			  --ascii                    Use an ASCII progress bar
 			  --verbose|-v               Print progress and output paths
+
+			  Filters combine with AND: every selected condition must match.
+
+			  presets:
+			    --stage NAME             endgame, late-endgame, king-pawn, minor, rook, queenless
+			    --endgame                Queenless positions with at most 14 total pieces
+			    --late-endgame           Queenless positions with at most 8 total pieces
+			    --king-pawn-endgame      No queens, rooks, bishops, or knights
+			    --minor-endgame          Queenless minor-piece endgames without rooks
+			    --rook-endgame           Queenless rook endgames without minor pieces
+			    --queenless              No queens for either side
+			    --opposite-bishops       Require opposite-colored bishops
+
+			  move-state filters:
+			    --side white|black|w|b   Side to move
+			    --in-check               Side to move is in check
+			    --not-in-check           Side to move is not in check
+			    --checkmate              Side to move is checkmated
+			    --stalemate              Side to move is stalemated
+			    --en-passant|--ep        Legal en-passant capture is available
+			    --promotion              Legal promotion is available
+			    --underpromotion         Legal underpromotion is available
+			    --capture                Legal capture is available
+			    --castle-rights          Any castling right is present
+			    --legal-castle           Legal castling move is available
+
+			  count and material filters:
+			    --pieces N               Exact total piece count; also --min-pieces/--max-pieces
+			    --white-pieces N         Exact White piece count; also min/max forms
+			    --black-pieces N         Exact Black piece count; also min/max forms
+			    --pawns N                Exact total pawns; also knights/bishops/rooks/queens
+			    --rooks N                Exact total rooks; also --min-rooks/--max-rooks
+			    --white-rooks N          Exact side-specific count; also min/max side-piece forms
+			    --material N             Exact total material cp; also --min-material/--max-material
+			    --material-diff N        White minus Black material cp; also min/max forms
+			    --max-material-imbalance N  Maximum absolute material difference in cp
+			    --legal-moves N          Exact legal move count; also --min-legal-moves/--max-legal-moves
+			    --fullmove N             Exact fullmove number; also --min-fullmove/--max-fullmove
+			    --halfmove N             Exact halfmove clock; also --min-halfmove/--max-halfmove
 
 			puzzle mine options (overrides & inputs):
 			  --input|-i PATH            Input .txt (FENs) or .pgn (games) seed file
@@ -1002,12 +1078,12 @@ public final class HelpCommand {
 			  --ablation                 Overlay evaluator ablation heatmap
 			  --verbose|-v               Print stack trace on failure
 
-			book ilovechess options:
+			book collection options:
 			  --input|-i PATH            Input record JSON or JSONL with position + analysis PV
 			  --output|-o PATH           Output TOML manifest path (default: input stem + .book.toml)
 			  --pdf-output PATH          Also render the interior PDF to this path
 			  --cover-output PATH        Also render the matching cover PDF to this path
-			  --title TEXT               Book title (default: I Love Chess)
+			  --title TEXT               Book title (default: Chess Puzzle Collection)
 			  --subtitle TEXT            Optional subtitle; defaults to "<count> Chess Puzzles"
 			  --author TEXT              Author credit (default: Lennart A. Conrad)
 			  --time TEXT                Publication time string
@@ -1033,8 +1109,8 @@ public final class HelpCommand {
 			  --check|--validate         Validate the generated book model without writing files
 			  --verbose|-v               Print stack trace on failure
 
-			book artofchess options:
-			  --input|-i PATH            Input Art of Chess JSON/TOML manifest
+			book study options:
+			  --input|-i PATH            Input puzzle-study JSON/TOML manifest
 			  --output|-o PATH           Output interior PDF path (default: input stem + .pdf when no other output is requested)
 			  --manifest-output PATH     Also write a normalized TOML manifest to this path
 			  --cover-output PATH        Also render the matching native cover PDF

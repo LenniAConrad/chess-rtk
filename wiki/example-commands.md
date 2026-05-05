@@ -37,6 +37,11 @@ Examples assume you installed the launcher (`crtk`). If you run from classes, re
 ## Generate random FEN shards
 
 - `crtk fen generate --output shards/ --files 2 --per-file 20 --chess960-files 1` — writes 2 shard files (first one Chess960).
+- `crtk gen fens --output endgames/ --files 2 --per-file 500 --endgame --max-material-imbalance 300` — generate broad queenless endgame seeds with bounded material imbalance.
+- `crtk gen fens --output endgames/ --files 1 --per-file 100 --rook-endgame --rooks 2 --max-material-imbalance 200` — generate balanced rook endgame seeds.
+- `crtk gen fens --output specials/ --files 1 --per-file 25 --en-passant --max-attempts 250000` — keep only positions where en passant is legally available.
+- `crtk gen fens --output promotions/ --files 1 --per-file 50 --promotion --capture --max-attempts 1000000` — keep positions with a legal promotion that also have at least one legal capture.
+- `crtk gen fens --output quiet-black/ --files 1 --per-file 100 --side black --not-in-check --min-pieces 10 --max-pieces 20` — keep quiet-ish Black-to-move middlegame/endgame positions by piece count.
 - `crtk fen chess960 518` — print the standard start position by its Chess960 index.
 - `crtk fen chess960 --all --format both > chess960.tsv` — export `index`, back-rank layout, and FEN for all 960 starts.
 
@@ -51,8 +56,8 @@ Examples assume you installed the launcher (`crtk`). If you run from classes, re
 
 ## Publish diagrams and books
 
-- `crtk book ilovechess -i dump/mate1.json -o books/mate1.book.toml --subtitle "4,000 Mate in 1 Puzzles" --pdf-output dist/mate1.pdf --cover-output dist/mate1-cover.pdf --binding paperback --interior white-bw` — build an I Love Chess-style manifest from analyzed records and render the matching interior + cover.
-- `crtk book artofchess -i books/art-of-chess.json --manifest-output books/art-of-chess.toml -o dist/art-of-chess.pdf --cover-output dist/art-of-chess-cover.pdf --binding paperback --interior white-bw` — render a richer annotated Art of Chess manifest and optionally normalize it to TOML.
+- `crtk book collection -i dump/mate1.json -o books/mate1.book.toml --subtitle "4,000 Mate in 1 Puzzles" --pdf-output dist/mate1.pdf --cover-output dist/mate1-cover.pdf --binding paperback --interior white-bw` — build a puzzle-collection manifest from analyzed records and render the matching interior + cover.
+- `crtk book study -i books/puzzle-studies.json --manifest-output books/puzzle-studies.toml -o dist/puzzle-studies.pdf --cover-output dist/puzzle-studies-cover.pdf --binding paperback --interior white-bw` — render richer annotated puzzle studies and optionally normalize them to TOML.
 - `crtk book pdf --fen "<FEN>" -o dump/position.pdf` — export one diagram to PDF.
 - `crtk book pdf -i seeds.txt -o dump/sheet.pdf --title "Training Sheet"` — export a FEN list to a diagram sheet PDF.
 - `crtk book pdf --pgn games.pgn -o dump/games.pdf --page-size a5 --diagrams-per-row 1` — export PGN mainlines to PDF.

@@ -11,7 +11,9 @@ import static application.cli.Constants.OPT_OUTPUT;
 import static application.cli.Constants.OPT_OUTPUT_SHORT;
 import static application.cli.Constants.OPT_WEIGHTS;
 import static application.cli.Constants.OPT_PUZZLES;
+import static application.cli.Constants.OPT_RATINGS_CSV;
 import static application.cli.Constants.OPT_RECURSIVE;
+import static application.cli.Constants.OPT_THREADS;
 import static application.cli.Constants.OPT_VERBOSE;
 import static application.cli.Constants.OPT_VERBOSE_SHORT;
 import static application.cli.Constants.OPT_EXPORT_ALL;
@@ -51,6 +53,7 @@ import application.console.Bar;
 import chess.core.Move;
 import chess.io.Converter;
 import chess.io.ClassifierDatasetExporter;
+import chess.io.PuzzleEloExporter;
 import chess.io.Writer;
 import chess.nn.lc0.Encoder;
 import chess.nn.lc0.Network;
@@ -72,6 +75,7 @@ import static application.cli.RecordIO.streamRecordJson;
  * @since 2026
  * @author Lennart A. Conrad
  */
+@SuppressWarnings({"java:S1192", "java:S3776"})
 public final class RecordCommands {
 
 	/**
@@ -94,6 +98,10 @@ public final class RecordCommands {
 	 * Shared ext puzzle jsonl constant.
 	 */
 	private static final String EXT_PUZZLE_JSONL = ".puzzle.jsonl";
+	/**
+	 * Shared Elo-rated puzzle jsonl constant.
+	 */
+	private static final String EXT_PUZZLE_ELO_JSONL = ".puzzle-elo.jsonl";
 	/**
 	 * Shared ext training jsonl constant.
 	 */
@@ -130,6 +138,10 @@ public final class RecordCommands {
 	 * Shared puzzle-jsonl command label constant.
 	 */
 	private static final String COMMAND_RECORD_EXPORT_PUZZLE_JSONL = "record export puzzle-jsonl";
+	/**
+	 * Shared Elo-rated puzzle export command label constant.
+	 */
+	private static final String COMMAND_RECORD_EXPORT_PUZZLE_ELO_JSONL = "record export puzzle-elo-jsonl";
 	/**
 	 * Shared training-jsonl command label constant.
 	 */
@@ -464,6 +476,98 @@ public final class RecordCommands {
 		exportPuzzleJsonl(in, output,
 				new PuzzleJsonlExportContext(filter, puzzleVerify, puzzles, nonpuzzles, verbose, lc0),
 				new PuzzleJsonlExportStats());
+	}
+
+	/**
+	 * Handles {@code record export puzzle-elo-jsonl}.
+	 *
+	 * @param a argument parser for the subcommand
+	 */
+	public static void runRecordToPuzzleEloJsonl(Argv a) {
+		boolean verbose = a.flag(OPT_VERBOSE, OPT_VERBOSE_SHORT);
+		boolean recursive = a.flag(OPT_RECURSIVE);
+		Long maxPuzzlesOpt = a.lng(OPT_MAX_RECORDS);
+		Integer threadsOpt = a.integer(OPT_THREADS);
+		Path ratingsCsv = a.path(OPT_RATINGS_CSV);
+		Path out = a.path(OPT_OUTPUT, OPT_OUTPUT_SHORT);
+
+		List<String> inputs = new ArrayList<>();
+		inputs.addAll(a.strings(OPT_INPUT, OPT_INPUT_SHORT));
+		inputs.addAll(a.positionals());
+		a.ensureConsumed();
+
+		if (inputs.isEmpty()) {
+			exitWithError(COMMAND_RECORD_EXPORT_PUZZLE_ELO_JSONL + ": missing "
+					+ OPT_INPUT + INPUTS_OR_POSITIONAL_HINT);
+		}
+		long maxPuzzles = maxPuzzlesOpt == null ? 0L : maxPuzzlesOpt.longValue();
+		if (maxPuzzles < 0L) {
+			exitWithError(COMMAND_RECORD_EXPORT_PUZZLE_ELO_JSONL + ": "
+					+ OPT_MAX_RECORDS + MUST_BE_NON_NEGATIVE);
+		}
+		if (ratingsCsv != null && maxPuzzles > 0L) {
+			exitWithError(COMMAND_RECORD_EXPORT_PUZZLE_ELO_JSONL + ": "
+					+ OPT_MAX_RECORDS + " cannot be combined with " + OPT_RATINGS_CSV);
+		}
+		int threads = threadsOpt == null ? Runtime.getRuntime().availableProcessors() : threadsOpt.intValue();
+		if (threads <= 0) {
+			exitWithError(COMMAND_RECORD_EXPORT_PUZZLE_ELO_JSONL + ": " + OPT_THREADS + " must be positive");
+		}
+
+		List<Path> inputFiles =
+				collectRecordInputsOrExit(COMMAND_RECORD_EXPORT_PUZZLE_ELO_JSONL, inputs, recursive, verbose);
+		if (inputFiles.isEmpty()) {
+			exitWithError(COMMAND_RECORD_EXPORT_PUZZLE_ELO_JSONL + ": no input files found");
+		}
+		Path output = out == null ? defaultPuzzleEloOutput(inputFiles) : out;
+		validatePuzzleEloOutput(inputFiles, output);
+
+		Config.reload();
+		try {
+			PuzzleEloExporter.Summary summary = ratingsCsv == null
+					? PuzzleEloExporter.export(
+							inputFiles,
+							output,
+							new PuzzleEloExporter.Options(Config.getPuzzleVerify(), maxPuzzles, threads))
+					: PuzzleEloExporter.exportFromRatingCsv(inputFiles, output, ratingsCsv, Config.getPuzzleVerify());
+			System.out.printf(
+					COMMAND_RECORD_EXPORT_PUZZLE_ELO_JSONL
+							+ ": wrote %d/%d Elo-rated puzzle records (indexed %d puzzles, invalid %d, skipped %d unscorable, %d non-puzzles, truncated %d trees) to %s%n",
+					summary.written(),
+					summary.seen(),
+					summary.indexedPuzzles(),
+					summary.invalid(),
+					summary.skipped(),
+					summary.nonPuzzles(),
+					summary.truncatedTrees(),
+					output);
+		} catch (IOException ex) {
+			exitWithError(COMMAND_RECORD_EXPORT_PUZZLE_ELO_JSONL + ": failed to export: "
+					+ ex.getMessage(), ex, verbose);
+		}
+	}
+
+	/**
+	 * Builds a default output for the Elo-rated puzzle exporter.
+	 */
+	private static Path defaultPuzzleEloOutput(List<Path> inputFiles) {
+		if (inputFiles.size() == 1) {
+			return defaultOutputPath(inputFiles.get(0), null, EXT_PUZZLE_ELO_JSONL);
+		}
+		return Paths.get("puzzles" + EXT_PUZZLE_ELO_JSONL);
+	}
+
+	/**
+	 * Prevents accidental in-place exports.
+	 */
+	private static void validatePuzzleEloOutput(List<Path> inputFiles, Path output) {
+		Path outputAbs = output.toAbsolutePath().normalize();
+		for (Path input : inputFiles) {
+			if (outputAbs.equals(input.toAbsolutePath().normalize())) {
+				exitWithError(COMMAND_RECORD_EXPORT_PUZZLE_ELO_JSONL
+						+ ": output cannot overwrite input file " + input);
+			}
+		}
 	}
 
 	/**

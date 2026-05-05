@@ -1,5 +1,8 @@
 package chess.classical;
 
+import chess.core.Bits;
+import chess.core.Field;
+import chess.core.MoveGenerator;
 import chess.core.Piece;
 import chess.core.Position;
 import utility.Numbers;
@@ -23,6 +26,10 @@ import utility.Numbers;
  * @since 2025
  * @author Lennart A. Conrad
  */
+@SuppressWarnings({
+    "java:S107", "java:S3358", "java:S3398", "java:S3776",
+    "squid:S107", "squid:S3358", "squid:S3398", "squid:S3776"
+})
 public record Wdl(
     /**
      * Stores the win.
@@ -104,6 +111,114 @@ public record Wdl(
      * </p>
      */
     private static final int BISHOP_PAIR_CP = 30;
+
+    /**
+     * Attack-table slot containing all piece attacks for one side.
+     */
+    private static final int ALL_ATTACKS = 0;
+
+    /**
+     * Attack-table side index for White.
+     */
+    private static final int WHITE = 0;
+
+    /**
+     * Attack-table side index for Black.
+     */
+    private static final int BLACK = 1;
+
+    /**
+     * Knight midgame mobility score by reachable safe targets.
+     */
+    private static final int[] KNIGHT_MOBILITY_CP = { -18, -12, -6, -2, 3, 7, 10, 13, 15 };
+
+    /**
+     * Knight endgame mobility score by reachable safe targets.
+     */
+    private static final int[] KNIGHT_MOBILITY_EG_CP = { -24, -16, -8, -2, 4, 9, 13, 16, 18 };
+
+    /**
+     * Bishop midgame mobility score by reachable safe targets.
+     */
+    private static final int[] BISHOP_MOBILITY_CP = { -14, -8, -2, 4, 9, 14, 18, 22, 25, 28, 30, 32, 34, 35 };
+
+    /**
+     * Bishop endgame mobility score by reachable safe targets.
+     */
+    private static final int[] BISHOP_MOBILITY_EG_CP = { -18, -10, -2, 5, 11, 17, 23, 28, 32, 35, 38, 40, 42, 44 };
+
+    /**
+     * Rook midgame mobility score by reachable safe targets.
+     */
+    private static final int[] ROOK_MOBILITY_CP = { -12, -7, -2, 2, 6, 10, 14, 17, 20, 22, 24, 26, 28, 30, 31 };
+
+    /**
+     * Rook endgame mobility score by reachable safe targets.
+     */
+    private static final int[] ROOK_MOBILITY_EG_CP = { -18, -9, -1, 7, 15, 23, 30, 36, 41, 45, 49, 52, 55, 57, 59 };
+
+    /**
+     * Queen midgame mobility score by reachable safe targets.
+     */
+    private static final int[] QUEEN_MOBILITY_CP = {
+            -8, -5, -2, 0, 3, 6, 8, 10, 12, 14, 16, 18, 19, 20, 21, 22,
+            23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34
+    };
+
+    /**
+     * Queen endgame mobility score by reachable safe targets.
+     */
+    private static final int[] QUEEN_MOBILITY_EG_CP = {
+            -12, -8, -4, 0, 5, 10, 14, 18, 22, 26, 30, 34, 37, 40, 43, 46,
+            49, 52, 55, 58, 61, 64, 66, 68, 70, 72, 74, 76
+    };
+
+    /**
+     * Midgame weight assigned to attackers of the enemy king zone.
+     */
+    private static final int[] KING_ATTACK_WEIGHT = { 0, 0, 11, 9, 13, 18, 0 };
+
+    /**
+     * Center four files, used for space and flank scoring.
+     */
+    private static final long CENTER_FILES = Bits.FILE_C | Bits.FILE_D | Bits.FILE_E | Bits.FILE_F;
+
+    /**
+     * Central four squares.
+     */
+    private static final long CENTER_SQUARES = Bits.bit(Field.D4) | Bits.bit(Field.E4)
+            | Bits.bit(Field.D5) | Bits.bit(Field.E5);
+
+    /**
+     * White-side space mask, following the classical engine convention of
+     * counting safe central squares behind the pawn front.
+     */
+    private static final long WHITE_SPACE_MASK = CENTER_FILES & (Bits.RANK_2 | Bits.RANK_3 | Bits.RANK_4);
+
+    /**
+     * Black-side space mask.
+     */
+    private static final long BLACK_SPACE_MASK = CENTER_FILES & (Bits.RANK_7 | Bits.RANK_6 | Bits.RANK_5);
+
+    /**
+     * Knight midgame outpost bonus.
+     */
+    private static final int KNIGHT_OUTPOST_CP = 22;
+
+    /**
+     * Bishop midgame outpost bonus.
+     */
+    private static final int BISHOP_OUTPOST_CP = 12;
+
+    /**
+     * Bitboard mask for one square-color complex.
+     */
+    private static final long LIGHT_SQUARES = squareColorMask(0);
+
+    /**
+     * Bitboard mask for the opposite square-color complex.
+     */
+    private static final long DARK_SQUARES = ~LIGHT_SQUARES;
 
     /**
      * Total starting material in centipawns (both sides, kings excluded).
@@ -426,17 +541,21 @@ public record Wdl(
         // - mobility, tempo and check penalty
         EvalScan scan = scanMaterialAndPst(board, buffers);
         double phase = updatePhase(scan, buffers);
+        AttackInfo attacks = buffers.attacks;
+        attacks.build(pos);
 
         int score = scan.score + (scan.whiteMaterial - scan.blackMaterial);
         score += bishopPairCp(scan.whiteBishops, scan.blackBishops);
-        score += pawnStructureCp(buffers.whitePawnsPerFile, buffers.blackPawnsPerFile, buffers.minWhitePawnRank,
-                buffers.maxBlackPawnRank, buffers.minBlackPawnRank, buffers.maxWhitePawnRank, phase);
+        score += pawnStructureCp(pos, buffers.whitePawnsPerFile, buffers.blackPawnsPerFile,
+                buffers.minBlackPawnRank, buffers.maxWhitePawnRank, attacks, phase);
         score += rookFileCp(buffers.whiteRooksFileCount, buffers.blackRooksFileCount, buffers.whitePawnsPerFile,
                 buffers.blackPawnsPerFile);
-        score += kingSafetyCp(pos, phase);
+        score += kingSafetyCp(pos, buffers, attacks, phase);
+        score += activityCp(attacks, phase);
+        score += threatsCp(pos, attacks, phase);
+        score += spaceCp(pos, attacks, scan, phase);
         score += tempoCp(pos);
         score += checkPenaltyCp(pos);
-        score += mobilityCp(pos, phase);
 
         return score;
     }
@@ -457,6 +576,8 @@ public record Wdl(
         scan.score = 0;
         scan.whiteBishops = 0;
         scan.blackBishops = 0;
+        scan.whitePawns = 0;
+        scan.blackPawns = 0;
 
         for (int square = 0; square < board.length; square++) {
             byte piece = board[square];
@@ -611,6 +732,7 @@ public record Wdl(
         int pawnPst = PAWN_PST[psq];
         scan.score += white ? pawnPst : -pawnPst;
         if (white) {
+            scan.whitePawns++;
             buffers.whitePawnsPerFile[file]++;
             if (rank < buffers.minWhitePawnRank[file]) {
                 buffers.minWhitePawnRank[file] = rank;
@@ -619,6 +741,7 @@ public record Wdl(
                 buffers.maxWhitePawnRank[file] = rank;
             }
         } else {
+            scan.blackPawns++;
             buffers.blackPawnsPerFile[file]++;
             if (rank > buffers.maxBlackPawnRank[file]) {
                 buffers.maxBlackPawnRank[file] = rank;
@@ -668,23 +791,252 @@ public record Wdl(
     /**
      * Blends opening and endgame king PST scores according to the phase factor.
      *
-     * @param pos   current position
-     * @param phase interpolation scalar from {@link #updatePhase(EvalScan, EvalBuffers)}
+     * @param pos     current position
+     * @param buffers pawn-file scratch data collected during the board scan
+     * @param attacks shared attack information
+     * @param phase   interpolation scalar from {@link #updatePhase(EvalScan, EvalBuffers)}
      * @return centipawn adjustment for both kings
      */
-    private static int kingSafetyCp(Position pos, double phase) {
+    private static int kingSafetyCp(Position pos, EvalBuffers buffers, AttackInfo attacks, double phase) {
         int score = 0;
         int whiteKing = pos.kingSquare(true);
         if (whiteKing >= 0) {
             int psq = whiteKing;
             score += (int) Math.round(KING_PST_OPENING[psq] * phase + KING_PST_ENDGAME[psq] * (1.0 - phase));
+            score += sideKingSafetyCp(pos, buffers, attacks, true, whiteKing, phase);
         }
         int blackKing = pos.kingSquare(false);
         if (blackKing >= 0) {
             int psq = flip(blackKing);
             score -= (int) Math.round(KING_PST_OPENING[psq] * phase + KING_PST_ENDGAME[psq] * (1.0 - phase));
+            score -= sideKingSafetyCp(pos, buffers, attacks, false, blackKing, phase);
         }
         return score;
+    }
+
+    /**
+     * Scores king shelter and nearby enemy pressure for one side.
+     *
+     * @param pos     current position
+     * @param buffers pawn-file scratch data
+     * @param attacks shared attack information
+     * @param white   side whose king is being scored
+     * @param king    king square
+     * @param phase   game phase
+     * @return positive when this side's king is safer
+     */
+    private static int sideKingSafetyCp(Position pos, EvalBuffers buffers, AttackInfo attacks, boolean white, int king,
+            double phase) {
+        if (phase <= 0.0) {
+            return 0;
+        }
+        int shelter = bestShelterCp(pos, buffers, white, king);
+        int pressure = kingZonePressureCp(pos, attacks, white, king);
+        long enemyQueens = pos.pieces(white ? Position.BLACK_QUEEN : Position.WHITE_QUEEN);
+        double enemyQueenFactor = 0.55;
+        if (enemyQueens != 0L) {
+            enemyQueenFactor = 1.0;
+        }
+        return (int) Math.round((shelter - pressure * enemyQueenFactor) * phase);
+    }
+
+    /**
+     * Returns the best available king shelter, considering current castling rights.
+     *
+     * @param pos     current position
+     * @param buffers pawn-file scratch data
+     * @param white   side whose king is being scored
+     * @param king    current king square
+     * @return shelter score in centipawns
+     */
+    private static int bestShelterCp(Position pos, EvalBuffers buffers, boolean white, int king) {
+        int shelter = shelterAt(buffers, white, king);
+        if (white) {
+            if (pos.canCastle(Position.WHITE_KINGSIDE)) {
+                shelter = Math.max(shelter, shelterAt(buffers, true, Field.G1));
+            }
+            if (pos.canCastle(Position.WHITE_QUEENSIDE)) {
+                shelter = Math.max(shelter, shelterAt(buffers, true, Field.C1));
+            }
+        } else {
+            if (pos.canCastle(Position.BLACK_KINGSIDE)) {
+                shelter = Math.max(shelter, shelterAt(buffers, false, Field.G8));
+            }
+            if (pos.canCastle(Position.BLACK_QUEENSIDE)) {
+                shelter = Math.max(shelter, shelterAt(buffers, false, Field.C8));
+            }
+        }
+        return shelter;
+    }
+
+    /**
+     * Scores pawn shelter and pawn storms around a candidate king square.
+     *
+     * @param buffers pawn-file scratch data
+     * @param white   side whose king is being scored
+     * @param king    candidate king square
+     * @return positive shelter score
+     */
+    private static int shelterAt(EvalBuffers buffers, boolean white, int king) {
+        int file = king & 7;
+        int rank = king >>> 3;
+        int centerFile = Math.max(1, Math.min(6, file));
+        int score = 6;
+        for (int f = centerFile - 1; f <= centerFile + 1; f++) {
+            int ownDistance = ownShieldDistance(buffers, white, f, rank);
+            int enemyDistance = enemyStormDistance(buffers, white, f, rank);
+            score += shieldScore(ownDistance);
+            score -= stormPenalty(enemyDistance);
+            if (f == file && ownDistance > 2) {
+                score -= 8;
+            }
+            boolean hasOwnPawn = (white ? buffers.whitePawnsPerFile[f] : buffers.blackPawnsPerFile[f]) != 0;
+            boolean hasEnemyPawn = (white ? buffers.blackPawnsPerFile[f] : buffers.whitePawnsPerFile[f]) != 0;
+            if (!hasOwnPawn) {
+                score -= hasEnemyPawn ? 7 : 13;
+            }
+        }
+        return score;
+    }
+
+    /**
+     * Returns the distance from king to closest friendly shelter pawn on a file.
+     *
+     * @param buffers pawn-file scratch data
+     * @param white   side whose king is being scored
+     * @param file    file to inspect
+     * @param rank    king rank index in board-array coordinates
+     * @return distance in ranks, or {@code 8} when no useful shelter pawn exists
+     */
+    private static int ownShieldDistance(EvalBuffers buffers, boolean white, int file, int rank) {
+        if (white) {
+            int pawnRank = buffers.maxWhitePawnRank[file];
+            return pawnRank >= 0 && pawnRank < rank ? rank - pawnRank : 8;
+        }
+        int pawnRank = buffers.minBlackPawnRank[file];
+        return pawnRank < 8 && pawnRank > rank ? pawnRank - rank : 8;
+    }
+
+    /**
+     * Returns the distance from king to the closest enemy pawn storm on a file.
+     *
+     * @param buffers pawn-file scratch data
+     * @param white   side whose king is being scored
+     * @param file    file to inspect
+     * @param rank    king rank index in board-array coordinates
+     * @return distance in ranks, or {@code 8} when no relevant enemy pawn exists
+     */
+    private static int enemyStormDistance(EvalBuffers buffers, boolean white, int file, int rank) {
+        if (white) {
+            int pawnRank = buffers.maxBlackPawnRank[file];
+            return pawnRank >= 0 && pawnRank < rank ? rank - pawnRank : 8;
+        }
+        int pawnRank = buffers.minWhitePawnRank[file];
+        return pawnRank < 8 && pawnRank > rank ? pawnRank - rank : 8;
+    }
+
+    /**
+     * Converts shelter-pawn distance into centipawns.
+     *
+     * @param distance pawn distance from the king
+     * @return shelter score
+     */
+    private static int shieldScore(int distance) {
+        return switch (distance) {
+            case 1 -> 14;
+            case 2 -> 6;
+            case 3 -> -4;
+            default -> -16;
+        };
+    }
+
+    /**
+     * Converts enemy pawn-storm distance into a penalty.
+     *
+     * @param distance pawn distance from the king
+     * @return storm penalty
+     */
+    private static int stormPenalty(int distance) {
+        return switch (distance) {
+            case 1 -> 22;
+            case 2 -> 15;
+            case 3 -> 9;
+            case 4 -> 4;
+            default -> 0;
+        };
+    }
+
+    /**
+     * Scores enemy attacks into the king zone.
+     *
+     * @param pos       current position
+     * @param attacks   shared attack information
+     * @param whiteKing true when scoring White's king safety
+     * @param king      king square
+     * @return pressure penalty before phase scaling
+     */
+    private static int kingZonePressureCp(Position pos, AttackInfo attacks, boolean whiteKing, int king) {
+        int us = sideIndex(whiteKing);
+        int them = 1 - us;
+        int attackers = attacks.kingAttackersCount[them];
+        int weight = attacks.kingAttackersWeight[them];
+        if (attackers == 0) {
+            return 0;
+        }
+        long weak = attacks.attackedBy[them][ALL_ATTACKS]
+                & ~attacks.attackedBy2[us]
+                & (~attacks.attackedBy[us][ALL_ATTACKS]
+                        | attacks.attackedBy[us][Piece.KING]
+                        | attacks.attackedBy[us][Piece.QUEEN]);
+        long flank = kingFlankMask(king) & campMask(whiteKing);
+        int flankAttack = Long.bitCount(attacks.attackedBy[them][ALL_ATTACKS] & flank)
+                + Long.bitCount(attacks.attackedBy2[them] & flank);
+        int flankDefense = Long.bitCount(attacks.attackedBy[us][ALL_ATTACKS] & flank);
+        int pressure = weight
+                + attackers * attackers * 4
+                + 12 * attacks.kingAttacksCount[them]
+                + 9 * Long.bitCount(attacks.kingZone[us] & weak)
+                + flankAttack * flankAttack / 2
+                + Math.max(0, attacks.mobilityMg[them] - attacks.mobilityMg[us]) / 2
+                - flankDefense * 3;
+        if (((pos.pieces(Position.WHITE_PAWN) | pos.pieces(Position.BLACK_PAWN)) & flank) == 0L) {
+            pressure += 18;
+        }
+        return attackers == 1 ? pressure / 2 : pressure;
+    }
+
+    /**
+     * Converts a side color into the attack-table side index.
+     *
+     * @param white side color
+     * @return {@link #WHITE} or {@link #BLACK}
+     */
+    private static int sideIndex(boolean white) {
+        return white ? WHITE : BLACK;
+    }
+
+    /**
+     * Returns a broad flank mask around a king file.
+     *
+     * @param king king square
+     * @return flank mask
+     */
+    private static long kingFlankMask(int king) {
+        int file = king & 7;
+        int center = Math.max(1, Math.min(6, file));
+        return fileBitboard(center - 1) | fileBitboard(center) | fileBitboard(center + 1);
+    }
+
+    /**
+     * Returns the side's home half of the board.
+     *
+     * @param white side color
+     * @return camp mask
+     */
+    private static long campMask(boolean white) {
+        return white
+                ? ~(Bits.RANK_6 | Bits.RANK_7 | Bits.RANK_8)
+                : ~(Bits.RANK_1 | Bits.RANK_2 | Bits.RANK_3);
     }
 
     /**
@@ -711,15 +1063,343 @@ public record Wdl(
     }
 
     /**
-     * Scales the mobility score according to the current phase.
+     * Blends attack-state piece activity and mobility scores.
      *
-     * @param pos   current position
-     * @param phase phase scalar [0,1] indicating endgame weight
-     * @return centipawn contribution from mobility
+     * @param attacks shared attack and activity information
+     * @param phase game phase
+     * @return centipawn contribution from White's perspective
      */
-    private static int mobilityCp(Position pos, double phase) {
-        int mobilityCp = (int) Math.round(Mobility.evaluate(pos) * 100.0);
-        return (int) Math.round(mobilityCp * (0.35 + 0.65 * phase));
+    private static int activityCp(AttackInfo attacks, double phase) {
+        int mg = attacks.mobilityMg[WHITE] + attacks.pieceMg[WHITE]
+                - attacks.mobilityMg[BLACK] - attacks.pieceMg[BLACK];
+        int eg = attacks.mobilityEg[WHITE] + attacks.pieceEg[WHITE]
+                - attacks.mobilityEg[BLACK] - attacks.pieceEg[BLACK];
+        return blend(mg, eg, phase);
+    }
+
+    /**
+     * Looks up a mobility score for one piece type.
+     *
+     * @param type     0 knight, 1 bishop, 2 rook, 3 queen
+     * @param mobility reachable safe target count
+     * @return score in centipawns
+     */
+    @SuppressWarnings({"java:S3398", "squid:S3398"})
+    private static int mobilityScore(int type, int mobility) {
+        int[] table = switch (type) {
+            case 0 -> KNIGHT_MOBILITY_CP;
+            case 1 -> BISHOP_MOBILITY_CP;
+            case 2 -> ROOK_MOBILITY_CP;
+            case 3 -> QUEEN_MOBILITY_CP;
+            default -> KNIGHT_MOBILITY_CP;
+        };
+        return table[Math.min(mobility, table.length - 1)];
+    }
+
+    /**
+     * Looks up an endgame mobility score for one piece type.
+     *
+     * @param type     0 knight, 1 bishop, 2 rook, 3 queen
+     * @param mobility reachable safe target count
+     * @return score in centipawns
+     */
+    @SuppressWarnings({"java:S3398", "squid:S3398"})
+    private static int mobilityEgScore(int type, int mobility) {
+        int[] table = switch (type) {
+            case 0 -> KNIGHT_MOBILITY_EG_CP;
+            case 1 -> BISHOP_MOBILITY_EG_CP;
+            case 2 -> ROOK_MOBILITY_EG_CP;
+            case 3 -> QUEEN_MOBILITY_EG_CP;
+            default -> KNIGHT_MOBILITY_EG_CP;
+        };
+        return table[Math.min(mobility, table.length - 1)];
+    }
+
+    /**
+     * Blends midgame and endgame terms by phase.
+     *
+     * @param mg midgame score
+     * @param eg endgame score
+     * @param phase phase in {@code [0,1]}
+     * @return blended score
+     */
+    private static int blend(int mg, int eg, double phase) {
+        return (int) Math.round(mg * phase + eg * (1.0 - phase));
+    }
+
+    /**
+     * Returns whether a minor piece occupies a pawn-protected outpost.
+     *
+     * @param white            side to score
+     * @param square           piece square
+     * @param ownPawnAttacks   friendly pawn attack mask
+     * @param enemyPawnAttacks enemy pawn attack mask
+     * @return true when the square is an outpost
+     */
+    @SuppressWarnings({"java:S3398", "squid:S3398"})
+    private static boolean isOutpost(boolean white, int square, long ownPawnAttacks, long enemyPawnAttacks) {
+        long bit = 1L << square;
+        if ((ownPawnAttacks & bit) == 0L || (enemyPawnAttacks & bit) != 0L) {
+            return false;
+        }
+        int relativeRank = white ? Bits.rank(square) : 7 - Bits.rank(square);
+        return relativeRank >= 3 && relativeRank <= 5;
+    }
+
+    /**
+     * Penalizes bishops buried behind too many same-color friendly pawns.
+     *
+     * @param bishop    bishop square
+     * @param mobility  safe mobility count
+     * @param ownPawns  friendly pawn bitboard
+     * @return penalty in centipawns
+     */
+    @SuppressWarnings({"java:S3398", "squid:S3398"})
+    private static int badBishopPenalty(int bishop, int mobility, long ownPawns) {
+        if (mobility > 4) {
+            return 0;
+        }
+        long colorMask = (((bishop & 7) + (bishop >>> 3)) & 1) == 0 ? LIGHT_SQUARES : DARK_SQUARES;
+        int sameColorPawns = Long.bitCount(ownPawns & colorMask);
+        return sameColorPawns <= 4 ? 0 : (sameColorPawns - 4) * 4 + (4 - mobility) * 3;
+    }
+
+    /**
+     * Scores tactical threats from the shared attack maps.
+     *
+     * @param pos current position
+     * @param attacks shared attack information
+     * @param phase game phase
+     * @return threat score from White's perspective
+     */
+    private static int threatsCp(Position pos, AttackInfo attacks, double phase) {
+        int white = sideThreatsCp(pos, attacks, true, phase);
+        int black = sideThreatsCp(pos, attacks, false, phase);
+        return white - black;
+    }
+
+    /**
+     * Scores attacked, weak, hanging, and pawn-threatened enemy pieces for one side.
+     *
+     * @param pos current position
+     * @param attacks shared attack information
+     * @param white side to score
+     * @param phase game phase
+     * @return score for the side
+     */
+    private static int sideThreatsCp(Position pos, AttackInfo attacks, boolean white, double phase) {
+        int us = sideIndex(white);
+        int them = 1 - us;
+        long enemies = pos.occupancy(!white);
+        long nonPawnEnemies = enemies & ~pos.pieces(white ? Position.BLACK_PAWN : Position.WHITE_PAWN);
+        long stronglyProtected = attacks.attackedBy[them][Piece.PAWN]
+                | (attacks.attackedBy2[them] & ~attacks.attackedBy2[us]);
+        long weak = enemies & ~stronglyProtected & attacks.attackedBy[us][ALL_ATTACKS];
+
+        int mg = 0;
+        int eg = 0;
+        long minorTargets = (weak | (nonPawnEnemies & stronglyProtected))
+                & (attacks.attackedBy[us][Piece.KNIGHT] | attacks.attackedBy[us][Piece.BISHOP]);
+        while (minorTargets != 0L) {
+            int square = Long.numberOfTrailingZeros(minorTargets);
+            minorTargets &= minorTargets - 1L;
+            int type = Math.abs(pos.pieceAt(square));
+            mg += minorThreatMg(type);
+            eg += minorThreatEg(type);
+        }
+
+        long rookTargets = weak & attacks.attackedBy[us][Piece.ROOK];
+        while (rookTargets != 0L) {
+            int square = Long.numberOfTrailingZeros(rookTargets);
+            rookTargets &= rookTargets - 1L;
+            int type = Math.abs(pos.pieceAt(square));
+            mg += rookThreatMg(type);
+            eg += rookThreatEg(type);
+        }
+
+        long hanging = weak & (~attacks.attackedBy[them][ALL_ATTACKS] | attacks.attackedBy2[us]);
+        int hangingCount = Long.bitCount(hanging);
+        mg += hangingCount * 22;
+        eg += hangingCount * 14;
+
+        long restricted = attacks.attackedBy[them][ALL_ATTACKS]
+                & ~stronglyProtected
+                & attacks.attackedBy[us][ALL_ATTACKS];
+        mg += Long.bitCount(restricted) * 4;
+
+        long safe = ~attacks.attackedBy[them][ALL_ATTACKS] | attacks.attackedBy[us][ALL_ATTACKS];
+        long safePawnThreats = attacks.attackedBy[us][Piece.PAWN] & nonPawnEnemies & safe;
+        mg += Long.bitCount(safePawnThreats) * 32;
+        eg += Long.bitCount(safePawnThreats) * 26;
+
+        long pushedPawns = pawnPushMask(white, pos.pieces(white ? Position.WHITE_PAWN : Position.BLACK_PAWN),
+                ~pos.occupancy());
+        long pawnPushThreats = pawnAttackMask(white, pushedPawns)
+                & nonPawnEnemies
+                & ~attacks.attackedBy[them][Piece.PAWN]
+                & safe;
+        mg += Long.bitCount(pawnPushThreats) * 18;
+        eg += Long.bitCount(pawnPushThreats) * 16;
+
+        long enemyQueens = pos.pieces(white ? Position.BLACK_QUEEN : Position.WHITE_QUEEN);
+        if (enemyQueens != 0L) {
+            int queen = Long.numberOfTrailingZeros(enemyQueens);
+            long safeQueenAttackers = attacks.attackedBy[us][Piece.KNIGHT]
+                    & MoveGenerator.knightAttacks(queen)
+                    & safe;
+            mg += Long.bitCount(safeQueenAttackers) * 16;
+            eg += Long.bitCount(safeQueenAttackers) * 10;
+            long sliderAttackers = (attacks.attackedBy[us][Piece.BISHOP]
+                    & MoveGenerator.bishopAttacks(queen, pos.occupancy()))
+                    | (attacks.attackedBy[us][Piece.ROOK]
+                            & MoveGenerator.rookAttacks(queen, pos.occupancy()));
+            int sliderPressure = Long.bitCount(sliderAttackers & attacks.attackedBy2[us] & safe);
+            mg += sliderPressure * 18;
+            eg += sliderPressure * 12;
+        }
+        return blend(mg, eg, phase);
+    }
+
+    /**
+     * Returns a midgame threat score for minor-piece attacks by target type.
+     *
+     * @param type attacked piece type
+     * @return score
+     */
+    private static int minorThreatMg(int type) {
+        return switch (type) {
+            case Piece.PAWN -> 6;
+            case Piece.KNIGHT, Piece.BISHOP -> 28;
+            case Piece.ROOK -> 44;
+            case Piece.QUEEN -> 58;
+            default -> 0;
+        };
+    }
+
+    /**
+     * Returns an endgame threat score for minor-piece attacks by target type.
+     *
+     * @param type attacked piece type
+     * @return score
+     */
+    private static int minorThreatEg(int type) {
+        return switch (type) {
+            case Piece.PAWN -> 16;
+            case Piece.KNIGHT, Piece.BISHOP -> 24;
+            case Piece.ROOK -> 38;
+            case Piece.QUEEN -> 70;
+            default -> 0;
+        };
+    }
+
+    /**
+     * Returns a midgame threat score for rook attacks by target type.
+     *
+     * @param type attacked piece type
+     * @return score
+     */
+    private static int rookThreatMg(int type) {
+        return switch (type) {
+            case Piece.PAWN -> 4;
+            case Piece.KNIGHT, Piece.BISHOP -> 22;
+            case Piece.QUEEN -> 42;
+            default -> 0;
+        };
+    }
+
+    /**
+     * Returns an endgame threat score for rook attacks by target type.
+     *
+     * @param type attacked piece type
+     * @return score
+     */
+    private static int rookThreatEg(int type) {
+        return switch (type) {
+            case Piece.PAWN -> 28;
+            case Piece.KNIGHT, Piece.BISHOP -> 34;
+            case Piece.ROOK -> 18;
+            case Piece.QUEEN -> 36;
+            default -> 0;
+        };
+    }
+
+    /**
+     * Scores safe central space in the opening and early middlegame.
+     *
+     * @param pos current position
+     * @param attacks shared attack information
+     * @param scan material scan
+     * @param phase game phase
+     * @return space score from White's perspective
+     */
+    private static int spaceCp(Position pos, AttackInfo attacks, EvalScan scan, double phase) {
+        if (phase < 0.45 || nonPawnMaterial(scan) < 2400) {
+            return 0;
+        }
+        int white = sideSpaceCp(pos, attacks, true);
+        int black = sideSpaceCp(pos, attacks, false);
+        return (int) Math.round((white - black) * phase);
+    }
+
+    /**
+     * Scores safe central space for one side.
+     *
+     * @param pos current position
+     * @param attacks shared attack information
+     * @param white side to score
+     * @return side space score
+     */
+    private static int sideSpaceCp(Position pos, AttackInfo attacks, boolean white) {
+        int them = sideIndex(!white);
+        long pawns = pos.pieces(white ? Position.WHITE_PAWN : Position.BLACK_PAWN);
+        long mask = white ? WHITE_SPACE_MASK : BLACK_SPACE_MASK;
+        long safe = mask & ~pawns & ~attacks.attackedBy[them][Piece.PAWN];
+        long behind = pawns;
+        long oneBehind = shiftBackward(white, pawns);
+        long twoBehind = shiftBackward(white, oneBehind);
+        long threeBehind = shiftBackward(white, twoBehind);
+        behind |= oneBehind | twoBehind | threeBehind;
+        int bonus = Long.bitCount(safe)
+                + Long.bitCount(behind & safe & ~attacks.attackedBy[them][ALL_ATTACKS]);
+        int blocked = blockedPawnCount(pos, white);
+        int weight = Math.max(0, Long.bitCount(pos.occupancy(white)) - 3 + Math.min(blocked, 9));
+        return bonus * weight * weight / 12;
+    }
+
+    /**
+     * Returns non-pawn material from the scan.
+     *
+     * @param scan material scan
+     * @return non-pawn material estimate
+     */
+    private static int nonPawnMaterial(EvalScan scan) {
+        return scan.whiteMaterial + scan.blackMaterial
+                - (scan.whitePawns + scan.blackPawns) * Piece.VALUE_PAWN;
+    }
+
+    /**
+     * Shifts squares one rank back toward the side's home rank.
+     *
+     * @param white side color
+     * @param mask input mask
+     * @return shifted mask
+     */
+    private static long shiftBackward(boolean white, long mask) {
+        return white ? (mask << 8) : (mask >>> 8);
+    }
+
+    /**
+     * Counts blocked pawns for a side.
+     *
+     * @param pos current position
+     * @param white side color
+     * @return blocked pawn count
+     */
+    private static int blockedPawnCount(Position pos, boolean white) {
+        long pawns = pos.pieces(white ? Position.WHITE_PAWN : Position.BLACK_PAWN);
+        long occupied = pos.occupancy();
+        long blocked = white ? ((pawns >>> 8) & occupied) : ((pawns << 8) & occupied);
+        return Long.bitCount(blocked);
     }
 
     /**
@@ -735,25 +1415,24 @@ public record Wdl(
      * <li>Passed pawns (file/adjacent file check)</li>
      * </ul>
      *
+     * @param pos               current position
      * @param whitePawnsPerFile white pawn counts per file
      * @param blackPawnsPerFile black pawn counts per file
-     * @param minWhitePawnRank  minimum rank of white pawn per file
-     * @param maxBlackPawnRank  maximum rank of black pawn per file
      * @param minBlackPawnRank  minimum rank of black pawn per file
      * @param maxWhitePawnRank  maximum rank of white pawn per file
+     * @param attacks           shared attack information
      * @param phase             phase scalar used for scaling passed pawns
      * @return score in centipawns from White's perspective
      */
-    private static int pawnStructureCp(int[] whitePawnsPerFile, int[] blackPawnsPerFile, int[] minWhitePawnRank,
-            int[] maxBlackPawnRank, int[] minBlackPawnRank, int[] maxWhitePawnRank, double phase) {
+    private static int pawnStructureCp(Position pos, int[] whitePawnsPerFile, int[] blackPawnsPerFile,
+            int[] minBlackPawnRank, int[] maxWhitePawnRank, AttackInfo attacks, double phase) {
         int whiteFileMask = fileMask(whitePawnsPerFile);
         int blackFileMask = fileMask(blackPawnsPerFile);
 
         int score = 0;
         score += doubledPawnsScore(whitePawnsPerFile, blackPawnsPerFile);
         score += isolatedPawnsScore(whitePawnsPerFile, blackPawnsPerFile, whiteFileMask, blackFileMask);
-        score += passedPawnsScore(whitePawnsPerFile, blackPawnsPerFile, minWhitePawnRank, maxBlackPawnRank,
-                minBlackPawnRank, maxWhitePawnRank, phase);
+        score += passedPawnsScore(pos, minBlackPawnRank, maxWhitePawnRank, attacks, phase);
         return score;
     }
 
@@ -843,36 +1522,176 @@ public record Wdl(
      *
      * <p>This method also blends the bonus based on the phase value.</p>
      *
-     * @param whitePawnsPerFile white pawn counts per file
-     * @param blackPawnsPerFile black pawn counts per file
-     * @param minWhitePawnRank  minimum rank of white pawn per file
-     * @param maxBlackPawnRank  maximum rank of black pawn per file
+     * @param pos               current position
      * @param minBlackPawnRank  minimum rank of black pawn per file
      * @param maxWhitePawnRank  maximum rank of white pawn per file
+     * @param attacks           shared attack information
      * @param phase             phase scalar for endgame scaling
      * @return centipawn passed pawn contribution
      */
-    private static int passedPawnsScore(int[] whitePawnsPerFile, int[] blackPawnsPerFile, int[] minWhitePawnRank,
-            int[] maxBlackPawnRank, int[] minBlackPawnRank, int[] maxWhitePawnRank, double phase) {
-        int score = 0;
-        double passedScale = 0.45 + 0.85 * (1.0 - phase);
-        for (int f = 0; f < 8; f++) {
-            if (whitePawnsPerFile[f] != 0 && minWhitePawnRank[f] < 8) {
-                int whiteRank = minWhitePawnRank[f];
-                if (!enemyPawnInFrontForWhite(f, whiteRank, minBlackPawnRank)) {
-                    int relRank = 7 - whiteRank;
-                    score += (int) Math.round((12 + 6 * relRank) * passedScale);
-                }
-            }
-            if (blackPawnsPerFile[f] != 0 && maxBlackPawnRank[f] >= 0) {
-                int blackRank = maxBlackPawnRank[f];
-                if (!enemyPawnInFrontForBlack(f, blackRank, maxWhitePawnRank)) {
-                    int relRank = blackRank;
-                    score -= (int) Math.round((12 + 6 * relRank) * passedScale);
-                }
+    private static int passedPawnsScore(Position pos, int[] minBlackPawnRank, int[] maxWhitePawnRank,
+            AttackInfo attacks, double phase) {
+        long whitePassed = passedPawnMask(true, pos.pieces(Position.WHITE_PAWN), minBlackPawnRank);
+        long blackPassed = passedPawnMask(false, pos.pieces(Position.BLACK_PAWN), maxWhitePawnRank);
+        int white = passedPawnScore(pos, attacks, true, whitePassed, pos.pieces(Position.WHITE_PAWN), phase);
+        int black = passedPawnScore(pos, attacks, false, blackPassed, pos.pieces(Position.BLACK_PAWN), phase);
+        return white - black;
+    }
+
+    /**
+     * Builds a mask of passed pawns for one side.
+     *
+     * @param white           side to inspect
+     * @param pawns           pawn bitboard
+     * @param enemyFrontRanks per-file frontmost enemy pawn ranks
+     * @return passed-pawn mask
+     */
+    private static long passedPawnMask(boolean white, long pawns, int[] enemyFrontRanks) {
+        long passed = 0L;
+        while (pawns != 0L) {
+            int square = Long.numberOfTrailingZeros(pawns);
+            pawns &= pawns - 1L;
+            int file = square & 7;
+            int rank = square >>> 3;
+            boolean blocked = white
+                    ? enemyPawnInFrontForWhite(file, rank, enemyFrontRanks)
+                    : enemyPawnInFrontForBlack(file, rank, enemyFrontRanks);
+            if (!blocked) {
+                passed |= 1L << square;
             }
         }
-        return score;
+        return passed;
+    }
+
+    /**
+     * Scores all passed pawns for one side.
+     *
+     * @param pos      current position
+     * @param attacks shared attack information
+     * @param white   side to score
+     * @param passed  passed-pawn mask for the side
+     * @param pawns   all pawns for the side
+     * @param phase   game phase
+     * @return passed-pawn score for the side
+     */
+    @SuppressWarnings({"java:S3776", "squid:S3776"})
+    private static int passedPawnScore(Position pos, AttackInfo attacks, boolean white, long passed, long pawns,
+            double phase) {
+        int mg = 0;
+        int eg = 0;
+        long defendedByPawn = pawnAttackMask(white, pawns);
+        int us = sideIndex(white);
+        int them = 1 - us;
+        long remaining = passed;
+        while (remaining != 0L) {
+            int square = Long.numberOfTrailingZeros(remaining);
+            remaining &= remaining - 1L;
+            int relRank = white ? 7 - (square >>> 3) : square >>> 3;
+            int baseMg = 8 + 7 * relRank + relRank * relRank;
+            int baseEg = 18 + 10 * relRank + relRank * relRank * 2;
+            long bit = 1L << square;
+            if ((defendedByPawn & bit) != 0L) {
+                baseMg += 8 + 2 * relRank;
+                baseEg += 11 + 3 * relRank;
+            }
+            if (hasConnectedPasser(passed, square)) {
+                baseMg += 7 + 2 * relRank;
+                baseEg += 9 + 3 * relRank;
+            }
+            int blockSquare = white ? square - 8 : square + 8;
+            if (blockSquare >= 0 && blockSquare < 64) {
+                long blockBit = 1L << blockSquare;
+                if ((pos.occupancy() & blockBit) != 0L) {
+                    baseMg -= 10 + 3 * relRank;
+                    baseEg -= 13 + 4 * relRank;
+                } else {
+                    long path = forwardFileMask(white, square);
+                    long unsafe = path & attacks.attackedBy[them][ALL_ATTACKS] & ~attacks.attackedBy[us][ALL_ATTACKS];
+                    if (unsafe == 0L) {
+                        baseMg += 10 + 4 * relRank;
+                        baseEg += 18 + 6 * relRank;
+                    } else if ((unsafe & blockBit) == 0L) {
+                        baseMg += 5 + 2 * relRank;
+                        baseEg += 9 + 3 * relRank;
+                    }
+                    int ownKing = pos.kingSquare(white);
+                    int enemyKing = pos.kingSquare(!white);
+                    if (ownKing >= 0 && enemyKing >= 0 && relRank >= 4) {
+                        int ownDistance = kingDistance(ownKing, blockSquare);
+                        int enemyDistance = kingDistance(enemyKing, blockSquare);
+                        baseEg += (enemyDistance - ownDistance) * (3 + relRank);
+                    }
+                }
+            }
+            mg += baseMg - edgeFileDistance(square & 7) * 3;
+            eg += baseEg - edgeFileDistance(square & 7) * 2;
+        }
+        return blend(mg, eg, phase);
+    }
+
+    /**
+     * Returns forward same-file squares for a pawn.
+     *
+     * @param white pawn side
+     * @param square pawn square
+     * @return forward file mask
+     */
+    private static long forwardFileMask(boolean white, int square) {
+        long mask = 0L;
+        int file = square & 7;
+        int row = square >>> 3;
+        if (white) {
+            for (int r = row - 1; r >= 0; r--) {
+                mask |= 1L << ((r << 3) | file);
+            }
+        } else {
+            for (int r = row + 1; r < 8; r++) {
+                mask |= 1L << ((r << 3) | file);
+            }
+        }
+        return mask;
+    }
+
+    /**
+     * Chebyshev distance between two king-relevant squares.
+     *
+     * @param a first square
+     * @param b second square
+     * @return king move distance
+     */
+    private static int kingDistance(int a, int b) {
+        return Math.max(Math.abs((a & 7) - (b & 7)), Math.abs((a >>> 3) - (b >>> 3)));
+    }
+
+    /**
+     * Distance from the closest edge file.
+     *
+     * @param file file index
+     * @return edge distance
+     */
+    private static int edgeFileDistance(int file) {
+        return Math.min(file, 7 - file);
+    }
+
+    /**
+     * Returns whether a passed pawn is connected to another passed pawn nearby.
+     *
+     * @param passed passed-pawn mask for one side
+     * @param square pawn square
+     * @return true when an adjacent-file passer is close enough to support it
+     */
+    private static boolean hasConnectedPasser(long passed, int square) {
+        int file = square & 7;
+        int rank = square >>> 3;
+        long adjacent = passed & adjacentFileBitboard(file);
+        while (adjacent != 0L) {
+            int other = Long.numberOfTrailingZeros(adjacent);
+            adjacent &= adjacent - 1L;
+            if (Math.abs((other >>> 3) - rank) <= 1) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -971,6 +1790,79 @@ public record Wdl(
             }
         }
         return score;
+    }
+
+    /**
+     * Builds the pawn attack mask for one side.
+     *
+     * @param white side to inspect
+     * @param pawns pawn bitboard
+     * @return attacked squares
+     */
+    private static long pawnAttackMask(boolean white, long pawns) {
+        if (white) {
+            return ((pawns & ~Bits.FILE_A) >>> 9) | ((pawns & ~Bits.FILE_H) >>> 7);
+        }
+        return ((pawns & ~Bits.FILE_A) << 7) | ((pawns & ~Bits.FILE_H) << 9);
+    }
+
+    /**
+     * Returns legal one-step pawn pushes for a side.
+     *
+     * @param white pawn side
+     * @param pawns pawn bitboard
+     * @param empty empty-square mask
+     * @return pushed pawn destinations
+     */
+    private static long pawnPushMask(boolean white, long pawns, long empty) {
+        long single = white ? ((pawns >>> 8) & empty) : ((pawns << 8) & empty);
+        if (white) {
+            return single | (((single & Bits.RANK_3) >>> 8) & empty);
+        }
+        return single | (((single & Bits.RANK_6) << 8) & empty);
+    }
+
+    /**
+     * Returns a bitboard mask for one file.
+     *
+     * @param file file index 0..7
+     * @return file bitboard
+     */
+    private static long fileBitboard(int file) {
+        return Bits.FILE_A << file;
+    }
+
+    /**
+     * Returns adjacent-file bitboards for one file.
+     *
+     * @param file file index 0..7
+     * @return adjacent-file mask
+     */
+    private static long adjacentFileBitboard(int file) {
+        long mask = 0L;
+        if (file > 0) {
+            mask |= fileBitboard(file - 1);
+        }
+        if (file < 7) {
+            mask |= fileBitboard(file + 1);
+        }
+        return mask;
+    }
+
+    /**
+     * Builds a square-color mask.
+     *
+     * @param color square color parity
+     * @return bitboard containing squares of the requested parity
+     */
+    private static long squareColorMask(int color) {
+        long mask = 0L;
+        for (int square = 0; square < 64; square++) {
+            if ((((square & 7) + (square >>> 3)) & 1) == color) {
+                mask |= 1L << square;
+            }
+        }
+        return mask;
     }
 
     /**
@@ -1075,6 +1967,433 @@ public record Wdl(
             }
         }
         return state.isInsufficient();
+    }
+
+    /**
+     * Reusable attack-map scratch data for one evaluator pass.
+     *
+     * <p>
+     * The evaluator builds this structure once per position and then shares it
+     * across mobility, threat, passed-pawn, king-safety, and space terms. Keeping
+     * the maps together avoids recomputing piece attacks in every feature.
+     * </p>
+     */
+    private static final class AttackInfo {
+
+        /**
+         * Attacks by side and piece type.
+         *
+         * <p>
+         * The first dimension uses {@link #WHITE}/{@link #BLACK}; the second uses
+         * {@link Piece} constants, with slot {@link #ALL_ATTACKS} holding the
+         * union of every piece attack for that side.
+         * </p>
+         */
+        private final long[][] attackedBy = new long[2][7];
+
+        /**
+         * Squares attacked by at least two pieces of a side.
+         */
+        private final long[] attackedBy2 = new long[2];
+
+        /**
+         * King-zone masks for each side's king.
+         */
+        private final long[] kingZone = new long[2];
+
+        /**
+         * Number of pieces attacking the enemy king zone.
+         */
+        private final int[] kingAttackersCount = new int[2];
+
+        /**
+         * Weighted king-zone attacking pressure.
+         */
+        private final int[] kingAttackersWeight = new int[2];
+
+        /**
+         * Number of attacked squares in the enemy king zone.
+         */
+        private final int[] kingAttacksCount = new int[2];
+
+        /**
+         * Midgame mobility-like attack count by side.
+         */
+        private final int[] mobilityMg = new int[2];
+
+        /**
+         * Endgame mobility score by side.
+         */
+        private final int[] mobilityEg = new int[2];
+
+        /**
+         * Midgame piece placement/activity score by side.
+         */
+        private final int[] pieceMg = new int[2];
+
+        /**
+         * Endgame piece placement/activity score by side.
+         */
+        private final int[] pieceEg = new int[2];
+
+        /**
+         * Builds attack data for one position.
+         *
+         * <p>
+         * This method must be called before reading any field in this object. It
+         * resets stale values, initializes both king zones, and scans both sides.
+         * </p>
+         *
+         * @param pos position to scan
+         */
+        void build(Position pos) {
+            reset();
+            int whiteKing = pos.kingSquare(true);
+            int blackKing = pos.kingSquare(false);
+            kingZone[WHITE] = kingZoneMask(whiteKing);
+            kingZone[BLACK] = kingZoneMask(blackKing);
+            long occupancy = pos.occupancy();
+            long whitePawnAttacks = pawnAttackMask(true, pos.pieces(Position.WHITE_PAWN));
+            long blackPawnAttacks = pawnAttackMask(false, pos.pieces(Position.BLACK_PAWN));
+            scanSide(pos, true, occupancy, blackPawnAttacks);
+            scanSide(pos, false, occupancy, whitePawnAttacks);
+        }
+
+        /**
+         * Clears all scratch fields.
+         *
+         * <p>
+         * Arrays are reused through {@link EvalBuffers}, so every scalar and
+         * bitboard slot has to be reset before scanning a new position.
+         * </p>
+         */
+        private void reset() {
+            for (int side = 0; side < 2; side++) {
+                attackedBy2[side] = 0L;
+                kingZone[side] = 0L;
+                kingAttackersCount[side] = 0;
+                kingAttackersWeight[side] = 0;
+                kingAttacksCount[side] = 0;
+                mobilityMg[side] = 0;
+                mobilityEg[side] = 0;
+                pieceMg[side] = 0;
+                pieceEg[side] = 0;
+                for (int i = 0; i < attackedBy[side].length; i++) {
+                    attackedBy[side][i] = 0L;
+                }
+            }
+        }
+
+        /**
+         * Scans all pieces for one side.
+         *
+         * <p>
+         * Pawn attacks are intentionally scanned before non-pawn pieces so outpost
+         * and safe-mobility terms can reuse the side's pawn-control map.
+         * </p>
+         *
+         * @param pos current position
+         * @param white side to scan
+         * @param occupancy occupied-square mask
+         * @param enemyPawnAttacks enemy pawn attacks
+         */
+        private void scanSide(Position pos, boolean white, long occupancy, long enemyPawnAttacks) {
+            int side = sideIndex(white);
+            long own = pos.occupancy(white);
+            long ownPawns = pos.pieces(white ? Position.WHITE_PAWN : Position.BLACK_PAWN);
+            long enemyPawns = pos.pieces(white ? Position.BLACK_PAWN : Position.WHITE_PAWN);
+            long enemyKing = pos.pieces(white ? Position.BLACK_KING : Position.WHITE_KING);
+            int ownKing = pos.kingSquare(white);
+            scanPieces(pos, ownPawns, white, Piece.PAWN, occupancy, own, ownPawns, enemyPawns, enemyKing,
+                    enemyPawnAttacks, side, ownKing);
+            scanPieces(pos, pos.pieces(white ? Position.WHITE_KNIGHT : Position.BLACK_KNIGHT), white, Piece.KNIGHT,
+                    occupancy, own, ownPawns, enemyPawns, enemyKing, enemyPawnAttacks, side, ownKing);
+            scanPieces(pos, pos.pieces(white ? Position.WHITE_BISHOP : Position.BLACK_BISHOP), white, Piece.BISHOP,
+                    occupancy, own, ownPawns, enemyPawns, enemyKing, enemyPawnAttacks, side, ownKing);
+            scanPieces(pos, pos.pieces(white ? Position.WHITE_ROOK : Position.BLACK_ROOK), white, Piece.ROOK,
+                    occupancy, own, ownPawns, enemyPawns, enemyKing, enemyPawnAttacks, side, ownKing);
+            scanPieces(pos, pos.pieces(white ? Position.WHITE_QUEEN : Position.BLACK_QUEEN), white, Piece.QUEEN,
+                    occupancy, own, ownPawns, enemyPawns, enemyKing, enemyPawnAttacks, side, ownKing);
+            scanPieces(pos, pos.pieces(white ? Position.WHITE_KING : Position.BLACK_KING), white, Piece.KING,
+                    occupancy, own, ownPawns, enemyPawns, enemyKing, enemyPawnAttacks, side, ownKing);
+        }
+
+        /**
+         * Scans every piece in one bitboard and updates attack/activity state.
+         *
+         * @param pos current position
+         * @param pieces bitboard containing pieces of one type and side
+         * @param white side whose pieces are being scanned
+         * @param type absolute {@link Piece} type being scanned
+         * @param occupancy occupied-square mask for both sides
+         * @param own friendly occupancy mask
+         * @param ownPawns friendly pawn bitboard
+         * @param enemyPawns enemy pawn bitboard
+         * @param enemyKing enemy king bitboard, excluded from mobility targets
+         * @param enemyPawnAttacks enemy pawn attack mask
+         * @param side attack-table side index
+         * @param ownKing friendly king square, or negative if absent
+         */
+        @SuppressWarnings({"java:S107", "squid:S107"})
+        private void scanPieces(Position pos, long pieces, boolean white, int type, long occupancy, long own,
+                long ownPawns, long enemyPawns, long enemyKing, long enemyPawnAttacks, int side, int ownKing) {
+            long mobilityArea = ~(own | enemyKing | enemyPawnAttacks);
+            int enemy = 1 - side;
+            while (pieces != 0L) {
+                int from = Long.numberOfTrailingZeros(pieces);
+                pieces &= pieces - 1L;
+                long attacks = attacksForPieceType(white, type, from, occupancy);
+                addAttacks(side, type, attacks);
+                if (type != Piece.PAWN && type != Piece.KING) {
+                    int mobility = Long.bitCount(attacks & mobilityArea);
+                    int activityType = activityType(type);
+                    mobilityMg[side] += mobilityScore(activityType, mobility);
+                    mobilityEg[side] += mobilityEgScore(activityType, mobility);
+                    addPieceActivity(pos, side, white, type, from, mobility, attacks, own, ownPawns,
+                            enemyPawns, enemyPawnAttacks, ownKing);
+                }
+                long kingHits = attacks & kingZone[enemy];
+                if (kingHits != 0L && type != Piece.KING) {
+                    kingAttackersCount[side]++;
+                    kingAttackersWeight[side] += KING_ATTACK_WEIGHT[type];
+                    kingAttacksCount[side] += Long.bitCount(kingHits);
+                }
+            }
+        }
+
+        /**
+         * Adds piece-specific activity terms for a single non-pawn, non-king piece.
+         *
+         * <p>
+         * Minor pieces get outpost and king-protector terms, bishops also get
+         * color-complex penalties and long-diagonal bonuses, and heavy pieces are
+         * delegated to their own helpers.
+         * </p>
+         *
+         * @param pos current position
+         * @param side attack-table side index
+         * @param white side that owns the piece
+         * @param type absolute {@link Piece} type
+         * @param square piece square
+         * @param mobility safe mobility count for this piece
+         * @param attacks attack mask for this piece
+         * @param own friendly occupancy mask
+         * @param ownPawns friendly pawn bitboard
+         * @param enemyPawns enemy pawn bitboard
+         * @param enemyPawnAttacks enemy pawn attack mask
+         * @param ownKing friendly king square, or negative if absent
+         */
+        @SuppressWarnings({"java:S107", "java:S3776", "squid:S107", "squid:S3776"})
+        private void addPieceActivity(Position pos, int side, boolean white, int type, int square, int mobility,
+                long attacks, long own, long ownPawns, long enemyPawns, long enemyPawnAttacks,
+                int ownKing) {
+            if (type == Piece.KNIGHT || type == Piece.BISHOP) {
+                long pawnAttacks = attackedBy[side][Piece.PAWN];
+                if (isOutpost(white, square, pawnAttacks, enemyPawnAttacks)) {
+                    int bonus = type == Piece.KNIGHT ? KNIGHT_OUTPOST_CP : BISHOP_OUTPOST_CP;
+                    pieceMg[side] += bonus;
+                    pieceEg[side] += bonus / 2;
+                } else if ((attacks & outpostMask(white, pawnAttacks, enemyPawnAttacks) & ~own) != 0L) {
+                    int bonus = type == Piece.KNIGHT ? 12 : 7;
+                    pieceMg[side] += bonus;
+                    pieceEg[side] += bonus / 2;
+                }
+                if (minorBehindPawn(white, square, ownPawns)) {
+                    pieceMg[side] += 8;
+                    pieceEg[side] += 5;
+                }
+                if (ownKing >= 0) {
+                    int protectorDistance = kingDistance(ownKing, square);
+                    int weight = type == Piece.KNIGHT ? 3 : 2;
+                    pieceMg[side] -= Math.max(0, protectorDistance - 1) * weight;
+                }
+            }
+            if (type == Piece.BISHOP) {
+                int penalty = badBishopPenalty(square, mobility, ownPawns);
+                pieceMg[side] -= penalty;
+                pieceEg[side] -= penalty / 2;
+                if (Long.bitCount(MoveGenerator.bishopAttacks(square, ownPawns | enemyPawns) & CENTER_SQUARES) >= 2) {
+                    pieceMg[side] += 7;
+                    pieceEg[side] += 4;
+                }
+            } else if (type == Piece.ROOK) {
+                addRookActivity(pos, side, white, square, mobility);
+            } else if (type == Piece.QUEEN) {
+                addQueenActivity(side, white, square, enemyPawnAttacks);
+            }
+        }
+
+        /**
+         * Adds rook file, seventh-rank, and trapped-rook activity terms.
+         *
+         * @param pos current position
+         * @param side attack-table side index
+         * @param white side that owns the rook
+         * @param square rook square
+         * @param mobility safe rook mobility count
+         */
+        private void addRookActivity(Position pos, int side, boolean white, int square, int mobility) {
+            long file = fileBitboard(square & 7);
+            if (((pos.pieces(Position.WHITE_QUEEN) | pos.pieces(Position.BLACK_QUEEN)) & file) != 0L) {
+                pieceMg[side] += 6;
+            }
+            int relRank = relativeRank(white, square);
+            long seventh = white ? Bits.RANK_7 : Bits.RANK_2;
+            if (relRank == 6 && (pos.occupancy(!white) & seventh) != 0L) {
+                pieceMg[side] += 18;
+                pieceEg[side] += 28;
+            }
+            int king = pos.kingSquare(white);
+            if (mobility <= 3 && king >= 0 && sameFlank(square, king)) {
+                int penalty = canCastleEither(pos, white) ? 10 : 22;
+                pieceMg[side] -= penalty;
+                pieceEg[side] -= penalty / 2;
+            }
+        }
+
+        /**
+         * Adds a small bonus for queens placed past the center without pawn
+         * harassment.
+         *
+         * @param side attack-table side index
+         * @param white side that owns the queen
+         * @param square queen square
+         * @param enemyPawnAttacks enemy pawn attack mask
+         */
+        private void addQueenActivity(int side, boolean white, int square, long enemyPawnAttacks) {
+            if (relativeRank(white, square) >= 4 && ((1L << square) & enemyPawnAttacks) == 0L) {
+                pieceMg[side] += 7;
+                pieceEg[side] += 10;
+            }
+        }
+
+        /**
+         * Returns all safe pawn-backed outpost squares for one side.
+         *
+         * @param white side whose outposts are being built
+         * @param ownPawnAttacks friendly pawn attack mask
+         * @param enemyPawnAttacks enemy pawn attack mask
+         * @return bitboard of reachable outpost squares
+         */
+        private long outpostMask(boolean white, long ownPawnAttacks, long enemyPawnAttacks) {
+            long ranks = white
+                    ? Bits.RANK_4 | Bits.RANK_5 | Bits.RANK_6
+                    : Bits.RANK_5 | Bits.RANK_4 | Bits.RANK_3;
+            return ranks & ownPawnAttacks & ~enemyPawnAttacks;
+        }
+
+        /**
+         * Returns whether a minor piece sits directly behind a friendly pawn.
+         *
+         * @param white side that owns the minor piece
+         * @param square minor-piece square
+         * @param ownPawns friendly pawn bitboard
+         * @return true when a friendly pawn is directly in front of the minor piece
+         */
+        private boolean minorBehindPawn(boolean white, int square, long ownPawns) {
+            int pawnSquare = white ? square - 8 : square + 8;
+            return pawnSquare >= 0 && pawnSquare < 64 && ((1L << pawnSquare) & ownPawns) != 0L;
+        }
+
+        /**
+         * Returns a square rank relative to a side's promotion direction.
+         *
+         * @param white side whose perspective is used
+         * @param square square to inspect
+         * @return rank in {@code 0..7}, increasing toward promotion
+         */
+        private int relativeRank(boolean white, int square) {
+            int rank = Bits.rank(square);
+            return white ? rank : 7 - rank;
+        }
+
+        /**
+         * Returns whether two pieces are on the same broad board flank.
+         *
+         * @param a first square
+         * @param b second square
+         * @return true when both squares are on the same half of the board
+         */
+        private boolean sameFlank(int a, int b) {
+            return ((a & 7) <= 3) == ((b & 7) <= 3);
+        }
+
+        /**
+         * Returns whether a side still has any castling option.
+         *
+         * @param pos current position
+         * @param white side to inspect
+         * @return true when at least one castling right remains
+         */
+        private boolean canCastleEither(Position pos, boolean white) {
+            return white
+                    ? pos.canCastle(Position.WHITE_KINGSIDE) || pos.canCastle(Position.WHITE_QUEENSIDE)
+                    : pos.canCastle(Position.BLACK_KINGSIDE) || pos.canCastle(Position.BLACK_QUEENSIDE);
+        }
+
+        /**
+         * Maps piece constants to mobility-table indexes.
+         *
+         * @param type absolute {@link Piece} type
+         * @return mobility-table index for knight, bishop, rook, or queen
+         */
+        private int activityType(int type) {
+            return switch (type) {
+                case Piece.KNIGHT -> 0;
+                case Piece.BISHOP -> 1;
+                case Piece.ROOK -> 2;
+                case Piece.QUEEN -> 3;
+                default -> 0;
+            };
+        }
+
+        /**
+         * Adds one attack mask to the attack tables.
+         *
+         * @param side attack-table side index
+         * @param type absolute {@link Piece} type
+         * @param attacks attack mask to merge
+         */
+        private void addAttacks(int side, int type, long attacks) {
+            attackedBy2[side] |= attackedBy[side][ALL_ATTACKS] & attacks;
+            attackedBy[side][ALL_ATTACKS] |= attacks;
+            attackedBy[side][type] |= attacks;
+        }
+
+        /**
+         * Returns attacks for a piece type from one square.
+         *
+         * @param white side that owns the piece
+         * @param type absolute {@link Piece} type
+         * @param from source square
+         * @param occupancy occupied-square mask for sliding attacks
+         * @return pseudo-legal attack mask for the piece
+         */
+        private long attacksForPieceType(boolean white, int type, int from, long occupancy) {
+            return switch (type) {
+                case Piece.PAWN -> pawnAttackMask(white, 1L << from);
+                case Piece.KNIGHT -> MoveGenerator.knightAttacks(from);
+                case Piece.BISHOP -> MoveGenerator.bishopAttacks(from, occupancy);
+                case Piece.ROOK -> MoveGenerator.rookAttacks(from, occupancy);
+                case Piece.QUEEN -> MoveGenerator.bishopAttacks(from, occupancy)
+                        | MoveGenerator.rookAttacks(from, occupancy);
+                case Piece.KING -> MoveGenerator.kingAttacks(from);
+                default -> 0L;
+            };
+        }
+
+        /**
+         * Builds a king-zone mask for one king square.
+         *
+         * @param king king square, or negative if absent
+         * @return bitboard containing the king square and adjacent squares
+         */
+        private long kingZoneMask(int king) {
+            if (king < 0) {
+                return 0L;
+            }
+            return (1L << king) | MoveGenerator.kingAttacks(king);
+        }
     }
 
     /**
@@ -1266,6 +2585,11 @@ public record Wdl(
         final EvalScan scan = new EvalScan();
 
         /**
+         * Transient attack-map state reused across evaluations.
+         */
+        final AttackInfo attacks = new AttackInfo();
+
+        /**
          * Estimated game phase between 0.0 (endgame) and 1.0 (opening/middlegame).
          * Reset to 1.0 before each evaluation and dampened as material is collected.
          */
@@ -1318,5 +2642,15 @@ public record Wdl(
          * Number of Black bishops on the board.
          */
         int blackBishops;
+
+        /**
+         * Number of White pawns on the board.
+         */
+        int whitePawns;
+
+        /**
+         * Number of Black pawns on the board.
+         */
+        int blackPawns;
     }
 }

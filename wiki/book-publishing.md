@@ -2,13 +2,15 @@
 
 ChessRTK can produce native vector PDFs for five publishing jobs:
 
-- `book ilovechess`: build an I Love Chess-style TOML manifest from record JSON/JSONL, with optional interior and cover PDF output.
-- `book artofchess`: render a richer annotated Art of Chess manifest with hints, analysis text, comments, and figure lists.
+- `book collection`: build a dense puzzle-collection TOML manifest from record JSON/JSONL, with optional interior and cover PDF output.
+- `book study`: render richer annotated puzzle studies with hints, analysis text, comments, and figure lists.
 - `book pdf`: quick diagram sheets from FEN lists or PGN mainlines.
 - `book render`: full puzzle books from JSON/TOML manifests.
 - `book cover`: matching paperback, hardcover, or ebook covers from the same manifest.
 
 No LaTeX step is required for these commands.
+Legacy aliases `book ilovechess` and `book artofchess` still resolve to
+`book collection` and `book study`.
 
 The native book renderer keeps publishing-specific text helpers in
 `chess.book.render`. Solution SAN in captions and tables is converted to
@@ -48,16 +50,16 @@ The `--check` flag is a dry run. For `book render`, it validates page geometry,
 FEN parsing, and solution moves. For `book cover`, it validates the same
 manifest and prints the calculated trim, spine, and full-cover dimensions.
 
-## I Love Chess workflow
+## Puzzle collection workflow
 
-Use `book ilovechess` when your source material is a record JSON/JSONL dump
+Use `book collection` when your source material is a record JSON/JSONL dump
 with a starting `position` and a PV in `analysis`. The command converts the
 first PV into move-numbered SAN, writes a TOML manifest, and can optionally
 render the interior and cover in one pass.
 
 ```bash
-crtk book ilovechess -i dump/mate1.json -o books/mate1.book.toml \
-  --title "I Love Chess" \
+crtk book collection -i dump/mate1.json -o books/mate1.book.toml \
+  --title "Chess Puzzle Collection" \
   --subtitle "4,000 Mate in 1 Puzzles" \
   --author "Lennart A. Conrad" \
   --time "2026" \
@@ -73,17 +75,17 @@ If you omit `--subtitle`, the command falls back to a generic
 builder supplies a compact default introduction and leaves the native
 how-to-read and afterword fallbacks in place.
 
-## Art of Chess workflow
+## Puzzle study workflow
 
-Use `book artofchess` when you already have richer annotated content and want
+Use `book study` when you already have richer annotated content and want
 to keep per-entry description text, comments, hints, and figure lists.
 
 ```bash
-crtk book artofchess -i books/art-of-chess.json \
-  --manifest-output books/art-of-chess.toml \
-  -o dist/art-of-chess.pdf \
-  --cover-output dist/art-of-chess-cover.pdf \
-  --title "Art of Chess Puzzles" \
+crtk book study -i books/puzzle-studies.json \
+  --manifest-output books/puzzle-studies.toml \
+  -o dist/puzzle-studies.pdf \
+  --cover-output dist/puzzle-studies-cover.pdf \
+  --title "Chess Puzzle Studies" \
   --subtitle "400 Annotated Studies" \
   --author "Lennart A. Conrad" \
   --binding paperback \
@@ -93,13 +95,13 @@ crtk book artofchess -i books/art-of-chess.json \
 This command accepts JSON or TOML input, can write a normalized TOML manifest,
 renders the composition-style interior PDF, and can build a matching cover in
 one pass. The manifest stays separate from the lean `book render` model on
-purpose: `book artofchess` keeps the richer `Composition` fields instead of
+purpose: `book study` keeps the richer `Composition` fields instead of
 collapsing everything into `position + moves`.
 
 Example TOML:
 
 ```toml
-title = "Art of Chess Puzzles"
+title = "Chess Puzzle Studies"
 subtitle = "Annotated Sample"
 author = "ChessRTK"
 time = "2026"
@@ -135,7 +137,7 @@ figureMovesAlgebraic = ["Final"]
 figureFens = ["rnb1kbnr/pppp1ppp/8/4p3/6Pq/5P2/PPPPP2P/RNBQKBNR w KQkq - 1 3"]
 ```
 
-Important Art-of-Chess fields:
+Important puzzle-study fields:
 
 - `[[compositions]]` is the repeated annotated entry list.
 - `description`, `comment`, `analysis`, and `hintLevel1..4` map directly to the rendered section blocks.
@@ -234,8 +236,8 @@ paths:
 java -Djava.awt.headless=true -cp out testing.BookRegressionTest
 java -Djava.awt.headless=true -cp out testing.ChessBookCommandRegressionTest
 java -Djava.awt.headless=true -cp out testing.ChessBookCoverCommandRegressionTest
-java -Djava.awt.headless=true -cp out testing.ChessArtOfChessCommandRegressionTest
-java -Djava.awt.headless=true -cp out testing.ChessILoveChessCommandRegressionTest
+java -Djava.awt.headless=true -cp out testing.PuzzleStudyCommandRegressionTest
+java -Djava.awt.headless=true -cp out testing.PuzzleCollectionCommandRegressionTest
 ```
 
 Use `-Djava.awt.headless=true` on machines without a reachable display server,

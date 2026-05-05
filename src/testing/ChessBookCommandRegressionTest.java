@@ -6,7 +6,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
-import application.cli.command.ChessBookCommand;
+import application.cli.command.book.BookRenderCommand;
 import utility.Argv;
 
 /**
@@ -74,7 +74,7 @@ public final class ChessBookCommandRegressionTest {
 		Files.writeString(input, sampleJson(16), StandardCharsets.UTF_8);
 
 		Path output = Files.createTempFile(BOOK_RENDER_PREFIX, ".pdf");
-		ChessBookCommand.runChessBook(new Argv(new String[] {
+		BookRenderCommand.runBookRender(new Argv(new String[] {
 				INPUT_OPTION, input.toString(),
 				OUTPUT_OPTION, output.toString(),
 				"--title", "CLI Book"
@@ -98,7 +98,7 @@ public final class ChessBookCommandRegressionTest {
 		Files.writeString(input, sampleToml(16), StandardCharsets.UTF_8);
 
 		Path output = Files.createTempFile(BOOK_RENDER_PREFIX, ".pdf");
-		ChessBookCommand.runChessBook(new Argv(new String[] {
+		BookRenderCommand.runBookRender(new Argv(new String[] {
 				input.toString(),
 				OUTPUT_OPTION, output.toString()
 		}));
@@ -121,7 +121,7 @@ public final class ChessBookCommandRegressionTest {
 		Files.writeString(input, sampleJson(12), StandardCharsets.UTF_8);
 
 		Path output = Files.createTempFile(BOOK_RENDER_PREFIX, ".pdf");
-		String console = captureStdout(() -> ChessBookCommand.runChessBook(new Argv(new String[] {
+		String console = captureStdout(() -> BookRenderCommand.runBookRender(new Argv(new String[] {
 					INPUT_OPTION, input.toString(),
 					OUTPUT_OPTION, output.toString(),
 					"--title", "Art of Chess Puzzles",
@@ -147,7 +147,7 @@ public final class ChessBookCommandRegressionTest {
 		Files.writeString(input, sampleJson(6), StandardCharsets.UTF_8);
 
 		Path output = Files.createTempDirectory("book-render-check-").resolve("book.pdf");
-		String console = captureStdout(() -> ChessBookCommand.runChessBook(new Argv(new String[] {
+		String console = captureStdout(() -> BookRenderCommand.runBookRender(new Argv(new String[] {
 				INPUT_OPTION, input.toString(),
 				OUTPUT_OPTION, output.toString(),
 				"--limit", "4",
@@ -169,7 +169,7 @@ public final class ChessBookCommandRegressionTest {
 		Files.writeString(input, sampleJson(8), StandardCharsets.UTF_8);
 
 		Path output = Files.createTempFile(BOOK_RENDER_PREFIX + "watermark-", ".pdf");
-		String console = captureStdout(() -> ChessBookCommand.runChessBook(new Argv(new String[] {
+		String console = captureStdout(() -> BookRenderCommand.runBookRender(new Argv(new String[] {
 				INPUT_OPTION, input.toString(),
 				OUTPUT_OPTION, output.toString(),
 				"--watermark-id", "CLI-ARC-42"

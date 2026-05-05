@@ -2,12 +2,20 @@ package testing;
 
 import static testing.TestSupport.*;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.List;
+
+import chess.core.Position;
+
 /**
  * Regression checks for lightweight CLI command routing and formatting.
  *
  * @since 2026
  * @author Lennart A. Conrad
  */
+@SuppressWarnings("java:S1192")
 public final class CLICommandRegressionTest {
 
 	/**
@@ -63,6 +71,12 @@ public final class CLICommandRegressionTest {
 			"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
 	/**
+	 * Lichess-derived puzzle position whose legal move list contains a knight fork.
+	 */
+	private static final String FORK_TAG_FEN =
+			"6k1/5p1p/4p3/4q3/3n4/2Q3P1/PP1N1P1P/6K1 b - - 3 37";
+
+	/**
 	 * Utility class; prevent instantiation.
 	 */
 	private CLICommandRegressionTest() {
@@ -78,6 +92,9 @@ public final class CLICommandRegressionTest {
 		testChess960Lookup();
 		testChess960AllLayouts();
 		testFenHelpers();
+		testFilteredFenGenerationShortcut();
+		testFenGenerateFilterValidation();
+		testFenTagsLegalMoveTactics();
 		testMovesFormatOption();
 		testGroupedFenAndMoveCommands();
 		testCorePerftCommand();
@@ -117,6 +134,93 @@ public final class CLICommandRegressionTest {
 				"fen normalize --startpos output");
 		assertTrue(TestSupport.runMain("fen", "validate", "--randompos").strip().startsWith("valid\t"),
 				"fen validate --randompos output");
+	}
+
+	/**
+	 * Verifies {@code gen fens} routes to filtered FEN generation.
+	 */
+	private static void testFilteredFenGenerationShortcut() {
+		try {
+			Path dir = Files.createTempDirectory("crtk-gen-fens-filter-");
+			String output = TestSupport.runMain(
+					"gen",
+					"fens",
+					"--output",
+					dir.toString(),
+					"--files",
+					"1",
+					"--per-file",
+					"2",
+					"--chess960-files",
+					"0",
+					"--batch",
+					"32",
+					"--max-attempts",
+					"10000",
+					"--side",
+					"white",
+					"--max-pieces",
+					"32",
+					"--ascii");
+			assertTrue(output.contains("filters:"), "gen fens reports active filters");
+			Path shard = dir.resolve("fens-0000-std.txt");
+			List<String> lines = Files.readAllLines(shard);
+			assertEquals(2, lines.size(), "filtered FEN shard line count");
+			for (String line : lines) {
+				Position position = new Position(line);
+				assertTrue(position.isWhiteToMove(), "filtered FEN side to move");
+				assertTrue(position.countTotalPieces() <= 32, "filtered FEN max piece count");
+			}
+		} catch (IOException ex) {
+			throw new AssertionError("filtered FEN generation test failed", ex);
+		}
+	}
+
+	/**
+	 * Verifies invalid filter combinations fail before generation starts.
+	 */
+	private static void testFenGenerateFilterValidation() {
+		TestSupport.FailureResult checkConflict = TestSupport.runMainExpectFailure(
+				"gen",
+				"fens",
+				"--files",
+				"1",
+				"--per-file",
+				"1",
+				"--chess960-files",
+				"0",
+				"--in-check",
+				"--not-in-check");
+		assertEquals(2, checkConflict.exitCode(), "gen fens conflicting check filters exit code");
+		assertTrue(checkConflict.stderr().contains("choose at most one"),
+				"gen fens conflicting check filters message");
+
+		TestSupport.FailureResult rangeConflict = TestSupport.runMainExpectFailure(
+				"fen",
+				"generate",
+				"--files",
+				"1",
+				"--per-file",
+				"1",
+				"--chess960-files",
+				"0",
+				"--pieces",
+				"2",
+				"--min-pieces",
+				"2");
+		assertEquals(2, rangeConflict.exitCode(), "fen generate exact/min conflict exit code");
+		assertTrue(rangeConflict.stderr().contains("cannot be combined"),
+				"fen generate exact/min conflict message");
+	}
+
+	/**
+	 * Verifies {@code fen tags} exposes legal-move tactical tags.
+	 */
+	private static void testFenTagsLegalMoveTactics() {
+		String output = TestSupport.runMain("fen", "tags", FEN_OPTION, FORK_TAG_FEN);
+		assertTrue(output.contains("TACTIC: motif=fork side=black move=d4e2"),
+				"fen tags legal-move fork tag");
+		assertFalse(output.contains("behind=pawn@"), "fen tags suppresses pawn-behind skewers");
 	}
 
 	/**
@@ -216,6 +320,7 @@ public final class CLICommandRegressionTest {
 		String summary = TestSupport.runMain("help");
 		assertTrue(summary.contains(RECORD_COMMAND), "help lists record group");
 		assertTrue(summary.contains("fen"), "help lists fen group");
+		assertTrue(summary.contains("gen"), "help lists gen group");
 		assertTrue(summary.contains("move"), "help lists move group");
 		assertTrue(summary.contains(ENGINE_COMMAND), "help lists engine group");
 		assertTrue(summary.contains("book"), "help lists book group");
@@ -239,6 +344,12 @@ public final class CLICommandRegressionTest {
 		String fen = TestSupport.runMain("help", "fen");
 		assertTrue(fen.contains("fen subcommands:"), "help fen subcommands");
 
+		String gen = TestSupport.runMain("help", "gen");
+		assertTrue(gen.contains("gen subcommands:"), "help gen subcommands");
+
+		String full = TestSupport.runMain("help", "--full");
+		assertTrue(full.contains("gen subcommands:"), "full help lists gen subcommands");
+
 		String engineHelp = TestSupport.runMain("help", ENGINE_COMMAND);
 		assertTrue(engineHelp.contains("uci-smoke"), "help engine lists uci-smoke");
 
@@ -252,6 +363,13 @@ public final class CLICommandRegressionTest {
 		String fenDisplay = TestSupport.runMain("help", "fen", "display");
 		assertTrue(fenDisplay.contains("--startpos"), "help fen display startpos option");
 		assertTrue(fenDisplay.contains("--randompos"), "help fen display randompos option");
+
+		String fenGenerate = TestSupport.runMain("help", "fen", "generate");
+		assertTrue(fenGenerate.contains("--endgame"), "help fen generate endgame filter");
+		assertTrue(fenGenerate.contains("--rooks N"), "help fen generate rooks filter");
+		assertTrue(fenGenerate.contains("--en-passant"), "help fen generate en-passant filter");
+		assertTrue(fenGenerate.contains("Filters combine with AND"), "help fen generate filter contract");
+		assertFalse(fenGenerate.contains("puzzle mine options"), "help fen generate does not bleed into next section");
 
 		String moveList = TestSupport.runMain("help", "move", "list");
 		assertTrue(moveList.contains("--startpos"), "help move list startpos option");

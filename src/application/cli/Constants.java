@@ -426,6 +426,11 @@ public final class Constants {
 	public static final String OPT_CSV_OUTPUT = "--csv-output";
 
 	/**
+	 * {@code --ratings-csv} option flag.
+	 */
+	public static final String OPT_RATINGS_CSV = "--ratings-csv";
+
+	/**
 	 * Short {@code --csv-output} flag alias.
 	 */
 	public static final String OPT_CSV_OUTPUT_SHORT = "-c";

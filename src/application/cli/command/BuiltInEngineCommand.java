@@ -44,6 +44,7 @@ import utility.Argv;
  * @since 2026
  * @author Lennart A. Conrad
  */
+@SuppressWarnings({"java:S1141", "squid:S1141"})
 public final class BuiltInEngineCommand {
 
 	/**
@@ -145,44 +146,50 @@ public final class BuiltInEngineCommand {
 	public static void runBuiltIn(Argv a) {
 		Options opts = parseOptions(a);
 		List<String> fens = CommandSupport.resolveFenInputs(CMD_BUILTIN, opts.input(), opts.fen());
-		try (AlphaBeta searcher = new AlphaBeta(createEvaluator(opts))) {
-			Bar bar = progressBar(fens);
-			for (int i = 0; i < fens.size(); i++) {
-				try {
-					String entry = fens.get(i);
-					Position position = EngineOps.parsePositionOrNull(entry, CMD_BUILTIN, opts.verbose());
-					if (position == null) {
-						continue;
-					}
-					if (opts.format() == OutputFormat.UCI_INFO && opts.input() != null) {
-						System.out.println("info string fen " + entry);
-					}
-					Result result = search(searcher, position, opts);
-					printResult(entry, position, result, searcher.evaluatorName(), opts.input() != null, opts.format(), i > 0);
-				} catch (RuntimeException ex) {
-					System.err.println(CMD_BUILTIN + ": search failed: " + ex.getMessage());
-					if (opts.verbose()) {
-						ex.printStackTrace(System.err);
-					}
-					System.exit(2);
-				} finally {
+			try (AlphaBeta searcher = new AlphaBeta(createEvaluator(opts))) {
+				Bar bar = progressBar(fens);
+				for (int i = 0; i < fens.size(); i++) {
+					searchAndPrint(fens.get(i), searcher, opts, i > 0);
 					CommandSupport.step(bar);
 				}
-			}
-			CommandSupport.finish(bar);
-		} catch (IOException ex) {
+				CommandSupport.finish(bar);
+			} catch (IOException ex) {
 			System.err.println(CMD_BUILTIN + ": evaluator initialization failed: " + ex.getMessage());
 			if (opts.verbose()) {
 				ex.printStackTrace(System.err);
 			}
 			System.exit(2);
 		}
-	}
+		}
 
-	/**
-	 * Parses command options.
-	 *
-	 * @param a argument parser
+		/**
+		 * Searches one input FEN and prints the result.
+		 */
+		private static void searchAndPrint(String entry, AlphaBeta searcher, Options opts, boolean blankBeforeSummary) {
+			try {
+				Position position = EngineOps.parsePositionOrNull(entry, CMD_BUILTIN, opts.verbose());
+				if (position == null) {
+					return;
+				}
+				if (opts.format() == OutputFormat.UCI_INFO && opts.input() != null) {
+					System.out.println("info string fen " + entry);
+				}
+				Result result = search(searcher, position, opts);
+				printResult(entry, position, result, searcher.evaluatorName(), opts.input() != null, opts.format(),
+						blankBeforeSummary);
+			} catch (RuntimeException ex) {
+				System.err.println(CMD_BUILTIN + ": search failed: " + ex.getMessage());
+				if (opts.verbose()) {
+					ex.printStackTrace(System.err);
+				}
+				System.exit(2);
+			}
+		}
+
+		/**
+		 * Parses command options.
+		 *
+		 * @param a argument parser
 	 * @return parsed options
 	 */
 	private static Options parseOptions(Argv a) {

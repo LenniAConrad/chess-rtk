@@ -29,6 +29,7 @@ import chess.eval.Classical;
  * @since 2026
  * @author Lennart A. Conrad
  */
+@SuppressWarnings({"java:S135", "squid:S135"})
 public final class AlphaBeta implements AutoCloseable {
 
     /**
@@ -551,10 +552,7 @@ public final class AlphaBeta implements AutoCloseable {
                     tactical,
                     move,
                     ply);
-            if (!shouldFutilityPrune(context, decision)) {
-                if (shouldLateMovePrune(context, decision)) {
-                    continue;
-                }
+            if (!shouldFutilityPrune(context, decision) && !shouldLateMovePrune(context, decision)) {
                 int score = searchNegamaxMove(context, position, state, depth, beta, pvNode, decision);
                 searchState.recordScore(context, ply, move, score);
                 if (searchState.alpha >= beta) {
@@ -1108,24 +1106,28 @@ public final class AlphaBeta implements AutoCloseable {
         Position.State state = new Position.State();
         short bestMove = Move.NO_MOVE;
         int bestScore = -INF;
-        for (short move : moves) {
+        boolean searching = true;
+        int moveIndex = 0;
+        while (searching && moveIndex < moves.length) {
+            short move = moves[moveIndex++];
             if (!context.recordRootFallbackProbe()) {
-                break;
-            }
-            root.play(move, state);
-            int score;
-            try {
-                context.movePlayed(root, move, state, 1);
-                score = positionScoreAfterRootMove(context, root, 1);
-            } finally {
-                root.undo(move, state);
-            }
-            if (score > bestScore || bestMove == Move.NO_MOVE) {
-                bestScore = score;
-                bestMove = move;
-            }
-            if (context.shouldStop()) {
-                break;
+                searching = false;
+            } else {
+                root.play(move, state);
+                int score;
+                try {
+                    context.movePlayed(root, move, state, 1);
+                    score = positionScoreAfterRootMove(context, root, 1);
+                } finally {
+                    root.undo(move, state);
+                }
+                if (score > bestScore || bestMove == Move.NO_MOVE) {
+                    bestScore = score;
+                    bestMove = move;
+                }
+                if (context.shouldStop()) {
+                    searching = false;
+                }
             }
         }
         if (bestMove == Move.NO_MOVE && moves.length > 0) {

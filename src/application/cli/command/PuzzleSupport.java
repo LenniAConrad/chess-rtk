@@ -15,6 +15,7 @@ import chess.uci.Output;
 /**
  * Helpers for building puzzle line records (main PV + variations).
  */
+@SuppressWarnings("java:S135")
 final class PuzzleSupport {
 
      /**

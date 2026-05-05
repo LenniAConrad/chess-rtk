@@ -185,7 +185,7 @@ public final class Chess960Command {
 	 */
 	private static int validateIndex(Integer index) {
 		if (index == null || index < 0 || index >= CHESS960_COUNT) {
-			failUsage("--index must be between 0 and 959");
+			return failUsage("--index must be between 0 and 959");
 		}
 		return index;
 	}
@@ -206,7 +206,7 @@ public final class Chess960Command {
 	 *
 	 * @param message diagnostic text.
 	 */
-	private static void failUsage(String message) {
+	private static int failUsage(String message) {
 		throw new IllegalArgumentException(CMD_CHESS960 + ": " + message);
 	}
 }

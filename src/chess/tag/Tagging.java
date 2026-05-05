@@ -20,15 +20,15 @@ import chess.core.SAN;
 import chess.eval.Evaluator;
 import chess.eval.Result;
 import chess.tag.core.Text;
+import chess.tag.material.Counts;
 import chess.tag.material.Endgame;
-import chess.tag.material.Material;
-import chess.tag.pawn.PawnStructure;
 import chess.tag.pawn.Promotion;
-import chess.tag.piece.PieceAblation;
-import chess.tag.piece.PieceActivity;
+import chess.tag.pawn.Structure;
+import chess.tag.piece.Ablation;
+import chess.tag.piece.Activity;
 import chess.tag.position.CenterSpace;
 import chess.tag.position.Opening;
-import chess.tag.tactical.Tactical;
+import chess.tag.tactical.Motifs;
 import chess.uci.Analysis;
 import chess.uci.Chances;
 import chess.uci.Evaluation;
@@ -45,6 +45,7 @@ import utility.Numbers;
  * @author Lennart A. Conrad
  * @since 2026
  */
+@SuppressWarnings({"java:S107", "java:S135"})
 public final class Tagging {
 
     /**
@@ -61,6 +62,26 @@ public final class Tagging {
      * The material fraction above which the position is treated as middlegame-like.
      */
     private static final double PHASE_MIDDLEGAME = 0.35;
+
+    /**
+     * Orthogonal directions for rook-like line scans.
+     */
+    private static final int[][] ORTHO_DIRS = { { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 } };
+
+    /**
+     * Diagonal directions for bishop-like line scans.
+     */
+    private static final int[][] DIAG_DIRS = { { 1, 1 }, { 1, -1 }, { -1, 1 }, { -1, -1 } };
+
+    /**
+     * Empty direction set for pieces that do not slide.
+     */
+    private static final int[][] NO_DIRS = new int[0][];
+
+    /**
+     * One representative direction for each line axis.
+     */
+    private static final int[][] LINE_AXES = { { 1, 0 }, { 0, 1 }, { 1, 1 }, { 1, -1 } };
 
     /**
      * Prevents instantiation of this utility class.
@@ -214,6 +235,47 @@ public final class Tagging {
     public static String[] positionalTags(Position position) {
         List<String> tags = tags(position);
         return tags.toArray(new String[0]);
+    }
+
+    /**
+     * Carries ECO/opening tags from an already-tagged parent or source position
+     * into a child position that no longer has an exact ECO-book match.
+     * <p>
+     * Direct ECO matches in {@code tags} always win. Only missing
+     * {@code OPENING: eco=} and {@code OPENING: name=} tags are inherited from
+     * {@code sourceTags}.
+     * </p>
+     *
+     * @param tags the child tag list to enrich
+     * @param sourceTags the parent or source tag list to inherit from
+     * @return a canonical, sorted tag list with inherited opening context
+     */
+    public static List<String> inheritOpeningTags(List<String> tags, List<String> sourceTags) {
+        List<String> base = tags == null ? List.of() : tags;
+        if (sourceTags == null || sourceTags.isEmpty()) {
+            return Sort.sort(base);
+        }
+
+        boolean hasEco = hasTagWithPrefix(base, OPENING_ECO_PREFIX);
+        boolean hasName = hasTagWithPrefix(base, OPENING_NAME_PREFIX);
+        if (hasEco && hasName) {
+            return Sort.sort(base);
+        }
+
+        List<String> merged = new ArrayList<>(base);
+        if (!hasEco) {
+            String inheritedEco = firstTagWithPrefix(sourceTags, OPENING_ECO_PREFIX);
+            if (inheritedEco != null) {
+                merged.add(inheritedEco);
+            }
+        }
+        if (!hasName) {
+            String inheritedName = firstTagWithPrefix(sourceTags, OPENING_NAME_PREFIX);
+            if (inheritedName != null) {
+                merged.add(inheritedName);
+            }
+        }
+        return Sort.sort(merged);
     }
 
     /**
@@ -396,6 +458,10 @@ public final class Tagging {
      */
     private static void addMetaEvaluation(List<String> tags, TagContext ctx, Position position, Evaluator evaluator,
             Analysis analysis) {
+        if (position.isCheckmate()) {
+            tags.add(META_MATED_IN_PREFIX + 0);
+            return;
+        }
         Evaluation analysisEval = evaluationFrom(analysis);
         if (analysisEval != null && analysisEval.isMate() && analysisEval.getValue() != 0) {
             addMateTag(tags, analysisEval.getValue());
@@ -567,7 +633,7 @@ public final class Tagging {
         if (whiteRooks + blackRooks == 0) {
             tags.add(MATERIAL_IMBALANCE_PREFIX + ROOKLESS);
         }
-        if (whiteBishops > 0 && blackBishops > 0) {
+        if (whiteBishops == 1 && blackBishops == 1) {
             if (hasOppositeColoredBishops(position.getBoard())) {
                 tags.add(MATERIAL_IMBALANCE_PREFIX + OPPOSITE_COLOR_BISHOPS);
             } else {
@@ -583,7 +649,7 @@ public final class Tagging {
      * @param position the position being tagged
      */
     private static void addMaterialPieceCounts(List<String> tags, Position position) {
-        for (String tag : Material.tags(position)) {
+        for (String tag : Counts.tags(position)) {
             if (tag == null || tag.isBlank()) {
                 continue;
             }
@@ -705,7 +771,7 @@ public final class Tagging {
      * @param position the position being tagged
      */
     private static void addPawnStructureTags(List<String> tags, Position position) {
-        for (String tag : PawnStructure.tags(position)) {
+        for (String tag : Structure.tags(position)) {
             String pawnStructureTag = pawnStructureTag(tag);
             if (pawnStructureTag != null) {
                 tags.add(pawnStructureTag);
@@ -893,6 +959,36 @@ public final class Tagging {
     }
 
     /**
+     * Returns whether a tag list contains a line with the requested prefix.
+     *
+     * @param tags the tag list to inspect
+     * @param prefix the tag prefix to find
+     * @return {@code true} when a matching tag exists
+     */
+    private static boolean hasTagWithPrefix(List<String> tags, String prefix) {
+        return firstTagWithPrefix(tags, prefix) != null;
+    }
+
+    /**
+     * Finds the first tag that starts with the requested prefix.
+     *
+     * @param tags the tag list to inspect
+     * @param prefix the tag prefix to find
+     * @return the first matching tag, or {@code null} when absent
+     */
+    private static String firstTagWithPrefix(List<String> tags, String prefix) {
+        if (tags == null || prefix == null) {
+            return null;
+        }
+        for (String tag : tags) {
+            if (tag != null && tag.startsWith(prefix)) {
+                return tag;
+            }
+        }
+        return null;
+    }
+
+    /**
      * Adds piece tags derived from ablation and activity analyzers.
      *
      * @param tags the mutable tag accumulator
@@ -900,13 +996,13 @@ public final class Tagging {
      * @param evaluator the evaluator used by the ablation analyzer
      */
     private static void addPieceTags(List<String> tags, Position position, Evaluator evaluator) {
-        for (String tag : PieceAblation.tag(position, evaluator, true)) {
+        for (String tag : Ablation.tag(position, evaluator, true)) {
             if (tag != null && !tag.isBlank()) {
                 addPieceTierTag(tags, tag.trim());
             }
         }
 
-        for (String tag : PieceActivity.tags(position)) {
+        for (String tag : Activity.tags(position)) {
             if (tag != null && !tag.isBlank()) {
                 addPieceActivityTag(tags, tag.trim());
             }
@@ -954,8 +1050,8 @@ public final class Tagging {
                 black.openFile = true;
             }
         }
-        addKingSafetyTags(tags, WHITE, white);
-        addKingSafetyTags(tags, BLACK, black);
+        addKingSafetyTags(tags, WHITE, white, position.kingSquare(true) != Field.NO_SQUARE);
+        addKingSafetyTags(tags, BLACK, black, position.kingSquare(false) != Field.NO_SQUARE);
     }
 
     /**
@@ -965,11 +1061,496 @@ public final class Tagging {
      * @param position the position being tagged
      */
     private static void addTacticalTags(List<String> tags, Position position) {
-        for (String tag : Tactical.tags(position)) {
+        for (String tag : Motifs.tags(position)) {
             if (tag != null && !tag.isBlank()) {
                 addTacticalTag(tags, tag.trim());
             }
         }
+        addLegalMoveTacticalTags(tags, position);
+    }
+
+    /**
+     * Adds tactical tags that are proven by legal moves from the current position.
+     *
+     * @param tags the mutable tag accumulator
+     * @param position the position being tagged
+     */
+    private static void addLegalMoveTacticalTags(List<String> tags, Position position) {
+        MoveList moves = position.legalMoves();
+        if (moves.isEmpty()) {
+            return;
+        }
+        boolean moverWhite = position.isWhiteToMove();
+        List<String> beforeSkewers = skewerKeys(position, moverWhite);
+        for (int i = 0; i < moves.size(); i++) {
+            short move = moves.get(i);
+            byte from = Move.getFromIndex(move);
+            byte movingPiece = from == Field.NO_SQUARE ? Piece.EMPTY : position.getBoard()[from];
+            Position next = position.copy().play(move);
+            String uci = Move.toString(move);
+            byte to = position.actualToSquare(move);
+            if (to == Field.NO_SQUARE) {
+                continue;
+            }
+            byte movedPiece = next.getBoard()[to];
+            boolean forcingMove = position.isCapture(move) || next.inCheck() || Move.isPromotion(move);
+            addMateInOneMoveTag(tags, next, moverWhite, uci);
+            addPromotionMoveTag(tags, move, movedPiece, moverWhite, uci, to);
+            addDiscoveredAttackMoveTags(tags, position, next, movingPiece, moverWhite, uci, from, forcingMove);
+            addForkMoveTag(tags, next, movedPiece, moverWhite, uci, to);
+            addNewSkewerMoveTags(tags, next, beforeSkewers, moverWhite, uci);
+        }
+    }
+
+    /**
+     * Adds a mate-in-one motif when a legal move checkmates.
+     *
+     * @param tags the mutable tag accumulator
+     * @param next the position after the legal move
+     * @param moverWhite whether the mover was White
+     * @param uci the move in UCI notation
+     */
+    private static void addMateInOneMoveTag(List<String> tags, Position next, boolean moverWhite, String uci) {
+        if (next.isCheckmate()) {
+            tags.add(TACTIC_MOTIF_PREFIX + "mate_in_1" + SIDE_FIELD + sideName(moverWhite)
+                    + SPACE_TEXT + MOVE + EQUAL_SIGN + uci);
+        }
+    }
+
+    /**
+     * Adds promotion motifs for legal promotion moves.
+     *
+     * @param tags the mutable tag accumulator
+     * @param move the legal move
+     * @param movedPiece the piece on the destination square after the move
+     * @param moverWhite whether the mover was White
+     * @param uci the move in UCI notation
+     * @param to the destination square
+     */
+    private static void addPromotionMoveTag(List<String> tags, short move, byte movedPiece, boolean moverWhite,
+            String uci, byte to) {
+        if (!Move.isPromotion(move)) {
+            return;
+        }
+        String motif = Move.isUnderPromotion(move) ? "underpromotion" : "promotion";
+        tags.add(TACTIC_MOTIF_PREFIX + motif + SIDE_FIELD + sideName(moverWhite)
+                + SPACE_TEXT + MOVE + EQUAL_SIGN + uci
+                + SPACE_TEXT + PIECE_KEY + EQUAL_SIGN + Text.pieceNameLower(movedPiece)
+                + SQUARE_FIELD + Text.squareNameLower(to));
+    }
+
+    /**
+     * Adds discovered-attack motifs for legal moves that uncover a friendly slider.
+     *
+     * @param tags the mutable tag accumulator
+     * @param before the position before the legal move
+     * @param after the position after the legal move
+     * @param movingPiece the piece that moved
+     * @param moverWhite whether the mover was White
+     * @param uci the move in UCI notation
+     * @param from the source square
+     * @param forcingMove whether the move has forcing value on its own
+     */
+    private static void addDiscoveredAttackMoveTags(List<String> tags, Position before, Position after,
+            byte movingPiece, boolean moverWhite, String uci, byte from, boolean forcingMove) {
+        if (!forcingMove || from == Field.NO_SQUARE || movingPiece == Piece.EMPTY) {
+            return;
+        }
+        byte[] board = before.getBoard();
+        for (int[] axis : LINE_AXES) {
+            LineTarget forward = firstOccupied(board, from, axis[0], axis[1], 0);
+            LineTarget backward = firstOccupied(board, from, -axis[0], -axis[1], 0);
+            addDiscoveredAttackLineTag(tags, after, movingPiece, moverWhite, uci, from, forward, backward);
+            addDiscoveredAttackLineTag(tags, after, movingPiece, moverWhite, uci, from, backward, forward);
+        }
+    }
+
+    /**
+     * Adds one discovered-attack tag when a slider/target line was uncovered.
+     *
+     * @param tags the mutable tag accumulator
+     * @param after the position after the legal move
+     * @param movingPiece the piece that moved
+     * @param moverWhite whether the mover was White
+     * @param uci the move in UCI notation
+     * @param from the source square
+     * @param slider the possible friendly slider
+     * @param target the possible enemy target
+     */
+    private static void addDiscoveredAttackLineTag(List<String> tags, Position after, byte movingPiece,
+            boolean moverWhite, String uci, byte from, LineTarget slider, LineTarget target) {
+        if (!isDiscoverySlider(slider, moverWhite) || !isEnemyLineTarget(target, moverWhite)
+                || !isValuableTarget(target.piece)) {
+            return;
+        }
+        byte[] afterBoard = after.getBoard();
+        if (afterBoard[slider.index] != slider.piece || afterBoard[target.index] != target.piece) {
+            return;
+        }
+        if ((after.attacksFrom(slider.index) & (1L << target.index)) == 0L) {
+            return;
+        }
+        tags.add(TACTIC_MOTIF_PREFIX + DISCOVERED_ATTACK + SIDE_FIELD + sideName(moverWhite)
+                + SPACE_TEXT + MOVE + EQUAL_SIGN + uci
+                + SPACE_TEXT + PIECE_KEY + EQUAL_SIGN + Text.pieceNameLower(movingPiece)
+                + SQUARE_FIELD + Text.squareNameLower(from)
+                + " slider=" + targetLabel(slider.piece, (byte) slider.index)
+                + " target=" + targetLabel(target.piece, (byte) target.index));
+    }
+
+    /**
+     * Adds a fork motif when the moved piece attacks at least two valuable targets.
+     *
+     * @param tags the mutable tag accumulator
+     * @param next the position after the legal move
+     * @param movedPiece the piece on the destination square after the move
+     * @param moverWhite whether the mover was White
+     * @param uci the move in UCI notation
+     * @param to the destination square
+     */
+    private static void addForkMoveTag(List<String> tags, Position next, byte movedPiece, boolean moverWhite,
+            String uci, byte to) {
+        if (movedPiece == Piece.EMPTY || Piece.isKing(movedPiece)) {
+            return;
+        }
+        List<String> targets = forkTargets(next, moverWhite, to);
+        if (targets.size() < 2) {
+            return;
+        }
+        tags.add(TACTIC_MOTIF_PREFIX + "fork" + SIDE_FIELD + sideName(moverWhite)
+                + SPACE_TEXT + MOVE + EQUAL_SIGN + uci
+                + SPACE_TEXT + PIECE_KEY + EQUAL_SIGN + Text.pieceNameLower(movedPiece)
+                + SQUARE_FIELD + Text.squareNameLower(to)
+                + " targets=" + String.join(String.valueOf(COMMA), targets));
+    }
+
+    /**
+     * Adds newly-created skewer motifs for a legal move.
+     *
+     * @param tags the mutable tag accumulator
+     * @param next the position after the legal move
+     * @param beforeSkewers skewer keys present before the move
+     * @param moverWhite whether the mover was White
+     * @param uci the move in UCI notation
+     */
+    private static void addNewSkewerMoveTags(List<String> tags, Position next, List<String> beforeSkewers,
+            boolean moverWhite, String uci) {
+        for (String key : skewerKeys(next, moverWhite)) {
+            if (beforeSkewers.contains(key)) {
+                continue;
+            }
+            tags.add(TACTIC_MOTIF_PREFIX + SKEWER + SIDE_FIELD + sideName(moverWhite)
+                    + SPACE_TEXT + MOVE + EQUAL_SIGN + uci
+                    + SPACE_TEXT + key);
+        }
+    }
+
+    /**
+     * Returns the canonical label for a side.
+     *
+     * @param white whether the side is White
+     * @return {@code white} or {@code black}
+     */
+    private static String sideName(boolean white) {
+        return white ? WHITE : BLACK;
+    }
+
+    /**
+     * Returns meaningful enemy targets attacked by a piece after a legal move.
+     *
+     * @param position the position after the move
+     * @param attackerWhite whether the attacker belongs to White
+     * @param from the attacker square
+     * @return attacked target labels
+     */
+    private static List<String> forkTargets(Position position, boolean attackerWhite, byte from) {
+        byte[] board = position.getBoard();
+        byte attacker = board[from];
+        if (attacker == Piece.EMPTY || Piece.isWhite(attacker) != attackerWhite) {
+            return List.of();
+        }
+        long attacks = position.attacksFrom(from);
+        List<String> targets = new ArrayList<>(4);
+        boolean majorTarget = false;
+        for (int square = 0; square < board.length; square++) {
+            if ((attacks & (1L << square)) == 0L) {
+                continue;
+            }
+            byte target = board[square];
+            if (!isEnemyPiece(target, attackerWhite)
+                    || !isMeaningfulForkTarget(position, attacker, from, target, (byte) square)) {
+                continue;
+            }
+            majorTarget |= isMajorTarget(target);
+            targets.add(targetLabel(target, (byte) square));
+        }
+        return majorTarget ? targets : List.of();
+    }
+
+    /**
+     * Checks whether an attacked target is strong enough to make a fork tag useful.
+     *
+     * @param position the position after the move
+     * @param attacker the attacking piece
+     * @param attackerSquare the attacker square
+     * @param target the attacked target
+     * @param targetSquare the target square
+     * @return true when the attack is tactically meaningful
+     */
+    private static boolean isMeaningfulForkTarget(Position position, byte attacker, byte attackerSquare, byte target,
+            byte targetSquare) {
+        if (!isValuableTarget(target)) {
+            return false;
+        }
+        if (Piece.isKing(target)) {
+            return true;
+        }
+        if (Piece.getMaterialValue(target) > Piece.getMaterialValue(attacker)) {
+            return true;
+        }
+        return !isDefended(position, targetSquare, Piece.isWhite(target), attackerSquare);
+    }
+
+    /**
+     * Checks whether a piece is worth surfacing as a fork/skewer target.
+     *
+     * @param piece the piece to inspect
+     * @return true for kings and non-pawn material
+     */
+    private static boolean isValuableTarget(byte piece) {
+        return Piece.isKing(piece) || Piece.isQueen(piece) || Piece.isRook(piece)
+                || Piece.isBishop(piece) || Piece.isKnight(piece);
+    }
+
+    /**
+     * Checks whether a piece is a high-priority tactical target.
+     *
+     * @param piece the piece to inspect
+     * @return true for king, queen, and rook targets
+     */
+    private static boolean isMajorTarget(byte piece) {
+        return Piece.isKing(piece) || Piece.isQueen(piece) || Piece.isRook(piece);
+    }
+
+    /**
+     * Checks whether a square is defended by its owning side.
+     *
+     * @param position the position to inspect
+     * @param square the target square
+     * @param defenderWhite whether to inspect White defenders
+     * @param ignoreSquare a defender square to ignore
+     * @return true when another defender protects the square
+     */
+    private static boolean isDefended(Position position, byte square, boolean defenderWhite, byte ignoreSquare) {
+        byte[] defenders = defenderWhite ? position.getAttackersByWhite(square) : position.getAttackersByBlack(square);
+        for (byte defender : defenders) {
+            if (defender != square && defender != ignoreSquare) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Returns canonical skewer keys for one attacking side.
+     *
+     * @param position the position to inspect
+     * @param attackerWhite whether to inspect White attackers
+     * @return skewer keys
+     */
+    private static List<String> skewerKeys(Position position, boolean attackerWhite) {
+        byte[] board = position.getBoard();
+        List<String> keys = new ArrayList<>(4);
+        for (int index = 0; index < board.length; index++) {
+            byte piece = board[index];
+            if (!isSliderForSide(piece, attackerWhite)) {
+                continue;
+            }
+            addSkewerKeysForSlider(keys, board, piece, (byte) index);
+        }
+        return keys;
+    }
+
+    /**
+     * Adds skewer keys for one slider.
+     *
+     * @param keys the mutable key list
+     * @param board the board array
+     * @param piece the attacking slider
+     * @param from the slider square
+     */
+    private static void addSkewerKeysForSlider(List<String> keys, byte[] board, byte piece, byte from) {
+        if (Piece.isQueen(piece)) {
+            addSkewerKeysForDirections(keys, board, piece, from, ORTHO_DIRS);
+            addSkewerKeysForDirections(keys, board, piece, from, DIAG_DIRS);
+            return;
+        }
+        addSkewerKeysForDirections(keys, board, piece, from, slidingDirections(piece));
+    }
+
+    /**
+     * Adds skewer keys across the supplied directions.
+     *
+     * @param keys the mutable key list
+     * @param board the board array
+     * @param piece the attacking slider
+     * @param from the slider square
+     * @param dirs directions to scan
+     */
+    private static void addSkewerKeysForDirections(List<String> keys, byte[] board, byte piece, byte from,
+            int[][] dirs) {
+        boolean attackerWhite = Piece.isWhite(piece);
+        for (int[] dir : dirs) {
+            LineTarget front = firstOccupied(board, from, dir, 0);
+            if (!isEnemyLineTarget(front, attackerWhite) || !isMajorTarget(front.piece)) {
+                continue;
+            }
+            LineTarget behind = firstOccupied(board, from, dir, 1);
+            if (!isEnemyLineTarget(behind, attackerWhite) || !isValuableTarget(behind.piece)
+                    || !isHigherValueTarget(front.piece, behind.piece)) {
+                continue;
+            }
+            keys.add("piece=" + Text.pieceNameLower(piece) + SQUARE_FIELD + Text.squareNameLower(from)
+                    + " front=" + targetLabel(front.piece, (byte) front.index)
+                    + " behind=" + targetLabel(behind.piece, (byte) behind.index));
+        }
+    }
+
+    /**
+     * Returns the first occupied square along a ray.
+     *
+     * @param board the board array
+     * @param from the source square
+     * @param dir the direction vector
+     * @param skip occupied squares to skip before returning a target
+     * @return the target, or null when no occupied square remains
+     */
+    private static LineTarget firstOccupied(byte[] board, byte from, int[] dir, int skip) {
+        return firstOccupied(board, from, dir[0], dir[1], skip);
+    }
+
+    /**
+     * Returns the first occupied square along a ray.
+     *
+     * @param board the board array
+     * @param from the source square
+     * @param dx the file direction
+     * @param dy the rank direction
+     * @param skip occupied squares to skip before returning a target
+     * @return the target, or null when no occupied square remains
+     */
+    private static LineTarget firstOccupied(byte[] board, byte from, int dx, int dy, int skip) {
+        int x = Field.getX(from);
+        int y = Field.getY(from);
+        int seen = 0;
+        while (true) {
+            x += dx;
+            y += dy;
+            if (!Field.isOnBoard(x, y)) {
+                return null;
+            }
+            int index = Field.toIndex(x, y);
+            if (board[index] == Piece.EMPTY) {
+                continue;
+            }
+            if (seen == skip) {
+                return new LineTarget(index, board[index]);
+            }
+            seen++;
+        }
+    }
+
+    /**
+     * Checks whether a line target belongs to the opposing side.
+     *
+     * @param target the target to inspect
+     * @param attackerWhite whether the attacker is White
+     * @return true when the target is an enemy piece
+     */
+    private static boolean isEnemyLineTarget(LineTarget target, boolean attackerWhite) {
+        return target != null && isEnemyPiece(target.piece, attackerWhite);
+    }
+
+    /**
+     * Checks whether a line target is a friendly slider.
+     *
+     * @param target the line target to inspect
+     * @param white the friendly side
+     * @return true when the target is a friendly rook, bishop, or queen
+     */
+    private static boolean isDiscoverySlider(LineTarget target, boolean white) {
+        return target != null && isSliderForSide(target.piece, white);
+    }
+
+    /**
+     * Checks whether a piece belongs to the enemy side.
+     *
+     * @param piece the piece to inspect
+     * @param attackerWhite whether the attacker is White
+     * @return true when the piece is non-empty and belongs to the opposite side
+     */
+    private static boolean isEnemyPiece(byte piece, boolean attackerWhite) {
+        return piece != Piece.EMPTY && Piece.isWhite(piece) != attackerWhite;
+    }
+
+    /**
+     * Checks whether a piece is a slider for the requested side.
+     *
+     * @param piece the piece to inspect
+     * @param white the side to match
+     * @return true when the piece is a rook, bishop, or queen of that side
+     */
+    private static boolean isSliderForSide(byte piece, boolean white) {
+        return piece != Piece.EMPTY && Piece.isWhite(piece) == white
+                && (Piece.isRook(piece) || Piece.isBishop(piece) || Piece.isQueen(piece));
+    }
+
+    /**
+     * Returns the sliding directions for a non-queen slider.
+     *
+     * @param piece the piece to inspect
+     * @return direction vectors
+     */
+    private static int[][] slidingDirections(byte piece) {
+        if (Piece.isBishop(piece)) {
+            return DIAG_DIRS;
+        }
+        if (Piece.isRook(piece)) {
+            return ORTHO_DIRS;
+        }
+        return NO_DIRS;
+    }
+
+    /**
+     * Checks whether the front target outranks the target behind it.
+     *
+     * @param frontPiece the first target on the line
+     * @param behindPiece the second target on the line
+     * @return true when this is a skewer value relationship
+     */
+    private static boolean isHigherValueTarget(byte frontPiece, byte behindPiece) {
+        return tacticalValue(frontPiece) > tacticalValue(behindPiece);
+    }
+
+    /**
+     * Returns a comparison value for tactical line targets.
+     *
+     * @param piece the piece to value
+     * @return a value where kings are highest
+     */
+    private static int tacticalValue(byte piece) {
+        return Piece.isKing(piece) ? 10000 : Piece.getMaterialValue(piece);
+    }
+
+    /**
+     * Formats a piece/square target label.
+     *
+     * @param piece the target piece
+     * @param square the target square
+     * @return a compact target label
+     */
+    private static String targetLabel(byte piece, byte square) {
+        return Text.pieceNameLower(piece) + "@" + Text.squareNameLower(square);
     }
 
     /**
@@ -1325,7 +1906,16 @@ public final class Tagging {
         if (parts.length < 3) {
             return null;
         }
-        return new ParsedPieceTier(prefix.value, parts[0], parts[1], parts[2]);
+        if (!isSideLabel(parts[0])) {
+            return null;
+        }
+        if (isSquareLabel(parts[1]) && isPieceLabel(parts[2])) {
+            return new ParsedPieceTier(prefix.value, parts[0], parts[2], parts[1]);
+        }
+        if (isPieceLabel(parts[1]) && isSquareLabel(parts[2])) {
+            return new ParsedPieceTier(prefix.value, parts[0], parts[1], parts[2]);
+        }
+        return null;
     }
 
     /**
@@ -1433,6 +2023,39 @@ public final class Tagging {
     }
 
     /**
+     * Checks whether text is a canonical side label.
+     *
+     * @param value the value to inspect
+     * @return {@code true} when the value is {@code white} or {@code black}
+     */
+    private static boolean isSideLabel(String value) {
+        return WHITE.equals(value) || BLACK.equals(value);
+    }
+
+    /**
+     * Checks whether text is a canonical piece label.
+     *
+     * @param value the value to inspect
+     * @return {@code true} when the value names a chess piece
+     */
+    private static boolean isPieceLabel(String value) {
+        return PAWN.equals(value) || KNIGHT.equals(value) || BISHOP.equals(value) || ROOK.equals(value)
+                || QUEEN.equals(value) || KING_NAME.equals(value);
+    }
+
+    /**
+     * Checks whether text is a lowercase algebraic board square.
+     *
+     * @param value the value to inspect
+     * @return {@code true} when the value is in {@code a1..h8}
+     */
+    private static boolean isSquareLabel(String value) {
+        return value != null && value.length() == 2
+                && value.charAt(0) >= 'a' && value.charAt(0) <= 'h'
+                && value.charAt(1) >= '1' && value.charAt(1) <= '8';
+    }
+
+    /**
      * Applies king-safety markers to the aggregated king-safety state.
      *
      * @param safety the mutable safety state to update
@@ -1462,12 +2085,14 @@ public final class Tagging {
      * @param tags the mutable tag accumulator
      * @param side the side label to attach
      * @param safety the aggregated safety state
+     * @param kingPresent whether this side's king exists on the board
      */
-    private static void addKingSafetyTags(List<String> tags, String side, KingSafety safety) {
-        boolean castled = Boolean.TRUE.equals(safety.castled);
-        if (safety.castled != null) {
-            tags.add(KING_CASTLED_PREFIX + (castled ? YES : NO) + SIDE_FIELD + side);
+    private static void addKingSafetyTags(List<String> tags, String side, KingSafety safety, boolean kingPresent) {
+        if (!kingPresent) {
+            return;
         }
+        boolean castled = Boolean.TRUE.equals(safety.castled);
+        tags.add(KING_CASTLED_PREFIX + (castled ? YES : NO) + SIDE_FIELD + side);
         String shelter = PAWNS_INTACT;
         if (safety.openFile) {
             shelter = OPEN;
@@ -1811,6 +2436,35 @@ public final class Tagging {
          * Whether an open file is near the king.
          */
         private boolean openFile;
+    }
+
+    /**
+     * Holds one target discovered during a ray scan.
+ * @author Lennart A. Conrad
+ * @since 2026
+ */
+    private static final class LineTarget {
+
+        /**
+         * The board index.
+         */
+        private final int index;
+
+        /**
+         * The piece on the target square.
+         */
+        private final byte piece;
+
+        /**
+         * Creates a line target snapshot.
+         *
+         * @param index the board index
+         * @param piece the piece on the target square
+         */
+        private LineTarget(int index, byte piece) {
+            this.index = index;
+            this.piece = piece;
+        }
     }
 
     /**

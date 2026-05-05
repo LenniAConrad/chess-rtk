@@ -9,6 +9,7 @@ import java.nio.file.Path;
 import chess.book.model.Book;
 import chess.book.model.Element;
 import chess.book.render.MoveText;
+import chess.book.render.NotationPieceSvg;
 import chess.book.render.Writer;
 import chess.pdf.document.PageSize;
 
@@ -50,6 +51,7 @@ public final class BookRegressionTest {
 	 */
 	public static void main(String[] args) throws Exception {
 		testFigurineMoveTextFormatter();
+		testNeutralNotationPieceSvg();
 		testDefaultILoveChessGeometry();
 		testPrettyPrintedJsonBookParsing();
 		testBookExport();
@@ -76,6 +78,22 @@ public final class BookRegressionTest {
 		assertTrue(formatted.contains("\u2658bd6"), "knight disambiguation figurine");
 		assertTrue(formatted.contains("b\u00D7a8=\u2655#"), "promotion figurine");
 		assertTrue(formatted.contains(LONG_TABLE_MARKER), "ordinary text preserved");
+	}
+
+	/**
+	 * Verifies that inline notation SVGs are neutral black outlines instead of
+	 * filled white/black pieces.
+	 */
+	private static void testNeutralNotationPieceSvg() {
+		String svg = NotationPieceSvg.svg('\u2655');
+
+		assertTrue(svg.contains("fill=\"#000000\""), "notation svg uses black outline fill");
+		assertTrue(svg.contains("fill-rule=\"evenodd\""), "notation svg knocks out the interior");
+		assertTrue(svg.contains("scale(0.100000,-0.100000)"), "notation svg preserves piece transform");
+		assertFalse(svg.contains("fill=\"#ffffff\""), "notation svg has no white piece fill");
+		assertFalse(svg.contains("fill=\"#4c4c4c\""), "notation svg has no gray piece fill");
+		assertTrue(NotationPieceSvg.isPlaceholder('\u2658'), "knight figurine placeholder detected");
+		assertFalse(NotationPieceSvg.isPlaceholder('N'), "SAN letter is ordinary text after formatting");
 	}
 
 	/**

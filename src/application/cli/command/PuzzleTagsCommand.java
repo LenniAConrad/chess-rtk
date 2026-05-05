@@ -33,6 +33,8 @@ import chess.core.Move;
 import chess.core.MoveInference;
 import chess.core.Position;
 import chess.core.SAN;
+import chess.puzzle.difficulty.Difficulty;
+import chess.puzzle.difficulty.Scorer;
 import chess.tag.Delta;
 import chess.tag.Sort;
 import chess.tag.Tagging;
@@ -47,6 +49,10 @@ import utility.Json;
 /**
  * Generates per-move tags (with deltas) for a puzzle line including PV variations.
  */
+@SuppressWarnings({
+    "java:S107", "java:S1168", "java:S135", "java:S3776",
+    "squid:S107", "squid:S1168", "squid:S135", "squid:S3776"
+})
 public final class PuzzleTagsCommand {
 
     /**
@@ -86,39 +92,99 @@ public final class PuzzleTagsCommand {
                 System.err.println(COMMAND_LABEL + ": no records extracted from PVs");
                 System.exit(2);
             }
+            Scorer.NodeScore rootScore = Scorer.scoreNode(root, analysis);
+            Difficulty puzzleDifficulty = Scorer.score(rootScore, Scorer.PuzzleTreeSummary.single(rootScore));
 
             if (opts.analyzeTags) {
                 int tagMultipv = Math.max(1, opts.tagMultipv);
                 configureEngine(COMMAND_LABEL, engine, opts.threads, opts.hash, tagMultipv, wdlFlag);
             }
 
-            Map<String, TagEntry> cache = new HashMap<>();
-            long index = 0;
-            for (chess.struct.Record rec : records) {
-                Position pos = rec.getPosition();
-                if (pos == null) {
-                    continue;
-                }
-                List<String> tags = tagsFor(pos, opts.analyzeTags ? engine : null, opts, cache);
-                if (tags == null) {
-                    continue;
-                }
-                Delta delta = null;
-                Position parent = rec.getParent();
-                if (parent != null) {
-                    List<String> parentTags = tagsFor(parent, opts.analyzeTags ? engine : null, opts, cache);
-                    if (parentTags != null) {
-                        delta = Delta.diff(parentTags, tags);
-                    }
-                }
-                printDeltaJson(index++, rec, tags, delta);
-            }
+            emitPuzzleRecords(records, opts.analyzeTags ? engine : null, opts, puzzleDifficulty);
         } catch (Exception ex) {
             System.err.println(COMMAND_LABEL + ": failed to initialize engine: " + ex.getMessage());
             if (opts.verbose) {
                 ex.printStackTrace(System.err);
             }
             System.exit(2);
+        }
+    }
+
+    /**
+     * Emits tag delta rows for all extracted puzzle records.
+     */
+    private static void emitPuzzleRecords(List<chess.struct.Record> records, Engine engine, PuzzleOptions opts,
+            Difficulty puzzleDifficulty) {
+        Map<String, TagEntry> cache = new HashMap<>();
+        Map<String, List<String>> effectiveCache = new HashMap<>();
+        long index = 0;
+        for (chess.struct.Record rec : records) {
+            if (emitPuzzleRecord(index, rec, engine, opts, cache, effectiveCache, puzzleDifficulty)) {
+                index++;
+            }
+        }
+    }
+
+    /**
+     * Emits one puzzle record when it can be tagged.
+     */
+    private static boolean emitPuzzleRecord(long index, chess.struct.Record rec, Engine engine, PuzzleOptions opts,
+            Map<String, TagEntry> cache, Map<String, List<String>> effectiveCache, Difficulty puzzleDifficulty) {
+        Position pos = rec.getPosition();
+        if (pos == null) {
+            return false;
+        }
+        List<String> baseTags = tagsFor(pos, engine, opts, cache);
+        if (baseTags.isEmpty()) {
+            return false;
+        }
+        List<String> parentTags = inheritedParentTags(rec.getParent(), engine, opts, cache, effectiveCache);
+        List<String> tags = Tagging.inheritOpeningTags(baseTags, parentTags);
+        rememberEffectiveTags(pos, tags, effectiveCache);
+        tags = withPuzzleDifficultyTags(tags, puzzleDifficulty);
+        Delta delta = rec.getParent() == null
+                ? null
+                : Delta.diff(withPuzzleDifficultyTags(parentTags, puzzleDifficulty), tags);
+        printDeltaJson(index, rec, tags, delta);
+        return true;
+    }
+
+    /**
+     * Returns already-inherited parent tags for puzzle tagging.
+     *
+     * @param parent the parent position, or {@code null}
+     * @param engine the engine used for base tags
+     * @param opts the puzzle tag options
+     * @param cache the base tag cache
+     * @param effectiveCache the inherited tag cache
+     * @return the effective parent tags, or an empty list
+     */
+    private static List<String> inheritedParentTags(Position parent, Engine engine, PuzzleOptions opts,
+            Map<String, TagEntry> cache, Map<String, List<String>> effectiveCache) {
+        if (parent == null) {
+            return List.of();
+        }
+        String fen = parent.toString();
+        List<String> inherited = effectiveCache.get(fen);
+        if (inherited != null) {
+            return inherited;
+        }
+        List<String> tags = tagsFor(parent, engine, opts, cache);
+        effectiveCache.put(fen, tags);
+        return tags;
+    }
+
+    /**
+     * Stores inherited tags for a position.
+     *
+     * @param pos the position that owns the tags
+     * @param tags the effective tag list
+     * @param effectiveCache the inherited tag cache
+     */
+    private static void rememberEffectiveTags(Position pos, List<String> tags,
+            Map<String, List<String>> effectiveCache) {
+        if (pos != null) {
+            effectiveCache.put(pos.toString(), tags);
         }
     }
 
@@ -199,7 +265,7 @@ public final class PuzzleTagsCommand {
         if (engine != null) {
             analysis = analysePositionOrExit(engine, pos, opts.nodesCap, opts.durMs, COMMAND_LABEL, opts.verbose);
             if (analysis == null) {
-                return null;
+                return List.of();
             }
         }
         List<String> tags = Tagging.tags(pos, analysis);
@@ -217,6 +283,22 @@ public final class PuzzleTagsCommand {
         return tags;
     }
 
+    /**
+     * Adds puzzle-level difficulty tags to a position tag list.
+     * @param tags position tags
+     * @param puzzleDifficulty puzzle difficulty estimate
+     * @return merged tag list
+     */
+    private static List<String> withPuzzleDifficultyTags(List<String> tags, Difficulty puzzleDifficulty) {
+        if (tags == null || puzzleDifficulty == null) {
+            return tags;
+        }
+        List<String> merged = new ArrayList<>(tags.size() + puzzleDifficulty.tags().size());
+        merged.addAll(tags);
+        merged.addAll(puzzleDifficulty.tags());
+        return Sort.sort(merged);
+    }
+
      /**
      * Handles override initiative for puzzle.
      * @param tags tags
@@ -225,17 +307,15 @@ public final class PuzzleTagsCommand {
         boolean threatWhite = false;
         boolean threatBlack = false;
         for (String tag : tags) {
-            if (tag == null) {
-                continue;
-            }
-            String trimmed = tag.trim();
-            if (!trimmed.startsWith("THREAT:")) {
-                continue;
-            }
-            if (trimmed.contains("side=white")) {
-                threatWhite = true;
-            } else if (trimmed.contains("side=black")) {
-                threatBlack = true;
+            if (tag != null) {
+                String trimmed = tag.trim();
+                if (trimmed.startsWith("THREAT:")) {
+                    if (trimmed.contains("side=white")) {
+                        threatWhite = true;
+                    } else if (trimmed.contains("side=black")) {
+                        threatBlack = true;
+                    }
+                }
             }
         }
         if (!threatWhite && !threatBlack) {
@@ -544,7 +624,7 @@ public final class PuzzleTagsCommand {
          * @param noWdl no wdl
          * @param fen fen
          */
-         private PuzzleOptions(boolean verbose, boolean analyzeTags, String protoPath, long nodesCap, long durMs,
+         private PuzzleOptions(boolean verbose, boolean analyzeTags, String protoPath, long nodesCap, long durMs, // NOSONAR
                 int multipv, int tagMultipv, int pvPlies, Integer threads, Integer hash, boolean wdl, boolean noWdl,
                 String fen) {
             this.verbose = verbose;

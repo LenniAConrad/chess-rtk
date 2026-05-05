@@ -270,6 +270,7 @@ public final class TagsCommand {
      */
      private static void runWithoutAnalysis(TagsOptions opts, TagsInputs inputs) {
         Map<String, List<String>> cache = new HashMap<>();
+        Map<String, List<String>> effectiveCache = new HashMap<>();
         long index = 0;
         boolean includeTagFen = opts.flags.includeFen && !opts.flags.delta;
         Bar bar = recordProgressBar(inputs, CMD_TAGS);
@@ -280,17 +281,15 @@ public final class TagsCommand {
                     if (pos == null) {
                         continue;
                     }
-                    List<String> tags = tagsFor(pos, null, cache, includeTagFen);
+                    List<String> parentTags = inheritedParentTags(rec.getParent(), cache, effectiveCache);
+                    List<String> tags = Tagging.inheritOpeningTags(tagsFor(pos, null, cache, false), parentTags);
+                    rememberEffectiveTags(pos, tags, effectiveCache);
+                    List<String> outputTags = includeTagFen ? withFen(tags, pos.toString()) : tags;
                     if (opts.flags.delta) {
-                        Delta delta = null;
-                        Position parent = rec.getParent();
-                        if (parent != null) {
-                            List<String> parentTags = tagsFor(parent, null, cache, false);
-                            delta = Delta.diff(parentTags, tags);
-                        }
-                        printDeltaJson(index++, rec, tags, delta);
+                        Delta delta = rec.getParent() == null ? null : Delta.diff(parentTags, tags);
+                        printDeltaJson(index++, rec, outputTags, delta);
                     } else {
-                        System.out.println(Json.stringArray(tags.toArray(new String[0])));
+                        System.out.println(Json.stringArray(outputTags.toArray(new String[0])));
                     }
                 } finally {
                     CommandSupport.step(bar);
@@ -313,13 +312,14 @@ public final class TagsCommand {
             configureEngine(CMD_TAGS, engine, opts.engineConfig.threads, opts.engineConfig.hash,
                     opts.engineConfig.multipv, wdlFlag);
             Map<String, TagEntry> cache = new HashMap<>();
+            Map<String, List<String>> effectiveCache = new HashMap<>();
             long index = 0;
             boolean includeTagFen = opts.flags.includeFen && !opts.flags.delta;
             Bar bar = recordProgressBar(inputs, CMD_TAGS);
             try {
                 for (Record rec : inputs.records) {
                     try {
-                        index = processAnalyzedRecord(rec, index, engine, opts, cache, includeTagFen);
+                        index = processAnalyzedRecord(rec, index, engine, opts, cache, effectiveCache, includeTagFen);
                     } finally {
                         CommandSupport.step(bar);
                     }
@@ -354,41 +354,89 @@ public final class TagsCommand {
      * @param engine engine
      * @param opts opts
      * @param cache cache
+     * @param effectiveCache effective cache
      * @param includeTagFen include tag fen
      * @return computed value
      */
      private static long processAnalyzedRecord(Record rec, long index, Engine engine, TagsOptions opts,
-            Map<String, TagEntry> cache, boolean includeTagFen) {
+            Map<String, TagEntry> cache, Map<String, List<String>> effectiveCache, boolean includeTagFen) {
         Position pos = rec.getPosition();
         if (pos == null) {
             return index;
         }
-        List<String> tags = tagsFor(pos, engine, opts, cache, includeTagFen);
+        List<String> parentTags = inheritedParentTags(rec.getParent(), engine, opts, cache, effectiveCache);
+        List<String> tags = Tagging.inheritOpeningTags(tagsFor(pos, engine, opts, cache, false), parentTags);
+        rememberEffectiveTags(pos, tags, effectiveCache);
+        List<String> outputTags = includeTagFen ? withFen(tags, pos.toString()) : tags;
         if (opts.flags.delta) {
-            printDeltaJson(index, rec, tags, deltaFor(rec, tags, engine, opts, cache));
+            Delta delta = rec.getParent() == null ? null : Delta.diff(parentTags, tags);
+            printDeltaJson(index, rec, outputTags, delta);
             return index + 1;
         }
-        System.out.println(Json.stringArray(tags.toArray(new String[0])));
+        System.out.println(Json.stringArray(outputTags.toArray(new String[0])));
         return index;
     }
 
      /**
-     * Handles delta for.
-     * @param rec rec
-     * @param tags tags
-     * @param engine engine
-     * @param opts opts
-     * @param cache cache
-     * @return computed value
+     * Returns already-inherited parent tags for non-analysis tagging.
+     *
+     * @param parent the parent position, or {@code null}
+     * @param cache the base tag cache
+     * @param effectiveCache the inherited tag cache
+     * @return the effective parent tags, or an empty list
      */
-     private static Delta deltaFor(Record rec, List<String> tags, Engine engine, TagsOptions opts,
-            Map<String, TagEntry> cache) {
-        Position parent = rec.getParent();
+     private static List<String> inheritedParentTags(Position parent, Map<String, List<String>> cache,
+            Map<String, List<String>> effectiveCache) {
         if (parent == null) {
-            return null;
+            return List.of();
         }
-        List<String> parentTags = tagsFor(parent, engine, opts, cache, false);
-        return Delta.diff(parentTags, tags);
+        String fen = parent.toString();
+        List<String> inherited = effectiveCache.get(fen);
+        if (inherited != null) {
+            return inherited;
+        }
+        List<String> tags = tagsFor(parent, null, cache, false);
+        effectiveCache.put(fen, tags);
+        return tags;
+    }
+
+     /**
+     * Returns already-inherited parent tags for engine-backed tagging.
+     *
+     * @param parent the parent position, or {@code null}
+     * @param engine the engine used for base tags
+     * @param opts the tags command options
+     * @param cache the base tag cache
+     * @param effectiveCache the inherited tag cache
+     * @return the effective parent tags, or an empty list
+     */
+     private static List<String> inheritedParentTags(Position parent, Engine engine, TagsOptions opts,
+            Map<String, TagEntry> cache, Map<String, List<String>> effectiveCache) {
+        if (parent == null) {
+            return List.of();
+        }
+        String fen = parent.toString();
+        List<String> inherited = effectiveCache.get(fen);
+        if (inherited != null) {
+            return inherited;
+        }
+        List<String> tags = tagsFor(parent, engine, opts, cache, false);
+        effectiveCache.put(fen, tags);
+        return tags;
+    }
+
+     /**
+     * Stores inherited tags for a position.
+     *
+     * @param pos the position that owns the tags
+     * @param tags the effective tag list
+     * @param effectiveCache the inherited tag cache
+     */
+     private static void rememberEffectiveTags(Position pos, List<String> tags,
+            Map<String, List<String>> effectiveCache) {
+        if (pos != null) {
+            effectiveCache.put(pos.toString(), tags);
+        }
     }
 
      /**

@@ -39,7 +39,7 @@ best-move, threat, smoke-test, and mining workflows.
 | Tagging and text generation | `fen tags`, `puzzle tags`, `fen text`, `puzzle text` |
 | Record processing | `record files`, `record stats`, `record tag-stats`, `record analysis-delta` |
 | Dataset export | `record dataset npy`, `record dataset lc0`, `record dataset classifier`, `record export training-jsonl`, `record export puzzle-jsonl` |
-| Publishing | `book ilovechess`, `book artofchess`, `book render`, `book cover`, `book pdf` |
+| Publishing | `book collection`, `book study`, `book render`, `book cover`, `book pdf` |
 | Local health checks | `doctor`, `config show`, `config validate`, `engine gpu` |
 
 ## `record`
@@ -183,11 +183,15 @@ Search notes:
 Grouped book and diagram PDF workflows.
 
 Usage:
-- `crtk book ilovechess ...`: build an I Love Chess-style book manifest from record JSON/JSONL
-- `crtk book artofchess ...`: render an annotated Art of Chess manifest to PDF, cover, and optional normalized TOML
+- `crtk book collection ...`: build a dense puzzle-collection book manifest from record JSON/JSONL
+- `crtk book study ...`: render annotated puzzle studies to PDF, cover, and optional normalized TOML
 - `crtk book render ...`: render a chess-book JSON/TOML file to a native PDF
 - `crtk book cover ...`: render a native PDF cover for a chess-book file
 - `crtk book pdf ...`: export chess diagrams to a PDF
+
+Compatibility aliases:
+- `book ilovechess` -> `book collection`
+- `book artofchess` / `book art` -> `book study`
 
 ## `puzzle`
 
@@ -371,8 +375,47 @@ Options:
 - `--per-file <n>` / `--fens-per-file <n>`: FENs per file (default `100000`)
 - `--chess960-files <n>` / `--chess960 <n>`: how many of the first shard files use Chess960 starts (default `100`)
 - `--batch <n>`: positions generated per batch (default `2048`)
+- `--max-attempts <n>`: maximum candidate positions sampled per shard when filters are selective
 - `--ascii`: ASCII progress bar (useful when Unicode is borked)
 - `--verbose|-v`: print stack trace on failure
+
+Filters combine with AND: every selected condition must match.
+
+Filtering presets:
+- `--stage <name>`: `endgame`, `late-endgame`, `king-pawn`, `minor`, `rook`, or `queenless`
+- `--endgame`: queenless positions with at most 14 total pieces
+- `--late-endgame`: queenless positions with at most 8 total pieces
+- `--king-pawn-endgame`: no queens, rooks, bishops, or knights
+- `--minor-endgame`: queenless minor-piece endgames without rooks
+- `--rook-endgame`: queenless rook endgames without minor pieces
+- `--queenless`, `--opposite-bishops`
+
+Move-state filters:
+- `--side white|black|w|b`
+- `--in-check`, `--not-in-check`, `--checkmate`, `--stalemate`
+- `--en-passant` / `--ep`: legal en-passant capture available
+- `--promotion`, `--underpromotion`, `--capture`
+- `--castle-rights`, `--legal-castle`
+
+Count and material filters:
+- `--pieces <n>`, `--min-pieces <n>`, `--max-pieces <n>`
+- `--white-pieces <n>`, `--black-pieces <n>` plus `--min-*` / `--max-*` forms
+- `--pawns|--knights|--bishops|--rooks|--queens <n>` plus `--min-*` / `--max-*` forms
+- `--white-rooks <n>`, `--black-rooks <n>` and the same side-specific forms for pawns, knights, bishops, and queens
+- `--material <cp>`, `--min-material <cp>`, `--max-material <cp>`
+- `--material-diff <cp>`, `--min-material-diff <cp>`, `--max-material-diff <cp>`
+- `--max-material-imbalance <cp>`
+- `--legal-moves <n>`, `--fullmove <n>`, `--halfmove <n>` plus `--min-*` / `--max-*` forms
+
+Shortcut:
+- `crtk gen fens ...` is an alias for `crtk fen generate ...`
+
+Examples:
+- `crtk fen generate --output shards/ --files 2 --per-file 20 --chess960-files 1`
+- `crtk gen fens --output endgames/ --files 1 --per-file 100 --endgame --max-material-imbalance 300`
+- `crtk gen fens --output rook-endgames/ --files 1 --per-file 200 --rook-endgame --rooks 2`
+- `crtk gen fens --output specials/ --files 1 --per-file 25 --en-passant --max-attempts 250000`
+- `crtk gen fens --output promotions/ --files 1 --per-file 50 --promotion --capture --max-attempts 1000000`
 
 ## `puzzle mine`
 
@@ -478,9 +521,9 @@ Options:
 - `--watermark-id <text>`: embed a traceable watermark ID in page overlays and PDF metadata; implies `--watermark`
 - `--verbose|-v`: print stack traces on failure
 
-## `book ilovechess`
+## `book collection`
 
-Build an I Love Chess-style book manifest from analyzed record JSON/JSONL.
+Build a puzzle-collection book manifest from analyzed record JSON/JSONL.
 The command converts the first PV in each accepted record into move-numbered
 SAN, writes a TOML manifest, and can optionally render the interior PDF and
 matching cover.
@@ -492,7 +535,7 @@ Options:
 - `--output|-o <path>`: output TOML manifest path (optional; default derived from the input path as `*.book.toml`)
 - `--pdf-output <path>`: also render the interior PDF to this path
 - `--cover-output <path>`: also render the matching cover PDF to this path
-- `--title <text>`: book title (default `I Love Chess`)
+- `--title <text>`: book title (default `Chess Puzzle Collection`)
 - `--subtitle <text>`: subtitle override (default `"<count> Chess Puzzles"`)
 - `--author <text>`: author credit (default `Lennart A. Conrad`)
 - `--time <text>`: publication time string
@@ -517,9 +560,9 @@ Options:
 - `--check|--validate`: validate the generated book model without writing files
 - `--verbose|-v`: print stack traces on failure
 
-## `book artofchess`
+## `book study`
 
-Render an Art of Chess annotated book from a richer JSON or TOML manifest.
+Render deeply annotated puzzle studies from a richer JSON or TOML manifest.
 This command keeps the composition-style fields intact: per-entry description
 text, comments, hints, analysis, and explicit figure lists. It can also write a
 normalized TOML manifest and render a matching cover in one pass.
@@ -527,7 +570,7 @@ normalized TOML manifest and render a matching cover in one pass.
 See also: `book-publishing.md`.
 
 Options:
-- `--input|-i <path>`: input Art of Chess manifest (`.json` or `.toml`)
+- `--input|-i <path>`: input puzzle-study manifest (`.json` or `.toml`)
 - `--output|-o <path>`: output interior PDF path (optional; defaults to `*.pdf` when no other output is requested)
 - `--manifest-output <path>`: also write a normalized TOML manifest
 - `--cover-output <path>`: also render the matching native cover PDF

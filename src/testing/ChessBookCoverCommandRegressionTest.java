@@ -7,7 +7,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Locale;
 
-import application.cli.command.ChessBookCoverCommand;
+import application.cli.command.book.BookCoverCommand;
 import chess.book.model.Book;
 import chess.book.cover.Binding;
 import chess.book.cover.Dimensions;
@@ -300,7 +300,7 @@ public final class ChessBookCoverCommandRegressionTest {
 		Files.writeString(input, sampleBook(), StandardCharsets.UTF_8);
 
 		Path output = Files.createTempFile("book-cover-", ".pdf");
-		String console = captureStdout(() -> ChessBookCoverCommand.runChessBookCover(new Argv(new String[] {
+		String console = captureStdout(() -> BookCoverCommand.runBookCover(new Argv(new String[] {
 				INPUT_OPTION, input.toString(),
 				OUTPUT_OPTION, output.toString(),
 				BINDING_OPTION, PAPERBACK_BINDING,
@@ -331,7 +331,7 @@ public final class ChessBookCoverCommandRegressionTest {
 		Files.writeString(input, sampleBook(), StandardCharsets.UTF_8);
 		Path pdf = writeInteriorPdf(PDF_TRIM_WIDTH_CM, PDF_TRIM_HEIGHT_CM, PDF_PAGES);
 
-		String console = captureStdout(() -> ChessBookCoverCommand.runChessBookCover(new Argv(new String[] {
+		String console = captureStdout(() -> BookCoverCommand.runBookCover(new Argv(new String[] {
 				INPUT_OPTION, input.toString(),
 				"--pdf", pdf.toString(),
 				BINDING_OPTION, PAPERBACK_BINDING,
@@ -357,7 +357,7 @@ public final class ChessBookCoverCommandRegressionTest {
 		Files.writeString(input, sampleBook(), StandardCharsets.UTF_8);
 
 		Path output = Files.createTempDirectory("book-cover-check-").resolve("cover.pdf");
-		String console = captureStdout(() -> ChessBookCoverCommand.runChessBookCover(new Argv(new String[] {
+		String console = captureStdout(() -> BookCoverCommand.runBookCover(new Argv(new String[] {
 				INPUT_OPTION, input.toString(),
 				OUTPUT_OPTION, output.toString(),
 				BINDING_OPTION, PAPERBACK_BINDING,

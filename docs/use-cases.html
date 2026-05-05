@@ -113,6 +113,17 @@ crtk puzzle pgn --input dump/run.puzzles.json --output dump/run.pgn</code></pre>
 <li><a href="filter-dsl.html">Filter DSL</a></li>
 <li><a href="outputs-and-logs.html">Outputs and Logs</a></li>
 </ul>
+<h2 id="i-want-to-generate-filtered-position-sets">I Want To Generate Filtered Position Sets</h2>
+<p>Use <code>gen fens</code> when you need reusable FEN shards for training, test corpora, or targeted engine checks. Filters combine with AND, so every selected condition must match.</p>
+<pre><code class="language-bash">crtk gen fens --output endgames/ --files 2 --per-file 500 --endgame --max-material-imbalance 300
+crtk gen fens --output rook-endgames/ --files 1 --per-file 200 --rook-endgame --rooks 2
+crtk gen fens --output specials/ --files 1 --per-file 50 --promotion --capture --max-attempts 1000000</code></pre>
+<p>Read next:</p>
+<ul>
+<li><a href="command-reference.html">Command Reference</a></li>
+<li><a href="example-commands.html">Example Commands</a></li>
+<li><a href="datasets.html">Datasets</a></li>
+</ul>
 <h2 id="i-want-to-build-training-data">I Want To Build Training Data</h2>
 <p>Use <code>record</code> commands after mining or importing analysis records.</p>
 <pre><code class="language-bash">crtk record files -i dump/ -o dump/merged.json --recursive --puzzles
@@ -162,6 +173,7 @@ crtk engine bestmove --fen &quot;&lt;FEN&gt;&quot; --format both --max-duration 
 <a class="toc-h2" href="#i-want-to-study-one-position">I Want To Study One Position</a>
 <a class="toc-h2" href="#i-want-to-verify-move-generation">I Want To Verify Move Generation</a>
 <a class="toc-h2" href="#i-want-to-mine-puzzles">I Want To Mine Puzzles</a>
+<a class="toc-h2" href="#i-want-to-generate-filtered-position-sets">I Want To Generate Filtered Position Sets</a>
 <a class="toc-h2" href="#i-want-to-build-training-data">I Want To Build Training Data</a>
 <a class="toc-h2" href="#i-want-to-publish-diagrams-or-books">I Want To Publish Diagrams Or Books</a>
 <a class="toc-h2" href="#i-want-agent-friendly-chess-primitives">I Want Agent-Friendly Chess Primitives</a>

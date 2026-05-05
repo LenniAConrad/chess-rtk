@@ -55,6 +55,7 @@ If the launcher is not installed, replace `crtk <command> ...` with
 | Task | Main commands | Docs |
 | --- | --- | --- |
 | Validate, normalize, and print positions | `fen validate`, `fen normalize`, `fen print` | [Getting started](getting-started), [Command reference](command-reference) |
+| Generate random or filtered FEN shards | `fen generate`, `gen fens` | [Command cheatsheet](command-cheatsheet), [Example commands](example-commands), [Command reference](command-reference) |
 | List, convert, and apply moves | `move list`, `move to-san`, `move to-uci`, `move after`, `move play` | [AI agents and automation](ai-agents), [Command reference](command-reference) |
 | Verify move generation | `engine perft`, `engine perft-suite` | [Architecture](architecture), [Development notes](development-notes) |
 | Analyze with UCI engines | `engine analyze`, `engine bestmove`, `engine threats`, `engine uci-smoke` | [Configuration](configuration), [Troubleshooting](troubleshooting) |

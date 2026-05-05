@@ -63,6 +63,24 @@ Read next:
 - [Filter DSL](filter-dsl)
 - [Outputs and Logs](outputs-and-logs)
 
+## I Want To Generate Filtered Position Sets
+
+Use `gen fens` when you need reusable FEN shards for training, test corpora, or
+targeted engine checks. Filters combine with AND, so every selected condition
+must match.
+
+```bash
+crtk gen fens --output endgames/ --files 2 --per-file 500 --endgame --max-material-imbalance 300
+crtk gen fens --output rook-endgames/ --files 1 --per-file 200 --rook-endgame --rooks 2
+crtk gen fens --output specials/ --files 1 --per-file 50 --promotion --capture --max-attempts 1000000
+```
+
+Read next:
+
+- [Command Reference](command-reference)
+- [Example Commands](example-commands)
+- [Datasets](datasets)
+
 ## I Want To Build Training Data
 
 Use `record` commands after mining or importing analysis records.

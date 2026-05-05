@@ -3,13 +3,8 @@ package application.cli;
 import java.util.List;
 
 import application.cli.command.AnalyzeCommand;
-import application.cli.command.ChessArtOfChessCommand;
 import application.cli.command.BestMoveCommand;
 import application.cli.command.Chess960Command;
-import application.cli.command.ChessBookCommand;
-import application.cli.command.ChessBookCoverCommand;
-import application.cli.command.ChessILoveChessCommand;
-import application.cli.command.ChessPdfCommand;
 import application.cli.command.CleanCommand;
 import application.cli.command.ConfigCommand;
 import application.cli.command.DoctorCommand;
@@ -34,6 +29,11 @@ import application.cli.command.TagsCommand;
 import application.cli.command.ThreatsCommand;
 import application.cli.command.UciSmokeCommand;
 import application.cli.command.BuiltInEngineCommand;
+import application.cli.command.book.BookCoverCommand;
+import application.cli.command.book.BookPdfCommand;
+import application.cli.command.book.BookRenderCommand;
+import application.cli.command.book.PuzzleCollectionCommand;
+import application.cli.command.book.PuzzleStudyCommand;
 import application.gui.GuiCommand;
 import application.gui.GuiNextCommand;
 import application.gui.GuiWebCommand;
@@ -44,6 +44,7 @@ import application.gui.GuiWebCommand;
  * @since 2026
  * @author Lennart A. Conrad
  */
+@SuppressWarnings("java:S1192")
 public final class CliRegistry {
 
 	/**
@@ -109,6 +110,7 @@ public final class CliRegistry {
 
 		root.add(recordGroup());
 		root.add(fenGroup());
+		root.add(genGroup());
 		root.add(moveGroup());
 		root.add(engineGroup());
 		root.add(bookGroup());
@@ -166,7 +168,7 @@ public final class CliRegistry {
 				.example("crtk record export training-jsonl --input dump/run.json --output training.jsonl");
 
 		CliCommand export = CliCommand.group("export",
-				"Export records as plain, csv, pgn, puzzle-jsonl, or training-jsonl")
+				"Export records as plain, csv, pgn, puzzle-jsonl, puzzle-elo-jsonl, or training-jsonl")
 				.helpKey("record export")
 				.usage("<format> [options]")
 				.about("Canonical export entry point for record-derived text formats.");
@@ -187,6 +189,11 @@ public final class CliRegistry {
 				.helpKey("record export puzzle-jsonl")
 				.usage("[options]")
 				.example("crtk record export puzzle-jsonl --input dump/run.json"));
+		export.add(CliCommand.leaf("puzzle-elo-jsonl", "Export verified puzzle records with Elo tags",
+				RecordCommands::runRecordToPuzzleEloJsonl)
+				.helpKey("record export puzzle-elo-jsonl")
+				.usage("[options]")
+				.example("crtk record export puzzle-elo-jsonl --input dump/run.json --output puzzles.elo.jsonl"));
 		export.add(CliCommand.leaf("training-jsonl", "Export FEN JSONL labels for training",
 				RecordCommands::runRecordToTrainingJsonl)
 				.helpKey("record export training-jsonl")
@@ -270,6 +277,28 @@ public final class CliRegistry {
 	}
 
 	/**
+	 * Builds the generation shortcut group.
+	 *
+	 * @return gen group
+	 */
+	private static CliCommand genGroup() {
+		CliCommand gen = CliCommand.group("gen", "Generate reusable data seeds and artifacts")
+				.helpKey("gen")
+				.usage("<kind> [options]")
+				.about("Short generation entry points for batch data artifacts.")
+				.example("crtk gen fens --output seeds/ --endgame");
+
+		gen.add(CliCommand.leaf("fens", "Alias for `fen generate`", GenFensCommand::runGenerateFens)
+				.helpKey("fen generate")
+				.alias("fen")
+				.usage("[options]")
+				.about("Compatibility shortcut for `fen generate`.")
+				.example("crtk gen fens --output seeds/ --files 2 --per-file 20")
+				.example("crtk gen fens --rook-endgame --rooks 2 --max-material-imbalance 200"));
+		return gen;
+	}
+
+	/**
 	 * Builds the fen command group.
 	 *
 	 * @return fen group
@@ -309,7 +338,8 @@ public final class CliRegistry {
 				.helpKey("fen generate")
 				.alias("gen")
 				.usage("[options]")
-				.example("crtk fen generate --output seeds/"));
+				.example("crtk fen generate --output seeds/")
+				.example("crtk fen generate --rook-endgame --rooks 2 --max-material-imbalance 200"));
 		fen.add(CliCommand.leaf("pgn", "Convert PGN games to FEN lists", PgnCommand::runPgnToFens)
 				.helpKey("fen pgn")
 				.alias("from-pgn")
@@ -503,24 +533,26 @@ public final class CliRegistry {
 				.about("Publishing and diagram-rendering workflows.")
 				.example("crtk book pdf --fen \"<FEN>\" --output diagrams.pdf");
 		book.add(CliCommand.leaf("render", "Render a chess-book JSON/TOML file to a native PDF",
-				ChessBookCommand::runChessBook)
+				BookRenderCommand::runBookRender)
 				.helpKey("book render")
 				.usage("[options]"));
-		book.add(CliCommand.leaf("ilovechess", "Build an I Love Chess-style book from record JSON/JSONL",
-				ChessILoveChessCommand::runILoveChess)
-				.helpKey("book ilovechess")
+		book.add(CliCommand.leaf("collection", "Build a dense puzzle collection from record JSON/JSONL",
+				PuzzleCollectionCommand::runPuzzleCollection)
+				.helpKey("book collection")
+				.alias("ilovechess")
 				.usage("[options]"));
-		book.add(CliCommand.leaf("artofchess",
-				"Render an Art of Chess annotated book from a rich JSON/TOML manifest",
-				ChessArtOfChessCommand::runArtOfChess)
-				.helpKey("book artofchess")
+		book.add(CliCommand.leaf("study",
+				"Render deeply annotated puzzle studies from a rich JSON/TOML manifest",
+				PuzzleStudyCommand::runPuzzleStudy)
+				.helpKey("book study")
+				.alias("artofchess")
 				.alias("art")
 				.usage("[options]"));
 		book.add(CliCommand.leaf("cover", "Render a native PDF cover for a chess-book file",
-				ChessBookCoverCommand::runChessBookCover)
+				BookCoverCommand::runBookCover)
 				.helpKey("book cover")
 				.usage("[options]"));
-		book.add(CliCommand.leaf("pdf", "Export chess diagrams to a PDF", ChessPdfCommand::runChessPdf)
+		book.add(CliCommand.leaf("pdf", "Export chess diagrams to a PDF", BookPdfCommand::runBookPdf)
 				.helpKey("book pdf")
 				.alias("diagrams")
 				.usage("[options]"));

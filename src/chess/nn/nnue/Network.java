@@ -23,6 +23,7 @@ import chess.gpu.BackendNames;
  * accumulator and incremental-search APIs.
  * </p>
  */
+@SuppressWarnings("java:S3398")
 public final class Network implements AutoCloseable {
 
     /**

@@ -35,6 +35,7 @@ import utility.Json;
  * @since 2026
  * @author Lennart A. Conrad
  */
+@SuppressWarnings({"java:S3398", "java:S3776", "java:S6541"})
 public final class RecordAnalysisDeltaCommand {
 
 	/**
