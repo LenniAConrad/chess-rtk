@@ -24,11 +24,13 @@ public final class Sort {
     private static final List<String> FAMILY_ORDER = List.of(
             FACT,
             META,
+            MOVE_FAMILY,
             THREAT,
             CAND,
             PV,
             IDEA,
             TACTIC,
+            CHECKMATE,
             PIECE,
             KING,
             PAWN_FAMILY,

@@ -46,7 +46,7 @@ import utility.Numbers;
  * @since 2026
  */
 @SuppressWarnings({"java:S107", "java:S135"})
-public final class Tagging {
+public final class Generator {
 
     /**
      * The total starting material used to estimate the game phase.
@@ -86,15 +86,13 @@ public final class Tagging {
     /**
      * Prevents instantiation of this utility class.
      */
-    private Tagging() {
+    private Generator() {
         // utility
     }
 
     /**
      * Provides a lazily created shared evaluator for callers that do not supply one.
- * @author Lennart A. Conrad
- * @since 2026
- */
+     */
     private static final class SharedEvaluator {
 
         /**
@@ -209,21 +207,24 @@ public final class Tagging {
         Objects.requireNonNull(position, POSITION);
         Objects.requireNonNull(evaluator, EVALUATOR);
 
-        TagContext ctx = new TagContext(position);
-        List<String> tags = new ArrayList<>(128);
+        Context ctx = new Context(position);
+        Emitter out = new Emitter(128);
+        List<String> tags = out.sink();
 
         addMeta(tags, ctx, position, evaluator, analysis);
         addCandidatesAndPv(tags, position, analysis);
         addFacts(tags, ctx, position);
+        MoveFacts.addTags(ctx, tags);
+        Checkmate.addTags(ctx, tags);
         addMaterial(tags, position);
         addPieceTags(tags, position, evaluator);
         addPawnTags(tags, ctx, position);
         addKingTags(tags, position);
-        addTacticalTags(tags, position);
+        addTacticalTags(tags, ctx, position);
         addStrategicTags(tags, ctx, position);
         addEndgameOpening(tags, position);
 
-        return Sort.sort(tags);
+        return out.sorted();
     }
 
     /**
@@ -287,7 +288,7 @@ public final class Tagging {
      * @param evaluator the evaluator used for fallback evaluation
      * @param analysis optional engine analysis
      */
-    private static void addMeta(List<String> tags, TagContext ctx, Position position, Evaluator evaluator,
+    private static void addMeta(List<String> tags, Context ctx, Position position, Evaluator evaluator,
             Analysis analysis) {
         tags.add(META_TO_MOVE_PREFIX + (position.isWhiteToMove() ? WHITE : BLACK));
         tags.add(META_PHASE_PREFIX + phaseLabel(position));
@@ -427,8 +428,8 @@ public final class Tagging {
      * @param ctx the shared tagging context
      * @param position the position being tagged
      */
-    private static void addFacts(List<String> tags, TagContext ctx, Position position) {
-        addStatusFacts(tags, position);
+    private static void addFacts(List<String> tags, Context ctx, Position position) {
+        addStatusFacts(tags, ctx, position);
         addCastleFacts(tags, position);
         addEnPassantFact(tags, position);
         addCenterFacts(tags, ctx, position);
@@ -456,9 +457,9 @@ public final class Tagging {
      * @param evaluator the evaluator used for fallback evaluation
      * @param analysis optional engine analysis
      */
-    private static void addMetaEvaluation(List<String> tags, TagContext ctx, Position position, Evaluator evaluator,
+    private static void addMetaEvaluation(List<String> tags, Context ctx, Position position, Evaluator evaluator,
             Analysis analysis) {
-        if (position.isCheckmate()) {
+        if (position.inCheck() && ctx.legalMoves().isEmpty()) {
             tags.add(META_MATED_IN_PREFIX + 0);
             return;
         }
@@ -495,7 +496,7 @@ public final class Tagging {
      * @param evaluator the evaluator used for fallback evaluation
      * @param analysis optional engine analysis
      */
-    private static void addMetaWdl(List<String> tags, TagContext ctx, Position position, Evaluator evaluator,
+    private static void addMetaWdl(List<String> tags, Context ctx, Position position, Evaluator evaluator,
             Analysis analysis) {
         Chances chances = chancesFrom(analysis);
         if (chances != null) {
@@ -518,10 +519,11 @@ public final class Tagging {
      * Adds board status facts for check, checkmate, stalemate, or normal play.
      *
      * @param tags the mutable tag accumulator
+     * @param ctx the shared tagging context
      * @param position the position being tagged
      */
-    private static void addStatusFacts(List<String> tags, Position position) {
-        String status = statusLabel(position);
+    private static void addStatusFacts(List<String> tags, Context ctx, Position position) {
+        String status = statusLabel(ctx, position);
         if (NORMAL.equals(status) && isInsufficientMaterial(position)) {
             status = INSUFFICIENT;
         }
@@ -566,7 +568,7 @@ public final class Tagging {
      * @param ctx the shared tagging context
      * @param position the position being tagged
      */
-    private static void addCenterFacts(List<String> tags, TagContext ctx, Position position) {
+    private static void addCenterFacts(List<String> tags, Context ctx, Position position) {
         for (String tag : CenterSpace.tags(position)) {
             if (tag == null || tag.isBlank()) {
                 continue;
@@ -582,7 +584,7 @@ public final class Tagging {
      * @param ctx the shared tagging context
      * @param trimmed the trimmed center-related tag text
      */
-    private static void applyCenterFact(List<String> tags, TagContext ctx, String trimmed) {
+    private static void applyCenterFact(List<String> tags, Context ctx, String trimmed) {
         if (trimmed.startsWith(CENTER_CONTROL_PREFIX)) {
             String val = valueAfter(trimmed, CENTER_CONTROL_PREFIX);
             if (val != null) {
@@ -842,7 +844,7 @@ public final class Tagging {
      * @param ctx the shared tagging context
      * @param position the position being tagged
      */
-    private static void addPromotionThreatTags(List<String> tags, TagContext ctx, Position position) {
+    private static void addPromotionThreatTags(List<String> tags, Context ctx, Position position) {
         for (String tag : Promotion.tags(position)) {
             String side = addPromotionThreatTag(tags, tag);
             if (WHITE.equals(side)) {
@@ -1016,7 +1018,7 @@ public final class Tagging {
      * @param ctx the shared tagging context
      * @param position the position being tagged
      */
-    private static void addPawnTags(List<String> tags, TagContext ctx, Position position) {
+    private static void addPawnTags(List<String> tags, Context ctx, Position position) {
         addPawnStructureTags(tags, position);
         addPawnStatTags(tags, position);
         addPromotionThreatTags(tags, ctx, position);
@@ -1060,13 +1062,13 @@ public final class Tagging {
      * @param tags the mutable tag accumulator
      * @param position the position being tagged
      */
-    private static void addTacticalTags(List<String> tags, Position position) {
+    private static void addTacticalTags(List<String> tags, Context ctx, Position position) {
         for (String tag : Motifs.tags(position)) {
             if (tag != null && !tag.isBlank()) {
                 addTacticalTag(tags, tag.trim());
             }
         }
-        addLegalMoveTacticalTags(tags, position);
+        addLegalMoveTacticalTags(tags, ctx, position);
     }
 
     /**
@@ -1075,17 +1077,18 @@ public final class Tagging {
      * @param tags the mutable tag accumulator
      * @param position the position being tagged
      */
-    private static void addLegalMoveTacticalTags(List<String> tags, Position position) {
-        MoveList moves = position.legalMoves();
+    private static void addLegalMoveTacticalTags(List<String> tags, Context ctx, Position position) {
+        MoveList moves = ctx.legalMoves();
         if (moves.isEmpty()) {
             return;
         }
         boolean moverWhite = position.isWhiteToMove();
         List<String> beforeSkewers = skewerKeys(position, moverWhite);
+        byte[] board = ctx.board();
         for (int i = 0; i < moves.size(); i++) {
             short move = moves.get(i);
             byte from = Move.getFromIndex(move);
-            byte movingPiece = from == Field.NO_SQUARE ? Piece.EMPTY : position.getBoard()[from];
+            byte movingPiece = from == Field.NO_SQUARE ? Piece.EMPTY : board[from];
             Position next = position.copy().play(move);
             String uci = Move.toString(move);
             byte to = position.actualToSquare(move);
@@ -1560,7 +1563,7 @@ public final class Tagging {
      * @param ctx the shared tagging context
      * @param position the position being tagged
      */
-    private static void addStrategicTags(List<String> tags, TagContext ctx, Position position) {
+    private static void addStrategicTags(List<String> tags, Context ctx, Position position) {
         String spaceSide = spaceSide(ctx);
         if (spaceSide != null) {
             tags.add(SPACE_SIDE_PREFIX + spaceSide);
@@ -1614,14 +1617,12 @@ public final class Tagging {
     /**
      * Labels the current board status.
      *
+     * @param ctx the shared tagging context
      * @param position the position being evaluated
      * @return the status label for the position
      */
-    private static String statusLabel(Position position) {
-        if (position.isCheckmate()) {
-            return CHECKMATED;
-        }
-        MoveList moves = position.legalMoves();
+    private static String statusLabel(Context ctx, Position position) {
+        MoveList moves = ctx.legalMoves();
         if (moves.isEmpty()) {
             return position.inCheck() ? CHECKMATED : STALEMATE;
         }
@@ -2164,7 +2165,7 @@ public final class Tagging {
      * @param ctx the shared tagging context
      * @return the side with the advantage, or equal when no preference exists
      */
-    private static String spaceSide(TagContext ctx) {
+    private static String spaceSide(Context ctx) {
         if (WHITE.equals(ctx.spaceAdvantage) || BLACK.equals(ctx.spaceAdvantage)) {
             return ctx.spaceAdvantage;
         }
@@ -2223,7 +2224,7 @@ public final class Tagging {
      * @param ctx the shared tagging context
      * @return the side that appears to have the initiative, or equal when unclear
      */
-    private static String initiativeSide(TagContext ctx) {
+    private static String initiativeSide(Context ctx) {
         if (ctx.hasThreatWhite && !ctx.hasThreatBlack) {
             return WHITE;
         }
@@ -2468,6 +2469,55 @@ public final class Tagging {
     }
 
     /**
+     * Exact legal-move counters for the side to move.
+     *
+     * @author Lennart A. Conrad
+     * @since 2026
+     */
+    private static final class MoveCounts {
+
+        /**
+         * Legal capture count.
+         */
+        private int captures;
+
+        /**
+         * Legal checking move count.
+         */
+        private int checks;
+
+        /**
+         * Legal mate-in-one move count.
+         */
+        private int mates;
+
+        /**
+         * Legal promotion move count.
+         */
+        private int promotions;
+
+        /**
+         * Legal underpromotion move count.
+         */
+        private int underpromotions;
+
+        /**
+         * Legal castling move count.
+         */
+        private int castles;
+
+        /**
+         * Legal en-passant capture count.
+         */
+        private int enPassant;
+
+        /**
+         * Legal quiet move count.
+         */
+        private int quiet;
+    }
+
+    /**
      * Represents a candidate prefix and its normalized value.
  * @author Lennart A. Conrad
  * @since 2026
@@ -2703,50 +2753,4 @@ public final class Tagging {
         }
     }
 
-    /**
-     * Carries positional state across the tagging pipeline.
- * @author Lennart A. Conrad
- * @since 2026
- */
-    private static final class TagContext {
-
-        /**
-         * The centipawn evaluation from White's perspective.
-         */
-        private Integer evalCpWhite;
-
-        /**
-         * The WDL snapshot used for difficulty tagging.
-         */
-        private Wdl wdl;
-
-        /**
-         * The center-control label extracted from center analysis.
-         */
-        private String centerControl;
-
-        /**
-         * The space-advantage label extracted from center analysis.
-         */
-        private String spaceAdvantage;
-
-        /**
-         * Whether White has any promotion threats.
-         */
-        private boolean hasThreatWhite;
-
-        /**
-         * Whether Black has any promotion threats.
-         */
-        private boolean hasThreatBlack;
-
-        /**
-         * Creates a tagging context for the given position.
-         *
-         * @param position the position being tagged
-         */
-        private TagContext(Position position) {
-            Objects.requireNonNull(position, POSITION);
-        }
-    }
 }

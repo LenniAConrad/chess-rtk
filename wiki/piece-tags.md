@@ -31,13 +31,16 @@ FACT: status=normal
 MATERIAL: balance=equal
 PIECE: tier=very_strong side=white piece=knight square=f5
 PAWN: structure=passed side=white square=e7
-KING: safety=exposed side=black
-TACTIC: motif=pin side=white piece=bishop square=e2 by=black_rook@e8
-CHECKMATE: pattern=back_rank_mate
+KING: safety=very_unsafe side=black
+TACTIC: motif=pin side=black detail="pin: black rook e8 pins white bishop e2 to king"
+CHECKMATE: pattern=smothered_mate
 ```
 
 Tags are strings, but they are intentionally structured so they can be sorted,
 deduplicated, filtered, counted, and converted into text.
+
+For parser, family, identity, and fixture details, see the
+[Tag Reference](tag-reference).
 
 ## Tag Families
 

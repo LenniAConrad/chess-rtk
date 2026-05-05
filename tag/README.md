@@ -1,9 +1,9 @@
 # ChessRTK Tag Documentation
 
-Last refreshed against the local source tree on 2026-04-28.
+Last refreshed against the local source tree on 2026-05-06.
 
-This folder documents the current chess tag pipeline. It replaces the older
-ChatGPT prompt drafts with maintained references that match the implementation
+This folder documents the current chess tag pipeline. It keeps maintained
+references that match the implementation
 under `src/chess/tag`, the puzzle difficulty tags under `src/chess/puzzle`, and
 the CLI commands that emit tag output.
 
@@ -24,26 +24,28 @@ FAMILY: key=value key=value
 The current canonical families are:
 
 ```text
-FACT META THREAT CAND PV IDEA TACTIC PIECE KING PAWN MATERIAL
-SPACE INITIATIVE DEVELOPMENT MOBILITY OUTPOST ENDGAME OPENING
+FACT META MOVE THREAT CAND PV IDEA TACTIC CHECKMATE PIECE KING PAWN
+MATERIAL SPACE INITIATIVE DEVELOPMENT MOBILITY OUTPOST ENDGAME OPENING
 ```
 
-`IDEA` is reserved in the sorter and identity logic, but there is no active
-producer in the current source tree.
+`IDEA` is present in the sorter and identity order, but there is no active
+producer in the current source tree. `MOVE` and `CHECKMATE` are active canonical
+families emitted by `Generator`.
 
 ## Source Map
 
-The main entry point is `chess.tag.Tagging`.
+The main entry point is `chess.tag.Generator`.
 
 | Area | Current source |
 | --- | --- |
-| Canonical tag assembly | `src/chess/tag/Tagging.java` |
+| Canonical tag assembly | `src/chess/tag/Generator.java` |
 | Sorting and dedupe | `src/chess/tag/Sort.java` |
 | Tag parsing | `src/chess/tag/Line.java` |
 | Delta identity keys | `src/chess/tag/Identity.java` |
 | Delta JSON | `src/chess/tag/Delta.java` |
 | Shared literals | `src/chess/tag/core/Literals.java` |
 | Evaluation summary helper | `src/chess/tag/eval/Summary.java` |
+| Exact move facts and checkmate attributes | `src/chess/tag/MoveFacts.java`, `src/chess/tag/Checkmate.java` |
 | Material | `src/chess/tag/material/Counts.java`, `Endgame.java` |
 | Piece activity | `src/chess/tag/piece/Ablation.java`, `Activity.java` |
 | Pawn features | `src/chess/tag/pawn/Structure.java`, `Promotion.java` |
@@ -122,10 +124,12 @@ inside `tags` there.
 
 - Tags are sorted by family priority, then lexicographically within each family,
   then deduplicated.
-- The current family order is `FACT`, `META`, `THREAT`, `CAND`, `PV`, `IDEA`,
-  `TACTIC`, `PIECE`, `KING`, `PAWN`, `MATERIAL`, `SPACE`, `INITIATIVE`,
-  `DEVELOPMENT`, `MOBILITY`, `OUTPOST`, `ENDGAME`, `OPENING`.
-- `Tagging.tags(position, analysis)` emits candidate move (`CAND`) and principal
+- The current family order is `FACT`, `META`, `MOVE`, `THREAT`, `CAND`, `PV`,
+  `IDEA`, `TACTIC`, `CHECKMATE`, `PIECE`, `KING`, `PAWN`, `MATERIAL`, `SPACE`,
+  `INITIATIVE`, `DEVELOPMENT`, `MOBILITY`, `OUTPOST`, `ENDGAME`, `OPENING`.
+- `Generator` emits exact legal-move counts in the `MOVE` family and actual
+  mate attributes in the `CHECKMATE` family.
+- `Generator.tags(position, analysis)` emits candidate move (`CAND`) and principal
   variation (`PV`) tags when analysis contains usable PV data.
 - `fen tags --analyze` and `puzzle tags` may add null-move threat tags after
   engine analysis. Threat tags also override `INITIATIVE` to the threatening

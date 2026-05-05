@@ -43,6 +43,8 @@ final class Identity {
                 return FACT + COLON + firstKey(line);
             case MATERIAL:
                 return materialIdentity(line);
+            case MOVE_FAMILY:
+                return MOVE_FAMILY + COLON + firstKey(line);
             case PIECE:
                 return pieceIdentity(line);
             case PAWN_FAMILY:
@@ -51,6 +53,8 @@ final class Identity {
                 return KING + COLON + firstKey(line) + COLON + line.fields.get(SIDE);
             case TACTIC:
                 return tacticIdentity(line);
+            case CHECKMATE:
+                return checkmateIdentity(line);
             case THREAT:
                 return THREAT + COLON + line.fields.get(TYPE) + COLON + line.fields.get(SIDE);
             case CAND:
@@ -69,6 +73,25 @@ final class Identity {
             default:
                 return line.raw;
         }
+    }
+
+    /**
+     * Builds the identity for a checkmate tag line.
+     * <p>
+     * Named patterns include the pattern value because several pattern tags may
+     * coexist. Single-value mate attributes keep identity by field key so deltas
+     * report a changed delivery/winner/defender instead of remove/add churn.
+     * </p>
+     *
+     * @param line the checkmate tag line to identify
+     * @return the normalized checkmate identity
+     */
+    private static String checkmateIdentity(Line line) {
+        String key = firstKey(line);
+        if (PATTERN.equals(key)) {
+            return CHECKMATE + COLON + PATTERN + COLON + line.fields.get(PATTERN);
+        }
+        return CHECKMATE + COLON + key;
     }
 
     /**

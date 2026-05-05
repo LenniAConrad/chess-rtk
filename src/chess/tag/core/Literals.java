@@ -238,6 +238,11 @@ public final class Literals {
     public static final String TACTIC = "TACTIC";
 
     /**
+     * The checkmate family name.
+     */
+    public static final String CHECKMATE = "CHECKMATE";
+
+    /**
      * The piece family name.
      */
     public static final String PIECE = "PIECE";
@@ -261,6 +266,11 @@ public final class Literals {
      * The material family name.
      */
     public static final String MATERIAL = "MATERIAL";
+
+    /**
+     * The move-facts family name.
+     */
+    public static final String MOVE_FAMILY = "MOVE";
 
     /**
      * The space family name.
@@ -478,6 +488,61 @@ public final class Literals {
     public static final String MOVE = "move";
 
     /**
+     * The legal-move-count field key.
+     */
+    public static final String LEGAL = "legal";
+
+    /**
+     * The capture-count field key.
+     */
+    public static final String CAPTURES = "captures";
+
+    /**
+     * The checking-move-count field key.
+     */
+    public static final String CHECKS = "checks";
+
+    /**
+     * The mate-in-one move-count field key.
+     */
+    public static final String MATES = "mates";
+
+    /**
+     * The promotion-move-count field key.
+     */
+    public static final String PROMOTIONS = "promotions";
+
+    /**
+     * The castling-move-count field key.
+     */
+    public static final String CASTLES = "castles";
+
+    /**
+     * The quiet-move-count field key.
+     */
+    public static final String QUIET = "quiet";
+
+    /**
+     * The only-legal-move field key.
+     */
+    public static final String ONLY = "only";
+
+    /**
+     * The forced-move field key.
+     */
+    public static final String FORCED = "forced";
+
+    /**
+     * The legal evasion-count field key.
+     */
+    public static final String EVASIONS = "evasions";
+
+    /**
+     * The underpromotion-count field key.
+     */
+    public static final String UNDERPROMOTIONS = "underpromotions";
+
+    /**
      * The note field key.
      */
     public static final String NOTE = "note";
@@ -521,6 +586,26 @@ public final class Literals {
      * The mated-in field key.
      */
     public static final String MATED_IN = "mated_in";
+
+    /**
+     * The checkmate-pattern field key.
+     */
+    public static final String PATTERN = "pattern";
+
+    /**
+     * The checkmate winner field key.
+     */
+    public static final String WINNER = "winner";
+
+    /**
+     * The checkmate defender field key.
+     */
+    public static final String DEFENDER = "defender";
+
+    /**
+     * The checkmate delivery-piece field key.
+     */
+    public static final String DELIVERY = "delivery";
 
     /**
      * The WDL field key.
@@ -821,6 +906,36 @@ public final class Literals {
      * The boolean true label.
      */
     public static final String TRUE = "true";
+
+    /**
+     * The label used when multiple pieces deliver mate.
+     */
+    public static final String MULTIPLE = "multiple";
+
+    /**
+     * The double-check mate pattern label.
+     */
+    public static final String DOUBLE_CHECK = "double_check";
+
+    /**
+     * The back-rank mate pattern label.
+     */
+    public static final String BACK_RANK_MATE = "back_rank_mate";
+
+    /**
+     * The smothered-mate pattern label.
+     */
+    public static final String SMOTHERED_MATE = "smothered_mate";
+
+    /**
+     * The corner-mate pattern label.
+     */
+    public static final String CORNER_MATE = "corner_mate";
+
+    /**
+     * The support-mate pattern label.
+     */
+    public static final String SUPPORT_MATE = "support_mate";
 
     /**
      * The immediate severity label.

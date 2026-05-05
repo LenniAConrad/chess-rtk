@@ -1,0 +1,9 @@
+# id	fen	must_contain_tags	must_not_contain_tags
+startpos	rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1	META: to_move=white;META: phase=opening;FACT: status=normal;FACT: castle_rights=KQkq;MOVE: legal=20;MOVE: quiet=20;MATERIAL: balance=equal	FACT: status=checkmated;META: mated_in=0;CHECKMATE: winner=black
+back_rank_mate	4R1k1/5ppp/8/8/8/8/8/6K1 b - - 0 1	FACT: status=checkmated;FACT: in_check=black;META: mated_in=0;MOVE: legal=0;MOVE: evasions=0;CHECKMATE: winner=white;CHECKMATE: defender=black;CHECKMATE: delivery=rook;CHECKMATE: pattern=back_rank_mate;PIECE: activity=high_mobility side=white piece=rook square=e8	FACT: status=normal;MATERIAL: balance=equal
+double_check_mate	7k/6Q1/6K1/8/8/8/8/7R b - - 0 1	FACT: status=checkmated;MOVE: legal=0;MOVE: evasions=0;CHECKMATE: winner=white;CHECKMATE: defender=black;CHECKMATE: delivery=multiple;CHECKMATE: pattern=double_check	CHECKMATE: delivery=queen;FACT: status=normal
+corner_support_mate	7k/6Q1/6K1/8/8/8/8/8 b - - 0 1	FACT: status=checkmated;CHECKMATE: delivery=queen;CHECKMATE: pattern=corner_mate;CHECKMATE: pattern=support_mate	CHECKMATE: delivery=multiple;FACT: status=normal
+smothered_mate	6rk/5Npp/8/8/8/8/8/6K1 b - - 0 1	FACT: status=checkmated;CHECKMATE: delivery=knight;CHECKMATE: pattern=smothered_mate;CHECKMATE: pattern=corner_mate	CHECKMATE: delivery=rook;FACT: status=normal
+pawn_structure	4k3/4P3/8/8/8/P7/P7/4K3 w - - 0 1	PAWN: structure=doubled side=white file=a;PAWN: structure=isolated side=white square=a2;PAWN: structure=passed side=white square=e7;PAWN: majority=queenside side=white;MATERIAL: imbalance=rookless	PAWN: majority=kingside side=white
+en_passant	k7/8/8/3Pp3/8/8/8/7K w - e6 0 1	META: to_move=white;FACT: en_passant=e6;MOVE: en_passant=1	FACT: en_passant=-;FACT: status=checkmated
+forced_only	8/8/8/8/8/5k2/7q/7K w - - 0 1	FACT: status=check;MOVE: legal=1;MOVE: captures=1;MOVE: evasions=1;MOVE: only=h1h2;MOVE: forced=true	CHECKMATE: winner=black;MOVE: legal=0

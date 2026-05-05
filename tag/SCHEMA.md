@@ -12,7 +12,7 @@ normalizes.
 - Use `side=white|black` for a real side and `side=equal` only for aggregate
   strategic families.
 - Squares are lowercase algebraic squares such as `e4`.
-- UCI move fields appear on generated tactical tags.
+- UCI move fields appear on `MOVE: only` and generated tactical tags.
 - SAN move fields appear on `CAND`, `PV`, and engine threat tags.
 - Quoted fields are used for text values that can contain spaces or punctuation.
 
@@ -22,8 +22,8 @@ normalizes.
 duplicates:
 
 ```text
-FACT META THREAT CAND PV IDEA TACTIC PIECE KING PAWN MATERIAL
-SPACE INITIATIVE DEVELOPMENT MOBILITY OUTPOST ENDGAME OPENING
+FACT META MOVE THREAT CAND PV IDEA TACTIC CHECKMATE PIECE KING PAWN
+MATERIAL SPACE INITIATIVE DEVELOPMENT MOBILITY OUTPOST ENDGAME OPENING
 ```
 
 Unknown families sort after known families.
@@ -83,9 +83,32 @@ FACT: space_advantage=white|black
 FACT: puzzle=winning|draw
 ```
 
-Some lower-level helpers emit raw `FACT` forms before `Tagging` normalizes them,
-such as `FACT: pawn_structure ...`, `FACT: promotion_available ...`, and
-`FACT: tactical="..."`.
+Lower-level helper facts are internal inputs. `Generator` normalizes them into
+the canonical public families below.
+
+### MOVE
+
+Exact legal-move facts for the side to move:
+
+```text
+MOVE: legal=<int>
+MOVE: captures=<int>
+MOVE: checks=<int>
+MOVE: mates=<int>
+MOVE: promotions=<int>
+MOVE: underpromotions=<int>
+MOVE: castles=<int>
+MOVE: en_passant=<int>
+MOVE: quiet=<int>
+MOVE: only=<uci>
+MOVE: forced=true
+MOVE: evasions=<int>
+```
+
+`MOVE: legal=<int>` is always emitted. Other count tags are emitted only when
+the count is non-zero, except `MOVE: evasions=<int>`, which is emitted whenever
+the side to move is in check. `MOVE: only` and `MOVE: forced=true` are emitted
+only when exactly one legal move exists.
 
 ### THREAT
 
@@ -123,7 +146,7 @@ Principal variation from engine analysis:
 PV: <SAN> <SAN> <SAN>
 ```
 
-The current `Tagging` implementation keeps up to six plies.
+The current `Generator` implementation keeps up to six plies.
 
 ### TACTIC
 
@@ -148,6 +171,21 @@ TACTIC: motif=discovered_attack side=white|black move=<uci> piece=pawn|knight|bi
 ```
 
 Target labels use `piece@square`, for example `queen@h5`.
+
+### CHECKMATE
+
+Actual checkmate attributes. These are emitted only when the current position is
+checkmate:
+
+```text
+CHECKMATE: winner=white|black
+CHECKMATE: defender=white|black
+CHECKMATE: delivery=pawn|knight|bishop|rook|queen|king|multiple
+CHECKMATE: pattern=double_check|back_rank_mate|smothered_mate|corner_mate|support_mate
+```
+
+Pattern tags are conservative and may be absent even when a human would name the
+mate pattern.
 
 ### PIECE
 
@@ -234,6 +272,9 @@ or `removed`.
 | --- | --- |
 | `META` | family plus first key, for example `META:eval_cp` |
 | `FACT` | family plus first key |
+| `MOVE` | family plus first key |
+| `CHECKMATE: pattern` | `CHECKMATE:pattern:<pattern>` |
+| other `CHECKMATE` | family plus first key |
 | `MATERIAL: piece_count` | `MATERIAL:piece_count:<side>:<piece>` |
 | `MATERIAL: imbalance` | `MATERIAL:imbalance:<imbalance>` |
 | other `MATERIAL` | family plus first key |
