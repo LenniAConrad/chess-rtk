@@ -5,6 +5,7 @@ import java.awt.Color;
 import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.Font;
+import java.awt.FontMetrics;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.Insets;
@@ -28,6 +29,8 @@ import javax.swing.JTextField;
 import javax.swing.text.JTextComponent;
 import javax.swing.UIManager;
 import javax.swing.border.Border;
+import javax.swing.plaf.basic.BasicTextAreaUI;
+import javax.swing.plaf.basic.BasicTextFieldUI;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.TableCellRenderer;
 
@@ -40,6 +43,11 @@ final class WorkbenchTheme {
      * Theme logger.
      */
     private static final Logger LOGGER = Logger.getLogger(WorkbenchTheme.class.getName());
+
+    /**
+     * Client property for empty text-control placeholder copy.
+     */
+    private static final String PLACEHOLDER_PROPERTY = WorkbenchTheme.class.getName() + ".placeholder";
 
     /**
      * Root background color.
@@ -620,6 +628,7 @@ final class WorkbenchTheme {
      * @param field text field
      */
     static void field(JTextField field) {
+        field.setUI(new PlaceholderTextFieldUI());
         field.setOpaque(true);
         field.setBackground(INPUT);
         field.setForeground(TEXT);
@@ -639,6 +648,7 @@ final class WorkbenchTheme {
      * @param area text area
      */
     static void area(JTextArea area) {
+        area.setUI(new PlaceholderTextAreaUI());
         area.setOpaque(true);
         area.setBackground(TEXT_AREA);
         area.setForeground(TEXT);
@@ -650,6 +660,21 @@ final class WorkbenchTheme {
         area.setFont(mono(13));
         installFocusBorder(area);
         installEnabledBackground(area, TEXT_AREA);
+    }
+
+    /**
+     * Adds placeholder copy to an empty text component without changing its value.
+     *
+     * @param component text component
+     * @param text placeholder text
+     */
+    static void placeholder(JTextComponent component, String text) {
+        String value = text == null ? "" : text;
+        component.putClientProperty(PLACEHOLDER_PROPERTY, value);
+        if (component.getToolTipText() == null || component.getToolTipText().isBlank()) {
+            component.setToolTipText(value);
+        }
+        component.repaint();
     }
 
     /**
@@ -985,6 +1010,62 @@ final class WorkbenchTheme {
             } finally {
                 g.dispose();
             }
+        }
+    }
+
+    /**
+     * Text-field UI that paints placeholder copy when empty.
+     */
+    private static final class PlaceholderTextFieldUI extends BasicTextFieldUI {
+
+        @Override
+        protected void paintSafely(Graphics graphics) {
+            super.paintSafely(graphics);
+            paintPlaceholder(graphics, getComponent(), true);
+        }
+    }
+
+    /**
+     * Text-area UI that paints placeholder copy when empty.
+     */
+    private static final class PlaceholderTextAreaUI extends BasicTextAreaUI {
+
+        @Override
+        protected void paintSafely(Graphics graphics) {
+            super.paintSafely(graphics);
+            paintPlaceholder(graphics, getComponent(), false);
+        }
+    }
+
+    /**
+     * Paints placeholder copy for an empty text component.
+     *
+     * @param graphics graphics
+     * @param component text component
+     * @param verticalCenter true to center vertically
+     */
+    private static void paintPlaceholder(Graphics graphics, JTextComponent component, boolean verticalCenter) {
+        if (component == null || !component.getText().isEmpty()) {
+            return;
+        }
+        Object value = component.getClientProperty(PLACEHOLDER_PROPERTY);
+        if (!(value instanceof String placeholder) || placeholder.isBlank()) {
+            return;
+        }
+        Graphics2D g = (Graphics2D) graphics.create();
+        try {
+            g.setFont(component.getFont());
+            g.setColor(withAlpha(MUTED, component.isEnabled() ? 150 : 110));
+            FontMetrics metrics = g.getFontMetrics();
+            Insets insets = component.getInsets();
+            int x = insets.left + 2;
+            int y = verticalCenter
+                    ? Math.max(insets.top + metrics.getAscent(),
+                            (component.getHeight() - metrics.getHeight()) / 2 + metrics.getAscent())
+                    : insets.top + metrics.getAscent() + 1;
+            g.drawString(placeholder, x, y);
+        } finally {
+            g.dispose();
         }
     }
 

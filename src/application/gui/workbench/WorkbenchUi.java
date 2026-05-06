@@ -47,6 +47,7 @@ import javax.swing.Timer;
 import javax.swing.plaf.basic.BasicComboBoxUI;
 import javax.swing.plaf.basic.BasicScrollBarUI;
 import javax.swing.plaf.basic.BasicSpinnerUI;
+import javax.swing.text.JTextComponent;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 
@@ -369,6 +370,16 @@ final class WorkbenchUi {
         for (JTextArea area : areas) {
             WorkbenchTheme.area(area);
         }
+    }
+
+    /**
+     * Installs empty-field placeholder text without changing the component value.
+     *
+     * @param component text component
+     * @param text placeholder copy
+     */
+    static void placeholder(JTextComponent component, String text) {
+        WorkbenchTheme.placeholder(component, text);
     }
 
     /**

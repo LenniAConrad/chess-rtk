@@ -11,6 +11,7 @@ import static application.gui.workbench.WorkbenchUi.grid;
 import static application.gui.workbench.WorkbenchUi.iconButton;
 import static application.gui.workbench.WorkbenchUi.label;
 import static application.gui.workbench.WorkbenchUi.onTextChange;
+import static application.gui.workbench.WorkbenchUi.placeholder;
 import static application.gui.workbench.WorkbenchUi.scroll;
 import static application.gui.workbench.WorkbenchUi.showConfirmDialog;
 import static application.gui.workbench.WorkbenchUi.styleAreas;
@@ -790,6 +791,7 @@ public final class WorkbenchWindow extends JFrame {
         restoreWindowGeometry();
         loadDisplaySettings();
         loadEngineSettings();
+        installFieldPlaceholders();
         installEngineSettingListeners();
         buildUi();
         applyDisplaySettings(false);
@@ -921,6 +923,29 @@ public final class WorkbenchWindow extends JFrame {
         engineProtocolField.setText(WORKBENCH_PREFS.get(PREF_ENGINE_PROTOCOL, Config.getProtocolPath()));
         engineNodesField.setText(WORKBENCH_PREFS.get(PREF_ENGINE_NODES, ""));
         engineHashField.setText(WORKBENCH_PREFS.get(PREF_ENGINE_HASH, ""));
+    }
+
+    /**
+     * Adds empty-field examples for the workbench's editable text inputs.
+     */
+    private void installFieldPlaceholders() {
+        placeholder(fenField, "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+        placeholder(analysisDurationField, "e.g. 2s or 500ms");
+        placeholder(batchDurationField, "e.g. 2s or 500ms");
+        placeholder(engineProtocolField, "path/to/engine.toml");
+        placeholder(engineNodesField, "e.g. 1000000");
+        placeholder(engineHashField, "e.g. 128");
+        placeholder(batchInput, "one FEN per line; blank uses the current game line");
+        placeholder(optionFilterField, "e.g. json, fields, max nodes");
+        placeholder(reportNoteField, "e.g. key idea, theme, or next action");
+        placeholder(publishInputField, "path/to/input.pgn or path/to/fens.txt");
+        placeholder(publishOutputField, "path/to/output.pdf");
+        placeholder(publishPdfOutputField, "path/to/interior.pdf");
+        placeholder(publishCoverOutputField, "path/to/cover.pdf");
+        placeholder(publishTitleField, "e.g. My Chess Study");
+        placeholder(publishSubtitleField, "e.g. Annotated tactics");
+        placeholder(publishLimitField, "e.g. 50");
+        placeholder(publishPagesField, "e.g. 120");
     }
 
     /**

@@ -104,6 +104,7 @@ public final class WorkbenchRegressionTest {
         testSettingsToggleRowsAreReadable();
         testThemeColorContrast();
         testThemeInstallSetsTooltipColors();
+        testTextPlaceholdersDoNotSetValues();
         testCollapsibleInfoSectionTogglesContent();
         testTabbedPaneSwitchesWithoutSnapshotOverlay();
         testButtonHoverTransitionStarts();
@@ -280,6 +281,18 @@ public final class WorkbenchRegressionTest {
         assertEquals("8/8/8/8/8/8/K7/7k b", invokeStatic(type("WorkbenchWindow"), "compactFenPreview",
                 new Class<?>[] { String.class }, "8/8/8/8/8/8/K7/7k b - - 4 22"),
                 "publishing preview compact FEN");
+    }
+
+    /**
+     * Verifies placeholder examples are hints, not real field values.
+     */
+    private static void testTextPlaceholdersDoNotSetValues() {
+        JTextField field = new JTextField();
+        invokeStatic(type("WorkbenchUi"), "placeholder",
+                new Class<?>[] { javax.swing.text.JTextComponent.class, String.class },
+                field, "path/to/input.pgn");
+        assertEquals("", field.getText(), "placeholder leaves text empty");
+        assertEquals("path/to/input.pgn", field.getToolTipText(), "placeholder tooltip");
     }
 
     /**
