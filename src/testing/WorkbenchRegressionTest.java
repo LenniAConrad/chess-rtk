@@ -90,6 +90,7 @@ public final class WorkbenchRegressionTest {
         testDynamicOptionRefreshSkipsUnchangedValues();
         testEngineTemplateContextFeedsExternalConfigOptions();
         testEngineBatchTasksUseExternalConfigOptions();
+        testCommandTemplatesHaveCompactTabLabels();
         testPaletteTokenMatching();
         testOptionFilterTokenMatching();
         testTextAreaScrollPaintsOpaque();
@@ -247,6 +248,28 @@ public final class WorkbenchRegressionTest {
         assertTrue(hasFlag(args, "--threads"), "batch threads flag");
         assertTrue(hasFlag(args, "--hash"), "batch hash flag");
         assertTrue(hasFlag(args, "--jsonl"), "batch jsonl flag");
+    }
+
+    /**
+     * Verifies command templates expose stable labels suitable for command tabs.
+     */
+    @SuppressWarnings("unchecked")
+    private static void testCommandTemplatesHaveCompactTabLabels() {
+        List<Object> templates = (List<Object>) invokeStatic(type("WorkbenchCommandTemplates"),
+                "commandTemplates", new Class<?>[0]);
+        DefaultComboBoxModel<?> model = (DefaultComboBoxModel<?>) invokeStatic(type("WorkbenchCommandTemplates"),
+                "commandModel", new Class<?>[0]);
+        assertEquals(Integer.valueOf(model.getSize()), Integer.valueOf(templates.size()),
+                "command template tab count");
+        assertTrue(templates.size() > 4, "command template tab coverage");
+        for (int i = 0; i < templates.size(); i++) {
+            String name = String.valueOf(invoke(templates.get(i), "name", new Class<?>[0]));
+            assertFalse(name.isBlank(), "command tab label is not blank");
+            for (int j = 0; j < i; j++) {
+                String prior = String.valueOf(invoke(templates.get(j), "name", new Class<?>[0]));
+                assertFalse(name.equals(prior), "command tab labels are unique");
+            }
+        }
     }
 
     /**

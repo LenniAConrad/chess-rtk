@@ -317,9 +317,14 @@ public final class WorkbenchWindow extends JFrame {
     private final JTextField optionFilterField = new JTextField();
 
     /**
-     * Template selector.
+     * Command-template selector tabs.
      */
-    private final JComboBox<CommandTemplate> templateCombo = new JComboBox<>();
+    private final JTabbedPane commandTemplateTabs = tabbedPane();
+
+    /**
+     * Command templates shown in {@link #commandTemplateTabs}.
+     */
+    private List<CommandTemplate> commandTemplates = List.of();
 
     /**
      * Command option table model.
@@ -1846,13 +1851,13 @@ public final class WorkbenchWindow extends JFrame {
         GridBagConstraints c = constraints();
         grid(panel, WorkbenchTheme.section("Command Controller"), c, 0, 0, 4, 1);
 
-        styleCombos(templateCombo);
-        templateCombo.addActionListener(event -> {
+        commandTemplateTabs.setTabLayoutPolicy(JTabbedPane.WRAP_TAB_LAYOUT);
+        commandTemplateTabs.addChangeListener(event -> {
             updateCommandOptions();
             updateBuiltCommand();
         });
-        grid(panel, label("template"), c, 0, 1, 1, 1);
-        grid(panel, templateCombo, c, 1, 1, 3, 1);
+        grid(panel, label("command"), c, 0, 1, 1, 1);
+        grid(panel, commandTemplateTabs, c, 1, 1, 3, 1);
 
         configureOptionTable();
         optionModel.addTableModelListener(event -> updateBuiltCommand());
@@ -1889,7 +1894,7 @@ public final class WorkbenchWindow extends JFrame {
         c.anchor = GridBagConstraints.WEST;
 
         commandField.setEditable(false);
-        grid(panel, label("command"), c, 0, 4, 1, 1);
+        grid(panel, label("preview"), c, 0, 4, 1, 1);
         grid(panel, commandField, c, 1, 4, 3, 1);
 
         grid(panel, buttonRow(FlowLayout.LEFT,
@@ -4393,7 +4398,11 @@ public final class WorkbenchWindow extends JFrame {
      * Installs command templates.
      */
     private void installTemplates() {
-        templateCombo.setModel(WorkbenchCommandTemplates.commandModel());
+        commandTemplates = WorkbenchCommandTemplates.commandTemplates();
+        commandTemplateTabs.removeAll();
+        for (CommandTemplate template : commandTemplates) {
+            commandTemplateTabs.addTab(template.name(), transparentPanel(new BorderLayout()));
+        }
     }
 
     /**
@@ -4581,7 +4590,7 @@ public final class WorkbenchWindow extends JFrame {
      * Updates command options for the selected template.
      */
     private void updateCommandOptions() {
-        CommandTemplate template = (CommandTemplate) templateCombo.getSelectedItem();
+        CommandTemplate template = selectedCommandTemplate();
         if (template == null) {
             return;
         }
@@ -4757,13 +4766,26 @@ public final class WorkbenchWindow extends JFrame {
      * @return command arguments
      */
     private List<String> selectedTemplateArgs() {
-        CommandTemplate template = (CommandTemplate) templateCombo.getSelectedItem();
+        CommandTemplate template = selectedCommandTemplate();
         if (template == null) {
             return List.of();
         }
         List<String> args = new ArrayList<>(template.baseArgs());
         args.addAll(optionModel.enabledArgs());
         return List.copyOf(args);
+    }
+
+    /**
+     * Returns the selected command template.
+     *
+     * @return selected template or null
+     */
+    private CommandTemplate selectedCommandTemplate() {
+        int selected = commandTemplateTabs.getSelectedIndex();
+        if (selected < 0 || selected >= commandTemplates.size()) {
+            return null;
+        }
+        return commandTemplates.get(selected);
     }
 
     /**

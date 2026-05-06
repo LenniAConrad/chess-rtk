@@ -83,7 +83,7 @@ final class WorkbenchCommandTemplates {
      *
      * @return command templates
      */
-    private static List<CommandTemplate> commandTemplates() {
+    static List<CommandTemplate> commandTemplates() {
         return List.of(
                 new CommandTemplate("Legal moves", List.of("move", "list"), positionOptions(
                         formatOption("both", true, "uci, san, or both"),
