@@ -37,6 +37,7 @@ import java.awt.datatransfer.StringSelection;
 import java.awt.event.ActionEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.awt.print.PrinterException;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -1262,6 +1263,12 @@ public final class WorkbenchWindow extends JFrame {
                         () -> setLiveExternalEngineEnabled(!liveExternalEngineEnabled)),
                 new PaletteAction("Analysis data", "Show live evaluation, depth, and speed graphs",
                         this::showAnalysisData),
+                new PaletteAction("Copy analysis CSV", "Copy live analysis graph data as CSV",
+                        this::copyAnalysisCsv),
+                new PaletteAction("Copy analysis report", "Copy the live analysis summary report",
+                        this::copyAnalysisReport),
+                new PaletteAction("Print analysis report", "Print the live analysis graph report",
+                        this::printAnalysisReport),
                 new PaletteAction("Position tags", "Generate tags for the current FEN", this::runTagsCommand),
                 new PaletteAction("Perft", "Run perft with the selected depth and threads", this::runPerft),
                 new PaletteAction("Run built command", "Execute the selected command template", this::runSelectedTemplate),
@@ -1330,6 +1337,48 @@ public final class WorkbenchWindow extends JFrame {
         if (boardDetailTabs != null) {
             boardDetailTabs.setSelectedIndex(2);
         }
+    }
+
+    /**
+     * Copies the live-analysis data as CSV.
+     */
+    private void copyAnalysisCsv() {
+        copyText(analysisGraph.csvText());
+        toast(WorkbenchToast.Kind.SUCCESS, "Analysis CSV copied");
+    }
+
+    /**
+     * Copies the live-analysis report.
+     */
+    private void copyAnalysisReport() {
+        copyText(analysisGraph.reportText());
+        toast(WorkbenchToast.Kind.SUCCESS, "Analysis report copied");
+    }
+
+    /**
+     * Prints the live-analysis report.
+     */
+    private void printAnalysisReport() {
+        if (!analysisGraph.hasSamples()) {
+            toast(WorkbenchToast.Kind.WARNING, "No analysis data to print");
+            return;
+        }
+        try {
+            boolean submitted = analysisGraph.printReport();
+            if (submitted) {
+                toast(WorkbenchToast.Kind.SUCCESS, "Analysis report sent to printer");
+            }
+        } catch (PrinterException ex) {
+            showError("Print report failed", ex.getMessage());
+        }
+    }
+
+    /**
+     * Clears the live-analysis graph.
+     */
+    private void clearAnalysisData() {
+        analysisGraph.clearSamples();
+        toast(WorkbenchToast.Kind.INFO, "Analysis data cleared");
     }
 
     /**
@@ -1606,10 +1655,26 @@ public final class WorkbenchWindow extends JFrame {
         boardDetailTabs = createSectionTabs();
         boardDetailTabs.addTab("Moves", titled("Legal Moves", scroll(movesTable)));
         boardDetailTabs.addTab("Tags", titled("Tags", scroll(tagList)));
-        boardDetailTabs.addTab("Data", titled("Analysis", analysisGraph));
+        boardDetailTabs.addTab("Data", createAnalysisDataPanel());
         boardDetailTabs.addTab("Settings", createDisplaySettingsPanel());
         boardDetailTabs.addTab("Engine", createEngineSettingsPanel());
         return boardDetailTabs;
+    }
+
+    /**
+     * Creates analysis graph and report controls.
+     *
+     * @return data panel
+     */
+    private JComponent createAnalysisDataPanel() {
+        JPanel content = transparentPanel(new BorderLayout(6, 6));
+        content.add(buttonRow(FlowLayout.LEFT,
+                button("Copy CSV", false, event -> copyAnalysisCsv()),
+                button("Copy Report", false, event -> copyAnalysisReport()),
+                button("Print Report", false, event -> printAnalysisReport()),
+                button("Clear", false, event -> clearAnalysisData())), BorderLayout.NORTH);
+        content.add(analysisGraph, BorderLayout.CENTER);
+        return titled("Analysis Data", content);
     }
 
     /**

@@ -116,6 +116,7 @@ public final class WorkbenchRegressionTest {
         testLiveEngineStatusFormatting();
         testOptionalPositiveIntegerParsing();
         testAnalysisGraphStoresSamples();
+        testAnalysisGraphExportsReportData();
         testAnalysisGraphPaintsOpaqueSurface();
         testBoardHasNoInstructionTooltip();
         testBoardHasNoKeyboardPieceSelector();
@@ -658,10 +659,40 @@ public final class WorkbenchRegressionTest {
                 Boolean.TRUE,
                 new Output("info depth 12 multipv 1 score cp 42 nodes 1000 nps 5000 pv e2e4 e7e5"),
                 Move.parse("e2e4"));
-        assertEquals(Integer.valueOf(1), invoke(graph, "sampleCount", new Class<?>[0]),
-                "analysis graph sample count");
+        invoke(graph, "addSample", new Class<?>[] { boolean.class, Output.class, short.class },
+                Boolean.TRUE,
+                new Output("info depth 13 multipv 1 nodes 2200 pv e2e4 e7e5"),
+                Move.parse("e2e4"));
+        assertEquals(Integer.valueOf(2), invoke(graph, "sampleCount", new Class<?>[0]),
+                "analysis graph sparse sample count");
         assertEquals("+0.42", invoke(graph, "latestEvalLabel", new Class<?>[0]),
                 "analysis graph eval label");
+    }
+
+    /**
+     * Verifies graph data can be exported for reports and downstream analysis.
+     */
+    private static void testAnalysisGraphExportsReportData() {
+        Object graph = construct(type("WorkbenchAnalysisGraph"), new Class<?>[0]);
+        invoke(graph, "resetForPosition", new Class<?>[] { String.class }, START_FEN);
+        invoke(graph, "addSample", new Class<?>[] { boolean.class, Output.class, short.class },
+                Boolean.TRUE,
+                new Output("info depth 12 multipv 1 score cp 42 nodes 1000 nps 5000 time 90 pv e2e4 e7e5"),
+                Move.parse("e2e4"));
+        invoke(graph, "addSample", new Class<?>[] { boolean.class, Output.class, short.class },
+                Boolean.TRUE,
+                new Output("info depth 13 multipv 1 score cp 15 nodes 2200 nps 7000 time 180 pv g1f3"),
+                Move.parse("g1f3"));
+
+        String csv = (String) invoke(graph, "csvText", new Class<?>[0]);
+        assertTrue(csv.contains("index,eval_cp,eval,depth,nodes,nps,time_ms,best_move"),
+                "analysis CSV header");
+        assertTrue(csv.contains("g1f3"), "analysis CSV contains best move");
+
+        String report = (String) invoke(graph, "reportText", new Class<?>[0]);
+        assertTrue(report.contains("CRTK Workbench Analysis Report"), "analysis report title");
+        assertTrue(report.contains("Samples: 2"), "analysis report sample count");
+        assertTrue(report.contains("max 13"), "analysis report max depth");
     }
 
     /**
