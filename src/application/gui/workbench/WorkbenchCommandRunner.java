@@ -12,6 +12,7 @@ import java.util.Locale;
 import java.util.Objects;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
 import javax.swing.SwingWorker;
@@ -60,18 +61,19 @@ final class WorkbenchCommandRunner {
                     running.markCancelled();
                     throw new CancellationException("command cancelled");
                 }
-                running.process = builder.start();
+                Process process = builder.start();
+                running.process.set(process);
                 running.markRunning();
                 if (isCancelled()) {
                     running.destroyProcess();
                     running.markCancelled();
                     throw new CancellationException("command cancelled");
                 }
-                Thread stdinThread = startStdinThread(running.process, stdin);
+                Thread stdinThread = startStdinThread(process, stdin);
                 BoundedOutput output = new BoundedOutput(MAX_OUTPUT_BYTES);
                 try {
                     try (BufferedReader reader = new BufferedReader(new InputStreamReader(
-                            running.process.getInputStream(), StandardCharsets.UTF_8))) {
+                            process.getInputStream(), StandardCharsets.UTF_8))) {
                         String line;
                         while ((line = reader.readLine()) != null) {
                             if (isCancelled()) {
@@ -93,15 +95,11 @@ final class WorkbenchCommandRunner {
                         }
                         if (stdinThread.isAlive()) {
                             stdinThread.interrupt();
-                            try {
-                                running.process.getOutputStream().close();
-                            } catch (IOException ignored) {
-                                // best-effort unblock of the writer thread
-                            }
+                            closeProcessOutput(process);
                         }
                     }
                 }
-                int exitCode = running.process.waitFor();
+                int exitCode = process.waitFor();
                 long millis = (System.nanoTime() - started) / 1_000_000L;
                 running.markCompleted();
                 return new CommandResult(List.copyOf(args), exitCode, output.toString(), millis);
@@ -172,11 +170,7 @@ final class WorkbenchCommandRunner {
      */
     private static Thread startStdinThread(Process process, String stdin) {
         if (stdin == null || stdin.isEmpty()) {
-            try {
-                process.getOutputStream().close();
-            } catch (IOException ignored) {
-                // best-effort close
-            }
+            closeProcessOutput(process);
             return null;
         }
         Thread thread = new Thread(() -> {
@@ -190,6 +184,19 @@ final class WorkbenchCommandRunner {
         thread.setDaemon(true);
         thread.start();
         return thread;
+    }
+
+    /**
+     * Closes process stdin if it is still open.
+     *
+     * @param process child process
+     */
+    private static void closeProcessOutput(Process process) {
+        try {
+            process.getOutputStream().close();
+        } catch (IOException ignored) {
+            // best-effort close
+        }
     }
 
     /**
@@ -291,7 +298,7 @@ final class WorkbenchCommandRunner {
     static String join(List<String> tokens) {
         StringBuilder sb = new StringBuilder();
         for (String token : tokens) {
-            if (sb.length() > 0) {
+            if (!sb.isEmpty()) {
                 sb.append(' ');
             }
             sb.append(quote(token));
@@ -389,7 +396,7 @@ final class WorkbenchCommandRunner {
         /**
          * Child process.
          */
-        private volatile Process process;
+        private final AtomicReference<Process> process = new AtomicReference<>();
 
         /**
          * Current lifecycle state.
@@ -420,7 +427,7 @@ final class WorkbenchCommandRunner {
          * call from multiple threads; only the first call performs work.
          */
         private void destroyProcess() {
-            Process runningProcess = process;
+            Process runningProcess = process.get();
             if (runningProcess == null || !destroyRequested.compareAndSet(false, true)) {
                 return;
             }

@@ -1626,7 +1626,6 @@ final class WorkbenchBoardPanel extends JPanel {
         if (dragTargetSquare != Field.NO_SQUARE) {
             Rectangle bounds = squareBounds(board, dragTargetSquare);
             drawLegalTarget(g, bounds, isCaptureTarget(dragTargetSquare));
-            return;
         }
     }
 
@@ -2374,6 +2373,10 @@ final class WorkbenchBoardPanel extends JPanel {
             return;
         }
         MoveList moves = currentLegalMoves();
+        if (moves == null) {
+            clearSelection();
+            return;
+        }
         short[] moveBuffer = new short[moves.size()];
         byte[] targetBuffer = new byte[moves.size()];
         int moveCount = 0;
@@ -2512,8 +2515,8 @@ final class WorkbenchBoardPanel extends JPanel {
      * @return true when the drag threshold has been crossed
      */
     private static boolean isDragPastThreshold(int startX, int startY, int currentX, int currentY) {
-        long dx = currentX - startX;
-        long dy = currentY - startY;
+        long dx = (long) currentX - startX;
+        long dy = (long) currentY - startY;
         return dx * dx + dy * dy >= (long) DRAG_THRESHOLD * DRAG_THRESHOLD;
     }
 
@@ -2698,7 +2701,7 @@ final class WorkbenchBoardPanel extends JPanel {
         if (distance < 2.0) {
             return;
         }
-        double angle = Math.atan2(to.y - from.y, to.x - from.x);
+        double angle = Math.atan2((double) to.y - from.y, (double) to.x - from.x);
         double targetShorten = Math.min(shorten, distance * 0.35);
         double headRadius = Math.min(Math.max(ARROW_HEAD_RADIUS, lineWidth * 2.6), Math.max(5.0, distance * 0.25));
         int x2 = (int) Math.round(to.x - Math.cos(angle) * targetShorten);
@@ -2879,7 +2882,7 @@ final class WorkbenchBoardPanel extends JPanel {
             }
         }
         if (!Double.isNaN(flipAnimationProgress)) {
-            double elapsed = System.currentTimeMillis() - flipAnimationStartedAt;
+            double elapsed = (double) System.currentTimeMillis() - (double) flipAnimationStartedAt;
             flipAnimationProgress = Math.max(0.0, Math.min(1.0, elapsed / Math.max(1.0, flipAnimationMs)));
             if (flipPending && flipAnimationProgress >= 0.5) {
                 whiteDown = !whiteDown;
@@ -2914,7 +2917,7 @@ final class WorkbenchBoardPanel extends JPanel {
         if (!moveAnimationActive || moveAnimationStartedAt == 0L) {
             return 1.0;
         }
-        double elapsed = System.currentTimeMillis() - moveAnimationStartedAt;
+        double elapsed = (double) System.currentTimeMillis() - (double) moveAnimationStartedAt;
         return Math.max(0.0, Math.min(1.0, elapsed / Math.max(1.0, moveAnimationMs)));
     }
 

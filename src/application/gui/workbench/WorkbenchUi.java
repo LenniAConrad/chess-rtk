@@ -1209,8 +1209,8 @@ final class WorkbenchUi {
                 g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
                 g.setColor(isEnabled() ? WorkbenchTheme.MUTED : WorkbenchTheme.BUTTON_DISABLED_TEXT);
                 Path2D path = new Path2D.Double();
-                int centerX = getWidth() / 2;
-                int centerY = getHeight() / 2;
+                double centerX = getWidth() / 2.0;
+                double centerY = getHeight() / 2.0;
                 if (direction == SwingConstants.NORTH) {
                     path.moveTo(centerX - 4, centerY + 2);
                     path.lineTo(centerX, centerY - 2);

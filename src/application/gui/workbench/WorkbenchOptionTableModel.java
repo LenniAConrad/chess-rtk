@@ -222,7 +222,7 @@ final class WorkbenchOptionTableModel extends AbstractTableModel {
         if (columnIndex == COL_USE && value instanceof Boolean enabled) {
             row.enabled(enabled);
             fireTableCellUpdated(rowIndex, COL_USE);
-            if (enabled) {
+            if (enabled.booleanValue()) {
                 disableConflictingRows(rowIndex);
             }
         } else if (columnIndex == COL_VALUE) {

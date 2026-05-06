@@ -542,13 +542,6 @@ final class WorkbenchTheme {
     }
 
     /**
-     * Returns the default UI font.
-     *
-     * @param size font size
-     * @param style font style
-     * @return font
-     */
-    /**
      * Resolved family for the workbench UI font. Falls back to the platform's
      * default sans-serif when {@code IBM Plex Sans} is not installed (so
      * stock systems do not silently drop to Serif/Dialog).
@@ -575,6 +568,13 @@ final class WorkbenchTheme {
         return Font.SANS_SERIF;
     }
 
+    /**
+     * Returns the default UI font.
+     *
+     * @param size font size
+     * @param style font style
+     * @return font
+     */
     static Font font(float size, int style) {
         return new Font(UI_FONT_FAMILY, style, Math.round(size));
     }
@@ -607,7 +607,7 @@ final class WorkbenchTheme {
      *
      * @param component component to style
      */
-    static void panel(JComponent component) {
+    static void stylePanel(JComponent component) {
         component.setOpaque(false);
         component.setBackground(PANEL);
         component.setForeground(TEXT);
@@ -657,7 +657,7 @@ final class WorkbenchTheme {
      *
      * @param area text area
      */
-    static void terminal(JTextArea area) {
+    static void styleTerminal(JTextArea area) {
         area.setOpaque(true);
         area.setBackground(TERMINAL);
         area.setForeground(TERMINAL_TEXT);

@@ -204,7 +204,7 @@ final class WorkbenchSvgIcon implements Icon {
      */
     @Override
     public int getIconHeight() {
-        return size;
+        return getIconWidth();
     }
 
     /**

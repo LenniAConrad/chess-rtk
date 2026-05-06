@@ -1267,7 +1267,7 @@ public final class WorkbenchWindow extends JFrame {
         if (boardDetailTabs != null) {
             boardDetailTabs.setSelectedIndex(3);
         }
-        SwingUtilities.invokeLater(() -> engineProtocolField.requestFocusInWindow());
+        SwingUtilities.invokeLater(engineProtocolField::requestFocusInWindow);
     }
 
     /**
@@ -1345,7 +1345,7 @@ public final class WorkbenchWindow extends JFrame {
      */
     private void focusFenField() {
         selectTab(TAB_ANALYZE);
-        SwingUtilities.invokeLater(() -> fenField.requestFocusInWindow());
+        SwingUtilities.invokeLater(fenField::requestFocusInWindow);
     }
 
     /**
@@ -1353,7 +1353,7 @@ public final class WorkbenchWindow extends JFrame {
      */
     private void focusOptionFilter() {
         selectTab(TAB_COMMANDS);
-        SwingUtilities.invokeLater(() -> optionFilterField.requestFocusInWindow());
+        SwingUtilities.invokeLater(optionFilterField::requestFocusInWindow);
     }
 
     /**
@@ -1364,7 +1364,7 @@ public final class WorkbenchWindow extends JFrame {
         if (analysisTabs != null) {
             analysisTabs.setSelectedIndex(1);
         }
-        SwingUtilities.invokeLater(() -> gameInput.requestFocusInWindow());
+        SwingUtilities.invokeLater(gameInput::requestFocusInWindow);
     }
 
     /**
@@ -1636,9 +1636,7 @@ public final class WorkbenchWindow extends JFrame {
 
         grid(panel, buttonRow(FlowLayout.LEFT,
                 button("Copy FEN List", false, event -> copyText(gameModel.fenList())),
-                button("Add to Batch", false, event -> {
-                    appendCurrentFenToBatch();
-                })), c, 1, 3, 3, 1);
+                button("Add to Batch", false, event -> appendCurrentFenToBatch())), c, 1, 3, 3, 1);
         addVerticalFiller(panel, c, 4, 4);
         return panel;
     }
@@ -2321,7 +2319,7 @@ public final class WorkbenchWindow extends JFrame {
         if (value.isEmpty()) {
             return;
         }
-        if (!value.matches("[1-9][0-9]*")) {
+        if (!value.matches("[1-9]\\d*")) {
             throw new IllegalArgumentException(flag + " expects a positive integer.");
         }
         args.add(flag);
@@ -2664,7 +2662,7 @@ public final class WorkbenchWindow extends JFrame {
                 button("Clear", false, event -> console.setText("")),
                 button("Stop", false, event -> stopCommand())), BorderLayout.EAST);
         panel.add(top, BorderLayout.NORTH);
-        WorkbenchTheme.terminal(console);
+        WorkbenchTheme.styleTerminal(console);
         console.setEditable(false);
         panel.add(scroll(console), BorderLayout.CENTER);
         return panel;

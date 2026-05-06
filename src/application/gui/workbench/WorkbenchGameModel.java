@@ -388,7 +388,7 @@ final class WorkbenchGameModel extends AbstractTableModel {
      * @param position position before move
      */
     private static void appendMovePrefix(StringBuilder sb, Position position) {
-        boolean first = sb.length() == 0;
+        boolean first = sb.isEmpty();
         if (!first) {
             sb.append(' ');
         }

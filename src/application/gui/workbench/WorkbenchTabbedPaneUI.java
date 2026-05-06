@@ -260,8 +260,8 @@ final class WorkbenchTabbedPaneUI extends BasicTabbedPaneUI {
         }
         int old = rolloverTab;
         rolloverTab = index;
-        repaintTab(old);
-        repaintTab(rolloverTab);
+        repaintVisibleTab(old);
+        repaintVisibleTab(rolloverTab);
     }
 
     /**
@@ -269,7 +269,7 @@ final class WorkbenchTabbedPaneUI extends BasicTabbedPaneUI {
      *
      * @param index tab index
      */
-    private void repaintTab(int index) {
+    private void repaintVisibleTab(int index) {
         if (index >= 0 && index < rects.length && tabPane != null) {
             tabPane.repaint(rects[index]);
         }
