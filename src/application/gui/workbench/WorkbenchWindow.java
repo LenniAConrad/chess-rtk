@@ -938,7 +938,6 @@ public final class WorkbenchWindow extends JFrame {
         root.setLayout(new BorderLayout(10, 10));
         root.setBackground(WorkbenchTheme.BG);
         root.setBorder(WorkbenchTheme.pad(12, 12, 12, 12));
-        root.add(createHeader(), BorderLayout.NORTH);
 
         tabs = tabbedPane();
         tabs.addTab("Analyze", createBoardTab());
@@ -1050,35 +1049,6 @@ public final class WorkbenchWindow extends JFrame {
      */
     private void toast(WorkbenchToast.Kind kind, String message) {
         WorkbenchToast.show(this, kind, message);
-    }
-
-    /**
-     * Creates the header.
-     *
-     * @return header component
-     */
-    private JComponent createHeader() {
-        JPanel header = new WorkbenchSurfacePanel(new BorderLayout(10, 8));
-        header.setBackground(WorkbenchTheme.PANEL);
-
-        styleFields(fenField);
-        fenField.addActionListener(event -> setPositionFromField());
-        header.add(fenField, BorderLayout.CENTER);
-
-        header.add(buttonRow(FlowLayout.RIGHT,
-                button("Load", true, event -> setPositionFromField()),
-                iconButton("Back", event -> navigateGame(-1)),
-                iconButton("Forward", event -> navigateGame(1)),
-                iconButton("Reset", event -> startNewGame(Setup.getStandardStartFEN())),
-                iconButton("Flip", event -> {
-                    board.setWhiteDown(!board.isWhiteDown());
-                    appendConsole("Board flipped\n");
-                }),
-                iconButton("Copy FEN", event -> copyText(fenField.getText())),
-                iconButton("Settings", event -> showDisplaySettings()),
-                iconButton("Actions", event -> showCommandPalette())), BorderLayout.EAST);
-
-        return header;
     }
 
     /**
@@ -1392,7 +1362,7 @@ public final class WorkbenchWindow extends JFrame {
 
         JPanel side = transparentPanel(new BorderLayout(8, 8));
         side.setPreferredSize(new Dimension(400, 560));
-        side.add(createAnalysisControls(), BorderLayout.NORTH);
+        side.add(createBoardSideHeader(), BorderLayout.NORTH);
         side.add(createMovesAndTags(), BorderLayout.CENTER);
 
         JSplitPane boardPage = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, boardStage, side);
@@ -1408,6 +1378,58 @@ public final class WorkbenchWindow extends JFrame {
         analysisTabs.addTab("Board", boardPage);
         analysisTabs.addTab("Game", createGameSection());
         return analysisTabs;
+    }
+
+    /**
+     * Creates the compact board-side header.
+     *
+     * @return side header
+     */
+    private JComponent createBoardSideHeader() {
+        JPanel header = transparentPanel(new GridBagLayout());
+        GridBagConstraints c = constraints();
+        c.gridx = 0;
+        c.weightx = 1.0;
+        c.fill = GridBagConstraints.HORIZONTAL;
+
+        c.gridy = 0;
+        c.insets = new Insets(0, 0, 8, 0);
+        header.add(createPositionControls(), c);
+
+        c.gridy = 1;
+        c.insets = new Insets(0, 0, 0, 0);
+        header.add(createAnalysisControls(), c);
+        return header;
+    }
+
+    /**
+     * Creates position setup and board-navigation controls.
+     *
+     * @return controls
+     */
+    private JComponent createPositionControls() {
+        JPanel panel = new WorkbenchSurfacePanel(new GridBagLayout());
+        GridBagConstraints c = constraints();
+        grid(panel, WorkbenchTheme.section("Position"), c, 0, 0, 4, 1);
+
+        styleFields(fenField);
+        fenField.addActionListener(event -> setPositionFromField());
+        grid(panel, fenField, c, 0, 1, 4, 1);
+
+        grid(panel, buttonRow(FlowLayout.LEFT,
+                button("Load", true, event -> setPositionFromField()),
+                iconButton("Back", event -> navigateGame(-1)),
+                iconButton("Forward", event -> navigateGame(1)),
+                iconButton("Reset", event -> startNewGame(Setup.getStandardStartFEN()))), c, 0, 2, 4, 1);
+        grid(panel, buttonRow(FlowLayout.LEFT,
+                iconButton("Flip", event -> {
+                    board.setWhiteDown(!board.isWhiteDown());
+                    appendConsole("Board flipped\n");
+                }),
+                iconButton("Copy FEN", event -> copyText(fenField.getText())),
+                iconButton("Settings", event -> showDisplaySettings()),
+                iconButton("Actions", event -> showCommandPalette())), c, 0, 3, 4, 1);
+        return panel;
     }
 
     /**
