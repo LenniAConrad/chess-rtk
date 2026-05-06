@@ -92,6 +92,7 @@ public final class WorkbenchRegressionTest {
         testEngineBatchTasksUseExternalConfigOptions();
         testCommandTemplatesHaveCompactTabLabels();
         testPublishingPreviewFenCompaction();
+        testPublishingVisualPreviewPages();
         testPaletteTokenMatching();
         testOptionFilterTokenMatching();
         testTextAreaScrollPaintsOpaque();
@@ -281,6 +282,29 @@ public final class WorkbenchRegressionTest {
         assertEquals("8/8/8/8/8/8/K7/7k b", invokeStatic(type("WorkbenchWindow"), "compactFenPreview",
                 new Class<?>[] { String.class }, "8/8/8/8/8/8/K7/7k b - - 4 22"),
                 "publishing preview compact FEN");
+    }
+
+    /**
+     * Verifies the visual publishing preview tracks page navigation.
+     */
+    private static void testPublishingVisualPreviewPages() {
+        JComponent preview = (JComponent) construct(type("WorkbenchPublishPreview"), new Class<?>[0]);
+        Object data = construct(type("WorkbenchPublishPreview$Preview"),
+                new Class<?>[] { String.class, String.class, String.class, String.class, String.class,
+                        boolean.class, String.class, int.class, boolean.class, boolean.class,
+                        boolean.class, boolean.class },
+                "Study Book", "Test Study", "Subtitle", "source", "output", Boolean.TRUE, "", 3,
+                Boolean.FALSE, Boolean.FALSE, Boolean.FALSE, Boolean.FALSE);
+        invoke(preview, "setPreview", new Class<?>[] { type("WorkbenchPublishPreview$Preview") }, data);
+        assertEquals("page 1 / 3", invoke(preview, "pageLabel", new Class<?>[0]),
+                "publishing preview initial page");
+        invoke(preview, "nextPage", new Class<?>[0]);
+        assertEquals("page 2 / 3", invoke(preview, "pageLabel", new Class<?>[0]),
+                "publishing preview next page");
+        invoke(preview, "previousPage", new Class<?>[0]);
+        assertEquals(Integer.valueOf(1), invoke(preview, "pageNumber", new Class<?>[0]),
+                "publishing preview previous page");
+        assertPaintsOpaqueCorner(preview, 280, 360, "publishing preview paints surface");
     }
 
     /**

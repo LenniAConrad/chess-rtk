@@ -571,6 +571,21 @@ public final class WorkbenchWindow extends JFrame {
     private final JTextArea publishPreview = new JTextArea();
 
     /**
+     * Visual publishing preview.
+     */
+    private final WorkbenchPublishPreview publishVisualPreview = new WorkbenchPublishPreview();
+
+    /**
+     * Publishing preview page label.
+     */
+    private final JLabel publishPreviewPageLabel = new JLabel("page 1 / 1");
+
+    /**
+     * Publishing readiness label.
+     */
+    private final JLabel publishReadinessLabel = new JLabel("Ready");
+
+    /**
      * Publishing input chooser button.
      */
     private JButton publishInputButton;
@@ -2053,7 +2068,7 @@ public final class WorkbenchWindow extends JFrame {
 
         JTabbedPane publishTabs = createSectionTabs();
         publishTabs.addTab("Report", createReportPanel());
-        publishTabs.addTab("Book", scroll(fillViewport(createBookPublishingPanel())));
+        publishTabs.addTab("Book", createBookPublishingPanel());
         panel.add(publishTabs, BorderLayout.CENTER);
         configurePublishControls();
         updatePublishControlState();
@@ -2144,9 +2159,28 @@ public final class WorkbenchWindow extends JFrame {
      * @return publishing panel
      */
     private JComponent createBookPublishingPanel() {
+        JPanel root = transparentPanel(new BorderLayout(10, 10));
+        JComponent controls = scroll(fillViewport(createPublishingControlsPanel()));
+        JComponent preview = createPublishingPreviewPanel();
+        JSplitPane split = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, controls, preview);
+        split.setResizeWeight(0.56);
+        split.setDividerLocation(0.56);
+        split.setDividerSize(8);
+        split.setContinuousLayout(true);
+        styleSplitPane(split);
+        root.add(split, BorderLayout.CENTER);
+        return root;
+    }
+
+    /**
+     * Creates publishing input controls.
+     *
+     * @return controls panel
+     */
+    private JPanel createPublishingControlsPanel() {
         JPanel panel = new WorkbenchSurfacePanel(new GridBagLayout());
         GridBagConstraints c = constraints();
-        grid(panel, WorkbenchTheme.section("Book Publishing"), c, 0, 0, 4, 1);
+        grid(panel, WorkbenchTheme.section("Build"), c, 0, 0, 4, 1);
 
         styleCombos(publishTaskCombo, publishSourceCombo);
         grid(panel, label("task"), c, 0, 1, 1, 1);
@@ -2166,71 +2200,85 @@ public final class WorkbenchWindow extends JFrame {
         publishCommandField.setColumns(40);
         styleFields(publishInputField, publishOutputField, publishPdfOutputField, publishCoverOutputField,
                 publishTitleField, publishSubtitleField, publishLimitField, publishPagesField, publishCommandField);
-        publishInputButton = addChooserRow(panel, c, "input", publishInputField, "Choose Input", 3,
+        grid(panel, WorkbenchTheme.section("Files"), c, 0, 3, 4, 1);
+        publishInputButton = addChooserRow(panel, c, "input", publishInputField, "Choose Input", 4,
                 () -> choosePath(publishInputField, false, "Choose publishing input"));
-        publishOutputButton = addChooserRow(panel, c, "output", publishOutputField, "Choose Output", 4,
+        publishOutputButton = addChooserRow(panel, c, "output", publishOutputField, "Choose Output", 5,
                 () -> choosePath(publishOutputField, true, "Choose publishing output"));
-        publishPdfOutputButton = addChooserRow(panel, c, "pdf/interior", publishPdfOutputField, "Choose PDF", 5,
+        publishPdfOutputButton = addChooserRow(panel, c, "pdf/interior", publishPdfOutputField, "Choose PDF", 6,
                 this::choosePublishPdfPath);
-        publishCoverOutputButton = addChooserRow(panel, c, "cover", publishCoverOutputField, "Choose Cover", 6,
+        publishCoverOutputButton = addChooserRow(panel, c, "cover", publishCoverOutputField, "Choose Cover", 7,
                 () -> choosePath(publishCoverOutputField, true, "Choose cover output"));
 
-        grid(panel, label("title"), c, 0, 7, 1, 1);
-        grid(panel, publishTitleField, c, 1, 7, 3, 1);
-        grid(panel, label("subtitle"), c, 0, 8, 1, 1);
-        grid(panel, publishSubtitleField, c, 1, 8, 3, 1);
+        grid(panel, WorkbenchTheme.section("Details"), c, 0, 8, 4, 1);
+        grid(panel, label("title"), c, 0, 9, 1, 1);
+        grid(panel, publishTitleField, c, 1, 9, 3, 1);
+        grid(panel, label("subtitle"), c, 0, 10, 1, 1);
+        grid(panel, publishSubtitleField, c, 1, 10, 3, 1);
 
         JPanel limitRow = flow(FlowLayout.LEFT);
         limitRow.add(publishLimitField);
         limitRow.add(label("pages"));
         limitRow.add(publishPagesField);
-        grid(panel, label("limit"), c, 0, 9, 1, 1);
-        grid(panel, limitRow, c, 1, 9, 3, 1);
+        grid(panel, label("limit"), c, 0, 11, 1, 1);
+        grid(panel, limitRow, c, 1, 11, 3, 1);
 
         JPanel toggles = flow(FlowLayout.LEFT);
         toggles.add(publishValidateBox);
         toggles.add(publishFlipBox);
         toggles.add(publishNoFenBox);
-        grid(panel, toggles, c, 1, 10, 3, 1);
+        grid(panel, toggles, c, 1, 12, 3, 1);
 
         publishCommandField.setEditable(false);
-        grid(panel, label("command"), c, 0, 11, 1, 1);
-        grid(panel, publishCommandField, c, 1, 11, 3, 1);
-
-        styleAreas(publishPreview);
-        publishPreview.setRows(8);
-        publishPreview.setLineWrap(true);
-        publishPreview.setWrapStyleWord(true);
-        publishPreview.setEditable(false);
-        grid(panel, label("preview"), c, 0, 12, 1, 1);
-        addPublishingPreview(panel, c, 12);
+        grid(panel, WorkbenchTheme.section("Command"), c, 0, 13, 4, 1);
+        grid(panel, label("preview"), c, 0, 14, 1, 1);
+        grid(panel, publishCommandField, c, 1, 14, 3, 1);
 
         grid(panel, buttonRow(FlowLayout.LEFT,
-                button("Run Publishing", true, event -> runPublishingCommand()),
+                button("Create PDF", true, event -> runPublishingCommand()),
                 button("Copy Command", false, event -> copyText(publishCommandField.getText())),
                 button("Copy Preview", false, event -> copyPublishingPreview()),
-                button("Stop", false, event -> stopCommand())), c, 1, 13, 3, 1);
-        addVerticalFiller(panel, c, 14, 4);
+                button("Stop", false, event -> stopCommand())), c, 1, 15, 3, 1);
+        addVerticalFiller(panel, c, 16, 4);
         return panel;
     }
 
     /**
-     * Adds the publishing preview editor with resizing behavior.
+     * Creates the visual publishing preview panel.
      *
-     * @param panel target panel
-     * @param c shared constraints
-     * @param row row index
+     * @return preview panel
      */
-    private void addPublishingPreview(JPanel panel, GridBagConstraints c, int row) {
-        c.gridx = 1;
-        c.gridy = row;
-        c.gridwidth = 3;
-        c.gridheight = 1;
-        c.weightx = 1;
-        c.weighty = 1;
-        c.fill = GridBagConstraints.BOTH;
-        panel.add(scroll(publishPreview), c);
-        c.weighty = 0;
+    private JComponent createPublishingPreviewPanel() {
+        JPanel panel = new WorkbenchSurfacePanel(new BorderLayout(8, 8));
+        panel.add(WorkbenchTheme.section("Preview"), BorderLayout.NORTH);
+
+        publishReadinessLabel.setFont(WorkbenchTheme.font(12, Font.BOLD));
+        publishPreviewPageLabel.setFont(WorkbenchTheme.mono(11));
+        publishPreviewPageLabel.setForeground(WorkbenchTheme.MUTED);
+        JPanel toolbar = transparentPanel(new BorderLayout(8, 0));
+        toolbar.add(publishReadinessLabel, BorderLayout.CENTER);
+        JPanel pageControls = flow(FlowLayout.RIGHT);
+        pageControls.add(iconButton("Back", event -> previousPublishPreviewPage()));
+        pageControls.add(publishPreviewPageLabel);
+        pageControls.add(iconButton("Forward", event -> nextPublishPreviewPage()));
+        toolbar.add(pageControls, BorderLayout.EAST);
+        panel.add(toolbar, BorderLayout.SOUTH);
+
+        styleAreas(publishPreview);
+        publishPreview.setRows(7);
+        publishPreview.setLineWrap(true);
+        publishPreview.setWrapStyleWord(true);
+        publishPreview.setEditable(false);
+
+        JSplitPane previewSplit = new JSplitPane(JSplitPane.VERTICAL_SPLIT, publishVisualPreview,
+                scroll(publishPreview));
+        previewSplit.setResizeWeight(0.72);
+        previewSplit.setDividerLocation(0.72);
+        previewSplit.setDividerSize(8);
+        previewSplit.setContinuousLayout(true);
+        styleSplitPane(previewSplit);
+        panel.add(previewSplit, BorderLayout.CENTER);
+        return panel;
     }
 
     /**
@@ -2390,6 +2438,58 @@ public final class WorkbenchWindow extends JFrame {
         }
         publishPreview.setText(buildPublishingPreview(command, issue));
         publishPreview.setCaretPosition(0);
+        updatePublishingVisualPreview(issue);
+    }
+
+    /**
+     * Moves publishing preview to the previous page.
+     */
+    private void previousPublishPreviewPage() {
+        publishVisualPreview.previousPage();
+        updatePublishPreviewPageLabel();
+    }
+
+    /**
+     * Moves publishing preview to the next page.
+     */
+    private void nextPublishPreviewPage() {
+        publishVisualPreview.nextPage();
+        updatePublishPreviewPageLabel();
+    }
+
+    /**
+     * Updates the visual publishing preview.
+     *
+     * @param issue readiness issue, or null
+     */
+    private void updatePublishingVisualPreview(String issue) {
+        PublishTask task = selectedPublishTask();
+        WorkbenchPublishPreview.Preview preview = new WorkbenchPublishPreview.Preview(
+                task.toString(),
+                trimmed(publishTitleField),
+                trimmed(publishSubtitleField),
+                publishSourcePreview(task),
+                publishOutputPreview(task),
+                issue == null,
+                issue == null ? "" : issue,
+                estimatedPublishPages(task),
+                task == PublishTask.COVER,
+                task == PublishTask.DIAGRAMS,
+                publishFlipBox.isSelected(),
+                publishNoFenBox.isSelected());
+        publishVisualPreview.setPreview(preview);
+        publishReadinessLabel.setText(issue == null ? "Ready to publish" : "Needs attention");
+        publishReadinessLabel.setToolTipText(issue == null ? "Publishing command is ready" : issue);
+        publishReadinessLabel.setForeground(issue == null ? WorkbenchTheme.STATUS_SUCCESS_TEXT
+                : WorkbenchTheme.STATUS_WARNING_TEXT);
+        updatePublishPreviewPageLabel();
+    }
+
+    /**
+     * Updates visual preview page label.
+     */
+    private void updatePublishPreviewPageLabel() {
+        publishPreviewPageLabel.setText(publishVisualPreview.pageLabel());
     }
 
     /**
@@ -2480,6 +2580,71 @@ public final class WorkbenchWindow extends JFrame {
                 || task == PublishTask.COVER) && !trimmed(publishPagesField).isEmpty(),
                 "pages " + trimmed(publishPagesField));
         return options.isEmpty() ? "default" : String.join(", ", options);
+    }
+
+    /**
+     * Estimates pages for the visual publishing preview.
+     *
+     * @param task selected task
+     * @return estimated page count
+     */
+    private int estimatedPublishPages(PublishTask task) {
+        Integer explicitPages = optionalPreviewInteger(publishPagesField);
+        if (explicitPages != null && (task == PublishTask.COLLECTION || task == PublishTask.STUDY
+                || task == PublishTask.COVER)) {
+            return explicitPages.intValue();
+        }
+        return switch (task) {
+            case COVER -> 1;
+            case DIAGRAMS -> estimatedDiagramPages();
+            case RENDER -> Math.max(1, optionalPreviewInteger(publishLimitField, 12) / 2);
+            case COLLECTION -> Math.max(8, optionalPreviewInteger(publishLimitField, 64));
+            case STUDY -> Math.max(12, gameModel.lastPly() + 8);
+        };
+    }
+
+    /**
+     * Estimates diagram-page count.
+     *
+     * @return page count
+     */
+    private int estimatedDiagramPages() {
+        return switch (selectedPublishSource()) {
+            case CURRENT_FEN -> 1;
+            case GAME_PGN -> Math.max(1, Math.max(1, gameModel.lastPly()) / 2);
+            case BATCH_FENS -> Math.max(1, validateBatchFenInput(batchInput.getText()).validRows());
+            case EXISTING_FILE -> 6;
+        };
+    }
+
+    /**
+     * Parses an optional preview integer.
+     *
+     * @param field source field
+     * @return parsed value or null
+     */
+    private static Integer optionalPreviewInteger(JTextField field) {
+        String value = trimmed(field);
+        if (!value.matches("[1-9]\\d*")) {
+            return null;
+        }
+        try {
+            return Integer.valueOf(value);
+        } catch (NumberFormatException ex) {
+            return null;
+        }
+    }
+
+    /**
+     * Parses an optional preview integer with fallback.
+     *
+     * @param field source field
+     * @param fallback fallback value
+     * @return parsed or fallback
+     */
+    private static int optionalPreviewInteger(JTextField field, int fallback) {
+        Integer value = optionalPreviewInteger(field);
+        return value == null ? fallback : value.intValue();
     }
 
     /**
