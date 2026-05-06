@@ -15,6 +15,7 @@ import chess.tag.Generator;
 /**
  * TSV-backed no-framework regression checks for canonical static tags.
  */
+@SuppressWarnings("java:S2187")
 public final class TagFixtureRegressionTest {
 
     /**

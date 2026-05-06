@@ -13,7 +13,7 @@ import chess.tag.Generator;
 /**
  * Small no-framework regression checks for canonical position tagging.
  */
-@SuppressWarnings("java:S1192")
+@SuppressWarnings({"java:S1192", "java:S2187"})
 public final class TaggingRegressionTest {
 
      /**

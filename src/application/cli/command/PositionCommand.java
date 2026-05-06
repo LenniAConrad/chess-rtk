@@ -168,7 +168,7 @@ public final class PositionCommand {
 	 * @param diff diff result
 	 */
 	private static void printText(DiffResult diff) {
-		if (diff.equal()) {
+		if (diff.isEqual()) {
 			System.out.println("positions match");
 			return;
 		}
@@ -248,7 +248,7 @@ public final class PositionCommand {
 		 *
 		 * @return true when no diffs exist
 		 */
-		boolean equal() {
+		boolean isEqual() {
 			return state.isEmpty() && board.isEmpty();
 		}
 
@@ -258,7 +258,7 @@ public final class PositionCommand {
 		 * @return JSON object
 		 */
 		String toJson() {
-			return "{\"equal\":" + equal()
+			return "{\"equal\":" + isEqual()
 					+ ",\"left\":" + CommandSupport.jsonString(left)
 					+ ",\"right\":" + CommandSupport.jsonString(right)
 					+ ",\"state\":[" + String.join(",", state.stream().map(StateDiff::toJson).toList())

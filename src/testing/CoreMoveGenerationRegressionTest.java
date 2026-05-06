@@ -20,6 +20,7 @@ import chess.debug.Perft;
 /**
  * Regression checks for core move generation.
  */
+@SuppressWarnings("java:S2187")
 public final class CoreMoveGenerationRegressionTest {
 
     /**

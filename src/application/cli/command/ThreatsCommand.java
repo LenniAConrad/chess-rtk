@@ -1,23 +1,8 @@
 package application.cli.command;
 
 import static application.cli.Constants.CMD_THREATS;
-import static application.cli.Constants.OPT_FEN;
-import static application.cli.Constants.OPT_HASH;
-import static application.cli.Constants.OPT_INPUT;
-import static application.cli.Constants.OPT_INPUT_SHORT;
-import static application.cli.Constants.OPT_MAX_DURATION;
-import static application.cli.Constants.OPT_MAX_NODES;
-import static application.cli.Constants.OPT_MULTIPV;
-import static application.cli.Constants.OPT_NODES;
-import static application.cli.Constants.OPT_NO_WDL;
-import static application.cli.Constants.OPT_PROTOCOL_PATH;
-import static application.cli.Constants.OPT_PROTOCOL_PATH_SHORT;
-import static application.cli.Constants.OPT_RANDOMPOS;
-import static application.cli.Constants.OPT_STARTPOS;
-import static application.cli.Constants.OPT_THREADS;
 import static application.cli.Constants.OPT_VERBOSE;
 import static application.cli.Constants.OPT_VERBOSE_SHORT;
-import static application.cli.Constants.OPT_WDL;
 import static application.cli.EngineOps.analysePositionOrExit;
 import static application.cli.EngineOps.configureEngine;
 import static application.cli.EngineOps.parsePositionOrNull;
@@ -31,7 +16,6 @@ import static application.cli.Format.safeSan;
 import java.util.List;
 import java.util.Optional;
 
-import application.Config;
 import application.console.Bar;
 import chess.core.Move;
 import chess.core.Position;

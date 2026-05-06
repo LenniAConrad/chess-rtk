@@ -24,6 +24,7 @@ import chess.nn.lc0.bt4.PolicyEncoder;
  * @since 2026
  * @author Lennart A. Conrad
  */
+@SuppressWarnings("java:S2187")
 public final class BT4RegressionTest {
 
     /**
@@ -226,8 +227,10 @@ public final class BT4RegressionTest {
         assertClose(basePolicy + 2.5f, prediction.policy()[1792], "synthetic knight underpromotion logit");
         assertClose(basePolicy + 3.5f, prediction.policy()[1793], "synthetic bishop underpromotion logit");
         assertClose(basePolicy + 4.5f, prediction.policy()[1794], "synthetic rook underpromotion logit");
-        float expectedWin = (float) (Math.exp(2.0) / (Math.exp(2.0) + Math.exp(1.0) + 1.0));
-        float expectedLoss = (float) (1.0 / (Math.exp(2.0) + Math.exp(1.0) + 1.0));
+        double exp1 = Math.E;
+        double exp2 = exp1 * exp1;
+        float expectedWin = (float) (exp2 / (exp2 + exp1 + 1.0));
+        float expectedLoss = (float) (1.0 / (exp2 + exp1 + 1.0));
         assertClose(expectedWin, prediction.wdl()[0], "synthetic win probability");
         assertClose(expectedLoss, prediction.wdl()[2], "synthetic loss probability");
         assertClose(expectedWin - expectedLoss, prediction.value(), "synthetic scalar value");

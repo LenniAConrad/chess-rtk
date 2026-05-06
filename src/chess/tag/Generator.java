@@ -42,10 +42,11 @@ import utility.Numbers;
  * motifs, structural heuristics, and opening/endgame signals into a sorted
  * list of tag strings.
  * </p>
+ *
  * @author Lennart A. Conrad
  * @since 2026
  */
-@SuppressWarnings({"java:S107", "java:S135"})
+@SuppressWarnings({ "java:S107", "java:S135" })
 public final class Generator {
 
     /**
@@ -103,7 +104,8 @@ public final class Generator {
     }
 
     /**
-     * Provides a lazily created shared evaluator for callers that do not supply one.
+     * Provides a lazily created shared evaluator for callers that do not supply
+     * one.
      */
     private static final class SharedEvaluator {
 
@@ -193,7 +195,7 @@ public final class Generator {
     /**
      * Derives tags for a position using the supplied evaluator and no analysis.
      *
-     * @param position the position to tag
+     * @param position  the position to tag
      * @param evaluator the evaluator used for static evaluation and WDL data
      * @return the canonical, sorted tag list
      */
@@ -210,9 +212,9 @@ public final class Generator {
      * then sorts and deduplicates the result before returning it.
      * </p>
      *
-     * @param position the position to tag
+     * @param position  the position to tag
      * @param evaluator the evaluator used for evaluation-derived metadata
-     * @param analysis optional engine analysis, if available
+     * @param analysis  optional engine analysis, if available
      * @return the canonical, sorted, deduplicated tag list
      */
     public static List<String> tags(Position position, Evaluator evaluator, Analysis analysis) {
@@ -259,7 +261,7 @@ public final class Generator {
      * {@code sourceTags}.
      * </p>
      *
-     * @param tags the child tag list to enrich
+     * @param tags       the child tag list to enrich
      * @param sourceTags the parent or source tag list to inherit from
      * @return a canonical, sorted tag list with inherited opening context
      */
@@ -294,11 +296,11 @@ public final class Generator {
     /**
      * Adds meta tags such as side to move, phase, evaluation, WDL, and source.
      *
-     * @param tags the mutable tag accumulator
-     * @param ctx the shared tagging context
-     * @param position the position being tagged
+     * @param tags      the mutable tag accumulator
+     * @param ctx       the shared tagging context
+     * @param position  the position being tagged
      * @param evaluator the evaluator used for fallback evaluation
-     * @param analysis optional engine analysis
+     * @param analysis  optional engine analysis
      */
     private static void addMeta(List<String> tags, Context ctx, Position position, Evaluator evaluator,
             Analysis analysis) {
@@ -315,7 +317,7 @@ public final class Generator {
     /**
      * Adds candidate-move and principal-variation tags from engine analysis.
      *
-     * @param tags the mutable tag accumulator
+     * @param tags     the mutable tag accumulator
      * @param position the position being tagged
      * @param analysis optional engine analysis
      */
@@ -333,11 +335,11 @@ public final class Generator {
     /**
      * Adds a single candidate move tag from analysis data.
      *
-     * @param tags the mutable tag accumulator
+     * @param tags     the mutable tag accumulator
      * @param position the position being tagged
      * @param analysis the engine analysis containing candidate data
-     * @param pv the principal-variation index to query
-     * @param role the role label for the candidate, such as best or alternate
+     * @param pv       the principal-variation index to query
+     * @param role     the role label for the candidate, such as best or alternate
      */
     private static void addCandidate(List<String> tags, Position position, Analysis analysis, int pv, String role) {
         Output output = analysis.getBestOutput(pv);
@@ -367,7 +369,7 @@ public final class Generator {
     /**
      * Adds a principal variation tag from analysis data.
      *
-     * @param tags the mutable tag accumulator
+     * @param tags     the mutable tag accumulator
      * @param position the position being tagged
      * @param analysis the engine analysis containing the PV
      */
@@ -406,7 +408,7 @@ public final class Generator {
     /**
      * Adds an evaluation bucket tag based on the centipawn score.
      *
-     * @param tags the mutable tag accumulator
+     * @param tags        the mutable tag accumulator
      * @param evalCpWhite the evaluation from White's perspective, in centipawns
      */
     private static void addEvalBucket(List<String> tags, Integer evalCpWhite) {
@@ -434,10 +436,11 @@ public final class Generator {
     }
 
     /**
-     * Adds general factual tags such as status, castling rights, en passant, and center state.
+     * Adds general factual tags such as status, castling rights, en passant, and
+     * center state.
      *
-     * @param tags the mutable tag accumulator
-     * @param ctx the shared tagging context
+     * @param tags     the mutable tag accumulator
+     * @param ctx      the shared tagging context
      * @param position the position being tagged
      */
     private static void addFacts(List<String> tags, Context ctx, Position position) {
@@ -450,7 +453,7 @@ public final class Generator {
     /**
      * Adds material balance and material-structure tags.
      *
-     * @param tags the mutable tag accumulator
+     * @param tags     the mutable tag accumulator
      * @param position the position being tagged
      */
     private static void addMaterial(List<String> tags, Position position) {
@@ -463,11 +466,11 @@ public final class Generator {
     /**
      * Adds the metadata-derived evaluation and WDL tags.
      *
-     * @param tags the mutable tag accumulator
-     * @param ctx the shared tagging context
-     * @param position the position being tagged
+     * @param tags      the mutable tag accumulator
+     * @param ctx       the shared tagging context
+     * @param position  the position being tagged
      * @param evaluator the evaluator used for fallback evaluation
-     * @param analysis optional engine analysis
+     * @param analysis  optional engine analysis
      */
     private static void addMetaEvaluation(List<String> tags, Context ctx, Position position, Evaluator evaluator,
             Analysis analysis) {
@@ -492,7 +495,8 @@ public final class Generator {
      * Adds a mate or mate-in tag using the supplied mate score.
      *
      * @param tags the mutable tag accumulator
-     * @param mate the mate score, positive for winning mate and negative for being mated
+     * @param mate the mate score, positive for winning mate and negative for being
+     *             mated
      */
     private static void addMateTag(List<String> tags, int mate) {
         String key = mate > 0 ? META_MATE_IN_PREFIX : META_MATED_IN_PREFIX;
@@ -502,11 +506,11 @@ public final class Generator {
     /**
      * Adds WDL metadata, preferring engine chances when available.
      *
-     * @param tags the mutable tag accumulator
-     * @param ctx the shared tagging context
-     * @param position the position being tagged
+     * @param tags      the mutable tag accumulator
+     * @param ctx       the shared tagging context
+     * @param position  the position being tagged
      * @param evaluator the evaluator used for fallback evaluation
-     * @param analysis optional engine analysis
+     * @param analysis  optional engine analysis
      */
     private static void addMetaWdl(List<String> tags, Context ctx, Position position, Evaluator evaluator,
             Analysis analysis) {
@@ -530,8 +534,8 @@ public final class Generator {
     /**
      * Adds board status facts for check, checkmate, stalemate, or normal play.
      *
-     * @param tags the mutable tag accumulator
-     * @param ctx the shared tagging context
+     * @param tags     the mutable tag accumulator
+     * @param ctx      the shared tagging context
      * @param position the position being tagged
      */
     private static void addStatusFacts(List<String> tags, Context ctx, Position position) {
@@ -550,7 +554,7 @@ public final class Generator {
     /**
      * Adds castling-rights facts for the current position.
      *
-     * @param tags the mutable tag accumulator
+     * @param tags     the mutable tag accumulator
      * @param position the position being tagged
      */
     private static void addCastleFacts(List<String> tags, Position position) {
@@ -563,7 +567,7 @@ public final class Generator {
     /**
      * Adds an en-passant fact when an en-passant square is available.
      *
-     * @param tags the mutable tag accumulator
+     * @param tags     the mutable tag accumulator
      * @param position the position being tagged
      */
     private static void addEnPassantFact(List<String> tags, Position position) {
@@ -574,10 +578,11 @@ public final class Generator {
     }
 
     /**
-     * Adds center-control and space facts derived from the positional center analysis.
+     * Adds center-control and space facts derived from the positional center
+     * analysis.
      *
-     * @param tags the mutable tag accumulator
-     * @param ctx the shared tagging context
+     * @param tags     the mutable tag accumulator
+     * @param ctx      the shared tagging context
      * @param position the position being tagged
      */
     private static void addCenterFacts(List<String> tags, Context ctx, Position position) {
@@ -592,8 +597,8 @@ public final class Generator {
     /**
      * Applies a single center-related fact to the output and context.
      *
-     * @param tags the mutable tag accumulator
-     * @param ctx the shared tagging context
+     * @param tags    the mutable tag accumulator
+     * @param ctx     the shared tagging context
      * @param trimmed the trimmed center-related tag text
      */
     private static void applyCenterFact(List<String> tags, Context ctx, String trimmed) {
@@ -626,9 +631,10 @@ public final class Generator {
     }
 
     /**
-     * Adds material imbalance tags such as bishop pair, queenless, and rookless states.
+     * Adds material imbalance tags such as bishop pair, queenless, and rookless
+     * states.
      *
-     * @param tags the mutable tag accumulator
+     * @param tags     the mutable tag accumulator
      * @param position the position being tagged
      */
     private static void addMaterialImbalances(List<String> tags, Position position) {
@@ -663,7 +669,7 @@ public final class Generator {
     /**
      * Adds normalized material piece-count tags from the material subsystem.
      *
-     * @param tags the mutable tag accumulator
+     * @param tags     the mutable tag accumulator
      * @param position the position being tagged
      */
     private static void addMaterialPieceCounts(List<String> tags, Position position) {
@@ -688,7 +694,7 @@ public final class Generator {
     /**
      * Adds a normalized piece-tier tag parsed from an ablation description.
      *
-     * @param tags the mutable tag accumulator
+     * @param tags    the mutable tag accumulator
      * @param trimmed the trimmed piece-related tag text
      */
     private static void addPieceTierTag(List<String> tags, String trimmed) {
@@ -706,7 +712,7 @@ public final class Generator {
     /**
      * Adds a piece-extreme tag parsed from an ablation description.
      *
-     * @param tags the mutable tag accumulator
+     * @param tags    the mutable tag accumulator
      * @param trimmed the trimmed piece-related tag text
      */
     private static void addPieceExtremeTag(List<String> tags, String trimmed) {
@@ -726,7 +732,7 @@ public final class Generator {
     /**
      * Adds piece-activity tags and outpost tags parsed from activity descriptions.
      *
-     * @param tags the mutable tag accumulator
+     * @param tags    the mutable tag accumulator
      * @param trimmed the trimmed piece-related tag text
      */
     private static void addPieceActivityTag(List<String> tags, String trimmed) {
@@ -743,10 +749,10 @@ public final class Generator {
     /**
      * Applies a single activity marker to a piece tag description.
      *
-     * @param tags the mutable tag accumulator
+     * @param tags    the mutable tag accumulator
      * @param trimmed the trimmed piece-related tag text
-     * @param marker the marker to detect at either end of the string
-     * @param prefix the output prefix to apply when a match is found
+     * @param marker  the marker to detect at either end of the string
+     * @param prefix  the output prefix to apply when a match is found
      */
     private static void addActivityTag(List<String> tags, String trimmed, String marker, String prefix) {
         String text = null;
@@ -763,10 +769,10 @@ public final class Generator {
     /**
      * Adds a parsed piece tag or outpost tag from the supplied raw text.
      *
-     * @param tags the mutable tag accumulator
-     * @param text the piece description text
+     * @param tags           the mutable tag accumulator
+     * @param text           the piece description text
      * @param activityPrefix the prefix to use for activity tags, or {@code null}
-     * @param outpostPrefix the prefix to use for outpost tags, or {@code null}
+     * @param outpostPrefix  the prefix to use for outpost tags, or {@code null}
      */
     private static void addParsedPieceTag(List<String> tags, String text, String activityPrefix, String outpostPrefix) {
         ParsedPieceInfo info = parsePieceInfo(text);
@@ -785,7 +791,7 @@ public final class Generator {
     /**
      * Adds pawn-structure tags derived from the pawn-structure subsystem.
      *
-     * @param tags the mutable tag accumulator
+     * @param tags     the mutable tag accumulator
      * @param position the position being tagged
      */
     private static void addPawnStructureTags(List<String> tags, Position position) {
@@ -801,7 +807,8 @@ public final class Generator {
      * Normalizes a pawn-structure tag into the canonical pawn-family form.
      *
      * @param tag the raw pawn-structure tag text
-     * @return the normalized pawn-family tag, or {@code null} if the input is not usable
+     * @return the normalized pawn-family tag, or {@code null} if the input is not
+     *         usable
      */
     private static String pawnStructureTag(String tag) {
         if (tag == null || tag.isBlank()) {
@@ -829,7 +836,7 @@ public final class Generator {
     /**
      * Adds pawn-island and pawn-majority tags.
      *
-     * @param tags the mutable tag accumulator
+     * @param tags     the mutable tag accumulator
      * @param position the position being tagged
      */
     private static void addPawnStatTags(List<String> tags, Position position) {
@@ -843,9 +850,9 @@ public final class Generator {
     /**
      * Adds a pawn-majority tag when a majority exists.
      *
-     * @param tags the mutable tag accumulator
+     * @param tags     the mutable tag accumulator
      * @param majority the majority label to emit
-     * @param side the side owning the majority
+     * @param side     the side owning the majority
      */
     private static void addMajorityTag(List<String> tags, String majority, String side) {
         if (majority != null) {
@@ -856,8 +863,8 @@ public final class Generator {
     /**
      * Adds promotion-threat tags and records whether either side has a threat.
      *
-     * @param tags the mutable tag accumulator
-     * @param ctx the shared tagging context
+     * @param tags     the mutable tag accumulator
+     * @param ctx      the shared tagging context
      * @param position the position being tagged
      */
     private static void addPromotionThreatTags(List<String> tags, Context ctx, Position position) {
@@ -875,7 +882,7 @@ public final class Generator {
      * Adds a single promotion-threat tag from the raw promotion output.
      *
      * @param tags the mutable tag accumulator
-     * @param tag the raw promotion tag text
+     * @param tag  the raw promotion tag text
      * @return the threatened side, or {@code null} if the tag did not match
      */
     private static String addPromotionThreatTag(List<String> tags, String tag) {
@@ -902,7 +909,7 @@ public final class Generator {
     /**
      * Adds tactical motif tags based on the tactical analysis text.
      *
-     * @param tags the mutable tag accumulator
+     * @param tags    the mutable tag accumulator
      * @param trimmed the trimmed tactical tag text
      */
     private static void addTacticalTag(List<String> tags, String trimmed) {
@@ -930,7 +937,7 @@ public final class Generator {
     /**
      * Adds normalized endgame tags from the endgame subsystem.
      *
-     * @param tags the mutable tag accumulator
+     * @param tags     the mutable tag accumulator
      * @param position the position being tagged
      */
     private static void addEndgameTags(List<String> tags, Position position) {
@@ -953,7 +960,7 @@ public final class Generator {
     /**
      * Adds normalized opening tags from the opening subsystem.
      *
-     * @param tags the mutable tag accumulator
+     * @param tags     the mutable tag accumulator
      * @param position the position being tagged
      */
     private static void addOpeningTags(List<String> tags, Position position) {
@@ -979,7 +986,7 @@ public final class Generator {
     /**
      * Returns whether a tag list contains a line with the requested prefix.
      *
-     * @param tags the tag list to inspect
+     * @param tags   the tag list to inspect
      * @param prefix the tag prefix to find
      * @return {@code true} when a matching tag exists
      */
@@ -990,7 +997,7 @@ public final class Generator {
     /**
      * Finds the first tag that starts with the requested prefix.
      *
-     * @param tags the tag list to inspect
+     * @param tags   the tag list to inspect
      * @param prefix the tag prefix to find
      * @return the first matching tag, or {@code null} when absent
      */
@@ -1009,8 +1016,8 @@ public final class Generator {
     /**
      * Adds piece tags derived from ablation and activity analyzers.
      *
-     * @param tags the mutable tag accumulator
-     * @param position the position being tagged
+     * @param tags      the mutable tag accumulator
+     * @param position  the position being tagged
      * @param evaluator the evaluator used by the ablation analyzer
      */
     private static void addPieceTags(List<String> tags, Position position, Evaluator evaluator) {
@@ -1030,8 +1037,8 @@ public final class Generator {
     /**
      * Adds all pawn-related tags for the position.
      *
-     * @param tags the mutable tag accumulator
-     * @param ctx the shared tagging context
+     * @param tags     the mutable tag accumulator
+     * @param ctx      the shared tagging context
      * @param position the position being tagged
      */
     private static void addPawnTags(List<String> tags, Context ctx, Position position) {
@@ -1043,7 +1050,7 @@ public final class Generator {
     /**
      * Adds king-safety tags for both sides when the position is not Chess960.
      *
-     * @param tags the mutable tag accumulator
+     * @param tags     the mutable tag accumulator
      * @param position the position being tagged
      */
     private static void addKingTags(List<String> tags, Position position) {
@@ -1075,7 +1082,7 @@ public final class Generator {
     /**
      * Adds tactical tags produced by the tactical analyzer.
      *
-     * @param tags the mutable tag accumulator
+     * @param tags     the mutable tag accumulator
      * @param position the position being tagged
      */
     private static void addTacticalTags(List<String> tags, Context ctx, Position position) {
@@ -1090,7 +1097,7 @@ public final class Generator {
     /**
      * Adds tactical tags that are proven by legal moves from the current position.
      *
-     * @param tags the mutable tag accumulator
+     * @param tags     the mutable tag accumulator
      * @param position the position being tagged
      */
     private static void addLegalMoveTacticalTags(List<String> tags, Context ctx, Position position) {
@@ -1124,10 +1131,10 @@ public final class Generator {
     /**
      * Adds a mate-in-one motif when a legal move checkmates.
      *
-     * @param tags the mutable tag accumulator
-     * @param next the position after the legal move
+     * @param tags       the mutable tag accumulator
+     * @param next       the position after the legal move
      * @param moverWhite whether the mover was White
-     * @param uci the move in UCI notation
+     * @param uci        the move in UCI notation
      */
     private static void addMateInOneMoveTag(List<String> tags, Position next, boolean moverWhite, String uci) {
         if (next.isCheckmate()) {
@@ -1139,12 +1146,12 @@ public final class Generator {
     /**
      * Adds promotion motifs for legal promotion moves.
      *
-     * @param tags the mutable tag accumulator
-     * @param move the legal move
+     * @param tags       the mutable tag accumulator
+     * @param move       the legal move
      * @param movedPiece the piece on the destination square after the move
      * @param moverWhite whether the mover was White
-     * @param uci the move in UCI notation
-     * @param to the destination square
+     * @param uci        the move in UCI notation
+     * @param to         the destination square
      */
     private static void addPromotionMoveTag(List<String> tags, short move, byte movedPiece, boolean moverWhite,
             String uci, byte to) {
@@ -1161,13 +1168,13 @@ public final class Generator {
     /**
      * Adds discovered-attack motifs for legal moves that uncover a friendly slider.
      *
-     * @param tags the mutable tag accumulator
-     * @param before the position before the legal move
-     * @param after the position after the legal move
+     * @param tags        the mutable tag accumulator
+     * @param before      the position before the legal move
+     * @param after       the position after the legal move
      * @param movingPiece the piece that moved
-     * @param moverWhite whether the mover was White
-     * @param uci the move in UCI notation
-     * @param from the source square
+     * @param moverWhite  whether the mover was White
+     * @param uci         the move in UCI notation
+     * @param from        the source square
      * @param forcingMove whether the move has forcing value on its own
      */
     private static void addDiscoveredAttackMoveTags(List<String> tags, Position before, Position after,
@@ -1187,14 +1194,14 @@ public final class Generator {
     /**
      * Adds one discovered-attack tag when a slider/target line was uncovered.
      *
-     * @param tags the mutable tag accumulator
-     * @param after the position after the legal move
+     * @param tags        the mutable tag accumulator
+     * @param after       the position after the legal move
      * @param movingPiece the piece that moved
-     * @param moverWhite whether the mover was White
-     * @param uci the move in UCI notation
-     * @param from the source square
-     * @param slider the possible friendly slider
-     * @param target the possible enemy target
+     * @param moverWhite  whether the mover was White
+     * @param uci         the move in UCI notation
+     * @param from        the source square
+     * @param slider      the possible friendly slider
+     * @param target      the possible enemy target
      */
     private static void addDiscoveredAttackLineTag(List<String> tags, Position after, byte movingPiece,
             boolean moverWhite, String uci, byte from, LineTarget slider, LineTarget target) {
@@ -1220,12 +1227,12 @@ public final class Generator {
     /**
      * Adds a fork motif when the moved piece attacks at least two valuable targets.
      *
-     * @param tags the mutable tag accumulator
-     * @param next the position after the legal move
+     * @param tags       the mutable tag accumulator
+     * @param next       the position after the legal move
      * @param movedPiece the piece on the destination square after the move
      * @param moverWhite whether the mover was White
-     * @param uci the move in UCI notation
-     * @param to the destination square
+     * @param uci        the move in UCI notation
+     * @param to         the destination square
      */
     private static void addForkMoveTag(List<String> tags, Position next, byte movedPiece, boolean moverWhite,
             String uci, byte to) {
@@ -1246,11 +1253,11 @@ public final class Generator {
     /**
      * Adds newly-created skewer motifs for a legal move.
      *
-     * @param tags the mutable tag accumulator
-     * @param next the position after the legal move
+     * @param tags          the mutable tag accumulator
+     * @param next          the position after the legal move
      * @param beforeSkewers skewer keys present before the move
-     * @param moverWhite whether the mover was White
-     * @param uci the move in UCI notation
+     * @param moverWhite    whether the mover was White
+     * @param uci           the move in UCI notation
      */
     private static void addNewSkewerMoveTags(List<String> tags, Position next, List<String> beforeSkewers,
             boolean moverWhite, String uci) {
@@ -1277,9 +1284,9 @@ public final class Generator {
     /**
      * Returns meaningful enemy targets attacked by a piece after a legal move.
      *
-     * @param position the position after the move
+     * @param position      the position after the move
      * @param attackerWhite whether the attacker belongs to White
-     * @param from the attacker square
+     * @param from          the attacker square
      * @return attacked target labels
      */
     private static List<String> forkTargets(Position position, boolean attackerWhite, byte from) {
@@ -1309,11 +1316,11 @@ public final class Generator {
     /**
      * Checks whether an attacked target is strong enough to make a fork tag useful.
      *
-     * @param position the position after the move
-     * @param attacker the attacking piece
+     * @param position       the position after the move
+     * @param attacker       the attacking piece
      * @param attackerSquare the attacker square
-     * @param target the attacked target
-     * @param targetSquare the target square
+     * @param target         the attacked target
+     * @param targetSquare   the target square
      * @return true when the attack is tactically meaningful
      */
     private static boolean isMeaningfulForkTarget(Position position, byte attacker, byte attackerSquare, byte target,
@@ -1354,10 +1361,10 @@ public final class Generator {
     /**
      * Checks whether a square is defended by its owning side.
      *
-     * @param position the position to inspect
-     * @param square the target square
+     * @param position      the position to inspect
+     * @param square        the target square
      * @param defenderWhite whether to inspect White defenders
-     * @param ignoreSquare a defender square to ignore
+     * @param ignoreSquare  a defender square to ignore
      * @return true when another defender protects the square
      */
     private static boolean isDefended(Position position, byte square, boolean defenderWhite, byte ignoreSquare) {
@@ -1373,7 +1380,7 @@ public final class Generator {
     /**
      * Returns canonical skewer keys for one attacking side.
      *
-     * @param position the position to inspect
+     * @param position      the position to inspect
      * @param attackerWhite whether to inspect White attackers
      * @return skewer keys
      */
@@ -1393,10 +1400,10 @@ public final class Generator {
     /**
      * Adds skewer keys for one slider.
      *
-     * @param keys the mutable key list
+     * @param keys  the mutable key list
      * @param board the board array
      * @param piece the attacking slider
-     * @param from the slider square
+     * @param from  the slider square
      */
     private static void addSkewerKeysForSlider(List<String> keys, byte[] board, byte piece, byte from) {
         if (Piece.isQueen(piece)) {
@@ -1410,11 +1417,11 @@ public final class Generator {
     /**
      * Adds skewer keys across the supplied directions.
      *
-     * @param keys the mutable key list
+     * @param keys  the mutable key list
      * @param board the board array
      * @param piece the attacking slider
-     * @param from the slider square
-     * @param dirs directions to scan
+     * @param from  the slider square
+     * @param dirs  directions to scan
      */
     private static void addSkewerKeysForDirections(List<String> keys, byte[] board, byte piece, byte from,
             int[][] dirs) {
@@ -1439,9 +1446,9 @@ public final class Generator {
      * Returns the first occupied square along a ray.
      *
      * @param board the board array
-     * @param from the source square
-     * @param dir the direction vector
-     * @param skip occupied squares to skip before returning a target
+     * @param from  the source square
+     * @param dir   the direction vector
+     * @param skip  occupied squares to skip before returning a target
      * @return the target, or null when no occupied square remains
      */
     private static LineTarget firstOccupied(byte[] board, byte from, int[] dir, int skip) {
@@ -1452,10 +1459,10 @@ public final class Generator {
      * Returns the first occupied square along a ray.
      *
      * @param board the board array
-     * @param from the source square
-     * @param dx the file direction
-     * @param dy the rank direction
-     * @param skip occupied squares to skip before returning a target
+     * @param from  the source square
+     * @param dx    the file direction
+     * @param dy    the rank direction
+     * @param skip  occupied squares to skip before returning a target
      * @return the target, or null when no occupied square remains
      */
     private static LineTarget firstOccupied(byte[] board, byte from, int dx, int dy, int skip) {
@@ -1482,7 +1489,7 @@ public final class Generator {
     /**
      * Checks whether a line target belongs to the opposing side.
      *
-     * @param target the target to inspect
+     * @param target        the target to inspect
      * @param attackerWhite whether the attacker is White
      * @return true when the target is an enemy piece
      */
@@ -1494,7 +1501,7 @@ public final class Generator {
      * Checks whether a line target is a friendly slider.
      *
      * @param target the line target to inspect
-     * @param white the friendly side
+     * @param white  the friendly side
      * @return true when the target is a friendly rook, bishop, or queen
      */
     private static boolean isDiscoverySlider(LineTarget target, boolean white) {
@@ -1504,7 +1511,7 @@ public final class Generator {
     /**
      * Checks whether a piece belongs to the enemy side.
      *
-     * @param piece the piece to inspect
+     * @param piece         the piece to inspect
      * @param attackerWhite whether the attacker is White
      * @return true when the piece is non-empty and belongs to the opposite side
      */
@@ -1543,7 +1550,7 @@ public final class Generator {
     /**
      * Checks whether the front target outranks the target behind it.
      *
-     * @param frontPiece the first target on the line
+     * @param frontPiece  the first target on the line
      * @param behindPiece the second target on the line
      * @return true when this is a skewer value relationship
      */
@@ -1564,7 +1571,7 @@ public final class Generator {
     /**
      * Formats a piece/square target label.
      *
-     * @param piece the target piece
+     * @param piece  the target piece
      * @param square the target square
      * @return a compact target label
      */
@@ -1575,8 +1582,8 @@ public final class Generator {
     /**
      * Adds strategic tags based on space, development, mobility, and initiative.
      *
-     * @param tags the mutable tag accumulator
-     * @param ctx the shared tagging context
+     * @param tags     the mutable tag accumulator
+     * @param ctx      the shared tagging context
      * @param position the position being tagged
      */
     private static void addStrategicTags(List<String> tags, Context ctx, Position position) {
@@ -1612,7 +1619,7 @@ public final class Generator {
      * produces a {@code king_uncastled} tag.
      * </p>
      *
-     * @param tags the mutable tag accumulator
+     * @param tags     the mutable tag accumulator
      * @param position the position being tagged
      */
     private static void addDevelopmentDetails(List<String> tags, Position position) {
@@ -1636,10 +1643,10 @@ public final class Generator {
     /**
      * Adds an undeveloped tag when a minor piece sits on its origin square.
      *
-     * @param tags the mutable tag accumulator
-     * @param board the board array
-     * @param side the side label
-     * @param piece the piece byte for the side
+     * @param tags   the mutable tag accumulator
+     * @param board  the board array
+     * @param side   the side label
+     * @param piece  the piece byte for the side
      * @param origin the origin square byte
      */
     private static void addUndevelopedMinor(List<String> tags, byte[] board, String side, byte piece, byte origin) {
@@ -1655,9 +1662,9 @@ public final class Generator {
      * Adds a king-uncastled tag when the king is still on its origin square
      * and the side has lost both castling rights.
      *
-     * @param tags the mutable tag accumulator
+     * @param tags     the mutable tag accumulator
      * @param position the position being tagged
-     * @param white whether to emit for White or Black
+     * @param white    whether to emit for White or Black
      */
     private static void addKingUncastled(List<String> tags, Position position, boolean white) {
         byte origin = white ? Field.E1 : Field.E8;
@@ -1680,8 +1687,8 @@ public final class Generator {
      * five or fewer legal moves outside checkmate or stalemate.
      * </p>
      *
-     * @param tags the mutable tag accumulator
-     * @param ctx the shared tagging context
+     * @param tags     the mutable tag accumulator
+     * @param ctx      the shared tagging context
      * @param position the position being tagged
      */
     private static void addMobilityDetails(List<String> tags, Context ctx, Position position) {
@@ -1726,8 +1733,8 @@ public final class Generator {
      * populated by {@link MoveFacts}.
      * </p>
      *
-     * @param tags the mutable tag accumulator
-     * @param ctx the shared tagging context
+     * @param tags     the mutable tag accumulator
+     * @param ctx      the shared tagging context
      * @param position the position being tagged
      */
     private static void addInitiativeDetails(List<String> tags, Context ctx, Position position) {
@@ -1742,7 +1749,7 @@ public final class Generator {
     /**
      * Adds the endgame and opening tag families.
      *
-     * @param tags the mutable tag accumulator
+     * @param tags     the mutable tag accumulator
      * @param position the position being tagged
      */
     private static void addEndgameOpening(List<String> tags, Position position) {
@@ -1771,7 +1778,7 @@ public final class Generator {
     /**
      * Labels the current board status.
      *
-     * @param ctx the shared tagging context
+     * @param ctx      the shared tagging context
      * @param position the position being evaluated
      * @return the status label for the position
      */
@@ -1935,10 +1942,11 @@ public final class Generator {
     }
 
     /**
-     * Determines a centipawn evaluation using engine data, analysis data, or a fallback heuristic.
+     * Determines a centipawn evaluation using engine data, analysis data, or a
+     * fallback heuristic.
      *
-     * @param evaluator the evaluator used as the primary fallback
-     * @param position the position being evaluated
+     * @param evaluator    the evaluator used as the primary fallback
+     * @param position     the position being evaluated
      * @param analysisEval the analysis evaluation, if available
      * @return a centipawn score for the position
      */
@@ -2006,7 +2014,7 @@ public final class Generator {
     /**
      * Appends an optional field to a serialized tag buffer.
      *
-     * @param sb the output buffer
+     * @param sb    the output buffer
      * @param label the field label to append
      * @param value the field value, if present
      */
@@ -2097,7 +2105,7 @@ public final class Generator {
     /**
      * Finds the first matching prefix and returns its associated value.
      *
-     * @param text the text to inspect
+     * @param text     the text to inspect
      * @param prefixes the candidate prefixes
      * @return the matched prefix value, or {@code null} if none matches
      */
@@ -2109,7 +2117,7 @@ public final class Generator {
     /**
      * Finds the first matching prefix from a list of candidates.
      *
-     * @param text the text to inspect
+     * @param text     the text to inspect
      * @param prefixes the candidate prefixes
      * @return the matched prefix, or {@code null} if none matches
      */
@@ -2214,7 +2222,7 @@ public final class Generator {
      * Applies king-safety markers to the aggregated king-safety state.
      *
      * @param safety the mutable safety state to update
-     * @param token the normalized token text
+     * @param token  the normalized token text
      */
     private static void applyKingSafetyToken(KingSafety safety, String token) {
         if (token.contains(CASTLED)) {
@@ -2237,9 +2245,9 @@ public final class Generator {
     /**
      * Emits the final king-safety tags for one side.
      *
-     * @param tags the mutable tag accumulator
-     * @param side the side label to attach
-     * @param safety the aggregated safety state
+     * @param tags        the mutable tag accumulator
+     * @param side        the side label to attach
+     * @param safety      the aggregated safety state
      * @param kingPresent whether this side's king exists on the board
      */
     private static void addKingSafetyTags(List<String> tags, String side, KingSafety safety, boolean kingPresent) {
@@ -2400,7 +2408,7 @@ public final class Generator {
      * Counts undeveloped minor pieces for a given side.
      *
      * @param position the position to inspect
-     * @param white whether to count White pieces or Black pieces
+     * @param white    whether to count White pieces or Black pieces
      * @return the number of undeveloped minor pieces
      */
     private static int undevelopedMinors(Position position, boolean white) {
@@ -2423,8 +2431,8 @@ public final class Generator {
     /**
      * Checks whether a specific piece occupies a specific square.
      *
-     * @param board the board array to inspect
-     * @param piece the piece to match
+     * @param board  the board array to inspect
+     * @param piece  the piece to match
      * @param square the square to inspect
      * @return {@code true} when the board square contains the piece
      */
@@ -2438,8 +2446,8 @@ public final class Generator {
     /**
      * Returns 1 when a piece is on a given square and 0 otherwise.
      *
-     * @param board the board array to inspect
-     * @param piece the piece to match
+     * @param board  the board array to inspect
+     * @param piece  the piece to match
      * @param square the square to inspect
      * @return 1 when the piece occupies the square, otherwise 0
      */
@@ -2451,7 +2459,7 @@ public final class Generator {
      * Counts legal moves for one side, even when that side is not on move.
      *
      * @param position the position to inspect
-     * @param white whether to count White's mobility or Black's mobility
+     * @param white    whether to count White's mobility or Black's mobility
      * @return the number of legal moves for the requested side
      */
     private static int mobilityForSide(Position position, boolean white) {
@@ -2473,7 +2481,7 @@ public final class Generator {
     /**
      * Flips the side-to-move field in a FEN string.
      *
-     * @param fen the source FEN text
+     * @param fen   the source FEN text
      * @param white whether the resulting FEN should indicate White to move
      * @return the rewritten FEN, or {@code null} when the input is malformed
      */
@@ -2488,9 +2496,10 @@ public final class Generator {
 
     /**
      * Holds the parsed tier components for a piece ablation tag.
- * @author Lennart A. Conrad
- * @since 2026
- */
+     *
+     * @author Lennart A. Conrad
+     * @since 2026
+     */
     private static final class ParsedPieceTier {
 
         /**
@@ -2516,9 +2525,9 @@ public final class Generator {
         /**
          * Creates a parsed piece tier record.
          *
-         * @param tier the tier label
-         * @param side the side label
-         * @param piece the piece label
+         * @param tier   the tier label
+         * @param side   the side label
+         * @param piece  the piece label
          * @param square the square label
          */
         private ParsedPieceTier(String tier, String side, String piece, String square) {
@@ -2531,9 +2540,10 @@ public final class Generator {
 
     /**
      * Holds the parsed side, piece, and square components for piece activity tags.
- * @author Lennart A. Conrad
- * @since 2026
- */
+     *
+     * @author Lennart A. Conrad
+     * @since 2026
+     */
     private static final class ParsedPieceInfo {
 
         /**
@@ -2554,8 +2564,8 @@ public final class Generator {
         /**
          * Creates a parsed piece-info record.
          *
-         * @param side the side label
-         * @param piece the piece label
+         * @param side   the side label
+         * @param piece  the piece label
          * @param square the square label
          */
         private ParsedPieceInfo(String side, String piece, String square) {
@@ -2567,9 +2577,10 @@ public final class Generator {
 
     /**
      * Captures king-safety properties while folding multiple tokens together.
- * @author Lennart A. Conrad
- * @since 2026
- */
+     *
+     * @author Lennart A. Conrad
+     * @since 2026
+     */
     private static final class KingSafety {
 
         /**
@@ -2595,9 +2606,10 @@ public final class Generator {
 
     /**
      * Holds one target discovered during a ray scan.
- * @author Lennart A. Conrad
- * @since 2026
- */
+     *
+     * @author Lennart A. Conrad
+     * @since 2026
+     */
     private static final class LineTarget {
 
         /**
@@ -2623,59 +2635,11 @@ public final class Generator {
     }
 
     /**
-     * Exact legal-move counters for the side to move.
+     * Represents a candidate prefix and its normalized value.
      *
      * @author Lennart A. Conrad
      * @since 2026
      */
-    private static final class MoveCounts {
-
-        /**
-         * Legal capture count.
-         */
-        private int captures;
-
-        /**
-         * Legal checking move count.
-         */
-        private int checks;
-
-        /**
-         * Legal mate-in-one move count.
-         */
-        private int mates;
-
-        /**
-         * Legal promotion move count.
-         */
-        private int promotions;
-
-        /**
-         * Legal underpromotion move count.
-         */
-        private int underpromotions;
-
-        /**
-         * Legal castling move count.
-         */
-        private int castles;
-
-        /**
-         * Legal en-passant capture count.
-         */
-        private int enPassant;
-
-        /**
-         * Legal quiet move count.
-         */
-        private int quiet;
-    }
-
-    /**
-     * Represents a candidate prefix and its normalized value.
- * @author Lennart A. Conrad
- * @since 2026
- */
     private static final class ParsedPrefix {
 
         /**
@@ -2696,7 +2660,7 @@ public final class Generator {
         /**
          * Creates a prefix/value pair without a remainder.
          *
-         * @param key the prefix text
+         * @param key   the prefix text
          * @param value the normalized value
          */
         private ParsedPrefix(String key, String value) {
@@ -2706,8 +2670,8 @@ public final class Generator {
         /**
          * Creates a prefix/value pair with a parsed remainder.
          *
-         * @param key the prefix text
-         * @param value the normalized value
+         * @param key       the prefix text
+         * @param value     the normalized value
          * @param remainder the remaining text after the prefix
          */
         private ParsedPrefix(String key, String value, String remainder) {
@@ -2719,9 +2683,10 @@ public final class Generator {
 
     /**
      * Tracks bishop-square colors for each side.
- * @author Lennart A. Conrad
- * @since 2026
- */
+     *
+     * @author Lennart A. Conrad
+     * @since 2026
+     */
     private static final class BishopColorState {
 
         /**
@@ -2747,7 +2712,7 @@ public final class Generator {
         /**
          * Records a bishop on its square color.
          *
-         * @param piece the bishop piece code
+         * @param piece  the bishop piece code
          * @param square the square index
          */
         private void mark(byte piece, byte square) {
@@ -2785,9 +2750,10 @@ public final class Generator {
 
     /**
      * Stores pawn-file and pawn-majority statistics for both sides.
- * @author Lennart A. Conrad
- * @since 2026
- */
+     *
+     * @author Lennart A. Conrad
+     * @since 2026
+     */
     private static final class PawnStats {
 
         /**
@@ -2813,8 +2779,8 @@ public final class Generator {
         /**
          * Creates a pawn-statistics snapshot.
          *
-         * @param whiteIslands the White pawn-island count
-         * @param blackIslands the Black pawn-island count
+         * @param whiteIslands  the White pawn-island count
+         * @param blackIslands  the Black pawn-island count
          * @param whiteMajority the White majority label
          * @param blackMajority the Black majority label
          */
@@ -2882,7 +2848,7 @@ public final class Generator {
          *
          * @param whiteFiles White pawn counts per file
          * @param blackFiles Black pawn counts per file
-         * @param forWhite whether the query is for White's perspective
+         * @param forWhite   whether the query is for White's perspective
          * @return the majority-region label, or {@code null} when no majority exists
          */
         private static String majoritySide(int[] whiteFiles, int[] blackFiles, boolean forWhite) {

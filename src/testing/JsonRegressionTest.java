@@ -16,6 +16,7 @@ import utility.Json;
  * @since 2026
  * @author Lennart A. Conrad
  */
+@SuppressWarnings("java:S2187")
 public final class JsonRegressionTest {
 
 	/**

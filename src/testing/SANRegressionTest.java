@@ -13,6 +13,7 @@ import chess.struct.Game;
  * @author Lennart A. Conrad
  * @since 2026
  */
+@SuppressWarnings("java:S2187")
 public final class SANRegressionTest {
 
 	/**

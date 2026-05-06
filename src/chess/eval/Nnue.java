@@ -67,54 +67,80 @@ public final class Nnue implements CentipawnEvaluator {
      */
     @Override
     public SearchState openSearchState(Position root, int searchPlies) {
-        chess.nn.nnue.Model.SearchState state = model.newSearchState(root, searchPlies);
-        if (state == null) {
-            return null;
-	        }
-	        return new SearchState() {
-	            /**
-	             * Forwards a played-move notification to the model search state.
-	             *
-	             * @param position child position after the move
-	             * @param move encoded move that was played
-	             * @param undoState undo state filled by the move application
-	             * @param ply child ply from the root
-	             */
-	            @Override
-	            public void movePlayed(Position position, short move, Position.State undoState, int ply) {
-	                state.movePlayed(position, move, undoState, ply);
-	            }
+        return adaptSearchState(model.newSearchState(root, searchPlies));
+    }
 
-	            /**
-	             * Forwards a null-move notification to the model search state.
-	             *
-	             * @param ply child ply from the root
-	             */
-	            @Override
-	            public void nullMovePlayed(int ply) {
-	                state.nullMovePlayed(ply);
-	            }
+    /**
+     * Converts an optional model search state into the evaluator contract.
+     *
+     * @param state model search state, or null when unsupported
+     * @return evaluator search state, or null
+     */
+    private static SearchState adaptSearchState(chess.nn.nnue.Model.SearchState state) {
+        return state == null ? null : new NnueSearchState(state);
+    }
 
-	            /**
-	             * Evaluates a position through the model search state.
-	             *
-	             * @param position current position
-	             * @param ply current ply from the root
-	             * @return NNUE centipawns from the side-to-move perspective
-	             */
-	            @Override
-	            public int evaluate(Position position, int ply) {
-	                return state.evaluate(position, ply);
-	            }
+    /**
+     * Adapts the model-level search state to the evaluator interface.
+     */
+    private static final class NnueSearchState implements SearchState {
 
-	            /**
-	             * Releases the wrapped model search state.
-	             */
-	            @Override
-	            public void close() {
-	                state.close();
-            }
-        };
+        /**
+         * Wrapped NNUE model state.
+         */
+        private final chess.nn.nnue.Model.SearchState state;
+
+        /**
+         * Creates an adapter.
+         *
+         * @param state wrapped state
+         */
+        private NnueSearchState(chess.nn.nnue.Model.SearchState state) {
+            this.state = state;
+        }
+
+        /**
+         * Forwards a played-move notification to the model search state.
+         *
+         * @param position child position after the move
+         * @param move encoded move that was played
+         * @param undoState undo state filled by the move application
+         * @param ply child ply from the root
+         */
+        @Override
+        public void movePlayed(Position position, short move, Position.State undoState, int ply) {
+            state.movePlayed(position, move, undoState, ply);
+        }
+
+        /**
+         * Forwards a null-move notification to the model search state.
+         *
+         * @param ply child ply from the root
+         */
+        @Override
+        public void nullMovePlayed(int ply) {
+            state.nullMovePlayed(ply);
+        }
+
+        /**
+         * Evaluates a position through the model search state.
+         *
+         * @param position current position
+         * @param ply current ply from the root
+         * @return NNUE centipawns from the side-to-move perspective
+         */
+        @Override
+        public int evaluate(Position position, int ply) {
+            return state.evaluate(position, ply);
+        }
+
+        /**
+         * Releases the wrapped model search state.
+         */
+        @Override
+        public void close() {
+            state.close();
+        }
     }
 
     /**

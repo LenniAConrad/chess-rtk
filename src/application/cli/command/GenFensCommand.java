@@ -581,9 +581,9 @@ public final class GenFensCommand {
 	private static final class FenFilter {
 
 		/**
-		 * Side to move, null for either side.
+		 * Side to move: 1 for White, -1 for Black, 0 for either side.
 		 */
-		private Boolean whiteToMove;
+		private int sideToMove;
 
 		/**
 		 * Whether to keep queenless positions with at most the endgame piece limit.
@@ -766,7 +766,7 @@ public final class GenFensCommand {
 			filter.notInCheck = a.flag(OPT_NOT_IN_CHECK);
 			filter.checkmate = a.flag(OPT_CHECKMATE);
 			filter.stalemate = a.flag(OPT_STALEMATE);
-			filter.whiteToMove = parseSide(a.string(OPT_SIDE));
+			filter.sideToMove = parseSide(a.string(OPT_SIDE));
 			filter.maxMaterialImbalance = parseNonNegativeOptional(a.integer(OPT_MAX_MATERIAL_IMBALANCE),
 					OPT_MAX_MATERIAL_IMBALANCE);
 			readRange(a, filter.totalPieces, "--pieces", "--min-pieces", "--max-pieces", 0, MAX_BOARD_PIECES);
@@ -796,7 +796,7 @@ public final class GenFensCommand {
 		 * @return true when any filter is active
 		 */
 		private boolean active() {
-			return whiteToMove != null
+			return sideToMove != 0
 					|| anyTrue(
 							endgame,
 							lateEndgame,
@@ -875,8 +875,8 @@ public final class GenFensCommand {
 			addFlag(parts, notInCheck, "not-in-check");
 			addFlag(parts, checkmate, "checkmate");
 			addFlag(parts, stalemate, "stalemate");
-			if (whiteToMove != null) {
-				parts.add("side=" + (whiteToMove ? "white" : "black"));
+			if (sideToMove != 0) {
+				parts.add("side=" + (sideToMove > 0 ? "white" : "black"));
 			}
 			addRange(parts, totalPieces, "pieces");
 			addRange(parts, whitePieces, "white-pieces");
@@ -963,7 +963,7 @@ public final class GenFensCommand {
 		 * @return true when accepted
 		 */
 		private boolean matchesSideAndState(Position position) {
-			if (whiteToMove != null && position.isWhiteToMove() != whiteToMove) {
+			if (sideToMove != 0 && position.isWhiteToMove() != (sideToMove > 0)) {
 				return false;
 			}
 			if (!fullmove.matches(position.fullMoveNumber()) || !halfmove.matches(position.halfMoveClock())) {
@@ -1287,16 +1287,16 @@ public final class GenFensCommand {
 	 * Parses side-to-move filter text.
 	 *
 	 * @param raw raw side value
-	 * @return true for White, false for Black, null for either side
+	 * @return 1 for White, -1 for Black, 0 for either side
 	 */
-	private static Boolean parseSide(String raw) {
+	private static int parseSide(String raw) {
 		if (raw == null || raw.isBlank()) {
-			return null;
+			return 0;
 		}
 		String side = raw.trim().toLowerCase(Locale.ROOT);
 		return switch (side) {
-			case "w", "white" -> Boolean.TRUE;
-			case "b", "black" -> Boolean.FALSE;
+			case "w", "white" -> 1;
+			case "b", "black" -> -1;
 			default -> throw new IllegalArgumentException(COMMAND_LABEL + ": unsupported " + OPT_SIDE + " '"
 					+ raw + "' (use white|black|w|b)");
 		};

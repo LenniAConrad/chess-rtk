@@ -290,7 +290,10 @@ public final class PuzzleTagsCommand {
      * @return merged tag list
      */
     private static List<String> withPuzzleDifficultyTags(List<String> tags, Difficulty puzzleDifficulty) {
-        if (tags == null || puzzleDifficulty == null) {
+        if (tags == null) {
+            return List.of();
+        }
+        if (puzzleDifficulty == null) {
             return tags;
         }
         List<String> merged = new ArrayList<>(tags.size() + puzzleDifficulty.tags().size());

@@ -26,7 +26,7 @@ import chess.nn.nnue.FeatureEncoder;
  * @since 2026
  * @author Lennart A. Conrad
  */
-@SuppressWarnings({"java:S1192", "squid:S1192"})
+@SuppressWarnings({"java:S1192", "java:S2187", "squid:S1192"})
 public final class BuiltInEngineRegressionTest {
 
 	/**

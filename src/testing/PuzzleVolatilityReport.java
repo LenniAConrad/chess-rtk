@@ -610,19 +610,18 @@ public final class PuzzleVolatilityReport {
 
         double leftWidth = 346.0;
         double rightWidth = width - leftWidth - gap;
-        double switchesBottom = drawSectionWithTable(canvas, REPORT_MARGIN, y, leftWidth,
+        drawSectionWithTable(canvas, REPORT_MARGIN, y, leftWidth,
                 "Top Reversals",
                 new String[] { "Rank", "ID", "Dir", "Swing", "Depth", "Score", "Best", "PV" },
                 topSwitchRows(changed, "reversal", 5),
                 new double[] { 0.07, 0.12, 0.09, 0.12, 0.12, 0.18, 0.20, 0.10 },
                 new boolean[] { true, false, false, true, false, false, false, true });
-        double sharpBottom = drawSectionWithTable(canvas, REPORT_MARGIN + leftWidth + gap, y, rightWidth,
+        drawSectionWithTable(canvas, REPORT_MARGIN + leftWidth + gap, y, rightWidth,
                 "Top Sharp Swings",
                 new String[] { "Rank", "ID", "Swing", "Depth", "Best" },
                 topSwitchRows(changed, "sharp", 5),
                 new double[] { 0.15, 0.22, 0.20, 0.20, 0.23 },
                 new boolean[] { true, false, true, false, false });
-        y = Math.max(switchesBottom, sharpBottom) + 12.0;
         drawReportFooter(canvas, page.getHeight(), page.getWidth(), page.getHeight() - REPORT_BOTTOM_MARGIN - 12.0,
                 "Page 1 of 2");
     }

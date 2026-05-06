@@ -16,6 +16,7 @@ import chess.tag.Sort;
  * No-framework regression checks for tag parsing, emitting, sorting, and
  * semantic identity behavior.
  */
+@SuppressWarnings("java:S2187")
 public final class ParserRegressionTest {
 
     /**

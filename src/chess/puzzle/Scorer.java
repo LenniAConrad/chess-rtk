@@ -735,7 +735,7 @@ public final class Scorer {
         if (bestCp >= WIN_CP) {
             return Goal.WIN;
         }
-        if (bestCp >= -DRAW_HOLD_CP && bestCp < WIN_CP && second <= -WIN_CP) {
+        if (bestCp >= -DRAW_HOLD_CP && second <= -WIN_CP) {
             return Goal.DRAW;
         }
         return Goal.UNKNOWN;

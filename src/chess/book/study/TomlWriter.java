@@ -52,7 +52,7 @@ public final class TomlWriter {
 		appendBoolean(sb, "showFen", book.isShowFen());
 
 		Composition[] compositions = book.getCompositions();
-		if (compositions.length > 0 && sb.length() > 0 && sb.charAt(sb.length() - 1) != '\n') {
+		if (compositions.length > 0 && !sb.isEmpty() && sb.charAt(sb.length() - 1) != '\n') {
 			sb.append('\n');
 		}
 		for (Composition composition : compositions) {

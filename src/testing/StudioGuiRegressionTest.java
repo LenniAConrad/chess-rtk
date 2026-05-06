@@ -28,6 +28,7 @@ import chess.struct.Game;
 /**
  * Regression checks for the experimental Studio GUI v3 support classes.
  */
+@SuppressWarnings("java:S2187")
 public final class StudioGuiRegressionTest {
 
 	/**

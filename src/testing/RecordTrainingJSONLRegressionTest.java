@@ -12,6 +12,7 @@ import application.Main;
 /**
  * Focused regression harness for {@code record export training-jsonl}.
  */
+@SuppressWarnings("java:S2187")
 public final class RecordTrainingJSONLRegressionTest {
 
 	/**
