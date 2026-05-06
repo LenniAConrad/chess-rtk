@@ -5,6 +5,7 @@ session/*
 # Calculation results
 dump/*
 !dump/.gitkeep
+workbench-fens/
 data/
 training/
 
