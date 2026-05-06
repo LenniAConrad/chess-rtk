@@ -42,6 +42,7 @@ import chess.core.Move;
 import chess.core.Piece;
 import chess.core.Position;
 import chess.struct.Game;
+import chess.uci.Output;
 
 /**
  * Headless regression checks for workbench support classes.
@@ -112,6 +113,8 @@ public final class WorkbenchRegressionTest {
         testEvalBarAnimation();
         testEvalBarThinkingIsStatic();
         testEngineEvalParsing();
+        testLiveEngineStatusFormatting();
+        testOptionalPositiveIntegerParsing();
         testBoardHasNoInstructionTooltip();
         testBoardHasNoKeyboardPieceSelector();
         testWindowPositionNavigationRoutingSkipsTextAndDataControls();
@@ -605,6 +608,42 @@ public final class WorkbenchRegressionTest {
         assertTrue(mate != null, "mate eval parsed");
         assertTrue(engineEvalMate(mate), "mate eval flag");
         assertEquals(Integer.valueOf(-3), Integer.valueOf(engineEvalValue(mate)), "mate eval value");
+    }
+
+    /**
+     * Verifies streamed live-engine updates produce compact board status text.
+     */
+    private static void testLiveEngineStatusFormatting() {
+        Output cp = new Output("info depth 12 multipv 1 score cp 42 nodes 100 pv e2e4 e7e5");
+        String status = (String) invokeStatic(type("WorkbenchWindow"), "formatLiveEngineStatus",
+                new Class<?>[] { Output.class, short.class }, cp, Move.parse("e2e4"));
+        assertEquals("live d12 +42 e2e4", status, "live centipawn status");
+
+        Output mate = new Output("info depth 9 multipv 1 score mate -3 nodes 100 pv g1f3");
+        String mateStatus = (String) invokeStatic(type("WorkbenchWindow"), "formatLiveEngineStatus",
+                new Class<?>[] { Output.class, short.class }, mate, Move.parse("g1f3"));
+        assertEquals("live d9 #-3 g1f3", mateStatus, "live mate status");
+    }
+
+    /**
+     * Verifies live-engine numeric settings reject non-positive values.
+     */
+    private static void testOptionalPositiveIntegerParsing() {
+        JTextField blank = new JTextField(" ");
+        assertEquals(null, invokeStatic(type("WorkbenchWindow"), "optionalPositiveInteger",
+                new Class<?>[] { JTextField.class, String.class }, blank, "--hash"), "blank optional integer");
+
+        JTextField valid = new JTextField("128");
+        assertEquals(Integer.valueOf(128), invokeStatic(type("WorkbenchWindow"), "optionalPositiveInteger",
+                new Class<?>[] { JTextField.class, String.class }, valid, "--hash"), "valid optional integer");
+
+        try {
+            invokeStatic(type("WorkbenchWindow"), "optionalPositiveInteger",
+                    new Class<?>[] { JTextField.class, String.class }, new JTextField("0"), "--hash");
+            throw new AssertionError("zero optional integer rejected");
+        } catch (IllegalArgumentException ex) {
+            assertTrue(ex.getMessage().contains("positive integer"), "invalid optional integer message");
+        }
     }
 
     /**

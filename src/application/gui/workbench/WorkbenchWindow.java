@@ -104,6 +104,11 @@ import chess.core.Setup;
 import chess.struct.Game;
 import chess.struct.Pgn;
 import chess.tag.Generator;
+import chess.uci.Analysis;
+import chess.uci.Engine;
+import chess.uci.Evaluation;
+import chess.uci.Output;
+import chess.uci.Protocol;
 
 /**
  * A new native Swing command and analysis workbench for ChessRTK.
@@ -436,6 +441,12 @@ public final class WorkbenchWindow extends JFrame {
     private final JTextField engineHashField = new JTextField();
 
     /**
+     * Live external-engine analysis toggle for the board.
+     */
+    private final JCheckBox liveEngineToggle = withTooltip(new WorkbenchToggleBox("Live external engine"),
+            "Continuously analyze the current board with the configured external UCI engine");
+
+    /**
      * Batch input area.
      */
     private final JTextArea batchInput = new JTextArea();
@@ -622,6 +633,11 @@ public final class WorkbenchWindow extends JFrame {
     private boolean autoEvalBarEnabled = true;
 
     /**
+     * Whether the board keeps an external UCI engine running for live analysis.
+     */
+    private boolean liveExternalEngineEnabled;
+
+    /**
      * Running command.
      */
     private WorkbenchCommandRunner.RunningCommand runningCommand;
@@ -632,14 +648,50 @@ public final class WorkbenchWindow extends JFrame {
     private WorkbenchCommandRunner.RunningCommand evalCommand;
 
     /**
+     * Background worker that owns the live external-engine process.
+     */
+    private LiveEngineWorker liveEngineWorker;
+
+    /**
+     * Lock guarding live-analysis request handoff to the worker.
+     */
+    private final Object liveAnalysisLock = new Object();
+
+    /**
+     * Latest live-analysis request consumed by the worker.
+     */
+    private LiveAnalysisRequest liveAnalysisRequest;
+
+    /**
      * Monotonic eval-bar request id.
      */
     private long evalRequestId;
 
     /**
+     * Monotonic live-analysis request id.
+     */
+    private long liveAnalysisRequestId;
+
+    /**
+     * Whether a live-analysis failure has already been surfaced for the current
+     * enabled session.
+     */
+    private boolean liveAnalysisFailureLogged;
+
+    /**
      * Debounce delay for eval-bar refresh, in ms.
      */
     private static final int EVAL_DEBOUNCE_MS = 90;
+
+    /**
+     * Max live-analysis idle time before the engine is considered stalled.
+     */
+    private static final long LIVE_ANALYSIS_STALL_TIMEOUT_MS = 10_000L;
+
+    /**
+     * Minimum interval between live-analysis UI updates.
+     */
+    private static final long LIVE_ANALYSIS_UPDATE_INTERVAL_MS = 80L;
 
     /**
      * Debounce timer that coalesces eval refresh requests.
@@ -742,6 +794,7 @@ public final class WorkbenchWindow extends JFrame {
     private static final String PREF_SHOW_COORDINATES = "display.showCoordinates";
     private static final String PREF_BOARD_ANIMATIONS = "display.boardAnimations";
     private static final String PREF_AUTO_EVAL_BAR = "display.autoEvalBar";
+    private static final String PREF_LIVE_EXTERNAL_ENGINE = "engine.liveExternal";
     private static final String PREF_ENGINE_PROTOCOL = "engine.protocolPath";
     private static final String PREF_ENGINE_NODES = "engine.maxNodes";
     private static final String PREF_ENGINE_HASH = "engine.hash";
@@ -828,6 +881,7 @@ public final class WorkbenchWindow extends JFrame {
         showBoardCoordinates = WORKBENCH_PREFS.getBoolean(PREF_SHOW_COORDINATES, true);
         boardAnimationsEnabled = WORKBENCH_PREFS.getBoolean(PREF_BOARD_ANIMATIONS, true);
         autoEvalBarEnabled = WORKBENCH_PREFS.getBoolean(PREF_AUTO_EVAL_BAR, true);
+        liveExternalEngineEnabled = WORKBENCH_PREFS.getBoolean(PREF_LIVE_EXTERNAL_ENGINE, false);
     }
 
     /**
@@ -840,6 +894,7 @@ public final class WorkbenchWindow extends JFrame {
         WORKBENCH_PREFS.putBoolean(PREF_SHOW_COORDINATES, showBoardCoordinates);
         WORKBENCH_PREFS.putBoolean(PREF_BOARD_ANIMATIONS, boardAnimationsEnabled);
         WORKBENCH_PREFS.putBoolean(PREF_AUTO_EVAL_BAR, autoEvalBarEnabled);
+        WORKBENCH_PREFS.putBoolean(PREF_LIVE_EXTERNAL_ENGINE, liveExternalEngineEnabled);
     }
 
     /**
@@ -889,7 +944,11 @@ public final class WorkbenchWindow extends JFrame {
     private void engineSettingsChanged() {
         saveEngineSettings();
         requestCommandPreviews();
-        requestEvalUpdate();
+        if (liveExternalEngineEnabled) {
+            restartLiveAnalysis();
+        } else {
+            requestEvalUpdate();
+        }
     }
 
     /**
@@ -903,9 +962,19 @@ public final class WorkbenchWindow extends JFrame {
         board.setShowSuggestedMoveArrow(showBestMoveArrows);
         board.setShowNotation(showBoardCoordinates);
         board.setAnimationsEnabled(boardAnimationsEnabled);
+        liveEngineToggle.setSelected(liveExternalEngineEnabled);
+        if (liveExternalEngineEnabled) {
+            evalDebounceTimer.stop();
+            cancelEvalCommand();
+            if (refreshEval) {
+                requestLiveAnalysisUpdate();
+            }
+            return;
+        }
         if (!autoEvalBarEnabled) {
             evalDebounceTimer.stop();
             cancelEvalCommand();
+            stopLiveAnalysis();
             evalBar.setUnavailable("off");
         } else if (refreshEval) {
             requestEvalUpdate();
@@ -920,6 +989,7 @@ public final class WorkbenchWindow extends JFrame {
         saveWindowGeometry();
         evalRequestId++;
         cancelEvalCommand();
+        stopLiveAnalysis();
         evalDebounceTimer.stop();
         if (runningCommand != null && runningCommand.isRunning()) {
             runningCommand.cancel();
@@ -1182,6 +1252,8 @@ public final class WorkbenchWindow extends JFrame {
                 new PaletteAction("Analyze board", "Run built-in search on the current FEN", this::runBuiltInSearch),
                 new PaletteAction("Best move", "Run engine bestmove with the current duration", this::runBestMove),
                 new PaletteAction("Engine analysis", "Run multipv analysis for the current position", this::runAnalyze),
+                new PaletteAction("Live external engine", "Toggle continuous UCI analysis for the board",
+                        () -> setLiveExternalEngineEnabled(!liveExternalEngineEnabled)),
                 new PaletteAction("Position tags", "Generate tags for the current FEN", this::runTagsCommand),
                 new PaletteAction("Perft", "Run perft with the selected depth and threads", this::runPerft),
                 new PaletteAction("Run built command", "Execute the selected command template", this::runSelectedTemplate),
@@ -1458,7 +1530,12 @@ public final class WorkbenchWindow extends JFrame {
                 button("Search", true, event -> runBuiltInSearch()),
                 button("Best", false, event -> runBestMove()),
                 button("Analyze", false, event -> runAnalyze())), c, 0, 3, 4, 1);
-        grid(panel, collapsible("More", createAdvancedAnalysisControls(), false), c, 0, 4, 4, 1);
+        liveEngineToggle.setSelected(liveExternalEngineEnabled);
+        liveEngineToggle.addActionListener(event -> setLiveExternalEngineEnabled(liveEngineToggle.isSelected()));
+        multipvModel.addChangeListener(event -> requestLiveAnalysisUpdate());
+        threadsModel.addChangeListener(event -> requestLiveAnalysisUpdate());
+        grid(panel, liveEngineToggle, c, 0, 4, 4, 1);
+        grid(panel, collapsible("More", createAdvancedAnalysisControls(), false), c, 0, 5, 4, 1);
         return panel;
     }
 
@@ -2736,9 +2813,16 @@ public final class WorkbenchWindow extends JFrame {
      * subprocess fork after a short debounce.
      */
     private void requestEvalUpdate() {
+        if (liveExternalEngineEnabled) {
+            evalDebounceTimer.stop();
+            cancelEvalCommand();
+            requestLiveAnalysisUpdate();
+            return;
+        }
         if (!autoEvalBarEnabled) {
             evalDebounceTimer.stop();
             cancelEvalCommand();
+            stopLiveAnalysis();
             evalBar.setUnavailable("off");
             return;
         }
@@ -2837,6 +2921,526 @@ public final class WorkbenchWindow extends JFrame {
             evalCommand.cancel();
         }
         evalCommand = null;
+    }
+
+    /**
+     * Enables or disables live external-engine analysis.
+     *
+     * @param enabled true to keep an external engine analyzing the board
+     */
+    private void setLiveExternalEngineEnabled(boolean enabled) {
+        if (liveExternalEngineEnabled == enabled) {
+            liveEngineToggle.setSelected(enabled);
+            return;
+        }
+        liveExternalEngineEnabled = enabled;
+        liveEngineToggle.setSelected(enabled);
+        saveDisplaySettings();
+        if (enabled) {
+            liveAnalysisFailureLogged = false;
+            evalDebounceTimer.stop();
+            cancelEvalCommand();
+            appendConsole("Live external engine enabled\n");
+            requestLiveAnalysisUpdate();
+        } else {
+            appendConsole("Live external engine disabled\n");
+            stopLiveAnalysis();
+            setStatusBarEngine("idle");
+            if (autoEvalBarEnabled) {
+                requestEvalUpdate();
+            } else {
+                evalBar.setUnavailable("off");
+            }
+        }
+    }
+
+    /**
+     * Restarts the live engine after external-engine settings change.
+     */
+    private void restartLiveAnalysis() {
+        stopLiveAnalysisWorker();
+        liveAnalysisFailureLogged = false;
+        requestLiveAnalysisUpdate();
+    }
+
+    /**
+     * Requests live analysis for the current board position.
+     */
+    private void requestLiveAnalysisUpdate() {
+        if (!liveExternalEngineEnabled) {
+            return;
+        }
+        if (currentPosition == null) {
+            evalBar.setUnavailable("n/a");
+            return;
+        }
+        LiveAnalysisRequest request;
+        try {
+            request = createLiveAnalysisRequest();
+        } catch (IllegalArgumentException ex) {
+            evalBar.setUnavailable("cfg");
+            setStatusBarEngine("live config");
+            toast(WorkbenchToast.Kind.WARNING, ex.getMessage());
+            return;
+        }
+        board.setSuggestedMove(Move.NO_MOVE);
+        evalBar.setThinking();
+        setStatusBarEngine("live starting");
+        synchronized (liveAnalysisLock) {
+            liveAnalysisRequest = request;
+            liveAnalysisLock.notifyAll();
+        }
+        ensureLiveAnalysisWorker(request.protocolPath());
+    }
+
+    /**
+     * Creates a snapshot request for live analysis.
+     *
+     * @return live-analysis request
+     */
+    private LiveAnalysisRequest createLiveAnalysisRequest() {
+        return new LiveAnalysisRequest(
+                ++liveAnalysisRequestId,
+                currentPosition.copy(),
+                currentPosition.isWhiteToMove(),
+                liveProtocolPath(),
+                ((Number) multipvModel.getValue()).intValue(),
+                ((Number) threadsModel.getValue()).intValue(),
+                optionalPositiveInteger(engineHashField, "--hash"));
+    }
+
+    /**
+     * Returns the protocol path used by live analysis.
+     *
+     * @return configured protocol path, or the config default
+     */
+    private String liveProtocolPath() {
+        String path = engineProtocolValue();
+        return path.isEmpty() ? Config.getProtocolPath() : path;
+    }
+
+    /**
+     * Ensures a live-analysis worker is running for the requested protocol.
+     *
+     * @param protocolPath protocol TOML path
+     */
+    private void ensureLiveAnalysisWorker(String protocolPath) {
+        if (liveEngineWorker != null && !liveEngineWorker.isDone()
+                && liveEngineWorker.usesProtocol(protocolPath)) {
+            return;
+        }
+        stopLiveAnalysisWorker();
+        liveEngineWorker = new LiveEngineWorker(protocolPath);
+        liveEngineWorker.execute();
+    }
+
+    /**
+     * Stops live analysis and clears the latest request.
+     */
+    private void stopLiveAnalysis() {
+        liveAnalysisRequestId++;
+        synchronized (liveAnalysisLock) {
+            liveAnalysisRequest = null;
+            liveAnalysisLock.notifyAll();
+        }
+        stopLiveAnalysisWorker();
+        board.setSuggestedMove(Move.NO_MOVE);
+    }
+
+    /**
+     * Stops the live-analysis worker without changing the enabled flag.
+     */
+    private void stopLiveAnalysisWorker() {
+        LiveEngineWorker worker = liveEngineWorker;
+        if (worker != null) {
+            worker.requestStop();
+            worker.cancel(true);
+            liveEngineWorker = null;
+        }
+        synchronized (liveAnalysisLock) {
+            liveAnalysisLock.notifyAll();
+        }
+    }
+
+    /**
+     * Waits for the next live-analysis request after the supplied id.
+     *
+     * @param previousId request id already consumed by the worker
+     * @param worker worker waiting for work
+     * @return next request, or null when the worker should exit
+     * @throws InterruptedException when interrupted while waiting
+     */
+    private LiveAnalysisRequest awaitLiveAnalysisRequest(long previousId, LiveEngineWorker worker)
+            throws InterruptedException {
+        synchronized (liveAnalysisLock) {
+            while (!worker.shouldStop()
+                    && (liveAnalysisRequest == null || liveAnalysisRequest.id() == previousId)) {
+                liveAnalysisLock.wait();
+            }
+            return worker.shouldStop() ? null : liveAnalysisRequest;
+        }
+    }
+
+    /**
+     * Returns whether a live request has been superseded.
+     *
+     * @param request request currently being analyzed
+     * @return true when analysis should stop
+     */
+    private boolean liveRequestSuperseded(LiveAnalysisRequest request) {
+        synchronized (liveAnalysisLock) {
+            return !liveExternalEngineEnabled
+                    || liveAnalysisRequest == null
+                    || liveAnalysisRequest.id() != request.id();
+        }
+    }
+
+    /**
+     * Applies one live-analysis update to the board.
+     *
+     * @param update streamed update
+     */
+    private void applyLiveAnalysisUpdate(LiveAnalysisUpdate update) {
+        if (update.status() != null) {
+            setStatusBarEngine(update.status());
+            return;
+        }
+        if (!liveExternalEngineEnabled || update.requestId() != liveAnalysisRequestId) {
+            return;
+        }
+        Output output = update.output();
+        if (output == null) {
+            return;
+        }
+        applyLiveEvaluation(update.whiteToMove(), output.getEvaluation());
+        if (update.bestMove() != Move.NO_MOVE) {
+            board.setSuggestedMove(update.bestMove());
+        }
+        setStatusBarEngine(formatLiveEngineStatus(output, update.bestMove()));
+    }
+
+    /**
+     * Applies a live engine evaluation to the eval bar.
+     *
+     * @param whiteToMove true when White was to move in the analyzed position
+     * @param evaluation engine evaluation from side-to-move perspective
+     */
+    private void applyLiveEvaluation(boolean whiteToMove, Evaluation evaluation) {
+        if (evaluation == null || !evaluation.isValid()) {
+            return;
+        }
+        int value = whiteToMove ? evaluation.getValue() : -evaluation.getValue();
+        if (evaluation.isMate()) {
+            evalBar.setMate(value);
+        } else {
+            evalBar.setCentipawns(value);
+        }
+    }
+
+    /**
+     * Formats compact live-engine status text for the bottom status bar.
+     *
+     * @param output latest engine output
+     * @param bestMove latest best move
+     * @return status text
+     */
+    private static String formatLiveEngineStatus(Output output, short bestMove) {
+        StringBuilder status = new StringBuilder("live d").append(output.getDepth());
+        Evaluation evaluation = output.getEvaluation();
+        if (evaluation != null && evaluation.isValid()) {
+            status.append(' ').append(formatLiveEvaluation(evaluation));
+        }
+        if (bestMove != Move.NO_MOVE) {
+            status.append(' ').append(Move.toString(bestMove));
+        }
+        return status.toString();
+    }
+
+    /**
+     * Formats an engine evaluation for compact live status text.
+     *
+     * @param evaluation engine evaluation
+     * @return formatted text
+     */
+    private static String formatLiveEvaluation(Evaluation evaluation) {
+        if (evaluation.isMate()) {
+            return "#" + evaluation.getValue();
+        }
+        int value = evaluation.getValue();
+        return (value > 0 ? "+" : "") + value;
+    }
+
+    /**
+     * Handles an unrecoverable live-analysis failure.
+     *
+     * @param exception failure
+     */
+    private void handleLiveAnalysisFailure(Exception exception) {
+        if (liveAnalysisFailureLogged) {
+            return;
+        }
+        liveAnalysisFailureLogged = true;
+        String message = exception == null ? "unknown failure"
+                : exception.getMessage() == null ? exception.getClass().getSimpleName() : exception.getMessage();
+        liveExternalEngineEnabled = false;
+        liveEngineToggle.setSelected(false);
+        saveDisplaySettings();
+        evalBar.setUnavailable("n/a");
+        board.setSuggestedMove(Move.NO_MOVE);
+        setStatusBarEngine("live failed");
+        appendConsole("Live external engine disabled: " + message + System.lineSeparator());
+        toast(WorkbenchToast.Kind.WARNING, "Live engine disabled: " + message);
+    }
+
+    /**
+     * Loads a UCI protocol file for live analysis.
+     *
+     * @param protocolPath protocol TOML path
+     * @return parsed protocol
+     * @throws IOException when the protocol cannot be read or is invalid
+     */
+    private static Protocol loadLiveProtocol(String protocolPath) throws IOException {
+        Protocol protocol = new Protocol().fromToml(Files.readString(Path.of(protocolPath)));
+        if (!protocol.assertValid()) {
+            StringBuilder message = new StringBuilder("Protocol is missing required values:");
+            for (String error : protocol.collectValidationErrors()) {
+                message.append(System.lineSeparator()).append("  - ").append(error);
+            }
+            throw new IOException(message.toString());
+        }
+        return protocol;
+    }
+
+    /**
+     * Applies live-engine options before a search starts.
+     *
+     * @param engine engine process
+     * @param request live-analysis request
+     */
+    private static void configureLiveEngine(Engine engine, LiveAnalysisRequest request) {
+        engine.setMultiPivot(request.multipv());
+        engine.setThreadAmount(request.threads());
+        if (request.hash() != null) {
+            engine.setHashSize(request.hash());
+        }
+    }
+
+    /**
+     * Parses an optional positive integer field.
+     *
+     * @param field source field
+     * @param label human-readable setting label
+     * @return parsed value, or null when blank
+     */
+    private static Integer optionalPositiveInteger(JTextField field, String label) {
+        String value = trimmed(field);
+        if (value.isEmpty()) {
+            return null;
+        }
+        if (!value.matches("[1-9]\\d*")) {
+            throw new IllegalArgumentException(label + " expects a positive integer.");
+        }
+        return Integer.valueOf(value);
+    }
+
+    /**
+     * Live external-engine worker. Owns the UCI process and streams updates until
+     * the current request is replaced or live mode is disabled.
+     */
+    private final class LiveEngineWorker extends SwingWorker<Void, LiveAnalysisUpdate> {
+
+        /**
+         * Protocol path this worker was started with.
+         */
+        private final String protocolPath;
+
+        /**
+         * Whether this worker should stop.
+         */
+        private volatile boolean stopRequested;
+
+        /**
+         * Last time a UI update was published.
+         */
+        private long lastPublishedAt;
+
+        /**
+         * Creates a worker.
+         *
+         * @param protocolPath protocol TOML path
+         */
+        private LiveEngineWorker(String protocolPath) {
+            this.protocolPath = protocolPath;
+        }
+
+        /**
+         * Returns whether this worker uses the given protocol path.
+         *
+         * @param value protocol path
+         * @return true when equal
+         */
+        private boolean usesProtocol(String value) {
+            return Objects.equals(protocolPath, value);
+        }
+
+        /**
+         * Requests worker shutdown.
+         */
+        private void requestStop() {
+            stopRequested = true;
+        }
+
+        /**
+         * Returns whether this worker should stop.
+         *
+         * @return true when stopping
+         */
+        private boolean shouldStop() {
+            return stopRequested || isCancelled();
+        }
+
+        /**
+         * Runs live analysis.
+         *
+         * @return unused
+         * @throws Exception on engine startup or I/O failure
+         */
+        @Override
+        protected Void doInBackground() throws Exception {
+            publish(LiveAnalysisUpdate.status("live starting"));
+            try (Engine engine = new Engine(loadLiveProtocol(protocolPath))) {
+                long lastRequestId = -1;
+                while (!shouldStop()) {
+                    LiveAnalysisRequest request = awaitLiveAnalysisRequest(lastRequestId, this);
+                    if (request == null) {
+                        break;
+                    }
+                    lastRequestId = request.id();
+                    configureLiveEngine(engine, request);
+                    publish(LiveAnalysisUpdate.status("live thinking"));
+                    Analysis analysis = new Analysis();
+                    engine.analyseInfinite(request.position(), analysis, null, LIVE_ANALYSIS_STALL_TIMEOUT_MS,
+                            () -> shouldStop() || liveRequestSuperseded(request),
+                            current -> publishLiveUpdate(request, current));
+                }
+            }
+            return null;
+        }
+
+        /**
+         * Publishes throttled live-analysis output.
+         *
+         * @param request active request
+         * @param analysis active analysis buffer
+         */
+        private void publishLiveUpdate(LiveAnalysisRequest request, Analysis analysis) {
+            long now = System.currentTimeMillis();
+            if (now - lastPublishedAt < LIVE_ANALYSIS_UPDATE_INTERVAL_MS) {
+                return;
+            }
+            lastPublishedAt = now;
+            publish(LiveAnalysisUpdate.analysis(request, analysis));
+        }
+
+        /**
+         * Applies streamed updates on the event thread.
+         *
+         * @param chunks updates
+         */
+        @Override
+        protected void process(List<LiveAnalysisUpdate> chunks) {
+            for (LiveAnalysisUpdate update : chunks) {
+                applyLiveAnalysisUpdate(update);
+            }
+        }
+
+        /**
+         * Handles worker completion on the event thread.
+         */
+        @Override
+        protected void done() {
+            if (liveEngineWorker != this) {
+                return;
+            }
+            liveEngineWorker = null;
+            if (shouldStop() || !liveExternalEngineEnabled) {
+                return;
+            }
+            try {
+                get();
+            } catch (InterruptedException ex) {
+                Thread.currentThread().interrupt();
+                handleLiveAnalysisFailure(ex);
+            } catch (ExecutionException ex) {
+                Throwable cause = ex.getCause();
+                handleLiveAnalysisFailure(cause instanceof Exception failure ? failure : ex);
+            }
+        }
+    }
+
+    /**
+     * Snapshot of one live-analysis request.
+     *
+     * @param id request id
+     * @param position position snapshot
+     * @param whiteToMove true when White is to move
+     * @param protocolPath protocol TOML path
+     * @param multipv requested MultiPV count
+     * @param threads requested engine thread count
+     * @param hash optional hash size
+     */
+    private record LiveAnalysisRequest(
+            long id,
+            Position position,
+            boolean whiteToMove,
+            String protocolPath,
+            int multipv,
+            int threads,
+            Integer hash) {
+    }
+
+    /**
+     * Streamed live-analysis UI update.
+     *
+     * @param requestId request id
+     * @param whiteToMove true when White was to move
+     * @param output latest best output
+     * @param bestMove latest best move
+     * @param status status-only update
+     */
+    private record LiveAnalysisUpdate(
+            long requestId,
+            boolean whiteToMove,
+            Output output,
+            short bestMove,
+            String status) {
+
+        /**
+         * Creates a status-only update.
+         *
+         * @param status status text
+         * @return update
+         */
+        private static LiveAnalysisUpdate status(String status) {
+            return new LiveAnalysisUpdate(0, false, null, Move.NO_MOVE, status);
+        }
+
+        /**
+         * Creates an analysis update from the current analysis buffer.
+         *
+         * @param request source request
+         * @param analysis analysis buffer
+         * @return update
+         */
+        private static LiveAnalysisUpdate analysis(LiveAnalysisRequest request, Analysis analysis) {
+            Output output = analysis.getBestOutput();
+            return new LiveAnalysisUpdate(
+                    request.id(),
+                    request.whiteToMove(),
+                    output == null ? null : new Output(output),
+                    analysis.getBestMove(),
+                    null);
+        }
     }
 
     /**
