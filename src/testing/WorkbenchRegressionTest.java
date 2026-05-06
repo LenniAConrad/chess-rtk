@@ -91,6 +91,7 @@ public final class WorkbenchRegressionTest {
         testEngineTemplateContextFeedsExternalConfigOptions();
         testEngineBatchTasksUseExternalConfigOptions();
         testCommandTemplatesHaveCompactTabLabels();
+        testPublishingPreviewFenCompaction();
         testPaletteTokenMatching();
         testOptionFilterTokenMatching();
         testTextAreaScrollPaintsOpaque();
@@ -270,6 +271,15 @@ public final class WorkbenchRegressionTest {
                 assertFalse(name.equals(prior), "command tab labels are unique");
             }
         }
+    }
+
+    /**
+     * Verifies publishing preview FEN labels stay compact.
+     */
+    private static void testPublishingPreviewFenCompaction() {
+        assertEquals("8/8/8/8/8/8/K7/7k b", invokeStatic(type("WorkbenchWindow"), "compactFenPreview",
+                new Class<?>[] { String.class }, "8/8/8/8/8/8/K7/7k b - - 4 22"),
+                "publishing preview compact FEN");
     }
 
     /**

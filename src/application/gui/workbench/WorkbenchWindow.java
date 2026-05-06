@@ -565,6 +565,11 @@ public final class WorkbenchWindow extends JFrame {
     private final JTextField publishCommandField = new JTextField();
 
     /**
+     * Human-readable publishing preview.
+     */
+    private final JTextArea publishPreview = new JTextArea();
+
+    /**
      * Publishing input chooser button.
      */
     private JButton publishInputButton;
@@ -2167,12 +2172,40 @@ public final class WorkbenchWindow extends JFrame {
         grid(panel, label("command"), c, 0, 11, 1, 1);
         grid(panel, publishCommandField, c, 1, 11, 3, 1);
 
+        styleAreas(publishPreview);
+        publishPreview.setRows(8);
+        publishPreview.setLineWrap(true);
+        publishPreview.setWrapStyleWord(true);
+        publishPreview.setEditable(false);
+        grid(panel, label("preview"), c, 0, 12, 1, 1);
+        addPublishingPreview(panel, c, 12);
+
         grid(panel, buttonRow(FlowLayout.LEFT,
                 button("Run Publishing", true, event -> runPublishingCommand()),
                 button("Copy Command", false, event -> copyText(publishCommandField.getText())),
-                button("Stop", false, event -> stopCommand())), c, 1, 12, 3, 1);
-        addVerticalFiller(panel, c, 13, 4);
+                button("Copy Preview", false, event -> copyPublishingPreview()),
+                button("Stop", false, event -> stopCommand())), c, 1, 13, 3, 1);
+        addVerticalFiller(panel, c, 14, 4);
         return panel;
+    }
+
+    /**
+     * Adds the publishing preview editor with resizing behavior.
+     *
+     * @param panel target panel
+     * @param c shared constraints
+     * @param row row index
+     */
+    private void addPublishingPreview(JPanel panel, GridBagConstraints c, int row) {
+        c.gridx = 1;
+        c.gridy = row;
+        c.gridwidth = 3;
+        c.gridheight = 1;
+        c.weightx = 1;
+        c.weighty = 1;
+        c.fill = GridBagConstraints.BOTH;
+        panel.add(scroll(publishPreview), c);
+        c.weighty = 0;
     }
 
     /**
@@ -2320,11 +2353,210 @@ public final class WorkbenchWindow extends JFrame {
      */
     private void updatePublishCommand() {
         publishCommandUpdateQueued = false;
+        String command = "";
+        String issue = publishPreflightIssue();
         try {
-            publishCommandField.setText(WorkbenchCommandRunner.displayCommand(buildPublishArgs(false)));
+            command = WorkbenchCommandRunner.displayCommand(buildPublishArgs(false));
+            publishCommandField.setText(command);
         } catch (IllegalArgumentException | IOException ex) {
-            publishCommandField.setText("incomplete: " + ex.getMessage());
+            issue = ex.getMessage();
+            command = "incomplete: " + issue;
+            publishCommandField.setText(command);
         }
+        publishPreview.setText(buildPublishingPreview(command, issue));
+        publishPreview.setCaretPosition(0);
+    }
+
+    /**
+     * Copies the publishing preview after flushing pending edits.
+     */
+    private void copyPublishingPreview() {
+        updatePublishCommand();
+        copyText(publishPreview.getText());
+        toast(WorkbenchToast.Kind.SUCCESS, "Publishing preview copied");
+    }
+
+    /**
+     * Builds a human-readable publishing preview.
+     *
+     * @param command command text
+     * @param issue readiness issue, or null
+     * @return preview text
+     */
+    private String buildPublishingPreview(String command, String issue) {
+        String newline = System.lineSeparator();
+        StringBuilder sb = new StringBuilder(768);
+        PublishTask task = selectedPublishTask();
+        sb.append("Workflow: ").append(task).append(newline);
+        sb.append("Status: ").append(issue == null ? "ready" : "needs attention - " + issue).append(newline);
+        sb.append("Source: ").append(publishSourcePreview(task)).append(newline);
+        sb.append("Output: ").append(publishOutputPreview(task)).append(newline);
+        appendPublishingTextLine(sb, "Title", trimmed(publishTitleField), newline);
+        appendPublishingTextLine(sb, "Subtitle", trimmed(publishSubtitleField), newline);
+        sb.append("Options: ").append(publishOptionsPreview(task)).append(newline);
+        sb.append("Command: ").append(command);
+        return sb.toString();
+    }
+
+    /**
+     * Returns a source summary for the selected publishing task.
+     *
+     * @param task selected task
+     * @return source summary
+     */
+    private String publishSourcePreview(PublishTask task) {
+        if (task != PublishTask.DIAGRAMS) {
+            return pathOrMissing("input file", publishInputField);
+        }
+        return switch (selectedPublishSource()) {
+            case CURRENT_FEN -> "current board FEN (" + compactFenPreview(currentFen()) + ")";
+            case GAME_PGN -> gameModel.lastPly() <= 0
+                    ? "workbench game PGN (no moves)"
+                    : "workbench game PGN (" + gameModel.lastPly() + " ply)";
+            case BATCH_FENS -> batchFenPreview();
+            case EXISTING_FILE -> pathOrMissing("diagram input file", publishInputField);
+        };
+    }
+
+    /**
+     * Returns an output summary for the selected publishing task.
+     *
+     * @param task selected task
+     * @return output summary
+     */
+    private String publishOutputPreview(PublishTask task) {
+        return switch (task) {
+            case DIAGRAMS, RENDER, STUDY -> pathOrMissing("PDF", publishOutputField)
+                    + optionalOutput("cover", publishCoverOutputField, task == PublishTask.STUDY);
+            case COLLECTION -> pathOrMissing("manifest", publishOutputField)
+                    + optionalOutput("interior PDF", publishPdfOutputField, true)
+                    + optionalOutput("cover", publishCoverOutputField, true);
+            case COVER -> pathOrMissing("cover PDF", publishOutputField)
+                    + optionalOutput("interior PDF", publishPdfOutputField, true);
+        };
+    }
+
+    /**
+     * Returns relevant publishing option summary.
+     *
+     * @param task selected task
+     * @return option summary
+     */
+    private String publishOptionsPreview(PublishTask task) {
+        List<String> options = new ArrayList<>();
+        addPreviewOption(options, publishValidateBox.isSelected() && task != PublishTask.DIAGRAMS, "validate only");
+        addPreviewOption(options, publishFlipBox.isSelected() && (task == PublishTask.DIAGRAMS
+                || task == PublishTask.STUDY), "black down");
+        addPreviewOption(options, publishNoFenBox.isSelected() && (task == PublishTask.DIAGRAMS
+                || task == PublishTask.STUDY), "hide FEN");
+        addPreviewOption(options, (task == PublishTask.RENDER || task == PublishTask.COLLECTION)
+                && !trimmed(publishLimitField).isEmpty(), "limit " + trimmed(publishLimitField));
+        addPreviewOption(options, (task == PublishTask.COLLECTION || task == PublishTask.STUDY
+                || task == PublishTask.COVER) && !trimmed(publishPagesField).isEmpty(),
+                "pages " + trimmed(publishPagesField));
+        return options.isEmpty() ? "default" : String.join(", ", options);
+    }
+
+    /**
+     * Returns a preflight issue for generated workbench input sources.
+     *
+     * @return issue text or null
+     */
+    private String publishPreflightIssue() {
+        if (selectedPublishTask() != PublishTask.DIAGRAMS) {
+            return null;
+        }
+        return switch (selectedPublishSource()) {
+            case GAME_PGN -> gameModel.lastPly() <= 0
+                    ? "Play or import at least one game move before exporting PGN diagrams." : null;
+            case BATCH_FENS -> batchFenIssue();
+            case CURRENT_FEN, EXISTING_FILE -> null;
+        };
+    }
+
+    /**
+     * Returns a compact batch FEN preview.
+     *
+     * @return batch source summary
+     */
+    private String batchFenPreview() {
+        String text = batchInput.getText() == null ? "" : batchInput.getText().trim();
+        if (text.isEmpty()) {
+            return gameModel.lastPly() <= 0 ? "batch FENs (empty)" : "game FEN list (" + gameModel.lastPly() + " ply)";
+        }
+        FenInputSummary scan = validateBatchFenInput(text);
+        if (scan.hasError()) {
+            return scan.rows() + " row" + (scan.rows() == 1 ? "" : "s")
+                    + ", issue on line " + scan.firstErrorLine();
+        }
+        return scan.validRows() + " valid FEN row" + (scan.validRows() == 1 ? "" : "s");
+    }
+
+    /**
+     * Returns a batch source issue, if present.
+     *
+     * @return issue text or null
+     */
+    private String batchFenIssue() {
+        String text = batchInput.getText() == null ? "" : batchInput.getText().trim();
+        if (text.isEmpty()) {
+            return gameModel.lastPly() <= 0 ? "Add FEN rows in Batch or play a game line before exporting diagrams."
+                    : null;
+        }
+        FenInputSummary scan = validateBatchFenInput(text);
+        return scan.hasError() ? "Batch FEN line " + scan.firstErrorLine() + ": " + scan.firstError() : null;
+    }
+
+    /**
+     * Appends a non-empty publishing text line.
+     *
+     * @param sb target builder
+     * @param label line label
+     * @param value line value
+     * @param newline line separator
+     */
+    private static void appendPublishingTextLine(StringBuilder sb, String label, String value, String newline) {
+        if (!value.isEmpty()) {
+            sb.append(label).append(": ").append(value).append(newline);
+        }
+    }
+
+    /**
+     * Adds one preview option when active.
+     *
+     * @param options target options
+     * @param active whether option applies
+     * @param text option text
+     */
+    private static void addPreviewOption(List<String> options, boolean active, String text) {
+        if (active) {
+            options.add(text);
+        }
+    }
+
+    /**
+     * Returns a required path preview.
+     *
+     * @param label path label
+     * @param field source field
+     * @return preview text
+     */
+    private static String pathOrMissing(String label, JTextField field) {
+        String value = trimmed(field);
+        return value.isEmpty() ? "missing " + label : label + " " + value;
+    }
+
+    /**
+     * Returns optional output text when enabled and present.
+     *
+     * @param label path label
+     * @param field source field
+     * @param enabled whether this output applies to the selected task
+     * @return optional preview text
+     */
+    private static String optionalOutput(String label, JTextField field, boolean enabled) {
+        String value = trimmed(field);
+        return enabled && !value.isEmpty() ? "; " + label + " " + value : "";
     }
 
     /**
@@ -2552,6 +2784,20 @@ public final class WorkbenchWindow extends JFrame {
      */
     private static String trimmed(JTextField field) {
         return field.getText() == null ? "" : field.getText().trim();
+    }
+
+    /**
+     * Returns a short FEN label for compact previews.
+     *
+     * @param fen full FEN
+     * @return piece placement plus side to move when available
+     */
+    private static String compactFenPreview(String fen) {
+        if (fen == null || fen.isBlank()) {
+            return "";
+        }
+        String[] parts = fen.trim().split("\\s+");
+        return parts.length > 1 ? parts[0] + " " + parts[1] : parts[0];
     }
 
     /**
@@ -4659,6 +4905,7 @@ public final class WorkbenchWindow extends JFrame {
             batchInputStatus.setText("FEN list not used");
             batchInputStatus.setToolTipText("The selected batch task runs without FEN input.");
             batchInputStatus.setForeground(WorkbenchTheme.MUTED);
+            updatePublishCommand();
             return;
         }
         FenInputSummary scan = validateBatchFenInput(batchInput.getText());
@@ -4676,6 +4923,7 @@ public final class WorkbenchWindow extends JFrame {
             batchInputStatus.setToolTipText("Ready to run batch workflow.");
             batchInputStatus.setForeground(WorkbenchTheme.MUTED);
         }
+        updatePublishCommand();
     }
 
     /**
