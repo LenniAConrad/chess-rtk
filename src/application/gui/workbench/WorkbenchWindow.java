@@ -13,7 +13,6 @@ import static application.gui.workbench.WorkbenchUi.label;
 import static application.gui.workbench.WorkbenchUi.onTextChange;
 import static application.gui.workbench.WorkbenchUi.scroll;
 import static application.gui.workbench.WorkbenchUi.showConfirmDialog;
-import static application.gui.workbench.WorkbenchUi.showErrorDialog;
 import static application.gui.workbench.WorkbenchUi.styleAreas;
 import static application.gui.workbench.WorkbenchUi.styleCheckBox;
 import static application.gui.workbench.WorkbenchUi.styleCombos;
@@ -3181,11 +3180,11 @@ public final class WorkbenchWindow extends JFrame {
      */
     private void runCommand(List<String> args, String stdin) {
         if (args == null || args.isEmpty()) {
-            showError("No command", "Select a workflow first.");
+            showWarning("No command", "Select a workflow first.");
             return;
         }
         if (runningCommand != null && runningCommand.isRunning()) {
-            showError("Command running", "Stop the current command before starting another one.");
+            showWarning("Command running", "Stop the current command before starting another one.");
             return;
         }
         appendConsole("\n$ " + WorkbenchCommandRunner.displayCommand(args) + "\n");
@@ -4265,13 +4264,34 @@ public final class WorkbenchWindow extends JFrame {
     }
 
     /**
-     * Shows an error.
+     * Shows a warning in the workbench notification layer.
+     *
+     * @param title title
+     * @param message message
+     */
+    private void showWarning(String title, String message) {
+        showNotice(WorkbenchToast.Kind.WARNING, title, message);
+    }
+
+    /**
+     * Shows an error in the workbench notification layer.
      *
      * @param title title
      * @param message message
      */
     private void showError(String title, String message) {
-        showErrorDialog(this, title, message);
+        showNotice(WorkbenchToast.Kind.ERROR, title, message);
+    }
+
+    /**
+     * Shows an inline bottom notice without opening a modal dialog.
+     *
+     * @param kind severity
+     * @param title fallback title
+     * @param message primary message
+     */
+    private void showNotice(WorkbenchToast.Kind kind, String title, String message) {
+        toast(kind, message == null || message.isBlank() ? title : message);
     }
 
     /**
