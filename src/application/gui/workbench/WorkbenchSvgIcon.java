@@ -172,7 +172,8 @@ final class WorkbenchSvgIcon implements Icon {
             case "Info", "Info +", "Info -" -> Kind.INFO;
             case "Settings" -> Kind.SETTINGS;
             case "Tags" -> Kind.TAG;
-            case "Actions", "Commands", "Batch", "Game", "Perft", "Engine", "Validate Config" -> Kind.GRID;
+            case "Actions", "Commands", "Batch", "Game", "Perft", "Engine", "Validate Config", "Analysis data" ->
+                    Kind.GRID;
             case "Add Current FEN", "Add to Batch", "New Game" -> Kind.PLUS;
             case "Back", "Start" -> Kind.BACK;
             case "Publish", "Load File", "Save PGN", "Save Report", "Choose Input", "Choose Output", "Choose PDF",

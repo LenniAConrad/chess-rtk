@@ -115,6 +115,8 @@ public final class WorkbenchRegressionTest {
         testEngineEvalParsing();
         testLiveEngineStatusFormatting();
         testOptionalPositiveIntegerParsing();
+        testAnalysisGraphStoresSamples();
+        testAnalysisGraphPaintsOpaqueSurface();
         testBoardHasNoInstructionTooltip();
         testBoardHasNoKeyboardPieceSelector();
         testWindowPositionNavigationRoutingSkipsTextAndDataControls();
@@ -644,6 +646,34 @@ public final class WorkbenchRegressionTest {
         } catch (IllegalArgumentException ex) {
             assertTrue(ex.getMessage().contains("positive integer"), "invalid optional integer message");
         }
+    }
+
+    /**
+     * Verifies the analysis graph stores live samples and formats the latest eval.
+     */
+    private static void testAnalysisGraphStoresSamples() {
+        Object graph = construct(type("WorkbenchAnalysisGraph"), new Class<?>[0]);
+        invoke(graph, "resetForPosition", new Class<?>[] { String.class }, START_FEN);
+        invoke(graph, "addSample", new Class<?>[] { boolean.class, Output.class, short.class },
+                Boolean.TRUE,
+                new Output("info depth 12 multipv 1 score cp 42 nodes 1000 nps 5000 pv e2e4 e7e5"),
+                Move.parse("e2e4"));
+        assertEquals(Integer.valueOf(1), invoke(graph, "sampleCount", new Class<?>[0]),
+                "analysis graph sample count");
+        assertEquals("+0.42", invoke(graph, "latestEvalLabel", new Class<?>[0]),
+                "analysis graph eval label");
+    }
+
+    /**
+     * Verifies the graph paints a solid non-blank surface.
+     */
+    private static void testAnalysisGraphPaintsOpaqueSurface() {
+        JComponent graph = (JComponent) construct(type("WorkbenchAnalysisGraph"), new Class<?>[0]);
+        invoke(graph, "addSample", new Class<?>[] { boolean.class, Output.class, short.class },
+                Boolean.TRUE,
+                new Output("info depth 14 multipv 1 score cp -31 nodes 2000 nps 6500 pv g1f3"),
+                Move.parse("g1f3"));
+        assertPaintsOpaqueCorner(graph, 360, 260, "analysis graph opaque background");
     }
 
     /**

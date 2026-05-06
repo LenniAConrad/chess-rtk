@@ -113,6 +113,7 @@ import chess.uci.Protocol;
 /**
  * A new native Swing command and analysis workbench for ChessRTK.
  */
+@SuppressWarnings("java:S6539")
 public final class WorkbenchWindow extends JFrame {
 
     /**
@@ -258,6 +259,11 @@ public final class WorkbenchWindow extends JFrame {
      * Engine evaluation bar.
      */
     private final WorkbenchEvalBar evalBar = new WorkbenchEvalBar();
+
+    /**
+     * Live analysis data graph.
+     */
+    private final WorkbenchAnalysisGraph analysisGraph = new WorkbenchAnalysisGraph();
 
     /**
      * FEN input.
@@ -1254,6 +1260,8 @@ public final class WorkbenchWindow extends JFrame {
                 new PaletteAction("Engine analysis", "Run multipv analysis for the current position", this::runAnalyze),
                 new PaletteAction("Live external engine", "Toggle continuous UCI analysis for the board",
                         () -> setLiveExternalEngineEnabled(!liveExternalEngineEnabled)),
+                new PaletteAction("Analysis data", "Show live evaluation, depth, and speed graphs",
+                        this::showAnalysisData),
                 new PaletteAction("Position tags", "Generate tags for the current FEN", this::runTagsCommand),
                 new PaletteAction("Perft", "Run perft with the selected depth and threads", this::runPerft),
                 new PaletteAction("Run built command", "Execute the selected command template", this::runSelectedTemplate),
@@ -1292,7 +1300,7 @@ public final class WorkbenchWindow extends JFrame {
             analysisTabs.setSelectedIndex(0);
         }
         if (boardDetailTabs != null) {
-            boardDetailTabs.setSelectedIndex(2);
+            boardDetailTabs.setSelectedIndex(3);
         }
         toast(WorkbenchToast.Kind.INFO, "Settings are in the side panel");
     }
@@ -1306,9 +1314,22 @@ public final class WorkbenchWindow extends JFrame {
             analysisTabs.setSelectedIndex(0);
         }
         if (boardDetailTabs != null) {
-            boardDetailTabs.setSelectedIndex(3);
+            boardDetailTabs.setSelectedIndex(4);
         }
         SwingUtilities.invokeLater(engineProtocolField::requestFocusInWindow);
+    }
+
+    /**
+     * Shows the analysis data visualization panel.
+     */
+    private void showAnalysisData() {
+        selectTab(TAB_ANALYZE);
+        if (analysisTabs != null) {
+            analysisTabs.setSelectedIndex(0);
+        }
+        if (boardDetailTabs != null) {
+            boardDetailTabs.setSelectedIndex(2);
+        }
     }
 
     /**
@@ -1585,6 +1606,7 @@ public final class WorkbenchWindow extends JFrame {
         boardDetailTabs = createSectionTabs();
         boardDetailTabs.addTab("Moves", titled("Legal Moves", scroll(movesTable)));
         boardDetailTabs.addTab("Tags", titled("Tags", scroll(tagList)));
+        boardDetailTabs.addTab("Data", titled("Analysis", analysisGraph));
         boardDetailTabs.addTab("Settings", createDisplaySettingsPanel());
         boardDetailTabs.addTab("Engine", createEngineSettingsPanel());
         return boardDetailTabs;
@@ -2799,6 +2821,7 @@ public final class WorkbenchWindow extends JFrame {
         currentPosition = position.copy();
         fenField.setText(currentPosition.toString());
         board.setPosition(currentPosition, lastMove);
+        analysisGraph.resetForPosition(currentPosition.toString());
         updateMoves();
         updateStatus();
         updateTagsAsync();
@@ -3116,6 +3139,7 @@ public final class WorkbenchWindow extends JFrame {
         if (update.bestMove() != Move.NO_MOVE) {
             board.setSuggestedMove(update.bestMove());
         }
+        analysisGraph.addSample(update.whiteToMove(), output, update.bestMove());
         setStatusBarEngine(formatLiveEngineStatus(output, update.bestMove()));
     }
 
