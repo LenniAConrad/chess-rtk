@@ -82,3 +82,6 @@ native/oneapi/**/*.dylib
 # VS Code settings
 .vscode/
 .directory
+
+# Local Claude Code permissions
+.claude/settings.local.json

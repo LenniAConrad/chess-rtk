@@ -11,7 +11,7 @@ PERFT_SUITE_DEPTH="${CRTK_PERFT_SUITE_DEPTH:-4}"
 REQUIRE_STOCKFISH="${CRTK_REQUIRE_STOCKFISH:-0}"
 
 compile_sources() {
-  rm -rf out
+  clean_out
   mkdir -p out
   mapfile -t sources < <(find src -name '*.java' | sort)
   if [[ "${#sources[@]}" -eq 0 ]]; then
@@ -19,6 +19,17 @@ compile_sources() {
     exit 1
   fi
   javac "$@" --release 17 -d out "${sources[@]}"
+}
+
+clean_out() {
+  local attempt
+  for attempt in 1 2 3; do
+    if rm -rf out; then
+      return
+    fi
+    sleep "0.$attempt"
+  done
+  rm -rf out
 }
 
 ensure_compiled() {
@@ -56,7 +67,31 @@ run_build() {
 run_lint() {
   echo "==> lint"
   compile_sources -Xlint:all
+  run_scripts_lint
   git diff --check
+}
+
+run_scripts_lint() {
+  echo "==> scripts"
+  local -a shell_scripts=()
+  if command -v git >/dev/null 2>&1 && git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    mapfile -t shell_scripts < <(git ls-files '*.sh' | sort)
+  else
+    mapfile -t shell_scripts < <(find . -name '*.sh' -print | sort)
+  fi
+  if [[ "${#shell_scripts[@]}" -eq 0 ]]; then
+    echo "No shell scripts found"
+    return
+  fi
+  local script
+  for script in "${shell_scripts[@]}"; do
+    bash -n "$script"
+  done
+  if command -v shellcheck >/dev/null 2>&1; then
+    shellcheck -S error "${shell_scripts[@]}"
+  else
+    echo "==> skipping shellcheck (not on PATH)"
+  fi
 }
 
 run_core() {
@@ -66,6 +101,10 @@ run_core() {
   run_test testing.SANRegressionTest
   run_test testing.JsonRegressionTest
   run_test testing.Chess960SetupRegressionTest
+  run_test testing.ParserRegressionTest
+  run_test testing.TaggingRegressionTest
+  run_test testing.TagFixtureRegressionTest
+  run_headless_test testing.WorkbenchRegressionTest
 }
 
 run_cli() {
@@ -83,6 +122,7 @@ run_engine() {
   ensure_compiled
   run_test testing.BuiltInEngineRegressionTest
   run_test testing.PuzzleDifficultyRegressionTest
+  run_test testing.BT4RegressionTest
 }
 
 run_uci() {
@@ -103,6 +143,12 @@ run_book() {
   run_headless_test testing.BookRegressionTest
   run_headless_test testing.ChessPDFRegressionTest
   run_test testing.PDFDocumentRegressionTest
+}
+
+run_docs() {
+  echo "==> docs"
+  python3 scripts/build_docs_site.py
+  python3 scripts/build_manual_pdf.py --html-only
 }
 
 run_perft_smoke() {
@@ -134,6 +180,9 @@ run_ci() {
   run_lint
   run_core
   run_cli
+  run_engine
+  run_book
+  run_docs
   run_uci
   run_perft_smoke
 }
@@ -159,11 +208,17 @@ case "$SUITE" in
   engine)
     run_engine
     ;;
+  scripts)
+    run_scripts_lint
+    ;;
   uci)
     run_uci
     ;;
   book)
     run_book
+    ;;
+  docs)
+    run_docs
     ;;
   perft-smoke)
     run_perft_smoke
@@ -182,7 +237,7 @@ case "$SUITE" in
     ;;
   *)
     echo "Unknown suite: $SUITE" >&2
-    echo "Usage: $0 [build|lint|core|cli|engine|uci|book|perft-smoke|jar|recommended|ci|release]" >&2
+    echo "Usage: $0 [build|lint|core|cli|engine|scripts|uci|book|docs|perft-smoke|jar|recommended|ci|release]" >&2
     exit 2
     ;;
 esac

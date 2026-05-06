@@ -57,6 +57,7 @@ Install the `crtk` launcher on Debian/Ubuntu-style systems:
 ./install.sh
 crtk doctor
 crtk help
+crtk version
 ```
 
 If the launcher is not installed, replace `crtk ...` with:
@@ -80,6 +81,7 @@ Work with one FEN:
 ```bash
 crtk fen validate --fen "<FEN>"
 crtk fen normalize --fen "<FEN>"
+crtk fen validate --fen "<FEN>" --json
 crtk move after --fen "<FEN>" e2e4
 crtk move play --fen "<FEN>" "e4 e5 Nf3 Nc6"
 ```
@@ -95,8 +97,18 @@ crtk gen fens --output specials/ --files 1 --per-file 25 --en-passant --max-atte
 Ask for a move:
 
 ```bash
+crtk move list --fen "<FEN>" --jsonl
 crtk engine bestmove --fen "<FEN>" --format both --max-duration 2s
 crtk engine builtin --fen "<FEN>" --depth 3 --format summary
+```
+
+Run research-friendly batch checks:
+
+```bash
+crtk engine bestmove-batch --input positions.txt --max-duration 1s
+crtk engine analyze-batch --input positions.txt --multipv 3 --jsonl
+crtk engine benchmark --startpos --depth 5 --iterations 5
+crtk position diff --fen "<FEN>" --other "<FEN>" --json
 ```
 
 Check your local setup:
@@ -115,8 +127,9 @@ crtk engine uci-smoke --nodes 1 --max-duration 5s
 | Generate random or filtered FEN shards | `fen generate`, `gen fens` |
 | List and convert legal moves | `move list`, `move uci`, `move san`, `move both`, `move to-san`, `move to-uci` |
 | Apply one move or a line | `move after`, `move play`, `fen after`, `fen line` |
-| Verify move generation | `engine perft`, `engine perft-suite` |
-| Use an external UCI engine | `engine analyze`, `engine bestmove`, `engine threats`, `engine uci-smoke` |
+| Compare positions | `position diff` |
+| Verify move generation | `engine perft`, `engine perft-suite`, `engine benchmark` |
+| Use an external UCI engine | `engine analyze`, `engine bestmove`, `engine analyze-batch`, `engine bestmove-batch`, `engine compare`, `engine threats`, `engine uci-smoke` |
 | Search in-process | `engine builtin`, `engine java` |
 | Evaluate positions | `engine static`, `engine eval` |
 | Mine puzzle candidates | `puzzle mine`, `puzzle pgn` |
@@ -125,7 +138,7 @@ crtk engine uci-smoke --nodes 1 --max-duration 5s
 | Merge, filter, and summarize records | `record files`, `record stats`, `record tag-stats`, `record analysis-delta` |
 | Export ML datasets | `record dataset npy`, `record dataset lc0`, `record dataset classifier` |
 | Publish diagrams and books | `book pdf`, `book render`, `book cover`, `book collection`, `book study` |
-| Use a desktop workbench | `gui`, `gui-web`, `gui-next` |
+| Use a desktop workbench | `gui-workbench`, `workbench`, `gui`, `gui-web`, `gui-next` |
 
 For the full command surface, run:
 
@@ -142,6 +155,7 @@ or open [wiki/command-reference.md](wiki/command-reference.md).
 ```bash
 ./scripts/run_regression_suite.sh core
 crtk engine perft-suite --depth 6 --threads 4
+crtk engine perft-suite --suite custom-perft.tsv --threads 4
 ```
 
 `engine perft-suite` compares stored truth positions against ChessRTK's Java
@@ -288,6 +302,7 @@ The wiki is organized like a project handbook:
 - [Datasets](wiki/datasets.md)
 - [Book publishing](wiki/book-publishing.md)
 - [Piece and position tags](wiki/piece-tags.md)
+- [Tag reference](wiki/tag-reference.md)
 - [Outputs and logs](wiki/outputs-and-logs.md)
 - [Development notes](wiki/development-notes.md)
 - [Troubleshooting](wiki/troubleshooting.md)
@@ -305,9 +320,12 @@ Focused checks:
 ```bash
 ./scripts/run_regression_suite.sh build
 ./scripts/run_regression_suite.sh lint
+./scripts/run_regression_suite.sh docs
 ./scripts/run_regression_suite.sh core
 ./scripts/run_regression_suite.sh cli
+./scripts/run_regression_suite.sh engine
 ./scripts/run_regression_suite.sh uci
+./scripts/run_regression_suite.sh book
 ./scripts/run_regression_suite.sh perft-smoke
 ```
 

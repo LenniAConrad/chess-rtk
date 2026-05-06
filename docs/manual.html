@@ -311,6 +311,7 @@ blockquote {
 <li><a href="#chapter-datasets">Datasets</a></li>
 <li><a href="#chapter-book-publishing">Book Publishing</a></li>
 <li><a href="#chapter-piece-tags">Tags</a></li>
+<li><a href="#chapter-tag-reference">Tag Reference</a></li>
 <li><a href="#chapter-t5">T5 Text</a></li>
 <li><a href="#chapter-ai-agents">AI Agents</a></li></ol></section>
 <section><h2>Development</h2><ol><li><a href="#chapter-architecture">Architecture</a></li>
@@ -507,7 +508,7 @@ crtk record export pgn --input dump/run.puzzles.json --output dump/run.pgn</code
 </tr>
 <tr>
 <td>Workflows</td>
-<td><a href="#chapter-mining">Mining Puzzles</a>, <a href="#chapter-filter-dsl">Filter DSL</a>, <a href="#chapter-datasets">Datasets</a>, <a href="#chapter-book-publishing">Book Publishing</a>, <a href="#chapter-piece-tags">Tags</a></td>
+<td><a href="#chapter-mining">Mining Puzzles</a>, <a href="#chapter-filter-dsl">Filter DSL</a>, <a href="#chapter-datasets">Datasets</a>, <a href="#chapter-book-publishing">Book Publishing</a>, <a href="#chapter-piece-tags">Tags</a>, <a href="#chapter-tag-reference">Tag Reference</a></td>
 </tr>
 <tr>
 <td>Engines</td>
@@ -720,6 +721,10 @@ crtk engine builtin --startpos --depth 3 --format summary</code></pre>
 <td><code>crtk help --full</code></td>
 </tr>
 <tr>
+<td>Show version metadata</td>
+<td><code>crtk version --json</code></td>
+</tr>
+<tr>
 <td>Check local setup</td>
 <td><code>crtk doctor</code></td>
 </tr>
@@ -755,6 +760,10 @@ crtk engine builtin --startpos --depth 3 --format summary</code></pre>
 <td><code>crtk fen normalize --fen &quot;&lt;FEN&gt;&quot;</code></td>
 </tr>
 <tr>
+<td>Validate a FEN as JSON</td>
+<td><code>crtk fen validate --fen &quot;&lt;FEN&gt;&quot; --json</code></td>
+</tr>
+<tr>
 <td>Generate Chess960 start</td>
 <td><code>crtk fen chess960 518</code></td>
 </tr>
@@ -778,6 +787,10 @@ crtk engine builtin --startpos --depth 3 --format summary</code></pre>
 <td>Open a board window</td>
 <td><code>crtk fen display --fen &quot;&lt;FEN&gt;&quot;</code></td>
 </tr>
+<tr>
+<td>Compare two positions</td>
+<td><code>crtk position diff --fen &quot;&lt;FEN&gt;&quot; --other &quot;&lt;FEN&gt;&quot; --json</code></td>
+</tr>
 </tbody></table></div>
 <h2 id="chapter-command-cheatsheet-moves">Moves</h2>
 <div class="table-wrap"><table>
@@ -796,6 +809,10 @@ crtk engine builtin --startpos --depth 3 --format summary</code></pre>
 <tr>
 <td>List both UCI and SAN</td>
 <td><code>crtk move list --fen &quot;&lt;FEN&gt;&quot; --format both</code></td>
+</tr>
+<tr>
+<td>List legal moves as JSONL</td>
+<td><code>crtk move list --fen &quot;&lt;FEN&gt;&quot; --jsonl</code></td>
 </tr>
 <tr>
 <td>Convert UCI to SAN</td>
@@ -829,8 +846,24 @@ crtk engine builtin --startpos --depth 3 --format summary</code></pre>
 <td><code>crtk engine analyze --fen &quot;&lt;FEN&gt;&quot; --multipv 3 --max-duration 5s</code></td>
 </tr>
 <tr>
+<td>Batch best moves</td>
+<td><code>crtk engine bestmove-batch --input positions.txt --max-duration 1s</code></td>
+</tr>
+<tr>
+<td>Batch analysis JSONL</td>
+<td><code>crtk engine analyze-batch --input positions.txt --multipv 3 --jsonl</code></td>
+</tr>
+<tr>
+<td>Compare two UCI protocols</td>
+<td><code>crtk engine compare --input positions.txt --left-protocol a.toml --right-protocol b.toml</code></td>
+</tr>
+<tr>
 <td>Search in-process</td>
 <td><code>crtk engine builtin --fen &quot;&lt;FEN&gt;&quot; --depth 4 --format summary</code></td>
+</tr>
+<tr>
+<td>Benchmark movegen</td>
+<td><code>crtk engine benchmark --startpos --depth 5 --iterations 5</code></td>
 </tr>
 <tr>
 <td>Classical static eval</td>
@@ -866,6 +899,10 @@ crtk engine builtin --startpos --depth 3 --format summary</code></pre>
 <tr>
 <td>Regression suite</td>
 <td><code>crtk engine perft-suite --depth 6 --threads 4</code></td>
+</tr>
+<tr>
+<td>Custom perft suite</td>
+<td><code>crtk engine perft-suite --suite custom-perft.tsv --threads 4</code></td>
 </tr>
 </tbody></table></div>
 <h2 id="chapter-command-cheatsheet-puzzle-mining">Puzzle Mining</h2>
@@ -957,6 +994,21 @@ crtk engine builtin --startpos --depth 3 --format summary</code></pre>
 <td><code>crtk book cover -i books/puzzles.toml --pdf dist/puzzles.pdf -o dist/puzzles-cover.pdf --binding paperback --interior white-bw</code></td>
 </tr>
 </tbody></table></div>
+<h2 id="chapter-command-cheatsheet-desktop-workbench">Desktop Workbench</h2>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Task</th>
+<th>Command</th>
+</tr></thead><tbody>
+<tr>
+<td>Open focused analysis workbench</td>
+<td><code>crtk gui-workbench</code></td>
+</tr>
+<tr>
+<td>Open workbench on a position</td>
+<td><code>crtk workbench --fen &quot;&lt;FEN&gt;&quot;</code></td>
+</tr>
+</tbody></table></div>
 <h2 id="chapter-command-cheatsheet-agent-friendly-commands">Agent-Friendly Commands</h2>
 <div class="table-wrap"><table>
 <thead><tr>
@@ -965,7 +1017,7 @@ crtk engine builtin --startpos --depth 3 --format summary</code></pre>
 </tr></thead><tbody>
 <tr>
 <td>Deterministic legal moves</td>
-<td><code>crtk move list --fen &quot;&lt;FEN&gt;&quot; --format both</code></td>
+<td><code>crtk move list --fen &quot;&lt;FEN&gt;&quot; --format both</code> or <code>--jsonl</code></td>
 </tr>
 <tr>
 <td>Normalize input</td>
@@ -978,6 +1030,14 @@ crtk engine builtin --startpos --depth 3 --format summary</code></pre>
 <tr>
 <td>One best move row</td>
 <td><code>crtk engine bestmove --fen &quot;&lt;FEN&gt;&quot; --format both --max-duration 2s</code></td>
+</tr>
+<tr>
+<td>Best move batch rows</td>
+<td><code>crtk engine bestmove-batch --input positions.txt --max-duration 1s</code></td>
+</tr>
+<tr>
+<td>Position differences</td>
+<td><code>crtk position diff --fen &quot;&lt;FEN&gt;&quot; --other &quot;&lt;FEN&gt;&quot; --json</code></td>
 </tr>
 <tr>
 <td>In-process fallback</td>
@@ -1037,7 +1097,7 @@ crtk engine builtin --startpos --depth 3 --format summary</code></pre>
 <li>From classes: <code>java -cp out application.Main &lt;area&gt; &lt;action&gt; [options] [args]</code></li>
 <li>Built-in usage text: <code>crtk help --full</code></li>
 </ul>
-<p>Use grouped commands for scripts and automation: <code>record</code>, <code>fen</code>, <code>move</code>, <code>engine</code>, <code>book</code>, and <code>puzzle</code>.</p>
+<p>Use grouped commands for scripts and automation: <code>record</code>, <code>fen</code>, <code>move</code>, <code>engine</code>, <code>position</code>, <code>book</code>, and <code>puzzle</code>.</p>
 <p>Command style:</p>
 <ul>
 <li>Prefer the full grouped form in scripts: <code>crtk record export ...</code>,</li>
@@ -1055,7 +1115,7 @@ crtk engine builtin --startpos --depth 3 --format summary</code></pre>
 <li>Contextual help works with either <code>crtk help move list</code> or</li>
 </ul>
 <p><code>crtk move list --help</code>.</p>
-<p>The Java-native commands (<code>fen</code>, <code>move</code>, <code>engine perft</code>, <code>engine perft-suite</code>, <code>engine builtin --classical</code>, and <code>engine static</code>) do not require an external engine. External UCI configuration is only needed for UCI-backed analysis, best-move, threat, smoke-test, and mining workflows.</p>
+<p>The Java-native commands (<code>fen</code>, <code>move</code>, <code>position diff</code>, <code>engine benchmark</code>, <code>engine perft</code>, <code>engine perft-suite</code>, <code>engine builtin --classical</code>, and <code>engine static</code>) do not require an external engine. External UCI configuration is only needed for UCI-backed analysis, best-move, comparison, threat, smoke-test, and mining workflows.</p>
 <h2 id="chapter-command-reference-capability-overview">Capability Overview</h2>
 <div class="table-wrap"><table>
 <thead><tr>
@@ -1064,7 +1124,7 @@ crtk engine builtin --startpos --depth 3 --format summary</code></pre>
 </tr></thead><tbody>
 <tr>
 <td>Position parsing and generation</td>
-<td><code>fen normalize</code>, <code>fen validate</code>, <code>fen generate</code>, <code>fen pgn</code>, <code>fen chess960</code></td>
+<td><code>fen normalize</code>, <code>fen validate</code>, <code>fen generate</code>, <code>fen pgn</code>, <code>fen chess960</code>, <code>position diff</code></td>
 </tr>
 <tr>
 <td>Board inspection and rendering</td>
@@ -1076,11 +1136,11 @@ crtk engine builtin --startpos --depth 3 --format summary</code></pre>
 </tr>
 <tr>
 <td>Move-generation validation</td>
-<td><code>engine perft</code>, <code>engine perft-suite</code></td>
+<td><code>engine perft</code>, <code>engine perft-suite</code>, <code>engine benchmark</code></td>
 </tr>
 <tr>
 <td>External UCI engines</td>
-<td><code>engine analyze</code>, <code>engine bestmove</code>, <code>engine threats</code>, <code>engine uci-smoke</code></td>
+<td><code>engine analyze</code>, <code>engine bestmove</code>, <code>engine analyze-batch</code>, <code>engine bestmove-batch</code>, <code>engine compare</code>, <code>engine threats</code>, <code>engine uci-smoke</code></td>
 </tr>
 <tr>
 <td>In-process search and evaluation</td>
@@ -1108,7 +1168,7 @@ crtk engine builtin --startpos --depth 3 --format summary</code></pre>
 </tr>
 <tr>
 <td>Local health checks</td>
-<td><code>doctor</code>, <code>config show</code>, <code>config validate</code>, <code>engine gpu</code></td>
+<td><code>doctor</code>, <code>config show</code>, <code>config validate</code>, <code>engine gpu</code>, <code>version</code></td>
 </tr>
 </tbody></table></div>
 <h2 id="chapter-command-reference-record"><code>record</code></h2>
@@ -1168,6 +1228,10 @@ crtk engine builtin --startpos --depth 3 --format summary</code></pre>
 <li><code>crtk engine bestmove-uci ...</code>: print the best move in UCI</li>
 <li><code>crtk engine bestmove-san ...</code>: print the best move in SAN</li>
 <li><code>crtk engine bestmove-both ...</code>: print the best move in UCI and SAN</li>
+<li><code>crtk engine analyze-batch ...</code>: emit batch analysis rows as JSONL</li>
+<li><code>crtk engine bestmove-batch ...</code>: emit batch best-move rows as JSONL</li>
+<li><code>crtk engine compare ...</code>: compare best moves from two UCI protocol files</li>
+<li><code>crtk engine benchmark ...</code>: benchmark the Java core move generator</li>
 <li><code>crtk engine builtin ...</code>: search with the in-house Java engine</li>
 <li><code>crtk engine java ...</code>: run the same built-in Java engine</li>
 <li><code>crtk engine threats ...</code>: analyze opponent threats</li>
@@ -1177,6 +1241,12 @@ crtk engine builtin --startpos --depth 3 --format summary</code></pre>
 <li><code>crtk engine perft-suite ...</code>: run the perft regression suite</li>
 <li><code>crtk engine gpu ...</code>: print GPU JNI backend status</li>
 <li><code>crtk engine uci-smoke ...</code>: start the engine and run a tiny bounded search</li>
+</ul>
+<h2 id="chapter-command-reference-position"><code>position</code></h2>
+<p>Grouped position-inspection workflows.</p>
+<p>Usage:</p>
+<ul>
+<li><code>crtk position diff ...</code>: compare two FEN positions square-by-square and by state fields</li>
 </ul>
 <h2 id="chapter-command-reference-engine-builtin"><code>engine builtin</code></h2>
 <p>Search a position with ChessRTK&#x27;s in-house Java engine. <code>engine java</code> runs the same implementation.</p>
@@ -1220,7 +1290,7 @@ crtk engine builtin --lc0 --weights models/leela_112planes-10blocksx128-policyhe
 </ul>
 <p>or an explicit <code>--weights</code> path. If no NNUE weights are available, the command fails with a missing-weights error instead of silently using the smoke-test fallback.</p>
 <ul>
-<li><code>lc0</code>: pure-Java LC0 value evaluator using the configured LC0J model path by</li>
+<li><code>lc0</code>: pure-Java LC0 value evaluator using the configured LC0 CNN model path by</li>
 </ul>
 <p>default, or an explicit <code>--weights</code> path.</p>
 <p>Search notes:</p>
@@ -1346,12 +1416,12 @@ crtk engine builtin --lc0 --weights models/leela_112planes-10blocksx128-policyhe
 <li><code>--weights &lt;path&gt;</code>: optional LC0 weights to compress the policy to the net&#x27;s size</li>
 </ul>
 <h2 id="chapter-command-reference-record-export-puzzle-jsonl"><code>record export puzzle-jsonl</code></h2>
-<p>Convert <code>.record</code> rows into puzzle JSONL with LC0 policy values. This command requires LC0J weights so it can use the network policy map.</p>
+<p>Convert <code>.record</code> rows into puzzle JSONL with LC0 policy values. This command requires ChessRTK LC0 CNN <code>.bin</code> weights so it can use the network policy map.</p>
 <p>Options:</p>
 <ul>
 <li><code>--input|-i &lt;path&gt;</code>: input <code>.record</code> file (required)</li>
 <li><code>--output|-o &lt;path&gt;</code>: output <code>.jsonl</code> path (optional; default derived from input)</li>
-<li><code>--weights &lt;path&gt;</code>: LC0J weights path (required)</li>
+<li><code>--weights &lt;path&gt;</code>: ChessRTK LC0 CNN <code>.bin</code> weights path (required)</li>
 <li><code>--filter|-f &lt;dsl&gt;</code>: optional row-selection Filter DSL</li>
 <li><code>--puzzles</code>: keep only records classified as puzzles by the configured verify filter</li>
 <li><code>--nonpuzzles</code>: keep only records classified as non-puzzles</li>
@@ -1708,6 +1778,27 @@ crtk engine builtin --lc0 --weights models/leela_112planes-10blocksx128-policyhe
 <li><code>--light</code>: start in light UI theme</li>
 <li><code>-h|--help</code>: show help</li>
 </ul>
+<h2 id="chapter-command-reference-gui-workbench"><code>gui-workbench</code></h2>
+<p>Launch the native Swing command and analysis workbench.</p>
+<p>Alias:</p>
+<ul>
+<li><code>workbench</code></li>
+</ul>
+<p>The workbench includes:</p>
+<ul>
+<li>an analysis board with legal moves, click-to-move, static tags, and engine command shortcuts</li>
+<li>a focused command controller with curated templates and command-specific flag tables</li>
+<li>a batch runner for FEN lists and high-value research commands</li>
+</ul>
+<p>Options:</p>
+<ul>
+<li><code>--fen &quot;&lt;FEN...&gt;&quot;</code> (or pass it positionally)</li>
+<li><code>--flip|--black-down</code>: render Black at the bottom</li>
+<li><code>-h|--help</code>: show help</li>
+</ul>
+<p>Examples:</p>
+<pre><code class="language-bash">crtk gui-workbench
+crtk workbench --fen &quot;&lt;FEN&gt;&quot;</code></pre>
 <h2 id="chapter-command-reference-config"><code>config</code></h2>
 <p>Show or validate CLI configuration.</p>
 <p>Subcommands:</p>
@@ -1749,7 +1840,7 @@ crtk engine builtin --lc0 --weights models/leela_112planes-10blocksx128-policyhe
 <li><code>--delta</code>: emit per-move tag deltas as JSONL</li>
 <li><code>--mainline</code>: with <code>--pgn</code>, only export mainline positions</li>
 <li><code>--sidelines</code>: with <code>--pgn</code>, include variations</li>
-<li><code>--protocol|-p &lt;path&gt;</code>: engine protocol TOML file</li>
+<li><code>--protocol-path|-P &lt;path&gt;</code>: engine protocol TOML file</li>
 <li><code>--max-nodes &lt;n&gt;</code>: max nodes per position</li>
 <li><code>--max-duration &lt;duration&gt;</code>: max duration per position (e.g. <code>5s</code>)</li>
 <li><code>--multipv &lt;n&gt;</code>: number of PVs</li>
@@ -1769,7 +1860,7 @@ crtk engine builtin --lc0 --weights models/leela_112planes-10blocksx128-policyhe
 <li><code>--tag-multipv &lt;n&gt;</code>: MultiPV used while enriching tags (default <code>1</code>)</li>
 <li><code>--analyze</code>: run engine analysis to enrich tags (default)</li>
 <li><code>--no-analyze</code>: skip per-move analysis and use static tags</li>
-<li><code>--protocol|-p &lt;path&gt;</code>: engine protocol TOML file</li>
+<li><code>--protocol-path|-P &lt;path&gt;</code>: engine protocol TOML file</li>
 <li><code>--max-nodes &lt;n&gt;</code>: max nodes per position</li>
 <li><code>--max-duration &lt;duration&gt;</code>: max duration per position (e.g. <code>5s</code>)</li>
 <li><code>--threads &lt;n&gt;</code>: engine threads</li>
@@ -1791,7 +1882,7 @@ crtk engine builtin --lc0 --weights models/leela_112planes-10blocksx128-policyhe
 <li><code>--include-fen</code>: emit JSON with FEN, inferred move, and summary</li>
 <li><code>--analyze</code>: run engine analysis to enrich tags (default)</li>
 <li><code>--no-analyze</code>: skip per-move analysis and use static tags</li>
-<li><code>--protocol|-p &lt;path&gt;</code>: engine protocol TOML file</li>
+<li><code>--protocol-path|-P &lt;path&gt;</code>: engine protocol TOML file</li>
 <li><code>--max-nodes &lt;n&gt;</code>: max nodes per position</li>
 <li><code>--max-duration &lt;duration&gt;</code>: max duration per position (e.g. <code>5s</code>)</li>
 <li><code>--threads &lt;n&gt;</code>: engine threads</li>
@@ -1810,7 +1901,7 @@ crtk engine builtin --lc0 --weights models/leela_112planes-10blocksx128-policyhe
 <li><code>--include-fen</code>: emit JSON with FEN and summary</li>
 <li><code>--max-new &lt;n&gt;</code>: max generated tokens (default <code>128</code>)</li>
 <li><code>--analyze</code>: run engine analysis to enrich tags</li>
-<li><code>--protocol|-p &lt;path&gt;</code>: engine protocol TOML file</li>
+<li><code>--protocol-path|-P &lt;path&gt;</code>: engine protocol TOML file</li>
 <li><code>--max-nodes &lt;n&gt;</code>: max nodes per position</li>
 <li><code>--max-duration &lt;duration&gt;</code>: max duration per position (e.g. <code>5s</code>)</li>
 <li><code>--multipv &lt;n&gt;</code>: number of PVs</li>
@@ -1828,6 +1919,11 @@ crtk engine builtin --lc0 --weights models/leela_112planes-10blocksx128-policyhe
 <li><code>--format &lt;uci|san|both&gt;</code>: output format (default <code>uci</code>)</li>
 <li><code>--san</code>: output SAN instead of UCI</li>
 <li><code>--both</code>: output UCI + SAN per move</li>
+<li><code>--json</code>: emit a JSON array of move objects</li>
+<li><code>--jsonl</code>: emit one move JSON object per line</li>
+<li><code>--fields &lt;uci|san|both|uci,san&gt;</code>: select output fields</li>
+<li><code>--no-header</code>: accepted for script-friendly consistency</li>
+<li><code>--quiet</code>: suppress non-row chatter where supported</li>
 <li><code>--verbose|-v</code>: print stack traces on failure</li>
 </ul>
 <h2 id="chapter-command-reference-move-uci"><code>move uci</code></h2>
@@ -1835,6 +1931,11 @@ crtk engine builtin --lc0 --weights models/leela_112planes-10blocksx128-policyhe
 <p>Options:</p>
 <ul>
 <li><code>--fen &quot;&lt;FEN...&gt;&quot;</code>: FEN string (or pass it positionally)</li>
+<li><code>--json</code>: emit a JSON array of move objects</li>
+<li><code>--jsonl</code>: emit one move JSON object per line</li>
+<li><code>--fields &lt;uci|san|both|uci,san&gt;</code>: select output fields</li>
+<li><code>--no-header</code>: accepted for script-friendly consistency</li>
+<li><code>--quiet</code>: suppress non-row chatter where supported</li>
 <li><code>--verbose|-v</code>: print stack traces on failure</li>
 </ul>
 <h2 id="chapter-command-reference-move-san"><code>move san</code></h2>
@@ -1842,6 +1943,11 @@ crtk engine builtin --lc0 --weights models/leela_112planes-10blocksx128-policyhe
 <p>Options:</p>
 <ul>
 <li><code>--fen &quot;&lt;FEN...&gt;&quot;</code>: FEN string (or pass it positionally)</li>
+<li><code>--json</code>: emit a JSON array of move objects</li>
+<li><code>--jsonl</code>: emit one move JSON object per line</li>
+<li><code>--fields &lt;uci|san|both|uci,san&gt;</code>: select output fields</li>
+<li><code>--no-header</code>: accepted for script-friendly consistency</li>
+<li><code>--quiet</code>: suppress non-row chatter where supported</li>
 <li><code>--verbose|-v</code>: print stack traces on failure</li>
 </ul>
 <h2 id="chapter-command-reference-move-both"><code>move both</code></h2>
@@ -1849,6 +1955,11 @@ crtk engine builtin --lc0 --weights models/leela_112planes-10blocksx128-policyhe
 <p>Options:</p>
 <ul>
 <li><code>--fen &quot;&lt;FEN...&gt;&quot;</code>: FEN string (or pass it positionally)</li>
+<li><code>--json</code>: emit a JSON array of move objects</li>
+<li><code>--jsonl</code>: emit one move JSON object per line</li>
+<li><code>--fields &lt;uci|san|both|uci,san&gt;</code>: select output fields</li>
+<li><code>--no-header</code>: accepted for script-friendly consistency</li>
+<li><code>--quiet</code>: suppress non-row chatter where supported</li>
 <li><code>--verbose|-v</code>: print stack traces on failure</li>
 </ul>
 <h2 id="chapter-command-reference-move-to-san"><code>move to-san</code></h2>
@@ -1861,6 +1972,10 @@ crtk engine builtin --lc0 --weights models/leela_112planes-10blocksx128-policyhe
 <ul>
 <li><code>--fen &quot;&lt;FEN...&gt;&quot;</code>: FEN string (or pass it positionally)</li>
 <li><code>&lt;move&gt;</code>: UCI move token (e.g. <code>e2e4</code>, <code>a7a8q</code>)</li>
+<li><code>--json</code>: emit one JSON object</li>
+<li><code>--jsonl</code>: emit one JSON object line</li>
+<li><code>--no-header</code>: accepted for script-friendly consistency</li>
+<li><code>--quiet</code>: suppress non-row chatter where supported</li>
 <li><code>--verbose|-v</code>: print stack traces on failure</li>
 </ul>
 <h2 id="chapter-command-reference-move-to-uci"><code>move to-uci</code></h2>
@@ -1873,6 +1988,10 @@ crtk engine builtin --lc0 --weights models/leela_112planes-10blocksx128-policyhe
 <ul>
 <li><code>--fen &quot;&lt;FEN...&gt;&quot;</code>: FEN string (or pass it positionally)</li>
 <li><code>&lt;move&gt;</code>: SAN move token (e.g. <code>Nf3</code>, <code>exd5</code>, <code>O-O</code>)</li>
+<li><code>--json</code>: emit one JSON object</li>
+<li><code>--jsonl</code>: emit one JSON object line</li>
+<li><code>--no-header</code>: accepted for script-friendly consistency</li>
+<li><code>--quiet</code>: suppress non-row chatter where supported</li>
 <li><code>--verbose|-v</code>: print stack traces on failure</li>
 </ul>
 <h2 id="chapter-command-reference-move-after"><code>move after</code></h2>
@@ -1885,6 +2004,10 @@ crtk engine builtin --lc0 --weights models/leela_112planes-10blocksx128-policyhe
 <ul>
 <li><code>--fen &quot;&lt;FEN...&gt;&quot;</code>: FEN string (or pass it positionally)</li>
 <li><code>&lt;move&gt;</code>: move token (UCI or SAN)</li>
+<li><code>--json</code>: emit one JSON object</li>
+<li><code>--jsonl</code>: emit one JSON object line</li>
+<li><code>--no-header</code>: accepted for script-friendly consistency</li>
+<li><code>--quiet</code>: suppress non-row chatter where supported</li>
 <li><code>--verbose|-v</code>: print stack traces on failure</li>
 </ul>
 <h2 id="chapter-command-reference-move-play"><code>move play</code></h2>
@@ -1899,6 +2022,10 @@ crtk engine builtin --lc0 --weights models/leela_112planes-10blocksx128-policyhe
 <li><code>--fen &quot;&lt;FEN...&gt;&quot;</code>: FEN string (or pass it positionally)</li>
 <li><code>&lt;moves...&gt;</code>: move sequence (UCI or SAN)</li>
 <li><code>--intermediate</code>: print intermediate FENs after each move instead of only the final FEN</li>
+<li><code>--json</code>: emit one JSON object</li>
+<li><code>--jsonl</code>: emit one JSON object line, or one per ply with <code>--intermediate</code></li>
+<li><code>--no-header</code>: accepted for script-friendly consistency</li>
+<li><code>--quiet</code>: suppress non-row chatter where supported</li>
 <li><code>--verbose|-v</code>: print stack traces on failure</li>
 </ul>
 <h2 id="chapter-command-reference-fen-normalize"><code>fen normalize</code></h2>
@@ -1906,6 +2033,11 @@ crtk engine builtin --lc0 --weights models/leela_112planes-10blocksx128-policyhe
 <p>Options:</p>
 <ul>
 <li><code>--fen &quot;&lt;FEN...&gt;&quot;</code>: FEN string (or pass it positionally)</li>
+<li><code>--stdin</code>: read one FEN per non-blank stdin line</li>
+<li><code>--json</code>: emit one JSON object, or an array for multiple rows</li>
+<li><code>--jsonl</code>: emit one JSON object per row</li>
+<li><code>--no-header</code>: accepted for script-friendly consistency</li>
+<li><code>--quiet</code>: suppress non-row chatter where supported</li>
 <li><code>--verbose|-v</code>: print stack traces on failure</li>
 </ul>
 <h2 id="chapter-command-reference-fen-validate"><code>fen validate</code></h2>
@@ -1913,6 +2045,11 @@ crtk engine builtin --lc0 --weights models/leela_112planes-10blocksx128-policyhe
 <p>Options:</p>
 <ul>
 <li><code>--fen &quot;&lt;FEN...&gt;&quot;</code>: FEN string (or pass it positionally)</li>
+<li><code>--stdin</code>: read one FEN per non-blank stdin line</li>
+<li><code>--json</code>: emit one JSON object, or an array for multiple rows</li>
+<li><code>--jsonl</code>: emit one JSON object per row</li>
+<li><code>--no-header</code>: accepted for script-friendly consistency</li>
+<li><code>--quiet</code>: suppress non-row chatter where supported</li>
 <li><code>--verbose|-v</code>: print stack traces on failure</li>
 </ul>
 <h2 id="chapter-command-reference-engine-analyze"><code>engine analyze</code></h2>
@@ -2013,6 +2150,79 @@ crtk engine builtin --lc0 --weights models/leela_112planes-10blocksx128-policyhe
 <li><code>--wdl|--no-wdl</code>: enable/disable WDL output</li>
 <li><code>--verbose|-v</code>: print stack traces on failure</li>
 </ul>
+<h2 id="chapter-command-reference-engine-analyze-batch"><code>engine analyze-batch</code></h2>
+<p>Analyze a FEN batch with an external UCI engine and emit machine-readable rows. The default output is JSONL so the command can feed long-running automation pipelines. Use <code>--json</code> when a single JSON array is easier to consume.</p>
+<p>Each successful row includes <code>ok</code>, <code>index</code>, normalized <code>fen</code>, <code>engine</code>, and a <code>pv</code> array. Each PV object includes the best move in UCI/SAN, evaluation, depths, nodes, NPS, elapsed time, WDL/bound labels, and PV line in UCI/SAN. Invalid FEN rows are emitted as <code>ok:false</code> rows instead of aborting the batch.</p>
+<p>Options:</p>
+<ul>
+<li><code>--input|-i &lt;path&gt;</code>: FEN list file</li>
+<li><code>--stdin</code>: read one FEN per non-blank stdin line</li>
+<li><code>--fen &quot;&lt;FEN...&gt;&quot;</code>, <code>--startpos</code>, <code>--randompos</code>: single-position selectors</li>
+<li><code>--output|-o &lt;path&gt;</code>: write rows to a file instead of stdout</li>
+<li><code>--json</code>: emit one JSON array</li>
+<li><code>--jsonl</code>: emit one JSON object per line (default)</li>
+<li><code>--protocol-path|-P &lt;toml&gt;</code>: override <code>Config.getProtocolPath()</code></li>
+<li><code>--max-nodes|--nodes &lt;n&gt;</code>: override <code>Config.getMaxNodes()</code></li>
+<li><code>--max-duration &lt;dur&gt;</code>: override <code>Config.getMaxDuration()</code></li>
+<li><code>--multipv &lt;n&gt;</code>: set engine MultiPV</li>
+<li><code>--threads &lt;n&gt;</code>: set engine thread count</li>
+<li><code>--hash &lt;mb&gt;</code>: set engine hash size</li>
+<li><code>--wdl|--no-wdl</code>: enable/disable WDL output</li>
+<li><code>--verbose|-v</code>: print stack traces on failure</li>
+</ul>
+<h2 id="chapter-command-reference-engine-bestmove-batch"><code>engine bestmove-batch</code></h2>
+<p>Run best-move searches for a FEN batch and emit one JSON object per position by default. This is the compact batch counterpart to <code>engine bestmove</code>.</p>
+<p>Options:</p>
+<ul>
+<li><code>--input|-i &lt;path&gt;</code>: FEN list file</li>
+<li><code>--stdin</code>: read one FEN per non-blank stdin line</li>
+<li><code>--fen &quot;&lt;FEN...&gt;&quot;</code>, <code>--startpos</code>, <code>--randompos</code>: single-position selectors</li>
+<li><code>--output|-o &lt;path&gt;</code>: write rows to a file instead of stdout</li>
+<li><code>--json</code>: emit one JSON array</li>
+<li><code>--jsonl</code>: emit one JSON object per line (default)</li>
+<li><code>--protocol-path|-P &lt;toml&gt;</code>: override <code>Config.getProtocolPath()</code></li>
+<li><code>--max-nodes|--nodes &lt;n&gt;</code>: override <code>Config.getMaxNodes()</code></li>
+<li><code>--max-duration &lt;dur&gt;</code>: override <code>Config.getMaxDuration()</code></li>
+<li><code>--threads &lt;n&gt;</code>: set engine thread count</li>
+<li><code>--hash &lt;mb&gt;</code>: set engine hash size</li>
+<li><code>--wdl|--no-wdl</code>: enable/disable WDL output</li>
+<li><code>--verbose|-v</code>: print stack traces on failure</li>
+</ul>
+<h2 id="chapter-command-reference-engine-compare"><code>engine compare</code></h2>
+<p>Compare the best move from two UCI protocol files over the same FEN input. Text output shows a compact row table and summary. <code>--json</code> emits a JSON object with <code>rows</code> and <code>summary</code>; <code>--jsonl</code> emits one comparison row per line.</p>
+<p>Options:</p>
+<ul>
+<li><code>--input|-i &lt;path&gt;</code>: FEN list file</li>
+<li><code>--stdin</code>: read one FEN per non-blank stdin line</li>
+<li><code>--fen &quot;&lt;FEN...&gt;&quot;</code>, <code>--startpos</code>, <code>--randompos</code>: single-position selectors</li>
+<li><code>--left-protocol &lt;path&gt;</code> / <code>--protocol-a &lt;path&gt;</code>: left protocol TOML</li>
+<li><code>--right-protocol &lt;path&gt;</code> / <code>--protocol-b &lt;path&gt;</code>: right protocol TOML</li>
+<li><code>--protocol-path|-P &lt;toml&gt;</code>: default protocol when one side is omitted</li>
+<li><code>--output|-o &lt;path&gt;</code>: write output to a file instead of stdout</li>
+<li><code>--json</code>: emit one JSON object with rows and summary</li>
+<li><code>--jsonl</code>: emit one JSON object per comparison row</li>
+<li><code>--max-nodes|--nodes &lt;n&gt;</code>: max nodes per engine per position</li>
+<li><code>--max-duration &lt;dur&gt;</code>: max duration per engine per position</li>
+<li><code>--multipv &lt;n&gt;</code>: set engine MultiPV</li>
+<li><code>--threads &lt;n&gt;</code>: set engine thread count</li>
+<li><code>--hash &lt;mb&gt;</code>: set engine hash size</li>
+<li><code>--wdl|--no-wdl</code>: enable/disable WDL output</li>
+<li><code>--verbose|-v</code>: print stack traces on failure</li>
+</ul>
+<h2 id="chapter-command-reference-engine-benchmark"><code>engine benchmark</code></h2>
+<p>Benchmark the in-process Java move generator by running detailed perft for a position repeatedly. This command does not start an external engine.</p>
+<p>Options:</p>
+<ul>
+<li><code>--fen &quot;&lt;FEN...&gt;&quot;</code>: FEN string (or pass it positionally; defaults to start position)</li>
+<li><code>--startpos</code>: use the standard chess start position explicitly</li>
+<li><code>--randompos</code>: use one reachable random legal standard-chess position</li>
+<li><code>--depth|-d &lt;n&gt;</code>: perft depth (default: 4)</li>
+<li><code>--iterations &lt;n&gt;</code>: repetitions (default: 3)</li>
+<li><code>--threads &lt;n&gt;</code>: worker threads for legal root moves (default: 1)</li>
+<li><code>--json</code>: emit one JSON object</li>
+<li><code>--jsonl</code>: emit one JSON object line</li>
+<li><code>--verbose|-v</code>: print stack traces on failure</li>
+</ul>
 <h2 id="chapter-command-reference-engine-perft"><code>engine perft</code></h2>
 <p>Run detailed perft on a position using the Java-native <code>chess.core</code> move generator. The output includes leaf nodes, captures, en-passant captures, castles, promotions, checks, checkmates, elapsed time, and nodes per second. When no position selector is provided, the command defaults to the standard start position.</p>
 <p>Options:</p>
@@ -2036,6 +2246,26 @@ crtk engine builtin --lc0 --weights models/leela_112planes-10blocksx128-policyhe
 <ul>
 <li><code>--depth|-d &lt;n&gt;</code>: depth to validate, 1 through 6 (default: 6)</li>
 <li><code>--threads &lt;n&gt;</code>: worker threads for independent positions (default: 1)</li>
+<li><code>--suite &lt;path&gt;</code>: custom tab-delimited suite file</li>
+</ul>
+<p>Custom suite rows may be any of:</p>
+<ul>
+<li><code>name&lt;TAB&gt;depth&lt;TAB&gt;fen&lt;TAB&gt;nodes</code></li>
+<li><code>fen&lt;TAB&gt;depth&lt;TAB&gt;nodes</code></li>
+<li><code>name&lt;TAB&gt;fen&lt;TAB&gt;nodes</code> (uses <code>--depth</code>, default 1)</li>
+<li><code>fen&lt;TAB&gt;nodes</code> (uses <code>--depth</code>, default 1)</li>
+</ul>
+<h2 id="chapter-command-reference-position-diff"><code>position diff</code></h2>
+<p>Compare two FEN positions and print changed state fields plus changed board squares. Text output uses one diff per line. <code>--json</code> and <code>--jsonl</code> emit one object with <code>equal</code>, <code>left</code>, <code>right</code>, <code>state</code>, and <code>board</code> fields.</p>
+<p>Options:</p>
+<ul>
+<li><code>--fen &quot;&lt;FEN...&gt;&quot;</code>: left/input FEN</li>
+<li><code>--other &quot;&lt;FEN...&gt;&quot;</code>: right/comparison FEN</li>
+<li><code>--right &quot;&lt;FEN...&gt;&quot;</code>: alias for <code>--other</code></li>
+<li>positional <code>LEFT_FEN RIGHT_FEN</code>: quote each FEN</li>
+<li><code>--json</code>: emit one JSON object</li>
+<li><code>--jsonl</code>: emit one JSON object line</li>
+<li><code>--verbose|-v</code>: print stack traces on failure</li>
 </ul>
 <h2 id="chapter-command-reference-doctor"><code>doctor</code></h2>
 <p>Check the local Java runtime, main config file, configured engine protocol, engine executable discovery, model paths, and output directory path. Missing model files are warnings because models are optional local artifacts.</p>
@@ -2062,7 +2292,7 @@ crtk engine builtin --lc0 --weights models/leela_112planes-10blocksx128-policyhe
 <li><code>--fen &quot;&lt;FEN...&gt;&quot;</code>: FEN string (or pass it positionally)</li>
 <li><code>--lc0</code>: force LC0 evaluation and fail if LC0 cannot run</li>
 <li><code>--classical</code>: force classical evaluation</li>
-<li><code>--weights &lt;path&gt;</code>: LC0J <code>.bin</code> weights path (optional)</li>
+<li><code>--weights &lt;path&gt;</code>: ChessRTK LC0 CNN <code>.bin</code> weights path (optional)</li>
 <li><code>--terminal-aware</code>: use terminal-aware classical evaluation</li>
 <li><code>--verbose|-v</code>: print stack traces on failure</li>
 </ul>
@@ -2083,6 +2313,20 @@ crtk engine builtin --lc0 --weights models/leela_112planes-10blocksx128-policyhe
 </ul>
 <h2 id="chapter-command-reference-help"><code>help</code></h2>
 <p>Print the built-in usage text.</p>
+<p>Options:</p>
+<ul>
+<li><code>--full</code>: show full built-in command reference</li>
+<li><code>&lt;command&gt;</code>: show help for one command path</li>
+</ul>
+<h2 id="chapter-command-reference-version"><code>version</code></h2>
+<p>Print ChessRTK version metadata for scripts and release checks.</p>
+<p>Options:</p>
+<ul>
+<li><code>--json</code>: emit one JSON object</li>
+<li><code>--jsonl</code>: emit one JSON object line</li>
+<li><code>--no-header</code>: accepted for script-friendly consistency</li>
+<li><code>--quiet</code>: suppress non-row chatter where supported</li>
+</ul>
   </div>
 </section>
 
@@ -2279,7 +2523,10 @@ crtk engine builtin --lc0 --weights models/leela_112planes-10blocksx128-policyhe
 <p><code>native/cuda/</code>, <code>native/rocm/</code>, or <code>native/oneapi/</code> and run with <code>-Djava.library.path=...</code>.</p>
 <h2 id="chapter-troubleshooting-engine-builtin-nnue-says-default-weights-are-missing"><code>engine builtin --nnue</code> says default weights are missing</h2>
 <ul>
-<li>Run <code>./install.sh --models</code> to download <code>models/crtk-halfkp.nnue</code> and the bundled LC0 weights.</li>
+<li>Run <code>./install.sh --models</code> to download <code>models/crtk-halfkp.nnue</code>, the</li>
+</ul>
+<p>ChessRTK LC0 CNN <code>.bin</code> weights, and the official LC0 BT4 <code>.pb.gz</code> network.</p>
+<ul>
 <li>Or pass <code>--weights /path/to/file.nnue</code> explicitly. Supported Stockfish NNUE files work here too.</li>
 </ul>
 <h2 id="chapter-troubleshooting-cover-dimensions-do-not-match-the-upload-form">Cover dimensions do not match the upload form</h2>
@@ -2308,9 +2555,9 @@ crtk engine builtin --lc0 --weights models/leela_112planes-10blocksx128-policyhe
 </ul>
 <p><code>config/default.engine.toml</code> for <code>engine analyze</code>, <code>engine bestmove</code>, <code>engine threats</code>, <code>engine uci-smoke</code>, and puzzle mining</p>
 <ul>
-<li>Optional: local model weights under <code>models/</code> for LC0, NNUE, and T5-backed</li>
+<li>Optional: local model weights under <code>models/</code> for LC0, BT4, NNUE, and</li>
 </ul>
-<p>evaluator/text workflows</p>
+<p>T5-backed evaluator/text workflows</p>
 <h2 id="chapter-build-and-install-debian-ubuntu-packages">Debian/Ubuntu packages</h2>
 <p>Minimal install (build + run):</p>
 <pre><code class="language-bash">sudo apt-get update &amp;&amp; sudo apt-get install -y \
@@ -2329,6 +2576,7 @@ crtk engine builtin --lc0 --weights models/leela_112planes-10blocksx128-policyhe
 <li><code>git</code> is included so a fresh machine can <code>git clone</code> this repo (and <code>ca-certificates</code> enables HTTPS downloads).</li>
 <li><code>nvidia-cuda-toolkit</code> is large and only needed to build the optional CUDA JNI backend under <code>native/cuda/</code>.</li>
 </ul>
+<p>ROCm/HIP and oneAPI builds use their vendor toolchains instead.</p>
 <h2 id="chapter-build-and-install-build-no-maven-gradle">Build (no Maven/Gradle)</h2>
 <pre><code class="language-bash">mkdir -p out
 javac --release 17 -d out $(find src -name &quot;*.java&quot;)</code></pre>
@@ -2368,22 +2616,25 @@ java -jar crtk.jar help</code></pre>
 <p><code>./install.sh</code> is a convenience installer that:</p>
 <ul>
 <li>optionally installs OpenJDK 17 and Stockfish via <code>apt-get</code></li>
-<li>optionally downloads NNUE and LC0 model weights into <code>models/</code></li>
+<li>optionally downloads NNUE, LC0 CNN, and official LC0 BT4 model artifacts into <code>models/</code></li>
 <li>compiles sources and builds <code>crtk.jar</code></li>
 <li>installs a launcher at <code>/usr/local/bin/crtk</code> that runs from this repo</li>
-<li>optionally builds the CUDA JNI backend under <code>native/cuda/</code> (if you have the CUDA toolkit)</li>
+<li>optionally builds CUDA, ROCm/HIP, and oneAPI JNI backends when their vendor</li>
 </ul>
-<p>Downloaded <code>models/*.bin</code> files are local artifacts and are ignored by git.</p>
+<p>toolchains are available</p>
+<p>Downloaded <code>models/<em>.bin</code>, <code>models/</em>.pb.gz</code>, and <code>models/*.nnue</code> files are local artifacts and are ignored by git.</p>
 <pre><code class="language-bash">./install.sh
 crtk help</code></pre>
 <p>Fetch optional model weights without prompting:</p>
 <pre><code class="language-bash">./install.sh --models</code></pre>
 <p>Skip model weight downloads:</p>
 <pre><code class="language-bash">./install.sh --no-models</code></pre>
-<p>Skip the CUDA backend build:</p>
-<pre><code class="language-bash">./install.sh --no-cuda</code></pre>
-<p>Force the CUDA backend build (installs missing CUDA build deps on Debian/Ubuntu):</p>
-<pre><code class="language-bash">./install.sh --cuda</code></pre>
+<p>Skip native GPU backend builds:</p>
+<pre><code class="language-bash">./install.sh --no-cuda --no-rocm --no-oneapi</code></pre>
+<p>Force a native GPU backend build:</p>
+<pre><code class="language-bash">./install.sh --cuda
+./install.sh --rocm
+./install.sh --oneapi</code></pre>
 <h2 id="chapter-build-and-install-update">Update</h2>
 <p>Update the current git checkout with a fast-forward pull and rerun the installer:</p>
 <pre><code class="language-bash">./scripts/update.sh</code></pre>
@@ -2415,9 +2666,9 @@ crtk help</code></pre>
 </ul>
 <p>engine commands (default <code>config/default.engine.toml</code>)</p>
 <ul>
-<li><code>lc0-model-path</code>: default local LC0J <code>.bin</code> weights path for evaluator-backed</li>
+<li><code>lc0-model-path</code>: default local ChessRTK LC0 CNN <code>.bin</code> weights path for</li>
 </ul>
-<p>commands/features (default <code>models/leela_112planes-10blocksx128-policyhead80-valuehead32-policy4672-wdl3.bin</code>; fetch with <code>./install.sh --models</code>)</p>
+<p>evaluator-backed commands/features (default <code>models/leela_112planes-10blocksx128-policyhead80-valuehead32-policy4672-wdl3.bin</code>; fetch with <code>./install.sh --models</code>)</p>
 <ul>
 <li><code>t5-model-path</code>: default local T5 <code>.bin</code> path used by <code>fen text</code> / <code>puzzle text</code> when <code>--model</code> is omitted (default <code>models/t5.bin</code>)</li>
 <li><code>output</code>: default output root for <code>puzzle mine</code> (default <code>dump/</code>)</li>
@@ -2432,7 +2683,10 @@ crtk help</code></pre>
 <p>Notes:</p>
 <ul>
 <li>CLI flags override TOML values for a single run.</li>
-<li>Model binaries are not committed; local <code>models/*.bin</code> files are ignored by git.</li>
+<li>Model binaries are not committed; local <code>models/<em>.bin</code>, <code>models/</em>.pb.gz</code>,</li>
+</ul>
+<p>and <code>models/*.nnue</code> files are ignored by git.</p>
+<ul>
 <li>For <code>puzzle mine --output</code>, a directory produces timestamped outputs; a file-like root ending in <code>.json</code>/<code>.jsonl</code> produces <code>&lt;stem&gt;.puzzles.json</code> and <code>&lt;stem&gt;.nonpuzzles.json</code>.</li>
 </ul>
 <h3 id="chapter-configuration-switching-to-the-included-lc0-tuned-defaults">Switching to the included Lc0-tuned defaults</h3>
@@ -2467,9 +2721,9 @@ crtk help</code></pre>
 </ul>
 <p>default NNUE model path; <code>./install.sh --models</code> populates that default. If neither exists, it fails with a missing-weights error.</p>
 <ul>
-<li><code>engine builtin --lc0</code> loads LC0J <code>.bin</code> weights from <code>--weights</code>, or from</li>
+<li><code>engine builtin --lc0</code> loads ChessRTK LC0 CNN <code>.bin</code> weights from</li>
 </ul>
-<p><code>lc0-model-path</code>.</p>
+<p><code>--weights</code>, or from <code>lc0-model-path</code>.</p>
 <ul>
 <li><code>engine eval</code> prefers the Java LC0 evaluator and falls back to classical</li>
 </ul>
@@ -2536,7 +2790,7 @@ crtk engine builtin --evaluator lc0 --weights models/leela_112planes-10blocksx12
 </ul>
 <p>or an explicit <code>--weights</code> path. <code>./install.sh --models</code> installs the default file. If the default file is absent, <code>--nnue</code> fails with a missing-weights error instead of silently using the smoke-test fallback.</p>
 <ul>
-<li><code>lc0</code>: pure-Java LC0 value evaluator using the configured LC0J model path by</li>
+<li><code>lc0</code>: pure-Java LC0 value evaluator using the configured LC0 CNN model path by</li>
 </ul>
 <p>default, or an explicit <code>--weights</code> path.</p>
 <p>The evaluator is used as the static score at the search frontier. The engine search itself is still a classical alpha-beta search; choosing <code>--lc0</code> does not turn the engine into an LC0-style MCTS engine. LC0 evaluation is much more expensive than the handcrafted evaluator, so high alpha-beta depths with <code>--lc0</code> can take a long time.</p>
@@ -2645,13 +2899,23 @@ crtk engine analyze --fen &quot;&lt;FEN&gt;&quot; --multipv 3 --max-nodes 100000
 <ol>
 <li>A Java LC0 value evaluator for <code>engine eval</code>, <code>engine builtin --lc0</code>,</li>
 </ol>
-<p>board display, and ablation overlays, using LC0J <code>.bin</code> weights.</p>
-<p>Model weights are not checked into this repo. Local <code>models/*.bin</code> files are gitignored; fetch the default LC0J weights with <code>./install.sh --models</code> or download them manually from <code>models/README.md</code>.</p>
+<p>board display, and ablation overlays, using ChessRTK LC0 CNN <code>.bin</code> weights.</p>
+<ol>
+<li>A Java/native LC0 BT4 architecture under <code>src/chess/nn/lc0/bt4/</code> for</li>
+</ol>
+<p>attention-body model integration and backend checks.</p>
+<p>Model weights are not checked into this repo. Local <code>models/<em>.bin</code>, <code>models/</em>.pb.gz</code>, and <code>models/*.nnue</code> files are gitignored; fetch the default LC0 CNN and official LC0 BT4 weights with <code>./install.sh --models</code> or download them manually from <code>models/README.md</code>.</p>
 <h2 id="chapter-lc0-lc0-as-a-uci-engine">LC0 as a UCI Engine</h2>
 <p>If your engine protocol points to <code>lc0</code> (see <code>config/lc0.engine.toml</code>), you typically also need to set:</p>
 <pre><code class="language-toml">setup = [
   # ...
   &quot;setoption name WeightsFile value /path/to/network.pb.gz&quot;,
+]</code></pre>
+<p>The default model download includes the official LCZero BT4 network:</p>
+<pre><code class="language-text">models/BT4-1024x15x32h-swa-6147500-policytune-332.pb.gz</code></pre>
+<p>It is the upstream LC0 protobuf gzip format, not a ChessRTK <code>.bin</code> file. Use it with LC0&#x27;s own <code>WeightsFile</code> option, for example:</p>
+<pre><code class="language-toml">setup = [
+  &quot;setoption name WeightsFile value models/BT4-1024x15x32h-swa-6147500-policytune-332.pb.gz&quot;,
 ]</code></pre>
 <p>Recommended workflow:</p>
 <ol>
@@ -2669,13 +2933,13 @@ crtk engine analyze --fen &quot;&lt;FEN&gt;&quot; --multipv 3 --max-nodes 100000
 crtk engine analyze --fen &quot;&lt;FEN&gt;&quot; --max-duration 10s --multipv 3
 crtk engine bestmove --fen &quot;&lt;FEN&gt;&quot; --format both --max-duration 5s
 crtk puzzle mine --input seeds.txt --output dump/lc0.json --engine-instances 2</code></pre>
-<h2 id="chapter-lc0-java-lc0-evaluator">Java LC0 Evaluator</h2>
+<h2 id="chapter-lc0-java-lc0-cnn-evaluator">Java LC0 CNN Evaluator</h2>
 <p><img src="assets/diagrams/crtk-lc0-cnn.png" alt="LC0 CNN evaluator flow" loading="lazy"></p>
 <p>Diagram source: <code>assets/diagrams/crtk-lc0-cnn.dot</code> (render with <code>dot -Tpng -Gdpi=160 -o assets/diagrams/crtk-lc0-cnn.png assets/diagrams/crtk-lc0-cnn.dot</code>).</p>
-<p>The Java evaluator lives under <code>src/chess/nn/lc0/</code> and is used by LC0-aware evaluation, display, and dataset paths.</p>
+<p>The Java CNN evaluator lives under <code>src/chess/nn/lc0/cnn/</code> and is used by LC0-aware evaluation, display, and dataset paths.</p>
 <p>Defaults:</p>
 <ul>
-<li>weights path: <code>models/leela_112planes-10blocksx128-policyhead80-valuehead32-policy4672-wdl3.bin</code> (<code>chess.nn.lc0.Model.DEFAULT_WEIGHTS</code>)</li>
+<li>weights path: <code>models/leela_112planes-10blocksx128-policyhead80-valuehead32-policy4672-wdl3.bin</code> (<code>chess.nn.lc0.cnn.Model.DEFAULT_WEIGHTS</code>)</li>
 <li>backend: <code>auto</code>, which uses an available native GPU backend before falling</li>
 </ul>
 <p>back to the pure Java CPU evaluator</p>
@@ -2696,7 +2960,13 @@ crtk puzzle mine --input seeds.txt --output dump/lc0.json --engine-instances 2</
 <p>Check native GPU backend availability:</p>
 <pre><code class="language-bash">crtk engine gpu</code></pre>
 <h3 id="chapter-lc0-native-gpu-backends-optional">Native GPU Backends (Optional)</h3>
-<p>The LC0 Java evaluator can run on the pure Java CPU backend with no native library. Optional JNI backends are available for CUDA, ROCm/HIP, and oneAPI. Use <code>-Djava.library.path=...</code> to point Java at the backend build directory and <code>-Dcrtk.lc0.backend=...</code> to force a backend. Leaving the backend as <code>auto</code> chooses the first available native backend and then falls back to CPU.</p>
+<p>The LC0 Java CNN and BT4 paths can run on the pure Java CPU backend with no native library. Optional JNI backends are available for CUDA, ROCm/HIP, and oneAPI. The shared native LC0 libraries are named:</p>
+<ul>
+<li><code>liblc0_cuda.so</code></li>
+<li><code>liblc0_rocm.so</code></li>
+<li><code>liblc0_oneapi.so</code></li>
+</ul>
+<p>Use <code>-Djava.library.path=...</code> to point Java at the backend build directory and <code>-Dcrtk.lc0.backend=...</code> to force a backend. BT4 can also be forced separately with <code>-Dcrtk.lc0.bt4.backend=...</code>. Leaving the backend as <code>auto</code> chooses the first available native backend and then falls back to CPU.</p>
 <p>CUDA build example:</p>
 <p>Build the JNI library:</p>
 <pre><code class="language-bash">cmake -S native/cuda -B native/cuda/build -DCMAKE_BUILD_TYPE=Release
@@ -2707,6 +2977,15 @@ cmake --build native/cuda/build -j</code></pre>
   -Dcrtk.lc0.backend=cuda \
   application.Main fen display --fen &quot;&lt;FEN&gt;&quot; --ablation --show-backend</code></pre>
 <p>See <code>native/cuda/README.md</code>, <code>native/rocm/README.md</code>, and <code>native/oneapi/README.md</code> for backend-specific build notes.</p>
+<h2 id="chapter-lc0-java-lc0-bt4-architecture">Java LC0 BT4 Architecture</h2>
+<p>BT4 support lives under <code>src/chess/nn/lc0/bt4/</code>. It includes:</p>
+<ul>
+<li>LC0 112-plane BT4 input encoding</li>
+<li>attention-policy compression to 1,858 logits</li>
+<li>a Java CPU reference forward path</li>
+<li>optional CUDA, ROCm/HIP, and oneAPI JNI backends</li>
+</ul>
+<p>The Java BT4 loader reads ChessRTK&#x27;s compact <code>.bin</code> integration format. Official LC0 <code>.pb.gz</code> transformer networks, including the default BT4 download, should be used through the external LC0 UCI engine unless a converter is added.</p>
   </div>
 </section>
 
@@ -3100,7 +3379,7 @@ leaf[gate=OR;eval&lt;0;leaf[break=2;eval&gt;-300]];</code></pre>
 <li><code>&lt;stem&gt;.lc0.meta.json</code> with policy encoding, compression, value scale, and</li>
 </ul>
 <p>source metadata</p>
-<p>Policy rows are one-hot. If <code>--weights</code> is supplied, ChessRTK reads the LC0J weights policy map and compresses policy targets to the network&#x27;s policy size. Without weights, the raw 73-plane policy size (<code>4672</code>) is used.</p>
+<p>Policy rows are one-hot. If <code>--weights</code> is supplied, ChessRTK reads the LC0 CNN <code>.bin</code> weights policy map and compresses policy targets to the network&#x27;s policy size. Without weights, the raw 73-plane policy size (<code>4672</code>) is used.</p>
 <pre><code class="language-bash">crtk record dataset lc0 \
   -i dump/run.puzzles.json \
   -o training/lc0/puzzles \
@@ -3151,7 +3430,7 @@ crtk record dataset classifier \
   --recursive \
   --max-records 100000</code></pre>
 <h2 id="chapter-datasets-puzzle-jsonl-record-export-puzzle-jsonl">Puzzle JSONL: <code>record export puzzle-jsonl</code></h2>
-<p>This command writes puzzle rows with LC0 policy information. It requires LC0J weights because it uses the weights policy map.</p>
+<p>This command writes puzzle rows with LC0 policy information. It requires ChessRTK LC0 CNN <code>.bin</code> weights because it uses the weights policy map.</p>
 <pre><code class="language-bash">crtk record export puzzle-jsonl \
   -i dump/run.puzzles.json \
   -o training/run.puzzle.jsonl \
@@ -3403,10 +3682,11 @@ FACT: status=normal
 MATERIAL: balance=equal
 PIECE: tier=very_strong side=white piece=knight square=f5
 PAWN: structure=passed side=white square=e7
-KING: safety=exposed side=black
-TACTIC: motif=pin side=white piece=bishop square=e2 by=black_rook@e8
-CHECKMATE: pattern=back_rank_mate</code></pre>
+KING: safety=very_unsafe side=black
+TACTIC: motif=pin side=black detail=&quot;pin: black rook e8 pins white bishop e2 to king&quot;
+CHECKMATE: pattern=smothered_mate</code></pre>
 <p>Tags are strings, but they are intentionally structured so they can be sorted, deduplicated, filtered, counted, and converted into text.</p>
+<p>For parser, family, identity, and fixture details, see the <a href="#chapter-tag-reference">Tag Reference</a>.</p>
 <h2 id="chapter-piece-tags-tag-families">Tag Families</h2>
 <div class="table-wrap"><table>
 <thead><tr>
@@ -3553,6 +3833,159 @@ crtk record tag-stats -i dump/run.puzzles.json --top 50</code></pre>
 
 <section class="chapter">
   <p class="chapter-kicker">Workflows · Chapter 20</p>
+  <h1 id="chapter-tag-reference">Tag Reference</h1>
+  <div class="chapter-body">
+    <p>ChessRTK tags are deterministic strings with a family prefix and ordered key/value fields:</p>
+<pre><code class="language-text">FAMILY: key=value key=value</code></pre>
+<p>Values containing whitespace or quotes are quoted and escaped. Tags are sorted and deduplicated by <code>chess.tag.Sort</code>, parsed by <code>chess.tag.Line</code>, and compared by semantic identity for delta output.</p>
+<h2 id="chapter-tag-reference-families">Families</h2>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Family</th>
+<th>Status</th>
+<th>Typical fields</th>
+<th>Notes</th>
+</tr></thead><tbody>
+<tr>
+<td><code>META</code></td>
+<td>emitted</td>
+<td><code>to_move</code>, <code>phase</code>, <code>source</code>, <code>eval_cp</code>, <code>eval_bucket</code>, <code>mate_in</code>, <code>mated_in</code>, <code>wdl</code>, <code>difficulty</code></td>
+<td>Position and analysis metadata.</td>
+</tr>
+<tr>
+<td><code>FACT</code></td>
+<td>emitted</td>
+<td><code>status</code>, <code>in_check</code>, <code>castle_rights</code>, <code>en_passant</code>, <code>center_state</code></td>
+<td>Exact position facts.</td>
+</tr>
+<tr>
+<td><code>MATERIAL</code></td>
+<td>emitted</td>
+<td><code>balance</code>, <code>imbalance</code>, <code>piece_count</code>, <code>side</code>, <code>piece</code>, <code>count</code></td>
+<td>Material balance and imbalances.</td>
+</tr>
+<tr>
+<td><code>MOVE</code></td>
+<td>emitted</td>
+<td><code>legal</code>, <code>captures</code>, <code>checks</code>, <code>mates</code>, <code>promotions</code>, <code>underpromotions</code>, <code>castles</code>, <code>en_passant</code>, <code>quiet</code>, <code>only</code>, <code>forced</code>, <code>evasions</code></td>
+<td>Exact aggregate legal move facts.</td>
+</tr>
+<tr>
+<td><code>CAND</code></td>
+<td>emitted with analysis</td>
+<td><code>role</code>, <code>move</code>, <code>score</code>, <code>wdl</code></td>
+<td>Engine candidate moves.</td>
+</tr>
+<tr>
+<td><code>PV</code></td>
+<td>emitted with analysis</td>
+<td><code>move</code>, <code>line</code>, <code>score</code>, <code>wdl</code></td>
+<td>Principal variation data.</td>
+</tr>
+<tr>
+<td><code>IDEA</code></td>
+<td>inactive</td>
+<td><code>plan</code>, <code>move</code>, <code>side</code></td>
+<td>No current <code>Generator</code> output.</td>
+</tr>
+<tr>
+<td><code>THREAT</code></td>
+<td>emitted</td>
+<td><code>type</code>, <code>side</code></td>
+<td>Current static threat tags focus on promotion threats.</td>
+</tr>
+<tr>
+<td><code>KING</code></td>
+<td>emitted</td>
+<td><code>castled</code>, <code>shelter</code>, <code>safety</code>, <code>side</code></td>
+<td>King state and safety.</td>
+</tr>
+<tr>
+<td><code>PAWN</code></td>
+<td>emitted</td>
+<td><code>structure</code>, <code>side</code>, <code>square</code>, <code>squares</code>, <code>file</code>, <code>islands</code>, <code>majority</code></td>
+<td>Pawn structure and promotion readiness.</td>
+</tr>
+<tr>
+<td><code>PIECE</code></td>
+<td>emitted</td>
+<td><code>tier</code>, <code>activity</code>, <code>extreme</code>, <code>side</code>, <code>piece</code>, <code>square</code></td>
+<td>Piece placement and activity.</td>
+</tr>
+<tr>
+<td><code>TACTIC</code></td>
+<td>emitted</td>
+<td><code>motif</code>, <code>side</code>, <code>move</code>, <code>detail</code>, <code>target</code>, <code>targets</code></td>
+<td>Static tactical motifs and move-specific tactics.</td>
+</tr>
+<tr>
+<td><code>CHECKMATE</code></td>
+<td>emitted</td>
+<td><code>winner</code>, <code>defender</code>, <code>delivery</code>, <code>pattern</code></td>
+<td>Actual mate attributes and conservative named mate patterns. Current status also appears in <code>FACT</code>.</td>
+</tr>
+<tr>
+<td><code>ENDGAME</code></td>
+<td>emitted</td>
+<td><code>type</code></td>
+<td>Material endgame classes.</td>
+</tr>
+<tr>
+<td><code>OPENING</code></td>
+<td>emitted when ECO data matches</td>
+<td><code>eco</code>, <code>name</code></td>
+<td>ECO code and opening label.</td>
+</tr>
+<tr>
+<td><code>SPACE</code></td>
+<td>emitted</td>
+<td><code>side</code>, <code>center_control</code>, <code>space_advantage</code></td>
+<td>Center and space signals.</td>
+</tr>
+<tr>
+<td><code>DEVELOPMENT</code></td>
+<td>emitted</td>
+<td><code>side</code>, <code>state</code></td>
+<td>Development lead and undeveloped-piece signals.</td>
+</tr>
+<tr>
+<td><code>MOBILITY</code></td>
+<td>emitted</td>
+<td><code>side</code>, <code>state</code></td>
+<td>Mobility comparisons and restrictions.</td>
+</tr>
+<tr>
+<td><code>INITIATIVE</code></td>
+<td>emitted</td>
+<td><code>side</code>, <code>state</code></td>
+<td>Tempo and forcing-move signals.</td>
+</tr>
+<tr>
+<td><code>OUTPOST</code></td>
+<td>emitted</td>
+<td><code>side</code>, <code>square</code>, <code>piece</code></td>
+<td>Compatibility family for existing outpost output.</td>
+</tr>
+</tbody></table></div>
+<p><code>MOVE</code> and <code>CHECKMATE</code> are active canonical families emitted by <code>chess.tag.Generator</code>; no compatibility aliases are emitted for older drafts.</p>
+<h2 id="chapter-tag-reference-identity-rules">Identity Rules</h2>
+<p>Delta output compares tags by semantic identity rather than raw text alone. Examples:</p>
+<pre><code class="language-text">META: to_move=white        -&gt; META:to_move
+FACT: status=normal        -&gt; FACT:status
+MOVE: legal=20             -&gt; MOVE:legal
+CHECKMATE: delivery=queen  -&gt; CHECKMATE:delivery
+CHECKMATE: pattern=smothered_mate -&gt; CHECKMATE:pattern:smothered_mate</code></pre>
+<p>Count and single-attribute tags normally keep identity by field key so value changes are reported as changes. Multi-valued concepts such as mate patterns include the value in the identity so separate patterns can coexist.</p>
+<h2 id="chapter-tag-reference-fixture-format">Fixture Format</h2>
+<p>Static tag fixtures live under <code>testdata/tags/</code> as TSV files:</p>
+<pre><code class="language-text">id&lt;TAB&gt;fen&lt;TAB&gt;must_contain_tags&lt;TAB&gt;must_not_contain_tags</code></pre>
+<p>Tag columns use semicolons to separate exact tag strings. Run the fixture suite with:</p>
+<pre><code class="language-bash">./scripts/run_regression_suite.sh core</code></pre>
+  </div>
+</section>
+
+<section class="chapter">
+  <p class="chapter-kicker">Workflows · Chapter 21</p>
   <h1 id="chapter-t5">T5 Text</h1>
   <div class="chapter-body">
     <p>ChessRTK includes a no-deps T5 runtime that turns tag lists into short prose summaries. It expects a custom <code>.bin</code> export and uses the same tag vocabulary as <code>crtk fen tags</code>.</p>
@@ -3573,7 +4006,7 @@ crtk fen text -i seeds.txt --model models/t5.bin --include-fen</code></pre>
 <li><code>--include-fen</code>: emit JSON with <code>fen</code> and <code>summary</code>.</li>
 <li><code>--analyze</code>: enrich tags with engine analysis before summarization.</li>
 <li><code>--max-new &lt;n&gt;</code>: cap generated tokens, default <code>128</code>.</li>
-<li><code>--protocol|-p</code>, <code>--max-nodes</code>, <code>--max-duration</code>, <code>--multipv</code>, <code>--threads</code>, <code>--hash</code>, <code>--wdl</code>, <code>--no-wdl</code>: engine options used with <code>--analyze</code>.</li>
+<li><code>--protocol-path|-P</code>, <code>--max-nodes</code>, <code>--max-duration</code>, <code>--multipv</code>, <code>--threads</code>, <code>--hash</code>, <code>--wdl</code>, <code>--no-wdl</code>: engine options used with <code>--analyze</code>.</li>
 </ul>
 <h2 id="chapter-t5-running-puzzle-line-summaries">Running puzzle-line summaries</h2>
 <p>Use <code>puzzle text</code> when you want summaries for the root PV and expanded puzzle continuations:</p>
@@ -3604,7 +4037,7 @@ crtk puzzle text --fen &quot;&lt;FEN&gt;&quot; --model models/t5.bin --include-f
 </section>
 
 <section class="chapter">
-  <p class="chapter-kicker">Workflows · Chapter 21</p>
+  <p class="chapter-kicker">Workflows · Chapter 22</p>
   <h1 id="chapter-ai-agents">AI Agents</h1>
   <div class="chapter-body">
     <p>ChessRTK exposes deterministic chess primitives that work well in CI, scripts, and LLM tool workflows. The safest pattern is to use the narrowest command for the task: move conversion for notation, FEN commands for position validity, perft commands for move-generation checks, and bounded engine commands for analysis.</p>
@@ -3613,9 +4046,9 @@ crtk puzzle text --fen &quot;&lt;FEN&gt;&quot; --model models/t5.bin --include-f
 <p>Diagram source: <code>assets/diagrams/crtk-agentic-commands.dot</code>.</p>
 <h2 id="chapter-ai-agents-why-agents-can-trust-this">Why Agents Can Trust This</h2>
 <ul>
-<li>Machine-oriented commands prefer line-based formats, explicit flags, stable</li>
+<li>Machine-oriented commands prefer line-based or JSON/JSONL formats, explicit</li>
 </ul>
-<p>exit codes, and bounded search budgets.</p>
+<p>flags, stable exit codes, and bounded search budgets.</p>
 <ul>
 <li>Core move generation is validated against stored perft truth positions and</li>
 </ul>
@@ -3647,6 +4080,11 @@ java -cp out application.Main move list --format both --fen &quot;rnbqkbnr/ppppp
 <td>san</td>
 <td>both`</td>
 <td>one move per line, deterministic order</td>
+</tr>
+<tr>
+<td>Legal moves as objects</td>
+<td><code>move list --jsonl</code></td>
+<td>one JSON move object per line</td>
 </tr>
 <tr>
 <td>UCI move list</td>
@@ -3681,12 +4119,12 @@ java -cp out application.Main move list --format both --fen &quot;rnbqkbnr/ppppp
 <tr>
 <td>Validate FEN</td>
 <td><code>fen validate --fen &quot;&lt;FEN&gt;&quot;</code></td>
-<td><code>valid&lt;TAB&gt;&lt;normalized-fen&gt;</code> on success</td>
+<td><code>valid&lt;TAB&gt;&lt;normalized-fen&gt;</code> on success, or JSON with <code>--json</code></td>
 </tr>
 <tr>
 <td>Normalize FEN</td>
 <td><code>fen normalize --fen &quot;&lt;FEN&gt;&quot;</code></td>
-<td>normalized FEN</td>
+<td>normalized FEN, or JSON/JSONL with <code>--json</code>/<code>--jsonl</code></td>
 </tr>
 <tr>
 <td>Chess960 starts</td>
@@ -3694,11 +4132,31 @@ java -cp out application.Main move list --format both --fen &quot;rnbqkbnr/ppppp
 <td>deterministic Scharnagl-indexed FEN</td>
 </tr>
 <tr>
+<td>Position diff</td>
+<td><code>position diff --fen &quot;&lt;FEN&gt;&quot; --other &quot;&lt;FEN&gt;&quot; --json</code></td>
+<td>changed state fields and board squares</td>
+</tr>
+<tr>
 <td>Best move</td>
 <td>`engine bestmove --format uci</td>
 <td>san</td>
 <td>both`</td>
 <td>one best move row</td>
+</tr>
+<tr>
+<td>Best move batch</td>
+<td><code>engine bestmove-batch --input &lt;file&gt;</code></td>
+<td>one JSON object per position by default</td>
+</tr>
+<tr>
+<td>Analysis batch</td>
+<td><code>engine analyze-batch --input &lt;file&gt; --multipv &lt;n&gt;</code></td>
+<td>one JSON object per position by default</td>
+</tr>
+<tr>
+<td>Engine comparison</td>
+<td><code>engine compare --left-protocol &lt;a&gt; --right-protocol &lt;b&gt;</code></td>
+<td>text table, JSON object with <code>--json</code>, rows with <code>--jsonl</code></td>
 </tr>
 <tr>
 <td>Built-in fallback search</td>
@@ -3714,6 +4172,11 @@ java -cp out application.Main move list --format both --fen &quot;rnbqkbnr/ppppp
 <td>one evaluation per input position</td>
 </tr>
 <tr>
+<td>Core benchmark</td>
+<td><code>engine benchmark --json</code></td>
+<td>one benchmark JSON object</td>
+</tr>
+<tr>
 <td>Movegen counters</td>
 <td><code>engine perft</code></td>
 <td>nodes and detailed counters</td>
@@ -3721,7 +4184,7 @@ java -cp out application.Main move list --format both --fen &quot;rnbqkbnr/ppppp
 <tr>
 <td>Movegen regression</td>
 <td><code>engine perft-suite</code></td>
-<td>progress bar, then truth/calculated table</td>
+<td>progress bar, then truth/calculated table; <code>--suite</code> accepts custom TSV rows</td>
 </tr>
 <tr>
 <td>Setup health</td>
@@ -3743,9 +4206,13 @@ java -cp out application.Main move list --format both --fen &quot;rnbqkbnr/ppppp
 </ol>
 <p>preferable.</p>
 <ol>
+<li>Use <code>engine bestmove-batch</code> or <code>engine analyze-batch</code> for large FEN sets</li>
+</ol>
+<p>instead of parsing human analysis text.</p>
+<ol>
 <li>Run <code>engine perft-suite --depth 6 --threads &lt;n&gt;</code> after core move-generation</li>
 </ol>
-<p>changes.</p>
+<p>changes; use <code>--suite custom.tsv</code> for targeted regression rows.</p>
 <h2 id="chapter-ai-agents-deterministic-move-tasks">Deterministic Move Tasks</h2>
 <p>List legal moves:</p>
 <pre><code class="language-bash">crtk move list --fen &quot;&lt;FEN&gt;&quot; --format both</code></pre>
@@ -3760,6 +4227,9 @@ crtk move play --fen &quot;&lt;FEN&gt;&quot; e2e4 e7e5 g1f3 --intermediate</code
 <p>External UCI engine:</p>
 <pre><code class="language-bash">crtk engine bestmove --fen &quot;&lt;FEN&gt;&quot; --format both --max-duration 5s
 crtk engine analyze --fen &quot;&lt;FEN&gt;&quot; --multipv 3 --max-nodes 1000000
+crtk engine bestmove-batch --input positions.txt --max-duration 1s
+crtk engine analyze-batch --input positions.txt --multipv 3 --jsonl
+crtk engine compare --input positions.txt --left-protocol a.toml --right-protocol b.toml --json
 crtk engine threats --fen &quot;&lt;FEN&gt;&quot; --max-duration 2s</code></pre>
 <p>Built-in Java engine:</p>
 <pre><code class="language-bash">crtk engine builtin --fen &quot;&lt;FEN&gt;&quot; --depth 4 --format summary
@@ -3772,8 +4242,12 @@ crtk engine perft --randompos --depth 4
 crtk engine perft --fen &quot;&lt;FEN&gt;&quot; --depth 5 --divide --threads 4
 crtk engine perft --fen &quot;&lt;FEN&gt;&quot; --depth 5 --format stockfish --threads 4</code></pre>
 <p>Regression suite:</p>
-<pre><code class="language-bash">crtk engine perft-suite --depth 6 --threads 4</code></pre>
+<pre><code class="language-bash">crtk engine perft-suite --depth 6 --threads 4
+crtk engine perft-suite --suite custom-perft.tsv --threads 4
+crtk engine benchmark --startpos --depth 5 --iterations 5 --json</code></pre>
 <p>The suite prints a progress bar while positions run. After the progress bar finishes, it prints a table with <code>No</code>, <code>Depth</code>, <code>FEN</code>, <code>Truth</code>, <code>Calculated</code>, <code>Speed</code>, and <code>Match</code>.</p>
+<p>Compare two positions without editing FEN fields by hand:</p>
+<pre><code class="language-bash">crtk position diff --fen &quot;&lt;LEFT_FEN&gt;&quot; --other &quot;&lt;RIGHT_FEN&gt;&quot; --json</code></pre>
 <h2 id="chapter-ai-agents-record-and-dataset-plumbing">Record and Dataset Plumbing</h2>
 <p>Agents can keep data transformations explicit:</p>
 <pre><code class="language-bash">crtk record files -i dump/ -o dump/merged.json --recursive --puzzles
@@ -3786,7 +4260,7 @@ crtk record dataset classifier -i dump/puzzles.json -i dump/nonpuzzles.json -o t
 crtk record export training-jsonl -i dump/puzzles.json -i dump/nonpuzzles.json -o training/run.jsonl</code></pre>
 <h2 id="chapter-ai-agents-practical-rules">Practical Rules</h2>
 <ul>
-<li>Prefer <code>--format uci|san|both|summary</code> flags over parsing prose.</li>
+<li>Prefer <code>--json</code>, <code>--jsonl</code>, or <code>--format uci|san|both|summary</code> flags over parsing prose.</li>
 <li>Prefer FEN and UCI/SAN commands over GUI or image output for agent decisions.</li>
 <li>Put engine budgets on every automated analysis command.</li>
 <li>Keep <code>--verbose</code> off in normal pipelines and enable it only for failures.</li>
@@ -3797,7 +4271,7 @@ crtk record export training-jsonl -i dump/puzzles.json -i dump/nonpuzzles.json -
 </section>
 
 <section class="chapter">
-  <p class="chapter-kicker">Development · Chapter 22</p>
+  <p class="chapter-kicker">Development · Chapter 23</p>
   <h1 id="chapter-architecture">Architecture</h1>
   <div class="chapter-body">
     <p>ChessRTK is organized around one shared Java position model. The goal is that a FEN accepted by one command means the same thing to every other command: notation conversion, legal move lists, perft, search, tags, datasets, rendering, and publishing all depend on the same chess rules implementation.</p>
@@ -3910,7 +4384,7 @@ crtk record export training-jsonl -i dump/puzzles.json -i dump/nonpuzzles.json -
 </section>
 
 <section class="chapter">
-  <p class="chapter-kicker">Development · Chapter 23</p>
+  <p class="chapter-kicker">Development · Chapter 24</p>
   <h1 id="chapter-quality-and-testing">Quality &amp; Testing</h1>
   <div class="chapter-body">
     <p>ChessRTK is correctness-sensitive. FEN parsing, SAN conversion, Chess960 castling, en-passant, promotion, make/undo state, and move generation all feed engine analysis, datasets, rendering, and publishing.</p>
@@ -3932,6 +4406,10 @@ crtk record export training-jsonl -i dump/puzzles.json -i dump/nonpuzzles.json -
 <td>checking source quality guardrails</td>
 </tr>
 <tr>
+<td><code>scripts</code></td>
+<td>checking shell script syntax and ShellCheck errors when available</td>
+</tr>
+<tr>
 <td><code>core</code></td>
 <td>changing <code>chess.core</code>, FEN, SAN, move generation, or make/undo</td>
 </tr>
@@ -3940,8 +4418,20 @@ crtk record export training-jsonl -i dump/puzzles.json -i dump/nonpuzzles.json -
 <td>changing command parsing or command output</td>
 </tr>
 <tr>
+<td><code>engine</code></td>
+<td>changing the built-in engine, evaluator, or puzzle difficulty scoring</td>
+</tr>
+<tr>
 <td><code>uci</code></td>
 <td>changing external-engine orchestration</td>
+</tr>
+<tr>
+<td><code>book</code></td>
+<td>changing PDF/book/rendering code</td>
+</tr>
+<tr>
+<td><code>docs</code></td>
+<td>changing wiki docs or docs generation scripts</td>
 </tr>
 <tr>
 <td><code>perft-smoke</code></td>
@@ -3993,7 +4483,7 @@ java -Djava.awt.headless=true -cp out testing.ChessBookCoverCommandRegressionTes
 </section>
 
 <section class="chapter">
-  <p class="chapter-kicker">Development · Chapter 24</p>
+  <p class="chapter-kicker">Development · Chapter 25</p>
   <h1 id="chapter-development-notes">Development Notes</h1>
   <div class="chapter-body">
     <h2 id="chapter-development-notes-project-shape">Project shape</h2>
@@ -4012,9 +4502,13 @@ java -Djava.awt.headless=true -cp out testing.ChessBookCoverCommandRegressionTes
 </ul>
 <p><code>engine static</code>, <code>engine builtin</code>, display ablation, and tag helpers</p>
 <ul>
-<li><code>chess.nn.lc0</code>: pure-Java LC0 forward pass with optional CUDA, ROCm, and</li>
+<li><code>chess.nn.lc0.cnn</code>: pure-Java LC0 CNN forward pass with optional CUDA,</li>
 </ul>
-<p>oneAPI native backends</p>
+<p>ROCm, and oneAPI native backends</p>
+<ul>
+<li><code>chess.nn.lc0.bt4</code>: LC0 BT4 attention-body helpers, Java reference forward</li>
+</ul>
+<p>path, and optional CUDA, ROCm, and oneAPI native backends</p>
 <h2 id="chapter-development-notes-core-chess-implementation">Core chess implementation</h2>
 <p>The current chess rules implementation lives in <code>chess.core</code>. There is no separate public <code>bitboard</code> package: the optimized bitboard-backed code is the core implementation.</p>
 <p>Important classes:</p>
@@ -4070,7 +4564,7 @@ java -Djava.awt.headless=true -cp out testing.ChessBookCoverCommandRegressionTes
 </section>
 
 <section class="chapter">
-  <p class="chapter-kicker">Development · Chapter 25</p>
+  <p class="chapter-kicker">Development · Chapter 26</p>
   <h1 id="chapter-releasing">Releasing</h1>
   <div class="chapter-body">
     <p>This repo is intentionally build-tool light: the CLI is a runnable Java 17 jar. Optional native GPU backends live under <code>native/cuda/</code>, <code>native/rocm/</code>, and <code>native/oneapi/</code>. The release script below packages the CUDA Linux artifact.</p>
@@ -4151,7 +4645,7 @@ java -Djava.awt.headless=true -cp out testing.ChessBookCoverCommandRegressionTes
 </section>
 
 <section class="chapter">
-  <p class="chapter-kicker">Development · Chapter 26</p>
+  <p class="chapter-kicker">Development · Chapter 27</p>
   <h1 id="chapter-roadmap">Roadmap</h1>
   <div class="chapter-body">
     <p>This page is a lightweight backlog of <strong>proposed</strong> additions. Anything listed here may change, and is not implemented unless it appears in <code>wiki/command-reference.md</code>.</p>
@@ -4181,7 +4675,7 @@ java -Djava.awt.headless=true -cp out testing.ChessBookCoverCommandRegressionTes
 </section>
 
 <section class="chapter">
-  <p class="chapter-kicker">Development · Chapter 27</p>
+  <p class="chapter-kicker">Development · Chapter 28</p>
   <h1 id="chapter-glossary">Glossary</h1>
   <div class="chapter-body">
     <h2 id="chapter-glossary-crtk">CRTK</h2>
@@ -4216,7 +4710,7 @@ java -Djava.awt.headless=true -cp out testing.ChessBookCoverCommandRegressionTes
 </section>
 
 <section class="chapter">
-  <p class="chapter-kicker">Development · Chapter 28</p>
+  <p class="chapter-kicker">Development · Chapter 29</p>
   <h1 id="chapter-tagging-implementation-plan">Tagging Plan</h1>
   <div class="chapter-body">
     <p>This document is the implementation plan for completing ChessRTK&#x27;s position, move, tactic, and puzzle-theme tags.</p>
@@ -4295,12 +4789,12 @@ CHECKMATE: pattern=back_rank_mate</code></pre>
 <h3 id="chapter-tagging-implementation-plan-package-layout">Package Layout</h3>
 <p>Keep <code>chess.tag</code> as the public API. Split implementation into focused modules:</p>
 <pre><code class="language-text">src/chess/tag/
-  Tagging.java              public facade and orchestration
-  TagContext.java           shared immutable/scratch context
-  TagEmitter.java           string builder / canonical field emitter
-  Identity.java             semantic identity keys
-  Sort.java                 stable family-aware sort/dedupe
-  Line.java                 tag parser
+  Generator.java              public facade and orchestration
+  Context.java                shared immutable/scratch context
+  Emitter.java                string builder / canonical field emitter
+  Identity.java               semantic identity keys
+  Sort.java                   stable family-aware sort/dedupe
+  Line.java                   tag parser
   core/
     Literals.java
     Text.java
@@ -4336,7 +4830,7 @@ CHECKMATE: pattern=back_rank_mate</code></pre>
   eval/
     Evaluation.java
     Difficulty.java</code></pre>
-<p>The exact filenames can change, but the rule is simple: one large <code>Tagging</code> class should not accumulate every motif.</p>
+<p>The exact filenames can change, but the rule is simple: one large <code>Generator</code> class should not accumulate every motif.</p>
 <h3 id="chapter-tagging-implementation-plan-tag-context">Tag Context</h3>
 <p>Create a reusable context object for one position:</p>
 <ul>
@@ -4358,7 +4852,7 @@ CHECKMATE: pattern=back_rank_mate</code></pre>
 <p>The context should compute expensive values lazily and cache them for all detectors. This avoids repeated legal move generation and repeated attack scans.</p>
 <h3 id="chapter-tagging-implementation-plan-tag-emitter">Tag Emitter</h3>
 <p>Introduce a small helper for canonical tags:</p>
-<pre><code class="language-java">TagEmitter.tag(&quot;PAWN&quot;)
+<pre><code class="language-java">Emitter.tag(&quot;PAWN&quot;)
     .field(&quot;structure&quot;, &quot;passed&quot;)
     .field(&quot;side&quot;, &quot;white&quot;)
     .field(&quot;square&quot;, &quot;e7&quot;)
@@ -4366,8 +4860,8 @@ CHECKMATE: pattern=back_rank_mate</code></pre>
 <p>This reduces typo risk and makes field ordering consistent. It also makes it easy to enforce escaping rules if a field value ever contains spaces.</p>
 <h3 id="chapter-tagging-implementation-plan-detector-contract">Detector Contract</h3>
 <p>Each detector should follow this shape:</p>
-<pre><code class="language-java">interface TagDetector {
-    void addTags(TagContext ctx, List&lt;String&gt; tags);
+<pre><code class="language-java">interface Detector {
+    void addTags(Context ctx, List&lt;String&gt; tags);
 }</code></pre>
 <p>No detector should call the engine or load config unless it is explicitly an engine/config detector. Heuristic detectors should be pure functions over the position and cached context.</p>
 <h2 id="chapter-tagging-implementation-plan-implementation-phases">Implementation Phases</h2>
@@ -4375,9 +4869,9 @@ CHECKMATE: pattern=back_rank_mate</code></pre>
 <p>Deliverables:</p>
 <ul>
 <li>Document canonical tag grammar in <code>wiki/piece-tags.md</code> or a dedicated tag reference.</li>
-<li>Add a <code>TagEmitter</code>.</li>
-<li>Add <code>TagContext</code>.</li>
-<li>Add <code>TagDetector</code> or an equivalent internal pattern.</li>
+<li>Add <code>Emitter</code>.</li>
+<li>Add <code>Context</code>.</li>
+<li>Add <code>Detector</code> or an equivalent internal pattern.</li>
 <li>Update <code>Sort.FAMILY_ORDER</code> with the final family set.</li>
 <li>Update <code>Identity</code> to handle all planned family keys gracefully.</li>
 <li>Add a no-engine golden test harness for tag fixtures.</li>
@@ -4432,7 +4926,7 @@ CHECKMATE: pattern=back_rank_mate</code></pre>
 </ul>
 <p>Definition of done:</p>
 <ul>
-<li><code>chess.tag.Tagging.tags(position)</code> covers the fixture categories used by the</li>
+<li><code>chess.tag.Generator.tags(position)</code> covers the fixture categories used by the</li>
 </ul>
 <p>regression tests.</p>
 <ul>
@@ -4657,7 +5151,7 @@ CHECKMATE: pattern=back_rank_mate</code></pre>
 </tbody></table></div>
 <p>Implementation details:</p>
 <ul>
-<li>Use one <code>MoveList</code> generated in <code>TagContext</code>.</li>
+<li>Use one <code>MoveList</code> generated in <code>Context</code>.</li>
 <li>Use <code>Position.State</code> and <code>play/undo</code> for low-allocation move consequence checks.</li>
 <li>Do not copy the position once per move in hot paths.</li>
 </ul>
@@ -5479,7 +5973,7 @@ CHECKMATE: pattern=back_rank_mate</code></pre>
 <h2 id="chapter-tagging-implementation-plan-computational-definitions">Computational Definitions</h2>
 <p>This section defines how each tag should be computed reliably. If a tag cannot meet its evidence rule, it should not be emitted. The default behavior should be &quot;quiet unless there is a clear reason&quot;, not &quot;guess and hope&quot;.</p>
 <h3 id="chapter-tagging-implementation-plan-shared-primitives">Shared Primitives</h3>
-<p>All detectors should use these primitives through <code>TagContext</code> rather than reimplementing them locally.</p>
+<p>All detectors should use these primitives through <code>Context</code> rather than reimplementing them locally.</p>
 <div class="table-wrap"><table>
 <thead><tr>
 <th>Primitive</th>
@@ -6924,10 +7418,10 @@ CHECKMATE: pattern=back_rank_mate</code></pre>
 <p>If a user asks why a tag appeared, the implementation should be able to point to the exact rule above.</p>
 <h2 id="chapter-tagging-implementation-plan-pseudocode">Pseudocode</h2>
 <p>The pseudocode below is Java-like, but intentionally not final source. It shows the control flow, shared caches, evidence checks, and conservative emit rules that should drive the real implementation.</p>
-<h3 id="chapter-tagging-implementation-plan-tagging-pipeline">Tagging Pipeline</h3>
+<h3 id="chapter-tagging-implementation-plan-generator-pipeline">Generator Pipeline</h3>
 <pre><code class="language-java">TagResult tag(Position position, TagOptions options) {
-    TagContext ctx = TagContext.build(position, options);
-    TagEmitter out = new TagEmitter(options);
+    Context ctx = Context.build(position, options);
+    Emitter out = new Emitter(options);
 
     runExactDetectors(ctx, out);
 
@@ -6950,7 +7444,7 @@ CHECKMATE: pattern=back_rank_mate</code></pre>
     return out.sortedResult();
 }
 
-void runExactDetectors(TagContext ctx, TagEmitter out) {
+void runExactDetectors(Context ctx, Emitter out) {
     detectMeta(ctx, out);
     detectFacts(ctx, out);
     detectMaterial(ctx, out);
@@ -6964,7 +7458,7 @@ void runExactDetectors(TagContext ctx, TagEmitter out) {
     }
 }
 
-void runStaticStrongDetectors(TagContext ctx, TagEmitter out) {
+void runStaticStrongDetectors(Context ctx, Emitter out) {
     detectKingSafety(ctx, out);
     detectPieceActivity(ctx, out);
     detectSpace(ctx, out);
@@ -6976,7 +7470,7 @@ void runStaticStrongDetectors(TagContext ctx, TagEmitter out) {
     detectStrongEndgameThemes(ctx, out);
 }</code></pre>
 <h3 id="chapter-tagging-implementation-plan-context-construction">Context Construction</h3>
-<pre><code class="language-java">final class TagContext {
+<pre><code class="language-java">final class Context {
     Position root;
     TagOptions options;
     Side stm;
@@ -6995,8 +7489,8 @@ void runStaticStrongDetectors(TagContext ctx, TagEmitter out) {
     KingSummary blackKing;
     Phase phase;
 
-    static TagContext build(Position position, TagOptions options) {
-        TagContext ctx = new TagContext();
+    static Context build(Position position, TagOptions options) {
+        Context ctx = new Context();
         ctx.root = position;
         ctx.options = options;
         ctx.stm = position.sideToMove();
@@ -7036,7 +7530,7 @@ void runStaticStrongDetectors(TagContext ctx, TagEmitter out) {
     }
 }</code></pre>
 <h3 id="chapter-tagging-implementation-plan-emission-gate">Emission Gate</h3>
-<pre><code class="language-java">final class TagEmitter {
+<pre><code class="language-java">final class Emitter {
     void emit(Tag tag, Reliability reliability, Evidence evidence) {
         if (!options.allows(tag.family())) {
             return;
@@ -7064,7 +7558,7 @@ void runStaticStrongDetectors(TagContext ctx, TagEmitter out) {
 }</code></pre>
 <p>A detector should never create a tag before it has a short evidence object. The same evidence object can later power <code>--explain-tags</code>.</p>
 <h3 id="chapter-tagging-implementation-plan-meta-fact-and-material">META, FACT, and MATERIAL</h3>
-<pre><code class="language-java">void detectMeta(TagContext ctx, TagEmitter out) {
+<pre><code class="language-java">void detectMeta(Context ctx, Emitter out) {
     out.exact(tag(&quot;META&quot;, &quot;to_move&quot;, ctx.stm), evidence(&quot;fen side-to-move&quot;));
     out.exact(tag(&quot;META&quot;, &quot;phase&quot;, ctx.phase), evidence(ctx.material.summary()));
 
@@ -7079,7 +7573,7 @@ void runStaticStrongDetectors(TagContext ctx, TagEmitter out) {
     }
 }
 
-void detectFacts(TagContext ctx, TagEmitter out) {
+void detectFacts(Context ctx, Emitter out) {
     if (ctx.root.isCheckmate()) {
         out.exact(tag(&quot;FACT&quot;, &quot;status&quot;, &quot;checkmate&quot;), evidence(&quot;no legal moves and in check&quot;));
     } else if (ctx.root.isStalemate()) {
@@ -7104,7 +7598,7 @@ void detectFacts(TagContext ctx, TagEmitter out) {
     }
 }
 
-void detectMaterial(TagContext ctx, TagEmitter out) {
+void detectMaterial(Context ctx, Emitter out) {
     int white = ctx.material.cp(WHITE);
     int black = ctx.material.cp(BLACK);
     int diff = white - black;
@@ -7127,7 +7621,7 @@ void detectMaterial(TagContext ctx, TagEmitter out) {
     emitInsufficientMaterialTag(ctx, out);
 }</code></pre>
 <h3 id="chapter-tagging-implementation-plan-move-counters">MOVE Counters</h3>
-<pre><code class="language-java">void detectLegalMoveCounts(TagContext ctx, TagEmitter out) {
+<pre><code class="language-java">void detectLegalMoveCounts(Context ctx, Emitter out) {
     MoveCounters c = new MoveCounters();
 
     for (Move move : ctx.legalMovesForStm) {
@@ -7163,7 +7657,7 @@ void detectMaterial(TagContext ctx, TagEmitter out) {
     }
 }</code></pre>
 <h3 id="chapter-tagging-implementation-plan-pawn-structure">PAWN Structure</h3>
-<pre><code class="language-java">void detectExactPawns(TagContext ctx, TagEmitter out) {
+<pre><code class="language-java">void detectExactPawns(Context ctx, Emitter out) {
     for (Side side : SIDES) {
         for (File file : FILES) {
             int count = ctx.pawns(side).countOn(file);
@@ -7199,7 +7693,7 @@ void detectMaterial(TagContext ctx, TagEmitter out) {
     }
 }
 
-void detectStrongPawnHeuristics(TagContext ctx, TagEmitter out) {
+void detectStrongPawnHeuristics(Context ctx, Emitter out) {
     for (Side side : SIDES) {
         for (Square pawn : ctx.pawns(side)) {
             if (isBackwardPawn(ctx, side, pawn)) {
@@ -7216,7 +7710,7 @@ void detectStrongPawnHeuristics(TagContext ctx, TagEmitter out) {
     }
 }</code></pre>
 <h3 id="chapter-tagging-implementation-plan-king-safety">KING Safety</h3>
-<pre><code class="language-java">void detectKingSafety(TagContext ctx, TagEmitter out) {
+<pre><code class="language-java">void detectKingSafety(Context ctx, Emitter out) {
     for (Side side : SIDES) {
         KingSummary k = ctx.king(side);
 
@@ -7247,7 +7741,7 @@ void detectStrongPawnHeuristics(TagContext ctx, TagEmitter out) {
     }
 }</code></pre>
 <h3 id="chapter-tagging-implementation-plan-piece-activity-and-static-piece-tags">PIECE Activity and Static Piece Tags</h3>
-<pre><code class="language-java">void detectPieceActivity(TagContext ctx, TagEmitter out) {
+<pre><code class="language-java">void detectPieceActivity(Context ctx, Emitter out) {
     PieceScore best = null;
     PieceScore worst = null;
 
@@ -7288,7 +7782,7 @@ void detectStrongPawnHeuristics(TagContext ctx, TagEmitter out) {
     }
 }
 
-PieceScore scorePiece(TagContext ctx, Side side, Piece piece, Square square) {
+PieceScore scorePiece(Context ctx, Side side, Piece piece, Square square) {
     int score = 0;
     score += mobilityBonus(piece, safeMoves(ctx, side, square));
     score += targetBonus(attacksCriticalTargets(ctx, side, square));
@@ -7300,7 +7794,7 @@ PieceScore scorePiece(TagContext ctx, Side side, Piece piece, Square square) {
     return new PieceScore(piece, square, score);
 }</code></pre>
 <h3 id="chapter-tagging-implementation-plan-space-development-mobility-and-initiative">SPACE, DEVELOPMENT, MOBILITY, and INITIATIVE</h3>
-<pre><code class="language-java">void detectSpace(TagContext ctx, TagEmitter out) {
+<pre><code class="language-java">void detectSpace(Context ctx, Emitter out) {
     int white = safeControlledSquaresInEnemyHalf(ctx, WHITE);
     int black = safeControlledSquaresInEnemyHalf(ctx, BLACK);
     int diff = white - black;
@@ -7312,7 +7806,7 @@ PieceScore scorePiece(TagContext ctx, Side side, Piece piece, Square square) {
     }
 }
 
-void detectDevelopment(TagContext ctx, TagEmitter out) {
+void detectDevelopment(Context ctx, Emitter out) {
     if (ctx.phase == ENDGAME) {
         return;
     }
@@ -7323,7 +7817,7 @@ void detectDevelopment(TagContext ctx, TagEmitter out) {
     emitUncastledKingIfUnsafe(ctx, out);
 }
 
-void detectMobility(TagContext ctx, TagEmitter out) {
+void detectMobility(Context ctx, Emitter out) {
     for (Side side : SIDES) {
         LegalMoves moves = ctx.legalMovesFor(side);
         if (ctx.options.mobilityProfile()) {
@@ -7335,7 +7829,7 @@ void detectMobility(TagContext ctx, TagEmitter out) {
     }
 }
 
-void detectInitiative(TagContext ctx, TagEmitter out) {
+void detectInitiative(Context ctx, Emitter out) {
     ForceScore white = forcingMoveScore(ctx, WHITE);
     ForceScore black = forcingMoveScore(ctx, BLACK);
     ForceScore lead = white.minus(black);
@@ -7345,7 +7839,7 @@ void detectInitiative(TagContext ctx, TagEmitter out) {
     }
 }</code></pre>
 <h3 id="chapter-tagging-implementation-plan-tactical-motifs">Tactical Motifs</h3>
-<pre><code class="language-java">void detectStaticTactics(TagContext ctx, TagEmitter out) {
+<pre><code class="language-java">void detectStaticTactics(Context ctx, Emitter out) {
     detectPins(ctx, out);
     detectForksAndDoubleAttacks(ctx, out);
     detectSkewers(ctx, out);
@@ -7368,7 +7862,7 @@ void detectInitiative(TagContext ctx, TagEmitter out) {
     }
 }
 
-void detectPins(TagContext ctx, TagEmitter out) {
+void detectPins(Context ctx, Emitter out) {
     for (Side attacker : SIDES) {
         Side defender = attacker.opposite();
         for (Square target : criticalTargets(ctx, defender)) {
@@ -7384,7 +7878,7 @@ void detectPins(TagContext ctx, TagEmitter out) {
     }
 }
 
-void detectForksAndDoubleAttacks(TagContext ctx, TagEmitter out) {
+void detectForksAndDoubleAttacks(Context ctx, Emitter out) {
     for (Move move : ctx.legalMovesForStm) {
         MoveEffect effect = ctx.effectOf(move);
         List&lt;Square&gt; targets = criticalTargetsAttackedByMovedPiece(effect);
@@ -7398,7 +7892,7 @@ void detectForksAndDoubleAttacks(TagContext ctx, TagEmitter out) {
     }
 }
 
-void detectSkewers(TagContext ctx, TagEmitter out) {
+void detectSkewers(Context ctx, Emitter out) {
     for (LineAttack attack : sliderLineAttacks(ctx)) {
         if (value(attack.front()) &gt; value(attack.behind())
                 &amp;&amp; attack.frontCanBeForcedToMove()
@@ -7409,7 +7903,7 @@ void detectSkewers(TagContext ctx, TagEmitter out) {
     }
 }
 
-void detectXrays(TagContext ctx, TagEmitter out) {
+void detectXrays(Context ctx, Emitter out) {
     for (LineAttack attack : sliderLineAttacksThroughOnePiece(ctx)) {
         if (attack.behindIsCritical() &amp;&amp; attack.blockerIsPinnedOverloadedOrRemovable()) {
             out.strong(tag(&quot;TACTIC&quot;, &quot;motif&quot;, &quot;xray&quot;, &quot;target&quot;, attack.behind()),
@@ -7418,7 +7912,7 @@ void detectXrays(TagContext ctx, TagEmitter out) {
     }
 }
 
-void detectDiscoveredAttacks(TagContext ctx, TagEmitter out) {
+void detectDiscoveredAttacks(Context ctx, Emitter out) {
     for (Move move : ctx.legalMovesForStm) {
         MoveEffect effect = ctx.effectOf(move);
         if (effect.opensSliderAttackOnCriticalTarget()) {
@@ -7433,7 +7927,7 @@ void detectDiscoveredAttacks(TagContext ctx, TagEmitter out) {
 }</code></pre>
 <h3 id="chapter-tagging-implementation-plan-tactical-proof-windows">Tactical Proof Windows</h3>
 <p>Some motifs need a bounded proof because static geometry alone is too noisy.</p>
-<pre><code class="language-java">void detectSacrifices(TagContext ctx, TagEmitter out) {
+<pre><code class="language-java">void detectSacrifices(Context ctx, Emitter out) {
     for (Move move : ctx.legalMovesForStm) {
         if (!moveLosesMaterialImmediately(ctx, move)) {
             continue;
@@ -7446,7 +7940,7 @@ void detectDiscoveredAttacks(TagContext ctx, TagEmitter out) {
     }
 }
 
-void detectQuietMoves(TagContext ctx, TagEmitter out) {
+void detectQuietMoves(Context ctx, Emitter out) {
     for (Move move : ctx.legalMovesForStm) {
         if (!move.isQuiet() || ctx.effectOf(move).givesCheck()) {
             continue;
@@ -7458,7 +7952,7 @@ void detectQuietMoves(TagContext ctx, TagEmitter out) {
     }
 }
 
-void detectRemovalDeflectionDecoy(TagContext ctx, TagEmitter out) {
+void detectRemovalDeflectionDecoy(Context ctx, Emitter out) {
     for (Move move : ctx.legalMovesForStm) {
         MoveEffect effect = ctx.effectOf(move);
 
@@ -7477,7 +7971,7 @@ void detectRemovalDeflectionDecoy(TagContext ctx, TagEmitter out) {
     }
 }
 
-void detectZwischenzug(TagContext ctx, TagEmitter out) {
+void detectZwischenzug(Context ctx, Emitter out) {
     if (!ctx.hasPreviousCaptureOrExpectedRecapture()) {
         return;
     }
@@ -7492,7 +7986,7 @@ void detectZwischenzug(TagContext ctx, TagEmitter out) {
     }
 }</code></pre>
 <h3 id="chapter-tagging-implementation-plan-checkmate-patterns">CHECKMATE Patterns</h3>
-<pre><code class="language-java">void detectCheckmatePatterns(TagContext ctx, TagEmitter out) {
+<pre><code class="language-java">void detectCheckmatePatterns(Context ctx, Emitter out) {
     MateContext mate = MateContext.from(ctx);
 
     out.exact(tag(&quot;CHECKMATE&quot;, &quot;winner&quot;, mate.winner()), evidence(&quot;checkmate&quot;));
@@ -7549,7 +8043,7 @@ boolean legalsMate(MateContext m) {
 }</code></pre>
 <p>Every named mate predicate should be written as a positive geometry test plus at least one near-miss rejection. If no near-miss can be expressed, the tag is not ready.</p>
 <h3 id="chapter-tagging-implementation-plan-endgame-and-opening">ENDGAME and OPENING</h3>
-<pre><code class="language-java">void detectExactEndgames(TagContext ctx, TagEmitter out) {
+<pre><code class="language-java">void detectExactEndgames(Context ctx, Emitter out) {
     if (onlyKingsAndPawns(ctx)) {
         out.exact(tag(&quot;ENDGAME&quot;, &quot;type&quot;, &quot;pawn&quot;), evidence(&quot;only kings and pawns&quot;));
     }
@@ -7569,7 +8063,7 @@ boolean legalsMate(MateContext m) {
     emitPrimaryMaterialEndgames(ctx, out);
 }
 
-void detectStrongEndgameThemes(TagContext ctx, TagEmitter out) {
+void detectStrongEndgameThemes(Context ctx, Emitter out) {
     if (ctx.phase != ENDGAME) {
         return;
     }
@@ -7585,7 +8079,7 @@ void detectStrongEndgameThemes(TagContext ctx, TagEmitter out) {
     }
 }
 
-void detectOpenings(TagContext ctx, TagEmitter out) {
+void detectOpenings(Context ctx, Emitter out) {
     OpeningMatch match = ctx.options.openingBook().find(ctx.root.normalizedOpeningKey());
     if (match == null) {
         return;
@@ -7600,7 +8094,7 @@ void detectOpenings(TagContext ctx, TagEmitter out) {
     }
 }</code></pre>
 <h3 id="chapter-tagging-implementation-plan-cand-pv-threat-and-idea">CAND, PV, THREAT, and IDEA</h3>
-<pre><code class="language-java">void detectAnalysisTags(TagContext ctx, TagEmitter out) {
+<pre><code class="language-java">void detectAnalysisTags(Context ctx, Emitter out) {
     Analysis analysis = ctx.options.analysis();
     if (analysis == null) {
         return;
@@ -7622,7 +8116,7 @@ void detectOpenings(TagContext ctx, TagEmitter out) {
     }
 }
 
-void detectIdeaTags(TagContext ctx, TagEmitter out) {
+void detectIdeaTags(Context ctx, Emitter out) {
     TagSet before = tag(ctx.root, ctx.options.staticOnly()).withoutIdeaTags();
 
     for (Move move : ctx.legalMovesForStm) {
@@ -8042,7 +8536,7 @@ explain text: &lt;short reason shown by --explain-tags&gt;</code></pre>
 <ol>
 <li>Load every TSV.</li>
 <li>Parse FEN with <code>Position.fromFen</code>.</li>
-<li>Generate tags with canonical <code>chess.tag.Tagging</code>.</li>
+<li>Generate tags with canonical <code>chess.tag.Generator</code>.</li>
 <li>Assert every required tag exists.</li>
 <li>Assert every forbidden tag is absent.</li>
 <li>Print a concise summary.</li>
@@ -8052,7 +8546,7 @@ explain text: &lt;short reason shown by --explain-tags&gt;</code></pre>
 <ul>
 <li><code>TaggingRegressionTest</code>: smoke tests for key existing tags.</li>
 <li><code>TagFixtureRegressionTest</code>: broad fixture-driven coverage.</li>
-<li><code>TagParserRegressionTest</code>: <code>Line</code>, <code>Identity</code>, <code>Sort</code>, and delta identity behavior.</li>
+<li><code>ParserRegressionTest</code>: <code>Line</code>, <code>Identity</code>, <code>Sort</code>, and delta identity behavior.</li>
 <li><code>TagDeltaRegressionTest</code>: enabled/disabled tags across a short line.</li>
 <li><code>TagPerformanceRegressionTest</code>: optional, local-only benchmark on hundreds of FENs.</li>
 </ul>
@@ -8118,11 +8612,11 @@ explain text: &lt;short reason shown by --explain-tags&gt;</code></pre>
 <li><code>wiki/ai-agents.md</code>: recommended deterministic tag commands.</li>
 <li><code>README.md</code>: one-line link to tag docs when tag work lands.</li>
 </ul>
-<p>Add a dedicated reference page when the tag set is broad enough:</p>
+<p>Maintain the dedicated reference page:</p>
 <pre><code class="language-text">wiki/tag-reference.md</code></pre>
 <p>That page should list every canonical tag, fields, examples, and whether the tag is static, engine-derived, or config-derived.</p>
 <h2 id="chapter-tagging-implementation-plan-regression-fixtures">Regression Fixtures</h2>
-<p>Regression coverage targets canonical <code>Tagging</code> output for:</p>
+<p>Regression coverage targets canonical <code>Generator</code> output for:</p>
 <ul>
 <li>start position</li>
 <li>checkmate</li>
@@ -8136,12 +8630,12 @@ explain text: &lt;short reason shown by --explain-tags&gt;</code></pre>
 <h2 id="chapter-tagging-implementation-plan-milestone-checklist">Milestone Checklist</h2>
 <h3 id="chapter-tagging-implementation-plan-milestone-a-foundation">Milestone A: Foundation</h3>
 <ul>
-<li>[ ] Add <code>TagContext</code>.</li>
-<li>[ ] Add <code>TagEmitter</code>.</li>
-<li>[ ] Add detector contract.</li>
-<li>[ ] Add fixture regression runner.</li>
-<li>[ ] Add tag reference skeleton.</li>
-<li>[ ] Confirm current <code>chess.tag</code> output stays stable.</li>
+<li>[x] Add <code>Context</code>.</li>
+<li>[x] Add <code>Emitter</code>.</li>
+<li>[x] Add detector contract.</li>
+<li>[x] Add fixture regression runner.</li>
+<li>[x] Add tag reference skeleton.</li>
+<li>[x] Confirm current <code>chess.tag</code> output stays stable.</li>
 </ul>
 <h3 id="chapter-tagging-implementation-plan-milestone-b-prototype-parity">Milestone B: Prototype Parity</h3>
 <ul>
@@ -8200,8 +8694,8 @@ explain text: &lt;short reason shown by --explain-tags&gt;</code></pre>
 </ul>
 <h3 id="chapter-tagging-implementation-plan-milestone-g-docs-and-release-readiness">Milestone G: Docs And Release Readiness</h3>
 <ul>
-<li>[ ] Write <code>wiki/tag-reference.md</code>.</li>
-<li>[ ] Update command examples.</li>
+<li>[x] Write <code>wiki/tag-reference.md</code>.</li>
+<li>[x] Update command examples.</li>
 <li>[ ] Add performance notes.</li>
 <li>[ ] Add migration notes for renamed tags.</li>
 <li>[ ] Run full regression suite.</li>
@@ -8237,19 +8731,19 @@ explain text: &lt;short reason shown by --explain-tags&gt;</code></pre>
 <li>Adding many detectors without shared context can slow batch tagging.</li>
 </ul>
 <h2 id="chapter-tagging-implementation-plan-recommended-next-task">Recommended Next Task</h2>
-<p>Start with Milestone A and the remaining canonical detector work:</p>
+<p>Start with release-readiness cleanup and the next conservative detector slice:</p>
 <ol>
-<li>Add <code>TagContext</code>.</li>
-<li>Add a small <code>TagEmitter</code>.</li>
-<li>Move repeated detector logic into small canonical modules.</li>
-<li>Expand fixture coverage for every emitted tag family.</li>
+<li>Add performance notes for large FEN and puzzle batches.</li>
+<li>Add migration notes for renamed or canonicalized tags.</li>
+<li>Expand fixture coverage for emitted families that still rely on ad hoc tests.</li>
+<li>Pick the next tactical motif only when it has a stable final-position predicate.</li>
 </ol>
-<p>That gives the project one tag pipeline before the larger motif backlog begins.</p>
+<p>Keep noisy or history-dependent motifs documented as excluded until they have a clear evidence rule.</p>
   </div>
 </section>
 
 <section class="chapter">
-  <p class="chapter-kicker">Development · Chapter 29</p>
+  <p class="chapter-kicker">Development · Chapter 30</p>
   <h1 id="chapter-readme">Wiki Index</h1>
   <div class="chapter-body">
     <p>Welcome to the ChessRTK documentation. This wiki is the project handbook: it starts with installation and first commands, then moves into configuration, engine workflows, mining, datasets, publishing, architecture, and maintenance.</p>
@@ -8285,6 +8779,7 @@ explain text: &lt;short reason shown by --explain-tags&gt;</code></pre>
 <li><a href="#chapter-datasets">Datasets</a></li>
 <li><a href="#chapter-book-publishing">Book publishing</a></li>
 <li><a href="#chapter-piece-tags">Piece and position tags</a></li>
+<li><a href="#chapter-tag-reference">Tag reference</a></li>
 <li><a href="#chapter-t5">T5 tag-to-text pipeline</a></li>
 <li><a href="#chapter-ai-agents">AI agents and automation</a></li>
 </ul>
@@ -8342,7 +8837,7 @@ explain text: &lt;short reason shown by --explain-tags&gt;</code></pre>
 <tr>
 <td>Tag positions and lines</td>
 <td><code>fen tags</code>, <code>puzzle tags</code>, <code>record tag-stats</code></td>
-<td><a href="#chapter-piece-tags">Piece and position tags</a></td>
+<td><a href="#chapter-piece-tags">Piece and position tags</a>, <a href="#chapter-tag-reference">Tag reference</a></td>
 </tr>
 <tr>
 <td>Export training data</td>

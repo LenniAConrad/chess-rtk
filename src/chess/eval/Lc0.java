@@ -6,10 +6,10 @@ import java.util.Arrays;
 
 import chess.core.Move;
 import chess.core.Position;
-import chess.nn.lc0.PolicyEncoder;
+import chess.nn.lc0.cnn.PolicyEncoder;
 
 /**
- * LC0 centipawn evaluator backed by {@link chess.nn.lc0.Model}.
+ * LC0 centipawn evaluator backed by {@link chess.nn.lc0.cnn.Model}.
  *
  * <p>
  * The LC0 value head returns WDL probabilities. This evaluator maps expected
@@ -40,7 +40,7 @@ public final class Lc0 implements CentipawnEvaluator {
     /**
      * Loaded LC0 policy/value model used for every leaf evaluation.
      */
-    private final chess.nn.lc0.Model model;
+    private final chess.nn.lc0.cnn.Model model;
 
     /**
      * Last position signature whose policy logits were computed.
@@ -65,11 +65,11 @@ public final class Lc0 implements CentipawnEvaluator {
     /**
      * Creates an evaluator from a weights path.
      *
-     * @param weights LC0J weights path
+     * @param weights LC0 CNN weights path
      * @throws IOException if the model cannot be loaded
      */
     public Lc0(Path weights) throws IOException {
-        this(chess.nn.lc0.Model.load(weights == null ? chess.nn.lc0.Model.DEFAULT_WEIGHTS : weights));
+        this(chess.nn.lc0.cnn.Model.load(weights == null ? chess.nn.lc0.cnn.Model.DEFAULT_WEIGHTS : weights));
     }
 
     /**
@@ -78,7 +78,7 @@ public final class Lc0 implements CentipawnEvaluator {
      * @param model loaded model
      * @throws IllegalArgumentException if the model is null
      */
-    public Lc0(chess.nn.lc0.Model model) {
+    public Lc0(chess.nn.lc0.cnn.Model model) {
         if (model == null) {
             throw new IllegalArgumentException("model == null");
         }
@@ -94,7 +94,7 @@ public final class Lc0 implements CentipawnEvaluator {
      */
     @Override
     public int evaluate(Position position) {
-        chess.nn.lc0.Network.Prediction prediction = predict(position);
+        chess.nn.lc0.cnn.Network.Prediction prediction = predict(position);
         return wdlToCentipawns(prediction.wdl());
     }
 
@@ -177,8 +177,8 @@ public final class Lc0 implements CentipawnEvaluator {
      * @param position position to evaluate
      * @return LC0 prediction
      */
-    private chess.nn.lc0.Network.Prediction predict(Position position) {
-        chess.nn.lc0.Network.Prediction prediction = model.predict(position);
+    private chess.nn.lc0.cnn.Network.Prediction predict(Position position) {
+        chess.nn.lc0.cnn.Network.Prediction prediction = model.predict(position);
         rememberPolicy(position.signature(), prediction.policy());
         return prediction;
     }

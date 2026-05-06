@@ -43,6 +43,7 @@
 <a class="" href="datasets.html" data-title="datasets">Datasets</a>
 <a class="" href="book-publishing.html" data-title="book publishing">Book Publishing</a>
 <a class="" href="piece-tags.html" data-title="tags">Tags</a>
+<a class="" href="tag-reference.html" data-title="tag reference">Tag Reference</a>
 <a class="active" href="t5.html" data-title="t5 text">T5 Text</a>
 <a class="" href="ai-agents.html" data-title="ai agents">AI Agents</a>
 </section>
@@ -92,7 +93,7 @@ crtk fen text -i seeds.txt --model models/t5.bin --include-fen</code></pre>
 <li><code>--include-fen</code>: emit JSON with <code>fen</code> and <code>summary</code>.</li>
 <li><code>--analyze</code>: enrich tags with engine analysis before summarization.</li>
 <li><code>--max-new &lt;n&gt;</code>: cap generated tokens, default <code>128</code>.</li>
-<li><code>--protocol|-p</code>, <code>--max-nodes</code>, <code>--max-duration</code>, <code>--multipv</code>, <code>--threads</code>, <code>--hash</code>, <code>--wdl</code>, <code>--no-wdl</code>: engine options used with <code>--analyze</code>.</li>
+<li><code>--protocol-path|-P</code>, <code>--max-nodes</code>, <code>--max-duration</code>, <code>--multipv</code>, <code>--threads</code>, <code>--hash</code>, <code>--wdl</code>, <code>--no-wdl</code>: engine options used with <code>--analyze</code>.</li>
 </ul>
 <h2 id="running-puzzle-line-summaries">Running puzzle-line summaries</h2>
 <p>Use <code>puzzle text</code> when you want summaries for the root PV and expanded puzzle continuations:</p>

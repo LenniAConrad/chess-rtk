@@ -16,17 +16,17 @@ set(CMAKE_CUDA_USE_RESPONSE_FILE_FOR_INCLUDES OFF)
 find_package(JNI REQUIRED)
 find_package(CUDAToolkit REQUIRED)
 
-add_library(lc0j_cuda SHARED lc0j_cuda_jni.cu)
-target_include_directories(lc0j_cuda PRIVATE ${JNI_INCLUDE_DIRS})
+add_library(lc0_cuda SHARED lc0_cnn_cuda_jni.cu lc0_bt4_cuda_jni.cu)
+target_include_directories(lc0_cuda PRIVATE ${JNI_INCLUDE_DIRS})
 
 add_library(t5_cuda SHARED t5_cuda_jni.cu)
 target_include_directories(t5_cuda PRIVATE ${JNI_INCLUDE_DIRS})
 
 # Link CUDA runtime.
-target_link_libraries(lc0j_cuda PRIVATE CUDA::cudart)
+target_link_libraries(lc0_cuda PRIVATE CUDA::cudart)
 target_link_libraries(t5_cuda PRIVATE CUDA::cudart CUDA::cublas)
 
-set_target_properties(lc0j_cuda PROPERTIES
+set_target_properties(lc0_cuda PROPERTIES
   CUDA_SEPARABLE_COMPILATION ON
 )
 set_target_properties(t5_cuda PROPERTIES

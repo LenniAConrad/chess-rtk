@@ -3,16 +3,20 @@ package application.cli.command;
 import static application.cli.Constants.ERR_INVALID_FEN;
 import static application.cli.Constants.MSG_FEN_REQUIRED_HINT;
 import static application.cli.Constants.OPT_BOTH;
+import static application.cli.Constants.OPT_FIELDS;
 import static application.cli.Constants.OPT_FORMAT;
 import static application.cli.Constants.OPT_SAN;
 import static application.cli.Constants.OPT_VERBOSE;
 import static application.cli.Constants.OPT_VERBOSE_SHORT;
 import static application.cli.Format.safeSan;
 
+import application.cli.command.CommandSupport.OutputMode;
 import chess.core.Move;
 import chess.core.MoveList;
 import chess.core.Position;
 import chess.debug.LogService;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 import utility.Argv;
 
@@ -119,8 +123,10 @@ public final class MovesCommand {
 	 */
 	private static void runMovesCommand(Argv a, MovesFormat format, String cmdLabel) {
 		boolean verbose = a.flag(OPT_VERBOSE, OPT_VERBOSE_SHORT);
+		OutputMode outputMode = CommandSupport.resolveOutputMode(a, cmdLabel);
 		boolean san = a.flag(OPT_SAN);
 		boolean both = a.flag(OPT_BOTH);
+		String fieldOption = a.string(OPT_FIELDS);
 		MovesFormat requested = parseFormat(a.string(OPT_FORMAT), san, both, cmdLabel);
 		String fen = CommandSupport.resolveFenArgument(a, cmdLabel, false);
 		MovesFormat resolved = format == MovesFormat.DEFAULT ? requested : format;
@@ -137,28 +143,23 @@ public final class MovesCommand {
 		}
 
 		if (fen == null || fen.isEmpty()) {
-			System.err.println(cmdLabel + " requires a FEN (" + MSG_FEN_REQUIRED_HINT + ")");
-			System.exit(2);
-			return;
+			throw new CommandFailure(cmdLabel + " requires a FEN (" + MSG_FEN_REQUIRED_HINT + ")", 2);
 		}
 
+		MoveFields fields = MoveFields.resolve(fieldOption, san, both, outputMode, cmdLabel);
 		try {
 			Position pos = new Position(fen.trim());
-			printMoves(pos, san, both);
+			printMoves(pos, fields, outputMode);
+		} catch (CommandFailure failure) {
+			throw failure;
 		} catch (IllegalArgumentException ex) {
-			System.err.println(ERR_INVALID_FEN + (ex.getMessage() == null ? "" : ex.getMessage()));
 			LogService.error(ex, cmdLabel + ": invalid FEN", "FEN: " + fen);
-			if (verbose) {
-				ex.printStackTrace(System.err);
-			}
-			System.exit(3);
+			throw new CommandFailure(ERR_INVALID_FEN + (ex.getMessage() == null ? "" : ex.getMessage()),
+					ex, 3, verbose);
 		} catch (Exception t) {
-			System.err.println("Error: failed to list moves. " + (t.getMessage() == null ? "" : t.getMessage()));
 			LogService.error(t, cmdLabel + ": unexpected failure", "FEN: " + fen);
-			if (verbose) {
-				t.printStackTrace(System.err);
-			}
-			System.exit(3);
+			throw new CommandFailure("Error: failed to list moves. "
+					+ (t.getMessage() == null ? "" : t.getMessage()), t, 3, verbose);
 		}
 	}
 
@@ -179,20 +180,14 @@ public final class MovesCommand {
 			return san ? MovesFormat.SAN : MovesFormat.UCI;
 		}
 		if (san || both) {
-			System.err.println(cmdLabel + ": use either " + OPT_FORMAT + " or --san/--both, not both");
-			System.exit(2);
-			return MovesFormat.UCI;
+			throw new CommandFailure(cmdLabel + ": use either " + OPT_FORMAT + " or --san/--both, not both", 2);
 		}
 		return switch (value.trim().toLowerCase(Locale.ROOT)) {
 			case "uci" -> MovesFormat.UCI;
 			case "san" -> MovesFormat.SAN;
 			case "both" -> MovesFormat.BOTH;
-			default -> {
-				System.err.println(cmdLabel + ": unsupported " + OPT_FORMAT + " value: " + value
-						+ " (expected uci, san, or both)");
-				System.exit(2);
-				yield MovesFormat.UCI;
-			}
+			default -> throw new CommandFailure(cmdLabel + ": unsupported " + OPT_FORMAT + " value: " + value
+					+ " (expected uci, san, or both)", 2);
 		};
 	}
 
@@ -203,10 +198,23 @@ public final class MovesCommand {
 	 * @param san  whether to print SAN instead of UCI
 	 * @param both whether to print UCI and SAN side-by-side
 	 */
-	private static void printMoves(Position pos, boolean san, boolean both) {
+	private static void printMoves(Position pos, MoveFields fields, OutputMode outputMode) {
 		MoveList moves = pos.legalMoves();
+		if (outputMode == OutputMode.JSON) {
+			List<String> rows = new ArrayList<>();
+			for (int i = 0; i < moves.size(); i++) {
+				rows.add(moveJson(pos, moves.get(i), fields));
+			}
+			System.out.println("[" + String.join(",", rows) + "]");
+			return;
+		}
 		for (int i = 0; i < moves.size(); i++) {
-			printMoveLine(pos, moves.get(i), san, both);
+			short move = moves.get(i);
+			if (outputMode == OutputMode.JSONL) {
+				System.out.println(moveJson(pos, move, fields));
+			} else {
+				printMoveLine(pos, move, fields);
+			}
 		}
 	}
 
@@ -218,16 +226,91 @@ public final class MovesCommand {
 	 * @param san  whether to print SAN instead of UCI
 	 * @param both whether to print both UCI and SAN
 	 */
-	private static void printMoveLine(Position pos, short move, boolean san, boolean both) {
+	private static void printMoveLine(Position pos, short move, MoveFields fields) {
 		String uci = Move.toString(move);
-		if (both) {
+		if (fields.uci() && fields.san()) {
 			System.out.println(uci + "\t" + safeSan(pos, move));
 			return;
 		}
-		if (san) {
+		if (fields.san()) {
 			System.out.println(safeSan(pos, move));
 			return;
 		}
 		System.out.println(uci);
+	}
+
+	/**
+	 * Builds a JSON object for one legal move row.
+	 *
+	 * @param pos    position used to compute SAN
+	 * @param move   encoded move
+	 * @param fields selected fields
+	 * @return JSON object text
+	 */
+	private static String moveJson(Position pos, short move, MoveFields fields) {
+		StringBuilder sb = new StringBuilder(48);
+		sb.append('{');
+		boolean any = false;
+		if (fields.uci()) {
+			sb.append("\"uci\":").append(CommandSupport.jsonString(Move.toString(move)));
+			any = true;
+		}
+		if (fields.san()) {
+			if (any) {
+				sb.append(',');
+			}
+			sb.append("\"san\":").append(CommandSupport.jsonString(safeSan(pos, move)));
+		}
+		return sb.append('}').toString();
+	}
+
+	/**
+	 * Selected move-list output fields.
+	 */
+	private record MoveFields(boolean uci, boolean san) {
+
+		/**
+		 * Resolves move-list fields from legacy format flags and {@code --fields}.
+		 *
+		 * @param value      optional fields option
+		 * @param sanFlag    whether SAN output was selected
+		 * @param bothFlag   whether both fields were selected
+		 * @param outputMode selected output mode
+		 * @param cmdLabel   command label
+		 * @return resolved fields
+		 */
+		static MoveFields resolve(String value, boolean sanFlag, boolean bothFlag, OutputMode outputMode, String cmdLabel) {
+			if (value == null || value.isBlank()) {
+				if (outputMode != OutputMode.TEXT) {
+					return new MoveFields(true, true);
+				}
+				if (bothFlag) {
+					return new MoveFields(true, true);
+				}
+				return sanFlag ? new MoveFields(false, true) : new MoveFields(true, false);
+			}
+			boolean uci = false;
+			boolean san = false;
+			for (String field : value.split(",")) {
+				String normalized = field.trim().toLowerCase(Locale.ROOT);
+				if (normalized.isEmpty()) {
+					continue;
+				}
+				switch (normalized) {
+					case "uci" -> uci = true;
+					case "san" -> san = true;
+					case "both" -> {
+						uci = true;
+						san = true;
+					}
+					default -> throw new CommandFailure(cmdLabel + ": unsupported " + OPT_FIELDS
+							+ " value: " + field + " (expected uci, san, or both)", 2);
+				}
+			}
+			if (!uci && !san) {
+				throw new CommandFailure(cmdLabel + ": " + OPT_FIELDS + " must include uci or san", 2);
+			}
+			return new MoveFields(uci, san);
+		}
 	}
 }

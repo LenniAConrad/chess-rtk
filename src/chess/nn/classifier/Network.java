@@ -44,10 +44,10 @@ public final class Network implements AutoCloseable {
     private static final byte[] MAGIC_PCJ0 = new byte[] { 'P', 'C', 'J', '0' };
 
     /**
-     * Compatibility magic accepted for early exporters that reuse the LC0J
-     * container identifier.
+     * Compatibility magic accepted for early exporters that reuse the LC0
+     * binary container identifier.
      */
-    private static final byte[] MAGIC_LC0J = new byte[] { 'L', 'C', '0', 'J' };
+    private static final byte[] MAGIC_LC0_COMPAT = new byte[] { 'L', 'C', '0', 'J' };
 
     /**
      * CPU backend weights.
@@ -800,7 +800,7 @@ public final class Network implements AutoCloseable {
             buf.get(magic);
             if (!matchesMagic(magic, MAGIC_CLSF) && !matchesMagic(magic, MAGIC_PCLS)
                     && !matchesMagic(magic, MAGIC_PCJ0)
-                    && !matchesMagic(magic, MAGIC_LC0J)) {
+                    && !matchesMagic(magic, MAGIC_LC0_COMPAT)) {
                 throw new IOException("Invalid classifier weights file (bad magic).");
             }
 

@@ -16,11 +16,17 @@ JAR_PATH="$APP_HOME/crtk.jar"
 LAUNCHER="/usr/local/bin/$APP_NAME"
 MODEL_DIR="$APP_HOME/models"
 MODEL_BASE_URL="https://media.githubusercontent.com/media/LenniAConrad/chess-models/main/models"
-MODEL_REMOTE_FILES=("nn-f68ec79f0fe3.nnue" "lc0_610153.bin" "lc0_744706.bin")
+MODEL_REMOTE_FILES=(
+  "nn-f68ec79f0fe3.nnue"
+  "lc0_610153.bin"
+  "lc0_744706.bin"
+  "https://storage.lczero.org/files/networks-contrib/BT4-1024x15x32h-swa-6147500-policytune-332.pb.gz"
+)
 MODEL_LOCAL_FILES=(
   "crtk-halfkp.nnue"
   "leela_112planes-30blocksx384-policyhead80-valuehead32-policy4672-wdl3.bin"
   "leela_112planes-10blocksx128-policyhead80-valuehead32-policy4672-wdl3.bin"
+  "BT4-1024x15x32h-swa-6147500-policytune-332.pb.gz"
 )
 
 CUDA_MODE="auto"      # auto|yes|no
@@ -212,6 +218,13 @@ download_file() {
   mv "$tmp" "$dest"
 }
 
+model_url() {
+  case "$1" in
+    http://*|https://*) printf '%s\n' "$1" ;;
+    *) printf '%s/%s\n' "$MODEL_BASE_URL" "$1" ;;
+  esac
+}
+
 fetch_model_weights() {
   if [[ "$MODEL_MODE" == "no" ]]; then
     MODEL_RESULT="skipped"
@@ -221,11 +234,15 @@ fetch_model_weights() {
   local missing=()
   local index
   local remote
+  local remote_name
   local file
   for index in "${!MODEL_LOCAL_FILES[@]}"; do
     remote="${MODEL_REMOTE_FILES[$index]}"
     file="${MODEL_LOCAL_FILES[$index]}"
-    if [[ ! -s "$MODEL_DIR/$file" && -s "$MODEL_DIR/$remote" ]]; then
+    remote_name="${remote##*/}"
+    if [[ ! -s "$MODEL_DIR/$file" && "$remote_name" != "$file" && -s "$MODEL_DIR/$remote_name" ]]; then
+      mv "$MODEL_DIR/$remote_name" "$MODEL_DIR/$file"
+    elif [[ "$remote" != http://* && "$remote" != https://* && ! -s "$MODEL_DIR/$file" && -s "$MODEL_DIR/$remote" ]]; then
       mv "$MODEL_DIR/$remote" "$MODEL_DIR/$file"
     fi
     if [[ ! -s "$MODEL_DIR/$file" ]]; then
@@ -259,7 +276,7 @@ fetch_model_weights() {
     file="${MODEL_LOCAL_FILES[$index]}"
     echo
     step "Downloading model weight: $file"
-    if download_file "$MODEL_BASE_URL/$remote" "$MODEL_DIR/$file"; then
+    if download_file "$(model_url "$remote")" "$MODEL_DIR/$file"; then
       step "Saved: $MODEL_DIR/$file"
     else
       failed=1
@@ -515,17 +532,17 @@ MODEL_RESULT="skipped" # downloaded|present|skipped|failed
 
 CUDA_RESULT="skipped" # built|skipped|failed
 CUDA_BUILD_DIR="$APP_HOME/native/cuda/build"
-CUDA_LIB_SO="$CUDA_BUILD_DIR/liblc0j_cuda.so"
+CUDA_LIB_SO="$CUDA_BUILD_DIR/liblc0_cuda.so"
 CUDA_T5_LIB_SO="$CUDA_BUILD_DIR/libt5_cuda.so"
 
 ROCM_RESULT="skipped" # built|skipped|failed
 ROCM_BUILD_DIR="$APP_HOME/native/rocm/build"
-ROCM_LIB_SO="$ROCM_BUILD_DIR/liblc0j_rocm.so"
+ROCM_LIB_SO="$ROCM_BUILD_DIR/liblc0_rocm.so"
 ROCM_T5_LIB_SO="$ROCM_BUILD_DIR/libt5_rocm.so"
 
 ONEAPI_RESULT="skipped" # built|skipped|failed
 ONEAPI_BUILD_DIR="$APP_HOME/native/oneapi/build"
-ONEAPI_LIB_SO="$ONEAPI_BUILD_DIR/liblc0j_oneapi.so"
+ONEAPI_LIB_SO="$ONEAPI_BUILD_DIR/liblc0_oneapi.so"
 ONEAPI_T5_LIB_SO="$ONEAPI_BUILD_DIR/libt5_oneapi.so"
 
 manual_build_cuda_backend() {
@@ -549,7 +566,10 @@ manual_build_cuda_backend() {
   step "Building CUDA backends (native/cuda) via nvcc (CMake fallback)..."
   if ! nvcc -shared -Xcompiler=-fPIC -O3 --std=c++17 \
       -I"${JAVA_HOME}/include" -I"${JAVA_HOME}/include/linux" \
-      -o "$CUDA_LIB_SO" "$APP_HOME/native/cuda/lc0j_cuda_jni.cu" -lcudart; then
+      -o "$CUDA_LIB_SO" \
+      "$APP_HOME/native/cuda/lc0_cnn_cuda_jni.cu" \
+      "$APP_HOME/native/cuda/lc0_bt4_cuda_jni.cu" \
+      -lcudart; then
     return 1
   fi
   if ! nvcc -shared -Xcompiler=-fPIC -O3 --std=c++17 \
@@ -693,7 +713,9 @@ manual_build_rocm_backend() {
   step "Building ROCm backends (native/rocm) via hipcc (CMake fallback)..."
   if "$hipcc_bin" -shared -fPIC -O3 --std=c++17 \
       -I"${JAVA_HOME}/include" -I"${JAVA_HOME}/include/linux" \
-      -o "$ROCM_LIB_SO" "$APP_HOME/native/rocm/lc0j_rocm_jni.hip"; then
+      -o "$ROCM_LIB_SO" \
+      "$APP_HOME/native/rocm/lc0_cnn_rocm_jni.hip" \
+      "$APP_HOME/native/rocm/lc0_bt4_rocm_jni.hip"; then
     if "$hipcc_bin" -shared -fPIC -O3 --std=c++17 \
         -I"${JAVA_HOME}/include" -I"${JAVA_HOME}/include/linux" \
         -o "$ROCM_T5_LIB_SO" "$APP_HOME/native/rocm/t5_rocm_jni.hip" -lhipblas; then
@@ -820,7 +842,9 @@ manual_build_oneapi_backend() {
   step "Building oneAPI backends (native/oneapi) via $cxx (CMake fallback)..."
   if "$cxx" -fsycl -shared -fPIC -O3 --std=c++17 \
       -I"${JAVA_HOME}/include" -I"${JAVA_HOME}/include/linux" \
-      -o "$ONEAPI_LIB_SO" "$APP_HOME/native/oneapi/lc0j_oneapi_jni.cpp"; then
+      -o "$ONEAPI_LIB_SO" \
+      "$APP_HOME/native/oneapi/lc0_cnn_oneapi_jni.cpp" \
+      "$APP_HOME/native/oneapi/lc0_bt4_oneapi_jni.cpp"; then
     if "$cxx" -fsycl -shared -fPIC -O3 --std=c++17 \
         -I"${JAVA_HOME}/include" -I"${JAVA_HOME}/include/linux" \
         -o "$ONEAPI_T5_LIB_SO" "$APP_HOME/native/oneapi/t5_oneapi_jni.cpp"; then
@@ -1018,13 +1042,13 @@ JAVA_BIN="\${JAVA_BIN:-java}"
 JAVA_OPTS="\${JAVA_OPTS:-}"
 cd "\$APP_HOME"
 LIB_DIRS=()
-if [[ -f "\$APP_HOME/native/cuda/build/liblc0j_cuda.so" || -f "\$APP_HOME/native/cuda/build/libt5_cuda.so" ]]; then
+if [[ -f "\$APP_HOME/native/cuda/build/liblc0_cuda.so" || -f "\$APP_HOME/native/cuda/build/libt5_cuda.so" ]]; then
   LIB_DIRS+=("\$APP_HOME/native/cuda/build")
 fi
-if [[ -f "\$APP_HOME/native/rocm/build/liblc0j_rocm.so" || -f "\$APP_HOME/native/rocm/build/libt5_rocm.so" ]]; then
+if [[ -f "\$APP_HOME/native/rocm/build/liblc0_rocm.so" || -f "\$APP_HOME/native/rocm/build/libt5_rocm.so" ]]; then
   LIB_DIRS+=("\$APP_HOME/native/rocm/build")
 fi
-if [[ -f "\$APP_HOME/native/oneapi/build/liblc0j_oneapi.so" || -f "\$APP_HOME/native/oneapi/build/libt5_oneapi.so" ]]; then
+if [[ -f "\$APP_HOME/native/oneapi/build/liblc0_oneapi.so" || -f "\$APP_HOME/native/oneapi/build/libt5_oneapi.so" ]]; then
   LIB_DIRS+=("\$APP_HOME/native/oneapi/build")
 fi
 LIB_OPT=""

@@ -93,10 +93,9 @@ final class MoveCommandSupport {
 
 		if (startPos || randomPos) {
 			if ((fen != null && !fen.isBlank()) || looksLikeFenTokens(rest)) {
-				System.err.println(
-						cmd + ": choose at most one of " + OPT_FEN + " <FEN>, " + OPT_STARTPOS + ", or " + OPT_RANDOMPOS);
-				System.exit(2);
-				return new ParsedInput(Setup.getStandardStartPosition(), List.of());
+				throw new CommandFailure(
+						cmd + ": choose at most one of " + OPT_FEN + " <FEN>, " + OPT_STARTPOS + ", or " + OPT_RANDOMPOS,
+						2);
 			}
 			Position pos = startPos ? Setup.getStandardStartPosition() : CommandSupport.randomPlayablePosition();
 			return new ParsedInput(pos, tokenizeMoves(rest));
@@ -111,9 +110,7 @@ final class MoveCommandSupport {
 			if (allowDefaultStart) {
 				return new ParsedInput(Setup.getStandardStartPosition(), List.of());
 			}
-			System.err.println(cmd + " requires a FEN (" + MSG_FEN_REQUIRED_HINT + ")");
-			System.exit(2);
-			return new ParsedInput(Setup.getStandardStartPosition(), List.of());
+			throw new CommandFailure(cmd + " requires a FEN (" + MSG_FEN_REQUIRED_HINT + ")", 2);
 		}
 
 		String first = rest.get(0);
@@ -126,9 +123,7 @@ final class MoveCommandSupport {
 		}
 
 		if (!allowDefaultStart) {
-			System.err.println(cmd + " requires a FEN (" + MSG_FEN_REQUIRED_HINT + ")");
-			System.exit(2);
-			return new ParsedInput(Setup.getStandardStartPosition(), List.of());
+			throw new CommandFailure(cmd + " requires a FEN (" + MSG_FEN_REQUIRED_HINT + ")", 2);
 		}
 
 		return new ParsedInput(Setup.getStandardStartPosition(), tokenizeMoves(rest));
@@ -245,13 +240,8 @@ final class MoveCommandSupport {
 		}
 
 		String msg = last != null ? last.getMessage() : "Invalid FEN (expected 4 or 6 fields)";
-		System.err.println(ERR_INVALID_FEN + (msg == null ? "" : msg));
 		LogService.error(last, cmd + ": invalid FEN", "FEN: " + String.join(" ", rest));
-		if (verbose && last != null) {
-			last.printStackTrace(System.err);
-		}
-		System.exit(3);
-		return new ParsedInput(Setup.getStandardStartPosition(), List.of());
+		throw new CommandFailure(ERR_INVALID_FEN + (msg == null ? "" : msg), last, 3, verbose);
 	}
 
 	/**

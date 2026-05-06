@@ -45,7 +45,7 @@ import chess.io.Reader;
 import chess.struct.Game;
 import chess.struct.Record;
 import chess.tag.Delta;
-import chess.tag.Tagging;
+import chess.tag.Generator;
 import chess.tag.Sort;
 import chess.uci.Analysis;
 import chess.uci.Evaluation;
@@ -282,7 +282,7 @@ public final class TagsCommand {
                         continue;
                     }
                     List<String> parentTags = inheritedParentTags(rec.getParent(), cache, effectiveCache);
-                    List<String> tags = Tagging.inheritOpeningTags(tagsFor(pos, null, cache, false), parentTags);
+                    List<String> tags = Generator.inheritOpeningTags(tagsFor(pos, null, cache, false), parentTags);
                     rememberEffectiveTags(pos, tags, effectiveCache);
                     List<String> outputTags = includeTagFen ? withFen(tags, pos.toString()) : tags;
                     if (opts.flags.delta) {
@@ -365,7 +365,7 @@ public final class TagsCommand {
             return index;
         }
         List<String> parentTags = inheritedParentTags(rec.getParent(), engine, opts, cache, effectiveCache);
-        List<String> tags = Tagging.inheritOpeningTags(tagsFor(pos, engine, opts, cache, false), parentTags);
+        List<String> tags = Generator.inheritOpeningTags(tagsFor(pos, engine, opts, cache, false), parentTags);
         rememberEffectiveTags(pos, tags, effectiveCache);
         List<String> outputTags = includeTagFen ? withFen(tags, pos.toString()) : tags;
         if (opts.flags.delta) {
@@ -463,7 +463,7 @@ public final class TagsCommand {
                 return List.of();
             }
         }
-        List<String> tags = Tagging.tags(pos, analysis);
+        List<String> tags = Generator.tags(pos, analysis);
         if (engine != null) {
             List<String> threats = threatTags(pos, analysis, engine, opts.limits.nodesCap, opts.limits.durMs,
                     opts.flags.verbose);
@@ -494,7 +494,7 @@ public final class TagsCommand {
         if (cached != null) {
             return includeFen ? withFen(cached, fen) : cached;
         }
-        List<String> tags = Tagging.tags(pos, analysis);
+        List<String> tags = Generator.tags(pos, analysis);
         cache.put(fen, tags);
         return includeFen ? withFen(tags, fen) : tags;
     }

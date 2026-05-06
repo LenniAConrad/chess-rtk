@@ -40,11 +40,7 @@ public final class CleanCommand {
 			SessionCache.ensureDirectory();
 			System.out.println("Session cache cleared: " + SessionCache.directory().toAbsolutePath());
 		} catch (Exception ex) {
-			System.err.println("Failed to clean session cache: " + ex.getMessage());
-			if (verbose) {
-				ex.printStackTrace(System.err);
-			}
-			System.exit(1);
+			throw new CommandFailure("Failed to clean session cache: " + ex.getMessage(), ex, 1, verbose);
 		}
 	}
 }

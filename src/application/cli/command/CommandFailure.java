@@ -64,7 +64,9 @@ public final class CommandFailure extends RuntimeException {
 	 * @param err diagnostic output stream
 	 */
 	public void printTo(PrintStream err) {
-		err.println(getMessage());
+		if (getMessage() != null && !getMessage().isBlank()) {
+			err.println(getMessage());
+		}
 		if (verbose && getCause() != null) {
 			getCause().printStackTrace(err);
 		}

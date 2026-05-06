@@ -14,8 +14,10 @@
   - `chess.engine`: in-process alpha-beta search used by `engine builtin`
   - `chess.eval`: in-process evaluator facade used by `engine eval`,
     `engine static`, `engine builtin`, display ablation, and tag helpers
-  - `chess.nn.lc0`: pure-Java LC0 forward pass with optional CUDA, ROCm, and
-    oneAPI native backends
+  - `chess.nn.lc0.cnn`: pure-Java LC0 CNN forward pass with optional CUDA,
+    ROCm, and oneAPI native backends
+  - `chess.nn.lc0.bt4`: LC0 BT4 attention-body helpers, Java reference forward
+    path, and optional CUDA, ROCm, and oneAPI native backends
 
 ## Core chess implementation
 

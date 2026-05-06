@@ -161,7 +161,7 @@ public final class Config {
     private static final String DEFAULT_PROTOCOL_PATH = "config/default.engine.toml";
 
     /**
-     * Used for providing a default LC0J weights path.
+     * Used for providing a default LC0 CNN weights path.
      */
     private static final String DEFAULT_LC0_MODEL_PATH =
             "models/leela_112planes-10blocksx128-policyhead80-valuehead32-policy4672-wdl3.bin";
@@ -253,7 +253,7 @@ public final class Config {
             "",
             "",
             "# MODEL PATHS",
-            "# Default LC0J model path used by evaluator-backed features",
+            "# Default LC0 CNN model path used by evaluator-backed features",
             "# (eval, tags metadata, display --show-backend/--ablation, etc.).",
             K_LC0_MODEL_PATH + EQ_Q + DEFAULT_LC0_MODEL_PATH + Q,
             "# Default T5 model path used by puzzle-text/tag-text when --model is omitted.",

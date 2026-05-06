@@ -58,9 +58,9 @@ Output:
 - `<stem>.lc0.meta.json` with policy encoding, compression, value scale, and
   source metadata
 
-Policy rows are one-hot. If `--weights` is supplied, ChessRTK reads the LC0J
-weights policy map and compresses policy targets to the network's policy size.
-Without weights, the raw 73-plane policy size (`4672`) is used.
+Policy rows are one-hot. If `--weights` is supplied, ChessRTK reads the LC0 CNN
+`.bin` weights policy map and compresses policy targets to the network's policy
+size. Without weights, the raw 73-plane policy size (`4672`) is used.
 
 ```bash
 crtk record dataset lc0 \
@@ -133,8 +133,8 @@ crtk record export training-jsonl \
 
 ## Puzzle JSONL: `record export puzzle-jsonl`
 
-This command writes puzzle rows with LC0 policy information. It requires LC0J
-weights because it uses the weights policy map.
+This command writes puzzle rows with LC0 policy information. It requires
+ChessRTK LC0 CNN `.bin` weights because it uses the weights policy map.
 
 ```bash
 crtk record export puzzle-jsonl \

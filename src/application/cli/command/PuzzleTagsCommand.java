@@ -33,11 +33,11 @@ import chess.core.Move;
 import chess.core.MoveInference;
 import chess.core.Position;
 import chess.core.SAN;
-import chess.puzzle.difficulty.Difficulty;
-import chess.puzzle.difficulty.Scorer;
+import chess.puzzle.Difficulty;
+import chess.puzzle.Scorer;
 import chess.tag.Delta;
 import chess.tag.Sort;
-import chess.tag.Tagging;
+import chess.tag.Generator;
 import chess.uci.Analysis;
 import chess.uci.Evaluation;
 import chess.uci.Engine;
@@ -139,7 +139,7 @@ public final class PuzzleTagsCommand {
             return false;
         }
         List<String> parentTags = inheritedParentTags(rec.getParent(), engine, opts, cache, effectiveCache);
-        List<String> tags = Tagging.inheritOpeningTags(baseTags, parentTags);
+        List<String> tags = Generator.inheritOpeningTags(baseTags, parentTags);
         rememberEffectiveTags(pos, tags, effectiveCache);
         tags = withPuzzleDifficultyTags(tags, puzzleDifficulty);
         Delta delta = rec.getParent() == null
@@ -268,7 +268,7 @@ public final class PuzzleTagsCommand {
                 return List.of();
             }
         }
-        List<String> tags = Tagging.tags(pos, analysis);
+        List<String> tags = Generator.tags(pos, analysis);
         if (engine != null) {
             List<String> threats = threatTagsForPuzzle(pos, analysis, engine, opts.nodesCap, opts.durMs, opts.verbose);
             if (!threats.isEmpty()) {

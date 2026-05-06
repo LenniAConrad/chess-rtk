@@ -114,12 +114,10 @@ public final class UciSmokeCommand {
 					CMD_UCI_SMOKE,
 					verbose);
 			printResult(protocol, analysis, System.currentTimeMillis() - started);
+		} catch (CommandFailure failure) {
+			throw failure;
 		} catch (Exception ex) {
-			System.err.println(CMD_UCI_SMOKE + ": failed: " + ex.getMessage());
-			if (verbose) {
-				ex.printStackTrace(System.err);
-			}
-			System.exit(2);
+			throw new CommandFailure(CMD_UCI_SMOKE + ": failed: " + ex.getMessage(), ex, 2, verbose);
 		}
 	}
 

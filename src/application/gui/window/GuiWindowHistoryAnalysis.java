@@ -33,7 +33,7 @@ import chess.core.Piece;
 import chess.core.Position;
 import chess.core.SAN;
 import chess.images.assets.Pictures;
-import chess.tag.Tagging;
+import chess.tag.Generator;
 import chess.uci.Evaluation;
 import chess.uci.Output;
 
@@ -998,9 +998,9 @@ abstract class GuiWindowHistoryAnalysis extends GuiWindowHistoryTheme {
 				tagsCard.setVisible(true);
 				List<String> tags;
 				if (latestAnalysis != null && latestAnalysisVersion == positionVersion) {
-					tags = Tagging.tags(position, latestAnalysis);
+					tags = Generator.tags(position, latestAnalysis);
 				} else {
-					tags = Tagging.tags(position);
+					tags = Generator.tags(position);
 				}
 				for (String tag : tags) {
 					tagListModel.addElement(tag);

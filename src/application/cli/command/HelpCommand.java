@@ -13,9 +13,11 @@ import static application.cli.Constants.CMD_HELP;
 import static application.cli.Constants.CMD_HELP_LONG;
 import static application.cli.Constants.CMD_HELP_SHORT;
 import static application.cli.Constants.CMD_MOVE;
+import static application.cli.Constants.CMD_POSITION;
 import static application.cli.Constants.CMD_PUZZLE;
 import static application.cli.Constants.CMD_RECORD;
 import static application.cli.Constants.CMD_UCI_SMOKE;
+import static application.cli.Constants.CMD_VERSION;
 
 import java.io.PrintStream;
 import java.util.Arrays;
@@ -64,6 +66,11 @@ public final class HelpCommand {
 	 * Help marker for {@code engine}.
 	 */
 	private static final String ENGINE_SUBCOMMANDS_MARKER = "engine subcommands:";
+
+	/**
+	 * Help marker for {@code position}.
+	 */
+	private static final String POSITION_SUBCOMMANDS_MARKER = "position subcommands:";
 
 	/**
 	 * Help marker for {@code book}.
@@ -331,6 +338,26 @@ public final class HelpCommand {
 	private static final String BESTMOVE_BOTH_OPTIONS_MARKER = "engine bestmove-both options:";
 
 	/**
+	 * Help marker for {@code engine analyze-batch}.
+	 */
+	private static final String ANALYZE_BATCH_OPTIONS_MARKER = "engine analyze-batch options:";
+
+	/**
+	 * Help marker for {@code engine bestmove-batch}.
+	 */
+	private static final String BESTMOVE_BATCH_OPTIONS_MARKER = "engine bestmove-batch options:";
+
+	/**
+	 * Help marker for {@code engine compare}.
+	 */
+	private static final String ENGINE_COMPARE_OPTIONS_MARKER = "engine compare options:";
+
+	/**
+	 * Help marker for {@code engine benchmark}.
+	 */
+	private static final String ENGINE_BENCHMARK_OPTIONS_MARKER = "engine benchmark options:";
+
+	/**
 	 * Help marker for {@code engine builtin}.
 	 */
 	private static final String BUILTIN_ENGINE_OPTIONS_MARKER = "engine builtin options:";
@@ -349,6 +376,11 @@ public final class HelpCommand {
 	 * Help marker for {@code engine perft-suite}.
 	 */
 	private static final String PERFT_SUITE_OPTIONS_MARKER = "engine perft-suite options:";
+
+	/**
+	 * Help marker for {@code position diff}.
+	 */
+	private static final String POSITION_DIFF_OPTIONS_MARKER = "position diff options:";
 
 	/**
 	 * Help marker for {@code fen pgn}.
@@ -379,6 +411,11 @@ public final class HelpCommand {
 	 * Help marker for {@code help} variants.
 	 */
 	private static final String HELP_OPTIONS_MARKER = "help options:";
+
+	/**
+	 * Help marker for {@code version}.
+	 */
+	private static final String VERSION_OPTIONS_MARKER = "version options:";
 
 	/**
 	 * Maps command names to their help section markers.
@@ -428,6 +465,10 @@ public final class HelpCommand {
 			Map.entry("engine bestmove-uci", BESTMOVE_UCI_OPTIONS_MARKER),
 			Map.entry("engine bestmove-san", BESTMOVE_SAN_OPTIONS_MARKER),
 			Map.entry("engine bestmove-both", BESTMOVE_BOTH_OPTIONS_MARKER),
+			Map.entry("engine analyze-batch", ANALYZE_BATCH_OPTIONS_MARKER),
+			Map.entry("engine bestmove-batch", BESTMOVE_BATCH_OPTIONS_MARKER),
+			Map.entry("engine compare", ENGINE_COMPARE_OPTIONS_MARKER),
+			Map.entry("engine benchmark", ENGINE_BENCHMARK_OPTIONS_MARKER),
 			Map.entry("engine builtin", BUILTIN_ENGINE_OPTIONS_MARKER),
 			Map.entry("engine java", BUILTIN_ENGINE_OPTIONS_MARKER),
 			Map.entry("engine threats", THREATS_OPTIONS_MARKER),
@@ -437,6 +478,8 @@ public final class HelpCommand {
 			Map.entry("engine perft-suite", PERFT_SUITE_OPTIONS_MARKER),
 			Map.entry("engine gpu", GPU_INFO_OPTIONS_MARKER),
 			Map.entry(CMD_ENGINE + " " + CMD_UCI_SMOKE, UCI_SMOKE_OPTIONS_MARKER),
+			Map.entry(CMD_POSITION, POSITION_SUBCOMMANDS_MARKER),
+			Map.entry("position diff", POSITION_DIFF_OPTIONS_MARKER),
 			Map.entry(CMD_BOOK, BOOK_SUBCOMMANDS_MARKER),
 			Map.entry("book collection", PUZZLE_COLLECTION_OPTIONS_MARKER),
 			Map.entry("book ilovechess", PUZZLE_COLLECTION_OPTIONS_MARKER),
@@ -457,6 +500,7 @@ public final class HelpCommand {
 			Map.entry(CMD_CLEAN, CLEAN_OPTIONS_MARKER),
 			Map.entry(CMD_DOCTOR, DOCTOR_OPTIONS_MARKER),
 			Map.entry(CMD_HELP, HELP_OPTIONS_MARKER),
+			Map.entry(CMD_VERSION, VERSION_OPTIONS_MARKER),
 			Map.entry(CMD_HELP_SHORT, HELP_OPTIONS_MARKER),
 			Map.entry(CMD_HELP_LONG, HELP_OPTIONS_MARKER));
 
@@ -535,6 +579,7 @@ public final class HelpCommand {
 				command style:
 				  Use noun groups plus actions, for example `crtk move list` or `crtk engine bestmove`.
 				  Prefer named flags for structured values: `--fen`, `--input`, `--output`, `--format`.
+				  Prefer `--json` or `--jsonl` for machine output where a command supports it.
 				  Put options before free-form args when scripting, and use `--` if a value could look like a flag.
 
 				help:
@@ -833,6 +878,10 @@ public final class HelpCommand {
 			  bestmove-uci               Print the best move in UCI
 			  bestmove-san               Print the best move in SAN
 			  bestmove-both              Print the best move in UCI and SAN
+			  analyze-batch              Analyze FEN batches as JSONL
+			  bestmove-batch             Find best moves for FEN batches as JSONL
+			  compare                    Compare best moves from two UCI protocols
+			  benchmark                  Benchmark the core Java move generator
 			  builtin                    Search with the built-in Java engine
 			  java                       Run the built-in Java engine
 			  threats                    Analyze opponent threats
@@ -842,6 +891,9 @@ public final class HelpCommand {
 			  perft-suite                Run a small perft regression suite
 			  gpu                        Print GPU JNI backend status
 			  uci-smoke                  Start engine and run a tiny UCI search
+
+			position subcommands:
+			  diff                       Compare two FEN positions
 
 			book subcommands:
 			  collection                 Build a dense puzzle collection from record JSON/JSONL
@@ -891,7 +943,7 @@ public final class HelpCommand {
 			record export puzzle-jsonl options:
 			  --input|-i PATH            Input .record JSON file
 			  --output|-o PATH           Output JSONL file (default: input stem + .puzzle.jsonl)
-			  --weights PATH             LC0J weights path
+			  --weights PATH             LC0 CNN weights path
 			  --filter|-f DSL            Optional row-selection Filter DSL
 			  --puzzles                  Keep only puzzle records
 			  --nonpuzzles               Keep only non-puzzle records
@@ -1008,7 +1060,7 @@ public final class HelpCommand {
 			puzzle mine options (overrides & inputs):
 			  --input|-i PATH            Input .txt (FENs) or .pgn (games) seed file
 			  --output|-o PATH           Output root file or directory ("-" for stdout)
-			  --protocol|-p PATH         Engine protocol TOML file
+			  --protocol-path|-P PATH    Engine protocol TOML file
 			  --engine-instances|-E N    Engine pool size
 			  --max-nodes N              Max nodes per position
 			  --max-duration D           Max duration per position (e.g. 5s)
@@ -1223,7 +1275,7 @@ public final class HelpCommand {
 			  --mainline                 Only export mainline from PGN
 			  --sidelines                Include PGN variations
 			  --analyze                  Run engine analysis to enrich tags
-			  --protocol|-p PATH         Engine protocol TOML file
+			  --protocol-path|-P PATH    Engine protocol TOML file
 			  --max-nodes N              Max nodes per position
 			  --max-duration D           Max duration per position (e.g. 5s)
 			  --multipv N                Number of PVs
@@ -1240,7 +1292,7 @@ public final class HelpCommand {
 			  --tag-multipv N            Engine multipv during tag analysis (default: 1)
 			  --analyze                  Run engine analysis to enrich tags (default)
 			  --no-analyze               Skip per-move analysis
-			  --protocol|-p PATH         Engine protocol TOML file
+			  --protocol-path|-P PATH    Engine protocol TOML file
 			  --max-nodes N              Max nodes per position
 			  --max-duration D           Max duration per position (e.g. 5s)
 			  --threads N                Engine threads
@@ -1259,7 +1311,7 @@ public final class HelpCommand {
 			  --include-fen              Emit JSON with fen + move + summary
 			  --analyze                  Run engine analysis to enrich tags (default)
 			  --no-analyze               Skip per-move analysis
-			  --protocol|-p PATH         Engine protocol TOML file
+			  --protocol-path|-P PATH    Engine protocol TOML file
 			  --max-nodes N              Max nodes per position
 			  --max-duration D           Max duration per position (e.g. 5s)
 			  --threads N                Engine threads
@@ -1275,7 +1327,7 @@ public final class HelpCommand {
 			  --include-fen              Emit JSON with fen + summary
 			  --max-new N                Max generated tokens (default: 128)
 			  --analyze                  Run engine analysis to enrich tags
-			  --protocol|-p PATH         Engine protocol TOML file
+			  --protocol-path|-P PATH    Engine protocol TOML file
 			  --max-nodes N              Max nodes per position
 			  --max-duration D           Max duration per position (e.g. 5s)
 			  --multipv N                Number of PVs
@@ -1292,24 +1344,44 @@ public final class HelpCommand {
 			  --format FORMAT            uci, san, or both (default: uci)
 			  --san                      Alias for --format san
 			  --both                     Alias for --format both
+			  --json                     Emit a JSON array of move objects
+			  --jsonl                    Emit one move JSON object per line
+			  --fields LIST              Output fields: uci, san, or both
+			  --no-header                Accepted for script-friendly consistency
+			  --quiet                    Suppress non-row chatter where supported
 			  --verbose|-v               Print stack trace on failure
 
 			move uci options:
 			  --fen FEN                  Input FEN
 			  --startpos                 Use the standard chess start position
 			  --randompos                Use a reachable random legal standard position
+			  --json                     Emit a JSON array of move objects
+			  --jsonl                    Emit one move JSON object per line
+			  --fields LIST              Output fields: uci, san, or both
+			  --no-header                Accepted for script-friendly consistency
+			  --quiet                    Suppress non-row chatter where supported
 			  --verbose|-v               Print stack trace on failure
 
 			move san options:
 			  --fen FEN                  Input FEN
 			  --startpos                 Use the standard chess start position
 			  --randompos                Use a reachable random legal standard position
+			  --json                     Emit a JSON array of move objects
+			  --jsonl                    Emit one move JSON object per line
+			  --fields LIST              Output fields: uci, san, or both
+			  --no-header                Accepted for script-friendly consistency
+			  --quiet                    Suppress non-row chatter where supported
 			  --verbose|-v               Print stack trace on failure
 
 			move both options:
 			  --fen FEN                  Input FEN
 			  --startpos                 Use the standard chess start position
 			  --randompos                Use a reachable random legal standard position
+			  --json                     Emit a JSON array of move objects
+			  --jsonl                    Emit one move JSON object per line
+			  --fields LIST              Output fields: uci, san, or both
+			  --no-header                Accepted for script-friendly consistency
+			  --quiet                    Suppress non-row chatter where supported
 			  --verbose|-v               Print stack trace on failure
 
 			move to-san options:
@@ -1317,6 +1389,10 @@ public final class HelpCommand {
 			  --startpos                 Use the standard chess start position explicitly
 			  --randompos                Use a reachable random legal standard position
 			  MOVE                       UCI move to convert
+			  --json                     Emit one JSON object
+			  --jsonl                    Emit one JSON object line
+			  --no-header                Accepted for script-friendly consistency
+			  --quiet                    Suppress non-row chatter where supported
 			  --verbose|-v               Print stack trace on failure
 
 			move to-uci options:
@@ -1324,6 +1400,10 @@ public final class HelpCommand {
 			  --startpos                 Use the standard chess start position explicitly
 			  --randompos                Use a reachable random legal standard position
 			  MOVE                       SAN move to convert
+			  --json                     Emit one JSON object
+			  --jsonl                    Emit one JSON object line
+			  --no-header                Accepted for script-friendly consistency
+			  --quiet                    Suppress non-row chatter where supported
 			  --verbose|-v               Print stack trace on failure
 
 			move after options:
@@ -1331,6 +1411,10 @@ public final class HelpCommand {
 			  --startpos                 Use the standard chess start position explicitly
 			  --randompos                Use a reachable random legal standard position
 			  MOVE                       UCI or SAN move to apply
+			  --json                     Emit one JSON object
+			  --jsonl                    Emit one JSON object line
+			  --no-header                Accepted for script-friendly consistency
+			  --quiet                    Suppress non-row chatter where supported
 			  --verbose|-v               Print stack trace on failure
 
 			move play options:
@@ -1339,18 +1423,32 @@ public final class HelpCommand {
 			  --randompos                Use a reachable random legal standard position
 			  MOVES                      UCI/SAN move sequence to apply
 			  --intermediate             Print FEN after each ply
+			  --json                     Emit one JSON object
+			  --jsonl                    Emit one JSON object line, or one per ply with --intermediate
+			  --no-header                Accepted for script-friendly consistency
+			  --quiet                    Suppress non-row chatter where supported
 			  --verbose|-v               Print stack trace on failure
 
 			fen normalize options:
 			  --fen FEN                  FEN to normalize, or positional FEN
 			  --startpos                 Use the standard chess start position
 			  --randompos                Use a reachable random legal standard position
+			  --stdin                    Read one FEN per non-blank stdin line
+			  --json                     Emit one JSON object, or an array for multiple rows
+			  --jsonl                    Emit one JSON object per row
+			  --no-header                Accepted for script-friendly consistency
+			  --quiet                    Suppress non-row chatter where supported
 			  --verbose|-v               Print stack trace on failure
 
 			fen validate options:
 			  --fen FEN                  FEN to validate, or positional FEN
 			  --startpos                 Use the standard chess start position
 			  --randompos                Use a reachable random legal standard position
+			  --stdin                    Read one FEN per non-blank stdin line
+			  --json                     Emit one JSON object, or an array for multiple rows
+			  --jsonl                    Emit one JSON object per row
+			  --no-header                Accepted for script-friendly consistency
+			  --quiet                    Suppress non-row chatter where supported
 			  --verbose|-v               Print stack trace on failure
 
 			engine analyze options:
@@ -1358,7 +1456,7 @@ public final class HelpCommand {
 			  --startpos                 Use the standard chess start position
 			  --randompos                Use a reachable random legal standard position
 			  --input|-i PATH            Input FEN file
-			  --protocol|-p PATH         Engine protocol TOML file
+			  --protocol-path|-P PATH    Engine protocol TOML file
 			  --max-nodes N              Max nodes per position
 			  --max-duration D           Max duration per position (e.g. 5s)
 			  --multipv N                Number of PVs
@@ -1374,7 +1472,7 @@ public final class HelpCommand {
 			  --randompos                Use a reachable random legal standard position
 			  --input|-i PATH            Input FEN file
 			  --format FORMAT            uci, san, or both (default: uci)
-			  --protocol|-p PATH         Engine protocol TOML file
+			  --protocol-path|-P PATH    Engine protocol TOML file
 			  --max-nodes N              Max nodes per position
 			  --max-duration D           Max duration per position (e.g. 5s)
 			  --multipv N                Number of PVs
@@ -1391,7 +1489,7 @@ public final class HelpCommand {
 			  --startpos                 Use the standard chess start position
 			  --randompos                Use a reachable random legal standard position
 			  --input|-i PATH            Input FEN file
-			  --protocol|-p PATH         Engine protocol TOML file
+			  --protocol-path|-P PATH    Engine protocol TOML file
 			  --max-nodes N              Max nodes per position
 			  --max-duration D           Max duration per position (e.g. 5s)
 			  --multipv N                Number of PVs
@@ -1406,7 +1504,7 @@ public final class HelpCommand {
 			  --startpos                 Use the standard chess start position
 			  --randompos                Use a reachable random legal standard position
 			  --input|-i PATH            Input FEN file
-			  --protocol|-p PATH         Engine protocol TOML file
+			  --protocol-path|-P PATH    Engine protocol TOML file
 			  --max-nodes N              Max nodes per position
 			  --max-duration D           Max duration per position (e.g. 5s)
 			  --multipv N                Number of PVs
@@ -1421,7 +1519,7 @@ public final class HelpCommand {
 			  --startpos                 Use the standard chess start position
 			  --randompos                Use a reachable random legal standard position
 			  --input|-i PATH            Input FEN file
-			  --protocol|-p PATH         Engine protocol TOML file
+			  --protocol-path|-P PATH    Engine protocol TOML file
 			  --max-nodes N              Max nodes per position
 			  --max-duration D           Max duration per position (e.g. 5s)
 			  --multipv N                Number of PVs
@@ -1429,6 +1527,77 @@ public final class HelpCommand {
 			  --hash N                   Engine hash (MB)
 			  --wdl                      Enable WDL output (if supported)
 			  --no-wdl                   Disable WDL output
+			  --verbose|-v               Print stack trace on failure
+
+			engine analyze-batch options:
+			  --fen FEN                  Single input FEN
+			  --startpos                 Use the standard chess start position
+			  --randompos                Use a reachable random legal standard position
+			  --input|-i PATH            Input FEN file
+			  --stdin                    Read one FEN per non-blank stdin line
+			  --output|-o PATH           Write output to a file
+			  --json                     Emit one JSON array
+			  --jsonl                    Emit one JSON object per line (default)
+			  --protocol-path|-P PATH    Engine protocol TOML file (default: config)
+			  --max-nodes|--nodes N      Max nodes per position
+			  --max-duration D           Max duration per position (e.g. 5s)
+			  --multipv N                Number of PVs
+			  --threads N                Engine threads
+			  --hash N                   Engine hash (MB)
+			  --wdl                      Enable WDL output (if supported)
+			  --no-wdl                   Disable WDL output
+			  --verbose|-v               Print stack trace on failure
+
+			engine bestmove-batch options:
+			  --fen FEN                  Single input FEN
+			  --startpos                 Use the standard chess start position
+			  --randompos                Use a reachable random legal standard position
+			  --input|-i PATH            Input FEN file
+			  --stdin                    Read one FEN per non-blank stdin line
+			  --output|-o PATH           Write output to a file
+			  --json                     Emit one JSON array
+			  --jsonl                    Emit one JSON object per line (default)
+			  --protocol-path|-P PATH    Engine protocol TOML file (default: config)
+			  --max-nodes|--nodes N      Max nodes per position
+			  --max-duration D           Max duration per position (e.g. 5s)
+			  --threads N                Engine threads
+			  --hash N                   Engine hash (MB)
+			  --wdl                      Enable WDL output (if supported)
+			  --no-wdl                   Disable WDL output
+			  --verbose|-v               Print stack trace on failure
+
+			engine compare options:
+			  --fen FEN                  Single input FEN
+			  --startpos                 Use the standard chess start position
+			  --randompos                Use a reachable random legal standard position
+			  --input|-i PATH            Input FEN file
+			  --stdin                    Read one FEN per non-blank stdin line
+			  --left-protocol PATH       Left engine protocol TOML file
+			  --right-protocol PATH      Right engine protocol TOML file
+			  --protocol-a PATH          Alias for --left-protocol
+			  --protocol-b PATH          Alias for --right-protocol
+			  --protocol-path|-P PATH    Default protocol when one side is omitted
+			  --output|-o PATH           Write output to a file
+			  --json                     Emit rows plus summary as one JSON object
+			  --jsonl                    Emit one comparison JSON object per line
+			  --max-nodes|--nodes N      Max nodes per engine per position
+			  --max-duration D           Max duration per engine per position
+			  --multipv N                Number of PVs
+			  --threads N                Engine threads
+			  --hash N                   Engine hash (MB)
+			  --wdl                      Enable WDL output (if supported)
+			  --no-wdl                   Disable WDL output
+			  --verbose|-v               Print stack trace on failure
+
+			engine benchmark options:
+			  --fen FEN                  Input FEN
+			  --startpos                 Use the standard chess start position
+			  --randompos                Use a reachable random legal standard position
+			  --depth|-d N               Perft depth (default: 4)
+			  --iterations N             Repetitions (default: 3)
+			  --threads N                Worker threads for root moves (default: 1)
+			  --json                     Emit one JSON object
+			  --jsonl                    Emit one JSON object line
 			  --verbose|-v               Print stack trace on failure
 
 			engine builtin options:
@@ -1449,7 +1618,7 @@ public final class HelpCommand {
 			  --fen FEN                  Input FEN
 			  --startpos                 Use the standard chess start position
 			  --randompos                Use a reachable random legal standard position
-			  --protocol|-p PATH         Engine protocol TOML file
+			  --protocol-path|-P PATH    Engine protocol TOML file
 			  --max-nodes N              Max nodes per position
 			  --max-duration D           Max duration per position (e.g. 5s)
 			  --multipv N                Number of PVs
@@ -1472,6 +1641,24 @@ public final class HelpCommand {
 			engine perft-suite options:
 			  --depth|-d N               Depth to validate, 1..6 (default: 6)
 			  --threads N                Worker threads for positions (default: 1)
+			  --suite PATH               Custom tab-delimited suite file
+
+			  Custom suite rows may be:
+			    name<TAB>depth<TAB>fen<TAB>nodes
+			    fen<TAB>depth<TAB>nodes
+			    name<TAB>fen<TAB>nodes       (uses --depth, default 1)
+			    fen<TAB>nodes                (uses --depth, default 1)
+
+			position diff options:
+			  --fen FEN                  Left/input FEN
+			  --other FEN                Right/comparison FEN
+			  --right FEN                Alias for --other
+			  LEFT_FEN RIGHT_FEN         Positional shorthand; quote each FEN
+			  --json                     Emit one JSON object
+			  --jsonl                    Emit one JSON object line
+			  --no-header                Accepted for script-friendly consistency
+			  --quiet                    Suppress non-row chatter where supported
+			  --verbose|-v               Print stack trace on failure
 
 			fen pgn options:
 			  --input|-i PATH            Input PGN file
@@ -1509,5 +1696,11 @@ public final class HelpCommand {
 			help options:
 			  --full                      Show full help output
 			  <command>                   Show help for one command
+
+			version options:
+			  --json                      Emit one JSON object
+			  --jsonl                     Emit one JSON object line
+			  --no-header                 Accepted for script-friendly consistency
+			  --quiet                     Suppress non-row chatter where supported
 			""";
 }

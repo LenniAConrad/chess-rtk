@@ -84,6 +84,18 @@ public final class Generator {
     private static final int[][] LINE_AXES = { { 1, 0 }, { 0, 1 }, { 1, 1 }, { 1, -1 } };
 
     /**
+     * Minimum legal-move count for a non-pawn, non-king piece to be reported
+     * as a mobility outlier.
+     */
+    private static final int MOBILITY_OUTLIER_THRESHOLD = 6;
+
+    /**
+     * Maximum legal-move count for the side to move to be flagged as
+     * mobility-restricted.
+     */
+    private static final int MOBILITY_RESTRICTED_THRESHOLD = 5;
+
+    /**
      * Prevents instantiation of this utility class.
      */
     private Generator() {
@@ -606,6 +618,10 @@ public final class Generator {
             if (val != null) {
                 tags.add(FACT_CENTER_STATE_PREFIX + val);
             }
+            return;
+        }
+        if (trimmed.startsWith(SPACE_CENTER_CONTROL_PREFIX)) {
+            tags.add(trimmed);
         }
     }
 
@@ -1573,16 +1589,154 @@ public final class Generator {
         if (developmentSide != null) {
             tags.add(DEVELOPMENT_SIDE_PREFIX + developmentSide);
         }
+        addDevelopmentDetails(tags, position);
 
         String mobilitySide = mobilitySide(position);
         if (mobilitySide != null) {
             tags.add(MOBILITY_SIDE_PREFIX + mobilitySide);
         }
+        addMobilityDetails(tags, ctx, position);
 
         String initiativeSide = initiativeSide(ctx);
         if (initiativeSide != null) {
             tags.add(INITIATIVE_SIDE_PREFIX + initiativeSide);
         }
+        addInitiativeDetails(tags, ctx, position);
+    }
+
+    /**
+     * Emits per-piece DEVELOPMENT facts for opening and middlegame positions.
+     * <p>
+     * Each minor piece still on its original square produces an
+     * {@code undeveloped} tag, and a centralized king without castling rights
+     * produces a {@code king_uncastled} tag.
+     * </p>
+     *
+     * @param tags the mutable tag accumulator
+     * @param position the position being tagged
+     */
+    private static void addDevelopmentDetails(List<String> tags, Position position) {
+        String phase = phaseLabel(position);
+        if (ENDGAME_LOWER.equals(phase)) {
+            return;
+        }
+        byte[] board = position.getBoard();
+        addUndevelopedMinor(tags, board, WHITE, Piece.WHITE_KNIGHT, Field.B1);
+        addUndevelopedMinor(tags, board, WHITE, Piece.WHITE_KNIGHT, Field.G1);
+        addUndevelopedMinor(tags, board, WHITE, Piece.WHITE_BISHOP, Field.C1);
+        addUndevelopedMinor(tags, board, WHITE, Piece.WHITE_BISHOP, Field.F1);
+        addUndevelopedMinor(tags, board, BLACK, Piece.BLACK_KNIGHT, Field.B8);
+        addUndevelopedMinor(tags, board, BLACK, Piece.BLACK_KNIGHT, Field.G8);
+        addUndevelopedMinor(tags, board, BLACK, Piece.BLACK_BISHOP, Field.C8);
+        addUndevelopedMinor(tags, board, BLACK, Piece.BLACK_BISHOP, Field.F8);
+        addKingUncastled(tags, position, true);
+        addKingUncastled(tags, position, false);
+    }
+
+    /**
+     * Adds an undeveloped tag when a minor piece sits on its origin square.
+     *
+     * @param tags the mutable tag accumulator
+     * @param board the board array
+     * @param side the side label
+     * @param piece the piece byte for the side
+     * @param origin the origin square byte
+     */
+    private static void addUndevelopedMinor(List<String> tags, byte[] board, String side, byte piece, byte origin) {
+        if (board[origin] != piece) {
+            return;
+        }
+        tags.add(DEVELOPMENT + COLON_SPACE + UNDEVELOPED + SIDE_FIELD + side
+                + SPACE_TEXT + PIECE_KEY + EQUAL_SIGN + Text.pieceNameLower(piece)
+                + SQUARE_FIELD + Text.squareNameLower(origin));
+    }
+
+    /**
+     * Adds a king-uncastled tag when the king is still on its origin square
+     * and the side has lost both castling rights.
+     *
+     * @param tags the mutable tag accumulator
+     * @param position the position being tagged
+     * @param white whether to emit for White or Black
+     */
+    private static void addKingUncastled(List<String> tags, Position position, boolean white) {
+        byte origin = white ? Field.E1 : Field.E8;
+        if (position.kingSquare(white) != origin) {
+            return;
+        }
+        int kingside = white ? Position.WHITE_KINGSIDE : Position.BLACK_KINGSIDE;
+        int queenside = white ? Position.WHITE_QUEENSIDE : Position.BLACK_QUEENSIDE;
+        if (position.canCastle(kingside) || position.canCastle(queenside)) {
+            return;
+        }
+        tags.add(DEVELOPMENT + COLON_SPACE + KING_UNCASTLED + SIDE_FIELD + (white ? WHITE : BLACK));
+    }
+
+    /**
+     * Emits per-piece MOBILITY facts for the side to move.
+     * <p>
+     * Non-pawn, non-king pieces with at least six legal moves are reported as
+     * outliers, and a {@code restricted} tag fires when the side to move has
+     * five or fewer legal moves outside checkmate or stalemate.
+     * </p>
+     *
+     * @param tags the mutable tag accumulator
+     * @param ctx the shared tagging context
+     * @param position the position being tagged
+     */
+    private static void addMobilityDetails(List<String> tags, Context ctx, Position position) {
+        MoveList moves = ctx.legalMoves();
+        if (moves.isEmpty()) {
+            return;
+        }
+        byte[] board = position.getBoard();
+        int[] perFromSquare = new int[64];
+        for (int i = 0; i < moves.size(); i++) {
+            short move = moves.get(i);
+            byte from = Move.getFromIndex(move);
+            if (from >= 0 && from < perFromSquare.length) {
+                perFromSquare[from]++;
+            }
+        }
+        String side = position.isWhiteToMove() ? WHITE : BLACK;
+        for (byte square = 0; square < perFromSquare.length; square++) {
+            int count = perFromSquare[square];
+            if (count < MOBILITY_OUTLIER_THRESHOLD) {
+                continue;
+            }
+            byte piece = board[square];
+            if (piece == Piece.EMPTY || Piece.isPawn(piece) || Piece.isKing(piece)) {
+                continue;
+            }
+            tags.add(MOBILITY + COLON_SPACE + PIECE_KEY + EQUAL_SIGN + Text.pieceNameLower(piece)
+                    + SIDE_FIELD + side
+                    + SQUARE_FIELD + Text.squareNameLower(square)
+                    + SPACE_TEXT + MOVES + EQUAL_SIGN + count);
+        }
+        if (moves.size() <= MOBILITY_RESTRICTED_THRESHOLD) {
+            tags.add(MOBILITY + COLON_SPACE + RESTRICTED + SIDE_FIELD + side);
+        }
+    }
+
+    /**
+     * Emits an INITIATIVE forcing-moves count tag for the side to move.
+     * <p>
+     * A move is counted as forcing when it gives check, captures, or promotes.
+     * The count is sourced from the cached {@link Context#forcingMovesCount}
+     * populated by {@link MoveFacts}.
+     * </p>
+     *
+     * @param tags the mutable tag accumulator
+     * @param ctx the shared tagging context
+     * @param position the position being tagged
+     */
+    private static void addInitiativeDetails(List<String> tags, Context ctx, Position position) {
+        int count = ctx.forcingMovesCount;
+        if (count <= 0) {
+            return;
+        }
+        String side = position.isWhiteToMove() ? WHITE : BLACK;
+        tags.add(INITIATIVE + COLON_SPACE + FORCING_MOVES + SIDE_FIELD + side + COUNT_FIELD + count);
     }
 
     /**

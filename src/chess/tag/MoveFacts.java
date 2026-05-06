@@ -33,6 +33,7 @@ final class MoveFacts {
         Position position = context.position;
         MoveList moves = context.legalMoves();
         Counts counts = count(position, moves);
+        context.forcingMovesCount = counts.forcing;
 
         Emitter.tag(MOVE_FAMILY).field(LEGAL, moves.size()).emit(out);
         addCount(out, CAPTURES, counts.captures);
@@ -101,6 +102,7 @@ final class MoveFacts {
             counts.castles += castle ? 1 : 0;
             counts.enPassant += enPassant ? 1 : 0;
             counts.quiet += !capture && !givesCheck && !promotion && !castle ? 1 : 0;
+            counts.forcing += capture || givesCheck || promotion ? 1 : 0;
         }
         return counts;
     }
@@ -149,5 +151,10 @@ final class MoveFacts {
          * Legal quiet move count.
          */
         private int quiet;
+
+        /**
+         * Legal forcing move count (checks, captures, or promotions).
+         */
+        private int forcing;
     }
 }

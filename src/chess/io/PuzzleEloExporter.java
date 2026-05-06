@@ -28,13 +28,13 @@ import java.util.Set;
 import chess.core.Move;
 import chess.core.MoveList;
 import chess.core.Position;
-import chess.puzzle.difficulty.Difficulty;
-import chess.puzzle.difficulty.PieceIdentityTracker;
-import chess.puzzle.difficulty.Scorer;
-import chess.puzzle.difficulty.Scorer.NodeScore;
-import chess.puzzle.difficulty.Scorer.PuzzleTreeSummary;
+import chess.puzzle.Difficulty;
+import chess.puzzle.PieceIdentityTracker;
+import chess.puzzle.Scorer;
+import chess.puzzle.Scorer.NodeScore;
+import chess.puzzle.Scorer.PuzzleTreeSummary;
 import chess.struct.Record;
-import chess.tag.Tagging;
+import chess.tag.Generator;
 import chess.uci.Filter;
 import utility.Json;
 
@@ -514,7 +514,7 @@ public final class PuzzleEloExporter {
             return;
         }
         try {
-            addTags(tags, Tagging.tags(rec.getPosition(), rec.getAnalysis()), false);
+            addTags(tags, Generator.tags(rec.getPosition(), rec.getAnalysis()), false);
         } catch (RuntimeException ex) {
             // Keep export streaming even if a single historical position cannot be tagged.
         }

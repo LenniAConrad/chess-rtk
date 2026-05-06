@@ -10,9 +10,9 @@ import java.util.function.Consumer;
 import java.util.function.LongConsumer;
 
 import chess.core.Position;
-import chess.nn.lc0.Encoder;
-import chess.nn.lc0.Network;
-import chess.nn.lc0.PolicyEncoder;
+import chess.nn.lc0.cnn.Encoder;
+import chess.nn.lc0.cnn.Network;
+import chess.nn.lc0.cnn.PolicyEncoder;
 import chess.struct.Record;
 import chess.uci.Analysis;
 import chess.uci.Chances;

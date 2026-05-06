@@ -54,7 +54,7 @@ import chess.core.Position;
 import chess.core.SAN;
 import chess.eval.Result;
 import chess.images.assets.Pictures;
-import chess.tag.Tagging;
+import chess.tag.Generator;
 
 /**
  * Chess-web-inspired Swing desktop GUI.
@@ -1128,7 +1128,7 @@ private void refreshTagsAsync() {
 			 */
 @Override
 			protected List<String> doInBackground() {
-				List<String> tags = Tagging.tags(snapshot);
+				List<String> tags = Generator.tags(snapshot);
 				if (tags.size() <= MAX_VISIBLE_TAGS) {
 					return tags;
 				}
@@ -1153,9 +1153,9 @@ private void refreshTagsAsync() {
 						}
 					} catch (InterruptedException ex) {
 						Thread.currentThread().interrupt();
-						tagModel.addElement("Tagging interrupted");
+						tagModel.addElement("Generator interrupted");
 					} catch (Exception ex) {
-						tagModel.addElement("Tagging unavailable: " + ex.getMessage());
+						tagModel.addElement("Generator unavailable: " + ex.getMessage());
 					}
 			}
 		}.execute();

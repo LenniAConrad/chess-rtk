@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 420" role="img" aria-labelledby="title desc">
+  <title id="title">ChessRTK Eval Contour logo concept</title>
+  <desc id="desc">Scores, principal lines, and confidence signals.</desc>
+  <defs>
+    <filter id="shadow" x="-12%" y="-12%" width="124%" height="124%">
+      <feDropShadow dx="0" dy="16" stdDeviation="18" flood-color="#07100c" flood-opacity="0.22"/>
+    </filter>
+  </defs>
+  <rect width="1200" height="420" rx="48" fill="#f4f7f3"/><rect x="42" y="42" width="1116" height="336" rx="38" fill="#fffefb" stroke="#d6dfd7" stroke-width="2"/>
+  <g transform="translate(82 70)" filter="url(#shadow)">
+    <rect width="280" height="280" rx="34" fill="#0d1c14"/>
+    
+<rect x="38" y="38" width="204" height="204" rx="24" fill="#eef5ef"/>
+<path d="M62 174 C96 126 118 186 146 134 S194 82 224 116" fill="none" stroke="#d8a63a" stroke-width="11" stroke-linecap="round"/>
+<path d="M62 198 C100 160 132 164 162 128 S194 94 224 88" fill="none" stroke="#2e7d57" stroke-width="7" stroke-linecap="round"/>
+<path d="M62 136 C98 106 126 116 154 90 S194 60 224 64" fill="none" stroke="#123b2b" stroke-width="5" stroke-linecap="round" opacity="0.5"/>
+<text x="70" y="77" fill="#123b2b" font-family="ui-monospace, Menlo, Consolas, monospace" font-size="21" font-weight="900">score map</text>
+
+  </g>
+  <g transform="translate(424 112)">
+    <text x="0" y="76" fill="#123b2b" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="86" font-weight="850" letter-spacing="0">ChessRTK</text>
+    <text x="3" y="123" fill="#2e7d57" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="26" font-weight="850" letter-spacing="0">EVAL CONTOUR</text>
+    <text x="3" y="172" fill="#3e4b42" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="30" font-weight="500" letter-spacing="0">Scores, principal lines, and confidence signals.</text>
+    <text x="3" y="224" fill="#2e7d57" opacity="0.76" font-family="ui-monospace, Menlo, Consolas, monospace" font-size="22" font-weight="850">concept 10 / non-board mark</text>
+  </g>
+</svg>

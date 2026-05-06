@@ -66,7 +66,7 @@ Defaults:
   or an explicit `--weights` path. `./install.sh --models` installs the default
   file. If the default file is absent, `--nnue` fails with a missing-weights
   error instead of silently using the smoke-test fallback.
-- `lc0`: pure-Java LC0 value evaluator using the configured LC0J model path by
+- `lc0`: pure-Java LC0 value evaluator using the configured LC0 CNN model path by
   default, or an explicit `--weights` path.
 
 The evaluator is used as the static score at the search frontier. The engine

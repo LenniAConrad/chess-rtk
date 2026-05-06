@@ -43,6 +43,7 @@
 <a class="" href="datasets.html" data-title="datasets">Datasets</a>
 <a class="" href="book-publishing.html" data-title="book publishing">Book Publishing</a>
 <a class="" href="piece-tags.html" data-title="tags">Tags</a>
+<a class="" href="tag-reference.html" data-title="tag reference">Tag Reference</a>
 <a class="" href="t5.html" data-title="t5 text">T5 Text</a>
 <a class="" href="ai-agents.html" data-title="ai agents">AI Agents</a>
 </section>
@@ -117,7 +118,7 @@ crtk engine builtin --evaluator lc0 --weights models/leela_112planes-10blocksx12
 </ul>
 <p>or an explicit <code>--weights</code> path. <code>./install.sh --models</code> installs the default file. If the default file is absent, <code>--nnue</code> fails with a missing-weights error instead of silently using the smoke-test fallback.</p>
 <ul>
-<li><code>lc0</code>: pure-Java LC0 value evaluator using the configured LC0J model path by</li>
+<li><code>lc0</code>: pure-Java LC0 value evaluator using the configured LC0 CNN model path by</li>
 </ul>
 <p>default, or an explicit <code>--weights</code> path.</p>
 <p>The evaluator is used as the static score at the search frontier. The engine search itself is still a classical alpha-beta search; choosing <code>--lc0</code> does not turn the engine into an LC0-style MCTS engine. LC0 evaluation is much more expensive than the handcrafted evaluator, so high alpha-beta depths with <code>--lc0</code> can take a long time.</p>

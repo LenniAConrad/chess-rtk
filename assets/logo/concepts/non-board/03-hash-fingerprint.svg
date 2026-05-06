@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 420" role="img" aria-labelledby="title desc">
+  <title id="title">ChessRTK Hash Fingerprint logo concept</title>
+  <desc id="desc">Stable identities for reproducible runs.</desc>
+  <defs>
+    <filter id="shadow" x="-12%" y="-12%" width="124%" height="124%">
+      <feDropShadow dx="0" dy="16" stdDeviation="18" flood-color="#07100c" flood-opacity="0.22"/>
+    </filter>
+  </defs>
+  <rect width="1200" height="420" rx="48" fill="#0d1c14"/><rect x="32" y="32" width="1136" height="356" rx="38" fill="#123b2b" opacity="0.42"/>
+  <g transform="translate(82 70)" filter="url(#shadow)">
+    <rect width="280" height="280" rx="34" fill="#fffefb"/>
+    
+<rect x="36" y="36" width="208" height="208" rx="104" fill="#eef5ef"/>
+<path d="M58 154 C70 82 154 70 188 128" fill="none" stroke="#d8a63a" stroke-width="9" stroke-linecap="round" opacity="0.96"/><path d="M76 154 C83 80 157 72 191 134" fill="none" stroke="#2e7d57" stroke-width="8" stroke-linecap="round" opacity="0.88"/><path d="M94 154 C96 78 160 74 194 140" fill="none" stroke="#d8a63a" stroke-width="7" stroke-linecap="round" opacity="0.7999999999999999"/><path d="M112 154 C109 76 163 76 197 146" fill="none" stroke="#2e7d57" stroke-width="6" stroke-linecap="round" opacity="0.72"/><path d="M130 154 C122 74 166 78 200 152" fill="none" stroke="#d8a63a" stroke-width="5" stroke-linecap="round" opacity="0.6399999999999999"/>
+<text x="140" y="222" text-anchor="middle" fill="#123b2b" font-family="ui-monospace, Menlo, Consolas, monospace" font-size="22" font-weight="900">a7c913</text>
+
+  </g>
+  <g transform="translate(424 112)">
+    <text x="0" y="76" fill="#fffefb" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="86" font-weight="850" letter-spacing="0">ChessRTK</text>
+    <text x="3" y="123" fill="#d8a63a" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="26" font-weight="850" letter-spacing="0">HASH FINGERPRINT</text>
+    <text x="3" y="172" fill="#dce9df" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="30" font-weight="500" letter-spacing="0">Stable identities for reproducible runs.</text>
+    <text x="3" y="224" fill="#d8a63a" opacity="0.76" font-family="ui-monospace, Menlo, Consolas, monospace" font-size="22" font-weight="850">concept 03 / non-board mark</text>
+  </g>
+</svg>

@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tag Reference | ChessRTK Wiki</title>
+  <link rel="stylesheet" href="styles.css">
+  <script defer src="search-index.js"></script>
+  <script defer src="site.js"></script>
+</head>
+<body>
+  <button class="menu-toggle" type="button" aria-label="Toggle navigation">Menu</button>
+  <div class="site-shell">
+    <aside class="sidebar">
+      <a class="brand" href="index.html">
+        <span class="brand-mark">CR</span>
+        <span><strong>ChessRTK</strong><small>Wiki</small></span>
+      </a>
+      <label class="search-label" for="doc-search">Search pages</label>
+      <input id="doc-search" class="search" type="search" placeholder="Search docs...">
+      <div id="search-results" class="search-results" hidden></div>
+      <nav class="nav"><section class="nav-section"><h2>Start Here</h2>
+<a class="" href="index.html" data-title="home">Home</a>
+<a class="" href="getting-started.html" data-title="getting started">Getting Started</a>
+<a class="" href="use-cases.html" data-title="use cases">Use Cases</a>
+<a class="" href="command-cheatsheet.html" data-title="command cheatsheet">Command Cheatsheet</a>
+<a class="" href="faq.html" data-title="faq">FAQ</a>
+<a class="" href="command-reference.html" data-title="command reference">Command Reference</a>
+<a class="" href="example-commands.html" data-title="example commands">Example Commands</a>
+<a class="" href="troubleshooting.html" data-title="troubleshooting">Troubleshooting</a>
+</section>
+<section class="nav-section"><h2>User Guides</h2>
+<a class="" href="build-and-install.html" data-title="build &amp; install">Build &amp; Install</a>
+<a class="" href="configuration.html" data-title="configuration">Configuration</a>
+<a class="" href="in-house-engine.html" data-title="in-house engine">In-House Engine</a>
+<a class="" href="lc0.html" data-title="lc0">LC0</a>
+<a class="" href="outputs-and-logs.html" data-title="outputs &amp; logs">Outputs &amp; Logs</a>
+<a class="" href="support.html" data-title="support">Support</a>
+</section>
+<section class="nav-section"><h2>Workflows</h2>
+<a class="" href="mining.html" data-title="mining puzzles">Mining Puzzles</a>
+<a class="" href="filter-dsl.html" data-title="filter dsl">Filter DSL</a>
+<a class="" href="datasets.html" data-title="datasets">Datasets</a>
+<a class="" href="book-publishing.html" data-title="book publishing">Book Publishing</a>
+<a class="" href="piece-tags.html" data-title="tags">Tags</a>
+<a class="active" href="tag-reference.html" data-title="tag reference">Tag Reference</a>
+<a class="" href="t5.html" data-title="t5 text">T5 Text</a>
+<a class="" href="ai-agents.html" data-title="ai agents">AI Agents</a>
+</section>
+<section class="nav-section"><h2>Development</h2>
+<a class="" href="architecture.html" data-title="architecture">Architecture</a>
+<a class="" href="quality-and-testing.html" data-title="quality &amp; testing">Quality &amp; Testing</a>
+<a class="" href="development-notes.html" data-title="development notes">Development Notes</a>
+<a class="" href="releasing.html" data-title="releasing">Releasing</a>
+<a class="" href="roadmap.html" data-title="roadmap">Roadmap</a>
+<a class="" href="glossary.html" data-title="glossary">Glossary</a>
+<a class="" href="tagging-implementation-plan.html" data-title="tagging plan">Tagging Plan</a>
+<a class="" href="wiki-index.html" data-title="wiki index">Wiki Index</a>
+</section></nav>
+    </aside>
+    <div class="page">
+      <header class="topbar">
+        <div>
+          <span>Workflows</span>
+          <strong>Tag Reference</strong>
+        </div>
+        <nav>
+          <a href="index.html">Home</a>
+          <a href="wiki-index.html">Wiki Index</a>
+          <a href="chessrtk-manual.pdf">Manual PDF</a>
+          <a href="command-reference.html">Commands</a>
+        </nav>
+      </header>
+      
+      <main class="content-layout">
+        <article class="content">
+          <h1 id="tag-reference">Tag Reference</h1>
+<p>ChessRTK tags are deterministic strings with a family prefix and ordered key/value fields:</p>
+<pre><code class="language-text">FAMILY: key=value key=value</code></pre>
+<p>Values containing whitespace or quotes are quoted and escaped. Tags are sorted and deduplicated by <code>chess.tag.Sort</code>, parsed by <code>chess.tag.Line</code>, and compared by semantic identity for delta output.</p>
+<h2 id="families">Families</h2>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Family</th>
+<th>Status</th>
+<th>Typical fields</th>
+<th>Notes</th>
+</tr></thead><tbody>
+<tr>
+<td><code>META</code></td>
+<td>emitted</td>
+<td><code>to_move</code>, <code>phase</code>, <code>source</code>, <code>eval_cp</code>, <code>eval_bucket</code>, <code>mate_in</code>, <code>mated_in</code>, <code>wdl</code>, <code>difficulty</code></td>
+<td>Position and analysis metadata.</td>
+</tr>
+<tr>
+<td><code>FACT</code></td>
+<td>emitted</td>
+<td><code>status</code>, <code>in_check</code>, <code>castle_rights</code>, <code>en_passant</code>, <code>center_state</code></td>
+<td>Exact position facts.</td>
+</tr>
+<tr>
+<td><code>MATERIAL</code></td>
+<td>emitted</td>
+<td><code>balance</code>, <code>imbalance</code>, <code>piece_count</code>, <code>side</code>, <code>piece</code>, <code>count</code></td>
+<td>Material balance and imbalances.</td>
+</tr>
+<tr>
+<td><code>MOVE</code></td>
+<td>emitted</td>
+<td><code>legal</code>, <code>captures</code>, <code>checks</code>, <code>mates</code>, <code>promotions</code>, <code>underpromotions</code>, <code>castles</code>, <code>en_passant</code>, <code>quiet</code>, <code>only</code>, <code>forced</code>, <code>evasions</code></td>
+<td>Exact aggregate legal move facts.</td>
+</tr>
+<tr>
+<td><code>CAND</code></td>
+<td>emitted with analysis</td>
+<td><code>role</code>, <code>move</code>, <code>score</code>, <code>wdl</code></td>
+<td>Engine candidate moves.</td>
+</tr>
+<tr>
+<td><code>PV</code></td>
+<td>emitted with analysis</td>
+<td><code>move</code>, <code>line</code>, <code>score</code>, <code>wdl</code></td>
+<td>Principal variation data.</td>
+</tr>
+<tr>
+<td><code>IDEA</code></td>
+<td>inactive</td>
+<td><code>plan</code>, <code>move</code>, <code>side</code></td>
+<td>No current <code>Generator</code> output.</td>
+</tr>
+<tr>
+<td><code>THREAT</code></td>
+<td>emitted</td>
+<td><code>type</code>, <code>side</code></td>
+<td>Current static threat tags focus on promotion threats.</td>
+</tr>
+<tr>
+<td><code>KING</code></td>
+<td>emitted</td>
+<td><code>castled</code>, <code>shelter</code>, <code>safety</code>, <code>side</code></td>
+<td>King state and safety.</td>
+</tr>
+<tr>
+<td><code>PAWN</code></td>
+<td>emitted</td>
+<td><code>structure</code>, <code>side</code>, <code>square</code>, <code>squares</code>, <code>file</code>, <code>islands</code>, <code>majority</code></td>
+<td>Pawn structure and promotion readiness.</td>
+</tr>
+<tr>
+<td><code>PIECE</code></td>
+<td>emitted</td>
+<td><code>tier</code>, <code>activity</code>, <code>extreme</code>, <code>side</code>, <code>piece</code>, <code>square</code></td>
+<td>Piece placement and activity.</td>
+</tr>
+<tr>
+<td><code>TACTIC</code></td>
+<td>emitted</td>
+<td><code>motif</code>, <code>side</code>, <code>move</code>, <code>detail</code>, <code>target</code>, <code>targets</code></td>
+<td>Static tactical motifs and move-specific tactics.</td>
+</tr>
+<tr>
+<td><code>CHECKMATE</code></td>
+<td>emitted</td>
+<td><code>winner</code>, <code>defender</code>, <code>delivery</code>, <code>pattern</code></td>
+<td>Actual mate attributes and conservative named mate patterns. Current status also appears in <code>FACT</code>.</td>
+</tr>
+<tr>
+<td><code>ENDGAME</code></td>
+<td>emitted</td>
+<td><code>type</code></td>
+<td>Material endgame classes.</td>
+</tr>
+<tr>
+<td><code>OPENING</code></td>
+<td>emitted when ECO data matches</td>
+<td><code>eco</code>, <code>name</code></td>
+<td>ECO code and opening label.</td>
+</tr>
+<tr>
+<td><code>SPACE</code></td>
+<td>emitted</td>
+<td><code>side</code>, <code>center_control</code>, <code>space_advantage</code></td>
+<td>Center and space signals.</td>
+</tr>
+<tr>
+<td><code>DEVELOPMENT</code></td>
+<td>emitted</td>
+<td><code>side</code>, <code>state</code></td>
+<td>Development lead and undeveloped-piece signals.</td>
+</tr>
+<tr>
+<td><code>MOBILITY</code></td>
+<td>emitted</td>
+<td><code>side</code>, <code>state</code></td>
+<td>Mobility comparisons and restrictions.</td>
+</tr>
+<tr>
+<td><code>INITIATIVE</code></td>
+<td>emitted</td>
+<td><code>side</code>, <code>state</code></td>
+<td>Tempo and forcing-move signals.</td>
+</tr>
+<tr>
+<td><code>OUTPOST</code></td>
+<td>emitted</td>
+<td><code>side</code>, <code>square</code>, <code>piece</code></td>
+<td>Compatibility family for existing outpost output.</td>
+</tr>
+</tbody></table></div>
+<p><code>MOVE</code> and <code>CHECKMATE</code> are active canonical families emitted by <code>chess.tag.Generator</code>; no compatibility aliases are emitted for older drafts.</p>
+<h2 id="identity-rules">Identity Rules</h2>
+<p>Delta output compares tags by semantic identity rather than raw text alone. Examples:</p>
+<pre><code class="language-text">META: to_move=white        -&gt; META:to_move
+FACT: status=normal        -&gt; FACT:status
+MOVE: legal=20             -&gt; MOVE:legal
+CHECKMATE: delivery=queen  -&gt; CHECKMATE:delivery
+CHECKMATE: pattern=smothered_mate -&gt; CHECKMATE:pattern:smothered_mate</code></pre>
+<p>Count and single-attribute tags normally keep identity by field key so value changes are reported as changes. Multi-valued concepts such as mate patterns include the value in the identity so separate patterns can coexist.</p>
+<h2 id="fixture-format">Fixture Format</h2>
+<p>Static tag fixtures live under <code>testdata/tags/</code> as TSV files:</p>
+<pre><code class="language-text">id&lt;TAB&gt;fen&lt;TAB&gt;must_contain_tags&lt;TAB&gt;must_not_contain_tags</code></pre>
+<p>Tag columns use semicolons to separate exact tag strings. Run the fixture suite with:</p>
+<pre><code class="language-bash">./scripts/run_regression_suite.sh core</code></pre>
+        </article>
+        <aside class="toc"><h2>On This Page</h2>
+<a class="toc-h2" href="#families">Families</a>
+<a class="toc-h2" href="#identity-rules">Identity Rules</a>
+<a class="toc-h2" href="#fixture-format">Fixture Format</a></aside>
+      </main>
+      <footer class="footer">
+        <span>Generated from <code>wiki/tag-reference.md</code>.</span>
+        <span>Build with <code>python3 scripts/build_docs_site.py</code>.</span>
+      </footer>
+    </div>
+  </div>
+</body>
+</html>

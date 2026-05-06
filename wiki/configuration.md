@@ -12,8 +12,9 @@ Loaded on startup. If the file is missing, the CLI will create it with built-in 
 Common keys:
 - `protocol-path`: points to the UCI engine protocol file used by external
   engine commands (default `config/default.engine.toml`)
-- `lc0-model-path`: default local LC0J `.bin` weights path for evaluator-backed
-  commands/features (default `models/leela_112planes-10blocksx128-policyhead80-valuehead32-policy4672-wdl3.bin`;
+- `lc0-model-path`: default local ChessRTK LC0 CNN `.bin` weights path for
+  evaluator-backed commands/features (default
+  `models/leela_112planes-10blocksx128-policyhead80-valuehead32-policy4672-wdl3.bin`;
   fetch with `./install.sh --models`)
 - `t5-model-path`: default local T5 `.bin` path used by `fen text` / `puzzle text` when `--model` is omitted (default `models/t5.bin`)
 - `output`: default output root for `puzzle mine` (default `dump/`)
@@ -27,7 +28,8 @@ Common keys:
 
 Notes:
 - CLI flags override TOML values for a single run.
-- Model binaries are not committed; local `models/*.bin` files are ignored by git.
+- Model binaries are not committed; local `models/*.bin`, `models/*.pb.gz`,
+  and `models/*.nnue` files are ignored by git.
 - For `puzzle mine --output`, a directory produces timestamped outputs; a file-like root ending in `.json`/`.jsonl` produces `<stem>.puzzles.json` and `<stem>.nonpuzzles.json`.
 
 ### Switching to the included Lc0-tuned defaults
@@ -69,8 +71,8 @@ The Java evaluators use model files directly and do not start UCI engines:
 - `engine builtin --nnue` loads NNUE weights from `--weights`, or from the
   default NNUE model path; `./install.sh --models` populates that default. If
   neither exists, it fails with a missing-weights error.
-- `engine builtin --lc0` loads LC0J `.bin` weights from `--weights`, or from
-  `lc0-model-path`.
+- `engine builtin --lc0` loads ChessRTK LC0 CNN `.bin` weights from
+  `--weights`, or from `lc0-model-path`.
 - `engine eval` prefers the Java LC0 evaluator and falls back to classical
   evaluation unless `--lc0` or `--classical` is specified.
 - `engine static` is always the classical evaluator.

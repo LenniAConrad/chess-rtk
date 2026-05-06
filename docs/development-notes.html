@@ -43,6 +43,7 @@
 <a class="" href="datasets.html" data-title="datasets">Datasets</a>
 <a class="" href="book-publishing.html" data-title="book publishing">Book Publishing</a>
 <a class="" href="piece-tags.html" data-title="tags">Tags</a>
+<a class="" href="tag-reference.html" data-title="tag reference">Tag Reference</a>
 <a class="" href="t5.html" data-title="t5 text">T5 Text</a>
 <a class="" href="ai-agents.html" data-title="ai agents">AI Agents</a>
 </section>
@@ -90,9 +91,13 @@
 </ul>
 <p><code>engine static</code>, <code>engine builtin</code>, display ablation, and tag helpers</p>
 <ul>
-<li><code>chess.nn.lc0</code>: pure-Java LC0 forward pass with optional CUDA, ROCm, and</li>
+<li><code>chess.nn.lc0.cnn</code>: pure-Java LC0 CNN forward pass with optional CUDA,</li>
 </ul>
-<p>oneAPI native backends</p>
+<p>ROCm, and oneAPI native backends</p>
+<ul>
+<li><code>chess.nn.lc0.bt4</code>: LC0 BT4 attention-body helpers, Java reference forward</li>
+</ul>
+<p>path, and optional CUDA, ROCm, and oneAPI native backends</p>
 <h2 id="core-chess-implementation">Core chess implementation</h2>
 <p>The current chess rules implementation lives in <code>chess.core</code>. There is no separate public <code>bitboard</code> package: the optimized bitboard-backed code is the core implementation.</p>
 <p>Important classes:</p>

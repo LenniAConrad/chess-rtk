@@ -5,8 +5,8 @@ import chess.core.Field;
 import chess.core.Piece;
 import chess.core.Position;
 import chess.debug.LogService;
-import chess.nn.lc0.Model;
-import chess.nn.lc0.Network;
+import chess.nn.lc0.cnn.Model;
+import chess.nn.lc0.cnn.Network;
 
 import java.io.IOException;
 import java.nio.file.Path;

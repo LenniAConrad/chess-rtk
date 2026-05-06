@@ -11,7 +11,7 @@ import java.util.function.Consumer;
 import chess.core.Position;
 import chess.debug.LogService;
 import chess.struct.Record;
-import chess.tag.Tagging;
+import chess.tag.Generator;
 
 /**
  * Manages a UCI‐compatible chess engine process and drives it via
@@ -614,7 +614,7 @@ public class Engine implements AutoCloseable {
 		Position position = sample.getPosition();
 		Analysis analysis = sample.getAnalysis();
 		sample.withEngine(protocol.getName()).withCreated(System.currentTimeMillis());
-		sample.addTags(Tagging.positionalTags(position));
+		sample.addTags(Generator.positionalTags(position));
 		return analyse(position, analysis, arguments, nodes, duration);
 	}
 

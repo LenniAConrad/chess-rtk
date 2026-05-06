@@ -3,7 +3,7 @@
 protocol-path = "config/lc0.engine.toml"
 
 # MODEL PATHS
-# Default LC0J model path used by evaluator-backed features.
+# Default LC0 CNN model path used by evaluator-backed features.
 lc0-model-path = "models/leela_112planes-10blocksx128-policyhead80-valuehead32-policy4672-wdl3.bin"
 
 # Default T5 model path used by `tag-text` / `puzzle-text` when --model is omitted.

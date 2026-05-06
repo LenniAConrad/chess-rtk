@@ -57,6 +57,12 @@ final class Context {
     String spaceAdvantage;
 
     /**
+     * Number of forcing legal moves for the side to move (checks, captures,
+     * or promotions). Populated by {@link MoveFacts}.
+     */
+    int forcingMovesCount;
+
+    /**
      * Whether White has any promotion threats.
      */
     boolean hasThreatWhite;

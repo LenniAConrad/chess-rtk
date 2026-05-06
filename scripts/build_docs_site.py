@@ -59,6 +59,7 @@ NAVIGATION: list[tuple[str, list[tuple[str, str]]]] = [
             ("datasets.md", "Datasets"),
             ("book-publishing.md", "Book Publishing"),
             ("piece-tags.md", "Tags"),
+            ("tag-reference.md", "Tag Reference"),
             ("t5.md", "T5 Text"),
             ("ai-agents.md", "AI Agents"),
         ],

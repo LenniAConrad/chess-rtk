@@ -25,31 +25,36 @@ public final class GpuCommand {
 	public static void runGpuInfo(Argv a) {
 		a.ensureConsumed();
 
-		boolean loaded = chess.nn.lc0.cuda.Support.isLoaded();
-		int count = chess.nn.lc0.cuda.Support.deviceCount();
-		boolean available = chess.nn.lc0.cuda.Support.isAvailable();
+		printBackend("LC0 CNN CUDA", chess.nn.lc0.cnn.cuda.Support.isLoaded(),
+				chess.nn.lc0.cnn.cuda.Support.isAvailable(), chess.nn.lc0.cnn.cuda.Support.deviceCount());
+		printBackend("LC0 BT4 CUDA", chess.nn.lc0.bt4.cuda.Support.isLoaded(),
+				chess.nn.lc0.bt4.cuda.Support.isAvailable(), chess.nn.lc0.bt4.cuda.Support.deviceCount());
+
+		printBackend("LC0 CNN ROCm", chess.nn.lc0.cnn.rocm.Support.isLoaded(),
+				chess.nn.lc0.cnn.rocm.Support.isAvailable(), chess.nn.lc0.cnn.rocm.Support.deviceCount());
+		printBackend("LC0 BT4 ROCm", chess.nn.lc0.bt4.rocm.Support.isLoaded(),
+				chess.nn.lc0.bt4.rocm.Support.isAvailable(), chess.nn.lc0.bt4.rocm.Support.deviceCount());
+
+		printBackend("LC0 CNN oneAPI", chess.nn.lc0.cnn.oneapi.Support.isLoaded(),
+				chess.nn.lc0.cnn.oneapi.Support.isAvailable(), chess.nn.lc0.cnn.oneapi.Support.deviceCount());
+		printBackend("LC0 BT4 oneAPI", chess.nn.lc0.bt4.oneapi.Support.isLoaded(),
+				chess.nn.lc0.bt4.oneapi.Support.isAvailable(), chess.nn.lc0.bt4.oneapi.Support.deviceCount());
+	}
+
+	/**
+	 * Prints one backend availability row.
+	 *
+	 * @param label backend label
+	 * @param loaded whether the JNI library loaded
+	 * @param available whether a device is available
+	 * @param deviceCount visible device count
+	 */
+	private static void printBackend(String label, boolean loaded, boolean available, int deviceCount) {
 		System.out.printf(
-				"CUDA JNI backend: loaded=%s, available=%s (deviceCount=%d)%n",
+				"%s JNI backend: loaded=%s, available=%s (deviceCount=%d)%n",
+				label,
 				loaded ? "yes" : "no",
 				available ? "yes" : "no",
-				count);
-
-		boolean rocmLoaded = chess.nn.lc0.rocm.Support.isLoaded();
-		int rocmCount = chess.nn.lc0.rocm.Support.deviceCount();
-		boolean rocmAvailable = chess.nn.lc0.rocm.Support.isAvailable();
-		System.out.printf(
-				"ROCm JNI backend: loaded=%s, available=%s (deviceCount=%d)%n",
-				rocmLoaded ? "yes" : "no",
-				rocmAvailable ? "yes" : "no",
-				rocmCount);
-
-		boolean oneapiLoaded = chess.nn.lc0.oneapi.Support.isLoaded();
-		int oneapiCount = chess.nn.lc0.oneapi.Support.deviceCount();
-		boolean oneapiAvailable = chess.nn.lc0.oneapi.Support.isAvailable();
-		System.out.printf(
-				"oneAPI JNI backend: loaded=%s, available=%s (deviceCount=%d)%n",
-				oneapiLoaded ? "yes" : "no",
-				oneapiAvailable ? "yes" : "no",
-				oneapiCount);
+				deviceCount);
 	}
 }

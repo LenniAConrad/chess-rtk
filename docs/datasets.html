@@ -43,6 +43,7 @@
 <a class="active" href="datasets.html" data-title="datasets">Datasets</a>
 <a class="" href="book-publishing.html" data-title="book publishing">Book Publishing</a>
 <a class="" href="piece-tags.html" data-title="tags">Tags</a>
+<a class="" href="tag-reference.html" data-title="tag reference">Tag Reference</a>
 <a class="" href="t5.html" data-title="t5 text">T5 Text</a>
 <a class="" href="ai-agents.html" data-title="ai agents">AI Agents</a>
 </section>
@@ -143,7 +144,7 @@
 <li><code>&lt;stem&gt;.lc0.meta.json</code> with policy encoding, compression, value scale, and</li>
 </ul>
 <p>source metadata</p>
-<p>Policy rows are one-hot. If <code>--weights</code> is supplied, ChessRTK reads the LC0J weights policy map and compresses policy targets to the network&#x27;s policy size. Without weights, the raw 73-plane policy size (<code>4672</code>) is used.</p>
+<p>Policy rows are one-hot. If <code>--weights</code> is supplied, ChessRTK reads the LC0 CNN <code>.bin</code> weights policy map and compresses policy targets to the network&#x27;s policy size. Without weights, the raw 73-plane policy size (<code>4672</code>) is used.</p>
 <pre><code class="language-bash">crtk record dataset lc0 \
   -i dump/run.puzzles.json \
   -o training/lc0/puzzles \
@@ -194,7 +195,7 @@ crtk record dataset classifier \
   --recursive \
   --max-records 100000</code></pre>
 <h2 id="puzzle-jsonl-record-export-puzzle-jsonl">Puzzle JSONL: <code>record export puzzle-jsonl</code></h2>
-<p>This command writes puzzle rows with LC0 policy information. It requires LC0J weights because it uses the weights policy map.</p>
+<p>This command writes puzzle rows with LC0 policy information. It requires ChessRTK LC0 CNN <code>.bin</code> weights because it uses the weights policy map.</p>
 <pre><code class="language-bash">crtk record export puzzle-jsonl \
   -i dump/run.puzzles.json \
   -o training/run.puzzle.jsonl \

@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 420" role="img" aria-labelledby="title desc">
+  <title id="title">ChessRTK Proof Loop signature logo concept</title>
+  <desc id="desc">A closed command loop with a checkable result.</desc>
+  <defs>
+    <filter id="shadow" x="-12%" y="-12%" width="124%" height="124%">
+      <feDropShadow dx="0" dy="16" stdDeviation="18" flood-color="#07100c" flood-opacity="0.24"/>
+    </filter>
+  </defs>
+  <rect width="1200" height="420" rx="48" fill="#07110c"/><rect x="34" y="34" width="1132" height="352" rx="40" fill="#123b2b" opacity="0.48"/>
+  <g transform="translate(82 70)" filter="url(#shadow)">
+    <rect width="280" height="280" rx="36" fill="#fffefb"/>
+    
+<rect x="38" y="38" width="204" height="204" rx="102" fill="#eef5ef"/>
+<path d="M82 152 C58 92 116 56 164 72 C216 90 220 164 174 196 C136 222 86 206 70 170" fill="none" stroke="#2e7d57" stroke-width="11" stroke-linecap="round"/>
+<path d="M176 68 L202 84 L172 96" fill="#2e7d57"/>
+<path d="M96 142 L126 172 L184 108" fill="none" stroke="#d8a63a" stroke-width="15" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="140" y="224" text-anchor="middle" fill="#123b2b" font-family="ui-monospace, Menlo, Consolas, monospace" font-size="18" font-weight="900">deterministic</text>
+
+  </g>
+  <g transform="translate(424 112)">
+    <text x="0" y="76" fill="#fffefb" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="86" font-weight="850" letter-spacing="0">ChessRTK</text>
+    <text x="3" y="123" fill="#d8a63a" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="26" font-weight="850" letter-spacing="0">PROOF LOOP</text>
+    <text x="3" y="172" fill="#dce9df" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="30" font-weight="500" letter-spacing="0">A closed command loop with a checkable result.</text>
+    <text x="3" y="224" fill="#d8a63a" opacity="0.76" font-family="ui-monospace, Menlo, Consolas, monospace" font-size="22" font-weight="850">concept 03 / signature candidate</text>
+  </g>
+</svg>

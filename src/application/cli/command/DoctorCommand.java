@@ -55,14 +55,13 @@ public final class DoctorCommand {
 			validateModelPath("t5-model-path", Config.getT5ModelPath(), warnings);
 			validateDirectory("output", Config.getOutput(), warnings);
 			printDoctorReport(warnings, errors, strict);
+		} catch (CommandFailure failure) {
+			throw failure;
 		} catch (RuntimeException ex) {
 			System.out.println("doctor: failed");
 			System.out.println("Errors:");
 			System.out.println("  - " + ex.getMessage());
-			if (verbose) {
-				ex.printStackTrace(System.err);
-			}
-			System.exit(2);
+			throw new CommandFailure("doctor: failed", ex, 2, verbose);
 		}
 	}
 
@@ -105,10 +104,10 @@ public final class DoctorCommand {
 		printMessages("Warnings", warnings);
 		printMessages("Errors", errors);
 		if (!errors.isEmpty()) {
-			System.exit(2);
+			throw new CommandFailure("", 2);
 		}
 		if (strict && !warnings.isEmpty()) {
-			System.exit(1);
+			throw new CommandFailure("", 1);
 		}
 	}
 

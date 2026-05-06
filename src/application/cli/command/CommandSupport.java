@@ -3,13 +3,21 @@ package application.cli.command;
 import static application.cli.Constants.ERR_INVALID_FEN;
 import static application.cli.Constants.MSG_FEN_REQUIRED_HINT;
 import static application.cli.Constants.OPT_FEN;
+import static application.cli.Constants.OPT_JSON;
+import static application.cli.Constants.OPT_JSONL;
+import static application.cli.Constants.OPT_NO_HEADER;
+import static application.cli.Constants.OPT_QUIET;
 import static application.cli.Constants.OPT_INPUT;
 import static application.cli.Constants.OPT_RANDOMPOS;
 import static application.cli.Constants.OPT_STARTPOS;
 
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.nio.file.Path;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
@@ -18,6 +26,7 @@ import chess.core.Position;
 import chess.core.Setup;
 import chess.debug.LogService;
 import chess.io.Reader;
+import utility.Json;
 import utility.Argv;
 
 /**
@@ -32,6 +41,24 @@ public final class CommandSupport {
 	 * Number of attempts used when sampling a random playable position.
 	 */
 	private static final int RANDOM_POSITION_SAMPLE_ATTEMPTS = 32;
+
+	/**
+	 * Shared output mode for commands that support machine-readable output.
+	 */
+	public enum OutputMode {
+		/**
+		 * Existing line-oriented text output.
+		 */
+		TEXT,
+		/**
+		 * One JSON value.
+		 */
+		JSON,
+		/**
+		 * One JSON object per output row.
+		 */
+		JSONL
+	}
 
 	/**
 	 * Utility class; prevent instantiation.
@@ -164,6 +191,63 @@ public final class CommandSupport {
 	}
 
 	/**
+	 * Resolves common machine-output flags.
+	 *
+	 * @param a   argument parser for the current subcommand
+	 * @param cmd command label used in diagnostics
+	 * @return selected output mode
+	 */
+	public static OutputMode resolveOutputMode(Argv a, String cmd) {
+		boolean json = a.flag(OPT_JSON);
+		boolean jsonl = a.flag(OPT_JSONL);
+		a.flag(OPT_QUIET);
+		a.flag(OPT_NO_HEADER);
+		if (json && jsonl) {
+			throw new CommandFailure(cmd + ": use either " + OPT_JSON + " or " + OPT_JSONL + ", not both", 2);
+		}
+		if (json) {
+			return OutputMode.JSON;
+		}
+		return jsonl ? OutputMode.JSONL : OutputMode.TEXT;
+	}
+
+	/**
+	 * Reads non-blank UTF-8 lines from standard input.
+	 *
+	 * @param cmd     command label used in diagnostics
+	 * @param verbose whether to print stack traces on failure
+	 * @return input lines
+	 */
+	public static List<String> readStdinLines(String cmd, boolean verbose) {
+		List<String> lines = new ArrayList<>();
+		try (BufferedReader reader = new BufferedReader(new InputStreamReader(System.in, StandardCharsets.UTF_8))) {
+			String line;
+			while ((line = reader.readLine()) != null) {
+				String trimmed = line.trim();
+				if (!trimmed.isEmpty()) {
+					lines.add(trimmed);
+				}
+			}
+			if (lines.isEmpty()) {
+				throw new CommandFailure(cmd + ": standard input has no non-blank lines", 2);
+			}
+			return lines;
+		} catch (IOException ex) {
+			throw new CommandFailure(cmd + ": failed to read standard input: " + ex.getMessage(), ex, 2, verbose);
+		}
+	}
+
+	/**
+	 * Returns a quoted JSON string.
+	 *
+	 * @param value raw string value
+	 * @return JSON string literal
+	 */
+	public static String jsonString(String value) {
+		return "\"" + Json.esc(value) + "\"";
+	}
+
+	/**
 	 * Samples a random legal standard-chess position that could arise in a game and
 	 * still has at least one legal move.
 	 *
@@ -180,7 +264,7 @@ public final class CommandSupport {
 	}
 
 	/**
-	 * Parses a FEN into a position or exits with a consistent CLI diagnostic.
+	 * Parses a FEN into a position or throws a consistent CLI diagnostic.
 	 *
 	 * @param fen FEN string to parse
 	 * @param cmd command label for diagnostics
@@ -191,13 +275,9 @@ public final class CommandSupport {
 		try {
 			return new Position(fen);
 		} catch (IllegalArgumentException ex) {
-			System.err.println(ERR_INVALID_FEN + (ex.getMessage() == null ? "" : ex.getMessage()));
 			LogService.error(ex, cmd + ": invalid FEN", "FEN: " + fen);
-			if (verbose) {
-				ex.printStackTrace(System.err);
-			}
-			System.exit(3);
-			return Setup.getStandardStartPosition();
+			throw new CommandFailure(ERR_INVALID_FEN + (ex.getMessage() == null ? "" : ex.getMessage()),
+					ex, 3, verbose);
 		}
 	}
 

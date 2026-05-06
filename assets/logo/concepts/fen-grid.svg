@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 420" role="img" aria-labelledby="title desc">
+  <title id="title">ChessRTK FEN Grid logo concept</title>
+  <desc id="desc">A ChessRTK logo showing an encoded FEN-like board grid transforming into a clean wordmark.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0e1913"/>
+      <stop offset="1" stop-color="#153723"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="420" rx="48" fill="url(#bg)"/>
+  <g transform="translate(80 72)">
+    <rect x="0" y="0" width="276" height="276" rx="26" fill="#fffefb"/>
+    <g transform="translate(28 26)" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="22" font-weight="800">
+      <rect x="0" y="0" width="220" height="224" rx="13" fill="#eef5ef"/>
+      <g fill="#123b2b">
+        <text x="16" y="36">r n b q k b n r</text>
+        <text x="16" y="64">p p p p p p p p</text>
+        <text x="16" y="92">8 / 8 / 8 / 8</text>
+        <text x="16" y="120">P P P P P P P P</text>
+        <text x="16" y="148">R N B Q K B N R</text>
+      </g>
+      <rect x="16" y="170" width="188" height="34" rx="8" fill="#123b2b"/>
+      <text x="30" y="194" fill="#d8a63a">w KQkq - 0 1</text>
+      <path d="M28 218 H192" stroke="#d8a63a" stroke-width="8" stroke-linecap="round"/>
+    </g>
+  </g>
+  <g transform="translate(416 112)">
+    <text x="0" y="76" fill="#fffefb" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="88" font-weight="850" letter-spacing="0">ChessRTK</text>
+    <text x="4" y="124" fill="#d8a63a" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="27" font-weight="800" letter-spacing="0">FEN TO WORKFLOW</text>
+    <text x="4" y="173" fill="#dce9df" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="30" font-weight="500" letter-spacing="0">Parse, normalize, validate, analyze, export, and publish.</text>
+  </g>
+</svg>

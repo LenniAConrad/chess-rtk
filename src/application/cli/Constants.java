@@ -36,6 +36,11 @@ public final class Constants {
 	public static final String CMD_ENGINE = "engine";
 
 	/**
+	 * {@code position} grouped subcommand token.
+	 */
+	public static final String CMD_POSITION = "position";
+
+	/**
 	 * {@code book} grouped subcommand token.
 	 */
 	public static final String CMD_BOOK = "book";
@@ -86,6 +91,11 @@ public final class Constants {
 	public static final String CMD_GUI_NEXT = "gui-next";
 
 	/**
+	 * {@code gui-workbench} subcommand token.
+	 */
+	public static final String CMD_GUI_WORKBENCH = "gui-workbench";
+
+	/**
 	 * {@code clean} subcommand token.
 	 */
 	public static final String CMD_CLEAN = "clean";
@@ -99,6 +109,11 @@ public final class Constants {
 	 * {@code help} subcommand token.
 	 */
 	public static final String CMD_HELP = "help";
+
+	/**
+	 * {@code version} subcommand token.
+	 */
+	public static final String CMD_VERSION = "version";
 
 	/**
 	 * {@code config} subcommand token.
@@ -134,6 +149,31 @@ public final class Constants {
 	 * {@code bestmove-both} subcommand token.
 	 */
 	public static final String CMD_BESTMOVE_BOTH = "bestmove-both";
+
+	/**
+	 * {@code analyze-batch} subcommand token.
+	 */
+	public static final String CMD_ANALYZE_BATCH = "analyze-batch";
+
+	/**
+	 * {@code bestmove-batch} subcommand token.
+	 */
+	public static final String CMD_BESTMOVE_BATCH = "bestmove-batch";
+
+	/**
+	 * {@code compare} subcommand token.
+	 */
+	public static final String CMD_COMPARE = "compare";
+
+	/**
+	 * {@code benchmark} subcommand token.
+	 */
+	public static final String CMD_BENCHMARK = "benchmark";
+
+	/**
+	 * {@code diff} subcommand token.
+	 */
+	public static final String CMD_DIFF = "diff";
 
 	/**
 	 * {@code threats} subcommand token.
@@ -219,6 +259,41 @@ public final class Constants {
 	 * {@code --format} option flag.
 	 */
 	public static final String OPT_FORMAT = "--format";
+
+	/**
+	 * {@code --json} machine-readable output flag.
+	 */
+	public static final String OPT_JSON = "--json";
+
+	/**
+	 * {@code --jsonl} line-delimited machine-readable output flag.
+	 */
+	public static final String OPT_JSONL = "--jsonl";
+
+	/**
+	 * {@code --quiet} option flag.
+	 */
+	public static final String OPT_QUIET = "--quiet";
+
+	/**
+	 * {@code --stdin} option flag.
+	 */
+	public static final String OPT_STDIN = "--stdin";
+
+	/**
+	 * {@code --no-header} option flag.
+	 */
+	public static final String OPT_NO_HEADER = "--no-header";
+
+	/**
+	 * {@code --fields} option flag.
+	 */
+	public static final String OPT_FIELDS = "--fields";
+
+	/**
+	 * {@code --other} option flag.
+	 */
+	public static final String OPT_OTHER = "--other";
 
 	/**
 	 * {@code --index} option flag.
@@ -491,6 +566,11 @@ public final class Constants {
 	public static final String OPT_THREADS = "--threads";
 
 	/**
+	 * {@code --iterations} option flag.
+	 */
+	public static final String OPT_ITERATIONS = "--iterations";
+
+	/**
 	 * {@code --hash} option flag.
 	 */
 	public static final String OPT_HASH = "--hash";
@@ -549,6 +629,11 @@ public final class Constants {
 	 * {@code --per-move} option flag (alias for {@link #OPT_DIVIDE}).
 	 */
 	public static final String OPT_PER_MOVE = "--per-move";
+
+	/**
+	 * {@code --suite} option flag.
+	 */
+	public static final String OPT_SUITE = "--suite";
 
 	/**
 	 * {@code --mainline} option flag.

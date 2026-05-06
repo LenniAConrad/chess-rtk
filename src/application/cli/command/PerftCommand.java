@@ -6,12 +6,18 @@ import static application.cli.Constants.OPT_DEPTH_SHORT;
 import static application.cli.Constants.OPT_DIVIDE;
 import static application.cli.Constants.OPT_FORMAT;
 import static application.cli.Constants.OPT_PER_MOVE;
+import static application.cli.Constants.OPT_SUITE;
 import static application.cli.Constants.OPT_THREADS;
 import static application.cli.Constants.OPT_VERBOSE;
 import static application.cli.Constants.OPT_VERBOSE_SHORT;
 import static application.cli.Validation.requireNonNegative;
 import static application.cli.Validation.requirePositive;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.function.ToLongFunction;
@@ -134,9 +140,7 @@ public final class PerftCommand {
 		Position position = CommandSupport.resolvePositionArgument(a, commandName, true, verbose);
 
 		if (depth == null) {
-			System.err.println(commandName + " requires " + OPT_DEPTH + " <n>");
-			System.exit(2);
-			return;
+			throw new CommandFailure(commandName + " requires " + OPT_DEPTH + " <n>", 2);
 		}
 		requireNonNegative(commandName, OPT_DEPTH, depth);
 		int workerThreads = threads == null ? 1 : threads;
@@ -154,9 +158,8 @@ public final class PerftCommand {
 			}
 		} catch (InterruptedException ex) {
 			Thread.currentThread().interrupt();
-			System.err.println(commandName + ": interrupted");
 			LogService.error(ex, commandName + " interrupted");
-			System.exit(130);
+			throw new CommandFailure(commandName + ": interrupted", ex, 130, verbose);
 		}
 	}
 
@@ -175,12 +178,8 @@ public final class PerftCommand {
 			case FORMAT_DETAIL, "detailed", "lines" -> PerftFormat.DETAIL;
 			case FORMAT_TABLE -> PerftFormat.TABLE;
 			case FORMAT_STOCKFISH, "sf" -> PerftFormat.STOCKFISH;
-			default -> {
-				System.err.println(commandName + ": unsupported " + OPT_FORMAT + " value: " + value
-						+ " (expected detail, table, or stockfish)");
-				System.exit(2);
-				yield PerftFormat.DETAIL;
-			}
+			default -> throw new CommandFailure(commandName + ": unsupported " + OPT_FORMAT + " value: " + value
+					+ " (expected detail, table, or stockfish)", 2);
 		};
 	}
 
@@ -193,33 +192,195 @@ public final class PerftCommand {
 	private static void runPerftSuite(Argv a, String commandName) {
 		Integer depth = a.integer(OPT_DEPTH, OPT_DEPTH_SHORT);
 		Integer threads = a.integer(OPT_THREADS);
+		Path suite = a.path(OPT_SUITE);
 		a.ensureConsumed();
+
+		int workerThreads = threads == null ? 1 : threads;
+		requirePositive(commandName, OPT_THREADS, workerThreads);
+		if (suite != null) {
+			runCustomPerftSuite(commandName, suite, depth, workerThreads);
+			return;
+		}
 
 		int maxDepth = depth == null ? PerftSuite.DEFAULT_MAX_DEPTH : depth;
 		requirePositive(commandName, OPT_DEPTH, maxDepth);
 		if (maxDepth > PerftSuite.MAX_REFERENCE_DEPTH) {
-			System.err.println(commandName + " supports " + OPT_DEPTH + " 1.." + PerftSuite.MAX_REFERENCE_DEPTH);
-			System.exit(2);
-			return;
+			throw new CommandFailure(commandName + " supports " + OPT_DEPTH + " 1.." + PerftSuite.MAX_REFERENCE_DEPTH,
+					2);
 		}
-		int workerThreads = threads == null ? 1 : threads;
-		requirePositive(commandName, OPT_THREADS, workerThreads);
-
 		Bar bar = new Bar(PerftSuite.rowCount(maxDepth), "perft-suite", false, System.err);
 		try {
 			PerftSuite.Summary summary = PerftSuite.validate(maxDepth, workerThreads, bar::step);
 			bar.finish();
 			PerftSuite.print(summary);
 			if (!summary.matches()) {
-				System.exit(3);
+				throw new CommandFailure(commandName + ": validation failed", 3);
 			}
 		} catch (InterruptedException ex) {
 			bar.finish();
 			Thread.currentThread().interrupt();
-			System.err.println(commandName + ": interrupted");
 			LogService.error(ex, commandName + " interrupted");
-			System.exit(130);
+			throw new CommandFailure(commandName + ": interrupted", ex, 130, false);
 		}
+	}
+
+	/**
+	 * Runs a caller-provided perft suite file.
+	 *
+	 * @param commandName command name for diagnostics
+	 * @param suite suite path
+	 * @param defaultDepth optional default depth
+	 * @param workerThreads worker threads
+	 */
+	private static void runCustomPerftSuite(
+			String commandName,
+			Path suite,
+			Integer defaultDepth,
+			int workerThreads) {
+		List<CustomPerftCase> cases = readCustomPerftSuite(commandName, suite, defaultDepth);
+		Bar bar = cases.size() > 1 ? new Bar(cases.size(), "perft-suite", false, System.err) : null;
+		List<PerftSuite.Row> rows = new ArrayList<>();
+		int maxDepth = 1;
+		long started = System.nanoTime();
+		try {
+			for (int i = 0; i < cases.size(); i++) {
+				CustomPerftCase testCase = cases.get(i);
+				Result result = Perft.run(new Position(testCase.fen()), testCase.depth(), workerThreads);
+				rows.add(new PerftSuite.Row(
+						i + 1,
+						testCase.name(),
+						testCase.depth(),
+						testCase.fen(),
+						testCase.nodes(),
+						result.stats().nodes(),
+						result.nanos()));
+				maxDepth = Math.max(maxDepth, testCase.depth());
+				CommandSupport.step(bar);
+			}
+			CommandSupport.finish(bar);
+			bar = null;
+			PerftSuite.Summary summary = new PerftSuite.Summary(maxDepth, rows, System.nanoTime() - started);
+			PerftSuite.print(summary);
+			if (!summary.matches()) {
+				throw new CommandFailure(commandName + ": validation failed", 3);
+			}
+		} catch (InterruptedException ex) {
+			Thread.currentThread().interrupt();
+			LogService.error(ex, commandName + " interrupted");
+			throw new CommandFailure(commandName + ": interrupted", ex, 130, false);
+		} finally {
+			CommandSupport.finish(bar);
+		}
+	}
+
+	/**
+	 * Reads custom perft suite cases.
+	 *
+	 * @param commandName command name for diagnostics
+	 * @param suite suite path
+	 * @param defaultDepth optional default depth
+	 * @return parsed cases
+	 */
+	private static List<CustomPerftCase> readCustomPerftSuite(
+			String commandName,
+			Path suite,
+			Integer defaultDepth) {
+		int fallbackDepth = defaultDepth == null ? 1 : defaultDepth;
+		requirePositive(commandName, OPT_DEPTH, fallbackDepth);
+		try {
+			List<CustomPerftCase> cases = new ArrayList<>();
+			List<String> lines = Files.readAllLines(suite, StandardCharsets.UTF_8);
+			for (int i = 0; i < lines.size(); i++) {
+				String line = lines.get(i).trim();
+				if (!line.isEmpty() && !line.startsWith("#")) {
+					cases.add(parseCustomPerftCase(commandName, line, i + 1, fallbackDepth));
+				}
+			}
+			if (cases.isEmpty()) {
+				throw new CommandFailure(commandName + ": custom suite has no cases: " + suite, 2);
+			}
+			return cases;
+		} catch (IOException ex) {
+			throw new CommandFailure(commandName + ": failed to read suite: " + ex.getMessage(), ex, 2, false);
+		}
+	}
+
+	/**
+	 * Parses one custom suite line.
+	 *
+	 * @param commandName command name for diagnostics
+	 * @param line suite line
+	 * @param lineNumber one-based line number
+	 * @param fallbackDepth fallback depth
+	 * @return parsed case
+	 */
+	private static CustomPerftCase parseCustomPerftCase(
+			String commandName,
+			String line,
+			int lineNumber,
+			int fallbackDepth) {
+		String[] parts = line.split("\\t");
+		try {
+			CustomPerftCase testCase = switch (parts.length) {
+				case 4 -> new CustomPerftCase(parts[0].trim(), parsePositiveInt(parts[1], "depth"),
+						parts[2].trim(), parseLong(parts[3], "nodes"));
+				case 3 -> parseThreeColumnCase(parts, fallbackDepth);
+				case 2 -> new CustomPerftCase("case " + lineNumber, fallbackDepth, parts[0].trim(),
+						parseLong(parts[1], "nodes"));
+				default -> throw new IllegalArgumentException("expected 2, 3, or 4 tab-separated columns");
+			};
+			new Position(testCase.fen());
+			requirePositive(commandName, OPT_DEPTH, testCase.depth());
+			return testCase;
+		} catch (RuntimeException ex) {
+			throw new CommandFailure(commandName + ": invalid suite line " + lineNumber + ": " + ex.getMessage(),
+					ex, 2, false);
+		}
+	}
+
+	/**
+	 * Parses a three-column custom suite row.
+	 *
+	 * @param parts row parts
+	 * @param fallbackDepth fallback depth
+	 * @return parsed case
+	 */
+	private static CustomPerftCase parseThreeColumnCase(String[] parts, int fallbackDepth) {
+		if (parts[0].contains("/")) {
+			return new CustomPerftCase("case", parsePositiveInt(parts[1], "depth"), parts[0].trim(),
+					parseLong(parts[2], "nodes"));
+		}
+		return new CustomPerftCase(parts[0].trim(), fallbackDepth, parts[1].trim(), parseLong(parts[2], "nodes"));
+	}
+
+	/**
+	 * Parses a positive integer from a suite field.
+	 *
+	 * @param value field value
+	 * @param field field name
+	 * @return parsed value
+	 */
+	private static int parsePositiveInt(String value, String field) {
+		int parsed = Integer.parseInt(value.trim());
+		if (parsed <= 0) {
+			throw new IllegalArgumentException(field + " must be positive");
+		}
+		return parsed;
+	}
+
+	/**
+	 * Parses a long from a suite field.
+	 *
+	 * @param value field value
+	 * @param field field name
+	 * @return parsed value
+	 */
+	private static long parseLong(String value, String field) {
+		long parsed = Long.parseLong(value.trim().replace("_", "").replace(",", ""));
+		if (parsed < 0L) {
+			throw new IllegalArgumentException(field + " must be non-negative");
+		}
+		return parsed;
 	}
 
 	/**
@@ -415,6 +576,21 @@ public final class PerftCommand {
 			headings[i] = TABLE_COLUMNS.get(i).heading();
 		}
 		return headings;
+	}
+
+	/**
+	 * One caller-provided perft validation case.
+	 *
+	 * @param name display name
+	 * @param depth perft depth
+	 * @param fen root FEN
+	 * @param nodes expected node count
+	 */
+	private record CustomPerftCase(
+			String name,
+			int depth,
+			String fen,
+			long nodes) {
 	}
 
 	/**

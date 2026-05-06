@@ -43,6 +43,7 @@
 <a class="" href="datasets.html" data-title="datasets">Datasets</a>
 <a class="" href="book-publishing.html" data-title="book publishing">Book Publishing</a>
 <a class="" href="piece-tags.html" data-title="tags">Tags</a>
+<a class="" href="tag-reference.html" data-title="tag reference">Tag Reference</a>
 <a class="" href="t5.html" data-title="t5 text">T5 Text</a>
 <a class="" href="ai-agents.html" data-title="ai agents">AI Agents</a>
 </section>
@@ -95,6 +96,10 @@ crtk engine builtin --startpos --depth 3 --format summary</code></pre>
 <td><code>crtk help --full</code></td>
 </tr>
 <tr>
+<td>Show version metadata</td>
+<td><code>crtk version --json</code></td>
+</tr>
+<tr>
 <td>Check local setup</td>
 <td><code>crtk doctor</code></td>
 </tr>
@@ -130,6 +135,10 @@ crtk engine builtin --startpos --depth 3 --format summary</code></pre>
 <td><code>crtk fen normalize --fen &quot;&lt;FEN&gt;&quot;</code></td>
 </tr>
 <tr>
+<td>Validate a FEN as JSON</td>
+<td><code>crtk fen validate --fen &quot;&lt;FEN&gt;&quot; --json</code></td>
+</tr>
+<tr>
 <td>Generate Chess960 start</td>
 <td><code>crtk fen chess960 518</code></td>
 </tr>
@@ -153,6 +162,10 @@ crtk engine builtin --startpos --depth 3 --format summary</code></pre>
 <td>Open a board window</td>
 <td><code>crtk fen display --fen &quot;&lt;FEN&gt;&quot;</code></td>
 </tr>
+<tr>
+<td>Compare two positions</td>
+<td><code>crtk position diff --fen &quot;&lt;FEN&gt;&quot; --other &quot;&lt;FEN&gt;&quot; --json</code></td>
+</tr>
 </tbody></table></div>
 <h2 id="moves">Moves</h2>
 <div class="table-wrap"><table>
@@ -171,6 +184,10 @@ crtk engine builtin --startpos --depth 3 --format summary</code></pre>
 <tr>
 <td>List both UCI and SAN</td>
 <td><code>crtk move list --fen &quot;&lt;FEN&gt;&quot; --format both</code></td>
+</tr>
+<tr>
+<td>List legal moves as JSONL</td>
+<td><code>crtk move list --fen &quot;&lt;FEN&gt;&quot; --jsonl</code></td>
 </tr>
 <tr>
 <td>Convert UCI to SAN</td>
@@ -204,8 +221,24 @@ crtk engine builtin --startpos --depth 3 --format summary</code></pre>
 <td><code>crtk engine analyze --fen &quot;&lt;FEN&gt;&quot; --multipv 3 --max-duration 5s</code></td>
 </tr>
 <tr>
+<td>Batch best moves</td>
+<td><code>crtk engine bestmove-batch --input positions.txt --max-duration 1s</code></td>
+</tr>
+<tr>
+<td>Batch analysis JSONL</td>
+<td><code>crtk engine analyze-batch --input positions.txt --multipv 3 --jsonl</code></td>
+</tr>
+<tr>
+<td>Compare two UCI protocols</td>
+<td><code>crtk engine compare --input positions.txt --left-protocol a.toml --right-protocol b.toml</code></td>
+</tr>
+<tr>
 <td>Search in-process</td>
 <td><code>crtk engine builtin --fen &quot;&lt;FEN&gt;&quot; --depth 4 --format summary</code></td>
+</tr>
+<tr>
+<td>Benchmark movegen</td>
+<td><code>crtk engine benchmark --startpos --depth 5 --iterations 5</code></td>
 </tr>
 <tr>
 <td>Classical static eval</td>
@@ -241,6 +274,10 @@ crtk engine builtin --startpos --depth 3 --format summary</code></pre>
 <tr>
 <td>Regression suite</td>
 <td><code>crtk engine perft-suite --depth 6 --threads 4</code></td>
+</tr>
+<tr>
+<td>Custom perft suite</td>
+<td><code>crtk engine perft-suite --suite custom-perft.tsv --threads 4</code></td>
 </tr>
 </tbody></table></div>
 <h2 id="puzzle-mining">Puzzle Mining</h2>
@@ -332,6 +369,21 @@ crtk engine builtin --startpos --depth 3 --format summary</code></pre>
 <td><code>crtk book cover -i books/puzzles.toml --pdf dist/puzzles.pdf -o dist/puzzles-cover.pdf --binding paperback --interior white-bw</code></td>
 </tr>
 </tbody></table></div>
+<h2 id="desktop-workbench">Desktop Workbench</h2>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Task</th>
+<th>Command</th>
+</tr></thead><tbody>
+<tr>
+<td>Open focused analysis workbench</td>
+<td><code>crtk gui-workbench</code></td>
+</tr>
+<tr>
+<td>Open workbench on a position</td>
+<td><code>crtk workbench --fen &quot;&lt;FEN&gt;&quot;</code></td>
+</tr>
+</tbody></table></div>
 <h2 id="agent-friendly-commands">Agent-Friendly Commands</h2>
 <div class="table-wrap"><table>
 <thead><tr>
@@ -340,7 +392,7 @@ crtk engine builtin --startpos --depth 3 --format summary</code></pre>
 </tr></thead><tbody>
 <tr>
 <td>Deterministic legal moves</td>
-<td><code>crtk move list --fen &quot;&lt;FEN&gt;&quot; --format both</code></td>
+<td><code>crtk move list --fen &quot;&lt;FEN&gt;&quot; --format both</code> or <code>--jsonl</code></td>
 </tr>
 <tr>
 <td>Normalize input</td>
@@ -353,6 +405,14 @@ crtk engine builtin --startpos --depth 3 --format summary</code></pre>
 <tr>
 <td>One best move row</td>
 <td><code>crtk engine bestmove --fen &quot;&lt;FEN&gt;&quot; --format both --max-duration 2s</code></td>
+</tr>
+<tr>
+<td>Best move batch rows</td>
+<td><code>crtk engine bestmove-batch --input positions.txt --max-duration 1s</code></td>
+</tr>
+<tr>
+<td>Position differences</td>
+<td><code>crtk position diff --fen &quot;&lt;FEN&gt;&quot; --other &quot;&lt;FEN&gt;&quot; --json</code></td>
 </tr>
 <tr>
 <td>In-process fallback</td>
@@ -370,6 +430,7 @@ crtk engine builtin --startpos --depth 3 --format summary</code></pre>
 <a class="toc-h2" href="#puzzle-mining">Puzzle Mining</a>
 <a class="toc-h2" href="#datasets">Datasets</a>
 <a class="toc-h2" href="#publishing">Publishing</a>
+<a class="toc-h2" href="#desktop-workbench">Desktop Workbench</a>
 <a class="toc-h2" href="#agent-friendly-commands">Agent-Friendly Commands</a></aside>
       </main>
       <footer class="footer">

@@ -1,4 +1,4 @@
-# Tagging Implementation Plan
+# Generator Implementation Plan
 
 This document is the implementation plan for completing ChessRTK's position,
 move, tactic, and puzzle-theme tags.
@@ -91,12 +91,12 @@ Keep `chess.tag` as the public API. Split implementation into focused modules:
 
 ```text
 src/chess/tag/
-  Tagging.java              public facade and orchestration
-  TagContext.java           shared immutable/scratch context
-  TagEmitter.java           string builder / canonical field emitter
-  Identity.java             semantic identity keys
-  Sort.java                 stable family-aware sort/dedupe
-  Line.java                 tag parser
+  Generator.java              public facade and orchestration
+  Context.java                shared immutable/scratch context
+  Emitter.java                string builder / canonical field emitter
+  Identity.java               semantic identity keys
+  Sort.java                   stable family-aware sort/dedupe
+  Line.java                   tag parser
   core/
     Literals.java
     Text.java
@@ -134,7 +134,7 @@ src/chess/tag/
     Difficulty.java
 ```
 
-The exact filenames can change, but the rule is simple: one large `Tagging`
+The exact filenames can change, but the rule is simple: one large `Generator`
 class should not accumulate every motif.
 
 ### Tag Context
@@ -164,7 +164,7 @@ detectors. This avoids repeated legal move generation and repeated attack scans.
 Introduce a small helper for canonical tags:
 
 ```java
-TagEmitter.tag("PAWN")
+Emitter.tag("PAWN")
     .field("structure", "passed")
     .field("side", "white")
     .field("square", "e7")
@@ -179,8 +179,8 @@ easy to enforce escaping rules if a field value ever contains spaces.
 Each detector should follow this shape:
 
 ```java
-interface TagDetector {
-    void addTags(TagContext ctx, List<String> tags);
+interface Detector {
+    void addTags(Context ctx, List<String> tags);
 }
 ```
 
@@ -195,9 +195,9 @@ position and cached context.
 Deliverables:
 
 - Document canonical tag grammar in `wiki/piece-tags.md` or a dedicated tag reference.
-- Add a `TagEmitter`.
-- Add `TagContext`.
-- Add `TagDetector` or an equivalent internal pattern.
+- Add `Emitter`.
+- Add `Context`.
+- Add `Detector` or an equivalent internal pattern.
 - Update `Sort.FAMILY_ORDER` with the final family set.
 - Update `Identity` to handle all planned family keys gracefully.
 - Add a no-engine golden test harness for tag fixtures.
@@ -254,7 +254,7 @@ Port first:
 
 Definition of done:
 
-- `chess.tag.Tagging.tags(position)` covers the fixture categories used by the
+- `chess.tag.Generator.tags(position)` covers the fixture categories used by the
   regression tests.
 - No duplicate tag package exists in `src`.
 
@@ -333,7 +333,7 @@ Add move-level aggregate facts:
 
 Implementation details:
 
-- Use one `MoveList` generated in `TagContext`.
+- Use one `MoveList` generated in `Context`.
 - Use `Position.State` and `play/undo` for low-allocation move consequence checks.
 - Do not copy the position once per move in hot paths.
 
@@ -672,7 +672,7 @@ meet its evidence rule, it should not be emitted. The default behavior should be
 
 ### Shared Primitives
 
-All detectors should use these primitives through `TagContext` rather than
+All detectors should use these primitives through `Context` rather than
 reimplementing them locally.
 
 | Primitive | Definition |
@@ -1157,12 +1157,12 @@ The pseudocode below is Java-like, but intentionally not final source. It shows
 the control flow, shared caches, evidence checks, and conservative emit rules
 that should drive the real implementation.
 
-### Tagging Pipeline
+### Generator Pipeline
 
 ```java
 TagResult tag(Position position, TagOptions options) {
-    TagContext ctx = TagContext.build(position, options);
-    TagEmitter out = new TagEmitter(options);
+    Context ctx = Context.build(position, options);
+    Emitter out = new Emitter(options);
 
     runExactDetectors(ctx, out);
 
@@ -1185,7 +1185,7 @@ TagResult tag(Position position, TagOptions options) {
     return out.sortedResult();
 }
 
-void runExactDetectors(TagContext ctx, TagEmitter out) {
+void runExactDetectors(Context ctx, Emitter out) {
     detectMeta(ctx, out);
     detectFacts(ctx, out);
     detectMaterial(ctx, out);
@@ -1199,7 +1199,7 @@ void runExactDetectors(TagContext ctx, TagEmitter out) {
     }
 }
 
-void runStaticStrongDetectors(TagContext ctx, TagEmitter out) {
+void runStaticStrongDetectors(Context ctx, Emitter out) {
     detectKingSafety(ctx, out);
     detectPieceActivity(ctx, out);
     detectSpace(ctx, out);
@@ -1215,7 +1215,7 @@ void runStaticStrongDetectors(TagContext ctx, TagEmitter out) {
 ### Context Construction
 
 ```java
-final class TagContext {
+final class Context {
     Position root;
     TagOptions options;
     Side stm;
@@ -1234,8 +1234,8 @@ final class TagContext {
     KingSummary blackKing;
     Phase phase;
 
-    static TagContext build(Position position, TagOptions options) {
-        TagContext ctx = new TagContext();
+    static Context build(Position position, TagOptions options) {
+        Context ctx = new Context();
         ctx.root = position;
         ctx.options = options;
         ctx.stm = position.sideToMove();
@@ -1279,7 +1279,7 @@ final class TagContext {
 ### Emission Gate
 
 ```java
-final class TagEmitter {
+final class Emitter {
     void emit(Tag tag, Reliability reliability, Evidence evidence) {
         if (!options.allows(tag.family())) {
             return;
@@ -1313,7 +1313,7 @@ same evidence object can later power `--explain-tags`.
 ### META, FACT, and MATERIAL
 
 ```java
-void detectMeta(TagContext ctx, TagEmitter out) {
+void detectMeta(Context ctx, Emitter out) {
     out.exact(tag("META", "to_move", ctx.stm), evidence("fen side-to-move"));
     out.exact(tag("META", "phase", ctx.phase), evidence(ctx.material.summary()));
 
@@ -1328,7 +1328,7 @@ void detectMeta(TagContext ctx, TagEmitter out) {
     }
 }
 
-void detectFacts(TagContext ctx, TagEmitter out) {
+void detectFacts(Context ctx, Emitter out) {
     if (ctx.root.isCheckmate()) {
         out.exact(tag("FACT", "status", "checkmate"), evidence("no legal moves and in check"));
     } else if (ctx.root.isStalemate()) {
@@ -1353,7 +1353,7 @@ void detectFacts(TagContext ctx, TagEmitter out) {
     }
 }
 
-void detectMaterial(TagContext ctx, TagEmitter out) {
+void detectMaterial(Context ctx, Emitter out) {
     int white = ctx.material.cp(WHITE);
     int black = ctx.material.cp(BLACK);
     int diff = white - black;
@@ -1380,7 +1380,7 @@ void detectMaterial(TagContext ctx, TagEmitter out) {
 ### MOVE Counters
 
 ```java
-void detectLegalMoveCounts(TagContext ctx, TagEmitter out) {
+void detectLegalMoveCounts(Context ctx, Emitter out) {
     MoveCounters c = new MoveCounters();
 
     for (Move move : ctx.legalMovesForStm) {
@@ -1420,7 +1420,7 @@ void detectLegalMoveCounts(TagContext ctx, TagEmitter out) {
 ### PAWN Structure
 
 ```java
-void detectExactPawns(TagContext ctx, TagEmitter out) {
+void detectExactPawns(Context ctx, Emitter out) {
     for (Side side : SIDES) {
         for (File file : FILES) {
             int count = ctx.pawns(side).countOn(file);
@@ -1456,7 +1456,7 @@ void detectExactPawns(TagContext ctx, TagEmitter out) {
     }
 }
 
-void detectStrongPawnHeuristics(TagContext ctx, TagEmitter out) {
+void detectStrongPawnHeuristics(Context ctx, Emitter out) {
     for (Side side : SIDES) {
         for (Square pawn : ctx.pawns(side)) {
             if (isBackwardPawn(ctx, side, pawn)) {
@@ -1477,7 +1477,7 @@ void detectStrongPawnHeuristics(TagContext ctx, TagEmitter out) {
 ### KING Safety
 
 ```java
-void detectKingSafety(TagContext ctx, TagEmitter out) {
+void detectKingSafety(Context ctx, Emitter out) {
     for (Side side : SIDES) {
         KingSummary k = ctx.king(side);
 
@@ -1512,7 +1512,7 @@ void detectKingSafety(TagContext ctx, TagEmitter out) {
 ### PIECE Activity and Static Piece Tags
 
 ```java
-void detectPieceActivity(TagContext ctx, TagEmitter out) {
+void detectPieceActivity(Context ctx, Emitter out) {
     PieceScore best = null;
     PieceScore worst = null;
 
@@ -1553,7 +1553,7 @@ void detectPieceActivity(TagContext ctx, TagEmitter out) {
     }
 }
 
-PieceScore scorePiece(TagContext ctx, Side side, Piece piece, Square square) {
+PieceScore scorePiece(Context ctx, Side side, Piece piece, Square square) {
     int score = 0;
     score += mobilityBonus(piece, safeMoves(ctx, side, square));
     score += targetBonus(attacksCriticalTargets(ctx, side, square));
@@ -1569,7 +1569,7 @@ PieceScore scorePiece(TagContext ctx, Side side, Piece piece, Square square) {
 ### SPACE, DEVELOPMENT, MOBILITY, and INITIATIVE
 
 ```java
-void detectSpace(TagContext ctx, TagEmitter out) {
+void detectSpace(Context ctx, Emitter out) {
     int white = safeControlledSquaresInEnemyHalf(ctx, WHITE);
     int black = safeControlledSquaresInEnemyHalf(ctx, BLACK);
     int diff = white - black;
@@ -1581,7 +1581,7 @@ void detectSpace(TagContext ctx, TagEmitter out) {
     }
 }
 
-void detectDevelopment(TagContext ctx, TagEmitter out) {
+void detectDevelopment(Context ctx, Emitter out) {
     if (ctx.phase == ENDGAME) {
         return;
     }
@@ -1592,7 +1592,7 @@ void detectDevelopment(TagContext ctx, TagEmitter out) {
     emitUncastledKingIfUnsafe(ctx, out);
 }
 
-void detectMobility(TagContext ctx, TagEmitter out) {
+void detectMobility(Context ctx, Emitter out) {
     for (Side side : SIDES) {
         LegalMoves moves = ctx.legalMovesFor(side);
         if (ctx.options.mobilityProfile()) {
@@ -1604,7 +1604,7 @@ void detectMobility(TagContext ctx, TagEmitter out) {
     }
 }
 
-void detectInitiative(TagContext ctx, TagEmitter out) {
+void detectInitiative(Context ctx, Emitter out) {
     ForceScore white = forcingMoveScore(ctx, WHITE);
     ForceScore black = forcingMoveScore(ctx, BLACK);
     ForceScore lead = white.minus(black);
@@ -1618,7 +1618,7 @@ void detectInitiative(TagContext ctx, TagEmitter out) {
 ### Tactical Motifs
 
 ```java
-void detectStaticTactics(TagContext ctx, TagEmitter out) {
+void detectStaticTactics(Context ctx, Emitter out) {
     detectPins(ctx, out);
     detectForksAndDoubleAttacks(ctx, out);
     detectSkewers(ctx, out);
@@ -1641,7 +1641,7 @@ void detectStaticTactics(TagContext ctx, TagEmitter out) {
     }
 }
 
-void detectPins(TagContext ctx, TagEmitter out) {
+void detectPins(Context ctx, Emitter out) {
     for (Side attacker : SIDES) {
         Side defender = attacker.opposite();
         for (Square target : criticalTargets(ctx, defender)) {
@@ -1657,7 +1657,7 @@ void detectPins(TagContext ctx, TagEmitter out) {
     }
 }
 
-void detectForksAndDoubleAttacks(TagContext ctx, TagEmitter out) {
+void detectForksAndDoubleAttacks(Context ctx, Emitter out) {
     for (Move move : ctx.legalMovesForStm) {
         MoveEffect effect = ctx.effectOf(move);
         List<Square> targets = criticalTargetsAttackedByMovedPiece(effect);
@@ -1671,7 +1671,7 @@ void detectForksAndDoubleAttacks(TagContext ctx, TagEmitter out) {
     }
 }
 
-void detectSkewers(TagContext ctx, TagEmitter out) {
+void detectSkewers(Context ctx, Emitter out) {
     for (LineAttack attack : sliderLineAttacks(ctx)) {
         if (value(attack.front()) > value(attack.behind())
                 && attack.frontCanBeForcedToMove()
@@ -1682,7 +1682,7 @@ void detectSkewers(TagContext ctx, TagEmitter out) {
     }
 }
 
-void detectXrays(TagContext ctx, TagEmitter out) {
+void detectXrays(Context ctx, Emitter out) {
     for (LineAttack attack : sliderLineAttacksThroughOnePiece(ctx)) {
         if (attack.behindIsCritical() && attack.blockerIsPinnedOverloadedOrRemovable()) {
             out.strong(tag("TACTIC", "motif", "xray", "target", attack.behind()),
@@ -1691,7 +1691,7 @@ void detectXrays(TagContext ctx, TagEmitter out) {
     }
 }
 
-void detectDiscoveredAttacks(TagContext ctx, TagEmitter out) {
+void detectDiscoveredAttacks(Context ctx, Emitter out) {
     for (Move move : ctx.legalMovesForStm) {
         MoveEffect effect = ctx.effectOf(move);
         if (effect.opensSliderAttackOnCriticalTarget()) {
@@ -1711,7 +1711,7 @@ void detectDiscoveredAttacks(TagContext ctx, TagEmitter out) {
 Some motifs need a bounded proof because static geometry alone is too noisy.
 
 ```java
-void detectSacrifices(TagContext ctx, TagEmitter out) {
+void detectSacrifices(Context ctx, Emitter out) {
     for (Move move : ctx.legalMovesForStm) {
         if (!moveLosesMaterialImmediately(ctx, move)) {
             continue;
@@ -1724,7 +1724,7 @@ void detectSacrifices(TagContext ctx, TagEmitter out) {
     }
 }
 
-void detectQuietMoves(TagContext ctx, TagEmitter out) {
+void detectQuietMoves(Context ctx, Emitter out) {
     for (Move move : ctx.legalMovesForStm) {
         if (!move.isQuiet() || ctx.effectOf(move).givesCheck()) {
             continue;
@@ -1736,7 +1736,7 @@ void detectQuietMoves(TagContext ctx, TagEmitter out) {
     }
 }
 
-void detectRemovalDeflectionDecoy(TagContext ctx, TagEmitter out) {
+void detectRemovalDeflectionDecoy(Context ctx, Emitter out) {
     for (Move move : ctx.legalMovesForStm) {
         MoveEffect effect = ctx.effectOf(move);
 
@@ -1755,7 +1755,7 @@ void detectRemovalDeflectionDecoy(TagContext ctx, TagEmitter out) {
     }
 }
 
-void detectZwischenzug(TagContext ctx, TagEmitter out) {
+void detectZwischenzug(Context ctx, Emitter out) {
     if (!ctx.hasPreviousCaptureOrExpectedRecapture()) {
         return;
     }
@@ -1774,7 +1774,7 @@ void detectZwischenzug(TagContext ctx, TagEmitter out) {
 ### CHECKMATE Patterns
 
 ```java
-void detectCheckmatePatterns(TagContext ctx, TagEmitter out) {
+void detectCheckmatePatterns(Context ctx, Emitter out) {
     MateContext mate = MateContext.from(ctx);
 
     out.exact(tag("CHECKMATE", "winner", mate.winner()), evidence("checkmate"));
@@ -1838,7 +1838,7 @@ ready.
 ### ENDGAME and OPENING
 
 ```java
-void detectExactEndgames(TagContext ctx, TagEmitter out) {
+void detectExactEndgames(Context ctx, Emitter out) {
     if (onlyKingsAndPawns(ctx)) {
         out.exact(tag("ENDGAME", "type", "pawn"), evidence("only kings and pawns"));
     }
@@ -1858,7 +1858,7 @@ void detectExactEndgames(TagContext ctx, TagEmitter out) {
     emitPrimaryMaterialEndgames(ctx, out);
 }
 
-void detectStrongEndgameThemes(TagContext ctx, TagEmitter out) {
+void detectStrongEndgameThemes(Context ctx, Emitter out) {
     if (ctx.phase != ENDGAME) {
         return;
     }
@@ -1874,7 +1874,7 @@ void detectStrongEndgameThemes(TagContext ctx, TagEmitter out) {
     }
 }
 
-void detectOpenings(TagContext ctx, TagEmitter out) {
+void detectOpenings(Context ctx, Emitter out) {
     OpeningMatch match = ctx.options.openingBook().find(ctx.root.normalizedOpeningKey());
     if (match == null) {
         return;
@@ -1893,7 +1893,7 @@ void detectOpenings(TagContext ctx, TagEmitter out) {
 ### CAND, PV, THREAT, and IDEA
 
 ```java
-void detectAnalysisTags(TagContext ctx, TagEmitter out) {
+void detectAnalysisTags(Context ctx, Emitter out) {
     Analysis analysis = ctx.options.analysis();
     if (analysis == null) {
         return;
@@ -1915,7 +1915,7 @@ void detectAnalysisTags(TagContext ctx, TagEmitter out) {
     }
 }
 
-void detectIdeaTags(TagContext ctx, TagEmitter out) {
+void detectIdeaTags(Context ctx, Emitter out) {
     TagSet before = tag(ctx.root, ctx.options.staticOnly()).withoutIdeaTags();
 
     for (Move move : ctx.legalMovesForStm) {
@@ -2121,7 +2121,7 @@ The runner should:
 
 1. Load every TSV.
 2. Parse FEN with `Position.fromFen`.
-3. Generate tags with canonical `chess.tag.Tagging`.
+3. Generate tags with canonical `chess.tag.Generator`.
 4. Assert every required tag exists.
 5. Assert every forbidden tag is absent.
 6. Print a concise summary.
@@ -2132,7 +2132,7 @@ Required tests:
 
 - `TaggingRegressionTest`: smoke tests for key existing tags.
 - `TagFixtureRegressionTest`: broad fixture-driven coverage.
-- `TagParserRegressionTest`: `Line`, `Identity`, `Sort`, and delta identity behavior.
+- `ParserRegressionTest`: `Line`, `Identity`, `Sort`, and delta identity behavior.
 - `TagDeltaRegressionTest`: enabled/disabled tags across a short line.
 - `TagPerformanceRegressionTest`: optional, local-only benchmark on hundreds of FENs.
 
@@ -2198,7 +2198,7 @@ Update:
 - `wiki/ai-agents.md`: recommended deterministic tag commands.
 - `README.md`: one-line link to tag docs when tag work lands.
 
-Add a dedicated reference page when the tag set is broad enough:
+Maintain the dedicated reference page:
 
 ```text
 wiki/tag-reference.md
@@ -2209,7 +2209,7 @@ is static, engine-derived, or config-derived.
 
 ## Regression Fixtures
 
-Regression coverage targets canonical `Tagging` output for:
+Regression coverage targets canonical `Generator` output for:
 
    - start position
    - checkmate
@@ -2224,12 +2224,12 @@ Regression coverage targets canonical `Tagging` output for:
 
 ### Milestone A: Foundation
 
-- [ ] Add `TagContext`.
-- [ ] Add `TagEmitter`.
-- [ ] Add detector contract.
-- [ ] Add fixture regression runner.
-- [ ] Add tag reference skeleton.
-- [ ] Confirm current `chess.tag` output stays stable.
+- [x] Add `Context`.
+- [x] Add `Emitter`.
+- [x] Add detector contract.
+- [x] Add fixture regression runner.
+- [x] Add tag reference skeleton.
+- [x] Confirm current `chess.tag` output stays stable.
 
 ### Milestone B: Prototype Parity
 
@@ -2288,8 +2288,8 @@ Regression coverage targets canonical `Tagging` output for:
 
 ### Milestone G: Docs And Release Readiness
 
-- [ ] Write `wiki/tag-reference.md`.
-- [ ] Update command examples.
+- [x] Write `wiki/tag-reference.md`.
+- [x] Update command examples.
 - [ ] Add performance notes.
 - [ ] Add migration notes for renamed tags.
 - [ ] Run full regression suite.
@@ -2321,11 +2321,12 @@ The tag implementation is complete enough when:
 
 ## Recommended Next Task
 
-Start with Milestone A and the remaining canonical detector work:
+Start with release-readiness cleanup and the next conservative detector slice:
 
-1. Add `TagContext`.
-2. Add a small `TagEmitter`.
-3. Move repeated detector logic into small canonical modules.
-4. Expand fixture coverage for every emitted tag family.
+1. Add performance notes for large FEN and puzzle batches.
+2. Add migration notes for renamed or canonicalized tags.
+3. Expand fixture coverage for emitted families that still rely on ad hoc tests.
+4. Pick the next tactical motif only when it has a stable final-position predicate.
 
-That gives the project one tag pipeline before the larger motif backlog begins.
+Keep noisy or history-dependent motifs documented as excluded until they have a
+clear evidence rule.

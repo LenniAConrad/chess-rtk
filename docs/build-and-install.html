@@ -43,6 +43,7 @@
 <a class="" href="datasets.html" data-title="datasets">Datasets</a>
 <a class="" href="book-publishing.html" data-title="book publishing">Book Publishing</a>
 <a class="" href="piece-tags.html" data-title="tags">Tags</a>
+<a class="" href="tag-reference.html" data-title="tag reference">Tag Reference</a>
 <a class="" href="t5.html" data-title="t5 text">T5 Text</a>
 <a class="" href="ai-agents.html" data-title="ai agents">AI Agents</a>
 </section>
@@ -81,9 +82,9 @@
 </ul>
 <p><code>config/default.engine.toml</code> for <code>engine analyze</code>, <code>engine bestmove</code>, <code>engine threats</code>, <code>engine uci-smoke</code>, and puzzle mining</p>
 <ul>
-<li>Optional: local model weights under <code>models/</code> for LC0, NNUE, and T5-backed</li>
+<li>Optional: local model weights under <code>models/</code> for LC0, BT4, NNUE, and</li>
 </ul>
-<p>evaluator/text workflows</p>
+<p>T5-backed evaluator/text workflows</p>
 <h2 id="debian-ubuntu-packages">Debian/Ubuntu packages</h2>
 <p>Minimal install (build + run):</p>
 <pre><code class="language-bash">sudo apt-get update &amp;&amp; sudo apt-get install -y \
@@ -102,6 +103,7 @@
 <li><code>git</code> is included so a fresh machine can <code>git clone</code> this repo (and <code>ca-certificates</code> enables HTTPS downloads).</li>
 <li><code>nvidia-cuda-toolkit</code> is large and only needed to build the optional CUDA JNI backend under <code>native/cuda/</code>.</li>
 </ul>
+<p>ROCm/HIP and oneAPI builds use their vendor toolchains instead.</p>
 <h2 id="build-no-maven-gradle">Build (no Maven/Gradle)</h2>
 <pre><code class="language-bash">mkdir -p out
 javac --release 17 -d out $(find src -name &quot;*.java&quot;)</code></pre>
@@ -141,22 +143,25 @@ java -jar crtk.jar help</code></pre>
 <p><code>./install.sh</code> is a convenience installer that:</p>
 <ul>
 <li>optionally installs OpenJDK 17 and Stockfish via <code>apt-get</code></li>
-<li>optionally downloads NNUE and LC0 model weights into <code>models/</code></li>
+<li>optionally downloads NNUE, LC0 CNN, and official LC0 BT4 model artifacts into <code>models/</code></li>
 <li>compiles sources and builds <code>crtk.jar</code></li>
 <li>installs a launcher at <code>/usr/local/bin/crtk</code> that runs from this repo</li>
-<li>optionally builds the CUDA JNI backend under <code>native/cuda/</code> (if you have the CUDA toolkit)</li>
+<li>optionally builds CUDA, ROCm/HIP, and oneAPI JNI backends when their vendor</li>
 </ul>
-<p>Downloaded <code>models/*.bin</code> files are local artifacts and are ignored by git.</p>
+<p>toolchains are available</p>
+<p>Downloaded <code>models/<em>.bin</code>, <code>models/</em>.pb.gz</code>, and <code>models/*.nnue</code> files are local artifacts and are ignored by git.</p>
 <pre><code class="language-bash">./install.sh
 crtk help</code></pre>
 <p>Fetch optional model weights without prompting:</p>
 <pre><code class="language-bash">./install.sh --models</code></pre>
 <p>Skip model weight downloads:</p>
 <pre><code class="language-bash">./install.sh --no-models</code></pre>
-<p>Skip the CUDA backend build:</p>
-<pre><code class="language-bash">./install.sh --no-cuda</code></pre>
-<p>Force the CUDA backend build (installs missing CUDA build deps on Debian/Ubuntu):</p>
-<pre><code class="language-bash">./install.sh --cuda</code></pre>
+<p>Skip native GPU backend builds:</p>
+<pre><code class="language-bash">./install.sh --no-cuda --no-rocm --no-oneapi</code></pre>
+<p>Force a native GPU backend build:</p>
+<pre><code class="language-bash">./install.sh --cuda
+./install.sh --rocm
+./install.sh --oneapi</code></pre>
 <h2 id="update">Update</h2>
 <p>Update the current git checkout with a fast-forward pull and rerun the installer:</p>
 <pre><code class="language-bash">./scripts/update.sh</code></pre>

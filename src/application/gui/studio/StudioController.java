@@ -14,7 +14,7 @@ import chess.core.MoveList;
 import chess.core.Position;
 import chess.core.SAN;
 import chess.io.Reader;
-import chess.tag.Tagging;
+import chess.tag.Generator;
 
 /**
  * Coordinates GUI v3 state and services.
@@ -643,7 +643,7 @@ public final class StudioController {
 			 */
 			@Override
 			protected List<String> doInBackground() {
-				return Tagging.tags(snapshot);
+				return Generator.tags(snapshot);
 			}
 
 			/**

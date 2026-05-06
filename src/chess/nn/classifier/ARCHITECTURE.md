@@ -113,7 +113,7 @@ smaller:
 ## Weights File
 
 `classifier` weights should use the same general `.bin` container style
-as the existing LC0J weights in this repo, but with a
+as the existing LC0 CNN weights in this repo, but with a
 `classifier`-specific network layout.
 
 Recommended filename convention:
@@ -153,8 +153,8 @@ There should be no auxiliary heads in the baseline architecture.
 
 ## Binary Format
 
-The binary format should stay as close as possible to the LC0J weights format
-already used by `chess.nn.lc0`.
+The binary format should stay as close as possible to the LC0 CNN weights format
+already used by `chess.nn.lc0.cnn`.
 
 For Java code, the package name should be `chess.nn.classifier` because
 Java package identifiers cannot contain hyphens.
@@ -162,8 +162,8 @@ Java package identifiers cannot contain hyphens.
 Recommended rules:
 
 - little-endian
-- same versioning approach as LC0J
-- same conv / batch-norm / dense tensor serialization style as LC0J
+- same versioning approach as LC0 CNN
+- same conv / batch-norm / dense tensor serialization style as LC0 CNN
 - only the architecture-specific header fields and tail layers should differ
 
 Conceptually, `classifier` should be treated as:
@@ -189,7 +189,7 @@ Recommended layer order:
 3. head conv + batch norm (`64 -> 32`)
 4. final dense layer (`32 -> 1`)
 
-Compared with LC0J, the important differences are:
+Compared with LC0 CNN, the important differences are:
 
 - input layer expects `21 x 8 x 8` instead of the LC0 input stack
 - there is no policy head

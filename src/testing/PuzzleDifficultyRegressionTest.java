@@ -8,10 +8,10 @@ import java.util.List;
 
 import chess.core.Move;
 import chess.core.Position;
-import chess.puzzle.difficulty.Difficulty;
-import chess.puzzle.difficulty.PieceIdentityTracker;
-import chess.puzzle.difficulty.Scorer;
-import chess.puzzle.difficulty.Goal;
+import chess.puzzle.Difficulty;
+import chess.puzzle.PieceIdentityTracker;
+import chess.puzzle.Scorer;
+import chess.puzzle.Goal;
 import chess.uci.Analysis;
 
 /**

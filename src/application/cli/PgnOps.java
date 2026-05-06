@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.LongConsumer;
 
+import application.cli.command.CommandFailure;
 import chess.core.Position;
 import chess.core.SAN;
 import chess.struct.Game;
@@ -54,12 +55,7 @@ public final class PgnOps {
 		try {
 			return Pgn.read(input, byteProgress);
 		} catch (Exception ex) {
-			System.err.println(cmd + ": failed to read PGN: " + ex.getMessage());
-			if (verbose) {
-				ex.printStackTrace(System.err);
-			}
-			System.exit(2);
-			return List.of(); // return empty collection instead of null
+			throw new CommandFailure(cmd + ": failed to read PGN: " + ex.getMessage(), ex, 2, verbose);
 		}
 	}
 
@@ -76,12 +72,7 @@ public final class PgnOps {
 			PathOps.ensureParentDir(output);
 			return Files.newBufferedWriter(output);
 		} catch (IOException e) {
-			System.err.println(cmd + ": failed to prepare output: " + e.getMessage());
-			if (verbose) {
-				e.printStackTrace(System.err);
-			}
-			System.exit(2);
-			return null;
+			throw new CommandFailure(cmd + ": failed to prepare output: " + e.getMessage(), e, 2, verbose);
 		}
 	}
 

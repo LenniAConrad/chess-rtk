@@ -104,7 +104,7 @@ import chess.core.SAN;
 import chess.core.Setup;
 import chess.struct.Game;
 import chess.struct.Pgn;
-import chess.tag.Tagging;
+import chess.tag.Generator;
 
 /**
  * A new native Swing command and analysis workbench for ChessRTK.
@@ -2952,7 +2952,7 @@ public final class WorkbenchWindow extends JFrame {
              */
             @Override
             protected List<String> doInBackground() {
-                return Tagging.tags(snapshot);
+                return Generator.tags(snapshot);
             }
 
             /**

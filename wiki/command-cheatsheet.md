@@ -19,6 +19,7 @@ crtk engine builtin --startpos --depth 3 --format summary
 | --- | --- |
 | Show top-level help | `crtk help` |
 | Show complete help | `crtk help --full` |
+| Show version metadata | `crtk version --json` |
 | Check local setup | `crtk doctor` |
 | Validate config | `crtk config validate` |
 | Smoke-test UCI engine | `crtk engine uci-smoke --nodes 1 --max-duration 5s` |
@@ -31,12 +32,14 @@ crtk engine builtin --startpos --depth 3 --format summary
 | Print the start position | `crtk fen print --startpos` |
 | Validate a FEN | `crtk fen validate --fen "<FEN>"` |
 | Normalize a FEN | `crtk fen normalize --fen "<FEN>"` |
+| Validate a FEN as JSON | `crtk fen validate --fen "<FEN>" --json` |
 | Generate Chess960 start | `crtk fen chess960 518` |
 | Generate random FEN shards | `crtk fen generate --output shards/ --files 2 --per-file 20 --chess960-files 1` |
 | Generate endgame shards | `crtk gen fens --output endgames/ --files 1 --per-file 100 --endgame` |
 | Generate special-move shards | `crtk gen fens --output specials/ --files 1 --per-file 25 --en-passant --max-attempts 250000` |
 | Render a PNG board | `crtk fen render --fen "<FEN>" -o board.png` |
 | Open a board window | `crtk fen display --fen "<FEN>"` |
+| Compare two positions | `crtk position diff --fen "<FEN>" --other "<FEN>" --json` |
 
 ## Moves
 
@@ -45,6 +48,7 @@ crtk engine builtin --startpos --depth 3 --format summary
 | List legal moves as UCI | `crtk move list --fen "<FEN>" --format uci` |
 | List legal moves as SAN | `crtk move list --fen "<FEN>" --format san` |
 | List both UCI and SAN | `crtk move list --fen "<FEN>" --format both` |
+| List legal moves as JSONL | `crtk move list --fen "<FEN>" --jsonl` |
 | Convert UCI to SAN | `crtk move to-san --fen "<FEN>" e2e4` |
 | Convert SAN to UCI | `crtk move to-uci --fen "<FEN>" Nf3` |
 | Apply one move | `crtk move after --fen "<FEN>" e2e4` |
@@ -56,7 +60,11 @@ crtk engine builtin --startpos --depth 3 --format summary
 | --- | --- |
 | Best move with UCI engine | `crtk engine bestmove --fen "<FEN>" --format both --max-duration 2s` |
 | Analyze with UCI engine | `crtk engine analyze --fen "<FEN>" --multipv 3 --max-duration 5s` |
+| Batch best moves | `crtk engine bestmove-batch --input positions.txt --max-duration 1s` |
+| Batch analysis JSONL | `crtk engine analyze-batch --input positions.txt --multipv 3 --jsonl` |
+| Compare two UCI protocols | `crtk engine compare --input positions.txt --left-protocol a.toml --right-protocol b.toml` |
 | Search in-process | `crtk engine builtin --fen "<FEN>" --depth 4 --format summary` |
+| Benchmark movegen | `crtk engine benchmark --startpos --depth 5 --iterations 5` |
 | Classical static eval | `crtk engine static --fen "<FEN>"` |
 | Java evaluator eval | `crtk engine eval --fen "<FEN>"` |
 | Threat analysis | `crtk engine threats --fen "<FEN>" --max-duration 2s` |
@@ -69,6 +77,7 @@ crtk engine builtin --startpos --depth 3 --format summary
 | Perft one FEN | `crtk engine perft --fen "<FEN>" --depth 5 --divide --threads 4` |
 | Stockfish-style divide | `crtk engine perft --depth 3 --format stockfish` |
 | Regression suite | `crtk engine perft-suite --depth 6 --threads 4` |
+| Custom perft suite | `crtk engine perft-suite --suite custom-perft.tsv --threads 4` |
 
 ## Puzzle Mining
 
@@ -102,12 +111,21 @@ crtk engine builtin --startpos --depth 3 --format summary
 | Validate cover | `crtk book cover -i books/puzzles.toml --pdf dist/puzzles.pdf --check --binding paperback --interior white-bw` |
 | Render cover | `crtk book cover -i books/puzzles.toml --pdf dist/puzzles.pdf -o dist/puzzles-cover.pdf --binding paperback --interior white-bw` |
 
+## Desktop Workbench
+
+| Task | Command |
+| --- | --- |
+| Open focused analysis workbench | `crtk gui-workbench` |
+| Open workbench on a position | `crtk workbench --fen "<FEN>"` |
+
 ## Agent-Friendly Commands
 
 | Need | Command |
 | --- | --- |
-| Deterministic legal moves | `crtk move list --fen "<FEN>" --format both` |
+| Deterministic legal moves | `crtk move list --fen "<FEN>" --format both` or `--jsonl` |
 | Normalize input | `crtk fen normalize --fen "<FEN>"` |
 | Apply a line safely | `crtk move play --fen "<FEN>" "e4 e5 Nf3"` |
 | One best move row | `crtk engine bestmove --fen "<FEN>" --format both --max-duration 2s` |
+| Best move batch rows | `crtk engine bestmove-batch --input positions.txt --max-duration 1s` |
+| Position differences | `crtk position diff --fen "<FEN>" --other "<FEN>" --json` |
 | In-process fallback | `crtk engine builtin --fen "<FEN>" --depth 3 --format summary` |

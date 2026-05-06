@@ -43,6 +43,7 @@
 <a class="" href="datasets.html" data-title="datasets">Datasets</a>
 <a class="" href="book-publishing.html" data-title="book publishing">Book Publishing</a>
 <a class="" href="piece-tags.html" data-title="tags">Tags</a>
+<a class="" href="tag-reference.html" data-title="tag reference">Tag Reference</a>
 <a class="" href="t5.html" data-title="t5 text">T5 Text</a>
 <a class="active" href="ai-agents.html" data-title="ai agents">AI Agents</a>
 </section>
@@ -80,9 +81,9 @@
 <p>Diagram source: <code>assets/diagrams/crtk-agentic-commands.dot</code>.</p>
 <h2 id="why-agents-can-trust-this">Why Agents Can Trust This</h2>
 <ul>
-<li>Machine-oriented commands prefer line-based formats, explicit flags, stable</li>
+<li>Machine-oriented commands prefer line-based or JSON/JSONL formats, explicit</li>
 </ul>
-<p>exit codes, and bounded search budgets.</p>
+<p>flags, stable exit codes, and bounded search budgets.</p>
 <ul>
 <li>Core move generation is validated against stored perft truth positions and</li>
 </ul>
@@ -114,6 +115,11 @@ java -cp out application.Main move list --format both --fen &quot;rnbqkbnr/ppppp
 <td>san</td>
 <td>both`</td>
 <td>one move per line, deterministic order</td>
+</tr>
+<tr>
+<td>Legal moves as objects</td>
+<td><code>move list --jsonl</code></td>
+<td>one JSON move object per line</td>
 </tr>
 <tr>
 <td>UCI move list</td>
@@ -148,12 +154,12 @@ java -cp out application.Main move list --format both --fen &quot;rnbqkbnr/ppppp
 <tr>
 <td>Validate FEN</td>
 <td><code>fen validate --fen &quot;&lt;FEN&gt;&quot;</code></td>
-<td><code>valid&lt;TAB&gt;&lt;normalized-fen&gt;</code> on success</td>
+<td><code>valid&lt;TAB&gt;&lt;normalized-fen&gt;</code> on success, or JSON with <code>--json</code></td>
 </tr>
 <tr>
 <td>Normalize FEN</td>
 <td><code>fen normalize --fen &quot;&lt;FEN&gt;&quot;</code></td>
-<td>normalized FEN</td>
+<td>normalized FEN, or JSON/JSONL with <code>--json</code>/<code>--jsonl</code></td>
 </tr>
 <tr>
 <td>Chess960 starts</td>
@@ -161,11 +167,31 @@ java -cp out application.Main move list --format both --fen &quot;rnbqkbnr/ppppp
 <td>deterministic Scharnagl-indexed FEN</td>
 </tr>
 <tr>
+<td>Position diff</td>
+<td><code>position diff --fen &quot;&lt;FEN&gt;&quot; --other &quot;&lt;FEN&gt;&quot; --json</code></td>
+<td>changed state fields and board squares</td>
+</tr>
+<tr>
 <td>Best move</td>
 <td>`engine bestmove --format uci</td>
 <td>san</td>
 <td>both`</td>
 <td>one best move row</td>
+</tr>
+<tr>
+<td>Best move batch</td>
+<td><code>engine bestmove-batch --input &lt;file&gt;</code></td>
+<td>one JSON object per position by default</td>
+</tr>
+<tr>
+<td>Analysis batch</td>
+<td><code>engine analyze-batch --input &lt;file&gt; --multipv &lt;n&gt;</code></td>
+<td>one JSON object per position by default</td>
+</tr>
+<tr>
+<td>Engine comparison</td>
+<td><code>engine compare --left-protocol &lt;a&gt; --right-protocol &lt;b&gt;</code></td>
+<td>text table, JSON object with <code>--json</code>, rows with <code>--jsonl</code></td>
 </tr>
 <tr>
 <td>Built-in fallback search</td>
@@ -181,6 +207,11 @@ java -cp out application.Main move list --format both --fen &quot;rnbqkbnr/ppppp
 <td>one evaluation per input position</td>
 </tr>
 <tr>
+<td>Core benchmark</td>
+<td><code>engine benchmark --json</code></td>
+<td>one benchmark JSON object</td>
+</tr>
+<tr>
 <td>Movegen counters</td>
 <td><code>engine perft</code></td>
 <td>nodes and detailed counters</td>
@@ -188,7 +219,7 @@ java -cp out application.Main move list --format both --fen &quot;rnbqkbnr/ppppp
 <tr>
 <td>Movegen regression</td>
 <td><code>engine perft-suite</code></td>
-<td>progress bar, then truth/calculated table</td>
+<td>progress bar, then truth/calculated table; <code>--suite</code> accepts custom TSV rows</td>
 </tr>
 <tr>
 <td>Setup health</td>
@@ -210,9 +241,13 @@ java -cp out application.Main move list --format both --fen &quot;rnbqkbnr/ppppp
 </ol>
 <p>preferable.</p>
 <ol>
+<li>Use <code>engine bestmove-batch</code> or <code>engine analyze-batch</code> for large FEN sets</li>
+</ol>
+<p>instead of parsing human analysis text.</p>
+<ol>
 <li>Run <code>engine perft-suite --depth 6 --threads &lt;n&gt;</code> after core move-generation</li>
 </ol>
-<p>changes.</p>
+<p>changes; use <code>--suite custom.tsv</code> for targeted regression rows.</p>
 <h2 id="deterministic-move-tasks">Deterministic Move Tasks</h2>
 <p>List legal moves:</p>
 <pre><code class="language-bash">crtk move list --fen &quot;&lt;FEN&gt;&quot; --format both</code></pre>
@@ -227,6 +262,9 @@ crtk move play --fen &quot;&lt;FEN&gt;&quot; e2e4 e7e5 g1f3 --intermediate</code
 <p>External UCI engine:</p>
 <pre><code class="language-bash">crtk engine bestmove --fen &quot;&lt;FEN&gt;&quot; --format both --max-duration 5s
 crtk engine analyze --fen &quot;&lt;FEN&gt;&quot; --multipv 3 --max-nodes 1000000
+crtk engine bestmove-batch --input positions.txt --max-duration 1s
+crtk engine analyze-batch --input positions.txt --multipv 3 --jsonl
+crtk engine compare --input positions.txt --left-protocol a.toml --right-protocol b.toml --json
 crtk engine threats --fen &quot;&lt;FEN&gt;&quot; --max-duration 2s</code></pre>
 <p>Built-in Java engine:</p>
 <pre><code class="language-bash">crtk engine builtin --fen &quot;&lt;FEN&gt;&quot; --depth 4 --format summary
@@ -239,8 +277,12 @@ crtk engine perft --randompos --depth 4
 crtk engine perft --fen &quot;&lt;FEN&gt;&quot; --depth 5 --divide --threads 4
 crtk engine perft --fen &quot;&lt;FEN&gt;&quot; --depth 5 --format stockfish --threads 4</code></pre>
 <p>Regression suite:</p>
-<pre><code class="language-bash">crtk engine perft-suite --depth 6 --threads 4</code></pre>
+<pre><code class="language-bash">crtk engine perft-suite --depth 6 --threads 4
+crtk engine perft-suite --suite custom-perft.tsv --threads 4
+crtk engine benchmark --startpos --depth 5 --iterations 5 --json</code></pre>
 <p>The suite prints a progress bar while positions run. After the progress bar finishes, it prints a table with <code>No</code>, <code>Depth</code>, <code>FEN</code>, <code>Truth</code>, <code>Calculated</code>, <code>Speed</code>, and <code>Match</code>.</p>
+<p>Compare two positions without editing FEN fields by hand:</p>
+<pre><code class="language-bash">crtk position diff --fen &quot;&lt;LEFT_FEN&gt;&quot; --other &quot;&lt;RIGHT_FEN&gt;&quot; --json</code></pre>
 <h2 id="record-and-dataset-plumbing">Record and Dataset Plumbing</h2>
 <p>Agents can keep data transformations explicit:</p>
 <pre><code class="language-bash">crtk record files -i dump/ -o dump/merged.json --recursive --puzzles
@@ -253,7 +295,7 @@ crtk record dataset classifier -i dump/puzzles.json -i dump/nonpuzzles.json -o t
 crtk record export training-jsonl -i dump/puzzles.json -i dump/nonpuzzles.json -o training/run.jsonl</code></pre>
 <h2 id="practical-rules">Practical Rules</h2>
 <ul>
-<li>Prefer <code>--format uci|san|both|summary</code> flags over parsing prose.</li>
+<li>Prefer <code>--json</code>, <code>--jsonl</code>, or <code>--format uci|san|both|summary</code> flags over parsing prose.</li>
 <li>Prefer FEN and UCI/SAN commands over GUI or image output for agent decisions.</li>
 <li>Put engine budgets on every automated analysis command.</li>
 <li>Keep <code>--verbose</code> off in normal pipelines and enable it only for failures.</li>

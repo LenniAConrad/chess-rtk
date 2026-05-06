@@ -19,9 +19,13 @@ executes the core regression groups used most often during development.
 | --- | --- |
 | `build` | checking compilation only |
 | `lint` | checking source quality guardrails |
+| `scripts` | checking shell script syntax and ShellCheck errors when available |
 | `core` | changing `chess.core`, FEN, SAN, move generation, or make/undo |
 | `cli` | changing command parsing or command output |
+| `engine` | changing the built-in engine, evaluator, or puzzle difficulty scoring |
 | `uci` | changing external-engine orchestration |
+| `book` | changing PDF/book/rendering code |
+| `docs` | changing wiki docs or docs generation scripts |
 | `perft-smoke` | changing legality, Chess960, castling, en-passant, or promotion behavior |
 | `release` | preparing a packaged release |
 

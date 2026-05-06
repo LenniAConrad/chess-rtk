@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 420" role="img" aria-labelledby="title desc">
+  <title id="title">ChessRTK Perft Path logo concept</title>
+  <desc id="desc">A dark green ChessRTK wordmark with an eight by eight board and a gold branching path through legal move squares.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0d1c14"/>
+      <stop offset="0.58" stop-color="#143823"/>
+      <stop offset="1" stop-color="#09140f"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f2c866"/>
+      <stop offset="1" stop-color="#d8a63a"/>
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="16" stdDeviation="18" flood-color="#07100c" flood-opacity="0.38"/>
+    </filter>
+  </defs>
+  <rect width="1200" height="420" rx="48" fill="url(#bg)"/>
+  <g transform="translate(74 62)" filter="url(#shadow)">
+    <rect x="0" y="0" width="296" height="296" rx="28" fill="#fffefb"/>
+    <g transform="translate(28 28)">
+      <rect width="240" height="240" rx="10" fill="#eaf0eb"/>
+      <g fill="#153723">
+        <rect x="0" y="0" width="30" height="30"/><rect x="60" y="0" width="30" height="30"/><rect x="120" y="0" width="30" height="30"/><rect x="180" y="0" width="30" height="30"/>
+        <rect x="30" y="30" width="30" height="30"/><rect x="90" y="30" width="30" height="30"/><rect x="150" y="30" width="30" height="30"/><rect x="210" y="30" width="30" height="30"/>
+        <rect x="0" y="60" width="30" height="30"/><rect x="60" y="60" width="30" height="30"/><rect x="120" y="60" width="30" height="30"/><rect x="180" y="60" width="30" height="30"/>
+        <rect x="30" y="90" width="30" height="30"/><rect x="90" y="90" width="30" height="30"/><rect x="150" y="90" width="30" height="30"/><rect x="210" y="90" width="30" height="30"/>
+        <rect x="0" y="120" width="30" height="30"/><rect x="60" y="120" width="30" height="30"/><rect x="120" y="120" width="30" height="30"/><rect x="180" y="120" width="30" height="30"/>
+        <rect x="30" y="150" width="30" height="30"/><rect x="90" y="150" width="30" height="30"/><rect x="150" y="150" width="30" height="30"/><rect x="210" y="150" width="30" height="30"/>
+        <rect x="0" y="180" width="30" height="30"/><rect x="60" y="180" width="30" height="30"/><rect x="120" y="180" width="30" height="30"/><rect x="180" y="180" width="30" height="30"/>
+        <rect x="30" y="210" width="30" height="30"/><rect x="90" y="210" width="30" height="30"/><rect x="150" y="210" width="30" height="30"/><rect x="210" y="210" width="30" height="30"/>
+      </g>
+      <path d="M45 202 C80 178 100 156 118 128 S160 80 200 42" fill="none" stroke="url(#gold)" stroke-width="10" stroke-linecap="round"/>
+      <path d="M118 128 C90 110 78 88 72 62" fill="none" stroke="#2e7d57" stroke-width="7" stroke-linecap="round"/>
+      <path d="M118 128 C150 135 176 154 205 178" fill="none" stroke="#2e7d57" stroke-width="7" stroke-linecap="round"/>
+      <g fill="#d8a63a" stroke="#fffefb" stroke-width="4">
+        <circle cx="45" cy="202" r="13"/>
+        <circle cx="118" cy="128" r="14"/>
+        <circle cx="200" cy="42" r="13"/>
+      </g>
+      <g fill="#2e7d57" stroke="#fffefb" stroke-width="3">
+        <circle cx="72" cy="62" r="9"/>
+        <circle cx="205" cy="178" r="9"/>
+      </g>
+    </g>
+  </g>
+  <g transform="translate(430 118)">
+    <text x="0" y="78" fill="#fffefb" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="92" font-weight="850" letter-spacing="0">ChessRTK</text>
+    <text x="4" y="125" fill="#d8a63a" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="26" font-weight="800" letter-spacing="0">THE PERFT PATH</text>
+    <text x="4" y="174" fill="#dce9df" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="30" font-weight="500" letter-spacing="0">Reproducible positions, moves, engines, and books.</text>
+  </g>
+</svg>

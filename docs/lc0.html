@@ -43,6 +43,7 @@
 <a class="" href="datasets.html" data-title="datasets">Datasets</a>
 <a class="" href="book-publishing.html" data-title="book publishing">Book Publishing</a>
 <a class="" href="piece-tags.html" data-title="tags">Tags</a>
+<a class="" href="tag-reference.html" data-title="tag reference">Tag Reference</a>
 <a class="" href="t5.html" data-title="t5 text">T5 Text</a>
 <a class="" href="ai-agents.html" data-title="ai agents">AI Agents</a>
 </section>
@@ -82,13 +83,23 @@
 <ol>
 <li>A Java LC0 value evaluator for <code>engine eval</code>, <code>engine builtin --lc0</code>,</li>
 </ol>
-<p>board display, and ablation overlays, using LC0J <code>.bin</code> weights.</p>
-<p>Model weights are not checked into this repo. Local <code>models/*.bin</code> files are gitignored; fetch the default LC0J weights with <code>./install.sh --models</code> or download them manually from <code>models/README.md</code>.</p>
+<p>board display, and ablation overlays, using ChessRTK LC0 CNN <code>.bin</code> weights.</p>
+<ol>
+<li>A Java/native LC0 BT4 architecture under <code>src/chess/nn/lc0/bt4/</code> for</li>
+</ol>
+<p>attention-body model integration and backend checks.</p>
+<p>Model weights are not checked into this repo. Local <code>models/<em>.bin</code>, <code>models/</em>.pb.gz</code>, and <code>models/*.nnue</code> files are gitignored; fetch the default LC0 CNN and official LC0 BT4 weights with <code>./install.sh --models</code> or download them manually from <code>models/README.md</code>.</p>
 <h2 id="lc0-as-a-uci-engine">LC0 as a UCI Engine</h2>
 <p>If your engine protocol points to <code>lc0</code> (see <code>config/lc0.engine.toml</code>), you typically also need to set:</p>
 <pre><code class="language-toml">setup = [
   # ...
   &quot;setoption name WeightsFile value /path/to/network.pb.gz&quot;,
+]</code></pre>
+<p>The default model download includes the official LCZero BT4 network:</p>
+<pre><code class="language-text">models/BT4-1024x15x32h-swa-6147500-policytune-332.pb.gz</code></pre>
+<p>It is the upstream LC0 protobuf gzip format, not a ChessRTK <code>.bin</code> file. Use it with LC0&#x27;s own <code>WeightsFile</code> option, for example:</p>
+<pre><code class="language-toml">setup = [
+  &quot;setoption name WeightsFile value models/BT4-1024x15x32h-swa-6147500-policytune-332.pb.gz&quot;,
 ]</code></pre>
 <p>Recommended workflow:</p>
 <ol>
@@ -106,13 +117,13 @@
 crtk engine analyze --fen &quot;&lt;FEN&gt;&quot; --max-duration 10s --multipv 3
 crtk engine bestmove --fen &quot;&lt;FEN&gt;&quot; --format both --max-duration 5s
 crtk puzzle mine --input seeds.txt --output dump/lc0.json --engine-instances 2</code></pre>
-<h2 id="java-lc0-evaluator">Java LC0 Evaluator</h2>
+<h2 id="java-lc0-cnn-evaluator">Java LC0 CNN Evaluator</h2>
 <p><img src="assets/diagrams/crtk-lc0-cnn.png" alt="LC0 CNN evaluator flow" loading="lazy"></p>
 <p>Diagram source: <code>assets/diagrams/crtk-lc0-cnn.dot</code> (render with <code>dot -Tpng -Gdpi=160 -o assets/diagrams/crtk-lc0-cnn.png assets/diagrams/crtk-lc0-cnn.dot</code>).</p>
-<p>The Java evaluator lives under <code>src/chess/nn/lc0/</code> and is used by LC0-aware evaluation, display, and dataset paths.</p>
+<p>The Java CNN evaluator lives under <code>src/chess/nn/lc0/cnn/</code> and is used by LC0-aware evaluation, display, and dataset paths.</p>
 <p>Defaults:</p>
 <ul>
-<li>weights path: <code>models/leela_112planes-10blocksx128-policyhead80-valuehead32-policy4672-wdl3.bin</code> (<code>chess.nn.lc0.Model.DEFAULT_WEIGHTS</code>)</li>
+<li>weights path: <code>models/leela_112planes-10blocksx128-policyhead80-valuehead32-policy4672-wdl3.bin</code> (<code>chess.nn.lc0.cnn.Model.DEFAULT_WEIGHTS</code>)</li>
 <li>backend: <code>auto</code>, which uses an available native GPU backend before falling</li>
 </ul>
 <p>back to the pure Java CPU evaluator</p>
@@ -133,7 +144,13 @@ crtk puzzle mine --input seeds.txt --output dump/lc0.json --engine-instances 2</
 <p>Check native GPU backend availability:</p>
 <pre><code class="language-bash">crtk engine gpu</code></pre>
 <h3 id="native-gpu-backends-optional">Native GPU Backends (Optional)</h3>
-<p>The LC0 Java evaluator can run on the pure Java CPU backend with no native library. Optional JNI backends are available for CUDA, ROCm/HIP, and oneAPI. Use <code>-Djava.library.path=...</code> to point Java at the backend build directory and <code>-Dcrtk.lc0.backend=...</code> to force a backend. Leaving the backend as <code>auto</code> chooses the first available native backend and then falls back to CPU.</p>
+<p>The LC0 Java CNN and BT4 paths can run on the pure Java CPU backend with no native library. Optional JNI backends are available for CUDA, ROCm/HIP, and oneAPI. The shared native LC0 libraries are named:</p>
+<ul>
+<li><code>liblc0_cuda.so</code></li>
+<li><code>liblc0_rocm.so</code></li>
+<li><code>liblc0_oneapi.so</code></li>
+</ul>
+<p>Use <code>-Djava.library.path=...</code> to point Java at the backend build directory and <code>-Dcrtk.lc0.backend=...</code> to force a backend. BT4 can also be forced separately with <code>-Dcrtk.lc0.bt4.backend=...</code>. Leaving the backend as <code>auto</code> chooses the first available native backend and then falls back to CPU.</p>
 <p>CUDA build example:</p>
 <p>Build the JNI library:</p>
 <pre><code class="language-bash">cmake -S native/cuda -B native/cuda/build -DCMAKE_BUILD_TYPE=Release
@@ -144,11 +161,21 @@ cmake --build native/cuda/build -j</code></pre>
   -Dcrtk.lc0.backend=cuda \
   application.Main fen display --fen &quot;&lt;FEN&gt;&quot; --ablation --show-backend</code></pre>
 <p>See <code>native/cuda/README.md</code>, <code>native/rocm/README.md</code>, and <code>native/oneapi/README.md</code> for backend-specific build notes.</p>
+<h2 id="java-lc0-bt4-architecture">Java LC0 BT4 Architecture</h2>
+<p>BT4 support lives under <code>src/chess/nn/lc0/bt4/</code>. It includes:</p>
+<ul>
+<li>LC0 112-plane BT4 input encoding</li>
+<li>attention-policy compression to 1,858 logits</li>
+<li>a Java CPU reference forward path</li>
+<li>optional CUDA, ROCm/HIP, and oneAPI JNI backends</li>
+</ul>
+<p>The Java BT4 loader reads ChessRTK&#x27;s compact <code>.bin</code> integration format. Official LC0 <code>.pb.gz</code> transformer networks, including the default BT4 download, should be used through the external LC0 UCI engine unless a converter is added.</p>
         </article>
         <aside class="toc"><h2>On This Page</h2>
 <a class="toc-h2" href="#lc0-as-a-uci-engine">LC0 as a UCI Engine</a>
-<a class="toc-h2" href="#java-lc0-evaluator">Java LC0 Evaluator</a>
-<a class="toc-h3" href="#native-gpu-backends-optional">Native GPU Backends (Optional)</a></aside>
+<a class="toc-h2" href="#java-lc0-cnn-evaluator">Java LC0 CNN Evaluator</a>
+<a class="toc-h3" href="#native-gpu-backends-optional">Native GPU Backends (Optional)</a>
+<a class="toc-h2" href="#java-lc0-bt4-architecture">Java LC0 BT4 Architecture</a></aside>
       </main>
       <footer class="footer">
         <span>Generated from <code>wiki/lc0.md</code>.</span>

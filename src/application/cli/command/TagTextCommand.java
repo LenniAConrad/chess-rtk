@@ -34,7 +34,7 @@ import chess.nn.t5.BinLoader;
 import chess.nn.t5.Model;
 import chess.nn.t5.Runner;
 import chess.nn.t5.TagPrompt;
-import chess.tag.Tagging;
+import chess.tag.Generator;
 import chess.uci.Analysis;
 import chess.uci.Engine;
 import chess.uci.Protocol;
@@ -178,7 +178,7 @@ public final class TagTextCommand {
             try {
                 for (Position pos : positions) {
                     try {
-                        List<String> tags = Tagging.tags(pos);
+                        List<String> tags = Generator.tags(pos);
                         String prompt = TagPrompt.buildPositionPrompt(tags);
                         String summary = runner.generate(prompt, opts.maxNew);
                         printSummary(opts.includeFen, pos, summary);
@@ -218,7 +218,7 @@ public final class TagTextCommand {
                         if (analysis == null) {
                             continue;
                         }
-                        List<String> tags = Tagging.tags(pos, analysis);
+                        List<String> tags = Generator.tags(pos, analysis);
                         String prompt = TagPrompt.buildPositionPrompt(tags);
                         String summary = runner.generate(prompt, opts.maxNew);
                         printSummary(opts.includeFen, pos, summary);

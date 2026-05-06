@@ -39,7 +39,8 @@
 
 ## `engine builtin --nnue` says default weights are missing
 
-- Run `./install.sh --models` to download `models/crtk-halfkp.nnue` and the bundled LC0 weights.
+- Run `./install.sh --models` to download `models/crtk-halfkp.nnue`, the
+  ChessRTK LC0 CNN `.bin` weights, and the official LC0 BT4 `.pb.gz` network.
 - Or pass `--weights /path/to/file.nnue` explicitly. Supported Stockfish NNUE files work here too.
 
 ## Cover dimensions do not match the upload form

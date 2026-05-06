@@ -43,6 +43,7 @@ public final class TaggingRegressionTest {
         testConnectedPassedPawnsDifferentRanks();
         testBlackConnectedPassedPawnsDifferentRanks();
         testRequestedStrategicTagContracts();
+        testStrategicFactDetails();
         testOutpostRequiresNoEnemyPawnAttack();
         testMovedKingStillEmitsCastledNo();
         testPawnMajorityRegions();
@@ -278,6 +279,52 @@ public final class TaggingRegressionTest {
 
         List<String> overload = Generator.tags(new Position("2r1r2k/8/8/8/8/8/2NRN3/7K b - - 0 1"));
         assertContainsPrefix(overload, "TACTIC: motif=overload side=white detail=\"overloaded defender: white rook d2");
+    }
+
+     /**
+     * Verifies the per-piece strategic fact emissions: SPACE center-control
+     * counts, DEVELOPMENT undeveloped/king_uncastled, INITIATIVE forcing-move
+     * counts, and MOBILITY per-piece outliers and restricted flag.
+     */
+    private static void testStrategicFactDetails() {
+        List<String> start = Generator.tags(new Position(
+                "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"));
+        assertContainsPrefix(start, "SPACE: center_control side=white count=");
+        assertContainsPrefix(start, "SPACE: center_control side=black count=");
+        assertContains(start, "DEVELOPMENT: undeveloped side=white piece=knight square=b1");
+        assertContains(start, "DEVELOPMENT: undeveloped side=white piece=knight square=g1");
+        assertContains(start, "DEVELOPMENT: undeveloped side=white piece=bishop square=c1");
+        assertContains(start, "DEVELOPMENT: undeveloped side=white piece=bishop square=f1");
+        assertContains(start, "DEVELOPMENT: undeveloped side=black piece=knight square=b8");
+        assertContains(start, "DEVELOPMENT: undeveloped side=black piece=knight square=g8");
+        assertContains(start, "DEVELOPMENT: undeveloped side=black piece=bishop square=c8");
+        assertContains(start, "DEVELOPMENT: undeveloped side=black piece=bishop square=f8");
+        assertNoTagContaining(start, "DEVELOPMENT: king_uncastled");
+        assertNoPrefix(start, "INITIATIVE: forcing_moves");
+
+        List<String> uncastled = Generator.tags(new Position(
+                "r2qkbnr/ppp2ppp/2np4/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w - - 0 5"));
+        assertContains(uncastled, "DEVELOPMENT: king_uncastled side=white");
+        assertContains(uncastled, "DEVELOPMENT: king_uncastled side=black");
+        assertNoTagContaining(uncastled, "DEVELOPMENT: undeveloped side=white piece=knight square=g1");
+        assertNoTagContaining(uncastled, "DEVELOPMENT: undeveloped side=white piece=bishop square=f1");
+
+        List<String> ending = Generator.tags(new Position("4k3/8/8/8/8/8/8/N1B1K3 w - - 0 1"));
+        assertNoPrefix(ending, "DEVELOPMENT: undeveloped");
+        assertNoTagContaining(ending, "DEVELOPMENT: king_uncastled");
+
+        List<String> forced = Generator.tags(new Position("8/8/8/8/8/5k2/7q/7K w - - 0 1"));
+        assertContains(forced, "INITIATIVE: forcing_moves side=white count=1");
+        assertContains(forced, "MOBILITY: restricted side=white");
+
+        List<String> queen = Generator.tags(new Position("4k3/8/8/8/8/3Q4/8/4K3 w - - 0 1"));
+        assertContainsPrefix(queen, "MOBILITY: piece=queen side=white square=d3 moves=");
+        assertNoPrefix(queen, "MOBILITY: restricted");
+
+        List<String> nf3 = Generator.tags(new Position(
+                "rnbqkbnr/pppppppp/8/8/8/5N2/PPPPPPPP/RNBQKB1R b KQkq - 1 1"));
+        assertNoTagContaining(nf3, "DEVELOPMENT: undeveloped side=white piece=knight square=g1");
+        assertContains(nf3, "DEVELOPMENT: undeveloped side=white piece=knight square=b1");
     }
 
      /**

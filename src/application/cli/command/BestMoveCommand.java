@@ -257,12 +257,11 @@ public final class BestMoveCommand {
 			} finally {
 				CommandSupport.finish(bar);
 			}
+		} catch (CommandFailure failure) {
+			throw failure;
 		} catch (Exception ex) {
-			System.err.println(cmdLabel + ": failed to initialize engine: " + ex.getMessage());
-			if (opts.verbose()) {
-				ex.printStackTrace(System.err);
-			}
-			System.exit(2);
+			throw new CommandFailure(cmdLabel + ": failed to initialize engine: " + ex.getMessage(),
+					ex, 2, opts.verbose());
 		}
 	}
 
@@ -331,20 +330,14 @@ public final class BestMoveCommand {
 			return san ? BestMoveFormat.SAN : BestMoveFormat.UCI;
 		}
 		if (san || both) {
-			System.err.println(cmdLabel + ": use either " + OPT_FORMAT + " or --san/--both, not both");
-			System.exit(2);
-			return BestMoveFormat.UCI;
+			throw new CommandFailure(cmdLabel + ": use either " + OPT_FORMAT + " or --san/--both, not both", 2);
 		}
 		return switch (value.trim().toLowerCase(Locale.ROOT)) {
 			case "uci" -> BestMoveFormat.UCI;
 			case "san" -> BestMoveFormat.SAN;
 			case "both" -> BestMoveFormat.BOTH;
-			default -> {
-				System.err.println(cmdLabel + ": unsupported " + OPT_FORMAT + " value: " + value
-						+ " (expected uci, san, or both)");
-				System.exit(2);
-				yield BestMoveFormat.UCI;
-			}
+			default -> throw new CommandFailure(cmdLabel + ": unsupported " + OPT_FORMAT + " value: " + value
+					+ " (expected uci, san, or both)", 2);
 		};
 	}
 

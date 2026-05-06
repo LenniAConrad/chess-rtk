@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 420" role="img" aria-labelledby="title desc">
+  <title id="title">ChessRTK Protocol Bus logo concept</title>
+  <desc id="desc">UCI traffic normalized into stable output.</desc>
+  <defs>
+    <filter id="shadow" x="-12%" y="-12%" width="124%" height="124%">
+      <feDropShadow dx="0" dy="16" stdDeviation="18" flood-color="#07100c" flood-opacity="0.22"/>
+    </filter>
+  </defs>
+  <rect width="1200" height="420" rx="48" fill="#f4f7f3"/><rect x="42" y="42" width="1116" height="336" rx="38" fill="#fffefb" stroke="#d6dfd7" stroke-width="2"/>
+  <g transform="translate(82 70)" filter="url(#shadow)">
+    <rect width="280" height="280" rx="34" fill="#0d1c14"/>
+    
+<rect x="36" y="38" width="208" height="204" rx="24" fill="#f8fbf8"/>
+<g font-family="ui-monospace, Menlo, Consolas, monospace" font-size="17" font-weight="850" fill="#123b2b"><rect x="56" y="60" width="112" height="25" rx="7" fill="#eef5ef"/><text x="67" y="79">uci</text><path d="M172 72 H218" stroke="#2e7d57" stroke-width="7" stroke-linecap="round"/><rect x="56" y="98" width="112" height="25" rx="7" fill="#eef5ef"/><text x="67" y="117">isready</text><path d="M172 110 H218" stroke="#2e7d57" stroke-width="7" stroke-linecap="round"/><rect x="56" y="136" width="112" height="25" rx="7" fill="#eef5ef"/><text x="67" y="155">go</text><path d="M172 148 H218" stroke="#2e7d57" stroke-width="7" stroke-linecap="round"/><rect x="56" y="174" width="112" height="25" rx="7" fill="#eef5ef"/><text x="67" y="193">bestmove</text><path d="M172 186 H218" stroke="#2e7d57" stroke-width="7" stroke-linecap="round"/></g>
+<rect x="205" y="52" width="24" height="156" rx="8" fill="#123b2b"/>
+<path d="M208 204 L217 222 L226 204" fill="#d8a63a"/>
+
+  </g>
+  <g transform="translate(424 112)">
+    <text x="0" y="76" fill="#123b2b" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="86" font-weight="850" letter-spacing="0">ChessRTK</text>
+    <text x="3" y="123" fill="#2e7d57" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="26" font-weight="850" letter-spacing="0">PROTOCOL BUS</text>
+    <text x="3" y="172" fill="#3e4b42" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="30" font-weight="500" letter-spacing="0">UCI traffic normalized into stable output.</text>
+    <text x="3" y="224" fill="#2e7d57" opacity="0.76" font-family="ui-monospace, Menlo, Consolas, monospace" font-size="22" font-weight="850">concept 08 / non-board mark</text>
+  </g>
+</svg>

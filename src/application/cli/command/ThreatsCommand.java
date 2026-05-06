@@ -71,12 +71,10 @@ public final class ThreatsCommand {
 
 		try (Engine engine = new Engine(protocol)) {
 			runThreatsWithEngine(engine, protocol, opts, wdlFlag);
+		} catch (CommandFailure failure) {
+			throw failure;
 		} catch (Exception ex) {
-			System.err.println("threats: failed to initialize engine: " + ex.getMessage());
-			if (opts.verbose) {
-				ex.printStackTrace(System.err);
-			}
-			System.exit(2);
+			throw new CommandFailure("threats: failed to initialize engine: " + ex.getMessage(), ex, 2, opts.verbose);
 		}
 	}
 

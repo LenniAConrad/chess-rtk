@@ -104,7 +104,7 @@ search, rendering, tagging, and export paths all meet at the same Java core.
 | --- | --- |
 | User setup | [Getting Started](getting-started), [Build & Install](build-and-install), [Configuration](configuration), [FAQ](faq), [Troubleshooting](troubleshooting) |
 | Commands | [Command Cheatsheet](command-cheatsheet), [Command Reference](command-reference), [Example Commands](example-commands) |
-| Workflows | [Mining Puzzles](mining), [Filter DSL](filter-dsl), [Datasets](datasets), [Book Publishing](book-publishing), [Tags](piece-tags) |
+| Workflows | [Mining Puzzles](mining), [Filter DSL](filter-dsl), [Datasets](datasets), [Book Publishing](book-publishing), [Tags](piece-tags), [Tag Reference](tag-reference) |
 | Engines | [In-House Engine](in-house-engine), [LC0](lc0), [T5 Text](t5) |
 | Developers | [Architecture](architecture), [Quality and Testing](quality-and-testing), [Development Notes](development-notes), [Releasing](releasing), [Roadmap](roadmap), [Glossary](glossary) |
 

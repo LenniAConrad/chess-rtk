@@ -6,8 +6,8 @@
 - Optional: a UCI chess engine either on `PATH` or configured via
   `config/default.engine.toml` for `engine analyze`, `engine bestmove`,
   `engine threats`, `engine uci-smoke`, and puzzle mining
-- Optional: local model weights under `models/` for LC0, NNUE, and T5-backed
-  evaluator/text workflows
+- Optional: local model weights under `models/` for LC0, BT4, NNUE, and
+  T5-backed evaluator/text workflows
 
 ## Debian/Ubuntu packages
 
@@ -38,6 +38,7 @@ sudo apt-get install -y \
 Notes:
 - `git` is included so a fresh machine can `git clone` this repo (and `ca-certificates` enables HTTPS downloads).
 - `nvidia-cuda-toolkit` is large and only needed to build the optional CUDA JNI backend under `native/cuda/`.
+  ROCm/HIP and oneAPI builds use their vendor toolchains instead.
 
 ## Build (no Maven/Gradle)
 
@@ -127,12 +128,14 @@ java -jar crtk.jar help
 
 `./install.sh` is a convenience installer that:
 - optionally installs OpenJDK 17 and Stockfish via `apt-get`
-- optionally downloads NNUE and LC0 model weights into `models/`
+- optionally downloads NNUE, LC0 CNN, and official LC0 BT4 model artifacts into `models/`
 - compiles sources and builds `crtk.jar`
 - installs a launcher at `/usr/local/bin/crtk` that runs from this repo
-- optionally builds the CUDA JNI backend under `native/cuda/` (if you have the CUDA toolkit)
+- optionally builds CUDA, ROCm/HIP, and oneAPI JNI backends when their vendor
+  toolchains are available
 
-Downloaded `models/*.bin` files are local artifacts and are ignored by git.
+Downloaded `models/*.bin`, `models/*.pb.gz`, and `models/*.nnue` files are
+local artifacts and are ignored by git.
 
 ```bash
 ./install.sh
@@ -151,16 +154,18 @@ Skip model weight downloads:
 ./install.sh --no-models
 ```
 
-Skip the CUDA backend build:
+Skip native GPU backend builds:
 
 ```bash
-./install.sh --no-cuda
+./install.sh --no-cuda --no-rocm --no-oneapi
 ```
 
-Force the CUDA backend build (installs missing CUDA build deps on Debian/Ubuntu):
+Force a native GPU backend build:
 
 ```bash
 ./install.sh --cuda
+./install.sh --rocm
+./install.sh --oneapi
 ```
 
 ## Update

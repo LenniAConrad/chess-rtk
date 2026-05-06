@@ -91,7 +91,20 @@ public final class SharedLibrarySupport {
    * @return immutable load state
    */
   public static State load(String libBaseName, String envVar, String nativeDir, IntSupplier deviceCountSupplier) {
-    boolean loaded = tryLoad(libBaseName, envVar, nativeDir);
+    return load(new String[] {libBaseName}, envVar, nativeDir, deviceCountSupplier);
+  }
+
+  /**
+   * Attempts to load a JNI library from multiple compatible base names and query a device count.
+   *
+   * @param libBaseNames base library names used by {@link System#loadLibrary(String)}, in priority order
+   * @param envVar optional environment variable holding an explicit library path
+   * @param nativeDir optional native directory containing build outputs
+   * @param deviceCountSupplier native call to query device count
+   * @return immutable load state
+   */
+  public static State load(String[] libBaseNames, String envVar, String nativeDir, IntSupplier deviceCountSupplier) {
+    boolean loaded = tryLoad(libBaseNames, envVar, nativeDir);
     int deviceCount = loaded ? safeDeviceCount(deviceCountSupplier) : 0;
     return new State(loaded, deviceCount);
   }
@@ -99,24 +112,30 @@ public final class SharedLibrarySupport {
   /**
    * Tries the supported load locations in priority order.
    *
-   * @param libBaseName library base name
+   * @param libBaseNames library base names
    * @param envVar environment variable that may point to an explicit library file
    * @param nativeDir native project directory used to derive fallback paths
    * @return {@code true} when a library was loaded
    */
-  private static boolean tryLoad(String libBaseName, String envVar, String nativeDir) {
-    if (tryLoadFromLibraryPath(libBaseName)) {
-      return true;
+  private static boolean tryLoad(String[] libBaseNames, String envVar, String nativeDir) {
+    for (String libBaseName : libBaseNames) {
+      if (tryLoadFromLibraryPath(libBaseName)) {
+        return true;
+      }
     }
-
-    String filename = platformLibraryFilename(libBaseName);
 
     Path explicit = explicitLibraryPath(envVar);
     if (explicit != null && tryLoadFromPath(explicit)) {
       return true;
     }
 
-    return tryLoadFromCandidatePaths(candidatePaths(filename, nativeDir));
+    for (String libBaseName : libBaseNames) {
+      String filename = platformLibraryFilename(libBaseName);
+      if (tryLoadFromCandidatePaths(candidatePaths(filename, nativeDir))) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /**

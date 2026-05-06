@@ -56,7 +56,7 @@ import chess.debug.Printer;
 import chess.eval.Evaluator;
 import chess.eval.Result;
 import chess.images.render.Render;
-import chess.tag.Tagging;
+import chess.tag.Generator;
 import utility.Argv;
 import utility.Display;
 import utility.Images;
@@ -106,7 +106,7 @@ public final class PositionViewCommand {
 			Printer.board(pos);
 			List<String> tags;
 			try (Evaluator evaluator = new Evaluator(Path.of(Config.getLc0ModelPath()), false)) {
-				tags = Tagging.tags(pos, evaluator);
+				tags = Generator.tags(pos, evaluator);
 			}
 			if (!tags.isEmpty()) {
 				System.out.println();

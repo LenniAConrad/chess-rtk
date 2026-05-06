@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 420" role="img" aria-labelledby="title desc">
+  <title id="title">ChessRTK Record Weave signature logo concept</title>
+  <desc id="desc">Analysis records woven into datasets and books.</desc>
+  <defs>
+    <filter id="shadow" x="-12%" y="-12%" width="124%" height="124%">
+      <feDropShadow dx="0" dy="16" stdDeviation="18" flood-color="#07100c" flood-opacity="0.24"/>
+    </filter>
+  </defs>
+  <rect width="1200" height="420" rx="48" fill="#07110c"/><rect x="34" y="34" width="1132" height="352" rx="40" fill="#123b2b" opacity="0.48"/>
+  <g transform="translate(82 70)" filter="url(#shadow)">
+    <rect width="280" height="280" rx="36" fill="#fffefb"/>
+    
+<rect x="38" y="38" width="204" height="204" rx="28" fill="#eef5ef"/>
+<path d="M62 88 C96 58 124 120 154 88 S198 58 222 90" fill="none" stroke="#d8a63a" stroke-width="16" stroke-linecap="round"/>
+<path d="M62 138 C96 108 124 170 154 138 S198 108 222 140" fill="none" stroke="#2e7d57" stroke-width="16" stroke-linecap="round"/>
+<path d="M62 188 C96 158 124 220 154 188 S198 158 222 190" fill="none" stroke="#123b2b" stroke-width="16" stroke-linecap="round"/>
+<g stroke="#fffefb" stroke-width="6" opacity="0.8">
+  <path d="M88 72 V204"/><path d="M140 72 V204"/><path d="M192 72 V204"/>
+</g>
+
+  </g>
+  <g transform="translate(424 112)">
+    <text x="0" y="76" fill="#fffefb" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="86" font-weight="850" letter-spacing="0">ChessRTK</text>
+    <text x="3" y="123" fill="#d8a63a" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="26" font-weight="850" letter-spacing="0">RECORD WEAVE</text>
+    <text x="3" y="172" fill="#dce9df" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="30" font-weight="500" letter-spacing="0">Analysis records woven into datasets and books.</text>
+    <text x="3" y="224" fill="#d8a63a" opacity="0.76" font-family="ui-monospace, Menlo, Consolas, monospace" font-size="22" font-weight="850">concept 07 / signature candidate</text>
+  </g>
+</svg>

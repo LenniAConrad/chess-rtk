@@ -85,6 +85,8 @@ public final class CenterSpace {
         } else {
             tags.add(CENTER_CONTROL_PREFIX + BALANCED);
         }
+        tags.add(SPACE_CENTER_CONTROL_PREFIX + WHITE + COUNT_FIELD + whiteControl);
+        tags.add(SPACE_CENTER_CONTROL_PREFIX + BLACK + COUNT_FIELD + blackControl);
     }
 
     /**

@@ -70,12 +70,7 @@ public final class StatsCommand {
 			streamRecordFile(input, verbose, RECORD_STATS, stats, bar == null ? null : bar::set);
 		} catch (Exception ex) {
 			finishProgress(bar);
-			System.err.println(RECORD_STATS + ": failed to read input: " + ex.getMessage());
-			if (verbose) {
-				ex.printStackTrace(System.err);
-			}
-			System.exit(2);
-			return;
+			throw new CommandFailure(RECORD_STATS + ": failed to read input: " + ex.getMessage(), ex, 2, verbose);
 		}
 
 		finishProgress(bar);
@@ -100,12 +95,7 @@ public final class StatsCommand {
 			streamRecordFile(input, verbose, RECORD_TAG_STATS, stats, bar == null ? null : bar::set);
 		} catch (Exception ex) {
 			finishProgress(bar);
-			System.err.println(RECORD_TAG_STATS + ": failed to read input: " + ex.getMessage());
-			if (verbose) {
-				ex.printStackTrace(System.err);
-			}
-			System.exit(2);
-			return;
+			throw new CommandFailure(RECORD_TAG_STATS + ": failed to read input: " + ex.getMessage(), ex, 2, verbose);
 		}
 
 		finishProgress(bar);

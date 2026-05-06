@@ -37,7 +37,7 @@ import chess.nn.t5.Model;
 import chess.nn.t5.Runner;
 import chess.nn.t5.TagPrompt;
 import chess.tag.Sort;
-import chess.tag.Tagging;
+import chess.tag.Generator;
 import chess.uci.Analysis;
 import chess.uci.Engine;
 import chess.uci.Protocol;
@@ -298,7 +298,7 @@ public final class PuzzleTextCommand {
                 return List.of();
             }
         }
-        List<String> tags = Tagging.tags(pos, analysis);
+        List<String> tags = Generator.tags(pos, analysis);
         if (engine != null) {
             List<String> threats = PuzzleTagsCommand.threatTagsForPuzzle(pos, analysis, engine, opts.limits.nodesCap,
                     opts.limits.durMs, opts.flags.verbose);

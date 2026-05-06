@@ -65,6 +65,11 @@ public final class CLICommandRegressionTest {
 	private static final String SIMPLE_FEN = "8/8/8/8/8/8/8/K6k w - - 0 1";
 
 	/**
+	 * Simple position after moving the White king from a1 to a2.
+	 */
+	private static final String SIMPLE_AFTER_KA2_FEN = "8/8/8/8/8/8/K7/7k b - - 1 1";
+
+	/**
 	 * Standard chess start position used in perft output assertions.
 	 */
 	private static final String START_FEN =
@@ -97,7 +102,11 @@ public final class CLICommandRegressionTest {
 		testFenTagsLegalMoveTactics();
 		testMovesFormatOption();
 		testGroupedFenAndMoveCommands();
+		testMachineReadableFenAndMoveCommands();
+		testStructuredFenAndMoveFailures();
+		testVersionCommand();
 		testCorePerftCommand();
+		testHighValueResearchCommands();
 		testHelpListsNewCommands();
 		testContextualHelpForms();
 		System.out.println("CLICommandRegressionTest: all checks passed");
@@ -258,6 +267,86 @@ public final class CLICommandRegressionTest {
 	}
 
 	/**
+	 * Verifies deterministic commands expose JSON/JSONL output for automation.
+	 */
+	private static void testMachineReadableFenAndMoveCommands() {
+		String validated = TestSupport.runMain("fen", "validate", "--json", FEN_OPTION, SIMPLE_FEN).strip();
+		assertTrue(validated.startsWith("{\"valid\":true"), "fen validate --json object");
+		assertTrue(validated.contains("\"fen\":\"" + SIMPLE_FEN + "\""), "fen validate --json fen field");
+
+		String normalized = TestSupport.runMain("fen", "normalize", "--jsonl", SIMPLE_FEN).strip();
+		assertTrue(normalized.startsWith("{\"input\":"), "fen normalize --jsonl object");
+		assertTrue(normalized.contains("\"fen\":\"" + SIMPLE_FEN + "\""), "fen normalize --jsonl fen field");
+
+		String moves = TestSupport.runMain("move", "list", "--json", FEN_OPTION, SIMPLE_FEN).strip();
+		assertTrue(moves.startsWith("[{\"uci\":"), "move list --json array");
+		assertTrue(moves.contains("\"san\":\"Ka2\""), "move list --json san field");
+
+		String sanOnly = TestSupport.runMain("move", "list", "--fields", "san", FEN_OPTION, SIMPLE_FEN);
+		assertTrue(sanOnly.contains("Ka2"), "move list --fields san output");
+		assertFalse(sanOnly.contains("\t"), "move list --fields san omits tab");
+
+		String toSan = TestSupport.runMain("move", "to-san", "--json", "--startpos", "e2e4").strip();
+		assertTrue(toSan.contains("\"input\":\"e2e4\""), "move to-san --json input field");
+		assertTrue(toSan.contains("\"san\":\"e4\""), "move to-san --json san field");
+
+		String after = TestSupport.runMain("move", "after", "--json", "--startpos", "e2e4").strip();
+		assertTrue(after.contains("\"move\":\"e2e4\""), "move after --json move field");
+		assertTrue(after.contains("\"result\":\"rnbqkbnr/pppppppp/8/8/4P3"),
+				"move after --json result field");
+
+		String play = TestSupport.runMain("move", "play", "--json", "--startpos", "e4", "e5", "--intermediate")
+				.strip();
+		assertTrue(play.contains("\"moves\":[\"e4\",\"e5\"]"), "move play --json moves field");
+		assertTrue(play.contains("\"intermediate\":["), "move play --json intermediate field");
+	}
+
+	/**
+	 * Verifies FEN and move command failures return structured exit codes without
+	 * terminating the in-process test JVM.
+	 */
+	private static void testStructuredFenAndMoveFailures() {
+		TestSupport.FailureResult badFen = TestSupport.runMainExpectFailure("fen", "normalize", "not a fen");
+		assertEquals(3, badFen.exitCode(), "fen normalize invalid FEN exit code");
+		assertTrue(badFen.stderr().contains("Invalid FEN"), "fen normalize invalid FEN message");
+		assertFalse(badFen.stderr().contains("Exception"), "fen normalize invalid FEN hides stack by default");
+
+		TestSupport.FailureResult badFormat = TestSupport.runMainExpectFailure(
+				"move",
+				"list",
+				FORMAT_OPTION,
+				"json",
+				FEN_OPTION,
+				SIMPLE_FEN);
+		assertEquals(2, badFormat.exitCode(), "move list unsupported format exit code");
+		assertTrue(badFormat.stderr().contains("unsupported --format value"), "move list unsupported format message");
+
+		TestSupport.FailureResult jsonConflict = TestSupport.runMainExpectFailure(
+				"move",
+				"list",
+				"--json",
+				"--jsonl",
+				FEN_OPTION,
+				SIMPLE_FEN);
+		assertEquals(2, jsonConflict.exitCode(), "move list json/jsonl conflict exit code");
+		assertTrue(jsonConflict.stderr().contains("use either --json or --jsonl"),
+				"move list json/jsonl conflict message");
+	}
+
+	/**
+	 * Verifies release metadata is available from the CLI.
+	 */
+	private static void testVersionCommand() {
+		String text = TestSupport.runMain("version").strip();
+		assertTrue(text.startsWith("crtk "), "version text output");
+
+		String json = TestSupport.runMain("version", "--json").strip();
+		assertTrue(json.contains("\"name\":\"ChessRTK\""), "version --json name");
+		assertTrue(json.contains("\"launcher\":\"crtk\""), "version --json launcher");
+		assertTrue(json.contains("\"version\":\""), "version --json version");
+	}
+
+	/**
 	 * Verifies detailed perft output stays parseable.
 	 */
 	private static void testCorePerftCommand() {
@@ -314,6 +403,63 @@ public final class CLICommandRegressionTest {
 	}
 
 	/**
+	 * Verifies the high-value batch/research helpers that do not require an
+	 * external engine process.
+	 */
+	private static void testHighValueResearchCommands() {
+		String benchmark = TestSupport.runMain(
+				ENGINE_COMMAND,
+				"benchmark",
+				DEPTH_OPTION,
+				"1",
+				"--iterations",
+				"1",
+				"--json");
+		assertTrue(benchmark.contains("\"nodes\":20"), "engine benchmark --json node count");
+		assertTrue(benchmark.contains("\"total_nodes\":20"), "engine benchmark --json total nodes");
+
+		String diff = TestSupport.runMain(
+				"position",
+				"diff",
+				FEN_OPTION,
+				SIMPLE_FEN,
+				"--other",
+				SIMPLE_AFTER_KA2_FEN);
+		assertTrue(diff.contains("side-to-move: w -> b"), "position diff side-to-move output");
+		assertTrue(diff.contains("a1: K -> ."), "position diff source square output");
+		assertTrue(diff.contains("a2: . -> K"), "position diff target square output");
+
+		String diffJson = TestSupport.runMain(
+				"position",
+				"diff",
+				"--json",
+				FEN_OPTION,
+				SIMPLE_FEN,
+				"--other",
+				SIMPLE_AFTER_KA2_FEN);
+		assertTrue(diffJson.contains("\"equal\":false"), "position diff --json equal field");
+		assertTrue(diffJson.contains("\"state\":["), "position diff --json state field");
+		assertTrue(diffJson.contains("\"board\":["), "position diff --json board field");
+
+		try {
+			Path suite = Files.createTempFile("crtk-perft-suite-", ".txt");
+			Files.writeString(suite, "start\t1\t" + START_FEN + "\t20\n");
+			String customSuite = TestSupport.runMain(
+					ENGINE_COMMAND,
+					"perft-suite",
+					"--suite",
+					suite.toString(),
+					"--threads",
+					"1");
+			assertTrue(customSuite.contains("Perft validation (depth 1)"),
+					"engine perft-suite --suite heading");
+			assertTrue(customSuite.contains("match=true"), "engine perft-suite --suite summary");
+		} catch (IOException ex) {
+			throw new AssertionError("custom perft suite test failed", ex);
+		}
+	}
+
+	/**
 	 * Verifies help output exposes the new grouped and helper commands.
 	 */
 	private static void testHelpListsNewCommands() {
@@ -323,9 +469,11 @@ public final class CLICommandRegressionTest {
 		assertTrue(summary.contains("gen"), "help lists gen group");
 		assertTrue(summary.contains("move"), "help lists move group");
 		assertTrue(summary.contains(ENGINE_COMMAND), "help lists engine group");
+		assertTrue(summary.contains("position"), "help lists position group");
 		assertTrue(summary.contains("book"), "help lists book group");
 		assertTrue(summary.contains("puzzle"), "help lists puzzle group");
 		assertTrue(summary.contains("doctor"), "help lists doctor");
+		assertTrue(summary.contains("version"), "help lists version");
 		assertTrue(!summary.contains("record-to-plain"), "short help omits removed record converter");
 
 		String chess960 = TestSupport.runMain("help", "fen", CHESS960_COMMAND);
@@ -352,6 +500,10 @@ public final class CLICommandRegressionTest {
 
 		String engineHelp = TestSupport.runMain("help", ENGINE_COMMAND);
 		assertTrue(engineHelp.contains("uci-smoke"), "help engine lists uci-smoke");
+		assertTrue(engineHelp.contains("analyze-batch"), "help engine lists analyze-batch");
+		assertTrue(engineHelp.contains("bestmove-batch"), "help engine lists bestmove-batch");
+		assertTrue(engineHelp.contains("compare"), "help engine lists compare");
+		assertTrue(engineHelp.contains("benchmark"), "help engine lists benchmark");
 
 		String enginePerft = TestSupport.runMain("help", ENGINE_COMMAND, PERFT_COMMAND);
 		assertTrue(enginePerft.contains("engine perft options:"), "help engine perft options");
@@ -395,13 +547,42 @@ public final class CLICommandRegressionTest {
 		assertTrue(enginePerftSuite.contains("engine perft-suite options:"),
 				"help engine perft-suite options");
 		assertTrue(enginePerftSuite.contains("--threads N"), "help engine perft-suite threads option");
+		assertTrue(enginePerftSuite.contains("--suite PATH"), "help engine perft-suite custom suite option");
 		assertFalse(enginePerftSuite.contains("--stockfish"), "help engine perft-suite does not expose stockfish");
+
+		String engineAnalyzeBatch = TestSupport.runMain("help", ENGINE_COMMAND, "analyze-batch");
+		assertTrue(engineAnalyzeBatch.contains("engine analyze-batch options:"),
+				"help engine analyze-batch options");
+		assertTrue(engineAnalyzeBatch.contains("--jsonl"), "help engine analyze-batch jsonl option");
+
+		String engineBestmoveBatch = TestSupport.runMain("help", ENGINE_COMMAND, "bestmove-batch");
+		assertTrue(engineBestmoveBatch.contains("engine bestmove-batch options:"),
+				"help engine bestmove-batch options");
+		assertTrue(engineBestmoveBatch.contains("--stdin"), "help engine bestmove-batch stdin option");
+
+		String engineCompare = TestSupport.runMain("help", ENGINE_COMMAND, "compare");
+		assertTrue(engineCompare.contains("engine compare options:"), "help engine compare options");
+		assertTrue(engineCompare.contains("--left-protocol"), "help engine compare left protocol option");
+
+		String engineBenchmark = TestSupport.runMain("help", ENGINE_COMMAND, "benchmark");
+		assertTrue(engineBenchmark.contains("engine benchmark options:"), "help engine benchmark options");
+		assertTrue(engineBenchmark.contains("--iterations N"), "help engine benchmark iterations option");
+
+		String positionHelp = TestSupport.runMain("help", "position");
+		assertTrue(positionHelp.contains("position subcommands:"), "help position subcommands");
+
+		String positionDiff = TestSupport.runMain("help", "position", "diff");
+		assertTrue(positionDiff.contains("position diff options:"), "help position diff options");
+		assertTrue(positionDiff.contains("--other FEN"), "help position diff other option");
 
 		String uciSmoke = TestSupport.runMain("help", ENGINE_COMMAND, "uci-smoke");
 		assertTrue(uciSmoke.contains("engine uci-smoke options:"), "help engine uci-smoke options");
 
 		String doctor = TestSupport.runMain("help", "doctor");
 		assertTrue(doctor.contains("doctor options:"), "help doctor options");
+
+		String version = TestSupport.runMain("help", "version");
+		assertTrue(version.contains("version options:"), "help version options");
 	}
 
 	/**

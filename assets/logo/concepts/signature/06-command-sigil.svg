@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 420" role="img" aria-labelledby="title desc">
+  <title id="title">ChessRTK Command Sigil signature logo concept</title>
+  <desc id="desc">A terminal mark built from prompt, route, and result.</desc>
+  <defs>
+    <filter id="shadow" x="-12%" y="-12%" width="124%" height="124%">
+      <feDropShadow dx="0" dy="16" stdDeviation="18" flood-color="#07100c" flood-opacity="0.24"/>
+    </filter>
+  </defs>
+  <rect width="1200" height="420" rx="48" fill="#f4f7f3"/><rect x="42" y="42" width="1116" height="336" rx="38" fill="#fffefb" stroke="#d6dfd7" stroke-width="2"/>
+  <g transform="translate(82 70)" filter="url(#shadow)">
+    <rect width="280" height="280" rx="36" fill="#07110c"/>
+    
+<rect x="38" y="38" width="204" height="204" rx="28" fill="#0d1c14"/>
+<path d="M76 92 L116 122 L76 154" fill="none" stroke="#d8a63a" stroke-width="15" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M126 154 H202" stroke="#fffefb" stroke-width="12" stroke-linecap="round"/>
+<path d="M92 192 C130 166 160 128 202 74" fill="none" stroke="#2e7d57" stroke-width="9" stroke-linecap="round"/>
+<circle cx="92" cy="192" r="9" fill="#d8a63a" stroke="#0d1c14" stroke-width="4"/><circle cx="202" cy="74" r="9" fill="#2e7d57" stroke="#0d1c14" stroke-width="4"/>
+<text x="86" y="214" fill="#8fd3aa" font-family="ui-monospace, Menlo, Consolas, monospace" font-size="18" font-weight="900">crtk</text>
+
+  </g>
+  <g transform="translate(424 112)">
+    <text x="0" y="76" fill="#123b2b" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="86" font-weight="850" letter-spacing="0">ChessRTK</text>
+    <text x="3" y="123" fill="#2e7d57" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="26" font-weight="850" letter-spacing="0">COMMAND SIGIL</text>
+    <text x="3" y="172" fill="#3e4b42" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="30" font-weight="500" letter-spacing="0">A terminal mark built from prompt, route, and result.</text>
+    <text x="3" y="224" fill="#2e7d57" opacity="0.76" font-family="ui-monospace, Menlo, Consolas, monospace" font-size="22" font-weight="850">concept 06 / signature candidate</text>
+  </g>
+</svg>

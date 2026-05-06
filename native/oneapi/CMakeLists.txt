@@ -8,10 +8,10 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 find_package(JNI REQUIRED)
 
-add_library(lc0j_oneapi SHARED lc0j_oneapi_jni.cpp)
-target_include_directories(lc0j_oneapi PRIVATE ${JNI_INCLUDE_DIRS})
-target_compile_options(lc0j_oneapi PRIVATE -fsycl)
-target_link_options(lc0j_oneapi PRIVATE -fsycl)
+add_library(lc0_oneapi SHARED lc0_cnn_oneapi_jni.cpp lc0_bt4_oneapi_jni.cpp)
+target_include_directories(lc0_oneapi PRIVATE ${JNI_INCLUDE_DIRS})
+target_compile_options(lc0_oneapi PRIVATE -fsycl)
+target_link_options(lc0_oneapi PRIVATE -fsycl)
 
 add_library(t5_oneapi SHARED t5_oneapi_jni.cpp)
 target_include_directories(t5_oneapi PRIVATE ${JNI_INCLUDE_DIRS})

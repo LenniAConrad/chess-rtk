@@ -9,6 +9,8 @@ import application.cli.command.CleanCommand;
 import application.cli.command.ConfigCommand;
 import application.cli.command.DoctorCommand;
 import application.cli.command.EvalCommand;
+import application.cli.command.EngineBatchCommand;
+import application.cli.command.EngineBenchmarkCommand;
 import application.cli.command.FenCommand;
 import application.cli.command.GenFensCommand;
 import application.cli.command.GpuCommand;
@@ -19,6 +21,7 @@ import application.cli.command.MoveNotationCommand;
 import application.cli.command.MovesCommand;
 import application.cli.command.PerftCommand;
 import application.cli.command.PgnCommand;
+import application.cli.command.PositionCommand;
 import application.cli.command.PuzzleTagsCommand;
 import application.cli.command.PuzzleTextCommand;
 import application.cli.command.RecordAnalysisDeltaCommand;
@@ -28,6 +31,7 @@ import application.cli.command.TagTextCommand;
 import application.cli.command.TagsCommand;
 import application.cli.command.ThreatsCommand;
 import application.cli.command.UciSmokeCommand;
+import application.cli.command.VersionCommand;
 import application.cli.command.BuiltInEngineCommand;
 import application.cli.command.book.BookCoverCommand;
 import application.cli.command.book.BookPdfCommand;
@@ -37,6 +41,7 @@ import application.cli.command.book.PuzzleStudyCommand;
 import application.gui.GuiCommand;
 import application.gui.GuiNextCommand;
 import application.gui.GuiWebCommand;
+import application.gui.workbench.WorkbenchCommand;
 
 /**
  * Central registry for CLI command paths, aliases, summaries, and handlers.
@@ -103,8 +108,9 @@ public final class CliRegistry {
 						+ "or `engine`, then the action you want.")
 				.convention("Prefer explicit flags for structured values: `--fen`, `--input`, `--output`, and `--format`.")
 				.convention("When scripting, put options before free-form args and use `--` or `--end-of-options` when a value could look like a flag.")
-				.convention("Use machine-oriented formats for automation: `--format uci|san|both` today, and avoid parsing prose output when a stable format exists.")
+				.convention("Use machine-oriented formats for automation: `--json`, `--jsonl`, or `--format uci|san|both` where supported.")
 				.example("crtk move list --fen \"<FEN>\" --format both")
+				.example("crtk move list --fen \"<FEN>\" --jsonl")
 				.example("crtk engine bestmove --fen \"<FEN>\" --max-duration 2s --format both")
 				.example("crtk move list --help");
 
@@ -113,6 +119,7 @@ public final class CliRegistry {
 		root.add(genGroup());
 		root.add(moveGroup());
 		root.add(engineGroup());
+		root.add(positionGroup());
 		root.add(bookGroup());
 		root.add(puzzleGroup());
 		root.add(configGroup());
@@ -131,6 +138,14 @@ public final class CliRegistry {
 				.usage("[options]")
 				.about("Launch the Studio research workbench.")
 				.example("crtk gui-next --fen \"<FEN>\""));
+		root.add(CliCommand.leaf("gui-workbench", "Launch the native command and analysis workbench",
+				WorkbenchCommand::runWorkbench)
+				.helpKey("gui-workbench")
+				.alias("workbench")
+				.usage("[options]")
+				.about("Launch a focused Swing workbench for position analysis, command-specific flag building, and batch research workflows.")
+				.example("crtk gui-workbench")
+				.example("crtk gui-workbench --fen \"<FEN>\""));
 		root.add(CliCommand.leaf("doctor", "Check Java, config, protocol, engine, and local artifacts",
 				DoctorCommand::runDoctor)
 				.helpKey("doctor")
@@ -150,6 +165,12 @@ public final class CliRegistry {
 				.example("crtk help")
 				.example("crtk help move list")
 				.example("crtk help --full"));
+		root.add(CliCommand.leaf("version", "Print ChessRTK version metadata", VersionCommand::runVersion)
+				.helpKey("version")
+				.usage("[options]")
+				.about("Print the launcher version for scripts and release checks.")
+				.example("crtk version")
+				.example("crtk version --json"));
 		return root;
 	}
 
@@ -481,6 +502,30 @@ public final class CliRegistry {
 				.helpKey("engine bestmove-both")
 				.usage("[options]")
 				.related("engine bestmove"));
+		engine.add(CliCommand.leaf("analyze-batch", "Analyze FEN batches as JSONL",
+				EngineBatchCommand::runAnalyzeBatch)
+				.helpKey("engine analyze-batch")
+				.usage("[options]")
+				.example("crtk engine analyze-batch --input positions.txt --max-duration 1s --jsonl")
+				.example("crtk engine analyze-batch --stdin --multipv 3 --output analysis.jsonl"));
+		engine.add(CliCommand.leaf("bestmove-batch", "Find best moves for FEN batches as JSONL",
+				EngineBatchCommand::runBestMoveBatch)
+				.helpKey("engine bestmove-batch")
+				.usage("[options]")
+				.example("crtk engine bestmove-batch --input positions.txt --max-nodes 100000")
+				.example("crtk engine bestmove-batch --stdin --json"));
+		engine.add(CliCommand.leaf("compare", "Compare best moves from two UCI protocols",
+				EngineBatchCommand::runCompare)
+				.helpKey("engine compare")
+				.usage("[options]")
+				.example("crtk engine compare --input positions.txt --left-protocol a.toml --right-protocol b.toml")
+				.example("crtk engine compare --fen \"<FEN>\" --protocol-a a.toml --protocol-b b.toml --json"));
+		engine.add(CliCommand.leaf("benchmark", "Benchmark the core Java move generator",
+				EngineBenchmarkCommand::runBenchmark)
+				.helpKey("engine benchmark")
+				.usage("[options]")
+				.example("crtk engine benchmark --startpos --depth 5 --iterations 5")
+				.example("crtk engine benchmark --fen \"<FEN>\" --depth 4 --json"));
 		engine.add(CliCommand.leaf("builtin", "Search with the built-in Java engine", BuiltInEngineCommand::runBuiltIn)
 				.helpKey("engine builtin")
 				.alias("java")
@@ -519,6 +564,26 @@ public final class CliRegistry {
 				.usage("[options]")
 				.example("crtk engine uci-smoke --nodes 1 --max-duration 5s"));
 		return engine;
+	}
+
+	/**
+	 * Builds the position command group.
+	 *
+	 * @return position group
+	 */
+	private static CliCommand positionGroup() {
+		CliCommand position = CliCommand.group("position", "Inspect and compare positions")
+				.helpKey("position")
+				.usage("<action> [options] [args]")
+				.about("Deterministic position inspection helpers for scripts and research workflows.")
+				.example("crtk position diff --fen \"<FEN>\" --other \"<FEN>\"")
+				.example("crtk position diff \"<LEFT_FEN>\" \"<RIGHT_FEN>\" --json");
+		position.add(CliCommand.leaf("diff", "Compare two FEN positions", PositionCommand::runDiff)
+				.helpKey("position diff")
+				.usage("[options] [LEFT_FEN RIGHT_FEN]")
+				.example("crtk position diff --fen \"<FEN>\" --other \"<FEN>\"")
+				.example("crtk position diff \"<LEFT_FEN>\" \"<RIGHT_FEN>\" --json"));
+		return position;
 	}
 
 	/**

@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 420" role="img" aria-labelledby="title desc">
+  <title id="title">ChessRTK RTK Crest signature logo concept</title>
+  <desc id="desc">A compact identity mark for releases and favicons.</desc>
+  <defs>
+    <filter id="shadow" x="-12%" y="-12%" width="124%" height="124%">
+      <feDropShadow dx="0" dy="16" stdDeviation="18" flood-color="#07100c" flood-opacity="0.24"/>
+    </filter>
+  </defs>
+  <rect width="1200" height="420" rx="48" fill="#f4f7f3"/><rect x="42" y="42" width="1116" height="336" rx="38" fill="#fffefb" stroke="#d6dfd7" stroke-width="2"/>
+  <g transform="translate(82 70)" filter="url(#shadow)">
+    <rect width="280" height="280" rx="36" fill="#07110c"/>
+    
+<path d="M140 42 L222 80 V150 C222 196 190 226 140 242 C90 226 58 196 58 150 V80 Z" fill="#123b2b"/>
+<path d="M140 70 L196 96 V148 C196 180 176 202 140 216 C104 202 84 180 84 148 V96 Z" fill="#07110c" opacity="0.55"/>
+<text x="140" y="151" text-anchor="middle" fill="#fffefb" font-family="Inter, Arial, sans-serif" font-size="58" font-weight="900">RTK</text>
+<path d="M92 184 C126 158 158 120 196 82" fill="none" stroke="#d8a63a" stroke-width="10" stroke-linecap="round"/>
+<circle cx="92" cy="184" r="10" fill="#d8a63a"/>
+<circle cx="196" cy="82" r="10" fill="#d8a63a"/>
+
+  </g>
+  <g transform="translate(424 112)">
+    <text x="0" y="76" fill="#123b2b" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="86" font-weight="850" letter-spacing="0">ChessRTK</text>
+    <text x="3" y="123" fill="#2e7d57" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="26" font-weight="850" letter-spacing="0">RTK CREST</text>
+    <text x="3" y="172" fill="#3e4b42" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="30" font-weight="500" letter-spacing="0">A compact identity mark for releases and favicons.</text>
+    <text x="3" y="224" fill="#2e7d57" opacity="0.76" font-family="ui-monospace, Menlo, Consolas, monospace" font-size="22" font-weight="850">concept 10 / signature candidate</text>
+  </g>
+</svg>

@@ -1,11 +1,13 @@
 package application.cli;
 
+import application.cli.command.CommandFailure;
+
 /**
  * Validation helpers used throughout the CLI to guard numeric options.
  *
- * <p>Each helper prints a descriptive error message and terminates the JVM
- * with {@code 2} when its contract is violated so calling code can assume
- * valid values afterwards.
+ * <p>Each helper throws a structured command failure with exit code {@code 2}
+ * when its contract is violated so calling code can assume valid values
+ * afterwards.
  * 
  * @since 2025
  * @author Lennart A. Conrad
@@ -28,8 +30,7 @@ public final class Validation {
 	 */
 	public static void requirePositive(String cmd, String opt, int value) {
 		if (value <= 0) {
-			System.err.printf("%s: %s must be positive%n", cmd, opt);
-			System.exit(2);
+			throw new CommandFailure(cmd + ": " + opt + " must be positive", 2);
 		}
 	}
 
@@ -42,8 +43,7 @@ public final class Validation {
 	 */
 	public static void requirePositive(String cmd, String opt, long value) {
 		if (value <= 0L) {
-			System.err.printf("%s: %s must be positive%n", cmd, opt);
-			System.exit(2);
+			throw new CommandFailure(cmd + ": " + opt + " must be positive", 2);
 		}
 	}
 
@@ -56,8 +56,7 @@ public final class Validation {
 	 */
 	public static void requireNonNegative(String cmd, String opt, int value) {
 		if (value < 0) {
-			System.err.printf("%s: %s must be non-negative%n", cmd, opt);
-			System.exit(2);
+			throw new CommandFailure(cmd + ": " + opt + " must be non-negative", 2);
 		}
 	}
 
@@ -72,8 +71,7 @@ public final class Validation {
 	 */
 	public static void requireBetweenInclusive(String cmd, String opt, int value, int min, int max) {
 		if (value < min || value > max) {
-			System.err.printf("%s: %s must be between %d and %d%n", cmd, opt, min, max);
-			System.exit(2);
+			throw new CommandFailure(cmd + ": " + opt + " must be between " + min + " and " + max, 2);
 		}
 	}
 }

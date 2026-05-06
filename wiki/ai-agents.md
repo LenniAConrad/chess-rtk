@@ -17,8 +17,8 @@ Diagram source: `assets/diagrams/crtk-agentic-commands.dot`.
 
 ## Why Agents Can Trust This
 
-- Machine-oriented commands prefer line-based formats, explicit flags, stable
-  exit codes, and bounded search budgets.
+- Machine-oriented commands prefer line-based or JSON/JSONL formats, explicit
+  flags, stable exit codes, and bounded search budgets.
 - Core move generation is validated against stored perft truth positions and
   detailed counters, so legality-sensitive workflows do not depend on an
   external engine.
@@ -44,20 +44,26 @@ java -cp out application.Main move list --format both --fen "rnbqkbnr/pppppppp/8
 | Need | Command shape | Output contract |
 | --- | --- | --- |
 | Legal moves | `move list --format uci|san|both` | one move per line, deterministic order |
+| Legal moves as objects | `move list --jsonl` | one JSON move object per line |
 | UCI move list | `move uci --fen "<FEN>"` | one UCI move per line |
 | SAN move list | `move san --fen "<FEN>"` | one SAN move per line |
 | UCI and SAN together | `move both --fen "<FEN>"` | `uci<TAB>san` per line |
 | Convert one move | `move to-san`, `move to-uci` | one converted move |
 | Apply one move | `move after --fen "<FEN>" <move>` | resulting FEN |
 | Apply a line | `move play --fen "<FEN>" <moves...>` | final FEN, or every FEN with `--intermediate` |
-| Validate FEN | `fen validate --fen "<FEN>"` | `valid<TAB><normalized-fen>` on success |
-| Normalize FEN | `fen normalize --fen "<FEN>"` | normalized FEN |
+| Validate FEN | `fen validate --fen "<FEN>"` | `valid<TAB><normalized-fen>` on success, or JSON with `--json` |
+| Normalize FEN | `fen normalize --fen "<FEN>"` | normalized FEN, or JSON/JSONL with `--json`/`--jsonl` |
 | Chess960 starts | `fen chess960 <index>` | deterministic Scharnagl-indexed FEN |
+| Position diff | `position diff --fen "<FEN>" --other "<FEN>" --json` | changed state fields and board squares |
 | Best move | `engine bestmove --format uci|san|both` | one best move row |
+| Best move batch | `engine bestmove-batch --input <file>` | one JSON object per position by default |
+| Analysis batch | `engine analyze-batch --input <file> --multipv <n>` | one JSON object per position by default |
+| Engine comparison | `engine compare --left-protocol <a> --right-protocol <b>` | text table, JSON object with `--json`, rows with `--jsonl` |
 | Built-in fallback search | `engine builtin --format uci|san|both|summary` | bounded in-process search output |
 | Static evaluation | `engine static`, `engine eval` | one evaluation per input position |
+| Core benchmark | `engine benchmark --json` | one benchmark JSON object |
 | Movegen counters | `engine perft` | nodes and detailed counters |
-| Movegen regression | `engine perft-suite` | progress bar, then truth/calculated table |
+| Movegen regression | `engine perft-suite` | progress bar, then truth/calculated table; `--suite` accepts custom TSV rows |
 | Setup health | `doctor`, `config validate`, `engine uci-smoke` | diagnostics and process exit status |
 
 ## Recommended Agent Workflow
@@ -70,8 +76,10 @@ java -cp out application.Main move list --format both --fen "rnbqkbnr/pppppppp/8
    available.
 6. Use `engine builtin --format summary` when in-process bounded search is
    preferable.
-7. Run `engine perft-suite --depth 6 --threads <n>` after core move-generation
-   changes.
+7. Use `engine bestmove-batch` or `engine analyze-batch` for large FEN sets
+   instead of parsing human analysis text.
+8. Run `engine perft-suite --depth 6 --threads <n>` after core move-generation
+   changes; use `--suite custom.tsv` for targeted regression rows.
 
 ## Deterministic Move Tasks
 
@@ -105,6 +113,9 @@ External UCI engine:
 ```bash
 crtk engine bestmove --fen "<FEN>" --format both --max-duration 5s
 crtk engine analyze --fen "<FEN>" --multipv 3 --max-nodes 1000000
+crtk engine bestmove-batch --input positions.txt --max-duration 1s
+crtk engine analyze-batch --input positions.txt --multipv 3 --jsonl
+crtk engine compare --input positions.txt --left-protocol a.toml --right-protocol b.toml --json
 crtk engine threats --fen "<FEN>" --max-duration 2s
 ```
 
@@ -135,11 +146,19 @@ Regression suite:
 
 ```bash
 crtk engine perft-suite --depth 6 --threads 4
+crtk engine perft-suite --suite custom-perft.tsv --threads 4
+crtk engine benchmark --startpos --depth 5 --iterations 5 --json
 ```
 
 The suite prints a progress bar while positions run. After the progress bar
 finishes, it prints a table with `No`, `Depth`, `FEN`, `Truth`, `Calculated`,
 `Speed`, and `Match`.
+
+Compare two positions without editing FEN fields by hand:
+
+```bash
+crtk position diff --fen "<LEFT_FEN>" --other "<RIGHT_FEN>" --json
+```
 
 ## Record and Dataset Plumbing
 
@@ -162,7 +181,7 @@ crtk record export training-jsonl -i dump/puzzles.json -i dump/nonpuzzles.json -
 
 ## Practical Rules
 
-- Prefer `--format uci|san|both|summary` flags over parsing prose.
+- Prefer `--json`, `--jsonl`, or `--format uci|san|both|summary` flags over parsing prose.
 - Prefer FEN and UCI/SAN commands over GUI or image output for agent decisions.
 - Put engine budgets on every automated analysis command.
 - Keep `--verbose` off in normal pipelines and enable it only for failures.

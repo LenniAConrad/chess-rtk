@@ -10,7 +10,7 @@
 protocol-path = "config/default.engine.toml"
 
 # Local model paths
-# Model binaries are not committed to this repository. Fetch the default LC0J
+# Model binaries are not committed to this repository. Fetch the default LC0 CNN
 # weights with `./install.sh --models`, or place your own files under models/.
 lc0-model-path = "models/leela_112planes-10blocksx128-policyhead80-valuehead32-policy4672-wdl3.bin"
 

@@ -67,8 +67,7 @@ public final class Chess960Command {
 		try {
 			runChess960Unchecked(a);
 		} catch (IllegalArgumentException ex) {
-			System.err.println(ex.getMessage());
-			System.exit(2);
+			throw new CommandFailure(ex.getMessage(), ex, 2, false);
 		}
 	}
 

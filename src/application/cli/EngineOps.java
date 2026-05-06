@@ -9,6 +9,7 @@ import static application.cli.Constants.*;
 import chess.core.Position;
 import chess.uci.Engine;
 import chess.uci.Analysis;
+import application.cli.command.CommandFailure;
 
 /**
  * Engine-related CLI helpers.
@@ -103,12 +104,7 @@ public final class EngineOps {
 			engine.analyse(pos, analysis, null, nodesCap, durMs);
 			return analysis;
 		} catch (IOException ioe) {
-			System.err.println(cmd + ": engine failed: " + ioe.getMessage());
-			if (verbose) {
-				ioe.printStackTrace(System.err);
-			}
-			System.exit(2);
-			return null;
+			throw new CommandFailure(cmd + ": engine failed: " + ioe.getMessage(), ioe, 2, verbose);
 		}
 	}
 

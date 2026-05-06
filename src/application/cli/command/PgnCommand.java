@@ -83,11 +83,7 @@ public final class PgnCommand {
 			CommandSupport.finish(bar);
 			System.out.printf("fen pgn wrote %d lines to %s%n", lines, output.toAbsolutePath());
 		} catch (IOException ex) {
-			System.err.println(COMMAND_LABEL + ": failed to write output: " + ex.getMessage());
-			if (verbose) {
-				ex.printStackTrace(System.err);
-			}
-			System.exit(2);
+			throw new CommandFailure(COMMAND_LABEL + ": failed to write output: " + ex.getMessage(), ex, 2, verbose);
 		}
 	}
 

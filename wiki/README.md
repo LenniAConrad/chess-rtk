@@ -38,6 +38,7 @@ If the launcher is not installed, replace `crtk <command> ...` with
 - [Datasets](datasets)
 - [Book publishing](book-publishing)
 - [Piece and position tags](piece-tags)
+- [Tag reference](tag-reference)
 - [T5 tag-to-text pipeline](t5)
 - [AI agents and automation](ai-agents)
 
@@ -61,7 +62,7 @@ If the launcher is not installed, replace `crtk <command> ...` with
 | Analyze with UCI engines | `engine analyze`, `engine bestmove`, `engine threats`, `engine uci-smoke` | [Configuration](configuration), [Troubleshooting](troubleshooting) |
 | Search in-process | `engine builtin`, `engine java` | [In-house Java engine](in-house-engine) |
 | Mine and export puzzles | `puzzle mine`, `puzzle pgn`, `record files` | [Mining puzzles](mining), [Filter DSL](filter-dsl) |
-| Tag positions and lines | `fen tags`, `puzzle tags`, `record tag-stats` | [Piece and position tags](piece-tags) |
+| Tag positions and lines | `fen tags`, `puzzle tags`, `record tag-stats` | [Piece and position tags](piece-tags), [Tag reference](tag-reference) |
 | Export training data | `record dataset npy`, `record dataset lc0`, `record dataset classifier` | [Datasets](datasets) |
 | Render diagrams and books | `fen render`, `book pdf`, `book render`, `book cover` | [Book publishing](book-publishing) |
 | Automate safely | `doctor`, `config validate`, deterministic move and bestmove commands | [AI agents and automation](ai-agents) |

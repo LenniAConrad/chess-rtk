@@ -43,6 +43,7 @@
 <a class="" href="datasets.html" data-title="datasets">Datasets</a>
 <a class="" href="book-publishing.html" data-title="book publishing">Book Publishing</a>
 <a class="" href="piece-tags.html" data-title="tags">Tags</a>
+<a class="" href="tag-reference.html" data-title="tag reference">Tag Reference</a>
 <a class="" href="t5.html" data-title="t5 text">T5 Text</a>
 <a class="" href="ai-agents.html" data-title="ai agents">AI Agents</a>
 </section>
@@ -83,9 +84,9 @@
 </ul>
 <p>engine commands (default <code>config/default.engine.toml</code>)</p>
 <ul>
-<li><code>lc0-model-path</code>: default local LC0J <code>.bin</code> weights path for evaluator-backed</li>
+<li><code>lc0-model-path</code>: default local ChessRTK LC0 CNN <code>.bin</code> weights path for</li>
 </ul>
-<p>commands/features (default <code>models/leela_112planes-10blocksx128-policyhead80-valuehead32-policy4672-wdl3.bin</code>; fetch with <code>./install.sh --models</code>)</p>
+<p>evaluator-backed commands/features (default <code>models/leela_112planes-10blocksx128-policyhead80-valuehead32-policy4672-wdl3.bin</code>; fetch with <code>./install.sh --models</code>)</p>
 <ul>
 <li><code>t5-model-path</code>: default local T5 <code>.bin</code> path used by <code>fen text</code> / <code>puzzle text</code> when <code>--model</code> is omitted (default <code>models/t5.bin</code>)</li>
 <li><code>output</code>: default output root for <code>puzzle mine</code> (default <code>dump/</code>)</li>
@@ -100,7 +101,10 @@
 <p>Notes:</p>
 <ul>
 <li>CLI flags override TOML values for a single run.</li>
-<li>Model binaries are not committed; local <code>models/*.bin</code> files are ignored by git.</li>
+<li>Model binaries are not committed; local <code>models/<em>.bin</code>, <code>models/</em>.pb.gz</code>,</li>
+</ul>
+<p>and <code>models/*.nnue</code> files are ignored by git.</p>
+<ul>
 <li>For <code>puzzle mine --output</code>, a directory produces timestamped outputs; a file-like root ending in <code>.json</code>/<code>.jsonl</code> produces <code>&lt;stem&gt;.puzzles.json</code> and <code>&lt;stem&gt;.nonpuzzles.json</code>.</li>
 </ul>
 <h3 id="switching-to-the-included-lc0-tuned-defaults">Switching to the included Lc0-tuned defaults</h3>
@@ -135,9 +139,9 @@
 </ul>
 <p>default NNUE model path; <code>./install.sh --models</code> populates that default. If neither exists, it fails with a missing-weights error.</p>
 <ul>
-<li><code>engine builtin --lc0</code> loads LC0J <code>.bin</code> weights from <code>--weights</code>, or from</li>
+<li><code>engine builtin --lc0</code> loads ChessRTK LC0 CNN <code>.bin</code> weights from</li>
 </ul>
-<p><code>lc0-model-path</code>.</p>
+<p><code>--weights</code>, or from <code>lc0-model-path</code>.</p>
 <ul>
 <li><code>engine eval</code> prefers the Java LC0 evaluator and falls back to classical</li>
 </ul>

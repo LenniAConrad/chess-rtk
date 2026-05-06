@@ -113,12 +113,7 @@ public final class RecordAnalysisDeltaCommand {
 		try {
 			ensureParentDir(output);
 		} catch (IOException ex) {
-			System.err.println(COMMAND_LABEL + ": failed to prepare output: " + ex.getMessage());
-			if (verbose) {
-				ex.printStackTrace(System.err);
-			}
-			System.exit(2);
-			return;
+			throw new CommandFailure(COMMAND_LABEL + ": failed to prepare output: " + ex.getMessage(), ex, 2, verbose);
 		}
 
 		Bar bar = fileProgressBar(input, COMMAND_LABEL);
@@ -133,11 +128,7 @@ public final class RecordAnalysisDeltaCommand {
 					output);
 		} catch (IOException | UncheckedIOException ex) {
 			finishProgress(bar);
-			System.err.println(COMMAND_LABEL + ": failed to write output: " + ex.getMessage());
-			if (verbose) {
-				ex.printStackTrace(System.err);
-			}
-			System.exit(2);
+			throw new CommandFailure(COMMAND_LABEL + ": failed to write output: " + ex.getMessage(), ex, 2, verbose);
 		}
 	}
 

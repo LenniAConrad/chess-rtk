@@ -7,7 +7,7 @@ All commands are subcommands of `application.Main`.
 - Built-in usage text: `crtk help --full`
 
 Use grouped commands for scripts and automation: `record`, `fen`, `move`,
-`engine`, `book`, and `puzzle`.
+`engine`, `position`, `book`, and `puzzle`.
 
 Command style:
 
@@ -20,27 +20,28 @@ Command style:
 - Contextual help works with either `crtk help move list` or
   `crtk move list --help`.
 
-The Java-native commands (`fen`, `move`, `engine perft`, `engine perft-suite`,
-`engine builtin --classical`, and `engine static`) do not require an external
-engine. External UCI configuration is only needed for UCI-backed analysis,
-best-move, threat, smoke-test, and mining workflows.
+The Java-native commands (`fen`, `move`, `position diff`, `engine benchmark`,
+`engine perft`, `engine perft-suite`, `engine builtin --classical`, and
+`engine static`) do not require an external engine. External UCI configuration
+is only needed for UCI-backed analysis, best-move, comparison, threat,
+smoke-test, and mining workflows.
 
 ## Capability Overview
 
 | Area | Commands |
 | --- | --- |
-| Position parsing and generation | `fen normalize`, `fen validate`, `fen generate`, `fen pgn`, `fen chess960` |
+| Position parsing and generation | `fen normalize`, `fen validate`, `fen generate`, `fen pgn`, `fen chess960`, `position diff` |
 | Board inspection and rendering | `fen print`, `fen display`, `fen render`, `book pdf` |
 | Move primitives | `move list`, `move uci`, `move san`, `move both`, `move to-san`, `move to-uci`, `move after`, `move play` |
-| Move-generation validation | `engine perft`, `engine perft-suite` |
-| External UCI engines | `engine analyze`, `engine bestmove`, `engine threats`, `engine uci-smoke` |
+| Move-generation validation | `engine perft`, `engine perft-suite`, `engine benchmark` |
+| External UCI engines | `engine analyze`, `engine bestmove`, `engine analyze-batch`, `engine bestmove-batch`, `engine compare`, `engine threats`, `engine uci-smoke` |
 | In-process search and evaluation | `engine builtin`, `engine java`, `engine eval`, `engine static` |
 | Puzzle mining and conversion | `puzzle mine`, `puzzle pgn` |
 | Tagging and text generation | `fen tags`, `puzzle tags`, `fen text`, `puzzle text` |
 | Record processing | `record files`, `record stats`, `record tag-stats`, `record analysis-delta` |
 | Dataset export | `record dataset npy`, `record dataset lc0`, `record dataset classifier`, `record export training-jsonl`, `record export puzzle-jsonl` |
 | Publishing | `book collection`, `book study`, `book render`, `book cover`, `book pdf` |
-| Local health checks | `doctor`, `config show`, `config validate`, `engine gpu` |
+| Local health checks | `doctor`, `config show`, `config validate`, `engine gpu`, `version` |
 
 ## `record`
 
@@ -105,6 +106,10 @@ Usage:
 - `crtk engine bestmove-uci ...`: print the best move in UCI
 - `crtk engine bestmove-san ...`: print the best move in SAN
 - `crtk engine bestmove-both ...`: print the best move in UCI and SAN
+- `crtk engine analyze-batch ...`: emit batch analysis rows as JSONL
+- `crtk engine bestmove-batch ...`: emit batch best-move rows as JSONL
+- `crtk engine compare ...`: compare best moves from two UCI protocol files
+- `crtk engine benchmark ...`: benchmark the Java core move generator
 - `crtk engine builtin ...`: search with the in-house Java engine
 - `crtk engine java ...`: run the same built-in Java engine
 - `crtk engine threats ...`: analyze opponent threats
@@ -114,6 +119,13 @@ Usage:
 - `crtk engine perft-suite ...`: run the perft regression suite
 - `crtk engine gpu ...`: print GPU JNI backend status
 - `crtk engine uci-smoke ...`: start the engine and run a tiny bounded search
+
+## `position`
+
+Grouped position-inspection workflows.
+
+Usage:
+- `crtk position diff ...`: compare two FEN positions square-by-square and by state fields
 
 ## `engine builtin`
 
@@ -162,7 +174,7 @@ Evaluator notes:
   or an explicit `--weights` path. If no NNUE weights are available, the
   command fails with a missing-weights error instead of silently using the
   smoke-test fallback.
-- `lc0`: pure-Java LC0 value evaluator using the configured LC0J model path by
+- `lc0`: pure-Java LC0 value evaluator using the configured LC0 CNN model path by
   default, or an explicit `--weights` path.
 
 Search notes:
@@ -292,12 +304,12 @@ Options:
 ## `record export puzzle-jsonl`
 
 Convert `.record` rows into puzzle JSONL with LC0 policy values. This command
-requires LC0J weights so it can use the network policy map.
+requires ChessRTK LC0 CNN `.bin` weights so it can use the network policy map.
 
 Options:
 - `--input|-i <path>`: input `.record` file (required)
 - `--output|-o <path>`: output `.jsonl` path (optional; default derived from input)
-- `--weights <path>`: LC0J weights path (required)
+- `--weights <path>`: ChessRTK LC0 CNN `.bin` weights path (required)
 - `--filter|-f <dsl>`: optional row-selection Filter DSL
 - `--puzzles`: keep only records classified as puzzles by the configured verify filter
 - `--nonpuzzles`: keep only records classified as non-puzzles
@@ -682,6 +694,30 @@ Options:
 - `--light`: start in light UI theme
 - `-h|--help`: show help
 
+## `gui-workbench`
+
+Launch the native Swing command and analysis workbench.
+
+Alias:
+- `workbench`
+
+The workbench includes:
+- an analysis board with legal moves, click-to-move, static tags, and engine command shortcuts
+- a focused command controller with curated templates and command-specific flag tables
+- a batch runner for FEN lists and high-value research commands
+
+Options:
+- `--fen "<FEN...>"` (or pass it positionally)
+- `--flip|--black-down`: render Black at the bottom
+- `-h|--help`: show help
+
+Examples:
+
+```bash
+crtk gui-workbench
+crtk workbench --fen "<FEN>"
+```
+
 ## `config`
 
 Show or validate CLI configuration.
@@ -726,7 +762,7 @@ Options:
 - `--delta`: emit per-move tag deltas as JSONL
 - `--mainline`: with `--pgn`, only export mainline positions
 - `--sidelines`: with `--pgn`, include variations
-- `--protocol|-p <path>`: engine protocol TOML file
+- `--protocol-path|-P <path>`: engine protocol TOML file
 - `--max-nodes <n>`: max nodes per position
 - `--max-duration <duration>`: max duration per position (e.g. `5s`)
 - `--multipv <n>`: number of PVs
@@ -748,7 +784,7 @@ Options:
 - `--tag-multipv <n>`: MultiPV used while enriching tags (default `1`)
 - `--analyze`: run engine analysis to enrich tags (default)
 - `--no-analyze`: skip per-move analysis and use static tags
-- `--protocol|-p <path>`: engine protocol TOML file
+- `--protocol-path|-P <path>`: engine protocol TOML file
 - `--max-nodes <n>`: max nodes per position
 - `--max-duration <duration>`: max duration per position (e.g. `5s`)
 - `--threads <n>`: engine threads
@@ -771,7 +807,7 @@ Options:
 - `--include-fen`: emit JSON with FEN, inferred move, and summary
 - `--analyze`: run engine analysis to enrich tags (default)
 - `--no-analyze`: skip per-move analysis and use static tags
-- `--protocol|-p <path>`: engine protocol TOML file
+- `--protocol-path|-P <path>`: engine protocol TOML file
 - `--max-nodes <n>`: max nodes per position
 - `--max-duration <duration>`: max duration per position (e.g. `5s`)
 - `--threads <n>`: engine threads
@@ -791,7 +827,7 @@ Options:
 - `--include-fen`: emit JSON with FEN and summary
 - `--max-new <n>`: max generated tokens (default `128`)
 - `--analyze`: run engine analysis to enrich tags
-- `--protocol|-p <path>`: engine protocol TOML file
+- `--protocol-path|-P <path>`: engine protocol TOML file
 - `--max-nodes <n>`: max nodes per position
 - `--max-duration <duration>`: max duration per position (e.g. `5s`)
 - `--multipv <n>`: number of PVs
@@ -810,6 +846,11 @@ Options:
 - `--format <uci|san|both>`: output format (default `uci`)
 - `--san`: output SAN instead of UCI
 - `--both`: output UCI + SAN per move
+- `--json`: emit a JSON array of move objects
+- `--jsonl`: emit one move JSON object per line
+- `--fields <uci|san|both|uci,san>`: select output fields
+- `--no-header`: accepted for script-friendly consistency
+- `--quiet`: suppress non-row chatter where supported
 - `--verbose|-v`: print stack traces on failure
 
 ## `move uci`
@@ -818,6 +859,11 @@ List legal moves for a FEN (UCI only).
 
 Options:
 - `--fen "<FEN...>"`: FEN string (or pass it positionally)
+- `--json`: emit a JSON array of move objects
+- `--jsonl`: emit one move JSON object per line
+- `--fields <uci|san|both|uci,san>`: select output fields
+- `--no-header`: accepted for script-friendly consistency
+- `--quiet`: suppress non-row chatter where supported
 - `--verbose|-v`: print stack traces on failure
 
 ## `move san`
@@ -826,6 +872,11 @@ List legal moves for a FEN (SAN only).
 
 Options:
 - `--fen "<FEN...>"`: FEN string (or pass it positionally)
+- `--json`: emit a JSON array of move objects
+- `--jsonl`: emit one move JSON object per line
+- `--fields <uci|san|both|uci,san>`: select output fields
+- `--no-header`: accepted for script-friendly consistency
+- `--quiet`: suppress non-row chatter where supported
 - `--verbose|-v`: print stack traces on failure
 
 ## `move both`
@@ -834,6 +885,11 @@ List legal moves for a FEN (UCI + SAN).
 
 Options:
 - `--fen "<FEN...>"`: FEN string (or pass it positionally)
+- `--json`: emit a JSON array of move objects
+- `--jsonl`: emit one move JSON object per line
+- `--fields <uci|san|both|uci,san>`: select output fields
+- `--no-header`: accepted for script-friendly consistency
+- `--quiet`: suppress non-row chatter where supported
 - `--verbose|-v`: print stack traces on failure
 
 ## `move to-san`
@@ -846,6 +902,10 @@ Notes:
 Options:
 - `--fen "<FEN...>"`: FEN string (or pass it positionally)
 - `<move>`: UCI move token (e.g. `e2e4`, `a7a8q`)
+- `--json`: emit one JSON object
+- `--jsonl`: emit one JSON object line
+- `--no-header`: accepted for script-friendly consistency
+- `--quiet`: suppress non-row chatter where supported
 - `--verbose|-v`: print stack traces on failure
 
 ## `move to-uci`
@@ -858,6 +918,10 @@ Notes:
 Options:
 - `--fen "<FEN...>"`: FEN string (or pass it positionally)
 - `<move>`: SAN move token (e.g. `Nf3`, `exd5`, `O-O`)
+- `--json`: emit one JSON object
+- `--jsonl`: emit one JSON object line
+- `--no-header`: accepted for script-friendly consistency
+- `--quiet`: suppress non-row chatter where supported
 - `--verbose|-v`: print stack traces on failure
 
 ## `move after`
@@ -870,6 +934,10 @@ Notes:
 Options:
 - `--fen "<FEN...>"`: FEN string (or pass it positionally)
 - `<move>`: move token (UCI or SAN)
+- `--json`: emit one JSON object
+- `--jsonl`: emit one JSON object line
+- `--no-header`: accepted for script-friendly consistency
+- `--quiet`: suppress non-row chatter where supported
 - `--verbose|-v`: print stack traces on failure
 
 ## `move play`
@@ -884,6 +952,10 @@ Options:
 - `--fen "<FEN...>"`: FEN string (or pass it positionally)
 - `<moves...>`: move sequence (UCI or SAN)
 - `--intermediate`: print intermediate FENs after each move instead of only the final FEN
+- `--json`: emit one JSON object
+- `--jsonl`: emit one JSON object line, or one per ply with `--intermediate`
+- `--no-header`: accepted for script-friendly consistency
+- `--quiet`: suppress non-row chatter where supported
 - `--verbose|-v`: print stack traces on failure
 
 ## `fen normalize`
@@ -892,6 +964,11 @@ Parse a FEN and print the normalized FEN used internally by ChessRTK.
 
 Options:
 - `--fen "<FEN...>"`: FEN string (or pass it positionally)
+- `--stdin`: read one FEN per non-blank stdin line
+- `--json`: emit one JSON object, or an array for multiple rows
+- `--jsonl`: emit one JSON object per row
+- `--no-header`: accepted for script-friendly consistency
+- `--quiet`: suppress non-row chatter where supported
 - `--verbose|-v`: print stack traces on failure
 
 ## `fen validate`
@@ -900,6 +977,11 @@ Validate a FEN and print `valid<TAB><normalized-fen>` on success.
 
 Options:
 - `--fen "<FEN...>"`: FEN string (or pass it positionally)
+- `--stdin`: read one FEN per non-blank stdin line
+- `--json`: emit one JSON object, or an array for multiple rows
+- `--jsonl`: emit one JSON object per row
+- `--no-header`: accepted for script-friendly consistency
+- `--quiet`: suppress non-row chatter where supported
 - `--verbose|-v`: print stack traces on failure
 
 ## `engine analyze`
@@ -1005,6 +1087,93 @@ Options:
 - `--wdl|--no-wdl`: enable/disable WDL output
 - `--verbose|-v`: print stack traces on failure
 
+## `engine analyze-batch`
+
+Analyze a FEN batch with an external UCI engine and emit machine-readable rows.
+The default output is JSONL so the command can feed long-running automation
+pipelines. Use `--json` when a single JSON array is easier to consume.
+
+Each successful row includes `ok`, `index`, normalized `fen`, `engine`, and a
+`pv` array. Each PV object includes the best move in UCI/SAN, evaluation,
+depths, nodes, NPS, elapsed time, WDL/bound labels, and PV line in UCI/SAN.
+Invalid FEN rows are emitted as `ok:false` rows instead of aborting the batch.
+
+Options:
+- `--input|-i <path>`: FEN list file
+- `--stdin`: read one FEN per non-blank stdin line
+- `--fen "<FEN...>"`, `--startpos`, `--randompos`: single-position selectors
+- `--output|-o <path>`: write rows to a file instead of stdout
+- `--json`: emit one JSON array
+- `--jsonl`: emit one JSON object per line (default)
+- `--protocol-path|-P <toml>`: override `Config.getProtocolPath()`
+- `--max-nodes|--nodes <n>`: override `Config.getMaxNodes()`
+- `--max-duration <dur>`: override `Config.getMaxDuration()`
+- `--multipv <n>`: set engine MultiPV
+- `--threads <n>`: set engine thread count
+- `--hash <mb>`: set engine hash size
+- `--wdl|--no-wdl`: enable/disable WDL output
+- `--verbose|-v`: print stack traces on failure
+
+## `engine bestmove-batch`
+
+Run best-move searches for a FEN batch and emit one JSON object per position by
+default. This is the compact batch counterpart to `engine bestmove`.
+
+Options:
+- `--input|-i <path>`: FEN list file
+- `--stdin`: read one FEN per non-blank stdin line
+- `--fen "<FEN...>"`, `--startpos`, `--randompos`: single-position selectors
+- `--output|-o <path>`: write rows to a file instead of stdout
+- `--json`: emit one JSON array
+- `--jsonl`: emit one JSON object per line (default)
+- `--protocol-path|-P <toml>`: override `Config.getProtocolPath()`
+- `--max-nodes|--nodes <n>`: override `Config.getMaxNodes()`
+- `--max-duration <dur>`: override `Config.getMaxDuration()`
+- `--threads <n>`: set engine thread count
+- `--hash <mb>`: set engine hash size
+- `--wdl|--no-wdl`: enable/disable WDL output
+- `--verbose|-v`: print stack traces on failure
+
+## `engine compare`
+
+Compare the best move from two UCI protocol files over the same FEN input.
+Text output shows a compact row table and summary. `--json` emits a JSON object
+with `rows` and `summary`; `--jsonl` emits one comparison row per line.
+
+Options:
+- `--input|-i <path>`: FEN list file
+- `--stdin`: read one FEN per non-blank stdin line
+- `--fen "<FEN...>"`, `--startpos`, `--randompos`: single-position selectors
+- `--left-protocol <path>` / `--protocol-a <path>`: left protocol TOML
+- `--right-protocol <path>` / `--protocol-b <path>`: right protocol TOML
+- `--protocol-path|-P <toml>`: default protocol when one side is omitted
+- `--output|-o <path>`: write output to a file instead of stdout
+- `--json`: emit one JSON object with rows and summary
+- `--jsonl`: emit one JSON object per comparison row
+- `--max-nodes|--nodes <n>`: max nodes per engine per position
+- `--max-duration <dur>`: max duration per engine per position
+- `--multipv <n>`: set engine MultiPV
+- `--threads <n>`: set engine thread count
+- `--hash <mb>`: set engine hash size
+- `--wdl|--no-wdl`: enable/disable WDL output
+- `--verbose|-v`: print stack traces on failure
+
+## `engine benchmark`
+
+Benchmark the in-process Java move generator by running detailed perft for a
+position repeatedly. This command does not start an external engine.
+
+Options:
+- `--fen "<FEN...>"`: FEN string (or pass it positionally; defaults to start position)
+- `--startpos`: use the standard chess start position explicitly
+- `--randompos`: use one reachable random legal standard-chess position
+- `--depth|-d <n>`: perft depth (default: 4)
+- `--iterations <n>`: repetitions (default: 3)
+- `--threads <n>`: worker threads for legal root moves (default: 1)
+- `--json`: emit one JSON object
+- `--jsonl`: emit one JSON object line
+- `--verbose|-v`: print stack traces on failure
+
 ## `engine perft`
 
 Run detailed perft on a position using the Java-native `chess.core` move
@@ -1039,6 +1208,29 @@ castling lanes, Chess960 starts/midgames, and a knight-heavy stress position.
 Options:
 - `--depth|-d <n>`: depth to validate, 1 through 6 (default: 6)
 - `--threads <n>`: worker threads for independent positions (default: 1)
+- `--suite <path>`: custom tab-delimited suite file
+
+Custom suite rows may be any of:
+
+- `name<TAB>depth<TAB>fen<TAB>nodes`
+- `fen<TAB>depth<TAB>nodes`
+- `name<TAB>fen<TAB>nodes` (uses `--depth`, default 1)
+- `fen<TAB>nodes` (uses `--depth`, default 1)
+
+## `position diff`
+
+Compare two FEN positions and print changed state fields plus changed board
+squares. Text output uses one diff per line. `--json` and `--jsonl` emit one
+object with `equal`, `left`, `right`, `state`, and `board` fields.
+
+Options:
+- `--fen "<FEN...>"`: left/input FEN
+- `--other "<FEN...>"`: right/comparison FEN
+- `--right "<FEN...>"`: alias for `--other`
+- positional `LEFT_FEN RIGHT_FEN`: quote each FEN
+- `--json`: emit one JSON object
+- `--jsonl`: emit one JSON object line
+- `--verbose|-v`: print stack traces on failure
 
 ## `doctor`
 
@@ -1071,7 +1263,7 @@ Options:
 - `--fen "<FEN...>"`: FEN string (or pass it positionally)
 - `--lc0`: force LC0 evaluation and fail if LC0 cannot run
 - `--classical`: force classical evaluation
-- `--weights <path>`: LC0J `.bin` weights path (optional)
+- `--weights <path>`: ChessRTK LC0 CNN `.bin` weights path (optional)
 - `--terminal-aware`: use terminal-aware classical evaluation
 - `--verbose|-v`: print stack traces on failure
 
@@ -1095,3 +1287,17 @@ Options:
 ## `help`
 
 Print the built-in usage text.
+
+Options:
+- `--full`: show full built-in command reference
+- `<command>`: show help for one command path
+
+## `version`
+
+Print ChessRTK version metadata for scripts and release checks.
+
+Options:
+- `--json`: emit one JSON object
+- `--jsonl`: emit one JSON object line
+- `--no-header`: accepted for script-friendly consistency
+- `--quiet`: suppress non-row chatter where supported

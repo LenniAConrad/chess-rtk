@@ -1,9 +1,9 @@
 package chess.book.model;
 
-import static utility.TomlWriterSupport.appendDouble;
-import static utility.TomlWriterSupport.appendInt;
-import static utility.TomlWriterSupport.appendString;
-import static utility.TomlWriterSupport.appendStringArray;
+import static utility.Toml.appendDouble;
+import static utility.Toml.appendInt;
+import static utility.Toml.appendString;
+import static utility.Toml.appendStringArray;
 
 /**
  * Serializes chess-book models to TOML.

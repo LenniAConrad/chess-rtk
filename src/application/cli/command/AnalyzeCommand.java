@@ -88,12 +88,10 @@ public final class AnalyzeCommand {
 			} finally {
 				CommandSupport.finish(bar);
 			}
+		} catch (CommandFailure failure) {
+			throw failure;
 		} catch (Exception ex) {
-			System.err.println("analyze: failed to initialize engine: " + ex.getMessage());
-			if (verbose) {
-				ex.printStackTrace(System.err);
-			}
-			System.exit(2);
+			throw new CommandFailure("analyze: failed to initialize engine: " + ex.getMessage(), ex, 2, verbose);
 		}
 	}
 

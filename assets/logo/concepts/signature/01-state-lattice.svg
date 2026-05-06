@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 420" role="img" aria-labelledby="title desc">
+  <title id="title">ChessRTK State Lattice signature logo concept</title>
+  <desc id="desc">A reproducible position graph with one verified path.</desc>
+  <defs>
+    <filter id="shadow" x="-12%" y="-12%" width="124%" height="124%">
+      <feDropShadow dx="0" dy="16" stdDeviation="18" flood-color="#07100c" flood-opacity="0.24"/>
+    </filter>
+  </defs>
+  <rect width="1200" height="420" rx="48" fill="#07110c"/><rect x="34" y="34" width="1132" height="352" rx="40" fill="#123b2b" opacity="0.48"/>
+  <g transform="translate(82 70)" filter="url(#shadow)">
+    <rect width="280" height="280" rx="36" fill="#fffefb"/>
+    
+<rect x="38" y="38" width="204" height="204" rx="28" fill="#eef5ef"/>
+<g fill="none" stroke="#123b2b" stroke-width="5" opacity="0.48">
+  <path d="M78 74 L140 48 L202 74 L202 144 L140 176 L78 144 Z"/>
+  <path d="M78 144 L140 112 L202 144"/>
+  <path d="M140 48 V112 L140 176"/>
+  <path d="M78 74 L140 112 L202 74"/>
+</g>
+<path d="M78 144 L140 112 L202 74" fill="none" stroke="#d8a63a" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M140 176 C116 204 94 214 66 218" fill="none" stroke="#2e7d57" stroke-width="7" stroke-linecap="round"/>
+<circle cx="78" cy="144" r="10" fill="#2e7d57" stroke="#fffefb" stroke-width="4"/><circle cx="140" cy="112" r="12" fill="#d8a63a" stroke="#fffefb" stroke-width="4"/><circle cx="202" cy="74" r="10" fill="#d8a63a" stroke="#fffefb" stroke-width="4"/><circle cx="66" cy="218" r="8" fill="#2e7d57" stroke="#fffefb" stroke-width="4"/>
+
+  </g>
+  <g transform="translate(424 112)">
+    <text x="0" y="76" fill="#fffefb" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="86" font-weight="850" letter-spacing="0">ChessRTK</text>
+    <text x="3" y="123" fill="#d8a63a" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="26" font-weight="850" letter-spacing="0">STATE LATTICE</text>
+    <text x="3" y="172" fill="#dce9df" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="30" font-weight="500" letter-spacing="0">A reproducible position graph with one verified path.</text>
+    <text x="3" y="224" fill="#d8a63a" opacity="0.76" font-family="ui-monospace, Menlo, Consolas, monospace" font-size="22" font-weight="850">concept 01 / signature candidate</text>
+  </g>
+</svg>

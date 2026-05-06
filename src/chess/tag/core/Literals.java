@@ -1513,6 +1513,31 @@ public final class Literals {
     public static final String INITIATIVE_SIDE_PREFIX = INITIATIVE + COLON_SPACE + SIDE + "=";
 
     /**
+     * The space center-control prefix.
+     */
+    public static final String SPACE_CENTER_CONTROL_PREFIX = SPACE + COLON_SPACE + CENTER_CONTROL + SIDE_FIELD;
+
+    /**
+     * The undeveloped-piece field key for the DEVELOPMENT family.
+     */
+    public static final String UNDEVELOPED = "undeveloped";
+
+    /**
+     * The king-uncastled field key for the DEVELOPMENT family.
+     */
+    public static final String KING_UNCASTLED = "king_uncastled";
+
+    /**
+     * The forcing-moves field key for the INITIATIVE family.
+     */
+    public static final String FORCING_MOVES = "forcing_moves";
+
+    /**
+     * The restricted field key for the MOBILITY family.
+     */
+    public static final String RESTRICTED = "restricted";
+
+    /**
      * The endgame type prefix.
      */
     public static final String ENDGAME_TYPE_PREFIX = ENDGAME + COLON_SPACE + TYPE + "=";

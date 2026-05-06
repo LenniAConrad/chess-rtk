@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 420" role="img" aria-labelledby="title desc">
+  <title id="title">ChessRTK RTK Monogram logo concept</title>
+  <desc id="desc">A compact RTK monogram inside a board tile beside the ChessRTK wordmark.</desc>
+  <defs>
+    <linearGradient id="tile" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#2e7d57"/>
+      <stop offset="0.58" stop-color="#123b2b"/>
+      <stop offset="1" stop-color="#0d1c14"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f0c45b"/>
+      <stop offset="1" stop-color="#d8a63a"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="420" rx="48" fill="#fffefb"/>
+  <g transform="translate(86 70)">
+    <rect x="0" y="0" width="280" height="280" rx="42" fill="url(#tile)"/>
+    <path d="M52 62 H228 M52 132 H228 M52 202 H228 M62 52 V228 M132 52 V228 M202 52 V228" stroke="rgba(255,255,255,0.12)" stroke-width="12"/>
+    <text x="140" y="145" text-anchor="middle" fill="#fffefb" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="82" font-weight="900" letter-spacing="0">RTK</text>
+    <path d="M68 192 C108 168 142 132 210 82" fill="none" stroke="url(#gold)" stroke-width="12" stroke-linecap="round"/>
+    <circle cx="68" cy="192" r="13" fill="#d8a63a"/>
+    <circle cx="210" cy="82" r="13" fill="#d8a63a"/>
+  </g>
+  <g transform="translate(426 116)">
+    <text x="0" y="76" fill="#123b2b" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="90" font-weight="850" letter-spacing="0">ChessRTK</text>
+    <text x="4" y="124" fill="#2e7d57" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="27" font-weight="800" letter-spacing="0">REPRODUCIBLE TOOLKIT</text>
+    <text x="4" y="173" fill="#4a554d" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="30" font-weight="500" letter-spacing="0">A small-icon mark for CLIs, docs, and releases.</text>
+  </g>
+</svg>

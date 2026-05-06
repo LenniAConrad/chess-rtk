@@ -125,23 +125,20 @@ public final class EngineSupport {
 			Protocol protocol = new Protocol().fromToml(toml);
 			String[] errors = protocol.collectValidationErrors();
 			if (!protocol.assertValid()) {
-				System.err.println("Protocol is missing required values:");
+				StringBuilder message = new StringBuilder("Protocol is missing required values:");
 				for (String err : errors) {
-					System.err.println("  - " + err);
+					message.append(System.lineSeparator()).append("  - ").append(err);
 				}
-				System.exit(2);
+				throw new CommandFailure(message.toString(), 2);
 			}
 			if (errors.length > 0) {
 				LogService.warn("Protocol has non-essential issues: " + errors.length);
 			}
 			return protocol;
+		} catch (CommandFailure failure) {
+			throw failure;
 		} catch (Exception e) {
-			System.err.println("Failed to load protocol: " + e.getMessage());
-			if (verbose) {
-				e.printStackTrace(System.err);
-			}
-			System.exit(2);
-			return null;
+			throw new CommandFailure("Failed to load protocol: " + e.getMessage(), e, 2, verbose);
 		}
 	}
 }

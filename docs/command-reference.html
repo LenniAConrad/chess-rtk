@@ -43,6 +43,7 @@
 <a class="" href="datasets.html" data-title="datasets">Datasets</a>
 <a class="" href="book-publishing.html" data-title="book publishing">Book Publishing</a>
 <a class="" href="piece-tags.html" data-title="tags">Tags</a>
+<a class="" href="tag-reference.html" data-title="tag reference">Tag Reference</a>
 <a class="" href="t5.html" data-title="t5 text">T5 Text</a>
 <a class="" href="ai-agents.html" data-title="ai agents">AI Agents</a>
 </section>
@@ -80,7 +81,7 @@
 <li>From classes: <code>java -cp out application.Main &lt;area&gt; &lt;action&gt; [options] [args]</code></li>
 <li>Built-in usage text: <code>crtk help --full</code></li>
 </ul>
-<p>Use grouped commands for scripts and automation: <code>record</code>, <code>fen</code>, <code>move</code>, <code>engine</code>, <code>book</code>, and <code>puzzle</code>.</p>
+<p>Use grouped commands for scripts and automation: <code>record</code>, <code>fen</code>, <code>move</code>, <code>engine</code>, <code>position</code>, <code>book</code>, and <code>puzzle</code>.</p>
 <p>Command style:</p>
 <ul>
 <li>Prefer the full grouped form in scripts: <code>crtk record export ...</code>,</li>
@@ -98,7 +99,7 @@
 <li>Contextual help works with either <code>crtk help move list</code> or</li>
 </ul>
 <p><code>crtk move list --help</code>.</p>
-<p>The Java-native commands (<code>fen</code>, <code>move</code>, <code>engine perft</code>, <code>engine perft-suite</code>, <code>engine builtin --classical</code>, and <code>engine static</code>) do not require an external engine. External UCI configuration is only needed for UCI-backed analysis, best-move, threat, smoke-test, and mining workflows.</p>
+<p>The Java-native commands (<code>fen</code>, <code>move</code>, <code>position diff</code>, <code>engine benchmark</code>, <code>engine perft</code>, <code>engine perft-suite</code>, <code>engine builtin --classical</code>, and <code>engine static</code>) do not require an external engine. External UCI configuration is only needed for UCI-backed analysis, best-move, comparison, threat, smoke-test, and mining workflows.</p>
 <h2 id="capability-overview">Capability Overview</h2>
 <div class="table-wrap"><table>
 <thead><tr>
@@ -107,7 +108,7 @@
 </tr></thead><tbody>
 <tr>
 <td>Position parsing and generation</td>
-<td><code>fen normalize</code>, <code>fen validate</code>, <code>fen generate</code>, <code>fen pgn</code>, <code>fen chess960</code></td>
+<td><code>fen normalize</code>, <code>fen validate</code>, <code>fen generate</code>, <code>fen pgn</code>, <code>fen chess960</code>, <code>position diff</code></td>
 </tr>
 <tr>
 <td>Board inspection and rendering</td>
@@ -119,11 +120,11 @@
 </tr>
 <tr>
 <td>Move-generation validation</td>
-<td><code>engine perft</code>, <code>engine perft-suite</code></td>
+<td><code>engine perft</code>, <code>engine perft-suite</code>, <code>engine benchmark</code></td>
 </tr>
 <tr>
 <td>External UCI engines</td>
-<td><code>engine analyze</code>, <code>engine bestmove</code>, <code>engine threats</code>, <code>engine uci-smoke</code></td>
+<td><code>engine analyze</code>, <code>engine bestmove</code>, <code>engine analyze-batch</code>, <code>engine bestmove-batch</code>, <code>engine compare</code>, <code>engine threats</code>, <code>engine uci-smoke</code></td>
 </tr>
 <tr>
 <td>In-process search and evaluation</td>
@@ -151,7 +152,7 @@
 </tr>
 <tr>
 <td>Local health checks</td>
-<td><code>doctor</code>, <code>config show</code>, <code>config validate</code>, <code>engine gpu</code></td>
+<td><code>doctor</code>, <code>config show</code>, <code>config validate</code>, <code>engine gpu</code>, <code>version</code></td>
 </tr>
 </tbody></table></div>
 <h2 id="record"><code>record</code></h2>
@@ -211,6 +212,10 @@
 <li><code>crtk engine bestmove-uci ...</code>: print the best move in UCI</li>
 <li><code>crtk engine bestmove-san ...</code>: print the best move in SAN</li>
 <li><code>crtk engine bestmove-both ...</code>: print the best move in UCI and SAN</li>
+<li><code>crtk engine analyze-batch ...</code>: emit batch analysis rows as JSONL</li>
+<li><code>crtk engine bestmove-batch ...</code>: emit batch best-move rows as JSONL</li>
+<li><code>crtk engine compare ...</code>: compare best moves from two UCI protocol files</li>
+<li><code>crtk engine benchmark ...</code>: benchmark the Java core move generator</li>
 <li><code>crtk engine builtin ...</code>: search with the in-house Java engine</li>
 <li><code>crtk engine java ...</code>: run the same built-in Java engine</li>
 <li><code>crtk engine threats ...</code>: analyze opponent threats</li>
@@ -220,6 +225,12 @@
 <li><code>crtk engine perft-suite ...</code>: run the perft regression suite</li>
 <li><code>crtk engine gpu ...</code>: print GPU JNI backend status</li>
 <li><code>crtk engine uci-smoke ...</code>: start the engine and run a tiny bounded search</li>
+</ul>
+<h2 id="position"><code>position</code></h2>
+<p>Grouped position-inspection workflows.</p>
+<p>Usage:</p>
+<ul>
+<li><code>crtk position diff ...</code>: compare two FEN positions square-by-square and by state fields</li>
 </ul>
 <h2 id="engine-builtin"><code>engine builtin</code></h2>
 <p>Search a position with ChessRTK&#x27;s in-house Java engine. <code>engine java</code> runs the same implementation.</p>
@@ -263,7 +274,7 @@ crtk engine builtin --lc0 --weights models/leela_112planes-10blocksx128-policyhe
 </ul>
 <p>or an explicit <code>--weights</code> path. If no NNUE weights are available, the command fails with a missing-weights error instead of silently using the smoke-test fallback.</p>
 <ul>
-<li><code>lc0</code>: pure-Java LC0 value evaluator using the configured LC0J model path by</li>
+<li><code>lc0</code>: pure-Java LC0 value evaluator using the configured LC0 CNN model path by</li>
 </ul>
 <p>default, or an explicit <code>--weights</code> path.</p>
 <p>Search notes:</p>
@@ -389,12 +400,12 @@ crtk engine builtin --lc0 --weights models/leela_112planes-10blocksx128-policyhe
 <li><code>--weights &lt;path&gt;</code>: optional LC0 weights to compress the policy to the net&#x27;s size</li>
 </ul>
 <h2 id="record-export-puzzle-jsonl"><code>record export puzzle-jsonl</code></h2>
-<p>Convert <code>.record</code> rows into puzzle JSONL with LC0 policy values. This command requires LC0J weights so it can use the network policy map.</p>
+<p>Convert <code>.record</code> rows into puzzle JSONL with LC0 policy values. This command requires ChessRTK LC0 CNN <code>.bin</code> weights so it can use the network policy map.</p>
 <p>Options:</p>
 <ul>
 <li><code>--input|-i &lt;path&gt;</code>: input <code>.record</code> file (required)</li>
 <li><code>--output|-o &lt;path&gt;</code>: output <code>.jsonl</code> path (optional; default derived from input)</li>
-<li><code>--weights &lt;path&gt;</code>: LC0J weights path (required)</li>
+<li><code>--weights &lt;path&gt;</code>: ChessRTK LC0 CNN <code>.bin</code> weights path (required)</li>
 <li><code>--filter|-f &lt;dsl&gt;</code>: optional row-selection Filter DSL</li>
 <li><code>--puzzles</code>: keep only records classified as puzzles by the configured verify filter</li>
 <li><code>--nonpuzzles</code>: keep only records classified as non-puzzles</li>
@@ -751,6 +762,27 @@ crtk engine builtin --lc0 --weights models/leela_112planes-10blocksx128-policyhe
 <li><code>--light</code>: start in light UI theme</li>
 <li><code>-h|--help</code>: show help</li>
 </ul>
+<h2 id="gui-workbench"><code>gui-workbench</code></h2>
+<p>Launch the native Swing command and analysis workbench.</p>
+<p>Alias:</p>
+<ul>
+<li><code>workbench</code></li>
+</ul>
+<p>The workbench includes:</p>
+<ul>
+<li>an analysis board with legal moves, click-to-move, static tags, and engine command shortcuts</li>
+<li>a focused command controller with curated templates and command-specific flag tables</li>
+<li>a batch runner for FEN lists and high-value research commands</li>
+</ul>
+<p>Options:</p>
+<ul>
+<li><code>--fen &quot;&lt;FEN...&gt;&quot;</code> (or pass it positionally)</li>
+<li><code>--flip|--black-down</code>: render Black at the bottom</li>
+<li><code>-h|--help</code>: show help</li>
+</ul>
+<p>Examples:</p>
+<pre><code class="language-bash">crtk gui-workbench
+crtk workbench --fen &quot;&lt;FEN&gt;&quot;</code></pre>
 <h2 id="config"><code>config</code></h2>
 <p>Show or validate CLI configuration.</p>
 <p>Subcommands:</p>
@@ -792,7 +824,7 @@ crtk engine builtin --lc0 --weights models/leela_112planes-10blocksx128-policyhe
 <li><code>--delta</code>: emit per-move tag deltas as JSONL</li>
 <li><code>--mainline</code>: with <code>--pgn</code>, only export mainline positions</li>
 <li><code>--sidelines</code>: with <code>--pgn</code>, include variations</li>
-<li><code>--protocol|-p &lt;path&gt;</code>: engine protocol TOML file</li>
+<li><code>--protocol-path|-P &lt;path&gt;</code>: engine protocol TOML file</li>
 <li><code>--max-nodes &lt;n&gt;</code>: max nodes per position</li>
 <li><code>--max-duration &lt;duration&gt;</code>: max duration per position (e.g. <code>5s</code>)</li>
 <li><code>--multipv &lt;n&gt;</code>: number of PVs</li>
@@ -812,7 +844,7 @@ crtk engine builtin --lc0 --weights models/leela_112planes-10blocksx128-policyhe
 <li><code>--tag-multipv &lt;n&gt;</code>: MultiPV used while enriching tags (default <code>1</code>)</li>
 <li><code>--analyze</code>: run engine analysis to enrich tags (default)</li>
 <li><code>--no-analyze</code>: skip per-move analysis and use static tags</li>
-<li><code>--protocol|-p &lt;path&gt;</code>: engine protocol TOML file</li>
+<li><code>--protocol-path|-P &lt;path&gt;</code>: engine protocol TOML file</li>
 <li><code>--max-nodes &lt;n&gt;</code>: max nodes per position</li>
 <li><code>--max-duration &lt;duration&gt;</code>: max duration per position (e.g. <code>5s</code>)</li>
 <li><code>--threads &lt;n&gt;</code>: engine threads</li>
@@ -834,7 +866,7 @@ crtk engine builtin --lc0 --weights models/leela_112planes-10blocksx128-policyhe
 <li><code>--include-fen</code>: emit JSON with FEN, inferred move, and summary</li>
 <li><code>--analyze</code>: run engine analysis to enrich tags (default)</li>
 <li><code>--no-analyze</code>: skip per-move analysis and use static tags</li>
-<li><code>--protocol|-p &lt;path&gt;</code>: engine protocol TOML file</li>
+<li><code>--protocol-path|-P &lt;path&gt;</code>: engine protocol TOML file</li>
 <li><code>--max-nodes &lt;n&gt;</code>: max nodes per position</li>
 <li><code>--max-duration &lt;duration&gt;</code>: max duration per position (e.g. <code>5s</code>)</li>
 <li><code>--threads &lt;n&gt;</code>: engine threads</li>
@@ -853,7 +885,7 @@ crtk engine builtin --lc0 --weights models/leela_112planes-10blocksx128-policyhe
 <li><code>--include-fen</code>: emit JSON with FEN and summary</li>
 <li><code>--max-new &lt;n&gt;</code>: max generated tokens (default <code>128</code>)</li>
 <li><code>--analyze</code>: run engine analysis to enrich tags</li>
-<li><code>--protocol|-p &lt;path&gt;</code>: engine protocol TOML file</li>
+<li><code>--protocol-path|-P &lt;path&gt;</code>: engine protocol TOML file</li>
 <li><code>--max-nodes &lt;n&gt;</code>: max nodes per position</li>
 <li><code>--max-duration &lt;duration&gt;</code>: max duration per position (e.g. <code>5s</code>)</li>
 <li><code>--multipv &lt;n&gt;</code>: number of PVs</li>
@@ -871,6 +903,11 @@ crtk engine builtin --lc0 --weights models/leela_112planes-10blocksx128-policyhe
 <li><code>--format &lt;uci|san|both&gt;</code>: output format (default <code>uci</code>)</li>
 <li><code>--san</code>: output SAN instead of UCI</li>
 <li><code>--both</code>: output UCI + SAN per move</li>
+<li><code>--json</code>: emit a JSON array of move objects</li>
+<li><code>--jsonl</code>: emit one move JSON object per line</li>
+<li><code>--fields &lt;uci|san|both|uci,san&gt;</code>: select output fields</li>
+<li><code>--no-header</code>: accepted for script-friendly consistency</li>
+<li><code>--quiet</code>: suppress non-row chatter where supported</li>
 <li><code>--verbose|-v</code>: print stack traces on failure</li>
 </ul>
 <h2 id="move-uci"><code>move uci</code></h2>
@@ -878,6 +915,11 @@ crtk engine builtin --lc0 --weights models/leela_112planes-10blocksx128-policyhe
 <p>Options:</p>
 <ul>
 <li><code>--fen &quot;&lt;FEN...&gt;&quot;</code>: FEN string (or pass it positionally)</li>
+<li><code>--json</code>: emit a JSON array of move objects</li>
+<li><code>--jsonl</code>: emit one move JSON object per line</li>
+<li><code>--fields &lt;uci|san|both|uci,san&gt;</code>: select output fields</li>
+<li><code>--no-header</code>: accepted for script-friendly consistency</li>
+<li><code>--quiet</code>: suppress non-row chatter where supported</li>
 <li><code>--verbose|-v</code>: print stack traces on failure</li>
 </ul>
 <h2 id="move-san"><code>move san</code></h2>
@@ -885,6 +927,11 @@ crtk engine builtin --lc0 --weights models/leela_112planes-10blocksx128-policyhe
 <p>Options:</p>
 <ul>
 <li><code>--fen &quot;&lt;FEN...&gt;&quot;</code>: FEN string (or pass it positionally)</li>
+<li><code>--json</code>: emit a JSON array of move objects</li>
+<li><code>--jsonl</code>: emit one move JSON object per line</li>
+<li><code>--fields &lt;uci|san|both|uci,san&gt;</code>: select output fields</li>
+<li><code>--no-header</code>: accepted for script-friendly consistency</li>
+<li><code>--quiet</code>: suppress non-row chatter where supported</li>
 <li><code>--verbose|-v</code>: print stack traces on failure</li>
 </ul>
 <h2 id="move-both"><code>move both</code></h2>
@@ -892,6 +939,11 @@ crtk engine builtin --lc0 --weights models/leela_112planes-10blocksx128-policyhe
 <p>Options:</p>
 <ul>
 <li><code>--fen &quot;&lt;FEN...&gt;&quot;</code>: FEN string (or pass it positionally)</li>
+<li><code>--json</code>: emit a JSON array of move objects</li>
+<li><code>--jsonl</code>: emit one move JSON object per line</li>
+<li><code>--fields &lt;uci|san|both|uci,san&gt;</code>: select output fields</li>
+<li><code>--no-header</code>: accepted for script-friendly consistency</li>
+<li><code>--quiet</code>: suppress non-row chatter where supported</li>
 <li><code>--verbose|-v</code>: print stack traces on failure</li>
 </ul>
 <h2 id="move-to-san"><code>move to-san</code></h2>
@@ -904,6 +956,10 @@ crtk engine builtin --lc0 --weights models/leela_112planes-10blocksx128-policyhe
 <ul>
 <li><code>--fen &quot;&lt;FEN...&gt;&quot;</code>: FEN string (or pass it positionally)</li>
 <li><code>&lt;move&gt;</code>: UCI move token (e.g. <code>e2e4</code>, <code>a7a8q</code>)</li>
+<li><code>--json</code>: emit one JSON object</li>
+<li><code>--jsonl</code>: emit one JSON object line</li>
+<li><code>--no-header</code>: accepted for script-friendly consistency</li>
+<li><code>--quiet</code>: suppress non-row chatter where supported</li>
 <li><code>--verbose|-v</code>: print stack traces on failure</li>
 </ul>
 <h2 id="move-to-uci"><code>move to-uci</code></h2>
@@ -916,6 +972,10 @@ crtk engine builtin --lc0 --weights models/leela_112planes-10blocksx128-policyhe
 <ul>
 <li><code>--fen &quot;&lt;FEN...&gt;&quot;</code>: FEN string (or pass it positionally)</li>
 <li><code>&lt;move&gt;</code>: SAN move token (e.g. <code>Nf3</code>, <code>exd5</code>, <code>O-O</code>)</li>
+<li><code>--json</code>: emit one JSON object</li>
+<li><code>--jsonl</code>: emit one JSON object line</li>
+<li><code>--no-header</code>: accepted for script-friendly consistency</li>
+<li><code>--quiet</code>: suppress non-row chatter where supported</li>
 <li><code>--verbose|-v</code>: print stack traces on failure</li>
 </ul>
 <h2 id="move-after"><code>move after</code></h2>
@@ -928,6 +988,10 @@ crtk engine builtin --lc0 --weights models/leela_112planes-10blocksx128-policyhe
 <ul>
 <li><code>--fen &quot;&lt;FEN...&gt;&quot;</code>: FEN string (or pass it positionally)</li>
 <li><code>&lt;move&gt;</code>: move token (UCI or SAN)</li>
+<li><code>--json</code>: emit one JSON object</li>
+<li><code>--jsonl</code>: emit one JSON object line</li>
+<li><code>--no-header</code>: accepted for script-friendly consistency</li>
+<li><code>--quiet</code>: suppress non-row chatter where supported</li>
 <li><code>--verbose|-v</code>: print stack traces on failure</li>
 </ul>
 <h2 id="move-play"><code>move play</code></h2>
@@ -942,6 +1006,10 @@ crtk engine builtin --lc0 --weights models/leela_112planes-10blocksx128-policyhe
 <li><code>--fen &quot;&lt;FEN...&gt;&quot;</code>: FEN string (or pass it positionally)</li>
 <li><code>&lt;moves...&gt;</code>: move sequence (UCI or SAN)</li>
 <li><code>--intermediate</code>: print intermediate FENs after each move instead of only the final FEN</li>
+<li><code>--json</code>: emit one JSON object</li>
+<li><code>--jsonl</code>: emit one JSON object line, or one per ply with <code>--intermediate</code></li>
+<li><code>--no-header</code>: accepted for script-friendly consistency</li>
+<li><code>--quiet</code>: suppress non-row chatter where supported</li>
 <li><code>--verbose|-v</code>: print stack traces on failure</li>
 </ul>
 <h2 id="fen-normalize"><code>fen normalize</code></h2>
@@ -949,6 +1017,11 @@ crtk engine builtin --lc0 --weights models/leela_112planes-10blocksx128-policyhe
 <p>Options:</p>
 <ul>
 <li><code>--fen &quot;&lt;FEN...&gt;&quot;</code>: FEN string (or pass it positionally)</li>
+<li><code>--stdin</code>: read one FEN per non-blank stdin line</li>
+<li><code>--json</code>: emit one JSON object, or an array for multiple rows</li>
+<li><code>--jsonl</code>: emit one JSON object per row</li>
+<li><code>--no-header</code>: accepted for script-friendly consistency</li>
+<li><code>--quiet</code>: suppress non-row chatter where supported</li>
 <li><code>--verbose|-v</code>: print stack traces on failure</li>
 </ul>
 <h2 id="fen-validate"><code>fen validate</code></h2>
@@ -956,6 +1029,11 @@ crtk engine builtin --lc0 --weights models/leela_112planes-10blocksx128-policyhe
 <p>Options:</p>
 <ul>
 <li><code>--fen &quot;&lt;FEN...&gt;&quot;</code>: FEN string (or pass it positionally)</li>
+<li><code>--stdin</code>: read one FEN per non-blank stdin line</li>
+<li><code>--json</code>: emit one JSON object, or an array for multiple rows</li>
+<li><code>--jsonl</code>: emit one JSON object per row</li>
+<li><code>--no-header</code>: accepted for script-friendly consistency</li>
+<li><code>--quiet</code>: suppress non-row chatter where supported</li>
 <li><code>--verbose|-v</code>: print stack traces on failure</li>
 </ul>
 <h2 id="engine-analyze"><code>engine analyze</code></h2>
@@ -1056,6 +1134,79 @@ crtk engine builtin --lc0 --weights models/leela_112planes-10blocksx128-policyhe
 <li><code>--wdl|--no-wdl</code>: enable/disable WDL output</li>
 <li><code>--verbose|-v</code>: print stack traces on failure</li>
 </ul>
+<h2 id="engine-analyze-batch"><code>engine analyze-batch</code></h2>
+<p>Analyze a FEN batch with an external UCI engine and emit machine-readable rows. The default output is JSONL so the command can feed long-running automation pipelines. Use <code>--json</code> when a single JSON array is easier to consume.</p>
+<p>Each successful row includes <code>ok</code>, <code>index</code>, normalized <code>fen</code>, <code>engine</code>, and a <code>pv</code> array. Each PV object includes the best move in UCI/SAN, evaluation, depths, nodes, NPS, elapsed time, WDL/bound labels, and PV line in UCI/SAN. Invalid FEN rows are emitted as <code>ok:false</code> rows instead of aborting the batch.</p>
+<p>Options:</p>
+<ul>
+<li><code>--input|-i &lt;path&gt;</code>: FEN list file</li>
+<li><code>--stdin</code>: read one FEN per non-blank stdin line</li>
+<li><code>--fen &quot;&lt;FEN...&gt;&quot;</code>, <code>--startpos</code>, <code>--randompos</code>: single-position selectors</li>
+<li><code>--output|-o &lt;path&gt;</code>: write rows to a file instead of stdout</li>
+<li><code>--json</code>: emit one JSON array</li>
+<li><code>--jsonl</code>: emit one JSON object per line (default)</li>
+<li><code>--protocol-path|-P &lt;toml&gt;</code>: override <code>Config.getProtocolPath()</code></li>
+<li><code>--max-nodes|--nodes &lt;n&gt;</code>: override <code>Config.getMaxNodes()</code></li>
+<li><code>--max-duration &lt;dur&gt;</code>: override <code>Config.getMaxDuration()</code></li>
+<li><code>--multipv &lt;n&gt;</code>: set engine MultiPV</li>
+<li><code>--threads &lt;n&gt;</code>: set engine thread count</li>
+<li><code>--hash &lt;mb&gt;</code>: set engine hash size</li>
+<li><code>--wdl|--no-wdl</code>: enable/disable WDL output</li>
+<li><code>--verbose|-v</code>: print stack traces on failure</li>
+</ul>
+<h2 id="engine-bestmove-batch"><code>engine bestmove-batch</code></h2>
+<p>Run best-move searches for a FEN batch and emit one JSON object per position by default. This is the compact batch counterpart to <code>engine bestmove</code>.</p>
+<p>Options:</p>
+<ul>
+<li><code>--input|-i &lt;path&gt;</code>: FEN list file</li>
+<li><code>--stdin</code>: read one FEN per non-blank stdin line</li>
+<li><code>--fen &quot;&lt;FEN...&gt;&quot;</code>, <code>--startpos</code>, <code>--randompos</code>: single-position selectors</li>
+<li><code>--output|-o &lt;path&gt;</code>: write rows to a file instead of stdout</li>
+<li><code>--json</code>: emit one JSON array</li>
+<li><code>--jsonl</code>: emit one JSON object per line (default)</li>
+<li><code>--protocol-path|-P &lt;toml&gt;</code>: override <code>Config.getProtocolPath()</code></li>
+<li><code>--max-nodes|--nodes &lt;n&gt;</code>: override <code>Config.getMaxNodes()</code></li>
+<li><code>--max-duration &lt;dur&gt;</code>: override <code>Config.getMaxDuration()</code></li>
+<li><code>--threads &lt;n&gt;</code>: set engine thread count</li>
+<li><code>--hash &lt;mb&gt;</code>: set engine hash size</li>
+<li><code>--wdl|--no-wdl</code>: enable/disable WDL output</li>
+<li><code>--verbose|-v</code>: print stack traces on failure</li>
+</ul>
+<h2 id="engine-compare"><code>engine compare</code></h2>
+<p>Compare the best move from two UCI protocol files over the same FEN input. Text output shows a compact row table and summary. <code>--json</code> emits a JSON object with <code>rows</code> and <code>summary</code>; <code>--jsonl</code> emits one comparison row per line.</p>
+<p>Options:</p>
+<ul>
+<li><code>--input|-i &lt;path&gt;</code>: FEN list file</li>
+<li><code>--stdin</code>: read one FEN per non-blank stdin line</li>
+<li><code>--fen &quot;&lt;FEN...&gt;&quot;</code>, <code>--startpos</code>, <code>--randompos</code>: single-position selectors</li>
+<li><code>--left-protocol &lt;path&gt;</code> / <code>--protocol-a &lt;path&gt;</code>: left protocol TOML</li>
+<li><code>--right-protocol &lt;path&gt;</code> / <code>--protocol-b &lt;path&gt;</code>: right protocol TOML</li>
+<li><code>--protocol-path|-P &lt;toml&gt;</code>: default protocol when one side is omitted</li>
+<li><code>--output|-o &lt;path&gt;</code>: write output to a file instead of stdout</li>
+<li><code>--json</code>: emit one JSON object with rows and summary</li>
+<li><code>--jsonl</code>: emit one JSON object per comparison row</li>
+<li><code>--max-nodes|--nodes &lt;n&gt;</code>: max nodes per engine per position</li>
+<li><code>--max-duration &lt;dur&gt;</code>: max duration per engine per position</li>
+<li><code>--multipv &lt;n&gt;</code>: set engine MultiPV</li>
+<li><code>--threads &lt;n&gt;</code>: set engine thread count</li>
+<li><code>--hash &lt;mb&gt;</code>: set engine hash size</li>
+<li><code>--wdl|--no-wdl</code>: enable/disable WDL output</li>
+<li><code>--verbose|-v</code>: print stack traces on failure</li>
+</ul>
+<h2 id="engine-benchmark"><code>engine benchmark</code></h2>
+<p>Benchmark the in-process Java move generator by running detailed perft for a position repeatedly. This command does not start an external engine.</p>
+<p>Options:</p>
+<ul>
+<li><code>--fen &quot;&lt;FEN...&gt;&quot;</code>: FEN string (or pass it positionally; defaults to start position)</li>
+<li><code>--startpos</code>: use the standard chess start position explicitly</li>
+<li><code>--randompos</code>: use one reachable random legal standard-chess position</li>
+<li><code>--depth|-d &lt;n&gt;</code>: perft depth (default: 4)</li>
+<li><code>--iterations &lt;n&gt;</code>: repetitions (default: 3)</li>
+<li><code>--threads &lt;n&gt;</code>: worker threads for legal root moves (default: 1)</li>
+<li><code>--json</code>: emit one JSON object</li>
+<li><code>--jsonl</code>: emit one JSON object line</li>
+<li><code>--verbose|-v</code>: print stack traces on failure</li>
+</ul>
 <h2 id="engine-perft"><code>engine perft</code></h2>
 <p>Run detailed perft on a position using the Java-native <code>chess.core</code> move generator. The output includes leaf nodes, captures, en-passant captures, castles, promotions, checks, checkmates, elapsed time, and nodes per second. When no position selector is provided, the command defaults to the standard start position.</p>
 <p>Options:</p>
@@ -1079,6 +1230,26 @@ crtk engine builtin --lc0 --weights models/leela_112planes-10blocksx128-policyhe
 <ul>
 <li><code>--depth|-d &lt;n&gt;</code>: depth to validate, 1 through 6 (default: 6)</li>
 <li><code>--threads &lt;n&gt;</code>: worker threads for independent positions (default: 1)</li>
+<li><code>--suite &lt;path&gt;</code>: custom tab-delimited suite file</li>
+</ul>
+<p>Custom suite rows may be any of:</p>
+<ul>
+<li><code>name&lt;TAB&gt;depth&lt;TAB&gt;fen&lt;TAB&gt;nodes</code></li>
+<li><code>fen&lt;TAB&gt;depth&lt;TAB&gt;nodes</code></li>
+<li><code>name&lt;TAB&gt;fen&lt;TAB&gt;nodes</code> (uses <code>--depth</code>, default 1)</li>
+<li><code>fen&lt;TAB&gt;nodes</code> (uses <code>--depth</code>, default 1)</li>
+</ul>
+<h2 id="position-diff"><code>position diff</code></h2>
+<p>Compare two FEN positions and print changed state fields plus changed board squares. Text output uses one diff per line. <code>--json</code> and <code>--jsonl</code> emit one object with <code>equal</code>, <code>left</code>, <code>right</code>, <code>state</code>, and <code>board</code> fields.</p>
+<p>Options:</p>
+<ul>
+<li><code>--fen &quot;&lt;FEN...&gt;&quot;</code>: left/input FEN</li>
+<li><code>--other &quot;&lt;FEN...&gt;&quot;</code>: right/comparison FEN</li>
+<li><code>--right &quot;&lt;FEN...&gt;&quot;</code>: alias for <code>--other</code></li>
+<li>positional <code>LEFT_FEN RIGHT_FEN</code>: quote each FEN</li>
+<li><code>--json</code>: emit one JSON object</li>
+<li><code>--jsonl</code>: emit one JSON object line</li>
+<li><code>--verbose|-v</code>: print stack traces on failure</li>
 </ul>
 <h2 id="doctor"><code>doctor</code></h2>
 <p>Check the local Java runtime, main config file, configured engine protocol, engine executable discovery, model paths, and output directory path. Missing model files are warnings because models are optional local artifacts.</p>
@@ -1105,7 +1276,7 @@ crtk engine builtin --lc0 --weights models/leela_112planes-10blocksx128-policyhe
 <li><code>--fen &quot;&lt;FEN...&gt;&quot;</code>: FEN string (or pass it positionally)</li>
 <li><code>--lc0</code>: force LC0 evaluation and fail if LC0 cannot run</li>
 <li><code>--classical</code>: force classical evaluation</li>
-<li><code>--weights &lt;path&gt;</code>: LC0J <code>.bin</code> weights path (optional)</li>
+<li><code>--weights &lt;path&gt;</code>: ChessRTK LC0 CNN <code>.bin</code> weights path (optional)</li>
 <li><code>--terminal-aware</code>: use terminal-aware classical evaluation</li>
 <li><code>--verbose|-v</code>: print stack traces on failure</li>
 </ul>
@@ -1126,6 +1297,20 @@ crtk engine builtin --lc0 --weights models/leela_112planes-10blocksx128-policyhe
 </ul>
 <h2 id="help"><code>help</code></h2>
 <p>Print the built-in usage text.</p>
+<p>Options:</p>
+<ul>
+<li><code>--full</code>: show full built-in command reference</li>
+<li><code>&lt;command&gt;</code>: show help for one command path</li>
+</ul>
+<h2 id="version"><code>version</code></h2>
+<p>Print ChessRTK version metadata for scripts and release checks.</p>
+<p>Options:</p>
+<ul>
+<li><code>--json</code>: emit one JSON object</li>
+<li><code>--jsonl</code>: emit one JSON object line</li>
+<li><code>--no-header</code>: accepted for script-friendly consistency</li>
+<li><code>--quiet</code>: suppress non-row chatter where supported</li>
+</ul>
         </article>
         <aside class="toc"><h2>On This Page</h2>
 <a class="toc-h2" href="#capability-overview">Capability Overview</a>
@@ -1133,6 +1318,7 @@ crtk engine builtin --lc0 --weights models/leela_112planes-10blocksx128-policyhe
 <a class="toc-h2" href="#fen">fen</a>
 <a class="toc-h2" href="#move">move</a>
 <a class="toc-h2" href="#engine">engine</a>
+<a class="toc-h2" href="#position">position</a>
 <a class="toc-h2" href="#engine-builtin">engine builtin</a>
 <a class="toc-h2" href="#book">book</a>
 <a class="toc-h2" href="#puzzle">puzzle</a>
@@ -1144,8 +1330,7 @@ crtk engine builtin --lc0 --weights models/leela_112planes-10blocksx128-policyhe
 <a class="toc-h2" href="#record-files">record files</a>
 <a class="toc-h2" href="#record-dataset-npy">record dataset npy</a>
 <a class="toc-h2" href="#record-dataset-lc0">record dataset lc0</a>
-<a class="toc-h2" href="#record-export-puzzle-jsonl">record export puzzle-jsonl</a>
-<a class="toc-h2" href="#record-dataset-classifier">record dataset classifier</a></aside>
+<a class="toc-h2" href="#record-export-puzzle-jsonl">record export puzzle-jsonl</a></aside>
       </main>
       <footer class="footer">
         <span>Generated from <code>wiki/command-reference.md</code>.</span>
