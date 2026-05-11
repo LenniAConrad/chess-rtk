@@ -60,6 +60,13 @@ final class WorkbenchBt4View extends JComponent {
     private boolean detailed;
 
     /**
+     * Raw-mode flag. When on, the view paints every per-head per-block
+     * attention thumbnail in one dense grid, overriding the abstract /
+     * detailed split.
+     */
+    private boolean rawView;
+
+    /**
      * Selected transformer block in detailed mode (0..BLOCKS-1).
      */
     private int selectedBlock;
@@ -88,6 +95,11 @@ final class WorkbenchBt4View extends JComponent {
      * Cached hit-box for the block strip.
      */
     private Rectangle blockStripBounds = new Rectangle();
+
+    /**
+     * Cached hit-box for the raw-atlas grid (rows = blocks, cols = heads).
+     */
+    private Rectangle rawAtlasBounds = new Rectangle();
 
     /**
      * Hover + click region registry, rebuilt every paint pass.
@@ -252,6 +264,22 @@ final class WorkbenchBt4View extends JComponent {
     }
 
     /**
+     * Sets the raw-mode flag. Raw mode supersedes the abstract / detailed
+     * split and paints every per-block per-head 8×8 attention-received
+     * thumbnail in one dense grid.
+     *
+     * @param value true for raw mode
+     */
+    void setRaw(boolean value) {
+        if (rawView != value) {
+            rawView = value;
+            invalidate();
+            revalidate();
+            repaint();
+        }
+    }
+
+    /**
      * Paints the panel.
      *
      * @param graphics graphics
@@ -274,7 +302,9 @@ final class WorkbenchBt4View extends JComponent {
             }
             paintHeader(g, bounds);
             Rectangle body = new Rectangle(PAD, 64, getWidth() - 2 * PAD, getHeight() - 64 - PAD);
-            if (detailed) {
+            if (rawView) {
+                paintRaw(g, body);
+            } else if (detailed) {
                 paintDetailed(g, body);
             } else {
                 paintAbstract(g, body);
@@ -291,6 +321,24 @@ final class WorkbenchBt4View extends JComponent {
      * @param y y
      */
     private void handleClick(int x, int y) {
+        if (rawView) {
+            // In raw view, click any thumbnail to select that block+head.
+            if (rawAtlasBounds.contains(x, y)) {
+                int relX = x - rawAtlasBounds.x;
+                int relY = y - rawAtlasBounds.y;
+                int cellW = Math.max(1, rawAtlasBounds.width / HEADS);
+                int cellH = Math.max(1, rawAtlasBounds.height / BLOCKS);
+                selectedHead = Math.max(0, Math.min(HEADS - 1, relX / cellW));
+                selectedBlock = Math.max(0, Math.min(BLOCKS - 1, relY / cellH));
+                repaint();
+                return;
+            }
+            WorkbenchHitRegions.Region region = hitRegions.hitTest(x, y);
+            if (region != null && inspector != null) {
+                inspector.inspect(region, snapshot);
+            }
+            return;
+        }
         if (!detailed) {
             WorkbenchHitRegions.Region r = hitRegions.hitTest(x, y);
             if (r == null) {
@@ -402,6 +450,188 @@ final class WorkbenchBt4View extends JComponent {
         Rectangle right = new Rectangle(body.x + leftW + 10, body.y, body.width - leftW - 10, body.height);
         paintAbstractPipeline(g, left);
         paintTokenEnergyBoard(g, right);
+    }
+
+    /**
+     * Paints the raw view: a dense atlas of every block × head attention
+     * pattern. The screen is split into two stacked grids — the upper grid
+     * shows each head's full 64×64 attention matrix (a "fingerprint" of
+     * where attention flows), and the lower grid shows the same head's
+     * 8×8 mean attention-received pattern projected onto the board.
+     *
+     * Each block gets one row (1..15); each head gets one column (1..32).
+     * Per-block colour normalisation keeps earlier blocks readable even
+     * when later blocks have much sharper peaks. A square-root gamma is
+     * applied so low attention values stay visible without saturating
+     * the high values.
+     *
+     * @param g graphics
+     * @param body body rectangle
+     */
+    private void paintRaw(Graphics2D g, Rectangle body) {
+        int headerH = 38;
+        WorkbenchTensorViz.drawSectionHeader(g,
+                new Rectangle(body.x, body.y, body.width, headerH),
+                "raw attention atlas — 480 heads at once",
+                "top grid: 64×64 attention matrices · bottom grid: 8×8 mean attention-received on the board · click any cell to focus");
+        int rowLabelW = 28;
+        int colLabelH = 16;
+        int gridTop = body.y + headerH + 4 + colLabelH;
+        int gridLeft = body.x + rowLabelW;
+        int gridW = body.width - rowLabelW - 4;
+        int gridH = body.height - headerH - 4 - colLabelH - 4;
+        int cellW = Math.max(2, gridW / HEADS);
+        // Each block row is split horizontally into two stacked sub-cells:
+        // the top sub-cell holds the 64×64 matrix, the bottom holds the 8×8
+        // board-shaped energy pattern.
+        int cellH = Math.max(4, gridH / BLOCKS);
+        int subPad = 1;
+        int matrixH = (int) Math.round(cellH * 0.62);
+        int boardH = cellH - matrixH - 2;
+
+        // Compute per-block max for both matrix values and 8×8 energy so
+        // each block row uses its full colour range, and apply a gamma
+        // (sqrt) so low values stay visible.
+        float[][][] matrix = new float[BLOCKS][HEADS][];
+        float[][][] energy = new float[BLOCKS][HEADS][64];
+        float[] matrixMax = new float[BLOCKS];
+        float[] energyMax = new float[BLOCKS];
+        for (int b = 0; b < BLOCKS; ++b) {
+            float[] heads = snapshot.data("bt4.block" + b + ".attention.heads");
+            if (heads == null) {
+                matrixMax[b] = 1.0f;
+                energyMax[b] = 1.0f;
+                continue;
+            }
+            for (int h = 0; h < HEADS; ++h) {
+                int off = h * 64 * 64;
+                if (off + 64 * 64 > heads.length) {
+                    continue;
+                }
+                float[] mat = new float[64 * 64];
+                System.arraycopy(heads, off, mat, 0, 64 * 64);
+                matrix[b][h] = mat;
+                for (int from = 0; from < 64; ++from) {
+                    for (int to = 0; to < 64; ++to) {
+                        energy[b][h][to] += mat[from * 64 + to];
+                    }
+                }
+                for (int s = 0; s < 64; ++s) {
+                    energy[b][h][s] /= 64.0f;
+                }
+                for (float v : mat) {
+                    if (v > matrixMax[b]) {
+                        matrixMax[b] = v;
+                    }
+                }
+                for (float v : energy[b][h]) {
+                    if (v > energyMax[b]) {
+                        energyMax[b] = v;
+                    }
+                }
+            }
+            if (matrixMax[b] <= 0.0f) {
+                matrixMax[b] = 1.0f;
+            }
+            if (energyMax[b] <= 0.0f) {
+                energyMax[b] = 1.0f;
+            }
+            matrixMax[b] = scaleFor("rawAtlas:matrix:b" + b, matrixMax[b]);
+            energyMax[b] = scaleFor("rawAtlas:energy:b" + b, energyMax[b]);
+        }
+
+        // Column (head) labels — every 4th to avoid clutter.
+        g.setColor(WorkbenchTheme.MUTED);
+        g.setFont(WorkbenchTheme.font(9, Font.PLAIN));
+        FontMetrics fm = g.getFontMetrics();
+        for (int h = 0; h < HEADS; h += 2) {
+            String lbl = "h" + (h + 1);
+            int lx = gridLeft + h * cellW + (cellW - fm.stringWidth(lbl)) / 2;
+            g.drawString(lbl, lx, body.y + headerH + 4 + colLabelH - 4);
+        }
+
+        for (int b = 0; b < BLOCKS; ++b) {
+            int y = gridTop + b * cellH;
+            String rowLabel = "B" + (b + 1);
+            g.setColor(WorkbenchTheme.MUTED);
+            g.setFont(WorkbenchTheme.font(10, Font.BOLD));
+            g.drawString(rowLabel, body.x + 4, y + cellH / 2 + 4);
+            for (int h = 0; h < HEADS; ++h) {
+                int x = gridLeft + h * cellW;
+                Rectangle matrixCell = new Rectangle(x + subPad, y + subPad,
+                        Math.max(1, cellW - 2 * subPad),
+                        Math.max(1, matrixH - 2 * subPad));
+                Rectangle boardCell = new Rectangle(x + subPad, y + matrixH + 1,
+                        Math.max(1, cellW - 2 * subPad),
+                        Math.max(1, boardH - 2));
+                if (matrix[b][h] != null) {
+                    drawGammaHeatmap(g, matrixCell, matrix[b][h], 64, 64, matrixMax[b]);
+                } else {
+                    WorkbenchTensorViz.drawEmpty(g, matrixCell);
+                }
+                drawGammaHeatmap(g, boardCell, energy[b][h], 8, 8, energyMax[b]);
+                boolean selected = b == selectedBlock && h == selectedHead;
+                Color border = selected ? WorkbenchTheme.ACCENT : WorkbenchTheme.LINE;
+                g.setColor(border);
+                g.drawRect(x, y, cellW - 1, cellH - 1);
+                if (selected) {
+                    g.drawRect(x + 1, y + 1, cellW - 3, cellH - 3);
+                }
+                float peak = 0.0f;
+                for (float v : energy[b][h]) {
+                    if (v > peak) {
+                        peak = v;
+                    }
+                }
+                hitRegions.add(new Rectangle(x, y, cellW, cellH),
+                        "B" + (b + 1) + " · h" + (h + 1),
+                        "Click to select this block + head; switch off Raw view to inspect in detail.",
+                        String.format("max attn %.4f · peak square %.4f", matrixMax[b], peak));
+            }
+        }
+        rawAtlasBounds = new Rectangle(gridLeft, gridTop, HEADS * cellW, BLOCKS * cellH);
+    }
+
+    /**
+     * Draws a heatmap with a square-root gamma applied to each value so
+     * low values stay visible. Same overall API as
+     * {@link WorkbenchTensorViz#drawHeatmap} but tuned for the dense raw
+     * atlas where most attention values are small.
+     *
+     * @param g graphics
+     * @param r destination rectangle
+     * @param data flat row-major values
+     * @param cols column count
+     * @param rows row count
+     * @param scale absolute max for the colour ramp
+     */
+    private static void drawGammaHeatmap(Graphics2D g, Rectangle r, float[] data,
+            int cols, int rows, float scale) {
+        if (data == null || cols <= 0 || rows <= 0 || data.length < cols * rows) {
+            return;
+        }
+        if (scale <= 0.0f) {
+            scale = 1.0f;
+        }
+        double cw = r.width / (double) cols;
+        double ch = r.height / (double) rows;
+        Color highBase = new Color(220, 110, 55);
+        for (int row = 0; row < rows; ++row) {
+            for (int col = 0; col < cols; ++col) {
+                int cellX = (int) Math.floor(r.x + col * cw);
+                int cellY = (int) Math.floor(r.y + row * ch);
+                int cellW = (int) Math.ceil(cw + 1);
+                int cellH = (int) Math.ceil(ch + 1);
+                float v = Math.max(0.0f, data[row * cols + col] / scale);
+                float gamma = (float) Math.sqrt(Math.min(1.0f, v));
+                int alpha = Math.round(255 * gamma);
+                g.setColor(new Color(highBase.getRed(), highBase.getGreen(),
+                        highBase.getBlue(), alpha));
+                g.fillRect(cellX, cellY, cellW, cellH);
+            }
+        }
+        g.setColor(new Color(0, 0, 0, 35));
+        g.drawRect(r.x, r.y, r.width - 1, r.height - 1);
     }
 
     /**
@@ -632,17 +862,16 @@ final class WorkbenchBt4View extends JComponent {
 
         int columnTop = blockBar.y + blockBar.height + 12;
         int columnH = body.height - (columnTop - body.y) - 8;
-        int gridW = Math.min(360, body.width / 4);
-        int matrixW = Math.min(360, (body.width - gridW - 24) / 2);
+        int gridW = Math.min(560, Math.max(360, body.width / 3));
+        int matrixW = Math.min(420, Math.max(320, (body.width - gridW - 24) / 3));
         Rectangle gridR = new Rectangle(body.x, columnTop, gridW,
                 Math.min(columnH, gridW * 2));
         Rectangle matrixR = new Rectangle(body.x + gridW + 12, columnTop, matrixW,
-                Math.min(matrixW + 24, columnH));
+                Math.min(matrixW + 32, columnH));
         Rectangle boardR = new Rectangle(matrixR.x + matrixW + 12, columnTop,
                 body.width - (matrixR.x + matrixW + 12 - body.x), columnH);
 
         paintHeadGrid(g, gridR);
-        headGridBounds = gridR;
         paintAttentionMatrix(g, matrixR);
         // paintBoardOverlay sets boardBounds to the inner mini-board rectangle;
         // do not overwrite it here, otherwise click coordinates are mapped
@@ -696,12 +925,16 @@ final class WorkbenchBt4View extends JComponent {
      * @param r rectangle
      */
     private void paintHeadGrid(Graphics2D g, Rectangle r) {
-        WorkbenchTensorViz.drawSectionHeader(g, new Rectangle(r.x, r.y - 18, r.width, 18),
-                "heads", "per-head 8×8 attention-received heatmap · click one to focus");
+        int headerH = 38;
+        Rectangle header = new Rectangle(r.x, r.y, r.width, headerH);
+        WorkbenchTensorViz.drawSectionHeader(g, header, "heads of block " + (selectedBlock + 1),
+                "8×8 attention-received per head · click one to focus");
+        Rectangle grid = new Rectangle(r.x, r.y + headerH + 4, r.width, r.height - headerH - 4);
+        headGridBounds = grid;
         int cols = 4;
         int rows = HEADS / cols;
-        int cellW = r.width / cols;
-        int cellH = r.height / rows;
+        int cellW = grid.width / cols;
+        int cellH = grid.height / rows;
         float[] heads = snapshot.data("bt4.block" + selectedBlock + ".attention.heads");
         if (heads == null) {
             return;
@@ -732,17 +965,14 @@ final class WorkbenchBt4View extends JComponent {
         for (int h = 0; h < HEADS; ++h) {
             int col = h % cols;
             int row = h / cols;
-            int x = r.x + col * cellW;
-            int y = r.y + row * cellH;
-            int padTop = 12;
-            int hmW = cellW - 4;
-            int hmH = cellH - padTop - 2;
-            Rectangle heat = new Rectangle(x + 2, y + padTop, hmW, hmH);
+            int x = grid.x + col * cellW;
+            int y = grid.y + row * cellH;
+            int padTop = 14;
+            int hmW = cellW - 6;
+            int hmH = cellH - padTop - 4;
+            Rectangle heat = new Rectangle(x + 3, y + padTop, hmW, hmH);
             WorkbenchTensorViz.drawHeatmap(g, heat, perHeadEnergy[h], 8, 8, globalMax, false);
             if (selectedSquare >= 0) {
-                // Cross-highlight the selected board square in every head
-                // thumbnail so the user can see at a glance which heads care
-                // about that square without scanning all 32.
                 drawHeadSquareMarker(g, heat, selectedSquare,
                         perHeadEnergy[h][selectedSquare], globalMax);
             }
@@ -755,8 +985,8 @@ final class WorkbenchBt4View extends JComponent {
                 g.drawRect(x, y, cellW - 1, cellH - 1);
             }
             g.setColor(WorkbenchTheme.TEXT);
-            g.setFont(WorkbenchTheme.font(10, Font.BOLD));
-            g.drawString("h" + (h + 1), x + 4, y + 11);
+            g.setFont(WorkbenchTheme.font(11, Font.BOLD));
+            g.drawString("h" + (h + 1), x + 5, y + 12);
             float peak = 0.0f;
             for (float v : perHeadEnergy[h]) {
                 if (v > peak) {
@@ -764,9 +994,9 @@ final class WorkbenchBt4View extends JComponent {
                 }
             }
             String desc = selectedSquare >= 0
-                    ? "Click to load this head's full 64×64 attention matrix. " + WorkbenchTensorViz.squareLabel(selectedSquare)
+                    ? "Click to focus this head. " + WorkbenchTensorViz.squareLabel(selectedSquare)
                             + " attention-received = " + String.format("%.4f", perHeadEnergy[h][selectedSquare])
-                    : "Click to load this head's full 64×64 attention matrix.";
+                    : "Click to focus this head's full 64×64 attention matrix.";
             hitRegions.add(new Rectangle(x, y, cellW, cellH),
                     "Head " + (h + 1),
                     desc,
@@ -814,11 +1044,14 @@ final class WorkbenchBt4View extends JComponent {
      * @param r rectangle
      */
     private void paintAttentionMatrix(Graphics2D g, Rectangle r) {
-        WorkbenchTensorViz.drawSectionHeader(g, new Rectangle(r.x, r.y - 18, r.width, 18),
-                "attention matrix", "rows = from-square, cols = to-square");
+        int headerH = 38;
+        WorkbenchTensorViz.drawSectionHeader(g, new Rectangle(r.x, r.y, r.width, headerH),
+                "head " + (selectedHead + 1) + " · full attention",
+                "64×64 matrix · rows = from · cols = to");
         float[] heads = snapshot.data("bt4.block" + selectedBlock + ".attention.heads");
-        int size = Math.min(r.width - 28, r.height - 28);
-        Rectangle map = new Rectangle(r.x + 24, r.y + 4, size, size);
+        int matrixTop = r.y + headerH + 4;
+        int size = Math.min(r.width - 32, r.height - headerH - 16);
+        Rectangle map = new Rectangle(r.x + 24, matrixTop, size, size);
         if (heads == null) {
             WorkbenchTensorViz.drawEmpty(g, map);
             return;
@@ -859,22 +1092,28 @@ final class WorkbenchBt4View extends JComponent {
     }
 
     /**
-     * Paints the on-board overlay panel. Each square is split diagonally:
-     * the upper-left triangle is shaded by attention <em>from</em> the
-     * selected square to this one (selected → this), the lower-right
-     * triangle by attention <em>to</em> the selected square from this one
-     * (this → selected). Both directions are visible simultaneously so
-     * the user does not have to toggle between modes.
+     * Paints the on-board overlay panel. Each square is split diagonally
+     * from top-left to bottom-right: the upper-right half is shaded by
+     * attention <em>from</em> the selected square to this one (selected →
+     * this, "outgoing"), the lower-left half by attention <em>to</em> the
+     * selected square from this one (this → selected, "incoming"). Both
+     * directions stay visible simultaneously and share a single colour
+     * scale so magnitudes are directly comparable.
      *
      * @param g graphics
      * @param r rectangle
      */
     private void paintBoardOverlay(Graphics2D g, Rectangle r) {
-        WorkbenchTensorViz.drawSectionHeader(g, new Rectangle(r.x, r.y - 18, r.width, 18),
-                "attention (▲ selected → this · ▼ this → selected)",
-                "upper-left triangle = outgoing from selected · lower-right = incoming to selected");
-        int size = Math.min(r.width - 20, r.height - 60);
-        Rectangle board = new Rectangle(r.x + (r.width - size) / 2, r.y + 8, size - 16, size - 16);
+        int headerH = 38;
+        WorkbenchTensorViz.drawSectionHeader(g, new Rectangle(r.x, r.y, r.width, headerH),
+                "attention on the board",
+                "▟ lower-left = incoming (this → selected)  ·  ▜ upper-right = outgoing (selected → this)");
+        int top = r.y + headerH + 6;
+        int bottomReserve = 22;
+        int availW = r.width - 16;
+        int availH = r.height - headerH - 6 - bottomReserve;
+        int size = Math.min(availW, availH);
+        Rectangle board = new Rectangle(r.x + (r.width - size) / 2, top, size, size);
         WorkbenchTensorViz.drawMiniBoard(g, board);
         WorkbenchTensorViz.drawPositionPieces(g, board, fen);
         boardBounds = board;
@@ -914,12 +1153,12 @@ final class WorkbenchBt4View extends JComponent {
 
     /**
      * Draws the two-triangle attention overlay. For each of the 64 squares
-     * the cell is split along its main diagonal: the upper-left half is
-     * filled by an orange "outgoing" colour scaled by the attention from
-     * the selected square to this square, and the lower-right half by a
-     * teal "incoming" colour scaled by the attention from this square to
-     * the selected square. Same colour scale for both directions so the
-     * triangles are directly comparable.
+     * the cell is split along the main (top-left → bottom-right) diagonal:
+     * the upper-right triangle is filled with a warm amber tone scaled by
+     * outgoing attention (selected → this square), and the lower-left
+     * triangle with a cool indigo tone scaled by incoming attention (this
+     * square → selected). Both halves share one colour scale so magnitudes
+     * are directly comparable.
      *
      * @param g graphics
      * @param board pixel rectangle covering the 8x8 grid
@@ -934,9 +1173,9 @@ final class WorkbenchBt4View extends JComponent {
         }
         double cellW = board.width / 8.0;
         double cellH = board.height / 8.0;
-        Color outgoingBase = new Color(235, 130, 55);
-        Color incomingBase = new Color(60, 175, 200);
-        Color diagonal = new Color(0, 0, 0, 45);
+        Color outgoingBase = new Color(212, 138, 81);
+        Color incomingBase = new Color(85, 113, 168);
+        Color diagonal = new Color(0, 0, 0, 55);
         for (int sq = 0; sq < 64; ++sq) {
             int file = sq & 7;
             int rank = sq >> 3;
@@ -948,27 +1187,30 @@ final class WorkbenchBt4View extends JComponent {
             float vTo = Math.min(1.0f, Math.max(0.0f, toData[sq] / scale));
             float vFrom = Math.min(1.0f, Math.max(0.0f, fromData[sq] / scale));
 
-            java.awt.geom.Path2D.Double upper = new java.awt.geom.Path2D.Double();
-            upper.moveTo(xd, yd);
-            upper.lineTo(xr, yd);
-            upper.lineTo(xd, yb);
-            upper.closePath();
+            // Upper-right triangle = outgoing (selected → this).
+            java.awt.geom.Path2D.Double upperRight = new java.awt.geom.Path2D.Double();
+            upperRight.moveTo(xd, yd);
+            upperRight.lineTo(xr, yd);
+            upperRight.lineTo(xr, yb);
+            upperRight.closePath();
             g.setColor(translucent(outgoingBase, vTo));
-            g.fill(upper);
+            g.fill(upperRight);
 
-            java.awt.geom.Path2D.Double lower = new java.awt.geom.Path2D.Double();
-            lower.moveTo(xr, yb);
-            lower.lineTo(xr, yd);
-            lower.lineTo(xd, yb);
-            lower.closePath();
+            // Lower-left triangle = incoming (this → selected).
+            java.awt.geom.Path2D.Double lowerLeft = new java.awt.geom.Path2D.Double();
+            lowerLeft.moveTo(xd, yd);
+            lowerLeft.lineTo(xd, yb);
+            lowerLeft.lineTo(xr, yb);
+            lowerLeft.closePath();
             g.setColor(translucent(incomingBase, vFrom));
-            g.fill(lower);
+            g.fill(lowerLeft);
 
-            // Thin diagonal separator so the two halves stay readable even
-            // when one is fully saturated and the other near zero.
+            // Thin diagonal separator along the top-left → bottom-right line
+            // so the two halves stay readable even when one is fully
+            // saturated and the other near zero.
             g.setColor(diagonal);
-            g.drawLine((int) Math.round(xr), (int) Math.round(yd),
-                    (int) Math.round(xd), (int) Math.round(yb));
+            g.drawLine((int) Math.round(xd), (int) Math.round(yd),
+                    (int) Math.round(xr), (int) Math.round(yb));
         }
     }
 

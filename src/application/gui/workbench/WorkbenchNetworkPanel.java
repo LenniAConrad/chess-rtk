@@ -103,6 +103,13 @@ final class WorkbenchNetworkPanel extends JPanel {
     private final WorkbenchToggleBox fixedScaleToggle = new WorkbenchToggleBox("Fixed scale");
 
     /**
+     * "Raw" view: show every heatmap (all blocks × heads for BT4, all
+     * channels for CNN, full feature space for NNUE) in a single panel
+     * for at-a-glance comparison.
+     */
+    private final WorkbenchToggleBox rawToggle = new WorkbenchToggleBox("Raw heatmaps");
+
+    /**
      * Status badge in the toolbar.
      */
     private final JLabel statusBadge = new JLabel("loading models...");
@@ -184,6 +191,7 @@ final class WorkbenchNetworkPanel extends JPanel {
         positionCombo.addActionListener(event -> onPositionPicked());
         detailedToggle.addActionListener(event -> propagateDetailed());
         fixedScaleToggle.addActionListener(event -> propagateFixedScale());
+        rawToggle.addActionListener(event -> propagateRaw());
         debounceTimer = new Timer(DEBOUNCE_MS, event -> startInference());
         debounceTimer.setRepeats(false);
         showSelected();
@@ -257,6 +265,7 @@ final class WorkbenchNetworkPanel extends JPanel {
         left.add(positionCombo);
         left.add(detailedToggle);
         left.add(fixedScaleToggle);
+        left.add(rawToggle);
         bar.add(left, BorderLayout.WEST);
         statusBadge.setForeground(WorkbenchTheme.MUTED);
         statusBadge.setFont(WorkbenchTheme.font(11, Font.ITALIC));
@@ -315,6 +324,17 @@ final class WorkbenchNetworkPanel extends JPanel {
         nnueView.setFixedScale(f);
         cnnView.setFixedScale(f);
         bt4View.setFixedScale(f);
+        cardPanel.repaint();
+    }
+
+    /**
+     * Propagates the raw-view toggle state to every view. When raw is on
+     * the view paints a single dense grid of every heatmap it can show
+     * for the current snapshot, overriding the abstract/detailed split.
+     */
+    private void propagateRaw() {
+        boolean r = rawToggle.isSelected();
+        bt4View.setRaw(r);
         cardPanel.repaint();
     }
 
