@@ -51,39 +51,162 @@ public final class SvgShapes {
    * @return SVG source text
    */
   public static String board() {
+    return board(BOARD_LIGHT_FILL, BOARD_DARK_FILL, BOARD_GRID_FILL);
+  }
+
+  /**
+   * Returns the embedded SVG source for the chessboard tinted by an accent color.
+   *
+   * <p>A {@code null} or blank accent falls back to the default neutral grays. The
+   * accent is blended with white at three fixed mix levels to keep the
+   * light/dark/grid relationship consistent across hues.</p>
+   *
+   * @param accentHex CSS-style hex color (e.g. {@code "#4ab66f"}); {@code null} for default
+   * @return SVG source text
+   */
+  public static String boardWithAccent(String accentHex) {
+    AccentColors colors = accentColors(accentHex);
+    return board(colors.light(), colors.dark(), colors.grid());
+  }
+
+  /**
+   * Returns the embedded SVG source for the chessboard with explicit fill colors.
+   *
+   * @param lightFill CSS color for light squares
+   * @param darkFill  CSS color for dark squares
+   * @param gridFill  CSS color for the separator grid
+   * @return SVG source text
+   */
+  public static String board(String lightFill, String darkFill, String gridFill) {
+    String light = lightFill == null ? BOARD_LIGHT_FILL : lightFill;
+    String dark = darkFill == null ? BOARD_DARK_FILL : darkFill;
+    String grid = gridFill == null ? BOARD_GRID_FILL : gridFill;
     StringBuilder svg = new StringBuilder(6400);
     svg.append("<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 ")
         .append(BOARD_SIZE).append(' ').append(BOARD_SIZE).append("\" ")
         .append("role=\"img\" aria-labelledby=\"title\">\n")
         .append("  <title id=\"title\">Chessboard</title>\n")
         .append("  <g shape-rendering=\"crispEdges\">\n");
-    appendBoardBackground(svg);
-    appendBoardSquares(svg);
+    appendBoardBackground(svg, grid);
+    appendBoardSquares(svg, light, dark);
     svg.append("  </g>\n")
         .append("</svg>\n");
     return svg.toString();
   }
 
   /**
+   * Derives the light/dark/grid fill colors for a given accent hex.
+   *
+   * @param accentHex CSS-style hex color; {@code null}/blank yields the default neutral palette
+   * @return resolved palette
+   */
+  public static AccentColors accentColors(String accentHex) {
+    if (accentHex == null || accentHex.isBlank()) {
+      return new AccentColors(BOARD_LIGHT_FILL, BOARD_DARK_FILL, BOARD_GRID_FILL);
+    }
+    int rgb = parseHexColor(accentHex);
+    return new AccentColors(
+        mixWithWhiteHex(rgb, LIGHT_MIX),
+        mixWithWhiteHex(rgb, DARK_MIX),
+        mixWithWhiteHex(rgb, GRID_MIX));
+  }
+
+  /**
+   * Resolved board palette: light squares, dark squares, separator grid.
+   *
+   * @param light light square fill
+   * @param dark  dark square fill
+   * @param grid  separator grid fill
+   */
+  public record AccentColors(String light, String dark, String grid) {}
+
+  /**
+   * White-mix factor used to derive the light-square fill from an accent color.
+   */
+  private static final double LIGHT_MIX = 0.85;
+
+  /**
+   * White-mix factor used to derive the dark-square fill from an accent color.
+   */
+  private static final double DARK_MIX = 0.70;
+
+  /**
+   * White-mix factor used to derive the separator-grid fill from an accent color.
+   */
+  private static final double GRID_MIX = 0.55;
+
+  /**
+   * Parses a CSS-style hex color into a 0xRRGGBB integer. Accepts an optional
+   * leading {@code #} and either 3-digit or 6-digit forms.
+   *
+   * @param hex CSS-style hex color
+   * @return packed 0xRRGGBB value
+   */
+  private static int parseHexColor(String hex) {
+    String s = hex.trim();
+    if (s.startsWith("#")) {
+      s = s.substring(1);
+    }
+    if (s.length() == 3) {
+      StringBuilder expanded = new StringBuilder(6);
+      for (int i = 0; i < 3; i++) {
+        char c = s.charAt(i);
+        expanded.append(c).append(c);
+      }
+      s = expanded.toString();
+    }
+    if (s.length() != 6) {
+      throw new IllegalArgumentException("invalid accent color: " + hex);
+    }
+    try {
+      return Integer.parseInt(s, 16) & 0xFFFFFF;
+    } catch (NumberFormatException e) {
+      throw new IllegalArgumentException("invalid accent color: " + hex, e);
+    }
+  }
+
+  /**
+   * Linearly blends a packed RGB color with white and renders the result as a
+   * lowercase {@code #rrggbb} string.
+   *
+   * @param rgb       packed source color
+   * @param whiteMix  weight of white in {@code [0,1]} (0 keeps the accent, 1 returns white)
+   * @return CSS-style hex string
+   */
+  private static String mixWithWhiteHex(int rgb, double whiteMix) {
+    double t = Math.max(0.0, Math.min(1.0, whiteMix));
+    int r = (rgb >> 16) & 0xFF;
+    int g = (rgb >> 8) & 0xFF;
+    int b = rgb & 0xFF;
+    int mr = (int) Math.round(r + (255 - r) * t);
+    int mg = (int) Math.round(g + (255 - g) * t);
+    int mb = (int) Math.round(b + (255 - b) * t);
+    return String.format("#%02x%02x%02x", mr, mg, mb);
+  }
+
+  /**
    * Appends the full-board separator background rectangle.
    *
-   * @param svg builder receiving the background rectangle
+   * @param svg      builder receiving the background rectangle
+   * @param gridFill grid color
    */
-  private static void appendBoardBackground(StringBuilder svg) {
+  private static void appendBoardBackground(StringBuilder svg, String gridFill) {
     svg.append("    <rect x=\"0\" y=\"0\" width=\"").append(BOARD_SIZE)
         .append("\" height=\"").append(BOARD_SIZE)
-        .append("\" fill=\"").append(BOARD_GRID_FILL).append("\"/>\n");
+        .append("\" fill=\"").append(gridFill).append("\"/>\n");
   }
 
   /**
    * Appends the board square paths, preserving the existing separator geometry.
    *
-   * @param svg builder receiving square path elements
+   * @param svg       builder receiving square path elements
+   * @param lightFill light square color
+   * @param darkFill  dark square color
    */
-  private static void appendBoardSquares(StringBuilder svg) {
+  private static void appendBoardSquares(StringBuilder svg, String lightFill, String darkFill) {
     for (int rank = 0; rank < 8; rank++) {
       for (int file = 0; file < 8; file++) {
-        appendBoardSquare(svg, file, rank);
+        appendBoardSquare(svg, file, rank, lightFill, darkFill);
       }
     }
   }
@@ -91,16 +214,20 @@ public final class SvgShapes {
   /**
    * Appends one board square path.
    *
-   * @param svg builder receiving the square path
-   * @param file square file from 0 to 7
-   * @param rank square rank from 0 to 7
+   * @param svg       builder receiving the square path
+   * @param file      square file from 0 to 7
+   * @param rank      square rank from 0 to 7
+   * @param lightFill light square color
+   * @param darkFill  dark square color
    */
-  private static void appendBoardSquare(StringBuilder svg, int file, int rank) {
+  private static void appendBoardSquare(StringBuilder svg, int file, int rank,
+      String lightFill, String darkFill) {
     int x0 = squareStart(file);
     int y0 = squareStart(rank);
     int x1 = squareEnd(file);
     int y1 = squareEnd(rank);
-    svg.append("    <path fill=\"").append(squareFill(file, rank)).append("\" stroke=\"none\" d=\"")
+    svg.append("    <path fill=\"").append(squareFill(file, rank, lightFill, darkFill))
+        .append("\" stroke=\"none\" d=\"")
         .append("M").append(x0).append(' ').append(y0)
         .append(" L").append(x1).append(' ').append(y0)
         .append(" L").append(x1).append(' ').append(y1)
@@ -141,12 +268,14 @@ public final class SvgShapes {
   /**
    * Resolves the fill color for a board square.
    *
-   * @param file square file from 0 to 7
-   * @param rank square rank from 0 to 7
+   * @param file      square file from 0 to 7
+   * @param rank      square rank from 0 to 7
+   * @param lightFill color for light squares
+   * @param darkFill  color for dark squares
    * @return SVG fill color
    */
-  private static String squareFill(int file, int rank) {
-    return ((file + rank) & 1) == 0 ? BOARD_LIGHT_FILL : BOARD_DARK_FILL;
+  private static String squareFill(int file, int rank, String lightFill, String darkFill) {
+    return ((file + rank) & 1) == 0 ? lightFill : darkFill;
   }
 
   /**

@@ -210,6 +210,55 @@ public final class Shapes {
     }
 
     /**
+     * Last accent hex previously passed to {@link #drawBoard(Graphics2D, double, double, double, double, String)}.
+     */
+    private static String cachedAccentHex;
+
+    /**
+     * Parsed board document corresponding to {@link #cachedAccentHex}.
+     */
+    private static DocumentModel cachedAccentDocument;
+
+    /**
+     * Draws the embedded vector chessboard tinted with an accent color.
+     *
+     * <p>A {@code null} or blank accent yields the default neutral board. The
+     * derived document is cached so successive calls with the same accent reuse
+     * the same parsed SVG.</p>
+     *
+     * @param g graphics context
+     * @param x target x position
+     * @param y target y position
+     * @param width target width
+     * @param height target height
+     * @param accentHex CSS-style hex color; {@code null} for default
+     */
+    public static void drawBoard(Graphics2D g, double x, double y, double width, double height,
+            String accentHex) {
+        if (accentHex == null || accentHex.isBlank()) {
+            drawBoard(g, x, y, width, height);
+            return;
+        }
+        Svg.draw(accentBoardDocument(accentHex), g, x, y, width, height);
+    }
+
+    /**
+     * Returns a parsed accent-tinted board SVG, caching the most recently used hex.
+     *
+     * @param accentHex CSS-style hex color (non-null, non-blank)
+     * @return parsed SVG document
+     */
+    private static synchronized DocumentModel accentBoardDocument(String accentHex) {
+        if (cachedAccentDocument != null && accentHex.equals(cachedAccentHex)) {
+            return cachedAccentDocument;
+        }
+        DocumentModel doc = Svg.parse(SvgShapes.boardWithAccent(accentHex));
+        cachedAccentHex = accentHex;
+        cachedAccentDocument = doc;
+        return doc;
+    }
+
+    /**
      * Draws a piece SVG into an existing graphics context.
      *
      * @param piece piece code from {@link Piece}
