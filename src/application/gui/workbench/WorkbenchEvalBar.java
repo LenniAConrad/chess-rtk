@@ -131,6 +131,16 @@ final class WorkbenchEvalBar extends JComponent {
     }
 
     /**
+     * Stops the animation timer when the bar is detached so a recreated bar
+     * does not leak via the ticker's ActionListener.
+     */
+    @Override
+    public void removeNotify() {
+        timer.stop();
+        super.removeNotify();
+    }
+
+    /**
      * Marks the bar as waiting for engine output.
      */
     void setThinking() {
@@ -167,9 +177,30 @@ final class WorkbenchEvalBar extends JComponent {
      * @param whiteMate signed mate distance from White's perspective
      */
     void setMate(int whiteMate) {
-        int cp = whiteMate >= 0 ? MATE_CP : -MATE_CP;
+        // whiteMate == 0 is ambiguous from this signature alone (engines emit
+        // "mate 0" to mean "side to move has just been mated"); render the bar
+        // centered rather than guessing white wins. Callers that know who got
+        // mated can call setMateDelivered(boolean) instead.
+        int cp;
+        if (whiteMate > 0) {
+            cp = MATE_CP;
+        } else if (whiteMate < 0) {
+            cp = -MATE_CP;
+        } else {
+            cp = 0;
+        }
         label = "#" + whiteMate;
         setTargetWhiteShare(whiteShareForCentipawns(cp));
+    }
+
+    /**
+     * Applies an already-delivered mate ("mate 0" from the side-to-move).
+     *
+     * @param whiteWasMated true when White is the side that has been mated
+     */
+    void setMateDelivered(boolean whiteWasMated) {
+        label = "#0";
+        setTargetWhiteShare(whiteShareForCentipawns(whiteWasMated ? -MATE_CP : MATE_CP));
     }
 
     /**
@@ -288,7 +319,16 @@ final class WorkbenchEvalBar extends JComponent {
         String text = WorkbenchUi.elide(label, metrics, Math.max(16, w - 5));
         int tx = x + (w - metrics.stringWidth(text)) / 2;
         int ty = y + h / 2 + metrics.getAscent() / 2 - 2;
-        g.setColor(displayedWhiteShare > 0.5 ? BLACK_FILL : WHITE_FILL);
+        Color fill = displayedWhiteShare > 0.5 ? BLACK_FILL : WHITE_FILL;
+        Color halo = displayedWhiteShare > 0.5 ? WHITE_FILL : BLACK_FILL;
+        // Halo keeps the label legible while the seam crosses through it
+        // during the animation between black-favoured and white-favoured states.
+        g.setColor(halo);
+        g.drawString(text, tx - 1, ty);
+        g.drawString(text, tx + 1, ty);
+        g.drawString(text, tx, ty - 1);
+        g.drawString(text, tx, ty + 1);
+        g.setColor(fill);
         g.drawString(text, tx, ty);
     }
 

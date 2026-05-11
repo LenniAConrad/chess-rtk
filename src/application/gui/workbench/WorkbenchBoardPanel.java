@@ -524,6 +524,7 @@ final class WorkbenchBoardPanel extends JPanel {
             @Override
             public void mouseExited(MouseEvent event) {
                 setCursor(Cursor.getDefaultCursor());
+                notifyMouseover(Field.NO_SQUARE);
             }
         };
         addMouseListener(mouseHandler);
@@ -535,6 +536,17 @@ final class WorkbenchBoardPanel extends JPanel {
                 requestFocusInWindow();
             }
         });
+    }
+
+    /**
+     * Stops the animation timer when the panel is detached so a recreated
+     * panel (theme reload, tab swap) does not leak the previous instance via
+     * the ticker's ActionListener.
+     */
+    @Override
+    public void removeNotify() {
+        animationTimer.stop();
+        super.removeNotify();
     }
 
     /**
@@ -646,7 +658,15 @@ final class WorkbenchBoardPanel extends JPanel {
             return;
         }
         String resolved = fen.equalsIgnoreCase("start") ? chess.core.Setup.getStandardStartFEN() : fen;
-        applyPosition(new Position(resolved), Move.NO_MOVE, animate);
+        Position parsed;
+        try {
+            parsed = new Position(resolved);
+        } catch (RuntimeException ex) {
+            // Malformed FEN — keep the current position rather than letting
+            // the parse failure unwind into UI handlers (palette, scripted callers).
+            return;
+        }
+        applyPosition(parsed, Move.NO_MOVE, animate);
     }
 
     /**
@@ -668,6 +688,13 @@ final class WorkbenchBoardPanel extends JPanel {
      * chessboard.js {@code flip()}.
      */
     void flip() {
+        // If a previous flip is still pending its midpoint commit, apply that
+        // commit now so a rapid double-flip toggles the orientation twice
+        // instead of swallowing the second call.
+        if (flipPending) {
+            whiteDown = !whiteDown;
+            flipPending = false;
+        }
         if (!animationsEnabled || flipAnimationMs <= 0 || getWidth() <= 0) {
             // Headless or zero-sized panel: flip immediately.
             whiteDown = !whiteDown;
@@ -1320,8 +1347,14 @@ final class WorkbenchBoardPanel extends JPanel {
      * @param board board bounds
      */
     private void drawMoveHighlights(Graphics2D g, Rectangle board) {
-        if (!showLastMoveHighlight || lastMove == Move.NO_MOVE
-                || (showSuggestedMoveArrow && suggestedMove != Move.NO_MOVE)) {
+        // Suppress the last-move highlight only when the suggested-move arrow
+        // is actually going to be drawn over the same squares — not merely
+        // because a suggested move is set. drawSuggestedMove also requires the
+        // suggestion to be legal in the current position.
+        boolean arrowVisible = showSuggestedMoveArrow
+                && suggestedMove != Move.NO_MOVE
+                && legalSuggestedMove(suggestedMove);
+        if (!showLastMoveHighlight || lastMove == Move.NO_MOVE || arrowVisible) {
             return;
         }
         drawSquareHighlight(g, squareBounds(board, Move.getFromIndex(lastMove)), WorkbenchTheme.LAST_MOVE_EDGE);
@@ -1998,8 +2031,22 @@ final class WorkbenchBoardPanel extends JPanel {
             Rectangle squareRect = squareBounds(board, target);
             int cell = squareRect.width;
             int x = squareRect.x;
+            int count = Math.max(1, sorted.length);
             int direction = squareRect.y < board.y + board.height / 2 ? 1 : -1;
-            int y = squareRect.y + cell * direction * optionIndex;
+            // Span of the full stack if laid out starting at squareRect.y.
+            int firstY = squareRect.y;
+            int lastY = squareRect.y + cell * direction * (count - 1);
+            int minY = Math.min(firstY, lastY);
+            int maxY = Math.max(firstY, lastY) + cell;
+            // Shift the stack uniformly when it would otherwise leak outside
+            // the board area; keeps paint and hitTest in sync.
+            int shift = 0;
+            if (minY < board.y) {
+                shift = board.y - minY;
+            } else if (maxY > board.y + board.height) {
+                shift = (board.y + board.height) - maxY;
+            }
+            int y = squareRect.y + cell * direction * optionIndex + shift;
             return new Rectangle(x, y, cell, cell);
         }
 
@@ -2856,9 +2903,14 @@ final class WorkbenchBoardPanel extends JPanel {
         clearMoveAnimation();
         snapAnimation = null;
         snapHiddenSquare = Field.NO_SQUARE;
+        // Commit a pending flip so disabling animations mid-flight does not
+        // silently leave the board in its pre-flip orientation.
+        if (flipPending) {
+            whiteDown = !whiteDown;
+            flipPending = false;
+        }
         flipAnimationStartedAt = 0L;
         flipAnimationProgress = Double.NaN;
-        flipPending = false;
         animationTimer.stop();
     }
 

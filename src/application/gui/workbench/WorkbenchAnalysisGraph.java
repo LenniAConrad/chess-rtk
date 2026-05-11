@@ -317,6 +317,7 @@ final class WorkbenchAnalysisGraph extends JComponent {
      */
     @Override
     protected void paintComponent(Graphics graphics) {
+        super.paintComponent(graphics);
         Graphics2D g = (Graphics2D) graphics.create();
         try {
             g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);

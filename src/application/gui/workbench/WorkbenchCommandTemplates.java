@@ -154,7 +154,7 @@ final class WorkbenchCommandTemplates {
                         depthOption(true),
                         flag("--divide", false, "Print per-root-move table"),
                         opt("--format", "detail", false, "detail, table, or stockfish"),
-                        threadsOption(true),
+                        threadsOption(false),
                         commonVerbose())),
                 new CommandTemplate("Apply move", List.of("move", "after"), withTrailingArgument("e2e4",
                         positionOptions(
@@ -182,32 +182,37 @@ final class WorkbenchCommandTemplates {
      * @return batch tasks
      */
     private static List<BatchTask> batchTasks() {
+        WorkflowControls bestmoveControls = new WorkflowControls(true, false, false, true);
+        WorkflowControls analyzeControls = new WorkflowControls(true, false, true, true);
+        WorkflowControls noControls = new WorkflowControls(false, false, false, false);
+        WorkflowControls perftControls = new WorkflowControls(false, true, false, true);
+        WorkflowControls benchControls = new WorkflowControls(false, true, false, false);
         return List.of(
-                new BatchTask("Bestmove batch", true, new WorkflowControls(true, false, false, true),
-                        (input, ctx) -> engineBatchArgs("bestmove-batch", input, ctx, false)),
-                new BatchTask("Analyze batch", true, new WorkflowControls(true, false, true, true),
-                        (input, ctx) -> engineBatchArgs("analyze-batch", input, ctx, true)),
-                new BatchTask("Tag FENs", true, new WorkflowControls(false, false, false, false),
+                new BatchTask("Bestmove batch", true, bestmoveControls,
+                        (input, ctx) -> engineBatchArgs("bestmove-batch", input, ctx, bestmoveControls)),
+                new BatchTask("Analyze batch", true, analyzeControls,
+                        (input, ctx) -> engineBatchArgs("analyze-batch", input, ctx, analyzeControls)),
+                new BatchTask("Tag FENs", true, noControls,
                         (input, ctx) -> List.of("fen", "tags", "--input", input.toString())),
-                new BatchTask("Perft suite", false, new WorkflowControls(false, true, false, true),
-                        (input, ctx) -> List.of("engine", "perft-suite", "--depth",
-                                ctx.depth(), "--threads", ctx.threads())),
-                new BatchTask("Benchmark", false, new WorkflowControls(false, true, false, false),
+                new BatchTask("Perft suite", false, perftControls,
+                        (input, ctx) -> perftSuiteArgs(input, ctx, perftControls)),
+                new BatchTask("Benchmark", false, benchControls,
                         (input, ctx) -> List.of("engine", "benchmark", "--depth",
                                 ctx.depth(), "--iterations", "3")));
     }
 
     /**
-     * Builds an external-engine batch command with shared workbench settings.
+     * Builds an external-engine batch command, honoring each {@link WorkflowControls}
+     * flag so the emitted arguments match the controls the task advertises.
      *
      * @param command batch subcommand
      * @param input input file
      * @param ctx current workbench context
-     * @param includeMultipv whether to include MultiPV
+     * @param controls workflow controls declared by the batch task
      * @return command arguments
      */
     private static List<String> engineBatchArgs(String command, Path input, TemplateContext ctx,
-            boolean includeMultipv) {
+            WorkflowControls controls) {
         List<String> args = new ArrayList<>();
         args.add("engine");
         args.add(command);
@@ -215,15 +220,44 @@ final class WorkbenchCommandTemplates {
         args.add(input.toString());
         addOptional(args, "--protocol-path", ctx.protocolPath());
         addOptional(args, "--max-nodes", ctx.nodes());
-        args.add("--max-duration");
-        args.add(ctx.duration());
-        if (includeMultipv) {
+        if (controls.duration()) {
+            args.add("--max-duration");
+            args.add(ctx.duration());
+        }
+        if (controls.multipv()) {
             args.add("--multipv");
             args.add(ctx.multipv());
         }
-        addOptional(args, "--threads", ctx.threads());
+        if (controls.threads()) {
+            addOptional(args, "--threads", ctx.threads());
+        }
         addOptional(args, "--hash", ctx.hash());
         args.add("--jsonl");
+        return List.copyOf(args);
+    }
+
+    /**
+     * Builds the perft-suite command, honoring declared controls.
+     *
+     * @param input input file
+     * @param ctx current workbench context
+     * @param controls workflow controls declared by the batch task
+     * @return command arguments
+     */
+    private static List<String> perftSuiteArgs(Path input, TemplateContext ctx, WorkflowControls controls) {
+        // perft-suite takes --suite (path), not --input, and the batch task is
+        // declared usesFenInput=false — match the historical behaviour of
+        // passing only --depth / --threads.
+        List<String> args = new ArrayList<>();
+        args.add("engine");
+        args.add("perft-suite");
+        if (controls.depth()) {
+            args.add("--depth");
+            args.add(ctx.depth());
+        }
+        if (controls.threads()) {
+            addOptional(args, "--threads", ctx.threads());
+        }
         return List.copyOf(args);
     }
 
