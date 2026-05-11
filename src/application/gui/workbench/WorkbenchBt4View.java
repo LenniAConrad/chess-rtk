@@ -271,7 +271,7 @@ final class WorkbenchBt4View extends JComponent {
         if (headGridBounds.contains(x, y)) {
             int relX = x - headGridBounds.x;
             int relY = y - headGridBounds.y;
-            int cols = 8;
+            int cols = 4;
             int rows = HEADS / cols;
             int cellW = headGridBounds.width / cols;
             int cellH = headGridBounds.height / rows;
@@ -770,19 +770,22 @@ final class WorkbenchBt4View extends JComponent {
 
         int columnTop = blockBar.y + blockBar.height + 12;
         int columnH = body.height - (columnTop - body.y) - 8;
-        int gridW = Math.min(280, body.width / 3);
-        int matrixW = Math.min(320, (body.width - gridW - 24));
-        Rectangle gridR = new Rectangle(body.x, columnTop, gridW, Math.min(220, columnH));
+        int gridW = Math.min(360, body.width / 4);
+        int matrixW = Math.min(360, (body.width - gridW - 24) / 2);
+        Rectangle gridR = new Rectangle(body.x, columnTop, gridW,
+                Math.min(columnH, gridW * 2));
         Rectangle matrixR = new Rectangle(body.x + gridW + 12, columnTop, matrixW,
-                Math.min(matrixW + 16, columnH));
+                Math.min(matrixW + 24, columnH));
         Rectangle boardR = new Rectangle(matrixR.x + matrixW + 12, columnTop,
                 body.width - (matrixR.x + matrixW + 12 - body.x), columnH);
 
         paintHeadGrid(g, gridR);
         headGridBounds = gridR;
         paintAttentionMatrix(g, matrixR);
+        // paintBoardOverlay sets boardBounds to the inner mini-board rectangle;
+        // do not overwrite it here, otherwise click coordinates are mapped
+        // against the surrounding column and decoded squares are off.
         paintBoardOverlay(g, boardR);
-        boardBounds = boardR;
 
         Rectangle bottom = new Rectangle(body.x, gridR.y + gridR.height + 12,
                 gridW + matrixW + 12, body.y + body.height - (gridR.y + gridR.height + 12) - 4);
@@ -822,56 +825,57 @@ final class WorkbenchBt4View extends JComponent {
     }
 
     /**
-     * Paints the head grid (one cell per head, selectable).
+     * Paints the head grid. Each of the 32 cells now contains an 8×8 mini
+     * heatmap of the head's per-token attention-received pattern, so the
+     * user can compare all heads visually at once instead of relying on a
+     * single scalar (peak attention) per head.
      *
      * @param g graphics
      * @param r rectangle
      */
     private void paintHeadGrid(Graphics2D g, Rectangle r) {
         WorkbenchTensorViz.drawSectionHeader(g, new Rectangle(r.x, r.y - 18, r.width, 18),
-                "heads", "mean attention magnitude per head");
-        int cols = 8;
+                "heads", "per-head 8×8 attention-received heatmap · click one to focus");
+        int cols = 4;
         int rows = HEADS / cols;
         int cellW = r.width / cols;
         int cellH = r.height / rows;
         float[] heads = snapshot.data("bt4.block" + selectedBlock + ".attention.heads");
-        // Use "peakiness" (max attention per head) instead of mean, because each
-        // softmax row sums to 1, so mean across all rows is always 1/tokens and
-        // would render every head identically. Max highlights focused heads.
-        float[] magnitudes = new float[HEADS];
+        if (heads == null) {
+            return;
+        }
+        float[][] perHeadEnergy = new float[HEADS][64];
+        float globalMax = 0.0f;
         for (int h = 0; h < HEADS; ++h) {
-            float max = 0.0f;
-            if (heads != null) {
-                int off = h * 64 * 64;
-                int end = Math.min(off + 64 * 64, heads.length);
-                for (int i = off; i < end; ++i) {
-                    if (heads[i] > max) {
-                        max = heads[i];
-                    }
+            int off = h * 64 * 64;
+            if (off + 64 * 64 > heads.length) {
+                continue;
+            }
+            for (int from = 0; from < 64; ++from) {
+                for (int to = 0; to < 64; ++to) {
+                    perHeadEnergy[h][to] += heads[off + from * 64 + to];
                 }
             }
-            magnitudes[h] = max;
+            for (int s = 0; s < 64; ++s) {
+                perHeadEnergy[h][s] /= 64.0f;
+                if (perHeadEnergy[h][s] > globalMax) {
+                    globalMax = perHeadEnergy[h][s];
+                }
+            }
         }
-        float maxMag = 0.0f;
-        float minMag = Float.POSITIVE_INFINITY;
-        for (float v : magnitudes) {
-            maxMag = Math.max(maxMag, v);
-            minMag = Math.min(minMag, v);
+        if (globalMax <= 0.0f) {
+            globalMax = 1.0f;
         }
-        if (maxMag <= 0.0f) {
-            maxMag = 1.0f;
-            minMag = 0.0f;
-        }
-        float magRange = Math.max(1e-6f, maxMag - minMag);
         for (int h = 0; h < HEADS; ++h) {
             int col = h % cols;
             int row = h / cols;
             int x = r.x + col * cellW;
             int y = r.y + row * cellH;
-            Color fill = WorkbenchTensorViz.lerp(WorkbenchTensorViz.NEUTRAL,
-                    WorkbenchTensorViz.POLICY, (magnitudes[h] - minMag) / magRange);
-            g.setColor(fill);
-            g.fillRect(x + 1, y + 1, cellW - 2, cellH - 2);
+            int padTop = 12;
+            int hmW = cellW - 4;
+            int hmH = cellH - padTop - 2;
+            Rectangle heat = new Rectangle(x + 2, y + padTop, hmW, hmH);
+            WorkbenchTensorViz.drawHeatmap(g, heat, perHeadEnergy[h], 8, 8, globalMax, false);
             if (h == selectedHead) {
                 g.setColor(WorkbenchTheme.ACCENT);
                 g.drawRect(x, y, cellW - 1, cellH - 1);
@@ -881,12 +885,18 @@ final class WorkbenchBt4View extends JComponent {
                 g.drawRect(x, y, cellW - 1, cellH - 1);
             }
             g.setColor(WorkbenchTheme.TEXT);
-            g.setFont(WorkbenchTheme.font(10, Font.PLAIN));
-            g.drawString("h" + (h + 1), x + 4, y + 12);
+            g.setFont(WorkbenchTheme.font(10, Font.BOLD));
+            g.drawString("h" + (h + 1), x + 4, y + 11);
+            float peak = 0.0f;
+            for (float v : perHeadEnergy[h]) {
+                if (v > peak) {
+                    peak = v;
+                }
+            }
             hitRegions.add(new Rectangle(x, y, cellW, cellH),
                     "Head " + (h + 1),
-                    "Click to load this head's 64x64 attention matrix.",
-                    String.format("peak attention %.4f", magnitudes[h]));
+                    "Click to load this head's full 64×64 attention matrix.",
+                    String.format("attention-received peak %.4f", peak));
         }
     }
 
