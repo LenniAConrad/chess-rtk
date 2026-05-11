@@ -82,6 +82,87 @@ public final class PolicyEncoder {
     }
 
     /**
+     * One scored legal move in the network's policy distribution.
+     *
+     * @param move encoded crtk move
+     * @param policyIndex compressed LC0 policy index
+     * @param logit raw logit value
+     * @param probability softmax probability over the LEGAL moves
+     */
+    public record ScoredMove(short move, int policyIndex, float logit, float probability) {
+    }
+
+    /**
+     * Decodes the top-K most likely legal moves in {@code position} given the
+     * compressed 1858-logit policy distribution. The softmax is computed over
+     * the LEGAL moves only so probabilities sum to 1.
+     *
+     * @param position position to enumerate legal moves from
+     * @param compressedLogits raw policy logits (size {@link #POLICY_SIZE})
+     * @param transform LC0 canonical transform bits used during inference
+     * @param k how many top moves to return
+     * @return at most k {@link ScoredMove}s, ranked by logit descending
+     */
+    public static java.util.List<ScoredMove> topLegalMoves(Position position,
+            float[] compressedLogits, int transform, int k) {
+        if (position == null || compressedLogits == null || k <= 0) {
+            return java.util.Collections.emptyList();
+        }
+        chess.core.MoveList legal = position.legalMoves();
+        int count = legal.size();
+        if (count == 0) {
+            return java.util.Collections.emptyList();
+        }
+        short[] moves = new short[count];
+        int[] indices = new int[count];
+        float[] logits = new float[count];
+        int valid = 0;
+        for (int i = 0; i < count; i++) {
+            short m = legal.get(i);
+            int idx = compressedPolicyIndex(position, m, transform);
+            if (idx < 0 || idx >= compressedLogits.length) {
+                continue;
+            }
+            moves[valid] = m;
+            indices[valid] = idx;
+            logits[valid] = compressedLogits[idx];
+            valid++;
+        }
+        if (valid == 0) {
+            return java.util.Collections.emptyList();
+        }
+        // Softmax over legal moves only.
+        float max = Float.NEGATIVE_INFINITY;
+        for (int i = 0; i < valid; i++) {
+            if (logits[i] > max) {
+                max = logits[i];
+            }
+        }
+        double sum = 0.0;
+        float[] probs = new float[valid];
+        for (int i = 0; i < valid; i++) {
+            probs[i] = (float) Math.exp(logits[i] - max);
+            sum += probs[i];
+        }
+        float inv = (float) (1.0 / Math.max(sum, 1e-9));
+        for (int i = 0; i < valid; i++) {
+            probs[i] *= inv;
+        }
+        Integer[] order = new Integer[valid];
+        for (int i = 0; i < valid; i++) {
+            order[i] = i;
+        }
+        Arrays.sort(order, (a, b) -> Float.compare(logits[b], logits[a]));
+        int take = Math.min(k, valid);
+        java.util.List<ScoredMove> out = new java.util.ArrayList<>(take);
+        for (int i = 0; i < take; i++) {
+            int j = order[i];
+            out.add(new ScoredMove(moves[j], indices[j], logits[j], probs[j]));
+        }
+        return out;
+    }
+
+    /**
      * Returns the internal {@code 67 * 64} policy index for a move.
      *
      * @param position source position

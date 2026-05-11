@@ -302,6 +302,9 @@ public final class Network implements AutoCloseable {
      */
     public Prediction predict(Position position, chess.nn.ActivationSink sink) {
         Encoder.EncodedInput encoded = Encoder.encode(position, weights.architecture().inputFormat());
+        if (sink != null) {
+            sink.put("bt4.input.transform", new int[] { 1 }, new float[] { encoded.transform() });
+        }
         return predictEncoded(encoded.planes(), sink);
     }
 

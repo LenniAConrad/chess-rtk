@@ -432,7 +432,7 @@ final class WorkbenchBt4View extends JComponent {
      */
     private void paintTokenEnergyBoard(Graphics2D g, Rectangle r) {
         WorkbenchTensorViz.drawSectionHeader(g, new Rectangle(r.x, r.y, r.width, 40),
-                "token energy", "average attention received per square");
+                "token energy + top moves", "attention received · top-K policy as arrows");
         int size = Math.min(r.width, r.height - 60);
         Rectangle board = new Rectangle(r.x + (r.width - size) / 2, r.y + 50, size - 16, size - 16);
         WorkbenchTensorViz.drawMiniBoard(g, board);
@@ -442,7 +442,93 @@ final class WorkbenchBt4View extends JComponent {
             WorkbenchTensorViz.drawSquareOverlay(g, board, energy, 0.0f, false);
             addBoardSquareTooltips(board, energy, "Mean attention received");
         }
+        drawTopPolicyArrows(g, board);
         WorkbenchTensorViz.drawBoardCoordinates(g, board);
+    }
+
+    /**
+     * Draws curved arrows on the board for the top-K policy moves at the
+     * current position. Stroke thickness scales with the policy probability.
+     *
+     * @param g graphics
+     * @param board mini-board rectangle
+     */
+    private void drawTopPolicyArrows(java.awt.Graphics2D g, Rectangle board) {
+        if (fen == null || fen.isBlank()) {
+            return;
+        }
+        float[] policy = snapshot.data("bt4.policy.logits");
+        if (policy == null) {
+            return;
+        }
+        float[] tx = snapshot.data("bt4.input.transform");
+        int transform = tx == null ? 0 : Math.round(tx[0]);
+        chess.core.Position position;
+        try {
+            position = new chess.core.Position(fen);
+        } catch (RuntimeException ex) {
+            return;
+        }
+        java.util.List<chess.nn.lc0.bt4.PolicyEncoder.ScoredMove> top =
+                chess.nn.lc0.bt4.PolicyEncoder.topLegalMoves(position, policy, transform, 4);
+        if (top.isEmpty()) {
+            return;
+        }
+        java.awt.Stroke previousStroke = g.getStroke();
+        for (int i = 0; i < top.size(); i++) {
+            var sm = top.get(i);
+            int from = chess.core.Move.getFromIndex(sm.move()) & 0xFF;
+            int to = chess.core.Move.getToIndex(sm.move()) & 0xFF;
+            drawMoveArrow(g, board, from, to, sm.probability(), i == 0);
+        }
+        g.setStroke(previousStroke);
+    }
+
+    /**
+     * Draws a curved move arrow between two squares on the mini board.
+     *
+     * @param g graphics
+     * @param board mini-board rectangle
+     * @param fromSquare Field-encoded from square
+     * @param toSquare Field-encoded to square
+     * @param probability softmax probability over legal moves
+     * @param isTop true to render the best move with a brighter color
+     */
+    private void drawMoveArrow(java.awt.Graphics2D g, Rectangle board,
+            int fromSquare, int toSquare, float probability, boolean isTop) {
+        double cellW = board.width / 8.0;
+        double cellH = board.height / 8.0;
+        int fFile = chess.core.Field.getX((byte) fromSquare);
+        int fRank = chess.core.Field.getY((byte) fromSquare);
+        int tFile = chess.core.Field.getX((byte) toSquare);
+        int tRank = chess.core.Field.getY((byte) toSquare);
+        double fx = board.x + (fFile + 0.5) * cellW;
+        double fy = board.y + (7 - fRank + 0.5) * cellH;
+        double tx = board.x + (tFile + 0.5) * cellW;
+        double ty = board.y + (7 - tRank + 0.5) * cellH;
+        double dx = tx - fx;
+        double dy = ty - fy;
+        double len = Math.sqrt(dx * dx + dy * dy);
+        double offset = Math.min(28.0, len * 0.18);
+        double cx = (fx + tx) / 2.0 + (-dy / Math.max(1.0, len)) * offset;
+        double cy = (fy + ty) / 2.0 + (dx / Math.max(1.0, len)) * offset;
+        java.awt.geom.QuadCurve2D.Double curve = new java.awt.geom.QuadCurve2D.Double(
+                fx, fy, cx, cy, tx, ty);
+        int alpha = Math.min(255, 110 + Math.round(145 * Math.min(1.0f, probability * 1.4f)));
+        java.awt.Color base = isTop ? new java.awt.Color(70, 200, 80, alpha)
+                : new java.awt.Color(245, 200, 80, alpha);
+        g.setColor(base);
+        float stroke = isTop ? 3.0f : 2.0f + Math.max(0.0f, probability * 2.5f);
+        g.setStroke(new java.awt.BasicStroke(stroke,
+                java.awt.BasicStroke.CAP_ROUND, java.awt.BasicStroke.JOIN_ROUND));
+        g.draw(curve);
+        double angle = Math.atan2(ty - cy, tx - cx);
+        double a1 = angle + Math.PI * 0.85;
+        double a2 = angle - Math.PI * 0.85;
+        double ah = 7.0 + (isTop ? 3.0 : 1.0);
+        int[] xs = { (int) tx, (int) (tx + ah * Math.cos(a1)), (int) (tx + ah * Math.cos(a2)) };
+        int[] ys = { (int) ty, (int) (ty + ah * Math.sin(a1)), (int) (ty + ah * Math.sin(a2)) };
+        g.fillPolygon(xs, ys, 3);
     }
 
     /**
@@ -572,33 +658,56 @@ final class WorkbenchBt4View extends JComponent {
         if (policy == null) {
             return;
         }
-        int n = Math.min(6, policy.length);
-        Integer[] order = new Integer[policy.length];
-        for (int i = 0; i < policy.length; ++i) {
-            order[i] = i;
+        java.util.List<chess.nn.lc0.bt4.PolicyEncoder.ScoredMove> top = decodeTopMoves(policy, 6);
+        if (top.isEmpty()) {
+            return;
         }
-        java.util.Arrays.sort(order, (a, b) -> Float.compare(policy[b], policy[a]));
+        int n = top.size();
         String[] labels = new String[n];
         float[] values = new float[n];
         float scale = 0.0f;
         for (int i = 0; i < n; ++i) {
-            labels[i] = "#" + order[i];
-            values[i] = policy[order[i]];
-            scale = Math.max(scale, Math.abs(values[i]));
+            labels[i] = chess.core.Move.toString(top.get(i).move()) + "  " + String.format("%.1f%%", top.get(i).probability() * 100);
+            values[i] = top.get(i).probability();
+            scale = Math.max(scale, values[i]);
         }
         g.setColor(WorkbenchTheme.MUTED);
         g.setFont(WorkbenchTheme.font(10, Font.PLAIN));
-        g.drawString("top policy logits", r.x, r.y - 4);
+        g.drawString("top moves (legal-softmax probability)", r.x, r.y - 4);
         WorkbenchTensorViz.drawMetricBars(g, r, labels, values, scale);
         int barH = r.height / Math.max(1, n);
         for (int i = 0; i < n; ++i) {
             Rectangle row = new Rectangle(r.x, r.y + i * barH, r.width, barH);
+            var sm = top.get(i);
             hitRegions.addInspectable(row,
-                    "Top policy move #" + order[i],
-                    "LC0 move index (0..1857)",
-                    String.format("logit %+.3f · rank %d", values[i], i + 1),
+                    "Top move " + chess.core.Move.toString(sm.move()),
+                    "LC0 policy index " + sm.policyIndex() + " · logit " + String.format("%+.3f", sm.logit()),
+                    String.format("legal-softmax %.2f%% · rank %d", sm.probability() * 100, i + 1),
                     "bt4.policy.logits", 0, 0, 0, policy.length + "");
         }
+    }
+
+    /**
+     * Decodes the top-K legal moves from the policy logits, using the
+     * captured canonical transform.
+     *
+     * @param policy compressed policy logits
+     * @param k maximum number of moves
+     * @return list of scored moves, may be empty
+     */
+    private java.util.List<chess.nn.lc0.bt4.PolicyEncoder.ScoredMove> decodeTopMoves(float[] policy, int k) {
+        if (fen == null || fen.isBlank()) {
+            return java.util.Collections.emptyList();
+        }
+        chess.core.Position position;
+        try {
+            position = new chess.core.Position(fen);
+        } catch (RuntimeException ex) {
+            return java.util.Collections.emptyList();
+        }
+        float[] tx = snapshot.data("bt4.input.transform");
+        int transform = tx == null ? 0 : Math.round(tx[0]);
+        return chess.nn.lc0.bt4.PolicyEncoder.topLegalMoves(position, policy, transform, k);
     }
 
     /**
