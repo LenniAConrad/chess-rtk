@@ -164,6 +164,11 @@ public final class WorkbenchWindow extends JFrame {
     private static final int TAB_CONSOLE = 4;
 
     /**
+     * Network visualizer tab index.
+     */
+    private static final int TAB_NETWORK = 5;
+
+    /**
      * Publishing task type with stable identity and display label.
      */
     private enum PublishTask {
@@ -266,6 +271,11 @@ public final class WorkbenchWindow extends JFrame {
      * Live analysis data graph.
      */
     private final WorkbenchAnalysisGraph analysisGraph = new WorkbenchAnalysisGraph();
+
+    /**
+     * Network-architecture visualizer (NNUE / lc0-CNN / lc0-BT4).
+     */
+    private final WorkbenchNetworkPanel networkPanel = new WorkbenchNetworkPanel();
 
     /**
      * FEN input.
@@ -425,8 +435,7 @@ public final class WorkbenchWindow extends JFrame {
     /**
      * Shared thread-count model.
      */
-    private final SpinnerNumberModel threadsModel = new SpinnerNumberModel(
-            Math.max(1, Runtime.getRuntime().availableProcessors()), 1, 256, 1);
+    private final SpinnerNumberModel threadsModel = new SpinnerNumberModel(1, 1, 256, 1);
 
     /**
      * Analysis thread control.
@@ -1072,6 +1081,7 @@ public final class WorkbenchWindow extends JFrame {
         tabs.addTab("Batch", createBatchTab());
         tabs.addTab("Publish", createPublishTab());
         tabs.addTab("Console", createConsolePanel());
+        tabs.addTab("Network", networkPanel);
         tabs.setSelectedIndex(TAB_ANALYZE);
 
         root.add(tabs, BorderLayout.CENTER);
@@ -3328,6 +3338,7 @@ public final class WorkbenchWindow extends JFrame {
         fenField.setText(currentPosition.toString());
         board.setPosition(currentPosition, lastMove);
         analysisGraph.resetForPosition(currentPosition.toString());
+        networkPanel.setFen(currentPosition.toString());
         updateMoves();
         updateStatus();
         updateTagsAsync();
@@ -3409,7 +3420,11 @@ public final class WorkbenchWindow extends JFrame {
         }
         int value = whiteToMove ? eval.value() : -eval.value();
         if (eval.mate()) {
-            evalBar.setMate(value);
+            if (eval.value() == 0) {
+                evalBar.setMateDelivered(whiteToMove);
+            } else {
+                evalBar.setMate(value);
+            }
         } else {
             evalBar.setCentipawns(value);
         }
@@ -3661,7 +3676,11 @@ public final class WorkbenchWindow extends JFrame {
         }
         int value = whiteToMove ? evaluation.getValue() : -evaluation.getValue();
         if (evaluation.isMate()) {
-            evalBar.setMate(value);
+            if (evaluation.getValue() == 0) {
+                evalBar.setMateDelivered(whiteToMove);
+            } else {
+                evalBar.setMate(value);
+            }
         } else {
             evalBar.setCentipawns(value);
         }

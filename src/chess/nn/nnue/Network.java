@@ -157,10 +157,26 @@ public final class Network implements AutoCloseable {
      * @return network prediction
      */
     public Prediction predict(Position position) {
+        return predict(position, null);
+    }
+
+    /**
+     * Evaluates a position and optionally captures intermediate activations.
+     *
+     * @param position position to evaluate
+     * @param sink activation collector; null for production callers
+     * @return network prediction
+     */
+    public Prediction predict(Position position, chess.nn.ActivationSink sink) {
         if (position == null) {
             throw new IllegalArgumentException("position == null");
         }
-        return predict(newAccumulator(position), position.isWhiteToMove());
+        boolean whiteToMove = position.isWhiteToMove();
+        Accumulator accumulator = newAccumulator(position);
+        if (sink != null) {
+            captureFeatures(sink, position, whiteToMove);
+        }
+        return predict(accumulator, whiteToMove, sink);
     }
 
     /**
@@ -171,6 +187,18 @@ public final class Network implements AutoCloseable {
      * @return network prediction
      */
     public Prediction predict(Accumulator accumulator, boolean whiteToMove) {
+        return predict(accumulator, whiteToMove, null);
+    }
+
+    /**
+     * Evaluates a prepared accumulator and optionally captures activations.
+     *
+     * @param accumulator accumulator created by this network
+     * @param whiteToMove true when White is the side to move
+     * @param sink activation collector; null for production callers
+     * @return network prediction
+     */
+    public Prediction predict(Accumulator accumulator, boolean whiteToMove, chess.nn.ActivationSink sink) {
         if (accumulator == null) {
             throw new IllegalArgumentException("accumulator == null");
         }
@@ -180,13 +208,99 @@ public final class Network implements AutoCloseable {
 
         float[] us = accumulator.values(whiteToMove);
         float[] them = accumulator.values(!whiteToMove);
-        float raw = weights.outputBias;
         int hidden = weights.hiddenSize;
+        float raw = weights.outputBias;
+        float[] clippedUs = sink != null ? new float[hidden] : null;
+        float[] clippedThem = sink != null ? new float[hidden] : null;
+        float[] contribUs = sink != null ? new float[hidden] : null;
+        float[] contribThem = sink != null ? new float[hidden] : null;
         for (int i = 0; i < hidden; i++) {
-            raw += weights.outputWeights[i] * clippedRelu(us[i]);
-            raw += weights.outputWeights[hidden + i] * clippedRelu(them[i]);
+            float cu = clippedRelu(us[i]);
+            float ct = clippedRelu(them[i]);
+            float wu = weights.outputWeights[i];
+            float wt = weights.outputWeights[hidden + i];
+            raw += wu * cu;
+            raw += wt * ct;
+            if (sink != null) {
+                clippedUs[i] = cu;
+                clippedThem[i] = ct;
+                contribUs[i] = wu * cu;
+                contribThem[i] = wt * ct;
+            }
         }
-        return new Prediction(raw * weights.outputScale);
+        float centipawns = raw * weights.outputScale;
+        if (sink != null) {
+            sink.put("nnue.accumulator.us", new int[] { hidden }, us.clone());
+            sink.put("nnue.accumulator.them", new int[] { hidden }, them.clone());
+            sink.put("nnue.clipped.us", new int[] { hidden }, clippedUs);
+            sink.put("nnue.clipped.them", new int[] { hidden }, clippedThem);
+            sink.put("nnue.output.weights.us", new int[] { hidden },
+                    java.util.Arrays.copyOfRange(weights.outputWeights, 0, hidden));
+            sink.put("nnue.output.weights.them", new int[] { hidden },
+                    java.util.Arrays.copyOfRange(weights.outputWeights, hidden, 2 * hidden));
+            sink.put("nnue.output.contribution.us", new int[] { hidden }, contribUs);
+            sink.put("nnue.output.contribution.them", new int[] { hidden }, contribThem);
+            sink.put("nnue.output.affine", new int[] { 1 }, new float[] { raw });
+            sink.put("nnue.output.centipawns", new int[] { 1 }, new float[] { centipawns });
+        }
+        return new Prediction(centipawns);
+    }
+
+    /**
+     * Captures the active half-KP feature indices and the per-feature linear
+     * impact on the eval (a useful approximation since the L1 nonlinearity
+     * makes the true impact non-decomposable).
+     *
+     * @param sink activation collector
+     * @param position position
+     * @param whiteToMove true when White is the side to move
+     */
+    private void captureFeatures(chess.nn.ActivationSink sink, Position position, boolean whiteToMove) {
+        int hidden = weights.hiddenSize;
+        int[] usIndices = FeatureEncoder.activeFeatures(position, whiteToMove);
+        int[] themIndices = FeatureEncoder.activeFeatures(position, !whiteToMove);
+        float[] usIdxFloat = new float[usIndices.length];
+        float[] themIdxFloat = new float[themIndices.length];
+        float[] usImpact = new float[usIndices.length];
+        float[] themImpact = new float[themIndices.length];
+        float[] usWeights = new float[usIndices.length * hidden];
+        float[] themWeights = new float[themIndices.length * hidden];
+        for (int i = 0; i < usIndices.length; i++) {
+            usIdxFloat[i] = usIndices[i];
+            usImpact[i] = perFeatureLinearImpact(usIndices[i], 0);
+            int base = usIndices[i] * hidden;
+            System.arraycopy(weights.featureWeights, base, usWeights, i * hidden, hidden);
+        }
+        for (int i = 0; i < themIndices.length; i++) {
+            themIdxFloat[i] = themIndices[i];
+            themImpact[i] = perFeatureLinearImpact(themIndices[i], hidden);
+            int base = themIndices[i] * hidden;
+            System.arraycopy(weights.featureWeights, base, themWeights, i * hidden, hidden);
+        }
+        sink.put("nnue.features.us.indices", new int[] { usIndices.length }, usIdxFloat);
+        sink.put("nnue.features.them.indices", new int[] { themIndices.length }, themIdxFloat);
+        sink.put("nnue.features.us.impact", new int[] { usIndices.length }, usImpact);
+        sink.put("nnue.features.them.impact", new int[] { themIndices.length }, themImpact);
+        sink.put("nnue.features.us.weights", new int[] { usIndices.length, hidden }, usWeights);
+        sink.put("nnue.features.them.weights", new int[] { themIndices.length, hidden }, themWeights);
+    }
+
+    /**
+     * Returns the linear approximation of one feature's eval impact, ignoring
+     * the L1 clipped-relu nonlinearity.
+     *
+     * @param feature half-KP feature index
+     * @param outputOffset offset into outputWeights (0 for us, hiddenSize for them)
+     * @return scalar impact in centipawn units
+     */
+    private float perFeatureLinearImpact(int feature, int outputOffset) {
+        int hidden = weights.hiddenSize;
+        int base = feature * hidden;
+        float impact = 0.0f;
+        for (int h = 0; h < hidden; h++) {
+            impact += weights.featureWeights[base + h] * weights.outputWeights[outputOffset + h];
+        }
+        return impact * weights.outputScale;
     }
 
     /**

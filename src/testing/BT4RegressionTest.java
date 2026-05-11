@@ -199,7 +199,7 @@ public final class BT4RegressionTest {
      * @return architecture
      */
     private static Architecture syntheticArchitecture() {
-        return new Architecture(
+        return Architecture.simplified(
                 "test-bt4",
                 InputFormat.CLASSICAL_112,
                 Architecture.InputEmbedding.PE_MAP,
@@ -392,10 +392,13 @@ public final class BT4RegressionTest {
     private static void writeWeights(Path path, Network.Weights weights) throws IOException {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         writeInt(out, 0x4A345442);
-        writeInt(out, 1);
+        writeInt(out, 2);
         writeArchitecture(out, weights.architecture());
-        writeDense(out, weights.inputEmbedding());
-        writeEncoderBlocks(out, weights.encoders());
+        writeInputStack(out, weights.input(), weights.architecture());
+        writeEncoderBlocks(out, weights.encoders(), weights.architecture().hasSmolgen());
+        if (weights.architecture().hasSmolgen()) {
+            writeFloatArray(out, weights.smolgenW());
+        }
         writePolicyHead(out, weights.policyHead());
         writeValueHead(out, weights.valueHead());
         Files.write(path, out.toByteArray());
@@ -418,6 +421,73 @@ public final class BT4RegressionTest {
         writeInt(out, architecture.attentionHeads());
         writeInt(out, architecture.policySize());
         writeFloat(out, architecture.layerNormEpsilon());
+        writeInt(out, architecture.ffnHiddenSize());
+        writeInt(out, architecture.smolgenHiddenChannels());
+        writeInt(out, architecture.smolgenHiddenSize());
+        writeInt(out, architecture.smolgenPerHeadDim());
+        writeInt(out, architecture.smolgenGlobalSize());
+        writeString(out, architecture.defaultActivation().name());
+        writeString(out, architecture.smolgenActivation().name());
+        writeString(out, architecture.ffnActivation().name());
+        writeBool(out, architecture.hasInputPreproc());
+        writeBool(out, architecture.hasInputEmbFfn());
+        writeBool(out, architecture.hasInputGates());
+        writeBool(out, architecture.hasSmolgen());
+    }
+
+    /**
+     * Writes the input stack.
+     *
+     * @param out output
+     * @param stack input stack
+     * @param architecture architecture
+     */
+    private static void writeInputStack(ByteArrayOutputStream out, Network.InputStack stack,
+            Architecture architecture) {
+        if (architecture.hasInputPreproc()) {
+            writeDense(out, stack.preproc());
+        }
+        writeDense(out, stack.embedding());
+        if (architecture.inputEmbedding() == Architecture.InputEmbedding.PE_DENSE) {
+            writeFloatArray(out, stack.embLnGamma());
+            writeFloatArray(out, stack.embLnBeta());
+        }
+        if (architecture.hasInputGates()) {
+            writeFloatArray(out, stack.multGate());
+            writeFloatArray(out, stack.addGate());
+        }
+        if (architecture.hasInputEmbFfn()) {
+            writeDense(out, stack.embFfn().dense1());
+            writeDense(out, stack.embFfn().dense2());
+            writeFloatArray(out, stack.embFfnLnGamma());
+            writeFloatArray(out, stack.embFfnLnBeta());
+        }
+    }
+
+    /**
+     * Writes a smolgen block.
+     *
+     * @param out output
+     * @param smolgen smolgen
+     */
+    private static void writeSmolgen(ByteArrayOutputStream out, Network.Smolgen smolgen) {
+        writeDense(out, smolgen.compress());
+        writeDense(out, smolgen.dense1());
+        writeFloatArray(out, smolgen.ln1Gamma());
+        writeFloatArray(out, smolgen.ln1Beta());
+        writeDense(out, smolgen.dense2());
+        writeFloatArray(out, smolgen.ln2Gamma());
+        writeFloatArray(out, smolgen.ln2Beta());
+    }
+
+    /**
+     * Writes a boolean as one byte.
+     *
+     * @param out output
+     * @param value value
+     */
+    private static void writeBool(ByteArrayOutputStream out, boolean value) {
+        out.write(value ? 1 : 0);
     }
 
     /**
@@ -425,11 +495,13 @@ public final class BT4RegressionTest {
      *
      * @param out output
      * @param blocks blocks
+     * @param hasSmolgen whether each attention layer carries smolgen weights
      */
-    private static void writeEncoderBlocks(ByteArrayOutputStream out, List<Network.EncoderBlock> blocks) {
+    private static void writeEncoderBlocks(ByteArrayOutputStream out, List<Network.EncoderBlock> blocks,
+            boolean hasSmolgen) {
         writeInt(out, blocks.size());
         for (Network.EncoderBlock block : blocks) {
-            writeEncoderBlock(out, block);
+            writeEncoderBlock(out, block, hasSmolgen);
         }
     }
 
@@ -438,9 +510,11 @@ public final class BT4RegressionTest {
      *
      * @param out output
      * @param block block
+     * @param hasSmolgen whether the attention layer carries smolgen weights
      */
-    private static void writeEncoderBlock(ByteArrayOutputStream out, Network.EncoderBlock block) {
-        writeAttention(out, block.attention());
+    private static void writeEncoderBlock(ByteArrayOutputStream out, Network.EncoderBlock block,
+            boolean hasSmolgen) {
+        writeAttention(out, block.attention(), hasSmolgen);
         writeDense(out, block.ffnIn());
         writeDense(out, block.ffnOut());
         writeFloatArray(out, block.ln1Gamma());
@@ -456,13 +530,18 @@ public final class BT4RegressionTest {
      *
      * @param out output
      * @param attention attention
+     * @param hasSmolgen whether to append the trailing smolgen weights
      */
-    private static void writeAttention(ByteArrayOutputStream out, Network.Attention attention) {
+    private static void writeAttention(ByteArrayOutputStream out, Network.Attention attention,
+            boolean hasSmolgen) {
         writeInt(out, attention.heads());
         writeDense(out, attention.query());
         writeDense(out, attention.key());
         writeDense(out, attention.value());
         writeDense(out, attention.out());
+        if (hasSmolgen) {
+            writeSmolgen(out, attention.smolgen());
+        }
     }
 
     /**
@@ -473,7 +552,7 @@ public final class BT4RegressionTest {
      */
     private static void writePolicyHead(ByteArrayOutputStream out, Network.PolicyHead head) {
         writeDense(out, head.embedding());
-        writeEncoderBlocks(out, head.encoders());
+        writeEncoderBlocks(out, head.encoders(), false);
         writeDense(out, head.query());
         writeDense(out, head.key());
         writeFloatArray(out, head.promotionWeights());

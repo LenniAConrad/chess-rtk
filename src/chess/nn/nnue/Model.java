@@ -170,6 +170,22 @@ public final class Model implements AutoCloseable {
     }
 
     /**
+     * Returns the underlying CRTK-format network, or {@code null} when this
+     * model wraps a Stockfish-format upstream network.
+     *
+     * <p>
+     * The accessor exists for tooling that needs activation-capture hooks on
+     * the inner network (e.g. the workbench visualizer); production callers
+     * should continue to use {@link #predict(Position)}.
+     * </p>
+     *
+     * @return underlying CRTK network, or {@code null} for upstream networks
+     */
+    public Network crtkNetwork() {
+        return network;
+    }
+
+    /**
      * Returns model metadata.
      *
      * @return network metadata

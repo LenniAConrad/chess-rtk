@@ -277,14 +277,32 @@ public final class Network implements AutoCloseable {
     }
 
     /**
+     * Per-prediction activation sink. Set on entry to a predict call and
+     * cleared on exit. Single-threaded per-network; callers expecting
+     * concurrency should hold independent Network instances.
+     */
+    private chess.nn.ActivationSink sink;
+
+    /**
      * Evaluates a position.
      *
      * @param position source position
      * @return prediction
      */
     public Prediction predict(Position position) {
+        return predict(position, null);
+    }
+
+    /**
+     * Evaluates a position and captures intermediate activations.
+     *
+     * @param position source position
+     * @param sink activation collector; null for production callers
+     * @return prediction
+     */
+    public Prediction predict(Position position, chess.nn.ActivationSink sink) {
         Encoder.EncodedInput encoded = Encoder.encode(position, weights.architecture().inputFormat());
-        return predictEncoded(encoded.planes());
+        return predictEncoded(encoded.planes(), sink);
     }
 
     /**
@@ -294,6 +312,18 @@ public final class Network implements AutoCloseable {
      * @return prediction
      */
     public Prediction predictEncoded(float[] encodedPlanes) {
+        return predictEncoded(encodedPlanes, null);
+    }
+
+    /**
+     * Evaluates already encoded LC0 planes and optionally captures
+     * intermediate activations into the supplied sink.
+     *
+     * @param encodedPlanes channel-major {@code [112][64]} input planes
+     * @param activationSink activation collector; null for production callers
+     * @return prediction
+     */
+    public Prediction predictEncoded(float[] encodedPlanes, chess.nn.ActivationSink activationSink) {
         if (encodedPlanes == null || encodedPlanes.length != Encoder.INPUT_CHANNELS * Encoder.TOKENS) {
             throw new IllegalArgumentException("encodedPlanes length must be " + (Encoder.INPUT_CHANNELS * Encoder.TOKENS));
         }
@@ -306,10 +336,60 @@ public final class Network implements AutoCloseable {
         if (oneapi != null) {
             return oneapi.predictEncoded(encodedPlanes);
         }
-        float[] body = runBody(encodedPlanes);
-        float[] policy = runPolicy(body);
-        float[] wdl = runValue(body);
-        return new Prediction(policy, wdl, wdl[0] - wdl[2]);
+        sink = activationSink;
+        try {
+            capture("bt4.input", new int[] { Encoder.INPUT_CHANNELS, 8, 8 }, encodedPlanes);
+            float[] body = runBody(encodedPlanes);
+            capture("bt4.final.tokens", new int[] { Encoder.TOKENS, weights.architecture().embeddingSize() }, body);
+            captureTokenEnergy(body);
+            float[] policy = runPolicy(body);
+            capture("bt4.policy.logits", new int[] { policy.length }, policy);
+            float[] wdl = runValue(body);
+            capture("bt4.value.wdl", new int[] { 3 }, wdl);
+            float scalar = wdl[0] - wdl[2];
+            capture("bt4.value.scalar", new int[] { 1 }, new float[] { scalar });
+            return new Prediction(policy, wdl, scalar);
+        } finally {
+            sink = null;
+        }
+    }
+
+    /**
+     * Forwards one snapshot entry to the active sink, if any.
+     *
+     * @param key activation key
+     * @param shape tensor shape
+     * @param data flat values (caller-owned; sink defensively copies)
+     */
+    private void capture(String key, int[] shape, float[] data) {
+        if (sink != null) {
+            sink.put(key, shape, data.clone());
+        }
+    }
+
+    /**
+     * Captures a derived per-square "token energy" map: the mean absolute
+     * embedding activation per board square. Provides the BT4 view a stable
+     * scalar-per-square signal without requiring a re-run of attention.
+     *
+     * @param body final transformer output {@code [tokens, embedding]}
+     */
+    private void captureTokenEnergy(float[] body) {
+        if (sink == null) {
+            return;
+        }
+        int tokens = weights.architecture().tokens();
+        int embedding = weights.architecture().embeddingSize();
+        float[] energy = new float[tokens];
+        for (int t = 0; t < tokens; t++) {
+            double sum = 0.0;
+            int base = t * embedding;
+            for (int d = 0; d < embedding; d++) {
+                sum += Math.abs(body[base + d]);
+            }
+            energy[t] = (float) (sum / embedding);
+        }
+        sink.put("bt4.token.energy", new int[] { 8, 8 }, energy);
     }
 
     /**
@@ -534,20 +614,203 @@ public final class Network implements AutoCloseable {
      */
     private float[] runBody(float[] encodedPlanes) {
         Architecture architecture = weights.architecture();
-        float[] tokens = Encoder.toTokenMajor(encodedPlanes, architecture.inputChannels(), architecture.tokens());
+        InputStack stack = weights.input();
+        int tokens = architecture.tokens();
+        float[] perToken = Encoder.toTokenMajor(encodedPlanes, architecture.inputChannels(), tokens);
+
+        float[] flow;
         if (architecture.inputEmbedding() == Architecture.InputEmbedding.PE_MAP) {
-            tokens = Encoder.appendPositionMap(tokens);
+            float[] mapped = Encoder.appendPositionMap(perToken);
+            flow = denseTokens(mapped, tokens, architecture.inputChannels() + tokens, stack.embedding());
+        } else if (architecture.inputEmbedding() == Architecture.InputEmbedding.PE_DENSE) {
+            float[] concatenated = inputDenseEmbedding(perToken, stack.preproc(),
+                    architecture.inputChannels(), tokens, stack.embedding().inDim());
+            flow = denseTokens(concatenated, tokens, stack.embedding().inDim(), stack.embedding());
+        } else {
+            flow = denseTokens(perToken, tokens, architecture.inputChannels(), stack.embedding());
         }
-        float[] flow = denseTokens(tokens, architecture.tokens(), architecture.projectedInputWidth(), weights.inputEmbedding());
-        activate(flow, Activation.MISH);
+        activate(flow, architecture.defaultActivation());
+
+        int embeddingSize = architecture.embeddingSize();
+        if (architecture.inputEmbedding() == Architecture.InputEmbedding.PE_DENSE
+                && stack.embLnGamma() != null) {
+            layerNormInPlace(flow, tokens, embeddingSize, stack.embLnGamma(), stack.embLnBeta(),
+                    architecture.layerNormEpsilon());
+        }
+        if (stack.multGate() != null) {
+            applyPerTokenGate(flow, tokens, embeddingSize, stack.multGate(), true);
+        }
+        if (stack.addGate() != null) {
+            applyPerTokenGate(flow, tokens, embeddingSize, stack.addGate(), false);
+        }
+        float alpha = encoderAlpha(architecture);
+        if (stack.embFfn() != null) {
+            float[] ffnIn = denseTokens(flow, tokens, embeddingSize, stack.embFfn().dense1());
+            activate(ffnIn, architecture.ffnActivation());
+            float[] ffnOut = denseTokens(ffnIn, tokens, stack.embFfn().dense1().outDim(),
+                    stack.embFfn().dense2());
+            if (alpha != 1.0f) {
+                scale(ffnOut, alpha);
+            }
+            addInPlace(ffnOut, flow);
+            layerNormInPlace(ffnOut, tokens, embeddingSize, stack.embFfnLnGamma(), stack.embFfnLnBeta(),
+                    architecture.layerNormEpsilon());
+            flow = ffnOut;
+        }
+
+        capture("bt4.token.embedding", new int[] { tokens, embeddingSize }, flow);
+        int blockIndex = 0;
         for (EncoderBlock block : weights.encoders()) {
-            flow = runEncoderBlock(flow, block, architecture.tokens(), architecture.layerNormEpsilon());
+            flow = runEncoderBlock(flow, block, tokens, architecture, alpha, blockIndex);
+            capture("bt4.block" + blockIndex + ".out",
+                    new int[] { tokens, embeddingSize }, flow);
+            blockIndex++;
         }
         return flow;
     }
 
     /**
-     * Runs one transformer encoder block.
+     * Number of input channels per token consumed by the PE_DENSE preproc
+     * layer. LC0 hardcodes this to 12 (the leading position-info planes).
+     */
+    private static final int PREPROC_CHANNELS_PER_TOKEN = 12;
+
+    /**
+     * Computes the BT4 PE_DENSE input concatenation.
+     *
+     * <p>
+     * LC0's BT4 input takes the first {@link #PREPROC_CHANNELS_PER_TOKEN}
+     * channels of every token, flattens them into one
+     * {@code [tokens * PREPROC_CHANNELS_PER_TOKEN]} vector, runs that through
+     * a single dense layer to a {@code [tokens * outPerTok]} vector, reshapes
+     * to {@code [tokens, outPerTok]}, and concatenates the result after the
+     * original {@code [tokens, inputChannels]} features. The combined
+     * {@code [tokens, inputChannels + outPerTok]} tensor is the input to the
+     * main embedding projection.
+     * </p>
+     *
+     * @param perToken token-major input
+     * @param preproc preproc dense layer
+     * @param inputChannels base input channel count
+     * @param tokens token count
+     * @param embeddingInDim expected embedding input width
+     * @return concatenated token-major input ready for the embedding projection
+     */
+    private static float[] inputDenseEmbedding(float[] perToken, Dense preproc, int inputChannels,
+            int tokens, int embeddingInDim) {
+        if (preproc == null) {
+            throw new IllegalStateException("PE_DENSE input embedding requires preproc weights");
+        }
+        int expectedIn = tokens * PREPROC_CHANNELS_PER_TOKEN;
+        if (preproc.inDim() != expectedIn) {
+            throw new IllegalArgumentException(
+                    "preproc input width " + preproc.inDim() + " != tokens*" + PREPROC_CHANNELS_PER_TOKEN);
+        }
+        if (preproc.outDim() % tokens != 0) {
+            throw new IllegalArgumentException("preproc output width not divisible by tokens");
+        }
+        int outPerTok = preproc.outDim() / tokens;
+        int outWidth = inputChannels + outPerTok;
+        if (embeddingInDim != outWidth) {
+            throw new IllegalArgumentException(
+                    "embedding input width " + embeddingInDim + " != base+preproc " + outWidth);
+        }
+        float[] sliced = new float[expectedIn];
+        for (int t = 0; t < tokens; t++) {
+            System.arraycopy(perToken, t * inputChannels, sliced, t * PREPROC_CHANNELS_PER_TOKEN,
+                    PREPROC_CHANNELS_PER_TOKEN);
+        }
+        float[] processed = denseVector(sliced, preproc);
+        float[] concatenated = new float[tokens * outWidth];
+        for (int t = 0; t < tokens; t++) {
+            System.arraycopy(perToken, t * inputChannels, concatenated, t * outWidth, inputChannels);
+            System.arraycopy(processed, t * outPerTok, concatenated, t * outWidth + inputChannels, outPerTok);
+        }
+        return concatenated;
+    }
+
+    /**
+     * Applies a per-square per-channel gate in place. Multiplicative when
+     * {@code multiplicative} is true, additive otherwise.
+     *
+     * @param values token-major values
+     * @param tokens token count
+     * @param dim per-token width
+     * @param gate flat gate values, layout {@code [tokens, dim]}
+     * @param multiplicative true to multiply, false to add
+     */
+    private static void applyPerTokenGate(float[] values, int tokens, int dim, float[] gate,
+            boolean multiplicative) {
+        if (gate.length != tokens * dim) {
+            throw new IllegalArgumentException("gate length mismatch");
+        }
+        for (int i = 0; i < values.length; i++) {
+            if (multiplicative) {
+                values[i] *= gate[i];
+            } else {
+                values[i] += gate[i];
+            }
+        }
+    }
+
+    /**
+     * Returns the LC0 DeepNet residual scale used by BT4: {@code (2 * N)^-0.25}.
+     *
+     * @param architecture architecture
+     * @return scaling factor
+     */
+    private static float encoderAlpha(Architecture architecture) {
+        int n = Math.max(1, architecture.encoderLayers());
+        return (float) Math.pow(2.0 * n, -0.25);
+    }
+
+    /**
+     * Runs one transformer encoder block. The block's own {@code alpha} is
+     * preserved; the {@code alpha} parameter overrides it when an extended
+     * BT4 architecture provides a deepnet-style scale to use instead.
+     *
+     * @param input token-major input
+     * @param block block weights
+     * @param tokens token count
+     * @param architecture architecture metadata (LN eps, activations, smolgen flag)
+     * @param alpha residual scaling override; pass {@code block.alpha()} for legacy
+     * @return token-major output
+     */
+    private float[] runEncoderBlock(float[] input, EncoderBlock block, int tokens, Architecture architecture,
+            float alpha, int blockIndex) {
+        int embedding = block.attention().query().inDim();
+        float eps = architecture.layerNormEpsilon();
+        float[] attended = attention(input, tokens, embedding, block.attention(),
+                architecture.hasSmolgen() ? weights.smolgenW() : null,
+                architecture.smolgenActivation(), eps, blockIndex);
+        if (alpha != 1.0f) {
+            scale(attended, alpha);
+        }
+        addInPlace(attended, input);
+        layerNormInPlace(attended, tokens, embedding, block.ln1Gamma(), block.ln1Beta(), eps);
+        if (blockIndex >= 0) {
+            capture("bt4.block" + blockIndex + ".attention.out",
+                    new int[] { tokens, embedding }, attended);
+        }
+
+        float[] hidden = denseTokens(attended, tokens, embedding, block.ffnIn());
+        activate(hidden, block.activation());
+        float[] ffnOut = denseTokens(hidden, tokens, block.ffnIn().outDim(), block.ffnOut());
+        if (alpha != 1.0f) {
+            scale(ffnOut, alpha);
+        }
+        addInPlace(ffnOut, attended);
+        layerNormInPlace(ffnOut, tokens, embedding, block.ln2Gamma(), block.ln2Beta(), eps);
+        if (blockIndex >= 0) {
+            capture("bt4.block" + blockIndex + ".ffn",
+                    new int[] { tokens, embedding }, ffnOut);
+        }
+        return ffnOut;
+    }
+
+    /**
+     * Legacy entry point used by the policy head's optional encoder stack
+     * (which never carries smolgen weights).
      *
      * @param input token-major input
      * @param block block weights
@@ -556,23 +819,21 @@ public final class Network implements AutoCloseable {
      * @return token-major output
      */
     private float[] runEncoderBlock(float[] input, EncoderBlock block, int tokens, float eps) {
-        int embedding = block.attention().query().inDim();
-        float[] attended = attention(input, tokens, embedding, block.attention());
-        if (block.alpha() != 1.0f) {
-            scale(attended, block.alpha());
-        }
-        addInPlace(attended, input);
-        layerNormInPlace(attended, tokens, embedding, block.ln1Gamma(), block.ln1Beta(), eps);
-
-        float[] hidden = denseTokens(attended, tokens, embedding, block.ffnIn());
-        activate(hidden, block.activation());
-        float[] ffnOut = denseTokens(hidden, tokens, block.ffnIn().outDim(), block.ffnOut());
-        if (block.alpha() != 1.0f) {
-            scale(ffnOut, block.alpha());
-        }
-        addInPlace(ffnOut, attended);
-        layerNormInPlace(ffnOut, tokens, embedding, block.ln2Gamma(), block.ln2Beta(), eps);
-        return ffnOut;
+        Architecture architecture = weights.architecture();
+        return runEncoderBlock(input, block, tokens,
+                architecture.hasSmolgen() ? architecture : Architecture.simplified(
+                        architecture.name(),
+                        architecture.inputFormat(),
+                        architecture.inputEmbedding(),
+                        architecture.inputChannels(),
+                        tokens,
+                        block.attention().query().inDim(),
+                        architecture.encoderLayers(),
+                        block.attention().heads(),
+                        architecture.policySize(),
+                        eps),
+                block.alpha(),
+                -1);
     }
 
     /**
@@ -685,37 +946,64 @@ public final class Network implements AutoCloseable {
     }
 
     /**
-     * Runs multi-head self-attention.
+     * Runs multi-head self-attention with optional smolgen bias.
+     *
+     * <p>
+     * When the attention layer carries a smolgen block and a non-null
+     * {@code smolgenW} is supplied, a per-head {@code [tokens, tokens]} bias
+     * is computed from the input embeddings and added to the scaled QK
+     * scores before the softmax.
+     * </p>
      *
      * @param input token-major input
      * @param tokens token count
      * @param embedding input width
      * @param attention attention weights
+     * @param smolgenW shared smolgen attention-bias projection; may be null
+     * @param smolgenActivation smolgen-internal activation
+     * @param layerNormEpsilon smolgen layer-norm epsilon
      * @return token-major attention output
      */
-    private static float[] attention(float[] input, int tokens, int embedding, Attention attention) {
+    private float[] attention(float[] input, int tokens, int embedding, Attention attention,
+            float[] smolgenW, Activation smolgenActivation, float layerNormEpsilon, int blockIndex) {
         float[] q = denseTokens(input, tokens, embedding, attention.query());
         float[] k = denseTokens(input, tokens, embedding, attention.key());
         float[] v = denseTokens(input, tokens, embedding, attention.value());
         int dModel = attention.query().outDim();
         int heads = attention.heads();
         int depth = dModel / heads;
+        float[] smolgenBias = null;
+        if (attention.smolgen() != null && smolgenW != null) {
+            smolgenBias = computeSmolgenBias(input, tokens, embedding, heads, attention.smolgen(),
+                    smolgenW, smolgenActivation, layerNormEpsilon);
+        }
         float[] combined = new float[tokens * dModel];
         float[] scores = new float[tokens];
+        boolean captureHeads = sink != null && blockIndex >= 0;
+        float[] perHeadAttention = captureHeads ? new float[heads * tokens * tokens] : null;
         for (int head = 0; head < heads; head++) {
             int headOffset = head * depth;
             float invScale = (float) (1.0 / Math.sqrt(depth));
+            int biasHeadOffset = head * tokens * tokens;
             for (int queryToken = 0; queryToken < tokens; queryToken++) {
                 int qBase = queryToken * dModel + headOffset;
+                int biasRow = biasHeadOffset + queryToken * tokens;
                 for (int keyToken = 0; keyToken < tokens; keyToken++) {
                     int kBase = keyToken * dModel + headOffset;
                     float sum = 0.0f;
                     for (int d = 0; d < depth; d++) {
                         sum += q[qBase + d] * k[kBase + d];
                     }
-                    scores[keyToken] = sum * invScale;
+                    float score = sum * invScale;
+                    if (smolgenBias != null) {
+                        score += smolgenBias[biasRow + keyToken];
+                    }
+                    scores[keyToken] = score;
                 }
                 softmaxInPlace(scores);
+                if (perHeadAttention != null) {
+                    System.arraycopy(scores, 0, perHeadAttention, biasRow, tokens);
+                }
                 int outBase = queryToken * dModel + headOffset;
                 for (int d = 0; d < depth; d++) {
                     float sum = 0.0f;
@@ -727,7 +1015,68 @@ public final class Network implements AutoCloseable {
                 }
             }
         }
+        if (perHeadAttention != null) {
+            sink.put("bt4.block" + blockIndex + ".attention.heads",
+                    new int[] { heads, tokens, tokens }, perHeadAttention);
+        }
         return denseTokens(combined, tokens, dModel, attention.out());
+    }
+
+    /**
+     * Computes the per-head {@code [tokens, tokens]} smolgen bias.
+     *
+     * <p>
+     * Flow: compress each token's embedding to {@code hiddenChannels},
+     * flatten over tokens, dense -&gt; activation -&gt; LN -&gt; dense -&gt;
+     * activation -&gt; LN -&gt; reshape to {@code [heads, perHeadDim]}, then
+     * project each head row through the shared {@code smolgenW} (shape
+     * {@code [perHeadDim, tokens*tokens]}). Output layout is flat
+     * {@code [heads, tokens, tokens]}.
+     * </p>
+     *
+     * @param input token-major input
+     * @param tokens token count
+     * @param embedding embedding width
+     * @param heads attention head count
+     * @param smolgen smolgen weights
+     * @param smolgenW shared global smolgen projection
+     * @param activation smolgen-internal activation
+     * @param eps layer-norm epsilon
+     * @return flat smolgen bias
+     */
+    private static float[] computeSmolgenBias(float[] input, int tokens, int embedding, int heads,
+            Smolgen smolgen, float[] smolgenW, Activation activation, float eps) {
+        int hiddenChannels = smolgen.compress().outDim();
+        float[] compressed = denseTokens(input, tokens, embedding, smolgen.compress());
+        if (compressed.length != tokens * hiddenChannels) {
+            throw new IllegalStateException("smolgen compress output length unexpected");
+        }
+        float[] mid = denseVector(compressed, smolgen.dense1());
+        activate(mid, activation);
+        layerNormInPlace(mid, 1, mid.length, smolgen.ln1Gamma(), smolgen.ln1Beta(), eps);
+        float[] gen = denseVector(mid, smolgen.dense2());
+        activate(gen, activation);
+        layerNormInPlace(gen, 1, gen.length, smolgen.ln2Gamma(), smolgen.ln2Beta(), eps);
+        int perHead = gen.length / heads;
+        int outSize = tokens * tokens;
+        if (smolgenW.length != perHead * outSize) {
+            throw new IllegalStateException("smolgenW shape mismatch: expected "
+                    + (perHead * outSize) + " got " + smolgenW.length);
+        }
+        float[] bias = new float[heads * outSize];
+        for (int h = 0; h < heads; h++) {
+            int genBase = h * perHead;
+            int outBase = h * outSize;
+            for (int o = 0; o < outSize; o++) {
+                float sum = 0.0f;
+                int wRow = o * perHead;
+                for (int d = 0; d < perHead; d++) {
+                    sum += gen[genBase + d] * smolgenW[wRow + d];
+                }
+                bias[outBase + o] = sum;
+            }
+        }
+        return bias;
     }
 
     /**
@@ -964,15 +1313,18 @@ public final class Network implements AutoCloseable {
      * Network weight bundle.
      *
      * @param architecture architecture metadata
-     * @param inputEmbedding input embedding dense layer
+     * @param input input embedding stack (embedding + optional preproc/gates/FFN)
      * @param encoders body encoder blocks
+     * @param smolgenW shared smolgen attention-bias projection; null when smolgen
+     *        is disabled across all encoder blocks
      * @param policyHead attention policy head
      * @param valueHead WDL value head
      */
     public record Weights(
             Architecture architecture,
-            Dense inputEmbedding,
+            InputStack input,
             List<EncoderBlock> encoders,
+            float[] smolgenW,
             PolicyHead policyHead,
             ValueHead valueHead) {
 
@@ -980,18 +1332,55 @@ public final class Network implements AutoCloseable {
          * Validates the bundle.
          */
         public Weights {
-            if (architecture == null || inputEmbedding == null || encoders == null || policyHead == null
+            if (architecture == null || input == null || encoders == null || policyHead == null
                     || valueHead == null) {
                 throw new IllegalArgumentException("BT4 weights contain null component");
             }
             encoders = List.copyOf(encoders);
-            if (inputEmbedding.inDim() != architecture.projectedInputWidth()
-                    || inputEmbedding.outDim() != architecture.embeddingSize()) {
+            smolgenW = smolgenW == null ? null : smolgenW.clone();
+            if (input.embedding().outDim() != architecture.embeddingSize()) {
                 throw new IllegalArgumentException("input embedding shape does not match architecture");
             }
             if (encoders.size() != architecture.encoderLayers()) {
                 throw new IllegalArgumentException("encoder count does not match architecture");
             }
+            if (architecture.hasSmolgen()) {
+                int needed = architecture.smolgenPerHeadDim() * architecture.smolgenGlobalSize();
+                if (smolgenW == null || smolgenW.length != needed) {
+                    throw new IllegalArgumentException(
+                            "smolgenW length mismatch: " + (smolgenW == null ? -1 : smolgenW.length) + " vs " + needed);
+                }
+            }
+        }
+
+        /**
+         * Convenience constructor for legacy callers that build simplified
+         * BT4 weights with only an input embedding dense layer.
+         *
+         * @param architecture architecture metadata
+         * @param inputEmbedding input embedding dense layer
+         * @param encoders body encoder blocks
+         * @param policyHead attention policy head
+         * @param valueHead WDL value head
+         */
+        public Weights(Architecture architecture, Dense inputEmbedding, List<EncoderBlock> encoders,
+                PolicyHead policyHead, ValueHead valueHead) {
+            this(architecture,
+                    new InputStack(null, inputEmbedding, null, null, null, null, null, null, null),
+                    encoders,
+                    null,
+                    policyHead,
+                    valueHead);
+        }
+
+        /**
+         * Returns the input embedding dense layer for callers that only need
+         * the embedding projection (e.g. legacy code or shape inspection).
+         *
+         * @return embedding dense
+         */
+        public Dense inputEmbedding() {
+            return input.embedding();
         }
 
         /**
@@ -1000,9 +1389,196 @@ public final class Network implements AutoCloseable {
          * @return parameter count
          */
         public long parameterCount() {
-            long total = inputEmbedding.parameterCount() + policyHead.parameterCount() + valueHead.parameterCount();
+            long total = input.parameterCount() + policyHead.parameterCount() + valueHead.parameterCount();
             for (EncoderBlock encoder : encoders) {
                 total += encoder.parameterCount();
+            }
+            if (smolgenW != null) {
+                total += smolgenW.length;
+            }
+            return total;
+        }
+    }
+
+    /**
+     * Two-layer feed-forward network with an activation between dense layers.
+     *
+     * @param dense1 first dense layer
+     * @param dense2 second dense layer
+     */
+    public record Ffn(Dense dense1, Dense dense2) {
+
+        /**
+         * Validates the FFN shape.
+         */
+        public Ffn {
+            if (dense1 == null || dense2 == null) {
+                throw new IllegalArgumentException("FFN dense layer == null");
+            }
+            if (dense1.outDim() != dense2.inDim()) {
+                throw new IllegalArgumentException("FFN inner dimensions mismatch");
+            }
+        }
+
+        /**
+         * Returns parameter count.
+         *
+         * @return parameter count
+         */
+        public long parameterCount() {
+            return dense1.parameterCount() + dense2.parameterCount();
+        }
+    }
+
+    /**
+     * Per-attention smolgen bias generator.
+     *
+     * <p>
+     * Smolgen reads the encoder-block input ({@code [tokens, embedding]}),
+     * compresses each token to {@code hiddenChannels}, flattens to a single
+     * block-shared vector, passes it through two dense layers with layer
+     * normalization and an activation between, and finally reshapes the
+     * result to {@code [heads, perHeadDim]}. The shared global
+     * {@code smolgenW} projects each head's {@code perHeadDim} vector to
+     * the full {@code tokens * tokens} attention bias.
+     * </p>
+     *
+     * @param compress per-token compression dense ({@code embedding} to
+     *        {@code hiddenChannels}); has no bias by LC0 convention
+     * @param dense1 first dense ({@code tokens * hiddenChannels} to
+     *        {@code hiddenSize})
+     * @param ln1Gamma first layer-norm scale ({@code hiddenSize})
+     * @param ln1Beta first layer-norm bias ({@code hiddenSize})
+     * @param dense2 second dense ({@code hiddenSize} to
+     *        {@code heads * perHeadDim})
+     * @param ln2Gamma second layer-norm scale ({@code heads * perHeadDim})
+     * @param ln2Beta second layer-norm bias ({@code heads * perHeadDim})
+     */
+    public record Smolgen(
+            Dense compress,
+            Dense dense1,
+            float[] ln1Gamma,
+            float[] ln1Beta,
+            Dense dense2,
+            float[] ln2Gamma,
+            float[] ln2Beta) {
+
+        /**
+         * Validates smolgen shape.
+         */
+        public Smolgen {
+            if (compress == null || dense1 == null || dense2 == null) {
+                throw new IllegalArgumentException("smolgen dense layer == null");
+            }
+            ln1Gamma = copy(ln1Gamma, "ln1Gamma");
+            ln1Beta = copy(ln1Beta, "ln1Beta");
+            ln2Gamma = copy(ln2Gamma, "ln2Gamma");
+            ln2Beta = copy(ln2Beta, "ln2Beta");
+            if (ln1Gamma.length != dense1.outDim() || ln1Beta.length != dense1.outDim()) {
+                throw new IllegalArgumentException("smolgen ln1 length mismatch");
+            }
+            if (ln2Gamma.length != dense2.outDim() || ln2Beta.length != dense2.outDim()) {
+                throw new IllegalArgumentException("smolgen ln2 length mismatch");
+            }
+        }
+
+        /**
+         * Returns parameter count.
+         *
+         * @return parameter count
+         */
+        public long parameterCount() {
+            return compress.parameterCount() + dense1.parameterCount() + dense2.parameterCount()
+                    + ln1Gamma.length + ln1Beta.length + ln2Gamma.length + ln2Beta.length;
+        }
+    }
+
+    /**
+     * BT4 input embedding stack.
+     *
+     * <p>
+     * Models the full LC0 attention-body input pipeline. Components after
+     * {@code embedding} are optional: legacy simplified BT4 nets supply only
+     * {@code embedding} and leave all other fields null.
+     * </p>
+     *
+     * @param preproc dense applied to the flattened first-K input channels
+     *        of all tokens (PE_DENSE only)
+     * @param embedding main per-token dense projection to the body width
+     * @param embLnGamma layer-norm gamma after embedding activation
+     * @param embLnBeta layer-norm beta after embedding activation
+     * @param multGate per-square per-channel multiplicative gate ({@code [tokens, embedding]})
+     * @param addGate per-square per-channel additive gate ({@code [tokens, embedding]})
+     * @param embFfn optional FFN after the gates
+     * @param embFfnLnGamma layer-norm gamma after the embedding FFN
+     * @param embFfnLnBeta layer-norm beta after the embedding FFN
+     */
+    public record InputStack(
+            Dense preproc,
+            Dense embedding,
+            float[] embLnGamma,
+            float[] embLnBeta,
+            float[] multGate,
+            float[] addGate,
+            Ffn embFfn,
+            float[] embFfnLnGamma,
+            float[] embFfnLnBeta) {
+
+        /**
+         * Validates the stack.
+         */
+        public InputStack {
+            if (embedding == null) {
+                throw new IllegalArgumentException("input embedding == null");
+            }
+            embLnGamma = embLnGamma == null ? null : embLnGamma.clone();
+            embLnBeta = embLnBeta == null ? null : embLnBeta.clone();
+            multGate = multGate == null ? null : multGate.clone();
+            addGate = addGate == null ? null : addGate.clone();
+            embFfnLnGamma = embFfnLnGamma == null ? null : embFfnLnGamma.clone();
+            embFfnLnBeta = embFfnLnBeta == null ? null : embFfnLnBeta.clone();
+            int e = embedding.outDim();
+            if (embLnGamma != null && (embLnGamma.length != e || embLnBeta == null || embLnBeta.length != e)) {
+                throw new IllegalArgumentException("embedding LN length mismatch");
+            }
+            if (multGate != null && multGate.length % e != 0) {
+                throw new IllegalArgumentException("multGate length not divisible by embedding");
+            }
+            if (addGate != null && addGate.length % e != 0) {
+                throw new IllegalArgumentException("addGate length not divisible by embedding");
+            }
+            if (embFfn != null) {
+                if (embFfn.dense1().inDim() != e || embFfn.dense2().outDim() != e) {
+                    throw new IllegalArgumentException("embedding FFN shape mismatch");
+                }
+                if (embFfnLnGamma == null || embFfnLnGamma.length != e
+                        || embFfnLnBeta == null || embFfnLnBeta.length != e) {
+                    throw new IllegalArgumentException("embedding FFN LN missing or wrong size");
+                }
+            }
+        }
+
+        /**
+         * Returns parameter count.
+         *
+         * @return parameter count
+         */
+        public long parameterCount() {
+            long total = embedding.parameterCount();
+            if (preproc != null) {
+                total += preproc.parameterCount();
+            }
+            if (embLnGamma != null) {
+                total += embLnGamma.length + embLnBeta.length;
+            }
+            if (multGate != null) {
+                total += multGate.length;
+            }
+            if (addGate != null) {
+                total += addGate.length;
+            }
+            if (embFfn != null) {
+                total += embFfn.parameterCount() + embFfnLnGamma.length + embFfnLnBeta.length;
             }
             return total;
         }
@@ -1053,8 +1629,9 @@ public final class Network implements AutoCloseable {
      * @param key key projection
      * @param value value projection
      * @param out output projection
+     * @param smolgen optional smolgen bias generator; null when disabled
      */
-    public record Attention(int heads, Dense query, Dense key, Dense value, Dense out) {
+    public record Attention(int heads, Dense query, Dense key, Dense value, Dense out, Smolgen smolgen) {
 
         /**
          * Validates attention dimensions.
@@ -1072,6 +1649,22 @@ public final class Network implements AutoCloseable {
             if (out.inDim() != query.outDim() || out.outDim() != query.inDim()) {
                 throw new IllegalArgumentException("attention output projection shape mismatch");
             }
+            if (smolgen != null && smolgen.dense2().outDim() % heads != 0) {
+                throw new IllegalArgumentException("smolgen final width must be divisible by heads");
+            }
+        }
+
+        /**
+         * Convenience constructor for legacy attention without smolgen.
+         *
+         * @param heads attention head count
+         * @param query query projection
+         * @param key key projection
+         * @param value value projection
+         * @param out output projection
+         */
+        public Attention(int heads, Dense query, Dense key, Dense value, Dense out) {
+            this(heads, query, key, value, out, null);
         }
 
         /**
@@ -1080,7 +1673,12 @@ public final class Network implements AutoCloseable {
          * @return parameter count
          */
         public long parameterCount() {
-            return query.parameterCount() + key.parameterCount() + value.parameterCount() + out.parameterCount();
+            long total = query.parameterCount() + key.parameterCount()
+                    + value.parameterCount() + out.parameterCount();
+            if (smolgen != null) {
+                total += smolgen.parameterCount();
+            }
+            return total;
         }
     }
 
@@ -1242,7 +1840,17 @@ public final class Network implements AutoCloseable {
         /**
          * Mish activation, used by BT4 FFNs.
          */
-        MISH;
+        MISH,
+
+        /**
+         * Swish (SiLU) activation, used by BT4 smolgen blocks.
+         */
+        SWISH,
+
+        /**
+         * Hyperbolic tangent activation.
+         */
+        TANH;
 
         /**
          * Applies activation to one value.
@@ -1255,6 +1863,8 @@ public final class Network implements AutoCloseable {
                 case NONE -> x;
                 case RELU -> x > 0.0f ? x : 0.0f;
                 case MISH -> x * (float) Math.tanh(softplus(x));
+                case SWISH -> x / (1.0f + (float) Math.exp(-x));
+                case TANH -> (float) Math.tanh(x);
             };
         }
 
