@@ -108,8 +108,13 @@ final class WorkbenchBt4View extends JComponent {
     /**
      * Whether to pin colour scales across position changes.
      */
-    @SuppressWarnings("unused")
     private boolean fixedScale;
+
+    /**
+     * Per-bucket pinned heatmap scales, used while {@link #fixedScale} is on
+     * so attention/energy heatmaps stay comparable across position changes.
+     */
+    private final java.util.Map<String, Float> pinnedScales = new java.util.HashMap<>();
 
     /**
      * Creates the BT4 view.
@@ -151,15 +156,58 @@ final class WorkbenchBt4View extends JComponent {
     }
 
     /**
-     * Sets the fixed-scale flag.
+     * Sets the fixed-scale flag. Resets pinned heatmap scales when the
+     * toggle flips so the next snapshot starts a fresh baseline.
      *
      * @param value true to pin heatmap scales
      */
     void setFixedScale(boolean value) {
         if (this.fixedScale != value) {
             this.fixedScale = value;
+            pinnedScales.clear();
             repaint();
         }
+    }
+
+    /**
+     * Returns the colour-scale for a heatmap bucket. With fixed-scale off
+     * the bucket is cleared and the dynamic max is returned; with fixed-scale
+     * on the bucket's pinned scale grows monotonically across position
+     * changes so attention magnitudes stay comparable.
+     *
+     * @param key bucket key
+     * @param dynamicMax max-abs of the current snapshot data
+     * @return scale (always &gt; 0)
+     */
+    private float scaleFor(String key, float dynamicMax) {
+        float dm = dynamicMax <= 0.0f ? 1.0f : dynamicMax;
+        if (!fixedScale) {
+            pinnedScales.remove(key);
+            return dm;
+        }
+        Float pinned = pinnedScales.get(key);
+        float merged = pinned == null ? dm : Math.max(pinned, dm);
+        pinnedScales.put(key, merged);
+        return merged;
+    }
+
+    /**
+     * Max-abs of an array, or 0 when null/empty.
+     *
+     * @param data values
+     * @return max absolute value
+     */
+    private static float maxAbs(float[] data) {
+        float m = 0.0f;
+        if (data != null) {
+            for (float v : data) {
+                float a = Math.abs(v);
+                if (a > m) {
+                    m = a;
+                }
+            }
+        }
+        return m;
     }
 
     /**
@@ -481,7 +529,8 @@ final class WorkbenchBt4View extends JComponent {
         WorkbenchTensorViz.drawPositionPieces(g, board, fen);
         float[] energy = snapshot.data("bt4.token.energy");
         if (energy != null && energy.length >= 64) {
-            WorkbenchTensorViz.drawSquareOverlay(g, board, energy, 0.0f, false);
+            float s = scaleFor("tokenEnergy", maxAbs(energy));
+            WorkbenchTensorViz.drawSquareOverlay(g, board, energy, s, false);
             addBoardSquareTooltips(board, energy, "Mean attention received");
         }
         drawTopPolicyArrows(g, board);
@@ -866,6 +915,7 @@ final class WorkbenchBt4View extends JComponent {
         if (globalMax <= 0.0f) {
             globalMax = 1.0f;
         }
+        globalMax = scaleFor("headGrid:b" + selectedBlock, globalMax);
         for (int h = 0; h < HEADS; ++h) {
             int col = h % cols;
             int row = h / cols;
@@ -876,6 +926,13 @@ final class WorkbenchBt4View extends JComponent {
             int hmH = cellH - padTop - 2;
             Rectangle heat = new Rectangle(x + 2, y + padTop, hmW, hmH);
             WorkbenchTensorViz.drawHeatmap(g, heat, perHeadEnergy[h], 8, 8, globalMax, false);
+            if (selectedSquare >= 0) {
+                // Cross-highlight the selected board square in every head
+                // thumbnail so the user can see at a glance which heads care
+                // about that square without scanning all 32.
+                drawHeadSquareMarker(g, heat, selectedSquare,
+                        perHeadEnergy[h][selectedSquare], globalMax);
+            }
             if (h == selectedHead) {
                 g.setColor(WorkbenchTheme.ACCENT);
                 g.drawRect(x, y, cellW - 1, cellH - 1);
@@ -893,11 +950,48 @@ final class WorkbenchBt4View extends JComponent {
                     peak = v;
                 }
             }
+            String desc = selectedSquare >= 0
+                    ? "Click to load this head's full 64×64 attention matrix. " + WorkbenchTensorViz.squareLabel(selectedSquare)
+                            + " attention-received = " + String.format("%.4f", perHeadEnergy[h][selectedSquare])
+                    : "Click to load this head's full 64×64 attention matrix.";
             hitRegions.add(new Rectangle(x, y, cellW, cellH),
                     "Head " + (h + 1),
-                    "Click to load this head's full 64×64 attention matrix.",
+                    desc,
                     String.format("attention-received peak %.4f", peak));
         }
+    }
+
+    /**
+     * Draws a small marker outline around the selected square inside a head
+     * thumbnail. The marker is brighter for heads whose attention on that
+     * square is large relative to the global scale, so the user can spot
+     * "heads that care about this square" without reading numbers.
+     *
+     * @param g graphics
+     * @param heat thumbnail rectangle
+     * @param square selected board square 0..63
+     * @param value attention value for that square in this head
+     * @param scale global colour scale
+     */
+    private static void drawHeadSquareMarker(Graphics2D g, Rectangle heat, int square,
+            float value, float scale) {
+        int file = square & 7;
+        int rank = square >> 3;
+        int drawRank = 7 - rank;
+        double cellW = heat.width / 8.0;
+        double cellH = heat.height / 8.0;
+        int x = (int) Math.round(heat.x + file * cellW);
+        int y = (int) Math.round(heat.y + drawRank * cellH);
+        int w = Math.max(2, (int) Math.round(cellW));
+        int h = Math.max(2, (int) Math.round(cellH));
+        float ratio = scale > 0.0f ? Math.min(1.0f, value / scale) : 0.0f;
+        int alpha = 110 + Math.round(120 * ratio);
+        Color edge = new Color(WorkbenchTheme.ACCENT.getRed(),
+                WorkbenchTheme.ACCENT.getGreen(),
+                WorkbenchTheme.ACCENT.getBlue(),
+                Math.min(255, alpha));
+        g.setColor(edge);
+        g.drawRect(x, y, w - 1, h - 1);
     }
 
     /**
@@ -923,7 +1017,9 @@ final class WorkbenchBt4View extends JComponent {
         }
         float[] slice = new float[64 * 64];
         System.arraycopy(heads, off, slice, 0, 64 * 64);
-        WorkbenchTensorViz.drawHeatmap(g, map, slice, 64, 64, 0.0f, false);
+        float matrixScale = scaleFor(
+                "attentionMatrix:b" + selectedBlock + "h" + selectedHead, maxAbs(slice));
+        WorkbenchTensorViz.drawHeatmap(g, map, slice, 64, 64, matrixScale, false);
         hitRegions.addInspectable(map,
                 "Block " + (selectedBlock + 1) + " head " + (selectedHead + 1) + " attention",
                 "64x64 attention matrix · rows = from-square · cols = to-square",
@@ -978,7 +1074,9 @@ final class WorkbenchBt4View extends JComponent {
                         overlay[from] = heads[off + from * 64 + selectedSquare];
                     }
                 }
-                WorkbenchTensorViz.drawSquareOverlay(g, board, overlay, 0.0f, false);
+                float overlayScale = scaleFor("boardOverlay:" + (attendsToMode ? "to" : "from"),
+                        maxAbs(overlay));
+                WorkbenchTensorViz.drawSquareOverlay(g, board, overlay, overlayScale, false);
                 drawAttentionArcs(g, board, selectedSquare, overlay);
                 addBoardSquareTooltips(board, overlay,
                         attendsToMode
