@@ -101,6 +101,17 @@ final class WorkbenchBt4View extends JComponent {
     private final WorkbenchHitRegions hitRegions = new WorkbenchHitRegions();
 
     /**
+     * Shared inspector panel; null until wired by the host.
+     */
+    private WorkbenchInspectorPanel inspector;
+
+    /**
+     * Whether to pin colour scales across position changes.
+     */
+    @SuppressWarnings("unused")
+    private boolean fixedScale;
+
+    /**
      * Creates the BT4 view.
      */
     WorkbenchBt4View() {
@@ -128,6 +139,27 @@ final class WorkbenchBt4View extends JComponent {
     public String getToolTipText(MouseEvent event) {
         WorkbenchHitRegions.Region r = hitRegions.hitTest(event.getX(), event.getY());
         return r == null ? null : r.tooltipHtml();
+    }
+
+    /**
+     * Wires the shared inspector panel.
+     *
+     * @param panel inspector (may be null)
+     */
+    void setInspector(WorkbenchInspectorPanel panel) {
+        this.inspector = panel;
+    }
+
+    /**
+     * Sets the fixed-scale flag.
+     *
+     * @param value true to pin heatmap scales
+     */
+    void setFixedScale(boolean value) {
+        if (this.fixedScale != value) {
+            this.fixedScale = value;
+            repaint();
+        }
     }
 
     /**
@@ -219,7 +251,12 @@ final class WorkbenchBt4View extends JComponent {
     private void handleClick(int x, int y) {
         if (!detailed) {
             WorkbenchHitRegions.Region r = hitRegions.hitTest(x, y);
-            if (r != null && r.dataKey != null && snapshot != null) {
+            if (r == null) {
+                return;
+            }
+            if (inspector != null) {
+                inspector.inspect(r, snapshot);
+            } else if (r.dataKey != null && snapshot != null) {
                 WorkbenchInspectorDialog.shared(this).inspect(r, snapshot);
             }
             return;
@@ -261,7 +298,12 @@ final class WorkbenchBt4View extends JComponent {
             return;
         }
         WorkbenchHitRegions.Region r = hitRegions.hitTest(x, y);
-        if (r != null && r.dataKey != null && snapshot != null) {
+        if (r == null) {
+            return;
+        }
+        if (inspector != null) {
+            inspector.inspect(r, snapshot);
+        } else if (r.dataKey != null && snapshot != null) {
             WorkbenchInspectorDialog.shared(this).inspect(r, snapshot);
         }
     }

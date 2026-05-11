@@ -97,6 +97,12 @@ final class WorkbenchNetworkPanel extends JPanel {
     private final WorkbenchToggleBox detailedToggle = new WorkbenchToggleBox("Detailed view");
 
     /**
+     * Pin the color/scale range across position changes so heatmaps stay
+     * comparable when the user flips between positions.
+     */
+    private final WorkbenchToggleBox fixedScaleToggle = new WorkbenchToggleBox("Fixed scale");
+
+    /**
      * Status badge in the toolbar.
      */
     private final JLabel statusBadge = new JLabel("loading models...");
@@ -110,6 +116,11 @@ final class WorkbenchNetworkPanel extends JPanel {
      * Card-hosting panel.
      */
     private final JPanel cardPanel = new JPanel(cards);
+
+    /**
+     * Embedded right-side details panel shared by all three views.
+     */
+    private final WorkbenchInspectorPanel inspectorPanel = new WorkbenchInspectorPanel();
 
     /**
      * Real activation provider. Loads networks lazily.
@@ -161,10 +172,18 @@ final class WorkbenchNetworkPanel extends JPanel {
         cardPanel.add(nnueView, ARCH_NNUE);
         cardPanel.add(cnnView, ARCH_CNN);
         cardPanel.add(bt4View, ARCH_BT4);
-        add(cardPanel, BorderLayout.CENTER);
+        nnueView.setInspector(inspectorPanel);
+        cnnView.setInspector(inspectorPanel);
+        bt4View.setInspector(inspectorPanel);
+        JPanel content = new JPanel(new BorderLayout(8, 0));
+        content.setOpaque(false);
+        content.add(cardPanel, BorderLayout.CENTER);
+        content.add(inspectorPanel, BorderLayout.EAST);
+        add(content, BorderLayout.CENTER);
         archCombo.addActionListener(event -> showSelected());
         positionCombo.addActionListener(event -> onPositionPicked());
         detailedToggle.addActionListener(event -> propagateDetailed());
+        fixedScaleToggle.addActionListener(event -> propagateFixedScale());
         debounceTimer = new Timer(DEBOUNCE_MS, event -> startInference());
         debounceTimer.setRepeats(false);
         showSelected();
@@ -237,6 +256,7 @@ final class WorkbenchNetworkPanel extends JPanel {
         left.add(positionLabel);
         left.add(positionCombo);
         left.add(detailedToggle);
+        left.add(fixedScaleToggle);
         bar.add(left, BorderLayout.WEST);
         statusBadge.setForeground(WorkbenchTheme.MUTED);
         statusBadge.setFont(WorkbenchTheme.font(11, Font.ITALIC));
@@ -275,7 +295,7 @@ final class WorkbenchNetworkPanel extends JPanel {
     }
 
     /**
-     * Propagates the toggle state to every view.
+     * Propagates the detailed-view toggle state to every view.
      */
     private void propagateDetailed() {
         boolean d = detailedToggle.isSelected();
@@ -283,6 +303,18 @@ final class WorkbenchNetworkPanel extends JPanel {
         cnnView.setDetailed(d);
         bt4View.setDetailed(d);
         cardPanel.revalidate();
+        cardPanel.repaint();
+    }
+
+    /**
+     * Propagates the fixed-scale toggle state to every view. Views may use
+     * it to pin heatmap scales across position changes.
+     */
+    private void propagateFixedScale() {
+        boolean f = fixedScaleToggle.isSelected();
+        nnueView.setFixedScale(f);
+        cnnView.setFixedScale(f);
+        bt4View.setFixedScale(f);
         cardPanel.repaint();
     }
 
