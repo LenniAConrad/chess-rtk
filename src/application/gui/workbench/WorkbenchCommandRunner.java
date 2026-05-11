@@ -112,7 +112,8 @@ final class WorkbenchCommandRunner {
              */
             @Override
             protected void process(List<String> chunks) {
-                if (onChunk == null || chunks.isEmpty()) {
+                if (onChunk == null || chunks.isEmpty() || isCancelled()
+                        || running.state() == RunningCommand.State.CANCELLED) {
                     return;
                 }
                 if (chunks.size() == 1) {
@@ -405,13 +406,27 @@ final class WorkbenchCommandRunner {
 
         /**
          * Cancels the command, attempting a graceful SIGTERM first.
+         *
+         * The destroy + waitFor is moved off the calling (typically EDT)
+         * thread so the UI does not freeze for {@link #GRACEFUL_TERMINATE_MS}
+         * waiting for a wedged child to exit.
          */
         void cancel() {
             markCancelled();
-            destroyProcess();
             if (worker != null) {
                 worker.cancel(true);
             }
+            Process runningProcess = process.get();
+            if (runningProcess == null) {
+                return;
+            }
+            // Close stdin pipe immediately so a blocked stdin writer wakes up
+            // with IOException instead of waiting for the OS to tear it down.
+            closeProcessOutput(runningProcess);
+            Thread destroyer = new Thread(this::destroyProcess,
+                    "WorkbenchCommandRunner-destroy");
+            destroyer.setDaemon(true);
+            destroyer.start();
         }
 
         /**
