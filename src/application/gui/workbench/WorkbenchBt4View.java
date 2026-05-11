@@ -576,7 +576,8 @@ final class WorkbenchBt4View extends JComponent {
     }
 
     /**
-     * Draws a curved move arrow between two squares on the mini board.
+     * Draws a move arrow between two squares. Thin wrapper around
+     * {@link #drawBoardArrow} that maps Field-encoded squares to LERF.
      *
      * @param g graphics
      * @param board mini-board rectangle
@@ -587,45 +588,19 @@ final class WorkbenchBt4View extends JComponent {
      */
     private void drawMoveArrow(java.awt.Graphics2D g, Rectangle board,
             int fromSquare, int toSquare, float probability, boolean isTop) {
-        double cellW = board.width / 8.0;
-        double cellH = board.height / 8.0;
-        int fFile = chess.core.Field.getX((byte) fromSquare);
-        int fRank = chess.core.Field.getY((byte) fromSquare);
-        int tFile = chess.core.Field.getX((byte) toSquare);
-        int tRank = chess.core.Field.getY((byte) toSquare);
-        double fx = board.x + (fFile + 0.5) * cellW;
-        double fy = board.y + (7 - fRank + 0.5) * cellH;
-        double tx = board.x + (tFile + 0.5) * cellW;
-        double ty = board.y + (7 - tRank + 0.5) * cellH;
-        double dx = tx - fx;
-        double dy = ty - fy;
-        double len = Math.sqrt(dx * dx + dy * dy);
-        double offset = Math.min(28.0, len * 0.18);
-        double cx = (fx + tx) / 2.0 + (-dy / Math.max(1.0, len)) * offset;
-        double cy = (fy + ty) / 2.0 + (dx / Math.max(1.0, len)) * offset;
-        java.awt.geom.QuadCurve2D.Double curve = new java.awt.geom.QuadCurve2D.Double(
-                fx, fy, cx, cy, tx, ty);
-        int alpha = Math.min(255, 110 + Math.round(145 * Math.min(1.0f, probability * 1.4f)));
-        java.awt.Color base = isTop ? new java.awt.Color(70, 200, 80, alpha)
-                : new java.awt.Color(245, 200, 80, alpha);
-        g.setColor(base);
-        float stroke = isTop ? 3.0f : 2.0f + Math.max(0.0f, probability * 2.5f);
-        g.setStroke(new java.awt.BasicStroke(stroke,
-                java.awt.BasicStroke.CAP_ROUND, java.awt.BasicStroke.JOIN_ROUND));
-        g.draw(curve);
-        double angle = Math.atan2(ty - cy, tx - cx);
-        double a1 = angle + Math.PI * 0.85;
-        double a2 = angle - Math.PI * 0.85;
-        double ah = 7.0 + (isTop ? 3.0 : 1.0);
-        int[] xs = { (int) tx, (int) (tx + ah * Math.cos(a1)), (int) (tx + ah * Math.cos(a2)) };
-        int[] ys = { (int) ty, (int) (ty + ah * Math.sin(a1)), (int) (ty + ah * Math.sin(a2)) };
-        g.fillPolygon(xs, ys, 3);
+        int from = chess.core.Field.getY((byte) fromSquare) * 8
+                + chess.core.Field.getX((byte) fromSquare);
+        int to = chess.core.Field.getY((byte) toSquare) * 8
+                + chess.core.Field.getX((byte) toSquare);
+        float weight = isTop ? 1.0f : Math.min(1.0f, Math.max(0.3f, probability * 1.4f));
+        int alpha = Math.min(245, 150 + Math.round(95 * Math.min(1.0f, probability * 1.4f)));
+        Color base = isTop ? new Color(70, 175, 90, alpha) : new Color(230, 180, 70, alpha);
+        drawBoardArrow(g, board, from, to, base, weight, 0.14f);
     }
 
     /**
      * Draws curved arcs from the selected (query) square to its top-K most
-     * attended-to squares. Arc thickness and opacity scale with the attention
-     * weight; the arcs sit on top of the colored square overlay.
+     * attended-to squares.
      *
      * @param g graphics
      * @param board mini-board rectangle
@@ -637,7 +612,6 @@ final class WorkbenchBt4View extends JComponent {
         if (attention == null || attention.length < 64) {
             return;
         }
-        // Rank top destinations by attention weight (excluding self).
         Integer[] order = new Integer[64];
         for (int i = 0; i < 64; ++i) {
             order[i] = i;
@@ -650,13 +624,6 @@ final class WorkbenchBt4View extends JComponent {
         if (maxW <= 0.0f) {
             return;
         }
-        double cellW = board.width / 8.0;
-        double cellH = board.height / 8.0;
-        int qFile = querySquare & 7;
-        int qRank = querySquare >> 3;
-        int qDrawRank = 7 - qRank;
-        double qx = board.x + (qFile + 0.5) * cellW;
-        double qy = board.y + (qDrawRank + 0.5) * cellH;
         int shown = 0;
         java.awt.Stroke previousStroke = g.getStroke();
         for (int idx = 0; idx < 64 && shown < 6; ++idx) {
@@ -672,45 +639,118 @@ final class WorkbenchBt4View extends JComponent {
             if (ratio < 0.18f) {
                 break;
             }
-            int sFile = sq & 7;
-            int sRank = sq >> 3;
-            int sDrawRank = 7 - sRank;
-            double tx = board.x + (sFile + 0.5) * cellW;
-            double ty = board.y + (sDrawRank + 0.5) * cellH;
-            double mx = (qx + tx) / 2.0;
-            double my = (qy + ty) / 2.0;
-            // Curve control point: offset perpendicular to the line for an arc.
-            double dx = tx - qx;
-            double dy = ty - qy;
-            double len = Math.sqrt(dx * dx + dy * dy);
-            double offset = Math.min(40.0, len * 0.25);
-            double cx = mx + (-dy / Math.max(1.0, len)) * offset;
-            double cy = my + (dx / Math.max(1.0, len)) * offset;
-            java.awt.geom.QuadCurve2D.Double curve = new java.awt.geom.QuadCurve2D.Double(
-                    qx, qy, cx, cy, tx, ty);
-            int alpha = (int) Math.min(255, 80 + 175 * ratio);
+            int alpha = (int) Math.min(235, 130 + 105 * ratio);
             Color c = new Color(WorkbenchTheme.ACCENT.getRed(),
                     WorkbenchTheme.ACCENT.getGreen(),
                     WorkbenchTheme.ACCENT.getBlue(), alpha);
-            g.setColor(c);
-            g.setStroke(new java.awt.BasicStroke(1.0f + ratio * 3.0f,
-                    java.awt.BasicStroke.CAP_ROUND, java.awt.BasicStroke.JOIN_ROUND));
-            g.draw(curve);
-            // Arrowhead at target end.
-            double angle = Math.atan2(ty - cy, tx - cx);
-            double a1 = angle + Math.PI * 0.85;
-            double a2 = angle - Math.PI * 0.85;
-            double ah = 6.0 + ratio * 4.0;
-            int[] xs = { (int) tx,
-                    (int) (tx + ah * Math.cos(a1)),
-                    (int) (tx + ah * Math.cos(a2)) };
-            int[] ys = { (int) ty,
-                    (int) (ty + ah * Math.sin(a1)),
-                    (int) (ty + ah * Math.sin(a2)) };
-            g.fillPolygon(xs, ys, 3);
+            drawBoardArrow(g, board, querySquare, sq, c, ratio, 0.18f);
             ++shown;
         }
         g.setStroke(previousStroke);
+    }
+
+    /**
+     * Draws one clean arrow between two LERF squares on a mini-board.
+     *
+     * <p>The visual recipe:
+     * <ul>
+     *   <li>Stroke and arrowhead are sized as a fraction of the board cell,
+     *       so the arrows scale with the board instead of looking thin on
+     *       a large board and chunky on a small one.</li>
+     *   <li>The curve stops short of the target so the line meets the base
+     *       of the arrowhead cleanly — no visible seam where a stroked
+     *       line meets a separately filled polygon.</li>
+     *   <li>A translucent dark outline is drawn behind the stroke and
+     *       arrowhead so the arrow stays legible over both light and dark
+     *       squares, and over piece glyphs.</li>
+     *   <li>The arrowhead is computed as a proper isoceles triangle aligned
+     *       with the curve tangent at the target.</li>
+     * </ul>
+     *
+     * @param g graphics
+     * @param board mini-board rectangle
+     * @param fromSquare 0..63 LERF source square
+     * @param toSquare 0..63 LERF target square
+     * @param color base color (alpha taken from this value)
+     * @param weight 0..1 importance, drives stroke thickness within bounds
+     * @param curvature 0..1 perpendicular control-point offset as a fraction
+     *                  of the source-target distance (0 = straight line)
+     */
+    private static void drawBoardArrow(java.awt.Graphics2D g, Rectangle board,
+            int fromSquare, int toSquare, Color color, float weight, float curvature) {
+        if (fromSquare == toSquare) {
+            return;
+        }
+        double cellW = board.width / 8.0;
+        double cellH = board.height / 8.0;
+        double cell = Math.min(cellW, cellH);
+        int fFile = fromSquare & 7;
+        int fRank = fromSquare >> 3;
+        int tFile = toSquare & 7;
+        int tRank = toSquare >> 3;
+        double fx = board.x + (fFile + 0.5) * cellW;
+        double fy = board.y + (7 - fRank + 0.5) * cellH;
+        double tx = board.x + (tFile + 0.5) * cellW;
+        double ty = board.y + (7 - tRank + 0.5) * cellH;
+        double dx = tx - fx;
+        double dy = ty - fy;
+        double len = Math.sqrt(dx * dx + dy * dy);
+        if (len < 1.0) {
+            return;
+        }
+        float w = Math.max(0.0f, Math.min(1.0f, weight));
+
+        float strokeWidth = (float) (cell * (0.11 + 0.07 * w));
+        double arrowLen = cell * (0.34 + 0.08 * w);
+        double arrowWidth = arrowLen * 0.78;
+
+        double shortened = Math.max(0.0, len - arrowLen * 0.78);
+        double endX = fx + dx * (shortened / len);
+        double endY = fy + dy * (shortened / len);
+
+        double mx = (fx + endX) / 2.0;
+        double my = (fy + endY) / 2.0;
+        double offset = len * curvature;
+        double cx = mx + (-dy / len) * offset;
+        double cy = my + (dx / len) * offset;
+        java.awt.geom.QuadCurve2D.Double curve = new java.awt.geom.QuadCurve2D.Double(
+                fx, fy, cx, cy, endX, endY);
+
+        double tanAngle = Math.atan2(ty - cy, tx - cx);
+        double cosA = Math.cos(tanAngle);
+        double sinA = Math.sin(tanAngle);
+        double baseX = tx - arrowLen * cosA;
+        double baseY = ty - arrowLen * sinA;
+        double leftX = baseX + (arrowWidth / 2.0) * sinA;
+        double leftY = baseY - (arrowWidth / 2.0) * cosA;
+        double rightX = baseX - (arrowWidth / 2.0) * sinA;
+        double rightY = baseY + (arrowWidth / 2.0) * cosA;
+
+        int outlineAlpha = Math.min(160, (color.getAlpha() * 5) / 8);
+        Color outline = new Color(0, 0, 0, outlineAlpha);
+
+        g.setColor(outline);
+        g.setStroke(new java.awt.BasicStroke(strokeWidth + 2.4f,
+                java.awt.BasicStroke.CAP_ROUND, java.awt.BasicStroke.JOIN_ROUND));
+        g.draw(curve);
+
+        g.setColor(color);
+        g.setStroke(new java.awt.BasicStroke(strokeWidth,
+                java.awt.BasicStroke.CAP_ROUND, java.awt.BasicStroke.JOIN_ROUND));
+        g.draw(curve);
+
+        java.awt.geom.Path2D.Double head = new java.awt.geom.Path2D.Double();
+        head.moveTo(tx, ty);
+        head.lineTo(leftX, leftY);
+        head.lineTo(rightX, rightY);
+        head.closePath();
+
+        g.setColor(outline);
+        g.setStroke(new java.awt.BasicStroke(2.2f,
+                java.awt.BasicStroke.CAP_ROUND, java.awt.BasicStroke.JOIN_ROUND));
+        g.draw(head);
+        g.setColor(color);
+        g.fill(head);
     }
 
     /**
