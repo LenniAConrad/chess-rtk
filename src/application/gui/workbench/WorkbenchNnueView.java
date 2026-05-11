@@ -39,11 +39,6 @@ final class WorkbenchNnueView extends JComponent {
     private static final int MAX_VISIBLE_FEATURES = 14;
 
     /**
-     * Maximum number of top-N feature rows in the abstract list.
-     */
-    private static final int TOP_FEATURE_ROWS = 12;
-
-    /**
      * Outer padding inside the panel.
      */
     private static final int PAD = 12;
@@ -89,6 +84,24 @@ final class WorkbenchNnueView extends JComponent {
     private final WorkbenchHitRegions hitRegions = new WorkbenchHitRegions();
 
     /**
+     * Embedded inspector panel (right-side), populated on click. Null until
+     * the host wires one in.
+     */
+    private WorkbenchInspectorPanel inspector;
+
+    /**
+     * When true, the view pins its heatmap colour scales across position
+     * changes so different positions stay visually comparable.
+     */
+    private boolean fixedScale;
+
+    /**
+     * Selected feature index inside the abstract-view feature list. Used to
+     * highlight K/P squares on the position panel. -1 when nothing selected.
+     */
+    private int selectedFeature = -1;
+
+    /**
      * Creates the NNUE view.
      */
     WorkbenchNnueView() {
@@ -114,6 +127,27 @@ final class WorkbenchNnueView extends JComponent {
     public String getToolTipText(MouseEvent event) {
         WorkbenchHitRegions.Region r = hitRegions.hitTest(event.getX(), event.getY());
         return r == null ? null : r.tooltipHtml();
+    }
+
+    /**
+     * Wires the shared inspector panel.
+     *
+     * @param panel inspector (may be null to detach)
+     */
+    void setInspector(WorkbenchInspectorPanel panel) {
+        this.inspector = panel;
+    }
+
+    /**
+     * Sets the fixed-scale flag.
+     *
+     * @param value true to pin heatmap scales
+     */
+    void setFixedScale(boolean value) {
+        if (this.fixedScale != value) {
+            this.fixedScale = value;
+            repaint();
+        }
     }
 
     /**
@@ -230,8 +264,43 @@ final class WorkbenchNnueView extends JComponent {
             }
         }
         WorkbenchHitRegions.Region r = hitRegions.hitTest(x, y);
-        if (r != null && r.dataKey != null && snapshot != null) {
+        if (r == null) {
+            return;
+        }
+        if (r.title != null && r.title.startsWith("Feature #")) {
+            selectedFeature = parseFeatureIndex(r.title);
+            repaint();
+        }
+        if (inspector != null) {
+            inspector.inspect(r, snapshot);
+        } else if (r.dataKey != null && snapshot != null) {
             WorkbenchInspectorDialog.shared(this).inspect(r, snapshot);
+        }
+    }
+
+    /**
+     * Extracts the integer feature index embedded in a hit-region title of
+     * the form "Feature #12345  ...".
+     *
+     * @param title region title
+     * @return feature index or -1 when not parseable
+     */
+    private static int parseFeatureIndex(String title) {
+        int hash = title.indexOf('#');
+        if (hash < 0) {
+            return -1;
+        }
+        int end = hash + 1;
+        while (end < title.length() && Character.isDigit(title.charAt(end))) {
+            end++;
+        }
+        if (end == hash + 1) {
+            return -1;
+        }
+        try {
+            return Integer.parseInt(title.substring(hash + 1, end));
+        } catch (NumberFormatException ex) {
+            return -1;
         }
     }
 
@@ -292,48 +361,134 @@ final class WorkbenchNnueView extends JComponent {
     }
 
     /**
-     * Paints the abstract list view.
+     * Paints the abstract overview ("what does the network see?").
+     *
+     * <p>Layout: a large position panel on the left (with the selected
+     * feature's king/piece squares highlighted), an accumulator strip on the
+     * right, and a two-column "Top positive / Top negative" contributor list
+     * underneath. The split-by-sign view answers the research question of
+     * which features push the eval up vs down at a glance.</p>
      *
      * @param g graphics
      * @param body body rectangle
      */
     private void paintAbstract(Graphics2D g, Rectangle body) {
-        int boardSide = Math.min(220, Math.max(160, body.height / 2));
+        int boardSide = Math.min(260, Math.max(180, body.height / 2));
         Rectangle boardRect = new Rectangle(body.x, body.y, boardSide, boardSide);
-        Rectangle remaining = new Rectangle(body.x, body.y + boardSide + 12, body.width,
-                body.height - boardSide - 12);
         WorkbenchTensorViz.drawSectionHeader(g, new Rectangle(boardRect.x, boardRect.y, boardRect.width, 18),
                 "position", null);
         Rectangle innerBoard = new Rectangle(boardRect.x + 6, boardRect.y + 24,
                 boardRect.width - 12, boardRect.height - 30);
         WorkbenchTensorViz.drawMiniBoard(g, innerBoard);
         WorkbenchTensorViz.drawPositionPieces(g, innerBoard, fen);
+        paintSelectedFeatureOverlay(g, innerBoard);
         hitRegions.add(innerBoard, "Current position",
                 fen == null ? "no FEN" : fen,
                 "NNUE half-KP features are derived from this position");
-        Rectangle right = new Rectangle(body.x + boardSide + 12, body.y, body.width - boardSide - 12, boardSide);
+
+        Rectangle right = new Rectangle(body.x + boardSide + 12, body.y,
+                body.width - boardSide - 12, boardSide);
         paintAccumulatorOverview(g, right);
-        paintFeatureImpactList(g, remaining);
+
+        Rectangle below = new Rectangle(body.x, body.y + boardSide + 12, body.width,
+                body.height - boardSide - 12);
+        paintTopContributors(g, below);
     }
 
     /**
-     * Paints the top-N active feature impact list.
+     * Highlights the king and piece squares of the currently selected feature
+     * on the mini position board to connect the feature list to the board.
      *
      * @param g graphics
-     * @param r rectangle
+     * @param board mini-board rectangle
      */
-    private void paintFeatureImpactList(Graphics2D g, Rectangle r) {
-        WorkbenchTensorViz.drawSectionHeader(g, new Rectangle(r.x, r.y, r.width, 40),
-                "active features (us)",
-                "top features that fired -> signed impact on the eval");
+    private void paintSelectedFeatureOverlay(java.awt.Graphics2D g, Rectangle board) {
+        if (selectedFeature < 0) {
+            return;
+        }
+        int piecePart = selectedFeature % 641;
+        int kingSquare = (selectedFeature / 641) % 64;
+        int pieceSquare = piecePart % 64;
+        int pieceCode = piecePart / 64;
+        double cellW = board.width / 8.0;
+        double cellH = board.height / 8.0;
+        highlightSquare(g, board, kingSquare, cellW, cellH, new java.awt.Color(255, 205, 70, 110));
+        if (pieceSquare != kingSquare) {
+            boolean enemy = pieceCode >= 5;
+            highlightSquare(g, board, pieceSquare, cellW, cellH,
+                    enemy ? new java.awt.Color(220, 90, 90, 110) : new java.awt.Color(80, 160, 220, 110));
+        }
+    }
+
+    /**
+     * Fills one board square with a translucent halo.
+     *
+     * @param g graphics
+     * @param board mini-board rectangle
+     * @param square 0..63 LERF index
+     * @param cellW cell width
+     * @param cellH cell height
+     * @param tint translucent fill colour
+     */
+    private static void highlightSquare(java.awt.Graphics2D g, Rectangle board, int square,
+            double cellW, double cellH, java.awt.Color tint) {
+        int file = square & 7;
+        int rank = square >> 3;
+        int drawRank = 7 - rank;
+        int x = (int) Math.floor(board.x + file * cellW);
+        int y = (int) Math.floor(board.y + drawRank * cellH);
+        int w = (int) Math.ceil(cellW + 1);
+        int h = (int) Math.ceil(cellH + 1);
+        g.setColor(tint);
+        g.fillRect(x, y, w, h);
+    }
+
+    /**
+     * Paints the top-positive / top-negative contributor columns.
+     *
+     * @param g graphics
+     * @param r area rectangle
+     */
+    private void paintTopContributors(Graphics2D g, Rectangle r) {
+        WorkbenchTensorViz.drawSectionHeader(g, new Rectangle(r.x, r.y, r.width, 36),
+                "top contributors", "split by sign · click a row to highlight on the board and inspect");
         float[] indices = snapshot.data("nnue.features.us.indices");
         float[] impact = snapshot.data("nnue.features.us.impact");
         if (indices == null || impact == null || indices.length == 0) {
             return;
         }
-        int rows = Math.min(TOP_FEATURE_ROWS, indices.length);
-        Integer[] order = topAbs(impact, indices.length, rows);
-        int rowH = Math.max(40, (r.height - 48) / Math.max(1, rows));
+        int colGap = 12;
+        int colW = (r.width - colGap) / 2;
+        Rectangle posCol = new Rectangle(r.x, r.y + 40, colW, r.height - 40);
+        Rectangle negCol = new Rectangle(r.x + colW + colGap, r.y + 40, colW, r.height - 40);
+        paintContributorColumn(g, posCol, indices, impact, true);
+        paintContributorColumn(g, negCol, indices, impact, false);
+    }
+
+    /**
+     * Paints one signed contributor column (positive or negative).
+     *
+     * @param g graphics
+     * @param r column rectangle
+     * @param indices feature indices array
+     * @param impact feature impacts array
+     * @param positive true for positive column, false for negative
+     */
+    private void paintContributorColumn(Graphics2D g, Rectangle r,
+            float[] indices, float[] impact, boolean positive) {
+        java.util.List<Integer> selected = new java.util.ArrayList<>();
+        for (int i = 0; i < impact.length; i++) {
+            if (positive ? impact[i] > 0 : impact[i] < 0) {
+                selected.add(i);
+            }
+        }
+        selected.sort((a, b) -> {
+            float va = Math.abs(impact[a]);
+            float vb = Math.abs(impact[b]);
+            return Float.compare(vb, va);
+        });
+        int rows = Math.min(6, selected.size());
+        int rowH = Math.max(36, (r.height - 26) / Math.max(1, rows));
         float maxAbs = 0.0f;
         for (float v : impact) {
             maxAbs = Math.max(maxAbs, Math.abs(v));
@@ -341,40 +496,54 @@ final class WorkbenchNnueView extends JComponent {
         if (maxAbs <= 0.0f) {
             maxAbs = 1.0f;
         }
-        g.setFont(WorkbenchTheme.font(11, Font.PLAIN));
-        FontMetrics fm = g.getFontMetrics();
+        g.setColor(positive ? WorkbenchTensorViz.POSITIVE : WorkbenchTensorViz.NEGATIVE);
+        g.setFont(WorkbenchTheme.font(11, Font.BOLD));
+        g.drawString(positive ? "▲ top positive (us)" : "▼ top negative (us)", r.x + 2, r.y + 14);
+        g.setColor(WorkbenchTheme.MUTED);
+        g.setFont(WorkbenchTheme.font(10, Font.PLAIN));
+        if (rows == 0) {
+            g.drawString("(no " + (positive ? "positive" : "negative") + " features active)",
+                    r.x + 4, r.y + 32);
+            return;
+        }
         int[] weightShape = snapshot.shape("nnue.features.us.weights");
         int hiddenStride = weightShape != null && weightShape.length >= 2 ? weightShape[1] : 0;
+        g.setFont(WorkbenchTheme.font(11, Font.PLAIN));
+        FontMetrics fm = g.getFontMetrics();
         for (int i = 0; i < rows; ++i) {
-            int idx = order[i];
+            int idx = selected.get(i);
             int featureIdx = Math.round(indices[idx]);
             float v = impact[idx];
-            int y = r.y + 50 + i * rowH;
-            Rectangle row = new Rectangle(r.x + 4, y, r.width - 8, rowH - 4);
-            g.setColor(i % 2 == 0 ? WorkbenchTheme.PANEL_SOLID : WorkbenchTheme.ELEVATED_SOLID);
+            int y = r.y + 22 + i * rowH;
+            Rectangle row = new Rectangle(r.x, y, r.width, rowH - 4);
+            boolean isSelected = featureIdx == selectedFeature;
+            g.setColor(isSelected ? WorkbenchTheme.SELECTION_SOLID
+                    : (i % 2 == 0 ? WorkbenchTheme.PANEL_SOLID : WorkbenchTheme.ELEVATED_SOLID));
             g.fillRect(row.x, row.y, row.width, row.height);
-            g.setColor(WorkbenchTheme.LINE);
+            g.setColor(isSelected ? WorkbenchTheme.ACCENT : WorkbenchTheme.LINE);
             g.drawRect(row.x, row.y, row.width - 1, row.height - 1);
-            int glyphSize = Math.min(row.height - 6, 36);
-            Rectangle glyph = new Rectangle(row.x + 4, row.y + (row.height - glyphSize) / 2,
+            int glyphSize = Math.min(row.height - 4, 30);
+            Rectangle glyph = new Rectangle(row.x + 3, row.y + (row.height - glyphSize) / 2,
                     glyphSize, glyphSize);
             int piecePart = featureIdx % 641;
             int kingSquare = (featureIdx / 641) % 64;
             int pieceSquare = piecePart % 64;
             int pieceCode = piecePart / 64;
             WorkbenchTensorViz.drawHalfKpGlyph(g, glyph, kingSquare, pieceCode, pieceSquare);
-            String label = String.format("#%-7d %s", featureIdx, decodeHalfKP(featureIdx));
+            String label = "#" + featureIdx + "  " + decodeHalfKP(featureIdx);
             g.setColor(WorkbenchTheme.TEXT);
-            g.drawString(label, row.x + glyphSize + 12, row.y + row.height / 2 + 4);
-            int barX = row.x + Math.max(260, fm.stringWidth(label) + glyphSize + 40);
-            int barW = row.x + row.width - barX - 70;
+            int textX = row.x + glyphSize + 8;
+            g.drawString(label, textX, row.y + row.height / 2 + 4);
+            String tail = String.format("%+5.1f cp", v);
+            int tailW = fm.stringWidth(tail);
+            int barX = textX + Math.max(140, fm.stringWidth(label) + 12);
+            int barW = row.x + row.width - barX - tailW - 12;
             if (barW > 20) {
-                Rectangle bar = new Rectangle(barX, row.y + (row.height - 14) / 2, barW, 14);
+                Rectangle bar = new Rectangle(barX, row.y + (row.height - 12) / 2, barW, 12);
                 WorkbenchTensorViz.drawHorizontalBar(g, bar, v, maxAbs, null);
             }
-            String tail = String.format("%+5.1f cp", v);
             g.setColor(v >= 0 ? WorkbenchTensorViz.POSITIVE : WorkbenchTensorViz.NEGATIVE);
-            g.drawString(tail, row.x + row.width - 60, row.y + row.height / 2 + 4);
+            g.drawString(tail, row.x + row.width - tailW - 6, row.y + row.height / 2 + 4);
             if (hiddenStride > 0) {
                 hitRegions.addInspectable(row,
                         "Feature #" + featureIdx + "  " + decodeHalfKP(featureIdx),
@@ -667,12 +836,41 @@ final class WorkbenchNnueView extends JComponent {
                 ? featureWeightShape[1]
                 : hidden;
 
-        // Scale per-feature-to-slot edges using the captured weight matrix.
+        // Edges are rendered "focused mode": only the selected slot's incoming
+        // and outgoing edges are drawn at full strength. When no slot is
+        // selected, draw the top-K strongest contribution edges to keep the
+        // diagram readable instead of showing every feature->slot pair.
+        boolean focused = selectedSlot >= 0 && selectedSlot < visibleSlots.length;
+        int featureCount = Math.min(MAX_VISIBLE_FEATURES, visibleFeatures.length);
+        int featurePitch = layout.slotPitch * Math.max(1, MAX_VISIBLE_SLOTS / Math.max(1, featureCount));
+
+        // Decide which slots to draw edges for.
+        int topK = 3;
+        int[] slotsToShow;
+        if (focused) {
+            slotsToShow = new int[] { selectedSlot };
+        } else {
+            Integer[] ranked = new Integer[visibleSlots.length];
+            for (int i = 0; i < ranked.length; i++) {
+                ranked[i] = i;
+            }
+            java.util.Arrays.sort(ranked,
+                    (a, b) -> Float.compare(Math.abs(contrib[visibleSlots[b]]),
+                            Math.abs(contrib[visibleSlots[a]])));
+            int take = Math.min(topK, ranked.length);
+            slotsToShow = new int[take];
+            for (int i = 0; i < take; i++) {
+                slotsToShow[i] = ranked[i];
+            }
+        }
+
+        // Per-feature-to-slot edge scale.
         float featWeightScale = 0.0f;
         if (featureWeights != null) {
             for (int fi : visibleFeatures) {
-                for (int idx : visibleSlots) {
-                    int w = fi * weightsPerFeature + idx;
+                for (int si : slotsToShow) {
+                    int slotIdx = visibleSlots[si];
+                    int w = fi * weightsPerFeature + slotIdx;
                     if (w < featureWeights.length) {
                         featWeightScale = Math.max(featWeightScale, Math.abs(featureWeights[w]));
                     }
@@ -690,17 +888,11 @@ final class WorkbenchNnueView extends JComponent {
             contribScale = 1.0f;
         }
 
-        int featureCount = Math.min(MAX_VISIBLE_FEATURES, visibleFeatures.length);
-        int featurePitch = layout.slotPitch * Math.max(1, MAX_VISIBLE_SLOTS / Math.max(1, featureCount));
-
-        // Features -> accumulator: one edge per (visible feature, visible slot) pair.
+        // Features -> accumulator: only for the slots in slotsToShow.
         for (int fi = 0; fi < featureCount; ++fi) {
             int featureIdx = visibleFeatures[fi];
             int featureY = layout.startY + fi * featurePitch;
-            for (int si = 0; si < visibleSlots.length; ++si) {
-                if (selectedSlot >= 0 && si != selectedSlot) {
-                    continue;
-                }
+            for (int si : slotsToShow) {
                 int slotY = layout.startY + si * layout.slotPitch;
                 int slotIdx = visibleSlots[si];
                 float strength;
@@ -718,18 +910,22 @@ final class WorkbenchNnueView extends JComponent {
             }
         }
 
-        // Accumulator -> clipped: identity-style edge per slot, opacity = clipped value.
+        // Accumulator -> clipped: identity-style edge per slot to show
+        // activation flow. All slots are drawn but de-emphasised; the
+        // focused slot stands out.
         for (int si = 0; si < visibleSlots.length; ++si) {
             int slotY = layout.startY + si * layout.slotPitch;
             int idx = visibleSlots[si];
             float w1 = cl[idx];
-            WorkbenchTensorViz.drawWeightedEdge(g, layout.accumCx + layout.slotRadius, slotY,
-                    layout.clippedCx - layout.slotRadius, slotY, w1, si == selectedSlot);
+            if (!focused || si == selectedSlot) {
+                WorkbenchTensorViz.drawWeightedEdge(g, layout.accumCx + layout.slotRadius, slotY,
+                        layout.clippedCx - layout.slotRadius, slotY, w1, si == selectedSlot);
+            }
         }
 
-        // Clipped -> output: one edge per slot, opacity = signed contribution.
+        // Clipped -> output: only top-K contributors (or the focused slot).
         int outCy = (layout.startY + layout.bottomY) / 2;
-        for (int si = 0; si < visibleSlots.length; ++si) {
+        for (int si : slotsToShow) {
             int slotY = layout.startY + si * layout.slotPitch;
             int idx = visibleSlots[si];
             float w2 = contrib[idx] / contribScale;
@@ -782,31 +978,6 @@ final class WorkbenchNnueView extends JComponent {
         FontMetrics fm = g.getFontMetrics();
         int w = fm.stringWidth(text);
         g.drawString(text, cx - w / 2, y);
-    }
-
-    /**
-     * Returns the indices of the top-k by absolute value of `values` (indexing
-     * 0..count-1).
-     *
-     * @param values source
-     * @param count usable prefix length
-     * @param k top-k count
-     * @return indices sorted descending by abs(value)
-     */
-    private static Integer[] topAbs(float[] values, int count, int k) {
-        int n = Math.min(count, values.length);
-        Integer[] ids = new Integer[n];
-        for (int i = 0; i < n; ++i) {
-            ids[i] = i;
-        }
-        java.util.Arrays.sort(ids,
-                (a, b) -> Float.compare(Math.abs(values[b]), Math.abs(values[a])));
-        if (ids.length <= k) {
-            return ids;
-        }
-        Integer[] out = new Integer[k];
-        System.arraycopy(ids, 0, out, 0, k);
-        return out;
     }
 
     /**
