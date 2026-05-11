@@ -726,6 +726,11 @@ public final class Constants {
 	public static final String OPT_DARK_MODE = "--dark-mode";
 
 	/**
+	 * {@code --accent} option flag (CSS hex color tinting the board fills and frame).
+	 */
+	public static final String OPT_ACCENT = "--accent";
+
+	/**
 	 * {@code --arrow} option flag.
 	 */
 	public static final String OPT_ARROW = "--arrow";

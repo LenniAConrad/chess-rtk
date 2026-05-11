@@ -398,6 +398,20 @@ public final class Render {
 	}
 
 	/**
+	 * Resolves the frame fill color for the currently configured accent.
+	 *
+	 * @return tinted frame color, or {@link #DEFAULT_FRAME} when no accent is set
+	 */
+	private Color resolveFrameColor() {
+		if (boardAccentHex == null || boardAccentHex.isBlank()) {
+			return DEFAULT_FRAME;
+		}
+		String hex = SvgShapes.accentColors(boardAccentHex).frame();
+		int rgb = Integer.parseInt(hex.substring(1), 16);
+		return new Color((rgb >> 16) & 0xFF, (rgb >> 8) & 0xFF, rgb & 0xFF);
+	}
+
+	/**
 	 * Sets an accent color used to tint the board light/dark/grid fills.
 	 *
 	 * <p>The accent is a CSS-style hex string (e.g. {@code "#4ab66f"}); both
@@ -769,7 +783,7 @@ public final class Render {
 	 */
 	private void paintToGraphics(Graphics2D g, RenderGeometry geometry) {
 		if (showBorder) {
-			g.setPaint(DEFAULT_FRAME);
+			g.setPaint(resolveFrameColor());
 			if (showCoordinatesOutside) {
 				int frameX = geometry.boardX - borderThickness;
 				int frameY = geometry.boardY - borderThickness;
@@ -899,7 +913,7 @@ public final class Render {
 		}
 		svg.append("  <rect x=\"").append(frameX).append(SVG_Y_ATTRIBUTE).append(frameY)
 				.append(SVG_WIDTH_ATTRIBUTE).append(frameW).append(SVG_HEIGHT_ATTRIBUTE).append(frameH).append("\"");
-		appendColorAttribute(svg, "fill", DEFAULT_FRAME);
+		appendColorAttribute(svg, "fill", resolveFrameColor());
 		svg.append("/>\n");
 	}
 

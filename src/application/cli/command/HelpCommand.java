@@ -1095,6 +1095,7 @@ public final class HelpCommand {
 			  --height N                 Override window height
 			  --zoom Z                   Zoom factor (default: 1)
 			  --dark|--dark-mode         Use dark theme
+			  --accent HEX               Tint board squares/grid/frame with a hex color (e.g. #4ab66f)
 			  --arrow|--arrows MOVES     Draw arrow overlays (comma-separated squares)
 			  --special-arrows           Draw special arrow overlays
 			  --circle|--circles SQUARES Draw circle overlays
@@ -1119,6 +1120,7 @@ public final class HelpCommand {
 			  --height N                 Override image height
 			  --zoom Z                   Zoom factor (default: 1)
 			  --dark|--dark-mode         Use dark theme
+			  --accent HEX               Tint board squares/grid/frame with a hex color (e.g. #4ab66f)
 			  --drop-shadow|--shadow     Add a subtle drop shadow
 			  --no-border                Hide the outer border
 			  --arrow|--arrows MOVES     Draw arrow overlays (comma-separated squares)
