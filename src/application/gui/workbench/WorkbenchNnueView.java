@@ -34,9 +34,11 @@ final class WorkbenchNnueView extends JComponent {
     private static final int MAX_VISIBLE_SLOTS = 32;
 
     /**
-     * Maximum number of active features drawn in the wired diagram.
+     * Maximum number of active features drawn in the wired diagram. Capped
+     * at 16 so the wired view stays readable; the abstract view lists all
+     * active features instead.
      */
-    private static final int MAX_VISIBLE_FEATURES = 14;
+    private static final int MAX_VISIBLE_FEATURES = 16;
 
     /**
      * Outer padding inside the panel.
@@ -239,7 +241,9 @@ final class WorkbenchNnueView extends JComponent {
     }
 
     /**
-     * Handles a mouse click.
+     * Handles a mouse click. Clicking an already-selected slot or feature
+     * toggles it off so the user can return to the overview. Clicking empty
+     * space outside any hit region also clears the current selection.
      *
      * @param x x
      * @param y y
@@ -257,7 +261,7 @@ final class WorkbenchNnueView extends JComponent {
                 int dx = x - cx;
                 int dy = y - cy;
                 if (dx * dx + dy * dy <= layout.slotRadius * layout.slotRadius * 4) {
-                    selectedSlot = i;
+                    selectedSlot = (selectedSlot == i) ? -1 : i;
                     repaint();
                     return;
                 }
@@ -265,10 +269,16 @@ final class WorkbenchNnueView extends JComponent {
         }
         WorkbenchHitRegions.Region r = hitRegions.hitTest(x, y);
         if (r == null) {
+            if (selectedSlot >= 0 || selectedFeature >= 0) {
+                selectedSlot = -1;
+                selectedFeature = -1;
+                repaint();
+            }
             return;
         }
         if (r.title != null && r.title.startsWith("Feature #")) {
-            selectedFeature = parseFeatureIndex(r.title);
+            int idx = parseFeatureIndex(r.title);
+            selectedFeature = (selectedFeature == idx) ? -1 : idx;
             repaint();
         }
         if (inspector != null) {
@@ -444,14 +454,19 @@ final class WorkbenchNnueView extends JComponent {
     }
 
     /**
-     * Paints the top-positive / top-negative contributor columns.
+     * Paints the per-piece contributor columns. Each active half-KP feature
+     * is one piece-and-king-square pairing; the column on the left lists the
+     * features pulling the eval up for us, the column on the right lists the
+     * features pulling it down (i.e. helping them). Rows are sized to fit as
+     * many features as space allows.
      *
      * @param g graphics
      * @param r area rectangle
      */
     private void paintTopContributors(Graphics2D g, Rectangle r) {
         WorkbenchTensorViz.drawSectionHeader(g, new Rectangle(r.x, r.y, r.width, 36),
-                "top contributors", "split by sign · click a row to highlight on the board and inspect");
+                "active features by impact",
+                "every active half-KP (king square × piece on square) feature · click a row to highlight it on the board");
         float[] indices = snapshot.data("nnue.features.us.indices");
         float[] impact = snapshot.data("nnue.features.us.impact");
         if (indices == null || impact == null || indices.length == 0) {
@@ -466,7 +481,9 @@ final class WorkbenchNnueView extends JComponent {
     }
 
     /**
-     * Paints one signed contributor column (positive or negative).
+     * Paints one signed contributor column. Sizes rows to fit every feature
+     * of the matching sign in the available height rather than capping at a
+     * fixed top-N, so the user can see the whole active-feature set at once.
      *
      * @param g graphics
      * @param r column rectangle
@@ -487,8 +504,13 @@ final class WorkbenchNnueView extends JComponent {
             float vb = Math.abs(impact[b]);
             return Float.compare(vb, va);
         });
-        int rows = Math.min(6, selected.size());
-        int rowH = Math.max(36, (r.height - 26) / Math.max(1, rows));
+        int rows = selected.size();
+        int rowH = rows == 0 ? 0
+                : Math.max(18, Math.min(36, (r.height - 22) / Math.max(1, rows)));
+        if (rows > 0) {
+            int maxRows = (r.height - 22) / Math.max(1, rowH);
+            rows = Math.min(rows, Math.max(1, maxRows));
+        }
         float maxAbs = 0.0f;
         for (float v : impact) {
             maxAbs = Math.max(maxAbs, Math.abs(v));
@@ -498,9 +520,15 @@ final class WorkbenchNnueView extends JComponent {
         }
         g.setColor(positive ? WorkbenchTensorViz.POSITIVE : WorkbenchTensorViz.NEGATIVE);
         g.setFont(WorkbenchTheme.font(11, Font.BOLD));
-        g.drawString(positive ? "▲ top positive (us)" : "▼ top negative (us)", r.x + 2, r.y + 14);
+        g.drawString(positive ? "▲ raise our eval" : "▼ lower our eval",
+                r.x + 2, r.y + 14);
         g.setColor(WorkbenchTheme.MUTED);
         g.setFont(WorkbenchTheme.font(10, Font.PLAIN));
+        int totalSign = selected.size();
+        g.drawString(rows == totalSign
+                ? "(" + totalSign + " features)"
+                : "(showing " + rows + " of " + totalSign + ")",
+                r.x + 2 + 110, r.y + 14);
         if (rows == 0) {
             g.drawString("(no " + (positive ? "positive" : "negative") + " features active)",
                     r.x + 4, r.y + 32);
@@ -508,42 +536,46 @@ final class WorkbenchNnueView extends JComponent {
         }
         int[] weightShape = snapshot.shape("nnue.features.us.weights");
         int hiddenStride = weightShape != null && weightShape.length >= 2 ? weightShape[1] : 0;
-        g.setFont(WorkbenchTheme.font(11, Font.PLAIN));
+        boolean compact = rowH < 26;
+        g.setFont(WorkbenchTheme.font(compact ? 10 : 11, Font.PLAIN));
         FontMetrics fm = g.getFontMetrics();
         for (int i = 0; i < rows; ++i) {
             int idx = selected.get(i);
             int featureIdx = Math.round(indices[idx]);
             float v = impact[idx];
             int y = r.y + 22 + i * rowH;
-            Rectangle row = new Rectangle(r.x, y, r.width, rowH - 4);
+            Rectangle row = new Rectangle(r.x, y, r.width, rowH - 2);
             boolean isSelected = featureIdx == selectedFeature;
             g.setColor(isSelected ? WorkbenchTheme.SELECTION_SOLID
                     : (i % 2 == 0 ? WorkbenchTheme.PANEL_SOLID : WorkbenchTheme.ELEVATED_SOLID));
             g.fillRect(row.x, row.y, row.width, row.height);
             g.setColor(isSelected ? WorkbenchTheme.ACCENT : WorkbenchTheme.LINE);
             g.drawRect(row.x, row.y, row.width - 1, row.height - 1);
-            int glyphSize = Math.min(row.height - 4, 30);
-            Rectangle glyph = new Rectangle(row.x + 3, row.y + (row.height - glyphSize) / 2,
+            int glyphSize = Math.min(row.height - 2, compact ? 18 : 28);
+            Rectangle glyph = new Rectangle(row.x + 2, row.y + (row.height - glyphSize) / 2,
                     glyphSize, glyphSize);
             int piecePart = featureIdx % 641;
             int kingSquare = (featureIdx / 641) % 64;
             int pieceSquare = piecePart % 64;
             int pieceCode = piecePart / 64;
             WorkbenchTensorViz.drawHalfKpGlyph(g, glyph, kingSquare, pieceCode, pieceSquare);
-            String label = "#" + featureIdx + "  " + decodeHalfKP(featureIdx);
+            String label = compact ? decodeHalfKP(featureIdx)
+                    : ("#" + featureIdx + "  " + decodeHalfKP(featureIdx));
             g.setColor(WorkbenchTheme.TEXT);
-            int textX = row.x + glyphSize + 8;
-            g.drawString(label, textX, row.y + row.height / 2 + 4);
+            int textX = row.x + glyphSize + 6;
+            int textY = row.y + row.height / 2 + (compact ? 3 : 4);
+            g.drawString(label, textX, textY);
             String tail = String.format("%+5.1f cp", v);
             int tailW = fm.stringWidth(tail);
-            int barX = textX + Math.max(140, fm.stringWidth(label) + 12);
-            int barW = row.x + row.width - barX - tailW - 12;
-            if (barW > 20) {
-                Rectangle bar = new Rectangle(barX, row.y + (row.height - 12) / 2, barW, 12);
+            int barX = textX + Math.max(compact ? 80 : 140, fm.stringWidth(label) + 8);
+            int barW = row.x + row.width - barX - tailW - 8;
+            if (barW > 16) {
+                int barH = compact ? 8 : 12;
+                Rectangle bar = new Rectangle(barX, row.y + (row.height - barH) / 2, barW, barH);
                 WorkbenchTensorViz.drawHorizontalBar(g, bar, v, maxAbs, null);
             }
             g.setColor(v >= 0 ? WorkbenchTensorViz.POSITIVE : WorkbenchTensorViz.NEGATIVE);
-            g.drawString(tail, row.x + row.width - tailW - 6, row.y + row.height / 2 + 4);
+            g.drawString(tail, row.x + row.width - tailW - 4, textY);
             if (hiddenStride > 0) {
                 hitRegions.addInspectable(row,
                         "Feature #" + featureIdx + "  " + decodeHalfKP(featureIdx),
@@ -604,7 +636,10 @@ final class WorkbenchNnueView extends JComponent {
     }
 
     /**
-     * Paints the detailed wired-diagram view.
+     * Paints the detailed wired-diagram view. The "clipped" column from the
+     * original three-stage diagram is folded into the accumulator column —
+     * the accumulator node already encodes the post-ReLU value, so a separate
+     * clipped column was redundant and added straight-line clutter.
      *
      * @param g graphics
      * @param body body rectangle
@@ -612,8 +647,8 @@ final class WorkbenchNnueView extends JComponent {
     private void paintDetailed(Graphics2D g, Rectangle body) {
         WorkbenchTensorViz.drawSectionHeader(g, new Rectangle(body.x, body.y, body.width, 40),
                 "wired diagram (us side)",
-                "active features -> accumulator -> clipped -> output  (click a node to inspect edges)");
-        int boardSide = Math.min(180, Math.max(120, body.height / 4));
+                "active features -> accumulator (post-ReLU) -> output  (click a slot to focus its edges)");
+        int boardSide = Math.min(220, Math.max(160, body.height / 3));
         Rectangle boardArea = new Rectangle(body.x + body.width - boardSide - 8,
                 body.y + body.height - boardSide - 32, boardSide, boardSide);
         Rectangle wire = new Rectangle(body.x, body.y + 48,
@@ -622,11 +657,11 @@ final class WorkbenchNnueView extends JComponent {
         drawColumnLabels(g, layout);
         drawFeatureColumn(g, layout);
         drawAccumulatorColumn(g, layout);
-        drawClippedColumn(g, layout);
         drawOutputColumn(g, layout);
         drawEdges(g, layout);
         WorkbenchTensorViz.drawMiniBoard(g, boardArea);
         WorkbenchTensorViz.drawPositionPieces(g, boardArea, fen);
+        paintSelectedFeatureOverlay(g, boardArea);
         hitRegions.add(boardArea, "Current position",
                 fen == null ? "no FEN" : fen,
                 "Half-KP features are derived from this board");
@@ -637,7 +672,8 @@ final class WorkbenchNnueView extends JComponent {
     }
 
     /**
-     * Computes column geometry.
+     * Computes column geometry for the three-column wired diagram
+     * (features → accumulator → output).
      *
      * @param r body rectangle
      * @return layout
@@ -645,14 +681,13 @@ final class WorkbenchNnueView extends JComponent {
     private Layout layout(Rectangle r) {
         Layout out = new Layout();
         int colW = 96;
-        int gap = (r.width - 4 * colW - 20) / 3;
-        gap = Math.max(40, gap);
+        int gap = (r.width - 3 * colW - 20) / 2;
+        gap = Math.max(80, gap);
         int leftCx = r.x + colW / 2 + 30;
         out.featureCx = leftCx;
         out.accumCx = leftCx + colW + gap;
-        out.clippedCx = out.accumCx + colW + gap;
-        out.outputCx = out.clippedCx + colW + gap;
-        out.slotRadius = 7;
+        out.outputCx = out.accumCx + colW + gap;
+        out.slotRadius = 8;
         out.startY = r.y + 40;
         int avail = r.height - 90;
         int slots = Math.min(MAX_VISIBLE_SLOTS, visibleSlots.length == 0 ? MAX_VISIBLE_SLOTS : visibleSlots.length);
@@ -671,10 +706,9 @@ final class WorkbenchNnueView extends JComponent {
         g.setColor(WorkbenchTheme.MUTED);
         g.setFont(WorkbenchTheme.font(11, Font.BOLD));
         int y = layout.startY - 18;
-        drawCenteredLabel(g, "features", layout.featureCx, y);
-        drawCenteredLabel(g, "accumulator", layout.accumCx, y);
-        drawCenteredLabel(g, "clipped", layout.clippedCx, y);
-        drawCenteredLabel(g, "output", layout.outputCx, y);
+        drawCenteredLabel(g, "active features", layout.featureCx, y);
+        drawCenteredLabel(g, "accumulator (post-ReLU)", layout.accumCx, y);
+        drawCenteredLabel(g, "eval", layout.outputCx, y);
     }
 
     /**
@@ -735,57 +769,45 @@ final class WorkbenchNnueView extends JComponent {
     }
 
     /**
-     * Draws the accumulator (L1) column.
+     * Draws the accumulator (post-ReLU) column. Each node visualises the
+     * clipped activation directly; a small ring marker indicates a slot whose
+     * pre-ReLU accumulator was negative (i.e. the slot was clipped to 0).
      *
      * @param g graphics
      * @param layout layout
      */
     private void drawAccumulatorColumn(Graphics2D g, Layout layout) {
         float[] acc = snapshot.data("nnue.accumulator.us");
-        if (acc == null) {
+        float[] cl = snapshot.data("nnue.clipped.us");
+        if (acc == null || cl == null) {
             return;
         }
         float scale = 0.0f;
         for (int idx : visibleSlots) {
-            scale = Math.max(scale, Math.abs(acc[idx]));
+            scale = Math.max(scale, Math.abs(cl[idx]));
         }
         if (scale <= 0.0f) {
             scale = 1.0f;
         }
         for (int i = 0; i < visibleSlots.length; ++i) {
             int idx = visibleSlots[i];
-            float raw = acc[idx];
-            float v = raw / scale;
+            float pre = acc[idx];
+            float post = cl[idx];
+            float v = post / scale;
             int y = layout.startY + i * layout.slotPitch;
             WorkbenchTensorViz.drawNode(g, layout.accumCx, y, layout.slotRadius, v, i == selectedSlot);
+            if (pre < 0.0f) {
+                int rr = layout.slotRadius + 3;
+                g.setColor(WorkbenchTensorViz.NEGATIVE);
+                g.drawOval(layout.accumCx - rr, y - rr, rr * 2, rr * 2);
+            }
             int rad = layout.slotRadius + 2;
             hitRegions.add(new Rectangle(layout.accumCx - rad, y - rad, rad * 2, rad * 2),
                     "Accumulator slot " + idx,
-                    "Pre-ReLU accumulator value (sum of active feature weights + bias)",
-                    String.format("%+.3f", raw));
-        }
-    }
-
-    /**
-     * Draws the clipped (post-relu) column.
-     *
-     * @param g graphics
-     * @param layout layout
-     */
-    private void drawClippedColumn(Graphics2D g, Layout layout) {
-        float[] cl = snapshot.data("nnue.clipped.us");
-        if (cl == null) {
-            return;
-        }
-        for (int i = 0; i < visibleSlots.length; ++i) {
-            int idx = visibleSlots[i];
-            int y = layout.startY + i * layout.slotPitch;
-            WorkbenchTensorViz.drawNode(g, layout.clippedCx, y, layout.slotRadius, cl[idx], i == selectedSlot);
-            int rad = layout.slotRadius + 2;
-            hitRegions.add(new Rectangle(layout.clippedCx - rad, y - rad, rad * 2, rad * 2),
-                    "Clipped slot " + idx,
-                    "Post-ReLU activation (negative values clipped to 0)",
-                    String.format("%.3f", cl[idx]));
+                    pre < 0.0f
+                            ? "Pre-ReLU " + String.format("%+.3f", pre) + " → clipped to 0"
+                            : "Post-ReLU activation (pre-ReLU " + String.format("%+.3f", pre) + ")",
+                    String.format("%.3f", post));
         }
     }
 
@@ -910,26 +932,16 @@ final class WorkbenchNnueView extends JComponent {
             }
         }
 
-        // Accumulator -> clipped: identity-style edge per slot to show
-        // activation flow. All slots are drawn but de-emphasised; the
-        // focused slot stands out.
-        for (int si = 0; si < visibleSlots.length; ++si) {
-            int slotY = layout.startY + si * layout.slotPitch;
-            int idx = visibleSlots[si];
-            float w1 = cl[idx];
-            if (!focused || si == selectedSlot) {
-                WorkbenchTensorViz.drawWeightedEdge(g, layout.accumCx + layout.slotRadius, slotY,
-                        layout.clippedCx - layout.slotRadius, slotY, w1, si == selectedSlot);
-            }
-        }
-
-        // Clipped -> output: only top-K contributors (or the focused slot).
+        // Accumulator -> output: only the focused slot or top-K contributors.
+        // The contribution (output weight × clipped activation) already
+        // encodes the post-ReLU flow, so a separate clipped column would just
+        // add a straight-line stage.
         int outCy = (layout.startY + layout.bottomY) / 2;
         for (int si : slotsToShow) {
             int slotY = layout.startY + si * layout.slotPitch;
             int idx = visibleSlots[si];
             float w2 = contrib[idx] / contribScale;
-            WorkbenchTensorViz.drawWeightedEdge(g, layout.clippedCx + layout.slotRadius, slotY,
+            WorkbenchTensorViz.drawWeightedEdge(g, layout.accumCx + layout.slotRadius, slotY,
                     layout.outputCx - (layout.slotRadius + 6), outCy, w2, si == selectedSlot);
         }
     }
@@ -1056,11 +1068,6 @@ final class WorkbenchNnueView extends JComponent {
          * Center x of the accumulator column.
          */
         private int accumCx;
-
-        /**
-         * Center x of the clipped column.
-         */
-        private int clippedCx;
 
         /**
          * Center x of the output column.

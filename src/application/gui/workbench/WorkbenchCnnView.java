@@ -304,14 +304,19 @@ final class WorkbenchCnnView extends JComponent {
     }
 
     /**
-     * Paints the abstract trunk-pipeline view.
+     * Paints the abstract trunk-pipeline view. Lays out the four trunk
+     * stages (input → stem → residual trunk → final feature map) on the top
+     * row, with the residual trunk box rendered as a stacked-block silhouette
+     * to suggest the repeating internal conv-conv-skip-add-ReLU structure,
+     * and branches the two heads off the final map on the row below.
      *
      * @param g graphics
      * @param r rectangle
      */
     private void paintAbstractPipeline(Graphics2D g, Rectangle r) {
         WorkbenchTensorViz.drawSectionHeader(g, new Rectangle(r.x, r.y, r.width, 40),
-                "abstract flow", "input -> stem -> trunk -> policy / value");
+                "abstract flow",
+                "input planes → stem conv → residual trunk (conv-conv-skip-ReLU × N) → final map → policy / value heads");
         LayerInfo input = findLayer("input");
         LayerInfo stem = findLayer("stem");
         LayerInfo finalLayer = findLayer("final");
@@ -334,7 +339,7 @@ final class WorkbenchCnnView extends JComponent {
             scale = 1.0f;
         }
         int top = r.y + 56;
-        int blockH = 76;
+        int blockH = 80;
         int gap = 16;
         int cellW = (r.width - 5 * gap) / 4;
         Rectangle inputR = new Rectangle(r.x + gap, top, cellW, blockH);
@@ -346,36 +351,86 @@ final class WorkbenchCnnView extends JComponent {
         WorkbenchTensorViz.drawElbowConnection(g, trunkR, finalR, WorkbenchTensorViz.TRUNK, true);
         WorkbenchTensorViz.drawAbstractBlock(g, inputR, "input planes",
                 input == null ? "112x8x8" : input.shape, activity(input, scale), WorkbenchTensorViz.POSITIVE);
-        WorkbenchTensorViz.drawAbstractBlock(g, stemR, "stem conv",
+        WorkbenchTensorViz.drawAbstractBlock(g, stemR, "stem conv 3×3",
                 stem == null ? "-" : stem.shape, activity(stem, scale), WorkbenchTensorViz.TRUNK);
         int blocks = countLayersWithPrefix("B");
-        WorkbenchTensorViz.drawAbstractBlock(g, trunkR, "residual trunk",
-                blocks + " blocks", trunkRms / scale, WorkbenchTensorViz.TRUNK);
-        WorkbenchTensorViz.drawAbstractBlock(g, finalR, "final map",
+        // Render the trunk as a stack of three offset silhouette rectangles
+        // BEHIND the main block so the user can read it as a repeating stack
+        // of residual blocks rather than a single layer.
+        drawTrunkStack(g, trunkR, blocks, trunkRms / scale);
+        WorkbenchTensorViz.drawAbstractBlock(g, finalR, "final feature map",
                 finalLayer == null ? "8x8" : finalLayer.shape, activity(finalLayer, scale), WorkbenchTensorViz.VALUE);
-        registerBlockTooltip(inputR, "Input planes", "112 board planes (own pieces, enemy pieces, repetition counters, castling, side-to-move...)", input, "cnn.input");
-        registerBlockTooltip(stemR, "Stem conv", "First convolution; mixes input planes into the residual trunk space.", stem, "cnn.stem.relu");
+        registerBlockTooltip(inputR, "Input planes",
+                "112 board planes (6 own pieces · 6 enemy pieces · castling · side-to-move · repetition...)",
+                input, "cnn.input");
+        registerBlockTooltip(stemR, "Stem conv (3×3)",
+                "First convolution; mixes input planes into the residual-trunk feature space.",
+                stem, "cnn.stem.relu");
         hitRegions.add(trunkR, "Residual trunk",
-                "Stack of " + blocks + " residual conv blocks", String.format("avg rms %.3f", trunkRms));
-        registerBlockTooltip(finalR, "Final feature map", "Last conv activation map before policy/value heads.", finalLayer, "cnn.final.relu");
+                "Stack of " + blocks + " residual blocks. Each block is conv→conv→add(skip)→ReLU.",
+                String.format("%d blocks · avg rms %.3f", blocks, trunkRms));
+        registerBlockTooltip(finalR, "Final feature map",
+                "Last conv activation map (channels × 8 × 8) feeding both heads.",
+                finalLayer, "cnn.final.relu");
 
-        Rectangle policyR = new Rectangle(trunkR.x, top + blockH + 36, cellW, blockH - 12);
-        Rectangle valueR = new Rectangle(finalR.x, top + blockH + 36, cellW, blockH - 12);
+        // Both heads sit directly under the final feature map, side by side.
+        // Halving cellW keeps them readable while the elbow connections drop
+        // down from finalR's bottom edge — matching the network topology
+        // where both heads consume the same final map.
+        int headTop = top + blockH + 40;
+        int headW = (finalR.width - 8) / 2;
+        int headH = blockH - 16;
+        Rectangle policyR = new Rectangle(finalR.x, headTop, headW, headH);
+        Rectangle valueR = new Rectangle(finalR.x + headW + 8, headTop, headW, headH);
         WorkbenchTensorViz.drawElbowConnection(g, finalR, policyR, WorkbenchTensorViz.POLICY, true);
         WorkbenchTensorViz.drawElbowConnection(g, finalR, valueR, WorkbenchTensorViz.VALUE, true);
-        WorkbenchTensorViz.drawAbstractBlock(g, policyR, "policy head",
-                policy == null ? "1858" : policy.shape, activity(policy, scale), WorkbenchTensorViz.POLICY);
-        WorkbenchTensorViz.drawAbstractBlock(g, valueR, "value head",
-                value == null ? "WDL" : value.shape, activity(value, scale), WorkbenchTensorViz.VALUE);
-        registerBlockTooltip(policyR, "Policy head", "Produces 1858 LC0 move logits; soft-max gives move probabilities.", policy, "cnn.policy.logits");
-        registerBlockTooltip(valueR, "Value head", "Produces W/D/L probabilities for the final eval scalar.", value, "cnn.value.wdl");
+        WorkbenchTensorViz.drawAbstractBlock(g, policyR, "policy head → 1858",
+                policy == null ? "logits" : policy.shape, activity(policy, scale), WorkbenchTensorViz.POLICY);
+        WorkbenchTensorViz.drawAbstractBlock(g, valueR, "value head → WDL",
+                value == null ? "W/D/L" : value.shape, activity(value, scale), WorkbenchTensorViz.VALUE);
+        registerBlockTooltip(policyR, "Policy head",
+                "1×1 conv → flatten → fully-connected → 1858 LC0 move logits.",
+                policy, "cnn.policy.logits");
+        registerBlockTooltip(valueR, "Value head",
+                "1×1 conv → flatten → fully-connected → 3-way W/D/L softmax.",
+                value, "cnn.value.wdl");
 
-        int stripY = policyR.y + policyR.height + 24;
-        Rectangle stripR = new Rectangle(r.x + gap, stripY, r.width - 2 * gap, 26);
-        paintTrunkStrip(g, stripR);
-        g.setColor(WorkbenchTheme.MUTED);
-        g.setFont(WorkbenchTheme.font(10, Font.PLAIN));
-        g.drawString("residual-block activity (left = early, right = late)", stripR.x, stripR.y - 4);
+        int stripY = policyR.y + policyR.height + 28;
+        if (stripY + 26 <= r.y + r.height) {
+            Rectangle stripR = new Rectangle(r.x + gap, stripY, r.width - 2 * gap, 26);
+            paintTrunkStrip(g, stripR);
+            g.setColor(WorkbenchTheme.MUTED);
+            g.setFont(WorkbenchTheme.font(10, Font.PLAIN));
+            g.drawString("per-block activity (left = early block, right = late block)",
+                    stripR.x, stripR.y - 4);
+        }
+    }
+
+    /**
+     * Renders a "stacked rectangles" silhouette behind the trunk block to
+     * suggest the repeating residual stack. The foreground block is drawn
+     * separately by the caller via {@link WorkbenchTensorViz#drawAbstractBlock}.
+     *
+     * @param g graphics
+     * @param r front block rectangle
+     * @param blocks number of residual blocks
+     * @param activity 0..1 activity scalar (drives accent intensity)
+     */
+    private static void drawTrunkStack(Graphics2D g, Rectangle r, int blocks, float activity) {
+        int layers = Math.min(4, Math.max(2, blocks / 4));
+        Color edge = WorkbenchTensorViz.TRUNK;
+        Color fill = new Color(edge.getRed(), edge.getGreen(), edge.getBlue(),
+                30 + Math.round(20 * Math.min(1.0f, Math.max(0.0f, activity))));
+        for (int i = layers; i >= 1; --i) {
+            int dx = i * 4;
+            int dy = i * 4;
+            g.setColor(fill);
+            g.fillRect(r.x + dx, r.y - dy, r.width, r.height);
+            g.setColor(edge);
+            g.drawRect(r.x + dx, r.y - dy, r.width - 1, r.height - 1);
+        }
+        WorkbenchTensorViz.drawAbstractBlock(g, r, "residual trunk",
+                blocks + " × residual block", activity, WorkbenchTensorViz.TRUNK);
     }
 
     /**
@@ -512,7 +567,12 @@ final class WorkbenchCnnView extends JComponent {
     }
 
     /**
-     * Paints the detailed grid view.
+     * Paints the detailed view. Layout: compact row of layer cards across
+     * the top, then a left-side chessboard showing the current position
+     * (overlaid with the selected layer's mean activity per square) plus a
+     * right-side channel grid for the selected layer. The board mirrors the
+     * NNUE / BT4 views so all three architectures share the same
+     * board-on-the-left layout language.
      *
      * @param g graphics
      * @param body body rectangle
@@ -521,15 +581,15 @@ final class WorkbenchCnnView extends JComponent {
         cellHitBoxes.clear();
         cellLayerIndices.clear();
         WorkbenchTensorViz.drawSectionHeader(g, new Rectangle(body.x, body.y, body.width, 40),
-                "detailed layer cards", "click a card to inspect its channels");
+                "layer cards (top) · board + channel grid (below)",
+                "click a card to focus a layer; the board overlay shows its 8×8 mean activity");
         int top = body.y + 50;
-        int cardW = 96;
-        int cardH = 70;
+        int cardW = Math.max(72, Math.min(110, (body.width - 8) / Math.max(1, layers.size())));
+        int cardH = 60;
         int gap = 6;
         int cols = Math.max(1, (body.width - 8) / (cardW + gap));
         int rows = (layers.size() + cols - 1) / cols;
         int gridH = rows * cardH + (rows - 1) * gap;
-        int inspectorH = Math.max(180, body.height - 50 - gridH - 14);
         float scale = 0.0f;
         for (LayerInfo info : layers) {
             scale = Math.max(scale, info.rms);
@@ -550,58 +610,117 @@ final class WorkbenchCnnView extends JComponent {
             float a = WorkbenchTensorViz.clamp(info.rms / scale, 0.0f, 1.0f);
             int barW = card.width - 16;
             g.setColor(WorkbenchTheme.LINE);
-            g.fillRect(card.x + 8, card.y + card.height - 12, barW, 4);
+            g.fillRect(card.x + 8, card.y + card.height - 10, barW, 3);
             g.setColor(accent);
-            g.fillRect(card.x + 8, card.y + card.height - 12, Math.round(barW * a), 4);
+            g.fillRect(card.x + 8, card.y + card.height - 10, Math.round(barW * a), 3);
             if (selected) {
                 g.setColor(WorkbenchTheme.ACCENT);
                 g.drawRect(card.x - 2, card.y - 2, card.width + 3, card.height + 3);
             }
-            g.setColor(WorkbenchTheme.MUTED);
-            g.setFont(WorkbenchTheme.font(10, Font.PLAIN));
-            g.drawString(String.format("rms %.2f", info.rms), card.x + 8, card.y + card.height - 18);
             cellHitBoxes.add(card);
             cellLayerIndices.add(i);
             hitRegions.add(card,
                     info.name + "  " + info.shape,
-                    "Click the card to inspect this layer's channel grid below.",
+                    "Click the card to focus this layer in the inspector below.",
                     String.format("rms %.3f · mean %+.3f · range %+.2f..%+.2f",
                             info.rms, info.mean, info.min, info.max));
         }
-        Rectangle inspector = new Rectangle(body.x, top + gridH + 12, body.width, inspectorH);
-        paintInspector(g, inspector);
+        int inspectorTop = top + gridH + 14;
+        int inspectorH = Math.max(220, body.y + body.height - inspectorTop - 4);
+        int boardW = Math.min(360, Math.max(220, inspectorH));
+        Rectangle boardArea = new Rectangle(body.x, inspectorTop, boardW, inspectorH);
+        Rectangle channelArea = new Rectangle(body.x + boardW + 12, inspectorTop,
+                body.width - boardW - 12, inspectorH);
+        paintDetailedBoard(g, boardArea);
+        paintDetailedChannels(g, channelArea);
     }
 
     /**
-     * Paints the inspector strip for the selected layer.
+     * Paints the interactive chessboard alongside the channel grid. Shows
+     * the current position; if the selected layer has an 8×8 spatial layout
+     * the per-square mean activity is overlaid as a heatmap so the user can
+     * see what part of the board the layer is reacting to.
      *
      * @param g graphics
      * @param r rectangle
      */
-    private void paintInspector(Graphics2D g, Rectangle r) {
+    private void paintDetailedBoard(Graphics2D g, Rectangle r) {
+        WorkbenchTensorViz.drawSectionHeader(g, new Rectangle(r.x, r.y, r.width, 18),
+                "position", "mean activity of the selected layer overlaid on the board");
+        int size = Math.min(r.width - 8, r.height - 80);
+        Rectangle board = new Rectangle(r.x + (r.width - size) / 2, r.y + 24, size, size);
+        WorkbenchTensorViz.drawMiniBoard(g, board);
+        WorkbenchTensorViz.drawPositionPieces(g, board, fen);
+        int idx = selectedLayer < 0 || selectedLayer >= layers.size() ? defaultLayer() : selectedLayer;
+        if (idx >= 0) {
+            LayerInfo info = layers.get(idx);
+            float[] perSquare = meanPerSquare(info);
+            if (perSquare != null) {
+                WorkbenchTensorViz.drawSquareOverlay(g, board, perSquare, 0.0f, false);
+                addBoardSquareTooltips(board, perSquare,
+                        info.name + " · mean activity (channel-averaged)");
+            }
+            WorkbenchTensorViz.drawBoardCoordinates(g, board);
+            g.setColor(WorkbenchTheme.MUTED);
+            g.setFont(WorkbenchTheme.font(11, Font.PLAIN));
+            g.drawString("layer: " + info.name + "  ·  " + info.shape,
+                    r.x + 6, board.y + board.height + 18);
+            g.drawString(String.format("rms %.3f   mean %+.3f   range %+.2f..%+.2f",
+                    info.rms, info.mean, info.min, info.max),
+                    r.x + 6, board.y + board.height + 34);
+        }
+    }
+
+    /**
+     * Averages a layer's activation across channels into one value per board
+     * square. Returns {@code null} for layers that are not channels × 8 × 8.
+     *
+     * @param info layer info
+     * @return per-square mean (length 64) or null
+     */
+    private static float[] meanPerSquare(LayerInfo info) {
+        if (info == null || info.values == null || info.shapeDims.length != 3
+                || info.shapeDims[1] != 8 || info.shapeDims[2] != 8) {
+            return null;
+        }
+        int channels = info.shapeDims[0];
+        float[] out = new float[64];
+        for (int c = 0; c < channels; ++c) {
+            int off = c * 64;
+            for (int s = 0; s < 64; ++s) {
+                out[s] += info.values[off + s];
+            }
+        }
+        float inv = channels > 0 ? 1.0f / channels : 1.0f;
+        for (int s = 0; s < 64; ++s) {
+            out[s] *= inv;
+        }
+        return out;
+    }
+
+    /**
+     * Paints the selected layer's channel grid (or input planes for the input
+     * layer, or a flat bar strip for non-spatial layers).
+     *
+     * @param g graphics
+     * @param r rectangle
+     */
+    private void paintDetailedChannels(Graphics2D g, Rectangle r) {
+        WorkbenchTensorViz.drawSectionHeader(g, new Rectangle(r.x, r.y, r.width, 18),
+                "channels", "per-channel 8×8 heatmaps for the focused layer");
         int idx = selectedLayer < 0 || selectedLayer >= layers.size() ? defaultLayer() : selectedLayer;
         if (idx < 0) {
             return;
         }
         LayerInfo info = layers.get(idx);
-        g.setColor(WorkbenchTheme.PANEL_SOLID);
-        g.fillRect(r.x, r.y, r.width, r.height);
-        g.setColor(WorkbenchTheme.LINE);
-        g.drawRect(r.x, r.y, r.width - 1, r.height - 1);
-        g.setColor(WorkbenchTheme.TEXT);
-        g.setFont(WorkbenchTheme.font(13, Font.BOLD));
-        g.drawString(info.name + "  ·  " + info.shape, r.x + 10, r.y + 18);
-        g.setColor(WorkbenchTheme.MUTED);
-        g.setFont(WorkbenchTheme.font(11, Font.PLAIN));
-        g.drawString(String.format("mean %+.3f   |   abs %.3f   |   rms %.3f   |   min %+.2f   |   max %+.2f",
-                info.mean, info.meanAbs, info.rms, info.min, info.max), r.x + 10, r.y + 34);
+        Rectangle content = new Rectangle(r.x, r.y + 24, r.width, r.height - 24);
         if ("input".equals(info.name) && info.shapeDims.length == 3
                 && info.shapeDims[1] == 8 && info.shapeDims[2] == 8) {
-            paintInputPlanes(g, new Rectangle(r.x + 10, r.y + 44, r.width - 20, r.height - 54), info);
+            paintInputPlanes(g, content, info);
         } else if (info.shapeDims.length == 3 && info.shapeDims[1] == 8 && info.shapeDims[2] == 8) {
-            paintChannelGrid(g, new Rectangle(r.x + 10, r.y + 44, r.width - 20, r.height - 54), info);
+            paintChannelGrid(g, content, info);
         } else if (info.values != null && info.values.length > 0) {
-            paintBarStrip(g, new Rectangle(r.x + 10, r.y + 44, r.width - 20, r.height - 54), info.values);
+            paintBarStrip(g, content, info.values);
         }
     }
 
@@ -905,7 +1024,6 @@ final class WorkbenchCnnView extends JComponent {
         info.values = entry.data();
         float[] stats = WorkbenchTensorViz.summarize(info.values);
         info.mean = stats[0];
-        info.meanAbs = stats[1];
         info.rms = stats[2];
         info.min = stats[3];
         info.max = stats[4];
@@ -957,11 +1075,6 @@ final class WorkbenchCnnView extends JComponent {
          * Mean.
          */
         private float mean;
-
-        /**
-         * Mean absolute.
-         */
-        private float meanAbs;
 
         /**
          * RMS.
