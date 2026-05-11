@@ -75,12 +75,6 @@ final class WorkbenchBt4View extends JComponent {
     private int selectedSquare = -1;
 
     /**
-     * Whether the selected-square overlay shows "attends to" (true) or
-     * "attended by" (false). Toggles when the same square is clicked twice.
-     */
-    private boolean attendsToMode = true;
-
-    /**
      * Cached hit-box for the head grid.
      */
     private Rectangle headGridBounds = new Rectangle();
@@ -336,12 +330,8 @@ final class WorkbenchBt4View extends JComponent {
             int drawRank = Math.max(0, Math.min(7, relY * 8 / Math.max(1, boardBounds.height)));
             int rank = 7 - drawRank;
             int sq = rank * 8 + file;
-            if (sq == selectedSquare) {
-                attendsToMode = !attendsToMode;
-            } else {
-                selectedSquare = sq;
-                attendsToMode = true;
-            }
+            // Click same square again to deselect; otherwise select it.
+            selectedSquare = (sq == selectedSquare) ? -1 : sq;
             repaint();
             return;
         }
@@ -533,224 +523,7 @@ final class WorkbenchBt4View extends JComponent {
             WorkbenchTensorViz.drawSquareOverlay(g, board, energy, s, false);
             addBoardSquareTooltips(board, energy, "Mean attention received");
         }
-        drawTopPolicyArrows(g, board);
         WorkbenchTensorViz.drawBoardCoordinates(g, board);
-    }
-
-    /**
-     * Draws curved arrows on the board for the top-K policy moves at the
-     * current position. Stroke thickness scales with the policy probability.
-     *
-     * @param g graphics
-     * @param board mini-board rectangle
-     */
-    private void drawTopPolicyArrows(java.awt.Graphics2D g, Rectangle board) {
-        if (fen == null || fen.isBlank()) {
-            return;
-        }
-        float[] policy = snapshot.data("bt4.policy.logits");
-        if (policy == null) {
-            return;
-        }
-        float[] tx = snapshot.data("bt4.input.transform");
-        int transform = tx == null ? 0 : Math.round(tx[0]);
-        chess.core.Position position;
-        try {
-            position = new chess.core.Position(fen);
-        } catch (RuntimeException ex) {
-            return;
-        }
-        java.util.List<chess.nn.lc0.bt4.PolicyEncoder.ScoredMove> top =
-                chess.nn.lc0.bt4.PolicyEncoder.topLegalMoves(position, policy, transform, 4);
-        if (top.isEmpty()) {
-            return;
-        }
-        java.awt.Stroke previousStroke = g.getStroke();
-        for (int i = 0; i < top.size(); i++) {
-            var sm = top.get(i);
-            int from = chess.core.Move.getFromIndex(sm.move()) & 0xFF;
-            int to = chess.core.Move.getToIndex(sm.move()) & 0xFF;
-            drawMoveArrow(g, board, from, to, sm.probability(), i == 0);
-        }
-        g.setStroke(previousStroke);
-    }
-
-    /**
-     * Draws a move arrow between two squares. Thin wrapper around
-     * {@link #drawBoardArrow} that maps Field-encoded squares to LERF.
-     *
-     * @param g graphics
-     * @param board mini-board rectangle
-     * @param fromSquare Field-encoded from square
-     * @param toSquare Field-encoded to square
-     * @param probability softmax probability over legal moves
-     * @param isTop true to render the best move with a brighter color
-     */
-    private void drawMoveArrow(java.awt.Graphics2D g, Rectangle board,
-            int fromSquare, int toSquare, float probability, boolean isTop) {
-        int from = chess.core.Field.getY((byte) fromSquare) * 8
-                + chess.core.Field.getX((byte) fromSquare);
-        int to = chess.core.Field.getY((byte) toSquare) * 8
-                + chess.core.Field.getX((byte) toSquare);
-        float weight = isTop ? 1.0f : Math.min(1.0f, Math.max(0.3f, probability * 1.4f));
-        int alpha = Math.min(245, 150 + Math.round(95 * Math.min(1.0f, probability * 1.4f)));
-        Color base = isTop ? new Color(70, 175, 90, alpha) : new Color(230, 180, 70, alpha);
-        drawBoardArrow(g, board, from, to, base, weight, 0.14f);
-    }
-
-    /**
-     * Draws curved arcs from the selected (query) square to its top-K most
-     * attended-to squares.
-     *
-     * @param g graphics
-     * @param board mini-board rectangle
-     * @param querySquare 0..63 selected square
-     * @param attention 64 attention values from query to each square
-     */
-    private void drawAttentionArcs(java.awt.Graphics2D g, Rectangle board,
-            int querySquare, float[] attention) {
-        if (attention == null || attention.length < 64) {
-            return;
-        }
-        Integer[] order = new Integer[64];
-        for (int i = 0; i < 64; ++i) {
-            order[i] = i;
-        }
-        java.util.Arrays.sort(order, (a, b) -> Float.compare(attention[b], attention[a]));
-        float maxW = 0.0f;
-        for (float v : attention) {
-            maxW = Math.max(maxW, v);
-        }
-        if (maxW <= 0.0f) {
-            return;
-        }
-        int shown = 0;
-        java.awt.Stroke previousStroke = g.getStroke();
-        for (int idx = 0; idx < 64 && shown < 6; ++idx) {
-            int sq = order[idx];
-            if (sq == querySquare) {
-                continue;
-            }
-            float w = attention[sq];
-            if (w <= 1e-4f) {
-                break;
-            }
-            float ratio = w / maxW;
-            if (ratio < 0.18f) {
-                break;
-            }
-            int alpha = (int) Math.min(235, 130 + 105 * ratio);
-            Color c = new Color(WorkbenchTheme.ACCENT.getRed(),
-                    WorkbenchTheme.ACCENT.getGreen(),
-                    WorkbenchTheme.ACCENT.getBlue(), alpha);
-            drawBoardArrow(g, board, querySquare, sq, c, ratio, 0.18f);
-            ++shown;
-        }
-        g.setStroke(previousStroke);
-    }
-
-    /**
-     * Draws one clean arrow between two LERF squares on a mini-board.
-     *
-     * <p>The visual recipe:
-     * <ul>
-     *   <li>Stroke and arrowhead are sized as a fraction of the board cell,
-     *       so the arrows scale with the board instead of looking thin on
-     *       a large board and chunky on a small one.</li>
-     *   <li>The curve stops short of the target so the line meets the base
-     *       of the arrowhead cleanly — no visible seam where a stroked
-     *       line meets a separately filled polygon.</li>
-     *   <li>A translucent dark outline is drawn behind the stroke and
-     *       arrowhead so the arrow stays legible over both light and dark
-     *       squares, and over piece glyphs.</li>
-     *   <li>The arrowhead is computed as a proper isoceles triangle aligned
-     *       with the curve tangent at the target.</li>
-     * </ul>
-     *
-     * @param g graphics
-     * @param board mini-board rectangle
-     * @param fromSquare 0..63 LERF source square
-     * @param toSquare 0..63 LERF target square
-     * @param color base color (alpha taken from this value)
-     * @param weight 0..1 importance, drives stroke thickness within bounds
-     * @param curvature 0..1 perpendicular control-point offset as a fraction
-     *                  of the source-target distance (0 = straight line)
-     */
-    private static void drawBoardArrow(java.awt.Graphics2D g, Rectangle board,
-            int fromSquare, int toSquare, Color color, float weight, float curvature) {
-        if (fromSquare == toSquare) {
-            return;
-        }
-        double cellW = board.width / 8.0;
-        double cellH = board.height / 8.0;
-        double cell = Math.min(cellW, cellH);
-        int fFile = fromSquare & 7;
-        int fRank = fromSquare >> 3;
-        int tFile = toSquare & 7;
-        int tRank = toSquare >> 3;
-        double fx = board.x + (fFile + 0.5) * cellW;
-        double fy = board.y + (7 - fRank + 0.5) * cellH;
-        double tx = board.x + (tFile + 0.5) * cellW;
-        double ty = board.y + (7 - tRank + 0.5) * cellH;
-        double dx = tx - fx;
-        double dy = ty - fy;
-        double len = Math.sqrt(dx * dx + dy * dy);
-        if (len < 1.0) {
-            return;
-        }
-        float w = Math.max(0.0f, Math.min(1.0f, weight));
-
-        float strokeWidth = (float) (cell * (0.11 + 0.07 * w));
-        double arrowLen = cell * (0.34 + 0.08 * w);
-        double arrowWidth = arrowLen * 0.78;
-
-        double shortened = Math.max(0.0, len - arrowLen * 0.78);
-        double endX = fx + dx * (shortened / len);
-        double endY = fy + dy * (shortened / len);
-
-        double mx = (fx + endX) / 2.0;
-        double my = (fy + endY) / 2.0;
-        double offset = len * curvature;
-        double cx = mx + (-dy / len) * offset;
-        double cy = my + (dx / len) * offset;
-        java.awt.geom.QuadCurve2D.Double curve = new java.awt.geom.QuadCurve2D.Double(
-                fx, fy, cx, cy, endX, endY);
-
-        double tanAngle = Math.atan2(ty - cy, tx - cx);
-        double cosA = Math.cos(tanAngle);
-        double sinA = Math.sin(tanAngle);
-        double baseX = tx - arrowLen * cosA;
-        double baseY = ty - arrowLen * sinA;
-        double leftX = baseX + (arrowWidth / 2.0) * sinA;
-        double leftY = baseY - (arrowWidth / 2.0) * cosA;
-        double rightX = baseX - (arrowWidth / 2.0) * sinA;
-        double rightY = baseY + (arrowWidth / 2.0) * cosA;
-
-        int outlineAlpha = Math.min(160, (color.getAlpha() * 5) / 8);
-        Color outline = new Color(0, 0, 0, outlineAlpha);
-
-        g.setColor(outline);
-        g.setStroke(new java.awt.BasicStroke(strokeWidth + 2.4f,
-                java.awt.BasicStroke.CAP_ROUND, java.awt.BasicStroke.JOIN_ROUND));
-        g.draw(curve);
-
-        g.setColor(color);
-        g.setStroke(new java.awt.BasicStroke(strokeWidth,
-                java.awt.BasicStroke.CAP_ROUND, java.awt.BasicStroke.JOIN_ROUND));
-        g.draw(curve);
-
-        java.awt.geom.Path2D.Double head = new java.awt.geom.Path2D.Double();
-        head.moveTo(tx, ty);
-        head.lineTo(leftX, leftY);
-        head.lineTo(rightX, rightY);
-        head.closePath();
-
-        g.setColor(outline);
-        g.setStroke(new java.awt.BasicStroke(2.2f,
-                java.awt.BasicStroke.CAP_ROUND, java.awt.BasicStroke.JOIN_ROUND));
-        g.draw(head);
-        g.setColor(color);
-        g.fill(head);
     }
 
     /**
@@ -1086,15 +859,20 @@ final class WorkbenchBt4View extends JComponent {
     }
 
     /**
-     * Paints the on-board overlay panel.
+     * Paints the on-board overlay panel. Each square is split diagonally:
+     * the upper-left triangle is shaded by attention <em>from</em> the
+     * selected square to this one (selected → this), the lower-right
+     * triangle by attention <em>to</em> the selected square from this one
+     * (this → selected). Both directions are visible simultaneously so
+     * the user does not have to toggle between modes.
      *
      * @param g graphics
      * @param r rectangle
      */
     private void paintBoardOverlay(Graphics2D g, Rectangle r) {
         WorkbenchTensorViz.drawSectionHeader(g, new Rectangle(r.x, r.y - 18, r.width, 18),
-                attendsToMode ? "attends to" : "attended by",
-                "click a square; click again to flip direction");
+                "attention (▲ selected → this · ▼ this → selected)",
+                "upper-left triangle = outgoing from selected · lower-right = incoming to selected");
         int size = Math.min(r.width - 20, r.height - 60);
         Rectangle board = new Rectangle(r.x + (r.width - size) / 2, r.y + 8, size - 16, size - 16);
         WorkbenchTensorViz.drawMiniBoard(g, board);
@@ -1104,24 +882,16 @@ final class WorkbenchBt4View extends JComponent {
             float[] heads = snapshot.data("bt4.block" + selectedBlock + ".attention.heads");
             if (heads != null) {
                 int off = selectedHead * 64 * 64;
-                float[] overlay = new float[64];
-                if (attendsToMode) {
-                    for (int to = 0; to < 64; ++to) {
-                        overlay[to] = heads[off + selectedSquare * 64 + to];
-                    }
-                } else {
-                    for (int from = 0; from < 64; ++from) {
-                        overlay[from] = heads[off + from * 64 + selectedSquare];
-                    }
+                float[] toOverlay = new float[64];
+                float[] fromOverlay = new float[64];
+                for (int sq = 0; sq < 64; ++sq) {
+                    toOverlay[sq] = heads[off + selectedSquare * 64 + sq];
+                    fromOverlay[sq] = heads[off + sq * 64 + selectedSquare];
                 }
-                float overlayScale = scaleFor("boardOverlay:" + (attendsToMode ? "to" : "from"),
-                        maxAbs(overlay));
-                WorkbenchTensorViz.drawSquareOverlay(g, board, overlay, overlayScale, false);
-                drawAttentionArcs(g, board, selectedSquare, overlay);
-                addBoardSquareTooltips(board, overlay,
-                        attendsToMode
-                                ? "attention from " + WorkbenchTensorViz.squareLabel(selectedSquare) + " to this square"
-                                : "attention to " + WorkbenchTensorViz.squareLabel(selectedSquare) + " from this square");
+                float dynamicMax = Math.max(maxAbs(toOverlay), maxAbs(fromOverlay));
+                float scale = scaleFor("boardOverlay:joint", dynamicMax);
+                drawTriangleOverlay(g, board, toOverlay, fromOverlay, scale);
+                addTriangleTooltips(board, toOverlay, fromOverlay);
                 int sf = selectedSquare & 7;
                 int sr = selectedSquare >> 3;
                 int dr = 7 - sr;
@@ -1136,9 +906,112 @@ final class WorkbenchBt4View extends JComponent {
         g.setColor(WorkbenchTheme.MUTED);
         g.setFont(WorkbenchTheme.font(10, Font.PLAIN));
         String hint = selectedSquare < 0
-                ? "no square selected"
-                : "selected: " + WorkbenchTensorViz.squareLabel(selectedSquare);
+                ? "no square selected — click a board square"
+                : "selected: " + WorkbenchTensorViz.squareLabel(selectedSquare)
+                        + " · click it again to clear";
         g.drawString(hint, r.x + 8, r.y + r.height - 4);
+    }
+
+    /**
+     * Draws the two-triangle attention overlay. For each of the 64 squares
+     * the cell is split along its main diagonal: the upper-left half is
+     * filled by an orange "outgoing" colour scaled by the attention from
+     * the selected square to this square, and the lower-right half by a
+     * teal "incoming" colour scaled by the attention from this square to
+     * the selected square. Same colour scale for both directions so the
+     * triangles are directly comparable.
+     *
+     * @param g graphics
+     * @param board pixel rectangle covering the 8x8 grid
+     * @param toData per-square attention values for selected → this
+     * @param fromData per-square attention values for this → selected
+     * @param scale shared colour scale (max value mapped to full opacity)
+     */
+    private static void drawTriangleOverlay(java.awt.Graphics2D g, Rectangle board,
+            float[] toData, float[] fromData, float scale) {
+        if (toData == null || fromData == null || scale <= 0.0f) {
+            return;
+        }
+        double cellW = board.width / 8.0;
+        double cellH = board.height / 8.0;
+        Color outgoingBase = new Color(235, 130, 55);
+        Color incomingBase = new Color(60, 175, 200);
+        Color diagonal = new Color(0, 0, 0, 45);
+        for (int sq = 0; sq < 64; ++sq) {
+            int file = sq & 7;
+            int rank = sq >> 3;
+            int drawRank = 7 - rank;
+            double xd = board.x + file * cellW;
+            double yd = board.y + drawRank * cellH;
+            double xr = xd + cellW;
+            double yb = yd + cellH;
+            float vTo = Math.min(1.0f, Math.max(0.0f, toData[sq] / scale));
+            float vFrom = Math.min(1.0f, Math.max(0.0f, fromData[sq] / scale));
+
+            java.awt.geom.Path2D.Double upper = new java.awt.geom.Path2D.Double();
+            upper.moveTo(xd, yd);
+            upper.lineTo(xr, yd);
+            upper.lineTo(xd, yb);
+            upper.closePath();
+            g.setColor(translucent(outgoingBase, vTo));
+            g.fill(upper);
+
+            java.awt.geom.Path2D.Double lower = new java.awt.geom.Path2D.Double();
+            lower.moveTo(xr, yb);
+            lower.lineTo(xr, yd);
+            lower.lineTo(xd, yb);
+            lower.closePath();
+            g.setColor(translucent(incomingBase, vFrom));
+            g.fill(lower);
+
+            // Thin diagonal separator so the two halves stay readable even
+            // when one is fully saturated and the other near zero.
+            g.setColor(diagonal);
+            g.drawLine((int) Math.round(xr), (int) Math.round(yd),
+                    (int) Math.round(xd), (int) Math.round(yb));
+        }
+    }
+
+    /**
+     * Returns a translucent variant of {@code base} whose alpha scales with
+     * {@code intensity} (0..1). A small floor keeps near-zero cells faintly
+     * tinted so the colour-encoding is recognisable without being noisy.
+     *
+     * @param base base colour
+     * @param intensity 0..1
+     * @return translucent colour
+     */
+    private static Color translucent(Color base, float intensity) {
+        float i = Math.max(0.0f, Math.min(1.0f, intensity));
+        int alpha = Math.round(20 + 200 * i);
+        return new Color(base.getRed(), base.getGreen(), base.getBlue(), alpha);
+    }
+
+    /**
+     * Adds per-square hover regions showing both attention directions.
+     *
+     * @param board mini-board rectangle
+     * @param toData selected → this
+     * @param fromData this → selected
+     */
+    private void addTriangleTooltips(Rectangle board, float[] toData, float[] fromData) {
+        int cellW = board.width / 8;
+        int cellH = board.height / 8;
+        String selectedLabel = WorkbenchTensorViz.squareLabel(selectedSquare);
+        for (int sq = 0; sq < 64; ++sq) {
+            int file = sq & 7;
+            int rank = sq >> 3;
+            int drawRank = 7 - rank;
+            Rectangle cell = new Rectangle(board.x + file * cellW, board.y + drawRank * cellH,
+                    cellW, cellH);
+            hitRegions.add(cell,
+                    WorkbenchTensorViz.squareLabel(sq),
+                    selectedLabel + " → this : " + String.format("%.4f", toData[sq])
+                            + "   ·   this → " + selectedLabel + " : "
+                            + String.format("%.4f", fromData[sq]),
+                    "outgoing " + String.format("%.4f", toData[sq])
+                            + " · incoming " + String.format("%.4f", fromData[sq]));
+        }
     }
 
     /**
