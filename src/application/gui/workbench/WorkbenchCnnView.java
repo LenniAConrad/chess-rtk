@@ -83,8 +83,13 @@ final class WorkbenchCnnView extends JComponent {
     /**
      * Whether to pin colour scales across position changes.
      */
-    @SuppressWarnings("unused")
     private boolean fixedScale;
+
+    /**
+     * Per-bucket pinned heatmap scales. Used while {@link #fixedScale} is on
+     * so colour ranges stay comparable across position changes.
+     */
+    private final java.util.Map<String, Float> pinnedScales = new java.util.HashMap<>();
 
     /**
      * Creates the CNN view.
@@ -124,15 +129,58 @@ final class WorkbenchCnnView extends JComponent {
     }
 
     /**
-     * Sets the fixed-scale flag.
+     * Sets the fixed-scale flag. Resets pinned heatmap scales when the
+     * toggle flips so the next snapshot starts a fresh baseline.
      *
      * @param value true to pin heatmap scales
      */
     void setFixedScale(boolean value) {
         if (this.fixedScale != value) {
             this.fixedScale = value;
+            pinnedScales.clear();
             repaint();
         }
+    }
+
+    /**
+     * Returns the colour-scale for a heatmap bucket. With fixed-scale off
+     * the bucket is cleared and the dynamic max is returned; with fixed-scale
+     * on the bucket's pinned scale grows monotonically across position
+     * changes so heatmaps stay comparable.
+     *
+     * @param key bucket key
+     * @param dynamicMax max-abs of the current snapshot data
+     * @return scale (always &gt; 0)
+     */
+    private float scaleFor(String key, float dynamicMax) {
+        float dm = dynamicMax <= 0.0f ? 1.0f : dynamicMax;
+        if (!fixedScale) {
+            pinnedScales.remove(key);
+            return dm;
+        }
+        Float pinned = pinnedScales.get(key);
+        float merged = pinned == null ? dm : Math.max(pinned, dm);
+        pinnedScales.put(key, merged);
+        return merged;
+    }
+
+    /**
+     * Returns the max-abs value in a float array, or 0 when empty.
+     *
+     * @param data values
+     * @return max absolute value
+     */
+    private static float maxAbs(float[] data) {
+        float m = 0.0f;
+        if (data != null) {
+            for (float v : data) {
+                float a = Math.abs(v);
+                if (a > m) {
+                    m = a;
+                }
+            }
+        }
+        return m;
     }
 
     /**
@@ -492,7 +540,8 @@ final class WorkbenchCnnView extends JComponent {
         WorkbenchTensorViz.drawMiniBoard(g, board);
         WorkbenchTensorViz.drawPositionPieces(g, board, fen);
         if (heatmap != null && heatmap.length >= 64) {
-            WorkbenchTensorViz.drawSquareOverlay(g, board, heatmap, 0.0f, false);
+            float s = scaleFor("policyAttention", maxAbs(heatmap));
+            WorkbenchTensorViz.drawSquareOverlay(g, board, heatmap, s, false);
             addBoardSquareTooltips(board, heatmap, "Final-map mean activation");
         }
         WorkbenchTensorViz.drawBoardCoordinates(g, board);
@@ -656,7 +705,8 @@ final class WorkbenchCnnView extends JComponent {
             LayerInfo info = layers.get(idx);
             float[] perSquare = meanPerSquare(info);
             if (perSquare != null) {
-                WorkbenchTensorViz.drawSquareOverlay(g, board, perSquare, 0.0f, false);
+                float s = scaleFor("detailedBoard:" + info.name, maxAbs(perSquare));
+                WorkbenchTensorViz.drawSquareOverlay(g, board, perSquare, s, false);
                 addBoardSquareTooltips(board, perSquare,
                         info.name + " · mean activity (channel-averaged)");
             }
@@ -781,6 +831,7 @@ final class WorkbenchCnnView extends JComponent {
         int rows = (show + cols - 1) / cols;
         int cellW = (r.width - (cols - 1) * 6) / cols;
         int cellH = Math.min(cellW, (r.height - (rows - 1) * 6) / rows);
+        float channelGridScale = scaleFor("channelGrid:" + info.name, maxAbs(info.values));
         for (int c = 0; c < show; ++c) {
             int row = c / cols;
             int col = c % cols;
@@ -789,7 +840,7 @@ final class WorkbenchCnnView extends JComponent {
             float[] slice = new float[64];
             System.arraycopy(info.values, c * 64, slice, 0, 64);
             Rectangle cell = new Rectangle(x, y, cellW, cellH);
-            WorkbenchTensorViz.drawHeatmap(g, cell, slice, 8, 8, 0.0f, true);
+            WorkbenchTensorViz.drawHeatmap(g, cell, slice, 8, 8, channelGridScale, true);
             float[] stats = WorkbenchTensorViz.summarize(slice);
             int snapKey = indexOfLayer(info);
             String key = snapKey >= 0 ? snapshotKey(info) : null;

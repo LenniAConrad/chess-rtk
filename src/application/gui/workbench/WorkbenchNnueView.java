@@ -104,6 +104,13 @@ final class WorkbenchNnueView extends JComponent {
     private int selectedFeature = -1;
 
     /**
+     * Per-bucket pinned heatmap scales, used while {@link #fixedScale} is
+     * on so colour ranges stay comparable across position changes. Cleared
+     * lazily when fixed-scale is off.
+     */
+    private final java.util.Map<String, Float> pinnedScales = new java.util.HashMap<>();
+
+    /**
      * Creates the NNUE view.
      */
     WorkbenchNnueView() {
@@ -141,13 +148,15 @@ final class WorkbenchNnueView extends JComponent {
     }
 
     /**
-     * Sets the fixed-scale flag.
+     * Sets the fixed-scale flag. Resets pinned heatmap scales when the
+     * toggle flips so the next snapshot starts a fresh baseline.
      *
      * @param value true to pin heatmap scales
      */
     void setFixedScale(boolean value) {
         if (this.fixedScale != value) {
             this.fixedScale = value;
+            pinnedScales.clear();
             repaint();
         }
     }
@@ -594,7 +603,12 @@ final class WorkbenchNnueView extends JComponent {
     }
 
     /**
-     * Paints the accumulator slot overview heatmap.
+     * Paints the accumulator slot overview heatmap. The colour scale is the
+     * combined max-abs of the us+them clipped activations so both sides stay
+     * directly comparable, instead of being hard-pinned to 1.0 (which left
+     * typical positions rendering almost invisibly). When the fixed-scale
+     * toggle is on the scale is pinned across position changes via
+     * {@link #scaleFor}.
      *
      * @param g graphics
      * @param r rectangle
@@ -602,7 +616,7 @@ final class WorkbenchNnueView extends JComponent {
     private void paintAccumulatorOverview(Graphics2D g, Rectangle r) {
         WorkbenchTensorViz.drawSectionHeader(g, new Rectangle(r.x, r.y, r.width, 40),
                 "accumulator slots (us | them)",
-                "clipped activation per slot | side by side");
+                "clipped activation per slot · scaled to max(us, them)");
         float[] us = snapshot.data("nnue.clipped.us");
         float[] them = snapshot.data("nnue.clipped.them");
         if (us == null || them == null) {
@@ -615,14 +629,17 @@ final class WorkbenchNnueView extends JComponent {
         int heatH = r.height - 56;
         Rectangle leftMap = new Rectangle(r.x + 8, r.y + 48, sideW, heatH);
         Rectangle rightMap = new Rectangle(r.x + sideW + 8 + gap, r.y + 48, sideW, heatH);
-        WorkbenchTensorViz.drawHeatmap(g, leftMap, us, colsPerSide, rows, 1.0f, false);
-        WorkbenchTensorViz.drawHeatmap(g, rightMap, them, colsPerSide, rows, 1.0f, false);
+        float[] stats = WorkbenchTensorViz.summarize(us);
+        float[] them2 = WorkbenchTensorViz.summarize(them);
+        float dynamicMax = Math.max(Math.max(Math.abs(stats[3]), Math.abs(stats[4])),
+                Math.max(Math.abs(them2[3]), Math.abs(them2[4])));
+        float scale = scaleFor("accumulator", dynamicMax);
+        WorkbenchTensorViz.drawHeatmap(g, leftMap, us, colsPerSide, rows, scale, false);
+        WorkbenchTensorViz.drawHeatmap(g, rightMap, them, colsPerSide, rows, scale, false);
         g.setColor(WorkbenchTheme.MUTED);
         g.setFont(WorkbenchTheme.font(10, Font.BOLD));
         g.drawString("us", leftMap.x, leftMap.y - 4);
         g.drawString("them", rightMap.x, rightMap.y - 4);
-        float[] stats = WorkbenchTensorViz.summarize(us);
-        float[] them2 = WorkbenchTensorViz.summarize(them);
         hitRegions.addInspectable(leftMap,
                 "Accumulator (us, clipped)",
                 "Per-slot clipped activation for side-to-move; product of all active features.",
@@ -633,6 +650,28 @@ final class WorkbenchNnueView extends JComponent {
                 "Per-slot clipped activation for the opponent side.",
                 String.format("rms %.2f · min %+.2f · max %+.2f", them2[2], them2[3], them2[4]),
                 "nnue.clipped.them", 0, 0, colsPerSide, rows + "x" + colsPerSide);
+    }
+
+    /**
+     * Returns the colour-scale to use for a heatmap bucket. When fixed-scale
+     * is off the dynamic max is returned and the bucket is cleared. When
+     * fixed-scale is on the bucket's pinned scale grows monotonically across
+     * position changes so heatmaps stay comparable.
+     *
+     * @param key bucket key
+     * @param dynamicMax max-abs of the current snapshot data
+     * @return scale to use
+     */
+    private float scaleFor(String key, float dynamicMax) {
+        float dm = dynamicMax <= 0.0f ? 1.0f : dynamicMax;
+        if (!fixedScale) {
+            pinnedScales.remove(key);
+            return dm;
+        }
+        Float pinned = pinnedScales.get(key);
+        float merged = pinned == null ? dm : Math.max(pinned, dm);
+        pinnedScales.put(key, merged);
+        return merged;
     }
 
     /**
