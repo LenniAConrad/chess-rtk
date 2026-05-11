@@ -46,6 +46,11 @@ public final class SvgShapes {
   private static final String BOARD_DARK_FILL = "#cccccc";
 
   /**
+   * Default outer frame fill (matches {@code Render.DEFAULT_FRAME}).
+   */
+  private static final String BOARD_FRAME_FILL = "#646464";
+
+  /**
    * Returns the embedded SVG source for the chessboard.
    *
    * @return SVG source text
@@ -102,23 +107,25 @@ public final class SvgShapes {
    */
   public static AccentColors accentColors(String accentHex) {
     if (accentHex == null || accentHex.isBlank()) {
-      return new AccentColors(BOARD_LIGHT_FILL, BOARD_DARK_FILL, BOARD_GRID_FILL);
+      return new AccentColors(BOARD_LIGHT_FILL, BOARD_DARK_FILL, BOARD_GRID_FILL, BOARD_FRAME_FILL);
     }
     int rgb = parseHexColor(accentHex);
     return new AccentColors(
         mixWithWhiteHex(rgb, LIGHT_MIX),
         mixWithWhiteHex(rgb, DARK_MIX),
-        mixWithWhiteHex(rgb, GRID_MIX));
+        mixWithWhiteHex(rgb, GRID_MIX),
+        mixWithBlackHex(rgb, FRAME_BLACK_MIX));
   }
 
   /**
-   * Resolved board palette: light squares, dark squares, separator grid.
+   * Resolved board palette: light squares, dark squares, separator grid, outer frame.
    *
    * @param light light square fill
    * @param dark  dark square fill
    * @param grid  separator grid fill
+   * @param frame outer frame fill
    */
-  public record AccentColors(String light, String dark, String grid) {}
+  public record AccentColors(String light, String dark, String grid, String frame) {}
 
   /**
    * White-mix factor used to derive the light-square fill from an accent color.
@@ -134,6 +141,12 @@ public final class SvgShapes {
    * White-mix factor used to derive the separator-grid fill from an accent color.
    */
   private static final double GRID_MIX = 0.55;
+
+  /**
+   * Black-mix factor used to derive the outer-frame fill from an accent color
+   * (0 keeps the accent, 1 returns black; 0.30 yields a deep, hue-true frame).
+   */
+  private static final double FRAME_BLACK_MIX = 0.30;
 
   /**
    * Parses a CSS-style hex color into a 0xRRGGBB integer. Accepts an optional
@@ -181,6 +194,26 @@ public final class SvgShapes {
     int mr = (int) Math.round(r + (255 - r) * t);
     int mg = (int) Math.round(g + (255 - g) * t);
     int mb = (int) Math.round(b + (255 - b) * t);
+    return String.format("#%02x%02x%02x", mr, mg, mb);
+  }
+
+  /**
+   * Linearly blends a packed RGB color with black and renders the result as a
+   * lowercase {@code #rrggbb} string.
+   *
+   * @param rgb      packed source color
+   * @param blackMix weight of black in {@code [0,1]} (0 keeps the accent, 1 returns black)
+   * @return CSS-style hex string
+   */
+  private static String mixWithBlackHex(int rgb, double blackMix) {
+    double t = Math.max(0.0, Math.min(1.0, blackMix));
+    double keep = 1.0 - t;
+    int r = (rgb >> 16) & 0xFF;
+    int g = (rgb >> 8) & 0xFF;
+    int b = rgb & 0xFF;
+    int mr = (int) Math.round(r * keep);
+    int mg = (int) Math.round(g * keep);
+    int mb = (int) Math.round(b * keep);
     return String.format("#%02x%02x%02x", mr, mg, mb);
   }
 
