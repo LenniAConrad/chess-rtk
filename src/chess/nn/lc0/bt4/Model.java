@@ -2,6 +2,7 @@ package chess.nn.lc0.bt4;
 
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.List;
 
 import chess.core.Position;
 
@@ -71,6 +72,16 @@ public final class Model implements AutoCloseable {
     }
 
     /**
+     * Encodes and evaluates a batch of positions.
+     *
+     * @param positions positions to evaluate
+     * @return predictions aligned with {@code positions}
+     */
+    public List<Network.Prediction> predictBatch(List<Position> positions) {
+        return network.predictBatch(positions);
+    }
+
+    /**
      * Evaluates already-encoded LC0 planes.
      *
      * @param encodedPlanes channel-major input planes
@@ -78,6 +89,16 @@ public final class Model implements AutoCloseable {
      */
     public Network.Prediction predictEncoded(float[] encodedPlanes) {
         return network.predictEncoded(encodedPlanes);
+    }
+
+    /**
+     * Evaluates already-encoded LC0 planes as a batch.
+     *
+     * @param encodedPlanes encoded plane arrays
+     * @return predictions aligned with {@code encodedPlanes}
+     */
+    public List<Network.Prediction> predictEncodedBatch(List<float[]> encodedPlanes) {
+        return network.predictEncodedBatch(encodedPlanes);
     }
 
     /**

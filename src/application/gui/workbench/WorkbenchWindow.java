@@ -26,6 +26,7 @@ import static application.gui.workbench.WorkbenchUi.transparentPanel;
 
 import java.awt.BorderLayout;
 import java.awt.Component;
+import java.awt.Desktop;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
@@ -139,34 +140,39 @@ public final class WorkbenchWindow extends JFrame {
     private static final String EVAL_BAR_DURATION = "350ms";
 
     /**
+     * Dashboard tab index — the default, first tab.
+     */
+    private static final int TAB_DASHBOARD = 0;
+
+    /**
      * Analysis tab index.
      */
-    private static final int TAB_ANALYZE = 0;
+    private static final int TAB_ANALYZE = 1;
 
     /**
      * Commands tab index.
      */
-    private static final int TAB_COMMANDS = 1;
+    private static final int TAB_COMMANDS = 2;
 
     /**
      * Batch tab index.
      */
-    private static final int TAB_BATCH = 2;
+    private static final int TAB_BATCH = 3;
 
     /**
      * Publishing tab index.
      */
-    private static final int TAB_PUBLISH = 3;
+    private static final int TAB_PUBLISH = 4;
 
     /**
      * Console tab index.
      */
-    private static final int TAB_CONSOLE = 4;
+    private static final int TAB_CONSOLE = 5;
 
     /**
      * Network visualizer tab index.
      */
-    private static final int TAB_NETWORK = 5;
+    private static final int TAB_NETWORK = 6;
 
     /**
      * Publishing task type with stable identity and display label.
@@ -183,12 +189,25 @@ public final class WorkbenchWindow extends JFrame {
         /** Render a cover PDF. */
         COVER("Cover PDF");
 
+        /**
+         * Combo-box label.
+         */
         private final String label;
 
+        /**
+         * Creates a publish task.
+         *
+         * @param label display label
+         */
         PublishTask(String label) {
             this.label = label;
         }
 
+        /**
+         * Returns the display label.
+         *
+         * @return display label
+         */
         @Override
         public String toString() {
             return label;
@@ -208,12 +227,25 @@ public final class WorkbenchWindow extends JFrame {
         /** A user-selected file. */
         EXISTING_FILE("Existing File");
 
+        /**
+         * Combo-box label.
+         */
         private final String label;
 
+        /**
+         * Creates a publish source.
+         *
+         * @param label display label
+         */
         PublishSource(String label) {
             this.label = label;
         }
 
+        /**
+         * Returns the display label.
+         *
+         * @return display label
+         */
         @Override
         public String toString() {
             return label;
@@ -276,6 +308,138 @@ public final class WorkbenchWindow extends JFrame {
      * Network-architecture visualizer (NNUE / lc0-CNN / lc0-BT4).
      */
     private final WorkbenchNetworkPanel networkPanel = new WorkbenchNetworkPanel();
+
+    /**
+     * Leela-style PUCT search visualizer.
+     */
+    private final WorkbenchMctsPanel mctsPanel = new WorkbenchMctsPanel();
+
+    /**
+     * Shared, observable session model the Dashboard tab renders from.
+     */
+    private final WorkbenchSession session = new WorkbenchSession();
+
+    /**
+     * Operational overview tab, rendered from {@link #session}.
+     */
+    private final WorkbenchDashboardPanel dashboardPanel =
+            new WorkbenchDashboardPanel(session, new DashboardActions());
+
+    /**
+     * Job record for the foreground command currently tracked, or null.
+     */
+    private WorkbenchJob runningJob;
+
+    /**
+     * Wall-clock start time of {@link #runningJob}, in epoch millis.
+     */
+    private long runningJobStartMillis;
+
+    /**
+     * Queue of command argument lists for a "run all health checks" sequence;
+     * drained one at a time as each command finishes.
+     */
+    private final java.util.Deque<List<String>> healthCheckQueue = new java.util.ArrayDeque<>();
+
+    /**
+     * Routes {@link WorkbenchDashboardPanel} quick actions to the window's
+     * existing private actions, so the dashboard never needs those methods
+     * widened to package or public visibility.
+     */
+    private final class DashboardActions implements WorkbenchDashboardActions {
+
+        @Override
+        public void builtInSearch() {
+            runBuiltInSearch();
+        }
+
+        @Override
+        public void bestMove() {
+            runBestMove();
+        }
+
+        @Override
+        public void analyze() {
+            runAnalyze();
+        }
+
+        @Override
+        public void tags() {
+            runTagsCommand();
+        }
+
+        @Override
+        public void perft() {
+            runPerft();
+        }
+
+        @Override
+        public void runBatch() {
+            WorkbenchWindow.this.runBatch();
+        }
+
+        @Override
+        public void engineSmoke() {
+            runEngineSmoke();
+        }
+
+        @Override
+        public void configValidate() {
+            runConfigValidate();
+        }
+
+        @Override
+        public void doctor() {
+            runDoctor();
+        }
+
+        @Override
+        public void runAllHealthChecks() {
+            WorkbenchWindow.this.runAllHealthChecks();
+        }
+
+        @Override
+        public void copyCurrentFen() {
+            copyText(currentFen());
+        }
+
+        @Override
+        public void openAnalyzeTab() {
+            selectTab(TAB_ANALYZE);
+        }
+
+        @Override
+        public void openBatchTab() {
+            selectTab(TAB_BATCH);
+        }
+
+        @Override
+        public void openConsoleTab() {
+            selectTab(TAB_CONSOLE);
+        }
+
+        @Override
+        public void retryJob(WorkbenchJob job) {
+            if (job != null) {
+                runCommand(job.args(), null);
+            }
+        }
+
+        @Override
+        public void copyJobCommand(WorkbenchJob job) {
+            if (job != null) {
+                copyText(WorkbenchCommandRunner.displayCommand(job.args()));
+            }
+        }
+
+        @Override
+        public void openJobManifest(WorkbenchJob job) {
+            if (job == null) {
+                return;
+            }
+            openManifestForJob(job);
+        }
+    }
 
     /**
      * FEN input.
@@ -1063,6 +1227,8 @@ public final class WorkbenchWindow extends JFrame {
         if (tagWorker != null && !tagWorker.isDone()) {
             tagWorker.cancel(true);
         }
+        networkPanel.dispose();
+        mctsPanel.dispose();
         super.dispose();
     }
 
@@ -1076,13 +1242,14 @@ public final class WorkbenchWindow extends JFrame {
         root.setBorder(WorkbenchTheme.pad(12, 12, 12, 12));
 
         tabs = tabbedPane();
+        tabs.addTab("Dashboard", dashboardPanel);
         tabs.addTab("Analyze", createBoardTab());
         tabs.addTab("Commands", createCommandTab());
         tabs.addTab("Batch", createBatchTab());
         tabs.addTab("Publish", createPublishTab());
         tabs.addTab("Console", createConsolePanel());
         tabs.addTab("Network", networkPanel);
-        tabs.setSelectedIndex(TAB_ANALYZE);
+        tabs.setSelectedIndex(TAB_DASHBOARD);
 
         root.add(tabs, BorderLayout.CENTER);
         root.add(createStatusBar(), BorderLayout.SOUTH);
@@ -1367,7 +1534,7 @@ public final class WorkbenchWindow extends JFrame {
             analysisTabs.setSelectedIndex(0);
         }
         if (boardDetailTabs != null) {
-            boardDetailTabs.setSelectedIndex(3);
+            boardDetailTabs.setSelectedIndex(4);
         }
         toast(WorkbenchToast.Kind.INFO, "Settings are in the side panel");
     }
@@ -1381,7 +1548,7 @@ public final class WorkbenchWindow extends JFrame {
             analysisTabs.setSelectedIndex(0);
         }
         if (boardDetailTabs != null) {
-            boardDetailTabs.setSelectedIndex(4);
+            boardDetailTabs.setSelectedIndex(5);
         }
         SwingUtilities.invokeLater(engineProtocolField::requestFocusInWindow);
     }
@@ -1716,6 +1883,7 @@ public final class WorkbenchWindow extends JFrame {
         boardDetailTabs.addTab("Moves", titled("Legal Moves", scroll(movesTable)));
         boardDetailTabs.addTab("Tags", titled("Tags", scroll(tagList)));
         boardDetailTabs.addTab("Data", createAnalysisDataPanel());
+        boardDetailTabs.addTab("MCTS", mctsPanel);
         boardDetailTabs.addTab("Settings", createDisplaySettingsPanel());
         boardDetailTabs.addTab("Engine", createEngineSettingsPanel());
         return boardDetailTabs;
@@ -3320,6 +3488,7 @@ public final class WorkbenchWindow extends JFrame {
         try {
             Position start = new Position(fen.trim());
             gameModel.reset(start);
+            session.clearEvalHistory();
             showGamePly(0);
             appendConsole("New game from " + start + "\n");
         } catch (IllegalArgumentException ex) {
@@ -3339,6 +3508,7 @@ public final class WorkbenchWindow extends JFrame {
         board.setPosition(currentPosition, lastMove);
         analysisGraph.resetForPosition(currentPosition.toString());
         networkPanel.setFen(currentPosition.toString());
+        mctsPanel.setFen(currentPosition.toString());
         updateMoves();
         updateStatus();
         updateTagsAsync();
@@ -3346,6 +3516,46 @@ public final class WorkbenchWindow extends JFrame {
         updateGameState();
         requestEvalUpdate();
         refreshStatusBar();
+        updateSessionPosition();
+    }
+
+    /**
+     * Pushes the current position into the shared {@link #session} so the
+     * Dashboard tab updates without scraping Swing components. Tags arrive
+     * later, asynchronously, via {@link #updateTagsAsync()}.
+     */
+    private void updateSessionPosition() {
+        if (currentPosition == null) {
+            return;
+        }
+        session.updatePosition(currentPosition.toString(), currentPosition.isWhiteToMove(),
+                gameModel.currentPly(), gameModel.lastPly(), visibleMoves.length);
+        updateSessionEngine();
+    }
+
+    /**
+     * Pushes the current external-engine configuration into the session so the
+     * Dashboard's Engine card stays current.
+     */
+    private void updateSessionEngine() {
+        session.updateEngine(engineProtocolValue(), liveExternalEngineEnabled,
+                session.engineSummary());
+    }
+
+    /**
+     * Magnitude, in centipawns, used to represent a forced mate in the
+     * dashboard eval sparkline so the line stays on a sensible scale.
+     */
+    private static final int MATE_EVAL_CENTIPAWNS = 3000;
+
+    /**
+     * Records a white-relative engine evaluation for the current ply into the
+     * session so the Dashboard's eval-over-plies sparkline can plot it.
+     *
+     * @param whiteCentipawns evaluation in centipawns, from White's view
+     */
+    private void recordSessionEval(int whiteCentipawns) {
+        session.recordEval(gameModel.currentPly(), whiteCentipawns);
     }
 
     /**
@@ -3422,11 +3632,14 @@ public final class WorkbenchWindow extends JFrame {
         if (eval.mate()) {
             if (eval.value() == 0) {
                 evalBar.setMateDelivered(whiteToMove);
+                recordSessionEval(whiteToMove ? -MATE_EVAL_CENTIPAWNS : MATE_EVAL_CENTIPAWNS);
             } else {
                 evalBar.setMate(value);
+                recordSessionEval(value > 0 ? MATE_EVAL_CENTIPAWNS : -MATE_EVAL_CENTIPAWNS);
             }
         } else {
             evalBar.setCentipawns(value);
+            recordSessionEval(value);
         }
     }
 
@@ -3678,11 +3891,14 @@ public final class WorkbenchWindow extends JFrame {
         if (evaluation.isMate()) {
             if (evaluation.getValue() == 0) {
                 evalBar.setMateDelivered(whiteToMove);
+                recordSessionEval(whiteToMove ? -MATE_EVAL_CENTIPAWNS : MATE_EVAL_CENTIPAWNS);
             } else {
                 evalBar.setMate(value);
+                recordSessionEval(value > 0 ? MATE_EVAL_CENTIPAWNS : -MATE_EVAL_CENTIPAWNS);
             }
         } else {
             evalBar.setCentipawns(value);
+            recordSessionEval(value);
         }
     }
 
@@ -4139,9 +4355,11 @@ public final class WorkbenchWindow extends JFrame {
                 }
                 try {
                     tagModel.clear();
-                    for (String tag : get()) {
+                    List<String> computedTags = get();
+                    for (String tag : computedTags) {
                         tagModel.addElement(tag);
                     }
+                    session.updateTags(computedTags);
                 } catch (InterruptedException ex) {
                     Thread.currentThread().interrupt();
                     showTaggingError(ex);
@@ -4219,6 +4437,49 @@ public final class WorkbenchWindow extends JFrame {
      */
     private void runConfigValidate() {
         runCommand(List.of("config", "validate"), null);
+    }
+
+    /**
+     * Runs the {@code doctor} environment self-test.
+     */
+    private void runDoctor() {
+        runCommand(List.of("doctor"), null);
+    }
+
+    /**
+     * Runs every environment-health check (config validate, doctor, engine
+     * smoke) one after another. {@link #runCommand} only allows one foreground
+     * command at a time, so the checks are queued and the completion callback
+     * advances the queue — keeping the single-command contract intact while
+     * still giving the dashboard a one-click "check everything" entry point.
+     */
+    private void runAllHealthChecks() {
+        if (runningCommand != null && runningCommand.isRunning()) {
+            showWarning("Command running",
+                    "Stop the current command before running the health checks.");
+            return;
+        }
+        healthCheckQueue.clear();
+        healthCheckQueue.add(List.of("config", "validate"));
+        healthCheckQueue.add(List.of("doctor"));
+        try {
+            healthCheckQueue.add(buildEngineSmokeArgs());
+        } catch (IllegalArgumentException ex) {
+            // External engine not configured — skip the smoke test silently;
+            // the config + doctor checks still run.
+            appendConsole("Engine smoke skipped: " + ex.getMessage() + System.lineSeparator());
+        }
+        runNextHealthCheck();
+    }
+
+    /**
+     * Launches the next queued health check, if any.
+     */
+    private void runNextHealthCheck() {
+        List<String> next = healthCheckQueue.poll();
+        if (next != null) {
+            runCommand(next, null);
+        }
     }
 
     /**
@@ -4364,14 +4625,228 @@ public final class WorkbenchWindow extends JFrame {
         }
         appendConsole("\n$ " + WorkbenchCommandRunner.displayCommand(args) + "\n");
         setCommandState("Running");
+        // Track the run as a dashboard job so the recent-jobs table reflects
+        // status, duration, exit code and a parsed result.
+        WorkbenchJob job = session.jobs().create(args);
+        session.jobs().markRunning(job);
+        runningJob = job;
+        runningJobStartMillis = System.currentTimeMillis();
         runningCommand = WorkbenchCommandRunner.run(args, stdin, this::appendConsole, result -> {
             appendConsole("[exit " + result.exitCode() + ", " + result.millis() + " ms]\n");
             setCommandState("Exit " + result.exitCode());
+            session.jobs().markFinished(job, result.exitCode(), result.output(), result.millis());
+            updateHealthFromCommand(args, result.exitCode());
+            List<Path> artifacts = List.of();
+            if (result.exitCode() == 0) {
+                artifacts = recordArtifactsFromCommand(args);
+            }
+            persistRunManifest(job, artifacts, stdin);
+            runningJob = null;
             maybeHighlightMove(args, result.output());
+            if (!healthCheckQueue.isEmpty()) {
+                SwingUtilities.invokeLater(this::runNextHealthCheck);
+            }
         }, ex -> {
             setCommandState("Stopped");
             appendConsole("[stopped] " + Objects.toString(ex.getMessage(), ex.getClass().getSimpleName()) + "\n");
+            // stopCommand() may already have marked the job cancelled; only
+            // record a failure when the job is still in a non-terminal state.
+            if (!job.status().isTerminal()) {
+                session.jobs().markFailed(job,
+                        Objects.toString(ex.getMessage(), ex.getClass().getSimpleName()),
+                        System.currentTimeMillis() - runningJobStartMillis);
+            }
+            persistRunManifest(job, List.of(), stdin);
+            updateHealthFailedFromCommand(args);
+            runningJob = null;
+            healthCheckQueue.clear();
         });
+    }
+
+    /**
+     * Updates the session's health snapshot after a health-check command
+     * finishes with an exit code. Uses only the structured exit code, never
+     * the command's prose output.
+     *
+     * @param args finished command arguments
+     * @param exitCode process exit code
+     */
+    private void updateHealthFromCommand(List<String> args, int exitCode) {
+        WorkbenchHealthSnapshot.Check check = WorkbenchHealthSnapshot.Check.ofExitCode(exitCode);
+        String command = String.join(" ", args);
+        WorkbenchHealthSnapshot health = session.health();
+        if (command.startsWith("config validate")) {
+            session.updateHealth(health.withConfig(check));
+        } else if (command.equals("doctor") || command.startsWith("doctor ")) {
+            session.updateHealth(health.withDoctor(check));
+        } else if (command.contains("uci-smoke")) {
+            session.updateHealth(health.withEngineSmoke(check));
+        }
+    }
+
+    /**
+     * Marks the matching health check failed when a health-check command could
+     * not even produce an exit code (process failed to launch or was stopped).
+     *
+     * @param args attempted command arguments
+     */
+    private void updateHealthFailedFromCommand(List<String> args) {
+        updateHealthFromCommand(args, 1);
+    }
+
+    /**
+     * Records any artifact files a finished command produced into the session
+     * artifact index. Reads only the command arguments the workbench itself
+     * built — it scans them for output-file tokens and keeps the ones that now
+     * exist on disk — so it never parses arbitrary command output.
+     *
+     * @param args finished command arguments
+     */
+    private List<Path> recordArtifactsFromCommand(List<String> args) {
+        List<Path> artifacts = new ArrayList<>();
+        if (args == null) {
+            return artifacts;
+        }
+        for (int i = 0; i < args.size(); i++) {
+            String token = args.get(i);
+            if (isArtifactOutputFlag(token) && i + 1 < args.size()) {
+                addArtifactIfPresent(artifacts, args.get(++i));
+                continue;
+            }
+            if (isArtifactInputFlag(token) && i + 1 < args.size()) {
+                i++;
+                continue;
+            }
+            if (token == null || token.startsWith("-") || !looksLikeArtifactPath(token)) {
+                continue;
+            }
+            addArtifactIfPresent(artifacts, token);
+        }
+        return List.copyOf(artifacts);
+    }
+
+    /**
+     * Returns whether a command flag names a generated output path.
+     *
+     * @param flag command flag
+     * @return true when the next token is an output path
+     */
+    private static boolean isArtifactOutputFlag(String flag) {
+        return "--output".equals(flag)
+                || "-o".equals(flag)
+                || "--output-dir".equals(flag)
+                || "--pdf-output".equals(flag)
+                || "--cover-output".equals(flag);
+    }
+
+    /**
+     * Returns whether a command flag names an input/config path.
+     *
+     * @param flag command flag
+     * @return true when the next token should not be recorded as an output
+     */
+    private static boolean isArtifactInputFlag(String flag) {
+        return "--input".equals(flag)
+                || "-i".equals(flag)
+                || "--pgn".equals(flag)
+                || "--suite".equals(flag)
+                || "--protocol-path".equals(flag)
+                || "--weights".equals(flag)
+                || "--pdf".equals(flag);
+    }
+
+    /**
+     * Returns whether a free command token looks like an artifact path.
+     *
+     * @param token command token
+     * @return true when the token has an output-like extension
+     */
+    private static boolean looksLikeArtifactPath(String token) {
+        if (token == null) {
+            return false;
+        }
+        String lower = token.toLowerCase(Locale.ROOT);
+        return lower.endsWith(".pdf") || lower.endsWith(".jsonl") || lower.endsWith(".csv")
+                || lower.endsWith(".png") || lower.endsWith(".pgn");
+    }
+
+    /**
+     * Records an artifact path when it exists.
+     *
+     * @param artifacts mutable artifact list
+     * @param token path token
+     */
+    private void addArtifactIfPresent(List<Path> artifacts, String token) {
+        try {
+            Path path = Path.of(token);
+            if (Files.exists(path)) {
+                Path artifact = path.toAbsolutePath().normalize();
+                artifacts.add(artifact);
+                session.artifacts().add(artifact);
+            }
+        } catch (java.nio.file.InvalidPathException ex) {
+            // Not a usable path token — ignore.
+        }
+    }
+
+    /**
+     * Persists a JSON manifest for a finished, failed, or cancelled command
+     * run, then records that manifest in the dashboard artifact list.
+     *
+     * @param job job to persist
+     * @param artifacts output artifacts detected for the job
+     * @param stdin optional stdin payload
+     */
+    private void persistRunManifest(WorkbenchJob job, List<Path> artifacts, String stdin) {
+        if (job == null || job.manifestPath() != null) {
+            return;
+        }
+        try {
+            Path manifest = WorkbenchRunManifest.write(job, artifacts, stdin, Path.of(""));
+            job.recordManifest(manifest, artifacts);
+            session.artifacts().add(manifest);
+        } catch (IOException ex) {
+            appendConsole("Run manifest failed: " + ex.getMessage() + System.lineSeparator());
+        }
+    }
+
+    /**
+     * Opens a job's persisted run manifest through the desktop shell.
+     *
+     * @param job job whose manifest should be opened
+     */
+    private void openManifestForJob(WorkbenchJob job) {
+        if (job == null || job.manifestPath() == null) {
+            showWarning("Run manifest", "No manifest has been written for this job yet.");
+            return;
+        }
+        openPath(job.manifestPath(), "Run manifest");
+    }
+
+    /**
+     * Opens a path through the desktop shell.
+     *
+     * @param path path to open
+     * @param title dialog title
+     */
+    private void openPath(Path path, String title) {
+        if (path == null) {
+            showWarning(title, "No file is available.");
+            return;
+        }
+        if (!Files.exists(path)) {
+            showWarning(title, "File does not exist: " + path);
+            return;
+        }
+        if (!Desktop.isDesktopSupported()) {
+            showWarning(title, "Desktop integration is not supported.");
+            return;
+        }
+        try {
+            Desktop.getDesktop().open(path.toFile());
+        } catch (IOException ex) {
+            showError(title, "Failed to open file: " + ex.getMessage());
+        }
     }
 
     /**
@@ -4380,6 +4855,13 @@ public final class WorkbenchWindow extends JFrame {
     private void stopCommand() {
         if (runningCommand != null && runningCommand.isRunning()) {
             runningCommand.cancel();
+            if (runningJob != null) {
+                session.jobs().markCancelled(runningJob,
+                        System.currentTimeMillis() - runningJobStartMillis);
+                persistRunManifest(runningJob, List.of(), null);
+                runningJob = null;
+            }
+            healthCheckQueue.clear();
         }
     }
 
@@ -4543,6 +5025,7 @@ public final class WorkbenchWindow extends JFrame {
             throw new IllegalArgumentException("No legal mainline moves found.");
         }
         gameModel.loadLine(start, line);
+        session.clearEvalHistory();
         showGamePly(gameModel.lastPly());
         appendConsole("Loaded PGN mainline with " + gameModel.lastPly() + " plies\n");
     }
@@ -5110,10 +5593,12 @@ public final class WorkbenchWindow extends JFrame {
     private void refreshBatchInputStatus() {
         batchInputStatusUpdateQueued = false;
         BatchTask task = (BatchTask) batchTaskCombo.getSelectedItem();
+        String taskName = task == null ? "none" : task.name();
         if (task != null && !task.usesFenInput()) {
             batchInputStatus.setText("FEN list not used");
             batchInputStatus.setToolTipText("The selected batch task runs without FEN input.");
             batchInputStatus.setForeground(WorkbenchTheme.MUTED);
+            session.updateBatch(taskName + " · no FEN input required");
             updatePublishCommand();
             return;
         }
@@ -5122,15 +5607,20 @@ public final class WorkbenchWindow extends JFrame {
             batchInputStatus.setText("No FEN rows");
             batchInputStatus.setToolTipText("Add one FEN per line.");
             batchInputStatus.setForeground(WorkbenchTheme.MUTED);
+            session.updateBatch(taskName + " · no FEN rows");
         } else if (scan.hasError()) {
             batchInputStatus.setText(scan.rows() + " row" + (scan.rows() == 1 ? "" : "s")
                     + ", issue on line " + scan.firstErrorLine());
             batchInputStatus.setToolTipText(scan.firstError());
             batchInputStatus.setForeground(WorkbenchTheme.STATUS_WARNING_TEXT);
+            session.updateBatch(taskName + " · " + scan.rows() + " rows, issue on line "
+                    + scan.firstErrorLine());
         } else {
             batchInputStatus.setText(scan.validRows() + " FEN row" + (scan.validRows() == 1 ? "" : "s"));
             batchInputStatus.setToolTipText("Ready to run batch workflow.");
             batchInputStatus.setForeground(WorkbenchTheme.MUTED);
+            session.updateBatch(taskName + " · " + scan.validRows() + " FEN row"
+                    + (scan.validRows() == 1 ? "" : "s") + " ready");
         }
         updatePublishCommand();
     }

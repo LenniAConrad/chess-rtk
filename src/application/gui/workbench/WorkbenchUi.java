@@ -28,6 +28,7 @@ import javax.swing.JComboBox;
 import javax.swing.JComponent;
 import javax.swing.JDialog;
 import javax.swing.JFileChooser;
+import javax.swing.JFormattedTextField;
 import javax.swing.JViewport;
 import javax.swing.JLabel;
 import javax.swing.JList;
@@ -48,6 +49,7 @@ import javax.swing.plaf.basic.BasicComboBoxUI;
 import javax.swing.plaf.basic.BasicScrollBarUI;
 import javax.swing.plaf.basic.BasicSpinnerUI;
 import javax.swing.text.JTextComponent;
+import javax.swing.text.NumberFormatter;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 
@@ -177,6 +179,63 @@ final class WorkbenchUi {
         label.setFont(WorkbenchTheme.font(12, Font.BOLD));
         label.setHorizontalAlignment(SwingConstants.LEFT);
         return label;
+    }
+
+    /**
+     * Creates a muted, bold caption label for a toolbar control — the small
+     * "Architecture" / "View" / "Sort" tags that sit to the left of a combo
+     * or switcher. Centralised so every control row uses the same treatment.
+     *
+     * @param text caption text
+     * @return styled caption label
+     */
+    static JLabel controlLabel(String text) {
+        return label(text);
+    }
+
+    /**
+     * Pairs a caption with a control in a tight, baseline-aligned row — the
+     * standard "label + combo / switcher" toolbar unit. The returned panel is
+     * transparent so it drops straight into any toolbar.
+     *
+     * @param caption caption text (null or blank for a control with no label)
+     * @param control the control component
+     * @return labelled control row
+     */
+    static JPanel labeledControl(String caption, JComponent control) {
+        JPanel row = transparentPanel(new FlowLayout(FlowLayout.LEFT, WorkbenchTheme.SPACE_SM, 0));
+        if (caption != null && !caption.isBlank()) {
+            row.add(controlLabel(caption));
+        }
+        row.add(control);
+        return row;
+    }
+
+    /**
+     * Creates a thin vertical divider for separating control groups inside a
+     * horizontal toolbar.
+     *
+     * @return separator component
+     */
+    static JComponent toolbarSeparator() {
+        JComponent separator = new JComponent() {
+            private static final long serialVersionUID = 1L;
+
+            @Override
+            public Dimension getPreferredSize() {
+                return new Dimension(1 + 2 * WorkbenchTheme.SPACE_XS, WorkbenchTheme.CONTROL_HEIGHT);
+            }
+
+            @Override
+            protected void paintComponent(Graphics g) {
+                int x = getWidth() / 2;
+                int inset = WorkbenchTheme.SPACE_XS;
+                g.setColor(WorkbenchTheme.LINE);
+                g.fillRect(x, inset, 1, Math.max(0, getHeight() - 2 * inset));
+            }
+        };
+        separator.setOpaque(false);
+        return separator;
     }
 
     /**
@@ -336,6 +395,24 @@ final class WorkbenchUi {
         spinner.setBorder(BorderFactory.createLineBorder(WorkbenchTheme.INPUT_BORDER));
         if (spinner.getEditor() instanceof JSpinner.DefaultEditor editor) {
             WorkbenchTheme.field(editor.getTextField());
+        }
+    }
+
+    /**
+     * Styles a spinner whose editor should accept only integer values.
+     *
+     * @param spinner spinner
+     */
+    static void styleIntegerSpinner(JSpinner spinner) {
+        spinner.setEditor(new JSpinner.NumberEditor(spinner, "#"));
+        styleSpinner(spinner);
+        if (spinner.getEditor() instanceof JSpinner.DefaultEditor editor) {
+            JFormattedTextField field = editor.getTextField();
+            if (field.getFormatter() instanceof NumberFormatter formatter) {
+                formatter.setValueClass(Integer.class);
+                formatter.setAllowsInvalid(false);
+                formatter.setCommitsOnValidEdit(true);
+            }
         }
     }
 

@@ -12,6 +12,7 @@ import java.util.List;
 import chess.core.Move;
 import chess.core.Position;
 import chess.nn.lc0.bt4.Architecture;
+import chess.nn.lc0.bt4.BinLoader;
 import chess.nn.lc0.bt4.Encoder;
 import chess.nn.lc0.bt4.InputFormat;
 import chess.nn.lc0.bt4.Model;
@@ -116,15 +117,25 @@ public final class BT4RegressionTest {
         Path temp = Files.createTempFile("crtk-bt4-test-", ".bin");
         try {
             writeWeights(temp, weights);
+            assertEquals(architecture, BinLoader.loadArchitecture(temp), "loaded architecture metadata");
             withBt4Backend("cpu", () -> {
                 try (Model model = Model.load(temp)) {
                     assertEquals("test-bt4", model.info().name(), "loaded model name");
                     assertEquals(1, model.info().encoderLayers(), "loaded encoder count");
                     Position start = new Position(START_FEN);
                     Network.Prediction prediction = model.predict(start);
-                    Network.Prediction encoded = model.predictEncoded(
-                            Encoder.encode(start, architecture.inputFormat()).planes());
+                    Encoder.EncodedInput encodedInput = Encoder.encode(start, architecture.inputFormat());
+                    Network.Prediction encoded = model.predictEncoded(encodedInput.planes());
                     assertPredictionClose(prediction, encoded, "model predictEncoded parity");
+                    List<Network.Prediction> positionBatch = model.predictBatch(List.of(start, start));
+                    assertEquals(2, positionBatch.size(), "model predictBatch size");
+                    assertPredictionClose(prediction, positionBatch.get(0), "model predictBatch first");
+                    assertPredictionClose(prediction, positionBatch.get(1), "model predictBatch second");
+                    List<Network.Prediction> encodedBatch = model.predictEncodedBatch(
+                            List.of(encodedInput.planes(), encodedInput.planes()));
+                    assertEquals(2, encodedBatch.size(), "model predictEncodedBatch size");
+                    assertPredictionClose(prediction, encodedBatch.get(0), "model predictEncodedBatch first");
+                    assertPredictionClose(prediction, encodedBatch.get(1), "model predictEncodedBatch second");
                     assertForwardOutputs(start, prediction);
                 }
                 try (Network direct = Network.create(weights); Network loaded = Network.load(temp)) {
@@ -133,6 +144,29 @@ public final class BT4RegressionTest {
                             direct.predict(new Position(START_FEN)),
                             loaded.predict(new Position(START_FEN)),
                             "loaded network parity");
+                    Position start = new Position(START_FEN);
+                    Network.Prediction single = direct.predict(start);
+                    List<Network.Prediction> directBatch = direct.predictBatch(List.of(start, start));
+                    assertEquals(2, directBatch.size(), "direct predictBatch size");
+                    assertPredictionClose(single, directBatch.get(0), "direct predictBatch first");
+                    assertPredictionClose(single, directBatch.get(1), "direct predictBatch second");
+                    Encoder.EncodedInput encodedInput = Encoder.encode(start, architecture.inputFormat());
+                    List<Network.Prediction> directEncodedBatch = direct.predictEncodedBatch(
+                            List.of(encodedInput.planes(), encodedInput.planes()));
+                    assertEquals(2, directEncodedBatch.size(), "direct predictEncodedBatch size");
+                    assertPredictionClose(single, directEncodedBatch.get(0), "direct predictEncodedBatch first");
+                    assertPredictionClose(single, directEncodedBatch.get(1), "direct predictEncodedBatch second");
+                    List<Network.TransformedPrediction> transformed = direct.predictBatchWithTransforms(
+                            List.of(start, start));
+                    assertEquals(2, transformed.size(), "direct transformed batch size");
+                    assertEquals(encodedInput.transform(), transformed.get(0).transform(),
+                            "direct transformed batch first transform");
+                    assertEquals(encodedInput.transform(), transformed.get(1).transform(),
+                            "direct transformed batch second transform");
+                    assertPredictionClose(single, transformed.get(0).prediction(),
+                            "direct transformed batch first prediction");
+                    assertPredictionClose(single, transformed.get(1).prediction(),
+                            "direct transformed batch second prediction");
                 }
             });
         } finally {
@@ -185,12 +219,30 @@ public final class BT4RegressionTest {
         if (!available) {
             return;
         }
-        withBt4Backend(backend, () -> {
-            try (Network network = Network.load(path)) {
-                assertEquals(backend, network.backend(), "BT4 native backend " + backend);
-                assertPredictionClose(expected, network.predict(position), "BT4 native " + backend + " parity");
+        try {
+            withBt4Backend(backend, () -> {
+                try (Network network = Network.load(path)) {
+                    assertEquals(backend, network.backend(), "BT4 native backend " + backend);
+                    assertPredictionClose(expected, network.predict(position), "BT4 native " + backend + " parity");
+                }
+            });
+        } catch (IOException e) {
+            if (isNativeInitFailure(e)) {
+                return;
             }
-        });
+            throw e;
+        }
+    }
+
+    /**
+     * Returns true when a native probe found JNI support but no usable device.
+     *
+     * @param error load error
+     * @return true for environment-only native init failures
+     */
+    private static boolean isNativeInitFailure(IOException error) {
+        String message = error.getMessage();
+        return message != null && message.contains("backend requested but failed to initialize");
     }
 
     /**

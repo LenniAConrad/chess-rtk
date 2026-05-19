@@ -3,6 +3,7 @@ package application.cli.command;
 import static application.cli.Constants.ERR_INVALID_FEN;
 import static application.cli.Constants.MSG_FEN_REQUIRED_HINT;
 import static application.cli.Constants.OPT_ABLATION;
+import static application.cli.Constants.OPT_ACCENT;
 import static application.cli.Constants.OPT_ARROW;
 import static application.cli.Constants.OPT_ARROWS;
 import static application.cli.Constants.OPT_BACKEND;
@@ -150,6 +151,7 @@ public final class PositionViewCommand {
 			Position pos = new Position(opts.fen().trim());
 			Render render = createRender(pos, opts.whiteDown(), opts.showBorder(), opts.details(),
 					opts.detailsOutside());
+			render.setBoardAccent(opts.accent());
 			applyDisplayOverlays(render, pos, opts.arrows(), opts.circles(), opts.legal(), opts.specialArrows());
 			String backendLabel = applyDisplayEvaluatorOverlays(render, pos, opts.showBackend(), opts.ablation());
 
@@ -284,7 +286,11 @@ public final class PositionViewCommand {
 		/**
 		 * Stores the legal.
 		 */
-		List<String> legal
+		List<String> legal,
+		/**
+		 * Stores the accent.
+		 */
+		String accent
 	) {
 	}
 
@@ -382,7 +388,11 @@ public final class PositionViewCommand {
 		/**
 		 * Stores the format.
 		 */
-		String format
+		String format,
+		/**
+		 * Stores the accent.
+		 */
+		String accent
 	) {
 	}
 
@@ -411,6 +421,7 @@ public final class PositionViewCommand {
 		boolean shadow = a.flag(OPT_SHADOW, OPT_DROP_SHADOW);
 		List<String> circles = a.strings(OPT_CIRCLE, OPT_CIRCLES);
 		List<String> legal = a.strings(OPT_LEGAL);
+		String accent = a.string(OPT_ACCENT);
 		String fen = CommandSupport.resolveFenArgument(a, "display", false);
 		return new DisplayOptions(
 				verbose,
@@ -430,7 +441,8 @@ public final class PositionViewCommand {
 				detailsOutside,
 				shadow,
 				circles,
-				legal);
+				legal,
+				accent);
 	}
 
 	/**
@@ -458,6 +470,7 @@ public final class PositionViewCommand {
 		List<String> legal = a.strings(OPT_LEGAL);
 		Path output = a.path(OPT_OUTPUT, OPT_OUTPUT_SHORT);
 		String format = a.string(OPT_FORMAT);
+		String accent = a.string(OPT_ACCENT);
 		a.flag(OPT_DARK, OPT_DARK_MODE);
 		String fen = CommandSupport.resolveFenArgument(a, "render", false);
 		return new RenderImageOptions(
@@ -478,7 +491,8 @@ public final class PositionViewCommand {
 				circles,
 				legal,
 				output,
-				format);
+				format,
+				accent);
 	}
 
 	/**
@@ -531,6 +545,7 @@ public final class PositionViewCommand {
 	private static void renderImageToDisk(RenderImageOptions opts) throws IOException {
 		Position pos = new Position(opts.fen().trim());
 		Render render = createRender(pos, opts.whiteDown(), opts.showBorder(), opts.details(), opts.detailsOutside());
+		render.setBoardAccent(opts.accent());
 		applyDisplayOverlays(render, pos, opts.arrows(), opts.circles(), opts.legal(), opts.specialArrows());
 		applyDisplayEvaluatorOverlays(render, pos, opts.showBackend(), opts.ablation());
 

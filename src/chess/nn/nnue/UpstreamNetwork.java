@@ -314,20 +314,270 @@ public final class UpstreamNetwork implements AutoCloseable {
      * @return Stockfish NNUE prediction
      */
     public Prediction predict(Position position) {
+        return predict(position, null);
+    }
+
+    /**
+     * Evaluates a position and optionally captures Stockfish NNUE activations.
+     *
+     * @param position position to evaluate
+     * @param sink activation collector; null for production callers
+     * @return Stockfish NNUE prediction
+     */
+    public Prediction predict(Position position, chess.nn.ActivationSink sink) {
         if (position == null) {
             throw new IllegalArgumentException("position == null");
         }
         int[] board = UpstreamFeatures.board(position);
-        int bucket = (UpstreamFeatures.pieceCount(board) - 1) / 4;
-        if (bucket < 0) {
-            bucket = 0;
-        } else if (bucket >= LAYER_STACKS) {
-            bucket = LAYER_STACKS - 1;
-        }
+        int bucket = bucket(UpstreamFeatures.pieceCount(board));
 
         TransformOutput transformed = transformer.transform(position, board, bucket);
-        int positional = layerStacks[bucket].propagate(transformed.features);
-        return new Prediction(transformed.psqt / OUTPUT_SCALE, positional / OUTPUT_SCALE);
+        Architecture architecture = layerStacks[bucket];
+        Architecture.Scratch scratch = architecture.newScratch();
+        int positional = architecture.propagate(transformed.features, scratch);
+        Prediction prediction = new Prediction(transformed.psqt / OUTPUT_SCALE, positional / OUTPUT_SCALE);
+        if (sink != null) {
+            captureActivations(sink, position, board, bucket, transformed, architecture, scratch, prediction);
+        }
+        return prediction;
+    }
+
+    /**
+     * Captures intermediate activations for Workbench-style inspection.
+     *
+     * @param sink activation collector
+     * @param position position
+     * @param board Stockfish-order board
+     * @param bucket material bucket
+     * @param transformed feature-transform output
+     * @param architecture selected dense layer stack
+     * @param scratch populated dense-layer workspace
+     * @param prediction final prediction
+     */
+    private void captureActivations(
+            chess.nn.ActivationSink sink,
+            Position position,
+            int[] board,
+            int bucket,
+            TransformOutput transformed,
+            Architecture architecture,
+            Architecture.Scratch scratch,
+            Prediction prediction) {
+        int stm = UpstreamFeatures.sideToMove(position);
+        int opponent = stm ^ 1;
+        int hidden = transformer.transformedDimensions;
+        int half = hidden / 2;
+        int[] usHalfKa = UpstreamFeatures.activeHalfKa(board, stm);
+        int[] themHalfKa = UpstreamFeatures.activeHalfKa(board, opponent);
+        int[] usThreats = size == Size.BIG ? UpstreamFeatures.activeThreats(board, stm, variant) : new int[0];
+        int[] themThreats = size == Size.BIG ? UpstreamFeatures.activeThreats(board, opponent, variant) : new int[0];
+
+        sink.put("nnue.stockfish.bucket", new int[] { 1 }, new float[] { bucket });
+        sink.put("nnue.stockfish.psqt.cp", new int[] { 1 }, new float[] { prediction.psqt() });
+        sink.put("nnue.stockfish.positional.cp", new int[] { 1 }, new float[] { prediction.positional() });
+        sink.put("nnue.stockfish.transformed", new int[] { hidden }, toFloats(transformed.features));
+        sink.put("nnue.stockfish.transformed.us", new int[] { half },
+                toFloats(transformed.features, 0, half));
+        sink.put("nnue.stockfish.transformed.them", new int[] { half },
+                toFloats(transformed.features, half, half));
+
+        sink.put("nnue.features.us.indices", new int[] { usHalfKa.length }, toFloats(usHalfKa));
+        sink.put("nnue.features.them.indices", new int[] { themHalfKa.length }, toFloats(themHalfKa));
+        sink.put("nnue.features.us.impact", new int[] { usHalfKa.length },
+                featureImpacts(usHalfKa, half));
+        sink.put("nnue.features.them.impact", new int[] { themHalfKa.length },
+                featureImpacts(themHalfKa, half));
+        sink.put("nnue.features.us.weights", new int[] { usHalfKa.length, half },
+                featureWeights(usHalfKa, half));
+        sink.put("nnue.features.them.weights", new int[] { themHalfKa.length, half },
+                featureWeights(themHalfKa, half));
+        sink.put("nnue.stockfish.features.us.threat.indices", new int[] { usThreats.length }, toFloats(usThreats));
+        sink.put("nnue.stockfish.features.them.threat.indices", new int[] { themThreats.length }, toFloats(themThreats));
+
+        int l2 = architecture.layout.l2;
+        int l3 = architecture.layout.l3;
+        sink.put("nnue.stockfish.fc0.raw", new int[] { l2 + 1 }, toFloats(scratch.fc0Out));
+        sink.put("nnue.stockfish.fc0.sqr", new int[] { l2 }, toFloats(scratch.fc1Input, 0, l2));
+        sink.put("nnue.stockfish.fc0.crelu", new int[] { l2 }, toFloats(scratch.fc1Input, l2, l2));
+        sink.put("nnue.stockfish.fc0.weights.us", new int[] { l2, half },
+                affineWeights(architecture.fc0, l2, 0, half));
+        sink.put("nnue.stockfish.fc0.weights.fwd.us", new int[] { half },
+                affineWeightRow(architecture.fc0, l2, 0, half));
+        sink.put("nnue.stockfish.fc1.input", new int[] { l2 * 2 }, toFloats(scratch.fc1Input));
+        sink.put("nnue.stockfish.fc1.raw", new int[] { l3 }, toFloats(scratch.fc1Out));
+        sink.put("nnue.stockfish.fc1.clipped", new int[] { l3 }, toFloats(scratch.fc2Input));
+        sink.put("nnue.stockfish.fc1.weights.combined", new int[] { l3, l2 },
+                combinedFc1Weights(architecture.fc1, l2, l3));
+
+        float[] fc2Weights = affineWeights(architecture.fc2, 1, 0, l3);
+        float[] fc2Contribution = new float[l3];
+        float fc2TermsCp = 0.0f;
+        for (int i = 0; i < l3; i++) {
+            fc2Contribution[i] = scratch.fc2Input[i] * fc2Weights[i] / (float) OUTPUT_SCALE;
+            fc2TermsCp += fc2Contribution[i];
+        }
+        float fc2BiasCp = architecture.fc2.biases[0] / (float) OUTPUT_SCALE;
+        float fwdCp = stockfishFwdContributionCp(scratch.fc0Out[l2]);
+        sink.put("nnue.stockfish.fc2.weights", new int[] { l3 }, fc2Weights);
+        sink.put("nnue.stockfish.fc2.contribution", new int[] { l3 }, fc2Contribution);
+        sink.put("nnue.stockfish.fc2.bias.cp", new int[] { 1 }, new float[] { fc2BiasCp });
+        sink.put("nnue.stockfish.fc0.fwd.cp", new int[] { 1 }, new float[] { fwdCp });
+        sink.put("nnue.stockfish.output.parts", new int[] { 4 },
+                new float[] { prediction.psqt(), fc2BiasCp, fc2TermsCp, fwdCp });
+
+        // Compatibility tensors consumed by the existing NNUE workbench panels.
+        sink.put("nnue.accumulator.us", new int[] { half }, toFloats(transformed.features, 0, half));
+        sink.put("nnue.accumulator.them", new int[] { half }, toFloats(transformed.features, half, half));
+        sink.put("nnue.clipped.us", new int[] { half }, toFloats(transformed.features, 0, half));
+        sink.put("nnue.clipped.them", new int[] { half }, toFloats(transformed.features, half, half));
+        sink.put("nnue.output.weights.us", new int[] { l3 }, fc2Weights);
+        sink.put("nnue.output.weights.them", new int[] { l3 }, new float[l3]);
+        sink.put("nnue.output.contribution.us", new int[] { l3 }, fc2Contribution);
+        sink.put("nnue.output.contribution.them", new int[] { l3 }, new float[l3]);
+        sink.put("nnue.output.contribution.total", new int[] { l3 }, fc2Contribution);
+        sink.put("nnue.output.affine", new int[] { 1 }, new float[] { prediction.centipawns() });
+        sink.put("nnue.output.centipawns", new int[] { 1 }, new float[] { prediction.centipawns() });
+    }
+
+    /**
+     * Builds an approximate feature-to-transformer row matrix for active HalfKA
+     * features. Stockfish's transformer multiplies paired accumulator halves, so
+     * this combines each pair into one visible transformed lane.
+     *
+     * @param features active feature indices
+     * @param half visible half width
+     * @return row-major weights
+     */
+    private float[] featureWeights(int[] features, int half) {
+        float[] out = new float[features.length * half];
+        int hidden = transformer.transformedDimensions;
+        for (int row = 0; row < features.length; row++) {
+            int feature = features[row];
+            int base = feature * hidden;
+            for (int col = 0; col < half; col++) {
+                out[row * half + col] = transformer.psqWeights[base + col]
+                        + transformer.psqWeights[base + half + col];
+            }
+        }
+        return out;
+    }
+
+    /**
+     * Computes a compact per-feature magnitude for active feature lanes.
+     *
+     * @param features active feature indices
+     * @param half visible half width
+     * @return impact proxy
+     */
+    private float[] featureImpacts(int[] features, int half) {
+        float[] out = new float[features.length];
+        float[] rows = featureWeights(features, half);
+        for (int row = 0; row < features.length; row++) {
+            float sum = 0.0f;
+            for (int col = 0; col < half; col++) {
+                sum += rows[row * half + col];
+            }
+            out[row] = sum / Math.max(1, half);
+        }
+        return out;
+    }
+
+    /**
+     * Extracts a slice of affine-layer weights as floats.
+     *
+     * @param layer affine layer
+     * @param rows row count to copy
+     * @param inputOffset first input column
+     * @param cols column count
+     * @return row-major weight matrix
+     */
+    private static float[] affineWeights(AffineLayer layer, int rows, int inputOffset, int cols) {
+        float[] out = new float[rows * cols];
+        for (int row = 0; row < rows; row++) {
+            int base = row * layer.paddedInputDimensions + inputOffset;
+            for (int col = 0; col < cols; col++) {
+                out[row * cols + col] = layer.weights[base + col];
+            }
+        }
+        return out;
+    }
+
+    /**
+     * Extracts one affine-layer weight row as floats.
+     *
+     * @param layer affine layer
+     * @param row row to copy
+     * @param inputOffset first input column
+     * @param cols column count
+     * @return copied row
+     */
+    private static float[] affineWeightRow(AffineLayer layer, int row, int inputOffset, int cols) {
+        float[] out = new float[cols];
+        int base = row * layer.paddedInputDimensions + inputOffset;
+        for (int col = 0; col < cols; col++) {
+            out[col] = layer.weights[base + col];
+        }
+        return out;
+    }
+
+    /**
+     * Combines Stockfish FC1's squared-ReLU and clipped-ReLU inputs into one
+     * weight per visible FC0 lane.
+     *
+     * @param layer FC1 layer
+     * @param l2 FC0 hidden width
+     * @param l3 FC1 hidden width
+     * @return row-major combined weights
+     */
+    private static float[] combinedFc1Weights(AffineLayer layer, int l2, int l3) {
+        float[] out = new float[l3 * l2];
+        for (int row = 0; row < l3; row++) {
+            int base = row * layer.paddedInputDimensions;
+            for (int col = 0; col < l2; col++) {
+                out[row * l2 + col] = layer.weights[base + col]
+                        + layer.weights[base + l2 + col];
+            }
+        }
+        return out;
+    }
+
+    /**
+     * Converts Stockfish's FC0 forward row into centipawns.
+     *
+     * @param fc0Fwd raw FC0 forward output
+     * @return forward contribution in centipawns
+     */
+    private static float stockfishFwdContributionCp(int fc0Fwd) {
+        return fc0Fwd * 600.0f / (127.0f * (1 << WEIGHT_SCALE_BITS));
+    }
+
+    /**
+     * Converts an int array to floats.
+     *
+     * @param values values
+     * @return converted values
+     */
+    private static float[] toFloats(int[] values) {
+        return toFloats(values, 0, values == null ? 0 : values.length);
+    }
+
+    /**
+     * Converts an int array slice to floats.
+     *
+     * @param values values
+     * @param offset first index
+     * @param length slice length
+     * @return converted values
+     */
+    private static float[] toFloats(int[] values, int offset, int length) {
+        float[] out = new float[Math.max(0, length)];
+        if (values == null) {
+            return out;
+        }
+        for (int i = 0; i < out.length && offset + i < values.length; i++) {
+            out[i] = values[offset + i];
+        }
+        return out;
     }
 
     /**
@@ -770,6 +1020,84 @@ public final class UpstreamNetwork implements AutoCloseable {
             case Position.BLACK_KING -> Piece.BLACK_KING;
             default -> Piece.EMPTY;
         };
+    }
+
+    /**
+     * Writes the position-independent feature-weight atlas to {@code sink}.
+     *
+     * <p>For each hidden accumulator slot the atlas marginalises the king-
+     * square dimension out of the HalfKAv2_hm feature transformer to expose
+     * a per-piece-type, per-board-square weight footprint. The result is the
+     * Wikipedia-style weight image: every tile is one (slot, piece-type,
+     * board-square) tuple averaged across all 64 king positions.</p>
+     *
+     * <p>Eleven piece planes are produced, mapped to the network's input
+     * encoding:</p>
+     * <ol>
+     *   <li>0..4 — own P/N/B/R/Q (white perspective)</li>
+     *   <li>5..9 — enemy P/N/B/R/Q</li>
+     *   <li>10 — kings (own and enemy share the king plane in HalfKAv2_hm)</li>
+     * </ol>
+     *
+     * <p>Outputs:</p>
+     * <ul>
+     *   <li>{@code nnue.atlas.weights} — shape {@code [hidden, 11, 64]}</li>
+     *   <li>{@code nnue.atlas.king} — shape {@code [hidden, 64]}, average
+     *       weight per king-square (across all pieces and squares)</li>
+     *   <li>{@code nnue.atlas.output} — shape {@code [hidden]}, neuron
+     *       magnitude proxy for tile sort ordering</li>
+     * </ul>
+     *
+     * @param sink activation collector; must not be null
+     */
+    public void dumpFeatureAtlas(chess.nn.ActivationSink sink) {
+        if (sink == null) {
+            throw new IllegalArgumentException("sink == null");
+        }
+        int hidden = transformer.transformedDimensions;
+        int planes = 11;
+        int squares = 64;
+        int kings = 64;
+        int[] pieceCodes = new int[planes];
+        pieceCodes[0] = UpstreamFeatures.PAWN;
+        pieceCodes[1] = UpstreamFeatures.KNIGHT;
+        pieceCodes[2] = UpstreamFeatures.BISHOP;
+        pieceCodes[3] = UpstreamFeatures.ROOK;
+        pieceCodes[4] = UpstreamFeatures.QUEEN;
+        pieceCodes[5] = UpstreamFeatures.PAWN | 8;
+        pieceCodes[6] = UpstreamFeatures.KNIGHT | 8;
+        pieceCodes[7] = UpstreamFeatures.BISHOP | 8;
+        pieceCodes[8] = UpstreamFeatures.ROOK | 8;
+        pieceCodes[9] = UpstreamFeatures.QUEEN | 8;
+        pieceCodes[10] = UpstreamFeatures.KING;
+        float[] atlas = new float[hidden * planes * squares];
+        float[] kingMap = new float[hidden * squares];
+        float[] magnitude = new float[hidden];
+        float kingNorm = 1.0f / planes;
+        float inv = 1.0f / kings;
+        for (int k = 0; k < kings; k++) {
+            for (int p = 0; p < planes; p++) {
+                int pieceCode = pieceCodes[p];
+                for (int s = 0; s < squares; s++) {
+                    int feature = UpstreamFeatures.halfKaFeatureIndex(
+                            UpstreamFeatures.WHITE, s, pieceCode, k);
+                    if (feature < 0 || feature >= UpstreamFeatures.HALF_KA_DIMENSIONS) {
+                        continue;
+                    }
+                    int base = feature * hidden;
+                    int atlasOffset = p * squares + s;
+                    for (int h = 0; h < hidden; h++) {
+                        float w = transformer.psqWeights[base + h];
+                        atlas[h * planes * squares + atlasOffset] += w * inv;
+                        kingMap[h * squares + k] += w * inv * kingNorm;
+                        magnitude[h] += Math.abs(w);
+                    }
+                }
+            }
+        }
+        sink.put("nnue.atlas.weights", new int[] { hidden, planes, squares }, atlas);
+        sink.put("nnue.atlas.king", new int[] { hidden, squares }, kingMap);
+        sink.put("nnue.atlas.output", new int[] { hidden }, magnitude);
     }
 
     /**

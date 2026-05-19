@@ -3,6 +3,8 @@ package application.gui.workbench;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * Loads real network weights lazily and runs inference to fill activation
@@ -24,9 +26,17 @@ import java.nio.file.Path;
 final class WorkbenchRealActivations {
 
     /**
-     * NNUE weights path (Stockfish .nnue or CRTK .bin).
+     * Default NNUE weights path (Stockfish .nnue or CRTK .bin) used at
+     * startup when no override is set.
      */
     private static final Path NNUE_PATH = Path.of("models/crtk-halfkp.nnue");
+
+    /**
+     * Current NNUE weights path. Defaults to {@link #NNUE_PATH} but the
+     * workbench may override it via {@link #setNnuePath(Path)} to switch
+     * between different NNUE network files on disk.
+     */
+    private Path nnuePath = NNUE_PATH;
 
     /**
      * LC0 CNN weights path.
@@ -51,7 +61,22 @@ final class WorkbenchRealActivations {
     /**
      * Short label describing the loaded NNUE network.
      */
-    private String nnueVersionLabel = "synthetic NNUE (FEN-seeded)";
+    private String nnueVersionLabel = "synthetic Stockfish-shaped NNUE (FEN-seeded)";
+
+    /**
+     * Cached NNUE feature-weight atlas snapshot. The atlas does not depend on
+     * the current FEN, so it is computed exactly once per loaded network and
+     * merged into every per-position snapshot.
+     */
+    private WorkbenchActivationSnapshot nnueAtlasCache;
+
+    /**
+     * Cached atlases keyed by NNUE file path. Used by the "compare with" /
+     * diff and grid view modes so the panel can render multiple variants
+     * side-by-side without paying the load+marginalisation cost more than once
+     * per variant.
+     */
+    private final Map<Path, WorkbenchActivationSnapshot> atlasCacheByPath = new HashMap<>();
 
     /**
      * LC0 CNN network, lazily loaded.
@@ -81,43 +106,67 @@ final class WorkbenchRealActivations {
     }
 
     /**
-     * Fills an NNUE snapshot from real inference. Falls back to synthetic
-     * activations when the network cannot be loaded.
+     * Swaps the NNUE network file. Clears the cached model and atlas so the
+     * next inference call loads the new weights.
+     *
+     * @param newPath path to a Stockfish .nnue or CRTK .bin file
+     */
+    synchronized void setNnuePath(Path newPath) {
+        if (newPath == null || newPath.equals(nnuePath)) {
+            return;
+        }
+        nnuePath = newPath;
+        nnueModel = null;
+        nnueLoadError = null;
+        nnueAtlasCache = null;
+        nnueVersionLabel = "loading " + newPath.getFileName() + "...";
+    }
+
+    /**
+     * Returns the currently-selected NNUE network path.
+     *
+     * @return path
+     */
+    synchronized Path nnuePath() {
+        return nnuePath;
+    }
+
+    /**
+     * Runs NNUE inference for a position and returns a freshly-built, sealed
+     * activation snapshot. Falls back to synthetic activations when the
+     * network cannot be loaded. The returned snapshot is never shared or
+     * reused, so the caller may publish it straight to a view without any
+     * cross-thread aliasing.
      *
      * @param fen current position FEN
-     * @param out destination snapshot
-     * @return true when real inference produced the snapshot, false on fallback
+     * @return sealed snapshot (real inference or synthetic fallback)
      */
-    synchronized boolean fillNnue(String fen, WorkbenchActivationSnapshot out) {
-        out.clear();
+    synchronized WorkbenchActivationSnapshot inferNnue(String fen) {
+        WorkbenchActivationSnapshot out = new WorkbenchActivationSnapshot();
         try {
             if (nnueModel == null && nnueLoadError == null) {
-                if (!Files.exists(NNUE_PATH)) {
-                    nnueLoadError = "model file missing: " + NNUE_PATH;
+                if (!Files.exists(nnuePath)) {
+                    nnueLoadError = "model file missing: " + nnuePath;
                 } else {
-                    nnueModel = chess.nn.nnue.Model.load(NNUE_PATH);
+                    nnueModel = chess.nn.nnue.Model.load(nnuePath);
                     refreshNnueVersionLabel();
                 }
             }
             if (nnueModel == null) {
                 fallbackNnue(fen, out);
-                return false;
+            } else {
+                chess.core.Position position = parsePosition(fen);
+                nnueModel.predict(position, out);
+                mergeAtlasFromModel(out);
             }
-            chess.nn.nnue.Network inner = nnueModel.crtkNetwork();
-            if (inner == null) {
-                // Stockfish-format upstream network: capture not supported yet.
-                nnueLoadError = "Stockfish upstream NNUE: capture not supported (using synthetic)";
-                fallbackNnue(fen, out);
-                return false;
-            }
-            chess.core.Position position = parsePosition(fen);
-            inner.predict(position, out);
-            return true;
         } catch (RuntimeException | IOException ex) {
             nnueLoadError = ex.getClass().getSimpleName() + ": " + ex.getMessage();
+            // Inference may have left the snapshot half-written; start clean.
+            out = new WorkbenchActivationSnapshot();
             fallbackNnue(fen, out);
-            return false;
         }
+        out.seal();
+        return out;
     }
 
     /**
@@ -134,7 +183,7 @@ final class WorkbenchRealActivations {
      */
     private void refreshNnueVersionLabel() {
         StringBuilder sb = new StringBuilder();
-        sb.append(NNUE_PATH.getFileName().toString());
+        sb.append(nnuePath.getFileName().toString());
         try {
             chess.nn.nnue.UpstreamNetwork.Info up = nnueModel.upstreamInfo();
             if (up != null) {
@@ -157,48 +206,55 @@ final class WorkbenchRealActivations {
     }
 
     /**
-     * Fills an LC0 CNN snapshot. CNN currently uses synthetic activations
-     * because the CNN forward pass does not yet expose intermediate hooks;
-     * inference is still run to produce real final outputs.
+     * Runs LC0 CNN inference for a position and returns a freshly-built,
+     * sealed snapshot. When the local CNN weights are present, the snapshot is
+     * captured from the real Java CPU forward pass (input planes, stem,
+     * residual blocks, final map, policy head, and value head). If the model
+     * cannot be loaded, the workbench falls back to deterministic synthetic
+     * activations.
      *
      * @param fen current position FEN
-     * @param out destination snapshot
-     * @return true when real inference contributed to the snapshot
+     * @return sealed snapshot (synthetic blocks, real heads when loaded)
      */
-    synchronized boolean fillCnn(String fen, WorkbenchActivationSnapshot out) {
-        WorkbenchSyntheticActivations.fillCnn(fen, out);
+    synchronized WorkbenchActivationSnapshot inferCnn(String fen) {
+        WorkbenchActivationSnapshot out = new WorkbenchActivationSnapshot();
         try {
             if (cnnNetwork == null && cnnLoadError == null) {
                 if (!Files.exists(CNN_PATH)) {
                     cnnLoadError = "model file missing: " + CNN_PATH;
                 } else {
-                    cnnNetwork = chess.nn.lc0.cnn.Network.load(CNN_PATH);
+                    // The visualizer needs intermediate tensors. Those are
+                    // exposed by the Java CPU path; GPU backends only return
+                    // final policy/value outputs.
+                    cnnNetwork = chess.nn.lc0.cnn.Network.loadCpu(CNN_PATH);
                 }
             }
             if (cnnNetwork == null) {
-                return false;
+                WorkbenchSyntheticActivations.fillCnn(fen, out);
+            } else {
+                chess.core.Position position = parsePosition(fen);
+                float[] planes = chess.nn.lc0.cnn.Encoder.encode(position);
+                cnnNetwork.predictEncoded(planes, out);
             }
-            chess.core.Position position = parsePosition(fen);
-            float[] planes = chess.nn.lc0.cnn.Encoder.encode(position);
-            chess.nn.lc0.cnn.Network.Prediction prediction = cnnNetwork.predictEncoded(planes);
-            overrideCnnFinalOutputs(out, prediction);
-            return true;
         } catch (RuntimeException | IOException ex) {
             cnnLoadError = ex.getClass().getSimpleName() + ": " + ex.getMessage();
-            return false;
+            out = new WorkbenchActivationSnapshot();
+            WorkbenchSyntheticActivations.fillCnn(fen, out);
         }
+        out.seal();
+        return out;
     }
 
     /**
-     * Fills an LC0 BT4 snapshot from real inference. Falls back to synthetic
-     * activations when the network cannot be loaded.
+     * Runs LC0 BT4 inference for a position and returns a freshly-built,
+     * sealed snapshot. Falls back to synthetic activations when the network
+     * cannot be loaded.
      *
      * @param fen current position FEN
-     * @param out destination snapshot
-     * @return true when real inference produced the snapshot
+     * @return sealed snapshot (real inference or synthetic fallback)
      */
-    synchronized boolean fillBt4(String fen, WorkbenchActivationSnapshot out) {
-        out.clear();
+    synchronized WorkbenchActivationSnapshot inferBt4(String fen) {
+        WorkbenchActivationSnapshot out = new WorkbenchActivationSnapshot();
         try {
             if (bt4Network == null && bt4LoadError == null) {
                 if (!Files.exists(BT4_PATH)) {
@@ -210,16 +266,18 @@ final class WorkbenchRealActivations {
             }
             if (bt4Network == null) {
                 WorkbenchSyntheticActivations.fillBt4(fen, out);
-                return false;
+            } else {
+                chess.core.Position position = parsePosition(fen);
+                bt4Network.predict(position, out);
             }
-            chess.core.Position position = parsePosition(fen);
-            bt4Network.predict(position, out);
-            return true;
         } catch (RuntimeException | IOException ex) {
             bt4LoadError = ex.getClass().getSimpleName() + ": " + ex.getMessage();
+            // Inference may have left the snapshot half-written; start clean.
+            out = new WorkbenchActivationSnapshot();
             WorkbenchSyntheticActivations.fillBt4(fen, out);
-            return false;
         }
+        out.seal();
+        return out;
     }
 
     /**
@@ -241,32 +299,11 @@ final class WorkbenchRealActivations {
      */
     String statusFor(String key) {
         return switch (key) {
-            case "nnue" -> describe(nnueModel != null && nnueModel.crtkNetwork() != null,
-                    nnueLoadError);
-            case "cnn" -> describeMixed(cnnNetwork != null, cnnLoadError,
-                    "real heads + synthetic blocks");
+            case "nnue" -> describe(nnueModel != null, nnueLoadError);
+            case "cnn" -> describe(cnnNetwork != null, cnnLoadError);
             case "bt4" -> describe(bt4Network != null, bt4LoadError);
             default -> "?";
         };
-    }
-
-    /**
-     * Returns a mixed-mode status word used when a network's final outputs are
-     * real but its intermediate activations are synthetic.
-     *
-     * @param loaded whether the model is loaded
-     * @param error error message or null
-     * @param mixedLabel label to use for the mixed case
-     * @return short status
-     */
-    private static String describeMixed(boolean loaded, String error, String mixedLabel) {
-        if (loaded) {
-            return mixedLabel;
-        }
-        if (error != null) {
-            return "synthetic (" + error + ")";
-        }
-        return "synthetic (not loaded yet)";
     }
 
     /**
@@ -297,24 +334,80 @@ final class WorkbenchRealActivations {
     }
 
     /**
-     * Overrides the synthetic CNN final policy/value entries with real values.
+     * Merges the model-level atlas (covers both CRTK and Stockfish-upstream
+     * networks) into a per-position snapshot. Used by the upstream fallback
+     * path where per-position activations are synthetic but the atlas
+     * weights can still come from the real on-disk network.
      *
-     * @param out snapshot
-     * @param prediction real CNN prediction
+     * @param out destination snapshot
      */
-    private static void overrideCnnFinalOutputs(WorkbenchActivationSnapshot out,
-            chess.nn.lc0.cnn.Network.Prediction prediction) {
-        if (prediction == null) {
-            return;
+    private void mergeAtlasFromModel(WorkbenchActivationSnapshot out) {
+        if (nnueAtlasCache == null) {
+            if (nnueModel == null) {
+                return;
+            }
+            WorkbenchActivationSnapshot cache = new WorkbenchActivationSnapshot();
+            try {
+                if (!nnueModel.dumpFeatureAtlas(cache)) {
+                    return;
+                }
+                cache.seal();
+                nnueAtlasCache = cache;
+            } catch (RuntimeException ex) {
+                // Atlas is optional; swallow and continue without it.
+                return;
+            }
         }
-        if (prediction.policy() != null) {
-            float[] policy = prediction.policy();
-            out.put("cnn.policy.logits", new int[] { policy.length }, policy.clone());
+        copyAtlasInto(out);
+    }
+
+    /**
+     * Copies cached atlas entries into a destination snapshot, replacing any
+     * synthetic atlas data the caller may have written first.
+     *
+     * @param out destination snapshot
+     */
+    private void copyAtlasInto(WorkbenchActivationSnapshot out) {
+        for (Map.Entry<String, WorkbenchActivationSnapshot.Entry> e
+                : nnueAtlasCache.entries().entrySet()) {
+            WorkbenchActivationSnapshot.Entry entry = e.getValue();
+            out.put(e.getKey(), entry.shape(), entry.data().clone());
         }
-        float[] wdl = prediction.wdl();
-        if (wdl != null && wdl.length == 3) {
-            out.put("cnn.value.wdl", new int[] { 3 }, new float[] { wdl[0], wdl[1], wdl[2] });
-            out.putScalar("cnn.value.scalar", wdl[0] - wdl[2]);
+    }
+
+    /**
+     * Returns the cached atlas for an arbitrary NNUE file path, loading and
+     * caching the network on first call. Used by diff and grid views.
+     *
+     * @param path path to a .nnue file or null for the current network
+     * @return atlas snapshot or null on load failure
+     */
+    synchronized WorkbenchActivationSnapshot atlasFor(Path path) {
+        if (path == null || path.equals(nnuePath)) {
+            // Use the live cache when asked about the current network so we
+            // pay no extra cost for the most common case.
+            if (nnueAtlasCache != null) {
+                return nnueAtlasCache;
+            }
+            return null;
+        }
+        WorkbenchActivationSnapshot hit = atlasCacheByPath.get(path);
+        if (hit != null) {
+            return hit;
+        }
+        if (!Files.exists(path)) {
+            return null;
+        }
+        try (chess.nn.nnue.Model side = chess.nn.nnue.Model.load(path)) {
+            WorkbenchActivationSnapshot snap = new WorkbenchActivationSnapshot();
+            if (!side.dumpFeatureAtlas(snap)) {
+                return null;
+            }
+            snap.seal();
+            atlasCacheByPath.put(path, snap);
+            return snap;
+        } catch (IOException | RuntimeException ex) {
+            return null;
         }
     }
 

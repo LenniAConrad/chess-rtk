@@ -1,17 +1,12 @@
 package application.gui.workbench;
 
 import java.awt.Color;
-import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.FontMetrics;
-import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.Rectangle;
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
-
-import javax.swing.JComponent;
-import javax.swing.ToolTipManager;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Workbench panel that visualises an LC0 BT4 transformer forward pass.
@@ -21,8 +16,12 @@ import javax.swing.ToolTipManager;
  * pick a block (1..15) and a head (1..32), shows the chosen head's 64x64
  * attention map, and renders an on-board overlay that highlights the
  * attended squares when a board square is clicked.</p>
+ *
+ * <p>Shared scaffolding lives in {@link WorkbenchNetworkView}; this class only
+ * owns the BT4-specific drawing. Atlas mode is a readable block/head attention
+ * fingerprint; raw mode remains the dense matrix-heavy diagnostic view.</p>
  */
-final class WorkbenchBt4View extends JComponent {
+final class WorkbenchBt4View extends WorkbenchNetworkView {
 
     /**
      * Serialization identifier for Swing component compatibility.
@@ -38,33 +37,6 @@ final class WorkbenchBt4View extends JComponent {
      * Head count per block.
      */
     private static final int HEADS = 32;
-
-    /**
-     * Outer padding.
-     */
-    private static final int PAD = 12;
-
-    /**
-     * Latest snapshot or null.
-     */
-    private WorkbenchActivationSnapshot snapshot;
-
-    /**
-     * Current position FEN, used to render pieces on mini boards.
-     */
-    private String fen;
-
-    /**
-     * Detailed-mode flag.
-     */
-    private boolean detailed;
-
-    /**
-     * Raw-mode flag. When on, the view paints every per-head per-block
-     * attention thumbnail in one dense grid, overriding the abstract /
-     * detailed split.
-     */
-    private boolean rawView;
 
     /**
      * Selected transformer block in detailed mode (0..BLOCKS-1).
@@ -102,216 +74,64 @@ final class WorkbenchBt4View extends JComponent {
     private Rectangle rawAtlasBounds = new Rectangle();
 
     /**
-     * Hover + click region registry, rebuilt every paint pass.
-     */
-    private final WorkbenchHitRegions hitRegions = new WorkbenchHitRegions();
-
-    /**
-     * Shared inspector panel; null until wired by the host.
-     */
-    private WorkbenchInspectorPanel inspector;
-
-    /**
-     * Whether to pin colour scales across position changes.
-     */
-    private boolean fixedScale;
-
-    /**
-     * Per-bucket pinned heatmap scales, used while {@link #fixedScale} is on
-     * so attention/energy heatmaps stay comparable across position changes.
-     */
-    private final java.util.Map<String, Float> pinnedScales = new java.util.HashMap<>();
-
-    /**
      * Creates the BT4 view.
      */
     WorkbenchBt4View() {
-        setOpaque(true);
-        setBackground(WorkbenchTheme.BG);
-        setPreferredSize(new Dimension(760, 540));
+        super(760, 540);
         selectedBlock = BLOCKS - 1;
         selectedHead = 0;
-        ToolTipManager.sharedInstance().registerComponent(this);
-        addMouseListener(new MouseAdapter() {
-            @Override
-            public void mousePressed(MouseEvent event) {
-                handleClick(event.getX(), event.getY());
-            }
-        });
     }
 
     /**
-     * Returns the hover-tooltip text for the hit region under the cursor.
+     * Paints the BT4 attention atlas.
      *
-     * @param event mouse event
-     * @return HTML tooltip text or null
+     * @param g graphics context
+     * @param body atlas bounds
      */
     @Override
-    public String getToolTipText(MouseEvent event) {
-        WorkbenchHitRegions.Region r = hitRegions.hitTest(event.getX(), event.getY());
-        return r == null ? null : r.tooltipHtml();
-    }
-
-    /**
-     * Wires the shared inspector panel.
-     *
-     * @param panel inspector (may be null)
-     */
-    void setInspector(WorkbenchInspectorPanel panel) {
-        this.inspector = panel;
-    }
-
-    /**
-     * Sets the fixed-scale flag. Resets pinned heatmap scales when the
-     * toggle flips so the next snapshot starts a fresh baseline.
-     *
-     * @param value true to pin heatmap scales
-     */
-    void setFixedScale(boolean value) {
-        if (this.fixedScale != value) {
-            this.fixedScale = value;
-            pinnedScales.clear();
-            repaint();
+    protected void paintAtlas(Graphics2D g, Rectangle body) {
+        WorkbenchTensorViz.drawSectionHeader(g,
+                new Rectangle(body.x, body.y, body.width, 40),
+                "BT4 attention atlas",
+                "block/head fingerprint · selected-head board footprint · strongest attention heads");
+        int top = body.y + 50;
+        int h = body.height - 50;
+        int gap = 12;
+        if (body.width < 860) {
+            int part = Math.max(160, (h - 2 * gap) / 3);
+            Rectangle fingerprint = new Rectangle(body.x, top, body.width, part);
+            Rectangle boards = new Rectangle(body.x, fingerprint.y + fingerprint.height + gap,
+                    body.width, part);
+            Rectangle heads = new Rectangle(body.x, boards.y + boards.height + gap,
+                    body.width, Math.max(120, body.y + body.height - (boards.y + boards.height + gap)));
+            paintBt4HeadFingerprint(g, fingerprint);
+            paintBt4AtlasBoards(g, boards);
+            paintBt4TopHeads(g, heads);
+            return;
         }
+        int leftW = Math.max(500, Math.min((int) (body.width * 0.58), body.width - 380));
+        Rectangle fingerprint = new Rectangle(body.x, top, leftW, h);
+        int rightX = fingerprint.x + fingerprint.width + gap;
+        int rightW = body.x + body.width - rightX;
+        int boardH = Math.max(240, Math.min((int) (h * 0.52), 330));
+        Rectangle boards = new Rectangle(rightX, top, rightW, boardH);
+        Rectangle heads = new Rectangle(rightX, boards.y + boards.height + gap,
+                rightW, Math.max(140, body.y + body.height - (boards.y + boards.height + gap)));
+        paintBt4HeadFingerprint(g, fingerprint);
+        paintBt4AtlasBoards(g, boards);
+        paintBt4TopHeads(g, heads);
     }
 
     /**
-     * Returns the colour-scale for a heatmap bucket. With fixed-scale off
-     * the bucket is cleared and the dynamic max is returned; with fixed-scale
-     * on the bucket's pinned scale grows monotonically across position
-     * changes so attention magnitudes stay comparable.
-     *
-     * @param key bucket key
-     * @param dynamicMax max-abs of the current snapshot data
-     * @return scale (always &gt; 0)
-     */
-    private float scaleFor(String key, float dynamicMax) {
-        float dm = dynamicMax <= 0.0f ? 1.0f : dynamicMax;
-        if (!fixedScale) {
-            pinnedScales.remove(key);
-            return dm;
-        }
-        Float pinned = pinnedScales.get(key);
-        float merged = pinned == null ? dm : Math.max(pinned, dm);
-        pinnedScales.put(key, merged);
-        return merged;
-    }
-
-    /**
-     * Max-abs of an array, or 0 when null/empty.
-     *
-     * @param data values
-     * @return max absolute value
-     */
-    private static float maxAbs(float[] data) {
-        float m = 0.0f;
-        if (data != null) {
-            for (float v : data) {
-                float a = Math.abs(v);
-                if (a > m) {
-                    m = a;
-                }
-            }
-        }
-        return m;
-    }
-
-    /**
-     * Sets the activation snapshot.
-     *
-     * @param newSnapshot snapshot (may be null)
-     */
-    void setSnapshot(WorkbenchActivationSnapshot newSnapshot) {
-        this.snapshot = newSnapshot;
-        repaint();
-    }
-
-    /**
-     * Sets the current FEN. Used for mini-board piece rendering.
-     *
-     * @param newFen position FEN
-     */
-    void setFen(String newFen) {
-        this.fen = newFen;
-        repaint();
-    }
-
-    /**
-     * Sets the detailed-mode flag.
-     *
-     * @param value true for detailed
-     */
-    void setDetailed(boolean value) {
-        if (detailed != value) {
-            detailed = value;
-            selectedSquare = -1;
-            headGridBounds = new Rectangle();
-            boardBounds = new Rectangle();
-            blockStripBounds = new Rectangle();
-            invalidate();
-            revalidate();
-            repaint();
-        }
-    }
-
-    /**
-     * Returns the detailed-mode flag.
-     *
-     * @return true when detailed
-     */
-    boolean isDetailed() {
-        return detailed;
-    }
-
-    /**
-     * Sets the raw-mode flag. Raw mode supersedes the abstract / detailed
-     * split and paints every per-block per-head 8×8 attention-received
-     * thumbnail in one dense grid.
-     *
-     * @param value true for raw mode
-     */
-    void setRaw(boolean value) {
-        if (rawView != value) {
-            rawView = value;
-            invalidate();
-            revalidate();
-            repaint();
-        }
-    }
-
-    /**
-     * Paints the panel.
-     *
-     * @param graphics graphics
+     * Resets detailed-mode selection state and cached hit-boxes whenever the
+     * view mode changes.
      */
     @Override
-    protected void paintComponent(Graphics graphics) {
-        super.paintComponent(graphics);
-        if (isOpaque()) {
-            graphics.setColor(getBackground());
-            graphics.fillRect(0, 0, getWidth(), getHeight());
-        }
-        hitRegions.clear();
-        Graphics2D g = (Graphics2D) graphics.create();
-        try {
-            WorkbenchTensorViz.useHighQuality(g);
-            Rectangle bounds = new Rectangle(0, 0, getWidth(), getHeight());
-            if (snapshot == null || snapshot.isEmpty()) {
-                paintEmpty(g, bounds);
-                return;
-            }
-            paintHeader(g, bounds);
-            Rectangle body = new Rectangle(PAD, 64, getWidth() - 2 * PAD, getHeight() - 64 - PAD);
-            if (rawView) {
-                paintRaw(g, body);
-            } else if (detailed) {
-                paintDetailed(g, body);
-            } else {
-                paintAbstract(g, body);
-            }
-        } finally {
-            g.dispose();
-        }
+    protected void onViewModeChanged() {
+        selectedSquare = -1;
+        headGridBounds = new Rectangle();
+        boardBounds = new Rectangle();
+        blockStripBounds = new Rectangle();
     }
 
     /**
@@ -320,9 +140,10 @@ final class WorkbenchBt4View extends JComponent {
      * @param x x
      * @param y y
      */
-    private void handleClick(int x, int y) {
-        if (rawView) {
-            // In raw view, click any thumbnail to select that block+head.
+    @Override
+    protected void onClick(int x, int y) {
+        if (isRaw() || isAtlas()) {
+            // In raw/atlas view, click any thumbnail to select that block+head.
             if (rawAtlasBounds.contains(x, y)) {
                 int relX = x - rawAtlasBounds.x;
                 int relY = y - rawAtlasBounds.y;
@@ -339,7 +160,7 @@ final class WorkbenchBt4View extends JComponent {
             }
             return;
         }
-        if (!detailed) {
+        if (!isDetailed()) {
             WorkbenchHitRegions.Region r = hitRegions.hitTest(x, y);
             if (r == null) {
                 return;
@@ -395,12 +216,77 @@ final class WorkbenchBt4View extends JComponent {
     }
 
     /**
-     * Paints the empty hint.
+     * Paints the architecture-diagram schematic for the BT4 transformer.
      *
      * @param g graphics
-     * @param bounds bounds
+     * @param body body rectangle
      */
-    private void paintEmpty(Graphics2D g, Rectangle bounds) {
+    @Override
+    protected void paintDiagram(Graphics2D g, Rectangle body) {
+        int headerH = 40;
+        WorkbenchTensorViz.drawSectionHeader(g,
+                new Rectangle(body.x, body.y, body.width, headerH),
+                "LC0 BT4 architecture",
+                "input → embedding → " + BLOCKS + " transformer blocks ("
+                        + HEADS + " heads each) → policy / value heads");
+        String[] titles = {
+                "input encoding",
+                "embedding",
+                BLOCKS + " transformer blocks",
+                "policy head",
+                "value head"
+        };
+        String[] subs = {
+                "112 input planes (8×8)",
+                "linear projection",
+                HEADS + " self-attn heads × MLP",
+                "logits over moves",
+                "WDL"
+        };
+        int boxW = 200;
+        int boxH = 90;
+        int gap = 30;
+        int totalW = boxW * titles.length + gap * (titles.length - 1);
+        int startX = body.x + (body.width - totalW) / 2;
+        int y = body.y + headerH + 60;
+        FontMetrics fmTitle = g.getFontMetrics(WorkbenchTheme.font(13, Font.BOLD));
+        for (int i = 0; i < titles.length; i++) {
+            int x = startX + i * (boxW + gap);
+            g.setColor(WorkbenchTheme.PANEL_SOLID);
+            g.fillRoundRect(x, y, boxW, boxH, 14, 14);
+            g.setColor(WorkbenchTheme.LINE);
+            g.drawRoundRect(x, y, boxW, boxH, 14, 14);
+            g.setColor(WorkbenchTheme.TEXT);
+            g.setFont(WorkbenchTheme.font(13, Font.BOLD));
+            int tw = fmTitle.stringWidth(titles[i]);
+            g.drawString(titles[i], x + (boxW - tw) / 2, y + 28);
+            g.setColor(WorkbenchTheme.MUTED);
+            g.setFont(WorkbenchTheme.font(11, Font.PLAIN));
+            int sw = g.getFontMetrics().stringWidth(subs[i]);
+            g.drawString(subs[i], x + (boxW - sw) / 2, y + 56);
+            if (i < titles.length - 1) {
+                int ax1 = x + boxW;
+                int ax2 = x + boxW + gap;
+                int ay = y + boxH / 2;
+                g.setColor(WorkbenchTheme.ACCENT);
+                g.drawLine(ax1 + 2, ay, ax2 - 6, ay);
+                int[] xs = { ax2 - 6, ax2 - 12, ax2 - 12 };
+                int[] ys = { ay, ay - 5, ay + 5 };
+                g.fillPolygon(xs, ys, 3);
+            }
+            hitRegions.add(new Rectangle(x, y, boxW, boxH),
+                    "Layer · " + titles[i], subs[i], "");
+        }
+    }
+
+    /**
+     * Paints the empty placeholder.
+     *
+     * @param g graphics context
+     * @param bounds placeholder bounds
+     */
+    @Override
+    protected void paintEmpty(Graphics2D g, Rectangle bounds) {
         g.setColor(WorkbenchTheme.BG);
         g.fillRect(bounds.x, bounds.y, bounds.width, bounds.height);
         g.setColor(WorkbenchTheme.MUTED);
@@ -414,7 +300,8 @@ final class WorkbenchBt4View extends JComponent {
      * @param g graphics
      * @param bounds bounds
      */
-    private void paintHeader(Graphics2D g, Rectangle bounds) {
+    @Override
+    protected void paintHeader(Graphics2D g, Rectangle bounds) {
         float[] wdl = snapshot.data("bt4.value.wdl");
         float[] scalar = snapshot.data("bt4.value.scalar");
         float v = scalar == null ? 0.0f : scalar[0];
@@ -444,7 +331,8 @@ final class WorkbenchBt4View extends JComponent {
      * @param g graphics
      * @param body body rectangle
      */
-    private void paintAbstract(Graphics2D g, Rectangle body) {
+    @Override
+    protected void paintAbstract(Graphics2D g, Rectangle body) {
         int leftW = (int) (body.width * 0.58);
         Rectangle left = new Rectangle(body.x, body.y, leftW, body.height);
         Rectangle right = new Rectangle(body.x + leftW + 10, body.y, body.width - leftW - 10, body.height);
@@ -468,12 +356,27 @@ final class WorkbenchBt4View extends JComponent {
      * @param g graphics
      * @param body body rectangle
      */
-    private void paintRaw(Graphics2D g, Rectangle body) {
+    @Override
+    protected void paintRaw(Graphics2D g, Rectangle body) {
+        paintBt4AttentionGrid(g, body,
+                "raw attention atlas — 480 heads at once",
+                "top grid: 64×64 attention matrices · bottom grid: 8×8 mean attention-received on the board · click any cell to focus");
+    }
+
+    /**
+     * Paints the complete block x head attention grid.
+     *
+     * @param g graphics
+     * @param body body rectangle
+     * @param title section title
+     * @param subtitle section subtitle
+     */
+    private void paintBt4AttentionGrid(Graphics2D g, Rectangle body, String title, String subtitle) {
         int headerH = 38;
         WorkbenchTensorViz.drawSectionHeader(g,
                 new Rectangle(body.x, body.y, body.width, headerH),
-                "raw attention atlas — 480 heads at once",
-                "top grid: 64×64 attention matrices · bottom grid: 8×8 mean attention-received on the board · click any cell to focus");
+                title,
+                subtitle);
         int rowLabelW = 28;
         int colLabelH = 16;
         int gridTop = body.y + headerH + 4 + colLabelH;
@@ -593,6 +496,292 @@ final class WorkbenchBt4View extends JComponent {
     }
 
     /**
+     * Paints the readable BT4 atlas grid: one cell per block/head, where
+     * brightness means "how concentrated is this head's received attention".
+     *
+     * @param g graphics
+     * @param r rectangle
+     */
+    private void paintBt4HeadFingerprint(Graphics2D g, Rectangle r) {
+        WorkbenchTensorViz.drawSectionHeader(g, new Rectangle(r.x, r.y, r.width, 38),
+                "block × head fingerprint",
+                "bright cells are focused heads; pale cells are diffuse or low-impact for this position");
+        int rowLabelW = 38;
+        int colLabelH = 18;
+        int gridX = r.x + rowLabelW;
+        int gridY = r.y + 38 + colLabelH + 4;
+        int gridW = r.width - rowLabelW - 4;
+        int gridH = r.y + r.height - gridY - 4;
+        int cellW = Math.max(4, gridW / HEADS);
+        int cellH = Math.max(8, gridH / BLOCKS);
+        float[][] scores = new float[BLOCKS][HEADS];
+        float scale = 0.0f;
+        int topBlock = 0;
+        int topHead = 0;
+        int quietHeads = 0;
+        for (int b = 0; b < BLOCKS; b++) {
+            for (int h = 0; h < HEADS; h++) {
+                float[] energy = headReceivedEnergy(b, h);
+                scores[b][h] = headFocusScore(energy);
+                if (scores[b][h] > scale) {
+                    topBlock = b;
+                    topHead = h;
+                }
+                scale = Math.max(scale, scores[b][h]);
+            }
+        }
+        if (scale <= 0.0f) {
+            scale = 1.0f;
+        }
+        float rawScale = scale;
+        float quietCutoff = rawScale * 0.16f;
+        float importantCutoff = rawScale * 0.78f;
+        for (int b = 0; b < BLOCKS; b++) {
+            for (int h = 0; h < HEADS; h++) {
+                if (scores[b][h] <= quietCutoff) {
+                    quietHeads++;
+                }
+            }
+        }
+        scale = scaleFor("bt4Atlas:headFingerprint", scale);
+        if (r.width >= 760) {
+            WorkbenchTensorViz.drawInfoChip(g, new Rectangle(r.x + r.width - 322, r.y + 7, 154, 24),
+                    "important", "B" + (topBlock + 1) + " h" + (topHead + 1),
+                    WorkbenchTensorViz.POLICY);
+            WorkbenchTensorViz.drawInfoChip(g, new Rectangle(r.x + r.width - 160, r.y + 7, 150, 24),
+                    "not much", Math.round(100.0f * quietHeads / (BLOCKS * HEADS)) + "% quiet",
+                    WorkbenchTheme.MUTED);
+        }
+
+        g.setColor(WorkbenchTheme.MUTED);
+        g.setFont(WorkbenchTheme.font(9, Font.PLAIN));
+        FontMetrics fm = g.getFontMetrics();
+        for (int h = 0; h < HEADS; h += 4) {
+            String label = "h" + (h + 1);
+            int lx = gridX + h * cellW + Math.max(0, (cellW - fm.stringWidth(label)) / 2);
+            g.drawString(label, lx, gridY - 5);
+        }
+
+        for (int b = 0; b < BLOCKS; b++) {
+            int y = gridY + b * cellH;
+            g.setColor(WorkbenchTheme.MUTED);
+            g.setFont(WorkbenchTheme.font(10, Font.BOLD));
+            g.drawString("B" + (b + 1), r.x + 5, y + Math.max(10, cellH / 2 + 4));
+            String key = "bt4.block" + b + ".attention.heads";
+            for (int h = 0; h < HEADS; h++) {
+                int x = gridX + h * cellW;
+                float v = (float) Math.sqrt(Math.min(1.0f, Math.max(0.0f, scores[b][h] / scale)));
+                g.setColor(WorkbenchTensorViz.lerp(WorkbenchTheme.PANEL_SOLID,
+                        WorkbenchTensorViz.POLICY, 0.12f + 0.82f * v));
+                g.fillRect(x, y, Math.max(1, cellW - 1), Math.max(1, cellH - 1));
+                if (scores[b][h] >= importantCutoff && cellW >= 4 && cellH >= 8) {
+                    g.setColor(WorkbenchTheme.withAlpha(WorkbenchTheme.TEXT, 120));
+                    g.drawRect(x, y, cellW - 2, cellH - 2);
+                }
+                boolean selected = b == selectedBlock && h == selectedHead;
+                if (selected) {
+                    g.setColor(WorkbenchTheme.ACCENT);
+                    g.drawRect(x, y, cellW - 1, cellH - 1);
+                    g.drawRect(x + 1, y + 1, cellW - 3, cellH - 3);
+                }
+                Rectangle cell = new Rectangle(x, y, cellW, cellH);
+                if (snapshot.has(key)) {
+                    hitRegions.addInspectable(cell,
+                            "Block " + (b + 1) + " · head " + (h + 1),
+                            "Click to select this attention head for the board footprint.",
+                            String.format("peak received %.4f", scores[b][h]),
+                            key, h * 64 * 64, 64 * 64, 64, "64x64");
+                } else {
+                    hitRegions.add(cell,
+                            "Block " + (b + 1) + " · head " + (h + 1),
+                            "Click to select this attention head for the board footprint.",
+                            String.format("peak received %.4f", scores[b][h]));
+                }
+            }
+        }
+        rawAtlasBounds = new Rectangle(gridX, gridY, HEADS * cellW, BLOCKS * cellH);
+        g.setColor(WorkbenchTheme.LINE);
+        g.drawRect(rawAtlasBounds.x, rawAtlasBounds.y,
+                Math.min(gridW, rawAtlasBounds.width), Math.min(gridH, rawAtlasBounds.height));
+    }
+
+    /**
+     * Paints board projections for the selected attention head and the model's
+     * token-energy summary.
+     *
+     * @param g graphics
+     * @param r rectangle
+     */
+    private void paintBt4AtlasBoards(Graphics2D g, Rectangle r) {
+        WorkbenchTensorViz.drawSectionHeader(g, new Rectangle(r.x, r.y, r.width, 38),
+                "board footprint", "selected head vs final token-energy summary");
+        Rectangle content = new Rectangle(r.x + 4, r.y + 48, r.width - 8, r.height - 52);
+        float[] selectedEnergy = headReceivedEnergy(selectedBlock, selectedHead);
+        float[] tokenEnergy = snapshot.data("bt4.token.energy");
+        int gap = 10;
+        int boardSide = Math.min((content.width - gap) / 2, Math.max(64, content.height - 22));
+        if (boardSide < 72) {
+            boardSide = Math.min(content.width, Math.max(48, content.height - 22));
+            drawBt4AtlasBoard(g, new Rectangle(content.x, content.y + 16, boardSide, boardSide),
+                    "B" + (selectedBlock + 1) + " h" + (selectedHead + 1),
+                    selectedEnergy, "Selected head · mean attention received");
+            return;
+        }
+        Rectangle selectedBoard = new Rectangle(content.x, content.y + 16, boardSide, boardSide);
+        Rectangle tokenBoard = new Rectangle(content.x + boardSide + gap, content.y + 16,
+                boardSide, boardSide);
+        drawBt4AtlasBoard(g, selectedBoard,
+                "B" + (selectedBlock + 1) + " h" + (selectedHead + 1),
+                selectedEnergy, "Selected head · mean attention received");
+        drawBt4AtlasBoard(g, tokenBoard, "token energy", tokenEnergy,
+                "Final token energy");
+    }
+
+    /**
+     * Draws one board tile for the BT4 atlas.
+     *
+     * @param g graphics
+     * @param board board rectangle
+     * @param title title
+     * @param values per-square values
+     * @param caption tooltip caption
+     */
+    private void drawBt4AtlasBoard(Graphics2D g, Rectangle board, String title,
+            float[] values, String caption) {
+        int focusSquare = strongestSquare(values);
+        String focus = focusSquare >= 0 ? " · focus " + WorkbenchTensorViz.squareLabel(focusSquare) : "";
+        g.setColor(WorkbenchTheme.MUTED);
+        g.setFont(WorkbenchTheme.font(10, Font.BOLD));
+        FontMetrics fm = g.getFontMetrics();
+        g.drawString(WorkbenchUi.elide(title + focus, fm, board.width + 10), board.x, board.y - 4);
+        WorkbenchTensorViz.drawMiniBoard(g, board);
+        WorkbenchTensorViz.drawPositionPieces(g, board, fen);
+        if (values != null) {
+            float scale = scaleFor("bt4Atlas:board:" + title, maxAbs(values));
+            WorkbenchTensorViz.drawSquareOverlay(g, board, values, scale, false);
+            WorkbenchTensorViz.drawBoardSquareRing(g, board, focusSquare, WorkbenchTheme.ACCENT);
+            addBoardSquareTooltips(board, values, caption);
+        }
+        WorkbenchTensorViz.drawBoardCoordinates(g, board);
+    }
+
+    /**
+     * Paints the highest-focus heads as board-shaped mini-atlas tiles.
+     *
+     * @param g graphics
+     * @param r rectangle
+     */
+    private void paintBt4TopHeads(Graphics2D g, Rectangle r) {
+        WorkbenchTensorViz.drawSectionHeader(g, new Rectangle(r.x, r.y, r.width, 38),
+                "standout heads", "top attention heads by peak received square");
+        List<HeadPick> picks = topAttentionHeads(8);
+        if (picks.isEmpty()) {
+            return;
+        }
+        Rectangle content = new Rectangle(r.x + 2, r.y + 44, r.width - 4, r.height - 46);
+        int show = Math.min(8, picks.size());
+        int cols = Math.min(4, Math.max(1, content.width / 104));
+        int rows = (show + cols - 1) / cols;
+        int gap = 8;
+        int cellW = Math.max(60, (content.width - gap * (cols - 1)) / cols);
+        int cellH = Math.max(48, (content.height - gap * (rows - 1)) / rows);
+        for (int i = 0; i < show; i++) {
+            HeadPick pick = picks.get(i);
+            int row = i / cols;
+            int col = i % cols;
+            Rectangle card = new Rectangle(content.x + col * (cellW + gap),
+                    content.y + row * (cellH + gap), cellW, cellH);
+            String label = "B" + (pick.block + 1) + " h" + (pick.head + 1);
+            WorkbenchTensorViz.drawCard(g, card, label,
+                    WorkbenchTensorViz.squareLabel(strongestSquare(pick.energy))
+                            + " · focus " + String.format("%.4f", pick.score),
+                    WorkbenchTensorViz.POLICY);
+            int side = Math.max(24, Math.min(card.width - 14, card.height - 34));
+            Rectangle heat = new Rectangle(card.x + 7, card.y + card.height - side - 7, side, side);
+            float scale = scaleFor("bt4Atlas:top:" + pick.block + ":" + pick.head,
+                    maxAbs(pick.energy));
+            drawGammaHeatmap(g, heat, pick.energy, 8, 8, scale);
+            String key = "bt4.block" + pick.block + ".attention.heads";
+            if (snapshot.has(key)) {
+                hitRegions.addInspectable(card,
+                        "Block " + (pick.block + 1) + " · head " + (pick.head + 1),
+                        "High-focus attention head in the current position.",
+                        String.format("peak received %.4f at %s", pick.score,
+                                WorkbenchTensorViz.squareLabel(strongestSquare(pick.energy))),
+                        key, pick.head * 64 * 64, 64 * 64, 64, "64x64");
+            }
+        }
+    }
+
+    /**
+     * Returns the mean attention received by each board square for one head.
+     *
+     * @param block block index
+     * @param head head index
+     * @return 64 board-square values
+     */
+    private float[] headReceivedEnergy(int block, int head) {
+        float[] out = new float[64];
+        if (block < 0 || block >= BLOCKS || head < 0 || head >= HEADS) {
+            return out;
+        }
+        float[] heads = snapshot.data("bt4.block" + block + ".attention.heads");
+        if (heads == null) {
+            return out;
+        }
+        int off = head * 64 * 64;
+        if (off + 64 * 64 > heads.length) {
+            return out;
+        }
+        for (int from = 0; from < 64; from++) {
+            for (int to = 0; to < 64; to++) {
+                out[to] += heads[off + from * 64 + to];
+            }
+        }
+        for (int sq = 0; sq < 64; sq++) {
+            out[sq] /= 64.0f;
+        }
+        return out;
+    }
+
+    /**
+     * Returns the focus score for a head-energy board.
+     *
+     * @param energy 64-square attention received values
+     * @return focus score
+     */
+    private static float headFocusScore(float[] energy) {
+        float peak = 0.0f;
+        if (energy != null) {
+            for (float v : energy) {
+                peak = Math.max(peak, v);
+            }
+        }
+        return peak;
+    }
+
+    /**
+     * Returns the top attention heads by focus score.
+     *
+     * @param limit maximum count
+     * @return sorted picks
+     */
+    private List<HeadPick> topAttentionHeads(int limit) {
+        List<HeadPick> picks = new ArrayList<>();
+        for (int b = 0; b < BLOCKS; b++) {
+            for (int h = 0; h < HEADS; h++) {
+                float[] energy = headReceivedEnergy(b, h);
+                picks.add(new HeadPick(b, h, energy, headFocusScore(energy)));
+            }
+        }
+        picks.sort((a, b) -> Float.compare(b.score, a.score));
+        if (picks.size() > limit) {
+            return new ArrayList<>(picks.subList(0, limit));
+        }
+        return picks;
+    }
+
+    /**
      * Draws a heatmap with a square-root gamma applied to each value so
      * low values stay visible. Same overall API as
      * {@link WorkbenchTensorViz#drawHeatmap} but tuned for the dense raw
@@ -615,7 +804,7 @@ final class WorkbenchBt4View extends JComponent {
         }
         double cw = r.width / (double) cols;
         double ch = r.height / (double) rows;
-        Color highBase = new Color(220, 110, 55);
+        Color highBase = WorkbenchTheme.ACCENT;
         for (int row = 0; row < rows; ++row) {
             for (int col = 0; col < cols; ++col) {
                 int cellX = (int) Math.floor(r.x + col * cw);
@@ -672,7 +861,12 @@ final class WorkbenchBt4View extends JComponent {
         paintBlockStrip(g, strip);
         g.setColor(WorkbenchTheme.MUTED);
         g.setFont(WorkbenchTheme.font(10, Font.PLAIN));
-        g.drawString("per-block attention focus (top) and ffn energy (bottom)", strip.x, strip.y - 4);
+        int bestAttn = strongestAttentionBlock();
+        int bestFfn = strongestFfnBlock();
+        g.drawString("important blocks: attention B" + (bestAttn + 1)
+                + " · ffn B" + (bestFfn + 1)
+                + "  (small bars are low-signal)",
+                strip.x, strip.y - 4);
 
         int policyY = stripY + strip.height + 24;
         if (policyY + 60 <= r.y + r.height) {
@@ -713,14 +907,32 @@ final class WorkbenchBt4View extends JComponent {
         if (maxFfn <= 0.0f) {
             maxFfn = 1.0f;
         }
+        int bestAttnBlock = 0;
+        int bestFfnBlock = 0;
+        for (int b = 1; b < BLOCKS; ++b) {
+            if (attnFocus[b] > attnFocus[bestAttnBlock]) {
+                bestAttnBlock = b;
+            }
+            if (ffnEnergy[b] > ffnEnergy[bestFfnBlock]) {
+                bestFfnBlock = b;
+            }
+        }
         for (int b = 0; b < BLOCKS; ++b) {
             int x = r.x + b * (cellW + gap);
-            int hAttn = (int) Math.round(attnFocus[b] / maxAttn * (half - 2));
-            int hFfn = (int) Math.round(ffnEnergy[b] / maxFfn * (half - 2));
+            int hAttn = Math.round(attnFocus[b] / maxAttn * (half - 2));
+            int hFfn = Math.round(ffnEnergy[b] / maxFfn * (half - 2));
             g.setColor(WorkbenchTensorViz.POLICY);
             g.fillRect(x, r.y + (half - hAttn), cellW, hAttn);
             g.setColor(WorkbenchTensorViz.VALUE);
             g.fillRect(x, r.y + half + 1, cellW, hFfn);
+            if (b == bestAttnBlock || b == bestFfnBlock) {
+                g.setColor(b == bestAttnBlock ? WorkbenchTensorViz.POLICY : WorkbenchTensorViz.VALUE);
+                g.drawRect(x, r.y + 1, Math.max(1, cellW - 1), r.height - 3);
+                if (b == bestAttnBlock && b == bestFfnBlock) {
+                    g.setColor(WorkbenchTensorViz.VALUE);
+                    g.drawRect(x + 1, r.y + 2, Math.max(1, cellW - 3), r.height - 5);
+                }
+            }
             g.setColor(WorkbenchTheme.MUTED);
             g.setFont(WorkbenchTheme.font(9, Font.PLAIN));
             String label = Integer.toString(b + 1);
@@ -751,6 +963,7 @@ final class WorkbenchBt4View extends JComponent {
         if (energy != null && energy.length >= 64) {
             float s = scaleFor("tokenEnergy", maxAbs(energy));
             WorkbenchTensorViz.drawSquareOverlay(g, board, energy, s, false);
+            WorkbenchTensorViz.drawBoardSquareRing(g, board, strongestSquare(energy), WorkbenchTheme.ACCENT);
             addBoardSquareTooltips(board, energy, "Mean attention received");
         }
         WorkbenchTensorViz.drawBoardCoordinates(g, board);
@@ -850,7 +1063,8 @@ final class WorkbenchBt4View extends JComponent {
      * @param g graphics
      * @param body body rectangle
      */
-    private void paintDetailed(Graphics2D g, Rectangle body) {
+    @Override
+    protected void paintDetailed(Graphics2D g, Rectangle body) {
         WorkbenchTensorViz.drawSectionHeader(g, new Rectangle(body.x, body.y, body.width, 40),
                 "per-head attention",
                 "block 1..15 · head 1..32 · click a head, then click any board square");
@@ -904,7 +1118,7 @@ final class WorkbenchBt4View extends JComponent {
             boolean sel = b == selectedBlock;
             g.setColor(sel ? WorkbenchTheme.ACCENT : WorkbenchTheme.ELEVATED_SOLID);
             g.fillRect(x + 1, r.y + 1, cellW - 2, r.height - 2);
-            g.setColor(sel ? Color.WHITE : WorkbenchTheme.TEXT);
+            g.setColor(sel ? WorkbenchTheme.PRIMARY_BUTTON_TEXT : WorkbenchTheme.TEXT);
             String label = Integer.toString(b + 1);
             g.drawString(label, x + Math.max(0, (cellW - fm.stringWidth(label)) / 2),
                     r.y + r.height - 6);
@@ -1173,8 +1387,8 @@ final class WorkbenchBt4View extends JComponent {
         }
         double cellW = board.width / 8.0;
         double cellH = board.height / 8.0;
-        Color outgoingBase = new Color(212, 138, 81);
-        Color incomingBase = new Color(85, 113, 168);
+        Color outgoingBase = WorkbenchTensorViz.POSITIVE;
+        Color incomingBase = WorkbenchTensorViz.NEGATIVE;
         Color diagonal = new Color(0, 0, 0, 55);
         for (int sq = 0; sq < 64; ++sq) {
             int file = sq & 7;
@@ -1291,10 +1505,17 @@ final class WorkbenchBt4View extends JComponent {
                 selectedBlock + 1, selectedHead + 1, HEADS, headMag), r.x + 8, r.y + 16);
         g.setColor(WorkbenchTheme.MUTED);
         g.setFont(WorkbenchTheme.font(11, Font.PLAIN));
-        g.drawString(String.format("hottest pair: %s -> %s (%.3f)",
+        float selectedFocus = headFocusScore(headReceivedEnergy(selectedBlock, selectedHead));
+        List<HeadPick> top = topAttentionHeads(1);
+        float topFocus = top.isEmpty() ? Math.max(1e-6f, selectedFocus) : Math.max(1e-6f, top.get(0).score);
+        String text = String.format("importance: %s (%.0f%% of top head) · hottest pair: %s -> %s (%.3f)",
+                attentionImportance(selectedFocus / topFocus),
+                Math.min(100.0f, 100.0f * selectedFocus / topFocus),
                 WorkbenchTensorViz.squareLabel(argmaxFrom),
                 WorkbenchTensorViz.squareLabel(argmaxTo),
-                maxEntry), r.x + 8, r.y + 32);
+                maxEntry);
+        FontMetrics fm = g.getFontMetrics();
+        g.drawString(WorkbenchUi.elide(text, fm, r.width - 16), r.x + 8, r.y + 32);
     }
 
     /**
@@ -1313,5 +1534,115 @@ final class WorkbenchBt4View extends JComponent {
             sum += v;
         }
         return (float) (sum / Math.max(1, heads.length));
+    }
+
+    /**
+     * Returns the block with the strongest average attention.
+     *
+     * @return block index
+     */
+    private int strongestAttentionBlock() {
+        int best = 0;
+        float bestValue = Float.NEGATIVE_INFINITY;
+        for (int b = 0; b < BLOCKS; b++) {
+            float value = attentionFocus(b);
+            if (value > bestValue) {
+                bestValue = value;
+                best = b;
+            }
+        }
+        return best;
+    }
+
+    /**
+     * Returns the block with the strongest FFN RMS.
+     *
+     * @return block index
+     */
+    private int strongestFfnBlock() {
+        int best = 0;
+        float bestValue = Float.NEGATIVE_INFINITY;
+        for (int b = 0; b < BLOCKS; b++) {
+            float[] ffn = snapshot.data("bt4.block" + b + ".ffn");
+            float value = WorkbenchTensorViz.summarize(ffn)[2];
+            if (value > bestValue) {
+                bestValue = value;
+                best = b;
+            }
+        }
+        return best;
+    }
+
+    /**
+     * Returns the strongest square in a 64-value board array.
+     *
+     * @param values square values
+     * @return square index or -1
+     */
+    private static int strongestSquare(float[] values) {
+        if (values == null || values.length < 64) {
+            return -1;
+        }
+        int best = 0;
+        float bestValue = values[0];
+        for (int sq = 1; sq < 64; sq++) {
+            if (values[sq] > bestValue) {
+                bestValue = values[sq];
+                best = sq;
+            }
+        }
+        return best;
+    }
+
+    /**
+     * Labels a selected head relative to the most focused head in the snapshot.
+     *
+     * @param ratio selected/top
+     * @return label
+     */
+    private static String attentionImportance(float ratio) {
+        if (ratio >= 0.82f) {
+            return "primary";
+        }
+        if (ratio >= 0.55f) {
+            return "high";
+        }
+        if (ratio >= 0.28f) {
+            return "medium";
+        }
+        return "low";
+    }
+
+    /**
+     * One high-focus attention head selected for the BT4 atlas.
+     */
+    private static final class HeadPick {
+
+        /**
+         * Block index.
+         */
+        private final int block;
+
+        /**
+         * Head index.
+         */
+        private final int head;
+
+        /**
+         * Board-shaped mean attention-received pattern.
+         */
+        private final float[] energy;
+
+        /**
+         * Focus score.
+         */
+        private final float score;
+
+        HeadPick(int block, int head, float[] energy, float score) {
+            this.block = block;
+            this.head = head;
+            this.energy = energy;
+            this.score = score;
+        }
     }
 }

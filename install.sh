@@ -17,7 +17,7 @@ LAUNCHER="/usr/local/bin/$APP_NAME"
 MODEL_DIR="$APP_HOME/models"
 MODEL_BASE_URL="https://media.githubusercontent.com/media/LenniAConrad/chess-models/main/models"
 MODEL_REMOTE_FILES=(
-  "nn-f68ec79f0fe3.nnue"
+  "https://tests.stockfishchess.org/api/nn/nn-fcf986aea78a.nnue"
   "lc0_610153.bin"
   "lc0_744706.bin"
   "https://storage.lczero.org/files/networks-contrib/BT4-1024x15x32h-swa-6147500-policytune-332.pb.gz"

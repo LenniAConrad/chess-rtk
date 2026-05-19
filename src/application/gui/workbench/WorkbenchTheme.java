@@ -461,11 +461,126 @@ final class WorkbenchTheme {
      */
     static final String CLIENT_ICON_KIND = "workbench.icon";
 
+    // ------------------------------------------------------------------
+    // Spacing scale
+    //
+    // A single 4px-based scale every panel should lay out against, so gaps,
+    // struts, insets and borders stay visually consistent instead of each
+    // call site inventing its own magic number.
+    // ------------------------------------------------------------------
+
+    /**
+     * Extra-small spacing step (4px) — tight strut between tightly-coupled
+     * lines such as a title and its subtitle.
+     */
+    static final int SPACE_XS = 4;
+
+    /**
+     * Small spacing step (8px) — the default gap between sibling controls in
+     * a toolbar or button row.
+     */
+    static final int SPACE_SM = 8;
+
+    /**
+     * Medium spacing step (12px) — panel padding and the gap between distinct
+     * control groups.
+     */
+    static final int SPACE_MD = 12;
+
+    /**
+     * Large spacing step (16px) — separation between major sections.
+     */
+    static final int SPACE_LG = 16;
+
+    /**
+     * Extra-large spacing step (24px) — generous section breaks.
+     */
+    static final int SPACE_XL = 24;
+
+    /**
+     * Shared corner radius for compact custom-painted chrome (toggle switches,
+     * segmented selectors, chips). Keeps rounded controls visually consistent
+     * with one another.
+     */
+    static final int RADIUS = 6;
+
+    /**
+     * Standard height for compact toolbar controls (combos, segmented
+     * switchers, toggles) so a control row lines up on a single baseline.
+     */
+    static final int CONTROL_HEIGHT = 30;
+
+    // ------------------------------------------------------------------
+    // Neural-network visualization palette
+    //
+    // The accent colours the NNUE / CNN / BT4 views paint activations and
+    // data-flow branches with. Kept here (rather than as private literals in
+    // WorkbenchTensorViz) so the network views speak the same colour language
+    // as the rest of the workbench chrome.
+    // ------------------------------------------------------------------
+
+    /**
+     * Positive-activation accent (gain / "up").
+     */
+    static final Color NN_POSITIVE = new Color(38, 130, 75);
+
+    /**
+     * Negative-activation accent (loss / "down").
+     */
+    static final Color NN_NEGATIVE = new Color(178, 53, 53);
+
+    /**
+     * Trunk / data-flow accent.
+     */
+    static final Color NN_TRUNK = new Color(196, 121, 47);
+
+    /**
+     * Policy-branch accent.
+     */
+    static final Color NN_POLICY = new Color(48, 102, 168);
+
+    /**
+     * Value-branch accent.
+     */
+    static final Color NN_VALUE = new Color(150, 60, 142);
+
+    /**
+     * Neutral fill for cells carrying no signal.
+     */
+    static final Color NN_NEUTRAL = new Color(232, 236, 240);
+
+    /**
+     * Lightest signed-heatmap fill (near zero).
+     */
+    static final Color NN_HEAT_ZERO = new Color(240, 244, 247);
+
     /**
      * Prevents instantiation.
      */
     private WorkbenchTheme() {
         // utility
+    }
+
+    /**
+     * Creates a uniform empty padding border.
+     *
+     * @param all padding applied to every edge
+     * @return border
+     */
+    static Border pad(int all) {
+        return BorderFactory.createEmptyBorder(all, all, all, all);
+    }
+
+    /**
+     * Creates an empty padding border with symmetric vertical and horizontal
+     * insets.
+     *
+     * @param vertical top and bottom padding
+     * @param horizontal left and right padding
+     * @return border
+     */
+    static Border pad(int vertical, int horizontal) {
+        return BorderFactory.createEmptyBorder(vertical, horizontal, vertical, horizontal);
     }
 
     /**

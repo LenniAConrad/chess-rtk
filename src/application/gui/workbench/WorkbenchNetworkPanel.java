@@ -4,15 +4,39 @@ import java.awt.BorderLayout;
 import java.awt.CardLayout;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
-import java.awt.Font;
+import java.awt.image.BufferedImage;
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.lang.reflect.InvocationTargetException;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.ExecutionException;
+import java.util.stream.Stream;
 
+import javax.swing.BorderFactory;
+import javax.imageio.ImageIO;
+import javax.swing.JButton;
 import javax.swing.JComboBox;
 import javax.swing.JComponent;
-import javax.swing.JLabel;
 import javax.swing.JPanel;
+import javax.swing.JScrollPane;
+import javax.swing.JSpinner;
+import javax.swing.ScrollPaneConstants;
+import javax.swing.SpinnerNumberModel;
 import javax.swing.SwingUtilities;
 import javax.swing.SwingWorker;
 import javax.swing.Timer;
+
+import chess.core.Move;
+import chess.core.Position;
 
 /**
  * Workbench network-visualizer host panel.
@@ -66,24 +90,44 @@ final class WorkbenchNetworkPanel extends JPanel {
     private final WorkbenchBt4View bt4View = new WorkbenchBt4View();
 
     /**
-     * NNUE snapshot.
+     * Upper bound on cached snapshots before the least-recently-used entry is
+     * evicted. One forward pass per (architecture, FEN) pair, so 64 covers a
+     * deep game tree across all three architectures comfortably.
      */
-    private final WorkbenchActivationSnapshot nnueSnap = new WorkbenchActivationSnapshot();
+    private static final int SNAPSHOT_CACHE_LIMIT = 64;
 
     /**
-     * CNN snapshot.
+     * Per-(architecture, FEN) snapshot cache, accessed only on the EDT.
+     *
+     * <p>Inference is expensive — BT4 in particular — so each finished
+     * snapshot is kept here keyed by {@code cardKey + "::" + fen}. Switching
+     * architecture or stepping back to a visited position is then an instant
+     * cache hit instead of a fresh forward pass. Snapshots are sealed before
+     * they land here, so caching and sharing them is safe. The map is an
+     * access-ordered LRU bounded by {@link #SNAPSHOT_CACHE_LIMIT}.</p>
      */
-    private final WorkbenchActivationSnapshot cnnSnap = new WorkbenchActivationSnapshot();
+    private final Map<String, WorkbenchActivationSnapshot> snapshotCache =
+            new LinkedHashMap<>(16, 0.75f, true) {
+                private static final long serialVersionUID = 1L;
+
+                @Override
+                protected boolean removeEldestEntry(
+                        Map.Entry<String, WorkbenchActivationSnapshot> eldest) {
+                    return size() > SNAPSHOT_CACHE_LIMIT;
+                }
+            };
 
     /**
-     * BT4 snapshot.
+     * Discovered NNUE network files in {@code models/}, keyed by display
+     * label. Maps each combo entry like "NNUE — nn-3c0aa92af1da-big" back
+     * to its underlying path so we can swap the loaded weights on demand.
      */
-    private final WorkbenchActivationSnapshot bt4Snap = new WorkbenchActivationSnapshot();
+    private final Map<String, Path> nnueVariants = discoverNnueVariants();
 
     /**
      * Architecture switcher.
      */
-    private final JComboBox<String> archCombo = new JComboBox<>(new String[] { ARCH_NNUE, ARCH_CNN, ARCH_BT4 });
+    private final JComboBox<String> archCombo = new JComboBox<>(buildArchOptions(nnueVariants));
 
     /**
      * Position picker. "Use main board" forwards live FENs; any other selection
@@ -92,27 +136,93 @@ final class WorkbenchNetworkPanel extends JPanel {
     private final JComboBox<String> positionCombo = new JComboBox<>(WorkbenchPositions.labels());
 
     /**
-     * View-mode toggle.
+     * Toolbar segment index of the dense all-neurons view mode.
      */
-    private final WorkbenchToggleBox detailedToggle = new WorkbenchToggleBox("Detailed view");
+    private static final int MODE_RAW = 2;
 
     /**
-     * Pin the color/scale range across position changes so heatmaps stay
-     * comparable when the user flips between positions.
+     * Toolbar segment index of the simplified Atlas view mode.
      */
-    private final WorkbenchToggleBox fixedScaleToggle = new WorkbenchToggleBox("Fixed scale");
+    private static final int MODE_ATLAS = 3;
 
     /**
-     * "Raw" view: show every heatmap (all blocks × heads for BT4, all
-     * channels for CNN, full feature space for NNUE) in a single panel
-     * for at-a-glance comparison.
+     * Mutually-exclusive view-mode selector. The toolbar intentionally exposes
+     * only the modes a normal workflow needs: overview, drill-down trace, a
+     * dense all-neurons readout, and learned-weight atlas.
      */
-    private final WorkbenchToggleBox rawToggle = new WorkbenchToggleBox("Raw heatmaps");
+    private final WorkbenchSegmentedSwitcher viewMode = new WorkbenchSegmentedSwitcher(
+            new String[] { "Overview", "Trace", "All", "Atlas" });
 
     /**
-     * Status badge in the toolbar.
+     * PNG export button — captures the current network-view card to disk.
      */
-    private final JLabel statusBadge = new JLabel("loading models...");
+    private final JButton exportPngButton = WorkbenchUi.button("Export PNG", false,
+            event -> exportPng());
+
+    /**
+     * Status badge in the toolbar — a coloured state dot plus a short message.
+     */
+    private final WorkbenchStatusBadge statusBadge = new WorkbenchStatusBadge();
+
+    /**
+     * Small paint throttle so one streamed MCTS leaf can actually be seen
+     * before the next playout starts.
+     */
+    private static final int MCTS_FRAME_DELAY_MS = 20;
+
+    /**
+     * Starts a PUCT search rooted at the current network position.
+     */
+    private final JButton mctsStartButton = WorkbenchUi.button("Start MCTS", true,
+            event -> startNetworkMcts());
+
+    /**
+     * Pauses/resumes the Network-tab PUCT search.
+     */
+    private final JButton mctsPauseButton = WorkbenchUi.button("Pause", false,
+            event -> toggleNetworkMctsPaused());
+
+    /**
+     * Stops the Network-tab PUCT search.
+     */
+    private final JButton mctsStopButton = WorkbenchUi.button("Stop", false,
+            event -> stopNetworkMcts());
+
+    /**
+     * Visit budget for Network-tab MCTS.
+     */
+    private final JSpinner mctsVisitsSpinner = new JSpinner(
+            new SpinnerNumberModel(1000, 1, 1_000_000, 100));
+
+    /**
+     * Optional Network-tab MCTS wall-clock budget in milliseconds. Zero means
+     * visit-only.
+     */
+    private final JSpinner mctsMillisSpinner = new JSpinner(
+            new SpinnerNumberModel(0, 0, 3_600_000, 1000));
+
+    /**
+     * PUCT exploration constant for Network-tab MCTS.
+     */
+    private final JSpinner mctsCpuctSpinner = new JSpinner(
+            new SpinnerNumberModel(1, 1, 5, 1));
+
+    /**
+     * When selected, the network views re-infer the MCTS leaf currently being
+     * evaluated.
+     */
+    private final WorkbenchToggleBox mctsFollowLeafToggle =
+            new WorkbenchToggleBox("Follow leaf", true);
+
+    /**
+     * Search status shown in the Network tab.
+     */
+    private final WorkbenchStatusBadge mctsStatusBadge = new WorkbenchStatusBadge();
+
+    /**
+     * Live MCTS edge-weight renderer shown while Network-tab search is active.
+     */
+    private final WorkbenchMctsWeightsPanel mctsWeightsPanel = new WorkbenchMctsWeightsPanel();
 
     /**
      * Card layout container that swaps views.
@@ -135,11 +245,6 @@ final class WorkbenchNetworkPanel extends JPanel {
     private final WorkbenchRealActivations provider = new WorkbenchRealActivations();
 
     /**
-     * Most recent FEN (canned override if any, otherwise the main-board FEN).
-     */
-    private String currentFen = "";
-
-    /**
      * Most recent main-board FEN. Saved separately so the picker can switch
      * back to live updates without losing the live value.
      */
@@ -156,14 +261,48 @@ final class WorkbenchNetworkPanel extends JPanel {
     private final Timer debounceTimer;
 
     /**
-     * Worker for the currently in-flight inference, or null when idle.
+     * Worker for the currently in-flight inference, or null when idle. Carries
+     * the sealed snapshot it produced back to {@code done()}.
      */
-    private SwingWorker<Void, Void> inferenceWorker;
+    private SwingWorker<WorkbenchActivationSnapshot, Void> inferenceWorker;
 
     /**
-     * Pending FEN that the next debounce tick should infer.
+     * Worker for the Network-tab PUCT search.
+     */
+    private SwingWorker<Void, Void> mctsWorker;
+
+    /**
+     * Active Network-tab PUCT search.
+     */
+    private WorkbenchMctsSearch mctsSearch;
+
+    /**
+     * Pause flag read by the MCTS worker.
+     */
+    private volatile boolean mctsPaused;
+
+    /**
+     * FEN of the MCTS leaf the network views should currently follow. Null
+     * means the views follow the selected board/canned position as usual.
+     */
+    private String mctsLeafFen;
+
+    /**
+     * Card key ({@link #ARCH_NNUE} / {@link #ARCH_CNN} / {@link #ARCH_BT4})
+     * the next debounce tick should infer, or null when nothing is pending.
+     */
+    private String pendingArch;
+
+    /**
+     * FEN the next debounce tick should infer, paired with {@link #pendingArch}.
      */
     private String pendingFen;
+
+    /**
+     * The {@code cardKey + "::" + fen} key currently displayed by the active
+     * view, used to skip redundant inference requests for the same state.
+     */
+    private String displayedKey;
 
     /**
      * Creates the network panel.
@@ -172,57 +311,179 @@ final class WorkbenchNetworkPanel extends JPanel {
         super(new BorderLayout());
         setOpaque(true);
         setBackground(WorkbenchTheme.BG);
-        setBorder(WorkbenchTheme.pad(8, 8, 8, 8));
+        setBorder(WorkbenchTheme.pad(WorkbenchTheme.SPACE_SM));
         add(buildToolbar(), BorderLayout.NORTH);
         cardPanel.setOpaque(true);
         cardPanel.setBackground(WorkbenchTheme.BG);
-        cardPanel.add(nnueView, ARCH_NNUE);
-        cardPanel.add(cnnView, ARCH_CNN);
-        cardPanel.add(bt4View, ARCH_BT4);
+        // Each architecture card lives inside its own JScrollPane so the
+        // atlas mode can paint a tall mosaic and the user scrolls through
+        // it, while abstract/detailed/raw stay zero-overhead.
+        cardPanel.add(wrapInScroll(nnueView), ARCH_NNUE);
+        cardPanel.add(wrapInScroll(cnnView), ARCH_CNN);
+        cardPanel.add(wrapInScroll(bt4View), ARCH_BT4);
         nnueView.setInspector(inspectorPanel);
         cnnView.setInspector(inspectorPanel);
         bt4View.setInspector(inspectorPanel);
-        JPanel content = new JPanel(new BorderLayout(8, 0));
+        JPanel content = new JPanel(new BorderLayout(WorkbenchTheme.SPACE_SM, 0));
         content.setOpaque(false);
         content.add(cardPanel, BorderLayout.CENTER);
         content.add(inspectorPanel, BorderLayout.EAST);
-        add(content, BorderLayout.CENTER);
-        archCombo.addActionListener(event -> showSelected());
+        JPanel center = new JPanel(new BorderLayout(0, WorkbenchTheme.SPACE_SM));
+        center.setOpaque(false);
+        center.add(content, BorderLayout.CENTER);
+        center.add(mctsWeightsPanel, BorderLayout.SOUTH);
+        add(center, BorderLayout.CENTER);
+        archCombo.addActionListener(event -> onArchitectureChanged());
         positionCombo.addActionListener(event -> onPositionPicked());
-        detailedToggle.addActionListener(event -> propagateDetailed());
-        fixedScaleToggle.addActionListener(event -> propagateFixedScale());
-        rawToggle.addActionListener(event -> propagateRaw());
+        viewMode.addActionListener(event -> propagateViewMode());
+        mctsFollowLeafToggle.setSelected(true);
+        mctsFollowLeafToggle.addActionListener(event -> onMctsFollowLeafChanged());
+        updateNetworkMctsButtons(false);
         debounceTimer = new Timer(DEBOUNCE_MS, event -> startInference());
         debounceTimer.setRepeats(false);
+        updateAtlasAvailability();
+        propagateAtlasControls();
+        applyFixedScale(false);
         showSelected();
+        propagateViewMode();
+        // Kick off inference for the default architecture so the workbench
+        // opens with data instead of the empty placeholder.
+        requestActiveInference();
     }
 
     /**
-     * Sets the current FEN. Inference is scheduled on the debounce timer.
-     * When the position picker is on a canned override, the new value is
-     * stored as the latest main-board FEN but does not trigger inference.
+     * Wraps a network view in a JScrollPane styled to match the workbench
+     * theme. The atlas paint paths use the scroll view to expose every
+     * neuron at a comfortable tile size.
+     *
+     * @param view view component
+     * @return scroll-pane wrapping the view
+     */
+    private static JScrollPane wrapInScroll(JComponent view) {
+        JScrollPane scroll = new JScrollPane(view);
+        scroll.setBorder(null);
+        scroll.setOpaque(false);
+        scroll.getViewport().setOpaque(false);
+        scroll.setBackground(WorkbenchTheme.BG);
+        scroll.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED);
+        scroll.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_AS_NEEDED);
+        scroll.getVerticalScrollBar().setUnitIncrement(24);
+        scroll.getHorizontalScrollBar().setUnitIncrement(24);
+        return scroll;
+    }
+
+    /**
+     * Sets the current main-board FEN. When the position picker is following
+     * the main board this requests inference for the active architecture;
+     * when a canned override is pinned the value is just remembered for when
+     * the picker switches back.
      *
      * @param fen current position FEN
      */
     void setFen(String fen) {
-        String value = fen == null ? "" : fen;
-        mainBoardFen = value;
+        mainBoardFen = fen == null ? "" : fen;
         if (overrideFen != null) {
             return;
         }
-        scheduleInference(value);
+        requestActiveInference();
     }
 
     /**
-     * Schedules a debounced inference run on the given FEN.
-     *
-     * @param fen FEN to infer
+     * Cancels background workers owned by this panel.
      */
-    private void scheduleInference(String fen) {
-        if (fen.equals(currentFen)) {
+    void dispose() {
+        stopNetworkMcts(false);
+        debounceTimer.stop();
+        if (inferenceWorker != null && !inferenceWorker.isDone()) {
+            inferenceWorker.cancel(true);
+        }
+    }
+
+    /**
+     * Returns the FEN the views should currently reflect — the canned override
+     * when one is pinned, otherwise the live main-board FEN.
+     *
+     * @return effective FEN
+     */
+    private String effectiveFen() {
+        if (mctsLeafFen != null && mctsFollowLeafToggle.isSelected()) {
+            return mctsLeafFen;
+        }
+        return baseFen();
+    }
+
+    /**
+     * Returns the selected non-MCTS position: canned override when pinned,
+     * otherwise the live main board.
+     *
+     * @return board/canned FEN
+     */
+    private String baseFen() {
+        return overrideFen != null ? overrideFen : mainBoardFen;
+    }
+
+    /**
+     * Maps an architecture-combo entry (which includes the discovered NNUE
+     * variants) to one of the three card keys.
+     *
+     * @param comboKey selected combo entry, or null
+     * @return {@link #ARCH_NNUE} / {@link #ARCH_CNN} / {@link #ARCH_BT4}
+     */
+    private String cardKeyFor(String comboKey) {
+        if (ARCH_CNN.equals(comboKey)) {
+            return ARCH_CNN;
+        }
+        if (ARCH_BT4.equals(comboKey)) {
+            return ARCH_BT4;
+        }
+        return ARCH_NNUE;
+    }
+
+    /**
+     * Returns the card key of the architecture currently on screen.
+     *
+     * @return active card key
+     */
+    private String activeCardKey() {
+        return cardKeyFor((String) archCombo.getSelectedItem());
+    }
+
+    /**
+     * Builds the snapshot-cache key for an (architecture, FEN) pair.
+     *
+     * @param cardKey card key
+     * @param fen position FEN
+     * @return cache key
+     */
+    private static String cacheKey(String cardKey, String fen) {
+        return cardKey + "::" + fen;
+    }
+
+    /**
+     * Ensures the active architecture's view reflects the effective FEN.
+     *
+     * <p>On a cache hit the snapshot is applied immediately with no worker; on
+     * a miss a debounced single-architecture inference is scheduled. Only the
+     * architecture that is actually on screen is ever inferred — the others
+     * are filled lazily the first time the user switches to them.</p>
+     */
+    private void requestActiveInference() {
+        String cardKey = activeCardKey();
+        String fen = effectiveFen();
+        if (fen == null || fen.isBlank()) {
             return;
         }
-        currentFen = fen;
+        String key = cacheKey(cardKey, fen);
+        WorkbenchActivationSnapshot cached = snapshotCache.get(key);
+        if (cached != null) {
+            applySnapshot(cardKey, fen, cached);
+            refreshStatusBadge();
+            return;
+        }
+        if (key.equals(displayedKey)) {
+            return;
+        }
+        pendingArch = cardKey;
         pendingFen = fen;
         debounceTimer.restart();
     }
@@ -234,152 +495,872 @@ final class WorkbenchNetworkPanel extends JPanel {
         String label = (String) positionCombo.getSelectedItem();
         String fen = WorkbenchPositions.fenFor(label);
         overrideFen = fen;
-        scheduleInference(fen == null ? mainBoardFen : fen);
+        requestActiveInference();
     }
 
     /**
-     * Builds the toolbar row (architecture switcher + view toggle + badge).
+     * Builds the network toolbar.
+     *
+     * <p>The toolbar keeps only the daily-use controls: network, position, mode,
+     * export, and load status. Expert atlas controls were removed from the
+     * primary surface because the defaults are the clearest path for reading the
+     * view.</p>
      *
      * @return toolbar
      */
     private JComponent buildToolbar() {
-        JPanel bar = new JPanel(new BorderLayout());
-        bar.setOpaque(false);
-        bar.setBackground(WorkbenchTheme.BG);
-        JPanel left = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
-        left.setOpaque(false);
-        JLabel archLabel = new JLabel("Architecture");
-        archLabel.setForeground(WorkbenchTheme.MUTED);
-        archLabel.setFont(WorkbenchTheme.font(12, Font.BOLD));
-        WorkbenchUi.styleCombo(archCombo);
-        archCombo.setPreferredSize(new Dimension(130, 28));
-        JLabel positionLabel = new JLabel("Position");
-        positionLabel.setForeground(WorkbenchTheme.MUTED);
-        positionLabel.setFont(WorkbenchTheme.font(12, Font.BOLD));
-        WorkbenchUi.styleCombo(positionCombo);
-        positionCombo.setPreferredSize(new Dimension(190, 28));
-        positionCombo.setToolTipText("Pin a canned position to explore, or follow the main board.");
-        left.add(archLabel);
-        left.add(archCombo);
-        left.add(positionLabel);
-        left.add(positionCombo);
-        left.add(detailedToggle);
-        left.add(fixedScaleToggle);
-        left.add(rawToggle);
-        bar.add(left, BorderLayout.WEST);
-        statusBadge.setForeground(WorkbenchTheme.MUTED);
-        statusBadge.setFont(WorkbenchTheme.font(11, Font.ITALIC));
-        bar.add(statusBadge, BorderLayout.EAST);
+        JPanel bar = WorkbenchUi.transparentPanel(new BorderLayout(WorkbenchTheme.SPACE_MD, 0));
+        bar.setOpaque(true);
+        bar.setBackground(WorkbenchTheme.PANEL_SOLID);
+        bar.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(WorkbenchTheme.LINE),
+                WorkbenchTheme.pad(WorkbenchTheme.SPACE_SM)));
+
+        styleToolbarCombo(archCombo, 122,
+                "Pick the network architecture (or a specific NNUE file) to visualise.");
+        styleToolbarCombo(positionCombo, 188,
+                "Pin a canned position to explore, or follow the main board.");
+        exportPngButton.setToolTipText("Capture the current network view to a PNG file.");
+
+        JPanel controls = WorkbenchUi.transparentPanel(
+                new FlowLayout(FlowLayout.LEFT, WorkbenchTheme.SPACE_SM, 0));
+        controls.add(archCombo);
+        controls.add(positionCombo);
+        controls.add(viewMode);
+
+        JPanel actions = WorkbenchUi.transparentPanel(
+                new FlowLayout(FlowLayout.RIGHT, WorkbenchTheme.SPACE_SM, 0));
+        actions.add(exportPngButton);
+        actions.add(statusBadge);
+
+        bar.add(controls, BorderLayout.WEST);
+        bar.add(actions, BorderLayout.EAST);
+        JPanel outer = WorkbenchUi.transparentPanel(new BorderLayout(0, WorkbenchTheme.SPACE_XS));
+        outer.add(bar, BorderLayout.NORTH);
+        outer.add(buildMctsToolbar(), BorderLayout.SOUTH);
+        return outer;
+    }
+
+    /**
+     * Builds the network-local MCTS control strip. While running, the active
+     * architecture view follows the PUCT leaf currently being evaluated so the
+     * user can watch NNUE/CNN/BT4 activations change through search.
+     *
+     * @return MCTS toolbar
+     */
+    private JComponent buildMctsToolbar() {
+        JPanel bar = WorkbenchUi.transparentPanel(new BorderLayout(WorkbenchTheme.SPACE_MD, 0));
+        bar.setOpaque(true);
+        bar.setBackground(WorkbenchTheme.PANEL_SOLID);
+        bar.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(WorkbenchTheme.LINE),
+                WorkbenchTheme.pad(WorkbenchTheme.SPACE_XS, WorkbenchTheme.SPACE_SM,
+                        WorkbenchTheme.SPACE_XS, WorkbenchTheme.SPACE_SM)));
+
+        WorkbenchUi.styleIntegerSpinner(mctsVisitsSpinner);
+        WorkbenchUi.styleIntegerSpinner(mctsMillisSpinner);
+        WorkbenchUi.styleIntegerSpinner(mctsCpuctSpinner);
+        mctsVisitsSpinner.setPreferredSize(new Dimension(86, WorkbenchTheme.CONTROL_HEIGHT));
+        mctsMillisSpinner.setPreferredSize(new Dimension(86, WorkbenchTheme.CONTROL_HEIGHT));
+        mctsCpuctSpinner.setPreferredSize(new Dimension(72, WorkbenchTheme.CONTROL_HEIGHT));
+        mctsStartButton.setToolTipText("Run PUCT from the current board/canned position and stream each leaf into the network view.");
+        mctsPauseButton.setToolTipText("Pause or resume the PUCT worker while keeping the current leaf on screen.");
+        mctsStopButton.setToolTipText("Stop PUCT and return the network view to the board/canned position.");
+        mctsFollowLeafToggle.setToolTipText("When on, the network view shows the leaf currently being evaluated.");
+        mctsStatusBadge.idle("MCTS idle");
+
+        JPanel controls = WorkbenchUi.transparentPanel(
+                new FlowLayout(FlowLayout.LEFT, WorkbenchTheme.SPACE_SM, 0));
+        controls.add(WorkbenchUi.label("MCTS"));
+        controls.add(mctsStartButton);
+        controls.add(mctsPauseButton);
+        controls.add(mctsStopButton);
+        controls.add(WorkbenchUi.label("Visits"));
+        controls.add(mctsVisitsSpinner);
+        controls.add(WorkbenchUi.label("Millis"));
+        controls.add(mctsMillisSpinner);
+        controls.add(WorkbenchUi.label("Cpuct"));
+        controls.add(mctsCpuctSpinner);
+        controls.add(mctsFollowLeafToggle);
+
+        JPanel status = WorkbenchUi.transparentPanel(
+                new FlowLayout(FlowLayout.RIGHT, WorkbenchTheme.SPACE_SM, 0));
+        status.add(mctsStatusBadge);
+
+        bar.add(controls, BorderLayout.WEST);
+        bar.add(status, BorderLayout.EAST);
         return bar;
     }
 
     /**
-     * Shows the architecture selected by the combo box.
+     * Styles a toolbar combo box: the shared combo styling, a fixed width, the
+     * shared compact-control height, and a tooltip.
+     *
+     * @param combo combo box
+     * @param width preferred width in pixels
+     * @param tooltip hover tooltip
+     */
+    private static void styleToolbarCombo(JComboBox<?> combo, int width, String tooltip) {
+        WorkbenchUi.styleCombo(combo);
+        combo.setPreferredSize(new Dimension(width, WorkbenchTheme.CONTROL_HEIGHT));
+        combo.setToolTipText(tooltip);
+    }
+
+    /**
+     * Propagates the atlas-control state to the NNUE view. The other views
+     * ignore atlas controls.
+     */
+    private void propagateAtlasControls() {
+        nnueView.setAtlasSort("magnitude");
+        nnueView.setAtlasCompareData(null);
+        nnueView.setAtlasOverlay(false);
+        nnueView.setAtlasGrid(false, java.util.List.of());
+    }
+
+    /**
+     * One labelled atlas for use by the grid renderer.
+     */
+    static final class NnueAtlasEntry {
+
+        /**
+         * Display label.
+         */
+        final String label;
+
+        /**
+         * Cached atlas snapshot.
+         */
+        final WorkbenchActivationSnapshot atlas;
+
+        NnueAtlasEntry(String label, WorkbenchActivationSnapshot atlas) {
+            this.label = label;
+            this.atlas = atlas;
+        }
+    }
+
+    /**
+     * Returns the network view component for the architecture currently on
+     * screen.
+     *
+     * @return active view component
+     */
+    private JComponent activeView() {
+        return switch (activeCardKey()) {
+            case ARCH_CNN -> cnnView;
+            case ARCH_BT4 -> bt4View;
+            default -> nnueView;
+        };
+    }
+
+    /**
+     * Captures the currently-visible network view as a PNG and writes it next
+     * to the user's last export. The file name embeds the architecture and a
+     * timestamp so consecutive exports don't collide.
+     *
+     * <p>The capture is taken at the view's full preferred size, not the
+     * clipped viewport — so a tall atlas mosaic is exported in full rather
+     * than just the part that happened to be scrolled into view.</p>
+     */
+    private void exportPng() {
+        JComponent target = activeView();
+        java.awt.Dimension original = target.getSize();
+        int w = Math.max(1, Math.max(target.getWidth(), target.getPreferredSize().width));
+        int h = Math.max(1, Math.max(target.getHeight(), target.getPreferredSize().height));
+        try {
+            BufferedImage img = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);
+            java.awt.Graphics2D g = img.createGraphics();
+            try {
+                // Lay the view out at the full capture size, paint, then let
+                // the scroll pane restore it on the next validation pass.
+                target.setSize(w, h);
+                target.doLayout();
+                target.paint(g);
+            } finally {
+                g.dispose();
+                target.setSize(original);
+                target.revalidate();
+                target.repaint();
+            }
+            String stamp = LocalDateTime.now().format(
+                    DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss"));
+            String archKey = (String) archCombo.getSelectedItem();
+            String arch = archKey == null ? "nnue" : archKey.replaceAll("\\W+", "_");
+            File dir = new File(WorkbenchPrefs.exportDir());
+            if (!dir.exists()) {
+                dir.mkdirs();
+            }
+            File out = new File(dir, "workbench-" + arch + "-" + stamp + ".png");
+            ImageIO.write(img, "png", out);
+            statusBadge.success("exported " + out.getName());
+        } catch (IOException ex) {
+            statusBadge.error("export failed: " + ex.getMessage());
+        }
+    }
+
+    /**
+     * Handles an architecture-switcher change. Atlas mode is currently only
+     * meaningful for NNUE, so when the user moves to CNN/BT4 with atlas
+     * selected the segment is greyed out. When the user picks a different
+     * NNUE variant the underlying model is swapped and the now-stale NNUE
+     * snapshot-cache entries are dropped so the new weights are inferred
+     * afresh.
+     */
+    private void onArchitectureChanged() {
+        updateAtlasAvailability();
+        String key = (String) archCombo.getSelectedItem();
+        if (key != null && nnueVariants.containsKey(key)) {
+            Path picked = nnueVariants.get(key);
+            if (picked != null && !picked.equals(provider.nnuePath())) {
+                provider.setNnuePath(picked);
+                // The cached NNUE snapshots belong to the previous weights.
+                snapshotCache.keySet().removeIf(k -> k.startsWith(ARCH_NNUE + "::"));
+                displayedKey = null;
+            }
+        }
+        // Re-apply simplified atlas defaults after an NNUE variant change.
+        propagateAtlasControls();
+        showSelected();
+        // Make sure the now-visible card reflects the current position —
+        // an instant cache hit when it has been seen before, otherwise a
+        // debounced single-architecture inference.
+        requestActiveInference();
+    }
+
+    /**
+     * Returns true when the current architecture supports atlas mode.
+     *
+     * @return atlas supported flag
+     */
+    private boolean isAtlasSupported() {
+        return true;
+    }
+
+    /**
+     * Keeps the Atlas segment enabled. All architectures now have a dedicated
+     * atlas renderer.
+     */
+    private void updateAtlasAvailability() {
+        boolean atlasSupported = isAtlasSupported();
+        if (!atlasSupported && viewMode.getSelectedIndex() == MODE_ATLAS) {
+            viewMode.setSelectedIndex(0);
+        }
+        viewMode.setSegmentEnabled(MODE_ATLAS, atlasSupported);
+    }
+
+    /**
+     * Shows the architecture selected by the combo box. All NNUE-variant
+     * entries map back to the same NNUE card; only CNN/BT4 swap to their
+     * own cards.
      */
     private void showSelected() {
         String key = (String) archCombo.getSelectedItem();
         if (key == null) {
             key = ARCH_NNUE;
         }
-        cards.show(cardPanel, key);
-        propagateDetailed();
+        String cardKey = ARCH_NNUE;
+        if (ARCH_CNN.equals(key)) {
+            cardKey = ARCH_CNN;
+        } else if (ARCH_BT4.equals(key)) {
+            cardKey = ARCH_BT4;
+        }
+        cards.show(cardPanel, cardKey);
+        propagateViewMode();
         refreshStatusBadge();
     }
 
     /**
-     * Refreshes the per-architecture status badge.
+     * Refreshes the per-architecture status badge with the provider's current
+     * load state for the active architecture.
      */
     private void refreshStatusBadge() {
         String key = (String) archCombo.getSelectedItem();
         if (key == null) {
-            statusBadge.setText("");
+            statusBadge.idle("");
             return;
         }
-        String statusKey = switch (key) {
-            case ARCH_CNN -> "cnn";
-            case ARCH_BT4 -> "bt4";
-            default -> "nnue";
-        };
-        statusBadge.setText(key + ": " + provider.statusFor(statusKey));
+        String statusKey;
+        if (ARCH_CNN.equals(key)) {
+            statusKey = "cnn";
+        } else if (ARCH_BT4.equals(key)) {
+            statusKey = "bt4";
+        } else {
+            statusKey = "nnue";
+        }
+        String status = provider.statusFor(statusKey);
+        String message = key + ": " + status;
+        // "real inference" is the healthy state; anything mentioning an error
+        // or a synthetic fallback is worth flagging more loudly.
+        if (status.startsWith("real")) {
+            statusBadge.success(message);
+        } else {
+            statusBadge.idle(message);
+        }
     }
 
     /**
-     * Propagates the detailed-view toggle state to every view.
+     * Scans {@code models/} for NNUE network files. Each file becomes a
+     * separate architecture entry like "NNUE — nn-3c0aa92af1da-big".
+     * The default {@link WorkbenchRealActivations#NNUE_PATH symlink} is
+     * intentionally excluded; the variants displayed are the underlying
+     * files the user can pick.
+     *
+     * @return ordered display-label → path map
      */
-    private void propagateDetailed() {
-        boolean d = detailedToggle.isSelected();
-        nnueView.setDetailed(d);
-        cnnView.setDetailed(d);
-        bt4View.setDetailed(d);
+    private static Map<String, Path> discoverNnueVariants() {
+        Map<String, Path> out = new LinkedHashMap<>();
+        Path dir = Path.of("models");
+        if (!Files.isDirectory(dir)) {
+            return out;
+        }
+        try (Stream<Path> stream = Files.list(dir)) {
+            List<Path> sorted = new ArrayList<>();
+            stream.filter(p -> p.getFileName().toString().endsWith(".nnue"))
+                    .forEach(sorted::add);
+            Collections.sort(sorted);
+            for (Path p : sorted) {
+                if (p.getFileName().toString().equals("crtk-halfkp.nnue")) {
+                    // Skip the default symlink; it's surfaced as the base
+                    // "NNUE" entry below.
+                    continue;
+                }
+                out.put(labelFor(p), p);
+            }
+        } catch (IOException ex) {
+            // Empty discovery — fall back to the single default NNUE entry.
+            return out;
+        }
+        return out;
+    }
+
+    /**
+     * Builds the architecture-combo options array: the default NNUE entry,
+     * any discovered NNUE variants, then CNN and BT4.
+     *
+     * @param variants discovered NNUE variants
+     * @return combo option labels
+     */
+    private static String[] buildArchOptions(Map<String, Path> variants) {
+        List<String> out = new ArrayList<>();
+        out.add(ARCH_NNUE);
+        out.addAll(variants.keySet());
+        out.add(ARCH_CNN);
+        out.add(ARCH_BT4);
+        return out.toArray(new String[0]);
+    }
+
+    /**
+     * Returns the display label for an NNUE file path.
+     *
+     * @param path nnue file path
+     * @return human-friendly label
+     */
+    private static String labelFor(Path path) {
+        String name = path.getFileName().toString();
+        if (name.endsWith(".nnue")) {
+            name = name.substring(0, name.length() - 5);
+        }
+        return "NNUE — " + name;
+    }
+
+    /**
+     * Propagates the current view-mode selection to every view. The mode is a
+     * single {@link WorkbenchViewMode} value, so the views can no longer end
+     * up in an inconsistent combination of flags.
+     */
+    private void propagateViewMode() {
+        int index = viewMode.getSelectedIndex();
+        WorkbenchViewMode mode = selectedViewMode();
+        nnueView.setViewMode(mode);
+        cnnView.setViewMode(mode);
+        bt4View.setViewMode(mode);
+        // The Atlas sub-controls only do anything in Atlas mode — grey them
+        // out elsewhere so the toolbar shows what is actually live.
+        updateAtlasAvailability();
         cardPanel.revalidate();
         cardPanel.repaint();
     }
 
     /**
-     * Propagates the fixed-scale toggle state to every view. Views may use
-     * it to pin heatmap scales across position changes.
+     * Returns the rendering mode selected by the simplified toolbar.
+     *
+     * @return selected mode
      */
-    private void propagateFixedScale() {
-        boolean f = fixedScaleToggle.isSelected();
-        nnueView.setFixedScale(f);
-        cnnView.setFixedScale(f);
-        bt4View.setFixedScale(f);
+    private WorkbenchViewMode selectedViewMode() {
+        return switch (viewMode.getSelectedIndex()) {
+            case 1 -> WorkbenchViewMode.DETAILED;
+            case MODE_RAW -> WorkbenchViewMode.RAW;
+            case MODE_ATLAS -> WorkbenchViewMode.ATLAS;
+            default -> WorkbenchViewMode.ABSTRACT;
+        };
+    }
+
+    /**
+     * Applies the fixed-scale flag to every view. The simplified UI keeps this
+     * off so heatmaps adapt naturally to the current position.
+     *
+     * @param fixed true to pin scales
+     */
+    private void applyFixedScale(boolean fixed) {
+        nnueView.setFixedScale(fixed);
+        cnnView.setFixedScale(fixed);
+        bt4View.setFixedScale(fixed);
         cardPanel.repaint();
     }
 
     /**
-     * Propagates the raw-view toggle state to every view. When raw is on
-     * the view paints a single dense grid of every heatmap it can show
-     * for the current snapshot, overriding the abstract/detailed split.
+     * Starts a Network-tab PUCT search and streams the current leaf into the
+     * active network view.
      */
-    private void propagateRaw() {
-        boolean r = rawToggle.isSelected();
-        bt4View.setRaw(r);
-        cardPanel.repaint();
-    }
-
-    /**
-     * Spawns a SwingWorker that fills the snapshots for the pending FEN and
-     * pushes them back to the views on completion.
-     */
-    private void startInference() {
-        final String fen = pendingFen;
-        pendingFen = null;
-        if (fen == null) {
+    private void startNetworkMcts() {
+        stopNetworkMcts(false);
+        cancelPendingInference();
+        Position root;
+        try {
+            String fen = baseFen();
+            if (fen == null || fen.isBlank()) {
+                throw new IllegalArgumentException("no position is loaded");
+            }
+            root = new Position(fen);
+        } catch (IllegalArgumentException ex) {
+            mctsStatusBadge.error("MCTS: " + ex.getMessage());
             return;
         }
-        if (inferenceWorker != null && !inferenceWorker.isDone()) {
-            // A worker is in flight; let it finish, then re-fire if a newer
-            // FEN arrived in the meantime.
-            pendingFen = fen;
-            return;
-        }
-        statusBadge.setText("running inference...");
-        inferenceWorker = new SwingWorker<>() {
+        int budget = ((Number) mctsVisitsSpinner.getValue()).intValue();
+        long maxMillis = ((Number) mctsMillisSpinner.getValue()).longValue();
+        double cpuct = ((Number) mctsCpuctSpinner.getValue()).doubleValue();
+        mctsPaused = false;
+        mctsFollowLeafToggle.setSelected(true);
+        mctsSearch = new WorkbenchMctsSearch(root, cpuct);
+        final WorkbenchMctsSearch search = mctsSearch;
+        mctsLeafFen = root.toString();
+        updateNetworkMctsButtons(true);
+        SwingWorker<Void, Void> activeWorker = new SwingWorker<>() {
             @Override
-            protected Void doInBackground() {
-                provider.fillNnue(fen, nnueSnap);
-                provider.fillCnn(fen, cnnSnap);
-                provider.fillBt4(fen, bt4Snap);
+            protected Void doInBackground() throws Exception {
+                streamNetworkMctsFrame(search.snapshot(false), true);
+                while (!isCancelled() && search.shouldContinue(budget, maxMillis)) {
+                    if (mctsPaused) {
+                        streamNetworkMctsFrame(search.snapshot(true), true);
+                        Thread.sleep(80L);
+                        continue;
+                    }
+                    search.iterate();
+                    streamNetworkMctsFrame(search.snapshot(false), true);
+                }
+                streamNetworkMctsFrame(search.snapshot(mctsPaused), false);
                 return null;
             }
 
             @Override
             protected void done() {
-                nnueView.setSnapshot(nnueSnap);
-                cnnView.setSnapshot(cnnSnap);
-                bt4View.setSnapshot(bt4Snap);
-                nnueView.setFen(fen);
-                cnnView.setFen(fen);
-                bt4View.setFen(fen);
-                nnueView.setVersionLabel(provider.nnueVersionLabel());
-                refreshStatusBadge();
+                if (mctsWorker != this || mctsSearch != search) {
+                    return;
+                }
+                updateNetworkMctsButtons(false);
+                try {
+                    get();
+                } catch (CancellationException ex) {
+                    // stop button already restored the toolbar state
+                } catch (InterruptedException ex) {
+                    Thread.currentThread().interrupt();
+                } catch (ExecutionException ex) {
+                    Throwable cause = ex.getCause() != null ? ex.getCause() : ex;
+                    mctsStatusBadge.error("MCTS failed: "
+                            + cause.getClass().getSimpleName() + ": " + cause.getMessage());
+                }
+                if (!isCancelled()) {
+                    showNetworkMctsSnapshot(search.snapshot(mctsPaused), false);
+                }
+                search.close();
+            }
+        };
+        mctsWorker = activeWorker;
+        activeWorker.execute();
+    }
+
+    /**
+     * Streams one MCTS frame all the way through the visualizer before the
+     * worker advances to the next playout.
+     *
+     * @param snapshot tree snapshot to show
+     * @param running true while the worker should be considered active
+     * @throws InterruptedException if the worker is interrupted
+     * @throws InvocationTargetException if the EDT update fails
+     */
+    private void streamNetworkMctsFrame(WorkbenchMctsSearch.Snapshot snapshot,
+            boolean running) throws InterruptedException, InvocationTargetException {
+        if (snapshot == null) {
+            return;
+        }
+        String cardKey = activeCardKeyOnEdt();
+        boolean followLeaf = mctsFollowLeafSelectedOnEdt();
+        String leafFen = snapshot.exploringPosition() == null
+                ? null
+                : snapshot.exploringPosition().toString();
+        WorkbenchActivationSnapshot activation = null;
+        if (followLeaf && leafFen != null && !leafFen.isBlank()) {
+            String key = cacheKey(cardKey, leafFen);
+            activation = cachedSnapshotOnEdt(key);
+            if (activation == null) {
+                activation = inferSnapshot(cardKey, leafFen);
+            }
+        }
+        if (Thread.currentThread().isInterrupted()) {
+            throw new InterruptedException();
+        }
+        WorkbenchActivationSnapshot frameActivation = activation;
+        String frameCardKey = cardKey;
+        String frameFen = leafFen;
+        SwingUtilities.invokeAndWait(() -> {
+            if (frameActivation != null && frameFen != null && !frameFen.isBlank()) {
+                snapshotCache.put(cacheKey(frameCardKey, frameFen), frameActivation);
+            }
+            showNetworkMctsSnapshot(snapshot, running, frameCardKey, frameFen, frameActivation);
+            paintNetworkMctsFrameImmediately();
+        });
+        Thread.sleep(MCTS_FRAME_DELAY_MS);
+    }
+
+    /**
+     * Reads the active card key on the EDT.
+     *
+     * @return active card key
+     * @throws InterruptedException if interrupted
+     * @throws InvocationTargetException if the EDT read fails
+     */
+    private String activeCardKeyOnEdt()
+            throws InterruptedException, InvocationTargetException {
+        if (SwingUtilities.isEventDispatchThread()) {
+            return activeCardKey();
+        }
+        String[] out = new String[1];
+        SwingUtilities.invokeAndWait(() -> out[0] = activeCardKey());
+        return out[0];
+    }
+
+    /**
+     * Reads the "follow leaf" toggle on the EDT.
+     *
+     * @return true when the Network view should follow the current leaf
+     * @throws InterruptedException if interrupted
+     * @throws InvocationTargetException if the EDT read fails
+     */
+    private boolean mctsFollowLeafSelectedOnEdt()
+            throws InterruptedException, InvocationTargetException {
+        if (SwingUtilities.isEventDispatchThread()) {
+            return mctsFollowLeafToggle.isSelected();
+        }
+        boolean[] out = new boolean[1];
+        SwingUtilities.invokeAndWait(() -> out[0] = mctsFollowLeafToggle.isSelected());
+        return out[0];
+    }
+
+    /**
+     * Looks up a cached activation snapshot on the EDT.
+     *
+     * @param key cache key
+     * @return cached snapshot or null
+     * @throws InterruptedException if interrupted
+     * @throws InvocationTargetException if the EDT read fails
+     */
+    private WorkbenchActivationSnapshot cachedSnapshotOnEdt(String key)
+            throws InterruptedException, InvocationTargetException {
+        if (SwingUtilities.isEventDispatchThread()) {
+            return snapshotCache.get(key);
+        }
+        WorkbenchActivationSnapshot[] out = new WorkbenchActivationSnapshot[1];
+        SwingUtilities.invokeAndWait(() -> out[0] = snapshotCache.get(key));
+        return out[0];
+    }
+
+    /**
+     * Toggles Network-tab MCTS pause state.
+     */
+    private void toggleNetworkMctsPaused() {
+        if (!isNetworkMctsRunning()) {
+            return;
+        }
+        mctsPaused = !mctsPaused;
+        updateNetworkMctsButtons(true);
+        if (mctsSearch != null) {
+            showNetworkMctsSnapshot(mctsSearch.snapshot(mctsPaused), true);
+        }
+    }
+
+    /**
+     * Stops Network-tab MCTS and restores normal network-position following.
+     */
+    private void stopNetworkMcts() {
+        stopNetworkMcts(true);
+    }
+
+    /**
+     * Stops Network-tab MCTS.
+     *
+     * @param restoreBase true to return to the board/canned position
+     */
+    private void stopNetworkMcts(boolean restoreBase) {
+        WorkbenchMctsSearch activeSearch = mctsSearch;
+        if (mctsWorker != null && !mctsWorker.isDone()) {
+            mctsWorker.cancel(true);
+        }
+        mctsWorker = null;
+        mctsSearch = null;
+        mctsPaused = false;
+        if (activeSearch != null) {
+            activeSearch.close();
+        }
+        updateNetworkMctsButtons(false);
+        if (restoreBase) {
+            mctsLeafFen = null;
+            mctsWeightsPanel.clear();
+            mctsStatusBadge.idle("MCTS stopped");
+            revalidate();
+            requestActiveInference();
+        }
+    }
+
+    /**
+     * Returns whether Network-tab MCTS is actively running.
+     *
+     * @return true when running
+     */
+    private boolean isNetworkMctsRunning() {
+        return mctsWorker != null && !mctsWorker.isDone();
+    }
+
+    /**
+     * Applies a Network-tab MCTS snapshot to the toolbar and network FEN.
+     *
+     * @param snapshot search snapshot
+     * @param running true while the worker is expected to keep running
+     */
+    private void showNetworkMctsSnapshot(WorkbenchMctsSearch.Snapshot snapshot, boolean running) {
+        showNetworkMctsSnapshot(snapshot, running, null, null, null);
+    }
+
+    /**
+     * Applies a Network-tab MCTS snapshot plus an optional precomputed
+     * activation snapshot. Used by the step-by-step streamer so the MCTS edge
+     * weights and the active network view change as one frame.
+     *
+     * @param snapshot search snapshot
+     * @param running true while the worker is expected to keep running
+     * @param activationCardKey card key for activationSnapshot
+     * @param activationFen FEN for activationSnapshot
+     * @param activationSnapshot precomputed activation snapshot, or null
+     */
+    private void showNetworkMctsSnapshot(WorkbenchMctsSearch.Snapshot snapshot,
+            boolean running, String activationCardKey, String activationFen,
+            WorkbenchActivationSnapshot activationSnapshot) {
+        if (snapshot == null) {
+            return;
+        }
+        mctsWeightsPanel.setSnapshot(snapshot);
+        revalidate();
+        if (mctsFollowLeafToggle.isSelected() && snapshot.exploringPosition() != null) {
+            String fen = snapshot.exploringPosition().toString();
+            boolean changed = !fen.equals(mctsLeafFen);
+            mctsLeafFen = fen;
+            boolean applied = false;
+            if (activationSnapshot != null
+                    && activationCardKey != null
+                    && activationCardKey.equals(activeCardKey())
+                    && fen.equals(activationFen)) {
+                applySnapshot(activationCardKey, fen, activationSnapshot);
+                applied = true;
+            }
+            if (changed && !applied) {
+                requestActiveInference();
+            }
+        }
+        String leaf = snapshot.exploringLineText();
+        if (leaf == null || leaf.isBlank()) {
+            leaf = "root";
+        }
+        String best = snapshot.bestMove() == Move.NO_MOVE ? "-" : Move.toString(snapshot.bestMove());
+        String message = String.format("MCTS %,d visits · root %s · best %s · leaf %s",
+                snapshot.playouts(),
+                snapshot.rootScoreLabel(),
+                best,
+                WorkbenchUi.elide(leaf, getFontMetrics(WorkbenchTheme.font(11, java.awt.Font.PLAIN)), 190));
+        if (snapshot.paused()) {
+            mctsStatusBadge.idle("paused · " + message);
+        } else if (running || isNetworkMctsRunning()) {
+            mctsStatusBadge.busy(message);
+        } else {
+            mctsStatusBadge.success("done · " + message);
+        }
+    }
+
+    /**
+     * Reacts to the "Follow leaf" switch.
+     */
+    private void onMctsFollowLeafChanged() {
+        if (!mctsFollowLeafToggle.isSelected()) {
+            mctsLeafFen = null;
+            requestActiveInference();
+            return;
+        }
+        if (mctsSearch != null) {
+            showNetworkMctsSnapshot(mctsSearch.snapshot(mctsPaused), isNetworkMctsRunning());
+        }
+    }
+
+    /**
+     * Updates Network-tab MCTS button state.
+     *
+     * @param running true when a worker is active
+     */
+    private void updateNetworkMctsButtons(boolean running) {
+        mctsStartButton.setEnabled(!running);
+        mctsPauseButton.setEnabled(running);
+        mctsStopButton.setEnabled(running);
+        mctsPauseButton.setText(mctsPaused ? "Resume" : "Pause");
+    }
+
+    /**
+     * Cancels any debounced/asynchronous inference before the step-by-step
+     * MCTS streamer takes over the active network view.
+     */
+    private void cancelPendingInference() {
+        debounceTimer.stop();
+        pendingArch = null;
+        pendingFen = null;
+        if (inferenceWorker != null && !inferenceWorker.isDone()) {
+            inferenceWorker.cancel(true);
+        }
+    }
+
+    /**
+     * Runs one forward pass for a card key.
+     *
+     * @param cardKey architecture card
+     * @param fen FEN to infer
+     * @return sealed activation snapshot
+     */
+    private WorkbenchActivationSnapshot inferSnapshot(String cardKey, String fen) {
+        return switch (cardKey) {
+            case ARCH_CNN -> provider.inferCnn(fen);
+            case ARCH_BT4 -> provider.inferBt4(fen);
+            default -> provider.inferNnue(fen);
+        };
+    }
+
+    /**
+     * Forces the current MCTS/network frame to paint while the worker waits.
+     */
+    private void paintNetworkMctsFrameImmediately() {
+        mctsWeightsPanel.paintImmediately(mctsWeightsPanel.getVisibleRect());
+        JComponent view = activeView();
+        view.paintImmediately(view.getVisibleRect());
+        cardPanel.paintImmediately(cardPanel.getVisibleRect());
+    }
+
+    /**
+     * Spawns a SwingWorker that runs one forward pass for the pending
+     * (architecture, FEN) pair off the EDT and publishes the resulting sealed
+     * snapshot on completion.
+     *
+     * <p>Only the pending architecture is inferred. The snapshot the worker
+     * builds is freshly allocated and sealed by the provider, so nothing the
+     * worker touches is shared with the EDT — the previous fix re-filled
+     * snapshot objects the views were still painting.</p>
+     */
+    private void startInference() {
+        final String fen = pendingFen;
+        final String cardKey = pendingArch;
+        pendingFen = null;
+        pendingArch = null;
+        if (fen == null || cardKey == null) {
+            return;
+        }
+        if (inferenceWorker != null && !inferenceWorker.isDone()) {
+            // A worker is in flight; let it finish, then re-fire for whatever
+            // the latest request was.
+            pendingFen = fen;
+            pendingArch = cardKey;
+            return;
+        }
+        String key = cacheKey(cardKey, fen);
+        WorkbenchActivationSnapshot cached = snapshotCache.get(key);
+        if (cached != null) {
+            applySnapshot(cardKey, fen, cached);
+            refreshStatusBadge();
+            return;
+        }
+        statusBadge.busy("running inference…");
+        inferenceWorker = new SwingWorker<>() {
+            @Override
+            protected WorkbenchActivationSnapshot doInBackground() {
+                return inferSnapshot(cardKey, fen);
+            }
+
+            @Override
+            protected void done() {
                 inferenceWorker = null;
+                boolean failed = false;
+                try {
+                    WorkbenchActivationSnapshot snapshot = get();
+                    snapshotCache.put(key, snapshot);
+                    if (cardKey.equals(activeCardKey()) && fen.equals(effectiveFen())) {
+                        applySnapshot(cardKey, fen, snapshot);
+                    }
+                } catch (CancellationException ex) {
+                    failed = true;
+                } catch (InterruptedException ex) {
+                    Thread.currentThread().interrupt();
+                } catch (ExecutionException ex) {
+                    Throwable cause = ex.getCause() != null ? ex.getCause() : ex;
+                    statusBadge.error("inference failed: "
+                            + cause.getClass().getSimpleName() + ": " + cause.getMessage());
+                    failed = true;
+                }
+                // Keep the error message visible; otherwise show the
+                // provider's healthy load state.
+                if (!failed) {
+                    refreshStatusBadge();
+                }
                 if (pendingFen != null) {
                     SwingUtilities.invokeLater(WorkbenchNetworkPanel.this::startInference);
+                } else if (displayedKey == null
+                        || !displayedKey.equals(cacheKey(activeCardKey(), effectiveFen()))) {
+                    requestActiveInference();
                 }
             }
         };
         inferenceWorker.execute();
+    }
+
+    /**
+     * Publishes a sealed snapshot to the view that owns the given card key.
+     * Only the matching view is touched — the other two keep whatever they
+     * last displayed until the user switches to them and triggers their own
+     * (cached or fresh) inference.
+     *
+     * @param cardKey {@link #ARCH_NNUE} / {@link #ARCH_CNN} / {@link #ARCH_BT4}
+     * @param fen FEN the snapshot was produced for
+     * @param snapshot sealed activation snapshot
+     */
+    private void applySnapshot(String cardKey, String fen,
+            WorkbenchActivationSnapshot snapshot) {
+        switch (cardKey) {
+            case ARCH_CNN -> {
+                cnnView.setSnapshot(snapshot);
+                cnnView.setFen(fen);
+            }
+            case ARCH_BT4 -> {
+                bt4View.setSnapshot(snapshot);
+                bt4View.setFen(fen);
+            }
+            default -> {
+                nnueView.setSnapshot(snapshot);
+                nnueView.setFen(fen);
+                nnueView.setVersionLabel(provider.nnueVersionLabel());
+            }
+        }
+        if (cardKey.equals(activeCardKey())) {
+            displayedKey = cacheKey(cardKey, fen);
+        }
     }
 }

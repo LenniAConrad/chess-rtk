@@ -31,7 +31,7 @@ Compact ChessRTK `.bin` files use this filename convention:
 
 | Local file | Architecture | Source |
 | --- | --- | --- |
-| `crtk-halfkp.nnue` | Local default for `engine builtin --nnue`; currently installed from the official Stockfish big NNUE `nn-f68ec79f0fe3.nnue` | [Download](https://github.com/LenniAConrad/chess-models/blob/main/models/nn-f68ec79f0fe3.nnue) |
+| `crtk-halfkp.nnue` | Local default for `engine builtin --nnue`; currently installed from the official Stockfish big NNUE `nn-fcf986aea78a.nnue` | [Download](https://tests.stockfishchess.org/api/nn/nn-fcf986aea78a.nnue) |
 | `leela_112planes-30blocksx384-policyhead80-valuehead32-policy4672-wdl3.bin` | 112 input planes, 30 residual blocks x 384 channels, 80-channel policy head, 32-channel value head, 4672 policy logits, 3 WDL outputs | [Download](https://github.com/LenniAConrad/chess-models/blob/main/models/lc0_610153.bin) |
 | `leela_112planes-10blocksx128-policyhead80-valuehead32-policy4672-wdl3.bin` | 112 input planes, 10 residual blocks x 128 channels, 80-channel policy head, 32-channel value head, 4672 policy logits, 3 WDL outputs | [Download](https://github.com/LenniAConrad/chess-models/blob/main/models/lc0_744706.bin) |
 | `BT4-1024x15x32h-swa-6147500-policytune-332.pb.gz` | Official LCZero BT4 transformer network, 1024 embedding size, 15 encoder blocks, 32 attention heads, LC0 protobuf gzip format; SHA-256 `e6ada9d6c4a769bfab3aa0848d82caeb809aa45f83e6c605fc58a31d21bdd618` | [Download](https://storage.lczero.org/files/networks-contrib/BT4-1024x15x32h-swa-6147500-policytune-332.pb.gz) |

@@ -26,6 +26,12 @@ public final class BookPdfSupport {
 	 */
 	@FunctionalInterface
 	public interface PathWriter {
+		/**
+		 * Writes a PDF artifact to the supplied path.
+		 *
+		 * @param path output path
+		 * @throws IOException if writing fails
+		 */
 		void write(Path path) throws IOException;
 	}
 
@@ -34,6 +40,12 @@ public final class BookPdfSupport {
 	 */
 	@FunctionalInterface
 	public interface PathConsumer {
+		/**
+		 * Consumes a path while allowing checked I/O failures.
+		 *
+		 * @param path path to consume
+		 * @throws IOException if the consumer fails
+		 */
 		void accept(Path path) throws IOException;
 	}
 

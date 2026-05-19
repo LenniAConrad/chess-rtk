@@ -82,6 +82,9 @@ final class WorkbenchToast {
         ERROR
     }
 
+    /**
+     * Utility class; prevents instantiation.
+     */
     private WorkbenchToast() {
         // utility
     }
@@ -257,6 +260,12 @@ final class WorkbenchToast {
         }
     }
 
+    /**
+     * Returns the background color for a toast kind.
+     *
+     * @param kind toast kind
+     * @return background color
+     */
     private static Color backgroundColor(Kind kind) {
         return switch (kind) {
             case SUCCESS -> WorkbenchTheme.STATUS_SUCCESS_BG;
@@ -266,6 +275,12 @@ final class WorkbenchToast {
         };
     }
 
+    /**
+     * Returns the border color for a toast kind.
+     *
+     * @param kind toast kind
+     * @return border color
+     */
     private static Color borderColor(Kind kind) {
         return switch (kind) {
             case SUCCESS -> WorkbenchTheme.STATUS_SUCCESS_BORDER;
@@ -275,6 +290,12 @@ final class WorkbenchToast {
         };
     }
 
+    /**
+     * Returns the text color for a toast kind.
+     *
+     * @param kind toast kind
+     * @return text color
+     */
     private static Color textColor(Kind kind) {
         return switch (kind) {
             case SUCCESS -> WorkbenchTheme.STATUS_SUCCESS_TEXT;

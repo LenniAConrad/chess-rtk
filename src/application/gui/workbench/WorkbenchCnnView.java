@@ -1,18 +1,12 @@
 package application.gui.workbench;
 
 import java.awt.Color;
-import java.awt.Dimension;
 import java.awt.Font;
-import java.awt.Graphics;
+import java.awt.FontMetrics;
 import java.awt.Graphics2D;
 import java.awt.Rectangle;
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
 import java.util.ArrayList;
 import java.util.List;
-
-import javax.swing.JComponent;
-import javax.swing.ToolTipManager;
 
 /**
  * Workbench panel that visualises an LC0 CNN forward pass.
@@ -22,33 +16,19 @@ import javax.swing.ToolTipManager;
  * mini board. Detailed mode shows per-block channel statistics, lets the user
  * click any block to inspect its channel grid, and shows the policy/value
  * heads as a small pipeline of cards.</p>
+ *
+ * <p>All the shared scaffolding — snapshot/fen/mode plumbing, the paint
+ * skeleton, the fixed-scale colour helpers and the hit-region registry — lives
+ * in {@link WorkbenchNetworkView}; this class only owns the CNN-specific
+ * drawing. Atlas mode is a curated layer/channel fingerprint, while raw mode
+ * remains the dense every-channel mosaic.</p>
  */
-final class WorkbenchCnnView extends JComponent {
+final class WorkbenchCnnView extends WorkbenchNetworkView {
 
     /**
      * Serialization identifier for Swing component compatibility.
      */
     private static final long serialVersionUID = 1L;
-
-    /**
-     * Outer panel padding.
-     */
-    private static final int PAD = 12;
-
-    /**
-     * Latest snapshot or null.
-     */
-    private WorkbenchActivationSnapshot snapshot;
-
-    /**
-     * Current position FEN.
-     */
-    private String fen;
-
-    /**
-     * Detailed-mode flag.
-     */
-    private boolean detailed;
 
     /**
      * Cached layer summaries built during snapshot updates.
@@ -71,195 +51,27 @@ final class WorkbenchCnnView extends JComponent {
     private final List<Integer> cellLayerIndices = new ArrayList<>();
 
     /**
-     * Hover + click region registry, rebuilt every paint pass.
-     */
-    private final WorkbenchHitRegions hitRegions = new WorkbenchHitRegions();
-
-    /**
-     * Shared inspector panel; null until wired by the host.
-     */
-    private WorkbenchInspectorPanel inspector;
-
-    /**
-     * Whether to pin colour scales across position changes.
-     */
-    private boolean fixedScale;
-
-    /**
-     * Per-bucket pinned heatmap scales. Used while {@link #fixedScale} is on
-     * so colour ranges stay comparable across position changes.
-     */
-    private final java.util.Map<String, Float> pinnedScales = new java.util.HashMap<>();
-
-    /**
      * Creates the CNN view.
      */
     WorkbenchCnnView() {
-        setOpaque(true);
-        setBackground(WorkbenchTheme.BG);
-        setPreferredSize(new Dimension(720, 540));
-        ToolTipManager.sharedInstance().registerComponent(this);
-        addMouseListener(new MouseAdapter() {
-            @Override
-            public void mousePressed(MouseEvent event) {
-                handleClick(event.getX(), event.getY());
-            }
-        });
+        super(720, 540);
     }
 
     /**
-     * Returns the hover-tooltip text for the hit region under the cursor.
-     *
-     * @param event mouse event
-     * @return HTML tooltip text or null
+     * Rebuilds the cached layer list whenever a new snapshot arrives.
      */
     @Override
-    public String getToolTipText(MouseEvent event) {
-        WorkbenchHitRegions.Region r = hitRegions.hitTest(event.getX(), event.getY());
-        return r == null ? null : r.tooltipHtml();
-    }
-
-    /**
-     * Wires the shared inspector panel.
-     *
-     * @param panel inspector (may be null)
-     */
-    void setInspector(WorkbenchInspectorPanel panel) {
-        this.inspector = panel;
-    }
-
-    /**
-     * Sets the fixed-scale flag. Resets pinned heatmap scales when the
-     * toggle flips so the next snapshot starts a fresh baseline.
-     *
-     * @param value true to pin heatmap scales
-     */
-    void setFixedScale(boolean value) {
-        if (this.fixedScale != value) {
-            this.fixedScale = value;
-            pinnedScales.clear();
-            repaint();
-        }
-    }
-
-    /**
-     * Returns the colour-scale for a heatmap bucket. With fixed-scale off
-     * the bucket is cleared and the dynamic max is returned; with fixed-scale
-     * on the bucket's pinned scale grows monotonically across position
-     * changes so heatmaps stay comparable.
-     *
-     * @param key bucket key
-     * @param dynamicMax max-abs of the current snapshot data
-     * @return scale (always &gt; 0)
-     */
-    private float scaleFor(String key, float dynamicMax) {
-        float dm = dynamicMax <= 0.0f ? 1.0f : dynamicMax;
-        if (!fixedScale) {
-            pinnedScales.remove(key);
-            return dm;
-        }
-        Float pinned = pinnedScales.get(key);
-        float merged = pinned == null ? dm : Math.max(pinned, dm);
-        pinnedScales.put(key, merged);
-        return merged;
-    }
-
-    /**
-     * Returns the max-abs value in a float array, or 0 when empty.
-     *
-     * @param data values
-     * @return max absolute value
-     */
-    private static float maxAbs(float[] data) {
-        float m = 0.0f;
-        if (data != null) {
-            for (float v : data) {
-                float a = Math.abs(v);
-                if (a > m) {
-                    m = a;
-                }
-            }
-        }
-        return m;
-    }
-
-    /**
-     * Sets the activation snapshot.
-     *
-     * @param newSnapshot snapshot (may be null)
-     */
-    void setSnapshot(WorkbenchActivationSnapshot newSnapshot) {
-        this.snapshot = newSnapshot;
+    protected void onSnapshotChanged() {
         rebuildLayers();
-        repaint();
     }
 
     /**
-     * Sets the current FEN for mini-board piece rendering.
-     *
-     * @param newFen position FEN
-     */
-    void setFen(String newFen) {
-        this.fen = newFen;
-        repaint();
-    }
-
-    /**
-     * Sets the detailed-mode flag.
-     *
-     * @param value true for detailed
-     */
-    void setDetailed(boolean value) {
-        if (detailed != value) {
-            detailed = value;
-            cellHitBoxes.clear();
-            cellLayerIndices.clear();
-            invalidate();
-            revalidate();
-            repaint();
-        }
-    }
-
-    /**
-     * Returns the detailed-mode flag.
-     *
-     * @return true when detailed
-     */
-    boolean isDetailed() {
-        return detailed;
-    }
-
-    /**
-     * Paints the panel.
-     *
-     * @param graphics graphics
+     * Clears the detailed-mode hit-box caches when the view mode changes.
      */
     @Override
-    protected void paintComponent(Graphics graphics) {
-        super.paintComponent(graphics);
-        if (isOpaque()) {
-            graphics.setColor(getBackground());
-            graphics.fillRect(0, 0, getWidth(), getHeight());
-        }
-        hitRegions.clear();
-        Graphics2D g = (Graphics2D) graphics.create();
-        try {
-            WorkbenchTensorViz.useHighQuality(g);
-            Rectangle bounds = new Rectangle(0, 0, getWidth(), getHeight());
-            if (snapshot == null || snapshot.isEmpty()) {
-                paintEmpty(g, bounds);
-                return;
-            }
-            paintHeader(g, bounds);
-            Rectangle body = new Rectangle(PAD, 64, getWidth() - 2 * PAD, getHeight() - 64 - PAD);
-            if (detailed) {
-                paintDetailed(g, body);
-            } else {
-                paintAbstract(g, body);
-            }
-        } finally {
-            g.dispose();
-        }
+    protected void onViewModeChanged() {
+        cellHitBoxes.clear();
+        cellLayerIndices.clear();
     }
 
     /**
@@ -268,8 +80,9 @@ final class WorkbenchCnnView extends JComponent {
      * @param x x
      * @param y y
      */
-    private void handleClick(int x, int y) {
-        if (detailed) {
+    @Override
+    protected void onClick(int x, int y) {
+        if (isDetailed()) {
             for (int i = 0; i < cellHitBoxes.size(); ++i) {
                 if (cellHitBoxes.get(i).contains(x, y)) {
                     selectedLayer = cellLayerIndices.get(i);
@@ -295,7 +108,8 @@ final class WorkbenchCnnView extends JComponent {
      * @param g graphics
      * @param bounds bounds
      */
-    private void paintEmpty(Graphics2D g, Rectangle bounds) {
+    @Override
+    protected void paintEmpty(Graphics2D g, Rectangle bounds) {
         g.setColor(WorkbenchTheme.BG);
         g.fillRect(bounds.x, bounds.y, bounds.width, bounds.height);
         g.setColor(WorkbenchTheme.MUTED);
@@ -304,12 +118,58 @@ final class WorkbenchCnnView extends JComponent {
     }
 
     /**
+     * Paints the CNN activation atlas.
+     *
+     * @param g graphics context
+     * @param body atlas bounds
+     */
+    @Override
+    protected void paintAtlas(Graphics2D g, Rectangle body) {
+        cellHitBoxes.clear();
+        cellLayerIndices.clear();
+        WorkbenchTensorViz.drawSectionHeader(g,
+                new Rectangle(body.x, body.y, body.width, 40),
+                "CNN activation atlas",
+                "layer/channel fingerprint · strongest spatial filters · board-level policy/value footprint");
+        if (layers.isEmpty()) {
+            return;
+        }
+        int top = body.y + 50;
+        int h = body.height - 50;
+        int gap = 12;
+        if (body.width < 820) {
+            int part = Math.max(160, (h - 2 * gap) / 3);
+            Rectangle fingerprint = new Rectangle(body.x, top, body.width, part);
+            Rectangle channels = new Rectangle(body.x, fingerprint.y + fingerprint.height + gap,
+                    body.width, part);
+            Rectangle boards = new Rectangle(body.x, channels.y + channels.height + gap,
+                    body.width, Math.max(120, body.y + body.height - (channels.y + channels.height + gap)));
+            paintCnnLayerFingerprint(g, fingerprint);
+            paintCnnTopChannels(g, channels);
+            paintCnnSpatialAtlas(g, boards);
+            return;
+        }
+        int leftW = Math.max(430, Math.min((int) (body.width * 0.56), body.width - 360));
+        Rectangle fingerprint = new Rectangle(body.x, top, leftW, h);
+        int rightX = fingerprint.x + fingerprint.width + gap;
+        int rightW = body.x + body.width - rightX;
+        int topH = Math.max(220, Math.min((int) (h * 0.52), 320));
+        Rectangle channels = new Rectangle(rightX, top, rightW, topH);
+        Rectangle boards = new Rectangle(rightX, channels.y + channels.height + gap,
+                rightW, Math.max(140, body.y + body.height - (channels.y + channels.height + gap)));
+        paintCnnLayerFingerprint(g, fingerprint);
+        paintCnnTopChannels(g, channels);
+        paintCnnSpatialAtlas(g, boards);
+    }
+
+    /**
      * Paints the title header.
      *
      * @param g graphics
      * @param bounds bounds
      */
-    private void paintHeader(Graphics2D g, Rectangle bounds) {
+    @Override
+    protected void paintHeader(Graphics2D g, Rectangle bounds) {
         float[] wdl = snapshot.data("cnn.value.wdl");
         float[] scalar = snapshot.data("cnn.value.scalar");
         float v = scalar == null ? 0.0f : scalar[0];
@@ -336,12 +196,458 @@ final class WorkbenchCnnView extends JComponent {
     }
 
     /**
+     * Paints the raw view: every channel of every spatial 8×8 layer
+     * rendered as a tiny 8×8 heatmap, laid out in a single dense atlas.
+     * Each row is one layer (input planes, stem, residual blocks 1..N,
+     * final feature map) and each column is one channel. Per-layer colour
+     * normalisation keeps every row readable regardless of the layer's
+     * absolute activity, and a sqrt gamma keeps low values visible.
+     * Clicking any cell selects that layer in the detailed view.
+     *
+     * @param g graphics
+     * @param body body rectangle
+     */
+    @Override
+    protected void paintRaw(Graphics2D g, Rectangle body) {
+        int headerH = 38;
+        WorkbenchTensorViz.drawSectionHeader(g,
+                new Rectangle(body.x, body.y, body.width, headerH),
+                "raw channel atlas — every layer × every channel",
+                "rows = layer (input → stem → trunk → final) · cols = channel index · 8×8 mean activity per channel");
+        if (layers.isEmpty()) {
+            return;
+        }
+        // Only spatial 8x8 layers fit the atlas; collect those.
+        java.util.List<LayerInfo> spatial = new java.util.ArrayList<>();
+        for (LayerInfo info : layers) {
+            if (info.shapeDims.length == 3
+                    && info.shapeDims[1] == 8 && info.shapeDims[2] == 8) {
+                spatial.add(info);
+            }
+        }
+        if (spatial.isEmpty()) {
+            g.setColor(WorkbenchTheme.MUTED);
+            g.setFont(WorkbenchTheme.font(12, Font.PLAIN));
+            g.drawString("No spatial layers in this snapshot.",
+                    body.x + 12, body.y + headerH + 30);
+            return;
+        }
+        int maxChannels = 0;
+        for (LayerInfo info : spatial) {
+            if (info.shapeDims[0] > maxChannels) {
+                maxChannels = info.shapeDims[0];
+            }
+        }
+        int rowLabelW = 96;
+        int colLabelH = 16;
+        int gridLeft = body.x + rowLabelW;
+        int gridTop = body.y + headerH + 4 + colLabelH;
+        int gridW = body.width - rowLabelW - 8;
+        int gridH = body.height - headerH - 4 - colLabelH - 4;
+        int cellW = Math.max(2, gridW / maxChannels);
+        int cellH = Math.max(8, gridH / spatial.size());
+
+        // Per-layer scale via scaleFor so fixed-scale wiring applies.
+        float[] perLayerScale = new float[spatial.size()];
+        for (int li = 0; li < spatial.size(); ++li) {
+            LayerInfo info = spatial.get(li);
+            float maxAbs = 0.0f;
+            for (float v : info.values) {
+                float a = Math.abs(v);
+                if (a > maxAbs) {
+                    maxAbs = a;
+                }
+            }
+            if (maxAbs <= 0.0f) {
+                maxAbs = 1.0f;
+            }
+            perLayerScale[li] = scaleFor("rawCnnAtlas:" + info.name, maxAbs);
+        }
+
+        // Column header (channel index, sparse to avoid clutter).
+        g.setColor(WorkbenchTheme.MUTED);
+        g.setFont(WorkbenchTheme.font(9, Font.PLAIN));
+        FontMetrics fm = g.getFontMetrics();
+        int step = Math.max(1, maxChannels / 16);
+        for (int c = 0; c < maxChannels; c += step) {
+            String lbl = Integer.toString(c);
+            int lx = gridLeft + c * cellW + (cellW - fm.stringWidth(lbl)) / 2;
+            g.drawString(lbl, lx, body.y + headerH + 4 + colLabelH - 4);
+        }
+
+        for (int li = 0; li < spatial.size(); ++li) {
+            LayerInfo info = spatial.get(li);
+            int channels = info.shapeDims[0];
+            int y = gridTop + li * cellH;
+            // Row label.
+            g.setColor(WorkbenchTheme.MUTED);
+            g.setFont(WorkbenchTheme.font(10, Font.BOLD));
+            g.drawString(info.name, body.x + 4, y + cellH / 2 + 4);
+            g.setFont(WorkbenchTheme.font(9, Font.PLAIN));
+            g.drawString(info.shape, body.x + 4, y + cellH / 2 + 16);
+
+            for (int c = 0; c < channels; ++c) {
+                int x = gridLeft + c * cellW;
+                Rectangle cell = new Rectangle(x + 1, y + 1,
+                        Math.max(1, cellW - 2), Math.max(1, cellH - 2));
+                float[] slice = new float[64];
+                int off = c * 64;
+                if (off + 64 <= info.values.length) {
+                    System.arraycopy(info.values, off, slice, 0, 64);
+                }
+                drawGammaHeatmap(g, cell, slice, 8, 8, perLayerScale[li]);
+                hitRegions.add(new Rectangle(x, y, cellW, cellH),
+                        info.name + " · channel " + c,
+                        "Click to select this layer; turn off Raw view to inspect it in detail.",
+                        String.format("layer scale ±%.3f", perLayerScale[li]));
+            }
+        }
+    }
+
+    /**
+     * Sequential heatmap with a sqrt gamma so low values stay visible.
+     * Mirrors the BT4 raw atlas style — warm amber on a low-alpha base.
+     *
+     * @param g graphics
+     * @param r destination rectangle
+     * @param data flat row-major values
+     * @param cols column count
+     * @param rows row count
+     * @param scale absolute max for the colour ramp
+     */
+    private static void drawGammaHeatmap(Graphics2D g, Rectangle r, float[] data,
+            int cols, int rows, float scale) {
+        if (data == null || cols <= 0 || rows <= 0 || data.length < cols * rows) {
+            return;
+        }
+        if (scale <= 0.0f) {
+            scale = 1.0f;
+        }
+        double cw = r.width / (double) cols;
+        double ch = r.height / (double) rows;
+        Color base = WorkbenchTheme.ACCENT;
+        for (int row = 0; row < rows; ++row) {
+            for (int col = 0; col < cols; ++col) {
+                int cellX = (int) Math.floor(r.x + col * cw);
+                int cellY = (int) Math.floor(r.y + row * ch);
+                int cellW = (int) Math.ceil(cw + 1);
+                int cellH = (int) Math.ceil(ch + 1);
+                float v = Math.abs(data[row * cols + col]) / scale;
+                float gamma = (float) Math.sqrt(Math.min(1.0f, Math.max(0.0f, v)));
+                int alpha = Math.round(255 * gamma);
+                g.setColor(new Color(base.getRed(), base.getGreen(), base.getBlue(), alpha));
+                g.fillRect(cellX, cellY, cellW, cellH);
+            }
+        }
+    }
+
+    /**
+     * Paints a compact layer x channel activation fingerprint. Each row is a
+     * spatial layer and each cell is one channel's RMS activity.
+     *
+     * @param g graphics
+     * @param r rectangle
+     */
+    private void paintCnnLayerFingerprint(Graphics2D g, Rectangle r) {
+        WorkbenchTensorViz.drawSectionHeader(g, new Rectangle(r.x, r.y, r.width, 38),
+                "layer × channel fingerprint",
+                "bright cells are the channels carrying the most signal now; pale cells are low-signal background");
+        List<LayerInfo> spatial = spatialLayers();
+        if (spatial.isEmpty()) {
+            return;
+        }
+        int rowLabelW = 64;
+        int colLabelH = 16;
+        int gridX = r.x + rowLabelW;
+        int gridY = r.y + 38 + colLabelH + 4;
+        int gridW = r.width - rowLabelW - 4;
+        int gridH = r.y + r.height - gridY - 4;
+        int maxChannels = 1;
+        for (LayerInfo info : spatial) {
+            maxChannels = Math.max(maxChannels, info.shapeDims[0]);
+        }
+        int cellW = Math.max(2, gridW / maxChannels);
+        int rowH = Math.max(10, gridH / spatial.size());
+        float[][] scores = new float[spatial.size()][maxChannels];
+        float scale = 0.0f;
+        int topLayer = 0;
+        int topChannel = 0;
+        int scoredCells = 0;
+        int quietCells = 0;
+        for (int i = 0; i < spatial.size(); i++) {
+            LayerInfo info = spatial.get(i);
+            int channels = info.shapeDims[0];
+            for (int c = 0; c < channels; c++) {
+                scores[i][c] = channelRms(info, c);
+                if (scores[i][c] > scale) {
+                    topLayer = i;
+                    topChannel = c;
+                }
+                scale = Math.max(scale, scores[i][c]);
+                scoredCells++;
+            }
+        }
+        if (scale <= 0.0f) {
+            scale = 1.0f;
+        }
+        float rawScale = scale;
+        float quietCutoff = rawScale * 0.16f;
+        float importantCutoff = rawScale * 0.78f;
+        for (int i = 0; i < spatial.size(); i++) {
+            int channels = spatial.get(i).shapeDims[0];
+            for (int c = 0; c < channels; c++) {
+                if (scores[i][c] <= quietCutoff) {
+                    quietCells++;
+                }
+            }
+        }
+        scale = scaleFor("cnnAtlas:channelFingerprint", scale);
+        if (r.width >= 760 && scoredCells > 0) {
+            String top = spatial.get(topLayer).name + " c" + topChannel;
+            String quiet = Math.round(100.0f * quietCells / scoredCells) + "% quiet";
+            WorkbenchTensorViz.drawInfoChip(g, new Rectangle(r.x + r.width - 322, r.y + 7, 154, 24),
+                    "important", top, colorFor(spatial.get(topLayer).name));
+            WorkbenchTensorViz.drawInfoChip(g, new Rectangle(r.x + r.width - 160, r.y + 7, 150, 24),
+                    "not much", quiet, WorkbenchTheme.MUTED);
+        }
+
+        g.setColor(WorkbenchTheme.MUTED);
+        g.setFont(WorkbenchTheme.font(9, Font.PLAIN));
+        FontMetrics fm = g.getFontMetrics();
+        int step = Math.max(1, maxChannels / 8);
+        for (int c = 0; c < maxChannels; c += step) {
+            String label = Integer.toString(c);
+            int lx = gridX + c * cellW + Math.max(0, (cellW - fm.stringWidth(label)) / 2);
+            g.drawString(label, lx, gridY - 5);
+        }
+
+        for (int i = 0; i < spatial.size(); i++) {
+            LayerInfo info = spatial.get(i);
+            int y = gridY + i * rowH;
+            g.setColor(WorkbenchTheme.MUTED);
+            g.setFont(WorkbenchTheme.font(10, Font.BOLD));
+            g.drawString(info.name, r.x + 4, y + Math.max(10, rowH / 2 + 4));
+            int channels = info.shapeDims[0];
+            Color accent = colorFor(info.name);
+            for (int c = 0; c < channels; c++) {
+                float v = (float) Math.sqrt(Math.min(1.0f, Math.max(0.0f, scores[i][c] / scale)));
+                g.setColor(WorkbenchTensorViz.lerp(WorkbenchTheme.PANEL_SOLID, accent, 0.18f + 0.78f * v));
+                int x = gridX + c * cellW;
+                int w = Math.max(1, cellW - 1);
+                int h = Math.max(1, rowH - 1);
+                g.fillRect(x, y, w, h);
+                if (scores[i][c] >= importantCutoff && cellW >= 4 && rowH >= 8) {
+                    g.setColor(WorkbenchTheme.withAlpha(WorkbenchTheme.TEXT, 120));
+                    g.drawRect(x, y, w - 1, h - 1);
+                }
+            }
+            String key = snapshotKey(info);
+            Rectangle rowBounds = new Rectangle(r.x, y, r.width, rowH);
+            String stats = String.format("rms %.3f · mean %+.3f · range %+.2f..%+.2f",
+                    info.rms, info.mean, info.min, info.max);
+            if (key != null && snapshot.has(key)) {
+                int stride = info.shapeDims.length >= 2 ? info.shapeDims[info.shapeDims.length - 1] : 0;
+                hitRegions.addInspectable(rowBounds, info.name + " · " + info.shape,
+                        "Layer/channel atlas row", stats, key, 0, 0, stride, info.shape);
+            } else {
+                hitRegions.add(rowBounds, info.name + " · " + info.shape,
+                        "Layer/channel atlas row", stats);
+            }
+        }
+        g.setColor(WorkbenchTheme.LINE);
+        g.drawRect(gridX, gridY, Math.min(gridW, maxChannels * cellW),
+                Math.min(gridH, spatial.size() * rowH));
+    }
+
+    /**
+     * Paints the strongest spatial channels as small board-shaped filters.
+     *
+     * @param g graphics
+     * @param r rectangle
+     */
+    private void paintCnnTopChannels(Graphics2D g, Rectangle r) {
+        WorkbenchTensorViz.drawSectionHeader(g, new Rectangle(r.x, r.y, r.width, 38),
+                "strongest filters", "ranked channels; primary filters explain most of this position's spatial signal");
+        List<ChannelPick> picks = strongestChannels(8);
+        if (picks.isEmpty()) {
+            return;
+        }
+        float bestScore = Math.max(1e-6f, picks.get(0).score);
+        Rectangle content = new Rectangle(r.x + 2, r.y + 44, r.width - 4, r.height - 46);
+        int show = Math.min(8, picks.size());
+        int cols = Math.min(4, Math.max(1, content.width / 104));
+        int rows = (show + cols - 1) / cols;
+        int gap = 8;
+        int cellW = Math.max(60, (content.width - gap * (cols - 1)) / cols);
+        int cellH = Math.max(48, (content.height - gap * (rows - 1)) / rows);
+        for (int i = 0; i < show; i++) {
+            ChannelPick pick = picks.get(i);
+            int row = i / cols;
+            int col = i % cols;
+            Rectangle card = new Rectangle(content.x + col * (cellW + gap),
+                    content.y + row * (cellH + gap), cellW, cellH);
+            WorkbenchTensorViz.drawCard(g, card,
+                    pick.layer.name + " c" + pick.channel,
+                    importanceLabel(pick.score / bestScore) + " · rms " + String.format("%.3f", pick.score),
+                    colorFor(pick.layer.name));
+            int side = Math.max(24, Math.min(card.width - 14, card.height - 34));
+            Rectangle heat = new Rectangle(card.x + 7, card.y + card.height - side - 7, side, side);
+            float[] slice = channelSlice(pick.layer, pick.channel);
+            WorkbenchTensorViz.drawHeatmap(g, heat, slice, 8, 8, scaleFor(
+                    "cnnAtlas:top:" + pick.layer.name + ":" + pick.channel, maxAbs(slice)), true);
+            String key = snapshotKey(pick.layer);
+            if (key != null && snapshot.has(key)) {
+                hitRegions.addInspectable(card,
+                        pick.layer.name + " channel " + pick.channel,
+                        "Strong spatial filter in the current position",
+                        String.format("%s importance · rms %.3f",
+                                importanceLabel(pick.score / bestScore), pick.score),
+                        key, pick.channel * 64, 64, 8, "8x8");
+            }
+        }
+    }
+
+    /**
+     * Paints board-sized summaries of the final feature map and policy planes.
+     *
+     * @param g graphics
+     * @param r rectangle
+     */
+    private void paintCnnSpatialAtlas(Graphics2D g, Rectangle r) {
+        WorkbenchTensorViz.drawSectionHeader(g, new Rectangle(r.x, r.y, r.width, 38),
+                "board footprint", "final-map and policy-plane activation projected onto the board");
+        Rectangle content = new Rectangle(r.x + 4, r.y + 46, r.width - 8, r.height - 50);
+        LayerInfo finalLayer = findLayer("final");
+        LayerInfo policyPlanes = findLayer("pPlane");
+        float[] finalMap = snapshot.data("cnn.final.activation");
+        if (finalMap == null) {
+            finalMap = meanPerSquare(finalLayer);
+        }
+        float[] policyMap = meanPerSquare(policyPlanes);
+        int gap = 10;
+        int boardSide = Math.min((content.width - gap) / 2, Math.max(60, content.height - 22));
+        if (boardSide < 72) {
+            boardSide = Math.min(content.width, Math.max(48, content.height - 22));
+            drawCnnAtlasBoard(g, new Rectangle(content.x, content.y + 14, boardSide, boardSide),
+                    "final", finalMap, "Final-map mean activation");
+            return;
+        }
+        Rectangle finalBoard = new Rectangle(content.x, content.y + 16, boardSide, boardSide);
+        Rectangle policyBoard = new Rectangle(content.x + boardSide + gap, content.y + 16, boardSide, boardSide);
+        drawCnnAtlasBoard(g, finalBoard, "final map", finalMap, "Final-map mean activation");
+        drawCnnAtlasBoard(g, policyBoard, "policy planes", policyMap, "Policy-plane mean activation");
+    }
+
+    /**
+     * Draws one board tile for the CNN atlas.
+     *
+     * @param g graphics
+     * @param board board rectangle
+     * @param title title
+     * @param values per-square values
+     * @param caption tooltip caption
+     */
+    private void drawCnnAtlasBoard(Graphics2D g, Rectangle board, String title,
+            float[] values, String caption) {
+        int focusSquare = strongestSquare(values, true);
+        String focus = focusSquare >= 0 ? " · focus " + WorkbenchTensorViz.squareLabel(focusSquare) : "";
+        g.setColor(WorkbenchTheme.MUTED);
+        g.setFont(WorkbenchTheme.font(10, Font.BOLD));
+        FontMetrics fm = g.getFontMetrics();
+        g.drawString(WorkbenchUi.elide(title + focus, fm, board.width + 10), board.x, board.y - 4);
+        WorkbenchTensorViz.drawMiniBoard(g, board);
+        WorkbenchTensorViz.drawPositionPieces(g, board, fen);
+        if (values != null) {
+            float scale = scaleFor("cnnAtlas:board:" + title, maxAbs(values));
+            WorkbenchTensorViz.drawSquareOverlay(g, board, values, scale, false);
+            WorkbenchTensorViz.drawBoardSquareRing(g, board, focusSquare, WorkbenchTheme.ACCENT);
+            addBoardSquareTooltips(board, values, caption);
+        }
+        WorkbenchTensorViz.drawBoardCoordinates(g, board);
+    }
+
+    /**
+     * Returns the current spatial layers.
+     *
+     * @return spatial layers
+     */
+    private List<LayerInfo> spatialLayers() {
+        List<LayerInfo> spatial = new ArrayList<>();
+        for (LayerInfo info : layers) {
+            if (info.shapeDims.length == 3 && info.shapeDims[1] == 8 && info.shapeDims[2] == 8) {
+                spatial.add(info);
+            }
+        }
+        return spatial;
+    }
+
+    /**
+     * Returns the strongest channels across spatial layers.
+     *
+     * @param limit maximum count
+     * @return sorted picks
+     */
+    private List<ChannelPick> strongestChannels(int limit) {
+        List<ChannelPick> picks = new ArrayList<>();
+        for (LayerInfo info : spatialLayers()) {
+            if ("input".equals(info.name)) {
+                continue;
+            }
+            int channels = info.shapeDims[0];
+            for (int c = 0; c < channels; c++) {
+                picks.add(new ChannelPick(info, c, channelRms(info, c)));
+            }
+        }
+        picks.sort((a, b) -> Float.compare(b.score, a.score));
+        if (picks.size() > limit) {
+            return new ArrayList<>(picks.subList(0, limit));
+        }
+        return picks;
+    }
+
+    /**
+     * Returns one channel as a 64-cell slice.
+     *
+     * @param info layer
+     * @param channel channel index
+     * @return 8x8 slice
+     */
+    private static float[] channelSlice(LayerInfo info, int channel) {
+        float[] out = new float[64];
+        if (info == null || info.values == null || channel < 0 || channel >= info.shapeDims[0]) {
+            return out;
+        }
+        int off = channel * 64;
+        if (off + 64 <= info.values.length) {
+            System.arraycopy(info.values, off, out, 0, 64);
+        }
+        return out;
+    }
+
+    /**
+     * Returns the RMS of one channel.
+     *
+     * @param info layer
+     * @param channel channel index
+     * @return RMS
+     */
+    private static float channelRms(LayerInfo info, int channel) {
+        float[] slice = channelSlice(info, channel);
+        double sumSq = 0.0;
+        for (float v : slice) {
+            sumSq += (double) v * v;
+        }
+        return (float) Math.sqrt(sumSq / Math.max(1, slice.length));
+    }
+
+    /**
      * Paints the abstract overview.
      *
      * @param g graphics
      * @param body body rectangle
      */
-    private void paintAbstract(Graphics2D g, Rectangle body) {
+    @Override
+    protected void paintAbstract(Graphics2D g, Rectangle body) {
         cellHitBoxes.clear();
         cellLayerIndices.clear();
         int leftW = (int) (body.width * 0.62);
@@ -542,6 +848,7 @@ final class WorkbenchCnnView extends JComponent {
         if (heatmap != null && heatmap.length >= 64) {
             float s = scaleFor("policyAttention", maxAbs(heatmap));
             WorkbenchTensorViz.drawSquareOverlay(g, board, heatmap, s, false);
+            WorkbenchTensorViz.drawBoardSquareRing(g, board, strongestSquare(heatmap, true), WorkbenchTheme.ACCENT);
             addBoardSquareTooltips(board, heatmap, "Final-map mean activation");
         }
         WorkbenchTensorViz.drawBoardCoordinates(g, board);
@@ -586,6 +893,37 @@ final class WorkbenchCnnView extends JComponent {
      * @param policy logits
      */
     private void paintTopPolicy(Graphics2D g, Rectangle r, float[] policy) {
+        List<CnnScoredMove> legalMoves = decodeTopCnnMoves(policy, 6);
+        if (!legalMoves.isEmpty()) {
+            int n = legalMoves.size();
+            String[] labels = new String[n];
+            float[] values = new float[n];
+            float scale = 0.0f;
+            for (int i = 0; i < n; ++i) {
+                CnnScoredMove move = legalMoves.get(i);
+                labels[i] = chess.core.Move.toString(move.move) + "  "
+                        + String.format("%.1f%%", move.probability * 100.0f);
+                values[i] = move.probability;
+                scale = Math.max(scale, values[i]);
+            }
+            WorkbenchTensorViz.drawMetricBars(g, r, labels, values, scale);
+            g.setColor(WorkbenchTheme.MUTED);
+            g.setFont(WorkbenchTheme.font(10, Font.PLAIN));
+            g.drawString("top legal moves (policy probability)", r.x, r.y - 4);
+            int barH = r.height / Math.max(1, n);
+            for (int i = 0; i < n; ++i) {
+                Rectangle row = new Rectangle(r.x, r.y + i * barH, r.width, barH);
+                CnnScoredMove move = legalMoves.get(i);
+                hitRegions.addInspectable(row,
+                        "Top move " + chess.core.Move.toString(move.move),
+                        "CNN policy index " + move.policyIndex + " · logit "
+                                + String.format("%+.3f", move.logit),
+                        String.format("legal-softmax %.2f%% · rank %d", move.probability * 100.0f, i + 1),
+                        "cnn.policy.logits", 0, 0, 0, policy.length + "");
+            }
+            return;
+        }
+
         int n = Math.min(6, policy.length);
         Integer[] order = new Integer[policy.length];
         for (int i = 0; i < policy.length; ++i) {
@@ -616,6 +954,56 @@ final class WorkbenchCnnView extends JComponent {
     }
 
     /**
+     * Decodes the top legal CNN policy moves from raw 73-plane logits.
+     *
+     * @param policy raw CNN policy logits
+     * @param limit maximum count
+     * @return sorted scored legal moves
+     */
+    private List<CnnScoredMove> decodeTopCnnMoves(float[] policy, int limit) {
+        if (fen == null || fen.isBlank() || policy == null) {
+            return java.util.Collections.emptyList();
+        }
+        chess.core.Position position;
+        try {
+            position = new chess.core.Position(fen);
+        } catch (RuntimeException ex) {
+            return java.util.Collections.emptyList();
+        }
+        chess.core.MoveList moves = position.legalMoves();
+        List<CnnScoredMove> out = new ArrayList<>();
+        float max = Float.NEGATIVE_INFINITY;
+        for (int i = 0; i < moves.size(); i++) {
+            short move = moves.get(i);
+            int policyIndex = chess.nn.lc0.cnn.PolicyEncoder.rawPolicyIndex(position, move);
+            if (policyIndex < 0 || policyIndex >= policy.length) {
+                continue;
+            }
+            float logit = policy[policyIndex];
+            out.add(new CnnScoredMove(move, policyIndex, logit, 0.0f));
+            max = Math.max(max, logit);
+        }
+        if (out.isEmpty()) {
+            return out;
+        }
+        double sum = 0.0;
+        for (CnnScoredMove move : out) {
+            sum += Math.exp(move.logit - max);
+        }
+        float inv = sum <= 0.0 ? 0.0f : (float) (1.0 / sum);
+        for (int i = 0; i < out.size(); i++) {
+            CnnScoredMove move = out.get(i);
+            float probability = (float) Math.exp(move.logit - max) * inv;
+            out.set(i, new CnnScoredMove(move.move, move.policyIndex, move.logit, probability));
+        }
+        out.sort((a, b) -> Float.compare(b.probability, a.probability));
+        if (out.size() > limit) {
+            return new ArrayList<>(out.subList(0, limit));
+        }
+        return out;
+    }
+
+    /**
      * Paints the detailed view. Layout: compact row of layer cards across
      * the top, then a left-side chessboard showing the current position
      * (overlaid with the selected layer's mean activity per square) plus a
@@ -626,7 +1014,8 @@ final class WorkbenchCnnView extends JComponent {
      * @param g graphics
      * @param body body rectangle
      */
-    private void paintDetailed(Graphics2D g, Rectangle body) {
+    @Override
+    protected void paintDetailed(Graphics2D g, Rectangle body) {
         cellHitBoxes.clear();
         cellLayerIndices.clear();
         WorkbenchTensorViz.drawSectionHeader(g, new Rectangle(body.x, body.y, body.width, 40),
@@ -707,6 +1096,7 @@ final class WorkbenchCnnView extends JComponent {
             if (perSquare != null) {
                 float s = scaleFor("detailedBoard:" + info.name, maxAbs(perSquare));
                 WorkbenchTensorViz.drawSquareOverlay(g, board, perSquare, s, false);
+                WorkbenchTensorViz.drawBoardSquareRing(g, board, strongestSquare(perSquare, true), WorkbenchTheme.ACCENT);
                 addBoardSquareTooltips(board, perSquare,
                         info.name + " · mean activity (channel-averaged)");
             }
@@ -718,6 +1108,11 @@ final class WorkbenchCnnView extends JComponent {
             g.drawString(String.format("rms %.3f   mean %+.3f   range %+.2f..%+.2f",
                     info.rms, info.mean, info.min, info.max),
                     r.x + 6, board.y + board.height + 34);
+            int focusSquare = strongestSquare(perSquare, true);
+            if (focusSquare >= 0) {
+                g.drawString("strongest board square: " + WorkbenchTensorViz.squareLabel(focusSquare),
+                        r.x + 6, board.y + board.height + 50);
+            }
         }
     }
 
@@ -1082,6 +1477,78 @@ final class WorkbenchCnnView extends JComponent {
     }
 
     /**
+     * Paints the architecture-diagram schematic for the CNN.
+     *
+     * @param g graphics
+     * @param body body rectangle
+     */
+    @Override
+    protected void paintDiagram(Graphics2D g, Rectangle body) {
+        int headerH = 40;
+        WorkbenchTensorViz.drawSectionHeader(g,
+                new Rectangle(body.x, body.y, body.width, headerH),
+                "LC0 CNN architecture",
+                "input planes → stem → residual blocks → policy / value heads");
+        int blocks = countLayersWithPrefix("B");
+        String[] titles = {
+                "input encoding",
+                "stem",
+                blocks + " residual blocks",
+                "policy head",
+                "value head"
+        };
+        String[] subs = {
+                "112 input planes (8×8)",
+                "3×3 conv · ReLU",
+                "3×3 conv ×2 + skip",
+                "policy logits (4672)",
+                "WDL + scalar eval"
+        };
+        int boxW = 200;
+        int boxH = 90;
+        int gap = 30;
+        int totalW = boxW * titles.length + gap * (titles.length - 1);
+        int startX = body.x + (body.width - totalW) / 2;
+        int y = body.y + headerH + 60;
+        FontMetrics fmTitle = g.getFontMetrics(WorkbenchTheme.font(13, Font.BOLD));
+        for (int i = 0; i < titles.length; i++) {
+            int x = startX + i * (boxW + gap);
+            g.setColor(WorkbenchTheme.PANEL_SOLID);
+            g.fillRoundRect(x, y, boxW, boxH, 14, 14);
+            g.setColor(WorkbenchTheme.LINE);
+            g.drawRoundRect(x, y, boxW, boxH, 14, 14);
+            g.setColor(WorkbenchTheme.TEXT);
+            g.setFont(WorkbenchTheme.font(13, Font.BOLD));
+            int tw = fmTitle.stringWidth(titles[i]);
+            g.drawString(titles[i], x + (boxW - tw) / 2, y + 28);
+            g.setColor(WorkbenchTheme.MUTED);
+            g.setFont(WorkbenchTheme.font(11, Font.PLAIN));
+            int sw = g.getFontMetrics().stringWidth(subs[i]);
+            g.drawString(subs[i], x + (boxW - sw) / 2, y + 56);
+            if (i < titles.length - 1) {
+                int ax1 = x + boxW;
+                int ax2 = x + boxW + gap;
+                int ay = y + boxH / 2;
+                g.setColor(WorkbenchTheme.ACCENT);
+                g.drawLine(ax1 + 2, ay, ax2 - 6, ay);
+                int[] xs = { ax2 - 6, ax2 - 12, ax2 - 12 };
+                int[] ys = { ay, ay - 5, ay + 5 };
+                g.fillPolygon(xs, ys, 3);
+            }
+            hitRegions.add(new Rectangle(x, y, boxW, boxH),
+                    "Layer · " + titles[i], subs[i], "");
+        }
+        float[] scalar = snapshot == null ? null : snapshot.data("cnn.value.scalar");
+        if (scalar != null) {
+            g.setColor(WorkbenchTheme.MUTED);
+            g.setFont(WorkbenchTheme.font(12, Font.ITALIC));
+            String caption = String.format("value scalar %+.3f", scalar[0]);
+            int cw = g.getFontMetrics().stringWidth(caption);
+            g.drawString(caption, body.x + (body.width - cw) / 2, y + boxH + 28);
+        }
+    }
+
+    /**
      * Counts layers whose name starts with prefix.
      *
      * @param prefix label prefix
@@ -1095,6 +1562,82 @@ final class WorkbenchCnnView extends JComponent {
             }
         }
         return n;
+    }
+
+    /**
+     * Returns a compact importance label for a value normalised to the current
+     * top item.
+     *
+     * @param ratio value/top
+     * @return label
+     */
+    private static String importanceLabel(float ratio) {
+        if (ratio >= 0.82f) {
+            return "primary";
+        }
+        if (ratio >= 0.55f) {
+            return "high";
+        }
+        if (ratio >= 0.28f) {
+            return "medium";
+        }
+        return "low";
+    }
+
+    /**
+     * Returns the strongest square in a 64-value board array.
+     *
+     * @param values square values
+     * @param absolute true to rank by absolute magnitude
+     * @return square index or -1
+     */
+    private static int strongestSquare(float[] values, boolean absolute) {
+        if (values == null || values.length < 64) {
+            return -1;
+        }
+        int best = 0;
+        float bestValue = absolute ? Math.abs(values[0]) : values[0];
+        for (int sq = 1; sq < 64; sq++) {
+            float v = absolute ? Math.abs(values[sq]) : values[sq];
+            if (v > bestValue) {
+                bestValue = v;
+                best = sq;
+            }
+        }
+        return best;
+    }
+
+    /**
+     * One legal CNN policy move with its softmax probability.
+     */
+    private static final class CnnScoredMove {
+
+        /**
+         * Encoded move.
+         */
+        private final short move;
+
+        /**
+         * Raw CNN policy index.
+         */
+        private final int policyIndex;
+
+        /**
+         * Raw logit.
+         */
+        private final float logit;
+
+        /**
+         * Legal-move softmax probability.
+         */
+        private final float probability;
+
+        CnnScoredMove(short move, int policyIndex, float logit, float probability) {
+            this.move = move;
+            this.policyIndex = policyIndex;
+            this.logit = logit;
+            this.probability = probability;
+        }
     }
 
     /**
@@ -1141,5 +1684,32 @@ final class WorkbenchCnnView extends JComponent {
          * Maximum.
          */
         private float max;
+    }
+
+    /**
+     * One high-activity channel selected for the CNN atlas.
+     */
+    private static final class ChannelPick {
+
+        /**
+         * Owning layer.
+         */
+        private final LayerInfo layer;
+
+        /**
+         * Channel index inside the owning layer.
+         */
+        private final int channel;
+
+        /**
+         * Channel RMS score.
+         */
+        private final float score;
+
+        ChannelPick(LayerInfo layer, int channel, float score) {
+            this.layer = layer;
+            this.channel = channel;
+            this.score = score;
+        }
     }
 }

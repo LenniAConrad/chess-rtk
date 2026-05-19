@@ -95,10 +95,50 @@ final class WorkbenchActivationSnapshot implements chess.nn.ActivationSink {
     private final Map<String, Entry> entries = new LinkedHashMap<>();
 
     /**
+     * When true the snapshot is frozen: {@link #put} and {@link #clear} throw.
+     *
+     * <p>Inference runs off the EDT, then the finished snapshot is handed to a
+     * view that paints it on the EDT. Sealing the snapshot the moment it leaves
+     * the producer turns any accidental later mutation into a loud, immediate
+     * failure instead of a silent cross-thread data race or a torn read during
+     * paint.</p>
+     */
+    private boolean sealed;
+
+    /**
+     * Freezes the snapshot so it can be safely published to another thread.
+     * Idempotent; once sealed a snapshot stays sealed for life.
+     */
+    void seal() {
+        sealed = true;
+    }
+
+    /**
+     * Returns whether the snapshot has been frozen by {@link #seal()}.
+     *
+     * @return true when sealed
+     */
+    boolean isSealed() {
+        return sealed;
+    }
+
+    /**
      * Removes every captured tensor.
+     *
+     * @throws IllegalStateException when the snapshot has been sealed
      */
     void clear() {
+        requireMutable();
         entries.clear();
+    }
+
+    /**
+     * Throws when the snapshot has been sealed against further mutation.
+     */
+    private void requireMutable() {
+        if (sealed) {
+            throw new IllegalStateException("activation snapshot is sealed and cannot be mutated");
+        }
     }
 
     /**
@@ -108,9 +148,11 @@ final class WorkbenchActivationSnapshot implements chess.nn.ActivationSink {
      * @param key stable activation key
      * @param shape tensor shape
      * @param data flat values; length must equal the product of shape
+     * @throws IllegalStateException when the snapshot has been sealed
      */
     @Override
     public void put(String key, int[] shape, float[] data) {
+        requireMutable();
         int expected = 1;
         for (int dim : shape) {
             expected *= dim;

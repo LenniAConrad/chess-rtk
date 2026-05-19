@@ -2,6 +2,8 @@ package application.gui.workbench;
 
 import java.util.Random;
 
+import chess.nn.nnue.FeatureEncoder;
+
 /**
  * Deterministic synthetic activation provider used by the Workbench network
  * visualizer while real inference is not wired up.
@@ -18,9 +20,29 @@ final class WorkbenchSyntheticActivations {
     private static final int NNUE_L1 = 256;
 
     /**
+     * Synthetic Stockfish transformed feature width.
+     */
+    private static final int STOCKFISH_TRANSFORMED = 128;
+
+    /**
+     * Synthetic Stockfish FC0 hidden width.
+     */
+    private static final int STOCKFISH_FC0 = 15;
+
+    /**
+     * Synthetic Stockfish FC1 hidden width.
+     */
+    private static final int STOCKFISH_FC1 = 32;
+
+    /**
+     * Stockfish FC0 forward-row scaling in centipawns.
+     */
+    private static final float STOCKFISH_FWD_CP_SCALE = 600.0f / (127.0f * 64.0f);
+
+    /**
      * Total half-KP features per side (king-square x piece-square pairs).
      */
-    private static final int NNUE_FEATURE_DIM = 41024;
+    private static final int NNUE_FEATURE_DIM = FeatureEncoder.FEATURE_COUNT;
 
     /**
      * LC0 CNN residual block count for the demo model.
@@ -59,9 +81,9 @@ final class WorkbenchSyntheticActivations {
         out.clear();
         Random rng = seed(fen, "nnue");
 
-        int active = 20 + rng.nextInt(12);
+        int active = 20 + rng.nextInt(FeatureEncoder.MAX_ACTIVE_FEATURES - 19);
         int[] activeUs = pickFeatureIndices(rng, active, NNUE_FEATURE_DIM);
-        int activeThemCount = 20 + rng.nextInt(12);
+        int activeThemCount = 20 + rng.nextInt(FeatureEncoder.MAX_ACTIVE_FEATURES - 19);
         int[] activeThem = pickFeatureIndices(rng, activeThemCount, NNUE_FEATURE_DIM);
 
         float[] featureWeightsUs = gaussian(rng, NNUE_L1, 0.05f);
@@ -94,11 +116,13 @@ final class WorkbenchSyntheticActivations {
         float[] outputWeightsThem = gaussian(rng, NNUE_L1, 0.08f);
         float[] contribUs = new float[NNUE_L1];
         float[] contribThem = new float[NNUE_L1];
+        float[] contribTotal = new float[NNUE_L1];
         float affine = 0.0f;
         for (int i = 0; i < NNUE_L1; ++i) {
             contribUs[i] = clippedUs[i] * outputWeightsUs[i];
             contribThem[i] = clippedThem[i] * outputWeightsThem[i];
-            affine += contribUs[i] - contribThem[i];
+            contribTotal[i] = contribUs[i] + contribThem[i];
+            affine += contribTotal[i];
         }
         float[] perFeatureImpact = new float[activeUs.length];
         for (int i = 0; i < activeUs.length; ++i) {
@@ -136,8 +160,180 @@ final class WorkbenchSyntheticActivations {
         out.put("nnue.output.weights.them", new int[] { NNUE_L1 }, outputWeightsThem);
         out.put("nnue.output.contribution.us", new int[] { NNUE_L1 }, contribUs);
         out.put("nnue.output.contribution.them", new int[] { NNUE_L1 }, contribThem);
+        out.put("nnue.output.contribution.total", new int[] { NNUE_L1 }, contribTotal);
         out.put("nnue.output.affine", new int[] { 1 }, new float[] { affine });
         out.putScalar("nnue.output.centipawns", centipawns);
+        fillSyntheticStockfishTrace(out, rng, activeWeightsUs);
+        fillSyntheticAtlas(out, outputWeightsUs);
+    }
+
+    /**
+     * Adds Stockfish-shaped synthetic layer-stack tensors. These make the
+     * workbench teach the Stockfish architecture even when a real .nnue file is
+     * not installed locally.
+     *
+     * @param out destination snapshot
+     * @param rng deterministic random source
+     * @param activeWeightsUs existing feature rows used for the first edge stage
+     */
+    private static void fillSyntheticStockfishTrace(
+            WorkbenchActivationSnapshot out,
+            Random rng,
+            float[] activeWeightsUs) {
+        int half = STOCKFISH_TRANSFORMED / 2;
+        float[] transformed = new float[STOCKFISH_TRANSFORMED];
+        float[] transformedUs = new float[half];
+        float[] transformedThem = new float[half];
+        for (int i = 0; i < half; i++) {
+            transformedUs[i] = Math.max(0.0f, (float) (rng.nextGaussian() * 18.0 + 46.0));
+            transformedThem[i] = Math.max(0.0f, (float) (rng.nextGaussian() * 18.0 + 42.0));
+            transformed[i] = transformedUs[i];
+            transformed[half + i] = transformedThem[i];
+        }
+
+        float[] fc0Weights = gaussian(rng, STOCKFISH_FC0 * half, 0.45f);
+        float[] fc0FwdWeights = gaussian(rng, half, 0.45f);
+        float[] fc0Raw = new float[STOCKFISH_FC0 + 1];
+        for (int row = 0; row < STOCKFISH_FC0; row++) {
+            float sum = (float) (rng.nextGaussian() * 12.0);
+            for (int col = 0; col < half; col++) {
+                sum += fc0Weights[row * half + col] * transformedUs[col] * 0.02f;
+            }
+            fc0Raw[row] = sum;
+        }
+        float fwdRaw = (float) (rng.nextGaussian() * 4.0);
+        for (int col = 0; col < half; col++) {
+            fwdRaw += fc0FwdWeights[col] * transformedUs[col] * 0.02f;
+        }
+        fc0Raw[STOCKFISH_FC0] = fwdRaw;
+
+        float[] fc0Sqr = new float[STOCKFISH_FC0];
+        float[] fc0Crelu = new float[STOCKFISH_FC0];
+        float[] fc1Input = new float[STOCKFISH_FC0 * 2];
+        for (int i = 0; i < STOCKFISH_FC0; i++) {
+            float clipped = Math.max(0.0f, Math.min(127.0f, fc0Raw[i]));
+            fc0Sqr[i] = Math.min(127.0f, clipped * clipped / 127.0f);
+            fc0Crelu[i] = clipped;
+            fc1Input[i] = fc0Sqr[i];
+            fc1Input[STOCKFISH_FC0 + i] = fc0Crelu[i];
+        }
+
+        float[] fc1Weights = gaussian(rng, STOCKFISH_FC1 * STOCKFISH_FC0, 0.35f);
+        float[] fc1Raw = new float[STOCKFISH_FC1];
+        float[] fc1Clipped = new float[STOCKFISH_FC1];
+        for (int row = 0; row < STOCKFISH_FC1; row++) {
+            float sum = (float) (rng.nextGaussian() * 8.0);
+            for (int col = 0; col < STOCKFISH_FC0; col++) {
+                sum += fc1Weights[row * STOCKFISH_FC0 + col] * (fc0Sqr[col] + fc0Crelu[col]) * 0.03f;
+            }
+            fc1Raw[row] = sum;
+            fc1Clipped[row] = Math.max(0.0f, Math.min(127.0f, sum));
+        }
+
+        float[] fc2Weights = gaussian(rng, STOCKFISH_FC1, 0.08f);
+        float[] fc2Contribution = new float[STOCKFISH_FC1];
+        float positional = 0.0f;
+        for (int i = 0; i < STOCKFISH_FC1; i++) {
+            fc2Contribution[i] = fc1Clipped[i] * fc2Weights[i];
+            positional += fc2Contribution[i];
+        }
+        float fwdContribution = fc0Raw[STOCKFISH_FC0] * STOCKFISH_FWD_CP_SCALE;
+        positional += fwdContribution;
+        float psqt = (float) (rng.nextGaussian() * 12.0);
+        float cp = psqt + positional;
+
+        out.put("nnue.stockfish.bucket", new int[] { 1 }, new float[] { 7 });
+        out.put("nnue.stockfish.psqt.cp", new int[] { 1 }, new float[] { psqt });
+        out.put("nnue.stockfish.positional.cp", new int[] { 1 }, new float[] { positional });
+        out.put("nnue.stockfish.transformed", new int[] { STOCKFISH_TRANSFORMED }, transformed);
+        out.put("nnue.stockfish.transformed.us", new int[] { half }, transformedUs);
+        out.put("nnue.stockfish.transformed.them", new int[] { half }, transformedThem);
+        out.put("nnue.stockfish.fc0.raw", new int[] { STOCKFISH_FC0 + 1 }, fc0Raw);
+        out.put("nnue.stockfish.fc0.sqr", new int[] { STOCKFISH_FC0 }, fc0Sqr);
+        out.put("nnue.stockfish.fc0.crelu", new int[] { STOCKFISH_FC0 }, fc0Crelu);
+        out.put("nnue.stockfish.fc0.weights.us", new int[] { STOCKFISH_FC0, half }, fc0Weights);
+        out.put("nnue.stockfish.fc0.weights.fwd.us", new int[] { half }, fc0FwdWeights);
+        out.put("nnue.stockfish.fc1.input", new int[] { STOCKFISH_FC0 * 2 }, fc1Input);
+        out.put("nnue.stockfish.fc1.raw", new int[] { STOCKFISH_FC1 }, fc1Raw);
+        out.put("nnue.stockfish.fc1.clipped", new int[] { STOCKFISH_FC1 }, fc1Clipped);
+        out.put("nnue.stockfish.fc1.weights.combined", new int[] { STOCKFISH_FC1, STOCKFISH_FC0 }, fc1Weights);
+        out.put("nnue.stockfish.fc2.weights", new int[] { STOCKFISH_FC1 }, fc2Weights);
+        out.put("nnue.stockfish.fc2.contribution", new int[] { STOCKFISH_FC1 }, fc2Contribution);
+        out.put("nnue.stockfish.fc2.bias.cp", new int[] { 1 }, new float[] { 0.0f });
+        out.put("nnue.stockfish.fc0.fwd.cp", new int[] { 1 }, new float[] { fwdContribution });
+        out.put("nnue.stockfish.output.parts", new int[] { 4 },
+                new float[] { psqt, 0.0f, positional - fwdContribution, fwdContribution });
+        out.put("nnue.output.contribution.us", new int[] { STOCKFISH_FC1 }, fc2Contribution);
+        out.put("nnue.output.contribution.them", new int[] { STOCKFISH_FC1 }, new float[STOCKFISH_FC1]);
+        out.put("nnue.output.contribution.total", new int[] { STOCKFISH_FC1 }, fc2Contribution);
+        out.put("nnue.output.weights.us", new int[] { STOCKFISH_FC1 }, fc2Weights);
+        out.put("nnue.output.weights.them", new int[] { STOCKFISH_FC1 }, new float[STOCKFISH_FC1]);
+        out.putScalar("nnue.output.centipawns", cp);
+
+        int[] shape = out.shape("nnue.features.us.weights");
+        if (shape.length >= 2 && shape[1] != half && activeWeightsUs.length >= shape[0] * shape[1]) {
+            float[] clippedRows = new float[shape[0] * half];
+            for (int row = 0; row < shape[0]; row++) {
+                System.arraycopy(activeWeightsUs, row * shape[1], clippedRows, row * half, half);
+            }
+            out.put("nnue.features.us.weights", new int[] { shape[0], half }, clippedRows);
+        }
+    }
+
+    /**
+     * Writes a position-independent synthetic feature-weight atlas so the
+     * workbench atlas view always has something to render even when the
+     * loaded NNUE is in an upstream format that the CRTK weight-dump path
+     * does not yet support. Each neuron gets a stable per-piece "preferred
+     * square" pattern derived from a deterministic hash so the atlas looks
+     * Wikipedia-like (varied tiles, hot spots, no two neurons identical).
+     *
+     * @param out destination snapshot
+     * @param outputWeights pre-computed output-weight vector for slot
+     *     importance sorting
+     */
+    private static void fillSyntheticAtlas(WorkbenchActivationSnapshot out, float[] outputWeights) {
+        int hidden = NNUE_L1;
+        int planes = 10;
+        int squares = 64;
+        float[] atlas = new float[hidden * planes * squares];
+        float[] king = new float[hidden * squares];
+        float kingNorm = 1.0f / planes;
+        for (int h = 0; h < hidden; h++) {
+            for (int p = 0; p < planes; p++) {
+                int hotSq = (int) (((h * 1103515245L + p * 12345L) & 0x7fffffff) % 64);
+                int hotSq2 = (int) (((h * 2654435761L ^ (p * 1664525L)) & 0x7fffffff) % 64);
+                float polarity = (((h ^ p) & 1) == 0) ? 1.0f : -1.0f;
+                for (int s = 0; s < squares; s++) {
+                    float dist1 = squareDistance(s, hotSq);
+                    float dist2 = squareDistance(s, hotSq2);
+                    float bumped = (float) (Math.exp(-dist1 * dist1 * 0.55) * 0.85
+                            + Math.exp(-dist2 * dist2 * 0.5) * 0.5);
+                    float wiggle = (float) Math.sin((h * 0.13 + p * 0.41 + s * 0.27)) * 0.12f;
+                    float v = polarity * (bumped + wiggle);
+                    atlas[(h * planes + p) * squares + s] = v;
+                    king[h * squares + s] += v * kingNorm;
+                }
+            }
+        }
+        out.put("nnue.atlas.weights", new int[] { hidden, planes, squares }, atlas);
+        out.put("nnue.atlas.king", new int[] { hidden, squares }, king);
+        out.put("nnue.atlas.output", new int[] { hidden }, outputWeights.clone());
+    }
+
+    /**
+     * Chebyshev-style square distance for the synthetic atlas falloff.
+     *
+     * @param a square index (0..63)
+     * @param b square index (0..63)
+     * @return distance in board steps
+     */
+    private static float squareDistance(int a, int b) {
+        int fa = a & 7;
+        int ra = a >> 3;
+        int fb = b & 7;
+        int rb = b >> 3;
+        return Math.max(Math.abs(fa - fb), Math.abs(ra - rb));
     }
 
     /**

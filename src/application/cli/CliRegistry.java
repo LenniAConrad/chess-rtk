@@ -16,6 +16,7 @@ import application.cli.command.GenFensCommand;
 import application.cli.command.GpuCommand;
 import application.cli.command.HelpCommand;
 import application.cli.command.LineCommand;
+import application.cli.command.MateCommand;
 import application.cli.command.MineCommand;
 import application.cli.command.MoveNotationCommand;
 import application.cli.command.MovesCommand;
@@ -514,6 +515,14 @@ public final class CliRegistry {
 				.usage("[options]")
 				.example("crtk engine bestmove-batch --input positions.txt --max-nodes 100000")
 				.example("crtk engine bestmove-batch --stdin --json"));
+		engine.add(CliCommand.leaf("mate", "Brute-force prove a forced mate without NN evaluation",
+				MateCommand::runMate)
+				.helpKey("engine mate")
+				.alias("find-mate")
+				.usage("[options]")
+				.about("Deterministic AND/OR proof search for forced mates. Uses legal move generation, forcing move ordering, and memoized proof bounds; it never loads an evaluator or neural network.")
+				.example("crtk engine mate --fen \"<FEN>\" --max-mate 4")
+				.example("crtk engine mate --fen \"<FEN>\" --max-mate 6 --nodes 5000000 --threads 4 --format summary"));
 		engine.add(CliCommand.leaf("compare", "Compare best moves from two UCI protocols",
 				EngineBatchCommand::runCompare)
 				.helpKey("engine compare")
@@ -526,12 +535,13 @@ public final class CliRegistry {
 				.usage("[options]")
 				.example("crtk engine benchmark --startpos --depth 5 --iterations 5")
 				.example("crtk engine benchmark --fen \"<FEN>\" --depth 4 --json"));
-		engine.add(CliCommand.leaf("builtin", "Search with the built-in Java engine", BuiltInEngineCommand::runBuiltIn)
+		engine.add(CliCommand.leaf("builtin", "Search with the built-in MCTS engine", BuiltInEngineCommand::runBuiltIn)
 				.helpKey("engine builtin")
 				.alias("java")
 				.usage("[options]")
 				.example("crtk engine builtin --startpos --depth 4 --format summary")
-				.example("crtk engine builtin --fen \"<FEN>\" --depth 4 --format summary"));
+				.example("crtk engine builtin --fen \"<FEN>\" --depth 4 --format summary")
+				.example("crtk engine builtin --uci"));
 		engine.add(CliCommand.leaf("threats", "Analyze opponent threats", ThreatsCommand::runThreats)
 				.helpKey("engine threats")
 				.usage("[options]")

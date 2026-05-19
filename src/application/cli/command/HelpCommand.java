@@ -363,6 +363,11 @@ public final class HelpCommand {
 	private static final String BUILTIN_ENGINE_OPTIONS_MARKER = "engine builtin options:";
 
 	/**
+	 * Help marker for {@code engine mate}.
+	 */
+	private static final String MATE_OPTIONS_MARKER = "engine mate options:";
+
+	/**
 	 * Help marker for {@code engine threats}.
 	 */
 	private static final String THREATS_OPTIONS_MARKER = "engine threats options:";
@@ -471,6 +476,8 @@ public final class HelpCommand {
 			Map.entry("engine benchmark", ENGINE_BENCHMARK_OPTIONS_MARKER),
 			Map.entry("engine builtin", BUILTIN_ENGINE_OPTIONS_MARKER),
 			Map.entry("engine java", BUILTIN_ENGINE_OPTIONS_MARKER),
+			Map.entry("engine mate", MATE_OPTIONS_MARKER),
+			Map.entry("engine find-mate", MATE_OPTIONS_MARKER),
 			Map.entry("engine threats", THREATS_OPTIONS_MARKER),
 			Map.entry("engine eval", EVAL_OPTIONS_MARKER),
 			Map.entry("engine static", EVAL_STATIC_OPTIONS_MARKER),
@@ -880,10 +887,11 @@ public final class HelpCommand {
 			  bestmove-both              Print the best move in UCI and SAN
 			  analyze-batch              Analyze FEN batches as JSONL
 			  bestmove-batch             Find best moves for FEN batches as JSONL
+			  mate                       Brute-force prove a forced mate without NN evaluation
 			  compare                    Compare best moves from two UCI protocols
 			  benchmark                  Benchmark the core Java move generator
-			  builtin                    Search with the built-in Java engine
-			  java                       Run the built-in Java engine
+			  builtin                    Search with the built-in MCTS engine
+			  java                       Run the built-in MCTS engine
 			  threats                    Analyze opponent threats
 			  eval                       Evaluate a position with LC0 or classical
 			  static                     Evaluate a position with the classical backend
@@ -1095,6 +1103,7 @@ public final class HelpCommand {
 			  --height N                 Override window height
 			  --zoom Z                   Zoom factor (default: 1)
 			  --dark|--dark-mode         Use dark theme
+			  --accent HEX               Tint board squares/grid/frame with a hex color (e.g. #4ab66f)
 			  --arrow|--arrows MOVES     Draw arrow overlays (comma-separated squares)
 			  --special-arrows           Draw special arrow overlays
 			  --circle|--circles SQUARES Draw circle overlays
@@ -1119,6 +1128,7 @@ public final class HelpCommand {
 			  --height N                 Override image height
 			  --zoom Z                   Zoom factor (default: 1)
 			  --dark|--dark-mode         Use dark theme
+			  --accent HEX               Tint board squares/grid/frame with a hex color (e.g. #4ab66f)
 			  --drop-shadow|--shadow     Add a subtle drop shadow
 			  --no-border                Hide the outer border
 			  --arrow|--arrows MOVES     Draw arrow overlays (comma-separated squares)
@@ -1605,13 +1615,27 @@ public final class HelpCommand {
 			  --startpos                 Use the standard chess start position
 			  --randompos                Use a reachable random legal standard position
 			  --input|-i PATH            Input FEN file
+			  --uci                      Run the minimal built-in UCI loop
 			  --evaluator KIND           classical, nnue, or lc0 (default: classical)
 			  --classical|--nnue|--lc0   Shortcut evaluator selectors
 			  --weights PATH             NNUE or LC0 weights path
-			  --depth|-d N               Search depth in plies (default: 3)
-			  --max-nodes|--nodes N      Node budget; 0 means unlimited; omitted means unlimited with --depth
-			  --max-duration D           Time budget, e.g. 5s; 0 means unlimited; omitted means unlimited with --depth
+			  --depth|-d N               Search depth hint (default: 3)
+			  --max-nodes|--nodes N      MCTS playout budget; 0 disables the node cap
+			  --max-duration D           Time budget, e.g. 5s; 0 means no time cap
 			  --format FORMAT            uci-info, uci, san, both, or summary (default: uci-info)
+			  --verbose|-v               Print stack trace on failure
+
+			engine mate options:
+			  --fen FEN                  Input FEN
+			  --startpos                 Use the standard chess start position
+			  --randompos                Use a reachable random legal standard position
+			  --input|-i PATH            Input FEN file
+			  --mate|--max-mate N        Maximum mate distance in moves (default: 4)
+			  --max-nodes|--nodes N      Proof node budget; 0 disables the node cap
+			  --threads N                Worker threads for root moves (default: 1)
+			  --format FORMAT            summary, uci, san, both, json, or jsonl (default: summary)
+			  --json                     Alias for --format json
+			  --jsonl                    Alias for --format jsonl
 			  --verbose|-v               Print stack trace on failure
 
 			engine threats options:

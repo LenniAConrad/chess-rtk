@@ -2,9 +2,14 @@ package testing;
 
 import static testing.TestSupport.*;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.PrintStream;
+import java.lang.reflect.Method;
+import java.io.StringReader;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
@@ -12,8 +17,9 @@ import java.nio.file.StandardCopyOption;
 import chess.classical.Wdl;
 import chess.core.Move;
 import chess.core.Position;
-import chess.engine.AlphaBeta;
 import chess.engine.Limits;
+import chess.engine.Mcts;
+import chess.engine.MctsUci;
 import chess.engine.Result;
 import chess.eval.CentipawnEvaluator;
 import chess.eval.Classical;
@@ -88,6 +94,45 @@ public final class BuiltInEngineRegressionTest {
 			"7k/5K1b/8/8/8/8/3B4/8 w - - 0 1";
 
 	/**
+	 * User-reported forced mate in four where every black interposition is
+	 * captured on the back rank.
+	 */
+	private static final String FORCED_MATE_IN_FOUR_FEN =
+			"7k/3rrrpp/8/8/8/8/PP6/1KR5 w - - 0 1";
+
+	/**
+	 * Fool's Mate pre-mate position after {@code 1.f3 e5 2.g4}.
+	 */
+	private static final String FOOLS_MATE_PRE_FEN =
+			"rnbqkbnr/pppp1ppp/8/4p3/6P1/5P2/PPPPP2P/RNBQKBNR b KQkq - 0 2";
+
+	/**
+	 * Scholar's Mate pre-mate position after {@code 1.e4 e5 2.Qh5 Nc6
+	 * 3.Bc4 Nf6}.
+	 */
+	private static final String SCHOLARS_MATE_PRE_FEN =
+			"r1bqkb1r/pppp1ppp/2n2n2/4p2Q/2B1P3/8/PPPP1PPP/RNB1K1NR w KQkq - 4 4";
+
+	/**
+	 * Legal Trap pre-mate position after {@code 1.e4 e5 2.Nf3 d6 3.Bc4 Bg4
+	 * 4.Nc3 g6 5.Nxe5 Bxd1 6.Bxf7+ Ke7}.
+	 */
+	private static final String LEGAL_TRAP_PRE_FEN =
+			"rn1q1bnr/ppp1kB1p/3p2p1/4N3/4P3/2N5/PPPP1PPP/R1BbK2R w KQ - 1 7";
+
+	/**
+	 * Laws 1888 mate-in-two composition.
+	 */
+	private static final String LAWS_MATE_IN_TWO_FEN =
+			"5b2/1Q6/1P4R1/3rkP2/8/5R1K/5N2/6B1 w - - 0 1";
+
+	/**
+	 * Niels Hoeg 1905 promotion mate-in-three composition.
+	 */
+	private static final String HOEG_PROMOTION_MATE_IN_THREE_FEN =
+			"8/R7/4kPP1/3ppp2/3B1P2/1K1P1P2/8/8 w - - 0 1";
+
+	/**
 	 * Bare-king legal-position smoke test.
 	 */
 	private static final String SIMPLE_FEN =
@@ -121,12 +166,20 @@ public final class BuiltInEngineRegressionTest {
 	public static void main(String[] args) throws IOException {
 		testStartPositionSearch();
 		testMateInOne();
+		testMctsForcedMateProofOverridesVisits();
+		testMctsForcedMateInFourProofOverridesVisits();
+		testMateCliCommand();
+		testPublishedMatePositions();
+		testMctsQuiescenceResolvesTacticalLeaves();
 		testSparseMaterialMateInOne();
 		testNodeBudgetStop();
 		testPrimedRootFallbackOrdering();
+		testRootHistoryRepetition();
+		testParallelAndBatchedSearch();
 		testEvaluatorSelection();
 		testClassicalEvaluatorSanity();
 		testCliFormats();
+		testBuiltInUciLoop();
 		testNnueCliEvaluator();
 		System.out.println("BuiltInEngineRegressionTest: all checks passed");
 	}
@@ -136,11 +189,11 @@ public final class BuiltInEngineRegressionTest {
 	 */
 	private static void testStartPositionSearch() {
 		Position position = new Position(START_FEN);
-		try (AlphaBeta searcher = new AlphaBeta()) {
-			Result result = searcher.search(position, new Limits(2, 0L, 0L));
+		try (Mcts searcher = new Mcts()) {
+			Result result = searcher.search(position, new Limits(2, 64L, 0L));
 			assertTrue(result.hasBestMove(), "start position has a best move");
 			assertTrue(position.isLegalMove(result.bestMove()), "start position best move is legal");
-			assertEquals(2, result.depth(), "start position search depth");
+			assertTrue(result.depth() > 0, "start position search depth");
 			assertTrue(result.nodes() > 0L, "start position node count");
 		}
 	}
@@ -149,13 +202,141 @@ public final class BuiltInEngineRegressionTest {
 	 * Verifies mate scores and best-move output on a forced mate in one.
 	 */
 	private static void testMateInOne() {
-		try (AlphaBeta searcher = new AlphaBeta()) {
+		try (Mcts searcher = new Mcts()) {
 			Result result = searcher.search(
 					new Position(MATE_IN_ONE_FEN),
 					new Limits(1, 0L, 0L));
 			assertEquals("g6g7", Move.toString(result.bestMove()), "mate-in-one best move");
 			assertEquals(1, result.mateIn(), "mate-in-one score");
 			assertTrue(result.scoreLabel().equals("#1"), "mate-in-one score label");
+		}
+	}
+
+	/**
+	 * Verifies a root mate-in-one is proven from expanded terminal children
+	 * before any playout budget is spent.
+	 */
+	private static void testMctsForcedMateProofOverridesVisits() {
+		try (Mcts searcher = new Mcts(new PrimedOrderingEvaluator())) {
+			Result result = searcher.search(
+					new Position(MATE_IN_ONE_FEN),
+					new Limits(1, 1L, 0L));
+			assertEquals("g6g7", Move.toString(result.bestMove()), "mate-in-one tree proof best move");
+			assertEquals(1, result.mateIn(), "mate-in-one tree proof distance");
+			assertEquals("#1", result.scoreLabel(), "mate-in-one tree proof score label");
+			assertEquals(0L, result.nodes(), "mate-in-one tree proof uses no MCTS playouts");
+			assertFalse(result.stopped(), "mate-in-one tree proof does not report a budget stop");
+			assertEquals(1, result.principalVariation().length, "mate-in-one tree proof PV length");
+		}
+	}
+
+	/**
+	 * Verifies LC0-style terminal proof propagation reaches the reported mate in
+	 * four and stops before exhausting the requested playout budget.
+	 */
+	private static void testMctsForcedMateInFourProofOverridesVisits() {
+		try (Mcts searcher = new Mcts(new PrimedOrderingEvaluator())) {
+			Result result = searcher.search(
+					new Position(FORCED_MATE_IN_FOUR_FEN),
+					new Limits(1, 1L, 0L));
+			assertEquals("c1c8", Move.toString(result.bestMove()), "forced mate-in-four proof best move");
+			assertEquals(4, result.mateIn(), "forced mate-in-four proof distance");
+			assertEquals("#4", result.scoreLabel(), "forced mate-in-four proof score label");
+			assertEquals(0L, result.nodes(), "forced mate-in-four root proof uses no MCTS playouts");
+			assertFalse(result.stopped(), "forced mate-in-four proof does not report a budget stop");
+			assertEquals(7, result.principalVariation().length, "forced mate-in-four proof PV length");
+		}
+	}
+
+	/**
+	 * Verifies the deterministic no-eval mate finder CLI proves forced mates and
+	 * reports non-mates without invoking engine evaluation.
+	 */
+	private static void testMateCliCommand() {
+		String summary = TestSupport.runMain("engine", "mate", FEN_OPTION, FORCED_MATE_IN_FOUR_FEN,
+				"--mate", "4");
+		assertTrue(summary.contains("found: true"), "engine mate summary found flag");
+		assertTrue(summary.contains("mate: #4"), "engine mate summary mate distance");
+		assertTrue(summary.contains("best: c1c8 (Rc8+)"), "engine mate summary best move");
+		assertTrue(summary.contains("pv-san: Rc8+ Rd8 Rxd8+ Re8 Rxe8+ Rf8 Rxf8#"),
+				"engine mate summary PV");
+
+		String both = TestSupport.runMain("engine", "mate", FEN_OPTION, FORCED_MATE_IN_FOUR_FEN,
+				"--mate", "4", FORMAT_OPTION, "both").strip();
+		assertEquals("c1c8\tRc8+\t#4", both, "engine mate both format");
+
+		String threaded = TestSupport.runMain("engine", "mate", FEN_OPTION, FORCED_MATE_IN_FOUR_FEN,
+				"--mate", "4", "--threads", "2", FORMAT_OPTION, "both").strip();
+		assertEquals("c1c8\tRc8+\t#4", threaded, "engine mate threaded both format");
+
+		String json = TestSupport.runMain("engine", "mate", "--startpos", "--mate", "1",
+				"--nodes", "10000", "--threads", "2", "--json").strip();
+		assertTrue(json.contains("\"found\":false"), "engine mate JSON found flag");
+		assertTrue(json.contains("\"maxMate\":1"), "engine mate JSON max mate");
+		assertTrue(json.contains("\"threads\":2"), "engine mate JSON threads");
+
+		TestSupport.FailureResult badThreads = TestSupport.runMainExpectFailure("engine", "mate",
+				FEN_OPTION, MATE_IN_ONE_FEN, "--threads", "0");
+		assertEquals(2, badThreads.exitCode(), "engine mate invalid threads exit code");
+		assertTrue(badThreads.stderr().contains("--threads must be positive"), "engine mate invalid threads error");
+	}
+
+	/**
+	 * Verifies published mate examples from common chess references.
+	 */
+	private static void testPublishedMatePositions() {
+		assertMateCli(FOOLS_MATE_PRE_FEN, 1, "d8h4\tQh4#\t#1", "Fool's Mate");
+		assertMateCli(SCHOLARS_MATE_PRE_FEN, 1, "h5f7\tQxf7#\t#1", "Scholar's Mate");
+		assertMateCli(LEGAL_TRAP_PRE_FEN, 1, "c3d5\tNd5#\t#1", "Legal Trap");
+		assertMateCli(LAWS_MATE_IN_TWO_FEN, 2, "g6d6\tRd6\t#2", "Laws mate-in-two");
+		assertMateCli(HOEG_PROMOTION_MATE_IN_THREE_FEN, 3, "f6f7\tf7\t#3", "Hoeg promotion mate-in-three");
+		assertBuiltInTreeProof(LAWS_MATE_IN_TWO_FEN, "g6d6", "#2", 500L, "Laws mate-in-two");
+	}
+
+	/**
+	 * Asserts the no-eval mate finder returns the expected compact result.
+	 */
+	private static void assertMateCli(String fen, int maxMate, String expectedBoth, String label) {
+		String both = TestSupport.runMain("engine", "mate", FEN_OPTION, fen,
+				"--mate", String.valueOf(maxMate), FORMAT_OPTION, "both").strip();
+		assertEquals(expectedBoth, both, label + " mate CLI result");
+	}
+
+	/**
+	 * Asserts the built-in MCTS command proves a mate through terminal tree
+	 * propagation before exhausting its playout budget.
+	 */
+	private static void assertBuiltInTreeProof(
+			String fen,
+			String expectedUci,
+			String expectedScore,
+			long maxNodes,
+			String label) {
+		String summary = TestSupport.runMain(ENGINE_COMMAND, BUILTIN_COMMAND, FEN_OPTION, fen,
+				"--max-nodes", String.valueOf(maxNodes), FORMAT_OPTION, SUMMARY_FORMAT);
+		assertTrue(summary.contains(BEST_PREFIX + expectedUci + " ("), label + " built-in best move");
+		assertTrue(summary.contains("score: " + expectedScore), label + " built-in mate score");
+		assertTrue(summary.contains("stopped: false"), label + " built-in proof stops search");
+	}
+
+	/**
+	 * Verifies MCTS leaf valuation does not stop abruptly on mate-in-one or a
+	 * hanging capture.
+	 */
+	private static void testMctsQuiescenceResolvesTacticalLeaves() {
+		try (Mcts neutral = new Mcts(new PrimedOrderingEvaluator())) {
+			Object evaluation = invokePrivate(neutral, "evaluatePosition",
+					new Class<?>[] { Position.class }, new Position(MATE_IN_ONE_FEN));
+			double value = (Double) invokePrivate(evaluation, "value", new Class<?>[0]);
+			assertTrue(value >= 0.999, "MCTS quiescence sees mate-in-one leaf");
+		}
+
+		try (Mcts searcher = new Mcts()) {
+			Object evaluation = invokePrivate(searcher, "evaluatePosition",
+					new Class<?>[] { Position.class },
+					new Position("7k/8/4q3/8/2B5/8/8/4K3 w - - 0 1"));
+			double value = (Double) invokePrivate(evaluation, "value", new Class<?>[0]);
+			assertTrue(value > -0.05, "MCTS quiescence resolves a hanging queen capture");
 		}
 	}
 
@@ -170,7 +351,7 @@ public final class BuiltInEngineRegressionTest {
 		assertTrue(after.isCheckmate(), "sparse-material move gives checkmate");
 		assertFalse(after.isInsufficientMaterial(), "opposite-colored bishops are not dead material");
 
-		try (AlphaBeta searcher = new AlphaBeta()) {
+		try (Mcts searcher = new Mcts()) {
 			Result result = searcher.search(position, new Limits(1, 0L, 0L));
 			assertEquals("d2c3", Move.toString(result.bestMove()), "sparse-material mate best move");
 			assertEquals(1, result.mateIn(), "sparse-material mate score");
@@ -181,7 +362,7 @@ public final class BuiltInEngineRegressionTest {
 	 * Verifies node budgets stop search while still returning a fallback move.
 	 */
 	private static void testNodeBudgetStop() {
-		try (AlphaBeta searcher = new AlphaBeta()) {
+		try (Mcts searcher = new Mcts()) {
 			Result result = searcher.search(
 					new Position(START_FEN),
 					new Limits(5, 1L, 0L));
@@ -196,10 +377,44 @@ public final class BuiltInEngineRegressionTest {
 	 */
 	private static void testPrimedRootFallbackOrdering() {
 		Position position = new Position(START_FEN);
-		try (AlphaBeta searcher = new AlphaBeta(new PrimedOrderingEvaluator())) {
+		try (Mcts searcher = new Mcts(new PrimedOrderingEvaluator())) {
 			Result result = searcher.search(position, new Limits(5, 1L, 0L));
 			assertTrue(result.stopped(), "primed root fallback stop flag");
 			assertEquals("e2e4", Move.toString(result.bestMove()), "primed root fallback preferred move");
+		}
+	}
+
+	/**
+	 * Verifies pre-root history is used for repetition draws.
+	 */
+	private static void testRootHistoryRepetition() {
+		Position root = new Position(START_FEN);
+		long key = root.signatureCore();
+		try (Mcts searcher = new Mcts()) {
+			Result result = searcher.searchReusable(root, new Limits(3, 64L, 0L), null, new long[] { key, key });
+			assertTrue(result.hasBestMove(), "repetition root still returns a legal move");
+			assertEquals(0, result.scoreCentipawns(), "repetition root score is draw");
+			assertEquals(0L, result.nodes(), "repetition root stops before playouts");
+		}
+	}
+
+	/**
+	 * Verifies threaded and batched MCTS modes return legal bounded results.
+	 */
+	private static void testParallelAndBatchedSearch() {
+		Position start = new Position(START_FEN);
+		try (Mcts searcher = new Mcts()) {
+			searcher.setThreads(2);
+			Result result = searcher.search(start, new Limits(2, 64L, 0L));
+			assertTrue(result.hasBestMove(), "threaded MCTS best move");
+			assertTrue(start.isLegalMove(result.bestMove()), "threaded MCTS legal best move");
+			assertTrue(result.nodes() >= 64L, "threaded MCTS visits node budget");
+		}
+		try (Mcts searcher = new Mcts()) {
+			searcher.setBatchSize(4);
+			Result result = searcher.search(start, new Limits(2, 16L, 0L));
+			assertTrue(result.hasBestMove(), "batched MCTS best move");
+			assertEquals(16L, result.nodes(), "batched MCTS exact node budget");
 		}
 	}
 
@@ -214,7 +429,7 @@ public final class BuiltInEngineRegressionTest {
 		assertTrue(Kind.parse("lc0") == Kind.LC0,
 				"lc0 evaluator parse");
 
-		try (AlphaBeta searcher = new AlphaBeta(new Classical())) {
+		try (Mcts searcher = new Mcts(new Classical())) {
 			Result result = searcher.search(new Position(SIMPLE_FEN), new Limits(1, 0L, 0L));
 			assertTrue(result.hasBestMove(), "explicit classical evaluator best move");
 			assertTrue(searcher.evaluatorName().equals(CLASSICAL_EVALUATOR), "explicit classical evaluator label");
@@ -261,7 +476,7 @@ public final class BuiltInEngineRegressionTest {
 
 		String uciInfo = TestSupport.runMain(ENGINE_COMMAND, BUILTIN_COMMAND, FEN_OPTION, SIMPLE_FEN,
 				DEPTH_OPTION, "2", "--nodes", "1000");
-		assertTrue(uciInfo.contains("info depth 1 score "), "engine builtin default UCI info depth 1");
+		assertTrue(uciInfo.contains("info depth "), "engine builtin default UCI info");
 		assertTrue(uciInfo.contains(" pv "), "engine builtin default UCI info PV");
 		assertTrue(uciInfo.contains("bestmove "), "engine builtin default UCI bestmove");
 
@@ -275,7 +490,7 @@ public final class BuiltInEngineRegressionTest {
 
 		String capped = TestSupport.runMain(ENGINE_COMMAND, BUILTIN_COMMAND, FEN_OPTION, START_FEN,
 				DEPTH_OPTION, "10", "--max-duration", "1ms");
-		assertTrue(capped.contains("info depth 0 score "), "engine builtin budget fallback UCI info");
+		assertTrue(capped.contains("info depth "), "engine builtin budget fallback UCI info");
 		assertTrue(capped.contains("bestmove "), "engine builtin budget fallback bestmove");
 
 		String engineHelp = TestSupport.runMain("help", ENGINE_COMMAND);
@@ -285,9 +500,65 @@ public final class BuiltInEngineRegressionTest {
 		assertTrue(builtinHelp.contains("engine builtin options:"), "help engine builtin options");
 		assertTrue(builtinHelp.contains("--startpos"), "help engine builtin startpos option");
 		assertTrue(builtinHelp.contains("--randompos"), "help engine builtin randompos option");
+		assertTrue(builtinHelp.contains("--uci"), "help engine builtin UCI loop option");
 		assertTrue(builtinHelp.contains("--evaluator KIND"), "help engine builtin evaluator option");
 		assertTrue(builtinHelp.contains("--classical|--nnue|--lc0"), "help engine builtin evaluator shortcuts");
 		assertTrue(builtinHelp.contains("uci-info"), "help engine builtin UCI info format");
+	}
+
+	/**
+	 * Verifies the built-in MCTS engine speaks the essential UCI loop.
+	 *
+	 * @throws IOException if the test reader fails
+	 */
+	private static void testBuiltInUciLoop() throws IOException {
+		String input = String.join(System.lineSeparator(),
+				"uci",
+				"setoption name Threads value 2",
+				"isready",
+				"ucinewgame",
+				"position startpos moves e2e4 e7e5",
+				"go nodes 8",
+				"quit",
+				"");
+		ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+		try (Mcts searcher = new Mcts();
+				PrintStream out = new PrintStream(bytes, true, StandardCharsets.UTF_8)) {
+			MctsUci.run(new StringReader(input), out, searcher);
+		}
+		String output = bytes.toString(StandardCharsets.UTF_8);
+		assertTrue(output.contains("id name ChessRTK MCTS"), "MCTS UCI id name");
+		assertTrue(output.contains("option name Threads"), "MCTS UCI Threads option");
+		assertTrue(output.contains("uciok"), "MCTS UCI uciok");
+		assertTrue(output.contains("readyok"), "MCTS UCI readyok");
+		assertTrue(output.contains("bestmove "), "MCTS UCI bestmove");
+
+		String stopInput = String.join(System.lineSeparator(),
+				"position startpos",
+				"go infinite",
+				"stop",
+				"quit",
+				"");
+		ByteArrayOutputStream stopBytes = new ByteArrayOutputStream();
+		try (Mcts searcher = new Mcts();
+				PrintStream out = new PrintStream(stopBytes, true, StandardCharsets.UTF_8)) {
+			MctsUci.run(new StringReader(stopInput), out, searcher);
+		}
+		assertTrue(stopBytes.toString(StandardCharsets.UTF_8).contains("bestmove "), "MCTS UCI stop bestmove");
+
+		String repetitionInput = String.join(System.lineSeparator(),
+				"position startpos moves g1f3 g8f6 f3g1 f6g8 g1f3 g8f6 f3g1 f6g8",
+				"go nodes 64",
+				"quit",
+				"");
+		ByteArrayOutputStream repetitionBytes = new ByteArrayOutputStream();
+		try (Mcts searcher = new Mcts();
+				PrintStream out = new PrintStream(repetitionBytes, true, StandardCharsets.UTF_8)) {
+			MctsUci.run(new StringReader(repetitionInput), out, searcher);
+		}
+		String repetitionOutput = repetitionBytes.toString(StandardCharsets.UTF_8);
+		assertTrue(repetitionOutput.contains("info depth 0 score cp 0 nodes 0"),
+				"MCTS UCI root repetition draw");
 	}
 
 	/**
@@ -385,6 +656,19 @@ public final class BuiltInEngineRegressionTest {
 		buffer.putInt(values.length);
 		for (float value : values) {
 			buffer.putFloat(value);
+		}
+	}
+
+	/**
+	 * Invokes a private method for focused engine invariants.
+	 */
+	private static Object invokePrivate(Object target, String name, Class<?>[] parameterTypes, Object... args) {
+		try {
+			Method method = target.getClass().getDeclaredMethod(name, parameterTypes);
+			method.setAccessible(true);
+			return method.invoke(target, args);
+		} catch (ReflectiveOperationException ex) {
+			throw new AssertionError("failed to invoke " + name, ex);
 		}
 	}
 

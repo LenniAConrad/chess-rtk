@@ -3547,6 +3547,12 @@ public final class PuzzleRatingCsvTool {
      * Integer row field accessor.
      */
     private interface IntField {
+        /**
+         * Returns the integer value for a CSV row.
+         *
+         * @param row source row
+         * @return integer value
+         */
         int value(Row row);
     }
 
@@ -3554,6 +3560,12 @@ public final class PuzzleRatingCsvTool {
      * Floating-point accessor for difficulty-driver metrics.
      */
     private interface DoubleMetric {
+        /**
+         * Returns the floating-point metric value for one complexity band.
+         *
+         * @param band source band
+         * @return metric value
+         */
         double value(ComplexityBand band);
     }
 

@@ -4,6 +4,8 @@ import chess.core.Position;
 
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Convenience wrapper around {@link Network} that encodes {@link Position} and runs inference.
@@ -23,7 +25,7 @@ import java.nio.file.Path;
  * @author Lennart A. Conrad
  */
 public final class Model implements AutoCloseable {
-    
+
     /**
      * Default ChessRTK LC0 CNN weights path used by the CLI helpers and examples.
      */
@@ -99,6 +101,28 @@ public final class Model implements AutoCloseable {
     }
 
     /**
+     * Encodes and evaluates a batch of positions.
+     *
+     * @param positions positions to evaluate
+     * @return predictions aligned with {@code positions}
+     */
+    public List<Network.Prediction> predictBatch(List<Position> positions) {
+        if (positions == null) {
+            throw new IllegalArgumentException("positions == null");
+        }
+        int expected = network.info().inputChannels() * 64;
+        List<float[]> encoded = new ArrayList<>(positions.size());
+        for (Position position : positions) {
+            float[] planes = Encoder.encode(position);
+            if (planes.length != expected) {
+                throw new IllegalStateException("Encoder produced " + planes.length + " floats, expected " + expected);
+            }
+            encoded.add(planes);
+        }
+        return network.predictEncodedBatch(encoded);
+    }
+
+    /**
      * Runs inference on already-encoded LC0 planes.
      *
      * @param encodedPlanes encoded planes, length {@code inputChannels * 64}
@@ -106,6 +130,16 @@ public final class Model implements AutoCloseable {
      */
     public Network.Prediction predictEncoded(float[] encodedPlanes) {
         return network.predictEncoded(encodedPlanes);
+    }
+
+    /**
+     * Runs inference on already-encoded LC0 plane batches.
+     *
+     * @param encodedPlanes encoded plane arrays
+     * @return predictions aligned with {@code encodedPlanes}
+     */
+    public List<Network.Prediction> predictEncodedBatch(List<float[]> encodedPlanes) {
+        return network.predictEncodedBatch(encodedPlanes);
     }
 
     /**

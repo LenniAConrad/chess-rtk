@@ -148,7 +148,7 @@ public final class Network implements AutoCloseable {
      * @return CPU-backed network instance
      * @throws IOException if the weights cannot be read or parsed
      */
-    private static Network loadCpu(Path path) throws IOException {
+    public static Network loadCpu(Path path) throws IOException {
         return new Network(Weights.load(path), null, null, null);
     }
 
@@ -574,6 +574,24 @@ public final class Network implements AutoCloseable {
      * @return policy logits, WDL probabilities, and scalar {@code W-L} value
      */
     public Prediction predictEncoded(float[] encodedPlanes) {
+        return predictEncoded(encodedPlanes, null);
+    }
+
+    /**
+     * Runs one forward pass on already-encoded LC0 planes and optionally
+     * captures intermediate CPU activations.
+     *
+     * <p>
+     * Activation capture is available for the Java CPU backend. Accelerated
+     * backends return the normal prediction and ignore the sink because native
+     * backends do not expose intermediate tensors.
+     * </p>
+     *
+     * @param encodedPlanes encoded planes (length {@code inputChannels * 64})
+     * @param activationSink optional activation collector
+     * @return policy logits, WDL probabilities, and scalar {@code W-L} value
+     */
+    public Prediction predictEncoded(float[] encodedPlanes, chess.nn.ActivationSink activationSink) {
         if (cuda != null) {
             return cuda.predictEncoded(encodedPlanes);
         }
@@ -586,7 +604,46 @@ public final class Network implements AutoCloseable {
         if (encodedPlanes.length != weights.inputChannels * 64) {
             throw new IllegalArgumentException("Encoded input must be " + (weights.inputChannels * 64) + " floats.");
         }
-        return Evaluator.evaluate(weights, encodedPlanes);
+        return Evaluator.evaluate(weights, encodedPlanes, activationSink);
+    }
+
+    /**
+     * Runs forward passes for already-encoded LC0 plane batches.
+     *
+     * @param encodedBatch encoded planes aligned by position
+     * @return predictions aligned with {@code encodedBatch}
+     */
+    public List<Prediction> predictEncodedBatch(List<float[]> encodedBatch) {
+        if (encodedBatch == null) {
+            throw new IllegalArgumentException("encodedBatch == null");
+        }
+        if (cuda != null) {
+            return predictEncodedBatchSequential(encodedBatch);
+        }
+        if (rocm != null) {
+            return predictEncodedBatchSequential(encodedBatch);
+        }
+        if (oneapi != null) {
+            return predictEncodedBatchSequential(encodedBatch);
+        }
+        int expected = weights.inputChannels * 64;
+        for (float[] encodedPlanes : encodedBatch) {
+            if (encodedPlanes == null || encodedPlanes.length != expected) {
+                throw new IllegalArgumentException("Encoded input must be " + expected + " floats.");
+            }
+        }
+        return Evaluator.evaluateBatch(weights, encodedBatch);
+    }
+
+    /**
+     * Runs batch prediction through single-position backend calls.
+     */
+    private List<Prediction> predictEncodedBatchSequential(List<float[]> encodedBatch) {
+        List<Prediction> out = new ArrayList<>(encodedBatch.size());
+        for (float[] encodedPlanes : encodedBatch) {
+            out.add(predictEncoded(encodedPlanes));
+        }
+        return out;
     }
 
     /**
@@ -1713,13 +1770,43 @@ public final class Network implements AutoCloseable {
          * @return inference result
          */
         static Prediction evaluate(Weights w, float[] encodedInput) {
+            return evaluate(w, encodedInput, null);
+        }
+
+        /**
+         * Evaluates a batch of encoded inputs.
+         *
+         * @param w parsed weights
+         * @param encodedBatch encoded input planes
+         * @return predictions aligned with {@code encodedBatch}
+         */
+        static List<Prediction> evaluateBatch(Weights w, List<float[]> encodedBatch) {
+            List<Prediction> out = new ArrayList<>(encodedBatch.size());
+            for (float[] encodedInput : encodedBatch) {
+                out.add(evaluate(w, encodedInput, null));
+            }
+            return out;
+        }
+
+        /**
+         * Evaluates the model and optionally captures intermediate activations.
+         *
+         * @param w            parsed weights
+         * @param encodedInput LC0 planes (length {@code inputChannels * 64})
+         * @param sink optional activation collector
+         * @return inference result
+         */
+        static Prediction evaluate(Weights w, float[] encodedInput, chess.nn.ActivationSink sink) {
             Workspace ws = WORKSPACE.get();
             ws.ensureCapacity(w);
+            capture(sink, "cnn.input", new int[] { w.inputChannels, 8, 8 }, encodedInput);
 
             w.inputLayer.forwardNoBias(encodedInput, ws.current);
             addBiasReLU(ws.current, w.inputLayer.bias, ws.current);
+            capture(sink, "cnn.stem.relu", new int[] { w.trunkChannels, 8, 8 }, ws.current);
 
-            for (ResidualBlock block : w.blocks) {
+            for (int i = 0; i < w.blocks.size(); i++) {
+                ResidualBlock block = w.blocks.get(i);
                 block.conv1.forwardNoBias(ws.current, ws.tmp);
                 addBiasReLU(ws.tmp, block.conv1.bias, ws.tmp);
 
@@ -1729,21 +1816,35 @@ public final class Network implements AutoCloseable {
                 } else {
                     addResidualReLU(ws.scratch, block.conv2.bias, ws.current, ws.next);
                 }
+                capture(sink, "cnn.block" + i + ".relu",
+                        new int[] { w.trunkChannels, 8, 8 }, ws.next);
                 float[] swap = ws.current;
                 ws.current = ws.next;
                 ws.next = swap;
             }
+            capture(sink, "cnn.final.relu", new int[] { w.trunkChannels, 8, 8 }, ws.current);
+            capture(sink, "cnn.final.activation", new int[] { 8, 8 },
+                    meanPerSquare(ws.current, w.trunkChannels));
 
             w.policyStem.forwardNoBias(ws.current, ws.policyHidden);
             addBiasReLU(ws.policyHidden, w.policyStem.bias, ws.policyHidden);
+            capture(sink, "cnn.policy.hidden",
+                    new int[] { w.policyStem.outChannels, 8, 8 }, ws.policyHidden);
             w.policyOutput.forwardNoBias(ws.policyHidden, ws.policyPlanes);
             addBias(ws.policyPlanes, w.policyOutput.bias, ws.policyPlanes);
+            capture(sink, "cnn.policy.planes",
+                    new int[] { w.policyOutput.outChannels, 8, 8 }, ws.policyPlanes);
             float[] policy = mapPolicy(ws.policyPlanes, w.policyMap);
+            capture(sink, "cnn.policy.logits", new int[] { policy.length }, policy);
 
             w.valueConv.forwardNoBias(ws.current, ws.valueInput);
             addBiasReLU(ws.valueInput, w.valueConv.bias, ws.valueInput);
+            capture(sink, "cnn.value.conv",
+                    new int[] { w.valueConv.outChannels, 8, 8 }, ws.valueInput);
             w.valueFc1.forward(ws.valueInput, ws.fc1, Activation.RELU);
+            capture(sink, "cnn.value.fc1", new int[] { w.valueFc1.outDim }, ws.fc1);
             w.valueFc2.forward(ws.fc1, ws.logits, Activation.NONE);
+            capture(sink, "cnn.value.logits", new int[] { w.valueFc2.outDim }, ws.logits);
             float[] raw = softmax(ws.logits);
             // LC0 WDL outputs are ordered [win, draw, loss] from the side-to-move ("our")
             // perspective.
@@ -1752,8 +1853,54 @@ public final class Network implements AutoCloseable {
             float loss = raw[2];
             float[] wdl = new float[] { win, draw, loss };
             float scalar = win - loss;
+            capture(sink, "cnn.value.wdl", new int[] { 3 }, wdl);
+            capture(sink, "cnn.value.scalar", new int[] { 1 }, new float[] { scalar });
 
             return new Prediction(policy, wdl, scalar);
+        }
+
+        /**
+         * Captures one tensor into the supplied sink.
+         *
+         * @param sink optional activation sink
+         * @param key activation key
+         * @param shape tensor shape
+         * @param data source values; copied before publishing
+         */
+        private static void capture(chess.nn.ActivationSink sink, String key, int[] shape, float[] data) {
+            if (sink == null) {
+                return;
+            }
+            int size = 1;
+            for (int dim : shape) {
+                size *= dim;
+            }
+            sink.put(key, shape, Arrays.copyOf(data, size));
+        }
+
+        /**
+         * Channel-averages a {@code [channels, 8, 8]} tensor into one board map.
+         *
+         * @param values channel-major tensor
+         * @param channels channel count
+         * @return 64-square mean map
+         */
+        private static float[] meanPerSquare(float[] values, int channels) {
+            float[] out = new float[64];
+            if (values == null || channels <= 0) {
+                return out;
+            }
+            for (int c = 0; c < channels; c++) {
+                int base = c * 64;
+                for (int sq = 0; sq < 64; sq++) {
+                    out[sq] += values[base + sq];
+                }
+            }
+            float inv = 1.0f / channels;
+            for (int sq = 0; sq < 64; sq++) {
+                out[sq] *= inv;
+            }
+            return out;
         }
 
         /**
@@ -1821,7 +1968,7 @@ public final class Network implements AutoCloseable {
             float[] scratch = new float[0];
 
             /**
-             * Policy stem activations [trunkChannels, 64].
+             * Policy stem activations [policyStem.outChannels, 64].
              */
             float[] policyHidden = new float[0];
 
@@ -1875,8 +2022,9 @@ public final class Network implements AutoCloseable {
                     tmp = new float[trunkSize];
                 if (scratch.length != trunkSize)
                     scratch = new float[trunkSize];
-                if (policyHidden.length != trunkSize)
-                    policyHidden = new float[trunkSize];
+                int policyHiddenSize = w.policyStem.outChannels * 64;
+                if (policyHidden.length != policyHiddenSize)
+                    policyHidden = new float[policyHiddenSize];
 
                 int policyPlanesSize = w.policyChannels * 64;
                 if (policyPlanes.length != policyPlanesSize)

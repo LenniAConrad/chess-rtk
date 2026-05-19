@@ -105,7 +105,7 @@ final class WorkbenchInspectorPanel extends JPanel {
         setBackground(WorkbenchTheme.PANEL_SOLID);
         setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createMatteBorder(0, 1, 0, 0, WorkbenchTheme.LINE),
-                BorderFactory.createEmptyBorder(10, 12, 10, 12)));
+                WorkbenchTheme.pad(WorkbenchTheme.SPACE_MD)));
         setPreferredSize(new Dimension(340, 600));
 
         titleLabel.setFont(WorkbenchTheme.font(13, Font.BOLD));
@@ -114,7 +114,7 @@ final class WorkbenchInspectorPanel extends JPanel {
         subtitleLabel.setForeground(WorkbenchTheme.MUTED);
         valueLabel.setFont(WorkbenchTheme.font(16, Font.BOLD));
         valueLabel.setForeground(WorkbenchTheme.TEXT);
-        statsLabel.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 11));
+        statsLabel.setFont(WorkbenchTheme.mono(11));
         statsLabel.setForeground(WorkbenchTheme.MUTED);
 
         descriptionArea.setEditable(false);
@@ -123,15 +123,16 @@ final class WorkbenchInspectorPanel extends JPanel {
         descriptionArea.setOpaque(false);
         descriptionArea.setForeground(WorkbenchTheme.TEXT);
         descriptionArea.setFont(WorkbenchTheme.font(11, Font.ITALIC));
-        descriptionArea.setBorder(BorderFactory.createEmptyBorder(2, 0, 2, 0));
+        descriptionArea.setBorder(WorkbenchTheme.pad(WorkbenchTheme.SPACE_XS, 0));
 
         dataArea.setEditable(false);
         dataArea.setLineWrap(false);
         dataArea.setOpaque(true);
         dataArea.setBackground(WorkbenchTheme.BG);
         dataArea.setForeground(WorkbenchTheme.TEXT);
-        dataArea.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 11));
-        dataArea.setMargin(new Insets(6, 8, 6, 8));
+        dataArea.setFont(WorkbenchTheme.mono(11));
+        dataArea.setMargin(new Insets(WorkbenchTheme.SPACE_SM, WorkbenchTheme.SPACE_SM,
+                WorkbenchTheme.SPACE_SM, WorkbenchTheme.SPACE_SM));
 
         JScrollPane scroll = new JScrollPane(dataArea,
                 ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED,
@@ -148,15 +149,15 @@ final class WorkbenchInspectorPanel extends JPanel {
         statsLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
         descriptionArea.setAlignmentX(Component.LEFT_ALIGNMENT);
         header.add(titleLabel);
-        header.add(Box.createVerticalStrut(2));
+        header.add(Box.createVerticalStrut(WorkbenchTheme.SPACE_XS));
         header.add(subtitleLabel);
-        header.add(Box.createVerticalStrut(8));
+        header.add(Box.createVerticalStrut(WorkbenchTheme.SPACE_SM));
         header.add(valueLabel);
-        header.add(Box.createVerticalStrut(2));
+        header.add(Box.createVerticalStrut(WorkbenchTheme.SPACE_XS));
         header.add(statsLabel);
-        header.add(Box.createVerticalStrut(8));
+        header.add(Box.createVerticalStrut(WorkbenchTheme.SPACE_SM));
         header.add(descriptionArea);
-        header.add(Box.createVerticalStrut(6));
+        header.add(Box.createVerticalStrut(WorkbenchTheme.SPACE_SM));
 
         copyButton.setEnabled(false);
         clearButton.setEnabled(false);
@@ -167,7 +168,7 @@ final class WorkbenchInspectorPanel extends JPanel {
         buttonRow.setOpaque(false);
         buttonRow.setLayout(new BoxLayout(buttonRow, BoxLayout.X_AXIS));
         buttonRow.add(copyButton);
-        buttonRow.add(Box.createHorizontalStrut(6));
+        buttonRow.add(Box.createHorizontalStrut(WorkbenchTheme.SPACE_SM));
         buttonRow.add(clearButton);
         buttonRow.add(Box.createHorizontalGlue());
 
@@ -212,7 +213,7 @@ final class WorkbenchInspectorPanel extends JPanel {
         descriptionArea.setCaretPosition(0);
 
         if (region.dataKey != null && snapshot != null) {
-            float[] data = snapshot.data(region.dataKey);
+            float[] data = region.inlineData != null ? region.inlineData : snapshot.data(region.dataKey);
             if (data == null || data.length == 0) {
                 statsLabel.setText("(no data for key " + region.dataKey + ")");
                 dataArea.setText("");
@@ -234,6 +235,22 @@ final class WorkbenchInspectorPanel extends JPanel {
                     dataArea.setCaretPosition(0);
                     clipboardPayload = composeClipboard(region, stats, body);
                 }
+            }
+            copyButton.setEnabled(!clipboardPayload.isBlank());
+        } else if (region.inlineData != null) {
+            float[] data = region.inlineData;
+            int len = data.length;
+            if (len <= 0) {
+                statsLabel.setText("(empty slice)");
+                dataArea.setText("");
+                clipboardPayload = composeClipboard(region, "", "(empty slice)");
+            } else {
+                String stats = computeStats(data, 0, len, region.shapeText);
+                String body = formatValues(data, 0, len, region.dataStride);
+                statsLabel.setText(stats);
+                dataArea.setText(body);
+                dataArea.setCaretPosition(0);
+                clipboardPayload = composeClipboard(region, stats, body);
             }
             copyButton.setEnabled(!clipboardPayload.isBlank());
         } else {
@@ -391,8 +408,9 @@ final class WorkbenchInspectorPanel extends JPanel {
         if (region.description != null && !region.description.isEmpty()) {
             sb.append("Description: ").append(region.description).append('\n');
         }
-        if (region.dataKey != null) {
-            sb.append("Source key: ").append(region.dataKey);
+        if (region.dataKey != null || region.inlineData != null) {
+            sb.append("Source key: ")
+                    .append(region.dataKey == null ? "(computed)" : region.dataKey);
             if (region.shapeText != null && !region.shapeText.isEmpty()) {
                 sb.append(" (").append(region.shapeText).append(')');
             }

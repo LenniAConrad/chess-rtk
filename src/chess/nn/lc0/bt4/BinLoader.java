@@ -103,6 +103,33 @@ public final class BinLoader {
     }
 
     /**
+     * Loads only BT4 architecture metadata from a compact CRTK binary file.
+     *
+     * @param path path to the model file
+     * @return parsed architecture metadata
+     * @throws IOException if the file cannot be read or parsed
+     */
+    public static Architecture loadArchitecture(Path path) throws IOException {
+        if (path == null) {
+            throw new IllegalArgumentException("path == null");
+        }
+        try {
+            ByteBuffer in = ByteBuffer.wrap(Files.readAllBytes(path)).order(ByteOrder.LITTLE_ENDIAN);
+            int magic = in.getInt();
+            if (magic != MAGIC) {
+                throw new IOException("Invalid BT4 bin magic.");
+            }
+            int version = in.getInt();
+            if (version != VERSION) {
+                throw new IOException("Unsupported BT4 bin version: " + version + " (expected " + VERSION + ")");
+            }
+            return readArchitecture(in);
+        } catch (BufferUnderflowException | IllegalArgumentException e) {
+            throw new IOException("Malformed BT4 weights file.", e);
+        }
+    }
+
+    /**
      * Reads architecture metadata.
      *
      * @param in source buffer
