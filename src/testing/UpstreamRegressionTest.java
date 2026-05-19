@@ -7,6 +7,8 @@ import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.Map;
 
 import chess.core.Move;
 import chess.core.Position;
@@ -80,6 +82,7 @@ public final class UpstreamRegressionTest {
     public static void main(String[] args) throws IOException {
         testFeatureGeneration();
         testCurrentSmallNetLoadAndEvaluate();
+        testCurrentSmallNetCapturesWorkbenchActivations();
         testCurrentSmallNetIncrementalSearchState();
         System.out.println("UpstreamRegressionTest: all checks passed");
     }
@@ -125,6 +128,40 @@ public final class UpstreamRegressionTest {
             Model model = Model.load(temp);
             assertEquals(6, model.evaluateCentipawns(ONE_PAWN), "Model auto-detected upstream prediction");
             assertNotNull(model.upstreamInfo(), "upstream metadata");
+        } finally {
+            Files.deleteIfExists(temp);
+        }
+    }
+
+    /**
+     * Verifies Stockfish-format NNUE exposes Workbench activation tensors.
+     *
+     * @throws IOException if temp-file IO fails
+     */
+    private static void testCurrentSmallNetCapturesWorkbenchActivations() throws IOException {
+        byte[] net = writeSyntheticCurrentSmallNet();
+        Path temp = Files.createTempFile("crtk-upstream-nnue-capture-test-", ".nnue");
+        try {
+            Files.write(temp, net);
+            Model model = Model.load(temp);
+            CapturingSink sink = new CapturingSink();
+            assertEquals(6, model.predict(ONE_PAWN, sink).roundedCentipawns(), "captured upstream prediction");
+            assertEquals(64, sink.data("nnue.stockfish.transformed.us").length,
+                    "Stockfish transformed side-to-move half");
+            assertEquals(16, sink.data("nnue.stockfish.fc0.raw").length,
+                    "Stockfish FC0 raw includes forward output");
+            assertEquals(64, sink.data("nnue.stockfish.fc0.weights.fwd.us").length,
+                    "Stockfish FC0 forward row weights are captured");
+            assertEquals(1, sink.data("nnue.stockfish.fc0.fwd.cp").length,
+                    "Stockfish FC0 forward contribution is captured");
+            assertEquals(32, sink.data("nnue.stockfish.fc1.clipped").length,
+                    "Stockfish FC1 clipped width");
+            assertEquals(32, sink.data("nnue.stockfish.fc2.contribution").length,
+                    "Stockfish FC2 contribution width");
+            assertEquals(4, sink.data("nnue.stockfish.output.parts").length,
+                    "Stockfish output decomposition includes PSQT, FC2, and fwd");
+            assertEquals(1, sink.data("nnue.output.centipawns").length,
+                    "captured output centipawns");
         } finally {
             Files.deleteIfExists(temp);
         }
@@ -624,6 +661,36 @@ public final class UpstreamRegressionTest {
     private static void assertNotNull(Object value, String label) {
         if (value == null) {
             throw new AssertionError(label + ": expected non-null");
+        }
+    }
+
+    /**
+     * Minimal activation sink for upstream capture assertions.
+     */
+    private static final class CapturingSink implements chess.nn.ActivationSink {
+
+        /**
+         * Captured tensors by key.
+         */
+        private final Map<String, float[]> values = new HashMap<>();
+
+        @Override
+        public void put(String key, int[] shape, float[] data) {
+            values.put(key, data.clone());
+        }
+
+        /**
+         * Returns one captured tensor.
+         *
+         * @param key key
+         * @return tensor data
+         */
+        private float[] data(String key) {
+            float[] out = values.get(key);
+            if (out == null) {
+                throw new AssertionError("missing activation key " + key);
+            }
+            return out;
         }
     }
 }

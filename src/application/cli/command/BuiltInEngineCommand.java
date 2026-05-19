@@ -32,6 +32,8 @@ import chess.core.Move;
 import chess.core.Position;
 import chess.engine.AlphaBeta;
 import chess.engine.Limits;
+import chess.engine.Mcts;
+import chess.engine.MctsUci;
 import chess.engine.Result;
 import chess.eval.CentipawnEvaluator;
 import chess.eval.Factory;
@@ -39,7 +41,7 @@ import chess.eval.Kind;
 import utility.Argv;
 
 /**
- * Implements the built-in Java engine CLI command.
+ * Implements the built-in MCTS engine CLI command.
  *
  * @since 2026
  * @author Lennart A. Conrad
@@ -61,6 +63,11 @@ public final class BuiltInEngineCommand {
 	 * {@code --nnue} option flag.
 	 */
 	private static final String OPT_NNUE = "--nnue";
+
+	/**
+	 * {@code --uci} option flag.
+	 */
+	private static final String OPT_UCI = "--uci";
 
 	/**
 	 * Utility class; prevent instantiation.
@@ -134,7 +141,11 @@ public final class BuiltInEngineCommand {
 		/**
 		 * Stores the weights.
 		 */
-		Path weights
+		Path weights,
+		/**
+		 * Stores whether to run the UCI loop.
+		 */
+		boolean uciLoop
 	) {
 	}
 
@@ -145,51 +156,55 @@ public final class BuiltInEngineCommand {
 	 */
 	public static void runBuiltIn(Argv a) {
 		Options opts = parseOptions(a);
-		List<String> fens = CommandSupport.resolveFenInputs(CMD_BUILTIN, opts.input(), opts.fen());
-			try (AlphaBeta searcher = new AlphaBeta(createEvaluator(opts))) {
-				Bar bar = progressBar(fens);
-				for (int i = 0; i < fens.size(); i++) {
-					searchAndPrint(fens.get(i), searcher, opts, i > 0);
-					CommandSupport.step(bar);
-				}
-				CommandSupport.finish(bar);
-			} catch (IOException ex) {
-			System.err.println(CMD_BUILTIN + ": evaluator initialization failed: " + ex.getMessage());
+		try (Mcts searcher = createSearcher(opts)) {
+			if (opts.uciLoop()) {
+				MctsUci.run(System.in, System.out, searcher);
+				return;
+			}
+			List<String> fens = CommandSupport.resolveFenInputs(CMD_BUILTIN, opts.input(), opts.fen());
+			Bar bar = progressBar(fens);
+			for (int i = 0; i < fens.size(); i++) {
+				searchAndPrint(fens.get(i), searcher, opts, i > 0);
+				CommandSupport.step(bar);
+			}
+			CommandSupport.finish(bar);
+		} catch (IOException ex) {
+			System.err.println(CMD_BUILTIN + ": engine initialization failed: " + ex.getMessage());
 			if (opts.verbose()) {
 				ex.printStackTrace(System.err);
 			}
 			System.exit(2);
 		}
-		}
+	}
 
-		/**
-		 * Searches one input FEN and prints the result.
-		 */
-		private static void searchAndPrint(String entry, AlphaBeta searcher, Options opts, boolean blankBeforeSummary) {
-			try {
-				Position position = EngineOps.parsePositionOrNull(entry, CMD_BUILTIN, opts.verbose());
-				if (position == null) {
-					return;
-				}
-				if (opts.format() == OutputFormat.UCI_INFO && opts.input() != null) {
-					System.out.println("info string fen " + entry);
-				}
-				Result result = search(searcher, position, opts);
-				printResult(entry, position, result, searcher.evaluatorName(), opts.input() != null, opts.format(),
-						blankBeforeSummary);
-			} catch (RuntimeException ex) {
-				System.err.println(CMD_BUILTIN + ": search failed: " + ex.getMessage());
-				if (opts.verbose()) {
-					ex.printStackTrace(System.err);
-				}
-				System.exit(2);
+	/**
+	 * Searches one input FEN and prints the result.
+	 */
+	private static void searchAndPrint(String entry, Mcts searcher, Options opts, boolean blankBeforeSummary) {
+		try {
+			Position position = EngineOps.parsePositionOrNull(entry, CMD_BUILTIN, opts.verbose());
+			if (position == null) {
+				return;
 			}
+			if (opts.format() == OutputFormat.UCI_INFO && opts.input() != null) {
+				System.out.println("info string fen " + entry);
+			}
+			Result result = search(searcher, position, opts);
+			printResult(entry, position, result, searcher.evaluatorName(), opts.input() != null, opts.format(),
+					blankBeforeSummary);
+		} catch (RuntimeException ex) {
+			System.err.println(CMD_BUILTIN + ": search failed: " + ex.getMessage());
+			if (opts.verbose()) {
+				ex.printStackTrace(System.err);
+			}
+			System.exit(2);
 		}
+	}
 
-		/**
-		 * Parses command options.
-		 *
-		 * @param a argument parser
+	/**
+	 * Parses command options.
+	 *
+	 * @param a argument parser
 	 * @return parsed options
 	 */
 	private static Options parseOptions(Argv a) {
@@ -200,6 +215,7 @@ public final class BuiltInEngineCommand {
 		boolean classical = a.flag(OPT_CLASSICAL);
 		boolean nnue = a.flag(OPT_NNUE);
 		boolean lc0 = a.flag(OPT_LC0);
+		boolean uciLoop = a.flag(OPT_UCI);
 		Path weights = a.path(OPT_WEIGHTS);
 		Integer depthOpt = a.integer(OPT_DEPTH, OPT_DEPTH_SHORT);
 		int depth = depthOpt == null ? Limits.DEFAULT_DEPTH : depthOpt;
@@ -209,7 +225,21 @@ public final class BuiltInEngineCommand {
 		long defaultDuration = depthOpt == null ? Limits.DEFAULT_MAX_DURATION_MILLIS : 0L;
 		long maxNodes = nodesOpt == null ? defaultNodes : nodesOpt;
 		long maxDuration = CommandSupport.optionalDurationMs(durationOpt, defaultDuration);
-		String fen = CommandSupport.resolveFenArgument(a, CMD_BUILTIN, false);
+		String fen;
+		if (uciLoop) {
+			if (input != null) {
+				System.err.println(CMD_BUILTIN + ": " + OPT_UCI + " cannot be combined with " + OPT_INPUT);
+				System.exit(2);
+			}
+			if (!a.positionals().isEmpty()) {
+				System.err.println(CMD_BUILTIN + ": " + OPT_UCI + " does not take a FEN argument");
+				System.exit(2);
+			}
+			a.ensureConsumed();
+			fen = null;
+		} else {
+			fen = CommandSupport.resolveFenArgument(a, CMD_BUILTIN, false);
+		}
 
 		Validation.requireBetweenInclusive(CMD_BUILTIN, OPT_DEPTH, depth, 1, AlphaBeta.MAX_DEPTH);
 		if (maxNodes < 0L) {
@@ -227,7 +257,7 @@ public final class BuiltInEngineCommand {
 			System.err.println(CMD_BUILTIN + ": " + OPT_WEIGHTS + " requires " + OPT_EVALUATOR + " nnue or lc0");
 			System.exit(2);
 		}
-		return new Options(verbose, input, fen, limits, parseFormat(format), evaluator, weights);
+		return new Options(verbose, input, fen, limits, parseFormat(format), evaluator, weights, uciLoop);
 	}
 
 	/**
@@ -267,7 +297,22 @@ public final class BuiltInEngineCommand {
 	}
 
 	/**
-	 * Creates the selected evaluator.
+	 * Creates the selected searcher.
+	 *
+	 * @param opts parsed options
+	 * @return MCTS searcher
+	 * @throws IOException if model weights cannot be loaded
+	 */
+	private static Mcts createSearcher(Options opts) throws IOException {
+		if (opts.evaluator() == Kind.LC0) {
+			Path weights = opts.weights() == null ? Path.of(Config.getLc0ModelPath()) : opts.weights();
+			return Mcts.lc0(weights);
+		}
+		return new Mcts(createEvaluator(opts));
+	}
+
+	/**
+	 * Creates the selected centipawn evaluator.
 	 *
 	 * @param opts parsed options
 	 * @return evaluator
@@ -277,8 +322,6 @@ public final class BuiltInEngineCommand {
 		Path weights = opts.weights();
 		if (opts.evaluator() == Kind.NNUE) {
 			weights = resolveNnueWeights(weights);
-		} else if (weights == null && opts.evaluator() == Kind.LC0) {
-			weights = Path.of(Config.getLc0ModelPath());
 		}
 		return Factory.create(opts.evaluator(), weights);
 	}
@@ -344,7 +387,7 @@ public final class BuiltInEngineCommand {
 	 * @param opts parsed options
 	 * @return final search result
 	 */
-	private static Result search(AlphaBeta searcher, Position position, Options opts) {
+	private static Result search(Mcts searcher, Position position, Options opts) {
 		if (opts.format() != OutputFormat.UCI_INFO) {
 			return searcher.search(position, opts.limits());
 		}

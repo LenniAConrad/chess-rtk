@@ -262,6 +262,12 @@ public final class Render {
 	 */
 	private int pieceYOffset = 0;
 
+	/**
+	 * Optional CSS-style hex color tinting the board light/dark/grid fills.
+	 * {@code null} keeps the default neutral board palette.
+	 */
+	private String boardAccentHex = null;
+
 	/** 
 	 * Overlay arrows to draw.
 	 */
@@ -389,6 +395,44 @@ public final class Render {
 	public Render setShowSpecialMoveHints(boolean value) {
 		this.showSpecialMoveHints = value;
 		return this;
+	}
+
+	/**
+	 * Resolves the frame fill color for the currently configured accent.
+	 *
+	 * @return tinted frame color, or {@link #DEFAULT_FRAME} when no accent is set
+	 */
+	private Color resolveFrameColor() {
+		if (boardAccentHex == null || boardAccentHex.isBlank()) {
+			return DEFAULT_FRAME;
+		}
+		String hex = SvgShapes.accentColors(boardAccentHex).frame();
+		int rgb = Integer.parseInt(hex.substring(1), 16);
+		return new Color((rgb >> 16) & 0xFF, (rgb >> 8) & 0xFF, rgb & 0xFF);
+	}
+
+	/**
+	 * Sets an accent color used to tint the board light/dark/grid fills.
+	 *
+	 * <p>The accent is a CSS-style hex string (e.g. {@code "#4ab66f"}); both
+	 * {@code #RGB} and {@code #RRGGBB} forms are accepted. Passing {@code null}
+	 * or a blank string restores the default neutral palette.</p>
+	 *
+	 * @param hex CSS-style hex color or {@code null}
+	 * @return this renderer for chaining
+	 */
+	public Render setBoardAccent(String hex) {
+		this.boardAccentHex = (hex == null || hex.isBlank()) ? null : hex;
+		return this;
+	}
+
+	/**
+	 * Returns the currently configured board accent color, if any.
+	 *
+	 * @return accent hex or {@code null}
+	 */
+	public String getBoardAccent() {
+		return boardAccentHex;
 	}
 
 	/**
@@ -739,7 +783,7 @@ public final class Render {
 	 */
 	private void paintToGraphics(Graphics2D g, RenderGeometry geometry) {
 		if (showBorder) {
-			g.setPaint(DEFAULT_FRAME);
+			g.setPaint(resolveFrameColor());
 			if (showCoordinatesOutside) {
 				int frameX = geometry.boardX - borderThickness;
 				int frameY = geometry.boardY - borderThickness;
@@ -751,7 +795,7 @@ public final class Render {
 			}
 		}
 
-		Shapes.drawBoard(g, geometry.boardX, geometry.boardY, boardWidth, boardHeight);
+		Shapes.drawBoard(g, geometry.boardX, geometry.boardY, boardWidth, boardHeight, boardAccentHex);
 		drawSquareTexts(g, geometry.boardX, geometry.boardY, true);
 		drawCoordinates(g, geometry.boardX, geometry.boardY);
 		drawPieces(g, geometry.boardX, geometry.boardY);
@@ -798,7 +842,7 @@ public final class Render {
 		if (showBorder) {
 			appendFrameSvg(svg, geometry);
 		}
-		appendBoardSvg(svg, geometry.boardX, geometry.boardY);
+		appendBoardSvg(svg, geometry.boardX, geometry.boardY, boardAccentHex);
 		appendSquareTextsSvg(svg, geometry.boardX, geometry.boardY, true);
 		appendCoordinatesSvg(svg, geometry.boardX, geometry.boardY);
 		appendPiecesSvg(svg, geometry.boardX, geometry.boardY);
@@ -869,7 +913,7 @@ public final class Render {
 		}
 		svg.append("  <rect x=\"").append(frameX).append(SVG_Y_ATTRIBUTE).append(frameY)
 				.append(SVG_WIDTH_ATTRIBUTE).append(frameW).append(SVG_HEIGHT_ATTRIBUTE).append(frameH).append("\"");
-		appendColorAttribute(svg, "fill", DEFAULT_FRAME);
+		appendColorAttribute(svg, "fill", resolveFrameColor());
 		svg.append("/>\n");
 	}
 
@@ -880,9 +924,12 @@ public final class Render {
 	 * @param boardX board origin x
 	 * @param boardY board origin y
 	 */
-	private static void appendBoardSvg(StringBuilder svg, int boardX, int boardY) {
+	private static void appendBoardSvg(StringBuilder svg, int boardX, int boardY, String accentHex) {
 		svg.append("  <g transform=\"translate(").append(boardX).append(' ').append(boardY).append(")\">\n");
-		appendEmbeddedSvgBody(svg, SvgShapes.board(), "    ");
+		String boardSvg = (accentHex == null || accentHex.isBlank())
+				? SvgShapes.board()
+				: SvgShapes.boardWithAccent(accentHex);
+		appendEmbeddedSvgBody(svg, boardSvg, "    ");
 		svg.append(SVG_GROUP_END);
 	}
 

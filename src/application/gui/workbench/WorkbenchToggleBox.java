@@ -53,26 +53,46 @@ final class WorkbenchToggleBox extends JCheckBox {
     /**
      * Component height.
      */
-    private static final int HEIGHT = 32;
+    private static final int HEIGHT = WorkbenchTheme.CONTROL_HEIGHT;
 
     /**
-     * Minimum row width that keeps settings labels readable.
+     * Minimum row width that keeps settings labels readable. Only applied in
+     * full-width (non-compact) mode.
      */
     private static final int MIN_WIDTH = 320;
+
+    /**
+     * When true the toggle sizes to its content instead of stretching to
+     * {@link #MIN_WIDTH}. Used for toolbar toggles, where a 320px-wide switch
+     * would dominate the control row.
+     */
+    private final boolean compact;
+
+    /**
+     * Creates a full-width toggle checkbox suitable for a settings list.
+     *
+     * @param text toggle label
+     */
+    WorkbenchToggleBox(String text) {
+        this(text, false);
+    }
 
     /**
      * Creates a toggle checkbox.
      *
      * @param text toggle label
+     * @param compact true to size to content (toolbar use), false to stretch
+     *     to a settings-row width
      */
-    WorkbenchToggleBox(String text) {
+    WorkbenchToggleBox(String text, boolean compact) {
         super(text);
+        this.compact = compact;
         setOpaque(false);
         setFocusPainted(false);
         setRolloverEnabled(true);
         setForeground(WorkbenchTheme.TEXT);
         setFont(WorkbenchTheme.font(13, Font.PLAIN));
-        setBorder(WorkbenchTheme.pad(0, 0, 0, 0));
+        setBorder(WorkbenchTheme.pad(0));
     }
 
     /**
@@ -84,7 +104,7 @@ final class WorkbenchToggleBox extends JCheckBox {
     public Dimension getPreferredSize() {
         FontMetrics metrics = getFontMetrics(getFont());
         int width = PAD_X * 2 + metrics.stringWidth(getText()) + LABEL_GAP + TRACK_WIDTH;
-        return new Dimension(Math.max(MIN_WIDTH, width), HEIGHT);
+        return new Dimension(compact ? width : Math.max(MIN_WIDTH, width), HEIGHT);
     }
 
     /**
@@ -116,7 +136,8 @@ final class WorkbenchToggleBox extends JCheckBox {
     private void paintRow(Graphics2D g) {
         if (getModel().isRollover() || isFocusOwner()) {
             g.setColor(isEnabled() ? WorkbenchTheme.SECONDARY_BUTTON_HOVER : WorkbenchTheme.BUTTON_DISABLED_BG);
-            g.fillRoundRect(0, 0, Math.max(0, getWidth() - 1), Math.max(0, getHeight() - 1), 6, 6);
+            g.fillRoundRect(0, 0, Math.max(0, getWidth() - 1), Math.max(0, getHeight() - 1),
+                    WorkbenchTheme.RADIUS, WorkbenchTheme.RADIUS);
         }
     }
 
@@ -165,7 +186,8 @@ final class WorkbenchToggleBox extends JCheckBox {
      */
     private void paintFocus(Graphics2D g) {
         g.setColor(WorkbenchTheme.TOGGLE_FOCUS);
-        g.drawRoundRect(2, 2, Math.max(0, getWidth() - 5), Math.max(0, getHeight() - 5), 6, 6);
+        g.drawRoundRect(2, 2, Math.max(0, getWidth() - 5), Math.max(0, getHeight() - 5),
+                WorkbenchTheme.RADIUS, WorkbenchTheme.RADIUS);
     }
 
     /**

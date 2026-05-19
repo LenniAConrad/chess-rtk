@@ -143,12 +143,13 @@ final class WorkbenchInspectorDialog extends JDialog {
      * @param snapshot snapshot to read from
      */
     void inspect(WorkbenchHitRegions.Region region, WorkbenchActivationSnapshot snapshot) {
-        if (region == null || region.dataKey == null) {
+        if (region == null || !region.hasData()) {
             return;
         }
         titleLabel.setText(region.title);
         subtitleLabel.setText(region.description == null ? "" : region.description);
-        float[] data = snapshot == null ? null : snapshot.data(region.dataKey);
+        float[] data = region.inlineData != null ? region.inlineData
+                : (snapshot == null ? null : snapshot.data(region.dataKey));
         if (data == null) {
             statsLabel.setText("(no data for key " + region.dataKey + ")");
             body.setText("");
@@ -169,6 +170,9 @@ final class WorkbenchInspectorDialog extends JDialog {
         showDialog();
     }
 
+    /**
+     * Shows and raises the dialog.
+     */
     private void showDialog() {
         if (!isVisible()) {
             setLocationRelativeTo(getOwner());
@@ -177,6 +181,14 @@ final class WorkbenchInspectorDialog extends JDialog {
         toFront();
     }
 
+    /**
+     * Renders aggregate statistics for the selected data slice.
+     *
+     * @param data source data
+     * @param off start offset
+     * @param len element count
+     * @param shapeText display shape text
+     */
     private void renderStats(float[] data, int off, int len, String shapeText) {
         double sum = 0;
         double sumSq = 0;
@@ -201,6 +213,15 @@ final class WorkbenchInspectorDialog extends JDialog {
                 shape, len, min, max, mean, rms));
     }
 
+    /**
+     * Formats selected values as either a matrix or a flat list.
+     *
+     * @param data source data
+     * @param off start offset
+     * @param len element count
+     * @param stride row stride, or zero for flat output
+     * @return formatted values
+     */
     private static String formatValues(float[] data, int off, int len, int stride) {
         if (stride > 0 && len % stride == 0 && stride > 1) {
             return formatMatrix(data, off, len / stride, stride);
@@ -208,6 +229,15 @@ final class WorkbenchInspectorDialog extends JDialog {
         return formatFlat(data, off, len);
     }
 
+    /**
+     * Formats a matrix slice with row and column labels.
+     *
+     * @param data source data
+     * @param off start offset
+     * @param rows row count
+     * @param cols column count
+     * @return formatted matrix
+     */
     private static String formatMatrix(float[] data, int off, int rows, int cols) {
         int showRows = Math.min(rows, MAX_MATRIX_ROWS);
         int showCols = Math.min(cols, MAX_MATRIX_COLS);
@@ -236,6 +266,14 @@ final class WorkbenchInspectorDialog extends JDialog {
         return sb.toString();
     }
 
+    /**
+     * Formats a flat value slice.
+     *
+     * @param data source data
+     * @param off start offset
+     * @param len element count
+     * @return formatted values
+     */
     private static String formatFlat(float[] data, int off, int len) {
         int show = Math.min(len, MAX_FLAT_ENTRIES);
         StringBuilder sb = new StringBuilder();

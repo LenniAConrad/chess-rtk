@@ -45,6 +45,12 @@ final class WorkbenchHitRegions {
         final String dataKey;
 
         /**
+         * Optional computed values that are not stored in the activation
+         * snapshot. Used for gathered or combined trace slices.
+         */
+        final float[] inlineData;
+
+        /**
          * Offset into the snapshot data array.
          */
         final int dataOffset;
@@ -67,15 +73,32 @@ final class WorkbenchHitRegions {
         Region(Rectangle bounds, String title, String description, String value,
                 String dataKey, int dataOffset, int dataLength, int dataStride,
                 String shapeText) {
+            this(bounds, title, description, value, dataKey, null,
+                    dataOffset, dataLength, dataStride, shapeText);
+        }
+
+        Region(Rectangle bounds, String title, String description, String value,
+                String dataKey, float[] inlineData, int dataOffset, int dataLength,
+                int dataStride, String shapeText) {
             this.bounds = new Rectangle(bounds);
             this.title = title == null ? "" : title;
             this.description = description == null ? "" : description;
             this.value = value == null ? "" : value;
             this.dataKey = dataKey;
+            this.inlineData = inlineData == null ? null : inlineData.clone();
             this.dataOffset = Math.max(0, dataOffset);
             this.dataLength = Math.max(0, dataLength);
             this.dataStride = Math.max(0, dataStride);
             this.shapeText = shapeText;
+        }
+
+        /**
+         * Returns whether this region can be inspected for raw values.
+         *
+         * @return true when snapshot or inline data is available
+         */
+        boolean hasData() {
+            return dataKey != null || inlineData != null;
         }
 
         /**
@@ -93,7 +116,7 @@ final class WorkbenchHitRegions {
             if (!description.isEmpty()) {
                 sb.append("<br>").append(escape(description));
             }
-            if (dataKey != null) {
+            if (hasData()) {
                 sb.append("<br><i>click to inspect raw values</i>");
             }
             sb.append("</html>");
@@ -150,6 +173,23 @@ final class WorkbenchHitRegions {
             String dataKey, int dataOffset, int dataLength, int dataStride, String shapeText) {
         regions.add(new Region(bounds, title, description, value,
                 dataKey, dataOffset, dataLength, dataStride, shapeText));
+    }
+
+    /**
+     * Adds a hover+click region backed by values computed during painting
+     * rather than by one contiguous snapshot tensor slice.
+     *
+     * @param bounds rectangle
+     * @param title bold title
+     * @param description one-line description
+     * @param value formatted current value
+     * @param data computed values
+     * @param shapeText shape label for the inspector header
+     */
+    void addInline(Rectangle bounds, String title, String description, String value,
+            float[] data, String shapeText) {
+        regions.add(new Region(bounds, title, description, value,
+                null, data, 0, data == null ? 0 : data.length, 0, shapeText));
     }
 
     /**

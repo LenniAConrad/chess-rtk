@@ -19,40 +19,44 @@ import java.awt.geom.Path2D;
  */
 final class WorkbenchTensorViz {
 
+    // The network-view accent palette lives in WorkbenchTheme so the NN
+    // visualizers share one colour language with the rest of the workbench.
+    // These aliases keep the existing WorkbenchTensorViz.* call sites terse.
+
     /**
      * Positive-activation accent (used for "up" / gain).
      */
-    static final Color POSITIVE = new Color(38, 130, 75);
+    static final Color POSITIVE = WorkbenchTheme.NN_POSITIVE;
 
     /**
      * Negative-activation accent (used for "down" / loss).
      */
-    static final Color NEGATIVE = new Color(178, 53, 53);
+    static final Color NEGATIVE = WorkbenchTheme.NN_NEGATIVE;
 
     /**
      * Trunk / data-flow accent.
      */
-    static final Color TRUNK = new Color(196, 121, 47);
+    static final Color TRUNK = WorkbenchTheme.NN_TRUNK;
 
     /**
      * Policy-branch accent.
      */
-    static final Color POLICY = new Color(48, 102, 168);
+    static final Color POLICY = WorkbenchTheme.NN_POLICY;
 
     /**
      * Value-branch accent.
      */
-    static final Color VALUE = new Color(150, 60, 142);
+    static final Color VALUE = WorkbenchTheme.NN_VALUE;
 
     /**
      * Neutral-fill background for cells with no signal.
      */
-    static final Color NEUTRAL = new Color(232, 236, 240);
+    static final Color NEUTRAL = WorkbenchTheme.NN_NEUTRAL;
 
     /**
      * Lightest heatmap fill (signed scale, near zero).
      */
-    static final Color HEAT_ZERO = new Color(240, 244, 247);
+    static final Color HEAT_ZERO = WorkbenchTheme.NN_HEAT_ZERO;
 
     /**
      * Prevents instantiation.
@@ -70,17 +74,24 @@ final class WorkbenchTensorViz {
      * @param subtitle subtitle text (may be null)
      */
     static void drawSectionHeader(Graphics2D g, Rectangle r, String title, String subtitle) {
-        g.setColor(WorkbenchTheme.ELEVATED_SOLID);
-        g.fillRect(r.x, r.y, r.width, r.height);
+        g.setColor(WorkbenchTheme.PANEL_SOLID);
+        g.fillRoundRect(r.x, r.y, r.width, r.height,
+                WorkbenchTheme.RADIUS, WorkbenchTheme.RADIUS);
         g.setColor(WorkbenchTheme.LINE);
-        g.drawRect(r.x, r.y, r.width - 1, r.height - 1);
+        g.drawRoundRect(r.x, r.y, r.width - 1, r.height - 1,
+                WorkbenchTheme.RADIUS, WorkbenchTheme.RADIUS);
+        g.setColor(WorkbenchTheme.ACCENT);
+        g.fillRoundRect(r.x, r.y, 4, r.height,
+                WorkbenchTheme.RADIUS, WorkbenchTheme.RADIUS);
         g.setColor(WorkbenchTheme.TEXT);
         g.setFont(WorkbenchTheme.font(14, Font.BOLD));
-        g.drawString(title, r.x + 10, r.y + 18);
+        g.drawString(title, r.x + 12, r.y + 18);
         if (subtitle != null && !subtitle.isEmpty()) {
             g.setColor(WorkbenchTheme.MUTED);
             g.setFont(WorkbenchTheme.font(11, Font.PLAIN));
-            g.drawString(subtitle, r.x + 10, r.y + 34);
+            FontMetrics fm = g.getFontMetrics();
+            g.drawString(WorkbenchUi.elide(subtitle, fm, Math.max(16, r.width - 24)),
+                    r.x + 12, r.y + 34);
         }
     }
 
@@ -95,22 +106,94 @@ final class WorkbenchTensorViz {
      */
     static void drawCard(Graphics2D g, Rectangle r, String title, String subtitle, Color accent) {
         g.setColor(WorkbenchTheme.PANEL_SOLID);
-        g.fillRect(r.x, r.y, r.width, r.height);
+        g.fillRoundRect(r.x, r.y, r.width, r.height,
+                WorkbenchTheme.RADIUS, WorkbenchTheme.RADIUS);
         g.setColor(WorkbenchTheme.LINE);
-        g.drawRect(r.x, r.y, r.width - 1, r.height - 1);
+        g.drawRoundRect(r.x, r.y, r.width - 1, r.height - 1,
+                WorkbenchTheme.RADIUS, WorkbenchTheme.RADIUS);
         if (accent != null) {
             g.setColor(accent);
-            g.fillRect(r.x, r.y, 3, r.height);
+            g.fillRoundRect(r.x, r.y, 4, r.height,
+                    WorkbenchTheme.RADIUS, WorkbenchTheme.RADIUS);
         }
         if (title != null) {
             g.setColor(WorkbenchTheme.TEXT);
             g.setFont(WorkbenchTheme.font(12, Font.BOLD));
-            g.drawString(title, r.x + 8, r.y + 14);
+            g.drawString(title, r.x + 10, r.y + 15);
         }
         if (subtitle != null) {
             g.setColor(WorkbenchTheme.MUTED);
             g.setFont(WorkbenchTheme.font(10, Font.PLAIN));
-            g.drawString(subtitle, r.x + 8, r.y + 28);
+            FontMetrics fm = g.getFontMetrics();
+            g.drawString(WorkbenchUi.elide(subtitle, fm, Math.max(16, r.width - 20)),
+                    r.x + 10, r.y + 29);
+        }
+    }
+
+    /**
+     * Draws a compact readout chip for "important now" style summaries.
+     *
+     * @param g graphics
+     * @param r chip rectangle
+     * @param label small label
+     * @param value main value
+     * @param accent accent colour
+     */
+    static void drawInfoChip(Graphics2D g, Rectangle r, String label, String value, Color accent) {
+        if (r.width <= 12 || r.height <= 12) {
+            return;
+        }
+        g.setColor(WorkbenchTheme.ELEVATED_SOLID);
+        g.fillRoundRect(r.x, r.y, r.width, r.height,
+                WorkbenchTheme.RADIUS, WorkbenchTheme.RADIUS);
+        g.setColor(WorkbenchTheme.LINE);
+        g.drawRoundRect(r.x, r.y, r.width - 1, r.height - 1,
+                WorkbenchTheme.RADIUS, WorkbenchTheme.RADIUS);
+        if (accent != null) {
+            g.setColor(accent);
+            g.fillRoundRect(r.x, r.y, 4, r.height,
+                    WorkbenchTheme.RADIUS, WorkbenchTheme.RADIUS);
+        }
+        int split = Math.min(70, Math.max(42, r.width / 3));
+        g.setFont(WorkbenchTheme.font(9, Font.BOLD));
+        FontMetrics fm = g.getFontMetrics();
+        g.setColor(WorkbenchTheme.MUTED);
+        g.drawString(WorkbenchUi.elide(label, fm, Math.max(12, split - 10)),
+                r.x + 9, r.y + Math.max(13, r.height / 2 + 3));
+        g.setFont(WorkbenchTheme.font(10, Font.BOLD));
+        fm = g.getFontMetrics();
+        g.setColor(WorkbenchTheme.TEXT);
+        g.drawString(WorkbenchUi.elide(value, fm, Math.max(12, r.width - split - 8)),
+                r.x + split, r.y + Math.max(13, r.height / 2 + 3));
+    }
+
+    /**
+     * Draws a double-outline marker around a board square.
+     *
+     * @param g graphics
+     * @param board board rectangle
+     * @param square 0..63 square
+     * @param color marker colour
+     */
+    static void drawBoardSquareRing(Graphics2D g, Rectangle board, int square, Color color) {
+        if (square < 0 || square >= 64 || board.width <= 0 || board.height <= 0) {
+            return;
+        }
+        int file = square & 7;
+        int rank = square >> 3;
+        int drawRank = 7 - rank;
+        double cellW = board.width / 8.0;
+        double cellH = board.height / 8.0;
+        int x = (int) Math.floor(board.x + file * cellW);
+        int y = (int) Math.floor(board.y + drawRank * cellH);
+        int w = Math.max(2, (int) Math.ceil(cellW));
+        int h = Math.max(2, (int) Math.ceil(cellH));
+        g.setColor(WorkbenchTheme.withAlpha(Color.WHITE, 210));
+        g.drawRect(x + 1, y + 1, Math.max(1, w - 3), Math.max(1, h - 3));
+        g.setColor(color);
+        g.drawRect(x + 2, y + 2, Math.max(1, w - 5), Math.max(1, h - 5));
+        if (w > 12 && h > 12) {
+            g.drawRect(x + 3, y + 3, Math.max(1, w - 7), Math.max(1, h - 7));
         }
     }
 
@@ -175,7 +258,9 @@ final class WorkbenchTensorViz {
     }
 
     /**
-     * Returns a diverging blue/red color for a signed value in [-1, 1].
+     * Returns a diverging green/red color for a signed value in [-1, 1].
+     * Matches the "raise eval = green / lower eval = red" convention used
+     * everywhere else in the workbench (impact bars, accumulator, atlas).
      *
      * @param value signed value
      * @return color
@@ -183,20 +268,21 @@ final class WorkbenchTensorViz {
     static Color signedRamp(float value) {
         float v = clamp(value, -1.0f, 1.0f);
         if (v >= 0.0f) {
-            return lerp(HEAT_ZERO, NEGATIVE, v);
+            return lerp(HEAT_ZERO, POSITIVE, v);
         }
-        return lerp(HEAT_ZERO, POLICY, -v);
+        return lerp(HEAT_ZERO, NEGATIVE, -v);
     }
 
     /**
-     * Returns a sequential color for a value in [0, 1].
+     * Returns a sequential color for a value in [0, 1] using the workbench
+     * accent so single-sided magnitudes match the rest of the UI chrome.
      *
      * @param value sequential value
      * @return color
      */
     static Color sequentialRamp(float value) {
         float v = clamp(value, 0.0f, 1.0f);
-        return lerp(HEAT_ZERO, new Color(200, 90, 40), v);
+        return lerp(HEAT_ZERO, WorkbenchTheme.ACCENT, v);
     }
 
     /**
@@ -573,11 +659,12 @@ final class WorkbenchTensorViz {
     static void drawHalfKpGlyph(Graphics2D g, Rectangle r, int kingSquare,
             int pieceCode, int pieceSquare) {
         drawMiniBoard(g, r);
-        drawSquareLetter(g, r, kingSquare, "K", new Color(255, 200, 80, 220));
+        drawSquareLetter(g, r, kingSquare, "K",
+                WorkbenchTheme.withAlpha(WorkbenchTheme.ACCENT, 200));
         char letter = "PNBRQpnbrq".charAt(Math.min(9, Math.max(0, pieceCode)));
         Color tint = pieceCode >= 5
-                ? new Color(220, 90, 90, 220)
-                : new Color(90, 160, 230, 220);
+                ? WorkbenchTheme.withAlpha(NEGATIVE, 200)
+                : WorkbenchTheme.withAlpha(POSITIVE, 200);
         if (pieceSquare != kingSquare) {
             drawSquareLetter(g, r, pieceSquare,
                     String.valueOf(Character.toUpperCase(letter)), tint);
@@ -606,11 +693,11 @@ final class WorkbenchTensorViz {
         g.setColor(fill);
         g.fillRect(x, y, w, h);
         int fontSize = Math.max(8, (int) (cell * 0.62));
-        g.setFont(new Font(Font.SANS_SERIF, Font.BOLD, fontSize));
+        g.setFont(WorkbenchTheme.font(fontSize, Font.BOLD));
         FontMetrics fm = g.getFontMetrics();
         int lw = fm.stringWidth(letter);
         int la = fm.getAscent();
-        g.setColor(new Color(20, 20, 20));
+        g.setColor(WorkbenchTheme.TEXT);
         g.drawString(letter, x + (w - lw) / 2, y + (h + la) / 2 - 2);
     }
 

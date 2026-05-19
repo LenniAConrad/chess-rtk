@@ -71,6 +71,9 @@ final class WorkbenchPositions {
         return POSITIONS.get(label);
     }
 
+    /**
+     * Utility class; prevents instantiation.
+     */
     private WorkbenchPositions() {
     }
 }

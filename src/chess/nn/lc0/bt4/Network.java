@@ -2,6 +2,7 @@ package chess.nn.lc0.bt4;
 
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
@@ -58,6 +59,11 @@ public final class Network implements AutoCloseable {
     private final Weights weights;
 
     /**
+     * Architecture metadata used for position encoding.
+     */
+    private final Architecture architecture;
+
+    /**
      * CUDA backend instance, or {@code null}.
      */
     private final chess.nn.lc0.bt4.cuda.Backend cuda;
@@ -78,7 +84,7 @@ public final class Network implements AutoCloseable {
      * @param weights validated weights
      */
     private Network(Weights weights) {
-        this(weights, null, null, null);
+        this(weights, weights.architecture(), null, null, null);
     }
 
     /**
@@ -91,10 +97,15 @@ public final class Network implements AutoCloseable {
      */
     private Network(
             Weights weights,
+            Architecture architecture,
             chess.nn.lc0.bt4.cuda.Backend cuda,
             chess.nn.lc0.bt4.rocm.Backend rocm,
             chess.nn.lc0.bt4.oneapi.Backend oneapi) {
+        if (architecture == null) {
+            throw new IllegalArgumentException("architecture == null");
+        }
         this.weights = weights;
+        this.architecture = architecture;
         this.cuda = cuda;
         this.rocm = rocm;
         this.oneapi = oneapi;
@@ -204,7 +215,7 @@ public final class Network implements AutoCloseable {
          * @param path path to the weights file
          * @return initialized network
          */
-        Network load(Path path);
+        Network load(Path path) throws IOException;
     }
 
     /**
@@ -213,9 +224,10 @@ public final class Network implements AutoCloseable {
      * @param path weights path
      * @return CUDA-backed network
      */
-    private static Network loadCuda(Path path) {
+    private static Network loadCuda(Path path) throws IOException {
+        Architecture architecture = BinLoader.loadArchitecture(path);
         try (CudaBackendHolder holder = new CudaBackendHolder(chess.nn.lc0.bt4.cuda.Backend.create(path))) {
-            Network network = new Network(null, holder.backend, null, null);
+            Network network = new Network(null, architecture, holder.backend, null, null);
             holder.detach();
             return network;
         }
@@ -227,9 +239,10 @@ public final class Network implements AutoCloseable {
      * @param path weights path
      * @return ROCm-backed network
      */
-    private static Network loadRocm(Path path) {
+    private static Network loadRocm(Path path) throws IOException {
+        Architecture architecture = BinLoader.loadArchitecture(path);
         try (RocmBackendHolder holder = new RocmBackendHolder(chess.nn.lc0.bt4.rocm.Backend.create(path))) {
-            Network network = new Network(null, null, holder.backend, null);
+            Network network = new Network(null, architecture, null, holder.backend, null);
             holder.detach();
             return network;
         }
@@ -241,9 +254,10 @@ public final class Network implements AutoCloseable {
      * @param path weights path
      * @return oneAPI-backed network
      */
-    private static Network loadOneapi(Path path) {
+    private static Network loadOneapi(Path path) throws IOException {
+        Architecture architecture = BinLoader.loadArchitecture(path);
         try (OneapiBackendHolder holder = new OneapiBackendHolder(chess.nn.lc0.bt4.oneapi.Backend.create(path))) {
-            Network network = new Network(null, null, null, holder.backend);
+            Network network = new Network(null, architecture, null, null, holder.backend);
             holder.detach();
             return network;
         }
@@ -264,7 +278,6 @@ public final class Network implements AutoCloseable {
         if (oneapi != null) {
             return oneapi.info();
         }
-        Architecture architecture = weights.architecture();
         return new Info(
                 architecture.name(),
                 architecture.inputChannels(),
@@ -294,6 +307,51 @@ public final class Network implements AutoCloseable {
     }
 
     /**
+     * Evaluates a batch of positions without activation capture.
+     *
+     * @param positions source positions
+     * @return predictions aligned with {@code positions}
+     */
+    public List<Prediction> predictBatch(List<Position> positions) {
+        if (positions == null) {
+            throw new IllegalArgumentException("positions == null");
+        }
+        List<float[]> encoded = new ArrayList<>(positions.size());
+        InputFormat inputFormat = architecture.inputFormat();
+        for (Position position : positions) {
+            encoded.add(Encoder.encode(position, inputFormat).planes());
+        }
+        return predictEncodedBatch(encoded);
+    }
+
+    /**
+     * Evaluates a batch and preserves each canonical transform for policy
+     * indexing.
+     *
+     * @param positions source positions
+     * @return predictions plus transforms aligned with {@code positions}
+     */
+    public List<TransformedPrediction> predictBatchWithTransforms(List<Position> positions) {
+        if (positions == null) {
+            throw new IllegalArgumentException("positions == null");
+        }
+        List<float[]> encodedBatch = new ArrayList<>(positions.size());
+        int[] transforms = new int[positions.size()];
+        InputFormat inputFormat = architecture.inputFormat();
+        for (int i = 0; i < positions.size(); i++) {
+            Encoder.EncodedInput encoded = Encoder.encode(positions.get(i), inputFormat);
+            encodedBatch.add(encoded.planes());
+            transforms[i] = encoded.transform();
+        }
+        List<Prediction> predictions = predictEncodedBatch(encodedBatch);
+        List<TransformedPrediction> out = new ArrayList<>(predictions.size());
+        for (int i = 0; i < predictions.size(); i++) {
+            out.add(new TransformedPrediction(predictions.get(i), transforms[i]));
+        }
+        return out;
+    }
+
+    /**
      * Evaluates a position and captures intermediate activations.
      *
      * @param position source position
@@ -301,7 +359,7 @@ public final class Network implements AutoCloseable {
      * @return prediction
      */
     public Prediction predict(Position position, chess.nn.ActivationSink sink) {
-        Encoder.EncodedInput encoded = Encoder.encode(position, weights.architecture().inputFormat());
+        Encoder.EncodedInput encoded = Encoder.encode(position, architecture.inputFormat());
         if (sink != null) {
             sink.put("bt4.input.transform", new int[] { 1 }, new float[] { encoded.transform() });
         }
@@ -316,6 +374,23 @@ public final class Network implements AutoCloseable {
      */
     public Prediction predictEncoded(float[] encodedPlanes) {
         return predictEncoded(encodedPlanes, null);
+    }
+
+    /**
+     * Evaluates already encoded LC0 planes as a batch.
+     *
+     * @param encodedBatch encoded plane arrays
+     * @return predictions aligned with {@code encodedBatch}
+     */
+    public List<Prediction> predictEncodedBatch(List<float[]> encodedBatch) {
+        if (encodedBatch == null) {
+            throw new IllegalArgumentException("encodedBatch == null");
+        }
+        List<Prediction> out = new ArrayList<>(encodedBatch.size());
+        for (float[] encodedPlanes : encodedBatch) {
+            out.add(predictEncoded(encodedPlanes));
+        }
+        return out;
     }
 
     /**
@@ -1310,6 +1385,15 @@ public final class Network implements AutoCloseable {
             result = 31 * result + Float.hashCode(value);
             return result;
         }
+    }
+
+    /**
+     * Prediction plus the canonical transform used during encoding.
+     *
+     * @param prediction network prediction
+     * @param transform canonical transform bits
+     */
+    public record TransformedPrediction(Prediction prediction, int transform) {
     }
 
     /**

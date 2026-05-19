@@ -7,6 +7,8 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.Map;
 
 import chess.core.Move;
 import chess.core.Field;
@@ -48,6 +50,7 @@ public final class NNUERegressionTest {
 	public static void main(String[] args) throws IOException {
 		testFeaturePerspectiveSymmetry();
 		testAccumulatorDeltaMatchesRebuild();
+		testActivationCaptureTotalContribution();
 		testIncrementalSearchState();
 		testBinaryLoad();
 		System.out.println("NNUERegressionTest: all checks passed");
@@ -113,6 +116,25 @@ public final class NNUERegressionTest {
 		float noPawnRebuilt = network.predict(noPawn).centipawns();
 		assertClose(noPawnRebuilt, deltaUpdated, "delta-updated accumulator");
 		assertClose(0.0f, noPawnRebuilt, "no-pawn score");
+	}
+
+    /**
+     * Verifies activation capture exposes a per-slot total contribution matching
+     * the two perspective contribution vectors.
+     */
+	private static void testActivationCaptureTotalContribution() {
+		Position position = new Position(ONE_PAWN_FEN);
+		Network network = singlePawnNetwork(position);
+		CapturingSink sink = new CapturingSink();
+		network.predict(position, sink);
+		float[] us = sink.data("nnue.output.contribution.us");
+		float[] them = sink.data("nnue.output.contribution.them");
+		float[] total = sink.data("nnue.output.contribution.total");
+		assertEquals(us.length, total.length, "total contribution length");
+		assertEquals(them.length, total.length, "them contribution length");
+		for (int i = 0; i < total.length; i++) {
+			assertClose(us[i] + them[i], total[i], "total contribution slot " + i);
+		}
 	}
 
     /**
@@ -331,6 +353,30 @@ public final class NNUERegressionTest {
 			}
 		}
 		return false;
+	}
+
+    /**
+     * Minimal activation sink for NNUE capture assertions.
+     */
+	private static final class CapturingSink implements chess.nn.ActivationSink {
+
+		/**
+		 * Captured tensors by key.
+		 */
+		private final Map<String, float[]> values = new HashMap<>();
+
+		@Override
+		public void put(String key, int[] shape, float[] data) {
+			values.put(key, data.clone());
+		}
+
+		private float[] data(String key) {
+			float[] out = values.get(key);
+			if (out == null) {
+				throw new AssertionError("missing activation key " + key);
+			}
+			return out;
+		}
 	}
 
     /**

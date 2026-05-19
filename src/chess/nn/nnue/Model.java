@@ -209,6 +209,29 @@ public final class Model implements AutoCloseable {
     }
 
     /**
+     * Writes the position-independent feature-weight atlas to {@code sink}.
+     *
+     * <p>Routes to the CRTK or Stockfish-upstream implementation depending
+     * on which network this model wraps. Returns true when an atlas was
+     * produced (false for the all-zero fallback model where atlas data
+     * would be meaningless).</p>
+     *
+     * @param sink activation collector
+     * @return true when atlas data was written
+     */
+    public boolean dumpFeatureAtlas(chess.nn.ActivationSink sink) {
+        if (upstreamNetwork != null) {
+            upstreamNetwork.dumpFeatureAtlas(sink);
+            return true;
+        }
+        if (network != null) {
+            network.dumpFeatureAtlas(sink);
+            return true;
+        }
+        return false;
+    }
+
+    /**
      * Returns the active backend name.
      *
      * @return backend identifier
@@ -227,10 +250,21 @@ public final class Model implements AutoCloseable {
      * @return NNUE prediction
      */
     public Network.Prediction predict(Position position) {
+        return predict(position, null);
+    }
+
+    /**
+     * Evaluates a position and optionally captures intermediate activations.
+     *
+     * @param position position to evaluate
+     * @param sink activation collector; null for production callers
+     * @return NNUE prediction
+     */
+    public Network.Prediction predict(Position position, chess.nn.ActivationSink sink) {
         if (upstreamNetwork != null) {
-            return new Network.Prediction(upstreamNetwork.predict(position).centipawns());
+            return new Network.Prediction(upstreamNetwork.predict(position, sink).centipawns());
         }
-        return network.predict(position);
+        return network.predict(position, sink);
     }
 
     /**

@@ -214,18 +214,22 @@ public final class Network implements AutoCloseable {
         float[] clippedThem = sink != null ? new float[hidden] : null;
         float[] contribUs = sink != null ? new float[hidden] : null;
         float[] contribThem = sink != null ? new float[hidden] : null;
+        float[] contribTotal = sink != null ? new float[hidden] : null;
         for (int i = 0; i < hidden; i++) {
             float cu = clippedRelu(us[i]);
             float ct = clippedRelu(them[i]);
             float wu = weights.outputWeights[i];
             float wt = weights.outputWeights[hidden + i];
+            float ku = wu * cu;
+            float kt = wt * ct;
             raw += wu * cu;
             raw += wt * ct;
             if (sink != null) {
                 clippedUs[i] = cu;
                 clippedThem[i] = ct;
-                contribUs[i] = wu * cu;
-                contribThem[i] = wt * ct;
+                contribUs[i] = ku;
+                contribThem[i] = kt;
+                contribTotal[i] = ku + kt;
             }
         }
         float centipawns = raw * weights.outputScale;
@@ -240,6 +244,7 @@ public final class Network implements AutoCloseable {
                     java.util.Arrays.copyOfRange(weights.outputWeights, hidden, 2 * hidden));
             sink.put("nnue.output.contribution.us", new int[] { hidden }, contribUs);
             sink.put("nnue.output.contribution.them", new int[] { hidden }, contribThem);
+            sink.put("nnue.output.contribution.total", new int[] { hidden }, contribTotal);
             sink.put("nnue.output.affine", new int[] { 1 }, new float[] { raw });
             sink.put("nnue.output.centipawns", new int[] { 1 }, new float[] { centipawns });
         }
@@ -283,6 +288,64 @@ public final class Network implements AutoCloseable {
         sink.put("nnue.features.them.impact", new int[] { themIndices.length }, themImpact);
         sink.put("nnue.features.us.weights", new int[] { usIndices.length, hidden }, usWeights);
         sink.put("nnue.features.them.weights", new int[] { themIndices.length, hidden }, themWeights);
+    }
+
+    /**
+     * Writes the position-independent feature-weight atlas to {@code sink}.
+     *
+     * <p>For every accumulator slot the atlas marginalises the king-square
+     * dimension out of the feature transformer to expose a per-piece, per-
+     * square weight footprint — i.e. "for hidden neuron h, with the king on
+     * any square, how does a pawn on e4 feed into the accumulator?". This is
+     * the data behind the Wikipedia-style NNUE weight atlas: every tile is a
+     * single neuron's learned preference for one piece type on one square.</p>
+     *
+     * <p>Three tensors are produced:</p>
+     * <ul>
+     *   <li>{@code nnue.atlas.weights} — shape {@code [hidden, 10, 64]},
+     *       king-averaged weight per (slot, piece-plane, board-square).</li>
+     *   <li>{@code nnue.atlas.king} — shape {@code [hidden, 64]}, average
+     *       weight per (slot, king-square) — i.e. where the slot "wants"
+     *       the king to be regardless of the piece configuration.</li>
+     *   <li>{@code nnue.atlas.output} — shape {@code [hidden]}, the
+     *       output-weight magnitude per slot (us side) so the UI can sort or
+     *       size tiles by eval importance.</li>
+     * </ul>
+     *
+     * @param sink activation collector; must not be null
+     */
+    public void dumpFeatureAtlas(chess.nn.ActivationSink sink) {
+        if (sink == null) {
+            throw new IllegalArgumentException("sink == null");
+        }
+        int hidden = weights.hiddenSize;
+        int planes = FeatureEncoder.PIECE_PLANES;
+        int squares = FeatureEncoder.SQUARES;
+        float[] atlas = new float[hidden * planes * squares];
+        float[] kingMap = new float[hidden * squares];
+        float[] output = new float[hidden];
+        float inv = 1.0f / squares;
+        for (int king = 0; king < squares; king++) {
+            for (int plane = 0; plane < planes; plane++) {
+                for (int sq = 0; sq < squares; sq++) {
+                    int feature = (king * planes + plane) * squares + sq;
+                    int base = feature * hidden;
+                    int atlasBase = plane * squares + sq;
+                    int kingBase = king;
+                    for (int h = 0; h < hidden; h++) {
+                        float w = weights.featureWeights[base + h];
+                        atlas[h * planes * squares + atlasBase] += w * inv;
+                        kingMap[h * squares + kingBase] += w * inv / planes;
+                    }
+                }
+            }
+        }
+        for (int h = 0; h < hidden; h++) {
+            output[h] = weights.outputWeights[h];
+        }
+        sink.put("nnue.atlas.weights", new int[] { hidden, planes, squares }, atlas);
+        sink.put("nnue.atlas.king", new int[] { hidden, squares }, kingMap);
+        sink.put("nnue.atlas.output", new int[] { hidden }, output);
     }
 
     /**
