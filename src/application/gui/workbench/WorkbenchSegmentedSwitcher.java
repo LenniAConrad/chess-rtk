@@ -187,7 +187,9 @@ final class WorkbenchSegmentedSwitcher extends JComponent {
         Graphics2D g = (Graphics2D) graphics.create();
         try {
             g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-            g.setFont(WorkbenchTheme.font(13, Font.BOLD));
+            g.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING,
+                    RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+            g.setFont(WorkbenchTheme.font(12, Font.BOLD));
             FontMetrics fm = g.getFontMetrics();
             int x = 0;
             segmentBounds = new Rectangle[labels.length];
@@ -216,13 +218,13 @@ final class WorkbenchSegmentedSwitcher extends JComponent {
         boolean isSelected = index == selected;
         boolean isHovered = index == hovered;
         boolean isEnabled = enabled[index];
-        Color fill = WorkbenchTheme.PANEL_SOLID;
-        if (isSelected && isEnabled) {
-            fill = WorkbenchTheme.ACCENT;
-        } else if (isSelected) {
-            fill = WorkbenchTheme.BUTTON_DISABLED_BG;
+        // Match the workbench tab look: a quiet strip where the active
+        // segment is a light accent-tinted pill rather than a solid block.
+        Color fill = WorkbenchTheme.ELEVATED_SOLID;
+        if (isSelected) {
+            fill = WorkbenchTheme.SELECTION_SOLID;
         } else if (isHovered && isEnabled) {
-            fill = WorkbenchTheme.ELEVATED_SOLID;
+            fill = WorkbenchTheme.TAB_HOVER;
         }
         g.setColor(fill);
         int arcLeft = index == 0 ? WorkbenchTheme.RADIUS : 0;
@@ -230,13 +232,17 @@ final class WorkbenchSegmentedSwitcher extends JComponent {
         fillRoundedSegment(g, r, arcLeft, arcRight);
         g.setColor(WorkbenchTheme.LINE);
         drawRoundedSegmentBorder(g, r, arcLeft, arcRight, index == labels.length - 1);
+        if (isSelected && isEnabled) {
+            g.setColor(WorkbenchTheme.ACCENT);
+            g.fillRect(r.x, r.y + r.height - 2, r.width, 2);
+        }
         Color textColor;
         if (!isEnabled) {
-            textColor = WorkbenchTheme.MUTED;
+            textColor = WorkbenchTheme.BUTTON_DISABLED_TEXT;
         } else if (isSelected) {
-            textColor = WorkbenchTheme.PRIMARY_BUTTON_TEXT;
+            textColor = WorkbenchTheme.ACCENT;
         } else {
-            textColor = WorkbenchTheme.TEXT;
+            textColor = WorkbenchTheme.MUTED;
         }
         g.setColor(textColor);
         int textY = r.y + (r.height - fm.getHeight()) / 2 + fm.getAscent() - 1;
