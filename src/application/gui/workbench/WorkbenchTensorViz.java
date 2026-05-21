@@ -527,14 +527,13 @@ final class WorkbenchTensorViz {
         }
         byte[] squares = position.getBoard();
         double cell = r.width / 8.0;
-        for (int sq = 0; sq < 64; sq++) {
-            byte piece = squares[sq];
+        for (int positionIndex = 0; positionIndex < 64; positionIndex++) {
+            byte piece = squares[positionIndex];
             if (piece == chess.core.Piece.EMPTY) {
                 continue;
             }
-            int file = sq & 7;
-            int rank = sq >> 3;
-            int drawRank = 7 - rank;
+            int file = positionIndex & 7;
+            int drawRank = positionIndex >>> 3;
             double x = r.x + file * cell;
             double y = r.y + drawRank * cell;
             chess.images.assets.Shapes.drawPiece(piece, g, x, y, cell, cell);

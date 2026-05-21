@@ -1,13 +1,13 @@
 package application.gui.workbench;
 
 import java.awt.BasicStroke;
-import java.awt.AlphaComposite;
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.FontMetrics;
 import java.awt.Graphics2D;
 import java.awt.Rectangle;
+import java.awt.RenderingHints;
 import java.awt.event.MouseEvent;
 import java.util.ArrayList;
 import java.util.List;
@@ -943,14 +943,20 @@ final class WorkbenchNnueView extends WorkbenchNetworkView implements Scrollable
                 subtitle);
         Rectangle content = new Rectangle(body.x, body.y + headerH + 10,
                 body.width, Math.max(1, body.height - headerH - 10));
+        int overviewH = atlasWholeOverviewHeight(content.height);
+        Rectangle overview = new Rectangle(content.x, content.y, content.width, overviewH);
+        paintAtlasWholePlaneOverview(g, overview, order, paintingData, output,
+                hidden, planes, squares, perNeuronScale, selectedSlot);
+        Rectangle lower = new Rectangle(content.x, overview.y + overview.height + 10,
+                content.width, Math.max(1, content.height - overview.height - 10));
         if (body.width < 900) {
-            int galleryH = Math.min(210, Math.max(120, content.height / 3));
-            int explainH = Math.min(220, Math.max(150, content.height / 3));
-            Rectangle gallery = new Rectangle(content.x, content.y, content.width, galleryH);
-            Rectangle detail = new Rectangle(content.x, gallery.y + gallery.height + 10,
-                    content.width, Math.max(1, content.height - gallery.height - explainH - 20));
-            Rectangle explain = new Rectangle(content.x, detail.y + detail.height + 10,
-                    content.width, Math.max(1, explainH));
+            int galleryH = Math.min(190, Math.max(110, lower.height / 3));
+            int explainH = Math.min(210, Math.max(135, lower.height / 3));
+            Rectangle gallery = new Rectangle(lower.x, lower.y, lower.width, galleryH);
+            Rectangle detail = new Rectangle(lower.x, gallery.y + gallery.height + 10,
+                    lower.width, Math.max(1, lower.height - gallery.height - explainH - 20));
+            Rectangle explain = new Rectangle(lower.x, detail.y + detail.height + 10,
+                    lower.width, Math.max(1, explainH));
             paintAtlasSlotGallery(g, gallery, order, paintingData, output,
                     hidden, planes, squares, perNeuronScale, overlayMag, selectedSlot);
             paintAtlasSlotDetail(g, detail, paintingData, selectedSlot, planes, squares,
@@ -959,20 +965,157 @@ final class WorkbenchNnueView extends WorkbenchNetworkView implements Scrollable
                     selectedSlot, planes, squares);
             return;
         }
-        int galleryW = Math.min(420, Math.max(300, content.width / 3));
-        int explainW = Math.min(340, Math.max(270, content.width / 4));
-        int detailW = Math.max(260, content.width - galleryW - explainW - 20);
-        Rectangle gallery = new Rectangle(content.x, content.y, galleryW, content.height);
-        Rectangle detail = new Rectangle(gallery.x + gallery.width + 10, content.y,
-                detailW, content.height);
-        Rectangle explain = new Rectangle(detail.x + detail.width + 10, content.y,
-                Math.max(1, content.x + content.width - detail.x - detail.width - 10), content.height);
+        int galleryW = Math.min(420, Math.max(300, lower.width / 3));
+        int explainW = Math.min(340, Math.max(270, lower.width / 4));
+        int detailW = Math.max(260, lower.width - galleryW - explainW - 20);
+        Rectangle gallery = new Rectangle(lower.x, lower.y, galleryW, lower.height);
+        Rectangle detail = new Rectangle(gallery.x + gallery.width + 10, lower.y,
+                detailW, lower.height);
+        Rectangle explain = new Rectangle(detail.x + detail.width + 10, lower.y,
+                Math.max(1, lower.x + lower.width - detail.x - detail.width - 10), lower.height);
         paintAtlasSlotGallery(g, gallery, order, paintingData, output,
                 hidden, planes, squares, perNeuronScale, overlayMag, selectedSlot);
         paintAtlasSlotDetail(g, detail, paintingData, selectedSlot, planes, squares,
                 perNeuronScale[selectedSlot]);
         paintAtlasSlotExplanation(g, explain, paintingData, rawAtlas, output,
                 selectedSlot, planes, squares);
+    }
+
+    /**
+     * Picks the height for the all-slot atlas strip.
+     *
+     * @param contentHeight available content height
+     * @return strip height
+     */
+    private static int atlasWholeOverviewHeight(int contentHeight) {
+        if (contentHeight < 360) {
+            return Math.max(80, contentHeight / 4);
+        }
+        return Math.min(168, Math.max(112, contentHeight / 4));
+    }
+
+    /**
+     * Paints a true whole-atlas pixel-plane overview: every selected-order slot,
+     * every piece plane, and every square cell are present in one dense image.
+     */
+    private void paintAtlasWholePlaneOverview(Graphics2D g, Rectangle r, Integer[] order,
+            float[] atlas, float[] output, int hidden, int planes, int squares,
+            float[] perNeuronScale, int selectedSlot) {
+        WorkbenchTensorViz.drawCard(g, r,
+                "whole pixel-plane atlas",
+                hidden + " slots × " + planes + " planes · white-bottom board squares",
+                WorkbenchTheme.ACCENT);
+        Rectangle inner = new Rectangle(r.x + 10, r.y + 38,
+                Math.max(1, r.width - 20), Math.max(1, r.height - 48));
+        if (squares != 64 || hidden <= 0 || planes <= 0 || inner.width <= 12 || inner.height <= 16) {
+            WorkbenchTensorViz.drawEmpty(g, inner);
+            return;
+        }
+        int labelH = 12;
+        Rectangle imageRect = new Rectangle(inner.x, inner.y + labelH,
+                inner.width, Math.max(1, inner.height - labelH));
+        if (imageRect.width <= 0 || imageRect.height <= 0) {
+            return;
+        }
+        g.setColor(WorkbenchTheme.MUTED);
+        g.setFont(WorkbenchTheme.font(9, Font.BOLD));
+        FontMetrics fm = g.getFontMetrics();
+        if (imageRect.width / Math.max(1, planes) >= 24) {
+            for (int p = 0; p < planes; p++) {
+                int x0 = (int) Math.round(imageRect.x + p * imageRect.width / (double) planes);
+                int x1 = (int) Math.round(imageRect.x + (p + 1) * imageRect.width / (double) planes);
+                String label = atlasPlaneLabel(p, planes);
+                int tw = fm.stringWidth(label);
+                g.drawString(label, x0 + Math.max(2, (x1 - x0 - tw) / 2), inner.y + 9);
+            }
+        }
+        java.awt.image.BufferedImage image = atlasPlaneImage(atlas, order, hidden, planes, squares,
+                perNeuronScale);
+        Object interpolation = g.getRenderingHint(RenderingHints.KEY_INTERPOLATION);
+        g.setRenderingHint(RenderingHints.KEY_INTERPOLATION,
+                RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
+        g.drawImage(image, imageRect.x, imageRect.y, imageRect.width, imageRect.height, null);
+        if (interpolation != null) {
+            g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, interpolation);
+        }
+        g.setColor(WorkbenchTheme.LINE);
+        g.drawRect(imageRect.x, imageRect.y, imageRect.width - 1, imageRect.height - 1);
+
+        int selectedRow = orderIndex(order, selectedSlot);
+        if (selectedRow >= 0) {
+            int y0 = (int) Math.floor(imageRect.y + selectedRow * imageRect.height / (double) hidden);
+            int y1 = (int) Math.ceil(imageRect.y + (selectedRow + 1) * imageRect.height / (double) hidden);
+            g.setColor(WorkbenchTheme.ACCENT);
+            g.setStroke(new BasicStroke(2.0f));
+            g.drawRect(imageRect.x, y0, imageRect.width - 1, Math.max(1, y1 - y0) - 1);
+            g.setStroke(new BasicStroke(1.0f));
+        }
+        if (atlasSelectedPlane >= 0 && atlasSelectedPlane < planes) {
+            int x0 = (int) Math.floor(imageRect.x + atlasSelectedPlane * imageRect.width / (double) planes);
+            int x1 = (int) Math.ceil(imageRect.x + (atlasSelectedPlane + 1) * imageRect.width / (double) planes);
+            g.setColor(WorkbenchTheme.withAlpha(WorkbenchTheme.ACCENT, 150));
+            g.drawRect(x0, imageRect.y, Math.max(1, x1 - x0) - 1, imageRect.height - 1);
+        }
+        for (int row = 0; row < hidden && row < order.length; row++) {
+            int y0 = (int) Math.floor(imageRect.y + row * imageRect.height / (double) hidden);
+            int y1 = (int) Math.ceil(imageRect.y + (row + 1) * imageRect.height / (double) hidden);
+            int slot = order[row];
+            hitRegions.add(new Rectangle(imageRect.x, y0, imageRect.width, Math.max(1, y1 - y0)),
+                    "Slot " + slot + " · whole atlas",
+                    "Select this accumulator slot from the whole pixel-plane overview.",
+                    atlasSlotDetail(output, slot, atlas, planes, squares));
+        }
+    }
+
+    /**
+     * Renders all atlas cells into an unscaled pixel image.
+     */
+    private static java.awt.image.BufferedImage atlasPlaneImage(float[] atlas, Integer[] order,
+            int hidden, int planes, int squares, float[] perNeuronScale) {
+        int width = Math.max(1, planes * 8);
+        int height = Math.max(1, hidden * 8);
+        java.awt.image.BufferedImage image =
+                new java.awt.image.BufferedImage(width, height, java.awt.image.BufferedImage.TYPE_INT_ARGB);
+        int[] pixels = new int[width * height];
+        for (int row = 0; row < hidden && row < order.length; row++) {
+            int slot = order[row];
+            float scale = Math.max(1e-6f, valueAt(perNeuronScale, slot));
+            for (int p = 0; p < planes; p++) {
+                int offset = (slot * planes + p) * squares;
+                for (int sq = 0; sq < 64; sq++) {
+                    int file = sq & 7;
+                    int rank = sq >> 3;
+                    int drawRank = 7 - rank;
+                    float v = valueAt(atlas, offset + sq) / scale;
+                    if (v > 1.0f) {
+                        v = 1.0f;
+                    } else if (v < -1.0f) {
+                        v = -1.0f;
+                    }
+                    Color c = atlasRamp(v);
+                    int x = p * 8 + file;
+                    int y = row * 8 + drawRank;
+                    pixels[y * width + x] = (255 << 24)
+                            | (c.getRed() << 16)
+                            | (c.getGreen() << 8)
+                            | c.getBlue();
+                }
+            }
+        }
+        image.setRGB(0, 0, width, height, pixels, 0, width);
+        return image;
+    }
+
+    /**
+     * Finds a selected slot in the current atlas order.
+     */
+    private static int orderIndex(Integer[] order, int slot) {
+        for (int i = 0; i < order.length; i++) {
+            if (order[i] == slot) {
+                return i;
+            }
+        }
+        return -1;
     }
 
     /**
@@ -1090,13 +1233,8 @@ final class WorkbenchNnueView extends WorkbenchNetworkView implements Scrollable
         int offset = (slot * planes + atlasSelectedPlane) * squares;
         WorkbenchTensorViz.drawMiniBoard(g, board);
         paintAtlasTileDense(g, board, atlas, offset, Math.max(1e-6f, scale), false);
-        Graphics2D pieceGraphics = (Graphics2D) g.create();
-        try {
-            pieceGraphics.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.28f));
-            WorkbenchTensorViz.drawPositionPieces(pieceGraphics, board, fen);
-        } finally {
-            pieceGraphics.dispose();
-        }
+        WorkbenchTensorViz.drawPositionPieces(g, board, fen);
+        drawWhiteBottomLabel(g, board, inner.y + inner.height);
         if (selectedBoardSquare >= 0) {
             WorkbenchTensorViz.drawBoardSquareRing(g, board, selectedBoardSquare, WorkbenchTheme.ACCENT);
         }
@@ -2520,6 +2658,7 @@ final class WorkbenchNnueView extends WorkbenchNetworkView implements Scrollable
         WorkbenchTensorViz.drawMiniBoard(g, innerBoard);
         WorkbenchTensorViz.drawPositionPieces(g, innerBoard, fen);
         paintOverviewFeatureOverlay(g, innerBoard);
+        drawWhiteBottomLabel(g, innerBoard, r.y + r.height);
         hitRegions.add(innerBoard, "Current position",
                 fen == null ? "no FEN" : fen,
                 "NNUE half-KP features are derived from this position");
@@ -2608,6 +2747,23 @@ final class WorkbenchNnueView extends WorkbenchNetworkView implements Scrollable
         int h = (int) Math.ceil(cellH + 1);
         g.setColor(tint);
         g.fillRect(x, y, w, h);
+    }
+
+    /**
+     * Labels NNUE mini-board orientation. The boards always use absolute
+     * board coordinates with White's home rank at the bottom.
+     */
+    private static void drawWhiteBottomLabel(Graphics2D g, Rectangle board, int maxY) {
+        int y = board.y + board.height + 12;
+        if (y > maxY - 2) {
+            return;
+        }
+        String label = "white bottom";
+        g.setFont(WorkbenchTheme.font(9, Font.BOLD));
+        FontMetrics fm = g.getFontMetrics();
+        int x = board.x + board.width - fm.stringWidth(label);
+        g.setColor(WorkbenchTheme.MUTED);
+        g.drawString(label, x, y);
     }
 
     /**
@@ -3153,7 +3309,7 @@ final class WorkbenchNnueView extends WorkbenchNetworkView implements Scrollable
                 new Rectangle(body.x, body.y, body.width, TRACE_HEADER_H),
                 "detailed NNUE node graph",
                 isStockfishSnapshot()
-                        ? "Stockfish HalfKA -> transformer -> FC0 -> FC1 -> FC2 head"
+                        ? "Stockfish HalfKA -> transformer -> FC0 hidden + forward skip -> FC1 -> FC2 head"
                         : "30 active-feature lanes | raw accumulator -> clipped ReLU -> output contribution -> cp");
         Rectangle ribbon = new Rectangle(body.x, body.y + TRACE_HEADER_H + 8,
                 body.width, TRACE_RIBBON_H);
@@ -3178,6 +3334,7 @@ final class WorkbenchNnueView extends WorkbenchNetworkView implements Scrollable
         WorkbenchTensorViz.drawMiniBoard(g, boardArea);
         WorkbenchTensorViz.drawPositionPieces(g, boardArea, fen);
         paintSelectedFeatureOverlay(g, boardArea);
+        drawWhiteBottomLabel(g, boardArea, body.y + body.height);
         hitRegions.add(boardArea, "Current position",
                 fen == null ? "no FEN" : fen,
                 "Half-KP features are derived from this board");
@@ -3645,7 +3802,7 @@ final class WorkbenchNnueView extends WorkbenchNetworkView implements Scrollable
      */
     private String stockfishFc0StageDetail() {
         int rows = Math.max(0, safeLength(snapshot.data("nnue.stockfish.fc0.raw")) - 1);
-        return rows + " hidden + fwd";
+        return rows + " hidden + fwd skip";
     }
 
     /**
@@ -3990,6 +4147,9 @@ final class WorkbenchNnueView extends WorkbenchNetworkView implements Scrollable
                 int rr = layout.slotRadius + 3;
                 g.setColor(WorkbenchTheme.withAlpha(WorkbenchTheme.ACCENT, 190));
                 g.drawOval(layout.clippedCx - rr, y - rr, rr * 2, rr * 2);
+                g.setColor(WorkbenchTheme.ACCENT);
+                g.setFont(WorkbenchTheme.font(9, Font.BOLD));
+                g.drawString("fwd skip", layout.clippedCx + rr + 3, y + 3);
             }
             int rad = layout.slotRadius + 2;
             String title = fwd ? "FC0 forward row" : "FC0 neuron " + i;
@@ -4399,7 +4559,42 @@ final class WorkbenchNnueView extends WorkbenchNetworkView implements Scrollable
             float strength = valueAt(fc0FwdContribution, 0) / contribScale;
             drawTraceEdge(g, layout.clippedCx + layout.slotRadius, fwdY,
                     layout.outputCx - (layout.slotRadius + 6), outCy, strength, false);
+            drawTraceEdgeLabel(g, "FC0 forward skip",
+                    layout.clippedCx + layout.slotRadius, fwdY,
+                    layout.outputCx - (layout.slotRadius + 6), outCy);
+            int x = Math.min(layout.clippedCx + layout.slotRadius,
+                    layout.outputCx - (layout.slotRadius + 6));
+            int y = Math.min(fwdY, outCy);
+            int w = Math.abs(layout.outputCx - (layout.slotRadius + 6)
+                    - (layout.clippedCx + layout.slotRadius));
+            int h = Math.abs(outCy - fwdY);
+            hitRegions.add(new Rectangle(x, y, Math.max(1, w), Math.max(1, h)),
+                    "FC0 forward skip edge",
+                    "Stockfish NNUE carries this FC0 forward branch directly into the positional output.",
+                    String.format("branch contribution %+.2f cp", valueAt(fc0FwdContribution, 0)));
         }
+    }
+
+    /**
+     * Draws a compact label on a long Trace edge.
+     */
+    private static void drawTraceEdgeLabel(Graphics2D g, String text,
+            int x1, int y1, int x2, int y2) {
+        if (Math.abs(x2 - x1) < 72) {
+            return;
+        }
+        g.setFont(WorkbenchTheme.font(9, Font.BOLD));
+        FontMetrics fm = g.getFontMetrics();
+        int textW = fm.stringWidth(text);
+        int x = (x1 + x2 - textW) / 2;
+        int y = (y1 + y2) / 2 - 5;
+        Rectangle bg = new Rectangle(x - 4, y - fm.getAscent(), textW + 8, fm.getHeight());
+        g.setColor(WorkbenchTheme.PANEL_SOLID);
+        g.fillRoundRect(bg.x, bg.y, bg.width, bg.height, 4, 4);
+        g.setColor(WorkbenchTheme.LINE);
+        g.drawRoundRect(bg.x, bg.y, bg.width - 1, bg.height - 1, 4, 4);
+        g.setColor(WorkbenchTheme.ACCENT);
+        g.drawString(text, x, y);
     }
 
     /**
@@ -4443,7 +4638,7 @@ final class WorkbenchNnueView extends WorkbenchNetworkView implements Scrollable
             g.setColor(WorkbenchTheme.MUTED);
             g.setFont(WorkbenchTheme.font(11, Font.PLAIN));
             String text = isStockfishSnapshot()
-                    ? "Stockfish trace: HalfKA -> transformer -> FC0 hidden/forward -> FC1 -> FC2/output | green raises, red lowers, opacity = weight size"
+                    ? "Stockfish trace: HalfKA -> transformer -> FC0 hidden + forward skip -> FC1 -> FC2/output | green raises, red lowers, opacity = weight size"
                     : "Full trace: features -> raw accumulator -> clipped ReLU -> contribution -> cp | green raises, red lowers, opacity = weight size";
             g.drawString(text,
                     body.x + 8, body.y + body.height - 8);

@@ -158,6 +158,7 @@ public final class WorkbenchRegressionTest {
         testBoardCheckHighlightPaintsCheckedKingMarker();
         testBoardTextureCachesRenderedLayer();
         testBoardPieceImageCacheReusesScaledSvg();
+        testTensorMiniBoardPiecesRenderWhiteBottom();
         testDashboardClassesLoad();
         testWorkbenchSessionNotifiesListeners();
         testJobLifecycleTransitions();
@@ -1283,6 +1284,27 @@ public final class WorkbenchRegressionTest {
     }
 
     /**
+     * Verifies network mini-board piece rendering uses absolute board
+     * coordinates with White's home rank at the bottom.
+     */
+    private static void testTensorMiniBoardPiecesRenderWhiteBottom() {
+        BufferedImage image = new BufferedImage(80, 80, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D graphics = image.createGraphics();
+        try {
+            invokeStatic(type("WorkbenchTensorViz"), "drawPositionPieces",
+                    new Class<?>[] { Graphics2D.class, Rectangle.class, String.class },
+                    graphics, new Rectangle(0, 0, 80, 80),
+                    "7k/8/8/8/8/8/8/K7 w - - 0 1");
+        } finally {
+            graphics.dispose();
+        }
+        int topLeftAlpha = alphaSum(image, 0, 0, 10, 10);
+        int bottomLeftAlpha = alphaSum(image, 0, 70, 10, 10);
+        assertTrue(bottomLeftAlpha > topLeftAlpha + 1000,
+                "mini-board white king renders on a1 at the bottom");
+    }
+
+    /**
      * Creates a reflected board move handler.
      *
      * @param played captured moves
@@ -1338,6 +1360,19 @@ public final class WorkbenchRegressionTest {
             graphics.dispose();
         }
         return image;
+    }
+
+    /**
+     * Sums alpha values over a rectangular image region.
+     */
+    private static int alphaSum(BufferedImage image, int x, int y, int width, int height) {
+        int sum = 0;
+        for (int yy = y; yy < y + height; yy++) {
+            for (int xx = x; xx < x + width; xx++) {
+                sum += new Color(image.getRGB(xx, yy), true).getAlpha();
+            }
+        }
+        return sum;
     }
 
     /**
@@ -1951,6 +1986,10 @@ public final class WorkbenchRegressionTest {
                 "NNUE atlas paints synthetic snapshot");
         assertTrue(((Scrollable) view).getScrollableTracksViewportWidth(),
                 "NNUE atlas tracks viewport width");
+        String atlasTip = ((JComponent) view).getToolTipText(new MouseEvent((JComponent) view,
+                MouseEvent.MOUSE_MOVED, 0L, 0, 600, 200, 0, false, MouseEvent.NOBUTTON));
+        assertTrue(atlasTip != null && atlasTip.contains("whole atlas"),
+                "NNUE atlas exposes a whole-atlas pixel-plane overview");
     }
 
     /**
