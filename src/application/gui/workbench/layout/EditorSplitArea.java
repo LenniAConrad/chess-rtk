@@ -163,6 +163,11 @@ public final class EditorSplitArea extends JPanel {
     private final transient List<JComponent> panels = new ArrayList<>();
 
     /**
+     * Last theme mode applied to each panel, parallel to {@link #panels}.
+     */
+    private final transient List<Theme.Mode> panelThemeModes = new ArrayList<>();
+
+    /**
      * Panel indices currently open as tabs, in visible strip order.
      */
     private final transient List<Integer> open = new ArrayList<>();
@@ -364,6 +369,7 @@ public final class EditorSplitArea extends JPanel {
         int index = names.size();
         names.add(name);
         panels.add(panel);
+        panelThemeModes.add(null);
         open.add(index);
         primaryTabs.add(index);
     }
@@ -965,7 +971,9 @@ public final class EditorSplitArea extends JPanel {
         panePanel.removeAll();
         host.removeAll();
         if (validPanel(activeIndex) && tabList.contains(activeIndex)) {
-            host.add(panels.get(activeIndex), BorderLayout.CENTER);
+            JComponent panel = panels.get(activeIndex);
+            refreshPanelThemeIfNeeded(activeIndex, panel);
+            host.add(panel, BorderLayout.CENTER);
         }
         rebuildStrip(strip, tabList, activeIndex, pane);
         JPanel header = new JPanel(new BorderLayout());
@@ -981,6 +989,21 @@ public final class EditorSplitArea extends JPanel {
         }
         panePanel.add(header, BorderLayout.NORTH);
         panePanel.add(host, BorderLayout.CENTER);
+    }
+
+    /**
+     * Refreshes a panel only when it has not yet seen the current theme mode.
+     *
+     * @param index panel index
+     * @param panel panel component
+     */
+    private void refreshPanelThemeIfNeeded(int index, JComponent panel) {
+        Theme.Mode currentMode = Theme.mode();
+        if (panelThemeModes.get(index) == currentMode) {
+            return;
+        }
+        Theme.refreshComponentTree(panel);
+        panelThemeModes.set(index, currentMode);
     }
 
     /**
