@@ -146,18 +146,23 @@ java -jar crtk.jar help</code></pre>
 <li>optionally downloads NNUE, LC0 CNN, and official LC0 BT4 model artifacts into <code>models/</code></li>
 <li>compiles sources and builds <code>crtk.jar</code></li>
 <li>installs a launcher at <code>/usr/local/bin/crtk</code> that runs from this repo</li>
+<li>installs a <code>ChessRTK Workbench</code> desktop app entry that launches the Swing workbench without opening a terminal</li>
 <li>optionally builds CUDA, ROCm/HIP, and oneAPI JNI backends when their vendor</li>
 </ul>
 <p>toolchains are available</p>
 <p>Downloaded <code>models/<em>.bin</code>, <code>models/</em>.pb.gz</code>, and <code>models/*.nnue</code> files are local artifacts and are ignored by git.</p>
 <pre><code class="language-bash">./install.sh
 crtk help</code></pre>
+<p>After install, open <code>ChessRTK Workbench</code> from your applications menu, or launch the same app from a shell:</p>
+<pre><code class="language-bash">crtk workbench</code></pre>
 <p>Fetch optional model weights without prompting:</p>
 <pre><code class="language-bash">./install.sh --models</code></pre>
 <p>Skip model weight downloads:</p>
 <pre><code class="language-bash">./install.sh --no-models</code></pre>
 <p>Skip native GPU backend builds:</p>
 <pre><code class="language-bash">./install.sh --no-cuda --no-rocm --no-oneapi</code></pre>
+<p>Install only the command-line launcher and skip the desktop app entry:</p>
+<pre><code class="language-bash">./install.sh --no-desktop</code></pre>
 <p>Force a native GPU backend build:</p>
 <pre><code class="language-bash">./install.sh --cuda
 ./install.sh --rocm
@@ -175,6 +180,8 @@ crtk help</code></pre>
 <h2 id="uninstall">Uninstall</h2>
 <p>Remove the launcher and local build artifacts:</p>
 <pre><code class="language-bash">./scripts/uninstall.sh</code></pre>
+<p>Keep the desktop app entry while uninstalling other local pieces:</p>
+<pre><code class="language-bash">./scripts/uninstall.sh --keep-desktop</code></pre>
 <p>Also remove data directories created by the app (<code>dump/</code>, <code>session/</code>):</p>
 <pre><code class="language-bash">./scripts/uninstall.sh --remove-data</code></pre>
         </article>

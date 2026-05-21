@@ -14,6 +14,9 @@ APP_HOME="$(cd -- "$SCRIPT_DIR" && pwd)"
 OUT_DIR="$APP_HOME/out"
 JAR_PATH="$APP_HOME/crtk.jar"
 LAUNCHER="/usr/local/bin/$APP_NAME"
+DESKTOP_ENTRY_NAME="crtk-workbench.desktop"
+DESKTOP_ENTRY="/usr/local/share/applications/$DESKTOP_ENTRY_NAME"
+DESKTOP_ICON="$APP_HOME/assets/logo/pieces/crtk-white-knight.png"
 MODEL_DIR="$APP_HOME/models"
 MODEL_BASE_URL="https://media.githubusercontent.com/media/LenniAConrad/chess-models/main/models"
 MODEL_REMOTE_FILES=(
@@ -37,6 +40,7 @@ ONEAPI_MODE="auto"    # auto|yes|no
 REQUIRE_ONEAPI=0
 MODEL_MODE="auto"     # auto|yes|no
 INSTALL_LAUNCHER=1
+INSTALL_DESKTOP=1
 
 # Colors (opt-out with NO_COLOR or non-TTY)
 if [[ -t 1 && -z "${NO_COLOR:-}" ]]; then
@@ -117,6 +121,10 @@ while [[ $# -gt 0 ]]; do
       INSTALL_LAUNCHER=0
       shift
       ;;
+    --no-desktop|--no-app-launcher)
+      INSTALL_DESKTOP=0
+      shift
+      ;;
     --models|--fetch-models)
       MODEL_MODE="yes"
       shift
@@ -126,12 +134,12 @@ while [[ $# -gt 0 ]]; do
       shift
       ;;
     -h|--help)
-      echo "Usage: ./install.sh [--cuda|--require-cuda|--no-cuda] [--rocm|--require-rocm|--no-rocm] [--oneapi|--require-oneapi|--no-oneapi] [--models|--no-models] [--no-launcher]"
+      echo "Usage: ./install.sh [--cuda|--require-cuda|--no-cuda] [--rocm|--require-rocm|--no-rocm] [--oneapi|--require-oneapi|--no-oneapi] [--models|--no-models] [--no-launcher] [--no-desktop]"
       exit 0
       ;;
     *)
       err "Unknown argument: $1"
-      echo "Usage: ./install.sh [--cuda|--require-cuda|--no-cuda] [--rocm|--require-rocm|--no-rocm] [--oneapi|--require-oneapi|--no-oneapi] [--models|--no-models] [--no-launcher]" >&2
+      echo "Usage: ./install.sh [--cuda|--require-cuda|--no-cuda] [--rocm|--require-rocm|--no-rocm] [--oneapi|--require-oneapi|--no-oneapi] [--models|--no-models] [--no-launcher] [--no-desktop]" >&2
       exit 2
       ;;
   esac
@@ -1066,10 +1074,43 @@ else
   warn "Skipping launcher install (--no-launcher)."
 fi
 
+section "Desktop App"
+if [[ $INSTALL_DESKTOP -eq 1 && $INSTALL_LAUNCHER -eq 1 ]]; then
+  step "Installing workbench desktop entry to $DESKTOP_ENTRY"
+  DESKTOP_TMP="$(mktemp)"
+  cat > "$DESKTOP_TMP" <<EOF
+[Desktop Entry]
+Type=Application
+Name=ChessRTK Workbench
+Comment=Native ChessRTK command and analysis workbench
+TryExec=$LAUNCHER
+Exec=$LAUNCHER workbench
+Icon=$DESKTOP_ICON
+Terminal=false
+Categories=Game;BoardGame;
+Keywords=chess;analysis;workbench;rtk;crtk;
+StartupNotify=true
+EOF
+
+  $SUDO mkdir -p "$(dirname "$DESKTOP_ENTRY")"
+  $SUDO mv "$DESKTOP_TMP" "$DESKTOP_ENTRY"
+  $SUDO chmod 644 "$DESKTOP_ENTRY"
+  if command -v update-desktop-database >/dev/null 2>&1; then
+    $SUDO update-desktop-database "$(dirname "$DESKTOP_ENTRY")" >/dev/null 2>&1 || true
+  fi
+elif [[ $INSTALL_DESKTOP -eq 1 ]]; then
+  warn "Skipping desktop app install because the command launcher was skipped."
+else
+  warn "Skipping desktop app install (--no-desktop)."
+fi
+
 section "Summary"
 title "Done"
 if [[ $INSTALL_LAUNCHER -eq 1 ]]; then
   step "Launcher installed: $LAUNCHER"
+fi
+if [[ $INSTALL_DESKTOP -eq 1 && $INSTALL_LAUNCHER -eq 1 ]]; then
+  step "Workbench app installed: $DESKTOP_ENTRY"
 fi
 if [[ "$CUDA_RESULT" == "built" ]]; then
   step "CUDA backend: built ($CUDA_LIB_SO)"
@@ -1096,4 +1137,8 @@ fi
 
 section "Next Steps"
 info "$APP_NAME help"
+info "$APP_NAME workbench"
+if [[ $INSTALL_DESKTOP -eq 1 && $INSTALL_LAUNCHER -eq 1 ]]; then
+  info "Open \"ChessRTK Workbench\" from your applications menu."
+fi
 info "Run from anywhere with '$APP_NAME'."
