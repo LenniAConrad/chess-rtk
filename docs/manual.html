@@ -1002,7 +1002,7 @@ crtk engine builtin --startpos --depth 3 --format summary</code></pre>
 </tr></thead><tbody>
 <tr>
 <td>Open focused analysis workbench</td>
-<td><code>crtk gui-workbench</code></td>
+<td><code>crtk workbench</code></td>
 </tr>
 <tr>
 <td>Open workbench on a position</td>
@@ -1749,40 +1749,19 @@ crtk engine builtin --lc0 --weights models/leela_112planes-10blocksx128-policyhe
 <li><code>--verbose|-v</code>: print stack traces on failure</li>
 </ul>
 <h2 id="chapter-command-reference-gui"><code>gui</code></h2>
-<p>Launch the existing desktop Swing GUI.</p>
+<p>Alias for <code>workbench</code>. Launches the native Swing command and analysis workbench.</p>
 <p>Options:</p>
 <ul>
 <li><code>--fen &quot;&lt;FEN...&gt;&quot;</code> (or pass it positionally)</li>
 <li><code>--flip|--black-down</code>: render Black at the bottom</li>
-<li><code>--dark|--dark-mode</code>: start in dark UI theme</li>
-<li><code>--light</code>: start in light UI theme</li>
 <li><code>-h|--help</code>: show help</li>
 </ul>
-<h2 id="chapter-command-reference-gui-web"><code>gui-web</code></h2>
-<p>Launch the chess-web-inspired desktop Swing GUI.</p>
-<p>Options:</p>
-<ul>
-<li><code>--fen &quot;&lt;FEN...&gt;&quot;</code> (or pass it positionally)</li>
-<li><code>--flip|--black-down</code>: render Black at the bottom</li>
-<li><code>--dark|--dark-mode</code>: start in dark UI theme</li>
-<li><code>--light</code>: start in light UI theme</li>
-<li><code>-h|--help</code>: show help</li>
-</ul>
-<h2 id="chapter-command-reference-gui-next"><code>gui-next</code></h2>
-<p>Launch the ChessRTK Studio GUI v3 research workbench.</p>
-<p>Options:</p>
-<ul>
-<li><code>--fen &quot;&lt;FEN...&gt;&quot;</code> (or pass it positionally)</li>
-<li><code>--flip|--black-down</code>: render Black at the bottom</li>
-<li><code>--dark|--dark-mode</code>: start in dark UI theme</li>
-<li><code>--light</code>: start in light UI theme</li>
-<li><code>-h|--help</code>: show help</li>
-</ul>
-<h2 id="chapter-command-reference-gui-workbench"><code>gui-workbench</code></h2>
-<p>Launch the native Swing command and analysis workbench.</p>
+<h2 id="chapter-command-reference-workbench"><code>workbench</code></h2>
+<p>Launch the native Swing command and analysis workbench. The aliases <code>gui</code> and <code>gui-workbench</code> launch this same workbench.</p>
 <p>Alias:</p>
 <ul>
-<li><code>workbench</code></li>
+<li><code>gui</code></li>
+<li><code>gui-workbench</code></li>
 </ul>
 <p>The workbench includes:</p>
 <ul>
@@ -1797,7 +1776,7 @@ crtk engine builtin --lc0 --weights models/leela_112planes-10blocksx128-policyhe
 <li><code>-h|--help</code>: show help</li>
 </ul>
 <p>Examples:</p>
-<pre><code class="language-bash">crtk gui-workbench
+<pre><code class="language-bash">crtk workbench
 crtk workbench --fen &quot;&lt;FEN&gt;&quot;</code></pre>
 <h2 id="chapter-command-reference-config"><code>config</code></h2>
 <p>Show or validate CLI configuration.</p>
@@ -2290,8 +2269,8 @@ crtk workbench --fen &quot;&lt;FEN&gt;&quot;</code></pre>
 <ul>
 <li><code>--input|-i &lt;path&gt;</code>: FEN list file (optional)</li>
 <li><code>--fen &quot;&lt;FEN...&gt;&quot;</code>: FEN string (or pass it positionally)</li>
-<li><code>--lc0</code>: force LC0 evaluation and fail if LC0 cannot run</li>
-<li><code>--classical</code>: force classical evaluation</li>
+<li><code>--evaluator &lt;mode&gt;</code>: <code>auto</code>, <code>lc0</code>, or <code>classical</code> (default: <code>auto</code>)</li>
+<li><code>--lc0</code>, <code>--classical</code>: shortcut evaluator selectors</li>
 <li><code>--weights &lt;path&gt;</code>: ChessRTK LC0 CNN <code>.bin</code> weights path (optional)</li>
 <li><code>--terminal-aware</code>: use terminal-aware classical evaluation</li>
 <li><code>--verbose|-v</code>: print stack traces on failure</li>
@@ -2406,8 +2385,7 @@ crtk workbench --fen &quot;&lt;FEN&gt;&quot;</code></pre>
 <li><code>crtk fen display --fen &quot;&lt;FEN&gt;&quot; --ablation --show-backend</code> — show per-piece ablation (uses LC0 if available; otherwise classical).</li>
 <li><code>crtk fen render --fen &quot;&lt;FEN&gt;&quot; -o dump/position.png --arrow e2e4 --circle e4 --size 1200</code> — save a board image.</li>
 <li><code>crtk fen render --fen &quot;&lt;FEN&gt;&quot; -o dump/position.svg --format svg --flip</code> — save a vector board from Black&#x27;s perspective.</li>
-<li><code>crtk gui-web --fen &quot;r1bqk2r/ppppbppp/3n4/4R3/8/8/PPPP1PPP/RNBQ1BK1 b kq - 2 8&quot; --dark</code> — launch the chess-web-inspired desktop GUI.</li>
-<li><code>crtk gui-next --fen &quot;&lt;FEN&gt;&quot; --dark</code> — launch the Studio research workbench.</li>
+<li><code>crtk gui --fen &quot;r1bqk2r/ppppbppp/3n4/4R3/8/8/PPPP1PPP/RNBQ1BK1 b kq - 2 8&quot;</code> — launch the Swing workbench.</li>
 </ul>
 <h2 id="chapter-example-commands-analyze-positions-best-move-with-a-uci-engine">Analyze positions / best move with a UCI engine</h2>
 <ul>
@@ -2462,9 +2440,9 @@ crtk workbench --fen &quot;&lt;FEN&gt;&quot;</code></pre>
 </ul>
 <h2 id="chapter-example-commands-in-process-eval-and-built-in-search">In-process eval and built-in search</h2>
 <ul>
-<li><code>crtk engine eval --fen &quot;&lt;FEN&gt;&quot;</code> — evaluate with the Java LC0 evaluator and classical fallback.</li>
+<li><code>crtk engine eval --fen &quot;&lt;FEN&gt;&quot;</code> — evaluate in auto mode with Java LC0 and classical fallback.</li>
 <li><code>crtk engine eval --fen &quot;&lt;FEN&gt;&quot; --lc0 --weights models/leela_112planes-10blocksx128-policyhead80-valuehead32-policy4672-wdl3.bin</code> — force Java LC0 evaluation.</li>
-<li><code>crtk engine eval --fen &quot;&lt;FEN&gt;&quot; --classical</code> — force classical evaluation.</li>
+<li><code>crtk engine eval --fen &quot;&lt;FEN&gt;&quot; --evaluator classical</code> — force classical evaluation.</li>
 <li><code>crtk engine static --fen &quot;&lt;FEN&gt;&quot;</code> — classical evaluation shortcut.</li>
 <li><code>crtk engine builtin --fen &quot;&lt;FEN&gt;&quot; --depth 4 --format summary</code> — search with the built-in Java engine.</li>
 <li><code>crtk engine builtin --fen &quot;&lt;FEN&gt;&quot; --classical --depth 6 --nodes 250000 --format both</code> — bounded classical built-in search.</li>
@@ -2725,9 +2703,9 @@ crtk help</code></pre>
 </ul>
 <p><code>--weights</code>, or from <code>lc0-model-path</code>.</p>
 <ul>
-<li><code>engine eval</code> prefers the Java LC0 evaluator and falls back to classical</li>
+<li><code>engine eval --evaluator auto</code> prefers the Java LC0 evaluator and falls</li>
 </ul>
-<p>evaluation unless <code>--lc0</code> or <code>--classical</code> is specified.</p>
+<p>back to classical evaluation; <code>--evaluator lc0</code> and <code>--evaluator classical</code> force one backend. The <code>--lc0</code> and <code>--classical</code> shortcuts are still accepted.</p>
 <ul>
 <li><code>engine static</code> is always the classical evaluator.</li>
 </ul>

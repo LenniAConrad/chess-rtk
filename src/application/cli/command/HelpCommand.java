@@ -6,9 +6,6 @@ import static application.cli.Constants.CMD_CONFIG;
 import static application.cli.Constants.CMD_DOCTOR;
 import static application.cli.Constants.CMD_ENGINE;
 import static application.cli.Constants.CMD_FEN;
-import static application.cli.Constants.CMD_GUI;
-import static application.cli.Constants.CMD_GUI_NEXT;
-import static application.cli.Constants.CMD_GUI_WEB;
 import static application.cli.Constants.CMD_HELP;
 import static application.cli.Constants.CMD_HELP_LONG;
 import static application.cli.Constants.CMD_HELP_SHORT;
@@ -212,21 +209,6 @@ public final class HelpCommand {
 	 * Help marker for {@code book pdf}.
 	 */
 	private static final String CHESS_PDF_OPTIONS_MARKER = "book pdf options:";
-
-	/**
-	 * Help marker for {@code gui}.
-	 */
-	private static final String GUI_OPTIONS_MARKER = "gui options:";
-
-	/**
-	 * Help marker for {@code gui-web}.
-	 */
-	private static final String GUI_WEB_OPTIONS_MARKER = "gui-web options:";
-
-	/**
-	 * Help marker for {@code gui-next}.
-	 */
-	private static final String GUI_NEXT_OPTIONS_MARKER = "gui-next options:";
 
 	/**
 	 * Help marker for {@code workbench}.
@@ -506,9 +488,6 @@ public final class HelpCommand {
 			Map.entry("puzzle pgn", PUZZLES_TO_PGN_OPTIONS_MARKER),
 			Map.entry("puzzle tags", PUZZLE_TAGS_OPTIONS_MARKER),
 			Map.entry("puzzle text", PUZZLE_TEXT_OPTIONS_MARKER),
-			Map.entry(CMD_GUI, GUI_OPTIONS_MARKER),
-			Map.entry(CMD_GUI_WEB, GUI_WEB_OPTIONS_MARKER),
-			Map.entry(CMD_GUI_NEXT, GUI_NEXT_OPTIONS_MARKER),
 			Map.entry(CMD_WORKBENCH, WORKBENCH_OPTIONS_MARKER),
 			Map.entry(CMD_CONFIG, CONFIG_SUBCOMMANDS_MARKER),
 			Map.entry(CMD_CLEAN, CLEAN_OPTIONS_MARKER),
@@ -1246,27 +1225,6 @@ public final class HelpCommand {
 			  --flip|--black-down        Render Black at the bottom
 			  --no-fen                   Hide FEN text under diagrams
 			  --verbose|-v               Print stack trace on failure
-
-			gui options:
-			  --fen FEN                  Start position (default: standard start FEN)
-			  --flip|--black-down        Render Black at the bottom
-			  --dark|--dark-mode         Start in dark UI theme
-			  --light                    Start in light UI theme
-			  -h|--help                  Show help
-
-			gui-web options:
-			  --fen FEN                  Start position (default: standard start FEN)
-			  --flip|--black-down        Render Black at the bottom
-			  --dark|--dark-mode         Start in dark UI theme
-			  --light                    Start in light UI theme
-			  -h|--help                  Show help
-
-			gui-next options:
-			  --fen FEN                  Start position (default: standard start FEN)
-			  --flip|--black-down        Render Black at the bottom
-			  --dark|--dark-mode         Start in dark UI theme
-			  --light                    Start in light UI theme
-			  -h|--help                  Show help
 
 			workbench options:
 			  --fen FEN                  Start position (default: standard start FEN)

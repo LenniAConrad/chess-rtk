@@ -733,40 +733,19 @@ crtk engine builtin --lc0 --weights models/leela_112planes-10blocksx128-policyhe
 <li><code>--verbose|-v</code>: print stack traces on failure</li>
 </ul>
 <h2 id="gui"><code>gui</code></h2>
-<p>Launch the existing desktop Swing GUI.</p>
+<p>Alias for <code>workbench</code>. Launches the native Swing command and analysis workbench.</p>
 <p>Options:</p>
 <ul>
 <li><code>--fen &quot;&lt;FEN...&gt;&quot;</code> (or pass it positionally)</li>
 <li><code>--flip|--black-down</code>: render Black at the bottom</li>
-<li><code>--dark|--dark-mode</code>: start in dark UI theme</li>
-<li><code>--light</code>: start in light UI theme</li>
 <li><code>-h|--help</code>: show help</li>
 </ul>
-<h2 id="gui-web"><code>gui-web</code></h2>
-<p>Launch the chess-web-inspired desktop Swing GUI.</p>
-<p>Options:</p>
-<ul>
-<li><code>--fen &quot;&lt;FEN...&gt;&quot;</code> (or pass it positionally)</li>
-<li><code>--flip|--black-down</code>: render Black at the bottom</li>
-<li><code>--dark|--dark-mode</code>: start in dark UI theme</li>
-<li><code>--light</code>: start in light UI theme</li>
-<li><code>-h|--help</code>: show help</li>
-</ul>
-<h2 id="gui-next"><code>gui-next</code></h2>
-<p>Launch the ChessRTK Studio GUI v3 research workbench.</p>
-<p>Options:</p>
-<ul>
-<li><code>--fen &quot;&lt;FEN...&gt;&quot;</code> (or pass it positionally)</li>
-<li><code>--flip|--black-down</code>: render Black at the bottom</li>
-<li><code>--dark|--dark-mode</code>: start in dark UI theme</li>
-<li><code>--light</code>: start in light UI theme</li>
-<li><code>-h|--help</code>: show help</li>
-</ul>
-<h2 id="gui-workbench"><code>gui-workbench</code></h2>
-<p>Launch the native Swing command and analysis workbench.</p>
+<h2 id="workbench"><code>workbench</code></h2>
+<p>Launch the native Swing command and analysis workbench. The aliases <code>gui</code> and <code>gui-workbench</code> launch this same workbench.</p>
 <p>Alias:</p>
 <ul>
-<li><code>workbench</code></li>
+<li><code>gui</code></li>
+<li><code>gui-workbench</code></li>
 </ul>
 <p>The workbench includes:</p>
 <ul>
@@ -781,7 +760,7 @@ crtk engine builtin --lc0 --weights models/leela_112planes-10blocksx128-policyhe
 <li><code>-h|--help</code>: show help</li>
 </ul>
 <p>Examples:</p>
-<pre><code class="language-bash">crtk gui-workbench
+<pre><code class="language-bash">crtk workbench
 crtk workbench --fen &quot;&lt;FEN&gt;&quot;</code></pre>
 <h2 id="config"><code>config</code></h2>
 <p>Show or validate CLI configuration.</p>
@@ -1274,8 +1253,8 @@ crtk workbench --fen &quot;&lt;FEN&gt;&quot;</code></pre>
 <ul>
 <li><code>--input|-i &lt;path&gt;</code>: FEN list file (optional)</li>
 <li><code>--fen &quot;&lt;FEN...&gt;&quot;</code>: FEN string (or pass it positionally)</li>
-<li><code>--lc0</code>: force LC0 evaluation and fail if LC0 cannot run</li>
-<li><code>--classical</code>: force classical evaluation</li>
+<li><code>--evaluator &lt;mode&gt;</code>: <code>auto</code>, <code>lc0</code>, or <code>classical</code> (default: <code>auto</code>)</li>
+<li><code>--lc0</code>, <code>--classical</code>: shortcut evaluator selectors</li>
 <li><code>--weights &lt;path&gt;</code>: ChessRTK LC0 CNN <code>.bin</code> weights path (optional)</li>
 <li><code>--terminal-aware</code>: use terminal-aware classical evaluation</li>
 <li><code>--verbose|-v</code>: print stack traces on failure</li>

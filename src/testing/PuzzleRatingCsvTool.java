@@ -122,17 +122,17 @@ public final class PuzzleRatingCsvTool {
     private static final String REPORT_RENDER_FRAME_FILL = "#646464";
 
     /**
-     * Softer chess-web-inspired board frame color.
+     * Softer board frame color used by report SVG previews.
      */
     private static final String REPORT_WEB_BOARD_FRAME_FILL = "#8a6848";
 
     /**
-     * Chess-web-inspired light-square color from {@code WebGuiTheme.light()}.
+     * Light-square color used by report SVG previews.
      */
     private static final String REPORT_WEB_BOARD_LIGHT_FILL = "#efd6ab";
 
     /**
-     * Chess-web-inspired dark-square color from {@code WebGuiTheme.light()}.
+     * Dark-square color used by report SVG previews.
      */
     private static final String REPORT_WEB_BOARD_DARK_FILL = "#bc8d62";
 

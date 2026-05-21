@@ -663,42 +663,20 @@ Options:
 
 ## `gui`
 
-Launch the existing desktop Swing GUI.
+Alias for `workbench`. Launches the native Swing command and analysis workbench.
 
 Options:
 - `--fen "<FEN...>"` (or pass it positionally)
 - `--flip|--black-down`: render Black at the bottom
-- `--dark|--dark-mode`: start in dark UI theme
-- `--light`: start in light UI theme
-- `-h|--help`: show help
-
-## `gui-web`
-
-Launch the chess-web-inspired desktop Swing GUI.
-
-Options:
-- `--fen "<FEN...>"` (or pass it positionally)
-- `--flip|--black-down`: render Black at the bottom
-- `--dark|--dark-mode`: start in dark UI theme
-- `--light`: start in light UI theme
-- `-h|--help`: show help
-
-## `gui-next`
-
-Launch the ChessRTK Studio GUI v3 research workbench.
-
-Options:
-- `--fen "<FEN...>"` (or pass it positionally)
-- `--flip|--black-down`: render Black at the bottom
-- `--dark|--dark-mode`: start in dark UI theme
-- `--light`: start in light UI theme
 - `-h|--help`: show help
 
 ## `workbench`
 
-Launch the native Swing command and analysis workbench.
+Launch the native Swing command and analysis workbench. The aliases `gui` and
+`gui-workbench` launch this same workbench.
 
 Alias:
+- `gui`
 - `gui-workbench`
 
 The workbench includes:

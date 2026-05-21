@@ -1,5 +1,6 @@
 package application.cli;
 
+import static application.cli.Constants.CMD_GUI;
 import static application.cli.Constants.CMD_GUI_WORKBENCH;
 import static application.cli.Constants.CMD_WORKBENCH;
 
@@ -43,10 +44,7 @@ import application.cli.command.book.BookRenderCommand;
 import application.cli.command.book.PuzzleCollectionCommand;
 import application.cli.command.book.PuzzleStudyCommand;
 
-import application.gui.GuiCommand;
-import application.gui.GuiNextCommand;
-import application.gui.GuiWebCommand;
-import application.gui.workbench.WorkbenchCommand;
+import application.gui.workbench.launch.WorkbenchCommand;
 
 /**
  * Central registry for CLI command paths, aliases, summaries, and handlers.
@@ -128,27 +126,14 @@ public final class CliRegistry {
 		root.add(bookGroup());
 		root.add(puzzleGroup());
 		root.add(configGroup());
-		root.add(CliCommand.leaf("gui", "Launch the GUI", GuiCommand::runGui)
-				.helpKey("gui")
-				.usage("[options]")
-				.about("Launch the desktop board GUI.")
-				.example("crtk gui --fen \"<FEN>\""));
-		root.add(CliCommand.leaf("gui-web", "Launch the chess-web-inspired GUI", GuiWebCommand::runGuiWeb)
-				.helpKey("gui-web")
-				.usage("[options]")
-				.about("Launch the chess-web-inspired desktop GUI.")
-				.example("crtk gui-web --fen \"<FEN>\""));
-		root.add(CliCommand.leaf("gui-next", "Launch the Studio GUI v3", GuiNextCommand::runGuiNext)
-				.helpKey("gui-next")
-				.usage("[options]")
-				.about("Launch the Studio research workbench.")
-				.example("crtk gui-next --fen \"<FEN>\""));
 		root.add(CliCommand.leaf(CMD_WORKBENCH, "Launch the native command and analysis workbench",
 				WorkbenchCommand::runWorkbench)
 				.helpKey(CMD_WORKBENCH)
+				.alias(CMD_GUI)
 				.alias(CMD_GUI_WORKBENCH)
 				.usage("[options]")
 				.about("Launch a focused Swing workbench for position analysis, command-specific flag building, and batch research workflows.")
+				.example("crtk gui")
 				.example("crtk workbench")
 				.example("crtk workbench --fen \"<FEN>\""));
 		root.add(CliCommand.leaf("doctor", "Check Java, config, protocol, engine, and local artifacts",
