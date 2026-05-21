@@ -77,6 +77,7 @@ import javax.swing.JTabbedPane;
 import javax.swing.JTable;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
+import javax.swing.ButtonGroup;
 import javax.swing.KeyStroke;
 import javax.swing.ListSelectionModel;
 import javax.swing.SpinnerNumberModel;
@@ -483,12 +484,28 @@ public final class WorkbenchWindow extends JFrame {
     private final JTextField commandField = new JTextField();
 
     /**
-     * Command-template selector tabs.
+     * Wrapping bar of command-selector toggle buttons.
      */
-    private final JTabbedPane commandTemplateTabs = tabbedPane();
+    private final JPanel commandPicker = transparentPanel(
+            new FlowLayout(FlowLayout.LEFT, 6, 6));
 
     /**
-     * Command templates shown in {@link #commandTemplateTabs}.
+     * Run button for the command builder, gated on command validity.
+     */
+    private JButton runCommandButton;
+
+    /**
+     * Command-selector toggle buttons, one per template.
+     */
+    private final transient List<javax.swing.JToggleButton> commandButtons = new ArrayList<>();
+
+    /**
+     * Index of the selected command template.
+     */
+    private int selectedCommandIndex;
+
+    /**
+     * Command templates shown in the {@link #commandPicker}.
      */
     private List<CommandTemplate> commandTemplates = List.of();
 
@@ -2038,63 +2055,55 @@ public final class WorkbenchWindow extends JFrame {
      * @return panel
      */
     private JPanel createCommandBuilder() {
-        JPanel panel = new WorkbenchSurfacePanel(new GridBagLayout());
-        GridBagConstraints c = constraints();
-        grid(panel, WorkbenchTheme.section("Command Controller"), c, 0, 0, 4, 1);
-
-        commandTemplateTabs.setTabLayoutPolicy(JTabbedPane.WRAP_TAB_LAYOUT);
-        commandTemplateTabs.addChangeListener(event -> {
-            updateCommandOptions();
-            updateBuiltCommand();
-        });
-        grid(panel, label("command"), c, 0, 1, 1, 1);
-        grid(panel, commandTemplateTabs, c, 1, 1, 3, 1);
+        JPanel panel = new WorkbenchSurfacePanel(new BorderLayout(0, 10));
 
         commandForm.setChangeListener(this::updateBuiltCommand);
+        commandForm.setRunGate(this::updateCommandRunGate);
         styleFields(commandField);
         depthModel.addChangeListener(event -> requestCommandPreviews());
         multipvModel.addChangeListener(event -> requestCommandPreviews());
         threadsModel.addChangeListener(event -> requestCommandPreviews());
 
-        c.gridx = 0;
-        c.gridy = 2;
-        c.gridwidth = 1;
-        c.gridheight = 1;
-        c.weightx = 0;
-        c.weighty = 1;
-        c.fill = GridBagConstraints.HORIZONTAL;
-        c.anchor = GridBagConstraints.NORTHWEST;
-        panel.add(label("flags"), c);
+        // Header: section title + the wrapping command-selector bar. The bar
+        // replaces a JTabbedPane whose empty content pane left a blank gap.
+        JPanel header = transparentPanel(new BorderLayout(0, 6));
+        header.add(WorkbenchTheme.section("Command Controller"), BorderLayout.NORTH);
+        header.add(commandPicker, BorderLayout.CENTER);
+        panel.add(header, BorderLayout.NORTH);
 
-        c.gridx = 1;
-        c.gridy = 2;
-        c.gridwidth = 3;
-        c.gridheight = 1;
-        c.weightx = 1;
-        c.weighty = 1;
-        c.fill = GridBagConstraints.BOTH;
-        c.anchor = GridBagConstraints.CENTER;
-        commandForm.setPreferredSize(new Dimension(720, 360));
-        panel.add(commandForm, c);
+        panel.add(commandForm, BorderLayout.CENTER);
 
-        c.weighty = 0;
-        c.fill = GridBagConstraints.HORIZONTAL;
-        c.anchor = GridBagConstraints.WEST;
-
+        JPanel south = transparentPanel(new BorderLayout(0, 8));
         commandField.setEditable(false);
-        grid(panel, label("preview"), c, 0, 3, 1, 1);
-        grid(panel, commandField, c, 1, 3, 3, 1);
-
-        grid(panel, buttonRow(FlowLayout.LEFT,
-                button("Run", true, event -> runSelectedTemplate()),
+        JPanel previewRow = transparentPanel(new BorderLayout(8, 0));
+        previewRow.add(label("preview"), BorderLayout.WEST);
+        previewRow.add(commandField, BorderLayout.CENTER);
+        south.add(previewRow, BorderLayout.NORTH);
+        runCommandButton = button("Run", true, event -> runSelectedTemplate());
+        south.add(buttonRow(FlowLayout.LEFT,
+                runCommandButton,
                 button("Copy", false, event -> copyBuiltCommand()),
                 button("Reset", false, event -> resetSelectedTemplate()),
                 button("Drop Optional", false, event -> clearOptionalTemplateOptions()),
-                button("Stop", false, event -> stopCommand())), c, 1, 4, 3, 1);
+                button("Stop", false, event -> stopCommand())), BorderLayout.SOUTH);
+        panel.add(south, BorderLayout.SOUTH);
 
         updateCommandOptions();
         updateBuiltCommand();
         return panel;
+    }
+
+    /**
+     * Enables or disables the Run button from the command form's validity.
+     *
+     * @param ready true when the built command is runnable
+     */
+    private void updateCommandRunGate(boolean ready) {
+        if (runCommandButton != null) {
+            runCommandButton.setEnabled(ready);
+            runCommandButton.setToolTipText(ready ? null
+                    : "Fix the highlighted fields before running");
+        }
     }
 
     /**
@@ -5325,10 +5334,39 @@ public final class WorkbenchWindow extends JFrame {
      */
     private void installTemplates() {
         commandTemplates = WorkbenchCommandTemplates.commandTemplates();
-        commandTemplateTabs.removeAll();
-        for (CommandTemplate template : commandTemplates) {
-            commandTemplateTabs.addTab(template.name(), transparentPanel(new BorderLayout()));
+        commandPicker.removeAll();
+        commandButtons.clear();
+        ButtonGroup group = new ButtonGroup();
+        for (int i = 0; i < commandTemplates.size(); i++) {
+            CommandTemplate template = commandTemplates.get(i);
+            javax.swing.JToggleButton tab = new javax.swing.JToggleButton(template.name());
+            WorkbenchTheme.commandTab(tab);
+            tab.setSelected(i == selectedCommandIndex);
+            int index = i;
+            tab.addActionListener(event -> selectCommandTemplate(index));
+            group.add(tab);
+            commandButtons.add(tab);
+            commandPicker.add(tab);
         }
+        commandPicker.revalidate();
+        commandPicker.repaint();
+    }
+
+    /**
+     * Selects a command template by index and refreshes the builder.
+     *
+     * @param index template index
+     */
+    private void selectCommandTemplate(int index) {
+        if (index < 0 || index >= commandTemplates.size()) {
+            return;
+        }
+        selectedCommandIndex = index;
+        for (int i = 0; i < commandButtons.size(); i++) {
+            commandButtons.get(i).setSelected(i == index);
+        }
+        updateCommandOptions();
+        updateBuiltCommand();
     }
 
     /**
@@ -5599,11 +5637,10 @@ public final class WorkbenchWindow extends JFrame {
      * @return selected template or null
      */
     private CommandTemplate selectedCommandTemplate() {
-        int selected = commandTemplateTabs.getSelectedIndex();
-        if (selected < 0 || selected >= commandTemplates.size()) {
+        if (selectedCommandIndex < 0 || selectedCommandIndex >= commandTemplates.size()) {
             return null;
         }
-        return commandTemplates.get(selected);
+        return commandTemplates.get(selectedCommandIndex);
     }
 
     /**
