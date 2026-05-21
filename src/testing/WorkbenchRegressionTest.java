@@ -35,10 +35,13 @@ import javax.swing.JTabbedPane;
 import javax.swing.JTable;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
+import javax.swing.JTextPane;
 import javax.swing.KeyStroke;
 import javax.swing.Timer;
 import javax.swing.UIManager;
 import javax.swing.table.TableCellRenderer;
+import javax.swing.text.AttributeSet;
+import javax.swing.text.StyleConstants;
 
 import chess.core.Field;
 import chess.core.Move;
@@ -170,6 +173,7 @@ public final class WorkbenchRegressionTest {
         testCommandResultParserSummaries();
         testDashboardPanelConstructsHeadlessly();
         testNetworkPanelSimpleControlsRenderHeadlessly();
+        testNetworkDiagnosticsPreviewHighlightsConfig();
         testNnueViewsPaintSyntheticSnapshotHeadlessly();
         testNnueTraceFitsViewportAndCentersColumns();
         testNnueHalfKpDecodingUsesFeatureEncoderLayout();
@@ -2041,6 +2045,36 @@ public final class WorkbenchRegressionTest {
         assertPaintsOpaqueCorner((JComponent) panel, 1180, 720,
                 "network panel simple controls paint opaquely");
         timer.stop();
+    }
+
+    /**
+     * Verifies Network runtime diagnostics expose model/GPU/config status and
+     * apply readable TOML token coloring to the config preview.
+     */
+    private static void testNetworkDiagnosticsPreviewHighlightsConfig() {
+        Object panel = construct(type("WorkbenchNetworkDiagnosticsPanel"), new Class<?>[0]);
+        Object provider = construct(type("WorkbenchRealActivations"), new Class<?>[0]);
+        invoke(panel, "refresh", new Class<?>[] { type("WorkbenchRealActivations"), String.class },
+                provider, "NNUE");
+
+        JTextPane configPane = (JTextPane) field(panel, "configPane");
+        String text = configPane.getText();
+        assertTrue(text.contains("protocol-path"),
+                "diagnostics config preview shows CLI config text");
+        int keyOffset = text.indexOf("protocol-path");
+        AttributeSet keyAttrs = configPane.getStyledDocument()
+                .getCharacterElement(keyOffset).getAttributes();
+        assertTrue(!Objects.equals(StyleConstants.getForeground(keyAttrs), themeColor("TEXT")),
+                "diagnostics config keys are color-coded");
+
+        int commentOffset = text.indexOf('#');
+        assertTrue(commentOffset >= 0, "diagnostics config preview includes comments");
+        AttributeSet commentAttrs = configPane.getStyledDocument()
+                .getCharacterElement(commentOffset).getAttributes();
+        assertTrue(StyleConstants.isItalic(commentAttrs),
+                "diagnostics config comments are styled differently");
+        assertPaintsOpaqueCorner((JComponent) panel, 380, 680,
+                "network diagnostics paints opaquely");
     }
 
     /**
