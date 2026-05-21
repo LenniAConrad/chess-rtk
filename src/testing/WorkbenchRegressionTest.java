@@ -119,11 +119,13 @@ public final class WorkbenchRegressionTest {
         testBooleanTableRendererIsStyled();
         testComponentTreeStylingCoversPlainControls();
         testSettingsToggleRowsAreReadable();
+        testCommandFormOptionalTogglesFillLeadColumn();
         testThemeColorContrast();
         testThemeInstallSetsTooltipColors();
         testTextPlaceholdersDoNotSetValues();
         testCollapsibleInfoSectionTogglesContent();
         testTabbedPaneSwitchesWithoutSnapshotOverlay();
+        testSplitAreaUsesIndependentEditorGroups();
         testButtonHoverTransitionStarts();
         testWorkbenchTimingDefaultsAreSnappy();
         testResetButtonUsesResetIcon();
@@ -522,6 +524,23 @@ public final class WorkbenchRegressionTest {
     }
 
     /**
+     * Verifies command-builder optional toggles fill the shared lead column so
+     * short flags such as --quiet align with longer flags such as --no-header.
+     */
+    private static void testCommandFormOptionalTogglesFillLeadColumn() {
+        JComponent toggle = (JComponent) construct(type("WorkbenchToggleBox"),
+                new Class<?>[] { String.class, boolean.class }, "--quiet", true);
+        JComponent holder = (JComponent) invokeStatic(type("WorkbenchCommandForm"), "fixedLead",
+                new Class<?>[] { javax.swing.JComponent.class }, toggle);
+        holder.setSize(holder.getPreferredSize());
+        holder.doLayout();
+
+        int leadWidth = (Integer) staticField(type("WorkbenchCommandForm"), "LEAD_WIDTH");
+        assertEquals(Integer.valueOf(leadWidth), Integer.valueOf(toggle.getWidth()),
+                "optional toggle fills command lead column");
+    }
+
+    /**
      * Verifies core theme foreground/background pairs meet practical contrast
      * thresholds for extended workbench use.
      */
@@ -600,6 +619,39 @@ public final class WorkbenchRegressionTest {
 
         assertEquals(1, tabs.getSelectedIndex(), "tab selection changed");
         assertEquals(JTabbedPane.class, tabs.getClass(), "tab pane has no snapshot overlay subclass");
+    }
+
+    /**
+     * Verifies the workbench split shell keeps separate editor-group tab lists,
+     * so moving a tab into the other pane does not duplicate every tab in both
+     * strips.
+     */
+    @SuppressWarnings("unchecked")
+    private static void testSplitAreaUsesIndependentEditorGroups() {
+        Object area = construct(type("WorkbenchSplitArea"), new Class<?>[0]);
+        for (int i = 0; i < 4; i++) {
+            invoke(area, "addPanel", new Class<?>[] { String.class, javax.swing.JComponent.class },
+                    "Tab " + i, new JPanel());
+        }
+        invoke(area, "install", new Class<?>[0]);
+        invoke(area, "splitWithDragged", new Class<?>[] { int.class, boolean.class }, 2, false);
+
+        List<Integer> primary = (List<Integer>) field(area, "primaryTabs");
+        List<Integer> secondary = (List<Integer>) field(area, "secondaryTabs");
+        assertFalse(primary.contains(2), "dragged tab moved out of primary group");
+        assertTrue(secondary.contains(2), "dragged tab moved into secondary group");
+        assertEquals(Integer.valueOf(2), invoke(area, "selectedIndex", new Class<?>[0]),
+                "secondary group becomes active after right split");
+
+        invoke(area, "setSecondary", new Class<?>[] { int.class }, 1);
+        assertFalse(primary.contains(1), "center drop removes tab from source group");
+        assertTrue(secondary.contains(1), "center drop adds tab to target group");
+        assertTrue((Boolean) invoke(area, "isVisibleInPane", new Class<?>[] { int.class }, 1),
+                "moved tab is visible in target group");
+
+        invoke(area, "setPrimary", new Class<?>[] { int.class }, 1);
+        assertTrue(primary.contains(1), "tab can move back to primary group");
+        assertFalse(secondary.contains(1), "tab is not duplicated across editor groups");
     }
 
     /**

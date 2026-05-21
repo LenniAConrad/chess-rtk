@@ -527,7 +527,7 @@ final class WorkbenchCommandForm extends JPanel {
      * @return fixed-width wrapper
      */
     private static JComponent fixedLead(JComponent lead) {
-        JPanel holder = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+        JPanel holder = new JPanel(new BorderLayout());
         holder.setOpaque(false);
         holder.add(lead);
         holder.setPreferredSize(new Dimension(LEAD_WIDTH, ROW_HEIGHT));
