@@ -182,11 +182,6 @@ final class WorkbenchDashboardPanel extends JPanel implements WorkbenchSessionLi
     private final TagCloud tagCloud = new TagCloud();
 
     /**
-     * Per-job run-duration bar strip for the Recent Jobs card.
-     */
-    private final WorkbenchMiniChart jobChart = new WorkbenchMiniChart();
-
-    /**
      * Health-check ring infographic.
      */
     private final HealthRings healthRings = new HealthRings();
@@ -274,9 +269,7 @@ final class WorkbenchDashboardPanel extends JPanel implements WorkbenchSessionLi
 
         session.addListener(this);
         session.artifacts().addListener(() -> SwingUtilities.invokeLater(this::refreshArtifacts));
-        session.jobs().addListener(() -> SwingUtilities.invokeLater(this::refreshJobChart));
         refreshArtifacts();
-        refreshJobChart();
         render();
     }
 
@@ -393,17 +386,12 @@ final class WorkbenchDashboardPanel extends JPanel implements WorkbenchSessionLi
                 .setPreferredWidth(300);
 
         JScrollPane scroll = WorkbenchUi.scroll(jobTable);
-        scroll.setPreferredSize(new Dimension(640, 168));
-
-        jobChart.setEmptyText("run a command to see job timings");
-        jobChart.setAlignmentX(Component.LEFT_ALIGNMENT);
+        scroll.setPreferredSize(new Dimension(640, 150));
 
         JPanel body = cardBody();
-        body.add(scroll);
-        body.add(Box.createVerticalStrut(WorkbenchTheme.SPACE_SM));
-        body.add(caption("Run duration · oldest → newest · green ok · red failed"));
+        body.add(caption("Newest first · green ok · red failed · select a row for actions"));
         body.add(Box.createVerticalStrut(WorkbenchTheme.SPACE_XS));
-        body.add(jobChart);
+        body.add(scroll);
         body.add(Box.createVerticalStrut(WorkbenchTheme.SPACE_SM));
         body.add(actionRow(
                 quickButton("Retry", () -> withSelectedJob(actions::retryJob)),
@@ -496,42 +484,6 @@ final class WorkbenchDashboardPanel extends JPanel implements WorkbenchSessionLi
                 colorForSafety(stats.kingSafetyValue()));
         pawnStructureMeter.setValue(stats.pawnStructureValue(), stats.pawnStructureLabel(),
                 colorForSafety(stats.pawnStructureValue()));
-    }
-
-    /**
-     * Rebuilds the job-duration bar strip from the job history. Bars run
-     * oldest-to-newest left-to-right, heights are normalised against the
-     * longest finished run, and the colour encodes the job's terminal status.
-     */
-    private void refreshJobChart() {
-        if (!SwingUtilities.isEventDispatchThread()) {
-            SwingUtilities.invokeLater(this::refreshJobChart);
-            return;
-        }
-        List<WorkbenchJob> recent = session.jobs().recent();
-        int n = recent.size();
-        float[] heights = new float[n];
-        java.awt.Color[] colors = new java.awt.Color[n];
-        long maxDuration = 1;
-        for (WorkbenchJob job : recent) {
-            maxDuration = Math.max(maxDuration, Math.max(0, job.durationMillis()));
-        }
-        for (int i = 0; i < n; i++) {
-            // recent() is newest-first; plot oldest-first so time reads L→R.
-            WorkbenchJob job = recent.get(n - 1 - i);
-            long duration = Math.max(0, job.durationMillis());
-            // Unfinished jobs still show a short stub so they are visible.
-            heights[i] = job.durationMillis() < 0
-                    ? 0.12f
-                    : 0.12f + 0.88f * (duration / (float) maxDuration);
-            colors[i] = switch (job.status()) {
-                case SUCCEEDED -> WorkbenchTheme.STATUS_SUCCESS_BORDER;
-                case FAILED -> WorkbenchTheme.STATUS_ERROR_BORDER;
-                case CANCELLED -> WorkbenchTheme.MUTED;
-                default -> WorkbenchTheme.ACCENT;
-            };
-        }
-        jobChart.setBars(heights, colors);
     }
 
     /**
