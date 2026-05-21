@@ -446,10 +446,11 @@ final class WorkbenchDashboardPanel extends JPanel implements WorkbenchSessionLi
         String protocol = session.engineProtocolPath();
         enginePathValue.setText(protocol.isEmpty() ? "(CLI default)" : protocol);
         enginePathValue.setToolTipText(protocol.isEmpty() ? null : protocol);
-        engineModeValue.setText(session.liveEngine() ? "live" : "offline");
         String engineSummary = session.engineSummary();
-        engineSummaryValue.setText(engineSummary.isEmpty() ? "—" : engineSummary);
-        engineSummaryValue.setToolTipText(engineSummary.isEmpty() ? null : engineSummary);
+        boolean pausedLiveEngine = session.liveEngine() && "paused".equalsIgnoreCase(engineSummary);
+        engineModeValue.setText(pausedLiveEngine ? "paused" : session.liveEngine() ? "live" : "offline");
+        engineSummaryValue.setText(pausedLiveEngine || engineSummary.isEmpty() ? "—" : engineSummary);
+        engineSummaryValue.setToolTipText(pausedLiveEngine || engineSummary.isEmpty() ? null : engineSummary);
 
         String batch = session.batchSummary();
         batchValue.setText(batch.isEmpty() ? "no FEN rows" : batch);
