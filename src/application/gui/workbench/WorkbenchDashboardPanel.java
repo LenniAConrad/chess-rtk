@@ -147,6 +147,26 @@ final class WorkbenchDashboardPanel extends JPanel implements WorkbenchSessionLi
     private final JTable jobTable;
 
     /**
+     * Recent-jobs state hint above the table.
+     */
+    private final JLabel jobsCaption = caption("Newest first · green ok · red failed · select a row for actions");
+
+    /**
+     * Recent-jobs scroll pane, hidden while there are no jobs.
+     */
+    private JScrollPane jobScrollPane;
+
+    /**
+     * Recent-job action row, hidden while there are no jobs.
+     */
+    private JComponent jobActionRow;
+
+    /**
+     * Recent-job actions that require a selected job row.
+     */
+    private List<JButton> jobActionButtons = List.of();
+
+    /**
      * Eval-over-plies sparkline for the Current Position card.
      */
     private final WorkbenchMiniChart evalChart = new WorkbenchMiniChart();
@@ -385,19 +405,29 @@ final class WorkbenchDashboardPanel extends JPanel implements WorkbenchSessionLi
         jobTable.getColumnModel().getColumn(WorkbenchJobTableModel.COL_RESULT)
                 .setPreferredWidth(300);
 
-        JScrollPane scroll = WorkbenchUi.scroll(jobTable);
-        scroll.setPreferredSize(new Dimension(640, 150));
+        jobScrollPane = WorkbenchUi.scroll(jobTable);
+        jobScrollPane.setPreferredSize(new Dimension(640, 150));
 
         JPanel body = cardBody();
-        body.add(caption("Newest first · green ok · red failed · select a row for actions"));
+        body.add(jobsCaption);
         body.add(Box.createVerticalStrut(WorkbenchTheme.SPACE_XS));
-        body.add(scroll);
+        body.add(jobScrollPane);
         body.add(Box.createVerticalStrut(WorkbenchTheme.SPACE_SM));
-        body.add(actionRow(
-                quickButton("Retry", () -> withSelectedJob(actions::retryJob)),
-                quickButton("Copy command", () -> withSelectedJob(actions::copyJobCommand)),
-                quickButton("Open log", () -> withSelectedJob(actions::openJobLog)),
-                quickButton("Open manifest", () -> withSelectedJob(actions::openJobManifest))));
+        JButton retryButton = quickButton("Retry", () -> withSelectedJob(actions::retryJob));
+        JButton copyButton = quickButton("Copy command", () -> withSelectedJob(actions::copyJobCommand));
+        JButton logButton = quickButton("Open log", () -> withSelectedJob(actions::openJobLog));
+        JButton manifestButton = quickButton("Open manifest", () -> withSelectedJob(actions::openJobManifest));
+        jobActionButtons = List.of(retryButton, copyButton, logButton, manifestButton);
+        jobTable.getSelectionModel().addListSelectionListener(event -> {
+            if (!event.getValueIsAdjusting()) {
+                updateJobActionState();
+            }
+        });
+        jobModel.addTableModelListener(event -> updateJobActionState());
+        updateJobActionState();
+        jobActionRow = actionRow(retryButton, copyButton, logButton, manifestButton);
+        body.add(jobActionRow);
+        updateJobActionState();
         return card("Recent Jobs", body);
     }
 
@@ -535,6 +565,26 @@ final class WorkbenchDashboardPanel extends JPanel implements WorkbenchSessionLi
         WorkbenchJob job = jobModel.jobAt(jobTable.getSelectedRow());
         if (job != null) {
             consumer.accept(job);
+        }
+    }
+
+    /**
+     * Enables recent-job actions only while a real table row is selected.
+     */
+    private void updateJobActionState() {
+        boolean hasRows = jobModel.getRowCount() > 0;
+        boolean hasSelection = jobModel.jobAt(jobTable.getSelectedRow()) != null;
+        jobsCaption.setText(hasRows
+                ? "Newest first · green ok · red failed · select a row for actions"
+                : "No command runs yet. Results, logs, and manifests will appear here.");
+        if (jobScrollPane != null) {
+            jobScrollPane.setVisible(hasRows);
+        }
+        if (jobActionRow != null) {
+            jobActionRow.setVisible(hasRows);
+        }
+        for (JButton button : jobActionButtons) {
+            button.setEnabled(hasSelection);
         }
     }
 
@@ -1154,6 +1204,7 @@ final class WorkbenchDashboardPanel extends JPanel implements WorkbenchSessionLi
          */
         void setTags(List<String> values) {
             tags = values == null ? List.of() : List.copyOf(values);
+            setToolTipText(tags.isEmpty() ? null : "<html>" + htmlTags(tags) + "</html>");
             repaint();
         }
 
@@ -1218,7 +1269,8 @@ final class WorkbenchDashboardPanel extends JPanel implements WorkbenchSessionLi
                 }
                 if (shown < tags.size()) {
                     g.setColor(WorkbenchTheme.MUTED);
-                    g.drawString("+" + (tags.size() - shown), x + 2, Math.min(getHeight() - 10, y + 12));
+                    g.drawString("+" + (tags.size() - shown) + " more", x + 2,
+                            Math.min(getHeight() - 10, y + 12));
                 }
             } finally {
                 g.dispose();
@@ -1235,9 +1287,49 @@ final class WorkbenchDashboardPanel extends JPanel implements WorkbenchSessionLi
             if (tag == null) {
                 return "";
             }
-            int colon = tag.indexOf(':');
-            String out = colon >= 0 ? tag.substring(0, colon) : tag;
-            return out.length() > 18 ? out.substring(0, 18) : out;
+            String out = tag.trim();
+            int colon = out.indexOf(':');
+            if (colon >= 0 && colon + 1 < out.length()) {
+                out = out.substring(colon + 1).trim();
+            }
+            out = out.replace('_', ' ')
+                    .replace(" side=", " ")
+                    .replace(" square=", " ")
+                    .replace(" file=", " ")
+                    .replace('=', ' ')
+                    .replaceAll("\\s+", " ")
+                    .trim();
+            return out.length() > 24 ? out.substring(0, 21) + "..." : out;
+        }
+
+        /**
+         * Escapes a tag list for a simple Swing HTML tooltip.
+         *
+         * @param values raw tags
+         * @return escaped tag lines joined with breaks
+         */
+        private static String htmlTags(List<String> values) {
+            StringBuilder builder = new StringBuilder();
+            for (String value : values) {
+                if (builder.length() > 0) {
+                    builder.append("<br>");
+                }
+                builder.append(escapeHtml(value));
+            }
+            return builder.toString();
+        }
+
+        /**
+         * Escapes text for Swing HTML labels.
+         *
+         * @param text raw text
+         * @return escaped text
+         */
+        private static String escapeHtml(String text) {
+            return text == null ? "" : text.replace("&", "&amp;")
+                    .replace("<", "&lt;")
+                    .replace(">", "&gt;")
+                    .replace("\"", "&quot;");
         }
     }
 
