@@ -102,4 +102,11 @@ interface WorkbenchDashboardActions {
      * @param job job whose manifest should be opened
      */
     void openJobManifest(WorkbenchJob job);
+
+    /**
+     * Opens a recorded job's full command log.
+     *
+     * @param job job whose log should be opened
+     */
+    void openJobLog(WorkbenchJob job);
 }
