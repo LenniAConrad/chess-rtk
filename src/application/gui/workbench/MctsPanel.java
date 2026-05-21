@@ -21,6 +21,7 @@ import javax.swing.SpinnerNumberModel;
 import javax.swing.SwingWorker;
 import javax.swing.table.DefaultTableModel;
 
+import application.gui.workbench.mcts.MctsSearch;
 import chess.core.Move;
 import chess.core.Position;
 import chess.struct.Game;
@@ -28,7 +29,7 @@ import chess.struct.Game;
 /**
  * Interactive PUCT/MCTS panel for the Analyze side bar.
  */
-final class WorkbenchMctsPanel extends JPanel {
+final class MctsPanel extends JPanel {
 
     /**
      * Serialization identifier.
@@ -124,12 +125,12 @@ final class WorkbenchMctsPanel extends JPanel {
     /**
      * Active worker.
      */
-    private SwingWorker<Void, WorkbenchMctsSearch.Snapshot> worker;
+    private SwingWorker<Void, MctsSearch.Snapshot> worker;
 
     /**
      * Active search instance.
      */
-    private WorkbenchMctsSearch search;
+    private MctsSearch search;
 
     /**
      * Pause flag read by the worker.
@@ -139,7 +140,7 @@ final class WorkbenchMctsPanel extends JPanel {
     /**
      * Creates the panel.
      */
-    WorkbenchMctsPanel() {
+    MctsPanel() {
         super(new BorderLayout(WorkbenchTheme.SPACE_SM, WorkbenchTheme.SPACE_SM));
         setOpaque(false);
         add(createControls(), BorderLayout.NORTH);
@@ -273,10 +274,10 @@ final class WorkbenchMctsPanel extends JPanel {
         long maxMillis = ((Number) millisSpinner.getValue()).longValue();
         double cpuct = ((Number) cpuctSpinner.getValue()).doubleValue();
         paused = false;
-        search = new WorkbenchMctsSearch(root, cpuct);
-        final WorkbenchMctsSearch activeSearch = search;
+        search = new MctsSearch(root, cpuct);
+        final MctsSearch activeSearch = search;
         updateButtons(true);
-        SwingWorker<Void, WorkbenchMctsSearch.Snapshot> activeWorker = new SwingWorker<>() {
+        SwingWorker<Void, MctsSearch.Snapshot> activeWorker = new SwingWorker<>() {
             @Override
             protected Void doInBackground() throws Exception {
                 publish(activeSearch.snapshot(false));
@@ -296,7 +297,7 @@ final class WorkbenchMctsPanel extends JPanel {
             }
 
             @Override
-            protected void process(List<WorkbenchMctsSearch.Snapshot> chunks) {
+            protected void process(List<MctsSearch.Snapshot> chunks) {
                 if (!chunks.isEmpty()) {
                     showSnapshot(chunks.get(chunks.size() - 1));
                 }
@@ -332,7 +333,7 @@ final class WorkbenchMctsPanel extends JPanel {
      * Stops the active search.
      */
     private void stopSearch() {
-        WorkbenchMctsSearch activeSearch = search;
+        MctsSearch activeSearch = search;
         if (worker != null && !worker.isDone()) {
             worker.cancel(true);
         }
@@ -402,12 +403,12 @@ final class WorkbenchMctsPanel extends JPanel {
      *
      * @param snapshot search snapshot
      */
-    private void showSnapshot(WorkbenchMctsSearch.Snapshot snapshot) {
+    private void showSnapshot(MctsSearch.Snapshot snapshot) {
         rootBoard.setPosition(new Position(snapshot.rootFen()), Move.NO_MOVE);
         rootBoard.setSuggestedMove(snapshot.bestMove());
         leafBoard.setPosition(snapshot.exploringPosition(), Move.NO_MOVE);
         treeModel.setRowCount(0);
-        for (WorkbenchMctsSearch.Row row : snapshot.rows()) {
+        for (MctsSearch.Row row : snapshot.rows()) {
             treeModel.addRow(new Object[] {
                     row.san(),
                     row.visits(),

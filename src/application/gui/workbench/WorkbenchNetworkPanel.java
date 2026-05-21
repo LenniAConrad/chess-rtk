@@ -36,6 +36,7 @@ import javax.swing.SwingUtilities;
 import javax.swing.SwingWorker;
 import javax.swing.Timer;
 
+import application.gui.workbench.mcts.MctsSearch;
 import chess.core.Move;
 import chess.core.Position;
 
@@ -223,7 +224,7 @@ final class WorkbenchNetworkPanel extends JPanel {
     /**
      * Live MCTS edge-weight renderer shown while Network-tab search is active.
      */
-    private final WorkbenchMctsWeightsPanel mctsWeightsPanel = new WorkbenchMctsWeightsPanel();
+    private final MctsWeightsPanel mctsWeightsPanel = new MctsWeightsPanel();
 
     /**
      * Card layout container that swaps views.
@@ -287,7 +288,7 @@ final class WorkbenchNetworkPanel extends JPanel {
     /**
      * Active Network-tab PUCT search.
      */
-    private WorkbenchMctsSearch mctsSearch;
+    private MctsSearch mctsSearch;
 
     /**
      * Pause flag read by the MCTS worker.
@@ -978,8 +979,8 @@ final class WorkbenchNetworkPanel extends JPanel {
         double cpuct = ((Number) mctsCpuctSpinner.getValue()).doubleValue();
         mctsPaused = false;
         mctsFollowLeafToggle.setSelected(true);
-        mctsSearch = new WorkbenchMctsSearch(root, cpuct);
-        final WorkbenchMctsSearch search = mctsSearch;
+        mctsSearch = new MctsSearch(root, cpuct);
+        final MctsSearch search = mctsSearch;
         mctsLeafFen = root.toString();
         updateNetworkMctsButtons(true);
         SwingWorker<Void, Void> activeWorker = new SwingWorker<>() {
@@ -1035,7 +1036,7 @@ final class WorkbenchNetworkPanel extends JPanel {
      * @throws InterruptedException if the worker is interrupted
      * @throws InvocationTargetException if the EDT update fails
      */
-    private void streamNetworkMctsFrame(WorkbenchMctsSearch.Snapshot snapshot,
+    private void streamNetworkMctsFrame(MctsSearch.Snapshot snapshot,
             boolean running) throws InterruptedException, InvocationTargetException {
         if (snapshot == null) {
             return;
@@ -1148,7 +1149,7 @@ final class WorkbenchNetworkPanel extends JPanel {
      * @param restoreBase true to return to the board/canned position
      */
     private void stopNetworkMcts(boolean restoreBase) {
-        WorkbenchMctsSearch activeSearch = mctsSearch;
+        MctsSearch activeSearch = mctsSearch;
         if (mctsWorker != null && !mctsWorker.isDone()) {
             mctsWorker.cancel(true);
         }
@@ -1183,7 +1184,7 @@ final class WorkbenchNetworkPanel extends JPanel {
      * @param snapshot search snapshot
      * @param running true while the worker is expected to keep running
      */
-    private void showNetworkMctsSnapshot(WorkbenchMctsSearch.Snapshot snapshot, boolean running) {
+    private void showNetworkMctsSnapshot(MctsSearch.Snapshot snapshot, boolean running) {
         showNetworkMctsSnapshot(snapshot, running, null, null, null);
     }
 
@@ -1198,7 +1199,7 @@ final class WorkbenchNetworkPanel extends JPanel {
      * @param activationFen FEN for activationSnapshot
      * @param activationSnapshot precomputed activation snapshot, or null
      */
-    private void showNetworkMctsSnapshot(WorkbenchMctsSearch.Snapshot snapshot,
+    private void showNetworkMctsSnapshot(MctsSearch.Snapshot snapshot,
             boolean running, String activationCardKey, String activationFen,
             WorkbenchActivationSnapshot activationSnapshot) {
         if (snapshot == null) {
