@@ -401,23 +401,22 @@ final class WorkbenchTheme {
     /**
      * Eval-bar dark side fill.
      */
-    static final Color EVAL_BLACK = new Color(174, 183, 194);
+    static final Color EVAL_BLACK = Color.BLACK;
 
     /**
      * Eval-bar light side fill.
      */
-    static final Color EVAL_WHITE = PASTEL_DOCUMENT;
+    static final Color EVAL_WHITE = Color.WHITE;
 
     /**
      * Eval-bar frame color.
      */
-    static final Color EVAL_FRAME = new Color(PASTEL_INK.getRed(), PASTEL_INK.getGreen(), PASTEL_INK.getBlue(), 150);
+    static final Color EVAL_FRAME = new Color(0, 0, 0, 168);
 
     /**
      * Eval-bar divider color.
      */
-    static final Color EVAL_DIVIDER = new Color(PASTEL_MUTED.getRed(), PASTEL_MUTED.getGreen(),
-            PASTEL_MUTED.getBlue(), 166);
+    static final Color EVAL_DIVIDER = new Color(128, 128, 128, 176);
 
     /**
      * Tab strip selected accent underline.
