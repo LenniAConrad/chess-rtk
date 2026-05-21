@@ -629,7 +629,7 @@ public final class WorkbenchWindow extends JFrame {
     /**
      * Batch command field.
      */
-    private final JTextField batchCommandField = new JTextField();
+    private final JTextArea batchCommandField = new JTextArea(3, 36);
 
     /**
      * Batch task selector.
@@ -2200,14 +2200,19 @@ public final class WorkbenchWindow extends JFrame {
         grid(controls, label("task"), c, 0, 1, 1, 1);
         grid(controls, batchTaskCombo, c, 1, 1, 3, 1);
         batchDurationField.setColumns(8);
-        styleFields(batchDurationField, batchCommandField);
+        styleFields(batchDurationField);
+        styleAreas(batchCommandField);
         batchDurationField.getDocument()
                 .addDocumentListener(changeListener(() -> syncDuration(batchDurationField, analysisDurationField)));
         styleSpinners(batchDepthSpinner, batchMultipvSpinner, batchThreadsSpinner);
         grid(controls, batchOptionsPanel, c, 1, 2, 3, 1);
         grid(controls, label("command"), c, 0, 3, 1, 1);
-        batchCommandField.setColumns(36);
+        batchCommandField.setLineWrap(true);
+        batchCommandField.setWrapStyleWord(false);
         batchCommandField.setEditable(false);
+        batchCommandField.setFocusable(false);
+        batchCommandField.setToolTipText("Generated batch command");
+        batchCommandField.setMinimumSize(new Dimension(220, 64));
         grid(controls, batchCommandField, c, 1, 3, 3, 1);
         grid(controls, buttonRow(FlowLayout.LEFT,
                 button("Run Batch", true, event -> runBatch()),
@@ -2320,7 +2325,10 @@ public final class WorkbenchWindow extends JFrame {
         reportPreview.setWrapStyleWord(false);
         reportPreview.setEditable(false);
         JPanel reportBox = transparentPanel(new BorderLayout(8, 0));
-        reportBox.add(label("report"), BorderLayout.WEST);
+        JLabel reportLabel = label("report");
+        reportLabel.setVerticalAlignment(SwingConstants.TOP);
+        reportLabel.setBorder(WorkbenchTheme.pad(8, 0, 0, 0));
+        reportBox.add(reportLabel, BorderLayout.WEST);
         reportBox.add(scroll(reportPreview), BorderLayout.CENTER);
         body.add(reportBox, BorderLayout.CENTER);
         panel.add(body, BorderLayout.CENTER);
@@ -3479,6 +3487,7 @@ public final class WorkbenchWindow extends JFrame {
         top.add(WorkbenchTheme.section("Console"), BorderLayout.WEST);
         commandStateLabel.setForeground(WorkbenchTheme.MUTED);
         commandStateLabel.setFont(WorkbenchTheme.font(12, Font.PLAIN));
+        commandStateLabel.setBorder(WorkbenchTheme.pad(0, WorkbenchTheme.SPACE_SM));
         top.add(commandStateLabel, BorderLayout.CENTER);
         top.add(buttonRow(FlowLayout.RIGHT,
                 button("Clear", false, event -> console.clearOutput()),

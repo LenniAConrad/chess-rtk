@@ -82,6 +82,12 @@ final class WorkbenchInspectorPanel extends JPanel {
     private final JTextArea dataArea = new JTextArea();
 
     /**
+     * Scroll container for raw tensor data; hidden for empty selections so the
+     * inspector does not present a large blank viewport.
+     */
+    private final JScrollPane dataScroll;
+
+    /**
      * Copy raw data + summary to clipboard.
      */
     private final JButton copyButton = WorkbenchUi.button("Copy", false, null);
@@ -134,11 +140,11 @@ final class WorkbenchInspectorPanel extends JPanel {
         dataArea.setMargin(new Insets(WorkbenchTheme.SPACE_SM, WorkbenchTheme.SPACE_SM,
                 WorkbenchTheme.SPACE_SM, WorkbenchTheme.SPACE_SM));
 
-        JScrollPane scroll = new JScrollPane(dataArea,
+        dataScroll = new JScrollPane(dataArea,
                 ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED,
                 ScrollPaneConstants.HORIZONTAL_SCROLLBAR_AS_NEEDED);
-        scroll.setBorder(BorderFactory.createLineBorder(WorkbenchTheme.LINE));
-        scroll.getViewport().setBackground(WorkbenchTheme.BG);
+        dataScroll.setBorder(BorderFactory.createLineBorder(WorkbenchTheme.LINE));
+        dataScroll.getViewport().setBackground(WorkbenchTheme.BG);
 
         JPanel header = new JPanel();
         header.setLayout(new BoxLayout(header, BoxLayout.Y_AXIS));
@@ -173,7 +179,7 @@ final class WorkbenchInspectorPanel extends JPanel {
         buttonRow.add(Box.createHorizontalGlue());
 
         add(header, BorderLayout.NORTH);
-        add(scroll, BorderLayout.CENTER);
+        add(dataScroll, BorderLayout.CENTER);
         add(buttonRow, BorderLayout.SOUTH);
 
         clear();
@@ -189,9 +195,12 @@ final class WorkbenchInspectorPanel extends JPanel {
         statsLabel.setText(" ");
         descriptionArea.setText("");
         dataArea.setText("");
+        dataScroll.setVisible(false);
         clipboardPayload = "";
         copyButton.setEnabled(false);
         clearButton.setEnabled(false);
+        revalidate();
+        repaint();
     }
 
     /**
@@ -211,6 +220,7 @@ final class WorkbenchInspectorPanel extends JPanel {
         valueLabel.setText(region.value == null || region.value.isEmpty() ? " " : region.value);
         descriptionArea.setText(educationalText(region));
         descriptionArea.setCaretPosition(0);
+        dataScroll.setVisible(false);
 
         if (region.dataKey != null && snapshot != null) {
             float[] data = region.inlineData != null ? region.inlineData : snapshot.data(region.dataKey);
@@ -233,6 +243,7 @@ final class WorkbenchInspectorPanel extends JPanel {
                     statsLabel.setText(stats);
                     dataArea.setText(body);
                     dataArea.setCaretPosition(0);
+                    dataScroll.setVisible(true);
                     clipboardPayload = composeClipboard(region, stats, body);
                 }
             }
@@ -250,6 +261,7 @@ final class WorkbenchInspectorPanel extends JPanel {
                 statsLabel.setText(stats);
                 dataArea.setText(body);
                 dataArea.setCaretPosition(0);
+                dataScroll.setVisible(true);
                 clipboardPayload = composeClipboard(region, stats, body);
             }
             copyButton.setEnabled(!clipboardPayload.isBlank());
@@ -260,6 +272,8 @@ final class WorkbenchInspectorPanel extends JPanel {
             copyButton.setEnabled(false);
         }
         clearButton.setEnabled(true);
+        revalidate();
+        repaint();
     }
 
     /**
