@@ -583,6 +583,16 @@ public final class CLICommandRegressionTest {
 
 		String version = TestSupport.runMain("help", "version");
 		assertTrue(version.contains("version options:"), "help version options");
+
+		String workbench = TestSupport.runMain("workbench", "--help");
+		assertTrue(workbench.contains("usage: crtk workbench [options]"), "workbench help usage");
+		assertTrue(workbench.contains("workbench options:"), "workbench help options");
+		assertTrue(workbench.contains("crtk workbench --fen \"<FEN>\""), "workbench help canonical example");
+		assertTrue(workbench.contains("crtk gui-workbench"), "workbench help legacy alias");
+
+		String legacyWorkbench = TestSupport.runMain("gui-workbench", "--help");
+		assertTrue(legacyWorkbench.contains("canonical command:"), "legacy workbench help canonical heading");
+		assertTrue(legacyWorkbench.contains("crtk workbench"), "legacy workbench help canonical command");
 	}
 
 	/**

@@ -91,7 +91,12 @@ public final class Constants {
 	public static final String CMD_GUI_NEXT = "gui-next";
 
 	/**
-	 * {@code gui-workbench} subcommand token.
+	 * {@code workbench} subcommand token.
+	 */
+	public static final String CMD_WORKBENCH = "workbench";
+
+	/**
+	 * Legacy {@code gui-workbench} subcommand token.
 	 */
 	public static final String CMD_GUI_WORKBENCH = "gui-workbench";
 

@@ -694,12 +694,12 @@ Options:
 - `--light`: start in light UI theme
 - `-h|--help`: show help
 
-## `gui-workbench`
+## `workbench`
 
 Launch the native Swing command and analysis workbench.
 
 Alias:
-- `workbench`
+- `gui-workbench`
 
 The workbench includes:
 - an analysis board with legal moves, click-to-move, static tags, and engine command shortcuts
@@ -714,7 +714,7 @@ Options:
 Examples:
 
 ```bash
-crtk gui-workbench
+crtk workbench
 crtk workbench --fen "<FEN>"
 ```
 

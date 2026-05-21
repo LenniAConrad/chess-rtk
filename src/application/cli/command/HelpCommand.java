@@ -18,6 +18,7 @@ import static application.cli.Constants.CMD_PUZZLE;
 import static application.cli.Constants.CMD_RECORD;
 import static application.cli.Constants.CMD_UCI_SMOKE;
 import static application.cli.Constants.CMD_VERSION;
+import static application.cli.Constants.CMD_WORKBENCH;
 
 import java.io.PrintStream;
 import java.util.Arrays;
@@ -226,6 +227,11 @@ public final class HelpCommand {
 	 * Help marker for {@code gui-next}.
 	 */
 	private static final String GUI_NEXT_OPTIONS_MARKER = "gui-next options:";
+
+	/**
+	 * Help marker for {@code workbench}.
+	 */
+	private static final String WORKBENCH_OPTIONS_MARKER = "workbench options:";
 
 	/**
 	 * Help marker for {@code config}.
@@ -503,6 +509,7 @@ public final class HelpCommand {
 			Map.entry(CMD_GUI, GUI_OPTIONS_MARKER),
 			Map.entry(CMD_GUI_WEB, GUI_WEB_OPTIONS_MARKER),
 			Map.entry(CMD_GUI_NEXT, GUI_NEXT_OPTIONS_MARKER),
+			Map.entry(CMD_WORKBENCH, WORKBENCH_OPTIONS_MARKER),
 			Map.entry(CMD_CONFIG, CONFIG_SUBCOMMANDS_MARKER),
 			Map.entry(CMD_CLEAN, CLEAN_OPTIONS_MARKER),
 			Map.entry(CMD_DOCTOR, DOCTOR_OPTIONS_MARKER),
@@ -1259,6 +1266,11 @@ public final class HelpCommand {
 			  --flip|--black-down        Render Black at the bottom
 			  --dark|--dark-mode         Start in dark UI theme
 			  --light                    Start in light UI theme
+			  -h|--help                  Show help
+
+			workbench options:
+			  --fen FEN                  Start position (default: standard start FEN)
+			  --flip|--black-down        Render Black at the bottom
 			  -h|--help                  Show help
 
 			config subcommands:
