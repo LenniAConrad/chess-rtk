@@ -23,6 +23,7 @@ import java.util.Objects;
 import javax.swing.JComboBox;
 import javax.swing.DefaultComboBoxModel;
 import javax.swing.JButton;
+import javax.swing.JCheckBox;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JList;
@@ -122,6 +123,7 @@ public final class WorkbenchRegressionTest {
         testBooleanTableRendererIsStyled();
         testComponentTreeStylingCoversPlainControls();
         testSettingsToggleRowsAreReadable();
+        testToggleSwitchAnimatesStateChanges();
         testCommandFormOptionalTogglesFillLeadColumn();
         testThemeColorContrast();
         testThemeInstallSetsTooltipColors();
@@ -526,6 +528,35 @@ public final class WorkbenchRegressionTest {
         Dimension size = toggle.getPreferredSize();
         assertTrue(size.width >= 300, "settings toggle row is wide enough for labels");
         assertTrue(size.height <= 36, "settings toggle row remains compact");
+    }
+
+    /**
+     * Verifies switch toggles animate the thumb/track rather than snapping
+     * directly to their final state.
+     */
+    private static void testToggleSwitchAnimatesStateChanges() {
+        JCheckBox toggle = (JCheckBox) construct(type("WorkbenchToggleBox"),
+                new Class<?>[] { String.class, boolean.class }, "Follow leaf", true);
+        assertEquals(Double.valueOf(0.0), Double.valueOf((Double) field(toggle, "visualProgress")),
+                "toggle starts visually off");
+
+        toggle.setSelected(true);
+        Timer timer = (Timer) field(toggle, "animationTimer");
+        assertTrue(timer.isRunning(), "toggle starts animation timer when turned on");
+        assertEquals(Double.valueOf(1.0), Double.valueOf((Double) field(toggle, "animationTargetProgress")),
+                "toggle animates toward on state");
+
+        setField(toggle, "animationStartedAt", Long.valueOf(System.currentTimeMillis() - 1000L));
+        invoke(toggle, "tickAnimation", new Class<?>[0]);
+        assertFalse(timer.isRunning(), "toggle animation stops at final frame");
+        assertTrue((Double) field(toggle, "visualProgress") > 0.99,
+                "toggle finishes visually on");
+
+        toggle.setSelected(false);
+        assertTrue(timer.isRunning(), "toggle starts animation timer when turned off");
+        assertEquals(Double.valueOf(0.0), Double.valueOf((Double) field(toggle, "animationTargetProgress")),
+                "toggle animates toward off state");
+        timer.stop();
     }
 
     /**
