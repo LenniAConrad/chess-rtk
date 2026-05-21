@@ -3,6 +3,7 @@ package application.gui.workbench.ui;
 import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Component;
+import java.awt.Container;
 import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.FontMetrics;
@@ -18,14 +19,20 @@ import javax.swing.AbstractButton;
 import javax.swing.BorderFactory;
 import javax.swing.DefaultCellEditor;
 import javax.swing.JCheckBox;
+import javax.swing.JComboBox;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JList;
+import javax.swing.JScrollPane;
+import javax.swing.JSpinner;
 import javax.swing.JTable;
+import javax.swing.JTabbedPane;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
+import javax.swing.JTextPane;
 import javax.swing.SwingConstants;
 import javax.swing.UIManager;
+import javax.swing.JViewport;
 import javax.swing.border.Border;
 import javax.swing.plaf.basic.BasicTextAreaUI;
 import javax.swing.plaf.basic.BasicTextFieldUI;
@@ -42,6 +49,82 @@ public final class Theme {
      * Theme logger.
      */
     private static final Logger LOGGER = Logger.getLogger(Theme.class.getName());
+
+    /**
+     * Available workbench color modes.
+     */
+    public enum Mode {
+        /**
+         * Existing pastel light palette.
+         */
+        LIGHT("light", "Light"),
+
+        /**
+         * VS Code-inspired dark palette.
+         */
+        DARK("dark", "Dark");
+
+        /**
+         * Stable preference value.
+         */
+        private final String id;
+
+        /**
+         * Display label.
+         */
+        private final String label;
+
+        /**
+         * Creates one theme mode.
+         *
+         * @param id stable preference value
+         * @param label display label
+         */
+        Mode(String id, String label) {
+            this.id = id;
+            this.label = label;
+        }
+
+        /**
+         * Returns the stable preference value.
+         *
+         * @return preference id
+         */
+        public String id() {
+            return id;
+        }
+
+        /**
+         * Returns the display label.
+         *
+         * @return label
+         */
+        public String label() {
+            return label;
+        }
+
+        /**
+         * Parses a persisted theme mode.
+         *
+         * @param value stored value
+         * @return parsed mode, defaulting to {@link #LIGHT}
+         */
+        public static Mode fromPreference(String value) {
+            if (value != null) {
+                for (Mode candidate : values()) {
+                    if (candidate.id.equalsIgnoreCase(value) || candidate.name().equalsIgnoreCase(value)) {
+                        return candidate;
+                    }
+                }
+            }
+            return LIGHT;
+        }
+    }
+
+    /**
+     * Active color mode.
+     */
+    private static Mode mode = Mode.LIGHT;
 
     /**
      * Client property for empty text-control placeholder copy.
@@ -134,337 +217,407 @@ public final class Theme {
     private static final Color PASTEL_PURPLE = new Color(203, 183, 234);
 
     /**
+     * Dark primary ink.
+     */
+    private static final Color DARK_INK = new Color(212, 212, 212);
+
+    /**
+     * Dark secondary ink.
+     */
+    private static final Color DARK_MUTED = new Color(157, 165, 173);
+
+    /**
+     * Dark workbench chrome.
+     */
+    private static final Color DARK_CHROME = new Color(30, 30, 30);
+
+    /**
+     * Dark subtle surface.
+     */
+    private static final Color DARK_SUBTLE = new Color(37, 37, 38);
+
+    /**
+     * Dark editor/panel surface.
+     */
+    private static final Color DARK_DOCUMENT = new Color(31, 31, 31);
+
+    /**
+     * Dark elevated surface.
+     */
+    private static final Color DARK_ELEVATED = new Color(45, 45, 48);
+
+    /**
+     * Dark border color.
+     */
+    private static final Color DARK_BORDER = new Color(63, 63, 70);
+
+    /**
+     * VS Code dark accent blue.
+     */
+    private static final Color DARK_BLUE = new Color(0, 122, 204);
+
+    /**
+     * Dark accent hover.
+     */
+    private static final Color DARK_BLUE_HOVER = new Color(17, 136, 221);
+
+    /**
+     * Dark accent pressed.
+     */
+    private static final Color DARK_BLUE_PRESSED = new Color(0, 99, 177);
+
+    /**
+     * Dark positive accent.
+     */
+    private static final Color DARK_GREEN = new Color(115, 201, 145);
+
+    /**
+     * Dark warning accent.
+     */
+    private static final Color DARK_AMBER = new Color(255, 214, 102);
+
+    /**
+     * Dark error accent.
+     */
+    private static final Color DARK_CORAL = new Color(244, 135, 113);
+
+    /**
+     * Dark policy accent.
+     */
+    private static final Color DARK_PURPLE = new Color(197, 134, 192);
+
+    /**
      * Root background color.
      */
-    public static final Color BG = PASTEL_CHROME;
+    public static Color BG = PASTEL_CHROME;
 
     /**
      * Fully transparent component background.
      */
-    public static final Color TRANSPARENT = new Color(PASTEL_DOCUMENT.getRed(), PASTEL_DOCUMENT.getGreen(),
+    public static Color TRANSPARENT = new Color(PASTEL_DOCUMENT.getRed(), PASTEL_DOCUMENT.getGreen(),
             PASTEL_DOCUMENT.getBlue(), 0);
 
     /**
      * Primary panel color.
      */
-    public static final Color PANEL = PASTEL_DOCUMENT;
+    public static Color PANEL = PASTEL_DOCUMENT;
 
     /**
      * Solid panel fallback for Swing components that must be fully opaque.
      */
-    public static final Color PANEL_SOLID = blendOver(PANEL, BG);
+    public static Color PANEL_SOLID = blendOver(PANEL, BG);
 
     /**
      * Elevated panel color.
      */
-    public static final Color ELEVATED = PASTEL_DOCUMENT;
+    public static Color ELEVATED = PASTEL_DOCUMENT;
 
     /**
      * Solid elevated fallback for data surfaces and scroll viewports.
      */
-    public static final Color ELEVATED_SOLID = blendOver(ELEVATED, BG);
+    public static Color ELEVATED_SOLID = blendOver(ELEVATED, BG);
 
     /**
      * Line color.
      */
-    public static final Color LINE = PASTEL_BORDER;
+    public static Color LINE = PASTEL_BORDER;
 
     /**
      * Primary text color.
      */
-    public static final Color TEXT = PASTEL_INK;
+    public static Color TEXT = PASTEL_INK;
 
     /**
      * Secondary text color.
      */
-    public static final Color MUTED = PASTEL_MUTED;
+    public static Color MUTED = PASTEL_MUTED;
 
     /**
      * Accent color.
      */
-    public static final Color ACCENT = PASTEL_BLUE;
+    public static Color ACCENT = PASTEL_BLUE;
 
     /**
      * Table and tree selection color.
      */
-    public static final Color SELECTION = new Color(229, 241, 252);
+    public static Color SELECTION = new Color(229, 241, 252);
 
     /**
      * Solid selection fallback for opaque renderers.
      */
-    public static final Color SELECTION_SOLID = blendOver(SELECTION, BG);
+    public static Color SELECTION_SOLID = blendOver(SELECTION, BG);
 
     /**
      * Primary button hover color.
      */
-    public static final Color ACCENT_HOVER = PASTEL_BLUE_HOVER;
+    public static Color ACCENT_HOVER = PASTEL_BLUE_HOVER;
 
     /**
      * Primary button pressed color.
      */
-    public static final Color ACCENT_PRESSED = PASTEL_BLUE_PRESSED;
+    public static Color ACCENT_PRESSED = PASTEL_BLUE_PRESSED;
 
     /**
      * Secondary button color.
      */
-    public static final Color SECONDARY_BUTTON = PASTEL_DOCUMENT;
+    public static Color SECONDARY_BUTTON = PASTEL_DOCUMENT;
 
     /**
      * Secondary button hover color.
      */
-    public static final Color SECONDARY_BUTTON_HOVER = PASTEL_SUBTLE;
+    public static Color SECONDARY_BUTTON_HOVER = PASTEL_SUBTLE;
 
     /**
      * Secondary button pressed color.
      */
-    public static final Color SECONDARY_BUTTON_PRESSED = PASTEL_CHROME;
+    public static Color SECONDARY_BUTTON_PRESSED = PASTEL_CHROME;
 
     /**
      * Secondary button text color.
      */
-    public static final Color SECONDARY_BUTTON_TEXT = PASTEL_INK;
+    public static Color SECONDARY_BUTTON_TEXT = PASTEL_INK;
 
     /**
      * Disabled button fill color.
      */
-    public static final Color BUTTON_DISABLED_BG = PASTEL_SUBTLE;
+    public static Color BUTTON_DISABLED_BG = PASTEL_SUBTLE;
 
     /**
      * Disabled button border color.
      */
-    public static final Color BUTTON_DISABLED_BORDER = PASTEL_BORDER;
+    public static Color BUTTON_DISABLED_BORDER = PASTEL_BORDER;
 
     /**
      * Disabled button text color.
      */
-    public static final Color BUTTON_DISABLED_TEXT = PASTEL_MUTED;
+    public static Color BUTTON_DISABLED_TEXT = PASTEL_MUTED;
 
     /**
      * Input border color.
      */
-    public static final Color INPUT_BORDER = PASTEL_BORDER;
+    public static Color INPUT_BORDER = PASTEL_BORDER;
 
     /**
      * Input focus ring color.
      */
-    public static final Color INPUT_FOCUS = PASTEL_BLUE;
+    public static Color INPUT_FOCUS = PASTEL_BLUE;
 
     /**
      * Disabled input background color.
      */
-    public static final Color INPUT_DISABLED = PASTEL_SUBTLE;
+    public static Color INPUT_DISABLED = PASTEL_SUBTLE;
 
     /**
      * Toggle-off background color.
      */
-    public static final Color TOGGLE_BG = PASTEL_SUBTLE;
+    public static Color TOGGLE_BG = PASTEL_SUBTLE;
 
     /**
      * Toggle-off border color.
      */
-    public static final Color TOGGLE_BORDER = PASTEL_BORDER;
+    public static Color TOGGLE_BORDER = PASTEL_BORDER;
 
     /**
      * Toggle-off track color.
      */
-    public static final Color TOGGLE_TRACK = PASTEL_MUTED;
+    public static Color TOGGLE_TRACK = PASTEL_MUTED;
 
     /**
      * Toggle-on background color.
      */
-    public static final Color TOGGLE_ON_BG = SELECTION;
+    public static Color TOGGLE_ON_BG = SELECTION;
 
     /**
      * Toggle-on track color.
      */
-    public static final Color TOGGLE_ON_TRACK = PASTEL_BLUE;
+    public static Color TOGGLE_ON_TRACK = PASTEL_BLUE;
 
     /**
      * Toggle thumb color.
      */
-    public static final Color TOGGLE_THUMB = PASTEL_DOCUMENT;
+    public static Color TOGGLE_THUMB = PASTEL_DOCUMENT;
 
     /**
      * Text field background color.
      */
-    public static final Color INPUT = PASTEL_DOCUMENT;
+    public static Color INPUT = PASTEL_DOCUMENT;
 
     /**
      * Text area background color.
      */
-    public static final Color TEXT_AREA = PASTEL_DOCUMENT;
+    public static Color TEXT_AREA = PASTEL_DOCUMENT;
 
     /**
      * Terminal background color.
      */
-    public static final Color TERMINAL = PASTEL_DOCUMENT;
+    public static Color TERMINAL = PASTEL_DOCUMENT;
 
     /**
      * Terminal text color.
      */
-    public static final Color TERMINAL_TEXT = PASTEL_INK;
+    public static Color TERMINAL_TEXT = PASTEL_INK;
 
     /**
      * Selection color for text controls.
      */
-    public static final Color TEXT_SELECTION = new Color(224, 239, 252, 255);
+    public static Color TEXT_SELECTION = new Color(224, 239, 252, 255);
 
     /**
      * Primary button text color.
      */
-    public static final Color PRIMARY_BUTTON_TEXT = PASTEL_INK;
+    public static Color PRIMARY_BUTTON_TEXT = PASTEL_INK;
 
     /**
      * Board light square color.
      */
-    public static final Color BOARD_LIGHT = new Color(240, 217, 181);
+    public static Color BOARD_LIGHT = new Color(240, 217, 181);
 
     /**
      * Board dark square color.
      */
-    public static final Color BOARD_DARK = new Color(181, 136, 99);
+    public static Color BOARD_DARK = new Color(181, 136, 99);
 
     /**
      * Standard dark chrome color reused by subtle overlays.
      */
-    public static final Color BOARD_SHADOW = new Color(64, 64, 64);
+    public static Color BOARD_SHADOW = new Color(64, 64, 64);
 
     /**
      * Chessboard.js board edge color.
      */
-    public static final Color BOARD_EDGE = new Color(64, 64, 64);
+    public static Color BOARD_EDGE = new Color(64, 64, 64);
 
     /**
      * Coordinate text color used on light squares.
      */
-    public static final Color COORD_ON_LIGHT = BOARD_DARK;
+    public static Color COORD_ON_LIGHT = BOARD_DARK;
 
     /**
      * Coordinate text color used on dark squares.
      */
-    public static final Color COORD_ON_DARK = BOARD_LIGHT;
+    public static Color COORD_ON_DARK = BOARD_LIGHT;
 
     /**
      * Shared inset move-highlight edge color.
      */
-    public static final Color BOARD_HIGHLIGHT = new Color(85, 184, 125);
+    public static Color BOARD_HIGHLIGHT = new Color(85, 184, 125);
 
     /**
      * Last-move highlight edge.
      */
-    public static final Color LAST_MOVE_EDGE = BOARD_HIGHLIGHT;
+    public static Color LAST_MOVE_EDGE = BOARD_HIGHLIGHT;
 
     /**
      * Selected square edge.
      */
-    public static final Color SELECTED_EDGE = BOARD_HIGHLIGHT;
+    public static Color SELECTED_EDGE = BOARD_HIGHLIGHT;
 
     /**
      * Quiet legal-target marker fill.
      */
-    public static final Color LEGAL_TARGET = new Color(PASTEL_INK.getRed(), PASTEL_INK.getGreen(), PASTEL_INK.getBlue(), 86);
+    public static Color LEGAL_TARGET = new Color(PASTEL_INK.getRed(), PASTEL_INK.getGreen(), PASTEL_INK.getBlue(), 86);
 
     /**
      * Capture legal-target marker edge.
      */
-    public static final Color LEGAL_CAPTURE_EDGE = new Color(PASTEL_INK.getRed(), PASTEL_INK.getGreen(),
+    public static Color LEGAL_CAPTURE_EDGE = new Color(PASTEL_INK.getRed(), PASTEL_INK.getGreen(),
             PASTEL_INK.getBlue(), 112);
 
     /**
      * Suggested-move arrow color.
      */
-    public static final Color BOARD_ARROW = new Color(111, 168, 220);
+    public static Color BOARD_ARROW = new Color(111, 168, 220);
 
     /**
      * Check highlight radial core.
      */
-    public static final Color CHECK_CORE = new Color(PASTEL_CORAL.getRed(), PASTEL_CORAL.getGreen(),
+    public static Color CHECK_CORE = new Color(PASTEL_CORAL.getRed(), PASTEL_CORAL.getGreen(),
             PASTEL_CORAL.getBlue(), 245);
 
     /**
      * Check highlight glow.
      */
-    public static final Color CHECK_GLOW = new Color(200, 104, 99, 209);
+    public static Color CHECK_GLOW = new Color(200, 104, 99, 209);
 
     /**
      * Check highlight square fill.
      */
-    public static final Color CHECK_FILL = new Color(PASTEL_CORAL.getRed(), PASTEL_CORAL.getGreen(),
+    public static Color CHECK_FILL = new Color(PASTEL_CORAL.getRed(), PASTEL_CORAL.getGreen(),
             PASTEL_CORAL.getBlue(), 140);
 
     /**
      * Check highlight square edge.
      */
-    public static final Color CHECK_EDGE = new Color(200, 104, 99, 70);
+    public static Color CHECK_EDGE = new Color(200, 104, 99, 70);
 
     /**
      * Eval-bar dark side fill.
      */
-    public static final Color EVAL_BLACK = Color.BLACK;
+    public static Color EVAL_BLACK = Color.BLACK;
 
     /**
      * Eval-bar light side fill.
      */
-    public static final Color EVAL_WHITE = Color.WHITE;
+    public static Color EVAL_WHITE = Color.WHITE;
 
     /**
      * Eval-bar frame color.
      */
-    public static final Color EVAL_FRAME = new Color(0, 0, 0, 168);
+    public static Color EVAL_FRAME = new Color(0, 0, 0, 168);
 
     /**
      * Eval-bar divider color.
      */
-    public static final Color EVAL_DIVIDER = new Color(128, 128, 128, 176);
+    public static Color EVAL_DIVIDER = new Color(128, 128, 128, 176);
 
     /**
      * Tab strip selected accent underline.
      */
-    public static final Color TAB_ACCENT_UNDERLINE = new Color(ACCENT.getRed(), ACCENT.getGreen(), ACCENT.getBlue(), 255);
+    public static Color TAB_ACCENT_UNDERLINE = new Color(ACCENT.getRed(), ACCENT.getGreen(), ACCENT.getBlue(), 255);
 
     /**
      * Tab strip rollover fill.
      */
-    public static final Color TAB_HOVER = new Color(PASTEL_SUBTLE.getRed(), PASTEL_SUBTLE.getGreen(),
+    public static Color TAB_HOVER = new Color(PASTEL_SUBTLE.getRed(), PASTEL_SUBTLE.getGreen(),
             PASTEL_SUBTLE.getBlue(), 255);
 
     /**
      * Tab strip resting fill.
      */
-    public static final Color TAB_IDLE = new Color(BG.getRed(), BG.getGreen(), BG.getBlue(), 255);
+    public static Color TAB_IDLE = new Color(BG.getRed(), BG.getGreen(), BG.getBlue(), 255);
 
     /**
      * Scrollbar track fill.
      */
-    public static final Color SCROLLBAR_TRACK = new Color(PASTEL_CHROME.getRed(), PASTEL_CHROME.getGreen(),
+    public static Color SCROLLBAR_TRACK = new Color(PASTEL_CHROME.getRed(), PASTEL_CHROME.getGreen(),
             PASTEL_CHROME.getBlue(), 0);
 
     /**
      * Scrollbar thumb resting fill.
      */
-    public static final Color SCROLLBAR_THUMB = new Color(PASTEL_MUTED.getRed(), PASTEL_MUTED.getGreen(),
+    public static Color SCROLLBAR_THUMB = new Color(PASTEL_MUTED.getRed(), PASTEL_MUTED.getGreen(),
             PASTEL_MUTED.getBlue(), 80);
 
     /**
      * Scrollbar thumb hover fill.
      */
-    public static final Color SCROLLBAR_THUMB_HOVER = new Color(PASTEL_MUTED.getRed(), PASTEL_MUTED.getGreen(),
+    public static Color SCROLLBAR_THUMB_HOVER = new Color(PASTEL_MUTED.getRed(), PASTEL_MUTED.getGreen(),
             PASTEL_MUTED.getBlue(), 130);
 
     /**
      * Tooltip surface color.
      */
-    public static final Color TOOLTIP_BG = PASTEL_DOCUMENT;
+    public static Color TOOLTIP_BG = PASTEL_DOCUMENT;
 
     /**
      * Tooltip text color.
      */
-    public static final Color TOOLTIP_TEXT = PASTEL_INK;
+    public static Color TOOLTIP_TEXT = PASTEL_INK;
 
     /**
      * Tooltip border color.
      */
-    public static final Color TOOLTIP_BORDER = PASTEL_BORDER;
+    public static Color TOOLTIP_BORDER = PASTEL_BORDER;
 
     // Status families use pastel action-color tints for the surface, with
     // darker ink variants for readable text.
@@ -472,78 +625,78 @@ public final class Theme {
     /**
      * Success feedback surface.
      */
-    public static final Color STATUS_SUCCESS_BG = new Color(239, 248, 240);
+    public static Color STATUS_SUCCESS_BG = new Color(239, 248, 240);
 
     /**
      * Success feedback border.
      */
-    public static final Color STATUS_SUCCESS_BORDER = PASTEL_GREEN;
+    public static Color STATUS_SUCCESS_BORDER = PASTEL_GREEN;
 
     /**
      * Success feedback text.
      */
-    public static final Color STATUS_SUCCESS_TEXT = PASTEL_GREEN_TEXT;
+    public static Color STATUS_SUCCESS_TEXT = PASTEL_GREEN_TEXT;
 
     /**
      * Warning feedback surface.
      */
-    public static final Color STATUS_WARNING_BG = new Color(255, 245, 223);
+    public static Color STATUS_WARNING_BG = new Color(255, 245, 223);
 
     /**
      * Warning feedback border.
      */
-    public static final Color STATUS_WARNING_BORDER = PASTEL_AMBER;
+    public static Color STATUS_WARNING_BORDER = PASTEL_AMBER;
 
     /**
      * Warning feedback text.
      */
-    public static final Color STATUS_WARNING_TEXT = PASTEL_AMBER_TEXT;
+    public static Color STATUS_WARNING_TEXT = PASTEL_AMBER_TEXT;
 
     /**
      * Error feedback surface.
      */
-    public static final Color STATUS_ERROR_BG = new Color(255, 240, 239);
+    public static Color STATUS_ERROR_BG = new Color(255, 240, 239);
 
     /**
      * Error feedback border.
      */
-    public static final Color STATUS_ERROR_BORDER = PASTEL_CORAL;
+    public static Color STATUS_ERROR_BORDER = PASTEL_CORAL;
 
     /**
      * Error feedback text.
      */
-    public static final Color STATUS_ERROR_TEXT = PASTEL_CORAL_TEXT;
+    public static Color STATUS_ERROR_TEXT = PASTEL_CORAL_TEXT;
 
     /**
      * Informational feedback surface.
      */
-    public static final Color STATUS_INFO_BG = new Color(232, 242, 251);
+    public static Color STATUS_INFO_BG = new Color(232, 242, 251);
 
     /**
      * Informational feedback border.
      */
-    public static final Color STATUS_INFO_BORDER = new Color(182, 216, 242);
+    public static Color STATUS_INFO_BORDER = new Color(182, 216, 242);
 
     /**
      * Informational feedback text.
      */
-    public static final Color STATUS_INFO_TEXT = PASTEL_BLUE_TEXT;
+    public static Color STATUS_INFO_TEXT = PASTEL_BLUE_TEXT;
 
     /**
      * Compact logo tile fill.
      */
-    public static final Color LOGO_BACKGROUND = new Color(PASTEL_PURPLE.getRed(), PASTEL_PURPLE.getGreen(),
+    public static Color LOGO_BACKGROUND = new Color(PASTEL_PURPLE.getRed(), PASTEL_PURPLE.getGreen(),
             PASTEL_PURPLE.getBlue(), 230);
 
     /**
      * Compact logo mark fill.
      */
-    public static final Color LOGO_MARK = PASTEL_CORAL;
+    public static Color LOGO_MARK = PASTEL_CORAL;
 
     /**
      * Toggle focus-ring color.
      */
-    public static final Color TOGGLE_FOCUS = new Color(INPUT_FOCUS.getRed(), INPUT_FOCUS.getGreen(),
+    public static Color TOGGLE_FOCUS = new Color(INPUT_FOCUS.getRed(), INPUT_FOCUS.getGreen(),
             INPUT_FOCUS.getBlue(), 95);
 
     /**
@@ -621,43 +774,349 @@ public final class Theme {
     /**
      * Positive-activation accent (gain / "up").
      */
-    public static final Color NN_POSITIVE = PASTEL_GREEN;
+    public static Color NN_POSITIVE = PASTEL_GREEN;
 
     /**
      * Negative-activation accent (loss / "down").
      */
-    public static final Color NN_NEGATIVE = PASTEL_CORAL;
+    public static Color NN_NEGATIVE = PASTEL_CORAL;
 
     /**
      * Trunk / data-flow accent.
      */
-    public static final Color NN_TRUNK = PASTEL_BLUE;
+    public static Color NN_TRUNK = PASTEL_BLUE;
 
     /**
      * Policy-branch accent.
      */
-    public static final Color NN_POLICY = PASTEL_PURPLE;
+    public static Color NN_POLICY = PASTEL_PURPLE;
 
     /**
      * Value-branch accent.
      */
-    public static final Color NN_VALUE = PASTEL_GREEN;
+    public static Color NN_VALUE = PASTEL_GREEN;
 
     /**
      * Neutral fill for cells carrying no signal.
      */
-    public static final Color NN_NEUTRAL = PASTEL_SUBTLE;
+    public static Color NN_NEUTRAL = PASTEL_SUBTLE;
 
     /**
      * Lightest signed-heatmap fill (near zero).
      */
-    public static final Color NN_HEAT_ZERO = PASTEL_SUBTLE;
+    public static Color NN_HEAT_ZERO = PASTEL_SUBTLE;
 
     /**
      * Prevents instantiation.
      */
     private Theme() {
         // utility
+    }
+
+    /**
+     * Returns the active color mode.
+     *
+     * @return active mode
+     */
+    public static Mode mode() {
+        return mode;
+    }
+
+    /**
+     * Returns whether the dark palette is active.
+     *
+     * @return true in dark mode
+     */
+    public static boolean isDark() {
+        return mode == Mode.DARK;
+    }
+
+    /**
+     * Switches the active color mode.
+     *
+     * @param value requested mode
+     */
+    public static void setMode(Mode value) {
+        mode = value == null ? Mode.LIGHT : value;
+        if (mode == Mode.DARK) {
+            applyDarkPalette();
+        } else {
+            applyLightPalette();
+        }
+    }
+
+    /**
+     * Applies the current palette to an existing component tree.
+     *
+     * @param component root component
+     */
+    public static void refreshComponentTree(Component component) {
+        if (component == null) {
+            return;
+        }
+        refreshComponent(component);
+        if (component instanceof Container container) {
+            for (Component child : container.getComponents()) {
+                refreshComponentTree(child);
+            }
+        }
+        component.repaint();
+    }
+
+    /**
+     * Refreshes one existing component after a palette switch.
+     *
+     * @param component component
+     */
+    private static void refreshComponent(Component component) {
+        if (component instanceof BackdropPanel) {
+            component.setBackground(BG);
+        } else if (component instanceof SurfacePanel) {
+            component.setBackground(PANEL_SOLID);
+            component.setForeground(TEXT);
+        } else if (component instanceof ConsoleLike console) {
+            console.applyConsoleTheme();
+        } else if (component instanceof JTextArea area) {
+            area(area);
+        } else if (component instanceof JTextField field) {
+            field(field);
+        } else if (component instanceof JTextPane pane) {
+            pane.setBackground(TEXT_AREA);
+            pane.setForeground(TEXT);
+            pane.setCaretColor(TEXT);
+            pane.setSelectionColor(TEXT_SELECTION);
+            pane.setSelectedTextColor(TEXT);
+        } else if (component instanceof JComboBox<?> combo) {
+            combo.setBackground(ELEVATED_SOLID);
+            combo.setForeground(TEXT);
+            combo.setBorder(BorderFactory.createLineBorder(INPUT_BORDER));
+        } else if (component instanceof JSpinner spinner) {
+            spinner.setBackground(PANEL_SOLID);
+            spinner.setForeground(TEXT);
+            spinner.setBorder(BorderFactory.createLineBorder(INPUT_BORDER));
+        } else if (component instanceof JTable table) {
+            table(table, Math.max(24, table.getRowHeight()));
+        } else if (component instanceof JList<?> list) {
+            list(list);
+        } else if (component instanceof JTabbedPane tabs) {
+            tabs.setBackground(BG);
+            tabs.setForeground(TEXT);
+        } else if (component instanceof JScrollPane pane) {
+            pane.setBackground(BG);
+            JViewport viewport = pane.getViewport();
+            if (viewport != null) {
+                viewport.setBackground(PANEL_SOLID);
+            }
+        } else if (component instanceof ToggleBox toggle) {
+            toggle.setForeground(TEXT);
+            toggle.setFont(font(13, Font.PLAIN));
+        } else if (component instanceof AbstractButton button) {
+            Object primary = button.getClientProperty(CLIENT_PRIMARY);
+            if (primary instanceof Boolean value) {
+                button(button, value.booleanValue());
+            } else {
+                button.setForeground(TEXT);
+                button.setFont(font(13, Font.PLAIN));
+            }
+        } else if (component instanceof JLabel label) {
+            label.setForeground(TEXT);
+        } else if (component instanceof JComponent jComponent) {
+            jComponent.setForeground(TEXT);
+            if (jComponent.isOpaque()) {
+                jComponent.setBackground(PANEL_SOLID);
+            } else {
+                jComponent.setBackground(BG);
+            }
+        }
+    }
+
+    /**
+     * Small local interface for terminal-like components without introducing a
+     * dependency from the theme package back to command components.
+     */
+    public interface ConsoleLike {
+        /**
+         * Applies terminal colors after a theme change.
+         */
+        void applyConsoleTheme();
+    }
+
+    /**
+     * Restores the light palette.
+     */
+    private static void applyLightPalette() {
+        BG = PASTEL_CHROME;
+        TRANSPARENT = new Color(PASTEL_DOCUMENT.getRed(), PASTEL_DOCUMENT.getGreen(), PASTEL_DOCUMENT.getBlue(), 0);
+        PANEL = PASTEL_DOCUMENT;
+        PANEL_SOLID = blendOver(PANEL, BG);
+        ELEVATED = PASTEL_DOCUMENT;
+        ELEVATED_SOLID = blendOver(ELEVATED, BG);
+        LINE = PASTEL_BORDER;
+        TEXT = PASTEL_INK;
+        MUTED = PASTEL_MUTED;
+        ACCENT = PASTEL_BLUE;
+        SELECTION = new Color(229, 241, 252);
+        SELECTION_SOLID = blendOver(SELECTION, BG);
+        ACCENT_HOVER = PASTEL_BLUE_HOVER;
+        ACCENT_PRESSED = PASTEL_BLUE_PRESSED;
+        SECONDARY_BUTTON = PASTEL_DOCUMENT;
+        SECONDARY_BUTTON_HOVER = PASTEL_SUBTLE;
+        SECONDARY_BUTTON_PRESSED = PASTEL_CHROME;
+        SECONDARY_BUTTON_TEXT = PASTEL_INK;
+        BUTTON_DISABLED_BG = PASTEL_SUBTLE;
+        BUTTON_DISABLED_BORDER = PASTEL_BORDER;
+        BUTTON_DISABLED_TEXT = PASTEL_MUTED;
+        INPUT_BORDER = PASTEL_BORDER;
+        INPUT_FOCUS = PASTEL_BLUE;
+        INPUT_DISABLED = PASTEL_SUBTLE;
+        TOGGLE_BG = PASTEL_SUBTLE;
+        TOGGLE_BORDER = PASTEL_BORDER;
+        TOGGLE_TRACK = PASTEL_MUTED;
+        TOGGLE_ON_BG = SELECTION;
+        TOGGLE_ON_TRACK = PASTEL_BLUE;
+        TOGGLE_THUMB = PASTEL_DOCUMENT;
+        INPUT = PASTEL_DOCUMENT;
+        TEXT_AREA = PASTEL_DOCUMENT;
+        TERMINAL = PASTEL_DOCUMENT;
+        TERMINAL_TEXT = PASTEL_INK;
+        TEXT_SELECTION = new Color(224, 239, 252, 255);
+        PRIMARY_BUTTON_TEXT = PASTEL_INK;
+        setFixedBoardAndEvalColors();
+        TAB_ACCENT_UNDERLINE = withAlpha(ACCENT, 255);
+        TAB_HOVER = new Color(PASTEL_SUBTLE.getRed(), PASTEL_SUBTLE.getGreen(), PASTEL_SUBTLE.getBlue(), 255);
+        TAB_IDLE = new Color(BG.getRed(), BG.getGreen(), BG.getBlue(), 255);
+        SCROLLBAR_TRACK = new Color(PASTEL_CHROME.getRed(), PASTEL_CHROME.getGreen(), PASTEL_CHROME.getBlue(), 0);
+        SCROLLBAR_THUMB = new Color(PASTEL_MUTED.getRed(), PASTEL_MUTED.getGreen(), PASTEL_MUTED.getBlue(), 80);
+        SCROLLBAR_THUMB_HOVER = new Color(PASTEL_MUTED.getRed(), PASTEL_MUTED.getGreen(), PASTEL_MUTED.getBlue(), 130);
+        TOOLTIP_BG = PASTEL_DOCUMENT;
+        TOOLTIP_TEXT = PASTEL_INK;
+        TOOLTIP_BORDER = PASTEL_BORDER;
+        STATUS_SUCCESS_BG = new Color(239, 248, 240);
+        STATUS_SUCCESS_BORDER = PASTEL_GREEN;
+        STATUS_SUCCESS_TEXT = PASTEL_GREEN_TEXT;
+        STATUS_WARNING_BG = new Color(255, 245, 223);
+        STATUS_WARNING_BORDER = PASTEL_AMBER;
+        STATUS_WARNING_TEXT = PASTEL_AMBER_TEXT;
+        STATUS_ERROR_BG = new Color(255, 240, 239);
+        STATUS_ERROR_BORDER = PASTEL_CORAL;
+        STATUS_ERROR_TEXT = PASTEL_CORAL_TEXT;
+        STATUS_INFO_BG = new Color(232, 242, 251);
+        STATUS_INFO_BORDER = new Color(182, 216, 242);
+        STATUS_INFO_TEXT = PASTEL_BLUE_TEXT;
+        LOGO_BACKGROUND = new Color(PASTEL_PURPLE.getRed(), PASTEL_PURPLE.getGreen(), PASTEL_PURPLE.getBlue(), 230);
+        LOGO_MARK = PASTEL_CORAL;
+        TOGGLE_FOCUS = withAlpha(INPUT_FOCUS, 95);
+        NN_POSITIVE = PASTEL_GREEN;
+        NN_NEGATIVE = PASTEL_CORAL;
+        NN_TRUNK = PASTEL_BLUE;
+        NN_POLICY = PASTEL_PURPLE;
+        NN_VALUE = PASTEL_GREEN;
+        NN_NEUTRAL = PASTEL_SUBTLE;
+        NN_HEAT_ZERO = PASTEL_SUBTLE;
+    }
+
+    /**
+     * Applies the dark palette.
+     */
+    private static void applyDarkPalette() {
+        BG = DARK_CHROME;
+        TRANSPARENT = new Color(DARK_DOCUMENT.getRed(), DARK_DOCUMENT.getGreen(), DARK_DOCUMENT.getBlue(), 0);
+        PANEL = DARK_DOCUMENT;
+        PANEL_SOLID = blendOver(PANEL, BG);
+        ELEVATED = DARK_ELEVATED;
+        ELEVATED_SOLID = blendOver(ELEVATED, BG);
+        LINE = DARK_BORDER;
+        TEXT = DARK_INK;
+        MUTED = DARK_MUTED;
+        ACCENT = DARK_BLUE;
+        SELECTION = new Color(38, 79, 120);
+        SELECTION_SOLID = blendOver(SELECTION, BG);
+        ACCENT_HOVER = DARK_BLUE_HOVER;
+        ACCENT_PRESSED = DARK_BLUE_PRESSED;
+        SECONDARY_BUTTON = DARK_ELEVATED;
+        SECONDARY_BUTTON_HOVER = new Color(55, 55, 59);
+        SECONDARY_BUTTON_PRESSED = new Color(63, 63, 70);
+        SECONDARY_BUTTON_TEXT = DARK_INK;
+        BUTTON_DISABLED_BG = DARK_SUBTLE;
+        BUTTON_DISABLED_BORDER = DARK_BORDER;
+        BUTTON_DISABLED_TEXT = DARK_MUTED;
+        INPUT_BORDER = DARK_BORDER;
+        INPUT_FOCUS = DARK_BLUE;
+        INPUT_DISABLED = DARK_SUBTLE;
+        TOGGLE_BG = DARK_SUBTLE;
+        TOGGLE_BORDER = DARK_BORDER;
+        TOGGLE_TRACK = DARK_MUTED;
+        TOGGLE_ON_BG = SELECTION;
+        TOGGLE_ON_TRACK = DARK_BLUE_HOVER;
+        TOGGLE_THUMB = DARK_INK;
+        INPUT = DARK_DOCUMENT;
+        TEXT_AREA = DARK_DOCUMENT;
+        TERMINAL = new Color(24, 24, 24);
+        TERMINAL_TEXT = DARK_INK;
+        TEXT_SELECTION = new Color(38, 79, 120, 255);
+        PRIMARY_BUTTON_TEXT = Color.WHITE;
+        setFixedBoardAndEvalColors();
+        TAB_ACCENT_UNDERLINE = withAlpha(ACCENT, 255);
+        TAB_HOVER = new Color(45, 45, 48, 255);
+        TAB_IDLE = new Color(BG.getRed(), BG.getGreen(), BG.getBlue(), 255);
+        SCROLLBAR_TRACK = new Color(DARK_CHROME.getRed(), DARK_CHROME.getGreen(), DARK_CHROME.getBlue(), 0);
+        SCROLLBAR_THUMB = new Color(121, 121, 121, 100);
+        SCROLLBAR_THUMB_HOVER = new Color(121, 121, 121, 165);
+        TOOLTIP_BG = DARK_ELEVATED;
+        TOOLTIP_TEXT = DARK_INK;
+        TOOLTIP_BORDER = DARK_BORDER;
+        STATUS_SUCCESS_BG = new Color(27, 54, 35);
+        STATUS_SUCCESS_BORDER = DARK_GREEN;
+        STATUS_SUCCESS_TEXT = new Color(185, 231, 198);
+        STATUS_WARNING_BG = new Color(74, 56, 18);
+        STATUS_WARNING_BORDER = DARK_AMBER;
+        STATUS_WARNING_TEXT = new Color(255, 226, 147);
+        STATUS_ERROR_BG = new Color(76, 30, 30);
+        STATUS_ERROR_BORDER = DARK_CORAL;
+        STATUS_ERROR_TEXT = new Color(255, 190, 180);
+        STATUS_INFO_BG = new Color(18, 59, 84);
+        STATUS_INFO_BORDER = new Color(79, 193, 255);
+        STATUS_INFO_TEXT = new Color(179, 222, 245);
+        LOGO_BACKGROUND = new Color(DARK_PURPLE.getRed(), DARK_PURPLE.getGreen(), DARK_PURPLE.getBlue(), 230);
+        LOGO_MARK = DARK_CORAL;
+        TOGGLE_FOCUS = withAlpha(INPUT_FOCUS, 120);
+        NN_POSITIVE = DARK_GREEN;
+        NN_NEGATIVE = DARK_CORAL;
+        NN_TRUNK = new Color(79, 193, 255);
+        NN_POLICY = DARK_PURPLE;
+        NN_VALUE = DARK_GREEN;
+        NN_NEUTRAL = DARK_SUBTLE;
+        NN_HEAT_ZERO = DARK_SUBTLE;
+    }
+
+    /**
+     * Keeps chessboard and eval-bar colors stable across UI themes.
+     */
+    private static void setFixedBoardAndEvalColors() {
+        BOARD_LIGHT = new Color(240, 217, 181);
+        BOARD_DARK = new Color(181, 136, 99);
+        BOARD_SHADOW = new Color(64, 64, 64);
+        BOARD_EDGE = new Color(64, 64, 64);
+        COORD_ON_LIGHT = BOARD_DARK;
+        COORD_ON_DARK = BOARD_LIGHT;
+        BOARD_HIGHLIGHT = new Color(85, 184, 125);
+        LAST_MOVE_EDGE = BOARD_HIGHLIGHT;
+        SELECTED_EDGE = BOARD_HIGHLIGHT;
+        LEGAL_TARGET = withAlpha(TEXT, 86);
+        LEGAL_CAPTURE_EDGE = withAlpha(TEXT, 112);
+        BOARD_ARROW = new Color(111, 168, 220);
+        CHECK_CORE = new Color((isDark() ? DARK_CORAL : PASTEL_CORAL).getRed(),
+                (isDark() ? DARK_CORAL : PASTEL_CORAL).getGreen(),
+                (isDark() ? DARK_CORAL : PASTEL_CORAL).getBlue(), 245);
+        CHECK_GLOW = new Color(200, 104, 99, 209);
+        CHECK_FILL = new Color((isDark() ? DARK_CORAL : PASTEL_CORAL).getRed(),
+                (isDark() ? DARK_CORAL : PASTEL_CORAL).getGreen(),
+                (isDark() ? DARK_CORAL : PASTEL_CORAL).getBlue(), 140);
+        CHECK_EDGE = new Color(200, 104, 99, 70);
+        EVAL_BLACK = Color.BLACK;
+        EVAL_WHITE = Color.WHITE;
+        EVAL_FRAME = new Color(0, 0, 0, 168);
+        EVAL_DIVIDER = new Color(128, 128, 128, 176);
     }
 
     /**

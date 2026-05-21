@@ -671,6 +671,23 @@ public final class WorkbenchRegressionTest {
      * thresholds for extended workbench use.
      */
     private static void testThemeColorContrast() {
+        Class<?> modeType = type("Theme$Mode");
+        invokeStatic(type("Theme"), "setMode", new Class<?>[] { modeType },
+                enumValue(modeType, "LIGHT"));
+        assertCurrentThemeContrast("light");
+        invokeStatic(type("Theme"), "setMode", new Class<?>[] { modeType },
+                enumValue(modeType, "DARK"));
+        assertCurrentThemeContrast("dark");
+        invokeStatic(type("Theme"), "setMode", new Class<?>[] { modeType },
+                enumValue(modeType, "LIGHT"));
+    }
+
+    /**
+     * Verifies the active theme palette has sufficient contrast.
+     *
+     * @param modeName mode label for assertion messages
+     */
+    private static void assertCurrentThemeContrast(String modeName) {
         assertThemeContrast("body text on panel", "TEXT", "PANEL_SOLID", 7.0);
         assertThemeContrast("muted text on panel", "MUTED", "PANEL_SOLID", 4.5);
         assertThemeContrast("input text", "TEXT", "INPUT", 7.0);
@@ -693,7 +710,7 @@ public final class WorkbenchRegressionTest {
         assertColorDistanceAtLeast(themeColor("BOARD_ARROW"), themeColor("BOARD_LIGHT"), 95.0,
                 "best-move arrow distinguishes from light board squares");
         assertColorDistanceAtLeast(themeColor("BOARD_ARROW"), themeColor("BOARD_DARK"), 95.0,
-                "best-move arrow distinguishes from dark board squares");
+                "best-move arrow distinguishes from dark board squares in " + modeName + " mode");
     }
 
     /**

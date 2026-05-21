@@ -129,6 +129,11 @@ public abstract class WindowLifecycle extends WindowBase {
             Preferences.userNodeForPackage(Window.class);
 
     /**
+     * Preference key for the workbench appearance mode.
+     */
+    protected static final String PREF_THEME_MODE = "appearance.themeMode";
+
+    /**
      * Preference key for legal-move preview.
      */
     protected static final String PREF_SHOW_LEGAL_MOVES = "display.showLegalMovePreview";
@@ -251,6 +256,14 @@ public abstract class WindowLifecycle extends WindowBase {
     }
 
     /**
+     * Loads the persisted appearance mode.
+     */
+    protected void loadThemeSetting() {
+        Theme.setMode(Theme.Mode.fromPreference(
+                WORKBENCH_PREFS.get(PREF_THEME_MODE, Theme.Mode.LIGHT.id())));
+    }
+
+    /**
      * Loads persisted display settings.
      */
     protected void loadDisplaySettings() {
@@ -274,6 +287,34 @@ public abstract class WindowLifecycle extends WindowBase {
         WORKBENCH_PREFS.putBoolean(PREF_BOARD_ANIMATIONS, boardAnimationsEnabled);
         WORKBENCH_PREFS.putBoolean(PREF_AUTO_EVAL_BAR, autoEvalBarEnabled);
         WORKBENCH_PREFS.putBoolean(PREF_LIVE_EXTERNAL_ENGINE, liveExternalEngineEnabled);
+    }
+
+    /**
+     * Applies and persists a new appearance mode.
+     *
+     * @param dark true to use dark mode
+     */
+    protected void setDarkMode(boolean dark) {
+        Theme.Mode next = dark ? Theme.Mode.DARK : Theme.Mode.LIGHT;
+        if (Theme.mode() == next) {
+            return;
+        }
+        Theme.setMode(next);
+        WORKBENCH_PREFS.put(PREF_THEME_MODE, Theme.mode().id());
+        Theme.install();
+        SwingUtilities.updateComponentTreeUI(this);
+        Theme.refreshComponentTree(this);
+        repaint();
+        toast(Toast.Kind.INFO, Theme.mode().label() + " mode");
+    }
+
+    /**
+     * Returns whether dark mode is active.
+     *
+     * @return true in dark mode
+     */
+    protected boolean isDarkMode() {
+        return Theme.isDark();
     }
 
     /**
@@ -675,6 +716,8 @@ public abstract class WindowLifecycle extends WindowBase {
     new PaletteAction("Generate report", "Refresh the report maker output", this::generateReport),
     new PaletteAction("Copy report", "Copy the current report output", this::copyReport),
     new PaletteAction("Copy FEN", "Copy the current board FEN", () -> copyText(fenField.getText())),
+    new PaletteAction("Toggle dark mode", "Switch the workbench appearance palette",
+                        () -> setDarkMode(!Theme.isDark())),
     new PaletteAction("Board settings", "Adjust board highlights, arrows, notation, animations, and eval",
                         this::showDisplaySettings),
     new PaletteAction("Engine settings", "Adjust external engine protocol, nodes, and hash",
