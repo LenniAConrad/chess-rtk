@@ -57,6 +57,7 @@ public final class PGNRegressionTest {
 	public static void main(String[] args) {
 		testVariationExtractionUsesPreMovePosition();
 		testRootVariationsRoundTrip();
+		testCommentsAfterNagsStayOnAnnotatedMove();
 		System.out.println("PGNRegressionTest: all checks passed");
 	}
 
@@ -86,6 +87,26 @@ public final class PGNRegressionTest {
 
 		Game reparsed = Pgn.parseGame(rendered);
 		assertEquals(1, reparsed.getRootVariations().size(), "round-tripped root variation count");
+	}
+
+	/**
+	 * Handles test comments after nags stay on annotated move.
+	 */
+	private static void testCommentsAfterNagsStayOnAnnotatedMove() {
+		Game game = Pgn.parseGame("1. e4 $1 {good move} {keeps initiative} e5 *");
+		Game.Node e4 = game.getMainline();
+		Game.Node e5 = e4.getNext();
+
+		assertEquals(List.of(1), e4.getNags(), "NAG attached to e4");
+		assertEquals(List.of("good move", "keeps initiative"), e4.getCommentsAfter(),
+				"comments after NAG attach to e4");
+		assertTrue(e5.getCommentsBefore().isEmpty(), "comments after NAG are not moved before e5");
+
+		String rendered = Pgn.toPgn(game);
+		assertTrue(rendered.contains("e4 $1 {good move} {keeps initiative} e5"),
+				"rendered PGN separates SAN, NAG, comments, and next move");
+		assertFalse(rendered.contains("e4$1"), "rendered NAG is not glued to SAN");
+		assertFalse(rendered.contains("  "), "rendered annotation path has no doubled spaces");
 	}
 
 	/**
