@@ -684,6 +684,17 @@ public abstract class WindowGameLayer extends WindowEngineLayer {
     }
 
     /**
+     * Loads an ECO movetext line from the standard starting position.
+     *
+     * @param movetext ECO movetext
+     */
+    @Override
+    protected void loadEcoLine(String movetext) {
+        startNewGame(Setup.getStandardStartFEN());
+        loadGameText(movetext);
+    }
+
+    /**
      * Loads a PGN or move-line file.
      */
     protected void loadGameFile() {

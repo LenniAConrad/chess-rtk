@@ -297,6 +297,24 @@ public final class GameModel extends AbstractTableModel {
     }
 
     /**
+     * Returns the move path from the root to the currently selected row.
+     *
+     * <p>
+     * Imported PGN variation rows keep their own path, while ordinary mainline
+     * navigation returns the editable mainline prefix through
+     * {@link #currentPly()}.
+     * </p>
+     *
+     * @return immutable current move path
+     */
+    public List<Short> currentPath() {
+        if (currentRow >= 0 && currentRow < displayRows.size()) {
+            return List.copyOf(displayRows.get(currentRow).path());
+        }
+        return List.copyOf(currentMainlinePath());
+    }
+
+    /**
      * Returns the number of visible imported variation rows.
      *
      * @return variation row count

@@ -5,6 +5,7 @@ import application.gui.workbench.board.BoardEditorPanel;
 import application.gui.workbench.command.CommandPalette.PaletteAction;
 import application.gui.workbench.command.CommandTemplates.CommandTemplate;
 import application.gui.workbench.command.CommandTemplates.TemplateContext;
+import application.gui.workbench.game.EcoExplorerPanel;
 import application.gui.workbench.game.SanRenderer;
 import application.gui.workbench.layout.EditorSplitArea;
 import application.gui.workbench.layout.SplitPaneStyler;
@@ -121,6 +122,11 @@ import static application.gui.workbench.ui.Ui.withTooltip;
 public abstract class WindowBoardLayer extends WindowLifecycle {
     /** Serialization identifier for Swing frame compatibility. */
     private static final long serialVersionUID = 1L;
+
+    /**
+     * ECO explorer panel, created lazily with the board detail tabs.
+     */
+    protected EcoExplorerPanel ecoExplorerPanel;
 
     /**
      * Creates the board tab.
@@ -295,6 +301,7 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
         boardDetailTabs = createSectionTabs();
         boardDetailTabs.addTab("Moves", titled("Legal Moves", scroll(movesTable)));
         boardDetailTabs.addTab("Tags", titled("Tags", scroll(tagList)));
+        boardDetailTabs.addTab("ECO", createEcoExplorerPanel());
         boardDetailTabs.addTab("Editor", createBoardEditorPanel());
         boardDetailTabs.addTab("Data", createAnalysisDataPanel());
         boardDetailTabs.addTab("MCTS", mctsPanel);
@@ -302,6 +309,36 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
         boardDetailTabs.addTab("Engine", createEngineSettingsPanel());
         return boardDetailTabs;
     }
+
+    /**
+     * Creates the ECO opening explorer.
+     *
+     * @return explorer component
+     */
+    protected JComponent createEcoExplorerPanel() {
+        ecoExplorerPanel = new EcoExplorerPanel(
+                () -> gameModel.startPosition(),
+                () -> gameModel.currentPath(),
+                this::loadEcoLine,
+                this::copyText);
+        return scroll(fillViewport(ecoExplorerPanel));
+    }
+
+    /**
+     * Refreshes the ECO explorer when the visible game position changes.
+     */
+    protected void refreshEcoExplorer() {
+        if (ecoExplorerPanel != null) {
+            ecoExplorerPanel.refresh();
+        }
+    }
+
+    /**
+     * Loads one ECO movetext line from the standard starting position.
+     *
+     * @param movetext ECO movetext
+     */
+    protected abstract void loadEcoLine(String movetext);
 
     /**
      * Creates the board setup editor.
