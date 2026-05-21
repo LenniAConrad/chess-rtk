@@ -1,6 +1,7 @@
 package application.gui.workbench.window;
 
 import application.Config;
+import application.gui.workbench.board.BoardEditorPanel;
 import application.gui.workbench.command.CommandPalette.PaletteAction;
 import application.gui.workbench.command.CommandTemplates.CommandTemplate;
 import application.gui.workbench.command.CommandTemplates.TemplateContext;
@@ -294,11 +295,32 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
         boardDetailTabs = createSectionTabs();
         boardDetailTabs.addTab("Moves", titled("Legal Moves", scroll(movesTable)));
         boardDetailTabs.addTab("Tags", titled("Tags", scroll(tagList)));
+        boardDetailTabs.addTab("Editor", createBoardEditorPanel());
         boardDetailTabs.addTab("Data", createAnalysisDataPanel());
         boardDetailTabs.addTab("MCTS", mctsPanel);
         boardDetailTabs.addTab("Settings", createDisplaySettingsPanel());
         boardDetailTabs.addTab("Engine", createEngineSettingsPanel());
         return boardDetailTabs;
+    }
+
+    /**
+     * Creates the board setup editor.
+     *
+     * @return editor component
+     */
+    protected JComponent createBoardEditorPanel() {
+        BoardEditorPanel editor = new BoardEditorPanel(this::currentFen, this::applyBoardEditorFen, this::copyText);
+        return scroll(fillViewport(editor));
+    }
+
+    /**
+     * Applies a validated setup from the board editor.
+     *
+     * @param fen validated FEN
+     */
+    protected void applyBoardEditorFen(String fen) {
+        startNewGame(fen);
+        appendConsole("Board editor applied " + fen + "\n");
     }
 
     /**

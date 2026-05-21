@@ -180,6 +180,7 @@ public final class WorkbenchRegressionTest {
         testAnalysisGraphPaintsOpaqueSurface();
         testBoardHasNoInstructionTooltip();
         testBoardHasNoKeyboardPieceSelector();
+        testBoardEditorBuildsAndAppliesFen();
         testWindowPositionNavigationRoutingSkipsTextAndDataControls();
         testBoardRightDragTogglesLichessArrowMarkup();
         testBoardRightClickTogglesLichessCircleMarkup();
@@ -1194,6 +1195,42 @@ public final class WorkbenchRegressionTest {
                 "board enter key does not select pieces");
         assertEquals(null, board.getInputMap(JComponent.WHEN_FOCUSED).get(KeyStroke.getKeyStroke("SPACE")),
                 "board space key does not select pieces");
+    }
+
+    /**
+     * Verifies the setup editor emits legal FEN and applies through its host
+     * callback.
+     */
+    private static void testBoardEditorBuildsAndAppliesFen() {
+        String base = "4k3/8/8/8/8/8/8/4K3 w - - 0 1";
+        String[] applied = { null };
+        Object editor = construct(type("BoardEditorPanel"),
+                new Class<?>[] {
+                        java.util.function.Supplier.class,
+                        java.util.function.Consumer.class,
+                        java.util.function.Consumer.class },
+                (java.util.function.Supplier<String>) () -> base,
+                (java.util.function.Consumer<String>) value -> applied[0] = value,
+                (java.util.function.Consumer<String>) value -> {
+                    // Clipboard writes are not needed for this regression.
+                });
+
+        assertTrue((Boolean) invoke(editor, "loadFen", new Class<?>[] { String.class }, base),
+                "board editor loads valid FEN");
+        invoke(editor, "setPieceAt", new Class<?>[] { byte.class, byte.class },
+                Field.H4, Piece.WHITE_QUEEN);
+        assertEquals(Byte.valueOf(Piece.WHITE_QUEEN),
+                invoke(editor, "pieceAt", new Class<?>[] { byte.class }, Field.H4),
+                "board editor stores placed piece");
+        assertEquals("4k3/8/8/8/7Q/8/8/4K3 w - - 0 1",
+                invoke(editor, "fen", new Class<?>[0]), "board editor FEN placement");
+
+        invoke(editor, "setWhiteToMove", new Class<?>[] { boolean.class }, false);
+        assertTrue((Boolean) invoke(editor, "applyEditedFen", new Class<?>[0]),
+                "board editor applies legal FEN");
+        assertEquals("4k3/8/8/8/7Q/8/8/4K3 b - - 0 1", applied[0],
+                "board editor normalizes applied FEN");
+        assertPaintsOpaqueCorner((JComponent) editor, 360, 560, "board editor opaque background");
     }
 
     /**
