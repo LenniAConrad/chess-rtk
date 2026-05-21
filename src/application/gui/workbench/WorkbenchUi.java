@@ -252,6 +252,21 @@ final class WorkbenchUi {
     }
 
     /**
+     * Creates one compact form option group.
+     *
+     * @param text label text
+     * @param control option control
+     * @return option group
+     */
+    static JComponent optionGroup(String text, JComponent control) {
+        JPanel panel = transparentPanel(new BorderLayout(6, 0));
+        control.setPreferredSize(new Dimension(120, 28));
+        panel.add(label(text), BorderLayout.WEST);
+        panel.add(control, BorderLayout.CENTER);
+        return panel;
+    }
+
+    /**
      * Creates a thin vertical divider for separating control groups inside a
      * horizontal toolbar.
      *
