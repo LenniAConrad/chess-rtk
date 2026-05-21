@@ -1,5 +1,6 @@
 package application.gui.workbench.command;
 
+import application.gui.workbench.Defaults;
 import application.gui.workbench.command.CommandTemplates.BatchTask;
 import application.gui.workbench.command.CommandTemplates.TemplateContext;
 import application.gui.workbench.command.CommandTemplates.WorkflowControls;
@@ -7,7 +8,6 @@ import application.gui.workbench.game.FenInput;
 import application.gui.workbench.layout.SplitPaneStyler;
 import application.gui.workbench.ui.SurfacePanel;
 import application.gui.workbench.ui.Theme;
-import chess.core.Setup;
 import java.awt.BorderLayout;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
@@ -58,7 +58,7 @@ public final class BatchPanel {
     /**
      * Placeholder path used in command previews for generated FEN files.
      */
-    private static final String WORKBENCH_FENS_PLACEHOLDER = "<workbench-fens.txt>";
+    private static final String WORKBENCH_FENS_PLACEHOLDER = Defaults.WORKBENCH_FENS_PLACEHOLDER;
 
     /**
      * Cached preview-only path used when building batch commands without
@@ -141,7 +141,7 @@ public final class BatchPanel {
     /**
      * Batch duration field.
      */
-    private final JTextField batchDurationField = new JTextField("2s");
+    private final JTextField batchDurationField = new JTextField(Defaults.ANALYSIS_DURATION);
 
     /**
      * Batch options panel.
@@ -320,10 +320,8 @@ public final class BatchPanel {
      */
     private void buildUi() {
         installBatchTasks();
-        batchInput.setText(Setup.getStandardStartFEN() + System.lineSeparator()
-                + "4R1k1/5ppp/8/8/8/8/8/6K1 b - - 0 1" + System.lineSeparator());
-        placeholder(batchDurationField, "e.g. 2s or 500ms");
-        placeholder(batchInput, "one FEN per line; blank uses the current game line");
+        placeholder(batchDurationField, "e.g. " + Defaults.ANALYSIS_DURATION + " or 500ms");
+        placeholder(batchInput, "one FEN per line; use Add Current FEN to seed from the board");
         styleAreas(batchInput);
         batchInput.setRows(12);
         batchInput.getDocument().addDocumentListener(changeListener(this::requestInputStatusUpdate));

@@ -1,5 +1,6 @@
 package application.gui.workbench.mcts;
 
+import application.gui.workbench.Defaults;
 import application.gui.workbench.board.BoardPanel;
 import application.gui.workbench.mcts.MctsSearch;
 import application.gui.workbench.ui.SurfacePanel;
@@ -57,19 +58,31 @@ public final class MctsPanel extends JPanel {
      * Playout budget.
      */
     private final JSpinner playoutSpinner = new JSpinner(
-    new SpinnerNumberModel(1000, 1, 1_000_000, 100));
+            new SpinnerNumberModel(
+                    Defaults.MCTS_VISITS,
+                    Defaults.MCTS_VISITS_MIN,
+                    Defaults.MCTS_VISITS_MAX,
+                    Defaults.MCTS_VISITS_STEP));
 
     /**
      * Optional wall-clock budget in milliseconds. Zero means visit-only.
      */
     private final JSpinner millisSpinner = new JSpinner(
-    new SpinnerNumberModel(0, 0, 3_600_000, 1000));
+            new SpinnerNumberModel(
+                    Defaults.MCTS_MILLIS,
+                    Defaults.MCTS_MILLIS_MIN,
+                    Defaults.MCTS_MILLIS_MAX,
+                    Defaults.MCTS_MILLIS_STEP));
 
     /**
      * PUCT exploration constant.
      */
     private final JSpinner cpuctSpinner = new JSpinner(
-    new SpinnerNumberModel(1, 1, 5, 1));
+            new SpinnerNumberModel(
+                    Defaults.MCTS_CPUCT,
+                    Defaults.MCTS_CPUCT_MIN,
+                    Defaults.MCTS_CPUCT_MAX,
+                    Defaults.MCTS_CPUCT_STEP));
 
     /**
      * Root board with the current best move arrow.

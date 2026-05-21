@@ -1,6 +1,7 @@
 package application.gui.workbench.window;
 
 import application.Config;
+import application.gui.workbench.Defaults;
 import application.gui.workbench.board.BoardPanel;
 import application.gui.workbench.command.BatchPanel;
 import application.gui.workbench.command.CommandForm;
@@ -348,12 +349,16 @@ public abstract class WindowBase extends JFrame {
     /**
      * Duration field.
      */
-    protected final JTextField analysisDurationField = new JTextField("2s");
+    protected final JTextField analysisDurationField = new JTextField(Defaults.ANALYSIS_DURATION);
 
     /**
      * Shared depth model.
      */
-    protected final SpinnerNumberModel depthModel = new SpinnerNumberModel(4, 1, 99, 1);
+    protected final SpinnerNumberModel depthModel = new SpinnerNumberModel(
+            Defaults.ANALYSIS_DEPTH,
+            Defaults.ANALYSIS_DEPTH_MIN,
+            Defaults.ANALYSIS_DEPTH_MAX,
+            Defaults.ANALYSIS_DEPTH_STEP);
 
     /**
      * Analysis depth control.
@@ -363,7 +368,11 @@ public abstract class WindowBase extends JFrame {
     /**
      * Shared MultiPV model.
      */
-    protected final SpinnerNumberModel multipvModel = new SpinnerNumberModel(3, 1, 20, 1);
+    protected final SpinnerNumberModel multipvModel = new SpinnerNumberModel(
+            Defaults.ANALYSIS_MULTIPV,
+            Defaults.ANALYSIS_MULTIPV_MIN,
+            Defaults.ANALYSIS_MULTIPV_MAX,
+            Defaults.ANALYSIS_MULTIPV_STEP);
 
     /**
      * Analysis MultiPV control.
@@ -373,7 +382,11 @@ public abstract class WindowBase extends JFrame {
     /**
      * Shared thread-count model.
      */
-    protected final SpinnerNumberModel threadsModel = new SpinnerNumberModel(1, 1, 256, 1);
+    protected final SpinnerNumberModel threadsModel = new SpinnerNumberModel(
+            Defaults.ANALYSIS_THREADS,
+            Defaults.ANALYSIS_THREADS_MIN,
+            Defaults.ANALYSIS_THREADS_MAX,
+            Defaults.ANALYSIS_THREADS_STEP);
 
     /**
      * Analysis thread control.

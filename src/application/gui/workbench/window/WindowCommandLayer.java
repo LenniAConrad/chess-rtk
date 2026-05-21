@@ -1,6 +1,7 @@
 package application.gui.workbench.window;
 
 import application.Config;
+import application.gui.workbench.Defaults;
 import application.gui.workbench.command.CommandPalette.PaletteAction;
 import application.gui.workbench.command.CommandRunner;
 import application.gui.workbench.command.CommandTemplates.CommandTemplate;
@@ -468,7 +469,7 @@ public abstract class WindowCommandLayer extends WindowGameLayer {
      */
     protected String durationValue() {
         String value = trimmed(analysisDurationField);
-        return value.isEmpty() ? "2s" : value;
+        return value.isEmpty() ? Defaults.ANALYSIS_DURATION : value;
     }
 
     /**

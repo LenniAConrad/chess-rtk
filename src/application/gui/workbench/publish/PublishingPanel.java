@@ -1,5 +1,6 @@
 package application.gui.workbench.publish;
 
+import application.gui.workbench.Defaults;
 import application.gui.workbench.command.CommandRunner;
 import application.gui.workbench.game.FenInput;
 import application.gui.workbench.game.GameModel;
@@ -68,32 +69,32 @@ public final class PublishingPanel {
     /**
      * Placeholder path used in command previews for generated PGN files.
      */
-    private static final String WORKBENCH_GAME_PLACEHOLDER = "<workbench-game.pgn>";
+    private static final String WORKBENCH_GAME_PLACEHOLDER = Defaults.WORKBENCH_GAME_PLACEHOLDER;
 
     /**
      * Placeholder path used in command previews for generated FEN files.
      */
-    private static final String WORKBENCH_FENS_PLACEHOLDER = "<workbench-fens.txt>";
+    private static final String WORKBENCH_FENS_PLACEHOLDER = Defaults.WORKBENCH_FENS_PLACEHOLDER;
 
     /**
      * Default diagram PDF output path.
      */
-    private static final String DEFAULT_DIAGRAMS_OUTPUT = "workbench-diagrams.pdf";
+    private static final String DEFAULT_DIAGRAMS_OUTPUT = Defaults.PUBLISH_DIAGRAMS_OUTPUT;
 
     /**
      * Default interior PDF output path.
      */
-    private static final String DEFAULT_BOOK_OUTPUT = "workbench-book.pdf";
+    private static final String DEFAULT_BOOK_OUTPUT = Defaults.PUBLISH_BOOK_OUTPUT;
 
     /**
      * Default cover PDF output path.
      */
-    private static final String DEFAULT_COVER_OUTPUT = "workbench-cover.pdf";
+    private static final String DEFAULT_COVER_OUTPUT = Defaults.PUBLISH_COVER_OUTPUT;
 
     /**
      * Default manifest output path.
      */
-    private static final String DEFAULT_MANIFEST_OUTPUT = "workbench-book.toml";
+    private static final String DEFAULT_MANIFEST_OUTPUT = Defaults.PUBLISH_MANIFEST_OUTPUT;
 
     /**
      * Display value for optional publishing combos that should not emit a flag.

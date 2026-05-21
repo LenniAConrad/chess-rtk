@@ -1,5 +1,6 @@
 package application.gui.workbench.network;
 
+import application.gui.workbench.Defaults;
 import application.gui.workbench.game.Positions;
 import application.gui.workbench.mcts.MctsSearch;
 import application.gui.workbench.mcts.MctsWeightsPanel;
@@ -200,27 +201,39 @@ public final class NetworkPanel extends JPanel {
      * Visit budget for Network-tab MCTS.
      */
     private final JSpinner mctsVisitsSpinner = new JSpinner(
-    new SpinnerNumberModel(1000, 1, 1_000_000, 100));
+            new SpinnerNumberModel(
+                    Defaults.MCTS_VISITS,
+                    Defaults.MCTS_VISITS_MIN,
+                    Defaults.MCTS_VISITS_MAX,
+                    Defaults.MCTS_VISITS_STEP));
 
     /**
      * Optional Network-tab MCTS wall-clock budget in milliseconds. Zero means
      * visit-only.
      */
     private final JSpinner mctsMillisSpinner = new JSpinner(
-    new SpinnerNumberModel(0, 0, 3_600_000, 1000));
+            new SpinnerNumberModel(
+                    Defaults.MCTS_MILLIS,
+                    Defaults.MCTS_MILLIS_MIN,
+                    Defaults.MCTS_MILLIS_MAX,
+                    Defaults.MCTS_MILLIS_STEP));
 
     /**
      * PUCT exploration constant for Network-tab MCTS.
      */
     private final JSpinner mctsCpuctSpinner = new JSpinner(
-    new SpinnerNumberModel(1, 1, 5, 1));
+            new SpinnerNumberModel(
+                    Defaults.MCTS_CPUCT,
+                    Defaults.MCTS_CPUCT_MIN,
+                    Defaults.MCTS_CPUCT_MAX,
+                    Defaults.MCTS_CPUCT_STEP));
 
     /**
      * When selected, the network views re-infer the MCTS leaf currently being
      * evaluated.
      */
     private final ToggleBox mctsFollowLeafToggle =
-    new ToggleBox("Follow leaf", true);
+            new ToggleBox("Follow leaf", Defaults.NETWORK_MCTS_FOLLOW_LEAF);
 
     /**
      * Search status shown in the Network tab.
@@ -365,7 +378,7 @@ public final class NetworkPanel extends JPanel {
         archCombo.addActionListener(event -> onArchitectureChanged());
         positionCombo.addActionListener(event -> onPositionPicked());
         viewMode.addActionListener(event -> propagateViewMode());
-        mctsFollowLeafToggle.setSelected(true);
+        mctsFollowLeafToggle.setSelected(Defaults.NETWORK_MCTS_FOLLOW_LEAF);
         mctsFollowLeafToggle.addActionListener(event -> onMctsFollowLeafChanged());
         updateNetworkMctsButtons(false);
         debounceTimer = new Timer(DEBOUNCE_MS, event -> startInference());
@@ -984,7 +997,6 @@ public final class NetworkPanel extends JPanel {
         long maxMillis = ((Number) mctsMillisSpinner.getValue()).longValue();
         double cpuct = ((Number) mctsCpuctSpinner.getValue()).doubleValue();
         mctsPaused = false;
-        mctsFollowLeafToggle.setSelected(true);
         mctsSearch = new MctsSearch(root, cpuct);
     final MctsSearch search = mctsSearch;
         mctsLeafFen = root.toString();

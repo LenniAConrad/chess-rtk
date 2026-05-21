@@ -1,6 +1,7 @@
 package application.gui.workbench.window;
 
 import application.Config;
+import application.gui.workbench.Defaults;
 import application.gui.workbench.command.CommandPalette.PaletteAction;
 import application.gui.workbench.command.CommandPalette;
 import application.gui.workbench.command.CommandTemplates.CommandTemplate;
@@ -331,7 +332,7 @@ public abstract class WindowLifecycle extends WindowBase {
      */
     protected void installFieldPlaceholders() {
         placeholder(fenField, "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
-        placeholder(analysisDurationField, "e.g. 2s or 500ms");
+        placeholder(analysisDurationField, "e.g. " + Defaults.ANALYSIS_DURATION + " or 500ms");
         placeholder(engineProtocolField, "path/to/engine.toml");
         placeholder(engineNodesField, "e.g. 1000000");
         placeholder(engineHashField, "e.g. 128");
