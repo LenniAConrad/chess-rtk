@@ -182,6 +182,21 @@ final class WorkbenchUi {
     }
 
     /**
+     * Creates a muted, plain-weight one-line caption that explains what a
+     * panel or section is for.
+     *
+     * @param text caption text
+     * @return styled caption label
+     */
+    static JLabel caption(String text) {
+        JLabel label = new JLabel(text);
+        label.setForeground(WorkbenchTheme.MUTED);
+        label.setFont(WorkbenchTheme.font(11, Font.PLAIN));
+        label.setHorizontalAlignment(SwingConstants.LEFT);
+        return label;
+    }
+
+    /**
      * Creates a muted, bold caption label for a toolbar control — the small
      * "Architecture" / "View" / "Sort" tags that sit to the left of a combo
      * or switcher. Centralised so every control row uses the same treatment.
