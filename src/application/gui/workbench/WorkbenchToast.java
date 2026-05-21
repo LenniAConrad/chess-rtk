@@ -105,6 +105,10 @@ final class WorkbenchToast {
 
     /**
      * Implementation that runs on the EDT.
+     *
+     * @param frame target frame
+     * @param kind severity
+     * @param message message
      */
     private static void showOnEdt(JFrame frame, Kind kind, String message) {
         ToastPanel toast = new ToastPanel(frame, kind, message);
@@ -192,14 +196,43 @@ final class WorkbenchToast {
      */
     private static final class ToastPanel extends JPanel {
 
+        /**
+         * Serialization identifier for Swing component compatibility.
+         */
         private static final long serialVersionUID = 1L;
 
+        /**
+         * Owning frame.
+         */
         private final JFrame owner;
+
+        /**
+         * Toast kind.
+         */
         private final Kind kind;
+
+        /**
+         * Time the toast was shown, in epoch milliseconds.
+         */
         private final long shownAt = System.currentTimeMillis();
+
+        /**
+         * Current alpha during fade animation.
+         */
         private float alpha = 0f;
+
+        /**
+         * Lifecycle timer.
+         */
         private Timer timer;
 
+        /**
+         * Creates a toast panel.
+         *
+         * @param owner owning frame
+         * @param kind toast kind
+         * @param message toast message
+         */
         ToastPanel(JFrame owner, Kind kind, String message) {
             super(new BorderLayout());
             this.owner = owner;
@@ -219,12 +252,18 @@ final class WorkbenchToast {
             setSize(getPreferredSize());
         }
 
+        /**
+         * Starts fade-in, visible, and fade-out lifecycle ticks.
+         */
         void startLifecycle() {
             timer = new Timer(TICK_MS, event -> tick());
             timer.setCoalesce(true);
             timer.start();
         }
 
+        /**
+         * Advances the toast lifecycle and removes it when fully faded.
+         */
         private void tick() {
             long elapsed = System.currentTimeMillis() - shownAt;
             if (elapsed < FADE_MS) {

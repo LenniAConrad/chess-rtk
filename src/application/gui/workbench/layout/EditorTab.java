@@ -1,4 +1,4 @@
-package application.gui.workbench;
+package application.gui.workbench.layout;
 
 import java.awt.BasicStroke;
 import java.awt.Color;
@@ -17,13 +17,15 @@ import java.util.function.Consumer;
 
 import javax.swing.JComponent;
 
+import application.gui.workbench.WorkbenchTheme;
+
 /**
  * A VS Code-style editor tab: a flat rectangle showing the panel name with a
  * close affordance. The active tab is lifted onto the panel surface and
  * underlined in the accent colour; every tab carries an {@code x} that hides
  * it from the strip.
  */
-final class WorkbenchTab extends JComponent {
+final class EditorTab extends JComponent {
 
     /**
      * Serialization identifier for Swing component compatibility.
@@ -114,7 +116,7 @@ final class WorkbenchTab extends JComponent {
      * @param onSelect selection callback
      * @param onClose close callback
      */
-    WorkbenchTab(String name, Runnable onSelect, Runnable onClose) {
+    EditorTab(String name, Runnable onSelect, Runnable onClose) {
         this.name = name;
         setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         MouseAdapter mouse = new MouseAdapter() {
@@ -257,6 +259,11 @@ final class WorkbenchTab extends JComponent {
         return new Rectangle(getWidth() - PAD - CLOSE, (HEIGHT - CLOSE) / 2, CLOSE, CLOSE);
     }
 
+    /**
+     * Returns the preferred tab size based on its text and close affordance.
+     *
+     * @return preferred tab size
+     */
     @Override
     public Dimension getPreferredSize() {
         FontMetrics fm = getFontMetrics(WorkbenchTheme.font(12, Font.PLAIN));
@@ -264,16 +271,34 @@ final class WorkbenchTab extends JComponent {
         return new Dimension(width, HEIGHT);
     }
 
+    /**
+     * Returns the maximum tab size, fixed to the preferred size so tab strips
+     * stay stable during hover and drag state changes.
+     *
+     * @return maximum tab size
+     */
     @Override
     public Dimension getMaximumSize() {
         return getPreferredSize();
     }
 
+    /**
+     * Returns the minimum tab size, fixed to the preferred size so tab strips
+     * stay stable during hover and drag state changes.
+     *
+     * @return minimum tab size
+     */
     @Override
     public Dimension getMinimumSize() {
         return getPreferredSize();
     }
 
+    /**
+     * Paints the flat tab body, active underline, label, separator, and close
+     * affordance.
+     *
+     * @param graphics graphics context
+     */
     @Override
     protected void paintComponent(Graphics graphics) {
         Graphics2D g = (Graphics2D) graphics.create();

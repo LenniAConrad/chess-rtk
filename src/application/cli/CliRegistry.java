@@ -44,7 +44,7 @@ import application.cli.command.book.BookRenderCommand;
 import application.cli.command.book.PuzzleCollectionCommand;
 import application.cli.command.book.PuzzleStudyCommand;
 
-import application.gui.workbench.launch.WorkbenchCommand;
+import application.gui.workbench.launch.WorkbenchLaunchCommand;
 
 /**
  * Central registry for CLI command paths, aliases, summaries, and handlers.
@@ -127,7 +127,7 @@ public final class CliRegistry {
 		root.add(puzzleGroup());
 		root.add(configGroup());
 		root.add(CliCommand.leaf(CMD_WORKBENCH, "Launch the native command and analysis workbench",
-				WorkbenchCommand::runWorkbench)
+                WorkbenchLaunchCommand::runWorkbench)
 				.helpKey(CMD_WORKBENCH)
 				.alias(CMD_GUI)
 				.alias(CMD_GUI_WORKBENCH)

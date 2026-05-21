@@ -1,4 +1,4 @@
-package application.gui.workbench;
+package application.gui.workbench.layout;
 
 import java.awt.BasicStroke;
 import java.awt.BorderLayout;
@@ -25,6 +25,8 @@ import javax.swing.SwingUtilities;
 import javax.swing.plaf.basic.BasicSplitPaneDivider;
 import javax.swing.plaf.basic.BasicSplitPaneUI;
 
+import application.gui.workbench.WorkbenchTheme;
+
 /**
  * VS Code-style workbench shell. Holds every workbench panel and shows them
  * through closable editor tabs. Split mode behaves as two editor groups: each
@@ -32,7 +34,7 @@ import javax.swing.plaf.basic.BasicSplitPaneUI;
  * dropping it in that group's center, and edge drops create horizontal or
  * vertical splits.
  */
-final class WorkbenchSplitArea extends JPanel {
+public final class EditorSplitArea extends JPanel {
 
     /**
      * Serialization identifier for Swing panel compatibility.
@@ -188,7 +190,7 @@ final class WorkbenchSplitArea extends JPanel {
     /**
      * Creates an empty split area.
      */
-    WorkbenchSplitArea() {
+    public EditorSplitArea() {
         super(new BorderLayout());
         setOpaque(true);
         setBackground(WorkbenchTheme.BG);
@@ -215,7 +217,7 @@ final class WorkbenchSplitArea extends JPanel {
      * @param name display name
      * @param panel panel component
      */
-    void addPanel(String name, JComponent panel) {
+    public void addPanel(String name, JComponent panel) {
         int index = names.size();
         names.add(name);
         panels.add(panel);
@@ -227,7 +229,7 @@ final class WorkbenchSplitArea extends JPanel {
      * Builds the tab strips and shows the first panel. Call once after every
      * panel has been added.
      */
-    void install() {
+    public void install() {
         WorkbenchTheme.commandTab(splitButton);
         splitButton.setToolTipText("Split editor group");
         splitButton.addActionListener(event -> toggleSplit());
@@ -239,7 +241,7 @@ final class WorkbenchSplitArea extends JPanel {
      *
      * @return number of panels
      */
-    int count() {
+    public int count() {
         return panels.size();
     }
 
@@ -248,7 +250,7 @@ final class WorkbenchSplitArea extends JPanel {
      *
      * @return selected index
      */
-    int selectedIndex() {
+    public int selectedIndex() {
         return activePane == 1 && isSplitActive() ? secondaryIndex : primaryIndex;
     }
 
@@ -258,7 +260,7 @@ final class WorkbenchSplitArea extends JPanel {
      * @param index panel index
      * @return true when visible
      */
-    boolean isVisibleInPane(int index) {
+    public boolean isVisibleInPane(int index) {
         return primaryIndex == index || secondaryIndex == index;
     }
 
@@ -267,7 +269,7 @@ final class WorkbenchSplitArea extends JPanel {
      *
      * @param listener listener, or null
      */
-    void setSelectionListener(IntConsumer listener) {
+    public void setSelectionListener(IntConsumer listener) {
         selectionListener = listener;
     }
 
@@ -276,7 +278,7 @@ final class WorkbenchSplitArea extends JPanel {
      *
      * @param index panel index
      */
-    void select(int index) {
+    public void select(int index) {
         if (!validPanel(index)) {
             return;
         }
@@ -294,14 +296,14 @@ final class WorkbenchSplitArea extends JPanel {
     /**
      * Selects the next open tab in the currently-active pane.
      */
-    void selectNextTab() {
+    public void selectNextTab() {
         cycleActivePane(1);
     }
 
     /**
      * Selects the previous open tab in the currently-active pane.
      */
-    void selectPreviousTab() {
+    public void selectPreviousTab() {
         cycleActivePane(-1);
     }
 
@@ -441,7 +443,7 @@ final class WorkbenchSplitArea extends JPanel {
         strip.removeAll();
         for (int index : tabList) {
             int panelIndex = index;
-            WorkbenchTab tab = new WorkbenchTab(names.get(index),
+            EditorTab tab = new EditorTab(names.get(index),
                     () -> {
                         if (primary) {
                             setPrimary(panelIndex);
@@ -512,7 +514,7 @@ final class WorkbenchSplitArea extends JPanel {
             JPanel strip,
             List<Integer> tabList,
             int draggedPanelIndex,
-            WorkbenchTab tab,
+            EditorTab tab,
             Point tabPoint) {
         Point inArea = SwingUtilities.convertPoint(tab, tabPoint, this);
         Rectangle stripBounds = componentBounds(strip);
@@ -589,9 +591,9 @@ final class WorkbenchSplitArea extends JPanel {
      * @param stripX drag x in the strip's coordinate space
      */
     private void reorderWithinStrip(JPanel strip, List<Integer> tabList, int draggedPanelIndex, int stripX) {
-        List<WorkbenchTab> tabs = new ArrayList<>();
+        List<EditorTab> tabs = new ArrayList<>();
         for (java.awt.Component child : strip.getComponents()) {
-            if (child instanceof WorkbenchTab tab) {
+            if (child instanceof EditorTab tab) {
                 tabs.add(tab);
             }
         }
@@ -612,7 +614,7 @@ final class WorkbenchSplitArea extends JPanel {
         if (target == from) {
             return;
         }
-        WorkbenchTab dragged = tabs.get(from);
+        EditorTab dragged = tabs.get(from);
         tabList.add(target, tabList.remove(from));
         syncOpenFromGroups();
         strip.remove(dragged);
@@ -948,11 +950,24 @@ final class WorkbenchSplitArea extends JPanel {
      */
     private static void styleSplit(JSplitPane pane) {
         pane.setUI(new BasicSplitPaneUI() {
+            /**
+             * Creates a divider with the workbench split grip.
+             *
+             * @return split pane divider
+             */
             @Override
             public BasicSplitPaneDivider createDefaultDivider() {
                 return new BasicSplitPaneDivider(this) {
+                    /**
+                     * Serialization identifier for Swing divider compatibility.
+                     */
                     private static final long serialVersionUID = 1L;
 
+                    /**
+                     * Paints the themed split divider and grip affordance.
+                     *
+                     * @param graphics graphics context
+                     */
                     @Override
                     public void paint(Graphics graphics) {
                         Graphics2D g = (Graphics2D) graphics.create();

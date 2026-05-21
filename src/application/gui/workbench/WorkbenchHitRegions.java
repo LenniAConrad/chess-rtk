@@ -70,6 +70,19 @@ final class WorkbenchHitRegions {
          */
         final String shapeText;
 
+        /**
+         * Creates a snapshot-backed region.
+         *
+         * @param bounds hit-test bounds
+         * @param title tooltip title
+         * @param description tooltip description
+         * @param value formatted value
+         * @param dataKey activation snapshot key
+         * @param dataOffset data offset
+         * @param dataLength data length
+         * @param dataStride data stride
+         * @param shapeText optional shape text
+         */
         Region(Rectangle bounds, String title, String description, String value,
                 String dataKey, int dataOffset, int dataLength, int dataStride,
                 String shapeText) {
@@ -77,6 +90,20 @@ final class WorkbenchHitRegions {
                     dataOffset, dataLength, dataStride, shapeText);
         }
 
+        /**
+         * Creates a region with optional inline data.
+         *
+         * @param bounds hit-test bounds
+         * @param title tooltip title
+         * @param description tooltip description
+         * @param value formatted value
+         * @param dataKey activation snapshot key
+         * @param inlineData inline tensor values
+         * @param dataOffset data offset
+         * @param dataLength data length
+         * @param dataStride data stride
+         * @param shapeText optional shape text
+         */
         Region(Rectangle bounds, String title, String description, String value,
                 String dataKey, float[] inlineData, int dataOffset, int dataLength,
                 int dataStride, String shapeText) {
@@ -123,6 +150,12 @@ final class WorkbenchHitRegions {
             return sb.toString();
         }
 
+        /**
+         * Escapes text for the HTML tooltip.
+         *
+         * @param s raw text
+         * @return escaped text
+         */
         private static String escape(String s) {
             if (s == null) {
                 return "";

@@ -368,6 +368,12 @@ final class WorkbenchPublishPreview extends JComponent {
                     ready, safe(issue), pages, cover, diagramLayout, flip, noFen);
         }
 
+        /**
+         * Normalizes nullable preview text.
+         *
+         * @param value raw value
+         * @return non-null value
+         */
         private static String safe(String value) {
             return value == null ? "" : value;
         }

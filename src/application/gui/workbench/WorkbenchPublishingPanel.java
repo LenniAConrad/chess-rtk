@@ -46,6 +46,8 @@ import javax.swing.JTextField;
 import javax.swing.SwingUtilities;
 import javax.swing.filechooser.FileNameExtensionFilter;
 
+import application.gui.workbench.layout.SplitPaneStyler;
+
 /**
  * Publishing command builder and preview panel.
  */
@@ -137,26 +139,80 @@ final class WorkbenchPublishingPanel {
      */
     interface Host {
 
+        /**
+         * Returns the owning component for dialogs.
+         *
+         * @return owner component
+         */
         Component owner();
 
+        /**
+         * Returns the current board FEN.
+         *
+         * @return current FEN
+         */
         String currentFen();
 
+        /**
+         * Returns the current game model.
+         *
+         * @return game model
+         */
         WorkbenchGameModel gameModel();
 
+        /**
+         * Returns batch input text.
+         *
+         * @return batch input
+         */
         String batchInputText();
 
+        /**
+         * Returns the report panel component.
+         *
+         * @return report panel
+         */
         JComponent reportPanel();
 
+        /**
+         * Generates the current report.
+         */
         void generateReport();
 
+        /**
+         * Runs a command.
+         *
+         * @param args command arguments
+         * @param stdin standard input text
+         */
         void runCommand(List<String> args, String stdin);
 
+        /**
+         * Copies text to the clipboard.
+         *
+         * @param text text to copy
+         */
         void copyText(String text);
 
+        /**
+         * Stops the running command.
+         */
         void stopCommand();
 
+        /**
+         * Shows a toast.
+         *
+         * @param kind toast kind
+         * @param message toast message
+         */
         void toast(WorkbenchToast.Kind kind, String message);
 
+        /**
+         * Shows an error dialog.
+         *
+         * @param title dialog title
+         * @param message dialog message
+         */
         void showError(String title, String message);
     }
 
@@ -335,6 +391,7 @@ final class WorkbenchPublishingPanel {
      * Returns the toggle after attaching a tooltip describing the underlying
      * CLI flag, since the chip labels alone are too terse to discover.
      *
+     * @param <T> checkbox type
      * @param toggle target toggle
      * @param tooltip tooltip text
      * @return the same toggle for fluent field initialization
@@ -564,7 +621,7 @@ final class WorkbenchPublishingPanel {
         split.setDividerLocation(0.56);
         split.setDividerSize(8);
         split.setContinuousLayout(true);
-        WorkbenchSplitPanes.style(split);
+        SplitPaneStyler.style(split);
         root.add(split, BorderLayout.CENTER);
         return root;
     }
@@ -831,7 +888,7 @@ final class WorkbenchPublishingPanel {
         previewSplit.setDividerLocation(0.72);
         previewSplit.setDividerSize(8);
         previewSplit.setContinuousLayout(true);
-        WorkbenchSplitPanes.style(previewSplit);
+        SplitPaneStyler.style(previewSplit);
         panel.add(previewSplit, BorderLayout.CENTER);
         return panel;
     }

@@ -90,6 +90,8 @@ import application.gui.workbench.WorkbenchCommandTemplates.CommandTemplate;
 import application.gui.workbench.WorkbenchCommandTemplates.TemplateContext;
 import application.gui.workbench.WorkbenchCommandTemplates.WorkflowControls;
 import application.gui.workbench.WorkbenchCommandPalette.PaletteAction;
+import application.gui.workbench.layout.EditorSplitArea;
+import application.gui.workbench.layout.SplitPaneStyler;
 import chess.core.Move;
 import chess.core.MoveList;
 import chess.core.Position;
@@ -661,6 +663,7 @@ public final class WorkbenchWindow extends JFrame {
     /**
      * Returns the toggle after attaching a tooltip.
      *
+     * @param <T> checkbox type
      * @param toggle target toggle
      * @param tooltip tooltip text
      * @return the same toggle for fluent field initialization
@@ -836,7 +839,7 @@ public final class WorkbenchWindow extends JFrame {
      * Main workbench split area: VS Code-style tabs with an optional
      * side-by-side split.
      */
-    private WorkbenchSplitArea tabs;
+    private EditorSplitArea tabs;
 
     /**
      * Nested analysis tabs.
@@ -893,15 +896,54 @@ public final class WorkbenchWindow extends JFrame {
     private static final Preferences WORKBENCH_PREFS =
             Preferences.userNodeForPackage(WorkbenchWindow.class);
 
+    /**
+     * Preference key for legal-move preview.
+     */
     private static final String PREF_SHOW_LEGAL_MOVES = "display.showLegalMovePreview";
+
+    /**
+     * Preference key for last-move highlighting.
+     */
     private static final String PREF_SHOW_LAST_MOVE = "display.showLastMoveHighlight";
+
+    /**
+     * Preference key for best-move arrows.
+     */
     private static final String PREF_SHOW_BEST_ARROWS = "display.showBestMoveArrows";
+
+    /**
+     * Preference key for board coordinates.
+     */
     private static final String PREF_SHOW_COORDINATES = "display.showCoordinates";
+
+    /**
+     * Preference key for board animations.
+     */
     private static final String PREF_BOARD_ANIMATIONS = "display.boardAnimations";
+
+    /**
+     * Preference key for the automatic eval bar.
+     */
     private static final String PREF_AUTO_EVAL_BAR = "display.autoEvalBar";
+
+    /**
+     * Preference key for live external-engine analysis.
+     */
     private static final String PREF_LIVE_EXTERNAL_ENGINE = "engine.liveExternal";
+
+    /**
+     * Preference key for the engine protocol path.
+     */
     private static final String PREF_ENGINE_PROTOCOL = "engine.protocolPath";
+
+    /**
+     * Preference key for external-engine node limit.
+     */
     private static final String PREF_ENGINE_NODES = "engine.maxNodes";
+
+    /**
+     * Preference key for external-engine hash size.
+     */
     private static final String PREF_ENGINE_HASH = "engine.hash";
 
     /**
@@ -1131,7 +1173,7 @@ public final class WorkbenchWindow extends JFrame {
         root.setBackground(WorkbenchTheme.BG);
         root.setBorder(WorkbenchTheme.pad(0, 0, 0, 0));
 
-        tabs = new WorkbenchSplitArea();
+        tabs = new EditorSplitArea();
         tabs.addPanel("Dashboard", dashboardPanel);
         tabs.addPanel("Analyze", createBoardTab());
         tabs.addPanel("Commands", createCommandTab());
@@ -1668,7 +1710,7 @@ public final class WorkbenchWindow extends JFrame {
         boardPage.setResizeWeight(0.68);
         boardPage.setDividerSize(8);
         boardPage.setDividerLocation(0.68);
-        WorkbenchSplitPanes.style(boardPage);
+        SplitPaneStyler.style(boardPage);
 
         analysisTabs = createSectionTabs();
         analysisTabs.addTab("Board", boardPage);
@@ -1923,7 +1965,7 @@ public final class WorkbenchWindow extends JFrame {
         gamePage.setResizeWeight(0.68);
         gamePage.setDividerSize(8);
         gamePage.setDividerLocation(0.68);
-        WorkbenchSplitPanes.style(gamePage);
+        SplitPaneStyler.style(gamePage);
         return gamePage;
     }
 
@@ -2077,7 +2119,7 @@ public final class WorkbenchWindow extends JFrame {
         batchPage.setResizeWeight(0.64);
         batchPage.setDividerSize(8);
         batchPage.setDividerLocation(0.64);
-        WorkbenchSplitPanes.style(batchPage);
+        SplitPaneStyler.style(batchPage);
         panel.add(batchPage, BorderLayout.CENTER);
         updateBatchControls();
         updateBatchCommand();
@@ -4330,6 +4372,7 @@ public final class WorkbenchWindow extends JFrame {
     /**
      * Highlights first legal UCI move in output.
      *
+     * @param args command arguments
      * @param output command output
      */
     private void maybeHighlightMove(List<String> args, String output) {

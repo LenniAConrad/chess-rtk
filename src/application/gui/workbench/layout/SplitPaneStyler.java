@@ -1,19 +1,21 @@
-package application.gui.workbench;
+package application.gui.workbench.layout;
 
 import javax.swing.BorderFactory;
 import javax.swing.JSplitPane;
 import javax.swing.plaf.basic.BasicSplitPaneDivider;
 import javax.swing.plaf.basic.BasicSplitPaneUI;
 
+import application.gui.workbench.WorkbenchTheme;
+
 /**
  * Shared VS Code-style split pane styling.
  */
-final class WorkbenchSplitPanes {
+public final class SplitPaneStyler {
 
     /**
      * Prevents instantiation.
      */
-    private WorkbenchSplitPanes() {
+    private SplitPaneStyler() {
         // utility
     }
 
@@ -22,7 +24,7 @@ final class WorkbenchSplitPanes {
      *
      * @param pane split pane
      */
-    static void style(JSplitPane pane) {
+    public static void style(JSplitPane pane) {
         pane.setUI(new BasicSplitPaneUI() {
             /**
              * Creates a themed divider that paints only a hairline separator.
@@ -32,8 +34,16 @@ final class WorkbenchSplitPanes {
             @Override
             public BasicSplitPaneDivider createDefaultDivider() {
                 return new BasicSplitPaneDivider(this) {
+                    /**
+                     * Serialization identifier for Swing divider compatibility.
+                     */
                     private static final long serialVersionUID = 1L;
 
+                    /**
+                     * Paints the themed divider background and separator line.
+                     *
+                     * @param graphics graphics context
+                     */
                     @Override
                     public void paint(java.awt.Graphics graphics) {
                         graphics.setColor(WorkbenchTheme.BG);

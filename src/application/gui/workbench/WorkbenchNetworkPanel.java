@@ -673,6 +673,12 @@ final class WorkbenchNetworkPanel extends JPanel {
          */
         final WorkbenchActivationSnapshot atlas;
 
+        /**
+         * Creates an atlas entry.
+         *
+         * @param label display label
+         * @param atlas atlas snapshot
+         */
         NnueAtlasEntry(String label, WorkbenchActivationSnapshot atlas) {
             this.label = label;
             this.atlas = atlas;

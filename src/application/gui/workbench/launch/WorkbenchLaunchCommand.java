@@ -17,12 +17,12 @@ import utility.Argv;
 /**
  * Launches the native CRTK Workbench GUI.
  */
-public final class WorkbenchCommand {
+public final class WorkbenchLaunchCommand {
 
     /**
      * Prevents instantiation.
      */
-    private WorkbenchCommand() {
+    private WorkbenchLaunchCommand() {
         // utility
     }
 

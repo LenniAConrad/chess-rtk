@@ -40,6 +40,9 @@ final class WorkbenchNnueDrawing {
 
     /**
      * Returns a hover tooltip for overview mode without the raw-inspection hint.
+     *
+     * @param r hit region
+     * @return tooltip HTML
      */
     static String overviewTooltip(WorkbenchHitRegions.Region r) {
         StringBuilder sb = new StringBuilder("<html>");
@@ -57,6 +60,9 @@ final class WorkbenchNnueDrawing {
 
     /**
      * Escapes text for a small tooltip fragment.
+     *
+     * @param value raw text
+     * @return escaped text
      */
     static String htmlEscape(String value) {
         if (value == null) {
@@ -122,6 +128,13 @@ final class WorkbenchNnueDrawing {
 
     /**
      * Paints one score summary chip.
+     *
+     * @param g graphics context
+     * @param r chip bounds
+     * @param label label text
+     * @param value primary value text
+     * @param detail detail text
+     * @param accent accent color
      */
     static void paintSummaryChip(Graphics2D g, Rectangle r, String label,
             String value, String detail, Color accent) {
@@ -153,6 +166,10 @@ final class WorkbenchNnueDrawing {
 
     /**
      * Returns the one-based absolute-impact rank for an active feature row.
+     *
+     * @param row feature row
+     * @param impact feature impact array
+     * @return one-based rank, or 0
      */
     static int featureImpactRank(int row, float[] impact) {
         if (impact == null || row < 0 || row >= impact.length) {
@@ -194,6 +211,10 @@ final class WorkbenchNnueDrawing {
     /**
      * Labels NNUE mini-board orientation. The boards always use absolute
      * board coordinates with White's home rank at the bottom.
+     *
+     * @param g graphics context
+     * @param board board bounds
+     * @param maxY maximum allowed y coordinate
      */
     static void drawWhiteBottomLabel(Graphics2D g, Rectangle board, int maxY) {
         int y = board.y + board.height + 12;
@@ -348,6 +369,13 @@ final class WorkbenchNnueDrawing {
 
     /**
      * Draws a compact label on a long Trace edge.
+     *
+     * @param g graphics context
+     * @param text label text
+     * @param x1 start x
+     * @param y1 start y
+     * @param x2 end x
+     * @param y2 end y
      */
     static void drawTraceEdgeLabel(Graphics2D g, String text,
             int x1, int y1, int x2, int y2) {

@@ -121,6 +121,14 @@ final class WorkbenchNnueAtlas {
 
     /**
      * Renders all atlas cells into an unscaled pixel image.
+     *
+     * @param atlas atlas values
+     * @param order slot render order
+     * @param hidden hidden slot count
+     * @param planes plane count
+     * @param squares squares per plane
+     * @param perNeuronScale scale per hidden slot
+     * @return rendered atlas image
      */
     static java.awt.image.BufferedImage atlasPlaneImage(float[] atlas, Integer[] order,
             int hidden, int planes, int squares, float[] perNeuronScale) {
@@ -160,6 +168,10 @@ final class WorkbenchNnueAtlas {
 
     /**
      * Finds a selected slot in the current atlas order.
+     *
+     * @param order slot render order
+     * @param slot selected slot
+     * @return index in order, or -1
      */
     static int orderIndex(Integer[] order, int slot) {
         for (int i = 0; i < order.length; i++) {
@@ -172,6 +184,14 @@ final class WorkbenchNnueAtlas {
 
     /**
      * Draws one metric row in the atlas explanation pane.
+     *
+     * @param g graphics context
+     * @param bounds drawing bounds
+     * @param y baseline row top
+     * @param label metric label
+     * @param value metric value
+     * @param accent value color
+     * @return next row y coordinate
      */
     static int drawAtlasMetricLine(Graphics2D g, Rectangle bounds, int y,
             String label, String value, Color accent) {
@@ -189,6 +209,14 @@ final class WorkbenchNnueAtlas {
     /**
      * Paints a composite slot thumbnail using the strongest signed plane value
      * on each square.
+     *
+     * @param g graphics context
+     * @param r tile bounds
+     * @param atlas atlas values
+     * @param slot hidden slot
+     * @param planes plane count
+     * @param squares squares per plane
+     * @param scale heatmap scale
      */
     static void paintAtlasCompositeTile(Graphics2D g, Rectangle r, float[] atlas,
             int slot, int planes, int squares, float scale) {
@@ -212,6 +240,13 @@ final class WorkbenchNnueAtlas {
 
     /**
      * Returns a short slot badge for the gallery.
+     *
+     * @param output output weights
+     * @param slot hidden slot
+     * @param atlas atlas values
+     * @param planes plane count
+     * @param squares squares per plane
+     * @return badge text
      */
     static String atlasSlotBadge(float[] output, int slot, float[] atlas, int planes, int squares) {
         if (output != null && slot < output.length) {
@@ -222,6 +257,13 @@ final class WorkbenchNnueAtlas {
 
     /**
      * Returns a detail tooltip string for one atlas slot.
+     *
+     * @param output output weights
+     * @param slot hidden slot
+     * @param atlas atlas values
+     * @param planes plane count
+     * @param squares squares per plane
+     * @return detail text
      */
     static String atlasSlotDetail(float[] output, int slot, float[] atlas, int planes, int squares) {
         return String.format("output %+.3f · magnitude %.3f",
@@ -230,6 +272,12 @@ final class WorkbenchNnueAtlas {
 
     /**
      * Heuristic label for a slot based on plane concentration and sparsity.
+     *
+     * @param atlas atlas values
+     * @param slot hidden slot
+     * @param planes plane count
+     * @param squares squares per plane
+     * @return archetype label
      */
     static String atlasSlotArchetype(float[] atlas, int slot, int planes, int squares) {
         int plane = strongestAtlasPlane(atlas, slot, planes, squares);
@@ -240,6 +288,12 @@ final class WorkbenchNnueAtlas {
 
     /**
      * Returns the slot's mean absolute atlas weight.
+     *
+     * @param atlas atlas values
+     * @param slot hidden slot
+     * @param planes plane count
+     * @param squares squares per plane
+     * @return mean absolute weight
      */
     static float atlasSlotMagnitude(float[] atlas, int slot, int planes, int squares) {
         int base = slot * planes * squares;
@@ -253,6 +307,12 @@ final class WorkbenchNnueAtlas {
 
     /**
      * Returns approximate sparsity for one slot.
+     *
+     * @param atlas atlas values
+     * @param slot hidden slot
+     * @param planes plane count
+     * @param squares squares per plane
+     * @return sparsity score
      */
     static float atlasSlotSparsity(float[] atlas, int slot, int planes, int squares) {
         int base = slot * planes * squares;
@@ -273,6 +333,12 @@ final class WorkbenchNnueAtlas {
 
     /**
      * Returns the plane with most absolute mass for one slot.
+     *
+     * @param atlas atlas values
+     * @param slot hidden slot
+     * @param planes plane count
+     * @param squares squares per plane
+     * @return strongest plane index
      */
     static int strongestAtlasPlane(float[] atlas, int slot, int planes, int squares) {
         int best = -1;
@@ -293,6 +359,12 @@ final class WorkbenchNnueAtlas {
 
     /**
      * Returns the strongest positive or negative square in one plane.
+     *
+     * @param data flat plane data
+     * @param offset plane offset
+     * @param squares square count
+     * @param positive true for strongest positive, false for strongest negative
+     * @return strongest square index
      */
     static int strongestSquare(float[] data, int offset, int squares, boolean positive) {
         int best = -1;
@@ -309,6 +381,11 @@ final class WorkbenchNnueAtlas {
 
     /**
      * Formats one square/value pair.
+     *
+     * @param data flat data
+     * @param offset data offset
+     * @param square selected square
+     * @return formatted square value
      */
     static String squareValueLabel(float[] data, int offset, int square) {
         if (square < 0) {
@@ -319,6 +396,11 @@ final class WorkbenchNnueAtlas {
 
     /**
      * Formats the selected-square value.
+     *
+     * @param data flat data
+     * @param offset data offset
+     * @param square selected square
+     * @return formatted selected-square value
      */
     static String selectedSquareValue(float[] data, int offset, int square) {
         return square < 0 ? "-" : String.format("%s %+.3f",
@@ -354,6 +436,13 @@ final class WorkbenchNnueAtlas {
 
     /**
      * Returns total absolute sensitivity to one board square across planes.
+     *
+     * @param atlas atlas values
+     * @param slot hidden slot
+     * @param planes plane count
+     * @param squares squares per plane
+     * @param square board square
+     * @return focus magnitude
      */
     static float atlasSquareFocus(float[] atlas, int slot, int planes, int squares, int square) {
         float sum = 0.0f;
