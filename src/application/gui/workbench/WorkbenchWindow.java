@@ -287,6 +287,57 @@ public final class WorkbenchWindow extends JFrame {
     private static final String DEFAULT_MANIFEST_OUTPUT = "workbench-book.toml";
 
     /**
+     * Display value for optional publishing combos that should not emit a flag.
+     */
+    private static final String PUBLISH_DEFAULT_CHOICE = "Default";
+
+    /**
+     * Page-size values accepted by the book PDF/study commands.
+     */
+    private static final String[] PUBLISH_PAGE_SIZE_CHOICES = {
+            PUBLISH_DEFAULT_CHOICE, "a4", "a5", "letter"
+    };
+
+    /**
+     * Cover bindings accepted by the native cover writer.
+     */
+    private static final String[] PUBLISH_BINDING_CHOICES = {
+            PUBLISH_DEFAULT_CHOICE, "paperback", "hardcover", "ebook"
+    };
+
+    /**
+     * Cover interior tokens accepted by the native cover writer.
+     */
+    private static final String[] PUBLISH_INTERIOR_CHOICES = {
+            PUBLISH_DEFAULT_CHOICE,
+            "white-bw",
+            "white-standard-color",
+            "white-premium-color",
+            "cream-bw"
+    };
+
+    /**
+     * Book language names accepted by the collection builder.
+     */
+    private static final String[] PUBLISH_LANGUAGE_CHOICES = {
+            PUBLISH_DEFAULT_CHOICE,
+            "English",
+            "German",
+            "Spanish",
+            "French",
+            "Chinese",
+            "Russian",
+            "Italian",
+            "Turkish",
+            "SwissGerman",
+            "Japanese",
+            "Hebrew",
+            "Portuguese",
+            "Korean",
+            "Arabic"
+    };
+
+    /**
      * Board view.
      */
     private final WorkbenchBoardPanel board = new WorkbenchBoardPanel();
@@ -660,9 +711,19 @@ public final class WorkbenchWindow extends JFrame {
     private final JComboBox<PublishSource> publishSourceCombo = new JComboBox<>(PublishSource.values());
 
     /**
+     * Publishing input row label.
+     */
+    private final JLabel publishInputLabel = label("input");
+
+    /**
      * Publishing input path field.
      */
     private final JTextField publishInputField = new JTextField();
+
+    /**
+     * Publishing primary output row label.
+     */
+    private final JLabel publishOutputLabel = label("output");
 
     /**
      * Publishing primary output path field.
@@ -670,9 +731,29 @@ public final class WorkbenchWindow extends JFrame {
     private final JTextField publishOutputField = new JTextField(DEFAULT_DIAGRAMS_OUTPUT);
 
     /**
+     * Publishing normalized-manifest output row label.
+     */
+    private final JLabel publishManifestOutputLabel = label("manifest copy");
+
+    /**
+     * Publishing normalized-manifest output path field.
+     */
+    private final JTextField publishManifestOutputField = new JTextField();
+
+    /**
+     * Publishing interior PDF row label.
+     */
+    private final JLabel publishPdfOutputLabel = label("interior pdf");
+
+    /**
      * Publishing PDF or interior path field.
      */
     private final JTextField publishPdfOutputField = new JTextField();
+
+    /**
+     * Publishing cover output row label.
+     */
+    private final JLabel publishCoverOutputLabel = label("cover pdf");
 
     /**
      * Publishing cover output path field.
@@ -690,6 +771,26 @@ public final class WorkbenchWindow extends JFrame {
     private final JTextField publishSubtitleField = new JTextField();
 
     /**
+     * Publishing author override field.
+     */
+    private final JTextField publishAuthorField = new JTextField();
+
+    /**
+     * Publishing time/date override field.
+     */
+    private final JTextField publishTimeField = new JTextField();
+
+    /**
+     * Publishing location override field.
+     */
+    private final JTextField publishLocationField = new JTextField();
+
+    /**
+     * Publishing language selector.
+     */
+    private final JComboBox<String> publishLanguageCombo = new JComboBox<>(PUBLISH_LANGUAGE_CHOICES);
+
+    /**
      * Publishing limit field.
      */
     private final JTextField publishLimitField = new JTextField();
@@ -698,6 +799,51 @@ public final class WorkbenchWindow extends JFrame {
      * Publishing page-count field.
      */
     private final JTextField publishPagesField = new JTextField();
+
+    /**
+     * Publishing page-size selector.
+     */
+    private final JComboBox<String> publishPageSizeCombo = new JComboBox<>(PUBLISH_PAGE_SIZE_CHOICES);
+
+    /**
+     * Publishing diagrams-per-row field.
+     */
+    private final JTextField publishDiagramsPerRowField = new JTextField();
+
+    /**
+     * Publishing board raster size field.
+     */
+    private final JTextField publishBoardPixelsField = new JTextField();
+
+    /**
+     * Publishing study margin override field.
+     */
+    private final JTextField publishMarginField = new JTextField();
+
+    /**
+     * Publishing collection table-frequency field.
+     */
+    private final JTextField publishTableFrequencyField = new JTextField();
+
+    /**
+     * Publishing collection puzzle-row field.
+     */
+    private final JTextField publishPuzzleRowsField = new JTextField();
+
+    /**
+     * Publishing collection puzzle-column field.
+     */
+    private final JTextField publishPuzzleColumnsField = new JTextField();
+
+    /**
+     * Publishing binding selector.
+     */
+    private final JComboBox<String> publishBindingCombo = new JComboBox<>(PUBLISH_BINDING_CHOICES);
+
+    /**
+     * Publishing cover interior selector.
+     */
+    private final JComboBox<String> publishInteriorCombo = new JComboBox<>(PUBLISH_INTERIOR_CHOICES);
 
     /**
      * Publishing validation toggle.
@@ -731,9 +877,55 @@ public final class WorkbenchWindow extends JFrame {
             "Adds --no-fen: omit FEN captions under generated diagrams");
 
     /**
+     * Publishing watermark toggle.
+     */
+    private final JCheckBox publishWatermarkBox = withTooltip(new WorkbenchToggleBox("watermark"),
+            "Adds --free-watermark for render and collection PDFs");
+
+    /**
+     * Publishing watermark identifier.
+     */
+    private final JTextField publishWatermarkIdField = new JTextField();
+
+    /**
+     * Repeated collection imprint lines.
+     */
+    private final JTextArea publishImprintArea = new JTextArea(2, 28);
+
+    /**
+     * Repeated collection dedication lines.
+     */
+    private final JTextArea publishDedicationArea = new JTextArea(2, 28);
+
+    /**
+     * Repeated collection introduction paragraphs.
+     */
+    private final JTextArea publishIntroductionArea = new JTextArea(2, 28);
+
+    /**
+     * Repeated collection how-to-read paragraphs.
+     */
+    private final JTextArea publishHowToReadArea = new JTextArea(2, 28);
+
+    /**
+     * Repeated cover blurb lines.
+     */
+    private final JTextArea publishBlurbArea = new JTextArea(2, 28);
+
+    /**
+     * Repeated cover link lines.
+     */
+    private final JTextArea publishLinkArea = new JTextArea(2, 28);
+
+    /**
+     * Repeated collection afterword paragraphs.
+     */
+    private final JTextArea publishAfterwordArea = new JTextArea(2, 28);
+
+    /**
      * Publishing command preview field.
      */
-    private final JTextField publishCommandField = new JTextField();
+    private final JTextArea publishCommandField = new JTextArea(3, 40);
 
     /**
      * Human-readable publishing preview.
@@ -764,6 +956,11 @@ public final class WorkbenchWindow extends JFrame {
      * Publishing output chooser button.
      */
     private JButton publishOutputButton;
+
+    /**
+     * Publishing normalized-manifest chooser button.
+     */
+    private JButton publishManifestOutputButton;
 
     /**
      * Publishing PDF chooser button.
@@ -1120,12 +1317,30 @@ public final class WorkbenchWindow extends JFrame {
         placeholder(reportNoteField, "e.g. key idea, theme, or next action");
         placeholder(publishInputField, "path/to/input.pgn or path/to/fens.txt");
         placeholder(publishOutputField, "path/to/output.pdf");
+        placeholder(publishManifestOutputField, "path/to/normalized-study.toml");
         placeholder(publishPdfOutputField, "path/to/interior.pdf");
         placeholder(publishCoverOutputField, "path/to/cover.pdf");
         placeholder(publishTitleField, "e.g. My Chess Study");
         placeholder(publishSubtitleField, "e.g. Annotated tactics");
+        placeholder(publishAuthorField, "e.g. Lennart A. Conrad");
+        placeholder(publishTimeField, "e.g. 2026");
+        placeholder(publishLocationField, "e.g. Hamburg");
         placeholder(publishLimitField, "e.g. 50");
         placeholder(publishPagesField, "e.g. 120");
+        placeholder(publishDiagramsPerRowField, "e.g. 2");
+        placeholder(publishBoardPixelsField, "e.g. 900");
+        placeholder(publishMarginField, "e.g. 1.6");
+        placeholder(publishTableFrequencyField, "default 6");
+        placeholder(publishPuzzleRowsField, "default 5");
+        placeholder(publishPuzzleColumnsField, "default 4");
+        placeholder(publishWatermarkIdField, "optional trace ID");
+        placeholder(publishImprintArea, "one --imprint line per row");
+        placeholder(publishDedicationArea, "one --dedication line per row");
+        placeholder(publishIntroductionArea, "one --introduction paragraph per row");
+        placeholder(publishHowToReadArea, "one --how-to-read paragraph per row");
+        placeholder(publishBlurbArea, "one --blurb line per row");
+        placeholder(publishLinkArea, "one --link line per row");
+        placeholder(publishAfterwordArea, "one --afterword paragraph per row");
     }
 
     /**
@@ -2272,11 +2487,7 @@ public final class WorkbenchWindow extends JFrame {
      */
     private JComponent createPublishTab() {
         JPanel panel = transparentPanel(new BorderLayout(10, 10));
-
-        JTabbedPane publishTabs = createSectionTabs();
-        publishTabs.addTab("Report", createReportPanel());
-        publishTabs.addTab("Book", createBookPublishingPanel());
-        panel.add(publishTabs, BorderLayout.CENTER);
+        panel.add(createBookPublishingPanel(), BorderLayout.CENTER);
         configurePublishControls();
         updatePublishControlState();
         generateReport();
@@ -2296,17 +2507,14 @@ public final class WorkbenchWindow extends JFrame {
     }
 
     /**
-     * Styles a split pane as a quiet resizable workbench divider with VS
-     * Code-style one-touch collapse arrows, so either side can be folded away
-     * and restored with a single click.
+     * Styles a split pane as a quiet resizable VS Code-style workbench divider.
      *
      * @param pane split pane
      */
     private static void styleSplitPane(JSplitPane pane) {
         pane.setUI(new BasicSplitPaneUI() {
             /**
-             * Creates a themed divider that keeps the one-touch collapse
-             * buttons.
+             * Creates a themed divider that paints only a hairline separator.
              *
              * @return divider
              */
@@ -2327,16 +2535,13 @@ public final class WorkbenchWindow extends JFrame {
                             int y = getHeight() / 2;
                             graphics.drawLine(0, y, getWidth(), y);
                         }
-                        // Render the one-touch collapse arrows on top.
                         super.paint(graphics);
                     }
                 };
             }
         });
-        // One-touch arrows let a pane be collapsed and restored like a VS Code
-        // side panel.
-        pane.setOneTouchExpandable(true);
-        pane.setDividerSize(11);
+        pane.setOneTouchExpandable(false);
+        pane.setDividerSize(5);
         pane.setBorder(BorderFactory.createEmptyBorder());
         pane.setBackground(WorkbenchTheme.BG);
     }
@@ -2409,78 +2614,227 @@ public final class WorkbenchWindow extends JFrame {
      * @return controls panel
      */
     private JPanel createPublishingControlsPanel() {
-        JPanel panel = new WorkbenchSurfacePanel(new GridBagLayout());
+        JPanel panel = transparentPanel(new GridBagLayout());
+        panel.setBorder(WorkbenchTheme.pad(8, 8, 8, 8));
         GridBagConstraints c = constraints();
+        int row = 0;
         JPanel buildHeader = transparentPanel(new BorderLayout(0, 2));
-        buildHeader.add(WorkbenchTheme.section("Build a book"), BorderLayout.NORTH);
+        buildHeader.add(WorkbenchTheme.section("Publishing"), BorderLayout.NORTH);
         buildHeader.add(WorkbenchUi.caption(
-                "Render a printable PDF puzzle book or game collection. Pick a task, point it at an input, "
-                        + "set the title, then Create PDF."),
+                "Task-aware book output: every enabled field maps directly to a supported CRTK book flag."),
                 BorderLayout.SOUTH);
-        grid(panel, buildHeader, c, 0, 0, 4, 1);
+        grid(panel, buildHeader, c, 0, row++, 4, 1);
 
-        styleCombos(publishTaskCombo, publishSourceCombo);
-        grid(panel, label("task"), c, 0, 1, 1, 1);
+        styleCombos(publishTaskCombo, publishSourceCombo, publishPageSizeCombo, publishBindingCombo,
+                publishInteriorCombo, publishLanguageCombo);
+        grid(panel, label("task"), c, 0, row, 1, 1);
         JPanel taskCell = transparentPanel(new BorderLayout(0, 3));
         taskCell.add(publishTaskCombo, BorderLayout.NORTH);
         taskCell.add(publishTaskHint, BorderLayout.SOUTH);
-        grid(panel, taskCell, c, 1, 1, 3, 1);
+        grid(panel, taskCell, c, 1, row++, 3, 1);
 
-        grid(panel, label("source"), c, 0, 2, 1, 1);
-        grid(panel, publishSourceCombo, c, 1, 2, 3, 1);
+        grid(panel, label("source"), c, 0, row, 1, 1);
+        grid(panel, publishSourceCombo, c, 1, row++, 3, 1);
 
         publishInputField.setColumns(28);
         publishOutputField.setColumns(28);
+        publishManifestOutputField.setColumns(28);
         publishPdfOutputField.setColumns(28);
         publishCoverOutputField.setColumns(28);
         publishTitleField.setColumns(28);
         publishSubtitleField.setColumns(28);
+        publishAuthorField.setColumns(28);
+        publishTimeField.setColumns(12);
+        publishLocationField.setColumns(12);
         publishLimitField.setColumns(8);
         publishPagesField.setColumns(8);
-        publishCommandField.setColumns(40);
+        publishDiagramsPerRowField.setColumns(8);
+        publishBoardPixelsField.setColumns(8);
+        publishMarginField.setColumns(8);
+        publishTableFrequencyField.setColumns(8);
+        publishPuzzleRowsField.setColumns(8);
+        publishPuzzleColumnsField.setColumns(8);
+        publishWatermarkIdField.setColumns(18);
         styleFields(publishInputField, publishOutputField, publishPdfOutputField, publishCoverOutputField,
-                publishTitleField, publishSubtitleField, publishLimitField, publishPagesField, publishCommandField);
-        grid(panel, WorkbenchTheme.section("Files"), c, 0, 3, 4, 1);
-        publishInputButton = addChooserRow(panel, c, "input", publishInputField, "Choose Input", 4,
+                publishManifestOutputField, publishTitleField, publishSubtitleField, publishAuthorField,
+                publishTimeField, publishLocationField, publishLimitField, publishPagesField,
+                publishDiagramsPerRowField, publishBoardPixelsField, publishMarginField,
+                publishTableFrequencyField, publishPuzzleRowsField, publishPuzzleColumnsField,
+                publishWatermarkIdField);
+        styleAreas(publishCommandField, publishImprintArea, publishDedicationArea, publishIntroductionArea,
+                publishHowToReadArea, publishBlurbArea, publishLinkArea, publishAfterwordArea);
+        configurePublishingArea(publishCommandField, false);
+        configurePublishingArea(publishImprintArea, true);
+        configurePublishingArea(publishDedicationArea, true);
+        configurePublishingArea(publishIntroductionArea, true);
+        configurePublishingArea(publishHowToReadArea, true);
+        configurePublishingArea(publishBlurbArea, true);
+        configurePublishingArea(publishLinkArea, true);
+        configurePublishingArea(publishAfterwordArea, true);
+
+        row = addPublishingSection(panel, c, "Files", row);
+        publishInputButton = addChooserRow(panel, c, publishInputLabel, publishInputField, "Choose Input", row++,
                 () -> choosePath(publishInputField, false, "Choose publishing input"));
-        publishOutputButton = addChooserRow(panel, c, "manifest", publishOutputField, "Choose Output", 5,
+        publishOutputButton = addChooserRow(panel, c, publishOutputLabel, publishOutputField, "Choose Output", row++,
                 () -> choosePath(publishOutputField, true, "Choose publishing output"));
-        publishPdfOutputButton = addChooserRow(panel, c, "interior pdf", publishPdfOutputField, "Choose PDF", 6,
+        publishManifestOutputButton = addChooserRow(panel, c, publishManifestOutputLabel,
+                publishManifestOutputField, "Choose Manifest", row++,
+                () -> choosePath(publishManifestOutputField, true, "Choose manifest output"));
+        publishPdfOutputButton = addChooserRow(panel, c, publishPdfOutputLabel, publishPdfOutputField, "Choose PDF",
+                row++,
                 this::choosePublishPdfPath);
-        publishCoverOutputButton = addChooserRow(panel, c, "cover", publishCoverOutputField, "Choose Cover", 7,
+        publishCoverOutputButton = addChooserRow(panel, c, publishCoverOutputLabel, publishCoverOutputField,
+                "Choose Cover", row++,
                 () -> choosePath(publishCoverOutputField, true, "Choose cover output"));
 
-        grid(panel, WorkbenchTheme.section("Details"), c, 0, 8, 4, 1);
-        grid(panel, label("title"), c, 0, 9, 1, 1);
-        grid(panel, publishTitleField, c, 1, 9, 3, 1);
-        grid(panel, label("subtitle"), c, 0, 10, 1, 1);
-        grid(panel, publishSubtitleField, c, 1, 10, 3, 1);
+        row = addPublishingSection(panel, c, "Details", row);
+        row = addPublishingControlRow(panel, c, label("title"), publishTitleField, row);
+        row = addPublishingControlRow(panel, c, label("subtitle"), publishSubtitleField, row);
+        row = addPublishingControlRow(panel, c, label("author"), publishAuthorField, row);
+        row = addPublishingControlRow(panel, c, label("date/place"),
+                compactPublishingRow(label("time"), publishTimeField, label("location"), publishLocationField), row);
+        row = addPublishingControlRow(panel, c, label("language"), publishLanguageCombo, row);
 
-        JPanel limitRow = flow(FlowLayout.LEFT);
-        limitRow.add(publishLimitField);
-        limitRow.add(label("pages"));
-        limitRow.add(publishPagesField);
-        grid(panel, label("limit"), c, 0, 11, 1, 1);
-        grid(panel, limitRow, c, 1, 11, 3, 1);
+        row = addPublishingSection(panel, c, "Layout", row);
+        row = addPublishingControlRow(panel, c, label("diagram"),
+                compactPublishingRow(label("page size"), publishPageSizeCombo, label("per row"),
+                        publishDiagramsPerRowField),
+                row);
+        row = addPublishingControlRow(panel, c, label("board"),
+                compactPublishingRow(label("pixels"), publishBoardPixelsField, label("margin"), publishMarginField),
+                row);
+        row = addPublishingControlRow(panel, c, label("count"),
+                compactPublishingRow(label("limit"), publishLimitField, label("pages"), publishPagesField), row);
+        row = addPublishingControlRow(panel, c, label("collection"),
+                compactPublishingRow(label("table"), publishTableFrequencyField, label("rows"), publishPuzzleRowsField,
+                        label("cols"), publishPuzzleColumnsField),
+                row);
+        row = addPublishingControlRow(panel, c, label("cover"),
+                compactPublishingRow(label("binding"), publishBindingCombo, label("interior"), publishInteriorCombo),
+                row);
 
         JPanel toggles = flow(FlowLayout.LEFT);
         toggles.add(publishValidateBox);
         toggles.add(publishFlipBox);
         toggles.add(publishNoFenBox);
-        grid(panel, toggles, c, 1, 12, 3, 1);
+        toggles.add(publishWatermarkBox);
+        row = addPublishingControlRow(panel, c, label("options"), toggles, row);
+        row = addPublishingControlRow(panel, c, label("watermark id"), publishWatermarkIdField, row);
 
+        row = addPublishingControlRow(panel, c, label("front matter"),
+                collapsible("Copy", createPublishingFrontMatterPanel(), false), row);
+        row = addPublishingControlRow(panel, c, label("report"),
+                collapsible("Position Report", createReportPanel(), false), row);
+
+        row = addPublishingSection(panel, c, "Command", row);
         publishCommandField.setEditable(false);
-        grid(panel, WorkbenchTheme.section("Command"), c, 0, 13, 4, 1);
-        grid(panel, label("preview"), c, 0, 14, 1, 1);
-        grid(panel, publishCommandField, c, 1, 14, 3, 1);
+        publishCommandField.setFocusable(false);
+        publishCommandField.setToolTipText("Generated publishing command");
+        grid(panel, label("preview"), c, 0, row, 1, 1);
+        grid(panel, scroll(publishCommandField), c, 1, row++, 3, 1);
 
         grid(panel, buttonRow(FlowLayout.LEFT,
                 button("Create PDF", true, event -> runPublishingCommand()),
                 button("Copy Command", false, event -> copyText(publishCommandField.getText())),
                 button("Copy Preview", false, event -> copyPublishingPreview()),
-                button("Stop", false, event -> stopCommand())), c, 1, 15, 3, 1);
-        addVerticalFiller(panel, c, 16, 4);
+                button("Stop", false, event -> stopCommand())), c, 1, row++, 3, 1);
+        addVerticalFiller(panel, c, row, 4);
         return panel;
+    }
+
+    /**
+     * Configures a publishing multi-line text control.
+     *
+     * @param area target area
+     * @param editable whether the user edits the area
+     */
+    private static void configurePublishingArea(JTextArea area, boolean editable) {
+        area.setLineWrap(true);
+        area.setWrapStyleWord(true);
+        area.setEditable(editable);
+        area.setRows(editable ? 2 : 3);
+        area.setMinimumSize(new Dimension(220, editable ? 58 : 76));
+    }
+
+    /**
+     * Adds a visual section label to the publishing form.
+     *
+     * @param panel target panel
+     * @param c shared constraints
+     * @param title section title
+     * @param row target row
+     * @return next row
+     */
+    private static int addPublishingSection(JPanel panel, GridBagConstraints c, String title, int row) {
+        grid(panel, WorkbenchTheme.section(title), c, 0, row, 4, 1);
+        return row + 1;
+    }
+
+    /**
+     * Adds one publishing control row.
+     *
+     * @param panel target panel
+     * @param c shared constraints
+     * @param rowLabel row label
+     * @param control row control
+     * @param row target row
+     * @return next row
+     */
+    private static int addPublishingControlRow(JPanel panel, GridBagConstraints c, JLabel rowLabel,
+            JComponent control, int row) {
+        grid(panel, rowLabel, c, 0, row, 1, 1);
+        grid(panel, control, c, 1, row, 3, 1);
+        return row + 1;
+    }
+
+    /**
+     * Creates a compact inline row for related publishing controls.
+     *
+     * @param components alternating labels and controls
+     * @return row panel
+     */
+    private static JPanel compactPublishingRow(JComponent... components) {
+        JPanel row = flow(FlowLayout.LEFT);
+        for (JComponent component : components) {
+            row.add(component);
+        }
+        return row;
+    }
+
+    /**
+     * Creates the advanced repeated-text controls for book commands.
+     *
+     * @return front-matter panel
+     */
+    private JComponent createPublishingFrontMatterPanel() {
+        JPanel panel = transparentPanel(new GridBagLayout());
+        GridBagConstraints c = constraints();
+        int row = 0;
+        row = addPublishingTextArea(panel, c, "imprint", publishImprintArea, row);
+        row = addPublishingTextArea(panel, c, "dedication", publishDedicationArea, row);
+        row = addPublishingTextArea(panel, c, "introduction", publishIntroductionArea, row);
+        row = addPublishingTextArea(panel, c, "how to read", publishHowToReadArea, row);
+        row = addPublishingTextArea(panel, c, "blurb", publishBlurbArea, row);
+        row = addPublishingTextArea(panel, c, "link", publishLinkArea, row);
+        addPublishingTextArea(panel, c, "afterword", publishAfterwordArea, row);
+        return panel;
+    }
+
+    /**
+     * Adds one repeated-text area row.
+     *
+     * @param panel target panel
+     * @param c shared constraints
+     * @param labelText row label
+     * @param area text area
+     * @param row target row
+     * @return next row
+     */
+    private static int addPublishingTextArea(JPanel panel, GridBagConstraints c, String labelText, JTextArea area,
+            int row) {
+        grid(panel, label(labelText), c, 0, row, 1, 1);
+        grid(panel, scroll(area), c, 1, row, 3, 1);
+        return row + 1;
     }
 
     /**
@@ -2535,7 +2889,24 @@ public final class WorkbenchWindow extends JFrame {
      */
     private JButton addChooserRow(JPanel panel, GridBagConstraints c, String labelText, JTextField field,
             String buttonText, int row, Runnable chooserAction) {
-        grid(panel, label(labelText), c, 0, row, 1, 1);
+        return addChooserRow(panel, c, label(labelText), field, buttonText, row, chooserAction);
+    }
+
+    /**
+     * Adds a publishing path row with a matching chooser button.
+     *
+     * @param panel target panel
+     * @param c shared constraints
+     * @param rowLabel row label
+     * @param field path field
+     * @param buttonText chooser button text
+     * @param row grid row
+     * @param chooserAction chooser action
+     * @return chooser button
+     */
+    private JButton addChooserRow(JPanel panel, GridBagConstraints c, JLabel rowLabel, JTextField field,
+            String buttonText, int row, Runnable chooserAction) {
+        grid(panel, rowLabel, c, 0, row, 1, 1);
         grid(panel, field, c, 1, row, 2, 1);
         JButton chooserButton = button(buttonText, false, event -> chooserAction.run());
         chooserButton.setText("");
@@ -2560,15 +2931,39 @@ public final class WorkbenchWindow extends JFrame {
             updatePublishControlState();
             updatePublishCommand();
         });
+        publishPageSizeCombo.addActionListener(event -> updatePublishCommand());
+        publishBindingCombo.addActionListener(event -> updatePublishCommand());
+        publishInteriorCombo.addActionListener(event -> updatePublishCommand());
+        publishLanguageCombo.addActionListener(event -> updatePublishCommand());
         publishValidateBox.addActionListener(event -> updatePublishCommand());
         publishFlipBox.addActionListener(event -> updatePublishCommand());
         publishNoFenBox.addActionListener(event -> updatePublishCommand());
+        publishWatermarkBox.addActionListener(event -> updatePublishCommand());
         onTextChange(this::requestPublishCommandUpdate, publishInputField, publishOutputField, publishPdfOutputField,
                 publishCoverOutputField, publishTitleField, publishSubtitleField, publishLimitField,
-                publishPagesField);
+                publishPagesField, publishManifestOutputField, publishAuthorField, publishTimeField,
+                publishLocationField, publishDiagramsPerRowField, publishBoardPixelsField, publishMarginField,
+                publishTableFrequencyField, publishPuzzleRowsField, publishPuzzleColumnsField,
+                publishWatermarkIdField);
+        onAreaChange(this::requestPublishCommandUpdate, publishImprintArea, publishDedicationArea,
+                publishIntroductionArea, publishHowToReadArea, publishBlurbArea, publishLinkArea,
+                publishAfterwordArea);
         styleCheckBox(publishValidateBox);
         styleCheckBox(publishFlipBox);
         styleCheckBox(publishNoFenBox);
+        styleCheckBox(publishWatermarkBox);
+    }
+
+    /**
+     * Adds one document-change callback to multiple text areas.
+     *
+     * @param runnable callback
+     * @param areas text areas
+     */
+    private static void onAreaChange(Runnable runnable, JTextArea... areas) {
+        for (JTextArea area : areas) {
+            area.getDocument().addDocumentListener(changeListener(runnable));
+        }
     }
 
     /**
@@ -2583,28 +2978,74 @@ public final class WorkbenchWindow extends JFrame {
         boolean cover = task == PublishTask.COVER;
         boolean existingDiagramInput = diagrams && selectedPublishSource() == PublishSource.EXISTING_FILE;
         publishTaskHint.setText(switch (task) {
-            case DIAGRAMS -> "Needs a position, PGN, or FEN list — exports plain board diagrams to a PDF.";
-            case RENDER -> "Needs an existing book .toml/.json manifest — renders it straight to a PDF.";
-            case COLLECTION -> "Needs a record JSONL of solved puzzles (each row carries its own solution) "
-                    + "— builds a puzzle book PDF and cover.";
-            case STUDY -> "Needs a rich study .toml/.json manifest — renders an annotated study PDF and cover.";
-            case COVER -> "Needs a book file plus its interior PDF — renders just the printable cover.";
+            case DIAGRAMS -> "book pdf: one FEN source or PGN/FEN file -> diagram PDF.";
+            case RENDER -> "book render: existing book TOML/JSON manifest -> PDF.";
+            case COLLECTION -> "book collection: solved record JSON/JSONL -> manifest, interior PDF, and cover.";
+            case STUDY -> "book study: study TOML/JSON manifest -> annotated PDF, optional manifest copy and cover.";
+            case COVER -> "book cover: book manifest plus optional interior PDF -> printable cover.";
         });
 
         publishSourceCombo.setEnabled(diagrams);
         publishInputField.setEnabled(!diagrams || existingDiagramInput);
+        publishOutputLabel.setText(switch (task) {
+            case DIAGRAMS, RENDER, STUDY -> "pdf";
+            case COLLECTION -> "manifest";
+            case COVER -> "cover pdf";
+        });
+        publishInputLabel.setText(switch (task) {
+            case DIAGRAMS -> existingDiagramInput ? "diagram file" : "generated";
+            case RENDER, STUDY, COVER -> "manifest";
+            case COLLECTION -> "records";
+        });
+        publishPdfOutputLabel.setText("interior pdf");
+        publishCoverOutputLabel.setText("cover pdf");
+        publishManifestOutputField.setEnabled(study);
         publishPdfOutputField.setEnabled(collection || cover);
         publishCoverOutputField.setEnabled(collection || study);
         publishSubtitleField.setEnabled(!diagrams);
+        publishAuthorField.setEnabled(collection || study);
+        publishTimeField.setEnabled(collection || study);
+        publishLocationField.setEnabled(collection || study);
+        publishLanguageCombo.setEnabled(collection);
         publishLimitField.setEnabled(render || collection);
         publishPagesField.setEnabled(collection || study || cover);
+        publishPageSizeCombo.setEnabled(diagrams || study);
+        publishDiagramsPerRowField.setEnabled(diagrams || study);
+        publishBoardPixelsField.setEnabled(diagrams || study);
+        publishMarginField.setEnabled(study);
+        publishTableFrequencyField.setEnabled(collection);
+        publishPuzzleRowsField.setEnabled(collection);
+        publishPuzzleColumnsField.setEnabled(collection);
+        publishBindingCombo.setEnabled(collection || study || cover);
+        publishInteriorCombo.setEnabled(collection || study || cover);
         publishValidateBox.setEnabled(!diagrams);
         publishFlipBox.setEnabled(diagrams || study);
         publishNoFenBox.setEnabled(diagrams || study);
+        publishWatermarkBox.setEnabled(render || collection);
+        publishWatermarkIdField.setEnabled(render || collection);
+        setTextAreaEnabled(publishImprintArea, collection);
+        setTextAreaEnabled(publishDedicationArea, collection);
+        setTextAreaEnabled(publishIntroductionArea, collection);
+        setTextAreaEnabled(publishHowToReadArea, collection);
+        setTextAreaEnabled(publishBlurbArea, collection || study);
+        setTextAreaEnabled(publishLinkArea, collection || study);
+        setTextAreaEnabled(publishAfterwordArea, collection);
         setButtonEnabled(publishInputButton, publishInputField.isEnabled());
         setButtonEnabled(publishOutputButton, publishOutputField.isEnabled());
+        setButtonEnabled(publishManifestOutputButton, publishManifestOutputField.isEnabled());
         setButtonEnabled(publishPdfOutputButton, publishPdfOutputField.isEnabled());
         setButtonEnabled(publishCoverOutputButton, publishCoverOutputField.isEnabled());
+    }
+
+    /**
+     * Enables or disables a publishing text area.
+     *
+     * @param area text area
+     * @param enabled target enabled state
+     */
+    private static void setTextAreaEnabled(JTextArea area, boolean enabled) {
+        area.setEnabled(enabled);
+        area.setEditable(enabled);
     }
 
     /**
@@ -2765,7 +3206,12 @@ public final class WorkbenchWindow extends JFrame {
         sb.append("Source: ").append(publishSourcePreview(task)).append(newline);
         sb.append("Output: ").append(publishOutputPreview(task)).append(newline);
         appendPublishingTextLine(sb, "Title", trimmed(publishTitleField), newline);
-        appendPublishingTextLine(sb, "Subtitle", trimmed(publishSubtitleField), newline);
+        if (task != PublishTask.DIAGRAMS) {
+            appendPublishingTextLine(sb, "Subtitle", trimmed(publishSubtitleField), newline);
+        }
+        if (task == PublishTask.COLLECTION || task == PublishTask.STUDY) {
+            appendPublishingTextLine(sb, "Author", trimmed(publishAuthorField), newline);
+        }
         sb.append("Options: ").append(publishOptionsPreview(task)).append(newline);
         sb.append("Command: ").append(command);
         return sb.toString();
@@ -2800,6 +3246,7 @@ public final class WorkbenchWindow extends JFrame {
     private String publishOutputPreview(PublishTask task) {
         return switch (task) {
             case DIAGRAMS, RENDER, STUDY -> pathOrMissing("PDF", publishOutputField)
+                    + optionalOutput("manifest copy", publishManifestOutputField, task == PublishTask.STUDY)
                     + optionalOutput("cover", publishCoverOutputField, task == PublishTask.STUDY);
             case COLLECTION -> pathOrMissing("manifest", publishOutputField)
                     + optionalOutput("interior PDF", publishPdfOutputField, true)
@@ -2827,7 +3274,49 @@ public final class WorkbenchWindow extends JFrame {
         addPreviewOption(options, (task == PublishTask.COLLECTION || task == PublishTask.STUDY
                 || task == PublishTask.COVER) && !trimmed(publishPagesField).isEmpty(),
                 "pages " + trimmed(publishPagesField));
+        addPreviewOption(options, (task == PublishTask.DIAGRAMS || task == PublishTask.STUDY)
+                && !comboValue(publishPageSizeCombo).isEmpty(), "page " + comboValue(publishPageSizeCombo));
+        addPreviewOption(options, (task == PublishTask.DIAGRAMS || task == PublishTask.STUDY)
+                && !trimmed(publishDiagramsPerRowField).isEmpty(),
+                trimmed(publishDiagramsPerRowField) + " diagrams/row");
+        addPreviewOption(options, (task == PublishTask.DIAGRAMS || task == PublishTask.STUDY)
+                && !trimmed(publishBoardPixelsField).isEmpty(),
+                trimmed(publishBoardPixelsField) + " px boards");
+        addPreviewOption(options, task == PublishTask.STUDY && !trimmed(publishMarginField).isEmpty(),
+                "margin " + trimmed(publishMarginField));
+        addPreviewOption(options, task == PublishTask.COLLECTION && !trimmed(publishTableFrequencyField).isEmpty(),
+                "table every " + trimmed(publishTableFrequencyField));
+        addPreviewOption(options, task == PublishTask.COLLECTION && !trimmed(publishPuzzleRowsField).isEmpty(),
+                trimmed(publishPuzzleRowsField) + " puzzle rows");
+        addPreviewOption(options, task == PublishTask.COLLECTION && !trimmed(publishPuzzleColumnsField).isEmpty(),
+                trimmed(publishPuzzleColumnsField) + " puzzle columns");
+        addPreviewOption(options, (task == PublishTask.COLLECTION || task == PublishTask.STUDY
+                || task == PublishTask.COVER) && !comboValue(publishBindingCombo).isEmpty(),
+                "binding " + comboValue(publishBindingCombo));
+        addPreviewOption(options, (task == PublishTask.COLLECTION || task == PublishTask.STUDY
+                || task == PublishTask.COVER) && !comboValue(publishInteriorCombo).isEmpty(),
+                "interior " + comboValue(publishInteriorCombo));
+        addPreviewOption(options, task == PublishTask.COLLECTION && !comboValue(publishLanguageCombo).isEmpty(),
+                "language " + comboValue(publishLanguageCombo));
+        addPreviewOption(options, (task == PublishTask.RENDER || task == PublishTask.COLLECTION)
+                && publishWatermarkBox.isSelected(), "free watermark");
+        addPreviewOption(options, (task == PublishTask.RENDER || task == PublishTask.COLLECTION)
+                && !trimmed(publishWatermarkIdField).isEmpty(), "watermark ID");
         return options.isEmpty() ? "default" : String.join(", ", options);
+    }
+
+    /**
+     * Returns the selected combo value unless it is the non-emitting default.
+     *
+     * @param combo combo box
+     * @return command-line value or empty string
+     */
+    private static String comboValue(JComboBox<String> combo) {
+        Object selected = combo.getSelectedItem();
+        if (!(selected instanceof String value) || PUBLISH_DEFAULT_CHOICE.equals(value)) {
+            return "";
+        }
+        return value.trim();
     }
 
     /**
@@ -3056,6 +3545,9 @@ public final class WorkbenchWindow extends JFrame {
         }
         addRequiredTextArg(args, "--output", publishOutputField, "output path");
         addOptionalTextArg(args, "--title", publishTitleField);
+        addOptionalComboArg(args, "--page-size", publishPageSizeCombo);
+        addOptionalPositiveIntegerArg(args, "--diagrams-per-row", publishDiagramsPerRowField);
+        addOptionalPositiveIntegerArg(args, "--board-pixels", publishBoardPixelsField);
         addToggleArg(args, "--flip", publishFlipBox.isSelected());
         addToggleArg(args, "--no-fen", publishNoFenBox.isSelected());
     }
@@ -3072,6 +3564,7 @@ public final class WorkbenchWindow extends JFrame {
         addOptionalTextArg(args, "--title", publishTitleField);
         addOptionalTextArg(args, "--subtitle", publishSubtitleField);
         addOptionalPositiveIntegerArg(args, "--limit", publishLimitField);
+        addWatermarkArgs(args);
         addToggleArg(args, "--check", publishValidateBox.isSelected());
     }
 
@@ -3088,8 +3581,24 @@ public final class WorkbenchWindow extends JFrame {
         addOptionalTextArg(args, "--cover-output", publishCoverOutputField);
         addOptionalTextArg(args, "--title", publishTitleField);
         addOptionalTextArg(args, "--subtitle", publishSubtitleField);
+        addOptionalTextArg(args, "--author", publishAuthorField);
+        addOptionalTextArg(args, "--time", publishTimeField);
+        addOptionalTextArg(args, "--location", publishLocationField);
+        addOptionalComboArg(args, "--language", publishLanguageCombo);
         addOptionalPositiveIntegerArg(args, "--limit", publishLimitField);
         addOptionalPositiveIntegerArg(args, "--pages", publishPagesField);
+        addCoverLayoutArgs(args);
+        addOptionalPositiveIntegerArg(args, "--table-frequency", publishTableFrequencyField);
+        addOptionalPositiveIntegerArg(args, "--puzzle-rows", publishPuzzleRowsField);
+        addOptionalPositiveIntegerArg(args, "--puzzle-columns", publishPuzzleColumnsField);
+        addRepeatedTextArgs(args, "--imprint", publishImprintArea);
+        addRepeatedTextArgs(args, "--dedication", publishDedicationArea);
+        addRepeatedTextArgs(args, "--introduction", publishIntroductionArea);
+        addRepeatedTextArgs(args, "--how-to-read", publishHowToReadArea);
+        addRepeatedTextArgs(args, "--blurb", publishBlurbArea);
+        addRepeatedTextArgs(args, "--link", publishLinkArea);
+        addRepeatedTextArgs(args, "--afterword", publishAfterwordArea);
+        addWatermarkArgs(args);
         addToggleArg(args, "--check", publishValidateBox.isSelected());
     }
 
@@ -3102,10 +3611,21 @@ public final class WorkbenchWindow extends JFrame {
         args.add("study");
         addRequiredTextArg(args, "--input", publishInputField, "study manifest input path");
         addOptionalTextArg(args, "--output", publishOutputField);
+        addOptionalTextArg(args, "--manifest-output", publishManifestOutputField);
         addOptionalTextArg(args, "--cover-output", publishCoverOutputField);
         addOptionalTextArg(args, "--title", publishTitleField);
         addOptionalTextArg(args, "--subtitle", publishSubtitleField);
+        addOptionalTextArg(args, "--author", publishAuthorField);
+        addOptionalTextArg(args, "--time", publishTimeField);
+        addOptionalTextArg(args, "--location", publishLocationField);
+        addOptionalComboArg(args, "--page-size", publishPageSizeCombo);
+        addOptionalPositiveDecimalArg(args, "--margin", publishMarginField);
+        addOptionalPositiveIntegerArg(args, "--diagrams-per-row", publishDiagramsPerRowField);
+        addOptionalPositiveIntegerArg(args, "--board-pixels", publishBoardPixelsField);
         addOptionalPositiveIntegerArg(args, "--pages", publishPagesField);
+        addCoverLayoutArgs(args);
+        addRepeatedTextArgs(args, "--blurb", publishBlurbArea);
+        addRepeatedTextArgs(args, "--link", publishLinkArea);
         addToggleArg(args, "--flip", publishFlipBox.isSelected());
         addToggleArg(args, "--no-fen", publishNoFenBox.isSelected());
         addToggleArg(args, "--check", publishValidateBox.isSelected());
@@ -3124,6 +3644,7 @@ public final class WorkbenchWindow extends JFrame {
         addOptionalTextArg(args, "--title", publishTitleField);
         addOptionalTextArg(args, "--subtitle", publishSubtitleField);
         addOptionalPositiveIntegerArg(args, "--pages", publishPagesField);
+        addCoverLayoutArgs(args);
         addToggleArg(args, "--check", publishValidateBox.isSelected());
     }
 
@@ -3168,6 +3689,21 @@ public final class WorkbenchWindow extends JFrame {
     }
 
     /**
+     * Adds an optional combo-box option when it is not set to the default item.
+     *
+     * @param args target arguments
+     * @param flag option flag
+     * @param combo combo source
+     */
+    private static void addOptionalComboArg(List<String> args, String flag, JComboBox<String> combo) {
+        String value = comboValue(combo);
+        if (!value.isEmpty()) {
+            args.add(flag);
+            args.add(value);
+        }
+    }
+
+    /**
      * Adds an optional positive integer option.
      *
      * @param args target arguments
@@ -3184,6 +3720,63 @@ public final class WorkbenchWindow extends JFrame {
         }
         args.add(flag);
         args.add(value);
+    }
+
+    /**
+     * Adds an optional positive decimal option.
+     *
+     * @param args target arguments
+     * @param flag option flag
+     * @param field source field
+     */
+    private static void addOptionalPositiveDecimalArg(List<String> args, String flag, JTextField field) {
+        String value = trimmed(field);
+        if (value.isEmpty()) {
+            return;
+        }
+        if (!value.matches("(?:[1-9]\\d*|0?\\.\\d+|[1-9]\\d*\\.\\d+)")) {
+            throw new IllegalArgumentException(flag + " expects a positive number.");
+        }
+        args.add(flag);
+        args.add(value);
+    }
+
+    /**
+     * Adds shared cover layout flags.
+     *
+     * @param args target arguments
+     */
+    private void addCoverLayoutArgs(List<String> args) {
+        addOptionalComboArg(args, "--binding", publishBindingCombo);
+        addOptionalComboArg(args, "--interior", publishInteriorCombo);
+    }
+
+    /**
+     * Adds free-watermark options.
+     *
+     * @param args target arguments
+     */
+    private void addWatermarkArgs(List<String> args) {
+        addToggleArg(args, "--free-watermark", publishWatermarkBox.isSelected());
+        addOptionalTextArg(args, "--watermark-id", publishWatermarkIdField);
+    }
+
+    /**
+     * Adds one option occurrence for each nonblank line in a text area.
+     *
+     * @param args target arguments
+     * @param flag repeated option flag
+     * @param area source area
+     */
+    private static void addRepeatedTextArgs(List<String> args, String flag, JTextArea area) {
+        String text = area.getText() == null ? "" : area.getText();
+        for (String line : text.split("\\R")) {
+            String value = line.trim();
+            if (!value.isEmpty()) {
+                args.add(flag);
+                args.add(value);
+            }
+        }
     }
 
     /**
