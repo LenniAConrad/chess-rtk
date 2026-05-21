@@ -1,16 +1,35 @@
 package application.gui.workbench.command;
 
-import application.gui.workbench.board.*;
-import application.gui.workbench.command.*;
-import application.gui.workbench.dashboard.*;
-import application.gui.workbench.game.*;
-import application.gui.workbench.layout.*;
-import application.gui.workbench.mcts.*;
-import application.gui.workbench.network.*;
-import application.gui.workbench.publish.*;
-import application.gui.workbench.session.*;
-import application.gui.workbench.ui.*;
-import application.gui.workbench.window.*;
+import application.gui.workbench.command.CommandTemplates.BatchTask;
+import application.gui.workbench.command.CommandTemplates.TemplateContext;
+import application.gui.workbench.command.CommandTemplates.WorkflowControls;
+import application.gui.workbench.game.FenInput;
+import application.gui.workbench.layout.SplitPaneStyler;
+import application.gui.workbench.ui.SurfacePanel;
+import application.gui.workbench.ui.Theme;
+import chess.core.Setup;
+import java.awt.BorderLayout;
+import java.awt.Dimension;
+import java.awt.FlowLayout;
+import java.awt.GridBagConstraints;
+import java.awt.GridBagLayout;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.List;
+import javax.swing.JButton;
+import javax.swing.JComboBox;
+import javax.swing.JComponent;
+import javax.swing.JLabel;
+import javax.swing.JPanel;
+import javax.swing.JSpinner;
+import javax.swing.JSplitPane;
+import javax.swing.JTextArea;
+import javax.swing.JTextField;
+import javax.swing.SpinnerNumberModel;
+import javax.swing.SwingConstants;
+import javax.swing.SwingUtilities;
 
 import static application.gui.workbench.ui.Ui.addVerticalFiller;
 import static application.gui.workbench.ui.Ui.button;
@@ -28,36 +47,6 @@ import static application.gui.workbench.ui.Ui.styleCombos;
 import static application.gui.workbench.ui.Ui.styleFields;
 import static application.gui.workbench.ui.Ui.styleSpinners;
 import static application.gui.workbench.ui.Ui.transparentPanel;
-
-import java.awt.BorderLayout;
-import java.awt.Dimension;
-import java.awt.FlowLayout;
-import java.awt.GridBagConstraints;
-import java.awt.GridBagLayout;
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.List;
-
-import javax.swing.JButton;
-import javax.swing.JComboBox;
-import javax.swing.JComponent;
-import javax.swing.JLabel;
-import javax.swing.JPanel;
-import javax.swing.JSplitPane;
-import javax.swing.JSpinner;
-import javax.swing.JTextArea;
-import javax.swing.JTextField;
-import javax.swing.SpinnerNumberModel;
-import javax.swing.SwingConstants;
-import javax.swing.SwingUtilities;
-
-import application.gui.workbench.command.CommandTemplates.BatchTask;
-import application.gui.workbench.command.CommandTemplates.TemplateContext;
-import application.gui.workbench.command.CommandTemplates.WorkflowControls;
-import application.gui.workbench.layout.SplitPaneStyler;
-import chess.core.Setup;
 
 /**
  * Batch workflow tab: FEN input, task-specific controls, command preview, and

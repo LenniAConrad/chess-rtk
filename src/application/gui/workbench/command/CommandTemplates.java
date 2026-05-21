@@ -1,23 +1,10 @@
 package application.gui.workbench.command;
 
-import application.gui.workbench.board.*;
-import application.gui.workbench.dashboard.*;
-import application.gui.workbench.game.*;
-import application.gui.workbench.layout.*;
-import application.gui.workbench.mcts.*;
-import application.gui.workbench.network.*;
-import application.gui.workbench.publish.*;
-import application.gui.workbench.session.*;
-import application.gui.workbench.ui.*;
-import application.gui.workbench.window.*;
-
+import chess.core.Setup;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-
 import javax.swing.DefaultComboBoxModel;
-
-import chess.core.Setup;
 
 /**
  * Command metadata for the workbench builders.

@@ -1,24 +1,16 @@
 package application.gui.workbench.ui;
 
-import application.gui.workbench.board.*;
-import application.gui.workbench.command.*;
-import application.gui.workbench.dashboard.*;
-import application.gui.workbench.game.*;
-import application.gui.workbench.layout.*;
-import application.gui.workbench.mcts.*;
-import application.gui.workbench.network.*;
-import application.gui.workbench.publish.*;
-import application.gui.workbench.session.*;
-import application.gui.workbench.window.*;
-
+import chess.core.Move;
+import chess.uci.Evaluation;
+import chess.uci.Output;
 import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.FontMetrics;
 import java.awt.GradientPaint;
-import java.awt.Graphics;
 import java.awt.Graphics2D;
+import java.awt.Graphics;
 import java.awt.RenderingHints;
 import java.awt.geom.Path2D;
 import java.awt.image.BufferedImage;
@@ -29,13 +21,8 @@ import java.awt.print.PrinterJob;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
-
 import javax.swing.JComponent;
 import javax.swing.SwingConstants;
-
-import chess.core.Move;
-import chess.uci.Evaluation;
-import chess.uci.Output;
 
 /**
  * Compact live-engine data visualization and report source.

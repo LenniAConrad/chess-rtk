@@ -1,16 +1,16 @@
 package application.gui.workbench.network;
 
-import application.gui.workbench.board.*;
-import application.gui.workbench.command.*;
-import application.gui.workbench.dashboard.*;
-import application.gui.workbench.game.*;
-import application.gui.workbench.layout.*;
-import application.gui.workbench.mcts.*;
-import application.gui.workbench.publish.*;
-import application.gui.workbench.session.*;
-import application.gui.workbench.ui.*;
-import application.gui.workbench.window.*;
-
+import application.gui.workbench.game.Positions;
+import application.gui.workbench.mcts.MctsSearch;
+import application.gui.workbench.mcts.MctsWeightsPanel;
+import application.gui.workbench.ui.InspectorPanel;
+import application.gui.workbench.ui.SegmentedSwitcher;
+import application.gui.workbench.ui.StatusBadge;
+import application.gui.workbench.ui.Theme;
+import application.gui.workbench.ui.ToggleBox;
+import application.gui.workbench.ui.Ui;
+import chess.core.Move;
+import chess.core.Position;
 import java.awt.BorderLayout;
 import java.awt.CardLayout;
 import java.awt.Dimension;
@@ -18,6 +18,7 @@ import java.awt.FlowLayout;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
+import java.lang.reflect.InvocationTargetException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDateTime;
@@ -27,13 +28,11 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.lang.reflect.InvocationTargetException;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Stream;
-
-import javax.swing.BorderFactory;
 import javax.imageio.ImageIO;
+import javax.swing.BorderFactory;
 import javax.swing.JButton;
 import javax.swing.JComboBox;
 import javax.swing.JComponent;
@@ -46,10 +45,6 @@ import javax.swing.SpinnerNumberModel;
 import javax.swing.SwingUtilities;
 import javax.swing.SwingWorker;
 import javax.swing.Timer;
-
-import application.gui.workbench.mcts.MctsSearch;
-import chess.core.Move;
-import chess.core.Position;
 
 /**
  * Workbench network-visualizer host panel.

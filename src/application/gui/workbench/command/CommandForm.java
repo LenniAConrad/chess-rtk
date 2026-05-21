@@ -1,16 +1,14 @@
 package application.gui.workbench.command;
 
-import application.gui.workbench.board.*;
-import application.gui.workbench.dashboard.*;
-import application.gui.workbench.game.*;
-import application.gui.workbench.layout.*;
-import application.gui.workbench.mcts.*;
-import application.gui.workbench.network.*;
-import application.gui.workbench.publish.*;
-import application.gui.workbench.session.*;
-import application.gui.workbench.ui.*;
-import application.gui.workbench.window.*;
-
+import application.gui.workbench.command.CommandTemplates.CommandOption;
+import application.gui.workbench.command.CommandTemplates.CommandTemplate;
+import application.gui.workbench.command.CommandTemplates.TemplateContext;
+import application.gui.workbench.command.CommandTemplates.ValueSource;
+import application.gui.workbench.ui.ChipGroup;
+import application.gui.workbench.ui.Theme;
+import application.gui.workbench.ui.ToggleBox;
+import application.gui.workbench.ui.Ui;
+import chess.core.Position;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
@@ -23,7 +21,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.function.Consumer;
-
 import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
@@ -34,12 +31,6 @@ import javax.swing.JLabel;
 import javax.swing.JList;
 import javax.swing.JPanel;
 import javax.swing.JTextField;
-
-import application.gui.workbench.command.CommandTemplates.CommandOption;
-import application.gui.workbench.command.CommandTemplates.CommandTemplate;
-import application.gui.workbench.command.CommandTemplates.TemplateContext;
-import application.gui.workbench.command.CommandTemplates.ValueSource;
-import chess.core.Position;
 
 /**
  * Structured command-builder form. Replaces the flat flag table with a layout

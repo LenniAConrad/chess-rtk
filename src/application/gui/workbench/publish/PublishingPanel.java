@@ -1,15 +1,40 @@
 package application.gui.workbench.publish;
 
-import application.gui.workbench.board.*;
-import application.gui.workbench.command.*;
-import application.gui.workbench.dashboard.*;
-import application.gui.workbench.game.*;
-import application.gui.workbench.layout.*;
-import application.gui.workbench.mcts.*;
-import application.gui.workbench.network.*;
-import application.gui.workbench.session.*;
-import application.gui.workbench.ui.*;
-import application.gui.workbench.window.*;
+import application.gui.workbench.command.CommandRunner;
+import application.gui.workbench.game.FenInput;
+import application.gui.workbench.game.GameModel;
+import application.gui.workbench.layout.SplitPaneStyler;
+import application.gui.workbench.ui.FileDialogs;
+import application.gui.workbench.ui.SurfacePanel;
+import application.gui.workbench.ui.Theme;
+import application.gui.workbench.ui.Toast;
+import application.gui.workbench.ui.ToggleBox;
+import application.gui.workbench.ui.Ui;
+import java.awt.BorderLayout;
+import java.awt.Component;
+import java.awt.Dimension;
+import java.awt.FlowLayout;
+import java.awt.Font;
+import java.awt.GridBagConstraints;
+import java.awt.GridBagLayout;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
+import javax.swing.JButton;
+import javax.swing.JCheckBox;
+import javax.swing.JComboBox;
+import javax.swing.JComponent;
+import javax.swing.JLabel;
+import javax.swing.JPanel;
+import javax.swing.JSplitPane;
+import javax.swing.JTextArea;
+import javax.swing.JTextField;
+import javax.swing.SwingUtilities;
+import javax.swing.filechooser.FileNameExtensionFilter;
 
 import static application.gui.workbench.command.CommandArgs.addOptionalPositiveIntegerArg;
 import static application.gui.workbench.command.CommandArgs.addOptionalTextArg;
@@ -31,38 +56,9 @@ import static application.gui.workbench.ui.Ui.styleAreas;
 import static application.gui.workbench.ui.Ui.styleCheckBox;
 import static application.gui.workbench.ui.Ui.styleCombos;
 import static application.gui.workbench.ui.Ui.styleFields;
-import static application.gui.workbench.ui.Ui.trimmed;
 import static application.gui.workbench.ui.Ui.transparentPanel;
+import static application.gui.workbench.ui.Ui.trimmed;
 import static application.gui.workbench.ui.Ui.withTooltip;
-
-import java.awt.BorderLayout;
-import java.awt.Component;
-import java.awt.Dimension;
-import java.awt.FlowLayout;
-import java.awt.Font;
-import java.awt.GridBagConstraints;
-import java.awt.GridBagLayout;
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Locale;
-
-import javax.swing.JButton;
-import javax.swing.JCheckBox;
-import javax.swing.JComboBox;
-import javax.swing.JComponent;
-import javax.swing.JLabel;
-import javax.swing.JPanel;
-import javax.swing.JSplitPane;
-import javax.swing.JTextArea;
-import javax.swing.JTextField;
-import javax.swing.SwingUtilities;
-import javax.swing.filechooser.FileNameExtensionFilter;
-
-import application.gui.workbench.layout.SplitPaneStyler;
 
 /**
  * Publishing command builder and preview panel.
