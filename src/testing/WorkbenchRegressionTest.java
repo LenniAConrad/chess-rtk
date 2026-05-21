@@ -163,6 +163,7 @@ public final class WorkbenchRegressionTest {
         testSplitAreaUsesIndependentEditorGroups();
         testSplitAreaSupportsCornerEditorGroups();
         testEditorShellUsesVscodeStyleSplitChrome();
+        testEditorShellShowsRookWatermarkWhenEmpty();
         testButtonHoverTransitionStarts();
         testWorkbenchTimingDefaultsAreSnappy();
         testWorkbenchOperationalDefaultsAreSnappy();
@@ -949,6 +950,40 @@ public final class WorkbenchRegressionTest {
                 "split sash uses VS Code's four-pixel interaction strip");
         assertTrue(pane.isContinuousLayout(), "split sash resizes continuously");
         assertFalse(pane.isOneTouchExpandable(), "split sash has no Swing one-touch affordance");
+    }
+
+    /**
+     * Verifies the editor shell can close to an empty VS Code-style host and
+     * paints a subtle rook outline watermark instead of a blank pane.
+     */
+    @SuppressWarnings("unchecked")
+    private static void testEditorShellShowsRookWatermarkWhenEmpty() {
+        Object area = construct(type("layout.EditorSplitArea"), new Class<?>[0]);
+        invoke(area, "addPanel", new Class<?>[] { String.class, javax.swing.JComponent.class },
+                "Only", new JPanel());
+        invoke(area, "install", new Class<?>[0]);
+        invoke(area, "closeTab", new Class<?>[] { int.class }, 0);
+
+        assertTrue(((List<Integer>) field(area, "open")).isEmpty(), "last tab can close");
+        assertEquals(Integer.valueOf(-1), invoke(area, "selectedIndex", new Class<?>[0]),
+                "empty editor has no selected tab");
+        JComponent host = (JComponent) field(area, "primaryHost");
+        assertEquals(Integer.valueOf(0), Integer.valueOf(host.getComponentCount()),
+                "empty editor host contains no panel");
+
+        host.setSize(360, 300);
+        BufferedImage image = paint(host, 360, 300);
+        Color background = themeColor("PANEL_SOLID");
+        int markedPixels = 0;
+        for (int y = 70; y < 230; y++) {
+            for (int x = 110; x < 250; x++) {
+                Color pixel = new Color(image.getRGB(x, y), true);
+                if (colorDistance(pixel, background) > 2.0) {
+                    markedPixels++;
+                }
+            }
+        }
+        assertTrue(markedPixels > 80, "empty editor paints rook watermark outline");
     }
 
     /**

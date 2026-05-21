@@ -15,6 +15,7 @@ import java.awt.Rectangle;
 import java.awt.RenderingHints;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.awt.geom.Path2D;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.IntConsumer;
@@ -137,6 +138,21 @@ public final class EditorSplitArea extends JPanel {
     private static final int DROP_BORDER_ALPHA = 190;
 
     /**
+     * Minimum watermark rook size.
+     */
+    private static final int WATERMARK_MIN_SIZE = 72;
+
+    /**
+     * Maximum watermark rook size.
+     */
+    private static final int WATERMARK_MAX_SIZE = 170;
+
+    /**
+     * Alpha for the empty editor watermark.
+     */
+    private static final int WATERMARK_ALPHA = 48;
+
+    /**
      * Panel display names.
      */
     private final transient List<String> names = new ArrayList<>();
@@ -255,22 +271,22 @@ public final class EditorSplitArea extends JPanel {
     /**
      * Host for the primary pane's selected panel.
      */
-    private final JPanel primaryHost = new JPanel(new BorderLayout());
+    private final JPanel primaryHost = new EmptyEditorHost();
 
     /**
      * Host for the secondary pane's selected panel.
      */
-    private final JPanel secondaryHost = new JPanel(new BorderLayout());
+    private final JPanel secondaryHost = new EmptyEditorHost();
 
     /**
      * Host for the tertiary pane's selected panel.
      */
-    private final JPanel tertiaryHost = new JPanel(new BorderLayout());
+    private final JPanel tertiaryHost = new EmptyEditorHost();
 
     /**
      * Host for the quaternary pane's selected panel.
      */
-    private final JPanel quaternaryHost = new JPanel(new BorderLayout());
+    private final JPanel quaternaryHost = new EmptyEditorHost();
 
     /**
      * Primary tab strip.
@@ -497,9 +513,6 @@ public final class EditorSplitArea extends JPanel {
      * @param index panel index
      */
     private void closeTab(int index) {
-        if (open.size() <= 1) {
-            return;
-        }
         open.remove(Integer.valueOf(index));
         for (int pane = PANE_PRIMARY; pane <= PANE_QUATERNARY; pane++) {
             tabsForPane(pane).remove(Integer.valueOf(index));
@@ -951,7 +964,7 @@ public final class EditorSplitArea extends JPanel {
         int activeIndex = paneIndex(pane);
         panePanel.removeAll();
         host.removeAll();
-        if (validPanel(activeIndex)) {
+        if (validPanel(activeIndex) && tabList.contains(activeIndex)) {
             host.add(panels.get(activeIndex), BorderLayout.CENTER);
         }
         rebuildStrip(strip, tabList, activeIndex, pane);
@@ -1049,7 +1062,7 @@ public final class EditorSplitArea extends JPanel {
             }
         }
         if (open.isEmpty()) {
-            primaryIndex = 0;
+            primaryIndex = -1;
             secondaryIndex = -1;
             tertiaryIndex = -1;
             quaternaryIndex = -1;
@@ -1468,6 +1481,103 @@ public final class EditorSplitArea extends JPanel {
     @Override
     public Dimension getPreferredSize() {
         return new Dimension(900, 620);
+    }
+
+    /**
+     * Editor-body host that shows a subtle rook outline when no tab content is
+     * open, mirroring VS Code's empty editor watermark treatment.
+     */
+    private static final class EmptyEditorHost extends JPanel {
+
+        /**
+         * Serialization identifier for Swing panel compatibility.
+         */
+        private static final long serialVersionUID = 1L;
+
+        /**
+         * Creates an empty editor host.
+         */
+        EmptyEditorHost() {
+            super(new BorderLayout());
+        }
+
+        /**
+         * Paints the normal panel background and, when empty, a muted rook
+         * outline in the center.
+         *
+         * @param graphics graphics context
+         */
+        @Override
+        protected void paintComponent(Graphics graphics) {
+            super.paintComponent(graphics);
+            if (getComponentCount() > 0) {
+                return;
+            }
+            Graphics2D g = (Graphics2D) graphics.create();
+            try {
+                paintRookWatermark(g, getWidth(), getHeight());
+            } finally {
+                g.dispose();
+            }
+        }
+
+        /**
+         * Paints the centered rook outline watermark.
+         *
+         * @param g graphics context
+         * @param width host width
+         * @param height host height
+         */
+        private static void paintRookWatermark(Graphics2D g, int width, int height) {
+            int shortest = Math.min(width, height);
+            if (shortest < WATERMARK_MIN_SIZE) {
+                return;
+            }
+            int size = Math.min(WATERMARK_MAX_SIZE,
+                    Math.max(WATERMARK_MIN_SIZE, shortest / 3));
+            double x = (width - size) / 2.0;
+            double y = (height - size) / 2.0;
+            g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            g.setColor(Theme.withAlpha(Theme.MUTED, WATERMARK_ALPHA));
+            g.setStroke(new BasicStroke(Math.max(1.8f, size / 42.0f),
+                    BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+            g.draw(rookOutline(x, y, size));
+        }
+
+        /**
+         * Builds a normalized rook silhouette outline.
+         *
+         * @param x left edge
+         * @param y top edge
+         * @param size square size
+         * @return rook outline path
+         */
+        private static Path2D rookOutline(double x, double y, double size) {
+            double s = size / 100.0;
+            Path2D path = new Path2D.Double();
+            path.moveTo(x + 22 * s, y + 94 * s);
+            path.lineTo(x + 78 * s, y + 94 * s);
+            path.lineTo(x + 72 * s, y + 54 * s);
+            path.lineTo(x + 88 * s, y + 54 * s);
+            path.lineTo(x + 88 * s, y + 38 * s);
+            path.lineTo(x + 78 * s, y + 38 * s);
+            path.lineTo(x + 78 * s, y + 18 * s);
+            path.lineTo(x + 66 * s, y + 18 * s);
+            path.lineTo(x + 66 * s, y + 32 * s);
+            path.lineTo(x + 56 * s, y + 32 * s);
+            path.lineTo(x + 56 * s, y + 18 * s);
+            path.lineTo(x + 44 * s, y + 18 * s);
+            path.lineTo(x + 44 * s, y + 32 * s);
+            path.lineTo(x + 34 * s, y + 32 * s);
+            path.lineTo(x + 34 * s, y + 18 * s);
+            path.lineTo(x + 22 * s, y + 18 * s);
+            path.lineTo(x + 22 * s, y + 38 * s);
+            path.lineTo(x + 12 * s, y + 38 * s);
+            path.lineTo(x + 12 * s, y + 54 * s);
+            path.lineTo(x + 28 * s, y + 54 * s);
+            path.closePath();
+            return path;
+        }
     }
 
     /**
