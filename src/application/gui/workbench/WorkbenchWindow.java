@@ -188,7 +188,7 @@ public final class WorkbenchWindow extends JFrame {
     /**
      * Leela-style PUCT search visualizer.
      */
-    private final WorkbenchMctsPanel mctsPanel = new WorkbenchMctsPanel();
+    private final MctsPanel mctsPanel = new MctsPanel();
 
     /**
      * Shared, observable session model the Dashboard tab renders from.

@@ -734,7 +734,7 @@ public final class WorkbenchRegressionTest {
      */
     @SuppressWarnings("unchecked")
     private static void testSplitAreaUsesIndependentEditorGroups() {
-        Object area = construct(type("WorkbenchSplitArea"), new Class<?>[0]);
+        Object area = construct(type("layout.EditorSplitArea"), new Class<?>[0]);
         for (int i = 0; i < 4; i++) {
             invoke(area, "addPanel", new Class<?>[] { String.class, javax.swing.JComponent.class },
                     "Tab " + i, new JPanel());
@@ -2528,7 +2528,7 @@ public final class WorkbenchRegressionTest {
      * best move from the standard start position.
      */
     private static void testMctsSearchBuildsRootRows() {
-        Object search = construct(type("WorkbenchMctsSearch"),
+        Object search = construct(type("mcts.MctsSearch"),
                 new Class<?>[] { Position.class, double.class },
                 new Position(START_FEN), 1.25);
         for (int i = 0; i < 40; i++) {
@@ -2547,7 +2547,7 @@ public final class WorkbenchRegressionTest {
      * terminal children before any PUCT playout is sampled.
      */
     private static void testMctsSearchMateInOneUsesCliShortcut() {
-        Class<?> searchType = type("WorkbenchMctsSearch");
+        Class<?> searchType = type("mcts.MctsSearch");
         Object search = construct(searchType,
                 new Class<?>[] { Position.class, double.class },
                 new Position(MATE_IN_ONE_FEN), 1.25);
@@ -2584,7 +2584,7 @@ public final class WorkbenchRegressionTest {
      * Verifies deeper root mates use the same bounded proof shortcut as the CLI.
      */
     private static void testMctsSearchForcedMateProofOverridesVisits() {
-        Class<?> searchType = type("WorkbenchMctsSearch");
+        Class<?> searchType = type("mcts.MctsSearch");
         Object search = construct(searchType,
                 new Class<?>[] { Position.class, double.class },
                 new Position(FORCED_MATE_IN_FOUR_FEN), 1.25);
@@ -2606,7 +2606,7 @@ public final class WorkbenchRegressionTest {
      * four and pins it ahead of visit/Q ordering.
      */
     private static void testMctsSearchForcedMateInFourProofOverridesVisits() {
-        Class<?> searchType = type("WorkbenchMctsSearch");
+        Class<?> searchType = type("mcts.MctsSearch");
         Object search = construct(searchType,
                 new Class<?>[] { Position.class, double.class },
                 new Position(FORCED_MATE_IN_FOUR_FEN), 1.25);
@@ -2638,7 +2638,7 @@ public final class WorkbenchRegressionTest {
      * static draws do not expand as live tree nodes.
      */
     private static void testMctsSearchTerminalAndDrawHandling() {
-        Class<?> searchType = type("WorkbenchMctsSearch");
+        Class<?> searchType = type("mcts.MctsSearch");
         Object search = construct(searchType,
                 new Class<?>[] { Position.class, double.class },
                 new Position(START_FEN), 1.25);
@@ -2685,7 +2685,7 @@ public final class WorkbenchRegressionTest {
      * when the root advances to that position.
      */
     private static void testMctsSearchReusesRootSubtree() {
-        Class<?> searchType = type("WorkbenchMctsSearch");
+        Class<?> searchType = type("mcts.MctsSearch");
         Object search = construct(searchType,
                 new Class<?>[] { Position.class, double.class },
                 new Position(START_FEN), 1.25);
@@ -2744,7 +2744,7 @@ public final class WorkbenchRegressionTest {
      * keeping the final snapshot readable for UI teardown paths.
      */
     private static void testMctsSearchClosesBackend() {
-        Object search = construct(type("WorkbenchMctsSearch"),
+        Object search = construct(type("mcts.MctsSearch"),
                 new Class<?>[] { Position.class, double.class },
                 new Position(START_FEN), 1.25);
         invoke(search, "iterate", new Class<?>[0]);
@@ -2766,7 +2766,7 @@ public final class WorkbenchRegressionTest {
      * Verifies the MCTS panel builds its controls headlessly.
      */
     private static void testMctsPanelConstructsHeadlessly() {
-        Object panel = construct(type("WorkbenchMctsPanel"), new Class<?>[0]);
+        Object panel = construct(type("MctsPanel"), new Class<?>[0]);
         assertTrue(panel instanceof JComponent, "MCTS panel is a Swing component");
         invoke(panel, "setFen", new Class<?>[] { String.class }, START_FEN);
         JComponent component = (JComponent) panel;

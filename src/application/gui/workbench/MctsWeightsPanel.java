@@ -10,6 +10,7 @@ import java.awt.Rectangle;
 import java.awt.RenderingHints;
 import java.util.List;
 
+import application.gui.workbench.mcts.MctsSearch;
 import chess.core.Move;
 
 /**
@@ -19,7 +20,7 @@ import chess.core.Move;
  * tree edge weights. This panel renders those live search weights while the
  * network views follow the currently evaluated leaf.</p>
  */
-final class WorkbenchMctsWeightsPanel extends javax.swing.JComponent {
+final class MctsWeightsPanel extends javax.swing.JComponent {
 
     /**
      * Serialization identifier.
@@ -39,12 +40,12 @@ final class WorkbenchMctsWeightsPanel extends javax.swing.JComponent {
     /**
      * Latest MCTS snapshot.
      */
-    private WorkbenchMctsSearch.Snapshot snapshot;
+    private MctsSearch.Snapshot snapshot;
 
     /**
      * Creates the panel.
      */
-    WorkbenchMctsWeightsPanel() {
+    MctsWeightsPanel() {
         setOpaque(false);
         setVisible(false);
         setPreferredSize(new Dimension(720, HEIGHT));
@@ -55,7 +56,7 @@ final class WorkbenchMctsWeightsPanel extends javax.swing.JComponent {
      *
      * @param next snapshot
      */
-    void setSnapshot(WorkbenchMctsSearch.Snapshot next) {
+    void setSnapshot(MctsSearch.Snapshot next) {
         snapshot = next;
         setVisible(next != null);
         repaint();
@@ -180,7 +181,7 @@ final class WorkbenchMctsWeightsPanel extends javax.swing.JComponent {
      * @param bounds drawing bounds
      */
     private void drawRows(Graphics2D g, Rectangle bounds) {
-        List<WorkbenchMctsSearch.Row> rows = snapshot.rows();
+        List<MctsSearch.Row> rows = snapshot.rows();
         if (rows.isEmpty()) {
             g.setColor(WorkbenchTheme.MUTED);
             g.setFont(WorkbenchTheme.font(12, Font.PLAIN));
@@ -209,7 +210,7 @@ final class WorkbenchMctsWeightsPanel extends javax.swing.JComponent {
 
         int count = Math.min(MAX_ROWS, rows.size());
         for (int i = 0; i < count; i++) {
-            WorkbenchMctsSearch.Row row = rows.get(i);
+            MctsSearch.Row row = rows.get(i);
             int y = top + i * (rowH + gap);
             drawMoveLabel(g, row, left, y, moveW, rowH);
             drawUnsignedBar(g, left + moveW, y, visitW, rowH,
@@ -250,7 +251,7 @@ final class WorkbenchMctsWeightsPanel extends javax.swing.JComponent {
      * @param w width
      * @param h height
      */
-    private void drawMoveLabel(Graphics2D g, WorkbenchMctsSearch.Row row,
+    private void drawMoveLabel(Graphics2D g, MctsSearch.Row row,
             int x, int y, int w, int h) {
         g.setFont(WorkbenchTheme.font(10, Font.BOLD));
         g.setColor(WorkbenchTheme.TEXT);

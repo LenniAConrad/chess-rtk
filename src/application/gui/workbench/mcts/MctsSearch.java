@@ -1,4 +1,4 @@
-package application.gui.workbench;
+package application.gui.workbench.mcts;
 
 import java.io.IOException;
 import java.nio.file.Path;
@@ -27,7 +27,7 @@ import chess.eval.Classical;
  * evaluator plus tactical move priors so it is always available even when no
  * LC0 network is installed.</p>
  */
-final class WorkbenchMctsSearch implements AutoCloseable {
+public final class MctsSearch implements AutoCloseable {
 
     /**
      * Default bounded transposition-stat table size.
@@ -112,7 +112,7 @@ final class WorkbenchMctsSearch implements AutoCloseable {
      * @param root root position
      * @param cpuct exploration constant
      */
-    WorkbenchMctsSearch(Position root, double cpuct) {
+    public MctsSearch(Position root, double cpuct) {
         if (root == null) {
             throw new IllegalArgumentException("root == null");
         }
@@ -135,14 +135,14 @@ final class WorkbenchMctsSearch implements AutoCloseable {
      * @return BT4-backed search
      * @throws IOException if weights cannot be loaded
      */
-    static WorkbenchMctsSearch bt4(Position root, double cpuct, Path weights) throws IOException {
+    public static MctsSearch bt4(Position root, double cpuct, Path weights) throws IOException {
         if (root == null) {
             throw new IllegalArgumentException("root == null");
         }
         if (weights == null) {
             throw new IllegalArgumentException("weights == null");
         }
-        return new WorkbenchMctsSearch(root, cpuct,
+        return new MctsSearch(root, cpuct,
                 new Bt4Backend(chess.nn.lc0.bt4.Network.load(weights)),
                 DEFAULT_TRANSPOSITION_LIMIT);
     }
@@ -155,7 +155,7 @@ final class WorkbenchMctsSearch implements AutoCloseable {
      * @param backend evaluation and policy backend
      * @param transpositionLimit maximum transposition-table entries
      */
-    private WorkbenchMctsSearch(
+    private MctsSearch(
             Position root,
             double cpuct,
             SearchBackend backend,
@@ -172,7 +172,7 @@ final class WorkbenchMctsSearch implements AutoCloseable {
     /**
      * Runs one PUCT playout.
      */
-    void iterate() {
+    public void iterate() {
         ensureOpen();
         if (immediateRootDecision != null) {
             return;
@@ -201,7 +201,7 @@ final class WorkbenchMctsSearch implements AutoCloseable {
      * @param maxMillis max elapsed milliseconds, or zero for unlimited
      * @return true when search should continue
      */
-    boolean shouldContinue(long maxPlayouts, long maxMillis) {
+    public boolean shouldContinue(long maxPlayouts, long maxMillis) {
         if (immediateRootDecision != null) {
             return false;
         }
@@ -276,7 +276,7 @@ final class WorkbenchMctsSearch implements AutoCloseable {
      *
      * @return playout count
      */
-    long playouts() {
+    public long playouts() {
         return playouts;
     }
 
@@ -286,7 +286,7 @@ final class WorkbenchMctsSearch implements AutoCloseable {
      * @param paused true when the worker is paused
      * @return search snapshot
      */
-    Snapshot snapshot(boolean paused) {
+    public Snapshot snapshot(boolean paused) {
         RootDecision decision = immediateRootDecision;
         List<Node> children = orderedRootChildren(decision);
         List<Row> rows = new ArrayList<>();
@@ -1911,7 +1911,7 @@ final class WorkbenchMctsSearch implements AutoCloseable {
     /**
      * Immutable root child row for the UI table.
      */
-    record Row(
+    public record Row(
             short move,
             String san,
             String uci,
@@ -1927,7 +1927,7 @@ final class WorkbenchMctsSearch implements AutoCloseable {
     /**
      * Immutable UI snapshot.
      */
-    record Snapshot(
+    public record Snapshot(
             String rootFen,
             int rootVisits,
             long playouts,
