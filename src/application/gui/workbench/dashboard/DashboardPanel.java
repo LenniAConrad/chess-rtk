@@ -1,16 +1,14 @@
 package application.gui.workbench.dashboard;
 
-import application.gui.workbench.board.*;
-import application.gui.workbench.command.*;
-import application.gui.workbench.game.*;
-import application.gui.workbench.layout.*;
-import application.gui.workbench.mcts.*;
-import application.gui.workbench.network.*;
-import application.gui.workbench.publish.*;
-import application.gui.workbench.session.*;
-import application.gui.workbench.ui.*;
-import application.gui.workbench.window.*;
-
+import application.gui.workbench.session.HealthSnapshot;
+import application.gui.workbench.session.Job;
+import application.gui.workbench.session.JobTableModel;
+import application.gui.workbench.session.Session;
+import application.gui.workbench.session.SessionListener;
+import application.gui.workbench.ui.MiniChart;
+import application.gui.workbench.ui.Theme;
+import application.gui.workbench.ui.Ui;
+import chess.core.Position;
 import java.awt.BasicStroke;
 import java.awt.BorderLayout;
 import java.awt.Color;
@@ -18,8 +16,8 @@ import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.FontMetrics;
-import java.awt.Graphics;
 import java.awt.Graphics2D;
+import java.awt.Graphics;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.GridLayout;
@@ -28,7 +26,6 @@ import java.awt.RenderingHints;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Locale;
-
 import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
@@ -41,8 +38,6 @@ import javax.swing.JTable;
 import javax.swing.ListSelectionModel;
 import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
-
-import chess.core.Position;
 
 /**
  * The workbench Dashboard tab — a single operational overview of the current

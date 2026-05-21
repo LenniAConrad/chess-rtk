@@ -1,25 +1,12 @@
 package application.gui.workbench.game;
 
-import application.gui.workbench.board.*;
-import application.gui.workbench.command.*;
-import application.gui.workbench.dashboard.*;
-import application.gui.workbench.layout.*;
-import application.gui.workbench.mcts.*;
-import application.gui.workbench.network.*;
-import application.gui.workbench.publish.*;
-import application.gui.workbench.session.*;
-import application.gui.workbench.ui.*;
-import application.gui.workbench.window.*;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Vector;
-
-import javax.swing.table.DefaultTableModel;
-
 import chess.core.Move;
 import chess.core.MoveList;
 import chess.core.Position;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Vector;
+import javax.swing.table.DefaultTableModel;
 
 /**
  * Table model for legal moves in the current position.

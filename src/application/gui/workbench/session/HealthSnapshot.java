@@ -1,16 +1,5 @@
 package application.gui.workbench.session;
 
-import application.gui.workbench.board.*;
-import application.gui.workbench.command.*;
-import application.gui.workbench.dashboard.*;
-import application.gui.workbench.game.*;
-import application.gui.workbench.layout.*;
-import application.gui.workbench.mcts.*;
-import application.gui.workbench.network.*;
-import application.gui.workbench.publish.*;
-import application.gui.workbench.ui.*;
-import application.gui.workbench.window.*;
-
 /**
  * Immutable snapshot of the workbench's environment-health checks: CLI config
  * validation, the {@code doctor} self-test, and the external-engine UCI smoke

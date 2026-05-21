@@ -1,26 +1,13 @@
 package application.gui.workbench.game;
 
-import application.gui.workbench.board.*;
-import application.gui.workbench.command.*;
-import application.gui.workbench.dashboard.*;
-import application.gui.workbench.layout.*;
-import application.gui.workbench.mcts.*;
-import application.gui.workbench.network.*;
-import application.gui.workbench.publish.*;
-import application.gui.workbench.session.*;
-import application.gui.workbench.ui.*;
-import application.gui.workbench.window.*;
-
-import java.util.ArrayList;
-import java.util.List;
-
-import javax.swing.table.AbstractTableModel;
-
 import chess.core.Move;
 import chess.core.Position;
 import chess.core.Setup;
 import chess.struct.Game;
 import chess.struct.Pgn;
+import java.util.ArrayList;
+import java.util.List;
+import javax.swing.table.AbstractTableModel;
 
 /**
  * Tracks the workbench game line and exposes it as a move-history table.

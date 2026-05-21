@@ -1,25 +1,12 @@
 package application.gui.workbench.command;
 
-import application.gui.workbench.board.*;
-import application.gui.workbench.dashboard.*;
-import application.gui.workbench.game.*;
-import application.gui.workbench.layout.*;
-import application.gui.workbench.mcts.*;
-import application.gui.workbench.network.*;
-import application.gui.workbench.publish.*;
-import application.gui.workbench.session.*;
-import application.gui.workbench.ui.*;
-import application.gui.workbench.window.*;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Objects;
-
-import javax.swing.table.AbstractTableModel;
-
 import application.gui.workbench.command.CommandTemplates.CommandOption;
 import application.gui.workbench.command.CommandTemplates.TemplateContext;
 import application.gui.workbench.command.CommandTemplates.ValueSource;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
+import javax.swing.table.AbstractTableModel;
 
 /**
  * Table model for enabling, disabling, and editing command-builder flags.

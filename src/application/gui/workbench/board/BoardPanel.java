@@ -1,15 +1,14 @@
 package application.gui.workbench.board;
 
-import application.gui.workbench.command.*;
-import application.gui.workbench.dashboard.*;
-import application.gui.workbench.game.*;
-import application.gui.workbench.layout.*;
-import application.gui.workbench.mcts.*;
-import application.gui.workbench.network.*;
-import application.gui.workbench.publish.*;
-import application.gui.workbench.session.*;
-import application.gui.workbench.ui.*;
-import application.gui.workbench.window.*;
+import application.gui.workbench.ui.EvalBar;
+import application.gui.workbench.ui.Theme;
+import application.gui.workbench.ui.Ui;
+import chess.core.Field;
+import chess.core.Move;
+import chess.core.MoveList;
+import chess.core.Piece;
+import chess.core.Position;
+import chess.images.assets.Shapes;
 import java.awt.AlphaComposite;
 import java.awt.BasicStroke;
 import java.awt.Color;
@@ -17,8 +16,8 @@ import java.awt.Cursor;
 import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.FontMetrics;
-import java.awt.Graphics;
 import java.awt.Graphics2D;
+import java.awt.Graphics;
 import java.awt.Point;
 import java.awt.RadialGradientPaint;
 import java.awt.Rectangle;
@@ -41,12 +40,7 @@ import java.util.function.ToIntFunction;
 import javax.swing.JPanel;
 import javax.swing.SwingUtilities;
 import javax.swing.Timer;
-import chess.core.Field;
-import chess.core.Move;
-import chess.core.MoveList;
-import chess.core.Piece;
-import chess.core.Position;
-import chess.images.assets.Shapes;
+
 /** Native Java2D chess board used by the CRTK Workbench. */
 public final class BoardPanel extends JPanel {
     /** Serialization identifier for Swing panel compatibility. */

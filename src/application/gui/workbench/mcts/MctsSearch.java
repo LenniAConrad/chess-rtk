@@ -1,23 +1,5 @@
 package application.gui.workbench.mcts;
 
-import application.gui.workbench.board.*;
-import application.gui.workbench.command.*;
-import application.gui.workbench.dashboard.*;
-import application.gui.workbench.game.*;
-import application.gui.workbench.layout.*;
-import application.gui.workbench.network.*;
-import application.gui.workbench.publish.*;
-import application.gui.workbench.session.*;
-import application.gui.workbench.ui.*;
-import application.gui.workbench.window.*;
-
-import java.io.IOException;
-import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-
 import chess.classical.Wdl;
 import chess.core.Move;
 import chess.core.MoveList;
@@ -27,6 +9,12 @@ import chess.core.SAN;
 import chess.engine.MateProver;
 import chess.eval.CentipawnEvaluator;
 import chess.eval.Classical;
+import java.io.IOException;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 
 /**
  * Small in-process PUCT search used by the workbench MCTS panel.

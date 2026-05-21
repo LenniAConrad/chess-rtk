@@ -1,30 +1,16 @@
 package application.gui.workbench.launch;
 
-import application.gui.workbench.board.*;
-import application.gui.workbench.command.*;
-import application.gui.workbench.dashboard.*;
-import application.gui.workbench.game.*;
-import application.gui.workbench.layout.*;
-import application.gui.workbench.mcts.*;
-import application.gui.workbench.network.*;
-import application.gui.workbench.publish.*;
-import application.gui.workbench.session.*;
-import application.gui.workbench.ui.*;
-import application.gui.workbench.window.*;
+import application.gui.workbench.window.Window;
+import chess.core.Setup;
+import java.util.List;
+import javax.swing.SwingUtilities;
+import utility.Argv;
 
 import static application.cli.Constants.CMD_HELP_LONG;
 import static application.cli.Constants.CMD_HELP_SHORT;
 import static application.cli.Constants.OPT_BLACK_DOWN;
 import static application.cli.Constants.OPT_FEN;
 import static application.cli.Constants.OPT_FLIP;
-
-import java.util.List;
-
-import javax.swing.SwingUtilities;
-
-import application.gui.workbench.window.Window;
-import chess.core.Setup;
-import utility.Argv;
 
 /**
  * Launches the native CRTK Workbench GUI.

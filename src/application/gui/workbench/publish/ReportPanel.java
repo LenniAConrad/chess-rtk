@@ -1,27 +1,15 @@
 package application.gui.workbench.publish;
 
-import application.gui.workbench.board.*;
-import application.gui.workbench.command.*;
-import application.gui.workbench.dashboard.*;
-import application.gui.workbench.game.*;
-import application.gui.workbench.layout.*;
-import application.gui.workbench.mcts.*;
-import application.gui.workbench.network.*;
-import application.gui.workbench.session.*;
-import application.gui.workbench.ui.*;
-import application.gui.workbench.window.*;
-
-import static application.gui.workbench.ui.Ui.button;
-import static application.gui.workbench.ui.Ui.buttonRow;
-import static application.gui.workbench.ui.Ui.label;
-import static application.gui.workbench.ui.Ui.placeholder;
-import static application.gui.workbench.ui.Ui.scroll;
-import static application.gui.workbench.ui.Ui.styleAreas;
-import static application.gui.workbench.ui.Ui.styleFields;
-import static application.gui.workbench.ui.Ui.trimmed;
-import static application.gui.workbench.ui.Ui.transparentPanel;
-import static application.gui.workbench.ui.SwingTasks.runAsync;
-
+import application.gui.workbench.game.GameModel;
+import application.gui.workbench.game.PositionText;
+import application.gui.workbench.ui.FileDialogs;
+import application.gui.workbench.ui.SurfacePanel;
+import application.gui.workbench.ui.Theme;
+import application.gui.workbench.ui.Toast;
+import application.gui.workbench.ui.Ui;
+import chess.core.Move;
+import chess.core.MoveList;
+import chess.core.Position;
 import java.awt.BorderLayout;
 import java.awt.Component;
 import java.awt.FlowLayout;
@@ -31,7 +19,6 @@ import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
-
 import javax.swing.DefaultListModel;
 import javax.swing.JComponent;
 import javax.swing.JFileChooser;
@@ -42,9 +29,16 @@ import javax.swing.JTextField;
 import javax.swing.SwingConstants;
 import javax.swing.filechooser.FileNameExtensionFilter;
 
-import chess.core.Move;
-import chess.core.MoveList;
-import chess.core.Position;
+import static application.gui.workbench.ui.SwingTasks.runAsync;
+import static application.gui.workbench.ui.Ui.button;
+import static application.gui.workbench.ui.Ui.buttonRow;
+import static application.gui.workbench.ui.Ui.label;
+import static application.gui.workbench.ui.Ui.placeholder;
+import static application.gui.workbench.ui.Ui.scroll;
+import static application.gui.workbench.ui.Ui.styleAreas;
+import static application.gui.workbench.ui.Ui.styleFields;
+import static application.gui.workbench.ui.Ui.transparentPanel;
+import static application.gui.workbench.ui.Ui.trimmed;
 
 /**
  * Position and game-line report builder for the publishing workflow.

@@ -1,28 +1,19 @@
 package application.gui.workbench.mcts;
 
-import application.gui.workbench.board.*;
-import application.gui.workbench.command.*;
-import application.gui.workbench.dashboard.*;
-import application.gui.workbench.game.*;
-import application.gui.workbench.layout.*;
-import application.gui.workbench.network.*;
-import application.gui.workbench.publish.*;
-import application.gui.workbench.session.*;
-import application.gui.workbench.ui.*;
-import application.gui.workbench.window.*;
-
+import application.gui.workbench.mcts.MctsSearch;
+import application.gui.workbench.network.TensorViz;
+import application.gui.workbench.ui.Theme;
+import application.gui.workbench.ui.Ui;
+import chess.core.Move;
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.FontMetrics;
-import java.awt.Graphics;
 import java.awt.Graphics2D;
+import java.awt.Graphics;
 import java.awt.Rectangle;
 import java.awt.RenderingHints;
 import java.util.List;
-
-import application.gui.workbench.mcts.MctsSearch;
-import chess.core.Move;
 
 /**
  * Compact live renderer for MCTS edge weights in the Network tab.
