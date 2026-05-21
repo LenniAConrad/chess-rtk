@@ -104,6 +104,7 @@ run_core() {
   run_test testing.ParserRegressionTest
   run_test testing.TaggingRegressionTest
   run_test testing.TagFixtureRegressionTest
+  run_test testing.WorkbenchStructureRegressionTest
   run_headless_test testing.WorkbenchRegressionTest
 }
 
@@ -162,6 +163,10 @@ run_jar() {
   echo "==> jar"
   rm -f crtk.jar
   jar --create --file crtk.jar --main-class application.Main -C out .
+  echo "==> jar smoke"
+  java -jar crtk.jar --help >/dev/null
+  java -jar crtk.jar workbench --help | grep -q "workbench options:"
+  java -jar crtk.jar gui --help | grep -q "crtk workbench"
 }
 
 run_recommended() {
@@ -173,6 +178,7 @@ run_recommended() {
   run_uci
   run_book
   run_perft_smoke
+  run_jar
 }
 
 run_ci() {
@@ -185,11 +191,11 @@ run_ci() {
   run_docs
   run_uci
   run_perft_smoke
+  run_jar
 }
 
 run_release() {
   run_recommended
-  run_jar
 }
 
 case "$SUITE" in
