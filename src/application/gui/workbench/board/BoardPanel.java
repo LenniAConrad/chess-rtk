@@ -723,7 +723,7 @@ public final class BoardPanel extends JPanel {
             int cell = size / 8;
             for (int row = 0; row < 8; row++) {
                 for (int col = 0; col < 8; col++) {
-                    graphics.setColor(squareColor(row, col));
+                    graphics.setColor(BoardGeometry.squareColor(row, col));
                     graphics.fillRect(col * cell, row * cell, cell, cell);
                 }
             }
@@ -759,10 +759,10 @@ public final class BoardPanel extends JPanel {
             int rank = whiteDown ? 8 - i : i + 1;
             String fileText = String.valueOf((char) ('a' + file));
             String rankText = String.valueOf(rank);
-            g.setColor(notationColor(file, bottomRank));
+            g.setColor(BoardGeometry.notationColor(file, bottomRank));
             g.drawString(fileText, board.x + i * cell + cell - metrics.stringWidth(fileText) - fileInlinePad,
                     board.y + board.height - fileBlockPad - metrics.getDescent());
-            g.setColor(notationColor(leftFile, rank));
+            g.setColor(BoardGeometry.notationColor(leftFile, rank));
             g.drawString(rankText, board.x + rankInlinePad,
                     board.y + i * cell + rankBlockPad + metrics.getAscent());
         }
@@ -1585,12 +1585,7 @@ public final class BoardPanel extends JPanel {
     }
     /** Returns square bounds. */
     private Rectangle squareBounds(Rectangle board, byte square) {
-        int cell = board.width / 8;
-        int file = Field.getX(square);
-        int rankRow = square / 8;
-        int col = whiteDown ? file : 7 - file;
-        int row = whiteDown ? rankRow : 7 - rankRow;
-    return new Rectangle(board.x + col * cell, board.y + row * cell, cell, cell);
+        return BoardGeometry.squareBounds(board, square, whiteDown);
     }
     /** Returns a scaled cached image for one chess piece. */
     private BufferedImage pieceImage(byte piece, int cell) {
@@ -1689,39 +1684,13 @@ public final class BoardPanel extends JPanel {
         }
         return first.union(second);
     }
-    /** Returns the chessboard.js square color for a board cell. */
-    private static Color squareColor(int row, int col) {
-    return isLightCell(row, col) ? Theme.BOARD_LIGHT : Theme.BOARD_DARK;
-    }
-    /** Returns whether a visual board cell is light. */
-    private static boolean isLightCell(int row, int col) {
-        return ((row + col) & 1) == 0;
-    }
-    /** Returns the chessboard.js coordinate color for a board square. */
-    private static Color notationColor(int file, int rank) {
-    return isLightSquare(file, rank) ? Theme.COORD_ON_LIGHT : Theme.COORD_ON_DARK;
-    }
-    /** Returns whether a real board square is light. */
-    private static boolean isLightSquare(int file, int rank) {
-        return ((file + rank) & 1) == 0;
-    }
     /** Returns the square at screen coordinates. */
     private byte squareAt(int x, int y) {
-        Rectangle board = boardBounds();
-        if (!board.contains(x, y)) {
-            return Field.NO_SQUARE;
-        }
-        int cell = board.width / 8;
-        int col = (x - board.x) / cell;
-        int row = (y - board.y) / cell;
-        int file = whiteDown ? col : 7 - col;
-        int rankRow = whiteDown ? row : 7 - row;
-        return (byte) (rankRow * 8 + file);
+        return BoardGeometry.squareAt(boardBounds(), x, y, whiteDown);
     }
     /** Returns square center. */
     private Point center(Rectangle board, byte square) {
-        Rectangle bounds = squareBounds(board, square);
-    return new Point(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
+        return BoardGeometry.center(board, square, whiteDown);
     }
     /** Draws an arrow between two points. */
     private void drawArrow(Graphics2D g, Point from, Point to) {

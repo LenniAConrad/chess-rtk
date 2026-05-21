@@ -1,14 +1,11 @@
 package application.gui.workbench.mcts;
 
-import chess.classical.Wdl;
 import chess.core.Move;
 import chess.core.MoveList;
 import chess.core.Piece;
 import chess.core.Position;
 import chess.core.SAN;
 import chess.engine.MateProver;
-import chess.eval.CentipawnEvaluator;
-import chess.eval.Classical;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -115,7 +112,7 @@ public final class MctsSearch implements AutoCloseable {
         if (root == null) {
     throw new IllegalArgumentException("root == null");
         }
-        this.backend = new ClassicalBackend();
+        this.backend = new ClassicalSearchBackend();
         this.transpositions = newTranspositionTable(DEFAULT_TRANSPOSITION_LIMIT);
         this.rootPosition = root.copy();
         this.cpuct = Math.max(0.05, cpuct);
@@ -141,9 +138,7 @@ public final class MctsSearch implements AutoCloseable {
         if (weights == null) {
     throw new IllegalArgumentException("weights == null");
         }
-    return new MctsSearch(root, cpuct,
-    new Bt4Backend(chess.nn.lc0.bt4.Network.load(weights)),
-                DEFAULT_TRANSPOSITION_LIMIT);
+        return new MctsSearch(root, cpuct, Bt4SearchBackend.load(weights), DEFAULT_TRANSPOSITION_LIMIT);
     }
 
     /**
@@ -161,7 +156,7 @@ public final class MctsSearch implements AutoCloseable {
             int transpositionLimit) {
         this.rootPosition = root.copy();
         this.cpuct = Math.max(0.05, cpuct);
-        this.backend = backend == null ? new ClassicalBackend() : backend;
+        this.backend = backend == null ? new ClassicalSearchBackend() : backend;
         this.transpositions = newTranspositionTable(transpositionLimit);
         this.root = newNode(null, Move.NO_MOVE, this.rootPosition.copy(), 1.0, 0);
         expand(this.root, List.of(this.root));
@@ -183,7 +178,7 @@ public final class MctsSearch implements AutoCloseable {
             node = selectChild(node);
             path.add(node);
         }
-        Evaluation value = evaluate(node, path);
+        SearchEvaluation value = evaluate(node, path);
         if (!node.expanded && !isTerminal(node, path)) {
             expand(node, path);
         }
@@ -600,12 +595,12 @@ public final class MctsSearch implements AutoCloseable {
      * @param path path from root to node
      * @return structured evaluation
      */
-    private Evaluation evaluate(Node node, List<Node> path) {
+    private SearchEvaluation evaluate(Node node, List<Node> path) {
         if (node.proof != ProofState.UNKNOWN) {
     return evaluationForProof(node.proof);
         }
         if (isRepetition(path)) {
-            return Evaluation.draw();
+            return SearchEvaluation.draw();
         }
     return evaluatePosition(node.position);
     }
@@ -616,13 +611,13 @@ public final class MctsSearch implements AutoCloseable {
      * @param position position to evaluate
      * @return structured evaluation
      */
-    private Evaluation evaluatePosition(Position position) {
+    private SearchEvaluation evaluatePosition(Position position) {
         MoveList legal = position.legalMoves();
         if (legal.isEmpty()) {
-            return position.inCheck() ? Evaluation.loss() : Evaluation.draw();
+            return position.inCheck() ? SearchEvaluation.loss() : SearchEvaluation.draw();
         }
         if (isDraw(position)) {
-            return Evaluation.draw();
+            return SearchEvaluation.draw();
         }
     return quiescence(position, 0, -1.0, 1.0);
     }
@@ -638,16 +633,16 @@ public final class MctsSearch implements AutoCloseable {
      * @param beta beta bound
      * @return quiescence evaluation
      */
-    private Evaluation quiescence(Position position, int qply, double alpha, double beta) {
+    private SearchEvaluation quiescence(Position position, int qply, double alpha, double beta) {
         if (isDraw(position)) {
-            return Evaluation.draw();
+            return SearchEvaluation.draw();
         }
         MoveList legal = position.legalMoves();
         if (legal.isEmpty()) {
-            return position.inCheck() ? Evaluation.loss() : Evaluation.draw();
+            return position.inCheck() ? SearchEvaluation.loss() : SearchEvaluation.draw();
         }
         if (qply == 0 && findMateInOne(position, legal) != Move.NO_MOVE) {
-            return Evaluation.win();
+            return SearchEvaluation.win();
         }
 
         boolean inCheck = position.inCheck();
@@ -655,7 +650,7 @@ public final class MctsSearch implements AutoCloseable {
             return backend.evaluate(position);
         }
 
-        Evaluation best = inCheck ? Evaluation.loss() : backend.evaluate(position);
+        SearchEvaluation best = inCheck ? SearchEvaluation.loss() : backend.evaluate(position);
         double currentAlpha = Math.max(alpha, best.value());
         if (!inCheck && best.value() >= beta) {
             return best;
@@ -665,7 +660,7 @@ public final class MctsSearch implements AutoCloseable {
             Position.State state = new Position.State();
             position.play(move, state);
             try {
-                Evaluation value = quiescence(position, qply + 1, -beta, -currentAlpha).flipped();
+                SearchEvaluation value = quiescence(position, qply + 1, -beta, -currentAlpha).flipped();
                 if (value.value() >= beta) {
                     return value;
                 }
@@ -919,12 +914,12 @@ public final class MctsSearch implements AutoCloseable {
      * @param proof proof state
      * @return proof evaluation
      */
-    private static Evaluation evaluationForProof(ProofState proof) {
+    private static SearchEvaluation evaluationForProof(ProofState proof) {
     return switch (proof) {
-            case WIN -> Evaluation.win();
-            case LOSS -> Evaluation.loss();
-            case DRAW -> Evaluation.draw();
-            default -> Evaluation.draw();
+            case WIN -> SearchEvaluation.win();
+            case LOSS -> SearchEvaluation.loss();
+            case DRAW -> SearchEvaluation.draw();
+            default -> SearchEvaluation.draw();
         };
     }
 
@@ -1054,8 +1049,8 @@ public final class MctsSearch implements AutoCloseable {
      * @param path root-to-leaf path
      * @param leafValue leaf evaluation
      */
-    private static void backup(List<Node> path, Evaluation leafValue) {
-        Evaluation value = leafValue;
+    private static void backup(List<Node> path, SearchEvaluation leafValue) {
+        SearchEvaluation value = leafValue;
         for (int i = path.size() - 1; i >= 0; i--) {
             Node node = path.get(i);
             node.stats.visits++;
@@ -1364,351 +1359,6 @@ public final class MctsSearch implements AutoCloseable {
     return size() > cap;
             }
         };
-    }
-
-    /**
-     * Policy/value backend used by MCTS.
-     */
-    private interface SearchBackend extends AutoCloseable {
-
-        /**
-         * Evaluates one non-terminal position from the side-to-move perspective.
-         *
-         * @param position position to evaluate
-         * @return structured evaluation
-         */
-    Evaluation evaluate(Position position);
-
-        /**
-         * Lets the backend prime move-ordering side data.
-         *
-         * @param position position whose moves will be ordered
-         */
-        default void prepareMoveOrdering(Position position) {
-            // default backend has no side data
-        }
-
-        /**
-         * Adds backend-specific move-prior scores.
-         *
-         * @param position position to inspect
-         * @param moves moves to score
-         * @param scores mutable score array
-         */
-        default void scoreMoves(Position position, short[] moves, int[] scores) {
-            // default backend does not alter handcrafted priors
-        }
-
-        /**
-         * Replaces or blends fallback priors.
-         *
-         * @param position position to inspect
-         * @param moves moves to score
-         * @param fallback fallback priors
-         * @return backend priors
-         */
-        default double[] priors(Position position, short[] moves, double[] fallback) {
-            return fallback;
-        }
-
-        /**
-         * Releases backend resources.
-         */
-        @Override
-        default void close() {
-            // default backend has no resources
-        }
-    }
-
-    /**
-     * Cheap always-available classical WDL backend.
-     */
-    private static final class ClassicalBackend implements SearchBackend {
-        /**
-         * Classical centipawn evaluator.
-         */
-        private final CentipawnEvaluator evaluator = new Classical();
-
-        @Override
-        public Evaluation evaluate(Position position) {
-            return Evaluation.fromWdl(Wdl.evaluate(position, false));
-        }
-
-        @Override
-        public void prepareMoveOrdering(Position position) {
-            evaluator.prepareMoveOrdering(position);
-        }
-
-        @Override
-        public void scoreMoves(Position position, short[] moves, int[] scores) {
-            evaluator.scoreMoves(position, moves, scores);
-        }
-
-        /**
-         * Releases evaluator resources.
-         */
-        @Override
-        public void close() {
-            evaluator.close();
-        }
-    }
-
-    /**
-     * Optional BT4 policy/value backend for experiments with real network
-     * priors. It is intentionally opt-in because CPU BT4 inference is expensive.
-     */
-    private static final class Bt4Backend implements SearchBackend {
-        /**
-         * BT4 policy/value network.
-         */
-        private final chess.nn.lc0.bt4.Network network;
-
-        /**
-         * Small access-ordered prediction cache.
-         */
-        private final Map<Long, Bt4Prediction> cache = newRecentPredictionCache();
-
-        /**
-         * Last predicted position signature.
-         */
-        private long lastKey = Long.MIN_VALUE;
-
-        /**
-         * Last prediction result.
-         */
-        private Bt4Prediction lastPrediction;
-
-        /**
-         * Creates a BT4 backend.
-         *
-         * @param network loaded BT4 network
-         */
-        private Bt4Backend(chess.nn.lc0.bt4.Network network) {
-            this.network = network;
-        }
-
-        @Override
-        public Evaluation evaluate(Position position) {
-            return Evaluation.fromWdl(predict(position).prediction().wdl());
-        }
-
-        @Override
-        public double[] priors(Position position, short[] moves, double[] fallback) {
-            Bt4Prediction prediction = predict(position);
-            float[] logits = prediction.prediction().policy();
-            double[] priors = new double[moves.length];
-            double sum = 0.0;
-            float max = Float.NEGATIVE_INFINITY;
-            int[] indices = new int[moves.length];
-            for (int i = 0; i < moves.length; i++) {
-                int index = chess.nn.lc0.bt4.PolicyEncoder.compressedPolicyIndex(
-                        position, moves[i], prediction.transform());
-                indices[i] = index;
-                if (index >= 0 && index < logits.length) {
-                    max = Math.max(max, logits[index]);
-                }
-            }
-            if (max == Float.NEGATIVE_INFINITY) {
-                return fallback;
-            }
-            for (int i = 0; i < moves.length; i++) {
-                int index = indices[i];
-                if (index >= 0 && index < logits.length) {
-                    priors[i] = Math.exp(logits[index] - max);
-                    sum += priors[i];
-                }
-            }
-            if (!Double.isFinite(sum) || sum <= 0.0) {
-                return fallback;
-            }
-            for (int i = 0; i < priors.length; i++) {
-                priors[i] /= sum;
-            }
-            return priors;
-        }
-
-        /**
-         * Releases BT4 resources.
-         */
-        @Override
-        public void close() {
-            lastPrediction = null;
-            cache.clear();
-            network.close();
-        }
-
-        /**
-         * Returns a cached BT4 prediction for one position.
-         *
-         * @param position source position
-         * @return prediction plus canonical transform
-         */
-        private Bt4Prediction predict(Position position) {
-            long key = position.signature();
-            if (lastPrediction != null && lastKey == key) {
-                return lastPrediction;
-            }
-            Bt4Prediction cached = cache.get(key);
-            if (cached != null) {
-                lastKey = key;
-                lastPrediction = cached;
-                return cached;
-            }
-            TransformSink sink = new TransformSink();
-            chess.nn.lc0.bt4.Network.Prediction prediction = network.predict(position, sink);
-            remember(key, new Bt4Prediction(prediction, sink.transform));
-            return lastPrediction;
-        }
-
-        /**
-         * Stores a BT4 prediction in the small recent-position cache.
-         *
-         * @param key position signature
-         * @param prediction cached prediction
-         */
-        private void remember(long key, Bt4Prediction prediction) {
-            lastKey = key;
-            lastPrediction = prediction;
-            cache.put(key, prediction);
-        }
-    }
-
-    /**
-     * Creates a small access-ordered prediction cache.
-     *
-     * @param <T> cached value type
-     * @return bounded cache
-     */
-    private static <T> Map<Long, T> newRecentPredictionCache() {
-        return new LinkedHashMap<>(256, 0.75f, true) {
-            /**
-             * Serialization identifier for the bounded map implementation.
-             */
-            private static final long serialVersionUID = 1L;
-
-            /**
-             * Returns whether the oldest entry should be evicted.
-             *
-             * @param eldest eldest map entry
-             * @return true when the cache is above capacity
-             */
-            @Override
-            protected boolean removeEldestEntry(Map.Entry<Long, T> eldest) {
-    return size() > 512;
-            }
-        };
-    }
-
-    /**
-     * Cached BT4 prediction plus canonical transform.
-     *
-     * @param prediction network prediction
-     * @param transform canonical input transform
-     */
-    private record Bt4Prediction(chess.nn.lc0.bt4.Network.Prediction prediction, int transform) {
-    }
-
-    /**
-     * Captures BT4 canonical transform from activation output.
-     */
-    private static final class TransformSink implements chess.nn.ActivationSink {
-        /**
-         * Captured transform id.
-         */
-        private int transform;
-
-        /**
-         * Receives activation tensors from the BT4 network.
-         *
-         * @param key tensor key
-         * @param shape tensor shape
-         * @param data tensor data
-         */
-        @Override
-        public void put(String key, int[] shape, float[] data) {
-            if ("bt4.input.transform".equals(key) && data != null && data.length > 0) {
-                transform = Math.round(data[0]);
-            }
-        }
-    }
-
-    /**
-     * WDL leaf value from side-to-move perspective.
-     */
-    private record Evaluation(double pWin, double pDraw, double pLoss, double value) {
-
-        /**
-         * Returns a forced win evaluation.
-         *
-         * @return win evaluation
-         */
-        private static Evaluation win() {
-    return new Evaluation(1.0, 0.0, 0.0, 1.0);
-        }
-
-        /**
-         * Returns a drawn evaluation.
-         *
-         * @return draw evaluation
-         */
-        private static Evaluation draw() {
-    return new Evaluation(0.0, 1.0, 0.0, 0.0);
-        }
-
-        /**
-         * Returns a forced loss evaluation.
-         *
-         * @return loss evaluation
-         */
-        private static Evaluation loss() {
-    return new Evaluation(0.0, 0.0, 1.0, -1.0);
-        }
-
-        /**
-         * Converts a classical WDL triplet to an evaluation.
-         *
-         * @param wdl source WDL
-         * @return evaluation
-         */
-        private static Evaluation fromWdl(Wdl wdl) {
-    return new Evaluation(
-                    wdl.win() / (double) Wdl.TOTAL,
-                    wdl.draw() / (double) Wdl.TOTAL,
-                    wdl.loss() / (double) Wdl.TOTAL,
-                    (wdl.win() - wdl.loss()) / (double) Wdl.TOTAL);
-        }
-
-        /**
-         * Converts a floating-point WDL triplet to an evaluation.
-         *
-         * @param wdl source WDL probabilities
-         * @return evaluation
-         */
-        private static Evaluation fromWdl(float[] wdl) {
-            if (wdl == null || wdl.length < 3) {
-    return draw();
-            }
-            double win = Math.max(0.0, wdl[0]);
-            double draw = Math.max(0.0, wdl[1]);
-            double loss = Math.max(0.0, wdl[2]);
-            double sum = win + draw + loss;
-            if (!Double.isFinite(sum) || sum <= 0.0) {
-    return draw();
-            }
-            win /= sum;
-            draw /= sum;
-            loss /= sum;
-    return new Evaluation(win, draw, loss, win - loss);
-        }
-
-        /**
-         * Returns this value from the opponent perspective.
-         *
-         * @return flipped evaluation
-         */
-        private Evaluation flipped() {
-    return new Evaluation(pLoss, pDraw, pWin, -value);
-        }
     }
 
     /**
