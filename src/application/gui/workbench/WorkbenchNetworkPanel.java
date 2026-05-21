@@ -29,6 +29,7 @@ import javax.swing.JComponent;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JSpinner;
+import javax.swing.JTabbedPane;
 import javax.swing.ScrollPaneConstants;
 import javax.swing.SpinnerNumberModel;
 import javax.swing.SwingUtilities;
@@ -240,6 +241,18 @@ final class WorkbenchNetworkPanel extends JPanel {
     private final WorkbenchInspectorPanel inspectorPanel = new WorkbenchInspectorPanel();
 
     /**
+     * Runtime diagnostics panel: model files/load state, GPU support, and
+     * syntax-colored config preview.
+     */
+    private final WorkbenchNetworkDiagnosticsPanel diagnosticsPanel =
+            new WorkbenchNetworkDiagnosticsPanel();
+
+    /**
+     * Right-side details tabs.
+     */
+    private final JTabbedPane detailsTabs = WorkbenchUi.tabbedPane();
+
+    /**
      * Real activation provider. Loads networks lazily.
      */
     private final WorkbenchRealActivations provider = new WorkbenchRealActivations();
@@ -330,10 +343,13 @@ final class WorkbenchNetworkPanel extends JPanel {
         nnueView.setInspector(inspectorPanel);
         cnnView.setInspector(inspectorPanel);
         bt4View.setInspector(inspectorPanel);
+        detailsTabs.addTab("Inspector", inspectorPanel);
+        detailsTabs.addTab("Runtime", diagnosticsPanel);
+        detailsTabs.setPreferredSize(new Dimension(372, 600));
         JPanel content = new JPanel(new BorderLayout(WorkbenchTheme.SPACE_SM, 0));
         content.setOpaque(false);
         content.add(cardPanel, BorderLayout.CENTER);
-        content.add(inspectorPanel, BorderLayout.EAST);
+        content.add(detailsTabs, BorderLayout.EAST);
         JPanel center = new JPanel(new BorderLayout(0, WorkbenchTheme.SPACE_SM));
         center.setOpaque(false);
         center.add(content, BorderLayout.CENTER);
@@ -352,6 +368,7 @@ final class WorkbenchNetworkPanel extends JPanel {
         applyFixedScale(false);
         showSelected();
         propagateViewMode();
+        diagnosticsPanel.refresh(provider, (String) archCombo.getSelectedItem());
     }
 
     /**
@@ -819,6 +836,7 @@ final class WorkbenchNetworkPanel extends JPanel {
         } else {
             statusBadge.idle(message);
         }
+        diagnosticsPanel.refresh(provider, key);
     }
 
     /**

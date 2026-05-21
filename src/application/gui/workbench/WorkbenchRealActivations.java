@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -24,6 +25,20 @@ import java.util.Map;
  * </p>
  */
 final class WorkbenchRealActivations {
+
+    /**
+     * Read-only model state surfaced in the Network tab diagnostics pane.
+     *
+     * @param label user-facing model label
+     * @param path weights path used by the workbench inference provider
+     * @param present true when the file exists on disk
+     * @param loaded true when the provider has a live model/network instance
+     * @param state short state label
+     * @param detail short explanatory detail
+     */
+    record ModelStatus(String label, Path path, boolean present, boolean loaded,
+            String state, String detail) {
+    }
 
     /**
      * Default NNUE weights path (Stockfish .nnue or CRTK .bin) used at
@@ -304,6 +319,88 @@ final class WorkbenchRealActivations {
             case "bt4" -> describe(bt4Network != null, bt4LoadError);
             default -> "?";
         };
+    }
+
+    /**
+     * Returns model-file and load-state previews without triggering model
+     * loading. Used by the diagnostics surface so users can distinguish
+     * "installed but lazy" from "missing" and "loaded".
+     *
+     * @return current model status rows
+     */
+    synchronized List<ModelStatus> modelStatuses() {
+        return List.of(
+                preview("NNUE", nnuePath, nnueModel != null, nnueLoadError),
+                preview("LC0 CNN", CNN_PATH, cnnNetwork != null, cnnLoadError),
+                preview("LC0 BT4", BT4_PATH, bt4Network != null, bt4LoadError));
+    }
+
+    /**
+     * Builds a single model preview row.
+     *
+     * @param label model label
+     * @param path weights path
+     * @param loaded whether a live model instance exists
+     * @param error load/inference error, or null
+     * @return model status
+     */
+    private static ModelStatus preview(String label, Path path, boolean loaded, String error) {
+        boolean present = path != null && Files.exists(path);
+        String state;
+        String detail;
+        if (loaded) {
+            state = "loaded";
+            detail = fileDetail(path, "real inference ready");
+        } else if (error != null) {
+            state = "fallback";
+            detail = error;
+        } else if (present) {
+            state = "available";
+            detail = fileDetail(path, "loads on first inference");
+        } else {
+            state = "missing";
+            detail = "synthetic fallback";
+        }
+        return new ModelStatus(label, path, present, loaded, state, detail);
+    }
+
+    /**
+     * Returns compact file details for a model row.
+     *
+     * @param path model path
+     * @param suffix fallback detail suffix
+     * @return detail text
+     */
+    private static String fileDetail(Path path, String suffix) {
+        if (path == null) {
+            return suffix;
+        }
+        try {
+            long bytes = Files.size(path);
+            return readableBytes(bytes) + " - " + suffix;
+        } catch (IOException | RuntimeException ex) {
+            return suffix;
+        }
+    }
+
+    /**
+     * Formats a byte count for compact status rows.
+     *
+     * @param bytes size in bytes
+     * @return compact size
+     */
+    private static String readableBytes(long bytes) {
+        if (bytes < 1024L) {
+            return bytes + " B";
+        }
+        double value = bytes;
+        String[] units = { "KB", "MB", "GB" };
+        int unit = -1;
+        do {
+            value /= 1024.0;
+            unit++;
+        } while (value >= 1024.0 && unit + 1 < units.length);
+        return String.format(java.util.Locale.ROOT, "%.1f %s", value, units[unit]);
     }
 
     /**
