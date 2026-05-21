@@ -50,9 +50,9 @@ final class WorkbenchTheme {
     private static final String PLACEHOLDER_PROPERTY = WorkbenchTheme.class.getName() + ".placeholder";
 
     /**
-     * Root background color (VS Code Light Modern workbench grey).
+     * Root background color — VS Code Light Modern chrome grey (#F8F8F8).
      */
-    static final Color BG = new Color(243, 243, 243);
+    static final Color BG = new Color(248, 248, 248);
 
     /**
      * Fully transparent component background.
@@ -90,9 +90,9 @@ final class WorkbenchTheme {
     static final Color TEXT = new Color(59, 59, 59);
 
     /**
-     * Secondary text color (VS Code description foreground).
+     * Secondary text color — VS Code description foreground (#717171).
      */
-    static final Color MUTED = new Color(110, 110, 110);
+    static final Color MUTED = new Color(113, 113, 113);
 
     /**
      * Accent color (VS Code Light Modern focus blue).
@@ -522,40 +522,44 @@ final class WorkbenchTheme {
     // as the rest of the workbench chrome.
     // ------------------------------------------------------------------
 
-    /**
-     * Positive-activation accent (gain / "up").
-     */
-    static final Color NN_POSITIVE = new Color(38, 130, 75);
+    // One coherent accent family: every hue sits near 42% lightness and a
+    // calm ~50% saturation, so the five categories read as a set rather than
+    // five unrelated colours.
 
     /**
-     * Negative-activation accent (loss / "down").
+     * Positive-activation accent (gain / "up") — coherent green.
      */
-    static final Color NN_NEGATIVE = new Color(178, 53, 53);
+    static final Color NN_POSITIVE = new Color(51, 138, 88);
 
     /**
-     * Trunk / data-flow accent.
+     * Negative-activation accent (loss / "down") — coherent red.
      */
-    static final Color NN_TRUNK = new Color(196, 121, 47);
+    static final Color NN_NEGATIVE = new Color(190, 68, 82);
 
     /**
-     * Policy-branch accent.
+     * Trunk / data-flow accent — calm slate blue.
      */
-    static final Color NN_POLICY = new Color(48, 102, 168);
+    static final Color NN_TRUNK = new Color(76, 111, 156);
 
     /**
-     * Value-branch accent.
+     * Policy-branch accent — coherent violet.
      */
-    static final Color NN_VALUE = new Color(150, 60, 142);
+    static final Color NN_POLICY = new Color(126, 84, 174);
+
+    /**
+     * Value-branch accent — coherent teal.
+     */
+    static final Color NN_VALUE = new Color(31, 138, 134);
 
     /**
      * Neutral fill for cells carrying no signal.
      */
-    static final Color NN_NEUTRAL = new Color(232, 236, 240);
+    static final Color NN_NEUTRAL = new Color(236, 236, 236);
 
     /**
      * Lightest signed-heatmap fill (near zero).
      */
-    static final Color NN_HEAT_ZERO = new Color(240, 244, 247);
+    static final Color NN_HEAT_ZERO = new Color(244, 244, 244);
 
     /**
      * Prevents instantiation.
