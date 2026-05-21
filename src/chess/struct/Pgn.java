@@ -533,11 +533,15 @@ public final class Pgn {
             appendComments(cur.getCommentsBefore(), sb);
             sb.append(cur.getSan());
             appendNags(cur.getNags(), sb);
+            if (!cur.getCommentsAfter().isEmpty()) {
+                appendSpaceIfNeeded(sb);
+            }
             appendComments(cur.getCommentsAfter(), sb);
 
             PlyTracker afterMove = tracker.next();
             for (Game.Node variation : cur.getVariations()) {
-                sb.append(" (");
+                appendSpaceIfNeeded(sb);
+                sb.append('(');
                 appendSequence(variation, tracker.copy(), sb);
                 sb.append(')');
             }
@@ -545,7 +549,7 @@ public final class Pgn {
             tracker = afterMove;
             cur = cur.getNext();
             if (cur != null) {
-                sb.append(' ');
+                appendSpaceIfNeeded(sb);
             }
         }
     }
@@ -595,8 +599,19 @@ public final class Pgn {
         }
         for (Integer n : nags) {
             if (n != null) {
-                sb.append('$').append(n).append(' ');
+                sb.append(' ').append('$').append(n);
             }
+        }
+    }
+
+    /**
+     * Appends one space unless the output already ends with whitespace.
+     *
+     * @param sb output builder to append to
+     */
+    private static void appendSpaceIfNeeded(StringBuilder sb) {
+        if (sb.length() > 0 && !Character.isWhitespace(sb.charAt(sb.length() - 1))) {
+            sb.append(' ');
         }
     }
 
@@ -639,7 +654,7 @@ public final class Pgn {
             int depth) {
         Game.Node head = null;
         Game.Node current = null;
-        boolean lastWasMove = false;
+        boolean commentsAttachToCurrentMove = false;
 
         while (index.value < tokens.size()) {
             Token token = tokens.get(index.value++);
@@ -652,19 +667,18 @@ public final class Pgn {
                         current.setNext(node);
                     }
                     current = node;
-                    lastWasMove = true;
+                    commentsAttachToCurrentMove = true;
                 }
                 case COMMENT -> {
-                    handleCommentToken(current, pendingComments, token, lastWasMove);
-                    lastWasMove = false;
+                    handleCommentToken(current, pendingComments, token, commentsAttachToCurrentMove);
                 }
                 case NAG -> {
                     handleNagToken(current, token);
-                    lastWasMove = false;
+                    commentsAttachToCurrentMove = current != null;
                 }
                 case VAR_OPEN -> {
                     handleVariation(game, tokens, index, current, depth);
-                    lastWasMove = false;
+                    commentsAttachToCurrentMove = current != null;
                 }
                 case VAR_CLOSE -> {
                     return head;
@@ -676,7 +690,7 @@ public final class Pgn {
                             || !"*".equals(token.value)) {
                         game.setResult(token.value);
                     }
-                    lastWasMove = false;
+                    commentsAttachToCurrentMove = false;
                 }
                 default -> {
                     // no-op for unsupported token kinds
