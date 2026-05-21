@@ -4,6 +4,7 @@ import application.gui.workbench.ui.Theme;
 import java.awt.BasicStroke;
 import java.awt.BorderLayout;
 import java.awt.Color;
+import java.awt.Component;
 import java.awt.Cursor;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
@@ -28,10 +29,10 @@ import javax.swing.SwingUtilities;
 
 /**
  * VS Code-style workbench shell. Holds every workbench panel and shows them
- * through closable editor tabs. Split mode behaves as two editor groups: each
- * group owns its own tab strip, a tab can be moved into the other group by
- * dropping it in that group's center, and edge drops create horizontal or
- * vertical splits.
+ * through closable editor tabs. Split mode behaves as VS Code-style editor
+ * groups: each group owns its own tab strip, a tab can be moved into another
+ * group by dropping it in that group's center, and edge or corner drops create
+ * horizontal, vertical, or quadrant splits.
  */
 public final class EditorSplitArea extends JPanel {
 
@@ -76,6 +77,56 @@ public final class EditorSplitArea extends JPanel {
     private static final int DROP_SECONDARY_CENTER = 6;
 
     /**
+     * Drop into the top-left editor quadrant.
+     */
+    private static final int DROP_TOP_LEFT = 7;
+
+    /**
+     * Drop into the top-right editor quadrant.
+     */
+    private static final int DROP_TOP_RIGHT = 8;
+
+    /**
+     * Drop into the bottom-left editor quadrant.
+     */
+    private static final int DROP_BOTTOM_LEFT = 9;
+
+    /**
+     * Drop into the bottom-right editor quadrant.
+     */
+    private static final int DROP_BOTTOM_RIGHT = 10;
+
+    /**
+     * Drop into the tertiary editor group without changing the split geometry.
+     */
+    private static final int DROP_TERTIARY_CENTER = 11;
+
+    /**
+     * Drop into the quaternary editor group without changing the split geometry.
+     */
+    private static final int DROP_QUATERNARY_CENTER = 12;
+
+    /**
+     * Primary editor group id.
+     */
+    private static final int PANE_PRIMARY = 0;
+
+    /**
+     * Secondary editor group id.
+     */
+    private static final int PANE_SECONDARY = 1;
+
+    /**
+     * Tertiary editor group id.
+     */
+    private static final int PANE_TERTIARY = 2;
+
+    /**
+     * Quaternary editor group id.
+     */
+    private static final int PANE_QUATERNARY = 3;
+
+    /**
      * Alpha for the VS Code-style drop target fill.
      */
     private static final int DROP_FILL_ALPHA = 32;
@@ -111,6 +162,16 @@ public final class EditorSplitArea extends JPanel {
     private final transient List<Integer> secondaryTabs = new ArrayList<>();
 
     /**
+     * Tabs owned by the tertiary editor group.
+     */
+    private final transient List<Integer> tertiaryTabs = new ArrayList<>();
+
+    /**
+     * Tabs owned by the quaternary editor group.
+     */
+    private final transient List<Integer> quaternaryTabs = new ArrayList<>();
+
+    /**
      * Index shown in the primary editor group.
      */
     private int primaryIndex;
@@ -121,12 +182,22 @@ public final class EditorSplitArea extends JPanel {
     private int secondaryIndex = -1;
 
     /**
+     * Index shown in the tertiary editor group, or -1 when hidden.
+     */
+    private int tertiaryIndex = -1;
+
+    /**
+     * Index shown in the quaternary editor group, or -1 when hidden.
+     */
+    private int quaternaryIndex = -1;
+
+    /**
      * Armed split drop zone during a tab drag.
      */
     private int dragZone;
 
     /**
-     * Active editor group for keyboard cycling: 0 primary, 1 secondary.
+     * Active editor group for keyboard cycling.
      */
     private int activePane;
 
@@ -151,6 +222,11 @@ public final class EditorSplitArea extends JPanel {
     private JSplitPane splitPane;
 
     /**
+     * Visible split panes from the current layout tree.
+     */
+    private final transient List<JSplitPane> splitPanes = new ArrayList<>();
+
+    /**
      * Optional selection listener used by the window to start/stop work that
      * should only run while a pane is visible.
      */
@@ -167,6 +243,16 @@ public final class EditorSplitArea extends JPanel {
     private final JPanel secondaryPane = new JPanel(new BorderLayout(0, 0));
 
     /**
+     * Tertiary editor group wrapper.
+     */
+    private final JPanel tertiaryPane = new JPanel(new BorderLayout(0, 0));
+
+    /**
+     * Quaternary editor group wrapper.
+     */
+    private final JPanel quaternaryPane = new JPanel(new BorderLayout(0, 0));
+
+    /**
      * Host for the primary pane's selected panel.
      */
     private final JPanel primaryHost = new JPanel(new BorderLayout());
@@ -177,6 +263,16 @@ public final class EditorSplitArea extends JPanel {
     private final JPanel secondaryHost = new JPanel(new BorderLayout());
 
     /**
+     * Host for the tertiary pane's selected panel.
+     */
+    private final JPanel tertiaryHost = new JPanel(new BorderLayout());
+
+    /**
+     * Host for the quaternary pane's selected panel.
+     */
+    private final JPanel quaternaryHost = new JPanel(new BorderLayout());
+
+    /**
      * Primary tab strip.
      */
     private final JPanel primaryStrip = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
@@ -185,6 +281,16 @@ public final class EditorSplitArea extends JPanel {
      * Secondary tab strip, shown only when split.
      */
     private final JPanel secondaryStrip = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+
+    /**
+     * Tertiary tab strip, shown only when split.
+     */
+    private final JPanel tertiaryStrip = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+
+    /**
+     * Quaternary tab strip, shown only when split.
+     */
+    private final JPanel quaternaryStrip = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
 
     /**
      * Centre area holding either one editor group or the split pane.
@@ -207,16 +313,28 @@ public final class EditorSplitArea extends JPanel {
         primaryPane.setBackground(Theme.PANEL_SOLID);
         secondaryPane.setOpaque(true);
         secondaryPane.setBackground(Theme.PANEL_SOLID);
+        tertiaryPane.setOpaque(true);
+        tertiaryPane.setBackground(Theme.PANEL_SOLID);
+        quaternaryPane.setOpaque(true);
+        quaternaryPane.setBackground(Theme.PANEL_SOLID);
         primaryHost.setOpaque(true);
         primaryHost.setBackground(Theme.PANEL_SOLID);
         secondaryHost.setOpaque(true);
         secondaryHost.setBackground(Theme.PANEL_SOLID);
+        tertiaryHost.setOpaque(true);
+        tertiaryHost.setBackground(Theme.PANEL_SOLID);
+        quaternaryHost.setOpaque(true);
+        quaternaryHost.setBackground(Theme.PANEL_SOLID);
         centre.setOpaque(true);
         centre.setBackground(Theme.PANEL_SOLID);
         primaryStrip.setOpaque(true);
         primaryStrip.setBackground(Theme.BG);
         secondaryStrip.setOpaque(true);
         secondaryStrip.setBackground(Theme.BG);
+        tertiaryStrip.setOpaque(true);
+        tertiaryStrip.setBackground(Theme.BG);
+        quaternaryStrip.setOpaque(true);
+        quaternaryStrip.setBackground(Theme.BG);
         add(centre, BorderLayout.CENTER);
     }
 
@@ -259,7 +377,8 @@ public final class EditorSplitArea extends JPanel {
      * @return selected index
      */
     public int selectedIndex() {
-        return activePane == 1 && isSplitActive() ? secondaryIndex : primaryIndex;
+        int selected = paneIndex(activePane);
+        return selected >= 0 ? selected : primaryIndex;
     }
 
     /**
@@ -269,7 +388,10 @@ public final class EditorSplitArea extends JPanel {
      * @return true when visible
      */
     public boolean isVisibleInPane(int index) {
-        return primaryIndex == index || secondaryIndex == index;
+        return primaryIndex == index
+                || secondaryIndex == index
+                || tertiaryIndex == index
+                || quaternaryIndex == index;
     }
 
     /**
@@ -290,12 +412,11 @@ public final class EditorSplitArea extends JPanel {
         if (!validPanel(index)) {
             return;
         }
-        if (secondaryTabs.contains(index)) {
-            setSecondary(index);
-        } else if (primaryTabs.contains(index)) {
-            setPrimary(index);
-        } else if (activePane == 1 && isSplitActive()) {
-            setSecondary(index);
+        int pane = paneContaining(index);
+        if (pane >= 0) {
+            setPaneSelection(pane, index);
+        } else if (isSplitActive() && paneVisible(activePane)) {
+            setPaneSelection(activePane, index);
         } else {
             setPrimary(index);
         }
@@ -321,14 +442,7 @@ public final class EditorSplitArea extends JPanel {
      * @param index panel index
      */
     private void setPrimary(int index) {
-        if (!validPanel(index)) {
-            return;
-        }
-        moveToPane(index, 0);
-        primaryIndex = index;
-        activePane = 0;
-        relayout();
-        notifySelectionChanged();
+        setPaneSelection(PANE_PRIMARY, index);
     }
 
     /**
@@ -337,12 +451,40 @@ public final class EditorSplitArea extends JPanel {
      * @param index panel index
      */
     private void setSecondary(int index) {
+        setPaneSelection(PANE_SECONDARY, index);
+    }
+
+    /**
+     * Shows a panel in the tertiary editor group.
+     *
+     * @param index panel index
+     */
+    private void setTertiary(int index) {
+        setPaneSelection(PANE_TERTIARY, index);
+    }
+
+    /**
+     * Shows a panel in the quaternary editor group.
+     *
+     * @param index panel index
+     */
+    private void setQuaternary(int index) {
+        setPaneSelection(PANE_QUATERNARY, index);
+    }
+
+    /**
+     * Shows a panel in an editor group.
+     *
+     * @param pane editor group id
+     * @param index panel index
+     */
+    private void setPaneSelection(int pane, int index) {
         if (!validPanel(index)) {
             return;
         }
-        moveToPane(index, 1);
-        secondaryIndex = index;
-        activePane = 1;
+        moveToPane(index, pane);
+        setPaneIndex(pane, index);
+        activePane = pane;
         relayout();
         notifySelectionChanged();
     }
@@ -357,16 +499,17 @@ public final class EditorSplitArea extends JPanel {
             return;
         }
         open.remove(Integer.valueOf(index));
-        primaryTabs.remove(Integer.valueOf(index));
-        secondaryTabs.remove(Integer.valueOf(index));
-        if (primaryIndex == index) {
-            primaryIndex = primaryTabs.isEmpty() ? firstOpen() : primaryTabs.get(0);
-        }
-        if (secondaryIndex == index) {
-            secondaryIndex = secondaryTabs.isEmpty() ? -1 : secondaryTabs.get(0);
-            if (activePane == 1 && secondaryIndex < 0) {
-                activePane = 0;
+        for (int pane = PANE_PRIMARY; pane <= PANE_QUATERNARY; pane++) {
+            tabsForPane(pane).remove(Integer.valueOf(index));
+            if (paneIndex(pane) == index) {
+                setPaneIndex(pane, tabsForPane(pane).isEmpty() ? -1 : tabsForPane(pane).get(0));
             }
+        }
+        if (primaryIndex < 0 && !open.isEmpty()) {
+            primaryIndex = firstOpen();
+        }
+        if (!paneVisible(activePane)) {
+            activePane = firstVisiblePane();
         }
         relayout();
         notifySelectionChanged();
@@ -385,7 +528,7 @@ public final class EditorSplitArea extends JPanel {
                 secondaryTabs.add(candidate);
                 primaryTabs.remove(Integer.valueOf(candidate));
                 secondaryIndex = candidate;
-                activePane = 1;
+                activePane = PANE_SECONDARY;
             }
         }
         relayout();
@@ -398,21 +541,18 @@ public final class EditorSplitArea extends JPanel {
      * @param delta +1 next, -1 previous
      */
     private void cycleActivePane(int delta) {
-        List<Integer> tabs = activePane == 1 && isSplitActive() ? secondaryTabs : primaryTabs;
+        int pane = paneVisible(activePane) ? activePane : PANE_PRIMARY;
+        List<Integer> tabs = tabsForPane(pane);
         if (tabs.isEmpty()) {
             return;
         }
-        int current = activePane == 1 && isSplitActive() ? secondaryIndex : primaryIndex;
+        int current = paneIndex(pane);
         int pos = tabs.indexOf(current);
         if (pos < 0) {
             pos = 0;
         }
         int next = Math.floorMod(pos + delta, tabs.size());
-        if (activePane == 1 && isSplitActive()) {
-            setSecondary(tabs.get(next));
-        } else {
-            setPrimary(tabs.get(next));
-        }
+        setPaneSelection(pane, tabs.get(next));
     }
 
     /**
@@ -445,30 +585,24 @@ public final class EditorSplitArea extends JPanel {
      * @param strip strip panel
      * @param tabList tabs owned by the strip
      * @param activeIndex the strip's active panel index
-     * @param primary true for the primary strip
+     * @param pane editor group id
      */
-    private void rebuildStrip(JPanel strip, List<Integer> tabList, int activeIndex, boolean primary) {
+    private void rebuildStrip(JPanel strip, List<Integer> tabList, int activeIndex, int pane) {
         strip.removeAll();
         for (int index : tabList) {
             int panelIndex = index;
             EditorTab tab = new EditorTab(names.get(index),
-                    () -> {
-                        if (primary) {
-                            setPrimary(panelIndex);
-                        } else {
-                            setSecondary(panelIndex);
-                        }
-                    },
+                    () -> setPaneSelection(pane, panelIndex),
                     () -> closeTab(panelIndex));
             tab.setSelected(index == activeIndex);
             tab.setDragHandler(
                     point -> handleTabDrag(strip, tabList, panelIndex, tab, point),
                     () -> finishTabDrag(panelIndex));
             strip.add(tab);
-            tab.setPaneActive(primary ? activePane == 0 || !isSplitActive() : activePane == 1);
+            tab.setPaneActive(activePane == pane || (!isSplitActive() && pane == PANE_PRIMARY));
         }
         if (open.size() < panels.size()) {
-            strip.add(reopenButton(primary));
+            strip.add(reopenButton(pane));
         }
         strip.revalidate();
         strip.repaint();
@@ -477,10 +611,10 @@ public final class EditorSplitArea extends JPanel {
     /**
      * Builds the {@code +} button that reopens closed tabs.
      *
-     * @param primary true for the primary strip
+     * @param pane editor group id
      * @return reopen button
      */
-    private JComponent reopenButton(boolean primary) {
+    private JComponent reopenButton(int pane) {
         JToggleButton plus = new JToggleButton("+");
         Theme.commandTab(plus);
         plus.setToolTipText("Reopen a closed panel");
@@ -493,13 +627,7 @@ public final class EditorSplitArea extends JPanel {
                 }
                 int index = i;
                 JMenuItem item = new JMenuItem(names.get(i));
-                item.addActionListener(choice -> {
-                    if (primary) {
-                        setPrimary(index);
-                    } else {
-                        setSecondary(index);
-                    }
-                });
+                item.addActionListener(choice -> setPaneSelection(pane, index));
                 menu.add(item);
             }
             menu.show(plus, 0, plus.getHeight());
@@ -548,8 +676,8 @@ public final class EditorSplitArea extends JPanel {
     /**
      * Chooses a body drop zone. Without a split, the familiar top/bottom and
      * left/right body regions create a second group. With a split, outer edge
-     * bands still change split geometry, while each group's center moves the
-     * dragged tab into that group.
+     * bands still change split geometry, corner bands create quadrant groups,
+     * and each group's center moves the dragged tab into that group.
      *
      * @param point point in this component
      * @param body editor body bounds
@@ -572,20 +700,38 @@ public final class EditorSplitArea extends JPanel {
         }
 
         int edge = Math.max(56, Math.min(120, Math.min(body.width, body.height) / 5));
-        if (point.y < body.y + edge) {
+        boolean top = point.y < body.y + edge;
+        boolean bottom = point.y > body.y + body.height - edge;
+        boolean left = point.x < body.x + edge;
+        boolean right = point.x > body.x + body.width - edge;
+        if (top && left) {
+            return DROP_TOP_LEFT;
+        }
+        if (top && right) {
+            return DROP_TOP_RIGHT;
+        }
+        if (bottom && left) {
+            return DROP_BOTTOM_LEFT;
+        }
+        if (bottom && right) {
+            return DROP_BOTTOM_RIGHT;
+        }
+        if (top) {
             return DROP_TOP;
         }
-        if (point.y > body.y + body.height - edge) {
+        if (bottom) {
             return DROP_BOTTOM;
         }
-        if (point.x < body.x + edge) {
+        if (left) {
             return DROP_LEFT;
         }
-        if (point.x > body.x + body.width - edge) {
+        if (right) {
             return DROP_RIGHT;
         }
-        if (componentBounds(secondaryPane).contains(point)) {
-            return DROP_SECONDARY_CENTER;
+        for (int pane = PANE_PRIMARY; pane <= PANE_QUATERNARY; pane++) {
+            if (paneVisible(pane) && componentBounds(panePanel(pane)).contains(point)) {
+                return centerDropZone(pane);
+            }
         }
         return DROP_PRIMARY_CENTER;
     }
@@ -642,6 +788,8 @@ public final class EditorSplitArea extends JPanel {
         switch (zone) {
             case DROP_PRIMARY_CENTER -> setPrimary(draggedPanelIndex);
             case DROP_SECONDARY_CENTER -> setSecondary(draggedPanelIndex);
+            case DROP_TERTIARY_CENTER -> setTertiary(draggedPanelIndex);
+            case DROP_QUATERNARY_CENTER -> setQuaternary(draggedPanelIndex);
             case DROP_RIGHT -> {
                 splitOrientation = JSplitPane.HORIZONTAL_SPLIT;
                 splitWithDragged(draggedPanelIndex, false);
@@ -658,6 +806,10 @@ public final class EditorSplitArea extends JPanel {
                 splitOrientation = JSplitPane.VERTICAL_SPLIT;
                 splitWithDragged(draggedPanelIndex, true);
             }
+            case DROP_TOP_LEFT -> splitWithDraggedInPane(draggedPanelIndex, PANE_PRIMARY);
+            case DROP_TOP_RIGHT -> splitWithDraggedInPane(draggedPanelIndex, PANE_SECONDARY);
+            case DROP_BOTTOM_LEFT -> splitWithDraggedInPane(draggedPanelIndex, PANE_TERTIARY);
+            case DROP_BOTTOM_RIGHT -> splitWithDraggedInPane(draggedPanelIndex, PANE_QUATERNARY);
             default -> relayout();
         }
     }
@@ -688,19 +840,64 @@ public final class EditorSplitArea extends JPanel {
         }
         primaryTabs.clear();
         secondaryTabs.clear();
+        tertiaryTabs.clear();
+        quaternaryTabs.clear();
+        tertiaryIndex = -1;
+        quaternaryIndex = -1;
         if (draggedInPrimary) {
             primaryTabs.add(draggedPanelIndex);
             secondaryTabs.addAll(others);
             primaryIndex = draggedPanelIndex;
             secondaryIndex = secondaryTabs.get(0);
-            activePane = 0;
+            activePane = PANE_PRIMARY;
         } else {
             primaryTabs.addAll(others);
             secondaryTabs.add(draggedPanelIndex);
             primaryIndex = primaryTabs.contains(primaryIndex) ? primaryIndex : primaryTabs.get(0);
             secondaryIndex = draggedPanelIndex;
-            activePane = 1;
+            activePane = PANE_SECONDARY;
         }
+        syncOpenFromGroups();
+        relayout();
+        notifySelectionChanged();
+    }
+
+    /**
+     * Splits a dragged tab into a specific editor-grid pane.
+     *
+     * @param draggedPanelIndex dragged panel index
+     * @param targetPane target editor group id
+     */
+    private void splitWithDraggedInPane(int draggedPanelIndex, int targetPane) {
+        if (!validPanel(draggedPanelIndex)) {
+            return;
+        }
+        if (!isSplitActive()) {
+            splitWithDragged(draggedPanelIndex, targetPane == PANE_PRIMARY || targetPane == PANE_TERTIARY);
+            return;
+        }
+        ensureOpen(draggedPanelIndex);
+        rememberDividerLocation();
+        List<Integer> displaced = new ArrayList<>(tabsForPane(targetPane));
+        for (int pane = PANE_PRIMARY; pane <= PANE_QUATERNARY; pane++) {
+            tabsForPane(pane).remove(Integer.valueOf(draggedPanelIndex));
+        }
+        displaced.remove(Integer.valueOf(draggedPanelIndex));
+        List<Integer> target = tabsForPane(targetPane);
+        target.clear();
+        target.add(draggedPanelIndex);
+        setPaneIndex(targetPane, draggedPanelIndex);
+        int paired = pairedPane(targetPane);
+        for (int index : displaced) {
+            if (!tabsForPane(paired).contains(index)) {
+                tabsForPane(paired).add(index);
+            }
+        }
+        if (!displaced.isEmpty() && paneIndex(paired) < 0) {
+            setPaneIndex(paired, displaced.get(0));
+        }
+        activePane = targetPane;
+        repairGroups();
         syncOpenFromGroups();
         relayout();
         notifySelectionChanged();
@@ -713,27 +910,22 @@ public final class EditorSplitArea extends JPanel {
         rememberDividerLocation();
         repairGroups();
         centre.removeAll();
-        preparePane(primaryPane, primaryStrip, primaryHost, primaryTabs, primaryIndex, true);
+        splitPanes.clear();
+        preparePane(PANE_PRIMARY);
         if (!isSplitActive()) {
             splitPane = null;
             splitButton.setSelected(false);
             centre.add(primaryPane, BorderLayout.CENTER);
         } else {
             splitButton.setSelected(true);
-            preparePane(secondaryPane, secondaryStrip, secondaryHost, secondaryTabs, secondaryIndex, false);
-            splitPane = new JSplitPane(splitOrientation, primaryPane, secondaryPane);
-            SplitPaneStyler.style(splitPane);
-            splitPane.setResizeWeight(0.5);
-            int remembered = splitOrientation == JSplitPane.VERTICAL_SPLIT
-                    ? verticalDividerLocation
-                    : horizontalDividerLocation;
-            if (remembered > 0) {
-                JSplitPane currentSplit = splitPane;
-                SwingUtilities.invokeLater(() -> currentSplit.setDividerLocation(remembered));
-            } else {
-                splitPane.setDividerLocation(0.5);
+            for (int pane = PANE_SECONDARY; pane <= PANE_QUATERNARY; pane++) {
+                if (paneVisible(pane)) {
+                    preparePane(pane);
+                }
             }
-            centre.add(splitPane, BorderLayout.CENTER);
+            Component layout = editorLayout();
+            splitPane = layout instanceof JSplitPane root ? root : null;
+            centre.add(layout, BorderLayout.CENTER);
         }
         centre.revalidate();
         centre.repaint();
@@ -742,39 +934,94 @@ public final class EditorSplitArea extends JPanel {
     /**
      * Rebuilds one editor-group pane.
      *
-     * @param pane pane wrapper
-     * @param strip tab strip
-     * @param host selected panel host
-     * @param tabList tabs owned by the pane
-     * @param activeIndex selected panel index
-     * @param primary true for primary pane
+     * @param pane editor group id
      */
-    private void preparePane(
-            JPanel pane,
-            JPanel strip,
-            JPanel host,
-            List<Integer> tabList,
-            int activeIndex,
-            boolean primary) {
-        pane.removeAll();
+    private void preparePane(int pane) {
+        JPanel panePanel = panePanel(pane);
+        JPanel strip = paneStrip(pane);
+        JPanel host = paneHost(pane);
+        List<Integer> tabList = tabsForPane(pane);
+        int activeIndex = paneIndex(pane);
+        panePanel.removeAll();
         host.removeAll();
         if (validPanel(activeIndex)) {
             host.add(panels.get(activeIndex), BorderLayout.CENTER);
         }
-        rebuildStrip(strip, tabList, activeIndex, primary);
+        rebuildStrip(strip, tabList, activeIndex, pane);
         JPanel header = new JPanel(new BorderLayout());
         header.setOpaque(true);
         header.setBackground(Theme.BG);
         header.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, Theme.LINE));
         header.add(strip, BorderLayout.CENTER);
-        if (primary) {
+        if (pane == PANE_PRIMARY) {
             JPanel splitHolder = new JPanel(new FlowLayout(FlowLayout.RIGHT, 4, 3));
             splitHolder.setOpaque(false);
             splitHolder.add(splitButton);
             header.add(splitHolder, BorderLayout.EAST);
         }
-        pane.add(header, BorderLayout.NORTH);
-        pane.add(host, BorderLayout.CENTER);
+        panePanel.add(header, BorderLayout.NORTH);
+        panePanel.add(host, BorderLayout.CENTER);
+    }
+
+    /**
+     * Builds the visible editor-group split tree.
+     *
+     * @return editor layout component
+     */
+    private Component editorLayout() {
+        Component left = columnLayout(PANE_PRIMARY, PANE_TERTIARY);
+        Component right = columnLayout(PANE_SECONDARY, PANE_QUATERNARY);
+        if (left != null && right != null) {
+            return createSplitPane(JSplitPane.HORIZONTAL_SPLIT, left, right);
+        }
+        if (left != null) {
+            return left;
+        }
+        return right == null ? primaryPane : right;
+    }
+
+    /**
+     * Builds one top/bottom editor column.
+     *
+     * @param topPane top editor group id
+     * @param bottomPane bottom editor group id
+     * @return column component, or null when neither group is visible
+     */
+    private Component columnLayout(int topPane, int bottomPane) {
+        boolean topVisible = paneVisible(topPane);
+        boolean bottomVisible = paneVisible(bottomPane);
+        if (topVisible && bottomVisible) {
+            return createSplitPane(JSplitPane.VERTICAL_SPLIT, panePanel(topPane), panePanel(bottomPane));
+        }
+        if (topVisible) {
+            return panePanel(topPane);
+        }
+        return bottomVisible ? panePanel(bottomPane) : null;
+    }
+
+    /**
+     * Creates a styled split pane and restores the remembered divider location
+     * for its orientation when available.
+     *
+     * @param orientation split orientation
+     * @param first first component
+     * @param second second component
+     * @return styled split pane
+     */
+    private JSplitPane createSplitPane(int orientation, Component first, Component second) {
+        JSplitPane pane = new JSplitPane(orientation, first, second);
+        SplitPaneStyler.style(pane);
+        pane.setResizeWeight(0.5);
+        int remembered = orientation == JSplitPane.VERTICAL_SPLIT
+                ? verticalDividerLocation
+                : horizontalDividerLocation;
+        if (remembered > 0) {
+            SwingUtilities.invokeLater(() -> pane.setDividerLocation(remembered));
+        } else {
+            pane.setDividerLocation(0.5);
+        }
+        splitPanes.add(pane);
+        return pane;
     }
 
     /**
@@ -782,45 +1029,46 @@ public final class EditorSplitArea extends JPanel {
      * indices point at existing group members.
      */
     private void repairGroups() {
-        primaryTabs.removeIf(index -> !open.contains(index) || !validPanel(index));
-        secondaryTabs.removeIf(index -> !open.contains(index) || !validPanel(index));
-        secondaryTabs.removeIf(primaryTabs::contains);
+        List<Integer> assigned = new ArrayList<>();
+        for (int pane = PANE_PRIMARY; pane <= PANE_QUATERNARY; pane++) {
+            List<Integer> tabs = tabsForPane(pane);
+            tabs.removeIf(index -> !open.contains(index) || !validPanel(index) || assigned.contains(index));
+            assigned.addAll(tabs);
+        }
         for (int index : open) {
-            if (!primaryTabs.contains(index) && !secondaryTabs.contains(index) && validPanel(index)) {
+            if (!assigned.contains(index) && validPanel(index)) {
                 primaryTabs.add(index);
+                assigned.add(index);
             }
         }
         if (open.isEmpty()) {
             primaryIndex = 0;
             secondaryIndex = -1;
-            activePane = 0;
+            tertiaryIndex = -1;
+            quaternaryIndex = -1;
+            activePane = PANE_PRIMARY;
             return;
         }
-        if (secondaryTabs.isEmpty()) {
-            secondaryIndex = -1;
-            activePane = activePane == 1 ? 0 : activePane;
-            for (int index : open) {
-                if (!primaryTabs.contains(index)) {
-                    primaryTabs.add(index);
+        if (primaryTabs.isEmpty()) {
+            for (int pane = PANE_SECONDARY; pane <= PANE_QUATERNARY; pane++) {
+                if (!tabsForPane(pane).isEmpty()) {
+                    int moved = tabsForPane(pane).remove(0);
+                    primaryTabs.add(moved);
+                    primaryIndex = moved;
+                    break;
                 }
             }
-        } else if (primaryTabs.isEmpty()) {
-            int moved = secondaryTabs.remove(0);
-            primaryTabs.add(moved);
-            primaryIndex = moved;
-            if (secondaryTabs.isEmpty()) {
-                secondaryIndex = -1;
-                activePane = 0;
+        }
+        for (int pane = PANE_PRIMARY; pane <= PANE_QUATERNARY; pane++) {
+            List<Integer> tabs = tabsForPane(pane);
+            if (tabs.isEmpty()) {
+                setPaneIndex(pane, pane == PANE_PRIMARY ? firstOpen() : -1);
+            } else if (!tabs.contains(paneIndex(pane))) {
+                setPaneIndex(pane, tabs.get(0));
             }
         }
-        if (!primaryTabs.contains(primaryIndex)) {
-            primaryIndex = primaryTabs.get(0);
-        }
-        if (secondaryIndex >= 0 && !secondaryTabs.contains(secondaryIndex)) {
-            secondaryIndex = secondaryTabs.isEmpty() ? -1 : secondaryTabs.get(0);
-        }
-        if (activePane == 1 && secondaryIndex < 0) {
-            activePane = 0;
+        if (!paneVisible(activePane)) {
+            activePane = firstVisiblePane();
         }
         syncOpenFromGroups();
     }
@@ -829,21 +1077,20 @@ public final class EditorSplitArea extends JPanel {
      * Moves a panel tab to an editor group, reopening it when needed.
      *
      * @param index panel index
-     * @param pane target pane: 0 primary, 1 secondary
+     * @param pane target editor group id
      */
     private void moveToPane(int index, int pane) {
         ensureOpen(index);
-        List<Integer> target = pane == 1 ? secondaryTabs : primaryTabs;
-        List<Integer> other = pane == 1 ? primaryTabs : secondaryTabs;
-        other.remove(Integer.valueOf(index));
+        List<Integer> target = tabsForPane(pane);
+        for (int candidate = PANE_PRIMARY; candidate <= PANE_QUATERNARY; candidate++) {
+            if (candidate != pane) {
+                tabsForPane(candidate).remove(Integer.valueOf(index));
+            }
+        }
         if (!target.contains(index)) {
             target.add(index);
         }
-        if (pane == 0) {
-            primaryIndex = index;
-        } else {
-            secondaryIndex = index;
-        }
+        setPaneIndex(pane, index);
         repairGroups();
     }
 
@@ -864,15 +1111,18 @@ public final class EditorSplitArea extends JPanel {
      */
     private void collapseSplit() {
         rememberDividerLocation();
-        for (int index : secondaryTabs) {
-            if (!primaryTabs.contains(index)) {
-                primaryTabs.add(index);
+        for (int pane = PANE_SECONDARY; pane <= PANE_QUATERNARY; pane++) {
+            for (int index : tabsForPane(pane)) {
+                if (!primaryTabs.contains(index)) {
+                    primaryTabs.add(index);
+                }
             }
+            tabsForPane(pane).clear();
+            setPaneIndex(pane, -1);
         }
-        secondaryTabs.clear();
-        secondaryIndex = -1;
-        activePane = 0;
+        activePane = PANE_PRIMARY;
         splitPane = null;
+        splitPanes.clear();
         syncOpenFromGroups();
     }
 
@@ -891,15 +1141,25 @@ public final class EditorSplitArea extends JPanel {
                 open.add(index);
             }
         }
+        for (int index : tertiaryTabs) {
+            if (!open.contains(index) && validPanel(index)) {
+                open.add(index);
+            }
+        }
+        for (int index : quaternaryTabs) {
+            if (!open.contains(index) && validPanel(index)) {
+                open.add(index);
+            }
+        }
     }
 
     /**
      * Returns whether split mode is active.
      *
-     * @return true when a secondary editor group is visible
+     * @return true when any non-primary editor group is visible
      */
     private boolean isSplitActive() {
-        return secondaryIndex >= 0 && !secondaryTabs.isEmpty();
+        return paneVisible(PANE_SECONDARY) || paneVisible(PANE_TERTIARY) || paneVisible(PANE_QUATERNARY);
     }
 
     /**
@@ -913,6 +1173,167 @@ public final class EditorSplitArea extends JPanel {
     }
 
     /**
+     * Returns the tab list for an editor group.
+     *
+     * @param pane editor group id
+     * @return tab list
+     */
+    private List<Integer> tabsForPane(int pane) {
+        return switch (pane) {
+            case PANE_SECONDARY -> secondaryTabs;
+            case PANE_TERTIARY -> tertiaryTabs;
+            case PANE_QUATERNARY -> quaternaryTabs;
+            default -> primaryTabs;
+        };
+    }
+
+    /**
+     * Returns the selected panel index for an editor group.
+     *
+     * @param pane editor group id
+     * @return selected panel index, or -1 when hidden
+     */
+    private int paneIndex(int pane) {
+        return switch (pane) {
+            case PANE_SECONDARY -> secondaryIndex;
+            case PANE_TERTIARY -> tertiaryIndex;
+            case PANE_QUATERNARY -> quaternaryIndex;
+            default -> primaryIndex;
+        };
+    }
+
+    /**
+     * Sets the selected panel index for an editor group.
+     *
+     * @param pane editor group id
+     * @param index selected panel index
+     */
+    private void setPaneIndex(int pane, int index) {
+        switch (pane) {
+            case PANE_SECONDARY -> secondaryIndex = index;
+            case PANE_TERTIARY -> tertiaryIndex = index;
+            case PANE_QUATERNARY -> quaternaryIndex = index;
+            default -> primaryIndex = index;
+        }
+    }
+
+    /**
+     * Returns the pane wrapper for an editor group.
+     *
+     * @param pane editor group id
+     * @return pane wrapper
+     */
+    private JPanel panePanel(int pane) {
+        return switch (pane) {
+            case PANE_SECONDARY -> secondaryPane;
+            case PANE_TERTIARY -> tertiaryPane;
+            case PANE_QUATERNARY -> quaternaryPane;
+            default -> primaryPane;
+        };
+    }
+
+    /**
+     * Returns the tab strip for an editor group.
+     *
+     * @param pane editor group id
+     * @return tab strip
+     */
+    private JPanel paneStrip(int pane) {
+        return switch (pane) {
+            case PANE_SECONDARY -> secondaryStrip;
+            case PANE_TERTIARY -> tertiaryStrip;
+            case PANE_QUATERNARY -> quaternaryStrip;
+            default -> primaryStrip;
+        };
+    }
+
+    /**
+     * Returns the selected-panel host for an editor group.
+     *
+     * @param pane editor group id
+     * @return selected-panel host
+     */
+    private JPanel paneHost(int pane) {
+        return switch (pane) {
+            case PANE_SECONDARY -> secondaryHost;
+            case PANE_TERTIARY -> tertiaryHost;
+            case PANE_QUATERNARY -> quaternaryHost;
+            default -> primaryHost;
+        };
+    }
+
+    /**
+     * Returns whether an editor group is visible.
+     *
+     * @param pane editor group id
+     * @return true when the group has tabs and a selected panel
+     */
+    private boolean paneVisible(int pane) {
+        return paneIndex(pane) >= 0 && !tabsForPane(pane).isEmpty();
+    }
+
+    /**
+     * Returns the editor group containing a panel.
+     *
+     * @param index panel index
+     * @return editor group id, or -1 when the panel is closed
+     */
+    private int paneContaining(int index) {
+        for (int pane = PANE_PRIMARY; pane <= PANE_QUATERNARY; pane++) {
+            if (tabsForPane(pane).contains(index)) {
+                return pane;
+            }
+        }
+        return -1;
+    }
+
+    /**
+     * Returns the first visible editor group.
+     *
+     * @return visible editor group id
+     */
+    private int firstVisiblePane() {
+        for (int pane = PANE_PRIMARY; pane <= PANE_QUATERNARY; pane++) {
+            if (paneVisible(pane)) {
+                return pane;
+            }
+        }
+        return PANE_PRIMARY;
+    }
+
+    /**
+     * Returns the same-column paired group used when a corner split displaces
+     * an existing group.
+     *
+     * @param pane editor group id
+     * @return paired editor group id
+     */
+    private static int pairedPane(int pane) {
+        return switch (pane) {
+            case PANE_PRIMARY -> PANE_TERTIARY;
+            case PANE_SECONDARY -> PANE_QUATERNARY;
+            case PANE_TERTIARY -> PANE_PRIMARY;
+            case PANE_QUATERNARY -> PANE_SECONDARY;
+            default -> PANE_SECONDARY;
+        };
+    }
+
+    /**
+     * Returns the center drop-zone id for an editor group.
+     *
+     * @param pane editor group id
+     * @return drop-zone constant
+     */
+    private static int centerDropZone(int pane) {
+        return switch (pane) {
+            case PANE_SECONDARY -> DROP_SECONDARY_CENTER;
+            case PANE_TERTIARY -> DROP_TERTIARY_CENTER;
+            case PANE_QUATERNARY -> DROP_QUATERNARY_CENTER;
+            default -> DROP_PRIMARY_CENTER;
+        };
+    }
+
+    /**
      * Returns component bounds converted into this split area's coordinate
      * space.
      *
@@ -921,7 +1342,7 @@ public final class EditorSplitArea extends JPanel {
      */
     private Rectangle componentBounds(JComponent component) {
         return SwingUtilities.convertRectangle(component,
-    new Rectangle(0, 0, component.getWidth(), component.getHeight()), this);
+                new Rectangle(0, 0, component.getWidth(), component.getHeight()), this);
     }
 
     /**
@@ -937,17 +1358,19 @@ public final class EditorSplitArea extends JPanel {
      * Remembers the current divider location before the split pane is rebuilt.
      */
     private void rememberDividerLocation() {
-        if (splitPane == null || !isSplitActive()) {
+        if (splitPanes.isEmpty() || !isSplitActive()) {
             return;
         }
-        int location = splitPane.getDividerLocation();
-        if (location <= 0) {
-            return;
-        }
-        if (splitPane.getOrientation() == JSplitPane.VERTICAL_SPLIT) {
-            verticalDividerLocation = location;
-        } else {
-            horizontalDividerLocation = location;
+        for (JSplitPane pane : splitPanes) {
+            int location = pane.getDividerLocation();
+            if (location <= 0) {
+                continue;
+            }
+            if (pane.getOrientation() == JSplitPane.VERTICAL_SPLIT) {
+                verticalDividerLocation = location;
+            } else {
+                horizontalDividerLocation = location;
+            }
         }
     }
 
@@ -993,7 +1416,7 @@ public final class EditorSplitArea extends JPanel {
         int halfW = body.width / 2;
         int halfH = body.height / 2;
         int inset = 6;
-    return switch (zone) {
+        return switch (zone) {
             case DROP_LEFT -> new Rectangle(body.x + inset, body.y + inset,
                     Math.max(1, halfW - inset * 2), Math.max(1, body.height - inset * 2));
             case DROP_RIGHT -> new Rectangle(body.x + halfW + inset, body.y + inset,
@@ -1002,8 +1425,18 @@ public final class EditorSplitArea extends JPanel {
                     Math.max(1, body.width - inset * 2), Math.max(1, halfH - inset * 2));
             case DROP_BOTTOM -> new Rectangle(body.x + inset, body.y + halfH + inset,
                     Math.max(1, body.width - inset * 2), Math.max(1, body.height - halfH - inset * 2));
+            case DROP_TOP_LEFT -> new Rectangle(body.x + inset, body.y + inset,
+                    Math.max(1, halfW - inset * 2), Math.max(1, halfH - inset * 2));
+            case DROP_TOP_RIGHT -> new Rectangle(body.x + halfW + inset, body.y + inset,
+                    Math.max(1, body.width - halfW - inset * 2), Math.max(1, halfH - inset * 2));
+            case DROP_BOTTOM_LEFT -> new Rectangle(body.x + inset, body.y + halfH + inset,
+                    Math.max(1, halfW - inset * 2), Math.max(1, body.height - halfH - inset * 2));
+            case DROP_BOTTOM_RIGHT -> new Rectangle(body.x + halfW + inset, body.y + halfH + inset,
+                    Math.max(1, body.width - halfW - inset * 2), Math.max(1, body.height - halfH - inset * 2));
             case DROP_PRIMARY_CENTER -> inset(componentBounds(primaryPane), inset);
             case DROP_SECONDARY_CENTER -> inset(componentBounds(secondaryPane), inset);
+            case DROP_TERTIARY_CENTER -> inset(componentBounds(tertiaryPane), inset);
+            case DROP_QUATERNARY_CENTER -> inset(componentBounds(quaternaryPane), inset);
             default -> new Rectangle();
         };
     }
@@ -1016,14 +1449,14 @@ public final class EditorSplitArea extends JPanel {
      * @return inset rectangle
      */
     private static Rectangle inset(Rectangle rectangle, int amount) {
-    return new Rectangle(rectangle.x + amount, rectangle.y + amount,
+        return new Rectangle(rectangle.x + amount, rectangle.y + amount,
                 Math.max(1, rectangle.width - amount * 2),
                 Math.max(1, rectangle.height - amount * 2));
     }
 
     @Override
     public Dimension getPreferredSize() {
-    return new Dimension(900, 620);
+        return new Dimension(900, 620);
     }
 
     /**

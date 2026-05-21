@@ -160,6 +160,7 @@ public final class WorkbenchRegressionTest {
         testCollapsibleInfoSectionTogglesContent();
         testTabbedPaneSwitchesWithoutSnapshotOverlay();
         testSplitAreaUsesIndependentEditorGroups();
+        testSplitAreaSupportsCornerEditorGroups();
         testEditorShellUsesVscodeStyleSplitChrome();
         testButtonHoverTransitionStarts();
         testWorkbenchTimingDefaultsAreSnappy();
@@ -832,6 +833,39 @@ public final class WorkbenchRegressionTest {
         invoke(area, "setPrimary", new Class<?>[] { int.class }, 1);
         assertTrue(primary.contains(1), "tab can move back to primary group");
         assertFalse(secondary.contains(1), "tab is not duplicated across editor groups");
+    }
+
+    /**
+     * Verifies corner tab drops can create VS Code-style quadrant editor groups
+     * instead of being limited to left/right or top/bottom splits.
+     */
+    @SuppressWarnings("unchecked")
+    private static void testSplitAreaSupportsCornerEditorGroups() {
+        Class<?> areaType = type("layout.EditorSplitArea");
+        Object area = construct(areaType, new Class<?>[0]);
+        for (int i = 0; i < 4; i++) {
+            invoke(area, "addPanel", new Class<?>[] { String.class, javax.swing.JComponent.class },
+                    "Tab " + i, new JPanel());
+        }
+        invoke(area, "install", new Class<?>[0]);
+        invoke(area, "splitWithDragged", new Class<?>[] { int.class, boolean.class }, 2, false);
+
+        setField(area, "dragZone", staticField(areaType, "DROP_BOTTOM_RIGHT"));
+        invoke(area, "finishTabDrag", new Class<?>[] { int.class }, 1);
+        List<Integer> secondary = (List<Integer>) field(area, "secondaryTabs");
+        List<Integer> quaternary = (List<Integer>) field(area, "quaternaryTabs");
+        assertTrue(secondary.contains(2), "existing right group stays in the top-right quadrant");
+        assertTrue(quaternary.contains(1), "bottom-right corner creates a bottom-right group");
+        assertEquals(Integer.valueOf(1), invoke(area, "selectedIndex", new Class<?>[0]),
+                "bottom-right corner drop activates the moved tab");
+
+        setField(area, "dragZone", staticField(areaType, "DROP_TOP_LEFT"));
+        invoke(area, "finishTabDrag", new Class<?>[] { int.class }, 3);
+        List<Integer> primary = (List<Integer>) field(area, "primaryTabs");
+        List<Integer> tertiary = (List<Integer>) field(area, "tertiaryTabs");
+        assertTrue(primary.contains(3), "top-left corner isolates the dragged tab");
+        assertTrue(tertiary.contains(0), "previous top-left tabs move into the bottom-left group");
+        assertFalse(primary.contains(0), "top-left corner split does not duplicate displaced tabs");
     }
 
     /**
