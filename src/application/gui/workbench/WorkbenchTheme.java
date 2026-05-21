@@ -374,65 +374,69 @@ final class WorkbenchTheme {
      */
     static final Color TOOLTIP_BORDER = new Color(200, 200, 200);
 
+    // Status families share a consistent pastel scale: a ~95%-light surface,
+    // a ~70%-light border, and a ~34%-light text tone for each hue, so the
+    // four states read as one coherent set rather than four ad hoc colours.
+
     /**
      * Success feedback surface.
      */
-    static final Color STATUS_SUCCESS_BG = new Color(236, 247, 235);
+    static final Color STATUS_SUCCESS_BG = new Color(233, 244, 235);
 
     /**
      * Success feedback border.
      */
-    static final Color STATUS_SUCCESS_BORDER = new Color(166, 202, 157);
+    static final Color STATUS_SUCCESS_BORDER = new Color(160, 198, 170);
 
     /**
      * Success feedback text.
      */
-    static final Color STATUS_SUCCESS_TEXT = new Color(37, 86, 45);
+    static final Color STATUS_SUCCESS_TEXT = new Color(42, 110, 64);
 
     /**
      * Warning feedback surface.
      */
-    static final Color STATUS_WARNING_BG = new Color(255, 246, 222);
+    static final Color STATUS_WARNING_BG = new Color(250, 242, 226);
 
     /**
      * Warning feedback border.
      */
-    static final Color STATUS_WARNING_BORDER = new Color(223, 181, 91);
+    static final Color STATUS_WARNING_BORDER = new Color(212, 180, 120);
 
     /**
      * Warning feedback text.
      */
-    static final Color STATUS_WARNING_TEXT = new Color(96, 68, 17);
+    static final Color STATUS_WARNING_TEXT = new Color(124, 92, 30);
 
     /**
      * Error feedback surface.
      */
-    static final Color STATUS_ERROR_BG = new Color(253, 236, 236);
+    static final Color STATUS_ERROR_BG = new Color(249, 235, 234);
 
     /**
      * Error feedback border.
      */
-    static final Color STATUS_ERROR_BORDER = new Color(222, 142, 142);
+    static final Color STATUS_ERROR_BORDER = new Color(212, 160, 156);
 
     /**
      * Error feedback text.
      */
-    static final Color STATUS_ERROR_TEXT = new Color(136, 42, 42);
+    static final Color STATUS_ERROR_TEXT = new Color(158, 64, 58);
 
     /**
      * Informational feedback surface.
      */
-    static final Color STATUS_INFO_BG = new Color(237, 244, 248);
+    static final Color STATUS_INFO_BG = new Color(232, 240, 248);
 
     /**
      * Informational feedback border.
      */
-    static final Color STATUS_INFO_BORDER = new Color(166, 185, 196);
+    static final Color STATUS_INFO_BORDER = new Color(158, 184, 208);
 
     /**
      * Informational feedback text.
      */
-    static final Color STATUS_INFO_TEXT = new Color(47, 71, 84);
+    static final Color STATUS_INFO_TEXT = new Color(45, 86, 124);
 
     /**
      * Compact logo tile fill.
