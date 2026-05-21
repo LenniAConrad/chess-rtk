@@ -312,11 +312,11 @@ final class WorkbenchTensorViz {
             int ww = Math.round(bar.width * w);
             int dw = Math.round(bar.width * d);
             int lw = Math.max(0, bar.width - ww - dw);
-            g.setColor(new Color(56, 158, 90));
+            g.setColor(WorkbenchTheme.STATUS_SUCCESS_TEXT);
             g.fillRect(bar.x, bar.y, ww, bar.height);
-            g.setColor(new Color(150, 156, 163));
+            g.setColor(WorkbenchTheme.MUTED);
             g.fillRect(bar.x + ww, bar.y, dw, bar.height);
-            g.setColor(new Color(201, 74, 74));
+            g.setColor(WorkbenchTheme.STATUS_ERROR_TEXT);
             g.fillRect(bar.x + ww + dw, bar.y, lw, bar.height);
             g.setColor(WorkbenchTheme.LINE);
             g.drawRect(bar.x, bar.y, bar.width - 1, bar.height - 1);

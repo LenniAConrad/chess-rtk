@@ -84,27 +84,27 @@ final class WorkbenchAnalysisGraph extends JComponent {
     /**
      * Evaluation line color.
      */
-    private static final Color EVAL_LINE = new Color(48, 111, 156);
+    private static final Color EVAL_LINE = WorkbenchTheme.ACCENT;
 
     /**
      * Evaluation fill color.
      */
-    private static final Color EVAL_FILL = new Color(48, 111, 156, 34);
+    private static final Color EVAL_FILL = WorkbenchTheme.withAlpha(WorkbenchTheme.ACCENT, 34);
 
     /**
      * Depth bar color.
      */
-    private static final Color DEPTH_BAR = new Color(64, 156, 104, 142);
+    private static final Color DEPTH_BAR = WorkbenchTheme.withAlpha(WorkbenchTheme.STATUS_SUCCESS_TEXT, 142);
 
     /**
      * Node bar color.
      */
-    private static final Color NODE_BAR = new Color(73, 123, 164, 92);
+    private static final Color NODE_BAR = WorkbenchTheme.withAlpha(WorkbenchTheme.ACCENT, 92);
 
     /**
      * NPS trend color.
      */
-    private static final Color NPS_LINE = new Color(190, 122, 42);
+    private static final Color NPS_LINE = WorkbenchTheme.STATUS_WARNING_TEXT;
 
     /**
      * Grid line color.

@@ -110,7 +110,7 @@ final class WorkbenchHitRegions {
             StringBuilder sb = new StringBuilder("<html>");
             sb.append("<b>").append(escape(title)).append("</b>");
             if (!value.isEmpty()) {
-                sb.append("<br><span style='color:#9aa0a6;'>")
+                sb.append("<br><span style='color:").append(WorkbenchTheme.css(WorkbenchTheme.MUTED)).append(";'>")
                   .append(escape(value)).append("</span>");
             }
             if (!description.isEmpty()) {
