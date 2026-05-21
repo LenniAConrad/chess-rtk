@@ -377,7 +377,8 @@ public final class EditorSplitArea extends JPanel {
      * @return selected index
      */
     public int selectedIndex() {
-        int selected = paneIndex(activePane);
+        int pane = paneVisible(activePane) ? activePane : firstVisiblePane();
+        int selected = paneIndex(pane);
         return selected >= 0 ? selected : primaryIndex;
     }
 
@@ -415,8 +416,9 @@ public final class EditorSplitArea extends JPanel {
         int pane = paneContaining(index);
         if (pane >= 0) {
             setPaneSelection(pane, index);
-        } else if (isSplitActive() && paneVisible(activePane)) {
-            setPaneSelection(activePane, index);
+        } else if (isSplitActive()) {
+            int targetPane = paneVisible(activePane) ? activePane : firstVisiblePane();
+            setPaneSelection(targetPane, index);
         } else {
             setPrimary(index);
         }
@@ -699,7 +701,9 @@ public final class EditorSplitArea extends JPanel {
             return point.x < body.x + body.width / 2 ? DROP_LEFT : DROP_RIGHT;
         }
 
-        int edge = Math.max(56, Math.min(120, Math.min(body.width, body.height) / 5));
+        int shortest = Math.min(body.width, body.height);
+        int edge = Math.max(24, Math.min(120, shortest / 5));
+        edge = Math.min(edge, Math.max(1, shortest / 2 - 1));
         boolean top = point.y < body.y + edge;
         boolean bottom = point.y > body.y + body.height - edge;
         boolean left = point.x < body.x + edge;
@@ -872,22 +876,25 @@ public final class EditorSplitArea extends JPanel {
         if (!validPanel(draggedPanelIndex)) {
             return;
         }
+        int targetPaneId = targetPane >= PANE_PRIMARY && targetPane <= PANE_QUATERNARY
+                ? targetPane
+                : PANE_PRIMARY;
         if (!isSplitActive()) {
-            splitWithDragged(draggedPanelIndex, targetPane == PANE_PRIMARY || targetPane == PANE_TERTIARY);
+            splitWithDragged(draggedPanelIndex, targetPaneId == PANE_PRIMARY || targetPaneId == PANE_TERTIARY);
             return;
         }
         ensureOpen(draggedPanelIndex);
         rememberDividerLocation();
-        List<Integer> displaced = new ArrayList<>(tabsForPane(targetPane));
+        List<Integer> displaced = new ArrayList<>(tabsForPane(targetPaneId));
         for (int pane = PANE_PRIMARY; pane <= PANE_QUATERNARY; pane++) {
             tabsForPane(pane).remove(Integer.valueOf(draggedPanelIndex));
         }
         displaced.remove(Integer.valueOf(draggedPanelIndex));
-        List<Integer> target = tabsForPane(targetPane);
+        List<Integer> target = tabsForPane(targetPaneId);
         target.clear();
         target.add(draggedPanelIndex);
-        setPaneIndex(targetPane, draggedPanelIndex);
-        int paired = pairedPane(targetPane);
+        setPaneIndex(targetPaneId, draggedPanelIndex);
+        int paired = pairedPane(targetPaneId);
         for (int index : displaced) {
             if (!tabsForPane(paired).contains(index)) {
                 tabsForPane(paired).add(index);
@@ -896,7 +903,7 @@ public final class EditorSplitArea extends JPanel {
         if (!displaced.isEmpty() && paneIndex(paired) < 0) {
             setPaneIndex(paired, displaced.get(0));
         }
-        activePane = targetPane;
+        activePane = targetPaneId;
         repairGroups();
         syncOpenFromGroups();
         relayout();
@@ -1058,6 +1065,10 @@ public final class EditorSplitArea extends JPanel {
                     break;
                 }
             }
+        }
+        if (primaryTabs.isEmpty() && !open.isEmpty()) {
+            primaryTabs.add(firstOpen());
+            primaryIndex = firstOpen();
         }
         for (int pane = PANE_PRIMARY; pane <= PANE_QUATERNARY; pane++) {
             List<Integer> tabs = tabsForPane(pane);
