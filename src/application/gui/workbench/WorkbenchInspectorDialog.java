@@ -38,11 +38,6 @@ final class WorkbenchInspectorDialog extends JDialog {
     private static final int MAX_MATRIX_COLS = 16;
 
     /**
-     * Maximum number of entries shown when rendering a flat slice.
-     */
-    private static final int MAX_FLAT_ENTRIES = 4096;
-
-    /**
      * Serialization identifier for Swing dialog compatibility.
      */
     private static final long serialVersionUID = 1L;
@@ -226,7 +221,7 @@ final class WorkbenchInspectorDialog extends JDialog {
         if (stride > 0 && len % stride == 0 && stride > 1) {
             return formatMatrix(data, off, len / stride, stride);
         }
-        return formatFlat(data, off, len);
+        return WorkbenchInspectorText.formatFlat(data, off, len);
     }
 
     /**
@@ -266,23 +261,4 @@ final class WorkbenchInspectorDialog extends JDialog {
         return sb.toString();
     }
 
-    /**
-     * Formats a flat value slice.
-     *
-     * @param data source data
-     * @param off start offset
-     * @param len element count
-     * @return formatted values
-     */
-    private static String formatFlat(float[] data, int off, int len) {
-        int show = Math.min(len, MAX_FLAT_ENTRIES);
-        StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < show; ++i) {
-            sb.append(String.format("[%6d]   %+10.5f%n", i, data[off + i]));
-        }
-        if (len > show) {
-            sb.append("   ... ").append(len - show).append(" more values\n");
-        }
-        return sb.toString();
-    }
 }

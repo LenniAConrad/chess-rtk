@@ -105,17 +105,7 @@ final class WorkbenchTensorViz {
      * @param accent accent color used for the left edge
      */
     static void drawCard(Graphics2D g, Rectangle r, String title, String subtitle, Color accent) {
-        g.setColor(WorkbenchTheme.PANEL_SOLID);
-        g.fillRoundRect(r.x, r.y, r.width, r.height,
-                WorkbenchTheme.RADIUS, WorkbenchTheme.RADIUS);
-        g.setColor(WorkbenchTheme.LINE);
-        g.drawRoundRect(r.x, r.y, r.width - 1, r.height - 1,
-                WorkbenchTheme.RADIUS, WorkbenchTheme.RADIUS);
-        if (accent != null) {
-            g.setColor(accent);
-            g.fillRoundRect(r.x, r.y, 4, r.height,
-                    WorkbenchTheme.RADIUS, WorkbenchTheme.RADIUS);
-        }
+        drawFrame(g, r, WorkbenchTheme.PANEL_SOLID, accent);
         if (title != null) {
             g.setColor(WorkbenchTheme.TEXT);
             g.setFont(WorkbenchTheme.font(12, Font.BOLD));
@@ -143,17 +133,7 @@ final class WorkbenchTensorViz {
         if (r.width <= 12 || r.height <= 12) {
             return;
         }
-        g.setColor(WorkbenchTheme.ELEVATED_SOLID);
-        g.fillRoundRect(r.x, r.y, r.width, r.height,
-                WorkbenchTheme.RADIUS, WorkbenchTheme.RADIUS);
-        g.setColor(WorkbenchTheme.LINE);
-        g.drawRoundRect(r.x, r.y, r.width - 1, r.height - 1,
-                WorkbenchTheme.RADIUS, WorkbenchTheme.RADIUS);
-        if (accent != null) {
-            g.setColor(accent);
-            g.fillRoundRect(r.x, r.y, 4, r.height,
-                    WorkbenchTheme.RADIUS, WorkbenchTheme.RADIUS);
-        }
+        drawFrame(g, r, WorkbenchTheme.ELEVATED_SOLID, accent);
         int split = Math.min(70, Math.max(42, r.width / 3));
         g.setFont(WorkbenchTheme.font(9, Font.BOLD));
         FontMetrics fm = g.getFontMetrics();
@@ -165,6 +145,28 @@ final class WorkbenchTensorViz {
         g.setColor(WorkbenchTheme.TEXT);
         g.drawString(WorkbenchUi.elide(value, fm, Math.max(12, r.width - split - 8)),
                 r.x + split, r.y + Math.max(13, r.height / 2 + 3));
+    }
+
+    /**
+     * Draws the shared rounded frame used by cards and readout chips.
+     *
+     * @param g graphics
+     * @param r frame rectangle
+     * @param fill fill color
+     * @param accent accent color used for the left edge
+     */
+    private static void drawFrame(Graphics2D g, Rectangle r, Color fill, Color accent) {
+        g.setColor(fill);
+        g.fillRoundRect(r.x, r.y, r.width, r.height,
+                WorkbenchTheme.RADIUS, WorkbenchTheme.RADIUS);
+        g.setColor(WorkbenchTheme.LINE);
+        g.drawRoundRect(r.x, r.y, r.width - 1, r.height - 1,
+                WorkbenchTheme.RADIUS, WorkbenchTheme.RADIUS);
+        if (accent != null) {
+            g.setColor(accent);
+            g.fillRoundRect(r.x, r.y, 4, r.height,
+                    WorkbenchTheme.RADIUS, WorkbenchTheme.RADIUS);
+        }
     }
 
     /**

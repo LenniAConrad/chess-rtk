@@ -1,5 +1,8 @@
 package application.gui.workbench;
 
+import static application.gui.workbench.WorkbenchCommandArgs.addOptionalPositiveIntegerArg;
+import static application.gui.workbench.WorkbenchCommandArgs.addOptionalTextArg;
+import static application.gui.workbench.WorkbenchUi.addVerticalFiller;
 import static application.gui.workbench.WorkbenchUi.button;
 import static application.gui.workbench.WorkbenchUi.buttonRow;
 import static application.gui.workbench.WorkbenchUi.changeListener;
@@ -17,7 +20,9 @@ import static application.gui.workbench.WorkbenchUi.styleAreas;
 import static application.gui.workbench.WorkbenchUi.styleCheckBox;
 import static application.gui.workbench.WorkbenchUi.styleCombos;
 import static application.gui.workbench.WorkbenchUi.styleFields;
+import static application.gui.workbench.WorkbenchUi.trimmed;
 import static application.gui.workbench.WorkbenchUi.transparentPanel;
+import static application.gui.workbench.WorkbenchUi.withTooltip;
 
 import java.awt.BorderLayout;
 import java.awt.Component;
@@ -386,20 +391,6 @@ final class WorkbenchPublishingPanel {
      */
     private final JCheckBox publishValidateBox = withTooltip(new WorkbenchToggleBox("validate only"),
             "Adds --check: validate inputs without writing output");
-
-    /**
-     * Returns the toggle after attaching a tooltip describing the underlying
-     * CLI flag, since the chip labels alone are too terse to discover.
-     *
-     * @param <T> checkbox type
-     * @param toggle target toggle
-     * @param tooltip tooltip text
-     * @return the same toggle for fluent field initialization
-     */
-    private static <T extends JCheckBox> T withTooltip(T toggle, String tooltip) {
-        toggle.setToolTipText(tooltip);
-        return toggle;
-    }
 
     /**
      * Publishing board-orientation toggle.
@@ -1246,7 +1237,7 @@ final class WorkbenchPublishingPanel {
             return pathOrMissing("input file", publishInputField);
         }
         return switch (selectedPublishSource()) {
-            case CURRENT_FEN -> "current board FEN (" + compactFenPreview(host.currentFen()) + ")";
+            case CURRENT_FEN -> "current board FEN (" + WorkbenchFenInput.compactPreview(host.currentFen()) + ")";
             case GAME_PGN -> host.gameModel().lastPly() <= 0
                     ? "workbench game PGN (no moves)"
                     : "workbench game PGN (" + host.gameModel().lastPly() + " ply)";
@@ -1692,21 +1683,6 @@ final class WorkbenchPublishingPanel {
     }
 
     /**
-     * Adds an optional text option.
-     *
-     * @param args target arguments
-     * @param flag option flag
-     * @param field source field
-     */
-    private static void addOptionalTextArg(List<String> args, String flag, JTextField field) {
-        String value = trimmed(field);
-        if (!value.isEmpty()) {
-            args.add(flag);
-            args.add(value);
-        }
-    }
-
-    /**
      * Adds an optional combo-box option when it is not set to the default item.
      *
      * @param args target arguments
@@ -1719,25 +1695,6 @@ final class WorkbenchPublishingPanel {
             args.add(flag);
             args.add(value);
         }
-    }
-
-    /**
-     * Adds an optional positive integer option.
-     *
-     * @param args target arguments
-     * @param flag option flag
-     * @param field source field
-     */
-    private static void addOptionalPositiveIntegerArg(List<String> args, String flag, JTextField field) {
-        String value = trimmed(field);
-        if (value.isEmpty()) {
-            return;
-        }
-        if (!value.matches("[1-9]\\d*")) {
-            throw new IllegalArgumentException(flag + " expects a positive integer.");
-        }
-        args.add(flag);
-        args.add(value);
     }
 
     /**
@@ -1826,30 +1783,6 @@ final class WorkbenchPublishingPanel {
     }
 
     /**
-     * Returns trimmed field text.
-     *
-     * @param field source field
-     * @return trimmed text
-     */
-    private static String trimmed(JTextField field) {
-        return field.getText() == null ? "" : field.getText().trim();
-    }
-
-    /**
-     * Returns a short FEN label for compact previews.
-     *
-     * @param fen full FEN
-     * @return piece placement plus side to move when available
-     */
-    private static String compactFenPreview(String fen) {
-        if (fen == null || fen.isBlank()) {
-            return "";
-        }
-        String[] parts = fen.trim().split("\\s+");
-        return parts.length > 1 ? parts[0] + " " + parts[1] : parts[0];
-    }
-
-    /**
      * Writes the current workbench game to a temporary PGN file.
      *
      * @return temporary PGN file
@@ -1931,26 +1864,4 @@ final class WorkbenchPublishingPanel {
         });
     }
 
-    /**
-     * Adds a transparent filler row so stretched form panels keep controls at
-     * the top of the work surface.
-     *
-     * @param panel target panel
-     * @param c reusable constraints
-     * @param row grid row
-     * @param width grid width
-     */
-    private static void addVerticalFiller(JPanel panel, GridBagConstraints c, int row, int width) {
-        c.gridx = 0;
-        c.gridy = row;
-        c.gridwidth = width;
-        c.gridheight = 1;
-        c.weightx = 1;
-        c.weighty = 1;
-        c.fill = GridBagConstraints.BOTH;
-        panel.add(transparentPanel(new BorderLayout()), c);
-        c.weighty = 0;
-        c.fill = GridBagConstraints.HORIZONTAL;
-        c.anchor = GridBagConstraints.WEST;
-    }
 }

@@ -9,7 +9,6 @@ import javax.swing.table.DefaultTableModel;
 import chess.core.Move;
 import chess.core.MoveList;
 import chess.core.Position;
-import chess.core.SAN;
 
 /**
  * Table model for legal moves in the current position.
@@ -46,7 +45,7 @@ final class WorkbenchMovesModel extends DefaultTableModel {
             short move = moves.raw(i);
             Vector<Object> row = new Vector<>(4);
             row.add(i + 1);
-            row.add(safeSan(position, move));
+            row.add(WorkbenchPositionText.safeSan(position, move));
             row.add(Move.toString(move));
             row.add(moveFlags(position, move));
             rows.add(row);
@@ -79,21 +78,6 @@ final class WorkbenchMovesModel extends DefaultTableModel {
     @Override
     public boolean isCellEditable(int row, int column) {
         return false;
-    }
-
-    /**
-     * Returns SAN without failing table rendering.
-     *
-     * @param position position
-     * @param move move
-     * @return SAN
-     */
-    private static String safeSan(Position position, short move) {
-        try {
-            return SAN.toAlgebraic(position, move);
-        } catch (IllegalArgumentException ex) {
-            return Move.toString(move);
-        }
     }
 
     /**

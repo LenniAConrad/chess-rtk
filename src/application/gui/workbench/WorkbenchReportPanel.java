@@ -7,7 +7,9 @@ import static application.gui.workbench.WorkbenchUi.placeholder;
 import static application.gui.workbench.WorkbenchUi.scroll;
 import static application.gui.workbench.WorkbenchUi.styleAreas;
 import static application.gui.workbench.WorkbenchUi.styleFields;
+import static application.gui.workbench.WorkbenchUi.trimmed;
 import static application.gui.workbench.WorkbenchUi.transparentPanel;
+import static application.gui.workbench.WorkbenchSwingTasks.runAsync;
 
 import java.awt.BorderLayout;
 import java.awt.Component;
@@ -18,8 +20,6 @@ import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
-import java.util.concurrent.CancellationException;
-import java.util.concurrent.ExecutionException;
 
 import javax.swing.DefaultListModel;
 import javax.swing.JComponent;
@@ -29,7 +29,6 @@ import javax.swing.JPanel;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.SwingConstants;
-import javax.swing.SwingWorker;
 import javax.swing.filechooser.FileNameExtensionFilter;
 
 import chess.core.Move;
@@ -330,63 +329,4 @@ final class WorkbenchReportPanel {
         return tags.isEmpty() ? "(none)" : String.join(", ", tags);
     }
 
-    /**
-     * Runs a small background job and reports the result on the event thread.
-     *
-     * @param task worker task
-     * @param success success callback
-     * @param failure failure callback
-     * @param <T> result type
-     */
-    private static <T> void runAsync(ThrowingSupplier<T> task, java.util.function.Consumer<T> success,
-            java.util.function.Consumer<Exception> failure) {
-        new SwingWorker<T, Void>() {
-            @Override
-            protected T doInBackground() throws Exception {
-                return task.get();
-            }
-
-            @Override
-            protected void done() {
-                try {
-                    success.accept(get());
-                } catch (InterruptedException ex) {
-                    Thread.currentThread().interrupt();
-                    failure.accept(ex);
-                } catch (ExecutionException ex) {
-                    Throwable cause = ex.getCause();
-                    failure.accept(cause instanceof Exception exception ? exception : ex);
-                } catch (CancellationException ex) {
-                    failure.accept(ex);
-                }
-            }
-        }.execute();
-    }
-
-    /**
-     * Returns trimmed field text.
-     *
-     * @param field source field
-     * @return trimmed text
-     */
-    private static String trimmed(JTextField field) {
-        return field.getText() == null ? "" : field.getText().trim();
-    }
-
-    /**
-     * Checked supplier used by small Swing workers.
-     *
-     * @param <T> result type
-     */
-    @FunctionalInterface
-    private interface ThrowingSupplier<T> {
-
-        /**
-         * Computes a result.
-         *
-         * @return result
-         * @throws Exception on failure
-         */
-        T get() throws Exception;
-    }
 }
