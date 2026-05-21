@@ -1,8 +1,6 @@
 package application.gui.workbench.session;
 
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.Locale;
@@ -50,10 +48,7 @@ public final class RunLog {
     throw new IllegalArgumentException("job is required");
         }
         Path dir = directory == null ? DEFAULT_DIR : directory;
-        Files.createDirectories(dir);
-        Path path = dir.resolve(fileName(job));
-        Files.writeString(path, logText(job, workingDirectory), StandardCharsets.UTF_8);
-        return path.toAbsolutePath().normalize();
+        return SessionFiles.writeString(dir, fileName(job), logText(job, workingDirectory));
     }
 
     /**

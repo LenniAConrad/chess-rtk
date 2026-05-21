@@ -212,7 +212,9 @@ public final class WorkbenchRegressionTest {
         testWorkbenchSessionNotifiesListeners();
         testJobLifecycleTransitions();
         testRunLogWritesFullOutput();
+        testRunLogAvoidsClobberingExistingFile();
         testRunManifestWritesReplayMetadata();
+        testRunManifestAvoidsClobberingExistingFile();
         testJobHistoryIsBounded();
         testCommandResultParserSummaries();
         testDashboardPanelConstructsHeadlessly();
@@ -2494,6 +2496,35 @@ public final class WorkbenchRegressionTest {
     }
 
     /**
+     * Verifies run logs never overwrite an existing file at the deterministic
+     * first-choice path.
+     */
+    private static void testRunLogAvoidsClobberingExistingFile() {
+        try {
+            Path dir = Files.createTempDirectory("crtk-workbench-log-clobber-");
+            Path existing = dir.resolve("run-00001-succeeded.log");
+            Files.writeString(existing, "keep", StandardCharsets.UTF_8);
+
+            Object manager = construct(type("JobManager"), new Class<?>[0]);
+            Class<?> jobType = type("Job");
+            Object job = invoke(manager, "create", new Class<?>[] { List.class },
+                    List.of("doctor"));
+            invoke(manager, "markFinished", new Class<?>[] { jobType, int.class, String.class, long.class },
+                    job, 0, "doctor ok", 7L);
+
+            Path log = (Path) invokeStatic(type("RunLog"), "write",
+                    new Class<?>[] { Path.class, jobType, Path.class }, dir, job, Path.of("."));
+            assertFalse(existing.equals(log), "run log selects a collision-free filename");
+            assertEquals("keep", Files.readString(existing, StandardCharsets.UTF_8),
+                    "existing run log is not clobbered");
+            assertTrue(Files.readString(log, StandardCharsets.UTF_8).contains("doctor ok"),
+                    "new run log is written");
+        } catch (java.io.IOException ex) {
+            throw new AssertionError("log clobber test setup failed", ex);
+        }
+    }
+
+    /**
      * Verifies a completed job can be persisted as a replayable JSON run
      * manifest with command, limits, input hash, output hash and job linkage.
      */
@@ -2549,6 +2580,37 @@ public final class WorkbenchRegressionTest {
                     new Class<?>[0])).size()), "job artifact count");
         } catch (java.io.IOException ex) {
             throw new AssertionError("manifest test setup failed", ex);
+        }
+    }
+
+    /**
+     * Verifies run manifests never overwrite an existing file at the
+     * deterministic first-choice path.
+     */
+    private static void testRunManifestAvoidsClobberingExistingFile() {
+        try {
+            Path dir = Files.createTempDirectory("crtk-workbench-manifest-clobber-");
+            Path existing = dir.resolve("run-00001-succeeded.json");
+            Files.writeString(existing, "keep", StandardCharsets.UTF_8);
+
+            Object manager = construct(type("JobManager"), new Class<?>[0]);
+            Class<?> jobType = type("Job");
+            Object job = invoke(manager, "create", new Class<?>[] { List.class },
+                    List.of("doctor"));
+            invoke(manager, "markFinished", new Class<?>[] { jobType, int.class, String.class, long.class },
+                    job, 0, "doctor ok", 7L);
+
+            Path manifest = (Path) invokeStatic(type("RunManifest"), "write",
+                    new Class<?>[] { Path.class, jobType, List.class, String.class, Path.class },
+                    dir, job, List.of(), "", Path.of("."));
+            assertFalse(existing.equals(manifest), "run manifest selects a collision-free filename");
+            assertEquals("keep", Files.readString(existing, StandardCharsets.UTF_8),
+                    "existing run manifest is not clobbered");
+            assertTrue(Files.readString(manifest, StandardCharsets.UTF_8)
+                    .contains("\"schema\": \"crtk.workbench.run-manifest.v1\""),
+                    "new run manifest is written");
+        } catch (java.io.IOException ex) {
+            throw new AssertionError("manifest clobber test setup failed", ex);
         }
     }
 

@@ -100,6 +100,8 @@ run_core() {
   run_test testing.CoreMoveGenerationRegressionTest
   run_test testing.SANRegressionTest
   run_test testing.JsonRegressionTest
+  run_test testing.XmlSecurityRegressionTest
+  run_test testing.InstallScriptRegressionTest
   run_test testing.Chess960SetupRegressionTest
   run_test testing.ParserRegressionTest
   run_test testing.TaggingRegressionTest

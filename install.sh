@@ -333,6 +333,10 @@ PY
   readlink -f "$p" 2>/dev/null || echo "$p"
 }
 
+shell_quote() {
+  printf '%q' "$1"
+}
+
 cmake_cache_get() {
   # cmake_cache_get KEY CMakeCache.txt
   awk -F= -v k="$1" '$1==k{print $2; exit}' "$2" 2>/dev/null || true
@@ -1042,10 +1046,11 @@ section "Launcher"
 if [[ $INSTALL_LAUNCHER -eq 1 ]]; then
   step "Installing launcher to $LAUNCHER"
   LAUNCHER_TMP="$(mktemp)"
+  APP_HOME_LITERAL="$(shell_quote "$APP_HOME")"
   cat > "$LAUNCHER_TMP" <<EOF
 #!/usr/bin/env bash
 set -euo pipefail
-APP_HOME="$APP_HOME"
+APP_HOME=$APP_HOME_LITERAL
 JAVA_BIN="\${JAVA_BIN:-java}"
 JAVA_OPTS="\${JAVA_OPTS:-}"
 cd "\$APP_HOME"
