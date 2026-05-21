@@ -519,6 +519,7 @@ public final class PerftCommand {
 	 * @param statWidths numeric stat column widths
 	 * @param label row label
 	 * @param stats row counters
+	 * @param moveWidth move width value
 	 */
 	private static void printTableStatsRow(int moveWidth, int[] statWidths, String label, Stats stats) {
 		String[] cells = new String[TABLE_COLUMNS.size()];

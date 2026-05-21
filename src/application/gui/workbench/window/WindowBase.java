@@ -560,13 +560,17 @@ public abstract class WindowBase extends JFrame {
     /** Runs all health checks. */
     protected abstract void runAllHealthChecks();
 
-    /** Copies text to the clipboard and console. */
+    /** Copies text to the clipboard and console.
+     * @param text source text */
     protected abstract void copyText(String text);
 
-    /** Selects the workbench tab at the supplied index. */
+    /** Selects the workbench tab at the supplied index.
+     * @param index tab index */
     protected abstract void selectTab(int index);
 
-    /** Runs a command with optional standard input. */
+    /** Runs a command with optional standard input.
+     * @param args command arguments
+     * @param stdin standard input text, or null for none */
     protected abstract void runCommand(List<String> args, String stdin);
 
     /** Runs the selected command-template action. */
@@ -590,28 +594,38 @@ public abstract class WindowBase extends JFrame {
     /** Refreshes dynamic command previews. */
     protected abstract void updateCommandPreviews();
 
-    /** Returns the selected template arguments. */
+    /** Returns the selected template arguments.
+     * @return selected command-template arguments */
     protected abstract List<String> selectedTemplateArgs();
 
     /** Installs command templates. */
     protected abstract void installTemplates();
 
-    /** Returns the current FEN. */
+    /** Returns the current FEN.
+     * @return current FEN string */
     protected abstract String currentFen();
 
-    /** Returns the current command-template context. */
+    /** Returns the current command-template context.
+     * @return current command-template context */
     protected abstract TemplateContext templateContext();
 
-    /** Appends text to the console. */
+    /** Appends text to the console.
+     * @param text source text */
     protected abstract void appendConsole(String text);
 
-    /** Shows a toast. */
+    /** Shows a toast.
+     * @param kind toast kind
+     * @param message message text */
     protected abstract void toast(Toast.Kind kind, String message);
 
-    /** Shows a warning notice. */
+    /** Shows a warning notice.
+     * @param title dialog title
+     * @param message message text */
     protected abstract void showWarning(String title, String message);
 
-    /** Shows an error notice. */
+    /** Shows an error notice.
+     * @param title dialog title
+     * @param message message text */
     protected abstract void showError(String title, String message);
 
     /** Generates the report panel content. */
@@ -629,7 +643,8 @@ public abstract class WindowBase extends JFrame {
     /** Requests a publish command refresh. */
     protected abstract void updatePublishCommand();
 
-    /** Synchronizes batch duration into analysis controls. */
+    /** Synchronizes batch duration into analysis controls.
+     * @param value new value */
     protected abstract void syncDurationFromBatch(String value);
 
     /** Starts the debounced eval command. */
@@ -650,31 +665,40 @@ public abstract class WindowBase extends JFrame {
     /** Stops live external analysis. */
     protected abstract void stopLiveAnalysis();
 
-    /** Enables or disables live external analysis. */
+    /** Enables or disables live external analysis.
+     * @param enabled true to enable the behavior */
     protected abstract void setLiveExternalEngineEnabled(boolean enabled);
 
-    /** Returns true when a live-analysis worker exists. */
+    /** Returns true when a live-analysis worker exists.
+     * @return true when a live-analysis worker exists */
     protected abstract boolean hasLiveEngineWorker();
 
-    /** Creates the Analyze tab. */
+    /** Creates the Analyze tab.
+     * @return computed value */
     protected abstract JComponent createBoardTab();
 
-    /** Creates the Commands tab. */
+    /** Creates the Commands tab.
+     * @return computed value */
     protected abstract JComponent createCommandTab();
 
-    /** Creates the Batch tab. */
+    /** Creates the Batch tab.
+     * @return computed value */
     protected abstract JComponent createBatchTab();
 
-    /** Creates the Publish tab. */
+    /** Creates the Publish tab.
+     * @return computed value */
     protected abstract JComponent createPublishTab();
 
-    /** Creates the Console tab. */
+    /** Creates the Console tab.
+     * @return computed value */
     protected abstract JComponent createConsolePanel();
 
-    /** Navigates the loaded game by a relative ply delta. */
+    /** Navigates the loaded game by a relative ply delta.
+     * @param delta relative ply delta */
     protected abstract void navigateGame(int delta);
 
-    /** Jumps the loaded game to an absolute ply. */
+    /** Jumps the loaded game to an absolute ply.
+     * @param ply game ply index */
     protected abstract void jumpGameTo(int ply);
 
     /** Focuses the option filter. */
@@ -710,16 +734,19 @@ public abstract class WindowBase extends JFrame {
     /** Resets engine settings to defaults. */
     protected abstract void resetEngineSettings();
 
-    /** Plays a move from the board. */
+    /** Plays a move from the board.
+     * @param move move encoded in CRTK move format */
     protected abstract void playMove(short move);
 
     /** Applies the current FEN field. */
     protected abstract void setPositionFromField();
 
-    /** Starts a new game from a FEN. */
+    /** Starts a new game from a FEN.
+     * @param fen FEN string */
     protected abstract void startNewGame(String fen);
 
-    /** Shows a game ply. */
+    /** Shows a game ply.
+     * @param ply game ply index */
     protected abstract void showGamePly(int ply);
 
     /** Updates the legal-move table. */
@@ -737,7 +764,8 @@ public abstract class WindowBase extends JFrame {
     /** Configures the game table. */
     protected abstract void configureGameTable();
 
-    /** Loads game text as PGN, FEN, or SAN/UCI line. */
+    /** Loads game text as PGN, FEN, or SAN/UCI line.
+     * @param text source text */
     protected abstract void loadGameText(String text);
 
     /** Opens a game file. */
@@ -746,7 +774,8 @@ public abstract class WindowBase extends JFrame {
     /** Saves the current game as PGN. */
     protected abstract void savePgnFile();
 
-    /** Loads a move line from text. */
+    /** Loads a move line from text.
+     * @param text source text */
     protected abstract void loadMoveLine(String text);
 
     /** Synchronizes analysis duration into batch controls. */
@@ -758,43 +787,60 @@ public abstract class WindowBase extends JFrame {
     /** Requests an eval refresh. */
     protected abstract void requestEvalUpdate();
 
-    /** Builds eval-bar CLI arguments for a FEN. */
+    /** Builds eval-bar CLI arguments for a FEN.
+     * @param fen FEN string
+     * @return CLI arguments for the eval-bar command */
     protected abstract List<String> buildEvalBarArgs(String fen);
 
-    /** Returns the engine protocol field value. */
+    /** Returns the engine protocol field value.
+     * @return engine protocol field value */
     protected abstract String engineProtocolValue();
 
-    /** Returns the engine nodes field value. */
+    /** Returns the engine nodes field value.
+     * @return engine nodes field value */
     protected abstract String engineNodesValue();
 
-    /** Returns the engine hash field value. */
+    /** Returns the engine hash field value.
+     * @return engine hash field value */
     protected abstract String engineHashValue();
 
-    /** Returns the duration field value. */
+    /** Returns the duration field value.
+     * @return duration field value */
     protected abstract String durationValue();
 
-    /** Returns the depth field value. */
+    /** Returns the depth field value.
+     * @return depth field value */
     protected abstract String depthValue();
 
-    /** Returns the MultiPV field value. */
+    /** Returns the MultiPV field value.
+     * @return MultiPV field value */
     protected abstract String multipvValue();
 
-    /** Returns the thread-count field value. */
+    /** Returns the thread-count field value.
+     * @return thread-count field value */
     protected abstract String threadsValue();
 
-    /** Highlights a move from command output when appropriate. */
+    /** Highlights a move from command output when appropriate.
+     * @param args command arguments
+     * @param output command or engine output text */
     protected abstract void maybeHighlightMove(List<String> args, String output);
 
-    /** Applies health status from a finished command. */
+    /** Applies health status from a finished command.
+     * @param args command arguments
+     * @param exitCode process exit code */
     protected abstract void updateHealthFromCommand(List<String> args, int exitCode);
 
-    /** Applies health failure status from a failed command. */
+    /** Applies health failure status from a failed command.
+     * @param args command arguments */
     protected abstract void updateHealthFailedFromCommand(List<String> args);
 
-    /** Updates the command-state label. */
+    /** Updates the command-state label.
+     * @param state state text */
     protected abstract void setCommandState(String state);
 
-    /** Parses engine eval output for the eval bar. */
+    /** Parses engine eval output for the eval bar.
+     * @param output command or engine output text
+     * @return parsed engine evaluation */
     protected static EngineEval parseEngineEval(String output) {
         return EngineEval.parse(output);
     }

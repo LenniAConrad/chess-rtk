@@ -194,6 +194,11 @@ public final class Svg {
     ) {
         /**
          * Canonical constructor that freezes the shape list.
+         * @param viewBoxX view box x value
+         * @param viewBoxY view box y value
+         * @param viewBoxWidth view box width value
+         * @param viewBoxHeight view box height value
+         * @param shapes shapes value
          */
         public DocumentModel {
             shapes = List.copyOf(shapes);
@@ -223,6 +228,9 @@ public final class Svg {
     ) {
         /**
          * Canonical constructor that ensures a non-null transform.
+         * @param path file path
+         * @param fill fill color
+         * @param transform transform value
          */
         public ShapeModel {
             transform = transform == null ? new AffineTransform() : new AffineTransform(transform);

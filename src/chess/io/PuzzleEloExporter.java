@@ -109,6 +109,9 @@ public final class PuzzleEloExporter {
 
         /**
          * Normalizes option values.
+         * @param puzzleVerify puzzle verification result
+         * @param maxPuzzles max puzzles value
+         * @param threads threads value
          */
         public Options {
             maxPuzzles = Math.max(0L, maxPuzzles);
@@ -241,6 +244,11 @@ public final class PuzzleEloExporter {
 
     /**
      * Builds the compact puzzle corpus index.
+     * @param inputs input values
+     * @param options command options
+     * @param spool spool value
+     * @return index inputs result
+     * @throws java.io.IOException if IOException is raised by the underlying operation
      */
     private static CorpusIndex indexInputs(List<Path> inputs, Options options, Path spool) throws IOException {
         try (BufferedWriter puzzleWriter = Files.newBufferedWriter(spool, StandardCharsets.UTF_8)) {
@@ -259,6 +267,9 @@ public final class PuzzleEloExporter {
 
     /**
      * Creates a temporary puzzle-only spool near the final output when possible.
+     * @param output output text
+     * @return temporary puzzle spool result
+     * @throws java.io.IOException if IOException is raised by the underlying operation
      */
     private static Path temporaryPuzzleSpool(Path output) throws IOException {
         Path parent = output.toAbsolutePath().normalize().getParent();
@@ -271,6 +282,7 @@ public final class PuzzleEloExporter {
 
     /**
      * Default parallelism for tree scoring.
+     * @return default threads result
      */
     private static int defaultThreads() {
         return Math.max(1, Runtime.getRuntime().availableProcessors());
@@ -278,6 +290,8 @@ public final class PuzzleEloExporter {
 
     /**
      * Creates the final difficulty lookup for the write pass.
+     * @param scored scored value
+     * @return difficulty by signature result
      */
     private static Map<Long, Difficulty> difficultyBySignature(List<ScoredPuzzle> scored) {
         Map<Long, Difficulty> out = new HashMap<>(Math.max(16, scored.size() * 2));
@@ -289,6 +303,11 @@ public final class PuzzleEloExporter {
 
     /**
      * Writes records that were scored during the index pass.
+     * @param spool spool value
+     * @param output output text
+     * @param difficultyBySignature difficulty by signature value
+     * @return write rated records result
+     * @throws java.io.IOException if IOException is raised by the underlying operation
      */
     private static long writeRatedRecords(
             Path spool,
@@ -309,6 +328,10 @@ public final class PuzzleEloExporter {
 
     /**
      * Writes one rated record when it belongs to the scored puzzle set.
+     * @param objJson JSON object text
+     * @param writer output writer
+     * @param difficultyBySignature difficulty by signature value
+     * @param written written value
      */
     private static void writeRatedRecord(
             String objJson,
@@ -339,6 +362,11 @@ public final class PuzzleEloExporter {
 
     /**
      * Writes one source record when its FEN is present in a ratings CSV.
+     * @param objJson JSON object text
+     * @param writer output writer
+     * @param ratings ratings value
+     * @param puzzleVerify puzzle verification result
+     * @param stats statistics data
      */
     private static void writeCsvRatedRecord(
             String objJson,
@@ -381,6 +409,9 @@ public final class PuzzleEloExporter {
 
     /**
      * Reads the standard puzzle difficulty CSV into a FEN-keyed tag lookup.
+     * @param ratingsCsv ratings csv value
+     * @return read ratings csv result
+     * @throws java.io.IOException if IOException is raised by the underlying operation
      */
     private static Map<String, CsvDifficulty> readRatingsCsv(Path ratingsCsv) throws IOException {
         Map<String, CsvDifficulty> out = new HashMap<>(1_200_000);
@@ -410,6 +441,8 @@ public final class PuzzleEloExporter {
 
     /**
      * Parses one RFC4180-style CSV row.
+     * @param line line text
+     * @return parse csv result
      */
     private static List<String> parseCsv(String line) {
         List<String> fields = new ArrayList<>();
@@ -443,6 +476,9 @@ public final class PuzzleEloExporter {
 
     /**
      * Copies a record and replaces stale puzzle difficulty tags.
+     * @param rec record value
+     * @param difficulty difficulty value
+     * @return with difficulty tags result
      */
     private static Record withDifficultyTags(Record rec, Difficulty difficulty) {
         List<String> puzzleTags = new ArrayList<>(difficulty.tags());
@@ -463,6 +499,9 @@ public final class PuzzleEloExporter {
      * position/analysis tags so the rated JSONL can still be filtered by motif,
      * material, phase, evaluation bucket, and related tag families.
      * </p>
+     * @param rec record value
+     * @param puzzleTags puzzle tags value
+     * @return with puzzle tags result
      */
     private static Record withPuzzleTags(Record rec, List<String> puzzleTags) {
         List<String> tags = mergedExportTags(rec, puzzleTags);
@@ -479,6 +518,9 @@ public final class PuzzleEloExporter {
     /**
      * Builds the exported tag list while preserving source tags and de-duplicating
      * generated tags.
+     * @param rec record value
+     * @param puzzleTags puzzle tags value
+     * @return merged export tags result
      */
     private static List<String> mergedExportTags(Record rec, List<String> puzzleTags) {
         LinkedHashSet<String> tags = new LinkedHashSet<>();
@@ -494,6 +536,8 @@ public final class PuzzleEloExporter {
      * Adds existing source tags except stale puzzle difficulty metadata.
      *
      * @return true when at least one non-puzzle source tag was kept
+     * @param tags tag values
+     * @param rec record value
      */
     private static boolean addExistingNonPuzzleTags(LinkedHashSet<String> tags, Record rec) {
         boolean kept = false;
@@ -508,6 +552,8 @@ public final class PuzzleEloExporter {
 
     /**
      * Adds canonical position tags for sources that only had puzzle Elo metadata.
+     * @param tags tag values
+     * @param rec record value
      */
     private static void addGeneratedPositionTags(LinkedHashSet<String> tags, Record rec) {
         if (rec == null || rec.getPosition() == null) {
@@ -522,6 +568,9 @@ public final class PuzzleEloExporter {
 
     /**
      * Adds a tag collection, optionally allowing puzzle metadata.
+     * @param out out value
+     * @param tags tag values
+     * @param includePuzzleMeta include puzzle meta value
      */
     private static void addTags(LinkedHashSet<String> out, List<String> tags, boolean includePuzzleMeta) {
         if (tags == null || tags.isEmpty()) {
@@ -540,6 +589,8 @@ public final class PuzzleEloExporter {
 
     /**
      * Checks whether a tag is worth exporting.
+     * @param tag tag value
+     * @return true when is usable tag
      */
     private static boolean isUsableTag(String tag) {
         return tag != null && !tag.isBlank();
@@ -547,6 +598,8 @@ public final class PuzzleEloExporter {
 
     /**
      * Returns true for stale puzzle metadata that this exporter owns.
+     * @param tag tag value
+     * @return true when is puzzle meta tag
      */
     private static boolean isPuzzleMetaTag(String tag) {
         if (tag == null) {
@@ -562,6 +615,9 @@ public final class PuzzleEloExporter {
 
     /**
      * Streams raw record JSON objects from JSONL or JSON-array files.
+     * @param input input value
+     * @param consumer result consumer
+     * @throws java.io.IOException if IOException is raised by the underlying operation
      */
     private static void streamRecordJson(Path input, java.util.function.Consumer<String> consumer) throws IOException {
         if (isJsonArrayFile(input)) {
@@ -584,6 +640,9 @@ public final class PuzzleEloExporter {
 
     /**
      * Detects whether a file begins with a JSON array.
+     * @param input input value
+     * @return true when is json array file
+     * @throws java.io.IOException if IOException is raised by the underlying operation
      */
     private static boolean isJsonArrayFile(Path input) throws IOException {
         try (BufferedReader reader = new BufferedReader(
@@ -602,6 +661,10 @@ public final class PuzzleEloExporter {
 
     /**
      * Determines whether a raw record should be treated as a verified puzzle.
+     * @param objJson JSON object text
+     * @param rec record value
+     * @param puzzleVerify puzzle verification result
+     * @return true when is puzzle
      */
     private static boolean isPuzzle(String objJson, Record rec, Filter puzzleVerify) {
         String kind = Json.parseStringField(objJson, "kind");
@@ -613,6 +676,8 @@ public final class PuzzleEloExporter {
 
     /**
      * Converts one verified record into a compact indexed puzzle node.
+     * @param rec record value
+     * @return puzzle node result
      */
     private static PuzzleNode puzzleNode(Record rec) {
         try {
@@ -670,6 +735,8 @@ public final class PuzzleEloExporter {
 
         /**
          * Creates an index.
+         * @param options command options
+         * @param puzzleWriter puzzle writer value
          */
         CorpusIndex(Options options, BufferedWriter puzzleWriter) {
             this.options = options;
@@ -678,6 +745,7 @@ public final class PuzzleEloExporter {
 
         /**
          * Accepts one raw JSON object.
+         * @param objJson JSON object text
          */
         void acceptJson(String objJson) {
             stats.seen++;
@@ -722,6 +790,7 @@ public final class PuzzleEloExporter {
 
         /**
          * Scores every root after the parent-child index is complete.
+         * @return score result
          */
         List<ScoredPuzzle> score() {
             if (options.threads() <= 1 || roots.size() < 2_000) {
@@ -732,6 +801,7 @@ public final class PuzzleEloExporter {
 
         /**
          * Writes one verified puzzle record into the temporary puzzle-only spool.
+         * @param objJson JSON object text
          */
         private void spoolPuzzle(String objJson) {
             try {
@@ -744,6 +814,7 @@ public final class PuzzleEloExporter {
 
         /**
          * Scores trees on the current thread.
+         * @return score sequential result
          */
         private List<ScoredPuzzle> scoreSequential() {
             List<ScoredPuzzle> out = new ArrayList<>(roots.size());
@@ -761,6 +832,7 @@ public final class PuzzleEloExporter {
 
         /**
          * Scores independent root trees using worker threads.
+         * @return score parallel result
          */
         private List<ScoredPuzzle> scoreParallel() {
             int workers = Math.min(options.threads(), roots.size());
@@ -791,6 +863,9 @@ public final class PuzzleEloExporter {
 
         /**
          * Scores one contiguous root range.
+         * @param start start index
+         * @param end end index
+         * @return score range result
          */
         private ScoreChunk scoreRange(int start, int end) {
             List<ScoredPuzzle> puzzles = new ArrayList<>(end - start);
@@ -807,6 +882,8 @@ public final class PuzzleEloExporter {
 
         /**
          * Reads one worker result.
+         * @param future future value
+         * @return get score chunk result
          */
         private ScoreChunk getScoreChunk(Future<ScoreChunk> future) {
             try {
@@ -821,6 +898,8 @@ public final class PuzzleEloExporter {
 
         /**
          * Scores one root tree.
+         * @param root root position or node
+         * @return score root result
          */
         private ScoredTree scoreRoot(PuzzleNode root) {
             TreeBuild tree = buildTree(root);
@@ -832,6 +911,8 @@ public final class PuzzleEloExporter {
         /**
          * Builds the explicit continuation tree by matching after-best positions to
          * child record parents.
+         * @param root root position or node
+         * @return build tree result
          */
         private TreeBuild buildTree(PuzzleNode root) {
             Position rootPosition = new Position(root.fen());
@@ -929,6 +1010,8 @@ public final class PuzzleEloExporter {
 
     /**
      * Deduplicates child records by analyzed position signature.
+     * @param children child nodes
+     * @return unique children result
      */
     private static List<PuzzleNode> uniqueChildren(List<PuzzleNode> children) {
         if (children == null || children.isEmpty()) {
@@ -964,6 +1047,8 @@ public final class PuzzleEloExporter {
 
         /**
          * Builds a row from standard CSV columns.
+         * @param fields record fields
+         * @return from result
          */
         static CsvDifficulty from(List<String> fields) {
             return new CsvDifficulty(
@@ -981,6 +1066,7 @@ public final class PuzzleEloExporter {
 
         /**
          * Converts the CSV row to canonical puzzle metadata tags.
+         * @return tags result
          */
         List<String> tags() {
             List<String> tags = new ArrayList<>(10);
@@ -1002,6 +1088,9 @@ public final class PuzzleEloExporter {
 
         /**
          * Parses an integer CSV field with a fallback.
+         * @param value value to use
+         * @param fallback fallback value
+         * @return parse int field result
          */
         private static int parseIntField(String value, int fallback) {
             if (value == null || value.isBlank()) {
@@ -1016,6 +1105,9 @@ public final class PuzzleEloExporter {
 
         /**
          * Parses a floating-point CSV field with a fallback.
+         * @param value value to use
+         * @param fallback fallback value
+         * @return parse double field result
          */
         private static double parseDoubleField(String value, double fallback) {
             if (value == null || value.isBlank()) {
@@ -1030,6 +1122,9 @@ public final class PuzzleEloExporter {
 
         /**
          * Normalizes blank metadata values.
+         * @param value value to use
+         * @param fallback fallback value
+         * @return empty to default result
          */
         private static String emptyToDefault(String value, String fallback) {
             return value == null || value.isBlank() ? fallback : value;
@@ -1180,6 +1275,8 @@ public final class PuzzleEloExporter {
 
         /**
          * Creates a tree starting at the root.
+         * @param root root position or node
+         * @param rootIdentity root identity value
          */
         TreeSummaryBuilder(NodeScore root, long rootIdentity) {
             addNode(root, 1, rootIdentity);
@@ -1187,6 +1284,9 @@ public final class PuzzleEloExporter {
 
         /**
          * Adds one solver node at a measured depth.
+         * @param node node value
+         * @param depth search depth
+         * @param pieceIdentity piece identity value
          */
         void addNode(NodeScore node, int depth, long pieceIdentity) {
             nodeCount++;
@@ -1230,6 +1330,7 @@ public final class PuzzleEloExporter {
 
         /**
          * Records root reply count.
+         * @param count item count
          */
         void setRootReplyCount(int count) {
             rootReplyCount = Math.max(1, count);
@@ -1237,6 +1338,7 @@ public final class PuzzleEloExporter {
 
         /**
          * Records one branching parent.
+         * @param childCount child count value
          */
         void addBranch(int childCount) {
             if (childCount <= 1) {
@@ -1248,6 +1350,7 @@ public final class PuzzleEloExporter {
 
         /**
          * Builds the immutable scorer summary.
+         * @return build result
          */
         PuzzleTreeSummary build() {
             double continuationAverage = continuationWeight <= 0.0 ? 0.0 : continuationWeightedRaw / continuationWeight;
@@ -1321,6 +1424,7 @@ public final class PuzzleEloExporter {
 
         /**
          * Converts to immutable summary.
+         * @return to summary result
          */
         Summary toSummary() {
             return new Summary(seen, indexedPuzzles, written, nonPuzzles, skipped, invalid, truncatedTrees);
@@ -1344,6 +1448,7 @@ public final class PuzzleEloExporter {
 
         /**
          * Creates the stop signal.
+         * @param index index value
          */
         StopScanning(CorpusIndex index) {
             this.index = index;

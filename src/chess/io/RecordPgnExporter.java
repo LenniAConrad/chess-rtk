@@ -256,6 +256,7 @@ public final class RecordPgnExporter {
      * @param include    predicate to decide whether to include a record
      * @return {@link IndexData} holding map views used by {@link #buildPgnForStart}
      * @throws IOException if the stream fails.
+     * @param totalBytes total bytes value
      */
     private static IndexData indexRecords(
             Path recordFile,
@@ -516,6 +517,7 @@ public final class RecordPgnExporter {
      * @param adjacency           adjacency list under construction.
      * @param incoming            set of signatures with incoming edges.
      * @param badEdges            counter incremented when edge data is missing.
+     * @param ctx search context
      */
     private static void addDirectEdges(
             Map<String, List<ChildInfo>> childrenByParentSig,
@@ -565,6 +567,7 @@ public final class RecordPgnExporter {
      * @param badEdges            counter for invalid child references.
      * @param include             predicate to decide whether to include a record
      * @throws IOException if the stream fails.
+     * @param ctx search context
      */
     private static void addBridgedEdges(
             Path recordFile,
@@ -662,6 +665,7 @@ public final class RecordPgnExporter {
      * @param adjacency adjacency list being filled.
      * @param incoming  set of incoming signatures.
      * @param badEdges  counter updated when SAN information is missing.
+     * @param ctx search context
      */
     private static void addBridgedEdgesForKids(
             String fromSig,
@@ -1491,6 +1495,7 @@ public final class RecordPgnExporter {
 
         /**
          * Indicates whether this option has been fully consumed.
+         * @return true when is done
          */
         private boolean isDone() {
             return sans == null || index >= sans.length;
@@ -1498,6 +1503,7 @@ public final class RecordPgnExporter {
 
         /**
          * Checks if this index refers to the last SAN token.
+         * @return true when is last
          */
         private boolean isLast() {
             return sans != null && index == sans.length - 1;
@@ -1505,6 +1511,7 @@ public final class RecordPgnExporter {
 
         /**
          * Returns the SAN at the current index.
+         * @return current san result
          */
         private String currentSan() {
             return (sans == null || index >= sans.length) ? "" : sans[index];
@@ -1512,6 +1519,7 @@ public final class RecordPgnExporter {
 
         /**
          * Advances to the next SAN token and returns a new {@code PathOption}.
+         * @return advance result
          */
         private PathOption advance() {
             return new PathOption(destSig, sans, index + 1);
@@ -1725,6 +1733,10 @@ public final class RecordPgnExporter {
 
     /**
      * Streams JSON objects and reports cumulative bytes read.
+     * @param recordFile record file value
+     * @param consumer result consumer
+     * @param byteProgress progress byte value
+     * @throws java.io.IOException if IOException is raised by the underlying operation
      */
     private static void streamRecordObjects(
             Path recordFile,

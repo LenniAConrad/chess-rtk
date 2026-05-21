@@ -112,6 +112,10 @@ public final class Network implements AutoCloseable {
 
     /**
      * Internal constructor selecting the active backend.
+     * @param weights network weights
+     * @param cuda cuda value
+     * @param rocm rocm value
+     * @param oneapi oneapi value
      */
     private Network(Weights weights, Backend cuda, chess.nn.lc0.cnn.rocm.Backend rocm, chess.nn.lc0.cnn.oneapi.Backend oneapi) {
         this.weights = weights;
@@ -637,6 +641,8 @@ public final class Network implements AutoCloseable {
 
     /**
      * Runs batch prediction through single-position backend calls.
+     * @param encodedBatch encoded batch value
+     * @return predict encoded batch sequential result
      */
     private List<Prediction> predictEncodedBatchSequential(List<float[]> encodedBatch) {
         List<Prediction> out = new ArrayList<>(encodedBatch.size());
@@ -1290,6 +1296,10 @@ public final class Network implements AutoCloseable {
 
         /**
          * Builds a dense layer descriptor.
+         * @param inDim in dim value
+         * @param outDim out dim value
+         * @param weights network weights
+         * @param bias bias value
          */
         DenseLayer(int inDim, int outDim, float[] weights, float[] bias) {
             this.inDim = inDim;
@@ -1300,6 +1310,9 @@ public final class Network implements AutoCloseable {
 
         /**
          * Runs the dense layer and applies the optional activation.
+         * @param input input value
+         * @param output output text
+         * @param activation activation function
          */
         void forward(float[] input, float[] output, Activation activation) {
             for (int o = 0; o < outDim; o++) {
@@ -1353,6 +1366,12 @@ public final class Network implements AutoCloseable {
 
         /**
          * Creates an SE unit descriptor.
+         * @param channels channels value
+         * @param hidden hidden value
+         * @param w1 w1 value
+         * @param b1 b1 value
+         * @param w2 w2 value
+         * @param b2 b2 value
          */
         SeUnit(int channels, int hidden, float[] w1, float[] b1, float[] w2, float[] b2) {
             this.channels = channels;
@@ -1455,6 +1474,7 @@ public final class Network implements AutoCloseable {
 
         /**
          * Packs all decoded tensors into a single object.
+         * @param b second value
          */
         private Weights(Builder b) {
             this.inputChannels = b.inputChannels;

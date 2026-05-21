@@ -397,6 +397,7 @@ public final class AlphaBeta implements AutoCloseable {
      * @param searchState mutable root-search state
      * @param state reusable position state
      * @return score for the searched root move
+     * @param move move encoded in CRTK move format
      */
     private static int searchRootMove(
             SearchContext context,
@@ -741,6 +742,7 @@ public final class AlphaBeta implements AutoCloseable {
      * @param context search context
      * @param ply current ply from root
      * @return true when the move can be skipped
+     * @param decision move decision metadata
      */
     private static boolean shouldFutilityPrune(SearchContext context, MoveDecision decision) {
         return decision.staticEval() != NO_SCORE
@@ -805,6 +807,7 @@ public final class AlphaBeta implements AutoCloseable {
      * @param context search context
      * @param ply current ply from root
      * @return reduction in plies, or zero for a full-depth search
+     * @param decision move decision metadata
      */
     private static int lateMoveReduction(SearchContext context, MoveDecision decision) {
         if (decision.pvNode()
@@ -1367,6 +1370,7 @@ public final class AlphaBeta implements AutoCloseable {
      * @param context search context that owns the evaluation cache
      * @param position position to evaluate statically
      * @return score clamped to the non-mate static range
+     * @param ply ply value
      */
     private static int staticScore(SearchContext context, Position position, int ply) {
         int score = context.evaluate(position, ply);
@@ -1579,6 +1583,7 @@ public final class AlphaBeta implements AutoCloseable {
          * @param key position signature
          * @param entry transposition-table entry
          * @return search setup
+         * @param alpha alpha search bound
          */
         private static NegamaxSetup search(
                 boolean inCheck,
@@ -1788,6 +1793,7 @@ public final class AlphaBeta implements AutoCloseable {
          * @param started start time
          * @param limits search limits
          * @param evaluator static evaluator used at leaf nodes
+         * @param root root position or node
          */
         private SearchContext(long started, Limits limits, CentipawnEvaluator evaluator, Position root) {
             this.deadline = computeDeadline(started, limits.maxDurationMillis());
@@ -1821,6 +1827,7 @@ public final class AlphaBeta implements AutoCloseable {
          *
          * @param position position to evaluate
          * @return centipawn score
+         * @param ply ply value
          */
         private int evaluate(Position position, int ply) {
             long key = position.signature();

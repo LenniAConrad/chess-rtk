@@ -89,6 +89,9 @@ public final class PgnCommand {
 
 	/**
 	 * Creates a byte-count progress bar for an input file when its size is known.
+	 * @param input input value
+	 * @param label label text
+	 * @return file progress bar result
 	 */
 	private static Bar fileProgressBar(Path input, String label) {
 		try {

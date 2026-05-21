@@ -1084,6 +1084,7 @@ public final class Generator {
      *
      * @param tags     the mutable tag accumulator
      * @param position the position being tagged
+     * @param ctx search context
      */
     private static void addTacticalTags(List<String> tags, Context ctx, Position position) {
         for (String tag : Motifs.tags(position)) {
@@ -1099,6 +1100,7 @@ public final class Generator {
      *
      * @param tags     the mutable tag accumulator
      * @param position the position being tagged
+     * @param ctx search context
      */
     private static void addLegalMoveTacticalTags(List<String> tags, Context ctx, Position position) {
         MoveList moves = ctx.legalMoves();

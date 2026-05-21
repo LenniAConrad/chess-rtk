@@ -724,6 +724,7 @@ public class Engine implements AutoCloseable {
 	 * errors if not.
 	 *
 	 * @param position the chess position being analysed
+	 * @throws java.io.IOException if IOException is raised by the underlying operation
 	 */
 	private void checkProcessAlive(Position position) throws IOException {
 		if (!process.isAlive()) {

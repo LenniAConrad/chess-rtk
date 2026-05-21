@@ -175,6 +175,10 @@ public final class BuiltInEngineCommand {
 
 	/**
 	 * Searches one input FEN and prints the result.
+	 * @param entry entry value
+	 * @param searcher searcher value
+	 * @param opts command options
+	 * @param blankBeforeSummary blank before summary value
 	 */
 	private static void searchAndPrint(String entry, Mcts searcher, Options opts, boolean blankBeforeSummary) {
 		try {

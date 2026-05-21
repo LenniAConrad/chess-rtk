@@ -377,6 +377,7 @@ public final class SAN {
      * @param move encoded move
      * @param moving moving piece index
      * @return minimal file/rank disambiguation
+     * @param legalMoves legal moves value
      */
     private static String disambiguation(Position context, short move, int moving, MoveList legalMoves) {
         if (moving == WHITE_PAWN || moving == BLACK_PAWN) {
@@ -627,6 +628,7 @@ public final class SAN {
          * @param pliesPlayed number of plies parsed
          * @param parsed true when all tokens parsed
          * @param invalidToken first invalid token
+         * @param progress progress value
          */
         private PlayedLine(
                 Position start,

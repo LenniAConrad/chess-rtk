@@ -77,8 +77,8 @@ public class Evaluation implements Comparable<Evaluation> {
 	 * Used for creating a {@code Evaluation} from a mate {@code Boolean} and a
 	 * {@code Integer} value.
 	 * 
-	 * @param mate
-	 * @param value
+	 * @param mate mate flag
+	 * @param value value to use
 	 */
 	public Evaluation(boolean mate, int value) {
 		this.valid = true;
@@ -167,6 +167,7 @@ public class Evaluation implements Comparable<Evaluation> {
 	 *      <tr> <td> M-1 </td> <td> M1 </td> </tr>   
 	 * 	</table>
 	 * </pre>
+	 * @return invert result
 	 */
 	public Evaluation invert() {
 		value = - value;
@@ -214,7 +215,7 @@ public class Evaluation implements Comparable<Evaluation> {
 	 * This is especially useful when trying to figure out, if two evaluations are
 	 * not too similar.
 	 * 
-	 * @param evaluation
+	 * @param evaluation evaluation value
 	 * @return The {@code Discrepancy} of the two {@code Evaluations}
 	 */
 	public Discrepancy getDiscrepancy(Evaluation evaluation) {
@@ -369,6 +370,8 @@ public class Evaluation implements Comparable<Evaluation> {
     /**
      * Core mate-based comparison: returns >0 if this is more beneficial,
      * <0 if less, or 0 if equal.
+     * @param other other value
+     * @return compare mate result
      */
     private int compareMate(Evaluation other) {
         if (this.mate && other.mate) {

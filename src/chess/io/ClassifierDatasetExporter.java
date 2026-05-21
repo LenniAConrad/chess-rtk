@@ -113,6 +113,14 @@ public final class ClassifierDatasetExporter {
 
         /**
          * Creates a normalized option set.
+         * @param rowFilter row filter value
+         * @param rowFilterDsl row filter dsl value
+         * @param labelFilter label filter value
+         * @param labelFilterDsl label filter dsl value
+         * @param fallbackLabelFilter fallback label filter value
+         * @param fallbackLabelFilterDsl fallback label filter dsl value
+         * @param maxPositives max positives value
+         * @param maxNegatives max negatives value
          */
         public Options {
             if (maxPositives < 0) {
@@ -306,6 +314,11 @@ public final class ClassifierDatasetExporter {
 
     /**
      * Invokes the optional file-level progress callback.
+     * @param fileProgress file progress value
+     * @param file file value
+     * @param completedFiles completed files value
+     * @param totalFiles total files value
+     * @param stats statistics data
      */
     private static void notifyFileProgress(
             Consumer<FileProgress> fileProgress,
@@ -320,6 +333,12 @@ public final class ClassifierDatasetExporter {
 
     /**
      * Exports one JSON record object if it has a position and label.
+     * @param objJson JSON object text
+     * @param options command options
+     * @param inputsWriter inputs writer value
+     * @param labelsWriter labels writer value
+     * @param stats statistics data
+     * @throws java.io.IOException if IOException is raised by the underlying operation
      */
     private static void exportObject(
             String objJson,
@@ -384,6 +403,10 @@ public final class ClassifierDatasetExporter {
 
     /**
      * Resolves the binary label for a record.
+     * @param objJson JSON object text
+     * @param rec record value
+     * @param options command options
+     * @return resolve label result
      */
     private static Optional<Boolean> resolveLabel(String objJson, Record rec, Options options) {
         if (options.labelFilter() != null) {
@@ -418,6 +441,10 @@ public final class ClassifierDatasetExporter {
     /**
      * Streams raw record JSON objects while reporting cumulative bytes for this
      * input.
+     * @param input input value
+     * @param consumer result consumer
+     * @param byteProgress progress byte value
+     * @throws java.io.IOException if IOException is raised by the underlying operation
      */
     private static void streamRecordJson(Path input, Consumer<String> consumer, LongConsumer byteProgress)
             throws IOException {
@@ -465,6 +492,9 @@ public final class ClassifierDatasetExporter {
 
     /**
      * Detects whether a file starts with a JSON array.
+     * @param input input value
+     * @return true when is json array file
+     * @throws java.io.IOException if IOException is raised by the underlying operation
      */
     private static boolean isJsonArrayFile(Path input) throws IOException {
         try (BufferedReader reader = new BufferedReader(
@@ -483,6 +513,13 @@ public final class ClassifierDatasetExporter {
 
     /**
      * Writes metadata next to the tensors.
+     * @param metaPath meta path value
+     * @param recordFiles record files value
+     * @param inputsPath inputs path value
+     * @param labelsPath labels path value
+     * @param summary summary value
+     * @param options command options
+     * @throws java.io.IOException if IOException is raised by the underlying operation
      */
     private static void writeMetadata(
             Path metaPath,
@@ -550,6 +587,11 @@ public final class ClassifierDatasetExporter {
 
     /**
      * Appends an indented JSON string field with a trailing comma when requested.
+     * @param builder builder value
+     * @param indent indent value
+     * @param name name value
+     * @param value value to use
+     * @param comma comma value
      */
     private static void appendJsonField(StringBuilder builder, int indent, String name, String value, boolean comma) {
         builder.append(" ".repeat(indent));
@@ -564,6 +606,8 @@ public final class ClassifierDatasetExporter {
 
     /**
      * Appends a JSON string or {@code null}.
+     * @param builder builder value
+     * @param value value to use
      */
     private static void appendJsonString(StringBuilder builder, String value) {
         if (value == null) {
@@ -599,6 +643,8 @@ public final class ClassifierDatasetExporter {
 
     /**
      * Returns a metadata string describing the label source.
+     * @param options command options
+     * @return label source result
      */
     private static String labelSource(Options options) {
         if (options.labelFilter() != null) {
@@ -612,6 +658,8 @@ public final class ClassifierDatasetExporter {
 
     /**
      * Returns a metadata string describing what the positive class means.
+     * @param options command options
+     * @return positive definition result
      */
     private static String positiveDefinition(Options options) {
         if (options.labelFilter() != null) {
@@ -625,6 +673,8 @@ public final class ClassifierDatasetExporter {
 
     /**
      * Formats a class cap for metadata.
+     * @param value value to use
+     * @return format cap result
      */
     private static String formatCap(long value) {
         return value == NO_CLASS_CAP ? "null" : Long.toString(value);
@@ -632,6 +682,9 @@ public final class ClassifierDatasetExporter {
 
     /**
      * Returns a sibling file path from an output stem and suffix.
+     * @param outStem out stem value
+     * @param suffix suffix value
+     * @return sibling result
      */
     private static Path sibling(Path outStem, String suffix) {
         return outStem.resolveSibling(outStem.getFileName().toString() + suffix);

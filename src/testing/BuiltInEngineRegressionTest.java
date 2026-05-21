@@ -295,6 +295,10 @@ public final class BuiltInEngineRegressionTest {
 
 	/**
 	 * Asserts the no-eval mate finder returns the expected compact result.
+	 * @param fen FEN string
+	 * @param maxMate max mate value
+	 * @param expectedBoth expected both value
+	 * @param label label text
 	 */
 	private static void assertMateCli(String fen, int maxMate, String expectedBoth, String label) {
 		String both = TestSupport.runMain("engine", "mate", FEN_OPTION, fen,
@@ -305,6 +309,11 @@ public final class BuiltInEngineRegressionTest {
 	/**
 	 * Asserts the built-in MCTS command proves a mate through terminal tree
 	 * propagation before exhausting its playout budget.
+	 * @param fen FEN string
+	 * @param expectedUci expected uci value
+	 * @param expectedScore expected score value
+	 * @param maxNodes maximum node count
+	 * @param label label text
 	 */
 	private static void assertBuiltInTreeProof(
 			String fen,
@@ -661,6 +670,11 @@ public final class BuiltInEngineRegressionTest {
 
 	/**
 	 * Invokes a private method for focused engine invariants.
+	 * @param target target value
+	 * @param name name value
+	 * @param parameterTypes parameter types value
+	 * @param args command arguments
+	 * @return invoke private result
 	 */
 	private static Object invokePrivate(Object target, String name, Class<?>[] parameterTypes, Object... args) {
 		try {

@@ -62,11 +62,29 @@ public final class MateCommand {
 	 * Supported output formats.
 	 */
 	private enum OutputFormat {
+		/**
+		 * S u m m a r y,.
+		 */
 		SUMMARY,
+		/**
+		 * U c i,.
+		 */
 		UCI,
+		/**
+		 * S a n,.
+		 */
 		SAN,
+		/**
+		 * B o t h,.
+		 */
 		BOTH,
+		/**
+		 * J s o n,.
+		 */
 		JSON,
+		/**
+		 * J s o n l.
+		 */
 		JSONL
 	}
 
@@ -101,6 +119,8 @@ public final class MateCommand {
 
 	/**
 	 * Parses command options.
+	 * @param a first value
+	 * @return parse options result
 	 */
 	private static Options parseOptions(Argv a) {
 		boolean verbose = a.flag(OPT_VERBOSE, OPT_VERBOSE_SHORT);
@@ -129,6 +149,8 @@ public final class MateCommand {
 
 	/**
 	 * Parses output format.
+	 * @param value value to use
+	 * @return parse format result
 	 */
 	private static OutputFormat parseFormat(String value) {
 		if (value == null || value.isBlank()) {
@@ -148,6 +170,9 @@ public final class MateCommand {
 
 	/**
 	 * Searches one position and prints the requested output.
+	 * @param entry entry value
+	 * @param opts command options
+	 * @param separate true to separate output sections
 	 */
 	private static void searchAndPrint(String entry, Options opts, boolean separate) {
 		Position position = CommandSupport.parsePositionOrExit(entry, CMD_MATE, opts.verbose());
@@ -159,6 +184,12 @@ public final class MateCommand {
 
 	/**
 	 * Prints one proof-search result.
+	 * @param entry entry value
+	 * @param position chess position
+	 * @param result result value
+	 * @param elapsedMillis elapsed time in milliseconds
+	 * @param opts command options
+	 * @param separate true to separate output sections
 	 */
 	private static void printResult(
 			String entry,
@@ -193,6 +224,12 @@ public final class MateCommand {
 
 	/**
 	 * Prints a human-readable summary.
+	 * @param entry entry value
+	 * @param position chess position
+	 * @param result result value
+	 * @param elapsedMillis elapsed time in milliseconds
+	 * @param opts command options
+	 * @param separate true to separate output sections
 	 */
 	private static void printSummary(
 			String entry,
@@ -224,6 +261,11 @@ public final class MateCommand {
 
 	/**
 	 * Prints a JSON object.
+	 * @param entry entry value
+	 * @param position chess position
+	 * @param result result value
+	 * @param elapsedMillis elapsed time in milliseconds
+	 * @param opts command options
 	 */
 	private static void printJson(
 			String entry,

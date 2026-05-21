@@ -63,6 +63,13 @@ public final class EvalOps {
 	/**
 	 * Evaluates a list of FEN strings using the classical backend with optional
 	 * per-entry progress.
+	 * @param fens fens value
+	 * @param terminalAware terminal aware value
+	 * @param includeFen include fen value
+	 * @param verbose verbose value
+	 * @param cmdLabel command label
+	 * @param progress progress value
+	 * @return eval classical entries result
 	 */
 	public static boolean evalClassicalEntries(
 			List<String> fens,
@@ -116,6 +123,14 @@ public final class EvalOps {
 	/**
 	 * Evaluates a list of FEN strings using an {@link Evaluator} with optional
 	 * per-entry progress.
+	 * @param fens fens value
+	 * @param evaluator evaluator value
+	 * @param lc0Only lc0 only value
+	 * @param includeFen include fen value
+	 * @param verbose verbose value
+	 * @param cmdLabel command label
+	 * @param progress progress value
+	 * @return eval evaluator entries result
 	 */
 	public static boolean evalEvaluatorEntries(
 			List<String> fens,

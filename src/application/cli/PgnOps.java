@@ -96,6 +96,13 @@ public final class PgnOps {
 
 	/**
 	 * Writes FEN positions and reports progress once per game.
+	 * @param games games to process
+	 * @param writer output writer
+	 * @param mainline mainline value
+	 * @param pairs pairs value
+	 * @param progress progress value
+	 * @return write pgn fens result
+	 * @throws java.io.IOException if IOException is raised by the underlying operation
 	 */
 	public static long writePgnFens(
 			List<Game> games,
