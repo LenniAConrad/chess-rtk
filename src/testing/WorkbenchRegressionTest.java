@@ -150,7 +150,7 @@ public final class WorkbenchRegressionTest {
         testBoardMoveAnimationStarts();
         testBoardCaptureAnimationStarts();
         testBoardCastlingAnimationStarts();
-        testBoardPaintUsesPastelColors();
+        testBoardPaintUsesChessboardJsColors();
         testBoardSuggestedMoveArrowIsLegalAndClean();
         testBoardLegalMovePreviewCanBeHidden();
         testBoardLastMoveAndBestArrowCanBeHidden();
@@ -1068,9 +1068,9 @@ public final class WorkbenchRegressionTest {
     }
 
     /**
-     * Verifies the board paints the workbench pastel board palette.
+     * Verifies the board paints chessboard.js base colors.
      */
-    private static void testBoardPaintUsesPastelColors() {
+    private static void testBoardPaintUsesChessboardJsColors() {
         Component board = (Component) construct(type("WorkbenchBoardPanel"), new Class<?>[0]);
         board.setSize(640, 640);
         invoke(board, "setPosition", new Class<?>[] { Position.class, short.class },
@@ -1092,15 +1092,15 @@ public final class WorkbenchRegressionTest {
         int cell = size / 8;
         int boardX = (640 - size) / 2;
         int boardY = (640 - size) / 2;
-        assertColor(new Color(170, 176, 166),
+        assertColor(new Color(64, 64, 64),
                 new Color(image.getRGB(boardX - 1, boardY - 1), true),
-                "pastel board border");
-        assertColor(new Color(243, 236, 217),
+                "chessboard.js border");
+        assertColor(new Color(240, 217, 181),
                 new Color(image.getRGB(boardX + cell / 2, boardY + cell / 2), true),
-                "pastel light square");
-        assertColor(new Color(188, 215, 181),
+                "chessboard.js light square");
+        assertColor(new Color(181, 136, 99),
                 new Color(image.getRGB(boardX + cell + cell / 2, boardY + cell / 2), true),
-                "pastel dark square");
+                "chessboard.js dark square");
         int e4x = boardX + 4 * cell;
         int e4y = boardY + 4 * cell;
         Color e4Center = new Color(image.getRGB(e4x + cell / 2, e4y + cell / 2), true);

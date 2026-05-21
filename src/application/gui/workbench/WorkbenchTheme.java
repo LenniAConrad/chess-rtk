@@ -318,22 +318,22 @@ final class WorkbenchTheme {
     /**
      * Board light square color.
      */
-    static final Color BOARD_LIGHT = new Color(243, 236, 217);
+    static final Color BOARD_LIGHT = new Color(240, 217, 181);
 
     /**
      * Board dark square color.
      */
-    static final Color BOARD_DARK = new Color(188, 215, 181);
+    static final Color BOARD_DARK = new Color(181, 136, 99);
 
     /**
      * Standard dark chrome color reused by subtle overlays.
      */
-    static final Color BOARD_SHADOW = new Color(125, 135, 146);
+    static final Color BOARD_SHADOW = new Color(64, 64, 64);
 
     /**
      * Chessboard.js board edge color.
      */
-    static final Color BOARD_EDGE = new Color(170, 176, 166);
+    static final Color BOARD_EDGE = new Color(64, 64, 64);
 
     /**
      * Coordinate text color used on light squares.
@@ -391,7 +391,7 @@ final class WorkbenchTheme {
      * Check highlight square fill.
      */
     static final Color CHECK_FILL = new Color(PASTEL_CORAL.getRed(), PASTEL_CORAL.getGreen(),
-            PASTEL_CORAL.getBlue(), 90);
+            PASTEL_CORAL.getBlue(), 140);
 
     /**
      * Check highlight square edge.
