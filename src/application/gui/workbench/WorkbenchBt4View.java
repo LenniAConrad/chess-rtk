@@ -740,7 +740,7 @@ final class WorkbenchBt4View extends WorkbenchNetworkView {
         // Blit one bitmap instead of cols x rows fills — the raw atlas packs
         // 480 attention heads, so the per-cell loop froze the whole tab.
         WorkbenchTensorViz.drawGammaHeatmap(g, r, data, cols, rows, scale);
-        g.setColor(new Color(0, 0, 0, 35));
+        g.setColor(WorkbenchTheme.withAlpha(WorkbenchTheme.TEXT, 36));
         g.drawRect(r.x, r.y, r.width - 1, r.height - 1);
     }
 
@@ -1321,7 +1321,7 @@ final class WorkbenchBt4View extends WorkbenchNetworkView {
         double cellH = board.height / 8.0;
         Color outgoingBase = WorkbenchTensorViz.POSITIVE;
         Color incomingBase = WorkbenchTensorViz.NEGATIVE;
-        Color diagonal = new Color(0, 0, 0, 55);
+        Color diagonal = WorkbenchTheme.withAlpha(WorkbenchTheme.TEXT, 58);
         for (int sq = 0; sq < 64; ++sq) {
             int file = sq & 7;
             int rank = sq >> 3;

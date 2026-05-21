@@ -4806,7 +4806,7 @@ final class WorkbenchNnueView extends WorkbenchNetworkView implements Scrollable
         int y = (int) Math.floor(grid.y + row * cellH);
         int w = Math.max(2, (int) Math.ceil(cellW));
         int h = Math.max(2, (int) Math.ceil(cellH));
-        g.setColor(WorkbenchTheme.withAlpha(Color.WHITE, 220));
+        g.setColor(WorkbenchTheme.withAlpha(WorkbenchTheme.PANEL_SOLID, 224));
         g.drawRect(x, y, w - 1, h - 1);
         g.setColor(color);
         g.drawRect(x + 1, y + 1, Math.max(1, w - 3), Math.max(1, h - 3));

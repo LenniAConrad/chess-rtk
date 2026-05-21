@@ -50,89 +50,105 @@ final class WorkbenchTheme {
     private static final String PLACEHOLDER_PROPERTY = WorkbenchTheme.class.getName() + ".placeholder";
 
     /**
-     * Visual Studio image palette dark base.
+     * Primary ink for pastel surfaces.
      */
-    private static final Color VS_ICON_DARK = new Color(66, 66, 66);
+    private static final Color PASTEL_INK = new Color(36, 49, 58);
 
     /**
-     * Visual Studio light-theme foreground/chrome base.
+     * Secondary ink for pastel surfaces.
      */
-    private static final Color VS_CHROME = new Color(240, 239, 241);
+    private static final Color PASTEL_MUTED = new Color(104, 115, 125);
 
     /**
-     * Visual Studio light-theme outline/subtle-fill base.
+     * Pastel workbench chrome.
      */
-    private static final Color VS_SUBTLE = new Color(246, 246, 246);
+    private static final Color PASTEL_CHROME = new Color(244, 242, 247);
 
     /**
-     * Document/editor surface.
+     * Pastel outline/subtle-fill base.
      */
-    private static final Color VS_DOCUMENT = Color.WHITE;
+    private static final Color PASTEL_SUBTLE = new Color(250, 248, 252);
 
     /**
-     * Single workbench border gray, used instead of drifting local grays.
+     * Pastel document/editor surface.
      */
-    private static final Color VS_BORDER = new Color(218, 218, 218);
+    private static final Color PASTEL_DOCUMENT = new Color(255, 253, 254);
 
     /**
-     * Primary workbench text.
+     * Single lavender-gray workbench border.
      */
-    private static final Color VS_TEXT = new Color(30, 30, 30);
+    private static final Color PASTEL_BORDER = new Color(221, 216, 230);
 
     /**
-     * Secondary workbench text.
+     * Pastel action blue.
      */
-    private static final Color VS_MUTED = new Color(104, 104, 104);
+    private static final Color PASTEL_BLUE = new Color(120, 174, 221);
 
     /**
-     * Visual Studio action blue.
+     * Pastel action blue hover fill.
      */
-    private static final Color VS_ACTION_BLUE = new Color(0, 83, 156);
+    private static final Color PASTEL_BLUE_HOVER = new Color(139, 187, 230);
 
     /**
-     * Visual Studio action green.
+     * Pastel action blue pressed fill.
      */
-    private static final Color VS_ACTION_GREEN = new Color(56, 138, 52);
+    private static final Color PASTEL_BLUE_PRESSED = new Color(102, 162, 212);
 
     /**
-     * Visual Studio action red.
+     * Accessible blue text for pastel informational surfaces.
      */
-    private static final Color VS_ACTION_RED = new Color(161, 38, 13);
+    private static final Color PASTEL_BLUE_TEXT = new Color(49, 95, 130);
 
     /**
-     * Visual Studio action orange.
+     * Pastel positive green.
      */
-    private static final Color VS_ACTION_ORANGE = new Color(194, 125, 26);
+    private static final Color PASTEL_GREEN = new Color(158, 214, 165);
 
     /**
-     * Visual Studio IntelliSense purple.
+     * Accessible positive text for pastel green surfaces.
      */
-    private static final Color VS_ACTION_PURPLE = new Color(101, 45, 144);
+    private static final Color PASTEL_GREEN_TEXT = new Color(45, 107, 73);
 
     /**
-     * Accessible positive text derived from Visual Studio action green.
+     * Pastel warning amber.
      */
-    private static final Color VS_POSITIVE_TEXT = new Color(31, 105, 28);
+    private static final Color PASTEL_AMBER = new Color(232, 199, 121);
 
     /**
-     * Accessible warning text derived from Visual Studio action orange.
+     * Accessible warning text for pastel amber surfaces.
      */
-    private static final Color VS_WARNING_TEXT = new Color(117, 74, 0);
+    private static final Color PASTEL_AMBER_TEXT = new Color(106, 84, 30);
 
     /**
-     * Root background color — Visual Studio light chrome.
+     * Pastel error coral.
      */
-    static final Color BG = VS_CHROME;
+    private static final Color PASTEL_CORAL = new Color(240, 170, 164);
+
+    /**
+     * Accessible error text for pastel coral surfaces.
+     */
+    private static final Color PASTEL_CORAL_TEXT = new Color(138, 60, 58);
+
+    /**
+     * Pastel policy purple.
+     */
+    private static final Color PASTEL_PURPLE = new Color(203, 183, 234);
+
+    /**
+     * Root background color.
+     */
+    static final Color BG = PASTEL_CHROME;
 
     /**
      * Fully transparent component background.
      */
-    static final Color TRANSPARENT = new Color(255, 255, 255, 0);
+    static final Color TRANSPARENT = new Color(PASTEL_DOCUMENT.getRed(), PASTEL_DOCUMENT.getGreen(),
+            PASTEL_DOCUMENT.getBlue(), 0);
 
     /**
      * Primary panel color.
      */
-    static final Color PANEL = VS_DOCUMENT;
+    static final Color PANEL = PASTEL_DOCUMENT;
 
     /**
      * Solid panel fallback for Swing components that must be fully opaque.
@@ -142,7 +158,7 @@ final class WorkbenchTheme {
     /**
      * Elevated panel color.
      */
-    static final Color ELEVATED = VS_DOCUMENT;
+    static final Color ELEVATED = PASTEL_DOCUMENT;
 
     /**
      * Solid elevated fallback for data surfaces and scroll viewports.
@@ -152,27 +168,27 @@ final class WorkbenchTheme {
     /**
      * Line color.
      */
-    static final Color LINE = VS_BORDER;
+    static final Color LINE = PASTEL_BORDER;
 
     /**
      * Primary text color.
      */
-    static final Color TEXT = VS_TEXT;
+    static final Color TEXT = PASTEL_INK;
 
     /**
      * Secondary text color.
      */
-    static final Color MUTED = VS_MUTED;
+    static final Color MUTED = PASTEL_MUTED;
 
     /**
-     * Accent color (Visual Studio action blue).
+     * Accent color.
      */
-    static final Color ACCENT = VS_ACTION_BLUE;
+    static final Color ACCENT = PASTEL_BLUE;
 
     /**
      * Table and tree selection color.
      */
-    static final Color SELECTION = new Color(214, 235, 255);
+    static final Color SELECTION = new Color(229, 241, 252);
 
     /**
      * Solid selection fallback for opaque renderers.
@@ -182,77 +198,77 @@ final class WorkbenchTheme {
     /**
      * Primary button hover color.
      */
-    static final Color ACCENT_HOVER = new Color(0, 103, 184);
+    static final Color ACCENT_HOVER = PASTEL_BLUE_HOVER;
 
     /**
      * Primary button pressed color.
      */
-    static final Color ACCENT_PRESSED = new Color(0, 63, 117);
+    static final Color ACCENT_PRESSED = PASTEL_BLUE_PRESSED;
 
     /**
      * Secondary button color.
      */
-    static final Color SECONDARY_BUTTON = VS_DOCUMENT;
+    static final Color SECONDARY_BUTTON = PASTEL_DOCUMENT;
 
     /**
      * Secondary button hover color.
      */
-    static final Color SECONDARY_BUTTON_HOVER = VS_SUBTLE;
+    static final Color SECONDARY_BUTTON_HOVER = PASTEL_SUBTLE;
 
     /**
      * Secondary button pressed color.
      */
-    static final Color SECONDARY_BUTTON_PRESSED = VS_CHROME;
+    static final Color SECONDARY_BUTTON_PRESSED = PASTEL_CHROME;
 
     /**
      * Secondary button text color.
      */
-    static final Color SECONDARY_BUTTON_TEXT = VS_TEXT;
+    static final Color SECONDARY_BUTTON_TEXT = PASTEL_INK;
 
     /**
      * Disabled button fill color.
      */
-    static final Color BUTTON_DISABLED_BG = VS_SUBTLE;
+    static final Color BUTTON_DISABLED_BG = PASTEL_SUBTLE;
 
     /**
      * Disabled button border color.
      */
-    static final Color BUTTON_DISABLED_BORDER = VS_BORDER;
+    static final Color BUTTON_DISABLED_BORDER = PASTEL_BORDER;
 
     /**
      * Disabled button text color.
      */
-    static final Color BUTTON_DISABLED_TEXT = VS_MUTED;
+    static final Color BUTTON_DISABLED_TEXT = PASTEL_MUTED;
 
     /**
      * Input border color.
      */
-    static final Color INPUT_BORDER = VS_BORDER;
+    static final Color INPUT_BORDER = PASTEL_BORDER;
 
     /**
      * Input focus ring color.
      */
-    static final Color INPUT_FOCUS = VS_ACTION_BLUE;
+    static final Color INPUT_FOCUS = PASTEL_BLUE;
 
     /**
      * Disabled input background color.
      */
-    static final Color INPUT_DISABLED = VS_SUBTLE;
+    static final Color INPUT_DISABLED = PASTEL_SUBTLE;
 
     /**
      * Toggle-off background color.
      */
-    static final Color TOGGLE_BG = VS_SUBTLE;
+    static final Color TOGGLE_BG = PASTEL_SUBTLE;
 
     /**
      * Toggle-off border color.
      */
-    static final Color TOGGLE_BORDER = VS_BORDER;
+    static final Color TOGGLE_BORDER = PASTEL_BORDER;
 
     /**
      * Toggle-off track color.
      */
-    static final Color TOGGLE_TRACK = VS_MUTED;
+    static final Color TOGGLE_TRACK = PASTEL_MUTED;
 
     /**
      * Toggle-on background color.
@@ -262,62 +278,62 @@ final class WorkbenchTheme {
     /**
      * Toggle-on track color.
      */
-    static final Color TOGGLE_ON_TRACK = VS_ACTION_BLUE;
+    static final Color TOGGLE_ON_TRACK = PASTEL_BLUE;
 
     /**
      * Toggle thumb color.
      */
-    static final Color TOGGLE_THUMB = VS_DOCUMENT;
+    static final Color TOGGLE_THUMB = PASTEL_DOCUMENT;
 
     /**
      * Text field background color.
      */
-    static final Color INPUT = VS_DOCUMENT;
+    static final Color INPUT = PASTEL_DOCUMENT;
 
     /**
      * Text area background color.
      */
-    static final Color TEXT_AREA = VS_DOCUMENT;
+    static final Color TEXT_AREA = PASTEL_DOCUMENT;
 
     /**
      * Terminal background color.
      */
-    static final Color TERMINAL = VS_DOCUMENT;
+    static final Color TERMINAL = PASTEL_DOCUMENT;
 
     /**
      * Terminal text color.
      */
-    static final Color TERMINAL_TEXT = VS_TEXT;
+    static final Color TERMINAL_TEXT = PASTEL_INK;
 
     /**
      * Selection color for text controls.
      */
-    static final Color TEXT_SELECTION = new Color(202, 230, 255, 255);
+    static final Color TEXT_SELECTION = new Color(224, 239, 252, 255);
 
     /**
      * Primary button text color.
      */
-    static final Color PRIMARY_BUTTON_TEXT = Color.WHITE;
+    static final Color PRIMARY_BUTTON_TEXT = PASTEL_INK;
 
     /**
      * Board light square color.
      */
-    static final Color BOARD_LIGHT = new Color(240, 217, 181);
+    static final Color BOARD_LIGHT = new Color(243, 236, 217);
 
     /**
      * Board dark square color.
      */
-    static final Color BOARD_DARK = new Color(181, 136, 99);
+    static final Color BOARD_DARK = new Color(188, 215, 181);
 
     /**
      * Standard dark chrome color reused by subtle overlays.
      */
-    static final Color BOARD_SHADOW = new Color(64, 64, 64);
+    static final Color BOARD_SHADOW = new Color(125, 135, 146);
 
     /**
      * Chessboard.js board edge color.
      */
-    static final Color BOARD_EDGE = new Color(64, 64, 64);
+    static final Color BOARD_EDGE = new Color(170, 176, 166);
 
     /**
      * Coordinate text color used on light squares.
@@ -332,7 +348,7 @@ final class WorkbenchTheme {
     /**
      * Shared inset move-highlight edge color.
      */
-    static final Color BOARD_HIGHLIGHT = VS_ACTION_GREEN;
+    static final Color BOARD_HIGHLIGHT = new Color(85, 184, 125);
 
     /**
      * Last-move highlight edge.
@@ -347,59 +363,61 @@ final class WorkbenchTheme {
     /**
      * Quiet legal-target marker fill.
      */
-    static final Color LEGAL_TARGET = new Color(42, 45, 48, 92);
+    static final Color LEGAL_TARGET = new Color(PASTEL_INK.getRed(), PASTEL_INK.getGreen(), PASTEL_INK.getBlue(), 86);
 
     /**
      * Capture legal-target marker edge.
      */
-    static final Color LEGAL_CAPTURE_EDGE = new Color(42, 45, 48, 112);
+    static final Color LEGAL_CAPTURE_EDGE = new Color(PASTEL_INK.getRed(), PASTEL_INK.getGreen(),
+            PASTEL_INK.getBlue(), 112);
 
     /**
      * Suggested-move arrow color.
      */
-    static final Color BOARD_ARROW = VS_ACTION_BLUE;
+    static final Color BOARD_ARROW = new Color(111, 168, 220);
 
     /**
      * Check highlight radial core.
      */
-    static final Color CHECK_CORE = new Color(VS_ACTION_RED.getRed(), VS_ACTION_RED.getGreen(),
-            VS_ACTION_RED.getBlue(), 245);
+    static final Color CHECK_CORE = new Color(PASTEL_CORAL.getRed(), PASTEL_CORAL.getGreen(),
+            PASTEL_CORAL.getBlue(), 245);
 
     /**
      * Check highlight glow.
      */
-    static final Color CHECK_GLOW = new Color(124, 29, 10, 209);
+    static final Color CHECK_GLOW = new Color(200, 104, 99, 209);
 
     /**
      * Check highlight square fill.
      */
-    static final Color CHECK_FILL = new Color(VS_ACTION_RED.getRed(), VS_ACTION_RED.getGreen(),
-            VS_ACTION_RED.getBlue(), 56);
+    static final Color CHECK_FILL = new Color(PASTEL_CORAL.getRed(), PASTEL_CORAL.getGreen(),
+            PASTEL_CORAL.getBlue(), 90);
 
     /**
      * Check highlight square edge.
      */
-    static final Color CHECK_EDGE = new Color(124, 29, 10, 56);
+    static final Color CHECK_EDGE = new Color(200, 104, 99, 70);
 
     /**
      * Eval-bar dark side fill.
      */
-    static final Color EVAL_BLACK = Color.BLACK;
+    static final Color EVAL_BLACK = new Color(174, 183, 194);
 
     /**
      * Eval-bar light side fill.
      */
-    static final Color EVAL_WHITE = Color.WHITE;
+    static final Color EVAL_WHITE = PASTEL_DOCUMENT;
 
     /**
      * Eval-bar frame color.
      */
-    static final Color EVAL_FRAME = new Color(0, 0, 0, 168);
+    static final Color EVAL_FRAME = new Color(PASTEL_INK.getRed(), PASTEL_INK.getGreen(), PASTEL_INK.getBlue(), 150);
 
     /**
      * Eval-bar divider color.
      */
-    static final Color EVAL_DIVIDER = new Color(128, 128, 128, 176);
+    static final Color EVAL_DIVIDER = new Color(PASTEL_MUTED.getRed(), PASTEL_MUTED.getGreen(),
+            PASTEL_MUTED.getBlue(), 166);
 
     /**
      * Tab strip selected accent underline.
@@ -409,7 +427,8 @@ final class WorkbenchTheme {
     /**
      * Tab strip rollover fill.
      */
-    static final Color TAB_HOVER = new Color(VS_SUBTLE.getRed(), VS_SUBTLE.getGreen(), VS_SUBTLE.getBlue(), 255);
+    static final Color TAB_HOVER = new Color(PASTEL_SUBTLE.getRed(), PASTEL_SUBTLE.getGreen(),
+            PASTEL_SUBTLE.getBlue(), 255);
 
     /**
      * Tab strip resting fill.
@@ -419,107 +438,109 @@ final class WorkbenchTheme {
     /**
      * Scrollbar track fill.
      */
-    static final Color SCROLLBAR_TRACK = new Color(0, 0, 0, 0);
+    static final Color SCROLLBAR_TRACK = new Color(PASTEL_CHROME.getRed(), PASTEL_CHROME.getGreen(),
+            PASTEL_CHROME.getBlue(), 0);
 
     /**
      * Scrollbar thumb resting fill.
      */
-    static final Color SCROLLBAR_THUMB = new Color(100, 100, 100, 80);
+    static final Color SCROLLBAR_THUMB = new Color(PASTEL_MUTED.getRed(), PASTEL_MUTED.getGreen(),
+            PASTEL_MUTED.getBlue(), 80);
 
     /**
      * Scrollbar thumb hover fill.
      */
-    static final Color SCROLLBAR_THUMB_HOVER = new Color(100, 100, 100, 130);
+    static final Color SCROLLBAR_THUMB_HOVER = new Color(PASTEL_MUTED.getRed(), PASTEL_MUTED.getGreen(),
+            PASTEL_MUTED.getBlue(), 130);
 
     /**
      * Tooltip surface color.
      */
-    static final Color TOOLTIP_BG = VS_DOCUMENT;
+    static final Color TOOLTIP_BG = PASTEL_DOCUMENT;
 
     /**
      * Tooltip text color.
      */
-    static final Color TOOLTIP_TEXT = VS_TEXT;
+    static final Color TOOLTIP_TEXT = PASTEL_INK;
 
     /**
      * Tooltip border color.
      */
-    static final Color TOOLTIP_BORDER = VS_BORDER;
+    static final Color TOOLTIP_BORDER = PASTEL_BORDER;
 
-    // Status families use pale Visual Studio action-color tints for the
-    // surface, with darker text variants where the official action color is
-    // too light for body text on white.
+    // Status families use pastel action-color tints for the surface, with
+    // darker ink variants for readable text.
 
     /**
      * Success feedback surface.
      */
-    static final Color STATUS_SUCCESS_BG = new Color(235, 243, 235);
+    static final Color STATUS_SUCCESS_BG = new Color(239, 248, 240);
 
     /**
      * Success feedback border.
      */
-    static final Color STATUS_SUCCESS_BORDER = new Color(155, 201, 153);
+    static final Color STATUS_SUCCESS_BORDER = PASTEL_GREEN;
 
     /**
      * Success feedback text.
      */
-    static final Color STATUS_SUCCESS_TEXT = VS_POSITIVE_TEXT;
+    static final Color STATUS_SUCCESS_TEXT = PASTEL_GREEN_TEXT;
 
     /**
      * Warning feedback surface.
      */
-    static final Color STATUS_WARNING_BG = new Color(248, 239, 228);
+    static final Color STATUS_WARNING_BG = new Color(255, 245, 223);
 
     /**
      * Warning feedback border.
      */
-    static final Color STATUS_WARNING_BORDER = VS_ACTION_ORANGE;
+    static final Color STATUS_WARNING_BORDER = PASTEL_AMBER;
 
     /**
      * Warning feedback text.
      */
-    static final Color STATUS_WARNING_TEXT = VS_WARNING_TEXT;
+    static final Color STATUS_WARNING_TEXT = PASTEL_AMBER_TEXT;
 
     /**
      * Error feedback surface.
      */
-    static final Color STATUS_ERROR_BG = new Color(246, 233, 231);
+    static final Color STATUS_ERROR_BG = new Color(255, 240, 239);
 
     /**
      * Error feedback border.
      */
-    static final Color STATUS_ERROR_BORDER = new Color(217, 158, 146);
+    static final Color STATUS_ERROR_BORDER = PASTEL_CORAL;
 
     /**
      * Error feedback text.
      */
-    static final Color STATUS_ERROR_TEXT = VS_ACTION_RED;
+    static final Color STATUS_ERROR_TEXT = PASTEL_CORAL_TEXT;
 
     /**
      * Informational feedback surface.
      */
-    static final Color STATUS_INFO_BG = new Color(230, 238, 245);
+    static final Color STATUS_INFO_BG = new Color(232, 242, 251);
 
     /**
      * Informational feedback border.
      */
-    static final Color STATUS_INFO_BORDER = new Color(145, 181, 211);
+    static final Color STATUS_INFO_BORDER = new Color(182, 216, 242);
 
     /**
      * Informational feedback text.
      */
-    static final Color STATUS_INFO_TEXT = VS_ACTION_BLUE;
+    static final Color STATUS_INFO_TEXT = PASTEL_BLUE_TEXT;
 
     /**
      * Compact logo tile fill.
      */
-    static final Color LOGO_BACKGROUND = new Color(VS_ICON_DARK.getRed(), VS_ICON_DARK.getGreen(),
-            VS_ICON_DARK.getBlue(), 230);
+    static final Color LOGO_BACKGROUND = new Color(PASTEL_PURPLE.getRed(), PASTEL_PURPLE.getGreen(),
+            PASTEL_PURPLE.getBlue(), 230);
 
     /**
      * Compact logo mark fill.
      */
-    static final Color LOGO_MARK = VS_ACTION_RED;
+    static final Color LOGO_MARK = PASTEL_CORAL;
 
     /**
      * Toggle focus-ring color.
@@ -597,42 +618,42 @@ final class WorkbenchTheme {
 
     // Content keeps color only where it carries sign or category. Signed
     // tensors use green/red, architecture/data-flow uses blue, and the policy
-    // branch uses the Visual Studio IntelliSense purple.
+    // branch uses the pastel purple family.
 
     /**
      * Positive-activation accent (gain / "up").
      */
-    static final Color NN_POSITIVE = VS_POSITIVE_TEXT;
+    static final Color NN_POSITIVE = PASTEL_GREEN;
 
     /**
      * Negative-activation accent (loss / "down").
      */
-    static final Color NN_NEGATIVE = VS_ACTION_RED;
+    static final Color NN_NEGATIVE = PASTEL_CORAL;
 
     /**
      * Trunk / data-flow accent.
      */
-    static final Color NN_TRUNK = VS_ACTION_BLUE;
+    static final Color NN_TRUNK = PASTEL_BLUE;
 
     /**
      * Policy-branch accent.
      */
-    static final Color NN_POLICY = VS_ACTION_PURPLE;
+    static final Color NN_POLICY = PASTEL_PURPLE;
 
     /**
      * Value-branch accent.
      */
-    static final Color NN_VALUE = VS_POSITIVE_TEXT;
+    static final Color NN_VALUE = PASTEL_GREEN;
 
     /**
      * Neutral fill for cells carrying no signal.
      */
-    static final Color NN_NEUTRAL = VS_SUBTLE;
+    static final Color NN_NEUTRAL = PASTEL_SUBTLE;
 
     /**
      * Lightest signed-heatmap fill (near zero).
      */
-    static final Color NN_HEAT_ZERO = VS_SUBTLE;
+    static final Color NN_HEAT_ZERO = PASTEL_SUBTLE;
 
     /**
      * Prevents instantiation.
@@ -1035,7 +1056,7 @@ final class WorkbenchTheme {
         Runnable apply = () -> {
             boolean on = tab.isSelected();
             tab.setBackground(on ? SELECTION_SOLID : ELEVATED_SOLID);
-            tab.setForeground(on ? ACCENT : MUTED);
+            tab.setForeground(on ? STATUS_INFO_TEXT : MUTED);
             tab.setFont(font(12, on ? Font.BOLD : Font.PLAIN));
             tab.setBorder(BorderFactory.createCompoundBorder(
                     BorderFactory.createLineBorder(on ? ACCENT : LINE),

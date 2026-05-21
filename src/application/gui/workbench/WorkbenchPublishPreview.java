@@ -137,9 +137,9 @@ final class WorkbenchPublishPreview extends JComponent {
         int x = (getWidth() - pageW) / 2;
         int y = (getHeight() - pageH) / 2;
 
-        g.setColor(WorkbenchTheme.withAlpha(Color.BLACK, 24));
+        g.setColor(WorkbenchTheme.withAlpha(WorkbenchTheme.MUTED, 32));
         g.fillRoundRect(x + 8, y + 10, pageW, pageH, 8, 8);
-        g.setColor(Color.WHITE);
+        g.setColor(WorkbenchTheme.PANEL_SOLID);
         g.fillRoundRect(x, y, pageW, pageH, 8, 8);
         g.setColor(WorkbenchTheme.LINE);
         g.drawRoundRect(x, y, Math.max(0, pageW - 1), Math.max(0, pageH - 1), 8, 8);
@@ -261,7 +261,7 @@ final class WorkbenchPublishPreview extends JComponent {
         g.setColor(preview.flip() ? WorkbenchTheme.BOARD_ARROW : WorkbenchTheme.ACCENT);
         g.setStroke(new BasicStroke(Math.max(1.4f, square / 5.0f), BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
         g.drawLine(x + square * 2, y + square * 6, x + square * 5, y + square * 3);
-        g.setColor(WorkbenchTheme.withAlpha(Color.BLACK, 55));
+        g.setColor(WorkbenchTheme.withAlpha(WorkbenchTheme.TEXT, 64));
         g.drawRect(x, y, board, board);
     }
 
