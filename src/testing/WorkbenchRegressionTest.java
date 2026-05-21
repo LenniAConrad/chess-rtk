@@ -866,6 +866,26 @@ public final class WorkbenchRegressionTest {
         assertTrue(primary.contains(3), "top-left corner isolates the dragged tab");
         assertTrue(tertiary.contains(0), "previous top-left tabs move into the bottom-left group");
         assertFalse(primary.contains(0), "top-left corner split does not duplicate displaced tabs");
+
+        invoke(area, "closeTab", new Class<?>[] { int.class }, 3);
+        assertEquals(Integer.valueOf(2), invoke(area, "selectedIndex", new Class<?>[0]),
+                "closing active top-left group falls back to the repaired primary group");
+        invoke(area, "select", new Class<?>[] { int.class }, 3);
+        primary = (List<Integer>) field(area, "primaryTabs");
+        assertTrue(primary.contains(3), "closed tab reopens in the active visible group");
+
+        invoke(area, "collapseSplit", new Class<?>[0]);
+        primary = (List<Integer>) field(area, "primaryTabs");
+        secondary = (List<Integer>) field(area, "secondaryTabs");
+        tertiary = (List<Integer>) field(area, "tertiaryTabs");
+        quaternary = (List<Integer>) field(area, "quaternaryTabs");
+        assertTrue(primary.contains(0), "collapse preserves bottom-left tabs");
+        assertTrue(primary.contains(1), "collapse preserves bottom-right tabs");
+        assertTrue(primary.contains(2), "collapse preserves top-right tabs");
+        assertTrue(primary.contains(3), "collapse preserves reopened top-left tabs");
+        assertTrue(secondary.isEmpty(), "collapse clears top-right group");
+        assertTrue(tertiary.isEmpty(), "collapse clears bottom-left group");
+        assertTrue(quaternary.isEmpty(), "collapse clears bottom-right group");
     }
 
     /**
