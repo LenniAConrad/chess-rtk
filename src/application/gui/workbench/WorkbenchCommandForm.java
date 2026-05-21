@@ -64,6 +64,11 @@ final class WorkbenchCommandForm extends JPanel {
     private static final int VALUE_WIDTH = 280;
 
     /**
+     * Wider value-editor width for long position strings.
+     */
+    private static final int FEN_VALUE_WIDTH = 520;
+
+    /**
      * Row height.
      */
     private static final int ROW_HEIGHT = WorkbenchTheme.CONTROL_HEIGHT + 6;
@@ -437,9 +442,10 @@ final class WorkbenchCommandForm extends JPanel {
         }
         if (field.option.takesValue()) {
             JComponent editor = valueEditor(field);
-            editor.setPreferredSize(new Dimension(VALUE_WIDTH, WorkbenchTheme.CONTROL_HEIGHT));
-            editor.setMaximumSize(new Dimension(VALUE_WIDTH, WorkbenchTheme.CONTROL_HEIGHT));
-            editor.setMinimumSize(new Dimension(VALUE_WIDTH, WorkbenchTheme.CONTROL_HEIGHT));
+            Dimension size = valueEditorSize(field);
+            editor.setPreferredSize(size);
+            editor.setMaximumSize(size);
+            editor.setMinimumSize(size);
             card.add(editor);
             card.add(Box.createHorizontalStrut(WorkbenchTheme.SPACE_MD));
         }
@@ -492,14 +498,26 @@ final class WorkbenchCommandForm extends JPanel {
         row.add(fixedLead(lead));
         row.add(Box.createHorizontalStrut(WorkbenchTheme.SPACE_SM));
         JComponent editor = field.option.takesValue() ? valueEditor(field) : valuePlaceholder(field);
-        editor.setPreferredSize(new Dimension(VALUE_WIDTH, WorkbenchTheme.CONTROL_HEIGHT));
-        editor.setMaximumSize(new Dimension(VALUE_WIDTH, WorkbenchTheme.CONTROL_HEIGHT));
-        editor.setMinimumSize(new Dimension(VALUE_WIDTH, WorkbenchTheme.CONTROL_HEIGHT));
+        Dimension size = valueEditorSize(field);
+        editor.setPreferredSize(size);
+        editor.setMaximumSize(size);
+        editor.setMinimumSize(size);
         row.add(editor);
         row.add(Box.createHorizontalStrut(WorkbenchTheme.SPACE_MD));
         row.add(descriptionLabel(field.option));
         row.add(Box.createHorizontalGlue());
         return row;
+    }
+
+    /**
+     * Returns a value-editor size appropriate for the option's content.
+     *
+     * @param field option field
+     * @return editor dimensions
+     */
+    private static Dimension valueEditorSize(Field field) {
+        int width = field.option.source() == ValueSource.CURRENT_FEN ? FEN_VALUE_WIDTH : VALUE_WIDTH;
+        return new Dimension(width, WorkbenchTheme.CONTROL_HEIGHT);
     }
 
     /**

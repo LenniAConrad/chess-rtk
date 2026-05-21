@@ -2457,7 +2457,16 @@ final class WorkbenchNnueView extends WorkbenchNetworkView implements Scrollable
      */
     private void paintOverviewSignal(Graphics2D g, Rectangle r) {
         int gap = 10;
-        int accumulatorH = Math.max(118, Math.min((int) (r.height * 0.56), r.height - 116));
+        boolean stockfish = isStockfishSnapshot();
+        int minTrunkH = stockfish ? 196 : 156;
+        int targetAccumulatorH = Math.round(r.height * (stockfish ? 0.46f : 0.56f));
+        int accumulatorH = Math.max(118, targetAccumulatorH);
+        if (r.height - accumulatorH - gap < minTrunkH) {
+            accumulatorH = Math.max(100, r.height - minTrunkH - gap);
+        }
+        if (accumulatorH < 100) {
+            accumulatorH = Math.max(1, r.height / 2);
+        }
         Rectangle accumulator = new Rectangle(r.x, r.y, r.width, Math.max(1, accumulatorH));
         Rectangle trunk = new Rectangle(r.x, accumulator.y + accumulator.height + gap,
                 r.width, Math.max(1, r.y + r.height - accumulator.y - accumulator.height - gap));

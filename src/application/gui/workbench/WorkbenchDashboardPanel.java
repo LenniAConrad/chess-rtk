@@ -638,7 +638,10 @@ final class WorkbenchDashboardPanel extends JPanel implements WorkbenchSessionLi
         JPanel panel = WorkbenchUi.transparentPanel(new GridLayout(2, 2,
                 WorkbenchTheme.SPACE_SM, WorkbenchTheme.SPACE_SM));
         panel.setAlignmentX(Component.LEFT_ALIGNMENT);
-        panel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 2 * 54 + WorkbenchTheme.SPACE_SM));
+        Dimension size = new Dimension(260, 2 * 54 + WorkbenchTheme.SPACE_SM);
+        panel.setPreferredSize(size);
+        panel.setMinimumSize(size);
+        panel.setMaximumSize(new Dimension(Integer.MAX_VALUE, size.height));
         for (MetricMeter meter : meters) {
             panel.add(meter);
         }
@@ -975,6 +978,11 @@ final class WorkbenchDashboardPanel extends JPanel implements WorkbenchSessionLi
         }
 
         @Override
+        public Dimension getMinimumSize() {
+            return getPreferredSize();
+        }
+
+        @Override
         public Dimension getMaximumSize() {
             return new Dimension(Integer.MAX_VALUE, 58);
         }
@@ -1060,6 +1068,11 @@ final class WorkbenchDashboardPanel extends JPanel implements WorkbenchSessionLi
         }
 
         @Override
+        public Dimension getMinimumSize() {
+            return getPreferredSize();
+        }
+
+        @Override
         protected void paintComponent(Graphics graphics) {
             Graphics2D g = (Graphics2D) graphics.create();
             try {
@@ -1111,6 +1124,11 @@ final class WorkbenchDashboardPanel extends JPanel implements WorkbenchSessionLi
         @Override
         public Dimension getPreferredSize() {
             return new Dimension(260, 62);
+        }
+
+        @Override
+        public Dimension getMinimumSize() {
+            return getPreferredSize();
         }
 
         @Override
