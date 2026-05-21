@@ -16,7 +16,7 @@ import java.util.stream.Stream;
  * @since 2026
  * @author Lennart A. Conrad
  */
-@SuppressWarnings({"java:S1192", "java:S2187"})
+@SuppressWarnings("java:S2187")
 public final class WorkbenchStructureRegressionTest {
 
     /**
@@ -28,6 +28,31 @@ public final class WorkbenchStructureRegressionTest {
      * Root Java package for the Swing workbench.
      */
     private static final String WORKBENCH_PACKAGE = "application.gui.workbench";
+
+    /**
+     * Workbench name token that should not be repeated in file names.
+     */
+    private static final String WORKBENCH_NAME_TOKEN = "Workbench";
+
+    /**
+     * Java source filename suffix.
+     */
+    private static final String JAVA_SOURCE_SUFFIX = ".java";
+
+    /**
+     * Conventional package documentation filename.
+     */
+    private static final String PACKAGE_INFO_FILE = "package-info.java";
+
+    /**
+     * Prefix used by Java package declarations.
+     */
+    private static final String PACKAGE_DECLARATION_PREFIX = "package ";
+
+    /**
+     * Suffix used by Java package declarations.
+     */
+    private static final String PACKAGE_DECLARATION_SUFFIX = ";";
 
     /**
      * Maximum allowed line count for a single workbench implementation file.
@@ -96,7 +121,7 @@ public final class WorkbenchStructureRegressionTest {
      */
     private static void testWorkbenchFileNamesStayPackageScoped() {
         for (Path file : workbenchJavaFiles()) {
-            assertFalse(file.getFileName().toString().contains("Workbench"),
+            assertFalse(file.getFileName().toString().contains(WORKBENCH_NAME_TOKEN),
                     WORKBENCH_ROOT.relativize(file) + " avoids redundant Workbench prefix");
         }
     }
@@ -108,13 +133,13 @@ public final class WorkbenchStructureRegressionTest {
         for (String packageName : EXPECTED_FEATURE_PACKAGES) {
             Path packageDir = WORKBENCH_ROOT.resolve(packageName);
             assertTrue(Files.isDirectory(packageDir), packageName + " package exists");
-            assertTrue(Files.isRegularFile(packageDir.resolve("package-info.java")),
+            assertTrue(Files.isRegularFile(packageDir.resolve(PACKAGE_INFO_FILE)),
                     packageName + " package has package-info.java");
         }
 
         long rootImplementationFiles = workbenchJavaFiles().stream()
                 .filter(file -> WORKBENCH_ROOT.equals(file.getParent()))
-                .filter(file -> !file.getFileName().toString().equals("package-info.java"))
+                .filter(file -> !file.getFileName().toString().equals(PACKAGE_INFO_FILE))
                 .count();
         assertTrue(rootImplementationFiles <= 1,
                 "workbench root package contains only shared root-level implementation");
@@ -127,7 +152,8 @@ public final class WorkbenchStructureRegressionTest {
         for (Path file : workbenchJavaFiles()) {
             String expectedPackage = expectedPackageFor(file);
             String source = readString(file);
-            assertTrue(source.contains("package " + expectedPackage + ";"),
+            assertTrue(source.contains(PACKAGE_DECLARATION_PREFIX + expectedPackage
+                    + PACKAGE_DECLARATION_SUFFIX),
                     WORKBENCH_ROOT.relativize(file) + " declares " + expectedPackage);
         }
     }
@@ -141,7 +167,7 @@ public final class WorkbenchStructureRegressionTest {
         try (Stream<Path> files = Files.walk(WORKBENCH_ROOT)) {
             return files
                     .filter(Files::isRegularFile)
-                    .filter(file -> file.getFileName().toString().endsWith(".java"))
+                    .filter(file -> file.getFileName().toString().endsWith(JAVA_SOURCE_SUFFIX))
                     .sorted()
                     .toList();
         } catch (IOException ex) {

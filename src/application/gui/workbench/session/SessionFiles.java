@@ -45,7 +45,7 @@ final class SessionFiles {
                 Files.writeString(path, text, StandardCharsets.UTF_8,
                         StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE);
                 return path.toAbsolutePath().normalize();
-            } catch (FileAlreadyExistsException ex) {
+            } catch (FileAlreadyExistsException ignored) {
                 // Try a suffixed filename without clobbering the existing path.
             }
         }
