@@ -99,6 +99,19 @@ final class WorkbenchUi {
     }
 
     /**
+     * Returns a checkbox after attaching a tooltip.
+     *
+     * @param <T> checkbox type
+     * @param toggle target checkbox
+     * @param tooltip tooltip text
+     * @return the same checkbox for fluent field initialization
+     */
+    static <T extends JCheckBox> T withTooltip(T toggle, String tooltip) {
+        toggle.setToolTipText(tooltip);
+        return toggle;
+    }
+
+    /**
      * Creates a compact icon-only button with an accessible label.
      *
      * @param label tooltip and accessible label
@@ -181,6 +194,16 @@ final class WorkbenchUi {
         label.setFont(WorkbenchTheme.font(12, Font.BOLD));
         label.setHorizontalAlignment(SwingConstants.LEFT);
         return label;
+    }
+
+    /**
+     * Returns trimmed text from a field, treating null document text as blank.
+     *
+     * @param field source field
+     * @return trimmed text
+     */
+    static String trimmed(JTextField field) {
+        return field.getText() == null ? "" : field.getText().trim();
     }
 
     /**
@@ -332,6 +355,29 @@ final class WorkbenchUi {
         c.weightx = width > 1 ? 1 : 0;
         c.fill = GridBagConstraints.HORIZONTAL;
         panel.add(component, c);
+    }
+
+    /**
+     * Adds a transparent filler row so stretched form panels keep controls at
+     * the top of the work surface.
+     *
+     * @param panel target panel
+     * @param c reusable constraints
+     * @param row grid row
+     * @param width grid width
+     */
+    static void addVerticalFiller(JPanel panel, GridBagConstraints c, int row, int width) {
+        c.gridx = 0;
+        c.gridy = row;
+        c.gridwidth = width;
+        c.gridheight = 1;
+        c.weightx = 1;
+        c.weighty = 1;
+        c.fill = GridBagConstraints.BOTH;
+        panel.add(transparentPanel(new BorderLayout()), c);
+        c.weighty = 0;
+        c.fill = GridBagConstraints.HORIZONTAL;
+        c.anchor = GridBagConstraints.WEST;
     }
 
     /**

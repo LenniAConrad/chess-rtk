@@ -22,8 +22,6 @@ import javax.swing.JPopupMenu;
 import javax.swing.JSplitPane;
 import javax.swing.JToggleButton;
 import javax.swing.SwingUtilities;
-import javax.swing.plaf.basic.BasicSplitPaneDivider;
-import javax.swing.plaf.basic.BasicSplitPaneUI;
 
 import application.gui.workbench.WorkbenchTheme;
 
@@ -714,7 +712,7 @@ public final class EditorSplitArea extends JPanel {
             splitButton.setSelected(true);
             preparePane(secondaryPane, secondaryStrip, secondaryHost, secondaryTabs, secondaryIndex, false);
             splitPane = new JSplitPane(splitOrientation, primaryPane, secondaryPane);
-            styleSplit(splitPane);
+            SplitPaneStyler.style(splitPane);
             splitPane.setResizeWeight(0.5);
             int remembered = splitOrientation == JSplitPane.VERTICAL_SPLIT
                     ? verticalDividerLocation
@@ -940,80 +938,6 @@ public final class EditorSplitArea extends JPanel {
             verticalDividerLocation = location;
         } else {
             horizontalDividerLocation = location;
-        }
-    }
-
-    /**
-     * Styles the split pane with a quiet themed divider.
-     *
-     * @param pane split pane
-     */
-    private static void styleSplit(JSplitPane pane) {
-        pane.setUI(new BasicSplitPaneUI() {
-            /**
-             * Creates a divider with the workbench split grip.
-             *
-             * @return split pane divider
-             */
-            @Override
-            public BasicSplitPaneDivider createDefaultDivider() {
-                return new BasicSplitPaneDivider(this) {
-                    /**
-                     * Serialization identifier for Swing divider compatibility.
-                     */
-                    private static final long serialVersionUID = 1L;
-
-                    /**
-                     * Paints the themed split divider and grip affordance.
-                     *
-                     * @param graphics graphics context
-                     */
-                    @Override
-                    public void paint(Graphics graphics) {
-                        Graphics2D g = (Graphics2D) graphics.create();
-                        try {
-                            g.setRenderingHint(RenderingHints.KEY_ANTIALIASING,
-                                    RenderingHints.VALUE_ANTIALIAS_ON);
-                            g.setColor(WorkbenchTheme.BG);
-                            g.fillRect(0, 0, getWidth(), getHeight());
-                            g.setColor(WorkbenchTheme.LINE);
-                            if (orientation == JSplitPane.HORIZONTAL_SPLIT) {
-                                int x = getWidth() / 2;
-                                g.drawLine(x, 0, x, getHeight());
-                                paintGrip(g, x - 1, getHeight() / 2 - 12, false);
-                            } else {
-                                int y = getHeight() / 2;
-                                g.drawLine(0, y, getWidth(), y);
-                                paintGrip(g, getWidth() / 2 - 12, y - 1, true);
-                            }
-                        } finally {
-                            g.dispose();
-                        }
-                    }
-                };
-            }
-        });
-        pane.setOneTouchExpandable(false);
-        pane.setDividerSize(8);
-        pane.setContinuousLayout(true);
-        pane.setBorder(BorderFactory.createEmptyBorder());
-        pane.setBackground(WorkbenchTheme.BG);
-    }
-
-    /**
-     * Paints a quiet divider grip.
-     *
-     * @param g graphics
-     * @param x x
-     * @param y y
-     * @param horizontal true for a horizontal grip
-     */
-    private static void paintGrip(Graphics2D g, int x, int y, boolean horizontal) {
-        g.setColor(WorkbenchTheme.withAlpha(WorkbenchTheme.MUTED, 120));
-        for (int i = 0; i < 3; i++) {
-            int dx = horizontal ? i * 8 : 0;
-            int dy = horizontal ? 0 : i * 8;
-            g.fillRoundRect(x + dx, y + dy, 3, 3, 3, 3);
         }
     }
 

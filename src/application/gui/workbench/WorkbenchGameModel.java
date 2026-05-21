@@ -7,7 +7,6 @@ import javax.swing.table.AbstractTableModel;
 
 import chess.core.Move;
 import chess.core.Position;
-import chess.core.SAN;
 import chess.core.Setup;
 import chess.struct.Game;
 import chess.struct.Pgn;
@@ -97,7 +96,8 @@ final class WorkbenchGameModel extends AbstractTableModel {
             fireTableRowsDeleted(truncatedFrom, truncatedFrom + (moves.size() - truncatedFrom));
         }
         int newRow = moves.size();
-        moves.add(new MoveRow(plyLabel(before), safeSan(before, move), Move.toString(move), after.toString(), move));
+        moves.add(new MoveRow(plyLabel(before), WorkbenchPositionText.safeSan(before, move),
+                Move.toString(move), after.toString(), move));
         positions.add(after.copy());
         currentPly = moves.size();
         fireTableRowsInserted(newRow, newRow);
@@ -121,7 +121,7 @@ final class WorkbenchGameModel extends AbstractTableModel {
             short move = boxed.shortValue();
             Position next = cursor.copy();
             next.play(move);
-            moves.add(new MoveRow(plyLabel(cursor), safeSan(cursor, move), Move.toString(move),
+            moves.add(new MoveRow(plyLabel(cursor), WorkbenchPositionText.safeSan(cursor, move), Move.toString(move),
                     next.toString(), move));
             positions.add(next.copy());
             cursor = next;
@@ -394,21 +394,6 @@ final class WorkbenchGameModel extends AbstractTableModel {
         }
         if (first || position.isWhiteToMove()) {
             sb.append(plyLabel(position)).append(' ');
-        }
-    }
-
-    /**
-     * Formats SAN while keeping the history resilient to unexpected move data.
-     *
-     * @param position position before move
-     * @param move encoded move
-     * @return SAN or UCI fallback
-     */
-    private static String safeSan(Position position, short move) {
-        try {
-            return SAN.toAlgebraic(position, move);
-        } catch (IllegalArgumentException ex) {
-            return Move.toString(move);
         }
     }
 

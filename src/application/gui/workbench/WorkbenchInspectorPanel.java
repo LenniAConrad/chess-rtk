@@ -42,11 +42,6 @@ final class WorkbenchInspectorPanel extends JPanel {
     private static final int MAX_MATRIX_COLS = 16;
 
     /**
-     * Maximum entries shown when rendering a flat slice.
-     */
-    private static final int MAX_FLAT_ENTRIES = 4096;
-
-    /**
      * Serialization identifier for Swing component compatibility.
      */
     private static final long serialVersionUID = 1L;
@@ -394,15 +389,7 @@ final class WorkbenchInspectorPanel extends JPanel {
             }
             return sb.toString();
         }
-        int show = Math.min(len, MAX_FLAT_ENTRIES);
-        StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < show; ++i) {
-            sb.append(String.format("[%6d]   %+10.5f%n", i, data[off + i]));
-        }
-        if (len > show) {
-            sb.append("   ... ").append(len - show).append(" more values\n");
-        }
-        return sb.toString();
+        return WorkbenchInspectorText.formatFlat(data, off, len);
     }
 
     /**

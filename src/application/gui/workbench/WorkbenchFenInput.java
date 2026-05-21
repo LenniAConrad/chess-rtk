@@ -112,6 +112,20 @@ final class WorkbenchFenInput {
     }
 
     /**
+     * Returns a short FEN label for compact previews.
+     *
+     * @param fen full FEN
+     * @return piece placement plus side to move when available
+     */
+    static String compactPreview(String fen) {
+        if (fen == null || fen.isBlank()) {
+            return "";
+        }
+        String[] parts = fen.trim().split("\\s+");
+        return parts.length > 1 ? parts[0] + " " + parts[1] : parts[0];
+    }
+
+    /**
      * Returns a stable FEN parse error message.
      *
      * @param candidate parsed row

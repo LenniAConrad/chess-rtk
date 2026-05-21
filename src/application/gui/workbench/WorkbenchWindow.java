@@ -1,5 +1,8 @@
 package application.gui.workbench;
 
+import static application.gui.workbench.WorkbenchCommandArgs.addOptionalPositiveIntegerArg;
+import static application.gui.workbench.WorkbenchCommandArgs.addOptionalTextArg;
+import static application.gui.workbench.WorkbenchUi.addVerticalFiller;
 import static application.gui.workbench.WorkbenchUi.button;
 import static application.gui.workbench.WorkbenchUi.buttonRow;
 import static application.gui.workbench.WorkbenchUi.changeListener;
@@ -19,7 +22,10 @@ import static application.gui.workbench.WorkbenchUi.styleFields;
 import static application.gui.workbench.WorkbenchUi.styleSpinners;
 import static application.gui.workbench.WorkbenchUi.tabbedPane;
 import static application.gui.workbench.WorkbenchUi.titled;
+import static application.gui.workbench.WorkbenchUi.trimmed;
 import static application.gui.workbench.WorkbenchUi.transparentPanel;
+import static application.gui.workbench.WorkbenchUi.withTooltip;
+import static application.gui.workbench.WorkbenchSwingTasks.runAsync;
 
 import java.awt.BorderLayout;
 import java.awt.Component;
@@ -45,7 +51,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
-import java.util.concurrent.Callable;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Consumer;
@@ -659,19 +664,6 @@ public final class WorkbenchWindow extends JFrame {
      */
     private final JCheckBox liveEngineToggle = withTooltip(new WorkbenchToggleBox("Live external engine"),
             "Continuously analyze the current board with the configured external UCI engine");
-
-    /**
-     * Returns the toggle after attaching a tooltip.
-     *
-     * @param <T> checkbox type
-     * @param toggle target toggle
-     * @param tooltip tooltip text
-     * @return the same toggle for fluent field initialization
-     */
-    private static <T extends JCheckBox> T withTooltip(T toggle, String tooltip) {
-        toggle.setToolTipText(tooltip);
-        return toggle;
-    }
 
     /**
      * Batch input area.
@@ -1581,29 +1573,6 @@ public final class WorkbenchWindow extends JFrame {
             boolean selected, Consumer<Boolean> update, boolean refreshEval) {
         grid(panel, settingsToggle(text, tooltip, selected,
                 value -> updateDisplaySetting(() -> update.accept(value), refreshEval)), c, 0, row, 1, 1);
-    }
-
-    /**
-     * Adds a transparent filler row so stretched form panels keep controls at
-     * the top of the work surface.
-     *
-     * @param panel target panel
-     * @param c reusable constraints
-     * @param row grid row
-     * @param width grid width
-     */
-    private static void addVerticalFiller(JPanel panel, GridBagConstraints c, int row, int width) {
-        c.gridx = 0;
-        c.gridy = row;
-        c.gridwidth = width;
-        c.gridheight = 1;
-        c.weightx = 1;
-        c.weighty = 1;
-        c.fill = GridBagConstraints.BOTH;
-        panel.add(transparentPanel(new BorderLayout()), c);
-        c.weighty = 0;
-        c.fill = GridBagConstraints.HORIZONTAL;
-        c.anchor = GridBagConstraints.WEST;
     }
 
     /**
@@ -2853,50 +2822,6 @@ public final class WorkbenchWindow extends JFrame {
     }
 
     /**
-     * Adds an optional text option.
-     *
-     * @param args target arguments
-     * @param flag option flag
-     * @param field source field
-     */
-    private static void addOptionalTextArg(List<String> args, String flag, JTextField field) {
-        String value = trimmed(field);
-        if (!value.isEmpty()) {
-            args.add(flag);
-            args.add(value);
-        }
-    }
-
-    /**
-     * Adds an optional positive integer option.
-     *
-     * @param args target arguments
-     * @param flag option flag
-     * @param field source field
-     */
-    private static void addOptionalPositiveIntegerArg(List<String> args, String flag, JTextField field) {
-        String value = trimmed(field);
-        if (value.isEmpty()) {
-            return;
-        }
-        if (!value.matches("[1-9]\\d*")) {
-            throw new IllegalArgumentException(flag + " expects a positive integer.");
-        }
-        args.add(flag);
-        args.add(value);
-    }
-
-    /**
-     * Returns trimmed field text.
-     *
-     * @param field source field
-     * @return trimmed text
-     */
-    private static String trimmed(JTextField field) {
-        return field.getText() == null ? "" : field.getText().trim();
-    }
-
-    /**
      * Live external-engine worker. Owns the UCI process and streams updates until
      * the current request is replaced or live mode is disabled.
      */
@@ -3715,37 +3640,6 @@ public final class WorkbenchWindow extends JFrame {
     }
 
     /**
-     * Runs a possibly blocking task off the EDT and dispatches the result back on the EDT.
-     *
-     * @param <T> result type
-     * @param task background task
-     * @param onDone EDT callback for success
-     * @param onError EDT callback for failure
-     */
-    private static <T> void runAsync(Callable<T> task,
-            Consumer<T> onDone, Consumer<Exception> onError) {
-        new SwingWorker<T, Void>() {
-            @Override
-            protected T doInBackground() throws Exception {
-                return task.call();
-            }
-
-            @Override
-            protected void done() {
-                try {
-                    onDone.accept(get());
-                } catch (ExecutionException ex) {
-                    Throwable cause = ex.getCause();
-                    onError.accept(cause instanceof Exception inner ? inner : ex);
-                } catch (InterruptedException ex) {
-                    Thread.currentThread().interrupt();
-                    onError.accept(ex);
-                }
-            }
-        }.execute();
-    }
-
-    /**
      * Loads a parsed PGN game mainline.
      *
      * @param game parsed game
@@ -3902,17 +3796,14 @@ public final class WorkbenchWindow extends JFrame {
     }
 
     /**
-     * Returns a short FEN label for compact previews.
+     * Returns a short FEN label for compact previews. Retained for the
+     * reflective regression test; implementation lives in {@link WorkbenchFenInput}.
      *
      * @param fen full FEN
      * @return piece placement plus side to move when available
      */
     private static String compactFenPreview(String fen) {
-        if (fen == null || fen.isBlank()) {
-            return "";
-        }
-        String[] parts = fen.trim().split("\\s+");
-        return parts.length > 1 ? parts[0] + " " + parts[1] : parts[0];
+        return WorkbenchFenInput.compactPreview(fen);
     }
 
     /**
