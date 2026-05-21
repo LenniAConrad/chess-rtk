@@ -1725,9 +1725,13 @@ public final class WorkbenchWindow extends JFrame {
         board.setMoveHandler(this::playMove);
         evalBar.setToolTipText("Engine evaluation");
 
-        JPanel boardStage = transparentPanel(new BorderLayout(8, 0));
-        boardStage.add(evalBar, BorderLayout.WEST);
-        boardStage.add(board, BorderLayout.CENTER);
+        // Pin the eval bar flush against the board square (matched to its
+        // height) instead of stretching it over the whole stage height.
+        JPanel boardStage = transparentPanel(null);
+        boardStage.setLayout(new WorkbenchBoardStageLayout(board, evalBar));
+        boardStage.add(board);
+        boardStage.add(evalBar);
+        boardStage.setComponentZOrder(evalBar, 0);
 
         JPanel side = transparentPanel(new BorderLayout(8, 8));
         side.setPreferredSize(new Dimension(400, 560));
@@ -1859,6 +1863,10 @@ public final class WorkbenchWindow extends JFrame {
     private JComponent createMovesAndTags() {
         movesTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         WorkbenchTheme.table(movesTable, 27);
+        // Render the SAN column with inline chess-piece figurines. Pin the
+        // columns so a model data refresh does not drop the custom renderer.
+        movesTable.setAutoCreateColumnsFromModel(false);
+        movesTable.getColumnModel().getColumn(1).setCellRenderer(new WorkbenchSanRenderer());
         movesTable.addMouseListener(new MouseAdapter() {
             /**
              * Plays a legal move when a row is double-clicked.

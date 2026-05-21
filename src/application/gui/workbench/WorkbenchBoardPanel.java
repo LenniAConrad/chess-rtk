@@ -10,7 +10,6 @@ import java.awt.FontMetrics;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.Point;
-import java.awt.Polygon;
 import java.awt.RadialGradientPaint;
 import java.awt.Rectangle;
 import java.awt.RenderingHints;
@@ -2471,6 +2470,17 @@ final class WorkbenchBoardPanel extends JPanel {
     }
 
     /**
+     * Returns the rendered chessboard square in this panel's own coordinate
+     * space — used by the board stage to align the engine eval bar flush with
+     * the board edge and matched to its height.
+     *
+     * @return rendered board square rectangle
+     */
+    Rectangle currentBoardBounds() {
+        return boardBounds();
+    }
+
+    /**
      * Returns square bounds.
      *
      * @param board board bounds
@@ -2750,30 +2760,49 @@ final class WorkbenchBoardPanel extends JPanel {
         }
         double angle = Math.atan2((double) to.y - from.y, (double) to.x - from.x);
         double targetShorten = Math.min(shorten, distance * 0.35);
-        double headRadius = Math.min(Math.max(ARROW_HEAD_RADIUS, lineWidth * 2.6), Math.max(5.0, distance * 0.25));
-        int x2 = (int) Math.round(to.x - Math.cos(angle) * targetShorten);
-        int y2 = (int) Math.round(to.y - Math.sin(angle) * targetShorten);
-        Stroke savedStroke = g.getStroke();
-        try {
-            g.setStroke(new BasicStroke(lineWidth, BasicStroke.CAP_ROUND, BasicStroke.JOIN_MITER));
-            g.drawLine(from.x, from.y, x2, y2);
-            arrowHead.reset();
-            for (int i = 0; i < 3; i++) {
-                double pointAngle = angle + i * (2.0 * Math.PI / 3.0);
-                arrowHead.addPoint(
-                        (int) Math.round(Math.cos(pointAngle) * headRadius + x2),
-                        (int) Math.round(Math.sin(pointAngle) * headRadius + y2));
-            }
-            g.fillPolygon(arrowHead);
-        } finally {
-            g.setStroke(savedStroke);
-        }
+        double headRadius = Math.min(Math.max(ARROW_HEAD_RADIUS, lineWidth * 2.6),
+                Math.max(5.0, distance * 0.25));
+        double cos = Math.cos(angle);
+        double sin = Math.sin(angle);
+        // Perpendicular unit vector for the shaft and head wings.
+        double px = -sin;
+        double py = cos;
+        double halfWidth = lineWidth / 2.0;
+        // Head anchor: where the old separate shaft used to stop.
+        double headX = to.x - cos * targetShorten;
+        double headY = to.y - sin * targetShorten;
+        // Equilateral head: tip ahead, two wings 120 degrees behind it.
+        double tipX = headX + cos * headRadius;
+        double tipY = headY + sin * headRadius;
+        double leftAngle = angle + 2.0 * Math.PI / 3.0;
+        double rightAngle = angle - 2.0 * Math.PI / 3.0;
+        double wingLeftX = headX + Math.cos(leftAngle) * headRadius;
+        double wingLeftY = headY + Math.sin(leftAngle) * headRadius;
+        double wingRightX = headX + Math.cos(rightAngle) * headRadius;
+        double wingRightY = headY + Math.sin(rightAngle) * headRadius;
+        // The shaft meets the head flush at the wings' base midpoint, so the two
+        // parts form one solid outline with no doubly-painted overlap region.
+        double baseX = headX - 0.5 * headRadius * cos;
+        double baseY = headY - 0.5 * headRadius * sin;
+        // One closed outline: shaft side, head wing, tip, head wing, shaft side.
+        arrowShape.reset();
+        arrowShape.moveTo(from.x + px * halfWidth, from.y + py * halfWidth);
+        arrowShape.lineTo(baseX + px * halfWidth, baseY + py * halfWidth);
+        arrowShape.lineTo(wingLeftX, wingLeftY);
+        arrowShape.lineTo(tipX, tipY);
+        arrowShape.lineTo(wingRightX, wingRightY);
+        arrowShape.lineTo(baseX - px * halfWidth, baseY - py * halfWidth);
+        arrowShape.lineTo(from.x - px * halfWidth, from.y - py * halfWidth);
+        arrowShape.closePath();
+        // Filling a single shape paints every pixel once, so a translucent
+        // arrow colour stays uniform instead of darkening where shaft met head.
+        g.fill(arrowShape);
     }
 
     /**
-     * Reusable polygon buffer for the suggested-move arrow head.
+     * Reusable path buffer for the unified suggested-move arrow outline.
      */
-    private final Polygon arrowHead = new Polygon();
+    private final java.awt.geom.Path2D.Double arrowShape = new java.awt.geom.Path2D.Double();
 
     /**
      * Starts the animation timer when needed.
