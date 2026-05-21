@@ -10,12 +10,12 @@ import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.Rectangle;
 import java.awt.RenderingHints;
+import java.awt.Point;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
-import java.util.function.IntConsumer;
+import java.util.function.Consumer;
 
 import javax.swing.JComponent;
-import javax.swing.SwingUtilities;
 
 /**
  * A VS Code-style editor tab: a flat rectangle showing the panel name with a
@@ -66,13 +66,13 @@ final class WorkbenchTab extends JComponent {
     private boolean hover;
 
     /**
-     * Reorder callback invoked with the drag x in the strip's coordinate
-     * space; null when reordering is not wired.
+     * Drag callback invoked with the live mouse point in this tab's own
+     * coordinate space; null when dragging is not wired.
      */
-    private transient IntConsumer onDragTo;
+    private transient Consumer<Point> onDrag;
 
     /**
-     * Drop callback invoked when a reorder drag ends.
+     * Drop callback invoked when a drag ends.
      */
     private transient Runnable onDrop;
 
@@ -103,10 +103,9 @@ final class WorkbenchTab extends JComponent {
 
             @Override
             public void mouseDragged(MouseEvent event) {
-                if (onDragTo != null) {
+                if (onDrag != null) {
                     dragging = true;
-                    onDragTo.accept(SwingUtilities.convertPoint(
-                            WorkbenchTab.this, event.getPoint(), getParent()).x);
+                    onDrag.accept(event.getPoint());
                 }
             }
 
@@ -140,15 +139,15 @@ final class WorkbenchTab extends JComponent {
     }
 
     /**
-     * Wires drag-to-reorder. The {@code onDragTo} callback receives the live
-     * drag x in the parent strip's coordinates; {@code onDrop} fires once when
-     * the drag ends.
+     * Wires drag handling. The {@code onDrag} callback receives the live mouse
+     * point in this tab's coordinate space; {@code onDrop} fires once when the
+     * drag ends.
      *
-     * @param onDragTo live drag callback
+     * @param onDrag live drag callback
      * @param onDrop drag-end callback
      */
-    void setReorderHandler(IntConsumer onDragTo, Runnable onDrop) {
-        this.onDragTo = onDragTo;
+    void setDragHandler(Consumer<Point> onDrag, Runnable onDrop) {
+        this.onDrag = onDrag;
         this.onDrop = onDrop;
     }
 

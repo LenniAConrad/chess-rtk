@@ -1,9 +1,14 @@
 package application.gui.workbench;
 
+import java.awt.BasicStroke;
 import java.awt.BorderLayout;
+import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Graphics;
+import java.awt.Graphics2D;
+import java.awt.Point;
+import java.awt.Rectangle;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -14,6 +19,7 @@ import javax.swing.JPanel;
 import javax.swing.JPopupMenu;
 import javax.swing.JSplitPane;
 import javax.swing.JToggleButton;
+import javax.swing.SwingUtilities;
 import javax.swing.plaf.basic.BasicSplitPaneDivider;
 import javax.swing.plaf.basic.BasicSplitPaneUI;
 
@@ -55,6 +61,11 @@ final class WorkbenchSplitArea extends JPanel {
      * Index shown in the secondary (right) pane, or -1 when not split.
      */
     private int secondaryIndex = -1;
+
+    /**
+     * Armed split drop zone during a tab drag: 0 none, 1 left, 2 right.
+     */
+    private int dragZone;
 
     /**
      * Host for the primary pane's panel.
@@ -259,7 +270,9 @@ final class WorkbenchSplitArea extends JPanel {
                     },
                     () -> closeTab(panelIndex));
             tab.setSelected(index == activeIndex);
-            tab.setReorderHandler(x -> handleTabDrag(strip, panelIndex, x), this::relayout);
+            tab.setDragHandler(
+                    point -> handleTabDrag(strip, panelIndex, tab, point),
+                    () -> finishTabDrag(panelIndex));
             strip.add(tab);
         }
         if (open.size() < panels.size()) {
@@ -304,13 +317,43 @@ final class WorkbenchSplitArea extends JPanel {
     }
 
     /**
-     * Live-reorders a tab as it is dragged along its strip.
+     * Handles a live tab drag. Inside the strip the tab reorders; dragged down
+     * into the editor body it arms a left/right split drop zone.
      *
-     * @param strip strip being dragged in
+     * @param strip strip being dragged from
+     * @param draggedPanelIndex panel index of the dragged tab
+     * @param tab the dragged tab
+     * @param tabPoint mouse point in the tab's coordinate space
+     */
+    private void handleTabDrag(JPanel strip, int draggedPanelIndex, WorkbenchTab tab, Point tabPoint) {
+        Point inArea = SwingUtilities.convertPoint(tab, tabPoint, this);
+        Rectangle body = centre.getBounds();
+        if (inArea.y < body.y + 6) {
+            // Inside the strip band: reorder.
+            if (dragZone != 0) {
+                dragZone = 0;
+                repaint();
+            }
+            int stripX = SwingUtilities.convertPoint(tab, tabPoint, strip).x;
+            reorderWithinStrip(strip, draggedPanelIndex, stripX);
+        } else {
+            // In the editor body: arm a split drop zone.
+            int zone = inArea.x < body.x + body.width / 2 ? 1 : 2;
+            if (zone != dragZone) {
+                dragZone = zone;
+                repaint();
+            }
+        }
+    }
+
+    /**
+     * Live-reorders a tab within its strip.
+     *
+     * @param strip strip
      * @param draggedPanelIndex panel index of the dragged tab
      * @param stripX drag x in the strip's coordinate space
      */
-    private void handleTabDrag(JPanel strip, int draggedPanelIndex, int stripX) {
+    private void reorderWithinStrip(JPanel strip, int draggedPanelIndex, int stripX) {
         List<WorkbenchTab> tabs = new ArrayList<>();
         for (java.awt.Component child : strip.getComponents()) {
             if (child instanceof WorkbenchTab tab) {
@@ -326,8 +369,7 @@ final class WorkbenchSplitArea extends JPanel {
             if (i == from) {
                 continue;
             }
-            WorkbenchTab tab = tabs.get(i);
-            if (tab.getX() + tab.getWidth() / 2 < stripX) {
+            if (tabs.get(i).getX() + tabs.get(i).getWidth() / 2 < stripX) {
                 target++;
             }
         }
@@ -341,6 +383,27 @@ final class WorkbenchSplitArea extends JPanel {
         strip.add(dragged, target);
         strip.revalidate();
         strip.repaint();
+    }
+
+    /**
+     * Commits a tab drag — splitting the editor when the drag ended in a body
+     * drop zone, otherwise committing the reorder.
+     *
+     * @param draggedPanelIndex panel index of the dragged tab
+     */
+    private void finishTabDrag(int draggedPanelIndex) {
+        int zone = dragZone;
+        dragZone = 0;
+        if (zone == 2) {
+            if (!open.contains(draggedPanelIndex)) {
+                open.add(draggedPanelIndex);
+            }
+            setSecondary(draggedPanelIndex);
+        } else if (zone == 1) {
+            setPrimary(draggedPanelIndex);
+        } else {
+            relayout();
+        }
     }
 
     /**
@@ -407,6 +470,34 @@ final class WorkbenchSplitArea extends JPanel {
         pane.setContinuousLayout(true);
         pane.setBorder(BorderFactory.createEmptyBorder());
         pane.setBackground(WorkbenchTheme.BG);
+    }
+
+    /**
+     * Paints the children, then the split drop-zone hint while a tab is being
+     * dragged into the editor body.
+     *
+     * @param graphics graphics
+     */
+    @Override
+    public void paint(Graphics graphics) {
+        super.paint(graphics);
+        if (dragZone == 0) {
+            return;
+        }
+        Rectangle body = centre.getBounds();
+        int half = body.width / 2;
+        int x = dragZone == 1 ? body.x : body.x + half;
+        Graphics2D g = (Graphics2D) graphics.create();
+        try {
+            g.setColor(new Color(WorkbenchTheme.ACCENT.getRed(), WorkbenchTheme.ACCENT.getGreen(),
+                    WorkbenchTheme.ACCENT.getBlue(), 48));
+            g.fillRect(x, body.y, half, body.height);
+            g.setColor(WorkbenchTheme.ACCENT);
+            g.setStroke(new BasicStroke(2f));
+            g.drawRect(x + 1, body.y + 1, half - 2, body.height - 2);
+        } finally {
+            g.dispose();
+        }
     }
 
     @Override
