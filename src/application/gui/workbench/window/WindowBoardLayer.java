@@ -544,13 +544,10 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
         JPanel importTools = settingsGroupPanel();
         GridBagConstraints importC = constraints();
         importC.insets = new Insets(3, 0, 3, 0);
-        styleAreas(gameInput);
-        gameInput.setRows(5);
-        gameInput.setLineWrap(true);
-        gameInput.setWrapStyleWord(true);
+        JScrollPane gameInputScroll = configureGameInputScroll(gameInput);
         gameInput.setText("1. e4 e5 2. Nf3 Nc6");
         grid(importTools, label("input"), importC, 0, 0, 1, 1);
-        grid(importTools, scroll(gameInput), importC, 1, 0, 3, 1);
+        grid(importTools, gameInputScroll, importC, 1, 0, 3, 1);
 
         grid(importTools, buttonRow(FlowLayout.LEFT,
                 button("Load Line", true, event -> loadGameText(gameInput.getText())),
@@ -566,6 +563,23 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
         grid(panel, collapsible("Exports", exportTools, false), c, 0, 2, 4, 1);
         addVerticalFiller(panel, c, 3, 4);
         return panel;
+    }
+
+    /**
+     * Styles the game-line import field as a compact multiline editor.
+     *
+     * @param input game-line input area
+     * @return scroll pane with a stable usable height
+     */
+    private static JScrollPane configureGameInputScroll(JTextArea input) {
+        styleAreas(input);
+        input.setRows(5);
+        input.setLineWrap(true);
+        input.setWrapStyleWord(true);
+        JScrollPane inputScroll = scroll(input);
+        inputScroll.setPreferredSize(new Dimension(360, 96));
+        inputScroll.setMinimumSize(new Dimension(260, 76));
+        return inputScroll;
     }
 
     /**
