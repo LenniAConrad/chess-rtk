@@ -49,9 +49,9 @@ public final class BoardPanel extends JPanel {
     /** Minimum board size in pixels. */
     private static final int MIN_BOARD_SIZE = 64;
     /** Width of the engine eval bar when one is attached. */
-    private static final int EVAL_BAR_WIDTH = 34;
+    private static final int EVAL_BAR_WIDTH = 22;
     /** Gap between the eval bar and the board square. */
-    private static final int EVAL_BAR_GAP = 10;
+    private static final int EVAL_BAR_GAP = 8;
     /** Engine evaluation bar painted flush against the board, or null when no bar is attached. */
     private transient EvalBar evalBar;
     /** Chessboard.js board border width. */

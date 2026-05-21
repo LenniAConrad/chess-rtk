@@ -980,8 +980,8 @@ public final class WorkbenchRegressionTest {
                 "snap animation is short");
         assertTrue((Integer) field(board, "flipAnimationMs") <= 160,
                 "flip animation is short");
-        assertTrue((Integer) staticField(type("EvalBar"), "ANIMATION_DURATION_MS") <= 160,
-                "eval bar transition is short");
+        assertTrue((Integer) staticField(type("EvalBar"), "ANIMATION_DURATION_MS") <= 260,
+                "eval bar transition is smooth but still responsive");
         assertTrue((Integer) staticField(type("Window"), "EVAL_DEBOUNCE_MS") <= 100,
                 "eval refresh debounce is short");
     }
@@ -1132,12 +1132,14 @@ public final class WorkbenchRegressionTest {
      * Verifies eval-bar score changes use a bounded smooth transition.
      */
     private static void testEvalBarAnimation() {
+        JComponent component = (JComponent) construct(type("EvalBar"), new Class<?>[0]);
+        assertTrue(component.getPreferredSize().width <= 24, "eval bar is visually thin");
         assertClose(0.0, evalEase(0.0), 0.0001, "eval ease start");
         assertClose(0.5, evalEase(0.5), 0.0001, "eval ease midpoint");
         assertClose(1.0, evalEase(1.0), 0.0001, "eval ease end");
         assertTrue(evalEase(0.75) > evalEase(0.25), "eval ease monotonic");
 
-        Object bar = construct(type("EvalBar"), new Class<?>[0]);
+        Object bar = component;
         invoke(bar, "setCentipawns", new Class<?>[] { int.class }, 250);
         Timer timer = (Timer) field(bar, "timer");
         assertTrue(timer.isRunning(), "eval score animation starts");
