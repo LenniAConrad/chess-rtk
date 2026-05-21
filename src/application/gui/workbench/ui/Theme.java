@@ -985,8 +985,8 @@ public final class Theme {
             pane.setSelectionColor(TEXT_SELECTION);
             pane.setSelectedTextColor(TEXT);
         } else if (component instanceof JComboBox<?> combo) {
-            combo.setBackground(ELEVATED_SOLID);
-            combo.setForeground(TEXT);
+            combo.setBackground(combo.isEnabled() ? ELEVATED_SOLID : INPUT_DISABLED);
+            combo.setForeground(combo.isEnabled() ? TEXT : BUTTON_DISABLED_TEXT);
             combo.setBorder(BorderFactory.createLineBorder(INPUT_BORDER));
         } else if (component instanceof JSpinner spinner) {
             spinner.setBackground(PANEL_SOLID);

@@ -115,7 +115,7 @@ public final class SvgIcon implements Icon {
      */
     public static Icon forButton(AbstractButton button, boolean primary) {
         Color iconColor = primary ? Theme.PRIMARY_BUTTON_TEXT : Theme.SECONDARY_BUTTON_TEXT;
-    return iconForButton(button, iconColor);
+        return iconForButton(button, iconColor);
     }
 
     /**
@@ -125,7 +125,7 @@ public final class SvgIcon implements Icon {
      * @return icon, or null when no icon applies
      */
     public static Icon disabledForButton(AbstractButton button) {
-    return iconForButton(button, Theme.BUTTON_DISABLED_TEXT);
+        return iconForButton(button, Theme.BUTTON_DISABLED_TEXT);
     }
 
     /**
@@ -139,13 +139,14 @@ public final class SvgIcon implements Icon {
     private static Icon iconForButton(AbstractButton button, Color iconColor) {
         Object explicit = button.getClientProperty(Theme.CLIENT_ICON_KIND);
         if (explicit instanceof Kind kind) {
-    return new SvgIcon(kind, 16, iconColor);
+            return new SvgIcon(kind, 16, iconColor);
         }
         Kind kind = kindForLabel(button.getText());
         if (kind == null) {
             return null;
         }
-    return new SvgIcon(kind, 16, iconColor);
+        button.putClientProperty(Theme.CLIENT_ICON_KIND, kind);
+        return new SvgIcon(kind, 16, iconColor);
     }
 
     /**
@@ -176,7 +177,7 @@ public final class SvgIcon implements Icon {
             case "Add Current FEN", "Add to Batch", "New Game" -> Kind.PLUS;
             case "Back", "Start" -> Kind.BACK;
             case "Publish", "Load File", "Save PGN", "Save Report", "Choose Input", "Choose Output", "Choose PDF",
-                    "Choose Cover", "Choose Protocol" ->
+                    "Choose Cover", "Choose Manifest", "Choose Protocol" ->
                     Kind.FILE;
             default -> null;
         };
@@ -204,7 +205,7 @@ public final class SvgIcon implements Icon {
      */
     @Override
     public int getIconHeight() {
-    return getIconWidth();
+        return getIconWidth();
     }
 
     /**

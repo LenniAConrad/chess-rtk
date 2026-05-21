@@ -151,6 +151,7 @@ public final class WorkbenchRegressionTest {
         testCustomPaintedSurfacesClearBackground();
         testBooleanTableRendererIsStyled();
         testComponentTreeStylingCoversPlainControls();
+        testDisabledComboUsesThemeBackground();
         testSettingsToggleRowsAreReadable();
         testToggleSwitchAnimatesStateChanges();
         testCommandFormOptionalTogglesFillLeadColumn();
@@ -164,11 +165,13 @@ public final class WorkbenchRegressionTest {
         testSplitAreaSupportsCornerEditorGroups();
         testEditorShellUsesVscodeStyleSplitChrome();
         testEditorShellShowsRookWatermarkWhenEmpty();
+        testEditorShellRefreshesHiddenPanelTheme();
         testButtonHoverTransitionStarts();
         testWorkbenchTimingDefaultsAreSnappy();
         testWorkbenchOperationalDefaultsAreSnappy();
         testResetButtonUsesResetIcon();
         testButtonDisabledIconIsMuted();
+        testIconOnlyButtonKeepsIconAfterThemeRefresh();
         testCommandPreviewQuoting();
         testWorkbenchSanRendererUsesNeutralFigurines();
         testGameModelLoadsPgnVariations();
@@ -655,6 +658,32 @@ public final class WorkbenchRegressionTest {
     }
 
     /**
+     * Verifies disabled combo boxes paint with theme tokens instead of the
+     * platform look-and-feel's light selected-value background.
+     */
+    private static void testDisabledComboUsesThemeBackground() {
+        Class<?> modeType = type("Theme$Mode");
+        invokeStatic(type("Theme"), "setMode", new Class<?>[] { modeType },
+                enumValue(modeType, "DARK"));
+        JComboBox<String> combo = new JComboBox<>(new String[] { "Default language" });
+        invokeStatic(type("Ui"), "styleCombo", new Class<?>[] { JComboBox.class }, combo);
+        combo.setEnabled(false);
+        combo.setSize(220, 32);
+        combo.doLayout();
+
+        Color sample = new Color(paint(combo, 220, 32).getRGB(170, 16), true);
+        Color expected = themeColor("INPUT_DISABLED");
+        if (colorDistance(sample, expected) > 6.0) {
+            throw new AssertionError("disabled combo background: expected near " + colorText(expected)
+                    + ", got " + colorText(sample));
+        }
+        assertColorDistanceAtLeast(sample, Color.WHITE, 80.0, "disabled combo avoids white background");
+
+        invokeStatic(type("Theme"), "setMode", new Class<?>[] { modeType },
+                enumValue(modeType, "LIGHT"));
+    }
+
+    /**
      * Verifies settings toggles reserve enough width for full labels.
      */
     private static void testSettingsToggleRowsAreReadable() {
@@ -987,6 +1016,37 @@ public final class WorkbenchRegressionTest {
     }
 
     /**
+     * Verifies panels constructed before a theme switch are refreshed when they
+     * become visible later.
+     */
+    private static void testEditorShellRefreshesHiddenPanelTheme() {
+        Class<?> modeType = type("Theme$Mode");
+        invokeStatic(type("Theme"), "setMode", new Class<?>[] { modeType },
+                enumValue(modeType, "LIGHT"));
+        JTextArea hidden = new JTextArea("late panel");
+        invokeStatic(type("Theme"), "area", new Class<?>[] { JTextArea.class }, hidden);
+        Color lightBackground = hidden.getBackground();
+
+        Object area = construct(type("layout.EditorSplitArea"), new Class<?>[0]);
+        invoke(area, "addPanel", new Class<?>[] { String.class, javax.swing.JComponent.class },
+                "First", new JPanel());
+        invoke(area, "addPanel", new Class<?>[] { String.class, javax.swing.JComponent.class },
+                "Hidden", hidden);
+        invoke(area, "install", new Class<?>[0]);
+
+        invokeStatic(type("Theme"), "setMode", new Class<?>[] { modeType },
+                enumValue(modeType, "DARK"));
+        invoke(area, "select", new Class<?>[] { int.class }, 1);
+        assertFalse(lightBackground.equals(hidden.getBackground()),
+                "late-visible panel does not keep stale light background");
+        assertEquals(themeColor("TEXT_AREA"), hidden.getBackground(),
+                "late-visible panel refreshes to active theme");
+
+        invokeStatic(type("Theme"), "setMode", new Class<?>[] { modeType },
+                enumValue(modeType, "LIGHT"));
+    }
+
+    /**
      * Verifies styled buttons ease into hover state instead of switching instantly.
      */
     private static void testButtonHoverTransitionStarts() {
@@ -1062,6 +1122,23 @@ public final class WorkbenchRegressionTest {
         assertTrue(button.getIcon() != null, "button icon present");
         assertTrue(button.getDisabledIcon() != null, "disabled button icon present");
         assertFalse(button.getIcon() == button.getDisabledIcon(), "disabled icon distinct");
+    }
+
+    /**
+     * Verifies icon-only buttons keep their resolved glyph after theme refreshes.
+     */
+    private static void testIconOnlyButtonKeepsIconAfterThemeRefresh() {
+        JButton button = (JButton) invokeStatic(type("Ui"), "iconButton",
+                new Class<?>[] { String.class, ActionListener.class },
+                "Back", (ActionListener) event -> {
+                    // no-op test listener
+                });
+        assertTrue(button.getIcon() != null, "icon-only button starts with icon");
+        JPanel panel = new JPanel();
+        panel.add(button);
+        invokeStatic(type("Theme"), "refreshComponentTree", new Class<?>[] { Component.class }, panel);
+        assertTrue(button.getIcon() != null, "icon-only button keeps icon after refresh");
+        assertEquals("BACK", String.valueOf(field(button.getIcon(), "kind")), "icon-only button keeps kind");
     }
 
     /**

@@ -31,6 +31,7 @@ import javax.swing.JFileChooser;
 import javax.swing.JFormattedTextField;
 import javax.swing.JLabel;
 import javax.swing.JList;
+import javax.swing.ListCellRenderer;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollBar;
@@ -72,6 +73,13 @@ public final class Ui {
      * Button fill transition duration.
      */
     private static final int BUTTON_TRANSITION_MS = 65;
+
+    /**
+     * Client-property key marking combos that already have the enabled-state
+     * refresh listener installed.
+     */
+    private static final String COMBO_STATE_LISTENER_PROPERTY =
+            Ui.class.getName() + ".comboStateListener";
 
     /**
      * Prevents instantiation.
@@ -136,7 +144,7 @@ public final class Ui {
      * @return panel
      */
     public static JPanel flow(int align) {
-    return transparentPanel(new FlowLayout(align, 6, 3));
+        return transparentPanel(new FlowLayout(align, 6, 3));
     }
 
     /**
@@ -228,7 +236,7 @@ public final class Ui {
      * @return styled caption label
      */
     public static JLabel controlLabel(String text) {
-    return label(text);
+        return label(text);
     }
 
     /**
@@ -454,12 +462,12 @@ public final class Ui {
     public static void styleCombo(JComboBox<?> combo) {
         combo.setUI(new StyledComboBoxUI());
         combo.setOpaque(false);
-        combo.setBackground(Theme.ELEVATED_SOLID);
-        combo.setForeground(Theme.TEXT);
+        applyComboState(combo);
         combo.setFont(Theme.font(13, Font.PLAIN));
         combo.setBorder(BorderFactory.createLineBorder(Theme.INPUT_BORDER));
         combo.setMaximumRowCount(12);
-        combo.setRenderer(new StyledComboRenderer());
+        combo.setRenderer(new StyledComboRenderer(combo));
+        installComboStateListener(combo);
     }
 
     /**
@@ -471,6 +479,33 @@ public final class Ui {
         for (JComboBox<?> combo : combos) {
             styleCombo(combo);
         }
+    }
+
+    /**
+     * Installs the enabled-state refresh listener for a styled combo.
+     *
+     * @param combo combo box
+     */
+    private static void installComboStateListener(JComboBox<?> combo) {
+        if (Boolean.TRUE.equals(combo.getClientProperty(COMBO_STATE_LISTENER_PROPERTY))) {
+            return;
+        }
+        combo.putClientProperty(COMBO_STATE_LISTENER_PROPERTY, Boolean.TRUE);
+        combo.addPropertyChangeListener("enabled", event -> {
+            applyComboState(combo);
+            combo.repaint();
+        });
+    }
+
+    /**
+     * Applies the active palette to an enabled or disabled combo box.
+     *
+     * @param combo combo box
+     */
+    private static void applyComboState(JComboBox<?> combo) {
+        boolean enabled = combo.isEnabled();
+        combo.setBackground(enabled ? Theme.ELEVATED_SOLID : Theme.INPUT_DISABLED);
+        combo.setForeground(enabled ? Theme.TEXT : Theme.BUTTON_DISABLED_TEXT);
     }
 
     /**
@@ -1362,7 +1397,7 @@ public final class Ui {
          */
         @Override
         protected JButton createArrowButton() {
-    return new ArrowButton(SwingConstants.SOUTH);
+            return new ArrowButton(SwingConstants.SOUTH);
         }
 
         /**
@@ -1376,6 +1411,27 @@ public final class Ui {
         public void paintCurrentValueBackground(Graphics graphics, Rectangle bounds, boolean hasFocus) {
             graphics.setColor(comboBox.isEnabled() ? Theme.ELEVATED_SOLID : Theme.INPUT_DISABLED);
             graphics.fillRect(bounds.x, bounds.y, bounds.width, bounds.height);
+        }
+
+        /**
+         * Paints the selected value with workbench disabled-state colors rather
+         * than the platform look-and-feel's default disabled combo colors.
+         *
+         * @param graphics graphics context
+         * @param bounds value bounds
+         * @param hasFocus whether the combo has focus
+         */
+        @SuppressWarnings({ "rawtypes", "unchecked" })
+        @Override
+        public void paintCurrentValue(Graphics graphics, Rectangle bounds, boolean hasFocus) {
+            ListCellRenderer renderer = comboBox.getRenderer();
+            Component component = renderer.getListCellRendererComponent(listBox,
+                    comboBox.getSelectedItem(), -1, false, false);
+            component.setFont(comboBox.getFont());
+            component.setForeground(comboBox.isEnabled() ? Theme.TEXT : Theme.BUTTON_DISABLED_TEXT);
+            component.setBackground(comboBox.isEnabled() ? Theme.ELEVATED_SOLID : Theme.INPUT_DISABLED);
+            currentValuePane.paintComponent(graphics, component, comboBox, bounds.x, bounds.y,
+                    bounds.width, bounds.height, true);
         }
     }
 
@@ -1448,6 +1504,8 @@ public final class Ui {
             Graphics2D g = (Graphics2D) graphics.create();
             try {
                 g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g.setColor(isEnabled() ? Theme.ELEVATED_SOLID : Theme.INPUT_DISABLED);
+                g.fillRect(0, 0, getWidth(), getHeight());
                 g.setColor(isEnabled() ? Theme.MUTED : Theme.BUTTON_DISABLED_TEXT);
                 Path2D path = new Path2D.Double();
                 double centerX = getWidth() / 2.0;
@@ -1480,6 +1538,21 @@ public final class Ui {
         private static final long serialVersionUID = 1L;
 
         /**
+         * Combo that owns this renderer, used to mirror disabled state while
+         * painting the selected value outside the popup list.
+         */
+        private final JComboBox<?> owner;
+
+        /**
+         * Creates a combo renderer.
+         *
+         * @param owner owning combo box
+         */
+        StyledComboRenderer(JComboBox<?> owner) {
+            this.owner = owner;
+        }
+
+        /**
          * Returns the rendered combo row.
          *
          * @param list source list
@@ -1496,8 +1569,13 @@ public final class Ui {
             setOpaque(true);
             setBorder(BorderFactory.createEmptyBorder(6, 8, 6, 8));
             setFont(Theme.font(13, Font.PLAIN));
-            setForeground(Theme.TEXT);
-            setBackground(selected ? Theme.SELECTION_SOLID : Theme.ELEVATED_SOLID);
+            boolean enabled = owner == null || owner.isEnabled();
+            setForeground(enabled ? Theme.TEXT : Theme.BUTTON_DISABLED_TEXT);
+            if (!enabled) {
+                setBackground(Theme.INPUT_DISABLED);
+            } else {
+                setBackground(selected ? Theme.SELECTION_SOLID : Theme.ELEVATED_SOLID);
+            }
             return this;
         }
     }
