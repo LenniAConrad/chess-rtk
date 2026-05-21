@@ -1,5 +1,16 @@
 package application.gui.workbench.layout;
 
+import application.gui.workbench.board.*;
+import application.gui.workbench.command.*;
+import application.gui.workbench.dashboard.*;
+import application.gui.workbench.game.*;
+import application.gui.workbench.mcts.*;
+import application.gui.workbench.network.*;
+import application.gui.workbench.publish.*;
+import application.gui.workbench.session.*;
+import application.gui.workbench.ui.*;
+import application.gui.workbench.window.*;
+
 import java.awt.Color;
 import java.awt.FontMetrics;
 import java.awt.Graphics;
@@ -13,7 +24,7 @@ import javax.swing.JComponent;
 import javax.swing.plaf.basic.BasicTabbedPaneUI;
 import javax.swing.event.MouseInputAdapter;
 
-import application.gui.workbench.WorkbenchTheme;
+import application.gui.workbench.ui.Theme;
 
 /**
  * Native tabbed-pane UI with a compact, low-noise tab strip.
@@ -116,7 +127,7 @@ public final class FlatTabbedPaneUI extends BasicTabbedPaneUI {
      */
     @Override
     protected Insets getTabInsets(int tabPlacement, int tabIndex) {
-        return new Insets(TAB_PAD_Y, TAB_PAD_X, TAB_PAD_Y, TAB_PAD_X);
+    return new Insets(TAB_PAD_Y, TAB_PAD_X, TAB_PAD_Y, TAB_PAD_X);
     }
 
     /**
@@ -170,7 +181,7 @@ public final class FlatTabbedPaneUI extends BasicTabbedPaneUI {
             g.setColor(tabFill(tabIndex, selected));
             g.fillRect(bodyX, bodyY, bodyW, bodyH);
             if (selected) {
-                g.setColor(WorkbenchTheme.TAB_ACCENT_UNDERLINE);
+                g.setColor(Theme.TAB_ACCENT_UNDERLINE);
                 g.fillRect(bodyX, bodyY + bodyH - 2, Math.max(0, bodyW), 2);
             }
         } finally {
@@ -197,7 +208,7 @@ public final class FlatTabbedPaneUI extends BasicTabbedPaneUI {
         try {
             g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
             if (selected) {
-                g.setColor(WorkbenchTheme.LINE);
+                g.setColor(Theme.LINE);
                 g.drawLine(x + width - 1, y, x + width - 1, y + height);
             }
         } finally {
@@ -238,7 +249,7 @@ public final class FlatTabbedPaneUI extends BasicTabbedPaneUI {
         Graphics2D g = (Graphics2D) graphics.create();
         try {
             g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-            g.setColor(WorkbenchTheme.INPUT_FOCUS);
+            g.setColor(Theme.INPUT_FOCUS);
             g.drawRect(r.x, r.y, Math.max(0, r.width - 1), Math.max(0, r.height - 1));
         } finally {
             g.dispose();
@@ -280,12 +291,12 @@ public final class FlatTabbedPaneUI extends BasicTabbedPaneUI {
      */
     private Color tabFill(int tabIndex, boolean selected) {
         if (selected) {
-            return WorkbenchTheme.ELEVATED;
+            return Theme.ELEVATED;
         }
         if (tabIndex == rolloverTab) {
-            return WorkbenchTheme.TAB_HOVER;
+            return Theme.TAB_HOVER;
         }
-        return WorkbenchTheme.TAB_IDLE;
+        return Theme.TAB_IDLE;
     }
 
     /**

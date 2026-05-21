@@ -1,5 +1,16 @@
 package application.gui.workbench.layout;
 
+import application.gui.workbench.board.*;
+import application.gui.workbench.command.*;
+import application.gui.workbench.dashboard.*;
+import application.gui.workbench.game.*;
+import application.gui.workbench.mcts.*;
+import application.gui.workbench.network.*;
+import application.gui.workbench.publish.*;
+import application.gui.workbench.session.*;
+import application.gui.workbench.ui.*;
+import application.gui.workbench.window.*;
+
 import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Cursor;
@@ -17,7 +28,7 @@ import java.util.function.Consumer;
 
 import javax.swing.JComponent;
 
-import application.gui.workbench.WorkbenchTheme;
+import application.gui.workbench.ui.Theme;
 
 /**
  * A VS Code-style editor tab: a flat rectangle showing the panel name with a
@@ -116,7 +127,7 @@ final class EditorTab extends JComponent {
      * @param onSelect selection callback
      * @param onClose close callback
      */
-    EditorTab(String name, Runnable onSelect, Runnable onClose) {
+    public EditorTab(String name, Runnable onSelect, Runnable onClose) {
         this.name = name;
         setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         MouseAdapter mouse = new MouseAdapter() {
@@ -207,7 +218,7 @@ final class EditorTab extends JComponent {
      * @param onDrag live drag callback
      * @param onDrop drag-end callback
      */
-    void setDragHandler(Consumer<Point> onDrag, Runnable onDrop) {
+    public void setDragHandler(Consumer<Point> onDrag, Runnable onDrop) {
         this.onDrag = onDrag;
         this.onDrop = onDrop;
     }
@@ -217,7 +228,7 @@ final class EditorTab extends JComponent {
      *
      * @param value true when this tab is active
      */
-    void setSelected(boolean value) {
+    public void setSelected(boolean value) {
         if (selected != value) {
             selected = value;
             repaint();
@@ -229,7 +240,7 @@ final class EditorTab extends JComponent {
      *
      * @param value true when this tab's pane is active
      */
-    void setPaneActive(boolean value) {
+    public void setPaneActive(boolean value) {
         if (paneActive != value) {
             paneActive = value;
             repaint();
@@ -256,7 +267,7 @@ final class EditorTab extends JComponent {
      * @return close region rectangle
      */
     private Rectangle closeRegion() {
-        return new Rectangle(getWidth() - PAD - CLOSE, (HEIGHT - CLOSE) / 2, CLOSE, CLOSE);
+    return new Rectangle(getWidth() - PAD - CLOSE, (HEIGHT - CLOSE) / 2, CLOSE, CLOSE);
     }
 
     /**
@@ -266,9 +277,9 @@ final class EditorTab extends JComponent {
      */
     @Override
     public Dimension getPreferredSize() {
-        FontMetrics fm = getFontMetrics(WorkbenchTheme.font(12, Font.PLAIN));
+        FontMetrics fm = getFontMetrics(Theme.font(12, Font.PLAIN));
         int width = PAD + fm.stringWidth(name) + 8 + CLOSE + PAD;
-        return new Dimension(width, HEIGHT);
+    return new Dimension(width, HEIGHT);
     }
 
     /**
@@ -279,7 +290,7 @@ final class EditorTab extends JComponent {
      */
     @Override
     public Dimension getMaximumSize() {
-        return getPreferredSize();
+    return getPreferredSize();
     }
 
     /**
@@ -290,7 +301,7 @@ final class EditorTab extends JComponent {
      */
     @Override
     public Dimension getMinimumSize() {
-        return getPreferredSize();
+    return getPreferredSize();
     }
 
     /**
@@ -308,20 +319,20 @@ final class EditorTab extends JComponent {
                     RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
             int w = getWidth();
             int h = getHeight();
-            Color background = selected ? (paneActive ? WorkbenchTheme.PANEL_SOLID : WorkbenchTheme.ELEVATED_SOLID)
-                    : hover ? WorkbenchTheme.TAB_HOVER : WorkbenchTheme.BG;
+            Color background = selected ? (paneActive ? Theme.PANEL_SOLID : Theme.ELEVATED_SOLID)
+                    : hover ? Theme.TAB_HOVER : Theme.BG;
             g.setColor(background);
             g.fillRect(0, 0, w, h);
             // Trailing separator between tabs.
-            g.setColor(WorkbenchTheme.LINE);
+            g.setColor(Theme.LINE);
             g.drawLine(w - 1, 4, w - 1, h - 4);
             // Accent underline marks the active tab.
             if (selected) {
-                g.setColor(paneActive ? WorkbenchTheme.ACCENT : WorkbenchTheme.LINE);
+                g.setColor(paneActive ? Theme.ACCENT : Theme.LINE);
                 g.fillRect(0, h - 2, w, 2);
             }
-            g.setFont(WorkbenchTheme.font(12, selected ? Font.BOLD : Font.PLAIN));
-            g.setColor(selected && paneActive ? WorkbenchTheme.TEXT : WorkbenchTheme.MUTED);
+            g.setFont(Theme.font(12, selected ? Font.BOLD : Font.PLAIN));
+            g.setColor(selected && paneActive ? Theme.TEXT : Theme.MUTED);
             FontMetrics fm = g.getFontMetrics();
             g.drawString(name, PAD, (h + fm.getAscent() - fm.getDescent()) / 2);
             paintClose(g);
@@ -338,13 +349,13 @@ final class EditorTab extends JComponent {
     private void paintClose(Graphics2D g) {
         Rectangle region = closeRegion();
         if (closeHover) {
-            g.setColor(WorkbenchTheme.SECONDARY_BUTTON_PRESSED);
+            g.setColor(Theme.SECONDARY_BUTTON_PRESSED);
             g.fillRoundRect(region.x, region.y, region.width, region.height, 6, 6);
         }
         if (!selected && !hover) {
             return;
         }
-        g.setColor(closeHover ? WorkbenchTheme.TEXT : WorkbenchTheme.MUTED);
+        g.setColor(closeHover ? Theme.TEXT : Theme.MUTED);
         g.setStroke(new BasicStroke(1.5f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
         int cx = region.x + region.width / 2;
         int cy = region.y + region.height / 2;

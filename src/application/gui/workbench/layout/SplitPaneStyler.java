@@ -1,5 +1,16 @@
 package application.gui.workbench.layout;
 
+import application.gui.workbench.board.*;
+import application.gui.workbench.command.*;
+import application.gui.workbench.dashboard.*;
+import application.gui.workbench.game.*;
+import application.gui.workbench.mcts.*;
+import application.gui.workbench.network.*;
+import application.gui.workbench.publish.*;
+import application.gui.workbench.session.*;
+import application.gui.workbench.ui.*;
+import application.gui.workbench.window.*;
+
 import java.awt.Color;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
@@ -12,7 +23,7 @@ import javax.swing.JSplitPane;
 import javax.swing.plaf.basic.BasicSplitPaneDivider;
 import javax.swing.plaf.basic.BasicSplitPaneUI;
 
-import application.gui.workbench.WorkbenchTheme;
+import application.gui.workbench.ui.Theme;
 
 /**
  * Shared VS Code-style split pane styling.
@@ -51,14 +62,14 @@ public final class SplitPaneStyler {
         pane.setUI(new BasicSplitPaneUI() {
             @Override
             public BasicSplitPaneDivider createDefaultDivider() {
-                return new SashDivider(this);
+    return new SashDivider(this);
             }
         });
         pane.setOneTouchExpandable(false);
         pane.setDividerSize(SASH_SIZE);
         pane.setContinuousLayout(true);
         pane.setBorder(BorderFactory.createEmptyBorder());
-        pane.setBackground(WorkbenchTheme.BG);
+        pane.setBackground(Theme.BG);
     }
 
     /**
@@ -149,8 +160,8 @@ public final class SplitPaneStyler {
                 g.setRenderingHint(RenderingHints.KEY_ANTIALIASING,
                         RenderingHints.VALUE_ANTIALIAS_ON);
                 Color color = active || hover
-                        ? WorkbenchTheme.withAlpha(WorkbenchTheme.ACCENT, HOVER_SEPARATOR_ALPHA)
-                        : WorkbenchTheme.withAlpha(WorkbenchTheme.LINE, IDLE_SEPARATOR_ALPHA);
+                        ? Theme.withAlpha(Theme.ACCENT, HOVER_SEPARATOR_ALPHA)
+                        : Theme.withAlpha(Theme.LINE, IDLE_SEPARATOR_ALPHA);
                 g.setColor(color);
                 if (orientation == JSplitPane.HORIZONTAL_SPLIT) {
                     int x = Math.max(0, (getWidth() - 1) / 2);

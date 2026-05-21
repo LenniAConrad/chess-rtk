@@ -1,5 +1,16 @@
 package application.gui.workbench.mcts;
 
+import application.gui.workbench.board.*;
+import application.gui.workbench.command.*;
+import application.gui.workbench.dashboard.*;
+import application.gui.workbench.game.*;
+import application.gui.workbench.layout.*;
+import application.gui.workbench.network.*;
+import application.gui.workbench.publish.*;
+import application.gui.workbench.session.*;
+import application.gui.workbench.ui.*;
+import application.gui.workbench.window.*;
+
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -114,7 +125,7 @@ public final class MctsSearch implements AutoCloseable {
      */
     public MctsSearch(Position root, double cpuct) {
         if (root == null) {
-            throw new IllegalArgumentException("root == null");
+    throw new IllegalArgumentException("root == null");
         }
         this.backend = new ClassicalBackend();
         this.transpositions = newTranspositionTable(DEFAULT_TRANSPOSITION_LIMIT);
@@ -137,13 +148,13 @@ public final class MctsSearch implements AutoCloseable {
      */
     public static MctsSearch bt4(Position root, double cpuct, Path weights) throws IOException {
         if (root == null) {
-            throw new IllegalArgumentException("root == null");
+    throw new IllegalArgumentException("root == null");
         }
         if (weights == null) {
-            throw new IllegalArgumentException("weights == null");
+    throw new IllegalArgumentException("weights == null");
         }
-        return new MctsSearch(root, cpuct,
-                new Bt4Backend(chess.nn.lc0.bt4.Network.load(weights)),
+    return new MctsSearch(root, cpuct,
+    new Bt4Backend(chess.nn.lc0.bt4.Network.load(weights)),
                 DEFAULT_TRANSPOSITION_LIMIT);
     }
 
@@ -219,7 +230,7 @@ public final class MctsSearch implements AutoCloseable {
      * @param newRoot target root position
      * @return true when an existing child subtree was reused
      */
-    boolean reuseRoot(Position newRoot) {
+    public boolean reuseRoot(Position newRoot) {
         if (newRoot == null) {
             return false;
         }
@@ -267,7 +278,7 @@ public final class MctsSearch implements AutoCloseable {
      */
     private void ensureOpen() {
         if (closed) {
-            throw new IllegalStateException("MCTS search is closed");
+    throw new IllegalStateException("MCTS search is closed");
         }
     }
 
@@ -337,7 +348,7 @@ public final class MctsSearch implements AutoCloseable {
                 : root.proof == ProofState.WIN ? "#" + mateMoves(root.proofPlies)
                 : root.proof == ProofState.LOSS ? "#-" + mateMoves(root.proofPlies)
                 : String.format("%+d cp", rootCentipawns);
-        return new Snapshot(
+    return new Snapshot(
                 rootPosition.toString(),
                 root.visits(),
                 playouts,
@@ -372,16 +383,16 @@ public final class MctsSearch implements AutoCloseable {
         MoveList legal = rootPosition.legalMoves();
         if (legal.isEmpty()) {
             double value = rootPosition.inCheck() ? -1.0 : 0.0;
-            return new RootDecision(Move.NO_MOVE, value, new short[0], false, 0);
+    return new RootDecision(Move.NO_MOVE, value, new short[0], false, 0);
         }
         if (isDraw(rootPosition) || isRepetition(List.of(root))) {
             short bestMove = immediateFallbackMove(legal);
             short[] pv = bestMove == Move.NO_MOVE ? new short[0] : new short[] { bestMove };
-            return new RootDecision(bestMove, 0.0, pv, false, 0);
+    return new RootDecision(bestMove, 0.0, pv, false, 0);
         }
         MateProver.Proof proof = MateProver.proveMate(rootPosition);
         if (proof != null) {
-            return new RootDecision(
+    return new RootDecision(
                     proof.bestMove(),
                     1.0,
                     proof.principalVariation(),
@@ -392,7 +403,7 @@ public final class MctsSearch implements AutoCloseable {
             Node best = proofPreferredChild(root);
             short bestMove = best == null ? Move.NO_MOVE : best.move;
             short[] pv = best == null ? new short[0] : principalVariation(best, 12);
-            return new RootDecision(
+    return new RootDecision(
                     bestMove,
                     proofValue(root.proof),
                     pv,
@@ -472,7 +483,7 @@ public final class MctsSearch implements AutoCloseable {
         if (decision != null && child.move == decision.bestMove()) {
             return decision.value();
         }
-        return rootPerspectiveQ(child);
+    return rootPerspectiveQ(child);
     }
 
     /**
@@ -518,7 +529,7 @@ public final class MctsSearch implements AutoCloseable {
      */
     private static double rootPerspective(Node parent, Node child) {
         if (child.proof != ProofState.UNKNOWN) {
-            return proofValueForParent(child);
+    return proofValueForParent(child);
         }
         if (child.visits() == 0) {
             return parent.visits() == 0 ? 0.0 : parent.q() - FPU_REDUCTION;
@@ -534,7 +545,7 @@ public final class MctsSearch implements AutoCloseable {
      */
     private static double rootPerspectiveQ(Node child) {
         if (child.proof != ProofState.UNKNOWN) {
-            return proofValueForParent(child);
+    return proofValueForParent(child);
         }
         return child.visits() == 0 ? 0.0 : -child.q();
     }
@@ -591,7 +602,7 @@ public final class MctsSearch implements AutoCloseable {
      * @return scalar evaluation
      */
     private double evaluate(Position position) {
-        return evaluatePosition(position).value();
+    return evaluatePosition(position).value();
     }
 
     /**
@@ -603,12 +614,12 @@ public final class MctsSearch implements AutoCloseable {
      */
     private Evaluation evaluate(Node node, List<Node> path) {
         if (node.proof != ProofState.UNKNOWN) {
-            return evaluationForProof(node.proof);
+    return evaluationForProof(node.proof);
         }
         if (isRepetition(path)) {
             return Evaluation.draw();
         }
-        return evaluatePosition(node.position);
+    return evaluatePosition(node.position);
     }
 
     /**
@@ -625,7 +636,7 @@ public final class MctsSearch implements AutoCloseable {
         if (isDraw(position)) {
             return Evaluation.draw();
         }
-        return quiescence(position, 0, -1.0, 1.0);
+    return quiescence(position, 0, -1.0, 1.0);
     }
 
     /**
@@ -921,7 +932,7 @@ public final class MctsSearch implements AutoCloseable {
      * @return proof evaluation
      */
     private static Evaluation evaluationForProof(ProofState proof) {
-        return switch (proof) {
+    return switch (proof) {
             case WIN -> Evaluation.win();
             case LOSS -> Evaluation.loss();
             case DRAW -> Evaluation.draw();
@@ -979,7 +990,7 @@ public final class MctsSearch implements AutoCloseable {
      * @return proof rank
      */
     private static int proofRankForParent(Node child) {
-        return switch (child.proof) {
+    return switch (child.proof) {
             case LOSS -> 4;
             case WIN -> 0;
             default -> 2;
@@ -993,7 +1004,7 @@ public final class MctsSearch implements AutoCloseable {
      * @return proof value from parent perspective
      */
     private static double proofValueForParent(Node child) {
-        return switch (child.proof) {
+    return switch (child.proof) {
             case LOSS -> 1.0;
             case DRAW -> 0.0;
             case WIN -> -1.0;
@@ -1008,7 +1019,7 @@ public final class MctsSearch implements AutoCloseable {
      * @return normalized proof value
      */
     private static double proofValue(ProofState proof) {
-        return switch (proof) {
+    return switch (proof) {
             case WIN -> 1.0;
             case LOSS -> -1.0;
             default -> 0.0;
@@ -1136,7 +1147,7 @@ public final class MctsSearch implements AutoCloseable {
      * @return promoted piece value
      */
     private static int promotionValue(int promotion) {
-        return switch (promotion) {
+    return switch (promotion) {
             case 1 -> Piece.VALUE_KNIGHT;
             case 2 -> Piece.VALUE_BISHOP;
             case 3 -> Piece.VALUE_ROOK;
@@ -1362,7 +1373,7 @@ public final class MctsSearch implements AutoCloseable {
              */
             @Override
             protected boolean removeEldestEntry(Map.Entry<Long, Stats> eldest) {
-                return size() > cap;
+    return size() > cap;
             }
         };
     }
@@ -1378,7 +1389,7 @@ public final class MctsSearch implements AutoCloseable {
          * @param position position to evaluate
          * @return structured evaluation
          */
-        Evaluation evaluate(Position position);
+    Evaluation evaluate(Position position);
 
         /**
          * Lets the backend prime move-ordering side data.
@@ -1595,7 +1606,7 @@ public final class MctsSearch implements AutoCloseable {
              */
             @Override
             protected boolean removeEldestEntry(Map.Entry<Long, T> eldest) {
-                return size() > 512;
+    return size() > 512;
             }
         };
     }
@@ -1644,7 +1655,7 @@ public final class MctsSearch implements AutoCloseable {
          * @return win evaluation
          */
         private static Evaluation win() {
-            return new Evaluation(1.0, 0.0, 0.0, 1.0);
+    return new Evaluation(1.0, 0.0, 0.0, 1.0);
         }
 
         /**
@@ -1653,7 +1664,7 @@ public final class MctsSearch implements AutoCloseable {
          * @return draw evaluation
          */
         private static Evaluation draw() {
-            return new Evaluation(0.0, 1.0, 0.0, 0.0);
+    return new Evaluation(0.0, 1.0, 0.0, 0.0);
         }
 
         /**
@@ -1662,7 +1673,7 @@ public final class MctsSearch implements AutoCloseable {
          * @return loss evaluation
          */
         private static Evaluation loss() {
-            return new Evaluation(0.0, 0.0, 1.0, -1.0);
+    return new Evaluation(0.0, 0.0, 1.0, -1.0);
         }
 
         /**
@@ -1672,7 +1683,7 @@ public final class MctsSearch implements AutoCloseable {
          * @return evaluation
          */
         private static Evaluation fromWdl(Wdl wdl) {
-            return new Evaluation(
+    return new Evaluation(
                     wdl.win() / (double) Wdl.TOTAL,
                     wdl.draw() / (double) Wdl.TOTAL,
                     wdl.loss() / (double) Wdl.TOTAL,
@@ -1687,19 +1698,19 @@ public final class MctsSearch implements AutoCloseable {
          */
         private static Evaluation fromWdl(float[] wdl) {
             if (wdl == null || wdl.length < 3) {
-                return draw();
+    return draw();
             }
             double win = Math.max(0.0, wdl[0]);
             double draw = Math.max(0.0, wdl[1]);
             double loss = Math.max(0.0, wdl[2]);
             double sum = win + draw + loss;
             if (!Double.isFinite(sum) || sum <= 0.0) {
-                return draw();
+    return draw();
             }
             win /= sum;
             draw /= sum;
             loss /= sum;
-            return new Evaluation(win, draw, loss, win - loss);
+    return new Evaluation(win, draw, loss, win - loss);
         }
 
         /**
@@ -1708,7 +1719,7 @@ public final class MctsSearch implements AutoCloseable {
          * @return flipped evaluation
          */
         private Evaluation flipped() {
-            return new Evaluation(pLoss, pDraw, pWin, -value);
+    return new Evaluation(pLoss, pDraw, pWin, -value);
         }
     }
 

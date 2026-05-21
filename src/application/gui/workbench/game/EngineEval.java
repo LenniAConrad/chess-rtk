@@ -1,0 +1,54 @@
+package application.gui.workbench.game;
+
+import application.gui.workbench.board.*;
+import application.gui.workbench.command.*;
+import application.gui.workbench.dashboard.*;
+import application.gui.workbench.layout.*;
+import application.gui.workbench.mcts.*;
+import application.gui.workbench.network.*;
+import application.gui.workbench.publish.*;
+import application.gui.workbench.session.*;
+import application.gui.workbench.ui.*;
+import application.gui.workbench.window.*;
+
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+/**
+ * Parsed engine evaluation from command output.
+ *
+ * @param mate true when the value is a mate distance
+ * @param value signed centipawn or mate value from the side-to-move perspective
+ */
+public record EngineEval(boolean mate, int value) {
+
+    /**
+     * Engine evaluation line pattern.
+     */
+    private static final Pattern EVAL_PATTERN = Pattern.compile("(?m)^\\s*eval:\\s*(#-?\\d+|[+-]?\\d+)\\b");
+
+    /**
+     * Parses the first engine evaluation emitted by {@code engine analyze}.
+     *
+     * @param output command output
+     * @return parsed evaluation, or null when unavailable
+     */
+    public static EngineEval parse(String output) {
+        if (output == null) {
+            return null;
+        }
+        Matcher matcher = EVAL_PATTERN.matcher(output);
+        if (!matcher.find()) {
+            return null;
+        }
+        String value = matcher.group(1);
+        try {
+            if (value.startsWith("#")) {
+    return new EngineEval(true, Integer.parseInt(value.substring(1)));
+            }
+    return new EngineEval(false, Integer.parseInt(value));
+        } catch (NumberFormatException ex) {
+            return null;
+        }
+    }
+}
