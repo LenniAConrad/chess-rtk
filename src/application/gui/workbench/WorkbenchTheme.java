@@ -152,7 +152,7 @@ final class WorkbenchTheme {
     /**
      * Disabled button text color.
      */
-    static final Color BUTTON_DISABLED_TEXT = new Color(161, 161, 161);
+    static final Color BUTTON_DISABLED_TEXT = new Color(124, 124, 124);
 
     /**
      * Input border color (VS Code input border).
