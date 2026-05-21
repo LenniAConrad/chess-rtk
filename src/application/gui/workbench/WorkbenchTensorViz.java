@@ -643,9 +643,9 @@ final class WorkbenchTensorViz {
         float a = clamp(activity, 0.0f, 1.0f);
         Color fill = lerp(WorkbenchTheme.PANEL_SOLID, accent, 0.18f + 0.55f * a);
         g.setColor(fill);
-        g.fillRoundRect(r.x, r.y, r.width, r.height, 8, 8);
+        g.fillRoundRect(r.x, r.y, r.width, r.height, 3, 3);
         g.setColor(accent);
-        g.drawRoundRect(r.x, r.y, r.width - 1, r.height - 1, 8, 8);
+        g.drawRoundRect(r.x, r.y, r.width - 1, r.height - 1, 3, 3);
         if (title != null) {
             g.setColor(WorkbenchTheme.TEXT);
             g.setFont(WorkbenchTheme.font(13, Font.BOLD));

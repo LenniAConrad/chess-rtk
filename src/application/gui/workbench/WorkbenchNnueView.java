@@ -1671,9 +1671,9 @@ final class WorkbenchNnueView extends WorkbenchNetworkView implements Scrollable
             int x = startX + i * (boxW + gap);
             // Box
             g.setColor(WorkbenchTheme.PANEL_SOLID);
-            g.fillRoundRect(x, y, boxW, boxH, 14, 14);
+            g.fillRoundRect(x, y, boxW, boxH, 4, 4);
             g.setColor(WorkbenchTheme.LINE);
-            g.drawRoundRect(x, y, boxW, boxH, 14, 14);
+            g.drawRoundRect(x, y, boxW, boxH, 4, 4);
             // Title
             g.setColor(WorkbenchTheme.TEXT);
             g.setFont(WorkbenchTheme.font(13, Font.BOLD));
