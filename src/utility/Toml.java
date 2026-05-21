@@ -765,6 +765,8 @@ public final class Toml {
      * Normalizes a potentially numeric string: trims, allows underscores, and
      * preserves sign.
      * Returns {@code null} when the string is empty or obviously non-numeric.
+     * @param s source string
+     * @return normalize numeric string result
      */
     private static String normalizeNumericString(String s) {
         if (s == null)

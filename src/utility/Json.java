@@ -243,6 +243,9 @@ public class Json {
 
     /**
      * Wraps an input stream with cumulative byte progress reporting.
+     * @param in in value
+     * @param byteProgress progress byte value
+     * @return progress input result
      */
     public static InputStream progressInput(InputStream in, LongConsumer byteProgress) {
         if (byteProgress == null) {
@@ -273,6 +276,8 @@ public class Json {
 
         /**
          * Creates a progress-reporting input stream.
+         * @param in in value
+         * @param byteProgress progress byte value
          */
         private ProgressInputStream(InputStream in, LongConsumer byteProgress) {
             super(in);
@@ -887,6 +892,9 @@ public class Json {
      * before the separator, the first quote is treated as literal detail text and
      * the second quote closes the array element.
      * </p>
+     * @param json json value
+     * @param quoteIndex quote index value
+     * @return true when is string array terminator
      */
     private static boolean isStringArrayTerminator(String json, int quoteIndex) {
         int next = nextNonWhitespace(json, quoteIndex + 1);
@@ -906,6 +914,9 @@ public class Json {
 
     /**
      * Finds the next non-whitespace index.
+     * @param json json value
+     * @param from from value
+     * @return next non whitespace result
      */
     private static int nextNonWhitespace(String json, int from) {
         int i = Math.max(0, from);

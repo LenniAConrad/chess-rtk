@@ -111,6 +111,7 @@ public final class RecordDatasetExporter {
 	 * @param outStem output stem path
 	 * @param exporter object-to-row exporter implementation
 	 * @throws IOException if reading or writing fails
+	 * @param byteProgress progress byte value
 	 */
 	private static void exportInternal(
 			Path jsonFile,

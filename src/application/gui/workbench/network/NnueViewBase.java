@@ -682,6 +682,9 @@ public abstract class NnueViewBase extends NetworkView implements Scrollable {
      */
     protected abstract NnueTraceLayout layout(Rectangle r);
 
+    /**
+     * Rebuilds visible slot and feature arrays after filter changes.
+     */
     protected void rebuildVisibleSelection() {
         int selectedSlotId = selectedSlot >= 0 && selectedSlot < visibleSlots.length
                 ? visibleSlots[selectedSlot]

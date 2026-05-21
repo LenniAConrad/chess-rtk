@@ -76,6 +76,8 @@ public final class Encoder {
 
         /**
          * Defensive construction.
+         * @param planes planes value
+         * @param transform transform value
          */
         public EncodedInput {
             if (planes == null) {

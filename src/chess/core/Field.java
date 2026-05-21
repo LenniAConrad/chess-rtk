@@ -1003,6 +1003,7 @@ public class Field {
 	 * Used for calculating the X-coordinate of the index, starting at 0.
 	 * 
 	 * @return The X-coordinate of the index, starting at 0
+	 * @param index index value
 	 */
 	public static int getX(byte index) {
 		return index % 8;
@@ -1012,6 +1013,7 @@ public class Field {
 	 * Used for calculating the Y-coordinate of the index, starting at 0.
 	 * 
 	 * @return The Y-coordinate of the index, starting at 0
+	 * @param index index value
 	 */
 	public static int getY(byte index) {
 		return 7 - index / 8;
@@ -1043,6 +1045,7 @@ public class Field {
 	 * Used for calculating the inverted X-coordinate of the index, starting at 7.
 	 * 
 	 * @return The inverted X-coordinate of the index, starting at 7
+	 * @param index index value
 	 */
 	public static int getXInverted(byte index) {
 		return 7 - index % 8;
@@ -1222,6 +1225,7 @@ public class Field {
 	 * Used for calculating the inverted Y-coordinate of the index, starting at 7.
 	 * 
 	 * @return The inverted Y-coordinate of the index, starting at 7
+	 * @param index index value
 	 */
 	public static int getYInverted(byte index) {
 		return index / 8;
@@ -1229,9 +1233,9 @@ public class Field {
 
 	/**
 	 * 
-	 * @param index
+	 * @param index index value
 	 * @implNote This method does not check for out-of-bounds conditions.
-	 * @return
+	 * @return computed value
 	 */
 	public static byte uprank(byte index) {
 		return (byte) (index + 8);
@@ -1239,9 +1243,9 @@ public class Field {
 
 	/**
 	 * 
-	 * @param index
+	 * @param index index value
 	 * @implNote This method does not check for out-of-bounds conditions.
-	 * @return
+	 * @return computed value
 	 */
 	public static byte downrank(byte index) {
 		return (byte) (index - 8);
@@ -1252,6 +1256,7 @@ public class Field {
 	 * 
 	 * @implNote This method does not check for out-of-bounds conditions.
 	 * @return The right square of the index
+	 * @param index index value
 	 */
 	public static byte rightOf(byte index) {
 		return (byte) (index + 1);
@@ -1262,6 +1267,7 @@ public class Field {
 	 * 
 	 * @implNote This method does not check for out-of-bounds conditions.
 	 * @return The left square of the index
+	 * @param index index value
 	 */
 	public static byte leftOf(byte index) {
 		return (byte) (index - 1);

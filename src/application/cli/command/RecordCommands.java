@@ -549,6 +549,8 @@ public final class RecordCommands {
 
 	/**
 	 * Builds a default output for the Elo-rated puzzle exporter.
+	 * @param inputFiles input files value
+	 * @return default puzzle elo output result
 	 */
 	private static Path defaultPuzzleEloOutput(List<Path> inputFiles) {
 		if (inputFiles.size() == 1) {
@@ -559,6 +561,8 @@ public final class RecordCommands {
 
 	/**
 	 * Prevents accidental in-place exports.
+	 * @param inputFiles input files value
+	 * @param output output text
 	 */
 	private static void validatePuzzleEloOutput(List<Path> inputFiles, Path output) {
 		Path outputAbs = output.toAbsolutePath().normalize();
@@ -1640,6 +1644,7 @@ public final class RecordCommands {
 	 * @param verbose verbose
 	 * @param bar bar
 	 * @throws IOException if the operation fails
+	 * @param context context value
 	 */
 	private static void writeTrainingJsonl(
 			List<Path> inputFiles,

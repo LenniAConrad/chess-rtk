@@ -596,6 +596,7 @@ public final class HelpCommand {
 	 * Looks up the command section inside the full help text.
 	 *
 	 * @param command command name to display help for
+	 * @param pathTokens path tokens value
 	 */
 	private static void helpCommand(List<String> pathTokens) {
 		CliCommand command = CliRegistry.resolve(pathTokens);

@@ -102,6 +102,7 @@ public final class LogService {
 	 * Used for logging a warning message.
 	 *
 	 * @param message the message to log
+	 * @param messages messages value
 	 */
 	public static void warn(String... messages) {
 		if (messages == null || messages.length == 0) {

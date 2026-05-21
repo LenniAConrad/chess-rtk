@@ -348,6 +348,7 @@ public class Converter {
      * @param recordFile input JSON (array) path.
      * @return maximum PV index observed across accepted records.
      * @throws IOException if streaming fails.
+     * @param byteProgress progress byte value
      */
     private static int computeMaxPivot(Filter arguments, Path recordFile, LongConsumer byteProgress) throws IOException {
         final int[] maxPv = new int[1];

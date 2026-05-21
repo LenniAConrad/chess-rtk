@@ -197,6 +197,8 @@ public final class Mcts implements AutoCloseable {
 
     /**
      * Creates a searcher around a policy/value backend.
+     * @param backend backend value
+     * @param cpuct cpuct value
      */
     private Mcts(SearchBackend backend, double cpuct) {
         if (backend == null) {
@@ -210,6 +212,8 @@ public final class Mcts implements AutoCloseable {
 
     /**
      * Validates an evaluator before constructor delegation.
+     * @param evaluator evaluator value
+     * @return require evaluator result
      */
     private static CentipawnEvaluator requireEvaluator(CentipawnEvaluator evaluator) {
         if (evaluator == null) {
@@ -368,6 +372,11 @@ public final class Mcts implements AutoCloseable {
 
     /**
      * Main search entry point.
+     * @param position chess position
+     * @param limits search limits
+     * @param listener event listener
+     * @param reuseTree true to reuse the existing search tree
+     * @return search result
      */
     private Result search(Position position, Limits limits, SearchListener listener, boolean reuseTree) {
         return search(position, limits, listener, reuseTree, null);
@@ -375,6 +384,12 @@ public final class Mcts implements AutoCloseable {
 
     /**
      * Main search entry point.
+     * @param position chess position
+     * @param limits search limits
+     * @param listener event listener
+     * @param reuseTree true to reuse the existing search tree
+     * @param historyCoreKeys history core keys value
+     * @return search result
      */
     private Result search(
             Position position,
@@ -439,6 +454,8 @@ public final class Mcts implements AutoCloseable {
 
     /**
      * Returns the next serial batch size under the node budget.
+     * @param maxNodes maximum node count
+     * @return next batch count result
      */
     private int nextBatchCount(long maxNodes) {
         int count = Math.max(1, batchSize);
@@ -451,6 +468,8 @@ public final class Mcts implements AutoCloseable {
 
     /**
      * Returns the effective visit budget.
+     * @param limits search limits
+     * @return effective max nodes result
      */
     private static long effectiveMaxNodes(Limits limits) {
         if (limits.maxNodes() > 0L) {
@@ -464,6 +483,8 @@ public final class Mcts implements AutoCloseable {
 
     /**
      * Returns the effective time budget.
+     * @param limits search limits
+     * @return effective max millis result
      */
     private static long effectiveMaxMillis(Limits limits) {
         return limits.maxDurationMillis();
@@ -471,6 +492,8 @@ public final class Mcts implements AutoCloseable {
 
     /**
      * Returns the next playout count at which an info line should be emitted.
+     * @param current current value
+     * @return next report result
      */
     private static long nextReport(long current) {
         if (current < 1024L) {
@@ -481,6 +504,10 @@ public final class Mcts implements AutoCloseable {
 
     /**
      * Returns whether another playout may begin.
+     * @param started start time
+     * @param maxNodes maximum node count
+     * @param maxMillis maximum runtime in milliseconds
+     * @return true when should continue
      */
     private boolean shouldContinue(long started, long maxNodes, long maxMillis) {
         if (stopRequested) {
@@ -496,6 +523,11 @@ public final class Mcts implements AutoCloseable {
 
     /**
      * Parallel worker search over one shared tree.
+     * @param started start time
+     * @param maxNodes maximum node count
+     * @param maxMillis maximum runtime in milliseconds
+     * @param listener event listener
+     * @return search parallel result
      */
     private Result searchParallel(long started, long maxNodes, long maxMillis, SearchListener listener) {
         int count = Math.max(1, threads);
@@ -539,6 +571,10 @@ public final class Mcts implements AutoCloseable {
 
     /**
      * Runs one worker loop.
+     * @param started start time
+     * @param maxNodes maximum node count
+     * @param maxMillis maximum runtime in milliseconds
+     * @param failure failure value
      */
     private void runWorker(
             long started,
@@ -573,6 +609,8 @@ public final class Mcts implements AutoCloseable {
 
     /**
      * Returns whether any worker is still alive.
+     * @param workers workers value
+     * @return any alive result
      */
     private static boolean anyAlive(Thread[] workers) {
         for (Thread worker : workers) {
@@ -596,6 +634,7 @@ public final class Mcts implements AutoCloseable {
 
     /**
      * Joins all workers.
+     * @param workers workers value
      */
     private static void joinAll(Thread[] workers) {
         for (Thread worker : workers) {
@@ -610,6 +649,9 @@ public final class Mcts implements AutoCloseable {
 
     /**
      * Re-roots or rebuilds the tree.
+     * @param position chess position
+     * @param reuseTree true to reuse the existing search tree
+     * @param historyCoreKeys history core keys value
      */
     private void setRoot(Position position, boolean reuseTree, long[] historyCoreKeys) {
         rootHistory = historyCounts(historyCoreKeys);
@@ -646,6 +688,8 @@ public final class Mcts implements AutoCloseable {
 
     /**
      * Finds a searched descendant to reuse as the new root.
+     * @param key lookup key
+     * @return find reusable root result
      */
     private Node findReusableRoot(long key) {
         if (root == null) {
@@ -665,6 +709,8 @@ public final class Mcts implements AutoCloseable {
 
     /**
      * Rebases cached subtree depths after re-rooting.
+     * @param node node value
+     * @param depth search depth
      */
     private static void rebaseDepths(Node node, int depth) {
         node.depth = depth;
@@ -675,6 +721,8 @@ public final class Mcts implements AutoCloseable {
 
     /**
      * Builds occurrence counts for pre-root positions.
+     * @param keys keys value
+     * @return history counts result
      */
     private static Map<Long, Integer> historyCounts(long[] keys) {
         if (keys == null || keys.length == 0) {
@@ -689,6 +737,8 @@ public final class Mcts implements AutoCloseable {
 
     /**
      * Returns a terminal, draw, or tree-proven root result.
+     * @param started start time
+     * @return immediate root result result
      */
     private Result immediateRootResult(long started) {
         MoveList legal = rootPosition.legalMoves();
@@ -746,6 +796,7 @@ public final class Mcts implements AutoCloseable {
 
     /**
      * Runs a batch of playouts.
+     * @param count item count
      */
     private void iterateBatch(int count) {
         List<LeafTask> tasks = new ArrayList<>(count);
@@ -770,6 +821,7 @@ public final class Mcts implements AutoCloseable {
 
     /**
      * Selects a leaf task and applies no updates.
+     * @return select leaf result
      */
     private LeafTask selectLeaf() {
         List<Node> path = new ArrayList<>();
@@ -787,6 +839,8 @@ public final class Mcts implements AutoCloseable {
 
     /**
      * Completes one selected playout.
+     * @param task task name
+     * @param value value to use
      */
     private void completeTask(LeafTask task, Evaluation value) {
         removeVirtualLoss(task.path());
@@ -802,6 +856,8 @@ public final class Mcts implements AutoCloseable {
 
     /**
      * Selects the highest PUCT child.
+     * @param parent parent node
+     * @return select child result
      */
     private Node selectChild(Node parent) {
         Node proof = proofPreferredChild(parent);
@@ -822,6 +878,9 @@ public final class Mcts implements AutoCloseable {
 
     /**
      * Returns exploitation from the parent node's perspective.
+     * @param parent parent node
+     * @param child child node
+     * @return root perspective result
      */
     private static double rootPerspective(Node parent, Node child) {
         if (child.proof != ProofState.UNKNOWN) {
@@ -835,6 +894,8 @@ public final class Mcts implements AutoCloseable {
 
     /**
      * Returns root-perspective Q for a root child.
+     * @param child child node
+     * @return root perspective q result
      */
     private static double rootPerspectiveQ(Node child) {
         if (child.proof != ProofState.UNKNOWN) {
@@ -845,6 +906,9 @@ public final class Mcts implements AutoCloseable {
 
     /**
      * PUCT exploration term for one edge.
+     * @param parent parent node
+     * @param child child node
+     * @return exploration result
      */
     private double exploration(Node parent, Node child) {
         if (child.proof != ProofState.UNKNOWN) {
@@ -856,6 +920,8 @@ public final class Mcts implements AutoCloseable {
 
     /**
      * Expands legal children for one node.
+     * @param node node value
+     * @param path file path
      */
     private void expand(Node node, List<Node> path) {
         if (node.proof != ProofState.UNKNOWN) {
@@ -883,6 +949,8 @@ public final class Mcts implements AutoCloseable {
 
     /**
      * Evaluates a tree node from the node side-to-move perspective.
+     * @param task task name
+     * @return evaluate task result
      */
     private Evaluation evaluateTask(LeafTask task) {
         if (task.node().proof != ProofState.UNKNOWN) {
@@ -896,6 +964,8 @@ public final class Mcts implements AutoCloseable {
 
     /**
      * Evaluates selected leaves through the backend batch hook.
+     * @param tasks tasks value
+     * @return evaluate tasks result
      */
     private List<Evaluation> evaluateTasks(List<LeafTask> tasks) {
         List<Evaluation> out = new ArrayList<>(tasks.size());
@@ -927,6 +997,8 @@ public final class Mcts implements AutoCloseable {
     /**
      * Returns a terminal/draw evaluation, or null when backend evaluation is
      * needed.
+     * @param task task name
+     * @return terminal evaluation result
      */
     private Evaluation terminalEvaluation(LeafTask task) {
         if (isRepetition(task.path())) {
@@ -945,6 +1017,8 @@ public final class Mcts implements AutoCloseable {
 
     /**
      * Evaluates a standalone position from the side-to-move perspective.
+     * @param position chess position
+     * @return evaluate position result
      */
     private Evaluation evaluatePosition(Position position) {
         MoveList legal = position.legalMoves();
@@ -959,6 +1033,8 @@ public final class Mcts implements AutoCloseable {
 
     /**
      * Evaluates one non-terminal position through the backend.
+     * @param position chess position
+     * @return evaluate backend result
      */
     private Evaluation evaluateBackend(Position position) {
         if (backend.threadSafe()) {
@@ -971,6 +1047,8 @@ public final class Mcts implements AutoCloseable {
 
     /**
      * Evaluates non-terminal positions through the backend batch hook.
+     * @param positions positions value
+     * @return evaluate backend batch result
      */
     private List<Evaluation> evaluateBackendBatch(List<Position> positions) {
         if (backend.threadSafe()) {
@@ -984,6 +1062,8 @@ public final class Mcts implements AutoCloseable {
     /**
      * Returns whether a non-terminal leaf needs a forcing extension before static
      * backend evaluation.
+     * @param position chess position
+     * @return true when should quiesce
      */
     private boolean shouldQuiesce(Position position) {
         MoveList legal = position.legalMoves();
@@ -1005,6 +1085,11 @@ public final class Mcts implements AutoCloseable {
      * Values a leaf after resolving immediate mates, captures/promotions, and
      * forced check evasions. The returned value is from the side-to-move
      * perspective of {@code position}.
+     * @param position chess position
+     * @param qply qply value
+     * @param alpha alpha search bound
+     * @param beta beta value
+     * @return quiescence result
      */
     private Evaluation quiescence(Position position, int qply, double alpha, double beta) {
         if (isDraw(position)) {
@@ -1051,6 +1136,10 @@ public final class Mcts implements AutoCloseable {
     /**
      * Returns quiescence candidate moves: all legal evasions while in check, or
      * captures/promotions in otherwise quiet positions.
+     * @param position chess position
+     * @param legal legal moves
+     * @param inCheck in check value
+     * @return quiescence moves result
      */
     private static short[] quiescenceMoves(Position position, MoveList legal, boolean inCheck) {
         if (inCheck) {
@@ -1078,6 +1167,9 @@ public final class Mcts implements AutoCloseable {
 
     /**
      * Returns a legal mate-in-one move, or {@link Move#NO_MOVE}.
+     * @param position chess position
+     * @param legal legal moves
+     * @return find mate in one result
      */
     private static short findMateInOne(Position position, MoveList legal) {
         for (int i = 0; i < legal.size(); i++) {
@@ -1098,6 +1190,9 @@ public final class Mcts implements AutoCloseable {
     /**
      * Returns whether a move should be searched in quiescence from a non-check
      * position.
+     * @param position chess position
+     * @param move move encoded in CRTK move format
+     * @return true when is quiescence move
      */
     private static boolean isQuiescenceMove(Position position, short move) {
         return position.isCapture(move) || position.isPromotion(move);
@@ -1105,6 +1200,9 @@ public final class Mcts implements AutoCloseable {
 
     /**
      * Scores a quiescence move for deterministic tactical ordering.
+     * @param position chess position
+     * @param move move encoded in CRTK move format
+     * @return quiescence move score result
      */
     private static int quiescenceMoveScore(Position position, short move) {
         int score = promotionValue(Move.getPromotion(move)) * 100;
@@ -1118,6 +1216,9 @@ public final class Mcts implements AutoCloseable {
 
     /**
      * Sorts the first {@code count} moves by descending scores.
+     * @param moves candidate moves
+     * @param scores score values
+     * @param count item count
      */
     private static void insertionSortDescending(short[] moves, int[] scores, int count) {
         for (int i = 1; i < count; i++) {
@@ -1136,6 +1237,8 @@ public final class Mcts implements AutoCloseable {
 
     /**
      * Returns whether the position is statically drawn.
+     * @param position chess position
+     * @return true when is draw
      */
     private static boolean isDraw(Position position) {
         return position.halfMoveClock() >= 100 || position.isInsufficientMaterial();
@@ -1143,6 +1246,9 @@ public final class Mcts implements AutoCloseable {
 
     /**
      * Returns whether a node is terminal under the current path.
+     * @param node node value
+     * @param path file path
+     * @return true when is terminal
      */
     private boolean isTerminal(Node node, List<Node> path) {
         return node.proof != ProofState.UNKNOWN
@@ -1153,6 +1259,7 @@ public final class Mcts implements AutoCloseable {
 
     /**
      * Initializes directly terminal node proof status.
+     * @param node node value
      */
     private static void initializeDirectProof(Node node) {
         MoveList legal = node.position.legalMoves();
@@ -1161,6 +1268,9 @@ public final class Mcts implements AutoCloseable {
 
     /**
      * Initializes terminal proof from legal move and draw state.
+     * @param node node value
+     * @param noLegalMoves no legal moves value
+     * @param repetition repetition value
      */
     private static void initializeTerminalProof(Node node, boolean noLegalMoves, boolean repetition) {
         if (noLegalMoves) {
@@ -1176,6 +1286,7 @@ public final class Mcts implements AutoCloseable {
 
     /**
      * Propagates proven endgame bounds up a searched path.
+     * @param path file path
      */
     private static void propagateProof(List<Node> path) {
         for (int i = path.size() - 1; i >= 0; i--) {
@@ -1185,6 +1296,7 @@ public final class Mcts implements AutoCloseable {
 
     /**
      * Recomputes one node's proof status from known child proof bounds.
+     * @param node node value
      */
     private static void refreshProof(Node node) {
         if (node.children.isEmpty()) {
@@ -1225,6 +1337,9 @@ public final class Mcts implements AutoCloseable {
 
     /**
      * Updates a node proof only when the new proof is better defined.
+     * @param node node value
+     * @param proof proof value
+     * @param plies ply count
      */
     private static void setProof(Node node, ProofState proof, int plies) {
         if (proof == ProofState.UNKNOWN) {
@@ -1241,6 +1356,8 @@ public final class Mcts implements AutoCloseable {
 
     /**
      * Returns a side-to-move evaluation for a proof state.
+     * @param proof proof value
+     * @return evaluation for proof result
      */
     private static Evaluation evaluationForProof(ProofState proof) {
         return switch (proof) {
@@ -1253,6 +1370,8 @@ public final class Mcts implements AutoCloseable {
 
     /**
      * Returns a proven child to select from a node, if one dominates search.
+     * @param parent parent node
+     * @return proof preferred child result
      */
     private static Node proofPreferredChild(Node parent) {
         if (parent.children.isEmpty()) {
@@ -1293,6 +1412,8 @@ public final class Mcts implements AutoCloseable {
 
     /**
      * Returns a root-perspective value for a child proof state.
+     * @param child child node
+     * @return proof value for parent result
      */
     private static double proofValueForParent(Node child) {
         return switch (child.proof) {
@@ -1306,6 +1427,8 @@ public final class Mcts implements AutoCloseable {
     /**
      * Returns true when the current path has reached the same core position for
      * the third time.
+     * @param path file path
+     * @return true when is repetition
      */
     private boolean isRepetition(List<Node> path) {
         if (path == null || path.isEmpty()) {
@@ -1326,6 +1449,8 @@ public final class Mcts implements AutoCloseable {
 
     /**
      * Backs up a leaf value through the visited path.
+     * @param path file path
+     * @param leafValue leaf value value
      */
     private static void backup(List<Node> path, Evaluation leafValue) {
         Evaluation value = leafValue;
@@ -1342,6 +1467,7 @@ public final class Mcts implements AutoCloseable {
 
     /**
      * Applies virtual loss along an in-flight path.
+     * @param path file path
      */
     private static void addVirtualLoss(List<Node> path) {
         for (Node node : path) {
@@ -1352,6 +1478,7 @@ public final class Mcts implements AutoCloseable {
 
     /**
      * Removes virtual loss from an in-flight path.
+     * @param path file path
      */
     private static void removeVirtualLoss(List<Node> path) {
         for (Node node : path) {
@@ -1364,6 +1491,9 @@ public final class Mcts implements AutoCloseable {
 
     /**
      * Builds normalized move priors.
+     * @param position chess position
+     * @param moves candidate moves
+     * @return priors result
      */
     private double[] priors(Position position, short[] moves) {
         int[] scores = new int[moves.length];
@@ -1396,6 +1526,9 @@ public final class Mcts implements AutoCloseable {
 
     /**
      * Adds backend move-prior scores with backend synchronization when needed.
+     * @param position chess position
+     * @param moves candidate moves
+     * @param scores score values
      */
     private void scoreBackendMoves(Position position, short[] moves, int[] scores) {
         if (backend.threadSafe()) {
@@ -1411,6 +1544,10 @@ public final class Mcts implements AutoCloseable {
 
     /**
      * Lets the backend replace priors with backend synchronization when needed.
+     * @param position chess position
+     * @param moves candidate moves
+     * @param fallback fallback value
+     * @return backend priors result
      */
     private double[] backendPriors(Position position, short[] moves, double[] fallback) {
         if (backend.threadSafe()) {
@@ -1423,6 +1560,9 @@ public final class Mcts implements AutoCloseable {
 
     /**
      * Adds cheap tactical priors so the tree opens on plausible moves.
+     * @param position chess position
+     * @param move move encoded in CRTK move format
+     * @return tactical prior result
      */
     private static int tacticalPrior(Position position, short move) {
         int bonus = 0;
@@ -1443,6 +1583,8 @@ public final class Mcts implements AutoCloseable {
 
     /**
      * Material value for a promotion code.
+     * @param promotion promotion value
+     * @return promotion value result
      */
     private static int promotionValue(int promotion) {
         return switch (promotion) {
@@ -1456,6 +1598,9 @@ public final class Mcts implements AutoCloseable {
 
     /**
      * Builds the current public result.
+     * @param started start time
+     * @param stopped stopped value
+     * @return current result result
      */
     private Result currentResult(long started, boolean stopped) {
         List<Node> children = orderedRootChildren();
@@ -1480,6 +1625,7 @@ public final class Mcts implements AutoCloseable {
 
     /**
      * Returns root children ordered by proof outcome, visits, and priors.
+     * @return ordered root children result
      */
     private List<Node> orderedRootChildren() {
         List<Node> children = new ArrayList<>(root.children);
@@ -1489,6 +1635,9 @@ public final class Mcts implements AutoCloseable {
 
     /**
      * Compares root children with LC0-style terminal proof priority.
+     * @param left left coordinate
+     * @param right right coordinate
+     * @return compare root children result
      */
     private static int compareRootChildren(Node left, Node right) {
         int leftRank = proofRankForParent(left);
@@ -1516,6 +1665,8 @@ public final class Mcts implements AutoCloseable {
 
     /**
      * Ranks a child proof from the parent's perspective.
+     * @param child child node
+     * @return proof rank for parent result
      */
     private static int proofRankForParent(Node child) {
         return switch (child.proof) {
@@ -1527,6 +1678,9 @@ public final class Mcts implements AutoCloseable {
 
     /**
      * Returns a principal variation by following most-visited children.
+     * @param start start index
+     * @param maxMoves max moves value
+     * @return principal variation result
      */
     private static short[] principalVariation(Node start, int maxMoves) {
         List<Short> moves = new ArrayList<>();
@@ -1544,6 +1698,8 @@ public final class Mcts implements AutoCloseable {
 
     /**
      * Returns the most visited child of a node.
+     * @param node node value
+     * @return most visited child result
      */
     private static Node mostVisitedChild(Node node) {
         Node proof = proofPreferredChild(node);
@@ -1561,6 +1717,8 @@ public final class Mcts implements AutoCloseable {
 
     /**
      * Converts a normalized value back to a compact centipawn display.
+     * @param value value to use
+     * @return value to centipawns result
      */
     private static int valueToCentipawns(double value) {
         double v = Math.max(-0.999, Math.min(0.999, value));
@@ -1569,6 +1727,8 @@ public final class Mcts implements AutoCloseable {
 
     /**
      * Converts a proven root state to the engine mate/draw score convention.
+     * @param node node value
+     * @return proof score result
      */
     private static int proofScore(Node node) {
         return switch (node.proof) {
@@ -1581,6 +1741,12 @@ public final class Mcts implements AutoCloseable {
 
     /**
      * Creates a node wired to a shared hash-table stats bucket.
+     * @param parent parent node
+     * @param move move encoded in CRTK move format
+     * @param position chess position
+     * @param prior prior value
+     * @param depth search depth
+     * @return new node result
      */
     private Node newNode(Node parent, short move, Position position, double prior, int depth) {
         long key = position.signature();
@@ -1592,6 +1758,8 @@ public final class Mcts implements AutoCloseable {
 
     /**
      * Returns the shared stats bucket for a position signature.
+     * @param key lookup key
+     * @return stats for result
      */
     private Stats statsFor(long key) {
         Stats stats = transpositions.get(key);
@@ -1604,6 +1772,8 @@ public final class Mcts implements AutoCloseable {
 
     /**
      * Creates a bounded access-ordered transposition stats table.
+     * @param limit limit value
+     * @return new transposition table result
      */
     private static Map<Long, Stats> newTranspositionTable(int limit) {
         int cap = Math.max(1, limit);
@@ -1619,6 +1789,8 @@ public final class Mcts implements AutoCloseable {
 
     /**
      * Returns elapsed wall-clock time.
+     * @param started start time
+     * @return elapsed since result
      */
     private static long elapsedSince(long started) {
         return Math.max(0L, System.currentTimeMillis() - started);
@@ -1626,6 +1798,8 @@ public final class Mcts implements AutoCloseable {
 
     /**
      * Notifies a listener.
+     * @param listener event listener
+     * @param result result value
      */
     private static void notifySearch(SearchListener listener, Result result) {
         if (listener != null) {
@@ -1635,6 +1809,12 @@ public final class Mcts implements AutoCloseable {
 
     /**
      * Converts legal-move policy logits to normalized priors.
+     * @param position chess position
+     * @param moves candidate moves
+     * @param fallback fallback value
+     * @param logits logits value
+     * @param indexer indexer value
+     * @return policy priors from logits result
      */
     private static double[] policyPriorsFromLogits(
             Position position,
@@ -1699,11 +1879,15 @@ public final class Mcts implements AutoCloseable {
 
         /**
          * Evaluates one non-terminal position from the side-to-move perspective.
+         * @param position chess position
+         * @return evaluation score
          */
         Evaluation evaluate(Position position);
 
         /**
          * Evaluates non-terminal positions as one backend batch.
+         * @param positions positions value
+         * @return evaluate batch result
          */
         default List<Evaluation> evaluateBatch(List<Position> positions) {
             List<Evaluation> out = new ArrayList<>(positions.size());
@@ -1715,6 +1899,7 @@ public final class Mcts implements AutoCloseable {
 
         /**
          * Lets the backend prime move-ordering side data.
+         * @param position chess position
          */
         default void prepareMoveOrdering(Position position) {
             // default backend has no side data
@@ -1722,6 +1907,9 @@ public final class Mcts implements AutoCloseable {
 
         /**
          * Adds backend-specific move-prior scores.
+         * @param position chess position
+         * @param moves candidate moves
+         * @param scores score values
          */
         default void scoreMoves(Position position, short[] moves, int[] scores) {
             // default backend does not alter handcrafted priors
@@ -1729,6 +1917,10 @@ public final class Mcts implements AutoCloseable {
 
         /**
          * Replaces fallback priors when direct policy logits are available.
+         * @param position chess position
+         * @param moves candidate moves
+         * @param fallback fallback value
+         * @return priors result
          */
         default double[] priors(Position position, short[] moves, double[] fallback) {
             return fallback;
@@ -1736,11 +1928,13 @@ public final class Mcts implements AutoCloseable {
 
         /**
          * Returns the backend name.
+         * @return name result
          */
         String name();
 
         /**
          * Returns whether backend calls are safe from multiple worker threads.
+         * @return thread safe result
          */
         default boolean threadSafe() {
             return false;
@@ -1759,8 +1953,14 @@ public final class Mcts implements AutoCloseable {
      * Centipawn-evaluator backend.
      */
     private static final class EvaluatorBackend implements SearchBackend {
+        /**
+         * Evaluator.
+         */
         private final CentipawnEvaluator evaluator;
 
+        /**
+         * Evaluator backend.
+         * @param evaluator evaluator value */
         private EvaluatorBackend(CentipawnEvaluator evaluator) {
             this.evaluator = evaluator;
         }
@@ -1803,11 +2003,26 @@ public final class Mcts implements AutoCloseable {
      * LC0 CNN policy/value backend.
      */
     private static final class CnnBackend implements SearchBackend {
+        /**
+         * Model.
+         */
         private final chess.nn.lc0.cnn.Model model;
+        /**
+         * New recent prediction cache.
+         * @return new recent prediction cache result */
         private final Map<Long, chess.nn.lc0.cnn.Network.Prediction> cache = newRecentPredictionCache();
+        /**
+         * Last key.
+         */
         private long lastKey = Long.MIN_VALUE;
+        /**
+         * Last prediction.
+         */
         private chess.nn.lc0.cnn.Network.Prediction lastPrediction;
 
+        /**
+         * Cnn backend.
+         * @param model model value */
         private CnnBackend(chess.nn.lc0.cnn.Model model) {
             this.model = model;
         }
@@ -1853,6 +2068,10 @@ public final class Mcts implements AutoCloseable {
             model.close();
         }
 
+        /**
+         * Predict.
+         * @param position chess position
+         * @return predict result */
         private chess.nn.lc0.cnn.Network.Prediction predict(Position position) {
             long key = position.signature();
             if (lastPrediction != null && lastKey == key) {
@@ -1868,6 +2087,10 @@ public final class Mcts implements AutoCloseable {
             return lastPrediction;
         }
 
+        /**
+         * Remember.
+         * @param key lookup key
+         * @param prediction prediction value */
         private void remember(long key, chess.nn.lc0.cnn.Network.Prediction prediction) {
             lastKey = key;
             lastPrediction = prediction;
@@ -1879,11 +2102,26 @@ public final class Mcts implements AutoCloseable {
      * LC0 BT4 policy/value backend.
      */
     private static final class Bt4Backend implements SearchBackend {
+        /**
+         * Network.
+         */
         private final chess.nn.lc0.bt4.Network network;
+        /**
+         * New recent prediction cache.
+         * @return new recent prediction cache result */
         private final Map<Long, Bt4Prediction> cache = newRecentPredictionCache();
+        /**
+         * Last key.
+         */
         private long lastKey = Long.MIN_VALUE;
+        /**
+         * Last prediction.
+         */
         private Bt4Prediction lastPrediction;
 
+        /**
+         * Bt4 backend.
+         * @param network network value */
         private Bt4Backend(chess.nn.lc0.bt4.Network network) {
             this.network = network;
         }
@@ -1932,6 +2170,10 @@ public final class Mcts implements AutoCloseable {
             network.close();
         }
 
+        /**
+         * Predict.
+         * @param position chess position
+         * @return predict result */
         private Bt4Prediction predict(Position position) {
             long key = position.signature();
             if (lastPrediction != null && lastKey == key) {
@@ -1949,6 +2191,10 @@ public final class Mcts implements AutoCloseable {
             return lastPrediction;
         }
 
+        /**
+         * Remember.
+         * @param key lookup key
+         * @param prediction prediction value */
         private void remember(long key, Bt4Prediction prediction) {
             lastKey = key;
             lastPrediction = prediction;
@@ -1958,6 +2204,8 @@ public final class Mcts implements AutoCloseable {
 
     /**
      * Creates a small access-ordered prediction cache.
+     * @param <T> < t> value
+     * @return new recent prediction cache result
      */
     private static <T> Map<Long, T> newRecentPredictionCache() {
         return new LinkedHashMap<>(256, 0.75f, true) {
@@ -1980,6 +2228,9 @@ public final class Mcts implements AutoCloseable {
      * Captures BT4 canonical transform from activation output.
      */
     private static final class TransformSink implements chess.nn.ActivationSink {
+        /**
+         * Transform.
+         */
         private int transform;
 
         @Override
@@ -2087,9 +2338,21 @@ public final class Mcts implements AutoCloseable {
      * Proven endgame state from the node side-to-move perspective.
      */
     private enum ProofState {
+        /**
+         * U n k n o w n,.
+         */
         UNKNOWN,
+        /**
+         * W i n,.
+         */
         WIN,
+        /**
+         * D r a w,.
+         */
         DRAW,
+        /**
+         * L o s s.
+         */
         LOSS
     }
 
@@ -2097,14 +2360,38 @@ public final class Mcts implements AutoCloseable {
      * Shared MCTS stats for one hashed position.
      */
     private static final class Stats {
+        /**
+         * Visits.
+         */
         private int visits;
+        /**
+         * Virtual visits.
+         */
         private int virtualVisits;
+        /**
+         * Value sum.
+         */
         private double valueSum;
+        /**
+         * Virtual loss sum.
+         */
         private double virtualLossSum;
+        /**
+         * Win sum.
+         */
         private double winSum;
+        /**
+         * Draw sum.
+         */
         private double drawSum;
+        /**
+         * Loss sum.
+         */
         private double lossSum;
 
+        /**
+         * Q.
+         * @return q result */
         private double q() {
             int totalVisits = visits + virtualVisits;
             return totalVisits == 0 ? 0.0 : (valueSum - virtualLossSum) / totalVisits;
@@ -2121,19 +2408,65 @@ public final class Mcts implements AutoCloseable {
      * One tree node.
      */
     private static final class Node {
+        /**
+         * Parent.
+         */
         private Node parent;
+        /**
+         * Move.
+         */
         private short move;
+        /**
+         * Position.
+         */
         private final Position position;
+        /**
+         * Prior.
+         */
         private final double prior;
+        /**
+         * Depth.
+         */
         private int depth;
+        /**
+         * Key.
+         */
         private final long key;
+        /**
+         * Core key.
+         */
         private final long coreKey;
+        /**
+         * Stats.
+         */
         private final Stats stats;
+        /**
+         * Array list<>.
+         */
         private final List<Node> children = new ArrayList<>();
+        /**
+         * Expanded.
+         */
         private boolean expanded;
+        /**
+         * Proof.
+         */
         private ProofState proof = ProofState.UNKNOWN;
+        /**
+         * Proof plies.
+         */
         private int proofPlies = Integer.MAX_VALUE;
 
+        /**
+         * Node.
+         * @param parent parent node
+         * @param move move encoded in CRTK move format
+         * @param position chess position
+         * @param prior prior value
+         * @param depth search depth
+         * @param key lookup key
+         * @param coreKey core key value
+         * @param stats statistics data */
         private Node(
                 Node parent,
                 short move,
@@ -2153,10 +2486,16 @@ public final class Mcts implements AutoCloseable {
             this.stats = stats;
         }
 
+        /**
+         * Q.
+         * @return q result */
         private double q() {
             return stats.q();
         }
 
+        /**
+         * Visits.
+         * @return visits result */
         private int visits() {
             return stats.visits;
         }

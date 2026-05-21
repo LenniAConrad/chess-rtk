@@ -89,6 +89,9 @@ public final class Pgn {
 
     /**
      * Reads PGN game blocks from a character stream and parses each block.
+     * @param reader reader value
+     * @param games games to process
+     * @throws java.io.IOException if IOException is raised by the underlying operation
      */
     private static void readGames(BufferedReader reader, List<Game> games) throws IOException {
         StringBuilder current = new StringBuilder();
@@ -124,6 +127,8 @@ public final class Pgn {
 
     /**
      * Parses the current PGN block and clears the buffer.
+     * @param games games to process
+     * @param current current value
      */
     private static void addParsedGame(List<Game> games, StringBuilder current) {
         Game game = parseGame(current.toString().trim());

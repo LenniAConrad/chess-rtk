@@ -321,6 +321,11 @@ public final class Bar {
 
 	/**
 	 * Used for deciding whether to render based on throttling.
+	 * @param done done value
+	 * @param now now value
+	 * @param ignoreRenderEvery ignore render every value
+	 * @param ignoreThrottle ignore throttle value
+	 * @return true when should render
 	 */
 	private boolean shouldRender(long done, long now, boolean ignoreRenderEvery, boolean ignoreThrottle) {
 		if (done >= total) {
@@ -337,6 +342,8 @@ public final class Bar {
 
 	/**
 	 * Used for choosing a sensible render frequency for large totals.
+	 * @param total total value
+	 * @return choose render every result
 	 */
 	private static long chooseRenderEvery(long total) {
 		if (total <= 0) {
@@ -492,6 +499,7 @@ public final class Bar {
 	 * longer previous line to prevent visual artifacts.
 	 *
 	 * @param line textual line to emit (without newline)
+	 * @param force force value
 	 */
 	private void writeLine(String line, boolean force) {
 		boolean locked = force ? lockInterruptibly() : RENDER_LOCK.tryLock();

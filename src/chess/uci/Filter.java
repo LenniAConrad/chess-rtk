@@ -1203,6 +1203,8 @@ NOT_SAME
             /**
              * Accepts compact nested gate tokens such as {@code leaf[or;...]} in
              * addition to the canonical {@code gate=OR} spelling.
+             * @param b second value
+             * @return handle bare gate result
              */
             private boolean handleBareGate(Filter.Builder b) {
                 int saved = pos;
@@ -1401,6 +1403,7 @@ NOT_SAME
             /**
              * Reads an int comparison token (e.g., {@code "depth>=30"}) and returns its
              * value.
+             * @return parse int comp and value result
              */
             private int parseIntCompAndValue() {
                 String token = readComparison();
@@ -1412,6 +1415,7 @@ NOT_SAME
             /**
              * Reads a long comparison token (e.g., {@code "nodes>=1000000"}) and returns
              * its value.
+             * @return parse long comp and value result
              */
             private long parseLongCompAndValue() {
                 String token = readComparison();
@@ -1423,6 +1427,8 @@ NOT_SAME
             /**
              * Extracts the {@link Filter.ComparisonOperator} from a token
              * by inspecting {@code >, >=, <, <=, =}.
+             * @param token token value
+             * @return parse op result
              */
             private static Filter.ComparisonOperator parseOp(String token) {
                 if (token.contains(DslLiterals.OP_SYMBOL_GREATER_EQUAL))
@@ -1438,6 +1444,8 @@ NOT_SAME
 
             /**
              * Extracts the right-hand side of a comparison token.
+             * @param token token value
+             * @return value part result
              */
             private static String valuePart(String token) {
                 int idx = token.indexOf(DslLiterals.OP_SYMBOL_GREATER_EQUAL);
@@ -1466,6 +1474,8 @@ NOT_SAME
             /**
              * Parses booleans strictly so configuration typos do not silently become
              * {@code false}.
+             * @param token token value
+             * @return parse boolean result
              */
             private static boolean parseBoolean(String token) {
                 if ("true".equalsIgnoreCase(token)) {
@@ -1480,6 +1490,7 @@ NOT_SAME
             /**
              * Builds an exception for an unrecognized token without advancing past
              * surrounding valid input.
+             * @return unknown token result
              */
             private IllegalArgumentException unknownToken() {
                 int start = pos;
@@ -1515,6 +1526,7 @@ NOT_SAME
 
             /**
              * @return whether the remaining input starts with {@code s} at {@link #pos}.
+             * @param s source string
              */
             private boolean peek(String s) {
                 return input.startsWith(s, pos);
@@ -1524,6 +1536,8 @@ NOT_SAME
              * Checks whether the next token starts with a predicate key followed by a
              * comparison operator. This prevents misspelled keys that merely share a
              * prefix from being accepted.
+             * @param key lookup key
+             * @return peek comparison key result
              */
             private boolean peekComparisonKey(String key) {
                 int opIndex = pos + key.length();
@@ -1534,6 +1548,7 @@ NOT_SAME
 
             /**
              * @return whether {@code c} can begin a comparison operator.
+             * @param c c value
              */
             private static boolean isComparisonStart(char c) {
                 return c == '>' || c == '<' || c == '=';
@@ -1541,6 +1556,7 @@ NOT_SAME
 
             /**
              * Reads a comparison token until a delimiter or bracket.
+             * @return read comparison result
              */
             private String readComparison() {
                 return readToken();
@@ -1548,6 +1564,7 @@ NOT_SAME
 
             /**
              * Reads a generic token until a delimiter or bracket.
+             * @return read token result
              */
             private String readToken() {
                 int start = pos;
@@ -1564,6 +1581,8 @@ NOT_SAME
 
             /**
              * Parses an {@code int} from a digit string.
+             * @param s source string
+             * @return parse int result
              */
             private static int parseInt(String s) {
                 return Integer.parseInt(s);
@@ -1571,6 +1590,8 @@ NOT_SAME
 
             /**
              * Parses a {@code long} from a digit string.
+             * @param s source string
+             * @return parse long result
              */
             private static long parseLong(String s) {
                 return Long.parseLong(s);

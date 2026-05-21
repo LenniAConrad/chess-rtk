@@ -172,6 +172,7 @@ public class Dates {
 	 * @see getDay()
 	 * @see getTime()
 	 * @see getTimezone()
+	 * @param date date value
 	 */
 	public static String getYear(Date date) {
 		return format(YEAR_FORMAT, date);
@@ -202,6 +203,8 @@ public class Dates {
 	 * @see getDay()
 	 * @see getTime()
 	 * @see getTimezone()
+	 * @param date date value
+	 * @return get month result
 	 */
 	public static String getMonth(Date date) {
 		return format(MONTH_FORMAT, date);
@@ -233,6 +236,7 @@ public class Dates {
 	 * @see getMonth()
 	 * @see getTime()
 	 * @see getTimezone()
+	 * @param date date value
 	 */
 	public static String getDay(Date date) {
 		return format(DAY_FORMAT, date);
@@ -266,6 +270,7 @@ public class Dates {
 	 * @see getMonth()
 	 * @see getDay()
 	 * @see getTimezone()
+	 * @param date date value
 	 */
 	public static String getTime(Date date) {
 		return format(TIME_FORMAT, date);
@@ -299,6 +304,7 @@ public class Dates {
 	 * @see getMonth()
 	 * @see getDay()
 	 * @see getTime()
+	 * @param date date value
 	 */
 	public static String getTimezone(Date date) {
 		return format(TIMEZONE_FORMAT, date);

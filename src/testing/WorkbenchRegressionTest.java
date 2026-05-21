@@ -1662,6 +1662,12 @@ public final class WorkbenchRegressionTest {
 
     /**
      * Sums alpha values over a rectangular image region.
+     * @param image image value
+     * @param x x coordinate
+     * @param y y coordinate
+     * @param width width in pixels
+     * @param height height in pixels
+     * @return alpha sum result
      */
     private static int alphaSum(BufferedImage image, int x, int y, int width, int height) {
         int sum = 0;

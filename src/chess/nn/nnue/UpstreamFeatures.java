@@ -438,6 +438,7 @@ final class UpstreamFeatures {
      * @param kingSquare perspective king square
      * @param tables variant-specific tables
      * @param active output list
+     * @param ctx search context
      */
     private static void appendThreatsFrom(
             int[] board,

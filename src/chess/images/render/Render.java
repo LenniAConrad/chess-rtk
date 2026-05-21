@@ -923,6 +923,7 @@ public final class Render {
 	 * @param svg SVG builder
 	 * @param boardX board origin x
 	 * @param boardY board origin y
+	 * @param accentHex accent hex value
 	 */
 	private static void appendBoardSvg(StringBuilder svg, int boardX, int boardY, String accentHex) {
 		svg.append("  <g transform=\"translate(").append(boardX).append(' ').append(boardY).append(")\">\n");
@@ -1068,6 +1069,7 @@ public final class Render {
 	 * @param svg SVG builder
 	 * @param boardX board origin x
 	 * @param boardY board origin y
+	 * @param details details value
 	 */
 	private void appendSquareTextsSvg(StringBuilder svg, int boardX, int boardY, boolean details) {
 		BufferedImage scratch = new BufferedImage(1, 1, BufferedImage.TYPE_INT_ARGB);
@@ -1492,6 +1494,7 @@ public final class Render {
 	 * @param g      graphics context
 	 * @param boardX board origin x
 	 * @param boardY board origin y
+	 * @param details details value
 	 */
 	private void drawSquareTexts(Graphics2D g, int boardX, int boardY, boolean details) {
 		Font previousFont = g.getFont();

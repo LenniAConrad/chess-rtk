@@ -543,6 +543,9 @@ public final class PerftSuite {
 
         /**
          * Creates a summary with an immutable row list.
+         * @param maxDepth max depth value
+         * @param rows data rows
+         * @param nanos nanos value
          */
         public Summary {
             rows = List.copyOf(rows);

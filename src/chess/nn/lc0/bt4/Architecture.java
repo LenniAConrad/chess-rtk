@@ -111,6 +111,28 @@ public record Architecture(
 
     /**
      * Validates architecture metadata.
+     * @param name name value
+     * @param inputFormat input encoding format
+     * @param inputEmbedding input embedding type
+     * @param inputChannels number of input channels
+     * @param tokens token values
+     * @param embeddingSize embedding size
+     * @param encoderLayers number of encoder layers
+     * @param attentionHeads attention head count
+     * @param policySize policy output size
+     * @param layerNormEpsilon layer normalization epsilon
+     * @param ffnHiddenSize feed-forward hidden size
+     * @param smolgenHiddenChannels Smolgen hidden channel count
+     * @param smolgenHiddenSize Smolgen hidden size
+     * @param smolgenPerHeadDim Smolgen per-head dimension
+     * @param smolgenGlobalSize Smolgen global size
+     * @param defaultActivation default activation function
+     * @param smolgenActivation Smolgen activation function
+     * @param ffnActivation feed-forward activation function
+     * @param hasInputPreproc true when input preprocessing is enabled
+     * @param hasInputEmbFfn true when the input embedding feed-forward network is enabled
+     * @param hasInputGates true when input gates are enabled
+     * @param hasSmolgen true when Smolgen is enabled
      */
     public Architecture {
         if (name == null || name.isBlank()) {

@@ -813,6 +813,7 @@ public final class Writer {
 	 * @param book source book metadata
 	 * @param options cover rendering options
 	 * @return positive page count
+	 * @param interiorPdf interior pdf value
 	 */
 	private static int resolvePages(Book book, Options options, DocumentMetrics interiorPdf) {
 		if (options.getPages() > 0) {

@@ -44,6 +44,7 @@ public final class BT4RegressionTest {
      * Runs all checks.
      *
      * @param args ignored
+     * @throws java.io.IOException if IOException is raised by the underlying operation
      */
     public static void main(String[] args) throws IOException {
         testEncoderClassicalPlanes();
@@ -110,6 +111,7 @@ public final class BT4RegressionTest {
 
     /**
      * Verifies the Java reference forward path on a tiny deterministic network.
+     * @throws java.io.IOException if IOException is raised by the underlying operation
      */
     private static void testModelLoadAndForward() throws IOException {
         Architecture architecture = syntheticArchitecture();
@@ -177,6 +179,7 @@ public final class BT4RegressionTest {
     /**
      * Compares native backends against the Java CPU path when the host has a
      * matching GPU and JNI library available.
+     * @throws java.io.IOException if IOException is raised by the underlying operation
      */
     private static void testNativeBackendsWhenAvailable() throws IOException {
         Architecture architecture = syntheticArchitecture();

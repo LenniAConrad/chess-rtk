@@ -466,6 +466,7 @@ public final class CoreMoveGenerationRegressionTest {
      * Compares legal move sets for one FEN.
      *
      * @param fen FEN
+     * @param testCase test case value
      */
     private static void assertMoveSetParity(PerftCase testCase) {
         Position position = new Position(testCase.fen);
@@ -495,6 +496,8 @@ public final class CoreMoveGenerationRegressionTest {
 
     /**
      * Compares detailed perft for one CPW case and depth.
+     * @param testCase test case value
+     * @param depth search depth
      */
     private static void assertDetailedPerft(DetailedPerftCase testCase, int depth) {
         Perft.Stats expected = testCase.stats[depth];
@@ -510,6 +513,14 @@ public final class CoreMoveGenerationRegressionTest {
 
     /**
      * Creates detailed perft stats.
+     * @param nodes node count
+     * @param captures captures value
+     * @param enPassant en passant value
+     * @param castles castles value
+     * @param promotions promotions value
+     * @param checks checks value
+     * @param checkmates checkmates value
+     * @return stats result
      */
     private static Perft.Stats stats(
             long nodes,
@@ -538,6 +549,8 @@ public final class CoreMoveGenerationRegressionTest {
 
     /**
      * Verifies that a callback throws an illegal-argument exception.
+     * @param runnable runnable value
+     * @param label label text
      */
     private static void assertThrows(Runnable runnable, String label) {
         try {
@@ -550,6 +563,8 @@ public final class CoreMoveGenerationRegressionTest {
 
     /**
      * Converts square arrays to stable sets for order-insensitive comparisons.
+     * @param squares squares value
+     * @return square set result
      */
     private static Set<Integer> squareSet(byte[] squares) {
         Set<Integer> out = new TreeSet<>();
@@ -578,6 +593,9 @@ public final class CoreMoveGenerationRegressionTest {
 
         /**
          * Creates an immutable perft case.
+         * @param name name value
+         * @param fen FEN string
+         * @param nodes node count
          */
         private PerftCase {
             nodes = nodes.clone();
@@ -656,6 +674,9 @@ public final class CoreMoveGenerationRegressionTest {
 
         /**
          * Creates an immutable detailed perft case.
+         * @param name name value
+         * @param fen FEN string
+         * @param stats statistics data
          */
         private DetailedPerftCase {
             stats = stats.clone();

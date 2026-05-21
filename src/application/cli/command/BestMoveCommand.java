@@ -280,6 +280,7 @@ public final class BestMoveCommand {
 	 *
 	 * @param a argument parser for the subcommand
 	 * @return parsed option set
+	 * @param cmdLabel command label
 	 */
 	private static BestMoveOptions parseBestMoveOptions(Argv a, String cmdLabel) {
 		boolean verbose = a.flag(OPT_VERBOSE, OPT_VERBOSE_SHORT);

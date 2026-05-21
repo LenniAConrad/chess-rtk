@@ -94,6 +94,7 @@ public final class Network implements AutoCloseable {
      * @param cuda CUDA backend, or {@code null}
      * @param rocm ROCm backend, or {@code null}
      * @param oneapi oneAPI backend, or {@code null}
+     * @param architecture architecture value
      */
     private Network(
             Weights weights,
@@ -214,6 +215,7 @@ public final class Network implements AutoCloseable {
          *
          * @param path path to the weights file
          * @return initialized network
+         * @throws java.io.IOException if IOException is raised by the underlying operation
          */
         Network load(Path path) throws IOException;
     }
@@ -223,6 +225,7 @@ public final class Network implements AutoCloseable {
      *
      * @param path weights path
      * @return CUDA-backed network
+     * @throws java.io.IOException if IOException is raised by the underlying operation
      */
     private static Network loadCuda(Path path) throws IOException {
         Architecture architecture = BinLoader.loadArchitecture(path);
@@ -238,6 +241,7 @@ public final class Network implements AutoCloseable {
      *
      * @param path weights path
      * @return ROCm-backed network
+     * @throws java.io.IOException if IOException is raised by the underlying operation
      */
     private static Network loadRocm(Path path) throws IOException {
         Architecture architecture = BinLoader.loadArchitecture(path);
@@ -253,6 +257,7 @@ public final class Network implements AutoCloseable {
      *
      * @param path weights path
      * @return oneAPI-backed network
+     * @throws java.io.IOException if IOException is raised by the underlying operation
      */
     private static Network loadOneapi(Path path) throws IOException {
         Architecture architecture = BinLoader.loadArchitecture(path);
@@ -643,12 +648,21 @@ public final class Network implements AutoCloseable {
      */
     private static final class RocmBackendHolder implements AutoCloseable {
 
+        /**
+         * Backend.
+         */
         private chess.nn.lc0.bt4.rocm.Backend backend;
 
+        /**
+         * Rocm backend holder.
+         * @param backend backend value */
         private RocmBackendHolder(chess.nn.lc0.bt4.rocm.Backend backend) {
             this.backend = backend;
         }
 
+        /**
+         * Detach.
+         */
         private void detach() {
             backend = null;
         }
@@ -666,12 +680,21 @@ public final class Network implements AutoCloseable {
      */
     private static final class OneapiBackendHolder implements AutoCloseable {
 
+        /**
+         * Backend.
+         */
         private chess.nn.lc0.bt4.oneapi.Backend backend;
 
+        /**
+         * Oneapi backend holder.
+         * @param backend backend value */
         private OneapiBackendHolder(chess.nn.lc0.bt4.oneapi.Backend backend) {
             this.backend = backend;
         }
 
+        /**
+         * Detach.
+         */
         private void detach() {
             backend = null;
         }
@@ -853,6 +876,7 @@ public final class Network implements AutoCloseable {
      * @param architecture architecture metadata (LN eps, activations, smolgen flag)
      * @param alpha residual scaling override; pass {@code block.alpha()} for legacy
      * @return token-major output
+     * @param blockIndex block index value
      */
     private float[] runEncoderBlock(float[] input, EncoderBlock block, int tokens, Architecture architecture,
             float alpha, int blockIndex) {
@@ -1041,6 +1065,7 @@ public final class Network implements AutoCloseable {
      * @param smolgenActivation smolgen-internal activation
      * @param layerNormEpsilon smolgen layer-norm epsilon
      * @return token-major attention output
+     * @param blockIndex block index value
      */
     private float[] attention(float[] input, int tokens, int embedding, Attention attention,
             float[] smolgenW, Activation smolgenActivation, float layerNormEpsilon, int blockIndex) {
@@ -1417,6 +1442,12 @@ public final class Network implements AutoCloseable {
 
         /**
          * Validates the bundle.
+         * @param architecture architecture value
+         * @param input input value
+         * @param encoders encoders value
+         * @param smolgenW smolgen w value
+         * @param policyHead policy head value
+         * @param valueHead value head value
          */
         public Weights {
             if (architecture == null || input == null || encoders == null || policyHead == null
@@ -1497,6 +1528,8 @@ public final class Network implements AutoCloseable {
 
         /**
          * Validates the FFN shape.
+         * @param dense1 dense1 value
+         * @param dense2 dense2 value
          */
         public Ffn {
             if (dense1 == null || dense2 == null) {
@@ -1552,6 +1585,13 @@ public final class Network implements AutoCloseable {
 
         /**
          * Validates smolgen shape.
+         * @param compress compress value
+         * @param dense1 dense1 value
+         * @param ln1Gamma ln1 gamma value
+         * @param ln1Beta ln1 beta value
+         * @param dense2 dense2 value
+         * @param ln2Gamma ln2 gamma value
+         * @param ln2Beta ln2 beta value
          */
         public Smolgen {
             if (compress == null || dense1 == null || dense2 == null) {
@@ -1613,6 +1653,15 @@ public final class Network implements AutoCloseable {
 
         /**
          * Validates the stack.
+         * @param preproc preproc value
+         * @param embedding embedding value
+         * @param embLnGamma emb ln gamma value
+         * @param embLnBeta emb ln beta value
+         * @param multGate mult gate value
+         * @param addGate add gate value
+         * @param embFfn emb ffn value
+         * @param embFfnLnGamma emb ffn ln gamma value
+         * @param embFfnLnBeta emb ffn ln beta value
          */
         public InputStack {
             if (embedding == null) {
@@ -1683,6 +1732,10 @@ public final class Network implements AutoCloseable {
 
         /**
          * Validates dense layer shape.
+         * @param inDim in dim value
+         * @param outDim out dim value
+         * @param weights network weights
+         * @param bias bias value
          */
         public Dense {
             if (inDim <= 0 || outDim <= 0) {
@@ -1722,6 +1775,12 @@ public final class Network implements AutoCloseable {
 
         /**
          * Validates attention dimensions.
+         * @param heads heads value
+         * @param query query value
+         * @param key lookup key
+         * @param value value to use
+         * @param out out value
+         * @param smolgen smolgen value
          */
         public Attention {
             if (heads <= 0 || query == null || key == null || value == null || out == null) {
@@ -1795,6 +1854,15 @@ public final class Network implements AutoCloseable {
 
         /**
          * Validates block shape.
+         * @param attention attention value
+         * @param ffnIn ffn in value
+         * @param ffnOut ffn out value
+         * @param ln1Gamma ln1 gamma value
+         * @param ln1Beta ln1 beta value
+         * @param ln2Gamma ln2 gamma value
+         * @param ln2Beta ln2 beta value
+         * @param activation activation function
+         * @param alpha alpha search bound
          */
         public EncoderBlock {
             if (attention == null || ffnIn == null || ffnOut == null || activation == null) {
@@ -1845,6 +1913,12 @@ public final class Network implements AutoCloseable {
 
         /**
          * Validates head shape.
+         * @param embedding embedding value
+         * @param encoders encoders value
+         * @param query query value
+         * @param key lookup key
+         * @param promotionWeights promotion weights value
+         * @param activation activation function
          */
         public PolicyHead {
             if (embedding == null || encoders == null || query == null || key == null || activation == null) {
@@ -1888,6 +1962,10 @@ public final class Network implements AutoCloseable {
 
         /**
          * Validates value head.
+         * @param embedding embedding value
+         * @param fc1 fc1 value
+         * @param fc2 fc2 value
+         * @param activation activation function
          */
         public ValueHead {
             if (embedding == null || fc1 == null || fc2 == null || activation == null) {

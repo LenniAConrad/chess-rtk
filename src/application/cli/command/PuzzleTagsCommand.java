@@ -112,6 +112,10 @@ public final class PuzzleTagsCommand {
 
     /**
      * Emits tag delta rows for all extracted puzzle records.
+     * @param records records value
+     * @param engine engine value
+     * @param opts command options
+     * @param puzzleDifficulty puzzle difficulty value
      */
     private static void emitPuzzleRecords(List<chess.struct.Record> records, Engine engine, PuzzleOptions opts,
             Difficulty puzzleDifficulty) {
@@ -127,6 +131,14 @@ public final class PuzzleTagsCommand {
 
     /**
      * Emits one puzzle record when it can be tagged.
+     * @param index index value
+     * @param rec record value
+     * @param engine engine value
+     * @param opts command options
+     * @param cache cache value
+     * @param effectiveCache effective cache value
+     * @param puzzleDifficulty puzzle difficulty value
+     * @return emit puzzle record result
      */
     private static boolean emitPuzzleRecord(long index, chess.struct.Record rec, Engine engine, PuzzleOptions opts,
             Map<String, TagEntry> cache, Map<String, List<String>> effectiveCache, Difficulty puzzleDifficulty) {

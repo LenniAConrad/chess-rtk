@@ -124,6 +124,8 @@ public final class MctsUci {
 
     /**
      * Main read/evaluate loop.
+     * @param reader reader value
+     * @throws java.io.IOException if IOException is raised by the underlying operation
      */
     private void runLoop(BufferedReader reader) throws IOException {
         String line;
@@ -135,6 +137,7 @@ public final class MctsUci {
 
     /**
      * Dispatches one UCI command.
+     * @param line line text
      */
     private void handle(String line) {
         if (line == null || line.isBlank()) {
@@ -169,6 +172,7 @@ public final class MctsUci {
 
     /**
      * Handles the minimal Hash option.
+     * @param line line text
      */
     private void handleSetOption(String line) {
         List<String> tokens = tokens(line);
@@ -191,6 +195,7 @@ public final class MctsUci {
 
     /**
      * Handles UCI position setup.
+     * @param line line text
      */
     private void handlePosition(String line) {
         try {
@@ -219,6 +224,9 @@ public final class MctsUci {
 
     /**
      * Applies UCI moves to a position.
+     * @param target target value
+     * @param moves candidate moves
+     * @param history history value
      */
     private static void playMoves(Position target, List<String> moves, List<Long> history) {
         for (String token : moves) {
@@ -235,6 +243,7 @@ public final class MctsUci {
 
     /**
      * Starts a search.
+     * @param line line text
      */
     private void handleGo(String line) {
         stopAndJoin();
@@ -254,6 +263,8 @@ public final class MctsUci {
 
     /**
      * Copies history keys to a primitive array.
+     * @param history history value
+     * @return history array result
      */
     private static long[] historyArray(List<Long> history) {
         if (history == null || history.isEmpty()) {
@@ -275,6 +286,7 @@ public final class MctsUci {
 
     /**
      * Waits for the current search, optionally requesting a stop first.
+     * @param requestStop request stop value
      */
     private void joinSearch(boolean requestStop) {
         Thread thread;
@@ -302,6 +314,9 @@ public final class MctsUci {
 
     /**
      * Parses a UCI go command.
+     * @param line line text
+     * @param whiteToMove white to move value
+     * @return parse go result
      */
     private static GoLimits parseGo(String line, boolean whiteToMove) {
         List<String> tokens = tokens(line);
@@ -342,6 +357,9 @@ public final class MctsUci {
 
     /**
      * Parses UCI clock fields into a simple move time.
+     * @param tokens token values
+     * @param whiteToMove white to move value
+     * @return parse time control result
      */
     private static TimeControl parseTimeControl(List<String> tokens, boolean whiteToMove) {
         long wtime = 0L;
@@ -376,6 +394,7 @@ public final class MctsUci {
 
     /**
      * Emits one UCI info line.
+     * @param result result value
      */
     private void printInfo(Result result) {
         StringBuilder sb = new StringBuilder();
@@ -401,6 +420,8 @@ public final class MctsUci {
 
     /**
      * Computes nodes per second for UCI output.
+     * @param result result value
+     * @return nodes per second result
      */
     private static long nodesPerSecond(Result result) {
         return result.nodes() * 1_000L / Math.max(1L, result.elapsedMillis());
@@ -408,6 +429,7 @@ public final class MctsUci {
 
     /**
      * Writes one output line without interleaving search output.
+     * @param line line text
      */
     private void writeLine(String line) {
         synchronized (lock) {
@@ -418,6 +440,8 @@ public final class MctsUci {
 
     /**
      * Splits a command into whitespace tokens.
+     * @param line line text
+     * @return tokens result
      */
     private static List<String> tokens(String line) {
         String[] raw = line.trim().split("\\s+");
@@ -432,6 +456,9 @@ public final class MctsUci {
 
     /**
      * Finds a token.
+     * @param tokens token values
+     * @param value value to use
+     * @return index of result
      */
     private static int indexOf(List<String> tokens, String value) {
         for (int i = 0; i < tokens.size(); i++) {
@@ -444,6 +471,9 @@ public final class MctsUci {
 
     /**
      * Parses a positive int.
+     * @param value value to use
+     * @param fallback fallback value
+     * @return parse positive int result
      */
     private static int parsePositiveInt(String value, int fallback) {
         try {
@@ -455,6 +485,9 @@ public final class MctsUci {
 
     /**
      * Parses a positive long.
+     * @param value value to use
+     * @param fallback fallback value
+     * @return parse positive long result
      */
     private static long parsePositiveLong(String value, long fallback) {
         try {

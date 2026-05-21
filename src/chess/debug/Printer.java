@@ -285,6 +285,7 @@ public class Printer {
 	 * </p>
 	 *
 	 * @param depth the depth to search down to
+	 * @param position chess position
 	 */
 	public static void perft(Position position, int depth) {
 		depth = Math.max(depth, 1);

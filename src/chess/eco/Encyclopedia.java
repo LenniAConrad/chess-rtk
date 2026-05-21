@@ -242,6 +242,8 @@ public final class Encyclopedia {
      * Used for quickly obtaining an opening name from the default ECO book.
      *
      * @see #getName(Position)
+     * @param pos position value
+     * @return name result
      */
     public static String name(Position pos) {
         return defaultBook().getName(pos);
@@ -251,6 +253,8 @@ public final class Encyclopedia {
      * Used for quickly obtaining an ECO code from the default ECO book.
      *
      * @see #getECO(Position)
+     * @param pos position value
+     * @return eco result
      */
     public static String eco(Position pos) {
         return defaultBook().getECO(pos);
@@ -260,6 +264,8 @@ public final class Encyclopedia {
      * Used for quickly obtaining a full {@link Entry} from the default ECO book.
      *
      * @see #getNode(Position)
+     * @param pos position value
+     * @return node result
      */
     public static Entry node(Position pos) {
         return defaultBook().getNode(pos);

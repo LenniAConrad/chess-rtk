@@ -820,6 +820,7 @@ public final class UpstreamNetwork implements AutoCloseable {
      * @param slot active slot
      * @param position current position
      * @return centipawns from the side-to-move perspective
+     * @param scratch scratch value
      */
     private int evaluateSmall(SmallSearchSlot slot, Position position, Architecture.Scratch scratch) {
         int bucket = bucket(position.countTotalPieces());
@@ -2059,6 +2060,7 @@ public final class UpstreamNetwork implements AutoCloseable {
          *
          * @param input unsigned byte-like input values in int form
          * @return output vector
+         * @param output output text
          */
         void forwardInto(int[] input, int[] output) {
             System.arraycopy(biases, 0, output, 0, outputDimensions);
