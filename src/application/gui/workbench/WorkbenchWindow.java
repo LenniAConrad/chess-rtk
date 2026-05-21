@@ -2232,14 +2232,17 @@ public final class WorkbenchWindow extends JFrame {
     }
 
     /**
-     * Styles a split pane as a quiet resizable workbench divider.
+     * Styles a split pane as a quiet resizable workbench divider with VS
+     * Code-style one-touch collapse arrows, so either side can be folded away
+     * and restored with a single click.
      *
      * @param pane split pane
      */
     private static void styleSplitPane(JSplitPane pane) {
         pane.setUI(new BasicSplitPaneUI() {
             /**
-             * Creates a divider without the platform grip artifact.
+             * Creates a themed divider that keeps the one-touch collapse
+             * buttons.
              *
              * @return divider
              */
@@ -2250,13 +2253,26 @@ public final class WorkbenchWindow extends JFrame {
 
                     @Override
                     public void paint(java.awt.Graphics graphics) {
+                        graphics.setColor(WorkbenchTheme.BG);
+                        graphics.fillRect(0, 0, getWidth(), getHeight());
                         graphics.setColor(WorkbenchTheme.LINE);
-                        int x = Math.max(0, getWidth() / 2);
-                        graphics.drawLine(x, 0, x, getHeight());
+                        if (getWidth() <= getHeight()) {
+                            int x = getWidth() / 2;
+                            graphics.drawLine(x, 0, x, getHeight());
+                        } else {
+                            int y = getHeight() / 2;
+                            graphics.drawLine(0, y, getWidth(), y);
+                        }
+                        // Render the one-touch collapse arrows on top.
+                        super.paint(graphics);
                     }
                 };
             }
         });
+        // One-touch arrows let a pane be collapsed and restored like a VS Code
+        // side panel.
+        pane.setOneTouchExpandable(true);
+        pane.setDividerSize(11);
         pane.setBorder(BorderFactory.createEmptyBorder());
         pane.setBackground(WorkbenchTheme.BG);
     }
