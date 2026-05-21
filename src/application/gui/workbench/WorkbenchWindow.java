@@ -2268,7 +2268,12 @@ public final class WorkbenchWindow extends JFrame {
      */
     private JComponent createReportPanel() {
         JPanel panel = new WorkbenchSurfacePanel(new BorderLayout(8, 8));
-        panel.add(WorkbenchTheme.section("Report Maker"), BorderLayout.NORTH);
+        JPanel header = transparentPanel(new BorderLayout(0, 2));
+        header.add(WorkbenchTheme.section("Report"), BorderLayout.NORTH);
+        header.add(WorkbenchUi.caption(
+                "A plain-text analysis of the current position and game line — generate, then copy or save it."),
+                BorderLayout.SOUTH);
+        panel.add(header, BorderLayout.NORTH);
 
         styleFields(reportNoteField);
         reportNoteField.setToolTipText("Optional note included in the generated report.");
@@ -2323,7 +2328,13 @@ public final class WorkbenchWindow extends JFrame {
     private JPanel createPublishingControlsPanel() {
         JPanel panel = new WorkbenchSurfacePanel(new GridBagLayout());
         GridBagConstraints c = constraints();
-        grid(panel, WorkbenchTheme.section("Build"), c, 0, 0, 4, 1);
+        JPanel buildHeader = transparentPanel(new BorderLayout(0, 2));
+        buildHeader.add(WorkbenchTheme.section("Build a book"), BorderLayout.NORTH);
+        buildHeader.add(WorkbenchUi.caption(
+                "Render a printable PDF puzzle book or game collection. Pick a task, point it at an input, "
+                        + "set the title, then Create PDF."),
+                BorderLayout.SOUTH);
+        grid(panel, buildHeader, c, 0, 0, 4, 1);
 
         styleCombos(publishTaskCombo, publishSourceCombo);
         grid(panel, label("task"), c, 0, 1, 1, 1);
@@ -2346,9 +2357,9 @@ public final class WorkbenchWindow extends JFrame {
         grid(panel, WorkbenchTheme.section("Files"), c, 0, 3, 4, 1);
         publishInputButton = addChooserRow(panel, c, "input", publishInputField, "Choose Input", 4,
                 () -> choosePath(publishInputField, false, "Choose publishing input"));
-        publishOutputButton = addChooserRow(panel, c, "output", publishOutputField, "Choose Output", 5,
+        publishOutputButton = addChooserRow(panel, c, "manifest", publishOutputField, "Choose Output", 5,
                 () -> choosePath(publishOutputField, true, "Choose publishing output"));
-        publishPdfOutputButton = addChooserRow(panel, c, "pdf/interior", publishPdfOutputField, "Choose PDF", 6,
+        publishPdfOutputButton = addChooserRow(panel, c, "interior pdf", publishPdfOutputField, "Choose PDF", 6,
                 this::choosePublishPdfPath);
         publishCoverOutputButton = addChooserRow(panel, c, "cover", publishCoverOutputField, "Choose Cover", 7,
                 () -> choosePath(publishCoverOutputField, true, "Choose cover output"));
@@ -5524,6 +5535,8 @@ public final class WorkbenchWindow extends JFrame {
         } catch (IllegalArgumentException ex) {
             commandField.setText("invalid template: " + ex.getMessage());
         }
+        // Keep the command start visible rather than scrolling to the caret.
+        commandField.setCaretPosition(0);
     }
 
     /**
@@ -5591,6 +5604,7 @@ public final class WorkbenchWindow extends JFrame {
         }
         batchCommandField.setText(WorkbenchCommandRunner.displayCommand(
                 task.build(WORKBENCH_FENS_PLACEHOLDER_PATH, templateContext())));
+        batchCommandField.setCaretPosition(0);
     }
 
     /**
