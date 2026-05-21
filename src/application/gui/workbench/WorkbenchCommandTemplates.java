@@ -34,6 +34,11 @@ final class WorkbenchCommandTemplates {
     private static final String GROUP_MOVE_FORMAT = "move format";
 
     /**
+     * Exclusive group for non-move result-format selectors.
+     */
+    private static final String GROUP_RESULT_FORMAT = "output format";
+
+    /**
      * Exclusive group for WDL engine toggles.
      */
     private static final String GROUP_WDL = "wdl toggle";
@@ -86,9 +91,9 @@ final class WorkbenchCommandTemplates {
     static List<CommandTemplate> commandTemplates() {
         return List.of(
                 new CommandTemplate("Legal moves", List.of("move", "list"), positionOptions(
-                        formatOption("both", true, "uci, san, or both"),
-                        formatFlag("--san", false, "Alias for --format san"),
-                        formatFlag("--both", false, "Alias for --format both"),
+                        moveFormatChoice("uci", false, "Print UCI moves"),
+                        moveFormatChoice("san", false, "Print SAN moves"),
+                        moveFormatChoice("both", true, "Print UCI and SAN"),
                         outputFlag("--json", false, "Emit a JSON array"),
                         outputFlag("--jsonl", false, "Emit one JSON object per line"),
                         opt("--fields", "both", false, "Output fields: uci, san, or both"),
@@ -115,7 +120,9 @@ final class WorkbenchCommandTemplates {
                         commonVerbose())),
                 new CommandTemplate("Best move", List.of("engine", "bestmove"), positionOptions(
                         positionInputSource("--input", false, "Input FEN file"),
-                        formatOption("both", true, "uci, san, or both"),
+                        moveFormatChoice("uci", false, "Print UCI best move"),
+                        moveFormatChoice("san", false, "Print SAN best move"),
+                        moveFormatChoice("both", true, "Print UCI plus SAN"),
                         engineProtocol(),
                         nodesOption(false),
                         durationOption(true),
@@ -124,8 +131,6 @@ final class WorkbenchCommandTemplates {
                         hashOption(false),
                         wdlFlag("--wdl", false, "Enable WDL output"),
                         wdlFlag("--no-wdl", false, "Disable WDL output"),
-                        formatFlag("--san", false, "Print SAN output"),
-                        formatFlag("--both", false, "Print UCI plus SAN output"),
                         commonVerbose())),
                 new CommandTemplate("Analyze", List.of("engine", "analyze"), positionOptions(
                         positionInputSource("--input", false, "Input FEN file"),
@@ -158,12 +163,18 @@ final class WorkbenchCommandTemplates {
                         depthOption(true),
                         nodesOption(false),
                         durationOption(false),
-                        opt("--format", "summary", true, "uci-info, uci, san, both, or summary"),
+                        resultFormatChoice("summary", true, "Human-readable search summary"),
+                        resultFormatChoice("uci-info", false, "UCI info transcript"),
+                        resultFormatChoice("uci", false, "UCI best move only"),
+                        resultFormatChoice("san", false, "SAN best move only"),
+                        resultFormatChoice("both", false, "UCI plus SAN best move"),
                         commonVerbose())),
                 new CommandTemplate("Perft", List.of("engine", "perft"), positionOptions(
                         depthOption(true),
                         flag("--divide", false, "Print per-root-move table"),
-                        opt("--format", "detail", false, "detail, table, or stockfish"),
+                        exclusiveDefault("detail", true, "Default detailed output", GROUP_RESULT_FORMAT),
+                        resultFormatChoice("table", false, "Compact table output"),
+                        resultFormatChoice("stockfish", false, "Stockfish-compatible divide output"),
                         threadsOption(false),
                         commonVerbose())),
                 new CommandTemplate("Apply move", List.of("move", "after"), withTrailingArgument("e2e4",
@@ -560,27 +571,42 @@ final class WorkbenchCommandTemplates {
     }
 
     /**
-     * Creates a move-format value option.
+     * Creates a move-format fixed choice.
      *
-     * @param value default value
+     * @param value CLI value
      * @param enabled whether the option starts enabled
      * @param description option description
      * @return option
      */
-    private static CommandOption formatOption(String value, boolean enabled, String description) {
-        return exclusiveOpt("--format", value, enabled, description, GROUP_MOVE_FORMAT);
+    private static CommandOption moveFormatChoice(String value, boolean enabled, String description) {
+        return exclusiveChoice("--format", value, enabled, description, GROUP_MOVE_FORMAT);
     }
 
     /**
-     * Creates a move-format shortcut flag.
+     * Creates a result-format fixed choice.
      *
-     * @param flag command flag
+     * @param value CLI value
      * @param enabled whether the option starts enabled
      * @param description option description
      * @return option
      */
-    private static CommandOption formatFlag(String flag, boolean enabled, String description) {
-        return exclusiveFlag(flag, enabled, description, GROUP_MOVE_FORMAT);
+    private static CommandOption resultFormatChoice(String value, boolean enabled, String description) {
+        return exclusiveChoice("--format", value, enabled, description, GROUP_RESULT_FORMAT);
+    }
+
+    /**
+     * Creates an exclusive fixed-value selector.
+     *
+     * @param flag command flag
+     * @param value CLI value
+     * @param enabled whether the option starts enabled
+     * @param description option description
+     * @param group exclusive group name
+     * @return option
+     */
+    private static CommandOption exclusiveChoice(String flag, String value, boolean enabled, String description,
+            String group) {
+        return new CommandOption(flag, true, value, enabled, ValueSource.STATIC, description, group, List.of(), true);
     }
 
     /**
@@ -781,9 +807,11 @@ final class WorkbenchCommandTemplates {
      * @param description option description
      * @param exclusiveGroup named group where only one option may be active
      * @param conflicts explicit conflicting flags
+     * @param fixedChoice whether the default value is a fixed selector value
      */
     record CommandOption(String flag, boolean takesValue, String defaultValue, boolean enabledByDefault,
-            ValueSource source, String description, String exclusiveGroup, List<String> conflicts) {
+            ValueSource source, String description, String exclusiveGroup, List<String> conflicts,
+            boolean fixedChoice) {
 
         /**
          * Creates command option metadata without exclusivity rules.
@@ -797,7 +825,25 @@ final class WorkbenchCommandTemplates {
          */
         CommandOption(String flag, boolean takesValue, String defaultValue, boolean enabledByDefault,
                 ValueSource source, String description) {
-            this(flag, takesValue, defaultValue, enabledByDefault, source, description, "", List.of());
+            this(flag, takesValue, defaultValue, enabledByDefault, source, description, "", List.of(), false);
+        }
+
+        /**
+         * Creates command option metadata with exclusivity rules.
+         *
+         * @param flag command flag, or blank for positional arguments
+         * @param takesValue whether this option requires a value
+         * @param defaultValue static default value
+         * @param enabledByDefault whether the option starts enabled
+         * @param source dynamic value source
+         * @param description option description
+         * @param exclusiveGroup named group where only one option may be active
+         * @param conflicts explicit conflicting flags
+         */
+        CommandOption(String flag, boolean takesValue, String defaultValue, boolean enabledByDefault,
+                ValueSource source, String description, String exclusiveGroup, List<String> conflicts) {
+            this(flag, takesValue, defaultValue, enabledByDefault, source, description, exclusiveGroup, conflicts,
+                    false);
         }
 
         /**

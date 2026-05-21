@@ -187,7 +187,8 @@ final class WorkbenchOptionTableModel extends AbstractTableModel {
      */
     @Override
     public boolean isCellEditable(int rowIndex, int columnIndex) {
-        return columnIndex == COL_USE || (columnIndex == COL_VALUE && rows.get(rowIndex).option().takesValue());
+        CommandOption option = rows.get(rowIndex).option();
+        return columnIndex == COL_USE || (columnIndex == COL_VALUE && option.takesValue() && !option.fixedChoice());
     }
 
     /**
@@ -203,7 +204,7 @@ final class WorkbenchOptionTableModel extends AbstractTableModel {
         return switch (columnIndex) {
             case COL_USE -> row.enabled();
             case COL_FLAG -> displayFlag(row.option());
-            case COL_VALUE -> row.option().takesValue() ? row.value() : "";
+            case COL_VALUE -> row.option().takesValue() && !row.option().fixedChoice() ? row.value() : "";
             case COL_DESCRIPTION -> row.option().description();
             default -> "";
         };
@@ -297,10 +298,31 @@ final class WorkbenchOptionTableModel extends AbstractTableModel {
      */
     private static String displayFlag(CommandOption option) {
         String defaultValue = option.defaultValue() == null ? "" : option.defaultValue();
+        if (option.fixedChoice()) {
+            return choiceLabel(defaultValue);
+        }
         if (option.flag().isBlank() && !option.takesValue() && !defaultValue.isBlank()) {
             return defaultValue;
         }
         return option.flag().isBlank() ? "(argument)" : option.flag();
+    }
+
+    /**
+     * Formats a fixed selector value as a compact UI label.
+     *
+     * @param value CLI value
+     * @return display label
+     */
+    private static String choiceLabel(String value) {
+        return switch (value == null ? "" : value) {
+            case "uci" -> "UCI";
+            case "san" -> "SAN";
+            case "both" -> "Both";
+            case "uci-info" -> "UCI info";
+            default -> value == null || value.isBlank()
+                    ? "default"
+                    : Character.toUpperCase(value.charAt(0)) + value.substring(1);
+        };
     }
 
     /**

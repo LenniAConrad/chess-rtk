@@ -2,6 +2,7 @@ package application.gui.workbench;
 
 import java.awt.BorderLayout;
 import java.awt.Color;
+import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
@@ -15,9 +16,11 @@ import java.util.function.Consumer;
 import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
+import javax.swing.DefaultListCellRenderer;
 import javax.swing.JComboBox;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
+import javax.swing.JList;
 import javax.swing.JPanel;
 import javax.swing.JTextField;
 
@@ -350,16 +353,14 @@ final class WorkbenchCommandForm extends JPanel {
         JPanel panel = new JPanel();
         panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
         panel.setAlignmentX(LEFT_ALIGNMENT);
-        panel.setBackground(WorkbenchTheme.ELEVATED_SOLID);
+        panel.setOpaque(false);
         panel.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(WorkbenchTheme.LINE),
-                WorkbenchTheme.pad(WorkbenchTheme.SPACE_SM)));
+                BorderFactory.createMatteBorder(0, 0, 1, 0, WorkbenchTheme.LINE),
+                WorkbenchTheme.pad(WorkbenchTheme.SPACE_XS, 0, WorkbenchTheme.SPACE_SM, 0)));
         JLabel title = new JLabel(block.group());
         title.setFont(WorkbenchTheme.font(11, Font.BOLD));
         title.setForeground(WorkbenchTheme.MUTED);
         title.setAlignmentX(LEFT_ALIGNMENT);
-        panel.add(title);
-        panel.add(Box.createVerticalStrut(WorkbenchTheme.SPACE_XS));
 
         List<Field> members = block.members();
         boolean hasNone = optionalSection;
@@ -400,7 +401,6 @@ final class WorkbenchCommandForm extends JPanel {
         cards.show(detail, Integer.toString(initial));
 
         WorkbenchChipGroup chips = new WorkbenchChipGroup(chipLabels);
-        chips.setAlignmentX(LEFT_ALIGNMENT);
         chips.setSelectedIndex(initial);
         chips.setOnSelect(index -> {
             Field chosen = hasNone && index == 0 ? null : members.get(hasNone ? index - 1 : index);
@@ -410,10 +410,21 @@ final class WorkbenchCommandForm extends JPanel {
             cards.show(detail, Integer.toString(index));
             fireChange();
         });
-        JPanel chipRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+        JPanel chipRow = new JPanel(new BorderLayout(WorkbenchTheme.SPACE_MD, 0));
         chipRow.setOpaque(false);
         chipRow.setAlignmentX(LEFT_ALIGNMENT);
-        chipRow.add(chips);
+        chipRow.setMaximumSize(new Dimension(Integer.MAX_VALUE, ROW_HEIGHT));
+        JPanel lead = new JPanel(new BorderLayout());
+        lead.setOpaque(false);
+        lead.add(title, BorderLayout.CENTER);
+        lead.setPreferredSize(new Dimension(LEAD_WIDTH, ROW_HEIGHT));
+        lead.setMinimumSize(new Dimension(LEAD_WIDTH, ROW_HEIGHT));
+        lead.setMaximumSize(new Dimension(LEAD_WIDTH, ROW_HEIGHT));
+        JPanel selector = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+        selector.setOpaque(false);
+        selector.add(chips);
+        chipRow.add(lead, BorderLayout.WEST);
+        chipRow.add(selector, BorderLayout.CENTER);
         panel.add(chipRow);
         panel.add(Box.createVerticalStrut(WorkbenchTheme.SPACE_XS));
         panel.add(detail);
@@ -432,6 +443,7 @@ final class WorkbenchCommandForm extends JPanel {
         card.setLayout(new BoxLayout(card, BoxLayout.X_AXIS));
         card.setOpaque(false);
         card.setAlignmentX(LEFT_ALIGNMENT);
+        card.add(Box.createHorizontalStrut(LEAD_WIDTH + WorkbenchTheme.SPACE_MD));
         if (field == null) {
             JLabel none = new JLabel("no option from this group is used");
             none.setFont(WorkbenchTheme.font(11, Font.PLAIN));
@@ -440,7 +452,7 @@ final class WorkbenchCommandForm extends JPanel {
             card.add(Box.createHorizontalGlue());
             return card;
         }
-        if (field.option.takesValue()) {
+        if (field.option.takesValue() && !field.option.fixedChoice()) {
             JComponent editor = valueEditor(field);
             Dimension size = valueEditorSize(field);
             editor.setPreferredSize(size);
@@ -497,7 +509,9 @@ final class WorkbenchCommandForm extends JPanel {
         row.setBorder(WorkbenchTheme.pad(2, 0, 2, 0));
         row.add(fixedLead(lead));
         row.add(Box.createHorizontalStrut(WorkbenchTheme.SPACE_SM));
-        JComponent editor = field.option.takesValue() ? valueEditor(field) : valuePlaceholder(field);
+        JComponent editor = field.option.takesValue() && !field.option.fixedChoice()
+                ? valueEditor(field)
+                : valuePlaceholder(field);
         Dimension size = valueEditorSize(field);
         editor.setPreferredSize(size);
         editor.setMaximumSize(size);
@@ -584,6 +598,7 @@ final class WorkbenchCommandForm extends JPanel {
         combo.setSelectedItem(items.contains(field.value) ? field.value
                 : field.option.defaultValue());
         WorkbenchUi.styleCombos(combo);
+        combo.setRenderer(new EmptyChoiceRenderer());
         field.combo = combo;
         combo.addActionListener(event -> {
             Object selected = combo.getSelectedItem();
@@ -796,7 +811,7 @@ final class WorkbenchCommandForm extends JPanel {
      * @return ordered allowed values, or empty when free-text
      */
     private static List<String> enumChoices(CommandOption option) {
-        if (!option.takesValue()) {
+        if (!option.takesValue() || option.fixedChoice()) {
             return List.of();
         }
         List<String> tokens = new ArrayList<>();
@@ -831,10 +846,58 @@ final class WorkbenchCommandForm extends JPanel {
      */
     private static String displayFlag(CommandOption option) {
         String defaultValue = option.defaultValue() == null ? "" : option.defaultValue();
+        if (option.fixedChoice()) {
+            return choiceLabel(defaultValue);
+        }
         if (option.flag().isBlank() && !option.takesValue() && !defaultValue.isBlank()) {
             return defaultValue;
         }
         return option.flag().isBlank() ? "argument" : option.flag();
+    }
+
+    /**
+     * Formats a fixed selector value as a compact UI label.
+     *
+     * @param value CLI value
+     * @return display label
+     */
+    private static String choiceLabel(String value) {
+        return switch (value == null ? "" : value) {
+            case "uci" -> "UCI";
+            case "san" -> "SAN";
+            case "both" -> "Both";
+            case "uci-info" -> "UCI info";
+            default -> value == null || value.isBlank()
+                    ? "default"
+                    : Character.toUpperCase(value.charAt(0)) + value.substring(1);
+        };
+    }
+
+    /**
+     * Dropdown renderer that makes optional empty values visible.
+     */
+    private static final class EmptyChoiceRenderer extends DefaultListCellRenderer {
+
+        /**
+         * Serialization identifier for Swing renderer compatibility.
+         */
+        private static final long serialVersionUID = 1L;
+
+        @Override
+        public Component getListCellRendererComponent(JList<?> list, Object value, int index,
+                boolean isSelected, boolean cellHasFocus) {
+            Object shown = value instanceof String text && text.isBlank() ? "not set" : value;
+            JLabel label = (JLabel) super.getListCellRendererComponent(list, shown, index, isSelected,
+                    cellHasFocus);
+            label.setOpaque(true);
+            label.setBorder(WorkbenchTheme.pad(6, 8));
+            label.setFont(WorkbenchTheme.font(13, Font.PLAIN));
+            label.setBackground(isSelected ? WorkbenchTheme.SELECTION_SOLID : WorkbenchTheme.ELEVATED_SOLID);
+            label.setForeground(!isSelected && value instanceof String text && text.isBlank()
+                    ? WorkbenchTheme.MUTED
+                    : WorkbenchTheme.TEXT);
+            return label;
+        }
     }
 
     // ------------------------------------------------------------------
