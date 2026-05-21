@@ -1,8 +1,11 @@
 package application.gui.workbench.layout;
 
+import java.awt.Color;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 
 import javax.swing.BorderFactory;
 import javax.swing.JSplitPane;
@@ -15,6 +18,22 @@ import application.gui.workbench.WorkbenchTheme;
  * Shared VS Code-style split pane styling.
  */
 public final class SplitPaneStyler {
+
+    /**
+     * VS Code's sash uses a compact four-pixel interaction strip.
+     */
+    private static final int SASH_SIZE = 4;
+
+    /**
+     * Idle separator alpha. Kept barely visible so the divider remains
+     * discoverable in Swing while still reading as a VS Code-style sash.
+     */
+    private static final int IDLE_SEPARATOR_ALPHA = 95;
+
+    /**
+     * Hover separator alpha.
+     */
+    private static final int HOVER_SEPARATOR_ALPHA = 205;
 
     /**
      * Prevents instantiation.
@@ -30,71 +49,119 @@ public final class SplitPaneStyler {
      */
     public static void style(JSplitPane pane) {
         pane.setUI(new BasicSplitPaneUI() {
-            /**
-             * Creates a themed divider that paints only a hairline separator.
-             *
-             * @return divider
-             */
             @Override
             public BasicSplitPaneDivider createDefaultDivider() {
-                return new BasicSplitPaneDivider(this) {
-                    /**
-                     * Serialization identifier for Swing divider compatibility.
-                     */
-                    private static final long serialVersionUID = 1L;
-
-                    /**
-                     * Paints the themed divider background, separator line, and
-                     * grip affordance.
-                     *
-                     * @param graphics graphics context
-                     */
-                    @Override
-                    public void paint(Graphics graphics) {
-                        Graphics2D g = (Graphics2D) graphics.create();
-                        try {
-                            g.setRenderingHint(RenderingHints.KEY_ANTIALIASING,
-                                    RenderingHints.VALUE_ANTIALIAS_ON);
-                            g.setColor(WorkbenchTheme.BG);
-                            g.fillRect(0, 0, getWidth(), getHeight());
-                            g.setColor(WorkbenchTheme.LINE);
-                            if (orientation == JSplitPane.HORIZONTAL_SPLIT) {
-                                int x = getWidth() / 2;
-                                g.drawLine(x, 0, x, getHeight());
-                                paintGrip(g, x - 1, getHeight() / 2 - 12, false);
-                            } else {
-                                int y = getHeight() / 2;
-                                g.drawLine(0, y, getWidth(), y);
-                                paintGrip(g, getWidth() / 2 - 12, y - 1, true);
-                            }
-                        } finally {
-                            g.dispose();
-                        }
-                    }
-                };
+                return new SashDivider(this);
             }
         });
         pane.setOneTouchExpandable(false);
-        pane.setDividerSize(8);
+        pane.setDividerSize(SASH_SIZE);
         pane.setContinuousLayout(true);
         pane.setBorder(BorderFactory.createEmptyBorder());
         pane.setBackground(WorkbenchTheme.BG);
     }
 
     /**
-     * Paints a quiet divider grip.
-     *
-     * @param g graphics
-     * @param x x
-     * @param y y
-     * @param horizontal true for a horizontal grip
+     * Thin split-pane divider modelled after VS Code's transparent sash: no
+     * grip, quiet at rest, accent colored only on hover/drag.
      */
-    private static void paintGrip(Graphics2D g, int x, int y, boolean horizontal) {
-        g.setColor(WorkbenchTheme.withAlpha(WorkbenchTheme.MUTED, 120));
-        for (int i = 0; i < 3; i++) {
-            int dx = horizontal ? i * 8 : 0;
-            int dy = horizontal ? 0 : i * 8;
-            g.fillRoundRect(x + dx, y + dy, 3, 3, 3, 3);
+    private static final class SashDivider extends BasicSplitPaneDivider {
+
+        /**
+         * Serialization identifier for Swing divider compatibility.
+         */
+        private static final long serialVersionUID = 1L;
+
+        /**
+         * Whether the pointer is hovering over the sash.
+         */
+        private boolean hover;
+
+        /**
+         * Whether the sash is currently being dragged.
+         */
+        private boolean active;
+
+        /**
+         * Creates a sash divider.
+         *
+         * @param ui owning split pane UI
+         */
+        SashDivider(BasicSplitPaneUI ui) {
+            super(ui);
+            setBorder(BorderFactory.createEmptyBorder());
+            addMouseListener(new MouseAdapter() {
+                @Override
+                public void mouseEntered(MouseEvent event) {
+                    setHover(true);
+                }
+
+                @Override
+                public void mouseExited(MouseEvent event) {
+                    setHover(false);
+                }
+
+                @Override
+                public void mousePressed(MouseEvent event) {
+                    setActive(true);
+                }
+
+                @Override
+                public void mouseReleased(MouseEvent event) {
+                    setActive(false);
+                }
+            });
+        }
+
+        /**
+         * Updates hover state.
+         *
+         * @param value true when hovered
+         */
+        private void setHover(boolean value) {
+            if (hover != value) {
+                hover = value;
+                repaint();
+            }
+        }
+
+        /**
+         * Updates drag state.
+         *
+         * @param value true while dragging
+         */
+        private void setActive(boolean value) {
+            if (active != value) {
+                active = value;
+                repaint();
+            }
+        }
+
+        /**
+         * Paints a transparent VS Code-style sash.
+         *
+         * @param graphics graphics context
+         */
+        @Override
+        public void paint(Graphics graphics) {
+            Graphics2D g = (Graphics2D) graphics.create();
+            try {
+                g.setRenderingHint(RenderingHints.KEY_ANTIALIASING,
+                        RenderingHints.VALUE_ANTIALIAS_ON);
+                Color color = active || hover
+                        ? WorkbenchTheme.withAlpha(WorkbenchTheme.ACCENT, HOVER_SEPARATOR_ALPHA)
+                        : WorkbenchTheme.withAlpha(WorkbenchTheme.LINE, IDLE_SEPARATOR_ALPHA);
+                g.setColor(color);
+                if (orientation == JSplitPane.HORIZONTAL_SPLIT) {
+                    int x = Math.max(0, (getWidth() - 1) / 2);
+                    g.drawLine(x, 0, x, getHeight());
+                } else {
+                    int y = Math.max(0, (getHeight() - 1) / 2);
+                    g.drawLine(0, y, getWidth(), y);
+                }
+            } finally {
+                g.dispose();
+            }
         }
     }
 }
