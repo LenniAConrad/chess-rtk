@@ -191,14 +191,19 @@ final class WorkbenchPublishPreview extends JComponent {
         drawElided(g, preview.title(), WorkbenchTheme.font(14, Font.BOLD), WorkbenchTheme.TEXT, x, y + 12, w);
         int board = Math.min(w, Math.max(48, h / 3));
         int gap = Math.max(10, h / 28);
-        paintMiniBoard(g, x + (w - board) / 2, y + 30, board);
+        int boardY = y + 30;
+        paintMiniBoard(g, x + (w - board) / 2, boardY, board);
+        int bodyTop = boardY + board + gap;
         if (!preview.noFen()) {
-            drawRule(g, x, y + 38 + board, w);
+            int ruleY = boardY + board + Math.max(6, gap / 2);
+            int sourceY = ruleY + 14;
+            drawRule(g, x, ruleY, w);
             drawElided(g, preview.source(), WorkbenchTheme.mono(9), WorkbenchTheme.MUTED,
-                    x, y + 52 + board, w);
+                    x, sourceY, w);
+            bodyTop = sourceY + gap;
         }
         int small = Math.max(28, board / 3);
-        int top = y + board + gap * 3;
+        int top = bodyTop;
         for (int i = 0; i < 3 && top + small < y + h - 24; i++) {
             paintMiniBoard(g, x + i * (small + gap), top, small);
         }
