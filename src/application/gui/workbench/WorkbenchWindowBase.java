@@ -198,13 +198,14 @@ abstract class WorkbenchWindowBase extends JFrame {
     /**
      * Run-log, manifest, and artifact controller.
      */
-    protected final WorkbenchRunArtifacts runArtifacts = new WorkbenchRunArtifacts(new RunArtifactHost());
+    protected final WorkbenchRunArtifacts runArtifacts =
+            new WorkbenchRunArtifacts(new WorkbenchWindowRunArtifactHost(this));
 
     /**
      * Operational overview tab, rendered from {@link #session}.
      */
     protected final WorkbenchDashboardPanel dashboardPanel =
-            new WorkbenchDashboardPanel(session, new DashboardActions());
+            new WorkbenchDashboardPanel(session, new WorkbenchWindowDashboardActions(this));
 
     /**
      * Job record for the foreground command currently tracked, or null.
@@ -221,300 +222,6 @@ abstract class WorkbenchWindowBase extends JFrame {
      * drained one at a time as each command finishes.
      */
     protected final java.util.Deque<List<String>> healthCheckQueue = new java.util.ArrayDeque<>();
-
-    /**
-     * Routes {@link WorkbenchDashboardPanel} quick actions to the window's
-     * existing protected actions, so the dashboard never needs those methods
-     * widened to package or public visibility.
-     */
-    protected final class DashboardActions implements WorkbenchDashboardActions {
-
-        @Override
-        public void builtInSearch() {
-            runBuiltInSearch();
-        }
-
-        @Override
-        public void bestMove() {
-            runBestMove();
-        }
-
-        @Override
-        public void analyze() {
-            runAnalyze();
-        }
-
-        @Override
-        public void tags() {
-            runTagsCommand();
-        }
-
-        @Override
-        public void perft() {
-            runPerft();
-        }
-
-        @Override
-        public void runBatch() {
-            batchPanel.runBatch();
-        }
-
-        @Override
-        public void engineSmoke() {
-            runEngineSmoke();
-        }
-
-        @Override
-        public void configValidate() {
-            runConfigValidate();
-        }
-
-        @Override
-        public void doctor() {
-            runDoctor();
-        }
-
-        @Override
-        public void runAllHealthChecks() {
-            WorkbenchWindowBase.this.runAllHealthChecks();
-        }
-
-        @Override
-        public void copyCurrentFen() {
-            copyText(currentFen());
-        }
-
-        @Override
-        public void openAnalyzeTab() {
-            selectTab(TAB_ANALYZE);
-        }
-
-        @Override
-        public void openBatchTab() {
-            selectTab(TAB_BATCH);
-        }
-
-        @Override
-        public void openConsoleTab() {
-            selectTab(TAB_CONSOLE);
-        }
-
-        @Override
-        public void retryJob(WorkbenchJob job) {
-            if (job != null) {
-                runCommand(job.args(), null);
-            }
-        }
-
-        @Override
-        public void copyJobCommand(WorkbenchJob job) {
-            if (job != null) {
-                copyText(WorkbenchCommandRunner.displayCommand(job.args()));
-            }
-        }
-
-        @Override
-        public void openJobManifest(WorkbenchJob job) {
-            if (job == null) {
-                return;
-            }
-            runArtifacts.openManifest(job);
-        }
-
-        @Override
-        public void openJobLog(WorkbenchJob job) {
-            if (job == null) {
-                return;
-            }
-            runArtifacts.openLog(job);
-        }
-    }
-
-    /**
-     * Host callbacks for the extracted report panel.
-     */
-    protected final class ReportHost implements WorkbenchReportPanel.Host {
-
-        @Override
-        public Component owner() {
-            return WorkbenchWindowBase.this;
-        }
-
-        @Override
-        public Position currentPosition() {
-            return currentPosition;
-        }
-
-        @Override
-        public short[] visibleMoves() {
-            return visibleMoves;
-        }
-
-        @Override
-        public WorkbenchGameModel gameModel() {
-            return gameModel;
-        }
-
-        @Override
-        public DefaultListModel<String> tagModel() {
-            return tagModel;
-        }
-
-        @Override
-        public void copyText(String text) {
-            WorkbenchWindowBase.this.copyText(text);
-        }
-
-        @Override
-        public void appendConsole(String text) {
-            WorkbenchWindowBase.this.appendConsole(text);
-        }
-
-        @Override
-        public void toast(WorkbenchToast.Kind kind, String message) {
-            WorkbenchWindowBase.this.toast(kind, message);
-        }
-
-        @Override
-        public void showError(String title, String message) {
-            WorkbenchWindowBase.this.showError(title, message);
-        }
-    }
-
-    /**
-     * Host callbacks for the extracted batch panel.
-     */
-    protected final class BatchHost implements WorkbenchBatchPanel.Host {
-
-        @Override
-        public String currentFen() {
-            return WorkbenchWindowBase.this.currentFen();
-        }
-
-        @Override
-        public TemplateContext templateContext() {
-            return WorkbenchWindowBase.this.templateContext();
-        }
-
-        @Override
-        public void runCommand(List<String> args, String stdin) {
-            WorkbenchWindowBase.this.runCommand(args, stdin);
-        }
-
-        @Override
-        public void copyText(String text) {
-            WorkbenchWindowBase.this.copyText(text);
-        }
-
-        @Override
-        public void showError(String title, String message) {
-            WorkbenchWindowBase.this.showError(title, message);
-        }
-
-        @Override
-        public void updateBatchSummary(String summary) {
-            session.updateBatch(summary);
-        }
-
-        @Override
-        public void updatePublishCommand() {
-            if (publishingPanel != null) {
-                WorkbenchWindowBase.this.updatePublishCommand();
-            }
-        }
-
-        @Override
-        public void syncBatchDuration(String value) {
-            WorkbenchWindowBase.this.syncDurationFromBatch(value);
-        }
-    }
-
-    /**
-     * Host callbacks for the extracted publishing panel.
-     */
-    protected final class PublishingHost implements WorkbenchPublishingPanel.Host {
-
-        @Override
-        public Component owner() {
-            return WorkbenchWindowBase.this;
-        }
-
-        @Override
-        public String currentFen() {
-            return WorkbenchWindowBase.this.currentFen();
-        }
-
-        @Override
-        public WorkbenchGameModel gameModel() {
-            return gameModel;
-        }
-
-        @Override
-        public String batchInputText() {
-            return batchPanel.inputText();
-        }
-
-        @Override
-        public JComponent reportPanel() {
-            return reportPanel.component();
-        }
-
-        @Override
-        public void generateReport() {
-            WorkbenchWindowBase.this.generateReport();
-        }
-
-        @Override
-        public void runCommand(List<String> args, String stdin) {
-            WorkbenchWindowBase.this.runCommand(args, stdin);
-        }
-
-        @Override
-        public void copyText(String text) {
-            WorkbenchWindowBase.this.copyText(text);
-        }
-
-        @Override
-        public void stopCommand() {
-            WorkbenchWindowBase.this.stopCommand();
-        }
-
-        @Override
-        public void toast(WorkbenchToast.Kind kind, String message) {
-            WorkbenchWindowBase.this.toast(kind, message);
-        }
-
-        @Override
-        public void showError(String title, String message) {
-            WorkbenchWindowBase.this.showError(title, message);
-        }
-    }
-
-    /**
-     * Host callbacks for the extracted run-artifact controller.
-     */
-    protected final class RunArtifactHost implements WorkbenchRunArtifacts.Host {
-
-        @Override
-        public WorkbenchSession session() {
-            return session;
-        }
-
-        @Override
-        public void appendConsole(String text) {
-            WorkbenchWindowBase.this.appendConsole(text);
-        }
-
-        @Override
-        public void showWarning(String title, String message) {
-            WorkbenchWindowBase.this.showWarning(title, message);
-        }
-
-        @Override
-        public void showError(String title, String message) {
-            WorkbenchWindowBase.this.showError(title, message);
-        }
-    }
 
     /**
      * FEN input.
@@ -549,7 +256,8 @@ abstract class WorkbenchWindowBase extends JFrame {
     /**
      * Position report panel used by the publishing tab and command palette.
      */
-    protected final WorkbenchReportPanel reportPanel = new WorkbenchReportPanel(new ReportHost());
+    protected final WorkbenchReportPanel reportPanel =
+            new WorkbenchReportPanel(new WorkbenchWindowReportHost(this));
 
     /**
      * Console output with carriage-return handling and line highlighting.
@@ -677,13 +385,17 @@ abstract class WorkbenchWindowBase extends JFrame {
     /**
      * Batch workflow panel.
      */
-    protected final WorkbenchBatchPanel batchPanel = new WorkbenchBatchPanel(new BatchHost(), depthModel, multipvModel,
+    protected final WorkbenchBatchPanel batchPanel = new WorkbenchBatchPanel(
+            new WorkbenchWindowBatchHost(this),
+            depthModel,
+            multipvModel,
             threadsModel);
 
     /**
      * Publishing workflow panel.
      */
-    protected final WorkbenchPublishingPanel publishingPanel = new WorkbenchPublishingPanel(new PublishingHost());
+    protected final WorkbenchPublishingPanel publishingPanel =
+            new WorkbenchPublishingPanel(new WorkbenchWindowPublishingHost(this));
 
     /**
      * Current position.
