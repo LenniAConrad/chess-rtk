@@ -510,6 +510,11 @@ final class WorkbenchNetworkDiagnosticsPanel extends JPanel {
      */
     @FunctionalInterface
     private interface BooleanProbe {
+        /**
+         * Returns the probed boolean value.
+         *
+         * @return probe value
+         */
         boolean get();
     }
 
@@ -518,6 +523,11 @@ final class WorkbenchNetworkDiagnosticsPanel extends JPanel {
      */
     @FunctionalInterface
     private interface IntProbe {
+        /**
+         * Returns the probed integer value.
+         *
+         * @return probe value
+         */
         int get();
     }
 

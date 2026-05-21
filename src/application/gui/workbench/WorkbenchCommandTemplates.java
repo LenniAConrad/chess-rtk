@@ -857,6 +857,7 @@ final class WorkbenchCommandTemplates {
          * @param description option description
          * @param exclusiveGroup named group where only one option may be active
          * @param conflicts explicit conflicting flags
+         * @param fixedChoice whether this option is fixed to a selected choice
          */
         CommandOption {
             exclusiveGroup = exclusiveGroup == null ? "" : exclusiveGroup;

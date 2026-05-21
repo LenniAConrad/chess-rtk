@@ -173,6 +173,8 @@ final class WorkbenchMctsPanel extends JPanel {
 
     /**
      * Creates the controls surface.
+     *
+     * @return controls component
      */
     private JComponent createControls() {
         JPanel panel = new WorkbenchSurfacePanel(new GridBagLayout());
@@ -199,6 +201,8 @@ final class WorkbenchMctsPanel extends JPanel {
 
     /**
      * Creates the center split.
+     *
+     * @return center component
      */
     private JComponent createCenter() {
         JPanel boards = new WorkbenchSurfacePanel(new GridBagLayout());
@@ -235,6 +239,8 @@ final class WorkbenchMctsPanel extends JPanel {
 
     /**
      * Creates the button row.
+     *
+     * @return button-row component
      */
     private JComponent buttonRow() {
         JPanel row = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 0));
@@ -341,6 +347,8 @@ final class WorkbenchMctsPanel extends JPanel {
 
     /**
      * Returns whether a search is active.
+     *
+     * @return true while a search worker is active
      */
     private boolean isRunning() {
         return worker != null && !worker.isDone();
@@ -348,6 +356,8 @@ final class WorkbenchMctsPanel extends JPanel {
 
     /**
      * Updates button enabled state.
+     *
+     * @param running true when search is running
      */
     private void updateButtons(boolean running) {
         startButton.setEnabled(!running);
@@ -371,6 +381,8 @@ final class WorkbenchMctsPanel extends JPanel {
 
     /**
      * Paints both boards at a FEN.
+     *
+     * @param fen FEN to show
      */
     private void showFen(String fen) {
         try {
@@ -387,6 +399,8 @@ final class WorkbenchMctsPanel extends JPanel {
 
     /**
      * Applies a search snapshot to the UI.
+     *
+     * @param snapshot search snapshot
      */
     private void showSnapshot(WorkbenchMctsSearch.Snapshot snapshot) {
         rootBoard.setPosition(new Position(snapshot.rootFen()), Move.NO_MOVE);

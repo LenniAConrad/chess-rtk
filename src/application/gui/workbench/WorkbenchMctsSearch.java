@@ -149,6 +149,11 @@ final class WorkbenchMctsSearch implements AutoCloseable {
 
     /**
      * Private constructor used by alternate policy/value backends.
+     *
+     * @param root root position
+     * @param cpuct exploration constant
+     * @param backend evaluation and policy backend
+     * @param transpositionLimit maximum transposition-table entries
      */
     private WorkbenchMctsSearch(
             Position root,
@@ -360,6 +365,8 @@ final class WorkbenchMctsSearch implements AutoCloseable {
     /**
      * Returns the immediate result for terminal roots, automatic draw roots, and
      * tree-proven root states.
+     *
+     * @return immediate root decision, or null when search should continue
      */
     private RootDecision immediateRootDecision() {
         MoveList legal = rootPosition.legalMoves();
@@ -397,6 +404,9 @@ final class WorkbenchMctsSearch implements AutoCloseable {
 
     /**
      * Returns the deterministic draw-root fallback move used by the CLI search.
+     *
+     * @param legal legal root moves
+     * @return fallback move
      */
     private short immediateFallbackMove(MoveList legal) {
         List<Node> ordered = orderedRootChildren(null);
@@ -407,6 +417,9 @@ final class WorkbenchMctsSearch implements AutoCloseable {
     /**
      * Returns root children in MCTS result order, with terminal root decisions
      * pinned first for the workbench UI.
+     *
+     * @param decision immediate root decision, or null
+     * @return ordered root children
      */
     private List<Node> orderedRootChildren(RootDecision decision) {
         List<Node> children = new ArrayList<>(root.children);
@@ -416,6 +429,11 @@ final class WorkbenchMctsSearch implements AutoCloseable {
 
     /**
      * Compares root children by immediate decision, visits, then prior.
+     *
+     * @param decision immediate root decision, or null
+     * @param left left child
+     * @param right right child
+     * @return comparison result
      */
     private static int compareRootChildren(RootDecision decision, Node left, Node right) {
         if (decision != null && decision.bestMove() != Move.NO_MOVE) {
@@ -445,6 +463,10 @@ final class WorkbenchMctsSearch implements AutoCloseable {
 
     /**
      * Returns the root-perspective row value for a child.
+     *
+     * @param decision immediate root decision, or null
+     * @param child root child
+     * @return row value
      */
     private static double rootRowQ(RootDecision decision, Node child) {
         if (decision != null && child.move == decision.bestMove()) {
@@ -456,6 +478,9 @@ final class WorkbenchMctsSearch implements AutoCloseable {
     /**
      * Returns whether an immediate decision should be visualized as the current
      * explored leaf.
+     *
+     * @param decision immediate root decision, or null
+     * @return true when it should be shown as a leaf
      */
     private static boolean immediateDecisionAsLeaf(RootDecision decision) {
         return decision != null && decision.showAsLeaf();
@@ -486,6 +511,10 @@ final class WorkbenchMctsSearch implements AutoCloseable {
 
     /**
      * Returns exploitation from the parent node's perspective.
+     *
+     * @param parent parent node
+     * @param child child node
+     * @return exploitation value
      */
     private static double rootPerspective(Node parent, Node child) {
         if (child.proof != ProofState.UNKNOWN) {
@@ -499,6 +528,9 @@ final class WorkbenchMctsSearch implements AutoCloseable {
 
     /**
      * Returns root-perspective Q for a root child.
+     *
+     * @param child root child
+     * @return root-perspective Q
      */
     private static double rootPerspectiveQ(Node child) {
         if (child.proof != ProofState.UNKNOWN) {
@@ -509,6 +541,10 @@ final class WorkbenchMctsSearch implements AutoCloseable {
 
     /**
      * PUCT exploration term for one edge.
+     *
+     * @param parent parent node
+     * @param child child node
+     * @return exploration value
      */
     private double exploration(Node parent, Node child) {
         if (child.proof != ProofState.UNKNOWN) {
@@ -520,6 +556,9 @@ final class WorkbenchMctsSearch implements AutoCloseable {
 
     /**
      * Expands legal children for one node.
+     *
+     * @param node node to expand
+     * @param path path from root to node
      */
     private void expand(Node node, List<Node> path) {
         if (node.proof != ProofState.UNKNOWN) {
@@ -547,6 +586,9 @@ final class WorkbenchMctsSearch implements AutoCloseable {
 
     /**
      * Evaluates a leaf from the side-to-move perspective.
+     *
+     * @param position position to evaluate
+     * @return scalar evaluation
      */
     private double evaluate(Position position) {
         return evaluatePosition(position).value();
@@ -554,6 +596,10 @@ final class WorkbenchMctsSearch implements AutoCloseable {
 
     /**
      * Evaluates a tree node from the node side-to-move perspective.
+     *
+     * @param node node to evaluate
+     * @param path path from root to node
+     * @return structured evaluation
      */
     private Evaluation evaluate(Node node, List<Node> path) {
         if (node.proof != ProofState.UNKNOWN) {
@@ -567,6 +613,9 @@ final class WorkbenchMctsSearch implements AutoCloseable {
 
     /**
      * Evaluates a standalone position from the side-to-move perspective.
+     *
+     * @param position position to evaluate
+     * @return structured evaluation
      */
     private Evaluation evaluatePosition(Position position) {
         MoveList legal = position.legalMoves();
@@ -583,6 +632,12 @@ final class WorkbenchMctsSearch implements AutoCloseable {
      * Values a leaf after resolving immediate mates, captures/promotions, and
      * forced check evasions. The returned value is from the side-to-move
      * perspective of {@code position}.
+     *
+     * @param position position to evaluate
+     * @param qply quiescence ply
+     * @param alpha alpha bound
+     * @param beta beta bound
+     * @return quiescence evaluation
      */
     private Evaluation quiescence(Position position, int qply, double alpha, double beta) {
         if (isDraw(position)) {
@@ -629,6 +684,11 @@ final class WorkbenchMctsSearch implements AutoCloseable {
     /**
      * Returns quiescence candidate moves: all legal evasions while in check, or
      * captures/promotions in otherwise quiet positions.
+     *
+     * @param position position to inspect
+     * @param legal legal moves
+     * @param inCheck whether side to move is in check
+     * @return quiescence candidate moves
      */
     private static short[] quiescenceMoves(Position position, MoveList legal, boolean inCheck) {
         if (inCheck) {
@@ -656,6 +716,10 @@ final class WorkbenchMctsSearch implements AutoCloseable {
 
     /**
      * Returns a legal mate-in-one move, or {@link Move#NO_MOVE}.
+     *
+     * @param position position to inspect
+     * @param legal legal moves
+     * @return mate-in-one move or {@link Move#NO_MOVE}
      */
     private static short findMateInOne(Position position, MoveList legal) {
         for (int i = 0; i < legal.size(); i++) {
@@ -676,6 +740,10 @@ final class WorkbenchMctsSearch implements AutoCloseable {
     /**
      * Returns whether a move should be searched in quiescence from a non-check
      * position.
+     *
+     * @param position position to inspect
+     * @param move move to inspect
+     * @return true when the move is tactically noisy
      */
     private static boolean isQuiescenceMove(Position position, short move) {
         return position.isCapture(move) || position.isPromotion(move);
@@ -683,6 +751,10 @@ final class WorkbenchMctsSearch implements AutoCloseable {
 
     /**
      * Scores a quiescence move for deterministic tactical ordering.
+     *
+     * @param position position to inspect
+     * @param move move to score
+     * @return ordering score
      */
     private static int quiescenceMoveScore(Position position, short move) {
         int score = promotionValue(Move.getPromotion(move)) * 100;
@@ -696,6 +768,10 @@ final class WorkbenchMctsSearch implements AutoCloseable {
 
     /**
      * Sorts the first {@code count} moves by descending scores.
+     *
+     * @param moves moves to reorder
+     * @param scores move scores
+     * @param count number of entries to sort
      */
     private static void insertionSortDescending(short[] moves, int[] scores, int count) {
         for (int i = 1; i < count; i++) {
@@ -724,6 +800,10 @@ final class WorkbenchMctsSearch implements AutoCloseable {
 
     /**
      * Returns whether a node is terminal under the current path.
+     *
+     * @param node node to inspect
+     * @param path root-to-node path
+     * @return true when the node is terminal
      */
     private static boolean isTerminal(Node node, List<Node> path) {
         return node.proof != ProofState.UNKNOWN
@@ -734,6 +814,8 @@ final class WorkbenchMctsSearch implements AutoCloseable {
 
     /**
      * Initializes directly terminal node proof status.
+     *
+     * @param node node to initialize
      */
     private static void initializeDirectProof(Node node) {
         MoveList legal = node.position.legalMoves();
@@ -742,6 +824,10 @@ final class WorkbenchMctsSearch implements AutoCloseable {
 
     /**
      * Initializes terminal proof from legal move and draw state.
+     *
+     * @param node node to initialize
+     * @param noLegalMoves true when no legal moves exist
+     * @param repetition true when the path repeats
      */
     private static void initializeTerminalProof(Node node, boolean noLegalMoves, boolean repetition) {
         if (noLegalMoves) {
@@ -757,6 +843,8 @@ final class WorkbenchMctsSearch implements AutoCloseable {
 
     /**
      * Propagates proven endgame bounds up a searched path.
+     *
+     * @param path root-to-leaf path
      */
     private static void propagateProof(List<Node> path) {
         for (int i = path.size() - 1; i >= 0; i--) {
@@ -766,6 +854,8 @@ final class WorkbenchMctsSearch implements AutoCloseable {
 
     /**
      * Recomputes one node's proof status from known child proof bounds.
+     *
+     * @param node node to refresh
      */
     private static void refreshProof(Node node) {
         if (node.children.isEmpty()) {
@@ -806,6 +896,10 @@ final class WorkbenchMctsSearch implements AutoCloseable {
 
     /**
      * Updates a node proof.
+     *
+     * @param node node to update
+     * @param proof proof state
+     * @param plies proof distance in plies
      */
     private static void setProof(Node node, ProofState proof, int plies) {
         if (proof == ProofState.UNKNOWN) {
@@ -822,6 +916,9 @@ final class WorkbenchMctsSearch implements AutoCloseable {
 
     /**
      * Returns a side-to-move evaluation for a proof state.
+     *
+     * @param proof proof state
+     * @return proof evaluation
      */
     private static Evaluation evaluationForProof(ProofState proof) {
         return switch (proof) {
@@ -834,6 +931,9 @@ final class WorkbenchMctsSearch implements AutoCloseable {
 
     /**
      * Returns a proven child to select from a node, if one dominates search.
+     *
+     * @param parent parent node
+     * @return preferred proven child, or null
      */
     private static Node proofPreferredChild(Node parent) {
         if (parent.children.isEmpty()) {
@@ -874,6 +974,9 @@ final class WorkbenchMctsSearch implements AutoCloseable {
 
     /**
      * Ranks a child proof from the parent's perspective.
+     *
+     * @param child child node
+     * @return proof rank
      */
     private static int proofRankForParent(Node child) {
         return switch (child.proof) {
@@ -885,6 +988,9 @@ final class WorkbenchMctsSearch implements AutoCloseable {
 
     /**
      * Returns a root-perspective value for a child proof state.
+     *
+     * @param child child node
+     * @return proof value from parent perspective
      */
     private static double proofValueForParent(Node child) {
         return switch (child.proof) {
@@ -897,6 +1003,9 @@ final class WorkbenchMctsSearch implements AutoCloseable {
 
     /**
      * Returns a side-to-move value for a node proof.
+     *
+     * @param proof proof state
+     * @return normalized proof value
      */
     private static double proofValue(ProofState proof) {
         return switch (proof) {
@@ -908,6 +1017,9 @@ final class WorkbenchMctsSearch implements AutoCloseable {
 
     /**
      * Converts proof plies to mate moves.
+     *
+     * @param plies proof distance in plies
+     * @return mate distance in moves
      */
     private static int mateMoves(int plies) {
         return (Math.max(0, plies) + 1) / 2;
@@ -916,6 +1028,9 @@ final class WorkbenchMctsSearch implements AutoCloseable {
     /**
      * Returns true when the current path has reached the same core position for
      * the third time. The core key intentionally ignores move counters.
+     *
+     * @param path root-to-node path
+     * @return true when the path repeats
      */
     private static boolean isRepetition(List<Node> path) {
         if (path == null || path.isEmpty()) {
@@ -936,6 +1051,9 @@ final class WorkbenchMctsSearch implements AutoCloseable {
 
     /**
      * Backs up a leaf value through the visited path.
+     *
+     * @param path root-to-leaf path
+     * @param leafValue leaf evaluation
      */
     private static void backup(List<Node> path, Evaluation leafValue) {
         Evaluation value = leafValue;
@@ -952,6 +1070,10 @@ final class WorkbenchMctsSearch implements AutoCloseable {
 
     /**
      * Builds normalized move priors.
+     *
+     * @param position position to evaluate
+     * @param moves legal moves
+     * @return normalized priors
      */
     private double[] priors(Position position, short[] moves) {
         int[] scores = new int[moves.length];
@@ -985,6 +1107,10 @@ final class WorkbenchMctsSearch implements AutoCloseable {
 
     /**
      * Adds cheap tactical priors so the tree opens on plausible moves.
+     *
+     * @param position position to inspect
+     * @param move move to score
+     * @return handcrafted prior score
      */
     private static int tacticalPrior(Position position, short move) {
         int bonus = 0;
@@ -1005,6 +1131,9 @@ final class WorkbenchMctsSearch implements AutoCloseable {
 
     /**
      * Material value for a promotion code.
+     *
+     * @param promotion promotion code
+     * @return promoted piece value
      */
     private static int promotionValue(int promotion) {
         return switch (promotion) {
@@ -1018,6 +1147,10 @@ final class WorkbenchMctsSearch implements AutoCloseable {
 
     /**
      * Returns a principal variation by following most-visited children.
+     *
+     * @param start starting node
+     * @param maxMoves maximum moves
+     * @return principal variation
      */
     private static short[] principalVariation(Node start, int maxMoves) {
         List<Short> moves = new ArrayList<>();
@@ -1070,6 +1203,9 @@ final class WorkbenchMctsSearch implements AutoCloseable {
 
     /**
      * Returns the most visited child of a node.
+     *
+     * @param node parent node
+     * @return most visited child, or null
      */
     private static Node mostVisitedChild(Node node) {
         Node proof = proofPreferredChild(node);
@@ -1108,6 +1244,10 @@ final class WorkbenchMctsSearch implements AutoCloseable {
 
     /**
      * Formats a move in SAN, falling back to UCI if SAN cannot be produced.
+     *
+     * @param position position before the move
+     * @param move move to format
+     * @return SAN or UCI text
      */
     private static String moveSan(Position position, short move) {
         if (move == Move.NO_MOVE) {
@@ -1122,6 +1262,10 @@ final class WorkbenchMctsSearch implements AutoCloseable {
 
     /**
      * Formats a PV as SAN tokens.
+     *
+     * @param root root position
+     * @param pv move sequence
+     * @return SAN principal variation text
      */
     private static String pvText(Position root, short[] pv) {
         Position cursor = root.copy();
@@ -1145,6 +1289,9 @@ final class WorkbenchMctsSearch implements AutoCloseable {
 
     /**
      * Converts a normalized value back to a compact centipawn display.
+     *
+     * @param value normalized value
+     * @return centipawn approximation
      */
     private static int valueToCentipawns(double value) {
         double v = Math.max(-0.999, Math.min(0.999, value));
@@ -1153,6 +1300,8 @@ final class WorkbenchMctsSearch implements AutoCloseable {
 
     /**
      * Returns elapsed wall-clock time in milliseconds.
+     *
+     * @return elapsed milliseconds
      */
     private long elapsedMillis() {
         return Math.max(0L, (System.nanoTime() - startedNanos) / 1_000_000L);
@@ -1160,6 +1309,13 @@ final class WorkbenchMctsSearch implements AutoCloseable {
 
     /**
      * Creates a node wired to a shared hash-table stats bucket.
+     *
+     * @param parent parent node
+     * @param move move from parent
+     * @param position node position
+     * @param prior move prior
+     * @param depth node depth
+     * @return created node
      */
     private Node newNode(Node parent, short move, Position position, double prior, int depth) {
         long key = position.signature();
@@ -1171,6 +1327,9 @@ final class WorkbenchMctsSearch implements AutoCloseable {
 
     /**
      * Returns the shared stats bucket for a position signature.
+     *
+     * @param key position signature
+     * @return shared stats bucket
      */
     private Stats statsFor(long key) {
         Stats stats = transpositions.get(key);
@@ -1183,12 +1342,24 @@ final class WorkbenchMctsSearch implements AutoCloseable {
 
     /**
      * Creates a bounded access-ordered transposition stats table.
+     *
+     * @param limit maximum table size
+     * @return transposition table
      */
     private static Map<Long, Stats> newTranspositionTable(int limit) {
         int cap = Math.max(1, limit);
         return new LinkedHashMap<>(1024, 0.75f, true) {
+            /**
+             * Serialization identifier for the bounded map implementation.
+             */
             private static final long serialVersionUID = 1L;
 
+            /**
+             * Returns whether the oldest entry should be evicted.
+             *
+             * @param eldest eldest map entry
+             * @return true when the cache is above capacity
+             */
             @Override
             protected boolean removeEldestEntry(Map.Entry<Long, Stats> eldest) {
                 return size() > cap;
@@ -1203,11 +1374,16 @@ final class WorkbenchMctsSearch implements AutoCloseable {
 
         /**
          * Evaluates one non-terminal position from the side-to-move perspective.
+         *
+         * @param position position to evaluate
+         * @return structured evaluation
          */
         Evaluation evaluate(Position position);
 
         /**
          * Lets the backend prime move-ordering side data.
+         *
+         * @param position position whose moves will be ordered
          */
         default void prepareMoveOrdering(Position position) {
             // default backend has no side data
@@ -1215,6 +1391,10 @@ final class WorkbenchMctsSearch implements AutoCloseable {
 
         /**
          * Adds backend-specific move-prior scores.
+         *
+         * @param position position to inspect
+         * @param moves moves to score
+         * @param scores mutable score array
          */
         default void scoreMoves(Position position, short[] moves, int[] scores) {
             // default backend does not alter handcrafted priors
@@ -1222,6 +1402,11 @@ final class WorkbenchMctsSearch implements AutoCloseable {
 
         /**
          * Replaces or blends fallback priors.
+         *
+         * @param position position to inspect
+         * @param moves moves to score
+         * @param fallback fallback priors
+         * @return backend priors
          */
         default double[] priors(Position position, short[] moves, double[] fallback) {
             return fallback;
@@ -1240,6 +1425,9 @@ final class WorkbenchMctsSearch implements AutoCloseable {
      * Cheap always-available classical WDL backend.
      */
     private static final class ClassicalBackend implements SearchBackend {
+        /**
+         * Classical centipawn evaluator.
+         */
         private final CentipawnEvaluator evaluator = new Classical();
 
         @Override
@@ -1271,11 +1459,31 @@ final class WorkbenchMctsSearch implements AutoCloseable {
      * priors. It is intentionally opt-in because CPU BT4 inference is expensive.
      */
     private static final class Bt4Backend implements SearchBackend {
+        /**
+         * BT4 policy/value network.
+         */
         private final chess.nn.lc0.bt4.Network network;
+
+        /**
+         * Small access-ordered prediction cache.
+         */
         private final Map<Long, Bt4Prediction> cache = newRecentPredictionCache();
+
+        /**
+         * Last predicted position signature.
+         */
         private long lastKey = Long.MIN_VALUE;
+
+        /**
+         * Last prediction result.
+         */
         private Bt4Prediction lastPrediction;
 
+        /**
+         * Creates a BT4 backend.
+         *
+         * @param network loaded BT4 network
+         */
         private Bt4Backend(chess.nn.lc0.bt4.Network network) {
             this.network = network;
         }
@@ -1374,8 +1582,17 @@ final class WorkbenchMctsSearch implements AutoCloseable {
      */
     private static <T> Map<Long, T> newRecentPredictionCache() {
         return new LinkedHashMap<>(256, 0.75f, true) {
+            /**
+             * Serialization identifier for the bounded map implementation.
+             */
             private static final long serialVersionUID = 1L;
 
+            /**
+             * Returns whether the oldest entry should be evicted.
+             *
+             * @param eldest eldest map entry
+             * @return true when the cache is above capacity
+             */
             @Override
             protected boolean removeEldestEntry(Map.Entry<Long, T> eldest) {
                 return size() > 512;
@@ -1396,8 +1613,18 @@ final class WorkbenchMctsSearch implements AutoCloseable {
      * Captures BT4 canonical transform from activation output.
      */
     private static final class TransformSink implements chess.nn.ActivationSink {
+        /**
+         * Captured transform id.
+         */
         private int transform;
 
+        /**
+         * Receives activation tensors from the BT4 network.
+         *
+         * @param key tensor key
+         * @param shape tensor shape
+         * @param data tensor data
+         */
         @Override
         public void put(String key, int[] shape, float[] data) {
             if ("bt4.input.transform".equals(key) && data != null && data.length > 0) {
@@ -1496,9 +1723,21 @@ final class WorkbenchMctsSearch implements AutoCloseable {
      * Proven endgame state from the node side-to-move perspective.
      */
     private enum ProofState {
+        /**
+         * Proof state has not been established.
+         */
         UNKNOWN,
+        /**
+         * Side to move can force a win.
+         */
         WIN,
+        /**
+         * Side to move can force a draw.
+         */
         DRAW,
+        /**
+         * Side to move is losing with best play.
+         */
         LOSS
     }
 
@@ -1506,17 +1745,50 @@ final class WorkbenchMctsSearch implements AutoCloseable {
      * Shared MCTS stats for one hashed position.
      */
     private static final class Stats {
+        /**
+         * Position signature.
+         */
         private final long key;
+
+        /**
+         * Visit count.
+         */
         private int visits;
+
+        /**
+         * Sum of scalar values.
+         */
         private double valueSum;
+
+        /**
+         * Sum of win probabilities.
+         */
         private double winSum;
+
+        /**
+         * Sum of draw probabilities.
+         */
         private double drawSum;
+
+        /**
+         * Sum of loss probabilities.
+         */
         private double lossSum;
 
+        /**
+         * Creates a stats bucket.
+         *
+         * @param key position signature
+         */
         private Stats(long key) {
             this.key = key;
         }
 
+        /**
+         * Returns average scalar value.
+         *
+         * @return average value
+         */
         private double q() {
             return visits == 0 ? 0.0 : valueSum / visits;
         }
@@ -1526,19 +1798,78 @@ final class WorkbenchMctsSearch implements AutoCloseable {
      * One tree node.
      */
     private static final class Node {
+        /**
+         * Parent node, or null for root.
+         */
         private Node parent;
+
+        /**
+         * Move from the parent to this node.
+         */
         private short move;
+
+        /**
+         * Position represented by this node.
+         */
         private final Position position;
+
+        /**
+         * Prior probability for the parent edge.
+         */
         private final double prior;
+
+        /**
+         * Depth from the root.
+         */
         private int depth;
+
+        /**
+         * Full position signature.
+         */
         private final long key;
+
+        /**
+         * Core repetition signature.
+         */
         private final long coreKey;
+
+        /**
+         * Shared transposition stats.
+         */
         private final Stats stats;
+
+        /**
+         * Expanded children.
+         */
         private final List<Node> children = new ArrayList<>();
+
+        /**
+         * Whether legal children have been expanded.
+         */
         private boolean expanded;
+
+        /**
+         * Proven state.
+         */
         private ProofState proof = ProofState.UNKNOWN;
+
+        /**
+         * Distance to the proof in plies.
+         */
         private int proofPlies = Integer.MAX_VALUE;
 
+        /**
+         * Creates a tree node.
+         *
+         * @param parent parent node
+         * @param move move from parent
+         * @param position node position
+         * @param prior edge prior
+         * @param depth node depth
+         * @param key full position signature
+         * @param coreKey repetition signature
+         * @param stats shared stats bucket
+         */
         private Node(
                 Node parent,
                 short move,
@@ -1558,10 +1889,20 @@ final class WorkbenchMctsSearch implements AutoCloseable {
             this.stats = stats;
         }
 
+        /**
+         * Returns the average value.
+         *
+         * @return average value
+         */
         private double q() {
             return stats.q();
         }
 
+        /**
+         * Returns visit count.
+         *
+         * @return visits
+         */
         private int visits() {
             return stats.visits;
         }

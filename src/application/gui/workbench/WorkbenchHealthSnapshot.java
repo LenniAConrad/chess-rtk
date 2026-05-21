@@ -45,6 +45,11 @@ record WorkbenchHealthSnapshot(Check config, Check doctor, Check engineSmoke) {
          */
         private final String label;
 
+        /**
+         * Creates a health-check outcome.
+         *
+         * @param label display label
+         */
         Check(String label) {
             this.label = label;
         }

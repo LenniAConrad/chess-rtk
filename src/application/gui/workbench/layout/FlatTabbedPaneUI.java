@@ -1,4 +1,4 @@
-package application.gui.workbench;
+package application.gui.workbench.layout;
 
 import java.awt.Color;
 import java.awt.FontMetrics;
@@ -13,10 +13,12 @@ import javax.swing.JComponent;
 import javax.swing.plaf.basic.BasicTabbedPaneUI;
 import javax.swing.event.MouseInputAdapter;
 
+import application.gui.workbench.WorkbenchTheme;
+
 /**
  * Native tabbed-pane UI with a compact, low-noise tab strip.
  */
-final class WorkbenchTabbedPaneUI extends BasicTabbedPaneUI {
+public final class FlatTabbedPaneUI extends BasicTabbedPaneUI {
 
     /**
      * Tab horizontal padding.
@@ -42,6 +44,13 @@ final class WorkbenchTabbedPaneUI extends BasicTabbedPaneUI {
      * Mouse handler that tracks tab rollover.
      */
     private MouseInputAdapter rolloverHandler;
+
+    /**
+     * Creates a compact flat tabbed-pane UI delegate.
+     */
+    public FlatTabbedPaneUI() {
+        // default UI delegate
+    }
 
     /**
      * Installs tab layout defaults.

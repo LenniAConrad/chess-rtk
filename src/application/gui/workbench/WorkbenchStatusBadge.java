@@ -65,6 +65,11 @@ final class WorkbenchStatusBadge extends JComponent {
          */
         private final Color dot;
 
+        /**
+         * Creates a badge kind.
+         *
+         * @param dot dot color
+         */
         Kind(Color dot) {
             this.dot = dot;
         }

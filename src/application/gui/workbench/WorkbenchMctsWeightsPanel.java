@@ -109,6 +109,9 @@ final class WorkbenchMctsWeightsPanel extends javax.swing.JComponent {
 
     /**
      * Draws the idle state.
+     *
+     * @param g graphics context
+     * @param bounds drawing bounds
      */
     private void drawEmpty(Graphics2D g, Rectangle bounds) {
         g.setColor(WorkbenchTheme.MUTED);
@@ -119,6 +122,9 @@ final class WorkbenchMctsWeightsPanel extends javax.swing.JComponent {
 
     /**
      * Draws the top summary row.
+     *
+     * @param g graphics context
+     * @param bounds drawing bounds
      */
     private void drawHeader(Graphics2D g, Rectangle bounds) {
         String best = snapshot.bestMove() == chess.core.Move.NO_MOVE
@@ -140,6 +146,9 @@ final class WorkbenchMctsWeightsPanel extends javax.swing.JComponent {
 
     /**
      * Draws the board for the MCTS leaf currently being evaluated.
+     *
+     * @param g graphics context
+     * @param bounds drawing bounds
      */
     private void drawLiveBoard(Graphics2D g, Rectangle bounds) {
         if (snapshot.exploringPosition() == null || bounds.width < 520) {
@@ -166,6 +175,9 @@ final class WorkbenchMctsWeightsPanel extends javax.swing.JComponent {
 
     /**
      * Draws root edge rows.
+     *
+     * @param g graphics context
+     * @param bounds drawing bounds
      */
     private void drawRows(Graphics2D g, Rectangle bounds) {
         List<WorkbenchMctsSearch.Row> rows = snapshot.rows();
@@ -217,6 +229,9 @@ final class WorkbenchMctsWeightsPanel extends javax.swing.JComponent {
     /**
      * Returns the right edge available to the bar chart, leaving space for the
      * live board on wide layouts.
+     *
+     * @param bounds drawing bounds
+     * @return right edge for content
      */
     private static int contentRight(Rectangle bounds) {
         if (bounds.width < 520) {
@@ -227,6 +242,13 @@ final class WorkbenchMctsWeightsPanel extends javax.swing.JComponent {
 
     /**
      * Draws one move label.
+     *
+     * @param g graphics context
+     * @param row MCTS row
+     * @param x left coordinate
+     * @param y top coordinate
+     * @param w width
+     * @param h height
      */
     private void drawMoveLabel(Graphics2D g, WorkbenchMctsSearch.Row row,
             int x, int y, int w, int h) {
@@ -238,6 +260,15 @@ final class WorkbenchMctsWeightsPanel extends javax.swing.JComponent {
 
     /**
      * Draws an unsigned horizontal bar.
+     *
+     * @param g graphics context
+     * @param x left coordinate
+     * @param y top coordinate
+     * @param w width
+     * @param h height
+     * @param value normalized value
+     * @param fill fill color
+     * @param label bar label
      */
     private void drawUnsignedBar(Graphics2D g, int x, int y, int w, int h,
             double value, Color fill, String label) {
@@ -251,6 +282,14 @@ final class WorkbenchMctsWeightsPanel extends javax.swing.JComponent {
 
     /**
      * Draws a signed centered bar.
+     *
+     * @param g graphics context
+     * @param x left coordinate
+     * @param y top coordinate
+     * @param w width
+     * @param h height
+     * @param value signed value
+     * @param label bar label
      */
     private void drawSignedBar(Graphics2D g, int x, int y, int w, int h,
             double value, String label) {
@@ -272,6 +311,11 @@ final class WorkbenchMctsWeightsPanel extends javax.swing.JComponent {
 
     /**
      * Draws small text on a bar.
+     *
+     * @param g graphics context
+     * @param label text label
+     * @param x left coordinate
+     * @param baseline text baseline
      */
     private void drawTinyLabel(Graphics2D g, String label, int x, int baseline) {
         g.setFont(WorkbenchTheme.font(9, Font.BOLD));

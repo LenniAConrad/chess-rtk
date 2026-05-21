@@ -1570,6 +1570,14 @@ final class WorkbenchBt4View extends WorkbenchNetworkView {
          */
         private final float score;
 
+        /**
+         * Creates a selected attention-head summary.
+         *
+         * @param block block index
+         * @param head head index
+         * @param energy attention energy map
+         * @param score focus score
+         */
         HeadPick(int block, int head, float[] energy, float score) {
             this.block = block;
             this.head = head;

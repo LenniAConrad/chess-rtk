@@ -205,9 +205,21 @@ final class WorkbenchCommandRunner {
      * "(... truncated)" marker between them rather than growing unboundedly.
      */
     private static final class BoundedOutput {
+        /**
+         * Maximum retained character count.
+         */
         private final int limit;
+
+        /**
+         * Leading output segment.
+         */
         private final StringBuilder head = new StringBuilder();
+
+        /**
+         * Trailing output segment.
+         */
         private final StringBuilder tail = new StringBuilder();
+
         /**
          * Characters discarded from the middle of the output to keep the
          * buffer bounded. Only incremented when {@link #appendTail} actually
@@ -215,10 +227,20 @@ final class WorkbenchCommandRunner {
          */
         private long dropped;
 
+        /**
+         * Creates a bounded output buffer.
+         *
+         * @param limit maximum retained character count
+         */
         BoundedOutput(int limit) {
             this.limit = limit;
         }
 
+        /**
+         * Appends a command-output chunk.
+         *
+         * @param chunk output chunk
+         */
         void append(String chunk) {
             if (head.length() < limit / 2) {
                 int room = (limit / 2) - head.length();
@@ -231,6 +253,11 @@ final class WorkbenchCommandRunner {
             appendTail(chunk);
         }
 
+        /**
+         * Appends to the tail segment, evicting old tail text when needed.
+         *
+         * @param chunk output chunk
+         */
         private void appendTail(String chunk) {
             tail.append(chunk);
             if (tail.length() > limit / 2) {
@@ -475,18 +502,30 @@ final class WorkbenchCommandRunner {
             return state;
         }
 
+        /**
+         * Marks the command task as running.
+         */
         void markRunning() {
             state = State.RUNNING;
         }
 
+        /**
+         * Marks the command task as cancelled.
+         */
         void markCancelled() {
             state = State.CANCELLED;
         }
 
+        /**
+         * Marks the command task as completed successfully.
+         */
         void markCompleted() {
             state = State.COMPLETED;
         }
 
+        /**
+         * Marks the command task as failed.
+         */
         void markFailed() {
             state = State.FAILED;
         }

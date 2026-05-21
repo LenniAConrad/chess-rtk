@@ -1699,6 +1699,14 @@ final class WorkbenchCnnView extends WorkbenchNetworkView {
          */
         private final float probability;
 
+        /**
+         * Creates a scored CNN policy move row.
+         *
+         * @param move move
+         * @param policyIndex policy index
+         * @param logit raw logit
+         * @param probability legal-move probability
+         */
         CnnScoredMove(short move, int policyIndex, float logit, float probability) {
             this.move = move;
             this.policyIndex = policyIndex;
@@ -1773,6 +1781,13 @@ final class WorkbenchCnnView extends WorkbenchNetworkView {
          */
         private final float score;
 
+        /**
+         * Creates a selected CNN channel summary.
+         *
+         * @param layer owning layer
+         * @param channel channel index
+         * @param score channel score
+         */
         ChannelPick(LayerInfo layer, int channel, float score) {
             this.layer = layer;
             this.channel = channel;

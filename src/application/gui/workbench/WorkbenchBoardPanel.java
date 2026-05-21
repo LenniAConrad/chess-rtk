@@ -2010,6 +2010,12 @@ final class WorkbenchBoardPanel extends JPanel {
         /** Candidate moves in canonical order (queen, rook, bishop, knight). */
         private final short[] sorted;
 
+        /**
+         * Creates a promotion overlay.
+         *
+         * @param target target square
+         * @param candidates legal promotion move candidates
+         */
         PromotionOverlay(byte target, short[] candidates) {
             this.target = target;
             this.sorted = sortPromotions(candidates);
@@ -2017,6 +2023,9 @@ final class WorkbenchBoardPanel extends JPanel {
 
         /**
          * Sorts candidates as Queen, Rook, Bishop, Knight.
+         *
+         * @param in legal promotion candidates
+         * @return candidates in display order
          */
         private static short[] sortPromotions(short[] in) {
             short queen = Move.NO_MOVE;
@@ -2044,6 +2053,10 @@ final class WorkbenchBoardPanel extends JPanel {
         /**
          * Returns the bounds for one option index, stacked vertically toward
          * the visual center of the board so the overlay does not run off-edge.
+         *
+         * @param optionIndex option index
+         * @param board board bounds
+         * @return option bounds
          */
         Rectangle optionBounds(int optionIndex, Rectangle board) {
             Rectangle squareRect = squareBounds(board, target);

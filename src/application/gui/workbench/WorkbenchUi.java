@@ -53,6 +53,8 @@ import javax.swing.text.NumberFormatter;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 
+import application.gui.workbench.layout.FlatTabbedPaneUI;
+
 /**
  * Small Swing factory and layout helpers used by the workbench.
  */
@@ -350,7 +352,7 @@ final class WorkbenchUi {
      * @param tabs tabbed pane
      */
     static void styleTabs(JTabbedPane tabs) {
-        tabs.setUI(new WorkbenchTabbedPaneUI());
+        tabs.setUI(new FlatTabbedPaneUI());
         tabs.setOpaque(false);
         tabs.setBackground(WorkbenchTheme.TRANSPARENT);
         tabs.setForeground(WorkbenchTheme.TEXT);

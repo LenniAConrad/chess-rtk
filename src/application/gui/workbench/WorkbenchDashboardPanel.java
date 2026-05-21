@@ -962,8 +962,14 @@ final class WorkbenchDashboardPanel extends JPanel implements WorkbenchSessionLi
      */
     private static final class MaterialStrip extends JComponent {
 
+        /**
+         * Serialization identifier for Swing component compatibility.
+         */
         private static final long serialVersionUID = 1L;
 
+        /**
+         * Position statistics currently displayed by the strip.
+         */
         private PositionStats stats = PositionStats.empty();
 
         /**
@@ -1037,16 +1043,36 @@ final class WorkbenchDashboardPanel extends JPanel implements WorkbenchSessionLi
      */
     private static final class MetricMeter extends JComponent {
 
+        /**
+         * Serialization identifier for Swing component compatibility.
+         */
         private static final long serialVersionUID = 1L;
 
+        /**
+         * Meter title.
+         */
         private final String title;
 
+        /**
+         * Normalized meter value.
+         */
         private float value;
 
+        /**
+         * Current value label.
+         */
         private String label = "n/a";
 
+        /**
+         * Accent color used for the meter fill.
+         */
         private Color accent = WorkbenchTheme.ACCENT;
 
+        /**
+         * Creates a metric meter.
+         *
+         * @param title meter title
+         */
         MetricMeter(String title) {
             this.title = title;
             setOpaque(false);
@@ -1111,8 +1137,14 @@ final class WorkbenchDashboardPanel extends JPanel implements WorkbenchSessionLi
      */
     private static final class TagCloud extends JComponent {
 
+        /**
+         * Serialization identifier for Swing component compatibility.
+         */
         private static final long serialVersionUID = 1L;
 
+        /**
+         * Tags currently shown in the cloud.
+         */
         private List<String> tags = List.of();
 
         /**
@@ -1214,10 +1246,24 @@ final class WorkbenchDashboardPanel extends JPanel implements WorkbenchSessionLi
      */
     private static final class HealthRings extends JComponent {
 
+        /**
+         * Serialization identifier for Swing component compatibility.
+         */
         private static final long serialVersionUID = 1L;
 
+        /**
+         * Configuration validation state.
+         */
         private WorkbenchHealthSnapshot.Check config = WorkbenchHealthSnapshot.Check.UNKNOWN;
+
+        /**
+         * Doctor command state.
+         */
         private WorkbenchHealthSnapshot.Check doctor = WorkbenchHealthSnapshot.Check.UNKNOWN;
+
+        /**
+         * Engine smoke-test state.
+         */
         private WorkbenchHealthSnapshot.Check smoke = WorkbenchHealthSnapshot.Check.UNKNOWN;
 
         /**

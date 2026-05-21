@@ -36,6 +36,11 @@ enum WorkbenchJobStatus {
      */
     private final String label;
 
+    /**
+     * Creates a lifecycle state.
+     *
+     * @param label display label
+     */
     WorkbenchJobStatus(String label) {
         this.label = label;
     }

@@ -751,6 +751,16 @@ final class WorkbenchNnueView extends WorkbenchNetworkView implements Scrollable
 
     /**
      * Paints the default interactive atlas browser.
+     *
+     * @param g graphics context
+     * @param body body bounds
+     * @param paintingData atlas values to paint
+     * @param rawAtlas raw atlas values
+     * @param output output weights
+     * @param hidden hidden slot count
+     * @param planes plane count
+     * @param squares squares per plane
+     * @param subtitle header subtitle
      */
     private void paintAtlasBrowser(Graphics2D g, Rectangle body, float[] paintingData,
             float[] rawAtlas, float[] output, int hidden, int planes, int squares,
@@ -811,6 +821,17 @@ final class WorkbenchNnueView extends WorkbenchNetworkView implements Scrollable
     /**
      * Paints a true whole-atlas pixel-plane overview: every selected-order slot,
      * every piece plane, and every square cell are present in one dense image.
+     *
+     * @param g graphics context
+     * @param r drawing bounds
+     * @param order slot render order
+     * @param atlas atlas values
+     * @param output output weights
+     * @param hidden hidden slot count
+     * @param planes plane count
+     * @param squares squares per plane
+     * @param perNeuronScale scale per hidden slot
+     * @param selectedSlot selected hidden slot
      */
     private void paintAtlasWholePlaneOverview(Graphics2D g, Rectangle r, Integer[] order,
             float[] atlas, float[] output, int hidden, int planes, int squares,
@@ -885,6 +906,18 @@ final class WorkbenchNnueView extends WorkbenchNetworkView implements Scrollable
 
     /**
      * Paints the sorted slot thumbnail gallery.
+     *
+     * @param g graphics context
+     * @param r drawing bounds
+     * @param order slot render order
+     * @param atlas atlas values
+     * @param output output weights
+     * @param hidden hidden slot count
+     * @param planes plane count
+     * @param squares squares per plane
+     * @param perNeuronScale scale per hidden slot
+     * @param overlayMag overlay magnitudes
+     * @param selectedSlot selected hidden slot
      */
     private void paintAtlasSlotGallery(Graphics2D g, Rectangle r, Integer[] order,
             float[] atlas, float[] output, int hidden, int planes, int squares,
@@ -960,6 +993,14 @@ final class WorkbenchNnueView extends WorkbenchNetworkView implements Scrollable
 
     /**
      * Paints the focused slot board and plane selector.
+     *
+     * @param g graphics context
+     * @param r drawing bounds
+     * @param atlas atlas values
+     * @param slot hidden slot
+     * @param planes plane count
+     * @param squares squares per plane
+     * @param scale heatmap scale
      */
     private void paintAtlasSlotDetail(Graphics2D g, Rectangle r, float[] atlas,
             int slot, int planes, int squares, float scale) {
@@ -1033,6 +1074,15 @@ final class WorkbenchNnueView extends WorkbenchNetworkView implements Scrollable
 
     /**
      * Paints the right-side explanation pane for a slot.
+     *
+     * @param g graphics context
+     * @param r drawing bounds
+     * @param paintingData atlas values to paint
+     * @param rawAtlas raw atlas values
+     * @param output output weights
+     * @param slot hidden slot
+     * @param planes plane count
+     * @param squares squares per plane
      */
     private void paintAtlasSlotExplanation(Graphics2D g, Rectangle r, float[] paintingData,
             float[] rawAtlas, float[] output, int slot, int planes, int squares) {
@@ -1072,6 +1122,10 @@ final class WorkbenchNnueView extends WorkbenchNetworkView implements Scrollable
 
     /**
      * Draws strongest active Half-KP rows feeding one atlas slot.
+     *
+     * @param g graphics context
+     * @param r drawing bounds
+     * @param slot hidden slot
      */
     private void drawAtlasTopFeatureInputs(Graphics2D g, Rectangle r, int slot) {
         float[] indices = snapshot.data("nnue.features.us.indices");
@@ -1693,6 +1747,7 @@ final class WorkbenchNnueView extends WorkbenchNetworkView implements Scrollable
      * @param scale heatmap scale
      * @param dataKey snapshot data key
      * @param sideLabel side label for tooltips
+     * @param whitePerspective true when feature indices use White perspective
      */
     private void drawRawFeatureRow(Graphics2D g, Rectangle body, int y, int rowH,
             int gridLeft, int gridW, float[] indices, float[] impact,
@@ -1897,6 +1952,9 @@ final class WorkbenchNnueView extends WorkbenchNetworkView implements Scrollable
 
     /**
      * Paints the central signal stack: accumulator comparison and dense trunk.
+     *
+     * @param g graphics context
+     * @param r drawing bounds
      */
     private void paintOverviewSignal(Graphics2D g, Rectangle r) {
         int gap = 10;
@@ -1919,6 +1977,9 @@ final class WorkbenchNnueView extends WorkbenchNetworkView implements Scrollable
 
     /**
      * Paints a curated internal inspector for the selected or strongest feature.
+     *
+     * @param g graphics context
+     * @param r drawing bounds
      */
     private void paintFeatureInspector(Graphics2D g, Rectangle r) {
         FeatureDriver driver = selectedFeature >= 0
@@ -1990,6 +2051,8 @@ final class WorkbenchNnueView extends WorkbenchNetworkView implements Scrollable
 
     /**
      * Returns a compact network stack label for the summary band.
+     *
+     * @return compact stack label
      */
     private String stockfishStackShort() {
         float[] transformed = snapshot.data("nnue.stockfish.transformed");
@@ -2005,6 +2068,9 @@ final class WorkbenchNnueView extends WorkbenchNetworkView implements Scrollable
 
     /**
      * Returns the strongest driver matching one sign.
+     *
+     * @param positive true for positive impact, false for negative
+     * @return strongest matching driver
      */
     private FeatureDriver strongestDriver(boolean positive) {
         float[] indices = snapshot.data("nnue.features.us.indices");
@@ -2029,6 +2095,8 @@ final class WorkbenchNnueView extends WorkbenchNetworkView implements Scrollable
 
     /**
      * Returns the strongest active feature by absolute impact.
+     *
+     * @return strongest absolute-impact driver
      */
     private FeatureDriver strongestDriverByAbs() {
         float[] indices = snapshot.data("nnue.features.us.indices");
@@ -2041,6 +2109,9 @@ final class WorkbenchNnueView extends WorkbenchNetworkView implements Scrollable
 
     /**
      * Returns the active feature driver for a sparse feature index.
+     *
+     * @param featureIndex sparse feature index
+     * @return feature driver, or invalid sentinel
      */
     private FeatureDriver driverForFeature(int featureIndex) {
         float[] indices = snapshot.data("nnue.features.us.indices");
@@ -2058,6 +2129,11 @@ final class WorkbenchNnueView extends WorkbenchNetworkView implements Scrollable
 
     /**
      * Builds a feature driver record for one active row.
+     *
+     * @param row active feature row
+     * @param indices active feature indices
+     * @param impact active feature impacts
+     * @return feature driver, or invalid sentinel
      */
     private FeatureDriver featureDriverAt(int row, float[] indices, float[] impact) {
         if (row < 0 || indices == null || impact == null
@@ -2071,6 +2147,9 @@ final class WorkbenchNnueView extends WorkbenchNetworkView implements Scrollable
 
     /**
      * Returns a human-readable label for a driver.
+     *
+     * @param driver feature driver
+     * @return display label
      */
     private String driverLabel(FeatureDriver driver) {
         return driver.valid() ? decodeUsHalfKP(driver.featureIndex()) : "-";
@@ -2130,6 +2209,9 @@ final class WorkbenchNnueView extends WorkbenchNetworkView implements Scrollable
 
     /**
      * Paints selected or top-driver feature anchors on the overview board.
+     *
+     * @param g graphics context
+     * @param board board bounds
      */
     private void paintOverviewFeatureOverlay(Graphics2D g, Rectangle board) {
         if (selectedBoardSquare >= 0) {
@@ -2148,6 +2230,11 @@ final class WorkbenchNnueView extends WorkbenchNetworkView implements Scrollable
 
     /**
      * Paints one driver's king and piece anchors on the board.
+     *
+     * @param g graphics context
+     * @param board board bounds
+     * @param driver feature driver
+     * @param tint piece-square tint
      */
     private void paintDriverFeatureOverlay(Graphics2D g, Rectangle board,
             FeatureDriver driver, Color tint) {

@@ -37,7 +37,7 @@ import javax.swing.table.TableCellRenderer;
 /**
  * Native Swing styling helpers for the CRTK Workbench.
  */
-final class WorkbenchTheme {
+public final class WorkbenchTheme {
 
     /**
      * Theme logger.
@@ -137,7 +137,7 @@ final class WorkbenchTheme {
     /**
      * Root background color.
      */
-    static final Color BG = PASTEL_CHROME;
+    public static final Color BG = PASTEL_CHROME;
 
     /**
      * Fully transparent component background.
@@ -153,37 +153,37 @@ final class WorkbenchTheme {
     /**
      * Solid panel fallback for Swing components that must be fully opaque.
      */
-    static final Color PANEL_SOLID = blendOver(PANEL, BG);
+    public static final Color PANEL_SOLID = blendOver(PANEL, BG);
 
     /**
      * Elevated panel color.
      */
-    static final Color ELEVATED = PASTEL_DOCUMENT;
+    public static final Color ELEVATED = PASTEL_DOCUMENT;
 
     /**
      * Solid elevated fallback for data surfaces and scroll viewports.
      */
-    static final Color ELEVATED_SOLID = blendOver(ELEVATED, BG);
+    public static final Color ELEVATED_SOLID = blendOver(ELEVATED, BG);
 
     /**
      * Line color.
      */
-    static final Color LINE = PASTEL_BORDER;
+    public static final Color LINE = PASTEL_BORDER;
 
     /**
      * Primary text color.
      */
-    static final Color TEXT = PASTEL_INK;
+    public static final Color TEXT = PASTEL_INK;
 
     /**
      * Secondary text color.
      */
-    static final Color MUTED = PASTEL_MUTED;
+    public static final Color MUTED = PASTEL_MUTED;
 
     /**
      * Accent color.
      */
-    static final Color ACCENT = PASTEL_BLUE;
+    public static final Color ACCENT = PASTEL_BLUE;
 
     /**
      * Table and tree selection color.
@@ -218,7 +218,7 @@ final class WorkbenchTheme {
     /**
      * Secondary button pressed color.
      */
-    static final Color SECONDARY_BUTTON_PRESSED = PASTEL_CHROME;
+    public static final Color SECONDARY_BUTTON_PRESSED = PASTEL_CHROME;
 
     /**
      * Secondary button text color.
@@ -248,7 +248,7 @@ final class WorkbenchTheme {
     /**
      * Input focus ring color.
      */
-    static final Color INPUT_FOCUS = PASTEL_BLUE;
+    public static final Color INPUT_FOCUS = PASTEL_BLUE;
 
     /**
      * Disabled input background color.
@@ -421,18 +421,18 @@ final class WorkbenchTheme {
     /**
      * Tab strip selected accent underline.
      */
-    static final Color TAB_ACCENT_UNDERLINE = new Color(ACCENT.getRed(), ACCENT.getGreen(), ACCENT.getBlue(), 255);
+    public static final Color TAB_ACCENT_UNDERLINE = new Color(ACCENT.getRed(), ACCENT.getGreen(), ACCENT.getBlue(), 255);
 
     /**
      * Tab strip rollover fill.
      */
-    static final Color TAB_HOVER = new Color(PASTEL_SUBTLE.getRed(), PASTEL_SUBTLE.getGreen(),
+    public static final Color TAB_HOVER = new Color(PASTEL_SUBTLE.getRed(), PASTEL_SUBTLE.getGreen(),
             PASTEL_SUBTLE.getBlue(), 255);
 
     /**
      * Tab strip resting fill.
      */
-    static final Color TAB_IDLE = new Color(BG.getRed(), BG.getGreen(), BG.getBlue(), 255);
+    public static final Color TAB_IDLE = new Color(BG.getRed(), BG.getGreen(), BG.getBlue(), 255);
 
     /**
      * Scrollbar track fill.
@@ -690,7 +690,7 @@ final class WorkbenchTheme {
      * @param alpha alpha value
      * @return color with alpha
      */
-    static Color withAlpha(Color color, int alpha) {
+    public static Color withAlpha(Color color, int alpha) {
         int clamped = Math.max(0, Math.min(255, alpha));
         return new Color(color.getRed(), color.getGreen(), color.getBlue(), clamped);
     }
@@ -808,7 +808,7 @@ final class WorkbenchTheme {
      * @param style font style
      * @return font
      */
-    static Font font(float size, int style) {
+    public static Font font(float size, int style) {
         return new Font(UI_FONT_FAMILY, style, Math.round(size));
     }
 
@@ -1046,7 +1046,7 @@ final class WorkbenchTheme {
      *
      * @param tab toggle button to style
      */
-    static void commandTab(AbstractButton tab) {
+    public static void commandTab(AbstractButton tab) {
         tab.setFocusPainted(false);
         tab.setContentAreaFilled(false);
         tab.setBorderPainted(false);
