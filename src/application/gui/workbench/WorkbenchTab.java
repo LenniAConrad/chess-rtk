@@ -12,8 +12,10 @@ import java.awt.Rectangle;
 import java.awt.RenderingHints;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.util.function.IntConsumer;
 
 import javax.swing.JComponent;
+import javax.swing.SwingUtilities;
 
 /**
  * A VS Code-style editor tab: a flat rectangle showing the panel name with a
@@ -64,14 +66,20 @@ final class WorkbenchTab extends JComponent {
     private boolean hover;
 
     /**
-     * Selection callback.
+     * Reorder callback invoked with the drag x in the strip's coordinate
+     * space; null when reordering is not wired.
      */
-    private final transient Runnable onSelect;
+    private transient IntConsumer onDragTo;
 
     /**
-     * Close callback.
+     * Drop callback invoked when a reorder drag ends.
      */
-    private final transient Runnable onClose;
+    private transient Runnable onDrop;
+
+    /**
+     * Whether a reorder drag is in progress.
+     */
+    private boolean dragging;
 
     /**
      * Creates a tab.
@@ -82,8 +90,6 @@ final class WorkbenchTab extends JComponent {
      */
     WorkbenchTab(String name, Runnable onSelect, Runnable onClose) {
         this.name = name;
-        this.onSelect = onSelect;
-        this.onClose = onClose;
         setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         MouseAdapter mouse = new MouseAdapter() {
             @Override
@@ -92,6 +98,25 @@ final class WorkbenchTab extends JComponent {
                     onClose.run();
                 } else {
                     onSelect.run();
+                }
+            }
+
+            @Override
+            public void mouseDragged(MouseEvent event) {
+                if (onDragTo != null) {
+                    dragging = true;
+                    onDragTo.accept(SwingUtilities.convertPoint(
+                            WorkbenchTab.this, event.getPoint(), getParent()).x);
+                }
+            }
+
+            @Override
+            public void mouseReleased(MouseEvent event) {
+                if (dragging) {
+                    dragging = false;
+                    if (onDrop != null) {
+                        onDrop.run();
+                    }
                 }
             }
 
@@ -112,6 +137,19 @@ final class WorkbenchTab extends JComponent {
         };
         addMouseListener(mouse);
         addMouseMotionListener(mouse);
+    }
+
+    /**
+     * Wires drag-to-reorder. The {@code onDragTo} callback receives the live
+     * drag x in the parent strip's coordinates; {@code onDrop} fires once when
+     * the drag ends.
+     *
+     * @param onDragTo live drag callback
+     * @param onDrop drag-end callback
+     */
+    void setReorderHandler(IntConsumer onDragTo, Runnable onDrop) {
+        this.onDragTo = onDragTo;
+        this.onDrop = onDrop;
     }
 
     /**
