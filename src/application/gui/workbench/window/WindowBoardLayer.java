@@ -308,11 +308,12 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
      */
     protected JComponent createAnalysisDataPanel() {
         JPanel content = transparentPanel(new BorderLayout(6, 6));
-        content.add(buttonRow(FlowLayout.LEFT,
+        JComponent actions = buttonRow(FlowLayout.LEFT,
                 button("Copy CSV", false, event -> copyAnalysisCsv()),
                 button("Copy Report", false, event -> copyAnalysisReport()),
                 button("Print Report", false, event -> printAnalysisReport()),
-                button("Clear", false, event -> clearAnalysisData())), BorderLayout.NORTH);
+                button("Clear", false, event -> clearAnalysisData()));
+        content.add(collapsible("Report actions", actions, false), BorderLayout.NORTH);
         content.add(analysisGraph, BorderLayout.CENTER);
     return titled("Analysis Data", content);
     }
@@ -326,33 +327,55 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
         JPanel panel = new SurfacePanel(new GridBagLayout());
         GridBagConstraints c = constraints();
         c.insets = new Insets(6, 6, 6, 6);
-        grid(panel, Theme.section("Appearance"), c, 0, 0, 1, 1);
-        grid(panel, settingsToggle("Dark mode",
+
+        JPanel appearance = settingsGroupPanel();
+        GridBagConstraints appearanceC = constraints();
+        appearanceC.insets = new Insets(3, 0, 3, 0);
+        grid(appearance, settingsToggle("Dark mode",
                 "Switch the workbench chrome and controls to the dark palette",
-                isDarkMode(), this::setDarkMode), c, 0, 1, 1, 1);
-        grid(panel, Theme.section("Board"), c, 0, 2, 1, 1);
-        addSettingsToggle(panel, c, 3, "Legal move preview",
+                isDarkMode(), this::setDarkMode), appearanceC, 0, 0, 1, 1);
+
+        JPanel boardSettings = settingsGroupPanel();
+        GridBagConstraints boardC = constraints();
+        boardC.insets = new Insets(3, 0, 3, 0);
+        addSettingsToggle(boardSettings, boardC, 0, "Legal move preview",
                 "Show selected-piece destinations and legal drag targets on the board",
                 showLegalMovePreview, selected -> showLegalMovePreview = selected, false);
-        addSettingsToggle(panel, c, 4, "Last move highlight",
+        addSettingsToggle(boardSettings, boardC, 1, "Last move highlight",
                 "Show the previous move on the board",
                 showLastMoveHighlight, selected -> showLastMoveHighlight = selected, false);
-        addSettingsToggle(panel, c, 5, "Best move arrows",
+        addSettingsToggle(boardSettings, boardC, 2, "Best move arrows",
                 "Show engine best-move and analysis suggestions as board arrows",
                 showBestMoveArrows, selected -> showBestMoveArrows = selected, false);
-        addSettingsToggle(panel, c, 6, "Coordinates",
+        addSettingsToggle(boardSettings, boardC, 3, "Coordinates",
                 "Show file and rank notation on the board",
                 showBoardCoordinates, selected -> showBoardCoordinates = selected, false);
-        addSettingsToggle(panel, c, 7, "Board animations",
+        addSettingsToggle(boardSettings, boardC, 4, "Board animations",
                 "Animate moves, snaps, snapbacks, and board flips",
                 boardAnimationsEnabled, selected -> boardAnimationsEnabled = selected, false);
-        grid(panel, Theme.section("Analysis"), c, 0, 8, 1, 1);
-        addSettingsToggle(panel, c, 9, "Auto eval bar",
+
+        JPanel analysisSettings = settingsGroupPanel();
+        GridBagConstraints analysisC = constraints();
+        analysisC.insets = new Insets(3, 0, 3, 0);
+        addSettingsToggle(analysisSettings, analysisC, 0, "Auto eval bar",
                 "Automatically refresh the side evaluation bar after position changes",
                 autoEvalBarEnabled, selected -> autoEvalBarEnabled = selected, true);
 
-        addVerticalFiller(panel, c, 10, 1);
+        int row = 0;
+        grid(panel, collapsible("Appearance", appearance, true), c, 0, row++, 1, 1);
+        grid(panel, collapsible("Board", boardSettings, true), c, 0, row++, 1, 1);
+        grid(panel, collapsible("Analysis", analysisSettings, false), c, 0, row++, 1, 1);
+        addVerticalFiller(panel, c, row, 1);
         return panel;
+    }
+
+    /**
+     * Creates an unframed single-column settings group.
+     *
+     * @return group panel
+     */
+    private static JPanel settingsGroupPanel() {
+        return transparentPanel(new GridBagLayout());
     }
 
     /**
@@ -364,31 +387,41 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
         JPanel panel = new SurfacePanel(new GridBagLayout());
         GridBagConstraints c = constraints();
         c.insets = new Insets(6, 6, 6, 6);
-        grid(panel, Theme.section("Engine"), c, 0, 0, 4, 1);
 
         engineProtocolField.setColumns(28);
         engineNodesField.setColumns(10);
         engineHashField.setColumns(7);
         styleFields(engineProtocolField, engineNodesField, engineHashField);
-        grid(panel, label("protocol"), c, 0, 1, 1, 1);
-        grid(panel, engineProtocolField, c, 1, 1, 2, 1);
+
+        JPanel protocol = settingsGroupPanel();
+        GridBagConstraints protocolC = constraints();
+        protocolC.insets = new Insets(3, 0, 3, 0);
+        grid(protocol, label("protocol"), protocolC, 0, 0, 1, 1);
+        grid(protocol, engineProtocolField, protocolC, 1, 0, 2, 1);
         JButton chooseProtocol = button("Choose Protocol", false,
                 event -> FileDialogs.choosePath(this, engineProtocolField, false, "Choose engine protocol",
     new FileNameExtensionFilter("TOML files", "toml")));
-        grid(panel, chooseProtocol, c, 3, 1, 1, 1);
+        grid(protocol, chooseProtocol, protocolC, 3, 0, 1, 1);
 
+        JPanel limits = settingsGroupPanel();
+        GridBagConstraints limitsC = constraints();
+        limitsC.insets = new Insets(3, 0, 3, 0);
         JPanel limitRow = flow(FlowLayout.LEFT);
         limitRow.add(label("nodes"));
         limitRow.add(engineNodesField);
         limitRow.add(label("hash"));
         limitRow.add(engineHashField);
-        grid(panel, limitRow, c, 1, 2, 3, 1);
+        grid(limits, limitRow, limitsC, 0, 0, 1, 1);
 
-        grid(panel, buttonRow(FlowLayout.LEFT,
+        grid(limits, buttonRow(FlowLayout.LEFT,
                 button("Smoke", false, event -> runEngineSmoke()),
                 button("Validate Config", false, event -> runConfigValidate()),
-                button("Defaults", false, event -> resetEngineSettings())), c, 1, 3, 3, 1);
-        addVerticalFiller(panel, c, 4, 4);
+                button("Defaults", false, event -> resetEngineSettings())), limitsC, 0, 1, 1, 1);
+
+        int row = 0;
+        grid(panel, collapsible("Protocol", protocol, true), c, 0, row++, 4, 1);
+        grid(panel, collapsible("Limits and tools", limits, false), c, 0, row++, 4, 1);
+        addVerticalFiller(panel, c, row, 4);
         return panel;
     }
 
@@ -449,24 +482,30 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
         GridBagConstraints c = constraints();
         grid(panel, Theme.section("Line Tools"), c, 0, 0, 4, 1);
 
+        JPanel importTools = settingsGroupPanel();
+        GridBagConstraints importC = constraints();
+        importC.insets = new Insets(3, 0, 3, 0);
         styleAreas(gameInput);
         gameInput.setRows(5);
         gameInput.setLineWrap(true);
         gameInput.setWrapStyleWord(true);
         gameInput.setText("1. e4 e5 2. Nf3 Nc6");
-        grid(panel, label("input"), c, 0, 1, 1, 1);
-        grid(panel, scroll(gameInput), c, 1, 1, 3, 1);
+        grid(importTools, label("input"), importC, 0, 0, 1, 1);
+        grid(importTools, scroll(gameInput), importC, 1, 0, 3, 1);
 
-        grid(panel, buttonRow(FlowLayout.LEFT,
+        grid(importTools, buttonRow(FlowLayout.LEFT,
                 button("Load Line", true, event -> loadGameText(gameInput.getText())),
                 button("Load File", false, event -> loadGameFile()),
                 button("Save PGN", false, event -> savePgnFile()),
-                button("New Game", false, event -> startNewGame(currentFen()))), c, 1, 2, 3, 1);
+                button("New Game", false, event -> startNewGame(currentFen()))), importC, 1, 1, 3, 1);
 
-        grid(panel, buttonRow(FlowLayout.LEFT,
+        JComponent exportTools = buttonRow(FlowLayout.LEFT,
                 button("Copy FEN List", false, event -> copyText(gameModel.fenList())),
-                button("Add to Batch", false, event -> batchPanel.appendCurrentFen())), c, 1, 3, 3, 1);
-        addVerticalFiller(panel, c, 4, 4);
+                button("Add to Batch", false, event -> batchPanel.appendCurrentFen()));
+
+        grid(panel, collapsible("Import line", importTools, true), c, 0, 1, 4, 1);
+        grid(panel, collapsible("Exports", exportTools, false), c, 0, 2, 4, 1);
+        addVerticalFiller(panel, c, 3, 4);
         return panel;
     }
 

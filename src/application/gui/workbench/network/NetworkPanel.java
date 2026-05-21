@@ -585,7 +585,7 @@ public final class NetworkPanel extends JPanel {
         bar.add(actions, BorderLayout.EAST);
         JPanel outer = Ui.transparentPanel(new BorderLayout(0, Theme.SPACE_XS));
         outer.add(bar, BorderLayout.NORTH);
-        outer.add(buildMctsToolbar(), BorderLayout.SOUTH);
+        outer.add(Ui.collapsible("MCTS search", buildMctsToolbar(), false), BorderLayout.SOUTH);
         return outer;
     }
 

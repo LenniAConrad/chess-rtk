@@ -113,6 +113,12 @@ public final class CommandForm extends JPanel {
     private final transient List<FilterRow> optionalRows = new ArrayList<>();
 
     /**
+     * Optional flags disclosure for command templates that expose advanced
+     * switches.
+     */
+    private JComponent optionalDisclosure;
+
+    /**
      * Suppresses change events while the form is being rebuilt.
      */
     private transient boolean rebuilding;
@@ -165,6 +171,15 @@ public final class CommandForm extends JPanel {
     }
 
     /**
+     * Expands the optional flags section when it exists.
+     */
+    public void expandOptionalFlags() {
+        if (optionalDisclosure != null) {
+            Ui.setCollapsibleExpanded(optionalDisclosure, true);
+        }
+    }
+
+    /**
      * Rebuilds the form for a command template.
      *
      * @param template selected command template
@@ -174,6 +189,7 @@ public final class CommandForm extends JPanel {
         rebuilding = true;
         fields.clear();
         optionalRows.clear();
+        optionalDisclosure = null;
         body.removeAll();
         if (template != null) {
             for (CommandOption option : template.options()) {
@@ -284,20 +300,26 @@ public final class CommandForm extends JPanel {
         }
         if (!optional.isEmpty()) {
             body.add(Box.createVerticalStrut(Theme.SPACE_MD));
-            body.add(sectionHeader("Optional flags", Theme.MUTED));
+            JPanel optionalPanel = new JPanel();
+            optionalPanel.setOpaque(false);
+            optionalPanel.setLayout(new BoxLayout(optionalPanel, BoxLayout.Y_AXIS));
+            optionalPanel.setAlignmentX(LEFT_ALIGNMENT);
             JPanel filterRow = new JPanel(new BorderLayout(Theme.SPACE_SM, 0));
             filterRow.setOpaque(false);
             filterRow.setAlignmentX(LEFT_ALIGNMENT);
             filterRow.setMaximumSize(new Dimension(Integer.MAX_VALUE, Theme.CONTROL_HEIGHT));
             filterRow.add(filterField, BorderLayout.CENTER);
-            body.add(filterRow);
-            body.add(Box.createVerticalStrut(Theme.SPACE_XS));
+            optionalPanel.add(filterRow);
+            optionalPanel.add(Box.createVerticalStrut(Theme.SPACE_XS));
             for (Block block : optional) {
                 JComponent rendered = renderBlock(block, true);
-                body.add(rendered);
-                body.add(Box.createVerticalStrut(Theme.SPACE_XS));
-                optionalRows.add(new FilterRow(rendered, block.searchText()));
+                Component spacer = Box.createVerticalStrut(Theme.SPACE_XS);
+                optionalPanel.add(rendered);
+                optionalPanel.add(spacer);
+                optionalRows.add(new FilterRow(rendered, spacer, block.searchText()));
             }
+            optionalDisclosure = Ui.collapsible("Optional flags", optionalPanel, false);
+            body.add(optionalDisclosure);
         }
         body.add(Box.createVerticalGlue());
         applyFilter();
@@ -739,7 +761,9 @@ public final class CommandForm extends JPanel {
     private void applyFilter() {
         String query = filterField.getText() == null ? "" : filterField.getText().trim().toLowerCase(Locale.ROOT);
         for (FilterRow row : optionalRows) {
-            row.component().setVisible(query.isEmpty() || row.text().contains(query));
+            boolean visible = query.isEmpty() || row.text().contains(query);
+            row.component().setVisible(visible);
+            row.spacer().setVisible(visible);
         }
         body.revalidate();
         body.repaint();
@@ -1052,8 +1076,9 @@ public final class CommandForm extends JPanel {
      * An optional row paired with its search text for filtering.
      *
      * @param component rendered row
+     * @param spacer row spacer
      * @param text lowercased search text
      */
-    private record FilterRow(JComponent component, String text) {
+    private record FilterRow(JComponent component, Component spacer, String text) {
     }
 }
