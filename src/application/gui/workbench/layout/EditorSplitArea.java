@@ -3,6 +3,7 @@ package application.gui.workbench.layout;
 import java.awt.BasicStroke;
 import java.awt.BorderLayout;
 import java.awt.Color;
+import java.awt.Cursor;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Graphics;
@@ -10,6 +11,8 @@ import java.awt.Graphics2D;
 import java.awt.Point;
 import java.awt.Rectangle;
 import java.awt.RenderingHints;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.IntConsumer;
@@ -73,6 +76,16 @@ public final class EditorSplitArea extends JPanel {
      * Drop into the secondary editor group without changing the split geometry.
      */
     private static final int DROP_SECONDARY_CENTER = 6;
+
+    /**
+     * Alpha for the VS Code-style drop target fill.
+     */
+    private static final int DROP_FILL_ALPHA = 32;
+
+    /**
+     * Alpha for the VS Code-style drop target outline.
+     */
+    private static final int DROP_BORDER_ALPHA = 190;
 
     /**
      * Panel display names.
@@ -183,7 +196,7 @@ public final class EditorSplitArea extends JPanel {
     /**
      * Split toggle button.
      */
-    private final JToggleButton splitButton = new JToggleButton("Split");
+    private final JToggleButton splitButton = new SplitGroupButton();
 
     /**
      * Creates an empty split area.
@@ -228,7 +241,6 @@ public final class EditorSplitArea extends JPanel {
      * panel has been added.
      */
     public void install() {
-        WorkbenchTheme.commandTab(splitButton);
         splitButton.setToolTipText("Split editor group");
         splitButton.addActionListener(event -> toggleSplit());
         relayout();
@@ -962,11 +974,11 @@ public final class EditorSplitArea extends JPanel {
         try {
             g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
             g.setColor(new Color(WorkbenchTheme.ACCENT.getRed(), WorkbenchTheme.ACCENT.getGreen(),
-                    WorkbenchTheme.ACCENT.getBlue(), 36));
-            g.fillRoundRect(zone.x, zone.y, zone.width, zone.height, 6, 6);
-            g.setColor(WorkbenchTheme.ACCENT);
-            g.setStroke(new BasicStroke(2f));
-            g.drawRoundRect(zone.x + 1, zone.y + 1, zone.width - 2, zone.height - 2, 6, 6);
+                    WorkbenchTheme.ACCENT.getBlue(), DROP_FILL_ALPHA));
+            g.fillRect(zone.x, zone.y, zone.width, zone.height);
+            g.setColor(WorkbenchTheme.withAlpha(WorkbenchTheme.ACCENT, DROP_BORDER_ALPHA));
+            g.setStroke(new BasicStroke(1f));
+            g.drawRect(zone.x, zone.y, Math.max(0, zone.width - 1), Math.max(0, zone.height - 1));
         } finally {
             g.dispose();
         }
@@ -1014,5 +1026,102 @@ public final class EditorSplitArea extends JPanel {
     @Override
     public Dimension getPreferredSize() {
         return new Dimension(900, 620);
+    }
+
+    /**
+     * Compact split-editor action button. VS Code presents editor-group actions
+     * as icon controls in the title strip; this avoids a text pill in the tab
+     * header.
+     */
+    private static final class SplitGroupButton extends JToggleButton {
+
+        /**
+         * Serialization identifier for Swing button compatibility.
+         */
+        private static final long serialVersionUID = 1L;
+
+        /**
+         * Fixed action button size.
+         */
+        private static final int SIZE = 28;
+
+        /**
+         * Whether the pointer is hovering over the button.
+         */
+        private boolean hover;
+
+        /**
+         * Creates the split-group action.
+         */
+        SplitGroupButton() {
+            setFocusPainted(false);
+            setContentAreaFilled(false);
+            setBorderPainted(false);
+            setOpaque(false);
+            setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+            setPreferredSize(new Dimension(SIZE, SIZE));
+            setMinimumSize(new Dimension(SIZE, SIZE));
+            setMaximumSize(new Dimension(SIZE, SIZE));
+            getAccessibleContext().setAccessibleName("Split editor group");
+            addMouseListener(new MouseAdapter() {
+                @Override
+                public void mouseEntered(MouseEvent event) {
+                    setHover(true);
+                }
+
+                @Override
+                public void mouseExited(MouseEvent event) {
+                    setHover(false);
+                }
+            });
+        }
+
+        /**
+         * Updates hover state.
+         *
+         * @param value true while hovered
+         */
+        private void setHover(boolean value) {
+            if (hover != value) {
+                hover = value;
+                repaint();
+            }
+        }
+
+        /**
+         * Paints the split-group icon.
+         *
+         * @param graphics graphics context
+         */
+        @Override
+        protected void paintComponent(Graphics graphics) {
+            Graphics2D g = (Graphics2D) graphics.create();
+            try {
+                g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                int w = getWidth();
+                int h = getHeight();
+                if (isSelected() || hover) {
+                    g.setColor(isSelected()
+                            ? WorkbenchTheme.withAlpha(WorkbenchTheme.ACCENT, 30)
+                            : WorkbenchTheme.TAB_HOVER);
+                    g.fillRect(2, 2, Math.max(0, w - 4), Math.max(0, h - 4));
+                }
+                Color stroke = isSelected() ? WorkbenchTheme.ACCENT : WorkbenchTheme.MUTED;
+                g.setColor(stroke);
+                g.setStroke(new BasicStroke(1.4f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                int x = (w - 16) / 2;
+                int y = (h - 14) / 2;
+                g.drawRect(x, y, 16, 14);
+                g.drawLine(x + 8, y, x + 8, y + 14);
+                if (isSelected()) {
+                    g.setStroke(new BasicStroke(2f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                    g.drawLine(x + 10, y + 3, x + 14, y + 3);
+                    g.drawLine(x + 10, y + 7, x + 14, y + 7);
+                    g.drawLine(x + 10, y + 11, x + 14, y + 11);
+                }
+            } finally {
+                g.dispose();
+            }
+        }
     }
 }

@@ -32,11 +32,13 @@ import javax.swing.JScrollPane;
 import javax.swing.JViewport;
 import javax.swing.Scrollable;
 import javax.swing.JSpinner;
+import javax.swing.JSplitPane;
 import javax.swing.JTabbedPane;
 import javax.swing.JTable;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.JTextPane;
+import javax.swing.JToggleButton;
 import javax.swing.KeyStroke;
 import javax.swing.Timer;
 import javax.swing.UIManager;
@@ -138,6 +140,7 @@ public final class WorkbenchRegressionTest {
         testCollapsibleInfoSectionTogglesContent();
         testTabbedPaneSwitchesWithoutSnapshotOverlay();
         testSplitAreaUsesIndependentEditorGroups();
+        testEditorShellUsesVscodeStyleSplitChrome();
         testButtonHoverTransitionStarts();
         testWorkbenchTimingDefaultsAreSnappy();
         testResetButtonUsesResetIcon();
@@ -758,6 +761,30 @@ public final class WorkbenchRegressionTest {
         invoke(area, "setPrimary", new Class<?>[] { int.class }, 1);
         assertTrue(primary.contains(1), "tab can move back to primary group");
         assertFalse(secondary.contains(1), "tab is not duplicated across editor groups");
+    }
+
+    /**
+     * Verifies editor-group split chrome follows VS Code's compact icon/sash
+     * model rather than a text button and a visible divider grip.
+     */
+    private static void testEditorShellUsesVscodeStyleSplitChrome() {
+        Object area = construct(type("layout.EditorSplitArea"), new Class<?>[0]);
+        invoke(area, "addPanel", new Class<?>[] { String.class, javax.swing.JComponent.class },
+                "One", new JPanel());
+        invoke(area, "addPanel", new Class<?>[] { String.class, javax.swing.JComponent.class },
+                "Two", new JPanel());
+        invoke(area, "install", new Class<?>[0]);
+        JToggleButton splitButton = (JToggleButton) field(area, "splitButton");
+        assertEquals("", splitButton.getText(), "split action uses icon-only chrome");
+        assertEquals(new Dimension(28, 28), splitButton.getPreferredSize(),
+                "split action keeps a compact VS Code-style hit target");
+
+        JSplitPane pane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, new JPanel(), new JPanel());
+        invokeStatic(type("layout.SplitPaneStyler"), "style", new Class<?>[] { JSplitPane.class }, pane);
+        assertEquals(Integer.valueOf(4), Integer.valueOf(pane.getDividerSize()),
+                "split sash uses VS Code's four-pixel interaction strip");
+        assertTrue(pane.isContinuousLayout(), "split sash resizes continuously");
+        assertFalse(pane.isOneTouchExpandable(), "split sash has no Swing one-touch affordance");
     }
 
     /**
