@@ -25,7 +25,6 @@ import java.awt.MouseInfo;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.image.BufferedImage;
-import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
@@ -33,8 +32,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 import javax.swing.BorderFactory;
 import javax.swing.JFileChooser;
@@ -113,6 +114,11 @@ class GuiWindowEngine extends GuiWindowHistory {
 		 */
 		private boolean pvPreviewCachedWhiteDown = true;
 		/**
+		 * Terminal buffers for command output text areas.
+		 */
+		private final Map<JTextArea, TerminalOutputBuffer> terminalBuffers = new IdentityHashMap<>();
+
+		/**
 		 * resetPvPreviewCache method.
 		 */
 		private void resetPvPreviewCache() {
@@ -183,10 +189,7 @@ class GuiWindowEngine extends GuiWindowHistory {
 						return;
 					}
 
-					commandOutput.setText("");
-					if (panelOutputArea != null) {
-						panelOutputArea.setText("");
-					}
+					clearOutputAreas();
 					runButton.setEnabled(false);
 					stopButton.setEnabled(true);
 					helpButton.setEnabled(false);
@@ -203,11 +206,12 @@ class GuiWindowEngine extends GuiWindowHistory {
 							try {
 								Process process = builder.start();
 								currentProcess = process;
-								try (BufferedReader reader = new BufferedReader(
-										new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
-									String line;
-									while ((line = reader.readLine()) != null) {
-										publish(line + "\n");
+								try (InputStreamReader reader = new InputStreamReader(
+										process.getInputStream(), StandardCharsets.UTF_8)) {
+									char[] buffer = new char[4096];
+									int read;
+									while ((read = reader.read(buffer)) >= 0) {
+										publish(new String(buffer, 0, read));
 									}
 								}
 								int exit = process.waitFor();
@@ -253,12 +257,51 @@ class GuiWindowEngine extends GuiWindowHistory {
 								 * @param text parameter.
 								 */
 								protected void appendOutput(String text) {
-					commandOutput.append(text);
-					commandOutput.setCaretPosition(commandOutput.getDocument().getLength());
-					if (panelOutputArea != null) {
-						panelOutputArea.append(text);
-						panelOutputArea.setCaretPosition(panelOutputArea.getDocument().getLength());
+					appendTerminalOutput(commandOutput, text);
+					appendTerminalOutput(panelOutputArea, text);
+					appendTerminalOutput(panelTerminalArea, text);
+				}
+
+				/**
+				 * Clears command output areas and their terminal cursor state.
+				 */
+				private void clearOutputAreas() {
+					clearTerminalOutput(commandOutput);
+					clearTerminalOutput(panelOutputArea);
+					clearTerminalOutput(panelTerminalArea);
+				}
+
+				/**
+				 * Appends terminal output to a text area.
+				 *
+				 * @param area target area
+				 * @param text raw terminal text
+				 */
+				private void appendTerminalOutput(JTextArea area, String text) {
+					if (area != null) {
+						terminalBuffer(area).append(text);
 					}
+				}
+
+				/**
+				 * Clears one terminal output area.
+				 *
+				 * @param area target area
+				 */
+				private void clearTerminalOutput(JTextArea area) {
+					if (area != null) {
+						terminalBuffer(area).clear();
+					}
+				}
+
+				/**
+				 * Returns the terminal buffer for a text area.
+				 *
+				 * @param area target area
+				 * @return terminal buffer
+				 */
+				private TerminalOutputBuffer terminalBuffer(JTextArea area) {
+					return terminalBuffers.computeIfAbsent(area, TerminalOutputBuffer::new);
 				}
 
 								/**
