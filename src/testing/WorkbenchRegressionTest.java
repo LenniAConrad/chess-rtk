@@ -1127,8 +1127,8 @@ public final class WorkbenchRegressionTest {
         short best = Move.parse("e2e4");
         invoke(board, "setSuggestedMove", new Class<?>[] { short.class }, best);
         assertEquals(Short.valueOf(best), field(board, "suggestedMove"), "legal suggested move accepted");
-        assertEquals(Byte.valueOf(Field.NO_SQUARE), field(board, "selectedSquare"),
-                "best arrow clears selected square");
+        assertEquals(Byte.valueOf(Field.toIndex('e', '2')), field(board, "selectedSquare"),
+                "best arrow keeps the user's selected square");
 
         BufferedImage image = new BufferedImage(640, 640, BufferedImage.TYPE_INT_ARGB);
         Graphics2D graphics = image.createGraphics();
