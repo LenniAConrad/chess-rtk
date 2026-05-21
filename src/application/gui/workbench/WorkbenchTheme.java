@@ -502,10 +502,10 @@ final class WorkbenchTheme {
 
     /**
      * Shared corner radius for compact custom-painted chrome (toggle switches,
-     * segmented selectors, chips). Keeps rounded controls visually consistent
-     * with one another.
+     * segmented selectors, chips). Kept small for the crisp, near-square VS
+     * Code look.
      */
-    static final int RADIUS = 6;
+    static final int RADIUS = 3;
 
     /**
      * Standard height for compact toolbar controls (combos, segmented

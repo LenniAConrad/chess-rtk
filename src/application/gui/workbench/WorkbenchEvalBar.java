@@ -271,13 +271,13 @@ final class WorkbenchEvalBar extends JComponent {
             int split = y + h - whiteHeight;
 
             Shape oldClip = g.getClip();
-            clipRect.setRoundRect(x, y, w, h, 6, 6);
+            clipRect.setRoundRect(x, y, w, h, 3, 3);
             g.clip(clipRect);
             paintBarFill(g, x, y, w, h, split);
             g.setClip(oldClip);
             g.setStroke(FRAME_STROKE);
             g.setColor(FRAME);
-            g.drawRoundRect(x, y, w - 1, h - 1, 6, 6);
+            g.drawRoundRect(x, y, w - 1, h - 1, 3, 3);
             paintLabel(g, x, y, w, h);
         } finally {
             g.dispose();

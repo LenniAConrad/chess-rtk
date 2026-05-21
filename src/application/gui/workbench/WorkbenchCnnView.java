@@ -1581,9 +1581,9 @@ final class WorkbenchCnnView extends WorkbenchNetworkView {
         for (int i = 0; i < titles.length; i++) {
             int x = startX + i * (boxW + gap);
             g.setColor(WorkbenchTheme.PANEL_SOLID);
-            g.fillRoundRect(x, y, boxW, boxH, 14, 14);
+            g.fillRoundRect(x, y, boxW, boxH, 4, 4);
             g.setColor(WorkbenchTheme.LINE);
-            g.drawRoundRect(x, y, boxW, boxH, 14, 14);
+            g.drawRoundRect(x, y, boxW, boxH, 4, 4);
             g.setColor(WorkbenchTheme.TEXT);
             g.setFont(WorkbenchTheme.font(13, Font.BOLD));
             int tw = fmTitle.stringWidth(titles[i]);

@@ -248,13 +248,13 @@ final class WorkbenchChipGroup extends JComponent {
             int h = HEIGHT;
             // Track.
             g.setColor(WorkbenchTheme.TOGGLE_BG);
-            g.fillRoundRect(0, 0, w, h, 9, 9);
+            g.fillRoundRect(0, 0, w, h, 3, 3);
             g.setColor(WorkbenchTheme.LINE);
-            g.drawRoundRect(0, 0, w - 1, h - 1, 9, 9);
+            g.drawRoundRect(0, 0, w - 1, h - 1, 3, 3);
             // Sliding accent indicator.
             g.setColor(WorkbenchTheme.ACCENT);
             g.fillRoundRect((int) Math.round(indicatorX) + 2, 2,
-                    (int) Math.round(indicatorW) - 4, h - 4, 8, 8);
+                    (int) Math.round(indicatorW) - 4, h - 4, 3, 3);
             // Labels.
             g.setFont(WorkbenchTheme.font(12, Font.BOLD));
             FontMetrics fm = g.getFontMetrics();
