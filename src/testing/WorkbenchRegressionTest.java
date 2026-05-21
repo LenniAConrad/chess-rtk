@@ -46,12 +46,14 @@ import javax.swing.table.TableCellRenderer;
 import javax.swing.text.AttributeSet;
 import javax.swing.text.StyleConstants;
 
+import application.gui.workbench.game.GameModel;
 import chess.core.Field;
 import chess.core.Move;
 import chess.core.Piece;
 import chess.core.Position;
 import chess.nn.nnue.FeatureEncoder;
 import chess.struct.Game;
+import chess.struct.Pgn;
 import chess.uci.Output;
 
 /**
@@ -164,6 +166,7 @@ public final class WorkbenchRegressionTest {
         testButtonDisabledIconIsMuted();
         testCommandPreviewQuoting();
         testWorkbenchSanRendererUsesNeutralFigurines();
+        testGameModelLoadsPgnVariations();
         testEvalBarMapping();
         testEvalBarAnimation();
         testEvalBarThinkingIsStatic();
@@ -903,6 +906,32 @@ public final class WorkbenchRegressionTest {
         assertTrue(rendered.contains("\u2658bd6"), "knight uses neutral figurine");
         assertTrue(rendered.contains("bxa8=\u2655#"), "promotion uses neutral figurine");
         assertFalse(rendered.contains("\u265B") || rendered.contains("\u265E"), "no black figurine glyphs");
+    }
+
+    /**
+     * Verifies imported algebraic movetext keeps PGN variation rows.
+     */
+    private static void testGameModelLoadsPgnVariations() {
+        GameModel model = new GameModel();
+        Game game = Pgn.parseGame("1. e4 (1. d4 d5) e5 *");
+        model.loadGame(game.getStartPosition(), game);
+
+        assertEquals(Integer.valueOf(4), Integer.valueOf(model.getRowCount()), "variation rows visible");
+        assertEquals(Integer.valueOf(2), Integer.valueOf(model.lastPly()), "mainline ply count");
+        assertEquals(Integer.valueOf(2), Integer.valueOf(model.variationRowCount()), "variation ply count");
+        assertTrue(model.pgn().contains("(1. d4 d5)"), "PGN export preserves variation");
+
+        Position afterD4 = new Position(START_FEN);
+        afterD4.play(Move.parse("d2d4"));
+        model.jumpToRow(1);
+        assertEquals("d2d4", Move.toString(model.currentLastMove()), "variation row move");
+        assertEquals(afterD4.toString(), model.currentPosition().toString(), "variation row position");
+
+        Position afterMainline = new Position(START_FEN);
+        afterMainline.play(Move.parse("e2e4"));
+        afterMainline.play(Move.parse("e7e5"));
+        model.jumpToPly(2);
+        assertEquals(afterMainline.toString(), model.currentPosition().toString(), "mainline navigation restored");
     }
 
     /**

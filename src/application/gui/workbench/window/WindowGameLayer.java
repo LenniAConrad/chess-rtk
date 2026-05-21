@@ -177,6 +177,17 @@ public abstract class WindowGameLayer extends WindowEngineLayer {
     }
 
     /**
+     * Shows a visible game-table row, including imported PGN variation rows.
+     *
+     * @param row table row
+     */
+    protected void showGameRow(int row) {
+        gameModel.jumpToRow(row);
+        setPosition(gameModel.currentPosition(), gameModel.currentLastMove());
+        selectCurrentGameRow();
+    }
+
+    /**
      * Moves backward or forward in the current game line.
      *
      * @param delta ply delta
@@ -216,9 +227,11 @@ public abstract class WindowGameLayer extends WindowEngineLayer {
      * Updates game-line status text.
      */
     protected void updateGameState() {
+        int variations = gameModel.variationRowCount();
         gameStateLabel.setText("Ply " + gameModel.currentPly() + " / " + gameModel.lastPly()
                 + (gameModel.canBack() ? "  |  back" : "")
-                + (gameModel.canForward() ? "  |  forward" : ""));
+                + (gameModel.canForward() ? "  |  forward" : "")
+                + (variations > 0 ? "  |  variations " + variations : ""));
     }
 
     /**
@@ -712,21 +725,59 @@ public abstract class WindowGameLayer extends WindowEngineLayer {
     }
 
     /**
-     * Loads a parsed PGN game mainline.
+     * Loads a parsed PGN game, including its visible variation tree.
      *
      * @param game parsed game
      */
     protected void loadGame(Game game) {
         Position start = game.getStartPosition() == null ? new Position(Game.STANDARD_START_FEN)
                 : game.getStartPosition().copy();
-        List<Short> line = parseGameMainline(start, game.getMainline());
-        if (line.isEmpty()) {
-    throw new IllegalArgumentException("No legal mainline moves found.");
+        validateGameTree(start, game);
+        gameModel.loadGame(start, game);
+        if (gameModel.getRowCount() == 0) {
+    throw new IllegalArgumentException("No legal moves found.");
         }
-        gameModel.loadLine(start, line);
         session.clearEvalHistory();
         showGamePly(gameModel.lastPly());
-        appendConsole("Loaded PGN mainline with " + gameModel.lastPly() + " plies\n");
+        int variations = gameModel.variationRowCount();
+        appendConsole("Loaded PGN with " + gameModel.lastPly() + " mainline plies"
+                + (variations > 0 ? " and " + variations + " variation plies" : "") + "\n");
+    }
+
+    /**
+     * Validates all moves in a parsed game before mutating the live model.
+     *
+     * @param start start position
+     * @param game parsed game
+     */
+    protected static void validateGameTree(Position start, Game game) {
+        if (game == null) {
+            return;
+        }
+        for (Game.Node rootVariation : game.getRootVariations()) {
+            validateGameSequence(start, rootVariation);
+        }
+        validateGameSequence(start, game.getMainline());
+    }
+
+    /**
+     * Validates one game-tree sequence and its nested variations.
+     *
+     * @param start sequence start position
+     * @param node first node
+     */
+    private static void validateGameSequence(Position start, Game.Node node) {
+        Position cursor = start.copy();
+        Game.Node current = node;
+        while (current != null) {
+            Position before = cursor.copy();
+            short move = SAN.fromAlgebraic(cursor, current.getSan());
+            cursor.play(move);
+            for (Game.Node variation : current.getVariations()) {
+                validateGameSequence(before, variation);
+            }
+            current = current.getNext();
+        }
     }
 
     /**
@@ -750,26 +801,6 @@ public abstract class WindowGameLayer extends WindowEngineLayer {
         gameModel.loadLine(start, line);
         showGamePly(gameModel.lastPly());
         appendConsole("Loaded move line with " + gameModel.lastPly() + " plies\n");
-    }
-
-    /**
-     * Parses a PGN mainline into encoded moves.
-     *
-     * @param start start position
-     * @param node first PGN node
-     * @return encoded moves
-     */
-    protected static List<Short> parseGameMainline(Position start, Game.Node node) {
-        List<Short> line = new ArrayList<>();
-        Position cursor = start.copy();
-        Game.Node current = node;
-        while (current != null) {
-            short move = SAN.fromAlgebraic(cursor, current.getSan());
-            line.add(move);
-            cursor.play(move);
-            current = current.getNext();
-        }
-        return line;
     }
 
     /**
