@@ -259,6 +259,7 @@ final class WorkbenchSplitArea extends JPanel {
                     },
                     () -> closeTab(panelIndex));
             tab.setSelected(index == activeIndex);
+            tab.setReorderHandler(x -> handleTabDrag(strip, panelIndex, x), this::relayout);
             strip.add(tab);
         }
         if (open.size() < panels.size()) {
@@ -300,6 +301,46 @@ final class WorkbenchSplitArea extends JPanel {
             menu.show(plus, 0, plus.getHeight());
         });
         return plus;
+    }
+
+    /**
+     * Live-reorders a tab as it is dragged along its strip.
+     *
+     * @param strip strip being dragged in
+     * @param draggedPanelIndex panel index of the dragged tab
+     * @param stripX drag x in the strip's coordinate space
+     */
+    private void handleTabDrag(JPanel strip, int draggedPanelIndex, int stripX) {
+        List<WorkbenchTab> tabs = new ArrayList<>();
+        for (java.awt.Component child : strip.getComponents()) {
+            if (child instanceof WorkbenchTab tab) {
+                tabs.add(tab);
+            }
+        }
+        int from = open.indexOf(draggedPanelIndex);
+        if (from < 0 || from >= tabs.size()) {
+            return;
+        }
+        int target = 0;
+        for (int i = 0; i < tabs.size(); i++) {
+            if (i == from) {
+                continue;
+            }
+            WorkbenchTab tab = tabs.get(i);
+            if (tab.getX() + tab.getWidth() / 2 < stripX) {
+                target++;
+            }
+        }
+        target = Math.max(0, Math.min(open.size() - 1, target));
+        if (target == from) {
+            return;
+        }
+        WorkbenchTab dragged = tabs.get(from);
+        open.add(target, open.remove(from));
+        strip.remove(dragged);
+        strip.add(dragged, target);
+        strip.revalidate();
+        strip.repaint();
     }
 
     /**
