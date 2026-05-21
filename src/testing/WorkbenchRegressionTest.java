@@ -138,6 +138,7 @@ public final class WorkbenchRegressionTest {
         testDynamicOptionRefreshSkipsUnchangedValues();
         testEngineTemplateContextFeedsExternalConfigOptions();
         testEngineBatchTasksUseExternalConfigOptions();
+        testBatchPanelStartsWithEmptyInputAndSharedDuration();
         testCommandTemplatesHaveCompactTabLabels();
         testPublishingPreviewFenCompaction();
         testPublishingVisualPreviewPages();
@@ -164,6 +165,7 @@ public final class WorkbenchRegressionTest {
         testEditorShellUsesVscodeStyleSplitChrome();
         testButtonHoverTransitionStarts();
         testWorkbenchTimingDefaultsAreSnappy();
+        testWorkbenchOperationalDefaultsAreSnappy();
         testResetButtonUsesResetIcon();
         testButtonDisabledIconIsMuted();
         testCommandPreviewQuoting();
@@ -400,6 +402,41 @@ public final class WorkbenchRegressionTest {
         assertTrue(hasFlag(args, "--threads"), "batch threads flag");
         assertTrue(hasFlag(args, "--hash"), "batch hash flag");
         assertTrue(hasFlag(args, "--jsonl"), "batch jsonl flag");
+    }
+
+    /**
+     * Verifies batch workflows do not start with demo FENs hidden in the input
+     * and inherit the shared interactive duration default.
+     */
+    private static void testBatchPanelStartsWithEmptyInputAndSharedDuration() {
+        Class<?> hostType = type("BatchPanel$Host");
+        Object host = Proxy.newProxyInstance(WorkbenchRegressionTest.class.getClassLoader(),
+                new Class<?>[] { hostType }, (proxy, method, args) -> {
+                    switch (method.getName()) {
+                        case "currentFen":
+                            return START_FEN;
+                        case "templateContext":
+                            return templateContext(START_FEN, "1s", "4", "2", "1");
+                        default:
+                            return null;
+                    }
+                });
+        Object panel = construct(type("BatchPanel"),
+                new Class<?>[] {
+                        hostType,
+                        javax.swing.SpinnerNumberModel.class,
+                        javax.swing.SpinnerNumberModel.class,
+                        javax.swing.SpinnerNumberModel.class
+                },
+                host,
+                new javax.swing.SpinnerNumberModel(4, 1, 99, 1),
+                new javax.swing.SpinnerNumberModel(2, 1, 20, 1),
+                new javax.swing.SpinnerNumberModel(1, 1, 256, 1));
+
+        JTextArea input = (JTextArea) field(panel, "batchInput");
+        JTextField duration = (JTextField) field(panel, "batchDurationField");
+        assertEquals("", input.getText(), "batch FEN input starts empty");
+        assertEquals("1s", duration.getText(), "batch duration uses shared default");
     }
 
     /**
@@ -947,6 +984,22 @@ public final class WorkbenchRegressionTest {
                 "eval bar transition is short");
         assertTrue((Integer) staticField(type("Window"), "EVAL_DEBOUNCE_MS") <= 100,
                 "eval refresh debounce is short");
+    }
+
+    /**
+     * Verifies operational defaults stay responsive and avoid unnecessary
+     * first-run CPU work.
+     */
+    private static void testWorkbenchOperationalDefaultsAreSnappy() {
+        Class<?> defaults = type("Defaults");
+        assertEquals("1s", staticField(defaults, "ANALYSIS_DURATION"),
+                "interactive analysis default is short");
+        assertEquals(Integer.valueOf(2), staticField(defaults, "ANALYSIS_MULTIPV"),
+                "interactive MultiPV default is compact");
+        assertTrue((Integer) staticField(defaults, "MCTS_VISITS") <= 300,
+                "MCTS default visit budget is lightweight");
+        assertEquals(Boolean.FALSE, staticField(defaults, "NETWORK_MCTS_FOLLOW_LEAF"),
+                "Network MCTS does not re-infer every leaf by default");
     }
 
     /**
@@ -2432,6 +2485,11 @@ public final class WorkbenchRegressionTest {
         Object panel = construct(type("NetworkPanel"), new Class<?>[0]);
         Timer timer = (Timer) field(panel, "debounceTimer");
         timer.stop();
+        JSpinner visits = (JSpinner) field(panel, "mctsVisitsSpinner");
+        JCheckBox followLeaf = (JCheckBox) field(panel, "mctsFollowLeafToggle");
+        assertEquals(staticField(type("Defaults"), "MCTS_VISITS"), visits.getValue(),
+                "network MCTS uses shared visit default");
+        assertFalse(followLeaf.isSelected(), "network leaf following starts off");
         JComboBox<?> archCombo = (JComboBox<?>) field(panel, "archCombo");
         archCombo.setSelectedItem("NNUE");
         JComponent viewMode = (JComponent) field(panel, "viewMode");
@@ -3030,6 +3088,9 @@ public final class WorkbenchRegressionTest {
     private static void testMctsPanelConstructsHeadlessly() {
         Object panel = construct(type("MctsPanel"), new Class<?>[0]);
         assertTrue(panel instanceof JComponent, "MCTS panel is a Swing component");
+        JSpinner playouts = (JSpinner) field(panel, "playoutSpinner");
+        assertEquals(staticField(type("Defaults"), "MCTS_VISITS"), playouts.getValue(),
+                "MCTS panel uses shared visit default");
         invoke(panel, "setFen", new Class<?>[] { String.class }, START_FEN);
         JComponent component = (JComponent) panel;
         component.setSize(720, 560);
