@@ -915,9 +915,10 @@ public final class WorkbenchWindow extends JFrame {
     }
 
     /**
-     * Main workbench tabs.
+     * Main workbench split area: VS Code-style tabs with an optional
+     * side-by-side split.
      */
-    private JTabbedPane tabs;
+    private WorkbenchSplitArea tabs;
 
     /**
      * Nested analysis tabs.
@@ -1219,15 +1220,16 @@ public final class WorkbenchWindow extends JFrame {
         root.setBackground(WorkbenchTheme.BG);
         root.setBorder(WorkbenchTheme.pad(12, 12, 12, 12));
 
-        tabs = tabbedPane();
-        tabs.addTab("Dashboard", dashboardPanel);
-        tabs.addTab("Analyze", createBoardTab());
-        tabs.addTab("Commands", createCommandTab());
-        tabs.addTab("Batch", createBatchTab());
-        tabs.addTab("Publish", createPublishTab());
-        tabs.addTab("Console", createConsolePanel());
-        tabs.addTab("Network", networkPanel);
-        tabs.setSelectedIndex(TAB_DASHBOARD);
+        tabs = new WorkbenchSplitArea();
+        tabs.addPanel("Dashboard", dashboardPanel);
+        tabs.addPanel("Analyze", createBoardTab());
+        tabs.addPanel("Commands", createCommandTab());
+        tabs.addPanel("Batch", createBatchTab());
+        tabs.addPanel("Publish", createPublishTab());
+        tabs.addPanel("Console", createConsolePanel());
+        tabs.addPanel("Network", networkPanel);
+        tabs.install();
+        tabs.select(TAB_DASHBOARD);
 
         root.add(tabs, BorderLayout.CENTER);
         root.add(createStatusBar(), BorderLayout.SOUTH);
@@ -1397,7 +1399,7 @@ public final class WorkbenchWindow extends JFrame {
      * @return true when routing to position navigation is appropriate
      */
     private boolean shouldRoutePositionNavigation() {
-        if (tabs == null || tabs.getSelectedIndex() != TAB_ANALYZE) {
+        if (tabs == null || tabs.selectedIndex() != TAB_ANALYZE) {
             return false;
         }
         if (analysisTabs != null && analysisTabs.getSelectedIndex() != 0) {
@@ -1689,8 +1691,8 @@ public final class WorkbenchWindow extends JFrame {
      * @param index tab index
      */
     private void selectTab(int index) {
-        if (tabs != null && index >= 0 && index < tabs.getTabCount()) {
-            tabs.setSelectedIndex(index);
+        if (tabs != null && index >= 0 && index < tabs.count()) {
+            tabs.select(index);
         }
     }
 
