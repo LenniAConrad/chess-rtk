@@ -642,6 +642,11 @@ public final class WorkbenchWindow extends JFrame {
     private final JComboBox<PublishTask> publishTaskCombo = new JComboBox<>(PublishTask.values());
 
     /**
+     * Per-task hint stating what input the selected book task needs.
+     */
+    private final JLabel publishTaskHint = WorkbenchUi.caption("");
+
+    /**
      * Diagram publishing source selector.
      */
     private final JComboBox<PublishSource> publishSourceCombo = new JComboBox<>(PublishSource.values());
@@ -2364,7 +2369,10 @@ public final class WorkbenchWindow extends JFrame {
 
         styleCombos(publishTaskCombo, publishSourceCombo);
         grid(panel, label("task"), c, 0, 1, 1, 1);
-        grid(panel, publishTaskCombo, c, 1, 1, 3, 1);
+        JPanel taskCell = transparentPanel(new BorderLayout(0, 3));
+        taskCell.add(publishTaskCombo, BorderLayout.NORTH);
+        taskCell.add(publishTaskHint, BorderLayout.SOUTH);
+        grid(panel, taskCell, c, 1, 1, 3, 1);
 
         grid(panel, label("source"), c, 0, 2, 1, 1);
         grid(panel, publishSourceCombo, c, 1, 2, 3, 1);
@@ -2522,6 +2530,14 @@ public final class WorkbenchWindow extends JFrame {
         boolean study = task == PublishTask.STUDY;
         boolean cover = task == PublishTask.COVER;
         boolean existingDiagramInput = diagrams && selectedPublishSource() == PublishSource.EXISTING_FILE;
+        publishTaskHint.setText(switch (task) {
+            case DIAGRAMS -> "Needs a position, PGN, or FEN list — exports plain board diagrams to a PDF.";
+            case RENDER -> "Needs an existing book .toml/.json manifest — renders it straight to a PDF.";
+            case COLLECTION -> "Needs a record JSONL of solved puzzles (each row carries its own solution) "
+                    + "— builds a puzzle book PDF and cover.";
+            case STUDY -> "Needs a rich study .toml/.json manifest — renders an annotated study PDF and cover.";
+            case COVER -> "Needs a book file plus its interior PDF — renders just the printable cover.";
+        });
 
         publishSourceCombo.setEnabled(diagrams);
         publishInputField.setEnabled(!diagrams || existingDiagramInput);
