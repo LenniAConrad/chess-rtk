@@ -131,6 +131,7 @@ public final class Window extends WindowCommandLayer {
 
     public Window(String initialFen, boolean whiteDown) {
         setTitle("ChessRTK Workbench");
+        loadThemeSetting();
         Theme.install();
         setDefaultCloseOperation(DISPOSE_ON_CLOSE);
         setMinimumSize(new Dimension(1180, 760));
@@ -140,6 +141,9 @@ public final class Window extends WindowCommandLayer {
         installFieldPlaceholders();
         installEngineSettingListeners();
         buildUi();
+        if (Theme.isDark()) {
+            Theme.refreshComponentTree(this);
+        }
         applyDisplaySettings(false);
         board.setWhiteDown(whiteDown);
         startNewGame(initialFen);

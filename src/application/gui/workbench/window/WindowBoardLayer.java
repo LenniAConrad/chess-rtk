@@ -326,28 +326,32 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
         JPanel panel = new SurfacePanel(new GridBagLayout());
         GridBagConstraints c = constraints();
         c.insets = new Insets(6, 6, 6, 6);
-        grid(panel, Theme.section("Board"), c, 0, 0, 1, 1);
-        addSettingsToggle(panel, c, 1, "Legal move preview",
+        grid(panel, Theme.section("Appearance"), c, 0, 0, 1, 1);
+        grid(panel, settingsToggle("Dark mode",
+                "Switch the workbench chrome and controls to the dark palette",
+                isDarkMode(), this::setDarkMode), c, 0, 1, 1, 1);
+        grid(panel, Theme.section("Board"), c, 0, 2, 1, 1);
+        addSettingsToggle(panel, c, 3, "Legal move preview",
                 "Show selected-piece destinations and legal drag targets on the board",
                 showLegalMovePreview, selected -> showLegalMovePreview = selected, false);
-        addSettingsToggle(panel, c, 2, "Last move highlight",
+        addSettingsToggle(panel, c, 4, "Last move highlight",
                 "Show the previous move on the board",
                 showLastMoveHighlight, selected -> showLastMoveHighlight = selected, false);
-        addSettingsToggle(panel, c, 3, "Best move arrows",
+        addSettingsToggle(panel, c, 5, "Best move arrows",
                 "Show engine best-move and analysis suggestions as board arrows",
                 showBestMoveArrows, selected -> showBestMoveArrows = selected, false);
-        addSettingsToggle(panel, c, 4, "Coordinates",
+        addSettingsToggle(panel, c, 6, "Coordinates",
                 "Show file and rank notation on the board",
                 showBoardCoordinates, selected -> showBoardCoordinates = selected, false);
-        addSettingsToggle(panel, c, 5, "Board animations",
+        addSettingsToggle(panel, c, 7, "Board animations",
                 "Animate moves, snaps, snapbacks, and board flips",
                 boardAnimationsEnabled, selected -> boardAnimationsEnabled = selected, false);
-        grid(panel, Theme.section("Analysis"), c, 0, 6, 1, 1);
-        addSettingsToggle(panel, c, 7, "Auto eval bar",
+        grid(panel, Theme.section("Analysis"), c, 0, 8, 1, 1);
+        addSettingsToggle(panel, c, 9, "Auto eval bar",
                 "Automatically refresh the side evaluation bar after position changes",
                 autoEvalBarEnabled, selected -> autoEvalBarEnabled = selected, true);
 
-        addVerticalFiller(panel, c, 8, 1);
+        addVerticalFiller(panel, c, 10, 1);
         return panel;
     }
 

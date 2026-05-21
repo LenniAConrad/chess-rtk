@@ -22,7 +22,7 @@ import javax.swing.text.StyledDocument;
  *       tinted so the eye finds them in a long run log.</li>
  * </ul>
  */
-public final class Console extends JTextPane {
+public final class Console extends JTextPane implements Theme.ConsoleLike {
 
     /**
      * Serialization identifier for Swing component compatibility.
@@ -50,6 +50,14 @@ public final class Console extends JTextPane {
     public Console() {
         setEditable(false);
         setOpaque(true);
+        applyConsoleTheme();
+    }
+
+    /**
+     * Applies terminal colors after a workbench theme change.
+     */
+    @Override
+    public void applyConsoleTheme() {
         setBackground(Theme.TERMINAL);
         setForeground(Theme.TERMINAL_TEXT);
         setCaretColor(Theme.TERMINAL_TEXT);
@@ -57,6 +65,7 @@ public final class Console extends JTextPane {
         setSelectedTextColor(Theme.TERMINAL_TEXT);
         setFont(Theme.mono(13));
         setBorder(Theme.pad(7, 9, 7, 9));
+        repaint();
     }
 
     /**
