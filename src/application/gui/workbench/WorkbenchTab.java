@@ -1,0 +1,222 @@
+package application.gui.workbench;
+
+import java.awt.BasicStroke;
+import java.awt.Color;
+import java.awt.Cursor;
+import java.awt.Dimension;
+import java.awt.Font;
+import java.awt.FontMetrics;
+import java.awt.Graphics;
+import java.awt.Graphics2D;
+import java.awt.Rectangle;
+import java.awt.RenderingHints;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
+
+import javax.swing.JComponent;
+
+/**
+ * A VS Code-style editor tab: a flat rectangle showing the panel name with a
+ * close affordance. The active tab is lifted onto the panel surface and
+ * underlined in the accent colour; every tab carries an {@code x} that hides
+ * it from the strip.
+ */
+final class WorkbenchTab extends JComponent {
+
+    /**
+     * Serialization identifier for Swing component compatibility.
+     */
+    private static final long serialVersionUID = 1L;
+
+    /**
+     * Tab height.
+     */
+    private static final int HEIGHT = 30;
+
+    /**
+     * Horizontal text padding.
+     */
+    private static final int PAD = 11;
+
+    /**
+     * Size of the square close-button hit region.
+     */
+    private static final int CLOSE = 16;
+
+    /**
+     * Panel display name.
+     */
+    private final String name;
+
+    /**
+     * Whether this tab is the active one in its strip.
+     */
+    private boolean selected;
+
+    /**
+     * Whether the pointer is over the close region.
+     */
+    private boolean closeHover;
+
+    /**
+     * Whether the pointer is over the tab.
+     */
+    private boolean hover;
+
+    /**
+     * Selection callback.
+     */
+    private final transient Runnable onSelect;
+
+    /**
+     * Close callback.
+     */
+    private final transient Runnable onClose;
+
+    /**
+     * Creates a tab.
+     *
+     * @param name panel display name
+     * @param onSelect selection callback
+     * @param onClose close callback
+     */
+    WorkbenchTab(String name, Runnable onSelect, Runnable onClose) {
+        this.name = name;
+        this.onSelect = onSelect;
+        this.onClose = onClose;
+        setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        MouseAdapter mouse = new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent event) {
+                if (closeRegion().contains(event.getPoint())) {
+                    onClose.run();
+                } else {
+                    onSelect.run();
+                }
+            }
+
+            @Override
+            public void mouseMoved(MouseEvent event) {
+                updateHover(true, closeRegion().contains(event.getPoint()));
+            }
+
+            @Override
+            public void mouseEntered(MouseEvent event) {
+                updateHover(true, closeRegion().contains(event.getPoint()));
+            }
+
+            @Override
+            public void mouseExited(MouseEvent event) {
+                updateHover(false, false);
+            }
+        };
+        addMouseListener(mouse);
+        addMouseMotionListener(mouse);
+    }
+
+    /**
+     * Sets the tab's active state.
+     *
+     * @param value true when this tab is active
+     */
+    void setSelected(boolean value) {
+        if (selected != value) {
+            selected = value;
+            repaint();
+        }
+    }
+
+    /**
+     * Updates hover state.
+     *
+     * @param overTab true when the pointer is over the tab
+     * @param overClose true when the pointer is over the close region
+     */
+    private void updateHover(boolean overTab, boolean overClose) {
+        if (hover != overTab || closeHover != overClose) {
+            hover = overTab;
+            closeHover = overClose;
+            repaint();
+        }
+    }
+
+    /**
+     * Returns the close-button hit region.
+     *
+     * @return close region rectangle
+     */
+    private Rectangle closeRegion() {
+        return new Rectangle(getWidth() - PAD - CLOSE, (HEIGHT - CLOSE) / 2, CLOSE, CLOSE);
+    }
+
+    @Override
+    public Dimension getPreferredSize() {
+        FontMetrics fm = getFontMetrics(WorkbenchTheme.font(12, Font.PLAIN));
+        int width = PAD + fm.stringWidth(name) + 8 + CLOSE + PAD;
+        return new Dimension(width, HEIGHT);
+    }
+
+    @Override
+    public Dimension getMaximumSize() {
+        return getPreferredSize();
+    }
+
+    @Override
+    public Dimension getMinimumSize() {
+        return getPreferredSize();
+    }
+
+    @Override
+    protected void paintComponent(Graphics graphics) {
+        Graphics2D g = (Graphics2D) graphics.create();
+        try {
+            g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            g.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING,
+                    RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+            int w = getWidth();
+            int h = getHeight();
+            Color background = selected ? WorkbenchTheme.PANEL_SOLID
+                    : hover ? WorkbenchTheme.TAB_HOVER : WorkbenchTheme.BG;
+            g.setColor(background);
+            g.fillRect(0, 0, w, h);
+            // Trailing separator between tabs.
+            g.setColor(WorkbenchTheme.LINE);
+            g.drawLine(w - 1, 4, w - 1, h - 4);
+            // Accent underline marks the active tab.
+            if (selected) {
+                g.setColor(WorkbenchTheme.ACCENT);
+                g.fillRect(0, h - 2, w, 2);
+            }
+            g.setFont(WorkbenchTheme.font(12, selected ? Font.BOLD : Font.PLAIN));
+            g.setColor(selected ? WorkbenchTheme.TEXT : WorkbenchTheme.MUTED);
+            FontMetrics fm = g.getFontMetrics();
+            g.drawString(name, PAD, (h + fm.getAscent() - fm.getDescent()) / 2);
+            paintClose(g);
+        } finally {
+            g.dispose();
+        }
+    }
+
+    /**
+     * Paints the close glyph, with a soft circle when hovered.
+     *
+     * @param g graphics
+     */
+    private void paintClose(Graphics2D g) {
+        Rectangle region = closeRegion();
+        if (closeHover) {
+            g.setColor(WorkbenchTheme.SECONDARY_BUTTON_PRESSED);
+            g.fillRoundRect(region.x, region.y, region.width, region.height, 6, 6);
+        }
+        if (!selected && !hover) {
+            return;
+        }
+        g.setColor(closeHover ? WorkbenchTheme.TEXT : WorkbenchTheme.MUTED);
+        g.setStroke(new BasicStroke(1.5f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+        int cx = region.x + region.width / 2;
+        int cy = region.y + region.height / 2;
+        int r = 3;
+        g.drawLine(cx - r, cy - r, cx + r, cy + r);
+        g.drawLine(cx - r, cy + r, cx + r, cy - r);
+    }
+}

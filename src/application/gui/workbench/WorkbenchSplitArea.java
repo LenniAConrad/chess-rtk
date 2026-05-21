@@ -8,19 +8,21 @@ import java.util.ArrayList;
 import java.util.List;
 
 import javax.swing.BorderFactory;
-import javax.swing.ButtonGroup;
 import javax.swing.JComponent;
+import javax.swing.JMenuItem;
 import javax.swing.JPanel;
+import javax.swing.JPopupMenu;
 import javax.swing.JSplitPane;
 import javax.swing.JToggleButton;
 import javax.swing.plaf.basic.BasicSplitPaneDivider;
 import javax.swing.plaf.basic.BasicSplitPaneUI;
 
 /**
- * VS Code-style workbench shell. Holds every workbench panel and shows either
- * one panel full-width or two side by side in a draggable split, each with its
- * own tab strip — so the user can focus one view or compare two, and resize
- * the divide freely.
+ * VS Code-style workbench shell. Holds every workbench panel and shows them
+ * through closable editor tabs: any tab can be closed off the strip and
+ * reopened from the {@code +} menu, the view can split into two panes side by
+ * side with a draggable, collapsible divider, and each pane keeps its own tab
+ * strip.
  */
 final class WorkbenchSplitArea extends JPanel {
 
@@ -38,6 +40,11 @@ final class WorkbenchSplitArea extends JPanel {
      * Panel components, parallel to {@link #names}.
      */
     private final transient List<JComponent> panels = new ArrayList<>();
+
+    /**
+     * Panel indices currently open as tabs, in strip order.
+     */
+    private final transient List<Integer> open = new ArrayList<>();
 
     /**
      * Index shown in the primary (left) pane.
@@ -62,22 +69,12 @@ final class WorkbenchSplitArea extends JPanel {
     /**
      * Primary tab strip.
      */
-    private final JPanel primaryStrip = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 4));
+    private final JPanel primaryStrip = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
 
     /**
      * Secondary tab strip, shown only when split.
      */
-    private final JPanel secondaryStrip = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 4));
-
-    /**
-     * Primary tab buttons.
-     */
-    private final transient List<JToggleButton> primaryTabs = new ArrayList<>();
-
-    /**
-     * Secondary tab buttons.
-     */
-    private final transient List<JToggleButton> secondaryTabs = new ArrayList<>();
+    private final JPanel secondaryStrip = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
 
     /**
      * Centre area holding either the primary host or the split pane.
@@ -112,6 +109,7 @@ final class WorkbenchSplitArea extends JPanel {
     void addPanel(String name, JComponent panel) {
         names.add(name);
         panels.add(panel);
+        open.add(names.size() - 1);
     }
 
     /**
@@ -119,20 +117,6 @@ final class WorkbenchSplitArea extends JPanel {
      * panel has been added.
      */
     void install() {
-        ButtonGroup primaryGroup = new ButtonGroup();
-        for (int i = 0; i < names.size(); i++) {
-            int index = i;
-            JToggleButton tab = makeTab(names.get(i));
-            tab.addActionListener(event -> setPrimary(index));
-            primaryGroup.add(tab);
-            primaryTabs.add(tab);
-            primaryStrip.add(tab);
-
-            JToggleButton secondary = makeTab(names.get(i));
-            secondary.addActionListener(event -> setSecondary(index));
-            secondaryTabs.add(secondary);
-            secondaryStrip.add(secondary);
-        }
         WorkbenchTheme.commandTab(splitButton);
         splitButton.setToolTipText("Show two panels side by side");
         splitButton.addActionListener(event -> toggleSplit());
@@ -140,7 +124,7 @@ final class WorkbenchSplitArea extends JPanel {
         JPanel header = new JPanel(new BorderLayout());
         header.setOpaque(false);
         header.add(primaryStrip, BorderLayout.CENTER);
-        JPanel splitHolder = new JPanel(new FlowLayout(FlowLayout.RIGHT, 4, 4));
+        JPanel splitHolder = new JPanel(new FlowLayout(FlowLayout.RIGHT, 4, 3));
         splitHolder.setOpaque(false);
         splitHolder.add(splitButton);
         header.add(splitHolder, BorderLayout.EAST);
@@ -168,11 +152,17 @@ final class WorkbenchSplitArea extends JPanel {
     }
 
     /**
-     * Selects a panel in the primary pane.
+     * Selects a panel in the primary pane, reopening it when it was closed.
      *
      * @param index panel index
      */
     void select(int index) {
+        if (index < 0 || index >= panels.size()) {
+            return;
+        }
+        if (!open.contains(index)) {
+            open.add(index);
+        }
         setPrimary(index);
     }
 
@@ -182,9 +172,6 @@ final class WorkbenchSplitArea extends JPanel {
      * @param index panel index
      */
     private void setPrimary(int index) {
-        if (index < 0 || index >= panels.size()) {
-            return;
-        }
         primaryIndex = index;
         if (secondaryIndex == index) {
             secondaryIndex = firstOther(index);
@@ -198,9 +185,6 @@ final class WorkbenchSplitArea extends JPanel {
      * @param index panel index
      */
     private void setSecondary(int index) {
-        if (index < 0 || index >= panels.size()) {
-            return;
-        }
         secondaryIndex = index;
         if (primaryIndex == index) {
             primaryIndex = firstOther(index);
@@ -209,49 +193,135 @@ final class WorkbenchSplitArea extends JPanel {
     }
 
     /**
-     * Toggles the side-by-side split.
+     * Closes a tab, hiding its panel from the strip.
+     *
+     * @param index panel index
      */
-    private void toggleSplit() {
-        secondaryIndex = secondaryIndex < 0 ? firstOther(primaryIndex) : -1;
+    private void closeTab(int index) {
+        if (open.size() <= 1) {
+            return;
+        }
+        open.remove(Integer.valueOf(index));
+        if (primaryIndex == index) {
+            primaryIndex = open.get(0);
+        }
+        if (secondaryIndex == index) {
+            secondaryIndex = open.size() >= 2 ? firstOther(primaryIndex) : -1;
+        }
         relayout();
     }
 
     /**
-     * Returns the first panel index that is not {@code avoid}.
+     * Toggles the side-by-side split.
+     */
+    private void toggleSplit() {
+        if (secondaryIndex >= 0) {
+            secondaryIndex = -1;
+        } else if (open.size() >= 2) {
+            secondaryIndex = firstOther(primaryIndex);
+        }
+        relayout();
+    }
+
+    /**
+     * Returns the first open index that is not {@code avoid}.
      *
      * @param avoid index to skip
-     * @return another index, or {@code avoid} when only one panel exists
+     * @return another open index, or {@code avoid} when none
      */
     private int firstOther(int avoid) {
-        for (int i = 0; i < panels.size(); i++) {
-            if (i != avoid) {
-                return i;
+        for (int index : open) {
+            if (index != avoid) {
+                return index;
             }
         }
         return avoid;
     }
 
     /**
-     * Rebuilds the centre area for the current split state.
+     * Rebuilds a tab strip for the open panels.
+     *
+     * @param strip strip panel
+     * @param activeIndex the strip's active panel index
+     * @param primary true for the primary strip
+     */
+    private void rebuildStrip(JPanel strip, int activeIndex, boolean primary) {
+        strip.removeAll();
+        for (int index : open) {
+            int panelIndex = index;
+            WorkbenchTab tab = new WorkbenchTab(names.get(index),
+                    () -> {
+                        if (primary) {
+                            setPrimary(panelIndex);
+                        } else {
+                            setSecondary(panelIndex);
+                        }
+                    },
+                    () -> closeTab(panelIndex));
+            tab.setSelected(index == activeIndex);
+            strip.add(tab);
+        }
+        if (open.size() < panels.size()) {
+            strip.add(reopenButton(primary));
+        }
+        strip.revalidate();
+        strip.repaint();
+    }
+
+    /**
+     * Builds the {@code +} button that reopens closed tabs.
+     *
+     * @param primary true for the primary strip
+     * @return reopen button
+     */
+    private JComponent reopenButton(boolean primary) {
+        JToggleButton plus = new JToggleButton("+");
+        WorkbenchTheme.commandTab(plus);
+        plus.setToolTipText("Reopen a closed panel");
+        plus.addActionListener(event -> {
+            plus.setSelected(false);
+            JPopupMenu menu = new JPopupMenu();
+            for (int i = 0; i < panels.size(); i++) {
+                if (open.contains(i)) {
+                    continue;
+                }
+                int index = i;
+                JMenuItem item = new JMenuItem(names.get(i));
+                item.addActionListener(choice -> {
+                    open.add(index);
+                    if (primary) {
+                        setPrimary(index);
+                    } else {
+                        setSecondary(index);
+                    }
+                });
+                menu.add(item);
+            }
+            menu.show(plus, 0, plus.getHeight());
+        });
+        return plus;
+    }
+
+    /**
+     * Rebuilds the centre area and tab strips for the current state.
      */
     private void relayout() {
+        if (!open.contains(primaryIndex)) {
+            primaryIndex = open.isEmpty() ? 0 : open.get(0);
+        }
         centre.removeAll();
         primaryHost.removeAll();
         primaryHost.add(panels.get(primaryIndex), BorderLayout.CENTER);
-        for (int i = 0; i < primaryTabs.size(); i++) {
-            primaryTabs.get(i).setSelected(i == primaryIndex);
-        }
-        if (secondaryIndex < 0) {
+        rebuildStrip(primaryStrip, primaryIndex, true);
+        if (secondaryIndex < 0 || !open.contains(secondaryIndex)) {
+            secondaryIndex = -1;
             splitButton.setSelected(false);
             centre.add(primaryHost, BorderLayout.CENTER);
         } else {
             splitButton.setSelected(true);
             secondaryHost.removeAll();
             secondaryHost.add(panels.get(secondaryIndex), BorderLayout.CENTER);
-            for (int i = 0; i < secondaryTabs.size(); i++) {
-                secondaryTabs.get(i).setSelected(i == secondaryIndex);
-                secondaryTabs.get(i).setEnabled(i != primaryIndex);
-            }
+            rebuildStrip(secondaryStrip, secondaryIndex, false);
             JPanel right = new JPanel(new BorderLayout(0, 4));
             right.setOpaque(false);
             right.add(secondaryStrip, BorderLayout.NORTH);
@@ -264,18 +334,6 @@ final class WorkbenchSplitArea extends JPanel {
         }
         centre.revalidate();
         centre.repaint();
-    }
-
-    /**
-     * Creates a themed tab toggle button.
-     *
-     * @param name tab label
-     * @return styled toggle button
-     */
-    private static JToggleButton makeTab(String name) {
-        JToggleButton tab = new JToggleButton(name);
-        WorkbenchTheme.commandTab(tab);
-        return tab;
     }
 
     /**
