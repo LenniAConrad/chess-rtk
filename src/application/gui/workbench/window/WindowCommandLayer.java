@@ -232,7 +232,7 @@ public abstract class WindowCommandLayer extends WindowGameLayer {
                 if (event.getClickCount() == 2) {
                     int row = gameTable.getSelectedRow();
                     if (row >= 0) {
-                        jumpGameTo(gameModel.plyForRow(row));
+                        showGameRow(row);
                     }
                 }
             }

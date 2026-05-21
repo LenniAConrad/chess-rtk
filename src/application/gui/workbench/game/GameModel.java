@@ -2,6 +2,7 @@ package application.gui.workbench.game;
 
 import chess.core.Move;
 import chess.core.Position;
+import chess.core.SAN;
 import chess.core.Setup;
 import chess.struct.Game;
 import chess.struct.Pgn;
@@ -55,9 +56,31 @@ public final class GameModel extends AbstractTableModel {
     private final List<MoveRow> moves = new ArrayList<>();
 
     /**
+     * Rows shown in the history table, including imported variation moves.
+     */
+    private final List<MoveRow> displayRows = new ArrayList<>();
+
+    /**
+     * Display-row index for each mainline ply. Index zero is the root and maps
+     * to {@code -1}.
+     */
+    private final List<Integer> mainlineRows = new ArrayList<>();
+
+    /**
+     * Imported game tree preserved for PGN export while no edit has replaced
+     * the line.
+     */
+    private Game importedGame;
+
+    /**
      * Currently selected ply, where zero means the root.
      */
     private int currentPly;
+
+    /**
+     * Currently selected display row, or {@code -1} for the root position.
+     */
+    private int currentRow = -1;
 
     /**
      * Creates an empty game model.
@@ -74,8 +97,13 @@ public final class GameModel extends AbstractTableModel {
     public void reset(Position start) {
         positions.clear();
         moves.clear();
+        displayRows.clear();
+        mainlineRows.clear();
+        mainlineRows.add(-1);
+        importedGame = null;
         positions.add(start.copy());
         currentPly = 0;
+        currentRow = -1;
         fireTableDataChanged();
     }
 
@@ -87,18 +115,17 @@ public final class GameModel extends AbstractTableModel {
      * @param after position after the move
      */
     public void append(Position before, short move, Position after) {
-        int truncatedFrom = currentPly;
-        boolean truncated = moves.size() > currentPly;
+        promoteVariationSelection();
         truncateAfterCurrentPly();
-        if (truncated) {
-            fireTableRowsDeleted(truncatedFrom, truncatedFrom + (moves.size() - truncatedFrom));
-        }
-        int newRow = moves.size();
         moves.add(new MoveRow(plyLabel(before), PositionText.safeSan(before, move),
-                Move.toString(move), after.toString(), move));
+                Move.toString(move), after.toString(), move, after.copy(),
+                pathWithMove(currentMainlinePath(), move), true));
         positions.add(after.copy());
+        importedGame = null;
+        rebuildMainlineDisplayRows();
         currentPly = moves.size();
-        fireTableRowsInserted(newRow, newRow);
+        currentRow = rowForMainlinePly(currentPly);
+        fireTableDataChanged();
     }
 
     /**
@@ -110,8 +137,13 @@ public final class GameModel extends AbstractTableModel {
     public void loadLine(Position start, List<Short> line) {
         positions.clear();
         moves.clear();
+        displayRows.clear();
+        mainlineRows.clear();
+        mainlineRows.add(-1);
+        importedGame = null;
         positions.add(start.copy());
         Position cursor = start.copy();
+        List<Short> path = new ArrayList<>();
         for (Short boxed : line) {
             if (boxed == null) {
                 continue;
@@ -119,12 +151,38 @@ public final class GameModel extends AbstractTableModel {
             short move = boxed.shortValue();
             Position next = cursor.copy();
             next.play(move);
+            path.add(move);
             moves.add(new MoveRow(plyLabel(cursor), PositionText.safeSan(cursor, move), Move.toString(move),
-                    next.toString(), move));
+                    next.toString(), move, next.copy(), List.copyOf(path), true));
             positions.add(next.copy());
             cursor = next;
         }
+        rebuildMainlineDisplayRows();
         currentPly = moves.size();
+        currentRow = rowForMainlinePly(currentPly);
+        fireTableDataChanged();
+    }
+
+    /**
+     * Replaces the model with a parsed PGN game, preserving root and nested
+     * variation rows for display and later PGN export.
+     *
+     * @param start root position
+     * @param game parsed game
+     */
+    public void loadGame(Position start, Game game) {
+        Position root = start == null ? new Position(Setup.getStandardStartFEN()) : start.copy();
+        positions.clear();
+        moves.clear();
+        displayRows.clear();
+        mainlineRows.clear();
+        mainlineRows.add(-1);
+        positions.add(root.copy());
+        importedGame = game;
+        loadMainlineMoves(root, game == null ? null : game.getMainline());
+        appendGameDisplayRows(root, game);
+        currentPly = moves.size();
+        currentRow = rowForMainlinePly(currentPly);
         fireTableDataChanged();
     }
 
@@ -135,10 +193,29 @@ public final class GameModel extends AbstractTableModel {
      */
     public void jumpToPly(int ply) {
         int next = Math.max(0, Math.min(ply, moves.size()));
-        if (next == currentPly) {
+        int nextRow = rowForMainlinePly(next);
+        if (next == currentPly && currentRow == nextRow) {
             return;
         }
         currentPly = next;
+        currentRow = nextRow;
+    }
+
+    /**
+     * Moves the current pointer to a visible history row, including variation
+     * rows imported from PGN.
+     *
+     * @param row requested row
+     */
+    public void jumpToRow(int row) {
+        if (row < 0 || row >= displayRows.size()) {
+            currentPly = 0;
+            currentRow = -1;
+            return;
+        }
+        MoveRow selected = displayRows.get(row);
+        currentRow = row;
+        currentPly = selected.path().size();
     }
 
     /**
@@ -183,6 +260,9 @@ public final class GameModel extends AbstractTableModel {
      * @return current position copy
      */
     public Position currentPosition() {
+        if (currentRow >= 0 && currentRow < displayRows.size()) {
+            return displayRows.get(currentRow).position().copy();
+        }
         return positions.get(currentPly).copy();
     }
 
@@ -201,6 +281,9 @@ public final class GameModel extends AbstractTableModel {
      * @return encoded move, or {@link Move#NO_MOVE} at the root
      */
     public short currentLastMove() {
+        if (currentRow >= 0 && currentRow < displayRows.size()) {
+            return displayRows.get(currentRow).move();
+        }
         return currentPly == 0 ? Move.NO_MOVE : moves.get(currentPly - 1).move();
     }
 
@@ -210,17 +293,22 @@ public final class GameModel extends AbstractTableModel {
      * @return row index, or -1 at root
      */
     public int currentRow() {
-        return currentPly == 0 ? -1 : currentPly - 1;
+        return currentRow;
     }
 
     /**
-     * Returns the ply represented by a row.
+     * Returns the number of visible imported variation rows.
      *
-     * @param row table row
-     * @return ply
+     * @return variation row count
      */
-    public int plyForRow(int row) {
-        return row + 1;
+    public int variationRowCount() {
+        int count = 0;
+        for (MoveRow row : displayRows) {
+            if (!row.mainline()) {
+                count++;
+            }
+        }
+        return count;
     }
 
     /**
@@ -274,6 +362,9 @@ public final class GameModel extends AbstractTableModel {
      * @return PGN text
      */
     public String pgn() {
+        if (importedGame != null) {
+            return Pgn.toPgn(importedGame);
+        }
         Game game = new Game();
         game.setStartPosition(startPosition());
         game.putTag("Event", "ChessRTK Workbench");
@@ -302,7 +393,7 @@ public final class GameModel extends AbstractTableModel {
      */
     @Override
     public int getRowCount() {
-        return moves.size();
+        return displayRows.size();
     }
 
     /**
@@ -335,7 +426,10 @@ public final class GameModel extends AbstractTableModel {
      */
     @Override
     public Object getValueAt(int rowIndex, int columnIndex) {
-        MoveRow row = moves.get(rowIndex);
+        if (rowIndex < 0 || rowIndex >= displayRows.size()) {
+            return "";
+        }
+        MoveRow row = displayRows.get(rowIndex);
     return switch (columnIndex) {
             case COL_PLY -> row.ply();
             case COL_SAN -> row.san();
@@ -367,6 +461,176 @@ public final class GameModel extends AbstractTableModel {
         while (positions.size() > currentPly + 1) {
             positions.remove(positions.size() - 1);
         }
+        importedGame = null;
+    }
+
+    /**
+     * Promotes a selected variation path to the editable mainline before a new
+     * board move is appended.
+     */
+    private void promoteVariationSelection() {
+        if (currentRow < 0 || currentRow >= displayRows.size() || displayRows.get(currentRow).mainline()) {
+            return;
+        }
+        List<Short> path = displayRows.get(currentRow).path();
+        loadLine(startPosition(), path);
+    }
+
+    /**
+     * Loads the PGN mainline into the navigation arrays.
+     *
+     * @param start root position
+     * @param node first mainline node
+     */
+    private void loadMainlineMoves(Position start, Game.Node node) {
+        Position cursor = start.copy();
+        List<Short> path = new ArrayList<>();
+        Game.Node current = node;
+        while (current != null) {
+            short move = SAN.fromAlgebraic(cursor, current.getSan());
+            Position next = cursor.copy();
+            next.play(move);
+            path.add(move);
+            moves.add(new MoveRow(plyLabel(cursor), PositionText.safeSan(cursor, move), Move.toString(move),
+                    next.toString(), move, next.copy(), List.copyOf(path), true));
+            positions.add(next.copy());
+            cursor = next;
+            current = current.getNext();
+        }
+    }
+
+    /**
+     * Builds visible rows from a parsed game tree.
+     *
+     * @param start root position
+     * @param game parsed game
+     */
+    private void appendGameDisplayRows(Position start, Game game) {
+        if (game == null) {
+            rebuildMainlineDisplayRows();
+            return;
+        }
+        for (Game.Node rootVariation : game.getRootVariations()) {
+            appendSequenceRows(start, rootVariation, 1, List.of(), false);
+        }
+        Position cursor = start.copy();
+        List<Short> path = new ArrayList<>();
+        Game.Node current = game.getMainline();
+        int mainlinePly = 0;
+        while (current != null) {
+            List<Short> pathBeforeMove = List.copyOf(path);
+            Position before = cursor.copy();
+            short move = SAN.fromAlgebraic(cursor, current.getSan());
+            Position next = cursor.copy();
+            next.play(move);
+            path.add(move);
+            mainlinePly++;
+            mainlineRows.add(displayRows.size());
+            displayRows.add(new MoveRow(plyLabel(before), PositionText.safeSan(before, move), Move.toString(move),
+                    next.toString(), move, next.copy(), List.copyOf(path), true));
+            for (Game.Node variation : current.getVariations()) {
+                appendSequenceRows(before, variation, 1, pathBeforeMove, false);
+            }
+            cursor = next;
+            current = current.getNext();
+        }
+        if (mainlinePly == 0) {
+            currentRow = -1;
+        }
+    }
+
+    /**
+     * Appends visible rows for one variation sequence.
+     *
+     * @param start sequence start position
+     * @param node first node
+     * @param depth variation nesting depth
+     * @param pathPrefix path to the sequence start
+     * @param mainline true for mainline rows
+     */
+    private void appendSequenceRows(Position start, Game.Node node, int depth, List<Short> pathPrefix,
+            boolean mainline) {
+        Position cursor = start.copy();
+        List<Short> path = new ArrayList<>(pathPrefix);
+        Game.Node current = node;
+        while (current != null) {
+            List<Short> pathBeforeMove = List.copyOf(path);
+            Position before = cursor.copy();
+            short move = SAN.fromAlgebraic(cursor, current.getSan());
+            Position next = cursor.copy();
+            next.play(move);
+            path.add(move);
+            String indent = variationIndent(depth);
+            displayRows.add(new MoveRow(indent + plyLabel(before), indent + PositionText.safeSan(before, move),
+                    Move.toString(move), next.toString(), move, next.copy(), List.copyOf(path), mainline));
+            for (Game.Node variation : current.getVariations()) {
+                appendSequenceRows(before, variation, depth + 1, pathBeforeMove, false);
+            }
+            cursor = next;
+            current = current.getNext();
+        }
+    }
+
+    /**
+     * Rebuilds visible rows from the editable mainline.
+     */
+    private void rebuildMainlineDisplayRows() {
+        displayRows.clear();
+        mainlineRows.clear();
+        mainlineRows.add(-1);
+        for (MoveRow row : moves) {
+            mainlineRows.add(displayRows.size());
+            displayRows.add(row);
+        }
+    }
+
+    /**
+     * Returns the display-row index for a mainline ply.
+     *
+     * @param ply mainline ply
+     * @return display-row index, or {@code -1} at the root
+     */
+    private int rowForMainlinePly(int ply) {
+        if (ply <= 0 || ply >= mainlineRows.size()) {
+            return -1;
+        }
+        return mainlineRows.get(ply);
+    }
+
+    /**
+     * Returns the selected editable mainline path.
+     *
+     * @return path moves
+     */
+    private List<Short> currentMainlinePath() {
+        List<Short> path = new ArrayList<>();
+        for (int i = 0; i < currentPly && i < moves.size(); i++) {
+            path.add(moves.get(i).move());
+        }
+        return path;
+    }
+
+    /**
+     * Returns a path copy with one move appended.
+     *
+     * @param path existing path
+     * @param move move to append
+     * @return appended path
+     */
+    private static List<Short> pathWithMove(List<Short> path, short move) {
+        List<Short> next = new ArrayList<>(path);
+        next.add(move);
+        return List.copyOf(next);
+    }
+
+    /**
+     * Returns indentation for a variation depth.
+     *
+     * @param depth variation depth
+     * @return indentation prefix
+     */
+    private static String variationIndent(int depth) {
+        return "  ".repeat(Math.max(1, depth));
     }
 
     /**
@@ -403,7 +667,11 @@ public final class GameModel extends AbstractTableModel {
      * @param uci UCI move
      * @param fen resulting FEN
      * @param move encoded move
+     * @param position resulting position
+     * @param path path from the root to this row
+     * @param mainline true when row belongs to the mainline
      */
-    private record MoveRow(String ply, String san, String uci, String fen, short move) {
+    private record MoveRow(String ply, String san, String uci, String fen, short move,
+            Position position, List<Short> path, boolean mainline) {
     }
 }
