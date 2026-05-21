@@ -51,6 +51,12 @@ final class WorkbenchCnnView extends WorkbenchNetworkView {
     private final List<Integer> cellLayerIndices = new ArrayList<>();
 
     /**
+     * Spatial-layer index zoomed into in the raw "All" view, or -1 for the
+     * full all-layers mosaic.
+     */
+    private int rawZoomLayer = -1;
+
+    /**
      * Creates the CNN view.
      */
     WorkbenchCnnView() {
@@ -72,6 +78,7 @@ final class WorkbenchCnnView extends WorkbenchNetworkView {
     protected void onViewModeChanged() {
         cellHitBoxes.clear();
         cellLayerIndices.clear();
+        rawZoomLayer = -1;
     }
 
     /**
@@ -93,6 +100,21 @@ final class WorkbenchCnnView extends WorkbenchNetworkView {
         }
         WorkbenchHitRegions.Region r = hitRegions.hitTest(x, y);
         if (r == null) {
+            return;
+        }
+        // Raw "All" view: click a layer row to zoom in, click again to zoom out.
+        if (r.title != null && r.title.startsWith("rawzoom:")) {
+            String which = r.title.substring("rawzoom:".length());
+            if ("back".equals(which)) {
+                rawZoomLayer = -1;
+            } else {
+                try {
+                    rawZoomLayer = Integer.parseInt(which);
+                } catch (NumberFormatException ignored) {
+                    rawZoomLayer = -1;
+                }
+            }
+            repaint();
             return;
         }
         if (inspector != null) {
@@ -170,9 +192,6 @@ final class WorkbenchCnnView extends WorkbenchNetworkView {
      */
     @Override
     protected void paintHeader(Graphics2D g, Rectangle bounds) {
-        float[] wdl = snapshot.data("cnn.value.wdl");
-        float[] scalar = snapshot.data("cnn.value.scalar");
-        float v = scalar == null ? 0.0f : scalar[0];
         g.setColor(WorkbenchTheme.TEXT);
         g.setFont(WorkbenchTheme.font(15, Font.BOLD));
         g.drawString("LC0 CNN (ResNet) activations", PAD, 22);
@@ -181,18 +200,6 @@ final class WorkbenchCnnView extends WorkbenchNetworkView {
         int blocks = countLayersWithPrefix("B");
         String summary = "112 input planes -> stem -> " + blocks + " residual blocks -> policy / value heads";
         g.drawString(summary, PAD, 40);
-        if (wdl != null && wdl.length >= 3) {
-            Rectangle barRect = new Rectangle(getWidth() - 240 - PAD, 18, 240, 24);
-            WorkbenchTensorViz.drawMetricBars(g, barRect, new String[] { "W", "D", "L" }, wdl, 1.0f);
-            hitRegions.addInspectable(barRect,
-                    "Value head (W/D/L)",
-                    "Predicted win / draw / loss probabilities for side to move",
-                    String.format("W %.2f · D %.2f · L %.2f", wdl[0], wdl[1], wdl[2]),
-                    "cnn.value.wdl", 0, 3, 0, "3");
-        }
-        g.setColor(WorkbenchTheme.MUTED);
-        g.setFont(WorkbenchTheme.font(10, Font.PLAIN));
-        g.drawString(String.format("value scalar %+.3f", v), getWidth() - 240 - PAD, 56);
     }
 
     /**
@@ -210,11 +217,10 @@ final class WorkbenchCnnView extends WorkbenchNetworkView {
     @Override
     protected void paintRaw(Graphics2D g, Rectangle body) {
         int headerH = 38;
-        WorkbenchTensorViz.drawSectionHeader(g,
-                new Rectangle(body.x, body.y, body.width, headerH),
-                "raw channel atlas — every layer × every channel",
-                "rows = layer (input → stem → trunk → final) · cols = channel index · 8×8 mean activity per channel");
         if (layers.isEmpty()) {
+            WorkbenchTensorViz.drawSectionHeader(g,
+                    new Rectangle(body.x, body.y, body.width, headerH),
+                    "raw channel atlas", "no CNN snapshot");
             return;
         }
         // Only spatial 8x8 layers fit the atlas; collect those.
@@ -226,12 +232,19 @@ final class WorkbenchCnnView extends WorkbenchNetworkView {
             }
         }
         if (spatial.isEmpty()) {
-            g.setColor(WorkbenchTheme.MUTED);
-            g.setFont(WorkbenchTheme.font(12, Font.PLAIN));
-            g.drawString("No spatial layers in this snapshot.",
-                    body.x + 12, body.y + headerH + 30);
+            WorkbenchTensorViz.drawSectionHeader(g,
+                    new Rectangle(body.x, body.y, body.width, headerH),
+                    "raw channel atlas", "no spatial layers in this snapshot");
             return;
         }
+        if (rawZoomLayer >= 0 && rawZoomLayer < spatial.size()) {
+            paintRawZoom(g, body, spatial.get(rawZoomLayer));
+            return;
+        }
+        WorkbenchTensorViz.drawSectionHeader(g,
+                new Rectangle(body.x, body.y, body.width, headerH),
+                "raw channel atlas — every layer × every channel",
+                "rows = layer · cols = channel · click a layer row to zoom into its channels");
         int maxChannels = 0;
         for (LayerInfo info : spatial) {
             if (info.shapeDims[0] > maxChannels) {
@@ -296,12 +309,63 @@ final class WorkbenchCnnView extends WorkbenchNetworkView {
                     System.arraycopy(info.values, off, slice, 0, 64);
                 }
                 drawGammaHeatmap(g, cell, slice, 8, 8, perLayerScale[li]);
-                hitRegions.add(new Rectangle(x, y, cellW, cellH),
-                        info.name + " · channel " + c,
-                        "Click to select this layer; turn off Raw view to inspect it in detail.",
-                        String.format("layer scale ±%.3f", perLayerScale[li]));
+            }
+            // One zoom hit region per layer row.
+            hitRegions.add(new Rectangle(body.x, y, body.width, cellH),
+                    "rawzoom:" + li,
+                    "Click to zoom into this layer's " + channels + " channels",
+                    info.shape);
+        }
+    }
+
+    /**
+     * Paints one spatial layer's channels zoomed to fill the body, reached by
+     * clicking a layer row in the raw atlas. Clicking again zooms back out.
+     *
+     * @param g graphics
+     * @param body body rectangle
+     * @param info zoomed spatial layer
+     */
+    private void paintRawZoom(Graphics2D g, Rectangle body, LayerInfo info) {
+        int headerH = 38;
+        int channels = info.shapeDims[0];
+        WorkbenchTensorViz.drawSectionHeader(g,
+                new Rectangle(body.x, body.y, body.width, headerH),
+                "layer " + info.name + " — " + channels + " channels",
+                "8×8 activation per channel · click anywhere to zoom back out");
+        float maxAbs = 0.0f;
+        for (float v : info.values) {
+            maxAbs = Math.max(maxAbs, Math.abs(v));
+        }
+        float scale = scaleFor("rawCnnAtlas:" + info.name, maxAbs <= 0.0f ? 1.0f : maxAbs);
+        int gridTop = body.y + headerH + 6;
+        int gridW = body.width;
+        int gridH = body.height - headerH - 10;
+        // Choose a column count so cells stay roughly square and all fit.
+        int cols = Math.max(1, (int) Math.ceil(Math.sqrt(
+                (double) channels * gridW / Math.max(1, gridH))));
+        int rows = (channels + cols - 1) / cols;
+        int cell = Math.max(8, Math.min(gridW / cols, gridH / Math.max(1, rows)));
+        g.setFont(WorkbenchTheme.font(9, Font.PLAIN));
+        for (int c = 0; c < channels; ++c) {
+            int col = c % cols;
+            int row = c / cols;
+            int x = body.x + col * cell;
+            int y = gridTop + row * cell;
+            Rectangle r = new Rectangle(x + 1, y + 1, cell - 2, cell - 2);
+            float[] slice = new float[64];
+            int off = c * 64;
+            if (off + 64 <= info.values.length) {
+                System.arraycopy(info.values, off, slice, 0, 64);
+            }
+            drawGammaHeatmap(g, r, slice, 8, 8, scale);
+            if (cell >= 26) {
+                g.setColor(WorkbenchTheme.MUTED);
+                g.drawString(Integer.toString(c), x + 2, y + 10);
             }
         }
+        hitRegions.add(new Rectangle(body.x, body.y, body.width, body.height),
+                "rawzoom:back", "Click to return to the all-layers atlas", info.shape);
     }
 
     /**
@@ -740,6 +804,27 @@ final class WorkbenchCnnView extends WorkbenchNetworkView {
             g.drawString("per-block activity (left = early block, right = late block)",
                     stripR.x, stripR.y - 4);
         }
+
+        // Fill the lower half of the column with a proper value-head card
+        // instead of leaving it blank.
+        int valueTop = stripY + 26 + 22;
+        if (valueTop + 96 <= r.y + r.height) {
+            Rectangle valueCardR = new Rectangle(r.x + gap, valueTop,
+                    r.width - 2 * gap, r.y + r.height - valueTop);
+            paintValueCard(g, valueCardR);
+        }
+    }
+
+    /**
+     * Paints the value-head card via the shared WDL renderer, so the CNN and
+     * BT4 overviews present their value output identically.
+     *
+     * @param g graphics
+     * @param r card rectangle
+     */
+    private void paintValueCard(Graphics2D g, Rectangle r) {
+        WorkbenchTensorViz.drawWdlCard(g, r,
+                snapshot.data("cnn.value.wdl"), snapshot.data("cnn.value.scalar"));
     }
 
     /**

@@ -93,7 +93,7 @@ final class WorkbenchBt4View extends WorkbenchNetworkView {
         WorkbenchTensorViz.drawSectionHeader(g,
                 new Rectangle(body.x, body.y, body.width, 40),
                 "BT4 attention atlas",
-                "block/head fingerprint · selected-head board footprint · strongest attention heads");
+                "block/head fingerprint · selected-head board footprint · selected head's 64×64 attention matrix");
         int top = body.y + 50;
         int h = body.height - 50;
         int gap = 12;
@@ -106,7 +106,7 @@ final class WorkbenchBt4View extends WorkbenchNetworkView {
                     body.width, Math.max(120, body.y + body.height - (boards.y + boards.height + gap)));
             paintBt4HeadFingerprint(g, fingerprint);
             paintBt4AtlasBoards(g, boards);
-            paintBt4TopHeads(g, heads);
+            paintAttentionMatrix(g, heads);
             return;
         }
         int leftW = Math.max(500, Math.min((int) (body.width * 0.58), body.width - 380));
@@ -119,7 +119,7 @@ final class WorkbenchBt4View extends WorkbenchNetworkView {
                 rightW, Math.max(140, body.y + body.height - (boards.y + boards.height + gap)));
         paintBt4HeadFingerprint(g, fingerprint);
         paintBt4AtlasBoards(g, boards);
-        paintBt4TopHeads(g, heads);
+        paintAttentionMatrix(g, heads);
     }
 
     /**
@@ -302,27 +302,12 @@ final class WorkbenchBt4View extends WorkbenchNetworkView {
      */
     @Override
     protected void paintHeader(Graphics2D g, Rectangle bounds) {
-        float[] wdl = snapshot.data("bt4.value.wdl");
-        float[] scalar = snapshot.data("bt4.value.scalar");
-        float v = scalar == null ? 0.0f : scalar[0];
         g.setColor(WorkbenchTheme.TEXT);
         g.setFont(WorkbenchTheme.font(15, Font.BOLD));
         g.drawString("LC0 BT4 (transformer) activations", PAD, 22);
         g.setColor(WorkbenchTheme.MUTED);
         g.setFont(WorkbenchTheme.font(11, Font.PLAIN));
         g.drawString(BLOCKS + " blocks · " + HEADS + " heads · 64 tokens (squares) · 768-d embedding", PAD, 40);
-        if (wdl != null && wdl.length >= 3) {
-            Rectangle barRect = new Rectangle(getWidth() - 240 - PAD, 18, 240, 24);
-            WorkbenchTensorViz.drawMetricBars(g, barRect, new String[] { "W", "D", "L" }, wdl, 1.0f);
-            hitRegions.addInspectable(barRect,
-                    "Value head (W/D/L)",
-                    "Predicted win/draw/loss for side to move",
-                    String.format("W %.2f · D %.2f · L %.2f", wdl[0], wdl[1], wdl[2]),
-                    "bt4.value.wdl", 0, 3, 0, "3");
-        }
-        g.setColor(WorkbenchTheme.MUTED);
-        g.setFont(WorkbenchTheme.font(10, Font.PLAIN));
-        g.drawString(String.format("value scalar %+.3f", v), getWidth() - 240 - PAD, 56);
     }
 
     /**
@@ -666,54 +651,6 @@ final class WorkbenchBt4View extends WorkbenchNetworkView {
     }
 
     /**
-     * Paints the highest-focus heads as board-shaped mini-atlas tiles.
-     *
-     * @param g graphics
-     * @param r rectangle
-     */
-    private void paintBt4TopHeads(Graphics2D g, Rectangle r) {
-        WorkbenchTensorViz.drawSectionHeader(g, new Rectangle(r.x, r.y, r.width, 38),
-                "standout heads", "top attention heads by peak received square");
-        List<HeadPick> picks = topAttentionHeads(8);
-        if (picks.isEmpty()) {
-            return;
-        }
-        Rectangle content = new Rectangle(r.x + 2, r.y + 44, r.width - 4, r.height - 46);
-        int show = Math.min(8, picks.size());
-        int cols = Math.min(4, Math.max(1, content.width / 104));
-        int rows = (show + cols - 1) / cols;
-        int gap = 8;
-        int cellW = Math.max(60, (content.width - gap * (cols - 1)) / cols);
-        int cellH = Math.max(48, (content.height - gap * (rows - 1)) / rows);
-        for (int i = 0; i < show; i++) {
-            HeadPick pick = picks.get(i);
-            int row = i / cols;
-            int col = i % cols;
-            Rectangle card = new Rectangle(content.x + col * (cellW + gap),
-                    content.y + row * (cellH + gap), cellW, cellH);
-            String label = "B" + (pick.block + 1) + " h" + (pick.head + 1);
-            WorkbenchTensorViz.drawCard(g, card, label,
-                    WorkbenchTensorViz.squareLabel(strongestSquare(pick.energy))
-                            + " · focus " + String.format("%.4f", pick.score),
-                    WorkbenchTensorViz.POLICY);
-            int side = Math.max(24, Math.min(card.width - 14, card.height - 34));
-            Rectangle heat = new Rectangle(card.x + 7, card.y + card.height - side - 7, side, side);
-            float scale = scaleFor("bt4Atlas:top:" + pick.block + ":" + pick.head,
-                    maxAbs(pick.energy));
-            drawGammaHeatmap(g, heat, pick.energy, 8, 8, scale);
-            String key = "bt4.block" + pick.block + ".attention.heads";
-            if (snapshot.has(key)) {
-                hitRegions.addInspectable(card,
-                        "Block " + (pick.block + 1) + " · head " + (pick.head + 1),
-                        "High-focus attention head in the current position.",
-                        String.format("peak received %.4f at %s", pick.score,
-                                WorkbenchTensorViz.squareLabel(strongestSquare(pick.energy))),
-                        key, pick.head * 64 * 64, 64 * 64, 64, "64x64");
-            }
-        }
-    }
-
-    /**
      * Returns the mean attention received by each board square for one head.
      *
      * @param block block index
@@ -852,10 +789,11 @@ final class WorkbenchBt4View extends WorkbenchNetworkView {
                 + "  (small bars are low-signal)",
                 strip.x, strip.y - 4);
 
-        int policyY = stripY + strip.height + 24;
-        if (policyY + 60 <= r.y + r.height) {
-            Rectangle policyR = new Rectangle(r.x + 8, policyY, r.width - 16, r.y + r.height - policyY - 4);
-            paintTopPolicy(g, policyR);
+        int valueY = stripY + strip.height + 24;
+        if (valueY + 96 <= r.y + r.height) {
+            Rectangle valueR = new Rectangle(r.x + 8, valueY, r.width - 16, r.y + r.height - valueY - 4);
+            WorkbenchTensorViz.drawWdlCard(g, valueR,
+                    snapshot.data("bt4.value.wdl"), snapshot.data("bt4.value.scalar"));
         }
     }
 
@@ -938,9 +876,12 @@ final class WorkbenchBt4View extends WorkbenchNetworkView {
      */
     private void paintTokenEnergyBoard(Graphics2D g, Rectangle r) {
         WorkbenchTensorViz.drawSectionHeader(g, new Rectangle(r.x, r.y, r.width, 40),
-                "token energy + top moves", "attention received · top-K policy as arrows");
-        int size = Math.min(r.width, r.height - 60);
-        Rectangle board = new Rectangle(r.x + (r.width - size) / 2, r.y + 50, size - 16, size - 16);
+                "token energy + top moves",
+                "board tint = how much attention each square receives · bars = most likely moves");
+        // Board fills the upper part; the top-move bars sit below it.
+        int boardArea = Math.min(r.width, Math.max(160, (r.height - 50) * 3 / 5));
+        Rectangle board = new Rectangle(r.x + Math.max(8, (r.width - boardArea) / 2),
+                r.y + 50, boardArea - 16, boardArea - 16);
         WorkbenchTensorViz.drawMiniBoard(g, board);
         WorkbenchTensorViz.drawPositionPieces(g, board, fen);
         float[] energy = snapshot.data("bt4.token.energy");
@@ -951,6 +892,53 @@ final class WorkbenchBt4View extends WorkbenchNetworkView {
             addBoardSquareTooltips(board, energy, "Mean attention received");
         }
         WorkbenchTensorViz.drawBoardCoordinates(g, board);
+        int barsTop = board.y + board.height + 30;
+        if (barsTop + 40 <= r.y + r.height) {
+            Rectangle barsR = new Rectangle(r.x + 8, barsTop,
+                    r.width - 16, r.y + r.height - barsTop - 6);
+            paintTopPolicy(g, barsR);
+        }
+    }
+
+    /**
+     * Paints the top-policy move bars beneath the token-energy board.
+     *
+     * @param g graphics
+     * @param r rectangle
+     */
+    private void paintTopPolicy(Graphics2D g, Rectangle r) {
+        float[] policy = snapshot.data("bt4.policy.logits");
+        if (policy == null) {
+            return;
+        }
+        java.util.List<chess.nn.lc0.bt4.PolicyEncoder.ScoredMove> top = decodeTopMoves(policy, 6);
+        if (top.isEmpty()) {
+            return;
+        }
+        int n = top.size();
+        String[] labels = new String[n];
+        float[] values = new float[n];
+        float scale = 0.0f;
+        for (int i = 0; i < n; ++i) {
+            labels[i] = chess.core.Move.toString(top.get(i).move()) + "  "
+                    + String.format("%.1f%%", top.get(i).probability() * 100);
+            values[i] = top.get(i).probability();
+            scale = Math.max(scale, values[i]);
+        }
+        g.setColor(WorkbenchTheme.MUTED);
+        g.setFont(WorkbenchTheme.font(10, Font.PLAIN));
+        g.drawString("top moves (legal-softmax probability)", r.x, r.y - 4);
+        WorkbenchTensorViz.drawMetricBars(g, r, labels, values, scale);
+        int barH = r.height / Math.max(1, n);
+        for (int i = 0; i < n; ++i) {
+            Rectangle row = new Rectangle(r.x, r.y + i * barH, r.width, barH);
+            var sm = top.get(i);
+            hitRegions.addInspectable(row,
+                    "Top move " + chess.core.Move.toString(sm.move()),
+                    "LC0 policy index " + sm.policyIndex() + " · logit " + String.format("%+.3f", sm.logit()),
+                    String.format("legal-softmax %.2f%% · rank %d", sm.probability() * 100, i + 1),
+                    "bt4.policy.logits", 0, 0, 0, policy.length + "");
+        }
     }
 
     /**
@@ -975,46 +963,6 @@ final class WorkbenchBt4View extends WorkbenchNetworkView {
                     WorkbenchTensorViz.squareLabel(sq),
                     caption,
                     String.format("%+.4f", values[sq]));
-        }
-    }
-
-    /**
-     * Paints a small top-policy bars block.
-     *
-     * @param g graphics
-     * @param r rectangle
-     */
-    private void paintTopPolicy(Graphics2D g, Rectangle r) {
-        float[] policy = snapshot.data("bt4.policy.logits");
-        if (policy == null) {
-            return;
-        }
-        java.util.List<chess.nn.lc0.bt4.PolicyEncoder.ScoredMove> top = decodeTopMoves(policy, 6);
-        if (top.isEmpty()) {
-            return;
-        }
-        int n = top.size();
-        String[] labels = new String[n];
-        float[] values = new float[n];
-        float scale = 0.0f;
-        for (int i = 0; i < n; ++i) {
-            labels[i] = chess.core.Move.toString(top.get(i).move()) + "  " + String.format("%.1f%%", top.get(i).probability() * 100);
-            values[i] = top.get(i).probability();
-            scale = Math.max(scale, values[i]);
-        }
-        g.setColor(WorkbenchTheme.MUTED);
-        g.setFont(WorkbenchTheme.font(10, Font.PLAIN));
-        g.drawString("top moves (legal-softmax probability)", r.x, r.y - 4);
-        WorkbenchTensorViz.drawMetricBars(g, r, labels, values, scale);
-        int barH = r.height / Math.max(1, n);
-        for (int i = 0; i < n; ++i) {
-            Rectangle row = new Rectangle(r.x, r.y + i * barH, r.width, barH);
-            var sm = top.get(i);
-            hitRegions.addInspectable(row,
-                    "Top move " + chess.core.Move.toString(sm.move()),
-                    "LC0 policy index " + sm.policyIndex() + " · logit " + String.format("%+.3f", sm.logit()),
-                    String.format("legal-softmax %.2f%% · rank %d", sm.probability() * 100, i + 1),
-                    "bt4.policy.logits", 0, 0, 0, policy.length + "");
         }
     }
 

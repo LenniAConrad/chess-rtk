@@ -285,6 +285,79 @@ final class WorkbenchTensorViz {
     }
 
     /**
+     * Draws the shared value-head card: a segmented win / draw / loss bar plus
+     * the raw value scalar. Used by both the CNN and BT4 overviews so the two
+     * architectures present their value output identically.
+     *
+     * @param g graphics
+     * @param r card rectangle
+     * @param wdl win / draw / loss probabilities (may be null)
+     * @param valueScalar optional single-element value scalar (may be null)
+     */
+    static void drawWdlCard(Graphics2D g, Rectangle r, float[] wdl, float[] valueScalar) {
+        drawSectionHeader(g, new Rectangle(r.x, r.y, r.width, 40),
+                "value head — win / draw / loss",
+                "predicted game outcome for the side to move");
+        int barTop = r.y + 50;
+        int barH = Math.min(34, Math.max(20, r.height - 80));
+        Rectangle bar = new Rectangle(r.x + 8, barTop, Math.max(1, r.width - 16), barH);
+        if (wdl != null && wdl.length >= 3) {
+            float w = Math.max(0.0f, wdl[0]);
+            float d = Math.max(0.0f, wdl[1]);
+            float l = Math.max(0.0f, wdl[2]);
+            float sum = Math.max(1e-4f, w + d + l);
+            w /= sum;
+            d /= sum;
+            l /= sum;
+            int ww = Math.round(bar.width * w);
+            int dw = Math.round(bar.width * d);
+            int lw = Math.max(0, bar.width - ww - dw);
+            g.setColor(new Color(56, 158, 90));
+            g.fillRect(bar.x, bar.y, ww, bar.height);
+            g.setColor(new Color(150, 156, 163));
+            g.fillRect(bar.x + ww, bar.y, dw, bar.height);
+            g.setColor(new Color(201, 74, 74));
+            g.fillRect(bar.x + ww + dw, bar.y, lw, bar.height);
+            g.setColor(WorkbenchTheme.LINE);
+            g.drawRect(bar.x, bar.y, bar.width - 1, bar.height - 1);
+            g.setFont(WorkbenchTheme.font(11, Font.BOLD));
+            g.setColor(Color.WHITE);
+            drawSegmentLabel(g, "W " + Math.round(w * 100) + "%", bar.x, bar.y, ww, bar.height);
+            drawSegmentLabel(g, "D " + Math.round(d * 100) + "%", bar.x + ww, bar.y, dw, bar.height);
+            drawSegmentLabel(g, "L " + Math.round(l * 100) + "%", bar.x + ww + dw, bar.y, lw, bar.height);
+        } else {
+            g.setColor(WorkbenchTheme.MUTED);
+            g.setFont(WorkbenchTheme.font(11, Font.PLAIN));
+            g.drawString("No W/D/L output in this snapshot.", bar.x, bar.y + 16);
+        }
+        if (valueScalar != null && valueScalar.length > 0) {
+            g.setColor(WorkbenchTheme.MUTED);
+            g.setFont(WorkbenchTheme.font(11, Font.PLAIN));
+            g.drawString(String.format("value scalar %+.3f  (+1 = winning, -1 = losing)", valueScalar[0]),
+                    bar.x, bar.y + bar.height + 22);
+        }
+    }
+
+    /**
+     * Draws a centred label inside a WDL bar segment when it is wide enough.
+     *
+     * @param g graphics
+     * @param text label text
+     * @param x segment x
+     * @param y segment y
+     * @param width segment width
+     * @param height segment height
+     */
+    private static void drawSegmentLabel(Graphics2D g, String text, int x, int y, int width, int height) {
+        FontMetrics fm = g.getFontMetrics();
+        if (width < fm.stringWidth(text) + 8) {
+            return;
+        }
+        g.drawString(text, x + (width - fm.stringWidth(text)) / 2,
+                y + (height + fm.getAscent() - fm.getDescent()) / 2);
+    }
+
+    /**
      * Draws an empty placeholder rectangle.
      *
      * @param g graphics
