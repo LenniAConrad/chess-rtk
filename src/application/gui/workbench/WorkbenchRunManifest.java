@@ -149,7 +149,7 @@ final class WorkbenchRunManifest {
             rawField(sb, "exitCode", "null", true);
         }
         numericField(sb, "durationMillis", Long.toString(job.durationMillis()), true);
-        field(sb, "command", "crtk " + job.displayCommand(), true);
+        field(sb, "command", job.displayCommand(), true);
         rawField(sb, "args", Json.stringArray(job.args().toArray(String[]::new)), true);
         field(sb, "workingDirectory", normalize(workingDirectory), true);
         rawField(sb, "stdin", stdinObject(stdin), true);
@@ -160,6 +160,9 @@ final class WorkbenchRunManifest {
         rawField(sb, "engine", stringMapObject(engine), true);
         rawField(sb, "inputs", pathEntries(job.args(), INPUT_PATH_FLAGS), true);
         rawField(sb, "outputs", outputPathEntries(job.args(), outputPaths), true);
+        if (job.logPath() != null) {
+            field(sb, "logPath", normalize(job.logPath()), true);
+        }
         field(sb, "summary", job.resultSummary(), true);
         numericField(sb, "outputBytes", Integer.toString(bytes(job.output())), true);
         field(sb, "outputPreview", outputPreview(job.output()), false);

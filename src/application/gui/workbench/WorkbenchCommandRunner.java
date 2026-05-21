@@ -1,6 +1,5 @@
 package application.gui.workbench;
 
-import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
@@ -72,16 +71,17 @@ final class WorkbenchCommandRunner {
                 Thread stdinThread = startStdinThread(process, stdin);
                 BoundedOutput output = new BoundedOutput(MAX_OUTPUT_BYTES);
                 try {
-                    try (BufferedReader reader = new BufferedReader(new InputStreamReader(
-                            process.getInputStream(), StandardCharsets.UTF_8))) {
-                        String line;
-                        while ((line = reader.readLine()) != null) {
+                    try (InputStreamReader reader = new InputStreamReader(
+                            process.getInputStream(), StandardCharsets.UTF_8)) {
+                        char[] buffer = new char[4096];
+                        int read;
+                        while ((read = reader.read(buffer)) >= 0) {
                             if (isCancelled()) {
                                 running.destroyProcess();
                                 running.markCancelled();
                                 throw new CancellationException("command cancelled");
                             }
-                            String chunk = line + System.lineSeparator();
+                            String chunk = new String(buffer, 0, read);
                             output.append(chunk);
                             publish(chunk);
                         }

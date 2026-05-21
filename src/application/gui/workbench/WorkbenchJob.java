@@ -65,6 +65,11 @@ final class WorkbenchJob {
     private Path manifestPath;
 
     /**
+     * Full plain-text log persisted for this run, or null until one is written.
+     */
+    private Path logPath;
+
+    /**
      * Output artifact paths detected for this run.
      */
     private List<Path> artifacts = List.of();
@@ -184,6 +189,15 @@ final class WorkbenchJob {
     }
 
     /**
+     * Returns the persisted full log path, or null when not written yet.
+     *
+     * @return log path or null
+     */
+    Path logPath() {
+        return logPath;
+    }
+
+    /**
      * Returns output artifacts detected for this run.
      *
      * @return immutable artifact path list
@@ -201,6 +215,15 @@ final class WorkbenchJob {
     void recordManifest(Path path, List<Path> artifactPaths) {
         this.manifestPath = path;
         this.artifacts = artifactPaths == null ? List.of() : List.copyOf(artifactPaths);
+    }
+
+    /**
+     * Records the full log path associated with this job.
+     *
+     * @param path log path
+     */
+    void recordLog(Path path) {
+        this.logPath = path;
     }
 
     /**

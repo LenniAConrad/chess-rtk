@@ -396,6 +396,7 @@ final class WorkbenchDashboardPanel extends JPanel implements WorkbenchSessionLi
         body.add(actionRow(
                 quickButton("Retry", () -> withSelectedJob(actions::retryJob)),
                 quickButton("Copy command", () -> withSelectedJob(actions::copyJobCommand)),
+                quickButton("Open log", () -> withSelectedJob(actions::openJobLog)),
                 quickButton("Open manifest", () -> withSelectedJob(actions::openJobManifest))));
         return card("Recent Jobs", body);
     }

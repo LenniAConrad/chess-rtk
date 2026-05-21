@@ -436,6 +436,14 @@ public final class WorkbenchWindow extends JFrame {
             }
             openManifestForJob(job);
         }
+
+        @Override
+        public void openJobLog(WorkbenchJob job) {
+            if (job == null) {
+                return;
+            }
+            openLogForJob(job);
+        }
     }
 
     /**
@@ -1514,7 +1522,9 @@ public final class WorkbenchWindow extends JFrame {
                 new PaletteAction("Open batch tab", "Show batch workflows", () -> selectTab(TAB_BATCH)),
                 new PaletteAction("Open publish tab", "Show report and publishing tools", () -> selectTab(TAB_PUBLISH)),
                 new PaletteAction("Open console tab", "Show command output and process state",
-                        () -> selectTab(TAB_CONSOLE)));
+                        () -> selectTab(TAB_CONSOLE)),
+                new PaletteAction("Open logs folder", "Show persisted workbench command logs",
+                        this::openLogsDirectory));
     }
 
     /**
@@ -3393,6 +3403,31 @@ public final class WorkbenchWindow extends JFrame {
     }
 
     /**
+     * Saves the visible console text to a user-chosen log file.
+     */
+    private void saveConsoleLog() {
+        JFileChooser chooser = createFileChooser(null, new File("workbench-console.log"),
+                new FileNameExtensionFilter("Log files", "log", "txt"));
+        int result = chooser.showSaveDialog(this);
+        if (result != JFileChooser.APPROVE_OPTION) {
+            return;
+        }
+        File file = ensureExtension(chooser.getSelectedFile(), ".log");
+        String contents = console.getText();
+        runAsync(
+                () -> {
+                    Files.writeString(file.toPath(), contents, StandardCharsets.UTF_8);
+                    return file.toPath().toAbsolutePath().normalize();
+                },
+                saved -> {
+                    session.artifacts().add(saved);
+                    appendConsole("Saved console log to " + saved + "\n");
+                    toast(WorkbenchToast.Kind.SUCCESS, "Saved log to " + saved.getFileName());
+                },
+                ex -> showError("Save log failed", ex.getMessage()));
+    }
+
+    /**
      * Builds the current report text.
      *
      * @return report text
@@ -3523,6 +3558,8 @@ public final class WorkbenchWindow extends JFrame {
         commandStateLabel.setBorder(WorkbenchTheme.pad(0, WorkbenchTheme.SPACE_SM));
         top.add(commandStateLabel, BorderLayout.CENTER);
         top.add(buttonRow(FlowLayout.RIGHT,
+                button("Open Logs", false, event -> openLogsDirectory()),
+                button("Save Log", false, event -> saveConsoleLog()),
                 button("Clear", false, event -> console.clearOutput()),
                 button("Stop", false, event -> stopCommand())), BorderLayout.EAST);
         panel.add(top, BorderLayout.NORTH);
@@ -4873,8 +4910,33 @@ public final class WorkbenchWindow extends JFrame {
     }
 
     /**
-     * Persists a JSON manifest for a finished, failed, or cancelled command
-     * run, then records that manifest in the dashboard artifact list.
+     * Persists the full plain-text log for a finished, failed, or cancelled
+     * command run, then records that log in the dashboard artifact list.
+     *
+     * @param job job to persist
+     * @return log path, or null when writing failed
+     */
+    private Path persistRunLog(WorkbenchJob job) {
+        if (job == null) {
+            return null;
+        }
+        if (job.logPath() != null) {
+            return job.logPath();
+        }
+        try {
+            Path log = WorkbenchRunLog.write(job, Path.of(""));
+            job.recordLog(log);
+            session.artifacts().add(log);
+            return log;
+        } catch (IOException ex) {
+            appendConsole("Run log failed: " + ex.getMessage() + System.lineSeparator());
+            return null;
+        }
+    }
+
+    /**
+     * Persists a full log and JSON manifest for a finished, failed, or
+     * cancelled command run, then records them in the dashboard artifact list.
      *
      * @param job job to persist
      * @param artifacts output artifacts detected for the job
@@ -4884,6 +4946,7 @@ public final class WorkbenchWindow extends JFrame {
         if (job == null || job.manifestPath() != null) {
             return;
         }
+        persistRunLog(job);
         try {
             Path manifest = WorkbenchRunManifest.write(job, artifacts, stdin, Path.of(""));
             job.recordManifest(manifest, artifacts);
@@ -4904,6 +4967,40 @@ public final class WorkbenchWindow extends JFrame {
             return;
         }
         openPath(job.manifestPath(), "Run manifest");
+    }
+
+    /**
+     * Opens a job's persisted full log through the desktop shell.
+     *
+     * @param job job whose log should be opened
+     */
+    private void openLogForJob(WorkbenchJob job) {
+        if (job == null) {
+            showWarning("Run log", "No job is selected.");
+            return;
+        }
+        Path log = job.logPath();
+        if (log == null && job.status().isTerminal()) {
+            log = persistRunLog(job);
+        }
+        if (log == null) {
+            showWarning("Run log", "No log has been written for this job yet.");
+            return;
+        }
+        openPath(log, "Run log");
+    }
+
+    /**
+     * Opens the workbench log directory.
+     */
+    private void openLogsDirectory() {
+        try {
+            Path dir = WorkbenchRunLog.DEFAULT_DIR.toAbsolutePath().normalize();
+            Files.createDirectories(dir);
+            openPath(dir, "Workbench logs");
+        } catch (IOException ex) {
+            showError("Workbench logs", "Failed to open log directory: " + ex.getMessage());
+        }
     }
 
     /**

@@ -164,6 +164,7 @@ public final class WorkbenchRegressionTest {
         testDashboardClassesLoad();
         testWorkbenchSessionNotifiesListeners();
         testJobLifecycleTransitions();
+        testRunLogWritesFullOutput();
         testRunManifestWritesReplayMetadata();
         testJobHistoryIsBounded();
         testCommandResultParserSummaries();
@@ -1868,6 +1869,37 @@ public final class WorkbenchRegressionTest {
     }
 
     /**
+     * Verifies full workbench command output is persisted as an accessible
+     * plain-text log and linked back to the job.
+     */
+    private static void testRunLogWritesFullOutput() {
+        try {
+            Path dir = Files.createTempDirectory("crtk-workbench-log-");
+            Object manager = construct(type("WorkbenchJobManager"), new Class<?>[0]);
+            Class<?> jobType = type("WorkbenchJob");
+            Object job = invoke(manager, "create", new Class<?>[] { List.class },
+                    List.of("engine", "bestmove", "--fen", START_FEN));
+            String output = "info depth 1\rinfo depth 2" + System.lineSeparator()
+                    + "bestmove e2e4" + System.lineSeparator();
+            invoke(manager, "markFinished", new Class<?>[] { jobType, int.class, String.class, long.class },
+                    job, 0, output, 42L);
+
+            Path log = (Path) invokeStatic(type("WorkbenchRunLog"), "write",
+                    new Class<?>[] { Path.class, jobType, Path.class }, dir, job, Path.of("."));
+            String text = Files.readString(log, StandardCharsets.UTF_8);
+            assertTrue(text.contains("CRTK Workbench Command Log"), "log header");
+            assertTrue(text.contains("command: crtk engine bestmove"), "log command");
+            assertTrue(text.contains("info depth 1\rinfo depth 2"), "log preserves carriage returns");
+            assertTrue(text.contains("bestmove e2e4"), "log output");
+
+            invoke(job, "recordLog", new Class<?>[] { Path.class }, log);
+            assertEquals(log, invoke(job, "logPath", new Class<?>[0]), "job log path");
+        } catch (java.io.IOException ex) {
+            throw new AssertionError("log test setup failed", ex);
+        }
+    }
+
+    /**
      * Verifies a completed job can be persisted as a replayable JSON run
      * manifest with command, limits, input hash, output hash and job linkage.
      */
@@ -1891,6 +1923,9 @@ public final class WorkbenchRegressionTest {
                     "--jsonl"));
             invoke(manager, "markFinished", new Class<?>[] { jobType, int.class, String.class, long.class },
                     job, 0, "bestmove e2e4", 42L);
+            Path log = (Path) invokeStatic(type("WorkbenchRunLog"), "write",
+                    new Class<?>[] { Path.class, jobType, Path.class }, dir, job, Path.of("."));
+            invoke(job, "recordLog", new Class<?>[] { Path.class }, log);
 
             Path manifest = (Path) invokeStatic(type("WorkbenchRunManifest"), "write",
                     new Class<?>[] { Path.class, jobType, List.class, String.class, Path.class },
@@ -1910,6 +1945,8 @@ public final class WorkbenchRegressionTest {
             assertTrue(json.contains("\"kind\":\"--output\""), "manifest declared output entry");
             assertTrue(json.contains("\"sha256\""), "manifest file hashes");
             assertTrue(json.contains("\"present\":true"), "manifest stdin metadata");
+            assertTrue(json.contains("\"logPath\": \"" + jsonEsc(log.toString()) + "\""),
+                    "manifest links full log");
 
             invoke(job, "recordManifest", new Class<?>[] { Path.class, List.class }, manifest, List.of(output));
             assertEquals(manifest, invoke(job, "manifestPath", new Class<?>[0]),
