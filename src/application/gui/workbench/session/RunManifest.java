@@ -101,11 +101,8 @@ public final class RunManifest {
     throw new IllegalArgumentException("job is required");
         }
         Path dir = directory == null ? DEFAULT_DIR : directory;
-        Files.createDirectories(dir);
-        Path path = dir.resolve(fileName(job));
-        Files.writeString(path, toJson(job, artifacts, stdin, workingDirectory),
-                StandardCharsets.UTF_8);
-        return path.toAbsolutePath().normalize();
+        return SessionFiles.writeString(dir, fileName(job),
+                toJson(job, artifacts, stdin, workingDirectory));
     }
 
     /**
