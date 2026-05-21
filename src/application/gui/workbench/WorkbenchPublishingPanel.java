@@ -556,7 +556,7 @@ final class WorkbenchPublishingPanel {
      * @return publishing panel
      */
     private JComponent createBookPublishingPanel() {
-        JPanel root = transparentPanel(new BorderLayout(10, 10));
+        JPanel root = transparentPanel(new BorderLayout(0, 0));
         JComponent controls = scroll(fillViewport(createPublishingControlsPanel()));
         JComponent preview = createPublishingPreviewPanel();
         JSplitPane split = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, controls, preview);

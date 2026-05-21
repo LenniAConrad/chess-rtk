@@ -1097,9 +1097,9 @@ public final class WorkbenchWindow extends JFrame {
      */
     private void buildUi() {
         JPanel root = new WorkbenchBackdropPanel();
-        root.setLayout(new BorderLayout(10, 10));
+        root.setLayout(new BorderLayout(0, 0));
         root.setBackground(WorkbenchTheme.BG);
-        root.setBorder(WorkbenchTheme.pad(12, 12, 12, 12));
+        root.setBorder(WorkbenchTheme.pad(0, 0, 0, 0));
 
         tabs = new WorkbenchSplitArea();
         tabs.addPanel("Dashboard", dashboardPanel);
@@ -1971,8 +1971,7 @@ public final class WorkbenchWindow extends JFrame {
      * @return panel
      */
     private JPanel createCommandBuilder() {
-        JPanel panel = transparentPanel(new BorderLayout(0, 10));
-        panel.setBorder(WorkbenchTheme.pad(WorkbenchTheme.SPACE_MD));
+        JPanel panel = new WorkbenchSurfacePanel(new BorderLayout(0, 8));
 
         commandForm.setChangeListener(this::updateBuiltCommand);
         commandForm.setRunGate(this::updateCommandRunGate);
@@ -2030,7 +2029,7 @@ public final class WorkbenchWindow extends JFrame {
      */
     private JComponent createBatchTab() {
         installBatchTasks();
-        JPanel panel = transparentPanel(new BorderLayout(10, 10));
+        JPanel panel = transparentPanel(new BorderLayout(0, 0));
 
         batchInput.setText(Setup.getStandardStartFEN() + System.lineSeparator()
                 + "4R1k1/5ppp/8/8/8/8/8/6K1 b - - 0 1" + System.lineSeparator());

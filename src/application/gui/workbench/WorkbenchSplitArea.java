@@ -148,12 +148,12 @@ final class WorkbenchSplitArea extends JPanel {
     /**
      * Primary editor group wrapper.
      */
-    private final JPanel primaryPane = new JPanel(new BorderLayout(0, 4));
+    private final JPanel primaryPane = new JPanel(new BorderLayout(0, 0));
 
     /**
      * Secondary editor group wrapper.
      */
-    private final JPanel secondaryPane = new JPanel(new BorderLayout(0, 4));
+    private final JPanel secondaryPane = new JPanel(new BorderLayout(0, 0));
 
     /**
      * Host for the primary pane's selected panel.
@@ -190,14 +190,22 @@ final class WorkbenchSplitArea extends JPanel {
      */
     WorkbenchSplitArea() {
         super(new BorderLayout());
-        setOpaque(false);
-        primaryPane.setOpaque(false);
-        secondaryPane.setOpaque(false);
-        primaryHost.setOpaque(false);
-        secondaryHost.setOpaque(false);
-        centre.setOpaque(false);
-        primaryStrip.setOpaque(false);
-        secondaryStrip.setOpaque(false);
+        setOpaque(true);
+        setBackground(WorkbenchTheme.BG);
+        primaryPane.setOpaque(true);
+        primaryPane.setBackground(WorkbenchTheme.PANEL_SOLID);
+        secondaryPane.setOpaque(true);
+        secondaryPane.setBackground(WorkbenchTheme.PANEL_SOLID);
+        primaryHost.setOpaque(true);
+        primaryHost.setBackground(WorkbenchTheme.PANEL_SOLID);
+        secondaryHost.setOpaque(true);
+        secondaryHost.setBackground(WorkbenchTheme.PANEL_SOLID);
+        centre.setOpaque(true);
+        centre.setBackground(WorkbenchTheme.PANEL_SOLID);
+        primaryStrip.setOpaque(true);
+        primaryStrip.setBackground(WorkbenchTheme.BG);
+        secondaryStrip.setOpaque(true);
+        secondaryStrip.setBackground(WorkbenchTheme.BG);
         add(centre, BorderLayout.CENTER);
     }
 
@@ -745,7 +753,9 @@ final class WorkbenchSplitArea extends JPanel {
         }
         rebuildStrip(strip, tabList, activeIndex, primary);
         JPanel header = new JPanel(new BorderLayout());
-        header.setOpaque(false);
+        header.setOpaque(true);
+        header.setBackground(WorkbenchTheme.BG);
+        header.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, WorkbenchTheme.LINE));
         header.add(strip, BorderLayout.CENTER);
         if (primary) {
             JPanel splitHolder = new JPanel(new FlowLayout(FlowLayout.RIGHT, 4, 3));

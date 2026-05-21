@@ -273,7 +273,7 @@ final class WorkbenchUi {
     static void styleScrollPane(JScrollPane pane) {
         Component view = pane.getViewport() == null ? null : pane.getViewport().getView();
         Color viewportBackground = scrollBackground(view);
-        pane.setBorder(BorderFactory.createLineBorder(WorkbenchTheme.LINE));
+        pane.setBorder(BorderFactory.createEmptyBorder());
         pane.setOpaque(false);
         pane.setViewportBorder(BorderFactory.createEmptyBorder());
         pane.getViewport().setOpaque(true);

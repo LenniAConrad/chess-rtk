@@ -720,20 +720,22 @@ final class WorkbenchDashboardPanel extends JPanel implements WorkbenchSessionLi
     }
 
     /**
-     * Wraps card content in the standard dashboard card chrome — a titled,
-     * line-bordered panel on the elevated surface colour.
+     * Wraps dashboard content as a flat section. The dashboard still groups
+     * related facts, but it avoids boxed card chrome so the page reads like
+     * adjacent workbench regions.
      *
-     * @param title card title
-     * @param body card body
-     * @return card component
+     * @param title section title
+     * @param body section body
+     * @return section component
      */
     private static JComponent card(String title, JComponent body) {
         JPanel cardPanel = new JPanel(new BorderLayout(0, WorkbenchTheme.SPACE_SM));
         cardPanel.setOpaque(true);
         cardPanel.setBackground(WorkbenchTheme.PANEL_SOLID);
         cardPanel.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(WorkbenchTheme.LINE),
-                WorkbenchTheme.pad(WorkbenchTheme.SPACE_MD)));
+                BorderFactory.createMatteBorder(1, 0, 0, 0, WorkbenchTheme.LINE),
+                WorkbenchTheme.pad(WorkbenchTheme.SPACE_MD, WorkbenchTheme.SPACE_SM,
+                        WorkbenchTheme.SPACE_MD, WorkbenchTheme.SPACE_SM)));
         JLabel header = new JLabel(title);
         header.setFont(WorkbenchTheme.font(13, Font.BOLD));
         header.setForeground(WorkbenchTheme.TEXT);

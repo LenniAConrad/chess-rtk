@@ -19,11 +19,6 @@ import javax.swing.event.MouseInputAdapter;
 final class WorkbenchTabbedPaneUI extends BasicTabbedPaneUI {
 
     /**
-     * Tab corner radius.
-     */
-    private static final int RADIUS = 6;
-
-    /**
      * Tab horizontal padding.
      */
     private static final int TAB_PAD_X = 11;
@@ -159,15 +154,15 @@ final class WorkbenchTabbedPaneUI extends BasicTabbedPaneUI {
         Graphics2D g = (Graphics2D) graphics.create();
         try {
             g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-            int bodyX = x + 2;
-            int bodyY = y + 3;
-            int bodyW = Math.max(0, width - 5);
-            int bodyH = Math.max(0, height - 6);
+            int bodyX = x;
+            int bodyY = y;
+            int bodyW = Math.max(0, width - 1);
+            int bodyH = Math.max(0, height);
             g.setColor(tabFill(tabIndex, selected));
-            g.fillRoundRect(bodyX, bodyY, bodyW, bodyH, RADIUS, RADIUS);
+            g.fillRect(bodyX, bodyY, bodyW, bodyH);
             if (selected) {
                 g.setColor(WorkbenchTheme.TAB_ACCENT_UNDERLINE);
-                g.fillRect(bodyX + 8, bodyY + bodyH - 1, Math.max(0, bodyW - 16), 1);
+                g.fillRect(bodyX, bodyY + bodyH - 2, Math.max(0, bodyW), 2);
             }
         } finally {
             g.dispose();
@@ -192,13 +187,9 @@ final class WorkbenchTabbedPaneUI extends BasicTabbedPaneUI {
         Graphics2D g = (Graphics2D) graphics.create();
         try {
             g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-            int bodyX = x + 2;
-            int bodyY = y + 3;
-            int bodyW = Math.max(0, width - 5);
-            int bodyH = Math.max(0, height - 6);
             if (selected) {
                 g.setColor(WorkbenchTheme.LINE);
-                g.drawRoundRect(bodyX, bodyY, bodyW, bodyH, RADIUS, RADIUS);
+                g.drawLine(x + width - 1, y, x + width - 1, y + height);
             }
         } finally {
             g.dispose();
@@ -239,11 +230,7 @@ final class WorkbenchTabbedPaneUI extends BasicTabbedPaneUI {
         try {
             g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
             g.setColor(WorkbenchTheme.INPUT_FOCUS);
-            int bodyX = r.x + 2;
-            int bodyY = r.y + 3;
-            int bodyW = Math.max(0, r.width - 5);
-            int bodyH = Math.max(0, r.height - 6);
-            g.drawRoundRect(bodyX, bodyY, bodyW, bodyH, RADIUS, RADIUS);
+            g.drawRect(r.x, r.y, Math.max(0, r.width - 1), Math.max(0, r.height - 1));
         } finally {
             g.dispose();
         }
