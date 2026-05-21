@@ -1686,13 +1686,12 @@ public final class WorkbenchWindow extends JFrame {
         board.setMoveHandler(this::playMove);
         evalBar.setToolTipText("Engine evaluation");
 
-        // Pin the eval bar flush against the board square (matched to its
-        // height) instead of stretching it over the whole stage height.
-        JPanel boardStage = transparentPanel(null);
-        boardStage.setLayout(new WorkbenchBoardStageLayout(board, evalBar));
-        boardStage.add(board);
-        boardStage.add(evalBar);
-        boardStage.setComponentZOrder(evalBar, 0);
+        // The eval bar is a child of the board panel so it paints inside the
+        // board's own paint pass — flush to the square, matched to its height,
+        // and free of the sibling-overlap flicker.
+        board.setEvalBar(evalBar);
+        JPanel boardStage = transparentPanel(new BorderLayout());
+        boardStage.add(board, BorderLayout.CENTER);
 
         JPanel side = transparentPanel(new BorderLayout(8, 8));
         side.setPreferredSize(new Dimension(400, 560));

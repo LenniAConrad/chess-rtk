@@ -61,6 +61,24 @@ final class WorkbenchBoardPanel extends JPanel {
     private static final int MIN_BOARD_SIZE = 64;
 
     /**
+     * Width of the engine eval bar when one is attached.
+     */
+    private static final int EVAL_BAR_WIDTH = 34;
+
+    /**
+     * Gap between the eval bar and the board square.
+     */
+    private static final int EVAL_BAR_GAP = 10;
+
+    /**
+     * Engine evaluation bar painted flush against the board, or null when no
+     * bar is attached. Kept as a child component so it repaints inside the
+     * board's own paint pass — a sibling component overlapping the board
+     * flickered as the two repainted out of step.
+     */
+    private transient WorkbenchEvalBar evalBar;
+
+    /**
      * Chessboard.js board border width.
      */
     private static final int BOARD_BORDER = 2;
@@ -612,11 +630,12 @@ final class WorkbenchBoardPanel extends JPanel {
      */
     void setSuggestedMove(short move) {
         short next = legalSuggestedMove(move) ? move : Move.NO_MOVE;
-        suggestedMove = next;
-        if (next != Move.NO_MOVE) {
-            clearSelection();
-            clearDragState();
+        if (next == suggestedMove) {
+            return;
         }
+        suggestedMove = next;
+        // The arrow co-exists with the user's own selection / drag: clearing
+        // them here cancelled a move the moment the engine replied.
         repaint();
     }
 
@@ -2464,9 +2483,46 @@ final class WorkbenchBoardPanel extends JPanel {
      * @return board rectangle
      */
     private Rectangle boardBounds() {
-        int size = Math.min(getWidth() - BOARD_MARGIN * 2, getHeight() - BOARD_MARGIN * 2);
+        // Reserve a left strip for the eval bar so the board square never
+        // slides underneath it.
+        int leftReserve = evalBar != null ? EVAL_BAR_WIDTH + EVAL_BAR_GAP : 0;
+        int availWidth = getWidth() - leftReserve;
+        int size = Math.min(availWidth - BOARD_MARGIN * 2, getHeight() - BOARD_MARGIN * 2);
         size = Math.max(MIN_BOARD_SIZE, size - size % 8);
-        return new Rectangle((getWidth() - size) / 2, (getHeight() - size) / 2, size, size);
+        int x = leftReserve + (availWidth - size) / 2;
+        return new Rectangle(x, (getHeight() - size) / 2, size, size);
+    }
+
+    /**
+     * Attaches an engine eval bar as a child component, painted flush against
+     * the left edge of the board square and matched to its height.
+     *
+     * @param bar the eval bar, or null to detach
+     */
+    void setEvalBar(WorkbenchEvalBar bar) {
+        if (evalBar != null) {
+            remove(evalBar);
+        }
+        evalBar = bar;
+        if (bar != null) {
+            setLayout(null);
+            add(bar);
+        }
+        revalidate();
+        repaint();
+    }
+
+    /**
+     * Positions the attached eval bar flush against the board square.
+     */
+    @Override
+    public void doLayout() {
+        super.doLayout();
+        if (evalBar != null) {
+            Rectangle square = boardBounds();
+            int barX = Math.max(0, square.x - EVAL_BAR_GAP - EVAL_BAR_WIDTH);
+            evalBar.setBounds(barX, square.y, EVAL_BAR_WIDTH, square.height);
+        }
     }
 
     /**
