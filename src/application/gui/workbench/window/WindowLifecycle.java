@@ -506,7 +506,7 @@ public abstract class WindowLifecycle extends WindowBase {
 
         for (JLabel label : new JLabel[] { statusBarPosition, statusBarPly, statusBarEngine }) {
             label.setFont(Theme.font(11, java.awt.Font.PLAIN));
-            label.setForeground(Theme.MUTED);
+            Theme.foreground(label, Theme.ForegroundRole.MUTED);
         }
         statusBarPosition.setHorizontalAlignment(SwingConstants.LEFT);
         statusBarPly.setHorizontalAlignment(SwingConstants.CENTER);

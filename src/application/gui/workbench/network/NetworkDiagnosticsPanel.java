@@ -329,7 +329,7 @@ public final class NetworkDiagnosticsPanel extends JPanel {
 
         JLabel labelView = new JLabel(label);
         labelView.setFont(Theme.font(11, Font.BOLD));
-        labelView.setForeground(Theme.TEXT);
+        Theme.foreground(labelView, Theme.ForegroundRole.TEXT);
 
         JLabel stateView = new JLabel(state);
         stateView.setFont(Theme.font(11, Font.BOLD));
@@ -337,7 +337,7 @@ public final class NetworkDiagnosticsPanel extends JPanel {
 
         JLabel detailView = new JLabel(elide(detail, Theme.font(11, Font.PLAIN)));
         detailView.setFont(Theme.font(11, Font.PLAIN));
-        detailView.setForeground(Theme.MUTED);
+        Theme.foreground(detailView, Theme.ForegroundRole.MUTED);
         detailView.setToolTipText(detail);
 
         GridBagConstraints c = new GridBagConstraints();

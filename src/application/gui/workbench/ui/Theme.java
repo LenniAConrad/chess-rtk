@@ -122,6 +122,46 @@ public final class Theme {
     }
 
     /**
+     * Semantic foreground roles that can be refreshed after palette changes.
+     */
+    public enum ForegroundRole {
+        /**
+         * Primary readable text.
+         */
+        TEXT,
+
+        /**
+         * Secondary readable text.
+         */
+        MUTED,
+
+        /**
+         * Success text.
+         */
+        SUCCESS,
+
+        /**
+         * Warning text.
+         */
+        WARNING,
+
+        /**
+         * Error text.
+         */
+        ERROR,
+
+        /**
+         * Informational text.
+         */
+        INFO,
+
+        /**
+         * Terminal text.
+         */
+        TERMINAL
+    }
+
+    /**
      * Active color mode.
      */
     private static Mode mode = Mode.LIGHT;
@@ -130,6 +170,11 @@ public final class Theme {
      * Client property for empty text-control placeholder copy.
      */
     private static final String PLACEHOLDER_PROPERTY = Theme.class.getName() + ".placeholder";
+
+    /**
+     * Client property storing a component's semantic foreground role.
+     */
+    private static final String FOREGROUND_ROLE_PROPERTY = Theme.class.getName() + ".foregroundRole";
 
     /**
      * Primary ink for pastel surfaces.
@@ -285,6 +330,26 @@ public final class Theme {
      * Dark policy accent.
      */
     private static final Color DARK_PURPLE = new Color(185, 149, 206);
+
+    /**
+     * Dark success text.
+     */
+    private static final Color DARK_SUCCESS_TEXT = new Color(183, 235, 207);
+
+    /**
+     * Dark warning text.
+     */
+    private static final Color DARK_WARNING_TEXT = new Color(246, 219, 151);
+
+    /**
+     * Dark error text.
+     */
+    private static final Color DARK_ERROR_TEXT = new Color(255, 190, 180);
+
+    /**
+     * Dark informational text.
+     */
+    private static final Color DARK_INFO_TEXT = new Color(183, 235, 220);
 
     /**
      * Root background color.
@@ -846,6 +911,39 @@ public final class Theme {
     }
 
     /**
+     * Applies and records a semantic foreground role.
+     *
+     * @param component target component
+     * @param role foreground role
+     */
+    public static void foreground(JComponent component, ForegroundRole role) {
+        if (component == null) {
+            return;
+        }
+        ForegroundRole resolved = role == null ? ForegroundRole.TEXT : role;
+        component.putClientProperty(FOREGROUND_ROLE_PROPERTY, resolved);
+        component.setForeground(foregroundColor(resolved));
+    }
+
+    /**
+     * Returns the active color for a semantic foreground role.
+     *
+     * @param role foreground role
+     * @return active color
+     */
+    public static Color foregroundColor(ForegroundRole role) {
+        return switch (role == null ? ForegroundRole.TEXT : role) {
+            case MUTED -> MUTED;
+            case SUCCESS -> STATUS_SUCCESS_TEXT;
+            case WARNING -> STATUS_WARNING_TEXT;
+            case ERROR -> STATUS_ERROR_TEXT;
+            case INFO -> STATUS_INFO_TEXT;
+            case TERMINAL -> TERMINAL_TEXT;
+            case TEXT -> TEXT;
+        };
+    }
+
+    /**
      * Applies the current palette to an existing component tree.
      *
      * @param component root component
@@ -919,15 +1017,76 @@ public final class Theme {
                 button.setFont(font(13, Font.PLAIN));
             }
         } else if (component instanceof JLabel label) {
-            label.setForeground(TEXT);
+            refreshForeground(label);
         } else if (component instanceof JComponent jComponent) {
-            jComponent.setForeground(TEXT);
+            refreshForeground(jComponent);
             if (jComponent.isOpaque()) {
                 jComponent.setBackground(PANEL_SOLID);
             } else {
                 jComponent.setBackground(BG);
             }
         }
+    }
+
+    /**
+     * Refreshes semantic foreground color for one component.
+     *
+     * @param component component
+     */
+    public static void refreshForeground(JComponent component) {
+        if (component == null) {
+            return;
+        }
+        Object role = component.getClientProperty(FOREGROUND_ROLE_PROPERTY);
+        if (role instanceof ForegroundRole foregroundRole) {
+            component.setForeground(foregroundColor(foregroundRole));
+            return;
+        }
+        component.setForeground(foregroundColor(inferForegroundRole(component.getForeground())));
+    }
+
+    /**
+     * Infers a foreground role for legacy components that predate explicit
+     * foreground-role client properties.
+     *
+     * @param color current foreground color
+     * @return inferred role
+     */
+    private static ForegroundRole inferForegroundRole(Color color) {
+        if (sameColor(color, PASTEL_MUTED) || sameColor(color, DARK_MUTED)) {
+            return ForegroundRole.MUTED;
+        }
+        if (sameColor(color, PASTEL_GREEN_TEXT) || sameColor(color, DARK_SUCCESS_TEXT)
+                || sameColor(color, STATUS_SUCCESS_TEXT)) {
+            return ForegroundRole.SUCCESS;
+        }
+        if (sameColor(color, PASTEL_AMBER_TEXT) || sameColor(color, DARK_WARNING_TEXT)
+                || sameColor(color, STATUS_WARNING_TEXT)) {
+            return ForegroundRole.WARNING;
+        }
+        if (sameColor(color, PASTEL_CORAL_TEXT) || sameColor(color, DARK_ERROR_TEXT)
+                || sameColor(color, STATUS_ERROR_TEXT)) {
+            return ForegroundRole.ERROR;
+        }
+        if (sameColor(color, PASTEL_BLUE_TEXT) || sameColor(color, DARK_INFO_TEXT)
+                || sameColor(color, STATUS_INFO_TEXT)) {
+            return ForegroundRole.INFO;
+        }
+        if (sameColor(color, TERMINAL_TEXT)) {
+            return ForegroundRole.TERMINAL;
+        }
+        return ForegroundRole.TEXT;
+    }
+
+    /**
+     * Returns whether two colors have equal RGB and alpha channels.
+     *
+     * @param first first color
+     * @param second second color
+     * @return true when equal
+     */
+    private static boolean sameColor(Color first, Color second) {
+        return first != null && second != null && first.getRGB() == second.getRGB();
     }
 
     /**
@@ -1067,16 +1226,16 @@ public final class Theme {
         TOOLTIP_BORDER = DARK_BORDER;
         STATUS_SUCCESS_BG = new Color(20, 49, 37);
         STATUS_SUCCESS_BORDER = DARK_GREEN;
-        STATUS_SUCCESS_TEXT = new Color(183, 235, 207);
+        STATUS_SUCCESS_TEXT = DARK_SUCCESS_TEXT;
         STATUS_WARNING_BG = new Color(62, 50, 24);
         STATUS_WARNING_BORDER = DARK_AMBER;
-        STATUS_WARNING_TEXT = new Color(246, 219, 151);
+        STATUS_WARNING_TEXT = DARK_WARNING_TEXT;
         STATUS_ERROR_BG = new Color(70, 31, 30);
         STATUS_ERROR_BORDER = DARK_CORAL;
-        STATUS_ERROR_TEXT = new Color(255, 190, 180);
+        STATUS_ERROR_TEXT = DARK_ERROR_TEXT;
         STATUS_INFO_BG = new Color(24, 47, 43);
         STATUS_INFO_BORDER = DARK_ACCENT;
-        STATUS_INFO_TEXT = new Color(183, 235, 220);
+        STATUS_INFO_TEXT = DARK_INFO_TEXT;
         LOGO_BACKGROUND = new Color(DARK_PURPLE.getRed(), DARK_PURPLE.getGreen(), DARK_PURPLE.getBlue(), 230);
         LOGO_MARK = DARK_CORAL;
         TOGGLE_FOCUS = withAlpha(INPUT_FOCUS, 120);
@@ -1493,7 +1652,7 @@ public final class Theme {
      */
     public static JLabel section(String text) {
         JLabel label = new JLabel(text);
-        label.setForeground(TEXT);
+        foreground(label, ForegroundRole.TEXT);
         label.setFont(font(12, Font.BOLD));
         return label;
     }

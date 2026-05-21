@@ -154,6 +154,7 @@ public final class WorkbenchRegressionTest {
         testToggleSwitchAnimatesStateChanges();
         testCommandFormOptionalTogglesFillLeadColumn();
         testThemeColorContrast();
+        testThemeRefreshPreservesLabelRoles();
         testThemeInstallSetsTooltipColors();
         testTextPlaceholdersDoNotSetValues();
         testCollapsibleInfoSectionTogglesContent();
@@ -714,6 +715,39 @@ public final class WorkbenchRegressionTest {
                 "best-move arrow distinguishes from light board squares");
         assertColorDistanceAtLeast(themeColor("BOARD_ARROW"), themeColor("BOARD_DARK"), 95.0,
                 "best-move arrow distinguishes from dark board squares in " + modeName + " mode");
+    }
+
+    /**
+     * Verifies a live theme refresh keeps the semantic foreground hierarchy for
+     * muted labels, section labels, and status labels in both modes.
+     */
+    private static void testThemeRefreshPreservesLabelRoles() {
+        Class<?> modeType = type("Theme$Mode");
+        invokeStatic(type("Theme"), "setMode", new Class<?>[] { modeType }, enumValue(modeType, "LIGHT"));
+
+        JLabel muted = (JLabel) invokeStatic(type("Ui"), "label", new Class<?>[] { String.class }, "muted");
+        JLabel section = (JLabel) invokeStatic(type("Theme"), "section", new Class<?>[] { String.class }, "section");
+        JLabel warning = new JLabel("warning");
+        invokeStatic(type("Theme"), "foreground",
+                new Class<?>[] { javax.swing.JComponent.class, type("Theme$ForegroundRole") },
+                warning, enumValue(type("Theme$ForegroundRole"), "WARNING"));
+        JPanel panel = new JPanel();
+        panel.add(muted);
+        panel.add(section);
+        panel.add(warning);
+
+        invokeStatic(type("Theme"), "setMode", new Class<?>[] { modeType }, enumValue(modeType, "DARK"));
+        invokeStatic(type("Theme"), "refreshComponentTree", new Class<?>[] { Component.class }, panel);
+        assertEquals(themeColor("MUTED"), muted.getForeground(), "muted label stays muted in dark");
+        assertEquals(themeColor("TEXT"), section.getForeground(), "section label stays text in dark");
+        assertEquals(themeColor("STATUS_WARNING_TEXT"), warning.getForeground(), "warning label stays warning in dark");
+
+        invokeStatic(type("Theme"), "setMode", new Class<?>[] { modeType }, enumValue(modeType, "LIGHT"));
+        invokeStatic(type("Theme"), "refreshComponentTree", new Class<?>[] { Component.class }, panel);
+        assertEquals(themeColor("MUTED"), muted.getForeground(), "muted label stays muted in light");
+        assertEquals(themeColor("TEXT"), section.getForeground(), "section label stays text in light");
+        assertEquals(themeColor("STATUS_WARNING_TEXT"), warning.getForeground(),
+                "warning label stays warning in light");
     }
 
     /**

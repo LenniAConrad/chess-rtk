@@ -188,7 +188,7 @@ public final class Ui {
      */
     public static JLabel label(String text) {
         JLabel label = new JLabel(text);
-        label.setForeground(Theme.MUTED);
+        Theme.foreground(label, Theme.ForegroundRole.MUTED);
         label.setFont(Theme.font(12, Font.BOLD));
         label.setHorizontalAlignment(SwingConstants.LEFT);
         return label;
@@ -213,7 +213,7 @@ public final class Ui {
      */
     public static JLabel caption(String text) {
         JLabel label = new JLabel(text);
-        label.setForeground(Theme.MUTED);
+        Theme.foreground(label, Theme.ForegroundRole.MUTED);
         label.setFont(Theme.font(11, Font.PLAIN));
         label.setHorizontalAlignment(SwingConstants.LEFT);
         return label;
@@ -726,14 +726,14 @@ public final class Ui {
         } else if (component instanceof AbstractButton button) {
             styleAbstractButton(button);
         } else if (component instanceof JLabel label) {
-            label.setForeground(Theme.TEXT);
+            Theme.refreshForeground(label);
             label.setFont(Theme.font(12, Font.PLAIN));
         } else if (component instanceof JPanel panel) {
             panel.setOpaque(true);
             panel.setBackground(Theme.PANEL_SOLID);
         } else if (component instanceof JComponent jComponent) {
             jComponent.setBackground(Theme.PANEL_SOLID);
-            jComponent.setForeground(Theme.TEXT);
+            Theme.refreshForeground(jComponent);
         }
     }
 

@@ -644,7 +644,7 @@ public final class DashboardPanel extends JPanel implements SessionListener {
     private static JLabel caption(String text) {
         JLabel label = new JLabel(text);
         label.setFont(Theme.font(10, Font.PLAIN));
-        label.setForeground(Theme.MUTED);
+        Theme.foreground(label, Theme.ForegroundRole.MUTED);
         label.setAlignmentX(Component.LEFT_ALIGNMENT);
         return label;
     }
@@ -661,7 +661,7 @@ public final class DashboardPanel extends JPanel implements SessionListener {
         row.setAlignmentX(Component.LEFT_ALIGNMENT);
         JLabel captionLabel = new JLabel(caption);
         captionLabel.setFont(Theme.font(12, Font.BOLD));
-        captionLabel.setForeground(Theme.MUTED);
+        Theme.foreground(captionLabel, Theme.ForegroundRole.MUTED);
         captionLabel.setPreferredSize(new Dimension(112, Theme.CONTROL_HEIGHT - 8));
         captionLabel.setVerticalAlignment(SwingConstants.TOP);
         row.add(captionLabel, BorderLayout.WEST);
