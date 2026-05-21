@@ -6,12 +6,14 @@ set -euo pipefail
 
 APP_NAME="crtk"
 LAUNCHER="/usr/local/bin/$APP_NAME"
+DESKTOP_ENTRY="/usr/local/share/applications/crtk-workbench.desktop"
 
 # Resolve repo root (assume script is placed in scripts/)
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 APP_HOME="$(cd -- "$SCRIPT_DIR/.." && pwd)"
 
 REMOVE_LAUNCHER=1
+REMOVE_DESKTOP=1
 REMOVE_BUILD=1
 REMOVE_DATA=0
 ASSUME_YES=0
@@ -33,12 +35,13 @@ fi
 
 usage() {
   cat <<EOF
-Usage: ./uninstall.sh [--all|--remove-data] [--keep-build] [--keep-launcher] [-y|--yes]
+Usage: ./uninstall.sh [--all|--remove-data] [--keep-build] [--keep-launcher] [--keep-desktop] [-y|--yes]
 
 Options:
   --all, --remove-data   Remove data dirs created by the app (dump/, session/)
   --keep-build           Keep build artifacts (out/, crtk.jar, native/*/build/)
   --keep-launcher        Keep /usr/local/bin/crtk
+  --keep-desktop         Keep the ChessRTK Workbench desktop app entry
   -y, --yes              Assume yes for prompts
 EOF
 }
@@ -74,6 +77,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --keep-launcher)
       REMOVE_LAUNCHER=0
+      shift
+      ;;
+    --keep-desktop)
+      REMOVE_DESKTOP=0
       shift
       ;;
     -y|--yes|--force)
@@ -160,6 +167,7 @@ safe_remove_in_repo() {
 title "ChessRTK uninstaller"
 info "Repo: $APP_HOME"
 info "Launcher: $LAUNCHER"
+info "Desktop app: $DESKTOP_ENTRY"
 
 section "Build Artifacts"
 if [[ $REMOVE_BUILD -eq 1 ]]; then
@@ -247,6 +255,29 @@ if [[ $REMOVE_LAUNCHER -eq 1 ]]; then
   fi
 else
   step "Keeping launcher (--keep-launcher)"
+fi
+
+section "Desktop App"
+if [[ $REMOVE_DESKTOP -eq 1 ]]; then
+  if [[ -e "$DESKTOP_ENTRY" ]]; then
+    if [[ "${EUID:-$(id -u)}" -ne 0 && -z "$SUDO" ]]; then
+      warn "Cannot remove $DESKTOP_ENTRY (need root or sudo)."
+    else
+      if confirm "Remove desktop app entry at $DESKTOP_ENTRY?" "Y"; then
+        $SUDO rm -f "$DESKTOP_ENTRY"
+        if command -v update-desktop-database >/dev/null 2>&1; then
+          $SUDO update-desktop-database "$(dirname "$DESKTOP_ENTRY")" >/dev/null 2>&1 || true
+        fi
+        step "Desktop app entry removed"
+      else
+        warn "Skipping desktop app removal."
+      fi
+    fi
+  else
+    step "No desktop app entry found at $DESKTOP_ENTRY"
+  fi
+else
+  step "Keeping desktop app entry (--keep-desktop)"
 fi
 
 section "Summary"

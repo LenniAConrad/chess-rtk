@@ -115,6 +115,7 @@ crtk engine builtin --startpos --depth 3 --format summary
 
 | Task | Command |
 | --- | --- |
+| Open installed app launcher | `ChessRTK Workbench` from the applications menu |
 | Open focused analysis workbench | `crtk workbench` |
 | Open workbench on a position | `crtk workbench --fen "<FEN>"` |
 

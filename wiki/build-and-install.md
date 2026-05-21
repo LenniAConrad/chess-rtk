@@ -131,6 +131,7 @@ java -jar crtk.jar help
 - optionally downloads NNUE, LC0 CNN, and official LC0 BT4 model artifacts into `models/`
 - compiles sources and builds `crtk.jar`
 - installs a launcher at `/usr/local/bin/crtk` that runs from this repo
+- installs a `ChessRTK Workbench` desktop app entry that launches the Swing workbench without opening a terminal
 - optionally builds CUDA, ROCm/HIP, and oneAPI JNI backends when their vendor
   toolchains are available
 
@@ -140,6 +141,13 @@ local artifacts and are ignored by git.
 ```bash
 ./install.sh
 crtk help
+```
+
+After install, open `ChessRTK Workbench` from your applications menu, or launch
+the same app from a shell:
+
+```bash
+crtk workbench
 ```
 
 Fetch optional model weights without prompting:
@@ -158,6 +166,12 @@ Skip native GPU backend builds:
 
 ```bash
 ./install.sh --no-cuda --no-rocm --no-oneapi
+```
+
+Install only the command-line launcher and skip the desktop app entry:
+
+```bash
+./install.sh --no-desktop
 ```
 
 Force a native GPU backend build:
@@ -192,6 +206,12 @@ Remove the launcher and local build artifacts:
 
 ```bash
 ./scripts/uninstall.sh
+```
+
+Keep the desktop app entry while uninstalling other local pieces:
+
+```bash
+./scripts/uninstall.sh --keep-desktop
 ```
 
 Also remove data directories created by the app (`dump/`, `session/`):
