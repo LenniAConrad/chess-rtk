@@ -601,6 +601,11 @@ public final class Constants {
 	public static final String OPT_CLASSICAL = "--classical";
 
 	/**
+	 * {@code --evaluator} option flag.
+	 */
+	public static final String OPT_EVALUATOR = "--evaluator";
+
+	/**
 	 * {@code --terminal-aware} option flag.
 	 */
 	public static final String OPT_TERMINAL_AWARE = "--terminal-aware";

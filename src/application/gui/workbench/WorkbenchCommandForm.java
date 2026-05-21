@@ -830,6 +830,10 @@ final class WorkbenchCommandForm extends JPanel {
      * @return display label
      */
     private static String displayFlag(CommandOption option) {
+        String defaultValue = option.defaultValue() == null ? "" : option.defaultValue();
+        if (option.flag().isBlank() && !option.takesValue() && !defaultValue.isBlank()) {
+            return defaultValue;
+        }
         return option.flag().isBlank() ? "argument" : option.flag();
     }
 

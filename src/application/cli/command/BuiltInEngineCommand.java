@@ -2,6 +2,7 @@ package application.cli.command;
 
 import static application.cli.Constants.OPT_DEPTH;
 import static application.cli.Constants.OPT_DEPTH_SHORT;
+import static application.cli.Constants.OPT_EVALUATOR;
 import static application.cli.Constants.OPT_FORMAT;
 import static application.cli.Constants.OPT_INPUT;
 import static application.cli.Constants.OPT_INPUT_SHORT;
@@ -53,11 +54,6 @@ public final class BuiltInEngineCommand {
 	 * Command label used in diagnostics.
 	 */
 	private static final String CMD_BUILTIN = "engine builtin";
-
-	/**
-	 * {@code --evaluator} option flag.
-	 */
-	private static final String OPT_EVALUATOR = "--evaluator";
 
 	/**
 	 * {@code --nnue} option flag.

@@ -73,8 +73,10 @@ The Java evaluators use model files directly and do not start UCI engines:
   neither exists, it fails with a missing-weights error.
 - `engine builtin --lc0` loads ChessRTK LC0 CNN `.bin` weights from
   `--weights`, or from `lc0-model-path`.
-- `engine eval` prefers the Java LC0 evaluator and falls back to classical
-  evaluation unless `--lc0` or `--classical` is specified.
+- `engine eval --evaluator auto` prefers the Java LC0 evaluator and falls
+  back to classical evaluation; `--evaluator lc0` and `--evaluator classical`
+  force one backend. The `--lc0` and `--classical` shortcuts are still
+  accepted.
 - `engine static` is always the classical evaluator.
 
 LC0 as a UCI engine usually uses `.pb.gz` weights through the engine's own

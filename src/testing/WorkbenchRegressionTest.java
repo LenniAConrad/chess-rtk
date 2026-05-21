@@ -81,6 +81,11 @@ public final class WorkbenchRegressionTest {
             "7k/3rrrpp/8/8/8/8/PP6/1KR5 w - - 0 1";
 
     /**
+     * Use column index in the command option table.
+     */
+    private static final int COL_USE = 0;
+
+    /**
      * Flag column index in the command option table.
      */
     private static final int COL_FLAG = 1;
@@ -106,6 +111,7 @@ public final class WorkbenchRegressionTest {
         testFirstFenLineSkipsNonFenRows();
         testBatchFenValidationReportsLineErrors();
         testCommandOptionConflictsDisableStaleRows();
+        testEvaluatorSelectorsUseExplicitDefaults();
         testDynamicOptionRefresh();
         testDynamicOptionRefreshSkipsUnchangedValues();
         testEngineTemplateContextFeedsExternalConfigOptions();
@@ -237,6 +243,36 @@ public final class WorkbenchRegressionTest {
         List<String> args = enabledArgs(options);
         assertFalse(hasFlag(args, "--pieces"), "exact pieces disabled by min pieces");
         assertTrue(hasFlag(args, "--min-pieces"), "min pieces enabled");
+    }
+
+    /**
+     * Verifies evaluator selectors expose concrete defaults instead of a
+     * misleading "none" option.
+     */
+    private static void testEvaluatorSelectorsUseExplicitDefaults() {
+        Object eval = optionsFor("Eval");
+        assertTrue(hasRowForFlag(eval, "auto"), "eval exposes auto evaluator default");
+        assertFalse(hasRowForFlag(eval, "none"), "eval does not expose none evaluator");
+        assertFalse(hasFlag(enabledArgs(eval), "--lc0"), "eval auto emits no lc0 shortcut");
+        assertFalse(hasFlag(enabledArgs(eval), "--classical"), "eval auto emits no classical shortcut");
+
+        invoke(eval, "setValueAt", new Class<?>[] { Object.class, int.class, int.class },
+                Boolean.TRUE, rowForFlag(eval, "--classical"), COL_USE);
+        List<String> evalClassicalArgs = enabledArgs(eval);
+        assertTrue(hasFlag(evalClassicalArgs, "--classical"), "eval classical shortcut emits flag");
+        assertFalse(hasFlag(evalClassicalArgs, "--lc0"), "eval classical disables lc0 shortcut");
+
+        Object builtin = optionsFor("Built-in search");
+        assertTrue(hasRowForFlag(builtin, "classical"), "built-in exposes classical evaluator default");
+        assertFalse(hasRowForFlag(builtin, "none"), "built-in does not expose none evaluator");
+        assertFalse(hasRowForFlag(builtin, "--evaluator"), "built-in removes duplicate evaluator value row");
+        assertFalse(hasFlag(enabledArgs(builtin), "--classical"), "built-in default emits no redundant shortcut");
+
+        invoke(builtin, "setValueAt", new Class<?>[] { Object.class, int.class, int.class },
+                Boolean.TRUE, rowForFlag(builtin, "--lc0"), COL_USE);
+        List<String> builtinLc0Args = enabledArgs(builtin);
+        assertTrue(hasFlag(builtinLc0Args, "--lc0"), "built-in lc0 shortcut emits flag");
+        assertFalse(hasFlag(builtinLc0Args, "--nnue"), "built-in lc0 disables nnue shortcut");
     }
 
     /**
@@ -1664,6 +1700,22 @@ public final class WorkbenchRegressionTest {
             }
         }
         throw new AssertionError("missing flag row: " + flag);
+    }
+
+    /**
+     * Returns whether a row exists for a flag label.
+     *
+     * @param model option model
+     * @param flag flag label
+     * @return true when present
+     */
+    private static boolean hasRowForFlag(Object model, String flag) {
+        try {
+            rowForFlag(model, flag);
+            return true;
+        } catch (AssertionError ex) {
+            return false;
+        }
     }
 
     /**
