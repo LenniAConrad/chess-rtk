@@ -468,9 +468,9 @@ public final class WorkbenchWindow extends JFrame {
     private final JList<String> tagList = new JList<>(tagModel);
 
     /**
-     * Console output.
+     * Console output with carriage-return handling and line highlighting.
      */
-    private final JTextArea console = new JTextArea();
+    private final WorkbenchConsole console = new WorkbenchConsole();
 
     /**
      * Command execution state label.
@@ -3439,11 +3439,9 @@ public final class WorkbenchWindow extends JFrame {
         commandStateLabel.setFont(WorkbenchTheme.font(12, Font.PLAIN));
         top.add(commandStateLabel, BorderLayout.CENTER);
         top.add(buttonRow(FlowLayout.RIGHT,
-                button("Clear", false, event -> console.setText("")),
+                button("Clear", false, event -> console.clearOutput()),
                 button("Stop", false, event -> stopCommand())), BorderLayout.EAST);
         panel.add(top, BorderLayout.NORTH);
-        WorkbenchTheme.styleTerminal(console);
-        console.setEditable(false);
         panel.add(scroll(console), BorderLayout.CENTER);
         return panel;
     }
@@ -5291,8 +5289,7 @@ public final class WorkbenchWindow extends JFrame {
      */
     private void appendConsole(String text) {
         if (SwingUtilities.isEventDispatchThread()) {
-            console.append(text);
-            console.setCaretPosition(console.getDocument().getLength());
+            console.appendOutput(text);
         } else {
             SwingUtilities.invokeLater(() -> appendConsole(text));
         }
