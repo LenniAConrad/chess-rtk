@@ -202,7 +202,7 @@ final class WorkbenchOptionTableModel extends AbstractTableModel {
         OptionRow row = rows.get(rowIndex);
         return switch (columnIndex) {
             case COL_USE -> row.enabled();
-            case COL_FLAG -> row.option().flag().isBlank() ? "(argument)" : row.option().flag();
+            case COL_FLAG -> displayFlag(row.option());
             case COL_VALUE -> row.option().takesValue() ? row.value() : "";
             case COL_DESCRIPTION -> row.option().description();
             default -> "";
@@ -296,6 +296,10 @@ final class WorkbenchOptionTableModel extends AbstractTableModel {
      * @return display label
      */
     private static String displayFlag(CommandOption option) {
+        String defaultValue = option.defaultValue() == null ? "" : option.defaultValue();
+        if (option.flag().isBlank() && !option.takesValue() && !defaultValue.isBlank()) {
+            return defaultValue;
+        }
         return option.flag().isBlank() ? "(argument)" : option.flag();
     }
 

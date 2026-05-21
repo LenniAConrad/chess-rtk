@@ -140,6 +140,7 @@ final class WorkbenchCommandTemplates {
                         commonVerbose())),
                 new CommandTemplate("Eval", List.of("engine", "eval"), List.of(
                         optSource("--fen", ValueSource.CURRENT_FEN, true, "Position FEN"),
+                        exclusiveDefault("auto", true, "Default: LC0 with classical fallback", GROUP_EVALUATOR),
                         exclusiveFlag("--lc0", false, "Use the LC0 evaluator", GROUP_EVALUATOR),
                         exclusiveFlag("--classical", false, "Use the classical evaluator", GROUP_EVALUATOR),
                         opt("--weights", "", false, "LC0 weights path"),
@@ -150,8 +151,7 @@ final class WorkbenchCommandTemplates {
                         commonVerbose())),
                 new CommandTemplate("Built-in search", List.of("engine", "builtin"), positionOptions(
                         positionInputSource("--input", false, "Input FEN file"),
-                        exclusiveOpt("--evaluator", "classical", false, "classical, nnue, or lc0", GROUP_EVALUATOR),
-                        exclusiveFlag("--classical", false, "Use classical evaluator", GROUP_EVALUATOR),
+                        exclusiveDefault("classical", true, "Default classical evaluator", GROUP_EVALUATOR),
                         exclusiveFlag("--nnue", false, "Use NNUE evaluator", GROUP_EVALUATOR),
                         exclusiveFlag("--lc0", false, "Use LC0 evaluator", GROUP_EVALUATOR),
                         opt("--weights", "", false, "NNUE or LC0 weights path"),
@@ -593,6 +593,19 @@ final class WorkbenchCommandTemplates {
      */
     private static CommandOption wdlFlag(String flag, boolean enabled, String description) {
         return exclusiveFlag(flag, enabled, description, GROUP_WDL);
+    }
+
+    /**
+     * Creates an exclusive selector value that emits no command-line argument.
+     *
+     * @param label display label
+     * @param enabled whether the selector starts enabled
+     * @param description option description
+     * @param group exclusive group name
+     * @return option
+     */
+    private static CommandOption exclusiveDefault(String label, boolean enabled, String description, String group) {
+        return new CommandOption("", false, label, enabled, ValueSource.STATIC, description, group, List.of());
     }
 
     /**

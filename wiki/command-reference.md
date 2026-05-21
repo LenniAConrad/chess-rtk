@@ -1261,8 +1261,8 @@ force one backend explicitly. This command does not use a UCI engine.
 Options:
 - `--input|-i <path>`: FEN list file (optional)
 - `--fen "<FEN...>"`: FEN string (or pass it positionally)
-- `--lc0`: force LC0 evaluation and fail if LC0 cannot run
-- `--classical`: force classical evaluation
+- `--evaluator <mode>`: `auto`, `lc0`, or `classical` (default: `auto`)
+- `--lc0`, `--classical`: shortcut evaluator selectors
 - `--weights <path>`: ChessRTK LC0 CNN `.bin` weights path (optional)
 - `--terminal-aware`: use terminal-aware classical evaluation
 - `--verbose|-v`: print stack traces on failure

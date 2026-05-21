@@ -1,6 +1,7 @@
 package application.cli.command;
 
 import static application.cli.Constants.OPT_CLASSICAL;
+import static application.cli.Constants.OPT_EVALUATOR;
 import static application.cli.Constants.OPT_INPUT;
 import static application.cli.Constants.OPT_INPUT_SHORT;
 import static application.cli.Constants.OPT_LC0;
@@ -14,6 +15,7 @@ import static application.cli.EvalOps.evalEvaluatorEntries;
 
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Locale;
 
 import application.Config;
 import application.console.Bar;
@@ -39,6 +41,26 @@ public final class EvalCommand {
 	private static final String ENGINE_STATIC = "engine static";
 
 	/**
+	 * Supported evaluator modes for {@code engine eval}.
+	 */
+	private enum EvalMode {
+		/**
+		 * Try the Java LC0 evaluator and fall back to classical evaluation.
+		 */
+		AUTO,
+
+		/**
+		 * Require the Java LC0 evaluator.
+		 */
+		LC0,
+
+		/**
+		 * Use only the classical evaluator.
+		 */
+		CLASSICAL
+	}
+
+	/**
 	 * Utility class; prevent instantiation.
 	 */
 	private EvalCommand() {
@@ -53,26 +75,26 @@ public final class EvalCommand {
 	public static void runEval(Argv a) {
 		boolean verbose = a.flag(OPT_VERBOSE, OPT_VERBOSE_SHORT);
 		Path input = a.path(OPT_INPUT, OPT_INPUT_SHORT);
-		boolean lc0Only = a.flag(OPT_LC0);
-		boolean classicalOnly = a.flag(OPT_CLASSICAL);
+		String evaluatorValue = a.string(OPT_EVALUATOR);
+		boolean lc0Shortcut = a.flag(OPT_LC0);
+		boolean classicalShortcut = a.flag(OPT_CLASSICAL);
 		boolean terminalAware = a.flag(OPT_TERMINAL_AWARE, OPT_TERMINAL);
 		Path weights = a.path(OPT_WEIGHTS);
 		String fen = CommandSupport.resolveFenArgument(a, ENGINE_EVAL, false);
-
-		if (lc0Only && classicalOnly) {
-			System.err.println(ENGINE_EVAL + ": only one of " + OPT_LC0 + " or " + OPT_CLASSICAL + " may be set");
-			System.exit(2);
-			return;
+		EvalMode mode = resolveEvalMode(evaluatorValue, lc0Shortcut, classicalShortcut);
+		if (weights != null && mode == EvalMode.CLASSICAL) {
+			throw new CommandFailure(ENGINE_EVAL + ": " + OPT_WEIGHTS + " requires "
+					+ OPT_EVALUATOR + " auto or lc0", 2);
 		}
 
 		List<String> fens = CommandSupport.resolveFenInputs(ENGINE_EVAL, input, fen);
 		boolean includeFen = input != null;
 		Bar bar = positionProgressBar(fens, ENGINE_EVAL);
 
-		if (classicalOnly) {
+		if (mode == EvalMode.CLASSICAL) {
 			if (!evalClassicalEntries(fens, terminalAware, includeFen, verbose, ENGINE_EVAL, progressStep(bar))) {
 				finishProgress(bar);
-				System.exit(2);
+				throw new CommandFailure("", 2);
 			}
 			finishProgress(bar);
 			return;
@@ -80,18 +102,18 @@ public final class EvalCommand {
 
 		Path weightsPath = (weights == null) ? Path.of(Config.getLc0ModelPath()) : weights;
 		try (Evaluator evaluator = new Evaluator(weightsPath, terminalAware)) {
-			if (!evalEvaluatorEntries(fens, evaluator, lc0Only, includeFen, verbose, ENGINE_EVAL, progressStep(bar))) {
-				finishProgress(bar);
-				System.exit(2);
+			if (!evalEvaluatorEntries(fens, evaluator, mode == EvalMode.LC0, includeFen, verbose, ENGINE_EVAL,
+					progressStep(bar))) {
+				throw new CommandFailure("", 2);
 			}
 			finishProgress(bar);
+		} catch (CommandFailure failure) {
+			finishProgress(bar);
+			throw failure;
 		} catch (Exception ex) {
 			finishProgress(bar);
-			System.err.println(ENGINE_EVAL + ": failed to initialize evaluator: " + ex.getMessage());
-			if (verbose) {
-				ex.printStackTrace(System.err);
-			}
-			System.exit(2);
+			throw new CommandFailure(ENGINE_EVAL + ": failed to initialize evaluator: " + ex.getMessage(), ex, 2,
+					verbose);
 		}
 	}
 
@@ -111,9 +133,54 @@ public final class EvalCommand {
 		Bar bar = positionProgressBar(fens, ENGINE_STATIC);
 		if (!evalClassicalEntries(fens, terminalAware, includeFen, verbose, ENGINE_STATIC, progressStep(bar))) {
 			finishProgress(bar);
-			System.exit(2);
+			throw new CommandFailure("", 2);
 		}
 		finishProgress(bar);
+	}
+
+	/**
+	 * Resolves the evaluator mode from the value option and shortcut flags.
+	 *
+	 * @param value optional {@code --evaluator} value
+	 * @param lc0 whether {@code --lc0} was provided
+	 * @param classical whether {@code --classical} was provided
+	 * @return selected evaluator mode
+	 */
+	private static EvalMode resolveEvalMode(String value, boolean lc0, boolean classical) {
+		int shortcuts = (lc0 ? 1 : 0) + (classical ? 1 : 0);
+		if (value != null && shortcuts > 0) {
+			throw new CommandFailure(ENGINE_EVAL + ": use either " + OPT_EVALUATOR
+					+ " or evaluator shortcut flags, not both", 2);
+		}
+		if (shortcuts > 1) {
+			throw new CommandFailure(ENGINE_EVAL + ": choose only one evaluator flag", 2);
+		}
+		if (value != null) {
+			return parseEvalMode(value);
+		}
+		if (lc0) {
+			return EvalMode.LC0;
+		}
+		if (classical) {
+			return EvalMode.CLASSICAL;
+		}
+		return EvalMode.AUTO;
+	}
+
+	/**
+	 * Parses the {@code --evaluator} value.
+	 *
+	 * @param value raw evaluator value
+	 * @return evaluator mode
+	 */
+	private static EvalMode parseEvalMode(String value) {
+		return switch (value.trim().toLowerCase(Locale.ROOT)) {
+			case "auto", "default" -> EvalMode.AUTO;
+			case "lc0", "leela", "leelachesszero" -> EvalMode.LC0;
+			case "classical", "static" -> EvalMode.CLASSICAL;
+			default -> throw new CommandFailure(ENGINE_EVAL + ": unsupported " + OPT_EVALUATOR
+					+ " value: " + value + " (expected auto, lc0, or classical)", 2);
+		};
 	}
 
 	/**

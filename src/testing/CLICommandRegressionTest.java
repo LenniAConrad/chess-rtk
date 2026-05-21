@@ -106,6 +106,7 @@ public final class CLICommandRegressionTest {
 		testStructuredFenAndMoveFailures();
 		testVersionCommand();
 		testCorePerftCommand();
+		testEngineEvalEvaluatorModes();
 		testHighValueResearchCommands();
 		testHelpListsNewCommands();
 		testContextualHelpForms();
@@ -403,6 +404,33 @@ public final class CLICommandRegressionTest {
 	}
 
 	/**
+	 * Verifies {@code engine eval} exposes concrete evaluator modes and rejects
+	 * the old ambiguous "none" value.
+	 */
+	private static void testEngineEvalEvaluatorModes() {
+		String classical = TestSupport.runMain(ENGINE_COMMAND, "eval", "--evaluator", "classical",
+				FEN_OPTION, SIMPLE_FEN);
+		assertTrue(classical.contains("backend: classical"), "engine eval --evaluator classical backend");
+
+		FailureResult none = TestSupport.runMainExpectFailure(ENGINE_COMMAND, "eval", "--evaluator", "none",
+				FEN_OPTION, SIMPLE_FEN);
+		assertEquals(2, none.exitCode(), "engine eval rejects none");
+		assertTrue(none.stderr().contains("expected auto, lc0, or classical"), "engine eval none message");
+
+		FailureResult conflict = TestSupport.runMainExpectFailure(ENGINE_COMMAND, "eval", "--evaluator", "auto",
+				"--lc0", FEN_OPTION, SIMPLE_FEN);
+		assertEquals(2, conflict.exitCode(), "engine eval rejects mixed evaluator selectors");
+		assertTrue(conflict.stderr().contains("use either --evaluator or evaluator shortcut flags"),
+				"engine eval mixed selector message");
+
+		FailureResult weights = TestSupport.runMainExpectFailure(ENGINE_COMMAND, "eval", "--evaluator", "classical",
+				"--weights", "models/missing.bin", FEN_OPTION, SIMPLE_FEN);
+		assertEquals(2, weights.exitCode(), "engine eval rejects weights for classical");
+		assertTrue(weights.stderr().contains("--weights requires --evaluator auto or lc0"),
+				"engine eval classical weights message");
+	}
+
+	/**
 	 * Verifies the high-value batch/research helpers that do not require an
 	 * external engine process.
 	 */
@@ -542,6 +570,7 @@ public final class CLICommandRegressionTest {
 		String engineEval = TestSupport.runMain("help", ENGINE_COMMAND, "eval");
 		assertTrue(engineEval.contains("--startpos"), "help engine eval startpos option");
 		assertTrue(engineEval.contains("--randompos"), "help engine eval randompos option");
+		assertTrue(engineEval.contains("--evaluator MODE"), "help engine eval evaluator option");
 
 		String enginePerftSuite = TestSupport.runMain("help", ENGINE_COMMAND, "perft-suite");
 		assertTrue(enginePerftSuite.contains("engine perft-suite options:"),

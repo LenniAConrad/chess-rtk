@@ -1708,8 +1708,8 @@ public final class HelpCommand {
 			  --startpos                 Use the standard chess start position
 			  --randompos                Use a reachable random legal standard position
 			  --input|-i PATH            Input FEN file
-			  --lc0                      Use LC0 evaluator only
-			  --classical                Use classical evaluator only
+			  --evaluator MODE          auto, lc0, or classical (default: auto)
+			  --lc0|--classical         Shortcut evaluator selectors
 			  --terminal-aware|--terminal Enable terminal-aware evaluation
 			  --weights PATH             LC0 weights path
 			  --verbose|-v               Print stack trace on failure

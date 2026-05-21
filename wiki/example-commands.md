@@ -129,9 +129,9 @@ Examples assume you installed the launcher (`crtk`). If you run from classes, re
 
 ## In-process eval and built-in search
 
-- `crtk engine eval --fen "<FEN>"` — evaluate with the Java LC0 evaluator and classical fallback.
+- `crtk engine eval --fen "<FEN>"` — evaluate in auto mode with Java LC0 and classical fallback.
 - `crtk engine eval --fen "<FEN>" --lc0 --weights models/leela_112planes-10blocksx128-policyhead80-valuehead32-policy4672-wdl3.bin` — force Java LC0 evaluation.
-- `crtk engine eval --fen "<FEN>" --classical` — force classical evaluation.
+- `crtk engine eval --fen "<FEN>" --evaluator classical` — force classical evaluation.
 - `crtk engine static --fen "<FEN>"` — classical evaluation shortcut.
 - `crtk engine builtin --fen "<FEN>" --depth 4 --format summary` — search with the built-in Java engine.
 - `crtk engine builtin --fen "<FEN>" --classical --depth 6 --nodes 250000 --format both` — bounded classical built-in search.
