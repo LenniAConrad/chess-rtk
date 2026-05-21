@@ -299,6 +299,12 @@ final class WorkbenchNetworkPanel extends JPanel {
     private String pendingFen;
 
     /**
+     * Whether the Network pane is currently visible in any workbench editor
+     * group. Heavy inference stays lazy until this is true.
+     */
+    private boolean active;
+
+    /**
      * The {@code cardKey + "::" + fen} key currently displayed by the active
      * view, used to skip redundant inference requests for the same state.
      */
@@ -346,9 +352,6 @@ final class WorkbenchNetworkPanel extends JPanel {
         applyFixedScale(false);
         showSelected();
         propagateViewMode();
-        // Kick off inference for the default architecture so the workbench
-        // opens with data instead of the empty placeholder.
-        requestActiveInference();
     }
 
     /**
@@ -382,10 +385,31 @@ final class WorkbenchNetworkPanel extends JPanel {
      */
     void setFen(String fen) {
         mainBoardFen = fen == null ? "" : fen;
-        if (overrideFen != null) {
+        if (!active || overrideFen != null) {
             return;
         }
         requestActiveInference();
+    }
+
+    /**
+     * Sets whether the Network pane is visible. Becoming visible triggers the
+     * latest pending inference; becoming hidden cancels only the debounce so a
+     * worker already in flight can finish without blocking the EDT.
+     *
+     * @param value true when visible
+     */
+    void setActive(boolean value) {
+        if (active == value) {
+            return;
+        }
+        active = value;
+        if (active) {
+            requestActiveInference();
+        } else {
+            debounceTimer.stop();
+            pendingArch = null;
+            pendingFen = null;
+        }
     }
 
     /**
@@ -470,7 +494,7 @@ final class WorkbenchNetworkPanel extends JPanel {
     private void requestActiveInference() {
         String cardKey = activeCardKey();
         String fen = effectiveFen();
-        if (fen == null || fen.isBlank()) {
+        if (!active || fen == null || fen.isBlank()) {
             return;
         }
         String key = cacheKey(cardKey, fen);

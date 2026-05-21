@@ -46,6 +46,11 @@ final class WorkbenchTab extends JComponent {
     private static final int CLOSE = 16;
 
     /**
+     * Minimum pointer travel before a press turns into a tab drag.
+     */
+    private static final int DRAG_THRESHOLD_PX = 5;
+
+    /**
      * Panel display name.
      */
     private final String name;
@@ -54,6 +59,11 @@ final class WorkbenchTab extends JComponent {
      * Whether this tab is the active one in its strip.
      */
     private boolean selected;
+
+    /**
+     * Whether this tab belongs to the active editor group.
+     */
+    private boolean paneActive = true;
 
     /**
      * Whether the pointer is over the close region.
@@ -82,6 +92,22 @@ final class WorkbenchTab extends JComponent {
     private boolean dragging;
 
     /**
+     * Press point used for drag thresholding.
+     */
+    private Point pressPoint;
+
+    /**
+     * Whether the current press started outside the close affordance and may
+     * become a drag.
+     */
+    private boolean dragArmed;
+
+    /**
+     * Suppresses the click event generated after a completed drag.
+     */
+    private boolean suppressClick;
+
+    /**
      * Creates a tab.
      *
      * @param name panel display name
@@ -94,6 +120,10 @@ final class WorkbenchTab extends JComponent {
         MouseAdapter mouse = new MouseAdapter() {
             @Override
             public void mouseClicked(MouseEvent event) {
+                if (suppressClick) {
+                    suppressClick = false;
+                    return;
+                }
                 if (closeRegion().contains(event.getPoint())) {
                     onClose.run();
                 } else {
@@ -102,9 +132,21 @@ final class WorkbenchTab extends JComponent {
             }
 
             @Override
+            public void mousePressed(MouseEvent event) {
+                pressPoint = event.getPoint();
+                dragArmed = !closeRegion().contains(event.getPoint());
+                dragging = false;
+                suppressClick = false;
+            }
+
+            @Override
             public void mouseDragged(MouseEvent event) {
-                if (onDrag != null) {
+                if (onDrag != null && dragArmed) {
+                    if (!dragging && !dragPastThreshold(event.getPoint())) {
+                        return;
+                    }
                     dragging = true;
+                    suppressClick = true;
                     onDrag.accept(event.getPoint());
                 }
             }
@@ -117,6 +159,8 @@ final class WorkbenchTab extends JComponent {
                         onDrop.run();
                     }
                 }
+                dragArmed = false;
+                pressPoint = null;
             }
 
             @Override
@@ -136,6 +180,21 @@ final class WorkbenchTab extends JComponent {
         };
         addMouseListener(mouse);
         addMouseMotionListener(mouse);
+    }
+
+    /**
+     * Returns whether a pointer has moved far enough to start a drag.
+     *
+     * @param point current pointer
+     * @return true when the drag threshold is crossed
+     */
+    private boolean dragPastThreshold(Point point) {
+        if (pressPoint == null || point == null) {
+            return false;
+        }
+        int dx = point.x - pressPoint.x;
+        int dy = point.y - pressPoint.y;
+        return dx * dx + dy * dy >= DRAG_THRESHOLD_PX * DRAG_THRESHOLD_PX;
     }
 
     /**
@@ -159,6 +218,18 @@ final class WorkbenchTab extends JComponent {
     void setSelected(boolean value) {
         if (selected != value) {
             selected = value;
+            repaint();
+        }
+    }
+
+    /**
+     * Sets whether the owning pane is the active editor group.
+     *
+     * @param value true when this tab's pane is active
+     */
+    void setPaneActive(boolean value) {
+        if (paneActive != value) {
+            paneActive = value;
             repaint();
         }
     }
@@ -212,7 +283,7 @@ final class WorkbenchTab extends JComponent {
                     RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
             int w = getWidth();
             int h = getHeight();
-            Color background = selected ? WorkbenchTheme.PANEL_SOLID
+            Color background = selected ? (paneActive ? WorkbenchTheme.PANEL_SOLID : WorkbenchTheme.ELEVATED_SOLID)
                     : hover ? WorkbenchTheme.TAB_HOVER : WorkbenchTheme.BG;
             g.setColor(background);
             g.fillRect(0, 0, w, h);
@@ -221,11 +292,11 @@ final class WorkbenchTab extends JComponent {
             g.drawLine(w - 1, 4, w - 1, h - 4);
             // Accent underline marks the active tab.
             if (selected) {
-                g.setColor(WorkbenchTheme.ACCENT);
+                g.setColor(paneActive ? WorkbenchTheme.ACCENT : WorkbenchTheme.LINE);
                 g.fillRect(0, h - 2, w, 2);
             }
             g.setFont(WorkbenchTheme.font(12, selected ? Font.BOLD : Font.PLAIN));
-            g.setColor(selected ? WorkbenchTheme.TEXT : WorkbenchTheme.MUTED);
+            g.setColor(selected && paneActive ? WorkbenchTheme.TEXT : WorkbenchTheme.MUTED);
             FontMetrics fm = g.getFontMetrics();
             g.drawString(name, PAD, (h + fm.getAscent() - fm.getDescent()) / 2);
             paintClose(g);

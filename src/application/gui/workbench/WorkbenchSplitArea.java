@@ -9,8 +9,10 @@ import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.Point;
 import java.awt.Rectangle;
+import java.awt.RenderingHints;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.IntConsumer;
 
 import javax.swing.BorderFactory;
 import javax.swing.JComponent;
@@ -63,9 +65,65 @@ final class WorkbenchSplitArea extends JPanel {
     private int secondaryIndex = -1;
 
     /**
-     * Armed split drop zone during a tab drag: 0 none, 1 left, 2 right.
+     * Armed split drop zone during a tab drag.
      */
     private int dragZone;
+
+    /**
+     * No split drop zone armed.
+     */
+    private static final int DROP_NONE = 0;
+
+    /**
+     * Drop into the left side of a horizontal split.
+     */
+    private static final int DROP_LEFT = 1;
+
+    /**
+     * Drop into the right side of a horizontal split.
+     */
+    private static final int DROP_RIGHT = 2;
+
+    /**
+     * Drop into the top side of a vertical split.
+     */
+    private static final int DROP_TOP = 3;
+
+    /**
+     * Drop into the bottom side of a vertical split.
+     */
+    private static final int DROP_BOTTOM = 4;
+
+    /**
+     * Active pane for keyboard cycling: 0 primary, 1 secondary.
+     */
+    private int activePane;
+
+    /**
+     * Current split orientation.
+     */
+    private int splitOrientation = JSplitPane.HORIZONTAL_SPLIT;
+
+    /**
+     * Last user-set horizontal divider location.
+     */
+    private int horizontalDividerLocation = -1;
+
+    /**
+     * Last user-set vertical divider location.
+     */
+    private int verticalDividerLocation = -1;
+
+    /**
+     * Current split pane, when split mode is active.
+     */
+    private JSplitPane splitPane;
+
+    /**
+     * Optional primary-selection listener used by the window to start/stop
+     * work that should only run while a pane is visible.
+     */
+    private transient IntConsumer selectionListener;
 
     /**
      * Host for the primary pane's panel.
@@ -163,6 +221,25 @@ final class WorkbenchSplitArea extends JPanel {
     }
 
     /**
+     * Returns whether a panel is visible in either editor pane.
+     *
+     * @param index panel index
+     * @return true when visible
+     */
+    boolean isVisibleInPane(int index) {
+        return primaryIndex == index || secondaryIndex == index;
+    }
+
+    /**
+     * Installs a listener that runs after primary selection changes.
+     *
+     * @param listener listener, or null
+     */
+    void setSelectionListener(IntConsumer listener) {
+        selectionListener = listener;
+    }
+
+    /**
      * Selects a panel in the primary pane, reopening it when it was closed.
      *
      * @param index panel index
@@ -174,7 +251,22 @@ final class WorkbenchSplitArea extends JPanel {
         if (!open.contains(index)) {
             open.add(index);
         }
+        activePane = 0;
         setPrimary(index);
+    }
+
+    /**
+     * Selects the next open tab in the currently-active pane.
+     */
+    void selectNextTab() {
+        cycleActivePane(1);
+    }
+
+    /**
+     * Selects the previous open tab in the currently-active pane.
+     */
+    void selectPreviousTab() {
+        cycleActivePane(-1);
     }
 
     /**
@@ -183,11 +275,13 @@ final class WorkbenchSplitArea extends JPanel {
      * @param index panel index
      */
     private void setPrimary(int index) {
+        activePane = 0;
         primaryIndex = index;
         if (secondaryIndex == index) {
             secondaryIndex = firstOther(index);
         }
         relayout();
+        notifySelectionChanged();
     }
 
     /**
@@ -196,11 +290,13 @@ final class WorkbenchSplitArea extends JPanel {
      * @param index panel index
      */
     private void setSecondary(int index) {
+        activePane = 1;
         secondaryIndex = index;
         if (primaryIndex == index) {
             primaryIndex = firstOther(index);
         }
         relayout();
+        notifySelectionChanged();
     }
 
     /**
@@ -218,8 +314,12 @@ final class WorkbenchSplitArea extends JPanel {
         }
         if (secondaryIndex == index) {
             secondaryIndex = open.size() >= 2 ? firstOther(primaryIndex) : -1;
+            if (activePane == 1) {
+                activePane = 0;
+            }
         }
         relayout();
+        notifySelectionChanged();
     }
 
     /**
@@ -227,11 +327,38 @@ final class WorkbenchSplitArea extends JPanel {
      */
     private void toggleSplit() {
         if (secondaryIndex >= 0) {
+            rememberDividerLocation();
             secondaryIndex = -1;
+            splitPane = null;
+            activePane = 0;
         } else if (open.size() >= 2) {
             secondaryIndex = firstOther(primaryIndex);
+            activePane = 1;
         }
         relayout();
+    }
+
+    /**
+     * Cycles tabs in the active pane.
+     *
+     * @param delta +1 next, -1 previous
+     */
+    private void cycleActivePane(int delta) {
+        if (open.isEmpty()) {
+            return;
+        }
+        boolean secondaryActive = activePane == 1 && secondaryIndex >= 0;
+        int current = secondaryActive ? secondaryIndex : primaryIndex;
+        int pos = open.indexOf(current);
+        if (pos < 0) {
+            pos = 0;
+        }
+        int next = Math.floorMod(pos + delta, open.size());
+        if (secondaryActive) {
+            setSecondary(open.get(next));
+        } else {
+            setPrimary(open.get(next));
+        }
     }
 
     /**
@@ -263,8 +390,10 @@ final class WorkbenchSplitArea extends JPanel {
             WorkbenchTab tab = new WorkbenchTab(names.get(index),
                     () -> {
                         if (primary) {
+                            activePane = 0;
                             setPrimary(panelIndex);
                         } else {
+                            activePane = 1;
                             setSecondary(panelIndex);
                         }
                     },
@@ -274,6 +403,7 @@ final class WorkbenchSplitArea extends JPanel {
                     point -> handleTabDrag(strip, panelIndex, tab, point),
                     () -> finishTabDrag(panelIndex));
             strip.add(tab);
+            tab.setPaneActive(primary ? activePane == 0 || secondaryIndex < 0 : activePane == 1);
         }
         if (open.size() < panels.size()) {
             strip.add(reopenButton(primary));
@@ -330,20 +460,40 @@ final class WorkbenchSplitArea extends JPanel {
         Rectangle body = centre.getBounds();
         if (inArea.y < body.y + 6) {
             // Inside the strip band: reorder.
-            if (dragZone != 0) {
-                dragZone = 0;
+            if (dragZone != DROP_NONE) {
+                dragZone = DROP_NONE;
                 repaint();
             }
             int stripX = SwingUtilities.convertPoint(tab, tabPoint, strip).x;
             reorderWithinStrip(strip, draggedPanelIndex, stripX);
         } else {
             // In the editor body: arm a split drop zone.
-            int zone = inArea.x < body.x + body.width / 2 ? 1 : 2;
+            int zone = dropZoneFor(inArea, body);
             if (zone != dragZone) {
                 dragZone = zone;
                 repaint();
             }
         }
+    }
+
+    /**
+     * Chooses a body drop zone. The outer top/bottom bands create vertical
+     * splits; the center area creates left/right splits.
+     *
+     * @param point point in this component
+     * @param body editor body bounds
+     * @return drop-zone constant
+     */
+    private static int dropZoneFor(Point point, Rectangle body) {
+        int topBand = body.y + Math.max(90, body.height / 4);
+        int bottomBand = body.y + body.height - Math.max(90, body.height / 4);
+        if (point.y < topBand) {
+            return DROP_TOP;
+        }
+        if (point.y > bottomBand) {
+            return DROP_BOTTOM;
+        }
+        return point.x < body.x + body.width / 2 ? DROP_LEFT : DROP_RIGHT;
     }
 
     /**
@@ -393,13 +543,18 @@ final class WorkbenchSplitArea extends JPanel {
      */
     private void finishTabDrag(int draggedPanelIndex) {
         int zone = dragZone;
-        dragZone = 0;
-        if (zone == 2) {
+        dragZone = DROP_NONE;
+        if (zone == DROP_RIGHT || zone == DROP_BOTTOM) {
             if (!open.contains(draggedPanelIndex)) {
                 open.add(draggedPanelIndex);
             }
+            splitOrientation = zone == DROP_BOTTOM ? JSplitPane.VERTICAL_SPLIT : JSplitPane.HORIZONTAL_SPLIT;
             setSecondary(draggedPanelIndex);
-        } else if (zone == 1) {
+        } else if (zone == DROP_LEFT || zone == DROP_TOP) {
+            splitOrientation = zone == DROP_TOP ? JSplitPane.VERTICAL_SPLIT : JSplitPane.HORIZONTAL_SPLIT;
+            if (secondaryIndex < 0 && open.size() >= 2) {
+                secondaryIndex = firstOther(draggedPanelIndex);
+            }
             setPrimary(draggedPanelIndex);
         } else {
             relayout();
@@ -410,6 +565,7 @@ final class WorkbenchSplitArea extends JPanel {
      * Rebuilds the centre area and tab strips for the current state.
      */
     private void relayout() {
+        rememberDividerLocation();
         if (!open.contains(primaryIndex)) {
             primaryIndex = open.isEmpty() ? 0 : open.get(0);
         }
@@ -419,6 +575,7 @@ final class WorkbenchSplitArea extends JPanel {
         rebuildStrip(primaryStrip, primaryIndex, true);
         if (secondaryIndex < 0 || !open.contains(secondaryIndex)) {
             secondaryIndex = -1;
+            splitPane = null;
             splitButton.setSelected(false);
             centre.add(primaryHost, BorderLayout.CENTER);
         } else {
@@ -426,23 +583,57 @@ final class WorkbenchSplitArea extends JPanel {
             secondaryHost.removeAll();
             secondaryHost.add(panels.get(secondaryIndex), BorderLayout.CENTER);
             rebuildStrip(secondaryStrip, secondaryIndex, false);
-            JPanel right = new JPanel(new BorderLayout(0, 4));
-            right.setOpaque(false);
-            right.add(secondaryStrip, BorderLayout.NORTH);
-            right.add(secondaryHost, BorderLayout.CENTER);
-            JSplitPane split = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, primaryHost, right);
-            styleSplit(split);
-            split.setResizeWeight(0.5);
-            split.setDividerLocation(0.5);
-            centre.add(split, BorderLayout.CENTER);
+            JPanel secondaryPane = new JPanel(new BorderLayout(0, 4));
+            secondaryPane.setOpaque(false);
+            secondaryPane.add(secondaryStrip, BorderLayout.NORTH);
+            secondaryPane.add(secondaryHost, BorderLayout.CENTER);
+            splitPane = new JSplitPane(splitOrientation, primaryHost, secondaryPane);
+            styleSplit(splitPane);
+            splitPane.setResizeWeight(0.5);
+            int remembered = splitOrientation == JSplitPane.VERTICAL_SPLIT
+                    ? verticalDividerLocation
+                    : horizontalDividerLocation;
+            if (remembered > 0) {
+                JSplitPane currentSplit = splitPane;
+                SwingUtilities.invokeLater(() -> currentSplit.setDividerLocation(remembered));
+            } else {
+                splitPane.setDividerLocation(0.5);
+            }
+            centre.add(splitPane, BorderLayout.CENTER);
         }
         centre.revalidate();
         centre.repaint();
     }
 
     /**
-     * Styles the split pane with a quiet themed divider and one-touch
-     * collapse arrows.
+     * Notifies the primary selection listener.
+     */
+    private void notifySelectionChanged() {
+        if (selectionListener != null) {
+            selectionListener.accept(primaryIndex);
+        }
+    }
+
+    /**
+     * Remembers the current divider location before the split pane is rebuilt.
+     */
+    private void rememberDividerLocation() {
+        if (splitPane == null || secondaryIndex < 0) {
+            return;
+        }
+        int location = splitPane.getDividerLocation();
+        if (location <= 0) {
+            return;
+        }
+        if (splitPane.getOrientation() == JSplitPane.VERTICAL_SPLIT) {
+            verticalDividerLocation = location;
+        } else {
+            horizontalDividerLocation = location;
+        }
+    }
+
+    /**
+     * Styles the split pane with a quiet themed divider.
      *
      * @param pane split pane
      */
@@ -455,21 +646,51 @@ final class WorkbenchSplitArea extends JPanel {
 
                     @Override
                     public void paint(Graphics graphics) {
-                        graphics.setColor(WorkbenchTheme.BG);
-                        graphics.fillRect(0, 0, getWidth(), getHeight());
-                        graphics.setColor(WorkbenchTheme.LINE);
-                        int x = getWidth() / 2;
-                        graphics.drawLine(x, 0, x, getHeight());
-                        super.paint(graphics);
+                        Graphics2D g = (Graphics2D) graphics.create();
+                        try {
+                            g.setRenderingHint(RenderingHints.KEY_ANTIALIASING,
+                                    RenderingHints.VALUE_ANTIALIAS_ON);
+                            g.setColor(WorkbenchTheme.BG);
+                            g.fillRect(0, 0, getWidth(), getHeight());
+                            g.setColor(WorkbenchTheme.LINE);
+                            if (orientation == JSplitPane.HORIZONTAL_SPLIT) {
+                                int x = getWidth() / 2;
+                                g.drawLine(x, 0, x, getHeight());
+                                paintGrip(g, x - 1, getHeight() / 2 - 12, false);
+                            } else {
+                                int y = getHeight() / 2;
+                                g.drawLine(0, y, getWidth(), y);
+                                paintGrip(g, getWidth() / 2 - 12, y - 1, true);
+                            }
+                        } finally {
+                            g.dispose();
+                        }
                     }
                 };
             }
         });
-        pane.setOneTouchExpandable(true);
-        pane.setDividerSize(11);
+        pane.setOneTouchExpandable(false);
+        pane.setDividerSize(8);
         pane.setContinuousLayout(true);
         pane.setBorder(BorderFactory.createEmptyBorder());
         pane.setBackground(WorkbenchTheme.BG);
+    }
+
+    /**
+     * Paints a quiet divider grip.
+     *
+     * @param g graphics
+     * @param x x
+     * @param y y
+     * @param horizontal true for a horizontal grip
+     */
+    private static void paintGrip(Graphics2D g, int x, int y, boolean horizontal) {
+        g.setColor(WorkbenchTheme.withAlpha(WorkbenchTheme.MUTED, 120));
+        for (int i = 0; i < 3; i++) {
+            int dx = horizontal ? i * 8 : 0;
+            int dy = horizontal ? 0 : i * 8;
+            g.fillRoundRect(x + dx, y + dy, 3, 3, 3, 3);
+        }
     }
 
     /**
@@ -481,23 +702,47 @@ final class WorkbenchSplitArea extends JPanel {
     @Override
     public void paint(Graphics graphics) {
         super.paint(graphics);
-        if (dragZone == 0) {
+        if (dragZone == DROP_NONE) {
             return;
         }
         Rectangle body = centre.getBounds();
-        int half = body.width / 2;
-        int x = dragZone == 1 ? body.x : body.x + half;
+        Rectangle zone = dropPreviewBounds(body, dragZone);
         Graphics2D g = (Graphics2D) graphics.create();
         try {
+            g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
             g.setColor(new Color(WorkbenchTheme.ACCENT.getRed(), WorkbenchTheme.ACCENT.getGreen(),
-                    WorkbenchTheme.ACCENT.getBlue(), 48));
-            g.fillRect(x, body.y, half, body.height);
+                    WorkbenchTheme.ACCENT.getBlue(), 36));
+            g.fillRoundRect(zone.x, zone.y, zone.width, zone.height, 6, 6);
             g.setColor(WorkbenchTheme.ACCENT);
             g.setStroke(new BasicStroke(2f));
-            g.drawRect(x + 1, body.y + 1, half - 2, body.height - 2);
+            g.drawRoundRect(zone.x + 1, zone.y + 1, zone.width - 2, zone.height - 2, 6, 6);
         } finally {
             g.dispose();
         }
+    }
+
+    /**
+     * Returns the visible preview rectangle for a drop zone.
+     *
+     * @param body editor body
+     * @param zone drop-zone constant
+     * @return preview bounds
+     */
+    private static Rectangle dropPreviewBounds(Rectangle body, int zone) {
+        int halfW = body.width / 2;
+        int halfH = body.height / 2;
+        int inset = 6;
+        return switch (zone) {
+            case DROP_LEFT -> new Rectangle(body.x + inset, body.y + inset,
+                    Math.max(1, halfW - inset * 2), Math.max(1, body.height - inset * 2));
+            case DROP_RIGHT -> new Rectangle(body.x + halfW + inset, body.y + inset,
+                    Math.max(1, body.width - halfW - inset * 2), Math.max(1, body.height - inset * 2));
+            case DROP_TOP -> new Rectangle(body.x + inset, body.y + inset,
+                    Math.max(1, body.width - inset * 2), Math.max(1, halfH - inset * 2));
+            case DROP_BOTTOM -> new Rectangle(body.x + inset, body.y + halfH + inset,
+                    Math.max(1, body.width - inset * 2), Math.max(1, body.height - halfH - inset * 2));
+            default -> new Rectangle();
+        };
     }
 
     @Override

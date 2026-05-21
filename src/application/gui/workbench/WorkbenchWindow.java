@@ -1180,7 +1180,9 @@ public final class WorkbenchWindow extends JFrame {
         if (liveExternalEngineEnabled) {
             evalDebounceTimer.stop();
             cancelEvalCommand();
-            if (refreshEval) {
+            if (!isAnalyzePaneVisible()) {
+                pauseHiddenLiveAnalysis();
+            } else if (refreshEval) {
                 requestLiveAnalysisUpdate();
             }
             return;
@@ -1234,6 +1236,7 @@ public final class WorkbenchWindow extends JFrame {
         tabs.addPanel("Console", createConsolePanel());
         tabs.addPanel("Network", networkPanel);
         tabs.install();
+        tabs.setSelectionListener(index -> onWorkbenchTabVisibilityChanged());
         tabs.select(TAB_DASHBOARD);
 
         root.add(tabs, BorderLayout.CENTER);
@@ -1368,6 +1371,10 @@ public final class WorkbenchWindow extends JFrame {
         bindWindowAction("alt RIGHT", "navigateForward", event -> navigateGame(1));
         bindWindowAction("alt UP", "navigateStart", event -> jumpGameTo(0));
         bindWindowAction("alt DOWN", "navigateEnd", event -> jumpGameTo(gameModel.lastPly()));
+        bindWindowAction("control TAB", "nextWorkbenchTab", event -> tabs.selectNextTab());
+        bindWindowAction("control shift TAB", "previousWorkbenchTab", event -> tabs.selectPreviousTab());
+        bindWindowAction("control PAGE_DOWN", "nextWorkbenchTabPage", event -> tabs.selectNextTab());
+        bindWindowAction("control PAGE_UP", "previousWorkbenchTabPage", event -> tabs.selectPreviousTab());
         bindWindowAction("ESCAPE", "stopRunningCommand", event -> stopCommand());
         bindPositionNavigation("LEFT", "previousPosition", event -> navigateGame(-1));
         bindPositionNavigation("RIGHT", "nextPosition", event -> navigateGame(1));
@@ -1699,6 +1706,32 @@ public final class WorkbenchWindow extends JFrame {
         if (tabs != null && index >= 0 && index < tabs.count()) {
             tabs.select(index);
         }
+    }
+
+    /**
+     * Reacts to top-level tab visibility changes. Expensive live analysis is
+     * scoped to visible board panes so Dashboard/Commands idle without a
+     * background UCI engine consuming a core.
+     */
+    private void onWorkbenchTabVisibilityChanged() {
+        networkPanel.setActive(tabs != null && tabs.isVisibleInPane(TAB_NETWORK));
+        if (liveExternalEngineEnabled && isAnalyzePaneVisible()) {
+            requestLiveAnalysisUpdate();
+        } else if (liveEngineWorker != null) {
+            pauseHiddenLiveAnalysis();
+        } else if (liveExternalEngineEnabled) {
+            setStatusBarEngine("live paused");
+            session.updateEngine(engineProtocolValue(), true, "paused");
+        }
+    }
+
+    /**
+     * Returns whether the Analyze board pane is visible in any editor group.
+     *
+     * @return true when Analyze is visible
+     */
+    private boolean isAnalyzePaneVisible() {
+        return tabs != null && tabs.isVisibleInPane(TAB_ANALYZE);
     }
 
     /**
@@ -3591,7 +3624,11 @@ public final class WorkbenchWindow extends JFrame {
         if (liveExternalEngineEnabled) {
             evalDebounceTimer.stop();
             cancelEvalCommand();
-            requestLiveAnalysisUpdate();
+            if (isAnalyzePaneVisible()) {
+                requestLiveAnalysisUpdate();
+            } else {
+                pauseHiddenLiveAnalysis();
+            }
             return;
         }
         if (!autoEvalBarEnabled) {
@@ -3723,11 +3760,16 @@ public final class WorkbenchWindow extends JFrame {
             evalDebounceTimer.stop();
             cancelEvalCommand();
             appendConsole("Live external engine enabled\n");
-            requestLiveAnalysisUpdate();
+            if (isAnalyzePaneVisible()) {
+                requestLiveAnalysisUpdate();
+            } else {
+                pauseHiddenLiveAnalysis();
+            }
         } else {
             appendConsole("Live external engine disabled\n");
             stopLiveAnalysis();
             setStatusBarEngine("idle");
+            session.updateEngine(engineProtocolValue(), false, "");
             if (autoEvalBarEnabled) {
                 requestEvalUpdate();
             } else {
@@ -3742,7 +3784,21 @@ public final class WorkbenchWindow extends JFrame {
     private void restartLiveAnalysis() {
         stopLiveAnalysisWorker();
         liveAnalysisFailureLogged = false;
-        requestLiveAnalysisUpdate();
+        if (isAnalyzePaneVisible()) {
+            requestLiveAnalysisUpdate();
+        } else {
+            pauseHiddenLiveAnalysis();
+        }
+    }
+
+    /**
+     * Stops live analysis while preserving the enabled setting because the
+     * Analyze pane is hidden.
+     */
+    private void pauseHiddenLiveAnalysis() {
+        stopLiveAnalysis();
+        setStatusBarEngine("live paused");
+        session.updateEngine(engineProtocolValue(), true, "paused");
     }
 
     /**
@@ -3899,7 +3955,9 @@ public final class WorkbenchWindow extends JFrame {
             board.setSuggestedMove(update.bestMove());
         }
         analysisGraph.addSample(update.whiteToMove(), output, update.bestMove());
-        setStatusBarEngine(formatLiveEngineStatus(output, update.bestMove()));
+        String summary = formatLiveEngineStatus(output, update.bestMove());
+        setStatusBarEngine(summary);
+        session.updateEngine(engineProtocolValue(), true, summary);
     }
 
     /**

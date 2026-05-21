@@ -371,7 +371,10 @@ final class WorkbenchRealActivations {
         for (Map.Entry<String, WorkbenchActivationSnapshot.Entry> e
                 : nnueAtlasCache.entries().entrySet()) {
             WorkbenchActivationSnapshot.Entry entry = e.getValue();
-            out.put(e.getKey(), entry.shape(), entry.data().clone());
+            // Atlas tensors are model-level and sealed before they reach this
+            // method. Sharing the immutable arrays avoids cloning the whole
+            // weight atlas into every cached per-position snapshot.
+            out.put(e.getKey(), entry.shape(), entry.data());
         }
     }
 
