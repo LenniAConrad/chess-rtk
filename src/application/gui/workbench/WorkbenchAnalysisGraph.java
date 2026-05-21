@@ -848,7 +848,7 @@ final class WorkbenchAnalysisGraph extends JComponent {
      * @param width printable width
      */
     private void paintReportText(Graphics2D g, int width) {
-        g.setColor(Color.BLACK);
+        g.setColor(WorkbenchTheme.TEXT);
         g.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 13));
         g.drawString("CRTK Workbench Analysis Report", 0, 14);
         g.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 9));

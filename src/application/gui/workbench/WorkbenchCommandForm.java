@@ -271,7 +271,7 @@ final class WorkbenchCommandForm extends JPanel {
             (block.required() ? required : optional).add(block);
         }
         if (!required.isEmpty()) {
-            body.add(sectionHeader("Required", WorkbenchTheme.ACCENT));
+            body.add(sectionHeader("Required", WorkbenchTheme.STATUS_INFO_TEXT));
             for (Block block : required) {
                 body.add(renderBlock(block, false));
                 body.add(Box.createVerticalStrut(WorkbenchTheme.SPACE_XS));

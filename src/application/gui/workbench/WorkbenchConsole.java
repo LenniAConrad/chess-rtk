@@ -162,7 +162,7 @@ final class WorkbenchConsole extends JTextPane {
         String trimmed = line.strip();
         String lower = trimmed.toLowerCase(Locale.ROOT);
         if (trimmed.startsWith("$ ")) {
-            return style(WorkbenchTheme.ACCENT, true);
+            return style(WorkbenchTheme.STATUS_INFO_TEXT, true);
         }
         if (trimmed.startsWith("[exit 0")) {
             return style(WorkbenchTheme.STATUS_SUCCESS_TEXT, true);

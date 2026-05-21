@@ -240,7 +240,7 @@ final class WorkbenchSegmentedSwitcher extends JComponent {
         if (!isEnabled) {
             textColor = WorkbenchTheme.BUTTON_DISABLED_TEXT;
         } else if (isSelected) {
-            textColor = WorkbenchTheme.ACCENT;
+            textColor = WorkbenchTheme.STATUS_INFO_TEXT;
         } else {
             textColor = WorkbenchTheme.MUTED;
         }
