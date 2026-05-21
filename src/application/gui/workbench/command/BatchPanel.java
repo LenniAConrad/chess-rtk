@@ -354,7 +354,7 @@ public final class BatchPanel {
         JPanel panel = new SurfacePanel(new BorderLayout(8, 8));
         JPanel top = transparentPanel(new BorderLayout(8, 0));
         top.add(Theme.section("FEN Batch"), BorderLayout.WEST);
-        batchInputStatus.setForeground(Theme.MUTED);
+        Theme.foreground(batchInputStatus, Theme.ForegroundRole.MUTED);
         batchInputStatus.setFont(Theme.font(12, java.awt.Font.PLAIN));
         batchInputStatus.setHorizontalAlignment(SwingConstants.RIGHT);
         top.add(batchInputStatus, BorderLayout.CENTER);
@@ -493,7 +493,7 @@ public final class BatchPanel {
         if (task != null && !task.usesFenInput()) {
             batchInputStatus.setText("FEN list not used");
             batchInputStatus.setToolTipText("The selected batch task runs without FEN input.");
-            batchInputStatus.setForeground(Theme.MUTED);
+            Theme.foreground(batchInputStatus, Theme.ForegroundRole.MUTED);
             host.updateBatchSummary(taskName + " · no FEN input required");
             host.updatePublishCommand();
             return;
@@ -502,19 +502,19 @@ public final class BatchPanel {
         if (scan.rows() == 0) {
             batchInputStatus.setText("No FEN rows");
             batchInputStatus.setToolTipText("Add one FEN per line.");
-            batchInputStatus.setForeground(Theme.MUTED);
+            Theme.foreground(batchInputStatus, Theme.ForegroundRole.MUTED);
             host.updateBatchSummary(taskName + " · no FEN rows");
         } else if (scan.hasError()) {
             batchInputStatus.setText(scan.rows() + " row" + (scan.rows() == 1 ? "" : "s")
                     + ", issue on line " + scan.firstErrorLine());
             batchInputStatus.setToolTipText(scan.firstError());
-            batchInputStatus.setForeground(Theme.STATUS_WARNING_TEXT);
+            Theme.foreground(batchInputStatus, Theme.ForegroundRole.WARNING);
             host.updateBatchSummary(taskName + " · " + scan.rows() + " rows, issue on line "
                     + scan.firstErrorLine());
         } else {
             batchInputStatus.setText(scan.validRows() + " FEN row" + (scan.validRows() == 1 ? "" : "s"));
             batchInputStatus.setToolTipText("Ready to run batch workflow.");
-            batchInputStatus.setForeground(Theme.MUTED);
+            Theme.foreground(batchInputStatus, Theme.ForegroundRole.MUTED);
             host.updateBatchSummary(taskName + " · " + scan.validRows() + " FEN row"
                     + (scan.validRows() == 1 ? "" : "s") + " ready");
         }

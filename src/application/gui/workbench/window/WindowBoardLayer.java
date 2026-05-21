@@ -218,7 +218,7 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
         JPanel panel = new SurfacePanel(new GridBagLayout());
         GridBagConstraints c = constraints();
         grid(panel, Theme.section("Analysis"), c, 0, 0, 4, 1);
-        statusLabel.setForeground(Theme.MUTED);
+        Theme.foreground(statusLabel, Theme.ForegroundRole.MUTED);
         statusLabel.setFont(Theme.font(12, Font.PLAIN));
         grid(panel, statusLabel, c, 0, 1, 4, 1);
 
@@ -455,7 +455,7 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
         JPanel panel = new SurfacePanel(new BorderLayout(8, 8));
         JPanel top = transparentPanel(new BorderLayout(8, 0));
         top.add(Theme.section("Game Line"), BorderLayout.WEST);
-        gameStateLabel.setForeground(Theme.MUTED);
+        Theme.foreground(gameStateLabel, Theme.ForegroundRole.MUTED);
         gameStateLabel.setFont(Theme.font(12, Font.PLAIN));
         top.add(gameStateLabel, BorderLayout.CENTER);
         panel.add(top, BorderLayout.NORTH);
@@ -660,7 +660,7 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
         JPanel panel = new SurfacePanel(new BorderLayout(6, 6));
         JPanel top = transparentPanel(new BorderLayout());
         top.add(Theme.section("Console"), BorderLayout.WEST);
-        commandStateLabel.setForeground(Theme.MUTED);
+        Theme.foreground(commandStateLabel, Theme.ForegroundRole.MUTED);
         commandStateLabel.setFont(Theme.font(12, Font.PLAIN));
         commandStateLabel.setBorder(Theme.pad(0, Theme.SPACE_SM));
         top.add(commandStateLabel, BorderLayout.CENTER);
