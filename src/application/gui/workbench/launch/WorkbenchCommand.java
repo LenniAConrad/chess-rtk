@@ -1,4 +1,4 @@
-package application.gui.workbench;
+package application.gui.workbench.launch;
 
 import static application.cli.Constants.CMD_HELP_LONG;
 import static application.cli.Constants.CMD_HELP_SHORT;
@@ -10,6 +10,7 @@ import java.util.List;
 
 import javax.swing.SwingUtilities;
 
+import application.gui.workbench.WorkbenchWindow;
 import chess.core.Setup;
 import utility.Argv;
 

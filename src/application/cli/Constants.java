@@ -81,16 +81,6 @@ public final class Constants {
 	public static final String CMD_GUI = "gui";
 
 	/**
-	 * {@code gui-web} subcommand token.
-	 */
-	public static final String CMD_GUI_WEB = "gui-web";
-
-	/**
-	 * {@code gui-next} subcommand token.
-	 */
-	public static final String CMD_GUI_NEXT = "gui-next";
-
-	/**
 	 * {@code workbench} subcommand token.
 	 */
 	public static final String CMD_WORKBENCH = "workbench";

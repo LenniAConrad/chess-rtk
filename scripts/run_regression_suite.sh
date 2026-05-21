@@ -104,7 +104,6 @@ run_core() {
   run_test testing.ParserRegressionTest
   run_test testing.TaggingRegressionTest
   run_test testing.TagFixtureRegressionTest
-  run_headless_test testing.GuiTerminalRegressionTest
   run_headless_test testing.WorkbenchRegressionTest
 }
 

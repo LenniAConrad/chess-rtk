@@ -617,11 +617,23 @@ public final class CLICommandRegressionTest {
 		assertTrue(workbench.contains("usage: crtk workbench [options]"), "workbench help usage");
 		assertTrue(workbench.contains("workbench options:"), "workbench help options");
 		assertTrue(workbench.contains("crtk workbench --fen \"<FEN>\""), "workbench help canonical example");
+		assertTrue(workbench.contains("crtk gui"), "workbench help gui alias");
 		assertTrue(workbench.contains("crtk gui-workbench"), "workbench help legacy alias");
+
+		String guiWorkbench = TestSupport.runMain("gui", "--help");
+		assertTrue(guiWorkbench.contains("canonical command:"), "gui help canonical heading");
+		assertTrue(guiWorkbench.contains("crtk workbench"), "gui help canonical command");
+		assertTrue(guiWorkbench.contains("workbench options:"), "gui help uses workbench options");
 
 		String legacyWorkbench = TestSupport.runMain("gui-workbench", "--help");
 		assertTrue(legacyWorkbench.contains("canonical command:"), "legacy workbench help canonical heading");
 		assertTrue(legacyWorkbench.contains("crtk workbench"), "legacy workbench help canonical command");
+
+		TestSupport.FailureResult removedWebGui = TestSupport.runMainExpectFailure("gui-web", "--help");
+		assertTrue(removedWebGui.stderr().contains("Unknown command: gui-web"), "removed gui-web command");
+
+		TestSupport.FailureResult removedNextGui = TestSupport.runMainExpectFailure("gui-next", "--help");
+		assertTrue(removedNextGui.stderr().contains("Unknown command: gui-next"), "removed gui-next command");
 	}
 
 	/**

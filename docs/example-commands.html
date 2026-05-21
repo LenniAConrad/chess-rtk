@@ -147,8 +147,7 @@
 <li><code>crtk fen display --fen &quot;&lt;FEN&gt;&quot; --ablation --show-backend</code> — show per-piece ablation (uses LC0 if available; otherwise classical).</li>
 <li><code>crtk fen render --fen &quot;&lt;FEN&gt;&quot; -o dump/position.png --arrow e2e4 --circle e4 --size 1200</code> — save a board image.</li>
 <li><code>crtk fen render --fen &quot;&lt;FEN&gt;&quot; -o dump/position.svg --format svg --flip</code> — save a vector board from Black&#x27;s perspective.</li>
-<li><code>crtk gui-web --fen &quot;r1bqk2r/ppppbppp/3n4/4R3/8/8/PPPP1PPP/RNBQ1BK1 b kq - 2 8&quot; --dark</code> — launch the chess-web-inspired desktop GUI.</li>
-<li><code>crtk gui-next --fen &quot;&lt;FEN&gt;&quot; --dark</code> — launch the Studio research workbench.</li>
+<li><code>crtk gui --fen &quot;r1bqk2r/ppppbppp/3n4/4R3/8/8/PPPP1PPP/RNBQ1BK1 b kq - 2 8&quot;</code> — launch the Swing workbench.</li>
 </ul>
 <h2 id="analyze-positions-best-move-with-a-uci-engine">Analyze positions / best move with a UCI engine</h2>
 <ul>
@@ -203,9 +202,9 @@
 </ul>
 <h2 id="in-process-eval-and-built-in-search">In-process eval and built-in search</h2>
 <ul>
-<li><code>crtk engine eval --fen &quot;&lt;FEN&gt;&quot;</code> — evaluate with the Java LC0 evaluator and classical fallback.</li>
+<li><code>crtk engine eval --fen &quot;&lt;FEN&gt;&quot;</code> — evaluate in auto mode with Java LC0 and classical fallback.</li>
 <li><code>crtk engine eval --fen &quot;&lt;FEN&gt;&quot; --lc0 --weights models/leela_112planes-10blocksx128-policyhead80-valuehead32-policy4672-wdl3.bin</code> — force Java LC0 evaluation.</li>
-<li><code>crtk engine eval --fen &quot;&lt;FEN&gt;&quot; --classical</code> — force classical evaluation.</li>
+<li><code>crtk engine eval --fen &quot;&lt;FEN&gt;&quot; --evaluator classical</code> — force classical evaluation.</li>
 <li><code>crtk engine static --fen &quot;&lt;FEN&gt;&quot;</code> — classical evaluation shortcut.</li>
 <li><code>crtk engine builtin --fen &quot;&lt;FEN&gt;&quot; --depth 4 --format summary</code> — search with the built-in Java engine.</li>
 <li><code>crtk engine builtin --fen &quot;&lt;FEN&gt;&quot; --classical --depth 6 --nodes 250000 --format both</code> — bounded classical built-in search.</li>

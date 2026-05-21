@@ -143,9 +143,9 @@
 </ul>
 <p><code>--weights</code>, or from <code>lc0-model-path</code>.</p>
 <ul>
-<li><code>engine eval</code> prefers the Java LC0 evaluator and falls back to classical</li>
+<li><code>engine eval --evaluator auto</code> prefers the Java LC0 evaluator and falls</li>
 </ul>
-<p>evaluation unless <code>--lc0</code> or <code>--classical</code> is specified.</p>
+<p>back to classical evaluation; <code>--evaluator lc0</code> and <code>--evaluator classical</code> force one backend. The <code>--lc0</code> and <code>--classical</code> shortcuts are still accepted.</p>
 <ul>
 <li><code>engine static</code> is always the classical evaluator.</li>
 </ul>

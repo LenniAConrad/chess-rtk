@@ -73,8 +73,7 @@ Examples assume you installed the launcher (`crtk`). If you run from classes, re
 - `crtk fen display --fen "<FEN>" --ablation --show-backend` — show per-piece ablation (uses LC0 if available; otherwise classical).
 - `crtk fen render --fen "<FEN>" -o dump/position.png --arrow e2e4 --circle e4 --size 1200` — save a board image.
 - `crtk fen render --fen "<FEN>" -o dump/position.svg --format svg --flip` — save a vector board from Black's perspective.
-- `crtk gui-web --fen "r1bqk2r/ppppbppp/3n4/4R3/8/8/PPPP1PPP/RNBQ1BK1 b kq - 2 8" --dark` — launch the chess-web-inspired desktop GUI.
-- `crtk gui-next --fen "<FEN>" --dark` — launch the Studio research workbench.
+- `crtk gui --fen "r1bqk2r/ppppbppp/3n4/4R3/8/8/PPPP1PPP/RNBQ1BK1 b kq - 2 8"` — launch the Swing workbench.
 
 ## Analyze positions / best move with a UCI engine
 

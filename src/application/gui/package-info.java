@@ -1,6 +1,8 @@
 /**
- * Application GUI core and window stack.
+ * Application GUI entry package.
  *
- * Hosts the Swing window hierarchy, engine integration, dialogs, and state managers. Supporting records live in {@code application.gui.model}, while widgets and theming helpers live under {@code application.gui.ui}.
+ * <p>The supported desktop UI is the Swing workbench under
+ * {@code application.gui.workbench}. Legacy GUI implementations were removed
+ * so all GUI CLI aliases launch the same workbench surface.</p>
  */
 package application.gui;
