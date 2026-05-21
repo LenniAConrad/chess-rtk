@@ -21,7 +21,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.JButton;
@@ -114,10 +113,10 @@ public final class NetworkDiagnosticsPanel extends JPanel {
         c.fill = GridBagConstraints.HORIZONTAL;
         c.insets = new Insets(0, 0, Theme.SPACE_MD, 0);
         c.gridy = 0;
-        stack.add(section("Models", modelRows), c);
+        stack.add(Ui.collapsible("Models", modelRows, true), c);
         c.gridy = 1;
         c.insets = new Insets(0, 0, 0, 0);
-        stack.add(section("GPU", gpuRows), c);
+        stack.add(Ui.collapsible("GPU", gpuRows, false), c);
         top.add(stack, BorderLayout.NORTH);
 
         configPane.setEditable(false);
@@ -138,18 +137,15 @@ public final class NetworkDiagnosticsPanel extends JPanel {
 
         JPanel configHeader = Ui.transparentPanel(
     new BorderLayout(Theme.SPACE_SM, 0));
-        JPanel title = Ui.transparentPanel(new BorderLayout(0, Theme.SPACE_XS));
-        title.add(Theme.section("Config"), BorderLayout.NORTH);
-        title.add(configPathLabel, BorderLayout.SOUTH);
-        configHeader.add(title, BorderLayout.CENTER);
+        configHeader.add(configPathLabel, BorderLayout.CENTER);
         configHeader.add(reloadConfigButton, BorderLayout.EAST);
 
-        JPanel configSection = Ui.transparentPanel(new BorderLayout(0, Theme.SPACE_SM));
-        configSection.add(configHeader, BorderLayout.NORTH);
-        configSection.add(configScroll, BorderLayout.CENTER);
+        JPanel configBody = Ui.transparentPanel(new BorderLayout(0, Theme.SPACE_SM));
+        configBody.add(configHeader, BorderLayout.NORTH);
+        configBody.add(configScroll, BorderLayout.CENTER);
 
         add(top, BorderLayout.NORTH);
-        add(configSection, BorderLayout.CENTER);
+        add(Ui.collapsible("Config", configBody, false), BorderLayout.CENTER);
     }
 
     /**
@@ -304,21 +300,6 @@ public final class NetworkDiagnosticsPanel extends JPanel {
         } catch (LinkageError | RuntimeException ex) {
             return 0;
         }
-    }
-
-    /**
-     * Creates a titled section container.
-     *
-     * @param title section title
-     * @param content section content
-     * @return component
-     */
-    private static JComponent section(String title, JComponent content) {
-        JPanel panel = Ui.transparentPanel(new BorderLayout(0, Theme.SPACE_SM));
-        panel.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, Theme.LINE));
-        panel.add(Theme.section(title), BorderLayout.NORTH);
-        panel.add(content, BorderLayout.CENTER);
-        return panel;
     }
 
     /**

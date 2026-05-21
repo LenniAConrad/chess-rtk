@@ -346,7 +346,23 @@ public final class Ui {
      * @return collapsible section
      */
     public static JComponent collapsible(String title, JComponent content, boolean expanded) {
-    return new CollapsibleSection(title, content, expanded);
+        return new CollapsibleSection(title, content, expanded);
+    }
+
+    /**
+     * Sets the expansion state for a component returned by
+     * {@link #collapsible(String, JComponent, boolean)}.
+     *
+     * @param component collapsible component
+     * @param expanded expansion state
+     * @return true when the component was a collapsible section
+     */
+    public static boolean setCollapsibleExpanded(JComponent component, boolean expanded) {
+        if (component instanceof CollapsibleSection section) {
+            section.setExpanded(expanded);
+            return true;
+        }
+        return false;
     }
 
     /**
@@ -1234,6 +1250,12 @@ public final class Ui {
         private final JComponent content;
 
         /**
+         * Holder that gives expanded content consistent spacing below the
+         * disclosure header.
+         */
+        private final JPanel contentHolder;
+
+        /**
          * Current expansion state.
          */
         private boolean expanded;
@@ -1246,14 +1268,19 @@ public final class Ui {
          * @param expanded initial expansion state
          */
         CollapsibleSection(String title, JComponent content, boolean expanded) {
-            super(new BorderLayout(8, 0));
+            super(new BorderLayout(0, 0));
             this.title = title == null || title.isBlank() ? "Info" : title;
             this.content = content;
-            toggle = button(this.title, false, event -> setExpanded(!this.expanded));
+            toggle = new DisclosureButton();
+            toggle.addActionListener(event -> setExpanded(!this.expanded));
+            contentHolder = transparentPanel(new BorderLayout());
+            contentHolder.setBorder(Theme.pad(Theme.SPACE_SM, 0, Theme.SPACE_SM, 0));
+            contentHolder.add(content, BorderLayout.CENTER);
             setOpaque(false);
             setBackground(Theme.BG);
-            add(toggle, BorderLayout.WEST);
-            add(content, BorderLayout.CENTER);
+            setAlignmentX(LEFT_ALIGNMENT);
+            add(toggle, BorderLayout.NORTH);
+            add(contentHolder, BorderLayout.CENTER);
             setExpanded(expanded);
         }
 
@@ -1265,11 +1292,61 @@ public final class Ui {
         private void setExpanded(boolean value) {
             expanded = value;
             content.setVisible(value);
-            toggle.setText(title + (value ? " -" : " +"));
+            contentHolder.setVisible(value);
+            toggle.setText((value ? "- " : "+ ") + title);
             toggle.setToolTipText(value ? "Collapse " + title : "Expand " + title);
-            Theme.button(toggle, false);
             revalidate();
             repaint();
+        }
+    }
+
+    /**
+     * Flat disclosure header that reads like a VS Code section strip instead
+     * of another nested card.
+     */
+    private static final class DisclosureButton extends JButton {
+
+        /**
+         * Serialization identifier for Swing button compatibility.
+         */
+        private static final long serialVersionUID = 1L;
+
+        /**
+         * Creates the disclosure header.
+         */
+        DisclosureButton() {
+            setContentAreaFilled(false);
+            setBorderPainted(false);
+            setFocusPainted(false);
+            setOpaque(false);
+            setHorizontalAlignment(SwingConstants.LEFT);
+            setRolloverEnabled(true);
+            setMargin(new Insets(0, 0, 0, 0));
+            setBorder(Theme.pad(Theme.SPACE_XS, 0, Theme.SPACE_XS, 0));
+            setPreferredSize(new Dimension(120, Theme.CONTROL_HEIGHT));
+        }
+
+        /**
+         * Paints a full-width disclosure row.
+         *
+         * @param graphics graphics context
+         */
+        @Override
+        protected void paintComponent(Graphics graphics) {
+            setFont(Theme.font(12, Font.BOLD));
+            setForeground(isEnabled() ? Theme.TEXT : Theme.BUTTON_DISABLED_TEXT);
+            Graphics2D g = (Graphics2D) graphics.create();
+            try {
+                if (getModel().isRollover() || isFocusOwner()) {
+                    g.setColor(Theme.SECONDARY_BUTTON_HOVER);
+                    g.fillRect(0, 0, getWidth(), getHeight());
+                }
+                g.setColor(Theme.LINE);
+                g.drawLine(0, getHeight() - 1, getWidth(), getHeight() - 1);
+            } finally {
+                g.dispose();
+            }
+            super.paintComponent(graphics);
         }
     }
 

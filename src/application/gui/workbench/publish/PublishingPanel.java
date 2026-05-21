@@ -688,66 +688,86 @@ public final class PublishingPanel {
         configurePublishingArea(publishLinkArea, true);
         configurePublishingArea(publishAfterwordArea, true);
 
-        row = addPublishingSection(panel, c, "Files", row);
-        publishInputButton = addChooserRow(panel, c, publishInputLabel, publishInputField, "Choose Input", row++,
+        JPanel files = transparentPanel(new GridBagLayout());
+        GridBagConstraints filesC = constraints();
+        int sectionRow = 0;
+        publishInputButton = addChooserRow(files, filesC, publishInputLabel, publishInputField, "Choose Input",
+                sectionRow++,
                 () -> FileDialogs.choosePath(host.owner(), publishInputField, false, "Choose publishing input"));
-        publishOutputButton = addChooserRow(panel, c, publishOutputLabel, publishOutputField, "Choose Output", row++,
+        publishOutputButton = addChooserRow(files, filesC, publishOutputLabel, publishOutputField, "Choose Output",
+                sectionRow++,
                 () -> FileDialogs.choosePath(host.owner(), publishOutputField, true, "Choose publishing output"));
-        publishManifestOutputButton = addChooserRow(panel, c, publishManifestOutputLabel,
-                publishManifestOutputField, "Choose Manifest", row++,
+        publishManifestOutputButton = addChooserRow(files, filesC, publishManifestOutputLabel,
+                publishManifestOutputField, "Choose Manifest", sectionRow++,
                 () -> FileDialogs.choosePath(host.owner(), publishManifestOutputField, true, "Choose manifest output"));
-        publishPdfOutputButton = addChooserRow(panel, c, publishPdfOutputLabel, publishPdfOutputField, "Choose PDF",
-                row++,
+        publishPdfOutputButton = addChooserRow(files, filesC, publishPdfOutputLabel, publishPdfOutputField,
+                "Choose PDF", sectionRow++,
                 this::choosePublishPdfPath);
-        publishCoverOutputButton = addChooserRow(panel, c, publishCoverOutputLabel, publishCoverOutputField,
-                "Choose Cover", row++,
+        publishCoverOutputButton = addChooserRow(files, filesC, publishCoverOutputLabel, publishCoverOutputField,
+                "Choose Cover", sectionRow++,
                 () -> FileDialogs.choosePath(host.owner(), publishCoverOutputField, true, "Choose cover output"));
+        grid(panel, collapsible("Files", files, true), c, 0, row++, 4, 1);
 
-        row = addPublishingSection(panel, c, "Details", row);
-        row = addPublishingControlRow(panel, c, label("title"), publishTitleField, row);
-        row = addPublishingControlRow(panel, c, label("subtitle"), publishSubtitleField, row);
-        row = addPublishingControlRow(panel, c, label("author"), publishAuthorField, row);
-        row = addPublishingControlRow(panel, c, label("date/place"),
-                compactPublishingRow(label("time"), publishTimeField, label("location"), publishLocationField), row);
-        row = addPublishingControlRow(panel, c, label("language"), publishLanguageCombo, row);
+        JPanel details = transparentPanel(new GridBagLayout());
+        GridBagConstraints detailsC = constraints();
+        sectionRow = 0;
+        sectionRow = addPublishingControlRow(details, detailsC, label("title"), publishTitleField, sectionRow);
+        sectionRow = addPublishingControlRow(details, detailsC, label("subtitle"), publishSubtitleField, sectionRow);
+        sectionRow = addPublishingControlRow(details, detailsC, label("author"), publishAuthorField, sectionRow);
+        sectionRow = addPublishingControlRow(details, detailsC, label("date/place"),
+                compactPublishingRow(label("time"), publishTimeField, label("location"), publishLocationField),
+                sectionRow);
+        addPublishingControlRow(details, detailsC, label("language"), publishLanguageCombo, sectionRow);
+        grid(panel, collapsible("Details", details, true), c, 0, row++, 4, 1);
 
-        row = addPublishingSection(panel, c, "Layout", row);
-        row = addPublishingControlRow(panel, c, label("diagram"),
+        JPanel layout = transparentPanel(new GridBagLayout());
+        GridBagConstraints layoutC = constraints();
+        sectionRow = 0;
+        sectionRow = addPublishingControlRow(layout, layoutC, label("diagram"),
                 compactPublishingRow(label("page size"), publishPageSizeCombo, label("per row"),
                         publishDiagramsPerRowField),
-                row);
-        row = addPublishingControlRow(panel, c, label("board"),
+                sectionRow);
+        sectionRow = addPublishingControlRow(layout, layoutC, label("board"),
                 compactPublishingRow(label("pixels"), publishBoardPixelsField, label("margin"), publishMarginField),
-                row);
-        row = addPublishingControlRow(panel, c, label("count"),
-                compactPublishingRow(label("limit"), publishLimitField, label("pages"), publishPagesField), row);
-        row = addPublishingControlRow(panel, c, label("collection"),
+                sectionRow);
+        sectionRow = addPublishingControlRow(layout, layoutC, label("count"),
+                compactPublishingRow(label("limit"), publishLimitField, label("pages"), publishPagesField),
+                sectionRow);
+        sectionRow = addPublishingControlRow(layout, layoutC, label("collection"),
                 compactPublishingRow(label("table"), publishTableFrequencyField, label("rows"), publishPuzzleRowsField,
                         label("cols"), publishPuzzleColumnsField),
-                row);
-        row = addPublishingControlRow(panel, c, label("cover"),
+                sectionRow);
+        addPublishingControlRow(layout, layoutC, label("cover"),
                 compactPublishingRow(label("binding"), publishBindingCombo, label("interior"), publishInteriorCombo),
-                row);
+                sectionRow);
+        grid(panel, collapsible("Layout", layout, false), c, 0, row++, 4, 1);
 
+        JPanel options = transparentPanel(new GridBagLayout());
+        GridBagConstraints optionsC = constraints();
+        sectionRow = 0;
         JPanel toggles = flow(FlowLayout.LEFT);
         toggles.add(publishValidateBox);
         toggles.add(publishFlipBox);
         toggles.add(publishNoFenBox);
         toggles.add(publishWatermarkBox);
-        row = addPublishingControlRow(panel, c, label("options"), toggles, row);
-        row = addPublishingControlRow(panel, c, label("watermark id"), publishWatermarkIdField, row);
+        sectionRow = addPublishingControlRow(options, optionsC, label("options"), toggles, sectionRow);
+        sectionRow = addPublishingControlRow(options, optionsC, label("watermark id"), publishWatermarkIdField,
+                sectionRow);
 
-        row = addPublishingControlRow(panel, c, label("front matter"),
-                collapsible("Copy", createPublishingFrontMatterPanel(), false), row);
-        row = addPublishingControlRow(panel, c, label("report"),
-                collapsible("Position Report", createReportPanel(), false), row);
+        sectionRow = addPublishingControlRow(options, optionsC, label("front matter"),
+                collapsible("Copy", createPublishingFrontMatterPanel(), false), sectionRow);
+        addPublishingControlRow(options, optionsC, label("report"),
+                collapsible("Position Report", createReportPanel(), false), sectionRow);
+        grid(panel, collapsible("Options", options, false), c, 0, row++, 4, 1);
 
-        row = addPublishingSection(panel, c, "Command", row);
+        JPanel command = transparentPanel(new GridBagLayout());
+        GridBagConstraints commandC = constraints();
         publishCommandField.setEditable(false);
         publishCommandField.setFocusable(false);
         publishCommandField.setToolTipText("Generated publishing command");
-        grid(panel, label("preview"), c, 0, row, 1, 1);
-        grid(panel, scroll(publishCommandField), c, 1, row++, 3, 1);
+        grid(command, label("preview"), commandC, 0, 0, 1, 1);
+        grid(command, scroll(publishCommandField), commandC, 1, 0, 3, 1);
+        grid(panel, collapsible("Generated command", command, false), c, 0, row++, 4, 1);
 
         grid(panel, buttonRow(FlowLayout.LEFT,
                 button("Create PDF", true, event -> runPublishingCommand()),
@@ -770,20 +790,6 @@ public final class PublishingPanel {
         area.setEditable(editable);
         area.setRows(editable ? 2 : 3);
         area.setMinimumSize(new Dimension(220, editable ? 58 : 76));
-    }
-
-    /**
-     * Adds a visual section label to the publishing form.
-     *
-     * @param panel target panel
-     * @param c shared constraints
-     * @param title section title
-     * @param row target row
-     * @return next row
-     */
-    private static int addPublishingSection(JPanel panel, GridBagConstraints c, String title, int row) {
-        grid(panel, Theme.section(title), c, 0, row, 4, 1);
-        return row + 1;
     }
 
     /**

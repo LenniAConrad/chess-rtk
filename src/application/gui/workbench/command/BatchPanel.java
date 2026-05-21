@@ -35,6 +35,7 @@ import static application.gui.workbench.ui.Ui.addVerticalFiller;
 import static application.gui.workbench.ui.Ui.button;
 import static application.gui.workbench.ui.Ui.buttonRow;
 import static application.gui.workbench.ui.Ui.changeListener;
+import static application.gui.workbench.ui.Ui.collapsible;
 import static application.gui.workbench.ui.Ui.constraints;
 import static application.gui.workbench.ui.Ui.fillViewport;
 import static application.gui.workbench.ui.Ui.grid;
@@ -381,8 +382,11 @@ public final class BatchPanel {
             updateCommand();
         });
         grid(controls, Theme.section("Batch Runner"), c, 0, 0, 4, 1);
-        grid(controls, label("task"), c, 0, 1, 1, 1);
-        grid(controls, batchTaskCombo, c, 1, 1, 3, 1);
+
+        JPanel workflow = transparentPanel(new GridBagLayout());
+        GridBagConstraints workflowC = constraints();
+        grid(workflow, label("task"), workflowC, 0, 0, 1, 1);
+        grid(workflow, batchTaskCombo, workflowC, 1, 0, 3, 1);
         batchDurationField.setColumns(8);
         styleFields(batchDurationField);
         styleAreas(batchCommandField);
@@ -392,19 +396,25 @@ public final class BatchPanel {
             }
         }));
         styleSpinners(batchDepthSpinner, batchMultipvSpinner, batchThreadsSpinner);
-        grid(controls, batchOptionsPanel, c, 1, 2, 3, 1);
-        grid(controls, label("command"), c, 0, 3, 1, 1);
+        grid(workflow, batchOptionsPanel, workflowC, 1, 1, 3, 1);
+
+        JPanel commandPreview = transparentPanel(new GridBagLayout());
+        GridBagConstraints commandC = constraints();
+        grid(commandPreview, label("command"), commandC, 0, 0, 1, 1);
         batchCommandField.setLineWrap(true);
         batchCommandField.setWrapStyleWord(false);
         batchCommandField.setEditable(false);
         batchCommandField.setFocusable(false);
         batchCommandField.setToolTipText("Generated batch command");
         batchCommandField.setMinimumSize(new Dimension(220, 64));
-        grid(controls, batchCommandField, c, 1, 3, 3, 1);
+        grid(commandPreview, batchCommandField, commandC, 1, 0, 3, 1);
+
+        grid(controls, collapsible("Workflow", workflow, true), c, 0, 1, 4, 1);
+        grid(controls, collapsible("Generated command", commandPreview, false), c, 0, 2, 4, 1);
         grid(controls, buttonRow(FlowLayout.LEFT,
                 button("Run Batch", true, event -> runBatch()),
-                button("Copy Command", false, event -> host.copyText(batchCommandField.getText()))), c, 1, 4, 3, 1);
-        addVerticalFiller(controls, c, 5, 4);
+                button("Copy Command", false, event -> host.copyText(batchCommandField.getText()))), c, 0, 3, 4, 1);
+        addVerticalFiller(controls, c, 4, 4);
         return controls;
     }
 

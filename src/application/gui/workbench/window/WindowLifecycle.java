@@ -881,7 +881,10 @@ public abstract class WindowLifecycle extends WindowBase {
      */
     protected void focusOptionFilter() {
         selectTab(TAB_COMMANDS);
-        SwingUtilities.invokeLater(commandForm.filterField()::requestFocusInWindow);
+        SwingUtilities.invokeLater(() -> {
+            commandForm.expandOptionalFlags();
+            commandForm.filterField().requestFocusInWindow();
+        });
     }
 
     /**
