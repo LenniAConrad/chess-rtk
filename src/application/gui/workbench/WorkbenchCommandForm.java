@@ -1,15 +1,10 @@
 package application.gui.workbench;
 
-import java.awt.BasicStroke;
 import java.awt.BorderLayout;
 import java.awt.Color;
-import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
-import java.awt.Graphics;
-import java.awt.Graphics2D;
-import java.awt.RenderingHints;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -20,13 +15,10 @@ import java.util.function.Consumer;
 import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
-import javax.swing.ButtonGroup;
-import javax.swing.Icon;
 import javax.swing.JComboBox;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
-import javax.swing.JRadioButton;
 import javax.swing.JTextField;
 
 import application.gui.workbench.WorkbenchCommandTemplates.CommandOption;
@@ -328,7 +320,7 @@ final class WorkbenchCommandForm extends JPanel {
     }
 
     /**
-     * Renders one block — either a radio group or a single option row.
+     * Renders one block — either a chip group or a single option row.
      *
      * @param block block to render
      * @param optionalSection true when rendered under the optional section
@@ -336,19 +328,20 @@ final class WorkbenchCommandForm extends JPanel {
      */
     private JComponent renderBlock(Block block, boolean optionalSection) {
         if (block.isGroup()) {
-            return renderRadioGroup(block, optionalSection);
+            return renderChipGroup(block, optionalSection);
         }
         return renderSingle(block.members().get(0), optionalSection);
     }
 
     /**
-     * Renders a mutually-exclusive radio group.
+     * Renders a mutually-exclusive group as an animated chip selector with a
+     * value editor that swaps to the chosen member.
      *
      * @param block exclusive group block
      * @param optionalSection true when the group is optional
      * @return rendered group
      */
-    private JComponent renderRadioGroup(Block block, boolean optionalSection) {
+    private JComponent renderChipGroup(Block block, boolean optionalSection) {
         JPanel panel = new JPanel();
         panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
         panel.setAlignmentX(LEFT_ALIGNMENT);
@@ -363,35 +356,96 @@ final class WorkbenchCommandForm extends JPanel {
         panel.add(title);
         panel.add(Box.createVerticalStrut(WorkbenchTheme.SPACE_XS));
 
-        ButtonGroup buttons = new ButtonGroup();
-        boolean anySelected = false;
-        for (Field field : block.members()) {
-            JRadioButton radio = themedRadio(displayFlag(field.option));
-            field.radio = radio;
-            buttons.add(radio);
-            if (field.enabled && !anySelected) {
-                radio.setSelected(true);
-                anySelected = true;
-            }
-            radio.addActionListener(event -> selectRadio(block, field));
-            panel.add(optionRow(radio, field));
+        List<Field> members = block.members();
+        boolean hasNone = optionalSection;
+        List<String> chipLabels = new ArrayList<>();
+        if (hasNone) {
+            chipLabels.add("none");
         }
-        if (optionalSection) {
-            // Optional groups gain an explicit "none" choice.
-            JRadioButton none = themedRadio("none");
-            buttons.add(none);
-            if (!anySelected) {
-                none.setSelected(true);
-            }
-            none.addActionListener(event -> selectRadio(block, null));
-            panel.add(fixedLead(none));
-        } else if (!anySelected && !block.members().isEmpty()) {
-            Field first = block.members().get(0);
-            first.enabled = true;
-            first.radio.setSelected(true);
+        for (Field field : members) {
+            chipLabels.add(displayFlag(field.option));
         }
+
+        // The card layout swaps the value editor / description to the choice.
+        java.awt.CardLayout cards = new java.awt.CardLayout();
+        JPanel detail = new JPanel(cards);
+        detail.setOpaque(false);
+        detail.setAlignmentX(LEFT_ALIGNMENT);
+        detail.setMaximumSize(new Dimension(Integer.MAX_VALUE, ROW_HEIGHT));
+        if (hasNone) {
+            detail.add(memberCard(null), "0");
+        }
+        for (int m = 0; m < members.size(); m++) {
+            detail.add(memberCard(members.get(m)), Integer.toString(hasNone ? m + 1 : m));
+        }
+
+        int initial = 0;
+        for (int m = 0; m < members.size(); m++) {
+            if (members.get(m).enabled) {
+                initial = hasNone ? m + 1 : m;
+                break;
+            }
+        }
+        if (!hasNone) {
+            // A required group always keeps exactly one member active.
+            for (int m = 0; m < members.size(); m++) {
+                members.get(m).enabled = m == initial;
+            }
+        }
+        cards.show(detail, Integer.toString(initial));
+
+        WorkbenchChipGroup chips = new WorkbenchChipGroup(chipLabels);
+        chips.setAlignmentX(LEFT_ALIGNMENT);
+        chips.setSelectedIndex(initial);
+        chips.setOnSelect(index -> {
+            Field chosen = hasNone && index == 0 ? null : members.get(hasNone ? index - 1 : index);
+            for (Field field : members) {
+                field.enabled = field == chosen;
+            }
+            cards.show(detail, Integer.toString(index));
+            fireChange();
+        });
+        JPanel chipRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+        chipRow.setOpaque(false);
+        chipRow.setAlignmentX(LEFT_ALIGNMENT);
+        chipRow.add(chips);
+        panel.add(chipRow);
+        panel.add(Box.createVerticalStrut(WorkbenchTheme.SPACE_XS));
+        panel.add(detail);
         panel.setMaximumSize(new Dimension(Integer.MAX_VALUE, panel.getPreferredSize().height));
         return panel;
+    }
+
+    /**
+     * Builds the value-editor + description card for one group member.
+     *
+     * @param field group member, or null for the "none" choice
+     * @return card component
+     */
+    private JComponent memberCard(Field field) {
+        JPanel card = new JPanel();
+        card.setLayout(new BoxLayout(card, BoxLayout.X_AXIS));
+        card.setOpaque(false);
+        card.setAlignmentX(LEFT_ALIGNMENT);
+        if (field == null) {
+            JLabel none = new JLabel("no option from this group is used");
+            none.setFont(WorkbenchTheme.font(11, Font.PLAIN));
+            none.setForeground(WorkbenchTheme.MUTED);
+            card.add(none);
+            card.add(Box.createHorizontalGlue());
+            return card;
+        }
+        if (field.option.takesValue()) {
+            JComponent editor = valueEditor(field);
+            editor.setPreferredSize(new Dimension(VALUE_WIDTH, WorkbenchTheme.CONTROL_HEIGHT));
+            editor.setMaximumSize(new Dimension(VALUE_WIDTH, WorkbenchTheme.CONTROL_HEIGHT));
+            editor.setMinimumSize(new Dimension(VALUE_WIDTH, WorkbenchTheme.CONTROL_HEIGHT));
+            card.add(editor);
+            card.add(Box.createHorizontalStrut(WorkbenchTheme.SPACE_MD));
+        }
+        card.add(descriptionLabel(field.option));
+        card.add(Box.createHorizontalGlue());
+        return card;
     }
 
     /**
@@ -563,24 +617,6 @@ final class WorkbenchCommandForm extends JPanel {
     }
 
     /**
-     * Creates a theme-styled radio button with a custom indicator.
-     *
-     * @param text button label
-     * @return styled radio button
-     */
-    private static JRadioButton themedRadio(String text) {
-        JRadioButton radio = new JRadioButton(text);
-        radio.setOpaque(false);
-        radio.setForeground(WorkbenchTheme.TEXT);
-        radio.setFont(WorkbenchTheme.font(12, Font.PLAIN));
-        radio.setFocusPainted(false);
-        radio.setIcon(new RadioIcon(false));
-        radio.setSelectedIcon(new RadioIcon(true));
-        radio.setIconTextGap(8);
-        return radio;
-    }
-
-    /**
      * Builds a section header label.
      *
      * @param text header text
@@ -599,19 +635,6 @@ final class WorkbenchCommandForm extends JPanel {
     // ------------------------------------------------------------------
     // State changes + validation
     // ------------------------------------------------------------------
-
-    /**
-     * Applies a radio selection inside an exclusive group.
-     *
-     * @param block exclusive group
-     * @param chosen chosen field, or {@code null} for the "none" choice
-     */
-    private void selectRadio(Block block, Field chosen) {
-        for (Field field : block.members()) {
-            field.enabled = field == chosen;
-        }
-        fireChange();
-    }
 
     /**
      * Disables flags that explicitly conflict with a newly-enabled option.
@@ -643,9 +666,6 @@ final class WorkbenchCommandForm extends JPanel {
         for (Field field : fields) {
             if (field.toggle != null) {
                 field.toggle.setSelected(field.enabled);
-            }
-            if (field.radio != null) {
-                field.radio.setSelected(field.enabled);
             }
             if (field.editor != null && !field.editor.isFocusOwner()) {
                 field.editor.setText(field.value == null ? "" : field.value);
@@ -800,56 +820,6 @@ final class WorkbenchCommandForm extends JPanel {
     // ------------------------------------------------------------------
 
     /**
-     * Themed radio-button indicator.
-     */
-    private static final class RadioIcon implements Icon {
-
-        /**
-         * Whether the selected indicator is drawn.
-         */
-        private final boolean selected;
-
-        /**
-         * Creates an indicator.
-         *
-         * @param selected true for the selected state
-         */
-        RadioIcon(boolean selected) {
-            this.selected = selected;
-        }
-
-        @Override
-        public int getIconWidth() {
-            return 16;
-        }
-
-        @Override
-        public int getIconHeight() {
-            return 16;
-        }
-
-        @Override
-        public void paintIcon(Component c, Graphics graphics, int x, int y) {
-            Graphics2D g = (Graphics2D) graphics.create();
-            try {
-                g.setRenderingHint(RenderingHints.KEY_ANTIALIASING,
-                        RenderingHints.VALUE_ANTIALIAS_ON);
-                g.setColor(WorkbenchTheme.INPUT);
-                g.fillOval(x + 1, y + 1, 13, 13);
-                g.setStroke(new BasicStroke(selected ? 2f : 1.3f));
-                g.setColor(selected ? WorkbenchTheme.ACCENT : WorkbenchTheme.INPUT_BORDER);
-                g.drawOval(x + 1, y + 1, 12, 12);
-                if (selected) {
-                    g.setColor(WorkbenchTheme.ACCENT);
-                    g.fillOval(x + 5, y + 5, 6, 6);
-                }
-            } finally {
-                g.dispose();
-            }
-        }
-    }
-
-    /**
      * Mutable per-option UI state.
      */
     private static final class Field {
@@ -878,11 +848,6 @@ final class WorkbenchCommandForm extends JPanel {
          * Toggle control, when rendered as an optional flag.
          */
         private WorkbenchToggleBox toggle;
-
-        /**
-         * Radio control, when part of an exclusive group.
-         */
-        private JRadioButton radio;
 
         /**
          * Free-text editor, when the option takes a free-text value.
