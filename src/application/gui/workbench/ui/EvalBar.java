@@ -3,8 +3,6 @@ package application.gui.workbench.ui;
 import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Dimension;
-import java.awt.Font;
-import java.awt.FontMetrics;
 import java.awt.Graphics2D;
 import java.awt.Graphics;
 import java.awt.RenderingHints;
@@ -26,7 +24,7 @@ public final class EvalBar extends JComponent {
     /**
      * Preferred bar width.
      */
-    private static final int BAR_WIDTH = 38;
+    private static final int BAR_WIDTH = 22;
 
     /**
      * Minimum bar height.
@@ -41,7 +39,27 @@ public final class EvalBar extends JComponent {
     /**
      * Score transition duration.
      */
-    private static final int ANIMATION_DURATION_MS = 140;
+    private static final int ANIMATION_DURATION_MS = 220;
+
+    /**
+     * Arc radius for the narrow rounded eval rail.
+     */
+    private static final int BAR_ARC = 5;
+
+    /**
+     * Minimum painted rail width.
+     */
+    private static final int MIN_RENDERED_WIDTH = 12;
+
+    /**
+     * Minimum painted rail height.
+     */
+    private static final int MIN_RENDERED_HEIGHT = 40;
+
+    /**
+     * Relative tick locations drawn across the rail.
+     */
+    private static final double[] GUIDE_FRACTIONS = { 0.2, 0.4, 0.6, 0.8 };
 
     /**
      * Mate display centipawn equivalent.
@@ -72,6 +90,16 @@ public final class EvalBar extends JComponent {
      * Neutral divider color.
      */
     private static final Color DIVIDER = Theme.EVAL_DIVIDER;
+
+    /**
+     * Guide line color over the dark side of the rail.
+     */
+    private static final Color GUIDE_ON_DARK = new Color(255, 255, 255, 82);
+
+    /**
+     * Guide line color over the light side of the rail.
+     */
+    private static final Color GUIDE_ON_LIGHT = new Color(0, 0, 0, 82);
 
     /**
      * Animated visible white share.
@@ -106,7 +134,17 @@ public final class EvalBar extends JComponent {
     /**
      * Cached frame stroke.
      */
-    private static final BasicStroke FRAME_STROKE = new BasicStroke(1.2f);
+    private static final BasicStroke FRAME_STROKE = new BasicStroke(1.0f);
+
+    /**
+     * Stroke for the internal guide lines.
+     */
+    private static final BasicStroke GUIDE_STROKE = new BasicStroke(1.0f);
+
+    /**
+     * Stroke for the animated score divider.
+     */
+    private static final BasicStroke DIVIDER_STROKE = new BasicStroke(1.2f);
 
     /**
      * Reusable clip rectangle (mutated each frame).
@@ -260,24 +298,23 @@ public final class EvalBar extends JComponent {
             g.setColor(getBackground());
             g.fillRect(0, 0, getWidth(), getHeight());
             g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-            // Fill the whole component so the visible bar matches the board
-            // square height exactly; the board stage sizes us to it.
-            int x = 0;
+            // Keep the rail narrow even when a layout manager grants extra
+            // horizontal space; the board stage sizes us to this width.
+            int w = Math.max(MIN_RENDERED_WIDTH, Math.min(BAR_WIDTH, Math.max(1, getWidth())));
+            int x = Math.max(0, (getWidth() - w) / 2);
             int y = 0;
-            int w = Math.max(12, getWidth());
-            int h = Math.max(40, getHeight());
+            int h = Math.max(MIN_RENDERED_HEIGHT, getHeight());
             int whiteHeight = (int) Math.round(h * displayedWhiteShare);
             int split = y + h - whiteHeight;
 
             Shape oldClip = g.getClip();
-            clipRect.setRoundRect(x, y, w, h, 3, 3);
+            clipRect.setRoundRect(x, y, w, h, BAR_ARC, BAR_ARC);
             g.clip(clipRect);
             paintBarFill(g, x, y, w, h, split);
             g.setClip(oldClip);
             g.setStroke(FRAME_STROKE);
             g.setColor(FRAME);
-            g.drawRoundRect(x, y, w - 1, h - 1, 3, 3);
-            paintLabel(g, x, y, w, h);
+            g.drawRoundRect(x, y, w - 1, h - 1, BAR_ARC, BAR_ARC);
         } finally {
             g.dispose();
         }
@@ -298,39 +335,29 @@ public final class EvalBar extends JComponent {
         g.fillRect(x, y, w, h);
         g.setColor(WHITE_FILL);
         g.fillRect(x, split, w, y + h - split);
+        paintGuideLines(g, x, y, w, h, split);
+        g.setStroke(DIVIDER_STROKE);
         g.setColor(DIVIDER);
-        g.drawLine(x + 2, split, x + w - 3, split);
+        g.drawLine(x + 1, split, x + w - 2, split);
     }
 
     /**
-     * Paints the score label.
+     * Paints evenly-spaced horizontal guide lines across the rail.
      *
      * @param g graphics context
      * @param x x
      * @param y y
      * @param w width
      * @param h height
+     * @param split animated score split y coordinate
      */
-    private void paintLabel(Graphics2D g, int x, int y, int w, int h) {
-        if (label.isBlank()) {
-            return;
+    private void paintGuideLines(Graphics2D g, int x, int y, int w, int h, int split) {
+        g.setStroke(GUIDE_STROKE);
+        for (double fraction : GUIDE_FRACTIONS) {
+            int gy = y + (int) Math.round(h * fraction);
+            g.setColor(gy < split ? GUIDE_ON_DARK : GUIDE_ON_LIGHT);
+            g.drawLine(x + 1, gy, x + w - 2, gy);
         }
-        g.setFont(Theme.font(11, Font.BOLD));
-        FontMetrics metrics = g.getFontMetrics();
-        String text = Ui.elide(label, metrics, Math.max(16, w - 5));
-        int tx = x + (w - metrics.stringWidth(text)) / 2;
-        int ty = y + h / 2 + metrics.getAscent() / 2 - 2;
-        Color fill = displayedWhiteShare > 0.5 ? BLACK_FILL : WHITE_FILL;
-        Color halo = displayedWhiteShare > 0.5 ? WHITE_FILL : BLACK_FILL;
-        // Halo keeps the label legible while the seam crosses through it
-        // during the animation between black-favoured and white-favoured states.
-        g.setColor(halo);
-        g.drawString(text, tx - 1, ty);
-        g.drawString(text, tx + 1, ty);
-        g.drawString(text, tx, ty - 1);
-        g.drawString(text, tx, ty + 1);
-        g.setColor(fill);
-        g.drawString(text, tx, ty);
     }
 
     /**
