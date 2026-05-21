@@ -162,10 +162,10 @@ final class WorkbenchBoardPanel extends JPanel {
      * Lichess/Chessground user annotation brushes.
      */
     private static final MarkupBrush[] MARKUP_BRUSHES = {
-            new MarkupBrush("green", new Color(0x15, 0x78, 0x1B), 10),
-            new MarkupBrush("red", new Color(0x88, 0x20, 0x20), 10),
-            new MarkupBrush("blue", new Color(0x00, 0x30, 0x88), 10),
-            new MarkupBrush("yellow", new Color(0xE6, 0x8F, 0x00), 10)
+            new MarkupBrush("green", WorkbenchTheme.STATUS_SUCCESS_TEXT, 10),
+            new MarkupBrush("red", WorkbenchTheme.STATUS_ERROR_TEXT, 10),
+            new MarkupBrush("blue", WorkbenchTheme.ACCENT, 10),
+            new MarkupBrush("yellow", WorkbenchTheme.STATUS_WARNING_TEXT, 10)
     };
 
     /**

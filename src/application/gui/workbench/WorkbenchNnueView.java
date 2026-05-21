@@ -249,7 +249,9 @@ final class WorkbenchNnueView extends WorkbenchNetworkView implements Scrollable
                 String sqLabel = WorkbenchTensorViz.squareLabel(sq);
                 String extra = String.format(
                         "<br><b>%s</b>: <span style='color:%s;'>%+.3f</span>",
-                        sqLabel, v >= 0 ? "#ffd33c" : "#5acde6", v);
+                        sqLabel,
+                        WorkbenchTheme.css(v >= 0 ? WorkbenchTensorViz.POSITIVE : WorkbenchTensorViz.NEGATIVE),
+                        v);
                 String base = r.tooltipHtml();
                 int closing = base.lastIndexOf("</html>");
                 if (closing >= 0) {
@@ -271,7 +273,7 @@ final class WorkbenchNnueView extends WorkbenchNetworkView implements Scrollable
         StringBuilder sb = new StringBuilder("<html>");
         sb.append("<b>").append(htmlEscape(r.title)).append("</b>");
         if (r.value != null && !r.value.isEmpty()) {
-            sb.append("<br><span style='color:#9aa0a6;'>")
+            sb.append("<br><span style='color:").append(WorkbenchTheme.css(WorkbenchTheme.MUTED)).append(";'>")
                     .append(htmlEscape(r.value)).append("</span>");
         }
         if (r.description != null && !r.description.isEmpty()) {

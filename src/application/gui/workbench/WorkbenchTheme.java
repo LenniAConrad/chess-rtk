@@ -50,9 +50,79 @@ final class WorkbenchTheme {
     private static final String PLACEHOLDER_PROPERTY = WorkbenchTheme.class.getName() + ".placeholder";
 
     /**
-     * Root background color — VS Code Light Modern chrome grey (#F8F8F8).
+     * Visual Studio image palette dark base.
      */
-    static final Color BG = new Color(248, 248, 248);
+    private static final Color VS_ICON_DARK = new Color(66, 66, 66);
+
+    /**
+     * Visual Studio light-theme foreground/chrome base.
+     */
+    private static final Color VS_CHROME = new Color(240, 239, 241);
+
+    /**
+     * Visual Studio light-theme outline/subtle-fill base.
+     */
+    private static final Color VS_SUBTLE = new Color(246, 246, 246);
+
+    /**
+     * Document/editor surface.
+     */
+    private static final Color VS_DOCUMENT = Color.WHITE;
+
+    /**
+     * Single workbench border gray, used instead of drifting local grays.
+     */
+    private static final Color VS_BORDER = new Color(218, 218, 218);
+
+    /**
+     * Primary workbench text.
+     */
+    private static final Color VS_TEXT = new Color(30, 30, 30);
+
+    /**
+     * Secondary workbench text.
+     */
+    private static final Color VS_MUTED = new Color(104, 104, 104);
+
+    /**
+     * Visual Studio action blue.
+     */
+    private static final Color VS_ACTION_BLUE = new Color(0, 83, 156);
+
+    /**
+     * Visual Studio action green.
+     */
+    private static final Color VS_ACTION_GREEN = new Color(56, 138, 52);
+
+    /**
+     * Visual Studio action red.
+     */
+    private static final Color VS_ACTION_RED = new Color(161, 38, 13);
+
+    /**
+     * Visual Studio action orange.
+     */
+    private static final Color VS_ACTION_ORANGE = new Color(194, 125, 26);
+
+    /**
+     * Visual Studio IntelliSense purple.
+     */
+    private static final Color VS_ACTION_PURPLE = new Color(101, 45, 144);
+
+    /**
+     * Accessible positive text derived from Visual Studio action green.
+     */
+    private static final Color VS_POSITIVE_TEXT = new Color(31, 105, 28);
+
+    /**
+     * Accessible warning text derived from Visual Studio action orange.
+     */
+    private static final Color VS_WARNING_TEXT = new Color(117, 74, 0);
+
+    /**
+     * Root background color — Visual Studio light chrome.
+     */
+    static final Color BG = VS_CHROME;
 
     /**
      * Fully transparent component background.
@@ -60,9 +130,9 @@ final class WorkbenchTheme {
     static final Color TRANSPARENT = new Color(255, 255, 255, 0);
 
     /**
-     * Primary panel color (VS Code editor white).
+     * Primary panel color.
      */
-    static final Color PANEL = new Color(255, 255, 255);
+    static final Color PANEL = VS_DOCUMENT;
 
     /**
      * Solid panel fallback for Swing components that must be fully opaque.
@@ -72,7 +142,7 @@ final class WorkbenchTheme {
     /**
      * Elevated panel color.
      */
-    static final Color ELEVATED = new Color(255, 255, 255);
+    static final Color ELEVATED = VS_DOCUMENT;
 
     /**
      * Solid elevated fallback for data surfaces and scroll viewports.
@@ -80,29 +150,29 @@ final class WorkbenchTheme {
     static final Color ELEVATED_SOLID = blendOver(ELEVATED, BG);
 
     /**
-     * Line color (VS Code panel border).
+     * Line color.
      */
-    static final Color LINE = new Color(229, 229, 229);
+    static final Color LINE = VS_BORDER;
 
     /**
-     * Primary text color (VS Code foreground).
+     * Primary text color.
      */
-    static final Color TEXT = new Color(59, 59, 59);
+    static final Color TEXT = VS_TEXT;
 
     /**
-     * Secondary text color — VS Code description foreground (#717171).
+     * Secondary text color.
      */
-    static final Color MUTED = new Color(113, 113, 113);
+    static final Color MUTED = VS_MUTED;
 
     /**
-     * Accent color (VS Code Light Modern focus blue).
+     * Accent color (Visual Studio action blue).
      */
-    static final Color ACCENT = new Color(0, 95, 184);
+    static final Color ACCENT = VS_ACTION_BLUE;
 
     /**
-     * Table and tree selection color (VS Code light list selection).
+     * Table and tree selection color.
      */
-    static final Color SELECTION = new Color(204, 228, 248);
+    static final Color SELECTION = new Color(214, 235, 255);
 
     /**
      * Solid selection fallback for opaque renderers.
@@ -112,117 +182,117 @@ final class WorkbenchTheme {
     /**
      * Primary button hover color.
      */
-    static final Color ACCENT_HOVER = new Color(26, 115, 199);
+    static final Color ACCENT_HOVER = new Color(0, 103, 184);
 
     /**
      * Primary button pressed color.
      */
-    static final Color ACCENT_PRESSED = new Color(0, 76, 146);
+    static final Color ACCENT_PRESSED = new Color(0, 63, 117);
 
     /**
      * Secondary button color.
      */
-    static final Color SECONDARY_BUTTON = new Color(255, 255, 255);
+    static final Color SECONDARY_BUTTON = VS_DOCUMENT;
 
     /**
      * Secondary button hover color.
      */
-    static final Color SECONDARY_BUTTON_HOVER = new Color(240, 240, 240);
+    static final Color SECONDARY_BUTTON_HOVER = VS_SUBTLE;
 
     /**
      * Secondary button pressed color.
      */
-    static final Color SECONDARY_BUTTON_PRESSED = new Color(229, 229, 229);
+    static final Color SECONDARY_BUTTON_PRESSED = VS_CHROME;
 
     /**
      * Secondary button text color.
      */
-    static final Color SECONDARY_BUTTON_TEXT = new Color(59, 59, 59);
+    static final Color SECONDARY_BUTTON_TEXT = VS_TEXT;
 
     /**
      * Disabled button fill color.
      */
-    static final Color BUTTON_DISABLED_BG = new Color(240, 240, 240);
+    static final Color BUTTON_DISABLED_BG = VS_SUBTLE;
 
     /**
      * Disabled button border color.
      */
-    static final Color BUTTON_DISABLED_BORDER = new Color(229, 229, 229);
+    static final Color BUTTON_DISABLED_BORDER = VS_BORDER;
 
     /**
      * Disabled button text color.
      */
-    static final Color BUTTON_DISABLED_TEXT = new Color(124, 124, 124);
+    static final Color BUTTON_DISABLED_TEXT = VS_MUTED;
 
     /**
-     * Input border color (VS Code input border).
+     * Input border color.
      */
-    static final Color INPUT_BORDER = new Color(206, 206, 206);
+    static final Color INPUT_BORDER = VS_BORDER;
 
     /**
-     * Input focus ring color (VS Code focus blue).
+     * Input focus ring color.
      */
-    static final Color INPUT_FOCUS = new Color(0, 95, 184);
+    static final Color INPUT_FOCUS = VS_ACTION_BLUE;
 
     /**
      * Disabled input background color.
      */
-    static final Color INPUT_DISABLED = new Color(240, 240, 240);
+    static final Color INPUT_DISABLED = VS_SUBTLE;
 
     /**
      * Toggle-off background color.
      */
-    static final Color TOGGLE_BG = new Color(240, 240, 240);
+    static final Color TOGGLE_BG = VS_SUBTLE;
 
     /**
      * Toggle-off border color.
      */
-    static final Color TOGGLE_BORDER = new Color(206, 206, 206);
+    static final Color TOGGLE_BORDER = VS_BORDER;
 
     /**
      * Toggle-off track color.
      */
-    static final Color TOGGLE_TRACK = new Color(142, 142, 142);
+    static final Color TOGGLE_TRACK = VS_MUTED;
 
     /**
      * Toggle-on background color.
      */
-    static final Color TOGGLE_ON_BG = new Color(204, 228, 248);
+    static final Color TOGGLE_ON_BG = SELECTION;
 
     /**
      * Toggle-on track color.
      */
-    static final Color TOGGLE_ON_TRACK = new Color(0, 95, 184);
+    static final Color TOGGLE_ON_TRACK = VS_ACTION_BLUE;
 
     /**
      * Toggle thumb color.
      */
-    static final Color TOGGLE_THUMB = new Color(255, 255, 255);
+    static final Color TOGGLE_THUMB = VS_DOCUMENT;
 
     /**
      * Text field background color.
      */
-    static final Color INPUT = new Color(255, 255, 255);
+    static final Color INPUT = VS_DOCUMENT;
 
     /**
      * Text area background color.
      */
-    static final Color TEXT_AREA = new Color(255, 255, 255);
+    static final Color TEXT_AREA = VS_DOCUMENT;
 
     /**
      * Terminal background color.
      */
-    static final Color TERMINAL = new Color(255, 255, 255);
+    static final Color TERMINAL = VS_DOCUMENT;
 
     /**
      * Terminal text color.
      */
-    static final Color TERMINAL_TEXT = new Color(59, 59, 59);
+    static final Color TERMINAL_TEXT = VS_TEXT;
 
     /**
-     * Selection color for text controls (VS Code editor selection blue).
+     * Selection color for text controls.
      */
-    static final Color TEXT_SELECTION = new Color(173, 214, 255, 255);
+    static final Color TEXT_SELECTION = new Color(202, 230, 255, 255);
 
     /**
      * Primary button text color.
@@ -262,7 +332,7 @@ final class WorkbenchTheme {
     /**
      * Shared inset move-highlight edge color.
      */
-    static final Color BOARD_HIGHLIGHT = new Color(47, 143, 78);
+    static final Color BOARD_HIGHLIGHT = VS_ACTION_GREEN;
 
     /**
      * Last-move highlight edge.
@@ -287,27 +357,29 @@ final class WorkbenchTheme {
     /**
      * Suggested-move arrow color.
      */
-    static final Color BOARD_ARROW = new Color(50, 104, 168);
+    static final Color BOARD_ARROW = VS_ACTION_BLUE;
 
     /**
      * Check highlight radial core.
      */
-    static final Color CHECK_CORE = new Color(231, 78, 78, 245);
+    static final Color CHECK_CORE = new Color(VS_ACTION_RED.getRed(), VS_ACTION_RED.getGreen(),
+            VS_ACTION_RED.getBlue(), 245);
 
     /**
      * Check highlight glow.
      */
-    static final Color CHECK_GLOW = new Color(186, 26, 26, 209);
+    static final Color CHECK_GLOW = new Color(124, 29, 10, 209);
 
     /**
      * Check highlight square fill.
      */
-    static final Color CHECK_FILL = new Color(214, 54, 54, 56);
+    static final Color CHECK_FILL = new Color(VS_ACTION_RED.getRed(), VS_ACTION_RED.getGreen(),
+            VS_ACTION_RED.getBlue(), 56);
 
     /**
      * Check highlight square edge.
      */
-    static final Color CHECK_EDGE = new Color(123, 18, 18, 56);
+    static final Color CHECK_EDGE = new Color(124, 29, 10, 56);
 
     /**
      * Eval-bar dark side fill.
@@ -330,19 +402,19 @@ final class WorkbenchTheme {
     static final Color EVAL_DIVIDER = new Color(128, 128, 128, 176);
 
     /**
-     * Tab strip selected accent underline (VS Code active-tab accent).
+     * Tab strip selected accent underline.
      */
-    static final Color TAB_ACCENT_UNDERLINE = new Color(0, 95, 184, 255);
+    static final Color TAB_ACCENT_UNDERLINE = new Color(ACCENT.getRed(), ACCENT.getGreen(), ACCENT.getBlue(), 255);
 
     /**
      * Tab strip rollover fill.
      */
-    static final Color TAB_HOVER = new Color(240, 240, 240, 255);
+    static final Color TAB_HOVER = new Color(VS_SUBTLE.getRed(), VS_SUBTLE.getGreen(), VS_SUBTLE.getBlue(), 255);
 
     /**
      * Tab strip resting fill.
      */
-    static final Color TAB_IDLE = new Color(243, 243, 243, 255);
+    static final Color TAB_IDLE = new Color(BG.getRed(), BG.getGreen(), BG.getBlue(), 255);
 
     /**
      * Scrollbar track fill.
@@ -350,7 +422,7 @@ final class WorkbenchTheme {
     static final Color SCROLLBAR_TRACK = new Color(0, 0, 0, 0);
 
     /**
-     * Scrollbar thumb resting fill (VS Code light slider).
+     * Scrollbar thumb resting fill.
      */
     static final Color SCROLLBAR_THUMB = new Color(100, 100, 100, 80);
 
@@ -360,93 +432,94 @@ final class WorkbenchTheme {
     static final Color SCROLLBAR_THUMB_HOVER = new Color(100, 100, 100, 130);
 
     /**
-     * Tooltip surface color (VS Code light hover widget).
+     * Tooltip surface color.
      */
-    static final Color TOOLTIP_BG = new Color(255, 255, 255);
+    static final Color TOOLTIP_BG = VS_DOCUMENT;
 
     /**
      * Tooltip text color.
      */
-    static final Color TOOLTIP_TEXT = new Color(59, 59, 59);
+    static final Color TOOLTIP_TEXT = VS_TEXT;
 
     /**
      * Tooltip border color.
      */
-    static final Color TOOLTIP_BORDER = new Color(200, 200, 200);
+    static final Color TOOLTIP_BORDER = VS_BORDER;
 
-    // Status families share a consistent pastel scale: a ~95%-light surface,
-    // a ~70%-light border, and a ~34%-light text tone for each hue, so the
-    // four states read as one coherent set rather than four ad hoc colours.
+    // Status families use pale Visual Studio action-color tints for the
+    // surface, with darker text variants where the official action color is
+    // too light for body text on white.
 
     /**
      * Success feedback surface.
      */
-    static final Color STATUS_SUCCESS_BG = new Color(233, 244, 235);
+    static final Color STATUS_SUCCESS_BG = new Color(235, 243, 235);
 
     /**
      * Success feedback border.
      */
-    static final Color STATUS_SUCCESS_BORDER = new Color(160, 198, 170);
+    static final Color STATUS_SUCCESS_BORDER = new Color(155, 201, 153);
 
     /**
      * Success feedback text.
      */
-    static final Color STATUS_SUCCESS_TEXT = new Color(42, 110, 64);
+    static final Color STATUS_SUCCESS_TEXT = VS_POSITIVE_TEXT;
 
     /**
      * Warning feedback surface.
      */
-    static final Color STATUS_WARNING_BG = new Color(250, 242, 226);
+    static final Color STATUS_WARNING_BG = new Color(248, 239, 228);
 
     /**
      * Warning feedback border.
      */
-    static final Color STATUS_WARNING_BORDER = new Color(212, 180, 120);
+    static final Color STATUS_WARNING_BORDER = VS_ACTION_ORANGE;
 
     /**
      * Warning feedback text.
      */
-    static final Color STATUS_WARNING_TEXT = new Color(124, 92, 30);
+    static final Color STATUS_WARNING_TEXT = VS_WARNING_TEXT;
 
     /**
      * Error feedback surface.
      */
-    static final Color STATUS_ERROR_BG = new Color(249, 235, 234);
+    static final Color STATUS_ERROR_BG = new Color(246, 233, 231);
 
     /**
      * Error feedback border.
      */
-    static final Color STATUS_ERROR_BORDER = new Color(212, 160, 156);
+    static final Color STATUS_ERROR_BORDER = new Color(217, 158, 146);
 
     /**
      * Error feedback text.
      */
-    static final Color STATUS_ERROR_TEXT = new Color(158, 64, 58);
+    static final Color STATUS_ERROR_TEXT = VS_ACTION_RED;
 
     /**
      * Informational feedback surface.
      */
-    static final Color STATUS_INFO_BG = new Color(232, 240, 248);
+    static final Color STATUS_INFO_BG = new Color(230, 238, 245);
 
     /**
      * Informational feedback border.
      */
-    static final Color STATUS_INFO_BORDER = new Color(158, 184, 208);
+    static final Color STATUS_INFO_BORDER = new Color(145, 181, 211);
 
     /**
      * Informational feedback text.
      */
-    static final Color STATUS_INFO_TEXT = new Color(45, 86, 124);
+    static final Color STATUS_INFO_TEXT = VS_ACTION_BLUE;
 
     /**
      * Compact logo tile fill.
      */
-    static final Color LOGO_BACKGROUND = new Color(25, 31, 38, 230);
+    static final Color LOGO_BACKGROUND = new Color(VS_ICON_DARK.getRed(), VS_ICON_DARK.getGreen(),
+            VS_ICON_DARK.getBlue(), 230);
 
     /**
      * Compact logo mark fill.
      */
-    static final Color LOGO_MARK = new Color(218, 45, 45);
+    static final Color LOGO_MARK = VS_ACTION_RED;
 
     /**
      * Toggle focus-ring color.
@@ -516,50 +589,50 @@ final class WorkbenchTheme {
     // ------------------------------------------------------------------
     // Neural-network visualization palette
     //
-    // The accent colours the NNUE / CNN / BT4 views paint activations and
+    // The accent colors the NNUE / CNN / BT4 views paint activations and
     // data-flow branches with. Kept here (rather than as private literals in
-    // WorkbenchTensorViz) so the network views speak the same colour language
+    // WorkbenchTensorViz) so the network views speak the same color language
     // as the rest of the workbench chrome.
     // ------------------------------------------------------------------
 
-    // One coherent accent family: every hue sits near 42% lightness and a
-    // calm ~50% saturation, so the five categories read as a set rather than
-    // five unrelated colours.
+    // Content keeps color only where it carries sign or category. Signed
+    // tensors use green/red, architecture/data-flow uses blue, and the policy
+    // branch uses the Visual Studio IntelliSense purple.
 
     /**
-     * Positive-activation accent (gain / "up") — coherent green.
+     * Positive-activation accent (gain / "up").
      */
-    static final Color NN_POSITIVE = new Color(51, 138, 88);
+    static final Color NN_POSITIVE = VS_POSITIVE_TEXT;
 
     /**
-     * Negative-activation accent (loss / "down") — coherent red.
+     * Negative-activation accent (loss / "down").
      */
-    static final Color NN_NEGATIVE = new Color(190, 68, 82);
+    static final Color NN_NEGATIVE = VS_ACTION_RED;
 
     /**
-     * Trunk / data-flow accent — calm slate blue.
+     * Trunk / data-flow accent.
      */
-    static final Color NN_TRUNK = new Color(76, 111, 156);
+    static final Color NN_TRUNK = VS_ACTION_BLUE;
 
     /**
-     * Policy-branch accent — coherent violet.
+     * Policy-branch accent.
      */
-    static final Color NN_POLICY = new Color(126, 84, 174);
+    static final Color NN_POLICY = VS_ACTION_PURPLE;
 
     /**
-     * Value-branch accent — coherent teal.
+     * Value-branch accent.
      */
-    static final Color NN_VALUE = new Color(31, 138, 134);
+    static final Color NN_VALUE = VS_POSITIVE_TEXT;
 
     /**
      * Neutral fill for cells carrying no signal.
      */
-    static final Color NN_NEUTRAL = new Color(236, 236, 236);
+    static final Color NN_NEUTRAL = VS_SUBTLE;
 
     /**
      * Lightest signed-heatmap fill (near zero).
      */
-    static final Color NN_HEAT_ZERO = new Color(244, 244, 244);
+    static final Color NN_HEAT_ZERO = VS_SUBTLE;
 
     /**
      * Prevents instantiation.
@@ -600,6 +673,16 @@ final class WorkbenchTheme {
     static Color withAlpha(Color color, int alpha) {
         int clamped = Math.max(0, Math.min(255, alpha));
         return new Color(color.getRed(), color.getGreen(), color.getBlue(), clamped);
+    }
+
+    /**
+     * Returns a CSS hex string for Swing HTML snippets.
+     *
+     * @param color color
+     * @return #rrggbb color string
+     */
+    static String css(Color color) {
+        return String.format("#%02x%02x%02x", color.getRed(), color.getGreen(), color.getBlue());
     }
 
     /**
