@@ -1,5 +1,4 @@
 package application.gui.workbench;
-
 import java.awt.AlphaComposite;
 import java.awt.BasicStroke;
 import java.awt.Color;
@@ -28,461 +27,191 @@ import java.util.function.BiConsumer;
 import java.util.function.IntConsumer;
 import java.util.function.Predicate;
 import java.util.function.ToIntFunction;
-
 import javax.swing.JPanel;
 import javax.swing.SwingUtilities;
 import javax.swing.Timer;
-
 import chess.core.Field;
 import chess.core.Move;
 import chess.core.MoveList;
 import chess.core.Piece;
 import chess.core.Position;
 import chess.images.assets.Shapes;
-
-/**
- * Native Java2D chess board used by the CRTK Workbench.
- */
+/** Native Java2D chess board used by the CRTK Workbench. */
 final class WorkbenchBoardPanel extends JPanel {
-
-    /**
-     * Serialization identifier for Swing panel compatibility.
-     */
+    /** Serialization identifier for Swing panel compatibility. */
     private static final long serialVersionUID = 1L;
-
-    /**
-     * Board margin in pixels.
-     */
+    /** Board margin in pixels. */
     private static final int BOARD_MARGIN = 32;
-
-    /**
-     * Minimum board size in pixels.
-     */
+    /** Minimum board size in pixels. */
     private static final int MIN_BOARD_SIZE = 64;
-
-    /**
-     * Width of the engine eval bar when one is attached.
-     */
+    /** Width of the engine eval bar when one is attached. */
     private static final int EVAL_BAR_WIDTH = 34;
-
-    /**
-     * Gap between the eval bar and the board square.
-     */
+    /** Gap between the eval bar and the board square. */
     private static final int EVAL_BAR_GAP = 10;
-
-    /**
-     * Engine evaluation bar painted flush against the board, or null when no
-     * bar is attached. Kept as a child component so it repaints inside the
-     * board's own paint pass — a sibling component overlapping the board
-     * flickered as the two repainted out of step.
-     */
+    /** Engine evaluation bar painted flush against the board, or null when no bar is attached. */
     private transient WorkbenchEvalBar evalBar;
-
-    /**
-     * Chessboard.js board border width.
-     */
+    /** Chessboard.js board border width. */
     private static final int BOARD_BORDER = 2;
-
-    /**
-     * Minimum pointer movement before a press becomes a drag.
-     */
+    /** Minimum pointer movement before a press becomes a drag. */
     private static final int DRAG_THRESHOLD = 5;
-
-    /**
-     * Piece glide duration for short board transitions.
-     */
+    /** Piece glide duration for short board transitions. */
     private static final int MOVE_ANIMATION_MS = 95;
-
-    /**
-     * Board animation timer interval.
-     */
+    /** Board animation timer interval. */
     private static final int ANIMATION_DELAY_MS = 16;
-
-    /**
-     * Offset that maps signed piece codes into the image-cache array.
-     */
+    /** Offset that maps signed piece codes into the image-cache array. */
     private static final int PIECE_CACHE_OFFSET = 6;
-
-    /**
-     * Number of slots needed for all signed piece codes and the empty square.
-     */
+    /** Number of slots needed for all signed piece codes and the empty square. */
     private static final int PIECE_CACHE_SIZE = PIECE_CACHE_OFFSET * 2 + 1;
-
-    /**
-     * Extra pixels included around drag dirty rectangles.
-     */
+    /** Extra pixels included around drag dirty rectangles. */
     private static final int DRAG_REPAINT_PADDING = 8;
-
-    /**
-     * Cached 1-pixel stroke for board hairlines.
-     */
+    /** Cached 1-pixel stroke for board hairlines. */
     private static final BasicStroke STROKE_1 = new BasicStroke(1f);
-
-    /**
-     * Cached 2-pixel stroke for selected-square edges.
-     */
+    /** Cached 2-pixel stroke for selected-square edges. */
     private static final BasicStroke STROKE_2 = new BasicStroke(2f);
-
-    /**
-     * Cached arrow body stroke.
-     */
+    /** Cached arrow body stroke. */
     private static final BasicStroke ARROW_STROKE = new BasicStroke(8f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_MITER);
-
-    /**
-     * Cached drag transparency composite.
-     */
+    /** Cached drag transparency composite. */
     private static final AlphaComposite DRAG_ALPHA = AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 1f);
-
-    /**
-     * Cached suggested-arrow color matching chessboard-arrows' 0.8 canvas opacity.
-     */
+    /** Cached suggested-arrow color matching chessboard-arrows' 0.8 canvas opacity. */
     private static final Color ARROW_FILL = WorkbenchTheme.withAlpha(WorkbenchTheme.BOARD_ARROW, 204);
-
-    /**
-     * Cached transparent variant of the check-glow used at the radial gradient edges.
-     */
+    /** Cached transparent variant of the check-glow used at the radial gradient edges. */
     private static final Color CHECK_GLOW_FADE = WorkbenchTheme.withAlpha(WorkbenchTheme.CHECK_GLOW, 0);
-
-    /**
-     * Suggested-arrow head radius matching chessboard-arrows.
-     */
+    /** Suggested-arrow head radius matching chessboard-arrows. */
     private static final int ARROW_HEAD_RADIUS = 15;
-
-    /**
-     * Suggested-arrow shorten-to-target distance.
-     */
+    /** Suggested-arrow shorten-to-target distance. */
     private static final int ARROW_SHORTEN = 15;
-
-    /**
-     * Sentinel destination for a circle annotation.
-     */
+    /** Sentinel destination for a circle annotation. */
     private static final byte MARKUP_CIRCLE = Field.NO_SQUARE;
-
-    /**
-     * Lichess/Chessground user annotation brushes.
-     */
+    /** Lichess/Chessground user annotation brushes. */
     private static final MarkupBrush[] MARKUP_BRUSHES = {
             new MarkupBrush("green", WorkbenchTheme.STATUS_SUCCESS_TEXT, 10),
             new MarkupBrush("red", WorkbenchTheme.STATUS_ERROR_TEXT, 10),
             new MarkupBrush("blue", WorkbenchTheme.ACCENT, 10),
             new MarkupBrush("yellow", WorkbenchTheme.STATUS_WARNING_TEXT, 10)
     };
-
-    /**
-     * Active-drawing opacity matching Chessground current shape rendering.
-     */
+    /** Active-drawing opacity matching Chessground current shape rendering. */
     private static final double MARKUP_CURRENT_OPACITY = 0.9;
-
-    /**
-     * Pending-erase opacity matching Chessground shape toggling feedback.
-     */
+    /** Pending-erase opacity matching Chessground shape toggling feedback. */
     private static final double MARKUP_PENDING_ERASE_OPACITY = 0.6;
-
-    /**
-     * Current position.
-     */
+    /** Current position. */
     private Position position;
-
-    /**
-     * Board orientation.
-     */
+    /** Board orientation. */
     private boolean whiteDown = true;
-
-    /**
-     * Last played move.
-     */
+    /** Last played move. */
     private short lastMove = Move.NO_MOVE;
-
-    /**
-     * Suggested move highlighted by command output.
-     */
+    /** Suggested move highlighted by command output. */
     private short suggestedMove = Move.NO_MOVE;
-
-    /**
-     * Selected square.
-     */
+    /** Selected square. */
     private byte selectedSquare = Field.NO_SQUARE;
-
-    /**
-     * Legal moves from the selected square.
-     */
+    /** Legal moves from the selected square. */
     private short[] selectedLegalMoves = new short[0];
-
-    /**
-     * Unique legal targets from the selected square.
-     */
+    /** Unique legal targets from the selected square. */
     private byte[] selectedLegalTargets = new byte[0];
-
-    /**
-     * Square currently being dragged.
-     */
+    /** Square currently being dragged. */
     private byte dragSquare = Field.NO_SQUARE;
-
-    /**
-     * Current legal drop target under the pointer.
-     */
+    /** Current legal drop target under the pointer. */
     private byte dragTargetSquare = Field.NO_SQUARE;
-
-    /**
-     * Current pointer-hovered square during a drag, regardless of legality.
-     */
+    /** Current pointer-hovered square during a drag, regardless of legality. */
     private byte dragHoverSquare = Field.NO_SQUARE;
-
-    /**
-     * Piece currently being dragged.
-     */
+    /** Piece currently being dragged. */
     private byte draggedPiece = Piece.EMPTY;
-
-    /**
-     * Pointer x coordinate at drag start.
-     */
+    /** Pointer x coordinate at drag start. */
     private int dragStartX;
-
-    /**
-     * Pointer y coordinate at drag start.
-     */
+    /** Pointer y coordinate at drag start. */
     private int dragStartY;
-
-    /**
-     * Current drag pointer x coordinate.
-     */
+    /** Current drag pointer x coordinate. */
     private int dragX;
-
-    /**
-     * Current drag pointer y coordinate.
-     */
+    /** Current drag pointer y coordinate. */
     private int dragY;
-
-    /**
-     * Whether the current press has crossed the drag threshold.
-     */
+    /** Whether the current press has crossed the drag threshold. */
     private boolean draggingPiece;
-
-    /**
-     * Piece currently gliding after a played move.
-     */
+    /** Piece currently gliding after a played move. */
     private byte animatedMovePiece = Piece.EMPTY;
-
-    /**
-     * Secondary piece gliding after a compound move such as castling.
-     */
+    /** Secondary piece gliding after a compound move such as castling. */
     private byte animatedSecondaryMovePiece = Piece.EMPTY;
-
-    /**
-     * Captured piece currently fading out.
-     */
+    /** Captured piece currently fading out. */
     private byte animatedCapturePiece = Piece.EMPTY;
-
-    /**
-     * Origin square for the gliding piece.
-     */
+    /** Origin square for the gliding piece. */
     private byte animatedMoveFrom = Field.NO_SQUARE;
-
-    /**
-     * Destination square for the gliding piece.
-     */
+    /** Destination square for the gliding piece. */
     private byte animatedMoveTo = Field.NO_SQUARE;
-
-    /**
-     * Origin square for a secondary gliding piece.
-     */
+    /** Origin square for a secondary gliding piece. */
     private byte animatedSecondaryMoveFrom = Field.NO_SQUARE;
-
-    /**
-     * Destination square for a secondary gliding piece.
-     */
+    /** Destination square for a secondary gliding piece. */
     private byte animatedSecondaryMoveTo = Field.NO_SQUARE;
-
-    /**
-     * Square where a captured piece fades out.
-     */
+    /** Square where a captured piece fades out. */
     private byte animatedCaptureSquare = Field.NO_SQUARE;
-
-    /**
-     * Move-animation start time.
-     */
+    /** Move-animation start time. */
     private long moveAnimationStartedAt;
-
-    /**
-     * Whether a move animation is currently active.
-     */
+    /** Whether a move animation is currently active. */
     private boolean moveAnimationActive;
-
-    /**
-     * Move handler.
-     */
+    /** Move handler. */
     private MoveHandler moveHandler;
-
-    /**
-     * Timer driving subtle board animations.
-     */
+    /** Timer driving subtle board animations. */
     private final Timer animationTimer;
-
-    /**
-     * Scaled piece image cache for the current board cell size.
-     */
+    /** Scaled piece image cache for the current board cell size. */
     private final BufferedImage[] pieceImageCache = new BufferedImage[PIECE_CACHE_SIZE];
-
-    /**
-     * Cell size represented by {@link #pieceImageCache}.
-     */
+    /** Cell size represented by #pieceImageCache. */
     private int pieceImageCacheCell = -1;
-
-    /**
-     * Cached board texture for the current board size.
-     */
+    /** Cached board texture for the current board size. */
     private BufferedImage boardTextureCache;
-
-    /**
-     * Board size represented by {@link #boardTextureCache}.
-     */
+    /** Board size represented by #boardTextureCache. */
     private int boardTextureCacheSize = -1;
-
-    /**
-     * Cached legal moves for the current position (lazy, invalidated on every {@link #setPosition}).
-     */
+    /** Cached legal moves for the current position (lazy, invalidated on every #setPosition). */
     private MoveList cachedLegalMoves;
-
-    /**
-     * Whether file/rank coordinates are painted on the board.
-     */
+    /** Whether file/rank coordinates are painted on the board. */
     private boolean showNotation = true;
-
-    /**
-     * Whether selected-piece legal destinations and drag targets are painted.
-     */
+    /** Whether selected-piece legal destinations and drag targets are painted. */
     private boolean showLegalMovePreview = true;
-
-    /**
-     * Whether the previous move should be highlighted.
-     */
+    /** Whether the previous move should be highlighted. */
     private boolean showLastMoveHighlight = true;
-
-    /**
-     * Whether engine suggested moves should be painted as arrows.
-     */
+    /** Whether engine suggested moves should be painted as arrows. */
     private boolean showSuggestedMoveArrow = true;
-
-    /**
-     * Whether board animations should run.
-     */
+    /** Whether board animations should run. */
     private boolean animationsEnabled = true;
-
-    /**
-     * User-supplied square highlights (overlaid on top of the board texture).
-     */
+    /** User-supplied square highlights (overlaid on top of the board texture). */
     private final Map<Byte, Color> squareHighlights = new LinkedHashMap<>();
-
-    /**
-     * User-supplied Lichess-style arrow and circle markups.
-     */
+    /** User-supplied Lichess-style arrow and circle markups. */
     private final List<BoardMarkup> boardMarkups = new ArrayList<>();
-
-    /**
-     * Active right-button drawing preview.
-     */
+    /** Active right-button drawing preview. */
     private BoardMarkup currentMarkup;
-
-    /**
-     * Origin square of the active right-button drawing gesture.
-     */
+    /** Origin square of the active right-button drawing gesture. */
     private byte markupOrigin = Field.NO_SQUARE;
-
-    /**
-     * Brush of the active right-button drawing gesture.
-     */
+    /** Brush of the active right-button drawing gesture. */
     private MarkupBrush markupBrush;
-
-    /**
-     * Optional drag-start veto. When set, a drag is allowed only if the
-     * predicate returns true. Mirrors chessboard.js {@code onDragStart}.
-     */
+    /** Optional drag-start veto. When set, a drag is allowed only if the predicate returns true. Mirrors chessboard.js onDragStart. */
     private Predicate<DragContext> dragStartFilter;
-
-    /**
-     * Optional drop callback. Receives drop context and returns the move to
-     * play, or {@code Move.NO_MOVE} for snapback. Mirrors {@code onDrop}.
-     */
+    /** Optional drop callback. Receives drop context and returns the move to play, or Move.NO_MOVE for snapback. Mirrors onDrop. */
     private ToIntFunction<DropContext> dropResolver;
-
-    /**
-     * Optional position-change observer (old FEN, new FEN).
-     */
+    /** Optional position-change observer (old FEN, new FEN). */
     private BiConsumer<String, String> changeObserver;
-
-    /**
-     * Optional snapback-completion observer.
-     */
+    /** Optional snapback-completion observer. */
     private Runnable snapbackEndObserver;
-
-    /**
-     * Optional snap-completion observer.
-     */
+    /** Optional snap-completion observer. */
     private Runnable snapEndObserver;
-
-    /**
-     * Optional mouseover-square observer.
-     */
+    /** Optional mouseover-square observer. */
     private IntConsumer mouseoverSquareObserver;
-
-    /**
-     * Last square reported to {@link #mouseoverSquareObserver}, or
-     * {@link Field#NO_SQUARE}.
-     */
+    /** Last square reported to #mouseoverSquareObserver, or Field#NO_SQUARE. */
     private byte lastMouseoverSquare = Field.NO_SQUARE;
-
-    /**
-     * Active snapback/snap animation state.
-     */
+    /** Active snapback/snap animation state. */
     private SnapAnimation snapAnimation;
-
-    /**
-     * Square whose static piece should not be painted while a snap or move
-     * animation is making the piece visually appear there. Avoids double-
-     * rendering during snaps.
-     */
+    /** Square whose static piece should not be painted while a snap or move animation is making the piece visually appear there. */
     private byte snapHiddenSquare = Field.NO_SQUARE;
-
-    /**
-     * When true, the next {@link #setPosition} call will skip starting a
-     * move animation. Set by {@link #handleRelease} when the snap animation
-     * already covers the piece's motion.
-     */
+    /** When true, the next #setPosition call will skip starting a move animation. */
     private boolean suppressNextMoveAnimation;
-
-    /**
-     * Active orientation-flip animation progress (0..1), or NaN when idle.
-     */
+    /** Active orientation-flip animation progress (0..1), or NaN when idle. */
     private double flipAnimationProgress = Double.NaN;
-
-    /**
-     * Flip animation start time.
-     */
+    /** Flip animation start time. */
     private long flipAnimationStartedAt;
-
-    /**
-     * Move-animation duration (chessboard.js {@code moveSpeed} equivalent).
-     */
+    /** Move-animation duration (chessboard.js moveSpeed equivalent). */
     private int moveAnimationMs = MOVE_ANIMATION_MS;
-
-    /**
-     * Snapback duration when an illegal drop returns to its origin.
-     */
+    /** Snapback duration when an illegal drop returns to its origin. */
     private int snapbackAnimationMs = 90;
-
-    /**
-     * Snap duration when a valid drop slides into place.
-     */
+    /** Snap duration when a valid drop slides into place. */
     private int snapAnimationMs = 55;
-
-    /**
-     * Flip animation duration.
-     */
+    /** Flip animation duration. */
     private int flipAnimationMs = 140;
-
-    /**
-     * Creates the board panel.
-     */
+    /** Creates the board panel. */
     WorkbenchBoardPanel() {
         setOpaque(true);
         setBackground(WorkbenchTheme.BG);
@@ -493,51 +222,27 @@ final class WorkbenchBoardPanel extends JPanel {
         animationTimer = new Timer(ANIMATION_DELAY_MS, event -> tickAnimation());
         animationTimer.setCoalesce(true);
         MouseAdapter mouseHandler = new MouseAdapter() {
-            /**
-             * Starts board pointer interaction from a mouse press.
-             *
-             * @param event mouse event
-             */
+            /** Starts board pointer interaction from a mouse press. */
             @Override
             public void mousePressed(MouseEvent event) {
                 handlePress(event);
             }
-
-            /**
-             * Completes a board pointer interaction.
-             *
-             * @param event mouse event
-             */
+            /** Completes a board pointer interaction. */
             @Override
             public void mouseReleased(MouseEvent event) {
                 handleRelease(event);
             }
-
-            /**
-             * Updates drag-and-drop piece movement.
-             *
-             * @param event mouse event
-             */
+            /** Updates drag-and-drop piece movement. */
             @Override
             public void mouseDragged(MouseEvent event) {
                 handleDrag(event);
             }
-
-            /**
-             * Updates the cursor for draggable pieces.
-             *
-             * @param event mouse event
-             */
+            /** Updates the cursor for draggable pieces. */
             @Override
             public void mouseMoved(MouseEvent event) {
                 updateCursor(event);
             }
-
-            /**
-             * Restores the default cursor after leaving the board.
-             *
-             * @param event mouse event
-             */
+            /** Restores the default cursor after leaving the board. */
             @Override
             public void mouseExited(MouseEvent event) {
                 setCursor(Cursor.getDefaultCursor());
@@ -554,24 +259,13 @@ final class WorkbenchBoardPanel extends JPanel {
             }
         });
     }
-
-    /**
-     * Stops the animation timer when the panel is detached so a recreated
-     * panel (theme reload, tab swap) does not leak the previous instance via
-     * the ticker's ActionListener.
-     */
+    /** Stops the animation timer when the panel is detached so a recreated panel (theme reload, tab swap) does not leak the previous instance via t... */
     @Override
     public void removeNotify() {
         animationTimer.stop();
         super.removeNotify();
     }
-
-    /**
-     * Sets the position.
-     *
-     * @param value position
-     * @param move last move
-     */
+    /** Sets the position. */
     void setPosition(Position value, short move) {
         byte[] previousBoard = position == null ? null : position.getBoard();
         position = value;
@@ -588,12 +282,7 @@ final class WorkbenchBoardPanel extends JPanel {
         }
         repaint();
     }
-
-    /**
-     * Returns lazily-cached legal moves for the current position.
-     *
-     * @return move list, or null when there is no position
-     */
+    /** Returns lazily-cached legal moves for the current position. */
     private MoveList currentLegalMoves() {
         if (position == null) {
             return null;
@@ -603,31 +292,16 @@ final class WorkbenchBoardPanel extends JPanel {
         }
         return cachedLegalMoves;
     }
-
-    /**
-     * Sets board orientation.
-     *
-     * @param value true when White is at the bottom
-     */
+    /** Sets board orientation. */
     void setWhiteDown(boolean value) {
         whiteDown = value;
         repaint();
     }
-
-    /**
-     * Returns board orientation.
-     *
-     * @return true when White is at the bottom
-     */
+    /** Returns board orientation. */
     boolean isWhiteDown() {
         return whiteDown;
     }
-
-    /**
-     * Sets a suggested move.
-     *
-     * @param move suggested move
-     */
+    /** Sets a suggested move. */
     void setSuggestedMove(short move) {
         short next = legalSuggestedMove(move) ? move : Move.NO_MOVE;
         if (next == suggestedMove) {
@@ -638,13 +312,7 @@ final class WorkbenchBoardPanel extends JPanel {
         // them here cancelled a move the moment the engine replied.
         repaint();
     }
-
-    /**
-     * Returns whether a suggested move is legal in the current board state.
-     *
-     * @param move encoded move
-     * @return true when drawable as a best-move arrow
-     */
+    /** Returns whether a suggested move is legal in the current board state. */
     private boolean legalSuggestedMove(short move) {
         if (move == Move.NO_MOVE || position == null) {
             return false;
@@ -652,24 +320,11 @@ final class WorkbenchBoardPanel extends JPanel {
         MoveList moves = currentLegalMoves();
         return moves != null && moves.contains(move);
     }
-
-    /**
-     * Returns the current FEN, or {@code null} when no position has been set.
-     * chessboard.js {@code position()} equivalent.
-     *
-     * @return current FEN
-     */
+    /** Returns the current FEN, or null when no position has been set. chessboard.js position() equivalent. */
     String position() {
         return position == null ? null : position.toString();
     }
-
-    /**
-     * Replaces the position from a FEN.
-     * chessboard.js {@code position(fen, useAnimation)} equivalent.
-     *
-     * @param fen FEN string, or {@code "start"}, or {@code "empty"}
-     * @param animate whether to animate the change
-     */
+    /** Replaces the position from a FEN. chessboard.js position(fen, useAnimation) equivalent. */
     void position(String fen, boolean animate) {
         if (fen == null || fen.equalsIgnoreCase("empty")) {
             applyPosition(null, Move.NO_MOVE, animate);
@@ -686,25 +341,15 @@ final class WorkbenchBoardPanel extends JPanel {
         }
         applyPosition(parsed, Move.NO_MOVE, animate);
     }
-
-    /**
-     * Resets to the standard start position. chessboard.js {@code start()}.
-     */
+    /** Resets to the standard start position. chessboard.js start(). */
     void start() {
         position("start", true);
     }
-
-    /**
-     * Clears the board (no pieces). chessboard.js {@code clear()}.
-     */
+    /** Clears the board (no pieces). chessboard.js clear(). */
     void clear() {
         position("empty", true);
     }
-
-    /**
-     * Toggles board orientation with a smooth flip animation.
-     * chessboard.js {@code flip()}.
-     */
+    /** Toggles board orientation with a smooth flip animation. chessboard.js flip(). */
     void flip() {
         // If a previous flip is still pending its midpoint commit, apply that
         // commit now so a rapid double-flip toggles the orientation twice
@@ -725,19 +370,9 @@ final class WorkbenchBoardPanel extends JPanel {
         startAnimation();
         repaint();
     }
-
-    /**
-     * True between the start of a flip animation and its midpoint, while the
-     * orientation should still appear as it did before {@link #flip()} was
-     * called.
-     */
+    /** True between the start of a flip animation and its midpoint, while the orientation should still appear as it did before #flip() was called. */
     private boolean flipPending;
-
-    /**
-     * Sets the orientation explicitly.
-     *
-     * @param value {@code "white"} or {@code "black"}
-     */
+    /** Sets the orientation explicitly. */
     void orientation(String value) {
         boolean nextWhiteDown = "white".equalsIgnoreCase(value);
         if (nextWhiteDown == whiteDown) {
@@ -745,22 +380,11 @@ final class WorkbenchBoardPanel extends JPanel {
         }
         flip();
     }
-
-    /**
-     * Returns the current orientation as {@code "white"} or {@code "black"}.
-     *
-     * @return orientation string
-     */
+    /** Returns the current orientation as "white" or "black". */
     String orientation() {
         return whiteDown ? "white" : "black";
     }
-
-    /**
-     * Toggles whether file/rank coordinates are painted.
-     * chessboard.js {@code showNotation}.
-     *
-     * @param show true to paint notation
-     */
+    /** Toggles whether file/rank coordinates are painted. chessboard.js showNotation. */
     void setShowNotation(boolean show) {
         if (show == showNotation) {
             return;
@@ -768,21 +392,11 @@ final class WorkbenchBoardPanel extends JPanel {
         showNotation = show;
         repaint();
     }
-
-    /**
-     * Returns whether file/rank coordinates are currently painted.
-     *
-     * @return true when painted
-     */
+    /** Returns whether file/rank coordinates are currently painted. */
     boolean isShowNotation() {
         return showNotation;
     }
-
-    /**
-     * Sets whether selected-piece legal destinations and drag targets are painted.
-     *
-     * @param show true to paint legal move previews
-     */
+    /** Sets whether selected-piece legal destinations and drag targets are painted. */
     void setShowLegalMovePreview(boolean show) {
         if (show == showLegalMovePreview) {
             return;
@@ -790,21 +404,11 @@ final class WorkbenchBoardPanel extends JPanel {
         showLegalMovePreview = show;
         repaint();
     }
-
-    /**
-     * Returns whether legal move previews are painted.
-     *
-     * @return true when legal previews are visible
-     */
+    /** Returns whether legal move previews are painted. */
     boolean isShowLegalMovePreview() {
         return showLegalMovePreview;
     }
-
-    /**
-     * Sets whether the previous move should be highlighted.
-     *
-     * @param show true to paint last-move highlights
-     */
+    /** Sets whether the previous move should be highlighted. */
     void setShowLastMoveHighlight(boolean show) {
         if (show == showLastMoveHighlight) {
             return;
@@ -812,21 +416,11 @@ final class WorkbenchBoardPanel extends JPanel {
         showLastMoveHighlight = show;
         repaint();
     }
-
-    /**
-     * Returns whether previous-move highlights are painted.
-     *
-     * @return true when last-move highlights are visible
-     */
+    /** Returns whether previous-move highlights are painted. */
     boolean isShowLastMoveHighlight() {
         return showLastMoveHighlight;
     }
-
-    /**
-     * Sets whether suggested engine moves should be painted as arrows.
-     *
-     * @param show true to paint suggested arrows
-     */
+    /** Sets whether suggested engine moves should be painted as arrows. */
     void setShowSuggestedMoveArrow(boolean show) {
         if (show == showSuggestedMoveArrow) {
             return;
@@ -834,22 +428,11 @@ final class WorkbenchBoardPanel extends JPanel {
         showSuggestedMoveArrow = show;
         repaint();
     }
-
-    /**
-     * Returns whether suggested engine arrows are painted.
-     *
-     * @return true when suggested arrows are visible
-     */
+    /** Returns whether suggested engine arrows are painted. */
     boolean isShowSuggestedMoveArrow() {
         return showSuggestedMoveArrow;
     }
-
-    /**
-     * Highlights one square with an arbitrary color.
-     *
-     * @param square square index
-     * @param color highlight color (alpha respected)
-     */
+    /** Highlights one square with an arbitrary color. */
     void highlightSquare(byte square, Color color) {
         if (!isSquareIndex(square) || color == null) {
             return;
@@ -857,22 +440,13 @@ final class WorkbenchBoardPanel extends JPanel {
         squareHighlights.put(square, color);
         repaint();
     }
-
-    /**
-     * Removes any highlight for a square.
-     *
-     * @param square square index
-     */
+    /** Removes any highlight for a square. */
     void clearSquareHighlight(byte square) {
         if (squareHighlights.remove(square) != null) {
             repaint();
         }
     }
-
-    /**
-     * Removes all square and arrow markups. chessboard.js does not have a
-     * direct equivalent; mirrors common analysis-board UX.
-     */
+    /** Removes all square and arrow markups. chessboard.js does not have a direct equivalent; mirrors common analysis-board UX. */
     void clearMarkup() {
         if (squareHighlights.isEmpty() && boardMarkups.isEmpty()) {
             return;
@@ -882,14 +456,7 @@ final class WorkbenchBoardPanel extends JPanel {
         clearMarkupGesture();
         repaint();
     }
-
-    /**
-     * Adds an arrow markup between two squares.
-     *
-     * @param from origin square
-     * @param to target square
-     * @param color stroke color
-     */
+    /** Adds an arrow markup between two squares. */
     void addArrow(byte from, byte to, Color color) {
         if (!isSquareIndex(from) || !isSquareIndex(to) || color == null) {
             return;
@@ -897,15 +464,7 @@ final class WorkbenchBoardPanel extends JPanel {
         boardMarkups.add(new BoardMarkup(from, to, new MarkupBrush("custom", color, 10)));
         repaint();
     }
-
-    /**
-     * Sets the duration of move/snapback/snap/flip animations.
-     *
-     * @param moveMs move animation duration
-     * @param snapbackMs snapback animation duration
-     * @param snapMs snap animation duration
-     * @param flipMs flip animation duration
-     */
+    /** Sets the duration of move/snapback/snap/flip animations. */
     void setAnimationSpeeds(int moveMs, int snapbackMs, int snapMs, int flipMs) {
         moveAnimationMs = Math.max(0, moveMs);
         snapbackAnimationMs = Math.max(0, snapbackMs);
@@ -919,12 +478,7 @@ final class WorkbenchBoardPanel extends JPanel {
             clearAllAnimations();
         }
     }
-
-    /**
-     * Enables or disables board animations without changing their configured speeds.
-     *
-     * @param enabled true to animate board transitions
-     */
+    /** Enables or disables board animations without changing their configured speeds. */
     void setAnimationsEnabled(boolean enabled) {
         if (enabled == animationsEnabled) {
             return;
@@ -935,78 +489,35 @@ final class WorkbenchBoardPanel extends JPanel {
         }
         repaint();
     }
-
-    /**
-     * Returns whether board animations are enabled.
-     *
-     * @return true when animations are enabled
-     */
+    /** Returns whether board animations are enabled. */
     boolean isAnimationsEnabled() {
         return animationsEnabled;
     }
-
-    /**
-     * Sets a drag-start filter; called before each drag begins.
-     *
-     * @param filter predicate; null clears the filter
-     */
+    /** Sets a drag-start filter; called before each drag begins. */
     void setDragStartFilter(Predicate<DragContext> filter) {
         dragStartFilter = filter;
     }
-
-    /**
-     * Sets a drop resolver; called when the user drops a piece.
-     *
-     * @param resolver resolver; null clears the resolver
-     */
+    /** Sets a drop resolver; called when the user drops a piece. */
     void setDropResolver(ToIntFunction<DropContext> resolver) {
         dropResolver = resolver;
     }
-
-    /**
-     * Sets an observer notified when the position changes (old, new FEN).
-     *
-     * @param observer observer; null clears it
-     */
+    /** Sets an observer notified when the position changes (old, new FEN). */
     void setChangeObserver(BiConsumer<String, String> observer) {
         changeObserver = observer;
     }
-
-    /**
-     * Sets a callback fired when a snapback animation completes.
-     *
-     * @param observer callback; null clears it
-     */
+    /** Sets a callback fired when a snapback animation completes. */
     void setSnapbackEndObserver(Runnable observer) {
         snapbackEndObserver = observer;
     }
-
-    /**
-     * Sets a callback fired when a snap animation completes.
-     *
-     * @param observer callback; null clears it
-     */
+    /** Sets a callback fired when a snap animation completes. */
     void setSnapEndObserver(Runnable observer) {
         snapEndObserver = observer;
     }
-
-    /**
-     * Sets a callback fired when the pointer enters a different square.
-     *
-     * @param observer callback receiving the square index, or
-     *        {@link Field#NO_SQUARE} on exit; null clears it
-     */
+    /** Sets a callback fired when the pointer enters a different square. Field#NO_SQUARE on exit; null clears it */
     void setMouseoverSquareObserver(IntConsumer observer) {
         mouseoverSquareObserver = observer;
     }
-
-    /**
-     * Internal {@link #setPosition} extension that fires the change observer.
-     *
-     * @param next next position
-     * @param move last move
-     * @param animate whether to animate
-     */
+    /** Internal #setPosition extension that fires the change observer. */
     private void applyPosition(Position next, short move, boolean animate) {
         String oldFen = position == null ? null : position.toString();
         if (animate) {
@@ -1026,22 +537,11 @@ final class WorkbenchBoardPanel extends JPanel {
             changeObserver.accept(oldFen, newFen);
         }
     }
-
-
-    /**
-     * Sets the move handler.
-     *
-     * @param handler move handler
-     */
+    /** Sets the move handler. */
     void setMoveHandler(MoveHandler handler) {
         moveHandler = handler;
     }
-
-    /**
-     * Paints the board shell, coordinates, highlights, pieces, and suggested move.
-     *
-     * @param graphics graphics context
-     */
+    /** Paints the board shell, coordinates, highlights, pieces, and suggested move. */
     @Override
     protected void paintComponent(Graphics graphics) {
         super.paintComponent(graphics);
@@ -1062,13 +562,7 @@ final class WorkbenchBoardPanel extends JPanel {
             g.dispose();
         }
     }
-
-    /**
-     * Draws everything clipped to the square chessboard.js board surface.
-     *
-     * @param g graphics
-     * @param board board bounds
-     */
+    /** Draws everything clipped to the square chessboard.js board surface. */
     private void drawBoardContent(Graphics2D g, Rectangle board) {
         Graphics2D copy = (Graphics2D) g.create();
         try {
@@ -1093,14 +587,7 @@ final class WorkbenchBoardPanel extends JPanel {
             copy.dispose();
         }
     }
-
-    /**
-     * Paints a soft veil over the board during the orientation flip so the
-     * change feels animated rather than instantaneous.
-     *
-     * @param g graphics
-     * @param board board bounds
-     */
+    /** Paints a soft veil over the board during the orientation flip so the change feels animated rather than instantaneous. */
     private void drawFlipOverlay(Graphics2D g, Rectangle board) {
         if (Double.isNaN(flipAnimationProgress)) {
             return;
@@ -1121,13 +608,7 @@ final class WorkbenchBoardPanel extends JPanel {
             g.setColor(savedColor);
         }
     }
-
-    /**
-     * Paints user-supplied square highlights.
-     *
-     * @param g graphics
-     * @param board board bounds
-     */
+    /** Paints user-supplied square highlights. */
     private void drawSquareHighlights(Graphics2D g, Rectangle board) {
         if (squareHighlights.isEmpty()) {
             return;
@@ -1137,13 +618,7 @@ final class WorkbenchBoardPanel extends JPanel {
             drawSquareHighlight(g, bounds, entry.getValue());
         }
     }
-
-    /**
-     * Paints Lichess-style user annotations on top of pieces.
-     *
-     * @param g graphics
-     * @param board board bounds
-     */
+    /** Paints Lichess-style user annotations on top of pieces. */
     private void drawBoardMarkups(Graphics2D g, Rectangle board) {
         if (boardMarkups.isEmpty() && currentMarkup == null) {
             return;
@@ -1157,15 +632,7 @@ final class WorkbenchBoardPanel extends JPanel {
             drawBoardMarkup(g, board, currentMarkup, MARKUP_CURRENT_OPACITY);
         }
     }
-
-    /**
-     * Paints one user annotation.
-     *
-     * @param g graphics
-     * @param board board bounds
-     * @param markup markup shape
-     * @param opacity additional opacity multiplier
-     */
+    /** Paints one user annotation. */
     private void drawBoardMarkup(Graphics2D g, Rectangle board, BoardMarkup markup, double opacity) {
         Color savedColor = g.getColor();
         try {
@@ -1179,14 +646,7 @@ final class WorkbenchBoardPanel extends JPanel {
             g.setColor(savedColor);
         }
     }
-
-    /**
-     * Paints a Lichess-style square circle.
-     *
-     * @param g graphics
-     * @param bounds square bounds
-     * @param brush annotation brush
-     */
+    /** Paints a Lichess-style square circle. */
     private static void drawMarkupCircle(Graphics2D g, Rectangle bounds, MarkupBrush brush) {
         Stroke savedStroke = g.getStroke();
         try {
@@ -1203,37 +663,18 @@ final class WorkbenchBoardPanel extends JPanel {
             g.setStroke(savedStroke);
         }
     }
-
-    /**
-     * Paints a Lichess-style user arrow.
-     *
-     * @param g graphics
-     * @param board board bounds
-     * @param markup arrow markup
-     */
+    /** Paints a Lichess-style user arrow. */
     private void drawMarkupArrow(Graphics2D g, Rectangle board, BoardMarkup markup) {
         int cell = Math.max(1, board.width / 8);
         float lineWidth = Math.max(5f, cell * markup.brush().lineWidth() / 64f);
         drawArrow(g, center(board, markup.from()), center(board, markup.to()), lineWidth, lineWidth);
     }
-
-    /**
-     * Returns the visible annotation color for one opacity multiplier.
-     *
-     * @param color base color
-     * @param opacity opacity multiplier
-     * @return derived color
-     */
+    /** Returns the visible annotation color for one opacity multiplier. */
     private static Color markupColor(Color color, double opacity) {
         int alpha = (int) Math.round(color.getAlpha() * Math.max(0.0, Math.min(1.0, opacity)));
         return WorkbenchTheme.withAlpha(color, alpha);
     }
-
-    /**
-     * Returns the mark that would be toggled off by the active drawing preview.
-     *
-     * @return index, or -1 when nothing is pending erase
-     */
+    /** Returns the mark that would be toggled off by the active drawing preview. */
     private int pendingEraseMarkupIndex() {
         if (currentMarkup == null) {
             return -1;
@@ -1246,13 +687,7 @@ final class WorkbenchBoardPanel extends JPanel {
         }
         return -1;
     }
-
-    /**
-     * Paints the snap/snapback animation ghost piece.
-     *
-     * @param g graphics
-     * @param board board bounds
-     */
+    /** Paints the snap/snapback animation ghost piece. */
     private void drawSnapAnimation(Graphics2D g, Rectangle board) {
         SnapAnimation snap = snapAnimation;
         if (snap == null) {
@@ -1265,35 +700,17 @@ final class WorkbenchBoardPanel extends JPanel {
         int y = (int) Math.round(snap.startY + (snap.endY - snap.startY) * eased);
         drawPieceAt(g, cell, x, y, snap.piece);
     }
-
-    /**
-     * Draws the chessboard.js board border.
-     *
-     * @param g graphics
-     * @param board board bounds
-     */
+    /** Draws the chessboard.js board border. */
     private void drawShell(Graphics2D g, Rectangle board) {
         g.setColor(WorkbenchTheme.BOARD_EDGE);
         g.fillRect(board.x - BOARD_BORDER, board.y - BOARD_BORDER,
                 board.width + BOARD_BORDER * 2, board.height + BOARD_BORDER * 2);
     }
-
-    /**
-     * Draws the cached chessboard.js board texture.
-     *
-     * @param g graphics
-     * @param board board bounds
-     */
+    /** Draws the cached chessboard.js board texture. */
     private void drawBoardTexture(Graphics2D g, Rectangle board) {
         g.drawImage(boardTexture(board.width), board.x, board.y, null);
     }
-
-    /**
-     * Renders board squares into a texture image.
-     *
-     * @param size board size
-     * @return board texture
-     */
+    /** Renders board squares into a texture image. */
     private static BufferedImage renderBoardTexture(int size) {
         BufferedImage image = new BufferedImage(size, size, BufferedImage.TYPE_INT_ARGB);
         Graphics2D graphics = image.createGraphics();
@@ -1310,13 +727,7 @@ final class WorkbenchBoardPanel extends JPanel {
         }
         return image;
     }
-
-    /**
-     * Returns the cached board texture for a board size.
-     *
-     * @param size board size
-     * @return board texture
-     */
+    /** Returns the cached board texture for a board size. */
     private BufferedImage boardTexture(int size) {
         if (boardTextureCache == null || boardTextureCacheSize != size) {
             boardTextureCache = renderBoardTexture(size);
@@ -1324,13 +735,7 @@ final class WorkbenchBoardPanel extends JPanel {
         }
         return boardTextureCache;
     }
-
-    /**
-     * Draws coordinates.
-     *
-     * @param g graphics
-     * @param board board bounds
-     */
+    /** Draws coordinates. */
     private void drawCoordinates(Graphics2D g, Rectangle board) {
         if (!showNotation) {
             return;
@@ -1357,13 +762,7 @@ final class WorkbenchBoardPanel extends JPanel {
                     board.y + i * cell + rankBlockPad + metrics.getAscent());
         }
     }
-
-    /**
-     * Draws last-move highlights.
-     *
-     * @param g graphics
-     * @param board board bounds
-     */
+    /** Draws last-move highlights. */
     private void drawMoveHighlights(Graphics2D g, Rectangle board) {
         // Suppress the last-move highlight only when the suggested-move arrow
         // is actually going to be drawn over the same squares — not merely
@@ -1378,14 +777,7 @@ final class WorkbenchBoardPanel extends JPanel {
         drawSquareHighlight(g, squareBounds(board, Move.getFromIndex(lastMove)), WorkbenchTheme.LAST_MOVE_EDGE);
         drawSquareHighlight(g, squareBounds(board, Move.getToIndex(lastMove)), WorkbenchTheme.LAST_MOVE_EDGE);
     }
-
-    /**
-     * Draws a chessboard.js inset square highlight.
-     *
-     * @param g graphics
-     * @param bounds square bounds
-     * @param edge edge color
-     */
+    /** Draws a chessboard.js inset square highlight. */
     private static void drawSquareHighlight(Graphics2D g, Rectangle bounds, Color edge) {
         Stroke savedStroke = g.getStroke();
         Color savedColor = g.getColor();
@@ -1401,13 +793,7 @@ final class WorkbenchBoardPanel extends JPanel {
             g.setColor(savedColor);
         }
     }
-
-    /**
-     * Draws the selected square and legal destinations.
-     *
-     * @param g graphics
-     * @param board board bounds
-     */
+    /** Draws the selected square and legal destinations. */
     private void drawSelection(Graphics2D g, Rectangle board) {
         if (position == null || selectedSquare == Field.NO_SQUARE) {
             return;
@@ -1419,13 +805,7 @@ final class WorkbenchBoardPanel extends JPanel {
             drawDropTarget(g, board);
         }
     }
-
-    /**
-     * Draws the checked-king marker.
-     *
-     * @param g graphics
-     * @param board board bounds
-     */
+    /** Draws the checked-king marker. */
     private void drawCheckHighlight(Graphics2D g, Rectangle board) {
         byte square = checkedKingSquare();
         if (square == Field.NO_SQUARE) {
@@ -1456,17 +836,9 @@ final class WorkbenchBoardPanel extends JPanel {
             g.setColor(savedColor);
         }
     }
-
-    /**
-     * Cached radial-gradient stops for the check highlight.
-     */
+    /** Cached radial-gradient stops for the check highlight. */
     private static final float[] CHECK_GRADIENT_FRACTIONS = { 0.0f, 0.24f, 0.42f, 0.74f, 1.0f };
-
-    /**
-     * Returns the checked side-to-move king square.
-     *
-     * @return king square or no square
-     */
+    /** Returns the checked side-to-move king square. */
     private byte checkedKingSquare() {
         if (position == null || !position.inCheck()) {
             return Field.NO_SQUARE;
@@ -1480,14 +852,7 @@ final class WorkbenchBoardPanel extends JPanel {
         }
         return Field.NO_SQUARE;
     }
-
-    /**
-     * Draws a chessboard.js legal move marker.
-     *
-     * @param g graphics
-     * @param bounds square bounds
-     * @param capture whether the target contains a capturable piece
-     */
+    /** Draws a chessboard.js legal move marker. */
     private static void drawLegalTarget(Graphics2D g, Rectangle bounds, boolean capture) {
         Stroke savedStroke = g.getStroke();
         Color savedColor = g.getColor();
@@ -1510,13 +875,7 @@ final class WorkbenchBoardPanel extends JPanel {
             g.setColor(savedColor);
         }
     }
-
-    /**
-     * Draws selected-piece legal destinations.
-     *
-     * @param g graphics
-     * @param board board bounds
-     */
+    /** Draws selected-piece legal destinations. */
     private void drawLegalTargets(Graphics2D g, Rectangle board) {
         for (byte target : selectedLegalTargets) {
             if (target != selectedSquare) {
@@ -1524,13 +883,7 @@ final class WorkbenchBoardPanel extends JPanel {
             }
         }
     }
-
-    /**
-     * Draws all pieces.
-     *
-     * @param g graphics
-     * @param board board bounds
-     */
+    /** Draws all pieces. */
     private void drawPieces(Graphics2D g, Rectangle board) {
         if (position == null) {
             return;
@@ -1556,43 +909,19 @@ final class WorkbenchBoardPanel extends JPanel {
             }
         }
     }
-
-    /**
-     * Draws one piece glyph.
-     *
-     * @param g graphics
-     * @param board board bounds
-     * @param cell square size
-     * @param square square
-     * @param piece piece
-     */
+    /** Draws one piece glyph. */
     private void drawPiece(Graphics2D g, Rectangle board, int cell, byte square, byte piece) {
         Rectangle bounds = squareBounds(board, square);
         drawPieceAt(g, cell, bounds.x, bounds.y, piece);
     }
-
-    /**
-     * Draws one piece glyph at a board-relative pixel position.
-     *
-     * @param g graphics
-     * @param cell square size
-     * @param x x coordinate
-     * @param y y coordinate
-     * @param piece piece
-     */
+    /** Draws one piece glyph at a board-relative pixel position. */
     private void drawPieceAt(Graphics2D g, int cell, int x, int y, byte piece) {
         BufferedImage image = pieceImage(piece, cell);
         if (image != null) {
             g.drawImage(image, x, y, null);
         }
     }
-
-    /**
-     * Draws the suggested move arrow.
-     *
-     * @param g graphics
-     * @param board board bounds
-     */
+    /** Draws the suggested move arrow. */
     private void drawSuggestedMove(Graphics2D g, Rectangle board) {
         if (!showSuggestedMoveArrow || suggestedMove == Move.NO_MOVE || !legalSuggestedMove(suggestedMove)) {
             return;
@@ -1605,13 +934,7 @@ final class WorkbenchBoardPanel extends JPanel {
             g.setColor(savedColor);
         }
     }
-
-    /**
-     * Draws the moving piece during a played-move animation.
-     *
-     * @param g graphics
-     * @param board board bounds
-     */
+    /** Draws the moving piece during a played-move animation. */
     private void drawAnimatedMove(Graphics2D g, Rectangle board) {
         if (!moveAnimationActive) {
             return;
@@ -1619,16 +942,7 @@ final class WorkbenchBoardPanel extends JPanel {
         drawAnimatedPiece(g, board, animatedMovePiece, animatedMoveFrom, animatedMoveTo);
         drawAnimatedPiece(g, board, animatedSecondaryMovePiece, animatedSecondaryMoveFrom, animatedSecondaryMoveTo);
     }
-
-    /**
-     * Draws one moving piece during a played-move animation.
-     *
-     * @param g graphics
-     * @param board board bounds
-     * @param piece piece
-     * @param from origin square
-     * @param to destination square
-     */
+    /** Draws one moving piece during a played-move animation. */
     private void drawAnimatedPiece(Graphics2D g, Rectangle board, byte piece, byte from, byte to) {
         if (piece == Piece.EMPTY || from == Field.NO_SQUARE || to == Field.NO_SQUARE) {
             return;
@@ -1641,13 +955,7 @@ final class WorkbenchBoardPanel extends JPanel {
         int y = (int) Math.round(fromBounds.y + (toBounds.y - fromBounds.y) * progress);
         drawPieceAt(g, cell, x, y, piece);
     }
-
-    /**
-     * Draws a fading captured piece during a played-move animation.
-     *
-     * @param g graphics
-     * @param board board bounds
-     */
+    /** Draws a fading captured piece during a played-move animation. */
     private void drawAnimatedCapture(Graphics2D g, Rectangle board) {
         if (!moveAnimationActive || animatedCapturePiece == Piece.EMPTY || animatedCaptureSquare == Field.NO_SQUARE) {
             return;
@@ -1663,13 +971,7 @@ final class WorkbenchBoardPanel extends JPanel {
             g.setComposite(savedComposite);
         }
     }
-
-    /**
-     * Draws the active drop target while dragging a piece.
-     *
-     * @param g graphics
-     * @param board board bounds
-     */
+    /** Draws the active drop target while dragging a piece. */
     private void drawDropTarget(Graphics2D g, Rectangle board) {
         if (!draggingPiece) {
             return;
@@ -1679,13 +981,7 @@ final class WorkbenchBoardPanel extends JPanel {
             drawLegalTarget(g, bounds, isCaptureTarget(dragTargetSquare));
         }
     }
-
-    /**
-     * Draws the dragged piece at the current pointer position.
-     *
-     * @param g graphics
-     * @param board board bounds
-     */
+    /** Draws the dragged piece at the current pointer position. */
     private void drawDraggedPiece(Graphics2D g, Rectangle board) {
         if (!draggingPiece || draggedPiece == Piece.EMPTY) {
             return;
@@ -1695,7 +991,6 @@ final class WorkbenchBoardPanel extends JPanel {
         int offset = (scaledCell - cell) / 2;
         int pieceX = dragX - cell / 2 - offset;
         int pieceY = dragY - cell / 2 - offset;
-
         java.awt.Composite savedComposite = g.getComposite();
         Color savedColor = g.getColor();
         try {
@@ -1707,36 +1002,15 @@ final class WorkbenchBoardPanel extends JPanel {
             g.setColor(savedColor);
         }
     }
-
-    /**
-     * Scale factor applied to a piece while it is being dragged so it lifts
-     * visibly over the board.
-     */
+    /** Scale factor applied to a piece while it is being dragged so it lifts visibly over the board. */
     private static final double DRAG_SCALE = 1.0;
-
-    /**
-     * Cached scaled bitmap for the currently dragged piece; one entry only,
-     * keyed by piece + cell, so dragging does not invalidate the main cache.
-     */
+    /** Cached scaled bitmap for the currently dragged piece; one entry only, keyed by piece + cell, so dragging does not invalidate the main cache. */
     private byte dragImageCachedPiece = Piece.EMPTY;
-
-    /**
-     * Cell size for {@link #dragImageCache}.
-     */
+    /** Cell size for #dragImageCache. */
     private int dragImageCachedCell = -1;
-
-    /**
-     * Cached scaled drag bitmap.
-     */
+    /** Cached scaled drag bitmap. */
     private BufferedImage dragImageCache;
-
-    /**
-     * Returns a scaled drag-piece bitmap from a tiny dedicated cache.
-     *
-     * @param piece dragged piece
-     * @param cell scaled cell size
-     * @return rendered bitmap
-     */
+    /** Returns a scaled drag-piece bitmap from a tiny dedicated cache. */
     private BufferedImage scaledDragImage(byte piece, int cell) {
         if (dragImageCache == null || dragImageCachedPiece != piece || dragImageCachedCell != cell) {
             dragImageCache = renderPieceImage(piece, cell);
@@ -1745,12 +1019,7 @@ final class WorkbenchBoardPanel extends JPanel {
         }
         return dragImageCache;
     }
-
-    /**
-     * Handles one mouse press.
-     *
-     * @param event mouse event
-     */
+    /** Handles one mouse press. */
     private void handlePress(MouseEvent event) {
         if (SwingUtilities.isRightMouseButton(event)) {
             handleMarkupPress(event);
@@ -1805,12 +1074,7 @@ final class WorkbenchBoardPanel extends JPanel {
         }
         repaint();
     }
-
-    /**
-     * Starts a Lichess-style right-button annotation gesture.
-     *
-     * @param event mouse event
-     */
+    /** Starts a Lichess-style right-button annotation gesture. */
     private void handleMarkupPress(MouseEvent event) {
         byte square = squareAt(event.getX(), event.getY());
         if (square == Field.NO_SQUARE) {
@@ -1825,23 +1089,13 @@ final class WorkbenchBoardPanel extends JPanel {
         currentMarkup = markupFromPointer(event.getX(), event.getY());
         repaint();
     }
-
-    /**
-     * Updates the active annotation preview.
-     *
-     * @param event mouse event
-     */
+    /** Updates the active annotation preview. */
     private void handleMarkupDrag(MouseEvent event) {
         event.consume();
         currentMarkup = markupFromPointer(event.getX(), event.getY());
         repaint();
     }
-
-    /**
-     * Commits or toggles the active annotation.
-     *
-     * @param event mouse event
-     */
+    /** Commits or toggles the active annotation. */
     private void handleMarkupRelease(MouseEvent event) {
         event.consume();
         BoardMarkup finished = markupFromPointer(event.getX(), event.getY());
@@ -1851,14 +1105,7 @@ final class WorkbenchBoardPanel extends JPanel {
         }
         repaint();
     }
-
-    /**
-     * Returns the annotation shape described by the active gesture and pointer.
-     *
-     * @param pointerX pointer x
-     * @param pointerY pointer y
-     * @return markup shape, or null when the pointer is off-board
-     */
+    /** Returns the annotation shape described by the active gesture and pointer. */
     private BoardMarkup markupFromPointer(int pointerX, int pointerY) {
         byte target = squareAt(pointerX, pointerY);
         if (target == Field.NO_SQUARE || markupBrush == null || markupOrigin == Field.NO_SQUARE) {
@@ -1866,34 +1113,19 @@ final class WorkbenchBoardPanel extends JPanel {
         }
         return new BoardMarkup(markupOrigin, target == markupOrigin ? MARKUP_CIRCLE : target, markupBrush);
     }
-
-    /**
-     * Clears the active right-button drawing gesture.
-     */
+    /** Clears the active right-button drawing gesture. */
     private void clearMarkupGesture() {
         currentMarkup = null;
         markupOrigin = Field.NO_SQUARE;
         markupBrush = null;
     }
-
-    /**
-     * Returns the Lichess/Chessground brush for a mouse event modifier set.
-     *
-     * @param event mouse event
-     * @return brush
-     */
+    /** Returns the Lichess/Chessground brush for a mouse event modifier set. */
     private static MarkupBrush markupBrush(MouseEvent event) {
         boolean modA = event.isShiftDown() || event.isControlDown();
         boolean modB = event.isAltDown() || event.isMetaDown() || event.isAltGraphDown();
         return MARKUP_BRUSHES[(modA ? 1 : 0) + (modB ? 2 : 0)];
     }
-
-    /**
-     * Toggles one annotation using Chessground's same-endpoints behavior:
-     * same color deletes, different color replaces.
-     *
-     * @param markup shape to toggle
-     */
+    /** Toggles one annotation using Chessground's same-endpoints behavior: same color deletes, different color replaces. */
     private void toggleMarkup(BoardMarkup markup) {
         boolean foundSameEndpoints = false;
         boolean foundSameBrush = false;
@@ -1909,36 +1141,15 @@ final class WorkbenchBoardPanel extends JPanel {
             boardMarkups.add(markup);
         }
     }
-
-    /**
-     * Returns whether two annotations share the same shape endpoints.
-     *
-     * @param first first shape
-     * @param second second shape
-     * @return true when endpoints match
-     */
+    /** Returns whether two annotations share the same shape endpoints. */
     private static boolean sameMarkupEndpoints(BoardMarkup first, BoardMarkup second) {
         return first.from() == second.from() && first.to() == second.to();
     }
-
-    /**
-     * Returns whether two annotations use the same brush color.
-     *
-     * @param first first shape
-     * @param second second shape
-     * @return true when brush colors match
-     */
+    /** Returns whether two annotations use the same brush color. */
     private static boolean sameMarkupBrush(BoardMarkup first, BoardMarkup second) {
         return first.brush().color().getRGB() == second.brush().color().getRGB();
     }
-
-    /**
-     * Returns the subset of legal moves that target a square.
-     *
-     * @param moves legal moves originating at one square
-     * @param to target square
-     * @return matching moves
-     */
+    /** Returns the subset of legal moves that target a square. */
     private static short[] matchingMovesTo(short[] moves, byte to) {
         int count = 0;
         short[] buffer = new short[moves.length];
@@ -1949,15 +1160,7 @@ final class WorkbenchBoardPanel extends JPanel {
         }
         return Arrays.copyOf(buffer, count);
     }
-
-    /**
-     * Plays the unique candidate, or shows a promotion picker when multiple
-     * promotion options are legal so the user can choose under-promotion.
-     *
-     * @param candidates candidate moves sharing the same (from, to)
-     * @param popupX picker x coordinate
-     * @param popupY picker y coordinate
-     */
+    /** Plays the unique candidate, or shows a promotion picker when multiple promotion options are legal so the user can choose under-promotion. */
     private void playOrPromote(short[] candidates, int popupX, int popupY) {
         boolean anyPromotion = false;
         for (short m : candidates) {
@@ -1969,64 +1172,34 @@ final class WorkbenchBoardPanel extends JPanel {
         }
         showPromotionOverlay(candidates);
     }
-
-    /**
-     * Active promotion picker overlay; null when no picker is visible.
-     */
+    /** Active promotion picker overlay; null when no picker is visible. */
     private PromotionOverlay promotionOverlay;
-
-    /**
-     * Shows the in-board promotion picker for the supplied candidates.
-     * Pieces are stacked vertically on the destination file in the order
-     * Queen, Rook, Bishop, Knight to match chess.com's layout.
-     *
-     * @param candidates promotion candidates (all share the same to-square)
-     */
+    /** Shows the in-board promotion picker for the supplied candidates. */
     private void showPromotionOverlay(short[] candidates) {
         cancelPromotionOverlay();
         byte target = Move.getToIndex(candidates[0]);
         promotionOverlay = new PromotionOverlay(target, candidates);
         repaint();
     }
-
-    /**
-     * Cancels any visible promotion overlay.
-     */
+    /** Cancels any visible promotion overlay. */
     private void cancelPromotionOverlay() {
         if (promotionOverlay != null) {
             promotionOverlay = null;
             repaint();
         }
     }
-
-    /**
-     * Promotion overlay state.
-     */
+    /** Promotion overlay state. */
     private final class PromotionOverlay {
-
         /** Target square (rank-1 for white, rank-8 for black). */
         private final byte target;
-
         /** Candidate moves in canonical order (queen, rook, bishop, knight). */
         private final short[] sorted;
-
-        /**
-         * Creates a promotion overlay.
-         *
-         * @param target target square
-         * @param candidates legal promotion move candidates
-         */
+        /** Creates a promotion overlay. */
         PromotionOverlay(byte target, short[] candidates) {
             this.target = target;
             this.sorted = sortPromotions(candidates);
         }
-
-        /**
-         * Sorts candidates as Queen, Rook, Bishop, Knight.
-         *
-         * @param in legal promotion candidates
-         * @return candidates in display order
-         */
+        /** Sorts candidates as Queen, Rook, Bishop, Knight. */
         private static short[] sortPromotions(short[] in) {
             short queen = Move.NO_MOVE;
             short rook = Move.NO_MOVE;
@@ -2049,15 +1222,7 @@ final class WorkbenchBoardPanel extends JPanel {
             if (knight != Move.NO_MOVE) out[n++] = knight;
             return Arrays.copyOf(out, n);
         }
-
-        /**
-         * Returns the bounds for one option index, stacked vertically toward
-         * the visual center of the board so the overlay does not run off-edge.
-         *
-         * @param optionIndex option index
-         * @param board board bounds
-         * @return option bounds
-         */
+        /** Returns the bounds for one option index, stacked vertically toward the visual center of the board so the overlay does not run off-edge. */
         Rectangle optionBounds(int optionIndex, Rectangle board) {
             Rectangle squareRect = squareBounds(board, target);
             int cell = squareRect.width;
@@ -2080,16 +1245,7 @@ final class WorkbenchBoardPanel extends JPanel {
             int y = squareRect.y + cell * direction * optionIndex + shift;
             return new Rectangle(x, y, cell, cell);
         }
-
-        /**
-         * Resolves a click coordinate to the chosen move, or
-         * {@link Move#NO_MOVE} if the click missed the overlay.
-         *
-         * @param clickX click x
-         * @param clickY click y
-         * @param board board bounds
-         * @return chosen move or NO_MOVE
-         */
+        /** Resolves a click coordinate to the chosen move, or Move#NO_MOVE if the click missed the overlay. */
         short hitTest(int clickX, int clickY, Rectangle board) {
             for (int i = 0; i < sorted.length; i++) {
                 if (optionBounds(i, board).contains(clickX, clickY)) {
@@ -2098,13 +1254,7 @@ final class WorkbenchBoardPanel extends JPanel {
             }
             return Move.NO_MOVE;
         }
-
-        /**
-         * Paints the overlay.
-         *
-         * @param g graphics
-         * @param board board bounds
-         */
+        /** Paints the overlay. */
         void paint(Graphics2D g, Rectangle board) {
             // Dim the rest of the board so the picker chips are unambiguous.
             Color savedScrimColor = g.getColor();
@@ -2133,14 +1283,7 @@ final class WorkbenchBoardPanel extends JPanel {
                 }
             }
         }
-
-        /**
-         * Maps the encoded promotion code to the actual side-to-move piece
-         * (positive = white, negative = black).
-         *
-         * @param code 1..4
-         * @return signed piece code
-         */
+        /** Maps the encoded promotion code to the actual side-to-move piece (positive = white, negative = black). */
         private byte pieceForPromotion(int code) {
             int sign = position != null && position.isWhiteToMove() ? 1 : -1;
             return (byte) (sign * switch (code) {
@@ -2152,12 +1295,7 @@ final class WorkbenchBoardPanel extends JPanel {
             });
         }
     }
-
-    /**
-     * Handles pointer movement during a piece drag.
-     *
-     * @param event mouse event
-     */
+    /** Handles pointer movement during a piece drag. */
     private void handleDrag(MouseEvent event) {
         if (markupOrigin != Field.NO_SQUARE) {
             handleMarkupDrag(event);
@@ -2190,12 +1328,7 @@ final class WorkbenchBoardPanel extends JPanel {
                     dragRepaintBounds(board, dragTargetSquare, dragHoverSquare, dragX, dragY, draggingPiece)));
         }
     }
-
-    /**
-     * Handles pointer release after a possible drag.
-     *
-     * @param event mouse event
-     */
+    /** Handles pointer release after a possible drag. */
     private void handleRelease(MouseEvent event) {
         if (markupOrigin != Field.NO_SQUARE) {
             handleMarkupRelease(event);
@@ -2217,18 +1350,15 @@ final class WorkbenchBoardPanel extends JPanel {
         byte target = squareAt(releaseX, releaseY);
         short[] candidates = target == Field.NO_SQUARE ? new short[0] : matchingMovesTo(legalMovesFrom(from), target);
         short defaultMove = candidates.length > 0 ? candidates[0] : Move.NO_MOVE;
-
         short resolved = defaultMove;
         if (dropResolver != null) {
             int response = dropResolver.applyAsInt(
                     new DropContext(from, target, piece, position == null ? null : position.toString(), defaultMove));
             resolved = (short) response;
         }
-
         clearDragState();
         clearSelection();
         setCursor(Cursor.getDefaultCursor());
-
         if (resolved != Move.NO_MOVE && candidates.length > 0) {
             startSnapAnimation(piece, releaseX, releaseY, target, false);
             // The snap animation IS the move animation visually; suppress the
@@ -2247,13 +1377,7 @@ final class WorkbenchBoardPanel extends JPanel {
         }
         repaint();
     }
-
-    /**
-     * Returns true if the candidate set contains more than one promotion choice.
-     *
-     * @param candidates candidate moves
-     * @return true when a promotion picker is needed
-     */
+    /** Returns true if the candidate set contains more than one promotion choice. */
     private static boolean hasPromotionAlternatives(short[] candidates) {
         if (candidates.length <= 1) {
             return false;
@@ -2264,16 +1388,7 @@ final class WorkbenchBoardPanel extends JPanel {
         }
         return anyPromotion;
     }
-
-    /**
-     * Begins a snap or snapback animation for the dragged piece.
-     *
-     * @param piece dragged piece
-     * @param fromX pointer x at release
-     * @param fromY pointer y at release
-     * @param landingSquare destination square (origin square for snapback)
-     * @param snapback true for snapback (illegal drop)
-     */
+    /** Begins a snap or snapback animation for the dragged piece. */
     private void startSnapAnimation(byte piece, int fromX, int fromY, byte landingSquare, boolean snapback) {
         if (!isSquareIndex(landingSquare)) {
             return;
@@ -2292,26 +1407,14 @@ final class WorkbenchBoardPanel extends JPanel {
         snapHiddenSquare = landingSquare;
         startAnimation();
     }
-
-    /**
-     * Returns the drop target only when it is legal for the current drag origin.
-     *
-     * @param square candidate square
-     * @return legal square or no square
-     */
+    /** Returns the drop target only when it is legal for the current drag origin. */
     private byte legalDropTarget(byte square) {
         if (square == Field.NO_SQUARE || dragSquare == Field.NO_SQUARE) {
             return Field.NO_SQUARE;
         }
         return findLegalMove(dragSquare, square) == Move.NO_MOVE ? Field.NO_SQUARE : square;
     }
-
-    /**
-     * Returns whether a target square contains an opponent piece.
-     *
-     * @param square target square
-     * @return true when a legal marker should be a capture ring
-     */
+    /** Returns whether a target square contains an opponent piece. */
     private boolean isCaptureTarget(byte square) {
         if (position == null || !isSquareIndex(square)) {
             return false;
@@ -2319,10 +1422,7 @@ final class WorkbenchBoardPanel extends JPanel {
         byte piece = position.getBoard()[square];
         return piece != Piece.EMPTY && Piece.isWhite(piece) != position.isWhiteToMove();
     }
-
-    /**
-     * Clears drag-only state.
-     */
+    /** Clears drag-only state. */
     private void clearDragState() {
         dragSquare = Field.NO_SQUARE;
         dragTargetSquare = Field.NO_SQUARE;
@@ -2330,31 +1430,18 @@ final class WorkbenchBoardPanel extends JPanel {
         draggedPiece = Piece.EMPTY;
         draggingPiece = false;
     }
-
-    /**
-     * Clears selected-square move caches.
-     */
+    /** Clears selected-square move caches. */
     private void clearSelection() {
         selectedSquare = Field.NO_SQUARE;
         selectedLegalMoves = new short[0];
         selectedLegalTargets = new byte[0];
     }
-
-    /**
-     * Selects one square and caches its legal moves.
-     *
-     * @param square selected square
-     */
+    /** Selects one square and caches its legal moves. */
     private void selectSquare(byte square) {
         selectedSquare = square;
         refreshSelectedLegalMoves();
     }
-
-    /**
-     * Updates the cursor based on the square below the pointer.
-     *
-     * @param event mouse event
-     */
+    /** Updates the cursor based on the square below the pointer. */
     private void updateCursor(MouseEvent event) {
         if (position == null) {
             setCursor(Cursor.getDefaultCursor());
@@ -2367,12 +1454,7 @@ final class WorkbenchBoardPanel extends JPanel {
         setCursor(draggable ? Cursor.getPredefinedCursor(Cursor.HAND_CURSOR) : Cursor.getDefaultCursor());
         notifyMouseover(square);
     }
-
-    /**
-     * Notifies the mouseover observer when the pointer enters a new square.
-     *
-     * @param square hovered square
-     */
+    /** Notifies the mouseover observer when the pointer enters a new square. */
     private void notifyMouseover(byte square) {
         if (mouseoverSquareObserver == null) {
             return;
@@ -2383,28 +1465,14 @@ final class WorkbenchBoardPanel extends JPanel {
         lastMouseoverSquare = square;
         mouseoverSquareObserver.accept(square);
     }
-
-    /**
-     * Finds a legal move between two squares.
-     *
-     * @param from origin square
-     * @param to target square
-     * @return legal move or {@link Move#NO_MOVE}
-     */
+    /** Finds a legal move between two squares. */
     private short findLegalMove(byte from, byte to) {
         if (selectedSquare == from) {
             return findLegalMove(selectedLegalMoves, to);
         }
         return findLegalMove(legalMovesFrom(from), to);
     }
-
-    /**
-     * Finds a legal move to one target in a cached move array.
-     *
-     * @param moves legal moves from one origin
-     * @param to target square
-     * @return legal move or {@link Move#NO_MOVE}
-     */
+    /** Finds a legal move to one target in a cached move array. */
     private static short findLegalMove(short[] moves, byte to) {
         short first = Move.NO_MOVE;
         for (short move : moves) {
@@ -2419,13 +1487,7 @@ final class WorkbenchBoardPanel extends JPanel {
         }
         return first;
     }
-
-    /**
-     * Returns legal moves from one square.
-     *
-     * @param from origin square
-     * @return compact move array
-     */
+    /** Returns legal moves from one square. */
     private short[] legalMovesFrom(byte from) {
         MoveList moves = currentLegalMoves();
         if (moves == null) {
@@ -2441,10 +1503,7 @@ final class WorkbenchBoardPanel extends JPanel {
         }
         return Arrays.copyOf(buffer, count);
     }
-
-    /**
-     * Refreshes selected-square legal move and target caches.
-     */
+    /** Refreshes selected-square legal move and target caches. */
     private void refreshSelectedLegalMoves() {
         if (position == null || selectedSquare == Field.NO_SQUARE) {
             clearSelection();
@@ -2472,15 +1531,7 @@ final class WorkbenchBoardPanel extends JPanel {
         selectedLegalMoves = Arrays.copyOf(moveBuffer, moveCount);
         selectedLegalTargets = Arrays.copyOf(targetBuffer, targetCount);
     }
-
-    /**
-     * Returns whether a target is already present in a compact target buffer.
-     *
-     * @param targets target buffer
-     * @param count populated target count
-     * @param target target square
-     * @return true when present
-     */
+    /** Returns whether a target is already present in a compact target buffer. */
     private static boolean containsTarget(byte[] targets, int count, byte target) {
         for (int i = 0; i < count; i++) {
             if (targets[i] == target) {
@@ -2489,12 +1540,7 @@ final class WorkbenchBoardPanel extends JPanel {
         }
         return false;
     }
-
-    /**
-     * Returns board bounds.
-     *
-     * @return board rectangle
-     */
+    /** Returns board bounds. */
     private Rectangle boardBounds() {
         // Reserve a left strip for the eval bar so the board square never
         // slides underneath it.
@@ -2505,13 +1551,7 @@ final class WorkbenchBoardPanel extends JPanel {
         int x = leftReserve + (availWidth - size) / 2;
         return new Rectangle(x, (getHeight() - size) / 2, size, size);
     }
-
-    /**
-     * Attaches an engine eval bar as a child component, painted flush against
-     * the left edge of the board square and matched to its height.
-     *
-     * @param bar the eval bar, or null to detach
-     */
+    /** Attaches an engine eval bar as a child component, painted flush against the left edge of the board square and matched to its height. */
     void setEvalBar(WorkbenchEvalBar bar) {
         if (evalBar != null) {
             remove(evalBar);
@@ -2524,10 +1564,7 @@ final class WorkbenchBoardPanel extends JPanel {
         revalidate();
         repaint();
     }
-
-    /**
-     * Positions the attached eval bar flush against the board square.
-     */
+    /** Positions the attached eval bar flush against the board square. */
     @Override
     public void doLayout() {
         super.doLayout();
@@ -2537,25 +1574,11 @@ final class WorkbenchBoardPanel extends JPanel {
             evalBar.setBounds(barX, square.y, EVAL_BAR_WIDTH, square.height);
         }
     }
-
-    /**
-     * Returns the rendered chessboard square in this panel's own coordinate
-     * space — used by the board stage to align the engine eval bar flush with
-     * the board edge and matched to its height.
-     *
-     * @return rendered board square rectangle
-     */
+    /** Returns the rendered chessboard square in this panel's own coordinate space — used by the board stage to align the engine eval bar flush wit... */
     Rectangle currentBoardBounds() {
         return boardBounds();
     }
-
-    /**
-     * Returns square bounds.
-     *
-     * @param board board bounds
-     * @param square square
-     * @return square bounds
-     */
+    /** Returns square bounds. */
     private Rectangle squareBounds(Rectangle board, byte square) {
         int cell = board.width / 8;
         int file = Field.getX(square);
@@ -2564,14 +1587,7 @@ final class WorkbenchBoardPanel extends JPanel {
         int row = whiteDown ? rankRow : 7 - rankRow;
         return new Rectangle(board.x + col * cell, board.y + row * cell, cell, cell);
     }
-
-    /**
-     * Returns a scaled cached image for one chess piece.
-     *
-     * @param piece piece code
-     * @param cell board cell size
-     * @return cached image or null for empty/unknown pieces
-     */
+    /** Returns a scaled cached image for one chess piece. */
     private BufferedImage pieceImage(byte piece, int cell) {
         int index = pieceCacheIndex(piece);
         if (cell <= 0 || index < 0) {
@@ -2587,24 +1603,12 @@ final class WorkbenchBoardPanel extends JPanel {
         }
         return cached;
     }
-
-    /**
-     * Clears scaled piece images for a new board cell size.
-     *
-     * @param cell new cell size
-     */
+    /** Clears scaled piece images for a new board cell size. */
     private void clearPieceImageCache(int cell) {
         Arrays.fill(pieceImageCache, null);
         pieceImageCacheCell = cell;
     }
-
-    /**
-     * Renders one embedded SVG piece into an exact-size bitmap.
-     *
-     * @param piece piece code
-     * @param cell output image size
-     * @return rendered image
-     */
+    /** Renders one embedded SVG piece into an exact-size bitmap. */
     private static BufferedImage renderPieceImage(byte piece, int cell) {
         BufferedImage image = new BufferedImage(cell, cell, BufferedImage.TYPE_INT_ARGB);
         Graphics2D graphics = image.createGraphics();
@@ -2617,46 +1621,20 @@ final class WorkbenchBoardPanel extends JPanel {
         }
         return image;
     }
-
-    /**
-     * Maps a signed piece code to an image-cache index.
-     *
-     * @param piece piece code
-     * @return cache index or -1 when not cacheable
-     */
+    /** Maps a signed piece code to an image-cache index. */
     private static int pieceCacheIndex(byte piece) {
         if (piece == Piece.EMPTY || piece < -PIECE_CACHE_OFFSET || piece > PIECE_CACHE_OFFSET) {
             return -1;
         }
         return piece + PIECE_CACHE_OFFSET;
     }
-
-    /**
-     * Returns whether a pointer movement has crossed the drag threshold.
-     *
-     * @param startX drag start x coordinate
-     * @param startY drag start y coordinate
-     * @param currentX current x coordinate
-     * @param currentY current y coordinate
-     * @return true when the drag threshold has been crossed
-     */
+    /** Returns whether a pointer movement has crossed the drag threshold. */
     private static boolean isDragPastThreshold(int startX, int startY, int currentX, int currentY) {
         long dx = (long) currentX - startX;
         long dy = (long) currentY - startY;
         return dx * dx + dy * dy >= (long) DRAG_THRESHOLD * DRAG_THRESHOLD;
     }
-
-    /**
-     * Returns the dirty area needed to repaint one drag frame.
-     *
-     * @param board board bounds
-     * @param targetSquare highlighted drop target
-     * @param hoverSquare hovered square
-     * @param pointerX pointer x coordinate
-     * @param pointerY pointer y coordinate
-     * @param includeDraggedPiece whether to include the floating piece bounds
-     * @return dirty rectangle or null
-     */
+    /** Returns the dirty area needed to repaint one drag frame. */
     private Rectangle dragRepaintBounds(
             Rectangle board,
             byte targetSquare,
@@ -2685,37 +1663,18 @@ final class WorkbenchBoardPanel extends JPanel {
         }
         return dirty;
     }
-
-    /**
-     * Repaints one dirty rectangle.
-     *
-     * @param dirty dirty rectangle
-     */
+    /** Repaints one dirty rectangle. */
     private void repaintDirty(Rectangle dirty) {
         if (dirty != null) {
             repaint(dirty.x, dirty.y, dirty.width, dirty.height);
         }
     }
-
-    /**
-     * Returns a rectangle expanded by a fixed padding.
-     *
-     * @param bounds source bounds
-     * @param padding padding in pixels
-     * @return expanded rectangle
-     */
+    /** Returns a rectangle expanded by a fixed padding. */
     private static Rectangle expanded(Rectangle bounds, int padding) {
         return new Rectangle(bounds.x - padding, bounds.y - padding,
                 bounds.width + padding * 2, bounds.height + padding * 2);
     }
-
-    /**
-     * Returns the union of two optional rectangles.
-     *
-     * @param first first rectangle
-     * @param second second rectangle
-     * @return union rectangle or null
-     */
+    /** Returns the union of two optional rectangles. */
     private static Rectangle union(Rectangle first, Rectangle second) {
         if (first == null) {
             return second == null ? null : new Rectangle(second);
@@ -2725,58 +1684,23 @@ final class WorkbenchBoardPanel extends JPanel {
         }
         return first.union(second);
     }
-
-    /**
-     * Returns the chessboard.js square color for a board cell.
-     *
-     * @param row visual row
-     * @param col visual column
-     * @return square color
-     */
+    /** Returns the chessboard.js square color for a board cell. */
     private static Color squareColor(int row, int col) {
         return isLightCell(row, col) ? WorkbenchTheme.BOARD_LIGHT : WorkbenchTheme.BOARD_DARK;
     }
-
-    /**
-     * Returns whether a visual board cell is light.
-     *
-     * @param row visual row
-     * @param col visual column
-     * @return true for light cells
-     */
+    /** Returns whether a visual board cell is light. */
     private static boolean isLightCell(int row, int col) {
         return ((row + col) & 1) == 0;
     }
-
-    /**
-     * Returns the chessboard.js coordinate color for a board square.
-     *
-     * @param file file index from zero
-     * @param rank rank number from one
-     * @return notation color
-     */
+    /** Returns the chessboard.js coordinate color for a board square. */
     private static Color notationColor(int file, int rank) {
         return isLightSquare(file, rank) ? WorkbenchTheme.COORD_ON_LIGHT : WorkbenchTheme.COORD_ON_DARK;
     }
-
-    /**
-     * Returns whether a real board square is light.
-     *
-     * @param file file index from zero
-     * @param rank rank number from one
-     * @return true for light squares
-     */
+    /** Returns whether a real board square is light. */
     private static boolean isLightSquare(int file, int rank) {
         return ((file + rank) & 1) == 0;
     }
-
-    /**
-     * Returns the square at screen coordinates.
-     *
-     * @param x x coordinate
-     * @param y y coordinate
-     * @return square or no square
-     */
+    /** Returns the square at screen coordinates. */
     private byte squareAt(int x, int y) {
         Rectangle board = boardBounds();
         if (!board.contains(x, y)) {
@@ -2789,39 +1713,16 @@ final class WorkbenchBoardPanel extends JPanel {
         int rankRow = whiteDown ? row : 7 - row;
         return (byte) (rankRow * 8 + file);
     }
-
-    /**
-     * Returns square center.
-     *
-     * @param board board bounds
-     * @param square square
-     * @return point
-     */
+    /** Returns square center. */
     private Point center(Rectangle board, byte square) {
         Rectangle bounds = squareBounds(board, square);
         return new Point(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
     }
-
-    /**
-     * Draws an arrow between two points.
-     *
-     * @param g graphics
-     * @param from origin
-     * @param to target
-     */
+    /** Draws an arrow between two points. */
     private void drawArrow(Graphics2D g, Point from, Point to) {
         drawArrow(g, from, to, ARROW_STROKE.getLineWidth(), ARROW_SHORTEN);
     }
-
-    /**
-     * Draws an arrow from square center to square center.
-     *
-     * @param g graphics
-     * @param from origin
-     * @param to target
-     * @param lineWidth arrow body width
-     * @param shorten target shortening distance
-     */
+    /** Draws an arrow from square center to square center. */
     private void drawArrow(Graphics2D g, Point from, Point to, float lineWidth, double shorten) {
         double distance = from.distance(to);
         if (distance < 2.0) {
@@ -2867,28 +1768,15 @@ final class WorkbenchBoardPanel extends JPanel {
         // arrow colour stays uniform instead of darkening where shaft met head.
         g.fill(arrowShape);
     }
-
-    /**
-     * Reusable path buffer for the unified suggested-move arrow outline.
-     */
+    /** Reusable path buffer for the unified suggested-move arrow outline. */
     private final java.awt.geom.Path2D.Double arrowShape = new java.awt.geom.Path2D.Double();
-
-    /**
-     * Starts the animation timer when needed.
-     */
+    /** Starts the animation timer when needed. */
     private void startAnimation() {
         if (!animationTimer.isRunning()) {
             animationTimer.start();
         }
     }
-
-    /**
-     * Starts a played-move animation when the previous and current boards allow it.
-     *
-     * @param oldBoard board before the move
-     * @param newBoard board after the move
-     * @param move played move
-     */
+    /** Starts a played-move animation when the previous and current boards allow it. */
     private void startMoveAnimation(byte[] oldBoard, byte[] newBoard, short move) {
         if (!animationsEnabled || moveAnimationMs <= 0) {
             clearMoveAnimation();
@@ -2916,16 +1804,7 @@ final class WorkbenchBoardPanel extends JPanel {
         moveAnimationActive = true;
         startAnimation();
     }
-
-    /**
-     * Captures direct and en-passant victims for the fade-out part of the animation.
-     *
-     * @param oldBoard board before the move
-     * @param newBoard board after the move
-     * @param from move origin
-     * @param to move target
-     * @param movingPiece moving piece
-     */
+    /** Captures direct and en-passant victims for the fade-out part of the animation. */
     private void configureAnimatedCapture(byte[] oldBoard, byte[] newBoard, byte from, byte to, byte movingPiece) {
         byte direct = oldBoard[to];
         if (direct != Piece.EMPTY && Piece.isWhite(direct) != Piece.isWhite(movingPiece)) {
@@ -2943,16 +1822,7 @@ final class WorkbenchBoardPanel extends JPanel {
             animatedCaptureSquare = candidate;
         }
     }
-
-    /**
-     * Finds a secondary same-color piece move caused by a compound move.
-     *
-     * @param oldBoard board before the move
-     * @param newBoard board after the move
-     * @param from primary move origin
-     * @param to primary move target
-     * @param movingPiece primary moving piece
-     */
+    /** Finds a secondary same-color piece move caused by a compound move. */
     private void configureSecondaryMove(byte[] oldBoard, byte[] newBoard, byte from, byte to, byte movingPiece) {
         if (!Piece.isKing(movingPiece)) {
             return;
@@ -2977,10 +1847,7 @@ final class WorkbenchBoardPanel extends JPanel {
         animatedSecondaryMoveFrom = rookFrom;
         animatedSecondaryMoveTo = rookTo;
     }
-
-    /**
-     * Clears played-move animation state.
-     */
+    /** Clears played-move animation state. */
     private void clearMoveAnimation() {
         animatedMovePiece = Piece.EMPTY;
         animatedSecondaryMovePiece = Piece.EMPTY;
@@ -2993,10 +1860,7 @@ final class WorkbenchBoardPanel extends JPanel {
         moveAnimationStartedAt = 0L;
         moveAnimationActive = false;
     }
-
-    /**
-     * Clears every currently active board animation.
-     */
+    /** Clears every currently active board animation. */
     private void clearAllAnimations() {
         clearMoveAnimation();
         snapAnimation = null;
@@ -3011,10 +1875,7 @@ final class WorkbenchBoardPanel extends JPanel {
         flipAnimationProgress = Double.NaN;
         animationTimer.stop();
     }
-
-    /**
-     * Advances board animations one frame.
-     */
+    /** Advances board animations one frame. */
     private void tickAnimation() {
         if (moveAnimationActive && moveAnimationProgress() >= 1.0) {
             clearMoveAnimation();
@@ -3048,21 +1909,11 @@ final class WorkbenchBoardPanel extends JPanel {
         }
         repaint();
     }
-
-    /**
-     * Returns whether any board animation is still active.
-     *
-     * @return true when the board should keep repainting
-     */
+    /** Returns whether any board animation is still active. */
     private boolean hasActiveAnimation() {
         return moveAnimationActive || snapAnimation != null || !Double.isNaN(flipAnimationProgress);
     }
-
-    /**
-     * Returns played-move animation progress.
-     *
-     * @return progress from zero to one
-     */
+    /** Returns played-move animation progress. */
     private double moveAnimationProgress() {
         if (!moveAnimationActive || moveAnimationStartedAt == 0L) {
             return 1.0;
@@ -3070,32 +1921,15 @@ final class WorkbenchBoardPanel extends JPanel {
         double elapsed = (double) System.currentTimeMillis() - (double) moveAnimationStartedAt;
         return Math.max(0.0, Math.min(1.0, elapsed / Math.max(1.0, moveAnimationMs)));
     }
-
-    /**
-     * Cubic ease-out matching the short board transition feel.
-     *
-     * @param value linear progress
-     * @return eased progress
-     */
+    /** Cubic ease-out matching the short board transition feel. */
     static double easeOutCubic(double value) {
         return WorkbenchUi.easeOutCubic(value);
     }
-
-    /**
-     * Returns whether a byte is a valid board square index.
-     *
-     * @param square square
-     * @return true for 0..63
-     */
+    /** Returns whether a byte is a valid board square index. */
     private static boolean isSquareIndex(byte square) {
         return square >= 0 && square < 64;
     }
-
-    /**
-     * Returns the system DPI scale factor used for sizing heuristics.
-     *
-     * @return scale factor; 1.0 on standard displays, &gt;1 on HiDPI
-     */
+    /** Returns the system DPI scale factor used for sizing heuristics. */
     private static float displayScale() {
         try {
             java.awt.GraphicsEnvironment env = java.awt.GraphicsEnvironment.getLocalGraphicsEnvironment();
@@ -3105,19 +1939,10 @@ final class WorkbenchBoardPanel extends JPanel {
             return 1f;
         }
     }
-
-    /**
-     * Move handler callback.
-     */
+    /** Move handler callback. */
     @FunctionalInterface
     interface MoveHandler {
-
-        /**
-         * Plays a move.
-         *
-         * @param move encoded move
-         */
+        /** Plays a move. */
         void play(short move);
     }
-
 }
