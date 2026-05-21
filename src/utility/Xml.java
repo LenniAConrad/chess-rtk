@@ -1,14 +1,17 @@
 package utility;
 
 import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 
 import javax.xml.XMLConstants;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.parsers.ParserConfigurationException;
 
 import org.w3c.dom.Document;
 import org.xml.sax.ErrorHandler;
+import org.xml.sax.SAXException;
 import org.xml.sax.SAXParseException;
 
 /**
@@ -86,7 +89,7 @@ public final class Xml {
             builder.setErrorHandler(THROWING_ERROR_HANDLER);
             byte[] bytes = xmlText.getBytes(StandardCharsets.UTF_8);
             return builder.parse(new ByteArrayInputStream(bytes));
-        } catch (Exception ex) {
+        } catch (ParserConfigurationException | SAXException | IOException | IllegalArgumentException ex) {
             throw new IllegalArgumentException(failureMessage, ex);
         }
     }
@@ -95,9 +98,11 @@ public final class Xml {
      * Creates a DOM factory with XXE and external-resource access disabled.
      *
      * @return hardened document-builder factory
-     * @throws Exception when the active XML provider cannot be hardened
+     * @throws ParserConfigurationException when the active XML provider cannot
+     *         be hardened
      */
-    private static DocumentBuilderFactory secureDocumentBuilderFactory() throws Exception {
+    private static DocumentBuilderFactory secureDocumentBuilderFactory()
+            throws ParserConfigurationException {
         DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
         factory.setNamespaceAware(true);
         factory.setXIncludeAware(false);
