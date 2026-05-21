@@ -261,21 +261,23 @@ final class WorkbenchEvalBar extends JComponent {
             g.setColor(getBackground());
             g.fillRect(0, 0, getWidth(), getHeight());
             g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-            int x = 7;
-            int y = 7;
-            int w = Math.max(12, getWidth() - 14);
-            int h = Math.max(40, getHeight() - 14);
+            // Fill the whole component so the visible bar matches the board
+            // square height exactly; the board stage sizes us to it.
+            int x = 0;
+            int y = 0;
+            int w = Math.max(12, getWidth());
+            int h = Math.max(40, getHeight());
             int whiteHeight = (int) Math.round(h * displayedWhiteShare);
             int split = y + h - whiteHeight;
 
             Shape oldClip = g.getClip();
-            clipRect.setRoundRect(x, y, w, h, 8, 8);
+            clipRect.setRoundRect(x, y, w, h, 6, 6);
             g.clip(clipRect);
             paintBarFill(g, x, y, w, h, split);
             g.setClip(oldClip);
             g.setStroke(FRAME_STROKE);
             g.setColor(FRAME);
-            g.drawRoundRect(x, y, w, h, 8, 8);
+            g.drawRoundRect(x, y, w - 1, h - 1, 6, 6);
             paintLabel(g, x, y, w, h);
         } finally {
             g.dispose();

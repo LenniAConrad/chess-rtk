@@ -138,6 +138,16 @@ final class WorkbenchCommandTemplates {
                         wdlFlag("--wdl", false, "Enable WDL output"),
                         wdlFlag("--no-wdl", false, "Disable WDL output"),
                         commonVerbose())),
+                new CommandTemplate("Eval", List.of("engine", "eval"), List.of(
+                        optSource("--fen", ValueSource.CURRENT_FEN, true, "Position FEN"),
+                        exclusiveFlag("--lc0", false, "Use the LC0 evaluator", GROUP_EVALUATOR),
+                        exclusiveFlag("--classical", false, "Use the classical evaluator", GROUP_EVALUATOR),
+                        opt("--weights", "", false, "LC0 weights path"),
+                        flag("--terminal-aware", false, "Score terminal positions exactly"),
+                        commonVerbose())),
+                new CommandTemplate("Threats", List.of("engine", "threats"), List.of(
+                        optSource("--fen", ValueSource.CURRENT_FEN, true, "Position FEN"),
+                        commonVerbose())),
                 new CommandTemplate("Built-in search", List.of("engine", "builtin"), positionOptions(
                         positionInputSource("--input", false, "Input FEN file"),
                         exclusiveOpt("--evaluator", "classical", false, "classical, nnue, or lc0", GROUP_EVALUATOR),
