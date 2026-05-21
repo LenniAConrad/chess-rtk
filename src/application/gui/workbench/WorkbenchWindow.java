@@ -13,11 +13,11 @@ import static application.gui.workbench.WorkbenchUi.fillViewport;
 import static application.gui.workbench.WorkbenchUi.grid;
 import static application.gui.workbench.WorkbenchUi.iconButton;
 import static application.gui.workbench.WorkbenchUi.label;
+import static application.gui.workbench.WorkbenchUi.optionGroup;
 import static application.gui.workbench.WorkbenchUi.placeholder;
 import static application.gui.workbench.WorkbenchUi.scroll;
 import static application.gui.workbench.WorkbenchUi.showConfirmDialog;
 import static application.gui.workbench.WorkbenchUi.styleAreas;
-import static application.gui.workbench.WorkbenchUi.styleCombos;
 import static application.gui.workbench.WorkbenchUi.styleFields;
 import static application.gui.workbench.WorkbenchUi.styleSpinners;
 import static application.gui.workbench.WorkbenchUi.tabbedPane;
@@ -90,10 +90,8 @@ import javax.swing.filechooser.FileNameExtensionFilter;
 import javax.swing.text.JTextComponent;
 
 import application.Config;
-import application.gui.workbench.WorkbenchCommandTemplates.BatchTask;
 import application.gui.workbench.WorkbenchCommandTemplates.CommandTemplate;
 import application.gui.workbench.WorkbenchCommandTemplates.TemplateContext;
-import application.gui.workbench.WorkbenchCommandTemplates.WorkflowControls;
 import application.gui.workbench.WorkbenchCommandPalette.PaletteAction;
 import application.gui.workbench.layout.EditorSplitArea;
 import application.gui.workbench.layout.SplitPaneStyler;
@@ -166,18 +164,6 @@ public final class WorkbenchWindow extends JFrame {
      * Network visualizer tab index.
      */
     private static final int TAB_NETWORK = 6;
-
-    /**
-     * Placeholder path used in command previews for generated FEN files.
-     */
-    private static final String WORKBENCH_FENS_PLACEHOLDER = "<workbench-fens.txt>";
-
-    /**
-     * Cached preview-only path used when building batch commands without
-     * materializing the FENs file. Constructed once because parsing the
-     * angle-bracket placeholder on every keystroke is wasteful.
-     */
-    private static final Path WORKBENCH_FENS_PLACEHOLDER_PATH = Path.of(WORKBENCH_FENS_PLACEHOLDER);
 
     /**
      * Board view.
@@ -270,7 +256,7 @@ public final class WorkbenchWindow extends JFrame {
 
         @Override
         public void runBatch() {
-            WorkbenchWindow.this.runBatch();
+            batchPanel.runBatch();
         }
 
         @Override
@@ -396,6 +382,54 @@ public final class WorkbenchWindow extends JFrame {
     }
 
     /**
+     * Host callbacks for the extracted batch panel.
+     */
+    private final class BatchHost implements WorkbenchBatchPanel.Host {
+
+        @Override
+        public String currentFen() {
+            return WorkbenchWindow.this.currentFen();
+        }
+
+        @Override
+        public TemplateContext templateContext() {
+            return WorkbenchWindow.this.templateContext();
+        }
+
+        @Override
+        public void runCommand(List<String> args, String stdin) {
+            WorkbenchWindow.this.runCommand(args, stdin);
+        }
+
+        @Override
+        public void copyText(String text) {
+            WorkbenchWindow.this.copyText(text);
+        }
+
+        @Override
+        public void showError(String title, String message) {
+            WorkbenchWindow.this.showError(title, message);
+        }
+
+        @Override
+        public void updateBatchSummary(String summary) {
+            session.updateBatch(summary);
+        }
+
+        @Override
+        public void updatePublishCommand() {
+            if (publishingPanel != null) {
+                WorkbenchWindow.this.updatePublishCommand();
+            }
+        }
+
+        @Override
+        public void syncBatchDuration(String value) {
+            WorkbenchWindow.this.syncDurationFromBatch(value);
+        }
+    }
+
+    /**
      * Host callbacks for the extracted publishing panel.
      */
     private final class PublishingHost implements WorkbenchPublishingPanel.Host {
@@ -417,7 +451,7 @@ public final class WorkbenchWindow extends JFrame {
 
         @Override
         public String batchInputText() {
-            return batchInput.getText();
+            return batchPanel.inputText();
         }
 
         @Override
@@ -590,16 +624,6 @@ public final class WorkbenchWindow extends JFrame {
     private final JTextField analysisDurationField = new JTextField("2s");
 
     /**
-     * Batch duration field.
-     */
-    private final JTextField batchDurationField = new JTextField("2s");
-
-    /**
-     * Batch options panel.
-     */
-    private final JPanel batchOptionsPanel = transparentPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
-
-    /**
      * Shared depth model.
      */
     private final SpinnerNumberModel depthModel = new SpinnerNumberModel(4, 1, 99, 1);
@@ -608,11 +632,6 @@ public final class WorkbenchWindow extends JFrame {
      * Analysis depth control.
      */
     private final JSpinner analysisDepthSpinner = new JSpinner(depthModel);
-
-    /**
-     * Batch depth control.
-     */
-    private final JSpinner batchDepthSpinner = new JSpinner(depthModel);
 
     /**
      * Shared MultiPV model.
@@ -625,11 +644,6 @@ public final class WorkbenchWindow extends JFrame {
     private final JSpinner analysisMultipvSpinner = new JSpinner(multipvModel);
 
     /**
-     * Batch MultiPV control.
-     */
-    private final JSpinner batchMultipvSpinner = new JSpinner(multipvModel);
-
-    /**
      * Shared thread-count model.
      */
     private final SpinnerNumberModel threadsModel = new SpinnerNumberModel(1, 1, 256, 1);
@@ -638,11 +652,6 @@ public final class WorkbenchWindow extends JFrame {
      * Analysis thread control.
      */
     private final JSpinner analysisThreadsSpinner = new JSpinner(threadsModel);
-
-    /**
-     * Batch thread control.
-     */
-    private final JSpinner batchThreadsSpinner = new JSpinner(threadsModel);
 
     /**
      * External engine protocol TOML path.
@@ -666,39 +675,15 @@ public final class WorkbenchWindow extends JFrame {
             "Continuously analyze the current board with the configured external UCI engine");
 
     /**
-     * Batch input area.
+     * Batch workflow panel.
      */
-    private final JTextArea batchInput = new JTextArea();
-
-    /**
-     * Batch input status summary.
-     */
-    private final JLabel batchInputStatus = new JLabel();
-
-    /**
-     * Batch command field.
-     */
-    private final JTextArea batchCommandField = new JTextArea(3, 36);
-
-    /**
-     * Batch task selector.
-     */
-    private final JComboBox<BatchTask> batchTaskCombo = new JComboBox<>();
+    private final WorkbenchBatchPanel batchPanel = new WorkbenchBatchPanel(new BatchHost(), depthModel, multipvModel,
+            threadsModel);
 
     /**
      * Publishing workflow panel.
      */
     private final WorkbenchPublishingPanel publishingPanel = new WorkbenchPublishingPanel(new PublishingHost());
-
-    /**
-     * Button that appends the current FEN to the batch input.
-     */
-    private JButton addCurrentFenButton;
-
-    /**
-     * Button that clears the batch FEN input.
-     */
-    private JButton clearBatchInputButton;
 
     /**
      * Current position.
@@ -810,11 +795,6 @@ public final class WorkbenchWindow extends JFrame {
      * Whether a command-preview refresh is already queued on the event thread.
      */
     private boolean commandPreviewUpdateQueued;
-
-    /**
-     * Whether a batch-input status refresh is already queued on the event thread.
-     */
-    private boolean batchInputStatusUpdateQueued;
 
     /**
      * Creates the eval-bar debounce timer.
@@ -1051,11 +1031,9 @@ public final class WorkbenchWindow extends JFrame {
     private void installFieldPlaceholders() {
         placeholder(fenField, "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
         placeholder(analysisDurationField, "e.g. 2s or 500ms");
-        placeholder(batchDurationField, "e.g. 2s or 500ms");
         placeholder(engineProtocolField, "path/to/engine.toml");
         placeholder(engineNodesField, "e.g. 1000000");
         placeholder(engineHashField, "e.g. 128");
-        placeholder(batchInput, "one FEN per line; blank uses the current game line");
     }
 
     /**
@@ -1432,7 +1410,7 @@ public final class WorkbenchWindow extends JFrame {
                 new PaletteAction("Copy built command", "Copy the command-builder preview", this::copyBuiltCommand),
                 new PaletteAction("Reset built command", "Restore default command-builder options", this::resetSelectedTemplate),
                 new PaletteAction("Filter command flags", "Focus the command-builder option filter", this::focusOptionFilter),
-                new PaletteAction("Run batch", "Execute the selected batch workflow", this::runBatch),
+                new PaletteAction("Run batch", "Execute the selected batch workflow", batchPanel::runBatch),
                 new PaletteAction("Run publishing", "Execute the selected publishing workflow", this::runPublishingCommand),
                 new PaletteAction("Generate report", "Refresh the report maker output", this::generateReport),
                 new PaletteAction("Copy report", "Copy the current report output", this::copyReport),
@@ -1758,7 +1736,7 @@ public final class WorkbenchWindow extends JFrame {
         grid(panel, analysisDepthSpinner, c, 1, 2, 1, 1);
         grid(panel, label("Time"), c, 2, 2, 1, 1);
         analysisDurationField.getDocument()
-                .addDocumentListener(changeListener(() -> syncDuration(analysisDurationField, batchDurationField)));
+                .addDocumentListener(changeListener(this::syncDurationFromAnalysis));
         grid(panel, analysisDurationField, c, 3, 2, 1, 1);
 
         grid(panel, buttonRow(FlowLayout.LEFT,
@@ -1991,7 +1969,7 @@ public final class WorkbenchWindow extends JFrame {
 
         grid(panel, buttonRow(FlowLayout.LEFT,
                 button("Copy FEN List", false, event -> copyText(gameModel.fenList())),
-                button("Add to Batch", false, event -> appendCurrentFenToBatch())), c, 1, 3, 3, 1);
+                button("Add to Batch", false, event -> batchPanel.appendCurrentFen())), c, 1, 3, 3, 1);
         addVerticalFiller(panel, c, 4, 4);
         return panel;
     }
@@ -2069,106 +2047,7 @@ public final class WorkbenchWindow extends JFrame {
      * @return tab
      */
     private JComponent createBatchTab() {
-        installBatchTasks();
-        JPanel panel = transparentPanel(new BorderLayout(0, 0));
-
-        batchInput.setText(Setup.getStandardStartFEN() + System.lineSeparator()
-                + "4R1k1/5ppp/8/8/8/8/8/6K1 b - - 0 1" + System.lineSeparator());
-        styleAreas(batchInput);
-        batchInput.setRows(12);
-        batchInput.getDocument().addDocumentListener(changeListener(this::requestBatchInputStatusUpdate));
-
-        JComponent runner = scroll(fillViewport(createBatchRunnerPanel()));
-        runner.setPreferredSize(new Dimension(420, 520));
-
-        JSplitPane batchPage = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, createBatchFenPanel(), runner);
-        batchPage.setBorder(BorderFactory.createEmptyBorder());
-        batchPage.setOpaque(false);
-        batchPage.setContinuousLayout(true);
-        batchPage.setResizeWeight(0.64);
-        batchPage.setDividerSize(8);
-        batchPage.setDividerLocation(0.64);
-        SplitPaneStyler.style(batchPage);
-        panel.add(batchPage, BorderLayout.CENTER);
-        updateBatchControls();
-        updateBatchCommand();
-        refreshBatchInputStatus();
-        return panel;
-    }
-
-    /**
-     * Creates the batch FEN input surface.
-     *
-     * @return FEN input panel
-     */
-    private JComponent createBatchFenPanel() {
-        JPanel panel = new WorkbenchSurfacePanel(new BorderLayout(8, 8));
-        JPanel top = transparentPanel(new BorderLayout(8, 0));
-        top.add(WorkbenchTheme.section("FEN Batch"), BorderLayout.WEST);
-        batchInputStatus.setForeground(WorkbenchTheme.MUTED);
-        batchInputStatus.setFont(WorkbenchTheme.font(12, Font.PLAIN));
-        batchInputStatus.setHorizontalAlignment(SwingConstants.RIGHT);
-        top.add(batchInputStatus, BorderLayout.CENTER);
-        panel.add(top, BorderLayout.NORTH);
-        panel.add(scroll(batchInput), BorderLayout.CENTER);
-        addCurrentFenButton = button("Add Current FEN", false, event -> appendCurrentFenToBatch());
-        clearBatchInputButton = button("Clear", false, event -> batchInput.setText(""));
-        panel.add(buttonRow(FlowLayout.LEFT, addCurrentFenButton, clearBatchInputButton), BorderLayout.SOUTH);
-        return panel;
-    }
-
-    /**
-     * Appends the current board FEN to the batch input without joining it onto
-     * an existing last line.
-     */
-    private void appendCurrentFenToBatch() {
-        String text = batchInput.getText();
-        if (!text.isEmpty() && !text.endsWith("\n") && !text.endsWith("\r")) {
-            batchInput.append(System.lineSeparator());
-        }
-        batchInput.append(currentFen() + System.lineSeparator());
-        batchInput.requestFocusInWindow();
-        updateBatchCommand();
-    }
-
-    /**
-     * Creates the batch-runner controls.
-     *
-     * @return runner panel
-     */
-    private JComponent createBatchRunnerPanel() {
-        JPanel controls = new WorkbenchSurfacePanel(new GridBagLayout());
-        GridBagConstraints c = constraints();
-        styleCombos(batchTaskCombo);
-        batchTaskCombo.setPrototypeDisplayValue(new BatchTask("Analyze batch", true,
-                new WorkflowControls(true, false, true, true), (input, ctx) -> List.of()));
-        batchTaskCombo.addActionListener(event -> {
-            updateBatchControls();
-            updateBatchCommand();
-        });
-        grid(controls, WorkbenchTheme.section("Batch Runner"), c, 0, 0, 4, 1);
-        grid(controls, label("task"), c, 0, 1, 1, 1);
-        grid(controls, batchTaskCombo, c, 1, 1, 3, 1);
-        batchDurationField.setColumns(8);
-        styleFields(batchDurationField);
-        styleAreas(batchCommandField);
-        batchDurationField.getDocument()
-                .addDocumentListener(changeListener(() -> syncDuration(batchDurationField, analysisDurationField)));
-        styleSpinners(batchDepthSpinner, batchMultipvSpinner, batchThreadsSpinner);
-        grid(controls, batchOptionsPanel, c, 1, 2, 3, 1);
-        grid(controls, label("command"), c, 0, 3, 1, 1);
-        batchCommandField.setLineWrap(true);
-        batchCommandField.setWrapStyleWord(false);
-        batchCommandField.setEditable(false);
-        batchCommandField.setFocusable(false);
-        batchCommandField.setToolTipText("Generated batch command");
-        batchCommandField.setMinimumSize(new Dimension(220, 64));
-        grid(controls, batchCommandField, c, 1, 3, 3, 1);
-        grid(controls, buttonRow(FlowLayout.LEFT,
-                button("Run Batch", true, event -> runBatch()),
-                button("Copy Command", false, event -> copyText(batchCommandField.getText()))), c, 1, 4, 3, 1);
-        addVerticalFiller(controls, c, 5, 4);
-        return controls;
+        return batchPanel.component();
     }
 
     /**
@@ -3524,38 +3403,6 @@ public final class WorkbenchWindow extends JFrame {
     }
 
     /**
-     * Runs selected batch task.
-     */
-    private void runBatch() {
-        BatchTask task = (BatchTask) batchTaskCombo.getSelectedItem();
-        if (task == null) {
-            return;
-        }
-        try {
-            Path input = null;
-            if (task.usesFenInput()) {
-                WorkbenchFenInput.Summary validation = validateBatchFenInput(batchInput.getText());
-                refreshBatchInputStatus();
-                if (validation.rows() == 0) {
-                    showError("Batch input", "Add at least one FEN before running this batch task.");
-                    return;
-                }
-                if (validation.hasError()) {
-                    showError("Batch input", "Line " + validation.firstErrorLine() + ": "
-                            + validation.firstError());
-                    return;
-                }
-                input = Files.createTempFile("crtk-workbench-fens-", ".txt");
-                input.toFile().deleteOnExit();
-                Files.writeString(input, batchInput.getText(), StandardCharsets.UTF_8);
-            }
-            runCommand(task.build(input, templateContext()), null);
-        } catch (IOException ex) {
-            showError("Batch input failed", ex.getMessage());
-        }
-    }
-
-    /**
      * Loads game text as PGN or as a plain SAN/UCI line.
      *
      * @param text raw game text
@@ -3919,13 +3766,6 @@ public final class WorkbenchWindow extends JFrame {
     }
 
     /**
-     * Installs batch tasks.
-     */
-    private void installBatchTasks() {
-        batchTaskCombo.setModel(WorkbenchCommandTemplates.batchModel());
-    }
-
-    /**
      * Returns whether option-row text matches all filter tokens.
      *
      * @param query raw query
@@ -4008,124 +3848,6 @@ public final class WorkbenchWindow extends JFrame {
     }
 
     /**
-     * Updates batch-only controls for the selected task.
-     */
-    private void updateBatchControls() {
-        BatchTask task = (BatchTask) batchTaskCombo.getSelectedItem();
-        if (task == null) {
-            return;
-        }
-        batchInput.setEditable(task.usesFenInput());
-        if (addCurrentFenButton != null) {
-            addCurrentFenButton.setEnabled(task.usesFenInput());
-        }
-        if (clearBatchInputButton != null) {
-            clearBatchInputButton.setEnabled(task.usesFenInput());
-        }
-        rebuildOptionsPanel(batchOptionsPanel, task.controls(), batchDurationField, batchDepthSpinner,
-                batchMultipvSpinner, batchThreadsSpinner);
-        refreshBatchInputStatus();
-    }
-
-    /**
-     * Queues a lightweight refresh of the batch FEN status line.
-     */
-    private void requestBatchInputStatusUpdate() {
-        if (batchInputStatusUpdateQueued) {
-            return;
-        }
-        batchInputStatusUpdateQueued = true;
-        SwingUtilities.invokeLater(() -> {
-            if (!batchInputStatusUpdateQueued) {
-                return;
-            }
-            refreshBatchInputStatus();
-        });
-    }
-
-    /**
-     * Updates the batch FEN status line.
-     */
-    private void refreshBatchInputStatus() {
-        batchInputStatusUpdateQueued = false;
-        BatchTask task = (BatchTask) batchTaskCombo.getSelectedItem();
-        String taskName = task == null ? "none" : task.name();
-        if (task != null && !task.usesFenInput()) {
-            batchInputStatus.setText("FEN list not used");
-            batchInputStatus.setToolTipText("The selected batch task runs without FEN input.");
-            batchInputStatus.setForeground(WorkbenchTheme.MUTED);
-            session.updateBatch(taskName + " · no FEN input required");
-            updatePublishCommand();
-            return;
-        }
-        WorkbenchFenInput.Summary scan = validateBatchFenInput(batchInput.getText());
-        if (scan.rows() == 0) {
-            batchInputStatus.setText("No FEN rows");
-            batchInputStatus.setToolTipText("Add one FEN per line.");
-            batchInputStatus.setForeground(WorkbenchTheme.MUTED);
-            session.updateBatch(taskName + " · no FEN rows");
-        } else if (scan.hasError()) {
-            batchInputStatus.setText(scan.rows() + " row" + (scan.rows() == 1 ? "" : "s")
-                    + ", issue on line " + scan.firstErrorLine());
-            batchInputStatus.setToolTipText(scan.firstError());
-            batchInputStatus.setForeground(WorkbenchTheme.STATUS_WARNING_TEXT);
-            session.updateBatch(taskName + " · " + scan.rows() + " rows, issue on line "
-                    + scan.firstErrorLine());
-        } else {
-            batchInputStatus.setText(scan.validRows() + " FEN row" + (scan.validRows() == 1 ? "" : "s"));
-            batchInputStatus.setToolTipText("Ready to run batch workflow.");
-            batchInputStatus.setForeground(WorkbenchTheme.MUTED);
-            session.updateBatch(taskName + " · " + scan.validRows() + " FEN row"
-                    + (scan.validRows() == 1 ? "" : "s") + " ready");
-        }
-        updatePublishCommand();
-    }
-
-    /**
-     * Rebuilds a workflow option panel with only the controls that matter.
-     *
-     * @param panel target panel
-     * @param controls enabled workflow controls
-     * @param durationField duration input
-     * @param depthSpinner depth input
-     * @param multipvSpinner MultiPV input
-     * @param threadsSpinner thread-count input
-     */
-    private void rebuildOptionsPanel(JPanel panel, WorkflowControls controls, JTextField durationField,
-            JSpinner depthSpinner, JSpinner multipvSpinner, JSpinner threadsSpinner) {
-        panel.removeAll();
-        if (controls.duration()) {
-            panel.add(optionGroup("duration", durationField));
-        }
-        if (controls.depth()) {
-            panel.add(optionGroup("depth", depthSpinner));
-        }
-        if (controls.multipv()) {
-            panel.add(optionGroup("multipv", multipvSpinner));
-        }
-        if (controls.threads()) {
-            panel.add(optionGroup("threads", threadsSpinner));
-        }
-        panel.revalidate();
-        panel.repaint();
-    }
-
-    /**
-     * Creates one compact option group.
-     *
-     * @param text label text
-     * @param control option control
-     * @return option group
-     */
-    private JComponent optionGroup(String text, JComponent control) {
-        JPanel panel = transparentPanel(new BorderLayout(6, 0));
-        control.setPreferredSize(new Dimension(120, 28));
-        panel.add(label(text), BorderLayout.WEST);
-        panel.add(control, BorderLayout.CENTER);
-        return panel;
-    }
-
-    /**
      * Updates command field from selected template.
      */
     private void updateBuiltCommand() {
@@ -4161,7 +3883,7 @@ public final class WorkbenchWindow extends JFrame {
         commandPreviewUpdateQueued = false;
         commandForm.refreshDynamicValues(templateContext());
         updateBuiltCommand();
-        updateBatchCommand();
+        batchPanel.updateCommand();
         updatePublishCommand();
     }
 
@@ -4190,19 +3912,6 @@ public final class WorkbenchWindow extends JFrame {
             return null;
         }
         return commandTemplates.get(selectedCommandIndex);
-    }
-
-    /**
-     * Updates batch command preview.
-     */
-    private void updateBatchCommand() {
-        BatchTask task = (BatchTask) batchTaskCombo.getSelectedItem();
-        if (task == null) {
-            return;
-        }
-        batchCommandField.setText(WorkbenchCommandRunner.displayCommand(
-                task.build(WORKBENCH_FENS_PLACEHOLDER_PATH, templateContext())));
-        batchCommandField.setCaretPosition(0);
     }
 
     /**
@@ -4237,22 +3946,34 @@ public final class WorkbenchWindow extends JFrame {
     }
 
     /**
-     * Synchronizes visible duration fields.
-     *
-     * @param source source duration field
-     * @param targets target duration fields
+     * Synchronizes the batch duration from the analysis duration field.
      */
-    private void syncDuration(JTextField source, JTextField... targets) {
+    private void syncDurationFromAnalysis() {
         if (syncingDuration) {
             return;
         }
         syncingDuration = true;
         try {
-            String value = source.getText();
-            for (JTextField target : targets) {
-                if (!Objects.equals(value, target.getText())) {
-                    target.setText(value);
-                }
+            batchPanel.setDurationText(analysisDurationField.getText());
+            requestCommandPreviews();
+        } finally {
+            syncingDuration = false;
+        }
+    }
+
+    /**
+     * Synchronizes the analysis duration from the batch duration field.
+     *
+     * @param value duration text
+     */
+    private void syncDurationFromBatch(String value) {
+        if (syncingDuration) {
+            return;
+        }
+        syncingDuration = true;
+        try {
+            if (!java.util.Objects.equals(value, analysisDurationField.getText())) {
+                analysisDurationField.setText(value);
             }
             requestCommandPreviews();
         } finally {
