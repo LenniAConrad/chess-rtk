@@ -152,6 +152,7 @@ public final class WorkbenchRegressionTest {
         testBooleanTableRendererIsStyled();
         testComponentTreeStylingCoversPlainControls();
         testDisabledComboUsesThemeBackground();
+        testGameLineImportInputKeepsMultilineHeight();
         testSettingsToggleRowsAreReadable();
         testToggleSwitchAnimatesStateChanges();
         testCommandFormOptionalTogglesFillLeadColumn();
@@ -681,6 +682,21 @@ public final class WorkbenchRegressionTest {
 
         invokeStatic(type("Theme"), "setMode", new Class<?>[] { modeType },
                 enumValue(modeType, "LIGHT"));
+    }
+
+    /**
+     * Verifies the Game tab's import-line editor keeps enough height for
+     * algebraic movetext and variations instead of collapsing into one line.
+     */
+    private static void testGameLineImportInputKeepsMultilineHeight() {
+        JTextArea input = new JTextArea();
+        JScrollPane pane = (JScrollPane) invokeStatic(type("window.WindowBoardLayer"),
+                "configureGameInputScroll", new Class<?>[] { JTextArea.class }, input);
+        assertEquals(Integer.valueOf(5), Integer.valueOf(input.getRows()), "game input reserves five rows");
+        assertTrue(input.getLineWrap(), "game input wraps movetext");
+        assertTrue(input.getWrapStyleWord(), "game input wraps on words");
+        assertTrue(pane.getPreferredSize().height >= 90, "game input scroll preferred height");
+        assertTrue(pane.getMinimumSize().height >= 70, "game input scroll minimum height");
     }
 
     /**
