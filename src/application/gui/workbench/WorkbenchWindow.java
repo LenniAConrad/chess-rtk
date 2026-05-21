@@ -79,7 +79,6 @@ import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.KeyStroke;
 import javax.swing.ListSelectionModel;
-import javax.swing.RowFilter;
 import javax.swing.SpinnerNumberModel;
 import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
@@ -88,9 +87,6 @@ import javax.swing.Timer;
 import javax.swing.filechooser.FileNameExtensionFilter;
 import javax.swing.plaf.basic.BasicSplitPaneDivider;
 import javax.swing.plaf.basic.BasicSplitPaneUI;
-import javax.swing.table.TableColumn;
-import javax.swing.table.TableColumnModel;
-import javax.swing.table.TableRowSorter;
 import javax.swing.text.JTextComponent;
 
 import application.Config;
@@ -487,11 +483,6 @@ public final class WorkbenchWindow extends JFrame {
     private final JTextField commandField = new JTextField();
 
     /**
-     * Command option filter field.
-     */
-    private final JTextField optionFilterField = new JTextField();
-
-    /**
      * Command-template selector tabs.
      */
     private final JTabbedPane commandTemplateTabs = tabbedPane();
@@ -502,34 +493,10 @@ public final class WorkbenchWindow extends JFrame {
     private List<CommandTemplate> commandTemplates = List.of();
 
     /**
-     * Command option table model.
+     * Structured command-builder form: required inputs, exclusive radio
+     * groups, and filtered optional flags.
      */
-    private final WorkbenchOptionTableModel optionModel = new WorkbenchOptionTableModel();
-
-    /**
-     * Command option table.
-     */
-    private final JTable optionTable = new JTable(optionModel);
-
-    /**
-     * Button that expands or collapses command option descriptions.
-     */
-    private final JButton optionInfoButton = button("Info +", false, event -> toggleCommandInfo());
-
-    /**
-     * Optional command description table column.
-     */
-    private TableColumn optionDescriptionColumn;
-
-    /**
-     * Whether command option descriptions are visible.
-     */
-    private boolean commandInfoVisible;
-
-    /**
-     * Sorter and filter for command option rows.
-     */
-    private final TableRowSorter<WorkbenchOptionTableModel> optionSorter = new TableRowSorter<>(optionModel);
+    private final WorkbenchCommandForm commandForm = new WorkbenchCommandForm();
 
     /**
      * Main-line move history model.
@@ -910,11 +877,6 @@ public final class WorkbenchWindow extends JFrame {
     private boolean commandPreviewUpdateQueued;
 
     /**
-     * Whether an option-filter refresh is already queued on the event thread.
-     */
-    private boolean optionFilterUpdateQueued;
-
-    /**
      * Whether a publishing preview refresh is already queued on the event thread.
      */
     private boolean publishCommandUpdateQueued;
@@ -1124,7 +1086,6 @@ public final class WorkbenchWindow extends JFrame {
         placeholder(engineNodesField, "e.g. 1000000");
         placeholder(engineHashField, "e.g. 128");
         placeholder(batchInput, "one FEN per line; blank uses the current game line");
-        placeholder(optionFilterField, "e.g. json, fields, max nodes");
         placeholder(reportNoteField, "e.g. key idea, theme, or next action");
         placeholder(publishInputField, "path/to/input.pgn or path/to/fens.txt");
         placeholder(publishOutputField, "path/to/output.pdf");
@@ -1691,7 +1652,7 @@ public final class WorkbenchWindow extends JFrame {
      */
     private void focusOptionFilter() {
         selectTab(TAB_COMMANDS);
-        SwingUtilities.invokeLater(optionFilterField::requestFocusInWindow);
+        SwingUtilities.invokeLater(commandForm.filterField()::requestFocusInWindow);
     }
 
     /**
@@ -2090,18 +2051,14 @@ public final class WorkbenchWindow extends JFrame {
         grid(panel, label("command"), c, 0, 1, 1, 1);
         grid(panel, commandTemplateTabs, c, 1, 1, 3, 1);
 
-        configureOptionTable();
-        optionModel.addTableModelListener(event -> updateBuiltCommand());
+        commandForm.setChangeListener(this::updateBuiltCommand);
+        styleFields(commandField);
         depthModel.addChangeListener(event -> requestCommandPreviews());
         multipvModel.addChangeListener(event -> requestCommandPreviews());
         threadsModel.addChangeListener(event -> requestCommandPreviews());
-        grid(panel, label("options"), c, 0, 2, 1, 1);
-        styleFields(optionFilterField, commandField);
-        onTextChange(this::requestOptionFilterUpdate, optionFilterField);
-        grid(panel, optionFilterField, c, 1, 2, 3, 1);
 
         c.gridx = 0;
-        c.gridy = 3;
+        c.gridy = 2;
         c.gridwidth = 1;
         c.gridheight = 1;
         c.weightx = 0;
@@ -2111,30 +2068,30 @@ public final class WorkbenchWindow extends JFrame {
         panel.add(label("flags"), c);
 
         c.gridx = 1;
-        c.gridy = 3;
+        c.gridy = 2;
         c.gridwidth = 3;
         c.gridheight = 1;
         c.weightx = 1;
         c.weighty = 1;
         c.fill = GridBagConstraints.BOTH;
         c.anchor = GridBagConstraints.CENTER;
-        panel.add(scroll(optionTable), c);
+        commandForm.setPreferredSize(new Dimension(720, 360));
+        panel.add(commandForm, c);
 
         c.weighty = 0;
         c.fill = GridBagConstraints.HORIZONTAL;
         c.anchor = GridBagConstraints.WEST;
 
         commandField.setEditable(false);
-        grid(panel, label("preview"), c, 0, 4, 1, 1);
-        grid(panel, commandField, c, 1, 4, 3, 1);
+        grid(panel, label("preview"), c, 0, 3, 1, 1);
+        grid(panel, commandField, c, 1, 3, 3, 1);
 
         grid(panel, buttonRow(FlowLayout.LEFT,
                 button("Run", true, event -> runSelectedTemplate()),
                 button("Copy", false, event -> copyBuiltCommand()),
                 button("Reset", false, event -> resetSelectedTemplate()),
                 button("Drop Optional", false, event -> clearOptionalTemplateOptions()),
-                optionInfoButton,
-                button("Stop", false, event -> stopCommand())), c, 1, 5, 3, 1);
+                button("Stop", false, event -> stopCommand())), c, 1, 4, 3, 1);
 
         updateCommandOptions();
         updateBuiltCommand();
@@ -5359,125 +5316,6 @@ public final class WorkbenchWindow extends JFrame {
     }
 
     /**
-     * Configures the command option table.
-     */
-    private void configureOptionTable() {
-        WorkbenchTheme.table(optionTable, 27);
-        optionTable.setRowSorter(optionSorter);
-        optionSorter.setSortsOnUpdates(true);
-        TableColumnModel columns = optionTable.getColumnModel();
-        columns.getColumn(0).setPreferredWidth(52);
-        columns.getColumn(1).setPreferredWidth(150);
-        columns.getColumn(2).setPreferredWidth(260);
-        if (optionDescriptionColumn == null && columns.getColumnCount() > 3) {
-            optionDescriptionColumn = columns.getColumn(3);
-            optionDescriptionColumn.setPreferredWidth(420);
-        }
-        setCommandInfoVisible(commandInfoVisible);
-        updateOptionTableViewportSize();
-    }
-
-    /**
-     * Toggles the command option description column.
-     */
-    private void toggleCommandInfo() {
-        setCommandInfoVisible(!commandInfoVisible);
-    }
-
-    /**
-     * Shows or hides the command option description column.
-     *
-     * @param visible true when descriptions should be shown
-     */
-    private void setCommandInfoVisible(boolean visible) {
-        commandInfoVisible = visible;
-        optionInfoButton.setText(visible ? "Info -" : "Info +");
-        optionInfoButton.setToolTipText(visible ? "Hide option descriptions" : "Show option descriptions");
-        WorkbenchTheme.button(optionInfoButton, visible);
-        if (optionDescriptionColumn == null) {
-            return;
-        }
-        TableColumnModel columns = optionTable.getColumnModel();
-        boolean present = containsColumn(columns, optionDescriptionColumn);
-        if (visible && !present) {
-            columns.addColumn(optionDescriptionColumn);
-            int current = columns.getColumnCount() - 1;
-            int target = Math.min(3, current);
-            if (current != target) {
-                columns.moveColumn(current, target);
-            }
-        } else if (!visible && present) {
-            columns.removeColumn(optionDescriptionColumn);
-        }
-        updateOptionTableViewportSize();
-    }
-
-    /**
-     * Updates command option table's preferred viewport width for the info state.
-     */
-    private void updateOptionTableViewportSize() {
-        optionTable.setPreferredScrollableViewportSize(new Dimension(commandInfoVisible ? 860 : 560, 280));
-        optionTable.revalidate();
-    }
-
-    /**
-     * Returns whether a table column is currently visible.
-     *
-     * @param columns column model
-     * @param column target column
-     * @return true when the column is present
-     */
-    private static boolean containsColumn(TableColumnModel columns, TableColumn column) {
-        for (int i = 0; i < columns.getColumnCount(); i++) {
-            if (columns.getColumn(i) == column) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    /**
-     * Queues command-option filtering after the current event finishes.
-     */
-    private void requestOptionFilterUpdate() {
-        if (optionFilterUpdateQueued) {
-            return;
-        }
-        optionFilterUpdateQueued = true;
-        SwingUtilities.invokeLater(() -> {
-            if (!optionFilterUpdateQueued) {
-                return;
-            }
-            updateOptionFilter();
-        });
-    }
-
-    /**
-     * Applies the current command option filter.
-     */
-    private void updateOptionFilter() {
-        optionFilterUpdateQueued = false;
-        String query = optionFilterField.getText();
-        if (query == null || query.isBlank()) {
-            optionSorter.setRowFilter(null);
-            return;
-        }
-        optionSorter.setRowFilter(new RowFilter<>() {
-            /**
-             * Returns whether a command option should remain visible.
-             *
-             * @param entry row-filter entry
-             * @return true when all query tokens match the row text
-             */
-            @Override
-            public boolean include(Entry<? extends WorkbenchOptionTableModel, ? extends Integer> entry) {
-                return optionFilterMatches(query, entry.getStringValue(1), entry.getStringValue(2),
-                        entry.getStringValue(3));
-            }
-        });
-    }
-
-    /**
      * Returns whether option-row text matches all filter tokens.
      *
      * @param query raw query
@@ -5540,14 +5378,14 @@ public final class WorkbenchWindow extends JFrame {
         if (template == null) {
             return;
         }
-        optionModel.setOptions(template.options(), templateContext());
+        commandForm.setTemplate(template, templateContext());
     }
 
     /**
      * Resets the selected command to its default flags and values.
      */
     private void resetSelectedTemplate() {
-        optionModel.resetDefaults(templateContext());
+        commandForm.resetDefaults(templateContext());
         updateBuiltCommand();
     }
 
@@ -5555,7 +5393,7 @@ public final class WorkbenchWindow extends JFrame {
      * Returns the selected command to its default enabled option set.
      */
     private void clearOptionalTemplateOptions() {
-        optionModel.clearOptional();
+        commandForm.clearOptional();
         updateBuiltCommand();
     }
 
@@ -5709,7 +5547,7 @@ public final class WorkbenchWindow extends JFrame {
      */
     private void updateCommandPreviews() {
         commandPreviewUpdateQueued = false;
-        optionModel.refreshDynamicValues(templateContext());
+        commandForm.refreshDynamicValues(templateContext());
         updateBuiltCommand();
         updateBatchCommand();
         updatePublishCommand();
@@ -5726,7 +5564,7 @@ public final class WorkbenchWindow extends JFrame {
             return List.of();
         }
         List<String> args = new ArrayList<>(template.baseArgs());
-        args.addAll(optionModel.enabledArgs());
+        args.addAll(commandForm.args());
         return List.copyOf(args);
     }
 
