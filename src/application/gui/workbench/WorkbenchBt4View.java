@@ -291,7 +291,7 @@ final class WorkbenchBt4View extends WorkbenchNetworkView {
         g.fillRect(bounds.x, bounds.y, bounds.width, bounds.height);
         g.setColor(WorkbenchTheme.MUTED);
         g.setFont(WorkbenchTheme.font(13, Font.PLAIN));
-        g.drawString("No BT4 snapshot. Change the FEN to refresh.", PAD, 32);
+        g.drawString("BT4 snapshot is loading. The view refreshes when inference finishes.", PAD, 32);
     }
 
     /**
