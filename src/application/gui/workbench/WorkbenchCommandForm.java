@@ -1,20 +1,28 @@
 package application.gui.workbench;
 
+import java.awt.BasicStroke;
 import java.awt.BorderLayout;
 import java.awt.Color;
+import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
+import java.awt.Graphics;
+import java.awt.Graphics2D;
+import java.awt.RenderingHints;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.function.Consumer;
 
 import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.ButtonGroup;
+import javax.swing.Icon;
+import javax.swing.JComboBox;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
@@ -25,13 +33,20 @@ import application.gui.workbench.WorkbenchCommandTemplates.CommandOption;
 import application.gui.workbench.WorkbenchCommandTemplates.CommandTemplate;
 import application.gui.workbench.WorkbenchCommandTemplates.TemplateContext;
 import application.gui.workbench.WorkbenchCommandTemplates.ValueSource;
+import chess.core.Position;
 
 /**
  * Structured command-builder form. Replaces the flat flag table with a layout
  * that mirrors the Batch runner: required inputs come first as plain labelled
  * fields, mutually-exclusive flags are packaged into radio groups so only one
  * can ever be picked, and the remaining optional flags sit below behind a
- * filter. The command preview updates through a single change listener.
+ * filter.
+ *
+ * <p>Every row shares one column grid so the controls, value editors, and
+ * descriptions line up. Options with a small fixed set of values render as a
+ * dropdown rather than a free-text field, and a FEN field is validated live —
+ * an invalid command disables Run through the {@linkplain #setRunGate run
+ * gate}.</p>
  */
 final class WorkbenchCommandForm extends JPanel {
 
@@ -46,9 +61,32 @@ final class WorkbenchCommandForm extends JPanel {
     private static final String NO_GROUP = "";
 
     /**
+     * Fixed width of the leading control column, so value editors in every row
+     * start at the same x.
+     */
+    private static final int LEAD_WIDTH = 248;
+
+    /**
+     * Fixed width of the value-editor column.
+     */
+    private static final int VALUE_WIDTH = 280;
+
+    /**
+     * Row height.
+     */
+    private static final int ROW_HEIGHT = WorkbenchTheme.CONTROL_HEIGHT + 6;
+
+    /**
      * Listener invoked whenever the built command changes.
      */
     private transient Runnable changeListener = () -> {
+        // no-op until wired
+    };
+
+    /**
+     * Callback invoked with the command's runnable validity.
+     */
+    private transient Consumer<Boolean> runGate = ready -> {
         // no-op until wired
     };
 
@@ -101,6 +139,18 @@ final class WorkbenchCommandForm extends JPanel {
         changeListener = listener == null ? () -> {
             // no-op
         } : listener;
+    }
+
+    /**
+     * Sets the run-gate callback, invoked with the command's validity whenever
+     * the form changes.
+     *
+     * @param gate validity callback
+     */
+    void setRunGate(Consumer<Boolean> gate) {
+        runGate = gate == null ? ready -> {
+            // no-op
+        } : gate;
     }
 
     /**
@@ -170,8 +220,7 @@ final class WorkbenchCommandForm extends JPanel {
             if (field.option.source() == ValueSource.STATIC) {
                 continue;
             }
-            // Leave a field the user is actively editing alone.
-            if (field.valueField != null && field.valueField.isFocusOwner()) {
+            if (field.editor != null && field.editor.isFocusOwner()) {
                 continue;
             }
             String fresh = field.option.initialValue(context);
@@ -228,6 +277,7 @@ final class WorkbenchCommandForm extends JPanel {
             body.add(sectionHeader("Required", WorkbenchTheme.ACCENT));
             for (Block block : required) {
                 body.add(renderBlock(block, false));
+                body.add(Box.createVerticalStrut(WorkbenchTheme.SPACE_XS));
             }
         }
         if (!optional.isEmpty()) {
@@ -243,6 +293,7 @@ final class WorkbenchCommandForm extends JPanel {
             for (Block block : optional) {
                 JComponent rendered = renderBlock(block, true);
                 body.add(rendered);
+                body.add(Box.createVerticalStrut(WorkbenchTheme.SPACE_XS));
                 optionalRows.add(new FilterRow(rendered, block.searchText()));
             }
         }
@@ -305,7 +356,7 @@ final class WorkbenchCommandForm extends JPanel {
         panel.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createLineBorder(WorkbenchTheme.LINE),
                 WorkbenchTheme.pad(WorkbenchTheme.SPACE_SM)));
-        JLabel title = new JLabel("choose one · " + block.group());
+        JLabel title = new JLabel(block.group());
         title.setFont(WorkbenchTheme.font(11, Font.BOLD));
         title.setForeground(WorkbenchTheme.MUTED);
         title.setAlignmentX(LEFT_ALIGNMENT);
@@ -323,7 +374,7 @@ final class WorkbenchCommandForm extends JPanel {
                 anySelected = true;
             }
             radio.addActionListener(event -> selectRadio(block, field));
-            panel.add(buildOptionRow(radio, field, true));
+            panel.add(optionRow(radio, field));
         }
         if (optionalSection) {
             // Optional groups gain an explicit "none" choice.
@@ -333,24 +384,18 @@ final class WorkbenchCommandForm extends JPanel {
                 none.setSelected(true);
             }
             none.addActionListener(event -> selectRadio(block, null));
-            JPanel noneRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
-            noneRow.setOpaque(false);
-            noneRow.setAlignmentX(LEFT_ALIGNMENT);
-            noneRow.add(none);
-            panel.add(noneRow);
+            panel.add(fixedLead(none));
         } else if (!anySelected && !block.members().isEmpty()) {
-            // A required group always keeps one member active.
             Field first = block.members().get(0);
             first.enabled = true;
             first.radio.setSelected(true);
         }
-        // Cap the height so the vertical BoxLayout does not stretch the group.
         panel.setMaximumSize(new Dimension(Integer.MAX_VALUE, panel.getPreferredSize().height));
         return panel;
     }
 
     /**
-     * Renders a standalone option as a labelled field or a toggle row.
+     * Renders a standalone option as an aligned row.
      *
      * @param field option field
      * @param optionalSection true when rendered as optional
@@ -358,29 +403,12 @@ final class WorkbenchCommandForm extends JPanel {
      */
     private JComponent renderSingle(Field field, boolean optionalSection) {
         if (!optionalSection) {
-            // Required standalone option: always-on, shown as a plain input.
             field.enabled = true;
-            JPanel row = new JPanel(new BorderLayout(WorkbenchTheme.SPACE_SM, 0));
-            row.setOpaque(false);
-            row.setAlignmentX(LEFT_ALIGNMENT);
-            row.setMaximumSize(new Dimension(Integer.MAX_VALUE, WorkbenchTheme.CONTROL_HEIGHT + 6));
             JLabel name = new JLabel(displayFlag(field.option));
             name.setFont(WorkbenchTheme.font(12, Font.BOLD));
             name.setForeground(WorkbenchTheme.TEXT);
-            name.setPreferredSize(new Dimension(150, WorkbenchTheme.CONTROL_HEIGHT));
-            row.add(name, BorderLayout.WEST);
-            if (field.option.takesValue()) {
-                row.add(valueField(field), BorderLayout.CENTER);
-            } else {
-                JLabel on = new JLabel("included");
-                on.setFont(WorkbenchTheme.font(11, Font.PLAIN));
-                on.setForeground(WorkbenchTheme.MUTED);
-                row.add(on, BorderLayout.CENTER);
-            }
-            row.add(descriptionLabel(field.option), BorderLayout.EAST);
-            return row;
+            return optionRow(name, field);
         }
-        // Optional standalone option: toggle plus optional value.
         WorkbenchToggleBox toggle = new WorkbenchToggleBox(displayFlag(field.option), true);
         toggle.setSelected(field.enabled);
         field.toggle = toggle;
@@ -389,56 +417,136 @@ final class WorkbenchCommandForm extends JPanel {
             applyConflicts(field);
             fireChange();
         });
-        return buildOptionRow(toggle, field, false);
+        return optionRow(toggle, field);
     }
 
     /**
-     * Builds a row carrying a toggle/radio control, an optional value field,
-     * and the option description.
+     * Builds one aligned option row: a fixed-width lead control, a fixed-width
+     * value editor, then the description.
      *
-     * @param control leading control (radio or toggle)
+     * @param lead leading control (radio, toggle, or required label)
      * @param field option field
-     * @param insetForGroup true when nested inside a radio group
      * @return rendered row
      */
-    private JComponent buildOptionRow(JComponent control, Field field, boolean insetForGroup) {
-        JPanel row = new JPanel(new BorderLayout(WorkbenchTheme.SPACE_SM, 0));
+    private JComponent optionRow(JComponent lead, Field field) {
+        JPanel row = new JPanel();
+        row.setLayout(new BoxLayout(row, BoxLayout.X_AXIS));
         row.setOpaque(false);
         row.setAlignmentX(LEFT_ALIGNMENT);
-        row.setMaximumSize(new Dimension(Integer.MAX_VALUE, WorkbenchTheme.CONTROL_HEIGHT + 6));
-        JPanel west = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
-        west.setOpaque(false);
-        west.add(control);
-        row.add(west, BorderLayout.WEST);
-        if (field.option.takesValue()) {
-            row.add(valueField(field), BorderLayout.CENTER);
-        }
-        row.add(descriptionLabel(field.option), BorderLayout.EAST);
+        row.setMaximumSize(new Dimension(Integer.MAX_VALUE, ROW_HEIGHT));
+        row.setBorder(WorkbenchTheme.pad(2, 0, 2, 0));
+        row.add(fixedLead(lead));
+        row.add(Box.createHorizontalStrut(WorkbenchTheme.SPACE_SM));
+        JComponent editor = field.option.takesValue() ? valueEditor(field) : valuePlaceholder(field);
+        editor.setPreferredSize(new Dimension(VALUE_WIDTH, WorkbenchTheme.CONTROL_HEIGHT));
+        editor.setMaximumSize(new Dimension(VALUE_WIDTH, WorkbenchTheme.CONTROL_HEIGHT));
+        editor.setMinimumSize(new Dimension(VALUE_WIDTH, WorkbenchTheme.CONTROL_HEIGHT));
+        row.add(editor);
+        row.add(Box.createHorizontalStrut(WorkbenchTheme.SPACE_MD));
+        row.add(descriptionLabel(field.option));
+        row.add(Box.createHorizontalGlue());
         return row;
     }
 
     /**
-     * Creates the value editor for an option.
+     * Wraps a lead control in a fixed-width container so value editors align.
+     *
+     * @param lead lead control
+     * @return fixed-width wrapper
+     */
+    private static JComponent fixedLead(JComponent lead) {
+        JPanel holder = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+        holder.setOpaque(false);
+        holder.add(lead);
+        holder.setPreferredSize(new Dimension(LEAD_WIDTH, ROW_HEIGHT));
+        holder.setMinimumSize(new Dimension(LEAD_WIDTH, ROW_HEIGHT));
+        holder.setMaximumSize(new Dimension(LEAD_WIDTH, ROW_HEIGHT));
+        // A BoxLayout.Y mixes positions when children disagree on alignmentX;
+        // every row and lead holder must share the same left alignment.
+        holder.setAlignmentX(LEFT_ALIGNMENT);
+        return holder;
+    }
+
+    /**
+     * Builds the value editor for an option — a dropdown for a fixed value set,
+     * otherwise a validated text field.
      *
      * @param field option field
-     * @return styled value field
+     * @return value editor component
      */
-    private JTextField valueField(Field field) {
+    private JComponent valueEditor(Field field) {
+        List<String> choices = enumChoices(field.option);
+        if (!choices.isEmpty()) {
+            return choiceEditor(field, choices);
+        }
         JTextField text = new JTextField(field.value == null ? "" : field.value);
         WorkbenchUi.styleFields(text);
-        text.setColumns(18);
-        field.valueField = text;
+        field.editor = text;
+        field.defaultBorder = text.getBorder();
         WorkbenchUi.onTextChange(() -> {
             field.value = text.getText();
-            // Typing a value for an optional flag implies enabling it.
-            if (!field.enabled && !field.value.isBlank() && field.option.exclusiveGroup().isBlank()
-                    && field.toggle != null) {
-                field.enabled = true;
-                field.toggle.setSelected(true);
-            }
+            autoEnableOnEdit(field);
+            updateFieldValidity(field);
             fireChange();
         }, text);
+        updateFieldValidity(field);
         return text;
+    }
+
+    /**
+     * Builds a dropdown value editor for an option with a fixed value set.
+     *
+     * @param field option field
+     * @param choices allowed values
+     * @return dropdown editor
+     */
+    private JComponent choiceEditor(Field field, List<String> choices) {
+        List<String> items = new ArrayList<>();
+        boolean optionalValue = !field.option.enabledByDefault()
+                && field.option.exclusiveGroup().isBlank();
+        if (optionalValue && !choices.contains("")) {
+            items.add("");
+        }
+        items.addAll(choices);
+        JComboBox<String> combo = new JComboBox<>(items.toArray(String[]::new));
+        combo.setSelectedItem(items.contains(field.value) ? field.value
+                : field.option.defaultValue());
+        WorkbenchUi.styleCombos(combo);
+        field.combo = combo;
+        combo.addActionListener(event -> {
+            Object selected = combo.getSelectedItem();
+            field.value = selected == null ? "" : selected.toString();
+            autoEnableOnEdit(field);
+            fireChange();
+        });
+        return combo;
+    }
+
+    /**
+     * Builds the trailing placeholder for a value-less flag.
+     *
+     * @param field option field
+     * @return placeholder component
+     */
+    private JComponent valuePlaceholder(Field field) {
+        JLabel label = new JLabel(field.enabled && field.option.enabledByDefault()
+                && field.option.exclusiveGroup().isBlank() ? "included" : "");
+        label.setFont(WorkbenchTheme.font(11, Font.PLAIN));
+        label.setForeground(WorkbenchTheme.MUTED);
+        return label;
+    }
+
+    /**
+     * Auto-enables an optional standalone flag when its value is edited.
+     *
+     * @param field option field
+     */
+    private void autoEnableOnEdit(Field field) {
+        if (!field.enabled && field.value != null && !field.value.isBlank()
+                && field.option.exclusiveGroup().isBlank() && field.toggle != null) {
+            field.enabled = true;
+            field.toggle.setSelected(true);
+        }
     }
 
     /**
@@ -451,12 +559,11 @@ final class WorkbenchCommandForm extends JPanel {
         JLabel label = new JLabel(option.description());
         label.setFont(WorkbenchTheme.font(11, Font.PLAIN));
         label.setForeground(WorkbenchTheme.MUTED);
-        label.setBorder(WorkbenchTheme.pad(0, WorkbenchTheme.SPACE_SM, 0, 0));
         return label;
     }
 
     /**
-     * Creates a theme-coloured radio button.
+     * Creates a theme-styled radio button with a custom indicator.
      *
      * @param text button label
      * @return styled radio button
@@ -467,6 +574,9 @@ final class WorkbenchCommandForm extends JPanel {
         radio.setForeground(WorkbenchTheme.TEXT);
         radio.setFont(WorkbenchTheme.font(12, Font.PLAIN));
         radio.setFocusPainted(false);
+        radio.setIcon(new RadioIcon(false));
+        radio.setSelectedIcon(new RadioIcon(true));
+        radio.setIconTextGap(8);
         return radio;
     }
 
@@ -487,7 +597,7 @@ final class WorkbenchCommandForm extends JPanel {
     }
 
     // ------------------------------------------------------------------
-    // State changes
+    // State changes + validation
     // ------------------------------------------------------------------
 
     /**
@@ -537,12 +647,35 @@ final class WorkbenchCommandForm extends JPanel {
             if (field.radio != null) {
                 field.radio.setSelected(field.enabled);
             }
-            if (field.valueField != null && !field.valueField.isFocusOwner()) {
-                field.valueField.setText(field.value == null ? "" : field.value);
+            if (field.editor != null && !field.editor.isFocusOwner()) {
+                field.editor.setText(field.value == null ? "" : field.value);
+                updateFieldValidity(field);
+            }
+            if (field.combo != null) {
+                field.combo.setSelectedItem(field.value == null ? "" : field.value);
             }
         }
         rebuilding = false;
         fireChange();
+    }
+
+    /**
+     * Re-validates a FEN field, tinting its border red when the FEN cannot be
+     * parsed.
+     *
+     * @param field option field
+     */
+    private void updateFieldValidity(Field field) {
+        if (field.editor == null) {
+            return;
+        }
+        field.valid = !isFenOption(field.option) || isValidFen(field.value);
+        field.editor.setBorder(field.valid
+                ? field.defaultBorder
+                : BorderFactory.createCompoundBorder(
+                        BorderFactory.createLineBorder(WorkbenchTheme.STATUS_ERROR_TEXT, 2),
+                        WorkbenchTheme.pad(6, 8, 6, 8)));
+        field.editor.setToolTipText(field.valid ? null : "Not a valid FEN");
     }
 
     /**
@@ -558,12 +691,98 @@ final class WorkbenchCommandForm extends JPanel {
     }
 
     /**
-     * Notifies the change listener unless the form is mid-rebuild.
+     * Notifies listeners unless the form is mid-rebuild.
      */
     private void fireChange() {
-        if (!rebuilding) {
-            changeListener.run();
+        if (rebuilding) {
+            return;
         }
+        changeListener.run();
+        runGate.accept(isRunnable());
+    }
+
+    /**
+     * Returns whether the built command is currently runnable — every active
+     * FEN field must hold a parseable FEN.
+     *
+     * @return true when runnable
+     */
+    private boolean isRunnable() {
+        for (Field field : fields) {
+            if (field.enabled && isFenOption(field.option)
+                    && field.value != null && !field.value.isBlank()
+                    && !isValidFen(field.value)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Returns whether an option carries a FEN value.
+     *
+     * @param option option metadata
+     * @return true for FEN-valued options
+     */
+    private static boolean isFenOption(CommandOption option) {
+        if (option.source() == ValueSource.CURRENT_FEN) {
+            return true;
+        }
+        String flag = option.flag();
+        return "--fen".equals(flag) || "--other".equals(flag) || "--right".equals(flag);
+    }
+
+    /**
+     * Returns whether a string parses as a chess position.
+     *
+     * @param fen candidate FEN
+     * @return true when valid
+     */
+    private static boolean isValidFen(String fen) {
+        if (fen == null || fen.isBlank()) {
+            return true;
+        }
+        try {
+            return new Position(fen.trim()) != null;
+        } catch (RuntimeException ex) {
+            return false;
+        }
+    }
+
+    /**
+     * Extracts a fixed value set from an option's description — the comma- or
+     * "or"-separated single-word tokens that the CLI accepts. Returns an empty
+     * list for free-text options.
+     *
+     * @param option option metadata
+     * @return ordered allowed values, or empty when free-text
+     */
+    private static List<String> enumChoices(CommandOption option) {
+        if (!option.takesValue()) {
+            return List.of();
+        }
+        List<String> tokens = new ArrayList<>();
+        for (String raw : option.description().split(",")) {
+            String piece = raw;
+            int colon = piece.lastIndexOf(':');
+            if (colon >= 0) {
+                piece = piece.substring(colon + 1);
+            }
+            piece = piece.trim().toLowerCase(Locale.ROOT);
+            if (piece.startsWith("or ")) {
+                piece = piece.substring(3).trim();
+            }
+            if (piece.startsWith("and ")) {
+                piece = piece.substring(4).trim();
+            }
+            if (piece.matches("[a-z0-9][a-z0-9-]{0,13}") && !tokens.contains(piece)) {
+                tokens.add(piece);
+            }
+        }
+        String def = option.defaultValue() == null ? "" : option.defaultValue().toLowerCase(Locale.ROOT);
+        boolean isEnum = tokens.size() >= 2 && tokens.size() <= 8
+                && (tokens.contains(def) || def.isBlank());
+        return isEnum ? tokens : List.of();
     }
 
     /**
@@ -579,6 +798,56 @@ final class WorkbenchCommandForm extends JPanel {
     // ------------------------------------------------------------------
     // Data holders
     // ------------------------------------------------------------------
+
+    /**
+     * Themed radio-button indicator.
+     */
+    private static final class RadioIcon implements Icon {
+
+        /**
+         * Whether the selected indicator is drawn.
+         */
+        private final boolean selected;
+
+        /**
+         * Creates an indicator.
+         *
+         * @param selected true for the selected state
+         */
+        RadioIcon(boolean selected) {
+            this.selected = selected;
+        }
+
+        @Override
+        public int getIconWidth() {
+            return 16;
+        }
+
+        @Override
+        public int getIconHeight() {
+            return 16;
+        }
+
+        @Override
+        public void paintIcon(Component c, Graphics graphics, int x, int y) {
+            Graphics2D g = (Graphics2D) graphics.create();
+            try {
+                g.setRenderingHint(RenderingHints.KEY_ANTIALIASING,
+                        RenderingHints.VALUE_ANTIALIAS_ON);
+                g.setColor(WorkbenchTheme.INPUT);
+                g.fillOval(x + 1, y + 1, 13, 13);
+                g.setStroke(new BasicStroke(selected ? 2f : 1.3f));
+                g.setColor(selected ? WorkbenchTheme.ACCENT : WorkbenchTheme.INPUT_BORDER);
+                g.drawOval(x + 1, y + 1, 12, 12);
+                if (selected) {
+                    g.setColor(WorkbenchTheme.ACCENT);
+                    g.fillOval(x + 5, y + 5, 6, 6);
+                }
+            } finally {
+                g.dispose();
+            }
+        }
+    }
 
     /**
      * Mutable per-option UI state.
@@ -601,6 +870,11 @@ final class WorkbenchCommandForm extends JPanel {
         private String value;
 
         /**
+         * Whether the current value is valid.
+         */
+        private boolean valid = true;
+
+        /**
          * Toggle control, when rendered as an optional flag.
          */
         private WorkbenchToggleBox toggle;
@@ -611,9 +885,20 @@ final class WorkbenchCommandForm extends JPanel {
         private JRadioButton radio;
 
         /**
-         * Value editor, when the option takes a value.
+         * Free-text editor, when the option takes a free-text value.
          */
-        private JTextField valueField;
+        private JTextField editor;
+
+        /**
+         * The free-text editor's resting border, restored when the value is
+         * valid.
+         */
+        private javax.swing.border.Border defaultBorder;
+
+        /**
+         * Dropdown editor, when the option takes a fixed value.
+         */
+        private JComboBox<String> combo;
 
         /**
          * Creates a field.
@@ -683,8 +968,7 @@ final class WorkbenchCommandForm extends JPanel {
         }
 
         /**
-         * Returns whether this block belongs in the required section — a group
-         * with a default member, or a standalone option enabled by default.
+         * Returns whether this block belongs in the required section.
          *
          * @return true when required
          */

@@ -930,6 +930,31 @@ final class WorkbenchTheme {
     }
 
     /**
+     * Styles a toggle button as a flat command-selector tab: a quiet pill that
+     * turns accent-coloured when selected.
+     *
+     * @param tab toggle button to style
+     */
+    static void commandTab(AbstractButton tab) {
+        tab.setFocusPainted(false);
+        tab.setContentAreaFilled(false);
+        tab.setBorderPainted(false);
+        tab.setOpaque(true);
+        tab.setBorder(pad(5, 12, 5, 12));
+        Runnable apply = () -> {
+            boolean on = tab.isSelected();
+            tab.setBackground(on ? SELECTION_SOLID : ELEVATED_SOLID);
+            tab.setForeground(on ? ACCENT : MUTED);
+            tab.setFont(font(12, on ? Font.BOLD : Font.PLAIN));
+            tab.setBorder(BorderFactory.createCompoundBorder(
+                    BorderFactory.createLineBorder(on ? ACCENT : LINE),
+                    pad(4, 11, 4, 11)));
+        };
+        apply.run();
+        tab.addItemListener(event -> apply.run());
+    }
+
+    /**
      * Builds an input border for the current focus state.
      *
      * @param focused whether the control has focus
