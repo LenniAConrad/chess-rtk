@@ -317,28 +317,10 @@ final class WorkbenchCnnView extends WorkbenchNetworkView {
      */
     private static void drawGammaHeatmap(Graphics2D g, Rectangle r, float[] data,
             int cols, int rows, float scale) {
-        if (data == null || cols <= 0 || rows <= 0 || data.length < cols * rows) {
-            return;
-        }
-        if (scale <= 0.0f) {
-            scale = 1.0f;
-        }
-        double cw = r.width / (double) cols;
-        double ch = r.height / (double) rows;
-        Color base = WorkbenchTheme.ACCENT;
-        for (int row = 0; row < rows; ++row) {
-            for (int col = 0; col < cols; ++col) {
-                int cellX = (int) Math.floor(r.x + col * cw);
-                int cellY = (int) Math.floor(r.y + row * ch);
-                int cellW = (int) Math.ceil(cw + 1);
-                int cellH = (int) Math.ceil(ch + 1);
-                float v = Math.abs(data[row * cols + col]) / scale;
-                float gamma = (float) Math.sqrt(Math.min(1.0f, Math.max(0.0f, v)));
-                int alpha = Math.round(255 * gamma);
-                g.setColor(new Color(base.getRed(), base.getGreen(), base.getBlue(), alpha));
-                g.fillRect(cellX, cellY, cellW, cellH);
-            }
-        }
+        // Render into a cols x rows bitmap and blit it once. The raw atlas
+        // packs thousands of these, so a per-data-cell fillRect loop turned
+        // every repaint into millions of draw calls and froze the tab.
+        WorkbenchTensorViz.drawGammaHeatmap(g, r, data, cols, rows, scale);
     }
 
     /**

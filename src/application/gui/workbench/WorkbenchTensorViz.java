@@ -245,6 +245,46 @@ final class WorkbenchTensorViz {
     }
 
     /**
+     * Fast sequential heatmap with a sqrt-gamma ramp, used by the dense raw
+     * atlases. Renders into a {@code cols x rows} ARGB bitmap and blits it
+     * once, so a mosaic of thousands of channels or attention heads does not
+     * turn every repaint into millions of individual fill calls.
+     *
+     * @param g graphics
+     * @param r destination rectangle
+     * @param data flat row-major values
+     * @param cols column count
+     * @param rows row count
+     * @param scale absolute max for the colour ramp
+     */
+    static void drawGammaHeatmap(Graphics2D g, Rectangle r, float[] data, int cols, int rows,
+            float scale) {
+        if (data == null || cols <= 0 || rows <= 0 || data.length < cols * rows
+                || r.width <= 0 || r.height <= 0) {
+            return;
+        }
+        float s = scale <= 0.0f ? 1.0f : scale;
+        Color base = WorkbenchTheme.ACCENT;
+        int rgb = (base.getRed() << 16) | (base.getGreen() << 8) | base.getBlue();
+        java.awt.image.BufferedImage image =
+                new java.awt.image.BufferedImage(cols, rows, java.awt.image.BufferedImage.TYPE_INT_ARGB);
+        int[] pixels = new int[cols * rows];
+        for (int i = 0; i < pixels.length; ++i) {
+            float v = Math.min(1.0f, Math.abs(data[i]) / s);
+            int alpha = Math.round(255.0f * (float) Math.sqrt(v));
+            pixels[i] = (alpha << 24) | rgb;
+        }
+        image.setRGB(0, 0, cols, rows, pixels, 0, cols);
+        Object previous = g.getRenderingHint(RenderingHints.KEY_INTERPOLATION);
+        g.setRenderingHint(RenderingHints.KEY_INTERPOLATION,
+                RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
+        g.drawImage(image, r.x, r.y, r.width, r.height, null);
+        if (previous != null) {
+            g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, previous);
+        }
+    }
+
+    /**
      * Draws an empty placeholder rectangle.
      *
      * @param g graphics

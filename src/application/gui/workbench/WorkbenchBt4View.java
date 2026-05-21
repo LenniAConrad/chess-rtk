@@ -796,29 +796,13 @@ final class WorkbenchBt4View extends WorkbenchNetworkView {
      */
     private static void drawGammaHeatmap(Graphics2D g, Rectangle r, float[] data,
             int cols, int rows, float scale) {
-        if (data == null || cols <= 0 || rows <= 0 || data.length < cols * rows) {
+        if (data == null || cols <= 0 || rows <= 0 || data.length < cols * rows
+                || r.width <= 0 || r.height <= 0) {
             return;
         }
-        if (scale <= 0.0f) {
-            scale = 1.0f;
-        }
-        double cw = r.width / (double) cols;
-        double ch = r.height / (double) rows;
-        Color highBase = WorkbenchTheme.ACCENT;
-        for (int row = 0; row < rows; ++row) {
-            for (int col = 0; col < cols; ++col) {
-                int cellX = (int) Math.floor(r.x + col * cw);
-                int cellY = (int) Math.floor(r.y + row * ch);
-                int cellW = (int) Math.ceil(cw + 1);
-                int cellH = (int) Math.ceil(ch + 1);
-                float v = Math.max(0.0f, data[row * cols + col] / scale);
-                float gamma = (float) Math.sqrt(Math.min(1.0f, v));
-                int alpha = Math.round(255 * gamma);
-                g.setColor(new Color(highBase.getRed(), highBase.getGreen(),
-                        highBase.getBlue(), alpha));
-                g.fillRect(cellX, cellY, cellW, cellH);
-            }
-        }
+        // Blit one bitmap instead of cols x rows fills — the raw atlas packs
+        // 480 attention heads, so the per-cell loop froze the whole tab.
+        WorkbenchTensorViz.drawGammaHeatmap(g, r, data, cols, rows, scale);
         g.setColor(new Color(0, 0, 0, 35));
         g.drawRect(r.x, r.y, r.width - 1, r.height - 1);
     }
