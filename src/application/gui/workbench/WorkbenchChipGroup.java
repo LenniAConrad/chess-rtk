@@ -246,20 +246,28 @@ final class WorkbenchChipGroup extends JComponent {
                     RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
             int w = getPreferredSize().width;
             int h = HEIGHT;
-            // Track.
-            g.setColor(WorkbenchTheme.TOGGLE_BG);
+            // VS Code-style segmented input: white field, hairline border,
+            // and a pale active option instead of a saturated pill.
+            g.setColor(WorkbenchTheme.INPUT);
             g.fillRoundRect(0, 0, w, h, 3, 3);
-            g.setColor(WorkbenchTheme.LINE);
+            g.setColor(WorkbenchTheme.INPUT_BORDER);
             g.drawRoundRect(0, 0, w - 1, h - 1, 3, 3);
-            // Sliding accent indicator.
-            g.setColor(WorkbenchTheme.ACCENT);
+            for (int i = 1; i < labels.size(); i++) {
+                g.setColor(WorkbenchTheme.LINE);
+                g.drawLine(chipX[i], 4, chipX[i], h - 5);
+            }
+            // Sliding active option.
+            g.setColor(WorkbenchTheme.SELECTION_SOLID);
             g.fillRoundRect((int) Math.round(indicatorX) + 2, 2,
                     (int) Math.round(indicatorW) - 4, h - 4, 3, 3);
+            g.setColor(WorkbenchTheme.ACCENT);
+            g.drawRoundRect((int) Math.round(indicatorX) + 2, 2,
+                    (int) Math.round(indicatorW) - 5, h - 5, 3, 3);
             // Labels.
             g.setFont(WorkbenchTheme.font(12, Font.BOLD));
             FontMetrics fm = g.getFontMetrics();
             for (int i = 0; i < labels.size(); i++) {
-                g.setColor(i == selected ? WorkbenchTheme.PRIMARY_BUTTON_TEXT : WorkbenchTheme.MUTED);
+                g.setColor(i == selected ? WorkbenchTheme.TEXT : WorkbenchTheme.MUTED);
                 String label = labels.get(i);
                 int tx = chipX[i] + (chipW[i] - fm.stringWidth(label)) / 2;
                 int ty = (h + fm.getAscent() - fm.getDescent()) / 2;

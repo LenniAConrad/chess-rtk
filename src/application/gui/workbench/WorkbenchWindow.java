@@ -2105,7 +2105,8 @@ public final class WorkbenchWindow extends JFrame {
      * @return panel
      */
     private JPanel createCommandBuilder() {
-        JPanel panel = new WorkbenchSurfacePanel(new BorderLayout(0, 10));
+        JPanel panel = transparentPanel(new BorderLayout(0, 10));
+        panel.setBorder(WorkbenchTheme.pad(WorkbenchTheme.SPACE_MD));
 
         commandForm.setChangeListener(this::updateBuiltCommand);
         commandForm.setRunGate(this::updateCommandRunGate);

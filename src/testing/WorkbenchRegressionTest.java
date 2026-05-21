@@ -112,6 +112,7 @@ public final class WorkbenchRegressionTest {
         testBatchFenValidationReportsLineErrors();
         testCommandOptionConflictsDisableStaleRows();
         testEvaluatorSelectorsUseExplicitDefaults();
+        testCommandFormatSelectorsUseDirectChoices();
         testDynamicOptionRefresh();
         testDynamicOptionRefreshSkipsUnchangedValues();
         testEngineTemplateContextFeedsExternalConfigOptions();
@@ -142,6 +143,7 @@ public final class WorkbenchRegressionTest {
         testResetButtonUsesResetIcon();
         testButtonDisabledIconIsMuted();
         testCommandPreviewQuoting();
+        testWorkbenchSanRendererUsesNeutralFigurines();
         testEvalBarMapping();
         testEvalBarAnimation();
         testEvalBarThinkingIsStatic();
@@ -273,6 +275,38 @@ public final class WorkbenchRegressionTest {
         List<String> builtinLc0Args = enabledArgs(builtin);
         assertTrue(hasFlag(builtinLc0Args, "--lc0"), "built-in lc0 shortcut emits flag");
         assertFalse(hasFlag(builtinLc0Args, "--nnue"), "built-in lc0 disables nnue shortcut");
+    }
+
+    /**
+     * Verifies command formats are direct selector choices instead of a
+     * redundant format chip that opens a second dropdown.
+     */
+    private static void testCommandFormatSelectorsUseDirectChoices() {
+        Object legalMoves = optionsFor("Legal moves");
+        assertTrue(hasRowForFlag(legalMoves, "UCI"), "legal moves exposes UCI direct choice");
+        assertTrue(hasRowForFlag(legalMoves, "SAN"), "legal moves exposes SAN direct choice");
+        assertTrue(hasRowForFlag(legalMoves, "Both"), "legal moves exposes Both direct choice");
+        assertFalse(hasRowForFlag(legalMoves, "--format"), "legal moves hides redundant format row");
+        assertEquals("both", valueAfterFlag(enabledArgs(legalMoves), "--format"), "legal moves default format");
+
+        invoke(legalMoves, "setValueAt", new Class<?>[] { Object.class, int.class, int.class },
+                Boolean.TRUE, rowForFlag(legalMoves, "SAN"), COL_USE);
+        assertEquals("san", valueAfterFlag(enabledArgs(legalMoves), "--format"), "legal moves SAN format");
+
+        Object builtin = optionsFor("Built-in search");
+        assertTrue(hasRowForFlag(builtin, "Summary"), "built-in exposes summary direct choice");
+        assertTrue(hasRowForFlag(builtin, "UCI info"), "built-in exposes uci-info direct choice");
+        assertFalse(hasRowForFlag(builtin, "--format"), "built-in hides redundant format row");
+        assertEquals("summary", valueAfterFlag(enabledArgs(builtin), "--format"), "built-in default format");
+
+        Object perft = optionsFor("Perft");
+        assertTrue(hasRowForFlag(perft, "detail"), "perft exposes detail default");
+        assertTrue(hasRowForFlag(perft, "Table"), "perft exposes table direct choice");
+        assertTrue(hasRowForFlag(perft, "Stockfish"), "perft exposes stockfish direct choice");
+        assertFalse(hasFlag(enabledArgs(perft), "--format"), "perft default emits no redundant format");
+        invoke(perft, "setValueAt", new Class<?>[] { Object.class, int.class, int.class },
+                Boolean.TRUE, rowForFlag(perft, "Stockfish"), COL_USE);
+        assertEquals("stockfish", valueAfterFlag(enabledArgs(perft), "--format"), "perft stockfish format");
     }
 
     /**
@@ -795,6 +829,19 @@ public final class WorkbenchRegressionTest {
         String command = (String) invokeStatic(type("WorkbenchCommandRunner"), "displayCommand",
                 new Class<?>[] { List.class }, List.of("book", "render", "--title", "A B"));
         assertEquals("crtk book render --title \"A B\"", command, "quoted command preview");
+    }
+
+    /**
+     * Verifies SAN notation uses neutral white figurines, not black-side piece
+     * silhouettes.
+     */
+    private static void testWorkbenchSanRendererUsesNeutralFigurines() {
+        String rendered = (String) invokeStatic(type("WorkbenchSanRenderer"), "figurine",
+                new Class<?>[] { String.class }, "1. Qxe8+ Nbd6 2. bxa8=Q#");
+        assertTrue(rendered.contains("\u2655xe8+"), "queen uses neutral figurine");
+        assertTrue(rendered.contains("\u2658bd6"), "knight uses neutral figurine");
+        assertTrue(rendered.contains("bxa8=\u2655#"), "promotion uses neutral figurine");
+        assertFalse(rendered.contains("\u265B") || rendered.contains("\u265E"), "no black figurine glyphs");
     }
 
     /**
@@ -1739,6 +1786,21 @@ public final class WorkbenchRegressionTest {
      */
     private static boolean hasFlag(List<String> args, String flag) {
         return args.contains(flag);
+    }
+
+    /**
+     * Returns the token immediately after a flag in an argument list.
+     *
+     * @param args argument list
+     * @param flag flag
+     * @return following value, or empty string
+     */
+    private static String valueAfterFlag(List<String> args, String flag) {
+        int index = args.indexOf(flag);
+        if (index < 0 || index + 1 >= args.size()) {
+            return "";
+        }
+        return args.get(index + 1);
     }
 
     /**

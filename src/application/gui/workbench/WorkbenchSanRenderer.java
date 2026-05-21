@@ -7,10 +7,7 @@ import java.awt.Font;
 import java.awt.FontMetrics;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
-import java.awt.Image;
 import java.awt.RenderingHints;
-import java.util.ArrayList;
-import java.util.List;
 
 import javax.swing.JComponent;
 import javax.swing.JTable;
@@ -18,8 +15,8 @@ import javax.swing.table.TableCellRenderer;
 
 /**
  * Table-cell renderer that draws algebraic-notation (SAN) text with inline
- * chess-piece figurines: the K/Q/R/B/N piece letters become small piece
- * silhouettes, matching the figurine notation used in generated reports.
+ * chess-piece figurines: the K/Q/R/B/N piece letters become neutral figurine
+ * notation glyphs, matching the notation used in generated reports.
  *
  * <p>Pawn moves, castling, files, ranks, and annotations stay as text; only the
  * leading piece letter of each move token and the piece after a {@code =}
@@ -38,18 +35,9 @@ final class WorkbenchSanRenderer extends JComponent implements TableCellRenderer
     private static final int PAD_X = 6;
 
     /**
-     * One renderable run: either a text fragment or a piece figurine.
-     */
-    private record Segment(String text, char piece) {
-        boolean isIcon() {
-            return piece != 0;
-        }
-    }
-
-    /**
      * Parsed segments of the current cell value.
      */
-    private transient List<Segment> segments = List.of();
+    private transient String text = "";
 
     /**
      * Text colour for the current cell.
@@ -68,7 +56,7 @@ final class WorkbenchSanRenderer extends JComponent implements TableCellRenderer
     public Component getTableCellRendererComponent(JTable table, Object value,
             boolean isSelected, boolean hasFocus, int row, int column) {
         setFont(table.getFont());
-        segments = parse(value == null ? "" : value.toString());
+        text = figurine(value == null ? "" : value.toString());
         textColor = WorkbenchTheme.TEXT;
         setBackground(isSelected ? WorkbenchTheme.SELECTION_SOLID : table.getBackground());
         return this;
@@ -86,28 +74,9 @@ final class WorkbenchSanRenderer extends JComponent implements TableCellRenderer
                     RenderingHints.VALUE_INTERPOLATION_BILINEAR);
             g.setFont(getFont());
             FontMetrics fm = g.getFontMetrics();
-            int iconSize = Math.min(getHeight() - 2, fm.getAscent() + fm.getDescent() + 5);
             int baseline = (getHeight() + fm.getAscent() - fm.getDescent()) / 2;
-            int x = PAD_X;
-            for (Segment segment : segments) {
-                if (segment.isIcon()) {
-                    Image icon = WorkbenchFigurine.icon(segment.piece(), iconSize, textColor);
-                    if (icon != null) {
-                        int iconY = (getHeight() - iconSize) / 2;
-                        g.drawImage(icon, x, iconY, null);
-                        x += iconSize;
-                        continue;
-                    }
-                    // Fall back to the letter if artwork is unavailable.
-                    g.setColor(textColor);
-                    g.drawString(String.valueOf(segment.piece()), x, baseline);
-                    x += fm.charWidth(segment.piece());
-                } else {
-                    g.setColor(textColor);
-                    g.drawString(segment.text(), x, baseline);
-                    x += fm.stringWidth(segment.text());
-                }
-            }
+            g.setColor(textColor);
+            g.drawString(text, PAD_X, baseline);
         } finally {
             g.dispose();
         }
@@ -119,13 +88,12 @@ final class WorkbenchSanRenderer extends JComponent implements TableCellRenderer
     }
 
     /**
-     * Splits a SAN line into text and figurine segments.
+     * Converts a SAN line into neutral figurine algebraic notation.
      *
      * @param line SAN text (one or more move tokens)
-     * @return ordered renderable segments
+     * @return formatted text
      */
-    private static List<Segment> parse(String line) {
-        List<Segment> out = new ArrayList<>();
+    static String figurine(String line) {
         StringBuilder text = new StringBuilder();
         boolean tokenStart = true;
         for (int i = 0; i < line.length(); i++) {
@@ -142,38 +110,44 @@ final class WorkbenchSanRenderer extends JComponent implements TableCellRenderer
                     continue;
                 }
                 tokenStart = false;
-                if (WorkbenchFigurine.isPieceLetter(ch)) {
-                    flush(out, text);
-                    out.add(new Segment(null, ch));
+                char piece = figurinePiece(ch);
+                if (piece != 0) {
+                    text.append(piece);
                     continue;
                 }
                 text.append(ch);
                 continue;
             }
-            if (ch == '=' && i + 1 < line.length()
-                    && WorkbenchFigurine.isPieceLetter(line.charAt(i + 1))) {
+            if (ch == '=' && i + 1 < line.length()) {
+                char piece = figurinePiece(line.charAt(i + 1));
+                if (piece == 0) {
+                    text.append(ch);
+                    continue;
+                }
                 text.append(ch);
-                flush(out, text);
-                out.add(new Segment(null, line.charAt(i + 1)));
+                text.append(piece);
                 i++;
                 continue;
             }
             text.append(ch);
         }
-        flush(out, text);
-        return out;
+        return text.toString();
     }
 
     /**
-     * Appends any pending text as a segment and clears the buffer.
+     * Converts a SAN piece letter to the standard white figurine glyph.
      *
-     * @param out segment list
-     * @param text pending text buffer
+     * @param piece SAN piece letter
+     * @return figurine glyph, or {@code 0} when not a piece letter
      */
-    private static void flush(List<Segment> out, StringBuilder text) {
-        if (text.length() > 0) {
-            out.add(new Segment(text.toString(), (char) 0));
-            text.setLength(0);
-        }
+    private static char figurinePiece(char piece) {
+        return switch (piece) {
+            case 'K' -> '\u2654';
+            case 'Q' -> '\u2655';
+            case 'R' -> '\u2656';
+            case 'B' -> '\u2657';
+            case 'N' -> '\u2658';
+            default -> 0;
+        };
     }
 }
