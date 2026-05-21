@@ -219,72 +219,72 @@ public final class Theme {
     /**
      * Dark primary ink.
      */
-    private static final Color DARK_INK = new Color(212, 212, 212);
+    private static final Color DARK_INK = new Color(238, 238, 232);
 
     /**
      * Dark secondary ink.
      */
-    private static final Color DARK_MUTED = new Color(157, 165, 173);
+    private static final Color DARK_MUTED = new Color(160, 166, 151);
 
     /**
      * Dark workbench chrome.
      */
-    private static final Color DARK_CHROME = new Color(30, 30, 30);
+    private static final Color DARK_CHROME = new Color(15, 17, 14);
 
     /**
      * Dark subtle surface.
      */
-    private static final Color DARK_SUBTLE = new Color(37, 37, 38);
+    private static final Color DARK_SUBTLE = new Color(21, 24, 20);
 
     /**
      * Dark editor/panel surface.
      */
-    private static final Color DARK_DOCUMENT = new Color(31, 31, 31);
+    private static final Color DARK_DOCUMENT = new Color(18, 21, 17);
 
     /**
      * Dark elevated surface.
      */
-    private static final Color DARK_ELEVATED = new Color(45, 45, 48);
+    private static final Color DARK_ELEVATED = new Color(24, 28, 23);
 
     /**
      * Dark border color.
      */
-    private static final Color DARK_BORDER = new Color(63, 63, 70);
+    private static final Color DARK_BORDER = new Color(45, 52, 43);
 
     /**
-     * VS Code dark accent blue.
+     * Dark primary accent.
      */
-    private static final Color DARK_BLUE = new Color(0, 122, 204);
+    private static final Color DARK_ACCENT = new Color(109, 211, 179);
 
     /**
      * Dark accent hover.
      */
-    private static final Color DARK_BLUE_HOVER = new Color(17, 136, 221);
+    private static final Color DARK_ACCENT_HOVER = new Color(128, 226, 196);
 
     /**
      * Dark accent pressed.
      */
-    private static final Color DARK_BLUE_PRESSED = new Color(0, 99, 177);
+    private static final Color DARK_ACCENT_PRESSED = new Color(71, 173, 143);
 
     /**
      * Dark positive accent.
      */
-    private static final Color DARK_GREEN = new Color(115, 201, 145);
+    private static final Color DARK_GREEN = new Color(109, 211, 179);
 
     /**
      * Dark warning accent.
      */
-    private static final Color DARK_AMBER = new Color(255, 214, 102);
+    private static final Color DARK_AMBER = new Color(230, 196, 112);
 
     /**
      * Dark error accent.
      */
-    private static final Color DARK_CORAL = new Color(244, 135, 113);
+    private static final Color DARK_CORAL = new Color(240, 139, 128);
 
     /**
      * Dark policy accent.
      */
-    private static final Color DARK_PURPLE = new Color(197, 134, 192);
+    private static final Color DARK_PURPLE = new Color(185, 149, 206);
 
     /**
      * Root background color.
@@ -1028,61 +1028,61 @@ public final class Theme {
         LINE = DARK_BORDER;
         TEXT = DARK_INK;
         MUTED = DARK_MUTED;
-        ACCENT = DARK_BLUE;
-        SELECTION = new Color(38, 79, 120);
+        ACCENT = DARK_ACCENT;
+        SELECTION = new Color(35, 76, 58);
         SELECTION_SOLID = blendOver(SELECTION, BG);
-        ACCENT_HOVER = DARK_BLUE_HOVER;
-        ACCENT_PRESSED = DARK_BLUE_PRESSED;
+        ACCENT_HOVER = DARK_ACCENT_HOVER;
+        ACCENT_PRESSED = DARK_ACCENT_PRESSED;
         SECONDARY_BUTTON = DARK_ELEVATED;
-        SECONDARY_BUTTON_HOVER = new Color(55, 55, 59);
-        SECONDARY_BUTTON_PRESSED = new Color(63, 63, 70);
+        SECONDARY_BUTTON_HOVER = new Color(30, 35, 28);
+        SECONDARY_BUTTON_PRESSED = DARK_BORDER;
         SECONDARY_BUTTON_TEXT = DARK_INK;
         BUTTON_DISABLED_BG = DARK_SUBTLE;
         BUTTON_DISABLED_BORDER = DARK_BORDER;
-        BUTTON_DISABLED_TEXT = DARK_MUTED;
+        BUTTON_DISABLED_TEXT = new Color(116, 124, 111);
         INPUT_BORDER = DARK_BORDER;
-        INPUT_FOCUS = DARK_BLUE;
+        INPUT_FOCUS = DARK_ACCENT;
         INPUT_DISABLED = DARK_SUBTLE;
         TOGGLE_BG = DARK_SUBTLE;
         TOGGLE_BORDER = DARK_BORDER;
         TOGGLE_TRACK = DARK_MUTED;
         TOGGLE_ON_BG = SELECTION;
-        TOGGLE_ON_TRACK = DARK_BLUE_HOVER;
+        TOGGLE_ON_TRACK = DARK_ACCENT_HOVER;
         TOGGLE_THUMB = DARK_INK;
         INPUT = DARK_DOCUMENT;
         TEXT_AREA = DARK_DOCUMENT;
-        TERMINAL = new Color(24, 24, 24);
+        TERMINAL = new Color(12, 14, 11);
         TERMINAL_TEXT = DARK_INK;
-        TEXT_SELECTION = new Color(38, 79, 120, 255);
-        PRIMARY_BUTTON_TEXT = Color.WHITE;
+        TEXT_SELECTION = new Color(35, 76, 58, 255);
+        PRIMARY_BUTTON_TEXT = new Color(9, 12, 9);
         setFixedBoardAndEvalColors();
         TAB_ACCENT_UNDERLINE = withAlpha(ACCENT, 255);
-        TAB_HOVER = new Color(45, 45, 48, 255);
+        TAB_HOVER = new Color(DARK_ELEVATED.getRed(), DARK_ELEVATED.getGreen(), DARK_ELEVATED.getBlue(), 255);
         TAB_IDLE = new Color(BG.getRed(), BG.getGreen(), BG.getBlue(), 255);
         SCROLLBAR_TRACK = new Color(DARK_CHROME.getRed(), DARK_CHROME.getGreen(), DARK_CHROME.getBlue(), 0);
-        SCROLLBAR_THUMB = new Color(121, 121, 121, 100);
-        SCROLLBAR_THUMB_HOVER = new Color(121, 121, 121, 165);
+        SCROLLBAR_THUMB = new Color(DARK_MUTED.getRed(), DARK_MUTED.getGreen(), DARK_MUTED.getBlue(), 82);
+        SCROLLBAR_THUMB_HOVER = new Color(DARK_MUTED.getRed(), DARK_MUTED.getGreen(), DARK_MUTED.getBlue(), 150);
         TOOLTIP_BG = DARK_ELEVATED;
         TOOLTIP_TEXT = DARK_INK;
         TOOLTIP_BORDER = DARK_BORDER;
-        STATUS_SUCCESS_BG = new Color(27, 54, 35);
+        STATUS_SUCCESS_BG = new Color(20, 49, 37);
         STATUS_SUCCESS_BORDER = DARK_GREEN;
-        STATUS_SUCCESS_TEXT = new Color(185, 231, 198);
-        STATUS_WARNING_BG = new Color(74, 56, 18);
+        STATUS_SUCCESS_TEXT = new Color(183, 235, 207);
+        STATUS_WARNING_BG = new Color(62, 50, 24);
         STATUS_WARNING_BORDER = DARK_AMBER;
-        STATUS_WARNING_TEXT = new Color(255, 226, 147);
-        STATUS_ERROR_BG = new Color(76, 30, 30);
+        STATUS_WARNING_TEXT = new Color(246, 219, 151);
+        STATUS_ERROR_BG = new Color(70, 31, 30);
         STATUS_ERROR_BORDER = DARK_CORAL;
         STATUS_ERROR_TEXT = new Color(255, 190, 180);
-        STATUS_INFO_BG = new Color(18, 59, 84);
-        STATUS_INFO_BORDER = new Color(79, 193, 255);
-        STATUS_INFO_TEXT = new Color(179, 222, 245);
+        STATUS_INFO_BG = new Color(24, 47, 43);
+        STATUS_INFO_BORDER = DARK_ACCENT;
+        STATUS_INFO_TEXT = new Color(183, 235, 220);
         LOGO_BACKGROUND = new Color(DARK_PURPLE.getRed(), DARK_PURPLE.getGreen(), DARK_PURPLE.getBlue(), 230);
         LOGO_MARK = DARK_CORAL;
         TOGGLE_FOCUS = withAlpha(INPUT_FOCUS, 120);
         NN_POSITIVE = DARK_GREEN;
         NN_NEGATIVE = DARK_CORAL;
-        NN_TRUNK = new Color(79, 193, 255);
+        NN_TRUNK = DARK_ACCENT;
         NN_POLICY = DARK_PURPLE;
         NN_VALUE = DARK_GREEN;
         NN_NEUTRAL = DARK_SUBTLE;
