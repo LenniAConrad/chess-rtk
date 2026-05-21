@@ -1293,7 +1293,7 @@ public final class Ui {
             expanded = value;
             content.setVisible(value);
             contentHolder.setVisible(value);
-            toggle.setText((value ? "- " : "+ ") + title);
+            toggle.setText((value ? "- " : "+ ") + title.toUpperCase(java.util.Locale.ROOT));
             toggle.setToolTipText(value ? "Collapse " + title : "Expand " + title);
             revalidate();
             repaint();
@@ -1333,7 +1333,7 @@ public final class Ui {
          */
         @Override
         protected void paintComponent(Graphics graphics) {
-            setFont(Theme.font(12, Font.BOLD));
+            setFont(Theme.font(11, Font.BOLD));
             setForeground(isEnabled() ? Theme.TEXT : Theme.BUTTON_DISABLED_TEXT);
             Graphics2D g = (Graphics2D) graphics.create();
             try {
