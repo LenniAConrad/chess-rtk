@@ -50,9 +50,9 @@ final class WorkbenchTheme {
     private static final String PLACEHOLDER_PROPERTY = WorkbenchTheme.class.getName() + ".placeholder";
 
     /**
-     * Root background color.
+     * Root background color (VS Code Light Modern workbench grey).
      */
-    static final Color BG = new Color(242, 244, 246);
+    static final Color BG = new Color(243, 243, 243);
 
     /**
      * Fully transparent component background.
@@ -60,9 +60,9 @@ final class WorkbenchTheme {
     static final Color TRANSPARENT = new Color(255, 255, 255, 0);
 
     /**
-     * Primary panel color.
+     * Primary panel color (VS Code editor white).
      */
-    static final Color PANEL = new Color(252, 253, 253);
+    static final Color PANEL = new Color(255, 255, 255);
 
     /**
      * Solid panel fallback for Swing components that must be fully opaque.
@@ -72,7 +72,7 @@ final class WorkbenchTheme {
     /**
      * Elevated panel color.
      */
-    static final Color ELEVATED = new Color(250, 251, 252);
+    static final Color ELEVATED = new Color(255, 255, 255);
 
     /**
      * Solid elevated fallback for data surfaces and scroll viewports.
@@ -80,29 +80,29 @@ final class WorkbenchTheme {
     static final Color ELEVATED_SOLID = blendOver(ELEVATED, BG);
 
     /**
-     * Line color.
+     * Line color (VS Code panel border).
      */
-    static final Color LINE = new Color(215, 222, 229);
+    static final Color LINE = new Color(229, 229, 229);
 
     /**
-     * Primary text color.
+     * Primary text color (VS Code foreground).
      */
-    static final Color TEXT = new Color(31, 38, 46);
+    static final Color TEXT = new Color(59, 59, 59);
 
     /**
-     * Secondary text color.
+     * Secondary text color (VS Code description foreground).
      */
-    static final Color MUTED = new Color(96, 106, 118);
+    static final Color MUTED = new Color(110, 110, 110);
 
     /**
-     * Accent color.
+     * Accent color (VS Code Light Modern focus blue).
      */
-    static final Color ACCENT = new Color(72, 100, 108);
+    static final Color ACCENT = new Color(0, 95, 184);
 
     /**
-     * Table and tree selection color.
+     * Table and tree selection color (VS Code light list selection).
      */
-    static final Color SELECTION = new Color(220, 230, 233);
+    static final Color SELECTION = new Color(204, 228, 248);
 
     /**
      * Solid selection fallback for opaque renderers.
@@ -112,88 +112,87 @@ final class WorkbenchTheme {
     /**
      * Primary button hover color.
      */
-    static final Color ACCENT_HOVER = new Color(82, 112, 120);
+    static final Color ACCENT_HOVER = new Color(26, 115, 199);
 
     /**
      * Primary button pressed color.
      */
-    static final Color ACCENT_PRESSED = new Color(57, 83, 91);
+    static final Color ACCENT_PRESSED = new Color(0, 76, 146);
 
     /**
      * Secondary button color.
      */
-    static final Color SECONDARY_BUTTON = new Color(249, 250, 251);
+    static final Color SECONDARY_BUTTON = new Color(255, 255, 255);
 
     /**
      * Secondary button hover color.
      */
-    static final Color SECONDARY_BUTTON_HOVER = new Color(241, 244, 247);
+    static final Color SECONDARY_BUTTON_HOVER = new Color(240, 240, 240);
 
     /**
      * Secondary button pressed color.
      */
-    static final Color SECONDARY_BUTTON_PRESSED = new Color(229, 234, 239);
+    static final Color SECONDARY_BUTTON_PRESSED = new Color(229, 229, 229);
 
     /**
      * Secondary button text color.
      */
-    static final Color SECONDARY_BUTTON_TEXT = new Color(42, 50, 59);
+    static final Color SECONDARY_BUTTON_TEXT = new Color(59, 59, 59);
 
     /**
      * Disabled button fill color.
      */
-    static final Color BUTTON_DISABLED_BG = new Color(234, 238, 242);
+    static final Color BUTTON_DISABLED_BG = new Color(240, 240, 240);
 
     /**
      * Disabled button border color.
      */
-    static final Color BUTTON_DISABLED_BORDER = new Color(211, 217, 224);
+    static final Color BUTTON_DISABLED_BORDER = new Color(229, 229, 229);
 
     /**
      * Disabled button text color.
      */
-    static final Color BUTTON_DISABLED_TEXT = new Color(123, 132, 143);
+    static final Color BUTTON_DISABLED_TEXT = new Color(161, 161, 161);
 
     /**
-     * Input border color.
+     * Input border color (VS Code input border).
      */
-    static final Color INPUT_BORDER = new Color(211, 218, 226);
+    static final Color INPUT_BORDER = new Color(206, 206, 206);
 
     /**
-     * Input focus ring color. Uses the deeper accent shade so the ring is
-     * visually distinct from the regular hover/accent fills.
+     * Input focus ring color (VS Code focus blue).
      */
-    static final Color INPUT_FOCUS = new Color(82, 112, 120);
+    static final Color INPUT_FOCUS = new Color(0, 95, 184);
 
     /**
      * Disabled input background color.
      */
-    static final Color INPUT_DISABLED = new Color(238, 241, 244);
+    static final Color INPUT_DISABLED = new Color(240, 240, 240);
 
     /**
      * Toggle-off background color.
      */
-    static final Color TOGGLE_BG = new Color(238, 242, 245);
+    static final Color TOGGLE_BG = new Color(240, 240, 240);
 
     /**
      * Toggle-off border color.
      */
-    static final Color TOGGLE_BORDER = new Color(207, 215, 224);
+    static final Color TOGGLE_BORDER = new Color(206, 206, 206);
 
     /**
      * Toggle-off track color.
      */
-    static final Color TOGGLE_TRACK = new Color(151, 164, 177);
+    static final Color TOGGLE_TRACK = new Color(142, 142, 142);
 
     /**
      * Toggle-on background color.
      */
-    static final Color TOGGLE_ON_BG = new Color(225, 235, 238);
+    static final Color TOGGLE_ON_BG = new Color(204, 228, 248);
 
     /**
      * Toggle-on track color.
      */
-    static final Color TOGGLE_ON_TRACK = new Color(72, 100, 108);
+    static final Color TOGGLE_ON_TRACK = new Color(0, 95, 184);
 
     /**
      * Toggle thumb color.
@@ -203,27 +202,27 @@ final class WorkbenchTheme {
     /**
      * Text field background color.
      */
-    static final Color INPUT = new Color(252, 253, 254);
+    static final Color INPUT = new Color(255, 255, 255);
 
     /**
      * Text area background color.
      */
-    static final Color TEXT_AREA = new Color(250, 252, 253);
+    static final Color TEXT_AREA = new Color(255, 255, 255);
 
     /**
      * Terminal background color.
      */
-    static final Color TERMINAL = new Color(248, 250, 252);
+    static final Color TERMINAL = new Color(255, 255, 255);
 
     /**
      * Terminal text color.
      */
-    static final Color TERMINAL_TEXT = new Color(37, 45, 54);
+    static final Color TERMINAL_TEXT = new Color(59, 59, 59);
 
     /**
-     * Selection color for text controls.
+     * Selection color for text controls (VS Code editor selection blue).
      */
-    static final Color TEXT_SELECTION = new Color(213, 225, 230, 220);
+    static final Color TEXT_SELECTION = new Color(173, 214, 255, 255);
 
     /**
      * Primary button text color.
@@ -331,49 +330,49 @@ final class WorkbenchTheme {
     static final Color EVAL_DIVIDER = new Color(128, 128, 128, 176);
 
     /**
-     * Tab strip selected accent underline.
+     * Tab strip selected accent underline (VS Code active-tab accent).
      */
-    static final Color TAB_ACCENT_UNDERLINE = new Color(72, 100, 108, 190);
+    static final Color TAB_ACCENT_UNDERLINE = new Color(0, 95, 184, 255);
 
     /**
      * Tab strip rollover fill.
      */
-    static final Color TAB_HOVER = new Color(236, 240, 244, 190);
+    static final Color TAB_HOVER = new Color(240, 240, 240, 255);
 
     /**
      * Tab strip resting fill.
      */
-    static final Color TAB_IDLE = new Color(255, 255, 255, 70);
+    static final Color TAB_IDLE = new Color(243, 243, 243, 255);
 
     /**
      * Scrollbar track fill.
      */
-    static final Color SCROLLBAR_TRACK = new Color(226, 231, 236, 120);
+    static final Color SCROLLBAR_TRACK = new Color(0, 0, 0, 0);
 
     /**
-     * Scrollbar thumb resting fill.
+     * Scrollbar thumb resting fill (VS Code light slider).
      */
-    static final Color SCROLLBAR_THUMB = new Color(130, 143, 156, 126);
+    static final Color SCROLLBAR_THUMB = new Color(100, 100, 100, 80);
 
     /**
      * Scrollbar thumb hover fill.
      */
-    static final Color SCROLLBAR_THUMB_HOVER = new Color(112, 126, 140, 174);
+    static final Color SCROLLBAR_THUMB_HOVER = new Color(100, 100, 100, 130);
 
     /**
-     * Tooltip surface color.
+     * Tooltip surface color (VS Code light hover widget).
      */
-    static final Color TOOLTIP_BG = new Color(42, 50, 59);
+    static final Color TOOLTIP_BG = new Color(255, 255, 255);
 
     /**
      * Tooltip text color.
      */
-    static final Color TOOLTIP_TEXT = Color.WHITE;
+    static final Color TOOLTIP_TEXT = new Color(59, 59, 59);
 
     /**
      * Tooltip border color.
      */
-    static final Color TOOLTIP_BORDER = new Color(31, 38, 46);
+    static final Color TOOLTIP_BORDER = new Color(200, 200, 200);
 
     /**
      * Success feedback surface.
