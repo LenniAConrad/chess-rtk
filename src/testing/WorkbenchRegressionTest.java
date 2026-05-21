@@ -169,6 +169,7 @@ public final class WorkbenchRegressionTest {
         testCommandPreviewQuoting();
         testWorkbenchSanRendererUsesNeutralFigurines();
         testGameModelLoadsPgnVariations();
+        testEcoExplorerFiltersAndLoadsLines();
         testEvalBarMapping();
         testEvalBarAnimation();
         testEvalBarThinkingIsStatic();
@@ -1015,12 +1016,52 @@ public final class WorkbenchRegressionTest {
         model.jumpToRow(1);
         assertEquals("d2d4", Move.toString(model.currentLastMove()), "variation row move");
         assertEquals(afterD4.toString(), model.currentPosition().toString(), "variation row position");
+        assertEquals(List.of(Short.valueOf(Move.parse("d2d4"))), model.currentPath(),
+                "variation row path");
 
         Position afterMainline = new Position(START_FEN);
         afterMainline.play(Move.parse("e2e4"));
         afterMainline.play(Move.parse("e7e5"));
         model.jumpToPly(2);
         assertEquals(afterMainline.toString(), model.currentPosition().toString(), "mainline navigation restored");
+        assertEquals(List.of(Short.valueOf(Move.parse("e2e4")), Short.valueOf(Move.parse("e7e5"))),
+                model.currentPath(), "mainline path");
+    }
+
+    /**
+     * Verifies the ECO explorer filters the bundled book and loads a selected
+     * line through its host callback.
+     */
+    private static void testEcoExplorerFiltersAndLoadsLines() {
+        Position root = new Position(START_FEN);
+        List<Short> path = List.of(Short.valueOf(Move.parse("e2e4")), Short.valueOf(Move.parse("e7e5")));
+        String[] loaded = { null };
+        String[] copied = { null };
+        Object explorer = construct(type("EcoExplorerPanel"),
+                new Class<?>[] {
+                        java.util.function.Supplier.class,
+                        java.util.function.Supplier.class,
+                        java.util.function.Consumer.class,
+                        java.util.function.Consumer.class },
+                (java.util.function.Supplier<Position>) root::copy,
+                (java.util.function.Supplier<List<Short>>) () -> path,
+                (java.util.function.Consumer<String>) value -> loaded[0] = value,
+                (java.util.function.Consumer<String>) value -> copied[0] = value);
+
+        assertTrue(((Integer) invoke(explorer, "rowCount", new Class<?>[0])).intValue() > 0,
+                "ECO explorer has continuations for e4 e5");
+        invoke(explorer, "setFilter", new Class<?>[] { String.class }, "Ruy Lopez");
+        assertTrue(((Integer) invoke(explorer, "rowCount", new Class<?>[0])).intValue() > 0,
+                "ECO explorer filters Ruy Lopez rows");
+        assertTrue((Boolean) invoke(explorer, "selectFirstRow", new Class<?>[0]),
+                "ECO explorer selects first row");
+        assertTrue((Boolean) invoke(explorer, "loadSelectedLine", new Class<?>[0]),
+                "ECO explorer loads selected line");
+        assertTrue(loaded[0] != null && loaded[0].contains("Bb5"), "loaded ECO movetext");
+        assertTrue((Boolean) invoke(explorer, "copySelectedLine", new Class<?>[0]),
+                "ECO explorer copies selected line");
+        assertEquals(loaded[0], copied[0], "copied selected ECO movetext");
+        assertPaintsOpaqueCorner((JComponent) explorer, 420, 520, "ECO explorer opaque background");
     }
 
     /**
