@@ -1,0 +1,79 @@
+package application.gui.workbench.network;
+
+import application.gui.workbench.board.*;
+import application.gui.workbench.command.*;
+import application.gui.workbench.dashboard.*;
+import application.gui.workbench.game.*;
+import application.gui.workbench.layout.*;
+import application.gui.workbench.mcts.*;
+import application.gui.workbench.publish.*;
+import application.gui.workbench.session.*;
+import application.gui.workbench.ui.*;
+import application.gui.workbench.window.*;
+
+import static application.gui.workbench.network.NnueAtlas.*;
+import static application.gui.workbench.network.NnueDrawing.*;
+import static application.gui.workbench.network.NnueFeatureDecoder.*;
+import static application.gui.workbench.network.NnueTraceGeometry.*;
+
+import java.awt.BasicStroke;
+import java.awt.Color;
+import java.awt.Dimension;
+import java.awt.Font;
+import java.awt.FontMetrics;
+import java.awt.Graphics2D;
+import java.awt.Rectangle;
+import java.awt.RenderingHints;
+import java.awt.event.MouseEvent;
+import java.util.ArrayList;
+import java.util.List;
+
+import javax.swing.Scrollable;
+import javax.swing.SwingConstants;
+
+import chess.nn.nnue.FeatureEncoder;
+
+/**
+ * Workbench panel that visualises an NNUE half-KP forward pass.
+ *
+ * <p>Abstract mode shows the centipawn output, the top-N active features that
+ * fired and their signed impact on the eval, and a short readout of which
+ * accumulator slots moved the most. Detailed mode draws the full wired diagram
+ * (features -&gt; accumulator -&gt; clipped -&gt; output) with weighted edges
+ * coloured by sign and opacity scaled by magnitude.</p>
+ *
+ * <p>Shared scaffolding lives in {@link NetworkView}; this class adds
+ * the NNUE-specific drawing plus the {@link Scrollable} plumbing the atlas mode
+ * needs to expose every accumulator slot in a tall scrolling mosaic.</p>
+ */
+
+/**
+ * Workbench panel that visualises an NNUE half-KP forward pass.
+ */
+public final class NnueView extends NnueTraceView {
+    /** Serialization identifier for Swing component compatibility. */
+    private static final long serialVersionUID = 1L;
+
+
+    /**
+     * Decodes a HalfKP feature index for regression tests and tooltip text.
+     *
+     * @param featureIndex encoded feature index
+     * @param whitePerspective true when labels should use White's perspective
+     * @return readable HalfKP label
+     */
+    protected static String decodeHalfKP(int featureIndex, boolean whitePerspective) {
+        return NnueViewBase.decodeHalfKP(featureIndex, whitePerspective);
+    }
+
+    /**
+     * Exposes the trace layout calculator on this concrete type for regression tests.
+     *
+     * @param r graph bounds
+     * @return trace layout
+     */
+    @Override
+    protected NnueTraceLayout layout(Rectangle r) {
+        return super.layout(r);
+    }
+}

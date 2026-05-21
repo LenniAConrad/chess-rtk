@@ -61,9 +61,26 @@ import chess.uci.Output;
 public final class WorkbenchRegressionTest {
 
     /**
-     * Workbench implementation package.
+     * Workbench root package.
      */
     private static final String WORKBENCH_PACKAGE = "application.gui.workbench.";
+
+    /**
+     * Feature packages used by the split workbench implementation.
+     */
+    private static final String[] WORKBENCH_SUBPACKAGES = {
+            "board.",
+            "command.",
+            "dashboard.",
+            "game.",
+            "layout.",
+            "mcts.",
+            "network.",
+            "publish.",
+            "session.",
+            "ui.",
+            "window."
+    };
 
     /**
      * Shared standard starting position.
@@ -213,7 +230,7 @@ public final class WorkbenchRegressionTest {
      */
     private static void testFirstFenLineSkipsNonFenRows() {
         String text = "analysis note" + System.lineSeparator() + START_FEN;
-        assertEquals(START_FEN, invokeStatic(type("WorkbenchWindow"), "firstFenLine",
+        assertEquals(START_FEN, invokeStatic(type("Window"), "firstFenLine",
                 new Class<?>[] { String.class }, text), "first FEN after non-FEN note");
     }
 
@@ -222,7 +239,7 @@ public final class WorkbenchRegressionTest {
      * command is launched.
      */
     private static void testBatchFenValidationReportsLineErrors() {
-        Object summary = invokeStatic(type("WorkbenchWindow"), "validateBatchFenInput",
+        Object summary = invokeStatic(type("Window"), "validateBatchFenInput",
                 new Class<?>[] { String.class }, START_FEN + System.lineSeparator() + "not a fen");
         assertEquals(Integer.valueOf(2), invoke(summary, "rows", new Class<?>[0]), "batch FEN row count");
         assertEquals(Integer.valueOf(1), invoke(summary, "validRows", new Class<?>[0]), "batch valid row count");
@@ -319,7 +336,7 @@ public final class WorkbenchRegressionTest {
         Object options = optionsFor("Best move");
         int fenRow = rowForFlag(options, "--fen");
         String nextFen = "8/8/8/8/8/8/K7/7k b - - 1 1";
-        invoke(options, "refreshDynamicValues", new Class<?>[] { type("WorkbenchCommandTemplates$TemplateContext") },
+        invoke(options, "refreshDynamicValues", new Class<?>[] { type("CommandTemplates$TemplateContext") },
                 templateContext(nextFen, "9s", "5", "2", "1"));
         assertEquals(nextFen, String.valueOf(invoke(options, "getValueAt",
                 new Class<?>[] { int.class, int.class }, fenRow, COL_VALUE)), "dynamic FEN refresh");
@@ -333,11 +350,11 @@ public final class WorkbenchRegressionTest {
         int[] events = { 0 };
         ((javax.swing.table.AbstractTableModel) options).addTableModelListener(event -> events[0]++);
 
-        invoke(options, "refreshDynamicValues", new Class<?>[] { type("WorkbenchCommandTemplates$TemplateContext") },
+        invoke(options, "refreshDynamicValues", new Class<?>[] { type("CommandTemplates$TemplateContext") },
                 templateContext(START_FEN, "2s", "4", "3", "1"));
         assertEquals(Integer.valueOf(0), Integer.valueOf(events[0]), "unchanged dynamic values do not fire events");
 
-        invoke(options, "refreshDynamicValues", new Class<?>[] { type("WorkbenchCommandTemplates$TemplateContext") },
+        invoke(options, "refreshDynamicValues", new Class<?>[] { type("CommandTemplates$TemplateContext") },
                 templateContext("8/8/8/8/8/8/K7/7k b - - 1 1", "2s", "4", "3", "1"));
         assertTrue(events[0] > 0, "changed dynamic values still fire events");
     }
@@ -350,7 +367,7 @@ public final class WorkbenchRegressionTest {
         Object options = optionsFor("Analyze");
         Object context = templateContext(START_FEN, "3s", "4", "2", "8",
                 "config/lc0.engine.toml", "1200", "256");
-        invoke(options, "refreshDynamicValues", new Class<?>[] { type("WorkbenchCommandTemplates$TemplateContext") },
+        invoke(options, "refreshDynamicValues", new Class<?>[] { type("CommandTemplates$TemplateContext") },
                 context);
 
         assertEquals("config/lc0.engine.toml", optionValue(options, "--protocol-path"),
@@ -366,7 +383,7 @@ public final class WorkbenchRegressionTest {
         Object task = batchTask("Analyze batch");
         @SuppressWarnings("unchecked")
         List<String> args = (List<String>) invoke(task, "build",
-                new Class<?>[] { java.nio.file.Path.class, type("WorkbenchCommandTemplates$TemplateContext") },
+                new Class<?>[] { java.nio.file.Path.class, type("CommandTemplates$TemplateContext") },
                 java.nio.file.Path.of("positions.txt"),
                 templateContext(START_FEN, "4s", "5", "3", "6",
                         "config/default.engine.toml", "900", "128"));
@@ -383,9 +400,9 @@ public final class WorkbenchRegressionTest {
      */
     @SuppressWarnings("unchecked")
     private static void testCommandTemplatesHaveCompactTabLabels() {
-        List<Object> templates = (List<Object>) invokeStatic(type("WorkbenchCommandTemplates"),
+        List<Object> templates = (List<Object>) invokeStatic(type("CommandTemplates"),
                 "commandTemplates", new Class<?>[0]);
-        DefaultComboBoxModel<?> model = (DefaultComboBoxModel<?>) invokeStatic(type("WorkbenchCommandTemplates"),
+        DefaultComboBoxModel<?> model = (DefaultComboBoxModel<?>) invokeStatic(type("CommandTemplates"),
                 "commandModel", new Class<?>[0]);
         assertEquals(Integer.valueOf(model.getSize()), Integer.valueOf(templates.size()),
                 "command template tab count");
@@ -404,7 +421,7 @@ public final class WorkbenchRegressionTest {
      * Verifies publishing preview FEN labels stay compact.
      */
     private static void testPublishingPreviewFenCompaction() {
-        assertEquals("8/8/8/8/8/8/K7/7k b", invokeStatic(type("WorkbenchWindow"), "compactFenPreview",
+        assertEquals("8/8/8/8/8/8/K7/7k b", invokeStatic(type("Window"), "compactFenPreview",
                 new Class<?>[] { String.class }, "8/8/8/8/8/8/K7/7k b - - 4 22"),
                 "publishing preview compact FEN");
     }
@@ -413,14 +430,14 @@ public final class WorkbenchRegressionTest {
      * Verifies the visual publishing preview tracks page navigation.
      */
     private static void testPublishingVisualPreviewPages() {
-        JComponent preview = (JComponent) construct(type("WorkbenchPublishPreview"), new Class<?>[0]);
-        Object data = construct(type("WorkbenchPublishPreview$Preview"),
+        JComponent preview = (JComponent) construct(type("PublishPreview"), new Class<?>[0]);
+        Object data = construct(type("PublishPreview$Preview"),
                 new Class<?>[] { String.class, String.class, String.class, String.class, String.class,
                         boolean.class, String.class, int.class, boolean.class, boolean.class,
                         boolean.class, boolean.class },
                 "Study Book", "Test Study", "Subtitle", "source", "output", Boolean.TRUE, "", 3,
                 Boolean.FALSE, Boolean.FALSE, Boolean.FALSE, Boolean.FALSE);
-        invoke(preview, "setPreview", new Class<?>[] { type("WorkbenchPublishPreview$Preview") }, data);
+        invoke(preview, "setPreview", new Class<?>[] { type("PublishPreview$Preview") }, data);
         assertEquals("page 1 / 3", invoke(preview, "pageLabel", new Class<?>[0]),
                 "publishing preview initial page");
         invoke(preview, "nextPage", new Class<?>[0]);
@@ -437,7 +454,7 @@ public final class WorkbenchRegressionTest {
      */
     private static void testTextPlaceholdersDoNotSetValues() {
         JTextField field = new JTextField();
-        invokeStatic(type("WorkbenchUi"), "placeholder",
+        invokeStatic(type("Ui"), "placeholder",
                 new Class<?>[] { javax.swing.text.JTextComponent.class, String.class },
                 field, "path/to/input.pgn");
         assertEquals("", field.getText(), "placeholder leaves text empty");
@@ -448,7 +465,7 @@ public final class WorkbenchRegressionTest {
      * Verifies palette search uses all query tokens.
      */
     private static void testPaletteTokenMatching() {
-        Object action = construct(type("WorkbenchCommandPalette$PaletteAction"),
+        Object action = construct(type("CommandPalette$PaletteAction"),
                 new Class<?>[] { String.class, String.class, Runnable.class },
                 "Run publishing", "Execute the selected book workflow", (Runnable) () -> {
                     // no-op test action
@@ -476,8 +493,8 @@ public final class WorkbenchRegressionTest {
      */
     private static void testTextAreaScrollPaintsOpaque() {
         JTextArea area = new JTextArea("report");
-        invokeStatic(type("WorkbenchTheme"), "area", new Class<?>[] { JTextArea.class }, area);
-        JScrollPane pane = (JScrollPane) invokeStatic(type("WorkbenchUi"), "scroll",
+        invokeStatic(type("Theme"), "area", new Class<?>[] { JTextArea.class }, area);
+        JScrollPane pane = (JScrollPane) invokeStatic(type("Ui"), "scroll",
                 new Class<?>[] { javax.swing.JComponent.class }, area);
         assertEquals(255, area.getBackground().getAlpha(), "text area alpha");
         assertTrue(pane.getViewport().isOpaque(), "text area viewport opaque");
@@ -490,7 +507,7 @@ public final class WorkbenchRegressionTest {
     private static void testScrollPaneUsesSolidCorners() {
         JPanel view = new JPanel();
         view.setOpaque(false);
-        JScrollPane pane = (JScrollPane) invokeStatic(type("WorkbenchUi"), "scroll",
+        JScrollPane pane = (JScrollPane) invokeStatic(type("Ui"), "scroll",
                 new Class<?>[] { javax.swing.JComponent.class }, view);
         assertTrue(pane.getViewport().isOpaque(), "solid viewport opaque fallback");
         assertEquals(Integer.valueOf(255), Integer.valueOf(pane.getViewport().getBackground().getAlpha()),
@@ -508,7 +525,7 @@ public final class WorkbenchRegressionTest {
     private static void testViewportFillWrapperTracksAvailableHeight() {
         JPanel child = new JPanel();
         child.setPreferredSize(new Dimension(200, 100));
-        JComponent wrapper = (JComponent) invokeStatic(type("WorkbenchUi"), "fillViewport",
+        JComponent wrapper = (JComponent) invokeStatic(type("Ui"), "fillViewport",
                 new Class<?>[] { javax.swing.JComponent.class }, child);
         assertTrue(wrapper instanceof Scrollable, "viewport fill wrapper is scrollable");
 
@@ -529,13 +546,13 @@ public final class WorkbenchRegressionTest {
      */
     private static void testDataSurfacesUseSolidBackgrounds() {
         JTable table = new JTable(1, 1);
-        invokeStatic(type("WorkbenchTheme"), "table", new Class<?>[] { JTable.class, int.class }, table, 24);
+        invokeStatic(type("Theme"), "table", new Class<?>[] { JTable.class, int.class }, table, 24);
         assertTrue(table.isOpaque(), "table opaque");
         assertEquals(Integer.valueOf(255), Integer.valueOf(table.getBackground().getAlpha()), "table solid alpha");
         assertFalse(table.getShowHorizontalLines(), "table grid artifacts disabled");
 
         JList<String> list = new JList<>(new String[] { "a" });
-        invokeStatic(type("WorkbenchTheme"), "list", new Class<?>[] { JList.class }, list);
+        invokeStatic(type("Theme"), "list", new Class<?>[] { JList.class }, list);
         assertTrue(list.isOpaque(), "list opaque");
         assertEquals(Integer.valueOf(255), Integer.valueOf(list.getBackground().getAlpha()), "list solid alpha");
     }
@@ -545,14 +562,14 @@ public final class WorkbenchRegressionTest {
      * repaints cannot leave translucent trails.
      */
     private static void testCustomPaintedSurfacesClearBackground() {
-        JComponent panel = (JComponent) construct(type("WorkbenchSurfacePanel"),
+        JComponent panel = (JComponent) construct(type("SurfacePanel"),
                 new Class<?>[] { java.awt.LayoutManager.class }, new java.awt.BorderLayout());
         assertPaintsOpaqueCorner(panel, 160, 80, "solid panel clears background");
 
-        JComponent board = (JComponent) construct(type("WorkbenchBoardPanel"), new Class<?>[0]);
+        JComponent board = (JComponent) construct(type("BoardPanel"), new Class<?>[0]);
         assertPaintsOpaqueCorner(board, 320, 320, "board panel clears margin background");
 
-        JComponent eval = (JComponent) construct(type("WorkbenchEvalBar"), new Class<?>[0]);
+        JComponent eval = (JComponent) construct(type("EvalBar"), new Class<?>[0]);
         assertPaintsOpaqueCorner(eval, 40, 260, "eval bar clears background");
     }
 
@@ -561,7 +578,7 @@ public final class WorkbenchRegressionTest {
      */
     private static void testBooleanTableRendererIsStyled() {
         JTable table = new JTable(1, 1);
-        invokeStatic(type("WorkbenchTheme"), "table", new Class<?>[] { JTable.class, int.class }, table, 24);
+        invokeStatic(type("Theme"), "table", new Class<?>[] { JTable.class, int.class }, table, 24);
         TableCellRenderer renderer = table.getDefaultRenderer(Boolean.class);
         Component cell = renderer.getTableCellRendererComponent(table, Boolean.TRUE, true, false, 0, 0);
         assertTrue(cell instanceof JComponent, "boolean renderer component");
@@ -583,7 +600,7 @@ public final class WorkbenchRegressionTest {
         root.add(button);
         root.add(pane);
 
-        invokeStatic(type("WorkbenchUi"), "styleComponentTree", new Class<?>[] { Component.class }, root);
+        invokeStatic(type("Ui"), "styleComponentTree", new Class<?>[] { Component.class }, root);
 
         assertEquals(Integer.valueOf(255), Integer.valueOf(field.getBackground().getAlpha()),
                 "recursive text field solid alpha");
@@ -596,7 +613,7 @@ public final class WorkbenchRegressionTest {
      * Verifies settings toggles reserve enough width for full labels.
      */
     private static void testSettingsToggleRowsAreReadable() {
-        JComponent toggle = (JComponent) construct(type("WorkbenchToggleBox"), new Class<?>[] { String.class },
+        JComponent toggle = (JComponent) construct(type("ToggleBox"), new Class<?>[] { String.class },
                 "Legal move preview");
         Dimension size = toggle.getPreferredSize();
         assertTrue(size.width >= 300, "settings toggle row is wide enough for labels");
@@ -608,7 +625,7 @@ public final class WorkbenchRegressionTest {
      * directly to their final state.
      */
     private static void testToggleSwitchAnimatesStateChanges() {
-        JCheckBox toggle = (JCheckBox) construct(type("WorkbenchToggleBox"),
+        JCheckBox toggle = (JCheckBox) construct(type("ToggleBox"),
                 new Class<?>[] { String.class, boolean.class }, "Follow leaf", true);
         assertEquals(Double.valueOf(0.0), Double.valueOf((Double) field(toggle, "visualProgress")),
                 "toggle starts visually off");
@@ -637,14 +654,14 @@ public final class WorkbenchRegressionTest {
      * short flags such as --quiet align with longer flags such as --no-header.
      */
     private static void testCommandFormOptionalTogglesFillLeadColumn() {
-        JComponent toggle = (JComponent) construct(type("WorkbenchToggleBox"),
+        JComponent toggle = (JComponent) construct(type("ToggleBox"),
                 new Class<?>[] { String.class, boolean.class }, "--quiet", true);
-        JComponent holder = (JComponent) invokeStatic(type("WorkbenchCommandForm"), "fixedLead",
+        JComponent holder = (JComponent) invokeStatic(type("CommandForm"), "fixedLead",
                 new Class<?>[] { javax.swing.JComponent.class }, toggle);
         holder.setSize(holder.getPreferredSize());
         holder.doLayout();
 
-        int leadWidth = (Integer) staticField(type("WorkbenchCommandForm"), "LEAD_WIDTH");
+        int leadWidth = (Integer) staticField(type("CommandForm"), "LEAD_WIDTH");
         assertEquals(Integer.valueOf(leadWidth), Integer.valueOf(toggle.getWidth()),
                 "optional toggle fills command lead column");
     }
@@ -684,7 +701,7 @@ public final class WorkbenchRegressionTest {
      * than default look-and-feel colors.
      */
     private static void testThemeInstallSetsTooltipColors() {
-        invokeStatic(type("WorkbenchTheme"), "install", new Class<?>[0]);
+        invokeStatic(type("Theme"), "install", new Class<?>[0]);
         assertEquals(themeColor("TOOLTIP_BG"), UIManager.getColor("ToolTip.background"), "tooltip background themed");
         assertEquals(themeColor("TOOLTIP_TEXT"), UIManager.getColor("ToolTip.foreground"), "tooltip foreground themed");
         assertEquals(themeColor("TEXT_SELECTION"), UIManager.getColor("TextField.selectionBackground"),
@@ -698,7 +715,7 @@ public final class WorkbenchRegressionTest {
      */
     private static void testCollapsibleInfoSectionTogglesContent() {
         JLabel content = new JLabel("details");
-        JComponent section = (JComponent) invokeStatic(type("WorkbenchUi"), "collapsible",
+        JComponent section = (JComponent) invokeStatic(type("Ui"), "collapsible",
                 new Class<?>[] { String.class, javax.swing.JComponent.class, boolean.class },
                 "Info", content, true);
         JButton toggle = firstButton(section);
@@ -714,7 +731,7 @@ public final class WorkbenchRegressionTest {
      * content snapshots that can ghost over the next tab.
      */
     private static void testTabbedPaneSwitchesWithoutSnapshotOverlay() {
-        JTabbedPane tabs = (JTabbedPane) invokeStatic(type("WorkbenchUi"), "tabbedPane",
+        JTabbedPane tabs = (JTabbedPane) invokeStatic(type("Ui"), "tabbedPane",
                 new Class<?>[0]);
         JPanel first = new JPanel();
         first.add(new JLabel("first"));
@@ -791,7 +808,7 @@ public final class WorkbenchRegressionTest {
      * Verifies styled buttons ease into hover state instead of switching instantly.
      */
     private static void testButtonHoverTransitionStarts() {
-        JButton button = (JButton) invokeStatic(type("WorkbenchUi"), "button",
+        JButton button = (JButton) invokeStatic(type("Ui"), "button",
                 new Class<?>[] { String.class, boolean.class, ActionListener.class },
                 "Run", true, (ActionListener) event -> {
                     // no-op test listener
@@ -805,10 +822,10 @@ public final class WorkbenchRegressionTest {
      * Verifies visual timing defaults stay short enough to feel responsive.
      */
     private static void testWorkbenchTimingDefaultsAreSnappy() {
-        Object board = construct(type("WorkbenchBoardPanel"), new Class<?>[0]);
-        assertTrue((Integer) staticField(type("WorkbenchUi"), "BUTTON_TRANSITION_MS") <= 80,
+        Object board = construct(type("BoardPanel"), new Class<?>[0]);
+        assertTrue((Integer) staticField(type("Ui"), "BUTTON_TRANSITION_MS") <= 80,
                 "button transitions are short");
-        assertTrue((Integer) staticField(type("WorkbenchBoardPanel"), "MOVE_ANIMATION_MS") <= 120,
+        assertTrue((Integer) staticField(type("BoardPanel"), "MOVE_ANIMATION_MS") <= 120,
                 "board move animation is short");
         assertTrue((Integer) field(board, "snapbackAnimationMs") <= 100,
                 "snapback animation is short");
@@ -816,9 +833,9 @@ public final class WorkbenchRegressionTest {
                 "snap animation is short");
         assertTrue((Integer) field(board, "flipAnimationMs") <= 160,
                 "flip animation is short");
-        assertTrue((Integer) staticField(type("WorkbenchEvalBar"), "ANIMATION_DURATION_MS") <= 160,
+        assertTrue((Integer) staticField(type("EvalBar"), "ANIMATION_DURATION_MS") <= 160,
                 "eval bar transition is short");
-        assertTrue((Integer) staticField(type("WorkbenchWindow"), "EVAL_DEBOUNCE_MS") <= 100,
+        assertTrue((Integer) staticField(type("Window"), "EVAL_DEBOUNCE_MS") <= 100,
                 "eval refresh debounce is short");
     }
 
@@ -826,7 +843,7 @@ public final class WorkbenchRegressionTest {
      * Verifies the Reset button keeps the reset glyph.
      */
     private static void testResetButtonUsesResetIcon() {
-        JButton button = (JButton) invokeStatic(type("WorkbenchUi"), "button",
+        JButton button = (JButton) invokeStatic(type("Ui"), "button",
                 new Class<?>[] { String.class, boolean.class, ActionListener.class },
                 "Reset", false, (ActionListener) event -> {
                     // no-op test listener
@@ -839,7 +856,7 @@ public final class WorkbenchRegressionTest {
      * Verifies disabled buttons use a distinct muted icon.
      */
     private static void testButtonDisabledIconIsMuted() {
-        JButton button = (JButton) invokeStatic(type("WorkbenchUi"), "button",
+        JButton button = (JButton) invokeStatic(type("Ui"), "button",
                 new Class<?>[] { String.class, boolean.class, ActionListener.class },
                 "Stop", false, (ActionListener) event -> {
                     // no-op test listener
@@ -853,7 +870,7 @@ public final class WorkbenchRegressionTest {
      * Verifies command previews quote arguments containing spaces.
      */
     private static void testCommandPreviewQuoting() {
-        String command = (String) invokeStatic(type("WorkbenchCommandRunner"), "displayCommand",
+        String command = (String) invokeStatic(type("CommandRunner"), "displayCommand",
                 new Class<?>[] { List.class }, List.of("book", "render", "--title", "A B"));
         assertEquals("crtk book render --title \"A B\"", command, "quoted command preview");
     }
@@ -863,7 +880,7 @@ public final class WorkbenchRegressionTest {
      * silhouettes.
      */
     private static void testWorkbenchSanRendererUsesNeutralFigurines() {
-        String rendered = (String) invokeStatic(type("WorkbenchSanRenderer"), "figurine",
+        String rendered = (String) invokeStatic(type("SanRenderer"), "figurine",
                 new Class<?>[] { String.class }, "1. Qxe8+ Nbd6 2. bxa8=Q#");
         assertTrue(rendered.contains("\u2655xe8+"), "queen uses neutral figurine");
         assertTrue(rendered.contains("\u2658bd6"), "knight uses neutral figurine");
@@ -891,7 +908,7 @@ public final class WorkbenchRegressionTest {
         assertClose(1.0, evalEase(1.0), 0.0001, "eval ease end");
         assertTrue(evalEase(0.75) > evalEase(0.25), "eval ease monotonic");
 
-        Object bar = construct(type("WorkbenchEvalBar"), new Class<?>[0]);
+        Object bar = construct(type("EvalBar"), new Class<?>[0]);
         invoke(bar, "setCentipawns", new Class<?>[] { int.class }, 250);
         Timer timer = (Timer) field(bar, "timer");
         assertTrue(timer.isRunning(), "eval score animation starts");
@@ -902,7 +919,7 @@ public final class WorkbenchRegressionTest {
      * Verifies the pending engine state does not start a loading animation.
      */
     private static void testEvalBarThinkingIsStatic() {
-        Object bar = construct(type("WorkbenchEvalBar"), new Class<?>[0]);
+        Object bar = construct(type("EvalBar"), new Class<?>[0]);
         invoke(bar, "setThinking", new Class<?>[0]);
         Timer timer = (Timer) field(bar, "timer");
         assertFalse(timer.isRunning(), "eval thinking timer stopped");
@@ -929,12 +946,12 @@ public final class WorkbenchRegressionTest {
      */
     private static void testLiveEngineStatusFormatting() {
         Output cp = new Output("info depth 12 multipv 1 score cp 42 nodes 100 pv e2e4 e7e5");
-        String status = (String) invokeStatic(type("WorkbenchWindow"), "formatLiveEngineStatus",
+        String status = (String) invokeStatic(type("Window"), "formatLiveEngineStatus",
                 new Class<?>[] { Output.class, short.class }, cp, Move.parse("e2e4"));
         assertEquals("live d12 +42 e2e4", status, "live centipawn status");
 
         Output mate = new Output("info depth 9 multipv 1 score mate -3 nodes 100 pv g1f3");
-        String mateStatus = (String) invokeStatic(type("WorkbenchWindow"), "formatLiveEngineStatus",
+        String mateStatus = (String) invokeStatic(type("Window"), "formatLiveEngineStatus",
                 new Class<?>[] { Output.class, short.class }, mate, Move.parse("g1f3"));
         assertEquals("live d9 #-3 g1f3", mateStatus, "live mate status");
     }
@@ -944,15 +961,15 @@ public final class WorkbenchRegressionTest {
      */
     private static void testOptionalPositiveIntegerParsing() {
         JTextField blank = new JTextField(" ");
-        assertEquals(null, invokeStatic(type("WorkbenchWindow"), "optionalPositiveInteger",
+        assertEquals(null, invokeStatic(type("Window"), "optionalPositiveInteger",
                 new Class<?>[] { JTextField.class, String.class }, blank, "--hash"), "blank optional integer");
 
         JTextField valid = new JTextField("128");
-        assertEquals(Integer.valueOf(128), invokeStatic(type("WorkbenchWindow"), "optionalPositiveInteger",
+        assertEquals(Integer.valueOf(128), invokeStatic(type("Window"), "optionalPositiveInteger",
                 new Class<?>[] { JTextField.class, String.class }, valid, "--hash"), "valid optional integer");
 
         try {
-            invokeStatic(type("WorkbenchWindow"), "optionalPositiveInteger",
+            invokeStatic(type("Window"), "optionalPositiveInteger",
                     new Class<?>[] { JTextField.class, String.class }, new JTextField("0"), "--hash");
             throw new AssertionError("zero optional integer rejected");
         } catch (IllegalArgumentException ex) {
@@ -964,7 +981,7 @@ public final class WorkbenchRegressionTest {
      * Verifies the analysis graph stores live samples and formats the latest eval.
      */
     private static void testAnalysisGraphStoresSamples() {
-        Object graph = construct(type("WorkbenchAnalysisGraph"), new Class<?>[0]);
+        Object graph = construct(type("AnalysisGraph"), new Class<?>[0]);
         invoke(graph, "resetForPosition", new Class<?>[] { String.class }, START_FEN);
         invoke(graph, "addSample", new Class<?>[] { boolean.class, Output.class, short.class },
                 Boolean.TRUE,
@@ -984,7 +1001,7 @@ public final class WorkbenchRegressionTest {
      * Verifies graph data can be exported for reports and downstream analysis.
      */
     private static void testAnalysisGraphExportsReportData() {
-        Object graph = construct(type("WorkbenchAnalysisGraph"), new Class<?>[0]);
+        Object graph = construct(type("AnalysisGraph"), new Class<?>[0]);
         invoke(graph, "resetForPosition", new Class<?>[] { String.class }, START_FEN);
         invoke(graph, "addSample", new Class<?>[] { boolean.class, Output.class, short.class },
                 Boolean.TRUE,
@@ -1010,7 +1027,7 @@ public final class WorkbenchRegressionTest {
      * Verifies the graph paints a solid non-blank surface.
      */
     private static void testAnalysisGraphPaintsOpaqueSurface() {
-        JComponent graph = (JComponent) construct(type("WorkbenchAnalysisGraph"), new Class<?>[0]);
+        JComponent graph = (JComponent) construct(type("AnalysisGraph"), new Class<?>[0]);
         invoke(graph, "addSample", new Class<?>[] { boolean.class, Output.class, short.class },
                 Boolean.TRUE,
                 new Output("info depth 14 multipv 1 score cp -31 nodes 2000 nps 6500 pv g1f3"),
@@ -1022,7 +1039,7 @@ public final class WorkbenchRegressionTest {
      * Verifies the chessboard does not show an instructional tooltip over play.
      */
     private static void testBoardHasNoInstructionTooltip() {
-        JComponent board = (JComponent) construct(type("WorkbenchBoardPanel"), new Class<?>[0]);
+        JComponent board = (JComponent) construct(type("BoardPanel"), new Class<?>[0]);
         assertEquals(null, board.getToolTipText(), "board instruction tooltip removed");
     }
 
@@ -1030,7 +1047,7 @@ public final class WorkbenchRegressionTest {
      * Verifies board-local keyboard piece selection is disabled.
      */
     private static void testBoardHasNoKeyboardPieceSelector() {
-        JComponent board = (JComponent) construct(type("WorkbenchBoardPanel"), new Class<?>[0]);
+        JComponent board = (JComponent) construct(type("BoardPanel"), new Class<?>[0]);
         assertEquals(null, board.getInputMap(JComponent.WHEN_FOCUSED).get(KeyStroke.getKeyStroke("LEFT")),
                 "board left key does not select pieces");
         assertEquals(null, board.getInputMap(JComponent.WHEN_FOCUSED).get(KeyStroke.getKeyStroke("RIGHT")),
@@ -1050,22 +1067,22 @@ public final class WorkbenchRegressionTest {
      * data controls.
      */
     private static void testWindowPositionNavigationRoutingSkipsTextAndDataControls() {
-        assertTrue((Boolean) invokeStatic(type("WorkbenchWindow"), "shouldRoutePositionNavigation",
+        assertTrue((Boolean) invokeStatic(type("Window"), "shouldRoutePositionNavigation",
                 new Class<?>[] { Component.class }, new JButton("Run")),
                 "button focus may route arrows to positions");
-        assertFalse((Boolean) invokeStatic(type("WorkbenchWindow"), "shouldRoutePositionNavigation",
+        assertFalse((Boolean) invokeStatic(type("Window"), "shouldRoutePositionNavigation",
                 new Class<?>[] { Component.class }, new JTextField()),
                 "text fields keep arrow navigation");
-        assertFalse((Boolean) invokeStatic(type("WorkbenchWindow"), "shouldRoutePositionNavigation",
+        assertFalse((Boolean) invokeStatic(type("Window"), "shouldRoutePositionNavigation",
                 new Class<?>[] { Component.class }, new JTable(1, 1)),
                 "tables keep arrow navigation");
-        assertFalse((Boolean) invokeStatic(type("WorkbenchWindow"), "shouldRoutePositionNavigation",
+        assertFalse((Boolean) invokeStatic(type("Window"), "shouldRoutePositionNavigation",
                 new Class<?>[] { Component.class }, new JList<>()),
                 "lists keep arrow navigation");
-        assertFalse((Boolean) invokeStatic(type("WorkbenchWindow"), "shouldRoutePositionNavigation",
+        assertFalse((Boolean) invokeStatic(type("Window"), "shouldRoutePositionNavigation",
                 new Class<?>[] { Component.class }, new JComboBox<>()),
                 "combo boxes keep arrow navigation");
-        assertFalse((Boolean) invokeStatic(type("WorkbenchWindow"), "shouldRoutePositionNavigation",
+        assertFalse((Boolean) invokeStatic(type("Window"), "shouldRoutePositionNavigation",
                 new Class<?>[] { Component.class }, new JSpinner()),
                 "spinners keep arrow navigation");
     }
@@ -1074,7 +1091,7 @@ public final class WorkbenchRegressionTest {
      * Verifies right-button drag toggles a Lichess-style arrow.
      */
     private static void testBoardRightDragTogglesLichessArrowMarkup() {
-        Component board = (Component) construct(type("WorkbenchBoardPanel"), new Class<?>[0]);
+        Component board = (Component) construct(type("BoardPanel"), new Class<?>[0]);
         board.setSize(640, 640);
         Point from = boardPoint(Field.toIndex('e', '2'), true, 640, 640);
         Point to = boardPoint(Field.toIndex('e', '4'), true, 640, 640);
@@ -1095,7 +1112,7 @@ public final class WorkbenchRegressionTest {
      * Verifies right-clicking one square toggles a Lichess-style circle marker.
      */
     private static void testBoardRightClickTogglesLichessCircleMarkup() {
-        Component board = (Component) construct(type("WorkbenchBoardPanel"), new Class<?>[0]);
+        Component board = (Component) construct(type("BoardPanel"), new Class<?>[0]);
         board.setSize(640, 640);
         Point square = boardPoint(Field.toIndex('d', '4'), true, 640, 640);
 
@@ -1114,7 +1131,7 @@ public final class WorkbenchRegressionTest {
      * Verifies drawing the same endpoints with a modifier replaces the color.
      */
     private static void testBoardRightDragReplacesMarkupColorLikeLichess() {
-        Component board = (Component) construct(type("WorkbenchBoardPanel"), new Class<?>[0]);
+        Component board = (Component) construct(type("BoardPanel"), new Class<?>[0]);
         board.setSize(640, 640);
         Point from = boardPoint(Field.toIndex('b', '1'), true, 640, 640);
         Point to = boardPoint(Field.toIndex('c', '3'), true, 640, 640);
@@ -1131,12 +1148,12 @@ public final class WorkbenchRegressionTest {
      * Verifies dragging a piece emits the legal move through the board callback.
      */
     private static void testBoardDragEmitsLegalMove() {
-        Component board = (Component) construct(type("WorkbenchBoardPanel"), new Class<?>[0]);
+        Component board = (Component) construct(type("BoardPanel"), new Class<?>[0]);
         board.setSize(640, 640);
         invoke(board, "setPosition", new Class<?>[] { Position.class, short.class },
                 new Position(START_FEN), Move.NO_MOVE);
         List<Short> played = new ArrayList<>();
-        invoke(board, "setMoveHandler", new Class<?>[] { type("WorkbenchBoardPanel$MoveHandler") },
+        invoke(board, "setMoveHandler", new Class<?>[] { type("BoardPanel$MoveHandler") },
                 moveHandler(played));
 
         Point from = boardPoint(Field.toIndex('e', '2'), true, 640, 640);
@@ -1154,7 +1171,7 @@ public final class WorkbenchRegressionTest {
      * Verifies invalid drag hovers do not paint a red rejection box.
      */
     private static void testBoardDragInvalidHoverDoesNotPaintRedBox() {
-        Object board = construct(type("WorkbenchBoardPanel"), new Class<?>[0]);
+        Object board = construct(type("BoardPanel"), new Class<?>[0]);
         Component component = (Component) board;
         component.setSize(640, 640);
         invoke(board, "setPosition", new Class<?>[] { Position.class, short.class },
@@ -1188,7 +1205,7 @@ public final class WorkbenchRegressionTest {
      * hover marker cannot be left behind after pointer movement.
      */
     private static void testBoardDragDirtyBoundsIncludesInvalidHoverSquare() {
-        Object board = construct(type("WorkbenchBoardPanel"), new Class<?>[0]);
+        Object board = construct(type("BoardPanel"), new Class<?>[0]);
         Component component = (Component) board;
         component.setSize(640, 640);
         invoke(board, "setPosition", new Class<?>[] { Position.class, short.class },
@@ -1210,7 +1227,7 @@ public final class WorkbenchRegressionTest {
      * Verifies setting a played move starts the Java2D glide animation.
      */
     private static void testBoardMoveAnimationStarts() {
-        Object board = construct(type("WorkbenchBoardPanel"), new Class<?>[0]);
+        Object board = construct(type("BoardPanel"), new Class<?>[0]);
         Position start = new Position(START_FEN);
         invoke(board, "setPosition", new Class<?>[] { Position.class, short.class }, start, Move.NO_MOVE);
 
@@ -1221,7 +1238,7 @@ public final class WorkbenchRegressionTest {
         assertTrue((Boolean) field(board, "moveAnimationActive"), "move animation active");
         assertEquals(Byte.valueOf(Field.toIndex('e', '2')), field(board, "animatedMoveFrom"), "animated origin");
         assertEquals(Byte.valueOf(Field.toIndex('e', '4')), field(board, "animatedMoveTo"), "animated target");
-        double eased = (Double) invokeStatic(type("WorkbenchBoardPanel"), "easeOutCubic",
+        double eased = (Double) invokeStatic(type("BoardPanel"), "easeOutCubic",
                 new Class<?>[] { double.class }, 0.5d);
         assertTrue(eased > 0.5d && eased < 1.0d, "move animation ease-out curve");
     }
@@ -1230,7 +1247,7 @@ public final class WorkbenchRegressionTest {
      * Verifies capture moves retain the victim piece for fade-out drawing.
      */
     private static void testBoardCaptureAnimationStarts() {
-        Object board = construct(type("WorkbenchBoardPanel"), new Class<?>[0]);
+        Object board = construct(type("BoardPanel"), new Class<?>[0]);
         Position start = new Position("8/8/8/3p4/4P3/8/8/4K2k w - - 0 1");
         invoke(board, "setPosition", new Class<?>[] { Position.class, short.class }, start, Move.NO_MOVE);
 
@@ -1249,7 +1266,7 @@ public final class WorkbenchRegressionTest {
      * Verifies castling starts a secondary rook glide animation.
      */
     private static void testBoardCastlingAnimationStarts() {
-        Object board = construct(type("WorkbenchBoardPanel"), new Class<?>[0]);
+        Object board = construct(type("BoardPanel"), new Class<?>[0]);
         Position start = new Position("r3k2r/8/8/8/8/8/8/R3K2R w KQkq - 0 1");
         invoke(board, "setPosition", new Class<?>[] { Position.class, short.class }, start, Move.NO_MOVE);
 
@@ -1269,7 +1286,7 @@ public final class WorkbenchRegressionTest {
      * Verifies the board paints chessboard.js base colors.
      */
     private static void testBoardPaintUsesChessboardJsColors() {
-        Component board = (Component) construct(type("WorkbenchBoardPanel"), new Class<?>[0]);
+        Component board = (Component) construct(type("BoardPanel"), new Class<?>[0]);
         board.setSize(640, 640);
         invoke(board, "setPosition", new Class<?>[] { Position.class, short.class },
                 new Position("8/8/8/8/8/8/8/4K2k w - - 0 1"), Move.NO_MOVE);
@@ -1311,7 +1328,7 @@ public final class WorkbenchRegressionTest {
      * Verifies suggested best-move arrows are legal and do not leave square clutter.
      */
     private static void testBoardSuggestedMoveArrowIsLegalAndClean() {
-        Object board = construct(type("WorkbenchBoardPanel"), new Class<?>[0]);
+        Object board = construct(type("BoardPanel"), new Class<?>[0]);
         Component component = (Component) board;
         component.setSize(640, 640);
         short artificialLastMove = Move.parse("g1f3");
@@ -1355,7 +1372,7 @@ public final class WorkbenchRegressionTest {
      * Verifies legal destination previews can be disabled.
      */
     private static void testBoardLegalMovePreviewCanBeHidden() {
-        Object board = construct(type("WorkbenchBoardPanel"), new Class<?>[0]);
+        Object board = construct(type("BoardPanel"), new Class<?>[0]);
         Component component = (Component) board;
         component.setSize(640, 640);
         invoke(board, "setPosition", new Class<?>[] { Position.class, short.class },
@@ -1377,7 +1394,7 @@ public final class WorkbenchRegressionTest {
      * Verifies last-move highlights and suggested arrows can be disabled.
      */
     private static void testBoardLastMoveAndBestArrowCanBeHidden() {
-        Object board = construct(type("WorkbenchBoardPanel"), new Class<?>[0]);
+        Object board = construct(type("BoardPanel"), new Class<?>[0]);
         Component component = (Component) board;
         component.setSize(640, 640);
         Position start = new Position(START_FEN);
@@ -1409,7 +1426,7 @@ public final class WorkbenchRegressionTest {
      * Verifies notation and animations can be disabled.
      */
     private static void testBoardNotationAndAnimationsCanBeHidden() {
-        Object board = construct(type("WorkbenchBoardPanel"), new Class<?>[0]);
+        Object board = construct(type("BoardPanel"), new Class<?>[0]);
         invoke(board, "setShowNotation", new Class<?>[] { boolean.class }, Boolean.FALSE);
         assertFalse((Boolean) invoke(board, "isShowNotation", new Class<?>[0]), "board notation disabled");
 
@@ -1426,7 +1443,7 @@ public final class WorkbenchRegressionTest {
      * Verifies the board paints the checked-king marker.
      */
     private static void testBoardCheckHighlightPaintsCheckedKingMarker() {
-        Object board = construct(type("WorkbenchBoardPanel"), new Class<?>[0]);
+        Object board = construct(type("BoardPanel"), new Class<?>[0]);
         invoke(board, "setPosition", new Class<?>[] { Position.class, short.class },
                 new Position("4k3/8/8/8/8/8/8/K3R3 b - - 0 1"), Move.NO_MOVE);
         assertEquals(Byte.valueOf(Field.toIndex('e', '8')),
@@ -1459,7 +1476,7 @@ public final class WorkbenchRegressionTest {
      * Verifies the expensive board layer is cached by board size.
      */
     private static void testBoardTextureCachesRenderedLayer() {
-        Object board = construct(type("WorkbenchBoardPanel"), new Class<?>[0]);
+        Object board = construct(type("BoardPanel"), new Class<?>[0]);
         Object firstTexture = invoke(board, "boardTexture", new Class<?>[] { int.class }, 576);
         Object secondTexture = invoke(board, "boardTexture", new Class<?>[] { int.class }, 576);
         Object largerTexture = invoke(board, "boardTexture", new Class<?>[] { int.class }, 640);
@@ -1472,7 +1489,7 @@ public final class WorkbenchRegressionTest {
      * Verifies scaled SVG pieces are cached per board cell size.
      */
     private static void testBoardPieceImageCacheReusesScaledSvg() {
-        Object board = construct(type("WorkbenchBoardPanel"), new Class<?>[0]);
+        Object board = construct(type("BoardPanel"), new Class<?>[0]);
         Object first = invoke(board, "pieceImage", new Class<?>[] { byte.class, int.class },
                 Piece.WHITE_KNIGHT, 72);
         Object second = invoke(board, "pieceImage", new Class<?>[] { byte.class, int.class },
@@ -1492,7 +1509,7 @@ public final class WorkbenchRegressionTest {
         BufferedImage image = new BufferedImage(80, 80, BufferedImage.TYPE_INT_ARGB);
         Graphics2D graphics = image.createGraphics();
         try {
-            invokeStatic(type("WorkbenchTensorViz"), "drawPositionPieces",
+            invokeStatic(type("TensorViz"), "drawPositionPieces",
                     new Class<?>[] { Graphics2D.class, Rectangle.class, String.class },
                     graphics, new Rectangle(0, 0, 80, 80),
                     "7k/8/8/8/8/8/8/K7 w - - 0 1");
@@ -1512,7 +1529,7 @@ public final class WorkbenchRegressionTest {
      * @return move handler proxy
      */
     private static Object moveHandler(List<Short> played) {
-        Class<?> handlerType = type("WorkbenchBoardPanel$MoveHandler");
+        Class<?> handlerType = type("BoardPanel$MoveHandler");
         return Proxy.newProxyInstance(handlerType.getClassLoader(), new Class<?>[] { handlerType },
                 (proxy, method, args) -> {
                     if ("play".equals(method.getName())) {
@@ -1715,9 +1732,9 @@ public final class WorkbenchRegressionTest {
      */
     private static Object optionsFor(String name) {
         Object template = template(name);
-        Object options = construct(type("WorkbenchOptionTableModel"), new Class<?>[0]);
+        Object options = construct(type("OptionTableModel"), new Class<?>[0]);
         invoke(options, "setOptions",
-                new Class<?>[] { List.class, type("WorkbenchCommandTemplates$TemplateContext") },
+                new Class<?>[] { List.class, type("CommandTemplates$TemplateContext") },
                 templateOptions(template), templateContext(START_FEN, "2s", "4", "3", "1"));
         return options;
     }
@@ -1729,7 +1746,7 @@ public final class WorkbenchRegressionTest {
      * @return command template
      */
     private static Object template(String name) {
-        DefaultComboBoxModel<?> model = (DefaultComboBoxModel<?>) invokeStatic(type("WorkbenchCommandTemplates"),
+        DefaultComboBoxModel<?> model = (DefaultComboBoxModel<?>) invokeStatic(type("CommandTemplates"),
                 "commandModel", new Class<?>[0]);
         for (int i = 0; i < model.getSize(); i++) {
             Object template = model.getElementAt(i);
@@ -1747,7 +1764,7 @@ public final class WorkbenchRegressionTest {
      * @return batch task
      */
     private static Object batchTask(String name) {
-        DefaultComboBoxModel<?> model = (DefaultComboBoxModel<?>) invokeStatic(type("WorkbenchCommandTemplates"),
+        DefaultComboBoxModel<?> model = (DefaultComboBoxModel<?>) invokeStatic(type("CommandTemplates"),
                 "batchModel", new Class<?>[0]);
         for (int i = 0; i < model.getSize(); i++) {
             Object task = model.getElementAt(i);
@@ -1881,7 +1898,7 @@ public final class WorkbenchRegressionTest {
      */
     private static Object templateContext(String fen, String duration, String depth, String multipv, String threads,
             String protocolPath, String nodes, String hash) {
-        return construct(type("WorkbenchCommandTemplates$TemplateContext"),
+        return construct(type("CommandTemplates$TemplateContext"),
                 new Class<?>[] { String.class, String.class, String.class, String.class, String.class,
                         String.class, String.class, String.class },
                 fen, duration, depth, multipv, threads, protocolPath, nodes, hash);
@@ -1895,7 +1912,7 @@ public final class WorkbenchRegressionTest {
      * @return true when the query matches
      */
     private static boolean optionFilterMatches(String query, String... values) {
-        return (Boolean) invokeStatic(type("WorkbenchWindow"), "optionFilterMatches",
+        return (Boolean) invokeStatic(type("Window"), "optionFilterMatches",
                 new Class<?>[] { String.class, String[].class }, query, values);
     }
 
@@ -1906,7 +1923,7 @@ public final class WorkbenchRegressionTest {
      * @return parsed eval record
      */
     private static Object parseEngineEval(String output) {
-        return invokeStatic(type("WorkbenchWindow"), "parseEngineEval", new Class<?>[] { String.class }, output);
+        return invokeStatic(type("Window"), "parseEngineEval", new Class<?>[] { String.class }, output);
     }
 
     /**
@@ -1936,7 +1953,7 @@ public final class WorkbenchRegressionTest {
      * @return formatted score
      */
     private static String formatCentipawns(int centipawns) {
-        return (String) invokeStatic(type("WorkbenchEvalBar"), "formatCentipawns",
+        return (String) invokeStatic(type("EvalBar"), "formatCentipawns",
                 new Class<?>[] { int.class }, centipawns);
     }
 
@@ -1947,7 +1964,7 @@ public final class WorkbenchRegressionTest {
      * @return white share
      */
     private static double whiteShareForCentipawns(int centipawns) {
-        return (Double) invokeStatic(type("WorkbenchEvalBar"), "whiteShareForCentipawns",
+        return (Double) invokeStatic(type("EvalBar"), "whiteShareForCentipawns",
                 new Class<?>[] { int.class }, centipawns);
     }
 
@@ -1958,7 +1975,7 @@ public final class WorkbenchRegressionTest {
      * @return eased progress
      */
     private static double evalEase(double progress) {
-        return (Double) invokeStatic(type("WorkbenchEvalBar"), "easeInOutCubic",
+        return (Double) invokeStatic(type("EvalBar"), "easeInOutCubic",
                 new Class<?>[] { double.class }, progress);
     }
 
@@ -1969,7 +1986,7 @@ public final class WorkbenchRegressionTest {
      * @return color token
      */
     private static Color themeColor(String name) {
-        return (Color) staticField(type("WorkbenchTheme"), name);
+        return (Color) staticField(type("Theme"), name);
     }
 
     /**
@@ -1977,10 +1994,10 @@ public final class WorkbenchRegressionTest {
      */
     private static void testDashboardClassesLoad() {
         for (String name : new String[] {
-                "WorkbenchSession", "WorkbenchSessionListener", "WorkbenchHealthSnapshot",
-                "WorkbenchArtifactIndex", "WorkbenchJob", "WorkbenchJobStatus",
-                "WorkbenchJobManager", "WorkbenchJobTableModel", "WorkbenchCommandResultParser",
-                "WorkbenchDashboardActions", "WorkbenchDashboardPanel" }) {
+                "Session", "SessionListener", "HealthSnapshot",
+                "ArtifactIndex", "Job", "JobStatus",
+                "JobManager", "JobTableModel", "CommandResultParser",
+                "DashboardActions", "DashboardPanel" }) {
             assertTrue(type(name) != null, "dashboard class " + name + " loads");
         }
     }
@@ -1989,8 +2006,8 @@ public final class WorkbenchRegressionTest {
      * Verifies the session model notifies listeners when its state changes.
      */
     private static void testWorkbenchSessionNotifiesListeners() {
-        Object session = construct(type("WorkbenchSession"), new Class<?>[0]);
-        Class<?> listenerType = type("WorkbenchSessionListener");
+        Object session = construct(type("Session"), new Class<?>[0]);
+        Class<?> listenerType = type("SessionListener");
         int[] notifications = { 0 };
         Object listener = Proxy.newProxyInstance(listenerType.getClassLoader(),
                 new Class<?>[] { listenerType }, (proxy, method, args) -> {
@@ -2015,8 +2032,8 @@ public final class WorkbenchRegressionTest {
      * Verifies job lifecycle transitions and exit-code-driven terminal status.
      */
     private static void testJobLifecycleTransitions() {
-        Object manager = construct(type("WorkbenchJobManager"), new Class<?>[0]);
-        Class<?> jobType = type("WorkbenchJob");
+        Object manager = construct(type("JobManager"), new Class<?>[0]);
+        Class<?> jobType = type("Job");
 
         Object queued = invoke(manager, "create", new Class<?>[] { List.class },
                 List.of("doctor"));
@@ -2051,8 +2068,8 @@ public final class WorkbenchRegressionTest {
     private static void testRunLogWritesFullOutput() {
         try {
             Path dir = Files.createTempDirectory("crtk-workbench-log-");
-            Object manager = construct(type("WorkbenchJobManager"), new Class<?>[0]);
-            Class<?> jobType = type("WorkbenchJob");
+            Object manager = construct(type("JobManager"), new Class<?>[0]);
+            Class<?> jobType = type("Job");
             Object job = invoke(manager, "create", new Class<?>[] { List.class },
                     List.of("engine", "bestmove", "--fen", START_FEN));
             String output = "info depth 1\rinfo depth 2" + System.lineSeparator()
@@ -2060,7 +2077,7 @@ public final class WorkbenchRegressionTest {
             invoke(manager, "markFinished", new Class<?>[] { jobType, int.class, String.class, long.class },
                     job, 0, output, 42L);
 
-            Path log = (Path) invokeStatic(type("WorkbenchRunLog"), "write",
+            Path log = (Path) invokeStatic(type("RunLog"), "write",
                     new Class<?>[] { Path.class, jobType, Path.class }, dir, job, Path.of("."));
             String text = Files.readString(log, StandardCharsets.UTF_8);
             assertTrue(text.contains("CRTK Workbench Command Log"), "log header");
@@ -2087,8 +2104,8 @@ public final class WorkbenchRegressionTest {
             Files.writeString(input, START_FEN + System.lineSeparator(), StandardCharsets.UTF_8);
             Files.writeString(output, "{\"bestmove\":\"e2e4\"}" + System.lineSeparator(), StandardCharsets.UTF_8);
 
-            Object manager = construct(type("WorkbenchJobManager"), new Class<?>[0]);
-            Class<?> jobType = type("WorkbenchJob");
+            Object manager = construct(type("JobManager"), new Class<?>[0]);
+            Class<?> jobType = type("Job");
             Object job = invoke(manager, "create", new Class<?>[] { List.class }, List.of(
                     "engine", "bestmove-batch",
                     "--input", input.toString(),
@@ -2099,11 +2116,11 @@ public final class WorkbenchRegressionTest {
                     "--jsonl"));
             invoke(manager, "markFinished", new Class<?>[] { jobType, int.class, String.class, long.class },
                     job, 0, "bestmove e2e4", 42L);
-            Path log = (Path) invokeStatic(type("WorkbenchRunLog"), "write",
+            Path log = (Path) invokeStatic(type("RunLog"), "write",
                     new Class<?>[] { Path.class, jobType, Path.class }, dir, job, Path.of("."));
             invoke(job, "recordLog", new Class<?>[] { Path.class }, log);
 
-            Path manifest = (Path) invokeStatic(type("WorkbenchRunManifest"), "write",
+            Path manifest = (Path) invokeStatic(type("RunManifest"), "write",
                     new Class<?>[] { Path.class, jobType, List.class, String.class, Path.class },
                     dir, job, List.of(output), "stdin payload", Path.of("."));
             String json = Files.readString(manifest, StandardCharsets.UTF_8);
@@ -2138,8 +2155,8 @@ public final class WorkbenchRegressionTest {
      * Verifies the job history is bounded to {@code HISTORY_LIMIT} entries.
      */
     private static void testJobHistoryIsBounded() {
-        Object manager = construct(type("WorkbenchJobManager"), new Class<?>[0]);
-        int limit = (Integer) staticField(type("WorkbenchJobManager"), "HISTORY_LIMIT");
+        Object manager = construct(type("JobManager"), new Class<?>[0]);
+        int limit = (Integer) staticField(type("JobManager"), "HISTORY_LIMIT");
         for (int i = 0; i < limit + 17; i++) {
             invoke(manager, "create", new Class<?>[] { List.class }, List.of("doctor"));
         }
@@ -2151,7 +2168,7 @@ public final class WorkbenchRegressionTest {
      * Verifies the command-result parser produces representative summaries.
      */
     private static void testCommandResultParserSummaries() {
-        Class<?> parser = type("WorkbenchCommandResultParser");
+        Class<?> parser = type("CommandResultParser");
         assertEquals("bestmove e2e4", invokeStatic(parser, "summarize",
                 new Class<?>[] { List.class, int.class, String.class },
                 List.of("engine", "bestmove"), 0, "info depth 12\nbestmove e2e4 ponder e7e5\n"),
@@ -2171,12 +2188,12 @@ public final class WorkbenchRegressionTest {
      * Verifies the dashboard panel and its cards build headlessly.
      */
     private static void testDashboardPanelConstructsHeadlessly() {
-        Object session = construct(type("WorkbenchSession"), new Class<?>[0]);
-        Class<?> actionsType = type("WorkbenchDashboardActions");
+        Object session = construct(type("Session"), new Class<?>[0]);
+        Class<?> actionsType = type("DashboardActions");
         Object actions = Proxy.newProxyInstance(actionsType.getClassLoader(),
                 new Class<?>[] { actionsType }, (proxy, method, args) -> null);
-        Object panel = construct(type("WorkbenchDashboardPanel"),
-                new Class<?>[] { type("WorkbenchSession"), actionsType }, session, actions);
+        Object panel = construct(type("DashboardPanel"),
+                new Class<?>[] { type("Session"), actionsType }, session, actions);
         assertTrue(panel instanceof JComponent, "dashboard panel is a Swing component");
         assertTrue(((JComponent) panel).getComponentCount() > 0,
                 "dashboard panel builds its cards");
@@ -2194,7 +2211,7 @@ public final class WorkbenchRegressionTest {
      * visible view selector compact.
      */
     private static void testNetworkPanelSimpleControlsRenderHeadlessly() {
-        Object panel = construct(type("WorkbenchNetworkPanel"), new Class<?>[0]);
+        Object panel = construct(type("NetworkPanel"), new Class<?>[0]);
         Timer timer = (Timer) field(panel, "debounceTimer");
         timer.stop();
         JComboBox<?> archCombo = (JComboBox<?>) field(panel, "archCombo");
@@ -2224,9 +2241,9 @@ public final class WorkbenchRegressionTest {
      * apply readable TOML token coloring to the config preview.
      */
     private static void testNetworkDiagnosticsPreviewHighlightsConfig() {
-        Object panel = construct(type("WorkbenchNetworkDiagnosticsPanel"), new Class<?>[0]);
-        Object provider = construct(type("WorkbenchRealActivations"), new Class<?>[0]);
-        invoke(panel, "refresh", new Class<?>[] { type("WorkbenchRealActivations"), String.class },
+        Object panel = construct(type("NetworkDiagnosticsPanel"), new Class<?>[0]);
+        Object provider = construct(type("RealActivations"), new Class<?>[0]);
+        invoke(panel, "refresh", new Class<?>[] { type("RealActivations"), String.class },
                 provider, "NNUE");
 
         JTextPane configPane = (JTextPane) field(panel, "configPane");
@@ -2254,13 +2271,13 @@ public final class WorkbenchRegressionTest {
      * fill the viewport width instead of leaving a narrow atlas strip.
      */
     private static void testNnueViewsPaintSyntheticSnapshotHeadlessly() {
-        Class<?> viewType = type("WorkbenchNnueView");
-        Class<?> snapshotType = type("WorkbenchActivationSnapshot");
-        Class<?> baseType = type("WorkbenchNetworkView");
-        Class<?> modeType = type("WorkbenchViewMode");
+        Class<?> viewType = type("NnueView");
+        Class<?> snapshotType = type("ActivationSnapshot");
+        Class<?> baseType = type("NetworkView");
+        Class<?> modeType = type("ViewMode");
         Object view = construct(viewType, new Class<?>[0]);
         Object snapshot = construct(snapshotType, new Class<?>[0]);
-        invokeStatic(type("WorkbenchSyntheticActivations"), "fillNnue",
+        invokeStatic(type("SyntheticActivations"), "fillNnue",
                 new Class<?>[] { String.class, snapshotType }, START_FEN, snapshot);
         invoke(snapshot, "seal", new Class<?>[0]);
         invokeOn(baseType, view, "setFen", new Class<?>[] { String.class }, START_FEN);
@@ -2296,13 +2313,13 @@ public final class WorkbenchRegressionTest {
      * anchored awkwardly at the top.
      */
     private static void testNnueTraceFitsViewportAndCentersColumns() {
-        Class<?> viewType = type("WorkbenchNnueView");
-        Class<?> snapshotType = type("WorkbenchActivationSnapshot");
-        Class<?> baseType = type("WorkbenchNetworkView");
-        Class<?> modeType = type("WorkbenchViewMode");
+        Class<?> viewType = type("NnueView");
+        Class<?> snapshotType = type("ActivationSnapshot");
+        Class<?> baseType = type("NetworkView");
+        Class<?> modeType = type("ViewMode");
         Object view = construct(viewType, new Class<?>[0]);
         Object snapshot = construct(snapshotType, new Class<?>[0]);
-        invokeStatic(type("WorkbenchSyntheticActivations"), "fillNnue",
+        invokeStatic(type("SyntheticActivations"), "fillNnue",
                 new Class<?>[] { String.class, snapshotType }, START_FEN, snapshot);
         invoke(snapshot, "seal", new Class<?>[0]);
         invokeOn(baseType, view, "setFen", new Class<?>[] { String.class }, START_FEN);
@@ -2346,7 +2363,7 @@ public final class WorkbenchRegressionTest {
      * displayed board.
      */
     private static void testNnueHalfKpDecodingUsesFeatureEncoderLayout() {
-        Class<?> viewType = type("WorkbenchNnueView");
+        Class<?> viewType = type("NnueView");
         int whiteFeature = FeatureEncoder.encodeFeature(4, FeatureEncoder.OWN_KNIGHT, 10);
         assertEquals("Ke1 / Nc2",
                 invokeStatic(viewType, "decodeHalfKP",
@@ -2357,9 +2374,9 @@ public final class WorkbenchRegressionTest {
                         new Class<?>[] { int.class, boolean.class }, whiteFeature, false),
                 "black-perspective HalfKP decode mirrors board squares");
 
-        Class<?> snapshotType = type("WorkbenchActivationSnapshot");
+        Class<?> snapshotType = type("ActivationSnapshot");
         Object snapshot = construct(snapshotType, new Class<?>[0]);
-        invokeStatic(type("WorkbenchSyntheticActivations"), "fillNnue",
+        invokeStatic(type("SyntheticActivations"), "fillNnue",
                 new Class<?>[] { String.class, snapshotType }, START_FEN, snapshot);
         assertSyntheticFeatureBounds(snapshot, "nnue.features.us.indices");
         assertSyntheticFeatureBounds(snapshot, "nnue.features.them.indices");
@@ -2383,9 +2400,9 @@ public final class WorkbenchRegressionTest {
      * natural lane order so the left column does not reshuffle during search.
      */
     private static void testNnueTraceRanksCombinedContributionsAndShowsAllFeatures() {
-        Class<?> viewType = type("WorkbenchNnueView");
-        Class<?> snapshotType = type("WorkbenchActivationSnapshot");
-        Class<?> baseType = type("WorkbenchNetworkView");
+        Class<?> viewType = type("NnueView");
+        Class<?> snapshotType = type("ActivationSnapshot");
+        Class<?> baseType = type("NetworkView");
         Object view = construct(viewType, new Class<?>[0]);
         Object snapshot = construct(snapshotType, new Class<?>[0]);
         int hidden = 40;
@@ -2418,7 +2435,7 @@ public final class WorkbenchRegressionTest {
      * instead of pretending they are a contiguous tensor slice.
      */
     private static void testNnueTraceInlineInspectorShowsGatheredColumn() {
-        Object regions = construct(type("WorkbenchHitRegions"), new Class<?>[0]);
+        Object regions = construct(type("HitRegions"), new Class<?>[0]);
         Rectangle bounds = new Rectangle(0, 0, 20, 20);
         invoke(regions, "addInline",
                 new Class<?>[] { Rectangle.class, String.class, String.class,
@@ -2426,9 +2443,9 @@ public final class WorkbenchRegressionTest {
                 bounds, "computed slot column", "gathered values", "2 rows",
                 new float[] { 1.25f, -2.5f }, "2x1");
         Object region = invoke(regions, "hitTest", new Class<?>[] { int.class, int.class }, 5, 5);
-        Object panel = construct(type("WorkbenchInspectorPanel"), new Class<?>[0]);
+        Object panel = construct(type("InspectorPanel"), new Class<?>[0]);
         invoke(panel, "inspect",
-                new Class<?>[] { region.getClass(), type("WorkbenchActivationSnapshot") },
+                new Class<?>[] { region.getClass(), type("ActivationSnapshot") },
                 region, null);
         JTextArea dataArea = (JTextArea) field(panel, "dataArea");
         String text = dataArea.getText();
@@ -2499,14 +2516,14 @@ public final class WorkbenchRegressionTest {
      * activation snapshots.
      */
     private static void testCnnAndBt4AtlasPaintSyntheticSnapshotsHeadlessly() {
-        Class<?> snapshotType = type("WorkbenchActivationSnapshot");
-        Class<?> baseType = type("WorkbenchNetworkView");
-        Class<?> modeType = type("WorkbenchViewMode");
+        Class<?> snapshotType = type("ActivationSnapshot");
+        Class<?> baseType = type("NetworkView");
+        Class<?> modeType = type("ViewMode");
         Object atlas = enumValue(modeType, "ATLAS");
 
-        Object cnnView = construct(type("WorkbenchCnnView"), new Class<?>[0]);
+        Object cnnView = construct(type("CnnView"), new Class<?>[0]);
         Object cnnSnapshot = construct(snapshotType, new Class<?>[0]);
-        invokeStatic(type("WorkbenchSyntheticActivations"), "fillCnn",
+        invokeStatic(type("SyntheticActivations"), "fillCnn",
                 new Class<?>[] { String.class, snapshotType }, START_FEN, cnnSnapshot);
         invoke(cnnSnapshot, "seal", new Class<?>[0]);
         invokeOn(baseType, cnnView, "setFen", new Class<?>[] { String.class }, START_FEN);
@@ -2515,9 +2532,9 @@ public final class WorkbenchRegressionTest {
         assertPaintsOpaqueCorner((JComponent) cnnView, 1240, 760,
                 "CNN atlas paints synthetic snapshot");
 
-        Object bt4View = construct(type("WorkbenchBt4View"), new Class<?>[0]);
+        Object bt4View = construct(type("Bt4View"), new Class<?>[0]);
         Object bt4Snapshot = construct(snapshotType, new Class<?>[0]);
-        invokeStatic(type("WorkbenchSyntheticActivations"), "fillBt4",
+        invokeStatic(type("SyntheticActivations"), "fillBt4",
                 new Class<?>[] { String.class, snapshotType }, START_FEN, bt4Snapshot);
         invoke(bt4Snapshot, "seal", new Class<?>[0]);
         invokeOn(baseType, bt4View, "setFen", new Class<?>[] { String.class }, START_FEN);
@@ -2536,7 +2553,7 @@ public final class WorkbenchRegressionTest {
         if (!Files.exists(weights)) {
             return;
         }
-        Object provider = construct(type("WorkbenchRealActivations"), new Class<?>[0]);
+        Object provider = construct(type("RealActivations"), new Class<?>[0]);
         Object snapshot = invoke(provider, "inferCnn", new Class<?>[] { String.class }, START_FEN);
         assertEquals("real inference", invoke(provider, "statusFor", new Class<?>[] { String.class }, "cnn"),
                 "CNN workbench status uses real weights");
@@ -2806,7 +2823,7 @@ public final class WorkbenchRegressionTest {
      * Verifies the Dashboard tab is the first tab in the workbench window.
      */
     private static void testDashboardTabIsFirst() {
-        Class<?> window = type("WorkbenchWindow");
+        Class<?> window = type("Window");
         assertEquals(Integer.valueOf(0), staticField(window, "TAB_DASHBOARD"),
                 "Dashboard is the first tab");
         assertEquals(Integer.valueOf(1), staticField(window, "TAB_ANALYZE"),
@@ -2818,7 +2835,7 @@ public final class WorkbenchRegressionTest {
      * the latest sample overwrites and a new game clears.
      */
     private static void testSessionEvalHistory() {
-        Object session = construct(type("WorkbenchSession"), new Class<?>[0]);
+        Object session = construct(type("Session"), new Class<?>[0]);
         invoke(session, "recordEval", new Class<?>[] { int.class, int.class }, 0, 35);
         invoke(session, "recordEval", new Class<?>[] { int.class, int.class }, 1, -120);
         invoke(session, "recordEval", new Class<?>[] { int.class, int.class }, 0, 60);
@@ -2840,7 +2857,7 @@ public final class WorkbenchRegressionTest {
      * throwing.
      */
     private static void testMiniChartRendersHeadlessly() {
-        Object chart = construct(type("WorkbenchMiniChart"), new Class<?>[0]);
+        Object chart = construct(type("MiniChart"), new Class<?>[0]);
         invoke(chart, "setLine", new Class<?>[] { float[].class },
                 (Object) new float[] { 0.3f, -0.5f, 1.2f, 0.1f });
         invoke(chart, "setBars", new Class<?>[] { float[].class, Color[].class },
@@ -2865,11 +2882,20 @@ public final class WorkbenchRegressionTest {
      * @return class
      */
     private static Class<?> type(String name) {
+        ClassNotFoundException first = null;
         try {
             return Class.forName(WORKBENCH_PACKAGE + name);
         } catch (ClassNotFoundException ex) {
-            throw new AssertionError("missing workbench type " + name, ex);
+            first = ex;
         }
+        for (String subpackage : WORKBENCH_SUBPACKAGES) {
+            try {
+                return Class.forName(WORKBENCH_PACKAGE + subpackage + name);
+            } catch (ClassNotFoundException ignored) {
+                // Try the next feature package.
+            }
+        }
+        throw new AssertionError("missing workbench type " + name, first);
     }
 
     /**

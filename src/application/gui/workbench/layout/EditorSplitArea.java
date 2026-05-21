@@ -1,5 +1,16 @@
 package application.gui.workbench.layout;
 
+import application.gui.workbench.board.*;
+import application.gui.workbench.command.*;
+import application.gui.workbench.dashboard.*;
+import application.gui.workbench.game.*;
+import application.gui.workbench.mcts.*;
+import application.gui.workbench.network.*;
+import application.gui.workbench.publish.*;
+import application.gui.workbench.session.*;
+import application.gui.workbench.ui.*;
+import application.gui.workbench.window.*;
+
 import java.awt.BasicStroke;
 import java.awt.BorderLayout;
 import java.awt.Color;
@@ -26,7 +37,7 @@ import javax.swing.JSplitPane;
 import javax.swing.JToggleButton;
 import javax.swing.SwingUtilities;
 
-import application.gui.workbench.WorkbenchTheme;
+import application.gui.workbench.ui.Theme;
 
 /**
  * VS Code-style workbench shell. Holds every workbench panel and shows them
@@ -204,21 +215,21 @@ public final class EditorSplitArea extends JPanel {
     public EditorSplitArea() {
         super(new BorderLayout());
         setOpaque(true);
-        setBackground(WorkbenchTheme.BG);
+        setBackground(Theme.BG);
         primaryPane.setOpaque(true);
-        primaryPane.setBackground(WorkbenchTheme.PANEL_SOLID);
+        primaryPane.setBackground(Theme.PANEL_SOLID);
         secondaryPane.setOpaque(true);
-        secondaryPane.setBackground(WorkbenchTheme.PANEL_SOLID);
+        secondaryPane.setBackground(Theme.PANEL_SOLID);
         primaryHost.setOpaque(true);
-        primaryHost.setBackground(WorkbenchTheme.PANEL_SOLID);
+        primaryHost.setBackground(Theme.PANEL_SOLID);
         secondaryHost.setOpaque(true);
-        secondaryHost.setBackground(WorkbenchTheme.PANEL_SOLID);
+        secondaryHost.setBackground(Theme.PANEL_SOLID);
         centre.setOpaque(true);
-        centre.setBackground(WorkbenchTheme.PANEL_SOLID);
+        centre.setBackground(Theme.PANEL_SOLID);
         primaryStrip.setOpaque(true);
-        primaryStrip.setBackground(WorkbenchTheme.BG);
+        primaryStrip.setBackground(Theme.BG);
         secondaryStrip.setOpaque(true);
-        secondaryStrip.setBackground(WorkbenchTheme.BG);
+        secondaryStrip.setBackground(Theme.BG);
         add(centre, BorderLayout.CENTER);
     }
 
@@ -484,7 +495,7 @@ public final class EditorSplitArea extends JPanel {
      */
     private JComponent reopenButton(boolean primary) {
         JToggleButton plus = new JToggleButton("+");
-        WorkbenchTheme.commandTab(plus);
+        Theme.commandTab(plus);
         plus.setToolTipText("Reopen a closed panel");
         plus.addActionListener(event -> {
             plus.setSelected(false);
@@ -766,8 +777,8 @@ public final class EditorSplitArea extends JPanel {
         rebuildStrip(strip, tabList, activeIndex, primary);
         JPanel header = new JPanel(new BorderLayout());
         header.setOpaque(true);
-        header.setBackground(WorkbenchTheme.BG);
-        header.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, WorkbenchTheme.LINE));
+        header.setBackground(Theme.BG);
+        header.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, Theme.LINE));
         header.add(strip, BorderLayout.CENTER);
         if (primary) {
             JPanel splitHolder = new JPanel(new FlowLayout(FlowLayout.RIGHT, 4, 3));
@@ -923,7 +934,7 @@ public final class EditorSplitArea extends JPanel {
      */
     private Rectangle componentBounds(JComponent component) {
         return SwingUtilities.convertRectangle(component,
-                new Rectangle(0, 0, component.getWidth(), component.getHeight()), this);
+    new Rectangle(0, 0, component.getWidth(), component.getHeight()), this);
     }
 
     /**
@@ -973,10 +984,10 @@ public final class EditorSplitArea extends JPanel {
         Graphics2D g = (Graphics2D) graphics.create();
         try {
             g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-            g.setColor(new Color(WorkbenchTheme.ACCENT.getRed(), WorkbenchTheme.ACCENT.getGreen(),
-                    WorkbenchTheme.ACCENT.getBlue(), DROP_FILL_ALPHA));
+            g.setColor(new Color(Theme.ACCENT.getRed(), Theme.ACCENT.getGreen(),
+                    Theme.ACCENT.getBlue(), DROP_FILL_ALPHA));
             g.fillRect(zone.x, zone.y, zone.width, zone.height);
-            g.setColor(WorkbenchTheme.withAlpha(WorkbenchTheme.ACCENT, DROP_BORDER_ALPHA));
+            g.setColor(Theme.withAlpha(Theme.ACCENT, DROP_BORDER_ALPHA));
             g.setStroke(new BasicStroke(1f));
             g.drawRect(zone.x, zone.y, Math.max(0, zone.width - 1), Math.max(0, zone.height - 1));
         } finally {
@@ -995,7 +1006,7 @@ public final class EditorSplitArea extends JPanel {
         int halfW = body.width / 2;
         int halfH = body.height / 2;
         int inset = 6;
-        return switch (zone) {
+    return switch (zone) {
             case DROP_LEFT -> new Rectangle(body.x + inset, body.y + inset,
                     Math.max(1, halfW - inset * 2), Math.max(1, body.height - inset * 2));
             case DROP_RIGHT -> new Rectangle(body.x + halfW + inset, body.y + inset,
@@ -1018,14 +1029,14 @@ public final class EditorSplitArea extends JPanel {
      * @return inset rectangle
      */
     private static Rectangle inset(Rectangle rectangle, int amount) {
-        return new Rectangle(rectangle.x + amount, rectangle.y + amount,
+    return new Rectangle(rectangle.x + amount, rectangle.y + amount,
                 Math.max(1, rectangle.width - amount * 2),
                 Math.max(1, rectangle.height - amount * 2));
     }
 
     @Override
     public Dimension getPreferredSize() {
-        return new Dimension(900, 620);
+    return new Dimension(900, 620);
     }
 
     /**
@@ -1102,11 +1113,11 @@ public final class EditorSplitArea extends JPanel {
                 int h = getHeight();
                 if (isSelected() || hover) {
                     g.setColor(isSelected()
-                            ? WorkbenchTheme.withAlpha(WorkbenchTheme.ACCENT, 30)
-                            : WorkbenchTheme.TAB_HOVER);
+                            ? Theme.withAlpha(Theme.ACCENT, 30)
+                            : Theme.TAB_HOVER);
                     g.fillRect(2, 2, Math.max(0, w - 4), Math.max(0, h - 4));
                 }
-                Color stroke = isSelected() ? WorkbenchTheme.ACCENT : WorkbenchTheme.MUTED;
+                Color stroke = isSelected() ? Theme.ACCENT : Theme.MUTED;
                 g.setColor(stroke);
                 g.setStroke(new BasicStroke(1.4f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
                 int x = (w - 16) / 2;
