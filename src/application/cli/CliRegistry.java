@@ -1,5 +1,8 @@
 package application.cli;
 
+import static application.cli.Constants.CMD_GUI_WORKBENCH;
+import static application.cli.Constants.CMD_WORKBENCH;
+
 import java.util.List;
 
 import application.cli.command.AnalyzeCommand;
@@ -39,6 +42,7 @@ import application.cli.command.book.BookPdfCommand;
 import application.cli.command.book.BookRenderCommand;
 import application.cli.command.book.PuzzleCollectionCommand;
 import application.cli.command.book.PuzzleStudyCommand;
+
 import application.gui.GuiCommand;
 import application.gui.GuiNextCommand;
 import application.gui.GuiWebCommand;
@@ -139,14 +143,14 @@ public final class CliRegistry {
 				.usage("[options]")
 				.about("Launch the Studio research workbench.")
 				.example("crtk gui-next --fen \"<FEN>\""));
-		root.add(CliCommand.leaf("gui-workbench", "Launch the native command and analysis workbench",
+		root.add(CliCommand.leaf(CMD_WORKBENCH, "Launch the native command and analysis workbench",
 				WorkbenchCommand::runWorkbench)
-				.helpKey("gui-workbench")
-				.alias("workbench")
+				.helpKey(CMD_WORKBENCH)
+				.alias(CMD_GUI_WORKBENCH)
 				.usage("[options]")
 				.about("Launch a focused Swing workbench for position analysis, command-specific flag building, and batch research workflows.")
-				.example("crtk gui-workbench")
-				.example("crtk gui-workbench --fen \"<FEN>\""));
+				.example("crtk workbench")
+				.example("crtk workbench --fen \"<FEN>\""));
 		root.add(CliCommand.leaf("doctor", "Check Java, config, protocol, engine, and local artifacts",
 				DoctorCommand::runDoctor)
 				.helpKey("doctor")

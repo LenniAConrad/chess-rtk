@@ -54,7 +54,7 @@ public final class WorkbenchCommand {
      */
     private static void printHelp() {
         System.out.println("""
-                gui-workbench options:
+                workbench options:
                   --fen FEN              Start position (default: standard start FEN)
                   --flip|--black-down    Render Black at the bottom
                   -h|--help              Show this help
