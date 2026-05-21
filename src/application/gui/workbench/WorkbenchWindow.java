@@ -23,7 +23,6 @@ import static application.gui.workbench.WorkbenchUi.transparentPanel;
 
 import java.awt.BorderLayout;
 import java.awt.Component;
-import java.awt.Desktop;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
@@ -204,6 +203,11 @@ public final class WorkbenchWindow extends JFrame {
     private final WorkbenchSession session = new WorkbenchSession();
 
     /**
+     * Run-log, manifest, and artifact controller.
+     */
+    private final WorkbenchRunArtifacts runArtifacts = new WorkbenchRunArtifacts(new RunArtifactHost());
+
+    /**
      * Operational overview tab, rendered from {@link #session}.
      */
     private final WorkbenchDashboardPanel dashboardPanel =
@@ -321,7 +325,7 @@ public final class WorkbenchWindow extends JFrame {
             if (job == null) {
                 return;
             }
-            openManifestForJob(job);
+            runArtifacts.openManifest(job);
         }
 
         @Override
@@ -329,7 +333,7 @@ public final class WorkbenchWindow extends JFrame {
             if (job == null) {
                 return;
             }
-            openLogForJob(job);
+            runArtifacts.openLog(job);
         }
     }
 
@@ -437,6 +441,32 @@ public final class WorkbenchWindow extends JFrame {
         @Override
         public void toast(WorkbenchToast.Kind kind, String message) {
             WorkbenchWindow.this.toast(kind, message);
+        }
+
+        @Override
+        public void showError(String title, String message) {
+            WorkbenchWindow.this.showError(title, message);
+        }
+    }
+
+    /**
+     * Host callbacks for the extracted run-artifact controller.
+     */
+    private final class RunArtifactHost implements WorkbenchRunArtifacts.Host {
+
+        @Override
+        public WorkbenchSession session() {
+            return session;
+        }
+
+        @Override
+        public void appendConsole(String text) {
+            WorkbenchWindow.this.appendConsole(text);
+        }
+
+        @Override
+        public void showWarning(String title, String message) {
+            WorkbenchWindow.this.showWarning(title, message);
         }
 
         @Override
@@ -1390,7 +1420,7 @@ public final class WorkbenchWindow extends JFrame {
                 new PaletteAction("Open console tab", "Show command output and process state",
                         () -> selectTab(TAB_CONSOLE)),
                 new PaletteAction("Open logs folder", "Show persisted workbench command logs",
-                        this::openLogsDirectory));
+                        runArtifacts::openLogsDirectory));
     }
 
     /**
@@ -2210,7 +2240,7 @@ public final class WorkbenchWindow extends JFrame {
         commandStateLabel.setBorder(WorkbenchTheme.pad(0, WorkbenchTheme.SPACE_SM));
         top.add(commandStateLabel, BorderLayout.CENTER);
         top.add(buttonRow(FlowLayout.RIGHT,
-                button("Open Logs", false, event -> openLogsDirectory()),
+                button("Open Logs", false, event -> runArtifacts.openLogsDirectory()),
                 button("Save Log", false, event -> saveConsoleLog()),
                 button("Clear", false, event -> console.clearOutput()),
                 button("Stop", false, event -> stopCommand())), BorderLayout.EAST);
@@ -3454,9 +3484,9 @@ public final class WorkbenchWindow extends JFrame {
             updateHealthFromCommand(args, result.exitCode());
             List<Path> artifacts = List.of();
             if (result.exitCode() == 0) {
-                artifacts = recordArtifactsFromCommand(args);
+                artifacts = runArtifacts.recordFromCommand(args);
             }
-            persistRunManifest(job, artifacts, stdin);
+            runArtifacts.persistManifest(job, artifacts, stdin);
             runningJob = null;
             maybeHighlightMove(args, result.output());
             if (!healthCheckQueue.isEmpty()) {
@@ -3472,7 +3502,7 @@ public final class WorkbenchWindow extends JFrame {
                         Objects.toString(ex.getMessage(), ex.getClass().getSimpleName()),
                         System.currentTimeMillis() - runningJobStartMillis);
             }
-            persistRunManifest(job, List.of(), stdin);
+            runArtifacts.persistManifest(job, List.of(), stdin);
             updateHealthFailedFromCommand(args);
             runningJob = null;
             healthCheckQueue.clear();
@@ -3511,221 +3541,6 @@ public final class WorkbenchWindow extends JFrame {
     }
 
     /**
-     * Records any artifact files a finished command produced into the session
-     * artifact index. Reads only the command arguments the workbench itself
-     * built — it scans them for output-file tokens and keeps the ones that now
-     * exist on disk — so it never parses arbitrary command output.
-     *
-     * @param args finished command arguments
-     */
-    private List<Path> recordArtifactsFromCommand(List<String> args) {
-        List<Path> artifacts = new ArrayList<>();
-        if (args == null) {
-            return artifacts;
-        }
-        for (int i = 0; i < args.size(); i++) {
-            String token = args.get(i);
-            if (isArtifactOutputFlag(token) && i + 1 < args.size()) {
-                addArtifactIfPresent(artifacts, args.get(++i));
-                continue;
-            }
-            if (isArtifactInputFlag(token) && i + 1 < args.size()) {
-                i++;
-                continue;
-            }
-            if (token == null || token.startsWith("-") || !looksLikeArtifactPath(token)) {
-                continue;
-            }
-            addArtifactIfPresent(artifacts, token);
-        }
-        return List.copyOf(artifacts);
-    }
-
-    /**
-     * Returns whether a command flag names a generated output path.
-     *
-     * @param flag command flag
-     * @return true when the next token is an output path
-     */
-    private static boolean isArtifactOutputFlag(String flag) {
-        return "--output".equals(flag)
-                || "-o".equals(flag)
-                || "--output-dir".equals(flag)
-                || "--pdf-output".equals(flag)
-                || "--cover-output".equals(flag);
-    }
-
-    /**
-     * Returns whether a command flag names an input/config path.
-     *
-     * @param flag command flag
-     * @return true when the next token should not be recorded as an output
-     */
-    private static boolean isArtifactInputFlag(String flag) {
-        return "--input".equals(flag)
-                || "-i".equals(flag)
-                || "--pgn".equals(flag)
-                || "--suite".equals(flag)
-                || "--protocol-path".equals(flag)
-                || "--weights".equals(flag)
-                || "--pdf".equals(flag);
-    }
-
-    /**
-     * Returns whether a free command token looks like an artifact path.
-     *
-     * @param token command token
-     * @return true when the token has an output-like extension
-     */
-    private static boolean looksLikeArtifactPath(String token) {
-        if (token == null) {
-            return false;
-        }
-        String lower = token.toLowerCase(Locale.ROOT);
-        return lower.endsWith(".pdf") || lower.endsWith(".jsonl") || lower.endsWith(".csv")
-                || lower.endsWith(".png") || lower.endsWith(".pgn");
-    }
-
-    /**
-     * Records an artifact path when it exists.
-     *
-     * @param artifacts mutable artifact list
-     * @param token path token
-     */
-    private void addArtifactIfPresent(List<Path> artifacts, String token) {
-        try {
-            Path path = Path.of(token);
-            if (Files.exists(path)) {
-                Path artifact = path.toAbsolutePath().normalize();
-                artifacts.add(artifact);
-                session.artifacts().add(artifact);
-            }
-        } catch (java.nio.file.InvalidPathException ex) {
-            // Not a usable path token — ignore.
-        }
-    }
-
-    /**
-     * Persists the full plain-text log for a finished, failed, or cancelled
-     * command run, then records that log in the dashboard artifact list.
-     *
-     * @param job job to persist
-     * @return log path, or null when writing failed
-     */
-    private Path persistRunLog(WorkbenchJob job) {
-        if (job == null) {
-            return null;
-        }
-        if (job.logPath() != null) {
-            return job.logPath();
-        }
-        try {
-            Path log = WorkbenchRunLog.write(job, Path.of(""));
-            job.recordLog(log);
-            session.artifacts().add(log);
-            return log;
-        } catch (IOException ex) {
-            appendConsole("Run log failed: " + ex.getMessage() + System.lineSeparator());
-            return null;
-        }
-    }
-
-    /**
-     * Persists a full log and JSON manifest for a finished, failed, or
-     * cancelled command run, then records them in the dashboard artifact list.
-     *
-     * @param job job to persist
-     * @param artifacts output artifacts detected for the job
-     * @param stdin optional stdin payload
-     */
-    private void persistRunManifest(WorkbenchJob job, List<Path> artifacts, String stdin) {
-        if (job == null || job.manifestPath() != null) {
-            return;
-        }
-        persistRunLog(job);
-        try {
-            Path manifest = WorkbenchRunManifest.write(job, artifacts, stdin, Path.of(""));
-            job.recordManifest(manifest, artifacts);
-            session.artifacts().add(manifest);
-        } catch (IOException ex) {
-            appendConsole("Run manifest failed: " + ex.getMessage() + System.lineSeparator());
-        }
-    }
-
-    /**
-     * Opens a job's persisted run manifest through the desktop shell.
-     *
-     * @param job job whose manifest should be opened
-     */
-    private void openManifestForJob(WorkbenchJob job) {
-        if (job == null || job.manifestPath() == null) {
-            showWarning("Run manifest", "No manifest has been written for this job yet.");
-            return;
-        }
-        openPath(job.manifestPath(), "Run manifest");
-    }
-
-    /**
-     * Opens a job's persisted full log through the desktop shell.
-     *
-     * @param job job whose log should be opened
-     */
-    private void openLogForJob(WorkbenchJob job) {
-        if (job == null) {
-            showWarning("Run log", "No job is selected.");
-            return;
-        }
-        Path log = job.logPath();
-        if (log == null && job.status().isTerminal()) {
-            log = persistRunLog(job);
-        }
-        if (log == null) {
-            showWarning("Run log", "No log has been written for this job yet.");
-            return;
-        }
-        openPath(log, "Run log");
-    }
-
-    /**
-     * Opens the workbench log directory.
-     */
-    private void openLogsDirectory() {
-        try {
-            Path dir = WorkbenchRunLog.DEFAULT_DIR.toAbsolutePath().normalize();
-            Files.createDirectories(dir);
-            openPath(dir, "Workbench logs");
-        } catch (IOException ex) {
-            showError("Workbench logs", "Failed to open log directory: " + ex.getMessage());
-        }
-    }
-
-    /**
-     * Opens a path through the desktop shell.
-     *
-     * @param path path to open
-     * @param title dialog title
-     */
-    private void openPath(Path path, String title) {
-        if (path == null) {
-            showWarning(title, "No file is available.");
-            return;
-        }
-        if (!Files.exists(path)) {
-            showWarning(title, "File does not exist: " + path);
-            return;
-        }
-        if (!Desktop.isDesktopSupported()) {
-            showWarning(title, "Desktop integration is not supported.");
-            return;
-        }
-        try {
-            Desktop.getDesktop().open(path.toFile());
-        } catch (IOException ex) {
-            showError(title, "Failed to open file: " + ex.getMessage());
-        }
-    }
-
-    /**
      * Stops a running command.
      */
     private void stopCommand() {
@@ -3734,7 +3549,7 @@ public final class WorkbenchWindow extends JFrame {
             if (runningJob != null) {
                 session.jobs().markCancelled(runningJob,
                         System.currentTimeMillis() - runningJobStartMillis);
-                persistRunManifest(runningJob, List.of(), null);
+                runArtifacts.persistManifest(runningJob, List.of(), null);
                 runningJob = null;
             }
             healthCheckQueue.clear();

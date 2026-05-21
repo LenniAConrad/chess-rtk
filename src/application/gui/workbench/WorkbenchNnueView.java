@@ -1,5 +1,10 @@
 package application.gui.workbench;
 
+import static application.gui.workbench.WorkbenchNnueAtlas.*;
+import static application.gui.workbench.WorkbenchNnueDrawing.*;
+import static application.gui.workbench.WorkbenchNnueFeatureDecoder.*;
+import static application.gui.workbench.WorkbenchNnueTraceGeometry.*;
+
 import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Dimension;
@@ -75,26 +80,6 @@ final class WorkbenchNnueView extends WorkbenchNetworkView implements Scrollable
      */
     private static final int TRACE_RIBBON_H = 92;
 
-    /**
-     * Uniform Trace edge stroke. Edge sign uses colour and edge magnitude uses
-     * opacity; stroke width is deliberately fixed so dense paths compare cleanly.
-     */
-    private static final float TRACE_EDGE_WIDTH = 1.05f;
-
-    /**
-     * Lowest alpha used for visible Trace connections.
-     */
-    private static final int TRACE_EDGE_ALPHA_MIN = 20;
-
-    /**
-     * Highest alpha used for non-focused Trace connections.
-     */
-    private static final int TRACE_EDGE_ALPHA_MAX = 168;
-
-    /**
-     * Extra alpha for the currently selected lane's connections.
-     */
-    private static final int TRACE_EDGE_FOCUS_BOOST = 58;
 
     /**
      * Short label describing the loaded NNUE version.
@@ -266,32 +251,7 @@ final class WorkbenchNnueView extends WorkbenchNetworkView implements Scrollable
         return r.tooltipHtml();
     }
 
-    /**
-     * Returns a hover tooltip for overview mode without the raw-inspection hint.
-     */
-    private static String overviewTooltip(WorkbenchHitRegions.Region r) {
-        StringBuilder sb = new StringBuilder("<html>");
-        sb.append("<b>").append(htmlEscape(r.title)).append("</b>");
-        if (r.value != null && !r.value.isEmpty()) {
-            sb.append("<br><span style='color:").append(WorkbenchTheme.css(WorkbenchTheme.MUTED)).append(";'>")
-                    .append(htmlEscape(r.value)).append("</span>");
-        }
-        if (r.description != null && !r.description.isEmpty()) {
-            sb.append("<br>").append(htmlEscape(r.description));
-        }
-        sb.append("</html>");
-        return sb.toString();
-    }
 
-    /**
-     * Escapes text for a small tooltip fragment.
-     */
-    private static String htmlEscape(String value) {
-        if (value == null) {
-            return "";
-        }
-        return value.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
-    }
 
     /**
      * Sets the atlas neuron-sort mode.
@@ -456,33 +416,7 @@ final class WorkbenchNnueView extends WorkbenchNetworkView implements Scrollable
         return shape != null && shape.length >= 1 ? shape[0] : 0;
     }
 
-    /**
-     * Picks a per-row pixel height for the scrolling atlas. Smaller for
-     * very big networks so the user can still scroll the whole thing in
-     * a reasonable time.
-     *
-     * @param hidden hidden-layer dimension
-     * @return row height in pixels
-     */
-    private static int pickAtlasRowHeight(int hidden) {
-        if (hidden >= 512) {
-            return 24;
-        }
-        if (hidden >= 256) {
-            return 30;
-        }
-        return 40;
-    }
 
-    /**
-     * Picks a per-tile pixel width matching the row height.
-     *
-     * @param hidden hidden-layer dimension
-     * @return tile width
-     */
-    private static int pickAtlasTileWidth(int hidden) {
-        return pickAtlasRowHeight(hidden);
-    }
 
     /**
      * Sets a label describing the loaded NNUE network version (or "synthetic").
@@ -510,7 +444,7 @@ final class WorkbenchNnueView extends WorkbenchNetworkView implements Scrollable
             int graphTop = body.y + TRACE_HEADER_H + TRACE_RIBBON_H + 22;
             Rectangle wire = new Rectangle(body.x, graphTop,
                     body.width - boardSide - 20, body.height - (graphTop - body.y));
-            Layout layout = layout(wire);
+            WorkbenchNnueTraceLayout layout = layout(wire);
             // Pick the single nearest node. The old hit test accepted any node
             // within twice its radius, so densely-packed slot rows had
             // overlapping hit zones with no gap — a click could never land on
@@ -622,65 +556,8 @@ final class WorkbenchNnueView extends WorkbenchNetworkView implements Scrollable
         }
     }
 
-    /**
-     * Parses the slot index from an atlas tile region title of the form
-     * "Slot 12 · own pawn".
-     *
-     * @param title region title
-     * @return slot index or -1 when not parseable
-     */
-    private static int parseSlotNumber(String title) {
-        int start = "Slot ".length();
-        return parseFirstInteger(title, start);
-    }
 
-    /**
-     * Parses the first integer beginning at a title offset.
-     *
-     * @param title source title
-     * @param start start offset
-     * @return integer or -1 when not parseable
-     */
-    private static int parseFirstInteger(String title, int start) {
-        int end = start;
-        while (end < title.length() && Character.isDigit(title.charAt(end))) {
-            end++;
-        }
-        if (end == start) {
-            return -1;
-        }
-        try {
-            return Integer.parseInt(title.substring(start, end));
-        } catch (NumberFormatException ex) {
-            return -1;
-        }
-    }
 
-    /**
-     * Extracts the integer feature index embedded in a hit-region title of
-     * the form "Feature #12345  ...".
-     *
-     * @param title region title
-     * @return feature index or -1 when not parseable
-     */
-    private static int parseFeatureIndex(String title) {
-        int hash = title.indexOf('#');
-        if (hash < 0) {
-            return -1;
-        }
-        int end = hash + 1;
-        while (end < title.length() && Character.isDigit(title.charAt(end))) {
-            end++;
-        }
-        if (end == hash + 1) {
-            return -1;
-        }
-        try {
-            return Integer.parseInt(title.substring(hash + 1, end));
-        } catch (NumberFormatException ex) {
-            return -1;
-        }
-    }
 
     /**
      * Paints the empty-state hint.
@@ -791,60 +668,7 @@ final class WorkbenchNnueView extends WorkbenchNetworkView implements Scrollable
                 "nnue.output.centipawns", 0, 0, 0, "1");
     }
 
-    /**
-     * Paints one compact metric chip in the NNUE header.
-     *
-     * @param g graphics
-     * @param r chip bounds
-     * @param label label
-     * @param value value
-     * @param accent accent strip colour
-     */
-    private static void paintHeaderChip(Graphics2D g, Rectangle r,
-            String label, String value, Color accent) {
-        g.setColor(WorkbenchTheme.ELEVATED_SOLID);
-        g.fillRoundRect(r.x, r.y, r.width, r.height,
-                WorkbenchTheme.RADIUS, WorkbenchTheme.RADIUS);
-        g.setColor(WorkbenchTheme.LINE);
-        g.drawRoundRect(r.x, r.y, r.width - 1, r.height - 1,
-                WorkbenchTheme.RADIUS, WorkbenchTheme.RADIUS);
-        g.setColor(accent == null ? WorkbenchTheme.ACCENT : accent);
-        g.fillRoundRect(r.x + 3, r.y + 5, 3, r.height - 10, 3, 3);
-        g.setFont(WorkbenchTheme.font(9, Font.BOLD));
-        FontMetrics labelMetrics = g.getFontMetrics();
-        g.setColor(WorkbenchTheme.MUTED);
-        g.drawString(WorkbenchUi.elide(label, labelMetrics, r.width - 18), r.x + 11, r.y + 11);
-        g.setFont(WorkbenchTheme.font(12, Font.BOLD));
-        FontMetrics valueMetrics = g.getFontMetrics();
-        g.setColor(WorkbenchTheme.TEXT);
-        g.drawString(WorkbenchUi.elide(value, valueMetrics, r.width - 18), r.x + 11, r.y + 24);
-    }
 
-    /**
-     * Builds the Stockfish stack dimension summary from the actual captured
-     * tensor shapes.
-     *
-     * @param transformed full transformed vector
-     * @param transformedUs side-to-move transformed half
-     * @param fc0 FC0 raw output including fwd row
-     * @param fc1Input FC1 input after squared/clipped split
-     * @param fc1 FC1 clipped output
-     * @return compact stack summary
-     */
-    private static String stockfishStackSummary(float[] transformed, float[] transformedUs,
-            float[] fc0, float[] fc1Input, float[] fc1) {
-        int input = safeLength(transformed);
-        if (input == 0) {
-            input = safeLength(transformedUs);
-        }
-        int fc0Hidden = Math.max(0, safeLength(fc0) - 1);
-        int fc1In = safeLength(fc1Input);
-        int fc1Out = safeLength(fc1);
-        if (fc1In > 0) {
-            return input + "->" + fc0Hidden + "+fwd->" + fc1In + "->" + fc1Out;
-        }
-        return input + "->" + fc0Hidden + "+fwd->" + fc1Out;
-    }
 
     /**
      * Paints the Wikipedia-style weight atlas as a scrollable, one-row-per-
@@ -983,18 +807,6 @@ final class WorkbenchNnueView extends WorkbenchNetworkView implements Scrollable
                 selectedSlot, planes, squares);
     }
 
-    /**
-     * Picks the height for the all-slot atlas strip.
-     *
-     * @param contentHeight available content height
-     * @return strip height
-     */
-    private static int atlasWholeOverviewHeight(int contentHeight) {
-        if (contentHeight < 360) {
-            return Math.max(80, contentHeight / 4);
-        }
-        return Math.min(168, Math.max(112, contentHeight / 4));
-    }
 
     /**
      * Paints a true whole-atlas pixel-plane overview: every selected-order slot,
@@ -1069,56 +881,7 @@ final class WorkbenchNnueView extends WorkbenchNetworkView implements Scrollable
         }
     }
 
-    /**
-     * Renders all atlas cells into an unscaled pixel image.
-     */
-    private static java.awt.image.BufferedImage atlasPlaneImage(float[] atlas, Integer[] order,
-            int hidden, int planes, int squares, float[] perNeuronScale) {
-        int width = Math.max(1, planes * 8);
-        int height = Math.max(1, hidden * 8);
-        java.awt.image.BufferedImage image =
-                new java.awt.image.BufferedImage(width, height, java.awt.image.BufferedImage.TYPE_INT_ARGB);
-        int[] pixels = new int[width * height];
-        for (int row = 0; row < hidden && row < order.length; row++) {
-            int slot = order[row];
-            float scale = Math.max(1e-6f, valueAt(perNeuronScale, slot));
-            for (int p = 0; p < planes; p++) {
-                int offset = (slot * planes + p) * squares;
-                for (int sq = 0; sq < 64; sq++) {
-                    int file = sq & 7;
-                    int rank = sq >> 3;
-                    int drawRank = 7 - rank;
-                    float v = valueAt(atlas, offset + sq) / scale;
-                    if (v > 1.0f) {
-                        v = 1.0f;
-                    } else if (v < -1.0f) {
-                        v = -1.0f;
-                    }
-                    Color c = atlasRamp(v);
-                    int x = p * 8 + file;
-                    int y = row * 8 + drawRank;
-                    pixels[y * width + x] = (255 << 24)
-                            | (c.getRed() << 16)
-                            | (c.getGreen() << 8)
-                            | c.getBlue();
-                }
-            }
-        }
-        image.setRGB(0, 0, width, height, pixels, 0, width);
-        return image;
-    }
 
-    /**
-     * Finds a selected slot in the current atlas order.
-     */
-    private static int orderIndex(Integer[] order, int slot) {
-        for (int i = 0; i < order.length; i++) {
-            if (order[i] == slot) {
-                return i;
-            }
-        }
-        return -1;
-    }
 
     /**
      * Paints the sorted slot thumbnail gallery.
@@ -1306,21 +1069,6 @@ final class WorkbenchNnueView extends WorkbenchNetworkView implements Scrollable
                 Math.max(1, inner.y + inner.height - y)), slot);
     }
 
-    /**
-     * Draws one metric row in the atlas explanation pane.
-     */
-    private static int drawAtlasMetricLine(Graphics2D g, Rectangle bounds, int y,
-            String label, String value, Color accent) {
-        g.setColor(WorkbenchTheme.MUTED);
-        g.setFont(WorkbenchTheme.font(10, Font.BOLD));
-        g.drawString(label, bounds.x, y + 11);
-        g.setColor(accent == null ? WorkbenchTheme.TEXT : accent);
-        g.setFont(WorkbenchTheme.font(12, Font.BOLD));
-        FontMetrics fm = g.getFontMetrics();
-        g.drawString(WorkbenchUi.elide(value, fm, Math.max(20, bounds.width - 120)),
-                bounds.x + 120, y + 12);
-        return y + 22;
-    }
 
     /**
      * Draws strongest active Half-KP rows feeding one atlas slot.
@@ -1378,171 +1126,16 @@ final class WorkbenchNnueView extends WorkbenchNetworkView implements Scrollable
         }
     }
 
-    /**
-     * Paints a composite slot thumbnail using the strongest signed plane value
-     * on each square.
-     */
-    private static void paintAtlasCompositeTile(Graphics2D g, Rectangle r, float[] atlas,
-            int slot, int planes, int squares, float scale) {
-        if (squares != 64) {
-            WorkbenchTensorViz.drawEmpty(g, r);
-            return;
-        }
-        float[] composite = new float[64];
-        for (int sq = 0; sq < 64; sq++) {
-            float best = 0.0f;
-            for (int p = 0; p < planes; p++) {
-                float value = valueAt(atlas, (slot * planes + p) * squares + sq);
-                if (Math.abs(value) > Math.abs(best)) {
-                    best = value;
-                }
-            }
-            composite[sq] = best;
-        }
-        WorkbenchTensorViz.drawHeatmap(g, r, composite, 8, 8, Math.max(1e-6f, scale), true);
-    }
 
-    /**
-     * Returns a short slot badge for the gallery.
-     */
-    private static String atlasSlotBadge(float[] output, int slot, float[] atlas, int planes, int squares) {
-        if (output != null && slot < output.length) {
-            return String.format("%+.2f", output[slot]);
-        }
-        return String.format("%.2f", atlasSlotMagnitude(atlas, slot, planes, squares));
-    }
 
-    /**
-     * Returns a detail tooltip string for one atlas slot.
-     */
-    private static String atlasSlotDetail(float[] output, int slot, float[] atlas, int planes, int squares) {
-        return String.format("output %+.3f · magnitude %.3f",
-                valueAt(output, slot), atlasSlotMagnitude(atlas, slot, planes, squares));
-    }
 
-    /**
-     * Heuristic label for a slot based on plane concentration and sparsity.
-     */
-    private static String atlasSlotArchetype(float[] atlas, int slot, int planes, int squares) {
-        int plane = strongestAtlasPlane(atlas, slot, planes, squares);
-        float sparsity = atlasSlotSparsity(atlas, slot, planes, squares);
-        String density = sparsity > 0.78f ? "sparse" : sparsity < 0.45f ? "broad" : "focused";
-        return density + " · " + (plane >= 0 ? atlasPlaneName(plane, planes) : "mixed");
-    }
 
-    /**
-     * Returns the slot's mean absolute atlas weight.
-     */
-    private static float atlasSlotMagnitude(float[] atlas, int slot, int planes, int squares) {
-        int base = slot * planes * squares;
-        int span = planes * squares;
-        float sum = 0.0f;
-        for (int i = 0; i < span; i++) {
-            sum += Math.abs(valueAt(atlas, base + i));
-        }
-        return span == 0 ? 0.0f : sum / span;
-    }
 
-    /**
-     * Returns approximate sparsity for one slot.
-     */
-    private static float atlasSlotSparsity(float[] atlas, int slot, int planes, int squares) {
-        int base = slot * planes * squares;
-        int span = planes * squares;
-        float max = 1e-6f;
-        for (int i = 0; i < span; i++) {
-            max = Math.max(max, Math.abs(valueAt(atlas, base + i)));
-        }
-        float threshold = max * 0.2f;
-        int near = 0;
-        for (int i = 0; i < span; i++) {
-            if (Math.abs(valueAt(atlas, base + i)) < threshold) {
-                near++;
-            }
-        }
-        return span == 0 ? 0.0f : near / (float) span;
-    }
 
-    /**
-     * Returns the plane with most absolute mass for one slot.
-     */
-    private static int strongestAtlasPlane(float[] atlas, int slot, int planes, int squares) {
-        int best = -1;
-        float bestMass = -1.0f;
-        for (int p = 0; p < planes; p++) {
-            float sum = 0.0f;
-            int base = (slot * planes + p) * squares;
-            for (int sq = 0; sq < squares; sq++) {
-                sum += Math.abs(valueAt(atlas, base + sq));
-            }
-            if (sum > bestMass) {
-                bestMass = sum;
-                best = p;
-            }
-        }
-        return best;
-    }
 
-    /**
-     * Returns the strongest positive or negative square in one plane.
-     */
-    private static int strongestSquare(float[] data, int offset, int squares, boolean positive) {
-        int best = -1;
-        float bestValue = positive ? Float.NEGATIVE_INFINITY : Float.POSITIVE_INFINITY;
-        for (int sq = 0; sq < squares; sq++) {
-            float value = valueAt(data, offset + sq);
-            if (positive ? value > bestValue : value < bestValue) {
-                bestValue = value;
-                best = sq;
-            }
-        }
-        return best;
-    }
 
-    /**
-     * Formats one square/value pair.
-     */
-    private static String squareValueLabel(float[] data, int offset, int square) {
-        if (square < 0) {
-            return "-";
-        }
-        return WorkbenchTensorViz.squareLabel(square) + " " + String.format("%+.3f", valueAt(data, offset + square));
-    }
 
-    /**
-     * Formats the selected-square value.
-     */
-    private static String selectedSquareValue(float[] data, int offset, int square) {
-        return square < 0 ? "-" : String.format("%s %+.3f",
-                WorkbenchTensorViz.squareLabel(square), valueAt(data, offset + square));
-    }
 
-    /**
-     * Computes per-neuron max-abs scale for the atlas.
-     *
-     * @param data atlas data (or diff data)
-     * @param hidden hidden size
-     * @param planes piece planes
-     * @param squares squares per plane
-     * @return per-neuron scale array
-     */
-    private static float[] computePerNeuronScale(float[] data, int hidden, int planes, int squares) {
-        float[] out = new float[hidden];
-        int span = planes * squares;
-        for (int h = 0; h < hidden; h++) {
-            float m = 0.0f;
-            int b = h * span;
-            int end = b + span;
-            for (int i = b; i < end; i++) {
-                float a = Math.abs(data[i]);
-                if (a > m) {
-                    m = a;
-                }
-            }
-            out[h] = Math.max(1e-6f, m);
-        }
-        return out;
-    }
 
     /**
      * Computes per-neuron overlay magnitude — the current activation × output
@@ -1651,16 +1244,6 @@ final class WorkbenchNnueView extends WorkbenchNetworkView implements Scrollable
         return order;
     }
 
-    /**
-     * Returns total absolute sensitivity to one board square across planes.
-     */
-    private static float atlasSquareFocus(float[] atlas, int slot, int planes, int squares, int square) {
-        float sum = 0.0f;
-        for (int p = 0; p < planes; p++) {
-            sum += Math.abs(valueAt(atlas, (slot * planes + p) * squares + square));
-        }
-        return sum;
-    }
 
     /**
      * Paints the multi-variant grid view: one small atlas thumbnail per
@@ -1733,30 +1316,6 @@ final class WorkbenchNnueView extends WorkbenchNetworkView implements Scrollable
         g.drawRect(r.x, r.y, r.width - 1, r.height - 1);
     }
 
-    /**
-     * Lightly outlines one board square inside an atlas tile so the user can
-     * see which cell maps to the currently-selected board square.
-     *
-     * @param g graphics
-     * @param tile tile rectangle
-     * @param square 0..63 LERF index
-     */
-    private static void overlaySelectedSquare(Graphics2D g, Rectangle tile, int square) {
-        if (tile.width < 8 || tile.height < 8) {
-            return;
-        }
-        int file = square & 7;
-        int rank = square >> 3;
-        int drawRank = 7 - rank;
-        double cw = tile.width / 8.0;
-        double ch = tile.height / 8.0;
-        int cx = (int) Math.floor(tile.x + file * cw);
-        int cy = (int) Math.floor(tile.y + drawRank * ch);
-        int cw2 = (int) Math.ceil(cw + 1);
-        int ch2 = (int) Math.ceil(ch + 1);
-        g.setColor(WorkbenchTheme.ACCENT);
-        g.drawRect(cx, cy, cw2 - 1, ch2 - 1);
-    }
 
     /**
      * Paints the architecture-diagram view: a schematic of the loaded
@@ -1892,7 +1451,7 @@ final class WorkbenchNnueView extends WorkbenchNetworkView implements Scrollable
         Rectangle area = new Rectangle(body.x + 6, body.y + headerH + 12,
                 body.width - 12, body.height - headerH - 18);
 
-        // Layout: 6 cols × 2 rows of piece tiles (11 planes + 1 king-map),
+        // WorkbenchNnueTraceLayout: 6 cols × 2 rows of piece tiles (11 planes + 1 king-map),
         // each tile a large 8x8 board heatmap with a label.
         int cols = 6;
         int rows = 2;
@@ -1955,95 +1514,9 @@ final class WorkbenchNnueView extends WorkbenchNetworkView implements Scrollable
                 area.x + 6, body.y + body.height - 6);
     }
 
-    /**
-     * Returns the short column label for an atlas piece plane.
-     *
-     * @param plane plane index (0..planes-1)
-     * @param totalPlanes total number of piece planes
-     * @return short label
-     */
-    private static String atlasPlaneLabel(int plane, int totalPlanes) {
-        char[] own = { 'P', 'N', 'B', 'R', 'Q' };
-        char[] enemy = { 'p', 'n', 'b', 'r', 'q' };
-        if (plane < 5) {
-            return String.valueOf(own[plane]);
-        }
-        if (plane < 10) {
-            return String.valueOf(enemy[plane - 5]);
-        }
-        return totalPlanes > 10 ? "K" : "";
-    }
 
-    /**
-     * Returns the long human-readable name for an atlas piece plane.
-     *
-     * @param plane plane index
-     * @param totalPlanes total piece planes
-     * @return long name
-     */
-    private static String atlasPlaneName(int plane, int totalPlanes) {
-        String[] own = { "own pawn", "own knight", "own bishop", "own rook", "own queen" };
-        String[] enemy = { "enemy pawn", "enemy knight", "enemy bishop", "enemy rook", "enemy queen" };
-        if (plane < 5) {
-            return own[plane];
-        }
-        if (plane < 10) {
-            return enemy[plane - 5];
-        }
-        return totalPlanes > 10 ? "kings" : ("plane " + plane);
-    }
 
-    /**
-     * Paints a single dense atlas tile straight onto the canvas with no
-     * border, reading 64 weights from a flat atlas array starting at the
-     * given offset.
-     *
-     * @param g graphics
-     * @param r tile rectangle
-     * @param atlas flat atlas data
-     * @param offset starting offset of this tile's 64 weights
-     * @param scale max-abs scale
-     * @param selected highlight ring when selected
-     */
-    private static void paintAtlasTileDense(Graphics2D g, Rectangle r, float[] atlas,
-            int offset, float scale, boolean selected) {
-        double cw = r.width / 8.0;
-        double ch = r.height / 8.0;
-        for (int sq = 0; sq < 64; sq++) {
-            int file = sq & 7;
-            int rank = sq >> 3;
-            int drawRank = 7 - rank;
-            int cellX = (int) Math.floor(r.x + file * cw);
-            int cellY = (int) Math.floor(r.y + drawRank * ch);
-            int cellW = (int) Math.ceil(cw + 1);
-            int cellH = (int) Math.ceil(ch + 1);
-            float v = atlas[offset + sq] / scale;
-            if (v > 1.0f) {
-                v = 1.0f;
-            } else if (v < -1.0f) {
-                v = -1.0f;
-            }
-            g.setColor(atlasRamp(v));
-            g.fillRect(cellX, cellY, cellW, cellH);
-        }
-        if (selected) {
-            g.setColor(WorkbenchTheme.ACCENT);
-            g.drawRect(r.x, r.y, r.width - 1, r.height - 1);
-            g.drawRect(r.x - 1, r.y - 1, r.width + 1, r.height + 1);
-        }
-    }
 
-    /**
-     * Atlas colormap: signed weights in [-1, 1] mapped to the shared
-     * green/red diverging ramp used elsewhere (raise = green, lower = red),
-     * on the workbench's light heat-zero background.
-     *
-     * @param v normalised value in [-1, 1]
-     * @return colour
-     */
-    private static java.awt.Color atlasRamp(float v) {
-        return WorkbenchTensorViz.signedRamp(v);
-    }
 
     /**
      * Paints the raw view: a dense matrix of every active feature against
@@ -2421,36 +1894,6 @@ final class WorkbenchNnueView extends WorkbenchNetworkView implements Scrollable
                 "nnue.output.centipawns", 0, 1, 0, "1");
     }
 
-    /**
-     * Paints one score summary chip.
-     */
-    private static void paintSummaryChip(Graphics2D g, Rectangle r, String label,
-            String value, String detail, Color accent) {
-        g.setColor(WorkbenchTheme.ELEVATED_SOLID);
-        g.fillRoundRect(r.x, r.y, r.width, r.height, WorkbenchTheme.RADIUS, WorkbenchTheme.RADIUS);
-        g.setColor(WorkbenchTheme.LINE);
-        g.drawRoundRect(r.x, r.y, r.width - 1, r.height - 1,
-                WorkbenchTheme.RADIUS, WorkbenchTheme.RADIUS);
-        g.setColor(accent == null ? WorkbenchTheme.ACCENT : accent);
-        g.fillRoundRect(r.x + 4, r.y + 7, 4, r.height - 14, 4, 4);
-        g.setFont(WorkbenchTheme.font(10, Font.BOLD));
-        FontMetrics fm = g.getFontMetrics();
-        g.setColor(WorkbenchTheme.MUTED);
-        g.drawString(WorkbenchUi.elide(label, fm, Math.max(20, r.width - 18)),
-                r.x + 15, r.y + 15);
-        g.setFont(WorkbenchTheme.font(18, Font.BOLD));
-        fm = g.getFontMetrics();
-        g.setColor(WorkbenchTheme.TEXT);
-        g.drawString(WorkbenchUi.elide(value, fm, Math.max(20, r.width - 18)),
-                r.x + 15, r.y + 36);
-        if (r.height >= 58) {
-            g.setFont(WorkbenchTheme.font(10, Font.PLAIN));
-            fm = g.getFontMetrics();
-            g.setColor(WorkbenchTheme.MUTED);
-            g.drawString(WorkbenchUi.elide(detail, fm, Math.max(20, r.width - 18)),
-                    r.x + 15, r.y + r.height - 10);
-        }
-    }
 
     /**
      * Paints the central signal stack: accumulator comparison and dense trunk.
@@ -2625,22 +2068,6 @@ final class WorkbenchNnueView extends WorkbenchNetworkView implements Scrollable
                 featureImpactRank(row, impact), true);
     }
 
-    /**
-     * Returns the one-based absolute-impact rank for an active feature row.
-     */
-    private static int featureImpactRank(int row, float[] impact) {
-        if (impact == null || row < 0 || row >= impact.length) {
-            return 0;
-        }
-        float abs = Math.abs(impact[row]);
-        int rank = 1;
-        for (float value : impact) {
-            if (Math.abs(value) > abs) {
-                rank++;
-            }
-        }
-        return rank;
-    }
 
     /**
      * Returns a human-readable label for a driver.
@@ -2737,45 +2164,7 @@ final class WorkbenchNnueView extends WorkbenchNetworkView implements Scrollable
         highlightSquare(g, board, feature.pieceSquare, cell, cell, tint);
     }
 
-    /**
-     * Fills one board square with a translucent halo.
-     *
-     * @param g graphics
-     * @param board mini-board rectangle
-     * @param square 0..63 LERF index
-     * @param cellW cell width
-     * @param cellH cell height
-     * @param tint translucent fill colour
-     */
-    private static void highlightSquare(java.awt.Graphics2D g, Rectangle board, int square,
-            double cellW, double cellH, java.awt.Color tint) {
-        int file = square & 7;
-        int rank = square >> 3;
-        int drawRank = 7 - rank;
-        int x = (int) Math.floor(board.x + file * cellW);
-        int y = (int) Math.floor(board.y + drawRank * cellH);
-        int w = (int) Math.ceil(cellW + 1);
-        int h = (int) Math.ceil(cellH + 1);
-        g.setColor(tint);
-        g.fillRect(x, y, w, h);
-    }
 
-    /**
-     * Labels NNUE mini-board orientation. The boards always use absolute
-     * board coordinates with White's home rank at the bottom.
-     */
-    private static void drawWhiteBottomLabel(Graphics2D g, Rectangle board, int maxY) {
-        int y = board.y + board.height + 12;
-        if (y > maxY - 2) {
-            return;
-        }
-        String label = "white bottom";
-        g.setFont(WorkbenchTheme.font(9, Font.BOLD));
-        FontMetrics fm = g.getFontMetrics();
-        int x = board.x + board.width - fm.stringWidth(label);
-        g.setColor(WorkbenchTheme.MUTED);
-        g.drawString(label, x, y);
-    }
 
     /**
      * Paints the per-piece contributor columns. Each active half-KP feature
@@ -3175,58 +2564,8 @@ final class WorkbenchNnueView extends WorkbenchNetworkView implements Scrollable
         return r.y + r.height;
     }
 
-    /**
-     * Returns {@code a - b}, allowing either side to be absent.
-     *
-     * @param a first vector
-     * @param b second vector
-     * @return difference vector, or null when both inputs are absent
-     */
-    private static float[] subtractVectors(float[] a, float[] b) {
-        int len = Math.max(safeLength(a), safeLength(b));
-        if (len == 0) {
-            return null;
-        }
-        float[] out = new float[len];
-        for (int i = 0; i < len; i++) {
-            out[i] = valueAt(a, i) - valueAt(b, i);
-        }
-        return out;
-    }
 
-    /**
-     * Returns {@code a + b}, allowing either side to be absent.
-     *
-     * @param a first vector
-     * @param b second vector
-     * @return sum vector, or null when both inputs are absent
-     */
-    private static float[] addVectors(float[] a, float[] b) {
-        int len = Math.max(safeLength(a), safeLength(b));
-        if (len == 0) {
-            return null;
-        }
-        float[] out = new float[len];
-        for (int i = 0; i < len; i++) {
-            out[i] = valueAt(a, i) + valueAt(b, i);
-        }
-        return out;
-    }
 
-    /**
-     * Returns a copy of a vector without its final fwd/bias slot.
-     *
-     * @param values source values
-     * @return copy without last value, or null when absent
-     */
-    private static float[] withoutLast(float[] values) {
-        if (values == null || values.length == 0) {
-            return null;
-        }
-        float[] out = new float[Math.max(0, values.length - 1)];
-        System.arraycopy(values, 0, out, 0, out.length);
-        return out;
-    }
 
     /**
      * Paints a compact positive-vs-negative contribution ledger.
@@ -3332,7 +2671,7 @@ final class WorkbenchNnueView extends WorkbenchNetworkView implements Scrollable
                 graphTop, boardSide, boardSide);
         Rectangle wire = new Rectangle(body.x, graphTop,
                 body.width - boardSide - 20, body.height - (graphTop - body.y));
-        Layout layout = layout(wire);
+        WorkbenchNnueTraceLayout layout = layout(wire);
         drawTraceBackdrop(g, wire, layout);
         drawClassicTrunkRails(g, layout);
         drawColumnLabels(g, layout);
@@ -3550,34 +2889,7 @@ final class WorkbenchNnueView extends WorkbenchNetworkView implements Scrollable
         g.drawLine(x2, y, x2 - 4, y + 3);
     }
 
-    /**
-     * Returns compact stats text for a Trace ribbon strip.
-     *
-     * @param values values
-     * @param signed true when the strip is signed
-     * @return stats label
-     */
-    private static String traceStats(float[] values, boolean signed) {
-        if (values == null || values.length == 0) {
-            return "no data";
-        }
-        float[] s = WorkbenchTensorViz.summarize(values);
-        if (signed) {
-            return String.format("mean %+.3f | rms %.3f | max %.3f",
-                    s[0], s[2], maxAbs(values));
-        }
-        return String.format("mean %.3f | max %.3f", s[0], s[4]);
-    }
 
-    /**
-     * Safe array length helper.
-     *
-     * @param values values
-     * @return length, or 0 for null
-     */
-    private static int safeLength(float[] values) {
-        return values == null ? 0 : values.length;
-    }
 
     /**
      * Computes column geometry for the Trace diagram
@@ -3586,8 +2898,8 @@ final class WorkbenchNnueView extends WorkbenchNetworkView implements Scrollable
      * @param r body rectangle
      * @return layout
      */
-    private Layout layout(Rectangle r) {
-        Layout out = new Layout();
+    private WorkbenchNnueTraceLayout layout(Rectangle r) {
+        WorkbenchNnueTraceLayout out = new WorkbenchNnueTraceLayout();
         int leftCx = r.x + 72;
         int rightCx = r.x + Math.max(leftCx + 4 * 56, r.width - 102);
         int gap = Math.max(56, (rightCx - leftCx) / 4);
@@ -3617,22 +2929,6 @@ final class WorkbenchNnueView extends WorkbenchNetworkView implements Scrollable
         return out;
     }
 
-    /**
-     * Picks a pitch that prefers the nominal spacing but compresses enough to
-     * keep a column inside the current pane.
-     *
-     * @param usable usable vertical pixels
-     * @param count node count
-     * @param nominal preferred pitch
-     * @return adaptive pitch
-     */
-    private static int adaptivePitch(int usable, int count, int nominal) {
-        if (count <= 1) {
-            return 0;
-        }
-        int fit = Math.max(6, usable / (count - 1));
-        return Math.min(nominal, fit);
-    }
 
     /**
      * Paints subtle stage bands behind the Trace graph. The bands turn the dense
@@ -3642,7 +2938,7 @@ final class WorkbenchNnueView extends WorkbenchNetworkView implements Scrollable
      * @param wire trace body rectangle
      * @param layout layout
      */
-    private void drawTraceBackdrop(Graphics2D g, Rectangle wire, Layout layout) {
+    private void drawTraceBackdrop(Graphics2D g, Rectangle wire, WorkbenchNnueTraceLayout layout) {
         int top = wire.y + 4;
         int bottom = Math.min(wire.y + wire.height - 24, layout.graphBottom + 12);
         if (bottom <= top) {
@@ -3681,7 +2977,7 @@ final class WorkbenchNnueView extends WorkbenchNetworkView implements Scrollable
      * @param g graphics
      * @param layout trace layout
      */
-    private void drawClassicTrunkRails(Graphics2D g, Layout layout) {
+    private void drawClassicTrunkRails(Graphics2D g, WorkbenchNnueTraceLayout layout) {
         if (isStockfishSnapshot() || visibleSlots.length == 0) {
             return;
         }
@@ -3712,51 +3008,8 @@ final class WorkbenchNnueView extends WorkbenchNetworkView implements Scrollable
                 visibleSlots.length + " visible lanes");
     }
 
-    /**
-     * Returns Trace column centers in display order.
-     *
-     * @param layout layout
-     * @return center x coordinates
-     */
-    private static int[] traceColumnCenters(Layout layout) {
-        return new int[] { layout.featureCx, layout.accumCx, layout.clippedCx,
-                layout.contribCx, layout.outputCx };
-    }
 
-    /**
-     * Computes a responsive stage-band width from the current column spacing.
-     *
-     * @param layout layout
-     * @return band width in pixels
-     */
-    private static int traceBandWidth(Layout layout) {
-        int gap = Math.min(layout.accumCx - layout.featureCx,
-                Math.min(layout.clippedCx - layout.accumCx,
-                        Math.min(layout.contribCx - layout.clippedCx,
-                                layout.outputCx - layout.contribCx)));
-        return Math.max(38, Math.min(132, gap - 18));
-    }
 
-    /**
-     * Stage tint for the Trace backdrop.
-     *
-     * @param index stage index
-     * @return translucent tint
-     */
-    private static Color traceStageTint(int index) {
-        switch (index) {
-            case 0:
-                return WorkbenchTheme.withAlpha(WorkbenchTensorViz.POSITIVE, 18);
-            case 1:
-                return WorkbenchTheme.withAlpha(WorkbenchTheme.ACCENT, 20);
-            case 2:
-                return WorkbenchTheme.withAlpha(WorkbenchTheme.NN_TRUNK, 20);
-            case 3:
-                return WorkbenchTheme.withAlpha(WorkbenchTheme.NN_POLICY, 16);
-            default:
-                return WorkbenchTheme.withAlpha(WorkbenchTheme.NN_VALUE, 16);
-        }
-    }
 
     /**
      * Draws column labels.
@@ -3764,7 +3017,7 @@ final class WorkbenchNnueView extends WorkbenchNetworkView implements Scrollable
      * @param g graphics
      * @param layout layout
      */
-    private void drawColumnLabels(Graphics2D g, Layout layout) {
+    private void drawColumnLabels(Graphics2D g, WorkbenchNnueTraceLayout layout) {
         int y = layout.labelY;
         int w = traceBandWidth(layout) - 8;
         if (isStockfishSnapshot()) {
@@ -3888,29 +3141,6 @@ final class WorkbenchNnueView extends WorkbenchNetworkView implements Scrollable
         return total + " " + unit;
     }
 
-    /**
-     * Draws a numbered stage label above a Trace column.
-     *
-     * @param g graphics
-     * @param cx center x
-     * @param y title baseline
-     * @param width maximum label width
-     * @param number stage number
-     * @param title title
-     * @param detail detail line
-     */
-    private static void drawStageHeader(Graphics2D g, int cx, int y, int width,
-            String number, String title, String detail) {
-        String heading = number + " " + title;
-        g.setColor(WorkbenchTheme.TEXT);
-        g.setFont(WorkbenchTheme.font(10, Font.BOLD));
-        drawCenteredFittedLabel(g, heading, cx, y, width);
-        if (width >= 64) {
-            g.setColor(WorkbenchTheme.MUTED);
-            g.setFont(WorkbenchTheme.font(9, Font.PLAIN));
-            drawCenteredFittedLabel(g, detail, cx, y + 12, width);
-        }
-    }
 
     /**
      * Draws the feature node column.
@@ -3918,7 +3148,7 @@ final class WorkbenchNnueView extends WorkbenchNetworkView implements Scrollable
      * @param g graphics
      * @param layout layout
      */
-    private void drawFeatureColumn(Graphics2D g, Layout layout) {
+    private void drawFeatureColumn(Graphics2D g, WorkbenchNnueTraceLayout layout) {
         float[] indices = snapshot.data("nnue.features.us.indices");
         float[] impact = snapshot.data("nnue.features.us.impact");
         float maxAbs = 0.0f;
@@ -3985,20 +3215,6 @@ final class WorkbenchNnueView extends WorkbenchNetworkView implements Scrollable
         }
     }
 
-    /**
-     * Draws a muted placeholder for an inactive feature lane.
-     *
-     * @param g graphics
-     * @param cx center x
-     * @param y center y
-     * @param radius node radius
-     */
-    private static void drawInactiveFeatureLane(Graphics2D g, int cx, int y, int radius) {
-        g.setColor(WorkbenchTheme.withAlpha(WorkbenchTheme.LINE, 90));
-        g.fillOval(cx - radius, y - radius, radius * 2, radius * 2);
-        g.setColor(WorkbenchTheme.withAlpha(WorkbenchTheme.MUTED, 130));
-        g.drawOval(cx - radius, y - radius, radius * 2, radius * 2);
-    }
 
     /**
      * Draws the raw accumulator column. The visible slot set is still ranked by
@@ -4008,7 +3224,7 @@ final class WorkbenchNnueView extends WorkbenchNetworkView implements Scrollable
      * @param g graphics
      * @param layout layout
      */
-    private void drawAccumulatorColumn(Graphics2D g, Layout layout) {
+    private void drawAccumulatorColumn(Graphics2D g, WorkbenchNnueTraceLayout layout) {
         if (isStockfishSnapshot()) {
             drawStockfishTransformerColumn(g, layout);
             return;
@@ -4052,7 +3268,7 @@ final class WorkbenchNnueView extends WorkbenchNetworkView implements Scrollable
      * @param g graphics
      * @param layout layout
      */
-    private void drawClippedColumn(Graphics2D g, Layout layout) {
+    private void drawClippedColumn(Graphics2D g, WorkbenchNnueTraceLayout layout) {
         if (isStockfishSnapshot()) {
             drawStockfishFc0Column(g, layout);
             return;
@@ -4085,7 +3301,7 @@ final class WorkbenchNnueView extends WorkbenchNetworkView implements Scrollable
      * @param g graphics
      * @param layout layout
      */
-    private void drawContributionColumn(Graphics2D g, Layout layout) {
+    private void drawContributionColumn(Graphics2D g, WorkbenchNnueTraceLayout layout) {
         if (isStockfishSnapshot()) {
             drawStockfishFc1Column(g, layout);
             return;
@@ -4114,7 +3330,7 @@ final class WorkbenchNnueView extends WorkbenchNetworkView implements Scrollable
      * @param g graphics
      * @param layout layout
      */
-    private void drawStockfishTransformerColumn(Graphics2D g, Layout layout) {
+    private void drawStockfishTransformerColumn(Graphics2D g, WorkbenchNnueTraceLayout layout) {
         float[] transformed = snapshot.data("nnue.stockfish.transformed.us");
         if (transformed == null) {
             return;
@@ -4139,7 +3355,7 @@ final class WorkbenchNnueView extends WorkbenchNetworkView implements Scrollable
      * @param g graphics
      * @param layout layout
      */
-    private void drawStockfishFc0Column(Graphics2D g, Layout layout) {
+    private void drawStockfishFc0Column(Graphics2D g, WorkbenchNnueTraceLayout layout) {
         float[] fc0 = snapshot.data("nnue.stockfish.fc0.raw");
         if (fc0 == null || fc0.length == 0) {
             return;
@@ -4182,7 +3398,7 @@ final class WorkbenchNnueView extends WorkbenchNetworkView implements Scrollable
      * @param g graphics
      * @param layout layout
      */
-    private void drawStockfishFc1Column(Graphics2D g, Layout layout) {
+    private void drawStockfishFc1Column(Graphics2D g, WorkbenchNnueTraceLayout layout) {
         float[] fc1 = snapshot.data("nnue.stockfish.fc1.clipped");
         if (fc1 == null) {
             return;
@@ -4208,7 +3424,7 @@ final class WorkbenchNnueView extends WorkbenchNetworkView implements Scrollable
      * @param g graphics
      * @param layout layout
      */
-    private void drawOutputColumn(Graphics2D g, Layout layout) {
+    private void drawOutputColumn(Graphics2D g, WorkbenchNnueTraceLayout layout) {
         float[] cp = snapshot.data("nnue.output.centipawns");
         float value = cp == null ? 0.0f : cp[0];
         int cy = (layout.startY + layout.bottomY) / 2;
@@ -4237,7 +3453,7 @@ final class WorkbenchNnueView extends WorkbenchNetworkView implements Scrollable
      * @param r card rectangle
      * @param layout trace layout
      */
-    private void drawSlotZoom(Graphics2D g, Rectangle r, Layout layout) {
+    private void drawSlotZoom(Graphics2D g, Rectangle r, WorkbenchNnueTraceLayout layout) {
         if (r.height < 96 || r.width < 140) {
             return;
         }
@@ -4381,7 +3597,7 @@ final class WorkbenchNnueView extends WorkbenchNetworkView implements Scrollable
      * @param g graphics
      * @param layout layout
      */
-    private void drawEdges(Graphics2D g, Layout layout) {
+    private void drawEdges(Graphics2D g, WorkbenchNnueTraceLayout layout) {
         if (isStockfishSnapshot()) {
             drawStockfishEdges(g, layout);
             return;
@@ -4479,7 +3695,7 @@ final class WorkbenchNnueView extends WorkbenchNetworkView implements Scrollable
      * @param g graphics
      * @param layout layout
      */
-    private void drawStockfishEdges(Graphics2D g, Layout layout) {
+    private void drawStockfishEdges(Graphics2D g, WorkbenchNnueTraceLayout layout) {
         float[] featureWeights = snapshot.data("nnue.features.us.weights");
         int[] featureWeightShape = snapshot.shape("nnue.features.us.weights");
         float[] fc0Weights = snapshot.data("nnue.stockfish.fc0.weights.us");
@@ -4586,56 +3802,7 @@ final class WorkbenchNnueView extends WorkbenchNetworkView implements Scrollable
         }
     }
 
-    /**
-     * Draws a compact label on a long Trace edge.
-     */
-    private static void drawTraceEdgeLabel(Graphics2D g, String text,
-            int x1, int y1, int x2, int y2) {
-        if (Math.abs(x2 - x1) < 72) {
-            return;
-        }
-        g.setFont(WorkbenchTheme.font(9, Font.BOLD));
-        FontMetrics fm = g.getFontMetrics();
-        int textW = fm.stringWidth(text);
-        int x = (x1 + x2 - textW) / 2;
-        int y = (y1 + y2) / 2 - 5;
-        Rectangle bg = new Rectangle(x - 4, y - fm.getAscent(), textW + 8, fm.getHeight());
-        g.setColor(WorkbenchTheme.PANEL_SOLID);
-        g.fillRoundRect(bg.x, bg.y, bg.width, bg.height, 4, 4);
-        g.setColor(WorkbenchTheme.LINE);
-        g.drawRoundRect(bg.x, bg.y, bg.width - 1, bg.height - 1, 4, 4);
-        g.setColor(WorkbenchTheme.ACCENT);
-        g.drawString(text, x, y);
-    }
 
-    /**
-     * Draws a Trace edge using one fixed stroke style for every layer. Colour
-     * carries sign and opacity carries magnitude.
-     *
-     * @param g graphics
-     * @param x1 source x
-     * @param y1 source y
-     * @param x2 target x
-     * @param y2 target y
-     * @param strength signed magnitude in [-1, 1]
-     * @param emphasised true to highlight a selected slot's incoming edges
-     */
-    private static void drawTraceEdge(Graphics2D g, int x1, int y1, int x2, int y2,
-            float strength, boolean emphasised) {
-        float s = Math.max(-1.0f, Math.min(1.0f, strength));
-        float mag = (float) Math.sqrt(Math.abs(s));
-        Color base = Math.abs(s) < 0.004f ? WorkbenchTheme.MUTED
-                : s >= 0.0f ? WorkbenchTensorViz.POSITIVE : WorkbenchTensorViz.NEGATIVE;
-        int alpha = TRACE_EDGE_ALPHA_MIN
-                + Math.round((TRACE_EDGE_ALPHA_MAX - TRACE_EDGE_ALPHA_MIN) * mag);
-        if (emphasised) {
-            alpha = Math.min(238, alpha + TRACE_EDGE_FOCUS_BOOST);
-        }
-        g.setColor(new Color(base.getRed(), base.getGreen(), base.getBlue(), alpha));
-        g.setStroke(new BasicStroke(TRACE_EDGE_WIDTH, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-        g.drawLine(x1, y1, x2, y2);
-        g.setStroke(new BasicStroke(1.0f));
-    }
 
     /**
      * Draws the detail-mode readout footer.
@@ -4644,7 +3811,7 @@ final class WorkbenchNnueView extends WorkbenchNetworkView implements Scrollable
      * @param body body rectangle
      * @param layout layout
      */
-    private void drawDetailedReadout(Graphics2D g, Rectangle body, Layout layout) {
+    private void drawDetailedReadout(Graphics2D g, Rectangle body, WorkbenchNnueTraceLayout layout) {
         if (selectedSlot < 0 || selectedSlot >= visibleSlots.length) {
             g.setColor(WorkbenchTheme.MUTED);
             g.setFont(WorkbenchTheme.font(11, Font.PLAIN));
@@ -4714,103 +3881,9 @@ final class WorkbenchNnueView extends WorkbenchNetworkView implements Scrollable
                 body.x + 8, body.y + body.height - 8);
     }
 
-    /**
-     * Draws a centered label, trimming it to fit a narrow Trace stage band.
-     *
-     * @param g graphics
-     * @param text label
-     * @param cx center x
-     * @param y baseline y
-     * @param maxWidth maximum text width
-     */
-    private static void drawCenteredFittedLabel(Graphics2D g, String text, int cx, int y, int maxWidth) {
-        FontMetrics fm = g.getFontMetrics();
-        String fitted = fitText(fm, text, Math.max(0, maxWidth));
-        if (fitted.isEmpty()) {
-            return;
-        }
-        int w = fm.stringWidth(fitted);
-        g.drawString(fitted, cx - w / 2, y);
-    }
 
-    /**
-     * Trims text with an ASCII ellipsis when it is wider than the available
-     * label width.
-     *
-     * @param fm font metrics
-     * @param text text
-     * @param maxWidth maximum width
-     * @return fitted text
-     */
-    private static String fitText(FontMetrics fm, String text, int maxWidth) {
-        if (maxWidth <= 0 || text == null || text.isEmpty()) {
-            return "";
-        }
-        if (fm.stringWidth(text) <= maxWidth) {
-            return text;
-        }
-        String ellipsis = "...";
-        int ellipsisWidth = fm.stringWidth(ellipsis);
-        if (maxWidth <= ellipsisWidth) {
-            return "";
-        }
-        int end = text.length();
-        while (end > 0 && fm.stringWidth(text.substring(0, end) + ellipsis) > maxWidth) {
-            end--;
-        }
-        return end <= 0 ? "" : text.substring(0, end) + ellipsis;
-    }
 
-    /**
-     * Returns the index with the largest absolute value.
-     *
-     * @param values values
-     * @return index or -1
-     */
-    private static int strongestAbsIndex(float[] values) {
-        if (values == null || values.length == 0) {
-            return -1;
-        }
-        int best = 0;
-        float bestAbs = Math.abs(values[0]);
-        for (int i = 1; i < values.length; i++) {
-            float value = Math.abs(values[i]);
-            if (value > bestAbs) {
-                bestAbs = value;
-                best = i;
-            }
-        }
-        return best;
-    }
 
-    /**
-     * Outlines one row-major cell in a heatmap grid.
-     *
-     * @param g graphics
-     * @param grid grid rectangle
-     * @param index row-major cell index
-     * @param cols column count
-     * @param rows row count
-     * @param color outline colour
-     */
-    private static void drawGridCellRing(Graphics2D g, Rectangle grid, int index,
-            int cols, int rows, Color color) {
-        if (index < 0 || cols <= 0 || rows <= 0 || index >= cols * rows) {
-            return;
-        }
-        int col = index % cols;
-        int row = index / cols;
-        double cellW = grid.width / (double) cols;
-        double cellH = grid.height / (double) rows;
-        int x = (int) Math.floor(grid.x + col * cellW);
-        int y = (int) Math.floor(grid.y + row * cellH);
-        int w = Math.max(2, (int) Math.ceil(cellW));
-        int h = Math.max(2, (int) Math.ceil(cellH));
-        g.setColor(WorkbenchTheme.withAlpha(WorkbenchTheme.PANEL_SOLID, 224));
-        g.drawRect(x, y, w - 1, h - 1);
-        g.setColor(color);
-        g.drawRect(x + 1, y + 1, Math.max(1, w - 3), Math.max(1, h - 3));
-    }
 
     /**
      * Recomputes the visible-slot / visible-feature index lists from the
@@ -4880,59 +3953,14 @@ final class WorkbenchNnueView extends WorkbenchNetworkView implements Scrollable
     }
 
     /**
-     * Decodes a half-KP feature index into a human-friendly board-square
-     * summary. The feature encoder stores squares in perspective-oriented
-     * coordinates, so black-perspective labels are mirrored back to the board
-     * before display.
+     * Retained for reflective regression coverage of the HalfKP decoder.
      *
      * @param featureIndex sparse feature index
-     * @param whitePerspective true when the feature was encoded from White's
-     *     perspective
+     * @param whitePerspective true when encoded from White's perspective
      * @return summary like "Kc4 / Nf6"
      */
     private static String decodeHalfKP(int featureIndex, boolean whitePerspective) {
-        HalfKpFeature feature = decodeHalfKpFeature(featureIndex, whitePerspective);
-        if (!feature.valid) {
-            return "invalid";
-        }
-        char[] codes = { 'P', 'N', 'B', 'R', 'Q', 'p', 'n', 'b', 'r', 'q' };
-        char pieceChar = feature.pieceCode < codes.length ? codes[feature.pieceCode] : '?';
-        return "K" + WorkbenchTensorViz.squareLabel(feature.kingSquare)
-                + " / " + pieceChar + WorkbenchTensorViz.squareLabel(feature.pieceSquare);
-    }
-
-    /**
-     * Decodes feature components and maps oriented squares back to board
-     * coordinates for display.
-     *
-     * @param featureIndex sparse feature index
-     * @param whitePerspective true for White perspective, false for Black
-     * @return decoded feature parts
-     */
-    private static HalfKpFeature decodeHalfKpFeature(int featureIndex, boolean whitePerspective) {
-        if (featureIndex < 0 || featureIndex >= FeatureEncoder.FEATURE_COUNT) {
-            return new HalfKpFeature(0, 0, 0, false);
-        }
-        int pieceSquare = featureIndex % FeatureEncoder.SQUARES;
-        int packed = featureIndex / FeatureEncoder.SQUARES;
-        int pieceCode = packed % FeatureEncoder.PIECE_PLANES;
-        int kingSquare = packed / FeatureEncoder.PIECE_PLANES;
-        return new HalfKpFeature(
-                displaySquare(kingSquare, whitePerspective),
-                pieceCode,
-                displaySquare(pieceSquare, whitePerspective),
-                true);
-    }
-
-    /**
-     * Converts a perspective-oriented square back to board coordinates.
-     *
-     * @param square oriented square
-     * @param whitePerspective perspective flag
-     * @return display square
-     */
-    private static int displaySquare(int square, boolean whitePerspective) {
-        return whitePerspective ? square : (square ^ 56);
+        return WorkbenchNnueFeatureDecoder.decodeHalfKP(featureIndex, whitePerspective);
     }
 
     /**
@@ -4995,204 +4023,11 @@ final class WorkbenchNnueView extends WorkbenchNetworkView implements Scrollable
         return isStockfishSnapshot() ? STOCKFISH_TRACE_FEATURE_LANES : TRACE_FEATURE_LANES;
     }
 
-    /**
-     * Returns a centered y coordinate for a column with its own row count.
-     *
-     * @param layout layout
-     * @param row row index
-     * @param count row count
-     * @return center y
-     */
-    private static int columnY(Layout layout, int row, int count) {
-        if (count <= 1) {
-            return (layout.graphTop + layout.graphBottom) / 2;
-        }
-        int pitch = adaptivePitch(layout.usableHeight, count, TRACE_SLOT_PITCH);
-        int span = (count - 1) * pitch;
-        int start = layout.graphTop + Math.max(0, (layout.usableHeight - span) / 2);
-        return start + row * pitch;
-    }
 
-    /**
-     * Computes a non-zero absolute scale for a dense matrix/vector.
-     *
-     * @param values values
-     * @return scale
-     */
-    private static float matrixScale(float[] values) {
-        float scale = maxAbs(values);
-        return scale <= 0.0f ? 1.0f : scale;
-    }
 
-    /**
-     * Computes a robust visible-slot scale for signed us-minus-them lane values.
-     *
-     * @param us side-to-move values
-     * @param them opponent values
-     * @param slots visible slots
-     * @return non-zero scale
-     */
-    private static float visiblePairScale(float[] us, float[] them, int[] slots) {
-        float scale = 0.0f;
-        if (slots != null) {
-            for (int idx : slots) {
-                scale = Math.max(scale, Math.abs(valueAt(us, idx) - valueAt(them, idx)));
-            }
-        }
-        if (scale <= 0.0f) {
-            scale = Math.max(maxAbs(us), maxAbs(them));
-        }
-        return scale <= 0.0f ? 1.0f : scale;
-    }
 
-    /**
-     * Computes a robust visible-slot scale for one signed vector.
-     *
-     * @param values values
-     * @param slots visible slots
-     * @return non-zero scale
-     */
-    private static float visibleAbsScale(float[] values, int[] slots) {
-        float scale = 0.0f;
-        if (slots != null) {
-            for (int idx : slots) {
-                scale = Math.max(scale, Math.abs(valueAt(values, idx)));
-            }
-        }
-        if (scale <= 0.0f) {
-            scale = maxAbs(values);
-        }
-        return scale <= 0.0f ? 1.0f : scale;
-    }
 
-    /**
-     * Reads an array value, returning zero when the array is absent or too
-     * short for a selected slot.
-     *
-     * @param values values
-     * @param index index
-     * @return value or 0
-     */
-    private static float valueAt(float[] values, int index) {
-        return values == null || index < 0 || index >= values.length ? 0.0f : values[index];
-    }
 
-    /**
-     * Decoded HalfKP feature components.
-     */
-    private static final class HalfKpFeature {
 
-        private final int kingSquare;
-        private final int pieceCode;
-        private final int pieceSquare;
-        private final boolean valid;
 
-        HalfKpFeature(int kingSquare, int pieceCode, int pieceSquare, boolean valid) {
-            this.kingSquare = kingSquare;
-            this.pieceCode = pieceCode;
-            this.pieceSquare = pieceSquare;
-            this.valid = valid;
-        }
-    }
-
-    /**
-     * One active Half-KP feature ranked by signed centipawn impact.
-     */
-    private record FeatureDriver(int row, int featureIndex, float impact, int rank, boolean valid) {
-
-        /**
-         * Empty feature-driver sentinel.
-         *
-         * @return invalid driver
-         */
-        private static FeatureDriver invalid() {
-            return new FeatureDriver(-1, -1, 0.0f, 0, false);
-        }
-    }
-
-    /**
-     * Geometry for the wired-diagram columns.
-     */
-    private static final class Layout {
-
-        /**
-         * Center x of the feature column.
-         */
-        private int featureCx;
-
-        /**
-         * Center x of the accumulator column.
-         */
-        private int accumCx;
-
-        /**
-         * Center x of the clipped-ReLU column.
-         */
-        private int clippedCx;
-
-        /**
-         * Center x of the output-contribution column.
-         */
-        private int contribCx;
-
-        /**
-         * Center x of the output column.
-         */
-        private int outputCx;
-
-        /**
-         * Slot radius.
-         */
-        private int slotRadius;
-
-        /**
-         * Top y of the first slot.
-         */
-        private int startY;
-
-        /**
-         * Top of the graph content area.
-         */
-        private int graphTop;
-
-        /**
-         * Bottom of the graph content area.
-         */
-        private int graphBottom;
-
-        /**
-         * Usable graph height.
-         */
-        private int usableHeight;
-
-        /**
-         * Top y of the first feature node.
-         */
-        private int featureStartY;
-
-        /**
-         * Y pitch between slots.
-         */
-        private int slotPitch;
-
-        /**
-         * Y pitch between feature nodes.
-         */
-        private int featurePitch;
-
-        /**
-         * Bottom y of the last slot.
-         */
-        private int bottomY;
-
-        /**
-         * Bottom y of the last feature node.
-         */
-        private int featureBottomY;
-
-        /**
-         * Column-label baseline.
-         */
-        private int labelY;
-    }
 }
