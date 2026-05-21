@@ -509,18 +509,37 @@ final class WorkbenchNnueView extends WorkbenchNetworkView implements Scrollable
             Rectangle wire = new Rectangle(body.x, graphTop,
                     body.width - boardSide - 20, body.height - (graphTop - body.y));
             Layout layout = layout(wire);
+            // Pick the single nearest node. The old hit test accepted any node
+            // within twice its radius, so densely-packed slot rows had
+            // overlapping hit zones with no gap — a click could never land on
+            // blank space, so the zoom selection felt stuck.
+            int nearest = -1;
+            long nearestDist = Long.MAX_VALUE;
+            int[] cxs = { layout.accumCx, layout.clippedCx, layout.contribCx };
             for (int i = 0; i < visibleSlots.length; ++i) {
                 int cy = layout.startY + i * layout.slotPitch;
-                int[] cxs = { layout.accumCx, layout.clippedCx, layout.contribCx };
                 for (int cx : cxs) {
-                    int dx = x - cx;
-                    int dy = y - cy;
-                    if (dx * dx + dy * dy <= layout.slotRadius * layout.slotRadius * 4) {
-                        selectedSlot = (selectedSlot == i) ? -1 : i;
-                        repaint();
-                        return;
+                    long dx = x - cx;
+                    long dy = y - cy;
+                    long dist = dx * dx + dy * dy;
+                    if (dist < nearestDist) {
+                        nearestDist = dist;
+                        nearest = i;
                     }
                 }
+            }
+            // A threshold below half the row pitch keeps a dead zone between
+            // rows, so a click on blank wire space deselects instead of sticking.
+            int hitRadius = Math.max(layout.slotRadius + 2, layout.slotPitch / 2 - 1);
+            if (nearest >= 0 && nearestDist <= (long) hitRadius * hitRadius) {
+                selectedSlot = (selectedSlot == nearest) ? -1 : nearest;
+                repaint();
+                return;
+            }
+            if (wire.contains(x, y) && selectedSlot >= 0) {
+                selectedSlot = -1;
+                repaint();
+                return;
             }
         }
         WorkbenchHitRegions.Region r = hitRegions.hitTest(x, y);
@@ -2490,7 +2509,7 @@ final class WorkbenchNnueView extends WorkbenchNetworkView implements Scrollable
     private void paintPositionOverview(Graphics2D g, Rectangle r) {
         WorkbenchTensorViz.drawCard(g, r,
                 "board",
-                "active feature anchors",
+                "each NNUE input = a (king square, piece) pair; click a feature to light its squares",
                 WorkbenchTheme.ACCENT);
         int availableW = Math.max(24, r.width - 16);
         int availableH = Math.max(24, r.height - 44);
@@ -2753,8 +2772,8 @@ final class WorkbenchNnueView extends WorkbenchNetworkView implements Scrollable
      */
     private void paintAccumulatorOverview(Graphics2D g, Rectangle r) {
         WorkbenchTensorViz.drawSectionHeader(g, new Rectangle(r.x, r.y, r.width, 40),
-                "accumulator slots (us | them)",
-                "clipped activation per slot · scaled to max(us, them)");
+                "accumulator — first hidden layer",
+                "one cell per neuron · 'us' = side-to-move view, 'them' = opponent view");
         float[] us = snapshot.data("nnue.clipped.us");
         float[] them = snapshot.data("nnue.clipped.them");
         if (us == null || them == null) {
@@ -2828,8 +2847,8 @@ final class WorkbenchNnueView extends WorkbenchNetworkView implements Scrollable
             return;
         }
         WorkbenchTensorViz.drawSectionHeader(g, new Rectangle(r.x, r.y, r.width, 40),
-                "post-accumulator trunk",
-                "raw net -> clipped ReLU -> output weights -> net contribution");
+                "trunk — accumulator to score",
+                "raw (us minus them) -> clipped ReLU -> x output weight -> centipawn contribution");
         float[] rawNet = subtractVectors(snapshot.data("nnue.accumulator.us"),
                 snapshot.data("nnue.accumulator.them"));
         float[] clippedNet = subtractVectors(snapshot.data("nnue.clipped.us"),
