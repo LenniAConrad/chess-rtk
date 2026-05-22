@@ -27,7 +27,11 @@ import javax.swing.JCheckBox;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JList;
+import javax.swing.JMenu;
+import javax.swing.JMenuBar;
+import javax.swing.JMenuItem;
 import javax.swing.JPanel;
+import javax.swing.JRadioButtonMenuItem;
 import javax.swing.JScrollPane;
 import javax.swing.JViewport;
 import javax.swing.Scrollable;
@@ -47,6 +51,8 @@ import javax.swing.text.AttributeSet;
 import javax.swing.text.StyleConstants;
 
 import application.gui.workbench.game.GameModel;
+import application.gui.workbench.ui.Theme;
+import application.gui.workbench.window.SettingsMenu;
 import chess.core.Field;
 import chess.core.Move;
 import chess.core.Piece;
@@ -154,6 +160,7 @@ public final class WorkbenchRegressionTest {
         testDisabledComboUsesThemeBackground();
         testGameLineImportInputKeepsMultilineHeight();
         testSettingsToggleRowsAreReadable();
+        testSettingsMenuExposesThemeModes();
         testToggleSwitchAnimatesStateChanges();
         testCommandFormOptionalTogglesFillLeadColumn();
         testThemeColorContrast();
@@ -710,6 +717,115 @@ public final class WorkbenchRegressionTest {
         Dimension size = toggle.getPreferredSize();
         assertTrue(size.width >= 300, "settings toggle row is wide enough for labels");
         assertTrue(size.height <= 36, "settings toggle row remains compact");
+    }
+
+    /**
+     * Verifies the top-level settings menu exposes light and dark modes.
+     */
+    private static void testSettingsMenuExposesThemeModes() {
+        Theme.Mode[] activeMode = { Theme.Mode.LIGHT };
+        boolean[] displaySettingsOpened = { false };
+        boolean[] engineSettingsOpened = { false };
+        SettingsMenu menu = new SettingsMenu(new SettingsMenu.Controller() {
+            @Override
+            public Theme.Mode themeMode() {
+                return activeMode[0];
+            }
+
+            @Override
+            public void setThemeMode(Theme.Mode mode) {
+                activeMode[0] = mode;
+            }
+
+            @Override
+            public void showDisplaySettings() {
+                displaySettingsOpened[0] = true;
+            }
+
+            @Override
+            public void showEngineSettings() {
+                engineSettingsOpened[0] = true;
+            }
+
+            @Override
+            public void showCommandPalette() {
+                // not needed for this regression
+            }
+
+            @Override
+            public void openLogsDirectory() {
+                // not needed for this regression
+            }
+        });
+
+        JMenuBar bar = menu.component();
+        assertEquals(Integer.valueOf(1), Integer.valueOf(bar.getMenuCount()), "settings menu count");
+        JMenu settings = bar.getMenu(0);
+        assertEquals("Settings", settings.getText(), "settings menu label");
+        JMenu appearance = menu(settings, "Appearance");
+        JRadioButtonMenuItem light = radioItem(appearance, "Light");
+        JRadioButtonMenuItem dark = radioItem(appearance, "Dark");
+        assertTrue(light.isSelected(), "light mode starts selected");
+        assertTrue(!dark.isSelected(), "dark mode starts unselected");
+
+        dark.doClick();
+        assertEquals(Theme.Mode.DARK, activeMode[0], "dark menu item applies dark mode");
+        menu.syncMode();
+        assertTrue(dark.isSelected(), "dark menu item reflects controller state");
+
+        item(settings, "Board Settings").doClick();
+        item(settings, "Engine Settings").doClick();
+        assertTrue(displaySettingsOpened[0], "settings menu opens board settings");
+        assertTrue(engineSettingsOpened[0], "settings menu opens engine settings");
+    }
+
+    /**
+     * Finds a submenu by label.
+     *
+     * @param parent parent menu
+     * @param text submenu text
+     * @return matching submenu
+     */
+    private static JMenu menu(JMenu parent, String text) {
+        for (int index = 0; index < parent.getItemCount(); index++) {
+            JMenuItem child = parent.getItem(index);
+            if (child instanceof JMenu menu && text.equals(menu.getText())) {
+                return menu;
+            }
+        }
+        throw new AssertionError("missing submenu " + text);
+    }
+
+    /**
+     * Finds a menu item by label.
+     *
+     * @param parent parent menu
+     * @param text item text
+     * @return matching item
+     */
+    private static JMenuItem item(JMenu parent, String text) {
+        for (int index = 0; index < parent.getItemCount(); index++) {
+            JMenuItem child = parent.getItem(index);
+            if (child != null && text.equals(child.getText())) {
+                return child;
+            }
+        }
+        throw new AssertionError("missing menu item " + text);
+    }
+
+    /**
+     * Finds a radio menu item by label.
+     *
+     * @param parent parent menu
+     * @param text item text
+     * @return matching radio item
+     */
+    private static JRadioButtonMenuItem radioItem(JMenu parent, String text) {
+        JMenuItem child = item(parent, text);
+        if (child instanceof JRadioButtonMenuItem radio) {
+            return radio;
+        }
+        throw new AssertionError("menu item is not a radio item " + text);
     }
 
     /**
