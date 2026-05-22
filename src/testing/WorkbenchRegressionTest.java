@@ -1282,8 +1282,7 @@ public final class WorkbenchRegressionTest {
         assertThemeContrast("info toast text", "STATUS_INFO_TEXT", "STATUS_INFO_BG", 4.5);
         assertThemeContrast("disabled button text", "BUTTON_DISABLED_TEXT", "BUTTON_DISABLED_BG", 3.0);
         Color moveHighlight = themeColor("BOARD_HIGHLIGHT");
-        assertTrue(moveHighlight.getGreen() > moveHighlight.getRed()
-                && moveHighlight.getGreen() > moveHighlight.getBlue(), "move highlight is green");
+        assertColor(Color.YELLOW, moveHighlight, "move highlight follows chessboard.js yellow");
         assertColorDistanceAtLeast(moveHighlight, themeColor("BOARD_LIGHT"), 95.0,
                 "move highlight distinguishes from light board squares");
         assertColorDistanceAtLeast(moveHighlight, themeColor("BOARD_DARK"), 95.0,
@@ -2598,8 +2597,18 @@ public final class WorkbenchRegressionTest {
      */
     private static void testBoardNotationAndAnimationsCanBeHidden() {
         Object board = construct(type("BoardPanel"), new Class<?>[0]);
+        Component component = (Component) board;
+        component.setSize(640, 640);
+        invoke(board, "setPosition", new Class<?>[] { Position.class, short.class },
+                new Position(START_FEN), Move.NO_MOVE);
+        assertTrue((Boolean) invoke(board, "isShowNotation", new Class<?>[0]), "board notation enabled by default");
+        BufferedImage withNotation = paint(component, 640, 640);
         invoke(board, "setShowNotation", new Class<?>[] { boolean.class }, Boolean.FALSE);
         assertFalse((Boolean) invoke(board, "isShowNotation", new Class<?>[0]), "board notation disabled");
+        BufferedImage withoutNotation = paint(component, 640, 640);
+        assertTrue(changedPixelCount(withNotation, withoutNotation) > 20,
+                "board notation paints file and rank labels");
+        assertBoardNotationCornersChange(withNotation, withoutNotation, 640, 640);
 
         invoke(board, "setAnimationsEnabled", new Class<?>[] { boolean.class }, Boolean.FALSE);
         assertFalse((Boolean) invoke(board, "isAnimationsEnabled", new Class<?>[0]), "board animations disabled");
@@ -2829,6 +2838,85 @@ public final class WorkbenchRegressionTest {
             }
         }
         return max;
+    }
+
+    /**
+     * Counts pixels whose ARGB values differ between two same-sized images.
+     *
+     * @param first first image
+     * @param second second image
+     * @return changed pixel count
+     */
+    private static int changedPixelCount(BufferedImage first, BufferedImage second) {
+        assertEquals(Integer.valueOf(first.getWidth()), Integer.valueOf(second.getWidth()), "image width");
+        assertEquals(Integer.valueOf(first.getHeight()), Integer.valueOf(second.getHeight()), "image height");
+        int count = 0;
+        for (int y = 0; y < first.getHeight(); y++) {
+            for (int x = 0; x < first.getWidth(); x++) {
+                if (first.getRGB(x, y) != second.getRGB(x, y)) {
+                    count++;
+                }
+            }
+        }
+        return count;
+    }
+
+    /**
+     * Verifies each chessboard.js-style coordinate corner receives painted
+     * notation.
+     *
+     * @param withNotation image with coordinates
+     * @param withoutNotation image without coordinates
+     * @param width board component width
+     * @param height board component height
+     */
+    private static void assertBoardNotationCornersChange(
+            BufferedImage withNotation,
+            BufferedImage withoutNotation,
+            int width,
+            int height) {
+        int size = Math.min(width - 64, height - 64);
+        size = Math.max(64, size - size % 8);
+        int cell = size / 8;
+        int boardX = (width - size) / 2;
+        int boardY = (height - size) / 2;
+        for (int i = 0; i < 8; i++) {
+            assertTrue(changedPixelCount(withNotation, withoutNotation,
+                    boardX + i * cell + cell - 22, boardY + size - 22, 22, 22) > 0,
+                    "file coordinate " + (char) ('a' + i) + " painted");
+            assertTrue(changedPixelCount(withNotation, withoutNotation,
+                    boardX, boardY + i * cell, 22, 22) > 0,
+                    "rank coordinate row " + i + " painted");
+        }
+    }
+
+    /**
+     * Counts changed pixels in a rectangular image region.
+     *
+     * @param first first image
+     * @param second second image
+     * @param x x coordinate
+     * @param y y coordinate
+     * @param width region width
+     * @param height region height
+     * @return changed pixel count
+     */
+    private static int changedPixelCount(
+            BufferedImage first,
+            BufferedImage second,
+            int x,
+            int y,
+            int width,
+            int height) {
+        int count = 0;
+        for (int yy = y; yy < y + height; yy++) {
+            for (int xx = x; xx < x + width; xx++) {
+                if (first.getRGB(xx, yy) != second.getRGB(xx, yy)) {
+                    count++;
+                }
+            }
+        }
+        return count;
     }
 
     /**

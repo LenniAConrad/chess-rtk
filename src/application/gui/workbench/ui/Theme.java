@@ -562,9 +562,9 @@ public final class Theme {
     public static Color COORD_ON_DARK = BOARD_LIGHT;
 
     /**
-     * Shared inset move-highlight edge color.
+     * Chessboard.js inset square-highlight edge color.
      */
-    public static Color BOARD_HIGHLIGHT = new Color(130, 207, 160);
+    public static Color BOARD_HIGHLIGHT = Color.YELLOW;
 
     /**
      * Last-move highlight edge.
@@ -1338,7 +1338,7 @@ public final class Theme {
         BOARD_EDGE = new Color(64, 64, 64);
         COORD_ON_LIGHT = BOARD_DARK;
         COORD_ON_DARK = BOARD_LIGHT;
-        BOARD_HIGHLIGHT = new Color(130, 207, 160);
+        BOARD_HIGHLIGHT = Color.YELLOW;
         LAST_MOVE_EDGE = BOARD_HIGHLIGHT;
         SELECTED_EDGE = BOARD_HIGHLIGHT;
         LEGAL_TARGET = withAlpha(TEXT, 86);

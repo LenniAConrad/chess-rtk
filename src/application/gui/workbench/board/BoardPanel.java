@@ -810,13 +810,46 @@ public final class BoardPanel extends JPanel {
             int rank = whiteDown ? 8 - i : i + 1;
             String fileText = String.valueOf((char) ('a' + file));
             String rankText = String.valueOf(rank);
-            g.setColor(BoardGeometry.notationColor(file, bottomRank));
-            g.drawString(fileText, board.x + i * cell + cell - metrics.stringWidth(fileText) - fileInlinePad,
-                    board.y + board.height - fileBlockPad - metrics.getDescent());
-            g.setColor(BoardGeometry.notationColor(leftFile, rank));
-            g.drawString(rankText, board.x + rankInlinePad,
-                    board.y + i * cell + rankBlockPad + metrics.getAscent());
+            Color fileColor = BoardGeometry.notationColor(file, bottomRank);
+            drawCoordinateString(g, fileText, board.x + i * cell + cell - metrics.stringWidth(fileText) - fileInlinePad,
+                    board.y + board.height - fileBlockPad - metrics.getDescent(), fileColor);
+            Color rankColor = BoardGeometry.notationColor(leftFile, rank);
+            drawCoordinateString(g, rankText, board.x + rankInlinePad,
+                    board.y + i * cell + rankBlockPad + metrics.getAscent(), rankColor);
         }
+    }
+    /**
+     * Draws one coordinate label with a tiny halo so piece SVGs cannot hide it.
+     *
+     * @param g graphics context
+     * @param text coordinate label text
+     * @param x x coordinate
+     * @param baseline text baseline
+     * @param color primary coordinate color
+     */
+    private static void drawCoordinateString(Graphics2D g, String text, int x, int baseline, Color color) {
+        Color savedColor = g.getColor();
+        try {
+            g.setColor(coordinateHalo(color));
+            g.drawString(text, x - 1, baseline);
+            g.drawString(text, x + 1, baseline);
+            g.drawString(text, x, baseline - 1);
+            g.drawString(text, x, baseline + 1);
+            g.setColor(color);
+            g.drawString(text, x, baseline);
+        } finally {
+            g.setColor(savedColor);
+        }
+    }
+    /**
+     * Returns a high-contrast halo for one coordinate label color.
+     *
+     * @param color primary coordinate color
+     * @return halo color
+     */
+    private static Color coordinateHalo(Color color) {
+        int luminance = color.getRed() + color.getGreen() + color.getBlue();
+        return luminance > 500 ? Theme.BOARD_EDGE : Theme.BOARD_LIGHT;
     }
     /** Draws last-move highlights.
      * @param g graphics context
