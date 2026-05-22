@@ -114,7 +114,7 @@ public final class FlatTabbedPaneUI extends BasicTabbedPaneUI {
      */
     @Override
     protected Insets getTabInsets(int tabPlacement, int tabIndex) {
-    return new Insets(TAB_PAD_Y, TAB_PAD_X, TAB_PAD_Y, TAB_PAD_X);
+        return new Insets(TAB_PAD_Y, TAB_PAD_X, TAB_PAD_Y, TAB_PAD_X);
     }
 
     /**

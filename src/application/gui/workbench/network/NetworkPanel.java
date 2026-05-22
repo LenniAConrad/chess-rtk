@@ -46,6 +46,7 @@ import javax.swing.SpinnerNumberModel;
 import javax.swing.SwingUtilities;
 import javax.swing.SwingWorker;
 import javax.swing.Timer;
+import javax.swing.border.Border;
 
 /**
  * Workbench network-visualizer host panel.
@@ -273,6 +274,16 @@ public final class NetworkPanel extends JPanel {
     private final JTabbedPane detailsTabs = Ui.tabbedPane();
 
     /**
+     * Primary network toolbar strip.
+     */
+    private JPanel networkToolbar;
+
+    /**
+     * Collapsible MCTS toolbar strip.
+     */
+    private JPanel mctsToolbar;
+
+    /**
      * Real activation provider. Loads networks lazily.
      */
     private final RealActivations provider = new RealActivations();
@@ -388,6 +399,7 @@ public final class NetworkPanel extends JPanel {
         applyFixedScale(false);
         showSelected();
         propagateViewMode();
+        refreshToolbarChrome();
         diagnosticsPanel.refresh(provider, (String) archCombo.getSelectedItem());
     }
 
@@ -571,11 +583,8 @@ public final class NetworkPanel extends JPanel {
      */
     private JComponent buildToolbar() {
         JPanel bar = Ui.transparentPanel(new BorderLayout(Theme.SPACE_MD, 0));
-        bar.setOpaque(true);
-        bar.setBackground(Theme.PANEL_SOLID);
-        bar.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(Theme.LINE),
-                Theme.pad(Theme.SPACE_SM)));
+        networkToolbar = bar;
+        styleToolbarShell(bar, Theme.pad(Theme.SPACE_SM));
 
         styleToolbarCombo(archCombo, 122,
                 "Pick the network architecture (or a specific NNUE file) to visualise.");
@@ -611,12 +620,9 @@ public final class NetworkPanel extends JPanel {
      */
     private JComponent buildMctsToolbar() {
         JPanel bar = Ui.transparentPanel(new BorderLayout(Theme.SPACE_MD, 0));
-        bar.setOpaque(true);
-        bar.setBackground(Theme.PANEL_SOLID);
-        bar.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(Theme.LINE),
-                Theme.pad(Theme.SPACE_XS, Theme.SPACE_SM,
-                        Theme.SPACE_XS, Theme.SPACE_SM)));
+        mctsToolbar = bar;
+        styleToolbarShell(bar, Theme.pad(Theme.SPACE_XS, Theme.SPACE_SM,
+                Theme.SPACE_XS, Theme.SPACE_SM));
 
         Ui.styleIntegerSpinner(mctsVisitsSpinner);
         Ui.styleIntegerSpinner(mctsMillisSpinner);
@@ -651,6 +657,33 @@ public final class NetworkPanel extends JPanel {
         bar.add(controls, BorderLayout.WEST);
         bar.add(status, BorderLayout.EAST);
         return bar;
+    }
+
+    /**
+     * Reapplies toolbar chrome from the current palette.
+     */
+    private void refreshToolbarChrome() {
+        if (networkToolbar != null) {
+            styleToolbarShell(networkToolbar, Theme.pad(Theme.SPACE_SM));
+        }
+        if (mctsToolbar != null) {
+            styleToolbarShell(mctsToolbar, Theme.pad(Theme.SPACE_XS, Theme.SPACE_SM,
+                    Theme.SPACE_XS, Theme.SPACE_SM));
+        }
+    }
+
+    /**
+     * Applies flat toolbar chrome with a single bottom separator.
+     *
+     * @param bar toolbar panel
+     * @param padding inner padding
+     */
+    private static void styleToolbarShell(JPanel bar, Border padding) {
+        bar.setOpaque(true);
+        bar.setBackground(Theme.PANEL_SOLID);
+        bar.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createMatteBorder(0, 0, 1, 0, Theme.LINE),
+                padding));
     }
 
     /**

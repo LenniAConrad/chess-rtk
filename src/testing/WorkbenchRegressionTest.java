@@ -20,6 +20,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
+import javax.swing.BorderFactory;
 import javax.swing.JComboBox;
 import javax.swing.DefaultComboBoxModel;
 import javax.swing.JButton;
@@ -47,6 +48,10 @@ import javax.swing.JToggleButton;
 import javax.swing.KeyStroke;
 import javax.swing.Timer;
 import javax.swing.UIManager;
+import javax.swing.border.Border;
+import javax.swing.border.CompoundBorder;
+import javax.swing.border.LineBorder;
+import javax.swing.border.MatteBorder;
 import javax.swing.table.TableCellRenderer;
 import javax.swing.text.AttributeSet;
 import javax.swing.text.StyleConstants;
@@ -166,6 +171,7 @@ public final class WorkbenchRegressionTest {
         testCommandFormOptionalTogglesFillLeadColumn();
         testThemeColorContrast();
         testThemeRefreshPreservesLabelRoles();
+        testThemeRefreshUpdatesLineBorders();
         testThemeInstallSetsTooltipColors();
         testTextPlaceholdersDoNotSetValues();
         testCollapsibleInfoSectionTogglesContent();
@@ -959,6 +965,27 @@ public final class WorkbenchRegressionTest {
         assertEquals(themeColor("TEXT"), section.getForeground(), "section label stays text in light");
         assertEquals(themeColor("STATUS_WARNING_TEXT"), warning.getForeground(),
                 "warning label stays warning in light");
+    }
+
+    /**
+     * Verifies fixed Swing line borders are rebuilt with the active theme.
+     */
+    private static void testThemeRefreshUpdatesLineBorders() {
+        Theme.setMode(Theme.Mode.LIGHT);
+        JPanel panel = new JPanel();
+        panel.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(Theme.LINE),
+                BorderFactory.createMatteBorder(0, 1, 0, 0, Theme.LINE)));
+
+        Theme.setMode(Theme.Mode.DARK);
+        Theme.refreshComponentTree(panel);
+        assertEquals(themeColor("LINE"), firstBorderColor(panel.getBorder()),
+                "compound line border follows dark theme");
+
+        Theme.setMode(Theme.Mode.LIGHT);
+        Theme.refreshComponentTree(panel);
+        assertEquals(themeColor("LINE"), firstBorderColor(panel.getBorder()),
+                "compound line border follows light theme");
     }
 
     /**
@@ -2560,6 +2587,26 @@ public final class WorkbenchRegressionTest {
     }
 
     /**
+     * Finds the first line color in a Swing border tree.
+     *
+     * @param border border
+     * @return first line color, or null when no line color exists
+     */
+    private static Color firstBorderColor(Border border) {
+        if (border instanceof LineBorder line) {
+            return line.getLineColor();
+        }
+        if (border instanceof MatteBorder matte) {
+            return matte.getMatteColor();
+        }
+        if (border instanceof CompoundBorder compound) {
+            Color outside = firstBorderColor(compound.getOutsideBorder());
+            return outside == null ? firstBorderColor(compound.getInsideBorder()) : outside;
+        }
+        return null;
+    }
+
+    /**
      * Verifies every dashboard support class loads.
      */
     private static void testDashboardClassesLoad() {
@@ -2841,6 +2888,7 @@ public final class WorkbenchRegressionTest {
      * visible view selector compact.
      */
     private static void testNetworkPanelSimpleControlsRenderHeadlessly() {
+        Theme.setMode(Theme.Mode.LIGHT);
         Object panel = construct(type("NetworkPanel"), new Class<?>[0]);
         Timer timer = (Timer) field(panel, "debounceTimer");
         timer.stop();
@@ -2868,6 +2916,13 @@ public final class WorkbenchRegressionTest {
         invoke(viewMode, "setSelectedIndex", new Class<?>[] { int.class }, 3);
         assertPaintsOpaqueCorner((JComponent) panel, 1180, 720,
                 "network panel simple controls paint opaquely");
+        Theme.setMode(Theme.Mode.DARK);
+        Theme.refreshComponentTree((JComponent) panel);
+        assertEquals(themeColor("LINE"), firstBorderColor(((JComponent) field(panel, "networkToolbar")).getBorder()),
+                "network toolbar separator follows dark theme");
+        assertEquals(themeColor("LINE"), firstBorderColor(((JComponent) field(panel, "inspectorPanel")).getBorder()),
+                "network inspector separator follows dark theme");
+        Theme.setMode(Theme.Mode.LIGHT);
         timer.stop();
     }
 
