@@ -642,18 +642,45 @@ public final class EditorSplitArea extends JPanel {
         plus.addActionListener(event -> {
             plus.setSelected(false);
             JPopupMenu menu = new JPopupMenu();
+            styleReopenMenu(menu);
             for (int i = 0; i < panels.size(); i++) {
                 if (open.contains(i)) {
                     continue;
                 }
                 int index = i;
                 JMenuItem item = new JMenuItem(names.get(i));
+                styleReopenMenuItem(item);
                 item.addActionListener(choice -> setPaneSelection(pane, index));
                 menu.add(item);
             }
             menu.show(plus, 0, plus.getHeight());
         });
         return plus;
+    }
+
+    /**
+     * Applies the workbench palette to the closed-tab popup.
+     *
+     * @param menu popup menu
+     */
+    private static void styleReopenMenu(JPopupMenu menu) {
+        menu.setOpaque(true);
+        menu.setBackground(Theme.PANEL_SOLID);
+        menu.setForeground(Theme.TEXT);
+        menu.setBorder(BorderFactory.createLineBorder(Theme.LINE));
+    }
+
+    /**
+     * Applies the workbench palette to a closed-tab popup item.
+     *
+     * @param item popup item
+     */
+    private static void styleReopenMenuItem(JMenuItem item) {
+        item.setOpaque(true);
+        item.setBackground(Theme.PANEL_SOLID);
+        item.setForeground(Theme.TEXT);
+        item.setFont(Theme.font(12, java.awt.Font.PLAIN));
+        item.setBorder(Theme.pad(5, 10, 5, 10));
     }
 
     /**

@@ -227,6 +227,7 @@ public final class WorkbenchRegressionTest {
         testDashboardPanelConstructsHeadlessly();
         testNetworkPanelSimpleControlsRenderHeadlessly();
         testNetworkDiagnosticsPreviewHighlightsConfig();
+        testNetworkDiagnosticsPreviewRecolorsForDarkTheme();
         testNnueViewsPaintSyntheticSnapshotHeadlessly();
         testNnueTraceFitsViewportAndCentersColumns();
         testNnueHalfKpDecodingUsesFeatureEncoderLayout();
@@ -2848,6 +2849,32 @@ public final class WorkbenchRegressionTest {
                 "diagnostics config comments are styled differently");
         assertPaintsOpaqueCorner((JComponent) panel, 380, 680,
                 "network diagnostics paints opaquely");
+    }
+
+    /**
+     * Verifies the diagnostics config preview reapplies syntax colors after a
+     * runtime palette switch.
+     */
+    private static void testNetworkDiagnosticsPreviewRecolorsForDarkTheme() {
+        Theme.setMode(Theme.Mode.LIGHT);
+        JComponent panel = (JComponent) construct(type("NetworkDiagnosticsPanel"),
+                new Class<?>[0]);
+        Object provider = construct(type("RealActivations"), new Class<?>[0]);
+        invoke(panel, "refresh", new Class<?>[] { type("RealActivations"), String.class },
+                provider, "NNUE");
+
+        JTextPane configPane = (JTextPane) field(panel, "configPane");
+        String text = configPane.getText();
+        int keyOffset = text.indexOf("protocol-path");
+        assertTrue(keyOffset >= 0, "diagnostics config has a key to inspect");
+
+        Theme.setMode(Theme.Mode.DARK);
+        Theme.refreshComponentTree(panel);
+        AttributeSet keyAttrs = configPane.getStyledDocument()
+                .getCharacterElement(keyOffset).getAttributes();
+        assertEquals(themeColor("ACCENT"), StyleConstants.getForeground(keyAttrs),
+                "diagnostics config key recolors to dark accent");
+        Theme.setMode(Theme.Mode.LIGHT);
     }
 
     /**

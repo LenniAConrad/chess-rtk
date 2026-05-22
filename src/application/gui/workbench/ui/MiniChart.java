@@ -79,7 +79,6 @@ public final class MiniChart extends JComponent {
      */
     public MiniChart() {
         setOpaque(false);
-        setForeground(Theme.ACCENT);
     }
 
     /**
@@ -238,9 +237,9 @@ public final class MiniChart extends JComponent {
                 fill.addPoint(px[i], py[i]);
             }
             fill.addPoint(px[n - 1], zeroY);
-            g.setColor(Theme.withAlpha(getForeground(), 38));
+            g.setColor(Theme.withAlpha(Theme.ACCENT, 38));
             g.fillPolygon(fill);
-            g.setColor(getForeground());
+            g.setColor(Theme.ACCENT);
             g.setStroke(new java.awt.BasicStroke(1.6f));
             for (int i = 1; i < n; i++) {
                 g.drawLine(px[i - 1], py[i - 1], px[i], py[i]);
@@ -248,7 +247,7 @@ public final class MiniChart extends JComponent {
         }
         // Highlight the most recent sample.
         int last = n - 1;
-        g.setColor(getForeground());
+        g.setColor(Theme.ACCENT);
         g.fillOval(px[last] - 2, py[last] - 2, 5, 5);
     }
 

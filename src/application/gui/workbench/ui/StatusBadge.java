@@ -1,6 +1,5 @@
 package application.gui.workbench.ui;
 
-import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.FontMetrics;
@@ -42,36 +41,22 @@ public final class StatusBadge extends JComponent {
         /**
          * Idle / informational — a muted dot.
          */
-        IDLE(Theme.MUTED),
+        IDLE,
 
         /**
          * Work in progress — an accent dot.
          */
-        BUSY(Theme.ACCENT),
+        BUSY,
 
         /**
          * Finished successfully — a green dot.
          */
-        SUCCESS(Theme.STATUS_SUCCESS_TEXT),
+        SUCCESS,
 
         /**
          * Failed — a red dot.
          */
-        ERROR(Theme.STATUS_ERROR_TEXT);
-
-        /**
-         * Dot colour for this kind.
-         */
-        private final Color dot;
-
-        /**
-         * Creates a badge kind.
-         *
-         * @param dot dot color
-         */
-        Kind(Color dot) {
-            this.dot = dot;
-        }
+        ERROR
     }
 
     /**
@@ -169,7 +154,7 @@ public final class StatusBadge extends JComponent {
             g.setFont(getFont());
             FontMetrics fm = g.getFontMetrics();
             int cy = getHeight() / 2;
-            g.setColor(kind.dot);
+            g.setColor(dotColor(kind));
             g.fillOval(0, cy - DOT / 2, DOT, DOT);
             g.setColor(Theme.MUTED);
             int baseline = cy + fm.getAscent() / 2 - 1;
@@ -177,5 +162,20 @@ public final class StatusBadge extends JComponent {
         } finally {
             g.dispose();
         }
+    }
+
+    /**
+     * Returns the active theme dot color for a status kind.
+     *
+     * @param value status kind
+     * @return active dot color
+     */
+    private static java.awt.Color dotColor(Kind value) {
+        return switch (value == null ? Kind.IDLE : value) {
+            case BUSY -> Theme.ACCENT;
+            case SUCCESS -> Theme.STATUS_SUCCESS_TEXT;
+            case ERROR -> Theme.STATUS_ERROR_TEXT;
+            case IDLE -> Theme.MUTED;
+        };
     }
 }
