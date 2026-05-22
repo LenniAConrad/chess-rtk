@@ -159,7 +159,7 @@ public abstract class NnueTraceView extends NnueOverviewView {
                 output == null || output.length == 0
                         ? "centipawn head"
                         : String.format("%+d cp", Math.round(output[0])),
-                output, true, Theme.ACCENT,
+                output, true, TensorViz.VALUE,
                 "nnue.output.centipawns", "Final affine output converted to centipawns.");
     }
 
@@ -221,7 +221,7 @@ public abstract class NnueTraceView extends NnueOverviewView {
                 output == null || output.length == 0
                         ? "centipawn head"
                         : String.format("%+d cp", Math.round(output[0])),
-                outputParts == null ? output : outputParts, true, Theme.ACCENT,
+                outputParts == null ? output : outputParts, true, TensorViz.VALUE,
                 outputParts == null ? "nnue.output.centipawns" : "nnue.stockfish.output.parts",
                 "Stockfish output parts: PSQT, FC2 bias, FC2 terms, and FC0 forward branch.");
     }
@@ -279,7 +279,7 @@ public abstract class NnueTraceView extends NnueOverviewView {
         if (x2 <= x1) {
             return;
         }
-        g.setColor(Theme.withAlpha(Theme.ACCENT, 140));
+        g.setColor(Theme.withAlpha(TensorViz.FOCUS, 140));
         g.drawLine(x1, y, x2, y);
         g.drawLine(x2, y, x2 - 4, y - 3);
         g.drawLine(x2, y, x2 - 4, y + 3);
@@ -355,7 +355,7 @@ public abstract class NnueTraceView extends NnueOverviewView {
         if (flowY < layout.graphTop - 2 && centers.length > 1) {
             int startX = centers[0] + Math.max(14, bandW / 2 - 6);
             int endX = centers[centers.length - 1] - Math.max(14, bandW / 2 - 6);
-            g.setColor(Theme.withAlpha(Theme.ACCENT, 120));
+            g.setColor(Theme.withAlpha(TensorViz.FOCUS, 120));
             g.setStroke(new BasicStroke(1.0f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
             g.drawLine(startX, flowY, endX, flowY);
             g.drawLine(endX, flowY, endX - 5, flowY - 3);
@@ -384,7 +384,7 @@ public abstract class NnueTraceView extends NnueOverviewView {
             int y = layout.startY + i * layout.slotPitch;
             boolean selected = i == selectedSlot;
             g.setColor(Theme.withAlpha(
-                    selected ? Theme.ACCENT : Theme.NN_TRUNK,
+                    selected ? TensorViz.FOCUS : TensorViz.TRUNK,
                     selected ? 130 : 52));
             g.drawLine(x1, y, x2, y);
         }
@@ -393,7 +393,7 @@ public abstract class NnueTraceView extends NnueOverviewView {
         int labelY = layout.graphTop - 4;
         if (labelY > layout.labelY + 14) {
             g.setFont(Theme.font(9, Font.BOLD));
-            g.setColor(Theme.withAlpha(Theme.NN_TRUNK, 180));
+            g.setColor(Theme.withAlpha(TensorViz.TRUNK, 180));
             drawCenteredFittedLabel(g, "trunk lanes", (x1 + x2) / 2, labelY,
                     Math.max(32, x2 - x1 - 12));
         }
@@ -768,9 +768,9 @@ public abstract class NnueTraceView extends NnueOverviewView {
             TensorViz.drawNode(g, layout.clippedCx, y, layout.slotRadius, fc0[i] / scale, false);
             if (fwd) {
                 int rr = layout.slotRadius + 3;
-                g.setColor(Theme.withAlpha(Theme.ACCENT, 190));
+                g.setColor(Theme.withAlpha(TensorViz.FOCUS, 190));
                 g.drawOval(layout.clippedCx - rr, y - rr, rr * 2, rr * 2);
-                g.setColor(Theme.ACCENT);
+                g.setColor(TensorViz.FOCUS);
                 g.setFont(Theme.font(9, Font.BOLD));
                 g.drawString("fwd skip", layout.clippedCx + rr + 3, y + 3);
             }
@@ -861,7 +861,7 @@ public abstract class NnueTraceView extends NnueOverviewView {
                 selectedSlot >= 0 ? "slot zoom" : "slot zoom",
                 selectedSlot >= 0 ? "incoming feature weights for the selected neuron"
                         : "click any accumulator neuron to zoom",
-                Theme.ACCENT);
+                TensorViz.FOCUS);
         if (selectedSlot < 0 || selectedSlot >= visibleSlots.length) {
             g.setColor(Theme.MUTED);
             g.setFont(Theme.font(11, Font.PLAIN));
@@ -935,7 +935,7 @@ public abstract class NnueTraceView extends NnueOverviewView {
                 selectedSlot >= 0 ? "lane zoom" : "lane zoom",
                 selectedSlot >= 0 ? "incoming HalfKA weights and FC0 forward branch"
                         : "click any transformer lane to zoom",
-                Theme.ACCENT);
+                TensorViz.FOCUS);
         if (selectedSlot < 0 || selectedSlot >= visibleSlots.length) {
             g.setColor(Theme.MUTED);
             g.setFont(Theme.font(11, Font.PLAIN));

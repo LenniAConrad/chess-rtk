@@ -372,7 +372,7 @@ public abstract class NnueOverviewView extends NnueAtlasView {
      * @param r summary rectangle
      */
     protected void paintOverviewSummary(Graphics2D g, Rectangle r) {
-        TensorViz.drawCard(g, r, null, null, Theme.ACCENT);
+        TensorViz.drawCard(g, r, null, null, TensorViz.FOCUS);
         float cp = valueAt(snapshot.data("nnue.output.centipawns"), 0);
         FeatureDriver raiser = strongestDriver(true);
         FeatureDriver lowerer = strongestDriver(false);
@@ -408,7 +408,7 @@ public abstract class NnueOverviewView extends NnueAtlasView {
                     label,
                     activeUs + " / " + activeThem,
                     isStockfishSnapshot() ? stockfishStackShort() : "us / them active",
-                    Theme.STATUS_INFO_BORDER);
+                    TensorViz.FOCUS);
         }
         hitRegions.addInspectable(r,
                 "Overview summary",
@@ -453,7 +453,7 @@ public abstract class NnueOverviewView extends NnueAtlasView {
         FeatureDriver driver = selectedFeature >= 0
                 ? driverForFeature(selectedFeature)
                 : strongestDriverByAbs();
-        Color accent = !driver.valid() ? Theme.ACCENT
+        Color accent = !driver.valid() ? TensorViz.FOCUS
                 : driver.impact() >= 0.0f ? TensorViz.POSITIVE : TensorViz.NEGATIVE;
         TensorViz.drawCard(g, r,
                 driver.valid() ? "selected feature" : "feature inspector",
@@ -633,7 +633,7 @@ public abstract class NnueOverviewView extends NnueAtlasView {
         TensorViz.drawCard(g, r,
                 "board",
                 "each NNUE input = a (king square, piece) pair; click a feature to light its squares",
-                Theme.ACCENT);
+                TensorViz.FOCUS);
         int availableW = Math.max(24, r.width - 16);
         int availableH = Math.max(24, r.height - 44);
         int side = Math.max(24, Math.min(availableW, availableH));
@@ -666,7 +666,7 @@ public abstract class NnueOverviewView extends NnueAtlasView {
         }
         double cell = board.width / 8.0;
         highlightSquare(g, board, feature.kingSquare, cell, cell,
-                Theme.withAlpha(Theme.ACCENT, 110));
+                Theme.withAlpha(TensorViz.FOCUS, 110));
         if (feature.pieceSquare != feature.kingSquare) {
             boolean enemy = feature.pieceCode >= 5;
             highlightSquare(g, board, feature.pieceSquare, cell, cell,
@@ -684,7 +684,7 @@ public abstract class NnueOverviewView extends NnueAtlasView {
     protected void paintOverviewFeatureOverlay(Graphics2D g, Rectangle board) {
         if (selectedBoardSquare >= 0) {
             TensorViz.drawBoardSquareRing(g, board, selectedBoardSquare,
-                    Theme.ACCENT);
+                    TensorViz.FOCUS);
         }
         if (selectedFeature >= 0) {
             paintSelectedFeatureOverlay(g, board);
@@ -715,7 +715,7 @@ public abstract class NnueOverviewView extends NnueAtlasView {
         }
         double cell = board.width / 8.0;
         highlightSquare(g, board, feature.kingSquare, cell, cell,
-                Theme.withAlpha(Theme.ACCENT, 80));
+                Theme.withAlpha(TensorViz.FOCUS, 80));
         highlightSquare(g, board, feature.pieceSquare, cell, cell, tint);
     }
 
@@ -828,7 +828,7 @@ public abstract class NnueOverviewView extends NnueAtlasView {
             g.setColor(isSelected ? Theme.SELECTION_SOLID
                     : (i % 2 == 0 ? Theme.PANEL_SOLID : Theme.ELEVATED_SOLID));
             g.fillRect(row.x, row.y, row.width, row.height);
-            g.setColor(isSelected ? Theme.ACCENT : Theme.LINE);
+            g.setColor(isSelected ? TensorViz.FOCUS : Theme.LINE);
             g.drawRect(row.x, row.y, row.width - 1, row.height - 1);
             int glyphSize = Math.min(row.height - 2, compact ? 18 : 28);
             Rectangle glyph = new Rectangle(row.x + 2, row.y + (row.height - glyphSize) / 2,

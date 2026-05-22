@@ -55,13 +55,13 @@ public final class NnueTraceGeometry {
             case 0:
                 return Theme.withAlpha(TensorViz.POSITIVE, 18);
             case 1:
-                return Theme.withAlpha(Theme.ACCENT, 20);
+                return Theme.withAlpha(TensorViz.FOCUS, 20);
             case 2:
-                return Theme.withAlpha(Theme.NN_TRUNK, 20);
+                return Theme.withAlpha(TensorViz.TRUNK, 20);
             case 3:
-                return Theme.withAlpha(Theme.NN_POLICY, 16);
+                return Theme.withAlpha(TensorViz.POLICY, 16);
             default:
-                return Theme.withAlpha(Theme.NN_VALUE, 16);
+                return Theme.withAlpha(TensorViz.VALUE, 16);
         }
     }
 

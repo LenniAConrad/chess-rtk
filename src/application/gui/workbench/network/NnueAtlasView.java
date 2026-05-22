@@ -209,7 +209,7 @@ public abstract class NnueAtlasView extends NnueViewBase {
         TensorViz.drawCard(g, r,
                 "whole pixel-plane atlas",
                 hidden + " slots × " + planes + " planes · white-bottom board squares",
-                Theme.ACCENT);
+                TensorViz.FOCUS);
         Rectangle inner = new Rectangle(r.x + 10, r.y + 38,
                 Math.max(1, r.width - 20), Math.max(1, r.height - 48));
         if (squares != 64 || hidden <= 0 || planes <= 0 || inner.width <= 12 || inner.height <= 16) {
@@ -250,7 +250,7 @@ public abstract class NnueAtlasView extends NnueViewBase {
         if (selectedRow >= 0) {
             int y0 = (int) Math.floor(imageRect.y + selectedRow * imageRect.height / (double) hidden);
             int y1 = (int) Math.ceil(imageRect.y + (selectedRow + 1) * imageRect.height / (double) hidden);
-            g.setColor(Theme.ACCENT);
+            g.setColor(TensorViz.FOCUS);
             g.setStroke(new BasicStroke(2.0f));
             g.drawRect(imageRect.x, y0, imageRect.width - 1, Math.max(1, y1 - y0) - 1);
             g.setStroke(new BasicStroke(1.0f));
@@ -258,7 +258,7 @@ public abstract class NnueAtlasView extends NnueViewBase {
         if (atlasSelectedPlane >= 0 && atlasSelectedPlane < planes) {
             int x0 = (int) Math.floor(imageRect.x + atlasSelectedPlane * imageRect.width / (double) planes);
             int x1 = (int) Math.ceil(imageRect.x + (atlasSelectedPlane + 1) * imageRect.width / (double) planes);
-            g.setColor(Theme.withAlpha(Theme.ACCENT, 150));
+            g.setColor(Theme.withAlpha(TensorViz.FOCUS, 150));
             g.drawRect(x0, imageRect.y, Math.max(1, x1 - x0) - 1, imageRect.height - 1);
         }
         for (int row = 0; row < hidden && row < order.length; row++) {
@@ -297,7 +297,7 @@ public abstract class NnueAtlasView extends NnueViewBase {
                 selectedBoardSquare >= 0
                         ? "ranked by " + TensorViz.squareLabel(selectedBoardSquare)
                         : "sorted by " + atlasSort,
-                Theme.ACCENT);
+                TensorViz.FOCUS);
         Rectangle inner = new Rectangle(r.x + 10, r.y + 38,
                 Math.max(1, r.width - 20), Math.max(1, r.height - 48));
         int cardW = Math.max(82, Math.min(118, inner.width / Math.max(1, inner.width / 96)));
@@ -317,7 +317,7 @@ public abstract class NnueAtlasView extends NnueViewBase {
             g.setColor(selected ? Theme.SELECTION_SOLID : Theme.ELEVATED_SOLID);
             g.fillRoundRect(card.x, card.y, card.width, card.height,
                     Theme.RADIUS, Theme.RADIUS);
-            g.setColor(selected ? Theme.ACCENT : Theme.LINE);
+            g.setColor(selected ? TensorViz.FOCUS : Theme.LINE);
             g.drawRoundRect(card.x, card.y, card.width - 1, card.height - 1,
                     Theme.RADIUS, Theme.RADIUS);
             if (atlasOverlay && overlayMag != null && slot < overlayMag.length && overlayMax > 0.0f) {
@@ -377,7 +377,7 @@ public abstract class NnueAtlasView extends NnueViewBase {
         TensorViz.drawCard(g, r,
                 "slot #" + slot + " atlas",
                 atlasPlaneName(atlasSelectedPlane, planes) + " weights",
-                Theme.ACCENT);
+                TensorViz.FOCUS);
         Rectangle inner = new Rectangle(r.x + 12, r.y + 38,
                 Math.max(1, r.width - 24), Math.max(1, r.height - 50));
         int chipGap = 5;
@@ -388,7 +388,7 @@ public abstract class NnueAtlasView extends NnueViewBase {
             boolean selected = p == atlasSelectedPlane;
             g.setColor(selected ? Theme.SELECTION_SOLID : Theme.ELEVATED_SOLID);
             g.fillRoundRect(chip.x, chip.y, chip.width, chip.height, Theme.RADIUS, Theme.RADIUS);
-            g.setColor(selected ? Theme.ACCENT : Theme.LINE);
+            g.setColor(selected ? TensorViz.FOCUS : Theme.LINE);
             g.drawRoundRect(chip.x, chip.y, chip.width - 1, chip.height - 1,
                     Theme.RADIUS, Theme.RADIUS);
             g.setColor(Theme.TEXT);
@@ -412,7 +412,7 @@ public abstract class NnueAtlasView extends NnueViewBase {
         TensorViz.drawPositionPieces(g, board, fen);
         drawWhiteBottomLabel(g, board, inner.y + inner.height);
         if (selectedBoardSquare >= 0) {
-            TensorViz.drawBoardSquareRing(g, board, selectedBoardSquare, Theme.ACCENT);
+            TensorViz.drawBoardSquareRing(g, board, selectedBoardSquare, TensorViz.FOCUS);
         }
         hitRegions.addInspectable(board,
                 "Slot " + slot + " · " + atlasPlaneName(atlasSelectedPlane, planes),
@@ -427,7 +427,7 @@ public abstract class NnueAtlasView extends NnueViewBase {
         if (footerY < inner.y + inner.height - 22) {
             Rectangle zoom = new Rectangle(inner.x, footerY,
                     Math.min(150, inner.width), 24);
-            TensorViz.drawInfoChip(g, zoom, "open", "all planes", Theme.ACCENT);
+            TensorViz.drawInfoChip(g, zoom, "open", "all planes", TensorViz.FOCUS);
             hitRegions.add(zoom,
                     "Zoom slot " + slot,
                     "Open the full all-piece-plane view for this slot.",
@@ -459,7 +459,7 @@ public abstract class NnueAtlasView extends NnueViewBase {
         TensorViz.drawCard(g, r,
                 "slot explanation",
                 atlasSlotArchetype(rawAtlas, slot, planes, squares),
-                Theme.ACCENT);
+                TensorViz.FOCUS);
         Rectangle inner = new Rectangle(r.x + 12, r.y + 42,
                 Math.max(1, r.width - 24), Math.max(1, r.height - 54));
         int y = inner.y;
@@ -472,7 +472,7 @@ public abstract class NnueAtlasView extends NnueViewBase {
                 out >= 0.0f ? TensorViz.POSITIVE : TensorViz.NEGATIVE);
         int topPlane = strongestAtlasPlane(rawAtlas, slot, planes, squares);
         y = drawAtlasMetricLine(g, inner, y, "dominant plane",
-                topPlane >= 0 ? atlasPlaneName(topPlane, planes) : "-", Theme.ACCENT);
+                topPlane >= 0 ? atlasPlaneName(topPlane, planes) : "-", TensorViz.FOCUS);
         int offset = (slot * planes + atlasSelectedPlane) * squares;
         int posSq = strongestSquare(paintingData, offset, squares, true);
         int negSq = strongestSquare(paintingData, offset, squares, false);
@@ -813,7 +813,7 @@ public abstract class NnueAtlasView extends NnueViewBase {
                 int ax1 = x + boxW;
                 int ax2 = x + boxW + gap;
                 int ay = y + boxH / 2;
-                g.setColor(Theme.ACCENT);
+                g.setColor(TensorViz.TRUNK);
                 g.drawLine(ax1 + 2, ay, ax2 - 6, ay);
                 int[] xs = { ax2 - 6, ax2 - 12, ax2 - 12 };
                 int[] ys = { ay, ay - 5, ay + 5 };

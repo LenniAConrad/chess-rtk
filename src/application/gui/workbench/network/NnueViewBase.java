@@ -610,7 +610,7 @@ public abstract class NnueViewBase extends NetworkView implements Scrollable {
         g.setColor(Theme.LINE);
         g.drawRoundRect(shell.x, shell.y, shell.width - 1, shell.height - 1,
                 Theme.RADIUS, Theme.RADIUS);
-        g.setColor(Theme.ACCENT);
+        g.setColor(TensorViz.FOCUS);
         g.fillRoundRect(shell.x, shell.y, 5, shell.height,
                 Theme.RADIUS, Theme.RADIUS);
 
@@ -646,9 +646,9 @@ public abstract class NnueViewBase extends NetworkView implements Scrollable {
                         slots == 0 ? "--" : String.valueOf(slots)
                 };
         Color[] accents = {
-                Theme.STATUS_INFO_BORDER,
+                TensorViz.FOCUS,
                 affine >= 0.0f ? TensorViz.POSITIVE : TensorViz.NEGATIVE,
-                Theme.ACCENT
+                TensorViz.TRUNK
         };
         int chipCount = chipArea < 86 ? 0 : Math.min(labels.length, Math.max(1, (chipArea + 6) / 92));
         int chipW = chipCount == 0 ? 0 : Math.max(76, (chipArea - 6 * (chipCount - 1)) / chipCount);
