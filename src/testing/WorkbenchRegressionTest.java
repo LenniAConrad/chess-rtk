@@ -58,6 +58,7 @@ import javax.swing.text.StyleConstants;
 
 import application.gui.workbench.game.GameModel;
 import application.gui.workbench.ui.Theme;
+import application.gui.workbench.ui.Ui;
 import application.gui.workbench.window.SettingsMenu;
 import chess.core.Field;
 import chess.core.Move;
@@ -172,6 +173,7 @@ public final class WorkbenchRegressionTest {
         testThemeColorContrast();
         testThemeRefreshPreservesLabelRoles();
         testThemeRefreshUpdatesLineBorders();
+        testThemeRefreshRestoresCustomControlUis();
         testThemeInstallSetsTooltipColors();
         testTextPlaceholdersDoNotSetValues();
         testCollapsibleInfoSectionTogglesContent();
@@ -987,6 +989,39 @@ public final class WorkbenchRegressionTest {
         Theme.refreshComponentTree(panel);
         assertEquals(themeColor("LINE"), firstBorderColor(panel.getBorder()),
                 "compound line border follows light theme");
+    }
+
+    /**
+     * Verifies palette refresh restores workbench-specific control delegates.
+     */
+    private static void testThemeRefreshRestoresCustomControlUis() {
+        Theme.setMode(Theme.Mode.LIGHT);
+        JPanel panel = new JPanel();
+        JTabbedPane tabs = Ui.tabbedPane();
+        tabs.addTab("A", new JPanel());
+        JComboBox<String> combo = new JComboBox<>(new String[] { "one", "two" });
+        Ui.styleCombo(combo);
+        JSpinner spinner = new JSpinner();
+        Ui.styleSpinner(spinner);
+        JScrollPane scroll = Ui.scroll(new JPanel());
+        panel.add(tabs);
+        panel.add(combo);
+        panel.add(spinner);
+        panel.add(scroll);
+
+        Theme.setMode(Theme.Mode.DARK);
+        javax.swing.SwingUtilities.updateComponentTreeUI(panel);
+        Theme.refreshComponentTree(panel);
+
+        assertTrue(tabs.getUI().getClass().getName().contains("FlatTabbedPaneUI"),
+                "tabbed pane custom UI restored");
+        assertTrue(combo.getUI().getClass().getName().contains("StyledComboBoxUI"),
+                "combo custom UI restored");
+        assertTrue(spinner.getUI().getClass().getName().contains("StyledSpinnerUI"),
+                "spinner custom UI restored");
+        assertTrue(scroll.getVerticalScrollBar().getUI().getClass().getName().contains("StyledScrollBarUI"),
+                "scrollbar custom UI restored");
+        Theme.setMode(Theme.Mode.LIGHT);
     }
 
     /**
