@@ -23,6 +23,8 @@ import javax.swing.JComboBox;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JList;
+import javax.swing.JMenuBar;
+import javax.swing.JMenuItem;
 import javax.swing.JScrollPane;
 import javax.swing.JSpinner;
 import javax.swing.JTable;
@@ -1008,6 +1010,18 @@ public final class Theme {
         } else if (component instanceof ToggleBox toggle) {
             toggle.setForeground(TEXT);
             toggle.setFont(font(13, Font.PLAIN));
+        } else if (component instanceof JMenuBar menuBar) {
+            menuBar.setOpaque(true);
+            menuBar.setBackground(BG);
+            menuBar.setForeground(TEXT);
+            menuBar.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, LINE));
+            menuBar.setFont(font(12, Font.PLAIN));
+        } else if (component instanceof JMenuItem item) {
+            item.setOpaque(true);
+            item.setBackground(item.getParent() instanceof JMenuBar ? BG : PANEL_SOLID);
+            item.setForeground(TEXT);
+            item.setFont(font(12, Font.PLAIN));
+            item.setBorder(pad(5, 10, 5, 10));
         } else if (component instanceof AbstractButton button) {
             Object primary = button.getClientProperty(CLIENT_PRIMARY);
             if (primary instanceof Boolean value) {
@@ -1377,6 +1391,20 @@ public final class Theme {
         UIManager.put("CheckBox.foreground", TEXT);
         UIManager.put("RadioButton.background", PANEL_SOLID);
         UIManager.put("RadioButton.foreground", TEXT);
+        UIManager.put("MenuBar.background", BG);
+        UIManager.put("MenuBar.foreground", TEXT);
+        UIManager.put("Menu.background", BG);
+        UIManager.put("Menu.foreground", TEXT);
+        UIManager.put("MenuItem.background", PANEL_SOLID);
+        UIManager.put("MenuItem.foreground", TEXT);
+        UIManager.put("MenuItem.selectionBackground", SELECTION_SOLID);
+        UIManager.put("MenuItem.selectionForeground", TEXT);
+        UIManager.put("RadioButtonMenuItem.background", PANEL_SOLID);
+        UIManager.put("RadioButtonMenuItem.foreground", TEXT);
+        UIManager.put("RadioButtonMenuItem.selectionBackground", SELECTION_SOLID);
+        UIManager.put("RadioButtonMenuItem.selectionForeground", TEXT);
+        UIManager.put("PopupMenu.background", PANEL_SOLID);
+        UIManager.put("PopupMenu.border", BorderFactory.createLineBorder(LINE));
         UIManager.put("OptionPane.background", PANEL_SOLID);
         UIManager.put("OptionPane.messageForeground", TEXT);
         UIManager.put("OptionPane.messageFont", font(13, Font.PLAIN));

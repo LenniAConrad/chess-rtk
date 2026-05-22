@@ -124,6 +124,11 @@ public abstract class WindowLifecycle extends WindowBase {
     private static final long serialVersionUID = 1L;
 
     /**
+     * Top-level application settings menu, including the theme selector.
+     */
+    protected transient SettingsMenu settingsMenu;
+
+    /**
      * Preferences node used to persist workbench UI state.
      */
     protected static final Preferences WORKBENCH_PREFS =
@@ -298,6 +303,9 @@ public abstract class WindowLifecycle extends WindowBase {
     protected void setDarkMode(boolean dark) {
         Theme.Mode next = dark ? Theme.Mode.DARK : Theme.Mode.LIGHT;
         if (Theme.mode() == next) {
+            if (settingsMenu != null) {
+                settingsMenu.syncMode();
+            }
             return;
         }
         Theme.setMode(next);
@@ -305,6 +313,10 @@ public abstract class WindowLifecycle extends WindowBase {
         Theme.install();
         SwingUtilities.updateComponentTreeUI(this);
         Theme.refreshComponentTree(this);
+        if (settingsMenu != null) {
+            settingsMenu.syncMode();
+            settingsMenu.refreshTheme();
+        }
         repaint();
         toast(Toast.Kind.INFO, Theme.mode().label() + " mode");
     }
@@ -440,6 +452,61 @@ public abstract class WindowLifecycle extends WindowBase {
      * Builds the UI.
      */
     protected void buildUi() {
+        settingsMenu = new SettingsMenu(new SettingsMenu.Controller() {
+            /**
+             * Returns the active appearance mode.
+             *
+             * @return active appearance mode
+             */
+            @Override
+            public Theme.Mode themeMode() {
+                return Theme.mode();
+            }
+
+            /**
+             * Applies the selected appearance mode.
+             *
+             * @param mode requested appearance mode
+             */
+            @Override
+            public void setThemeMode(Theme.Mode mode) {
+                setDarkMode(mode == Theme.Mode.DARK);
+            }
+
+            /**
+             * Opens board and display settings.
+             */
+            @Override
+            public void showDisplaySettings() {
+                WindowLifecycle.this.showDisplaySettings();
+            }
+
+            /**
+             * Opens engine settings.
+             */
+            @Override
+            public void showEngineSettings() {
+                WindowLifecycle.this.showEngineSettings();
+            }
+
+            /**
+             * Opens the command palette.
+             */
+            @Override
+            public void showCommandPalette() {
+                WindowLifecycle.this.showCommandPalette();
+            }
+
+            /**
+             * Opens the persisted logs folder.
+             */
+            @Override
+            public void openLogsDirectory() {
+                runArtifacts.openLogsDirectory();
+            }
+        });
+        setJMenuBar(settingsMenu.component());
+
         JPanel root = new BackdropPanel();
         root.setLayout(new BorderLayout(0, 0));
         root.setBackground(Theme.BG);
@@ -585,6 +652,8 @@ public abstract class WindowLifecycle extends WindowBase {
                 showCommandPalette();
             }
         });
+        bindWindowAction("control COMMA", "openDisplaySettings", event -> showDisplaySettings());
+        bindWindowAction("meta COMMA", "openDisplaySettingsMeta", event -> showDisplaySettings());
         bindWindowAction("alt LEFT", "navigateBack", event -> navigateGame(-1));
         bindWindowAction("alt RIGHT", "navigateForward", event -> navigateGame(1));
         bindWindowAction("alt UP", "navigateStart", event -> jumpGameTo(0));
