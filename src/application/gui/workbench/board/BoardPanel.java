@@ -1709,7 +1709,8 @@ public final class BoardPanel extends JPanel {
     /** Starts a played-move animation when the previous and current boards allow it.
      * @param oldBoard previous board array
      * @param newBoard new board array
-     * @param move move encoded in CRTK move format */
+     * @param move move encoded in CRTK move format
+     * @param reverseMoveAnimation true when replay navigation should animate the move backward */
     private void startMoveAnimation(byte[] oldBoard, byte[] newBoard, short move,
             boolean reverseMoveAnimation) {
         if (!animationsEnabled || moveAnimationMs <= 0) {
