@@ -175,7 +175,7 @@ public final class WorkbenchRegressionTest {
         testToggleSwitchAnimatesStateChanges();
         testCommandFormOptionalTogglesFillLeadColumn();
         testThemeColorContrast();
-        testThemeUsesVscodeModernChromeTokens();
+        testThemeUsesVscodeChromeWithPastelAccentTokens();
         testNetworkPaletteUsesSemanticFocusColor();
         testThemeRefreshPreservesLabelRoles();
         testThemeRefreshUpdatesLineBorders();
@@ -1027,10 +1027,10 @@ public final class WorkbenchRegressionTest {
     }
 
     /**
-     * Verifies the workbench chrome uses the official VS Code Modern palette
-     * stops for light and dark mode.
+     * Verifies the workbench keeps the VS Code Modern neutral chrome stops
+     * while using pastel action-color tokens.
      */
-    private static void testThemeUsesVscodeModernChromeTokens() {
+    private static void testThemeUsesVscodeChromeWithPastelAccentTokens() {
         Theme.setMode(Theme.Mode.LIGHT);
         assertColor(new Color(0xF8F8F8), themeColor("BG"), "light VS Code panel background");
         assertColor(Color.WHITE, themeColor("PANEL_SOLID"), "light VS Code editor background");
@@ -1041,8 +1041,8 @@ public final class WorkbenchRegressionTest {
         assertColor(new Color(0xF8F8F8), themeColor("TAB_IDLE"), "light VS Code inactive tab");
         assertColor(new Color(0x3B3B3B), themeColor("TEXT"), "light VS Code foreground");
         assertColor(new Color(0x616161), themeColor("MUTED"), "light VS Code muted foreground");
-        assertColor(new Color(0x005FB8), themeColor("ACCENT"), "light VS Code accent");
-        assertColor(new Color(0xBED6ED), themeColor("TOGGLE_ON_BG"), "light VS Code active option fill");
+        assertColor(new Color(0xB5D7F2), themeColor("ACCENT"), "light pastel accent");
+        assertColor(new Color(0xD6EAF8), themeColor("TOGGLE_ON_BG"), "light pastel active option fill");
 
         Theme.setMode(Theme.Mode.DARK);
         assertColor(new Color(0x181818), themeColor("BG"), "dark VS Code panel background");
@@ -1054,9 +1054,9 @@ public final class WorkbenchRegressionTest {
         assertColor(new Color(0x181818), themeColor("TAB_IDLE"), "dark VS Code inactive tab");
         assertColor(new Color(0xCCCCCC), themeColor("TEXT"), "dark VS Code foreground");
         assertColor(new Color(0x9D9D9D), themeColor("MUTED"), "dark VS Code muted foreground");
-        assertColor(new Color(0x0078D4), themeColor("ACCENT"), "dark VS Code accent");
-        assertColor(new Color(36, 137, 219, 130), themeColor("TOGGLE_ON_BG"),
-                "dark VS Code active option fill");
+        assertColor(new Color(0x9CCDF2), themeColor("ACCENT"), "dark pastel accent");
+        assertColor(new Color(156, 205, 242, 130), themeColor("TOGGLE_ON_BG"),
+                "dark pastel active option fill");
         Theme.setMode(Theme.Mode.LIGHT);
     }
 
