@@ -72,26 +72,6 @@ public final class EvalBar extends JComponent {
     private static final double CP_SCALE = 650.0;
 
     /**
-     * Dark side fill.
-     */
-    private static final Color BLACK_FILL = Theme.EVAL_BLACK;
-
-    /**
-     * Light side fill.
-     */
-    private static final Color WHITE_FILL = Theme.EVAL_WHITE;
-
-    /**
-     * Bar frame color.
-     */
-    private static final Color FRAME = Theme.EVAL_FRAME;
-
-    /**
-     * Neutral divider color.
-     */
-    private static final Color DIVIDER = Theme.EVAL_DIVIDER;
-
-    /**
      * Guide line color over the dark side of the rail.
      */
     private static final Color GUIDE_ON_DARK = new Color(255, 255, 255, 82);
@@ -313,7 +293,7 @@ public final class EvalBar extends JComponent {
             paintBarFill(g, x, y, w, h, split);
             g.setClip(oldClip);
             g.setStroke(FRAME_STROKE);
-            g.setColor(FRAME);
+            g.setColor(Theme.EVAL_FRAME);
             g.drawRoundRect(x, y, w - 1, h - 1, BAR_ARC, BAR_ARC);
         } finally {
             g.dispose();
@@ -331,13 +311,13 @@ public final class EvalBar extends JComponent {
      * @param split split y coordinate
      */
     private void paintBarFill(Graphics2D g, int x, int y, int w, int h, int split) {
-        g.setColor(BLACK_FILL);
+        g.setColor(Theme.EVAL_BLACK);
         g.fillRect(x, y, w, h);
-        g.setColor(WHITE_FILL);
+        g.setColor(Theme.EVAL_WHITE);
         g.fillRect(x, split, w, y + h - split);
         paintGuideLines(g, x, y, w, h, split);
         g.setStroke(DIVIDER_STROKE);
-        g.setColor(DIVIDER);
+        g.setColor(Theme.EVAL_DIVIDER);
         g.drawLine(x + 1, split, x + w - 2, split);
     }
 

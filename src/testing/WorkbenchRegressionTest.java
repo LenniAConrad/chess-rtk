@@ -194,6 +194,7 @@ public final class WorkbenchRegressionTest {
         testEcoExplorerFiltersAndLoadsLines();
         testEvalBarMapping();
         testEvalBarAnimation();
+        testEvalBarFrameFollowsTheme();
         testEvalBarThinkingIsStatic();
         testEngineEvalParsing();
         testLiveEngineStatusFormatting();
@@ -1468,6 +1469,26 @@ public final class WorkbenchRegressionTest {
         Timer timer = (Timer) field(bar, "timer");
         assertTrue(timer.isRunning(), "eval score animation starts");
         timer.stop();
+    }
+
+    /**
+     * Verifies the eval-bar rail border remains visible in light and dark mode.
+     */
+    private static void testEvalBarFrameFollowsTheme() {
+        Theme.setMode(Theme.Mode.LIGHT);
+        JComponent component = (JComponent) construct(type("EvalBar"), new Class<?>[0]);
+        component.setSize(40, 260);
+        Color lightFrame = new Color(paint(component, 40, 260).getRGB(20, 0), true);
+        assertColor(themeColor("EVAL_FRAME"), lightFrame, "light eval frame paint");
+
+        Theme.setMode(Theme.Mode.DARK);
+        Theme.refreshComponentTree(component);
+        component.setSize(40, 260);
+        Color darkFrame = new Color(paint(component, 40, 260).getRGB(20, 0), true);
+        assertColor(themeColor("EVAL_FRAME"), darkFrame, "dark eval frame paint");
+        assertColorDistanceAtLeast(darkFrame, themeColor("BG"), 180.0,
+                "dark eval frame contrasts with dark workbench background");
+        Theme.setMode(Theme.Mode.LIGHT);
     }
 
     /**

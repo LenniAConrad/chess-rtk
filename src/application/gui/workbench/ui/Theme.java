@@ -627,7 +627,7 @@ public final class Theme {
     /**
      * Eval-bar frame color.
      */
-    public static Color EVAL_FRAME = new Color(0, 0, 0, 168);
+    public static Color EVAL_FRAME = new Color(17, 17, 17);
 
     /**
      * Eval-bar divider color.
@@ -1354,7 +1354,7 @@ public final class Theme {
         CHECK_EDGE = new Color(200, 104, 99, 70);
         EVAL_BLACK = Color.BLACK;
         EVAL_WHITE = Color.WHITE;
-        EVAL_FRAME = new Color(0, 0, 0, 168);
+        EVAL_FRAME = isDark() ? new Color(238, 238, 238) : new Color(17, 17, 17);
         EVAL_DIVIDER = new Color(128, 128, 128, 176);
     }
 
