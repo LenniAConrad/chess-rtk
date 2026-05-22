@@ -22,6 +22,7 @@ import java.util.function.IntConsumer;
 import javax.swing.BorderFactory;
 import javax.swing.JComponent;
 import javax.swing.JMenuItem;
+import javax.swing.MenuSelectionManager;
 import javax.swing.JPanel;
 import javax.swing.JPopupMenu;
 import javax.swing.JSplitPane;
@@ -461,6 +462,85 @@ public final class EditorSplitArea extends JPanel {
     }
 
     /**
+     * Returns the number of open workbench tabs.
+     *
+     * @return open tab count
+     */
+    public int openTabCount() {
+        return open.size();
+    }
+
+    /**
+     * Returns the number of visible editor groups.
+     *
+     * @return visible editor group count
+     */
+    public int visibleGroupCount() {
+        int count = 0;
+        for (int pane = PANE_PRIMARY; pane <= PANE_QUATERNARY; pane++) {
+            if (paneVisible(pane)) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    /**
+     * Splits the selected tab into a group on the right.
+     */
+    public void splitSelectedTabRight() {
+        splitSelectedTab(DROP_RIGHT);
+    }
+
+    /**
+     * Splits the selected tab into a group on the left.
+     */
+    public void splitSelectedTabLeft() {
+        splitSelectedTab(DROP_LEFT);
+    }
+
+    /**
+     * Splits the selected tab into a group above.
+     */
+    public void splitSelectedTabUp() {
+        splitSelectedTab(DROP_TOP);
+    }
+
+    /**
+     * Splits the selected tab into a group below.
+     */
+    public void splitSelectedTabDown() {
+        splitSelectedTab(DROP_BOTTOM);
+    }
+
+    /**
+     * Closes the selected tab.
+     */
+    public void closeSelectedTab() {
+        hideOpenMenus();
+        int selected = selectedIndex();
+        if (validPanel(selected)) {
+            closeTab(selected);
+        }
+    }
+
+    /**
+     * Closes every tab except the selected tab.
+     */
+    public void closeOtherTabs() {
+        hideOpenMenus();
+        closeOtherTabs(selectedIndex());
+    }
+
+    /**
+     * Reopens every workbench tab into the active editor group.
+     */
+    public void reopenAllTabs() {
+        hideOpenMenus();
+        reopenAllTabs(activePane);
+    }
+
+    /**
      * Shows a panel in the primary editor group.
      *
      * @param index panel index
@@ -619,6 +699,7 @@ public final class EditorSplitArea extends JPanel {
             tab.setDragHandler(
                     point -> handleTabDrag(strip, tabList, panelIndex, tab, point),
                     () -> finishTabDrag(panelIndex));
+            tab.setComponentPopupMenu(tabContextMenu(pane, panelIndex));
             strip.add(tab);
             tab.setPaneActive(activePane == pane || (!isSplitActive() && pane == PANE_PRIMARY));
         }
@@ -642,14 +723,14 @@ public final class EditorSplitArea extends JPanel {
         plus.addActionListener(event -> {
             plus.setSelected(false);
             JPopupMenu menu = new JPopupMenu();
-            styleReopenMenu(menu);
+            stylePopupMenu(menu);
             for (int i = 0; i < panels.size(); i++) {
                 if (open.contains(i)) {
                     continue;
                 }
                 int index = i;
                 JMenuItem item = new JMenuItem(names.get(i));
-                styleReopenMenuItem(item);
+                stylePopupMenuItem(item);
                 item.addActionListener(choice -> setPaneSelection(pane, index));
                 menu.add(item);
             }
@@ -659,11 +740,50 @@ public final class EditorSplitArea extends JPanel {
     }
 
     /**
+     * Builds a tab action menu for split, close, and restore actions.
+     *
+     * @param pane editor group id
+     * @param panelIndex panel index
+     * @return tab context menu
+     */
+    private JPopupMenu tabContextMenu(int pane, int panelIndex) {
+        JPopupMenu menu = new JPopupMenu();
+        stylePopupMenu(menu);
+        menu.add(menuItem("Split Right", () -> splitTab(panelIndex, DROP_RIGHT)));
+        menu.add(menuItem("Split Down", () -> splitTab(panelIndex, DROP_BOTTOM)));
+        menu.add(menuItem("Split Left", () -> splitTab(panelIndex, DROP_LEFT)));
+        menu.add(menuItem("Split Up", () -> splitTab(panelIndex, DROP_TOP)));
+        menu.add(menuItem("Close", () -> closeTab(panelIndex)));
+        menu.add(menuItem("Close Others", () -> closeOtherTabs(panelIndex)));
+        if (open.size() < panels.size()) {
+            menu.add(menuItem("Restore Closed Tabs", () -> reopenAllTabs(pane)));
+        }
+        if (isSplitActive()) {
+            menu.add(menuItem("Collapse Groups", this::collapseAndRelayout));
+        }
+        return menu;
+    }
+
+    /**
+     * Creates a styled popup menu item.
+     *
+     * @param label item label
+     * @param action item action
+     * @return styled item
+     */
+    private static JMenuItem menuItem(String label, Runnable action) {
+        JMenuItem item = new JMenuItem(label);
+        stylePopupMenuItem(item);
+        item.addActionListener(event -> action.run());
+        return item;
+    }
+
+    /**
      * Applies the workbench palette to the closed-tab popup.
      *
      * @param menu popup menu
      */
-    private static void styleReopenMenu(JPopupMenu menu) {
+    private static void stylePopupMenu(JPopupMenu menu) {
         menu.setOpaque(true);
         menu.setBackground(Theme.PANEL_SOLID);
         menu.setForeground(Theme.TEXT);
@@ -675,7 +795,7 @@ public final class EditorSplitArea extends JPanel {
      *
      * @param item popup item
      */
-    private static void styleReopenMenuItem(JMenuItem item) {
+    private static void stylePopupMenuItem(JMenuItem item) {
         item.setOpaque(true);
         item.setBackground(Theme.PANEL_SOLID);
         item.setForeground(Theme.TEXT);
@@ -835,33 +955,63 @@ public final class EditorSplitArea extends JPanel {
     private void finishTabDrag(int draggedPanelIndex) {
         int zone = dragZone;
         dragZone = DROP_NONE;
+        splitTab(draggedPanelIndex, zone);
+    }
+
+    /**
+     * Applies a split or move action for a panel.
+     *
+     * @param panelIndex panel index
+     * @param zone drop-zone/action constant
+     */
+    private void splitTab(int panelIndex, int zone) {
         switch (zone) {
-            case DROP_PRIMARY_CENTER -> setPrimary(draggedPanelIndex);
-            case DROP_SECONDARY_CENTER -> setSecondary(draggedPanelIndex);
-            case DROP_TERTIARY_CENTER -> setTertiary(draggedPanelIndex);
-            case DROP_QUATERNARY_CENTER -> setQuaternary(draggedPanelIndex);
+            case DROP_PRIMARY_CENTER -> setPrimary(panelIndex);
+            case DROP_SECONDARY_CENTER -> setSecondary(panelIndex);
+            case DROP_TERTIARY_CENTER -> setTertiary(panelIndex);
+            case DROP_QUATERNARY_CENTER -> setQuaternary(panelIndex);
             case DROP_RIGHT -> {
                 splitOrientation = JSplitPane.HORIZONTAL_SPLIT;
-                splitWithDragged(draggedPanelIndex, false);
+                splitWithDragged(panelIndex, false);
             }
             case DROP_BOTTOM -> {
                 splitOrientation = JSplitPane.VERTICAL_SPLIT;
-                splitWithDragged(draggedPanelIndex, false);
+                splitWithDragged(panelIndex, false);
             }
             case DROP_LEFT -> {
                 splitOrientation = JSplitPane.HORIZONTAL_SPLIT;
-                splitWithDragged(draggedPanelIndex, true);
+                splitWithDragged(panelIndex, true);
             }
             case DROP_TOP -> {
                 splitOrientation = JSplitPane.VERTICAL_SPLIT;
-                splitWithDragged(draggedPanelIndex, true);
+                splitWithDragged(panelIndex, true);
             }
-            case DROP_TOP_LEFT -> splitWithDraggedInPane(draggedPanelIndex, PANE_PRIMARY);
-            case DROP_TOP_RIGHT -> splitWithDraggedInPane(draggedPanelIndex, PANE_SECONDARY);
-            case DROP_BOTTOM_LEFT -> splitWithDraggedInPane(draggedPanelIndex, PANE_TERTIARY);
-            case DROP_BOTTOM_RIGHT -> splitWithDraggedInPane(draggedPanelIndex, PANE_QUATERNARY);
+            case DROP_TOP_LEFT -> splitWithDraggedInPane(panelIndex, PANE_PRIMARY);
+            case DROP_TOP_RIGHT -> splitWithDraggedInPane(panelIndex, PANE_SECONDARY);
+            case DROP_BOTTOM_LEFT -> splitWithDraggedInPane(panelIndex, PANE_TERTIARY);
+            case DROP_BOTTOM_RIGHT -> splitWithDraggedInPane(panelIndex, PANE_QUATERNARY);
             default -> relayout();
         }
+    }
+
+    /**
+     * Splits the currently selected tab using a drop-zone action.
+     *
+     * @param zone drop-zone/action constant
+     */
+    private void splitSelectedTab(int zone) {
+        hideOpenMenus();
+        int selected = selectedIndex();
+        if (validPanel(selected)) {
+            splitTab(selected, zone);
+        }
+    }
+
+    /**
+     * Dismisses any active Swing popup menu before keyboard tab actions run.
+     */
+    private static void hideOpenMenus() {
+        MenuSelectionManager.defaultManager().clearSelectedPath();
     }
 
     /**
@@ -1198,6 +1348,65 @@ public final class EditorSplitArea extends JPanel {
         splitPane = null;
         splitPanes.clear();
         syncOpenFromGroups();
+    }
+
+    /**
+     * Collapses split mode and refreshes the editor groups.
+     */
+    private void collapseAndRelayout() {
+        collapseSplit();
+        relayout();
+        notifySelectionChanged();
+    }
+
+    /**
+     * Closes every tab except one panel.
+     *
+     * @param panelIndex panel index to keep open
+     */
+    private void closeOtherTabs(int panelIndex) {
+        if (!validPanel(panelIndex)) {
+            return;
+        }
+        rememberDividerLocation();
+        open.clear();
+        primaryTabs.clear();
+        secondaryTabs.clear();
+        tertiaryTabs.clear();
+        quaternaryTabs.clear();
+        open.add(panelIndex);
+        primaryTabs.add(panelIndex);
+        primaryIndex = panelIndex;
+        secondaryIndex = -1;
+        tertiaryIndex = -1;
+        quaternaryIndex = -1;
+        activePane = PANE_PRIMARY;
+        splitPane = null;
+        splitPanes.clear();
+        relayout();
+        notifySelectionChanged();
+    }
+
+    /**
+     * Reopens every closed tab into one editor group.
+     *
+     * @param pane target editor group id
+     */
+    private void reopenAllTabs(int pane) {
+        int targetPane = paneVisible(pane) ? pane : PANE_PRIMARY;
+        List<Integer> targetTabs = tabsForPane(targetPane);
+        for (int index = 0; index < panels.size(); index++) {
+            ensureOpen(index);
+            if (paneContaining(index) < 0) {
+                targetTabs.add(index);
+            }
+        }
+        if (!targetTabs.isEmpty() && !targetTabs.contains(paneIndex(targetPane))) {
+            setPaneIndex(targetPane, targetTabs.get(0));
+        }
+        repairGroups();
+        relayout();
+        notifySelectionChanged();
     }
 
     /**
