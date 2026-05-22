@@ -8,6 +8,7 @@ import application.gui.workbench.command.CommandTemplates.CommandTemplate;
 import application.gui.workbench.command.CommandTemplates.TemplateContext;
 import application.gui.workbench.layout.EditorSplitArea;
 import application.gui.workbench.layout.SplitPaneStyler;
+import application.gui.workbench.network.TensorViz;
 import application.gui.workbench.ui.BackdropPanel;
 import application.gui.workbench.ui.Theme;
 import application.gui.workbench.ui.Toast;
@@ -267,6 +268,7 @@ public abstract class WindowLifecycle extends WindowBase {
     protected void loadThemeSetting() {
         Theme.setMode(Theme.Mode.fromPreference(
                 WORKBENCH_PREFS.get(PREF_THEME_MODE, Theme.Mode.LIGHT.id())));
+        TensorViz.refreshPalette();
     }
 
     /**
@@ -309,6 +311,7 @@ public abstract class WindowLifecycle extends WindowBase {
             return;
         }
         Theme.setMode(next);
+        TensorViz.refreshPalette();
         WORKBENCH_PREFS.put(PREF_THEME_MODE, Theme.mode().id());
         Theme.install();
         SwingUtilities.updateComponentTreeUI(this);

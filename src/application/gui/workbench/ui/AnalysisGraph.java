@@ -80,41 +80,6 @@ public final class AnalysisGraph extends JComponent {
     private static final int PRINT_GRAPH_H = 520;
 
     /**
-     * Evaluation line color.
-     */
-    private static final Color EVAL_LINE = Theme.ACCENT;
-
-    /**
-     * Evaluation fill color.
-     */
-    private static final Color EVAL_FILL = Theme.withAlpha(Theme.ACCENT, 34);
-
-    /**
-     * Depth bar color.
-     */
-    private static final Color DEPTH_BAR = Theme.withAlpha(Theme.STATUS_SUCCESS_TEXT, 142);
-
-    /**
-     * Node bar color.
-     */
-    private static final Color NODE_BAR = Theme.withAlpha(Theme.ACCENT, 92);
-
-    /**
-     * NPS trend color.
-     */
-    private static final Color NPS_LINE = Theme.STATUS_WARNING_TEXT;
-
-    /**
-     * Grid line color.
-     */
-    private static final Color GRID = Theme.withAlpha(Theme.LINE, 150);
-
-    /**
-     * Zero line color.
-     */
-    private static final Color ZERO = Theme.withAlpha(Theme.ACCENT, 150);
-
-    /**
      * Graph samples in insertion order.
      */
     private final List<Sample> samples = new ArrayList<>(MAX_SAMPLES);
@@ -468,14 +433,14 @@ public final class AnalysisGraph extends JComponent {
         paintBandLabel(g, "Evaluation", x, y);
         int range = evalRange();
         int zeroY = evalY(y, h, 0, range);
-        g.setColor(ZERO);
+        g.setColor(zeroColor());
         g.drawLine(x, zeroY, x + w, zeroY);
         paintAxisLabel(g, formatEvalCp(range), x + w - 8, y + 14, SwingConstants.RIGHT);
         paintAxisLabel(g, "0.00", x + w - 8, zeroY - 3, SwingConstants.RIGHT);
         paintAxisLabel(g, formatEvalCp(-range), x + w - 8, y + h - 4, SwingConstants.RIGHT);
 
         if (samples.size() < 2) {
-            paintPoint(g, x + w, evalY(y, h, latest().evalCp(), range), EVAL_LINE);
+            paintPoint(g, x + w, evalY(y, h, latest().evalCp(), range), evalLineColor());
             paintValueLabel(g, formatEval(latest()), x + w - 8, y + 28);
             return;
         }
@@ -497,12 +462,12 @@ public final class AnalysisGraph extends JComponent {
         fill.lineTo(sampleX(x, w, samples.size() - 1), zeroY);
         fill.closePath();
 
-        g.setColor(EVAL_FILL);
+        g.setColor(evalFillColor());
         g.fill(fill);
         g.setStroke(new BasicStroke(2.0f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-        g.setColor(EVAL_LINE);
+        g.setColor(evalLineColor());
         g.draw(line);
-        paintPoint(g, x + w, evalY(y, h, latest().evalCp(), range), EVAL_LINE);
+        paintPoint(g, x + w, evalY(y, h, latest().evalCp(), range), evalLineColor());
         paintValueLabel(g, formatEval(latest()), x + w - 8, y + 28);
     }
 
@@ -521,7 +486,7 @@ public final class AnalysisGraph extends JComponent {
         int maxDepth = Math.max(1, samples.stream().mapToInt(Sample::depth).max().orElse(1));
         double barW = Math.max(2.0, w / (double) Math.max(1, samples.size()));
 
-        g.setColor(DEPTH_BAR);
+        g.setColor(depthBarColor());
         for (int i = 0; i < samples.size(); i++) {
             Sample sample = samples.get(i);
             int barH = (int) Math.round((sample.depth() / (double) maxDepth) * Math.max(1, h - 8));
@@ -547,7 +512,7 @@ public final class AnalysisGraph extends JComponent {
         long maxNps = Math.max(1L, samples.stream().mapToLong(Sample::nps).max().orElse(1L));
         double barW = Math.max(2.0, w / (double) Math.max(1, samples.size()));
 
-        g.setColor(NODE_BAR);
+        g.setColor(nodeBarColor());
         for (int i = 0; i < samples.size(); i++) {
             Sample sample = samples.get(i);
             int barH = (int) Math.round((sample.nodes() / (double) maxNodes) * Math.max(1, h - 8));
@@ -567,10 +532,10 @@ public final class AnalysisGraph extends JComponent {
                 }
             }
             g.setStroke(new BasicStroke(1.8f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-            g.setColor(NPS_LINE);
+            g.setColor(npsLineColor());
             g.draw(nps);
             int pointY = y + h - (int) Math.round((latest().nps() / (double) maxNps) * Math.max(1, h - 8));
-            paintPoint(g, x + w, Math.max(y + 4, Math.min(y + h - 4, pointY)), NPS_LINE);
+            paintPoint(g, x + w, Math.max(y + 4, Math.min(y + h - 4, pointY)), npsLineColor());
         }
         paintValueLabel(g, formatCount(latest().nodes()) + " / " + formatCount(latest().nps()) + " nps",
                 x + w - 8, y + 14);
@@ -590,13 +555,76 @@ public final class AnalysisGraph extends JComponent {
         g.setPaint(new GradientPaint(x, y, Theme.withAlpha(Theme.PANEL_SOLID, 220),
                 x, (float) y + h, Theme.withAlpha(Theme.ELEVATED_SOLID, 220)));
         g.fillRoundRect(x, y, w, h, 7, 7);
-        g.setColor(GRID);
+        g.setColor(gridColor());
         for (int i = 0; i <= rows; i++) {
             int yy = y + Math.round(i * h / (float) rows);
             g.drawLine(x, yy, x + w, yy);
         }
         g.setColor(Theme.LINE);
         g.drawRoundRect(x, y, Math.max(0, w - 1), Math.max(0, h - 1), 7, 7);
+    }
+
+    /**
+     * Returns the active evaluation line color.
+     *
+     * @return evaluation line color
+     */
+    private static Color evalLineColor() {
+        return Theme.ACCENT;
+    }
+
+    /**
+     * Returns the active evaluation area fill color.
+     *
+     * @return evaluation fill color
+     */
+    private static Color evalFillColor() {
+        return Theme.withAlpha(Theme.ACCENT, 34);
+    }
+
+    /**
+     * Returns the active depth-bar color.
+     *
+     * @return depth-bar color
+     */
+    private static Color depthBarColor() {
+        return Theme.withAlpha(Theme.STATUS_SUCCESS_TEXT, 142);
+    }
+
+    /**
+     * Returns the active node-count bar color.
+     *
+     * @return node-count color
+     */
+    private static Color nodeBarColor() {
+        return Theme.withAlpha(Theme.ACCENT, 92);
+    }
+
+    /**
+     * Returns the active NPS trend-line color.
+     *
+     * @return NPS line color
+     */
+    private static Color npsLineColor() {
+        return Theme.STATUS_WARNING_TEXT;
+    }
+
+    /**
+     * Returns the active grid-line color.
+     *
+     * @return grid color
+     */
+    private static Color gridColor() {
+        return Theme.withAlpha(Theme.LINE, 150);
+    }
+
+    /**
+     * Returns the active zero-line color.
+     *
+     * @return zero-line color
+     */
+    private static Color zeroColor() {
+        return Theme.withAlpha(Theme.ACCENT, 150);
     }
 
     /**
