@@ -1295,6 +1295,7 @@ public final class WorkbenchRegressionTest {
         JComponent host = (JComponent) field(area, "primaryHost");
         assertEquals(Integer.valueOf(0), Integer.valueOf(host.getComponentCount()),
                 "empty editor host contains no panel");
+        assertEmbeddedRookWatermarkOutline();
 
         host.setSize(360, 300);
         BufferedImage image = paint(host, 360, 300);
@@ -1309,6 +1310,22 @@ public final class WorkbenchRegressionTest {
             }
         }
         assertTrue(markedPixels > 80, "empty editor paints rook watermark outline");
+    }
+
+    /**
+     * Verifies the empty-editor watermark is sourced from the embedded rook SVG
+     * silhouette rather than a simplified hand-built shape.
+     */
+    private static void assertEmbeddedRookWatermarkOutline() {
+        try {
+            Class<?> hostType = Class.forName("application.gui.workbench.layout.EditorSplitArea$EmptyEditorHost");
+            java.awt.Shape outline = (java.awt.Shape) staticField(hostType, "ROOK_WATERMARK_OUTLINE");
+            java.awt.geom.Rectangle2D bounds = outline.getBounds2D();
+            assertTrue(bounds.getWidth() > 110.0 && bounds.getHeight() > 130.0,
+                    "empty editor rook watermark uses embedded rook SVG silhouette");
+        } catch (ClassNotFoundException ex) {
+            throw new AssertionError("missing empty editor host class", ex);
+        }
     }
 
     /**
