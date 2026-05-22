@@ -826,6 +826,8 @@ public abstract class WindowLifecycle extends WindowBase {
         bindWindowAction("ESCAPE", "stopRunningCommand", event -> stopCommand());
         bindPositionNavigation("LEFT", "previousPosition", event -> navigateGame(-1));
         bindPositionNavigation("RIGHT", "nextPosition", event -> navigateGame(1));
+        bindPositionNavigation("HOME", "firstPositionHome", event -> jumpGameTo(0));
+        bindPositionNavigation("END", "lastPositionEnd", event -> jumpGameTo(gameModel.lastPly()));
         bindPositionNavigation("UP", "firstPosition", event -> jumpGameTo(0));
         bindPositionNavigation("DOWN", "lastPosition", event -> jumpGameTo(gameModel.lastPly()));
     }

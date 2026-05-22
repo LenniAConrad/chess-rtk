@@ -204,6 +204,10 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
         boardBackButton = iconButton("Back", event -> navigateGame(-1));
         boardForwardButton = iconButton("Forward", event -> navigateGame(1));
         boardEndButton = iconButton("End", event -> jumpGameTo(gameModel.lastPly()));
+        setTransportShortcut(boardStartButton, "Home / Alt+Up");
+        setTransportShortcut(boardBackButton, "Left / Alt+Left");
+        setTransportShortcut(boardForwardButton, "Right / Alt+Right");
+        setTransportShortcut(boardEndButton, "End / Alt+Down");
         updateBoardNavigationControls();
         grid(panel, buttonRow(FlowLayout.LEFT,
                 button("Load", true, event -> setPositionFromField()),
@@ -295,6 +299,26 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
         if (button != null) {
             button.setEnabled(enabled);
         }
+    }
+
+    /**
+     * Adds keyboard-shortcut copy to one board transport button.
+     *
+     * @param button transport button
+     * @param shortcut shortcut text
+     */
+    protected static void setTransportShortcut(JButton button, String shortcut) {
+        if (button == null || shortcut == null || shortcut.isBlank()) {
+            return;
+        }
+        String label = button.getAccessibleContext().getAccessibleName();
+        if (label == null || label.isBlank()) {
+            label = button.getToolTipText();
+        }
+        if (label == null || label.isBlank()) {
+            return;
+        }
+        button.setToolTipText(label + " (" + shortcut + ")");
     }
 
     /**

@@ -197,6 +197,7 @@ public final class WorkbenchRegressionTest {
         testButtonDisabledIconIsMuted();
         testIconOnlyButtonKeepsIconAfterThemeRefresh();
         testBoardNavigationButtonsUseTransportIcons();
+        testBoardNavigationButtonsExposeShortcutTooltips();
         testCommandPreviewQuoting();
         testWorkbenchSanRendererUsesNeutralFigurines();
         testGameModelLoadsPgnVariations();
@@ -1580,6 +1581,21 @@ public final class WorkbenchRegressionTest {
         assertButtonIconKind("Back", "PREVIOUS");
         assertButtonIconKind("Forward", "NEXT");
         assertButtonIconKind("End", "LAST");
+    }
+
+    /**
+     * Verifies board transport buttons expose their keyboard shortcuts.
+     */
+    private static void testBoardNavigationButtonsExposeShortcutTooltips() {
+        JButton button = (JButton) invokeStatic(type("Ui"), "iconButton",
+                new Class<?>[] { String.class, ActionListener.class },
+                "Start", (ActionListener) event -> {
+                    // no-op test listener
+                });
+        invokeStatic(type("window.WindowBoardLayer"), "setTransportShortcut",
+                new Class<?>[] { JButton.class, String.class }, button, "Home / Alt+Up");
+        assertEquals("Start (Home / Alt+Up)", button.getToolTipText(),
+                "board transport tooltip includes shortcut");
     }
 
     /**
