@@ -159,6 +159,7 @@ public final class WorkbenchRegressionTest {
         testEngineTemplateContextFeedsExternalConfigOptions();
         testEngineBatchTasksUseExternalConfigOptions();
         testBatchPanelStartsWithEmptyInputAndSharedDuration();
+        testBatchPanelRejectsEmptyCliScriptRows();
         testCommandTemplatesHaveCompactTabLabels();
         testCommandControllerCoversCliRegistry();
         testBatchRunnerOffersCliScriptForAllCliCommands();
@@ -482,6 +483,53 @@ public final class WorkbenchRegressionTest {
         JTextField duration = (JTextField) field(panel, "batchDurationField");
         assertEquals("", input.getText(), "batch FEN input starts empty");
         assertEquals("1s", duration.getText(), "batch duration uses shared default");
+    }
+
+    /**
+     * Verifies command-script validation rejects launcher-only rows before the
+     * runner creates a child process.
+     */
+    private static void testBatchPanelRejectsEmptyCliScriptRows() {
+        Class<?> hostType = type("BatchPanel$Host");
+        Object host = Proxy.newProxyInstance(WorkbenchRegressionTest.class.getClassLoader(),
+                new Class<?>[] { hostType }, (proxy, method, args) -> {
+                    switch (method.getName()) {
+                        case "currentFen":
+                            return START_FEN;
+                        case "templateContext":
+                            return templateContext(START_FEN, "1s", "4", "2", "1");
+                        default:
+                            return null;
+                    }
+                });
+        Object panel = construct(type("BatchPanel"),
+                new Class<?>[] {
+                        hostType,
+                        javax.swing.SpinnerNumberModel.class,
+                        javax.swing.SpinnerNumberModel.class,
+                        javax.swing.SpinnerNumberModel.class
+                },
+                host,
+                new javax.swing.SpinnerNumberModel(4, 1, 99, 1),
+                new javax.swing.SpinnerNumberModel(2, 1, 20, 1),
+                new javax.swing.SpinnerNumberModel(1, 1, 256, 1));
+
+        JTextArea input = (JTextArea) field(panel, "batchInput");
+        input.setText("crtk version\nhelp batch run");
+        Object valid = invoke(panel, "scanCommandScript", new Class<?>[0]);
+        assertEquals(Integer.valueOf(2), invoke(valid, "commands", new Class<?>[0]),
+                "valid command-script row count");
+        assertEquals(Boolean.FALSE, invoke(valid, "hasError", new Class<?>[0]),
+                "valid command-script rows have no error");
+
+        input.setText("crtk");
+        Object invalid = invoke(panel, "scanCommandScript", new Class<?>[0]);
+        assertEquals(Boolean.TRUE, invoke(invalid, "hasError", new Class<?>[0]),
+                "launcher-only command-script row is invalid");
+        assertEquals(Integer.valueOf(1), invoke(invalid, "firstErrorLine", new Class<?>[0]),
+                "launcher-only command-script error line");
+        assertEquals("missing command after crtk", invoke(invalid, "firstError", new Class<?>[0]),
+                "launcher-only command-script error text");
     }
 
     /**
