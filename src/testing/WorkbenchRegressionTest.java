@@ -230,6 +230,7 @@ public final class WorkbenchRegressionTest {
         testBoardLegalMovePreviewCanBeHidden();
         testBoardLastMoveAndBestArrowCanBeHidden();
         testBoardNotationAndAnimationsCanBeHidden();
+        testBoardReverseMoveAnimationStarts();
         testBoardCheckHighlightPaintsCheckedKingMarker();
         testBoardTextureCachesRenderedLayer();
         testBoardPieceImageCacheReusesScaledSvg();
@@ -2119,6 +2120,26 @@ public final class WorkbenchRegressionTest {
         double eased = (Double) invokeStatic(type("BoardPanel"), "easeOutCubic",
                 new Class<?>[] { double.class }, 0.5d);
         assertTrue(eased > 0.5d && eased < 1.0d, "move animation ease-out curve");
+    }
+
+    /**
+     * Verifies stepping backward glides the moved piece back to its origin.
+     */
+    private static void testBoardReverseMoveAnimationStarts() {
+        Object board = construct(type("BoardPanel"), new Class<?>[0]);
+        Position start = new Position(START_FEN);
+        short move = Move.parse("e2e4");
+        Position next = start.copy().play(move);
+        invoke(board, "setPosition", new Class<?>[] { Position.class, short.class }, next, move);
+
+        invoke(board, "setPosition", new Class<?>[] { Position.class, short.class, boolean.class },
+                start, move, Boolean.TRUE);
+
+        assertTrue((Boolean) field(board, "moveAnimationActive"), "reverse move animation active");
+        assertEquals(Byte.valueOf(Field.toIndex('e', '4')), field(board, "animatedMoveFrom"),
+                "reverse animated origin");
+        assertEquals(Byte.valueOf(Field.toIndex('e', '2')), field(board, "animatedMoveTo"),
+                "reverse animated target");
     }
 
     /**

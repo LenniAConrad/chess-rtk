@@ -263,6 +263,13 @@ public final class BoardPanel extends JPanel {
      * @param value new value
      * @param move move encoded in CRTK move format */
     public void setPosition(Position value, short move) {
+        setPosition(value, move, false);
+    }
+    /** Sets the position and optionally reverses the move glide.
+     * @param value new value
+     * @param move move encoded in CRTK move format
+     * @param reverseMoveAnimation true to glide the move from destination back to origin */
+    public void setPosition(Position value, short move, boolean reverseMoveAnimation) {
         byte[] previousBoard = position == null ? null : position.getBoard();
         position = value;
         cachedLegalMoves = null;
@@ -274,7 +281,8 @@ public final class BoardPanel extends JPanel {
             suppressNextMoveAnimation = false;
             clearMoveAnimation();
         } else {
-            startMoveAnimation(previousBoard, position == null ? null : position.getBoard(), move);
+            startMoveAnimation(previousBoard, position == null ? null : position.getBoard(),
+                    move, reverseMoveAnimation);
         }
         repaint();
     }
@@ -1773,7 +1781,8 @@ public final class BoardPanel extends JPanel {
      * @param oldBoard previous board array
      * @param newBoard new board array
      * @param move move encoded in CRTK move format */
-    private void startMoveAnimation(byte[] oldBoard, byte[] newBoard, short move) {
+    private void startMoveAnimation(byte[] oldBoard, byte[] newBoard, short move,
+            boolean reverseMoveAnimation) {
         if (!animationsEnabled || moveAnimationMs <= 0) {
             clearMoveAnimation();
             return;
@@ -1787,7 +1796,13 @@ public final class BoardPanel extends JPanel {
         if (!isSquareIndex(from) || !isSquareIndex(to)) {
             return;
         }
-        byte piece = newBoard[to] == Piece.EMPTY ? oldBoard[from] : newBoard[to];
+        byte moveFrom = from;
+        byte moveTo = to;
+        if (reverseMoveAnimation) {
+            from = moveTo;
+            to = moveFrom;
+        }
+        byte piece = animatedPiece(oldBoard, newBoard, from, to);
         if (piece == Piece.EMPTY) {
             return;
         }
@@ -1795,10 +1810,24 @@ public final class BoardPanel extends JPanel {
         animatedMoveFrom = from;
         animatedMoveTo = to;
         configureAnimatedCapture(oldBoard, newBoard, from, to, piece);
-        configureSecondaryMove(oldBoard, newBoard, from, to, piece);
+        configureSecondaryMove(oldBoard, newBoard, moveFrom, moveTo, reverseMoveAnimation);
         moveAnimationStartedAt = System.currentTimeMillis();
         moveAnimationActive = true;
         startAnimation();
+    }
+    /** Returns the piece to draw for a legal-looking board transition.
+     * @param oldBoard previous board array
+     * @param newBoard new board array
+     * @param from animated origin square
+     * @param to animated target square
+     * @return piece to draw, or {@link Piece#EMPTY} when the boards do not describe that move */
+    private static byte animatedPiece(byte[] oldBoard, byte[] newBoard, byte from, byte to) {
+        byte source = oldBoard[from];
+        byte target = newBoard[to];
+        if (source == Piece.EMPTY || target == Piece.EMPTY || Piece.isWhite(source) != Piece.isWhite(target)) {
+            return Piece.EMPTY;
+        }
+        return target;
     }
     /** Captures direct and en-passant victims for the fade-out part of the animation.
      * @param oldBoard previous board array
@@ -1826,22 +1855,25 @@ public final class BoardPanel extends JPanel {
     /** Finds a secondary same-color piece move caused by a compound move.
      * @param oldBoard previous board array
      * @param newBoard new board array
-     * @param from origin square
-     * @param to destination square
-     * @param movingPiece piece being animated */
-    private void configureSecondaryMove(byte[] oldBoard, byte[] newBoard, byte from, byte to, byte movingPiece) {
+     * @param moveFrom original move origin square
+     * @param moveTo original move destination square
+     * @param reverseMoveAnimation true when the compound move is being undone */
+    private void configureSecondaryMove(byte[] oldBoard, byte[] newBoard, byte moveFrom, byte moveTo,
+            boolean reverseMoveAnimation) {
+        byte kingFrom = reverseMoveAnimation ? moveTo : moveFrom;
+        byte movingPiece = oldBoard[kingFrom];
         if (!Piece.isKing(movingPiece)) {
             return;
         }
-        int fileDelta = Field.getX(to) - Field.getX(from);
+        int fileDelta = Field.getX(moveTo) - Field.getX(moveFrom);
         if (Math.abs(fileDelta) != 2) {
             return;
         }
-        int rank = from / 8;
-        int rookFromFile = fileDelta > 0 ? 7 : 0;
-        int rookToFile = fileDelta > 0 ? 5 : 3;
-        byte rookFrom = (byte) (rank * 8 + rookFromFile);
-        byte rookTo = (byte) (rank * 8 + rookToFile);
+        int rank = moveFrom / 8;
+        byte forwardRookFrom = (byte) (rank * 8 + (fileDelta > 0 ? 7 : 0));
+        byte forwardRookTo = (byte) (rank * 8 + (fileDelta > 0 ? 5 : 3));
+        byte rookFrom = reverseMoveAnimation ? forwardRookTo : forwardRookFrom;
+        byte rookTo = reverseMoveAnimation ? forwardRookFrom : forwardRookTo;
         if (!isSquareIndex(rookFrom) || !isSquareIndex(rookTo)) {
             return;
         }

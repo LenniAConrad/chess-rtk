@@ -171,8 +171,15 @@ public abstract class WindowGameLayer extends WindowEngineLayer {
      * @param ply ply to show
      */
     protected void showGamePly(int ply) {
-        gameModel.jumpToPly(ply);
-        setPosition(gameModel.currentPosition(), gameModel.currentLastMove());
+        int previousPly = gameModel.currentPly();
+        short previousLastMove = gameModel.currentLastMove();
+        int targetPly = Math.max(0, Math.min(ply, gameModel.lastPly()));
+        gameModel.jumpToPly(targetPly);
+        boolean adjacent = Math.abs(targetPly - previousPly) == 1;
+        boolean reverseMoveAnimation = adjacent && targetPly < previousPly;
+        short visualMove = reverseMoveAnimation ? previousLastMove : gameModel.currentLastMove();
+        setPosition(gameModel.currentPosition(), adjacent ? visualMove : Move.NO_MOVE,
+                reverseMoveAnimation);
         selectCurrentGameRow();
     }
 
