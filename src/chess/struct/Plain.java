@@ -1,3 +1,9 @@
+/**
+ * Source file attribution.
+ *
+ * @author Lennart A. Conrad
+ */
+
 package chess.struct;
 
 import java.util.Objects;

@@ -1,3 +1,9 @@
+/**
+ * Source file attribution.
+ *
+ * @author Lennart A. Conrad
+ */
+
 package application.cli.command;
 
 import java.io.PrintStream;

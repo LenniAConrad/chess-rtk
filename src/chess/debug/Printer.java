@@ -1,3 +1,9 @@
+/**
+ * Source file attribution.
+ *
+ * @author Lennart A. Conrad
+ */
+
 package chess.debug;
 
 import java.io.PrintStream;

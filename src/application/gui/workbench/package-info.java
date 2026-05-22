@@ -1,4 +1,10 @@
 /**
+ * Source file attribution.
+ *
+ * @author Lennart A. Conrad
+ */
+
+/**
  * Native Swing command and analysis workbench.
  *
  * <p>The implementation is intentionally split into feature subpackages:

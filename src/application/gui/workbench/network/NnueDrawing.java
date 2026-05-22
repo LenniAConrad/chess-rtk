@@ -1,3 +1,9 @@
+/**
+ * Source file attribution.
+ *
+ * @author Lennart A. Conrad
+ */
+
 package application.gui.workbench.network;
 
 import application.gui.workbench.ui.HitRegions;

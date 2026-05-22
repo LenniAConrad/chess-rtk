@@ -1,3 +1,9 @@
+/**
+ * Source file attribution.
+ *
+ * @author Lennart A. Conrad
+ */
+
 package chess.nn.lc0.cnn.cuda;
 
 import chess.gpu.SharedLibrarySupport;

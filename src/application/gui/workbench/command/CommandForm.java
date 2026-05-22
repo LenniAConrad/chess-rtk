@@ -1,3 +1,9 @@
+/**
+ * Source file attribution.
+ *
+ * @author Lennart A. Conrad
+ */
+
 package application.gui.workbench.command;
 
 import application.gui.workbench.command.CommandTemplates.CommandOption;

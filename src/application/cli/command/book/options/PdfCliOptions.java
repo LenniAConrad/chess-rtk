@@ -1,3 +1,9 @@
+/**
+ * Source file attribution.
+ *
+ * @author Lennart A. Conrad
+ */
+
 package application.cli.command.book.options;
 
 import static application.cli.Constants.OPT_BLACK_DOWN;

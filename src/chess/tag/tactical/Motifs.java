@@ -1,3 +1,9 @@
+/**
+ * Source file attribution.
+ *
+ * @author Lennart A. Conrad
+ */
+
 package chess.tag.tactical;
 
 import static chess.tag.core.Literals.*;

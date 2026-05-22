@@ -1,4 +1,10 @@
 /**
+ * Source file attribution.
+ *
+ * @author Lennart A. Conrad
+ */
+
+/**
  * Puzzle difficulty scoring and feature extraction.
  *
  * <p>

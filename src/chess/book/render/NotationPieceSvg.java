@@ -1,3 +1,9 @@
+/**
+ * Source file attribution.
+ *
+ * @author Lennart A. Conrad
+ */
+
 package chess.book.render;
 
 import chess.images.assets.shape.SvgShapes;

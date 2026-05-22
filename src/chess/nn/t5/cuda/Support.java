@@ -1,3 +1,9 @@
+/**
+ * Source file attribution.
+ *
+ * @author Lennart A. Conrad
+ */
+
 package chess.nn.t5.cuda;
 
 import chess.gpu.SharedLibrarySupport;

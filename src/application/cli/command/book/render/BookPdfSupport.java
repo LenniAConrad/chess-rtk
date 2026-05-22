@@ -1,3 +1,9 @@
+/**
+ * Source file attribution.
+ *
+ * @author Lennart A. Conrad
+ */
+
 package application.cli.command.book.render;
 
 import static application.cli.PathOps.ensureParentDir;
