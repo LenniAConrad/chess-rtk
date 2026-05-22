@@ -1,7 +1,6 @@
 package application.gui.workbench.layout;
 
 import application.gui.workbench.ui.Theme;
-import chess.images.assets.shape.SvgShapes;
 import java.awt.BasicStroke;
 import java.awt.BorderLayout;
 import java.awt.Color;
@@ -14,11 +13,8 @@ import java.awt.Graphics;
 import java.awt.Point;
 import java.awt.Rectangle;
 import java.awt.RenderingHints;
-import java.awt.Shape;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
-import java.awt.geom.AffineTransform;
-import java.awt.geom.Rectangle2D;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.IntConsumer;
@@ -31,7 +27,6 @@ import javax.swing.JPopupMenu;
 import javax.swing.JSplitPane;
 import javax.swing.JToggleButton;
 import javax.swing.SwingUtilities;
-import utility.Svg;
 
 /**
  * VS Code-style workbench shell. Holds every workbench panel and shows them
@@ -143,26 +138,6 @@ public final class EditorSplitArea extends JPanel {
     private static final int DROP_BORDER_ALPHA = 190;
 
     /**
-     * Minimum watermark rook size.
-     */
-    private static final int WATERMARK_MIN_SIZE = 72;
-
-    /**
-     * Maximum watermark rook size.
-     */
-    private static final int WATERMARK_MAX_SIZE = 240;
-
-    /**
-     * Alpha for the dark-mode empty editor watermark.
-     */
-    private static final int WATERMARK_DARK_ALPHA = 56;
-
-    /**
-     * Alpha for the light-mode empty editor watermark.
-     */
-    private static final int WATERMARK_LIGHT_ALPHA = 20;
-
-    /**
      * Panel display names.
      */
     private final transient List<String> names = new ArrayList<>();
@@ -226,6 +201,21 @@ public final class EditorSplitArea extends JPanel {
      * Armed split drop zone during a tab drag.
      */
     private int dragZone;
+
+    /**
+     * Editor group whose tab strip is accepting the current drag, or -1.
+     */
+    private int dragTargetPane = -1;
+
+    /**
+     * Target tab index for a tab-strip drag, or -1.
+     */
+    private int dragTargetIndex = -1;
+
+    /**
+     * Target strip x-coordinate for the insertion marker, or -1.
+     */
+    private int dragTargetX = -1;
 
     /**
      * Active editor group for keyboard cycling.
@@ -830,21 +820,28 @@ public final class EditorSplitArea extends JPanel {
             EditorTab tab,
             Point tabPoint) {
         Point inArea = SwingUtilities.convertPoint(tab, tabPoint, this);
-        Rectangle stripBounds = componentBounds(strip);
-        stripBounds.grow(0, 8);
-        if (stripBounds.contains(inArea)) {
-            if (dragZone != DROP_NONE) {
-                dragZone = DROP_NONE;
-                repaint();
-            }
+        int targetPane = paneForStripPoint(inArea);
+        if (targetPane >= PANE_PRIMARY) {
             int stripX = SwingUtilities.convertPoint(tab, tabPoint, strip).x;
-            reorderWithinStrip(strip, tabList, draggedPanelIndex, stripX);
+            if (targetPane == paneContaining(draggedPanelIndex)) {
+                boolean clearedTarget = clearDragTarget();
+                if (dragZone != DROP_NONE || clearedTarget) {
+                    dragZone = DROP_NONE;
+                    repaint();
+                }
+                reorderWithinStrip(strip, tabList, draggedPanelIndex, stripX);
+            } else {
+                JPanel targetStrip = paneStrip(targetPane);
+                int targetX = SwingUtilities.convertPoint(tab, tabPoint, targetStrip).x;
+                armTabStripDrop(targetPane, targetX);
+            }
             return;
         }
 
+        boolean clearedTarget = clearDragTarget();
         Rectangle body = centre.getBounds();
         int zone = dropZoneFor(inArea, body);
-        if (zone != dragZone) {
+        if (zone != dragZone || clearedTarget) {
             dragZone = zone;
             repaint();
         }
@@ -916,6 +913,89 @@ public final class EditorSplitArea extends JPanel {
     }
 
     /**
+     * Returns the visible editor group whose tab strip contains a point.
+     *
+     * @param point point in this component
+     * @return editor group id, or -1
+     */
+    private int paneForStripPoint(Point point) {
+        for (int pane = PANE_PRIMARY; pane <= PANE_QUATERNARY; pane++) {
+            if (!paneVisible(pane)) {
+                continue;
+            }
+            Rectangle bounds = componentBounds(paneStrip(pane));
+            bounds.grow(8, 8);
+            if (bounds.contains(point)) {
+                return pane;
+            }
+        }
+        return -1;
+    }
+
+    /**
+     * Arms a VS Code-style tab-strip dock target.
+     *
+     * @param pane target editor group
+     * @param stripX pointer x-coordinate in the target strip
+     */
+    private void armTabStripDrop(int pane, int stripX) {
+        JPanel strip = paneStrip(pane);
+        int insertionIndex = insertionIndexForStrip(strip, stripX);
+        int insertionX = insertionXForStrip(strip, insertionIndex);
+        int zone = centerDropZone(pane);
+        if (dragTargetPane != pane
+                || dragTargetIndex != insertionIndex
+                || dragTargetX != insertionX
+                || dragZone != zone) {
+            dragTargetPane = pane;
+            dragTargetIndex = insertionIndex;
+            dragTargetX = insertionX;
+            dragZone = zone;
+            repaint();
+        }
+    }
+
+    /**
+     * Returns the tab insertion index for a strip coordinate.
+     *
+     * @param strip target tab strip
+     * @param stripX pointer x-coordinate in the strip
+     * @return insertion index
+     */
+    private static int insertionIndexForStrip(JPanel strip, int stripX) {
+        int target = 0;
+        for (Component child : strip.getComponents()) {
+            if (child instanceof EditorTab && child.getX() + child.getWidth() / 2 < stripX) {
+                target++;
+            }
+        }
+        return Math.max(0, target);
+    }
+
+    /**
+     * Returns the x-coordinate for the tab insertion marker.
+     *
+     * @param strip target tab strip
+     * @param insertionIndex insertion index
+     * @return marker x-coordinate
+     */
+    private static int insertionXForStrip(JPanel strip, int insertionIndex) {
+        int tab = 0;
+        int lastRight = 4;
+        for (Component child : strip.getComponents()) {
+            if (!(child instanceof EditorTab)) {
+                continue;
+            }
+            if (tab == insertionIndex) {
+                return child.getX();
+            }
+            lastRight = child.getX() + child.getWidth();
+            tab++;
+        }
+        return lastRight;
+    }
+
+    /**
      * Live-reorders a tab within its owning strip.
      *
      * @param strip strip
@@ -963,8 +1043,55 @@ public final class EditorSplitArea extends JPanel {
      */
     private void finishTabDrag(int draggedPanelIndex) {
         int zone = dragZone;
+        int targetPane = dragTargetPane;
+        int targetIndex = dragTargetIndex;
         dragZone = DROP_NONE;
+        clearDragTarget();
+        if (targetPane >= PANE_PRIMARY) {
+            dockDraggedTab(draggedPanelIndex, targetPane, targetIndex);
+            return;
+        }
         splitTab(draggedPanelIndex, zone);
+    }
+
+    /**
+     * Moves a dragged tab into a specific editor group's tab strip.
+     *
+     * @param panelIndex panel index
+     * @param pane target editor group
+     * @param targetIndex insertion index
+     */
+    private void dockDraggedTab(int panelIndex, int pane, int targetIndex) {
+        if (!validPanel(panelIndex)) {
+            return;
+        }
+        rememberDividerLocation();
+        int targetPane = pane >= PANE_PRIMARY && pane <= PANE_QUATERNARY ? pane : PANE_PRIMARY;
+        ensureOpen(panelIndex);
+        for (int candidate = PANE_PRIMARY; candidate <= PANE_QUATERNARY; candidate++) {
+            tabsForPane(candidate).remove(Integer.valueOf(panelIndex));
+        }
+        List<Integer> target = tabsForPane(targetPane);
+        int insertion = Math.max(0, Math.min(targetIndex, target.size()));
+        target.add(insertion, panelIndex);
+        setPaneIndex(targetPane, panelIndex);
+        activePane = targetPane;
+        repairGroups();
+        relayout();
+        notifySelectionChanged();
+    }
+
+    /**
+     * Clears any armed tab-strip dock target.
+     *
+     * @return true when a dock target was armed
+     */
+    private boolean clearDragTarget() {
+        boolean hadTarget = dragTargetPane >= PANE_PRIMARY || dragTargetX >= 0;
+        dragTargetPane = -1;
+        dragTargetIndex = -1;
+        dragTargetX = -1;
+        return hadTarget;
     }
 
     /**
@@ -1692,9 +1819,28 @@ public final class EditorSplitArea extends JPanel {
             g.setColor(Theme.withAlpha(Theme.ACCENT, DROP_BORDER_ALPHA));
             g.setStroke(new BasicStroke(1f));
             g.drawRect(zone.x, zone.y, Math.max(0, zone.width - 1), Math.max(0, zone.height - 1));
+            paintTabInsertionMarker(g);
         } finally {
             g.dispose();
         }
+    }
+
+    /**
+     * Paints the tab-strip insertion marker for cross-group docking.
+     *
+     * @param g graphics context
+     */
+    private void paintTabInsertionMarker(Graphics2D g) {
+        if (dragTargetPane < PANE_PRIMARY || dragTargetX < 0 || !paneVisible(dragTargetPane)) {
+            return;
+        }
+        JPanel strip = paneStrip(dragTargetPane);
+        Rectangle bounds = componentBounds(strip);
+        int x = bounds.x + dragTargetX;
+        int top = bounds.y + 4;
+        int height = Math.max(12, bounds.height - 8);
+        g.setColor(Theme.ACCENT);
+        g.fillRoundRect(x - 1, top, 3, height, 3, 3);
     }
 
     /**
@@ -1745,123 +1891,9 @@ public final class EditorSplitArea extends JPanel {
                 Math.max(1, rectangle.width - amount * 2),
                 Math.max(1, rectangle.height - amount * 2));
     }
-
     @Override
     public Dimension getPreferredSize() {
         return new Dimension(900, 620);
-    }
-
-    /**
-     * Editor-body host that shows a subtle rook silhouette when no tab content
-     * is open, mirroring VS Code's empty editor watermark treatment.
-     */
-    private static final class EmptyEditorHost extends JPanel {
-
-        /**
-         * Serialization identifier for Swing panel compatibility.
-         */
-        private static final long serialVersionUID = 1L;
-
-        /**
-         * Parsed embedded rook SVG used as the empty-editor watermark source.
-         */
-        private static final Svg.DocumentModel ROOK_WATERMARK_DOCUMENT = Svg.parse(SvgShapes.whiteRook());
-
-        /**
-         * Outer rook silhouette from the embedded SVG, after its local SVG
-         * transforms have been applied.
-         */
-        private static final Shape ROOK_WATERMARK_SILHOUETTE = rookSvgSilhouette();
-
-        /**
-         * Creates an empty editor host.
-         */
-        EmptyEditorHost() {
-            super(new BorderLayout());
-        }
-
-        /**
-         * Paints the normal panel background and, when empty, a muted rook
-         * silhouette in the center.
-         *
-         * @param graphics graphics context
-         */
-        @Override
-        protected void paintComponent(Graphics graphics) {
-            super.paintComponent(graphics);
-            if (getComponentCount() > 0) {
-                return;
-            }
-            Graphics2D g = (Graphics2D) graphics.create();
-            try {
-                paintRookWatermark(g, getWidth(), getHeight());
-            } finally {
-                g.dispose();
-            }
-        }
-
-        /**
-         * Paints the centered rook silhouette watermark.
-         *
-         * @param g graphics context
-         * @param width host width
-         * @param height host height
-         */
-        private static void paintRookWatermark(Graphics2D g, int width, int height) {
-            int shortest = Math.min(width, height);
-            if (shortest < WATERMARK_MIN_SIZE) {
-                return;
-            }
-            int size = Math.min(WATERMARK_MAX_SIZE,
-                    Math.max(WATERMARK_MIN_SIZE, shortest / 3));
-            double x = (width - size) / 2.0;
-            double y = (height - size) / 2.0;
-            g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-            g.setColor(watermarkColor());
-            g.fill(rookWatermarkShape(x, y, size));
-        }
-
-        /**
-         * Returns the low-contrast letterpress watermark color for the active
-         * theme.
-         *
-         * @return watermark fill color
-         */
-        private static Color watermarkColor() {
-            int alpha = Theme.isDark() ? WATERMARK_DARK_ALPHA : WATERMARK_LIGHT_ALPHA;
-            return new Color(0, 0, 0, alpha);
-        }
-
-        /**
-         * Extracts the outer silhouette from the embedded rook SVG.
-         *
-         * @return transformed rook silhouette
-         */
-        private static Shape rookSvgSilhouette() {
-            Svg.ShapeModel shape = ROOK_WATERMARK_DOCUMENT.shapes().get(0);
-            return shape.transform().createTransformedShape(shape.path());
-        }
-
-        /**
-         * Builds a fitted watermark shape from the embedded rook SVG silhouette.
-         *
-         * @param x left edge
-         * @param y top edge
-         * @param size square size
-         * @return rook watermark shape
-         */
-        private static Shape rookWatermarkShape(double x, double y, double size) {
-            Rectangle2D bounds = ROOK_WATERMARK_SILHOUETTE.getBounds2D();
-            double scale = size / Math.max(bounds.getWidth(), bounds.getHeight());
-            double scaledWidth = bounds.getWidth() * scale;
-            double scaledHeight = bounds.getHeight() * scale;
-            AffineTransform transform = new AffineTransform();
-            transform.translate(x + (size - scaledWidth) / 2.0,
-                    y + (size - scaledHeight) / 2.0);
-            transform.scale(scale, scale);
-            transform.translate(-bounds.getX(), -bounds.getY());
-            return transform.createTransformedShape(ROOK_WATERMARK_SILHOUETTE);
-        }
     }
 
     /**

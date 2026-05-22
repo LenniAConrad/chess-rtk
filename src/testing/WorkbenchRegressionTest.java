@@ -186,6 +186,7 @@ public final class WorkbenchRegressionTest {
         testTabbedPaneSwitchesWithoutSnapshotOverlay();
         testSplitAreaUsesIndependentEditorGroups();
         testSplitAreaSupportsCornerEditorGroups();
+        testSplitAreaDocksDraggedTabsBackIntoGroup();
         testSplitAreaExposesFlexibleTabActions();
         testEditorShellUsesVscodeStyleSplitChrome();
         testEditorShellShowsRookWatermarkWhenEmpty();
@@ -1337,6 +1338,34 @@ public final class WorkbenchRegressionTest {
     }
 
     /**
+     * Verifies a tab dragged onto another editor group's tab strip docks back
+     * into that group instead of creating another split zone.
+     */
+    @SuppressWarnings("unchecked")
+    private static void testSplitAreaDocksDraggedTabsBackIntoGroup() {
+        Class<?> areaType = type("layout.EditorSplitArea");
+        Object area = construct(areaType, new Class<?>[0]);
+        for (int i = 0; i < 4; i++) {
+            invoke(area, "addPanel", new Class<?>[] { String.class, javax.swing.JComponent.class },
+                    "Tab " + i, new JPanel());
+        }
+        invoke(area, "install", new Class<?>[0]);
+        invoke(area, "splitWithDragged", new Class<?>[] { int.class, boolean.class }, 2, false);
+
+        invoke(area, "dockDraggedTab", new Class<?>[] { int.class, int.class, int.class },
+                2, staticField(areaType, "PANE_PRIMARY"), 1);
+        List<Integer> primary = (List<Integer>) field(area, "primaryTabs");
+        List<Integer> secondary = (List<Integer>) field(area, "secondaryTabs");
+        assertEquals(Integer.valueOf(1), invoke(area, "visibleGroupCount", new Class<?>[0]),
+                "docking the only split tab back collapses to one editor group");
+        assertEquals(Integer.valueOf(2), primary.get(1),
+                "docked tab uses the requested tab-strip insertion point");
+        assertTrue(secondary.isEmpty(), "source editor group is emptied after docking back");
+        assertEquals(Integer.valueOf(2), invoke(area, "selectedIndex", new Class<?>[0]),
+                "docked tab becomes the active tab in the target group");
+    }
+
+    /**
      * Verifies tab management does not depend on pointer dragging alone.
      */
     private static void testSplitAreaExposesFlexibleTabActions() {
@@ -1438,7 +1467,7 @@ public final class WorkbenchRegressionTest {
      */
     private static void assertEmbeddedRookWatermarkSilhouette() {
         try {
-            Class<?> hostType = Class.forName("application.gui.workbench.layout.EditorSplitArea$EmptyEditorHost");
+            Class<?> hostType = Class.forName("application.gui.workbench.layout.EmptyEditorHost");
             java.awt.Shape silhouette = (java.awt.Shape) staticField(hostType, "ROOK_WATERMARK_SILHOUETTE");
             java.awt.geom.Rectangle2D bounds = silhouette.getBounds2D();
             assertTrue(bounds.getWidth() > 110.0 && bounds.getHeight() > 130.0,
