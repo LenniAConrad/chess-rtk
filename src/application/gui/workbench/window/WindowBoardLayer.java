@@ -335,7 +335,7 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
     protected JComponent createMovesAndTags() {
         movesTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         Theme.table(movesTable, 27);
-        // Render the SAN column with inline chess-piece figurines. Pin the
+        // Render the SAN column with inline chess-piece SVGs. Pin the
         // columns so a model data refresh does not drop the custom renderer.
         movesTable.setAutoCreateColumnsFromModel(false);
         movesTable.getColumnModel().getColumn(1).setCellRenderer(new SanRenderer());

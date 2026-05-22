@@ -67,6 +67,7 @@ import javax.swing.text.StyleConstants;
 
 import application.cli.CliCommand;
 import application.cli.CliRegistry;
+import application.gui.workbench.game.SanRenderer;
 import application.gui.workbench.game.GameModel;
 import application.gui.workbench.network.TensorViz;
 import application.gui.workbench.ui.Theme;
@@ -219,7 +220,7 @@ public final class WorkbenchRegressionTest {
         testBoardNavigationButtonsUseTransportIcons();
         testBoardNavigationButtonsExposeShortcutTooltips();
         testCommandPreviewQuoting();
-        testWorkbenchSanRendererUsesNeutralFigurines();
+        testWorkbenchSanRendererUsesNeutralPieceSvgs();
         testGameModelLoadsPgnVariations();
         testEcoExplorerFiltersAndLoadsLines();
         testEvalBarMapping();
@@ -1877,16 +1878,21 @@ public final class WorkbenchRegressionTest {
     }
 
     /**
-     * Verifies SAN notation uses neutral white figurines, not black-side piece
-     * silhouettes.
+     * Verifies SAN notation uses inline SVG pieces rather than Unicode
+     * figurines.
      */
-    private static void testWorkbenchSanRendererUsesNeutralFigurines() {
-        String rendered = (String) invokeStatic(type("SanRenderer"), "figurine",
-                new Class<?>[] { String.class }, "1. Qxe8+ Nbd6 2. bxa8=Q#");
-        assertTrue(rendered.contains("\u2655xe8+"), "queen uses neutral figurine");
-        assertTrue(rendered.contains("\u2658bd6"), "knight uses neutral figurine");
-        assertTrue(rendered.contains("bxa8=\u2655#"), "promotion uses neutral figurine");
-        assertFalse(rendered.contains("\u265B") || rendered.contains("\u265E"), "no black figurine glyphs");
+    private static void testWorkbenchSanRendererUsesNeutralPieceSvgs() {
+        assertEquals(Integer.valueOf(3), invokeStatic(type("SanRenderer"), "pieceSvgCount",
+                new Class<?>[] { String.class }, "1. Qxe8+ Nbd6 2. bxa8=Q#"),
+                "queen, knight, and promotion use SVG pieces");
+        JTable table = new JTable(1, 1);
+        Theme.table(table, 27);
+        SanRenderer renderer = new SanRenderer();
+        Component component = renderer.getTableCellRendererComponent(table,
+                "1. Qxe8+ Nbd6 2. bxa8=Q#", false, false, 0, 0);
+        component.setSize(240, 27);
+        BufferedImage image = paint(component, 240, 27);
+        assertTrue(alphaSum(image, 0, 0, 240, 27) > 0, "SAN renderer paints SVG-backed notation");
     }
 
     /**
