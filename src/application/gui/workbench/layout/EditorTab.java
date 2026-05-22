@@ -16,6 +16,7 @@ import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.util.function.Consumer;
 import javax.swing.JComponent;
+import javax.swing.SwingUtilities;
 
 /**
  * A VS Code-style editor tab: a flat rectangle showing the panel name with a
@@ -120,6 +121,9 @@ final class EditorTab extends JComponent {
         MouseAdapter mouse = new MouseAdapter() {
             @Override
             public void mouseClicked(MouseEvent event) {
+                if (!SwingUtilities.isLeftMouseButton(event)) {
+                    return;
+                }
                 if (suppressClick) {
                     suppressClick = false;
                     return;
@@ -134,7 +138,8 @@ final class EditorTab extends JComponent {
             @Override
             public void mousePressed(MouseEvent event) {
                 pressPoint = event.getPoint();
-                dragArmed = !closeRegion().contains(event.getPoint());
+                dragArmed = SwingUtilities.isLeftMouseButton(event)
+                        && !closeRegion().contains(event.getPoint());
                 dragging = false;
                 suppressClick = false;
             }
@@ -180,6 +185,7 @@ final class EditorTab extends JComponent {
         };
         addMouseListener(mouse);
         addMouseMotionListener(mouse);
+        setToolTipText(name + " - right-click for tab actions");
     }
 
     /**

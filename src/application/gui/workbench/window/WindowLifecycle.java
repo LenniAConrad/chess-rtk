@@ -665,11 +665,30 @@ public abstract class WindowLifecycle extends WindowBase {
         bindWindowAction("control shift TAB", "previousWorkbenchTab", event -> tabs.selectPreviousTab());
         bindWindowAction("control PAGE_DOWN", "nextWorkbenchTabPage", event -> tabs.selectNextTab());
         bindWindowAction("control PAGE_UP", "previousWorkbenchTabPage", event -> tabs.selectPreviousTab());
+        bindWindowAction("control W", "closeWorkbenchTab", event -> tabs.closeSelectedTab());
+        bindWindowAction("control BACK_SLASH", "splitWorkbenchTabRight",
+                event -> tabs.splitSelectedTabRight());
+        bindWindowAction("control shift BACK_SLASH", "splitWorkbenchTabDown",
+                event -> tabs.splitSelectedTabDown());
+        installTabNumberShortcuts();
         bindWindowAction("ESCAPE", "stopRunningCommand", event -> stopCommand());
         bindPositionNavigation("LEFT", "previousPosition", event -> navigateGame(-1));
         bindPositionNavigation("RIGHT", "nextPosition", event -> navigateGame(1));
         bindPositionNavigation("UP", "firstPosition", event -> jumpGameTo(0));
         bindPositionNavigation("DOWN", "lastPosition", event -> jumpGameTo(gameModel.lastPly()));
+    }
+
+    /**
+     * Installs direct workbench-tab number shortcuts.
+     */
+    protected void installTabNumberShortcuts() {
+        int tabLimit = Math.min(9, tabs.count());
+        for (int i = 0; i < tabLimit; i++) {
+            int tabIndex = i;
+            int visibleNumber = i + 1;
+            bindWindowAction("control " + visibleNumber, "openWorkbenchTab" + visibleNumber,
+                    event -> selectTab(tabIndex));
+        }
     }
 
     /**
@@ -807,6 +826,12 @@ public abstract class WindowLifecycle extends WindowBase {
     new PaletteAction("Open publish tab", "Show report and publishing tools", () -> selectTab(TAB_PUBLISH)),
     new PaletteAction("Open console tab", "Show command output and process state",
                         () -> selectTab(TAB_CONSOLE)),
+    new PaletteAction("Split tab right", "Move the active workbench tab into a right editor group",
+                        tabs::splitSelectedTabRight),
+    new PaletteAction("Split tab down", "Move the active workbench tab into a lower editor group",
+                        tabs::splitSelectedTabDown),
+    new PaletteAction("Close active tab", "Hide the active workbench tab", tabs::closeSelectedTab),
+    new PaletteAction("Reopen all tabs", "Restore every hidden workbench tab", tabs::reopenAllTabs),
     new PaletteAction("Open logs folder", "Show persisted workbench command logs",
                         runArtifacts::openLogsDirectory));
     }

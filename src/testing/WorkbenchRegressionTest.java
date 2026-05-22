@@ -32,6 +32,7 @@ import javax.swing.JMenuBar;
 import javax.swing.JMenuItem;
 import javax.swing.JPanel;
 import javax.swing.JRadioButtonMenuItem;
+import javax.swing.JPopupMenu;
 import javax.swing.JScrollPane;
 import javax.swing.JViewport;
 import javax.swing.Scrollable;
@@ -171,6 +172,7 @@ public final class WorkbenchRegressionTest {
         testTabbedPaneSwitchesWithoutSnapshotOverlay();
         testSplitAreaUsesIndependentEditorGroups();
         testSplitAreaSupportsCornerEditorGroups();
+        testSplitAreaExposesFlexibleTabActions();
         testEditorShellUsesVscodeStyleSplitChrome();
         testEditorShellShowsRookWatermarkWhenEmpty();
         testEditorShellRefreshesHiddenPanelTheme();
@@ -1090,6 +1092,43 @@ public final class WorkbenchRegressionTest {
         assertTrue(secondary.isEmpty(), "collapse clears top-right group");
         assertTrue(tertiary.isEmpty(), "collapse clears bottom-left group");
         assertTrue(quaternary.isEmpty(), "collapse clears bottom-right group");
+    }
+
+    /**
+     * Verifies tab management does not depend on pointer dragging alone.
+     */
+    private static void testSplitAreaExposesFlexibleTabActions() {
+        Object area = construct(type("layout.EditorSplitArea"), new Class<?>[0]);
+        for (int i = 0; i < 3; i++) {
+            invoke(area, "addPanel", new Class<?>[] { String.class, javax.swing.JComponent.class },
+                    "Tab " + i, new JPanel());
+        }
+        invoke(area, "install", new Class<?>[0]);
+        invoke(area, "select", new Class<?>[] { int.class }, 1);
+        invoke(area, "splitSelectedTabRight", new Class<?>[0]);
+        assertEquals(Integer.valueOf(2), invoke(area, "visibleGroupCount", new Class<?>[0]),
+                "shortcut split creates a second editor group");
+        assertTrue((Boolean) invoke(area, "isVisibleInPane", new Class<?>[] { int.class }, 1),
+                "split tab remains visible");
+
+        JComponent primaryStrip = (JComponent) field(area, "primaryStrip");
+        Component firstTab = primaryStrip.getComponent(0);
+        JPopupMenu menu = ((JComponent) firstTab).getComponentPopupMenu();
+        assertTrue(menu != null, "tab exposes a context action menu");
+        assertEquals("Split Right", ((JMenuItem) menu.getComponent(0)).getText(),
+                "tab menu starts with split actions");
+        assertEquals("Close Others", ((JMenuItem) menu.getComponent(5)).getText(),
+                "tab menu exposes close-others action");
+
+        invoke(area, "closeOtherTabs", new Class<?>[0]);
+        assertEquals(Integer.valueOf(1), invoke(area, "openTabCount", new Class<?>[0]),
+                "close-others keeps only the active tab");
+        invoke(area, "reopenAllTabs", new Class<?>[0]);
+        assertEquals(Integer.valueOf(3), invoke(area, "openTabCount", new Class<?>[0]),
+                "restore-all reopens hidden tabs");
+        invoke(area, "closeSelectedTab", new Class<?>[0]);
+        assertEquals(Integer.valueOf(2), invoke(area, "openTabCount", new Class<?>[0]),
+                "close active tab hides one tab");
     }
 
     /**
