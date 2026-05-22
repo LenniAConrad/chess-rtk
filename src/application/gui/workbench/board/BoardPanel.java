@@ -68,18 +68,10 @@ public final class BoardPanel extends JPanel {
     private static final BasicStroke STROKE_1 = new BasicStroke(1f);
     /** Cached 2-pixel stroke for selected-square edges. */
     private static final BasicStroke STROKE_2 = new BasicStroke(2f);
-    /** Cached arrow body stroke. */
-    private static final BasicStroke ARROW_STROKE = new BasicStroke(8f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_MITER);
     /** Cached drag transparency composite. */
     private static final AlphaComposite DRAG_ALPHA = AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 1f);
-    /** Cached suggested-arrow color matching chessboard-arrows' 0.8 canvas opacity. */
-    private static final Color ARROW_FILL = Theme.withAlpha(Theme.BOARD_ARROW, 204);
     /** Cached transparent variant of the check-glow used at the radial gradient edges. */
     private static final Color CHECK_GLOW_FADE = Theme.withAlpha(Theme.CHECK_GLOW, 0);
-    /** Suggested-arrow head radius matching chessboard-arrows. */
-    private static final int ARROW_HEAD_RADIUS = 15;
-    /** Suggested-arrow shorten-to-target distance. */
-    private static final int ARROW_SHORTEN = 15;
     /** Sentinel destination for a circle annotation. */
     private static final byte MARKUP_CIRCLE = Field.NO_SQUARE;
     /** Lichess/Chessground user annotation brushes. */
@@ -151,6 +143,8 @@ public final class BoardPanel extends JPanel {
     private final Timer animationTimer;
     /** Bitmap cache for board texture and piece images. */
     private final BoardImageCache imageCache = new BoardImageCache();
+    /** Painter for suggested and user-drawn arrows. */
+    private final BoardArrowPainter arrowPainter = new BoardArrowPainter();
     /** Cached legal moves for the current position (lazy, invalidated on every #setPosition). */
     private MoveList cachedLegalMoves;
     /** Whether file/rank coordinates are painted on the board. */
@@ -730,7 +724,7 @@ public final class BoardPanel extends JPanel {
     private void drawMarkupArrow(Graphics2D g, Rectangle board, BoardMarkup markup) {
         int cell = Math.max(1, board.width / 8);
         float lineWidth = Math.max(5f, cell * markup.brush().lineWidth() / 64f);
-        drawArrow(g, center(board, markup.from()), center(board, markup.to()), lineWidth, lineWidth);
+        arrowPainter.draw(g, center(board, markup.from()), center(board, markup.to()), lineWidth, lineWidth);
     }
     /** Returns the visible annotation color for one opacity multiplier.
      * @param color display color
@@ -1011,13 +1005,8 @@ public final class BoardPanel extends JPanel {
         if (!showSuggestedMoveArrow || suggestedMove == Move.NO_MOVE || !legalSuggestedMove(suggestedMove)) {
             return;
         }
-        Color savedColor = g.getColor();
-        try {
-            g.setColor(ARROW_FILL);
-            drawArrow(g, center(board, Move.getFromIndex(suggestedMove)), center(board, Move.getToIndex(suggestedMove)));
-        } finally {
-            g.setColor(savedColor);
-        }
+        arrowPainter.drawSuggested(g, center(board, Move.getFromIndex(suggestedMove)),
+                center(board, Move.getToIndex(suggestedMove)));
     }
     /** Draws the moving piece during a played-move animation.
      * @param g graphics context
@@ -1711,66 +1700,6 @@ public final class BoardPanel extends JPanel {
     private Point center(Rectangle board, byte square) {
         return BoardGeometry.center(board, square, whiteDown);
     }
-    /** Draws an arrow between two points.
-     * @param g graphics context
-     * @param from origin square
-     * @param to destination square */
-    private void drawArrow(Graphics2D g, Point from, Point to) {
-        drawArrow(g, from, to, ARROW_STROKE.getLineWidth(), ARROW_SHORTEN);
-    }
-    /** Draws an arrow from square center to square center.
-     * @param g graphics context
-     * @param from origin square
-     * @param to destination square
-     * @param lineWidth arrow line width in pixels
-     * @param shorten distance to shorten the arrow endpoint by */
-    private void drawArrow(Graphics2D g, Point from, Point to, float lineWidth, double shorten) {
-        double distance = from.distance(to);
-        if (distance < 2.0) {
-            return;
-        }
-        double angle = Math.atan2((double) to.y - from.y, (double) to.x - from.x);
-        double targetShorten = Math.min(shorten, distance * 0.35);
-        double headRadius = Math.min(Math.max(ARROW_HEAD_RADIUS, lineWidth * 2.6),
-                Math.max(5.0, distance * 0.25));
-        double cos = Math.cos(angle);
-        double sin = Math.sin(angle);
-        // Perpendicular unit vector for the shaft and head wings.
-        double px = -sin;
-        double py = cos;
-        double halfWidth = lineWidth / 2.0;
-        // Head anchor: where the old separate shaft used to stop.
-        double headX = to.x - cos * targetShorten;
-        double headY = to.y - sin * targetShorten;
-        // Equilateral head: tip ahead, two wings 120 degrees behind it.
-        double tipX = headX + cos * headRadius;
-        double tipY = headY + sin * headRadius;
-        double leftAngle = angle + 2.0 * Math.PI / 3.0;
-        double rightAngle = angle - 2.0 * Math.PI / 3.0;
-        double wingLeftX = headX + Math.cos(leftAngle) * headRadius;
-        double wingLeftY = headY + Math.sin(leftAngle) * headRadius;
-        double wingRightX = headX + Math.cos(rightAngle) * headRadius;
-        double wingRightY = headY + Math.sin(rightAngle) * headRadius;
-        // The shaft meets the head flush at the wings' base midpoint, so the two
-        // parts form one solid outline with no doubly-painted overlap region.
-        double baseX = headX - 0.5 * headRadius * cos;
-        double baseY = headY - 0.5 * headRadius * sin;
-        // One closed outline: shaft side, head wing, tip, head wing, shaft side.
-        arrowShape.reset();
-        arrowShape.moveTo(from.x + px * halfWidth, from.y + py * halfWidth);
-        arrowShape.lineTo(baseX + px * halfWidth, baseY + py * halfWidth);
-        arrowShape.lineTo(wingLeftX, wingLeftY);
-        arrowShape.lineTo(tipX, tipY);
-        arrowShape.lineTo(wingRightX, wingRightY);
-        arrowShape.lineTo(baseX - px * halfWidth, baseY - py * halfWidth);
-        arrowShape.lineTo(from.x - px * halfWidth, from.y - py * halfWidth);
-        arrowShape.closePath();
-        // Filling a single shape paints every pixel once, so a translucent
-        // arrow colour stays uniform instead of darkening where shaft met head.
-        g.fill(arrowShape);
-    }
-    /** Reusable path buffer for the unified suggested-move arrow outline. */
-    private final java.awt.geom.Path2D.Double arrowShape = new java.awt.geom.Path2D.Double();
     /** Starts the animation timer when needed. */
     private void startAnimation() {
         if (!animationTimer.isRunning()) {
@@ -1983,12 +1912,5 @@ public final class BoardPanel extends JPanel {
         } catch (java.awt.HeadlessException ex) {
             return 1f;
         }
-    }
-    /** Move handler callback. */
-    @FunctionalInterface
-    public interface MoveHandler {
-        /** Plays a move.
-         * @param move move encoded in CRTK move format */
-    void play(short move);
     }
 }

@@ -5,16 +5,13 @@ import java.awt.BasicStroke;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
-import java.awt.Cursor;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
-import java.awt.Graphics2D;
 import java.awt.Graphics;
+import java.awt.Graphics2D;
 import java.awt.Point;
 import java.awt.Rectangle;
 import java.awt.RenderingHints;
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.IntConsumer;
@@ -1894,102 +1891,5 @@ public final class EditorSplitArea extends JPanel {
     @Override
     public Dimension getPreferredSize() {
         return new Dimension(900, 620);
-    }
-
-    /**
-     * Compact split-editor action button. VS Code presents editor-group actions
-     * as icon controls in the title strip; this avoids a text pill in the tab
-     * header.
-     */
-    private static final class SplitGroupButton extends JToggleButton {
-
-        /**
-         * Serialization identifier for Swing button compatibility.
-         */
-        private static final long serialVersionUID = 1L;
-
-        /**
-         * Fixed action button size.
-         */
-        private static final int SIZE = 28;
-
-        /**
-         * Whether the pointer is hovering over the button.
-         */
-        private boolean hover;
-
-        /**
-         * Creates the split-group action.
-         */
-        SplitGroupButton() {
-            setFocusPainted(false);
-            setContentAreaFilled(false);
-            setBorderPainted(false);
-            setOpaque(false);
-            setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-            setPreferredSize(new Dimension(SIZE, SIZE));
-            setMinimumSize(new Dimension(SIZE, SIZE));
-            setMaximumSize(new Dimension(SIZE, SIZE));
-            getAccessibleContext().setAccessibleName("Split editor group");
-            addMouseListener(new MouseAdapter() {
-                @Override
-                public void mouseEntered(MouseEvent event) {
-                    setHover(true);
-                }
-
-                @Override
-                public void mouseExited(MouseEvent event) {
-                    setHover(false);
-                }
-            });
-        }
-
-        /**
-         * Updates hover state.
-         *
-         * @param value true while hovered
-         */
-        private void setHover(boolean value) {
-            if (hover != value) {
-                hover = value;
-                repaint();
-            }
-        }
-
-        /**
-         * Paints the split-group icon.
-         *
-         * @param graphics graphics context
-         */
-        @Override
-        protected void paintComponent(Graphics graphics) {
-            Graphics2D g = (Graphics2D) graphics.create();
-            try {
-                g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                int w = getWidth();
-                int h = getHeight();
-                if (isSelected() || hover) {
-                    g.setColor(isSelected()
-                            ? Theme.withAlpha(Theme.ACCENT, 30)
-                            : Theme.TAB_HOVER);
-                    g.fillRect(2, 2, Math.max(0, w - 4), Math.max(0, h - 4));
-                }
-                Color stroke = isSelected() ? Theme.ACCENT : Theme.MUTED;
-                g.setColor(stroke);
-                g.setStroke(new BasicStroke(1.4f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-                int x = (w - 16) / 2;
-                int y = (h - 14) / 2;
-                g.drawRect(x, y, 16, 14);
-                g.drawLine(x + 8, y, x + 8, y + 14);
-                if (isSelected()) {
-                    g.setStroke(new BasicStroke(2f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-                    g.drawLine(x + 10, y + 3, x + 14, y + 3);
-                    g.drawLine(x + 10, y + 7, x + 14, y + 7);
-                    g.drawLine(x + 10, y + 11, x + 14, y + 11);
-                }
-            } finally {
-                g.dispose();
-            }
-        }
     }
 }

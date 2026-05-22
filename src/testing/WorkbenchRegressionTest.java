@@ -2273,7 +2273,7 @@ public final class WorkbenchRegressionTest {
         invoke(board, "setPosition", new Class<?>[] { Position.class, short.class },
                 new Position(START_FEN), Move.NO_MOVE);
         List<Short> played = new ArrayList<>();
-        invoke(board, "setMoveHandler", new Class<?>[] { type("BoardPanel$MoveHandler") },
+        invoke(board, "setMoveHandler", new Class<?>[] { type("MoveHandler") },
                 moveHandler(played));
 
         Point from = boardPoint(Field.toIndex('e', '2'), true, 640, 640);
@@ -2669,7 +2669,7 @@ public final class WorkbenchRegressionTest {
      * @return move handler proxy
      */
     private static Object moveHandler(List<Short> played) {
-        Class<?> handlerType = type("BoardPanel$MoveHandler");
+        Class<?> handlerType = type("MoveHandler");
         return Proxy.newProxyInstance(handlerType.getClassLoader(), new Class<?>[] { handlerType },
                 (proxy, method, args) -> {
                     if ("play".equals(method.getName())) {

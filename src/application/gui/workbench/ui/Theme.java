@@ -5,9 +5,6 @@ import java.awt.Component;
 import java.awt.Container;
 import java.awt.Dimension;
 import java.awt.Font;
-import java.awt.FontMetrics;
-import java.awt.Graphics2D;
-import java.awt.Graphics;
 import java.awt.Insets;
 import java.awt.RenderingHints;
 import java.awt.event.FocusAdapter;
@@ -34,8 +31,6 @@ import javax.swing.border.Border;
 import javax.swing.border.CompoundBorder;
 import javax.swing.border.LineBorder;
 import javax.swing.border.MatteBorder;
-import javax.swing.plaf.basic.BasicTextAreaUI;
-import javax.swing.plaf.basic.BasicTextFieldUI;
 import javax.swing.text.JTextComponent;
 
 /**
@@ -167,7 +162,7 @@ public final class Theme {
     /**
      * Client property for empty text-control placeholder copy.
      */
-    private static final String PLACEHOLDER_PROPERTY = Theme.class.getName() + ".placeholder";
+    static final String PLACEHOLDER_PROPERTY = Theme.class.getName() + ".placeholder";
 
     /**
      * Client property storing a component's semantic foreground role.
@@ -1824,62 +1819,6 @@ public final class Theme {
     private static void installEnabledBackground(JTextComponent component, Color enabledBackground) {
         component.addPropertyChangeListener("enabled", event -> component.setBackground(
                 component.isEnabled() ? enabledBackground : INPUT_DISABLED));
-    }
-
-    /**
-     * Text-field UI that paints placeholder copy when empty.
-     */
-    private static final class PlaceholderTextFieldUI extends BasicTextFieldUI {
-
-        @Override
-        protected void paintSafely(Graphics graphics) {
-            super.paintSafely(graphics);
-            paintPlaceholder(graphics, getComponent(), true);
-        }
-    }
-
-    /**
-     * Text-area UI that paints placeholder copy when empty.
-     */
-    private static final class PlaceholderTextAreaUI extends BasicTextAreaUI {
-
-        @Override
-        protected void paintSafely(Graphics graphics) {
-            super.paintSafely(graphics);
-            paintPlaceholder(graphics, getComponent(), false);
-        }
-    }
-
-    /**
-     * Paints placeholder copy for an empty text component.
-     *
-     * @param graphics graphics
-     * @param component text component
-     * @param verticalCenter true to center vertically
-     */
-    private static void paintPlaceholder(Graphics graphics, JTextComponent component, boolean verticalCenter) {
-        if (component == null || !component.getText().isEmpty()) {
-            return;
-        }
-        Object value = component.getClientProperty(PLACEHOLDER_PROPERTY);
-        if (!(value instanceof String placeholder) || placeholder.isBlank()) {
-            return;
-        }
-        Graphics2D g = (Graphics2D) graphics.create();
-        try {
-            g.setFont(component.getFont());
-            g.setColor(withAlpha(MUTED, component.isEnabled() ? 150 : 110));
-            FontMetrics metrics = g.getFontMetrics();
-            Insets insets = component.getInsets();
-            int x = insets.left + 2;
-            int y = verticalCenter
-                    ? Math.max(insets.top + metrics.getAscent(),
-                            (component.getHeight() - metrics.getHeight()) / 2 + metrics.getAscent())
-                    : insets.top + metrics.getAscent() + 1;
-            g.drawString(placeholder, x, y);
-        } finally {
-            g.dispose();
-        }
     }
 
     /**
