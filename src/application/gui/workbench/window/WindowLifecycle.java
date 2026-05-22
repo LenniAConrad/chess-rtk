@@ -60,6 +60,7 @@ import java.util.regex.Pattern;
 import javax.swing.AbstractAction;
 import javax.swing.BorderFactory;
 import javax.swing.ButtonGroup;
+import javax.swing.Box;
 import javax.swing.DefaultListModel;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
@@ -130,6 +131,11 @@ public abstract class WindowLifecycle extends WindowBase {
     protected transient SettingsMenu settingsMenu;
 
     /**
+     * Top-level layout controls in the menu-bar chrome.
+     */
+    protected transient LayoutMenu layoutMenu;
+
+    /**
      * Preferences node used to persist workbench UI state.
      */
     protected static final Preferences WORKBENCH_PREFS =
@@ -139,6 +145,11 @@ public abstract class WindowLifecycle extends WindowBase {
      * Preference key for the workbench appearance mode.
      */
     protected static final String PREF_THEME_MODE = "appearance.themeMode";
+
+    /**
+     * Preference key for status-bar visibility.
+     */
+    protected static final String PREF_STATUS_BAR_VISIBLE = "layout.statusBarVisible";
 
     /**
      * Preference key for legal-move preview.
@@ -285,6 +296,13 @@ public abstract class WindowLifecycle extends WindowBase {
     }
 
     /**
+     * Loads persisted workbench layout settings.
+     */
+    protected void loadLayoutSettings() {
+        statusBarVisible = WORKBENCH_PREFS.getBoolean(PREF_STATUS_BAR_VISIBLE, true);
+    }
+
+    /**
      * Persists display settings.
      */
     protected void saveDisplaySettings() {
@@ -318,6 +336,9 @@ public abstract class WindowLifecycle extends WindowBase {
         if (settingsMenu != null) {
             settingsMenu.syncMode();
             settingsMenu.refreshTheme();
+        }
+        if (layoutMenu != null) {
+            layoutMenu.refreshTheme();
         }
         repaint();
         toast(Toast.Kind.INFO, Theme.mode().label() + " mode");
@@ -454,6 +475,7 @@ public abstract class WindowLifecycle extends WindowBase {
      * Builds the UI.
      */
     protected void buildUi() {
+        loadLayoutSettings();
         settingsMenu = new SettingsMenu(new SettingsMenu.Controller() {
             /**
              * Returns the active appearance mode.
@@ -507,6 +529,97 @@ public abstract class WindowLifecycle extends WindowBase {
                 runArtifacts.openLogsDirectory();
             }
         });
+        layoutMenu = new LayoutMenu(new LayoutMenu.Controller() {
+            /**
+             * Returns whether the workbench status bar is visible.
+             *
+             * @return true when visible
+             */
+            @Override
+            public boolean statusBarVisible() {
+                return WindowLifecycle.this.isStatusBarVisible();
+            }
+
+            /**
+             * Applies workbench status-bar visibility.
+             *
+             * @param visible true to show the status bar
+             */
+            @Override
+            public void setStatusBarVisible(boolean visible) {
+                WindowLifecycle.this.setStatusBarVisible(visible);
+            }
+
+            /**
+             * Splits the selected tab to the right.
+             */
+            @Override
+            public void splitRight() {
+                tabs.splitSelectedTabRight();
+            }
+
+            /**
+             * Splits the selected tab below.
+             */
+            @Override
+            public void splitDown() {
+                tabs.splitSelectedTabDown();
+            }
+
+            /**
+             * Splits the selected tab to the left.
+             */
+            @Override
+            public void splitLeft() {
+                tabs.splitSelectedTabLeft();
+            }
+
+            /**
+             * Splits the selected tab above.
+             */
+            @Override
+            public void splitUp() {
+                tabs.splitSelectedTabUp();
+            }
+
+            /**
+             * Reopens all tabs.
+             */
+            @Override
+            public void reopenAllTabs() {
+                tabs.reopenAllTabs();
+            }
+
+            /**
+             * Closes all tabs except the selected one.
+             */
+            @Override
+            public void closeOtherTabs() {
+                tabs.closeOtherTabs();
+            }
+
+            /**
+             * Returns the open tab count.
+             *
+             * @return open tab count
+             */
+            @Override
+            public int openTabCount() {
+                return tabs == null ? 0 : tabs.openTabCount();
+            }
+
+            /**
+             * Returns the visible editor group count.
+             *
+             * @return visible editor group count
+             */
+            @Override
+            public int visibleGroupCount() {
+                return tabs == null ? 0 : tabs.visibleGroupCount();
+            }
+        });
+        settingsMenu.component().add(Box.createHorizontalGlue());
+        settingsMenu.component().add(layoutMenu.component());
         setJMenuBar(settingsMenu.component());
 
         JPanel root = new BackdropPanel();
@@ -527,10 +640,22 @@ public abstract class WindowLifecycle extends WindowBase {
         tabs.select(TAB_DASHBOARD);
 
         root.add(tabs, BorderLayout.CENTER);
-        root.add(createStatusBar(), BorderLayout.SOUTH);
+        statusBar = createStatusBar();
+        statusBar.setVisible(statusBarVisible);
+        root.add(statusBar, BorderLayout.SOUTH);
         setContentPane(root);
         installKeyBindings();
     }
+
+    /**
+     * Whether the compact status bar is visible.
+     */
+    protected boolean statusBarVisible = true;
+
+    /**
+     * Status-bar component installed at the bottom of the workbench.
+     */
+    protected JComponent statusBar;
 
     /**
      * Status-bar position label (FEN summary).
@@ -582,6 +707,34 @@ public abstract class WindowLifecycle extends WindowBase {
         statusBarPly.setHorizontalAlignment(SwingConstants.CENTER);
         statusBarEngine.setHorizontalAlignment(SwingConstants.RIGHT);
         return bar;
+    }
+
+    /**
+     * Returns whether the compact status bar is visible.
+     *
+     * @return true when visible
+     */
+    protected boolean isStatusBarVisible() {
+        return statusBarVisible;
+    }
+
+    /**
+     * Shows or hides the compact status bar and persists the layout setting.
+     *
+     * @param visible true to show the status bar
+     */
+    protected void setStatusBarVisible(boolean visible) {
+        statusBarVisible = visible;
+        WORKBENCH_PREFS.putBoolean(PREF_STATUS_BAR_VISIBLE, visible);
+        if (statusBar != null) {
+            statusBar.setVisible(visible);
+            statusBar.revalidate();
+        }
+        if (layoutMenu != null) {
+            layoutMenu.refreshTheme();
+        }
+        getContentPane().revalidate();
+        getContentPane().repaint();
     }
 
     /**

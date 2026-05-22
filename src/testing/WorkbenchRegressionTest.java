@@ -25,6 +25,7 @@ import javax.swing.JComboBox;
 import javax.swing.DefaultComboBoxModel;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
+import javax.swing.JCheckBoxMenuItem;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JList;
@@ -60,6 +61,7 @@ import application.gui.workbench.game.GameModel;
 import application.gui.workbench.network.TensorViz;
 import application.gui.workbench.ui.Theme;
 import application.gui.workbench.ui.Ui;
+import application.gui.workbench.window.LayoutMenu;
 import application.gui.workbench.window.SettingsMenu;
 import chess.core.Field;
 import chess.core.Move;
@@ -169,6 +171,7 @@ public final class WorkbenchRegressionTest {
         testGameLineImportInputKeepsMultilineHeight();
         testSettingsToggleRowsAreReadable();
         testSettingsMenuExposesThemeModes();
+        testLayoutMenuExposesUsefulWorkbenchControls();
         testToggleSwitchAnimatesStateChanges();
         testCommandFormOptionalTogglesFillLeadColumn();
         testThemeColorContrast();
@@ -799,6 +802,104 @@ public final class WorkbenchRegressionTest {
     }
 
     /**
+     * Verifies the compact layout menu exposes the useful supported workbench
+     * layout controls without depending on pointer drag gestures.
+     */
+    private static void testLayoutMenuExposesUsefulWorkbenchControls() {
+        boolean[] statusVisible = { true };
+        int[] splitRight = { 0 };
+        int[] splitDown = { 0 };
+        int[] splitLeft = { 0 };
+        int[] splitUp = { 0 };
+        int[] restoreTabs = { 0 };
+        int[] closeOthers = { 0 };
+        LayoutMenu menu = new LayoutMenu(new LayoutMenu.Controller() {
+            @Override
+            public boolean statusBarVisible() {
+                return statusVisible[0];
+            }
+
+            @Override
+            public void setStatusBarVisible(boolean visible) {
+                statusVisible[0] = visible;
+            }
+
+            @Override
+            public void splitRight() {
+                splitRight[0]++;
+            }
+
+            @Override
+            public void splitDown() {
+                splitDown[0]++;
+            }
+
+            @Override
+            public void splitLeft() {
+                splitLeft[0]++;
+            }
+
+            @Override
+            public void splitUp() {
+                splitUp[0]++;
+            }
+
+            @Override
+            public void reopenAllTabs() {
+                restoreTabs[0]++;
+            }
+
+            @Override
+            public void closeOtherTabs() {
+                closeOthers[0]++;
+            }
+
+            @Override
+            public int openTabCount() {
+                return 7;
+            }
+
+            @Override
+            public int visibleGroupCount() {
+                return 2;
+            }
+        });
+
+        JComponent component = menu.component();
+        assertEquals(Integer.valueOf(4), Integer.valueOf(component.getComponentCount()),
+                "layout toolbar exposes four chrome buttons");
+        assertEquals("Customize Layout", ((JButton) component.getComponent(0)).getToolTipText(),
+                "layout toolbar starts with customize button");
+        ((JButton) component.getComponent(1)).doClick();
+        ((JButton) component.getComponent(2)).doClick();
+        ((JButton) component.getComponent(3)).doClick();
+        assertEquals(Integer.valueOf(1), Integer.valueOf(splitRight[0]),
+                "layout toolbar split-right button works");
+        assertEquals(Integer.valueOf(1), Integer.valueOf(splitDown[0]),
+                "layout toolbar split-down button works");
+        assertEquals(Integer.valueOf(1), Integer.valueOf(restoreTabs[0]),
+                "layout toolbar restore button works");
+
+        JPopupMenu popup = (JPopupMenu) invoke(menu, "buildPopup", new Class<?>[0]);
+        assertEquals("Status Bar", popupItem(popup, "Status Bar").getText(),
+                "layout popup exposes status-bar visibility");
+        JCheckBoxMenuItem statusItem = (JCheckBoxMenuItem) popupItem(popup, "Status Bar");
+        assertTrue(statusItem.isSelected(), "status-bar row reflects controller state");
+        statusItem.doClick();
+        assertFalse(statusVisible[0], "status-bar row toggles controller state");
+
+        popupItem(popup, "Split Left").doClick();
+        popupItem(popup, "Split Up").doClick();
+        popupItem(popup, "Close Other Tabs").doClick();
+        assertEquals(Integer.valueOf(1), Integer.valueOf(splitLeft[0]),
+                "layout popup split-left item works");
+        assertEquals(Integer.valueOf(1), Integer.valueOf(splitUp[0]),
+                "layout popup split-up item works");
+        assertEquals(Integer.valueOf(1), Integer.valueOf(closeOthers[0]),
+                "layout popup close-others item works");
+    }
+
+    /**
      * Finds a submenu by label.
      *
      * @param parent parent menu
@@ -830,6 +931,22 @@ public final class WorkbenchRegressionTest {
             }
         }
         throw new AssertionError("missing menu item " + text);
+    }
+
+    /**
+     * Finds a popup menu item by label.
+     *
+     * @param popup popup menu
+     * @param text item text
+     * @return matching item
+     */
+    private static JMenuItem popupItem(JPopupMenu popup, String text) {
+        for (Component child : popup.getComponents()) {
+            if (child instanceof JMenuItem item && text.equals(item.getText())) {
+                return item;
+            }
+        }
+        throw new AssertionError("missing popup item " + text);
     }
 
     /**
