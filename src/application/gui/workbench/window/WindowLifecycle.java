@@ -314,7 +314,6 @@ public abstract class WindowLifecycle extends WindowBase {
         TensorViz.refreshPalette();
         WORKBENCH_PREFS.put(PREF_THEME_MODE, Theme.mode().id());
         Theme.install();
-        SwingUtilities.updateComponentTreeUI(this);
         Theme.refreshComponentTree(this);
         if (settingsMenu != null) {
             settingsMenu.syncMode();

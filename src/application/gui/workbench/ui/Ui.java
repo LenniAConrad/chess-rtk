@@ -317,9 +317,19 @@ public final class Ui {
      * @param pane scroll pane
      */
     public static void styleScrollPane(JScrollPane pane) {
+        pane.setBorder(BorderFactory.createEmptyBorder());
+        refreshScrollPaneTheme(pane);
+    }
+
+    /**
+     * Reapplies scroll-pane colors and custom scroll bars while preserving the
+     * caller's outer border.
+     *
+     * @param pane scroll pane
+     */
+    public static void refreshScrollPaneTheme(JScrollPane pane) {
         Component view = pane.getViewport() == null ? null : pane.getViewport().getView();
         Color viewportBackground = scrollBackground(view);
-        pane.setBorder(BorderFactory.createEmptyBorder());
         pane.setOpaque(false);
         pane.setViewportBorder(BorderFactory.createEmptyBorder());
         pane.getViewport().setOpaque(true);

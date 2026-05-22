@@ -30,7 +30,6 @@ import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.JTextPane;
 import javax.swing.UIManager;
-import javax.swing.JViewport;
 import javax.swing.border.Border;
 import javax.swing.border.CompoundBorder;
 import javax.swing.border.LineBorder;
@@ -987,26 +986,17 @@ public final class Theme {
             pane.setSelectionColor(TEXT_SELECTION);
             pane.setSelectedTextColor(TEXT);
         } else if (component instanceof JComboBox<?> combo) {
-            combo.setBackground(combo.isEnabled() ? ELEVATED_SOLID : INPUT_DISABLED);
-            combo.setForeground(combo.isEnabled() ? TEXT : BUTTON_DISABLED_TEXT);
-            combo.setBorder(BorderFactory.createLineBorder(INPUT_BORDER));
+            Ui.styleCombo(combo);
         } else if (component instanceof JSpinner spinner) {
-            spinner.setBackground(PANEL_SOLID);
-            spinner.setForeground(TEXT);
-            spinner.setBorder(BorderFactory.createLineBorder(INPUT_BORDER));
+            Ui.styleSpinner(spinner);
         } else if (component instanceof JTable table) {
             table(table, Math.max(24, table.getRowHeight()));
         } else if (component instanceof JList<?> list) {
             list(list);
         } else if (component instanceof JTabbedPane tabs) {
-            tabs.setBackground(BG);
-            tabs.setForeground(TEXT);
+            Ui.styleTabs(tabs);
         } else if (component instanceof JScrollPane pane) {
-            pane.setBackground(BG);
-            JViewport viewport = pane.getViewport();
-            if (viewport != null) {
-                viewport.setBackground(PANEL_SOLID);
-            }
+            Ui.refreshScrollPaneTheme(pane);
         } else if (component instanceof ToggleBox toggle) {
             toggle.setForeground(TEXT);
             toggle.setFont(font(13, Font.PLAIN));
