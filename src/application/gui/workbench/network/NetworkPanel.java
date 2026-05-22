@@ -391,11 +391,11 @@ public final class NetworkPanel extends JPanel {
         JPanel content = new JPanel(new BorderLayout(Theme.SPACE_SM, 0));
         content.setOpaque(false);
         content.add(cardPanel, BorderLayout.CENTER);
-        content.add(detailsTabs, BorderLayout.EAST);
+        content.add(Ui.collapsible("Inspector and runtime", detailsTabs, true), BorderLayout.EAST);
         JPanel center = new JPanel(new BorderLayout(0, Theme.SPACE_SM));
         center.setOpaque(false);
         center.add(content, BorderLayout.CENTER);
-        center.add(mctsWeightsPanel, BorderLayout.SOUTH);
+        center.add(Ui.collapsible("MCTS edge weights", mctsWeightsPanel, false), BorderLayout.SOUTH);
         add(center, BorderLayout.CENTER);
         archCombo.addActionListener(event -> onArchitectureChanged());
         positionCombo.addActionListener(event -> onPositionPicked());

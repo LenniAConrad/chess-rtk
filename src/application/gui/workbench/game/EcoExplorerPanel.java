@@ -32,6 +32,7 @@ import javax.swing.table.TableColumnModel;
 import static application.gui.workbench.ui.Ui.button;
 import static application.gui.workbench.ui.Ui.buttonRow;
 import static application.gui.workbench.ui.Ui.changeListener;
+import static application.gui.workbench.ui.Ui.collapsible;
 import static application.gui.workbench.ui.Ui.constraints;
 import static application.gui.workbench.ui.Ui.grid;
 import static application.gui.workbench.ui.Ui.label;
@@ -295,7 +296,7 @@ public final class EcoExplorerPanel extends JPanel {
         setBackground(Theme.PANEL_SOLID);
         setForeground(Theme.TEXT);
         setBorder(Theme.pad(10, 10, 10, 10));
-        add(createHeader(), BorderLayout.NORTH);
+        add(collapsible("Search and current line", createHeader(), true), BorderLayout.NORTH);
         add(createTablePanel(), BorderLayout.CENTER);
         add(createActions(), BorderLayout.SOUTH);
     }

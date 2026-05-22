@@ -183,6 +183,7 @@ public final class WorkbenchRegressionTest {
         testThemeInstallSetsTooltipColors();
         testTextPlaceholdersDoNotSetValues();
         testCollapsibleInfoSectionTogglesContent();
+        testCommandTabsReserveSelectedTextWidth();
         testTabbedPaneSwitchesWithoutSnapshotOverlay();
         testSplitAreaUsesIndependentEditorGroups();
         testSplitAreaSupportsCornerEditorGroups();
@@ -1228,6 +1229,19 @@ public final class WorkbenchRegressionTest {
         assertFalse(content.isVisible(), "collapsible content hidden");
         toggle.doClick();
         assertTrue(content.isVisible(), "collapsible content restored");
+    }
+
+    /**
+     * Verifies command-selector buttons reserve their bold selected width so
+     * neighboring controls do not shift while clicking through command tabs.
+     */
+    private static void testCommandTabsReserveSelectedTextWidth() {
+        JToggleButton tab = new JToggleButton("Generate FENs");
+        Theme.commandTab(tab);
+        Dimension plain = tab.getPreferredSize();
+        tab.setSelected(true);
+        Dimension selected = tab.getPreferredSize();
+        assertEquals(plain, selected, "command tab preferred size is stable when selected");
     }
 
     /**
@@ -3231,6 +3245,10 @@ public final class WorkbenchRegressionTest {
         timer.stop();
         JSpinner visits = (JSpinner) field(panel, "mctsVisitsSpinner");
         JCheckBox followLeaf = (JCheckBox) field(panel, "mctsFollowLeafToggle");
+        assertFalse(((JComponent) field(panel, "mctsWeightsPanel")).isVisible(),
+                "network MCTS edge weights start collapsed");
+        assertTrue(((JComponent) field(panel, "detailsTabs")).isVisible(),
+                "network inspector stays available by default");
         assertEquals(staticField(type("Defaults"), "MCTS_VISITS"), visits.getValue(),
                 "network MCTS uses shared visit default");
         assertFalse(followLeaf.isSelected(), "network leaf following starts off");

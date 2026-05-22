@@ -158,7 +158,7 @@ public final class MctsPanel extends JPanel {
     public MctsPanel() {
         super(new BorderLayout(Theme.SPACE_SM, Theme.SPACE_SM));
         setOpaque(false);
-        add(createControls(), BorderLayout.NORTH);
+        add(Ui.collapsible("Search controls", createControls(), true), BorderLayout.NORTH);
         add(createCenter(), BorderLayout.CENTER);
         showFen(Game.STANDARD_START_FEN);
         updateButtons(false);
@@ -244,7 +244,8 @@ public final class MctsPanel extends JPanel {
         right.setOpaque(false);
         right.add(Theme.section("root moves"), BorderLayout.NORTH);
         right.add(treeScroll, BorderLayout.CENTER);
-        right.add(Ui.titled("Best line", new JScrollPane(pvArea)), BorderLayout.SOUTH);
+        right.add(Ui.collapsible("Best line", Ui.titled("Best line", new JScrollPane(pvArea)), false),
+                BorderLayout.SOUTH);
 
         JPanel content = new JPanel(new BorderLayout(Theme.SPACE_SM, 0));
         content.setOpaque(false);

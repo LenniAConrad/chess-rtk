@@ -315,21 +315,24 @@ public final class DashboardPanel extends JPanel implements SessionListener {
         body.add(infoRow("Ply", plyValue));
         body.add(infoRow("Legal moves", legalValue));
         body.add(Box.createVerticalStrut(Theme.SPACE_SM));
+        JPanel metrics = cardBody();
         materialStrip.setAlignmentX(Component.LEFT_ALIGNMENT);
-        body.add(materialStrip);
-        body.add(Box.createVerticalStrut(Theme.SPACE_SM));
-        body.add(metricGrid(phaseMeter, mobilityMeter, kingSafetyMeter, pawnStructureMeter));
-        body.add(Box.createVerticalStrut(Theme.SPACE_SM));
-        body.add(caption("Position tags"));
-        body.add(Box.createVerticalStrut(Theme.SPACE_XS));
+        metrics.add(materialStrip);
+        metrics.add(Box.createVerticalStrut(Theme.SPACE_SM));
+        metrics.add(metricGrid(phaseMeter, mobilityMeter, kingSafetyMeter, pawnStructureMeter));
+        body.add(Ui.collapsible("Position metrics", metrics, true));
+        JPanel context = cardBody();
+        context.add(caption("Position tags"));
+        context.add(Box.createVerticalStrut(Theme.SPACE_XS));
         tagCloud.setAlignmentX(Component.LEFT_ALIGNMENT);
-        body.add(tagCloud);
-        body.add(Box.createVerticalStrut(Theme.SPACE_SM));
+        context.add(tagCloud);
+        context.add(Box.createVerticalStrut(Theme.SPACE_SM));
         evalChart.setEmptyText("eval appears as you analyse plies");
         evalChart.setAlignmentX(Component.LEFT_ALIGNMENT);
-        body.add(caption("Eval over plies · White's view"));
-        body.add(Box.createVerticalStrut(Theme.SPACE_XS));
-        body.add(evalChart);
+        context.add(caption("Eval over plies · White's view"));
+        context.add(Box.createVerticalStrut(Theme.SPACE_XS));
+        context.add(evalChart);
+        body.add(Ui.collapsible("Tags and eval", context, true));
         body.add(Box.createVerticalStrut(Theme.SPACE_SM));
         body.add(actionRow(
                 quickButton("Copy FEN", actions::copyCurrentFen),

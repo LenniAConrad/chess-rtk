@@ -1740,6 +1740,7 @@ public final class Theme {
         tab.setBorderPainted(false);
         tab.setOpaque(true);
         tab.setBorder(pad(5, 12, 5, 12));
+        reserveCommandTabSize(tab);
         Runnable apply = () -> {
             boolean on = tab.isSelected();
             tab.setBackground(on ? SELECTION_SOLID : ELEVATED_SOLID);
@@ -1751,6 +1752,26 @@ public final class Theme {
         };
         apply.run();
         tab.addItemListener(event -> apply.run());
+    }
+
+    /**
+     * Reserves the selected-state text width so bold command tabs do not move
+     * neighboring buttons when pressed.
+     *
+     * @param tab command tab
+     */
+    private static void reserveCommandTabSize(AbstractButton tab) {
+        Font previousFont = tab.getFont();
+        Border previousBorder = tab.getBorder();
+        tab.setFont(font(12, Font.BOLD));
+        tab.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(ACCENT),
+                pad(4, 11, 4, 11)));
+        Dimension preferred = tab.getPreferredSize();
+        tab.setPreferredSize(preferred);
+        tab.setMinimumSize(preferred);
+        tab.setFont(previousFont);
+        tab.setBorder(previousBorder);
     }
 
     /**
