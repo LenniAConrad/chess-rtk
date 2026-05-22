@@ -80,6 +80,11 @@ public final class NetworkPanel extends JPanel {
     private static final String ARCH_BT4 = "LC0 BT4";
 
     /**
+     * Card key for the animated loading surface.
+     */
+    private static final String CARD_LOADING = "loading";
+
+    /**
      * Debounce delay before kicking off inference on a new FEN.
      */
     private static final int DEBOUNCE_MS = 220;
@@ -257,6 +262,11 @@ public final class NetworkPanel extends JPanel {
     private final JPanel cardPanel = new JPanel(cards);
 
     /**
+     * Animated loading surface shown before the active view has data.
+     */
+    private final LoadingPanel loadingPanel = new LoadingPanel();
+
+    /**
      * Embedded right-side details panel shared by all three views.
      */
     private final InspectorPanel inspectorPanel = new InspectorPanel();
@@ -371,6 +381,7 @@ public final class NetworkPanel extends JPanel {
         cardPanel.add(wrapInScroll(nnueView), ARCH_NNUE);
         cardPanel.add(wrapInScroll(cnnView), ARCH_CNN);
         cardPanel.add(wrapInScroll(bt4View), ARCH_BT4);
+        cardPanel.add(loadingPanel, CARD_LOADING);
         nnueView.setInspector(inspectorPanel);
         cnnView.setInspector(inspectorPanel);
         bt4View.setInspector(inspectorPanel);
@@ -470,6 +481,7 @@ public final class NetworkPanel extends JPanel {
         if (inferenceWorker != null && !inferenceWorker.isDone()) {
             inferenceWorker.cancel(true);
         }
+        loadingPanel.stop();
     }
 
     /**
@@ -556,6 +568,7 @@ public final class NetworkPanel extends JPanel {
         if (key.equals(displayedKey)) {
             return;
         }
+        showLoading(cardKey, fen, "Waiting for first " + displayNameFor(cardKey) + " snapshot");
         pendingArch = cardKey;
         pendingFen = fen;
         debounceTimer.restart();
@@ -863,9 +876,34 @@ public final class NetworkPanel extends JPanel {
         } else if (ARCH_BT4.equals(key)) {
             cardKey = ARCH_BT4;
         }
+        if (isLoadingActiveCard(cardKey)) {
+            cards.show(cardPanel, CARD_LOADING);
+            return;
+        }
         cards.show(cardPanel, cardKey);
         propagateViewMode();
         refreshStatusBadge();
+    }
+
+    /**
+     * Returns whether the loading card currently represents the supplied
+     * architecture.
+     *
+     * @param cardKey architecture card key
+     * @return true when the loading card is active for that architecture
+     */
+    private boolean isLoadingActiveCard(String cardKey) {
+        if (!loadingPanel.isActive()) {
+            return false;
+        }
+        String fen = effectiveFen();
+        String pendingKey = pendingArch == null || pendingFen == null
+                ? null
+                : cacheKey(pendingArch, pendingFen);
+        String activeKey = fen == null || fen.isBlank() ? null : cacheKey(cardKey, fen);
+        boolean workerForCard = inferenceWorker != null && !inferenceWorker.isDone()
+                && cardKey.equals(activeCardKey());
+        return (pendingKey != null && pendingKey.equals(activeKey)) || workerForCard;
     }
 
     /**
@@ -1389,7 +1427,7 @@ public final class NetworkPanel extends JPanel {
             refreshStatusBadge();
             return;
         }
-        statusBadge.busy("running inference…");
+        showLoading(cardKey, fen, "Running " + displayNameFor(cardKey) + " inference");
         inferenceWorker = new SwingWorker<>() {
             @Override
             protected ActivationSnapshot doInBackground() {
@@ -1420,6 +1458,9 @@ public final class NetworkPanel extends JPanel {
                 // provider's healthy load state.
                 if (!failed) {
                     refreshStatusBadge();
+                } else {
+                    loadingPanel.stop();
+                    showSelected();
                 }
                 if (pendingFen != null) {
                     SwingUtilities.invokeLater(NetworkPanel.this::startInference);
@@ -1461,6 +1502,41 @@ public final class NetworkPanel extends JPanel {
         }
         if (cardKey.equals(activeCardKey())) {
             displayedKey = cacheKey(cardKey, fen);
+            loadingPanel.stop();
+            cards.show(cardPanel, cardKey);
         }
+    }
+
+    /**
+     * Shows the animated loading surface for one architecture/FEN pair.
+     *
+     * @param cardKey architecture card key
+     * @param fen position FEN
+     * @param detail loading detail text
+     */
+    private void showLoading(String cardKey, String fen, String detail) {
+        if (!cardKey.equals(activeCardKey())) {
+            return;
+        }
+        String shortFen = fen == null || fen.isBlank()
+                ? "no position loaded"
+                : fen.split("\\s+")[0];
+        loadingPanel.start("Loading " + displayNameFor(cardKey), detail + " - " + shortFen);
+        cards.show(cardPanel, CARD_LOADING);
+        statusBadge.busy("loading " + displayNameFor(cardKey).toLowerCase(java.util.Locale.ROOT) + "...");
+    }
+
+    /**
+     * Returns a compact display name for one architecture card.
+     *
+     * @param cardKey architecture card key
+     * @return display name
+     */
+    private static String displayNameFor(String cardKey) {
+        return switch (cardKey) {
+            case ARCH_CNN -> "LC0 CNN";
+            case ARCH_BT4 -> "LC0 BT4";
+            default -> "NNUE";
+        };
     }
 }

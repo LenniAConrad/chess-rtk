@@ -3158,6 +3158,12 @@ public final class WorkbenchRegressionTest {
         enabled = (boolean[]) field(viewMode, "enabled");
         assertTrue(enabled[2], "BT4 all-neurons segment enabled");
         assertTrue(enabled[3], "BT4 atlas segment enabled");
+        invoke(panel, "setFen", new Class<?>[] { String.class }, START_FEN);
+        invoke(panel, "setActive", new Class<?>[] { boolean.class }, true);
+        timer.stop();
+        Object loadingPanel = field(panel, "loadingPanel");
+        assertTrue((Boolean) invoke(loadingPanel, "isActive", new Class<?>[0]),
+                "network panel shows animated loading card before first inference");
         invoke(viewMode, "setSelectedIndex", new Class<?>[] { int.class }, 3);
         assertPaintsOpaqueCorner((JComponent) panel, 1180, 720,
                 "network panel simple controls paint opaquely");
@@ -3169,6 +3175,7 @@ public final class WorkbenchRegressionTest {
                 "network inspector separator follows dark theme");
         Theme.setMode(Theme.Mode.LIGHT);
         timer.stop();
+        invoke(panel, "dispose", new Class<?>[0]);
     }
 
     /**
