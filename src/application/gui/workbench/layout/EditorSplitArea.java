@@ -1,6 +1,7 @@
 package application.gui.workbench.layout;
 
 import application.gui.workbench.ui.Theme;
+import chess.images.assets.shape.SvgShapes;
 import java.awt.BasicStroke;
 import java.awt.BorderLayout;
 import java.awt.Color;
@@ -13,9 +14,11 @@ import java.awt.Graphics;
 import java.awt.Point;
 import java.awt.Rectangle;
 import java.awt.RenderingHints;
+import java.awt.Shape;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
-import java.awt.geom.Path2D;
+import java.awt.geom.AffineTransform;
+import java.awt.geom.Rectangle2D;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.IntConsumer;
@@ -28,6 +31,7 @@ import javax.swing.JPopupMenu;
 import javax.swing.JSplitPane;
 import javax.swing.JToggleButton;
 import javax.swing.SwingUtilities;
+import utility.Svg;
 
 /**
  * VS Code-style workbench shell. Holds every workbench panel and shows them
@@ -1754,6 +1758,17 @@ public final class EditorSplitArea extends JPanel {
         private static final long serialVersionUID = 1L;
 
         /**
+         * Parsed embedded rook SVG used as the empty-editor watermark source.
+         */
+        private static final Svg.DocumentModel ROOK_WATERMARK_DOCUMENT = Svg.parse(SvgShapes.whiteRook());
+
+        /**
+         * Outer rook silhouette from the embedded SVG, after its local SVG
+         * transforms have been applied.
+         */
+        private static final Shape ROOK_WATERMARK_OUTLINE = rookSvgOutline();
+
+        /**
          * Creates an empty editor host.
          */
         EmptyEditorHost() {
@@ -1800,42 +1815,38 @@ public final class EditorSplitArea extends JPanel {
             g.setColor(Theme.withAlpha(Theme.MUTED, WATERMARK_ALPHA));
             g.setStroke(new BasicStroke(Math.max(1.8f, size / 42.0f),
                     BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-            g.draw(rookOutline(x, y, size));
+            g.draw(rookWatermarkShape(x, y, size));
         }
 
         /**
-         * Builds a normalized rook silhouette outline.
+         * Extracts the outer silhouette from the embedded rook SVG.
+         *
+         * @return transformed rook outline
+         */
+        private static Shape rookSvgOutline() {
+            Svg.ShapeModel shape = ROOK_WATERMARK_DOCUMENT.shapes().get(0);
+            return shape.transform().createTransformedShape(shape.path());
+        }
+
+        /**
+         * Builds a fitted watermark shape from the embedded rook SVG outline.
          *
          * @param x left edge
          * @param y top edge
          * @param size square size
-         * @return rook outline path
+         * @return rook watermark shape
          */
-        private static Path2D rookOutline(double x, double y, double size) {
-            double s = size / 100.0;
-            Path2D path = new Path2D.Double();
-            path.moveTo(x + 22 * s, y + 94 * s);
-            path.lineTo(x + 78 * s, y + 94 * s);
-            path.lineTo(x + 72 * s, y + 54 * s);
-            path.lineTo(x + 88 * s, y + 54 * s);
-            path.lineTo(x + 88 * s, y + 38 * s);
-            path.lineTo(x + 78 * s, y + 38 * s);
-            path.lineTo(x + 78 * s, y + 18 * s);
-            path.lineTo(x + 66 * s, y + 18 * s);
-            path.lineTo(x + 66 * s, y + 32 * s);
-            path.lineTo(x + 56 * s, y + 32 * s);
-            path.lineTo(x + 56 * s, y + 18 * s);
-            path.lineTo(x + 44 * s, y + 18 * s);
-            path.lineTo(x + 44 * s, y + 32 * s);
-            path.lineTo(x + 34 * s, y + 32 * s);
-            path.lineTo(x + 34 * s, y + 18 * s);
-            path.lineTo(x + 22 * s, y + 18 * s);
-            path.lineTo(x + 22 * s, y + 38 * s);
-            path.lineTo(x + 12 * s, y + 38 * s);
-            path.lineTo(x + 12 * s, y + 54 * s);
-            path.lineTo(x + 28 * s, y + 54 * s);
-            path.closePath();
-            return path;
+        private static Shape rookWatermarkShape(double x, double y, double size) {
+            Rectangle2D bounds = ROOK_WATERMARK_OUTLINE.getBounds2D();
+            double scale = size / Math.max(bounds.getWidth(), bounds.getHeight());
+            double scaledWidth = bounds.getWidth() * scale;
+            double scaledHeight = bounds.getHeight() * scale;
+            AffineTransform transform = new AffineTransform();
+            transform.translate(x + (size - scaledWidth) / 2.0,
+                    y + (size - scaledHeight) / 2.0);
+            transform.scale(scale, scale);
+            transform.translate(-bounds.getX(), -bounds.getY());
+            return transform.createTransformedShape(ROOK_WATERMARK_OUTLINE);
         }
     }
 
