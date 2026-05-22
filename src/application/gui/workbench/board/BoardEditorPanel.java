@@ -358,9 +358,9 @@ public final class BoardEditorPanel extends JPanel {
         c.insets = new Insets(0, 0, 10, 0);
         grid(this, createPalette(), c, 0, 2, 1, 1);
         c.insets = new Insets(0, 0, 10, 0);
-        grid(this, collapsible("Position metadata", createStateControls(), false), c, 0, 3, 1, 1);
+        grid(this, collapsible("State", createStateControls(), false), c, 0, 3, 1, 1);
         c.insets = new Insets(0, 0, 8, 0);
-        grid(this, collapsible("FEN preview", createFenPreview(), true), c, 0, 4, 1, 1);
+        grid(this, collapsible("FEN", createFenPreview(), true), c, 0, 4, 1, 1);
         c.insets = new Insets(0, 0, 0, 0);
         grid(this, createActionRows(), c, 0, 5, 1, 1);
         c.gridy = 6;
@@ -375,7 +375,7 @@ public final class BoardEditorPanel extends JPanel {
      */
     private JComponent createHeader() {
         JPanel header = transparentPanel(new BorderLayout(8, 0));
-        header.add(Theme.section("Board Editor"), BorderLayout.WEST);
+        header.add(Theme.section("Editor"), BorderLayout.WEST);
         JLabel orientation = label("white bottom");
         orientation.setFont(Theme.font(11, Font.PLAIN));
         header.add(orientation, BorderLayout.EAST);

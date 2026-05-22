@@ -355,7 +355,7 @@ public final class AnalysisGraph extends JComponent {
     private void paintHeader(Graphics2D g, int width) {
         g.setFont(Theme.font(12, Font.BOLD));
         g.setColor(Theme.TEXT);
-        g.drawString("Analysis Data", PAD, 20);
+        g.drawString("Analysis", PAD, 20);
 
         g.setFont(Theme.mono(11));
         g.setColor(Theme.MUTED);

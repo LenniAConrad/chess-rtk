@@ -359,7 +359,7 @@ public final class BatchPanel {
     private void buildUi() {
         installBatchTasks();
         placeholder(batchDurationField, "e.g. " + Defaults.ANALYSIS_DURATION + " or 500ms");
-        placeholder(batchInput, "one FEN per line; use Add Current FEN to seed from the board");
+        placeholder(batchInput, "one FEN per line");
         styleAreas(batchInput);
         batchInput.setRows(12);
         batchInput.getDocument().addDocumentListener(changeListener(this::requestInputStatusUpdate));
@@ -389,14 +389,14 @@ public final class BatchPanel {
     private JComponent createFenPanel() {
         JPanel panel = new SurfacePanel(new BorderLayout(8, 8));
         JPanel top = transparentPanel(new BorderLayout(8, 0));
-        top.add(Theme.section("FEN Batch"), BorderLayout.WEST);
+        top.add(Theme.section("Input"), BorderLayout.WEST);
         Theme.foreground(batchInputStatus, Theme.ForegroundRole.MUTED);
         batchInputStatus.setFont(Theme.font(12, java.awt.Font.PLAIN));
         batchInputStatus.setHorizontalAlignment(SwingConstants.RIGHT);
         top.add(batchInputStatus, BorderLayout.CENTER);
         panel.add(top, BorderLayout.NORTH);
         panel.add(scroll(batchInput), BorderLayout.CENTER);
-        addCurrentFenButton = button("Add Current FEN", false, event -> appendCurrentFen());
+        addCurrentFenButton = button("Add FEN", false, event -> appendCurrentFen());
         clearBatchInputButton = button("Clear", false, event -> batchInput.setText(""));
         panel.add(buttonRow(FlowLayout.LEFT, addCurrentFenButton, clearBatchInputButton), BorderLayout.SOUTH);
         return panel;
@@ -417,7 +417,7 @@ public final class BatchPanel {
             updateControls();
             updateCommand();
         });
-        grid(controls, Theme.section("Batch Runner"), c, 0, 0, 4, 1);
+        grid(controls, Theme.section("Batch"), c, 0, 0, 4, 1);
 
         JPanel workflow = transparentPanel(new GridBagLayout());
         GridBagConstraints workflowC = constraints();
@@ -446,10 +446,10 @@ public final class BatchPanel {
         grid(commandPreview, batchCommandField, commandC, 1, 0, 3, 1);
 
         grid(controls, collapsible("Workflow", workflow, true), c, 0, 1, 4, 1);
-        grid(controls, collapsible("Generated command", commandPreview, false), c, 0, 2, 4, 1);
+        grid(controls, collapsible("Command", commandPreview, false), c, 0, 2, 4, 1);
         grid(controls, buttonRow(FlowLayout.LEFT,
-                button("Run Batch", true, event -> runBatch()),
-                button("Copy Command", false, event -> host.copyText(batchCommandField.getText()))), c, 0, 3, 4, 1);
+                button("Run", true, event -> runBatch()),
+                button("Copy", false, event -> host.copyText(batchCommandField.getText()))), c, 0, 3, 4, 1);
         addVerticalFiller(controls, c, 4, 4);
         return controls;
     }
@@ -488,17 +488,17 @@ public final class BatchPanel {
      */
     private void updateInputPlaceholder(BatchTask task) {
         if (task.usesCommandInput()) {
-            String text = "one CRTK command per line; leading 'crtk' is optional";
+            String text = "one command per line";
             placeholder(batchInput, text);
-            batchInput.setToolTipText(text);
+            batchInput.setToolTipText("One CRTK command per line; leading 'crtk' is optional.");
         } else if (task.usesFenInput()) {
-            String text = "one FEN per line; use Add Current FEN to seed from the board";
+            String text = "one FEN per line";
             placeholder(batchInput, text);
-            batchInput.setToolTipText(text);
+            batchInput.setToolTipText("One FEN per line.");
         } else {
-            String text = "this task does not use batch input";
+            String text = "input not used";
             placeholder(batchInput, text);
-            batchInput.setToolTipText(text);
+            batchInput.setToolTipText("This task runs without text input.");
         }
     }
 
@@ -555,7 +555,7 @@ public final class BatchPanel {
         }
         if (task != null && !task.usesTextInput()) {
             batchInputStatus.setText("Input not used");
-            batchInputStatus.setToolTipText("The selected batch task runs without text input.");
+            batchInputStatus.setToolTipText("No input needed.");
             Theme.foreground(batchInputStatus, Theme.ForegroundRole.MUTED);
             host.updateBatchSummary(taskName + " · no input required");
             host.updatePublishCommand();

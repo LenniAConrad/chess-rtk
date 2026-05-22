@@ -154,6 +154,7 @@ public final class WorkbenchRegressionTest {
         testCommandOptionConflictsDisableStaleRows();
         testEvaluatorSelectorsUseExplicitDefaults();
         testCommandFormatSelectorsUseDirectChoices();
+        testCommandFormMovesHelperCopyToTooltips();
         testDynamicOptionRefresh();
         testDynamicOptionRefreshSkipsUnchangedValues();
         testEngineTemplateContextFeedsExternalConfigOptions();
@@ -382,6 +383,25 @@ public final class WorkbenchRegressionTest {
         invoke(perft, "setValueAt", new Class<?>[] { Object.class, int.class, int.class },
                 Boolean.TRUE, rowForFlag(perft, "Stockfish"), COL_USE);
         assertEquals("stockfish", valueAfterFlag(enabledArgs(perft), "--format"), "perft stockfish format");
+    }
+
+    /**
+     * Verifies command-option helper copy stays out of the visible row text
+     * while remaining discoverable through tooltips.
+     */
+    private static void testCommandFormMovesHelperCopyToTooltips() {
+        JComponent form = (JComponent) construct(type("CommandForm"), new Class<?>[0]);
+        invoke(form, "setTemplate",
+                new Class<?>[] { type("CommandTemplates$CommandTemplate"),
+                        type("CommandTemplates$TemplateContext") },
+                template("Legal moves"), templateContext(START_FEN, "2s", "4", "3", "1"));
+
+        assertFalse(componentTreeHasLabelText(form, "Print UCI moves"),
+                "command form hides option descriptions from row labels");
+        assertFalse(componentTreeHasLabelText(form, "REQUIRED"),
+                "command form removes redundant required section heading");
+        assertTrue(componentTreeHasTooltip(form, "Print UCI moves"),
+                "command form keeps option descriptions in tooltips");
     }
 
     /**
@@ -2650,6 +2670,51 @@ public final class WorkbenchRegressionTest {
             }
         }
         throw new AssertionError("missing button in " + component.getClass().getName());
+    }
+
+    /**
+     * Returns whether a component tree contains a label with exact text.
+     *
+     * @param component root component
+     * @param text expected label text
+     * @return true when found
+     */
+    private static boolean componentTreeHasLabelText(Component component, String text) {
+        if (component instanceof JLabel label && text.equals(label.getText())) {
+            return true;
+        }
+        if (component instanceof java.awt.Container container) {
+            for (Component child : container.getComponents()) {
+                if (componentTreeHasLabelText(child, text)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Returns whether a component tree contains tooltip text.
+     *
+     * @param component root component
+     * @param text expected tooltip fragment
+     * @return true when found
+     */
+    private static boolean componentTreeHasTooltip(Component component, String text) {
+        if (component instanceof JComponent jComponent) {
+            String tooltip = jComponent.getToolTipText();
+            if (tooltip != null && tooltip.contains(text)) {
+                return true;
+            }
+        }
+        if (component instanceof java.awt.Container container) {
+            for (Component child : container.getComponents()) {
+                if (componentTreeHasTooltip(child, text)) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     /**

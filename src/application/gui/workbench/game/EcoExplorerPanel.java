@@ -296,7 +296,7 @@ public final class EcoExplorerPanel extends JPanel {
         setBackground(Theme.PANEL_SOLID);
         setForeground(Theme.TEXT);
         setBorder(Theme.pad(10, 10, 10, 10));
-        add(collapsible("Search and current line", createHeader(), true), BorderLayout.NORTH);
+        add(collapsible("Search", createHeader(), true), BorderLayout.NORTH);
         add(createTablePanel(), BorderLayout.CENTER);
         add(createActions(), BorderLayout.SOUTH);
     }
@@ -310,7 +310,7 @@ public final class EcoExplorerPanel extends JPanel {
         JPanel header = transparentPanel(new GridBagLayout());
         GridBagConstraints c = constraints();
         c.insets = new Insets(0, 0, 6, 0);
-        grid(header, Theme.section("ECO Explorer"), c, 0, 0, 4, 1);
+        grid(header, Theme.section("ECO"), c, 0, 0, 4, 1);
 
         c.insets = new Insets(3, 0, 3, 6);
         grid(header, label("eco"), c, 0, 1, 1, 1);
@@ -372,7 +372,7 @@ public final class EcoExplorerPanel extends JPanel {
                 button("Copy Line", false, event -> copySelectedLine()),
                 button("Copy FEN", false, event -> copySelectedFen()),
                 refresh,
-                button("Clear Filter", false, event -> setFilter("")));
+                button("Clear", false, event -> setFilter("")));
     }
 
     /**
@@ -428,8 +428,7 @@ public final class EcoExplorerPanel extends JPanel {
      */
     private void updateStatusForRows(int rows, boolean searching) {
         if (!currentPathStandard && !searching) {
-            setStatus("Custom or off-book line. Use filter to browse the full ECO book.",
-                    Theme.ForegroundRole.WARNING);
+            setStatus("Off-book line.", Theme.ForegroundRole.WARNING);
             return;
         }
         String scope = searching ? "matching entries" : "continuations";

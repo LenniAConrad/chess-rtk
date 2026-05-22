@@ -295,7 +295,7 @@ public final class Bt4View extends NetworkView {
         g.fillRect(bounds.x, bounds.y, bounds.width, bounds.height);
         g.setColor(Theme.MUTED);
         g.setFont(Theme.font(13, Font.PLAIN));
-        g.drawString("BT4 snapshot is loading. The view refreshes when inference finishes.", PAD, 32);
+        g.drawString("Loading BT4 snapshot...", PAD, 32);
     }
 
     /**

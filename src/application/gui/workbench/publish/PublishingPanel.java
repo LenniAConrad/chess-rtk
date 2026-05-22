@@ -758,7 +758,7 @@ public final class PublishingPanel {
         sectionRow = addPublishingControlRow(options, optionsC, label("front matter"),
                 collapsible("Copy", createPublishingFrontMatterPanel(), false), sectionRow);
         addPublishingControlRow(options, optionsC, label("report"),
-                collapsible("Position Report", createReportPanel(), false), sectionRow);
+                collapsible("Report", createReportPanel(), false), sectionRow);
         grid(panel, collapsible("Options", options, false), c, 0, row++, 4, 1);
 
         JPanel command = transparentPanel(new GridBagLayout());
@@ -766,9 +766,8 @@ public final class PublishingPanel {
         publishCommandField.setEditable(false);
         publishCommandField.setFocusable(false);
         publishCommandField.setToolTipText("Generated publishing command");
-        grid(command, label("preview"), commandC, 0, 0, 1, 1);
-        grid(command, scroll(publishCommandField), commandC, 1, 0, 3, 1);
-        grid(panel, collapsible("Generated command", command, false), c, 0, row++, 4, 1);
+        grid(command, scroll(publishCommandField), commandC, 0, 0, 4, 1);
+        grid(panel, collapsible("Command", command, false), c, 0, row++, 4, 1);
 
         grid(panel, buttonRow(FlowLayout.LEFT,
                 button("Create PDF", true, event -> runPublishingCommand()),

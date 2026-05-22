@@ -140,7 +140,7 @@ public final class CnnView extends NetworkView {
         g.fillRect(bounds.x, bounds.y, bounds.width, bounds.height);
         g.setColor(Theme.MUTED);
         g.setFont(Theme.font(13, Font.PLAIN));
-        g.drawString("CNN snapshot is loading. The view refreshes when inference finishes.", PAD, 32);
+        g.drawString("Loading CNN snapshot...", PAD, 32);
     }
 
     /**

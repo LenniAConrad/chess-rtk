@@ -400,11 +400,11 @@ public final class NetworkPanel extends JPanel {
         JPanel content = new JPanel(new BorderLayout(Theme.SPACE_SM, 0));
         content.setOpaque(false);
         content.add(cardPanel, BorderLayout.CENTER);
-        content.add(Ui.collapsible("Inspector and runtime", detailsTabs, true), BorderLayout.EAST);
+        content.add(Ui.collapsible("Inspector", detailsTabs, true), BorderLayout.EAST);
         JPanel center = new JPanel(new BorderLayout(0, Theme.SPACE_SM));
         center.setOpaque(false);
         center.add(content, BorderLayout.CENTER);
-        center.add(Ui.collapsible("MCTS edge weights", mctsWeightsPanel, false), BorderLayout.SOUTH);
+        center.add(Ui.collapsible("Edge weights", mctsWeightsPanel, false), BorderLayout.SOUTH);
         add(center, BorderLayout.CENTER);
         archCombo.addActionListener(event -> onArchitectureChanged());
         positionCombo.addActionListener(event -> onPositionPicked());
@@ -577,7 +577,7 @@ public final class NetworkPanel extends JPanel {
         if (key.equals(displayedKey)) {
             return;
         }
-        showLoading(cardKey, fen, "Waiting for first " + displayNameFor(cardKey) + " snapshot");
+        showLoading(cardKey, fen, "Preparing " + displayNameFor(cardKey));
         pendingArch = cardKey;
         pendingFen = fen;
         debounceTimer.restart();
@@ -629,7 +629,7 @@ public final class NetworkPanel extends JPanel {
         bar.add(actions, BorderLayout.EAST);
         JPanel outer = Ui.transparentPanel(new BorderLayout(0, Theme.SPACE_XS));
         outer.add(bar, BorderLayout.NORTH);
-        outer.add(Ui.collapsible("MCTS search", buildMctsToolbar(), false), BorderLayout.SOUTH);
+        outer.add(Ui.collapsible("MCTS", buildMctsToolbar(), false), BorderLayout.SOUTH);
         return outer;
     }
 
@@ -1350,7 +1350,7 @@ public final class NetworkPanel extends JPanel {
             refreshStatusBadge();
             return;
         }
-        showLoading(cardKey, fen, "Running " + displayNameFor(cardKey) + " inference");
+        showLoading(cardKey, fen, "Loading " + displayNameFor(cardKey));
         inferenceWorker = new SwingWorker<>() {
             @Override
             protected ActivationSnapshot doInBackground() {

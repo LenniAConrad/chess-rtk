@@ -185,7 +185,7 @@ public final class InspectorPanel extends JPanel {
      */
     public void clear() {
         titleLabel.setText("Inspector");
-        subtitleLabel.setText("Click a feature, head, channel or square to inspect it.");
+        subtitleLabel.setText("Select an item.");
         valueLabel.setText(" ");
         statsLabel.setText(" ");
         descriptionArea.setText("");

@@ -167,10 +167,10 @@ public final class SvgIcon implements Icon {
             case "Back" -> Kind.PREVIOUS;
             case "Forward" -> Kind.NEXT;
             case "End" -> Kind.LAST;
-            case "Reset", "Drop Optional", "Clear", "Defaults" -> Kind.RESET;
+            case "Reset", "Drop Optional", "Clear", "Clear Flags", "Defaults" -> Kind.RESET;
             case "Flip" -> Kind.FLIP;
             case "Copy", "Copy FEN", "Copy Command", "Copy Report", "Copy PGN", "Copy SAN", "Copy UCI",
-                    "Copy FEN List" ->
+                    "Copy FEN List", "Copy FENs" ->
                     Kind.COPY;
             case "Stop" -> Kind.STOP;
             case "Info", "Info +", "Info -" -> Kind.INFO;
@@ -178,7 +178,7 @@ public final class SvgIcon implements Icon {
             case "Tags" -> Kind.TAG;
             case "Actions", "Commands", "Batch", "Game", "Perft", "Engine", "Validate Config", "Analysis data" ->
                     Kind.GRID;
-            case "Add Current FEN", "Add to Batch", "New Game" -> Kind.PLUS;
+            case "Add Current FEN", "Add FEN", "Add to Batch", "New Game" -> Kind.PLUS;
             case "Publish", "Load File", "Save PGN", "Save Report", "Choose Input", "Choose Output", "Choose PDF",
                     "Choose Cover", "Choose Manifest", "Choose Protocol" ->
                     Kind.FILE;

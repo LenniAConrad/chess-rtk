@@ -158,7 +158,7 @@ public final class MctsPanel extends JPanel {
     public MctsPanel() {
         super(new BorderLayout(Theme.SPACE_SM, Theme.SPACE_SM));
         setOpaque(false);
-        add(Ui.collapsible("Search controls", createControls(), true), BorderLayout.NORTH);
+        add(Ui.collapsible("Controls", createControls(), true), BorderLayout.NORTH);
         add(createCenter(), BorderLayout.CENTER);
         showFen(Game.STANDARD_START_FEN);
         updateButtons(false);
@@ -195,7 +195,7 @@ public final class MctsPanel extends JPanel {
     private JComponent createControls() {
         JPanel panel = new SurfacePanel(new GridBagLayout());
         GridBagConstraints c = Ui.constraints();
-        Ui.grid(panel, Theme.section("MCTS / PUCT"), c, 0, 0, 4, 1);
+        Ui.grid(panel, Theme.section("MCTS"), c, 0, 0, 4, 1);
         Ui.styleFields(fenField);
         fenField.addActionListener(event -> loadFenFromField());
         Ui.grid(panel, fenField, c, 0, 1, 4, 1);
@@ -227,7 +227,7 @@ public final class MctsPanel extends JPanel {
         leafBoard.setPreferredSize(new Dimension(186, 186));
         Ui.grid(boards, Theme.section("root"), c, 0, 0, 1, 1);
         Ui.grid(boards, rootBoard, c, 0, 1, 1, 1);
-        Ui.grid(boards, Theme.section("current leaf"), c, 0, 2, 1, 1);
+        Ui.grid(boards, Theme.section("leaf"), c, 0, 2, 1, 1);
         Ui.grid(boards, leafBoard, c, 0, 3, 1, 1);
 
         Theme.table(treeTable, 24);
@@ -242,7 +242,7 @@ public final class MctsPanel extends JPanel {
 
         JPanel right = new JPanel(new BorderLayout(Theme.SPACE_SM, Theme.SPACE_SM));
         right.setOpaque(false);
-        right.add(Theme.section("root moves"), BorderLayout.NORTH);
+        right.add(Theme.section("root"), BorderLayout.NORTH);
         right.add(treeScroll, BorderLayout.CENTER);
         right.add(Ui.collapsible("Best line", Ui.titled("Best line", new JScrollPane(pvArea)), false),
                 BorderLayout.SOUTH);

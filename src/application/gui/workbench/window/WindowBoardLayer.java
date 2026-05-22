@@ -425,11 +425,11 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
         JComponent actions = buttonRow(FlowLayout.LEFT,
                 button("Copy CSV", false, event -> copyAnalysisCsv()),
                 button("Copy Report", false, event -> copyAnalysisReport()),
-                button("Print Report", false, event -> printAnalysisReport()),
+                button("Print", false, event -> printAnalysisReport()),
                 button("Clear", false, event -> clearAnalysisData()));
-        content.add(collapsible("Report actions", actions, false), BorderLayout.NORTH);
+        content.add(collapsible("Actions", actions, false), BorderLayout.NORTH);
         content.add(analysisGraph, BorderLayout.CENTER);
-    return titled("Analysis Data", content);
+        return titled("Analysis", content);
     }
 
     /**
@@ -534,7 +534,7 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
 
         int row = 0;
         grid(panel, collapsible("Protocol", protocol, true), c, 0, row++, 4, 1);
-        grid(panel, collapsible("Limits and tools", limits, false), c, 0, row++, 4, 1);
+        grid(panel, collapsible("Limits", limits, false), c, 0, row++, 4, 1);
         addVerticalFiller(panel, c, row, 4);
         return panel;
     }
@@ -594,7 +594,7 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
     protected JComponent createGameToolsPanel() {
         JPanel panel = new SurfacePanel(new GridBagLayout());
         GridBagConstraints c = constraints();
-        grid(panel, Theme.section("Line Tools"), c, 0, 0, 4, 1);
+        grid(panel, Theme.section("Line"), c, 0, 0, 4, 1);
 
         JPanel importTools = settingsGroupPanel();
         GridBagConstraints importC = constraints();
@@ -611,10 +611,10 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
                 button("New Game", false, event -> startNewGame(currentFen()))), importC, 1, 1, 3, 1);
 
         JComponent exportTools = buttonRow(FlowLayout.LEFT,
-                button("Copy FEN List", false, event -> copyText(gameModel.fenList())),
+                button("Copy FENs", false, event -> copyText(gameModel.fenList())),
                 button("Add to Batch", false, event -> batchPanel.appendCurrentFen()));
 
-        grid(panel, collapsible("Import line", importTools, true), c, 0, 1, 4, 1);
+        grid(panel, collapsible("Import", importTools, true), c, 0, 1, 4, 1);
         grid(panel, collapsible("Exports", exportTools, false), c, 0, 2, 4, 1);
         addVerticalFiller(panel, c, 3, 4);
         return panel;
@@ -662,10 +662,9 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
         multipvModel.addChangeListener(event -> requestCommandPreviews());
         threadsModel.addChangeListener(event -> requestCommandPreviews());
 
-        // Header: section title + the wrapping command-selector bar. The bar
-        // replaces a JTabbedPane whose empty content pane left a blank gap.
+        // Header: the wrapping command-selector bar replaces a JTabbedPane
+        // whose empty content pane left a blank gap.
         JPanel header = transparentPanel(new BorderLayout(0, 6));
-        header.add(Theme.section("Command Controller"), BorderLayout.NORTH);
         header.add(commandPicker, BorderLayout.CENTER);
         panel.add(header, BorderLayout.NORTH);
 
@@ -674,7 +673,7 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
         JPanel south = transparentPanel(new BorderLayout(0, 8));
         commandField.setEditable(false);
         JPanel previewRow = transparentPanel(new BorderLayout(8, 0));
-        previewRow.add(label("preview"), BorderLayout.WEST);
+        commandField.setToolTipText("Generated command");
         previewRow.add(commandField, BorderLayout.CENTER);
         south.add(previewRow, BorderLayout.NORTH);
         runCommandButton = button("Run", true, event -> runSelectedTemplate());
@@ -682,7 +681,7 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
                 runCommandButton,
                 button("Copy", false, event -> copyBuiltCommand()),
                 button("Reset", false, event -> resetSelectedTemplate()),
-                button("Drop Optional", false, event -> clearOptionalTemplateOptions()),
+                button("Clear Flags", false, event -> clearOptionalTemplateOptions()),
                 button("Stop", false, event -> stopCommand())), BorderLayout.SOUTH);
         panel.add(south, BorderLayout.SOUTH);
 

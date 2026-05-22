@@ -155,7 +155,7 @@ public final class DashboardPanel extends JPanel implements SessionListener {
     /**
      * Recent-jobs state hint above the table.
      */
-    private final JLabel jobsCaption = caption("Newest first · green ok · red failed · select a row for actions");
+    private final JLabel jobsCaption = caption("Newest first · select a row for actions");
 
     /**
      * Recent-jobs scroll pane, hidden while there are no jobs.
@@ -320,25 +320,25 @@ public final class DashboardPanel extends JPanel implements SessionListener {
         metrics.add(materialStrip);
         metrics.add(Box.createVerticalStrut(Theme.SPACE_SM));
         metrics.add(metricGrid(phaseMeter, mobilityMeter, kingSafetyMeter, pawnStructureMeter));
-        body.add(Ui.collapsible("Position metrics", metrics, true));
+        body.add(Ui.collapsible("Metrics", metrics, true));
         JPanel context = cardBody();
         context.add(caption("Position tags"));
         context.add(Box.createVerticalStrut(Theme.SPACE_XS));
         tagCloud.setAlignmentX(Component.LEFT_ALIGNMENT);
         context.add(tagCloud);
         context.add(Box.createVerticalStrut(Theme.SPACE_SM));
-        evalChart.setEmptyText("eval appears as you analyse plies");
+        evalChart.setEmptyText("No eval yet.");
         evalChart.setAlignmentX(Component.LEFT_ALIGNMENT);
-        context.add(caption("Eval over plies · White's view"));
+        context.add(caption("Eval · White"));
         context.add(Box.createVerticalStrut(Theme.SPACE_XS));
         context.add(evalChart);
-        body.add(Ui.collapsible("Tags and eval", context, true));
+        body.add(Ui.collapsible("Tags", context, true));
         body.add(Box.createVerticalStrut(Theme.SPACE_SM));
         body.add(actionRow(
                 quickButton("Copy FEN", actions::copyCurrentFen),
                 quickButton("Analyze", actions::analyze),
-                quickButton("Built-in search", actions::builtInSearch)));
-    return card("Current Position", body);
+                quickButton("Search", actions::builtInSearch)));
+        return card("Position", body);
     }
 
     /**
@@ -535,7 +535,7 @@ public final class DashboardPanel extends JPanel implements SessionListener {
         List<Path> recent = session.artifacts().recent();
         if (recent.isEmpty()) {
             JLabel empty = value();
-            empty.setText("No artifacts generated yet this session.");
+            empty.setText("No artifacts yet.");
             empty.setAlignmentX(Component.LEFT_ALIGNMENT);
             artifactList.add(empty);
         } else {
@@ -584,8 +584,8 @@ public final class DashboardPanel extends JPanel implements SessionListener {
         boolean hasRows = jobModel.getRowCount() > 0;
         boolean hasSelection = jobModel.jobAt(jobTable.getSelectedRow()) != null;
         jobsCaption.setText(hasRows
-                ? "Newest first · green ok · red failed · select a row for actions"
-                : "No command runs yet. Results, logs, and manifests will appear here.");
+                ? "Newest first · select a row for actions"
+                : "No runs yet.");
         if (jobScrollPane != null) {
             jobScrollPane.setVisible(hasRows);
         }

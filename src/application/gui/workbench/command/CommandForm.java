@@ -10,7 +10,6 @@ import application.gui.workbench.ui.ToggleBox;
 import application.gui.workbench.ui.Ui;
 import chess.core.Position;
 import java.awt.BorderLayout;
-import java.awt.Color;
 import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
@@ -40,11 +39,11 @@ import utility.CommandLine;
  * can ever be picked, and the remaining optional flags sit below behind a
  * filter.
  *
- * <p>Every row shares one column grid so the controls, value editors, and
- * descriptions line up. Options with a small fixed set of values render as a
- * dropdown rather than a free-text field, and a FEN field is validated live —
- * an invalid command disables Run through the {@linkplain #setRunGate run
- * gate}.</p>
+ * <p>Every row shares one column grid so the controls and value editors line
+ * up. Option descriptions stay available as tooltips instead of repeated
+ * helper copy. Options with a small fixed set of values render as a dropdown
+ * rather than a free-text field, and a FEN field is validated live — an invalid
+ * command disables Run through the {@linkplain #setRunGate run gate}.</p>
  */
 public final class CommandForm extends JPanel {
 
@@ -135,7 +134,7 @@ public final class CommandForm extends JPanel {
         body.setBorder(Theme.pad(Theme.SPACE_XS));
         add(Ui.scroll(Ui.fillViewport(body)), BorderLayout.CENTER);
         Ui.styleFields(filterField);
-        Ui.placeholder(filterField, "filter optional flags");
+        Ui.placeholder(filterField, "filter flags");
         Ui.onTextChange(this::applyFilter, filterField);
     }
 
@@ -297,14 +296,13 @@ public final class CommandForm extends JPanel {
             (block.required() ? required : optional).add(block);
         }
         if (!required.isEmpty()) {
-            body.add(sectionHeader("Required", Theme.STATUS_INFO_TEXT));
             for (Block block : required) {
                 body.add(renderBlock(block, false));
                 body.add(Box.createVerticalStrut(Theme.SPACE_XS));
             }
         }
         if (!optional.isEmpty()) {
-            body.add(Box.createVerticalStrut(Theme.SPACE_MD));
+            body.add(Box.createVerticalStrut(Theme.SPACE_SM));
             JPanel optionalPanel = new JPanel();
             optionalPanel.setOpaque(false);
             optionalPanel.setLayout(new BoxLayout(optionalPanel, BoxLayout.Y_AXIS));
@@ -323,7 +321,7 @@ public final class CommandForm extends JPanel {
                 optionalPanel.add(spacer);
                 optionalRows.add(new FilterRow(rendered, spacer, block.searchText()));
             }
-            optionalDisclosure = Ui.collapsible("Optional flags", optionalPanel, false);
+            optionalDisclosure = Ui.collapsible("Flags", optionalPanel, false);
             body.add(optionalDisclosure);
         }
         body.add(Box.createVerticalGlue());
@@ -365,9 +363,9 @@ public final class CommandForm extends JPanel {
      */
     private JComponent renderBlock(Block block, boolean optionalSection) {
         if (block.isGroup()) {
-    return renderChipGroup(block, optionalSection);
+            return renderChipGroup(block, optionalSection);
         }
-    return renderSingle(block.members().get(0), optionalSection);
+        return renderSingle(block.members().get(0), optionalSection);
     }
 
     /**
@@ -401,17 +399,19 @@ public final class CommandForm extends JPanel {
             chipLabels.add(displayFlag(field.option));
         }
 
-        // The card layout swaps the value editor / description to the choice.
+        boolean hasDetail = members.stream().anyMatch(CommandForm::needsValueEditor);
         java.awt.CardLayout cards = new java.awt.CardLayout();
         JPanel detail = new JPanel(cards);
         detail.setOpaque(false);
         detail.setAlignmentX(LEFT_ALIGNMENT);
         detail.setMaximumSize(new Dimension(Integer.MAX_VALUE, ROW_HEIGHT));
-        if (hasNone) {
-            detail.add(memberCard(null), "0");
-        }
-        for (int m = 0; m < members.size(); m++) {
-            detail.add(memberCard(members.get(m)), Integer.toString(hasNone ? m + 1 : m));
+        if (hasDetail) {
+            if (hasNone) {
+                detail.add(memberCard(null), "0");
+            }
+            for (int m = 0; m < members.size(); m++) {
+                detail.add(memberCard(members.get(m)), Integer.toString(hasNone ? m + 1 : m));
+            }
         }
 
         int initial = 0;
@@ -427,7 +427,9 @@ public final class CommandForm extends JPanel {
                 members.get(m).enabled = m == initial;
             }
         }
-        cards.show(detail, Integer.toString(initial));
+        if (hasDetail) {
+            cards.show(detail, Integer.toString(initial));
+        }
 
         ChipGroup chips = new ChipGroup(chipLabels);
         chips.setSelectedIndex(initial);
@@ -436,7 +438,9 @@ public final class CommandForm extends JPanel {
             for (Field field : members) {
                 field.enabled = field == chosen;
             }
-            cards.show(detail, Integer.toString(index));
+            if (hasDetail) {
+                cards.show(detail, Integer.toString(index));
+            }
             fireChange();
         });
         JPanel chipRow = new JPanel(new BorderLayout(Theme.SPACE_MD, 0));
@@ -449,20 +453,34 @@ public final class CommandForm extends JPanel {
         lead.setPreferredSize(new Dimension(LEAD_WIDTH, ROW_HEIGHT));
         lead.setMinimumSize(new Dimension(LEAD_WIDTH, ROW_HEIGHT));
         lead.setMaximumSize(new Dimension(LEAD_WIDTH, ROW_HEIGHT));
+        applyGroupTooltip(lead, block);
+        applyGroupTooltip(chips, block);
         JPanel selector = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
         selector.setOpaque(false);
         selector.add(chips);
         chipRow.add(lead, BorderLayout.WEST);
         chipRow.add(selector, BorderLayout.CENTER);
         panel.add(chipRow);
-        panel.add(Box.createVerticalStrut(Theme.SPACE_XS));
-        panel.add(detail);
+        if (hasDetail) {
+            panel.add(Box.createVerticalStrut(Theme.SPACE_XS));
+            panel.add(detail);
+        }
         panel.setMaximumSize(new Dimension(Integer.MAX_VALUE, panel.getPreferredSize().height));
         return panel;
     }
 
     /**
-     * Builds the value-editor + description card for one group member.
+     * Returns whether a group member needs a visible detail editor.
+     *
+     * @param field option field
+     * @return true when the option shows a value editor below its chip group
+     */
+    private static boolean needsValueEditor(Field field) {
+        return field.option.takesValue() && !field.option.fixedChoice();
+    }
+
+    /**
+     * Builds the detail card for one group member.
      *
      * @param field group member, or null for the "none" choice
      * @return card component
@@ -474,7 +492,7 @@ public final class CommandForm extends JPanel {
         card.setAlignmentX(LEFT_ALIGNMENT);
         card.add(Box.createHorizontalStrut(LEAD_WIDTH + Theme.SPACE_MD));
         if (field == null) {
-            JLabel none = new JLabel("no option from this group is used");
+            JLabel none = new JLabel("not used");
             none.setFont(Theme.font(11, Font.PLAIN));
             none.setForeground(Theme.MUTED);
             card.add(none);
@@ -488,9 +506,8 @@ public final class CommandForm extends JPanel {
             editor.setMaximumSize(size);
             editor.setMinimumSize(size);
             card.add(editor);
-            card.add(Box.createHorizontalStrut(Theme.SPACE_MD));
         }
-        card.add(descriptionLabel(field.option));
+        applyOptionTooltip(card, field.option);
         card.add(Box.createHorizontalGlue());
         return card;
     }
@@ -508,22 +525,24 @@ public final class CommandForm extends JPanel {
             JLabel name = new JLabel(displayFlag(field.option));
             name.setFont(Theme.font(12, Font.BOLD));
             name.setForeground(Theme.TEXT);
-    return optionRow(name, field);
+            applyOptionTooltip(name, field.option);
+            return optionRow(name, field);
         }
         ToggleBox toggle = new ToggleBox(displayFlag(field.option), true);
         toggle.setSelected(field.enabled);
+        applyOptionTooltip(toggle, field.option);
         field.toggle = toggle;
         toggle.addActionListener(event -> {
             field.enabled = toggle.isSelected();
             applyConflicts(field);
             fireChange();
         });
-    return optionRow(toggle, field);
+        return optionRow(toggle, field);
     }
 
     /**
      * Builds one aligned option row: a fixed-width lead control, a fixed-width
-     * value editor, then the description.
+     * value editor, then flexible whitespace.
      *
      * @param lead leading control (radio, toggle, or required label)
      * @param field option field
@@ -536,6 +555,7 @@ public final class CommandForm extends JPanel {
         row.setAlignmentX(LEFT_ALIGNMENT);
         row.setMaximumSize(new Dimension(Integer.MAX_VALUE, ROW_HEIGHT));
         row.setBorder(Theme.pad(2, 0, 2, 0));
+        applyOptionTooltip(row, field.option);
         row.add(fixedLead(lead));
         row.add(Box.createHorizontalStrut(Theme.SPACE_SM));
         JComponent editor = field.option.takesValue() && !field.option.fixedChoice()
@@ -546,8 +566,6 @@ public final class CommandForm extends JPanel {
         editor.setMaximumSize(size);
         editor.setMinimumSize(size);
         row.add(editor);
-        row.add(Box.createHorizontalStrut(Theme.SPACE_MD));
-        row.add(descriptionLabel(field.option));
         row.add(Box.createHorizontalGlue());
         return row;
     }
@@ -560,7 +578,7 @@ public final class CommandForm extends JPanel {
      */
     private static Dimension valueEditorSize(Field field) {
         int width = field.option.source() == ValueSource.CURRENT_FEN ? FEN_VALUE_WIDTH : VALUE_WIDTH;
-    return new Dimension(width, Theme.CONTROL_HEIGHT);
+        return new Dimension(width, Theme.CONTROL_HEIGHT);
     }
 
     /**
@@ -592,10 +610,11 @@ public final class CommandForm extends JPanel {
     private JComponent valueEditor(Field field) {
         List<String> choices = enumChoices(field.option);
         if (!choices.isEmpty()) {
-    return choiceEditor(field, choices);
+            return choiceEditor(field, choices);
         }
         JTextField text = new JTextField(field.value == null ? "" : field.value);
         Ui.styleFields(text);
+        applyOptionTooltip(text, field.option);
         field.editor = text;
         field.defaultBorder = text.getBorder();
         Ui.onTextChange(() -> {
@@ -628,6 +647,7 @@ public final class CommandForm extends JPanel {
                 : field.option.defaultValue());
         Ui.styleCombos(combo);
         combo.setRenderer(new EmptyChoiceRenderer());
+        applyOptionTooltip(combo, field.option);
         field.combo = combo;
         combo.addActionListener(event -> {
             Object selected = combo.getSelectedItem();
@@ -649,6 +669,7 @@ public final class CommandForm extends JPanel {
                 && field.option.exclusiveGroup().isBlank() ? "included" : "");
         label.setFont(Theme.font(11, Font.PLAIN));
         label.setForeground(Theme.MUTED);
+        applyOptionTooltip(label, field.option);
         return label;
     }
 
@@ -666,32 +687,48 @@ public final class CommandForm extends JPanel {
     }
 
     /**
-     * Creates the muted description label shown at the row's trailing edge.
+     * Applies an option description as a tooltip.
      *
+     * @param component target component
      * @param option option metadata
-     * @return description label
      */
-    private static JLabel descriptionLabel(CommandOption option) {
-        JLabel label = new JLabel(option.description());
-        label.setFont(Theme.font(11, Font.PLAIN));
-        label.setForeground(Theme.MUTED);
-        return label;
+    private static void applyOptionTooltip(JComponent component, CommandOption option) {
+        String tooltip = tooltipText(option);
+        if (!tooltip.isBlank()) {
+            component.setToolTipText(tooltip);
+        }
     }
 
     /**
-     * Builds a section header label.
+     * Applies a compact combined tooltip for an exclusive option group.
      *
-     * @param text header text
-     * @param accent accent colour
-     * @return header component
+     * @param component target component
+     * @param block option group
      */
-    private static JComponent sectionHeader(String text, Color accent) {
-        JLabel label = new JLabel(text.toUpperCase(Locale.ROOT));
-        label.setFont(Theme.font(11, Font.BOLD));
-        label.setForeground(accent);
-        label.setAlignmentX(LEFT_ALIGNMENT);
-        label.setBorder(Theme.pad(Theme.SPACE_XS, 0, Theme.SPACE_XS, 0));
-        return label;
+    private static void applyGroupTooltip(JComponent component, Block block) {
+        StringBuilder text = new StringBuilder();
+        for (Field field : block.members()) {
+            String optionTooltip = tooltipText(field.option);
+            if (!optionTooltip.isBlank()) {
+                if (text.length() > 0) {
+                    text.append(" | ");
+                }
+                text.append(displayFlag(field.option)).append(": ").append(optionTooltip);
+            }
+        }
+        if (text.length() > 0) {
+            component.setToolTipText(text.toString());
+        }
+    }
+
+    /**
+     * Returns the tooltip text for an option.
+     *
+     * @param option option metadata
+     * @return tooltip text, or an empty string
+     */
+    private static String tooltipText(CommandOption option) {
+        return option.description() == null ? "" : option.description().trim();
     }
 
     // ------------------------------------------------------------------
@@ -758,7 +795,7 @@ public final class CommandForm extends JPanel {
                 : BorderFactory.createCompoundBorder(
                         BorderFactory.createLineBorder(Theme.STATUS_ERROR_TEXT, 2),
                         Theme.pad(6, 8, 6, 8)));
-        field.editor.setToolTipText(error);
+        field.editor.setToolTipText(error == null ? tooltipText(field.option) : error);
     }
 
     /**
