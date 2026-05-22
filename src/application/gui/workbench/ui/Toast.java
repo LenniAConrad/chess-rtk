@@ -20,6 +20,7 @@ import java.awt.RenderingHints;
 import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
 import java.awt.event.ComponentListener;
+import java.awt.image.BufferedImage;
 import java.util.ArrayList;
 import java.util.IdentityHashMap;
 import java.util.List;
@@ -276,7 +277,7 @@ public final class Toast {
         /**
          * Starts fade-in, visible, and fade-out lifecycle ticks.
          */
-    void startLifecycle() {
+        void startLifecycle() {
             timer = new Timer(TICK_MS, event -> tick());
             timer.setCoalesce(true);
             timer.start();
@@ -301,12 +302,58 @@ public final class Toast {
             repaint();
         }
 
+        /**
+         * Paints the entire toast with one lifecycle alpha so the background,
+         * border, text, and future child controls fade together.
+         *
+         * @param graphics graphics context
+         */
+        @Override
+        public void paint(Graphics graphics) {
+            float componentAlpha = clampedAlpha();
+            if (componentAlpha <= 0f || getWidth() <= 0 || getHeight() <= 0) {
+                return;
+            }
+            if (componentAlpha >= 1f) {
+                super.paint(graphics);
+                return;
+            }
+            BufferedImage buffer = new BufferedImage(getWidth(), getHeight(), BufferedImage.TYPE_INT_ARGB);
+            Graphics2D bufferedGraphics = buffer.createGraphics();
+            try {
+                super.paint(bufferedGraphics);
+            } finally {
+                bufferedGraphics.dispose();
+            }
+            Graphics2D g = (Graphics2D) graphics.create();
+            try {
+                g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, componentAlpha));
+                g.drawImage(buffer, 0, 0, null);
+            } finally {
+                g.dispose();
+            }
+        }
+
+        /**
+         * Returns the current alpha clamped to the range accepted by
+         * {@link AlphaComposite}.
+         *
+         * @return clamped alpha value
+         */
+        private float clampedAlpha() {
+            return Math.max(0f, Math.min(1f, alpha));
+        }
+
+        /**
+         * Paints the toast chrome.
+         *
+         * @param graphics graphics context
+         */
         @Override
         protected void paintComponent(Graphics graphics) {
             Graphics2D g = (Graphics2D) graphics.create();
             try {
                 g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, Math.max(0f, Math.min(1f, alpha))));
                 g.setColor(Theme.withAlpha(Theme.BOARD_SHADOW, 64));
                 g.fillRoundRect(2, 6, getWidth() - 4, getHeight() - 8, 14, 14);
                 g.setColor(backgroundColor(kind));
@@ -327,7 +374,7 @@ public final class Toast {
      * @return background color
      */
     private static Color backgroundColor(Kind kind) {
-    return switch (kind) {
+        return switch (kind) {
             case SUCCESS -> Theme.STATUS_SUCCESS_BG;
             case WARNING -> Theme.STATUS_WARNING_BG;
             case ERROR -> Theme.STATUS_ERROR_BG;
@@ -342,7 +389,7 @@ public final class Toast {
      * @return border color
      */
     private static Color borderColor(Kind kind) {
-    return switch (kind) {
+        return switch (kind) {
             case SUCCESS -> Theme.STATUS_SUCCESS_BORDER;
             case WARNING -> Theme.STATUS_WARNING_BORDER;
             case ERROR -> Theme.STATUS_ERROR_BORDER;
@@ -357,7 +404,7 @@ public final class Toast {
      * @return text color
      */
     private static Color textColor(Kind kind) {
-    return switch (kind) {
+        return switch (kind) {
             case SUCCESS -> Theme.STATUS_SUCCESS_TEXT;
             case WARNING -> Theme.STATUS_WARNING_TEXT;
             case ERROR -> Theme.STATUS_ERROR_TEXT;

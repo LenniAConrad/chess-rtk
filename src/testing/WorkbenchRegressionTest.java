@@ -34,6 +34,7 @@ import javax.swing.JButton;
 import javax.swing.JCheckBox;
 import javax.swing.JCheckBoxMenuItem;
 import javax.swing.JComponent;
+import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JList;
 import javax.swing.JMenu;
@@ -197,6 +198,7 @@ public final class WorkbenchRegressionTest {
         testThemeRefreshRestoresCustomControlUis();
         testThemeInstallSetsTooltipColors();
         testToastUsesBottomRightPlacement();
+        testToastFadeAppliesToTextAndChromeTogether();
         testTextPlaceholdersDoNotSetValues();
         testCollapsibleInfoSectionTogglesContent();
         testCommandTabsReserveSelectedTextWidth();
@@ -1404,6 +1406,23 @@ public final class WorkbenchRegressionTest {
         assertEquals(Integer.valueOf(0), invokeStatic(type("Toast"), "toastX",
                 new Class<?>[] { int.class, int.class }, 180, 220),
                 "oversized toast stays onscreen");
+    }
+
+    /**
+     * Verifies toast fade alpha applies to child text as well as chrome.
+     */
+    private static void testToastFadeAppliesToTextAndChromeTogether() {
+        Object warning = enumValue(type("Toast$Kind"), "WARNING");
+        JComponent toast = (JComponent) construct(type("Toast$ToastPanel"),
+                new Class<?>[] { JFrame.class, type("Toast$Kind"), String.class },
+                null, warning, "Warning text should fade with the bubble");
+        setField(toast, "alpha", 0.25f);
+        Dimension preferred = toast.getPreferredSize();
+        int width = Math.max(320, preferred.width);
+        int height = Math.max(56, preferred.height);
+        toast.setSize(width, height);
+        BufferedImage image = paint(toast, width, height);
+        assertTrue(maxAlpha(image) <= 96, "toast text and chrome share fade alpha");
     }
 
     /**
@@ -2788,6 +2807,22 @@ public final class WorkbenchRegressionTest {
             }
         }
         return sum;
+    }
+
+    /**
+     * Returns the highest alpha value painted into an image.
+     *
+     * @param image image value
+     * @return maximum alpha channel value
+     */
+    private static int maxAlpha(BufferedImage image) {
+        int max = 0;
+        for (int y = 0; y < image.getHeight(); y++) {
+            for (int x = 0; x < image.getWidth(); x++) {
+                max = Math.max(max, new Color(image.getRGB(x, y), true).getAlpha());
+            }
+        }
+        return max;
     }
 
     /**
