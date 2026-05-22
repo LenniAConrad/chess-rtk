@@ -150,12 +150,17 @@ public final class EditorSplitArea extends JPanel {
     /**
      * Maximum watermark rook size.
      */
-    private static final int WATERMARK_MAX_SIZE = 170;
+    private static final int WATERMARK_MAX_SIZE = 240;
 
     /**
-     * Alpha for the empty editor watermark.
+     * Alpha for the dark-mode empty editor watermark.
      */
-    private static final int WATERMARK_ALPHA = 48;
+    private static final int WATERMARK_DARK_ALPHA = 56;
+
+    /**
+     * Alpha for the light-mode empty editor watermark.
+     */
+    private static final int WATERMARK_LIGHT_ALPHA = 20;
 
     /**
      * Panel display names.
@@ -1747,8 +1752,8 @@ public final class EditorSplitArea extends JPanel {
     }
 
     /**
-     * Editor-body host that shows a subtle rook outline when no tab content is
-     * open, mirroring VS Code's empty editor watermark treatment.
+     * Editor-body host that shows a subtle rook silhouette when no tab content
+     * is open, mirroring VS Code's empty editor watermark treatment.
      */
     private static final class EmptyEditorHost extends JPanel {
 
@@ -1766,7 +1771,7 @@ public final class EditorSplitArea extends JPanel {
          * Outer rook silhouette from the embedded SVG, after its local SVG
          * transforms have been applied.
          */
-        private static final Shape ROOK_WATERMARK_OUTLINE = rookSvgOutline();
+        private static final Shape ROOK_WATERMARK_SILHOUETTE = rookSvgSilhouette();
 
         /**
          * Creates an empty editor host.
@@ -1777,7 +1782,7 @@ public final class EditorSplitArea extends JPanel {
 
         /**
          * Paints the normal panel background and, when empty, a muted rook
-         * outline in the center.
+         * silhouette in the center.
          *
          * @param graphics graphics context
          */
@@ -1796,7 +1801,7 @@ public final class EditorSplitArea extends JPanel {
         }
 
         /**
-         * Paints the centered rook outline watermark.
+         * Paints the centered rook silhouette watermark.
          *
          * @param g graphics context
          * @param width host width
@@ -1812,24 +1817,33 @@ public final class EditorSplitArea extends JPanel {
             double x = (width - size) / 2.0;
             double y = (height - size) / 2.0;
             g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-            g.setColor(Theme.withAlpha(Theme.MUTED, WATERMARK_ALPHA));
-            g.setStroke(new BasicStroke(Math.max(1.8f, size / 42.0f),
-                    BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-            g.draw(rookWatermarkShape(x, y, size));
+            g.setColor(watermarkColor());
+            g.fill(rookWatermarkShape(x, y, size));
+        }
+
+        /**
+         * Returns the low-contrast letterpress watermark color for the active
+         * theme.
+         *
+         * @return watermark fill color
+         */
+        private static Color watermarkColor() {
+            int alpha = Theme.isDark() ? WATERMARK_DARK_ALPHA : WATERMARK_LIGHT_ALPHA;
+            return new Color(0, 0, 0, alpha);
         }
 
         /**
          * Extracts the outer silhouette from the embedded rook SVG.
          *
-         * @return transformed rook outline
+         * @return transformed rook silhouette
          */
-        private static Shape rookSvgOutline() {
+        private static Shape rookSvgSilhouette() {
             Svg.ShapeModel shape = ROOK_WATERMARK_DOCUMENT.shapes().get(0);
             return shape.transform().createTransformedShape(shape.path());
         }
 
         /**
-         * Builds a fitted watermark shape from the embedded rook SVG outline.
+         * Builds a fitted watermark shape from the embedded rook SVG silhouette.
          *
          * @param x left edge
          * @param y top edge
@@ -1837,7 +1851,7 @@ public final class EditorSplitArea extends JPanel {
          * @return rook watermark shape
          */
         private static Shape rookWatermarkShape(double x, double y, double size) {
-            Rectangle2D bounds = ROOK_WATERMARK_OUTLINE.getBounds2D();
+            Rectangle2D bounds = ROOK_WATERMARK_SILHOUETTE.getBounds2D();
             double scale = size / Math.max(bounds.getWidth(), bounds.getHeight());
             double scaledWidth = bounds.getWidth() * scale;
             double scaledHeight = bounds.getHeight() * scale;
@@ -1846,7 +1860,7 @@ public final class EditorSplitArea extends JPanel {
                     y + (size - scaledHeight) / 2.0);
             transform.scale(scale, scale);
             transform.translate(-bounds.getX(), -bounds.getY());
-            return transform.createTransformedShape(ROOK_WATERMARK_OUTLINE);
+            return transform.createTransformedShape(ROOK_WATERMARK_SILHOUETTE);
         }
     }
 

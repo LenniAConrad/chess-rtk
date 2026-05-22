@@ -1279,7 +1279,7 @@ public final class WorkbenchRegressionTest {
 
     /**
      * Verifies the editor shell can close to an empty VS Code-style host and
-     * paints a subtle rook outline watermark instead of a blank pane.
+     * paints a subtle rook silhouette watermark instead of a blank pane.
      */
     @SuppressWarnings("unchecked")
     private static void testEditorShellShowsRookWatermarkWhenEmpty() {
@@ -1295,7 +1295,7 @@ public final class WorkbenchRegressionTest {
         JComponent host = (JComponent) field(area, "primaryHost");
         assertEquals(Integer.valueOf(0), Integer.valueOf(host.getComponentCount()),
                 "empty editor host contains no panel");
-        assertEmbeddedRookWatermarkOutline();
+        assertEmbeddedRookWatermarkSilhouette();
 
         host.setSize(360, 300);
         BufferedImage image = paint(host, 360, 300);
@@ -1309,18 +1309,18 @@ public final class WorkbenchRegressionTest {
                 }
             }
         }
-        assertTrue(markedPixels > 80, "empty editor paints rook watermark outline");
+        assertTrue(markedPixels > 1500, "empty editor paints filled rook watermark silhouette");
     }
 
     /**
      * Verifies the empty-editor watermark is sourced from the embedded rook SVG
      * silhouette rather than a simplified hand-built shape.
      */
-    private static void assertEmbeddedRookWatermarkOutline() {
+    private static void assertEmbeddedRookWatermarkSilhouette() {
         try {
             Class<?> hostType = Class.forName("application.gui.workbench.layout.EditorSplitArea$EmptyEditorHost");
-            java.awt.Shape outline = (java.awt.Shape) staticField(hostType, "ROOK_WATERMARK_OUTLINE");
-            java.awt.geom.Rectangle2D bounds = outline.getBounds2D();
+            java.awt.Shape silhouette = (java.awt.Shape) staticField(hostType, "ROOK_WATERMARK_SILHOUETTE");
+            java.awt.geom.Rectangle2D bounds = silhouette.getBounds2D();
             assertTrue(bounds.getWidth() > 110.0 && bounds.getHeight() > 130.0,
                     "empty editor rook watermark uses embedded rook SVG silhouette");
         } catch (ClassNotFoundException ex) {
