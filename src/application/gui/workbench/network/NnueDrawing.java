@@ -91,7 +91,7 @@ public final class NnueDrawing {
         g.setColor(Theme.LINE);
         g.drawRoundRect(r.x, r.y, r.width - 1, r.height - 1,
                 Theme.RADIUS, Theme.RADIUS);
-        g.setColor(accent == null ? Theme.ACCENT : accent);
+        g.setColor(accent == null ? TensorViz.FOCUS : accent);
         g.fillRoundRect(r.x + 3, r.y + 5, 3, r.height - 10, 3, 3);
         g.setFont(Theme.font(9, Font.BOLD));
         FontMetrics labelMetrics = g.getFontMetrics();
@@ -146,7 +146,7 @@ public final class NnueDrawing {
         g.setColor(Theme.LINE);
         g.drawRoundRect(r.x, r.y, r.width - 1, r.height - 1,
                 Theme.RADIUS, Theme.RADIUS);
-        g.setColor(accent == null ? Theme.ACCENT : accent);
+        g.setColor(accent == null ? TensorViz.FOCUS : accent);
         g.fillRoundRect(r.x + 4, r.y + 7, 4, r.height - 14, 4, 4);
         g.setFont(Theme.font(10, Font.BOLD));
         FontMetrics fm = g.getFontMetrics();
@@ -395,7 +395,7 @@ public final class NnueDrawing {
         g.fillRoundRect(bg.x, bg.y, bg.width, bg.height, 4, 4);
         g.setColor(Theme.LINE);
         g.drawRoundRect(bg.x, bg.y, bg.width - 1, bg.height - 1, 4, 4);
-        g.setColor(Theme.ACCENT);
+        g.setColor(TensorViz.FOCUS);
         g.drawString(text, x, y);
     }
 

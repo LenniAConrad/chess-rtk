@@ -272,7 +272,7 @@ public final class Bt4View extends NetworkView {
                 int ax1 = x + boxW;
                 int ax2 = x + boxW + gap;
                 int ay = y + boxH / 2;
-                g.setColor(Theme.ACCENT);
+                g.setColor(TensorViz.TRUNK);
                 g.drawLine(ax1 + 2, ay, ax2 - 6, ay);
                 int[] xs = { ax2 - 6, ax2 - 12, ax2 - 12 };
                 int[] ys = { ay, ay - 5, ay + 5 };
@@ -463,7 +463,7 @@ public final class Bt4View extends NetworkView {
                 }
                 drawGammaHeatmap(g, boardCell, energy[b][h], 8, 8, energyMax[b]);
                 boolean selected = b == selectedBlock && h == selectedHead;
-                Color border = selected ? Theme.ACCENT : Theme.LINE;
+                Color border = selected ? TensorViz.FOCUS : Theme.LINE;
                 g.setColor(border);
                 g.drawRect(x, y, cellW - 1, cellH - 1);
                 if (selected) {
@@ -569,7 +569,7 @@ public final class Bt4View extends NetworkView {
                 }
                 boolean selected = b == selectedBlock && h == selectedHead;
                 if (selected) {
-                    g.setColor(Theme.ACCENT);
+                    g.setColor(TensorViz.FOCUS);
                     g.drawRect(x, y, cellW - 1, cellH - 1);
                     g.drawRect(x + 1, y + 1, cellW - 3, cellH - 3);
                 }
@@ -648,7 +648,7 @@ public final class Bt4View extends NetworkView {
         if (values != null) {
             float scale = scaleFor("bt4Atlas:board:" + title, maxAbs(values));
             TensorViz.drawSquareOverlay(g, board, values, scale, false);
-            TensorViz.drawBoardSquareRing(g, board, focusSquare, Theme.ACCENT);
+            TensorViz.drawBoardSquareRing(g, board, focusSquare, TensorViz.FOCUS);
             addBoardSquareTooltips(board, values, caption);
         }
         TensorViz.drawBoardCoordinates(g, board);
@@ -743,7 +743,7 @@ public final class Bt4View extends NetworkView {
         }
         // Blit one bitmap instead of cols x rows fills — the raw atlas packs
         // 480 attention heads, so the per-cell loop froze the whole tab.
-        TensorViz.drawGammaHeatmap(g, r, data, cols, rows, scale);
+        TensorViz.drawGammaHeatmap(g, r, data, cols, rows, scale, TensorViz.POLICY);
         g.setColor(Theme.withAlpha(Theme.TEXT, 36));
         g.drawRect(r.x, r.y, r.width - 1, r.height - 1);
     }
@@ -892,7 +892,7 @@ public final class Bt4View extends NetworkView {
         if (energy != null && energy.length >= 64) {
             float s = scaleFor("tokenEnergy", maxAbs(energy));
             TensorViz.drawSquareOverlay(g, board, energy, s, false);
-            TensorViz.drawBoardSquareRing(g, board, strongestSquare(energy), Theme.ACCENT);
+            TensorViz.drawBoardSquareRing(g, board, strongestSquare(energy), TensorViz.FOCUS);
             addBoardSquareTooltips(board, energy, "Mean attention received");
         }
         TensorViz.drawBoardCoordinates(g, board);
@@ -1052,7 +1052,7 @@ public final class Bt4View extends NetworkView {
         for (int b = 0; b < BLOCKS; ++b) {
             int x = r.x + b * cellW;
             boolean sel = b == selectedBlock;
-            g.setColor(sel ? Theme.ACCENT : Theme.ELEVATED_SOLID);
+            g.setColor(sel ? TensorViz.FOCUS : Theme.ELEVATED_SOLID);
             g.fillRect(x + 1, r.y + 1, cellW - 2, r.height - 2);
             g.setColor(sel ? Theme.PRIMARY_BUTTON_TEXT : Theme.TEXT);
             String label = Integer.toString(b + 1);
@@ -1127,7 +1127,7 @@ public final class Bt4View extends NetworkView {
                         perHeadEnergy[h][selectedSquare], globalMax);
             }
             if (h == selectedHead) {
-                g.setColor(Theme.ACCENT);
+                g.setColor(TensorViz.FOCUS);
                 g.drawRect(x, y, cellW - 1, cellH - 1);
                 g.drawRect(x + 1, y + 1, cellW - 3, cellH - 3);
             } else {
@@ -1179,9 +1179,9 @@ public final class Bt4View extends NetworkView {
         int h = Math.max(2, (int) Math.round(cellH));
         float ratio = scale > 0.0f ? Math.min(1.0f, value / scale) : 0.0f;
         int alpha = 110 + Math.round(120 * ratio);
-        Color edge = new Color(Theme.ACCENT.getRed(),
-                Theme.ACCENT.getGreen(),
-                Theme.ACCENT.getBlue(),
+        Color edge = new Color(TensorViz.FOCUS.getRed(),
+                TensorViz.FOCUS.getGreen(),
+                TensorViz.FOCUS.getBlue(),
                 Math.min(255, alpha));
         g.setColor(edge);
         g.drawRect(x, y, w - 1, h - 1);
@@ -1286,7 +1286,7 @@ public final class Bt4View extends NetworkView {
                 int dr = 7 - sr;
                 int cellW = board.width / 8;
                 int cellH = board.height / 8;
-                g.setColor(Theme.ACCENT);
+                g.setColor(TensorViz.FOCUS);
                 g.drawRect(board.x + sf * cellW, board.y + dr * cellH, cellW, cellH);
                 g.drawRect(board.x + sf * cellW + 1, board.y + dr * cellH + 1, cellW - 2, cellH - 2);
             }

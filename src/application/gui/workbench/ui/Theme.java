@@ -641,8 +641,8 @@ public final class Theme {
     /**
      * Tab strip rollover fill.
      */
-    public static Color TAB_HOVER = new Color(PASTEL_SUBTLE.getRed(), PASTEL_SUBTLE.getGreen(),
-            PASTEL_SUBTLE.getBlue(), 255);
+    public static Color TAB_HOVER = new Color(PASTEL_DOCUMENT.getRed(), PASTEL_DOCUMENT.getGreen(),
+            PASTEL_DOCUMENT.getBlue(), 255);
 
     /**
      * Tab strip resting fill.
@@ -848,6 +848,12 @@ public final class Theme {
      * Trunk / data-flow accent.
      */
     public static Color NN_TRUNK = PASTEL_BLUE;
+
+    /**
+     * Interaction focus accent for selected NN cells, feature anchors, and
+     * graph nodes.
+     */
+    public static Color NN_FOCUS = PASTEL_BLUE;
 
     /**
      * Policy-branch accent.
@@ -1082,6 +1088,7 @@ public final class Theme {
         }
         int rgb = color.getRGB() & 0x00ff_ffff;
         return rgb == (PASTEL_BORDER.getRGB() & 0x00ff_ffff)
+                || rgb == (DARK_SUBTLE.getRGB() & 0x00ff_ffff)
                 || rgb == (DARK_BORDER.getRGB() & 0x00ff_ffff);
     }
 
@@ -1212,7 +1219,7 @@ public final class Theme {
         PRIMARY_BUTTON_TEXT = Color.WHITE;
         setFixedBoardAndEvalColors();
         TAB_ACCENT_UNDERLINE = withAlpha(ACCENT, 255);
-        TAB_HOVER = new Color(PASTEL_SUBTLE.getRed(), PASTEL_SUBTLE.getGreen(), PASTEL_SUBTLE.getBlue(), 255);
+        TAB_HOVER = new Color(PASTEL_DOCUMENT.getRed(), PASTEL_DOCUMENT.getGreen(), PASTEL_DOCUMENT.getBlue(), 255);
         TAB_IDLE = new Color(BG.getRed(), BG.getGreen(), BG.getBlue(), 255);
         SCROLLBAR_TRACK = new Color(PASTEL_CHROME.getRed(), PASTEL_CHROME.getGreen(), PASTEL_CHROME.getBlue(), 0);
         SCROLLBAR_THUMB = new Color(PASTEL_MUTED.getRed(), PASTEL_MUTED.getGreen(), PASTEL_MUTED.getBlue(), 80);
@@ -1238,6 +1245,7 @@ public final class Theme {
         NN_POSITIVE = PASTEL_GREEN;
         NN_NEGATIVE = PASTEL_CORAL;
         NN_TRUNK = PASTEL_BLUE;
+        NN_FOCUS = PASTEL_BLUE;
         NN_POLICY = PASTEL_PURPLE;
         NN_VALUE = PASTEL_GREEN;
         NN_NEUTRAL = PASTEL_SUBTLE;
@@ -1254,7 +1262,7 @@ public final class Theme {
         PANEL_SOLID = blendOver(PANEL, BG);
         ELEVATED = DARK_ELEVATED;
         ELEVATED_SOLID = blendOver(ELEVATED, BG);
-        LINE = DARK_BORDER;
+        LINE = DARK_SUBTLE;
         TEXT = DARK_INK;
         MUTED = DARK_MUTED;
         ACCENT = DARK_ACCENT;
@@ -1263,11 +1271,11 @@ public final class Theme {
         ACCENT_HOVER = DARK_ACCENT_HOVER;
         ACCENT_PRESSED = DARK_ACCENT_PRESSED;
         SECONDARY_BUTTON = DARK_ELEVATED;
-        SECONDARY_BUTTON_HOVER = DARK_BORDER;
-        SECONDARY_BUTTON_PRESSED = DARK_BORDER;
+        SECONDARY_BUTTON_HOVER = DARK_SUBTLE;
+        SECONDARY_BUTTON_PRESSED = DARK_SUBTLE;
         SECONDARY_BUTTON_TEXT = DARK_INK;
         BUTTON_DISABLED_BG = DARK_SUBTLE;
-        BUTTON_DISABLED_BORDER = DARK_BORDER;
+        BUTTON_DISABLED_BORDER = DARK_SUBTLE;
         BUTTON_DISABLED_TEXT = new Color(133, 133, 133);
         INPUT_BORDER = DARK_BORDER;
         INPUT_FOCUS = DARK_ACCENT;
@@ -1275,7 +1283,7 @@ public final class Theme {
         TOGGLE_BG = DARK_SUBTLE;
         TOGGLE_BORDER = DARK_BORDER;
         TOGGLE_TRACK = DARK_MUTED;
-        TOGGLE_ON_BG = SELECTION;
+        TOGGLE_ON_BG = new Color(36, 137, 219, 130);
         TOGGLE_ON_TRACK = DARK_ACCENT_HOVER;
         TOGGLE_THUMB = DARK_INK;
         INPUT = DARK_ELEVATED;
@@ -1286,7 +1294,7 @@ public final class Theme {
         PRIMARY_BUTTON_TEXT = Color.WHITE;
         setFixedBoardAndEvalColors();
         TAB_ACCENT_UNDERLINE = withAlpha(ACCENT, 255);
-        TAB_HOVER = new Color(DARK_ELEVATED.getRed(), DARK_ELEVATED.getGreen(), DARK_ELEVATED.getBlue(), 255);
+        TAB_HOVER = new Color(DARK_DOCUMENT.getRed(), DARK_DOCUMENT.getGreen(), DARK_DOCUMENT.getBlue(), 255);
         TAB_IDLE = new Color(BG.getRed(), BG.getGreen(), BG.getBlue(), 255);
         SCROLLBAR_TRACK = new Color(DARK_CHROME.getRed(), DARK_CHROME.getGreen(), DARK_CHROME.getBlue(), 0);
         SCROLLBAR_THUMB = new Color(DARK_MUTED.getRed(), DARK_MUTED.getGreen(), DARK_MUTED.getBlue(), 82);
@@ -1312,6 +1320,7 @@ public final class Theme {
         NN_POSITIVE = DARK_GREEN;
         NN_NEGATIVE = DARK_CORAL;
         NN_TRUNK = DARK_ACCENT;
+        NN_FOCUS = DARK_ACCENT;
         NN_POLICY = DARK_PURPLE;
         NN_VALUE = DARK_GREEN;
         NN_NEUTRAL = DARK_SUBTLE;

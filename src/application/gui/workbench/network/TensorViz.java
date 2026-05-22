@@ -41,6 +41,11 @@ public final class TensorViz {
     public static Color TRUNK = Theme.NN_TRUNK;
 
     /**
+     * Selection and focus accent for NN visualizations.
+     */
+    public static Color FOCUS = Theme.NN_FOCUS;
+
+    /**
      * Policy-branch accent.
      */
     public static Color POLICY = Theme.NN_POLICY;
@@ -74,6 +79,7 @@ public final class TensorViz {
         POSITIVE = Theme.NN_POSITIVE;
         NEGATIVE = Theme.NN_NEGATIVE;
         TRUNK = Theme.NN_TRUNK;
+        FOCUS = Theme.NN_FOCUS;
         POLICY = Theme.NN_POLICY;
         VALUE = Theme.NN_VALUE;
         NEUTRAL = Theme.NN_NEUTRAL;
@@ -95,7 +101,7 @@ public final class TensorViz {
         g.setColor(Theme.LINE);
         g.drawRoundRect(r.x, r.y, r.width - 1, r.height - 1,
                 Theme.RADIUS, Theme.RADIUS);
-        g.setColor(Theme.ACCENT);
+        g.setColor(FOCUS);
         g.fillRoundRect(r.x, r.y, 4, r.height,
                 Theme.RADIUS, Theme.RADIUS);
         g.setColor(Theme.TEXT);
@@ -276,12 +282,28 @@ public final class TensorViz {
      */
     public static void drawGammaHeatmap(Graphics2D g, Rectangle r, float[] data, int cols, int rows,
             float scale) {
+        drawGammaHeatmap(g, r, data, cols, rows, scale, FOCUS);
+    }
+
+    /**
+     * Fast sequential heatmap with a caller-provided NN palette tint.
+     *
+     * @param g graphics
+     * @param r destination rectangle
+     * @param data flat row-major values
+     * @param cols column count
+     * @param rows row count
+     * @param scale absolute max for the colour ramp
+     * @param tint palette color for the strongest cells
+     */
+    public static void drawGammaHeatmap(Graphics2D g, Rectangle r, float[] data, int cols, int rows,
+            float scale, Color tint) {
         if (data == null || cols <= 0 || rows <= 0 || data.length < cols * rows
                 || r.width <= 0 || r.height <= 0) {
             return;
         }
         float s = scale <= 0.0f ? 1.0f : scale;
-        Color base = Theme.ACCENT;
+        Color base = tint == null ? FOCUS : tint;
         int rgb = (base.getRed() << 16) | (base.getGreen() << 8) | base.getBlue();
         java.awt.image.BufferedImage image =
                 new java.awt.image.BufferedImage(cols, rows, java.awt.image.BufferedImage.TYPE_INT_ARGB);
@@ -329,11 +351,11 @@ public final class TensorViz {
             int ww = Math.round(bar.width * w);
             int dw = Math.round(bar.width * d);
             int lw = Math.max(0, bar.width - ww - dw);
-            g.setColor(Theme.STATUS_SUCCESS_BORDER);
+            g.setColor(POSITIVE);
             g.fillRect(bar.x, bar.y, ww, bar.height);
             g.setColor(Theme.LINE);
             g.fillRect(bar.x + ww, bar.y, dw, bar.height);
-            g.setColor(Theme.STATUS_ERROR_BORDER);
+            g.setColor(NEGATIVE);
             g.fillRect(bar.x + ww + dw, bar.y, lw, bar.height);
             g.setColor(Theme.LINE);
             g.drawRect(bar.x, bar.y, bar.width - 1, bar.height - 1);
@@ -404,15 +426,15 @@ public final class TensorViz {
     }
 
     /**
-     * Returns a sequential color for a value in [0, 1] using the workbench
-     * accent so single-sided magnitudes match the rest of the UI chrome.
+     * Returns a sequential color for a value in [0, 1] using the NN focus
+     * accent so single-sided magnitudes stay inside the neural palette.
      *
      * @param value sequential value
      * @return color
      */
     public static Color sequentialRamp(float value) {
         float v = clamp(value, 0.0f, 1.0f);
-    return lerp(HEAT_ZERO, Theme.ACCENT, v);
+    return lerp(HEAT_ZERO, FOCUS, v);
     }
 
     /**
@@ -754,7 +776,7 @@ public final class TensorViz {
         Color fill = signedRamp(value);
         g.setColor(fill);
         g.fillOval(cx - radius, cy - radius, radius * 2, radius * 2);
-        g.setColor(selected ? Theme.ACCENT : Theme.LINE);
+        g.setColor(selected ? FOCUS : Theme.LINE);
         g.setStroke(new BasicStroke(selected ? 2.0f : 1.0f));
         g.drawOval(cx - radius, cy - radius, radius * 2, radius * 2);
         g.setStroke(new BasicStroke(1.0f));
@@ -789,7 +811,7 @@ public final class TensorViz {
             int pieceCode, int pieceSquare) {
         drawMiniBoard(g, r);
         drawSquareLetter(g, r, kingSquare, "K",
-                Theme.withAlpha(Theme.ACCENT, 200));
+                Theme.withAlpha(FOCUS, 200));
         char letter = "PNBRQpnbrq".charAt(Math.min(9, Math.max(0, pieceCode)));
         Color tint = pieceCode >= 5
                 ? Theme.withAlpha(NEGATIVE, 200)

@@ -57,6 +57,7 @@ import javax.swing.text.AttributeSet;
 import javax.swing.text.StyleConstants;
 
 import application.gui.workbench.game.GameModel;
+import application.gui.workbench.network.TensorViz;
 import application.gui.workbench.ui.Theme;
 import application.gui.workbench.ui.Ui;
 import application.gui.workbench.window.SettingsMenu;
@@ -171,6 +172,8 @@ public final class WorkbenchRegressionTest {
         testToggleSwitchAnimatesStateChanges();
         testCommandFormOptionalTogglesFillLeadColumn();
         testThemeColorContrast();
+        testThemeUsesVscodeModernChromeTokens();
+        testNetworkPaletteUsesSemanticFocusColor();
         testThemeRefreshPreservesLabelRoles();
         testThemeRefreshUpdatesLineBorders();
         testThemeRefreshRestoresCustomControlUis();
@@ -904,6 +907,58 @@ public final class WorkbenchRegressionTest {
         assertCurrentThemeContrast("dark");
         invokeStatic(type("Theme"), "setMode", new Class<?>[] { modeType },
                 enumValue(modeType, "LIGHT"));
+    }
+
+    /**
+     * Verifies the workbench chrome uses the official VS Code Modern palette
+     * stops for light and dark mode.
+     */
+    private static void testThemeUsesVscodeModernChromeTokens() {
+        Theme.setMode(Theme.Mode.LIGHT);
+        assertColor(new Color(0xF8F8F8), themeColor("BG"), "light VS Code panel background");
+        assertColor(Color.WHITE, themeColor("PANEL_SOLID"), "light VS Code editor background");
+        assertColor(Color.WHITE, themeColor("ELEVATED_SOLID"), "light VS Code dropdown background");
+        assertColor(new Color(0xE5E5E5), themeColor("LINE"), "light VS Code panel border");
+        assertColor(new Color(0xCECECE), themeColor("INPUT_BORDER"), "light VS Code input border");
+        assertColor(new Color(0xFFFFFF), themeColor("TAB_HOVER"), "light VS Code tab hover");
+        assertColor(new Color(0xF8F8F8), themeColor("TAB_IDLE"), "light VS Code inactive tab");
+        assertColor(new Color(0x3B3B3B), themeColor("TEXT"), "light VS Code foreground");
+        assertColor(new Color(0x616161), themeColor("MUTED"), "light VS Code muted foreground");
+        assertColor(new Color(0x005FB8), themeColor("ACCENT"), "light VS Code accent");
+        assertColor(new Color(0xBED6ED), themeColor("TOGGLE_ON_BG"), "light VS Code active option fill");
+
+        Theme.setMode(Theme.Mode.DARK);
+        assertColor(new Color(0x181818), themeColor("BG"), "dark VS Code panel background");
+        assertColor(new Color(0x1F1F1F), themeColor("PANEL_SOLID"), "dark VS Code editor background");
+        assertColor(new Color(0x313131), themeColor("ELEVATED_SOLID"), "dark VS Code dropdown background");
+        assertColor(new Color(0x2B2B2B), themeColor("LINE"), "dark VS Code panel border");
+        assertColor(new Color(0x3C3C3C), themeColor("INPUT_BORDER"), "dark VS Code input border");
+        assertColor(new Color(0x1F1F1F), themeColor("TAB_HOVER"), "dark VS Code tab hover");
+        assertColor(new Color(0x181818), themeColor("TAB_IDLE"), "dark VS Code inactive tab");
+        assertColor(new Color(0xCCCCCC), themeColor("TEXT"), "dark VS Code foreground");
+        assertColor(new Color(0x9D9D9D), themeColor("MUTED"), "dark VS Code muted foreground");
+        assertColor(new Color(0x0078D4), themeColor("ACCENT"), "dark VS Code accent");
+        assertColor(new Color(36, 137, 219, 130), themeColor("TOGGLE_ON_BG"),
+                "dark VS Code active option fill");
+        Theme.setMode(Theme.Mode.LIGHT);
+    }
+
+    /**
+     * Verifies NN visual helpers use the semantic NN palette instead of the
+     * generic application accent.
+     */
+    private static void testNetworkPaletteUsesSemanticFocusColor() {
+        Theme.setMode(Theme.Mode.LIGHT);
+        TensorViz.refreshPalette();
+        assertColor(themeColor("NN_FOCUS"), TensorViz.FOCUS, "light NN focus alias");
+        assertColor(TensorViz.FOCUS, TensorViz.sequentialRamp(1.0f), "light sequential NN ramp");
+
+        Theme.setMode(Theme.Mode.DARK);
+        TensorViz.refreshPalette();
+        assertColor(themeColor("NN_FOCUS"), TensorViz.FOCUS, "dark NN focus alias");
+        assertColor(TensorViz.FOCUS, TensorViz.sequentialRamp(1.0f), "dark sequential NN ramp");
+        Theme.setMode(Theme.Mode.LIGHT);
+        TensorViz.refreshPalette();
     }
 
     /**

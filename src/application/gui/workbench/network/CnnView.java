@@ -312,7 +312,7 @@ public final class CnnView extends NetworkView {
                 if (off + 64 <= info.values.length) {
                     System.arraycopy(info.values, off, slice, 0, 64);
                 }
-                drawGammaHeatmap(g, cell, slice, 8, 8, perLayerScale[li]);
+                drawGammaHeatmap(g, cell, slice, 8, 8, perLayerScale[li], colorFor(info.name));
             }
             // One zoom hit region per layer row.
             hitRegions.add(new Rectangle(body.x, y, body.width, cellH),
@@ -362,7 +362,7 @@ public final class CnnView extends NetworkView {
             if (off + 64 <= info.values.length) {
                 System.arraycopy(info.values, off, slice, 0, 64);
             }
-            drawGammaHeatmap(g, r, slice, 8, 8, scale);
+            drawGammaHeatmap(g, r, slice, 8, 8, scale, colorFor(info.name));
             if (cell >= 26) {
                 g.setColor(Theme.MUTED);
                 g.drawString(Integer.toString(c), x + 2, y + 10);
@@ -374,7 +374,7 @@ public final class CnnView extends NetworkView {
 
     /**
      * Sequential heatmap with a sqrt gamma so low values stay visible.
-     * Mirrors the BT4 raw atlas style — warm amber on a low-alpha base.
+     * Uses the selected layer's semantic NN palette color.
      *
      * @param g graphics
      * @param r destination rectangle
@@ -382,13 +382,14 @@ public final class CnnView extends NetworkView {
      * @param cols column count
      * @param rows row count
      * @param scale absolute max for the colour ramp
+     * @param tint semantic NN palette tint
      */
     private static void drawGammaHeatmap(Graphics2D g, Rectangle r, float[] data,
-            int cols, int rows, float scale) {
+            int cols, int rows, float scale, Color tint) {
         // Render into a cols x rows bitmap and blit it once. The raw atlas
         // packs thousands of these, so a per-data-cell fillRect loop turned
         // every repaint into millions of draw calls and froze the tab.
-        TensorViz.drawGammaHeatmap(g, r, data, cols, rows, scale);
+        TensorViz.drawGammaHeatmap(g, r, data, cols, rows, scale, tint);
     }
 
     /**
@@ -610,7 +611,7 @@ public final class CnnView extends NetworkView {
         if (values != null) {
             float scale = scaleFor("cnnAtlas:board:" + title, maxAbs(values));
             TensorViz.drawSquareOverlay(g, board, values, scale, false);
-            TensorViz.drawBoardSquareRing(g, board, focusSquare, Theme.ACCENT);
+            TensorViz.drawBoardSquareRing(g, board, focusSquare, TensorViz.FOCUS);
             addBoardSquareTooltips(board, values, caption);
         }
         TensorViz.drawBoardCoordinates(g, board);
@@ -919,7 +920,7 @@ public final class CnnView extends NetworkView {
         if (heatmap != null && heatmap.length >= 64) {
             float s = scaleFor("policyAttention", maxAbs(heatmap));
             TensorViz.drawSquareOverlay(g, board, heatmap, s, false);
-            TensorViz.drawBoardSquareRing(g, board, strongestSquare(heatmap, true), Theme.ACCENT);
+            TensorViz.drawBoardSquareRing(g, board, strongestSquare(heatmap, true), TensorViz.FOCUS);
             addBoardSquareTooltips(board, heatmap, "Final-map mean activation");
         }
         TensorViz.drawBoardCoordinates(g, board);
@@ -1123,7 +1124,7 @@ public final class CnnView extends NetworkView {
             g.setColor(accent);
             g.fillRect(card.x + 8, card.y + card.height - 10, Math.round(barW * a), 3);
             if (selected) {
-                g.setColor(Theme.ACCENT);
+                g.setColor(TensorViz.FOCUS);
                 g.drawRect(card.x - 2, card.y - 2, card.width + 3, card.height + 3);
             }
             cellHitBoxes.add(card);
@@ -1167,7 +1168,7 @@ public final class CnnView extends NetworkView {
             if (perSquare != null) {
                 float s = scaleFor("detailedBoard:" + info.name, maxAbs(perSquare));
                 TensorViz.drawSquareOverlay(g, board, perSquare, s, false);
-                TensorViz.drawBoardSquareRing(g, board, strongestSquare(perSquare, true), Theme.ACCENT);
+                TensorViz.drawBoardSquareRing(g, board, strongestSquare(perSquare, true), TensorViz.FOCUS);
                 addBoardSquareTooltips(board, perSquare,
                         info.name + " · mean activity (channel-averaged)");
             }
@@ -1600,7 +1601,7 @@ public final class CnnView extends NetworkView {
                 int ax1 = x + boxW;
                 int ax2 = x + boxW + gap;
                 int ay = y + boxH / 2;
-                g.setColor(Theme.ACCENT);
+                g.setColor(TensorViz.TRUNK);
                 g.drawLine(ax1 + 2, ay, ax2 - 6, ay);
                 int[] xs = { ax2 - 6, ax2 - 12, ax2 - 12 };
                 int[] ys = { ay, ay - 5, ay + 5 };

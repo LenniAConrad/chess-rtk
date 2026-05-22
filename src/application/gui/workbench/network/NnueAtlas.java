@@ -475,7 +475,7 @@ public final class NnueAtlas {
         int cy = (int) Math.floor(tile.y + drawRank * ch);
         int cw2 = (int) Math.ceil(cw + 1);
         int ch2 = (int) Math.ceil(ch + 1);
-        g.setColor(Theme.ACCENT);
+        g.setColor(TensorViz.FOCUS);
         g.drawRect(cx, cy, cw2 - 1, ch2 - 1);
     }
 
@@ -551,7 +551,7 @@ public final class NnueAtlas {
             g.fillRect(cellX, cellY, cellW, cellH);
         }
         if (selected) {
-            g.setColor(Theme.ACCENT);
+            g.setColor(TensorViz.FOCUS);
             g.drawRect(r.x, r.y, r.width - 1, r.height - 1);
             g.drawRect(r.x - 1, r.y - 1, r.width + 1, r.height + 1);
         }
