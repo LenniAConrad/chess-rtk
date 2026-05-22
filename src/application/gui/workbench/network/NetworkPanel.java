@@ -19,7 +19,6 @@ import java.awt.FlowLayout;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
-import java.lang.reflect.InvocationTargetException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDateTime;
@@ -180,10 +179,20 @@ public final class NetworkPanel extends JPanel {
     private final StatusBadge statusBadge = new StatusBadge();
 
     /**
-     * Small paint throttle so one streamed MCTS leaf can actually be seen
-     * before the next playout starts.
+     * Playout interval between Network-tab MCTS UI snapshots.
      */
-    private static final int MCTS_FRAME_DELAY_MS = 20;
+    private static final int NETWORK_MCTS_PUBLISH_INTERVAL = 24;
+
+    /**
+     * Minimum time between Network-tab MCTS UI snapshots.
+     */
+    private static final long NETWORK_MCTS_MIN_UPDATE_NANOS = 70_000_000L;
+
+    /**
+     * Playout interval where the background worker yields briefly so pointer
+     * and keyboard events stay responsive on smaller machines.
+     */
+    private static final int NETWORK_MCTS_YIELD_INTERVAL = 64;
 
     /**
      * Starts a PUCT search rooted at the current network position.
@@ -323,7 +332,7 @@ public final class NetworkPanel extends JPanel {
     /**
      * Worker for the Network-tab PUCT search.
      */
-    private SwingWorker<Void, Void> mctsWorker;
+    private SwingWorker<Void, MctsSearch.Snapshot> mctsWorker;
 
     /**
      * Active Network-tab PUCT search.
@@ -1072,21 +1081,40 @@ public final class NetworkPanel extends JPanel {
     final MctsSearch search = mctsSearch;
         mctsLeafFen = root.toString();
         updateNetworkMctsButtons(true);
-        SwingWorker<Void, Void> activeWorker = new SwingWorker<>() {
+        SwingWorker<Void, MctsSearch.Snapshot> activeWorker = new SwingWorker<>() {
             @Override
             protected Void doInBackground() throws Exception {
-                streamNetworkMctsFrame(search.snapshot(false), true);
+                publish(search.snapshot(false));
+                long lastPublishNanos = System.nanoTime();
                 while (!isCancelled() && search.shouldContinue(budget, maxMillis)) {
                     if (mctsPaused) {
-                        streamNetworkMctsFrame(search.snapshot(true), true);
+                        publish(search.snapshot(true));
+                        lastPublishNanos = System.nanoTime();
                         Thread.sleep(80L);
                         continue;
                     }
                     search.iterate();
-                    streamNetworkMctsFrame(search.snapshot(false), true);
+                    long playouts = search.playouts();
+                    long now = System.nanoTime();
+                    if (playouts % NETWORK_MCTS_PUBLISH_INTERVAL == 0
+                            || now - lastPublishNanos >= NETWORK_MCTS_MIN_UPDATE_NANOS) {
+                        publish(search.snapshot(false));
+                        lastPublishNanos = now;
+                    }
+                    if (playouts % NETWORK_MCTS_YIELD_INTERVAL == 0) {
+                        Thread.sleep(1L);
+                    }
                 }
-                streamNetworkMctsFrame(search.snapshot(mctsPaused), false);
+                publish(search.snapshot(mctsPaused));
                 return null;
+            }
+
+            @Override
+            protected void process(List<MctsSearch.Snapshot> chunks) {
+                if (mctsWorker != this || mctsSearch != search || chunks.isEmpty()) {
+                    return;
+                }
+                showNetworkMctsSnapshot(chunks.get(chunks.size() - 1), true);
             }
 
             @Override
@@ -1114,101 +1142,6 @@ public final class NetworkPanel extends JPanel {
         };
         mctsWorker = activeWorker;
         activeWorker.execute();
-    }
-
-    /**
-     * Streams one MCTS frame all the way through the visualizer before the
-     * worker advances to the next playout.
-     *
-     * @param snapshot tree snapshot to show
-     * @param running true while the worker should be considered active
-     * @throws InterruptedException if the worker is interrupted
-     * @throws InvocationTargetException if the EDT update fails
-     */
-    private void streamNetworkMctsFrame(MctsSearch.Snapshot snapshot,
-            boolean running) throws InterruptedException, InvocationTargetException {
-        if (snapshot == null) {
-            return;
-        }
-        String cardKey = activeCardKeyOnEdt();
-        boolean followLeaf = mctsFollowLeafSelectedOnEdt();
-        String leafFen = snapshot.exploringPosition() == null
-                ? null
-                : snapshot.exploringPosition().toString();
-        ActivationSnapshot activation = null;
-        if (followLeaf && leafFen != null && !leafFen.isBlank()) {
-            String key = cacheKey(cardKey, leafFen);
-            activation = cachedSnapshotOnEdt(key);
-            if (activation == null) {
-                activation = inferSnapshot(cardKey, leafFen);
-            }
-        }
-        if (Thread.currentThread().isInterrupted()) {
-    throw new InterruptedException();
-        }
-        ActivationSnapshot frameActivation = activation;
-        String frameCardKey = cardKey;
-        String frameFen = leafFen;
-        SwingUtilities.invokeAndWait(() -> {
-            if (frameActivation != null && frameFen != null && !frameFen.isBlank()) {
-                snapshotCache.put(cacheKey(frameCardKey, frameFen), frameActivation);
-            }
-            showNetworkMctsSnapshot(snapshot, running, frameCardKey, frameFen, frameActivation);
-            paintNetworkMctsFrameImmediately();
-        });
-        Thread.sleep(MCTS_FRAME_DELAY_MS);
-    }
-
-    /**
-     * Reads the active card key on the EDT.
-     *
-     * @return active card key
-     * @throws InterruptedException if interrupted
-     * @throws InvocationTargetException if the EDT read fails
-     */
-    private String activeCardKeyOnEdt()
-            throws InterruptedException, InvocationTargetException {
-        if (SwingUtilities.isEventDispatchThread()) {
-    return activeCardKey();
-        }
-        String[] out = new String[1];
-        SwingUtilities.invokeAndWait(() -> out[0] = activeCardKey());
-        return out[0];
-    }
-
-    /**
-     * Reads the "follow leaf" toggle on the EDT.
-     *
-     * @return true when the Network view should follow the current leaf
-     * @throws InterruptedException if interrupted
-     * @throws InvocationTargetException if the EDT read fails
-     */
-    private boolean mctsFollowLeafSelectedOnEdt()
-            throws InterruptedException, InvocationTargetException {
-        if (SwingUtilities.isEventDispatchThread()) {
-            return mctsFollowLeafToggle.isSelected();
-        }
-        boolean[] out = new boolean[1];
-        SwingUtilities.invokeAndWait(() -> out[0] = mctsFollowLeafToggle.isSelected());
-        return out[0];
-    }
-
-    /**
-     * Looks up a cached activation snapshot on the EDT.
-     *
-     * @param key cache key
-     * @return cached snapshot or null
-     * @throws InterruptedException if interrupted
-     * @throws InvocationTargetException if the EDT read fails
-     */
-    private ActivationSnapshot cachedSnapshotOnEdt(String key)
-            throws InterruptedException, InvocationTargetException {
-        if (SwingUtilities.isEventDispatchThread()) {
-            return snapshotCache.get(key);
-        }
-        ActivationSnapshot[] out = new ActivationSnapshot[1];
-        SwingUtilities.invokeAndWait(() -> out[0] = snapshotCache.get(key));
-        return out[0];
     }
 
     /**
@@ -1383,16 +1316,6 @@ public final class NetworkPanel extends JPanel {
             case ARCH_BT4 -> provider.inferBt4(fen);
             default -> provider.inferNnue(fen);
         };
-    }
-
-    /**
-     * Forces the current MCTS/network frame to paint while the worker waits.
-     */
-    private void paintNetworkMctsFrameImmediately() {
-        mctsWeightsPanel.paintImmediately(mctsWeightsPanel.getVisibleRect());
-        JComponent view = activeView();
-        view.paintImmediately(view.getVisibleRect());
-        cardPanel.paintImmediately(cardPanel.getVisibleRect());
     }
 
     /**

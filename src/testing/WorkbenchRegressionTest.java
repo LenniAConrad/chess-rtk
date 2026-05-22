@@ -9,6 +9,7 @@ import java.awt.Rectangle;
 import java.awt.event.ActionListener;
 import java.awt.event.MouseEvent;
 import java.awt.image.BufferedImage;
+import java.io.IOException;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -248,6 +249,7 @@ public final class WorkbenchRegressionTest {
         testCommandResultParserSummaries();
         testDashboardPanelConstructsHeadlessly();
         testNetworkPanelSimpleControlsRenderHeadlessly();
+        testNetworkMctsUpdatesAreNonBlocking();
         testNetworkDiagnosticsPreviewHighlightsConfig();
         testNetworkDiagnosticsPreviewRecolorsForDarkTheme();
         testNnueViewsPaintSyntheticSnapshotHeadlessly();
@@ -3286,6 +3288,26 @@ public final class WorkbenchRegressionTest {
         Theme.setMode(Theme.Mode.LIGHT);
         timer.stop();
         invoke(panel, "dispose", new Class<?>[0]);
+    }
+
+    /**
+     * Verifies Network-tab MCTS uses throttled SwingWorker publishing instead
+     * of blocking the event thread for every streamed playout.
+     */
+    private static void testNetworkMctsUpdatesAreNonBlocking() {
+        String source;
+        try {
+            source = Files.readString(Path.of("src/application/gui/workbench/network/NetworkPanel.java"),
+                    StandardCharsets.UTF_8);
+        } catch (IOException ex) {
+            throw new AssertionError("unable to read NetworkPanel source", ex);
+        }
+        assertFalse(source.contains("invokeAndWait"),
+                "network MCTS does not block the EDT with invokeAndWait");
+        assertFalse(source.contains("paintImmediately"),
+                "network MCTS does not force synchronous repainting");
+        assertTrue(source.contains("NETWORK_MCTS_PUBLISH_INTERVAL"),
+                "network MCTS has a publish throttle");
     }
 
     /**
