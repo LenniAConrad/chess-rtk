@@ -1028,7 +1028,7 @@ public final class WorkbenchRegressionTest {
 
     /**
      * Verifies the workbench keeps the VS Code Modern neutral chrome stops
-     * while using pastel action-color tokens.
+     * while using vibrant pastel action-color tokens.
      */
     private static void testThemeUsesVscodeChromeWithPastelAccentTokens() {
         Theme.setMode(Theme.Mode.LIGHT);
@@ -1041,8 +1041,8 @@ public final class WorkbenchRegressionTest {
         assertColor(new Color(0xF8F8F8), themeColor("TAB_IDLE"), "light VS Code inactive tab");
         assertColor(new Color(0x3B3B3B), themeColor("TEXT"), "light VS Code foreground");
         assertColor(new Color(0x616161), themeColor("MUTED"), "light VS Code muted foreground");
-        assertColor(new Color(0xB5D7F2), themeColor("ACCENT"), "light pastel accent");
-        assertColor(new Color(0xD6EAF8), themeColor("TOGGLE_ON_BG"), "light pastel active option fill");
+        assertColor(new Color(0x8ECBF4), themeColor("ACCENT"), "light vibrant pastel accent");
+        assertColor(new Color(0xD2EFFF), themeColor("TOGGLE_ON_BG"), "light vibrant pastel active option fill");
 
         Theme.setMode(Theme.Mode.DARK);
         assertColor(new Color(0x181818), themeColor("BG"), "dark VS Code panel background");
@@ -1054,9 +1054,9 @@ public final class WorkbenchRegressionTest {
         assertColor(new Color(0x181818), themeColor("TAB_IDLE"), "dark VS Code inactive tab");
         assertColor(new Color(0xCCCCCC), themeColor("TEXT"), "dark VS Code foreground");
         assertColor(new Color(0x9D9D9D), themeColor("MUTED"), "dark VS Code muted foreground");
-        assertColor(new Color(0x9CCDF2), themeColor("ACCENT"), "dark pastel accent");
-        assertColor(new Color(156, 205, 242, 130), themeColor("TOGGLE_ON_BG"),
-                "dark pastel active option fill");
+        assertColor(new Color(0x79C8FF), themeColor("ACCENT"), "dark vibrant pastel accent");
+        assertColor(new Color(121, 200, 255, 130), themeColor("TOGGLE_ON_BG"),
+                "dark vibrant pastel active option fill");
         Theme.setMode(Theme.Mode.LIGHT);
     }
 
