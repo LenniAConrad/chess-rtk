@@ -32,6 +32,9 @@ import javax.swing.JTextPane;
 import javax.swing.UIManager;
 import javax.swing.JViewport;
 import javax.swing.border.Border;
+import javax.swing.border.CompoundBorder;
+import javax.swing.border.LineBorder;
+import javax.swing.border.MatteBorder;
 import javax.swing.plaf.basic.BasicTextAreaUI;
 import javax.swing.plaf.basic.BasicTextFieldUI;
 import javax.swing.text.JTextComponent;
@@ -963,6 +966,9 @@ public final class Theme {
      * @param component component
      */
     private static void refreshComponent(Component component) {
+        if (component instanceof JComponent jComponent) {
+            refreshBorder(jComponent);
+        }
         if (component instanceof BackdropPanel) {
             component.setBackground(BG);
         } else if (component instanceof SurfacePanel) {
@@ -1034,6 +1040,72 @@ public final class Theme {
                 jComponent.setBackground(BG);
             }
         }
+    }
+
+    /**
+     * Rebuilds stale workbench line borders with the active palette.
+     *
+     * @param component component whose border should be refreshed
+     */
+    private static void refreshBorder(JComponent component) {
+        Border border = component.getBorder();
+        Border refreshed = refreshedBorder(border);
+        if (refreshed != border) {
+            component.setBorder(refreshed);
+        }
+    }
+
+    /**
+     * Returns an equivalent border using the active line color when possible.
+     *
+     * @param border source border
+     * @return refreshed border, or the original border when it is unrelated to
+     *         workbench chrome
+     */
+    private static Border refreshedBorder(Border border) {
+        if (border instanceof CompoundBorder compound) {
+            Border outside = refreshedBorder(compound.getOutsideBorder());
+            Border inside = refreshedBorder(compound.getInsideBorder());
+            if (outside != compound.getOutsideBorder() || inside != compound.getInsideBorder()) {
+                return BorderFactory.createCompoundBorder(outside, inside);
+            }
+        } else if (border instanceof LineBorder line && isWorkbenchLineColor(line.getLineColor())) {
+            return BorderFactory.createLineBorder(currentLineColor(line.getLineColor()),
+                    line.getThickness(), line.getRoundedCorners());
+        } else if (border instanceof MatteBorder matte && isWorkbenchLineColor(matte.getMatteColor())) {
+            Insets insets = matte.getBorderInsets();
+            return BorderFactory.createMatteBorder(insets.top, insets.left,
+                    insets.bottom, insets.right, currentLineColor(matte.getMatteColor()));
+        }
+        return border;
+    }
+
+    /**
+     * Returns whether a color is one of the workbench line tokens.
+     *
+     * @param color border color
+     * @return true when the color should follow {@link #LINE}
+     */
+    private static boolean isWorkbenchLineColor(Color color) {
+        if (color == null) {
+            return false;
+        }
+        int rgb = color.getRGB() & 0x00ff_ffff;
+        return rgb == (PASTEL_BORDER.getRGB() & 0x00ff_ffff)
+                || rgb == (DARK_BORDER.getRGB() & 0x00ff_ffff);
+    }
+
+    /**
+     * Returns the active line color while preserving source alpha.
+     *
+     * @param source source color
+     * @return active line color
+     */
+    private static Color currentLineColor(Color source) {
+        if (source == null || source.getAlpha() == LINE.getAlpha()) {
+            return LINE;
+        }
+        return new Color(LINE.getRed(), LINE.getGreen(), LINE.getBlue(), source.getAlpha());
     }
 
     /**
