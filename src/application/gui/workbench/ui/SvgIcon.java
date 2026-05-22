@@ -161,8 +161,12 @@ public final class SvgIcon implements Icon {
         }
         Kind kind = switch (text) {
             case "Load", "Load Line", "Run", "Run Batch", "Run Publishing", "Generate Report", "Search", "Best",
-                    "Analyze", "Forward", "End", "Smoke" ->
+                    "Analyze", "Smoke" ->
                     Kind.PLAY;
+            case "Start" -> Kind.FIRST;
+            case "Back" -> Kind.PREVIOUS;
+            case "Forward" -> Kind.NEXT;
+            case "End" -> Kind.LAST;
             case "Reset", "Drop Optional", "Clear", "Defaults" -> Kind.RESET;
             case "Flip" -> Kind.FLIP;
             case "Copy", "Copy FEN", "Copy Command", "Copy Report", "Copy PGN", "Copy SAN", "Copy UCI",
@@ -175,7 +179,6 @@ public final class SvgIcon implements Icon {
             case "Actions", "Commands", "Batch", "Game", "Perft", "Engine", "Validate Config", "Analysis data" ->
                     Kind.GRID;
             case "Add Current FEN", "Add to Batch", "New Game" -> Kind.PLUS;
-            case "Back", "Start" -> Kind.BACK;
             case "Publish", "Load File", "Save PGN", "Save Report", "Choose Input", "Choose Output", "Choose PDF",
                     "Choose Cover", "Choose Manifest", "Choose Protocol" ->
                     Kind.FILE;
@@ -249,7 +252,10 @@ public final class SvgIcon implements Icon {
             case TAG -> paintTag(g);
             case GRID -> paintGrid(g);
             case PLUS -> paintPlus(g);
-            case BACK -> paintBack(g);
+            case FIRST -> paintFirst(g);
+            case PREVIOUS -> paintPrevious(g);
+            case NEXT -> paintNext(g);
+            case LAST -> paintLast(g);
             case FILE -> paintFile(g);
         }
     }
@@ -398,10 +404,45 @@ public final class SvgIcon implements Icon {
      *
      * @param g graphics context
      */
-    private void paintBack(Graphics2D g) {
+    private void paintPrevious(Graphics2D g) {
         g.setStroke(STROKE_BOLD);
         g.drawLine(8, 12, 18, 12);
         g.fill(BACK_HEAD);
+    }
+
+    /**
+     * Paints a skip-to-start transport icon.
+     *
+     * @param g graphics context
+     */
+    private void paintFirst(Graphics2D g) {
+        g.setStroke(STROKE_BOLD);
+        g.drawLine(6, 6, 6, 18);
+        g.drawLine(10, 12, 19, 12);
+        g.fill(BACK_HEAD);
+    }
+
+    /**
+     * Paints a next-ply transport icon.
+     *
+     * @param g graphics context
+     */
+    private void paintNext(Graphics2D g) {
+        g.setStroke(STROKE_BOLD);
+        g.drawLine(6, 12, 16, 12);
+        g.fill(makeForwardHead(16));
+    }
+
+    /**
+     * Paints a skip-to-end transport icon.
+     *
+     * @param g graphics context
+     */
+    private void paintLast(Graphics2D g) {
+        g.setStroke(STROKE_BOLD);
+        g.drawLine(5, 12, 14, 12);
+        g.fill(makeForwardHead(14));
+        g.drawLine(18, 6, 18, 18);
     }
 
     /**
@@ -512,6 +553,21 @@ public final class SvgIcon implements Icon {
     }
 
     /**
+     * Builds a forward-arrow head with the supplied tip x coordinate.
+     *
+     * @param tipX arrow tip x coordinate
+     * @return arrowhead path
+     */
+    private static Path2D makeForwardHead(int tipX) {
+        Path2D head = new Path2D.Double();
+        head.moveTo(tipX, 12);
+        head.lineTo(tipX - 5, 7);
+        head.lineTo(tipX - 5, 17);
+        head.closePath();
+        return head;
+    }
+
+    /**
      * Builds the cached file-page outline.
      *
      * @return cached page
@@ -587,9 +643,24 @@ public final class SvgIcon implements Icon {
         PLUS,
 
         /**
-         * Back or start navigation.
+         * Skip-to-start navigation.
          */
-        BACK,
+        FIRST,
+
+        /**
+         * Previous-ply navigation.
+         */
+        PREVIOUS,
+
+        /**
+         * Next-ply navigation.
+         */
+        NEXT,
+
+        /**
+         * Skip-to-end navigation.
+         */
+        LAST,
 
         /**
          * File import/export command.

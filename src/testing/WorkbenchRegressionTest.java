@@ -196,6 +196,7 @@ public final class WorkbenchRegressionTest {
         testResetButtonUsesResetIcon();
         testButtonDisabledIconIsMuted();
         testIconOnlyButtonKeepsIconAfterThemeRefresh();
+        testBoardNavigationButtonsUseTransportIcons();
         testCommandPreviewQuoting();
         testWorkbenchSanRendererUsesNeutralFigurines();
         testGameModelLoadsPgnVariations();
@@ -1568,7 +1569,32 @@ public final class WorkbenchRegressionTest {
         panel.add(button);
         invokeStatic(type("Theme"), "refreshComponentTree", new Class<?>[] { Component.class }, panel);
         assertTrue(button.getIcon() != null, "icon-only button keeps icon after refresh");
-        assertEquals("BACK", String.valueOf(field(button.getIcon(), "kind")), "icon-only button keeps kind");
+        assertEquals("PREVIOUS", String.valueOf(field(button.getIcon(), "kind")), "icon-only button keeps kind");
+    }
+
+    /**
+     * Verifies board-navigation labels resolve to distinct transport glyphs.
+     */
+    private static void testBoardNavigationButtonsUseTransportIcons() {
+        assertButtonIconKind("Start", "FIRST");
+        assertButtonIconKind("Back", "PREVIOUS");
+        assertButtonIconKind("Forward", "NEXT");
+        assertButtonIconKind("End", "LAST");
+    }
+
+    /**
+     * Verifies one button label resolves to the expected icon kind.
+     *
+     * @param label button label
+     * @param kind expected icon kind
+     */
+    private static void assertButtonIconKind(String label, String kind) {
+        JButton button = (JButton) invokeStatic(type("Ui"), "iconButton",
+                new Class<?>[] { String.class, ActionListener.class },
+                label, (ActionListener) event -> {
+                    // no-op test listener
+                });
+        assertEquals(kind, String.valueOf(field(button.getIcon(), "kind")), label + " icon kind");
     }
 
     /**

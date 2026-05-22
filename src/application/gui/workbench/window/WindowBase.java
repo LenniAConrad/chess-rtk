@@ -347,6 +347,26 @@ public abstract class WindowBase extends JFrame {
     protected final JLabel gameStateLabel = new JLabel();
 
     /**
+     * Board-side button that jumps to the first ply.
+     */
+    protected JButton boardStartButton;
+
+    /**
+     * Board-side button that jumps to the previous ply.
+     */
+    protected JButton boardBackButton;
+
+    /**
+     * Board-side button that jumps to the next ply.
+     */
+    protected JButton boardForwardButton;
+
+    /**
+     * Board-side button that jumps to the final ply.
+     */
+    protected JButton boardEndButton;
+
+    /**
      * Duration field.
      */
     protected final JTextField analysisDurationField = new JTextField(Defaults.ANALYSIS_DURATION);

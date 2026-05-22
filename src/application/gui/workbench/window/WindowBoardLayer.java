@@ -200,10 +200,17 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
         fenField.addActionListener(event -> setPositionFromField());
         grid(panel, fenField, c, 0, 1, 4, 1);
 
+        boardStartButton = iconButton("Start", event -> jumpGameTo(0));
+        boardBackButton = iconButton("Back", event -> navigateGame(-1));
+        boardForwardButton = iconButton("Forward", event -> navigateGame(1));
+        boardEndButton = iconButton("End", event -> jumpGameTo(gameModel.lastPly()));
+        updateBoardNavigationControls();
         grid(panel, buttonRow(FlowLayout.LEFT,
                 button("Load", true, event -> setPositionFromField()),
-                iconButton("Back", event -> navigateGame(-1)),
-                iconButton("Forward", event -> navigateGame(1)),
+                boardStartButton,
+                boardBackButton,
+                boardForwardButton,
+                boardEndButton,
                 iconButton("Reset", event -> startNewGame(Setup.getStandardStartFEN()))), c, 0, 2, 4, 1);
         grid(panel, buttonRow(FlowLayout.LEFT,
                 iconButton("Flip", event -> {
@@ -264,6 +271,30 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
         panel.add(button("Tags", false, event -> runTagsCommand()));
         panel.add(button("Perft", false, event -> runPerft()));
         return panel;
+    }
+
+    /**
+     * Synchronizes board-side transport controls with the current game ply.
+     */
+    protected void updateBoardNavigationControls() {
+        boolean canBack = gameModel.canBack();
+        boolean canForward = gameModel.canForward();
+        setNavigationButtonEnabled(boardStartButton, canBack);
+        setNavigationButtonEnabled(boardBackButton, canBack);
+        setNavigationButtonEnabled(boardForwardButton, canForward);
+        setNavigationButtonEnabled(boardEndButton, canForward);
+    }
+
+    /**
+     * Applies an enabled state to one optional navigation button.
+     *
+     * @param button button, possibly null before the board page is built
+     * @param enabled true to enable the button
+     */
+    private static void setNavigationButtonEnabled(JButton button, boolean enabled) {
+        if (button != null) {
+            button.setEnabled(enabled);
+        }
     }
 
     /**

@@ -232,6 +232,7 @@ public abstract class WindowGameLayer extends WindowEngineLayer {
                 + (gameModel.canBack() ? "  |  back" : "")
                 + (gameModel.canForward() ? "  |  forward" : "")
                 + (variations > 0 ? "  |  variations " + variations : ""));
+        updateBoardNavigationControls();
     }
 
     /**
