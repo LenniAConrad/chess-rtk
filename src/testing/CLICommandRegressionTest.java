@@ -105,6 +105,7 @@ public final class CLICommandRegressionTest {
 		testMachineReadableFenAndMoveCommands();
 		testStructuredFenAndMoveFailures();
 		testVersionCommand();
+		testBatchRunCommandScript();
 		testCorePerftCommand();
 		testEngineEvalEvaluatorModes();
 		testHighValueResearchCommands();
@@ -119,6 +120,23 @@ public final class CLICommandRegressionTest {
 	private static void testChess960Lookup() {
 		String output = TestSupport.runMain("fen", CHESS960_COMMAND, "518");
 		assertEquals(CHESS960_STANDARD_FEN, output.strip(), "Chess960 index 518");
+	}
+
+	/**
+	 * Verifies the generic batch runner executes one CLI command per script row.
+	 */
+	private static void testBatchRunCommandScript() {
+		try {
+			Path script = Files.createTempFile("crtk-batch-run-", ".txt");
+			Files.writeString(script, String.join(System.lineSeparator(),
+					"help version",
+					"fen normalize --fen \"" + SIMPLE_FEN + "\""));
+			String output = TestSupport.runMain("batch", "run", "--input", script.toString(), "--quiet");
+			assertTrue(output.contains("Print the launcher version"), "batch run help command");
+			assertTrue(output.contains(SIMPLE_FEN), "batch run fen command");
+		} catch (IOException ex) {
+			throw new AssertionError("batch run temp file failed", ex);
+		}
 	}
 
 	/**

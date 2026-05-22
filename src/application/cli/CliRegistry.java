@@ -7,6 +7,7 @@ import static application.cli.Constants.CMD_WORKBENCH;
 import java.util.List;
 
 import application.cli.command.AnalyzeCommand;
+import application.cli.command.BatchRunCommand;
 import application.cli.command.BestMoveCommand;
 import application.cli.command.Chess960Command;
 import application.cli.command.CleanCommand;
@@ -120,6 +121,7 @@ public final class CliRegistry {
 		root.add(recordGroup());
 		root.add(fenGroup());
 		root.add(genGroup());
+		root.add(batchGroup());
 		root.add(moveGroup());
 		root.add(engineGroup());
 		root.add(positionGroup());
@@ -162,6 +164,28 @@ public final class CliRegistry {
 				.example("crtk version")
 				.example("crtk version --json"));
 		return root;
+	}
+
+	/**
+	 * Builds the batch command group.
+	 *
+	 * @return batch group
+	 */
+	private static CliCommand batchGroup() {
+		CliCommand batch = CliCommand.group("batch", "Run multiple ChessRTK CLI commands")
+				.helpKey("batch")
+				.usage("<action> [options]")
+				.about("Batch execution helpers for command scripts.")
+				.example("crtk batch run --input commands.crtk")
+				.example("printf 'version\\nhelp move list\\n' | crtk batch run --stdin");
+		batch.add(CliCommand.leaf("run", "Run one ChessRTK command per script line", BatchRunCommand::runBatch)
+				.helpKey("batch run")
+				.alias("script")
+				.usage("[options]")
+				.about("Reads UTF-8 command rows. Blank rows and rows starting with `#` are ignored; a leading `crtk` token is optional.")
+				.example("crtk batch run --input commands.crtk")
+				.example("crtk batch run --stdin --keep-going"));
+		return batch;
 	}
 
 	/**

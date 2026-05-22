@@ -58,6 +58,8 @@ import javax.swing.table.TableCellRenderer;
 import javax.swing.text.AttributeSet;
 import javax.swing.text.StyleConstants;
 
+import application.cli.CliCommand;
+import application.cli.CliRegistry;
 import application.gui.workbench.game.GameModel;
 import application.gui.workbench.network.TensorViz;
 import application.gui.workbench.ui.Theme;
@@ -72,6 +74,7 @@ import chess.nn.nnue.FeatureEncoder;
 import chess.struct.Game;
 import chess.struct.Pgn;
 import chess.uci.Output;
+import utility.CommandLine;
 
 /**
  * Headless regression checks for workbench support classes.
@@ -157,6 +160,9 @@ public final class WorkbenchRegressionTest {
         testEngineBatchTasksUseExternalConfigOptions();
         testBatchPanelStartsWithEmptyInputAndSharedDuration();
         testCommandTemplatesHaveCompactTabLabels();
+        testCommandControllerCoversCliRegistry();
+        testBatchRunnerOffersCliScriptForAllCliCommands();
+        testCommandLineTokenizerPreservesQuotedArguments();
         testPublishingPreviewFenCompaction();
         testPublishingVisualPreviewPages();
         testPaletteTokenMatching();
@@ -497,6 +503,96 @@ public final class WorkbenchRegressionTest {
                 String prior = String.valueOf(invoke(templates.get(j), "name", new Class<?>[0]));
                 assertFalse(name.equals(prior), "command tab labels are unique");
             }
+        }
+    }
+
+    /**
+     * Verifies the generic command-controller template is backed by the real CLI
+     * registry.
+     */
+    @SuppressWarnings("unchecked")
+    private static void testCommandControllerCoversCliRegistry() {
+        Object allCli = template("All CLI");
+        List<Object> options = (List<Object>) invoke(allCli, "options", new Class<?>[0]);
+        List<String> choices = List.of();
+        for (Object option : options) {
+            List<String> candidate = (List<String>) invoke(option, "choices", new Class<?>[0]);
+            if (!candidate.isEmpty()) {
+                choices = candidate;
+                break;
+            }
+        }
+        assertFalse(choices.isEmpty(), "all-cli template exposes command choices");
+        for (String path : runnableCliPaths()) {
+            assertTrue(choices.contains(path), "all-cli template covers " + path);
+        }
+        for (String choice : choices) {
+            CliCommand command = CliRegistry.resolve(List.of(choice.split("\\s+")));
+            assertTrue(command != null && command.isRunnable(), "all-cli choice resolves: " + choice);
+        }
+    }
+
+    /**
+     * Verifies the batch runner can execute arbitrary CLI command scripts.
+     */
+    @SuppressWarnings("unchecked")
+    private static void testBatchRunnerOffersCliScriptForAllCliCommands() {
+        Object task = batchTask("CLI script");
+        assertEquals("COMMAND_LINES", String.valueOf(invoke(task, "inputKind", new Class<?>[0])),
+                "CLI script uses command-line input");
+        assertEquals(Boolean.FALSE, invoke(task, "usesFenInput", new Class<?>[0]),
+                "CLI script does not validate commands as FEN");
+        assertEquals(Boolean.TRUE, invoke(task, "usesCommandInput", new Class<?>[0]),
+                "CLI script validates command rows");
+        Path script = Path.of("/tmp/crtk-commands.txt");
+        List<String> args = (List<String>) invoke(task, "build",
+                new Class<?>[] { Path.class, type("CommandTemplates$TemplateContext") },
+                script, templateContext(START_FEN, "1s", "4", "2", "1"));
+        assertEquals(List.of("batch", "run", "--input", script.toString(), "--keep-going"), args,
+                "CLI script delegates to batch run");
+    }
+
+    /**
+     * Verifies raw command fields preserve quoted values and reject unfinished
+     * quotes.
+     */
+    private static void testCommandLineTokenizerPreservesQuotedArguments() {
+        assertEquals(List.of("move", "list", "--fen", "8/8/8/8/8/8/K7/7k w - - 0 1",
+                "--label", "", "a b"),
+                CommandLine.split("move list --fen \"8/8/8/8/8/8/K7/7k w - - 0 1\" --label '' a\\ b"),
+                "command tokenizer preserves quoted FENs and empty values");
+        try {
+            CommandLine.split("move list \"unterminated");
+            throw new AssertionError("unterminated quote should fail");
+        } catch (IllegalArgumentException expected) {
+            assertTrue(expected.getMessage().contains("Unclosed quote"),
+                    "unterminated quote message");
+        }
+    }
+
+    /**
+     * Returns canonical runnable CLI paths from the central registry.
+     *
+     * @return runnable paths
+     */
+    private static List<String> runnableCliPaths() {
+        List<String> paths = new ArrayList<>();
+        collectRunnableCliPaths(CliRegistry.root(), paths);
+        return List.copyOf(paths);
+    }
+
+    /**
+     * Recursively collects runnable CLI paths.
+     *
+     * @param command current command node
+     * @param paths destination list
+     */
+    private static void collectRunnableCliPaths(CliCommand command, List<String> paths) {
+        if (command.isRunnable() && !command.commandPath().isBlank()) {
+            paths.add(command.commandPath());
+        }
+        for (CliCommand child : command.children()) {
+            collectRunnableCliPaths(child, paths);
         }
     }
 

@@ -1,6 +1,7 @@
 package application.gui.workbench.command;
 
 import application.gui.workbench.Defaults;
+import application.gui.workbench.command.CommandTemplates.BatchInputKind;
 import application.gui.workbench.command.CommandTemplates.BatchTask;
 import application.gui.workbench.command.CommandTemplates.TemplateContext;
 import application.gui.workbench.command.CommandTemplates.WorkflowControls;
@@ -30,6 +31,7 @@ import javax.swing.JTextField;
 import javax.swing.SpinnerNumberModel;
 import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
+import utility.CommandLine;
 
 import static application.gui.workbench.ui.Ui.addVerticalFiller;
 import static application.gui.workbench.ui.Ui.button;
@@ -280,19 +282,15 @@ public final class BatchPanel {
         }
         try {
             Path input = null;
-            if (task.usesFenInput()) {
-                FenInput.Summary validation = FenInput.validateBatchFenInput(batchInput.getText());
-                refreshInputStatus();
-                if (validation.rows() == 0) {
-                    host.showError("Batch input", "Add at least one FEN before running this batch task.");
-                    return;
-                }
-                if (validation.hasError()) {
-                    host.showError("Batch input", "Line " + validation.firstErrorLine() + ": "
-                            + validation.firstError());
-                    return;
-                }
-                input = Files.createTempFile("crtk-workbench-fens-", ".txt");
+            if (task.usesFenInput() && !validateFenBatchInput()) {
+                return;
+            }
+            if (task.usesCommandInput() && !validateCommandBatchInput()) {
+                return;
+            }
+            if (task.usesTextInput()) {
+                String prefix = task.usesCommandInput() ? "crtk-workbench-commands-" : "crtk-workbench-fens-";
+                input = Files.createTempFile(prefix, ".txt");
                 input.toFile().deleteOnExit();
                 Files.writeString(input, batchInput.getText(), StandardCharsets.UTF_8);
             }
@@ -300,6 +298,46 @@ public final class BatchPanel {
         } catch (IOException ex) {
             host.showError("Batch input failed", ex.getMessage());
         }
+    }
+
+    /**
+     * Validates the text area as one FEN per row.
+     *
+     * @return true when the input can be written to a temporary file
+     */
+    private boolean validateFenBatchInput() {
+        FenInput.Summary validation = FenInput.validateBatchFenInput(batchInput.getText());
+        refreshInputStatus();
+        if (validation.rows() == 0) {
+            host.showError("Batch input", "Add at least one FEN before running this batch task.");
+            return false;
+        }
+        if (validation.hasError()) {
+            host.showError("Batch input", "Line " + validation.firstErrorLine() + ": "
+                    + validation.firstError());
+            return false;
+        }
+        return true;
+    }
+
+    /**
+     * Validates the text area as one command per row.
+     *
+     * @return true when the input can be written to a temporary file
+     */
+    private boolean validateCommandBatchInput() {
+        CommandScriptSummary summary = scanCommandScript();
+        refreshInputStatus();
+        if (summary.commands() == 0) {
+            host.showError("Batch input", "Add at least one CRTK command before running this batch task.");
+            return false;
+        }
+        if (summary.hasError()) {
+            host.showError("Batch input", "Line " + summary.firstErrorLine() + ": "
+                    + summary.firstError());
+            return false;
+        }
+        return true;
     }
 
     /**
@@ -431,15 +469,37 @@ public final class BatchPanel {
         if (task == null) {
             return;
         }
-        batchInput.setEditable(task.usesFenInput());
+        batchInput.setEditable(task.usesTextInput());
         if (addCurrentFenButton != null) {
             addCurrentFenButton.setEnabled(task.usesFenInput());
         }
         if (clearBatchInputButton != null) {
-            clearBatchInputButton.setEnabled(task.usesFenInput());
+            clearBatchInputButton.setEnabled(task.usesTextInput());
         }
+        updateInputPlaceholder(task);
         rebuildOptionsPanel(task.controls());
         refreshInputStatus();
+    }
+
+    /**
+     * Updates the input area's helper text for the selected task.
+     *
+     * @param task selected batch task
+     */
+    private void updateInputPlaceholder(BatchTask task) {
+        if (task.usesCommandInput()) {
+            String text = "one CRTK command per line; leading 'crtk' is optional";
+            placeholder(batchInput, text);
+            batchInput.setToolTipText(text);
+        } else if (task.usesFenInput()) {
+            String text = "one FEN per line; use Add Current FEN to seed from the board";
+            placeholder(batchInput, text);
+            batchInput.setToolTipText(text);
+        } else {
+            String text = "this task does not use batch input";
+            placeholder(batchInput, text);
+            batchInput.setToolTipText(text);
+        }
     }
 
     /**
@@ -488,11 +548,16 @@ public final class BatchPanel {
         batchInputStatusUpdateQueued = false;
         BatchTask task = (BatchTask) batchTaskCombo.getSelectedItem();
         String taskName = task == null ? "none" : task.name();
-        if (task != null && !task.usesFenInput()) {
-            batchInputStatus.setText("FEN list not used");
-            batchInputStatus.setToolTipText("The selected batch task runs without FEN input.");
+        if (task != null && task.usesCommandInput()) {
+            refreshCommandInputStatus(taskName);
+            host.updatePublishCommand();
+            return;
+        }
+        if (task != null && !task.usesTextInput()) {
+            batchInputStatus.setText("Input not used");
+            batchInputStatus.setToolTipText("The selected batch task runs without text input.");
             Theme.foreground(batchInputStatus, Theme.ForegroundRole.MUTED);
-            host.updateBatchSummary(taskName + " · no FEN input required");
+            host.updateBatchSummary(taskName + " · no input required");
             host.updatePublishCommand();
             return;
         }
@@ -517,5 +582,76 @@ public final class BatchPanel {
                     + (scan.validRows() == 1 ? "" : "s") + " ready");
         }
         host.updatePublishCommand();
+    }
+
+    /**
+     * Updates status text for command-script input.
+     *
+     * @param taskName selected task name
+     */
+    private void refreshCommandInputStatus(String taskName) {
+        CommandScriptSummary scan = scanCommandScript();
+        if (scan.commands() == 0) {
+            batchInputStatus.setText("No commands");
+            batchInputStatus.setToolTipText("Add one CRTK command per line.");
+            Theme.foreground(batchInputStatus, Theme.ForegroundRole.MUTED);
+            host.updateBatchSummary(taskName + " · no commands");
+        } else if (scan.hasError()) {
+            batchInputStatus.setText(scan.commands() + " command"
+                    + (scan.commands() == 1 ? "" : "s") + ", issue on line "
+                    + scan.firstErrorLine());
+            batchInputStatus.setToolTipText(scan.firstError());
+            Theme.foreground(batchInputStatus, Theme.ForegroundRole.WARNING);
+            host.updateBatchSummary(taskName + " · issue on line " + scan.firstErrorLine());
+        } else {
+            batchInputStatus.setText(scan.commands() + " command"
+                    + (scan.commands() == 1 ? "" : "s"));
+            batchInputStatus.setToolTipText("Ready to run command script.");
+            Theme.foreground(batchInputStatus, Theme.ForegroundRole.MUTED);
+            host.updateBatchSummary(taskName + " · " + scan.commands() + " command"
+                    + (scan.commands() == 1 ? "" : "s") + " ready");
+        }
+    }
+
+    /**
+     * Scans the batch input as command-script rows.
+     *
+     * @return script summary
+     */
+    private CommandScriptSummary scanCommandScript() {
+        String[] lines = batchInput.getText().split("\\R", -1);
+        int commands = 0;
+        for (int i = 0; i < lines.length; i++) {
+            String row = lines[i].trim();
+            if (row.isEmpty() || row.startsWith("#")) {
+                continue;
+            }
+            commands++;
+            try {
+                CommandLine.split(row);
+            } catch (IllegalArgumentException ex) {
+                return new CommandScriptSummary(commands, i + 1, ex.getMessage());
+            }
+        }
+        return new CommandScriptSummary(commands, 0, "");
+    }
+
+    /**
+     * Summary of command-script input validation.
+     *
+     * @param commands non-comment command rows
+     * @param firstErrorLine first invalid line, or zero
+     * @param firstError first validation error
+     */
+    private record CommandScriptSummary(int commands, int firstErrorLine, String firstError) {
+
+        /**
+         * Returns whether validation found an error.
+         *
+         * @return true when an error exists
+         */
+        boolean hasError() {
+            return firstErrorLine > 0;
+        }
     }
 }

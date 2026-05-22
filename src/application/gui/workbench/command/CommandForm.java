@@ -31,6 +31,7 @@ import javax.swing.JLabel;
 import javax.swing.JList;
 import javax.swing.JPanel;
 import javax.swing.JTextField;
+import utility.CommandLine;
 
 /**
  * Structured command-builder form. Replaces the flat flag table with a layout
@@ -271,7 +272,11 @@ public final class CommandForm extends JPanel {
                 args.add(field.option.flag());
             }
             if (field.option.takesValue()) {
-                args.add(value);
+                if (field.option.splitValue()) {
+                    args.addAll(CommandLine.split(value));
+                } else {
+                    args.add(value);
+                }
             }
         }
         return List.copyOf(args);
@@ -746,13 +751,14 @@ public final class CommandForm extends JPanel {
         if (field.editor == null) {
             return;
         }
-        field.valid = !isFenOption(field.option) || isValidFen(field.value);
+        String error = validationError(field);
+        field.valid = error == null;
         field.editor.setBorder(field.valid
                 ? field.defaultBorder
                 : BorderFactory.createCompoundBorder(
                         BorderFactory.createLineBorder(Theme.STATUS_ERROR_TEXT, 2),
                         Theme.pad(6, 8, 6, 8)));
-        field.editor.setToolTipText(field.valid ? null : "Not a valid FEN");
+        field.editor.setToolTipText(error);
     }
 
     /**
@@ -788,13 +794,32 @@ public final class CommandForm extends JPanel {
      */
     private boolean isRunnable() {
         for (Field field : fields) {
-            if (field.enabled && isFenOption(field.option)
-                    && field.value != null && !field.value.isBlank()
-                    && !isValidFen(field.value)) {
+            if (field.enabled && validationError(field) != null) {
                 return false;
             }
         }
         return true;
+    }
+
+    /**
+     * Returns a validation error for the field value, or null when valid.
+     *
+     * @param field option field
+     * @return validation error or null
+     */
+    private static String validationError(Field field) {
+        if (field.value != null && !field.value.isBlank() && isFenOption(field.option)
+                && !isValidFen(field.value)) {
+            return "Not a valid FEN";
+        }
+        if (field.option.splitValue()) {
+            try {
+                CommandLine.split(field.value);
+            } catch (IllegalArgumentException ex) {
+                return ex.getMessage();
+            }
+        }
+        return null;
     }
 
     /**
@@ -840,6 +865,9 @@ public final class CommandForm extends JPanel {
         if (!option.takesValue() || option.fixedChoice()) {
             return List.of();
         }
+        if (!option.choices().isEmpty()) {
+            return option.choices();
+        }
         List<String> tokens = new ArrayList<>();
         for (String raw : option.description().split(",")) {
             String piece = raw;
@@ -877,6 +905,9 @@ public final class CommandForm extends JPanel {
         }
         if (option.flag().isBlank() && !option.takesValue() && !defaultValue.isBlank()) {
             return defaultValue;
+        }
+        if (option.flag().isBlank() && option.splitValue()) {
+            return option.choices().isEmpty() ? "arguments" : "command";
         }
         return option.flag().isBlank() ? "argument" : option.flag();
     }

@@ -14,6 +14,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import javax.swing.SwingWorker;
+import utility.CommandLine;
 
 /**
  * Runs CRTK commands in a child JVM using the current classpath.
@@ -323,14 +324,7 @@ public final class CommandRunner {
      * @return command line
      */
     public static String join(List<String> tokens) {
-        StringBuilder sb = new StringBuilder();
-        for (String token : tokens) {
-            if (!sb.isEmpty()) {
-                sb.append(' ');
-            }
-            sb.append(quote(token));
-        }
-        return sb.toString();
+        return CommandLine.join(tokens);
     }
 
     /**
@@ -348,25 +342,6 @@ public final class CommandRunner {
         processArgs.add("application.Main");
         processArgs.addAll(args);
         return processArgs;
-    }
-
-    /**
-     * Quotes one token when necessary.
-     *
-     * @param token raw token
-     * @return quoted token
-     */
-    private static String quote(String token) {
-        if (token == null || token.isEmpty()) {
-            return "\"\"";
-        }
-        for (int i = 0; i < token.length(); i++) {
-            char c = token.charAt(i);
-            if (Character.isWhitespace(c) || c == '"' || c == '\'' || c == '\\') {
-                return "\"" + token.replace("\\", "\\\\").replace("\"", "\\\"") + "\"";
-            }
-        }
-        return token;
     }
 
     /**

@@ -1,5 +1,7 @@
 package application.gui.workbench.command;
 
+import application.cli.CliCommand;
+import application.cli.CliRegistry;
 import chess.core.Setup;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -87,7 +89,7 @@ public final class CommandTemplates {
      * @return command templates
      */
     public static List<CommandTemplate> commandTemplates() {
-        return List.of(
+        List<CommandTemplate> templates = new ArrayList<>(List.of(
     new CommandTemplate("Legal moves", List.of("move", "list"), positionOptions(
                         moveFormatChoice("uci", false, "Print UCI moves"),
                         moveFormatChoice("san", false, "Print SAN moves"),
@@ -192,7 +194,47 @@ public final class CommandTemplates {
                         commonNoHeader(),
                         commonQuiet(),
                         commonVerbose())),
-    new CommandTemplate("Generate FENs", List.of("fen", "generate"), generateFenOptions()));
+    new CommandTemplate("Generate FENs", List.of("fen", "generate"), generateFenOptions())));
+        templates.add(allCliTemplate());
+        return List.copyOf(templates);
+    }
+
+    /**
+     * Builds the generic command template that exposes every registered CLI leaf.
+     *
+     * @return all-CLI template
+     */
+    private static CommandTemplate allCliTemplate() {
+        return new CommandTemplate("All CLI", List.of(), List.of(
+                splitChoice("", "help", true, "Registered command path", runnableCommandChoices()),
+                splitArgument("", true, "Extra arguments after the command path")));
+    }
+
+    /**
+     * Returns runnable command paths and aliases from the central CLI registry.
+     *
+     * @return command path choices
+     */
+    private static List<String> runnableCommandChoices() {
+        List<String> paths = new ArrayList<>();
+        collectRunnableCommandChoices(CliRegistry.root(), paths);
+        return List.copyOf(paths);
+    }
+
+    /**
+     * Recursively collects runnable command paths from one registry node.
+     *
+     * @param command registry node
+     * @param paths destination path list
+     */
+    private static void collectRunnableCommandChoices(CliCommand command, List<String> paths) {
+        if (command.isRunnable() && !command.commandPath().isBlank()) {
+            paths.add(command.commandPath());
+            paths.addAll(command.aliasPaths());
+        }
+        for (CliCommand child : command.children()) {
+            collectRunnableCommandChoices(child, paths);
+        }
     }
 
     /**
@@ -213,6 +255,9 @@ public final class CommandTemplates {
                         (input, ctx) -> engineBatchArgs("analyze-batch", input, ctx, analyzeControls)),
     new BatchTask("Tag FENs", true, noControls,
                         (input, ctx) -> List.of("fen", "tags", "--input", input.toString())),
+    new BatchTask("CLI script", BatchInputKind.COMMAND_LINES, noControls,
+                        (input, ctx) -> List.of("batch", "run", "--input", input.toString(),
+                                "--keep-going")),
     new BatchTask("Perft suite", false, perftControls,
                         (input, ctx) -> perftSuiteArgs(input, ctx, perftControls)),
     new BatchTask("Benchmark", false, benchControls,
@@ -436,6 +481,35 @@ public final class CommandTemplates {
     }
 
     /**
+     * Creates a fixed-choice option whose value is split into argv tokens.
+     *
+     * @param flag command flag, or blank for positional command text
+     * @param value default value
+     * @param enabled whether the option starts enabled
+     * @param description option description
+     * @param choices explicit dropdown choices
+     * @return option
+     */
+    private static CommandOption splitChoice(String flag, String value, boolean enabled, String description,
+            List<String> choices) {
+    return new CommandOption(flag, true, value, enabled, ValueSource.STATIC, description, "", List.of(),
+            false, choices, true);
+    }
+
+    /**
+     * Creates a free-text positional option whose value is split into argv tokens.
+     *
+     * @param value default value
+     * @param enabled whether the option starts enabled
+     * @param description option description
+     * @return option
+     */
+    private static CommandOption splitArgument(String value, boolean enabled, String description) {
+    return new CommandOption("", true, value, enabled, ValueSource.STATIC, description, "", List.of(),
+            false, List.of(), true);
+    }
+
+    /**
      * Creates an option that is part of a mutual-exclusion group.
      *
      * @param flag command flag
@@ -604,7 +678,8 @@ public final class CommandTemplates {
      */
     private static CommandOption exclusiveChoice(String flag, String value, boolean enabled, String description,
             String group) {
-    return new CommandOption(flag, true, value, enabled, ValueSource.STATIC, description, group, List.of(), true);
+    return new CommandOption(flag, true, value, enabled, ValueSource.STATIC, description, group, List.of(), true,
+            List.of(), false);
     }
 
     /**
@@ -806,10 +881,12 @@ public final class CommandTemplates {
      * @param exclusiveGroup named group where only one option may be active
      * @param conflicts explicit conflicting flags
      * @param fixedChoice whether the default value is a fixed selector value
+     * @param choices explicit value choices, or empty to infer choices from text
+     * @param splitValue whether the value should be split into multiple argv tokens
      */
     public record CommandOption(String flag, boolean takesValue, String defaultValue, boolean enabledByDefault,
             ValueSource source, String description, String exclusiveGroup, List<String> conflicts,
-            boolean fixedChoice) {
+            boolean fixedChoice, List<String> choices, boolean splitValue) {
 
         /**
          * Creates command option metadata without exclusivity rules.
@@ -823,7 +900,8 @@ public final class CommandTemplates {
          */
         CommandOption(String flag, boolean takesValue, String defaultValue, boolean enabledByDefault,
                 ValueSource source, String description) {
-            this(flag, takesValue, defaultValue, enabledByDefault, source, description, "", List.of(), false);
+            this(flag, takesValue, defaultValue, enabledByDefault, source, description, "", List.of(), false,
+                    List.of(), false);
         }
 
         /**
@@ -841,7 +919,7 @@ public final class CommandTemplates {
         CommandOption(String flag, boolean takesValue, String defaultValue, boolean enabledByDefault,
                 ValueSource source, String description, String exclusiveGroup, List<String> conflicts) {
             this(flag, takesValue, defaultValue, enabledByDefault, source, description, exclusiveGroup, conflicts,
-                    false);
+                    false, List.of(), false);
         }
 
         /**
@@ -856,10 +934,13 @@ public final class CommandTemplates {
          * @param exclusiveGroup named group where only one option may be active
          * @param conflicts explicit conflicting flags
          * @param fixedChoice whether this option is fixed to a selected choice
+         * @param choices explicit value choices, or empty to infer choices from text
+         * @param splitValue whether the value should be split into multiple argv tokens
          */
         public CommandOption {
             exclusiveGroup = exclusiveGroup == null ? "" : exclusiveGroup;
             conflicts = conflicts == null ? List.of() : List.copyOf(conflicts);
+            choices = choices == null ? List.of() : List.copyOf(choices);
         }
 
         /**
@@ -921,6 +1002,26 @@ public final class CommandTemplates {
     }
 
     /**
+     * Input expected by a batch task.
+     */
+    public enum BatchInputKind {
+        /**
+         * Task consumes one FEN per input row.
+         */
+        FEN_LINES,
+
+        /**
+         * Task consumes one CRTK command per input row.
+         */
+        COMMAND_LINES,
+
+        /**
+         * Task does not consume the batch text area.
+         */
+        NONE
+    }
+
+    /**
      * Command template.
      *
      * @param name display name
@@ -944,11 +1045,62 @@ public final class CommandTemplates {
      * Batch task.
      *
      * @param name display name
-     * @param usesFenInput whether the task requires a temporary FEN input file
+     * @param inputKind expected input text kind
      * @param controls controls used by the task
      * @param builder command argument builder
      */
-    public record BatchTask(String name, boolean usesFenInput, WorkflowControls controls, BatchBuilder builder) {
+    public record BatchTask(String name, BatchInputKind inputKind, WorkflowControls controls, BatchBuilder builder) {
+
+        /**
+         * Creates a task from the legacy FEN-input flag.
+         *
+         * @param name display name
+         * @param usesFenInput whether the task consumes FEN input
+         * @param controls controls used by the task
+         * @param builder command argument builder
+         */
+        public BatchTask(String name, boolean usesFenInput, WorkflowControls controls, BatchBuilder builder) {
+            this(name, usesFenInput ? BatchInputKind.FEN_LINES : BatchInputKind.NONE, controls, builder);
+        }
+
+        /**
+         * Normalizes nullable task metadata.
+         *
+         * @param name display name
+         * @param inputKind expected input text kind
+         * @param controls controls used by the task
+         * @param builder command argument builder
+         */
+        public BatchTask {
+            inputKind = inputKind == null ? BatchInputKind.NONE : inputKind;
+        }
+
+        /**
+         * Returns whether the task consumes a FEN list.
+         *
+         * @return true for FEN-list tasks
+         */
+        public boolean usesFenInput() {
+            return inputKind == BatchInputKind.FEN_LINES;
+        }
+
+        /**
+         * Returns whether the task consumes command-script rows.
+         *
+         * @return true for command-script tasks
+         */
+        public boolean usesCommandInput() {
+            return inputKind == BatchInputKind.COMMAND_LINES;
+        }
+
+        /**
+         * Returns whether the task consumes text-area input.
+         *
+         * @return true when text input is required
+         */
+        public boolean usesTextInput() {
+            return inputKind != BatchInputKind.NONE;
+        }
 
         /**
          * Builds command args.
