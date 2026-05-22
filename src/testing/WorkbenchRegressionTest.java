@@ -611,6 +611,10 @@ public final class WorkbenchRegressionTest {
         assertTrue(table.isOpaque(), "table opaque");
         assertEquals(Integer.valueOf(255), Integer.valueOf(table.getBackground().getAlpha()), "table solid alpha");
         assertFalse(table.getShowHorizontalLines(), "table grid artifacts disabled");
+        Component header = table.getTableHeader().getDefaultRenderer()
+                .getTableCellRendererComponent(table, "Header", false, false, -1, 0);
+        assertEquals(themeColor("PANEL_SOLID"), header.getBackground(), "table header background themed");
+        assertEquals(themeColor("MUTED"), header.getForeground(), "table header foreground themed");
 
         JList<String> list = new JList<>(new String[] { "a" });
         invokeStatic(type("Theme"), "list", new Class<?>[] { JList.class }, list);
@@ -1400,6 +1404,13 @@ public final class WorkbenchRegressionTest {
         assertTrue((Boolean) invoke(explorer, "copySelectedLine", new Class<?>[0]),
                 "ECO explorer copies selected line");
         assertEquals(loaded[0], copied[0], "copied selected ECO movetext");
+        JTable table = (JTable) field(explorer, "table");
+        Component header = table.getTableHeader().getDefaultRenderer()
+                .getTableCellRendererComponent(table, "Line", false, false, -1, 4);
+        assertEquals(themeColor("PANEL_SOLID"), header.getBackground(),
+                "ECO table header uses workbench background");
+        assertEquals(themeColor("MUTED"), header.getForeground(),
+                "ECO table header uses workbench foreground");
         assertPaintsOpaqueCorner((JComponent) explorer, 420, 520, "ECO explorer opaque background");
     }
 

@@ -1,6 +1,5 @@
 package application.gui.workbench.ui;
 
-import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Container;
@@ -17,8 +16,6 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.AbstractButton;
 import javax.swing.BorderFactory;
-import javax.swing.DefaultCellEditor;
-import javax.swing.JCheckBox;
 import javax.swing.JComboBox;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
@@ -32,14 +29,11 @@ import javax.swing.JTabbedPane;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.JTextPane;
-import javax.swing.SwingConstants;
 import javax.swing.UIManager;
 import javax.swing.JViewport;
 import javax.swing.border.Border;
 import javax.swing.plaf.basic.BasicTextAreaUI;
 import javax.swing.plaf.basic.BasicTextFieldUI;
-import javax.swing.table.DefaultTableCellRenderer;
-import javax.swing.table.TableCellRenderer;
 import javax.swing.text.JTextComponent;
 
 /**
@@ -1632,29 +1626,7 @@ public final class Theme {
      * @param rowHeight row height
      */
     public static void table(JTable table, int rowHeight) {
-        table.setFillsViewportHeight(true);
-        table.setRowHeight(rowHeight);
-        table.setOpaque(true);
-        table.setBackground(ELEVATED_SOLID);
-        table.setForeground(TEXT);
-        table.setGridColor(LINE);
-        table.setSelectionBackground(SELECTION_SOLID);
-        table.setSelectionForeground(TEXT);
-        table.setShowGrid(false);
-        table.setIntercellSpacing(new Dimension(0, 0));
-        table.setBorder(pad(0, 0, 0, 0));
-        table.setFont(font(12, Font.PLAIN));
-        table.getTableHeader().setOpaque(true);
-        table.getTableHeader().setBackground(ELEVATED_SOLID);
-        table.getTableHeader().setForeground(MUTED);
-        table.getTableHeader().setFont(font(11, Font.BOLD));
-        table.getTableHeader().setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, LINE));
-        TableCellRendererImpl textRenderer = new TableCellRendererImpl();
-        table.setDefaultRenderer(Object.class, textRenderer);
-        table.setDefaultRenderer(String.class, textRenderer);
-        table.setDefaultRenderer(Number.class, textRenderer);
-        table.setDefaultRenderer(Boolean.class, new BooleanCellRendererImpl());
-        table.setDefaultEditor(Boolean.class, new DefaultCellEditor(tableBooleanEditor()));
+        DataTableStyler.style(table, rowHeight);
     }
 
     /**
@@ -1760,152 +1732,6 @@ public final class Theme {
     private static void installEnabledBackground(JTextComponent component, Color enabledBackground) {
         component.addPropertyChangeListener("enabled", event -> component.setBackground(
                 component.isEnabled() ? enabledBackground : INPUT_DISABLED));
-    }
-
-    /**
-     * Creates the editor used by boolean table cells.
-     *
-     * @return styled checkbox editor
-     */
-    private static JCheckBox tableBooleanEditor() {
-        JCheckBox editor = new JCheckBox();
-        editor.setHorizontalAlignment(SwingConstants.CENTER);
-        editor.setOpaque(true);
-        editor.setBackground(ELEVATED_SOLID);
-        editor.setForeground(TEXT);
-        editor.setFocusPainted(false);
-        editor.setBorder(pad(0, 0, 0, 0));
-        return editor;
-    }
-
-    /**
-     * Compact text table renderer that avoids default gray and blue cells.
-     */
-    private static final class TableCellRendererImpl extends DefaultTableCellRenderer {
-
-        /**
-         * Serialization identifier for Swing renderer compatibility.
-         */
-        private static final long serialVersionUID = 1L;
-
-        /**
-         * Returns a styled table cell component.
-         *
-         * @param table source table
-         * @param value cell value
-         * @param selected whether the row is selected
-         * @param focused whether the cell has focus
-         * @param row row index
-         * @param column column index
-         * @return renderer component
-         */
-        @Override
-        public Component getTableCellRendererComponent(JTable table, Object value, boolean selected, boolean focused,
-                int row, int column) {
-            super.getTableCellRendererComponent(table, value, selected, focused, row, column);
-            setOpaque(true);
-            setFont(table.getFont());
-            setForeground(table.isEnabled() ? TEXT : BUTTON_DISABLED_TEXT);
-            setBackground(selected ? table.getSelectionBackground() : table.getBackground());
-            setHorizontalAlignment(value instanceof Number ? SwingConstants.RIGHT : SwingConstants.LEFT);
-            setBorder(pad(0, 8, 0, 8));
-            return this;
-        }
-    }
-
-    /**
-     * Custom boolean table renderer matching the workbench palette.
-     */
-    private static final class BooleanCellRendererImpl extends JComponent implements TableCellRenderer {
-
-        /**
-         * Serialization identifier for Swing renderer compatibility.
-         */
-        private static final long serialVersionUID = 1L;
-
-        /**
-         * Checkbox glyph size.
-         */
-        private static final int BOX_SIZE = 15;
-
-        /**
-         * Current checked state.
-         */
-        private boolean checked;
-
-        /**
-         * Current selected-row state.
-         */
-        private boolean rowSelected;
-
-        /**
-         * Current table enabled state.
-         */
-        private boolean tableEnabled;
-
-        /**
-         * Returns a styled boolean cell component.
-         *
-         * @param table source table
-         * @param value cell value
-         * @param selected whether the row is selected
-         * @param focused whether the cell has focus
-         * @param row row index
-         * @param column column index
-         * @return renderer component
-         */
-        @Override
-        public Component getTableCellRendererComponent(JTable table, Object value, boolean selected, boolean focused,
-                int row, int column) {
-            checked = Boolean.TRUE.equals(value);
-            rowSelected = selected;
-            tableEnabled = table.isEnabled();
-            setOpaque(true);
-            setBackground(selected ? table.getSelectionBackground() : table.getBackground());
-            setToolTipText(checked ? "enabled" : "disabled");
-            return this;
-        }
-
-        /**
-         * Paints the boolean chip.
-         *
-         * @param graphics graphics context
-         */
-        @Override
-        protected void paintComponent(Graphics graphics) {
-            Graphics2D g = (Graphics2D) graphics.create();
-            try {
-                g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g.setColor(getBackground());
-                g.fillRect(0, 0, getWidth(), getHeight());
-                int size = Math.min(BOX_SIZE, Math.max(8, Math.min(getWidth() - 6, getHeight() - 6)));
-                int x = (getWidth() - size) / 2;
-                int y = (getHeight() - size) / 2;
-                Color fill = checked ? ACCENT : rowSelected ? ELEVATED_SOLID : INPUT_DISABLED;
-                Color border = checked ? ACCENT_PRESSED : INPUT_BORDER;
-                if (!tableEnabled) {
-                    fill = BUTTON_DISABLED_BG;
-                    border = BUTTON_DISABLED_BORDER;
-                }
-                g.setColor(fill);
-                g.fillRoundRect(x, y, size, size, 5, 5);
-                g.setColor(border);
-                g.drawRoundRect(x, y, size, size, 5, 5);
-                if (checked) {
-                    g.setColor(PRIMARY_BUTTON_TEXT);
-                    g.setStroke(new BasicStroke(1.8f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-                    int left = x + Math.max(4, size / 4);
-                    int midX = x + size / 2 - 1;
-                    int right = x + size - Math.max(4, size / 4);
-                    int midY = y + size - Math.max(4, size / 4);
-                    int topY = y + Math.max(4, size / 4);
-                    g.drawLine(left, midY - 1, midX, y + size - 4);
-                    g.drawLine(midX, y + size - 4, right, topY);
-                }
-            } finally {
-                g.dispose();
-            }
-        }
     }
 
     /**
