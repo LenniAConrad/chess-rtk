@@ -53,6 +53,11 @@ public final class Toast {
     private static final int BOTTOM_MARGIN = 36;
 
     /**
+     * Margin from the frame's right edge.
+     */
+    private static final int RIGHT_MARGIN = 24;
+
+    /**
      * Vertical gap between stacked toasts.
      */
     private static final int STACK_GAP = 6;
@@ -140,8 +145,8 @@ public final class Toast {
     }
 
     /**
-     * Re-positions every active toast on a frame, stacking newest at the
-     * bottom and older ones above it.
+     * Re-positions every active toast on a frame, stacking newest in the
+     * bottom-right corner and older ones above it.
      *
      * @param frame parent frame
      */
@@ -155,12 +160,23 @@ public final class Toast {
         for (int i = toasts.size() - 1; i >= 0; i--) {
             ToastPanel toast = toasts.get(i);
             Dimension preferred = toast.getPreferredSize();
-            int x = (layered.getWidth() - preferred.width) / 2;
+            int x = toastX(layered.getWidth(), preferred.width);
             int y = bottom - preferred.height;
             toast.setBounds(x, y, preferred.width, preferred.height);
             bottom = y - STACK_GAP;
         }
         layered.repaint();
+    }
+
+    /**
+     * Returns the x-coordinate for a toast inside the layered pane.
+     *
+     * @param layeredWidth layered-pane width
+     * @param toastWidth toast width
+     * @return x-coordinate
+     */
+    private static int toastX(int layeredWidth, int toastWidth) {
+        return Math.max(0, layeredWidth - toastWidth - RIGHT_MARGIN);
     }
 
     /**

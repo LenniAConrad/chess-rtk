@@ -579,6 +579,11 @@ public abstract class WindowGameLayer extends WindowEngineLayer {
                 artifacts = runArtifacts.recordFromCommand(args);
             }
             runArtifacts.persistManifest(job, artifacts, stdin);
+            if (!artifacts.isEmpty()) {
+                toast(Toast.Kind.SUCCESS, exportToastMessage(artifacts));
+            } else if (result.exitCode() != 0) {
+                toast(Toast.Kind.ERROR, "Command failed: exit " + result.exitCode());
+            }
             runningJob = null;
             maybeHighlightMove(args, result.output());
             if (!healthCheckQueue.isEmpty()) {
@@ -599,6 +604,23 @@ public abstract class WindowGameLayer extends WindowEngineLayer {
             runningJob = null;
             healthCheckQueue.clear();
         });
+    }
+
+    /**
+     * Builds the toast message for generated command artifacts.
+     *
+     * @param artifacts generated artifacts
+     * @return export toast message
+     */
+    private static String exportToastMessage(List<Path> artifacts) {
+        if (artifacts == null || artifacts.isEmpty()) {
+            return "Export complete";
+        }
+        if (artifacts.size() == 1) {
+            Path fileName = artifacts.get(0).getFileName();
+            return "Exported " + (fileName == null ? artifacts.get(0) : fileName);
+        }
+        return "Exported " + artifacts.size() + " files";
     }
 
     /**

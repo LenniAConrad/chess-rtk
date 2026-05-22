@@ -8,6 +8,7 @@ import application.gui.workbench.ui.InspectorPanel;
 import application.gui.workbench.ui.SegmentedSwitcher;
 import application.gui.workbench.ui.StatusBadge;
 import application.gui.workbench.ui.Theme;
+import application.gui.workbench.ui.Toast;
 import application.gui.workbench.ui.ToggleBox;
 import application.gui.workbench.ui.Ui;
 import chess.core.Move;
@@ -36,6 +37,7 @@ import javax.swing.BorderFactory;
 import javax.swing.JButton;
 import javax.swing.JComboBox;
 import javax.swing.JComponent;
+import javax.swing.JFrame;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JSpinner;
@@ -814,8 +816,23 @@ public final class NetworkPanel extends JPanel {
             File out = new File(dir, "workbench-" + arch + "-" + stamp + ".png");
             ImageIO.write(img, "png", out);
             statusBadge.success("exported " + out.getName());
+            toast(Toast.Kind.SUCCESS, "Exported " + out.getName());
         } catch (IOException ex) {
             statusBadge.error("export failed: " + ex.getMessage());
+            toast(Toast.Kind.ERROR, "Export failed: " + ex.getMessage());
+        }
+    }
+
+    /**
+     * Shows a workbench toast from this embedded panel.
+     *
+     * @param kind toast kind
+     * @param message message text
+     */
+    private void toast(Toast.Kind kind, String message) {
+        java.awt.Window window = SwingUtilities.getWindowAncestor(this);
+        if (window instanceof JFrame frame) {
+            Toast.show(frame, kind, message);
         }
     }
 

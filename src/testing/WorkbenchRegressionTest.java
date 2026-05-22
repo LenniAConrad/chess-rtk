@@ -190,6 +190,7 @@ public final class WorkbenchRegressionTest {
         testThemeRefreshUpdatesLineBorders();
         testThemeRefreshRestoresCustomControlUis();
         testThemeInstallSetsTooltipColors();
+        testToastUsesBottomRightPlacement();
         testTextPlaceholdersDoNotSetValues();
         testCollapsibleInfoSectionTogglesContent();
         testCommandTabsReserveSelectedTextWidth();
@@ -222,6 +223,7 @@ public final class WorkbenchRegressionTest {
         testOptionalPositiveIntegerParsing();
         testAnalysisGraphStoresSamples();
         testAnalysisGraphExportsReportData();
+        testExportToastMessageSummarizesArtifacts();
         testAnalysisGraphPaintsOpaqueSurface();
         testBoardHasNoInstructionTooltip();
         testBoardHasNoKeyboardPieceSelector();
@@ -1385,6 +1387,20 @@ public final class WorkbenchRegressionTest {
     }
 
     /**
+     * Verifies toast bubbles use a bottom-right desktop notification position.
+     */
+    private static void testToastUsesBottomRightPlacement() {
+        int margin = (Integer) staticField(type("Toast"), "RIGHT_MARGIN");
+        int x = (Integer) invokeStatic(type("Toast"), "toastX",
+                new Class<?>[] { int.class, int.class }, 800, 220);
+        assertEquals(Integer.valueOf(800 - 220 - margin), Integer.valueOf(x),
+                "toast sits against the right edge");
+        assertEquals(Integer.valueOf(0), invokeStatic(type("Toast"), "toastX",
+                new Class<?>[] { int.class, int.class }, 180, 220),
+                "oversized toast stays onscreen");
+    }
+
+    /**
      * Verifies collapsible information sections hide and restore their content.
      */
     private static void testCollapsibleInfoSectionTogglesContent() {
@@ -2076,6 +2092,19 @@ public final class WorkbenchRegressionTest {
         assertTrue(report.contains("CRTK Workbench Analysis Report"), "analysis report title");
         assertTrue(report.contains("Samples: 2"), "analysis report sample count");
         assertTrue(report.contains("max 13"), "analysis report max depth");
+    }
+
+    /**
+     * Verifies generated artifact notifications stay concise.
+     */
+    private static void testExportToastMessageSummarizesArtifacts() {
+        String single = (String) invokeStatic(type("window.WindowGameLayer"), "exportToastMessage",
+                new Class<?>[] { List.class }, List.of(Path.of("out.pdf")));
+        assertEquals("Exported out.pdf", single, "single artifact toast");
+
+        String multiple = (String) invokeStatic(type("window.WindowGameLayer"), "exportToastMessage",
+                new Class<?>[] { List.class }, List.of(Path.of("a.pdf"), Path.of("b.csv")));
+        assertEquals("Exported 2 files", multiple, "multi-artifact toast");
     }
 
     /**
