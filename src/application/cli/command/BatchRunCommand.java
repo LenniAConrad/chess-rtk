@@ -160,6 +160,9 @@ public final class BatchRunCommand {
             if (!parsed.isEmpty() && "crtk".equals(parsed.get(0))) {
                 parsed.remove(0);
             }
+            if (parsed.isEmpty()) {
+                throw new CommandFailure(CMD + ": line " + lineNumber + ": missing command after crtk", 2);
+            }
             return List.copyOf(parsed);
         } catch (IllegalArgumentException ex) {
             throw new CommandFailure(CMD + ": line " + lineNumber + ": " + ex.getMessage(), 2);
@@ -183,6 +186,7 @@ public final class BatchRunCommand {
             process = new ProcessBuilder(javaInvocation(args))
                     .redirectErrorStream(true)
                     .start();
+            process.getOutputStream().close();
             try (InputStream in = process.getInputStream()) {
                 in.transferTo(System.out);
             }

@@ -134,6 +134,20 @@ public final class CLICommandRegressionTest {
 			String output = TestSupport.runMain("batch", "run", "--input", script.toString(), "--quiet");
 			assertTrue(output.contains("Print the launcher version"), "batch run help command");
 			assertTrue(output.contains(SIMPLE_FEN), "batch run fen command");
+
+			Path stdinScript = Files.createTempFile("crtk-batch-run-stdin-", ".txt");
+			Files.writeString(stdinScript, "fen normalize --stdin");
+			TestSupport.FailureResult failure = TestSupport.runMainExpectFailure("batch", "run",
+					"--input", stdinScript.toString(), "--quiet");
+			assertTrue(failure.stdout().contains("standard input has no non-blank lines"),
+					"batch run closes child stdin");
+
+			Path emptyCommandScript = Files.createTempFile("crtk-batch-run-empty-", ".txt");
+			Files.writeString(emptyCommandScript, "crtk");
+			TestSupport.FailureResult emptyCommand = TestSupport.runMainExpectFailure("batch", "run",
+					"--input", emptyCommandScript.toString(), "--quiet");
+			assertTrue(emptyCommand.stderr().contains("missing command after crtk"),
+					"batch run rejects empty launcher row");
 		} catch (IOException ex) {
 			throw new AssertionError("batch run temp file failed", ex);
 		}
@@ -513,6 +527,7 @@ public final class CLICommandRegressionTest {
 		assertTrue(summary.contains(RECORD_COMMAND), "help lists record group");
 		assertTrue(summary.contains("fen"), "help lists fen group");
 		assertTrue(summary.contains("gen"), "help lists gen group");
+		assertTrue(summary.contains("batch"), "help lists batch group");
 		assertTrue(summary.contains("move"), "help lists move group");
 		assertTrue(summary.contains(ENGINE_COMMAND), "help lists engine group");
 		assertTrue(summary.contains("position"), "help lists position group");
@@ -543,6 +558,14 @@ public final class CLICommandRegressionTest {
 
 		String full = TestSupport.runMain("help", "--full");
 		assertTrue(full.contains("gen subcommands:"), "full help lists gen subcommands");
+		assertTrue(full.contains("batch subcommands:"), "full help lists batch subcommands");
+
+		String batchHelp = TestSupport.runMain("help", "batch");
+		assertTrue(batchHelp.contains("batch subcommands:"), "help batch subcommands");
+
+		String batchRunHelp = TestSupport.runMain("help", "batch", "run");
+		assertTrue(batchRunHelp.contains("batch run options:"), "help batch run options");
+		assertTrue(batchRunHelp.contains("--keep-going"), "help batch run keep-going option");
 
 		String engineHelp = TestSupport.runMain("help", ENGINE_COMMAND);
 		assertTrue(engineHelp.contains("uci-smoke"), "help engine lists uci-smoke");

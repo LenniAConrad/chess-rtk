@@ -81,6 +81,11 @@ public final class HelpCommand {
 	private static final String PUZZLE_SUBCOMMANDS_MARKER = "puzzle subcommands:";
 
 	/**
+	 * Help marker for {@code batch run}.
+	 */
+	private static final String BATCH_RUN_OPTIONS_MARKER = "batch run options:";
+
+	/**
 	 * Help marker for {@code record export plain}.
 	 */
 	private static final String RECORD_TO_PLAIN_OPTIONS_MARKER = "record export plain options:";
@@ -436,6 +441,7 @@ public final class HelpCommand {
 			Map.entry("fen after", FEN_AFTER_OPTIONS_MARKER),
 			Map.entry("fen line", PLAY_LINE_OPTIONS_MARKER),
 			Map.entry("fen generate", GEN_FENS_OPTIONS_MARKER),
+			Map.entry("batch run", BATCH_RUN_OPTIONS_MARKER),
 			Map.entry("fen pgn", PGN_TO_FENS_OPTIONS_MARKER),
 			Map.entry("fen chess960", CHESS960_OPTIONS_MARKER),
 			Map.entry("fen print", PRINT_OPTIONS_MARKER),
@@ -856,6 +862,9 @@ public final class HelpCommand {
 			gen subcommands:
 			  fens                       Alias for `fen generate`
 
+			batch subcommands:
+			  run                        Run one ChessRTK command per script line
+
 			move subcommands:
 			  list                       List legal moves for a FEN
 			  uci                        List legal moves in UCI
@@ -988,6 +997,13 @@ public final class HelpCommand {
 			record analysis-delta options:
 			  --input|-i PATH            Input record file
 			  --output|-o PATH           Output JSONL path (default: input stem + .analysis-delta.jsonl)
+			  --verbose|-v               Print stack trace on failure
+
+			batch run options:
+			  --input|-i PATH            UTF-8 script with one CRTK command per non-comment line
+			  --stdin                    Read script rows from standard input
+			  --keep-going               Continue running later rows after a command exits non-zero
+			  --quiet                    Do not echo each command before it runs
 			  --verbose|-v               Print stack trace on failure
 
 			engine gpu options:

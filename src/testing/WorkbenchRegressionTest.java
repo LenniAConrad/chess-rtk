@@ -561,6 +561,9 @@ public final class WorkbenchRegressionTest {
                 "--label", "", "a b"),
                 CommandLine.split("move list --fen \"8/8/8/8/8/8/K7/7k w - - 0 1\" --label '' a\\ b"),
                 "command tokenizer preserves quoted FENs and empty values");
+        assertEquals(List.of("book", "render", "--input", "C:\\Users\\Lennart\\book.toml"),
+                CommandLine.split("book render --input C:\\Users\\Lennart\\book.toml"),
+                "command tokenizer preserves literal path backslashes");
         try {
             CommandLine.split("move list \"unterminated");
             throw new AssertionError("unterminated quote should fail");

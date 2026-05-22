@@ -38,16 +38,11 @@ public final class CommandLine {
         List<String> tokens = new ArrayList<>();
         StringBuilder token = new StringBuilder();
         char quote = 0;
-        boolean escaping = false;
         boolean inToken = false;
         for (int i = 0; i < input.length(); i++) {
             char ch = input.charAt(i);
-            if (escaping) {
-                token.append(ch);
-                inToken = true;
-                escaping = false;
-            } else if (ch == '\\') {
-                escaping = true;
+            if (ch == '\\' && i + 1 < input.length() && isEscapable(input.charAt(i + 1))) {
+                token.append(input.charAt(++i));
                 inToken = true;
             } else if (quote != 0) {
                 if (ch == quote) {
@@ -70,9 +65,6 @@ public final class CommandLine {
                 inToken = true;
             }
         }
-        if (escaping) {
-            throw new IllegalArgumentException("Trailing escape in command line");
-        }
         if (quote != 0) {
             throw new IllegalArgumentException("Unclosed quote in command line");
         }
@@ -80,6 +72,16 @@ public final class CommandLine {
             tokens.add(token.toString());
         }
         return List.copyOf(tokens);
+    }
+
+    /**
+     * Returns whether a backslash should escape the next character.
+     *
+     * @param ch next character
+     * @return true when the backslash has escaping semantics
+     */
+    private static boolean isEscapable(char ch) {
+        return Character.isWhitespace(ch) || ch == '\'' || ch == '"' || ch == '\\';
     }
 
     /**

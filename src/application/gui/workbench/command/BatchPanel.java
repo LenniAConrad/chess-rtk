@@ -626,9 +626,13 @@ public final class BatchPanel {
             if (row.isEmpty() || row.startsWith("#")) {
                 continue;
             }
-            commands++;
             try {
-                CommandLine.split(row);
+                List<String> tokens = CommandLine.split(row);
+                int commandIndex = !tokens.isEmpty() && "crtk".equals(tokens.get(0)) ? 1 : 0;
+                if (commandIndex >= tokens.size() || tokens.get(commandIndex).isBlank()) {
+                    return new CommandScriptSummary(commands, i + 1, "missing command after crtk");
+                }
+                commands++;
             } catch (IllegalArgumentException ex) {
                 return new CommandScriptSummary(commands, i + 1, ex.getMessage());
             }
