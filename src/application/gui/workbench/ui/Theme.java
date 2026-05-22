@@ -57,7 +57,7 @@ public final class Theme {
      */
     public enum Mode {
         /**
-         * Existing pastel light palette.
+         * VS Code-inspired light palette.
          */
         LIGHT("light", "Light"),
 
@@ -179,179 +179,179 @@ public final class Theme {
     private static final String FOREGROUND_ROLE_PROPERTY = Theme.class.getName() + ".foregroundRole";
 
     /**
-     * Primary ink for pastel surfaces.
+     * Primary ink for light surfaces.
      */
-    private static final Color PASTEL_INK = new Color(36, 49, 58);
+    private static final Color PASTEL_INK = new Color(59, 59, 59);
 
     /**
-     * Secondary ink for pastel surfaces.
+     * Secondary ink for light surfaces.
      */
-    private static final Color PASTEL_MUTED = new Color(104, 115, 125);
+    private static final Color PASTEL_MUTED = new Color(97, 97, 97);
 
     /**
-     * Pastel workbench chrome.
+     * Light workbench chrome.
      */
-    private static final Color PASTEL_CHROME = new Color(244, 242, 247);
+    private static final Color PASTEL_CHROME = new Color(248, 248, 248);
 
     /**
-     * Pastel outline/subtle-fill base.
+     * Light outline/subtle-fill base.
      */
-    private static final Color PASTEL_SUBTLE = new Color(250, 248, 252);
+    private static final Color PASTEL_SUBTLE = new Color(243, 243, 243);
 
     /**
-     * Pastel document/editor surface.
+     * Light document/editor surface.
      */
-    private static final Color PASTEL_DOCUMENT = new Color(255, 253, 254);
+    private static final Color PASTEL_DOCUMENT = Color.WHITE;
 
     /**
-     * Single lavender-gray workbench border.
+     * Single neutral workbench border.
      */
-    private static final Color PASTEL_BORDER = new Color(221, 216, 230);
+    private static final Color PASTEL_BORDER = new Color(229, 229, 229);
 
     /**
-     * Pastel action blue.
+     * Light action blue.
      */
-    private static final Color PASTEL_BLUE = new Color(120, 174, 221);
+    private static final Color PASTEL_BLUE = new Color(0, 95, 184);
 
     /**
-     * Pastel action blue hover fill.
+     * Light action blue hover fill.
      */
-    private static final Color PASTEL_BLUE_HOVER = new Color(139, 187, 230);
+    private static final Color PASTEL_BLUE_HOVER = new Color(2, 88, 168);
 
     /**
-     * Pastel action blue pressed fill.
+     * Light action blue pressed fill.
      */
-    private static final Color PASTEL_BLUE_PRESSED = new Color(102, 162, 212);
+    private static final Color PASTEL_BLUE_PRESSED = new Color(0, 77, 148);
 
     /**
-     * Accessible blue text for pastel informational surfaces.
+     * Accessible blue text for informational surfaces.
      */
-    private static final Color PASTEL_BLUE_TEXT = new Color(49, 95, 130);
+    private static final Color PASTEL_BLUE_TEXT = new Color(38, 86, 158);
 
     /**
-     * Pastel positive green.
+     * Positive green.
      */
-    private static final Color PASTEL_GREEN = new Color(158, 214, 165);
+    private static final Color PASTEL_GREEN = new Color(46, 160, 67);
 
     /**
-     * Accessible positive text for pastel green surfaces.
+     * Accessible positive text for green surfaces.
      */
-    private static final Color PASTEL_GREEN_TEXT = new Color(45, 107, 73);
+    private static final Color PASTEL_GREEN_TEXT = new Color(26, 95, 48);
 
     /**
-     * Pastel warning amber.
+     * Warning amber.
      */
-    private static final Color PASTEL_AMBER = new Color(232, 199, 121);
+    private static final Color PASTEL_AMBER = new Color(187, 128, 9);
 
     /**
-     * Accessible warning text for pastel amber surfaces.
+     * Accessible warning text for amber surfaces.
      */
-    private static final Color PASTEL_AMBER_TEXT = new Color(106, 84, 30);
+    private static final Color PASTEL_AMBER_TEXT = new Color(101, 72, 8);
 
     /**
-     * Pastel error coral.
+     * Error coral.
      */
-    private static final Color PASTEL_CORAL = new Color(240, 170, 164);
+    private static final Color PASTEL_CORAL = new Color(218, 54, 51);
 
     /**
-     * Accessible error text for pastel coral surfaces.
+     * Accessible error text for coral surfaces.
      */
-    private static final Color PASTEL_CORAL_TEXT = new Color(138, 60, 58);
+    private static final Color PASTEL_CORAL_TEXT = new Color(161, 49, 45);
 
     /**
-     * Pastel policy purple.
+     * Policy purple.
      */
-    private static final Color PASTEL_PURPLE = new Color(203, 183, 234);
+    private static final Color PASTEL_PURPLE = new Color(175, 0, 219);
 
     /**
      * Dark primary ink.
      */
-    private static final Color DARK_INK = new Color(238, 238, 232);
+    private static final Color DARK_INK = new Color(204, 204, 204);
 
     /**
      * Dark secondary ink.
      */
-    private static final Color DARK_MUTED = new Color(160, 166, 151);
+    private static final Color DARK_MUTED = new Color(157, 157, 157);
 
     /**
      * Dark workbench chrome.
      */
-    private static final Color DARK_CHROME = new Color(15, 17, 14);
+    private static final Color DARK_CHROME = new Color(24, 24, 24);
 
     /**
      * Dark subtle surface.
      */
-    private static final Color DARK_SUBTLE = new Color(21, 24, 20);
+    private static final Color DARK_SUBTLE = new Color(43, 43, 43);
 
     /**
      * Dark editor/panel surface.
      */
-    private static final Color DARK_DOCUMENT = new Color(18, 21, 17);
+    private static final Color DARK_DOCUMENT = new Color(31, 31, 31);
 
     /**
      * Dark elevated surface.
      */
-    private static final Color DARK_ELEVATED = new Color(24, 28, 23);
+    private static final Color DARK_ELEVATED = new Color(49, 49, 49);
 
     /**
      * Dark border color.
      */
-    private static final Color DARK_BORDER = new Color(45, 52, 43);
+    private static final Color DARK_BORDER = new Color(60, 60, 60);
 
     /**
      * Dark primary accent.
      */
-    private static final Color DARK_ACCENT = new Color(109, 211, 179);
+    private static final Color DARK_ACCENT = new Color(0, 120, 212);
 
     /**
      * Dark accent hover.
      */
-    private static final Color DARK_ACCENT_HOVER = new Color(128, 226, 196);
+    private static final Color DARK_ACCENT_HOVER = new Color(2, 110, 193);
 
     /**
      * Dark accent pressed.
      */
-    private static final Color DARK_ACCENT_PRESSED = new Color(71, 173, 143);
+    private static final Color DARK_ACCENT_PRESSED = new Color(0, 91, 161);
 
     /**
      * Dark positive accent.
      */
-    private static final Color DARK_GREEN = new Color(109, 211, 179);
+    private static final Color DARK_GREEN = new Color(63, 185, 80);
 
     /**
      * Dark warning accent.
      */
-    private static final Color DARK_AMBER = new Color(230, 196, 112);
+    private static final Color DARK_AMBER = new Color(210, 153, 34);
 
     /**
      * Dark error accent.
      */
-    private static final Color DARK_CORAL = new Color(240, 139, 128);
+    private static final Color DARK_CORAL = new Color(248, 81, 73);
 
     /**
      * Dark policy accent.
      */
-    private static final Color DARK_PURPLE = new Color(185, 149, 206);
+    private static final Color DARK_PURPLE = new Color(197, 134, 192);
 
     /**
      * Dark success text.
      */
-    private static final Color DARK_SUCCESS_TEXT = new Color(183, 235, 207);
+    private static final Color DARK_SUCCESS_TEXT = new Color(182, 242, 198);
 
     /**
      * Dark warning text.
      */
-    private static final Color DARK_WARNING_TEXT = new Color(246, 219, 151);
+    private static final Color DARK_WARNING_TEXT = new Color(244, 205, 124);
 
     /**
      * Dark error text.
      */
-    private static final Color DARK_ERROR_TEXT = new Color(255, 190, 180);
+    private static final Color DARK_ERROR_TEXT = new Color(255, 172, 166);
 
     /**
      * Dark informational text.
      */
-    private static final Color DARK_INFO_TEXT = new Color(183, 235, 220);
+    private static final Color DARK_INFO_TEXT = new Color(133, 182, 255);
 
     /**
      * Root background color.
@@ -407,7 +407,7 @@ public final class Theme {
     /**
      * Table and tree selection color.
      */
-    public static Color SELECTION = new Color(229, 241, 252);
+    public static Color SELECTION = new Color(232, 232, 232);
 
     /**
      * Solid selection fallback for opaque renderers.
@@ -427,17 +427,17 @@ public final class Theme {
     /**
      * Secondary button color.
      */
-    public static Color SECONDARY_BUTTON = PASTEL_DOCUMENT;
+    public static Color SECONDARY_BUTTON = PASTEL_BORDER;
 
     /**
      * Secondary button hover color.
      */
-    public static Color SECONDARY_BUTTON_HOVER = PASTEL_SUBTLE;
+    public static Color SECONDARY_BUTTON_HOVER = new Color(204, 204, 204);
 
     /**
      * Secondary button pressed color.
      */
-    public static Color SECONDARY_BUTTON_PRESSED = PASTEL_CHROME;
+    public static Color SECONDARY_BUTTON_PRESSED = new Color(206, 206, 206);
 
     /**
      * Secondary button text color.
@@ -462,7 +462,7 @@ public final class Theme {
     /**
      * Input border color.
      */
-    public static Color INPUT_BORDER = PASTEL_BORDER;
+    public static Color INPUT_BORDER = new Color(206, 206, 206);
 
     /**
      * Input focus ring color.
@@ -482,7 +482,7 @@ public final class Theme {
     /**
      * Toggle-off border color.
      */
-    public static Color TOGGLE_BORDER = PASTEL_BORDER;
+    public static Color TOGGLE_BORDER = INPUT_BORDER;
 
     /**
      * Toggle-off track color.
@@ -492,7 +492,7 @@ public final class Theme {
     /**
      * Toggle-on background color.
      */
-    public static Color TOGGLE_ON_BG = SELECTION;
+    public static Color TOGGLE_ON_BG = new Color(190, 214, 237);
 
     /**
      * Toggle-on track color.
@@ -527,12 +527,12 @@ public final class Theme {
     /**
      * Selection color for text controls.
      */
-    public static Color TEXT_SELECTION = new Color(224, 239, 252, 255);
+    public static Color TEXT_SELECTION = new Color(173, 214, 255, 255);
 
     /**
      * Primary button text color.
      */
-    public static Color PRIMARY_BUTTON_TEXT = PASTEL_INK;
+    public static Color PRIMARY_BUTTON_TEXT = Color.WHITE;
 
     /**
      * Board light square color.
@@ -692,7 +692,7 @@ public final class Theme {
     /**
      * Success feedback surface.
      */
-    public static Color STATUS_SUCCESS_BG = new Color(239, 248, 240);
+    public static Color STATUS_SUCCESS_BG = new Color(234, 246, 236);
 
     /**
      * Success feedback border.
@@ -707,7 +707,7 @@ public final class Theme {
     /**
      * Warning feedback surface.
      */
-    public static Color STATUS_WARNING_BG = new Color(255, 245, 223);
+    public static Color STATUS_WARNING_BG = new Color(255, 244, 206);
 
     /**
      * Warning feedback border.
@@ -722,7 +722,7 @@ public final class Theme {
     /**
      * Error feedback surface.
      */
-    public static Color STATUS_ERROR_BG = new Color(255, 240, 239);
+    public static Color STATUS_ERROR_BG = new Color(253, 231, 233);
 
     /**
      * Error feedback border.
@@ -737,12 +737,12 @@ public final class Theme {
     /**
      * Informational feedback surface.
      */
-    public static Color STATUS_INFO_BG = new Color(232, 242, 251);
+    public static Color STATUS_INFO_BG = new Color(232, 242, 255);
 
     /**
      * Informational feedback border.
      */
-    public static Color STATUS_INFO_BORDER = new Color(182, 216, 242);
+    public static Color STATUS_INFO_BORDER = new Color(173, 206, 255);
 
     /**
      * Informational feedback text.
@@ -1128,32 +1128,32 @@ public final class Theme {
         TEXT = PASTEL_INK;
         MUTED = PASTEL_MUTED;
         ACCENT = PASTEL_BLUE;
-        SELECTION = new Color(229, 241, 252);
+        SELECTION = new Color(232, 232, 232);
         SELECTION_SOLID = blendOver(SELECTION, BG);
         ACCENT_HOVER = PASTEL_BLUE_HOVER;
         ACCENT_PRESSED = PASTEL_BLUE_PRESSED;
-        SECONDARY_BUTTON = PASTEL_DOCUMENT;
-        SECONDARY_BUTTON_HOVER = PASTEL_SUBTLE;
-        SECONDARY_BUTTON_PRESSED = PASTEL_CHROME;
+        SECONDARY_BUTTON = PASTEL_BORDER;
+        SECONDARY_BUTTON_HOVER = new Color(204, 204, 204);
+        SECONDARY_BUTTON_PRESSED = new Color(206, 206, 206);
         SECONDARY_BUTTON_TEXT = PASTEL_INK;
         BUTTON_DISABLED_BG = PASTEL_SUBTLE;
         BUTTON_DISABLED_BORDER = PASTEL_BORDER;
         BUTTON_DISABLED_TEXT = PASTEL_MUTED;
-        INPUT_BORDER = PASTEL_BORDER;
+        INPUT_BORDER = new Color(206, 206, 206);
         INPUT_FOCUS = PASTEL_BLUE;
         INPUT_DISABLED = PASTEL_SUBTLE;
         TOGGLE_BG = PASTEL_SUBTLE;
-        TOGGLE_BORDER = PASTEL_BORDER;
+        TOGGLE_BORDER = INPUT_BORDER;
         TOGGLE_TRACK = PASTEL_MUTED;
-        TOGGLE_ON_BG = SELECTION;
+        TOGGLE_ON_BG = new Color(190, 214, 237);
         TOGGLE_ON_TRACK = PASTEL_BLUE;
         TOGGLE_THUMB = PASTEL_DOCUMENT;
         INPUT = PASTEL_DOCUMENT;
         TEXT_AREA = PASTEL_DOCUMENT;
         TERMINAL = PASTEL_DOCUMENT;
         TERMINAL_TEXT = PASTEL_INK;
-        TEXT_SELECTION = new Color(224, 239, 252, 255);
-        PRIMARY_BUTTON_TEXT = PASTEL_INK;
+        TEXT_SELECTION = new Color(173, 214, 255, 255);
+        PRIMARY_BUTTON_TEXT = Color.WHITE;
         setFixedBoardAndEvalColors();
         TAB_ACCENT_UNDERLINE = withAlpha(ACCENT, 255);
         TAB_HOVER = new Color(PASTEL_SUBTLE.getRed(), PASTEL_SUBTLE.getGreen(), PASTEL_SUBTLE.getBlue(), 255);
@@ -1164,17 +1164,17 @@ public final class Theme {
         TOOLTIP_BG = PASTEL_DOCUMENT;
         TOOLTIP_TEXT = PASTEL_INK;
         TOOLTIP_BORDER = PASTEL_BORDER;
-        STATUS_SUCCESS_BG = new Color(239, 248, 240);
+        STATUS_SUCCESS_BG = new Color(234, 246, 236);
         STATUS_SUCCESS_BORDER = PASTEL_GREEN;
         STATUS_SUCCESS_TEXT = PASTEL_GREEN_TEXT;
-        STATUS_WARNING_BG = new Color(255, 245, 223);
+        STATUS_WARNING_BG = new Color(255, 244, 206);
         STATUS_WARNING_BORDER = PASTEL_AMBER;
         STATUS_WARNING_TEXT = PASTEL_AMBER_TEXT;
-        STATUS_ERROR_BG = new Color(255, 240, 239);
+        STATUS_ERROR_BG = new Color(253, 231, 233);
         STATUS_ERROR_BORDER = PASTEL_CORAL;
         STATUS_ERROR_TEXT = PASTEL_CORAL_TEXT;
-        STATUS_INFO_BG = new Color(232, 242, 251);
-        STATUS_INFO_BORDER = new Color(182, 216, 242);
+        STATUS_INFO_BG = new Color(232, 242, 255);
+        STATUS_INFO_BORDER = new Color(173, 206, 255);
         STATUS_INFO_TEXT = PASTEL_BLUE_TEXT;
         LOGO_BACKGROUND = new Color(PASTEL_PURPLE.getRed(), PASTEL_PURPLE.getGreen(), PASTEL_PURPLE.getBlue(), 230);
         LOGO_MARK = PASTEL_CORAL;
@@ -1202,17 +1202,17 @@ public final class Theme {
         TEXT = DARK_INK;
         MUTED = DARK_MUTED;
         ACCENT = DARK_ACCENT;
-        SELECTION = new Color(35, 76, 58);
+        SELECTION = new Color(38, 79, 120);
         SELECTION_SOLID = blendOver(SELECTION, BG);
         ACCENT_HOVER = DARK_ACCENT_HOVER;
         ACCENT_PRESSED = DARK_ACCENT_PRESSED;
         SECONDARY_BUTTON = DARK_ELEVATED;
-        SECONDARY_BUTTON_HOVER = new Color(30, 35, 28);
+        SECONDARY_BUTTON_HOVER = DARK_BORDER;
         SECONDARY_BUTTON_PRESSED = DARK_BORDER;
         SECONDARY_BUTTON_TEXT = DARK_INK;
         BUTTON_DISABLED_BG = DARK_SUBTLE;
         BUTTON_DISABLED_BORDER = DARK_BORDER;
-        BUTTON_DISABLED_TEXT = new Color(116, 124, 111);
+        BUTTON_DISABLED_TEXT = new Color(133, 133, 133);
         INPUT_BORDER = DARK_BORDER;
         INPUT_FOCUS = DARK_ACCENT;
         INPUT_DISABLED = DARK_SUBTLE;
@@ -1222,12 +1222,12 @@ public final class Theme {
         TOGGLE_ON_BG = SELECTION;
         TOGGLE_ON_TRACK = DARK_ACCENT_HOVER;
         TOGGLE_THUMB = DARK_INK;
-        INPUT = DARK_DOCUMENT;
+        INPUT = DARK_ELEVATED;
         TEXT_AREA = DARK_DOCUMENT;
-        TERMINAL = new Color(12, 14, 11);
+        TERMINAL = DARK_DOCUMENT;
         TERMINAL_TEXT = DARK_INK;
-        TEXT_SELECTION = new Color(35, 76, 58, 255);
-        PRIMARY_BUTTON_TEXT = new Color(9, 12, 9);
+        TEXT_SELECTION = new Color(38, 79, 120, 255);
+        PRIMARY_BUTTON_TEXT = Color.WHITE;
         setFixedBoardAndEvalColors();
         TAB_ACCENT_UNDERLINE = withAlpha(ACCENT, 255);
         TAB_HOVER = new Color(DARK_ELEVATED.getRed(), DARK_ELEVATED.getGreen(), DARK_ELEVATED.getBlue(), 255);
@@ -1238,16 +1238,16 @@ public final class Theme {
         TOOLTIP_BG = DARK_ELEVATED;
         TOOLTIP_TEXT = DARK_INK;
         TOOLTIP_BORDER = DARK_BORDER;
-        STATUS_SUCCESS_BG = new Color(20, 49, 37);
+        STATUS_SUCCESS_BG = new Color(18, 54, 31);
         STATUS_SUCCESS_BORDER = DARK_GREEN;
         STATUS_SUCCESS_TEXT = DARK_SUCCESS_TEXT;
-        STATUS_WARNING_BG = new Color(62, 50, 24);
+        STATUS_WARNING_BG = new Color(61, 46, 19);
         STATUS_WARNING_BORDER = DARK_AMBER;
         STATUS_WARNING_TEXT = DARK_WARNING_TEXT;
-        STATUS_ERROR_BG = new Color(70, 31, 30);
+        STATUS_ERROR_BG = new Color(63, 22, 24);
         STATUS_ERROR_BORDER = DARK_CORAL;
         STATUS_ERROR_TEXT = DARK_ERROR_TEXT;
-        STATUS_INFO_BG = new Color(24, 47, 43);
+        STATUS_INFO_BG = new Color(18, 51, 91);
         STATUS_INFO_BORDER = DARK_ACCENT;
         STATUS_INFO_TEXT = DARK_INFO_TEXT;
         LOGO_BACKGROUND = new Color(DARK_PURPLE.getRed(), DARK_PURPLE.getGreen(), DARK_PURPLE.getBlue(), 230);

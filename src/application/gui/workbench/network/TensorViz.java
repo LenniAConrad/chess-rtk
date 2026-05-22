@@ -28,43 +28,56 @@ public final class TensorViz {
     /**
      * Positive-activation accent (used for "up" / gain).
      */
-    public static final Color POSITIVE = Theme.NN_POSITIVE;
+    public static Color POSITIVE = Theme.NN_POSITIVE;
 
     /**
      * Negative-activation accent (used for "down" / loss).
      */
-    public static final Color NEGATIVE = Theme.NN_NEGATIVE;
+    public static Color NEGATIVE = Theme.NN_NEGATIVE;
 
     /**
      * Trunk / data-flow accent.
      */
-    public static final Color TRUNK = Theme.NN_TRUNK;
+    public static Color TRUNK = Theme.NN_TRUNK;
 
     /**
      * Policy-branch accent.
      */
-    public static final Color POLICY = Theme.NN_POLICY;
+    public static Color POLICY = Theme.NN_POLICY;
 
     /**
      * Value-branch accent.
      */
-    public static final Color VALUE = Theme.NN_VALUE;
+    public static Color VALUE = Theme.NN_VALUE;
 
     /**
      * Neutral-fill background for cells with no signal.
      */
-    public static final Color NEUTRAL = Theme.NN_NEUTRAL;
+    public static Color NEUTRAL = Theme.NN_NEUTRAL;
 
     /**
      * Lightest heatmap fill (signed scale, near zero).
      */
-    public static final Color HEAT_ZERO = Theme.NN_HEAT_ZERO;
+    public static Color HEAT_ZERO = Theme.NN_HEAT_ZERO;
 
     /**
      * Prevents instantiation.
      */
     private TensorViz() {
         // utility
+    }
+
+    /**
+     * Refreshes cached public palette aliases after a workbench theme switch.
+     */
+    public static void refreshPalette() {
+        POSITIVE = Theme.NN_POSITIVE;
+        NEGATIVE = Theme.NN_NEGATIVE;
+        TRUNK = Theme.NN_TRUNK;
+        POLICY = Theme.NN_POLICY;
+        VALUE = Theme.NN_VALUE;
+        NEUTRAL = Theme.NN_NEUTRAL;
+        HEAT_ZERO = Theme.NN_HEAT_ZERO;
     }
 
     /**

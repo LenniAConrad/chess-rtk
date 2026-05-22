@@ -14,36 +14,6 @@ import javax.swing.text.StyledDocument;
 public final class TomlHighlighter {
 
     /**
-     * Key text color.
-     */
-    private static final Color KEY = new Color(82, 72, 133);
-
-    /**
-     * Section header text color.
-     */
-    private static final Color SECTION = Theme.STATUS_INFO_TEXT;
-
-    /**
-     * String literal text color.
-     */
-    private static final Color STRING = Theme.STATUS_SUCCESS_TEXT;
-
-    /**
-     * Number literal text color.
-     */
-    private static final Color NUMBER = Theme.STATUS_ERROR_TEXT;
-
-    /**
-     * Boolean/null literal text color.
-     */
-    private static final Color BOOLEAN = Theme.STATUS_WARNING_TEXT;
-
-    /**
-     * TOML comment text color.
-     */
-    private static final Color COMMENT = Theme.MUTED;
-
-    /**
      * Prevents instantiation.
      */
     private TomlHighlighter() {
@@ -112,7 +82,7 @@ public final class TomlHighlighter {
         if (inMultilineString) {
             int close = line.indexOf("\"\"\"");
             int len = close < 0 ? line.length() : close + 3;
-            set(doc, offset, len, attrs(STRING, false, false));
+            set(doc, offset, len, attrs(stringColor(), false, false));
             if (close < 0) {
                 return true;
             }
@@ -124,7 +94,7 @@ public final class TomlHighlighter {
         int codeEnd = comment >= 0 ? comment : line.length();
         if (comment >= 0) {
             set(doc, offset + comment, line.length() - comment,
-                    attrs(COMMENT, false, true));
+                    attrs(Theme.MUTED, false, true));
         }
         int first = firstNonWhitespace(line, 0, codeEnd);
         int last = lastNonWhitespace(line, first, codeEnd);
@@ -132,7 +102,7 @@ public final class TomlHighlighter {
             return false;
         }
         if (line.charAt(first) == '[') {
-            set(doc, offset + first, last - first, attrs(SECTION, true, false));
+            set(doc, offset + first, last - first, attrs(sectionColor(), true, false));
             return false;
         }
         int equals = unquotedEquals(line, first, codeEnd);
@@ -141,7 +111,7 @@ public final class TomlHighlighter {
         }
         int keyEnd = lastNonWhitespace(line, first, equals);
         if (keyEnd > first) {
-            set(doc, offset + first, keyEnd - first, attrs(KEY, true, false));
+            set(doc, offset + first, keyEnd - first, attrs(keyColor(), true, false));
         }
     return highlightValue(doc, line, offset, equals + 1, codeEnd);
     }
@@ -169,25 +139,25 @@ public final class TomlHighlighter {
             if (line.startsWith("\"\"\"", i)) {
                 int close = line.indexOf("\"\"\"", i + 3);
                 if (close < 0) {
-                    set(doc, offset + i, end - i, attrs(STRING, false, false));
+                    set(doc, offset + i, end - i, attrs(stringColor(), false, false));
                     return true;
                 }
-                set(doc, offset + i, close + 3 - i, attrs(STRING, false, false));
+                set(doc, offset + i, close + 3 - i, attrs(stringColor(), false, false));
                 i = close + 3;
                 continue;
             }
             if (ch == '"' || ch == '\'') {
                 int close = closingQuote(line, i, end, ch);
-                set(doc, offset + i, close - i, attrs(STRING, false, false));
+                set(doc, offset + i, close - i, attrs(stringColor(), false, false));
                 i = close;
                 continue;
             }
             int tokenEnd = tokenEnd(line, i, end);
             String token = line.substring(i, tokenEnd);
             if (isBooleanLiteral(token)) {
-                set(doc, offset + i, tokenEnd - i, attrs(BOOLEAN, true, false));
+                set(doc, offset + i, tokenEnd - i, attrs(booleanColor(), true, false));
             } else if (isNumberLiteral(token)) {
-                set(doc, offset + i, tokenEnd - i, attrs(NUMBER, false, false));
+                set(doc, offset + i, tokenEnd - i, attrs(numberColor(), false, false));
             }
             i = tokenEnd;
         }
@@ -208,6 +178,51 @@ public final class TomlHighlighter {
         StyleConstants.setBold(attrs, bold);
         StyleConstants.setItalic(attrs, italic);
         return attrs;
+    }
+
+    /**
+     * Returns the active key color.
+     *
+     * @return key color
+     */
+    private static Color keyColor() {
+        return Theme.ACCENT;
+    }
+
+    /**
+     * Returns the active section-header color.
+     *
+     * @return section color
+     */
+    private static Color sectionColor() {
+        return Theme.STATUS_INFO_TEXT;
+    }
+
+    /**
+     * Returns the active string-literal color.
+     *
+     * @return string color
+     */
+    private static Color stringColor() {
+        return Theme.STATUS_SUCCESS_TEXT;
+    }
+
+    /**
+     * Returns the active number-literal color.
+     *
+     * @return number color
+     */
+    private static Color numberColor() {
+        return Theme.STATUS_ERROR_TEXT;
+    }
+
+    /**
+     * Returns the active boolean/null-literal color.
+     *
+     * @return boolean color
+     */
+    private static Color booleanColor() {
+        return Theme.STATUS_WARNING_TEXT;
     }
 
     /**
