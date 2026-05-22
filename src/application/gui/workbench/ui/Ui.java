@@ -1037,11 +1037,6 @@ public final class Ui {
         private static final int RADIUS = 5;
 
         /**
-         * Cached focus-ring color so it does not allocate per paint.
-         */
-        private static final Color BUTTON_FOCUS_RING = Theme.withAlpha(Theme.INPUT_FOCUS, 90);
-
-        /**
          * Live set of buttons currently animating; ticked by the shared timer.
          */
         private static final java.util.Set<StyledButton> ACTIVE_BUTTONS =
@@ -1164,7 +1159,7 @@ public final class Ui {
                 g.setColor(border);
                 g.drawRoundRect(0, 0, Math.max(0, getWidth() - 1), Math.max(0, getHeight() - 1), RADIUS, RADIUS);
                 if (isFocusOwner()) {
-                    g.setColor(BUTTON_FOCUS_RING);
+                    g.setColor(Theme.withAlpha(Theme.INPUT_FOCUS, 90));
                     g.drawRoundRect(2, 2, Math.max(0, getWidth() - 5), Math.max(0, getHeight() - 5), RADIUS, RADIUS);
                 }
             } finally {

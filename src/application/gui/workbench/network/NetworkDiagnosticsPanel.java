@@ -5,7 +5,6 @@ import application.gui.workbench.ui.Theme;
 import application.gui.workbench.ui.TomlHighlighter;
 import application.gui.workbench.ui.Ui;
 import java.awt.BorderLayout;
-import java.awt.Color;
 import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.Font;
@@ -96,6 +95,11 @@ public final class NetworkDiagnosticsPanel extends JPanel {
     private String selectedArchitecture = "";
 
     /**
+     * Theme mode used for the currently highlighted config text.
+     */
+    private Theme.Mode configThemeMode = Theme.mode();
+
+    /**
      * Creates the diagnostics panel.
      */
     public NetworkDiagnosticsPanel() {
@@ -129,6 +133,8 @@ public final class NetworkDiagnosticsPanel extends JPanel {
         configPane.setMargin(new Insets(Theme.SPACE_SM, Theme.SPACE_SM,
                 Theme.SPACE_SM, Theme.SPACE_SM));
         configPane.setBorder(null);
+        configPane.addPropertyChangeListener("foreground",
+                event -> refreshConfigColorsIfNeeded());
 
         JScrollPane configScroll = new JScrollPane(configPane,
                 ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED,
@@ -146,6 +152,17 @@ public final class NetworkDiagnosticsPanel extends JPanel {
 
         add(top, BorderLayout.NORTH);
         add(Ui.collapsible("Config", configBody, false), BorderLayout.CENTER);
+    }
+
+    /**
+     * Refreshes theme-sensitive syntax colors before descendants paint.
+     *
+     * @param graphics graphics context
+     */
+    @Override
+    protected void paintComponent(Graphics graphics) {
+        refreshConfigColorsIfNeeded();
+        super.paintComponent(graphics);
     }
 
     /**
@@ -177,7 +194,7 @@ public final class NetworkDiagnosticsPanel extends JPanel {
         modelRows.removeAll();
         if (provider == null) {
             modelRows.add(statusRow("Provider", "inactive", "Network provider not ready",
-                    Theme.MUTED));
+                    Theme.ForegroundRole.MUTED));
         } else {
             for (RealActivations.ModelStatus status : provider.modelStatuses()) {
                 String detail = modelDetail(status);
@@ -185,7 +202,7 @@ public final class NetworkDiagnosticsPanel extends JPanel {
                     detail = "active - " + detail;
                 }
                 modelRows.add(statusRow(status.label(), status.state(), detail,
-                        modelColor(status)));
+                        modelRole(status)));
             }
         }
         addConfigModelRows();
@@ -199,9 +216,9 @@ public final class NetworkDiagnosticsPanel extends JPanel {
     private void addConfigModelRows() {
         modelRows.add(Box.createVerticalStrut(Theme.SPACE_XS));
         modelRows.add(statusRow("Config LC0", pathState(Config.getLc0ModelPath()),
-                pathDetail(Config.getLc0ModelPath()), pathColor(Config.getLc0ModelPath())));
+                pathDetail(Config.getLc0ModelPath()), pathRole(Config.getLc0ModelPath())));
         modelRows.add(statusRow("Config T5", pathState(Config.getT5ModelPath()),
-                pathDetail(Config.getT5ModelPath()), pathColor(Config.getT5ModelPath())));
+                pathDetail(Config.getT5ModelPath()), pathRole(Config.getT5ModelPath())));
     }
 
     /**
@@ -210,7 +227,7 @@ public final class NetworkDiagnosticsPanel extends JPanel {
     private void refreshGpu() {
         gpuRows.removeAll();
         for (GpuState state : gpuStates()) {
-            gpuRows.add(statusRow(state.label, state.state, state.detail, state.color));
+            gpuRows.add(statusRow(state.label, state.state, state.detail, state.role));
         }
         gpuRows.revalidate();
         gpuRows.repaint();
@@ -226,12 +243,29 @@ public final class NetworkDiagnosticsPanel extends JPanel {
             configPathLabel.setText(pathLabel(configPath));
             configPathLabel.setToolTipText(configPath.toAbsolutePath().toString());
             TomlHighlighter.apply(configPane, text);
+            configThemeMode = Theme.mode();
         } catch (IOException | RuntimeException ex) {
             configPathLabel.setText("Cannot read " + configPath);
             configPathLabel.setToolTipText(configPath.toAbsolutePath().toString());
             TomlHighlighter.apply(configPane,
                     "# Failed to read config\n# " + ex.getMessage());
+            configThemeMode = Theme.mode();
         }
+    }
+
+    /**
+     * Reapplies config preview colors if the active theme changed.
+     */
+    private void refreshConfigColorsIfNeeded() {
+        if (configThemeMode == Theme.mode()) {
+            return;
+        }
+        configThemeMode = Theme.mode();
+        configPane.setBackground(Theme.TEXT_AREA);
+        configPane.setForeground(Theme.TEXT);
+        configPane.setSelectionColor(Theme.TEXT_SELECTION);
+        configPane.setSelectedTextColor(Theme.TEXT);
+        TomlHighlighter.apply(configPane, configPane.getText());
     }
 
     /**
@@ -262,16 +296,16 @@ public final class NetworkDiagnosticsPanel extends JPanel {
      */
     private static GpuState gpu(String label, boolean loaded, int devices) {
         if (loaded && devices > 0) {
-    return new GpuState(label, "available",
+            return new GpuState(label, "available",
                     devices + (devices == 1 ? " device" : " devices"),
-                    Theme.STATUS_SUCCESS_TEXT);
+                    Theme.ForegroundRole.SUCCESS);
         }
         if (loaded) {
-    return new GpuState(label, "library", "loaded, no visible device",
-                    Theme.STATUS_WARNING_TEXT);
+            return new GpuState(label, "library", "loaded, no visible device",
+                    Theme.ForegroundRole.WARNING);
         }
-    return new GpuState(label, "cpu", "native backend not loaded",
-                Theme.MUTED);
+        return new GpuState(label, "cpu", "native backend not loaded",
+                Theme.ForegroundRole.MUTED);
     }
 
     /**
@@ -319,10 +353,11 @@ public final class NetworkDiagnosticsPanel extends JPanel {
      * @param label row label
      * @param state state text
      * @param detail detail text
-     * @param color state color
+     * @param role state color role
      * @return row component
      */
-    private static JComponent statusRow(String label, String state, String detail, Color color) {
+    private static JComponent statusRow(String label, String state, String detail,
+            Theme.ForegroundRole role) {
         JPanel row = Ui.transparentPanel(new GridBagLayout());
         row.setAlignmentX(Component.LEFT_ALIGNMENT);
         row.setBorder(Theme.pad(2, 0));
@@ -333,7 +368,7 @@ public final class NetworkDiagnosticsPanel extends JPanel {
 
         JLabel stateView = new JLabel(state);
         stateView.setFont(Theme.font(11, Font.BOLD));
-        stateView.setForeground(color);
+        Theme.foreground(stateView, role);
 
         JLabel detailView = new JLabel(elide(detail, Theme.font(11, Font.PLAIN)));
         detailView.setFont(Theme.font(11, Font.PLAIN));
@@ -344,7 +379,7 @@ public final class NetworkDiagnosticsPanel extends JPanel {
         c.gridy = 0;
         c.insets = new Insets(0, 0, 0, Theme.SPACE_SM);
         c.anchor = GridBagConstraints.WEST;
-        row.add(new Dot(color), c);
+        row.add(new Dot(role), c);
 
         c.gridx = 1;
         c.weightx = 0.0;
@@ -395,19 +430,19 @@ public final class NetworkDiagnosticsPanel extends JPanel {
     }
 
     /**
-     * Returns the status color for a workbench model.
+     * Returns the status role for a workbench model.
      *
      * @param status model status
-     * @return color
+     * @return color role
      */
-    private static Color modelColor(RealActivations.ModelStatus status) {
+    private static Theme.ForegroundRole modelRole(RealActivations.ModelStatus status) {
         if (status.loaded()) {
-            return Theme.STATUS_SUCCESS_TEXT;
+            return Theme.ForegroundRole.SUCCESS;
         }
         if (!status.present() || "fallback".equals(status.state())) {
-            return Theme.STATUS_WARNING_TEXT;
+            return Theme.ForegroundRole.WARNING;
         }
-        return Theme.STATUS_INFO_TEXT;
+        return Theme.ForegroundRole.INFO;
     }
 
     /**
@@ -445,15 +480,15 @@ public final class NetworkDiagnosticsPanel extends JPanel {
     }
 
     /**
-     * Returns status color for a configured path.
+     * Returns status role for a configured path.
      *
      * @param text path text
-     * @return color
+     * @return color role
      */
-    private static Color pathColor(String text) {
+    private static Theme.ForegroundRole pathRole(String text) {
         return "present".equals(pathState(text))
-                ? Theme.STATUS_SUCCESS_TEXT
-                : Theme.STATUS_WARNING_TEXT;
+                ? Theme.ForegroundRole.SUCCESS
+                : Theme.ForegroundRole.WARNING;
     }
 
     /**
@@ -497,7 +532,7 @@ public final class NetworkDiagnosticsPanel extends JPanel {
          *
          * @return probe value
          */
-    boolean get();
+        boolean get();
     }
 
     /**
@@ -510,7 +545,7 @@ public final class NetworkDiagnosticsPanel extends JPanel {
          *
          * @return probe value
          */
-    int get();
+        int get();
     }
 
     /**
@@ -519,9 +554,10 @@ public final class NetworkDiagnosticsPanel extends JPanel {
      * @param label backend label
      * @param state state text
      * @param detail detail text
-     * @param color status color
+     * @param role status color role
      */
-    private record GpuState(String label, String state, String detail, Color color) {
+    private record GpuState(String label, String state, String detail,
+            Theme.ForegroundRole role) {
     }
 
     /**
@@ -535,28 +571,33 @@ public final class NetworkDiagnosticsPanel extends JPanel {
         private static final long serialVersionUID = 1L;
 
         /**
-         * Dot color.
+         * Dot color role.
          */
-        private final Color color;
+        private final Theme.ForegroundRole role;
 
         /**
          * Creates a dot.
          *
-         * @param color dot color
+         * @param role dot color role
          */
-        Dot(Color color) {
-            this.color = color;
+        Dot(Theme.ForegroundRole role) {
+            this.role = role;
             setOpaque(false);
             setPreferredSize(new Dimension(10, 18));
         }
 
+        /**
+         * Paints the status dot.
+         *
+         * @param graphics graphics context
+         */
         @Override
         protected void paintComponent(Graphics graphics) {
             Graphics2D g = (Graphics2D) graphics.create();
             try {
                 g.setRenderingHint(RenderingHints.KEY_ANTIALIASING,
                         RenderingHints.VALUE_ANTIALIAS_ON);
-                g.setColor(color);
+                g.setColor(Theme.foregroundColor(role));
                 int d = 7;
                 g.fillOval(1, (getHeight() - d) / 2, d, d);
             } finally {
