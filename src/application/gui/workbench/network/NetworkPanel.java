@@ -338,6 +338,26 @@ public final class NetworkPanel extends JPanel {
     private SwingWorker<ActivationSnapshot, Void> inferenceWorker;
 
     /**
+     * Architecture currently being inferred by {@link #inferenceWorker}.
+     */
+    private String runningArch;
+
+    /**
+     * FEN currently being inferred by {@link #inferenceWorker}.
+     */
+    private String runningFen;
+
+    /**
+     * Architecture represented by the active loading card.
+     */
+    private String loadingArch;
+
+    /**
+     * FEN represented by the active loading card.
+     */
+    private String loadingFen;
+
+    /**
      * Worker for the Network-tab PUCT search.
      */
     private SwingWorker<Void, MctsSearch.Snapshot> mctsWorker;
@@ -486,6 +506,7 @@ public final class NetworkPanel extends JPanel {
             debounceTimer.stop();
             pendingArch = null;
             pendingFen = null;
+            clearLoading(null, null);
         }
     }
 
@@ -498,6 +519,10 @@ public final class NetworkPanel extends JPanel {
         if (inferenceWorker != null && !inferenceWorker.isDone()) {
             inferenceWorker.cancel(true);
         }
+        runningArch = null;
+        runningFen = null;
+        loadingArch = null;
+        loadingFen = null;
         loadingPanel.stop();
     }
 
@@ -929,13 +954,19 @@ public final class NetworkPanel extends JPanel {
             return false;
         }
         String fen = effectiveFen();
+        String activeKey = fen == null || fen.isBlank() ? null : cacheKey(cardKey, fen);
+        String loadingKey = loadingArch == null || loadingFen == null
+                ? null
+                : cacheKey(loadingArch, loadingFen);
         String pendingKey = pendingArch == null || pendingFen == null
                 ? null
                 : cacheKey(pendingArch, pendingFen);
-        String activeKey = fen == null || fen.isBlank() ? null : cacheKey(cardKey, fen);
-        boolean workerForCard = inferenceWorker != null && !inferenceWorker.isDone()
-                && cardKey.equals(activeCardKey());
-        return (pendingKey != null && pendingKey.equals(activeKey)) || workerForCard;
+        String runningKey = runningArch == null || runningFen == null
+                ? null
+                : cacheKey(runningArch, runningFen);
+        return loadingKey != null
+                && loadingKey.equals(activeKey)
+                && (loadingKey.equals(pendingKey) || loadingKey.equals(runningKey));
     }
 
     /**
@@ -1324,6 +1355,9 @@ public final class NetworkPanel extends JPanel {
         if (inferenceWorker != null && !inferenceWorker.isDone()) {
             inferenceWorker.cancel(true);
         }
+        runningArch = null;
+        runningFen = null;
+        clearLoading(null, null);
     }
 
     /**
@@ -1373,7 +1407,9 @@ public final class NetworkPanel extends JPanel {
             refreshStatusBadge();
             return;
         }
-        showLoading(cardKey, fen, "Loading " + displayNameFor(cardKey));
+        showLoading(cardKey, fen, "Reading weights and running inference");
+        runningArch = cardKey;
+        runningFen = fen;
         inferenceWorker = new SwingWorker<>() {
             @Override
             protected ActivationSnapshot doInBackground() {
@@ -1383,6 +1419,8 @@ public final class NetworkPanel extends JPanel {
             @Override
             protected void done() {
                 inferenceWorker = null;
+                runningArch = null;
+                runningFen = null;
                 boolean failed = false;
                 try {
                     ActivationSnapshot snapshot = get();
@@ -1399,13 +1437,14 @@ public final class NetworkPanel extends JPanel {
                     statusBadge.error("inference failed: "
                             + cause.getClass().getSimpleName() + ": " + cause.getMessage());
                     failed = true;
+                } finally {
+                    clearLoading(cardKey, fen);
                 }
                 // Keep the error message visible; otherwise show the
                 // provider's healthy load state.
                 if (!failed) {
                     refreshStatusBadge();
                 } else {
-                    loadingPanel.stop();
                     showSelected();
                 }
                 if (pendingFen != null) {
@@ -1446,9 +1485,9 @@ public final class NetworkPanel extends JPanel {
                 nnueView.setVersionLabel(provider.nnueVersionLabel());
             }
         }
+        clearLoading(cardKey, fen);
         if (cardKey.equals(activeCardKey())) {
             displayedKey = cacheKey(cardKey, fen);
-            loadingPanel.stop();
             cards.show(cardPanel, cardKey);
         }
     }
@@ -1464,12 +1503,77 @@ public final class NetworkPanel extends JPanel {
         if (!cardKey.equals(activeCardKey())) {
             return;
         }
-        String shortFen = fen == null || fen.isBlank()
-                ? "no position loaded"
-                : fen.split("\\s+")[0];
-        loadingPanel.start("Loading " + displayNameFor(cardKey), detail + " - " + shortFen);
+        loadingArch = cardKey;
+        loadingFen = fen;
+        loadingPanel.start("Loading " + displayNameFor(cardKey),
+                detail,
+                loadingModelDetail(cardKey),
+                loadingPositionDetail(fen));
         cards.show(cardPanel, CARD_LOADING);
         statusBadge.busy("loading " + displayNameFor(cardKey).toLowerCase(java.util.Locale.ROOT) + "...");
+    }
+
+    /**
+     * Clears the loading card when it belongs to the supplied architecture/FEN.
+     * Passing null values clears any active loading state.
+     *
+     * @param cardKey architecture card key, or null to clear unconditionally
+     * @param fen position FEN, or null to clear unconditionally
+     */
+    private void clearLoading(String cardKey, String fen) {
+        boolean unconditional = cardKey == null || fen == null;
+        boolean matches = !unconditional
+                && cardKey.equals(loadingArch)
+                && fen.equals(loadingFen);
+        if (!unconditional && !matches) {
+            return;
+        }
+        loadingArch = null;
+        loadingFen = null;
+        loadingPanel.stop();
+    }
+
+    /**
+     * Returns the model detail line used by the loading screen.
+     *
+     * @param cardKey architecture card key
+     * @return compact model detail
+     */
+    private String loadingModelDetail(String cardKey) {
+        String label = switch (cardKey) {
+            case ARCH_CNN -> "LC0 CNN";
+            case ARCH_BT4 -> "LC0 BT4";
+            default -> "NNUE";
+        };
+        for (RealActivations.ModelStatus status : provider.modelStatuses()) {
+            if (label.equals(status.label())) {
+                String file = status.path() == null
+                        ? "configured model"
+                        : status.path().getFileName().toString();
+                if (status.present()) {
+                    return file + " - " + status.detail();
+                }
+                return file + " - missing, synthetic fallback ready";
+            }
+        }
+        return label + " model status pending";
+    }
+
+    /**
+     * Returns the position detail line used by the loading screen.
+     *
+     * @param fen position FEN
+     * @return compact position detail
+     */
+    private static String loadingPositionDetail(String fen) {
+        if (fen == null || fen.isBlank()) {
+            return "No position loaded";
+        }
+        String[] parts = fen.trim().split("\\s+");
+        String side = parts.length > 1 && "b".equals(parts[1])
+                ? "black to move"
+                : "white to move";
+        return parts[0] + " - " + side;
     }
 
     /**

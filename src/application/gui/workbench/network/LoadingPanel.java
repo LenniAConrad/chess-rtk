@@ -8,11 +8,14 @@ package application.gui.workbench.network;
 
 import application.gui.workbench.ui.Theme;
 import java.awt.BasicStroke;
+import java.awt.Color;
 import java.awt.Font;
+import java.awt.FontMetrics;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.Rectangle;
 import java.awt.RenderingHints;
+import java.awt.Shape;
 import javax.swing.JPanel;
 import javax.swing.Timer;
 
@@ -33,14 +36,34 @@ final class LoadingPanel extends JPanel {
     private static final int FRAME_MS = 80;
 
     /**
-     * Indicator width in pixels.
+     * Maximum width of the centered loading surface.
      */
-    private static final int INDICATOR_WIDTH = 176;
+    private static final int PANEL_WIDTH = 500;
 
     /**
-     * Indicator height in pixels.
+     * Minimum width of the centered loading surface.
      */
-    private static final int INDICATOR_HEIGHT = 4;
+    private static final int PANEL_MIN_WIDTH = 320;
+
+    /**
+     * Height of the centered loading surface.
+     */
+    private static final int PANEL_HEIGHT = 188;
+
+    /**
+     * Width reserved for the animated network mark.
+     */
+    private static final int MARK_WIDTH = 128;
+
+    /**
+     * Horizontal progress indicator height.
+     */
+    private static final int INDICATOR_HEIGHT = 5;
+
+    /**
+     * Total animation-frame count before the phase wraps.
+     */
+    private static final int PHASE_LIMIT = 160;
 
     /**
      * Timer that advances the indeterminate loading animation.
@@ -56,6 +79,16 @@ final class LoadingPanel extends JPanel {
      * Secondary loading detail.
      */
     private String detail = "Preparing activations...";
+
+    /**
+     * Model-file or fallback detail.
+     */
+    private String modelDetail = "Model status pending";
+
+    /**
+     * Position detail for the requested activation snapshot.
+     */
+    private String positionDetail = "No position loaded";
 
     /**
      * Current animation phase.
@@ -82,8 +115,26 @@ final class LoadingPanel extends JPanel {
      * @param detail secondary loading detail
      */
     void start(String title, String detail) {
+        start(title, detail, "Model status pending", "No position loaded");
+    }
+
+    /**
+     * Starts or updates the loading state.
+     *
+     * @param title primary loading message
+     * @param detail secondary loading detail
+     * @param modelDetail model-file or fallback detail
+     * @param positionDetail current position detail
+     */
+    void start(String title, String detail, String modelDetail, String positionDetail) {
         this.title = title == null || title.isBlank() ? "Loading network view" : title;
-        this.detail = detail == null || detail.isBlank() ? "Preparing activations..." : detail;
+        this.detail = detail == null || detail.isBlank() ? "Preparing activations" : detail;
+        this.modelDetail = modelDetail == null || modelDetail.isBlank()
+                ? "Model status pending"
+                : modelDetail;
+        this.positionDetail = positionDetail == null || positionDetail.isBlank()
+                ? "No position loaded"
+                : positionDetail;
         active = true;
         if (!timer.isRunning()) {
             timer.start();
@@ -113,7 +164,7 @@ final class LoadingPanel extends JPanel {
      * Advances one animation frame.
      */
     private void tick() {
-        phase = (phase + 1) % 120;
+        phase = (phase + 1) % PHASE_LIMIT;
         repaint();
     }
 
@@ -143,33 +194,175 @@ final class LoadingPanel extends JPanel {
      * @param bounds panel bounds
      */
     private void paintLoading(Graphics2D g, Rectangle bounds) {
-        int cx = bounds.x + bounds.width / 2;
-        int cy = bounds.y + bounds.height / 2;
-        int x = cx - INDICATOR_WIDTH / 2;
-        int y = cy - 16;
+        g.setColor(Theme.BG);
+        g.fillRect(bounds.x, bounds.y, bounds.width, bounds.height);
 
-        g.setColor(Theme.withAlpha(Theme.LINE, 180));
-        g.fillRoundRect(x, y, INDICATOR_WIDTH, INDICATOR_HEIGHT, 3, 3);
+        int panelWidth = Math.max(PANEL_MIN_WIDTH,
+                Math.min(PANEL_WIDTH, bounds.width - 2 * Theme.SPACE_LG));
+        int panelHeight = Math.min(PANEL_HEIGHT, Math.max(150, bounds.height - 2 * Theme.SPACE_LG));
+        int x = bounds.x + (bounds.width - panelWidth) / 2;
+        int y = bounds.y + (bounds.height - panelHeight) / 2;
+        int arc = Theme.RADIUS * 2;
 
-        int movingWidth = Math.max(42, INDICATOR_WIDTH / 3);
-        int travel = INDICATOR_WIDTH + movingWidth;
-        int movingX = x - movingWidth + (phase * travel / 120);
+        g.setColor(Theme.PANEL_SOLID);
+        g.fillRoundRect(x, y, panelWidth, panelHeight, arc, arc);
+        g.setStroke(new BasicStroke(1.0f));
+        g.setColor(Theme.LINE);
+        g.drawRoundRect(x, y, panelWidth, panelHeight, arc, arc);
         g.setColor(Theme.ACCENT);
-        g.fillRoundRect(movingX, y, movingWidth, INDICATOR_HEIGHT, 3, 3);
+        g.fillRoundRect(x, y, 4, panelHeight, arc, arc);
 
-        g.setStroke(new BasicStroke(1.2f));
-        g.setColor(Theme.withAlpha(Theme.ACCENT, 84));
-        g.drawRoundRect(x - 10, y - 20, INDICATOR_WIDTH + 20, 72, 6, 6);
+        Rectangle mark = new Rectangle(x + 28, y + 30, MARK_WIDTH, panelHeight - 60);
+        paintNetworkMark(g, mark);
 
-        g.setFont(Theme.font(13, Font.BOLD));
+        int textX = mark.x + mark.width + 22;
+        int textW = Math.max(80, x + panelWidth - textX - 26);
+        paintTextBlock(g, new Rectangle(textX, y + 28, textW, panelHeight - 56));
+    }
+
+    /**
+     * Paints the animated network mark.
+     *
+     * @param g graphics context
+     * @param bounds mark bounds
+     */
+    private void paintNetworkMark(Graphics2D g, Rectangle bounds) {
+        int[][] nodes = {
+                { bounds.x + 24, bounds.y + bounds.height / 2 },
+                { bounds.x + 58, bounds.y + 28 },
+                { bounds.x + 58, bounds.y + bounds.height - 28 },
+                { bounds.x + bounds.width - 24, bounds.y + bounds.height / 2 }
+        };
+        int[][] edges = { { 0, 1 }, { 0, 2 }, { 1, 3 }, { 2, 3 }, { 1, 2 } };
+        Color[] colors = {
+                Theme.NN_TRUNK,
+                Theme.NN_POLICY,
+                Theme.NN_VALUE,
+                Theme.NN_NEGATIVE
+        };
+
+        g.setStroke(new BasicStroke(1.5f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+        for (int i = 0; i < edges.length; i++) {
+            int[] edge = edges[i];
+            int alpha = 54 + pulse(i * 19, 62);
+            g.setColor(Theme.withAlpha(Theme.MUTED, alpha));
+            g.drawLine(nodes[edge[0]][0], nodes[edge[0]][1],
+                    nodes[edge[1]][0], nodes[edge[1]][1]);
+        }
+
+        for (int i = 0; i < nodes.length; i++) {
+            int radius = 8 + pulse(i * 23, 3);
+            int alpha = 146 + pulse(i * 29, 88);
+            g.setColor(Theme.withAlpha(colors[i], alpha));
+            g.fillOval(nodes[i][0] - radius, nodes[i][1] - radius,
+                    radius * 2, radius * 2);
+            g.setColor(Theme.PANEL_SOLID);
+            g.fillOval(nodes[i][0] - 3, nodes[i][1] - 3, 6, 6);
+        }
+    }
+
+    /**
+     * Paints title, status details and progress rail.
+     *
+     * @param g graphics context
+     * @param bounds text bounds
+     */
+    private void paintTextBlock(Graphics2D g, Rectangle bounds) {
+        g.setFont(Theme.font(15, Font.BOLD));
+        FontMetrics titleMetrics = g.getFontMetrics();
         g.setColor(Theme.TEXT);
-        int titleWidth = g.getFontMetrics().stringWidth(title);
-        g.drawString(title, cx - titleWidth / 2, y + 28);
+        g.drawString(elide(g, title, bounds.width), bounds.x, bounds.y + titleMetrics.getAscent());
 
         g.setFont(Theme.font(12, Font.PLAIN));
         g.setColor(Theme.MUTED);
-        String animatedDetail = detail + ".".repeat((phase / 20) % 4);
-        int detailWidth = g.getFontMetrics().stringWidth(animatedDetail);
-        g.drawString(animatedDetail, cx - detailWidth / 2, y + 48);
+        String animatedDetail = detail + ".".repeat((phase / 18) % 4);
+        g.drawString(elide(g, animatedDetail, bounds.width), bounds.x, bounds.y + 38);
+        g.drawString(elide(g, modelDetail, bounds.width), bounds.x, bounds.y + 60);
+        g.drawString(elide(g, positionDetail, bounds.width), bounds.x, bounds.y + 82);
+
+        int railY = bounds.y + 104;
+        paintProgressRail(g, bounds.x, railY, bounds.width);
+
+        int stepY = railY + 30;
+        paintStep(g, bounds.x, stepY, "Weights", 0);
+        paintStep(g, bounds.x + Math.max(94, bounds.width / 3), stepY, "Forward pass", 1);
+        paintStep(g, bounds.x + Math.max(204, bounds.width * 2 / 3), stepY, "Render", 2);
+        g.setFont(Theme.font(12, Font.PLAIN));
+        g.setColor(Theme.MUTED);
+    }
+
+    /**
+     * Paints the clipped indeterminate progress rail.
+     *
+     * @param g graphics context
+     * @param x rail x
+     * @param y rail y
+     * @param width rail width
+     */
+    private void paintProgressRail(Graphics2D g, int x, int y, int width) {
+        int movingWidth = Math.max(54, width / 3);
+        int travel = width + movingWidth;
+        int movingX = x - movingWidth + (phase * travel / PHASE_LIMIT);
+        g.setColor(Theme.withAlpha(Theme.LINE, Theme.isDark() ? 210 : 180));
+        g.fillRoundRect(x, y, width, INDICATOR_HEIGHT, INDICATOR_HEIGHT, INDICATOR_HEIGHT);
+        Shape oldClip = g.getClip();
+        g.clipRect(x, y, width, INDICATOR_HEIGHT);
+        g.setColor(Theme.ACCENT);
+        g.fillRoundRect(movingX, y, movingWidth, INDICATOR_HEIGHT,
+                INDICATOR_HEIGHT, INDICATOR_HEIGHT);
+        g.setClip(oldClip);
+    }
+
+    /**
+     * Paints one compact loading step.
+     *
+     * @param g graphics context
+     * @param x step x
+     * @param y baseline y
+     * @param text step label
+     * @param index step index
+     */
+    private void paintStep(Graphics2D g, int x, int y, String text, int index) {
+        boolean current = ((phase / 36) % 3) == index;
+        int dot = current ? 7 : 5;
+        g.setColor(current ? Theme.ACCENT : Theme.withAlpha(Theme.MUTED, 145));
+        g.fillOval(x, y - dot, dot, dot);
+        g.setFont(Theme.font(11, Font.PLAIN));
+        g.setColor(current ? Theme.TEXT : Theme.MUTED);
+        g.drawString(text, x + 12, y);
+    }
+
+    /**
+     * Returns an animated pulse value.
+     *
+     * @param offset phase offset
+     * @param amplitude pulse amplitude
+     * @return value in {@code [0, amplitude]}
+     */
+    private int pulse(int offset, int amplitude) {
+        double angle = ((phase + offset) % PHASE_LIMIT) / (double) PHASE_LIMIT * Math.PI * 2.0;
+        return (int) Math.round((Math.sin(angle) * 0.5 + 0.5) * amplitude);
+    }
+
+    /**
+     * Elides text to fit the available width.
+     *
+     * @param g graphics context with the target font
+     * @param text source text
+     * @param width maximum text width
+     * @return elided text
+     */
+    private static String elide(Graphics2D g, String text, int width) {
+        String value = text == null ? "" : text;
+        if (g.getFontMetrics().stringWidth(value) <= width) {
+            return value;
+        }
+        String suffix = "...";
+        int suffixWidth = g.getFontMetrics().stringWidth(suffix);
+        int end = value.length();
+        while (end > 0 && g.getFontMetrics().stringWidth(value.substring(0, end)) + suffixWidth > width) {
+            end--;
+        }
+        return end <= 0 ? suffix : value.substring(0, end) + suffix;
     }
 }

@@ -28,6 +28,7 @@ import javax.swing.Scrollable;
 import javax.swing.JSpinner;
 import javax.swing.JTextArea;
 import javax.swing.JTextPane;
+import javax.swing.SwingWorker;
 import javax.swing.Timer;
 import javax.swing.text.AttributeSet;
 import javax.swing.text.StyleConstants;
@@ -65,6 +66,7 @@ final class WorkbenchBackendRegression {
         testCommandResultParserSummaries();
         testDashboardPanelConstructsHeadlessly();
         testNetworkPanelSimpleControlsRenderHeadlessly();
+        testNetworkLoadingCardTracksRequestedArchitecture();
         testNetworkMctsUpdatesAreNonBlocking();
         testNetworkDiagnosticsPreviewHighlightsConfig();
         testNetworkDiagnosticsPreviewRecolorsForDarkTheme();
@@ -416,6 +418,38 @@ final class WorkbenchBackendRegression {
                 "network inspector separator follows dark theme");
         Theme.setMode(Theme.Mode.LIGHT);
         timer.stop();
+        invoke(panel, "dispose", new Class<?>[0]);
+    }
+
+    /**
+     * Verifies the network loading card is tied to the model/FEN that
+     * requested it, rather than any unrelated in-flight inference worker.
+     */
+    private static void testNetworkLoadingCardTracksRequestedArchitecture() {
+        Theme.setMode(Theme.Mode.LIGHT);
+        Object panel = construct(type("NetworkPanel"), new Class<?>[0]);
+        Timer timer = (Timer) field(panel, "debounceTimer");
+        timer.stop();
+        JComboBox<?> archCombo = (JComboBox<?>) field(panel, "archCombo");
+        archCombo.setSelectedItem("LC0 CNN");
+        setField(panel, "mainBoardFen", START_FEN);
+        Object loadingPanel = field(panel, "loadingPanel");
+        invoke(loadingPanel, "start",
+                new Class<?>[] { String.class, String.class, String.class, String.class },
+                "Loading NNUE", "Reading weights", "crtk-halfkp.nnue", START_FEN);
+        setField(panel, "loadingArch", "NNUE");
+        setField(panel, "loadingFen", START_FEN);
+        setField(panel, "runningArch", "NNUE");
+        setField(panel, "runningFen", START_FEN);
+        setField(panel, "inferenceWorker", new SwingWorker<Void, Void>() {
+            @Override
+            protected Void doInBackground() {
+                return null;
+            }
+        });
+        assertFalse((Boolean) invoke(panel, "isLoadingActiveCard",
+                new Class<?>[] { String.class }, "LC0 CNN"),
+                "unrelated in-flight worker does not make the selected model show a loading card");
         invoke(panel, "dispose", new Class<?>[0]);
     }
 
