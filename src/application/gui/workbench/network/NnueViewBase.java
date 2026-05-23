@@ -377,7 +377,7 @@ public abstract class NnueViewBase extends NetworkView implements Scrollable {
      */
     @Override
     public boolean getScrollableTracksViewportHeight() {
-        return !isAtlas() || !atlasGrid;
+        return !isAtlas() || snapshot == null;
     }
 
     /**
@@ -399,15 +399,23 @@ public abstract class NnueViewBase extends NetworkView implements Scrollable {
             int bottom = 16;
             int totalH = top + hidden * rowH + bottom;
             // Leave plenty of room for a wide tooltip popup.
-    return new Dimension(width, totalH);
+            return new Dimension(width, totalH);
         }
         if (isAtlas() && snapshot != null) {
-    return new Dimension(1120, 720);
+            int[] shape = snapshot.shape("nnue.atlas.weights");
+            if (shape != null && shape.length >= 3 && atlasZoomedSlot < 0) {
+                int width = 1120;
+                int overviewH = atlasWholeOverviewHeight(width, shape[0], shape[1]);
+                int headerH = 46;
+                int lowerH = 430;
+                return new Dimension(width, headerH + 20 + overviewH + lowerH);
+            }
+            return new Dimension(1120, 760);
         }
         if (isDetailed() && snapshot != null) {
-    return new Dimension(1120, 720);
+            return new Dimension(1120, 720);
         }
-    return new Dimension(720, 540);
+        return new Dimension(720, 540);
     }
 
     /**

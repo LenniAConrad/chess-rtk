@@ -21,6 +21,21 @@ import java.awt.Rectangle;
 public final class NnueAtlas {
 
     /**
+     * Target slot count per vertical bank in the whole pixel-plane overview.
+     */
+    private static final int WHOLE_ATLAS_TARGET_ROWS = 128;
+
+    /**
+     * Gap between wrapped banks in the whole pixel-plane overview.
+     */
+    private static final int WHOLE_ATLAS_COLUMN_GAP = 8;
+
+    /**
+     * Header and label chrome inside the whole pixel-plane overview card.
+     */
+    private static final int WHOLE_ATLAS_CHROME_HEIGHT = 60;
+
+    /**
      * Utility class.
      */
     private NnueAtlas() {
@@ -115,16 +130,73 @@ public final class NnueAtlas {
     }
 
     /**
-     * Picks the height for the all-slot atlas strip.
+     * Returns the gap between wrapped banks in the whole pixel-plane overview.
      *
-     * @param contentHeight available content height
-     * @return strip height
+     * @return column gap in pixels
      */
-    public static int atlasWholeOverviewHeight(int contentHeight) {
-        if (contentHeight < 360) {
-            return Math.max(80, contentHeight / 4);
+    public static int atlasWholeColumnGap() {
+        return WHOLE_ATLAS_COLUMN_GAP;
+    }
+
+    /**
+     * Picks the slot pitch for a wrapped whole-atlas bank. Large networks use a
+     * compact but readable pitch; smaller networks keep the native 8px slot
+     * height.
+     *
+     * @param hidden hidden-layer dimension
+     * @return slot pitch in pixels
+     */
+    public static int atlasWholeSlotPitch(int hidden) {
+        return hidden >= 512 ? 6 : 8;
+    }
+
+    /**
+     * Picks the number of wrapped banks for the whole pixel-plane overview.
+     * Wrapping uses the available width to preserve vertical detail instead of
+     * compressing every slot into one thin strip.
+     *
+     * @param contentWidth available inner width
+     * @param hidden hidden-layer dimension
+     * @param planes piece-plane count
+     * @return column count
+     */
+    public static int atlasWholeColumnCount(int contentWidth, int hidden, int planes) {
+        if (contentWidth <= 0 || hidden <= 0 || planes <= 0) {
+            return 1;
         }
-        return Math.min(168, Math.max(112, contentHeight / 4));
+        int nativeWidth = Math.max(8, planes * 8);
+        int preferredWidth = Math.min(320, Math.max(160, nativeWidth * 2));
+        int maxColumns = Math.max(1, (contentWidth + WHOLE_ATLAS_COLUMN_GAP)
+                / (preferredWidth + WHOLE_ATLAS_COLUMN_GAP));
+        int neededColumns = Math.max(1,
+                (int) Math.ceil(hidden / (double) WHOLE_ATLAS_TARGET_ROWS));
+        return Math.max(1, Math.min(Math.min(hidden, maxColumns), neededColumns));
+    }
+
+    /**
+     * Returns the number of hidden slots shown in each wrapped whole-atlas bank.
+     *
+     * @param contentWidth available inner width
+     * @param hidden hidden-layer dimension
+     * @param planes piece-plane count
+     * @return rows per bank
+     */
+    public static int atlasWholeRowsPerColumn(int contentWidth, int hidden, int planes) {
+        int columns = atlasWholeColumnCount(contentWidth, hidden, planes);
+        return Math.max(1, (int) Math.ceil(hidden / (double) columns));
+    }
+
+    /**
+     * Picks the preferred height for the wrapped whole pixel-plane overview.
+     *
+     * @param contentWidth available inner width
+     * @param hidden hidden-layer dimension
+     * @param planes piece-plane count
+     * @return overview card height
+     */
+    public static int atlasWholeOverviewHeight(int contentWidth, int hidden, int planes) {
+        int rows = atlasWholeRowsPerColumn(Math.max(1, contentWidth - 20), hidden, planes);
+        return WHOLE_ATLAS_CHROME_HEIGHT + rows * atlasWholeSlotPitch(hidden);
     }
 
     /**

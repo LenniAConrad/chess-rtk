@@ -150,7 +150,7 @@ public abstract class NnueAtlasView extends NnueViewBase {
                 subtitle);
         Rectangle content = new Rectangle(body.x, body.y + headerH + 10,
                 body.width, Math.max(1, body.height - headerH - 10));
-        int overviewH = atlasWholeOverviewHeight(content.height);
+        int overviewH = atlasWholeOverviewHeight(content.width, hidden, planes);
         Rectangle overview = new Rectangle(content.x, content.y, content.width, overviewH);
         paintAtlasWholePlaneOverview(g, overview, order, paintingData, output,
                 hidden, planes, squares, perNeuronScale, selectedSlot);
@@ -217,59 +217,88 @@ public abstract class NnueAtlasView extends NnueViewBase {
             TensorViz.drawEmpty(g, inner);
             return;
         }
-        int labelH = 12;
-        Rectangle imageRect = new Rectangle(inner.x, inner.y + labelH,
-                inner.width, Math.max(1, inner.height - labelH));
-        if (imageRect.width <= 0 || imageRect.height <= 0) {
+        int labelH = 14;
+        int columnGap = atlasWholeColumnGap();
+        int columns = atlasWholeColumnCount(inner.width, hidden, planes);
+        int rowsPerColumn = atlasWholeRowsPerColumn(inner.width, hidden, planes);
+        int slotPitch = atlasWholeSlotPitch(hidden);
+        int columnW = Math.max(1, (inner.width - columnGap * Math.max(0, columns - 1))
+                / Math.max(1, columns));
+        if (columnW <= 0 || rowsPerColumn <= 0) {
             return;
         }
         g.setColor(Theme.MUTED);
         g.setFont(Theme.font(9, Font.BOLD));
         FontMetrics fm = g.getFontMetrics();
-        if (imageRect.width / Math.max(1, planes) >= 24) {
-            for (int p = 0; p < planes; p++) {
-                int x0 = (int) Math.round(imageRect.x + p * imageRect.width / (double) planes);
-                int x1 = (int) Math.round(imageRect.x + (p + 1) * imageRect.width / (double) planes);
-                String label = atlasPlaneLabel(p, planes);
-                int tw = fm.stringWidth(label);
-                g.drawString(label, x0 + Math.max(2, (x1 - x0 - tw) / 2), inner.y + 9);
-            }
-        }
         java.awt.image.BufferedImage image = atlasPlaneImage(atlas, order, hidden, planes, squares,
                 perNeuronScale);
+        hitRegions.add(inner,
+                "whole atlas overview",
+                "Wrapped pixel-plane banks for every accumulator slot.",
+                hidden + " slots × " + planes + " planes");
         Object interpolation = g.getRenderingHint(RenderingHints.KEY_INTERPOLATION);
         g.setRenderingHint(RenderingHints.KEY_INTERPOLATION,
                 RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
-        g.drawImage(image, imageRect.x, imageRect.y, imageRect.width, imageRect.height, null);
+        int selectedRow = orderIndex(order, selectedSlot);
+        for (int column = 0; column < columns; column++) {
+            int startRow = column * rowsPerColumn;
+            int rowCount = Math.min(rowsPerColumn, hidden - startRow);
+            if (rowCount <= 0) {
+                continue;
+            }
+            int columnX = inner.x + column * (columnW + columnGap);
+            Rectangle labelRect = new Rectangle(columnX, inner.y, columnW, labelH);
+            Rectangle imageRect = new Rectangle(columnX, inner.y + labelH, columnW, rowCount * slotPitch);
+            paintAtlasPlaneLabels(g, labelRect, planes, fm);
+            java.awt.image.BufferedImage bank = image.getSubimage(0, startRow * 8,
+                    image.getWidth(), rowCount * 8);
+            g.drawImage(bank, imageRect.x, imageRect.y, imageRect.width, imageRect.height, null);
+            g.setColor(Theme.LINE);
+            g.drawRect(imageRect.x, imageRect.y, imageRect.width - 1, imageRect.height - 1);
+            if (selectedRow >= startRow && selectedRow < startRow + rowCount) {
+                int y = imageRect.y + (selectedRow - startRow) * slotPitch;
+                g.setColor(TensorViz.FOCUS);
+                g.setStroke(new BasicStroke(2.0f));
+                g.drawRect(imageRect.x, y, imageRect.width - 1, Math.max(1, slotPitch) - 1);
+                g.setStroke(new BasicStroke(1.0f));
+            }
+            if (atlasSelectedPlane >= 0 && atlasSelectedPlane < planes) {
+                int x0 = (int) Math.floor(imageRect.x + atlasSelectedPlane * imageRect.width / (double) planes);
+                int x1 = (int) Math.ceil(imageRect.x + (atlasSelectedPlane + 1) * imageRect.width / (double) planes);
+                g.setColor(Theme.withAlpha(TensorViz.FOCUS, 150));
+                g.drawRect(x0, imageRect.y, Math.max(1, x1 - x0) - 1, imageRect.height - 1);
+            }
+            for (int row = 0; row < rowCount && startRow + row < order.length; row++) {
+                int slot = order[startRow + row];
+                hitRegions.add(new Rectangle(imageRect.x, imageRect.y + row * slotPitch,
+                        imageRect.width, Math.max(1, slotPitch)),
+                        "Slot " + slot + " · whole atlas",
+                        "Select this accumulator slot from the whole pixel-plane overview.",
+                        atlasSlotDetail(output, slot, atlas, planes, squares));
+            }
+        }
         if (interpolation != null) {
             g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, interpolation);
         }
-        g.setColor(Theme.LINE);
-        g.drawRect(imageRect.x, imageRect.y, imageRect.width - 1, imageRect.height - 1);
+    }
 
-        int selectedRow = orderIndex(order, selectedSlot);
-        if (selectedRow >= 0) {
-            int y0 = (int) Math.floor(imageRect.y + selectedRow * imageRect.height / (double) hidden);
-            int y1 = (int) Math.ceil(imageRect.y + (selectedRow + 1) * imageRect.height / (double) hidden);
-            g.setColor(TensorViz.FOCUS);
-            g.setStroke(new BasicStroke(2.0f));
-            g.drawRect(imageRect.x, y0, imageRect.width - 1, Math.max(1, y1 - y0) - 1);
-            g.setStroke(new BasicStroke(1.0f));
-        }
-        if (atlasSelectedPlane >= 0 && atlasSelectedPlane < planes) {
-            int x0 = (int) Math.floor(imageRect.x + atlasSelectedPlane * imageRect.width / (double) planes);
-            int x1 = (int) Math.ceil(imageRect.x + (atlasSelectedPlane + 1) * imageRect.width / (double) planes);
-            g.setColor(Theme.withAlpha(TensorViz.FOCUS, 150));
-            g.drawRect(x0, imageRect.y, Math.max(1, x1 - x0) - 1, imageRect.height - 1);
-        }
-        for (int row = 0; row < hidden && row < order.length; row++) {
-            int y0 = (int) Math.floor(imageRect.y + row * imageRect.height / (double) hidden);
-            int y1 = (int) Math.ceil(imageRect.y + (row + 1) * imageRect.height / (double) hidden);
-            int slot = order[row];
-            hitRegions.add(new Rectangle(imageRect.x, y0, imageRect.width, Math.max(1, y1 - y0)),
-                    "Slot " + slot + " · whole atlas",
-                    "Select this accumulator slot from the whole pixel-plane overview.",
-                    atlasSlotDetail(output, slot, atlas, planes, squares));
+    /**
+     * Paints piece-plane labels above one wrapped whole-atlas bank.
+     *
+     * @param g graphics context
+     * @param r label bounds
+     * @param planes plane count
+     * @param fm font metrics
+     */
+    private void paintAtlasPlaneLabels(Graphics2D g, Rectangle r, int planes, FontMetrics fm) {
+        if (r.width / Math.max(1, planes) >= 10) {
+            for (int p = 0; p < planes; p++) {
+                int x0 = (int) Math.round(r.x + p * r.width / (double) planes);
+                int x1 = (int) Math.round(r.x + (p + 1) * r.width / (double) planes);
+                String label = atlasPlaneLabel(p, planes);
+                int tw = fm.stringWidth(label);
+                g.drawString(label, x0 + Math.max(1, (x1 - x0 - tw) / 2), r.y + 10);
+            }
         }
     }
 

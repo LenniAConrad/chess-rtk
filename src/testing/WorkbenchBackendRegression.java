@@ -564,6 +564,10 @@ final class WorkbenchBackendRegression {
                 "NNUE atlas paints synthetic snapshot");
         assertTrue(((Scrollable) view).getScrollableTracksViewportWidth(),
                 "NNUE atlas tracks viewport width");
+        assertFalse(((Scrollable) view).getScrollableTracksViewportHeight(),
+                "NNUE atlas uses a scroll canvas for the whole pixel-plane overview");
+        assertTrue(((JComponent) view).getPreferredSize().height > 900,
+                "NNUE atlas leaves enough vertical room for the wrapped pixel-plane overview");
         String atlasTip = ((JComponent) view).getToolTipText(new MouseEvent((JComponent) view,
                 MouseEvent.MOUSE_MOVED, 0L, 0, 600, 200, 0, false, MouseEvent.NOBUTTON));
         assertTrue(atlasTip != null && atlasTip.contains("whole atlas"),
