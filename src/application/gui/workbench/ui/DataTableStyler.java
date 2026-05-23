@@ -12,7 +12,10 @@ import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
+import java.awt.Rectangle;
 import java.awt.RenderingHints;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.util.List;
 import javax.swing.BorderFactory;
 import javax.swing.DefaultCellEditor;
@@ -43,6 +46,18 @@ final class DataTableStyler {
     private static final int BOX_SIZE = 15;
 
     /**
+     * Client-property key storing the currently hovered view row.
+     */
+    private static final String HOVER_ROW_PROPERTY =
+            DataTableStyler.class.getName() + ".hoverRow";
+
+    /**
+     * Client-property key marking tables with hover tracking installed.
+     */
+    private static final String HOVER_LISTENER_PROPERTY =
+            DataTableStyler.class.getName() + ".hoverListener";
+
+    /**
      * Prevents instantiation.
      */
     private DataTableStyler() {
@@ -69,6 +84,9 @@ final class DataTableStyler {
         table.setIntercellSpacing(new Dimension(0, 0));
         table.setBorder(Theme.pad(0, 0, 0, 0));
         table.setFont(Theme.font(12, java.awt.Font.PLAIN));
+        table.setRowSelectionAllowed(true);
+        table.setColumnSelectionAllowed(false);
+        installHoverTracking(table);
         styleHeader(table);
         TableCellRenderer textRenderer = new TextCellRenderer();
         table.setDefaultRenderer(Object.class, textRenderer);
@@ -76,6 +94,85 @@ final class DataTableStyler {
         table.setDefaultRenderer(Number.class, textRenderer);
         table.setDefaultRenderer(Boolean.class, new BooleanCellRenderer());
         table.setDefaultEditor(Boolean.class, new DefaultCellEditor(booleanEditor()));
+    }
+
+    /**
+     * Installs row-hover tracking for modern table feedback.
+     *
+     * @param table table
+     */
+    private static void installHoverTracking(JTable table) {
+        if (Boolean.TRUE.equals(table.getClientProperty(HOVER_LISTENER_PROPERTY))) {
+            return;
+        }
+        table.putClientProperty(HOVER_LISTENER_PROPERTY, Boolean.TRUE);
+        table.putClientProperty(HOVER_ROW_PROPERTY, Integer.valueOf(-1));
+        MouseAdapter adapter = new MouseAdapter() {
+            /**
+             * Updates hovered row while the pointer moves.
+             *
+             * @param event mouse event
+             */
+            @Override
+            public void mouseMoved(MouseEvent event) {
+                updateHoverRow(table, table.rowAtPoint(event.getPoint()));
+            }
+
+            /**
+             * Clears hover state when the pointer leaves.
+             *
+             * @param event mouse event
+             */
+            @Override
+            public void mouseExited(MouseEvent event) {
+                updateHoverRow(table, -1);
+            }
+        };
+        table.addMouseMotionListener(adapter);
+        table.addMouseListener(adapter);
+    }
+
+    /**
+     * Updates the hovered row client property and repaints changed rows.
+     *
+     * @param table table
+     * @param nextRow next hovered view row
+     */
+    private static void updateHoverRow(JTable table, int nextRow) {
+        int previous = hoverRow(table);
+        if (previous == nextRow) {
+            return;
+        }
+        table.putClientProperty(HOVER_ROW_PROPERTY, Integer.valueOf(nextRow));
+        repaintRow(table, previous);
+        repaintRow(table, nextRow);
+    }
+
+    /**
+     * Repaints one table row if it is visible.
+     *
+     * @param table table
+     * @param row view row
+     */
+    private static void repaintRow(JTable table, int row) {
+        if (row < 0 || row >= table.getRowCount()) {
+            return;
+        }
+        Rectangle bounds = table.getCellRect(row, 0, true);
+        bounds.x = 0;
+        bounds.width = table.getWidth();
+        table.repaint(bounds);
+    }
+
+    /**
+     * Returns the hovered row stored on the table.
+     *
+     * @param table table
+     * @return hovered view row or -1
+     */
+    private static int hoverRow(JTable table) {
+        Object value = table.getClientProperty(HOVER_ROW_PROPERTY);
+        return value instanceof Integer row ? row.intValue() : -1;
     }
 
     /**
@@ -200,7 +297,9 @@ final class DataTableStyler {
             setOpaque(true);
             setFont(table.getFont());
             setForeground(table.isEnabled() ? Theme.TEXT : Theme.BUTTON_DISABLED_TEXT);
-            setBackground(selected ? table.getSelectionBackground() : table.getBackground());
+            boolean hovered = row == hoverRow(table);
+            setBackground(selected ? table.getSelectionBackground()
+                    : hovered ? Theme.SECONDARY_BUTTON_HOVER : table.getBackground());
             setHorizontalAlignment(value instanceof Number ? SwingConstants.RIGHT : SwingConstants.LEFT);
             setBorder(Theme.pad(0, 8, 0, 8));
             return this;
@@ -250,7 +349,9 @@ final class DataTableStyler {
             rowSelected = selected;
             tableEnabled = table.isEnabled();
             setOpaque(true);
-            setBackground(selected ? table.getSelectionBackground() : table.getBackground());
+            boolean hovered = row == hoverRow(table);
+            setBackground(selected ? table.getSelectionBackground()
+                    : hovered ? Theme.SECONDARY_BUTTON_HOVER : table.getBackground());
             setToolTipText(checked ? "enabled" : "disabled");
             return this;
         }

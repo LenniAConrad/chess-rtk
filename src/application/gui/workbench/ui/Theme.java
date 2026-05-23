@@ -12,8 +12,6 @@ import java.awt.Container;
 import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.Insets;
-import java.awt.event.FocusAdapter;
-import java.awt.event.FocusEvent;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.AbstractButton;
@@ -1881,9 +1879,7 @@ public final class Theme {
      * @return input border
      */
     private static Border inputBorder(boolean focused) {
-        Border line = BorderFactory.createLineBorder(focused ? INPUT_FOCUS : INPUT_BORDER);
-        Border inner = pad(7, 9, 7, 9);
-        return BorderFactory.createCompoundBorder(line, inner);
+        return InputChrome.border(focused, false, false);
     }
 
     /**
@@ -1892,27 +1888,7 @@ public final class Theme {
      * @param component text component
      */
     private static void installFocusBorder(JComponent component) {
-        component.addFocusListener(new FocusAdapter() {
-            /**
-             * Applies the focused border.
-             *
-             * @param event focus event
-             */
-            @Override
-            public void focusGained(FocusEvent event) {
-                component.setBorder(inputBorder(true));
-            }
-
-            /**
-             * Restores the resting border.
-             *
-             * @param event focus event
-             */
-            @Override
-            public void focusLost(FocusEvent event) {
-                component.setBorder(inputBorder(false));
-            }
-        });
+        InputChrome.install(component, false);
     }
 
     /**
@@ -1922,8 +1898,7 @@ public final class Theme {
      * @param enabledBackground enabled background color
      */
     private static void installEnabledBackground(JTextComponent component, Color enabledBackground) {
-        component.addPropertyChangeListener("enabled", event -> component.setBackground(
-                component.isEnabled() ? enabledBackground : INPUT_DISABLED));
+        InputChrome.installEnabledBackground(component, enabledBackground);
     }
 
     /**

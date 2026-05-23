@@ -499,7 +499,8 @@ public final class Ui {
         combo.setOpaque(false);
         applyComboState(combo);
         combo.setFont(Theme.font(13, Font.PLAIN));
-        combo.setBorder(BorderFactory.createLineBorder(Theme.INPUT_BORDER));
+        combo.setBorder(InputChrome.compactBorder(false, false));
+        InputChrome.install(combo, true);
         combo.setMaximumRowCount(12);
         combo.setRenderer(new StyledComboRenderer(combo));
         installComboStateListener(combo);
@@ -539,7 +540,7 @@ public final class Ui {
      */
     private static void applyComboState(JComboBox<?> combo) {
         boolean enabled = combo.isEnabled();
-        combo.setBackground(enabled ? Theme.ELEVATED_SOLID : Theme.INPUT_DISABLED);
+        combo.setBackground(enabled ? Theme.INPUT : Theme.INPUT_DISABLED);
         combo.setForeground(enabled ? Theme.TEXT : Theme.BUTTON_DISABLED_TEXT);
     }
 
@@ -551,10 +552,11 @@ public final class Ui {
     public static void styleSpinner(JSpinner spinner) {
         spinner.setUI(new StyledSpinnerUI());
         spinner.setOpaque(false);
-        spinner.setBackground(Theme.PANEL_SOLID);
+        spinner.setBackground(Theme.INPUT);
         spinner.setForeground(Theme.TEXT);
         spinner.setFont(Theme.font(13, Font.PLAIN));
-        spinner.setBorder(BorderFactory.createLineBorder(Theme.INPUT_BORDER));
+        spinner.setBorder(InputChrome.compactBorder(false, false));
+        InputChrome.install(spinner, true);
         if (spinner.getEditor() instanceof JSpinner.DefaultEditor editor) {
             Theme.field(editor.getTextField());
         }
@@ -1549,7 +1551,7 @@ public final class Ui {
          */
         @Override
         public void paintCurrentValueBackground(Graphics graphics, Rectangle bounds, boolean hasFocus) {
-            graphics.setColor(comboBox.isEnabled() ? Theme.ELEVATED_SOLID : Theme.INPUT_DISABLED);
+            graphics.setColor(comboBox.isEnabled() ? Theme.INPUT : Theme.INPUT_DISABLED);
             graphics.fillRect(bounds.x, bounds.y, bounds.width, bounds.height);
         }
 
@@ -1569,7 +1571,7 @@ public final class Ui {
                     comboBox.getSelectedItem(), -1, false, false);
             component.setFont(comboBox.getFont());
             component.setForeground(comboBox.isEnabled() ? Theme.TEXT : Theme.BUTTON_DISABLED_TEXT);
-            component.setBackground(comboBox.isEnabled() ? Theme.ELEVATED_SOLID : Theme.INPUT_DISABLED);
+            component.setBackground(comboBox.isEnabled() ? Theme.INPUT : Theme.INPUT_DISABLED);
             currentValuePane.paintComponent(graphics, component, comboBox, bounds.x, bounds.y,
                     bounds.width, bounds.height, true);
         }
@@ -1644,7 +1646,7 @@ public final class Ui {
             Graphics2D g = (Graphics2D) graphics.create();
             try {
                 g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g.setColor(isEnabled() ? Theme.ELEVATED_SOLID : Theme.INPUT_DISABLED);
+                g.setColor(isEnabled() ? Theme.INPUT : Theme.INPUT_DISABLED);
                 g.fillRect(0, 0, getWidth(), getHeight());
                 g.setColor(isEnabled() ? Theme.MUTED : Theme.BUTTON_DISABLED_TEXT);
                 Path2D path = new Path2D.Double();
