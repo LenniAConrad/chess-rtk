@@ -716,6 +716,13 @@ public abstract class WindowBase extends JFrame {
      * @return computed value */
     protected abstract JComponent createBoardTab();
 
+    /**
+     * Creates a detached analysis tab instance.
+     *
+     * @return detached analysis tab
+     */
+    protected abstract JComponent createDetachedAnalysisTab();
+
     /** Creates the Commands tab.
      * @return computed value */
     protected abstract JComponent createCommandTab();
@@ -830,6 +837,16 @@ public abstract class WindowBase extends JFrame {
      * @param fen FEN string
      * @return CLI arguments for the eval-bar command */
     protected abstract List<String> buildEvalBarArgs(String fen);
+
+    /**
+     * Builds an analysis command from explicit workspace settings.
+     *
+     * @param fen position FEN
+     * @param multipv requested line count
+     * @param duration maximum analysis duration
+     * @return command args
+     */
+    protected abstract List<String> buildAnalyzeArgs(String fen, String multipv, String duration);
 
     /** Returns the engine protocol field value.
      * @return engine protocol field value */

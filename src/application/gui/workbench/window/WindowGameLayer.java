@@ -458,10 +458,22 @@ public abstract class WindowGameLayer extends WindowEngineLayer {
      * @return command args
      */
     protected List<String> buildAnalyzeArgs() {
+        return buildAnalyzeArgs(currentFen(), multipvValue(), durationValue());
+    }
+
+    /**
+     * Builds an analysis command from explicit workspace settings.
+     *
+     * @param fen position FEN
+     * @param multipv requested line count
+     * @param duration maximum analysis duration
+     * @return command args
+     */
+    protected List<String> buildAnalyzeArgs(String fen, String multipv, String duration) {
         List<String> args = new ArrayList<>(List.of("engine", "analyze",
-                "--fen", currentFen(),
-                "--multipv", multipvValue(),
-                "--max-duration", durationValue()));
+                "--fen", fen,
+                "--multipv", multipv,
+                "--max-duration", duration));
         appendEngineSettingsArgs(args, true, true, true);
         return List.copyOf(args);
     }

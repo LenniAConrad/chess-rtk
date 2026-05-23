@@ -211,6 +211,7 @@ public final class WorkbenchRegressionTest {
         testSplitAreaSupportsCornerEditorGroups();
         testSplitAreaDocksDraggedTabsBackIntoGroup();
         testSplitAreaExposesFlexibleTabActions();
+        testSplitAreaDuplicatesFactoryBackedTabs();
         testEditorShellUsesVscodeStyleSplitChrome();
         testEditorShellShowsRookWatermarkWhenEmpty();
         testEditorShellRefreshesHiddenPanelTheme();
@@ -1653,6 +1654,39 @@ public final class WorkbenchRegressionTest {
         invoke(area, "closeSelectedTab", new Class<?>[0]);
         assertEquals(Integer.valueOf(2), invoke(area, "openTabCount", new Class<?>[0]),
                 "close active tab hides one tab");
+    }
+
+    /**
+     * Verifies factory-backed editor tabs can be opened repeatedly, producing
+     * distinct Swing components that can be shown in separate editor groups.
+     */
+    @SuppressWarnings("unchecked")
+    private static void testSplitAreaDuplicatesFactoryBackedTabs() {
+        Object area = construct(type("layout.EditorSplitArea"), new Class<?>[0]);
+        java.util.function.Supplier<JComponent> supplier = JPanel::new;
+        invoke(area, "addPanel",
+                new Class<?>[] { String.class, javax.swing.JComponent.class, java.util.function.Supplier.class },
+                "Analyze", new JPanel(), supplier);
+        invoke(area, "install", new Class<?>[0]);
+
+        int firstCopy = (Integer) invoke(area, "duplicate", new Class<?>[] { int.class }, 0);
+        int secondCopy = (Integer) invoke(area, "duplicate", new Class<?>[] { int.class }, 0);
+
+        assertEquals(Integer.valueOf(3), invoke(area, "openTabCount", new Class<?>[0]),
+                "duplicate analysis tabs remain open");
+        assertEquals(Integer.valueOf(3), invoke(area, "count", new Class<?>[0]),
+                "duplicate analysis tabs are registered");
+        List<String> names = (List<String>) field(area, "names");
+        assertEquals("Analyze 2", names.get(firstCopy), "first duplicate gets a numbered label");
+        assertEquals("Analyze 3", names.get(secondCopy), "second duplicate gets a numbered label");
+        List<JComponent> panels = (List<JComponent>) field(area, "panels");
+        assertFalse(panels.get(0) == panels.get(firstCopy), "duplicate tab has a fresh component");
+
+        invoke(area, "splitWithDragged", new Class<?>[] { int.class, boolean.class }, secondCopy, false);
+        assertEquals(Integer.valueOf(2), invoke(area, "visibleGroupCount", new Class<?>[0]),
+                "duplicate tab can split beside the original");
+        assertTrue((Boolean) invoke(area, "isVisibleInPane", new Class<?>[] { int.class }, secondCopy),
+                "duplicate tab is visible after splitting");
     }
 
     /**

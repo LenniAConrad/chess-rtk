@@ -670,7 +670,7 @@ public abstract class WindowLifecycle extends WindowBase {
 
         tabs = new EditorSplitArea();
         tabs.addPanel("Dashboard", dashboardPanel);
-        tabs.addPanel("Analyze", createBoardTab());
+        tabs.addPanel("Analyze", createBoardTab(), this::createDetachedAnalysisTab);
         tabs.addPanel("Commands", createCommandTab());
         tabs.addPanel("Batch", createBatchTab());
         tabs.addPanel("Publish", createPublishTab());
@@ -1081,6 +1081,8 @@ public abstract class WindowLifecycle extends WindowBase {
     new PaletteAction("Focus FEN", "Move focus to the position field", this::focusFenField),
     new PaletteAction("Stop command", "Cancel the running child process", this::stopCommand),
     new PaletteAction("Open analyze tab", "Show board analysis tools", () -> selectTab(TAB_ANALYZE)),
+    new PaletteAction("New analyze tab", "Open another independent analysis workspace",
+                        this::openNewAnalyzeTab),
     new PaletteAction("Focus game line", "Show the merged game tools", this::focusGameInput),
     new PaletteAction("Open commands tab", "Show command controller", () -> selectTab(TAB_COMMANDS)),
     new PaletteAction("Open batch tab", "Show batch workflows", () -> selectTab(TAB_BATCH)),
@@ -1255,6 +1257,15 @@ public abstract class WindowLifecycle extends WindowBase {
             analysisTabs.setSelectedIndex(1);
         }
         SwingUtilities.invokeLater(gameInput::requestFocusInWindow);
+    }
+
+    /**
+     * Opens a new independent Analyze editor tab.
+     */
+    protected void openNewAnalyzeTab() {
+        if (tabs != null) {
+            tabs.duplicate(TAB_ANALYZE);
+        }
     }
 
     /**

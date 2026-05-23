@@ -171,6 +171,16 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
     }
 
     /**
+     * Creates an independent analysis workspace for duplicate Analyze tabs.
+     *
+     * @return workspace component
+     */
+    protected JComponent createDetachedAnalysisTab() {
+        return new AnalysisWorkspacePanel(currentFen(), board.isWhiteDown(), this::buildAnalyzeArgs,
+                args -> runCommand(args, null), this::copyText);
+    }
+
+    /**
      * Creates the compact board-side header.
      *
      * @return side header

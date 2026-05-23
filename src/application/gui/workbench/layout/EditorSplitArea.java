@@ -21,6 +21,7 @@ import java.awt.RenderingHints;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.IntConsumer;
+import java.util.function.Supplier;
 import javax.swing.BorderFactory;
 import javax.swing.JComponent;
 import javax.swing.JMenuItem;
@@ -144,12 +145,18 @@ public final class EditorSplitArea extends JPanel {
      * Panel display names.
      */
     private final transient List<String> names = new ArrayList<>();
-
+    /**
+     * Base display names used when duplicate tabs need numbered labels.
+     */
+    private final transient List<String> baseNames = new ArrayList<>();
     /**
      * Panel components, parallel to {@link #names}.
      */
     private final transient List<JComponent> panels = new ArrayList<>();
-
+    /**
+     * Optional factories for panels that can be opened more than once.
+     */
+    private final transient List<Supplier<JComponent>> panelFactories = new ArrayList<>();
     /**
      * Last theme mode applied to each panel, parallel to {@link #panels}.
      */
@@ -369,12 +376,57 @@ public final class EditorSplitArea extends JPanel {
      * @param panel panel component
      */
     public void addPanel(String name, JComponent panel) {
+        addPanel(name, panel, null);
+    }
+
+    /**
+     * Adds a workbench panel that can optionally create more tab instances.
+     *
+     * @param name display name
+     * @param panel initial panel component
+     * @param duplicateFactory factory for additional instances, or null
+     */
+    public void addPanel(String name, JComponent panel, Supplier<JComponent> duplicateFactory) {
         int index = names.size();
         names.add(name);
+        baseNames.add(name);
         panels.add(panel);
+        panelFactories.add(duplicateFactory);
         panelThemeModes.add(null);
         open.add(index);
         primaryTabs.add(index);
+    }
+
+    /**
+     * Opens another tab instance for a factory-backed panel.
+     *
+     * @param index source panel index
+     * @return new panel index, or the original index when duplication is not available
+     */
+    public int duplicate(int index) {
+        if (!validPanel(index) || panelFactories.get(index) == null) {
+            return index;
+        }
+        Supplier<JComponent> factory = panelFactories.get(index);
+        JComponent panel = factory.get();
+        if (panel == null) {
+            return index;
+        }
+        int copy = names.size();
+        String baseName = baseNames.get(index);
+        names.add(nextDuplicateName(baseName));
+        baseNames.add(baseName);
+        panels.add(panel);
+        panelFactories.add(factory);
+        panelThemeModes.add(null);
+        int targetPane = paneVisible(activePane) ? activePane : firstVisiblePane();
+        open.add(copy);
+        tabsForPane(targetPane).add(copy);
+        setPaneIndex(targetPane, copy);
+        activePane = targetPane;
+        relayout();
+        notifySelectionChanged();
+        return copy;
     }
 
     /**
@@ -781,6 +833,9 @@ public final class EditorSplitArea extends JPanel {
         menu.add(menuItem("Split Down", () -> splitTab(panelIndex, DROP_BOTTOM)));
         menu.add(menuItem("Split Left", () -> splitTab(panelIndex, DROP_LEFT)));
         menu.add(menuItem("Split Up", () -> splitTab(panelIndex, DROP_TOP)));
+        if (validPanel(panelIndex) && panelFactories.get(panelIndex) != null) {
+            menu.add(menuItem("Duplicate", () -> duplicate(panelIndex)));
+        }
         menu.add(menuItem("Close", () -> closeTab(panelIndex)));
         menu.add(menuItem("Close Others", () -> closeOtherTabs(panelIndex)));
         if (open.size() < panels.size()) {
@@ -804,6 +859,22 @@ public final class EditorSplitArea extends JPanel {
         stylePopupMenuItem(item);
         item.addActionListener(event -> action.run());
         return item;
+    }
+
+    /**
+     * Returns a numbered duplicate name that is not currently used.
+     *
+     * @param baseName original tab label
+     * @return available duplicate label
+     */
+    private String nextDuplicateName(String baseName) {
+        int ordinal = 2;
+        String candidate = baseName + " " + ordinal;
+        while (names.contains(candidate)) {
+            ordinal++;
+            candidate = baseName + " " + ordinal;
+        }
+        return candidate;
     }
 
     /**
