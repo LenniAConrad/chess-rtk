@@ -1668,6 +1668,11 @@ public final class WorkbenchRegressionTest {
                 new Class<?>[] { String.class, javax.swing.JComponent.class, java.util.function.Supplier.class },
                 "Analyze", new JPanel(), supplier);
         invoke(area, "install", new Class<?>[0]);
+        JPanel primaryStrip = (JPanel) field(area, "primaryStrip");
+        assertTrue(primaryStrip.getComponent(1) instanceof JToggleButton,
+                "factory-backed tabs expose a visible new-tab affordance");
+        assertEquals("New or restore tab", ((JToggleButton) primaryStrip.getComponent(1)).getToolTipText(),
+                "new-tab affordance explains both creation and restore");
 
         int firstCopy = (Integer) invoke(area, "duplicate", new Class<?>[] { int.class }, 0);
         int secondCopy = (Integer) invoke(area, "duplicate", new Class<?>[] { int.class }, 0);

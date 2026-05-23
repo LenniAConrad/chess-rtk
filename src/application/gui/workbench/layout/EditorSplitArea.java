@@ -743,7 +743,7 @@ public final class EditorSplitArea extends JPanel {
             strip.add(tab);
             tab.setPaneActive(activePane == pane || (!isSplitActive() && pane == PANE_PRIMARY));
         }
-        if (open.size() < panels.size()) {
+        if (open.size() < panels.size() || panelFactories.stream().anyMatch(factory -> factory != null)) {
             strip.add(reopenButton(pane));
         }
         strip.revalidate();
@@ -751,19 +751,34 @@ public final class EditorSplitArea extends JPanel {
     }
 
     /**
-     * Builds the {@code +} button that reopens closed tabs.
+     * Builds the {@code +} button that creates or reopens tabs.
      *
      * @param pane editor group id
-     * @return reopen button
+     * @return tab creation button
      */
     private JComponent reopenButton(int pane) {
         JToggleButton plus = new JToggleButton("+");
         Theme.commandTab(plus);
-        plus.setToolTipText("Reopen a closed panel");
+        plus.setToolTipText("New or restore tab");
         plus.addActionListener(event -> {
             plus.setSelected(false);
             JPopupMenu menu = new JPopupMenu();
             stylePopupMenu(menu);
+            List<String> offered = new ArrayList<>();
+            for (int i = 0; i < panels.size(); i++) {
+                if (panelFactories.get(i) == null || offered.contains(baseNames.get(i))) {
+                    continue;
+                }
+                int index = i;
+                offered.add(baseNames.get(i));
+                JMenuItem item = new JMenuItem("New " + baseNames.get(i));
+                stylePopupMenuItem(item);
+                item.addActionListener(choice -> {
+                    activePane = pane;
+                    duplicate(index);
+                });
+                menu.add(item);
+            }
             for (int i = 0; i < panels.size(); i++) {
                 if (open.contains(i)) {
                     continue;
