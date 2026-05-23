@@ -233,11 +233,6 @@ public final class EditorSplitArea extends JPanel {
     private int activePane;
 
     /**
-     * Current split orientation.
-     */
-    private int splitOrientation = JSplitPane.HORIZONTAL_SPLIT;
-
-    /**
      * Last user-set horizontal divider location.
      */
     private int horizontalDividerLocation = -1;
@@ -434,8 +429,8 @@ public final class EditorSplitArea extends JPanel {
      * panel has been added.
      */
     public void install() {
-        splitButton.setToolTipText("Split editor group");
-        splitButton.addActionListener(event -> toggleSplit());
+        splitButton.setToolTipText("Split editor right");
+        splitButton.addActionListener(event -> splitSelectedTabRight());
         relayout();
     }
 
@@ -543,28 +538,28 @@ public final class EditorSplitArea extends JPanel {
      * Splits the selected tab into a group on the right.
      */
     public void splitSelectedTabRight() {
-        splitSelectedTab(DROP_RIGHT);
+        splitSelectedTabCopy(DROP_RIGHT);
     }
 
     /**
      * Splits the selected tab into a group on the left.
      */
     public void splitSelectedTabLeft() {
-        splitSelectedTab(DROP_LEFT);
+        splitSelectedTabCopy(DROP_LEFT);
     }
 
     /**
      * Splits the selected tab into a group above.
      */
     public void splitSelectedTabUp() {
-        splitSelectedTab(DROP_TOP);
+        splitSelectedTabCopy(DROP_TOP);
     }
 
     /**
      * Splits the selected tab into a group below.
      */
     public void splitSelectedTabDown() {
-        splitSelectedTab(DROP_BOTTOM);
+        splitSelectedTabCopy(DROP_BOTTOM);
     }
 
     /**
@@ -697,26 +692,6 @@ public final class EditorSplitArea extends JPanel {
     }
 
     /**
-     * Toggles the second editor group.
-     */
-    private void toggleSplit() {
-        if (isSplitActive()) {
-            collapseSplit();
-        } else if (open.size() >= 2) {
-            int candidate = firstOther(primaryIndex);
-            if (candidate != primaryIndex) {
-                secondaryTabs.clear();
-                secondaryTabs.add(candidate);
-                primaryTabs.remove(Integer.valueOf(candidate));
-                secondaryIndex = candidate;
-                activePane = PANE_SECONDARY;
-            }
-        }
-        relayout();
-        notifySelectionChanged();
-    }
-
-    /**
      * Cycles tabs in the active editor group.
      *
      * @param delta +1 next, -1 previous
@@ -743,21 +718,6 @@ public final class EditorSplitArea extends JPanel {
      */
     private int firstOpen() {
         return open.isEmpty() ? 0 : open.get(0);
-    }
-
-    /**
-     * Returns the first open index that is not {@code avoid}.
-     *
-     * @param avoid index to skip
-     * @return another open index, or {@code avoid} when none
-     */
-    private int firstOther(int avoid) {
-        for (int index : open) {
-            if (index != avoid) {
-                return index;
-            }
-        }
-        return avoid;
     }
 
     /**
@@ -829,10 +789,10 @@ public final class EditorSplitArea extends JPanel {
     private JPopupMenu tabContextMenu(int pane, int panelIndex) {
         JPopupMenu menu = new JPopupMenu();
         stylePopupMenu(menu);
-        menu.add(menuItem("Split Right", () -> splitTab(panelIndex, DROP_RIGHT)));
-        menu.add(menuItem("Split Down", () -> splitTab(panelIndex, DROP_BOTTOM)));
-        menu.add(menuItem("Split Left", () -> splitTab(panelIndex, DROP_LEFT)));
-        menu.add(menuItem("Split Up", () -> splitTab(panelIndex, DROP_TOP)));
+        menu.add(menuItem("Split Right", () -> splitTabCopy(panelIndex, DROP_RIGHT)));
+        menu.add(menuItem("Split Down", () -> splitTabCopy(panelIndex, DROP_BOTTOM)));
+        menu.add(menuItem("Split Left", () -> splitTabCopy(panelIndex, DROP_LEFT)));
+        menu.add(menuItem("Split Up", () -> splitTabCopy(panelIndex, DROP_TOP)));
         if (validPanel(panelIndex) && panelFactories.get(panelIndex) != null) {
             menu.add(menuItem("Duplicate", () -> duplicate(panelIndex)));
         }
@@ -1206,22 +1166,8 @@ public final class EditorSplitArea extends JPanel {
             case DROP_SECONDARY_CENTER -> setSecondary(panelIndex);
             case DROP_TERTIARY_CENTER -> setTertiary(panelIndex);
             case DROP_QUATERNARY_CENTER -> setQuaternary(panelIndex);
-            case DROP_RIGHT -> {
-                splitOrientation = JSplitPane.HORIZONTAL_SPLIT;
-                splitWithDragged(panelIndex, false);
-            }
-            case DROP_BOTTOM -> {
-                splitOrientation = JSplitPane.VERTICAL_SPLIT;
-                splitWithDragged(panelIndex, false);
-            }
-            case DROP_LEFT -> {
-                splitOrientation = JSplitPane.HORIZONTAL_SPLIT;
-                splitWithDragged(panelIndex, true);
-            }
-            case DROP_TOP -> {
-                splitOrientation = JSplitPane.VERTICAL_SPLIT;
-                splitWithDragged(panelIndex, true);
-            }
+            case DROP_RIGHT, DROP_BOTTOM -> splitWithDragged(panelIndex, false);
+            case DROP_LEFT, DROP_TOP -> splitWithDragged(panelIndex, true);
             case DROP_TOP_LEFT -> splitWithDraggedInPane(panelIndex, PANE_PRIMARY);
             case DROP_TOP_RIGHT -> splitWithDraggedInPane(panelIndex, PANE_SECONDARY);
             case DROP_BOTTOM_LEFT -> splitWithDraggedInPane(panelIndex, PANE_TERTIARY);
@@ -1231,15 +1177,53 @@ public final class EditorSplitArea extends JPanel {
     }
 
     /**
-     * Splits the currently selected tab using a drop-zone action.
+     * Splits by duplicating factory-backed tabs, matching VS Code Split
+     * commands. Non-factory tabs fall back to the drag-style move.
+     *
+     * @param panelIndex panel index
+     * @param zone drop-zone/action constant
+     */
+    private void splitTabCopy(int panelIndex, int zone) {
+        int sourcePane = paneContaining(panelIndex);
+        int target = duplicate(panelIndex);
+        splitTab(target, splitCommandZone(sourcePane < 0 ? activePane : sourcePane, zone));
+    }
+
+    /**
+     * Maps VS Code Split commands to the adjacent editor group when a grid
+     * already exists, instead of rebuilding the whole layout.
+     *
+     * @param sourcePane source editor group
+     * @param zone requested split direction
+     * @return command target zone
+     */
+    private int splitCommandZone(int sourcePane, int zone) {
+        if (!isSplitActive()) {
+            return zone;
+        }
+        return switch (zone) {
+            case DROP_RIGHT -> sourcePane == PANE_PRIMARY ? DROP_SECONDARY_CENTER
+                    : sourcePane == PANE_TERTIARY ? DROP_QUATERNARY_CENTER : zone;
+            case DROP_LEFT -> sourcePane == PANE_SECONDARY ? DROP_PRIMARY_CENTER
+                    : sourcePane == PANE_QUATERNARY ? DROP_TERTIARY_CENTER : zone;
+            case DROP_BOTTOM -> sourcePane == PANE_PRIMARY ? DROP_TERTIARY_CENTER
+                    : sourcePane == PANE_SECONDARY ? DROP_QUATERNARY_CENTER : zone;
+            case DROP_TOP -> sourcePane == PANE_TERTIARY ? DROP_PRIMARY_CENTER
+                    : sourcePane == PANE_QUATERNARY ? DROP_SECONDARY_CENTER : zone;
+            default -> zone;
+        };
+    }
+
+    /**
+     * Splits the selected tab using VS Code Split command semantics.
      *
      * @param zone drop-zone/action constant
      */
-    private void splitSelectedTab(int zone) {
+    private void splitSelectedTabCopy(int zone) {
         hideOpenMenus();
         int selected = selectedIndex();
         if (validPanel(selected)) {
-            splitTab(selected, zone);
+            splitTabCopy(selected, zone);
         }
     }
 

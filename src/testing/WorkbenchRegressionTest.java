@@ -1687,6 +1687,28 @@ public final class WorkbenchRegressionTest {
                 "duplicate tab can split beside the original");
         assertTrue((Boolean) invoke(area, "isVisibleInPane", new Class<?>[] { int.class }, secondCopy),
                 "duplicate tab is visible after splitting");
+
+        Object splitArea = construct(type("layout.EditorSplitArea"), new Class<?>[0]);
+        invoke(splitArea, "addPanel",
+                new Class<?>[] { String.class, javax.swing.JComponent.class, java.util.function.Supplier.class },
+                "Analyze", new JPanel(), supplier);
+        invoke(splitArea, "install", new Class<?>[0]);
+        invoke(splitArea, "splitSelectedTabRight", new Class<?>[0]);
+        assertEquals(Integer.valueOf(2), invoke(splitArea, "openTabCount", new Class<?>[0]),
+                "VS Code split command duplicates a factory-backed tab");
+        assertEquals(Integer.valueOf(2), invoke(splitArea, "visibleGroupCount", new Class<?>[0]),
+                "split command opens the duplicate beside the original");
+        List<String> splitNames = (List<String>) field(splitArea, "names");
+        assertEquals("Analyze 2", splitNames.get(1), "split duplicate gets a numbered label");
+        invoke(splitArea, "splitSelectedTabDown", new Class<?>[0]);
+        assertEquals(Integer.valueOf(3), invoke(splitArea, "openTabCount", new Class<?>[0]),
+                "split command can duplicate again from an existing editor group");
+        assertEquals(Integer.valueOf(3), invoke(splitArea, "visibleGroupCount", new Class<?>[0]),
+                "split command adds an adjacent group without collapsing existing groups");
+        List<Integer> secondaryTabs = (List<Integer>) field(splitArea, "secondaryTabs");
+        List<Integer> quaternaryTabs = (List<Integer>) field(splitArea, "quaternaryTabs");
+        assertTrue(secondaryTabs.contains(1), "existing right group keeps its active duplicate");
+        assertTrue(quaternaryTabs.contains(2), "down split from right group targets bottom-right");
     }
 
     /**
