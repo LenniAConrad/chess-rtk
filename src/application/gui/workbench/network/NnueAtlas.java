@@ -36,6 +36,21 @@ public final class NnueAtlas {
     private static final int WHOLE_ATLAS_CHROME_HEIGHT = 60;
 
     /**
+     * Number of signed-ramp buckets used while rasterizing dense atlas images.
+     */
+    private static final int ATLAS_RAMP_BUCKETS = 4096;
+
+    /**
+     * Cached signed-ramp ARGB lookup table for the current workbench palette.
+     */
+    private static int[] atlasRampPalette = new int[0];
+
+    /**
+     * Palette key used to decide whether {@link #atlasRampPalette} is stale.
+     */
+    private static int atlasRampPaletteKey = Integer.MIN_VALUE;
+
+    /**
      * Utility class.
      */
     private NnueAtlas() {
@@ -200,6 +215,21 @@ public final class NnueAtlas {
     }
 
     /**
+     * Returns a compact key for the colours that influence atlas raster output.
+     *
+     * @return palette key
+     */
+    public static int atlasPaletteKey() {
+        int result = Theme.mode().hashCode();
+        result = 31 * result + Theme.PANEL_SOLID.getRGB();
+        result = 31 * result + Theme.LINE.getRGB();
+        result = 31 * result + TensorViz.HEAT_ZERO.getRGB();
+        result = 31 * result + TensorViz.POSITIVE.getRGB();
+        result = 31 * result + TensorViz.NEGATIVE.getRGB();
+        return result;
+    }
+
+    /**
      * Renders all atlas cells into an unscaled pixel image.
      *
      * @param atlas atlas values
@@ -217,6 +247,7 @@ public final class NnueAtlas {
         java.awt.image.BufferedImage image =
                 new java.awt.image.BufferedImage(width, height, java.awt.image.BufferedImage.TYPE_INT_ARGB);
         int[] pixels = new int[width * height];
+        int[] palette = atlasRampArgbPalette();
         for (int row = 0; row < hidden && row < order.length; row++) {
             int slot = order[row];
             float scale = Math.max(1e-6f, valueAt(perNeuronScale, slot));
@@ -232,18 +263,58 @@ public final class NnueAtlas {
                     } else if (v < -1.0f) {
                         v = -1.0f;
                     }
-                    Color c = atlasRamp(v);
                     int x = p * 8 + file;
                     int y = row * 8 + drawRank;
-                    pixels[y * width + x] = (255 << 24)
-                            | (c.getRed() << 16)
-                            | (c.getGreen() << 8)
-                            | c.getBlue();
+                    pixels[y * width + x] = atlasRampArgb(palette, v);
                 }
             }
         }
         image.setRGB(0, 0, width, height, pixels, 0, width);
         return image;
+    }
+
+    /**
+     * Returns the current signed-ramp ARGB lookup table.
+     *
+     * @return ARGB palette
+     */
+    private static int[] atlasRampArgbPalette() {
+        int key = atlasPaletteKey();
+        if (atlasRampPalette.length == ATLAS_RAMP_BUCKETS + 1
+                && atlasRampPaletteKey == key) {
+            return atlasRampPalette;
+        }
+        int[] palette = new int[ATLAS_RAMP_BUCKETS + 1];
+        for (int i = 0; i < palette.length; i++) {
+            float v = (i / (float) ATLAS_RAMP_BUCKETS) * 2.0f - 1.0f;
+            Color color = atlasRamp(v);
+            palette[i] = (color.getAlpha() << 24)
+                    | (color.getRed() << 16)
+                    | (color.getGreen() << 8)
+                    | color.getBlue();
+        }
+        atlasRampPalette = palette;
+        atlasRampPaletteKey = key;
+        return palette;
+    }
+
+    /**
+     * Maps a signed value to an ARGB colour using the current lookup table.
+     *
+     * @param palette ARGB lookup table
+     * @param value signed value in [-1, 1]
+     * @return ARGB colour
+     */
+    private static int atlasRampArgb(int[] palette, float value) {
+        int index = Math.round((Math.max(-1.0f, Math.min(1.0f, value)) + 1.0f)
+                * 0.5f * ATLAS_RAMP_BUCKETS);
+        if (index < 0) {
+            return palette[0];
+        }
+        if (index >= palette.length) {
+            return palette[palette.length - 1];
+        }
+        return palette[index];
     }
 
     /**

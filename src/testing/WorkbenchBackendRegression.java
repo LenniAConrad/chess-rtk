@@ -568,6 +568,17 @@ final class WorkbenchBackendRegression {
                 "NNUE atlas uses a scroll canvas for the whole pixel-plane overview");
         assertTrue(((JComponent) view).getPreferredSize().height > 900,
                 "NNUE atlas leaves enough vertical room for the wrapped pixel-plane overview");
+        Object atlasFrame = field(view, "atlasPaintFrame");
+        Object atlasRaster = field(atlasFrame, "wholePlaneImage");
+        assertTrue(atlasRaster instanceof BufferedImage,
+                "NNUE atlas caches the dense whole pixel-plane raster");
+        assertPaintsOpaqueCorner((JComponent) view, 1200, 900,
+                "NNUE atlas repaints synthetic snapshot from cache");
+        Object repaintedFrame = field(view, "atlasPaintFrame");
+        assertTrue(atlasFrame == repaintedFrame,
+                "NNUE atlas reuses cached render frame across repeated paints");
+        assertTrue(atlasRaster == field(repaintedFrame, "wholePlaneImage"),
+                "NNUE atlas reuses cached dense raster across repeated paints");
         String atlasTip = ((JComponent) view).getToolTipText(new MouseEvent((JComponent) view,
                 MouseEvent.MOUSE_MOVED, 0L, 0, 600, 200, 0, false, MouseEvent.NOBUTTON));
         assertTrue(atlasTip != null && atlasTip.contains("whole atlas"),

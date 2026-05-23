@@ -42,6 +42,20 @@ public abstract class NnueAtlasView extends NnueViewBase {
     private static final long serialVersionUID = 1L;
 
     /**
+     * Cached derived atlas render data for the current snapshot/sort/palette.
+     */
+    private transient AtlasPaintFrame atlasPaintFrame;
+
+    /**
+     * Clears dense atlas render caches when the displayed snapshot changes.
+     */
+    @Override
+    protected void onSnapshotChanged() {
+        super.onSnapshotChanged();
+        atlasPaintFrame = null;
+    }
+
+    /**
      * Paints the Wikipedia-style weight atlas as a scrollable, one-row-per-
      * neuron strip. The component overrides {@link #getPreferredSize} so the
      * JScrollPane has scroll content; the renderer assumes it has the full
@@ -76,31 +90,9 @@ public abstract class NnueAtlasView extends NnueViewBase {
             return;
         }
 
-        // Diff mode: compare current against another variant by subtracting.
-        // We render the resulting signed delta with the same colormap (the
-        // diff itself carries the sign).
-        float[] paintingData = atlas;
-        String headerSubtitle = "every tile = one (slot, piece) king-averaged weight footprint · "
-                + "click a tile to zoom · hover a tile for the per-square value";
-        if (atlasCompare != null) {
-            float[] compareAtlas = atlasCompare.data("nnue.atlas.weights");
-            int[] compareShape = atlasCompare.shape("nnue.atlas.weights");
-            if (compareAtlas != null && compareShape != null
-                    && compareShape.length >= 3
-                    && compareShape[0] == hidden
-                    && compareShape[1] == planes
-                    && compareShape[2] == squares) {
-                paintingData = new float[atlas.length];
-                for (int i = 0; i < atlas.length; i++) {
-                    paintingData[i] = atlas[i] - compareAtlas[i];
-                }
-                headerSubtitle = "diff mode · current minus comparison · same colormap, but values are weight deltas";
-            } else {
-                headerSubtitle = "diff mode requested but comparison atlas has incompatible shape · showing absolute atlas";
-            }
-        }
-
-        java.util.List<String> modeFlags = new java.util.ArrayList<>();
+        AtlasPaintFrame frame = atlasPaintFrame(atlas, atlasShape, output,
+                hidden, planes, squares);
+        List<String> modeFlags = new ArrayList<>();
         if (atlasCompare != null) {
             modeFlags.add("DIFF");
         }
@@ -110,14 +102,75 @@ public abstract class NnueAtlasView extends NnueViewBase {
         if (selectedBoardSquare >= 0) {
             modeFlags.add("focus " + TensorViz.squareLabel(selectedBoardSquare));
         }
-        String composedSubtitle = headerSubtitle;
+        String composedSubtitle = frame.subtitle;
         if (!modeFlags.isEmpty()) {
             String flags = String.join(" · ", modeFlags);
-            composedSubtitle = (composedSubtitle == null || composedSubtitle.isEmpty())
+            composedSubtitle = (frame.subtitle == null || frame.subtitle.isEmpty())
                     ? flags
-                    : flags + "  ·  " + composedSubtitle;
+                    : flags + "  ·  " + frame.subtitle;
         }
-        paintAtlasBrowser(g, body, paintingData, atlas, output, hidden, planes, squares, composedSubtitle);
+        paintAtlasBrowser(g, body, frame, hidden, planes, squares, composedSubtitle);
+    }
+
+    /**
+     * Returns cached atlas paint data, rebuilding it only when the snapshot,
+     * sort mode, focused square, comparison atlas, or NN palette changes.
+     *
+     * @param rawAtlas raw atlas weights
+     * @param rawShape raw atlas shape
+     * @param output output weights
+     * @param hidden hidden slot count
+     * @param planes plane count
+     * @param squares squares per plane
+     * @return cached paint frame
+     */
+    private AtlasPaintFrame atlasPaintFrame(float[] rawAtlas, int[] rawShape, float[] output,
+            int hidden, int planes, int squares) {
+        ActivationSnapshot compareSnapshot = atlasCompare;
+        float[] compareAtlas = compareSnapshot == null ? null : compareSnapshot.data("nnue.atlas.weights");
+        int[] compareShape = compareSnapshot == null ? null : compareSnapshot.shape("nnue.atlas.weights");
+        int paletteKey = atlasPaletteKey();
+        AtlasPaintFrame cached = atlasPaintFrame;
+        if (cached != null && cached.matches(snapshot, rawAtlas, output,
+                compareSnapshot, compareAtlas, atlasSort, selectedBoardSquare,
+                hidden, planes, squares, paletteKey)) {
+            return cached;
+        }
+
+        float[] paintingData = rawAtlas;
+        String subtitle = "every tile = one (slot, piece) king-averaged weight footprint · "
+                + "click a tile to zoom · hover a tile for the per-square value";
+        boolean compatibleCompare = compareAtlas != null && compareShape != null
+                && compareShape.length >= 3
+                && compareShape[0] == hidden
+                && compareShape[1] == planes
+                && compareShape[2] == squares
+                && compareAtlas.length >= rawAtlas.length
+                && rawShape != null
+                && rawShape.length >= 3;
+        if (compareSnapshot != null) {
+            if (compatibleCompare) {
+                paintingData = new float[rawAtlas.length];
+                for (int i = 0; i < rawAtlas.length; i++) {
+                    paintingData[i] = rawAtlas[i] - compareAtlas[i];
+                }
+                subtitle = "diff mode · current minus comparison · same colormap, but values are weight deltas";
+            } else {
+                subtitle = "diff mode requested but comparison atlas has incompatible shape · showing absolute atlas";
+            }
+        }
+
+        Integer[] order = sortNeurons(rawAtlas, output, hidden, planes, squares);
+        float[] perNeuronScale = computePerNeuronScale(paintingData, hidden, planes, squares);
+        float[] overlayMagnitudes = computeOverlayMagnitudes(hidden);
+        java.awt.image.BufferedImage wholePlaneImage = squares == 64
+                ? atlasPlaneImage(paintingData, order, hidden, planes, squares, perNeuronScale)
+                : null;
+        atlasPaintFrame = new AtlasPaintFrame(snapshot, rawAtlas, output, compareSnapshot,
+                compareAtlas, atlasSort, selectedBoardSquare, hidden, planes, squares,
+                paletteKey, paintingData, subtitle, order, perNeuronScale,
+                overlayMagnitudes, wholePlaneImage);
+        return atlasPaintFrame;
     }
 
     /**
@@ -125,24 +178,25 @@ public abstract class NnueAtlasView extends NnueViewBase {
      *
      * @param g graphics context
      * @param body body bounds
-     * @param paintingData atlas values to paint
-     * @param rawAtlas raw atlas values
-     * @param output output weights
+     * @param frame cached atlas render frame
      * @param hidden hidden slot count
      * @param planes plane count
      * @param squares squares per plane
      * @param subtitle header subtitle
      */
-    protected void paintAtlasBrowser(Graphics2D g, Rectangle body, float[] paintingData,
-            float[] rawAtlas, float[] output, int hidden, int planes, int squares,
+    private void paintAtlasBrowser(Graphics2D g, Rectangle body, AtlasPaintFrame frame,
+            int hidden, int planes, int squares,
             String subtitle) {
         atlasSelectedPlane = Math.max(0, Math.min(atlasSelectedPlane, Math.max(0, planes - 1)));
-        Integer[] order = sortNeurons(rawAtlas, output, hidden, planes, squares);
+        Integer[] order = frame.order;
         int selectedSlot = atlasSelected >= 0 && atlasSelected < hidden
                 ? atlasSelected
                 : order.length == 0 ? 0 : order[0];
-        float[] perNeuronScale = computePerNeuronScale(paintingData, hidden, planes, squares);
-        float[] overlayMag = computeOverlayMagnitudes(hidden);
+        float[] paintingData = frame.paintingData;
+        float[] rawAtlas = frame.rawAtlas;
+        float[] output = frame.output;
+        float[] perNeuronScale = frame.perNeuronScale;
+        float[] overlayMag = frame.overlayMagnitudes;
         int headerH = 46;
         TensorViz.drawSectionHeader(g,
     new Rectangle(body.x, body.y, body.width, headerH),
@@ -153,7 +207,7 @@ public abstract class NnueAtlasView extends NnueViewBase {
         int overviewH = atlasWholeOverviewHeight(content.width, hidden, planes);
         Rectangle overview = new Rectangle(content.x, content.y, content.width, overviewH);
         paintAtlasWholePlaneOverview(g, overview, order, paintingData, output,
-                hidden, planes, squares, perNeuronScale, selectedSlot);
+                hidden, planes, squares, perNeuronScale, selectedSlot, frame.wholePlaneImage);
         Rectangle lower = new Rectangle(content.x, overview.y + overview.height + 10,
                 content.width, Math.max(1, content.height - overview.height - 10));
         if (body.width < 900) {
@@ -203,10 +257,11 @@ public abstract class NnueAtlasView extends NnueViewBase {
      * @param squares squares per plane
      * @param perNeuronScale scale per hidden slot
      * @param selectedSlot selected hidden slot
+     * @param wholePlaneImage cached dense atlas raster
      */
     protected void paintAtlasWholePlaneOverview(Graphics2D g, Rectangle r, Integer[] order,
             float[] atlas, float[] output, int hidden, int planes, int squares,
-            float[] perNeuronScale, int selectedSlot) {
+            float[] perNeuronScale, int selectedSlot, java.awt.image.BufferedImage wholePlaneImage) {
         TensorViz.drawCard(g, r,
                 "whole pixel-plane atlas",
                 hidden + " slots × " + planes + " planes · white-bottom board squares",
@@ -230,8 +285,9 @@ public abstract class NnueAtlasView extends NnueViewBase {
         g.setColor(Theme.MUTED);
         g.setFont(Theme.font(9, Font.BOLD));
         FontMetrics fm = g.getFontMetrics();
-        java.awt.image.BufferedImage image = atlasPlaneImage(atlas, order, hidden, planes, squares,
-                perNeuronScale);
+        java.awt.image.BufferedImage image = wholePlaneImage == null
+                ? atlasPlaneImage(atlas, order, hidden, planes, squares, perNeuronScale)
+                : wholePlaneImage;
         hitRegions.add(inner,
                 "whole atlas overview",
                 "Wrapped pixel-plane banks for every accumulator slot.",
@@ -967,6 +1023,178 @@ public abstract class NnueAtlasView extends NnueViewBase {
         g.setFont(Theme.font(11, Font.ITALIC));
         g.drawString("slot " + slot + " of " + hidden + " · click any tile or the header to return",
                 area.x + 6, body.y + body.height - 6);
+    }
+
+    /**
+     * Immutable cache record for dense atlas paint data.
+     */
+    private static final class AtlasPaintFrame {
+
+        /**
+         * Snapshot that produced this frame.
+         */
+        private final ActivationSnapshot snapshot;
+
+        /**
+         * Raw atlas data array used for sorting and explanations.
+         */
+        private final float[] rawAtlas;
+
+        /**
+         * Output weights paired with the atlas slots.
+         */
+        private final float[] output;
+
+        /**
+         * Optional comparison snapshot for diff mode.
+         */
+        private final ActivationSnapshot compareSnapshot;
+
+        /**
+         * Optional comparison atlas data array.
+         */
+        private final float[] compareAtlas;
+
+        /**
+         * Sort mode that produced {@link #order}.
+         */
+        private final String sortMode;
+
+        /**
+         * Focused board square used for square-rank sorting, or -1.
+         */
+        private final int selectedSquare;
+
+        /**
+         * Hidden accumulator-slot count.
+         */
+        private final int hidden;
+
+        /**
+         * Piece-plane count.
+         */
+        private final int planes;
+
+        /**
+         * Board-square count per plane.
+         */
+        private final int squares;
+
+        /**
+         * Theme palette key used for the cached raster.
+         */
+        private final int paletteKey;
+
+        /**
+         * Atlas data actually painted, either raw values or current-minus-compare.
+         */
+        private final float[] paintingData;
+
+        /**
+         * Header subtitle describing the current atlas data.
+         */
+        private final String subtitle;
+
+        /**
+         * Slot render order.
+         */
+        private final Integer[] order;
+
+        /**
+         * Per-slot heatmap scale.
+         */
+        private final float[] perNeuronScale;
+
+        /**
+         * Optional output-overlay magnitudes.
+         */
+        private final float[] overlayMagnitudes;
+
+        /**
+         * Cached whole pixel-plane atlas raster.
+         */
+        private final java.awt.image.BufferedImage wholePlaneImage;
+
+        /**
+         * Creates an immutable atlas paint frame.
+         *
+         * @param snapshot source snapshot
+         * @param rawAtlas raw atlas data
+         * @param output output weights
+         * @param compareSnapshot comparison snapshot
+         * @param compareAtlas comparison atlas data
+         * @param sortMode sort mode
+         * @param selectedSquare selected board square
+         * @param hidden hidden slot count
+         * @param planes piece-plane count
+         * @param squares square count
+         * @param paletteKey palette key
+         * @param paintingData data to paint
+         * @param subtitle header subtitle
+         * @param order slot render order
+         * @param perNeuronScale per-slot scale
+         * @param overlayMagnitudes overlay magnitudes
+         * @param wholePlaneImage whole-atlas raster
+         */
+        AtlasPaintFrame(ActivationSnapshot snapshot, float[] rawAtlas, float[] output,
+                ActivationSnapshot compareSnapshot, float[] compareAtlas, String sortMode,
+                int selectedSquare, int hidden, int planes, int squares, int paletteKey,
+                float[] paintingData, String subtitle, Integer[] order,
+                float[] perNeuronScale, float[] overlayMagnitudes,
+                java.awt.image.BufferedImage wholePlaneImage) {
+            this.snapshot = snapshot;
+            this.rawAtlas = rawAtlas;
+            this.output = output;
+            this.compareSnapshot = compareSnapshot;
+            this.compareAtlas = compareAtlas;
+            this.sortMode = sortMode == null ? "" : sortMode;
+            this.selectedSquare = selectedSquare;
+            this.hidden = hidden;
+            this.planes = planes;
+            this.squares = squares;
+            this.paletteKey = paletteKey;
+            this.paintingData = paintingData;
+            this.subtitle = subtitle;
+            this.order = order;
+            this.perNeuronScale = perNeuronScale;
+            this.overlayMagnitudes = overlayMagnitudes;
+            this.wholePlaneImage = wholePlaneImage;
+        }
+
+        /**
+         * Returns whether this frame can be reused for the requested paint.
+         *
+         * @param requestedSnapshot source snapshot
+         * @param requestedAtlas raw atlas data
+         * @param requestedOutput output weights
+         * @param requestedCompareSnapshot comparison snapshot
+         * @param requestedCompareAtlas comparison atlas data
+         * @param requestedSortMode sort mode
+         * @param requestedSquare selected square
+         * @param requestedHidden hidden slot count
+         * @param requestedPlanes piece-plane count
+         * @param requestedSquares square count
+         * @param requestedPaletteKey palette key
+         * @return true when reusable
+         */
+        boolean matches(ActivationSnapshot requestedSnapshot, float[] requestedAtlas,
+                float[] requestedOutput, ActivationSnapshot requestedCompareSnapshot,
+                float[] requestedCompareAtlas, String requestedSortMode,
+                int requestedSquare, int requestedHidden, int requestedPlanes,
+                int requestedSquares, int requestedPaletteKey) {
+            String normalizedSort = requestedSortMode == null ? "" : requestedSortMode;
+            return snapshot == requestedSnapshot
+                    && rawAtlas == requestedAtlas
+                    && output == requestedOutput
+                    && compareSnapshot == requestedCompareSnapshot
+                    && compareAtlas == requestedCompareAtlas
+                    && sortMode.equals(normalizedSort)
+                    && selectedSquare == requestedSquare
+                    && hidden == requestedHidden
+                    && planes == requestedPlanes
+                    && squares == requestedSquares
+                    && paletteKey == requestedPaletteKey;
+        }
     }
 
 
