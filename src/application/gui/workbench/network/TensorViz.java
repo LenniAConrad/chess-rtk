@@ -6,6 +6,7 @@
 
 package application.gui.workbench.network;
 
+import application.gui.workbench.board.BoardStyle;
 import application.gui.workbench.ui.Theme;
 import application.gui.workbench.ui.Ui;
 import java.awt.BasicStroke;
@@ -197,7 +198,7 @@ public final class TensorViz {
     }
 
     /**
-     * Draws a double-outline marker around a board square.
+     * Draws a shared chessboard.js-style marker around a LERF board square.
      *
      * @param g graphics
      * @param board board rectangle
@@ -208,22 +209,7 @@ public final class TensorViz {
         if (square < 0 || square >= 64 || board.width <= 0 || board.height <= 0) {
             return;
         }
-        int file = square & 7;
-        int rank = square >> 3;
-        int drawRank = 7 - rank;
-        double cellW = board.width / 8.0;
-        double cellH = board.height / 8.0;
-        int x = (int) Math.floor(board.x + file * cellW);
-        int y = (int) Math.floor(board.y + drawRank * cellH);
-        int w = Math.max(2, (int) Math.ceil(cellW));
-        int h = Math.max(2, (int) Math.ceil(cellH));
-        g.setColor(Theme.withAlpha(Theme.PANEL_SOLID, 218));
-        g.drawRect(x + 1, y + 1, Math.max(1, w - 3), Math.max(1, h - 3));
-        g.setColor(color);
-        g.drawRect(x + 2, y + 2, Math.max(1, w - 5), Math.max(1, h - 5));
-        if (w > 12 && h > 12) {
-            g.drawRect(x + 3, y + 3, Math.max(1, w - 7), Math.max(1, h - 7));
-        }
+        BoardStyle.drawInsetSquareHighlight(g, BoardStyle.lerfSquareBounds(board, square, true), color);
     }
 
     /**
@@ -571,17 +557,13 @@ public final class TensorViz {
             return;
         }
         byte[] squares = position.getBoard();
-        double cell = r.width / 8.0;
         for (int positionIndex = 0; positionIndex < 64; positionIndex++) {
             byte piece = squares[positionIndex];
             if (piece == chess.core.Piece.EMPTY) {
                 continue;
             }
-            int file = positionIndex & 7;
-            int drawRank = positionIndex >>> 3;
-            double x = r.x + file * cell;
-            double y = r.y + drawRank * cell;
-            chess.images.assets.Shapes.drawPiece(piece, g, x, y, cell, cell);
+            Rectangle cell = BoardStyle.fieldSquareBounds(r, (byte) positionIndex, true);
+            chess.images.assets.Shapes.drawPiece(piece, g, cell.x, cell.y, cell.width, cell.height);
         }
     }
 
@@ -592,20 +574,7 @@ public final class TensorViz {
      * @param r destination rectangle
      */
     public static void drawMiniBoard(Graphics2D g, Rectangle r) {
-        double cell = r.width / 8.0;
-        for (int rank = 0; rank < 8; ++rank) {
-            for (int file = 0; file < 8; ++file) {
-                int x = (int) Math.floor(r.x + file * cell);
-                int y = (int) Math.floor(r.y + rank * cell);
-                int w = (int) Math.ceil(cell + 1);
-                int h = (int) Math.ceil(cell + 1);
-                boolean light = ((rank + file) & 1) == 0;
-                g.setColor(light ? Theme.BOARD_LIGHT : Theme.BOARD_DARK);
-                g.fillRect(x, y, w, h);
-            }
-        }
-        g.setColor(Theme.LINE);
-        g.drawRect(r.x, r.y, r.width - 1, r.height - 1);
+        BoardStyle.drawBoardSurface(g, r, true);
     }
 
     /**
@@ -615,7 +584,7 @@ public final class TensorViz {
      * @param r destination rectangle
      * @param squareValues 64 signed values
      * @param scale absolute max (auto if &lt;= 0)
-     * @param flipped if true, rank 0 sits at the bottom
+     * @param flipped if true, rank 0 sits at the top
      */
     public static void drawSquareOverlay(Graphics2D g, Rectangle r, float[] squareValues, float scale,
             boolean flipped) {
@@ -631,15 +600,8 @@ public final class TensorViz {
                 s = 1.0f;
             }
         }
-        double cell = r.width / 8.0;
         for (int sq = 0; sq < 64; ++sq) {
-            int file = sq & 7;
-            int rank = sq >> 3;
-            int drawRank = flipped ? rank : 7 - rank;
-            int x = (int) Math.floor(r.x + file * cell);
-            int y = (int) Math.floor(r.y + drawRank * cell);
-            int w = (int) Math.ceil(cell + 1);
-            int h = (int) Math.ceil(cell + 1);
+            Rectangle cell = BoardStyle.lerfSquareBounds(r, sq, !flipped);
             float v = squareValues[sq] / s;
             v = clamp(v, -1.0f, 1.0f);
             Color base = signedRamp(v);
@@ -648,7 +610,7 @@ public final class TensorViz {
                 continue;
             }
             g.setColor(new Color(base.getRed(), base.getGreen(), base.getBlue(), alpha));
-            g.fillRect(x, y, w, h);
+            g.fillRect(cell.x, cell.y, cell.width, cell.height);
         }
     }
 
@@ -659,17 +621,8 @@ public final class TensorViz {
      * @param r board rectangle
      */
     public static void drawBoardCoordinates(Graphics2D g, Rectangle r) {
-        g.setFont(Theme.font(9, Font.PLAIN));
-        g.setColor(Theme.MUTED);
-        double cell = r.width / 8.0;
-        for (int file = 0; file < 8; ++file) {
-            int x = (int) Math.round(r.x + file * cell + cell / 2.0 - 3);
-            g.drawString(String.valueOf((char) ('a' + file)), x, r.y + r.height + 11);
-        }
-        for (int rank = 0; rank < 8; ++rank) {
-            int y = (int) Math.round(r.y + rank * cell + cell / 2.0 + 3);
-            g.drawString(String.valueOf((char) ('1' + (7 - rank))), r.x - 9, y);
-        }
+        int fontSize = Math.max(7, Math.min(11, Math.round(r.width / 18.0f)));
+        BoardStyle.drawInsideCoordinates(g, r, true, fontSize);
     }
 
     /**
@@ -839,23 +792,16 @@ public final class TensorViz {
      */
     public static void drawSquareLetter(Graphics2D g, Rectangle r, int square,
             String letter, Color fill) {
-        double cell = r.width / 8.0;
-        int file = square & 7;
-        int rank = square >> 3;
-        int drawRank = 7 - rank;
-        int x = (int) Math.floor(r.x + file * cell);
-        int y = (int) Math.floor(r.y + drawRank * cell);
-        int w = (int) Math.ceil(cell + 1);
-        int h = (int) Math.ceil(cell + 1);
+        Rectangle cell = BoardStyle.lerfSquareBounds(r, square, true);
         g.setColor(fill);
-        g.fillRect(x, y, w, h);
-        int fontSize = Math.max(8, (int) (cell * 0.62));
+        g.fillRect(cell.x, cell.y, cell.width, cell.height);
+        int fontSize = Math.max(8, (int) (cell.width * 0.62));
         g.setFont(Theme.font(fontSize, Font.BOLD));
         FontMetrics fm = g.getFontMetrics();
         int lw = fm.stringWidth(letter);
         int la = fm.getAscent();
         g.setColor(Theme.TEXT);
-        g.drawString(letter, x + (w - lw) / 2, y + (h + la) / 2 - 2);
+        g.drawString(letter, cell.x + (cell.width - lw) / 2, cell.y + (cell.height + la) / 2 - 2);
     }
 
     /**

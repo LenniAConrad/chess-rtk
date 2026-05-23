@@ -45,6 +45,7 @@ import java.awt.KeyboardFocusManager;
 import java.awt.Toolkit;
 import java.awt.datatransfer.StringSelection;
 import java.awt.event.ActionEvent;
+import java.awt.event.KeyEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.print.PrinterException;
@@ -216,6 +217,40 @@ public abstract class WindowLifecycle extends WindowBase {
      * Default window height when no preference is recorded.
      */
     protected static final int DEFAULT_WINDOW_HEIGHT = 920;
+
+    /**
+     * Keyboard shortcuts that move to the previous game ply.
+     */
+    private static final KeyStroke[] PREVIOUS_POSITION_KEYS = keyStrokes(
+            KeyEvent.VK_LEFT,
+            KeyEvent.VK_KP_LEFT,
+            KeyEvent.VK_NUMPAD4);
+
+    /**
+     * Keyboard shortcuts that move to the next game ply.
+     */
+    private static final KeyStroke[] NEXT_POSITION_KEYS = keyStrokes(
+            KeyEvent.VK_RIGHT,
+            KeyEvent.VK_KP_RIGHT,
+            KeyEvent.VK_NUMPAD6);
+
+    /**
+     * Keyboard shortcuts that jump to the first game ply.
+     */
+    private static final KeyStroke[] FIRST_POSITION_KEYS = keyStrokes(
+            KeyEvent.VK_UP,
+            KeyEvent.VK_KP_UP,
+            KeyEvent.VK_NUMPAD8,
+            KeyEvent.VK_HOME);
+
+    /**
+     * Keyboard shortcuts that jump to the final game ply.
+     */
+    private static final KeyStroke[] LAST_POSITION_KEYS = keyStrokes(
+            KeyEvent.VK_DOWN,
+            KeyEvent.VK_KP_DOWN,
+            KeyEvent.VK_NUMPAD2,
+            KeyEvent.VK_END);
 
     /**
      * Restores window size and position from {@link #WORKBENCH_PREFS}, with a
@@ -830,12 +865,56 @@ public abstract class WindowLifecycle extends WindowBase {
                 event -> tabs.splitSelectedTabDown());
         installTabNumberShortcuts();
         bindWindowAction("ESCAPE", "stopRunningCommand", event -> stopCommand());
-        bindPositionNavigation("LEFT", "previousPosition", event -> navigateGame(-1));
-        bindPositionNavigation("RIGHT", "nextPosition", event -> navigateGame(1));
-        bindPositionNavigation("HOME", "firstPositionHome", event -> jumpGameTo(0));
-        bindPositionNavigation("END", "lastPositionEnd", event -> jumpGameTo(gameModel.lastPly()));
-        bindPositionNavigation("UP", "firstPosition", event -> jumpGameTo(0));
-        bindPositionNavigation("DOWN", "lastPosition", event -> jumpGameTo(gameModel.lastPly()));
+        bindPositionNavigation(PREVIOUS_POSITION_KEYS, "previousPosition", event -> navigateGame(-1));
+        bindPositionNavigation(NEXT_POSITION_KEYS, "nextPosition", event -> navigateGame(1));
+        bindPositionNavigation(FIRST_POSITION_KEYS, "firstPosition", event -> jumpGameTo(0));
+        bindPositionNavigation(LAST_POSITION_KEYS, "lastPosition", event -> jumpGameTo(gameModel.lastPly()));
+    }
+
+    /**
+     * Returns all unmodified key strokes that navigate the game position.
+     *
+     * @return copied key-stroke array
+     */
+    protected static KeyStroke[] allPositionNavigationKeyStrokes() {
+        KeyStroke[] out = new KeyStroke[
+                PREVIOUS_POSITION_KEYS.length
+                        + NEXT_POSITION_KEYS.length
+                        + FIRST_POSITION_KEYS.length
+                        + LAST_POSITION_KEYS.length];
+        int offset = 0;
+        offset = copyKeys(PREVIOUS_POSITION_KEYS, out, offset);
+        offset = copyKeys(NEXT_POSITION_KEYS, out, offset);
+        offset = copyKeys(FIRST_POSITION_KEYS, out, offset);
+        copyKeys(LAST_POSITION_KEYS, out, offset);
+        return out;
+    }
+
+    /**
+     * Copies key strokes into an output array.
+     *
+     * @param source source key strokes
+     * @param target target array
+     * @param offset first target offset
+     * @return next free offset
+     */
+    private static int copyKeys(KeyStroke[] source, KeyStroke[] target, int offset) {
+        System.arraycopy(source, 0, target, offset, source.length);
+        return offset + source.length;
+    }
+
+    /**
+     * Creates unmodified key strokes for physical keyboard key codes.
+     *
+     * @param keyCodes key codes
+     * @return key strokes
+     */
+    private static KeyStroke[] keyStrokes(int... keyCodes) {
+        KeyStroke[] keys = new KeyStroke[keyCodes.length];
+        for (int i = 0; i < keyCodes.length; i++) {
+            keys[i] = KeyStroke.getKeyStroke(keyCodes[i], 0);
+        }
+        return keys;
     }
 
     /**
@@ -855,16 +934,38 @@ public abstract class WindowLifecycle extends WindowBase {
      * Binds a window-level arrow key to game-position navigation when the board
      * view is active and focus is not in a component that owns arrow keys.
      *
-     * @param keyStroke keystroke
+     * @param keyStrokes key strokes
      * @param name action name
      * @param body action body
      */
-    protected void bindPositionNavigation(String keyStroke, String name,
+    protected void bindPositionNavigation(KeyStroke[] keyStrokes, String name,
             Consumer<ActionEvent> body) {
-        getRootPane().getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW)
-                .put(KeyStroke.getKeyStroke(keyStroke), name);
+        for (int i = 0; i < keyStrokes.length; i++) {
+            bindPositionNavigation(keyStrokes[i], name + i, body);
+        }
+    }
+
+    /**
+     * Binds one window-level key stroke to game-position navigation.
+     *
+     * @param keyStroke key stroke
+     * @param name action name
+     * @param body action body
+     */
+    protected void bindPositionNavigation(KeyStroke keyStroke, String name,
+            Consumer<ActionEvent> body) {
+        getRootPane().getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).put(keyStroke, name);
         getRootPane().getActionMap().put(name, new AbstractAction() {
+            /**
+             * Serialization identifier for Swing action compatibility.
+             */
             protected static final long serialVersionUID = 1L;
+
+            /**
+             * Runs position navigation when focus routing allows it.
+             *
+             * @param event action event
+             */
             @Override
             public void actionPerformed(ActionEvent event) {
                 if (shouldRoutePositionNavigation()) {
@@ -887,7 +988,7 @@ public abstract class WindowLifecycle extends WindowBase {
             return false;
         }
         Component focusOwner = KeyboardFocusManager.getCurrentKeyboardFocusManager().getFocusOwner();
-    return shouldRoutePositionNavigation(focusOwner);
+        return shouldRoutePositionNavigation(focusOwner);
     }
 
     /**

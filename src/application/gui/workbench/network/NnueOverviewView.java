@@ -649,6 +649,7 @@ public abstract class NnueOverviewView extends NnueAtlasView {
         TensorViz.drawMiniBoard(g, innerBoard);
         TensorViz.drawPositionPieces(g, innerBoard, fen);
         paintOverviewFeatureOverlay(g, innerBoard);
+        TensorViz.drawBoardCoordinates(g, innerBoard);
         drawWhiteBottomLabel(g, innerBoard, r.y + r.height);
         hitRegions.add(innerBoard, "Current position",
                 fen == null ? "no FEN" : fen,
@@ -670,12 +671,10 @@ public abstract class NnueOverviewView extends NnueAtlasView {
         if (!feature.valid) {
             return;
         }
-        double cell = board.width / 8.0;
-        highlightSquare(g, board, feature.kingSquare, cell, cell,
-                Theme.withAlpha(TensorViz.FOCUS, 110));
+        highlightSquare(g, board, feature.kingSquare, Theme.withAlpha(TensorViz.FOCUS, 110));
         if (feature.pieceSquare != feature.kingSquare) {
             boolean enemy = feature.pieceCode >= 5;
-            highlightSquare(g, board, feature.pieceSquare, cell, cell,
+            highlightSquare(g, board, feature.pieceSquare,
                     enemy ? Theme.withAlpha(TensorViz.NEGATIVE, 110)
                             : Theme.withAlpha(TensorViz.POSITIVE, 110));
         }
@@ -719,10 +718,8 @@ public abstract class NnueOverviewView extends NnueAtlasView {
         if (!feature.valid) {
             return;
         }
-        double cell = board.width / 8.0;
-        highlightSquare(g, board, feature.kingSquare, cell, cell,
-                Theme.withAlpha(TensorViz.FOCUS, 80));
-        highlightSquare(g, board, feature.pieceSquare, cell, cell, tint);
+        highlightSquare(g, board, feature.kingSquare, Theme.withAlpha(TensorViz.FOCUS, 80));
+        highlightSquare(g, board, feature.pieceSquare, tint);
     }
 
 

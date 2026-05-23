@@ -6,6 +6,7 @@
 
 package application.gui.workbench.network;
 
+import application.gui.workbench.board.BoardStyle;
 import application.gui.workbench.ui.HitRegions;
 import application.gui.workbench.ui.InspectorDialog;
 import application.gui.workbench.ui.Theme;
@@ -949,13 +950,8 @@ public final class CnnView extends NetworkView {
         if (values == null || values.length < 64) {
             return;
         }
-        int cellW = board.width / 8;
-        int cellH = board.height / 8;
         for (int sq = 0; sq < 64; ++sq) {
-            int file = sq & 7;
-            int rank = sq >> 3;
-            int drawRank = 7 - rank;
-            Rectangle cell = new Rectangle(board.x + file * cellW, board.y + drawRank * cellH, cellW, cellH);
+            Rectangle cell = BoardStyle.lerfSquareBounds(board, sq, true);
             hitRegions.add(cell,
                     TensorViz.squareLabel(sq),
                     caption,

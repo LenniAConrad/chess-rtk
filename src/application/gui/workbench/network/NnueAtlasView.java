@@ -420,6 +420,7 @@ public abstract class NnueAtlasView extends NnueViewBase {
         if (selectedBoardSquare >= 0) {
             TensorViz.drawBoardSquareRing(g, board, selectedBoardSquare, TensorViz.FOCUS);
         }
+        TensorViz.drawBoardCoordinates(g, board);
         hitRegions.addInspectable(board,
                 "Slot " + slot + " · " + atlasPlaneName(atlasSelectedPlane, planes),
                 "Selected slot/piece-plane weight board.",

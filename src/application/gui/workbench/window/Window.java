@@ -205,6 +205,15 @@ public final class Window extends WindowCommandLayer {
         return WindowLifecycle.shouldRoutePositionNavigation(focusOwner);
     }
 
+    /**
+     * Returns all key strokes that route to position navigation.
+     *
+     * @return copied key-stroke array
+     */
+    protected static KeyStroke[] allPositionNavigationKeyStrokes() {
+        return WindowLifecycle.allPositionNavigationKeyStrokes();
+    }
+
     /** Returns whether an option matches the command-option filter query.
      * @param query filter query
      * @param values candidate values

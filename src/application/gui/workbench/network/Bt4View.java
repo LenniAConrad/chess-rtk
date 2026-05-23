@@ -6,6 +6,7 @@
 
 package application.gui.workbench.network;
 
+import application.gui.workbench.board.BoardStyle;
 import application.gui.workbench.ui.HitRegions;
 import application.gui.workbench.ui.InspectorDialog;
 import application.gui.workbench.ui.Theme;
@@ -962,13 +963,8 @@ public final class Bt4View extends NetworkView {
         if (values == null || values.length < 64) {
             return;
         }
-        int cellW = board.width / 8;
-        int cellH = board.height / 8;
         for (int sq = 0; sq < 64; ++sq) {
-            int file = sq & 7;
-            int rank = sq >> 3;
-            int drawRank = 7 - rank;
-            Rectangle cell = new Rectangle(board.x + file * cellW, board.y + drawRank * cellH, cellW, cellH);
+            Rectangle cell = BoardStyle.lerfSquareBounds(board, sq, true);
             hitRegions.add(cell,
                     TensorViz.squareLabel(sq),
                     caption,
@@ -1287,14 +1283,7 @@ public final class Bt4View extends NetworkView {
                 float scale = scaleFor("boardOverlay:joint", dynamicMax);
                 drawTriangleOverlay(g, board, toOverlay, fromOverlay, scale);
                 addTriangleTooltips(board, toOverlay, fromOverlay);
-                int sf = selectedSquare & 7;
-                int sr = selectedSquare >> 3;
-                int dr = 7 - sr;
-                int cellW = board.width / 8;
-                int cellH = board.height / 8;
-                g.setColor(TensorViz.FOCUS);
-                g.drawRect(board.x + sf * cellW, board.y + dr * cellH, cellW, cellH);
-                g.drawRect(board.x + sf * cellW + 1, board.y + dr * cellH + 1, cellW - 2, cellH - 2);
+                TensorViz.drawBoardSquareRing(g, board, selectedSquare, TensorViz.FOCUS);
             }
         }
         TensorViz.drawBoardCoordinates(g, board);
@@ -1327,19 +1316,15 @@ public final class Bt4View extends NetworkView {
         if (toData == null || fromData == null || scale <= 0.0f) {
             return;
         }
-        double cellW = board.width / 8.0;
-        double cellH = board.height / 8.0;
         Color outgoingBase = TensorViz.POSITIVE;
         Color incomingBase = TensorViz.NEGATIVE;
         Color diagonal = Theme.withAlpha(Theme.TEXT, 58);
         for (int sq = 0; sq < 64; ++sq) {
-            int file = sq & 7;
-            int rank = sq >> 3;
-            int drawRank = 7 - rank;
-            double xd = board.x + file * cellW;
-            double yd = board.y + drawRank * cellH;
-            double xr = xd + cellW;
-            double yb = yd + cellH;
+            Rectangle cell = BoardStyle.lerfSquareBounds(board, sq, true);
+            double xd = cell.x;
+            double yd = cell.y;
+            double xr = cell.x + cell.width;
+            double yb = cell.y + cell.height;
             float vTo = Math.min(1.0f, Math.max(0.0f, toData[sq] / scale));
             float vFrom = Math.min(1.0f, Math.max(0.0f, fromData[sq] / scale));
 
@@ -1393,15 +1378,9 @@ public final class Bt4View extends NetworkView {
      * @param fromData this → selected
      */
     private void addTriangleTooltips(Rectangle board, float[] toData, float[] fromData) {
-        int cellW = board.width / 8;
-        int cellH = board.height / 8;
         String selectedLabel = TensorViz.squareLabel(selectedSquare);
         for (int sq = 0; sq < 64; ++sq) {
-            int file = sq & 7;
-            int rank = sq >> 3;
-            int drawRank = 7 - rank;
-            Rectangle cell = new Rectangle(board.x + file * cellW, board.y + drawRank * cellH,
-                    cellW, cellH);
+            Rectangle cell = BoardStyle.lerfSquareBounds(board, sq, true);
             hitRegions.add(cell,
                     TensorViz.squareLabel(sq),
                     selectedLabel + " → this : " + String.format("%.4f", toData[sq])

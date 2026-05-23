@@ -86,6 +86,7 @@ public abstract class NnueTraceView extends NnueOverviewView {
         TensorViz.drawMiniBoard(g, boardArea);
         TensorViz.drawPositionPieces(g, boardArea, fen);
         paintSelectedFeatureOverlay(g, boardArea);
+        TensorViz.drawBoardCoordinates(g, boardArea);
         drawWhiteBottomLabel(g, boardArea, body.y + body.height);
         hitRegions.add(boardArea, "Current position",
                 fen == null ? "no FEN" : fen,

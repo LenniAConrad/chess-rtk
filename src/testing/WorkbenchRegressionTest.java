@@ -13,6 +13,7 @@ import java.awt.Graphics2D;
 import java.awt.Point;
 import java.awt.Rectangle;
 import java.awt.event.ActionListener;
+import java.awt.event.KeyEvent;
 import java.awt.event.MouseEvent;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
@@ -67,8 +68,9 @@ import javax.swing.text.StyleConstants;
 
 import application.cli.CliCommand;
 import application.cli.CliRegistry;
-import application.gui.workbench.game.SanRenderer;
+import application.gui.workbench.board.BoardStyle;
 import application.gui.workbench.game.GameModel;
+import application.gui.workbench.game.SanRenderer;
 import application.gui.workbench.network.TensorViz;
 import application.gui.workbench.ui.Theme;
 import application.gui.workbench.ui.Ui;
@@ -205,6 +207,7 @@ public final class WorkbenchRegressionTest {
         testCommandTabsReserveSelectedTextWidth();
         testTabbedPaneSwitchesWithoutSnapshotOverlay();
         testSplitAreaUsesIndependentEditorGroups();
+        testSplitAreaTabSelectionDoesNotRebuildDivider();
         testSplitAreaSupportsCornerEditorGroups();
         testSplitAreaDocksDraggedTabsBackIntoGroup();
         testSplitAreaExposesFlexibleTabActions();
@@ -238,6 +241,7 @@ public final class WorkbenchRegressionTest {
         testBoardHasNoKeyboardPieceSelector();
         testBoardEditorBuildsAndAppliesFen();
         testWindowPositionNavigationRoutingSkipsTextAndDataControls();
+        testWindowPositionNavigationBindsAllArrowFamilies();
         testBoardRightDragTogglesLichessArrowMarkup();
         testBoardRightClickTogglesLichessCircleMarkup();
         testBoardRightDragReplacesMarkupColorLikeLichess();
@@ -256,6 +260,7 @@ public final class WorkbenchRegressionTest {
         testBoardCheckHighlightPaintsCheckedKingMarker();
         testBoardTextureCachesRenderedLayer();
         testBoardPieceImageCacheReusesScaledSvg();
+        testBoardStyleUsesSharedPixelGeometry();
         testTensorMiniBoardPiecesRenderWhiteBottom();
         testDashboardClassesLoad();
         testWorkbenchSessionNotifiesListeners();
@@ -1509,6 +1514,30 @@ public final class WorkbenchRegressionTest {
     }
 
     /**
+     * Verifies ordinary tab selection inside a split editor group does not
+     * recreate the split pane and momentarily reset divider geometry.
+     */
+    private static void testSplitAreaTabSelectionDoesNotRebuildDivider() {
+        Object area = construct(type("layout.EditorSplitArea"), new Class<?>[0]);
+        for (int i = 0; i < 4; i++) {
+            invoke(area, "addPanel", new Class<?>[] { String.class, javax.swing.JComponent.class },
+                    "Tab " + i, new JPanel());
+        }
+        invoke(area, "install", new Class<?>[0]);
+        invoke(area, "splitWithDragged", new Class<?>[] { int.class, boolean.class }, 2, false);
+        JSplitPane split = (JSplitPane) field(area, "splitPane");
+        split.setDividerLocation(320);
+
+        invoke(area, "setPrimary", new Class<?>[] { int.class }, 1);
+
+        assertTrue(split == field(area, "splitPane"), "tab selection reuses the existing split pane");
+        assertEquals(Integer.valueOf(320), Integer.valueOf(split.getDividerLocation()),
+                "tab selection keeps divider location stable");
+        assertEquals(Integer.valueOf(1), invoke(area, "selectedIndex", new Class<?>[0]),
+                "selected primary tab becomes active");
+    }
+
+    /**
      * Verifies corner tab drops can create VS Code-style quadrant editor groups
      * instead of being limited to left/right or top/bottom splits.
      */
@@ -2238,6 +2267,46 @@ public final class WorkbenchRegressionTest {
     }
 
     /**
+     * Verifies game-position navigation binds the main arrow cluster, keypad
+     * arrows, and numpad direction keys.
+     */
+    private static void testWindowPositionNavigationBindsAllArrowFamilies() {
+        KeyStroke[] keys = (KeyStroke[]) invokeStatic(type("Window"),
+                "allPositionNavigationKeyStrokes", new Class<?>[0]);
+        assertKeyStrokePresent(keys, KeyEvent.VK_LEFT, "left arrow");
+        assertKeyStrokePresent(keys, KeyEvent.VK_RIGHT, "right arrow");
+        assertKeyStrokePresent(keys, KeyEvent.VK_UP, "up arrow");
+        assertKeyStrokePresent(keys, KeyEvent.VK_DOWN, "down arrow");
+        assertKeyStrokePresent(keys, KeyEvent.VK_KP_LEFT, "keypad left arrow");
+        assertKeyStrokePresent(keys, KeyEvent.VK_KP_RIGHT, "keypad right arrow");
+        assertKeyStrokePresent(keys, KeyEvent.VK_KP_UP, "keypad up arrow");
+        assertKeyStrokePresent(keys, KeyEvent.VK_KP_DOWN, "keypad down arrow");
+        assertKeyStrokePresent(keys, KeyEvent.VK_NUMPAD4, "numpad 4");
+        assertKeyStrokePresent(keys, KeyEvent.VK_NUMPAD6, "numpad 6");
+        assertKeyStrokePresent(keys, KeyEvent.VK_NUMPAD8, "numpad 8");
+        assertKeyStrokePresent(keys, KeyEvent.VK_NUMPAD2, "numpad 2");
+        assertKeyStrokePresent(keys, KeyEvent.VK_HOME, "home");
+        assertKeyStrokePresent(keys, KeyEvent.VK_END, "end");
+    }
+
+    /**
+     * Verifies a key-stroke array contains one unmodified key.
+     *
+     * @param keys key-stroke array
+     * @param keyCode key code
+     * @param label assertion label
+     */
+    private static void assertKeyStrokePresent(KeyStroke[] keys, int keyCode, String label) {
+        KeyStroke expected = KeyStroke.getKeyStroke(keyCode, 0);
+        for (KeyStroke key : keys) {
+            if (expected.equals(key)) {
+                return;
+            }
+        }
+        throw new AssertionError(label + ": key stroke not bound");
+    }
+
+    /**
      * Verifies right-button drag toggles a Lichess-style arrow.
      */
     private static void testBoardRightDragTogglesLichessArrowMarkup() {
@@ -2679,6 +2748,111 @@ public final class WorkbenchRegressionTest {
 
         assertTrue(first == second, "same cell piece cache reuse");
         assertFalse(first == larger, "different cell piece cache refresh");
+    }
+
+    /**
+     * Verifies every board renderer shares one exact square grid for boards,
+     * overlays, focus rings, and core/LERF square conversions.
+     */
+    private static void testBoardStyleUsesSharedPixelGeometry() {
+        Rectangle board = new Rectangle(3, 5, 83, 83);
+        boolean[][] covered = new boolean[board.height][board.width];
+        int coveredPixels = 0;
+        for (int row = 0; row < 8; row++) {
+            for (int col = 0; col < 8; col++) {
+                Rectangle cell = BoardStyle.cellBounds(board, row, col);
+                assertTrue(cell.width > 0 && cell.height > 0, "cell is visible");
+                for (int y = cell.y; y < cell.y + cell.height; y++) {
+                    for (int x = cell.x; x < cell.x + cell.width; x++) {
+                        int localY = y - board.y;
+                        int localX = x - board.x;
+                        assertFalse(covered[localY][localX], "board cells do not overlap");
+                        covered[localY][localX] = true;
+                        coveredPixels++;
+                    }
+                }
+            }
+        }
+        assertEquals(Integer.valueOf(board.width * board.height), Integer.valueOf(coveredPixels),
+                "board cells cover the whole board");
+
+        int e4Lerf = lerfSquare('e', 4);
+        Rectangle e4FromCore = BoardStyle.fieldSquareBounds(board, Field.toIndex('e', '4'), true);
+        Rectangle e4FromLerf = BoardStyle.lerfSquareBounds(board, e4Lerf, true);
+        assertEquals(e4FromCore, e4FromLerf, "core and LERF e4 share visual bounds");
+        assertTensorOverlayStaysInside(board, e4FromLerf, e4Lerf);
+        assertTensorRingStaysInside(board, e4FromLerf, e4Lerf);
+    }
+
+    /**
+     * Returns a LERF square index for a board coordinate.
+     *
+     * @param file file letter
+     * @param rank rank number
+     * @return LERF square index
+     */
+    private static int lerfSquare(char file, int rank) {
+        return (rank - 1) * 8 + (file - 'a');
+    }
+
+    /**
+     * Verifies a TensorViz square overlay touches only the shared target cell.
+     *
+     * @param board board bounds
+     * @param expected expected square bounds
+     * @param square LERF square index
+     */
+    private static void assertTensorOverlayStaysInside(Rectangle board, Rectangle expected, int square) {
+        BufferedImage image = new BufferedImage(96, 96, BufferedImage.TYPE_INT_ARGB);
+        float[] values = new float[64];
+        values[square] = 1.0f;
+        Graphics2D graphics = image.createGraphics();
+        try {
+            TensorViz.drawSquareOverlay(graphics, board, values, 1.0f, false);
+        } finally {
+            graphics.dispose();
+        }
+        assertPaintStaysInside(image, expected, "tensor overlay");
+    }
+
+    /**
+     * Verifies a TensorViz focus ring touches only the shared target cell.
+     *
+     * @param board board bounds
+     * @param expected expected square bounds
+     * @param square LERF square index
+     */
+    private static void assertTensorRingStaysInside(Rectangle board, Rectangle expected, int square) {
+        BufferedImage image = new BufferedImage(96, 96, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D graphics = image.createGraphics();
+        try {
+            TensorViz.drawBoardSquareRing(graphics, board, square, Color.YELLOW);
+        } finally {
+            graphics.dispose();
+        }
+        assertPaintStaysInside(image, expected, "tensor ring");
+    }
+
+    /**
+     * Verifies all painted pixels in an image live within expected bounds.
+     *
+     * @param image image to inspect
+     * @param expected expected paint bounds
+     * @param label assertion label
+     */
+    private static void assertPaintStaysInside(BufferedImage image, Rectangle expected, String label) {
+        int painted = 0;
+        for (int y = 0; y < image.getHeight(); y++) {
+            for (int x = 0; x < image.getWidth(); x++) {
+                int alpha = (image.getRGB(x, y) >>> 24) & 0xFF;
+                if (alpha == 0) {
+                    continue;
+                }
+                assertTrue(expected.contains(x, y), label + " paint stays in target square");
+                painted++;
+            }
+        }
+        assertTrue(painted > 0, label + " paints target square");
     }
 
     /**

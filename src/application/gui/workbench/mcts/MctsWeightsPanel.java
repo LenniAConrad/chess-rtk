@@ -6,6 +6,7 @@
 
 package application.gui.workbench.mcts;
 
+import application.gui.workbench.board.BoardStyle;
 import application.gui.workbench.mcts.MctsSearch;
 import application.gui.workbench.network.TensorViz;
 import application.gui.workbench.ui.Theme;
@@ -175,11 +176,12 @@ public final class MctsWeightsPanel extends javax.swing.JComponent {
         short[] line = snapshot.exploringLine();
         if (line != null && line.length > 0) {
             short last = line[line.length - 1];
-            TensorViz.drawBoardSquareRing(g, board, Move.getFromIndex(last),
+            BoardStyle.drawInsetSquareHighlight(g, BoardStyle.fieldSquareBounds(board, Move.getFromIndex(last), true),
                     Theme.withAlpha(Theme.ACCENT, 220));
-            TensorViz.drawBoardSquareRing(g, board, Move.getToIndex(last),
+            BoardStyle.drawInsetSquareHighlight(g, BoardStyle.fieldSquareBounds(board, Move.getToIndex(last), true),
                     Theme.withAlpha(TensorViz.POSITIVE, 230));
         }
+        TensorViz.drawBoardCoordinates(g, board);
     }
 
     /**

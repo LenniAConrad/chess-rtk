@@ -210,10 +210,10 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
         boardBackButton = iconButton("Back", event -> navigateGame(-1));
         boardForwardButton = iconButton("Forward", event -> navigateGame(1));
         boardEndButton = iconButton("End", event -> jumpGameTo(gameModel.lastPly()));
-        setTransportShortcut(boardStartButton, "Home / Alt+Up");
-        setTransportShortcut(boardBackButton, "Left / Alt+Left");
-        setTransportShortcut(boardForwardButton, "Right / Alt+Right");
-        setTransportShortcut(boardEndButton, "End / Alt+Down");
+        setTransportShortcut(boardStartButton, "Up / Home / Numpad 8 / Alt+Up");
+        setTransportShortcut(boardBackButton, "Left / Numpad 4 / Alt+Left");
+        setTransportShortcut(boardForwardButton, "Right / Numpad 6 / Alt+Right");
+        setTransportShortcut(boardEndButton, "Down / End / Numpad 2 / Alt+Down");
         updateBoardNavigationControls();
         grid(panel, buttonRow(FlowLayout.LEFT,
                 button("Load", true, event -> setPositionFromField()),

@@ -6,7 +6,6 @@
 
 package application.gui.workbench.board;
 
-import application.gui.workbench.ui.Theme;
 import chess.core.Field;
 import java.awt.Color;
 import java.awt.Point;
@@ -32,18 +31,7 @@ final class BoardGeometry {
      * @return board square color
      */
     static Color squareColor(int row, int col) {
-        return ((row + col) & 1) == 0 ? Theme.BOARD_LIGHT : Theme.BOARD_DARK;
-    }
-
-    /**
-     * Returns the coordinate label color for a real board square.
-     *
-     * @param file file index
-     * @param rank rank number
-     * @return coordinate label color
-     */
-    static Color notationColor(int file, int rank) {
-        return ((file + rank) & 1) == 0 ? Theme.COORD_ON_LIGHT : Theme.COORD_ON_DARK;
+        return BoardStyle.squareColor(row, col);
     }
 
     /**
@@ -55,12 +43,7 @@ final class BoardGeometry {
      * @return square bounds
      */
     static Rectangle squareBounds(Rectangle board, byte square, boolean whiteDown) {
-        int cell = board.width / 8;
-        int file = Field.getX(square);
-        int rankRow = square / 8;
-        int col = whiteDown ? file : 7 - file;
-        int row = whiteDown ? rankRow : 7 - rankRow;
-        return new Rectangle(board.x + col * cell, board.y + row * cell, cell, cell);
+        return BoardStyle.fieldSquareBounds(board, square, whiteDown);
     }
 
     /**
@@ -76,9 +59,8 @@ final class BoardGeometry {
         if (!board.contains(x, y)) {
             return Field.NO_SQUARE;
         }
-        int cell = board.width / 8;
-        int col = (x - board.x) / cell;
-        int row = (y - board.y) / cell;
+        int col = (x - board.x) * 8 / Math.max(1, board.width);
+        int row = (y - board.y) * 8 / Math.max(1, board.height);
         int file = whiteDown ? col : 7 - col;
         int rankRow = whiteDown ? row : 7 - row;
         return (byte) (rankRow * 8 + file);

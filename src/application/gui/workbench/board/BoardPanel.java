@@ -19,8 +19,6 @@ import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Cursor;
 import java.awt.Dimension;
-import java.awt.Font;
-import java.awt.FontMetrics;
 import java.awt.Graphics2D;
 import java.awt.Graphics;
 import java.awt.Point;
@@ -60,8 +58,6 @@ public final class BoardPanel extends JPanel {
     private static final int EVAL_BAR_GAP = 8;
     /** Engine evaluation bar painted flush against the board, or null when no bar is attached. */
     private transient EvalBar evalBar;
-    /** Chessboard.js board border width. */
-    private static final int BOARD_BORDER = 2;
     /** Minimum pointer movement before a press becomes a drag. */
     private static final int DRAG_THRESHOLD = 5;
     /** Piece glide duration for short board transitions. */
@@ -72,8 +68,6 @@ public final class BoardPanel extends JPanel {
     private static final int DRAG_REPAINT_PADDING = 8;
     /** Cached 1-pixel stroke for board hairlines. */
     private static final BasicStroke STROKE_1 = new BasicStroke(1f);
-    /** Cached 2-pixel stroke for selected-square edges. */
-    private static final BasicStroke STROKE_2 = new BasicStroke(2f);
     /** Cached drag transparency composite. */
     private static final AlphaComposite DRAG_ALPHA = AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 1f);
     /** Cached transparent variant of the check-glow used at the radial gradient edges. */
@@ -666,7 +660,7 @@ public final class BoardPanel extends JPanel {
         }
         for (Map.Entry<Byte, Color> entry : squareHighlights.entrySet()) {
             Rectangle bounds = squareBounds(board, entry.getKey());
-            drawSquareHighlight(g, bounds, entry.getValue());
+            BoardStyle.drawInsetSquareHighlight(g, bounds, entry.getValue());
         }
     }
     /** Paints Lichess-style user annotations on top of pieces.
@@ -774,8 +768,8 @@ public final class BoardPanel extends JPanel {
      * @param board board drawing bounds */
     private void drawShell(Graphics2D g, Rectangle board) {
         g.setColor(Theme.BOARD_EDGE);
-        g.fillRect(board.x - BOARD_BORDER, board.y - BOARD_BORDER,
-                board.width + BOARD_BORDER * 2, board.height + BOARD_BORDER * 2);
+        g.fillRect(board.x - BoardStyle.BORDER_WIDTH, board.y - BoardStyle.BORDER_WIDTH,
+                board.width + BoardStyle.BORDER_WIDTH * 2, board.height + BoardStyle.BORDER_WIDTH * 2);
     }
     /** Draws the cached chessboard.js board texture.
      * @param g graphics context
@@ -796,60 +790,7 @@ public final class BoardPanel extends JPanel {
         if (!showNotation) {
             return;
         }
-        int cell = board.width / 8;
-        int fileInlinePad = 3;
-        int fileBlockPad = 1;
-        int rankInlinePad = 2;
-        int rankBlockPad = 2;
-        int bottomRank = whiteDown ? 1 : 8;
-        int leftFile = whiteDown ? 0 : 7;
-        g.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 14));
-        FontMetrics metrics = g.getFontMetrics();
-        for (int i = 0; i < 8; i++) {
-            int file = whiteDown ? i : 7 - i;
-            int rank = whiteDown ? 8 - i : i + 1;
-            String fileText = String.valueOf((char) ('a' + file));
-            String rankText = String.valueOf(rank);
-            Color fileColor = BoardGeometry.notationColor(file, bottomRank);
-            drawCoordinateString(g, fileText, board.x + i * cell + cell - metrics.stringWidth(fileText) - fileInlinePad,
-                    board.y + board.height - fileBlockPad - metrics.getDescent(), fileColor);
-            Color rankColor = BoardGeometry.notationColor(leftFile, rank);
-            drawCoordinateString(g, rankText, board.x + rankInlinePad,
-                    board.y + i * cell + rankBlockPad + metrics.getAscent(), rankColor);
-        }
-    }
-    /**
-     * Draws one coordinate label with a tiny halo so piece SVGs cannot hide it.
-     *
-     * @param g graphics context
-     * @param text coordinate label text
-     * @param x x coordinate
-     * @param baseline text baseline
-     * @param color primary coordinate color
-     */
-    private static void drawCoordinateString(Graphics2D g, String text, int x, int baseline, Color color) {
-        Color savedColor = g.getColor();
-        try {
-            g.setColor(coordinateHalo(color));
-            g.drawString(text, x - 1, baseline);
-            g.drawString(text, x + 1, baseline);
-            g.drawString(text, x, baseline - 1);
-            g.drawString(text, x, baseline + 1);
-            g.setColor(color);
-            g.drawString(text, x, baseline);
-        } finally {
-            g.setColor(savedColor);
-        }
-    }
-    /**
-     * Returns a high-contrast halo for one coordinate label color.
-     *
-     * @param color primary coordinate color
-     * @return halo color
-     */
-    private static Color coordinateHalo(Color color) {
-        int luminance = color.getRed() + color.getGreen() + color.getBlue();
-        return luminance > 500 ? Theme.BOARD_EDGE : Theme.BOARD_LIGHT;
+        BoardStyle.drawInsideCoordinates(g, board, whiteDown, 14);
     }
     /** Draws last-move highlights.
      * @param g graphics context
@@ -865,27 +806,8 @@ public final class BoardPanel extends JPanel {
         if (!showLastMoveHighlight || lastMove == Move.NO_MOVE || arrowVisible) {
             return;
         }
-        drawSquareHighlight(g, squareBounds(board, Move.getFromIndex(lastMove)), Theme.LAST_MOVE_EDGE);
-        drawSquareHighlight(g, squareBounds(board, Move.getToIndex(lastMove)), Theme.LAST_MOVE_EDGE);
-    }
-    /** Draws a chessboard.js inset square highlight.
-     * @param g graphics context
-     * @param bounds drawing bounds
-     * @param edge highlight edge color */
-    private static void drawSquareHighlight(Graphics2D g, Rectangle bounds, Color edge) {
-        Stroke savedStroke = g.getStroke();
-        Color savedColor = g.getColor();
-        try {
-            g.setColor(edge);
-            g.setStroke(new BasicStroke(3f));
-            for (int inset = 1; inset <= 3; inset++) {
-                g.drawRect(bounds.x + inset, bounds.y + inset,
-                        bounds.width - inset * 2 - 1, bounds.height - inset * 2 - 1);
-            }
-        } finally {
-            g.setStroke(savedStroke);
-            g.setColor(savedColor);
-        }
+        BoardStyle.drawInsetSquareHighlight(g, squareBounds(board, Move.getFromIndex(lastMove)), Theme.LAST_MOVE_EDGE);
+        BoardStyle.drawInsetSquareHighlight(g, squareBounds(board, Move.getToIndex(lastMove)), Theme.LAST_MOVE_EDGE);
     }
     /** Draws the selected square and legal destinations.
      * @param g graphics context
@@ -895,7 +817,7 @@ public final class BoardPanel extends JPanel {
             return;
         }
         Rectangle selected = squareBounds(board, selectedSquare);
-        drawSquareHighlight(g, selected, Theme.SELECTED_EDGE);
+        BoardStyle.drawInsetSquareHighlight(g, selected, Theme.SELECTED_EDGE);
         if (showLegalMovePreview) {
             drawLegalTargets(g, board);
             drawDropTarget(g, board);

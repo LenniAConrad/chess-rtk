@@ -588,11 +588,37 @@ public final class EditorSplitArea extends JPanel {
         if (!validPanel(index)) {
             return;
         }
+        if (tabsForPane(pane).contains(index) && paneVisible(pane)) {
+            setPaneIndex(pane, index);
+            activePane = pane;
+            refreshVisiblePaneSelection(pane);
+            notifySelectionChanged();
+            return;
+        }
         moveToPane(index, pane);
         setPaneIndex(pane, index);
         activePane = pane;
         relayout();
         notifySelectionChanged();
+    }
+
+    /**
+     * Refreshes selected content without rebuilding the split-pane tree. This
+     * is the hot path for ordinary tab clicks; recreating the split pane here
+     * would reset the divider for one paint frame before the remembered
+     * location is restored.
+     *
+     * @param selectedPane pane whose selected content changed
+     */
+    private void refreshVisiblePaneSelection(int selectedPane) {
+        preparePane(selectedPane);
+        for (int pane = PANE_PRIMARY; pane <= PANE_QUATERNARY; pane++) {
+            if (pane != selectedPane && paneVisible(pane)) {
+                rebuildStrip(paneStrip(pane), tabsForPane(pane), paneIndex(pane), pane);
+            }
+        }
+        panePanel(selectedPane).revalidate();
+        panePanel(selectedPane).repaint();
     }
 
     /**
@@ -1375,7 +1401,7 @@ public final class EditorSplitArea extends JPanel {
                 ? verticalDividerLocation
                 : horizontalDividerLocation;
         if (remembered > 0) {
-            SwingUtilities.invokeLater(() -> pane.setDividerLocation(remembered));
+            pane.setDividerLocation(remembered);
         } else {
             pane.setDividerLocation(0.5);
         }

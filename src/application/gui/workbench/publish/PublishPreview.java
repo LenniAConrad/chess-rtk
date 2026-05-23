@@ -6,6 +6,7 @@
 
 package application.gui.workbench.publish;
 
+import application.gui.workbench.board.BoardStyle;
 import application.gui.workbench.ui.Theme;
 import application.gui.workbench.ui.Ui;
 import java.awt.BasicStroke;
@@ -15,6 +16,7 @@ import java.awt.Font;
 import java.awt.FontMetrics;
 import java.awt.Graphics2D;
 import java.awt.Graphics;
+import java.awt.Rectangle;
 import java.awt.RenderingHints;
 import javax.swing.JComponent;
 
@@ -262,19 +264,12 @@ public final class PublishPreview extends JComponent {
      * @param size square board size
      */
     private void paintMiniBoard(Graphics2D g, int x, int y, int size) {
-        int square = Math.max(1, size / 8);
-        int board = square * 8;
-        for (int rank = 0; rank < 8; rank++) {
-            for (int file = 0; file < 8; file++) {
-                g.setColor(((rank + file) & 1) == 0 ? Theme.BOARD_LIGHT : Theme.BOARD_DARK);
-                g.fillRect(x + file * square, y + rank * square, square, square);
-            }
-        }
+        int board = Math.max(8, size - size % 8);
+        int square = Math.max(1, board / 8);
+        BoardStyle.drawBoardSurface(g, new Rectangle(x, y, board, board), true);
         g.setColor(preview.flip() ? Theme.BOARD_ARROW : Theme.ACCENT);
         g.setStroke(new BasicStroke(Math.max(1.4f, square / 5.0f), BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
         g.drawLine(x + square * 2, y + square * 6, x + square * 5, y + square * 3);
-        g.setColor(Theme.withAlpha(Theme.TEXT, 64));
-        g.drawRect(x, y, board, board);
     }
 
     /**

@@ -6,6 +6,7 @@
 
 package application.gui.workbench.network;
 
+import application.gui.workbench.board.BoardStyle;
 import application.gui.workbench.ui.Theme;
 import application.gui.workbench.ui.Ui;
 import java.awt.Color;
@@ -472,17 +473,7 @@ public final class NnueAtlas {
         if (tile.width < 8 || tile.height < 8) {
             return;
         }
-        int file = square & 7;
-        int rank = square >> 3;
-        int drawRank = 7 - rank;
-        double cw = tile.width / 8.0;
-        double ch = tile.height / 8.0;
-        int cx = (int) Math.floor(tile.x + file * cw);
-        int cy = (int) Math.floor(tile.y + drawRank * ch);
-        int cw2 = (int) Math.ceil(cw + 1);
-        int ch2 = (int) Math.ceil(ch + 1);
-        g.setColor(TensorViz.FOCUS);
-        g.drawRect(cx, cy, cw2 - 1, ch2 - 1);
+        BoardStyle.drawInsetSquareHighlight(g, BoardStyle.lerfSquareBounds(tile, square, true), TensorViz.FOCUS);
     }
 
     /**
@@ -537,16 +528,8 @@ public final class NnueAtlas {
      */
     public static void paintAtlasTileDense(Graphics2D g, Rectangle r, float[] atlas,
             int offset, float scale, boolean selected) {
-        double cw = r.width / 8.0;
-        double ch = r.height / 8.0;
         for (int sq = 0; sq < 64; sq++) {
-            int file = sq & 7;
-            int rank = sq >> 3;
-            int drawRank = 7 - rank;
-            int cellX = (int) Math.floor(r.x + file * cw);
-            int cellY = (int) Math.floor(r.y + drawRank * ch);
-            int cellW = (int) Math.ceil(cw + 1);
-            int cellH = (int) Math.ceil(ch + 1);
+            Rectangle cell = BoardStyle.lerfSquareBounds(r, sq, true);
             float v = atlas[offset + sq] / scale;
             if (v > 1.0f) {
                 v = 1.0f;
@@ -554,7 +537,7 @@ public final class NnueAtlas {
                 v = -1.0f;
             }
             g.setColor(atlasRamp(v));
-            g.fillRect(cellX, cellY, cellW, cellH);
+            g.fillRect(cell.x, cell.y, cell.width, cell.height);
         }
         if (selected) {
             g.setColor(TensorViz.FOCUS);

@@ -138,7 +138,7 @@ final class BoardImageCache {
             int cell = size / 8;
             for (int row = 0; row < 8; row++) {
                 for (int col = 0; col < 8; col++) {
-                    graphics.setColor(BoardGeometry.squareColor(row, col));
+                    graphics.setColor(BoardStyle.squareColor(row, col));
                     graphics.fillRect(col * cell, row * cell, cell, cell);
                 }
             }

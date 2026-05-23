@@ -6,6 +6,7 @@
 
 package application.gui.workbench.network;
 
+import application.gui.workbench.board.BoardStyle;
 import application.gui.workbench.ui.HitRegions;
 import application.gui.workbench.ui.Theme;
 import application.gui.workbench.ui.Ui;
@@ -200,21 +201,12 @@ public final class NnueDrawing {
      * @param g graphics
      * @param board mini-board rectangle
      * @param square 0..63 LERF index
-     * @param cellW cell width
-     * @param cellH cell height
      * @param tint translucent fill colour
      */
-    public static void highlightSquare(java.awt.Graphics2D g, Rectangle board, int square,
-            double cellW, double cellH, java.awt.Color tint) {
-        int file = square & 7;
-        int rank = square >> 3;
-        int drawRank = 7 - rank;
-        int x = (int) Math.floor(board.x + file * cellW);
-        int y = (int) Math.floor(board.y + drawRank * cellH);
-        int w = (int) Math.ceil(cellW + 1);
-        int h = (int) Math.ceil(cellH + 1);
+    public static void highlightSquare(java.awt.Graphics2D g, Rectangle board, int square, java.awt.Color tint) {
+        Rectangle cell = BoardStyle.lerfSquareBounds(board, square, true);
         g.setColor(tint);
-        g.fillRect(x, y, w, h);
+        g.fillRect(cell.x, cell.y, cell.width, cell.height);
     }
 
     /**
