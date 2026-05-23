@@ -623,6 +623,7 @@ public final class Ui {
      * @param chooser file chooser
      */
     public static void styleFileChooser(JFileChooser chooser) {
+        FileChooserIcons.installDefaults();
         chooser.setBackground(Theme.BG);
         chooser.setForeground(Theme.TEXT);
         chooser.setBorder(Theme.pad(10, 10, 10, 10));
@@ -770,6 +771,7 @@ public final class Ui {
             Theme.table(table, Math.max(24, table.getRowHeight()));
         } else if (component instanceof JList<?> list) {
             Theme.list(list);
+            list.setFixedCellHeight(Math.max(24, list.getFixedCellHeight()));
         } else if (component instanceof JTabbedPane tabs) {
             styleTabs(tabs);
         } else if (component instanceof JCheckBox box) {
@@ -801,10 +803,19 @@ public final class Ui {
         }
         button.setOpaque(false);
         button.setContentAreaFilled(false);
+        button.setBorderPainted(false);
         button.setFocusPainted(false);
+        button.setRolloverEnabled(true);
         button.setForeground(Theme.TEXT);
         button.setFont(Theme.font(12, Font.PLAIN));
         button.setBorder(Theme.pad(4, 6, 4, 6));
+        if (button.getIcon() != null) {
+            Dimension size = new Dimension(30, 30);
+            button.setMargin(new Insets(0, 0, 0, 0));
+            button.setPreferredSize(size);
+            button.setMinimumSize(size);
+            button.setMaximumSize(size);
+        }
     }
 
     /**

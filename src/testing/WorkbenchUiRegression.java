@@ -13,6 +13,7 @@ import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.event.ActionListener;
 import java.awt.image.BufferedImage;
+import java.io.File;
 import java.util.List;
 
 import javax.swing.BorderFactory;
@@ -21,7 +22,9 @@ import javax.swing.JButton;
 import javax.swing.JCheckBox;
 import javax.swing.JCheckBoxMenuItem;
 import javax.swing.JComponent;
+import javax.swing.Icon;
 import javax.swing.JFrame;
+import javax.swing.JFileChooser;
 import javax.swing.JLabel;
 import javax.swing.JList;
 import javax.swing.JMenu;
@@ -42,9 +45,11 @@ import javax.swing.JTextField;
 import javax.swing.JToggleButton;
 import javax.swing.Timer;
 import javax.swing.UIManager;
+import javax.swing.filechooser.FileNameExtensionFilter;
 import javax.swing.table.TableCellRenderer;
 
 import application.gui.workbench.network.TensorViz;
+import application.gui.workbench.ui.FileDialogs;
 import application.gui.workbench.ui.Theme;
 import application.gui.workbench.ui.Ui;
 import application.gui.workbench.window.LayoutMenu;
@@ -93,6 +98,7 @@ final class WorkbenchUiRegression {
         testThemeRefreshUpdatesLineBorders();
         testThemeRefreshRestoresCustomControlUis();
         testThemeInstallSetsTooltipColors();
+        testFileChooserIconsUseThemePalette();
         testToastUsesBottomRightPlacement();
         testToastFadeAppliesToTextAndChromeTogether();
         testCollapsibleInfoSectionTogglesContent();
@@ -802,6 +808,43 @@ final class WorkbenchUiRegression {
     }
 
     /**
+     * Verifies file chooser icons are custom vector glyphs that repaint from
+     * the active light or dark palette.
+     */
+    private static void testFileChooserIconsUseThemePalette() {
+        Theme.setMode(Theme.Mode.LIGHT);
+        Theme.install();
+        JFileChooser lightChooser = FileDialogs.createFileChooser("Open", new File("."),
+                new FileNameExtensionFilter("TOML files", "toml"));
+        Icon lightFolder = UIManager.getIcon("FileView.directoryIcon");
+        Icon lightUp = UIManager.getIcon("FileChooser.upFolderIcon");
+        assertEquals(Integer.valueOf(16), Integer.valueOf(lightFolder.getIconWidth()),
+                "file chooser folder icon width");
+        assertEquals(Integer.valueOf(18), Integer.valueOf(lightUp.getIconWidth()),
+                "file chooser toolbar icon width");
+        BufferedImage lightIcon = paintIcon(lightFolder);
+        assertTrue(maxAlpha(lightIcon) > 180, "light file chooser icon paints opaque strokes");
+        assertTrue(lightChooser.getIcon(new File(".")) != null, "chooser exposes themed directory icon");
+        assertEquals("Type", UIManager.getString("FileChooser.filesOfTypeLabelText"),
+                "file chooser type label is concise");
+        String filterText = lightChooser.getFileFilter().toString();
+        assertTrue(filterText.contains("TOML files (*.toml)"), "file chooser filter text is readable");
+        assertFalse(filterText.contains("@"), "file chooser filter text hides Swing object id");
+
+        Theme.setMode(Theme.Mode.DARK);
+        Theme.install();
+        JFileChooser darkChooser = FileDialogs.createFileChooser("Open", new File("."), null);
+        Icon darkFolder = UIManager.getIcon("FileView.directoryIcon");
+        BufferedImage darkIcon = paintIcon(darkFolder);
+        assertTrue(maxAlpha(darkIcon) > 180, "dark file chooser icon paints opaque strokes");
+        assertTrue(darkChooser.getIcon(new File(".")) != null, "dark chooser exposes themed directory icon");
+        assertColorDistanceAtLeast(averagePaintColor(lightIcon), averagePaintColor(darkIcon), 16.0,
+                "file chooser icons respond to theme changes");
+        Theme.setMode(Theme.Mode.LIGHT);
+        Theme.install();
+    }
+
+    /**
      * Verifies toast bubbles use a bottom-right desktop notification position.
      */
     private static void testToastUsesBottomRightPlacement() {
@@ -1272,6 +1315,52 @@ final class WorkbenchUiRegression {
                 "MCTS default visit budget is lightweight");
         assertEquals(Boolean.FALSE, staticField(defaults, "NETWORK_MCTS_FOLLOW_LEAF"),
                 "Network MCTS does not re-infer every leaf by default");
+    }
+
+    /**
+     * Paints an icon into a transparent image.
+     *
+     * @param icon icon to paint
+     * @return painted image
+     */
+    private static BufferedImage paintIcon(Icon icon) {
+        BufferedImage image = new BufferedImage(icon.getIconWidth(), icon.getIconHeight(),
+                BufferedImage.TYPE_INT_ARGB);
+        java.awt.Graphics2D g = image.createGraphics();
+        try {
+            icon.paintIcon(new JLabel(), g, 0, 0);
+        } finally {
+            g.dispose();
+        }
+        return image;
+    }
+
+    /**
+     * Returns the average color of non-transparent icon pixels.
+     *
+     * @param image source image
+     * @return average paint color
+     */
+    private static Color averagePaintColor(BufferedImage image) {
+        long red = 0L;
+        long green = 0L;
+        long blue = 0L;
+        long count = 0L;
+        for (int y = 0; y < image.getHeight(); y++) {
+            for (int x = 0; x < image.getWidth(); x++) {
+                Color pixel = new Color(image.getRGB(x, y), true);
+                if (pixel.getAlpha() > 32) {
+                    red += pixel.getRed();
+                    green += pixel.getGreen();
+                    blue += pixel.getBlue();
+                    count++;
+                }
+            }
+        }
+        if (count == 0L) {
+            return new Color(0, 0, 0, 0);
+        }
+        return new Color((int) (red / count), (int) (green / count), (int) (blue / count));
     }
 
     /**
