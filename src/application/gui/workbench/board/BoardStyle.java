@@ -9,7 +9,6 @@ package application.gui.workbench.board;
 import application.gui.workbench.ui.Theme;
 import chess.core.Field;
 import java.awt.Color;
-import java.awt.Font;
 import java.awt.FontMetrics;
 import java.awt.Graphics2D;
 import java.awt.Rectangle;
@@ -158,7 +157,7 @@ public final class BoardStyle {
      */
     public static void drawInsideCoordinates(Graphics2D g, Rectangle board, boolean whiteDown, int fontSize) {
         int size = Math.max(7, fontSize);
-        g.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, size));
+        g.setFont(Theme.font(size, java.awt.Font.PLAIN));
         FontMetrics metrics = g.getFontMetrics();
         int fileInlinePad = Math.max(2, Math.round(size / 4.5f));
         int fileBlockPad = Math.max(1, Math.round(size / 14.0f));

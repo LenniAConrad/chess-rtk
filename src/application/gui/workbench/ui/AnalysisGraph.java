@@ -881,9 +881,9 @@ public final class AnalysisGraph extends JComponent {
      */
     private void paintReportText(Graphics2D g, int width) {
         g.setColor(Theme.TEXT);
-        g.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 13));
+        g.setFont(Theme.font(13, Font.BOLD));
         g.drawString("CRTK Workbench Analysis Report", 0, 14);
-        g.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 9));
+        g.setFont(Theme.mono(9));
         String[] lines = reportText().split("\\R");
         int y = 34;
         FontMetrics metrics = g.getFontMetrics();

@@ -9,8 +9,10 @@ package testing;
 import static testing.WorkbenchTestSupport.*;
 
 import java.awt.Component;
+import java.awt.Container;
 import java.awt.Color;
 import java.awt.Dimension;
+import java.awt.Font;
 import java.awt.event.ActionListener;
 import java.awt.image.BufferedImage;
 import java.io.File;
@@ -98,6 +100,7 @@ final class WorkbenchUiRegression {
         testThemeRefreshUpdatesLineBorders();
         testThemeRefreshRestoresCustomControlUis();
         testThemeInstallSetsTooltipColors();
+        testThemeUsesDeliberateFontStacks();
         testFileChooserIconsUseThemePalette();
         testToastUsesBottomRightPlacement();
         testToastFadeAppliesToTextAndChromeTogether();
@@ -808,6 +811,32 @@ final class WorkbenchUiRegression {
     }
 
     /**
+     * Verifies the workbench keeps interface and code fonts separated.
+     */
+    private static void testThemeUsesDeliberateFontStacks() {
+        Theme.install();
+        Font uiFont = Theme.font(13, Font.PLAIN);
+        Font monoFont = Theme.mono(13);
+        assertEquals(Integer.valueOf(13), Integer.valueOf(uiFont.getSize()), "UI font size");
+        assertEquals(Integer.valueOf(13), Integer.valueOf(monoFont.getSize()), "mono font size");
+        assertFalse("Serif".equals(uiFont.getFamily()), "UI font avoids serif fallback");
+        assertFalse(uiFont.getFamily().equals(monoFont.getFamily()), "UI and code fonts are distinct");
+        assertEquals(uiFont.getFamily(), UIManager.getFont("TextField.font").getFamily(),
+                "text fields use UI font stack");
+        assertEquals(uiFont.getFamily(), UIManager.getFont("FileChooser.font").getFamily(),
+                "file chooser uses UI font stack");
+        assertEquals(monoFont.getFamily(), UIManager.getFont("TextArea.font").getFamily(),
+                "text areas use code font stack");
+
+        JTextField field = new JTextField("path");
+        Theme.field(field);
+        JTextArea area = new JTextArea("fen");
+        Theme.area(area);
+        assertEquals(uiFont.getFamily(), field.getFont().getFamily(), "styled text field uses UI font");
+        assertEquals(monoFont.getFamily(), area.getFont().getFamily(), "styled text area uses code font");
+    }
+
+    /**
      * Verifies file chooser icons are custom vector glyphs that repaint from
      * the active light or dark palette.
      */
@@ -827,6 +856,8 @@ final class WorkbenchUiRegression {
         assertTrue(lightChooser.getIcon(new File(".")) != null, "chooser exposes themed directory icon");
         assertEquals("Type", UIManager.getString("FileChooser.filesOfTypeLabelText"),
                 "file chooser type label is concise");
+        assertTrue(assertChooserListsUseFont(lightChooser, Theme.font(13, Font.PLAIN).getFamily()) > 0,
+                "file chooser exposes styled file rows");
         String filterText = lightChooser.getFileFilter().toString();
         assertTrue(filterText.contains("TOML files (*.toml)"), "file chooser filter text is readable");
         assertFalse(filterText.contains("@"), "file chooser filter text hides Swing object id");
@@ -842,6 +873,27 @@ final class WorkbenchUiRegression {
                 "file chooser icons respond to theme changes");
         Theme.setMode(Theme.Mode.LIGHT);
         Theme.install();
+    }
+
+    /**
+     * Verifies file chooser list rows use the UI font stack.
+     *
+     * @param component root component
+     * @param family expected font family
+     * @return number of chooser lists inspected
+     */
+    private static int assertChooserListsUseFont(Component component, String family) {
+        int matches = 0;
+        if (component instanceof JList<?> list) {
+            assertEquals(family, list.getFont().getFamily(), "file chooser list font");
+            matches++;
+        }
+        if (component instanceof Container container) {
+            for (Component child : container.getComponents()) {
+                matches += assertChooserListsUseFont(child, family);
+            }
+        }
+        return matches;
     }
 
     /**

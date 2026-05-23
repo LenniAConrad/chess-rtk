@@ -1414,6 +1414,7 @@ public final class Theme {
                 | javax.swing.UnsupportedLookAndFeelException ex) {
             LOGGER.log(Level.FINE, "Cross-platform LookAndFeel unavailable; keeping default LookAndFeel.", ex);
         }
+        installFontDefaults();
         UIManager.put("Panel.background", BG);
         UIManager.put("Label.foreground", TEXT);
         UIManager.put("TabbedPane.background", BG);
@@ -1475,8 +1476,6 @@ public final class Theme {
         UIManager.put("PopupMenu.border", BorderFactory.createLineBorder(LINE));
         UIManager.put("OptionPane.background", PANEL_SOLID);
         UIManager.put("OptionPane.messageForeground", TEXT);
-        UIManager.put("OptionPane.messageFont", font(13, Font.PLAIN));
-        UIManager.put("OptionPane.buttonFont", font(13, Font.PLAIN));
         UIManager.put("FileChooser.background", BG);
         UIManager.put("FileChooser.foreground", TEXT);
         UIManager.put("FileChooser.listViewBackground", ELEVATED_SOLID);
@@ -1503,34 +1502,113 @@ public final class Theme {
         UIManager.put("ToolTip.background", TOOLTIP_BG);
         UIManager.put("ToolTip.foreground", TOOLTIP_TEXT);
         UIManager.put("ToolTip.border", BorderFactory.createLineBorder(TOOLTIP_BORDER));
-        UIManager.put("ToolTip.font", font(12, Font.PLAIN));
     }
 
     /**
-     * Resolved family for the workbench UI font. Falls back to the platform's
-     * default sans-serif when {@code IBM Plex Sans} is not installed (so
-     * stock systems do not silently drop to Serif/Dialog).
+     * Installs default fonts for native Swing components that may be created
+     * outside the workbench factories.
      */
-    private static final String UI_FONT_FAMILY = resolveFontFamily();
+    private static void installFontDefaults() {
+        Font uiFont = font(13, Font.PLAIN);
+        Font smallUiFont = font(12, Font.PLAIN);
+        Font boldSmallUiFont = font(12, Font.BOLD);
+        Font codeFont = mono(13);
+        UIManager.put("Label.font", smallUiFont);
+        UIManager.put("Button.font", uiFont);
+        UIManager.put("ToggleButton.font", uiFont);
+        UIManager.put("CheckBox.font", smallUiFont);
+        UIManager.put("RadioButton.font", smallUiFont);
+        UIManager.put("ComboBox.font", uiFont);
+        UIManager.put("TextField.font", uiFont);
+        UIManager.put("FormattedTextField.font", uiFont);
+        UIManager.put("PasswordField.font", uiFont);
+        UIManager.put("TextArea.font", codeFont);
+        UIManager.put("TextPane.font", codeFont);
+        UIManager.put("EditorPane.font", codeFont);
+        UIManager.put("List.font", mono(12));
+        UIManager.put("Table.font", smallUiFont);
+        UIManager.put("TableHeader.font", boldSmallUiFont);
+        UIManager.put("Tree.font", smallUiFont);
+        UIManager.put("MenuBar.font", smallUiFont);
+        UIManager.put("Menu.font", smallUiFont);
+        UIManager.put("MenuItem.font", smallUiFont);
+        UIManager.put("PopupMenu.font", smallUiFont);
+        UIManager.put("TabbedPane.font", boldSmallUiFont);
+        UIManager.put("FileChooser.font", uiFont);
+        UIManager.put("FileChooser.listFont", uiFont);
+        UIManager.put("OptionPane.messageFont", uiFont);
+        UIManager.put("OptionPane.buttonFont", uiFont);
+        UIManager.put("ToolTip.font", smallUiFont);
+    }
 
     /**
-     * Resolves the font family at startup, preferring IBM Plex Sans.
-     *
-     * @return font family
+     * VS Code-inspired system UI font candidates, ordered by platform fit and
+     * then broadly available Linux fallbacks.
      */
-    private static String resolveFontFamily() {
+    private static final String[] UI_FONT_CANDIDATES = {
+        "Segoe UI",
+        "Segoe WPC",
+        "Ubuntu Sans",
+        "Ubuntu",
+        "Noto Sans",
+        "Cantarell",
+        "Inter",
+        "IBM Plex Sans",
+        "DejaVu Sans",
+        "Arial"
+    };
+
+    /**
+     * Code and terminal font candidates for FENs, logs, commands, and reports.
+     */
+    private static final String[] MONO_FONT_CANDIDATES = {
+        "Cascadia Mono",
+        "Cascadia Code",
+        "JetBrains Mono",
+        "Fira Code",
+        "Source Code Pro",
+        "Ubuntu Sans Mono",
+        "Ubuntu Mono",
+        "Noto Sans Mono",
+        "DejaVu Sans Mono",
+        "Liberation Mono",
+        "Consolas",
+        "Menlo",
+        "Monaco"
+    };
+
+    /**
+     * Resolved family for interface chrome and ordinary controls.
+     */
+    private static final String UI_FONT_FAMILY = resolveFontFamily(UI_FONT_CANDIDATES, Font.SANS_SERIF);
+
+    /**
+     * Resolved family for code-like text, command output, and dense data.
+     */
+    private static final String MONO_FONT_FAMILY = resolveFontFamily(MONO_FONT_CANDIDATES, Font.MONOSPACED);
+
+    /**
+     * Resolves the first installed font family from a candidate stack.
+     *
+     * @param candidates preferred font families
+     * @param fallback generic AWT fallback
+     * @return installed font family or fallback
+     */
+    private static String resolveFontFamily(String[] candidates, String fallback) {
         try {
             String[] available = java.awt.GraphicsEnvironment.getLocalGraphicsEnvironment()
                     .getAvailableFontFamilyNames();
-            for (String name : available) {
-                if ("IBM Plex Sans".equals(name)) {
-                    return "IBM Plex Sans";
+            for (String candidate : candidates) {
+                for (String name : available) {
+                    if (candidate.equalsIgnoreCase(name)) {
+                        return name;
+                    }
                 }
             }
         } catch (java.awt.HeadlessException ex) {
             // fall through to default
         }
-        return Font.SANS_SERIF;
+        return fallback;
     }
 
     /**
@@ -1541,7 +1619,7 @@ public final class Theme {
      * @return font
      */
     public static Font font(float size, int style) {
-    return new Font(UI_FONT_FAMILY, style, Math.round(size));
+        return new Font(UI_FONT_FAMILY, style, Math.round(size));
     }
 
     /**
@@ -1551,7 +1629,7 @@ public final class Theme {
      * @return font
      */
     public static Font mono(float size) {
-    return new Font(Font.MONOSPACED, Font.PLAIN, Math.round(size));
+        return new Font(MONO_FONT_FAMILY, Font.PLAIN, Math.round(size));
     }
 
     /**
@@ -1594,7 +1672,7 @@ public final class Theme {
         field.setSelectionColor(TEXT_SELECTION);
         field.setSelectedTextColor(TEXT);
         field.setBorder(inputBorder(false));
-        field.setFont(mono(13));
+        field.setFont(font(13, Font.PLAIN));
         installFocusBorder(field);
         installEnabledBackground(field, INPUT);
     }

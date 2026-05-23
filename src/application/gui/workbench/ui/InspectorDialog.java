@@ -122,7 +122,7 @@ public final class InspectorDialog extends JDialog {
         header.add(statsLabel);
 
         body.setEditable(false);
-        body.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 11));
+        body.setFont(Theme.mono(11));
         body.setBackground(Theme.BG);
         body.setForeground(Theme.TEXT);
         body.setMargin(new Insets(8, 12, 8, 12));

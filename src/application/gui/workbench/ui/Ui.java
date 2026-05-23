@@ -628,6 +628,31 @@ public final class Ui {
         chooser.setForeground(Theme.TEXT);
         chooser.setBorder(Theme.pad(10, 10, 10, 10));
         styleComponentTree(chooser);
+        polishFileChooserFonts(chooser);
+    }
+
+    /**
+     * Keeps chooser rows on the UI font stack even though regular workbench
+     * lists use monospace for dense data.
+     *
+     * @param component root component
+     */
+    private static void polishFileChooserFonts(Component component) {
+        if (component instanceof JList<?> list) {
+            list.setFont(Theme.font(13, Font.PLAIN));
+            list.setFixedCellHeight(Math.max(24, list.getFixedCellHeight()));
+        } else if (component instanceof JTable table) {
+            table.setFont(Theme.font(12, Font.PLAIN));
+            table.setRowHeight(Math.max(24, table.getRowHeight()));
+            if (table.getTableHeader() != null) {
+                table.getTableHeader().setFont(Theme.font(11, Font.BOLD));
+            }
+        }
+        if (component instanceof Container container) {
+            for (Component child : container.getComponents()) {
+                polishFileChooserFonts(child);
+            }
+        }
     }
 
     /**
