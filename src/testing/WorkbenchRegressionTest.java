@@ -1217,35 +1217,35 @@ public final class WorkbenchRegressionTest {
     }
 
     /**
-     * Verifies the workbench keeps the VS Code Modern neutral chrome stops
+     * Verifies the workbench keeps a compact VS Code-inspired neutral ladder
      * while using vibrant pastel action-color tokens.
      */
     private static void testThemeUsesVscodeChromeWithPastelAccentTokens() {
         Theme.setMode(Theme.Mode.LIGHT);
-        assertColor(new Color(0xF8F8F8), themeColor("BG"), "light VS Code panel background");
+        assertColor(new Color(0xF8F9FB), themeColor("BG"), "light panel background");
         assertColor(Color.WHITE, themeColor("PANEL_SOLID"), "light VS Code editor background");
         assertColor(Color.WHITE, themeColor("ELEVATED_SOLID"), "light VS Code dropdown background");
-        assertColor(new Color(0xE5E5E5), themeColor("LINE"), "light VS Code panel border");
-        assertColor(new Color(0xCECECE), themeColor("INPUT_BORDER"), "light VS Code input border");
+        assertColor(new Color(0xE1E5EB), themeColor("LINE"), "light panel border");
+        assertColor(new Color(0xC7CDD7), themeColor("INPUT_BORDER"), "light input border");
         assertColor(new Color(0xFFFFFF), themeColor("TAB_HOVER"), "light VS Code tab hover");
-        assertColor(new Color(0xF8F8F8), themeColor("TAB_IDLE"), "light VS Code inactive tab");
-        assertColor(new Color(0x3B3B3B), themeColor("TEXT"), "light VS Code foreground");
-        assertColor(new Color(0x616161), themeColor("MUTED"), "light VS Code muted foreground");
-        assertColor(new Color(0x8ECBF4), themeColor("ACCENT"), "light vibrant pastel accent");
-        assertColor(new Color(0xD2EFFF), themeColor("TOGGLE_ON_BG"), "light vibrant pastel active option fill");
+        assertColor(new Color(0xF8F9FB), themeColor("TAB_IDLE"), "light inactive tab");
+        assertColor(new Color(0x2D3036), themeColor("TEXT"), "light foreground");
+        assertColor(new Color(0x5B5F66), themeColor("MUTED"), "light muted foreground");
+        assertColor(new Color(0x81CAF6), themeColor("ACCENT"), "light vibrant pastel accent");
+        assertColor(new Color(0xDDF2FF), themeColor("TOGGLE_ON_BG"), "light vibrant pastel active option fill");
 
         Theme.setMode(Theme.Mode.DARK);
         assertColor(new Color(0x181818), themeColor("BG"), "dark VS Code panel background");
         assertColor(new Color(0x1F1F1F), themeColor("PANEL_SOLID"), "dark VS Code editor background");
-        assertColor(new Color(0x313131), themeColor("ELEVATED_SOLID"), "dark VS Code dropdown background");
-        assertColor(new Color(0x2B2B2B), themeColor("LINE"), "dark VS Code panel border");
-        assertColor(new Color(0x3C3C3C), themeColor("INPUT_BORDER"), "dark VS Code input border");
+        assertColor(new Color(0x2D2D2D), themeColor("ELEVATED_SOLID"), "dark dropdown background");
+        assertColor(new Color(0x373737), themeColor("LINE"), "dark panel border");
+        assertColor(new Color(0x454545), themeColor("INPUT_BORDER"), "dark input border");
         assertColor(new Color(0x1F1F1F), themeColor("TAB_HOVER"), "dark VS Code tab hover");
         assertColor(new Color(0x181818), themeColor("TAB_IDLE"), "dark VS Code inactive tab");
-        assertColor(new Color(0xCCCCCC), themeColor("TEXT"), "dark VS Code foreground");
-        assertColor(new Color(0x9D9D9D), themeColor("MUTED"), "dark VS Code muted foreground");
-        assertColor(new Color(0x79C8FF), themeColor("ACCENT"), "dark vibrant pastel accent");
-        assertColor(new Color(121, 200, 255, 130), themeColor("TOGGLE_ON_BG"),
+        assertColor(new Color(0xD5D5D5), themeColor("TEXT"), "dark foreground");
+        assertColor(new Color(0xA6A6A6), themeColor("MUTED"), "dark muted foreground");
+        assertColor(new Color(0x6CBEFF), themeColor("ACCENT"), "dark vibrant pastel accent");
+        assertColor(new Color(108, 190, 255, 132), themeColor("TOGGLE_ON_BG"),
                 "dark vibrant pastel active option fill");
         Theme.setMode(Theme.Mode.LIGHT);
     }
