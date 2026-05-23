@@ -8,20 +8,13 @@ package application.gui.workbench.network;
 
 import application.gui.workbench.ui.Theme;
 import application.gui.workbench.ui.Ui;
-import chess.nn.nnue.FeatureEncoder;
 import java.awt.BasicStroke;
 import java.awt.Color;
-import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.FontMetrics;
 import java.awt.Graphics2D;
 import java.awt.Rectangle;
-import java.awt.RenderingHints;
-import java.awt.event.MouseEvent;
-import java.util.ArrayList;
-import java.util.List;
 import javax.swing.Scrollable;
-import javax.swing.SwingConstants;
 
 import static application.gui.workbench.network.NnueAtlas.*;
 import static application.gui.workbench.network.NnueDrawing.*;

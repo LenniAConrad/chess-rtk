@@ -7,7 +7,6 @@
 package application.gui.workbench.command;
 
 import application.gui.workbench.Defaults;
-import application.gui.workbench.command.CommandTemplates.BatchInputKind;
 import application.gui.workbench.command.CommandTemplates.BatchTask;
 import application.gui.workbench.command.CommandTemplates.TemplateContext;
 import application.gui.workbench.command.CommandTemplates.WorkflowControls;

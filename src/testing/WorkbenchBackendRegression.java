@@ -8,7 +8,6 @@ package testing;
 
 import static testing.WorkbenchTestSupport.*;
 
-import java.awt.Component;
 import java.awt.Color;
 import java.awt.Graphics2D;
 import java.awt.Rectangle;
@@ -30,17 +29,14 @@ import javax.swing.JSpinner;
 import javax.swing.JTextArea;
 import javax.swing.JTextPane;
 import javax.swing.Timer;
-import javax.swing.border.Border;
 import javax.swing.text.AttributeSet;
 import javax.swing.text.StyleConstants;
 
 import application.gui.workbench.ui.Theme;
 
-import chess.core.Field;
 import chess.core.Move;
 import chess.core.Position;
 import chess.nn.nnue.FeatureEncoder;
-import chess.uci.Output;
 
 /**
  * Dashboard, network, NN, MCTS, and job regression checks.

@@ -16,7 +16,6 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
-import java.nio.file.Path;
 import java.util.List;
 import java.util.Objects;
 
@@ -32,7 +31,6 @@ import javax.swing.border.MatteBorder;
 import application.gui.workbench.ui.Theme;
 
 import chess.core.Field;
-import chess.core.Move;
 import chess.struct.Game;
 
 /**

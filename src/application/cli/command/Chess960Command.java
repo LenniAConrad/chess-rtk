@@ -118,7 +118,7 @@ public final class Chess960Command {
 			return;
 		}
 
-		printPosition(validateIndex(index), format);
+		printPosition(validateIndex(requireIndex(index)), format);
 	}
 
 	/**
@@ -183,13 +183,26 @@ public final class Chess960Command {
 	}
 
 	/**
+	 * Converts the selected nullable index into a primitive value.
+	 *
+	 * @param index selected Chess960 index.
+	 * @return selected index.
+	 */
+	private static int requireIndex(Integer index) {
+		if (index == null) {
+			return failUsage("choose exactly one of --index N, --random, --all, or a positional index");
+		}
+		return index.intValue();
+	}
+
+	/**
 	 * Validates the Chess960 index range.
 	 *
 	 * @param index candidate index.
 	 * @return the validated index.
 	 */
-	private static int validateIndex(Integer index) {
-		if (index == null || index < 0 || index >= CHESS960_COUNT) {
+	private static int validateIndex(int index) {
+		if (index < 0 || index >= CHESS960_COUNT) {
 			return failUsage("--index must be between 0 and 959");
 		}
 		return index;

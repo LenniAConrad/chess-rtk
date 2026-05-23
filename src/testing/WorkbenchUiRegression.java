@@ -11,7 +11,6 @@ import static testing.WorkbenchTestSupport.*;
 import java.awt.Component;
 import java.awt.Color;
 import java.awt.Dimension;
-import java.awt.Rectangle;
 import java.awt.event.ActionListener;
 import java.awt.image.BufferedImage;
 import java.util.List;
@@ -43,10 +42,6 @@ import javax.swing.JTextField;
 import javax.swing.JToggleButton;
 import javax.swing.Timer;
 import javax.swing.UIManager;
-import javax.swing.border.Border;
-import javax.swing.border.CompoundBorder;
-import javax.swing.border.LineBorder;
-import javax.swing.border.MatteBorder;
 import javax.swing.table.TableCellRenderer;
 
 import application.gui.workbench.network.TensorViz;
@@ -55,7 +50,6 @@ import application.gui.workbench.ui.Ui;
 import application.gui.workbench.window.LayoutMenu;
 import application.gui.workbench.window.SettingsMenu;
 
-import chess.core.Field;
 import chess.struct.Game;
 import chess.uci.Output;
 

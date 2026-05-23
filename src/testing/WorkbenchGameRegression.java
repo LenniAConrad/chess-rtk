@@ -18,15 +18,12 @@ import javax.swing.JComponent;
 import javax.swing.JTable;
 import javax.swing.JTextField;
 import javax.swing.Timer;
-import javax.swing.table.TableCellRenderer;
 
 import application.gui.workbench.game.GameModel;
 import application.gui.workbench.game.SanRenderer;
 import application.gui.workbench.ui.Theme;
 
-import chess.core.Field;
 import chess.core.Move;
-import chess.core.Piece;
 import chess.core.Position;
 import chess.struct.Game;
 import chess.struct.Pgn;

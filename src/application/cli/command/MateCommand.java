@@ -6,7 +6,6 @@
 
 package application.cli.command;
 
-import static application.cli.Constants.OPT_FEN;
 import static application.cli.Constants.OPT_FORMAT;
 import static application.cli.Constants.OPT_INPUT;
 import static application.cli.Constants.OPT_INPUT_SHORT;

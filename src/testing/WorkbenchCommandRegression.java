@@ -8,7 +8,6 @@ package testing;
 
 import static testing.WorkbenchTestSupport.*;
 
-import java.awt.Component;
 import java.lang.reflect.Proxy;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -22,9 +21,6 @@ import javax.swing.JTextField;
 import application.cli.CliCommand;
 import application.cli.CliRegistry;
 
-import chess.core.Field;
-import chess.core.Move;
-import chess.core.Piece;
 
 import utility.CommandLine;
 
