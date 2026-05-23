@@ -45,6 +45,7 @@ final class WorkbenchCommandRegression {
         testCommandOptionConflictsDisableStaleRows();
         testEvaluatorSelectorsUseExplicitDefaults();
         testCommandFormatSelectorsUseDirectChoices();
+        testMateTemplateUsesCliShortcut();
         testCommandFormMovesHelperCopyToTooltips();
         testDynamicOptionRefresh();
         testDynamicOptionRefreshSkipsUnchangedValues();
@@ -160,6 +161,30 @@ final class WorkbenchCommandRegression {
         invoke(perft, "setValueAt", new Class<?>[] { Object.class, int.class, int.class },
                 Boolean.TRUE, rowForFlag(perft, "Stockfish"), COL_USE);
         assertEquals("stockfish", valueAfterFlag(enabledArgs(perft), "--format"), "perft stockfish format");
+    }
+
+    /**
+     * Verifies the mate command has a first-class GUI builder wired to the
+     * top-level CLI shortcut.
+     */
+    @SuppressWarnings("unchecked")
+    private static void testMateTemplateUsesCliShortcut() {
+        Object template = template("Mate");
+        List<String> baseArgs = (List<String>) invoke(template, "baseArgs", new Class<?>[0]);
+        assertEquals(List.of("mate"), baseArgs, "mate template uses top-level shortcut");
+
+        Object options = optionsFor("Mate");
+        assertEquals("4", optionValue(options, "--mate"), "mate template default distance");
+        assertEquals(START_FEN, valueAfterFlag(enabledArgs(options), "--fen"),
+                "mate template default FEN source");
+        assertEquals("summary", valueAfterFlag(enabledArgs(options), "--format"),
+                "mate template default format");
+        assertTrue(hasRowForFlag(options, "Both"), "mate template exposes both format");
+
+        invoke(options, "setValueAt", new Class<?>[] { Object.class, int.class, int.class },
+                Boolean.TRUE, rowForFlag(options, "Both"), COL_USE);
+        assertEquals("both", valueAfterFlag(enabledArgs(options), "--format"),
+                "mate template both format");
     }
 
     /**

@@ -271,6 +271,10 @@ public final class BuiltInEngineRegressionTest {
 				"--mate", "4", FORMAT_OPTION, "both").strip();
 		assertEquals("c1c8\tRc8+\t#4", both, "engine mate both format");
 
+		String shortcut = TestSupport.runMain("mate", FEN_OPTION, FORCED_MATE_IN_FOUR_FEN,
+				"--mate", "4", FORMAT_OPTION, "both").strip();
+		assertEquals("c1c8\tRc8+\t#4", shortcut, "top-level mate shortcut both format");
+
 		String threaded = TestSupport.runMain("engine", "mate", FEN_OPTION, FORCED_MATE_IN_FOUR_FEN,
 				"--mate", "4", "--threads", "2", FORMAT_OPTION, "both").strip();
 		assertEquals("c1c8\tRc8+\t#4", threaded, "engine mate threaded both format");

@@ -130,6 +130,16 @@ public final class CliRegistry {
 		root.add(batchGroup());
 		root.add(moveGroup());
 		root.add(engineGroup());
+		root.add(CliCommand.leaf("mate", "Brute-force prove a forced mate without NN evaluation",
+				MateCommand::runMate)
+				.helpKey("engine mate")
+				.alias("find-mate")
+				.usage("[options]")
+				.about("Shortcut for `engine mate`: deterministic AND/OR proof search for forced mates "
+						+ "without loading an evaluator or neural network.")
+				.example("crtk mate --fen \"<FEN>\" --mate 4")
+				.example("crtk find-mate --fen \"<FEN>\" --mate 6 --max-nodes 5000000 --threads 4 --format summary")
+				.related("engine mate"));
 		root.add(positionGroup());
 		root.add(bookGroup());
 		root.add(puzzleGroup());

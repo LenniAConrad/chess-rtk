@@ -138,6 +138,18 @@ public final class CommandTemplates {
                         wdlFlag("--wdl", false, "Enable WDL output"),
                         wdlFlag("--no-wdl", false, "Disable WDL output"),
                         commonVerbose())),
+    new CommandTemplate("Mate", List.of("mate"), positionOptions(
+                        positionInputSource("--input", false, "Input FEN file"),
+                        opt("--mate", "4", true, "Maximum mate distance in moves"),
+                        nodesOption(false),
+                        threadsOption(false),
+                        resultFormatChoice("summary", true, "Human-readable proof summary"),
+                        resultFormatChoice("uci", false, "UCI best move only"),
+                        resultFormatChoice("san", false, "SAN best move only"),
+                        resultFormatChoice("both", false, "UCI, SAN, and mate distance"),
+                        resultFormatChoice("json", false, "Emit one JSON object"),
+                        resultFormatChoice("jsonl", false, "Emit one JSON object per line"),
+                        commonVerbose())),
     new CommandTemplate("Analyze", List.of("engine", "analyze"), positionOptions(
                         positionInputSource("--input", false, "Input FEN file"),
                         engineProtocol(),
