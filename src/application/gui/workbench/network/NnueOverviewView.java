@@ -41,6 +41,34 @@ public abstract class NnueOverviewView extends NnueAtlasView {
     private static final long serialVersionUID = 1L;
 
     /**
+     * Preferred height for the accumulator overview header. It gives the title
+     * and explanatory subtitle separate baselines instead of compressing them
+     * into a dense 40px strip.
+     */
+    private static final int ACCUMULATOR_HEADER_HEIGHT = 52;
+
+    /**
+     * Minimum height for the compact accumulator header when the view is short.
+     */
+    private static final int ACCUMULATOR_HEADER_MIN_HEIGHT = 40;
+
+    /**
+     * Vertical room between the accumulator header and its side labels.
+     */
+    private static final int ACCUMULATOR_LABEL_BAND = 16;
+
+    /**
+     * Preferred contribution-ledger height. The ledger needs a title row, a
+     * balanced bar, and readable endpoint labels.
+     */
+    private static final int CONTRIBUTION_LEDGER_HEIGHT = 64;
+
+    /**
+     * Compact contribution-ledger height used in shorter panes.
+     */
+    private static final int CONTRIBUTION_LEDGER_COMPACT_HEIGHT = 56;
+
+    /**
      * Paints the raw view: a dense matrix of every active feature against
      * every accumulator slot. Each row is one active half-KP feature (with
      * its mini glyph and decoded label on the left); each cell shades that
@@ -879,22 +907,30 @@ public abstract class NnueOverviewView extends NnueAtlasView {
      * @param r rectangle
      */
     protected void paintAccumulatorOverview(Graphics2D g, Rectangle r) {
-        TensorViz.drawSectionHeader(g, new Rectangle(r.x, r.y, r.width, 40),
-                "accumulator — first hidden layer",
-                "one cell per neuron · 'us' = side-to-move view, 'them' = opponent view");
         float[] us = snapshot.data("nnue.clipped.us");
         float[] them = snapshot.data("nnue.clipped.them");
         if (us == null || them == null) {
             return;
         }
+        float[] contribution = totalContribution();
+        int topSlot = strongestAbsIndex(contribution);
+        boolean showTopSlot = topSlot >= 0 && topSlot < us.length && r.width >= 560;
+        int headerH = r.height >= 170 ? ACCUMULATOR_HEADER_HEIGHT : ACCUMULATOR_HEADER_MIN_HEIGHT;
+        TensorViz.drawSectionHeader(g, new Rectangle(r.x, r.y, r.width, headerH),
+                "accumulator — first hidden layer",
+                "clipped neuron activations, side-to-move and opponent views",
+                showTopSlot ? 260 : 0);
         int rows = 16;
         int colsPerSide = us.length / rows;
         int gap = 8;
         int sideW = (r.width - gap - 16) / 2;
-        int ledgerH = r.height >= 190 ? 48 : 0;
-        int heatH = Math.max(36, r.height - 56 - ledgerH - (ledgerH == 0 ? 0 : 8));
-        Rectangle leftMap = new Rectangle(r.x + 8, r.y + 48, sideW, heatH);
-        Rectangle rightMap = new Rectangle(r.x + sideW + 8 + gap, r.y + 48, sideW, heatH);
+        int ledgerH = r.height >= 220 ? CONTRIBUTION_LEDGER_HEIGHT
+                : r.height >= 190 ? CONTRIBUTION_LEDGER_COMPACT_HEIGHT : 0;
+        int labelBand = r.height >= 170 ? ACCUMULATOR_LABEL_BAND : 8;
+        int ledgerGap = ledgerH == 0 ? 0 : 10;
+        int heatH = Math.max(36, r.height - headerH - labelBand - ledgerH - ledgerGap);
+        Rectangle leftMap = new Rectangle(r.x + 8, r.y + headerH + labelBand, sideW, heatH);
+        Rectangle rightMap = new Rectangle(r.x + sideW + 8 + gap, r.y + headerH + labelBand, sideW, heatH);
         float[] stats = TensorViz.summarize(us);
         float[] them2 = TensorViz.summarize(them);
         float dynamicMax = Math.max(Math.max(Math.abs(stats[3]), Math.abs(stats[4])),
@@ -902,8 +938,6 @@ public abstract class NnueOverviewView extends NnueAtlasView {
         float scale = scaleFor("accumulator", dynamicMax);
         TensorViz.drawHeatmap(g, leftMap, us, colsPerSide, rows, scale, false);
         TensorViz.drawHeatmap(g, rightMap, them, colsPerSide, rows, scale, false);
-        float[] contribution = totalContribution();
-        int topSlot = strongestAbsIndex(contribution);
         if (topSlot >= 0 && topSlot < us.length) {
             Color accent = contribution[topSlot] >= 0.0f
                     ? TensorViz.POSITIVE
@@ -912,18 +946,18 @@ public abstract class NnueOverviewView extends NnueAtlasView {
             if (topSlot < them.length) {
                 drawGridCellRing(g, rightMap, topSlot, colsPerSide, rows, accent);
             }
-            if (r.width >= 560) {
+            if (showTopSlot) {
                 TensorViz.drawInfoChip(g,
-    new Rectangle(r.x + r.width - 216, r.y + 8, 206, 24),
+                        new Rectangle(r.x + r.width - 246, r.y + 12, 236, 26),
                         "top net slot",
                         "#" + topSlot + "  " + String.format("%+.2f", contribution[topSlot]),
                         accent);
             }
         }
-        g.setColor(Theme.MUTED);
-        g.setFont(Theme.font(10, Font.BOLD));
-        g.drawString("us", leftMap.x, leftMap.y - 4);
-        g.drawString("them", rightMap.x, rightMap.y - 4);
+        g.setColor(Theme.TEXT);
+        g.setFont(Theme.font(11, Font.BOLD));
+        g.drawString("us", leftMap.x, leftMap.y - 6);
+        g.drawString("them", rightMap.x, rightMap.y - 6);
         hitRegions.addInspectable(leftMap,
                 "Accumulator (us, clipped)",
                 "Per-slot clipped activation for side-to-move; product of all active features.",
@@ -936,7 +970,7 @@ public abstract class NnueOverviewView extends NnueAtlasView {
                 "nnue.clipped.them", 0, 0, colsPerSide, rows + "x" + colsPerSide);
         if (ledgerH > 0) {
             paintContributionLedger(g, new Rectangle(r.x + 8,
-                    r.y + r.height - ledgerH, r.width - 16, ledgerH));
+                    leftMap.y + leftMap.height + ledgerGap, r.width - 16, ledgerH));
         }
     }
 
@@ -1150,25 +1184,25 @@ public abstract class NnueOverviewView extends NnueAtlasView {
         g.drawRect(r.x, r.y, r.width - 1, r.height - 1);
 
         g.setColor(Theme.TEXT);
-        g.setFont(Theme.font(11, Font.BOLD));
-        g.drawString("output contribution", r.x + 8, r.y + 15);
+        g.setFont(Theme.font(12, Font.BOLD));
+        g.drawString("output contribution", r.x + 8, r.y + 20);
         g.setColor(Theme.MUTED);
         g.setFont(Theme.font(10, Font.PLAIN));
-        g.drawString(active + " active slots", r.x + 128, r.y + 15);
+        g.drawString(active + " active slots", r.x + 148, r.y + 20);
         if (r.width >= 420) {
             boolean raiseDominates = positive >= negative;
             float dominant = raiseDominates ? positive : negative;
             float share = (positive + negative) <= 1e-5f ? 0.0f : dominant / (positive + negative);
             TensorViz.drawInfoChip(g,
-    new Rectangle(r.x + r.width - 180, r.y + 3, 170, 18),
+                    new Rectangle(r.x + r.width - 210, r.y + 7, 200, 24),
                     "dominant",
                     (raiseDominates ? "raise " : "lower ") + Math.round(share * 100.0f) + "%",
                     raiseDominates ? TensorViz.POSITIVE : TensorViz.NEGATIVE);
         }
 
         int center = r.x + r.width / 2;
-        int barY = r.y + 25;
-        int barH = 12;
+        int barY = r.y + (r.height >= CONTRIBUTION_LEDGER_HEIGHT ? 36 : 31);
+        int barH = 11;
         int halfW = Math.max(1, r.width / 2 - 18);
         g.setColor(Theme.ELEVATED_SOLID);
         g.fillRoundRect(center - halfW, barY, halfW * 2, barH, barH, barH);

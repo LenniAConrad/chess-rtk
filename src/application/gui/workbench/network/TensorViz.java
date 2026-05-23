@@ -102,6 +102,20 @@ public final class TensorViz {
      * @param subtitle subtitle text (may be null)
      */
     public static void drawSectionHeader(Graphics2D g, Rectangle r, String title, String subtitle) {
+        drawSectionHeader(g, r, title, subtitle, 0);
+    }
+
+    /**
+     * Draws a labelled section header strip with optional room reserved on the
+     * right for a chip or small control.
+     *
+     * @param g graphics
+     * @param r section rectangle
+     * @param title title text
+     * @param subtitle subtitle text (may be null)
+     * @param rightReserve pixels reserved at the right edge
+     */
+    public static void drawSectionHeader(Graphics2D g, Rectangle r, String title, String subtitle, int rightReserve) {
         g.setColor(Theme.PANEL_SOLID);
         g.fillRoundRect(r.x, r.y, r.width, r.height,
                 Theme.RADIUS, Theme.RADIUS);
@@ -113,13 +127,17 @@ public final class TensorViz {
                 Theme.RADIUS, Theme.RADIUS);
         g.setColor(Theme.TEXT);
         g.setFont(Theme.font(14, Font.BOLD));
-        g.drawString(title, r.x + 12, r.y + 18);
-        if (subtitle != null && !subtitle.isEmpty()) {
+        FontMetrics titleMetrics = g.getFontMetrics();
+        int titleBaseline = r.y + (r.height <= 24 ? Math.min(r.height - 4, 14) : r.height >= 46 ? 21 : 18);
+        int textWidth = Math.max(16, r.width - 24 - Math.max(0, rightReserve));
+        g.drawString(Ui.elide(title, titleMetrics, textWidth), r.x + 12, titleBaseline);
+        if (subtitle != null && !subtitle.isEmpty() && r.height >= 30) {
             g.setColor(Theme.MUTED);
             g.setFont(Theme.font(11, Font.PLAIN));
             FontMetrics fm = g.getFontMetrics();
-            g.drawString(Ui.elide(subtitle, fm, Math.max(16, r.width - 24)),
-                    r.x + 12, r.y + 34);
+            int subtitleBaseline = r.y + (r.height >= 46 ? 39 : 34);
+            g.drawString(Ui.elide(subtitle, fm, textWidth),
+                    r.x + 12, Math.min(r.y + r.height - 6, subtitleBaseline));
         }
     }
 
@@ -162,9 +180,10 @@ public final class TensorViz {
             return;
         }
         drawFrame(g, r, Theme.ELEVATED_SOLID, accent);
-        int split = Math.min(70, Math.max(42, r.width / 3));
         g.setFont(Theme.font(9, Font.BOLD));
         FontMetrics fm = g.getFontMetrics();
+        int labelW = fm.stringWidth(label) + 18;
+        int split = Math.min(Math.max(labelW, Math.max(46, r.width / 3)), Math.max(46, r.width - 58));
         g.setColor(Theme.MUTED);
         g.drawString(Ui.elide(label, fm, Math.max(12, split - 10)),
                 r.x + 9, r.y + Math.max(13, r.height / 2 + 3));
@@ -411,10 +430,15 @@ public final class TensorViz {
      */
     public static Color signedRamp(float value) {
         float v = clamp(value, -1.0f, 1.0f);
-        if (v >= 0.0f) {
-    return lerp(HEAT_ZERO, POSITIVE, v);
+        float magnitude = (float) Math.sqrt(Math.abs(v));
+        if (magnitude <= 0.0f) {
+            return heatmapZeroBase();
         }
-    return lerp(HEAT_ZERO, NEGATIVE, -v);
+        float strength = 0.10f + 0.90f * magnitude;
+        if (v >= 0.0f) {
+            return lerp(heatmapZeroBase(), POSITIVE, strength);
+        }
+        return lerp(heatmapZeroBase(), NEGATIVE, strength);
     }
 
     /**
@@ -426,7 +450,25 @@ public final class TensorViz {
      */
     public static Color sequentialRamp(float value) {
         float v = clamp(value, 0.0f, 1.0f);
-    return lerp(HEAT_ZERO, FOCUS, v);
+        if (v <= 0.0f) {
+            return heatmapZeroBase();
+        }
+        float strength = 0.08f + 0.92f * (float) Math.sqrt(v);
+        return lerp(heatmapZeroBase(), FOCUS, strength);
+    }
+
+    /**
+     * Returns the neutral heatmap base. Dark mode intentionally lifts the zero
+     * color slightly above the panel fill so empty neural cells do not collapse
+     * into an undifferentiated black slab.
+     *
+     * @return zero-signal heatmap color
+     */
+    private static Color heatmapZeroBase() {
+        if (Theme.isDark()) {
+            return lerp(Theme.PANEL_SOLID, Theme.LINE, 0.28f);
+        }
+        return HEAT_ZERO;
     }
 
     /**
