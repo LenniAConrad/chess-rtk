@@ -30,6 +30,7 @@ public final class WorkbenchRegressionTest {
         WorkbenchGameRegression.run();
         WorkbenchBoardRegression.run();
         WorkbenchBackendRegression.run();
+        WorkbenchDatasetRegression.run();
         System.out.println("WorkbenchRegressionTest: all checks passed");
     }
 }

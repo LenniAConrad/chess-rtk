@@ -607,6 +607,7 @@ public abstract class WindowLifecycle extends WindowBase {
         tabs.addPanel("Analyze", createBoardTab(), this::createDetachedAnalysisTab);
         tabs.addPanel("Commands", createCommandTab());
         tabs.addPanel("Batch", createBatchTab());
+        tabs.addPanel("Datasets", createDatasetTab());
         tabs.addPanel("Publish", createPublishTab());
         tabs.addPanel("Console", createConsolePanel());
         tabs.addPanel("Network", networkPanel);
@@ -1020,6 +1021,8 @@ public abstract class WindowLifecycle extends WindowBase {
     new PaletteAction("Focus game line", "Show the merged game tools", this::focusGameInput),
     new PaletteAction("Open commands tab", "Show command controller", () -> selectTab(TAB_COMMANDS)),
     new PaletteAction("Open batch tab", "Show batch workflows", () -> selectTab(TAB_BATCH)),
+    new PaletteAction("Open datasets tab", "Inspect and analyze training datasets", () -> selectTab(TAB_DATASETS)),
+    new PaletteAction("Analyze dataset", "Scan the selected dataset source", datasetPanel::analyzeCurrentSource),
     new PaletteAction("Open publish tab", "Show report and publishing tools", () -> selectTab(TAB_PUBLISH)),
     new PaletteAction("Open console tab", "Show command output and process state",
                         () -> selectTab(TAB_CONSOLE)),

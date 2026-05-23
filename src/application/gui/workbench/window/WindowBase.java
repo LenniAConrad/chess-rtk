@@ -17,6 +17,7 @@ import application.gui.workbench.command.CommandTemplates.CommandTemplate;
 import application.gui.workbench.command.CommandTemplates.TemplateContext;
 import application.gui.workbench.command.Console;
 import application.gui.workbench.dashboard.DashboardPanel;
+import application.gui.workbench.dataset.DatasetPanel;
 import application.gui.workbench.game.EngineEval;
 import application.gui.workbench.game.GameModel;
 import application.gui.workbench.game.MovesModel;
@@ -106,19 +107,24 @@ public abstract class WindowBase extends JFrame {
     protected static final int TAB_BATCH = 3;
 
     /**
+     * Datasets tab index.
+     */
+    protected static final int TAB_DATASETS = 4;
+
+    /**
      * Publishing tab index.
      */
-    protected static final int TAB_PUBLISH = 4;
+    protected static final int TAB_PUBLISH = 5;
 
     /**
      * Console tab index.
      */
-    protected static final int TAB_CONSOLE = 5;
+    protected static final int TAB_CONSOLE = 6;
 
     /**
      * Network visualizer tab index.
      */
-    protected static final int TAB_NETWORK = 6;
+    protected static final int TAB_NETWORK = 7;
 
     /**
      * Board view.
@@ -161,6 +167,11 @@ public abstract class WindowBase extends JFrame {
      */
     protected final DashboardPanel dashboardPanel =
     new DashboardPanel(session, new WindowDashboardActions(this));
+
+    /**
+     * Dataset inspection and visualization tab.
+     */
+    protected final DatasetPanel datasetPanel = new DatasetPanel();
 
     /**
      * Job record for the foreground command currently tracked, or null.
@@ -659,6 +670,10 @@ public abstract class WindowBase extends JFrame {
     /** Creates the Batch tab.
      * @return computed value */
     protected abstract JComponent createBatchTab();
+
+    /** Creates the Datasets tab.
+     * @return computed value */
+    protected abstract JComponent createDatasetTab();
 
     /** Creates the Publish tab.
      * @return computed value */

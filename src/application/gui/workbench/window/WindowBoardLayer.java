@@ -676,6 +676,15 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
     }
 
     /**
+     * Creates the datasets tab.
+     *
+     * @return datasets tab
+     */
+    protected JComponent createDatasetTab() {
+        return datasetPanel.component();
+    }
+
+    /**
      * Creates the publishing tab.
      *
      * @return publish tab
