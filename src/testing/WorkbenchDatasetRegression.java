@@ -11,6 +11,7 @@ import static testing.WorkbenchTestSupport.assertEquals;
 import static testing.WorkbenchTestSupport.assertFalse;
 import static testing.WorkbenchTestSupport.assertPaintsOpaqueCorner;
 import static testing.WorkbenchTestSupport.assertTrue;
+import static testing.WorkbenchTestSupport.field;
 import static testing.WorkbenchTestSupport.paint;
 
 import application.gui.workbench.dataset.DatasetAnalyzer;
@@ -20,7 +21,9 @@ import application.gui.workbench.dataset.DatasetSummary;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import javax.swing.JButton;
 import javax.swing.JComponent;
+import javax.swing.JTextField;
 
 /**
  * Regression checks for the Workbench Datasets tab.
@@ -96,6 +99,10 @@ final class WorkbenchDatasetRegression {
      */
     private static void testDatasetPanelAndChartsPaint() {
         DatasetPanel panel = new DatasetPanel();
+        JButton copy = (JButton) field(panel, "copyReportButton");
+        JTextField source = (JTextField) field(panel, "sourceField");
+        assertFalse(copy.isEnabled(), "copy report disabled before a scan");
+        assertEquals("Dataset file or directory", source.getToolTipText(), "dataset source tooltip");
         panel.applySummary(new DatasetSummary(Path.of("sample.fen"), 1, 2L, 2L, 0L, 0L, 1L, 1L,
                 0L, 0L, 0L, 1L, 1L, 0, 8_000, 4_000.0d,
                 new int[] { 0, 0, 0, 0, 1, 0, 0, 1 },
@@ -105,6 +112,7 @@ final class WorkbenchDatasetRegression {
                 List.of(new DatasetSummary.SampleRow("sample.fen", 1L, "FEN", START_FEN,
                         "white", 8_000, "opening", "")),
                 List.of(), false, "Scan complete"));
+        assertTrue(copy.isEnabled(), "copy report enabled after a scan");
         paintPanel(panel, 980, 680, "dataset panel paints surface");
 
         DatasetChart chart = new DatasetChart();

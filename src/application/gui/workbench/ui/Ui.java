@@ -1436,7 +1436,10 @@ public final class Ui {
             expanded = value;
             content.setVisible(value);
             contentHolder.setVisible(value);
-            toggle.setText((value ? "- " : "+ ") + title.toUpperCase(java.util.Locale.ROOT));
+            if (toggle instanceof DisclosureButton disclosure) {
+                disclosure.setExpanded(value);
+            }
+            toggle.setText(title);
             toggle.setToolTipText(value ? "Collapse " + title : "Expand " + title);
             revalidate();
             repaint();
@@ -1455,6 +1458,11 @@ public final class Ui {
         private static final long serialVersionUID = 1L;
 
         /**
+         * Current expansion state.
+         */
+        private boolean expanded;
+
+        /**
          * Creates the disclosure header.
          */
         DisclosureButton() {
@@ -1465,8 +1473,17 @@ public final class Ui {
             setHorizontalAlignment(SwingConstants.LEFT);
             setRolloverEnabled(true);
             setMargin(new Insets(0, 0, 0, 0));
-            setBorder(Theme.pad(Theme.SPACE_XS, 0, Theme.SPACE_XS, 0));
+            setBorder(Theme.pad(Theme.SPACE_XS, 20, Theme.SPACE_XS, 0));
             setPreferredSize(new Dimension(120, Theme.CONTROL_HEIGHT));
+        }
+
+        /**
+         * Updates the disclosure glyph state.
+         *
+         * @param value true when expanded
+         */
+        private void setExpanded(boolean value) {
+            expanded = value;
         }
 
         /**
@@ -1484,6 +1501,21 @@ public final class Ui {
                     g.setColor(Theme.SECONDARY_BUTTON_HOVER);
                     g.fillRect(0, 0, getWidth(), getHeight());
                 }
+                g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g.setColor(isEnabled() ? Theme.MUTED : Theme.BUTTON_DISABLED_TEXT);
+                int cy = getHeight() / 2;
+                Path2D chevron = new Path2D.Double();
+                if (expanded) {
+                    chevron.moveTo(5, cy - 2);
+                    chevron.lineTo(9, cy + 2);
+                    chevron.lineTo(13, cy - 2);
+                } else {
+                    chevron.moveTo(7, cy - 4);
+                    chevron.lineTo(11, cy);
+                    chevron.lineTo(7, cy + 4);
+                }
+                g.setStroke(new BasicStroke(1.5f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                g.draw(chevron);
                 g.setColor(Theme.LINE);
                 g.drawLine(0, getHeight() - 1, getWidth(), getHeight() - 1);
             } finally {

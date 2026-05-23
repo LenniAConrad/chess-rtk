@@ -399,7 +399,7 @@ public final class CommandForm extends JPanel {
         boolean hasNone = optionalSection;
         List<String> chipLabels = new ArrayList<>();
         if (hasNone) {
-            chipLabels.add("none");
+            chipLabels.add("default");
         }
         for (Field field : members) {
             chipLabels.add(displayFlag(field.option));
@@ -498,7 +498,7 @@ public final class CommandForm extends JPanel {
         card.setAlignmentX(LEFT_ALIGNMENT);
         card.add(Box.createHorizontalStrut(LEAD_WIDTH + Theme.SPACE_MD));
         if (field == null) {
-            JLabel none = new JLabel("not used");
+            JLabel none = new JLabel("no flag applied");
             none.setFont(Theme.font(11, Font.PLAIN));
             none.setForeground(Theme.MUTED);
             card.add(none);

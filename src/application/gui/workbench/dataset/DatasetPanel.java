@@ -10,6 +10,7 @@ import static application.gui.workbench.ui.Ui.button;
 import static application.gui.workbench.ui.Ui.caption;
 import static application.gui.workbench.ui.Ui.fillViewport;
 import static application.gui.workbench.ui.Ui.label;
+import static application.gui.workbench.ui.Ui.placeholder;
 import static application.gui.workbench.ui.Ui.scroll;
 import static application.gui.workbench.ui.Ui.styleFields;
 import static application.gui.workbench.ui.Ui.styleIntegerSpinner;
@@ -355,14 +356,14 @@ public final class DatasetPanel extends JPanel {
         JPanel toolbar = transparentPanel(new BorderLayout(Theme.SPACE_SM, 0));
         styleFields(sourceField);
         sourceField.setToolTipText("Dataset file or directory");
-        sourceField.putClientProperty("JTextField.placeholderText", "dataset path");
+        placeholder(sourceField, "Dataset file or directory");
         toolbar.add(sourceField, BorderLayout.CENTER);
 
         JPanel controls = transparentPanel(new FlowLayout(FlowLayout.RIGHT, Theme.SPACE_SM, 0));
         JButton browse = button("Browse", false, event -> chooseDatasetPath());
         styleIntegerSpinner(rowLimitSpinner);
         rowLimitSpinner.setPreferredSize(new Dimension(118, Theme.CONTROL_HEIGHT));
-        controls.add(label("rows"));
+        controls.add(label("row limit"));
         controls.add(rowLimitSpinner);
         controls.add(browse);
         controls.add(analyzeButton);
@@ -573,6 +574,7 @@ public final class DatasetPanel extends JPanel {
         updateCharts();
         sampleModel.setRows(summary.samples());
         issueModel.setRows(summary.issues());
+        copyReportButton.setEnabled(hasReport());
     }
 
     /**
@@ -635,7 +637,17 @@ public final class DatasetPanel extends JPanel {
     private void setBusy(boolean busy) {
         analyzeButton.setEnabled(!busy);
         stopButton.setEnabled(busy);
+        copyReportButton.setEnabled(!busy && hasReport());
         progress.setVisible(busy);
+    }
+
+    /**
+     * Returns whether there is a meaningful report to copy.
+     *
+     * @return true when the current summary has scanned content
+     */
+    private boolean hasReport() {
+        return summary.scannedFiles() > 0L || summary.rows() > 0L;
     }
 
     /**

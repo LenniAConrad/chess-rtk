@@ -64,11 +64,10 @@ public final class DashboardPanel extends JPanel implements SessionListener {
     private static final long serialVersionUID = 1L;
 
     /**
-     * Maximum width of the dashboard content column. On wider windows the
-     * cards stay this wide and are centred, rather than stretching sparsely
-     * across the whole screen.
+     * Maximum width of the dashboard content column. Wide workbench windows
+     * should still feel like an operational surface, not a narrow report page.
      */
-    private static final int CONTENT_MAX_WIDTH = 1180;
+    private static final int CONTENT_MAX_WIDTH = 1440;
 
     /**
      * Rough character budget for the inline tag preview. Whole tags are added
@@ -360,7 +359,7 @@ public final class DashboardPanel extends JPanel implements SessionListener {
         body.add(Box.createVerticalStrut(Theme.SPACE_SM));
         body.add(actionRow(
                 quickButton("Smoke test", actions::engineSmoke)));
-    return card("Engine", body);
+        return card("Engine", body);
     }
 
     /**
@@ -374,8 +373,8 @@ public final class DashboardPanel extends JPanel implements SessionListener {
         body.add(Box.createVerticalStrut(Theme.SPACE_SM));
         body.add(actionRow(
                 quickButton("Run batch", actions::runBatch),
-                quickButton("Open Batch tab", actions::openBatchTab)));
-    return card("Batch", body);
+                quickButton("Open Batch", actions::openBatchTab)));
+        return card("Batch", body);
     }
 
     /**

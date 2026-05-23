@@ -643,8 +643,7 @@ public final class PublishingPanel {
         int row = 0;
         JPanel buildHeader = transparentPanel(new BorderLayout(0, 2));
         buildHeader.add(Theme.section("Publishing"), BorderLayout.NORTH);
-        buildHeader.add(Ui.caption(
-                "Task-aware book output: every enabled field maps directly to a supported CRTK book flag."),
+        buildHeader.add(Ui.caption("Fields map to the selected CRTK publishing command."),
                 BorderLayout.SOUTH);
         grid(panel, buildHeader, c, 0, row++, 4, 1);
 

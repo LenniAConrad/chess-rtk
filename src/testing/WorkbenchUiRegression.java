@@ -940,6 +940,9 @@ final class WorkbenchUiRegression {
                 new Class<?>[] { String.class, javax.swing.JComponent.class, boolean.class },
                 "Info", content, true);
         JButton toggle = firstButton(section);
+        assertEquals("Info", toggle.getText(), "collapsible header uses clean title text");
+        assertFalse(toggle.getText().startsWith("-") || toggle.getText().startsWith("+"),
+                "collapsible header does not expose raw +/- glyphs");
         assertTrue(content.isVisible(), "collapsible content initially visible");
         toggle.doClick();
         assertFalse(content.isVisible(), "collapsible content hidden");
