@@ -847,9 +847,13 @@ final class WorkbenchUiRegression {
                 new FileNameExtensionFilter("TOML files", "toml"));
         Icon lightFolder = UIManager.getIcon("FileView.directoryIcon");
         Icon lightUp = UIManager.getIcon("FileChooser.upFolderIcon");
-        assertEquals(Integer.valueOf(16), Integer.valueOf(lightFolder.getIconWidth()),
+        assertTrue(lightChooser.getPreferredSize().width >= 760, "file chooser opens at a usable width");
+        assertTrue(lightChooser.getPreferredSize().height >= 520, "file chooser opens at a usable height");
+        assertTrue(lightChooser.getMinimumSize().width >= 620, "file chooser minimum width prevents collapse");
+        assertTrue(lightChooser.getMinimumSize().height >= 420, "file chooser minimum height prevents collapse");
+        assertEquals(Integer.valueOf(18), Integer.valueOf(lightFolder.getIconWidth()),
                 "file chooser folder icon width");
-        assertEquals(Integer.valueOf(18), Integer.valueOf(lightUp.getIconWidth()),
+        assertEquals(Integer.valueOf(20), Integer.valueOf(lightUp.getIconWidth()),
                 "file chooser toolbar icon width");
         BufferedImage lightIcon = paintIcon(lightFolder);
         assertTrue(maxAlpha(lightIcon) > 180, "light file chooser icon paints opaque strokes");

@@ -23,7 +23,9 @@ import java.awt.Insets;
 import java.awt.LayoutManager;
 import java.awt.Rectangle;
 import java.awt.RenderingHints;
+import java.awt.Window;
 import java.awt.event.ActionListener;
+import java.awt.event.HierarchyEvent;
 import java.awt.geom.Path2D;
 import javax.swing.AbstractButton;
 import javax.swing.BorderFactory;
@@ -51,6 +53,7 @@ import javax.swing.JViewport;
 import javax.swing.ScrollPaneConstants;
 import javax.swing.Scrollable;
 import javax.swing.SwingConstants;
+import javax.swing.SwingUtilities;
 import javax.swing.Timer;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
@@ -81,11 +84,27 @@ public final class Ui {
     private static final int BUTTON_TRANSITION_MS = 65;
 
     /**
+     * Default chooser size large enough to avoid cramped row wrapping.
+     */
+    private static final Dimension FILE_CHOOSER_PREFERRED_SIZE = new Dimension(760, 520);
+
+    /**
+     * Minimum chooser size that keeps toolbar, file list, and form rows usable.
+     */
+    private static final Dimension FILE_CHOOSER_MINIMUM_SIZE = new Dimension(620, 420);
+
+    /**
      * Client-property key marking combos that already have the enabled-state
      * refresh listener installed.
      */
     private static final String COMBO_STATE_LISTENER_PROPERTY =
             Ui.class.getName() + ".comboStateListener";
+
+    /**
+     * Client-property key marking file choosers with a window sizing listener.
+     */
+    private static final String FILE_CHOOSER_SIZE_LISTENER_PROPERTY =
+            Ui.class.getName() + ".fileChooserSizeListener";
 
     /**
      * Prevents instantiation.
@@ -627,8 +646,50 @@ public final class Ui {
         chooser.setBackground(Theme.BG);
         chooser.setForeground(Theme.TEXT);
         chooser.setBorder(Theme.pad(10, 10, 10, 10));
+        chooser.setPreferredSize(new Dimension(FILE_CHOOSER_PREFERRED_SIZE));
+        chooser.setMinimumSize(new Dimension(FILE_CHOOSER_MINIMUM_SIZE));
+        installFileChooserSizing(chooser);
         styleComponentTree(chooser);
         polishFileChooserFonts(chooser);
+    }
+
+    /**
+     * Installs a listener that applies top-level dialog sizing once Swing has
+     * created the file chooser window.
+     *
+     * @param chooser file chooser
+     */
+    private static void installFileChooserSizing(JFileChooser chooser) {
+        if (Boolean.TRUE.equals(chooser.getClientProperty(FILE_CHOOSER_SIZE_LISTENER_PROPERTY))) {
+            return;
+        }
+        chooser.putClientProperty(FILE_CHOOSER_SIZE_LISTENER_PROPERTY, Boolean.TRUE);
+        chooser.addHierarchyListener(event -> {
+            if ((event.getChangeFlags() & HierarchyEvent.SHOWING_CHANGED) != 0 && chooser.isShowing()) {
+                applyFileChooserWindowSize(chooser);
+            }
+        });
+    }
+
+    /**
+     * Applies preferred and minimum sizing to the actual chooser dialog.
+     *
+     * @param chooser file chooser
+     */
+    private static void applyFileChooserWindowSize(JFileChooser chooser) {
+        Window window = SwingUtilities.getWindowAncestor(chooser);
+        if (window == null) {
+            return;
+        }
+        Dimension minimum = new Dimension(FILE_CHOOSER_MINIMUM_SIZE);
+        Dimension preferred = new Dimension(FILE_CHOOSER_PREFERRED_SIZE);
+        window.setMinimumSize(minimum);
+        Dimension current = window.getSize();
+        if (current.width < preferred.width || current.height < preferred.height) {
+            window.setSize(Math.max(current.width, preferred.width), Math.max(current.height, preferred.height));
+            window.validate();
+            window.setLocationRelativeTo(window.getOwner());
+        }
     }
 
     /**
@@ -640,10 +701,10 @@ public final class Ui {
     private static void polishFileChooserFonts(Component component) {
         if (component instanceof JList<?> list) {
             list.setFont(Theme.font(13, Font.PLAIN));
-            list.setFixedCellHeight(Math.max(24, list.getFixedCellHeight()));
+            list.setFixedCellHeight(Math.max(27, list.getFixedCellHeight()));
         } else if (component instanceof JTable table) {
             table.setFont(Theme.font(12, Font.PLAIN));
-            table.setRowHeight(Math.max(24, table.getRowHeight()));
+            table.setRowHeight(Math.max(27, table.getRowHeight()));
             if (table.getTableHeader() != null) {
                 table.getTableHeader().setFont(Theme.font(11, Font.BOLD));
             }
@@ -835,7 +896,7 @@ public final class Ui {
         button.setFont(Theme.font(12, Font.PLAIN));
         button.setBorder(Theme.pad(4, 6, 4, 6));
         if (button.getIcon() != null) {
-            Dimension size = new Dimension(30, 30);
+            Dimension size = new Dimension(32, 32);
             button.setMargin(new Insets(0, 0, 0, 0));
             button.setPreferredSize(size);
             button.setMinimumSize(size);

@@ -27,12 +27,12 @@ final class FileChooserIcons {
     /**
      * File-list icon size.
      */
-    private static final int ITEM_SIZE = 16;
+    private static final int ITEM_SIZE = 18;
 
     /**
      * Toolbar icon size.
      */
-    private static final int TOOLBAR_SIZE = 18;
+    private static final int TOOLBAR_SIZE = 20;
 
     /**
      * Prevents instantiation.
