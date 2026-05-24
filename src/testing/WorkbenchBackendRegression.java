@@ -416,18 +416,22 @@ final class WorkbenchBackendRegression {
                 "network MCTS uses shared visit default");
         assertFalse(followLeaf.isSelected(), "network leaf following starts off");
         JComboBox<?> archCombo = (JComboBox<?>) field(panel, "archCombo");
-        archCombo.setSelectedItem("NNUE");
+        assertEquals(Integer.valueOf(3), Integer.valueOf(archCombo.getItemCount()),
+                "network selector exposes one entry per network family");
+        assertEquals(Integer.valueOf(1), Integer.valueOf(countArchItems(archCombo, "NNUE")),
+                "network selector exposes only one NNUE entry");
+        archCombo.setSelectedItem("NNUE - HalfKP");
         JComponent viewMode = (JComponent) field(panel, "viewMode");
         assertTrue(viewMode.getPreferredSize().width < 340,
                 "view selector exposes only the simple modes");
         boolean[] enabled = (boolean[]) field(viewMode, "enabled");
         assertTrue(enabled[2], "NNUE all-neurons segment enabled");
         assertTrue(enabled[3], "NNUE atlas segment enabled");
-        archCombo.setSelectedItem("LC0 CNN");
+        archCombo.setSelectedItem("CNN - 10x128");
         enabled = (boolean[]) field(viewMode, "enabled");
         assertTrue(enabled[2], "CNN all-neurons segment enabled");
         assertTrue(enabled[3], "CNN atlas segment enabled");
-        archCombo.setSelectedItem("LC0 BT4");
+        archCombo.setSelectedItem("BT4 - 1024x15x32h");
         enabled = (boolean[]) field(viewMode, "enabled");
         assertTrue(enabled[2], "BT4 all-neurons segment enabled");
         assertTrue(enabled[3], "BT4 atlas segment enabled");
@@ -472,7 +476,7 @@ final class WorkbenchBackendRegression {
         Timer timer = (Timer) field(panel, "debounceTimer");
         timer.stop();
         JComboBox<?> archCombo = (JComboBox<?>) field(panel, "archCombo");
-        archCombo.setSelectedItem("LC0 CNN");
+        archCombo.setSelectedItem("CNN - 10x128");
         setField(panel, "mainBoardFen", START_FEN);
         Object loadingPanel = field(panel, "loadingPanel");
         invoke(loadingPanel, "start",
@@ -506,7 +510,7 @@ final class WorkbenchBackendRegression {
         Object loadingPanel = field(panel, "loadingPanel");
         invoke(loadingPanel, "start",
                 new Class<?>[] { String.class, String.class, String.class, String.class },
-                "Loading LC0 CNN", "Preparing", "model", START_FEN);
+                "Loading CNN - 10x128", "Preparing", "model", START_FEN);
         setField(panel, "loadingArch", "LC0 CNN");
         setField(panel, "loadingFen", START_FEN);
 
@@ -515,23 +519,40 @@ final class WorkbenchBackendRegression {
                 new Class<?>[] { String.class, String.class, phaseType },
                 "LC0 CNN", START_FEN, enumValue(phaseType, "LOADING_MODEL"));
         flushEdt();
-        assertTrue(((String) field(loadingPanel, "title")).contains("Loading model"),
+        assertTrue(((String) field(loadingPanel, "title")).contains("Loading CNN"),
                 "loading card reports model load phase");
 
         invoke(panel, "updateLoadingPhase",
                 new Class<?>[] { String.class, String.class, phaseType },
                 "LC0 CNN", START_FEN, enumValue(phaseType, "RUNNING_INFERENCE"));
         flushEdt();
-        assertTrue(((String) field(loadingPanel, "title")).contains("Running inference"),
+        assertTrue(((String) field(loadingPanel, "title")).contains("Running CNN"),
                 "loading card reports inference phase");
 
         invoke(panel, "updateLoadingPhase",
                 new Class<?>[] { String.class, String.class, phaseType },
                 "NNUE", START_FEN, enumValue(phaseType, "LOADING_MODEL"));
         flushEdt();
-        assertTrue(((String) field(loadingPanel, "title")).contains("Running inference"),
+        assertTrue(((String) field(loadingPanel, "title")).contains("Running CNN"),
                 "loading card ignores unrelated architecture phase");
         invoke(panel, "dispose", new Class<?>[0]);
+    }
+
+    /**
+     * Counts selector items whose display text contains a token.
+     *
+     * @param combo selector to inspect
+     * @param token required display-text token
+     * @return matching item count
+     */
+    private static int countArchItems(JComboBox<?> combo, String token) {
+        int count = 0;
+        for (int i = 0; i < combo.getItemCount(); i++) {
+            if (String.valueOf(combo.getItemAt(i)).contains(token)) {
+                count++;
+            }
+        }
+        return count;
     }
 
     /**

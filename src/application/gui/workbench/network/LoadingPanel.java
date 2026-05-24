@@ -8,7 +8,6 @@ package application.gui.workbench.network;
 
 import application.gui.workbench.ui.Theme;
 import java.awt.BasicStroke;
-import java.awt.Color;
 import java.awt.Font;
 import java.awt.FontMetrics;
 import java.awt.Graphics;
@@ -38,22 +37,22 @@ final class LoadingPanel extends JPanel {
     /**
      * Maximum width of the centered loading surface.
      */
-    private static final int PANEL_WIDTH = 500;
+    private static final int PANEL_WIDTH = 440;
 
     /**
      * Minimum width of the centered loading surface.
      */
-    private static final int PANEL_MIN_WIDTH = 320;
+    private static final int PANEL_MIN_WIDTH = 280;
 
     /**
      * Height of the centered loading surface.
      */
-    private static final int PANEL_HEIGHT = 188;
+    private static final int PANEL_HEIGHT = 148;
 
     /**
      * Width reserved for the animated network mark.
      */
-    private static final int MARK_WIDTH = 128;
+    private static final int MARK_WIDTH = 82;
 
     /**
      * Horizontal progress indicator height.
@@ -81,12 +80,16 @@ final class LoadingPanel extends JPanel {
     private String detail = "Preparing activations...";
 
     /**
-     * Model-file or fallback detail.
+     * Model-file or fallback detail retained for compatibility with callers
+     * that update the loading state with full context. The simplified loading
+     * card intentionally does not paint this raw model text.
      */
     private String modelDetail = "Model status pending";
 
     /**
-     * Position detail for the requested activation snapshot.
+     * Position detail retained for compatibility with callers that update the
+     * loading state with full context. The simplified loading card intentionally
+     * does not paint raw FEN text.
      */
     private String positionDetail = "No position loaded";
 
@@ -199,7 +202,7 @@ final class LoadingPanel extends JPanel {
 
         int panelWidth = Math.max(PANEL_MIN_WIDTH,
                 Math.min(PANEL_WIDTH, bounds.width - 2 * Theme.SPACE_LG));
-        int panelHeight = Math.min(PANEL_HEIGHT, Math.max(150, bounds.height - 2 * Theme.SPACE_LG));
+        int panelHeight = Math.min(PANEL_HEIGHT, Math.max(120, bounds.height - 2 * Theme.SPACE_LG));
         int x = bounds.x + (bounds.width - panelWidth) / 2;
         int y = bounds.y + (bounds.height - panelHeight) / 2;
         int arc = Theme.RADIUS * 2;
@@ -212,57 +215,45 @@ final class LoadingPanel extends JPanel {
         g.setColor(Theme.ACCENT);
         g.fillRoundRect(x, y, 4, panelHeight, arc, arc);
 
-        Rectangle mark = new Rectangle(x + 28, y + 30, MARK_WIDTH, panelHeight - 60);
-        paintNetworkMark(g, mark);
+        Rectangle mark = new Rectangle(x + 26, y + 28, MARK_WIDTH, panelHeight - 56);
+        paintSpinnerMark(g, mark);
 
-        int textX = mark.x + mark.width + 22;
-        int textW = Math.max(80, x + panelWidth - textX - 26);
-        paintTextBlock(g, new Rectangle(textX, y + 28, textW, panelHeight - 56));
+        int textX = mark.x + mark.width + 20;
+        int textW = Math.max(80, x + panelWidth - textX - 28);
+        paintTextBlock(g, new Rectangle(textX, y + 30, textW, panelHeight - 60));
     }
 
     /**
-     * Paints the animated network mark.
+     * Paints the animated loading mark.
      *
      * @param g graphics context
      * @param bounds mark bounds
      */
-    private void paintNetworkMark(Graphics2D g, Rectangle bounds) {
-        int[][] nodes = {
-                { bounds.x + 24, bounds.y + bounds.height / 2 },
-                { bounds.x + 58, bounds.y + 28 },
-                { bounds.x + 58, bounds.y + bounds.height - 28 },
-                { bounds.x + bounds.width - 24, bounds.y + bounds.height / 2 }
-        };
-        int[][] edges = { { 0, 1 }, { 0, 2 }, { 1, 3 }, { 2, 3 }, { 1, 2 } };
-        Color[] colors = {
-                Theme.NN_TRUNK,
-                Theme.NN_POLICY,
-                Theme.NN_VALUE,
-                Theme.NN_NEGATIVE
-        };
+    private void paintSpinnerMark(Graphics2D g, Rectangle bounds) {
+        int size = Math.min(bounds.width, bounds.height);
+        int x = bounds.x + (bounds.width - size) / 2;
+        int y = bounds.y + (bounds.height - size) / 2;
+        int inset = 10;
+        int arcSize = size - inset * 2;
+        int start = (phase * 360 / PHASE_LIMIT) % 360;
 
-        g.setStroke(new BasicStroke(1.5f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-        for (int i = 0; i < edges.length; i++) {
-            int[] edge = edges[i];
-            int alpha = 54 + pulse(i * 19, 62);
-            g.setColor(Theme.withAlpha(Theme.MUTED, alpha));
-            g.drawLine(nodes[edge[0]][0], nodes[edge[0]][1],
-                    nodes[edge[1]][0], nodes[edge[1]][1]);
-        }
+        g.setStroke(new BasicStroke(5.0f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+        g.setColor(Theme.withAlpha(Theme.LINE, Theme.isDark() ? 220 : 190));
+        g.drawArc(x + inset, y + inset, arcSize, arcSize, 0, 360);
+        g.setColor(Theme.ACCENT);
+        g.drawArc(x + inset, y + inset, arcSize, arcSize, start, 104);
 
-        for (int i = 0; i < nodes.length; i++) {
-            int radius = 8 + pulse(i * 23, 3);
-            int alpha = 146 + pulse(i * 29, 88);
-            g.setColor(Theme.withAlpha(colors[i], alpha));
-            g.fillOval(nodes[i][0] - radius, nodes[i][1] - radius,
-                    radius * 2, radius * 2);
-            g.setColor(Theme.PANEL_SOLID);
-            g.fillOval(nodes[i][0] - 3, nodes[i][1] - 3, 6, 6);
-        }
+        int pulse = 9 + pulse(0, 5);
+        int centerX = x + size / 2;
+        int centerY = y + size / 2;
+        g.setColor(Theme.withAlpha(Theme.ACCENT, 70));
+        g.fillOval(centerX - pulse, centerY - pulse, pulse * 2, pulse * 2);
+        g.setColor(Theme.ACCENT);
+        g.fillOval(centerX - 4, centerY - 4, 8, 8);
     }
 
     /**
-     * Paints title, status details and progress rail.
+     * Paints title, phase detail and progress rail.
      *
      * @param g graphics context
      * @param bounds text bounds
@@ -277,18 +268,9 @@ final class LoadingPanel extends JPanel {
         g.setColor(Theme.MUTED);
         String animatedDetail = detail + ".".repeat((phase / 18) % 4);
         g.drawString(elide(g, animatedDetail, bounds.width), bounds.x, bounds.y + 38);
-        g.drawString(elide(g, modelDetail, bounds.width), bounds.x, bounds.y + 60);
-        g.drawString(elide(g, positionDetail, bounds.width), bounds.x, bounds.y + 82);
 
-        int railY = bounds.y + 104;
+        int railY = bounds.y + 64;
         paintProgressRail(g, bounds.x, railY, bounds.width);
-
-        int stepY = railY + 30;
-        paintStep(g, bounds.x, stepY, "Weights", 0);
-        paintStep(g, bounds.x + Math.max(94, bounds.width / 3), stepY, "Forward pass", 1);
-        paintStep(g, bounds.x + Math.max(204, bounds.width * 2 / 3), stepY, "Render", 2);
-        g.setFont(Theme.font(12, Font.PLAIN));
-        g.setColor(Theme.MUTED);
     }
 
     /**
@@ -311,25 +293,6 @@ final class LoadingPanel extends JPanel {
         g.fillRoundRect(movingX, y, movingWidth, INDICATOR_HEIGHT,
                 INDICATOR_HEIGHT, INDICATOR_HEIGHT);
         g.setClip(oldClip);
-    }
-
-    /**
-     * Paints one compact loading step.
-     *
-     * @param g graphics context
-     * @param x step x
-     * @param y baseline y
-     * @param text step label
-     * @param index step index
-     */
-    private void paintStep(Graphics2D g, int x, int y, String text, int index) {
-        boolean current = ((phase / 36) % 3) == index;
-        int dot = current ? 7 : 5;
-        g.setColor(current ? Theme.ACCENT : Theme.withAlpha(Theme.MUTED, 145));
-        g.fillOval(x, y - dot, dot, dot);
-        g.setFont(Theme.font(11, Font.PLAIN));
-        g.setColor(current ? Theme.TEXT : Theme.MUTED);
-        g.drawString(text, x + 12, y);
     }
 
     /**

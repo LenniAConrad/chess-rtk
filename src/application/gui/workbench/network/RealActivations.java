@@ -47,6 +47,21 @@ public final class RealActivations {
     }
 
     /**
+     * User-facing NNUE model family label.
+     */
+    public static final String LABEL_NNUE = "NNUE - HalfKP";
+
+    /**
+     * User-facing LC0 CNN model family label.
+     */
+    public static final String LABEL_CNN = "CNN - 10x128";
+
+    /**
+     * User-facing LC0 BT4 model family label.
+     */
+    public static final String LABEL_BT4 = "BT4 - 1024x15x32h";
+
+    /**
      * Long-running activation provider stage surfaced to the loading panel.
      */
     public enum Phase {
@@ -256,16 +271,16 @@ public final class RealActivations {
                 if (!Files.exists(nnuePath)) {
                     nnueLoadError = "model file missing: " + nnuePath;
                 } else {
-                    report(progress, "NNUE", Phase.LOADING_MODEL, nnuePath);
+                    report(progress, LABEL_NNUE, Phase.LOADING_MODEL, nnuePath);
                     nnueModel = chess.nn.nnue.Model.load(nnuePath);
                     refreshNnueVersionLabel();
                 }
             }
             if (nnueModel == null) {
-                report(progress, "NNUE", Phase.SYNTHETIC_FALLBACK, nnuePath);
+                report(progress, LABEL_NNUE, Phase.SYNTHETIC_FALLBACK, nnuePath);
                 fallbackNnue(fen, out);
             } else {
-                report(progress, "NNUE", Phase.RUNNING_INFERENCE, nnuePath);
+                report(progress, LABEL_NNUE, Phase.RUNNING_INFERENCE, nnuePath);
                 chess.core.Position position = parsePosition(fen);
                 nnueModel.predict(position, out);
                 mergeAtlasFromModel(out);
@@ -274,7 +289,7 @@ public final class RealActivations {
             nnueLoadError = ex.getClass().getSimpleName() + ": " + ex.getMessage();
             // Inference may have left the snapshot half-written; start clean.
             out = new ActivationSnapshot();
-            report(progress, "NNUE", Phase.SYNTHETIC_FALLBACK, nnuePath);
+            report(progress, LABEL_NNUE, Phase.SYNTHETIC_FALLBACK, nnuePath);
             fallbackNnue(fen, out);
         }
         out.seal();
@@ -346,7 +361,7 @@ public final class RealActivations {
                 if (!Files.exists(CNN_PATH)) {
                     cnnLoadError = "model file missing: " + CNN_PATH;
                 } else {
-                    report(progress, "LC0 CNN", Phase.LOADING_MODEL, CNN_PATH);
+                    report(progress, LABEL_CNN, Phase.LOADING_MODEL, CNN_PATH);
                     // The visualizer needs intermediate tensors. Those are
                     // exposed by the Java CPU path; GPU backends only return
                     // final policy/value outputs.
@@ -354,10 +369,10 @@ public final class RealActivations {
                 }
             }
             if (cnnNetwork == null) {
-                report(progress, "LC0 CNN", Phase.SYNTHETIC_FALLBACK, CNN_PATH);
+                report(progress, LABEL_CNN, Phase.SYNTHETIC_FALLBACK, CNN_PATH);
                 SyntheticActivations.fillCnn(fen, out);
             } else {
-                report(progress, "LC0 CNN", Phase.RUNNING_INFERENCE, CNN_PATH);
+                report(progress, LABEL_CNN, Phase.RUNNING_INFERENCE, CNN_PATH);
                 chess.core.Position position = parsePosition(fen);
                 float[] planes = chess.nn.lc0.cnn.Encoder.encode(position);
                 cnnNetwork.predictEncoded(planes, out);
@@ -365,7 +380,7 @@ public final class RealActivations {
         } catch (RuntimeException | IOException ex) {
             cnnLoadError = ex.getClass().getSimpleName() + ": " + ex.getMessage();
             out = new ActivationSnapshot();
-            report(progress, "LC0 CNN", Phase.SYNTHETIC_FALLBACK, CNN_PATH);
+            report(progress, LABEL_CNN, Phase.SYNTHETIC_FALLBACK, CNN_PATH);
             SyntheticActivations.fillCnn(fen, out);
         }
         out.seal();
@@ -398,16 +413,16 @@ public final class RealActivations {
                 if (!Files.exists(BT4_PATH)) {
                     bt4LoadError = "model file missing: " + BT4_PATH;
                 } else {
-                    report(progress, "LC0 BT4", Phase.LOADING_MODEL, BT4_PATH);
+                    report(progress, LABEL_BT4, Phase.LOADING_MODEL, BT4_PATH);
                     System.setProperty("crtk.lc0.bt4.backend", "cpu");
                     bt4Network = chess.nn.lc0.bt4.Network.load(BT4_PATH);
                 }
             }
             if (bt4Network == null) {
-                report(progress, "LC0 BT4", Phase.SYNTHETIC_FALLBACK, BT4_PATH);
+                report(progress, LABEL_BT4, Phase.SYNTHETIC_FALLBACK, BT4_PATH);
                 SyntheticActivations.fillBt4(fen, out);
             } else {
-                report(progress, "LC0 BT4", Phase.RUNNING_INFERENCE, BT4_PATH);
+                report(progress, LABEL_BT4, Phase.RUNNING_INFERENCE, BT4_PATH);
                 chess.core.Position position = parsePosition(fen);
                 bt4Network.predict(position, out);
             }
@@ -415,7 +430,7 @@ public final class RealActivations {
             bt4LoadError = ex.getClass().getSimpleName() + ": " + ex.getMessage();
             // Inference may have left the snapshot half-written; start clean.
             out = new ActivationSnapshot();
-            report(progress, "LC0 BT4", Phase.SYNTHETIC_FALLBACK, BT4_PATH);
+            report(progress, LABEL_BT4, Phase.SYNTHETIC_FALLBACK, BT4_PATH);
             SyntheticActivations.fillBt4(fen, out);
         }
         out.seal();
@@ -428,9 +443,9 @@ public final class RealActivations {
      * @return human-readable multi-line status
      */
     public String status() {
-        return "NNUE: " + describe(nnueModel != null, nnueLoadError)
-                + "   CNN: " + describe(cnnNetwork != null, cnnLoadError)
-                + "   BT4: " + describe(bt4Network != null, bt4LoadError);
+        return LABEL_NNUE + ": " + describe(nnueModel != null, nnueLoadError)
+                + "   " + LABEL_CNN + ": " + describe(cnnNetwork != null, cnnLoadError)
+                + "   " + LABEL_BT4 + ": " + describe(bt4Network != null, bt4LoadError);
     }
 
     /**
@@ -457,9 +472,9 @@ public final class RealActivations {
      */
     public synchronized List<ModelStatus> modelStatuses() {
         return List.of(
-                preview("NNUE", nnuePath, nnueModel != null, nnueLoadError),
-                preview("LC0 CNN", CNN_PATH, cnnNetwork != null, cnnLoadError),
-                preview("LC0 BT4", BT4_PATH, bt4Network != null, bt4LoadError));
+                preview(LABEL_NNUE, nnuePath, nnueModel != null, nnueLoadError),
+                preview(LABEL_CNN, CNN_PATH, cnnNetwork != null, cnnLoadError),
+                preview(LABEL_BT4, BT4_PATH, bt4Network != null, bt4LoadError));
     }
 
     /**

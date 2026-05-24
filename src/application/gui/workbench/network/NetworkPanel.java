@@ -26,18 +26,13 @@ import java.awt.FlowLayout;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
-import java.util.stream.Stream;
 import javax.imageio.ImageIO;
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
@@ -77,14 +72,29 @@ public final class NetworkPanel extends JPanel {
     private static final String ARCH_NNUE = "NNUE";
 
     /**
+     * User-facing NNUE selector label.
+     */
+    private static final String ARCH_NNUE_LABEL = RealActivations.LABEL_NNUE;
+
+    /**
      * Architecture identifier for LC0 CNN.
      */
     private static final String ARCH_CNN = "LC0 CNN";
 
     /**
+     * User-facing CNN selector label with the shipped small-net dimensions.
+     */
+    private static final String ARCH_CNN_LABEL = RealActivations.LABEL_CNN;
+
+    /**
      * Architecture identifier for LC0 BT4.
      */
     private static final String ARCH_BT4 = "LC0 BT4";
+
+    /**
+     * User-facing BT4 selector label with the shipped transformer dimensions.
+     */
+    private static final String ARCH_BT4_LABEL = RealActivations.LABEL_BT4;
 
     /**
      * Card key for the animated loading surface.
@@ -140,16 +150,9 @@ public final class NetworkPanel extends JPanel {
             };
 
     /**
-     * Discovered NNUE network files in {@code models/}, keyed by display
-     * label. Maps each combo entry like "NNUE — nn-3c0aa92af1da-big" back
-     * to its underlying path so we can swap the loaded weights on demand.
-     */
-    private final Map<String, Path> nnueVariants = discoverNnueVariants();
-
-    /**
      * Architecture switcher.
      */
-    private final JComboBox<String> archCombo = new JComboBox<>(buildArchOptions(nnueVariants));
+    private final JComboBox<String> archCombo = new JComboBox<>(buildArchOptions());
 
     /**
      * Position picker. "Use main board" forwards live FENs; any other selection
@@ -453,7 +456,7 @@ public final class NetworkPanel extends JPanel {
         showSelected();
         propagateViewMode();
         refreshToolbarChrome();
-        diagnosticsPanel.refresh(provider, (String) archCombo.getSelectedItem());
+        diagnosticsPanel.refresh(provider, displayNameFor(activeCardKey()));
     }
 
     /**
@@ -555,17 +558,16 @@ public final class NetworkPanel extends JPanel {
     }
 
     /**
-     * Maps an architecture-combo entry (which includes the discovered NNUE
-     * variants) to one of the three card keys.
+     * Maps an architecture-combo entry to one of the three card keys.
      *
      * @param comboKey selected combo entry, or null
      * @return {@link #ARCH_NNUE} / {@link #ARCH_CNN} / {@link #ARCH_BT4}
      */
     private String cardKeyFor(String comboKey) {
-        if (ARCH_CNN.equals(comboKey)) {
+        if (ARCH_CNN.equals(comboKey) || ARCH_CNN_LABEL.equals(comboKey)) {
             return ARCH_CNN;
         }
-        if (ARCH_BT4.equals(comboKey)) {
+        if (ARCH_BT4.equals(comboKey) || ARCH_BT4_LABEL.equals(comboKey)) {
             return ARCH_BT4;
         }
         return ARCH_NNUE;
@@ -646,8 +648,8 @@ public final class NetworkPanel extends JPanel {
         networkToolbar = bar;
         styleToolbarShell(bar, Theme.pad(Theme.SPACE_SM));
 
-        styleToolbarCombo(archCombo, 122,
-                "Pick the network architecture (or a specific NNUE file) to visualise.");
+        styleToolbarCombo(archCombo, 166,
+                "Pick the network family to visualise.");
         styleToolbarCombo(positionCombo, 188,
                 "Pin a canned position to explore, or follow the main board.");
         exportPngButton.setToolTipText("Capture the current network view to a PNG file.");
@@ -842,8 +844,7 @@ public final class NetworkPanel extends JPanel {
             }
             String stamp = LocalDateTime.now().format(
                     DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss"));
-            String archKey = (String) archCombo.getSelectedItem();
-            String arch = archKey == null ? "nnue" : archKey.replaceAll("\\W+", "_");
+            String arch = displayNameFor(activeCardKey()).replaceAll("\\W+", "_");
             File dir = new File(Prefs.exportDir());
             if (!dir.exists()) {
                 dir.mkdirs();
@@ -872,26 +873,11 @@ public final class NetworkPanel extends JPanel {
     }
 
     /**
-     * Handles an architecture-switcher change. Atlas mode is currently only
-     * meaningful for NNUE, so when the user moves to CNN/BT4 with atlas
-     * selected the segment is greyed out. When the user picks a different
-     * NNUE variant the underlying model is swapped and the now-stale NNUE
-     * snapshot-cache entries are dropped so the new weights are inferred
-     * afresh.
+     * Handles an architecture-switcher change.
      */
     private void onArchitectureChanged() {
         updateAtlasAvailability();
-        String key = (String) archCombo.getSelectedItem();
-        if (key != null && nnueVariants.containsKey(key)) {
-            Path picked = nnueVariants.get(key);
-            if (picked != null && !picked.equals(provider.nnuePath())) {
-                provider.setNnuePath(picked);
-                // The cached NNUE snapshots belong to the previous weights.
-                snapshotCache.keySet().removeIf(k -> k.startsWith(ARCH_NNUE + "::"));
-                displayedKey = null;
-            }
-        }
-        // Re-apply simplified atlas defaults after an NNUE variant change.
+        // Re-apply simplified atlas defaults after an architecture change.
         propagateAtlasControls();
         showSelected();
         // Make sure the now-visible card reflects the current position —
@@ -922,21 +908,10 @@ public final class NetworkPanel extends JPanel {
     }
 
     /**
-     * Shows the architecture selected by the combo box. All NNUE-variant
-     * entries map back to the same NNUE card; only CNN/BT4 swap to their
-     * own cards.
+     * Shows the architecture selected by the combo box.
      */
     private void showSelected() {
-        String key = (String) archCombo.getSelectedItem();
-        if (key == null) {
-            key = ARCH_NNUE;
-        }
-        String cardKey = ARCH_NNUE;
-        if (ARCH_CNN.equals(key)) {
-            cardKey = ARCH_CNN;
-        } else if (ARCH_BT4.equals(key)) {
-            cardKey = ARCH_BT4;
-        }
+        String cardKey = cardKeyFor((String) archCombo.getSelectedItem());
         if (isLoadingActiveCard(cardKey)) {
             cards.show(cardPanel, CARD_LOADING);
             return;
@@ -978,21 +953,21 @@ public final class NetworkPanel extends JPanel {
      * load state for the active architecture.
      */
     private void refreshStatusBadge() {
-        String key = (String) archCombo.getSelectedItem();
-        if (key == null) {
+        String cardKey = activeCardKey();
+        if (cardKey == null) {
             statusBadge.idle("");
             return;
         }
         String statusKey;
-        if (ARCH_CNN.equals(key)) {
+        if (ARCH_CNN.equals(cardKey)) {
             statusKey = "cnn";
-        } else if (ARCH_BT4.equals(key)) {
+        } else if (ARCH_BT4.equals(cardKey)) {
             statusKey = "bt4";
         } else {
             statusKey = "nnue";
         }
         String status = provider.statusFor(statusKey);
-        String message = key + ": " + status;
+        String message = displayNameFor(cardKey) + ": " + status;
         // "real inference" is the healthy state; anything mentioning an error
         // or a synthetic fallback is worth flagging more loudly.
         if (status.startsWith("real")) {
@@ -1000,72 +975,18 @@ public final class NetworkPanel extends JPanel {
         } else {
             statusBadge.idle(message);
         }
-        diagnosticsPanel.refresh(provider, key);
+        diagnosticsPanel.refresh(provider, displayNameFor(cardKey));
     }
 
     /**
-     * Scans {@code models/} for NNUE network files. Each file becomes a
-     * separate architecture entry like "NNUE — nn-3c0aa92af1da-big".
-     * The default {@link RealActivations#NNUE_PATH symlink} is
-     * intentionally excluded; the variants displayed are the underlying
-     * files the user can pick.
+     * Builds the architecture-combo options array. The selector intentionally
+     * exposes one entry per visualized network family rather than one entry
+     * per model file in {@code models/}.
      *
-     * @return ordered display-label → path map
-     */
-    private static Map<String, Path> discoverNnueVariants() {
-        Map<String, Path> out = new LinkedHashMap<>();
-        Path dir = Path.of("models");
-        if (!Files.isDirectory(dir)) {
-            return out;
-        }
-        try (Stream<Path> stream = Files.list(dir)) {
-            List<Path> sorted = new ArrayList<>();
-            stream.filter(p -> p.getFileName().toString().endsWith(".nnue"))
-                    .forEach(sorted::add);
-            Collections.sort(sorted);
-            for (Path p : sorted) {
-                if (p.getFileName().toString().equals("crtk-halfkp.nnue")) {
-                    // Skip the default symlink; it's surfaced as the base
-                    // "NNUE" entry below.
-                    continue;
-                }
-                out.put(labelFor(p), p);
-            }
-        } catch (IOException ex) {
-            // Empty discovery — fall back to the single default NNUE entry.
-            return out;
-        }
-        return out;
-    }
-
-    /**
-     * Builds the architecture-combo options array: the default NNUE entry,
-     * any discovered NNUE variants, then CNN and BT4.
-     *
-     * @param variants discovered NNUE variants
      * @return combo option labels
      */
-    private static String[] buildArchOptions(Map<String, Path> variants) {
-        List<String> out = new ArrayList<>();
-        out.add(ARCH_NNUE);
-        out.addAll(variants.keySet());
-        out.add(ARCH_CNN);
-        out.add(ARCH_BT4);
-        return out.toArray(new String[0]);
-    }
-
-    /**
-     * Returns the display label for an NNUE file path.
-     *
-     * @param path nnue file path
-     * @return human-friendly label
-     */
-    private static String labelFor(Path path) {
-        String name = path.getFileName().toString();
-        if (name.endsWith(".nnue")) {
-            name = name.substring(0, name.length() - 5);
-        }
-        return "NNUE — " + name;
+    private static String[] buildArchOptions() {
+        return new String[] { ARCH_NNUE_LABEL, ARCH_CNN_LABEL, ARCH_BT4_LABEL };
     }
 
     /**
@@ -1395,8 +1316,8 @@ public final class NetworkPanel extends JPanel {
                 return;
             }
             String display = displayNameFor(cardKey);
-            loadingPanel.start(phase.title() + " - " + display,
-                    phase.detail(),
+            loadingPanel.start(loadingTitle(cardKey, phase),
+                    loadingDetail(phase),
                     loadingModelDetail(cardKey),
                     loadingPositionDetail(fen));
             String badge = phase == RealActivations.Phase.RUNNING_INFERENCE
@@ -1406,6 +1327,36 @@ public final class NetworkPanel extends JPanel {
                             : "using " + display.toLowerCase(java.util.Locale.ROOT) + " fallback...";
             statusBadge.busy(badge);
         });
+    }
+
+    /**
+     * Returns the loading card title for a provider phase.
+     *
+     * @param cardKey architecture card key
+     * @param phase provider phase
+     * @return short title
+     */
+    private static String loadingTitle(String cardKey, RealActivations.Phase phase) {
+        String display = displayNameFor(cardKey);
+        return switch (phase) {
+            case LOADING_MODEL -> "Loading " + display;
+            case RUNNING_INFERENCE -> "Running " + display;
+            case SYNTHETIC_FALLBACK -> "Preparing fallback";
+        };
+    }
+
+    /**
+     * Returns the loading card detail for a provider phase.
+     *
+     * @param phase provider phase
+     * @return short detail
+     */
+    private static String loadingDetail(RealActivations.Phase phase) {
+        return switch (phase) {
+            case LOADING_MODEL -> "Loading model weights";
+            case RUNNING_INFERENCE -> "Running inference";
+            case SYNTHETIC_FALLBACK -> "Using generated activations";
+        };
     }
 
     /**
@@ -1554,20 +1505,16 @@ public final class NetworkPanel extends JPanel {
      * @return initial loading detail
      */
     private String initialLoadingDetail(String cardKey) {
-        String label = switch (cardKey) {
-            case ARCH_CNN -> "LC0 CNN";
-            case ARCH_BT4 -> "LC0 BT4";
-            default -> "NNUE";
-        };
+        String label = displayNameFor(cardKey);
         for (RealActivations.ModelStatus status : provider.modelStatuses()) {
             if (label.equals(status.label())) {
                 if (status.loaded()) {
-                    return "Running inference with the loaded model";
+                    return "Running inference";
                 }
                 if (status.present() && !"fallback".equals(status.state())) {
-                    return "Loading model weights before inference";
+                    return "Loading model weights";
                 }
-                return "Preparing synthetic fallback activations";
+                return "Preparing fallback activations";
             }
         }
         return "Preparing network activations";
@@ -1600,11 +1547,7 @@ public final class NetworkPanel extends JPanel {
      * @return compact model detail
      */
     private String loadingModelDetail(String cardKey) {
-        String label = switch (cardKey) {
-            case ARCH_CNN -> "LC0 CNN";
-            case ARCH_BT4 -> "LC0 BT4";
-            default -> "NNUE";
-        };
+        String label = displayNameFor(cardKey);
         for (RealActivations.ModelStatus status : provider.modelStatuses()) {
             if (label.equals(status.label())) {
                 String file = status.path() == null
@@ -1644,9 +1587,9 @@ public final class NetworkPanel extends JPanel {
      */
     private static String displayNameFor(String cardKey) {
         return switch (cardKey) {
-            case ARCH_CNN -> "LC0 CNN";
-            case ARCH_BT4 -> "LC0 BT4";
-            default -> "NNUE";
+            case ARCH_CNN -> ARCH_CNN_LABEL;
+            case ARCH_BT4 -> ARCH_BT4_LABEL;
+            default -> ARCH_NNUE_LABEL;
         };
     }
 }

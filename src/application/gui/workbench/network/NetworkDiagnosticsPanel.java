@@ -430,8 +430,14 @@ public final class NetworkDiagnosticsPanel extends JPanel {
         if (selectedArchitecture == null || selectedArchitecture.isBlank()) {
             return false;
         }
-        if ("NNUE".equals(status.label())) {
+        if (status.label().startsWith("NNUE")) {
             return selectedArchitecture.startsWith("NNUE");
+        }
+        if (status.label().contains("CNN")) {
+            return selectedArchitecture.contains("CNN");
+        }
+        if (status.label().contains("BT4")) {
+            return selectedArchitecture.contains("BT4");
         }
         return selectedArchitecture.equals(status.label());
     }
