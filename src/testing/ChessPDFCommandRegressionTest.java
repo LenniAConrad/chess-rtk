@@ -6,6 +6,7 @@
 
 package testing;
 
+import application.cli.PathOps;
 import static testing.TestSupport.*;
 
 import java.nio.charset.StandardCharsets;
@@ -49,13 +50,13 @@ public final class ChessPDFCommandRegressionTest {
 	 * @throws Exception if export fails
 	 */
 	private static void testFenListExport() throws Exception {
-		Path input = Files.createTempFile("book-pdf-fens-", ".txt");
+		Path input = PathOps.createLocalTempFile("book-pdf-fens-", ".txt");
 		Files.writeString(input,
 				"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1\n"
 						+ "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1\n",
 				StandardCharsets.UTF_8);
 
-		Path output = Files.createTempFile("book-pdf-fens-", ".pdf");
+		Path output = PathOps.createLocalTempFile("book-pdf-fens-", ".pdf");
 		BookPdfCommand.runBookPdf(new Argv(new String[] {
 				"--input", input.toString(),
 				"--output", output.toString(),
@@ -74,7 +75,7 @@ public final class ChessPDFCommandRegressionTest {
 	 * @throws Exception if export fails
 	 */
 	private static void testPgnExport() throws Exception {
-		Path input = Files.createTempFile("book-pdf-games-", ".pgn");
+		Path input = PathOps.createLocalTempFile("book-pdf-games-", ".pgn");
 		Files.writeString(input,
 				"[Event \"Regression\"]\n"
 						+ "[White \"Alpha\"]\n"
@@ -83,7 +84,7 @@ public final class ChessPDFCommandRegressionTest {
 						+ "1. e4 e5 2. Nf3 Nc6 *\n",
 				StandardCharsets.UTF_8);
 
-		Path output = Files.createTempFile("book-pdf-games-", ".pdf");
+		Path output = PathOps.createLocalTempFile("book-pdf-games-", ".pdf");
 		BookPdfCommand.runBookPdf(new Argv(new String[] {
 				"--pgn", input.toString(),
 				"--output", output.toString(),

@@ -80,20 +80,6 @@ final class LoadingPanel extends JPanel {
     private String detail = "Preparing activations...";
 
     /**
-     * Model-file or fallback detail retained for compatibility with callers
-     * that update the loading state with full context. The simplified loading
-     * card intentionally does not paint this raw model text.
-     */
-    private String modelDetail = "Model status pending";
-
-    /**
-     * Position detail retained for compatibility with callers that update the
-     * loading state with full context. The simplified loading card intentionally
-     * does not paint raw FEN text.
-     */
-    private String positionDetail = "No position loaded";
-
-    /**
      * Current animation phase.
      */
     private int phase;
@@ -132,12 +118,6 @@ final class LoadingPanel extends JPanel {
     void start(String title, String detail, String modelDetail, String positionDetail) {
         this.title = title == null || title.isBlank() ? "Loading network view" : title;
         this.detail = detail == null || detail.isBlank() ? "Preparing activations" : detail;
-        this.modelDetail = modelDetail == null || modelDetail.isBlank()
-                ? "Model status pending"
-                : modelDetail;
-        this.positionDetail = positionDetail == null || positionDetail.isBlank()
-                ? "No position loaded"
-                : positionDetail;
         active = true;
         if (!timer.isRunning()) {
             timer.start();

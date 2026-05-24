@@ -131,10 +131,9 @@ public final class TomlHighlighter {
      * @param start value start
      * @param end value end
      * @return true when the line opens an unterminated triple-quote string
-     * @throws BadLocationException when the document rejects a range
      */
     private static boolean highlightValue(StyledDocument doc, String line, int offset,
-            int start, int end) throws BadLocationException {
+            int start, int end) {
         int i = start;
         while (i < end) {
             char ch = line.charAt(i);

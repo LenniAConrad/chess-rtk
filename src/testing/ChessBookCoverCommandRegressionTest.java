@@ -6,6 +6,7 @@
 
 package testing;
 
+import application.cli.PathOps;
 import static testing.TestSupport.*;
 
 import java.nio.charset.StandardCharsets;
@@ -303,10 +304,10 @@ public final class ChessBookCoverCommandRegressionTest {
 	 * @throws Exception if cover export fails
 	 */
 	private static void testPaperbackCoverExport() throws Exception {
-		Path input = Files.createTempFile("book-cover-", JSON_SUFFIX);
+		Path input = PathOps.createLocalTempFile("book-cover-", JSON_SUFFIX);
 		Files.writeString(input, sampleBook(), StandardCharsets.UTF_8);
 
-		Path output = Files.createTempFile("book-cover-", ".pdf");
+		Path output = PathOps.createLocalTempFile("book-cover-", ".pdf");
 		String console = captureStdout(() -> BookCoverCommand.runBookCover(new Argv(new String[] {
 				INPUT_OPTION, input.toString(),
 				OUTPUT_OPTION, output.toString(),
@@ -334,7 +335,7 @@ public final class ChessBookCoverCommandRegressionTest {
 	 * @throws Exception if PDF inspection or validation fails
 	 */
 	private static void testCliUsesInteriorPdfMetadata() throws Exception {
-		Path input = Files.createTempFile("book-cover-pdf-", JSON_SUFFIX);
+		Path input = PathOps.createLocalTempFile("book-cover-pdf-", JSON_SUFFIX);
 		Files.writeString(input, sampleBook(), StandardCharsets.UTF_8);
 		Path pdf = writeInteriorPdf(PDF_TRIM_WIDTH_CM, PDF_TRIM_HEIGHT_CM, PDF_PAGES);
 
@@ -360,10 +361,10 @@ public final class ChessBookCoverCommandRegressionTest {
 	 * @throws Exception if validation fails unexpectedly
 	 */
 	private static void testCheckModeDoesNotWritePdf() throws Exception {
-		Path input = Files.createTempFile("book-cover-check-", JSON_SUFFIX);
+		Path input = PathOps.createLocalTempFile("book-cover-check-", JSON_SUFFIX);
 		Files.writeString(input, sampleBook(), StandardCharsets.UTF_8);
 
-		Path output = Files.createTempDirectory("book-cover-check-").resolve("cover.pdf");
+		Path output = PathOps.createLocalTempDirectory("book-cover-check-").resolve("cover.pdf");
 		String console = captureStdout(() -> BookCoverCommand.runBookCover(new Argv(new String[] {
 				INPUT_OPTION, input.toString(),
 				OUTPUT_OPTION, output.toString(),
@@ -393,7 +394,7 @@ public final class ChessBookCoverCommandRegressionTest {
 		for (int i = 0; i < pages; i++) {
 			document.addPage(size);
 		}
-		Path output = Files.createTempFile("book-cover-interior-", ".pdf");
+		Path output = PathOps.createLocalTempFile("book-cover-interior-", ".pdf");
 		document.write(output);
 		return output;
 	}

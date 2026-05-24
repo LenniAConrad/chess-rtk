@@ -6,6 +6,7 @@
 
 package testing;
 
+import application.cli.PathOps;
 import static testing.TestSupport.*;
 
 import java.io.ByteArrayOutputStream;
@@ -122,7 +123,7 @@ public final class BT4RegressionTest {
     private static void testModelLoadAndForward() throws IOException {
         Architecture architecture = syntheticArchitecture();
         Network.Weights weights = syntheticWeights(architecture);
-        Path temp = Files.createTempFile("crtk-bt4-test-", ".bin");
+        Path temp = PathOps.createLocalTempFile("crtk-bt4-test-", ".bin");
         try {
             writeWeights(temp, weights);
             assertEquals(architecture, BinLoader.loadArchitecture(temp), "loaded architecture metadata");
@@ -190,7 +191,7 @@ public final class BT4RegressionTest {
     private static void testNativeBackendsWhenAvailable() throws IOException {
         Architecture architecture = syntheticArchitecture();
         Network.Weights weights = syntheticWeights(architecture);
-        Path temp = Files.createTempFile("crtk-bt4-native-test-", ".bin");
+        Path temp = PathOps.createLocalTempFile("crtk-bt4-native-test-", ".bin");
         try {
             writeWeights(temp, weights);
             Position start = new Position(START_FEN);

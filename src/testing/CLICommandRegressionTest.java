@@ -6,6 +6,7 @@
 
 package testing;
 
+import application.cli.PathOps;
 import static testing.TestSupport.*;
 
 import java.io.IOException;
@@ -133,7 +134,7 @@ public final class CLICommandRegressionTest {
 	 */
 	private static void testBatchRunCommandScript() {
 		try {
-			Path script = Files.createTempFile("crtk-batch-run-", ".txt");
+			Path script = PathOps.createLocalTempFile("crtk-batch-run-", ".txt");
 			Files.writeString(script, String.join(System.lineSeparator(),
 					"help version",
 					"fen normalize --fen \"" + SIMPLE_FEN + "\""));
@@ -141,14 +142,14 @@ public final class CLICommandRegressionTest {
 			assertTrue(output.contains("Print the launcher version"), "batch run help command");
 			assertTrue(output.contains(SIMPLE_FEN), "batch run fen command");
 
-			Path stdinScript = Files.createTempFile("crtk-batch-run-stdin-", ".txt");
+			Path stdinScript = PathOps.createLocalTempFile("crtk-batch-run-stdin-", ".txt");
 			Files.writeString(stdinScript, "fen normalize --stdin");
 			TestSupport.FailureResult failure = TestSupport.runMainExpectFailure("batch", "run",
 					"--input", stdinScript.toString(), "--quiet");
 			assertTrue(failure.stdout().contains("standard input has no non-blank lines"),
 					"batch run closes child stdin");
 
-			Path emptyCommandScript = Files.createTempFile("crtk-batch-run-empty-", ".txt");
+			Path emptyCommandScript = PathOps.createLocalTempFile("crtk-batch-run-empty-", ".txt");
 			Files.writeString(emptyCommandScript, "crtk");
 			TestSupport.FailureResult emptyCommand = TestSupport.runMainExpectFailure("batch", "run",
 					"--input", emptyCommandScript.toString(), "--quiet");
@@ -189,7 +190,7 @@ public final class CLICommandRegressionTest {
 	 */
 	private static void testFilteredFenGenerationShortcut() {
 		try {
-			Path dir = Files.createTempDirectory("crtk-gen-fens-filter-");
+			Path dir = PathOps.createLocalTempDirectory("crtk-gen-fens-filter-");
 			String output = TestSupport.runMain(
 					"gen",
 					"fens",
@@ -508,7 +509,7 @@ public final class CLICommandRegressionTest {
 		assertTrue(diffJson.contains("\"board\":["), "position diff --json board field");
 
 		try {
-			Path suite = Files.createTempFile("crtk-perft-suite-", ".txt");
+			Path suite = PathOps.createLocalTempFile("crtk-perft-suite-", ".txt");
 			Files.writeString(suite, "start\t1\t" + START_FEN + "\t20\n");
 			String customSuite = TestSupport.runMain(
 					ENGINE_COMMAND,

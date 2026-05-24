@@ -600,8 +600,6 @@ public final class CommandForm extends JPanel {
         holder.setPreferredSize(new Dimension(LEAD_WIDTH, ROW_HEIGHT));
         holder.setMinimumSize(new Dimension(LEAD_WIDTH, ROW_HEIGHT));
         holder.setMaximumSize(new Dimension(LEAD_WIDTH, ROW_HEIGHT));
-        // A BoxLayout.Y mixes positions when children disagree on alignmentX;
-        // every row and lead holder must share the same left alignment.
         holder.setAlignmentX(LEFT_ALIGNMENT);
         return holder;
     }

@@ -21,7 +21,7 @@ public abstract class WindowHost {
      *
      * @param window owning workbench window
      */
-    public WindowHost(WindowBase window) {
+    protected WindowHost(WindowBase window) {
         this.window = Objects.requireNonNull(window, "window");
     }
 }

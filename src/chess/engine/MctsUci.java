@@ -341,7 +341,6 @@ public final class MctsUci {
                     case "nodes" -> nodes = parsePositiveLong(value, nodes);
                     case "movetime" -> millis = parsePositiveLong(value, millis);
                     case "wtime", "btime", "winc", "binc", "movestogo" -> {
-                        i--;
                         TimeControl timeControl = parseTimeControl(tokens, whiteToMove);
                         millis = timeControl.moveMillis();
                         i = tokens.size();
@@ -393,7 +392,8 @@ public final class MctsUci {
         long divisor = Math.max(1L, movestogo);
         long budget = time > 0L ? Math.max(1L, time / divisor + inc / 2L) : 0L;
         if (time > 0L) {
-            budget = Math.min(budget, Math.max(1L, time - 50L));
+            long reserveAdjustedTime = time > 50L ? time - 50L : 1L;
+            budget = Math.min(budget, reserveAdjustedTime);
         }
         return new TimeControl(budget);
     }

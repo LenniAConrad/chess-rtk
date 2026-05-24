@@ -6,6 +6,7 @@
 
 package testing;
 
+import application.cli.PathOps;
 import static testing.TestSupport.*;
 
 import java.nio.charset.StandardCharsets;
@@ -43,7 +44,7 @@ public final class RecordLC0ExporterRegressionTest {
      * @throws Exception if temp-file IO fails
      */
 	public static void main(String[] args) throws Exception {
-		Path dir = Files.createTempDirectory("crtk-lc0-export-test");
+		Path dir = PathOps.createLocalTempDirectory("crtk-lc0-export-test");
 		Path input = dir.resolve("records.record");
 		Path stem = dir.resolve("dataset");
 		Files.writeString(input,

@@ -566,10 +566,11 @@ public final class SvgIcon implements Icon {
      * @return arrowhead path
      */
     private static Path2D makeForwardHead(int tipX) {
+        double tip = tipX;
         Path2D head = new Path2D.Double();
-        head.moveTo(tipX, 12);
-        head.lineTo(tipX - 5, 7);
-        head.lineTo(tipX - 5, 17);
+        head.moveTo(tip, 12.0);
+        head.lineTo(tip - 5.0, 7.0);
+        head.lineTo(tip - 5.0, 17.0);
         head.closePath();
         return head;
     }

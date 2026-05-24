@@ -6,6 +6,7 @@
 
 package testing;
 
+import application.cli.PathOps;
 import static testing.TestSupport.*;
 
 import java.nio.charset.StandardCharsets;
@@ -34,7 +35,7 @@ public final class RecordTrainingJSONLRegressionTest {
 	 * @throws Exception if the operation fails
 	 */
 	public static void main(String[] args) throws Exception {
-		Path dir = Files.createTempDirectory("crtk-training-jsonl-test");
+		Path dir = PathOps.createLocalTempDirectory("crtk-training-jsonl-test");
 		Path input = dir.resolve("records.jsonl");
 		Path output = dir.resolve("training.jsonl");
 

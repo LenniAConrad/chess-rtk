@@ -193,7 +193,11 @@ public final class DatasetChart extends JComponent {
      */
     public void setBuckets(String[] labels, int[] values, Role role) {
         List<Bar> next = new ArrayList<>();
-        int count = Math.min(labels == null ? 0 : labels.length, values == null ? 0 : values.length);
+        if (labels == null || values == null) {
+            setBars(next);
+            return;
+        }
+        int count = Math.min(labels.length, values.length);
         for (int i = 0; i < count; i++) {
             next.add(new Bar(labels[i], values[i], role));
         }

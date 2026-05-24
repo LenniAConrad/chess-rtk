@@ -1025,9 +1025,6 @@ public final class Bt4View extends NetworkView {
 
         paintHeadGrid(g, gridR);
         paintAttentionMatrix(g, matrixR);
-        // paintBoardOverlay sets boardBounds to the inner mini-board rectangle;
-        // do not overwrite it here, otherwise click coordinates are mapped
-        // against the surrounding column and decoded squares are off.
         paintBoardOverlay(g, boardR);
 
         Rectangle bottom = new Rectangle(body.x, gridR.y + gridR.height + 12,
@@ -1323,8 +1320,8 @@ public final class Bt4View extends NetworkView {
             Rectangle cell = BoardStyle.lerfSquareBounds(board, sq, true);
             double xd = cell.x;
             double yd = cell.y;
-            double xr = cell.x + cell.width;
-            double yb = cell.y + cell.height;
+            double xr = (double) cell.x + cell.width;
+            double yb = (double) cell.y + cell.height;
             float vTo = Math.min(1.0f, Math.max(0.0f, toData[sq] / scale));
             float vFrom = Math.min(1.0f, Math.max(0.0f, fromData[sq] / scale));
 

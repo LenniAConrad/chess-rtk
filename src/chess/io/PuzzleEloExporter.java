@@ -6,6 +6,7 @@
 
 package chess.io;
 
+import application.cli.PathOps;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.IOException;
@@ -283,7 +284,7 @@ public final class PuzzleEloExporter {
             Files.createDirectories(parent);
             return Files.createTempFile(parent, output.getFileName().toString() + ".", ".verified-puzzles.tmp");
         }
-        return Files.createTempFile("crtk-puzzle-elo-", ".verified-puzzles.tmp");
+        return PathOps.createLocalTempFile("crtk-puzzle-elo-", ".verified-puzzles.tmp");
     }
 
     /**
@@ -840,6 +841,7 @@ public final class PuzzleEloExporter {
          * Scores independent root trees using worker threads.
          * @return score parallel result
          */
+        @SuppressWarnings("java:S2095")
         private List<ScoredPuzzle> scoreParallel() {
             int workers = Math.min(options.threads(), roots.size());
             int chunkSize = Math.max(1_000, roots.size() / Math.max(1, workers * 8));
@@ -863,7 +865,7 @@ public final class PuzzleEloExporter {
                 stats.truncatedTrees += truncated;
                 return out;
             } finally {
-                executor.shutdownNow();
+                executor.shutdown();
             }
         }
 

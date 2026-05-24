@@ -39,6 +39,7 @@ import javax.swing.text.JTextComponent;
 /**
  * Native Swing styling helpers for the CRTK Workbench.
  */
+@SuppressWarnings({ "java:S1104", "java:S1444", "java:S3008" })
 public final class Theme {
 
     /**

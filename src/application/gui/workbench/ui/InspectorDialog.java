@@ -51,7 +51,7 @@ public final class InspectorDialog extends JDialog {
     /**
      * Shared instance, lazily created.
      */
-    private static InspectorDialog INSTANCE;
+    private static InspectorDialog instance;
 
     /**
      * Returns the shared dialog instance, creating it on first use.
@@ -60,11 +60,11 @@ public final class InspectorDialog extends JDialog {
      * @return shared dialog
      */
     public static InspectorDialog shared(Component near) {
-        if (INSTANCE == null) {
+        if (instance == null) {
             Window owner = near == null ? null : SwingUtilities.getWindowAncestor(near);
-            INSTANCE = new InspectorDialog(owner);
+            instance = new InspectorDialog(owner);
         }
-        return INSTANCE;
+        return instance;
     }
 
     /**

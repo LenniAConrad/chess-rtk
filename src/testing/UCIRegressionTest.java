@@ -6,6 +6,7 @@
 
 package testing;
 
+import application.cli.PathOps;
 import static testing.TestSupport.*;
 
 import java.io.IOException;
@@ -173,7 +174,7 @@ public final class UCIRegressionTest {
 	 * @throws Exception if process setup or analysis fails
 	 */
 	private static void testEngineHandshakeAndSearch() throws Exception {
-		Path dir = Files.createTempDirectory("crtk-uci-test");
+		Path dir = PathOps.createLocalTempDirectory("crtk-uci-test");
 		Path log = dir.resolve("commands.log");
 		Path fakeEngine = dir.resolve("fake-uci.sh");
 		Files.writeString(fakeEngine, fakeEngineScript(log));
@@ -205,7 +206,7 @@ public final class UCIRegressionTest {
 	 * @throws Exception if process setup or analysis fails
 	 */
 	private static void testEngineSkipsMissingChess960Command() throws Exception {
-		Path dir = Files.createTempDirectory("crtk-uci-no-chess960-test");
+		Path dir = PathOps.createLocalTempDirectory("crtk-uci-no-chess960-test");
 		Path log = dir.resolve("commands.log");
 		Path fakeEngine = dir.resolve("fake-uci.sh");
 		Files.writeString(fakeEngine, fakeEngineScript(log));

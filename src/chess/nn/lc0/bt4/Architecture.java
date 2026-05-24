@@ -168,11 +168,9 @@ public record Architecture(
         if (layerNormEpsilon <= 0.0f) {
             throw new IllegalArgumentException("layerNormEpsilon must be positive");
         }
-        if (hasSmolgen) {
-            if (smolgenHiddenChannels <= 0 || smolgenHiddenSize <= 0
-                    || smolgenPerHeadDim <= 0 || smolgenGlobalSize != tokens * tokens) {
-                throw new IllegalArgumentException("smolgen dimensions invalid");
-            }
+        if (hasSmolgen && (smolgenHiddenChannels <= 0 || smolgenHiddenSize <= 0
+                || smolgenPerHeadDim <= 0 || smolgenGlobalSize != tokens * tokens)) {
+            throw new IllegalArgumentException("smolgen dimensions invalid");
         }
     }
 

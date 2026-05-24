@@ -6,6 +6,7 @@
 
 package testing;
 
+import application.cli.PathOps;
 import static testing.TestSupport.*;
 
 import java.io.IOException;
@@ -178,7 +179,7 @@ public final class NNUERegressionTest {
 	private static void testBinaryLoad() throws IOException {
 		Position position = new Position(ONE_PAWN_FEN);
 		ModelArrays arrays = singlePawnArrays(position);
-		Path temp = Files.createTempFile("crtk-nnue-test-", ".nnue");
+		Path temp = PathOps.createLocalTempFile("crtk-nnue-test-", ".nnue");
 		try {
 			writeWeights(temp, arrays);
 			Network loaded = Network.load(temp);

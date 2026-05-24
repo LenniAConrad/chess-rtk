@@ -75,6 +75,36 @@ public final class PathOps {
 	}
 
 	/**
+	 * Creates a temporary file inside the repository-local ignored output tree.
+	 *
+	 * <p>This avoids the system-wide temporary directory for generated CRTK
+	 * artifacts while keeping the files out of source control.</p>
+	 *
+	 * @param prefix filename prefix
+	 * @param suffix filename suffix
+	 * @return temporary file path
+	 * @throws IOException when directory or file creation fails
+	 */
+	public static Path createLocalTempFile(String prefix, String suffix) throws IOException {
+		Path dir = Paths.get("out", "tmp");
+		Files.createDirectories(dir);
+		return Files.createTempFile(dir, prefix, suffix);
+	}
+
+	/**
+	 * Creates a temporary directory inside the repository-local ignored output tree.
+	 *
+	 * @param prefix directory prefix
+	 * @return temporary directory path
+	 * @throws IOException when directory creation fails
+	 */
+	public static Path createLocalTempDirectory(String prefix) throws IOException {
+		Path dir = Paths.get("out", "tmp");
+		Files.createDirectories(dir);
+		return Files.createTempDirectory(dir, prefix);
+	}
+
+	/**
 	 * Derives an output path by replacing the input's extension with the given suffix.
 	 *
 	 * @param input  input path used to derive the stem

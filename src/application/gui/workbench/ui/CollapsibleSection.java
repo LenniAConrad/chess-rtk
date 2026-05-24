@@ -245,15 +245,16 @@ final class CollapsibleSection extends JPanel {
         Insets insets = contentHolder.getInsets();
         int preferredWidth = Math.max(1, content.getPreferredSize().width
                 + insets.left + insets.right);
+        int expandedHeight = expandedContentHeight();
         Dimension size = new Dimension(preferredWidth, safeHeight);
         contentHolder.setPreferredSize(size);
         contentHolder.setMinimumSize(new Dimension(0, safeHeight));
         contentHolder.setMaximumSize(new Dimension(Integer.MAX_VALUE, safeHeight));
         contentHolder.setVisible(safeHeight > 0 || expanded);
         content.setVisible(safeHeight > 0 || expanded);
-        applyDisclosureProgress(expandedContentHeight() == 0
+        applyDisclosureProgress(expandedHeight == 0
                 ? (expanded ? 1.0d : 0.0d)
-                : safeHeight / (double) expandedContentHeight());
+                : safeHeight / (double) expandedHeight);
         revalidate();
         repaint();
     }
@@ -350,13 +351,13 @@ final class CollapsibleSection extends JPanel {
                 }
                 g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
                 g.setColor(isEnabled() ? Theme.MUTED : Theme.BUTTON_DISABLED_TEXT);
-                int cy = getHeight() / 2;
+                double cy = getHeight() / 2.0d;
                 AffineTransform oldTransform = g.getTransform();
-                g.rotate(expansionProgress * Math.PI / 2.0d, 9, cy);
+                g.rotate(expansionProgress * Math.PI / 2.0d, 9.0d, cy);
                 Path2D chevron = new Path2D.Double();
-                chevron.moveTo(7, cy - 4);
-                chevron.lineTo(11, cy);
-                chevron.lineTo(7, cy + 4);
+                chevron.moveTo(7.0d, cy - 4.0d);
+                chevron.lineTo(11.0d, cy);
+                chevron.lineTo(7.0d, cy + 4.0d);
                 g.setStroke(new BasicStroke(1.5f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
                 g.draw(chevron);
                 g.setTransform(oldTransform);

@@ -657,7 +657,7 @@ public final class PuzzleVolatilityReport {
         }
         drawPercentileMarkers(sb, changedReports, left, top, plotW, plotH, displayMax);
         drawSwingTicks(sb, left, top, plotW, plotH, displayMax);
-        drawLegend(sb, width - 305, 30);
+        drawLegend(sb, (double) width - 305.0, 30);
         sb.append("</svg>\n");
         return sb.toString();
     }

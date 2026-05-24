@@ -710,13 +710,13 @@ final class WorkbenchUiRegression {
     private static void testToggleSwitchAnimatesStateChanges() {
         JCheckBox toggle = (JCheckBox) construct(type("ToggleBox"),
                 new Class<?>[] { String.class, boolean.class }, "Follow leaf", true);
-        assertEquals(Double.valueOf(0.0), Double.valueOf((Double) field(toggle, "visualProgress")),
+        assertEquals(Double.valueOf(0.0), (Double) field(toggle, "visualProgress"),
                 "toggle starts visually off");
 
         toggle.setSelected(true);
         Timer timer = (Timer) field(toggle, "animationTimer");
         assertTrue(timer.isRunning(), "toggle starts animation timer when turned on");
-        assertEquals(Double.valueOf(1.0), Double.valueOf((Double) field(toggle, "animationTargetProgress")),
+        assertEquals(Double.valueOf(1.0), (Double) field(toggle, "animationTargetProgress"),
                 "toggle animates toward on state");
 
         setField(toggle, "animationStartedAt", Long.valueOf(System.currentTimeMillis() - 1000L));
@@ -727,7 +727,7 @@ final class WorkbenchUiRegression {
 
         toggle.setSelected(false);
         assertTrue(timer.isRunning(), "toggle starts animation timer when turned off");
-        assertEquals(Double.valueOf(0.0), Double.valueOf((Double) field(toggle, "animationTargetProgress")),
+        assertEquals(Double.valueOf(0.0), (Double) field(toggle, "animationTargetProgress"),
                 "toggle animates toward off state");
         timer.stop();
     }

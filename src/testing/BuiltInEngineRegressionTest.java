@@ -6,6 +6,7 @@
 
 package testing;
 
+import application.cli.PathOps;
 import static testing.TestSupport.*;
 
 import java.io.ByteArrayOutputStream;
@@ -38,7 +39,7 @@ import chess.nn.nnue.FeatureEncoder;
  * @since 2026
  * @author Lennart A. Conrad
  */
-@SuppressWarnings({"java:S1192", "java:S2187", "squid:S1192"})
+@SuppressWarnings({"java:S1192", "java:S2187", "java:S3011", "squid:S1192"})
 public final class BuiltInEngineRegressionTest {
 
 	/**
@@ -589,7 +590,7 @@ public final class BuiltInEngineRegressionTest {
 		Path defaultWeights = chess.nn.nnue.Model.DEFAULT_WEIGHTS;
 		Path backup = null;
 		if (Files.exists(defaultWeights)) {
-			backup = Files.createTempFile("crtk-engine-nnue-default-backup-", ".nnue");
+			backup = PathOps.createLocalTempFile("crtk-engine-nnue-default-backup-", ".nnue");
 			Files.deleteIfExists(backup);
 			Files.move(defaultWeights, backup, StandardCopyOption.REPLACE_EXISTING);
 		}
@@ -614,7 +615,7 @@ public final class BuiltInEngineRegressionTest {
 			}
 		}
 
-		Path temp = Files.createTempFile("crtk-engine-nnue-", ".nnue");
+		Path temp = PathOps.createLocalTempFile("crtk-engine-nnue-", ".nnue");
 		try {
 			writeZeroNnue(temp);
 			String summary = TestSupport.runMain(ENGINE_COMMAND, BUILTIN_COMMAND, FEN_OPTION, SIMPLE_FEN,

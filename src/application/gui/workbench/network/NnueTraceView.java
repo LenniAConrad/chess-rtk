@@ -471,7 +471,7 @@ public abstract class NnueTraceView extends NnueOverviewView {
      * @return label text
      */
     protected String stockfishFc1StageDetail() {
-    return safeLength(snapshot.data("nnue.stockfish.fc1.clipped")) + " clipped";
+        return safeLength(snapshot.data("nnue.stockfish.fc1.clipped")) + " clipped";
     }
 
     /**
@@ -481,7 +481,7 @@ public abstract class NnueTraceView extends NnueOverviewView {
      */
     protected String stockfishFc2StageDetail() {
         String suffix = snapshot.data("nnue.stockfish.fc0.fwd.cp") == null ? " terms" : " terms + fwd";
-    return safeLength(snapshot.data("nnue.stockfish.fc2.contribution")) + suffix;
+        return safeLength(snapshot.data("nnue.stockfish.fc2.contribution")) + suffix;
     }
 
     /**
@@ -490,8 +490,7 @@ public abstract class NnueTraceView extends NnueOverviewView {
      * @return label text
      */
     protected String classicFeatureStageDetail() {
-        int active = safeLength(snapshot.data("nnue.features.us.indices"));
-        return active + "/" + traceFeatureLanes() + " active";
+        return stockfishFeatureStageDetail();
     }
 
     /**
@@ -500,7 +499,7 @@ public abstract class NnueTraceView extends NnueOverviewView {
      * @return label text
      */
     protected String classicAccumulatorStageDetail() {
-    return visibleStageDetail(snapshot.data("nnue.accumulator.us"), "slots");
+        return visibleStageDetail(snapshot.data("nnue.accumulator.us"), "slots");
     }
 
     /**
@@ -858,7 +857,7 @@ public abstract class NnueTraceView extends NnueOverviewView {
             return;
         }
         TensorViz.drawCard(g, r,
-                selectedSlot >= 0 ? "slot zoom" : "slot zoom",
+                "slot zoom",
                 selectedSlot >= 0 ? "incoming feature weights for the selected neuron"
                         : "click any accumulator neuron to zoom",
                 TensorViz.FOCUS);
@@ -932,7 +931,7 @@ public abstract class NnueTraceView extends NnueOverviewView {
      */
     protected void drawStockfishSlotZoom(Graphics2D g, Rectangle r) {
         TensorViz.drawCard(g, r,
-                selectedSlot >= 0 ? "lane zoom" : "lane zoom",
+                "lane zoom",
                 selectedSlot >= 0 ? "incoming HalfKA weights and FC0 forward branch"
                         : "click any transformer lane to zoom",
                 TensorViz.FOCUS);

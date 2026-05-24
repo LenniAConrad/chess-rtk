@@ -887,24 +887,11 @@ public final class NetworkPanel extends JPanel {
     }
 
     /**
-     * Returns true when the current architecture supports atlas mode.
-     *
-     * @return atlas supported flag
-     */
-    private boolean isAtlasSupported() {
-        return true;
-    }
-
-    /**
      * Keeps the Atlas segment enabled. All architectures now have a dedicated
      * atlas renderer.
      */
     private void updateAtlasAvailability() {
-        boolean atlasSupported = isAtlasSupported();
-        if (!atlasSupported && viewMode.getSelectedIndex() == MODE_ATLAS) {
-            viewMode.setSelectedIndex(0);
-        }
-        viewMode.setSegmentEnabled(MODE_ATLAS, atlasSupported);
+        viewMode.setSegmentEnabled(MODE_ATLAS, true);
     }
 
     /**
@@ -995,7 +982,6 @@ public final class NetworkPanel extends JPanel {
      * up in an inconsistent combination of flags.
      */
     private void propagateViewMode() {
-        int index = viewMode.getSelectedIndex();
         ViewMode mode = selectedViewMode();
         nnueView.setViewMode(mode);
         cnnView.setViewMode(mode);

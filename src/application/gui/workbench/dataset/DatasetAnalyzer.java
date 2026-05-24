@@ -66,13 +66,6 @@ public final class DatasetAnalyzer {
             "fen", "fens", "txt", "csv", "tsv", "json", "jsonl", "record", "records", "pgn");
 
     /**
-     * FEN-looking substring matcher for mixed text, CSV, and PGN tag rows.
-     */
-    private static final Pattern FEN_PATTERN = Pattern.compile(
-            "([pnbrqkPNBRQK1-8]+(?:/[pnbrqkPNBRQK1-8]+){7})\\s+"
-                    + "([wb])\\s+(-|[KQkqA-Ha-h]+)\\s+(-|[a-h][36])\\s+(\\d+)\\s+(\\d+)");
-
-    /**
      * UCI-style score matcher used inside analysis lines.
      */
     private static final Pattern SCORE_PATTERN = Pattern.compile("score\\s+(cp|mate)\\s+(-?\\d+)");
@@ -365,12 +358,90 @@ public final class DatasetAnalyzer {
      * @return FEN or blank
      */
     private static String extractFen(String text) {
-        Matcher matcher = FEN_PATTERN.matcher(text);
-        if (!matcher.find()) {
+        if (text == null || text.isBlank()) {
             return "";
         }
-        return matcher.group(1) + ' ' + matcher.group(2) + ' ' + matcher.group(3) + ' '
-                + matcher.group(4) + ' ' + matcher.group(5) + ' ' + matcher.group(6);
+        String[] tokens = text.trim().split("\\s+");
+        for (int i = 0; i + 5 < tokens.length; i++) {
+            if (isFenTokenWindow(tokens, i)) {
+                return tokens[i] + ' ' + tokens[i + 1] + ' ' + tokens[i + 2] + ' '
+                        + tokens[i + 3] + ' ' + tokens[i + 4] + ' ' + tokens[i + 5];
+            }
+        }
+        return "";
+    }
+
+    /**
+     * Returns whether six adjacent tokens form a FEN-like record.
+     *
+     * @param tokens source tokens
+     * @param start first token index
+     * @return true when the token window looks like FEN
+     */
+    private static boolean isFenTokenWindow(String[] tokens, int start) {
+        return isBoardToken(tokens[start])
+                && ("w".equalsIgnoreCase(tokens[start + 1]) || "b".equalsIgnoreCase(tokens[start + 1]))
+                && isCastlingToken(tokens[start + 2])
+                && isEnPassantToken(tokens[start + 3])
+                && isNonNegativeInteger(tokens[start + 4])
+                && isNonNegativeInteger(tokens[start + 5]);
+    }
+
+    /**
+     * Returns whether a token looks like a FEN piece-placement field.
+     *
+     * @param token candidate token
+     * @return true when the token has eight slash-separated ranks
+     */
+    private static boolean isBoardToken(String token) {
+        int slashes = 0;
+        for (int i = 0; i < token.length(); i++) {
+            char ch = token.charAt(i);
+            if (ch == '/') {
+                slashes++;
+            } else if ("pnbrqkPNBRQK12345678".indexOf(ch) < 0) {
+                return false;
+            }
+        }
+        return slashes == 7;
+    }
+
+    /**
+     * Returns whether a token looks like a FEN castling field.
+     *
+     * @param token candidate token
+     * @return true when castling rights are syntactically plausible
+     */
+    private static boolean isCastlingToken(String token) {
+        return "-".equals(token) || token.matches("[KQkqA-Ha-h]+");
+    }
+
+    /**
+     * Returns whether a token looks like a FEN en-passant field.
+     *
+     * @param token candidate token
+     * @return true when the token is "-" or a third/sixth-rank square
+     */
+    private static boolean isEnPassantToken(String token) {
+        return "-".equals(token) || token.matches("[a-h][36]");
+    }
+
+    /**
+     * Returns whether a token is a non-negative base-10 integer.
+     *
+     * @param token candidate token
+     * @return true when every character is a digit
+     */
+    private static boolean isNonNegativeInteger(String token) {
+        if (token == null || token.isEmpty()) {
+            return false;
+        }
+        for (int i = 0; i < token.length(); i++) {
+            if (!Character.isDigit(token.charAt(i))) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /**

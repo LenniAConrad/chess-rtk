@@ -6,6 +6,7 @@
 
 package testing;
 
+import application.cli.PathOps;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
@@ -24,7 +25,7 @@ import chess.nn.nnue.UpstreamNetwork;
 /**
  * Regression checks for Stockfish-compatible NNUE loading and inference.
  */
-@SuppressWarnings("java:S2187")
+@SuppressWarnings({ "java:S2187", "java:S3011", "java:S5669" })
 public final class UpstreamRegressionTest {
 
     /**
@@ -121,7 +122,7 @@ public final class UpstreamRegressionTest {
      */
     private static void testCurrentSmallNetLoadAndEvaluate() throws IOException {
         byte[] net = writeSyntheticCurrentSmallNet();
-        Path temp = Files.createTempFile("crtk-upstream-nnue-test-", ".nnue");
+        Path temp = PathOps.createLocalTempFile("crtk-upstream-nnue-test-", ".nnue");
         try {
             Files.write(temp, net);
 
@@ -146,7 +147,7 @@ public final class UpstreamRegressionTest {
      */
     private static void testCurrentSmallNetCapturesWorkbenchActivations() throws IOException {
         byte[] net = writeSyntheticCurrentSmallNet();
-        Path temp = Files.createTempFile("crtk-upstream-nnue-capture-test-", ".nnue");
+        Path temp = PathOps.createLocalTempFile("crtk-upstream-nnue-capture-test-", ".nnue");
         try {
             Files.write(temp, net);
             Model model = Model.load(temp);
@@ -181,7 +182,7 @@ public final class UpstreamRegressionTest {
      */
     private static void testCurrentSmallNetIncrementalSearchState() throws IOException {
         byte[] net = writeSyntheticCurrentSmallNet();
-        Path temp = Files.createTempFile("crtk-upstream-nnue-search-test-", ".nnue");
+        Path temp = PathOps.createLocalTempFile("crtk-upstream-nnue-search-test-", ".nnue");
         try {
             Files.write(temp, net);
             UpstreamNetwork upstream = UpstreamNetwork.load(temp);

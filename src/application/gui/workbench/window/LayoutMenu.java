@@ -548,7 +548,7 @@ public final class LayoutMenu {
          */
         @Override
         public int getIconHeight() {
-            return SIZE;
+            return getIconWidth();
         }
 
         /**

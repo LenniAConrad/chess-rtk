@@ -20,6 +20,7 @@ import java.awt.Rectangle;
 import java.awt.RenderingHints;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.function.IntConsumer;
 import java.util.function.Supplier;
 import javax.swing.BorderFactory;
@@ -742,7 +743,7 @@ public final class EditorSplitArea extends JPanel {
             strip.add(tab);
             tab.setPaneActive(activePane == pane || (!isSplitActive() && pane == PANE_PRIMARY));
         }
-        if (open.size() < panels.size() || panelFactories.stream().anyMatch(factory -> factory != null)) {
+        if (open.size() < panels.size() || panelFactories.stream().anyMatch(Objects::nonNull)) {
             strip.add(reopenButton(pane));
         }
         strip.revalidate();

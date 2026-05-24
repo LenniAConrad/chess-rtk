@@ -346,9 +346,7 @@ public final class Network implements AutoCloseable {
                 }
             }
         }
-        for (int h = 0; h < hidden; h++) {
-            output[h] = weights.outputWeights[h];
-        }
+        System.arraycopy(weights.outputWeights, 0, output, 0, hidden);
         sink.put("nnue.atlas.weights", new int[] { hidden, planes, squares }, atlas);
         sink.put("nnue.atlas.king", new int[] { hidden, squares }, kingMap);
         sink.put("nnue.atlas.output", new int[] { hidden }, output);

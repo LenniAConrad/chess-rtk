@@ -461,7 +461,7 @@ public final class UpstreamNetwork implements AutoCloseable {
             int feature = features[row];
             int base = feature * hidden;
             for (int col = 0; col < half; col++) {
-                out[row * half + col] = transformer.psqWeights[base + col]
+                out[row * half + col] = (float) transformer.psqWeights[base + col]
                         + transformer.psqWeights[base + half + col];
             }
         }
@@ -540,7 +540,7 @@ public final class UpstreamNetwork implements AutoCloseable {
         for (int row = 0; row < l3; row++) {
             int base = row * layer.paddedInputDimensions;
             for (int col = 0; col < l2; col++) {
-                out[row * l2 + col] = layer.weights[base + col]
+                out[row * l2 + col] = (float) layer.weights[base + col]
                         + layer.weights[base + l2 + col];
             }
         }

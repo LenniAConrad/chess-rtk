@@ -6,6 +6,7 @@
 
 package testing;
 
+import application.cli.PathOps;
 import static testing.TestSupport.*;
 
 import java.nio.charset.StandardCharsets;
@@ -163,7 +164,7 @@ public final class BookRegressionTest {
 	 * @throws Exception if export fails
 	 */
 	private static void testBookExport() throws Exception {
-		Path file = Files.createTempFile("chess-book-", ".pdf");
+		Path file = PathOps.createLocalTempFile("chess-book-", ".pdf");
 		Writer.write(file, sampleBook(48));
 
 		byte[] bytes = Files.readAllBytes(file);
@@ -187,7 +188,7 @@ public final class BookRegressionTest {
 	 * @throws Exception if export fails
 	 */
 	private static void testLongSolutionTableRows() throws Exception {
-		Path file = Files.createTempFile("chess-book-long-table-", ".pdf");
+		Path file = PathOps.createLocalTempFile("chess-book-long-table-", ".pdf");
 		Writer.write(file, longTableBook());
 
 		byte[] bytes = Files.readAllBytes(file);
@@ -203,7 +204,7 @@ public final class BookRegressionTest {
 	 * @throws Exception if export fails
 	 */
 	private static void testFenWhitespace() throws Exception {
-		Path file = Files.createTempFile("chess-book-fen-whitespace-", ".pdf");
+		Path file = PathOps.createLocalTempFile("chess-book-fen-whitespace-", ".pdf");
 		Book book = sampleBook(1);
 		Element[] elements = book.getElements();
 		elements[0].setPosition("1k4nr/ppp3pp/8/8/1b6/3r1P2/PP1B1P1P/R2KR3   w  -  -  0  1");
@@ -224,7 +225,7 @@ public final class BookRegressionTest {
 	 * @throws Exception if export fails
 	 */
 	private static void testDefaultHowToReadAndMoveLabels() throws Exception {
-		Path file = Files.createTempFile("chess-book-default-howto-", ".pdf");
+		Path file = PathOps.createLocalTempFile("chess-book-default-howto-", ".pdf");
 		Book book = sampleBook(8).setHowToRead(new String[0]);
 		Writer.write(file, book);
 
@@ -252,7 +253,7 @@ public final class BookRegressionTest {
 	 * @throws Exception if export fails
 	 */
 	private static void testSolutionLineParsingUsesCoreSanHelpers() throws Exception {
-		Path file = Files.createTempFile("chess-book-core-san-", ".pdf");
+		Path file = PathOps.createLocalTempFile("chess-book-core-san-", ".pdf");
 		Book book = sampleBook(1)
 				.setTitle("Core SAN Book")
 				.setSubtitle("Castling Sample")
@@ -278,7 +279,7 @@ public final class BookRegressionTest {
 	 * @throws Exception if export fails
 	 */
 	private static void testFreeEditionWatermark() throws Exception {
-		Path file = Files.createTempFile("chess-book-free-watermark-", ".pdf");
+		Path file = PathOps.createLocalTempFile("chess-book-free-watermark-", ".pdf");
 		Writer.write(file, sampleBook(8), true, "ARC-REGRESSION-42");
 
 		byte[] bytes = Files.readAllBytes(file);
@@ -298,7 +299,7 @@ public final class BookRegressionTest {
 	 * @throws Exception if export fails
 	 */
 	private static void testTocEntriesAreLinks() throws Exception {
-		Path file = Files.createTempFile("chess-book-toc-links-", ".pdf");
+		Path file = PathOps.createLocalTempFile("chess-book-toc-links-", ".pdf");
 		Writer.write(file, sampleBook(1));
 
 		String text = java.util.Objects.requireNonNull(Files.readString(file, StandardCharsets.ISO_8859_1));
@@ -313,7 +314,7 @@ public final class BookRegressionTest {
 	 * @throws Exception if export fails
 	 */
 	private static void testUserSuppliedListParagraphs() throws Exception {
-		Path file = Files.createTempFile("chess-book-lists-", ".pdf");
+		Path file = PathOps.createLocalTempFile("chess-book-lists-", ".pdf");
 		Book book = sampleBook(8)
 				.setTitle("List Book")
 				.setSubtitle("Flow Sample")
@@ -337,7 +338,7 @@ public final class BookRegressionTest {
 	 * @throws Exception if export fails
 	 */
 	private static void testTypographicPunctuationUsesBaseFontText() throws Exception {
-		Path file = Files.createTempFile("chess-book-punctuation-", ".pdf");
+		Path file = PathOps.createLocalTempFile("chess-book-punctuation-", ".pdf");
 		Book book = sampleBook(8)
 				.setTitle("Punctuation Book")
 				.setSubtitle("Base Text")
@@ -361,7 +362,7 @@ public final class BookRegressionTest {
 	 * @throws Exception if export fails
 	 */
 	private static void testMultilingualVectorText() throws Exception {
-		Path file = Files.createTempFile("chess-book-i18n-", ".pdf");
+		Path file = PathOps.createLocalTempFile("chess-book-i18n-", ".pdf");
 		Book book = sampleBook(8)
 				.setTitle("I18N Book")
 				.setSubtitle("Vector Text")

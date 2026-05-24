@@ -53,6 +53,7 @@ public final class MctsPanel extends JPanel {
     /**
      * Current-board FEN supplied by the workbench.
      */
+    @SuppressWarnings("java:S1450")
     private String liveFen = Game.STANDARD_START_FEN;
 
     /**

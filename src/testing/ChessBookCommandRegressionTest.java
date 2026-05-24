@@ -6,6 +6,7 @@
 
 package testing;
 
+import application.cli.PathOps;
 import static testing.TestSupport.*;
 
 import java.nio.charset.StandardCharsets;
@@ -77,10 +78,10 @@ public final class ChessBookCommandRegressionTest {
 	 * @throws Exception if export fails
 	 */
 	private static void testJsonBookExport() throws Exception {
-		Path input = Files.createTempFile(BOOK_RENDER_PREFIX, JSON_SUFFIX);
+		Path input = PathOps.createLocalTempFile(BOOK_RENDER_PREFIX, JSON_SUFFIX);
 		Files.writeString(input, sampleJson(16), StandardCharsets.UTF_8);
 
-		Path output = Files.createTempFile(BOOK_RENDER_PREFIX, ".pdf");
+		Path output = PathOps.createLocalTempFile(BOOK_RENDER_PREFIX, ".pdf");
 		BookRenderCommand.runBookRender(new Argv(new String[] {
 				INPUT_OPTION, input.toString(),
 				OUTPUT_OPTION, output.toString(),
@@ -101,10 +102,10 @@ public final class ChessBookCommandRegressionTest {
 	 * @throws Exception if export fails
 	 */
 	private static void testTomlBookExport() throws Exception {
-		Path input = Files.createTempFile(BOOK_RENDER_PREFIX, ".toml");
+		Path input = PathOps.createLocalTempFile(BOOK_RENDER_PREFIX, ".toml");
 		Files.writeString(input, sampleToml(16), StandardCharsets.UTF_8);
 
-		Path output = Files.createTempFile(BOOK_RENDER_PREFIX, ".pdf");
+		Path output = PathOps.createLocalTempFile(BOOK_RENDER_PREFIX, ".pdf");
 		BookRenderCommand.runBookRender(new Argv(new String[] {
 				input.toString(),
 				OUTPUT_OPTION, output.toString()
@@ -124,10 +125,10 @@ public final class ChessBookCommandRegressionTest {
 	 * @throws Exception if export fails
 	 */
 	private static void testMetadataOverridesAndLimit() throws Exception {
-		Path input = Files.createTempFile(BOOK_RENDER_PREFIX, JSON_SUFFIX);
+		Path input = PathOps.createLocalTempFile(BOOK_RENDER_PREFIX, JSON_SUFFIX);
 		Files.writeString(input, sampleJson(12), StandardCharsets.UTF_8);
 
-		Path output = Files.createTempFile(BOOK_RENDER_PREFIX, ".pdf");
+		Path output = PathOps.createLocalTempFile(BOOK_RENDER_PREFIX, ".pdf");
 		String console = captureStdout(() -> BookRenderCommand.runBookRender(new Argv(new String[] {
 					INPUT_OPTION, input.toString(),
 					OUTPUT_OPTION, output.toString(),
@@ -150,10 +151,10 @@ public final class ChessBookCommandRegressionTest {
 	 * @throws Exception if validation fails unexpectedly
 	 */
 	private static void testCheckModeDoesNotWritePdf() throws Exception {
-		Path input = Files.createTempFile(BOOK_RENDER_PREFIX + "check-", JSON_SUFFIX);
+		Path input = PathOps.createLocalTempFile(BOOK_RENDER_PREFIX + "check-", JSON_SUFFIX);
 		Files.writeString(input, sampleJson(6), StandardCharsets.UTF_8);
 
-		Path output = Files.createTempDirectory("book-render-check-").resolve("book.pdf");
+		Path output = PathOps.createLocalTempDirectory("book-render-check-").resolve("book.pdf");
 		String console = captureStdout(() -> BookRenderCommand.runBookRender(new Argv(new String[] {
 				INPUT_OPTION, input.toString(),
 				OUTPUT_OPTION, output.toString(),
@@ -172,10 +173,10 @@ public final class ChessBookCommandRegressionTest {
 	 * @throws Exception if export fails
 	 */
 	private static void testFreeWatermarkFlag() throws Exception {
-		Path input = Files.createTempFile(BOOK_RENDER_PREFIX + "watermark-", JSON_SUFFIX);
+		Path input = PathOps.createLocalTempFile(BOOK_RENDER_PREFIX + "watermark-", JSON_SUFFIX);
 		Files.writeString(input, sampleJson(8), StandardCharsets.UTF_8);
 
-		Path output = Files.createTempFile(BOOK_RENDER_PREFIX + "watermark-", ".pdf");
+		Path output = PathOps.createLocalTempFile(BOOK_RENDER_PREFIX + "watermark-", ".pdf");
 		String console = captureStdout(() -> BookRenderCommand.runBookRender(new Argv(new String[] {
 				INPUT_OPTION, input.toString(),
 				OUTPUT_OPTION, output.toString(),

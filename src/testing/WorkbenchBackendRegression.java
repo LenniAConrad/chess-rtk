@@ -6,6 +6,7 @@
 
 package testing;
 
+import application.cli.PathOps;
 import static testing.WorkbenchTestSupport.*;
 
 import java.awt.Color;
@@ -176,7 +177,7 @@ final class WorkbenchBackendRegression {
      */
     private static void testRunLogWritesFullOutput() {
         try {
-            Path dir = Files.createTempDirectory("crtk-workbench-log-");
+            Path dir = PathOps.createLocalTempDirectory("crtk-workbench-log-");
             Object manager = construct(type("JobManager"), new Class<?>[0]);
             Class<?> jobType = type("Job");
             Object job = invoke(manager, "create", new Class<?>[] { List.class },
@@ -229,7 +230,7 @@ final class WorkbenchBackendRegression {
      */
     private static void testRunLogAvoidsClobberingExistingFile() {
         try {
-            Path dir = Files.createTempDirectory("crtk-workbench-log-clobber-");
+            Path dir = PathOps.createLocalTempDirectory("crtk-workbench-log-clobber-");
             Path existing = dir.resolve("run-00001-succeeded.log");
             Files.writeString(existing, "keep", StandardCharsets.UTF_8);
 
@@ -258,7 +259,7 @@ final class WorkbenchBackendRegression {
      */
     private static void testRunManifestWritesReplayMetadata() {
         try {
-            Path dir = Files.createTempDirectory("crtk-workbench-manifest-");
+            Path dir = PathOps.createLocalTempDirectory("crtk-workbench-manifest-");
             Path input = dir.resolve("input.fens");
             Path output = dir.resolve("result.jsonl");
             Files.writeString(input, START_FEN + System.lineSeparator(), StandardCharsets.UTF_8);
@@ -317,7 +318,7 @@ final class WorkbenchBackendRegression {
      */
     private static void testRunManifestAvoidsClobberingExistingFile() {
         try {
-            Path dir = Files.createTempDirectory("crtk-workbench-manifest-clobber-");
+            Path dir = PathOps.createLocalTempDirectory("crtk-workbench-manifest-clobber-");
             Path existing = dir.resolve("run-00001-succeeded.json");
             Files.writeString(existing, "keep", StandardCharsets.UTF_8);
 
@@ -424,15 +425,15 @@ final class WorkbenchBackendRegression {
         JComponent viewMode = (JComponent) field(panel, "viewMode");
         assertTrue(viewMode.getPreferredSize().width < 340,
                 "view selector exposes only the simple modes");
-        boolean[] enabled = (boolean[]) field(viewMode, "enabled");
+        boolean[] enabled = (boolean[]) field(viewMode, "segmentEnabled");
         assertTrue(enabled[2], "NNUE all-neurons segment enabled");
         assertTrue(enabled[3], "NNUE atlas segment enabled");
         archCombo.setSelectedItem("CNN - 10x128");
-        enabled = (boolean[]) field(viewMode, "enabled");
+        enabled = (boolean[]) field(viewMode, "segmentEnabled");
         assertTrue(enabled[2], "CNN all-neurons segment enabled");
         assertTrue(enabled[3], "CNN atlas segment enabled");
         archCombo.setSelectedItem("BT4 - 1024x15x32h");
-        enabled = (boolean[]) field(viewMode, "enabled");
+        enabled = (boolean[]) field(viewMode, "segmentEnabled");
         assertTrue(enabled[2], "BT4 all-neurons segment enabled");
         assertTrue(enabled[3], "BT4 atlas segment enabled");
         invoke(panel, "setFen", new Class<?>[] { String.class }, START_FEN);
@@ -587,6 +588,9 @@ final class WorkbenchBackendRegression {
             SwingUtilities.invokeAndWait(() -> {
                 // flush queued events
             });
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            throw new AssertionError("interrupted while flushing EDT", ex);
         } catch (Exception ex) {
             throw new AssertionError("unable to flush EDT", ex);
         }

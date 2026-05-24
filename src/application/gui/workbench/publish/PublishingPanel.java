@@ -6,6 +6,7 @@
 
 package application.gui.workbench.publish;
 
+import application.cli.PathOps;
 import application.gui.workbench.Defaults;
 import application.gui.workbench.command.CommandRunner;
 import application.gui.workbench.game.FenInput;
@@ -710,7 +711,7 @@ public final class PublishingPanel {
                 "Choose PDF", sectionRow++,
                 this::choosePublishPdfPath);
         publishCoverOutputButton = addChooserRow(files, filesC, publishCoverOutputLabel, publishCoverOutputField,
-                "Choose Cover", sectionRow++,
+                "Choose Cover", sectionRow,
                 () -> FileDialogs.choosePath(host.owner(), publishCoverOutputField, true, "Choose cover output"));
         grid(panel, collapsible("Files", files, true), c, 0, row++, 4, 1);
 
@@ -1810,7 +1811,7 @@ public final class PublishingPanel {
         if (host.gameModel().lastPly() <= 0) {
     throw new IllegalArgumentException("Play or import at least one game move before exporting PGN.");
         }
-        Path file = Files.createTempFile("crtk-workbench-game-", ".pgn");
+        Path file = PathOps.createLocalTempFile("crtk-workbench-game-", ".pgn");
         file.toFile().deleteOnExit();
         Files.writeString(file, host.gameModel().pgn() + System.lineSeparator(), StandardCharsets.UTF_8);
         return file;
@@ -1830,7 +1831,7 @@ public final class PublishingPanel {
         if (text.isBlank()) {
     throw new IllegalArgumentException("Add FENs to the Batch tab first.");
         }
-        Path file = Files.createTempFile("crtk-workbench-fens-", ".txt");
+        Path file = PathOps.createLocalTempFile("crtk-workbench-fens-", ".txt");
         file.toFile().deleteOnExit();
         Files.writeString(file, text + System.lineSeparator(), StandardCharsets.UTF_8);
         return file;

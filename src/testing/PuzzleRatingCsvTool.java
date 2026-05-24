@@ -602,7 +602,7 @@ public final class PuzzleRatingCsvTool {
             double value = yMax * i / ticks;
             double y = top + plotH - plotH * value / yMax;
             g.setColor(REPORT_GRID);
-            g.draw(new java.awt.geom.Line2D.Double(left, y, left + plotW, y));
+            g.draw(new java.awt.geom.Line2D.Double(left, y, (double) left + plotW, y));
             g.setColor(REPORT_MUTED);
             drawRight(g, left - 12.0, y + 4.0, percent(value));
         }
@@ -621,18 +621,18 @@ public final class PuzzleRatingCsvTool {
     private static void drawGraphBars(Graphics2D g, double[] percentages, int left, int top, int plotW, int plotH,
             double yMax) {
         double bw = plotW / (double) percentages.length;
-        double base = top + plotH;
+        double base = (double) top + plotH;
         Path2D path = new Path2D.Double();
         path.moveTo(left, base);
         for (int i = 0; i < percentages.length; i++) {
             double h = plotH * percentages[i] / yMax;
             double x1 = left + i * bw;
-            double x2 = left + (i + 1) * bw;
+            double x2 = left + ((double) i + 1.0) * bw;
             double y = base - h;
             path.lineTo(x1, y);
             path.lineTo(x2, y);
         }
-        path.lineTo(left + plotW, base);
+        path.lineTo((double) left + plotW, base);
         path.closePath();
         g.setColor(REPORT_BAR);
         g.fill(path);
@@ -685,17 +685,17 @@ public final class PuzzleRatingCsvTool {
         g.setFont(new java.awt.Font(java.awt.Font.SANS_SERIF, java.awt.Font.PLAIN, 11));
         for (int rating = MIN_RATING; rating <= MAX_RATING; rating += 100) {
             double x = ratingX(rating, left, plotW);
-            g.draw(new java.awt.geom.Line2D.Double(x, top + plotH, x, top + plotH + 5.0));
+            g.draw(new java.awt.geom.Line2D.Double(x, (double) top + plotH, x, (double) top + plotH + 5.0));
             g.setColor(REPORT_MUTED);
             drawCentered(g, x, top + plotH + 22.0, Integer.toString(rating));
             g.setColor(REPORT_RULE);
         }
         g.setColor(REPORT_MUTED);
         g.setFont(new java.awt.Font(java.awt.Font.SANS_SERIF, java.awt.Font.PLAIN, 12));
-        drawCentered(g, left + plotW / 2.0, top + plotH + 58.0, "Puzzle rating");
+        drawCentered(g, (double) left + plotW / 2.0, (double) top + plotH + 58.0, "Puzzle rating");
         AffineTransform old = g.getTransform();
-        g.rotate(-Math.PI / 2.0, left - 56.0, top + plotH / 2.0);
-        drawCentered(g, left - 56.0, top + plotH / 2.0,
+        g.rotate(-Math.PI / 2.0, left - 56.0, (double) top + plotH / 2.0);
+        drawCentered(g, left - 56.0, (double) top + plotH / 2.0,
                 "% of puzzles per " + DISPLAY_BIN_WIDTH + " rating points");
         g.setTransform(old);
     }
@@ -719,7 +719,7 @@ public final class PuzzleRatingCsvTool {
         for (int i = 0; i < ps.length; i++) {
             int rating = percentile(rows, ps[i]);
             double x = ratingX(rating, left, plotW);
-            g.draw(new java.awt.geom.Line2D.Double(x, top, x, top + plotH));
+            g.draw(new java.awt.geom.Line2D.Double(x, top, x, (double) top + plotH));
             g.setColor(REPORT_MUTED);
             drawCentered(g, x, top - 9.0, labels[i] + " " + rating);
             g.setColor(new Color(128, 128, 128, 92));
@@ -853,7 +853,7 @@ public final class PuzzleRatingCsvTool {
             return MIN_RATING;
         }
         int[] ratings = rows.stream().mapToInt(Row::rating).sorted().toArray();
-        int index = (int) Math.round(Math.max(0, Math.min(ratings.length - 1, p * (ratings.length - 1))));
+        int index = (int) Math.round(Math.max(0.0, Math.min(ratings.length - 1.0, p * (ratings.length - 1.0))));
         return ratings[index];
     }
 
@@ -1777,7 +1777,7 @@ public final class PuzzleRatingCsvTool {
             return "";
         }
         String normalized = text.replace("\r\n", "\n").replace('\r', '\n').replace('\t', ' ');
-        return Pattern.compile("[ ]+").matcher(normalized).replaceAll(" ").trim();
+        return Pattern.compile(" +").matcher(normalized).replaceAll(" ").trim();
     }
 
     /**

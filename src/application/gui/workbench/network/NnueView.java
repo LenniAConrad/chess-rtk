@@ -27,10 +27,6 @@ import static application.gui.workbench.network.NnueTraceGeometry.*;
  * the NNUE-specific drawing plus the {@link Scrollable} plumbing the atlas mode
  * needs to expose every accumulator slot in a tall scrolling mosaic.</p>
  */
-
-/**
- * Workbench panel that visualises an NNUE half-KP forward pass.
- */
 public final class NnueView extends NnueTraceView {
     /** Serialization identifier for Swing component compatibility. */
     private static final long serialVersionUID = 1L;

@@ -422,7 +422,6 @@ public final class Mcts implements AutoCloseable {
 
             long maxNodes = effectiveMaxNodes(limits);
             long maxMillis = effectiveMaxMillis(limits);
-            Result best = currentResult(started, false);
             if (!shouldContinue(started, maxNodes, maxMillis)) {
                 Result stopped = currentResult(started, true);
                 notifySearch(listener, stopped);
@@ -442,14 +441,14 @@ public final class Mcts implements AutoCloseable {
                     iterateBatch(count);
                 }
                 if (playouts >= nextReport) {
-                    best = currentResult(started, false);
+                    Result best = currentResult(started, false);
                     notifySearch(listener, best);
                     nextReport = nextReport(playouts);
                 }
             }
             boolean stopped = stopRequested || maxNodes > 0L && playouts >= maxNodes
                     || maxMillis > 0L && elapsedSince(started) >= maxMillis;
-            best = currentResult(started, stopped);
+            Result best = currentResult(started, stopped);
             notifySearch(listener, best);
             return best;
         } finally {
@@ -1310,7 +1309,7 @@ public final class Mcts implements AutoCloseable {
         Node winningChild = null;
         Node drawingChild = null;
         Node longestLosingChild = null;
-        boolean allKnown = true;
+        boolean hasUnknownChild = false;
         boolean allChildrenWinForOpponent = true;
         for (Node child : node.children) {
             if (child.proof == ProofState.LOSS) {
@@ -1327,15 +1326,16 @@ public final class Mcts implements AutoCloseable {
                     longestLosingChild = child;
                 }
             } else {
-                allKnown = false;
+                hasUnknownChild = true;
                 allChildrenWinForOpponent = false;
             }
         }
+        boolean allKnown = !hasUnknownChild;
         if (winningChild != null) {
             setProof(node, ProofState.WIN, winningChild.proofPlies + 1);
         } else if (allKnown && drawingChild != null) {
             setProof(node, ProofState.DRAW, drawingChild.proofPlies + 1);
-        } else if (allKnown && allChildrenWinForOpponent && longestLosingChild != null) {
+        } else if (allChildrenWinForOpponent && longestLosingChild != null) {
             setProof(node, ProofState.LOSS, longestLosingChild.proofPlies + 1);
         }
     }
@@ -1767,12 +1767,7 @@ public final class Mcts implements AutoCloseable {
      * @return stats for result
      */
     private Stats statsFor(long key) {
-        Stats stats = transpositions.get(key);
-        if (stats == null) {
-            stats = new Stats();
-            transpositions.put(key, stats);
-        }
-        return stats;
+        return transpositions.computeIfAbsent(key, ignored -> new Stats());
     }
 
     /**
@@ -2324,7 +2319,7 @@ public final class Mcts implements AutoCloseable {
         private static Evaluation fromCentipawns(int centipawns) {
             double value = Math.tanh(Math.max(-2000, Math.min(2000, centipawns)) / 600.0);
             double draw = Math.max(0.0, 0.35 - Math.abs(value) * 0.25);
-            double win = value >= 0.0 ? (1.0 - draw) * (0.5 + value * 0.5) : (1.0 - draw) * (0.5 + value * 0.5);
+            double win = (1.0 - draw) * (0.5 + value * 0.5);
             double loss = Math.max(0.0, 1.0 - draw - win);
             return new Evaluation(win, draw, loss, value);
         }

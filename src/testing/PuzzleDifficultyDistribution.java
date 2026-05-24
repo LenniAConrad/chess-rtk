@@ -343,7 +343,7 @@ public final class PuzzleDifficultyDistribution {
         drawTrendLine(sb, movingAverage(percentages, trendWindowBins()), left, top, plotW, plotH, axisMaxPercent);
         drawPercentileMarkers(sb, samples, left, top, plotW, plotH, displayMaxRating);
         drawRatingTicks(sb, left, top, plotW, plotH, displayMaxRating);
-        drawLegend(sb, width - 305, 30);
+        drawLegend(sb, (double) width - 305.0, 30);
         sb.append("</svg>\n");
         Files.writeString(path, sb.toString(), StandardCharsets.UTF_8);
     }

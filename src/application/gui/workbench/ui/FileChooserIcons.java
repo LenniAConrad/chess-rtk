@@ -186,7 +186,7 @@ final class FileChooserIcons {
          */
         @Override
         public int getIconHeight() {
-            return size;
+            return getIconWidth();
         }
 
         /**

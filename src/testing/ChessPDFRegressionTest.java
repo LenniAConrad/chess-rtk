@@ -6,6 +6,7 @@
 
 package testing;
 
+import application.cli.PathOps;
 import static testing.TestSupport.*;
 
 import java.nio.charset.StandardCharsets;
@@ -101,7 +102,7 @@ public final class ChessPDFRegressionTest {
 				.setDiagramsPerRow(2)
 				.setBoardPixels(800);
 
-		Path file = Files.createTempFile("book-pdf-composition-", ".pdf");
+		Path file = PathOps.createLocalTempFile("book-pdf-composition-", ".pdf");
 		Writer.writeComposition(file, composition, options);
 
 		byte[] bytes = Files.readAllBytes(file);
@@ -133,7 +134,7 @@ public final class ChessPDFRegressionTest {
 				.setId(id.toString())
 				.addFigure(new Position(Game.STANDARD_START_FEN), "Start", "Initial position", "");
 
-		Path file = Files.createTempFile("book-pdf-metadata-wrap-", ".pdf");
+		Path file = PathOps.createLocalTempFile("book-pdf-metadata-wrap-", ".pdf");
 		Writer.writeComposition(file, composition, new Options());
 
 		String text = Files.readString(file, StandardCharsets.ISO_8859_1);
@@ -153,7 +154,7 @@ public final class ChessPDFRegressionTest {
 				"r1bqkbnr/pppp1ppp/2n5/4p3/1b1PP3/2N2N2/PPP2PPP/R1BQKB1R w KQkq - 2 4",
 				"2rkr3/2p1p3/4N3/8/5K2/8/8/3R4 b - - 0 1");
 
-		Path file = Files.createTempFile("book-pdf-sheet-", ".pdf");
+		Path file = PathOps.createLocalTempFile("book-pdf-sheet-", ".pdf");
 		Writer.writeDiagramSheet(file, "Puzzle Sheet", fens,
 				new Options().setPageSize(PageSize.A5).setDiagramsPerRow(1).setBoardPixels(700));
 

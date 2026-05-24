@@ -415,7 +415,7 @@ final class WorkbenchCommandRegression {
                 "CLI script does not validate commands as FEN");
         assertEquals(Boolean.TRUE, invoke(task, "usesCommandInput", new Class<?>[0]),
                 "CLI script validates command rows");
-        Path script = Path.of("/tmp/crtk-commands.txt");
+        Path script = Path.of("out", "tmp", "crtk-commands.txt");
         List<String> args = (List<String>) invoke(task, "build",
                 new Class<?>[] { Path.class, type("CommandTemplates$TemplateContext") },
                 script, templateContext(START_FEN, "1s", "4", "2", "1"));

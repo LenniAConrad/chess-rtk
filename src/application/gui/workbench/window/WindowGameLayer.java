@@ -386,8 +386,6 @@ public abstract class WindowGameLayer extends WindowEngineLayer {
         try {
             healthCheckQueue.add(buildEngineSmokeArgs());
         } catch (IllegalArgumentException ex) {
-            // External engine not configured — skip the smoke test silently;
-            // the config + doctor checks still run.
             appendConsole("Engine smoke skipped: " + ex.getMessage() + System.lineSeparator());
         }
         runNextHealthCheck();

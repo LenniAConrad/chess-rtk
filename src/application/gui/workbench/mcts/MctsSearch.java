@@ -864,7 +864,7 @@ public final class MctsSearch implements AutoCloseable {
         Node winningChild = null;
         Node drawingChild = null;
         Node longestLosingChild = null;
-        boolean allKnown = true;
+        boolean hasUnknownChild = false;
         boolean allChildrenWinForOpponent = true;
         for (Node child : node.children) {
             if (child.proof == ProofState.LOSS) {
@@ -881,15 +881,16 @@ public final class MctsSearch implements AutoCloseable {
                     longestLosingChild = child;
                 }
             } else {
-                allKnown = false;
+                hasUnknownChild = true;
                 allChildrenWinForOpponent = false;
             }
         }
+        boolean allKnown = !hasUnknownChild;
         if (winningChild != null) {
             setProof(node, ProofState.WIN, winningChild.proofPlies + 1);
         } else if (allKnown && drawingChild != null) {
             setProof(node, ProofState.DRAW, drawingChild.proofPlies + 1);
-        } else if (allKnown && allChildrenWinForOpponent && longestLosingChild != null) {
+        } else if (allChildrenWinForOpponent && longestLosingChild != null) {
             setProof(node, ProofState.LOSS, longestLosingChild.proofPlies + 1);
         }
     }
@@ -1332,12 +1333,7 @@ public final class MctsSearch implements AutoCloseable {
      * @return shared stats bucket
      */
     private Stats statsFor(long key) {
-        Stats stats = transpositions.get(key);
-        if (stats == null) {
-            stats = new Stats(key);
-            transpositions.put(key, stats);
-        }
-        return stats;
+        return transpositions.computeIfAbsent(key, Stats::new);
     }
 
     /**

@@ -6,6 +6,7 @@
 
 package testing;
 
+import application.cli.PathOps;
 import static testing.WorkbenchTestSupport.START_FEN;
 import static testing.WorkbenchTestSupport.assertEquals;
 import static testing.WorkbenchTestSupport.assertFalse;
@@ -150,7 +151,7 @@ final class WorkbenchDatasetRegression {
      */
     private static Path tempDataset(String prefix, String suffix, String content) {
         try {
-            Path file = Files.createTempFile(prefix, suffix);
+            Path file = PathOps.createLocalTempFile(prefix, suffix);
             Files.writeString(file, content);
             return file;
         } catch (java.io.IOException ex) {
@@ -181,7 +182,7 @@ final class WorkbenchDatasetRegression {
      */
     private static Path tempDirectory(String prefix) {
         try {
-            return Files.createTempDirectory(prefix);
+            return PathOps.createLocalTempDirectory(prefix);
         } catch (java.io.IOException ex) {
             throw new AssertionError("failed to create dataset fixture directory", ex);
         }

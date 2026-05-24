@@ -19,6 +19,7 @@ import javax.swing.Icon;
 /**
  * Flat workbench checkbox glyph for plain Swing checkboxes.
  */
+@SuppressWarnings("java:S6548")
 final class CheckBoxGlyph implements Icon {
 
     /**
@@ -60,7 +61,7 @@ final class CheckBoxGlyph implements Icon {
      */
     @Override
     public int getIconHeight() {
-        return VIEWPORT;
+        return getIconWidth();
     }
 
     /**
@@ -129,10 +130,12 @@ final class CheckBoxGlyph implements Icon {
      * @param enabled whether the checkbox is enabled
      */
     private static void paintCheck(Graphics2D g, int x, int y, boolean enabled) {
+        double left = x;
+        double top = y;
         Path2D check = new Path2D.Double();
-        check.moveTo(x + 4, y + 8);
-        check.lineTo(x + 7, y + 11);
-        check.lineTo(x + 12, y + 5);
+        check.moveTo(left + 4.0, top + 8.0);
+        check.lineTo(left + 7.0, top + 11.0);
+        check.lineTo(left + 12.0, top + 5.0);
         g.setColor(enabled ? Theme.PRIMARY_BUTTON_TEXT : Theme.BUTTON_DISABLED_TEXT);
         g.setStroke(new BasicStroke(1.9f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
         g.draw(check);

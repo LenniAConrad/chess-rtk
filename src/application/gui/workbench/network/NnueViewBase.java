@@ -176,7 +176,7 @@ public abstract class NnueViewBase extends NetworkView implements Scrollable {
     /**
      * Creates the NNUE view.
      */
-    public NnueViewBase() {
+    protected NnueViewBase() {
         super(720, 540);
     }
 
@@ -470,8 +470,8 @@ public abstract class NnueViewBase extends NetworkView implements Scrollable {
             for (int i = 0; i < visibleSlots.length; ++i) {
                 int cy = layout.startY + i * layout.slotPitch;
                 for (int cx : cxs) {
-                    long dx = x - cx;
-                    long dy = y - cy;
+                    long dx = (long) x - cx;
+                    long dy = (long) y - cy;
                     long dist = dx * dx + dy * dy;
                     if (dist < nearestDist) {
                         nearestDist = dist;

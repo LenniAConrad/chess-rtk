@@ -77,9 +77,9 @@ public final class SegmentedSwitcher extends JComponent {
     private int hovered = -1;
 
     /**
-     * Whether each segment is enabled. All true by default.
+     * Whether each segment accepts input. All true by default.
      */
-    private final boolean[] enabled;
+    private final boolean[] segmentEnabled;
 
     /**
      * Listeners registered with {@link #addActionListener(ActionListener)}.
@@ -138,9 +138,9 @@ public final class SegmentedSwitcher extends JComponent {
      */
     public SegmentedSwitcher(String[] labels) {
         this.labels = labels.clone();
-        this.enabled = new boolean[labels.length];
+        this.segmentEnabled = new boolean[labels.length];
         for (int i = 0; i < labels.length; i++) {
-            this.enabled[i] = true;
+            this.segmentEnabled[i] = true;
         }
         this.selected = 0;
         setOpaque(false);
@@ -207,11 +207,11 @@ public final class SegmentedSwitcher extends JComponent {
      * @param value true to enable
      */
     public void setSegmentEnabled(int index, boolean value) {
-        if (index < 0 || index >= enabled.length) {
+        if (index < 0 || index >= segmentEnabled.length) {
             return;
         }
-        if (enabled[index] != value) {
-            enabled[index] = value;
+        if (segmentEnabled[index] != value) {
+            segmentEnabled[index] = value;
             repaint();
         }
     }
@@ -284,7 +284,7 @@ public final class SegmentedSwitcher extends JComponent {
     private void paintSegment(Graphics2D g, Rectangle r, int index, FontMetrics fm) {
         boolean isSelected = index == selected;
         boolean isHovered = index == hovered;
-        boolean isEnabled = enabled[index];
+        boolean isEnabled = segmentEnabled[index];
         // Match the workbench tab look: a quiet strip where the active
         // segment is a light accent-tinted pill rather than a solid block.
         Color fill = Theme.ELEVATED_SOLID;
@@ -320,13 +320,10 @@ public final class SegmentedSwitcher extends JComponent {
      */
     private void paintSelectionIndicator(Graphics2D g, int height) {
         Rectangle selectedBounds = selectedBounds();
-        if (selectedBounds == null || !enabled[selected]) {
+        if (selectedBounds == null || !segmentEnabled[selected]) {
             return;
         }
-        if (!selectionTimer.isRunning()) {
-            indicatorX = selectedBounds.x;
-            indicatorWidth = selectedBounds.width;
-        } else if (indicatorWidth <= 0) {
+        if (!selectionTimer.isRunning() || indicatorWidth <= 0) {
             indicatorX = selectedBounds.x;
             indicatorWidth = selectedBounds.width;
         }
@@ -396,7 +393,7 @@ public final class SegmentedSwitcher extends JComponent {
         }
         for (int i = 0; i < segmentBounds.length; i++) {
             if (segmentBounds[i] != null && segmentBounds[i].contains(x, y)) {
-                if (enabled[i] && selected != i) {
+                if (segmentEnabled[i] && selected != i) {
                     selected = i;
                     startSelectionAnimation();
                     fire();

@@ -6,6 +6,7 @@
 
 package testing;
 
+import application.cli.PathOps;
 import static testing.TestSupport.*;
 
 import java.nio.charset.StandardCharsets;
@@ -55,12 +56,12 @@ public final class PuzzleStudyCommandRegressionTest {
 	 * @throws Exception if export fails
 	 */
 	private static void testBuildsManifestPdfAndCover() throws Exception {
-		Path input = Files.createTempFile(PREFIX, ".json");
+		Path input = PathOps.createLocalTempFile(PREFIX, ".json");
 		Files.writeString(input, sampleJson(), StandardCharsets.UTF_8);
 
-		Path manifest = Files.createTempFile(PREFIX, ".toml");
-		Path interiorPdf = Files.createTempFile(PREFIX, ".pdf");
-		Path coverPdf = Files.createTempFile(PREFIX, "-cover.pdf");
+		Path manifest = PathOps.createLocalTempFile(PREFIX, ".toml");
+		Path interiorPdf = PathOps.createLocalTempFile(PREFIX, ".pdf");
+		Path coverPdf = PathOps.createLocalTempFile(PREFIX, "-cover.pdf");
 		String console = runMain(
 				"book", "study",
 				"--input", input.toString(),
@@ -109,12 +110,12 @@ public final class PuzzleStudyCommandRegressionTest {
 	 * @throws Exception if validation fails unexpectedly
 	 */
 	private static void testCheckModeSkipsWrites() throws Exception {
-		Path input = Files.createTempFile(PREFIX + "check-", ".json");
+		Path input = PathOps.createLocalTempFile(PREFIX + "check-", ".json");
 		Files.writeString(input, sampleJson(), StandardCharsets.UTF_8);
 
-		Path manifest = Files.createTempDirectory(PREFIX + "check-").resolve("art.book.toml");
-		Path interiorPdf = Files.createTempDirectory(PREFIX + "check-pdf-").resolve("art.pdf");
-		Path coverPdf = Files.createTempDirectory(PREFIX + "check-cover-").resolve("art-cover.pdf");
+		Path manifest = PathOps.createLocalTempDirectory(PREFIX + "check-").resolve("art.book.toml");
+		Path interiorPdf = PathOps.createLocalTempDirectory(PREFIX + "check-pdf-").resolve("art.pdf");
+		Path coverPdf = PathOps.createLocalTempDirectory(PREFIX + "check-cover-").resolve("art-cover.pdf");
 		String console = runMain(
 				"book", "study",
 				"--input", input.toString(),

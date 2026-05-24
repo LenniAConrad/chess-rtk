@@ -6,6 +6,7 @@
 
 package application.gui.workbench.command;
 
+import application.cli.PathOps;
 import application.gui.workbench.Defaults;
 import application.gui.workbench.command.CommandTemplates.BatchInputKind;
 import application.gui.workbench.command.CommandTemplates.BatchTask;
@@ -209,6 +210,7 @@ public final class BatchPanel {
     /**
      * Whether duration text is currently being synchronized from the frame.
      */
+    @SuppressWarnings("java:S1450")
     private boolean settingDuration;
 
     /**
@@ -296,7 +298,7 @@ public final class BatchPanel {
             }
             if (task.usesTextInput()) {
                 String prefix = task.usesCommandInput() ? "crtk-workbench-commands-" : "crtk-workbench-fens-";
-                input = Files.createTempFile(prefix, ".txt");
+                input = PathOps.createLocalTempFile(prefix, ".txt");
                 input.toFile().deleteOnExit();
                 Files.writeString(input, batchInput.getText(), StandardCharsets.UTF_8);
             }

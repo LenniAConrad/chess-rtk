@@ -8,6 +8,7 @@ package application.cli.command.book.render;
 
 import static application.cli.PathOps.ensureParentDir;
 
+import application.cli.PathOps;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -96,7 +97,7 @@ public final class BookPdfSupport {
 			}
 			if (coverOutput != null) {
 				if (metricsPdf == null) {
-					tempPdf = Files.createTempFile(tempPrefix, ".pdf");
+					tempPdf = PathOps.createLocalTempFile(tempPrefix, ".pdf");
 					writeInterior.write(tempPdf);
 					metricsPdf = tempPdf;
 				}

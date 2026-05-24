@@ -36,6 +36,7 @@ import chess.struct.Game;
 /**
  * Shared reflective and rendering helpers for workbench regression suites.
  */
+@SuppressWarnings("java:S3011")
 final class WorkbenchTestSupport {
 
     /**
@@ -1088,7 +1089,7 @@ final class WorkbenchTestSupport {
         int red = first.getRed() - second.getRed();
         int green = first.getGreen() - second.getGreen();
         int blue = first.getBlue() - second.getBlue();
-        return Math.sqrt(red * red + green * green + blue * blue);
+        return Math.sqrt((double) red * red + (double) green * green + (double) blue * blue);
     }
 
     /**

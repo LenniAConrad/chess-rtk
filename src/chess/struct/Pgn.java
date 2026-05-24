@@ -621,7 +621,7 @@ public final class Pgn {
      * @param sb output builder to append to
      */
     private static void appendSpaceIfNeeded(StringBuilder sb) {
-        if (sb.length() > 0 && !Character.isWhitespace(sb.charAt(sb.length() - 1))) {
+        if (!sb.isEmpty() && !Character.isWhitespace(sb.charAt(sb.length() - 1))) {
             sb.append(' ');
         }
     }
@@ -680,9 +680,7 @@ public final class Pgn {
                     current = node;
                     commentsAttachToCurrentMove = true;
                 }
-                case COMMENT -> {
-                    handleCommentToken(current, pendingComments, token, commentsAttachToCurrentMove);
-                }
+                case COMMENT -> handleCommentToken(current, pendingComments, token, commentsAttachToCurrentMove);
                 case NAG -> {
                     handleNagToken(current, token);
                     commentsAttachToCurrentMove = current != null;
@@ -702,9 +700,6 @@ public final class Pgn {
                         game.setResult(token.value);
                     }
                     commentsAttachToCurrentMove = false;
-                }
-                default -> {
-                    // no-op for unsupported token kinds
                 }
             }
         }

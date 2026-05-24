@@ -27,7 +27,7 @@ public final class Positions {
     /**
      * Ordered map of human label to FEN. LinkedHashMap preserves UI order.
      */
-    private static final Map<String, String> POSITIONS;
+    private static final Map<String, String> namedPositions;
 
     static {
         Map<String, String> map = new LinkedHashMap<>();
@@ -47,7 +47,7 @@ public final class Positions {
                 "8/8/4k3/8/4K3/4P3/8/8 w - - 0 1");
         map.put("Mate in one",
                 "r1bqkb1r/pppp1Qpp/2n2n2/4p3/2B1P3/8/PPPP1PPP/RNB1K1NR b KQkq - 0 4");
-        POSITIONS = Collections.unmodifiableMap(map);
+        namedPositions = Collections.unmodifiableMap(map);
     }
 
     /**
@@ -56,7 +56,7 @@ public final class Positions {
      * @return label array
      */
     public static String[] labels() {
-        String[] keys = POSITIONS.keySet().toArray(new String[0]);
+        String[] keys = namedPositions.keySet().toArray(new String[0]);
         String[] out = new String[keys.length + 1];
         out[0] = USE_MAIN_BOARD;
         System.arraycopy(keys, 0, out, 1, keys.length);
@@ -74,7 +74,7 @@ public final class Positions {
         if (label == null || USE_MAIN_BOARD.equals(label)) {
             return null;
         }
-        return POSITIONS.get(label);
+        return namedPositions.get(label);
     }
 
     /**

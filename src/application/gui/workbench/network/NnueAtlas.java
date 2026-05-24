@@ -250,7 +250,10 @@ public final class NnueAtlas {
         int[] palette = atlasRampArgbPalette();
         for (int row = 0; row < hidden && row < order.length; row++) {
             int slot = order[row];
-            float scale = Math.max(1e-6f, valueAt(perNeuronScale, slot));
+            float scale = valueAt(perNeuronScale, slot);
+            if (scale <= 0.0f) {
+                scale = 1e-6f;
+            }
             for (int p = 0; p < planes; p++) {
                 int offset = (slot * planes + p) * squares;
                 for (int sq = 0; sq < 64; sq++) {
