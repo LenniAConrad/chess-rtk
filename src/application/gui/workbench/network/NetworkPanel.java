@@ -1369,10 +1369,39 @@ public final class NetworkPanel extends JPanel {
      */
     private ActivationSnapshot inferSnapshot(String cardKey, String fen) {
     return switch (cardKey) {
-            case ARCH_CNN -> provider.inferCnn(fen);
-            case ARCH_BT4 -> provider.inferBt4(fen);
-            default -> provider.inferNnue(fen);
+            case ARCH_CNN -> provider.inferCnn(fen,
+                    (architecture, phase, path) -> updateLoadingPhase(cardKey, fen, phase));
+            case ARCH_BT4 -> provider.inferBt4(fen,
+                    (architecture, phase, path) -> updateLoadingPhase(cardKey, fen, phase));
+            default -> provider.inferNnue(fen,
+                    (architecture, phase, path) -> updateLoadingPhase(cardKey, fen, phase));
         };
+    }
+
+    /**
+     * Updates the loading card from a background inference worker.
+     *
+     * @param cardKey architecture card key
+     * @param fen FEN being inferred
+     * @param phase provider phase
+     */
+    private void updateLoadingPhase(String cardKey, String fen, RealActivations.Phase phase) {
+        SwingUtilities.invokeLater(() -> {
+            if (!cardKey.equals(loadingArch) || !fen.equals(loadingFen)) {
+                return;
+            }
+            String display = displayNameFor(cardKey);
+            loadingPanel.start(phase.title() + " - " + display,
+                    phase.detail(),
+                    loadingModelDetail(cardKey),
+                    loadingPositionDetail(fen));
+            String badge = phase == RealActivations.Phase.RUNNING_INFERENCE
+                    ? "running " + display.toLowerCase(java.util.Locale.ROOT) + " inference..."
+                    : phase == RealActivations.Phase.LOADING_MODEL
+                            ? "loading " + display.toLowerCase(java.util.Locale.ROOT) + " model..."
+                            : "using " + display.toLowerCase(java.util.Locale.ROOT) + " fallback...";
+            statusBadge.busy(badge);
+        });
     }
 
     /**
@@ -1407,7 +1436,7 @@ public final class NetworkPanel extends JPanel {
             refreshStatusBadge();
             return;
         }
-        showLoading(cardKey, fen, "Reading weights and running inference");
+        showLoading(cardKey, fen, initialLoadingDetail(cardKey));
         runningArch = cardKey;
         runningFen = fen;
         inferenceWorker = new SwingWorker<>() {
@@ -1511,6 +1540,33 @@ public final class NetworkPanel extends JPanel {
                 loadingPositionDetail(fen));
         cards.show(cardPanel, CARD_LOADING);
         statusBadge.busy("loading " + displayNameFor(cardKey).toLowerCase(java.util.Locale.ROOT) + "...");
+    }
+
+    /**
+     * Returns the first loading detail shown before the provider reports the
+     * exact load/inference phase.
+     *
+     * @param cardKey architecture card key
+     * @return initial loading detail
+     */
+    private String initialLoadingDetail(String cardKey) {
+        String label = switch (cardKey) {
+            case ARCH_CNN -> "LC0 CNN";
+            case ARCH_BT4 -> "LC0 BT4";
+            default -> "NNUE";
+        };
+        for (RealActivations.ModelStatus status : provider.modelStatuses()) {
+            if (label.equals(status.label())) {
+                if (status.loaded()) {
+                    return "Running inference with the loaded model";
+                }
+                if (status.present() && !"fallback".equals(status.state())) {
+                    return "Loading model weights before inference";
+                }
+                return "Preparing synthetic fallback activations";
+            }
+        }
+        return "Preparing network activations";
     }
 
     /**

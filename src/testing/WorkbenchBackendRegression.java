@@ -18,6 +18,7 @@ import java.lang.reflect.Proxy;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
@@ -28,6 +29,7 @@ import javax.swing.Scrollable;
 import javax.swing.JSpinner;
 import javax.swing.JTextArea;
 import javax.swing.JTextPane;
+import javax.swing.SwingUtilities;
 import javax.swing.SwingWorker;
 import javax.swing.Timer;
 import javax.swing.text.AttributeSet;
@@ -67,6 +69,8 @@ final class WorkbenchBackendRegression {
         testDashboardPanelConstructsHeadlessly();
         testNetworkPanelSimpleControlsRenderHeadlessly();
         testNetworkLoadingCardTracksRequestedArchitecture();
+        testNetworkLoadingCardShowsProviderPhase();
+        testRealActivationProgressReportsFallback();
         testNetworkMctsUpdatesAreNonBlocking();
         testNetworkDiagnosticsPreviewHighlightsConfig();
         testNetworkDiagnosticsPreviewRecolorsForDarkTheme();
@@ -451,6 +455,83 @@ final class WorkbenchBackendRegression {
                 new Class<?>[] { String.class }, "LC0 CNN"),
                 "unrelated in-flight worker does not make the selected model show a loading card");
         invoke(panel, "dispose", new Class<?>[0]);
+    }
+
+    /**
+     * Verifies the loading card can distinguish model-loading and inference
+     * phases reported from the background worker.
+     */
+    private static void testNetworkLoadingCardShowsProviderPhase() {
+        Theme.setMode(Theme.Mode.LIGHT);
+        Object panel = construct(type("NetworkPanel"), new Class<?>[0]);
+        Timer timer = (Timer) field(panel, "debounceTimer");
+        timer.stop();
+        Object loadingPanel = field(panel, "loadingPanel");
+        invoke(loadingPanel, "start",
+                new Class<?>[] { String.class, String.class, String.class, String.class },
+                "Loading LC0 CNN", "Preparing", "model", START_FEN);
+        setField(panel, "loadingArch", "LC0 CNN");
+        setField(panel, "loadingFen", START_FEN);
+
+        Class<?> phaseType = type("RealActivations$Phase");
+        invoke(panel, "updateLoadingPhase",
+                new Class<?>[] { String.class, String.class, phaseType },
+                "LC0 CNN", START_FEN, enumValue(phaseType, "LOADING_MODEL"));
+        flushEdt();
+        assertTrue(((String) field(loadingPanel, "title")).contains("Loading model"),
+                "loading card reports model load phase");
+
+        invoke(panel, "updateLoadingPhase",
+                new Class<?>[] { String.class, String.class, phaseType },
+                "LC0 CNN", START_FEN, enumValue(phaseType, "RUNNING_INFERENCE"));
+        flushEdt();
+        assertTrue(((String) field(loadingPanel, "title")).contains("Running inference"),
+                "loading card reports inference phase");
+
+        invoke(panel, "updateLoadingPhase",
+                new Class<?>[] { String.class, String.class, phaseType },
+                "NNUE", START_FEN, enumValue(phaseType, "LOADING_MODEL"));
+        flushEdt();
+        assertTrue(((String) field(loadingPanel, "title")).contains("Running inference"),
+                "loading card ignores unrelated architecture phase");
+        invoke(panel, "dispose", new Class<?>[0]);
+    }
+
+    /**
+     * Verifies activation providers surface fallback progress when a model
+     * cannot be loaded.
+     */
+    private static void testRealActivationProgressReportsFallback() {
+        Object provider = construct(type("RealActivations"), new Class<?>[0]);
+        Path missing = Path.of("models/__missing-progress-test__.nnue");
+        invoke(provider, "setNnuePath", new Class<?>[] { Path.class }, missing);
+        Class<?> listenerType = type("RealActivations$ProgressListener");
+        List<String> phases = new ArrayList<>();
+        Object listener = Proxy.newProxyInstance(
+                listenerType.getClassLoader(),
+                new Class<?>[] { listenerType },
+                (proxy, method, args) -> {
+                    if ("onProgress".equals(method.getName())) {
+                        phases.add(args[1].toString());
+                    }
+                    return null;
+                });
+        invoke(provider, "inferNnue", new Class<?>[] { String.class, listenerType }, START_FEN, listener);
+        assertTrue(phases.contains("SYNTHETIC_FALLBACK"),
+                "missing NNUE reports synthetic fallback progress");
+    }
+
+    /**
+     * Flushes pending Swing event-dispatch work.
+     */
+    private static void flushEdt() {
+        try {
+            SwingUtilities.invokeAndWait(() -> {
+                // flush queued events
+            });
+        } catch (Exception ex) {
+            throw new AssertionError("unable to flush EDT", ex);
+        }
     }
 
     /**

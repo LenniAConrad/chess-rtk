@@ -47,6 +47,82 @@ public final class RealActivations {
     }
 
     /**
+     * Long-running activation provider stage surfaced to the loading panel.
+     */
+    public enum Phase {
+        /**
+         * Model weights are being read from disk.
+         */
+        LOADING_MODEL("Loading model", "Reading model weights from disk"),
+
+        /**
+         * A loaded model is evaluating the current position.
+         */
+        RUNNING_INFERENCE("Running inference", "Evaluating the current position"),
+
+        /**
+         * The real model is unavailable and synthetic activations are being
+         * generated instead.
+         */
+        SYNTHETIC_FALLBACK("Synthetic fallback", "Generating deterministic fallback activations");
+
+        /**
+         * Short loading-panel title.
+         */
+        private final String title;
+
+        /**
+         * Short loading-panel detail.
+         */
+        private final String detail;
+
+        /**
+         * Creates one provider phase.
+         *
+         * @param title short loading title
+         * @param detail short loading detail
+         */
+        Phase(String title, String detail) {
+            this.title = title;
+            this.detail = detail;
+        }
+
+        /**
+         * Returns the short loading-panel title.
+         *
+         * @return title
+         */
+        public String title() {
+            return title;
+        }
+
+        /**
+         * Returns the short loading-panel detail.
+         *
+         * @return detail
+         */
+        public String detail() {
+            return detail;
+        }
+    }
+
+    /**
+     * Progress callback for model load and inference stages.
+     */
+    @FunctionalInterface
+    public interface ProgressListener {
+
+        /**
+         * Reports one provider stage.
+         *
+         * @param architecture architecture label
+         * @param phase provider phase
+         * @param path model path, when available
+         */
+        void onProgress(String architecture, Phase phase, Path path);
+    }
+
+    /**
      * Default NNUE weights path (Stockfish .nnue or CRTK .bin) used at
      * startup when no override is set.
      */
@@ -163,19 +239,33 @@ public final class RealActivations {
      * @return sealed snapshot (real inference or synthetic fallback)
      */
     public synchronized ActivationSnapshot inferNnue(String fen) {
+        return inferNnue(fen, null);
+    }
+
+    /**
+     * Runs NNUE inference and reports load/inference phases.
+     *
+     * @param fen current position FEN
+     * @param progress optional progress listener
+     * @return sealed snapshot (real inference or synthetic fallback)
+     */
+    public synchronized ActivationSnapshot inferNnue(String fen, ProgressListener progress) {
         ActivationSnapshot out = new ActivationSnapshot();
         try {
             if (nnueModel == null && nnueLoadError == null) {
                 if (!Files.exists(nnuePath)) {
                     nnueLoadError = "model file missing: " + nnuePath;
                 } else {
+                    report(progress, "NNUE", Phase.LOADING_MODEL, nnuePath);
                     nnueModel = chess.nn.nnue.Model.load(nnuePath);
                     refreshNnueVersionLabel();
                 }
             }
             if (nnueModel == null) {
+                report(progress, "NNUE", Phase.SYNTHETIC_FALLBACK, nnuePath);
                 fallbackNnue(fen, out);
             } else {
+                report(progress, "NNUE", Phase.RUNNING_INFERENCE, nnuePath);
                 chess.core.Position position = parsePosition(fen);
                 nnueModel.predict(position, out);
                 mergeAtlasFromModel(out);
@@ -184,6 +274,7 @@ public final class RealActivations {
             nnueLoadError = ex.getClass().getSimpleName() + ": " + ex.getMessage();
             // Inference may have left the snapshot half-written; start clean.
             out = new ActivationSnapshot();
+            report(progress, "NNUE", Phase.SYNTHETIC_FALLBACK, nnuePath);
             fallbackNnue(fen, out);
         }
         out.seal();
@@ -238,12 +329,24 @@ public final class RealActivations {
      * @return sealed snapshot (synthetic blocks, real heads when loaded)
      */
     public synchronized ActivationSnapshot inferCnn(String fen) {
+        return inferCnn(fen, null);
+    }
+
+    /**
+     * Runs LC0 CNN inference and reports load/inference phases.
+     *
+     * @param fen current position FEN
+     * @param progress optional progress listener
+     * @return sealed snapshot (synthetic blocks, real heads when loaded)
+     */
+    public synchronized ActivationSnapshot inferCnn(String fen, ProgressListener progress) {
         ActivationSnapshot out = new ActivationSnapshot();
         try {
             if (cnnNetwork == null && cnnLoadError == null) {
                 if (!Files.exists(CNN_PATH)) {
                     cnnLoadError = "model file missing: " + CNN_PATH;
                 } else {
+                    report(progress, "LC0 CNN", Phase.LOADING_MODEL, CNN_PATH);
                     // The visualizer needs intermediate tensors. Those are
                     // exposed by the Java CPU path; GPU backends only return
                     // final policy/value outputs.
@@ -251,8 +354,10 @@ public final class RealActivations {
                 }
             }
             if (cnnNetwork == null) {
+                report(progress, "LC0 CNN", Phase.SYNTHETIC_FALLBACK, CNN_PATH);
                 SyntheticActivations.fillCnn(fen, out);
             } else {
+                report(progress, "LC0 CNN", Phase.RUNNING_INFERENCE, CNN_PATH);
                 chess.core.Position position = parsePosition(fen);
                 float[] planes = chess.nn.lc0.cnn.Encoder.encode(position);
                 cnnNetwork.predictEncoded(planes, out);
@@ -260,6 +365,7 @@ public final class RealActivations {
         } catch (RuntimeException | IOException ex) {
             cnnLoadError = ex.getClass().getSimpleName() + ": " + ex.getMessage();
             out = new ActivationSnapshot();
+            report(progress, "LC0 CNN", Phase.SYNTHETIC_FALLBACK, CNN_PATH);
             SyntheticActivations.fillCnn(fen, out);
         }
         out.seal();
@@ -275,19 +381,33 @@ public final class RealActivations {
      * @return sealed snapshot (real inference or synthetic fallback)
      */
     public synchronized ActivationSnapshot inferBt4(String fen) {
+        return inferBt4(fen, null);
+    }
+
+    /**
+     * Runs LC0 BT4 inference and reports load/inference phases.
+     *
+     * @param fen current position FEN
+     * @param progress optional progress listener
+     * @return sealed snapshot (real inference or synthetic fallback)
+     */
+    public synchronized ActivationSnapshot inferBt4(String fen, ProgressListener progress) {
         ActivationSnapshot out = new ActivationSnapshot();
         try {
             if (bt4Network == null && bt4LoadError == null) {
                 if (!Files.exists(BT4_PATH)) {
                     bt4LoadError = "model file missing: " + BT4_PATH;
                 } else {
+                    report(progress, "LC0 BT4", Phase.LOADING_MODEL, BT4_PATH);
                     System.setProperty("crtk.lc0.bt4.backend", "cpu");
                     bt4Network = chess.nn.lc0.bt4.Network.load(BT4_PATH);
                 }
             }
             if (bt4Network == null) {
+                report(progress, "LC0 BT4", Phase.SYNTHETIC_FALLBACK, BT4_PATH);
                 SyntheticActivations.fillBt4(fen, out);
             } else {
+                report(progress, "LC0 BT4", Phase.RUNNING_INFERENCE, BT4_PATH);
                 chess.core.Position position = parsePosition(fen);
                 bt4Network.predict(position, out);
             }
@@ -295,6 +415,7 @@ public final class RealActivations {
             bt4LoadError = ex.getClass().getSimpleName() + ": " + ex.getMessage();
             // Inference may have left the snapshot half-written; start clean.
             out = new ActivationSnapshot();
+            report(progress, "LC0 BT4", Phase.SYNTHETIC_FALLBACK, BT4_PATH);
             SyntheticActivations.fillBt4(fen, out);
         }
         out.seal();
@@ -424,6 +545,20 @@ public final class RealActivations {
             return "synthetic (" + error + ")";
         }
         return "synthetic (not loaded yet)";
+    }
+
+    /**
+     * Reports one progress phase when a listener is present.
+     *
+     * @param listener optional listener
+     * @param architecture architecture label
+     * @param phase provider phase
+     * @param path model path
+     */
+    private static void report(ProgressListener listener, String architecture, Phase phase, Path path) {
+        if (listener != null) {
+            listener.onProgress(architecture, phase, path);
+        }
     }
 
     /**
