@@ -27,8 +27,8 @@ import static application.gui.workbench.network.NnueTraceGeometry.*;
  * coloured by sign and opacity scaled by magnitude.</p>
  *
  * <p>Shared scaffolding lives in {@link NetworkView}; this class adds
- * the NNUE-specific drawing plus the {@link Scrollable} plumbing the atlas mode
- * needs to expose every accumulator slot in a tall scrolling mosaic.</p>
+ * the NNUE-specific drawing plus the {@link Scrollable} plumbing used to keep
+ * dense atlas and trace views inside the active viewport.</p>
  */
 
 public abstract class NnueAtlasView extends NnueViewBase {
@@ -50,10 +50,9 @@ public abstract class NnueAtlasView extends NnueViewBase {
     }
 
     /**
-     * Paints the Wikipedia-style weight atlas as a scrollable, one-row-per-
-     * neuron strip. The component overrides {@link #getPreferredSize} so the
-     * JScrollPane has scroll content; the renderer assumes it has the full
-     * vertical canvas available rather than trying to shrink-fit.
+     * Paints the Wikipedia-style weight atlas as a viewport-fitted, wrapped
+     * bank of hidden-neuron rows. The full pixel plane stays visible without a
+     * vertical scroll canvas whenever there is enough horizontal room to wrap.
      *
      * @param g graphics
      * @param body body rectangle
@@ -190,50 +189,61 @@ public abstract class NnueAtlasView extends NnueViewBase {
         float[] rawAtlas = frame.rawAtlas;
         float[] output = frame.output;
         float[] perNeuronScale = frame.perNeuronScale;
-        float[] overlayMag = frame.overlayMagnitudes;
         int headerH = 46;
         TensorViz.drawSectionHeader(g,
-    new Rectangle(body.x, body.y, body.width, headerH),
+                new Rectangle(body.x, body.y, body.width, headerH),
                 "slot atlas browser · " + hidden + " accumulator slots × " + planes + " piece planes",
                 subtitle);
         Rectangle content = new Rectangle(body.x, body.y + headerH + 10,
                 body.width, Math.max(1, body.height - headerH - 10));
-        int overviewH = atlasWholeOverviewHeight(content.width, hidden, planes);
-        Rectangle overview = new Rectangle(content.x, content.y, content.width, overviewH);
-        paintAtlasWholePlaneOverview(g, overview, order, paintingData, output,
+        AtlasBrowserLayout layout = atlasBrowserLayout(content);
+        paintAtlasWholePlaneOverview(g, layout.overview, order, paintingData, output,
                 hidden, planes, squares, perNeuronScale, selectedSlot, frame.wholePlaneImage);
-        Rectangle lower = new Rectangle(content.x, overview.y + overview.height + 10,
-                content.width, Math.max(1, content.height - overview.height - 10));
-        if (body.width < 900) {
-            int galleryH = Math.min(190, Math.max(110, lower.height / 3));
-            int explainH = Math.min(210, Math.max(135, lower.height / 3));
-            Rectangle gallery = new Rectangle(lower.x, lower.y, lower.width, galleryH);
-            Rectangle detail = new Rectangle(lower.x, gallery.y + gallery.height + 10,
-                    lower.width, Math.max(1, lower.height - gallery.height - explainH - 20));
-            Rectangle explain = new Rectangle(lower.x, detail.y + detail.height + 10,
-                    lower.width, Math.max(1, explainH));
-            paintAtlasSlotGallery(g, gallery, order, paintingData, output,
-                    hidden, planes, squares, perNeuronScale, overlayMag, selectedSlot);
-            paintAtlasSlotDetail(g, detail, paintingData, selectedSlot, planes, squares,
-                    perNeuronScale[selectedSlot]);
-            paintAtlasSlotExplanation(g, explain, paintingData, rawAtlas, output,
-                    selectedSlot, planes, squares);
-            return;
-        }
-        int galleryW = Math.min(420, Math.max(300, lower.width / 3));
-        int explainW = Math.min(340, Math.max(270, lower.width / 4));
-        int detailW = Math.max(260, lower.width - galleryW - explainW - 20);
-        Rectangle gallery = new Rectangle(lower.x, lower.y, galleryW, lower.height);
-        Rectangle detail = new Rectangle(gallery.x + gallery.width + 10, lower.y,
-                detailW, lower.height);
-        Rectangle explain = new Rectangle(detail.x + detail.width + 10, lower.y,
-                Math.max(1, lower.x + lower.width - detail.x - detail.width - 10), lower.height);
-        paintAtlasSlotGallery(g, gallery, order, paintingData, output,
-                hidden, planes, squares, perNeuronScale, overlayMag, selectedSlot);
-        paintAtlasSlotDetail(g, detail, paintingData, selectedSlot, planes, squares,
+        paintAtlasSlotDetail(g, layout.detail, paintingData, selectedSlot, planes, squares,
                 perNeuronScale[selectedSlot]);
-        paintAtlasSlotExplanation(g, explain, paintingData, rawAtlas, output,
+        paintAtlasSlotExplanation(g, layout.explanation, paintingData, rawAtlas, output,
                 selectedSlot, planes, squares);
+    }
+
+
+    /**
+     * Computes the no-scroll atlas browser layout. On wide panes the whole
+     * pixel-plane atlas fills the left side while the selected slot board and
+     * analytical explanation sit on the right.
+     *
+     * @param content content bounds below the atlas header
+     * @return browser layout rectangles
+     */
+    private static AtlasBrowserLayout atlasBrowserLayout(Rectangle content) {
+        int gap = 12;
+        if (content.width >= 900) {
+            int rightW = Math.min(460, Math.max(340, content.width / 4));
+            int leftW = Math.max(1, content.width - rightW - gap);
+            Rectangle overview = new Rectangle(content.x, content.y, leftW, content.height);
+            int detailH = Math.min(content.height,
+                    Math.max(260, Math.min(content.height * 58 / 100, rightW + 110)));
+            if (content.height - detailH - gap < 150) {
+                detailH = Math.max(220, content.height - gap - 150);
+            }
+            Rectangle detail = new Rectangle(overview.x + overview.width + gap,
+                    content.y, rightW, Math.max(1, detailH));
+            Rectangle explanation = new Rectangle(detail.x,
+                    detail.y + detail.height + gap, rightW,
+                    Math.max(1, content.y + content.height - detail.y - detail.height - gap));
+            return new AtlasBrowserLayout(overview, detail, explanation);
+        }
+
+        int detailH = Math.max(230, Math.min(330, content.height / 3));
+        int explanationH = Math.max(150, Math.min(230, content.height / 4));
+        int overviewH = Math.max(160, content.height - detailH - explanationH - gap * 2);
+        Rectangle overview = new Rectangle(content.x, content.y, content.width,
+                Math.min(content.height, overviewH));
+        Rectangle detail = new Rectangle(content.x, overview.y + overview.height + gap,
+                content.width, Math.max(1, Math.min(detailH,
+                        content.y + content.height - overview.y - overview.height - gap)));
+        Rectangle explanation = new Rectangle(content.x, detail.y + detail.height + gap,
+                content.width, Math.max(1, content.y + content.height - detail.y - detail.height - gap));
+        return new AtlasBrowserLayout(overview, detail, explanation);
     }
 
 
@@ -268,9 +278,10 @@ public abstract class NnueAtlasView extends NnueViewBase {
         }
         int labelH = 14;
         int columnGap = atlasWholeColumnGap();
-        int columns = atlasWholeColumnCount(inner.width, hidden, planes);
-        int rowsPerColumn = atlasWholeRowsPerColumn(inner.width, hidden, planes);
-        int slotPitch = atlasWholeSlotPitch(hidden);
+        int rowAreaH = Math.max(1, inner.height - labelH);
+        int columns = atlasWholeColumnCount(inner.width, rowAreaH, hidden, planes);
+        int rowsPerColumn = atlasWholeRowsPerColumn(inner.width, rowAreaH, hidden, planes);
+        int slotPitch = atlasWholeSlotPitch(hidden, rowsPerColumn, rowAreaH);
         int columnW = Math.max(1, (inner.width - columnGap * Math.max(0, columns - 1))
                 / Math.max(1, columns));
         if (columnW <= 0 || rowsPerColumn <= 0) {
@@ -298,7 +309,8 @@ public abstract class NnueAtlasView extends NnueViewBase {
             }
             int columnX = inner.x + column * (columnW + columnGap);
             Rectangle labelRect = new Rectangle(columnX, inner.y, columnW, labelH);
-            Rectangle imageRect = new Rectangle(columnX, inner.y + labelH, columnW, rowCount * slotPitch);
+            Rectangle imageRect = new Rectangle(columnX, inner.y + labelH, columnW,
+                    Math.max(1, Math.min(rowAreaH, rowCount * slotPitch)));
             paintAtlasPlaneLabels(g, labelRect, planes, fm);
             java.awt.image.BufferedImage bank = image.getSubimage(0, startRow * 8,
                     image.getWidth(), rowCount * 8);
@@ -631,6 +643,69 @@ public abstract class NnueAtlasView extends NnueViewBase {
         }
     }
 
+    /**
+     * Moves the selected slot through the whole pixel-plane atlas using the
+     * current wrapped-bank geometry. Up/down move by one visual row; left/right
+     * jump to the adjacent wrapped bank at the same row.
+     *
+     * @param dx horizontal visual-bank movement
+     * @param dy vertical row movement
+     * @return true when the selection changed
+     */
+    @Override
+    protected boolean navigateAtlasSelection(int dx, int dy) {
+        if (!isAtlas() || snapshot == null || atlasGrid || atlasZoomedSlot >= 0) {
+            return false;
+        }
+        float[] atlas = snapshot.data("nnue.atlas.weights");
+        int[] shape = snapshot.shape("nnue.atlas.weights");
+        float[] output = snapshot.data("nnue.atlas.output");
+        if (atlas == null || shape == null || shape.length < 3) {
+            return false;
+        }
+        int hidden = shape[0];
+        int planes = shape[1];
+        int squares = shape[2];
+        Integer[] order = sortNeurons(atlas, output, hidden, planes, squares);
+        if (order.length == 0) {
+            return false;
+        }
+        int currentSlot = atlasSelected >= 0 && atlasSelected < hidden ? atlasSelected : order[0];
+        int currentIndex = orderIndex(order, currentSlot);
+        if (currentIndex < 0) {
+            currentIndex = 0;
+        }
+        int rowsPerColumn = atlasNavigationRowsPerColumn(hidden, planes);
+        int nextIndex = Math.max(0, Math.min(order.length - 1,
+                currentIndex + dy + dx * rowsPerColumn));
+        int nextSlot = order[nextIndex];
+        if (nextSlot == atlasSelected) {
+            return false;
+        }
+        atlasSelected = nextSlot;
+        return true;
+    }
+
+    /**
+     * Returns the visible rows-per-bank value used by the current whole-atlas
+     * overview layout.
+     *
+     * @param hidden hidden slot count
+     * @param planes piece-plane count
+     * @return rows per wrapped bank
+     */
+    private int atlasNavigationRowsPerColumn(int hidden, int planes) {
+        Rectangle body = new Rectangle(PAD, BODY_TOP,
+                Math.max(1, getWidth() - 2 * PAD), Math.max(1, getHeight() - BODY_TOP - PAD));
+        int headerH = 46;
+        Rectangle content = new Rectangle(body.x, body.y + headerH + 10,
+                body.width, Math.max(1, body.height - headerH - 10));
+        AtlasBrowserLayout layout = atlasBrowserLayout(content);
+        Rectangle inner = new Rectangle(layout.overview.x + 10, layout.overview.y + 38,
+                Math.max(1, layout.overview.width - 20), Math.max(1, layout.overview.height - 48));
+        int rowAreaH = Math.max(1, inner.height - 14);
+        return atlasWholeRowsPerColumn(inner.width, rowAreaH, hidden, planes);
+    }
 
 
 
@@ -1017,6 +1092,40 @@ public abstract class NnueAtlasView extends NnueViewBase {
         g.setFont(Theme.font(11, Font.ITALIC));
         g.drawString("slot " + slot + " of " + hidden + " · click any tile or the header to return",
                 area.x + 6, body.y + body.height - 6);
+    }
+
+    /**
+     * Immutable layout rectangles for the atlas browser.
+     */
+    private static final class AtlasBrowserLayout {
+
+        /**
+         * Whole pixel-plane atlas bounds.
+         */
+        private final Rectangle overview;
+
+        /**
+         * Selected slot board bounds.
+         */
+        private final Rectangle detail;
+
+        /**
+         * Analytical explanation bounds.
+         */
+        private final Rectangle explanation;
+
+        /**
+         * Creates an atlas browser layout.
+         *
+         * @param overview whole pixel-plane atlas bounds
+         * @param detail selected slot board bounds
+         * @param explanation analytical explanation bounds
+         */
+        AtlasBrowserLayout(Rectangle overview, Rectangle detail, Rectangle explanation) {
+            this.overview = overview;
+            this.detail = detail;
+            this.explanation = explanation;
+        }
     }
 
     /**

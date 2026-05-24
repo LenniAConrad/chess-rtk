@@ -98,6 +98,7 @@ public abstract class NetworkView extends JComponent {
         addMouseListener(new MouseAdapter() {
             @Override
             public void mousePressed(MouseEvent event) {
+                requestFocusInWindow();
                 onClick(event.getX(), event.getY());
             }
         });

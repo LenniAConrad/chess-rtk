@@ -75,7 +75,7 @@ public final class NnueAtlas {
      * @return tile width
      */
     public static int pickAtlasTileWidth(int hidden) {
-    return pickAtlasRowHeight(hidden);
+        return pickAtlasRowHeight(hidden);
     }
 
     /**
@@ -87,7 +87,7 @@ public final class NnueAtlas {
      */
     public static int parseSlotNumber(String title) {
         int start = "Slot ".length();
-    return parseFirstInteger(title, start);
+        return parseFirstInteger(title, start);
     }
 
     /**
@@ -160,6 +160,23 @@ public final class NnueAtlas {
     }
 
     /**
+     * Picks the row pitch for a wrapped whole-atlas bank that must fit inside
+     * a fixed viewport height.
+     *
+     * @param hidden hidden-layer dimension
+     * @param rowsPerColumn rows assigned to the tallest wrapped bank
+     * @param availableHeight available image height after labels
+     * @return slot pitch in pixels
+     */
+    public static int atlasWholeSlotPitch(int hidden, int rowsPerColumn, int availableHeight) {
+        int preferred = atlasWholeSlotPitch(hidden);
+        if (rowsPerColumn <= 0 || availableHeight <= 0) {
+            return Math.max(1, preferred);
+        }
+        return Math.max(1, Math.min(preferred, availableHeight / Math.max(1, rowsPerColumn)));
+    }
+
+    /**
      * Picks the number of wrapped banks for the whole pixel-plane overview.
      * Wrapping uses the available width to preserve vertical detail instead of
      * compressing every slot into one thin strip.
@@ -183,6 +200,33 @@ public final class NnueAtlas {
     }
 
     /**
+     * Picks the number of wrapped banks for a fixed-height whole-atlas
+     * viewport. The method keeps the old width-based bank preference, then
+     * adds banks as needed so the raster can fit without scrolling.
+     *
+     * @param contentWidth available inner width
+     * @param contentHeight available inner height for image rows
+     * @param hidden hidden-layer dimension
+     * @param planes piece-plane count
+     * @return column count
+     */
+    public static int atlasWholeColumnCount(int contentWidth, int contentHeight, int hidden, int planes) {
+        if (contentWidth <= 0 || hidden <= 0 || planes <= 0) {
+            return 1;
+        }
+        int nativeWidth = Math.max(8, planes * 8);
+        int minReadableWidth = Math.max(nativeWidth, Math.min(128, nativeWidth + 20));
+        int maxColumns = Math.max(1, (contentWidth + WHOLE_ATLAS_COLUMN_GAP)
+                / (minReadableWidth + WHOLE_ATLAS_COLUMN_GAP));
+        int preferred = atlasWholeColumnCount(contentWidth, hidden, planes);
+        int readablePitch = hidden >= 512 ? 4 : 6;
+        int neededByHeight = contentHeight <= 0 ? preferred
+                : (int) Math.ceil(hidden * readablePitch / (double) Math.max(1, contentHeight));
+        int columns = Math.max(preferred, neededByHeight);
+        return Math.max(1, Math.min(Math.min(hidden, maxColumns), columns));
+    }
+
+    /**
      * Returns the number of hidden slots shown in each wrapped whole-atlas bank.
      *
      * @param contentWidth available inner width
@@ -192,6 +236,21 @@ public final class NnueAtlas {
      */
     public static int atlasWholeRowsPerColumn(int contentWidth, int hidden, int planes) {
         int columns = atlasWholeColumnCount(contentWidth, hidden, planes);
+        return Math.max(1, (int) Math.ceil(hidden / (double) columns));
+    }
+
+    /**
+     * Returns the number of hidden slots shown in each wrapped whole-atlas
+     * bank for a fixed-height viewport.
+     *
+     * @param contentWidth available inner width
+     * @param contentHeight available inner height for image rows
+     * @param hidden hidden-layer dimension
+     * @param planes piece-plane count
+     * @return rows per bank
+     */
+    public static int atlasWholeRowsPerColumn(int contentWidth, int contentHeight, int hidden, int planes) {
+        int columns = atlasWholeColumnCount(contentWidth, contentHeight, hidden, planes);
         return Math.max(1, (int) Math.ceil(hidden / (double) columns));
     }
 

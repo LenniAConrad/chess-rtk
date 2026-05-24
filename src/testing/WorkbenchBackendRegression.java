@@ -804,10 +804,10 @@ final class WorkbenchBackendRegression {
                 "NNUE atlas paints synthetic snapshot");
         assertTrue(((Scrollable) view).getScrollableTracksViewportWidth(),
                 "NNUE atlas tracks viewport width");
-        assertFalse(((Scrollable) view).getScrollableTracksViewportHeight(),
-                "NNUE atlas uses a scroll canvas for the whole pixel-plane overview");
-        assertTrue(((JComponent) view).getPreferredSize().height > 900,
-                "NNUE atlas leaves enough vertical room for the wrapped pixel-plane overview");
+        assertTrue(((Scrollable) view).getScrollableTracksViewportHeight(),
+                "NNUE atlas fits the viewport height instead of requiring vertical scroll");
+        assertTrue(((JComponent) view).getPreferredSize().height <= 760,
+                "NNUE atlas keeps a viewport-sized preferred height");
         Object atlasFrame = field(view, "atlasPaintFrame");
         Object atlasRaster = field(atlasFrame, "wholePlaneImage");
         assertTrue(atlasRaster instanceof BufferedImage,
@@ -823,6 +823,11 @@ final class WorkbenchBackendRegression {
                 MouseEvent.MOUSE_MOVED, 0L, 0, 600, 200, 0, false, MouseEvent.NOBUTTON));
         assertTrue(atlasTip != null && atlasTip.contains("whole atlas"),
                 "NNUE atlas exposes a whole-atlas pixel-plane overview");
+        assertTrue((Boolean) invokeOn(type("NnueAtlasView"), view, "navigateAtlasSelection",
+                new Class<?>[] { int.class, int.class }, 0, 1),
+                "NNUE atlas whole-plane view supports arrow-key row navigation");
+        int selected = (Integer) field(view, "atlasSelected");
+        assertTrue(selected >= 0, "NNUE atlas arrow navigation selects a slot");
     }
 
     /**

@@ -25,8 +25,8 @@ import static application.gui.workbench.network.NnueTraceGeometry.*;
  * coloured by sign and opacity scaled by magnitude.</p>
  *
  * <p>Shared scaffolding lives in {@link NetworkView}; this class adds
- * the NNUE-specific drawing plus the {@link Scrollable} plumbing the atlas mode
- * needs to expose every accumulator slot in a tall scrolling mosaic.</p>
+ * the NNUE-specific drawing plus the {@link Scrollable} plumbing used to keep
+ * dense atlas and trace views inside the active viewport.</p>
  */
 
 public abstract class NnueTraceView extends NnueOverviewView {

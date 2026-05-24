@@ -888,9 +888,9 @@ public final class NetworkPanel extends JPanel {
      * to the user's last export. The file name embeds the architecture and a
      * timestamp so consecutive exports don't collide.
      *
-     * <p>The capture is taken at the view's full preferred size, not the
-     * clipped viewport — so a tall atlas mosaic is exported in full rather
-     * than just the part that happened to be scrolled into view.</p>
+     * <p>The capture is taken at the view's full preferred size when that is
+     * larger than the current viewport, preserving dense diagnostic views
+     * without depending on the scroll-pane clipping state.</p>
      */
     private void exportPng() {
         JComponent target = activeView();

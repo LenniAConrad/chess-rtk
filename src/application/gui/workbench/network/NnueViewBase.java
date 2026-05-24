@@ -11,11 +11,15 @@ import java.awt.Font;
 import java.awt.FontMetrics;
 import java.awt.Graphics2D;
 import java.awt.Rectangle;
+import java.awt.event.KeyEvent;
 import java.awt.event.MouseEvent;
 import java.util.ArrayList;
 import java.util.List;
+import javax.swing.AbstractAction;
+import javax.swing.JComponent;
 import javax.swing.Scrollable;
 import javax.swing.SwingConstants;
+import javax.swing.KeyStroke;
 
 import static application.gui.workbench.network.NnueAtlas.*;
 import static application.gui.workbench.network.NnueDrawing.*;
@@ -32,8 +36,8 @@ import static application.gui.workbench.network.NnueTraceGeometry.*;
  * coloured by sign and opacity scaled by magnitude.</p>
  *
  * <p>Shared scaffolding lives in {@link NetworkView}; this class adds
- * the NNUE-specific drawing plus the {@link Scrollable} plumbing the atlas mode
- * needs to expose every accumulator slot in a tall scrolling mosaic.</p>
+ * the NNUE-specific drawing plus the {@link Scrollable} plumbing used to keep
+ * dense atlas and trace views inside the active viewport.</p>
  */
 
 public abstract class NnueViewBase extends NetworkView implements Scrollable {
@@ -172,6 +176,67 @@ public abstract class NnueViewBase extends NetworkView implements Scrollable {
      */
     protected NnueViewBase() {
         super(720, 540);
+        setFocusable(true);
+        installAtlasKeyboardNavigation();
+    }
+
+    /**
+     * Installs local arrow-key navigation for the whole pixel-plane atlas.
+     * The binding is focus-scoped so the global board-navigation shortcuts
+     * keep working unless the user has clicked into the network view.
+     */
+    private void installAtlasKeyboardNavigation() {
+        bindAtlasNavigationKey(KeyStroke.getKeyStroke(KeyEvent.VK_UP, 0), "up", 0, -1);
+        bindAtlasNavigationKey(KeyStroke.getKeyStroke(KeyEvent.VK_DOWN, 0), "down", 0, 1);
+        bindAtlasNavigationKey(KeyStroke.getKeyStroke(KeyEvent.VK_LEFT, 0), "left", -1, 0);
+        bindAtlasNavigationKey(KeyStroke.getKeyStroke(KeyEvent.VK_RIGHT, 0), "right", 1, 0);
+        bindAtlasNavigationKey(KeyStroke.getKeyStroke(KeyEvent.VK_KP_UP, 0), "keypadUp", 0, -1);
+        bindAtlasNavigationKey(KeyStroke.getKeyStroke(KeyEvent.VK_KP_DOWN, 0), "keypadDown", 0, 1);
+        bindAtlasNavigationKey(KeyStroke.getKeyStroke(KeyEvent.VK_KP_LEFT, 0), "keypadLeft", -1, 0);
+        bindAtlasNavigationKey(KeyStroke.getKeyStroke(KeyEvent.VK_KP_RIGHT, 0), "keypadRight", 1, 0);
+    }
+
+    /**
+     * Binds one keyboard stroke to atlas selection movement.
+     *
+     * @param stroke key stroke
+     * @param name stable action suffix
+     * @param dx horizontal visual-bank movement
+     * @param dy vertical row movement
+     */
+    private void bindAtlasNavigationKey(KeyStroke stroke, String name, int dx, int dy) {
+        if (stroke == null) {
+            return;
+        }
+        String actionName = "nnueAtlasNavigate." + name;
+        getInputMap(JComponent.WHEN_FOCUSED).put(stroke, actionName);
+        getActionMap().put(actionName, new AbstractAction() {
+            /** Serialization identifier for Swing action compatibility. */
+            private static final long serialVersionUID = 1L;
+
+            /**
+             * Runs the atlas navigation action.
+             *
+             * @param event action event
+             */
+            @Override
+            public void actionPerformed(java.awt.event.ActionEvent event) {
+                if (isAtlas() && navigateAtlasSelection(dx, dy)) {
+                    repaint();
+                }
+            }
+        });
+    }
+
+    /**
+     * Moves atlas selection in response to arrow-key navigation.
+     *
+     * @param dx horizontal visual-bank movement
+     * @param dy vertical row movement
+     * @return true when selection changed
+     */
+    protected boolean navigateAtlasSelection(int dx, int dy) {
+        return false;
     }
 
     /**
@@ -371,7 +436,7 @@ public abstract class NnueViewBase extends NetworkView implements Scrollable {
      */
     @Override
     public boolean getScrollableTracksViewportHeight() {
-        return !isAtlas() || snapshot == null;
+        return true;
     }
 
     /**
@@ -381,29 +446,7 @@ public abstract class NnueViewBase extends NetworkView implements Scrollable {
      */
     @Override
     public Dimension getPreferredSize() {
-        // Atlas reports a tall preferred size so the JScrollPane can expose
-        // every neuron at a readable pitch instead of compressing them.
-        if (isAtlas() && snapshot != null && atlasGrid && atlasZoomedSlot < 0) {
-            int hidden = atlasHiddenSize();
-            int rowH = pickAtlasRowHeight(hidden);
-            int variants = atlasGrid ? Math.max(1, atlasGridEntries.size()) : 1;
-            int width = Math.max(720, 200 + 11 * pickAtlasTileWidth(hidden) * variants
-                    + 36 * (variants - 1));
-            int top = 78; // header band
-            int bottom = 16;
-            int totalH = top + hidden * rowH + bottom;
-            // Leave plenty of room for a wide tooltip popup.
-            return new Dimension(width, totalH);
-        }
         if (isAtlas() && snapshot != null) {
-            int[] shape = snapshot.shape("nnue.atlas.weights");
-            if (shape != null && shape.length >= 3 && atlasZoomedSlot < 0) {
-                int width = 1120;
-                int overviewH = atlasWholeOverviewHeight(width, shape[0], shape[1]);
-                int headerH = 46;
-                int lowerH = 430;
-                return new Dimension(width, headerH + 20 + overviewH + lowerH);
-            }
             return new Dimension(1120, 760);
         }
         if (isDetailed() && snapshot != null) {
