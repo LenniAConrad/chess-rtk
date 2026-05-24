@@ -63,6 +63,37 @@ public abstract class NnueOverviewView extends NnueAtlasView {
     private static final int CONTRIBUTION_LEDGER_COMPACT_HEIGHT = 56;
 
     /**
+     * Height reserved for one signed contributor column heading.
+     */
+    private static final int CONTRIBUTOR_COLUMN_HEADER_HEIGHT = 24;
+
+    /**
+     * Smallest row height that still keeps a Half-KP board glyph readable.
+     */
+    private static final int CONTRIBUTOR_ROW_MIN_HEIGHT = 38;
+
+    /**
+     * Largest row height used by the contributor ledger before extra room is
+     * left as quiet whitespace below the rows.
+     */
+    private static final int CONTRIBUTOR_ROW_MAX_HEIGHT = 48;
+
+    /**
+     * Gap between contributor rows.
+     */
+    private static final int CONTRIBUTOR_ROW_GAP = 4;
+
+    /**
+     * Maximum number of feature rows shown per signed column in the overview.
+     */
+    private static final int CONTRIBUTOR_MAX_ROWS = 10;
+
+    /**
+     * Largest mini-board glyph used in contributor rows.
+     */
+    private static final int CONTRIBUTOR_GLYPH_MAX = 38;
+
+    /**
      * Paints the raw view: a dense matrix of every active feature against
      * every accumulator slot. Each row is one active half-KP feature (with
      * its mini glyph and decoded label on the left); each cell shades that
@@ -767,7 +798,7 @@ public abstract class NnueOverviewView extends NnueAtlasView {
                         ? TensorViz.POSITIVE
                         : TensorViz.NEGATIVE;
                 TensorViz.drawInfoChip(g,
-    new Rectangle(r.x + r.width - 270, r.y + 6, 260, 24),
+                        new Rectangle(r.x + r.width - 270, r.y + 6, 260, 24),
                         "strongest",
                         decodeUsHalfKP(featureIdx) + "  " + String.format("%+.1f cp", impact[strongest]),
                         accent);
@@ -782,9 +813,10 @@ public abstract class NnueOverviewView extends NnueAtlasView {
     }
 
     /**
-     * Paints one signed contributor column. Sizes rows to fit every feature
-     * of the matching sign in the available height rather than capping at a
-     * fixed top-N, so the user can see the whole active-feature set at once.
+     * Paints one signed contributor column. The overview deliberately shows a
+     * readable top-N instead of compressing every active row into tiny boards;
+     * dense full-matrix inspection remains available in the raw and trace
+     * views.
      *
      * @param g graphics
      * @param r column rectangle
@@ -805,26 +837,24 @@ public abstract class NnueOverviewView extends NnueAtlasView {
             float vb = Math.abs(impact[b]);
             return Float.compare(vb, va);
         });
-        int rowsByHeight = Math.max(0, (r.height - 22) / 20);
-        int rows = Math.min(selected.size(), rowsByHeight);
-        int rowH = rows == 0 ? 0
-                : Math.max(18, Math.min(34, (r.height - 22) / Math.max(1, rows)));
-        float maxAbs = 0.0f;
-        for (float v : impact) {
-            maxAbs = Math.max(maxAbs, Math.abs(v));
-        }
-        if (maxAbs <= 0.0f) {
-            maxAbs = 1.0f;
-        }
         g.setColor(positive ? TensorViz.POSITIVE : TensorViz.NEGATIVE);
         g.setFont(Theme.font(11, Font.BOLD));
-        g.drawString(positive ? "raise" : "lower",
-                r.x + 2, r.y + 14);
+        FontMetrics headerMetrics = g.getFontMetrics();
+        String title = positive ? "raise" : "lower";
+        g.drawString(title, r.x + 2, r.y + 14);
         g.setColor(Theme.MUTED);
         g.setFont(Theme.font(10, Font.PLAIN));
         int totalSign = selected.size();
+        int availableH = Math.max(0, r.height - CONTRIBUTOR_COLUMN_HEADER_HEIGHT);
+        int rowsByHeight = Math.max(0,
+                (availableH + CONTRIBUTOR_ROW_GAP) / (CONTRIBUTOR_ROW_MIN_HEIGHT + CONTRIBUTOR_ROW_GAP));
+        int rows = Math.min(totalSign, Math.min(CONTRIBUTOR_MAX_ROWS, rowsByHeight));
+        int rowH = rows == 0 ? 0
+                : Math.min(CONTRIBUTOR_ROW_MAX_HEIGHT, Math.max(CONTRIBUTOR_ROW_MIN_HEIGHT,
+                        (availableH - CONTRIBUTOR_ROW_GAP * Math.max(0, rows - 1)) / Math.max(1, rows)));
+        float maxAbs = maxSelectedImpact(impact, selected);
         String count = rows == totalSign ? totalSign + " features" : "top " + rows + " of " + totalSign;
-        g.drawString(count, r.x + 54, r.y + 14);
+        g.drawString(count, r.x + headerMetrics.stringWidth(title) + 14, r.y + 14);
         if (rows == 0) {
             String empty = totalSign == 0
                     ? "(no " + (positive ? "positive" : "negative") + " features active)"
@@ -834,23 +864,26 @@ public abstract class NnueOverviewView extends NnueAtlasView {
         }
         int[] weightShape = snapshot.shape("nnue.features.us.weights");
         int hiddenStride = weightShape != null && weightShape.length >= 2 ? weightShape[1] : 0;
-        boolean compact = rowH < 26;
-        g.setFont(Theme.font(compact ? 10 : 11, Font.PLAIN));
+        boolean compact = rowH < 42;
+        g.setFont(Theme.font(11, Font.PLAIN));
         FontMetrics fm = g.getFontMetrics();
         for (int i = 0; i < rows; ++i) {
             int idx = selected.get(i);
             int featureIdx = Math.round(indices[idx]);
             float v = impact[idx];
-            int y = r.y + 22 + i * rowH;
-            Rectangle row = new Rectangle(r.x, y, r.width, rowH - 2);
+            int y = r.y + CONTRIBUTOR_COLUMN_HEADER_HEIGHT + i * (rowH + CONTRIBUTOR_ROW_GAP);
+            Rectangle row = new Rectangle(r.x, y, r.width, rowH);
             boolean isSelected = featureIdx == selectedFeature;
-            g.setColor(isSelected ? Theme.SELECTION_SOLID
-                    : (i % 2 == 0 ? Theme.PANEL_SOLID : Theme.ELEVATED_SOLID));
-            g.fillRect(row.x, row.y, row.width, row.height);
+            g.setColor(Theme.ELEVATED_SOLID);
+            g.fillRoundRect(row.x, row.y, row.width, row.height, Theme.RADIUS, Theme.RADIUS);
             g.setColor(isSelected ? TensorViz.FOCUS : Theme.LINE);
-            g.drawRect(row.x, row.y, row.width - 1, row.height - 1);
-            int glyphSize = Math.min(row.height - 2, compact ? 18 : 28);
-            Rectangle glyph = new Rectangle(row.x + 2, row.y + (row.height - glyphSize) / 2,
+            g.drawRoundRect(row.x, row.y, row.width - 1, row.height - 1, Theme.RADIUS, Theme.RADIUS);
+            if (isSelected) {
+                g.setColor(TensorViz.FOCUS);
+                g.fillRoundRect(row.x, row.y, 3, row.height, Theme.RADIUS, Theme.RADIUS);
+            }
+            int glyphSize = Math.min(CONTRIBUTOR_GLYPH_MAX, Math.max(28, row.height - 8));
+            Rectangle glyph = new Rectangle(row.x + 5, row.y + (row.height - glyphSize) / 2,
                     glyphSize, glyphSize);
             HalfKpFeature feature = decodeHalfKpFeature(featureIdx, sideToMoveWhite());
             TensorViz.drawHalfKpGlyph(g, glyph,
@@ -858,20 +891,22 @@ public abstract class NnueOverviewView extends NnueAtlasView {
             String decoded = decodeUsHalfKP(featureIdx);
             String label = compact ? decoded : ("#" + featureIdx + "  " + decoded);
             g.setColor(Theme.TEXT);
-            int textX = row.x + glyphSize + 6;
-            int textY = row.y + row.height / 2 + (compact ? 3 : 4);
-            g.drawString(label, textX, textY);
+            int textX = glyph.x + glyph.width + 10;
             String tail = String.format("%+5.1f cp", v);
             int tailW = fm.stringWidth(tail);
-            int barX = textX + Math.max(compact ? 80 : 140, fm.stringWidth(label) + 8);
-            int barW = row.x + row.width - barX - tailW - 8;
-            if (barW > 16) {
-                int barH = compact ? 8 : 12;
-                Rectangle bar = new Rectangle(barX, row.y + (row.height - barH) / 2, barW, barH);
-                TensorViz.drawHorizontalBar(g, bar, v, maxAbs, null);
+            int valueX = row.x + row.width - tailW - 8;
+            int labelW = Math.max(24, valueX - textX - 8);
+            int textY = row.y + (compact ? 15 : 16);
+            g.drawString(Ui.elide(label, fm, labelW), textX, textY);
+            int barX = textX;
+            int barW = Math.max(1, valueX - barX - 8);
+            if (barW > 18) {
+                int barH = compact ? 7 : 8;
+                Rectangle bar = new Rectangle(barX, row.y + row.height - barH - 8, barW, barH);
+                drawContributorMagnitudeBar(g, bar, v, maxAbs, positive);
             }
             g.setColor(v >= 0 ? TensorViz.POSITIVE : TensorViz.NEGATIVE);
-            g.drawString(tail, row.x + row.width - tailW - 4, textY);
+            g.drawString(tail, valueX, textY);
             if (hiddenStride > 0) {
                 hitRegions.addInspectable(row,
                         "Feature #" + featureIdx + "  " + decoded,
@@ -887,6 +922,51 @@ public abstract class NnueOverviewView extends NnueAtlasView {
                         String.format("impact %+.2f cp", v));
             }
         }
+    }
+
+    /**
+     * Returns the largest absolute contributor value for the selected sign.
+     * Each signed column scales independently, so the strongest driver in
+     * that column uses the full bar lane instead of wasting half the row on an
+     * irrelevant zero midpoint.
+     *
+     * @param impact feature impacts
+     * @param selected selected row indexes
+     * @return positive scale
+     */
+    private static float maxSelectedImpact(float[] impact, java.util.List<Integer> selected) {
+        float maxAbs = 0.0f;
+        for (Integer idx : selected) {
+            if (idx != null && idx >= 0 && idx < impact.length) {
+                maxAbs = Math.max(maxAbs, Math.abs(impact[idx]));
+            }
+        }
+        return maxAbs <= 0.0f ? 1.0f : maxAbs;
+    }
+
+    /**
+     * Draws the contributor magnitude bar. The positive and negative
+     * contributor columns are already split, so this renderer uses the whole
+     * lane as a magnitude scale rather than reserving a centered zero line.
+     *
+     * @param g graphics
+     * @param r bar rectangle
+     * @param value signed contributor value
+     * @param scale column scale
+     * @param positive true for the positive column
+     */
+    private static void drawContributorMagnitudeBar(Graphics2D g, Rectangle r,
+            float value, float scale, boolean positive) {
+        float ratio = Math.min(1.0f, Math.abs(value) / Math.max(1.0e-6f, scale));
+        int fillW = Math.max(2, Math.round(r.width * ratio));
+        Color fill = positive ? TensorViz.POSITIVE : TensorViz.NEGATIVE;
+        g.setColor(Theme.PANEL_SOLID);
+        g.fillRoundRect(r.x, r.y, r.width, r.height, r.height, r.height);
+        g.setColor(Theme.LINE);
+        g.drawRoundRect(r.x, r.y, r.width - 1, r.height - 1, r.height, r.height);
+        g.setColor(fill);
+        int fillX = positive ? r.x : r.x + r.width - fillW;
+        g.fillRoundRect(fillX, r.y, fillW, r.height, r.height, r.height);
     }
 
     /**

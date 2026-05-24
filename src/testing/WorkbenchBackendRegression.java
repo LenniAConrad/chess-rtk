@@ -79,6 +79,7 @@ final class WorkbenchBackendRegression {
         testNetworkDiagnosticsPreviewRecolorsForDarkTheme();
         testNnueStackSummaryStaysCompact();
         testNnueViewsPaintSyntheticSnapshotHeadlessly();
+        testNnueContributorLedgerUsesReadableRows();
         testNnueTraceFitsViewportAndCentersColumns();
         testNnueHalfKpDecodingUsesFeatureEncoderLayout();
         testNnueTraceRanksCombinedContributionsAndShowsAllFeatures();
@@ -822,6 +823,30 @@ final class WorkbenchBackendRegression {
                 MouseEvent.MOUSE_MOVED, 0L, 0, 600, 200, 0, false, MouseEvent.NOBUTTON));
         assertTrue(atlasTip != null && atlasTip.contains("whole atlas"),
                 "NNUE atlas exposes a whole-atlas pixel-plane overview");
+    }
+
+    /**
+     * Verifies the overview contributor ledger keeps large Half-KP board
+     * previews, avoids zebra-striping the rows, and uses a one-sided magnitude
+     * bar because positive and negative contributors are already split into
+     * separate columns.
+     */
+    private static void testNnueContributorLedgerUsesReadableRows() {
+        String source;
+        try {
+            source = Files.readString(Path.of("src/application/gui/workbench/network/NnueOverviewView.java"),
+                    StandardCharsets.UTF_8);
+        } catch (IOException ex) {
+            throw new AssertionError("unable to read NNUE overview source", ex);
+        }
+        assertTrue(source.contains("CONTRIBUTOR_ROW_MIN_HEIGHT = 38"),
+                "NNUE contributor rows reserve enough height for readable mini boards");
+        assertTrue(source.contains("drawContributorMagnitudeBar"),
+                "NNUE contributor ledger uses one-sided magnitude bars");
+        assertFalse(source.contains("i % 2 == 0"),
+                "NNUE contributor rows do not use alternating table backgrounds");
+        assertFalse(source.contains("TensorViz.drawHorizontalBar(g, bar, v, maxAbs, null)"),
+                "NNUE contributor columns do not render signed midpoint bars");
     }
 
     /**
