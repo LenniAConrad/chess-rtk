@@ -11,9 +11,12 @@ import application.gui.workbench.ui.Ui;
 import chess.core.Position;
 import java.awt.BorderLayout;
 import java.awt.Component;
+import java.awt.Container;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
+import java.awt.Insets;
+import java.awt.LayoutManager;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -77,6 +80,16 @@ public final class CommandForm extends JPanel {
      * Row height.
      */
     private static final int ROW_HEIGHT = Theme.CONTROL_HEIGHT + 6;
+
+    /**
+     * Horizontal gap between optional-flag columns.
+     */
+    private static final int FLAG_COLUMN_GAP = Theme.SPACE_LG;
+
+    /**
+     * Vertical gap between optional-flag rows.
+     */
+    private static final int FLAG_ROW_GAP = Theme.SPACE_XS;
 
     /**
      * Listener invoked whenever the built command changes.
@@ -314,13 +327,15 @@ public final class CommandForm extends JPanel {
             filterRow.add(filterField, BorderLayout.CENTER);
             optionalPanel.add(filterRow);
             optionalPanel.add(Box.createVerticalStrut(Theme.SPACE_XS));
+            JPanel flagGrid = new FlagGridPanel();
+            flagGrid.setOpaque(false);
+            flagGrid.setAlignmentX(LEFT_ALIGNMENT);
             for (Block block : optional) {
                 JComponent rendered = renderBlock(block, true);
-                Component spacer = Box.createVerticalStrut(Theme.SPACE_XS);
-                optionalPanel.add(rendered);
-                optionalPanel.add(spacer);
-                optionalRows.add(new FilterRow(rendered, spacer, block.searchText()));
+                flagGrid.add(rendered);
+                optionalRows.add(new FilterRow(rendered, block.searchText()));
             }
+            optionalPanel.add(flagGrid);
             optionalDisclosure = Ui.collapsible("Flags", optionalPanel, false);
             body.add(optionalDisclosure);
         }
@@ -804,7 +819,6 @@ public final class CommandForm extends JPanel {
         for (FilterRow row : optionalRows) {
             boolean visible = query.isEmpty() || row.text().contains(query);
             row.component().setVisible(visible);
-            row.spacer().setVisible(visible);
         }
         body.revalidate();
         body.repaint();
@@ -1142,9 +1156,198 @@ public final class CommandForm extends JPanel {
      * An optional row paired with its search text for filtering.
      *
      * @param component rendered row
-     * @param spacer row spacer
      * @param text lowercased search text
      */
-    private record FilterRow(JComponent component, Component spacer, String text) {
+    private record FilterRow(JComponent component, String text) {
+    }
+
+    /**
+     * Wrapping optional-flag grid. It keeps each flag row internally aligned,
+     * but places rows side by side whenever the available width can fit more
+     * than one column.
+     */
+    private static final class FlagGridPanel extends JPanel {
+
+        /**
+         * Serialization identifier for Swing panel compatibility.
+         */
+        private static final long serialVersionUID = 1L;
+
+        /**
+         * Creates the wrapping flag grid.
+         */
+        FlagGridPanel() {
+            super(new FlagGridLayout());
+            setOpaque(false);
+        }
+
+        /**
+         * Keeps BoxLayout parents from constraining the grid to one narrow
+         * preferred width.
+         *
+         * @return maximum grid size
+         */
+        @Override
+        public Dimension getMaximumSize() {
+            Dimension preferred = getPreferredSize();
+            return new Dimension(Integer.MAX_VALUE, preferred.height);
+        }
+    }
+
+    /**
+     * Responsive row-major layout for optional command flags.
+     */
+    private static final class FlagGridLayout implements LayoutManager {
+
+        @Override
+        public void addLayoutComponent(String name, Component component) {
+            // no named constraints
+        }
+
+        @Override
+        public void removeLayoutComponent(Component component) {
+            // no cached component state
+        }
+
+        @Override
+        public Dimension preferredLayoutSize(Container parent) {
+            return layoutSize(parent, availableWidth(parent));
+        }
+
+        @Override
+        public Dimension minimumLayoutSize(Container parent) {
+            return layoutSize(parent, minimumColumnWidth(parent));
+        }
+
+        @Override
+        public void layoutContainer(Container parent) {
+            synchronized (parent.getTreeLock()) {
+                Insets insets = parent.getInsets();
+                int width = Math.max(0, parent.getWidth() - insets.left - insets.right);
+                int columnWidth = minimumColumnWidth(parent);
+                int columns = columnCount(width, columnWidth);
+                List<Component> visible = visibleChildren(parent);
+                int y = insets.top;
+                for (int rowStart = 0; rowStart < visible.size(); rowStart += columns) {
+                    int rowEnd = Math.min(visible.size(), rowStart + columns);
+                    int rowHeight = rowHeight(visible, rowStart, rowEnd);
+                    for (int index = rowStart; index < rowEnd; index++) {
+                        Component child = visible.get(index);
+                        int column = index - rowStart;
+                        child.setBounds(insets.left + column * (columnWidth + FLAG_COLUMN_GAP),
+                                y, columnWidth, rowHeight);
+                    }
+                    y += rowHeight + FLAG_ROW_GAP;
+                }
+            }
+        }
+
+        /**
+         * Computes the preferred or minimum layout size for a target width.
+         *
+         * @param parent parent container
+         * @param targetWidth available content width
+         * @return layout size
+         */
+        private static Dimension layoutSize(Container parent, int targetWidth) {
+            synchronized (parent.getTreeLock()) {
+                Insets insets = parent.getInsets();
+                int columnWidth = minimumColumnWidth(parent);
+                int columns = columnCount(Math.max(columnWidth, targetWidth), columnWidth);
+                List<Component> visible = visibleChildren(parent);
+                int height = 0;
+                for (int rowStart = 0; rowStart < visible.size(); rowStart += columns) {
+                    int rowEnd = Math.min(visible.size(), rowStart + columns);
+                    height += rowHeight(visible, rowStart, rowEnd);
+                    if (rowEnd < visible.size()) {
+                        height += FLAG_ROW_GAP;
+                    }
+                }
+                int rows = visible.isEmpty() ? 0 : (visible.size() + columns - 1) / columns;
+                int width = columns * columnWidth + Math.max(0, columns - 1) * FLAG_COLUMN_GAP;
+                if (rows == 0) {
+                    width = 0;
+                }
+                return new Dimension(width + insets.left + insets.right,
+                        height + insets.top + insets.bottom);
+            }
+        }
+
+        /**
+         * Returns the usable width for preferred-size calculations.
+         *
+         * @param parent parent container
+         * @return available width
+         */
+        private static int availableWidth(Container parent) {
+            int width = parent.getWidth();
+            if (width <= 0 && parent.getParent() != null) {
+                width = parent.getParent().getWidth();
+            }
+            if (width <= 0) {
+                width = minimumColumnWidth(parent);
+            }
+            Insets insets = parent.getInsets();
+            return Math.max(0, width - insets.left - insets.right);
+        }
+
+        /**
+         * Returns the largest preferred child width; this is the column width.
+         *
+         * @param parent parent container
+         * @return minimum useful column width
+         */
+        private static int minimumColumnWidth(Container parent) {
+            int width = 1;
+            for (Component child : parent.getComponents()) {
+                if (child.isVisible()) {
+                    width = Math.max(width, child.getPreferredSize().width);
+                }
+            }
+            return width;
+        }
+
+        /**
+         * Returns how many columns fit in the target width.
+         *
+         * @param width available width
+         * @param columnWidth column width
+         * @return column count
+         */
+        private static int columnCount(int width, int columnWidth) {
+            return Math.max(1, (width + FLAG_COLUMN_GAP) / Math.max(1, columnWidth + FLAG_COLUMN_GAP));
+        }
+
+        /**
+         * Returns visible child components in layout order.
+         *
+         * @param parent parent container
+         * @return visible children
+         */
+        private static List<Component> visibleChildren(Container parent) {
+            List<Component> visible = new ArrayList<>();
+            for (Component child : parent.getComponents()) {
+                if (child.isVisible()) {
+                    visible.add(child);
+                }
+            }
+            return visible;
+        }
+
+        /**
+         * Computes the maximum preferred height in one grid row.
+         *
+         * @param visible visible children
+         * @param start inclusive start index
+         * @param end exclusive end index
+         * @return row height
+         */
+        private static int rowHeight(List<Component> visible, int start, int end) {
+            int height = 0;
+            for (int i = start; i < end; i++) {
+                height = Math.max(height, visible.get(i).getPreferredSize().height);
+            }
+            return height;
+        }
     }
 }

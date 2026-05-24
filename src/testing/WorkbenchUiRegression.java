@@ -107,6 +107,7 @@ final class WorkbenchUiRegression {
         testSplitPaneSashAnimatesHover();
         testChartsRevealNewData();
         testCommandFormOptionalTogglesFillLeadColumn();
+        testCommandFormFlagsWrapAcrossColumns();
         testThemeColorContrast();
         testThemeUsesVscodeModernColorTokens();
         testNetworkPaletteUsesSemanticFocusColor();
@@ -956,6 +957,35 @@ final class WorkbenchUiRegression {
         int leadWidth = (Integer) staticField(type("CommandForm"), "LEAD_WIDTH");
         assertEquals(Integer.valueOf(leadWidth), Integer.valueOf(toggle.getWidth()),
                 "optional toggle fills command lead column");
+    }
+
+    /**
+     * Verifies command-builder flags wrap horizontally into additional columns
+     * when the optional section has enough width.
+     */
+    private static void testCommandFormFlagsWrapAcrossColumns() {
+        JComponent grid = (JComponent) construct(type("CommandForm$FlagGridPanel"), new Class<?>[0]);
+        for (int i = 0; i < 6; i++) {
+            JPanel row = new JPanel();
+            row.setPreferredSize(new Dimension(520, 36));
+            grid.add(row);
+        }
+
+        grid.setSize(1600, 200);
+        grid.doLayout();
+        Component first = grid.getComponent(0);
+        Component second = grid.getComponent(1);
+        Component fourth = grid.getComponent(3);
+        assertEquals(Integer.valueOf(first.getY()), Integer.valueOf(second.getY()),
+                "wide flags share a row");
+        assertTrue(second.getX() > first.getX(), "second flag sits to the right of the first");
+        assertTrue(fourth.getY() > first.getY(), "wide flags wrap after fitting columns");
+
+        grid.setSize(540, 260);
+        grid.doLayout();
+        assertEquals(Integer.valueOf(first.getX()), Integer.valueOf(second.getX()),
+                "narrow flags use one column");
+        assertTrue(second.getY() > first.getY(), "narrow flags stack vertically");
     }
 
     /**
