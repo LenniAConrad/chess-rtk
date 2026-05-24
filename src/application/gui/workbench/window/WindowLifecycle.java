@@ -618,6 +618,7 @@ public abstract class WindowLifecycle extends WindowBase {
         tabs.addPanel("Publish", new LazyPanel("Publish", this::createPublishTab));
         tabs.addPanel("Console", createConsolePanel());
         tabs.addPanel("Network", new LazyPanel("Network", this::networkPanel));
+        tabs.addPanel("Puzzles", new LazyPanel("Puzzles", this::createPuzzleTab));
         tabs.install();
         tabs.setSelectionListener(index -> onWorkbenchTabVisibilityChanged());
         tabs.select(TAB_DASHBOARD);
@@ -1047,6 +1048,8 @@ public abstract class WindowLifecycle extends WindowBase {
     new PaletteAction("Open publish tab", "Show report and publishing tools", () -> selectTab(TAB_PUBLISH)),
     new PaletteAction("Open console tab", "Show command output and process state",
                         () -> selectTab(TAB_CONSOLE)),
+    new PaletteAction("Open puzzles tab", "Train PGN tactics with variation branches",
+                        () -> selectTab(TAB_PUZZLES)),
     new PaletteAction("Split tab right", "Move the active workbench tab into a right editor group",
                         tabs::splitSelectedTabRight),
     new PaletteAction("Split tab down", "Move the active workbench tab into a lower editor group",

@@ -166,25 +166,25 @@ public final class SvgIcon implements Icon {
             return null;
         }
         Kind kind = switch (text) {
-            case "Load", "Load Line", "Run", "Run Batch", "Run Publishing", "Generate Report", "Search", "Best",
-                    "Analyze", "Smoke" ->
+            case "Load", "Load Line", "Load Puzzle", "Run", "Run Batch", "Run Publishing", "Generate Report",
+                    "Search", "Best", "Analyze", "Smoke", "Reveal" ->
                     Kind.PLAY;
             case "Start" -> Kind.FIRST;
             case "Back" -> Kind.PREVIOUS;
-            case "Forward" -> Kind.NEXT;
+            case "Forward", "Skip" -> Kind.NEXT;
             case "End" -> Kind.LAST;
-            case "Reset", "Drop Optional", "Clear", "Clear Flags", "Defaults" -> Kind.RESET;
+            case "Reset", "Restart", "Drop Optional", "Clear", "Clear Flags", "Defaults" -> Kind.RESET;
             case "Flip" -> Kind.FLIP;
             case "Copy", "Copy FEN", "Copy Command", "Copy Report", "Copy PGN", "Copy SAN", "Copy UCI",
                     "Copy FEN List", "Copy FENs" ->
                     Kind.COPY;
             case "Stop" -> Kind.STOP;
-            case "Info", "Info +", "Info -" -> Kind.INFO;
+            case "Info", "Info +", "Info -", "Hint" -> Kind.INFO;
             case "Settings" -> Kind.SETTINGS;
             case "Tags" -> Kind.TAG;
             case "Actions", "Commands", "Batch", "Game", "Perft", "Engine", "Validate Config", "Analysis data" ->
                     Kind.GRID;
-            case "Add Current FEN", "Add FEN", "Add to Batch", "New Game" -> Kind.PLUS;
+            case "Add Current FEN", "Add FEN", "Add to Batch", "New Game", "Sample" -> Kind.PLUS;
             case "Publish", "Browse", "Load File", "Open PGN", "PGN Explorer", "Save PGN", "Save Report",
                     "Choose Input", "Choose Output", "Choose PDF", "Choose Cover", "Choose Manifest",
                     "Choose Protocol" ->

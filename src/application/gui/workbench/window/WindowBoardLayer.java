@@ -728,6 +728,15 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
     }
 
     /**
+     * Creates the puzzle trainer tab.
+     *
+     * @return puzzle tab
+     */
+    protected JComponent createPuzzleTab() {
+        return puzzlePanel();
+    }
+
+    /**
      * Creates a compact nested tabbed pane for replacing divider-heavy sections.
      *
      * @return styled tabbed pane

@@ -22,6 +22,7 @@ import application.gui.workbench.game.EngineEval;
 import application.gui.workbench.game.GameModel;
 import application.gui.workbench.game.MovesModel;
 import application.gui.workbench.game.PgnExplorerDialog;
+import application.gui.workbench.game.PuzzlePanel;
 import application.gui.workbench.layout.EditorSplitArea;
 import application.gui.workbench.mcts.MctsPanel;
 import application.gui.workbench.network.NetworkPanel;
@@ -128,6 +129,11 @@ public abstract class WindowBase extends JFrame {
     protected static final int TAB_NETWORK = 7;
 
     /**
+     * Puzzle trainer tab index.
+     */
+    protected static final int TAB_PUZZLES = 8;
+
+    /**
      * Board view.
      */
     protected final BoardPanel board = new BoardPanel();
@@ -173,6 +179,11 @@ public abstract class WindowBase extends JFrame {
      * Dataset inspection and visualization tab.
      */
     protected DatasetPanel datasetPanel;
+
+    /**
+     * PGN puzzle trainer tab, created on first use.
+     */
+    protected PuzzlePanel puzzlePanel;
 
     /**
      * Job record for the foreground command currently tracked, or null.
@@ -422,6 +433,18 @@ public abstract class WindowBase extends JFrame {
             datasetPanel = new DatasetPanel();
         }
         return datasetPanel;
+    }
+
+    /**
+     * Returns the puzzle trainer, creating it only when opened.
+     *
+     * @return puzzle trainer panel
+     */
+    protected PuzzlePanel puzzlePanel() {
+        if (puzzlePanel == null) {
+            puzzlePanel = new PuzzlePanel();
+        }
+        return puzzlePanel;
     }
 
     /**
@@ -725,6 +748,13 @@ public abstract class WindowBase extends JFrame {
     /** Creates the Publish tab.
      * @return computed value */
     protected abstract JComponent createPublishTab();
+
+    /**
+     * Creates the Puzzles tab.
+     *
+     * @return computed value
+     */
+    protected abstract JComponent createPuzzleTab();
 
     /** Creates the Console tab.
      * @return computed value */

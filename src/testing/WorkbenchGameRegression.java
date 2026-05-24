@@ -21,6 +21,8 @@ import javax.swing.Timer;
 
 import application.gui.workbench.game.GameModel;
 import application.gui.workbench.game.PgnExplorerModel;
+import application.gui.workbench.game.PuzzlePanel;
+import application.gui.workbench.game.PuzzleSession;
 import application.gui.workbench.game.SanRenderer;
 import application.gui.workbench.ui.Theme;
 
@@ -48,6 +50,8 @@ final class WorkbenchGameRegression {
     static void run() {
         testWorkbenchSanRendererUsesNeutralPieceSvgs();
         testGameModelLoadsPgnVariations();
+        testPuzzleSessionExploresOpponentVariationBranches();
+        testPuzzlePanelPaintsOpaqueSurface();
         testPgnExplorerModelFiltersGames();
         testEcoExplorerFiltersAndLoadsLines();
         testEvalBarMapping();
@@ -109,6 +113,53 @@ final class WorkbenchGameRegression {
         assertEquals(afterMainline.toString(), model.currentPosition().toString(), "mainline navigation restored");
         assertEquals(List.of(Short.valueOf(Move.parse("e2e4")), Short.valueOf(Move.parse("e7e5"))),
                 model.currentPath(), "mainline path");
+    }
+
+    /**
+     * Verifies the native puzzle session follows the chess-web variation flow.
+     */
+    private static void testPuzzleSessionExploresOpponentVariationBranches() {
+        String pgn = """
+                [SetUp "1"]
+                [FEN "6n1/1P2k2r/3r1b2/R2p1b1p/pp2NP2/1n6/7R/7K w - - 4 63"]
+
+                63. Nxd6 Be4+ (Kxd6 64. b8=Q+) 64. Nxe4 Nxa5 65. b8=Q *
+                """;
+        PuzzleSession session = PuzzleSession.fromPgn(pgn, "test", PuzzleSession.VariationMode.EXPLORE);
+        assertEquals(Integer.valueOf(2), Integer.valueOf(session.totalLines()),
+                "puzzle session explores opponent branches");
+
+        PuzzleSession.MoveResponse first = session.playUserMove(Move.parse("e4d6"), false);
+        assertEquals(PuzzleSession.StepResult.CORRECT, first.result(), "first puzzle move correct");
+        assertEquals("f5e4", Move.toString(first.autoPlayedMoves().get(0).shortValue()),
+                "first opponent move auto-played");
+
+        PuzzleSession.MoveResponse second = session.playUserMove(Move.parse("d6e4"), false);
+        assertEquals(PuzzleSession.StepResult.CORRECT, second.result(), "second puzzle move correct");
+        assertEquals("b3a5", Move.toString(second.autoPlayedMoves().get(0).shortValue()),
+                "second opponent move auto-played");
+
+        PuzzleSession.MoveResponse mainline = session.playUserMove(Move.parse("b7b8q"), false);
+        assertEquals(PuzzleSession.StepResult.CORRECT, mainline.result(),
+                "mainline branch completion advances to variation");
+        assertEquals(Integer.valueOf(1), Integer.valueOf(mainline.snapshot().lineIndex()),
+                "variation branch selected after mainline");
+
+        PuzzleSession.MoveResponse variation = session.playUserMove(Move.parse("b7b8q"), false);
+        assertEquals(PuzzleSession.StepResult.COMPLETED, variation.result(), "final branch completes puzzle");
+
+        PuzzleSession wrong = PuzzleSession.fromPgn(pgn, "test", PuzzleSession.VariationMode.EXPLORE);
+        PuzzleSession.MoveResponse rejected = wrong.playUserMove(Move.parse("e4f6"), false);
+        assertEquals(PuzzleSession.StepResult.INCORRECT, rejected.result(), "wrong puzzle move rejected");
+        assertEquals("e4d6", Move.toString(rejected.expectedMove()), "expected move reported");
+    }
+
+    /**
+     * Verifies the puzzle panel paints a themed, non-transparent surface.
+     */
+    private static void testPuzzlePanelPaintsOpaqueSurface() {
+        JComponent panel = new PuzzlePanel();
+        assertPaintsOpaqueCorner(panel, 720, 520, "puzzle panel opaque background");
     }
 
     /**
