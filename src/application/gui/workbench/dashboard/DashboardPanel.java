@@ -272,19 +272,7 @@ public final class DashboardPanel extends JPanel implements SessionListener {
         // Cap the content column and centre it: on a wide monitor the cards
         // would otherwise stretch edge-to-edge and look sparse.
         grid.setMaximumSize(new Dimension(CONTENT_MAX_WIDTH, Integer.MAX_VALUE));
-        grid.setPreferredSize(new Dimension(CONTENT_MAX_WIDTH,
-                grid.getPreferredSize().height));
-        JPanel centered = Ui.transparentPanel(new GridBagLayout());
-        GridBagConstraints centerConstraints = new GridBagConstraints();
-        centerConstraints.gridx = 0;
-        centerConstraints.gridy = 0;
-        centerConstraints.weightx = 1.0;
-        centerConstraints.weighty = 1.0;
-        centerConstraints.anchor = GridBagConstraints.NORTH;
-        centerConstraints.fill = GridBagConstraints.VERTICAL;
-        centered.add(grid, centerConstraints);
-
-        add(Ui.scroll(centered), BorderLayout.CENTER);
+        add(Ui.scroll(Ui.centeredViewport(grid, CONTENT_MAX_WIDTH)), BorderLayout.CENTER);
 
         session.addListener(this);
         session.artifacts().addListener(() -> SwingUtilities.invokeLater(this::refreshArtifacts));

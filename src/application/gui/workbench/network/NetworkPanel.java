@@ -424,7 +424,8 @@ public final class NetworkPanel extends JPanel {
         bt4View.setInspector(inspectorPanel);
         detailsTabs.addTab("Inspector", inspectorPanel);
         detailsTabs.addTab("Runtime", diagnosticsPanel);
-        detailsTabs.setPreferredSize(new Dimension(372, 600));
+        detailsTabs.setPreferredSize(new Dimension(304, 600));
+        detailsTabs.setMinimumSize(new Dimension(232, 260));
         JPanel content = new JPanel(new BorderLayout(Theme.SPACE_SM, 0));
         content.setOpaque(false);
         content.add(cardPanel, BorderLayout.CENTER);

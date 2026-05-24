@@ -155,6 +155,18 @@ public abstract class WindowLifecycle extends WindowBase {
     protected static final int DEFAULT_WINDOW_HEIGHT = 920;
 
     /**
+     * Small-screen minimum window width. This keeps the workbench usable on
+     * compact laptop displays while leaving enough room for the board and
+     * side-panel controls.
+     */
+    protected static final int MIN_WINDOW_WIDTH = 1040;
+
+    /**
+     * Small-screen minimum window height.
+     */
+    protected static final int MIN_WINDOW_HEIGHT = 700;
+
+    /**
      * Keyboard shortcuts that move to the previous game ply.
      */
     private static final KeyStroke[] PREVIOUS_POSITION_KEYS = keyStrokes(
@@ -199,7 +211,7 @@ public abstract class WindowLifecycle extends WindowBase {
         int x = WORKBENCH_PREFS.getInt("window.x", Integer.MIN_VALUE);
         int y = WORKBENCH_PREFS.getInt("window.y", Integer.MIN_VALUE);
         boolean maximized = WORKBENCH_PREFS.getBoolean("window.maximized", false);
-        setSize(Math.max(1180, width), Math.max(760, height));
+        setSize(Math.max(MIN_WINDOW_WIDTH, width), Math.max(MIN_WINDOW_HEIGHT, height));
         if (x == Integer.MIN_VALUE || y == Integer.MIN_VALUE || !isOnAnyScreen(x, y, width, height)) {
             setLocationRelativeTo(null);
         } else {

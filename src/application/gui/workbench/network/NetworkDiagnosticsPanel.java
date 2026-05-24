@@ -57,7 +57,7 @@ public final class NetworkDiagnosticsPanel extends JPanel {
     /**
      * Preferred diagnostics sidebar width.
      */
-    private static final int SIDEBAR_WIDTH = 360;
+    private static final int SIDEBAR_WIDTH = 296;
 
     /**
      * Pixel budget for compact path details in status rows.
@@ -114,6 +114,7 @@ public final class NetworkDiagnosticsPanel extends JPanel {
         setBackground(Theme.PANEL_SOLID);
         setBorder(Theme.pad(Theme.SPACE_MD));
         setPreferredSize(new Dimension(SIDEBAR_WIDTH, 600));
+        setMinimumSize(new Dimension(220, 260));
 
         JPanel top = Ui.transparentPanel(new BorderLayout(0, Theme.SPACE_MD));
         JPanel stack = Ui.transparentPanel(new GridBagLayout());

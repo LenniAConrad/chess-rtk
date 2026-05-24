@@ -215,6 +215,20 @@ public final class Ui {
     }
 
     /**
+     * Wraps content so it tracks the viewport width, caps the inner content at
+     * a readable maximum width, and centers it when the viewport is wider than
+     * that cap. This keeps report-like screens usable on laptop-sized windows
+     * without letting them stretch edge-to-edge on large monitors.
+     *
+     * @param content content component
+     * @param maxWidth maximum inner content width
+     * @return centered viewport wrapper
+     */
+    public static JComponent centeredViewport(JComponent content, int maxWidth) {
+        return new CenteredViewportPanel(content, maxWidth);
+    }
+
+    /**
      * Creates a label.
      *
      * @param text text
@@ -486,6 +500,7 @@ public final class Ui {
      */
     public static JTabbedPane tabbedPane() {
         JTabbedPane pane = new JTabbedPane();
+        pane.setTabLayoutPolicy(JTabbedPane.SCROLL_TAB_LAYOUT);
         styleTabs(pane);
         return pane;
     }
@@ -1036,6 +1051,132 @@ public final class Ui {
          * available space.
          *
          * @return true when short content should fill the viewport
+         */
+        @Override
+        public boolean getScrollableTracksViewportHeight() {
+            Container parent = getParent();
+            return parent instanceof JViewport viewport && getPreferredSize().height < viewport.getHeight();
+        }
+    }
+
+    /**
+     * Scrollable wrapper that centers a single child up to a maximum width
+     * while still tracking the viewport width to avoid horizontal scrolling on
+     * smaller screens.
+     */
+    private static final class CenteredViewportPanel extends JPanel implements Scrollable {
+
+        /**
+         * Serialization identifier for Swing panel compatibility.
+         */
+        private static final long serialVersionUID = 1L;
+
+        /**
+         * Wrapped content component.
+         */
+        private final JComponent content;
+
+        /**
+         * Maximum centered content width.
+         */
+        private final int maxWidth;
+
+        /**
+         * Creates the centered viewport wrapper.
+         *
+         * @param content content component
+         * @param maxWidth maximum centered content width
+         */
+        CenteredViewportPanel(JComponent content, int maxWidth) {
+            super(null);
+            this.content = content;
+            this.maxWidth = Math.max(320, maxWidth);
+            setOpaque(false);
+            setBackground(Theme.BG);
+            add(content);
+        }
+
+        /**
+         * Lays out the child at the smaller of the viewport width and the
+         * configured content cap.
+         */
+        @Override
+        public void doLayout() {
+            Insets insets = getInsets();
+            int availableWidth = Math.max(0, getWidth() - insets.left - insets.right);
+            int availableHeight = Math.max(0, getHeight() - insets.top - insets.bottom);
+            int childWidth = Math.min(maxWidth, availableWidth);
+            Dimension preferred = content.getPreferredSize();
+            int childHeight = Math.max(availableHeight, preferred.height);
+            int childX = insets.left + Math.max(0, (availableWidth - childWidth) / 2);
+            content.setBounds(childX, insets.top, childWidth, childHeight);
+        }
+
+        /**
+         * Returns the preferred wrapper size.
+         *
+         * @return preferred size
+         */
+        @Override
+        public Dimension getPreferredSize() {
+            Insets insets = getInsets();
+            Dimension preferred = content.getPreferredSize();
+            return new Dimension(Math.min(maxWidth, preferred.width) + insets.left + insets.right,
+                    preferred.height + insets.top + insets.bottom);
+        }
+
+        /**
+         * Returns the natural viewport size.
+         *
+         * @return preferred size
+         */
+        @Override
+        public Dimension getPreferredScrollableViewportSize() {
+            return getPreferredSize();
+        }
+
+        /**
+         * Returns a compact scroll increment.
+         *
+         * @param visibleRect visible rectangle
+         * @param orientation scroll orientation
+         * @param direction scroll direction
+         * @return unit increment
+         */
+        @Override
+        public int getScrollableUnitIncrement(Rectangle visibleRect, int orientation, int direction) {
+            return 24;
+        }
+
+        /**
+         * Returns a viewport-sized scroll increment.
+         *
+         * @param visibleRect visible rectangle
+         * @param orientation scroll orientation
+         * @param direction scroll direction
+         * @return block increment
+         */
+        @Override
+        public int getScrollableBlockIncrement(Rectangle visibleRect, int orientation, int direction) {
+            int size = orientation == SwingConstants.VERTICAL ? visibleRect.height : visibleRect.width;
+            return Math.max(24, size - 24);
+        }
+
+        /**
+         * Tracks viewport width to avoid horizontal scrolling.
+         *
+         * @return true
+         */
+        @Override
+        public boolean getScrollableTracksViewportWidth() {
+            return true;
+        }
+
+        /**
+         * Tracks viewport height when content is shorter than the available
+         * area.
+         *
+         * @return true when the wrapper should fill the viewport height
          */
         @Override
         public boolean getScrollableTracksViewportHeight() {

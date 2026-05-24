@@ -47,7 +47,7 @@ public final class Window extends WindowCommandLayer {
         loadThemeSetting();
         Theme.install();
         setDefaultCloseOperation(DISPOSE_ON_CLOSE);
-        setMinimumSize(new Dimension(1180, 760));
+        setMinimumSize(new Dimension(MIN_WINDOW_WIDTH, MIN_WINDOW_HEIGHT));
         restoreWindowGeometry();
         loadDisplaySettings();
         loadEngineSettings();

@@ -113,7 +113,8 @@ public final class InspectorPanel extends JPanel {
         setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createMatteBorder(0, 1, 0, 0, Theme.LINE),
                 Theme.pad(Theme.SPACE_MD)));
-        setPreferredSize(new Dimension(340, 600));
+        setPreferredSize(new Dimension(296, 600));
+        setMinimumSize(new Dimension(220, 260));
 
         titleLabel.setFont(Theme.font(13, Font.BOLD));
         titleLabel.setForeground(Theme.TEXT);

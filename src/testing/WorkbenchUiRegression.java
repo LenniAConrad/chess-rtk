@@ -87,6 +87,7 @@ final class WorkbenchUiRegression {
         testTextAreaScrollPaintsOpaque();
         testScrollPaneUsesSolidCorners();
         testViewportFillWrapperTracksAvailableHeight();
+        testCenteredViewportAvoidsHorizontalScrolling();
         testDataSurfacesUseSolidBackgrounds();
         testTagCloudGroupsAndWrapsTags();
         testCustomPaintedSurfacesClearBackground();
@@ -115,6 +116,7 @@ final class WorkbenchUiRegression {
         testCollapsibleInfoSectionTogglesContent();
         testLazyPanelDefersConstruction();
         testCommandTabsReserveSelectedTextWidth();
+        testTabbedPaneUsesScrollableSingleRowTabs();
         testTabbedPaneSwitchesWithoutSnapshotOverlay();
         testTabbedPaneRolloverIgnoresEmptyPanes();
         testSplitAreaUsesIndependentEditorGroups();
@@ -226,6 +228,29 @@ final class WorkbenchUiRegression {
         child.setPreferredSize(new Dimension(200, 520));
         wrapper.revalidate();
         assertFalse(scrollable.getScrollableTracksViewportHeight(), "tall content keeps vertical scrolling");
+    }
+
+    /**
+     * Verifies centered report content tracks compact viewport widths rather
+     * than forcing a horizontal scrollbar.
+     */
+    private static void testCenteredViewportAvoidsHorizontalScrolling() {
+        JPanel child = new JPanel();
+        child.setPreferredSize(new Dimension(1440, 260));
+        JComponent wrapper = Ui.centeredViewport(child, 1440);
+        assertTrue(wrapper instanceof Scrollable, "centered viewport wrapper is scrollable");
+
+        JScrollPane pane = Ui.scroll(wrapper);
+        pane.setSize(1040, 320);
+        pane.doLayout();
+        wrapper.doLayout();
+
+        assertTrue(((Scrollable) wrapper).getScrollableTracksViewportWidth(),
+                "centered viewport tracks compact widths");
+        assertFalse(pane.getHorizontalScrollBar().isVisible(),
+                "centered viewport does not require horizontal scrolling");
+        assertTrue(child.getBounds().width <= pane.getViewport().getExtentSize().width,
+                "centered child fits inside compact viewport");
     }
 
     /**
@@ -1044,6 +1069,17 @@ final class WorkbenchUiRegression {
         tab.setSelected(true);
         Dimension selected = tab.getPreferredSize();
         assertEquals(plain, selected, "command tab preferred size is stable when selected");
+    }
+
+    /**
+     * Verifies styled tab panes keep one scrollable row instead of wrapping
+     * dense section tabs into stacked rows on small screens.
+     */
+    private static void testTabbedPaneUsesScrollableSingleRowTabs() {
+        JTabbedPane tabs = Ui.tabbedPane();
+        assertEquals(Integer.valueOf(JTabbedPane.SCROLL_TAB_LAYOUT),
+                Integer.valueOf(tabs.getTabLayoutPolicy()),
+                "tabbed pane uses scrollable single-row layout");
     }
 
     /**
