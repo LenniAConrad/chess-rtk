@@ -27,7 +27,9 @@ import java.io.File;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ThreadLocalRandom;
 import javax.swing.BorderFactory;
 import javax.swing.JComboBox;
 import javax.swing.JComponent;
@@ -73,6 +75,11 @@ public final class PuzzlePanel extends JPanel {
             """;
 
     /**
+     * Default file used for the built-in difficult puzzle collection.
+     */
+    private static final File DEFAULT_PUZZLE_FILE = PuzzleLibrary.DEFAULT_PATH.toFile();
+
+    /**
      * Main puzzle board.
      */
     private final BoardPanel board = new BoardPanel();
@@ -108,6 +115,11 @@ public final class PuzzlePanel extends JPanel {
     private final JLabel countersLabel = new JLabel("");
 
     /**
+     * Current puzzle-library status label.
+     */
+    private final JLabel libraryLabel = new JLabel("");
+
+    /**
      * Current side-to-solve label.
      */
     private final JLabel sideLabel = new JLabel("");
@@ -129,6 +141,21 @@ public final class PuzzlePanel extends JPanel {
     private PuzzleSession session;
 
     /**
+     * Loaded puzzle-library entries.
+     */
+    private List<PuzzleLibrary.Entry> puzzleLibrary = List.of();
+
+    /**
+     * Active puzzle-library index.
+     */
+    private int puzzleLibraryIndex = -1;
+
+    /**
+     * Source file for the loaded puzzle library.
+     */
+    private Path puzzleLibraryPath;
+
+    /**
      * Creates the puzzle trainer panel.
      */
     public PuzzlePanel() {
@@ -138,6 +165,7 @@ public final class PuzzlePanel extends JPanel {
         add(createBody(), BorderLayout.CENTER);
         installBoardHandlers();
         loadSamplePuzzle();
+        loadDefaultLibrary();
     }
 
     /**
@@ -154,6 +182,8 @@ public final class PuzzlePanel extends JPanel {
         solutionArea.setEditable(false);
         solutionArea.setLineWrap(true);
         solutionArea.setWrapStyleWord(true);
+        libraryLabel.setFont(Theme.font(12, Font.PLAIN));
+        Theme.foreground(libraryLabel, Theme.ForegroundRole.MUTED);
         pgnInput.setLineWrap(true);
         pgnInput.setWrapStyleWord(false);
         pgnInput.setRows(13);
@@ -264,19 +294,26 @@ public final class PuzzlePanel extends JPanel {
         countersLabel.setFont(Theme.font(12, Font.PLAIN));
         Theme.foreground(countersLabel, Theme.ForegroundRole.MUTED);
         grid(panel, countersLabel, c, 0, 1, 3, 1);
+        grid(panel, libraryLabel, c, 0, 2, 3, 1);
 
         JPanel rowOne = buttonRow(FlowLayout.LEFT,
                 button("Load Puzzle", true, event -> loadFromEditor()),
                 button("Load File", false, event -> openFile()),
                 button("Sample", false, event -> loadSamplePuzzle()));
-        grid(panel, rowOne, c, 0, 2, 3, 1);
+        grid(panel, rowOne, c, 0, 3, 3, 1);
 
         JPanel rowTwo = buttonRow(FlowLayout.LEFT,
+                button("Previous", false, event -> loadAdjacentPuzzle(-1)),
+                button("Next", false, event -> loadAdjacentPuzzle(1)),
+                button("Random", false, event -> loadRandomPuzzle()));
+        grid(panel, rowTwo, c, 0, 4, 3, 1);
+
+        JPanel rowThree = buttonRow(FlowLayout.LEFT,
                 button("Restart", false, event -> restart()),
                 button("Hint", false, event -> showHint()),
                 button("Reveal", false, event -> reveal()),
                 button("Skip", false, event -> skipVariation()));
-        grid(panel, rowTwo, c, 0, 3, 3, 1);
+        grid(panel, rowThree, c, 0, 5, 3, 1);
         return panel;
     }
 
@@ -308,6 +345,7 @@ public final class PuzzlePanel extends JPanel {
      * Loads the bundled sample puzzle.
      */
     private void loadSamplePuzzle() {
+        clearLibrarySelection();
         pgnInput.setText(SAMPLE_PGN);
         loadFromEditor();
     }
@@ -317,6 +355,7 @@ public final class PuzzlePanel extends JPanel {
      */
     private void loadFromEditor() {
         try {
+            clearLibrarySelection();
             session = PuzzleSession.fromPgn(pgnInput.getText(), "editor", variationMode());
             session.reset();
             displaySnapshot(Move.NO_MOVE);
@@ -327,17 +366,43 @@ public final class PuzzlePanel extends JPanel {
     }
 
     /**
-     * Opens a PGN file and loads it asynchronously.
+     * Loads the default difficult puzzle library when available.
+     */
+    private void loadDefaultLibrary() {
+        if (!Files.isRegularFile(PuzzleLibrary.DEFAULT_PATH)) {
+            setStatus("Default puzzle file not found; loaded sample.");
+            return;
+        }
+        setStatus("Loading difficult puzzle set...");
+        loadLibraryAsync(PuzzleLibrary.DEFAULT_PATH);
+    }
+
+    /**
+     * Opens a PGN or CSV puzzle file and loads it asynchronously.
      */
     private void openFile() {
-        JFileChooser chooser = FileDialogs.createFileChooser("Open Puzzle PGN",
-                new File("puzzle.pgn"),
-                new FileNameExtensionFilter("PGN or text files", "pgn", "txt"));
+        JFileChooser chooser = FileDialogs.createFileChooser("Open Puzzle File",
+                DEFAULT_PUZZLE_FILE,
+                new FileNameExtensionFilter("Puzzle files", "pgn", "txt", "csv"));
         int result = chooser.showOpenDialog(this);
         if (result != JFileChooser.APPROVE_OPTION) {
             return;
         }
         Path path = chooser.getSelectedFile().toPath();
+        if (PuzzleLibrary.isCsv(path)) {
+            setStatus("Loading puzzle library " + path.getFileName() + "...");
+            loadLibraryAsync(path);
+            return;
+        }
+        loadPgnFileAsync(path);
+    }
+
+    /**
+     * Loads a PGN text file asynchronously.
+     *
+     * @param path selected file path
+     */
+    private void loadPgnFileAsync(Path path) {
         setStatus("Loading " + path.getFileName() + "...");
         new SwingWorker<String, Void>() {
             /**
@@ -367,6 +432,127 @@ public final class PuzzlePanel extends JPanel {
                 }
             }
         }.execute();
+    }
+
+    /**
+     * Loads a puzzle CSV library asynchronously.
+     *
+     * @param path selected library path
+     */
+    private void loadLibraryAsync(Path path) {
+        new SwingWorker<List<PuzzleLibrary.Entry>, Void>() {
+            /**
+             * Reads and parses the selected CSV off the Swing thread.
+             *
+             * @return puzzle entries
+             * @throws Exception when loading fails
+             */
+            @Override
+            protected List<PuzzleLibrary.Entry> doInBackground() throws Exception {
+                return PuzzleLibrary.read(path);
+            }
+
+            /**
+             * Applies the parsed library on the Swing thread.
+             */
+            @Override
+            protected void done() {
+                try {
+                    applyLibrary(path, get());
+                } catch (InterruptedException ex) {
+                    Thread.currentThread().interrupt();
+                    setStatus("Puzzle library loading interrupted.");
+                } catch (java.util.concurrent.ExecutionException ex) {
+                    setStatus("Could not load puzzle library: " + ex.getCause().getMessage());
+                    updateLabels();
+                }
+            }
+        }.execute();
+    }
+
+    /**
+     * Applies a loaded puzzle library.
+     *
+     * @param path source path
+     * @param entries puzzle entries
+     */
+    private void applyLibrary(Path path, List<PuzzleLibrary.Entry> entries) {
+        puzzleLibrary = entries == null ? List.of() : List.copyOf(entries);
+        puzzleLibraryPath = path;
+        puzzleLibraryIndex = -1;
+        if (puzzleLibrary.isEmpty()) {
+            setStatus("Puzzle library is empty.");
+            updateLabels();
+            return;
+        }
+        loadLibraryPuzzle(0);
+        setStatus("Loaded " + puzzleLibrary.size() + " difficult puzzles from " + path.getFileName() + ".");
+    }
+
+    /**
+     * Loads the adjacent puzzle from the active collection.
+     *
+     * @param delta index delta
+     */
+    private void loadAdjacentPuzzle(int delta) {
+        if (puzzleLibrary.isEmpty()) {
+            setStatus("Load a puzzle library first.");
+            return;
+        }
+        int base = puzzleLibraryIndex < 0 ? 0 : puzzleLibraryIndex;
+        loadLibraryPuzzle(Math.floorMod(base + delta, puzzleLibrary.size()));
+    }
+
+    /**
+     * Loads a random puzzle from the active collection.
+     */
+    private void loadRandomPuzzle() {
+        if (puzzleLibrary.isEmpty()) {
+            setStatus("Load a puzzle library first.");
+            return;
+        }
+        loadLibraryPuzzle(ThreadLocalRandom.current().nextInt(puzzleLibrary.size()));
+    }
+
+    /**
+     * Loads a selected library puzzle into the trainer.
+     *
+     * @param requestedIndex requested entry index
+     */
+    private void loadLibraryPuzzle(int requestedIndex) {
+        if (puzzleLibrary.isEmpty()) {
+            return;
+        }
+        List<String> errors = new ArrayList<>();
+        for (int offset = 0; offset < puzzleLibrary.size(); offset++) {
+            int candidate = Math.floorMod(requestedIndex + offset, puzzleLibrary.size());
+            PuzzleLibrary.Entry entry = puzzleLibrary.get(candidate);
+            try {
+                session = PuzzleSession.fromUciLine(entry.title(), entry.id(), entry.fen(), entry.moves(),
+                        variationMode());
+                session.reset();
+                puzzleLibraryIndex = candidate;
+                pgnInput.setText(PuzzleLibrary.toPgn(entry));
+                displaySnapshot(Move.NO_MOVE);
+                setStatus("Loaded " + entry.title() + ".");
+                return;
+            } catch (RuntimeException ex) {
+                errors.add(entry.id() + ": " + ex.getMessage());
+            }
+        }
+        session = null;
+        setStatus("Could not load any puzzle from library: " + String.join("; ", errors));
+        updateLabels();
+    }
+
+    /**
+     * Clears active collection metadata for single-PGN mode.
+     */
+    private void clearLibrarySelection() {
+        puzzleLibrary = List.of();
+        puzzleLibraryIndex = -1;
+        puzzleLibraryPath = null;
+        libraryLabel.setText("");
     }
 
     /**
@@ -522,6 +708,7 @@ public final class PuzzlePanel extends JPanel {
             titleLabel.setText("Puzzles");
             progressLabel.setText("0 / 0");
             countersLabel.setText("");
+            libraryLabel.setText("");
             sideLabel.setText("");
             solutionArea.setText("");
             return;
@@ -533,9 +720,28 @@ public final class PuzzlePanel extends JPanel {
                 + "  hints " + session.hintCount()
                 + "  reveals " + session.revealCount()
                 + "  skipped " + session.skippedSimilarVariationCount());
+        libraryLabel.setText(libraryText());
         sideLabel.setText((session.userWhite() ? "White" : "Black") + " to solve");
         solutionArea.setText(solutionText(snapshot));
         solutionArea.setCaretPosition(0);
+    }
+
+    /**
+     * Builds the current puzzle-library label.
+     *
+     * @return library label text
+     */
+    private String libraryText() {
+        if (puzzleLibrary.isEmpty() || puzzleLibraryIndex < 0 || puzzleLibraryIndex >= puzzleLibrary.size()) {
+            return "Single PGN puzzle";
+        }
+        PuzzleLibrary.Entry entry = puzzleLibrary.get(puzzleLibraryIndex);
+        String source = puzzleLibraryPath == null || puzzleLibraryPath.getFileName() == null
+                ? "library"
+                : puzzleLibraryPath.getFileName().toString();
+        String detail = entry.detail();
+        String prefix = (puzzleLibraryIndex + 1) + " / " + puzzleLibrary.size() + " · " + source;
+        return detail.isBlank() ? prefix : prefix + " · " + detail;
     }
 
     /**

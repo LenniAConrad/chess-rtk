@@ -22,6 +22,7 @@ import javax.swing.Timer;
 
 import application.gui.workbench.game.GameModel;
 import application.gui.workbench.game.PgnExplorerModel;
+import application.gui.workbench.game.PuzzleLibrary;
 import application.gui.workbench.game.PuzzlePanel;
 import application.gui.workbench.game.PuzzleSession;
 import application.gui.workbench.game.SanRenderer;
@@ -53,6 +54,7 @@ final class WorkbenchGameRegression {
         testGameModelLoadsPgnVariations();
         testGameModelNavigatesSelectedVariationLine();
         testPuzzleSessionExploresOpponentVariationBranches();
+        testPuzzleLibraryLoadsDifficultCsv();
         testPuzzlePanelPaintsOpaqueSurface();
         testPgnExplorerModelFiltersGames();
         testEcoExplorerFiltersAndLoadsLines();
@@ -220,6 +222,29 @@ final class WorkbenchGameRegression {
         PuzzleSession.MoveResponse rejected = wrong.playUserMove(Move.parse("e4f6"), false);
         assertEquals(PuzzleSession.StepResult.INCORRECT, rejected.result(), "wrong puzzle move rejected");
         assertEquals("e4d6", Move.toString(rejected.expectedMove()), "expected move reported");
+    }
+
+    /**
+     * Verifies the bundled difficult puzzle CSV is parseable and playable.
+     */
+    private static void testPuzzleLibraryLoadsDifficultCsv() {
+        List<PuzzleLibrary.Entry> entries;
+        try {
+            entries = PuzzleLibrary.read(Path.of("assets", "puzzles", "difficult-lichess-10k.csv"));
+        } catch (java.io.IOException ex) {
+            throw new AssertionError("difficult puzzle library loads", ex);
+        }
+        assertEquals(Integer.valueOf(10_000), Integer.valueOf(entries.size()), "difficult puzzle count");
+
+        PuzzleLibrary.Entry first = entries.get(0);
+        assertTrue(first.rating() >= entries.get(entries.size() - 1).rating(), "puzzles sorted by rating");
+        PuzzleSession session = PuzzleSession.fromUciLine(first.title(), first.id(), first.fen(), first.moves(),
+                PuzzleSession.VariationMode.MAINLINE);
+        assertEquals(first.moves().get(0), Move.toString(session.expectedMove()), "first CSV move is expected");
+        PuzzleSession.MoveResponse response = session.playUserMove(Move.parse(first.moves().get(0)), false);
+        assertEquals(PuzzleSession.StepResult.CORRECT, response.result(), "CSV puzzle first move plays");
+        assertTrue(PuzzleLibrary.toPgn(first).contains("[PuzzleRating \"" + first.rating() + "\"]"),
+                "CSV puzzle preview includes rating");
     }
 
     /**

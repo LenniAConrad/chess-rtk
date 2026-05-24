@@ -285,6 +285,52 @@ public final class PuzzleSession {
     }
 
     /**
+     * Builds a single-line puzzle session from a FEN and UCI solution moves.
+     *
+     * @param title puzzle title
+     * @param source source label
+     * @param startFen root FEN
+     * @param uciMoves solution moves in UCI order
+     * @param mode branch traversal strategy
+     * @return puzzle session
+     */
+    public static PuzzleSession fromUciLine(String title, String source, String startFen, List<String> uciMoves,
+            VariationMode mode) {
+        if (startFen == null || startFen.isBlank()) {
+            throw new IllegalArgumentException("Puzzle FEN is missing");
+        }
+        if (uciMoves == null || uciMoves.isEmpty()) {
+            throw new IllegalArgumentException("Puzzle solution is missing");
+        }
+        Position root = new Position(startFen);
+        Position cursor = root.copy();
+        boolean solverWhite = root.isWhiteToMove();
+        List<PuzzleNode> built = new ArrayList<>();
+        built.add(new PuzzleNode(ROOT_ID, PuzzleNode.NO_PARENT, 0, "", Move.NO_MOVE, "",
+                MoveActor.OPPONENT, true, 0, root.toString()));
+        int parentId = ROOT_ID;
+        int ply = 0;
+        for (String uci : uciMoves) {
+            short move = Move.parse(uci);
+            if (!cursor.isLegalMove(move)) {
+                throw new IllegalArgumentException("Illegal puzzle move " + uci);
+            }
+            Position before = cursor.copy();
+            Position next = cursor.copy();
+            next.play(move);
+            int id = ROOT_ID + built.size();
+            built.add(new PuzzleNode(id, parentId, ply + 1,
+                    PositionText.safeSan(before, move), move, Move.toString(move),
+                    before.isWhiteToMove() == solverWhite ? MoveActor.USER : MoveActor.OPPONENT,
+                    true, 0, next.toString()));
+            parentId = id;
+            ply++;
+            cursor = next;
+        }
+        return new PuzzleSession(title, source, root.toString(), built, mode);
+    }
+
+    /**
      * Resets the session to its initial cursor.
      */
     public void reset() {
