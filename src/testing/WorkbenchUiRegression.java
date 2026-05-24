@@ -105,6 +105,7 @@ final class WorkbenchUiRegression {
         testLayoutMenuExposesUsefulWorkbenchControls();
         testToggleSwitchAnimatesStateChanges();
         testStatusBadgeAnimatesStateChanges();
+        testStatusBadgeCanReserveStableTextWidth();
         testSegmentedSwitcherAnimatesSelection();
         testSplitPaneSashAnimatesHover();
         testChartsRevealNewData();
@@ -917,6 +918,25 @@ final class WorkbenchUiRegression {
         setField(badge, "transitionStartedAt", Long.valueOf(System.currentTimeMillis() - 1000L));
         invoke(badge, "tickAnimation", new Class<?>[0]);
         assertFalse(timer.isRunning(), "settled non-busy status badge stops animation");
+    }
+
+    /**
+     * Verifies status badges can reserve a stable text lane for rapidly
+     * changing progress streams.
+     */
+    private static void testStatusBadgeCanReserveStableTextWidth() {
+        JComponent badge = (JComponent) construct(type("StatusBadge"), new Class<?>[0]);
+        invoke(badge, "setFixedTextWidth", new Class<?>[] { int.class }, Integer.valueOf(320));
+        invoke(badge, "busy", new Class<?>[] { String.class }, "short");
+        Dimension shortSize = badge.getPreferredSize();
+
+        invoke(badge, "busy", new Class<?>[] { String.class },
+                "a much longer streamed MCTS status line that should not resize ".repeat(4));
+        assertEquals(shortSize, badge.getPreferredSize(), "fixed status badge width stays stable");
+
+        invoke(badge, "setFixedTextWidth", new Class<?>[] { int.class }, Integer.valueOf(0));
+        assertTrue(badge.getPreferredSize().width > shortSize.width,
+                "clearing the fixed lane restores content-based sizing");
     }
 
     /**

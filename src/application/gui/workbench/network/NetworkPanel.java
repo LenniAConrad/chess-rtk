@@ -225,6 +225,13 @@ public final class NetworkPanel extends JPanel {
     private static final long NETWORK_MCTS_SOUND_INTERVAL_NANOS = 1_350_000_000L;
 
     /**
+     * Fixed text lane for the Network-tab MCTS status badge. The search leaf
+     * changes many times per second, so the toolbar needs a stable lane rather
+     * than resizing to every temporary line.
+     */
+    private static final int NETWORK_MCTS_STATUS_TEXT_WIDTH = 430;
+
+    /**
      * Starts a PUCT search rooted at the current network position.
      */
     private final JButton mctsStartButton = Ui.button("Start MCTS", true,
@@ -765,6 +772,7 @@ public final class NetworkPanel extends JPanel {
         mctsPauseButton.setToolTipText("Pause or resume the PUCT worker while keeping the current leaf on screen.");
         mctsStopButton.setToolTipText("Stop PUCT and return the network view to the board/canned position.");
         mctsFollowLeafToggle.setToolTipText("When on, the network view shows the leaf currently being evaluated.");
+        mctsStatusBadge.setFixedTextWidth(NETWORK_MCTS_STATUS_TEXT_WIDTH);
         mctsStatusBadge.idle("MCTS idle");
 
         JPanel controls = Ui.transparentPanel(
@@ -1319,18 +1327,21 @@ public final class NetworkPanel extends JPanel {
             leaf = "root";
         }
         String best = snapshot.bestMove() == Move.NO_MOVE ? "-" : Move.toString(snapshot.bestMove());
-        String message = String.format("MCTS %,d visits · root %s · best %s · leaf %s",
+        String message = String.format("MCTS %,d visits · root %s · best %s",
                 snapshot.playouts(),
                 snapshot.rootScoreLabel(),
-                best,
-                Ui.elide(leaf, getFontMetrics(Theme.font(11, java.awt.Font.PLAIN)), 190));
+                best);
+        String detail = message + " · leaf " + leaf;
         if (snapshot.paused()) {
             mctsStatusBadge.idle("paused · " + message);
+            mctsStatusBadge.setToolTipText("paused · " + detail);
         } else if (running || isNetworkMctsRunning()) {
             mctsStatusBadge.busy(message);
+            mctsStatusBadge.setToolTipText(detail);
             maybePlayNetworkMctsProgress(snapshot);
         } else {
             mctsStatusBadge.success("done · " + message);
+            mctsStatusBadge.setToolTipText("done · " + detail);
         }
     }
 

@@ -118,6 +118,12 @@ public final class StatusBadge extends JComponent {
     private final Timer animationTimer = new Timer(ANIMATION_DELAY_MS, event -> tickAnimation());
 
     /**
+     * Reserved message width in pixels, or zero when the badge sizes to the
+     * current text.
+     */
+    private int fixedTextWidth;
+
+    /**
      * Creates an empty status badge.
      */
     public StatusBadge() {
@@ -176,6 +182,7 @@ public final class StatusBadge extends JComponent {
     public void set(String message, Kind newKind) {
         Kind nextKind = newKind == null ? Kind.IDLE : newKind;
         Color currentColor = currentDotColor();
+        Dimension previousPreferredSize = getPreferredSize();
         this.text = message == null ? "" : message;
         if (nextKind != kind) {
             transitionStartColor = currentColor;
@@ -190,6 +197,24 @@ public final class StatusBadge extends JComponent {
             pulseStartedAt = 0L;
         }
         updateAnimationTimer();
+        if (!previousPreferredSize.equals(getPreferredSize())) {
+            revalidate();
+        }
+        repaint();
+    }
+
+    /**
+     * Reserves a fixed message lane. This prevents high-frequency status
+     * streams from shifting neighboring toolbar controls as the text changes.
+     *
+     * @param width text lane width in pixels, or zero to size to text
+     */
+    public void setFixedTextWidth(int width) {
+        int nextWidth = Math.max(0, width);
+        if (fixedTextWidth == nextWidth) {
+            return;
+        }
+        fixedTextWidth = nextWidth;
         revalidate();
         repaint();
     }
@@ -220,8 +245,9 @@ public final class StatusBadge extends JComponent {
     @Override
     public Dimension getPreferredSize() {
         FontMetrics fm = getFontMetrics(getFont());
-        int width = DOT + GAP + fm.stringWidth(text);
-    return new Dimension(width, Math.max(Theme.CONTROL_HEIGHT, fm.getHeight()));
+        int textWidth = fixedTextWidth > 0 ? fixedTextWidth : fm.stringWidth(text);
+        int width = DOT + GAP + textWidth;
+        return new Dimension(width, Math.max(Theme.CONTROL_HEIGHT, fm.getHeight()));
     }
 
     /**
@@ -247,7 +273,9 @@ public final class StatusBadge extends JComponent {
             g.fillOval(x, cy - size / 2, size, size);
             g.setColor(Theme.MUTED);
             int baseline = cy + fm.getAscent() / 2 - 1;
-            g.drawString(text, DOT + GAP, baseline);
+            int textX = DOT + GAP;
+            int textWidth = Math.max(0, getWidth() - textX);
+            g.drawString(Ui.elide(text, fm, textWidth), textX, baseline);
         } finally {
             g.dispose();
         }

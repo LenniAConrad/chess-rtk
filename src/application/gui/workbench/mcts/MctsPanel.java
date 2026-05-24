@@ -514,14 +514,14 @@ public final class MctsPanel extends JPanel {
         if (leaf == null || leaf.isBlank()) {
             leaf = "root";
         }
-        String shortLeaf = Ui.elide(leaf, getFontMetrics(Theme.font(12, java.awt.Font.PLAIN)), 180);
-        statusLabel.setText(String.format("%s · %,d visits · %,d ms · root %s · best %s · leaf %s",
+        String text = String.format("%s · %,d visits · %,d ms · root %s · best %s",
                 snapshot.paused() ? "paused" : isRunning() ? "running" : "done",
                 snapshot.playouts(),
                 snapshot.elapsedMillis(),
                 snapshot.rootScoreLabel(),
-                best,
-                shortLeaf));
+                best);
+        statusLabel.setText(text);
+        statusLabel.setToolTipText(text + " · leaf " + leaf);
         if (isRunning() && !snapshot.paused()) {
             maybePlayProgressSound(snapshot);
         }
