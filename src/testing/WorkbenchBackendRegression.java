@@ -32,6 +32,7 @@ import javax.swing.text.StyleConstants;
 
 import application.gui.workbench.audio.SoundCue;
 import application.gui.workbench.audio.SoundService;
+import application.gui.workbench.mcts.MctsSearch;
 import application.gui.workbench.session.LogPanel;
 import application.gui.workbench.network.NnueDrawing;
 import application.gui.workbench.ui.Theme;
@@ -75,6 +76,7 @@ final class WorkbenchBackendRegression {
         testRealActivationProgressReportsFallback();
         testNetworkMctsUpdatesAreNonBlocking();
         testNetworkMctsQueuesLeafInferenceAfterFrame();
+        testNetworkMctsUsesSelectedArchitectureBackend();
         testNetworkDiagnosticsPreviewHighlightsConfig();
         testNetworkDiagnosticsPreviewRecolorsForDarkTheme();
         testNnueStackSummaryStaysCompact();
@@ -711,6 +713,38 @@ final class WorkbenchBackendRegression {
         String builderBody = source.substring(frameBuilder, leafQueue);
         assertFalse(builderBody.contains("inferSnapshot("),
                 "network MCTS frame builder does not block on model inference");
+    }
+
+    /**
+     * Verifies Network-tab MCTS creates its search backend from the selected
+     * architecture rather than always using the classical fallback.
+     */
+    private static void testNetworkMctsUsesSelectedArchitectureBackend() {
+        Object panel = construct(type("NetworkPanel"), new Class<?>[0]);
+        Timer timer = (Timer) field(panel, "debounceTimer");
+        timer.stop();
+        MctsSearch search = (MctsSearch) invoke(panel, "createNetworkMctsSearch",
+                new Class<?>[] { Position.class, double.class, String.class },
+                new Position(START_FEN), Double.valueOf(1.0d), "NNUE");
+        try {
+            assertTrue(search.backendName().startsWith("nnue("), "NNUE selection creates NNUE-backed MCTS");
+        } finally {
+            search.close();
+        }
+
+        String source;
+        try {
+            source = Files.readString(Path.of("src/application/gui/workbench/network/NetworkPanel.java"),
+                    StandardCharsets.UTF_8);
+        } catch (IOException ex) {
+            throw new AssertionError("unable to read NetworkPanel source", ex);
+        }
+        assertTrue(source.contains("MctsSearch.cnn(root, cpuct, RealActivations.cnnPath())"),
+                "CNN selection routes MCTS through the CNN backend");
+        assertTrue(source.contains("MctsSearch.bt4(root, cpuct, RealActivations.bt4Path())"),
+                "BT4 selection routes MCTS through the BT4 backend");
+        assertFalse(source.contains("mctsSearch = new MctsSearch(root, cpuct)"),
+                "Network-tab MCTS no longer hardwires the default backend");
     }
 
     /**

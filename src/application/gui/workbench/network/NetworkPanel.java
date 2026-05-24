@@ -1121,10 +1121,19 @@ public final class NetworkPanel extends JPanel {
         int budget = ((Number) mctsVisitsSpinner.getValue()).intValue();
         long maxMillis = ((Number) mctsMillisSpinner.getValue()).longValue();
         double cpuct = ((Number) mctsCpuctSpinner.getValue()).doubleValue();
+        String searchCardKey = activeCardKey();
+        MctsSearch builtSearch;
+        try {
+            builtSearch = createNetworkMctsSearch(root, cpuct, searchCardKey);
+        } catch (IOException ex) {
+            mctsStatusBadge.error("MCTS " + displayNameFor(searchCardKey) + ": " + ex.getMessage());
+            SoundService.play(SoundCue.JOB_FAILURE);
+            return;
+        }
         mctsPaused = false;
         mctsFollowLeafEnabled = mctsFollowLeafToggle.isSelected();
-        mctsStreamCardKey = activeCardKey();
-        mctsSearch = new MctsSearch(root, cpuct);
+        mctsStreamCardKey = searchCardKey;
+        mctsSearch = builtSearch;
         final MctsSearch search = mctsSearch;
         mctsLeafFen = root.toString();
         lastMctsProgressSoundNanos = 0L;
@@ -1133,7 +1142,7 @@ public final class NetworkPanel extends JPanel {
         lastMctsLeafInferenceCardKey = null;
         updateNetworkMctsButtons(true);
         Ui.setCollapsibleExpanded(mctsWeightsSection, true);
-        mctsStatusBadge.busy("starting MCTS...");
+        mctsStatusBadge.busy("starting " + search.backendName() + " MCTS...");
         SoundService.play(SoundCue.MCTS_START);
         SwingWorker<Void, NetworkMctsFrame> activeWorker = new SwingWorker<>() {
             @Override
@@ -1205,6 +1214,23 @@ public final class NetworkPanel extends JPanel {
         };
         mctsWorker = activeWorker;
         activeWorker.execute();
+    }
+
+    /**
+     * Creates an MCTS search using the currently selected network family.
+     *
+     * @param root root position
+     * @param cpuct exploration constant
+     * @param cardKey selected architecture card
+     * @return configured search
+     * @throws IOException if the selected network cannot be loaded
+     */
+    private MctsSearch createNetworkMctsSearch(Position root, double cpuct, String cardKey) throws IOException {
+        return switch (cardKey) {
+            case ARCH_CNN -> MctsSearch.cnn(root, cpuct, RealActivations.cnnPath());
+            case ARCH_BT4 -> MctsSearch.bt4(root, cpuct, RealActivations.bt4Path());
+            default -> MctsSearch.nnue(root, cpuct, provider.nnuePath());
+        };
     }
 
     /**
@@ -1327,8 +1353,10 @@ public final class NetworkPanel extends JPanel {
             leaf = "root";
         }
         String best = snapshot.bestMove() == Move.NO_MOVE ? "-" : Move.toString(snapshot.bestMove());
-        String message = String.format("MCTS %,d visits · root %s · best %s",
+        String backend = mctsSearch == null ? displayNameFor(mctsStreamCardKey) : mctsSearch.backendName();
+        String message = String.format("MCTS %,d visits · %s · root %s · best %s",
                 snapshot.playouts(),
+                backend,
                 snapshot.rootScoreLabel(),
                 best);
         String detail = message + " · leaf " + leaf;

@@ -60,36 +60,18 @@ final class Bt4SearchBackend implements SearchBackend {
     @Override
     public double[] priors(Position position, short[] moves, double[] fallback) {
         Bt4Prediction prediction = predict(position);
-        float[] logits = prediction.prediction().policy();
-        double[] priors = new double[moves.length];
-        double sum = 0.0;
-        float max = Float.NEGATIVE_INFINITY;
-        int[] indices = new int[moves.length];
-        for (int i = 0; i < moves.length; i++) {
-            int index = chess.nn.lc0.bt4.PolicyEncoder.compressedPolicyIndex(
-                    position, moves[i], prediction.transform());
-            indices[i] = index;
-            if (index >= 0 && index < logits.length) {
-                max = Math.max(max, logits[index]);
-            }
-        }
-        if (max == Float.NEGATIVE_INFINITY) {
-            return fallback;
-        }
-        for (int i = 0; i < moves.length; i++) {
-            int index = indices[i];
-            if (index >= 0 && index < logits.length) {
-                priors[i] = Math.exp(logits[index] - max);
-                sum += priors[i];
-            }
-        }
-        if (!Double.isFinite(sum) || sum <= 0.0) {
-            return fallback;
-        }
-        for (int i = 0; i < priors.length; i++) {
-            priors[i] /= sum;
-        }
-        return priors;
+        int transform = prediction.transform();
+        return PolicyPriors.fromLogits(
+                position,
+                moves,
+                fallback,
+                prediction.prediction().policy(),
+                (pos, move) -> chess.nn.lc0.bt4.PolicyEncoder.compressedPolicyIndex(pos, move, transform));
+    }
+
+    @Override
+    public String name() {
+        return "bt4(" + network.backend() + ")";
     }
 
     /**

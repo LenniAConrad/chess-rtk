@@ -19,9 +19,9 @@ import java.util.Map;
  * <p>The shape mirrors Leela-style policy/value tree search: each edge stores
  * a prior probability, visits and an accumulated Q value; selection combines Q
  * with a PUCT exploration term; leaf values are backed up through the visited
- * path. This first workbench implementation uses CRTK's built-in classical
- * evaluator plus tactical move priors so it is always available even when no
- * LC0 network is installed.</p>
+ * path. The default constructor uses CRTK's built-in classical evaluator,
+ * while the Network tab can select NNUE, LC0 CNN, or BT4 policy/value
+ * backends.</p>
  */
 public final class MctsSearch implements AutoCloseable {
 
@@ -139,6 +139,41 @@ public final class MctsSearch implements AutoCloseable {
     throw new IllegalArgumentException("weights == null");
         }
         return new MctsSearch(root, cpuct, Bt4SearchBackend.load(weights), DEFAULT_TRANSPOSITION_LIMIT);
+    }
+
+    /**
+     * Creates an NNUE value-backed MCTS search.
+     *
+     * @param root root position
+     * @param cpuct exploration constant
+     * @param weights NNUE weights path
+     * @return NNUE-backed search
+     * @throws IOException if weights cannot be loaded
+     */
+    public static MctsSearch nnue(Position root, double cpuct, Path weights) throws IOException {
+        if (root == null) {
+            throw new IllegalArgumentException("root == null");
+        }
+        return new MctsSearch(root, cpuct, NnueSearchBackend.load(weights), DEFAULT_TRANSPOSITION_LIMIT);
+    }
+
+    /**
+     * Creates an LC0 CNN policy/value MCTS search.
+     *
+     * @param root root position
+     * @param cpuct exploration constant
+     * @param weights CNN weights path
+     * @return CNN-backed search
+     * @throws IOException if weights cannot be loaded
+     */
+    public static MctsSearch cnn(Position root, double cpuct, Path weights) throws IOException {
+        if (root == null) {
+            throw new IllegalArgumentException("root == null");
+        }
+        if (weights == null) {
+            throw new IllegalArgumentException("weights == null");
+        }
+        return new MctsSearch(root, cpuct, CnnSearchBackend.load(weights), DEFAULT_TRANSPOSITION_LIMIT);
     }
 
     /**
@@ -272,6 +307,15 @@ public final class MctsSearch implements AutoCloseable {
      */
     public long playouts() {
         return playouts;
+    }
+
+    /**
+     * Returns the active backend name.
+     *
+     * @return backend name
+     */
+    public String backendName() {
+        return backend.name();
     }
 
     /**

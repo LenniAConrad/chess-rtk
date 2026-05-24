@@ -48,6 +48,15 @@ interface SearchBackend extends AutoCloseable {
     }
 
     /**
+     * Returns a compact backend name for UI status text.
+     *
+     * @return backend name
+     */
+    default String name() {
+        return "backend";
+    }
+
+    /**
      * Releases backend resources.
      */
     @Override

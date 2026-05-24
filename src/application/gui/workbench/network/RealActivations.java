@@ -155,6 +155,24 @@ public final class RealActivations {
     private static final Path BT4_PATH = Path.of("models/bt4-1024x15x32h.bin");
 
     /**
+     * Returns the CNN weights path used by the workbench.
+     *
+     * @return CNN weights path
+     */
+    public static Path cnnPath() {
+        return CNN_PATH;
+    }
+
+    /**
+     * Returns the BT4 weights path used by the workbench.
+     *
+     * @return BT4 weights path
+     */
+    public static Path bt4Path() {
+        return BT4_PATH;
+    }
+
+    /**
      * NNUE model, lazily loaded.
      */
     private chess.nn.nnue.Model nnueModel;

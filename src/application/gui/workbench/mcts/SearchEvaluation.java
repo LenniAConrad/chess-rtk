@@ -72,6 +72,40 @@ record SearchEvaluation(double pWin, double pDraw, double pLoss, double value) {
     }
 
     /**
+     * Converts centipawns to a soft WDL-shaped evaluation.
+     *
+     * @param centipawns score from side-to-move perspective
+     * @return evaluation
+     */
+    static SearchEvaluation fromCentipawns(int centipawns) {
+        double clamped = Math.max(-4000.0d, Math.min(4000.0d, centipawns));
+        double win = sigmoid((clamped - 180.0d) / 420.0d);
+        double loss = sigmoid((-clamped - 180.0d) / 420.0d);
+        double draw = Math.max(0.0d, 1.0d - win - loss);
+        double sum = win + draw + loss;
+        if (!Double.isFinite(sum) || sum <= 0.0d) {
+            return draw();
+        }
+        return new SearchEvaluation(win / sum, draw / sum, loss / sum, (win - loss) / sum);
+    }
+
+    /**
+     * Returns a numerically safe sigmoid.
+     *
+     * @param x unbounded input
+     * @return value in [0, 1]
+     */
+    private static double sigmoid(double x) {
+        if (x > 20.0d) {
+            return 1.0d;
+        }
+        if (x < -20.0d) {
+            return 0.0d;
+        }
+        return 1.0d / (1.0d + Math.exp(-x));
+    }
+
+    /**
      * Returns this value from the opponent perspective.
      *
      * @return flipped evaluation

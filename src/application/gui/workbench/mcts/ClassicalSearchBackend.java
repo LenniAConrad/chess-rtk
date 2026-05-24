@@ -30,6 +30,11 @@ final class ClassicalSearchBackend implements SearchBackend {
         evaluator.scoreMoves(position, moves, scores);
     }
 
+    @Override
+    public String name() {
+        return "classical";
+    }
+
     /**
      * Releases evaluator resources.
      */

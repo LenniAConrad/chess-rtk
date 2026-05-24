@@ -514,10 +514,12 @@ public final class MctsPanel extends JPanel {
         if (leaf == null || leaf.isBlank()) {
             leaf = "root";
         }
-        String text = String.format("%s · %,d visits · %,d ms · root %s · best %s",
+        String backend = search == null ? "classical" : search.backendName();
+        String text = String.format("%s · %,d visits · %,d ms · %s · root %s · best %s",
                 snapshot.paused() ? "paused" : isRunning() ? "running" : "done",
                 snapshot.playouts(),
                 snapshot.elapsedMillis(),
+                backend,
                 snapshot.rootScoreLabel(),
                 best);
         statusLabel.setText(text);
