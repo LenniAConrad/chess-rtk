@@ -1118,6 +1118,8 @@ final class WorkbenchUiRegression {
         assertTrue(content.isVisible(), "collapsible content initially visible");
         toggle.doClick();
         assertFalse(content.isVisible(), "collapsible content hidden");
+        Timer timer = (Timer) field(section, "expansionTimer");
+        assertFalse(timer.isRunning(), "hidden collapsible does not keep an animation timer");
         toggle.doClick();
         assertTrue(content.isVisible(), "collapsible content restored");
     }
@@ -1573,10 +1575,14 @@ final class WorkbenchUiRegression {
                 "segmented switcher selection animation is short");
         assertTrue((Integer) staticField(type("SplitPaneStyler"), "SASH_TRANSITION_MS") <= 140,
                 "split sash transition is short");
+        assertTrue((Integer) staticField(type("Ui"), "COLLAPSE_ANIMATION_MS") <= 160,
+                "collapsible section transition is short");
         assertTrue((Integer) staticField(type("MiniChart"), "REVEAL_MS") <= 200,
                 "mini chart reveal is short");
         assertTrue((Integer) staticField(DatasetChart.class, "BAR_REVEAL_MS") <= 220,
                 "dataset chart reveal is short");
+        assertTrue((Integer) staticField(type("ProgressBarChrome"), "PROGRESS_ANIMATION_MS") <= 190,
+                "progress fill transition is short");
         assertTrue((Integer) staticField(type("Window"), "EVAL_DEBOUNCE_MS") <= 100,
                 "eval refresh debounce is short");
     }

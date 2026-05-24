@@ -26,6 +26,7 @@ import java.awt.RenderingHints;
 import java.awt.Window;
 import java.awt.event.ActionListener;
 import java.awt.event.HierarchyEvent;
+import java.awt.geom.AffineTransform;
 import java.awt.geom.Path2D;
 import javax.swing.AbstractButton;
 import javax.swing.BorderFactory;
@@ -83,6 +84,11 @@ public final class Ui {
      * Button fill transition duration.
      */
     private static final int BUTTON_TRANSITION_MS = 65;
+
+    /**
+     * Collapsible-section expand/collapse transition duration.
+     */
+    private static final int COLLAPSE_ANIMATION_MS = 145;
 
     /**
      * Default chooser size large enough to avoid cramped row wrapping.
@@ -1575,6 +1581,37 @@ public final class Ui {
         private boolean expanded;
 
         /**
+         * Current animated content height.
+         */
+        private int animatedContentHeight;
+
+        /**
+         * Content height at the beginning of the active transition.
+         */
+        private int animationStartHeight;
+
+        /**
+         * Content height target for the active transition.
+         */
+        private int animationTargetHeight;
+
+        /**
+         * Wall-clock start time for the active expansion transition.
+         */
+        private long expansionAnimationStartedAt;
+
+        /**
+         * Whether the constructor has applied the initial state.
+         */
+        private boolean initialized;
+
+        /**
+         * Timer driving visible expand/collapse transitions.
+         */
+        private final Timer expansionTimer = new Timer(ANIMATION_DELAY_MS,
+                event -> tickExpansionAnimation());
+
+        /**
          * Creates an inline collapsible section.
          *
          * @param title section title
@@ -1587,6 +1624,7 @@ public final class Ui {
             this.content = content;
             toggle = new DisclosureButton();
             toggle.addActionListener(event -> setExpanded(!this.expanded));
+            expansionTimer.setCoalesce(true);
             contentHolder = transparentPanel(new BorderLayout());
             contentHolder.setBorder(Theme.pad(Theme.SPACE_SM, 0, Theme.SPACE_SM, 0));
             contentHolder.add(content, BorderLayout.CENTER);
@@ -1595,7 +1633,7 @@ public final class Ui {
             setAlignmentX(LEFT_ALIGNMENT);
             add(toggle, BorderLayout.NORTH);
             add(contentHolder, BorderLayout.CENTER);
-            setExpanded(expanded);
+            setExpanded(expanded, false);
         }
 
         /**
@@ -1604,16 +1642,168 @@ public final class Ui {
          * @param value true when expanded
          */
         private void setExpanded(boolean value) {
-            expanded = value;
-            content.setVisible(value);
-            contentHolder.setVisible(value);
-            if (toggle instanceof DisclosureButton disclosure) {
-                disclosure.setExpanded(value);
+            setExpanded(value, isShowing());
+        }
+
+        /**
+         * Updates the expansion state, optionally animating visible sections.
+         *
+         * @param value true when expanded
+         * @param animate true to animate the content height
+         */
+        private void setExpanded(boolean value, boolean animate) {
+            if (initialized && expanded == value && !expansionTimer.isRunning()) {
+                updateDisclosureText(value);
+                return;
             }
+            expanded = value;
+            int targetHeight = value ? expandedContentHeight() : 0;
+            updateDisclosureText(value);
+            if (value) {
+                contentHolder.setVisible(true);
+                content.setVisible(true);
+            }
+            if (!animate) {
+                expansionTimer.stop();
+                animatedContentHeight = targetHeight;
+                applyAnimatedContentHeight(targetHeight);
+                finishExpansion(value);
+                initialized = true;
+                return;
+            }
+            animationStartHeight = currentAnimatedContentHeight();
+            animationTargetHeight = targetHeight;
+            expansionAnimationStartedAt = System.currentTimeMillis();
+            if (animationStartHeight == animationTargetHeight) {
+                animatedContentHeight = animationTargetHeight;
+                finishExpansion(value);
+                return;
+            }
+            if (!expansionTimer.isRunning()) {
+                expansionTimer.start();
+            }
+            applyAnimatedContentHeight(animationStartHeight);
+            initialized = true;
+        }
+
+        /**
+         * Stops animation when the section leaves the component tree.
+         */
+        @Override
+        public void removeNotify() {
+            expansionTimer.stop();
+            super.removeNotify();
+        }
+
+        /**
+         * Advances one expand/collapse animation frame.
+         */
+        private void tickExpansionAnimation() {
+            double progress = Math.min(1.0d,
+                    (System.currentTimeMillis() - expansionAnimationStartedAt)
+                            / (double) COLLAPSE_ANIMATION_MS);
+            double eased = easeOutCubic(progress);
+            animatedContentHeight = (int) Math.round(animationStartHeight
+                    + (animationTargetHeight - animationStartHeight) * eased);
+            applyAnimatedContentHeight(animatedContentHeight);
+            if (progress >= 1.0d) {
+                expansionTimer.stop();
+                animatedContentHeight = animationTargetHeight;
+                finishExpansion(expanded);
+            }
+        }
+
+        /**
+         * Updates text and tooltip for the disclosure row.
+         *
+         * @param value true when expanded
+         */
+        private void updateDisclosureText(boolean value) {
             toggle.setText(title);
             toggle.setToolTipText(value ? "Collapse " + title : "Expand " + title);
+        }
+
+        /**
+         * Returns the target expanded content height.
+         *
+         * @return content height including holder insets
+         */
+        private int expandedContentHeight() {
+            Insets insets = contentHolder.getInsets();
+            return Math.max(0, content.getPreferredSize().height + insets.top + insets.bottom);
+        }
+
+        /**
+         * Returns the current height used as animation start.
+         *
+         * @return current visible content height
+         */
+        private int currentAnimatedContentHeight() {
+            if (!contentHolder.isVisible()) {
+                return 0;
+            }
+            if (animatedContentHeight > 0) {
+                return animatedContentHeight;
+            }
+            return Math.max(0, contentHolder.getHeight());
+        }
+
+        /**
+         * Applies a clipped content-holder height and matching disclosure glyph
+         * progress.
+         *
+         * @param height target holder height
+         */
+        private void applyAnimatedContentHeight(int height) {
+            int safeHeight = Math.max(0, height);
+            Insets insets = contentHolder.getInsets();
+            int preferredWidth = Math.max(1, content.getPreferredSize().width
+                    + insets.left + insets.right);
+            Dimension size = new Dimension(preferredWidth, safeHeight);
+            contentHolder.setPreferredSize(size);
+            contentHolder.setMinimumSize(new Dimension(0, safeHeight));
+            contentHolder.setMaximumSize(new Dimension(Integer.MAX_VALUE, safeHeight));
+            contentHolder.setVisible(safeHeight > 0 || expanded);
+            content.setVisible(safeHeight > 0 || expanded);
+            applyDisclosureProgress(expandedContentHeight() == 0
+                    ? (expanded ? 1.0d : 0.0d)
+                    : safeHeight / (double) expandedContentHeight());
             revalidate();
             repaint();
+        }
+
+        /**
+         * Finalizes the section state after an animation or immediate update.
+         *
+         * @param value true when expanded
+         */
+        private void finishExpansion(boolean value) {
+            if (value) {
+                contentHolder.setPreferredSize(null);
+                contentHolder.setMinimumSize(null);
+                contentHolder.setMaximumSize(null);
+                contentHolder.setVisible(true);
+                content.setVisible(true);
+                applyDisclosureProgress(1.0d);
+            } else {
+                applyAnimatedContentHeight(0);
+                content.setVisible(false);
+                contentHolder.setVisible(false);
+                applyDisclosureProgress(0.0d);
+            }
+            revalidate();
+            repaint();
+        }
+
+        /**
+         * Updates the disclosure glyph progress.
+         *
+         * @param progress expansion progress from 0 to 1
+         */
+        private void applyDisclosureProgress(double progress) {
+            if (toggle instanceof DisclosureButton disclosure) {
+                disclosure.setExpansionProgress(progress);
+            }
         }
     }
 
@@ -1629,9 +1819,9 @@ public final class Ui {
         private static final long serialVersionUID = 1L;
 
         /**
-         * Current expansion state.
+         * Visual glyph progress from right-facing to down-facing.
          */
-        private boolean expanded;
+        private double expansionProgress;
 
         /**
          * Creates the disclosure header.
@@ -1649,12 +1839,13 @@ public final class Ui {
         }
 
         /**
-         * Updates the disclosure glyph state.
+         * Updates the visual disclosure glyph progress.
          *
-         * @param value true when expanded
+         * @param value progress from 0.0 collapsed to 1.0 expanded
          */
-        private void setExpanded(boolean value) {
-            expanded = value;
+        private void setExpansionProgress(double value) {
+            expansionProgress = clamp(value, 0.0d, 1.0d);
+            repaint();
         }
 
         /**
@@ -1675,18 +1866,15 @@ public final class Ui {
                 g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
                 g.setColor(isEnabled() ? Theme.MUTED : Theme.BUTTON_DISABLED_TEXT);
                 int cy = getHeight() / 2;
+                AffineTransform oldTransform = g.getTransform();
+                g.rotate(expansionProgress * Math.PI / 2.0d, 9, cy);
                 Path2D chevron = new Path2D.Double();
-                if (expanded) {
-                    chevron.moveTo(5, cy - 2);
-                    chevron.lineTo(9, cy + 2);
-                    chevron.lineTo(13, cy - 2);
-                } else {
-                    chevron.moveTo(7, cy - 4);
-                    chevron.lineTo(11, cy);
-                    chevron.lineTo(7, cy + 4);
-                }
+                chevron.moveTo(7, cy - 4);
+                chevron.lineTo(11, cy);
+                chevron.lineTo(7, cy + 4);
                 g.setStroke(new BasicStroke(1.5f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
                 g.draw(chevron);
+                g.setTransform(oldTransform);
                 g.setColor(Theme.LINE);
                 g.drawLine(0, getHeight() - 1, getWidth(), getHeight() - 1);
             } finally {

@@ -14,6 +14,8 @@ import java.awt.Rectangle;
 import java.awt.RenderingHints;
 import javax.swing.JComponent;
 import javax.swing.JProgressBar;
+import javax.swing.Timer;
+import javax.swing.event.ChangeListener;
 import javax.swing.plaf.basic.BasicProgressBarUI;
 
 /**
@@ -32,10 +34,69 @@ final class ProgressBarChrome extends BasicProgressBarUI {
     private static final int RADIUS = 6;
 
     /**
+     * Animation frame cadence for determinate fill transitions.
+     */
+    private static final int ANIMATION_DELAY_MS = 16;
+
+    /**
+     * Duration for determinate progress fill transitions.
+     */
+    private static final int PROGRESS_ANIMATION_MS = 170;
+
+    /**
+     * Currently displayed percentage, or -1 before first paint.
+     */
+    private double displayedPercent = -1.0d;
+
+    /**
+     * Fill percentage at the beginning of the active transition.
+     */
+    private double animationStartPercent;
+
+    /**
+     * Fill percentage target for the active transition.
+     */
+    private double animationTargetPercent;
+
+    /**
+     * Wall-clock start time for the active transition.
+     */
+    private long animationStartedAt;
+
+    /**
+     * Listener that starts a fill transition when the progress value changes.
+     */
+    private final ChangeListener valueListener = event -> startValueAnimation();
+
+    /**
+     * Timer driving determinate fill transitions.
+     */
+    private final Timer animationTimer = new Timer(ANIMATION_DELAY_MS, event -> tickAnimation());
+
+    /**
      * Prevents direct construction outside the package.
      */
     ProgressBarChrome() {
-        // package UI delegate
+        animationTimer.setCoalesce(true);
+    }
+
+    /**
+     * Installs listeners for determinate value animation.
+     */
+    @Override
+    protected void installListeners() {
+        super.installListeners();
+        progressBar.addChangeListener(valueListener);
+    }
+
+    /**
+     * Removes listeners and stops active timers.
+     */
+    @Override
+    protected void uninstallListeners() {
+        animationTimer.stop();
+        progressBar.removeChangeListener(valueListener);
+        super.uninstallListeners();
     }
 
     /**
@@ -51,7 +112,7 @@ final class ProgressBarChrome extends BasicProgressBarUI {
         try {
             Rectangle track = trackBounds(component);
             paintTrack(g, track);
-            double percent = Math.max(0.0, Math.min(1.0, bar.getPercentComplete()));
+            double percent = animatedPercent(bar);
             int amount = (int) Math.round(percent
                     * (bar.getOrientation() == JProgressBar.HORIZONTAL ? track.width : track.height));
             if (amount > 0) {
@@ -144,5 +205,85 @@ final class ProgressBarChrome extends BasicProgressBarUI {
         Color fill = enabled ? Theme.ACCENT : Theme.BUTTON_DISABLED_BORDER;
         g.setColor(fill);
         g.fillRoundRect(bounds.x, bounds.y, bounds.width, bounds.height, RADIUS, RADIUS);
+    }
+
+    /**
+     * Returns the current animated determinate fill percentage.
+     *
+     * @param bar progress bar
+     * @return percentage from 0 to 1
+     */
+    private double animatedPercent(JProgressBar bar) {
+        double target = currentPercent(bar);
+        if (displayedPercent < 0.0d || !bar.isShowing()) {
+            displayedPercent = target;
+            animationTargetPercent = target;
+            animationTimer.stop();
+        }
+        return displayedPercent;
+    }
+
+    /**
+     * Starts a transition toward the progress bar's current value.
+     */
+    private void startValueAnimation() {
+        if (progressBar == null || progressBar.isIndeterminate()) {
+            return;
+        }
+        double target = currentPercent(progressBar);
+        if (displayedPercent < 0.0d || !progressBar.isShowing()) {
+            displayedPercent = target;
+            animationTargetPercent = target;
+            animationTimer.stop();
+            progressBar.repaint();
+            return;
+        }
+        if (Math.abs(displayedPercent - target) < 0.001d) {
+            displayedPercent = target;
+            animationTargetPercent = target;
+            animationTimer.stop();
+            progressBar.repaint();
+            return;
+        }
+        animationStartPercent = displayedPercent;
+        animationTargetPercent = target;
+        animationStartedAt = System.currentTimeMillis();
+        if (!animationTimer.isRunning()) {
+            animationTimer.start();
+        }
+    }
+
+    /**
+     * Advances one determinate progress animation frame.
+     */
+    private void tickAnimation() {
+        if (progressBar == null) {
+            animationTimer.stop();
+            return;
+        }
+        double progress = Math.min(1.0d,
+                (System.currentTimeMillis() - animationStartedAt)
+                        / (double) PROGRESS_ANIMATION_MS);
+        displayedPercent = animationStartPercent
+                + (animationTargetPercent - animationStartPercent) * Ui.easeOutCubic(progress);
+        if (progress >= 1.0d) {
+            displayedPercent = animationTargetPercent;
+            animationTimer.stop();
+        }
+        progressBar.repaint();
+    }
+
+    /**
+     * Returns the clamped current progress percentage.
+     *
+     * @param bar progress bar
+     * @return percentage from 0 to 1
+     */
+    private static double currentPercent(JProgressBar bar) {
+        double percent = bar.getPercentComplete();
+        if (Double.isNaN(percent) || Double.isInfinite(percent)) {
+            return 0.0d;
+        }
+        return Math.max(0.0d, Math.min(1.0d, percent));
     }
 }
