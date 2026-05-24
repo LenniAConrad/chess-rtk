@@ -1,5 +1,7 @@
 package application.gui.workbench.board;
 
+import application.gui.workbench.audio.SoundCue;
+import application.gui.workbench.audio.SoundService;
 import application.gui.workbench.ui.EvalBar;
 import application.gui.workbench.ui.Theme;
 import application.gui.workbench.ui.Ui;
@@ -171,6 +173,8 @@ public final class BoardPanel extends JPanel {
     private Runnable snapbackEndObserver;
     /** Optional snap-completion observer. */
     private Runnable snapEndObserver;
+    /** Whether illegal drag snapbacks should play the generic board cue. */
+    private boolean snapbackSoundEnabled = true;
     /** Optional mouseover-square observer. */
     private IntConsumer mouseoverSquareObserver;
     /** Last square reported to #mouseoverSquareObserver, or Field#NO_SQUARE. */
@@ -540,6 +544,11 @@ public final class BoardPanel extends JPanel {
      * @param observer callback observer */
     public void setSnapEndObserver(Runnable observer) {
         snapEndObserver = observer;
+    }
+    /** Sets whether illegal drag snapbacks should play the generic board cue.
+     * @param enabled true to play the snapback cue */
+    public void setSnapbackSoundEnabled(boolean enabled) {
+        snapbackSoundEnabled = enabled;
     }
     /** Sets a callback fired when the pointer enters a different square. Field#NO_SQUARE on exit; null clears it
      * @param observer callback observer */
@@ -1322,6 +1331,9 @@ public final class BoardPanel extends JPanel {
             // unchanged) but hide the static piece there while the snapback
             // animation slides it home, so the user sees only one moving piece.
             startSnapAnimation(piece, releaseX, releaseY, from, true);
+            if (snapbackSoundEnabled) {
+                SoundService.play(SoundCue.ILLEGAL);
+            }
         }
         repaint();
     }

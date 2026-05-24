@@ -30,6 +30,8 @@ import javax.swing.Timer;
 import javax.swing.text.AttributeSet;
 import javax.swing.text.StyleConstants;
 
+import application.gui.workbench.audio.SoundCue;
+import application.gui.workbench.audio.SoundService;
 import application.gui.workbench.session.LogPanel;
 import application.gui.workbench.network.NnueDrawing;
 import application.gui.workbench.ui.Theme;
@@ -60,6 +62,7 @@ final class WorkbenchBackendRegression {
         testRunLogWritesFullOutput();
         testRunLogAvoidsClobberingExistingFile();
         testLogPanelConstructsHeadlessly();
+        testSoundServiceProceduralCueSettings();
         testRunManifestWritesReplayMetadata();
         testRunManifestAvoidsClobberingExistingFile();
         testJobHistoryIsBounded();
@@ -245,6 +248,36 @@ final class WorkbenchBackendRegression {
                     "new run log is written");
         } catch (java.io.IOException ex) {
             throw new AssertionError("log clobber test setup failed", ex);
+        }
+    }
+
+    /**
+     * Verifies procedural sound cues are centrally enumerated and settings are
+     * clamped before persistence.
+     */
+    private static void testSoundServiceProceduralCueSettings() {
+        int oldVolume = SoundService.volumePercent();
+        boolean oldMuted = SoundService.isMuted();
+        try {
+            assertEquals(Integer.valueOf(15), Integer.valueOf(SoundCue.values().length),
+                    "sound cue count");
+            assertEquals(SoundCue.CAPTURE, SoundCue.valueOf("CAPTURE"),
+                    "capture cue present");
+            assertEquals(SoundCue.PUZZLE_COMPLETE, SoundCue.valueOf("PUZZLE_COMPLETE"),
+                    "puzzle complete cue present");
+            SoundService.setVolumePercent(-50);
+            assertEquals(Integer.valueOf(0), Integer.valueOf(SoundService.volumePercent()),
+                    "sound volume clamps low");
+            SoundService.setVolumePercent(150);
+            assertEquals(Integer.valueOf(100), Integer.valueOf(SoundService.volumePercent()),
+                    "sound volume clamps high");
+            SoundService.setMuted(true);
+            assertTrue(SoundService.isMuted(), "sound service can mute");
+            SoundService.setMuted(false);
+            assertFalse(SoundService.isMuted(), "sound service can unmute");
+        } finally {
+            SoundService.setVolumePercent(oldVolume);
+            SoundService.setMuted(oldMuted);
         }
     }
 

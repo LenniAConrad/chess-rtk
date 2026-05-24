@@ -1,5 +1,7 @@
 package application.gui.workbench.session;
 
+import application.gui.workbench.audio.SoundCue;
+import application.gui.workbench.audio.SoundService;
 import application.gui.workbench.command.CommandResultParser;
 import application.gui.workbench.command.CommandRunner;
 import java.util.ArrayList;
@@ -23,6 +25,12 @@ public final class JobManager {
      * Maximum number of jobs retained in history.
      */
     public static final int HISTORY_LIMIT = 50;
+
+    /**
+     * Minimum duration before terminal job sounds are played. Short background
+     * refreshes and instant checks stay silent.
+     */
+    private static final long SOUND_MIN_DURATION_MILLIS = 500L;
 
     /**
      * Jobs in arrival order (oldest first). Trimmed from the front.
@@ -90,6 +98,7 @@ public final class JobManager {
         job.markFinished(exitCode, output, durationMillis,
                 CommandResultParser.summarize(job.args(), exitCode, output));
         fireChanged();
+        playJobSound(durationMillis, exitCode == 0 ? SoundCue.JOB_SUCCESS : SoundCue.JOB_FAILURE);
     }
 
     /**
@@ -102,6 +111,7 @@ public final class JobManager {
     public void markFailed(Job job, String reason, long durationMillis) {
         job.markFailed(reason, durationMillis);
         fireChanged();
+        playJobSound(durationMillis, SoundCue.JOB_FAILURE);
     }
 
     /**
@@ -113,6 +123,19 @@ public final class JobManager {
     public void markCancelled(Job job, long durationMillis) {
         job.markCancelled(durationMillis);
         fireChanged();
+        playJobSound(durationMillis, SoundCue.JOB_CANCELLED);
+    }
+
+    /**
+     * Plays one terminal-job cue only for meaningful foreground runs.
+     *
+     * @param durationMillis run duration
+     * @param cue cue to play
+     */
+    private static void playJobSound(long durationMillis, SoundCue cue) {
+        if (durationMillis >= SOUND_MIN_DURATION_MILLIS) {
+            SoundService.play(cue);
+        }
     }
 
     /**

@@ -1,6 +1,8 @@
 package application.gui.workbench.window;
 
 import application.Config;
+import application.gui.workbench.audio.SoundCue;
+import application.gui.workbench.audio.SoundService;
 import application.gui.workbench.command.CommandRunner;
 import application.gui.workbench.game.FenInput;
 import application.gui.workbench.game.PositionText;
@@ -64,14 +66,48 @@ public abstract class WindowGameLayer extends WindowEngineLayer {
             return;
         }
         if (!isLegalMove(currentPosition, move)) {
+            SoundService.play(SoundCue.ILLEGAL);
             showError("Illegal move", Move.toString(move) + " is not legal in the current position.");
             return;
         }
+        SoundCue cue = soundCueForMove(currentPosition, move);
         Position before = currentPosition.copy();
         Position next = currentPosition.copy();
         next.play(move);
         gameModel.append(before, move, next);
         showGamePly(gameModel.currentPly());
+        SoundService.play(cue);
+    }
+
+    /**
+     * Classifies a legal move into the most important board sound cue.
+     *
+     * @param position position before the move
+     * @param move legal move
+     * @return sound cue for the move
+     */
+    private static SoundCue soundCueForMove(Position position, short move) {
+        boolean capture = position.isCapture(move);
+        boolean castle = position.isCastle(move);
+        boolean promotion = Move.isPromotion(move);
+        Position next = position.copy();
+        next.play(move);
+        if (next.legalMoves().isEmpty()) {
+            return SoundCue.GAME_END;
+        }
+        if (promotion) {
+            return SoundCue.PROMOTION;
+        }
+        if (castle) {
+            return SoundCue.CASTLE;
+        }
+        if (next.inCheck()) {
+            return SoundCue.CHECK;
+        }
+        if (capture) {
+            return SoundCue.CAPTURE;
+        }
+        return SoundCue.MOVE;
     }
 
     /**

@@ -8,6 +8,7 @@ import java.awt.Font;
 import java.util.Objects;
 import javax.swing.BorderFactory;
 import javax.swing.ButtonGroup;
+import javax.swing.JCheckBoxMenuItem;
 import javax.swing.JComponent;
 import javax.swing.JMenu;
 import javax.swing.JMenuBar;
@@ -43,6 +44,20 @@ public final class SettingsMenu {
         void setThemeMode(Theme.Mode mode);
 
         /**
+         * Returns whether workbench sound effects are enabled.
+         *
+         * @return true when sounds are enabled
+         */
+        boolean soundEnabled();
+
+        /**
+         * Applies the global sound-effects enabled state.
+         *
+         * @param enabled true to enable sounds
+         */
+        void setSoundEnabled(boolean enabled);
+
+        /**
          * Opens the display and board settings panel.
          */
         void showDisplaySettings();
@@ -51,6 +66,11 @@ public final class SettingsMenu {
          * Opens the external-engine settings panel.
          */
         void showEngineSettings();
+
+        /**
+         * Opens the display panel where sound volume is configured.
+         */
+        void showSoundSettings();
 
         /**
          * Opens the searchable command palette.
@@ -84,6 +104,11 @@ public final class SettingsMenu {
     private final JRadioButtonMenuItem darkModeItem = new JRadioButtonMenuItem("Dark");
 
     /**
+     * Checkbox item controlling global workbench sound.
+     */
+    private final JCheckBoxMenuItem soundEffectsItem = new JCheckBoxMenuItem("Sound Effects");
+
+    /**
      * Creates the settings menu.
      *
      * @param controller window callback controller
@@ -111,6 +136,7 @@ public final class SettingsMenu {
         Theme.Mode mode = controller.themeMode();
         lightModeItem.setSelected(mode != Theme.Mode.DARK);
         darkModeItem.setSelected(mode == Theme.Mode.DARK);
+        soundEffectsItem.setSelected(controller.soundEnabled());
     }
 
     /**
@@ -127,6 +153,7 @@ public final class SettingsMenu {
     private void buildMenuBar() {
         JMenu settings = new JMenu("Settings");
         settings.add(createAppearanceMenu());
+        settings.add(createSoundMenu());
         settings.add(new JSeparator());
         settings.add(menuItem("Board Settings", "control COMMA", controller::showDisplaySettings));
         settings.add(menuItem("Engine Settings", null, controller::showEngineSettings));
@@ -151,6 +178,19 @@ public final class SettingsMenu {
         appearance.add(lightModeItem);
         appearance.add(darkModeItem);
         return appearance;
+    }
+
+    /**
+     * Creates the sound submenu.
+     *
+     * @return sound submenu
+     */
+    private JMenu createSoundMenu() {
+        JMenu sound = new JMenu("Sound");
+        soundEffectsItem.addActionListener(event -> controller.setSoundEnabled(soundEffectsItem.isSelected()));
+        sound.add(soundEffectsItem);
+        sound.add(menuItem("Sound Settings", null, controller::showSoundSettings));
+        return sound;
     }
 
     /**
@@ -217,6 +257,8 @@ public final class SettingsMenu {
     private static void styleMenuItem(JMenuItem item) {
         if (item instanceof JRadioButtonMenuItem radio) {
             styleRadioMenuItem(radio);
+        } else if (item instanceof JCheckBoxMenuItem check) {
+            MenuGlyphs.styleCheckItem(check);
         } else if (item.getParent() instanceof JPopupMenu) {
             MenuGlyphs.styleItem(item);
         } else {

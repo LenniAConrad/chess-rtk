@@ -1,6 +1,7 @@
 package application.gui.workbench.window;
 
 import application.Config;
+import application.gui.workbench.audio.SoundService;
 import application.gui.workbench.board.BoardEditorPanel;
 import application.gui.workbench.game.EcoExplorerPanel;
 import application.gui.workbench.game.SanRenderer;
@@ -36,6 +37,7 @@ import javax.swing.JComponent;
 import javax.swing.JFileChooser;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
+import javax.swing.JSlider;
 import javax.swing.JSplitPane;
 import javax.swing.JTabbedPane;
 import javax.swing.JTextArea;
@@ -55,10 +57,12 @@ import static application.gui.workbench.ui.Ui.flow;
 import static application.gui.workbench.ui.Ui.grid;
 import static application.gui.workbench.ui.Ui.iconButton;
 import static application.gui.workbench.ui.Ui.label;
+import static application.gui.workbench.ui.Ui.labeledControl;
 import static application.gui.workbench.ui.Ui.optionGroup;
 import static application.gui.workbench.ui.Ui.scroll;
 import static application.gui.workbench.ui.Ui.styleAreas;
 import static application.gui.workbench.ui.Ui.styleFields;
+import static application.gui.workbench.ui.Ui.styleSlider;
 import static application.gui.workbench.ui.Ui.styleSpinners;
 import static application.gui.workbench.ui.Ui.tabbedPane;
 import static application.gui.workbench.ui.Ui.titled;
@@ -438,6 +442,20 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
                 "Switch the workbench chrome and controls to the dark palette",
                 isDarkMode(), this::setDarkMode), appearanceC, 0, 0, 1, 1);
 
+        JPanel soundSettings = settingsGroupPanel();
+        GridBagConstraints soundC = constraints();
+        soundC.insets = new Insets(3, 0, 3, 0);
+        grid(soundSettings, settingsToggle("Sound effects",
+                "Play restrained procedural feedback sounds for moves, puzzles, and long jobs",
+                !SoundService.isMuted(), selected -> {
+                    SoundService.setMuted(!selected);
+                    if (settingsMenu != null) {
+                        settingsMenu.syncMode();
+                    }
+                }), soundC, 0, 0, 1, 1);
+        grid(soundSettings, labeledControl("Volume", createSoundVolumeSlider()),
+                soundC, 0, 1, 1, 1);
+
         JPanel boardSettings = settingsGroupPanel();
         GridBagConstraints boardC = constraints();
         boardC.insets = new Insets(3, 0, 3, 0);
@@ -466,10 +484,25 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
 
         int row = 0;
         grid(panel, collapsible("Appearance", appearance, true), c, 0, row++, 1, 1);
+        grid(panel, collapsible("Sound", soundSettings, true), c, 0, row++, 1, 1);
         grid(panel, collapsible("Board", boardSettings, true), c, 0, row++, 1, 1);
         grid(panel, collapsible("Analysis", analysisSettings, false), c, 0, row++, 1, 1);
         addVerticalFiller(panel, c, row, 1);
         return panel;
+    }
+
+    /**
+     * Creates the compact global sound-volume slider.
+     *
+     * @return configured slider
+     */
+    private static JSlider createSoundVolumeSlider() {
+        JSlider slider = new JSlider(0, 100, SoundService.volumePercent());
+        styleSlider(slider);
+        slider.setToolTipText("Set feedback sound volume");
+        slider.setPreferredSize(new Dimension(190, Theme.CONTROL_HEIGHT));
+        slider.addChangeListener(event -> SoundService.setVolumePercent(slider.getValue()));
+        return slider;
     }
 
     /**

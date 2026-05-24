@@ -49,6 +49,7 @@ final class WorkbenchTestSupport {
      * Feature packages used by the split workbench implementation.
      */
     static final String[] WORKBENCH_SUBPACKAGES = {
+            "audio.",
             "board.",
             "command.",
             "dashboard.",

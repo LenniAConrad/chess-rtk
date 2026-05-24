@@ -63,6 +63,7 @@ public final class WorkbenchStructureRegressionTest {
      * Feature packages expected after the workbench refactor.
      */
     private static final Set<String> EXPECTED_FEATURE_PACKAGES = Set.of(
+            "audio",
             "board",
             "command",
             "dashboard",

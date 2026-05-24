@@ -2,6 +2,7 @@ package application.gui.workbench.window;
 
 import application.Config;
 import application.gui.workbench.Defaults;
+import application.gui.workbench.audio.SoundService;
 import application.gui.workbench.command.CommandPalette.PaletteAction;
 import application.gui.workbench.command.CommandPalette;
 import application.gui.workbench.game.PgnExplorerDialog;
@@ -486,6 +487,27 @@ public abstract class WindowLifecycle extends WindowBase {
             }
 
             /**
+             * Returns whether sounds are enabled.
+             *
+             * @return true when sounds are enabled
+             */
+            @Override
+            public boolean soundEnabled() {
+                return !SoundService.isMuted();
+            }
+
+            /**
+             * Applies the sound enabled flag.
+             *
+             * @param enabled true when sounds are enabled
+             */
+            @Override
+            public void setSoundEnabled(boolean enabled) {
+                SoundService.setMuted(!enabled);
+                settingsMenu.syncMode();
+            }
+
+            /**
              * Opens board and display settings.
              */
             @Override
@@ -499,6 +521,14 @@ public abstract class WindowLifecycle extends WindowBase {
             @Override
             public void showEngineSettings() {
                 WindowLifecycle.this.showEngineSettings();
+            }
+
+            /**
+             * Opens sound settings.
+             */
+            @Override
+            public void showSoundSettings() {
+                WindowLifecycle.this.showDisplaySettings();
             }
 
             /**
@@ -1078,7 +1108,7 @@ public abstract class WindowLifecycle extends WindowBase {
             analysisTabs.setSelectedIndex(0);
         }
         if (boardDetailTabs != null) {
-            boardDetailTabs.setSelectedIndex(4);
+            selectBoardDetailTab("Settings");
         }
         toast(Toast.Kind.INFO, "Settings are in the side panel");
     }
@@ -1092,7 +1122,7 @@ public abstract class WindowLifecycle extends WindowBase {
             analysisTabs.setSelectedIndex(0);
         }
         if (boardDetailTabs != null) {
-            boardDetailTabs.setSelectedIndex(5);
+            selectBoardDetailTab("Engine");
         }
         SwingUtilities.invokeLater(engineProtocolField::requestFocusInWindow);
     }
@@ -1106,7 +1136,24 @@ public abstract class WindowLifecycle extends WindowBase {
             analysisTabs.setSelectedIndex(0);
         }
         if (boardDetailTabs != null) {
-            boardDetailTabs.setSelectedIndex(2);
+            selectBoardDetailTab("Data");
+        }
+    }
+
+    /**
+     * Selects a board detail tab by title when present.
+     *
+     * @param title tab title
+     */
+    private void selectBoardDetailTab(String title) {
+        if (boardDetailTabs == null || title == null) {
+            return;
+        }
+        for (int i = 0; i < boardDetailTabs.getTabCount(); i++) {
+            if (title.equals(boardDetailTabs.getTitleAt(i))) {
+                boardDetailTabs.setSelectedIndex(i);
+                return;
+            }
         }
     }
 

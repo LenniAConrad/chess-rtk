@@ -1,5 +1,7 @@
 package application.gui.workbench.game;
 
+import application.gui.workbench.audio.SoundCue;
+import application.gui.workbench.audio.SoundService;
 import application.gui.workbench.board.BoardPanel;
 import application.gui.workbench.board.DropContext;
 import application.gui.workbench.layout.SplitPaneStyler;
@@ -173,6 +175,7 @@ public final class PuzzlePanel extends JPanel {
         board.setShowNotation(true);
         board.setShowLegalMovePreview(true);
         board.setShowLastMoveHighlight(true);
+        board.setSnapbackSoundEnabled(false);
         solutionArea.setEditable(false);
         solutionArea.setLineWrap(true);
         solutionArea.setWrapStyleWord(true);
@@ -580,6 +583,7 @@ public final class PuzzlePanel extends JPanel {
         board.addArrow(hint.fromSquare(), Move.getToIndex(hint.move()), Theme.ACCENT);
         board.setSuggestedMove(hint.move());
         setStatus("Hint: " + Move.toString(hint.move()));
+        SoundService.play(SoundCue.HINT);
         updateLabels();
     }
 
@@ -591,6 +595,7 @@ public final class PuzzlePanel extends JPanel {
             return;
         }
         PuzzleSession.MoveResponse response = session.reveal(skipSimilarToggle.isSelected());
+        playPuzzleResponseSound(response, true);
         applyResponse(response, response.expectedMove(), "Revealed");
     }
 
@@ -619,6 +624,7 @@ public final class PuzzlePanel extends JPanel {
             markWrongMove(response.expectedMove());
             return;
         }
+        playPuzzleResponseSound(response, false);
         applyResponse(response, move, response.result() == PuzzleSession.StepResult.COMPLETED ? "Solved" : "Correct");
     }
 
@@ -656,7 +662,24 @@ public final class PuzzlePanel extends JPanel {
         } else {
             setStatus("Try again.");
         }
+        SoundService.play(SoundCue.PUZZLE_WRONG);
         updateLabels();
+    }
+
+    /**
+     * Plays the restrained puzzle feedback cue for one response.
+     *
+     * @param response puzzle response
+     * @param reveal true when the response came from a reveal command
+     */
+    private static void playPuzzleResponseSound(PuzzleSession.MoveResponse response, boolean reveal) {
+        if (response.result() == PuzzleSession.StepResult.COMPLETED || response.solved()) {
+            SoundService.play(SoundCue.PUZZLE_COMPLETE);
+        } else if (reveal) {
+            SoundService.play(SoundCue.REVEAL);
+        } else {
+            SoundService.play(SoundCue.PUZZLE_CORRECT);
+        }
     }
 
     /**

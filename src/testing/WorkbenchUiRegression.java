@@ -444,6 +444,8 @@ final class WorkbenchUiRegression {
         Theme.Mode[] activeMode = { Theme.Mode.LIGHT };
         boolean[] displaySettingsOpened = { false };
         boolean[] engineSettingsOpened = { false };
+        boolean[] soundSettingsOpened = { false };
+        boolean[] soundEnabled = { true };
         SettingsMenu menu = new SettingsMenu(new SettingsMenu.Controller() {
             @Override
             public Theme.Mode themeMode() {
@@ -456,6 +458,16 @@ final class WorkbenchUiRegression {
             }
 
             @Override
+            public boolean soundEnabled() {
+                return soundEnabled[0];
+            }
+
+            @Override
+            public void setSoundEnabled(boolean enabled) {
+                soundEnabled[0] = enabled;
+            }
+
+            @Override
             public void showDisplaySettings() {
                 displaySettingsOpened[0] = true;
             }
@@ -463,6 +475,11 @@ final class WorkbenchUiRegression {
             @Override
             public void showEngineSettings() {
                 engineSettingsOpened[0] = true;
+            }
+
+            @Override
+            public void showSoundSettings() {
+                soundSettingsOpened[0] = true;
             }
 
             @Override
@@ -489,6 +506,11 @@ final class WorkbenchUiRegression {
         assertThemedRadioIcon(dark, "dark mode");
         assertWorkbenchMenuChrome(light, "light mode");
         assertWorkbenchMenuChrome(dark, "dark mode");
+        JMenu sound = menu(settings, "Sound");
+        JCheckBoxMenuItem soundEffects = (JCheckBoxMenuItem) item(sound, "Sound Effects");
+        assertTrue(soundEffects.isSelected(), "sound starts enabled");
+        assertThemedCheckIcon(soundEffects, "sound effects");
+        assertWorkbenchMenuChrome(soundEffects, "sound effects");
 
         dark.doClick();
         assertEquals(Theme.Mode.DARK, activeMode[0], "dark menu item applies dark mode");
@@ -500,8 +522,15 @@ final class WorkbenchUiRegression {
         assertWorkbenchMenuChrome(dark, "dark mode after refresh");
         Theme.setMode(Theme.Mode.LIGHT);
 
+        soundEffects.doClick();
+        assertTrue(!soundEnabled[0], "sound menu toggles effects off");
+        soundEnabled[0] = true;
+        menu.syncMode();
+        assertTrue(soundEffects.isSelected(), "sound menu reflects controller state");
+        item(sound, "Sound Settings").doClick();
         item(settings, "Board Settings").doClick();
         item(settings, "Engine Settings").doClick();
+        assertTrue(soundSettingsOpened[0], "settings menu opens sound settings");
         assertTrue(displaySettingsOpened[0], "settings menu opens board settings");
         assertTrue(engineSettingsOpened[0], "settings menu opens engine settings");
     }
