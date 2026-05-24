@@ -8,18 +8,21 @@ import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.event.ActionEvent;
+import java.awt.event.ComponentAdapter;
+import java.awt.event.ComponentEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import javax.swing.AbstractAction;
 import javax.swing.BorderFactory;
 import javax.swing.DefaultListCellRenderer;
 import javax.swing.DefaultListModel;
 import javax.swing.JComponent;
-import javax.swing.JDialog;
 import javax.swing.JFrame;
+import javax.swing.JLayeredPane;
 import javax.swing.JLabel;
 import javax.swing.JList;
 import javax.swing.JPanel;
@@ -36,8 +39,11 @@ import static application.gui.workbench.ui.Ui.transparentPanel;
 
 /**
  * Searchable native Swing action palette for command-heavy workbench flows.
+ *
+ * <p>The palette mounts into the owner frame's layered pane instead of opening
+ * a separate top-level window, matching the VS Code command palette model.</p>
  */
-public final class CommandPalette extends JDialog {
+public final class CommandPalette extends JPanel {
 
     /**
      * Serialization identifier for Swing dialog compatibility.
@@ -45,14 +51,39 @@ public final class CommandPalette extends JDialog {
     private static final long serialVersionUID = 1L;
 
     /**
-     * Palette width in pixels.
+     * Preferred palette width in pixels.
      */
     private static final int WIDTH = 560;
 
     /**
-     * Palette height in pixels.
+     * Preferred palette height in pixels.
      */
     private static final int HEIGHT = 520;
+
+    /**
+     * Minimum overlay width that keeps the search field usable.
+     */
+    private static final int MIN_WIDTH = 360;
+
+    /**
+     * Minimum overlay height that keeps several actions visible.
+     */
+    private static final int MIN_HEIGHT = 240;
+
+    /**
+     * Horizontal margin inside the layered pane.
+     */
+    private static final int SIDE_MARGIN = 16;
+
+    /**
+     * Distance from the top of the workbench content area.
+     */
+    private static final int TOP_MARGIN = 12;
+
+    /**
+     * Owning workbench frame.
+     */
+    private final JFrame owner;
 
     /**
      * Input field used to filter actions.
@@ -91,19 +122,51 @@ public final class CommandPalette extends JDialog {
     private static final int MAX_RECENTS = 12;
 
     /**
+     * Repositions the floating overlay when the owning frame changes size.
+     */
+    private final ComponentAdapter ownerResizeListener = new ComponentAdapter() {
+        /**
+         * Handles owner resize.
+         *
+         * @param event resize event
+         */
+        @Override
+        public void componentResized(ComponentEvent event) {
+            positionOverlay();
+        }
+
+        /**
+         * Handles owner show.
+         *
+         * @param event show event
+         */
+        @Override
+        public void componentShown(ComponentEvent event) {
+            positionOverlay();
+        }
+    };
+
+    /**
+     * True once the owner resize listener has been installed.
+     */
+    private boolean resizeListenerInstalled;
+
+    /**
      * Creates a command palette owned by the workbench window.
      *
      * @param owner parent frame
      */
     public CommandPalette(JFrame owner) {
-        super(owner, "Actions", false);
-        setDefaultCloseOperation(HIDE_ON_CLOSE);
-        setMinimumSize(new Dimension(WIDTH, HEIGHT));
+        super(new BorderLayout());
+        this.owner = Objects.requireNonNull(owner, "owner");
+        setName("commandPaletteOverlay");
+        setOpaque(false);
+        setVisible(false);
+        setMinimumSize(new Dimension(MIN_WIDTH, MIN_HEIGHT));
         setPreferredSize(new Dimension(WIDTH, HEIGHT));
-        getRootPane().setBorder(BorderFactory.createLineBorder(Theme.LINE));
-        setContentPane(createContent());
+        setBorder(BorderFactory.createLineBorder(Theme.LINE));
+        add(createContent(), BorderLayout.CENTER);
         installKeys();
-        pack();
     }
 
     /**
@@ -115,8 +178,11 @@ public final class CommandPalette extends JDialog {
         actions = List.copyOf(nextActions);
         searchField.setText("");
         refill();
-        setLocationRelativeTo(getOwner());
+        mountOverlay();
+        positionOverlay();
+        refreshTheme();
         setVisible(true);
+        owner.getLayeredPane().moveToFront(this);
         SwingUtilities.invokeLater(() -> {
             searchField.requestFocusInWindow();
             searchField.selectAll();
@@ -151,6 +217,52 @@ public final class CommandPalette extends JDialog {
     }
 
     /**
+     * Reapplies current theme colors after a mode switch.
+     */
+    public void refreshTheme() {
+        setBorder(BorderFactory.createLineBorder(Theme.LINE));
+        Theme.refreshComponentTree(this);
+        applyActionListChrome();
+        emptyLabel.setForeground(Theme.MUTED);
+        repaint();
+    }
+
+    /**
+     * Adds this overlay to the owning frame's layered pane.
+     */
+    private void mountOverlay() {
+        JLayeredPane layeredPane = owner.getLayeredPane();
+        if (getParent() != layeredPane) {
+            if (getParent() != null) {
+                getParent().remove(this);
+            }
+            layeredPane.add(this, JLayeredPane.POPUP_LAYER);
+        }
+        if (!resizeListenerInstalled) {
+            owner.addComponentListener(ownerResizeListener);
+            resizeListenerInstalled = true;
+        }
+    }
+
+    /**
+     * Positions the overlay at the top center of the workbench content.
+     */
+    private void positionOverlay() {
+        JLayeredPane layeredPane = owner.getLayeredPane();
+        int availableWidth = layeredPane.getWidth();
+        int availableHeight = layeredPane.getHeight();
+        if (availableWidth <= 0 || availableHeight <= 0) {
+            return;
+        }
+        int width = Math.min(WIDTH, Math.max(MIN_WIDTH, availableWidth - SIDE_MARGIN * 2));
+        int height = Math.min(HEIGHT, Math.max(MIN_HEIGHT, availableHeight - TOP_MARGIN - SIDE_MARGIN));
+        int x = Math.max(SIDE_MARGIN, (availableWidth - width) / 2);
+        setBounds(x, TOP_MARGIN, width, height);
+        revalidate();
+        repaint();
+    }
+
+    /**
      * Configures the searchable action result list.
      */
     private void configureActionList() {
@@ -158,8 +270,7 @@ public final class CommandPalette extends JDialog {
         actionList.setVisibleRowCount(10);
         actionList.setCellRenderer(new ActionRenderer());
         actionList.getAccessibleContext().setAccessibleName("Action results");
-        Theme.list(actionList);
-        actionList.setFixedCellHeight(46);
+        applyActionListChrome();
         actionList.addMouseListener(new MouseAdapter() {
             /**
              * Runs an action on double click.
@@ -176,6 +287,16 @@ public final class CommandPalette extends JDialog {
     }
 
     /**
+     * Applies list colors and the two-line palette row height.
+     */
+    private void applyActionListChrome() {
+        Theme.list(actionList);
+        int titleHeight = actionList.getFontMetrics(Theme.font(13, Font.BOLD)).getHeight();
+        int detailHeight = actionList.getFontMetrics(Theme.font(11, Font.PLAIN)).getHeight();
+        actionList.setFixedCellHeight(Math.max(48, titleHeight + detailHeight + 18));
+    }
+
+    /**
      * Configures the empty-state label.
      */
     private void configureEmptyLabel() {
@@ -189,9 +310,9 @@ public final class CommandPalette extends JDialog {
      * Installs keyboard behavior for palette execution and dismissal.
      */
     private void installKeys() {
-        getRootPane().getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW)
+        getInputMap(JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT)
                 .put(KeyStroke.getKeyStroke("ESCAPE"), "closePalette");
-        getRootPane().getActionMap().put("closePalette", swingAction(() -> setVisible(false)));
+        getActionMap().put("closePalette", swingAction(this::hidePalette));
         searchField.getInputMap().put(KeyStroke.getKeyStroke("DOWN"), "paletteDown");
         searchField.getInputMap().put(KeyStroke.getKeyStroke("UP"), "paletteUp");
         searchField.getInputMap().put(KeyStroke.getKeyStroke("PAGE_DOWN"), "palettePageDown");
@@ -310,18 +431,25 @@ public final class CommandPalette extends JDialog {
             return;
         }
         recordRecent(selected.title());
-        setVisible(false);
+        hidePalette();
         SwingUtilities.invokeLater(() -> {
             try {
                 selected.action().run();
             } catch (RuntimeException ex) {
-                JFrame owner = (JFrame) getOwner();
-                Component parent = owner != null ? owner : null;
+                Component parent = owner;
                 javax.swing.JOptionPane.showMessageDialog(parent,
                         "Action failed: " + (ex.getMessage() == null ? ex.getClass().getSimpleName() : ex.getMessage()),
                         "Action error", javax.swing.JOptionPane.ERROR_MESSAGE);
             }
         });
+    }
+
+    /**
+     * Hides the in-frame overlay without discarding recent-action state.
+     */
+    private void hidePalette() {
+        setVisible(false);
+        owner.getLayeredPane().repaint(getBounds());
     }
 
     /**

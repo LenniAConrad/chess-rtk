@@ -335,6 +335,9 @@ public abstract class WindowLifecycle extends WindowBase {
         if (pgnExplorer != null) {
             pgnExplorer.refreshTheme();
         }
+        if (commandPalette != null) {
+            commandPalette.refreshTheme();
+        }
         repaint();
         toast(Toast.Kind.INFO, Theme.mode().label() + " mode");
     }

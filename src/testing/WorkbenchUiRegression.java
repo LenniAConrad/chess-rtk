@@ -81,6 +81,7 @@ final class WorkbenchUiRegression {
     static void run() {
         testTextPlaceholdersDoNotSetValues();
         testPaletteTokenMatching();
+        testCommandPaletteIsInFrameOverlay();
         testOptionFilterTokenMatching();
         testTextAreaScrollPaintsOpaque();
         testScrollPaneUsesSolidCorners();
@@ -174,6 +175,17 @@ final class WorkbenchUiRegression {
                 "palette multi-token match");
         assertFalse((Boolean) invoke(action, "matches", new Class<?>[] { String.class }, "publish batch"),
                 "palette missing token");
+    }
+
+    /**
+     * Verifies the command palette is an in-frame overlay, not a top-level
+     * dialog window.
+     */
+    private static void testCommandPaletteIsInFrameOverlay() {
+        Class<?> palette = type("CommandPalette");
+        assertTrue(JPanel.class.isAssignableFrom(palette), "command palette is a Swing panel");
+        assertFalse(javax.swing.JDialog.class.isAssignableFrom(palette),
+                "command palette is not a separate dialog");
     }
 
     /**
