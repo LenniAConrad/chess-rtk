@@ -129,6 +129,7 @@ final class WorkbenchUiRegression {
         testToastFadeAppliesToTextAndChromeTogether();
         testCollapsibleInfoSectionTogglesContent();
         testCollapsibleSectionDefersNestedScrollbarsDuringAnimation();
+        testPuzzleHeaderControlsAvoidClippingAtNarrowWidth();
         testLazyPanelDefersConstruction();
         testCommandTabsReserveSelectedTextWidth();
         testTabbedPaneUsesScrollableSingleRowTabs();
@@ -1489,6 +1490,23 @@ final class WorkbenchUiRegression {
     }
 
     /**
+     * Verifies the puzzle header control strip keeps every visible control inside
+     * its parent bounds on a narrow editor pane.
+     */
+    private static void testPuzzleHeaderControlsAvoidClippingAtNarrowWidth() {
+        JComponent panel = (JComponent) construct(type("PuzzlePanel"),
+                new Class<?>[] { boolean.class }, Boolean.FALSE);
+        JComponent header = (JComponent) panel.getComponent(0);
+        header.setSize(360, 96);
+        Dimension preferred = header.getPreferredSize();
+        header.setSize(360, preferred.height);
+        layoutTree(header);
+
+        assertTrue(preferred.height > 38, "puzzle header is allowed to grow beyond one cramped row");
+        assertVisibleChildrenInside(header, "puzzle header");
+    }
+
+    /**
      * Verifies lazy editor wrappers do not construct heavy panels until the
      * wrapper is materialized.
      */
@@ -2015,6 +2033,44 @@ final class WorkbenchUiRegression {
                 "MCTS default visit budget is lightweight");
         assertEquals(Boolean.FALSE, staticField(defaults, "NETWORK_MCTS_FOLLOW_LEAF"),
                 "Network MCTS does not re-infer every leaf by default");
+    }
+
+    /**
+     * Runs layout recursively after the root component receives a test size.
+     *
+     * @param component root component
+     */
+    private static void layoutTree(Component component) {
+        if (component instanceof Container container) {
+            container.doLayout();
+            for (Component child : container.getComponents()) {
+                layoutTree(child);
+            }
+        }
+    }
+
+    /**
+     * Verifies visible descendants stay within their immediate parent bounds.
+     *
+     * @param container parent container
+     * @param label assertion label
+     */
+    private static void assertVisibleChildrenInside(Container container, String label) {
+        for (Component child : container.getComponents()) {
+            if (!child.isVisible()) {
+                continue;
+            }
+            int overflowX = child.getX() + child.getWidth() - container.getWidth();
+            int overflowY = child.getY() + child.getHeight() - container.getHeight();
+            if (child.getX() < 0 || child.getY() < 0 || overflowX > 1 || overflowY > 1) {
+                throw new AssertionError(label + " clips " + child.getClass().getSimpleName()
+                        + " bounds=" + child.getBounds() + " parent="
+                        + container.getWidth() + "x" + container.getHeight());
+            }
+            if (child instanceof Container childContainer) {
+                assertVisibleChildrenInside(childContainer, label);
+            }
+        }
     }
 
     /**

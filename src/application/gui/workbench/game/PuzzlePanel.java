@@ -10,6 +10,7 @@ import application.gui.workbench.ui.SurfacePanel;
 import application.gui.workbench.ui.Theme;
 import application.gui.workbench.ui.ToggleBox;
 import application.gui.workbench.ui.Ui;
+import application.gui.workbench.ui.WrappingFlowLayout;
 import chess.core.Move;
 import chess.core.Position;
 import java.awt.BorderLayout;
@@ -74,6 +75,11 @@ public final class PuzzlePanel extends JPanel {
      * Default file used for the built-in difficult puzzle collection.
      */
     private static final File DEFAULT_PUZZLE_FILE = PuzzleLibrary.DEFAULT_PATH.toFile();
+
+    /**
+     * Width reserved for the puzzle branch-mode selector.
+     */
+    private static final int MODE_COMBO_WIDTH = 176;
 
     /**
      * Main puzzle board.
@@ -155,13 +161,24 @@ public final class PuzzlePanel extends JPanel {
      * Creates the puzzle trainer panel.
      */
     public PuzzlePanel() {
+        this(true);
+    }
+
+    /**
+     * Creates the puzzle trainer panel.
+     *
+     * @param loadLibrary true to load the default difficult-puzzle library
+     */
+    PuzzlePanel(boolean loadLibrary) {
         super(new BorderLayout(0, 8));
         configurePanel();
         add(createHeader(), BorderLayout.NORTH);
         add(createBody(), BorderLayout.CENTER);
         installBoardHandlers();
         loadSamplePuzzle();
-        loadDefaultLibrary();
+        if (loadLibrary) {
+            loadDefaultLibrary();
+        }
     }
 
     /**
@@ -190,6 +207,10 @@ public final class PuzzlePanel extends JPanel {
         styleAreas(pgnInput, solutionArea);
         placeholder(pgnInput, "Paste a PGN puzzle with a FEN tag and variations");
         styleCombo(modeCombo);
+        modeCombo.setPrototypeDisplayValue("Explore variations");
+        Dimension modeSize = new Dimension(MODE_COMBO_WIDTH, Theme.CONTROL_HEIGHT);
+        modeCombo.setPreferredSize(modeSize);
+        modeCombo.setMinimumSize(modeSize);
         skipSimilarToggle.setToolTipText("Skip variation branches with the same remaining user moves.");
     }
 
@@ -207,30 +228,52 @@ public final class PuzzlePanel extends JPanel {
      * @return header component
      */
     private JComponent createHeader() {
-        JPanel header = transparentPanel(new BorderLayout(8, 0));
+        JPanel header = transparentPanel(new GridBagLayout());
         header.setOpaque(true);
         header.setBackground(Theme.INPUT);
         header.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createLineBorder(Theme.LINE),
                 Theme.pad(4, 8, 4, 8)));
-        header.setPreferredSize(new Dimension(200, 38));
 
         JLabel scope = new JLabel("chess-rtk");
         Theme.foreground(scope, Theme.ForegroundRole.MUTED);
         scope.setFont(Theme.font(12, Font.PLAIN));
-        header.add(scope, BorderLayout.WEST);
 
         Theme.foreground(titleLabel, Theme.ForegroundRole.TEXT);
         titleLabel.setFont(Theme.font(13, Font.BOLD));
-        header.add(titleLabel, BorderLayout.CENTER);
 
-        JPanel right = transparentPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
         progressLabel.setFont(Theme.font(12, Font.BOLD));
         Theme.foreground(progressLabel, Theme.ForegroundRole.MUTED);
-        right.add(progressLabel);
-        right.add(labeledControl("", modeCombo));
-        right.add(skipSimilarToggle);
-        header.add(right, BorderLayout.EAST);
+
+        GridBagConstraints c = constraints();
+        c.gridy = 0;
+        c.insets = new Insets(0, 0, 3, Theme.SPACE_MD);
+        c.weightx = 0;
+        c.fill = GridBagConstraints.NONE;
+        grid(header, scope, c, 0, 0, 1, 1);
+
+        c.insets = new Insets(0, 0, 3, Theme.SPACE_MD);
+        c.weightx = 1;
+        c.fill = GridBagConstraints.HORIZONTAL;
+        grid(header, titleLabel, c, 1, 0, 1, 1);
+
+        c.insets = new Insets(0, 0, 3, 0);
+        c.weightx = 0;
+        c.fill = GridBagConstraints.NONE;
+        c.anchor = GridBagConstraints.EAST;
+        grid(header, progressLabel, c, 2, 0, 1, 1);
+
+        JPanel controls = transparentPanel(new WrappingFlowLayout(FlowLayout.RIGHT, 8, 0));
+        controls.add(labeledControl("", modeCombo));
+        controls.add(skipSimilarToggle);
+        c.gridy = 1;
+        c.gridx = 0;
+        c.gridwidth = 3;
+        c.weightx = 1;
+        c.fill = GridBagConstraints.HORIZONTAL;
+        c.anchor = GridBagConstraints.EAST;
+        c.insets = new Insets(1, 0, 0, 0);
+        header.add(controls, c);
         return header;
     }
 

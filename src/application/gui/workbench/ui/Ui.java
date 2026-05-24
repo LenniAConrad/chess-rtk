@@ -171,7 +171,7 @@ public final class Ui {
      * @return panel
      */
     public static JPanel flow(int align) {
-        return transparentPanel(new FlowLayout(align, 6, 3));
+        return transparentPanel(new WrappingFlowLayout(align, 6, 3));
     }
 
     /**
@@ -290,8 +290,10 @@ public final class Ui {
      * @return labelled control row
      */
     public static JPanel labeledControl(String caption, JComponent control) {
-        JPanel row = transparentPanel(new FlowLayout(FlowLayout.LEFT, Theme.SPACE_SM, 0));
-        if (caption != null && !caption.isBlank()) {
+        boolean hasCaption = caption != null && !caption.isBlank();
+        int gap = hasCaption ? Theme.SPACE_SM : 0;
+        JPanel row = transparentPanel(new WrappingFlowLayout(FlowLayout.LEFT, gap, 0));
+        if (hasCaption) {
             row.add(controlLabel(caption));
         }
         row.add(control);
