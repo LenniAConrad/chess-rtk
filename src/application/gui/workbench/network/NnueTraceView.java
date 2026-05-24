@@ -1173,22 +1173,37 @@ public abstract class NnueTraceView extends NnueOverviewView {
         if (fc0DisplayRows > fc0Rows) {
             int fwdY = columnY(layout, fc0Rows, fc0DisplayRows);
             float strength = valueAt(fc0FwdContribution, 0) / contribScale;
-            drawTraceEdge(g, layout.clippedCx + layout.slotRadius, fwdY,
-                    layout.outputCx - (layout.slotRadius + 6), outCy, strength, false);
-            drawTraceEdgeLabel(g, "FC0 forward skip",
-                    layout.clippedCx + layout.slotRadius, fwdY,
-                    layout.outputCx - (layout.slotRadius + 6), outCy);
-            int x = Math.min(layout.clippedCx + layout.slotRadius,
-                    layout.outputCx - (layout.slotRadius + 6));
-            int y = Math.min(fwdY, outCy);
-            int w = Math.abs(layout.outputCx - (layout.slotRadius + 6)
-                    - (layout.clippedCx + layout.slotRadius));
-            int h = Math.abs(outCy - fwdY);
-            hitRegions.add(new Rectangle(x, y, Math.max(1, w), Math.max(1, h)),
+            int sourceX = layout.clippedCx + layout.slotRadius;
+            int targetX = layout.outputCx - (layout.slotRadius + 6);
+            int routeY = skipEdgeRouteY(layout, fwdY, outCy);
+            Rectangle hit = drawTraceSkipEdge(g, sourceX, fwdY, targetX, outCy, strength,
+                    "FC0 fwd skip -> output", routeY, Math.max(80, targetX - sourceX - 18));
+            hitRegions.add(hit,
                     "FC0 forward skip edge",
-                    "Stockfish NNUE carries this FC0 forward branch directly into the positional output.",
+                    "Stockfish NNUE carries this FC0 forward branch directly into the output, bypassing FC1.",
                     String.format("branch contribution %+.2f cp", valueAt(fc0FwdContribution, 0)));
         }
+    }
+
+    /**
+     * Chooses a gutter lane for the Stockfish FC0 forward-skip curve.
+     *
+     * @param layout trace layout
+     * @param fwdY FC0 forward-row y coordinate
+     * @param outCy output-node y coordinate
+     * @return route y coordinate
+     */
+    private static int skipEdgeRouteY(NnueTraceLayout layout, int fwdY, int outCy) {
+        int lowerRoom = layout.graphBottom - Math.max(fwdY, outCy);
+        if (lowerRoom >= 30) {
+            return Math.min(layout.graphBottom - 6, Math.max(fwdY, outCy) + 26);
+        }
+        int upperRoom = Math.min(fwdY, outCy) - layout.graphTop;
+        if (upperRoom >= 30) {
+            return Math.max(layout.graphTop + 10, Math.min(fwdY, outCy) - 26);
+        }
+        return Math.max(layout.graphTop + 10,
+                Math.min(layout.graphBottom - 6, Math.max(fwdY, outCy) + Math.max(12, lowerRoom / 2)));
     }
 
 

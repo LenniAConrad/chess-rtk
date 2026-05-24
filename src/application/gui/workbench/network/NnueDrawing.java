@@ -11,6 +11,8 @@ import java.awt.Font;
 import java.awt.FontMetrics;
 import java.awt.Graphics2D;
 import java.awt.Rectangle;
+import java.awt.Stroke;
+import java.awt.geom.CubicCurve2D;
 
 /**
  * Stateless tooltip, vector, and trace drawing helpers for {@link NnueView}.
@@ -358,35 +360,6 @@ public final class NnueDrawing {
     }
 
     /**
-     * Draws a compact label on a long Trace edge.
-     *
-     * @param g graphics context
-     * @param text label text
-     * @param x1 start x
-     * @param y1 start y
-     * @param x2 end x
-     * @param y2 end y
-     */
-    public static void drawTraceEdgeLabel(Graphics2D g, String text,
-            int x1, int y1, int x2, int y2) {
-        if (Math.abs(x2 - x1) < 72) {
-            return;
-        }
-        g.setFont(Theme.font(9, Font.BOLD));
-        FontMetrics fm = g.getFontMetrics();
-        int textW = fm.stringWidth(text);
-        int x = (x1 + x2 - textW) / 2;
-        int y = (y1 + y2) / 2 - 5;
-        Rectangle bg = new Rectangle(x - 4, y - fm.getAscent(), textW + 8, fm.getHeight());
-        g.setColor(Theme.PANEL_SOLID);
-        g.fillRoundRect(bg.x, bg.y, bg.width, bg.height, 4, 4);
-        g.setColor(Theme.LINE);
-        g.drawRoundRect(bg.x, bg.y, bg.width - 1, bg.height - 1, 4, 4);
-        g.setColor(TensorViz.FOCUS);
-        g.drawString(text, x, y);
-    }
-
-    /**
      * Draws a Trace edge using one fixed stroke style for every layer. Colour
      * carries sign and opacity carries magnitude.
      *
@@ -413,6 +386,122 @@ public final class NnueDrawing {
         g.setStroke(new BasicStroke(TRACE_EDGE_WIDTH, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
         g.drawLine(x1, y1, x2, y2);
         g.setStroke(new BasicStroke(1.0f));
+    }
+
+    /**
+     * Draws the Stockfish FC0 forward-skip edge as a routed Bezier curve.
+     *
+     * <p>The skip branch bypasses FC1, so a straight diagonal makes the graph
+     * read as if it flowed through the hidden column. This helper bows the edge
+     * through a spare gutter and places the label on an opaque pill above the
+     * curve.</p>
+     *
+     * @param g graphics
+     * @param x1 source x
+     * @param y1 source y
+     * @param x2 target x
+     * @param y2 target y
+     * @param strength signed magnitude in [-1, 1]
+     * @param label edge label
+     * @param routeY y coordinate for the curve control lane
+     * @param maxLabelWidth maximum label width
+     * @return approximate bounds for hover hit-testing
+     */
+    public static Rectangle drawTraceSkipEdge(Graphics2D g, int x1, int y1, int x2, int y2,
+            float strength, String label, int routeY, int maxLabelWidth) {
+        int left = Math.min(x1, x2);
+        int right = Math.max(x1, x2);
+        int top = Math.min(Math.min(y1, y2), routeY);
+        int bottom = Math.max(Math.max(y1, y2), routeY);
+        if (right - left < 24) {
+            drawTraceEdge(g, x1, y1, x2, y2, strength, true);
+            return new Rectangle(left, top, Math.max(1, right - left), Math.max(1, bottom - top));
+        }
+
+        float s = Math.max(-1.0f, Math.min(1.0f, strength));
+        float mag = (float) Math.sqrt(Math.abs(s));
+        Color base = Math.abs(s) < 0.004f ? Theme.MUTED
+                : s >= 0.0f ? TensorViz.POSITIVE : TensorViz.NEGATIVE;
+        int alpha = Math.min(235, TRACE_EDGE_ALPHA_MIN
+                + Math.round((TRACE_EDGE_ALPHA_MAX - TRACE_EDGE_ALPHA_MIN) * mag)
+                + TRACE_EDGE_FOCUS_BOOST);
+        int dx = x2 - x1;
+        CubicCurve2D curve = new CubicCurve2D.Float(
+                x1,
+                y1,
+                x1 + dx * 0.22f,
+                routeY,
+                x2 - dx * 0.22f,
+                routeY,
+                x2,
+                y2);
+        Stroke oldStroke = g.getStroke();
+        g.setColor(new Color(base.getRed(), base.getGreen(), base.getBlue(), alpha));
+        g.setStroke(new BasicStroke(TRACE_EDGE_WIDTH + 0.75f,
+                BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+        g.draw(curve);
+        drawCurveArrowHead(g, x2 - dx * 0.22, routeY, x2, y2);
+        g.setStroke(oldStroke);
+
+        int labelBaseline = routeY < Math.min(y1, y2) ? routeY + 18 : routeY - 8;
+        Rectangle labelBounds = drawSkipEdgeLabel(g, label,
+                (x1 + x2) / 2, labelBaseline, Math.min(maxLabelWidth, Math.max(36, right - left - 18)));
+        Rectangle hit = new Rectangle(left - 6, top - 10, right - left + 12, bottom - top + 20);
+        if (labelBounds != null) {
+            hit = hit.union(labelBounds);
+        }
+        return hit;
+    }
+
+    /**
+     * Draws an arrow head tangent to a Bezier curve endpoint.
+     *
+     * @param g graphics
+     * @param fromX tangent source x
+     * @param fromY tangent source y
+     * @param tipX arrow tip x
+     * @param tipY arrow tip y
+     */
+    private static void drawCurveArrowHead(Graphics2D g, double fromX, double fromY, int tipX, int tipY) {
+        double angle = Math.atan2(tipY - fromY, tipX - fromX);
+        int size = 6;
+        int xA = (int) Math.round(tipX - Math.cos(angle - Math.PI / 6.0) * size);
+        int yA = (int) Math.round(tipY - Math.sin(angle - Math.PI / 6.0) * size);
+        int xB = (int) Math.round(tipX - Math.cos(angle + Math.PI / 6.0) * size);
+        int yB = (int) Math.round(tipY - Math.sin(angle + Math.PI / 6.0) * size);
+        g.drawLine(tipX, tipY, xA, yA);
+        g.drawLine(tipX, tipY, xB, yB);
+    }
+
+    /**
+     * Draws the label for the routed skip edge.
+     *
+     * @param g graphics
+     * @param text label text
+     * @param centerX label center x
+     * @param baseline label baseline y
+     * @param maxWidth maximum text width
+     * @return label bounds or {@code null} when no text fits
+     */
+    private static Rectangle drawSkipEdgeLabel(Graphics2D g, String text,
+            int centerX, int baseline, int maxWidth) {
+        g.setFont(Theme.font(9, Font.BOLD));
+        FontMetrics fm = g.getFontMetrics();
+        String fitted = fitText(fm, text, maxWidth);
+        if (fitted.isEmpty()) {
+            return null;
+        }
+        int textW = fm.stringWidth(fitted);
+        int x = centerX - textW / 2;
+        Rectangle bg = new Rectangle(x - 7, baseline - fm.getAscent() - 4,
+                textW + 14, fm.getHeight() + 7);
+        g.setColor(Theme.PANEL_SOLID);
+        g.fillRoundRect(bg.x, bg.y, bg.width, bg.height, 8, 8);
+        g.setColor(Theme.LINE);
+        g.drawRoundRect(bg.x, bg.y, bg.width - 1, bg.height - 1, 8, 8);
+        g.setColor(TensorViz.FOCUS);
+        g.drawString(fitted, x, baseline);
+        return bg;
     }
 
     /**
