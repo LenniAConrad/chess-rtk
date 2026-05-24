@@ -17,6 +17,7 @@ import javax.swing.JList;
 import javax.swing.JMenuBar;
 import javax.swing.JMenuItem;
 import javax.swing.JScrollPane;
+import javax.swing.JSlider;
 import javax.swing.JSpinner;
 import javax.swing.JTable;
 import javax.swing.JTabbedPane;
@@ -991,6 +992,8 @@ public final class Theme {
             pane.setSelectedTextColor(TEXT);
         } else if (component instanceof JComboBox<?> combo) {
             Ui.styleCombo(combo);
+        } else if (component instanceof JSlider slider) {
+            Ui.styleSlider(slider);
         } else if (component instanceof JSpinner spinner) {
             Ui.styleSpinner(spinner);
         } else if (component instanceof JTable table) {

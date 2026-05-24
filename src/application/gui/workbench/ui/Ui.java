@@ -600,7 +600,7 @@ public final class Ui {
     public static void styleSlider(JSlider slider) {
         slider.setUI(new StyledSliderUI(slider));
         slider.setOpaque(false);
-        slider.setForeground(Theme.TEXT);
+        Theme.foreground(slider, Theme.ForegroundRole.TEXT);
         slider.setBackground(Theme.PANEL_SOLID);
         slider.setFocusable(true);
     }
@@ -903,6 +903,8 @@ public final class Ui {
             Theme.field(field);
         } else if (component instanceof JComboBox<?> combo) {
             styleCombo(combo);
+        } else if (component instanceof JSlider slider) {
+            styleSlider(slider);
         } else if (component instanceof JSpinner spinner) {
             styleSpinner(spinner);
         } else if (component instanceof JProgressBar bar) {

@@ -32,6 +32,7 @@ import javax.swing.JProgressBar;
 import javax.swing.JRadioButtonMenuItem;
 import javax.swing.JPopupMenu;
 import javax.swing.JScrollPane;
+import javax.swing.JSlider;
 import javax.swing.JViewport;
 import javax.swing.Scrollable;
 import javax.swing.JSpinner;
@@ -93,6 +94,7 @@ final class WorkbenchUiRegression {
         testDisabledComboUsesThemeBackground();
         testGameLineImportInputKeepsMultilineHeight();
         testSettingsToggleRowsAreReadable();
+        testSettingsSliderRefreshKeepsReadableColors();
         testSettingsMenuExposesThemeModes();
         testLayoutMenuExposesUsefulWorkbenchControls();
         testToggleSwitchAnimatesStateChanges();
@@ -435,6 +437,26 @@ final class WorkbenchUiRegression {
         Dimension size = toggle.getPreferredSize();
         assertTrue(size.width >= 300, "settings toggle row is wide enough for labels");
         assertTrue(size.height <= 36, "settings toggle row remains compact");
+    }
+
+    /**
+     * Verifies settings sliders keep readable theme colors after palette
+     * refreshes.
+     */
+    private static void testSettingsSliderRefreshKeepsReadableColors() {
+        Theme.setMode(Theme.Mode.LIGHT);
+        JSlider slider = new JSlider(0, 100, 30);
+        Ui.styleSlider(slider);
+
+        Theme.setMode(Theme.Mode.DARK);
+        Theme.refreshComponentTree(slider);
+        assertEquals(themeColor("TEXT"), slider.getForeground(), "settings slider dark foreground");
+        assertEquals(themeColor("PANEL_SOLID"), slider.getBackground(), "settings slider dark background");
+
+        Theme.setMode(Theme.Mode.LIGHT);
+        Theme.refreshComponentTree(slider);
+        assertEquals(themeColor("TEXT"), slider.getForeground(), "settings slider light foreground");
+        assertEquals(themeColor("PANEL_SOLID"), slider.getBackground(), "settings slider light background");
     }
 
     /**
