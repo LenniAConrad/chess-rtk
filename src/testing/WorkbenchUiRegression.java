@@ -1575,7 +1575,7 @@ final class WorkbenchUiRegression {
                 "segmented switcher selection animation is short");
         assertTrue((Integer) staticField(type("SplitPaneStyler"), "SASH_TRANSITION_MS") <= 140,
                 "split sash transition is short");
-        assertTrue((Integer) staticField(type("Ui"), "COLLAPSE_ANIMATION_MS") <= 160,
+        assertTrue((Integer) staticField(type("CollapsibleSection"), "COLLAPSE_ANIMATION_MS") <= 160,
                 "collapsible section transition is short");
         assertTrue((Integer) staticField(type("MiniChart"), "REVEAL_MS") <= 200,
                 "mini chart reveal is short");

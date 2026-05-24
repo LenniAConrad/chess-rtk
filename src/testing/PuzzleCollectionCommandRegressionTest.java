@@ -48,7 +48,7 @@ public final class PuzzleCollectionCommandRegressionTest {
 	public static void main(String[] args) throws Exception {
 		testBuildsManifestPdfAndCover();
 		testCheckModeSkipsWrites();
-		testLegacyAliasStillRuns();
+		testRemovedCollectionAliasFails();
 		System.out.println("PuzzleCollectionCommandRegressionTest: all checks passed");
 	}
 
@@ -126,20 +126,12 @@ public final class PuzzleCollectionCommandRegressionTest {
 	}
 
 	/**
-	 * Verifies the old collection command name remains a working alias.
-	 *
-	 * @throws Exception if validation fails unexpectedly
+	 * Verifies the old collection command name is no longer accepted.
 	 */
-	private static void testLegacyAliasStillRuns() throws Exception {
-		Path input = Files.createTempFile(PREFIX + "alias-", ".json");
-		Files.writeString(input, sampleRecordsJson(), StandardCharsets.UTF_8);
-
-		String console = runMain(
-				"book", "ilovechess",
-				"--input", input.toString(),
-				"--check");
-
-		assertTrue(console.contains("book collection OK: 2 puzzles"), "legacy alias check summary");
+	private static void testRemovedCollectionAliasFails() {
+		TestSupport.FailureResult result = TestSupport.runMainExpectFailure("book", "ilovechess", "--help");
+		assertTrue(result.stderr().contains("Unknown command: book ilovechess"),
+				"removed collection alias rejected");
 	}
 
 	/**

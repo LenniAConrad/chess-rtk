@@ -1134,7 +1134,7 @@ public final class Theme {
     }
 
     /**
-     * Infers a foreground role for legacy components that predate explicit
+     * Infers a foreground role for older components that predate explicit
      * foreground-role client properties.
      *
      * @param color current foreground color

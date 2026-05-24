@@ -18,7 +18,7 @@ package chess.nn.lc0.bt4;
  * <p>
  * BT4 nets that originate from LC0 also carry an extended input embedding
  * stack and a per-attention smolgen bias generator. Architecture records
- * capture both the simplified (legacy) and extended (LC0-faithful)
+ * capture both simplified and extended (LC0-faithful)
  * configurations through a set of feature flags and the dimensions that
  * back them.
  * </p>
@@ -177,7 +177,7 @@ public record Architecture(
     }
 
     /**
-     * Convenience constructor for legacy simplified BT4 architectures that
+     * Convenience constructor for simplified BT4 architectures that
      * predate the extended LC0 stack.
      *
      * @param name architecture identifier

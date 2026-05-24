@@ -20,7 +20,7 @@ package chess.nn.lc0.bt4;
 public enum InputFormat {
 
     /**
-     * Legacy LC0 112-plane format with castling rights encoded as constant planes
+     * Classical LC0 112-plane format with castling rights encoded as constant planes
      * and side-to-move encoded as a constant plane.
      */
     CLASSICAL_112(false, false, false, false),

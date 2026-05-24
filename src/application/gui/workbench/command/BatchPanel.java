@@ -7,6 +7,7 @@
 package application.gui.workbench.command;
 
 import application.gui.workbench.Defaults;
+import application.gui.workbench.command.CommandTemplates.BatchInputKind;
 import application.gui.workbench.command.CommandTemplates.BatchTask;
 import application.gui.workbench.command.CommandTemplates.TemplateContext;
 import application.gui.workbench.command.CommandTemplates.WorkflowControls;
@@ -416,8 +417,8 @@ public final class BatchPanel {
         JPanel controls = new SurfacePanel(new GridBagLayout());
         GridBagConstraints c = constraints();
         styleCombos(batchTaskCombo);
-        batchTaskCombo.setPrototypeDisplayValue(new BatchTask("Analyze batch", true,
-    new WorkflowControls(true, false, true, true), (input, ctx) -> List.of()));
+        batchTaskCombo.setPrototypeDisplayValue(new BatchTask("Analyze batch", BatchInputKind.FEN_LINES,
+                new WorkflowControls(true, false, true, true), (input, ctx) -> List.of()));
         batchTaskCombo.addActionListener(event -> {
             updateControls();
             updateCommand();

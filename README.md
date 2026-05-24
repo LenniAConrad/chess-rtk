@@ -138,7 +138,7 @@ crtk engine uci-smoke --nodes 1 --max-duration 5s
 | Merge, filter, and summarize records | `record files`, `record stats`, `record tag-stats`, `record analysis-delta` |
 | Export ML datasets | `record dataset npy`, `record dataset lc0`, `record dataset classifier` |
 | Publish diagrams and books | `book pdf`, `book render`, `book cover`, `book collection`, `book study` |
-| Use the desktop workbench | Launch `ChessRTK Workbench` from the app menu, or run `workbench`, `gui`, `gui-workbench` |
+| Use the desktop workbench | Launch `ChessRTK Workbench` from the app menu, or run `workbench` or `gui` |
 
 For the full command surface, run:
 

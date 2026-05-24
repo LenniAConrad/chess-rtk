@@ -911,7 +911,7 @@ public final class PuzzleRatingCsvTool {
     }
 
     /**
-     * Maps legacy markdown report names to the native PDF artifact.
+     * Maps earlier markdown report names to the native PDF artifact.
      * @param output output text
      * @return report pdf path result
      */

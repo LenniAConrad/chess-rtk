@@ -489,9 +489,7 @@ public final class HelpCommand {
 			Map.entry("position diff", POSITION_DIFF_OPTIONS_MARKER),
 			Map.entry(CMD_BOOK, BOOK_SUBCOMMANDS_MARKER),
 			Map.entry("book collection", PUZZLE_COLLECTION_OPTIONS_MARKER),
-			Map.entry("book ilovechess", PUZZLE_COLLECTION_OPTIONS_MARKER),
 			Map.entry("book study", PUZZLE_STUDY_OPTIONS_MARKER),
-			Map.entry("book artofchess", PUZZLE_STUDY_OPTIONS_MARKER),
 			Map.entry("book render", CHESS_BOOK_OPTIONS_MARKER),
 			Map.entry("book cover", CHESS_BOOK_COVER_OPTIONS_MARKER),
 			Map.entry("book pdf", CHESS_PDF_OPTIONS_MARKER),
@@ -651,7 +649,7 @@ public final class HelpCommand {
 			}
 			out.println();
 		}
-		String section = helpSection(command.helpKey());
+		String section = helpSection(command.detailHelpKey());
 		if (section != null && !command.hasChildren()) {
 			out.println(section);
 			out.println();

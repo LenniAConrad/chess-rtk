@@ -484,7 +484,7 @@ final class WorkbenchCommandRegression {
      * @return true when path is a nested workbench launcher
      */
     private static boolean isWorkbenchLauncherPath(String path) {
-        return "workbench".equals(path) || "gui".equals(path) || "gui-workbench".equals(path);
+        return "workbench".equals(path) || "gui".equals(path);
     }
 
     /**

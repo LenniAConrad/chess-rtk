@@ -44,7 +44,7 @@ public final class PuzzleStudyCommandRegressionTest {
 	public static void main(String[] args) throws Exception {
 		testBuildsManifestPdfAndCover();
 		testCheckModeSkipsWrites();
-		testLegacyAliasesStillRun();
+		testRemovedStudyAliasesFail();
 		System.out.println("PuzzleStudyCommandRegressionTest: all checks passed");
 	}
 
@@ -130,21 +130,13 @@ public final class PuzzleStudyCommandRegressionTest {
 	}
 
 	/**
-	 * Verifies the old study command names remain working aliases.
-	 *
-	 * @throws Exception if validation fails unexpectedly
+	 * Verifies old study command names are no longer accepted.
 	 */
-	private static void testLegacyAliasesStillRun() throws Exception {
+	private static void testRemovedStudyAliasesFail() {
 		for (String alias : new String[] { "artofchess", "art" }) {
-			Path input = Files.createTempFile(PREFIX + "alias-", ".json");
-			Files.writeString(input, sampleJson(), StandardCharsets.UTF_8);
-
-			String console = runMain(
-					"book", alias,
-					"--input", input.toString(),
-					"--check");
-
-			assertTrue(console.contains("book study OK: 2 compositions"), "legacy alias check summary " + alias);
+			TestSupport.FailureResult result = TestSupport.runMainExpectFailure("book", alias, "--help");
+			assertTrue(result.stderr().contains("Unknown command: book " + alias),
+					"removed study alias rejected " + alias);
 		}
 	}
 
@@ -157,9 +149,9 @@ public final class PuzzleStudyCommandRegressionTest {
 	private static String sampleJson() {
 		return """
 				{
-				  "title": "Legacy Puzzle Study",
+				  "title": "Puzzle Study",
 				  "subtitle": "Imported Sample",
-				  "author": "Legacy",
+				  "author": "Codex",
 				  "time": "2024",
 				  "location": "Shanghai",
 				  "pageSize": "a5",
@@ -169,7 +161,7 @@ public final class PuzzleStudyCommandRegressionTest {
 				  "whiteSideDown": false,
 				  "showFen": false,
 				  "blurb": ["Original back-cover text."],
-				  "link": ["legacy.example"],
+				  "link": ["example.com/study"],
 				  "compositions": [
 				    {
 				      "title": "Mate in One",

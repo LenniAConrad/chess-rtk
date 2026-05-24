@@ -7,7 +7,6 @@
 package application.gui.workbench.command;
 
 import static application.cli.Constants.CMD_GUI;
-import static application.cli.Constants.CMD_GUI_WORKBENCH;
 import static application.cli.Constants.CMD_WORKBENCH;
 
 import application.cli.CliCommand;
@@ -272,8 +271,7 @@ public final class CommandTemplates {
      */
     private static boolean isWorkbenchLauncherPath(String commandPath) {
         return CMD_WORKBENCH.equals(commandPath)
-                || CMD_GUI.equals(commandPath)
-                || CMD_GUI_WORKBENCH.equals(commandPath);
+                || CMD_GUI.equals(commandPath);
     }
 
     /**
@@ -288,18 +286,18 @@ public final class CommandTemplates {
         WorkflowControls perftControls = new WorkflowControls(false, true, false, true);
         WorkflowControls benchControls = new WorkflowControls(false, true, false, false);
         return List.of(
-    new BatchTask("Bestmove batch", true, bestmoveControls,
+                new BatchTask("Bestmove batch", BatchInputKind.FEN_LINES, bestmoveControls,
                         (input, ctx) -> engineBatchArgs("bestmove-batch", input, ctx, bestmoveControls)),
-    new BatchTask("Analyze batch", true, analyzeControls,
+                new BatchTask("Analyze batch", BatchInputKind.FEN_LINES, analyzeControls,
                         (input, ctx) -> engineBatchArgs("analyze-batch", input, ctx, analyzeControls)),
-    new BatchTask("Tag FENs", true, noControls,
+                new BatchTask("Tag FENs", BatchInputKind.FEN_LINES, noControls,
                         (input, ctx) -> List.of("fen", "tags", "--input", input.toString())),
-    new BatchTask("CLI script", BatchInputKind.COMMAND_LINES, noControls,
+                new BatchTask("CLI script", BatchInputKind.COMMAND_LINES, noControls,
                         (input, ctx) -> List.of("batch", "run", "--input", input.toString(),
                                 "--keep-going")),
-    new BatchTask("Perft suite", false, perftControls,
+                new BatchTask("Perft suite", BatchInputKind.NONE, perftControls,
                         (input, ctx) -> perftSuiteArgs(input, ctx, perftControls)),
-    new BatchTask("Benchmark", false, benchControls,
+                new BatchTask("Benchmark", BatchInputKind.NONE, benchControls,
                         (input, ctx) -> List.of("engine", "benchmark", "--depth",
                                 ctx.depth(), "--iterations", "3")));
     }
@@ -1089,18 +1087,6 @@ public final class CommandTemplates {
      * @param builder command argument builder
      */
     public record BatchTask(String name, BatchInputKind inputKind, WorkflowControls controls, BatchBuilder builder) {
-
-        /**
-         * Creates a task from the legacy FEN-input flag.
-         *
-         * @param name display name
-         * @param usesFenInput whether the task consumes FEN input
-         * @param controls controls used by the task
-         * @param builder command argument builder
-         */
-        public BatchTask(String name, boolean usesFenInput, WorkflowControls controls, BatchBuilder builder) {
-            this(name, usesFenInput ? BatchInputKind.FEN_LINES : BatchInputKind.NONE, controls, builder);
-        }
 
         /**
          * Normalizes nullable task metadata.

@@ -201,10 +201,6 @@ Usage:
 - `crtk book cover ...`: render a native PDF cover for a chess-book file
 - `crtk book pdf ...`: export chess diagrams to a PDF
 
-Compatibility aliases:
-- `book ilovechess` -> `book collection`
-- `book artofchess` / `book art` -> `book study`
-
 ## `puzzle`
 
 Grouped puzzle mining, conversion, tag, and text workflows.
@@ -672,12 +668,11 @@ Options:
 
 ## `workbench`
 
-Launch the native Swing command and analysis workbench. The aliases `gui` and
-`gui-workbench` launch this same workbench.
+Launch the native Swing command and analysis workbench. The alias `gui`
+launches this same workbench.
 
 Alias:
 - `gui`
-- `gui-workbench`
 
 The workbench includes:
 - an analysis board with legal moves, click-to-move, static tags, and engine command shortcuts

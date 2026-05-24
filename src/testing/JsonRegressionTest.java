@@ -47,7 +47,7 @@ public final class JsonRegressionTest {
 		testStreamTopLevelObjectsKeepsExactObjectText();
 		testStreamTopLevelObjectsRejectsOversizedObject();
 		testStringArrayParsesEscapedQuotes();
-		testStringArrayKeepsLegacyUnescapedDetailQuotes();
+		testStringArrayKeepsUnescapedDetailQuotes();
 		System.out.println("JsonRegressionTest: all checks passed");
 	}
 
@@ -96,15 +96,15 @@ public final class JsonRegressionTest {
 	 * Verifies historical record dumps with unescaped detail quotes do not split one
 	 * tactical tag into partial and empty tags.
 	 */
-	private static void testStringArrayKeepsLegacyUnescapedDetailQuotes() {
+	private static void testStringArrayKeepsUnescapedDetailQuotes() {
 		String json = "{\"tags\":[\"TACTIC: motif=hanging side=black detail=\"hanging black queen e2\"\","
 				+ "\"META: puzzle_rating=1200\"]}";
 		String[] tags = Json.parseStringArrayField(json, "tags");
 
-		assertEquals(2, tags.length, "legacy quote tag count");
+		assertEquals(2, tags.length, "unescaped quote tag count");
 		assertEquals("TACTIC: motif=hanging side=black detail=\"hanging black queen e2\"", tags[0],
-				"legacy quote tag");
-		assertEquals("META: puzzle_rating=1200", tags[1], "legacy quote following tag");
+				"unescaped quote tag");
+		assertEquals("META: puzzle_rating=1200", tags[1], "unescaped quote following tag");
 	}
 
 	/**

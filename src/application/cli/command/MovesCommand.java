@@ -279,7 +279,7 @@ public final class MovesCommand {
 	private record MoveFields(boolean uci, boolean san) {
 
 		/**
-		 * Resolves move-list fields from legacy format flags and {@code --fields}.
+		 * Resolves move-list fields from format shortcut flags and {@code --fields}.
 		 *
 		 * @param value      optional fields option
 		 * @param sanFlag    whether SAN output was selected

@@ -44,9 +44,9 @@ public final class CliCommand {
 	private String usageTail;
 
 	/**
-	 * Optional legacy help key used to extract detailed option blocks.
+	 * Optional detailed-help key used to extract option blocks.
 	 */
-	private String helpKey;
+	private String detailHelpKey;
 
 	/**
 	 * Optional command handler for executable nodes.
@@ -145,13 +145,13 @@ public final class CliCommand {
 	}
 
 	/**
-	 * Adds a legacy help key.
+	 * Adds a detailed-help lookup key.
 	 *
 	 * @param value help lookup key
 	 * @return this node
 	 */
-	public CliCommand helpKey(String value) {
-		this.helpKey = value;
+	public CliCommand detailHelpKey(String value) {
+		this.detailHelpKey = value;
 		return this;
 	}
 
@@ -272,12 +272,12 @@ public final class CliCommand {
 	}
 
 	/**
-	 * Returns the legacy help key.
+	 * Returns the detailed-help lookup key.
 	 *
 	 * @return help key or {@code null}
 	 */
-	public String helpKey() {
-		return helpKey;
+	public String detailHelpKey() {
+		return detailHelpKey;
 	}
 
 	/**

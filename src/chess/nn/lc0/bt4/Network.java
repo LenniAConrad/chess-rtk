@@ -678,7 +678,7 @@ public final class Network implements AutoCloseable {
      * @param block block weights
      * @param tokens token count
      * @param architecture architecture metadata (LN eps, activations, smolgen flag)
-     * @param alpha residual scaling override; pass {@code block.alpha()} for legacy
+     * @param alpha residual scaling override; pass {@code block.alpha()} for compact blocks
      * @return token-major output
      * @param blockIndex block index value
      */
@@ -715,7 +715,7 @@ public final class Network implements AutoCloseable {
     }
 
     /**
-     * Legacy entry point used by the policy head's optional encoder stack
+     * Compact entry point used by the policy head's optional encoder stack
      * (which never carries smolgen weights).
      *
      * @param input token-major input
@@ -1276,7 +1276,7 @@ public final class Network implements AutoCloseable {
         }
 
         /**
-         * Convenience constructor for legacy callers that build simplified
+         * Convenience constructor for callers that build simplified
          * BT4 weights with only an input embedding dense layer.
          *
          * @param architecture architecture metadata
@@ -1297,7 +1297,7 @@ public final class Network implements AutoCloseable {
 
         /**
          * Returns the input embedding dense layer for callers that only need
-         * the embedding projection (e.g. legacy code or shape inspection).
+         * the embedding projection (e.g. compact code paths or shape inspection).
          *
          * @return embedding dense
          */
@@ -1429,7 +1429,7 @@ public final class Network implements AutoCloseable {
      *
      * <p>
      * Models the full LC0 attention-body input pipeline. Components after
-     * {@code embedding} are optional: legacy simplified BT4 nets supply only
+     * {@code embedding} are optional: compact simplified BT4 nets supply only
      * {@code embedding} and leave all other fields null.
      * </p>
      *
@@ -1605,7 +1605,7 @@ public final class Network implements AutoCloseable {
         }
 
         /**
-         * Convenience constructor for legacy attention without smolgen.
+         * Convenience constructor for attention without smolgen.
          *
          * @param heads attention head count
          * @param query query projection

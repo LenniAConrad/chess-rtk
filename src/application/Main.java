@@ -134,6 +134,11 @@ public final class Main {
 			HelpCommand.helpSummary(System.err);
 			return 2;
 		}
+		if (!current.isRunnable() && startsWithUnknownSubcommand(tail)) {
+			System.err.println("Unknown command: " + current.commandPath() + " " + tail[0]);
+			HelpCommand.printCommandHelp(current, requestedPath, System.err);
+			return 2;
+		}
 		if (containsHelpFlag(tail)) {
 			HelpCommand.printCommandHelp(current, requestedPath, System.out);
 			return 0;
@@ -172,6 +177,19 @@ public final class Main {
 	 */
 	private static boolean isEndOfOptions(String token) {
 		return "--".equals(token) || "--end-of-options".equals(token);
+	}
+
+	/**
+	 * Returns whether the remaining tail starts with a positional token that could
+	 * only be an unknown subcommand for a non-runnable command group.
+	 *
+	 * @param tail remaining CLI tail
+	 * @return true when the first token is an unknown subcommand
+	 */
+	private static boolean startsWithUnknownSubcommand(String[] tail) {
+		return tail != null && tail.length > 0
+				&& !isEndOfOptions(tail[0])
+				&& !tail[0].startsWith("-");
 	}
 
 	/**

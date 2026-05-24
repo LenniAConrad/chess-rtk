@@ -9,8 +9,6 @@ ChessRTK can produce native vector PDFs for five publishing jobs:
 - `book cover`: matching paperback, hardcover, or ebook covers from the same manifest.
 
 No LaTeX step is required for these commands.
-Legacy aliases `book ilovechess` and `book artofchess` still resolve to
-`book collection` and `book study`.
 
 The native book renderer keeps publishing-specific text helpers in
 `chess.book.render`. Solution SAN in captions and tables is converted to

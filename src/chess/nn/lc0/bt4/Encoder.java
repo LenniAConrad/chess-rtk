@@ -296,7 +296,7 @@ public final class Encoder {
     }
 
     /**
-     * Writes legacy constant castling planes.
+     * Writes classical constant castling planes.
      *
      * @param planes output planes
      * @param position current position
