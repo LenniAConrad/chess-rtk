@@ -353,6 +353,7 @@ public abstract class NnueAtlasView extends NnueViewBase {
      * @param fm font metrics
      */
     private void paintAtlasPlaneLabels(Graphics2D g, Rectangle r, int planes, FontMetrics fm) {
+        g.setColor(Theme.MUTED);
         if (r.width / Math.max(1, planes) >= 10) {
             for (int p = 0; p < planes; p++) {
                 int x0 = (int) Math.round(r.x + p * r.width / (double) planes);

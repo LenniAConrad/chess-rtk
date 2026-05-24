@@ -121,6 +121,7 @@ final class WorkbenchUiRegression {
         testThemeUsesVscodeModernColorTokens();
         testNetworkPaletteUsesSemanticFocusColor();
         testNetworkArchitectureBlocksKeepReadableNeutralFill();
+        testNnueAtlasPlaneLabelsUseUniformColor();
         testHorizontalMetricBarKeepsLabelLaneClear();
         testBoardMarkupBrushesFollowThemeMode();
         testThemeRefreshPreservesLabelRoles();
@@ -1141,6 +1142,33 @@ final class WorkbenchUiRegression {
 
         Theme.setMode(Theme.Mode.LIGHT);
         TensorViz.refreshPalette();
+    }
+
+    /**
+     * Verifies wrapped NNUE atlas bank labels do not inherit the selected-plane
+     * or heatmap overlay color from the previous bank.
+     */
+    private static void testNnueAtlasPlaneLabelsUseUniformColor() {
+        Object view = construct(type("NnueView"), new Class<?>[0]);
+        BufferedImage image = new BufferedImage(160, 24, BufferedImage.TYPE_INT_ARGB);
+        java.awt.Graphics2D graphics = image.createGraphics();
+        graphics.setFont(Theme.font(9, Font.BOLD));
+        graphics.setColor(TensorViz.FOCUS);
+        invokeOn(type("NnueAtlasView"), view, "paintAtlasPlaneLabels",
+                new Class<?>[] {
+                    java.awt.Graphics2D.class,
+                    java.awt.Rectangle.class,
+                    int.class,
+                    java.awt.FontMetrics.class
+                },
+                graphics,
+                new java.awt.Rectangle(0, 0, 132, 14),
+                11,
+                graphics.getFontMetrics());
+
+        assertEquals(themeColor("MUTED"), graphics.getColor(),
+                "NNUE atlas plane labels use one uniform muted color");
+        graphics.dispose();
     }
 
     /**
