@@ -2,10 +2,12 @@ package application.gui.workbench.board;
 
 import application.gui.workbench.ui.Theme;
 import chess.core.Field;
+import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.FontMetrics;
 import java.awt.Graphics2D;
 import java.awt.Rectangle;
+import java.awt.Stroke;
 
 /**
  * Shared chessboard.js-style board painting and square geometry.
@@ -152,6 +154,60 @@ public final class BoardStyle {
                 g.fillRect(x + w - 1, y, 1, h);
             }
         } finally {
+            g.setColor(savedColor);
+        }
+    }
+
+    /**
+     * Draws a filled board-square highlight.
+     *
+     * @param g graphics context
+     * @param bounds square bounds
+     * @param fill highlight fill color
+     */
+    public static void drawFilledSquareHighlight(Graphics2D g, Rectangle bounds, Color fill) {
+        if (bounds.width <= 0 || bounds.height <= 0) {
+            return;
+        }
+        Color savedColor = g.getColor();
+        try {
+            g.setColor(fill);
+            g.fillRect(bounds.x, bounds.y, bounds.width, bounds.height);
+        } finally {
+            g.setColor(savedColor);
+        }
+    }
+
+    /**
+     * Draws a visible legal-move destination marker.
+     *
+     * @param g graphics context
+     * @param bounds square bounds
+     * @param capture true when the destination contains a capturable piece
+     */
+    public static void drawLegalTarget(Graphics2D g, Rectangle bounds, boolean capture) {
+        Stroke savedStroke = g.getStroke();
+        Color savedColor = g.getColor();
+        try {
+            int centerX = bounds.x + bounds.width / 2;
+            int centerY = bounds.y + bounds.height / 2;
+            if (capture) {
+                int diameter = Math.max(26, Math.round(bounds.width * 0.78f));
+                int strokeWidth = Math.max(3, Math.round(bounds.width * 0.055f));
+                g.setColor(Theme.LEGAL_CAPTURE_EDGE);
+                g.setStroke(new BasicStroke(strokeWidth));
+                g.drawOval(centerX - diameter / 2, centerY - diameter / 2, diameter, diameter);
+            } else {
+                int diameter = Math.max(12, Math.round(bounds.width * 0.32f));
+                int strokeWidth = Math.max(1, Math.round(bounds.width * 0.018f));
+                g.setColor(Theme.LEGAL_TARGET);
+                g.fillOval(centerX - diameter / 2, centerY - diameter / 2, diameter, diameter);
+                g.setColor(Theme.LEGAL_CAPTURE_EDGE);
+                g.setStroke(new BasicStroke(strokeWidth));
+                g.drawOval(centerX - diameter / 2, centerY - diameter / 2, diameter, diameter);
+            }
+        } finally {
+            g.setStroke(savedStroke);
             g.setColor(savedColor);
         }
     }

@@ -535,9 +535,9 @@ final class WorkbenchBoardRegression {
         int e4x = boardX + 4 * cell;
         int e4y = boardY + 4 * cell;
         Color e4Center = new Color(image.getRGB(e4x + cell / 2, e4y + cell / 2), true);
-        assertFalse(e4Center.equals(moveHighlight), "highlight does not fill square center");
+        assertColor(moveHighlight, e4Center, "highlight fills square center");
         assertColor(moveHighlight, new Color(image.getRGB(e4x + 2, e4y + 2), true),
-                "green inset move highlight");
+                "filled move highlight");
     }
 
     /**
@@ -598,6 +598,8 @@ final class WorkbenchBoardRegression {
         Color visibleEdge = boardSquareEdgeColor(component, Field.toIndex('e', '4'));
         assertFalse(visibleEdge.equals(highlight), "legal move preview avoids green square rectangles");
         Color visible = boardSquareCenterColor(component, Field.toIndex('e', '4'));
+        assertColorDistanceAtLeast(visible, themeColor("BOARD_LIGHT"), 25.0,
+                "legal move preview is visible on light squares");
 
         invoke(board, "setShowLegalMovePreview", new Class<?>[] { boolean.class }, Boolean.FALSE);
         assertFalse((Boolean) invoke(board, "isShowLegalMovePreview", new Class<?>[0]),
@@ -619,6 +621,8 @@ final class WorkbenchBoardRegression {
         Color highlight = themeColor("BOARD_HIGHLIGHT");
         assertColor(highlight, boardSquareEdgeColor(component, Field.toIndex('e', '2')),
                 "last move highlight visible by default");
+        assertColor(highlight, boardSquareCenterColor(component, Field.toIndex('e', '2')),
+                "last move highlight fills empty origin square");
 
         invoke(board, "setShowLastMoveHighlight", new Class<?>[] { boolean.class }, Boolean.FALSE);
         assertFalse((Boolean) invoke(board, "isShowLastMoveHighlight", new Class<?>[0]),

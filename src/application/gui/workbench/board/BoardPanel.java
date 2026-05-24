@@ -668,7 +668,7 @@ public final class BoardPanel extends JPanel {
         for (Map.Entry<Byte, Color> entry : squareHighlights.entrySet()) {
             Rectangle bounds = squareBounds(board, entry.getKey());
             if (intersectsClip(clip, bounds)) {
-                BoardStyle.drawInsetSquareHighlight(g, bounds, entry.getValue());
+                BoardStyle.drawFilledSquareHighlight(g, bounds, entry.getValue());
             }
         }
     }
@@ -834,10 +834,10 @@ public final class BoardPanel extends JPanel {
         Rectangle from = squareBounds(board, Move.getFromIndex(lastMove));
         Rectangle to = squareBounds(board, Move.getToIndex(lastMove));
         if (intersectsClip(clip, from)) {
-            BoardStyle.drawInsetSquareHighlight(g, from, Theme.LAST_MOVE_EDGE);
+            BoardStyle.drawFilledSquareHighlight(g, from, Theme.LAST_MOVE_EDGE);
         }
         if (intersectsClip(clip, to)) {
-            BoardStyle.drawInsetSquareHighlight(g, to, Theme.LAST_MOVE_EDGE);
+            BoardStyle.drawFilledSquareHighlight(g, to, Theme.LAST_MOVE_EDGE);
         }
     }
     /** Draws the selected square and legal destinations.
@@ -850,7 +850,7 @@ public final class BoardPanel extends JPanel {
         Rectangle selected = squareBounds(board, selectedSquare);
         Rectangle clip = g.getClipBounds();
         if (intersectsClip(clip, selected)) {
-            BoardStyle.drawInsetSquareHighlight(g, selected, Theme.SELECTED_EDGE);
+            BoardStyle.drawFilledSquareHighlight(g, selected, Theme.SELECTED_EDGE);
         }
         if (showLegalMovePreview) {
             drawLegalTargets(g, board);
@@ -908,32 +908,6 @@ public final class BoardPanel extends JPanel {
         }
         return Field.NO_SQUARE;
     }
-    /** Draws a chessboard.js legal move marker.
-     * @param g graphics context
-     * @param bounds drawing bounds
-     * @param capture true when the destination contains a capturable piece */
-    private static void drawLegalTarget(Graphics2D g, Rectangle bounds, boolean capture) {
-        Stroke savedStroke = g.getStroke();
-        Color savedColor = g.getColor();
-        try {
-            int centerX = bounds.x + bounds.width / 2;
-            int centerY = bounds.y + bounds.height / 2;
-            if (capture) {
-                int diameter = Math.max(22, Math.round(bounds.width * 0.64f));
-                int strokeWidth = Math.max(2, Math.round(bounds.width * 0.035f));
-                g.setColor(Theme.LEGAL_CAPTURE_EDGE);
-                g.setStroke(new BasicStroke(strokeWidth));
-                g.drawOval(centerX - diameter / 2, centerY - diameter / 2, diameter, diameter);
-            } else {
-                int diameter = Math.max(8, Math.round(bounds.width * 0.20f));
-                g.setColor(Theme.LEGAL_TARGET);
-                g.fillOval(centerX - diameter / 2, centerY - diameter / 2, diameter, diameter);
-            }
-        } finally {
-            g.setStroke(savedStroke);
-            g.setColor(savedColor);
-        }
-    }
     /** Draws selected-piece legal destinations.
      * @param g graphics context
      * @param board board drawing bounds */
@@ -943,7 +917,7 @@ public final class BoardPanel extends JPanel {
             if (target != selectedSquare) {
                 Rectangle bounds = squareBounds(board, target);
                 if (intersectsClip(clip, bounds)) {
-                    drawLegalTarget(g, bounds, isCaptureTarget(target));
+                    BoardStyle.drawLegalTarget(g, bounds, isCaptureTarget(target));
                 }
             }
         }
@@ -1058,7 +1032,7 @@ public final class BoardPanel extends JPanel {
         if (dragTargetSquare != Field.NO_SQUARE) {
             Rectangle bounds = squareBounds(board, dragTargetSquare);
             if (intersectsClip(g.getClipBounds(), bounds)) {
-                drawLegalTarget(g, bounds, isCaptureTarget(dragTargetSquare));
+                BoardStyle.drawLegalTarget(g, bounds, isCaptureTarget(dragTargetSquare));
             }
         }
     }

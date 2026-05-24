@@ -573,13 +573,13 @@ public final class Theme {
     /**
      * Quiet legal-target marker fill.
      */
-    public static Color LEGAL_TARGET = new Color(PASTEL_INK.getRed(), PASTEL_INK.getGreen(), PASTEL_INK.getBlue(), 86);
+    public static Color LEGAL_TARGET = new Color(PASTEL_INK.getRed(), PASTEL_INK.getGreen(), PASTEL_INK.getBlue(), 150);
 
     /**
      * Capture legal-target marker edge.
      */
     public static Color LEGAL_CAPTURE_EDGE = new Color(PASTEL_INK.getRed(), PASTEL_INK.getGreen(),
-            PASTEL_INK.getBlue(), 112);
+            PASTEL_INK.getBlue(), 185);
 
     /**
      * Suggested-move arrow color.
@@ -1353,8 +1353,8 @@ public final class Theme {
         BOARD_HIGHLIGHT = Color.YELLOW;
         LAST_MOVE_EDGE = BOARD_HIGHLIGHT;
         SELECTED_EDGE = BOARD_HIGHLIGHT;
-        LEGAL_TARGET = withAlpha(TEXT, 86);
-        LEGAL_CAPTURE_EDGE = withAlpha(TEXT, 112);
+        LEGAL_TARGET = withAlpha(TEXT, 150);
+        LEGAL_CAPTURE_EDGE = withAlpha(TEXT, 185);
         BOARD_ARROW = new Color(143, 189, 232);
         CHECK_CORE = new Color((isDark() ? DARK_CORAL : PASTEL_CORAL).getRed(),
                 (isDark() ? DARK_CORAL : PASTEL_CORAL).getGreen(),
