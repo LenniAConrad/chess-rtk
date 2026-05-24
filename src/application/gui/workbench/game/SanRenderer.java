@@ -7,8 +7,7 @@
 package application.gui.workbench.game;
 
 import application.gui.workbench.ui.Theme;
-import chess.core.Piece;
-import chess.images.assets.Shapes;
+import chess.book.render.NotationPieceSvg;
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Dimension;
@@ -21,6 +20,8 @@ import java.util.List;
 import javax.swing.JComponent;
 import javax.swing.JTable;
 import javax.swing.table.TableCellRenderer;
+import utility.Svg;
+import utility.Svg.DocumentModel;
 
 /**
  * Table-cell renderer that draws algebraic-notation (SAN) text with inline SVG
@@ -28,7 +29,8 @@ import javax.swing.table.TableCellRenderer;
  *
  * <p>Pawn moves, castling, files, ranks, and annotations stay as text; only the
  * leading piece letter of each move token and the promotion piece after a
- * {@code =} marker are replaced by the neutral white-piece artwork.</p>
+ * {@code =} marker are replaced by the same neutral cutout artwork used by the
+ * puzzle PDF report.</p>
  */
 public final class SanRenderer extends JComponent implements TableCellRenderer {
 
@@ -53,6 +55,61 @@ public final class SanRenderer extends JComponent implements TableCellRenderer {
     private static final int PIECE_VERTICAL_INSET = 5;
 
     /**
+     * Marker for text-only segments.
+     */
+    private static final char NO_PIECE = '\0';
+
+    /**
+     * White king notation placeholder.
+     */
+    private static final char KING_PLACEHOLDER = '\u2654';
+
+    /**
+     * White queen notation placeholder.
+     */
+    private static final char QUEEN_PLACEHOLDER = '\u2655';
+
+    /**
+     * White rook notation placeholder.
+     */
+    private static final char ROOK_PLACEHOLDER = '\u2656';
+
+    /**
+     * White bishop notation placeholder.
+     */
+    private static final char BISHOP_PLACEHOLDER = '\u2657';
+
+    /**
+     * White knight notation placeholder.
+     */
+    private static final char KNIGHT_PLACEHOLDER = '\u2658';
+
+    /**
+     * Parsed cutout king SVG.
+     */
+    private static final DocumentModel KING_DOCUMENT = notationDocument(KING_PLACEHOLDER);
+
+    /**
+     * Parsed cutout queen SVG.
+     */
+    private static final DocumentModel QUEEN_DOCUMENT = notationDocument(QUEEN_PLACEHOLDER);
+
+    /**
+     * Parsed cutout rook SVG.
+     */
+    private static final DocumentModel ROOK_DOCUMENT = notationDocument(ROOK_PLACEHOLDER);
+
+    /**
+     * Parsed cutout bishop SVG.
+     */
+    private static final DocumentModel BISHOP_DOCUMENT = notationDocument(BISHOP_PLACEHOLDER);
+
+    /**
+     * Parsed cutout knight SVG.
+     */
+    private static final DocumentModel KNIGHT_DOCUMENT = notationDocument(KNIGHT_PLACEHOLDER);
+
+    /**
      * Parsed segments of the current cell value.
      */
     private transient List<SanSegment> segments = List.of();
@@ -75,7 +132,8 @@ public final class SanRenderer extends JComponent implements TableCellRenderer {
             boolean isSelected, boolean hasFocus, int row, int column) {
         setFont(table.getFont());
         segments = parseSegments(value == null ? "" : value.toString());
-        textColor = Theme.TEXT;
+        Color foreground = isSelected ? table.getSelectionForeground() : table.getForeground();
+        textColor = foreground == null ? Theme.TEXT : foreground;
         setBackground(isSelected ? Theme.SELECTION_SOLID : table.getBackground());
         return this;
     }
@@ -91,10 +149,16 @@ public final class SanRenderer extends JComponent implements TableCellRenderer {
         try {
             g.setColor(getBackground());
             g.fillRect(0, 0, getWidth(), getHeight());
+            g.setRenderingHint(RenderingHints.KEY_ANTIALIASING,
+                    RenderingHints.VALUE_ANTIALIAS_ON);
             g.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING,
                     RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+            g.setRenderingHint(RenderingHints.KEY_RENDERING,
+                    RenderingHints.VALUE_RENDER_QUALITY);
             g.setRenderingHint(RenderingHints.KEY_INTERPOLATION,
                     RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+            g.setRenderingHint(RenderingHints.KEY_STROKE_CONTROL,
+                    RenderingHints.VALUE_STROKE_PURE);
             g.setFont(getFont());
             FontMetrics fm = g.getFontMetrics();
             int baseline = (getHeight() + fm.getAscent() - fm.getDescent()) / 2;
@@ -103,7 +167,7 @@ public final class SanRenderer extends JComponent implements TableCellRenderer {
             int x = PAD_X;
             for (SanSegment segment : segments) {
                 if (segment.isPiece()) {
-                    Shapes.drawPiece(segment.piece(), g, x, iconY, iconSize, iconSize);
+                    Svg.draw(documentFor(segment.piece()), g, x, iconY, iconSize, iconSize, textColor);
                     x += iconSize + PIECE_GAP;
                 } else if (!segment.text().isEmpty()) {
                     g.setColor(textColor);
@@ -165,8 +229,8 @@ public final class SanRenderer extends JComponent implements TableCellRenderer {
                     continue;
                 }
                 tokenStart = false;
-                byte piece = pieceForSan(ch);
-                if (piece != Piece.EMPTY) {
+                char piece = pieceForSan(ch);
+                if (piece != NO_PIECE) {
                     flushText(parsed, text);
                     parsed.add(SanSegment.piece(piece));
                     continue;
@@ -175,8 +239,8 @@ public final class SanRenderer extends JComponent implements TableCellRenderer {
                 continue;
             }
             if (ch == '=' && i + 1 < line.length()) {
-                byte piece = pieceForSan(line.charAt(i + 1));
-                if (piece == Piece.EMPTY) {
+                char piece = pieceForSan(line.charAt(i + 1));
+                if (piece == NO_PIECE) {
                     text.append(ch);
                     continue;
                 }
@@ -218,19 +282,46 @@ public final class SanRenderer extends JComponent implements TableCellRenderer {
     }
 
     /**
-     * Converts a SAN piece letter to neutral white-piece SVG artwork.
+     * Converts a SAN piece letter to neutral cutout SVG artwork.
      *
      * @param piece SAN piece letter
-     * @return piece code, or {@link Piece#EMPTY} when not a piece letter
+     * @return notation placeholder, or {@link #NO_PIECE} when not a piece letter
      */
-    private static byte pieceForSan(char piece) {
+    private static char pieceForSan(char piece) {
         return switch (piece) {
-            case 'K' -> Piece.WHITE_KING;
-            case 'Q' -> Piece.WHITE_QUEEN;
-            case 'R' -> Piece.WHITE_ROOK;
-            case 'B' -> Piece.WHITE_BISHOP;
-            case 'N' -> Piece.WHITE_KNIGHT;
-            default -> Piece.EMPTY;
+            case 'K' -> KING_PLACEHOLDER;
+            case 'Q' -> QUEEN_PLACEHOLDER;
+            case 'R' -> ROOK_PLACEHOLDER;
+            case 'B' -> BISHOP_PLACEHOLDER;
+            case 'N' -> KNIGHT_PLACEHOLDER;
+            default -> NO_PIECE;
+        };
+    }
+
+    /**
+     * Parses the report-style cutout SVG for one placeholder.
+     *
+     * @param placeholder notation placeholder
+     * @return parsed SVG document
+     */
+    private static DocumentModel notationDocument(char placeholder) {
+        return Svg.parse(NotationPieceSvg.svg(placeholder));
+    }
+
+    /**
+     * Returns the parsed cutout SVG for one placeholder.
+     *
+     * @param piece notation placeholder
+     * @return parsed SVG document
+     */
+    private static DocumentModel documentFor(char piece) {
+        return switch (piece) {
+            case KING_PLACEHOLDER -> KING_DOCUMENT;
+            case QUEEN_PLACEHOLDER -> QUEEN_DOCUMENT;
+            case ROOK_PLACEHOLDER -> ROOK_DOCUMENT;
+            case BISHOP_PLACEHOLDER -> BISHOP_DOCUMENT;
+            case KNIGHT_PLACEHOLDER -> KNIGHT_DOCUMENT;
+            default -> throw new IllegalArgumentException("Unknown SAN piece placeholder: " + piece);
         };
     }
 
@@ -238,9 +329,9 @@ public final class SanRenderer extends JComponent implements TableCellRenderer {
      * Parsed SAN rendering segment.
      *
      * @param text text content for text segments
-     * @param piece neutral white-piece code for SVG segments
+     * @param piece neutral cutout-piece placeholder for SVG segments
      */
-    private record SanSegment(String text, byte piece) {
+    private record SanSegment(String text, char piece) {
 
         /**
          * Creates a text segment.
@@ -249,16 +340,16 @@ public final class SanRenderer extends JComponent implements TableCellRenderer {
          * @return text segment
          */
         static SanSegment text(String value) {
-            return new SanSegment(value, Piece.EMPTY);
+            return new SanSegment(value, NO_PIECE);
         }
 
         /**
          * Creates a piece segment.
          *
-         * @param value piece code
+         * @param value notation placeholder
          * @return piece segment
          */
-        static SanSegment piece(byte value) {
+        static SanSegment piece(char value) {
             return new SanSegment("", value);
         }
 
@@ -268,7 +359,7 @@ public final class SanRenderer extends JComponent implements TableCellRenderer {
          * @return true for piece segments
          */
         boolean isPiece() {
-            return piece != Piece.EMPTY;
+            return piece != NO_PIECE;
         }
     }
 }

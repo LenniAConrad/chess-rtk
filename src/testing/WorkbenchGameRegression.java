@@ -10,6 +10,7 @@ import static testing.WorkbenchTestSupport.*;
 
 import java.awt.Component;
 import java.awt.Color;
+import java.awt.Font;
 import java.awt.image.BufferedImage;
 import java.nio.file.Path;
 import java.util.List;
@@ -83,6 +84,42 @@ final class WorkbenchGameRegression {
         component.setSize(240, 27);
         BufferedImage image = paint(component, 240, 27);
         assertTrue(alphaSum(image, 0, 0, 240, 27) > 0, "SAN renderer paints SVG-backed notation");
+
+        JTable cutoutTable = new JTable(1, 1);
+        cutoutTable.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 42));
+        cutoutTable.setBackground(Color.WHITE);
+        cutoutTable.setForeground(Color.RED);
+        Component cutout = renderer.getTableCellRendererComponent(cutoutTable,
+                "Rb1", false, false, 0, 0);
+        cutout.setSize(160, 64);
+        BufferedImage cutoutImage = paint(cutout, 160, 64);
+        assertColor(Color.WHITE, new Color(cutoutImage.getRGB(30, 32), true),
+                "SAN rook uses report-style cutout interior");
+        assertTrue(redPixelCount(cutoutImage, 6, 8, 48, 48) > 220,
+                "SAN rook paints the cutout outline in the table foreground");
+    }
+
+    /**
+     * Counts strongly red pixels in a rectangular image region.
+     *
+     * @param image source image
+     * @param x region x
+     * @param y region y
+     * @param width region width
+     * @param height region height
+     * @return red pixel count
+     */
+    private static int redPixelCount(BufferedImage image, int x, int y, int width, int height) {
+        int count = 0;
+        for (int yy = y; yy < y + height; yy++) {
+            for (int xx = x; xx < x + width; xx++) {
+                Color color = new Color(image.getRGB(xx, yy), true);
+                if (color.getRed() > 180 && color.getGreen() < 100 && color.getBlue() < 100) {
+                    count++;
+                }
+            }
+        }
+        return count;
     }
 
     /**

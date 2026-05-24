@@ -91,25 +91,26 @@ public final class Svg {
         int h = Math.max(1, height);
         BufferedImage image = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);
         Graphics2D g2 = image.createGraphics();
-        g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-        g2.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+        try {
+            applyAntialiasing(g2);
+            double sx = w / doc.viewBoxWidth();
+            double sy = h / doc.viewBoxHeight();
+            AffineTransform base = new AffineTransform();
+            base.scale(sx, sy);
+            base.translate(-doc.viewBoxX(), -doc.viewBoxY());
 
-        double sx = w / doc.viewBoxWidth();
-        double sy = h / doc.viewBoxHeight();
-        AffineTransform base = new AffineTransform();
-        base.scale(sx, sy);
-        base.translate(-doc.viewBoxX(), -doc.viewBoxY());
-
-        for (ShapeModel shape : doc.shapes()) {
-            Shape rendered = base.createTransformedShape(shape.transform().createTransformedShape(shape.path()));
-            Color fill = shape.fill();
-            if (fill == null) {
-                continue;
+            for (ShapeModel shape : doc.shapes()) {
+                Shape rendered = base.createTransformedShape(shape.transform().createTransformedShape(shape.path()));
+                Color fill = shape.fill();
+                if (fill == null) {
+                    continue;
+                }
+                g2.setColor(fill);
+                g2.fill(rendered);
             }
-            g2.setColor(fill);
-            g2.fill(rendered);
+        } finally {
+            g2.dispose();
         }
-        g2.dispose();
         return image;
     }
 
@@ -124,6 +125,24 @@ public final class Svg {
      * @param height target height
      */
     public static void draw(DocumentModel doc, Graphics2D g2, double x, double y, double width, double height) {
+        draw(doc, g2, x, y, width, height, null);
+    }
+
+    /**
+     * Draws a parsed SVG document into an existing graphics context with an
+     * optional fill override. The renderer always enables vector antialiasing
+     * while drawing, then restores the caller's transform and rendering hints.
+     *
+     * @param doc          parsed SVG document
+     * @param g2           target graphics context
+     * @param x            target x position
+     * @param y            target y position
+     * @param width        target width
+     * @param height       target height
+     * @param fillOverride replacement fill color, or {@code null} for SVG fills
+     */
+    public static void draw(DocumentModel doc, Graphics2D g2, double x, double y, double width, double height,
+            Color fillOverride) {
         if (doc == null) {
             throw new IllegalArgumentException("SVG document is null");
         }
@@ -135,20 +154,26 @@ public final class Svg {
         }
 
         AffineTransform previous = g2.getTransform();
-        g2.translate(x, y);
-        g2.scale(width / doc.viewBoxWidth(), height / doc.viewBoxHeight());
-        g2.translate(-doc.viewBoxX(), -doc.viewBoxY());
+        RenderingHints previousHints = (RenderingHints) g2.getRenderingHints().clone();
+        try {
+            applyAntialiasing(g2);
+            g2.translate(x, y);
+            g2.scale(width / doc.viewBoxWidth(), height / doc.viewBoxHeight());
+            g2.translate(-doc.viewBoxX(), -doc.viewBoxY());
 
-        for (ShapeModel shape : doc.shapes()) {
-            Color fill = shape.fill();
-            if (fill == null) {
-                continue;
+            for (ShapeModel shape : doc.shapes()) {
+                Color fill = shape.fill();
+                if (fill == null) {
+                    continue;
+                }
+                Shape rendered = shape.transform().createTransformedShape(shape.path());
+                g2.setColor(fillOverride == null ? fill : fillOverride);
+                g2.fill(rendered);
             }
-            Shape rendered = shape.transform().createTransformedShape(shape.path());
-            g2.setColor(fill);
-            g2.fill(rendered);
+        } finally {
+            g2.setTransform(previous);
+            g2.setRenderingHints(previousHints);
         }
-        g2.setTransform(previous);
     }
 
     /**
@@ -161,6 +186,17 @@ public final class Svg {
      */
     public static BufferedImage render(String svgText, int width, int height) {
         return render(parse(svgText), width, height);
+    }
+
+    /**
+     * Applies high-quality vector rendering hints for SVG paths.
+     *
+     * @param g2 graphics context
+     */
+    private static void applyAntialiasing(Graphics2D g2) {
+        g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        g2.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+        g2.setRenderingHint(RenderingHints.KEY_STROKE_CONTROL, RenderingHints.VALUE_STROKE_PURE);
     }
 
     /**
@@ -531,7 +567,7 @@ public final class Svg {
         if ("path".equals(localName)) {
             String d = element.getAttribute("d");
             if (d != null && !d.isBlank() && style.fill != null) {
-                Path2D.Double path = parsePath(d);
+                Path2D.Double path = parsePath(d, style.windingRule);
                 shapes.add(new ShapeModel(path, style.fill, transform));
             }
         } else if ("rect".equals(localName) && style.fill != null) {
@@ -588,19 +624,26 @@ public final class Svg {
         private final Color fill;
 
         /**
+         * Current path winding rule.
+         */
+        private final int windingRule;
+
+        /**
          * Creates a state with no explicit fill.
          */
         private StyleState() {
-            this(null);
+            this(null, Path2D.WIND_NON_ZERO);
         }
 
         /**
          * Creates a state with a given fill.
          *
          * @param fill fill color or null
+         * @param windingRule path winding rule
          */
-        private StyleState(Color fill) {
+        private StyleState(Color fill, int windingRule) {
             this.fill = fill;
+            this.windingRule = windingRule;
         }
 
         /**
@@ -611,12 +654,29 @@ public final class Svg {
          */
         private StyleState inherit(Element element) {
             Color nextFill = fill;
+            int nextWindingRule = windingRule;
             String fillAttr = element.getAttribute("fill");
             if (fillAttr != null && !fillAttr.isBlank()) {
                 Color parsed = parseColor(fillAttr);
                 nextFill = parsed;
             }
-            return new StyleState(nextFill);
+            String fillRuleAttr = element.getAttribute("fill-rule");
+            if (fillRuleAttr != null && !fillRuleAttr.isBlank()) {
+                nextWindingRule = parseFillRule(fillRuleAttr);
+            }
+            return new StyleState(nextFill, nextWindingRule);
+        }
+
+        /**
+         * Parses an SVG fill-rule value.
+         *
+         * @param value raw fill-rule value
+         * @return Java2D path winding rule
+         */
+        private static int parseFillRule(String value) {
+            return "evenodd".equalsIgnoreCase(value.trim())
+                    ? Path2D.WIND_EVEN_ODD
+                    : Path2D.WIND_NON_ZERO;
         }
 
         /**
@@ -683,8 +743,8 @@ public final class Svg {
      * @param data SVG path data string
      * @return parsed path (possibly empty)
      */
-    private static Path2D.Double parsePath(String data) {
-        Path2D.Double path = new Path2D.Double(Path2D.WIND_NON_ZERO);
+    private static Path2D.Double parsePath(String data, int windingRule) {
+        Path2D.Double path = new Path2D.Double(windingRule);
         if (data == null || data.isBlank()) {
             return path;
         }
