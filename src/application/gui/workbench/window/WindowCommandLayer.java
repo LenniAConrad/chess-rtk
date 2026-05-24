@@ -20,8 +20,6 @@ import chess.core.Setup;
 import java.awt.Dimension;
 import java.awt.Toolkit;
 import java.awt.datatransfer.StringSelection;
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -143,22 +141,17 @@ public abstract class WindowCommandLayer extends WindowGameLayer {
         gameTable.getColumnModel().getColumn(2).setPreferredWidth(110);
         gameTable.getColumnModel().getColumn(3).setPreferredWidth(520);
         gameTable.setPreferredScrollableViewportSize(new Dimension(780, 180));
-        gameTable.addMouseListener(new MouseAdapter() {
-            /**
-             * Jumps to a move when a history row is double-clicked.
-             *
-             * @param event mouse event
-             */
-            @Override
-            public void mouseClicked(MouseEvent event) {
-                if (event.getClickCount() == 2) {
-                    int row = gameTable.getSelectedRow();
-                    if (row >= 0) {
-                        showGameRow(row);
+        if (!gameTableSelectionListenerInstalled) {
+            gameTable.getSelectionModel().addListSelectionListener(event -> {
+                if (!event.getValueIsAdjusting() && !syncingGameTableSelection) {
+                    int viewRow = gameTable.getSelectedRow();
+                    if (viewRow >= 0) {
+                        showGameRow(gameTable.convertRowIndexToModel(viewRow));
                     }
                 }
-            }
-        });
+            });
+            gameTableSelectionListenerInstalled = true;
+        }
     }
 
     /**

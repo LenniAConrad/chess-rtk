@@ -225,6 +225,35 @@ public final class GameModel extends AbstractTableModel {
     }
 
     /**
+     * Moves through the currently inspected line by one or more plies.
+     *
+     * <p>
+     * Mainline selections continue to use mainline ply navigation. Imported
+     * variation selections follow their own visible continuation instead of
+     * jumping sideways to the mainline at the same ply depth.
+     * </p>
+     *
+     * @param delta relative ply delta
+     * @return true when the current position changed
+     */
+    public boolean navigate(int delta) {
+        if (delta == 0) {
+            return false;
+        }
+        boolean changed = false;
+        int remaining = delta;
+        while (remaining != 0) {
+            boolean stepChanged = remaining > 0 ? navigateForwardOne() : navigateBackwardOne();
+            if (!stepChanged) {
+                return changed;
+            }
+            changed = true;
+            remaining += remaining > 0 ? -1 : 1;
+        }
+        return changed;
+    }
+
+    /**
      * Returns whether there is a previous ply.
      *
      * @return true when the line can navigate backward
@@ -239,6 +268,9 @@ public final class GameModel extends AbstractTableModel {
      * @return true when the line can navigate forward
      */
     public boolean canForward() {
+        if (isVariationSelection()) {
+            return nextVariationContinuationRow() >= 0;
+        }
         return currentPly < moves.size();
     }
 
@@ -454,7 +486,7 @@ public final class GameModel extends AbstractTableModel {
             return "";
         }
         MoveRow row = displayRows.get(rowIndex);
-    return switch (columnIndex) {
+        return switch (columnIndex) {
             case COL_PLY -> row.ply();
             case COL_SAN -> row.san();
             case COL_UCI -> row.uci();
@@ -486,6 +518,163 @@ public final class GameModel extends AbstractTableModel {
             positions.remove(positions.size() - 1);
         }
         importedGame = null;
+    }
+
+    /**
+     * Moves forward by one ply according to the current selection context.
+     *
+     * @return true when navigation changed the selected position
+     */
+    private boolean navigateForwardOne() {
+        if (isVariationSelection()) {
+            int row = nextVariationContinuationRow();
+            if (row < 0) {
+                return false;
+            }
+            jumpToRow(row);
+            return true;
+        }
+        int previous = currentPly;
+        jumpToPly(currentPly + 1);
+        return currentPly != previous;
+    }
+
+    /**
+     * Moves backward by one ply according to the current selection context.
+     *
+     * @return true when navigation changed the selected position
+     */
+    private boolean navigateBackwardOne() {
+        if (isVariationSelection()) {
+            return navigateVariationBackwardOne();
+        }
+        int previous = currentPly;
+        jumpToPly(currentPly - 1);
+        return currentPly != previous;
+    }
+
+    /**
+     * Returns whether the current display row is an imported variation row.
+     *
+     * @return true when a non-mainline variation row is selected
+     */
+    private boolean isVariationSelection() {
+        return currentRow >= 0
+                && currentRow < displayRows.size()
+                && !displayRows.get(currentRow).mainline();
+    }
+
+    /**
+     * Moves one ply backward along the selected variation path.
+     *
+     * @return true when navigation changed the selected position
+     */
+    private boolean navigateVariationBackwardOne() {
+        List<Short> path = displayRows.get(currentRow).path();
+        if (path.isEmpty()) {
+            return false;
+        }
+        List<Short> previousPath = path.subList(0, path.size() - 1);
+        if (previousPath.isEmpty()) {
+            currentPly = 0;
+            currentRow = -1;
+            return true;
+        }
+        int row = findPreviousRowForPath(previousPath, currentRow - 1);
+        if (row >= 0) {
+            jumpToRow(row);
+            return true;
+        }
+        if (isMainlinePrefix(previousPath)) {
+            jumpToPly(previousPath.size());
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Finds the next visible variation row that extends the current variation
+     * path by one move.
+     *
+     * @return display row, or {@code -1} when there is no continuation
+     */
+    private int nextVariationContinuationRow() {
+        if (!isVariationSelection()) {
+            return -1;
+        }
+        List<Short> path = displayRows.get(currentRow).path();
+        int targetSize = path.size() + 1;
+        for (int row = currentRow + 1; row < displayRows.size(); row++) {
+            List<Short> candidate = displayRows.get(row).path();
+            if (candidate.size() == targetSize && startsWith(candidate, path)) {
+                return row;
+            }
+        }
+        return -1;
+    }
+
+    /**
+     * Finds a row whose path exactly matches the requested path.
+     *
+     * @param path requested move path
+     * @param start inclusive starting row
+     * @return matching row, or {@code -1}
+     */
+    private int findPreviousRowForPath(List<Short> path, int start) {
+        for (int row = Math.min(start, displayRows.size() - 1); row >= 0; row--) {
+            if (samePath(displayRows.get(row).path(), path)) {
+                return row;
+            }
+        }
+        return -1;
+    }
+
+    /**
+     * Returns whether a path is the current editable mainline prefix.
+     *
+     * @param path path to check
+     * @return true when the path matches the mainline prefix
+     */
+    private boolean isMainlinePrefix(List<Short> path) {
+        if (path.size() > moves.size()) {
+            return false;
+        }
+        for (int i = 0; i < path.size(); i++) {
+            if (moves.get(i).move() != path.get(i).shortValue()) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Returns whether a candidate path begins with a prefix.
+     *
+     * @param candidate candidate path
+     * @param prefix prefix path
+     * @return true when candidate starts with prefix
+     */
+    private static boolean startsWith(List<Short> candidate, List<Short> prefix) {
+        if (prefix.size() > candidate.size()) {
+            return false;
+        }
+        for (int i = 0; i < prefix.size(); i++) {
+            if (!candidate.get(i).equals(prefix.get(i))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Returns whether two move paths are equal.
+     *
+     * @param left first path
+     * @param right second path
+     * @return true when paths have the same moves
+     */
+    private static boolean samePath(List<Short> left, List<Short> right) {
+        return left.size() == right.size() && startsWith(left, right);
     }
 
     /**

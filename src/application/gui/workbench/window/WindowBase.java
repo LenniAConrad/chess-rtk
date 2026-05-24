@@ -316,6 +316,19 @@ public abstract class WindowBase extends JFrame {
     protected final JLabel gameStateLabel = new JLabel();
 
     /**
+     * Whether code is currently synchronizing the game table selection from the
+     * active board position. Selection listeners ignore these programmatic
+     * updates to avoid feedback loops.
+     */
+    protected boolean syncingGameTableSelection;
+
+    /**
+     * Whether the game table has already received its row-selection navigation
+     * listener.
+     */
+    protected boolean gameTableSelectionListenerInstalled;
+
+    /**
      * Board-side button that jumps to the first ply.
      */
     protected JButton boardStartButton;

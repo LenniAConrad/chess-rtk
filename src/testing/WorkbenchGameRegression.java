@@ -51,6 +51,7 @@ final class WorkbenchGameRegression {
     static void run() {
         testWorkbenchSanRendererUsesNeutralPieceSvgs();
         testGameModelLoadsPgnVariations();
+        testGameModelNavigatesSelectedVariationLine();
         testPuzzleSessionExploresOpponentVariationBranches();
         testPuzzlePanelPaintsOpaqueSurface();
         testPgnExplorerModelFiltersGames();
@@ -150,6 +151,36 @@ final class WorkbenchGameRegression {
         assertEquals(afterMainline.toString(), model.currentPosition().toString(), "mainline navigation restored");
         assertEquals(List.of(Short.valueOf(Move.parse("e2e4")), Short.valueOf(Move.parse("e7e5"))),
                 model.currentPath(), "mainline path");
+    }
+
+    /**
+     * Verifies back/forward transport stays on the selected PGN variation.
+     */
+    private static void testGameModelNavigatesSelectedVariationLine() {
+        GameModel model = new GameModel();
+        Game game = Pgn.parseGame("1. e4 (1. d4 d5) e5 *");
+        model.loadGame(game.getStartPosition(), game);
+
+        model.jumpToRow(1);
+        assertEquals("d2d4", Move.toString(model.currentLastMove()), "selected variation first move");
+        assertTrue(model.canForward(), "variation continuation is available");
+        assertTrue(model.navigate(1), "variation moves forward");
+        assertEquals("d7d5", Move.toString(model.currentLastMove()), "variation forward keeps variation line");
+        assertFalse(model.canForward(), "variation end has no synthetic mainline forward move");
+        assertTrue(model.navigate(-1), "variation moves backward");
+        assertEquals("d2d4", Move.toString(model.currentLastMove()), "variation back returns to previous variation move");
+        assertTrue(model.navigate(-1), "variation returns to root");
+        assertEquals(Integer.valueOf(0), Integer.valueOf(model.currentPly()), "variation back reaches root");
+        assertEquals(Integer.valueOf(-1), Integer.valueOf(model.currentRow()), "root has no selected row");
+
+        GameModel singleMoveVariation = new GameModel();
+        Game shortVariation = Pgn.parseGame("1. e4 (1. d4) e5 *");
+        singleMoveVariation.loadGame(shortVariation.getStartPosition(), shortVariation);
+        singleMoveVariation.jumpToRow(1);
+        assertFalse(singleMoveVariation.canForward(), "short variation does not borrow mainline forward state");
+        assertFalse(singleMoveVariation.navigate(1), "short variation cannot step into unrelated mainline");
+        assertEquals("d2d4", Move.toString(singleMoveVariation.currentLastMove()),
+                "failed forward keeps selected variation position");
     }
 
     /**

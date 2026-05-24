@@ -106,16 +106,11 @@ public abstract class WindowGameLayer extends WindowEngineLayer {
      * @param ply ply to show
      */
     protected void showGamePly(int ply) {
-        int previousPly = gameModel.currentPly();
+        List<Short> previousPath = gameModel.currentPath();
         short previousLastMove = gameModel.currentLastMove();
         int targetPly = Math.max(0, Math.min(ply, gameModel.lastPly()));
         gameModel.jumpToPly(targetPly);
-        boolean adjacent = Math.abs(targetPly - previousPly) == 1;
-        boolean reverseMoveAnimation = adjacent && targetPly < previousPly;
-        short visualMove = reverseMoveAnimation ? previousLastMove : gameModel.currentLastMove();
-        setPosition(gameModel.currentPosition(), adjacent ? visualMove : Move.NO_MOVE,
-                reverseMoveAnimation);
-        selectCurrentGameRow();
+        showNavigatedGamePosition(previousPath, previousLastMove);
     }
 
     /**
@@ -124,9 +119,10 @@ public abstract class WindowGameLayer extends WindowEngineLayer {
      * @param row table row
      */
     protected void showGameRow(int row) {
+        List<Short> previousPath = gameModel.currentPath();
+        short previousLastMove = gameModel.currentLastMove();
         gameModel.jumpToRow(row);
-        setPosition(gameModel.currentPosition(), gameModel.currentLastMove());
-        selectCurrentGameRow();
+        showNavigatedGamePosition(previousPath, previousLastMove);
     }
 
     /**
@@ -135,7 +131,13 @@ public abstract class WindowGameLayer extends WindowEngineLayer {
      * @param delta ply delta
      */
     protected void navigateGame(int delta) {
-        jumpGameTo(gameModel.currentPly() + delta);
+        List<Short> previousPath = gameModel.currentPath();
+        short previousLastMove = gameModel.currentLastMove();
+        if (gameModel.navigate(delta)) {
+            showNavigatedGamePosition(previousPath, previousLastMove);
+        } else {
+            updateGameState();
+        }
     }
 
     /**
@@ -148,20 +150,62 @@ public abstract class WindowGameLayer extends WindowEngineLayer {
     }
 
     /**
+     * Shows the model's current position after a navigation operation.
+     *
+     * @param previousPath path before navigation
+     * @param previousLastMove move that led to the previous position
+     */
+    private void showNavigatedGamePosition(List<Short> previousPath, short previousLastMove) {
+        List<Short> targetPath = gameModel.currentPath();
+        boolean adjacent = pathsAreAdjacent(previousPath, targetPath);
+        boolean reverseMoveAnimation = adjacent && targetPath.size() < previousPath.size();
+        short visualMove = reverseMoveAnimation ? previousLastMove : gameModel.currentLastMove();
+        setPosition(gameModel.currentPosition(), adjacent ? visualMove : Move.NO_MOVE,
+                reverseMoveAnimation);
+        selectCurrentGameRow();
+    }
+
+    /**
+     * Returns whether two move paths differ by one move on the same line.
+     *
+     * @param first first path
+     * @param second second path
+     * @return true when the paths are adjacent prefixes of one another
+     */
+    private static boolean pathsAreAdjacent(List<Short> first, List<Short> second) {
+        if (Math.abs(first.size() - second.size()) != 1) {
+            return false;
+        }
+        List<Short> shorter = first.size() < second.size() ? first : second;
+        List<Short> longer = first.size() < second.size() ? second : first;
+        for (int i = 0; i < shorter.size(); i++) {
+            if (!shorter.get(i).equals(longer.get(i))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
      * Selects the table row for the current game ply.
      */
     protected void selectCurrentGameRow() {
         int row = gameModel.currentRow();
-        if (row < 0) {
-            gameTable.clearSelection();
-            return;
-        }
-        gameTable.getSelectionModel().setSelectionInterval(row, row);
-        java.awt.Rectangle target = gameTable.getCellRect(row, 0, true);
-        java.awt.Rectangle visible = gameTable.getVisibleRect();
-        if (!visible.contains(target.x, target.y)
-                || !visible.contains(target.x, target.y + target.height - 1)) {
-            gameTable.scrollRectToVisible(target);
+        syncingGameTableSelection = true;
+        try {
+            if (row < 0) {
+                gameTable.clearSelection();
+                return;
+            }
+            gameTable.getSelectionModel().setSelectionInterval(row, row);
+            java.awt.Rectangle target = gameTable.getCellRect(row, 0, true);
+            java.awt.Rectangle visible = gameTable.getVisibleRect();
+            if (!visible.contains(target.x, target.y)
+                    || !visible.contains(target.x, target.y + target.height - 1)) {
+                gameTable.scrollRectToVisible(target);
+            }
+        } finally {
+            syncingGameTableSelection = false;
         }
     }
 
