@@ -20,6 +20,7 @@ import javax.swing.JTextField;
 import javax.swing.Timer;
 
 import application.gui.workbench.game.GameModel;
+import application.gui.workbench.game.PgnExplorerModel;
 import application.gui.workbench.game.SanRenderer;
 import application.gui.workbench.ui.Theme;
 
@@ -47,6 +48,7 @@ final class WorkbenchGameRegression {
     static void run() {
         testWorkbenchSanRendererUsesNeutralPieceSvgs();
         testGameModelLoadsPgnVariations();
+        testPgnExplorerModelFiltersGames();
         testEcoExplorerFiltersAndLoadsLines();
         testEvalBarMapping();
         testEvalBarAnimation();
@@ -107,6 +109,41 @@ final class WorkbenchGameRegression {
         assertEquals(afterMainline.toString(), model.currentPosition().toString(), "mainline navigation restored");
         assertEquals(List.of(Short.valueOf(Move.parse("e2e4")), Short.valueOf(Move.parse("e7e5"))),
                 model.currentPath(), "mainline path");
+    }
+
+    /**
+     * Verifies the PGN explorer can index and filter multi-game PGN content.
+     */
+    private static void testPgnExplorerModelFiltersGames() {
+        String pgn = """
+                [Event "Training Match"]
+                [Site "Berlin"]
+                [Date "2026.05.24"]
+                [White "Alpha"]
+                [Black "Beta"]
+                [Result "*"]
+                [Opening "Ruy Lopez"]
+
+                1. e4 e5 2. Nf3 Nc6 3. Bb5 *
+
+                [Event "Study Set"]
+                [Site "Paris"]
+                [Date "2026.05.24"]
+                [White "Gamma"]
+                [Black "Delta"]
+                [Result "*"]
+                [Opening "Queen's Gambit"]
+
+                1. d4 d5 2. c4 *
+                """;
+        List<PgnExplorerModel.Entry> entries = PgnExplorerModel.entries(pgn);
+        assertEquals(Integer.valueOf(2), Integer.valueOf(entries.size()), "PGN explorer indexes games");
+        assertEquals(Integer.valueOf(1), Integer.valueOf(PgnExplorerModel.filter(entries, "alpha ruy").size()),
+                "PGN explorer filters by player and opening");
+        assertEquals(Integer.valueOf(1), Integer.valueOf(PgnExplorerModel.filter(entries, "study paris").size()),
+                "PGN explorer filters by event and site");
+        assertTrue(entries.get(0).pgn().contains("[Event \"Training Match\"]"),
+                "PGN explorer serializes selected game");
     }
 
     /**

@@ -23,6 +23,7 @@ import chess.uci.Analysis;
 import chess.uci.Engine;
 import chess.uci.Protocol;
 import java.awt.BorderLayout;
+import java.awt.Cursor;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
@@ -43,6 +44,7 @@ import javax.swing.JScrollPane;
 import javax.swing.JSplitPane;
 import javax.swing.JTabbedPane;
 import javax.swing.JTextArea;
+import javax.swing.JTextField;
 import javax.swing.ListSelectionModel;
 import javax.swing.filechooser.FileNameExtensionFilter;
 
@@ -187,7 +189,39 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
                 iconButton("Copy FEN", event -> copyText(fenField.getText())),
                 iconButton("Settings", event -> showDisplaySettings()),
                 iconButton("Actions", event -> showCommandPalette())), c, 0, 3, 4, 1);
+        grid(panel, createPgnExplorerLauncher(), c, 0, 4, 4, 1);
         return panel;
+    }
+
+    /**
+     * Creates a compact PGN quick-open launcher styled like a command-center
+     * search field.
+     *
+     * @return PGN explorer launcher
+     */
+    private JComponent createPgnExplorerLauncher() {
+        JPanel row = transparentPanel(new BorderLayout(6, 0));
+        JTextField launcher = new JTextField("Search or open PGN");
+        styleFields(launcher);
+        launcher.setEditable(false);
+        launcher.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        launcher.setToolTipText("Open PGN explorer (Ctrl+P)");
+        launcher.getAccessibleContext().setAccessibleName("Open PGN explorer");
+        launcher.addActionListener(event -> showPgnExplorer());
+        launcher.addMouseListener(new MouseAdapter() {
+            /**
+             * Opens the PGN explorer on click.
+             *
+             * @param event mouse event
+             */
+            @Override
+            public void mousePressed(MouseEvent event) {
+                showPgnExplorer();
+            }
+        });
+        row.add(launcher, BorderLayout.CENTER);
+        row.add(button("Open PGN", false, event -> showPgnExplorer()), BorderLayout.EAST);
+        return row;
     }
 
     /**

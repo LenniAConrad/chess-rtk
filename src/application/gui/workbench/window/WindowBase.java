@@ -21,6 +21,7 @@ import application.gui.workbench.dataset.DatasetPanel;
 import application.gui.workbench.game.EngineEval;
 import application.gui.workbench.game.GameModel;
 import application.gui.workbench.game.MovesModel;
+import application.gui.workbench.game.PgnExplorerDialog;
 import application.gui.workbench.layout.EditorSplitArea;
 import application.gui.workbench.mcts.MctsPanel;
 import application.gui.workbench.network.NetworkPanel;
@@ -542,6 +543,11 @@ public abstract class WindowBase extends JFrame {
      * Lazy command palette.
      */
     protected CommandPalette commandPalette;
+
+    /**
+     * Lazy PGN explorer dialog.
+     */
+    protected PgnExplorerDialog pgnExplorer;
 
     /**
      * Background tag worker.

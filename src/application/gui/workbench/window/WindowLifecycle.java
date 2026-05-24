@@ -10,6 +10,7 @@ import application.Config;
 import application.gui.workbench.Defaults;
 import application.gui.workbench.command.CommandPalette.PaletteAction;
 import application.gui.workbench.command.CommandPalette;
+import application.gui.workbench.game.PgnExplorerDialog;
 import application.gui.workbench.layout.EditorSplitArea;
 import application.gui.workbench.layout.LazyPanel;
 import application.gui.workbench.network.TensorViz;
@@ -315,6 +316,9 @@ public abstract class WindowLifecycle extends WindowBase {
         }
         if (layoutMenu != null) {
             layoutMenu.refreshTheme();
+        }
+        if (pgnExplorer != null) {
+            pgnExplorer.refreshTheme();
         }
         repaint();
         toast(Toast.Kind.INFO, Theme.mode().label() + " mode");
@@ -786,6 +790,8 @@ public abstract class WindowLifecycle extends WindowBase {
                 showCommandPalette();
             }
         });
+        bindWindowAction("control P", "openPgnExplorer", event -> showPgnExplorer());
+        bindWindowAction("meta P", "openPgnExplorerMeta", event -> showPgnExplorer());
         bindWindowAction("control COMMA", "openDisplaySettings", event -> showDisplaySettings());
         bindWindowAction("meta COMMA", "openDisplaySettingsMeta", event -> showDisplaySettings());
         bindWindowAction("alt LEFT", "navigateBack", event -> navigateGame(-1));
@@ -977,6 +983,16 @@ public abstract class WindowLifecycle extends WindowBase {
     }
 
     /**
+     * Opens the searchable PGN explorer.
+     */
+    protected void showPgnExplorer() {
+        if (pgnExplorer == null) {
+            pgnExplorer = new PgnExplorerDialog(this, this::loadGameText);
+        }
+        pgnExplorer.showExplorer(gameModel.pgn());
+    }
+
+    /**
      * Builds the current command-palette action list.
      *
      * @return palette actions
@@ -1022,6 +1038,7 @@ public abstract class WindowLifecycle extends WindowBase {
     new PaletteAction("New analyze tab", "Open another independent analysis workspace",
                         this::openNewAnalyzeTab),
     new PaletteAction("Focus game line", "Show the merged game tools", this::focusGameInput),
+    new PaletteAction("PGN explorer", "Search the current PGN or open a PGN file", this::showPgnExplorer),
     new PaletteAction("Open commands tab", "Show command controller", () -> selectTab(TAB_COMMANDS)),
     new PaletteAction("Open batch tab", "Show batch workflows", () -> selectTab(TAB_BATCH)),
     new PaletteAction("Open datasets tab", "Inspect and analyze training datasets", () -> selectTab(TAB_DATASETS)),
