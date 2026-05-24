@@ -14,6 +14,7 @@ import static application.gui.workbench.ui.Ui.placeholder;
 import static application.gui.workbench.ui.Ui.scroll;
 import static application.gui.workbench.ui.Ui.styleFields;
 import static application.gui.workbench.ui.Ui.styleIntegerSpinner;
+import static application.gui.workbench.ui.Ui.styleProgressBar;
 import static application.gui.workbench.ui.Ui.titled;
 import static application.gui.workbench.ui.Ui.transparentPanel;
 
@@ -375,8 +376,7 @@ public final class DatasetPanel extends JPanel {
         wrapper.add(toolbar, BorderLayout.CENTER);
         JPanel status = transparentPanel(new BorderLayout(Theme.SPACE_SM, 0));
         progress.setIndeterminate(true);
-        progress.setPreferredSize(new Dimension(90, 4));
-        progress.setBorderPainted(false);
+        styleProgressBar(progress);
         status.add(statusLabel, BorderLayout.CENTER);
         status.add(progress, BorderLayout.EAST);
         wrapper.add(status, BorderLayout.SOUTH);

@@ -42,6 +42,7 @@ import javax.swing.JList;
 import javax.swing.ListCellRenderer;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
+import javax.swing.JProgressBar;
 import javax.swing.JScrollBar;
 import javax.swing.JScrollPane;
 import javax.swing.JSpinner;
@@ -636,6 +637,31 @@ public final class Ui {
         box.setForeground(Theme.TEXT);
         box.setFont(Theme.font(12, Font.PLAIN));
         box.setFocusPainted(false);
+        box.setRolloverEnabled(true);
+        box.setIcon(CheckBoxGlyph.INSTANCE);
+        box.setSelectedIcon(CheckBoxGlyph.INSTANCE);
+        box.setRolloverIcon(CheckBoxGlyph.INSTANCE);
+        box.setRolloverSelectedIcon(CheckBoxGlyph.INSTANCE);
+        box.setDisabledIcon(CheckBoxGlyph.INSTANCE);
+        box.setDisabledSelectedIcon(CheckBoxGlyph.INSTANCE);
+        box.setIconTextGap(6);
+        box.setBorder(Theme.pad(2, 2, 2, 2));
+    }
+
+    /**
+     * Styles a compact progress bar.
+     *
+     * @param bar progress bar
+     */
+    public static void styleProgressBar(JProgressBar bar) {
+        bar.setUI(new ProgressBarChrome());
+        bar.setOpaque(false);
+        bar.setBorderPainted(false);
+        bar.setStringPainted(false);
+        bar.setForeground(Theme.ACCENT);
+        bar.setBackground(Theme.INPUT_DISABLED);
+        bar.setPreferredSize(new Dimension(ProgressBarChrome.COMPACT_SIZE));
+        bar.setMinimumSize(new Dimension(ProgressBarChrome.COMPACT_SIZE));
     }
 
     /**
@@ -855,6 +881,8 @@ public final class Ui {
             styleCombo(combo);
         } else if (component instanceof JSpinner spinner) {
             styleSpinner(spinner);
+        } else if (component instanceof JProgressBar bar) {
+            styleProgressBar(bar);
         } else if (component instanceof JTable table) {
             Theme.table(table, Math.max(24, table.getRowHeight()));
         } else if (component instanceof JList<?> list) {

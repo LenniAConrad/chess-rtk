@@ -33,6 +33,7 @@ import javax.swing.JMenu;
 import javax.swing.JMenuBar;
 import javax.swing.JMenuItem;
 import javax.swing.JPanel;
+import javax.swing.JProgressBar;
 import javax.swing.JRadioButtonMenuItem;
 import javax.swing.JPopupMenu;
 import javax.swing.JScrollPane;
@@ -86,6 +87,8 @@ final class WorkbenchUiRegression {
         testCustomPaintedSurfacesClearBackground();
         testBooleanTableRendererIsStyled();
         testComponentTreeStylingCoversPlainControls();
+        testPlainCheckboxUsesWorkbenchGlyph();
+        testProgressBarUsesWorkbenchChrome();
         testDisabledComboUsesThemeBackground();
         testGameLineImportInputKeepsMultilineHeight();
         testSettingsToggleRowsAreReadable();
@@ -288,6 +291,40 @@ final class WorkbenchUiRegression {
         assertFalse(button.isContentAreaFilled(), "recursive button content area hidden");
         assertTrue(list.isOpaque(), "recursive list opaque");
         assertEquals(list.getBackground(), pane.getViewport().getBackground(), "recursive scroll viewport background");
+    }
+
+    /**
+     * Verifies plain checkboxes use the workbench glyph instead of the
+     * platform look-and-feel checkbox painter.
+     */
+    private static void testPlainCheckboxUsesWorkbenchGlyph() {
+        JCheckBox box = new JCheckBox("K");
+        invokeStatic(type("Ui"), "styleCheckBox", new Class<?>[] { JCheckBox.class }, box);
+        assertTrue(box.getIcon() != null, "plain checkbox icon installed");
+        assertEquals(box.getIcon(), box.getSelectedIcon(), "plain checkbox selected icon");
+        assertEquals(Integer.valueOf(17), Integer.valueOf(box.getIcon().getIconWidth()),
+                "plain checkbox glyph width");
+        assertFalse(box.isFocusPainted(), "plain checkbox hides platform focus paint");
+    }
+
+    /**
+     * Verifies progress indicators use the compact workbench progress chrome.
+     */
+    private static void testProgressBarUsesWorkbenchChrome() {
+        JProgressBar bar = new JProgressBar(0, 100);
+        invokeStatic(type("Ui"), "styleProgressBar", new Class<?>[] { JProgressBar.class }, bar);
+        bar.setValue(60);
+        bar.setSize(100, 8);
+
+        assertFalse(bar.isOpaque(), "progress bar is non-opaque");
+        assertFalse(bar.isBorderPainted(), "progress bar border is custom-painted");
+        assertTrue(bar.getPreferredSize().height <= 8, "progress bar remains compact");
+
+        BufferedImage image = paint(bar, 100, 8);
+        Color fill = new Color(image.getRGB(24, 4), true);
+        assertTrue(fill.getAlpha() > 200, "progress fill paints opaque pixels");
+        assertColorDistanceAtLeast(fill, themeColor("INPUT_DISABLED"), 20.0,
+                "progress fill differs from track");
     }
 
     /**
