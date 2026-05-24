@@ -75,6 +75,7 @@ final class WorkbenchBackendRegression {
         testNetworkLoadingPanelIsTextOnly();
         testRealActivationProgressReportsFallback();
         testNetworkMctsUpdatesAreNonBlocking();
+        testNetworkMctsQueuesLeafInferenceAfterFrame();
         testNetworkDiagnosticsPreviewHighlightsConfig();
         testNetworkDiagnosticsPreviewRecolorsForDarkTheme();
         testNnueStackSummaryStaysCompact();
@@ -93,6 +94,7 @@ final class WorkbenchBackendRegression {
         testMctsSearchReusesRootSubtree();
         testMctsSearchClosesBackend();
         testMctsPanelConstructsHeadlessly();
+        testMctsPanelStreamsWarmupFrames();
         testDashboardTabIsFirst();
         testSessionEvalHistory();
         testMiniChartRendersHeadlessly();
@@ -686,11 +688,34 @@ final class WorkbenchBackendRegression {
         assertTrue(source.contains("NETWORK_MCTS_PUBLISH_INTERVAL"),
                 "network MCTS has a publish throttle");
         assertTrue(source.contains("SwingWorker<Void, NetworkMctsFrame>"),
-                "network MCTS publishes frames that can carry activation snapshots");
+                "network MCTS publishes live tree frames");
         assertTrue(source.contains("NETWORK_MCTS_INFERENCE_MIN_UPDATE_NANOS"),
                 "network MCTS throttles streamed leaf inference");
         assertTrue(source.contains("buildNetworkMctsFrame"),
-                "network MCTS prepares leaf inference off the EDT");
+                "network MCTS builds live frames off the EDT");
+        assertTrue(source.contains("setCollapsibleExpanded(mctsWeightsSection, true)"),
+                "network MCTS expands live edge weights when search starts");
+    }
+
+    /**
+     * Verifies Network-tab MCTS publishes the tree frame before queuing slower
+     * leaf inference.
+     */
+    private static void testNetworkMctsQueuesLeafInferenceAfterFrame() {
+        String source;
+        try {
+            source = Files.readString(Path.of("src/application/gui/workbench/network/NetworkPanel.java"),
+                    StandardCharsets.UTF_8);
+        } catch (IOException ex) {
+            throw new AssertionError("unable to read NetworkPanel source", ex);
+        }
+        int frameBuilder = source.indexOf("private NetworkMctsFrame buildNetworkMctsFrame");
+        int leafQueue = source.indexOf("private void queueNetworkMctsLeafInference");
+        assertTrue(frameBuilder >= 0 && leafQueue > frameBuilder,
+                "network MCTS queues leaf inference after frame construction");
+        String builderBody = source.substring(frameBuilder, leafQueue);
+        assertFalse(builderBody.contains("inferSnapshot("),
+                "network MCTS frame builder does not block on model inference");
     }
 
     /**
@@ -1327,6 +1352,27 @@ final class WorkbenchBackendRegression {
         component.setSize(720, 560);
         paint(component, 720, 560);
         invoke(panel, "dispose", new Class<?>[0]);
+    }
+
+    /**
+     * Verifies Analyze-tab MCTS streams its opening playouts and then falls
+     * back to interval/time-based refreshes.
+     */
+    private static void testMctsPanelStreamsWarmupFrames() {
+        Class<?> panel = type("MctsPanel");
+        Class<?>[] signature = { long.class, long.class, long.class };
+        assertEquals(Boolean.TRUE,
+                invokeStatic(panel, "shouldPublishLiveFrame", signature, 1L, 1_000L, 1_000L),
+                "MCTS streams first playout");
+        assertEquals(Boolean.FALSE,
+                invokeStatic(panel, "shouldPublishLiveFrame", signature, 41L, 2_000L, 1_000L),
+                "MCTS skips non-due late playout");
+        assertEquals(Boolean.TRUE,
+                invokeStatic(panel, "shouldPublishLiveFrame", signature, 40L, 2_000L, 1_000L),
+                "MCTS publishes interval playout");
+        assertEquals(Boolean.TRUE,
+                invokeStatic(panel, "shouldPublishLiveFrame", signature, 41L, 40_000_000L, 1_000L),
+                "MCTS publishes timed playout");
     }
 
     /**

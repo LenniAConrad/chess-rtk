@@ -188,12 +188,23 @@ public final class NetworkPanel extends JPanel {
     /**
      * Playout interval between Network-tab MCTS UI snapshots.
      */
-    private static final int NETWORK_MCTS_PUBLISH_INTERVAL = 24;
+    private static final int NETWORK_MCTS_PUBLISH_INTERVAL = 8;
 
     /**
      * Minimum time between Network-tab MCTS UI snapshots.
      */
-    private static final long NETWORK_MCTS_MIN_UPDATE_NANOS = 70_000_000L;
+    private static final long NETWORK_MCTS_MIN_UPDATE_NANOS = 35_000_000L;
+
+    /**
+     * Initial Network-tab MCTS playouts streamed one-by-one so short searches
+     * visibly update their current leaf and root-edge metrics.
+     */
+    private static final long NETWORK_MCTS_WARMUP_PLAYOUTS = 32L;
+
+    /**
+     * Short delay after warmup MCTS frames, giving the EDT time to paint.
+     */
+    private static final long NETWORK_MCTS_WARMUP_DELAY_MS = 6L;
 
     /**
      * Minimum time between expensive leaf-inference snapshots while Network
@@ -283,6 +294,12 @@ public final class NetworkPanel extends JPanel {
      * Live MCTS edge-weight renderer shown while Network-tab search is active.
      */
     private final MctsWeightsPanel mctsWeightsPanel = new MctsWeightsPanel();
+
+    /**
+     * Collapsible wrapper around the live MCTS edge-weight renderer.
+     */
+    private final JComponent mctsWeightsSection =
+            Ui.collapsible("Edge weights", mctsWeightsPanel, false);
 
     /**
      * Card layout container that swaps views.
@@ -407,6 +424,21 @@ public final class NetworkPanel extends JPanel {
     private String mctsLeafFen;
 
     /**
+     * Last queued Network-tab MCTS leaf-inference timestamp.
+     */
+    private long lastMctsLeafInferenceRequestNanos;
+
+    /**
+     * Last queued Network-tab MCTS leaf-inference FEN.
+     */
+    private String lastMctsLeafInferenceFen;
+
+    /**
+     * Last queued Network-tab MCTS leaf-inference architecture key.
+     */
+    private String lastMctsLeafInferenceCardKey;
+
+    /**
      * Last audible MCTS progress tick timestamp.
      */
     private long lastMctsProgressSoundNanos;
@@ -443,48 +475,13 @@ public final class NetworkPanel extends JPanel {
      * One streamed Network-tab MCTS UI frame.
      *
      * @param snapshot search snapshot
-     * @param activationCardKey architecture key for the activation snapshot
-     * @param activationFen FEN used for the activation snapshot
-     * @param activationSnapshot optional precomputed network activation
+     * @param leafCardKey architecture key that should follow the leaf
+     * @param leafFen current leaf FEN, when leaf following is enabled
      */
     private record NetworkMctsFrame(
             MctsSearch.Snapshot snapshot,
-            String activationCardKey,
-            String activationFen,
-            ActivationSnapshot activationSnapshot) {
-    }
-
-    /**
-     * Mutable throttle state for Network-tab MCTS leaf inference.
-     */
-    private static final class NetworkMctsInferenceState {
-
-        /**
-         * Last completed inference timestamp.
-         */
-        private long lastInferenceNanos;
-
-        /**
-         * Last inferred FEN.
-         */
-        private String lastInferenceFen;
-
-        /**
-         * Last inferred architecture key.
-         */
-        private String lastCardKey;
-
-        /**
-         * Records a finished streamed inference.
-         *
-         * @param cardKey architecture key
-         * @param fen inferred FEN
-         */
-        private void record(String cardKey, String fen) {
-            lastCardKey = cardKey;
-            lastInferenceFen = fen;
-            lastInferenceNanos = System.nanoTime();
-        }
+            String leafCardKey,
+            String leafFen) {
     }
 
     /**
@@ -521,8 +518,7 @@ public final class NetworkPanel extends JPanel {
         center.add(content, BorderLayout.CENTER);
         JPanel lowerDiagnostics = Ui.transparentPanel(new BorderLayout(0, Theme.SPACE_SM));
         lowerDiagnostics.add(buildMctsToolbar(), BorderLayout.NORTH);
-        lowerDiagnostics.add(Ui.collapsible("Edge weights", mctsWeightsPanel, false),
-                BorderLayout.CENTER);
+        lowerDiagnostics.add(mctsWeightsSection, BorderLayout.CENTER);
         center.add(lowerDiagnostics, BorderLayout.SOUTH);
         add(center, BorderLayout.CENTER);
         archCombo.addActionListener(event -> onArchitectureChanged());
@@ -1140,18 +1136,21 @@ public final class NetworkPanel extends JPanel {
         final MctsSearch search = mctsSearch;
         mctsLeafFen = root.toString();
         lastMctsProgressSoundNanos = 0L;
+        lastMctsLeafInferenceRequestNanos = 0L;
+        lastMctsLeafInferenceFen = null;
+        lastMctsLeafInferenceCardKey = null;
         updateNetworkMctsButtons(true);
+        Ui.setCollapsibleExpanded(mctsWeightsSection, true);
         mctsStatusBadge.busy("starting MCTS...");
         SoundService.play(SoundCue.MCTS_START);
-        final NetworkMctsInferenceState inferenceState = new NetworkMctsInferenceState();
         SwingWorker<Void, NetworkMctsFrame> activeWorker = new SwingWorker<>() {
             @Override
             protected Void doInBackground() throws Exception {
-                publish(buildNetworkMctsFrame(search.snapshot(false), inferenceState));
+                publish(buildNetworkMctsFrame(search.snapshot(false)));
                 long lastPublishNanos = System.nanoTime();
                 while (!isCancelled() && search.shouldContinue(budget, maxMillis)) {
                     if (mctsPaused) {
-                        publish(buildNetworkMctsFrame(search.snapshot(true), inferenceState));
+                        publish(buildNetworkMctsFrame(search.snapshot(true)));
                         lastPublishNanos = System.nanoTime();
                         Thread.sleep(80L);
                         continue;
@@ -1159,16 +1158,18 @@ public final class NetworkPanel extends JPanel {
                     search.iterate();
                     long playouts = search.playouts();
                     long now = System.nanoTime();
-                    if (playouts % NETWORK_MCTS_PUBLISH_INTERVAL == 0
-                            || now - lastPublishNanos >= NETWORK_MCTS_MIN_UPDATE_NANOS) {
-                        publish(buildNetworkMctsFrame(search.snapshot(false), inferenceState));
+                    if (shouldPublishNetworkMctsFrame(playouts, now, lastPublishNanos)) {
+                        publish(buildNetworkMctsFrame(search.snapshot(false)));
                         lastPublishNanos = now;
+                        if (mctsFollowLeafEnabled && playouts <= NETWORK_MCTS_WARMUP_PLAYOUTS) {
+                            Thread.sleep(NETWORK_MCTS_WARMUP_DELAY_MS);
+                        }
                     }
                     if (playouts % NETWORK_MCTS_YIELD_INTERVAL == 0) {
                         Thread.sleep(1L);
                     }
                 }
-                publish(buildNetworkMctsFrame(search.snapshot(mctsPaused), inferenceState));
+                publish(buildNetworkMctsFrame(search.snapshot(mctsPaused)));
                 return null;
             }
 
@@ -1179,8 +1180,7 @@ public final class NetworkPanel extends JPanel {
                 }
                 NetworkMctsFrame frame = chunks.get(chunks.size() - 1);
                 showNetworkMctsSnapshot(frame.snapshot(), true,
-                        frame.activationCardKey(), frame.activationFen(),
-                        frame.activationSnapshot());
+                        frame.leafCardKey(), frame.leafFen());
             }
 
             @Override
@@ -1251,11 +1251,15 @@ public final class NetworkPanel extends JPanel {
         mctsWorker = null;
         mctsSearch = null;
         mctsPaused = false;
+        lastMctsLeafInferenceRequestNanos = 0L;
+        lastMctsLeafInferenceFen = null;
+        lastMctsLeafInferenceCardKey = null;
         if (activeSearch != null) {
             activeSearch.close();
         }
         updateNetworkMctsButtons(false);
         if (restoreBase) {
+            cancelPendingInference();
             mctsLeafFen = null;
             mctsWeightsPanel.clear();
             mctsStatusBadge.idle("MCTS stopped");
@@ -1283,75 +1287,48 @@ public final class NetworkPanel extends JPanel {
      * @param running true while the worker is expected to keep running
      */
     private void showNetworkMctsSnapshot(MctsSearch.Snapshot snapshot, boolean running) {
-        showNetworkMctsSnapshot(snapshot, running, null, null, null);
+        showNetworkMctsSnapshot(snapshot, running, null, null);
     }
 
     /**
-     * Builds one streamed MCTS frame and, when due, performs the active
-     * architecture's leaf inference on the background worker.
+     * Builds one streamed MCTS frame. Leaf inference is intentionally queued
+     * later on the EDT so slow model forward passes cannot hide live tree
+     * updates.
      *
      * @param snapshot search snapshot
-     * @param state inference throttle state
-     * @return UI frame with an optional activation snapshot
+     * @return UI frame with optional leaf-follow metadata
      */
-    private NetworkMctsFrame buildNetworkMctsFrame(
-            MctsSearch.Snapshot snapshot,
-            NetworkMctsInferenceState state) {
+    private NetworkMctsFrame buildNetworkMctsFrame(MctsSearch.Snapshot snapshot) {
         if (snapshot == null
                 || !mctsFollowLeafEnabled
                 || snapshot.exploringPosition() == null) {
-            return new NetworkMctsFrame(snapshot, null, null, null);
+            return new NetworkMctsFrame(snapshot, null, null);
         }
         String fen = snapshot.exploringPosition().toString();
         String cardKey = mctsStreamCardKey == null ? ARCH_NNUE : mctsStreamCardKey;
-        boolean changed = !fen.equals(state.lastInferenceFen)
-                || !cardKey.equals(state.lastCardKey);
-        boolean due = state.lastInferenceNanos == 0L
-                || System.nanoTime() - state.lastInferenceNanos
-                        >= NETWORK_MCTS_INFERENCE_MIN_UPDATE_NANOS;
-        if (!changed || !due) {
-            return new NetworkMctsFrame(snapshot, null, null, null);
-        }
-        ActivationSnapshot activation = inferSnapshot(cardKey, fen);
-        state.record(cardKey, fen);
-        return new NetworkMctsFrame(snapshot, cardKey, fen, activation);
+        return new NetworkMctsFrame(snapshot, cardKey, fen);
     }
 
     /**
-     * Applies a Network-tab MCTS snapshot plus an optional precomputed
-     * activation snapshot. Used by the step-by-step streamer so the MCTS edge
-     * weights and the active network view change as one frame.
+     * Applies a Network-tab MCTS snapshot and queues leaf inference separately
+     * when leaf following is active.
      *
      * @param snapshot search snapshot
      * @param running true while the worker is expected to keep running
-     * @param activationCardKey card key for activationSnapshot
-     * @param activationFen FEN for activationSnapshot
-     * @param activationSnapshot precomputed activation snapshot, or null
+     * @param leafCardKey architecture key that should follow the leaf
+     * @param leafFen current leaf FEN, or null to read it from the snapshot
      */
     private void showNetworkMctsSnapshot(MctsSearch.Snapshot snapshot,
-            boolean running, String activationCardKey, String activationFen,
-            ActivationSnapshot activationSnapshot) {
+            boolean running, String leafCardKey, String leafFen) {
         if (snapshot == null) {
             return;
         }
         mctsWeightsPanel.setSnapshot(snapshot);
         revalidate();
         if (mctsFollowLeafToggle.isSelected() && snapshot.exploringPosition() != null) {
-            String fen = snapshot.exploringPosition().toString();
+            String fen = leafFen == null ? snapshot.exploringPosition().toString() : leafFen;
             mctsLeafFen = fen;
-            boolean applied = false;
-            if (activationSnapshot != null
-                    && activationCardKey != null
-                    && activationCardKey.equals(activeCardKey())
-                    && fen.equals(activationFen)) {
-                snapshotCache.put(cacheKey(activationCardKey, activationFen), activationSnapshot);
-                applySnapshot(activationCardKey, fen, activationSnapshot);
-                applied = true;
-            }
-            boolean displayedMatches = cacheKey(activeCardKey(), fen).equals(displayedKey);
-            if (!applied && !displayedMatches && !running && !isNetworkMctsRunning()) {
-                requestActiveInference();
-            }
+            queueNetworkMctsLeafInference(leafCardKey == null ? activeCardKey() : leafCardKey, fen);
         }
         String leaf = snapshot.exploringLineText();
         if (leaf == null || leaf.isBlank()) {
@@ -1371,6 +1348,55 @@ public final class NetworkPanel extends JPanel {
         } else {
             mctsStatusBadge.success("done · " + message);
         }
+    }
+
+    /**
+     * Returns whether a Network-tab MCTS frame should be pushed to the EDT.
+     *
+     * @param playouts completed playouts
+     * @param nowNanos current monotonic time
+     * @param lastPublishNanos last published monotonic time
+     * @return true when the UI should refresh
+     */
+    private static boolean shouldPublishNetworkMctsFrame(long playouts, long nowNanos, long lastPublishNanos) {
+        return playouts <= NETWORK_MCTS_WARMUP_PLAYOUTS
+                || playouts % NETWORK_MCTS_PUBLISH_INTERVAL == 0L
+                || nowNanos - lastPublishNanos >= NETWORK_MCTS_MIN_UPDATE_NANOS;
+    }
+
+    /**
+     * Queues asynchronous network inference for the currently streamed MCTS
+     * leaf without blocking search-frame publication.
+     *
+     * @param cardKey architecture card key
+     * @param fen leaf FEN
+     */
+    private void queueNetworkMctsLeafInference(String cardKey, String fen) {
+        if (!active || cardKey == null || fen == null || fen.isBlank()) {
+            return;
+        }
+        String key = cacheKey(cardKey, fen);
+        ActivationSnapshot cached = snapshotCache.get(key);
+        if (cached != null) {
+            applySnapshot(cardKey, fen, cached);
+            return;
+        }
+        if (key.equals(displayedKey)
+                || (cardKey.equals(runningArch) && fen.equals(runningFen))) {
+            return;
+        }
+        long now = System.nanoTime();
+        boolean changed = !fen.equals(lastMctsLeafInferenceFen)
+                || !cardKey.equals(lastMctsLeafInferenceCardKey);
+        if (!changed && now - lastMctsLeafInferenceRequestNanos < NETWORK_MCTS_INFERENCE_MIN_UPDATE_NANOS) {
+            return;
+        }
+        lastMctsLeafInferenceFen = fen;
+        lastMctsLeafInferenceCardKey = cardKey;
+        lastMctsLeafInferenceRequestNanos = now;
+        pendingArch = cardKey;
+        pendingFen = fen;
+        startInference();
     }
 
     /**

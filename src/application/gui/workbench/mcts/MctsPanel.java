@@ -45,7 +45,22 @@ public final class MctsPanel extends JPanel {
     /**
      * Publish every N playouts.
      */
-    private static final int PUBLISH_INTERVAL = 24;
+    private static final int PUBLISH_INTERVAL = 8;
+
+    /**
+     * Initial playouts streamed one-by-one so short searches are visibly live.
+     */
+    private static final long LIVE_WARMUP_PLAYOUTS = 32L;
+
+    /**
+     * Minimum time between regular live UI frames.
+     */
+    private static final long MIN_PUBLISH_NANOS = 35_000_000L;
+
+    /**
+     * Short delay after warmup frames, giving the EDT time to paint the leaf.
+     */
+    private static final long LIVE_WARMUP_DELAY_MS = 6L;
 
     /**
      * Minimum time between audible progress ticks.
@@ -330,15 +345,23 @@ public final class MctsPanel extends JPanel {
             @Override
             protected Void doInBackground() throws Exception {
                 publish(activeSearch.snapshot(false));
+                long lastPublishNanos = System.nanoTime();
                 while (!isCancelled() && activeSearch.shouldContinue(budget, maxMillis)) {
                     if (paused) {
                         publish(activeSearch.snapshot(true));
+                        lastPublishNanos = System.nanoTime();
                         Thread.sleep(80L);
                         continue;
                     }
                     activeSearch.iterate();
-                    if (activeSearch.playouts() % PUBLISH_INTERVAL == 0) {
+                    long playouts = activeSearch.playouts();
+                    long now = System.nanoTime();
+                    if (shouldPublishLiveFrame(playouts, now, lastPublishNanos)) {
                         publish(activeSearch.snapshot(false));
+                        lastPublishNanos = now;
+                        if (playouts <= LIVE_WARMUP_PLAYOUTS) {
+                            Thread.sleep(LIVE_WARMUP_DELAY_MS);
+                        }
                     }
                 }
                 publish(activeSearch.snapshot(paused));
@@ -502,15 +525,35 @@ public final class MctsPanel extends JPanel {
         pvArea.setText(snapshot.bestPvText());
         String best = snapshot.bestMove() == Move.NO_MOVE ? "-"
                 : Move.toString(snapshot.bestMove());
-        statusLabel.setText(String.format("%s · %,d visits · %,d ms · root %s · best %s",
+        String leaf = snapshot.exploringLineText();
+        if (leaf == null || leaf.isBlank()) {
+            leaf = "root";
+        }
+        String shortLeaf = Ui.elide(leaf, getFontMetrics(Theme.font(12, java.awt.Font.PLAIN)), 180);
+        statusLabel.setText(String.format("%s · %,d visits · %,d ms · root %s · best %s · leaf %s",
                 snapshot.paused() ? "paused" : isRunning() ? "running" : "done",
                 snapshot.playouts(),
                 snapshot.elapsedMillis(),
                 snapshot.rootScoreLabel(),
-                best));
+                best,
+                shortLeaf));
         if (isRunning() && !snapshot.paused()) {
             maybePlayProgressSound(snapshot);
         }
+    }
+
+    /**
+     * Returns whether a live MCTS frame should be pushed to the EDT.
+     *
+     * @param playouts completed playouts
+     * @param nowNanos current monotonic time
+     * @param lastPublishNanos last published monotonic time
+     * @return true when the UI should refresh
+     */
+    private static boolean shouldPublishLiveFrame(long playouts, long nowNanos, long lastPublishNanos) {
+        return playouts <= LIVE_WARMUP_PLAYOUTS
+                || playouts % PUBLISH_INTERVAL == 0L
+                || nowNanos - lastPublishNanos >= MIN_PUBLISH_NANOS;
     }
 
     /**
