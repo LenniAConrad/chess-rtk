@@ -215,13 +215,16 @@ public final class SettingsMenu {
      * @param item menu item
      */
     private static void styleMenuItem(JMenuItem item) {
-        item.setOpaque(true);
-        item.setBackground(item.getParent() instanceof JPopupMenu ? Theme.PANEL_SOLID : Theme.BG);
-        item.setForeground(Theme.TEXT);
-        item.setFont(Theme.font(12, Font.PLAIN));
-        item.setBorder(BorderFactory.createEmptyBorder(5, 10, 5, 10));
         if (item instanceof JRadioButtonMenuItem radio) {
             styleRadioMenuItem(radio);
+        } else if (item.getParent() instanceof JPopupMenu) {
+            MenuGlyphs.styleItem(item);
+        } else {
+            item.setOpaque(true);
+            item.setBackground(Theme.BG);
+            item.setForeground(Theme.TEXT);
+            item.setFont(Theme.font(12, Font.PLAIN));
+            item.setBorder(BorderFactory.createEmptyBorder(5, 10, 5, 10));
         }
     }
 

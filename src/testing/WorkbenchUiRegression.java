@@ -487,13 +487,18 @@ final class WorkbenchUiRegression {
         assertTrue(!dark.isSelected(), "dark mode starts unselected");
         assertThemedRadioIcon(light, "light mode");
         assertThemedRadioIcon(dark, "dark mode");
+        assertWorkbenchMenuChrome(light, "light mode");
+        assertWorkbenchMenuChrome(dark, "dark mode");
 
         dark.doClick();
         assertEquals(Theme.Mode.DARK, activeMode[0], "dark menu item applies dark mode");
+        Theme.setMode(Theme.Mode.DARK);
         menu.syncMode();
         menu.refreshTheme();
         assertTrue(dark.isSelected(), "dark menu item reflects controller state");
         assertThemedRadioIcon(dark, "dark mode after refresh");
+        assertWorkbenchMenuChrome(dark, "dark mode after refresh");
+        Theme.setMode(Theme.Mode.LIGHT);
 
         item(settings, "Board Settings").doClick();
         item(settings, "Engine Settings").doClick();
@@ -586,6 +591,7 @@ final class WorkbenchUiRegression {
         JCheckBoxMenuItem statusItem = (JCheckBoxMenuItem) popupItem(popup, "Status Bar");
         assertTrue(statusItem.isSelected(), "status-bar row reflects controller state");
         assertThemedCheckIcon(statusItem, "status-bar row");
+        assertWorkbenchMenuChrome(statusItem, "status-bar row");
         statusItem.doClick();
         assertFalse(statusVisible[0], "status-bar row toggles controller state");
 
@@ -695,6 +701,24 @@ final class WorkbenchUiRegression {
         assertEquals(icon, item.getDisabledIcon(), label + " disabled icon is themed");
         assertTrue(icon.getIconWidth() >= 14, label + " icon width");
         assertTrue(icon.getIconHeight() >= 14, label + " icon height");
+    }
+
+    /**
+     * Verifies a popup item uses workbench menu chrome and theme selection
+     * colors instead of platform look-and-feel highlights.
+     *
+     * @param item menu item
+     * @param label assertion label
+     */
+    private static void assertWorkbenchMenuChrome(JMenuItem item, String label) {
+        assertTrue(item.getUI().getClass().getName().contains("MenuGlyphs"),
+                label + " uses workbench menu UI");
+        item.setSize(220, Math.max(24, item.getPreferredSize().height));
+        item.getModel().setArmed(true);
+        BufferedImage image = paint(item, item.getWidth(), item.getHeight());
+        Color sample = new Color(image.getRGB(item.getWidth() - 6, Math.max(2, item.getHeight() / 2)), true);
+        assertColor(themeColor("SELECTION_SOLID"), sample, label + " selection background");
+        item.getModel().setArmed(false);
     }
 
     /**

@@ -8,9 +8,14 @@ import java.awt.Graphics2D;
 import java.awt.RenderingHints;
 import java.awt.geom.Path2D;
 import javax.swing.AbstractButton;
+import javax.swing.ButtonModel;
 import javax.swing.Icon;
 import javax.swing.JCheckBoxMenuItem;
+import javax.swing.JComponent;
+import javax.swing.JMenu;
+import javax.swing.JMenuItem;
 import javax.swing.JRadioButtonMenuItem;
+import javax.swing.plaf.basic.BasicMenuItemUI;
 
 /**
  * Theme-aware glyphs for popup menu selection controls.
@@ -35,11 +40,28 @@ public final class MenuGlyphs {
     }
 
     /**
+     * Applies the flat workbench popup-row chrome to one menu item.
+     *
+     * @param item target item
+     */
+    public static void styleItem(JMenuItem item) {
+        if (!(item instanceof JMenu)) {
+            item.setUI(new WorkbenchMenuItemUi());
+        }
+        item.setOpaque(true);
+        item.setBackground(Theme.PANEL_SOLID);
+        item.setForeground(item.isEnabled() ? Theme.TEXT : Theme.MUTED);
+        item.setFont(Theme.font(12, java.awt.Font.PLAIN));
+        item.setBorder(javax.swing.BorderFactory.createEmptyBorder(5, 12, 5, 12));
+    }
+
+    /**
      * Applies the custom workbench radio glyph to one radio menu item.
      *
      * @param item radio menu item
      */
     public static void styleRadioItem(JRadioButtonMenuItem item) {
+        styleItem(item);
         installIconSet(item, RADIO_ICON);
     }
 
@@ -49,6 +71,7 @@ public final class MenuGlyphs {
      * @param item checkbox menu item
      */
     public static void styleCheckItem(JCheckBoxMenuItem item) {
+        styleItem(item);
         installIconSet(item, CHECK_ICON);
     }
 
@@ -69,6 +92,65 @@ public final class MenuGlyphs {
         item.setIconTextGap(8);
         item.setBorderPainted(false);
         item.setFocusPainted(false);
+    }
+
+    /**
+     * Flat popup-item UI that suppresses platform check/radio glyphs and paints
+     * hover rows from the active workbench palette.
+     */
+    private static final class WorkbenchMenuItemUi extends BasicMenuItemUI {
+
+        /**
+         * Installs default metrics while replacing platform glyph slots.
+         */
+        @Override
+        protected void installDefaults() {
+            super.installDefaults();
+            refreshPalette();
+        }
+
+        /**
+         * Paints with current theme colors, including after a theme switch.
+         *
+         * @param graphics graphics context
+         * @param component target component
+         */
+        @Override
+        public void paint(Graphics graphics, JComponent component) {
+            refreshPalette();
+            super.paint(graphics, component);
+        }
+
+        /**
+         * Paints a VS Code-style flat selection row.
+         *
+         * @param graphics graphics context
+         * @param item menu item
+         * @param backgroundColor unused platform background
+         */
+        @Override
+        protected void paintBackground(Graphics graphics, JMenuItem item, Color backgroundColor) {
+            ButtonModel model = item.getModel();
+            boolean active = item.isEnabled() && (model.isArmed() || model.isRollover()
+                    || model.isPressed() || (item instanceof JMenu && model.isSelected()));
+            graphics.setColor(active ? Theme.SELECTION_SOLID : Theme.PANEL_SOLID);
+            graphics.fillRect(0, 0, item.getWidth(), item.getHeight());
+        }
+
+        /**
+         * Refreshes cached BasicMenuItemUI colors and removes duplicate glyph
+         * slots used by platform radio/check menu items.
+         */
+        private void refreshPalette() {
+            checkIcon = null;
+            arrowIcon = null;
+            selectionBackground = Theme.SELECTION_SOLID;
+            selectionForeground = Theme.TEXT;
+            disabledForeground = Theme.BUTTON_DISABLED_TEXT;
+            acceleratorForeground = Theme.MUTED;
+            acceleratorSelectionForeground = Theme.TEXT;
+            defaultTextIconGap = 8;
+        }
     }
 
     /**

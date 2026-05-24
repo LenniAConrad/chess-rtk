@@ -353,13 +353,10 @@ public final class LayoutMenu {
      * @param item menu item
      */
     private static void styleMenuItem(JMenuItem item) {
-        item.setOpaque(true);
-        item.setBackground(Theme.PANEL_SOLID);
-        item.setForeground(item.isEnabled() ? Theme.TEXT : Theme.MUTED);
-        item.setFont(Theme.font(12, Font.PLAIN));
-        item.setBorder(BorderFactory.createEmptyBorder(5, 12, 5, 12));
         if (item instanceof JCheckBoxMenuItem checkbox) {
             MenuGlyphs.styleCheckItem(checkbox);
+        } else {
+            MenuGlyphs.styleItem(item);
         }
     }
 

@@ -1467,10 +1467,16 @@ public final class Theme {
         UIManager.put("MenuBar.foreground", TEXT);
         UIManager.put("Menu.background", BG);
         UIManager.put("Menu.foreground", TEXT);
+        UIManager.put("Menu.selectionBackground", SELECTION_SOLID);
+        UIManager.put("Menu.selectionForeground", TEXT);
         UIManager.put("MenuItem.background", PANEL_SOLID);
         UIManager.put("MenuItem.foreground", TEXT);
         UIManager.put("MenuItem.selectionBackground", SELECTION_SOLID);
         UIManager.put("MenuItem.selectionForeground", TEXT);
+        UIManager.put("CheckBoxMenuItem.background", PANEL_SOLID);
+        UIManager.put("CheckBoxMenuItem.foreground", TEXT);
+        UIManager.put("CheckBoxMenuItem.selectionBackground", SELECTION_SOLID);
+        UIManager.put("CheckBoxMenuItem.selectionForeground", TEXT);
         UIManager.put("RadioButtonMenuItem.background", PANEL_SOLID);
         UIManager.put("RadioButtonMenuItem.foreground", TEXT);
         UIManager.put("RadioButtonMenuItem.selectionBackground", SELECTION_SOLID);
