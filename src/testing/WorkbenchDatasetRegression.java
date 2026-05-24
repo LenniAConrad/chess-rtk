@@ -18,6 +18,7 @@ import java.nio.file.Path;
 import java.util.List;
 import javax.swing.JButton;
 import javax.swing.JComponent;
+import javax.swing.JSplitPane;
 import javax.swing.JTextField;
 
 /**
@@ -102,6 +103,12 @@ final class WorkbenchDatasetRegression {
         assertEquals("50,000", rowLimit.getText(),
                 "dataset row-limit value uses readable grouping");
         assertEquals("Dataset file or directory", source.getToolTipText(), "dataset source tooltip");
+        JSplitPane split = firstSplitPane(panel);
+        assertEquals(Integer.valueOf(4), Integer.valueOf(split.getDividerSize()),
+                "dataset split pane uses workbench sash width");
+        assertTrue(((javax.swing.plaf.basic.BasicSplitPaneUI) split.getUI()).getDivider()
+                .getClass().getName().contains("SplitPaneStyler"),
+                "dataset split pane uses themed divider");
         panel.applySummary(new DatasetSummary(Path.of("sample.fen"), 1, 2L, 2L, 0L, 0L, 1L, 1L,
                 0L, 0L, 0L, 1L, 1L, 0, 8_000, 4_000.0d,
                 new int[] { 0, 0, 0, 0, 1, 0, 0, 1 },
@@ -118,6 +125,28 @@ final class WorkbenchDatasetRegression {
         chart.setBars(List.of(new DatasetChart.Bar("valid", 3L, DatasetChart.Role.SUCCESS),
                 new DatasetChart.Bar("invalid", 1L, DatasetChart.Role.ERROR)));
         paintPanel(chart, 340, 160, "dataset chart paints surface");
+    }
+
+    /**
+     * Finds the first split pane in a component tree.
+     *
+     * @param component root component
+     * @return first split pane
+     */
+    private static JSplitPane firstSplitPane(java.awt.Component component) {
+        if (component instanceof JSplitPane splitPane) {
+            return splitPane;
+        }
+        if (component instanceof java.awt.Container container) {
+            for (java.awt.Component child : container.getComponents()) {
+                try {
+                    return firstSplitPane(child);
+                } catch (AssertionError ex) {
+                    // Continue searching siblings.
+                }
+            }
+        }
+        throw new AssertionError("missing dataset split pane");
     }
 
     /**

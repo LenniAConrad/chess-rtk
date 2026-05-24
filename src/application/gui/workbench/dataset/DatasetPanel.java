@@ -11,6 +11,7 @@ import static application.gui.workbench.ui.Ui.styleProgressBar;
 import static application.gui.workbench.ui.Ui.titled;
 import static application.gui.workbench.ui.Ui.transparentPanel;
 
+import application.gui.workbench.layout.SplitPaneStyler;
 import application.gui.workbench.ui.FileDialogs;
 import application.gui.workbench.ui.SurfacePanel;
 import application.gui.workbench.ui.Theme;
@@ -418,9 +419,9 @@ public final class DatasetPanel extends JPanel {
      */
     private JComponent createBody() {
         JSplitPane split = new JSplitPane(JSplitPane.VERTICAL_SPLIT, createOverview(), createTables());
-        split.setBorder(null);
         split.setResizeWeight(0.58d);
-        split.setContinuousLayout(true);
+        split.setDividerLocation(0.58d);
+        SplitPaneStyler.style(split);
         return split;
     }
 
