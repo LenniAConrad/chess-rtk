@@ -21,6 +21,7 @@ import javax.swing.JSpinner;
 import javax.swing.JTable;
 import javax.swing.JTextField;
 import javax.swing.KeyStroke;
+import javax.swing.Timer;
 
 import application.gui.workbench.board.BoardStyle;
 import application.gui.workbench.network.TensorViz;
@@ -58,6 +59,7 @@ final class WorkbenchBoardRegression {
         testBoardDragInvalidHoverDoesNotPaintRedBox();
         testBoardDragDirtyBoundsIncludesInvalidHoverSquare();
         testBoardDragDirtyBoundsDoNotSpanOriginAfterStart();
+        testBoardDragRepaintsCoalesceFastEvents();
         testBoardMoveAnimationStarts();
         testBoardCaptureAnimationStarts();
         testBoardCastlingAnimationStarts();
@@ -390,6 +392,30 @@ final class WorkbenchBoardRegression {
                 "active drag frame does not keep spanning back to origin");
         assertTrue(activeFrame.width < firstFrame.width || activeFrame.height < firstFrame.height,
                 "active drag frame is smaller after origin is already hidden");
+    }
+
+    /**
+     * Verifies rapid drag events are coalesced into one pending repaint
+     * instead of submitting a repaint for every pointer sample.
+     */
+    private static void testBoardDragRepaintsCoalesceFastEvents() {
+        Object board = construct(type("BoardPanel"), new Class<?>[0]);
+        setField(board, "lastDragRepaintNanos", Long.valueOf(System.nanoTime()));
+        Rectangle first = new Rectangle(10, 12, 22, 24);
+        Rectangle second = new Rectangle(80, 90, 16, 18);
+
+        invoke(board, "scheduleDragRepaint", new Class<?>[] { Rectangle.class }, first);
+        invoke(board, "scheduleDragRepaint", new Class<?>[] { Rectangle.class }, second);
+
+        Timer timer = (Timer) field(board, "dragRepaintTimer");
+        Rectangle pending = (Rectangle) field(board, "pendingDragDirty");
+        assertTrue(timer.isRunning(), "drag repaint timer coalesces fast samples");
+        assertTrue(pending.contains(first) && pending.contains(second),
+                "pending drag repaint is the union of fast samples");
+
+        invoke(board, "flushPendingDragRepaint", new Class<?>[0]);
+        assertEquals(null, field(board, "pendingDragDirty"), "flushed drag repaint clears pending region");
+        assertFalse(timer.isRunning(), "flushed drag repaint stops timer");
     }
 
     /**

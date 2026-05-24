@@ -62,6 +62,8 @@ public final class BoardPanel extends JPanel {
     private static final int ANIMATION_DELAY_MS = 16;
     /** Extra pixels included around drag dirty rectangles. */
     private static final int DRAG_REPAINT_PADDING = 8;
+    /** Minimum interval between drag repaint submissions. */
+    private static final long DRAG_REPAINT_FRAME_NANOS = 16_000_000L;
     /** Cached 1-pixel stroke for board hairlines. */
     private static final BasicStroke STROKE_1 = new BasicStroke(1f);
     /** Cached drag transparency composite. */
@@ -113,6 +115,10 @@ public final class BoardPanel extends JPanel {
     private int dragY;
     /** Whether the current press has crossed the drag threshold. */
     private boolean draggingPiece;
+    /** Dirty region accumulated while drag repainting is throttled. */
+    private Rectangle pendingDragDirty;
+    /** Last timestamp when a drag repaint was submitted. */
+    private long lastDragRepaintNanos;
     /** Piece currently gliding after a played move. */
     private byte animatedMovePiece = Piece.EMPTY;
     /** Secondary piece gliding after a compound move such as castling. */
@@ -137,6 +143,8 @@ public final class BoardPanel extends JPanel {
     private MoveHandler moveHandler;
     /** Timer driving subtle board animations. */
     private final Timer animationTimer;
+    /** Single-shot timer that coalesces high-frequency drag repaint requests. */
+    private final Timer dragRepaintTimer;
     /** Bitmap cache for board texture and piece images. */
     private final BoardImageCache imageCache = new BoardImageCache();
     /** Painter for suggested and user-drawn arrows. */
@@ -207,6 +215,9 @@ public final class BoardPanel extends JPanel {
                 Math.round(MIN_BOARD_SIZE + BOARD_MARGIN * 2 * displayScale())));
         animationTimer = new Timer(ANIMATION_DELAY_MS, event -> tickAnimation());
         animationTimer.setCoalesce(true);
+        dragRepaintTimer = new Timer(ANIMATION_DELAY_MS, event -> flushPendingDragRepaint());
+        dragRepaintTimer.setCoalesce(true);
+        dragRepaintTimer.setRepeats(false);
         MouseAdapter mouseHandler = new MouseAdapter() {
             /** Starts board pointer interaction from a mouse press. */
             @Override
@@ -249,6 +260,7 @@ public final class BoardPanel extends JPanel {
     @Override
     public void removeNotify() {
         animationTimer.stop();
+        dragRepaintTimer.stop();
         super.removeNotify();
     }
     /** Sets the position.
@@ -661,9 +673,12 @@ public final class BoardPanel extends JPanel {
         if (squareHighlights.isEmpty()) {
             return;
         }
+        Rectangle clip = g.getClipBounds();
         for (Map.Entry<Byte, Color> entry : squareHighlights.entrySet()) {
             Rectangle bounds = squareBounds(board, entry.getKey());
-            BoardStyle.drawInsetSquareHighlight(g, bounds, entry.getValue());
+            if (intersectsClip(clip, bounds)) {
+                BoardStyle.drawInsetSquareHighlight(g, bounds, entry.getValue());
+            }
         }
     }
     /** Paints Lichess-style user annotations on top of pieces.
@@ -778,7 +793,22 @@ public final class BoardPanel extends JPanel {
      * @param g graphics context
      * @param board board drawing bounds */
     private void drawBoardTexture(Graphics2D g, Rectangle board) {
-        g.drawImage(imageCache.boardTexture(board.width), board.x, board.y, null);
+        BufferedImage texture = imageCache.boardTexture(board.width);
+        Rectangle clip = g.getClipBounds();
+        if (clip == null) {
+            g.drawImage(texture, board.x, board.y, null);
+            return;
+        }
+        Rectangle dirty = board.intersection(clip);
+        if (dirty.isEmpty()) {
+            return;
+        }
+        int sx = dirty.x - board.x;
+        int sy = dirty.y - board.y;
+        g.drawImage(texture,
+                dirty.x, dirty.y, dirty.x + dirty.width, dirty.y + dirty.height,
+                sx, sy, sx + dirty.width, sy + dirty.height,
+                null);
     }
     /** Returns the cached board texture for a board size.
      * @param size board image size in pixels
@@ -809,8 +839,15 @@ public final class BoardPanel extends JPanel {
         if (!showLastMoveHighlight || lastMove == Move.NO_MOVE || arrowVisible) {
             return;
         }
-        BoardStyle.drawInsetSquareHighlight(g, squareBounds(board, Move.getFromIndex(lastMove)), Theme.LAST_MOVE_EDGE);
-        BoardStyle.drawInsetSquareHighlight(g, squareBounds(board, Move.getToIndex(lastMove)), Theme.LAST_MOVE_EDGE);
+        Rectangle clip = g.getClipBounds();
+        Rectangle from = squareBounds(board, Move.getFromIndex(lastMove));
+        Rectangle to = squareBounds(board, Move.getToIndex(lastMove));
+        if (intersectsClip(clip, from)) {
+            BoardStyle.drawInsetSquareHighlight(g, from, Theme.LAST_MOVE_EDGE);
+        }
+        if (intersectsClip(clip, to)) {
+            BoardStyle.drawInsetSquareHighlight(g, to, Theme.LAST_MOVE_EDGE);
+        }
     }
     /** Draws the selected square and legal destinations.
      * @param g graphics context
@@ -820,7 +857,10 @@ public final class BoardPanel extends JPanel {
             return;
         }
         Rectangle selected = squareBounds(board, selectedSquare);
-        BoardStyle.drawInsetSquareHighlight(g, selected, Theme.SELECTED_EDGE);
+        Rectangle clip = g.getClipBounds();
+        if (intersectsClip(clip, selected)) {
+            BoardStyle.drawInsetSquareHighlight(g, selected, Theme.SELECTED_EDGE);
+        }
         if (showLegalMovePreview) {
             drawLegalTargets(g, board);
             drawDropTarget(g, board);
@@ -906,9 +946,13 @@ public final class BoardPanel extends JPanel {
      * @param g graphics context
      * @param board board drawing bounds */
     private void drawLegalTargets(Graphics2D g, Rectangle board) {
+        Rectangle clip = g.getClipBounds();
         for (byte target : selectedLegalTargets) {
             if (target != selectedSquare) {
-                drawLegalTarget(g, squareBounds(board, target), isCaptureTarget(target));
+                Rectangle bounds = squareBounds(board, target);
+                if (intersectsClip(clip, bounds)) {
+                    drawLegalTarget(g, bounds, isCaptureTarget(target));
+                }
             }
         }
     }
@@ -921,6 +965,7 @@ public final class BoardPanel extends JPanel {
         }
         byte[] pieces = position.getBoard();
         int cell = board.width / 8;
+        Rectangle clip = g.getClipBounds();
         for (byte square = 0; square < 64; square++) {
             byte piece = pieces[square];
             if (piece != Piece.EMPTY) {
@@ -936,19 +981,12 @@ public final class BoardPanel extends JPanel {
                 if (square == snapHiddenSquare) {
                     continue;
                 }
-                drawPiece(g, board, cell, square, piece);
+                Rectangle bounds = squareBounds(board, square);
+                if (intersectsClip(clip, bounds)) {
+                    drawPieceAt(g, cell, bounds.x, bounds.y, piece);
+                }
             }
         }
-    }
-    /** Draws one piece glyph.
-     * @param g graphics context
-     * @param board board drawing bounds
-     * @param cell board cell size in pixels
-     * @param square board square index
-     * @param piece signed piece code */
-    private void drawPiece(Graphics2D g, Rectangle board, int cell, byte square, byte piece) {
-        Rectangle bounds = squareBounds(board, square);
-        drawPieceAt(g, cell, bounds.x, bounds.y, piece);
     }
     /** Draws one piece glyph at a board-relative pixel position.
      * @param g graphics context
@@ -1027,7 +1065,9 @@ public final class BoardPanel extends JPanel {
         }
         if (dragTargetSquare != Field.NO_SQUARE) {
             Rectangle bounds = squareBounds(board, dragTargetSquare);
-            drawLegalTarget(g, bounds, isCaptureTarget(dragTargetSquare));
+            if (intersectsClip(g.getClipBounds(), bounds)) {
+                drawLegalTarget(g, bounds, isCaptureTarget(dragTargetSquare));
+            }
         }
     }
     /** Draws the dragged piece at the current pointer position.
@@ -1042,6 +1082,10 @@ public final class BoardPanel extends JPanel {
         int offset = (scaledCell - cell) / 2;
         int pieceX = dragX - cell / 2 - offset;
         int pieceY = dragY - cell / 2 - offset;
+        Rectangle bounds = new Rectangle(pieceX, pieceY, scaledCell, scaledCell);
+        if (!intersectsClip(g.getClipBounds(), bounds)) {
+            return;
+        }
         java.awt.Composite savedComposite = g.getComposite();
         Color savedColor = g.getColor();
         try {
@@ -1055,6 +1099,16 @@ public final class BoardPanel extends JPanel {
     }
     /** Scale factor applied to a piece while it is being dragged so it lifts visibly over the board. */
     private static final double DRAG_SCALE = 1.0;
+    /** Pre-renders the dragged piece bitmap before high-frequency drag events start.
+     * @param piece signed piece code */
+    private void warmDragPieceImage(byte piece) {
+        Rectangle board = boardBounds();
+        int cell = board.width / 8;
+        int scaledCell = (int) Math.round(cell * DRAG_SCALE);
+        if (scaledCell > 0) {
+            imageCache.dragPieceImage(piece, scaledCell);
+        }
+    }
     /** Handles one mouse press.
      * @param event mouse event */
     private void handlePress(MouseEvent event) {
@@ -1105,6 +1159,7 @@ public final class BoardPanel extends JPanel {
             dragStartY = event.getY();
             dragX = dragStartX;
             dragY = dragStartY;
+            warmDragPieceImage(piece);
             setCursor(Cursor.getPredefinedCursor(Cursor.MOVE_CURSOR));
         } else {
             clearSelection();
@@ -1279,7 +1334,7 @@ public final class BoardPanel extends JPanel {
         }
         if (wasDragging || draggingPiece) {
             boolean dragStarted = !wasDragging && draggingPiece;
-            repaintDirty(union(oldDirty,
+            scheduleDragRepaint(union(oldDirty,
                     dragRepaintBounds(board, dragTargetSquare, dragHoverSquare,
                             dragX, dragY, draggingPiece, dragStarted)));
         }
@@ -1395,6 +1450,7 @@ public final class BoardPanel extends JPanel {
     }
     /** Clears drag-only state. */
     private void clearDragState() {
+        cancelPendingDragRepaint();
         dragSquare = Field.NO_SQUARE;
         dragTargetSquare = Field.NO_SQUARE;
         dragHoverSquare = Field.NO_SQUARE;
@@ -1631,6 +1687,42 @@ public final class BoardPanel extends JPanel {
         }
         return dirty;
     }
+    /** Schedules one drag repaint, coalescing bursts to a display-frame cadence.
+     * @param dirty dirty repaint bounds */
+    private void scheduleDragRepaint(Rectangle dirty) {
+        if (dirty == null) {
+            return;
+        }
+        pendingDragDirty = union(pendingDragDirty, dirty);
+        long now = System.nanoTime();
+        long elapsed = lastDragRepaintNanos == 0L ? Long.MAX_VALUE : now - lastDragRepaintNanos;
+        if (elapsed >= DRAG_REPAINT_FRAME_NANOS) {
+            flushPendingDragRepaint();
+            return;
+        }
+        if (!dragRepaintTimer.isRunning()) {
+            long remaining = DRAG_REPAINT_FRAME_NANOS - elapsed;
+            int delayMs = (int) Math.max(1L, (remaining + 999_999L) / 1_000_000L);
+            dragRepaintTimer.setInitialDelay(delayMs);
+            dragRepaintTimer.restart();
+        }
+    }
+    /** Submits the accumulated drag dirty rectangle immediately. */
+    private void flushPendingDragRepaint() {
+        Rectangle dirty = pendingDragDirty;
+        pendingDragDirty = null;
+        dragRepaintTimer.stop();
+        if (dirty != null) {
+            lastDragRepaintNanos = System.nanoTime();
+            repaintDirty(dirty);
+        }
+    }
+    /** Cancels any delayed drag repaint request. */
+    private void cancelPendingDragRepaint() {
+        pendingDragDirty = null;
+        lastDragRepaintNanos = 0L;
+        dragRepaintTimer.stop();
+    }
     /** Repaints one dirty rectangle.
      * @param dirty dirty repaint bounds */
     private void repaintDirty(Rectangle dirty) {
@@ -1658,6 +1750,13 @@ public final class BoardPanel extends JPanel {
     return new Rectangle(first);
         }
         return first.union(second);
+    }
+    /** Returns whether a drawing bounds intersects the current clip.
+     * @param clip active graphics clip, or null when unclipped
+     * @param bounds drawing bounds
+     * @return true when the bounds should be painted */
+    private static boolean intersectsClip(Rectangle clip, Rectangle bounds) {
+        return clip == null || bounds == null || clip.intersects(bounds);
     }
     /** Returns the square at screen coordinates.
      * @param x x coordinate
