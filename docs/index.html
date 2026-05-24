@@ -31,6 +31,7 @@
 </section>
 <section class="nav-section"><h2>User Guides</h2>
 <a class="" href="build-and-install.html" data-title="build &amp; install">Build &amp; Install</a>
+<a class="" href="workbench.html" data-title="desktop workbench">Desktop Workbench</a>
 <a class="" href="configuration.html" data-title="configuration">Configuration</a>
 <a class="" href="in-house-engine.html" data-title="in-house engine">In-House Engine</a>
 <a class="" href="lc0.html" data-title="lc0">LC0</a>
@@ -189,6 +190,9 @@ crtk engine builtin --startpos --depth 3 --format summary</code></pre>
 <td><code>crtk help --full</code></td>
 </tr>
 </tbody></table></div>
+<h2 id="desktop-workbench">Desktop Workbench</h2>
+<p>For interactive use, start with the native Swing workbench. It provides the board, command forms, datasets, logs, publishing previews, puzzles, and network visualizers in one desktop window. The CLI remains the interface for automation and reproducible batch runs.</p>
+<p><img src="assets/screenshots/workbench-analysis.png" alt="ChessRTK Workbench analysis view" loading="lazy"></p>
 <h2 id="command-areas">Command Areas</h2>
 <div class="table-wrap"><table>
 <thead><tr>
@@ -235,6 +239,11 @@ crtk engine builtin --startpos --depth 3 --format summary</code></pre>
 <td>Publishing</td>
 <td><code>book pdf</code>, <code>book render</code>, <code>book cover</code></td>
 <td>Native PDFs, no LaTeX required</td>
+</tr>
+<tr>
+<td>Desktop GUI</td>
+<td><code>workbench</code>, <code>gui</code></td>
+<td>Interactive board, command forms, logs, datasets, publishing, puzzles, and network views</td>
 </tr>
 </tbody></table></div>
 <h2 id="common-workflows">Common Workflows</h2>
@@ -292,6 +301,7 @@ crtk record export pgn --input dump/run.puzzles.json --output dump/run.pgn</code
 <a class="toc-h2" href="#navigation">Navigation</a>
 <a class="toc-h2" href="#smoke-test">Smoke Test</a>
 <a class="toc-h2" href="#documentation-formats">Documentation Formats</a>
+<a class="toc-h2" href="#desktop-workbench">Desktop Workbench</a>
 <a class="toc-h2" href="#command-areas">Command Areas</a>
 <a class="toc-h2" href="#common-workflows">Common Workflows</a>
 <a class="toc-h3" href="#study-one-position">Study One Position</a>

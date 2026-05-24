@@ -44,6 +44,7 @@ NAVIGATION: list[tuple[str, list[tuple[str, str]]]] = [
         "User Guides",
         [
             ("build-and-install.md", "Build & Install"),
+            ("workbench.md", "Desktop Workbench"),
             ("configuration.md", "Configuration"),
             ("in-house-engine.md", "In-House Engine"),
             ("lc0.md", "LC0"),
@@ -436,8 +437,11 @@ def copy_assets() -> None:
         shutil.rmtree(assets)
     (assets / "diagrams").mkdir(parents=True, exist_ok=True)
     (assets / "banner" / "github").mkdir(parents=True, exist_ok=True)
+    (assets / "screenshots").mkdir(parents=True, exist_ok=True)
     for path in (ROOT / "assets" / "diagrams").glob("*.png"):
         shutil.copy2(path, assets / "diagrams" / path.name)
+    for path in (ROOT / "assets" / "screenshots").glob("*.png"):
+        shutil.copy2(path, assets / "screenshots" / path.name)
     banner = ROOT / "assets" / "banner" / "github" / "crtk-github-banner.png"
     if banner.exists():
         shutil.copy2(banner, assets / "banner" / "github" / banner.name)

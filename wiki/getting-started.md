@@ -27,6 +27,9 @@ crtk doctor
 crtk help
 ```
 
+The installer also registers `ChessRTK Workbench` as a desktop app on Linux
+systems that support `.desktop` entries.
+
 If you do not install the launcher, use:
 
 ```bash
@@ -81,6 +84,12 @@ crtk move after --startpos e2e4
 crtk move play --startpos "e4 e5 Nf3 Nc6"
 ```
 
+For the same workflow in the GUI:
+
+```bash
+crtk workbench
+```
+
 ## Engine Workflow
 
 Use the in-process engine when you want no external process:
@@ -106,6 +115,7 @@ For full books and covers, continue with [Book publishing](book-publishing.md).
 
 ## Related Pages
 
+- [Desktop workbench](workbench.md)
 - [Configuration](configuration.md)
 - [Command reference](command-reference.md)
 - [Example commands](example-commands.md)

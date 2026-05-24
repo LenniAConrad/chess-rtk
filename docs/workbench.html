@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Desktop Workbench | ChessRTK Wiki</title>
+  <link rel="stylesheet" href="styles.css">
+  <script defer src="search-index.js"></script>
+  <script defer src="site.js"></script>
+</head>
+<body>
+  <button class="menu-toggle" type="button" aria-label="Toggle navigation">Menu</button>
+  <div class="site-shell">
+    <aside class="sidebar">
+      <a class="brand" href="index.html">
+        <span class="brand-mark">CR</span>
+        <span><strong>ChessRTK</strong><small>Wiki</small></span>
+      </a>
+      <label class="search-label" for="doc-search">Search pages</label>
+      <input id="doc-search" class="search" type="search" placeholder="Search docs...">
+      <div id="search-results" class="search-results" hidden></div>
+      <nav class="nav"><section class="nav-section"><h2>Start Here</h2>
+<a class="" href="index.html" data-title="home">Home</a>
+<a class="" href="getting-started.html" data-title="getting started">Getting Started</a>
+<a class="" href="use-cases.html" data-title="use cases">Use Cases</a>
+<a class="" href="command-cheatsheet.html" data-title="command cheatsheet">Command Cheatsheet</a>
+<a class="" href="faq.html" data-title="faq">FAQ</a>
+<a class="" href="command-reference.html" data-title="command reference">Command Reference</a>
+<a class="" href="example-commands.html" data-title="example commands">Example Commands</a>
+<a class="" href="troubleshooting.html" data-title="troubleshooting">Troubleshooting</a>
+</section>
+<section class="nav-section"><h2>User Guides</h2>
+<a class="" href="build-and-install.html" data-title="build &amp; install">Build &amp; Install</a>
+<a class="active" href="workbench.html" data-title="desktop workbench">Desktop Workbench</a>
+<a class="" href="configuration.html" data-title="configuration">Configuration</a>
+<a class="" href="in-house-engine.html" data-title="in-house engine">In-House Engine</a>
+<a class="" href="lc0.html" data-title="lc0">LC0</a>
+<a class="" href="outputs-and-logs.html" data-title="outputs &amp; logs">Outputs &amp; Logs</a>
+<a class="" href="support.html" data-title="support">Support</a>
+</section>
+<section class="nav-section"><h2>Workflows</h2>
+<a class="" href="mining.html" data-title="mining puzzles">Mining Puzzles</a>
+<a class="" href="filter-dsl.html" data-title="filter dsl">Filter DSL</a>
+<a class="" href="datasets.html" data-title="datasets">Datasets</a>
+<a class="" href="book-publishing.html" data-title="book publishing">Book Publishing</a>
+<a class="" href="piece-tags.html" data-title="tags">Tags</a>
+<a class="" href="tag-reference.html" data-title="tag reference">Tag Reference</a>
+<a class="" href="t5.html" data-title="t5 text">T5 Text</a>
+<a class="" href="ai-agents.html" data-title="ai agents">AI Agents</a>
+</section>
+<section class="nav-section"><h2>Development</h2>
+<a class="" href="architecture.html" data-title="architecture">Architecture</a>
+<a class="" href="quality-and-testing.html" data-title="quality &amp; testing">Quality &amp; Testing</a>
+<a class="" href="development-notes.html" data-title="development notes">Development Notes</a>
+<a class="" href="releasing.html" data-title="releasing">Releasing</a>
+<a class="" href="roadmap.html" data-title="roadmap">Roadmap</a>
+<a class="" href="glossary.html" data-title="glossary">Glossary</a>
+<a class="" href="tagging-implementation-plan.html" data-title="tagging plan">Tagging Plan</a>
+<a class="" href="wiki-index.html" data-title="wiki index">Wiki Index</a>
+</section></nav>
+    </aside>
+    <div class="page">
+      <header class="topbar">
+        <div>
+          <span>User Guides</span>
+          <strong>Desktop Workbench</strong>
+        </div>
+        <nav>
+          <a href="index.html">Home</a>
+          <a href="wiki-index.html">Wiki Index</a>
+          <a href="chessrtk-manual.pdf">Manual PDF</a>
+          <a href="command-reference.html">Commands</a>
+        </nav>
+      </header>
+      
+      <main class="content-layout">
+        <article class="content">
+          <h1 id="desktop-workbench">Desktop Workbench</h1>
+<p>The ChessRTK Workbench is the native Swing GUI for the toolkit. It is the easiest way to explore positions, run commands, inspect generated data, and use visual features without assembling long CLI invocations by hand.</p>
+<p>Use the CLI when a workflow needs scripting, CI, stable text output, or batch automation. Use the workbench when the task benefits from a board, controls, preview panes, and visual feedback.</p>
+<h2 id="launch">Launch</h2>
+<p>After installing ChessRTK, open <code>ChessRTK Workbench</code> from the applications menu. The same app can be launched from a shell:</p>
+<pre><code class="language-bash">crtk workbench
+crtk gui
+crtk workbench --fen &quot;&lt;FEN&gt;&quot;</code></pre>
+<p>If the launcher is not installed, run:</p>
+<pre><code class="language-bash">java -cp out application.Main workbench --fen &quot;&lt;FEN&gt;&quot;</code></pre>
+<h2 id="analysis-workspace">Analysis Workspace</h2>
+<p>The analysis workspace combines a board, move navigation, legal moves, tags, ECO lookup, a board editor, MCTS controls, display settings, and engine settings. It supports PGN loading and game navigation from the same view.</p>
+<p><img src="assets/screenshots/workbench-analysis.png" alt="Workbench analysis board" loading="lazy"></p>
+<h2 id="command-controller">Command Controller</h2>
+<p>The command controller exposes the CLI as forms. It groups required inputs, exclusive choices, optional flags, validation, generated command text, and run controls so commands can be assembled without memorizing every option.</p>
+<p><img src="assets/screenshots/workbench-commands.png" alt="Workbench command controller" loading="lazy"></p>
+<h2 id="network-visualizer">Network Visualizer</h2>
+<p>The network tab provides NNUE, LC0 CNN, and BT4 inspection. It can show loaded model state, inference state, feature boards, activation summaries, atlases, trace views, runtime information, and exportable visualizations.</p>
+<p><img src="assets/screenshots/workbench-network.png" alt="Workbench network visualizer" loading="lazy"></p>
+<h2 id="main-areas">Main Areas</h2>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Area</th>
+<th>Purpose</th>
+</tr></thead><tbody>
+<tr>
+<td>Dashboard</td>
+<td>Session overview, health, artifacts, and recent jobs</td>
+</tr>
+<tr>
+<td>Analyze</td>
+<td>Board, PGN, legal moves, tags, ECO, editor, MCTS, and engine controls</td>
+</tr>
+<tr>
+<td>Commands</td>
+<td>GUI forms for CLI commands</td>
+</tr>
+<tr>
+<td>Batch</td>
+<td>FEN-list and batch-command execution</td>
+</tr>
+<tr>
+<td>Datasets</td>
+<td>Dataset loading, validation, summaries, and charts</td>
+</tr>
+<tr>
+<td>Publish</td>
+<td>Diagram, book, study, collection, cover, and report previews</td>
+</tr>
+<tr>
+<td>Console</td>
+<td>Command output with terminal-style progress handling</td>
+</tr>
+<tr>
+<td>Logs</td>
+<td>Persisted workbench job logs and artifacts</td>
+</tr>
+<tr>
+<td>Network</td>
+<td>NNUE, CNN, and BT4 model diagnostics</td>
+</tr>
+<tr>
+<td>Puzzles</td>
+<td>Interactive puzzle practice</td>
+</tr>
+</tbody></table></div>
+<h2 id="keyboard-and-layout">Keyboard And Layout</h2>
+<ul>
+<li>Arrow keys navigate game positions; Home/End jump to the start or end.</li>
+<li>Tabs can be opened, closed, duplicated, and split into editor groups.</li>
+<li>The layout controls support left, right, top, bottom, and quadrant splits.</li>
+<li>Settings include light and dark appearance modes, board coordinates,</li>
+</ul>
+<p>animations, highlights, eval-bar behavior, and external-engine options.</p>
+        </article>
+        <aside class="toc"><h2>On This Page</h2>
+<a class="toc-h2" href="#launch">Launch</a>
+<a class="toc-h2" href="#analysis-workspace">Analysis Workspace</a>
+<a class="toc-h2" href="#command-controller">Command Controller</a>
+<a class="toc-h2" href="#network-visualizer">Network Visualizer</a>
+<a class="toc-h2" href="#main-areas">Main Areas</a>
+<a class="toc-h2" href="#keyboard-and-layout">Keyboard And Layout</a></aside>
+      </main>
+      <footer class="footer">
+        <span>Generated from <code>wiki/workbench.md</code>.</span>
+        <span>Build with <code>python3 scripts/build_docs_site.py</code>.</span>
+      </footer>
+    </div>
+  </div>
+</body>
+</html>

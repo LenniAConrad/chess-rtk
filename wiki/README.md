@@ -14,6 +14,8 @@ If the launcher is not installed, replace `crtk <command> ...` with
 
 - [Getting started](getting-started) - build, install, verify, and run the
   first commands
+- [Desktop workbench](workbench) - GUI analysis, command forms, datasets, logs,
+  publishing, network views, and puzzles
 - [FAQ](faq) - practical answers for new users
 - [Use cases](use-cases) - workflow paths by role or job
 - [Command cheatsheet](command-cheatsheet) - common tasks mapped to commands
@@ -24,6 +26,7 @@ If the launcher is not installed, replace `crtk <command> ...` with
 ## Guides For Users
 
 - [Build and install](build-and-install)
+- [Desktop workbench](workbench)
 - [Configuration](configuration)
 - [Running engines](in-house-engine)
 - [LC0 UCI engine and Java evaluator](lc0)
@@ -65,6 +68,7 @@ If the launcher is not installed, replace `crtk <command> ...` with
 | Tag positions and lines | `fen tags`, `puzzle tags`, `record tag-stats` | [Piece and position tags](piece-tags), [Tag reference](tag-reference) |
 | Export training data | `record dataset npy`, `record dataset lc0`, `record dataset classifier` | [Datasets](datasets) |
 | Render diagrams and books | `fen render`, `book pdf`, `book render`, `book cover` | [Book publishing](book-publishing) |
+| Use the desktop GUI | `workbench`, `gui` | [Desktop workbench](workbench) |
 | Automate command use | `doctor`, `config validate`, deterministic move and bestmove commands | [AI agents and automation](ai-agents) |
 
 ## Architecture Summary

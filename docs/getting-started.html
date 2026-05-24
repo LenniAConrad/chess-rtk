@@ -31,6 +31,7 @@
 </section>
 <section class="nav-section"><h2>User Guides</h2>
 <a class="" href="build-and-install.html" data-title="build &amp; install">Build &amp; Install</a>
+<a class="" href="workbench.html" data-title="desktop workbench">Desktop Workbench</a>
 <a class="" href="configuration.html" data-title="configuration">Configuration</a>
 <a class="" href="in-house-engine.html" data-title="in-house engine">In-House Engine</a>
 <a class="" href="lc0.html" data-title="lc0">LC0</a>
@@ -91,6 +92,7 @@ java -cp out application.Main help</code></pre>
 <pre><code class="language-bash">./install.sh
 crtk doctor
 crtk help</code></pre>
+<p>The installer also registers <code>ChessRTK Workbench</code> as a desktop app on Linux systems that support <code>.desktop</code> entries.</p>
 <p>If you do not install the launcher, use:</p>
 <pre><code class="language-bash">java -cp out application.Main &lt;area&gt; &lt;action&gt; [options]</code></pre>
 <h2 id="verify-the-checkout">Verify The Checkout</h2>
@@ -116,6 +118,8 @@ crtk help --full</code></pre>
 crtk move list --startpos --format both
 crtk move after --startpos e2e4
 crtk move play --startpos &quot;e4 e5 Nf3 Nc6&quot;</code></pre>
+<p>For the same workflow in the GUI:</p>
+<pre><code class="language-bash">crtk workbench</code></pre>
 <h2 id="engine-workflow">Engine Workflow</h2>
 <p>Use the in-process engine when you want no external process:</p>
 <pre><code class="language-bash">crtk engine builtin --startpos --depth 3 --format summary</code></pre>
@@ -127,6 +131,7 @@ crtk engine bestmove --startpos --format both --max-duration 2s</code></pre>
 <p>For full books and covers, continue with <a href="book-publishing.html">Book publishing</a>.</p>
 <h2 id="related-pages">Related Pages</h2>
 <ul>
+<li><a href="workbench.html">Desktop workbench</a></li>
 <li><a href="configuration.html">Configuration</a></li>
 <li><a href="command-reference.html">Command reference</a></li>
 <li><a href="example-commands.html">Example commands</a></li>

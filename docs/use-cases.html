@@ -31,6 +31,7 @@
 </section>
 <section class="nav-section"><h2>User Guides</h2>
 <a class="" href="build-and-install.html" data-title="build &amp; install">Build &amp; Install</a>
+<a class="" href="workbench.html" data-title="desktop workbench">Desktop Workbench</a>
 <a class="" href="configuration.html" data-title="configuration">Configuration</a>
 <a class="" href="in-house-engine.html" data-title="in-house engine">In-House Engine</a>
 <a class="" href="lc0.html" data-title="lc0">LC0</a>
@@ -76,6 +77,16 @@
         <article class="content">
           <h1 id="use-cases">Use Cases</h1>
 <p>This page maps common tasks to the commands and documentation sections that usually apply.</p>
+<h2 id="use-the-desktop-workbench">Use The Desktop Workbench</h2>
+<p>Use the workbench for interactive analysis, PGN loading, board editing, command forms, logs, datasets, publishing previews, puzzles, and neural-network inspection.</p>
+<pre><code class="language-bash">crtk workbench
+crtk workbench --fen &quot;&lt;FEN&gt;&quot;</code></pre>
+<p>Read next:</p>
+<ul>
+<li><a href="workbench.html">Desktop Workbench</a></li>
+<li><a href="getting-started.html">Getting Started</a></li>
+<li><a href="command-cheatsheet.html">Command Cheatsheet</a></li>
+</ul>
 <h2 id="study-one-position">Study One Position</h2>
 <p>Use the position and move primitives first. They run in-process and do not need a configured UCI engine.</p>
 <pre><code class="language-bash">crtk fen print --fen &quot;&lt;FEN&gt;&quot;
@@ -171,6 +182,7 @@ crtk engine bestmove --fen &quot;&lt;FEN&gt;&quot; --format both --max-duration 
 </ul>
         </article>
         <aside class="toc"><h2>On This Page</h2>
+<a class="toc-h2" href="#use-the-desktop-workbench">Use The Desktop Workbench</a>
 <a class="toc-h2" href="#study-one-position">Study One Position</a>
 <a class="toc-h2" href="#verify-move-generation">Verify Move Generation</a>
 <a class="toc-h2" href="#mine-puzzles">Mine Puzzles</a>

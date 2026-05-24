@@ -143,8 +143,8 @@ local artifacts and are ignored by git.
 crtk help
 ```
 
-After install, open `ChessRTK Workbench` from your applications menu, or launch
-the same app from a shell:
+After install, open `ChessRTK Workbench` from your applications menu for the
+desktop GUI, or launch the same app from a shell:
 
 ```bash
 crtk workbench

@@ -31,6 +31,7 @@
 </section>
 <section class="nav-section"><h2>User Guides</h2>
 <a class="" href="build-and-install.html" data-title="build &amp; install">Build &amp; Install</a>
+<a class="" href="workbench.html" data-title="desktop workbench">Desktop Workbench</a>
 <a class="" href="configuration.html" data-title="configuration">Configuration</a>
 <a class="" href="in-house-engine.html" data-title="in-house engine">In-House Engine</a>
 <a class="" href="lc0.html" data-title="lc0">LC0</a>
@@ -736,16 +737,22 @@ crtk engine builtin --lc0 --weights models/leela_112planes-10blocksx128-policyhe
 <li><code>-h|--help</code>: show help</li>
 </ul>
 <h2 id="workbench"><code>workbench</code></h2>
-<p>Launch the native Swing command and analysis workbench. The alias <code>gui</code> launches this same workbench.</p>
+<p>Launch the native Swing workbench. The alias <code>gui</code> launches this same app. For interactive use, this is usually easier than writing CLI commands directly; the CLI remains the stable interface for scripts and batch automation.</p>
 <p>Alias:</p>
 <ul>
 <li><code>gui</code></li>
 </ul>
 <p>The workbench includes:</p>
 <ul>
-<li>an analysis board with legal moves, click-to-move, static tags, and engine command shortcuts</li>
-<li>a focused command controller with curated templates and command-specific flag tables</li>
-<li>a batch runner for FEN lists and high-value research commands</li>
+<li>an analysis board with legal moves, click-to-move, PGN loading, ECO lookup,</li>
+</ul>
+<p>static tags, board editing, MCTS controls, and engine command shortcuts</p>
+<ul>
+<li>a command controller with curated templates, validation, and</li>
+</ul>
+<p>command-specific flag tables</p>
+<ul>
+<li>batch, dataset, publishing, console, logs, network, and puzzle tabs</li>
 </ul>
 <p>Options:</p>
 <ul>

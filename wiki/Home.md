@@ -52,6 +52,15 @@ java -cp out application.Main <area> <action> [options]
 | PDF manual | offline reading, printing, and release attachments | [chessrtk-manual.pdf](https://LenniAConrad.github.io/chess-rtk/chessrtk-manual.pdf) |
 | CLI help | exact installed command options | `crtk help --full` |
 
+## Desktop Workbench
+
+For interactive use, start with the native Swing workbench. It provides the
+board, command forms, datasets, logs, publishing previews, puzzles, and network
+visualizers in one desktop window. The CLI remains the interface for automation
+and reproducible batch runs.
+
+![ChessRTK Workbench analysis view](../assets/screenshots/workbench-analysis.png)
+
 ## Command Areas
 
 | Area | Main commands | Notes |
@@ -64,6 +73,7 @@ java -cp out application.Main <area> <action> [options]
 | Records and filters | `record files`, `record stats`, `record analysis-delta` | Reusable analysis dumps |
 | Dataset export | `record dataset npy`, `record dataset lc0`, `record dataset classifier` | Writes portable files directly |
 | Publishing | `book pdf`, `book render`, `book cover` | Native PDFs, no LaTeX required |
+| Desktop GUI | `workbench`, `gui` | Interactive board, command forms, logs, datasets, publishing, puzzles, and network views |
 
 ## Common Workflows
 

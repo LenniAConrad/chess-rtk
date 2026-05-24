@@ -668,16 +668,19 @@ Options:
 
 ## `workbench`
 
-Launch the native Swing command and analysis workbench. The alias `gui`
-launches this same workbench.
+Launch the native Swing workbench. The alias `gui` launches this same app.
+For interactive use, this is usually easier than writing CLI commands directly;
+the CLI remains the stable interface for scripts and batch automation.
 
 Alias:
 - `gui`
 
 The workbench includes:
-- an analysis board with legal moves, click-to-move, static tags, and engine command shortcuts
-- a focused command controller with curated templates and command-specific flag tables
-- a batch runner for FEN lists and high-value research commands
+- an analysis board with legal moves, click-to-move, PGN loading, ECO lookup,
+  static tags, board editing, MCTS controls, and engine command shortcuts
+- a command controller with curated templates, validation, and
+  command-specific flag tables
+- batch, dataset, publishing, console, logs, network, and puzzle tabs
 
 Options:
 - `--fen "<FEN...>"` (or pass it positionally)

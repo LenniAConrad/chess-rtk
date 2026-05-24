@@ -3,6 +3,23 @@
 This page maps common tasks to the commands and documentation sections that
 usually apply.
 
+## Use The Desktop Workbench
+
+Use the workbench for interactive analysis, PGN loading, board editing, command
+forms, logs, datasets, publishing previews, puzzles, and neural-network
+inspection.
+
+```bash
+crtk workbench
+crtk workbench --fen "<FEN>"
+```
+
+Read next:
+
+- [Desktop Workbench](workbench)
+- [Getting Started](getting-started)
+- [Command Cheatsheet](command-cheatsheet)
+
 ## Study One Position
 
 Use the position and move primitives first. They run in-process and do not need

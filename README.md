@@ -1,22 +1,59 @@
 # ChessRTK (`crtk`)
 
-ChessRTK is a Java 17 chess research toolkit for command-line workflows: FEN
-and SAN handling, legal move generation, perft validation, engine analysis,
-puzzle mining, dataset export, board rendering, and native PDF book publishing.
+![ChessRTK Workbench analysis view](assets/screenshots/workbench-analysis.png)
 
-It is not a consumer chess app. It provides commands for building, checking,
-mining, exporting, and publishing chess data in terminals, scripts, CI, and
-AI-agent workflows.
+ChessRTK is a Java 17 chess research toolkit with a native desktop workbench
+and a reproducible CLI: FEN and SAN handling, legal move generation, perft
+validation, engine analysis, puzzle mining, dataset export, board rendering,
+and native PDF book publishing.
+
+For day-to-day use, start with the workbench. It gives you a board, legal
+moves, PGN loading, ECO lookup, tag inspection, command forms, batch jobs, logs,
+datasets, publishing previews, network visualizers, puzzles, and settings in one
+desktop app. The CLI remains the stable interface for scripts, CI, reproducible
+jobs, and AI-agent workflows.
 
 [Website docs](docs/index.html) |
 [PDF manual](docs/chessrtk-manual.pdf) |
 [Markdown wiki](wiki/README.md) |
 [Getting started](wiki/getting-started.md) |
+[Workbench](wiki/workbench.md) |
 [Use cases](wiki/use-cases.md) |
 [Cheatsheet](wiki/command-cheatsheet.md) |
 [Command reference](wiki/command-reference.md) |
 [FAQ](wiki/faq.md) |
 [Troubleshooting](wiki/troubleshooting.md)
+
+## Highlights
+
+- Native desktop GUI for analysis, commands, batch work, datasets, publishing,
+  logs, neural-network inspection, and puzzle practice.
+- Deterministic CLI commands for FEN, SAN/UCI, legal moves, perft, engines,
+  records, datasets, rendering, and book generation.
+- One shared Java chess core for the GUI, CLI, tests, renderers, exporters, and
+  publishing pipeline.
+- Native PDF output for diagrams, puzzle books, study collections, and covers;
+  no LaTeX step is required.
+- Regression checks for move generation, command behavior, docs, publishing,
+  workbench UI support, and installable launchers.
+
+## Workbench
+
+Launch the desktop app from the applications menu after installation, or run:
+
+```bash
+crtk workbench
+crtk workbench --fen "<FEN>"
+```
+
+The workbench is designed for interactive chess work that is awkward in a
+terminal: moving through a game, comparing legal moves, editing a board, opening
+PGNs, inspecting tags, checking command arguments, running batch jobs, reviewing
+logs, and visualizing NNUE/CNN/BT4 model internals.
+
+| Analysis and PGN | Command controller | Network visualizer |
+| --- | --- | --- |
+| ![Workbench analysis board](assets/screenshots/workbench-analysis.png) | ![Workbench command controller](assets/screenshots/workbench-commands.png) | ![Workbench network visualizer](assets/screenshots/workbench-network.png) |
 
 ## Scope
 
@@ -27,7 +64,8 @@ position model is used for:
 - FEN, SAN, UCI move conversion, Chess960 starts, and line application
 - bounded built-in search plus optional external UCI engine analysis
 - position tags, puzzle mining, record filtering, and dataset writers
-- board images, diagram PDFs, puzzle books, and print-cover generation
+- the Swing workbench, board images, diagram PDFs, puzzle books, and
+  print-cover generation
 
 This reduces differences between search, tags, datasets, rendering, and book
 output when they depend on castling rights, en-passant, promotion, notation, or
