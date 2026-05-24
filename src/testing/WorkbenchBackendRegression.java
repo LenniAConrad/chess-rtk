@@ -68,6 +68,7 @@ final class WorkbenchBackendRegression {
         testNetworkPanelSimpleControlsRenderHeadlessly();
         testNetworkLoadingCardTracksRequestedArchitecture();
         testNetworkLoadingCardShowsProviderPhase();
+        testNetworkLoadingPanelIsTextOnly();
         testRealActivationProgressReportsFallback();
         testNetworkMctsUpdatesAreNonBlocking();
         testNetworkDiagnosticsPreviewHighlightsConfig();
@@ -534,6 +535,26 @@ final class WorkbenchBackendRegression {
     }
 
     /**
+     * Verifies the Network loading placeholder stays a quiet text-only
+     * surface, not a separate animated card.
+     */
+    private static void testNetworkLoadingPanelIsTextOnly() {
+        String source;
+        try {
+            source = Files.readString(Path.of("src/application/gui/workbench/network/LoadingPanel.java"),
+                    StandardCharsets.UTF_8);
+        } catch (IOException ex) {
+            throw new AssertionError("unable to read LoadingPanel source", ex);
+        }
+        assertFalse(source.contains("javax.swing.Timer"),
+                "network loading placeholder does not run its own animation timer");
+        assertFalse(source.contains("drawArc"),
+                "network loading placeholder does not paint a spinner");
+        assertFalse(source.contains("fillRoundRect"),
+                "network loading placeholder does not paint a card chrome");
+    }
+
+    /**
      * Counts selector items whose display text contains a token.
      *
      * @param combo selector to inspect
@@ -608,6 +629,12 @@ final class WorkbenchBackendRegression {
                 "network MCTS does not force synchronous repainting");
         assertTrue(source.contains("NETWORK_MCTS_PUBLISH_INTERVAL"),
                 "network MCTS has a publish throttle");
+        assertTrue(source.contains("SwingWorker<Void, NetworkMctsFrame>"),
+                "network MCTS publishes frames that can carry activation snapshots");
+        assertTrue(source.contains("NETWORK_MCTS_INFERENCE_MIN_UPDATE_NANOS"),
+                "network MCTS throttles streamed leaf inference");
+        assertTrue(source.contains("buildNetworkMctsFrame"),
+                "network MCTS prepares leaf inference off the EDT");
     }
 
     /**
