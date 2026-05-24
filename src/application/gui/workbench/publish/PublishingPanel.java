@@ -881,15 +881,15 @@ public final class PublishingPanel {
         panel.add(toolbar, BorderLayout.SOUTH);
 
         styleAreas(publishPreview);
-        publishPreview.setRows(7);
+        publishPreview.setRows(6);
         publishPreview.setLineWrap(true);
         publishPreview.setWrapStyleWord(true);
         publishPreview.setEditable(false);
 
         JSplitPane previewSplit = new JSplitPane(JSplitPane.VERTICAL_SPLIT, publishVisualPreview,
                 scroll(publishPreview));
-        previewSplit.setResizeWeight(0.72);
-        previewSplit.setDividerLocation(0.72);
+        previewSplit.setResizeWeight(0.78);
+        previewSplit.setDividerLocation(0.78);
         previewSplit.setDividerSize(8);
         previewSplit.setContinuousLayout(true);
         SplitPaneStyler.style(previewSplit);
@@ -1223,10 +1223,10 @@ public final class PublishingPanel {
         String newline = System.lineSeparator();
         StringBuilder sb = new StringBuilder(768);
         PublishTask task = selectedPublishTask();
-        sb.append("Workflow: ").append(task).append(newline);
-        sb.append("Status: ").append(issue == null ? "ready" : "needs attention - " + issue).append(newline);
-        sb.append("Source: ").append(publishSourcePreview(task)).append(newline);
-        sb.append("Output: ").append(publishOutputPreview(task)).append(newline);
+        appendPublishingPreviewLine(sb, "Task", task.toString(), newline);
+        appendPublishingPreviewLine(sb, "Status", issue == null ? "ready" : "needs attention - " + issue, newline);
+        appendPublishingPreviewLine(sb, "Source", publishSourcePreview(task), newline);
+        appendPublishingPreviewLine(sb, "Output", publishOutputPreview(task), newline);
         appendPublishingTextLine(sb, "Title", trimmed(publishTitleField), newline);
         if (task != PublishTask.DIAGRAMS) {
             appendPublishingTextLine(sb, "Subtitle", trimmed(publishSubtitleField), newline);
@@ -1234,8 +1234,8 @@ public final class PublishingPanel {
         if (task == PublishTask.COLLECTION || task == PublishTask.STUDY) {
             appendPublishingTextLine(sb, "Author", trimmed(publishAuthorField), newline);
         }
-        sb.append("Options: ").append(publishOptionsPreview(task)).append(newline);
-        sb.append("Command: ").append(command);
+        appendPublishingPreviewLine(sb, "Options", publishOptionsPreview(task), newline);
+        sb.append(newline).append(command);
         return sb.toString();
     }
 
@@ -1466,8 +1466,20 @@ public final class PublishingPanel {
      */
     private static void appendPublishingTextLine(StringBuilder sb, String label, String value, String newline) {
         if (!value.isEmpty()) {
-            sb.append(label).append(": ").append(value).append(newline);
+            appendPublishingPreviewLine(sb, label, value, newline);
         }
+    }
+
+    /**
+     * Appends one aligned publishing preview line.
+     *
+     * @param sb target builder
+     * @param label line label
+     * @param value line value
+     * @param newline line separator
+     */
+    private static void appendPublishingPreviewLine(StringBuilder sb, String label, String value, String newline) {
+        sb.append(String.format(Locale.ROOT, "%-8s %s", label, value)).append(newline);
     }
 
     /**

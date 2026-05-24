@@ -54,6 +54,7 @@ final class WorkbenchCommandRegression {
         testCommandPreviewQuoting();
         testPublishingPreviewFenCompaction();
         testPublishingVisualPreviewPages();
+        testPublishingVisualPreviewPaintsTaskLayouts();
     }
 
     private static void testFirstFenLineSkipsNonFenRows() {
@@ -511,6 +512,35 @@ final class WorkbenchCommandRegression {
         assertEquals(Integer.valueOf(1), invoke(preview, "pageNumber", new Class<?>[0]),
                 "publishing preview previous page");
         assertPaintsOpaqueCorner(preview, 280, 360, "publishing preview paints surface");
+    }
+
+    /**
+     * Verifies every publishing workflow preview can paint its task-specific
+     * layout.
+     */
+    private static void testPublishingVisualPreviewPaintsTaskLayouts() {
+        JComponent preview = (JComponent) construct(type("PublishPreview"), new Class<?>[0]);
+        String[] workflows = {
+                "Diagrams PDF",
+                "Render Manifest PDF",
+                "Puzzle Collection",
+                "Study Book",
+                "Cover PDF"
+        };
+        boolean[] cover = { false, false, false, false, true };
+        boolean[] diagram = { true, false, false, false, false };
+        for (int i = 0; i < workflows.length; i++) {
+            Object data = construct(type("PublishPreview$Preview"),
+                    new Class<?>[] { String.class, String.class, String.class, String.class, String.class,
+                            boolean.class, String.class, int.class, boolean.class, boolean.class,
+                            boolean.class, boolean.class },
+                    workflows[i], "Preview Title", "Subtitle",
+                    "current board FEN (rnbqkbnr/pppppppp/8/8/8/5N2/PPPPPPPP/RNBQKB1R b)",
+                    "output preview", Boolean.TRUE, "", 4,
+                    Boolean.valueOf(cover[i]), Boolean.valueOf(diagram[i]), Boolean.FALSE, Boolean.FALSE);
+            invoke(preview, "setPreview", new Class<?>[] { type("PublishPreview$Preview") }, data);
+            assertPaintsOpaqueCorner(preview, 320, 420, "publishing preview paints " + workflows[i]);
+        }
     }
 
     /**
