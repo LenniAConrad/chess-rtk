@@ -54,6 +54,7 @@ import javax.swing.table.TableCellRenderer;
 
 import application.gui.workbench.layout.LazyPanel;
 import application.gui.workbench.layout.FlatTabbedPaneUI;
+import application.gui.workbench.dataset.DatasetChart;
 import application.gui.workbench.network.TensorViz;
 import application.gui.workbench.ui.FileDialogs;
 import application.gui.workbench.ui.TagCloud;
@@ -101,6 +102,10 @@ final class WorkbenchUiRegression {
         testSettingsMenuExposesThemeModes();
         testLayoutMenuExposesUsefulWorkbenchControls();
         testToggleSwitchAnimatesStateChanges();
+        testStatusBadgeAnimatesStateChanges();
+        testSegmentedSwitcherAnimatesSelection();
+        testSplitPaneSashAnimatesHover();
+        testChartsRevealNewData();
         testCommandFormOptionalTogglesFillLeadColumn();
         testThemeColorContrast();
         testThemeUsesVscodeModernColorTokens();
@@ -683,6 +688,82 @@ final class WorkbenchUiRegression {
         assertEquals(Double.valueOf(0.0), Double.valueOf((Double) field(toggle, "animationTargetProgress")),
                 "toggle animates toward off state");
         timer.stop();
+    }
+
+    /**
+     * Verifies status badges ease state changes and keep busy feedback alive.
+     */
+    private static void testStatusBadgeAnimatesStateChanges() {
+        JComponent badge = (JComponent) construct(type("StatusBadge"), new Class<?>[0]);
+        invoke(badge, "busy", new Class<?>[] { String.class }, "loading model");
+        Timer timer = (Timer) field(badge, "animationTimer");
+        assertTrue(timer.isRunning(), "busy status badge starts animation");
+        setField(badge, "transitionStartedAt", Long.valueOf(System.currentTimeMillis() - 1000L));
+        invoke(badge, "tickAnimation", new Class<?>[0]);
+        assertFalse(timer.isRunning(), "hidden busy status badge does not keep a background timer");
+
+        invoke(badge, "success", new Class<?>[] { String.class }, "loaded");
+        setField(badge, "transitionStartedAt", Long.valueOf(System.currentTimeMillis() - 1000L));
+        invoke(badge, "tickAnimation", new Class<?>[0]);
+        assertFalse(timer.isRunning(), "settled non-busy status badge stops animation");
+    }
+
+    /**
+     * Verifies segmented switchers glide their active underline to a new tab.
+     */
+    private static void testSegmentedSwitcherAnimatesSelection() {
+        JComponent switcher = (JComponent) construct(type("SegmentedSwitcher"),
+                new Class<?>[] { String[].class }, (Object) new String[] { "Overview", "Trace", "Atlas" });
+        Dimension size = switcher.getPreferredSize();
+        switcher.setSize(size);
+        paint(switcher, size.width, size.height);
+
+        invoke(switcher, "setSelectedIndex", new Class<?>[] { int.class }, 2);
+        Timer timer = (Timer) field(switcher, "selectionTimer");
+        assertTrue(timer.isRunning(), "segmented switcher starts selection animation");
+        assertFalse(field(switcher, "indicatorStartX").equals(field(switcher, "indicatorTargetX")),
+                "segmented switcher has a real underline travel distance");
+        setField(switcher, "indicatorAnimationStartedAt",
+                Long.valueOf(System.currentTimeMillis() - 1000L));
+        invoke(switcher, "tickSelectionAnimation", new Class<?>[0]);
+        assertFalse(timer.isRunning(), "segmented switcher stops after final frame");
+    }
+
+    /**
+     * Verifies split-pane sashes ease into their hover color.
+     */
+    private static void testSplitPaneSashAnimatesHover() {
+        JSplitPane pane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, new JPanel(), new JPanel());
+        invokeStatic(type("SplitPaneStyler"), "style", new Class<?>[] { JSplitPane.class }, pane);
+        javax.swing.plaf.basic.BasicSplitPaneDivider divider =
+                ((javax.swing.plaf.basic.BasicSplitPaneUI) pane.getUI()).getDivider();
+
+        invoke(divider, "setHover", new Class<?>[] { boolean.class }, true);
+        Timer timer = (Timer) field(divider, "transitionTimer");
+        assertTrue(timer.isRunning(), "split sash starts hover animation");
+        assertEquals(Double.valueOf(1.0d), field(divider, "transitionTargetProgress"),
+                "split sash animates toward active state");
+        setField(divider, "transitionStartedAt", Long.valueOf(System.currentTimeMillis() - 1000L));
+        invoke(divider, "tickTransition", new Class<?>[0]);
+        assertFalse(timer.isRunning(), "split sash stops after hover transition");
+    }
+
+    /**
+     * Verifies chart widgets reveal new values instead of popping them in.
+     */
+    private static void testChartsRevealNewData() {
+        JComponent mini = (JComponent) construct(type("MiniChart"), new Class<?>[0]);
+        invoke(mini, "setLine", new Class<?>[] { float[].class },
+                (Object) new float[] { 0.1f, 0.4f, -0.2f });
+        Timer miniTimer = (Timer) field(mini, "revealTimer");
+        assertTrue(miniTimer.isRunning(), "mini chart starts reveal animation");
+        miniTimer.stop();
+
+        DatasetChart dataset = new DatasetChart();
+        dataset.setBars(List.of(new DatasetChart.Bar("valid", 7L, DatasetChart.Role.SUCCESS)));
+        Timer datasetTimer = (Timer) field(dataset, "barRevealTimer");
+        assertTrue(datasetTimer.isRunning(), "dataset chart starts reveal animation");
+        datasetTimer.stop();
     }
 
     /**
@@ -1486,6 +1567,16 @@ final class WorkbenchUiRegression {
                 "flip animation is short");
         assertTrue((Integer) staticField(type("EvalBar"), "ANIMATION_DURATION_MS") <= 260,
                 "eval bar transition is smooth but still responsive");
+        assertTrue((Integer) staticField(type("StatusBadge"), "TRANSITION_MS") <= 140,
+                "status badge transitions are short");
+        assertTrue((Integer) staticField(type("SegmentedSwitcher"), "SELECTION_ANIMATION_MS") <= 160,
+                "segmented switcher selection animation is short");
+        assertTrue((Integer) staticField(type("SplitPaneStyler"), "SASH_TRANSITION_MS") <= 140,
+                "split sash transition is short");
+        assertTrue((Integer) staticField(type("MiniChart"), "REVEAL_MS") <= 200,
+                "mini chart reveal is short");
+        assertTrue((Integer) staticField(DatasetChart.class, "BAR_REVEAL_MS") <= 220,
+                "dataset chart reveal is short");
         assertTrue((Integer) staticField(type("Window"), "EVAL_DEBOUNCE_MS") <= 100,
                 "eval refresh debounce is short");
     }

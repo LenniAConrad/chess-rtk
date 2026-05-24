@@ -7,6 +7,7 @@
 package application.gui.workbench.layout;
 
 import application.gui.workbench.ui.Theme;
+import application.gui.workbench.ui.Ui;
 import java.awt.Color;
 import java.awt.Graphics2D;
 import java.awt.Graphics;
@@ -15,6 +16,7 @@ import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import javax.swing.BorderFactory;
 import javax.swing.JSplitPane;
+import javax.swing.Timer;
 import javax.swing.plaf.basic.BasicSplitPaneDivider;
 import javax.swing.plaf.basic.BasicSplitPaneUI;
 
@@ -38,6 +40,16 @@ public final class SplitPaneStyler {
      * Hover separator alpha.
      */
     private static final int HOVER_SEPARATOR_ALPHA = 205;
+
+    /**
+     * Animation frame cadence for sash hover/drag feedback.
+     */
+    private static final int ANIMATION_DELAY_MS = 16;
+
+    /**
+     * Hover/drag transition duration in milliseconds.
+     */
+    private static final int SASH_TRANSITION_MS = 110;
 
     /**
      * Prevents instantiation.
@@ -87,6 +99,31 @@ public final class SplitPaneStyler {
         private boolean active;
 
         /**
+         * Current visual progress from idle to active.
+         */
+        private double visualProgress;
+
+        /**
+         * Visual progress at the beginning of the active transition.
+         */
+        private double transitionStartProgress;
+
+        /**
+         * Target visual progress for the active transition.
+         */
+        private double transitionTargetProgress;
+
+        /**
+         * Wall-clock start time for the active sash transition.
+         */
+        private long transitionStartedAt;
+
+        /**
+         * Timer driving the sash transition.
+         */
+        private final Timer transitionTimer = new Timer(ANIMATION_DELAY_MS, event -> tickTransition());
+
+        /**
          * Creates a sash divider.
          *
          * @param ui owning split pane UI
@@ -94,6 +131,7 @@ public final class SplitPaneStyler {
         SashDivider(BasicSplitPaneUI ui) {
             super(ui);
             setBorder(BorderFactory.createEmptyBorder());
+            transitionTimer.setCoalesce(true);
             addMouseListener(new MouseAdapter() {
                 @Override
                 public void mouseEntered(MouseEvent event) {
@@ -125,7 +163,7 @@ public final class SplitPaneStyler {
         private void setHover(boolean value) {
             if (hover != value) {
                 hover = value;
-                repaint();
+                animateToTarget();
             }
         }
 
@@ -137,8 +175,49 @@ public final class SplitPaneStyler {
         private void setActive(boolean value) {
             if (active != value) {
                 active = value;
-                repaint();
+                animateToTarget();
             }
+        }
+
+        /**
+         * Stops the transition timer when the divider leaves the component tree.
+         */
+        @Override
+        public void removeNotify() {
+            transitionTimer.stop();
+            super.removeNotify();
+        }
+
+        /**
+         * Starts a transition toward the current hover/drag target.
+         */
+        private void animateToTarget() {
+            transitionStartProgress = visualProgress;
+            transitionTargetProgress = active || hover ? 1.0d : 0.0d;
+            transitionStartedAt = System.currentTimeMillis();
+            if (Math.abs(transitionStartProgress - transitionTargetProgress) < 0.001d) {
+                visualProgress = transitionTargetProgress;
+                transitionTimer.stop();
+            } else if (!transitionTimer.isRunning()) {
+                transitionTimer.start();
+            }
+            repaint();
+        }
+
+        /**
+         * Advances the hover/drag transition.
+         */
+        private void tickTransition() {
+            double progress = Math.min(1.0d,
+                    (System.currentTimeMillis() - transitionStartedAt)
+                            / (double) SASH_TRANSITION_MS);
+            visualProgress = transitionStartProgress
+                    + (transitionTargetProgress - transitionStartProgress) * Ui.easeOutCubic(progress);
+            if (progress >= 1.0d) {
+                visualProgress = transitionTargetProgress;
+                transitionTimer.stop();
+            }
+            repaint();
         }
 
         /**
@@ -152,9 +231,9 @@ public final class SplitPaneStyler {
             try {
                 g.setRenderingHint(RenderingHints.KEY_ANTIALIASING,
                         RenderingHints.VALUE_ANTIALIAS_ON);
-                Color color = active || hover
-                        ? Theme.withAlpha(Theme.ACCENT, HOVER_SEPARATOR_ALPHA)
-                        : Theme.withAlpha(Theme.LINE, IDLE_SEPARATOR_ALPHA);
+                int alpha = interpolate(IDLE_SEPARATOR_ALPHA, HOVER_SEPARATOR_ALPHA, visualProgress);
+                Color base = blend(Theme.LINE, Theme.ACCENT, visualProgress);
+                Color color = Theme.withAlpha(base, alpha);
                 g.setColor(color);
                 if (orientation == JSplitPane.HORIZONTAL_SPLIT) {
                     int x = Math.max(0, (getWidth() - 1) / 2);
@@ -166,6 +245,34 @@ public final class SplitPaneStyler {
             } finally {
                 g.dispose();
             }
+        }
+
+        /**
+         * Interpolates an integer value.
+         *
+         * @param from start value
+         * @param to target value
+         * @param progress progress from 0 to 1
+         * @return interpolated value
+         */
+        private static int interpolate(int from, int to, double progress) {
+            return (int) Math.round(from + (to - from) * progress);
+        }
+
+        /**
+         * Blends two colors.
+         *
+         * @param from start color
+         * @param to target color
+         * @param progress progress from 0 to 1
+         * @return blended color
+         */
+        private static Color blend(Color from, Color to, double progress) {
+            double amount = Math.max(0.0d, Math.min(1.0d, progress));
+            return new Color(
+                    interpolate(from.getRed(), to.getRed(), amount),
+                    interpolate(from.getGreen(), to.getGreen(), amount),
+                    interpolate(from.getBlue(), to.getBlue(), amount));
         }
     }
 }

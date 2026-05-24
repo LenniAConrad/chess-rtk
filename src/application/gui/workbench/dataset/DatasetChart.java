@@ -7,6 +7,7 @@
 package application.gui.workbench.dataset;
 
 import application.gui.workbench.ui.Theme;
+import application.gui.workbench.ui.Ui;
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.FontMetrics;
@@ -16,6 +17,7 @@ import java.awt.RenderingHints;
 import java.util.ArrayList;
 import java.util.List;
 import javax.swing.JComponent;
+import javax.swing.Timer;
 
 /**
  * Compact horizontal bar chart for dataset metrics.
@@ -51,6 +53,16 @@ public final class DatasetChart extends JComponent {
      * Minimum bar row height.
      */
     private static final int BAR_HEIGHT = 14;
+
+    /**
+     * Animation frame cadence for newly loaded chart bars.
+     */
+    private static final int ANIMATION_DELAY_MS = 16;
+
+    /**
+     * Duration for bar reveal animation in milliseconds.
+     */
+    private static final int BAR_REVEAL_MS = 180;
 
     /**
      * Color role for a bar.
@@ -115,11 +127,27 @@ public final class DatasetChart extends JComponent {
     private String emptyText = "no data";
 
     /**
+     * Current reveal progress applied to every filled bar.
+     */
+    private double barRevealProgress = 1.0d;
+
+    /**
+     * Wall-clock start time for the current bar reveal.
+     */
+    private long barRevealStartedAt;
+
+    /**
+     * Timer driving the bar reveal animation.
+     */
+    private final Timer barRevealTimer = new Timer(ANIMATION_DELAY_MS, event -> tickBarReveal());
+
+    /**
      * Creates an empty chart.
      */
     public DatasetChart() {
         setOpaque(false);
         setFont(Theme.font(11, java.awt.Font.PLAIN));
+        barRevealTimer.setCoalesce(true);
     }
 
     /**
@@ -138,8 +166,22 @@ public final class DatasetChart extends JComponent {
      * @param values chart bars
      */
     public void setBars(List<Bar> values) {
-        bars = values == null ? List.of() : List.copyOf(values);
+        List<Bar> next = values == null ? List.of() : List.copyOf(values);
+        boolean changed = !bars.equals(next);
+        bars = next;
+        if (changed) {
+            startBarReveal();
+        }
         repaint();
+    }
+
+    /**
+     * Stops chart animation when the component is detached.
+     */
+    @Override
+    public void removeNotify() {
+        barRevealTimer.stop();
+        super.removeNotify();
     }
 
     /**
@@ -271,7 +313,8 @@ public final class DatasetChart extends JComponent {
         int barY = y + Math.max(0, (rowHeight - BAR_HEIGHT) / 2);
         g.setColor(Theme.NN_NEUTRAL);
         g.fillRoundRect(barX, barY, barW, BAR_HEIGHT, Theme.RADIUS, Theme.RADIUS);
-        int filled = (int) Math.round((double) bar.value() * (double) barW / (double) Math.max(1L, max));
+        int filled = (int) Math.round((double) bar.value() * (double) barW
+                / (double) Math.max(1L, max) * Ui.easeOutCubic(barRevealProgress));
         g.setColor(color(bar.role()));
         g.fillRoundRect(barX, barY, Math.max(1, filled), BAR_HEIGHT, Theme.RADIUS, Theme.RADIUS);
 
@@ -295,6 +338,35 @@ public final class DatasetChart extends JComponent {
             case NEUTRAL -> Theme.MUTED;
             case ACCENT -> Theme.ACCENT;
         };
+    }
+
+    /**
+     * Starts the reveal animation for visible bars.
+     */
+    private void startBarReveal() {
+        boolean hasVisibleBars = bars.stream().anyMatch(bar -> bar.value() > 0L);
+        if (!hasVisibleBars) {
+            barRevealProgress = 1.0d;
+            barRevealTimer.stop();
+            return;
+        }
+        barRevealProgress = 0.0d;
+        barRevealStartedAt = System.currentTimeMillis();
+        if (!barRevealTimer.isRunning()) {
+            barRevealTimer.start();
+        }
+    }
+
+    /**
+     * Advances the reveal animation.
+     */
+    private void tickBarReveal() {
+        barRevealProgress = Math.min(1.0d,
+                (System.currentTimeMillis() - barRevealStartedAt) / (double) BAR_REVEAL_MS);
+        if (barRevealProgress >= 1.0d) {
+            barRevealTimer.stop();
+        }
+        repaint();
     }
 
     /**

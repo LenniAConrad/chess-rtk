@@ -22,6 +22,7 @@ import java.awt.event.MouseEvent;
 import java.util.ArrayList;
 import java.util.List;
 import javax.swing.JComponent;
+import javax.swing.Timer;
 
 /**
  * Compact tab-style segmented selector.
@@ -49,6 +50,16 @@ public final class SegmentedSwitcher extends JComponent {
      * switcher lines up with combos and toggles on a toolbar row.
      */
     private static final int HEIGHT = Theme.CONTROL_HEIGHT;
+
+    /**
+     * Animation frame cadence for the active segment underline.
+     */
+    private static final int ANIMATION_DELAY_MS = 16;
+
+    /**
+     * Duration for selection-underline travel in milliseconds.
+     */
+    private static final int SELECTION_ANIMATION_MS = 130;
 
     /**
      * Segment labels.
@@ -81,6 +92,46 @@ public final class SegmentedSwitcher extends JComponent {
     private Rectangle[] segmentBounds;
 
     /**
+     * Animated underline x coordinate.
+     */
+    private int indicatorX;
+
+    /**
+     * Animated underline width.
+     */
+    private int indicatorWidth;
+
+    /**
+     * Underline x coordinate at the start of the active transition.
+     */
+    private int indicatorStartX;
+
+    /**
+     * Underline width at the start of the active transition.
+     */
+    private int indicatorStartWidth;
+
+    /**
+     * Underline target x coordinate.
+     */
+    private int indicatorTargetX;
+
+    /**
+     * Underline target width.
+     */
+    private int indicatorTargetWidth;
+
+    /**
+     * Wall-clock start time for the active selection animation.
+     */
+    private long indicatorAnimationStartedAt;
+
+    /**
+     * Timer driving the active-segment underline.
+     */
+    private final Timer selectionTimer = new Timer(ANIMATION_DELAY_MS, event -> tickSelectionAnimation());
+
+    /**
      * Creates a segmented switcher.
      *
      * @param labels segment labels
@@ -94,6 +145,7 @@ public final class SegmentedSwitcher extends JComponent {
         this.selected = 0;
         setOpaque(false);
         setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        selectionTimer.setCoalesce(true);
         addMouseListener(new MouseAdapter() {
             @Override
             public void mousePressed(MouseEvent event) {
@@ -135,8 +187,17 @@ public final class SegmentedSwitcher extends JComponent {
             return;
         }
         selected = index;
-        repaint();
+        startSelectionAnimation();
         fire();
+    }
+
+    /**
+     * Stops animation when the switcher leaves the component tree.
+     */
+    @Override
+    public void removeNotify() {
+        selectionTimer.stop();
+        super.removeNotify();
     }
 
     /**
@@ -206,6 +267,7 @@ public final class SegmentedSwitcher extends JComponent {
                 paintSegment(g, r, i, fm);
                 x += w;
             }
+            paintSelectionIndicator(g, height);
         } finally {
             g.dispose();
         }
@@ -237,10 +299,6 @@ public final class SegmentedSwitcher extends JComponent {
         fillRoundedSegment(g, r, arcLeft, arcRight);
         g.setColor(Theme.LINE);
         drawRoundedSegmentBorder(g, r, arcLeft, arcRight, index == labels.length - 1);
-        if (isSelected && isEnabled) {
-            g.setColor(Theme.ACCENT);
-            g.fillRect(r.x, r.y + r.height - 2, r.width, 2);
-        }
         Color textColor;
         if (!isEnabled) {
             textColor = Theme.BUTTON_DISABLED_TEXT;
@@ -252,6 +310,28 @@ public final class SegmentedSwitcher extends JComponent {
         g.setColor(textColor);
         int textY = r.y + (r.height - fm.getHeight()) / 2 + fm.getAscent() - 1;
         g.drawString(labels[index], r.x + PAD_X, textY);
+    }
+
+    /**
+     * Paints the animated active-segment underline.
+     *
+     * @param g graphics
+     * @param height component height
+     */
+    private void paintSelectionIndicator(Graphics2D g, int height) {
+        Rectangle selectedBounds = selectedBounds();
+        if (selectedBounds == null || !enabled[selected]) {
+            return;
+        }
+        if (!selectionTimer.isRunning()) {
+            indicatorX = selectedBounds.x;
+            indicatorWidth = selectedBounds.width;
+        } else if (indicatorWidth <= 0) {
+            indicatorX = selectedBounds.x;
+            indicatorWidth = selectedBounds.width;
+        }
+        g.setColor(Theme.ACCENT);
+        g.fillRect(indicatorX, height - 2, indicatorWidth, 2);
     }
 
     /**
@@ -318,7 +398,7 @@ public final class SegmentedSwitcher extends JComponent {
             if (segmentBounds[i] != null && segmentBounds[i].contains(x, y)) {
                 if (enabled[i] && selected != i) {
                     selected = i;
-                    repaint();
+                    startSelectionAnimation();
                     fire();
                 }
                 return;
@@ -359,5 +439,71 @@ public final class SegmentedSwitcher extends JComponent {
         for (ActionListener listener : listeners) {
             listener.actionPerformed(event);
         }
+    }
+
+    /**
+     * Starts an underline animation toward the current selection.
+     */
+    private void startSelectionAnimation() {
+        Rectangle target = selectedBounds();
+        if (target == null) {
+            repaint();
+            return;
+        }
+        if (indicatorWidth <= 0) {
+            indicatorX = target.x;
+            indicatorWidth = target.width;
+        }
+        indicatorStartX = indicatorX;
+        indicatorStartWidth = indicatorWidth;
+        indicatorTargetX = target.x;
+        indicatorTargetWidth = target.width;
+        indicatorAnimationStartedAt = System.currentTimeMillis();
+        if (!selectionTimer.isRunning()) {
+            selectionTimer.start();
+        }
+        repaint();
+    }
+
+    /**
+     * Advances the active underline animation.
+     */
+    private void tickSelectionAnimation() {
+        double progress = Math.min(1.0d,
+                (System.currentTimeMillis() - indicatorAnimationStartedAt)
+                        / (double) SELECTION_ANIMATION_MS);
+        double eased = Ui.easeOutCubic(progress);
+        indicatorX = interpolate(indicatorStartX, indicatorTargetX, eased);
+        indicatorWidth = interpolate(indicatorStartWidth, indicatorTargetWidth, eased);
+        if (progress >= 1.0d) {
+            selectionTimer.stop();
+            indicatorX = indicatorTargetX;
+            indicatorWidth = indicatorTargetWidth;
+        }
+        repaint();
+    }
+
+    /**
+     * Returns the current selected segment bounds.
+     *
+     * @return selected bounds, or null before the first layout pass
+     */
+    private Rectangle selectedBounds() {
+        if (segmentBounds == null || selected < 0 || selected >= segmentBounds.length) {
+            return null;
+        }
+        return segmentBounds[selected];
+    }
+
+    /**
+     * Interpolates an integer value.
+     *
+     * @param from start value
+     * @param to target value
+     * @param progress progress from 0 to 1
+     * @return interpolated value
+     */
+    private static int interpolate(int from, int to, double progress) {
+        return (int) Math.round(from + (to - from) * progress);
     }
 }

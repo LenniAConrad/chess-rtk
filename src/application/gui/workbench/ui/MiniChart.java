@@ -11,7 +11,10 @@ import java.awt.Dimension;
 import java.awt.Graphics2D;
 import java.awt.Graphics;
 import java.awt.RenderingHints;
+import java.awt.Shape;
+import java.util.Arrays;
 import javax.swing.JComponent;
+import javax.swing.Timer;
 
 /**
  * A small, dependency-free chart component for the workbench dashboard and
@@ -59,6 +62,16 @@ public final class MiniChart extends JComponent {
     private static final int INSET = Theme.SPACE_XS;
 
     /**
+     * Animation frame cadence for chart reveals.
+     */
+    private static final int ANIMATION_DELAY_MS = 16;
+
+    /**
+     * Duration for compact chart reveal animation in milliseconds.
+     */
+    private static final int REVEAL_MS = 160;
+
+    /**
      * Active rendering mode.
      */
     private Mode mode = Mode.LINE;
@@ -81,10 +94,26 @@ public final class MiniChart extends JComponent {
     private String emptyText = "no data yet";
 
     /**
+     * Current reveal progress for newly supplied chart data.
+     */
+    private double revealProgress = 1.0d;
+
+    /**
+     * Wall-clock start time for the current reveal.
+     */
+    private long revealStartedAt;
+
+    /**
+     * Timer driving compact chart reveals.
+     */
+    private final Timer revealTimer = new Timer(ANIMATION_DELAY_MS, event -> tickReveal());
+
+    /**
      * Creates an empty line-mode mini chart.
      */
     public MiniChart() {
         setOpaque(false);
+        revealTimer.setCoalesce(true);
     }
 
     /**
@@ -104,9 +133,14 @@ public final class MiniChart extends JComponent {
      * @param series signed values, oldest first (null treated as empty)
      */
     public void setLine(float[] series) {
+        float[] next = series == null ? new float[0] : series.clone();
+        boolean changed = mode != Mode.LINE || !Arrays.equals(values, next);
         this.mode = Mode.LINE;
-        this.values = series == null ? new float[0] : series.clone();
+        this.values = next;
         this.barColors = new Color[0];
+        if (changed) {
+            startReveal();
+        }
         repaint();
     }
 
@@ -117,10 +151,27 @@ public final class MiniChart extends JComponent {
      * @param colors per-bar colours (may be null or shorter than {@code heights})
      */
     public void setBars(float[] heights, Color[] colors) {
+        float[] next = heights == null ? new float[0] : heights.clone();
+        Color[] nextColors = colors == null ? new Color[0] : colors.clone();
+        boolean changed = mode != Mode.BARS
+                || !Arrays.equals(values, next)
+                || !Arrays.equals(barColors, nextColors);
         this.mode = Mode.BARS;
-        this.values = heights == null ? new float[0] : heights.clone();
-        this.barColors = colors == null ? new Color[0] : colors.clone();
+        this.values = next;
+        this.barColors = nextColors;
+        if (changed) {
+            startReveal();
+        }
         repaint();
+    }
+
+    /**
+     * Stops chart animation when the component is detached.
+     */
+    @Override
+    public void removeNotify() {
+        revealTimer.stop();
+        super.removeNotify();
     }
 
     /**
@@ -236,6 +287,9 @@ public final class MiniChart extends JComponent {
             py[i] = zeroY - Math.round(norm * (plotH / 2f - 1));
         }
         if (n >= 2) {
+            Shape oldClip = g.getClip();
+            int revealWidth = Math.max(1, (int) Math.round(plotW * Ui.easeOutCubic(revealProgress)));
+            g.setClip(x, y, revealWidth, plotH);
             // Soft fill between the line and the zero baseline.
             java.awt.Polygon fill = new java.awt.Polygon();
             fill.addPoint(px[0], zeroY);
@@ -250,11 +304,14 @@ public final class MiniChart extends JComponent {
             for (int i = 1; i < n; i++) {
                 g.drawLine(px[i - 1], py[i - 1], px[i], py[i]);
             }
+            g.setClip(oldClip);
         }
-        // Highlight the most recent sample.
+        // Highlight the currently revealed sample.
         int last = n - 1;
+        int visibleLast = Math.max(0, Math.min(last,
+                (int) Math.round(last * Ui.easeOutCubic(revealProgress))));
         g.setColor(Theme.ACCENT);
-        g.fillOval(px[last] - 2, py[last] - 2, 5, 5);
+        g.fillOval(px[visibleLast] - 2, py[visibleLast] - 2, 5, 5);
     }
 
     /**
@@ -273,7 +330,8 @@ public final class MiniChart extends JComponent {
         int baseY = y + plotH;
         for (int i = 0; i < n; i++) {
             float height01 = Math.max(0f, Math.min(1f, values[i]));
-            int barHeight = Math.max(1, Math.round(height01 * (plotH - 1)));
+            int barHeight = Math.max(1, Math.round(height01 * (plotH - 1)
+                    * (float) Ui.easeOutCubic(revealProgress)));
             int barX = x + Math.round(i * slot);
             Color color = i < barColors.length && barColors[i] != null
                     ? barColors[i]
@@ -281,5 +339,33 @@ public final class MiniChart extends JComponent {
             g.setColor(color);
             g.fillRect(barX, baseY - barHeight, barWidth, barHeight);
         }
+    }
+
+    /**
+     * Starts a reveal animation when the chart has data.
+     */
+    private void startReveal() {
+        if (values.length == 0) {
+            revealProgress = 1.0d;
+            revealTimer.stop();
+            return;
+        }
+        revealProgress = 0.0d;
+        revealStartedAt = System.currentTimeMillis();
+        if (!revealTimer.isRunning()) {
+            revealTimer.start();
+        }
+    }
+
+    /**
+     * Advances the compact chart reveal animation.
+     */
+    private void tickReveal() {
+        revealProgress = Math.min(1.0d,
+                (System.currentTimeMillis() - revealStartedAt) / (double) REVEAL_MS);
+        if (revealProgress >= 1.0d) {
+            revealTimer.stop();
+        }
+        repaint();
     }
 }
