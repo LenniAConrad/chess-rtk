@@ -27,6 +27,7 @@ import chess.gpu.BackendNames;
  * @since 2026
  * @author Lennart A. Conrad
  */
+@SuppressWarnings({ "java:S107", "java:S3776", "java:S6218", "java:S6539" })
 public final class Network implements AutoCloseable {
 
     /**
@@ -48,6 +49,11 @@ public final class Network implements AutoCloseable {
      * oneAPI backend identifier.
      */
     public static final String BACKEND_ONEAPI = BackendNames.ONEAPI;
+
+    /**
+     * Prefix used for captured encoder-block tensors.
+     */
+    private static final String BLOCK_CAPTURE_PREFIX = "bt4.block";
 
     /**
      * Parsed network weights for the CPU backend.
@@ -512,29 +518,29 @@ public final class Network implements AutoCloseable {
      * @return token-major body activations
      */
     private float[] runBody(float[] encodedPlanes) {
-        Architecture architecture = weights.architecture();
+        Architecture currentArchitecture = weights.architecture();
         InputStack stack = weights.input();
-        int tokens = architecture.tokens();
-        float[] perToken = Encoder.toTokenMajor(encodedPlanes, architecture.inputChannels(), tokens);
+        int tokens = currentArchitecture.tokens();
+        float[] perToken = Encoder.toTokenMajor(encodedPlanes, currentArchitecture.inputChannels(), tokens);
 
         float[] flow;
-        if (architecture.inputEmbedding() == Architecture.InputEmbedding.PE_MAP) {
+        if (currentArchitecture.inputEmbedding() == Architecture.InputEmbedding.PE_MAP) {
             float[] mapped = Encoder.appendPositionMap(perToken);
-            flow = denseTokens(mapped, tokens, architecture.inputChannels() + tokens, stack.embedding());
-        } else if (architecture.inputEmbedding() == Architecture.InputEmbedding.PE_DENSE) {
+            flow = denseTokens(mapped, tokens, currentArchitecture.inputChannels() + tokens, stack.embedding());
+        } else if (currentArchitecture.inputEmbedding() == Architecture.InputEmbedding.PE_DENSE) {
             float[] concatenated = inputDenseEmbedding(perToken, stack.preproc(),
-                    architecture.inputChannels(), tokens, stack.embedding().inDim());
+                    currentArchitecture.inputChannels(), tokens, stack.embedding().inDim());
             flow = denseTokens(concatenated, tokens, stack.embedding().inDim(), stack.embedding());
         } else {
-            flow = denseTokens(perToken, tokens, architecture.inputChannels(), stack.embedding());
+            flow = denseTokens(perToken, tokens, currentArchitecture.inputChannels(), stack.embedding());
         }
-        activate(flow, architecture.defaultActivation());
+        activate(flow, currentArchitecture.defaultActivation());
 
-        int embeddingSize = architecture.embeddingSize();
-        if (architecture.inputEmbedding() == Architecture.InputEmbedding.PE_DENSE
+        int embeddingSize = currentArchitecture.embeddingSize();
+        if (currentArchitecture.inputEmbedding() == Architecture.InputEmbedding.PE_DENSE
                 && stack.embLnGamma() != null) {
             layerNormInPlace(flow, tokens, embeddingSize, stack.embLnGamma(), stack.embLnBeta(),
-                    architecture.layerNormEpsilon());
+                    currentArchitecture.layerNormEpsilon());
         }
         if (stack.multGate() != null) {
             applyPerTokenGate(flow, tokens, embeddingSize, stack.multGate(), true);
@@ -542,10 +548,10 @@ public final class Network implements AutoCloseable {
         if (stack.addGate() != null) {
             applyPerTokenGate(flow, tokens, embeddingSize, stack.addGate(), false);
         }
-        float alpha = encoderAlpha(architecture);
+        float alpha = encoderAlpha(currentArchitecture);
         if (stack.embFfn() != null) {
             float[] ffnIn = denseTokens(flow, tokens, embeddingSize, stack.embFfn().dense1());
-            activate(ffnIn, architecture.ffnActivation());
+            activate(ffnIn, currentArchitecture.ffnActivation());
             float[] ffnOut = denseTokens(ffnIn, tokens, stack.embFfn().dense1().outDim(),
                     stack.embFfn().dense2());
             if (alpha != 1.0f) {
@@ -553,15 +559,15 @@ public final class Network implements AutoCloseable {
             }
             addInPlace(ffnOut, flow);
             layerNormInPlace(ffnOut, tokens, embeddingSize, stack.embFfnLnGamma(), stack.embFfnLnBeta(),
-                    architecture.layerNormEpsilon());
+                    currentArchitecture.layerNormEpsilon());
             flow = ffnOut;
         }
 
         capture("bt4.token.embedding", new int[] { tokens, embeddingSize }, flow);
         int blockIndex = 0;
         for (EncoderBlock block : weights.encoders()) {
-            flow = runEncoderBlock(flow, block, tokens, architecture, alpha, blockIndex);
-            capture("bt4.block" + blockIndex + ".out",
+            flow = runEncoderBlock(flow, block, tokens, currentArchitecture, alpha, blockIndex);
+            capture(BLOCK_CAPTURE_PREFIX + blockIndex + ".out",
                     new int[] { tokens, embeddingSize }, flow);
             blockIndex++;
         }
@@ -689,7 +695,7 @@ public final class Network implements AutoCloseable {
         addInPlace(attended, input);
         layerNormInPlace(attended, tokens, embedding, block.ln1Gamma(), block.ln1Beta(), eps);
         if (blockIndex >= 0) {
-            capture("bt4.block" + blockIndex + ".attention.out",
+            capture(BLOCK_CAPTURE_PREFIX + blockIndex + ".attention.out",
                     new int[] { tokens, embedding }, attended);
         }
 
@@ -702,7 +708,7 @@ public final class Network implements AutoCloseable {
         addInPlace(ffnOut, attended);
         layerNormInPlace(ffnOut, tokens, embedding, block.ln2Gamma(), block.ln2Beta(), eps);
         if (blockIndex >= 0) {
-            capture("bt4.block" + blockIndex + ".ffn",
+            capture(BLOCK_CAPTURE_PREFIX + blockIndex + ".ffn",
                     new int[] { tokens, embedding }, ffnOut);
         }
         return ffnOut;
@@ -719,18 +725,18 @@ public final class Network implements AutoCloseable {
      * @return token-major output
      */
     private float[] runEncoderBlock(float[] input, EncoderBlock block, int tokens, float eps) {
-        Architecture architecture = weights.architecture();
+        Architecture currentArchitecture = weights.architecture();
         return runEncoderBlock(input, block, tokens,
-                architecture.hasSmolgen() ? architecture : Architecture.simplified(
-                        architecture.name(),
-                        architecture.inputFormat(),
-                        architecture.inputEmbedding(),
-                        architecture.inputChannels(),
+                currentArchitecture.hasSmolgen() ? currentArchitecture : Architecture.simplified(
+                        currentArchitecture.name(),
+                        currentArchitecture.inputFormat(),
+                        currentArchitecture.inputEmbedding(),
+                        currentArchitecture.inputChannels(),
                         tokens,
                         block.attention().query().inDim(),
-                        architecture.encoderLayers(),
+                        currentArchitecture.encoderLayers(),
                         block.attention().heads(),
-                        architecture.policySize(),
+                        currentArchitecture.policySize(),
                         eps),
                 block.alpha(),
                 -1);
@@ -743,15 +749,15 @@ public final class Network implements AutoCloseable {
      * @return compressed policy logits
      */
     private float[] runPolicy(float[] body) {
-        Architecture architecture = weights.architecture();
+        Architecture currentArchitecture = weights.architecture();
         PolicyHead head = weights.policyHead();
-        int tokens = architecture.tokens();
-        int embedding = architecture.embeddingSize();
+        int tokens = currentArchitecture.tokens();
+        int embedding = currentArchitecture.embeddingSize();
         float[] flow = denseTokens(body, tokens, embedding, head.embedding());
         activate(flow, head.activation());
         int policyEmbedding = head.embedding().outDim();
         for (EncoderBlock block : head.encoders()) {
-            flow = runEncoderBlock(flow, block, tokens, architecture.layerNormEpsilon());
+            flow = runEncoderBlock(flow, block, tokens, currentArchitecture.layerNormEpsilon());
         }
 
         float[] q = denseTokens(flow, tokens, policyEmbedding, head.query());
@@ -832,10 +838,10 @@ public final class Network implements AutoCloseable {
      * @return WDL probabilities
      */
     private float[] runValue(float[] body) {
-        Architecture architecture = weights.architecture();
+        Architecture currentArchitecture = weights.architecture();
         ValueHead head = weights.valueHead();
-        int tokens = architecture.tokens();
-        int embedding = architecture.embeddingSize();
+        int tokens = currentArchitecture.tokens();
+        int embedding = currentArchitecture.embeddingSize();
         float[] flow = denseTokens(body, tokens, embedding, head.embedding());
         activate(flow, head.activation());
         float[] flat = flow;
@@ -917,7 +923,7 @@ public final class Network implements AutoCloseable {
             }
         }
         if (perHeadAttention != null) {
-            sink.put("bt4.block" + blockIndex + ".attention.heads",
+            sink.put(BLOCK_CAPTURE_PREFIX + blockIndex + ".attention.heads",
                     new int[] { heads, tokens, tokens }, perHeadAttention);
         }
         return denseTokens(combined, tokens, dModel, attention.out());

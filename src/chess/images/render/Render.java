@@ -6,7 +6,13 @@
 
 package chess.images.render;
 
-import static chess.images.render.RenderSvgSupport.*;
+import static chess.images.render.RenderSvgSupport.appendColorAttribute;
+import static chess.images.render.RenderSvgSupport.appendEmbeddedSvgBody;
+import static chess.images.render.RenderSvgSupport.appendFontAttributes;
+import static chess.images.render.RenderSvgSupport.appendNumber;
+import static chess.images.render.RenderSvgSupport.appendTextElement;
+import static chess.images.render.RenderSvgSupport.escapeText;
+import static chess.images.render.RenderSvgSupport.strokeWidth;
 
 import java.awt.BasicStroke;
 import java.awt.Color;
