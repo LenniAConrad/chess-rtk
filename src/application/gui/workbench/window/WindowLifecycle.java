@@ -855,10 +855,10 @@ public abstract class WindowLifecycle extends WindowBase {
         bindWindowAction("meta P", "openPgnExplorerMeta", event -> showPgnExplorer());
         bindWindowAction("control COMMA", "openDisplaySettings", event -> showDisplaySettings());
         bindWindowAction("meta COMMA", "openDisplaySettingsMeta", event -> showDisplaySettings());
-        bindWindowAction("alt LEFT", "navigateBack", event -> navigateGame(-1));
-        bindWindowAction("alt RIGHT", "navigateForward", event -> navigateGame(1));
-        bindWindowAction("alt UP", "navigateStart", event -> jumpGameTo(0));
-        bindWindowAction("alt DOWN", "navigateEnd", event -> jumpGameTo(gameModel.lastPly()));
+        bindWindowAction("alt LEFT", "navigateBack", event -> navigateActivePosition(-1));
+        bindWindowAction("alt RIGHT", "navigateForward", event -> navigateActivePosition(1));
+        bindWindowAction("alt UP", "navigateStart", event -> jumpActivePositionToStart());
+        bindWindowAction("alt DOWN", "navigateEnd", event -> jumpActivePositionToEnd());
         bindWindowAction("control TAB", "nextWorkbenchTab", event -> tabs.selectNextTab());
         bindWindowAction("control shift TAB", "previousWorkbenchTab", event -> tabs.selectPreviousTab());
         bindWindowAction("control PAGE_DOWN", "nextWorkbenchTabPage", event -> tabs.selectNextTab());
@@ -870,10 +870,51 @@ public abstract class WindowLifecycle extends WindowBase {
                 event -> tabs.splitSelectedTabDown());
         installTabNumberShortcuts();
         bindWindowAction("ESCAPE", "stopRunningCommand", event -> stopCommand());
-        bindPositionNavigation(PREVIOUS_POSITION_KEYS, "previousPosition", event -> navigateGame(-1));
-        bindPositionNavigation(NEXT_POSITION_KEYS, "nextPosition", event -> navigateGame(1));
-        bindPositionNavigation(FIRST_POSITION_KEYS, "firstPosition", event -> jumpGameTo(0));
-        bindPositionNavigation(LAST_POSITION_KEYS, "lastPosition", event -> jumpGameTo(gameModel.lastPly()));
+        bindPositionNavigation(PREVIOUS_POSITION_KEYS, "previousPosition", event -> navigateActivePosition(-1));
+        bindPositionNavigation(NEXT_POSITION_KEYS, "nextPosition", event -> navigateActivePosition(1));
+        bindPositionNavigation(FIRST_POSITION_KEYS, "firstPosition", event -> jumpActivePositionToStart());
+        bindPositionNavigation(LAST_POSITION_KEYS, "lastPosition", event -> jumpActivePositionToEnd());
+    }
+
+    /**
+     * Moves the currently visible board backward or forward.
+     *
+     * @param delta signed ply delta
+     */
+    protected void navigateActivePosition(int delta) {
+        if (tabs != null && tabs.selectedIndex() == TAB_PUZZLES) {
+            if (puzzlePanel != null) {
+                puzzlePanel.navigateReview(delta);
+            }
+            return;
+        }
+        navigateGame(delta);
+    }
+
+    /**
+     * Jumps the currently visible board to its start position.
+     */
+    protected void jumpActivePositionToStart() {
+        if (tabs != null && tabs.selectedIndex() == TAB_PUZZLES) {
+            if (puzzlePanel != null) {
+                puzzlePanel.jumpReviewToStart();
+            }
+            return;
+        }
+        jumpGameTo(0);
+    }
+
+    /**
+     * Jumps the currently visible board to its final position.
+     */
+    protected void jumpActivePositionToEnd() {
+        if (tabs != null && tabs.selectedIndex() == TAB_PUZZLES) {
+            if (puzzlePanel != null) {
+                puzzlePanel.jumpReviewToEnd();
+            }
+            return;
+        }
+        jumpGameTo(gameModel.lastPly());
     }
 
     /**
@@ -986,10 +1027,11 @@ public abstract class WindowLifecycle extends WindowBase {
      * @return true when routing to position navigation is appropriate
      */
     protected boolean shouldRoutePositionNavigation() {
-        if (tabs == null || tabs.selectedIndex() != TAB_ANALYZE) {
+        if (tabs == null) {
             return false;
         }
-        if (analysisTabs != null && analysisTabs.getSelectedIndex() != 0) {
+        int selectedTab = tabs.selectedIndex();
+        if (selectedTab != TAB_ANALYZE && selectedTab != TAB_PUZZLES) {
             return false;
         }
         Component focusOwner = KeyboardFocusManager.getCurrentKeyboardFocusManager().getFocusOwner();

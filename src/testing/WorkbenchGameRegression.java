@@ -48,6 +48,7 @@ final class WorkbenchGameRegression {
         testGameModelLoadsPgnVariations();
         testGameModelNavigatesSelectedVariationLine();
         testPuzzleSessionExploresOpponentVariationBranches();
+        testPuzzleSessionReviewNavigation();
         testPuzzleLibraryLoadsDifficultCsv();
         testPuzzlePanelPaintsOpaqueSurface();
         testPgnExplorerModelFiltersGames();
@@ -216,6 +217,32 @@ final class WorkbenchGameRegression {
         PuzzleSession.MoveResponse rejected = wrong.playUserMove(Move.parse("e4f6"), false);
         assertEquals(PuzzleSession.StepResult.INCORRECT, rejected.result(), "wrong puzzle move rejected");
         assertEquals("e4d6", Move.toString(rejected.expectedMove()), "expected move reported");
+    }
+
+    /**
+     * Verifies puzzle review navigation can move before and after the active
+     * board position without playing solver moves.
+     */
+    private static void testPuzzleSessionReviewNavigation() {
+        PuzzleSession session = PuzzleSession.fromUciLine("Review", "test", START_FEN,
+                List.of("e2e4", "e7e5", "g1f3"), PuzzleSession.VariationMode.MAINLINE);
+        assertEquals(Integer.valueOf(0), Integer.valueOf(session.cursor().cursorIndex()),
+                "review starts at the root");
+
+        assertTrue(session.navigatePly(1), "review moves forward");
+        assertEquals(Integer.valueOf(1), Integer.valueOf(session.cursor().cursorIndex()),
+                "review cursor advances one ply");
+        assertTrue(session.currentFen().contains(" b "), "review forward shows side to move after e4");
+
+        assertTrue(session.navigatePly(-1), "review moves backward");
+        assertEquals(Integer.valueOf(0), Integer.valueOf(session.cursor().cursorIndex()),
+                "review cursor returns to the root");
+        assertFalse(session.navigatePly(-1), "review clamps at the root");
+
+        assertTrue(session.jumpToPly(session.lastPly()), "review jumps to end");
+        assertEquals(Integer.valueOf(3), Integer.valueOf(session.cursor().cursorIndex()),
+                "review cursor reaches final ply");
+        assertFalse(session.navigatePly(1), "review clamps at the final ply");
     }
 
     /**

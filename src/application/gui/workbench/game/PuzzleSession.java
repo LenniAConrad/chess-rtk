@@ -337,6 +337,45 @@ public final class PuzzleSession {
     }
 
     /**
+     * Moves the review cursor within the currently selected puzzle line.
+     *
+     * @param delta signed ply delta
+     * @return true when the cursor changed
+     */
+    public boolean navigatePly(int delta) {
+        if (delta == 0) {
+            return false;
+        }
+        return jumpToPly(cursor.cursorIndex() + delta);
+    }
+
+    /**
+     * Jumps the review cursor within the currently selected puzzle line.
+     *
+     * @param ply target ply index in the active line
+     * @return true when the cursor changed
+     */
+    public boolean jumpToPly(int ply) {
+        List<Integer> line = lineAt(cursor.lineIndex());
+        int target = Math.max(0, Math.min(ply, line.size() - 1));
+        if (target == cursor.cursorIndex()) {
+            return false;
+        }
+        cursor = new Cursor(cursor.lineIndex(), target);
+        solved = false;
+        return true;
+    }
+
+    /**
+     * Returns the final ply index in the active puzzle line.
+     *
+     * @return final ply index
+     */
+    public int lastPly() {
+        return Math.max(0, lineAt(cursor.lineIndex()).size() - 1);
+    }
+
+    /**
      * Plays one user move.
      *
      * @param move CRTK move encoding

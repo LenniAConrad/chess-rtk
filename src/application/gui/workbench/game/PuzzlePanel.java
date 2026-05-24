@@ -512,6 +512,57 @@ public final class PuzzlePanel extends JPanel {
     }
 
     /**
+     * Moves the visible puzzle board backward or forward inside the active
+     * branch.
+     *
+     * @param delta signed ply delta
+     */
+    public void navigateReview(int delta) {
+        if (session == null) {
+            return;
+        }
+        if (session.navigatePly(delta)) {
+            displaySnapshot(Move.NO_MOVE);
+            setStatus("Review ply " + session.cursor().cursorIndex() + " / " + session.lastPly() + ".");
+        } else {
+            updateLabels();
+        }
+    }
+
+    /**
+     * Shows the start position of the active puzzle branch.
+     */
+    public void jumpReviewToStart() {
+        jumpReviewTo(0);
+    }
+
+    /**
+     * Shows the final position of the active puzzle branch.
+     */
+    public void jumpReviewToEnd() {
+        if (session != null) {
+            jumpReviewTo(session.lastPly());
+        }
+    }
+
+    /**
+     * Shows one ply in the active puzzle branch.
+     *
+     * @param ply target ply index
+     */
+    private void jumpReviewTo(int ply) {
+        if (session == null) {
+            return;
+        }
+        if (session.jumpToPly(ply)) {
+            displaySnapshot(Move.NO_MOVE);
+            setStatus("Review ply " + session.cursor().cursorIndex() + " / " + session.lastPly() + ".");
+        } else {
+            updateLabels();
+        }
+    }
+
+    /**
      * Loads a selected library puzzle into the trainer.
      *
      * @param requestedIndex requested entry index
