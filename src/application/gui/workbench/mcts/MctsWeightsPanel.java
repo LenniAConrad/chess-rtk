@@ -39,7 +39,37 @@ public final class MctsWeightsPanel extends javax.swing.JComponent {
     /**
      * Preferred height.
      */
-    private static final int HEIGHT = 260;
+    private static final int HEIGHT = 286;
+
+    /**
+     * Top coordinate for the live summary chips.
+     */
+    private static final int SUMMARY_TOP = 42;
+
+    /**
+     * Height of one live summary chip.
+     */
+    private static final int SUMMARY_CHIP_HEIGHT = 24;
+
+    /**
+     * Gap between live summary chips.
+     */
+    private static final int SUMMARY_GAP = 8;
+
+    /**
+     * Extra space between the summary chips and the edge table.
+     */
+    private static final int SUMMARY_TABLE_GAP = 24;
+
+    /**
+     * Row height for root edge metrics.
+     */
+    private static final int ROW_HEIGHT = 15;
+
+    /**
+     * Gap between root edge rows.
+     */
+    private static final int ROW_GAP = 7;
 
     /**
      * Rows rendered before the panel becomes visually dense.
@@ -109,9 +139,9 @@ public final class MctsWeightsPanel extends javax.swing.JComponent {
                 drawEmpty(g, bounds);
                 return;
             }
-            drawHeader(g, bounds);
+            int rowTop = drawHeader(g, bounds);
             drawLiveBoard(g, bounds);
-            drawRows(g, bounds);
+            drawRows(g, bounds, rowTop);
         } finally {
             g.dispose();
         }
@@ -135,8 +165,9 @@ public final class MctsWeightsPanel extends javax.swing.JComponent {
      *
      * @param g graphics context
      * @param bounds drawing bounds
+     * @return top coordinate for the edge rows
      */
-    private void drawHeader(Graphics2D g, Rectangle bounds) {
+    private int drawHeader(Graphics2D g, Rectangle bounds) {
         String best = snapshot.bestMove() == chess.core.Move.NO_MOVE
                 ? "-"
                 : chess.core.Move.toString(snapshot.bestMove());
@@ -144,14 +175,36 @@ public final class MctsWeightsPanel extends javax.swing.JComponent {
         if (leaf == null || leaf.isBlank()) {
             leaf = "root";
         }
-        Font font = Theme.font(11, Font.PLAIN);
+        Font font = Theme.font(10, Font.BOLD);
         g.setFont(font);
-        g.setColor(Theme.MUTED);
         FontMetrics fm = g.getFontMetrics();
-        String text = String.format("%,d visits | root %s | best %s | leaf %s",
-                snapshot.playouts(), snapshot.rootScoreLabel(), best,
-                Ui.elide(leaf, fm, Math.max(80, contentRight(bounds) - bounds.x - 180)));
-        g.drawString(text, bounds.x + 14, bounds.y + 58);
+        int left = bounds.x + 14;
+        int top = bounds.y + SUMMARY_TOP;
+        int right = contentRight(bounds);
+        int width = Math.max(120, right - left);
+        boolean compact = width < 620;
+        int columns = compact ? 2 : 4;
+        int chipW = Math.max(80, (width - SUMMARY_GAP * (columns - 1)) / columns);
+        int leafMax = compact ? chipW - 58 : chipW - 50;
+        String visits = String.format("%,d", snapshot.playouts());
+        String shortLeaf = Ui.elide(leaf, fm, Math.max(44, leafMax));
+
+        drawMetricChip(g, left, top, chipW, "visits", visits, TensorViz.POSITIVE);
+        drawMetricChip(g, left + chipW + SUMMARY_GAP, top, chipW,
+                "root", snapshot.rootScoreLabel(), Theme.ACCENT);
+        if (compact) {
+            int secondTop = top + SUMMARY_CHIP_HEIGHT + SUMMARY_GAP;
+            drawMetricChip(g, left, secondTop, chipW, "best", best, TensorViz.POLICY);
+            drawMetricChip(g, left + chipW + SUMMARY_GAP, secondTop, chipW,
+                    "leaf", shortLeaf, TensorViz.TRUNK);
+            return secondTop + SUMMARY_CHIP_HEIGHT + SUMMARY_TABLE_GAP;
+        }
+
+        drawMetricChip(g, left + (chipW + SUMMARY_GAP) * 2, top, chipW,
+                "best", best, TensorViz.POLICY);
+        drawMetricChip(g, left + (chipW + SUMMARY_GAP) * 3, top, chipW,
+                "leaf", shortLeaf, TensorViz.TRUNK);
+        return top + SUMMARY_CHIP_HEIGHT + SUMMARY_TABLE_GAP;
     }
 
     /**
@@ -190,18 +243,15 @@ public final class MctsWeightsPanel extends javax.swing.JComponent {
      * @param g graphics context
      * @param bounds drawing bounds
      */
-    private void drawRows(Graphics2D g, Rectangle bounds) {
+    private void drawRows(Graphics2D g, Rectangle bounds, int top) {
         List<MctsSearch.Row> rows = snapshot.rows();
         if (rows.isEmpty()) {
             g.setColor(Theme.MUTED);
             g.setFont(Theme.font(12, Font.PLAIN));
-            g.drawString("No expanded root edges yet.", bounds.x + 14, bounds.y + 86);
+            g.drawString("No expanded root edges yet.", bounds.x + 14, top + 10);
             return;
         }
         int left = bounds.x + 14;
-        int top = bounds.y + 72;
-        int rowH = 14;
-        int gap = 6;
         int moveW = 54;
         int right = contentRight(bounds);
         int available = Math.max(300, right - left - moveW - 42);
@@ -218,23 +268,42 @@ public final class MctsWeightsPanel extends javax.swing.JComponent {
         g.drawString("Q", left + moveW + visitW + priorW + 20, top - 8);
         g.drawString("PUCT", left + moveW + visitW + priorW + qW + 30, top - 8);
 
-        int count = Math.min(MAX_ROWS, rows.size());
+        int availableHeight = Math.max(ROW_HEIGHT, bounds.y + bounds.height - 16 - top);
+        int count = Math.min(Math.min(MAX_ROWS, rows.size()),
+                Math.max(1, (availableHeight + ROW_GAP) / (ROW_HEIGHT + ROW_GAP)));
         for (int i = 0; i < count; i++) {
             MctsSearch.Row row = rows.get(i);
-            int y = top + i * (rowH + gap);
-            drawMoveLabel(g, row, left, y, moveW, rowH);
-            drawUnsignedBar(g, left + moveW, y, visitW, rowH,
+            int y = top + i * (ROW_HEIGHT + ROW_GAP);
+            drawMoveLabel(g, row, left, y, moveW, ROW_HEIGHT);
+            drawUnsignedBar(g, left + moveW, y, visitW, ROW_HEIGHT,
                     row.visits() / (double) totalVisits,
                     TensorViz.POSITIVE,
                     String.format("%d", row.visits()));
-            drawUnsignedBar(g, left + moveW + visitW + 10, y, priorW, rowH,
+            drawUnsignedBar(g, left + moveW + visitW + 10, y, priorW, ROW_HEIGHT,
                     row.prior(), Theme.ACCENT,
                     String.format("%.1f%%", row.prior() * 100.0));
-            drawSignedBar(g, left + moveW + visitW + priorW + 20, y, qW, rowH,
+            drawSignedBar(g, left + moveW + visitW + priorW + 20, y, qW, ROW_HEIGHT,
                     row.q(), String.format("%+.2f", row.q()));
-            drawSignedBar(g, left + moveW + visitW + priorW + qW + 30, y, scoreW, rowH,
+            drawSignedBar(g, left + moveW + visitW + priorW + qW + 30, y, scoreW, ROW_HEIGHT,
                     row.score(), String.format("%+.2f", row.score()));
         }
+    }
+
+    /**
+     * Draws one key-value metric chip in the summary row.
+     *
+     * @param g graphics context
+     * @param x left coordinate
+     * @param y top coordinate
+     * @param width chip width
+     * @param label metric label
+     * @param value metric value
+     * @param accent metric accent
+     */
+    private static void drawMetricChip(Graphics2D g, int x, int y, int width,
+            String label, String value, Color accent) {
+        TensorViz.drawInfoChip(g, new Rectangle(x, y, width, SUMMARY_CHIP_HEIGHT),
+                label, value, accent);
     }
 
     /**
