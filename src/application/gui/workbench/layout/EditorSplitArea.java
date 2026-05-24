@@ -24,7 +24,6 @@ import java.util.function.IntConsumer;
 import java.util.function.Supplier;
 import javax.swing.BorderFactory;
 import javax.swing.JComponent;
-import javax.swing.JMenuItem;
 import javax.swing.MenuSelectionManager;
 import javax.swing.JPanel;
 import javax.swing.JPopupMenu;
@@ -763,7 +762,7 @@ public final class EditorSplitArea extends JPanel {
         plus.addActionListener(event -> {
             plus.setSelected(false);
             JPopupMenu menu = new JPopupMenu();
-            stylePopupMenu(menu);
+            PopupMenus.style(menu);
             List<String> offered = new ArrayList<>();
             for (int i = 0; i < panels.size(); i++) {
                 if (panelFactories.get(i) == null || offered.contains(baseNames.get(i))) {
@@ -771,23 +770,17 @@ public final class EditorSplitArea extends JPanel {
                 }
                 int index = i;
                 offered.add(baseNames.get(i));
-                JMenuItem item = new JMenuItem("New " + baseNames.get(i));
-                stylePopupMenuItem(item);
-                item.addActionListener(choice -> {
+                menu.add(PopupMenus.item("New " + baseNames.get(i), () -> {
                     activePane = pane;
                     duplicate(index);
-                });
-                menu.add(item);
+                }));
             }
             for (int i = 0; i < panels.size(); i++) {
                 if (open.contains(i)) {
                     continue;
                 }
                 int index = i;
-                JMenuItem item = new JMenuItem(names.get(i));
-                stylePopupMenuItem(item);
-                item.addActionListener(choice -> setPaneSelection(pane, index));
-                menu.add(item);
+                menu.add(PopupMenus.item(names.get(i), () -> setPaneSelection(pane, index)));
             }
             menu.show(plus, 0, plus.getHeight());
         });
@@ -803,37 +796,23 @@ public final class EditorSplitArea extends JPanel {
      */
     private JPopupMenu tabContextMenu(int pane, int panelIndex) {
         JPopupMenu menu = new JPopupMenu();
-        stylePopupMenu(menu);
-        menu.add(menuItem("Split Right", () -> splitTabCopy(panelIndex, DROP_RIGHT)));
-        menu.add(menuItem("Split Down", () -> splitTabCopy(panelIndex, DROP_BOTTOM)));
-        menu.add(menuItem("Split Left", () -> splitTabCopy(panelIndex, DROP_LEFT)));
-        menu.add(menuItem("Split Up", () -> splitTabCopy(panelIndex, DROP_TOP)));
+        PopupMenus.style(menu);
+        menu.add(PopupMenus.item("Split Right", () -> splitTabCopy(panelIndex, DROP_RIGHT)));
+        menu.add(PopupMenus.item("Split Down", () -> splitTabCopy(panelIndex, DROP_BOTTOM)));
+        menu.add(PopupMenus.item("Split Left", () -> splitTabCopy(panelIndex, DROP_LEFT)));
+        menu.add(PopupMenus.item("Split Up", () -> splitTabCopy(panelIndex, DROP_TOP)));
         if (validPanel(panelIndex) && panelFactories.get(panelIndex) != null) {
-            menu.add(menuItem("Duplicate", () -> duplicate(panelIndex)));
+            menu.add(PopupMenus.item("Duplicate", () -> duplicate(panelIndex)));
         }
-        menu.add(menuItem("Close", () -> closeTab(panelIndex)));
-        menu.add(menuItem("Close Others", () -> closeOtherTabs(panelIndex)));
+        menu.add(PopupMenus.item("Close", () -> closeTab(panelIndex)));
+        menu.add(PopupMenus.item("Close Others", () -> closeOtherTabs(panelIndex)));
         if (open.size() < panels.size()) {
-            menu.add(menuItem("Restore Closed Tabs", () -> reopenAllTabs(pane)));
+            menu.add(PopupMenus.item("Restore Closed Tabs", () -> reopenAllTabs(pane)));
         }
         if (isSplitActive()) {
-            menu.add(menuItem("Collapse Groups", this::collapseAndRelayout));
+            menu.add(PopupMenus.item("Collapse Groups", this::collapseAndRelayout));
         }
         return menu;
-    }
-
-    /**
-     * Creates a styled popup menu item.
-     *
-     * @param label item label
-     * @param action item action
-     * @return styled item
-     */
-    private static JMenuItem menuItem(String label, Runnable action) {
-        JMenuItem item = new JMenuItem(label);
-        stylePopupMenuItem(item);
-        item.addActionListener(event -> action.run());
-        return item;
     }
 
     /**
@@ -850,31 +829,6 @@ public final class EditorSplitArea extends JPanel {
             candidate = baseName + " " + ordinal;
         }
         return candidate;
-    }
-
-    /**
-     * Applies the workbench palette to the closed-tab popup.
-     *
-     * @param menu popup menu
-     */
-    private static void stylePopupMenu(JPopupMenu menu) {
-        menu.setOpaque(true);
-        menu.setBackground(Theme.PANEL_SOLID);
-        menu.setForeground(Theme.TEXT);
-        menu.setBorder(BorderFactory.createLineBorder(Theme.LINE));
-    }
-
-    /**
-     * Applies the workbench palette to a closed-tab popup item.
-     *
-     * @param item popup item
-     */
-    private static void stylePopupMenuItem(JMenuItem item) {
-        item.setOpaque(true);
-        item.setBackground(Theme.PANEL_SOLID);
-        item.setForeground(Theme.TEXT);
-        item.setFont(Theme.font(12, java.awt.Font.PLAIN));
-        item.setBorder(Theme.pad(5, 10, 5, 10));
     }
 
     /**
