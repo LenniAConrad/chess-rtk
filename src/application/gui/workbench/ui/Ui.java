@@ -1725,6 +1725,23 @@ public final class Ui {
     private static final class StyledSpinnerUI extends BasicSpinnerUI {
 
         /**
+         * Paints the full input well before the editor and arrow buttons are
+         * painted, avoiding unfilled platform-background gaps inside focused
+         * spinner borders.
+         *
+         * @param graphics graphics context
+         * @param component spinner component
+         */
+        @Override
+        public void paint(Graphics graphics, JComponent component) {
+            graphics.setColor(component.isEnabled() ? Theme.INPUT : Theme.INPUT_DISABLED);
+            graphics.fillRect(1, 1,
+                    Math.max(0, component.getWidth() - 2),
+                    Math.max(0, component.getHeight() - 2));
+            super.paint(graphics, component);
+        }
+
+        /**
          * Creates the next-value button.
          *
          * @return next button

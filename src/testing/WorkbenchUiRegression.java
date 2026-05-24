@@ -96,6 +96,7 @@ final class WorkbenchUiRegression {
         testDisabledComboUsesThemeBackground();
         testEnabledComboFillsArrowGutter();
         testSpinnerEditorUsesReadableInputColors();
+        testSpinnerFillsArrowGutter();
         testGameLineImportInputKeepsMultilineHeight();
         testSettingsToggleRowsAreReadable();
         testSettingsSliderRefreshKeepsReadableColors();
@@ -435,23 +436,23 @@ final class WorkbenchUiRegression {
 
         BufferedImage image = paint(combo, 280, 32);
         Color expected = themeColor("INPUT");
-        assertComboInputPixel(image, 150, 16, expected, "combo middle input fill");
-        assertComboInputPixel(image, 250, 16, expected, "combo arrow gutter input fill");
-        assertComboInputPixel(image, 276, 10, expected, "combo right input fill");
+        assertInputPixel(image, 150, 16, expected, "combo middle input fill");
+        assertInputPixel(image, 250, 16, expected, "combo arrow gutter input fill");
+        assertInputPixel(image, 276, 10, expected, "combo right input fill");
 
         Theme.setMode(Theme.Mode.LIGHT);
     }
 
     /**
-     * Verifies one combo-box input pixel is near the expected input fill.
+     * Verifies one input-control pixel is near the expected input fill.
      *
-     * @param image painted combo image
+     * @param image painted control image
      * @param x sample x
      * @param y sample y
      * @param expected expected color
      * @param label assertion label
      */
-    private static void assertComboInputPixel(BufferedImage image, int x, int y, Color expected, String label) {
+    private static void assertInputPixel(BufferedImage image, int x, int y, Color expected, String label) {
         Color sample = new Color(image.getRGB(x, y), true);
         if (colorDistance(sample, expected) > 6.0) {
             throw new AssertionError(label + ": expected near " + colorText(expected)
@@ -475,6 +476,28 @@ final class WorkbenchUiRegression {
                 "spinner editor text contrast");
         assertTrue(field.getBorder().getBorderInsets(field).left <= 8,
                 "spinner editor avoids nested input border");
+        Theme.setMode(Theme.Mode.LIGHT);
+    }
+
+    /**
+     * Verifies spinner controls fill the full input well, including the arrow
+     * gutter used by number spinners.
+     */
+    private static void testSpinnerFillsArrowGutter() {
+        Theme.setMode(Theme.Mode.DARK);
+        JSpinner spinner = new JSpinner();
+        spinner.setValue(Integer.valueOf(300));
+        Ui.styleIntegerSpinner(spinner);
+        spinner.setSize(100, 32);
+        spinner.doLayout();
+
+        BufferedImage image = paint(spinner, 100, 32);
+        Color expected = themeColor("INPUT");
+        assertInputPixel(image, 52, 16, expected, "spinner middle input fill");
+        assertInputPixel(image, 81, 7, expected, "spinner upper arrow gutter input fill");
+        assertInputPixel(image, 81, 25, expected, "spinner lower arrow gutter input fill");
+        assertInputPixel(image, 97, 16, expected, "spinner right input fill");
+
         Theme.setMode(Theme.Mode.LIGHT);
     }
 
