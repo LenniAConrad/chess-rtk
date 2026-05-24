@@ -34,6 +34,7 @@ import application.gui.workbench.session.RunArtifacts;
 import application.gui.workbench.session.Session;
 import application.gui.workbench.ui.AnalysisGraph;
 import application.gui.workbench.ui.EvalBar;
+import application.gui.workbench.ui.TagCloud;
 import application.gui.workbench.ui.Toast;
 import application.gui.workbench.ui.ToggleBox;
 import chess.core.Move;
@@ -52,7 +53,6 @@ import javax.swing.JCheckBox;
 import javax.swing.JComponent;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
-import javax.swing.JList;
 import javax.swing.JPanel;
 import javax.swing.JSpinner;
 import javax.swing.JTabbedPane;
@@ -233,9 +233,9 @@ public abstract class WindowBase extends JFrame {
     protected final DefaultListModel<String> tagModel = new DefaultListModel<>();
 
     /**
-     * Tag list.
+     * Visual tag cloud for categorized position tags.
      */
-    protected final JList<String> tagList = new JList<>(tagModel);
+    protected final TagCloud tagCloud = new TagCloud();
 
     /**
      * Position report panel used by the publishing tab and command palette.

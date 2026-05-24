@@ -203,6 +203,7 @@ public abstract class WindowGameLayer extends WindowEngineLayer {
         }
         tagModel.clear();
         tagModel.addElement("calculating...");
+        tagCloud.setTags(List.of("calculating..."));
         Position snapshot = currentPosition.copy();
         long requestId = ++tagRequestId;
         tagWorker = new SwingWorker<>() {
@@ -232,6 +233,7 @@ public abstract class WindowGameLayer extends WindowEngineLayer {
                     for (String tag : computedTags) {
                         tagModel.addElement(tag);
                     }
+                    tagCloud.setTags(computedTags);
                     session.updateTags(computedTags);
                 } catch (InterruptedException ex) {
                     Thread.currentThread().interrupt();
@@ -252,7 +254,9 @@ public abstract class WindowGameLayer extends WindowEngineLayer {
                 }
                 tagModel.clear();
                 String message = ex.getCause() == null ? ex.getMessage() : ex.getCause().getMessage();
-                tagModel.addElement("tagging failed: " + (message == null ? ex.getClass().getSimpleName() : message));
+                String failure = "tagging failed: " + (message == null ? ex.getClass().getSimpleName() : message);
+                tagModel.addElement(failure);
+                tagCloud.setTags(List.of(failure));
             }
         };
         tagWorker.execute();

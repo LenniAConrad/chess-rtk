@@ -348,12 +348,9 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
             }
         });
 
-        Theme.list(tagList);
-        tagList.setFont(Theme.mono(12));
-
         boardDetailTabs = createSectionTabs();
         boardDetailTabs.addTab("Moves", titled("Legal Moves", scroll(movesTable)));
-        boardDetailTabs.addTab("Tags", titled("Tags", scroll(tagList)));
+        boardDetailTabs.addTab("Tags", titled("Tags", scroll(tagCloud)));
         boardDetailTabs.addTab("ECO", createEcoExplorerPanel());
         boardDetailTabs.addTab("Editor", createBoardEditorPanel());
         boardDetailTabs.addTab("Data", createAnalysisDataPanel());

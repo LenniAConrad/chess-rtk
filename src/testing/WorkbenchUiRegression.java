@@ -56,6 +56,7 @@ import application.gui.workbench.layout.LazyPanel;
 import application.gui.workbench.layout.FlatTabbedPaneUI;
 import application.gui.workbench.network.TensorViz;
 import application.gui.workbench.ui.FileDialogs;
+import application.gui.workbench.ui.TagCloud;
 import application.gui.workbench.ui.Theme;
 import application.gui.workbench.ui.Ui;
 import application.gui.workbench.window.LayoutMenu;
@@ -87,6 +88,7 @@ final class WorkbenchUiRegression {
         testScrollPaneUsesSolidCorners();
         testViewportFillWrapperTracksAvailableHeight();
         testDataSurfacesUseSolidBackgrounds();
+        testTagCloudGroupsAndWrapsTags();
         testCustomPaintedSurfacesClearBackground();
         testBooleanTableRendererIsStyled();
         testComponentTreeStylingCoversPlainControls();
@@ -244,6 +246,28 @@ final class WorkbenchUiRegression {
         invokeStatic(type("Theme"), "list", new Class<?>[] { JList.class }, list);
         assertTrue(list.isOpaque(), "list opaque");
         assertEquals(Integer.valueOf(255), Integer.valueOf(list.getBackground().getAlpha()), "list solid alpha");
+    }
+
+    /**
+     * Verifies the shared tag cloud paints categorized, wrapped chips.
+     */
+    private static void testTagCloudGroupsAndWrapsTags() {
+        TagCloud full = new TagCloud();
+        full.setTags(List.of(
+                "FACT: castle_rights=KQkq",
+                "META: phase=opening",
+                "PIECE: activity=low_mobility side=black piece=bishop square=c8",
+                "MOVE: legal=20"));
+        assertEquals(Integer.valueOf(4), Integer.valueOf(full.tagCount()), "full tag cloud stores parsed tags");
+        full.setSize(420, 180);
+        BufferedImage fullImage = paint(full, 420, 180);
+        assertTrue(maxAlpha(fullImage) > 180, "full tag cloud paints chip pixels");
+
+        TagCloud compact = new TagCloud(TagCloud.Mode.COMPACT);
+        compact.setTags(List.of("FACT: center_control=balanced", "META: source=engine"));
+        compact.setSize(280, 68);
+        BufferedImage compactImage = paint(compact, 280, 68);
+        assertTrue(maxAlpha(compactImage) > 180, "compact tag cloud paints dashboard chips");
     }
 
     /**

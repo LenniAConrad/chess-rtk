@@ -12,6 +12,7 @@ import application.gui.workbench.session.JobTableModel;
 import application.gui.workbench.session.Session;
 import application.gui.workbench.session.SessionListener;
 import application.gui.workbench.ui.MiniChart;
+import application.gui.workbench.ui.TagCloud;
 import application.gui.workbench.ui.Theme;
 import application.gui.workbench.ui.Ui;
 import chess.core.Position;
@@ -70,14 +71,6 @@ public final class DashboardPanel extends JPanel implements SessionListener {
     private static final int CONTENT_MAX_WIDTH = 1440;
 
     /**
-     * Rough character budget for the inline tag preview. Whole tags are added
-     * until the next one would exceed this, then the rest collapse into a
-     * "+N more" suffix (the full set stays in the tooltip). Breaking on whole
-     * tags keeps the label from clipping mid-word at the card edge.
-     */
-    private static final int INLINE_TAG_BUDGET = 60;
-
-    /**
      * Shared session model the dashboard renders from.
      */
     private final transient Session session;
@@ -106,11 +99,6 @@ public final class DashboardPanel extends JPanel implements SessionListener {
      * Current-position card: legal-move count.
      */
     private final JLabel legalValue = value();
-
-    /**
-     * Current-position card: latest tags.
-     */
-    private final JLabel tagsValue = value();
 
     /**
      * Engine card: protocol path.
@@ -210,7 +198,7 @@ public final class DashboardPanel extends JPanel implements SessionListener {
     /**
      * Tag cloud for static position tags.
      */
-    private final TagCloud tagCloud = new TagCloud();
+    private final TagCloud tagCloud = new TagCloud(TagCloud.Mode.COMPACT);
 
     /**
      * Health-check ring infographic.
@@ -478,13 +466,6 @@ public final class DashboardPanel extends JPanel implements SessionListener {
         plyValue.setText(session.ply() + " / " + session.lastPly());
         legalValue.setText(Integer.toString(session.legalMoveCount()));
         List<String> tags = session.tags();
-        if (tags.isEmpty()) {
-            tagsValue.setText("—");
-            tagsValue.setToolTipText(null);
-        } else {
-            tagsValue.setText(inlineTags(tags));
-            tagsValue.setToolTipText("<html>" + String.join("<br>", tags) + "</html>");
-        }
         tagCloud.setTags(tags);
         applyPositionInfographics(PositionStats.from(fen, session.legalMoveCount()));
 
@@ -600,34 +581,6 @@ public final class DashboardPanel extends JPanel implements SessionListener {
         for (JButton button : jobActionButtons) {
             button.setEnabled(hasSelection);
         }
-    }
-
-    /**
-     * Builds the inline tag preview: as many whole tags as fit
-     * {@link #INLINE_TAG_BUDGET}, then a "+N more" suffix for the remainder.
-     * Always at least one tag is shown.
-     *
-     * @param tags full tag list (non-empty)
-     * @return inline preview string
-     */
-    private static String inlineTags(List<String> tags) {
-        StringBuilder builder = new StringBuilder();
-        int shown = 0;
-        for (String tag : tags) {
-            int added = (builder.length() == 0 ? 0 : 2) + tag.length();
-            if (shown > 0 && builder.length() + added > INLINE_TAG_BUDGET) {
-                break;
-            }
-            if (builder.length() > 0) {
-                builder.append(", ");
-            }
-            builder.append(tag);
-            shown++;
-        }
-        if (shown < tags.size()) {
-            builder.append("  +").append(tags.size() - shown).append(" more");
-        }
-        return builder.toString();
     }
 
     /**
@@ -1193,157 +1146,6 @@ public final class DashboardPanel extends JPanel implements SessionListener {
             } finally {
                 g.dispose();
             }
-        }
-    }
-
-    /**
-     * Small static-tag chip cloud.
-     */
-    private static final class TagCloud extends JComponent {
-
-        /**
-         * Serialization identifier for Swing component compatibility.
-         */
-        private static final long serialVersionUID = 1L;
-
-        /**
-         * Tags currently shown in the cloud.
-         */
-        private List<String> tags = List.of();
-
-        /**
-         * Sets tags.
-         *
-         * @param values tag values
-         */
-    void setTags(List<String> values) {
-            tags = values == null ? List.of() : List.copyOf(values);
-            setToolTipText(tags.isEmpty() ? null : "<html>" + htmlTags(tags) + "</html>");
-            repaint();
-        }
-
-        @Override
-        public Dimension getPreferredSize() {
-    return new Dimension(260, 62);
-        }
-
-        @Override
-        public Dimension getMinimumSize() {
-    return getPreferredSize();
-        }
-
-        @Override
-        public Dimension getMaximumSize() {
-    return new Dimension(Integer.MAX_VALUE, 62);
-        }
-
-        @Override
-        protected void paintComponent(Graphics graphics) {
-            Graphics2D g = (Graphics2D) graphics.create();
-            try {
-                installQuality(g);
-                paintPanel(g, 0, 0, getWidth(), getHeight());
-                if (tags.isEmpty()) {
-                    g.setColor(Theme.MUTED);
-                    g.setFont(Theme.font(10, Font.PLAIN));
-                    g.drawString("No tags yet", 10, 22);
-                    return;
-                }
-                g.setFont(Theme.font(10, Font.PLAIN));
-                FontMetrics fm = g.getFontMetrics();
-                int x = 8;
-                int y = 8;
-                int rowH = 21;
-                int maxY = getHeight() - rowH;
-                int shown = 0;
-                for (String tag : tags) {
-                    if (shown >= 9) {
-                        break;
-                    }
-                    String visible = compactTag(tag);
-                    int chipW = Math.min(getWidth() - 16, fm.stringWidth(visible) + 16);
-                    if (x + chipW > getWidth() - 8) {
-                        x = 8;
-                        y += rowH;
-                    }
-                    if (y > maxY) {
-                        break;
-                    }
-                    Color fill = shown % 3 == 0
-                            ? Theme.STATUS_INFO_BG
-                            : Theme.ELEVATED_SOLID;
-                    g.setColor(fill);
-                    g.fillRoundRect(x, y, chipW, 17, 8, 8);
-                    g.setColor(Theme.LINE);
-                    g.drawRoundRect(x, y, chipW, 17, 8, 8);
-                    g.setColor(Theme.TEXT);
-                    g.drawString(Ui.elide(visible, fm, chipW - 10), x + 8, y + 12);
-                    x += chipW + 5;
-                    shown++;
-                }
-                if (shown < tags.size()) {
-                    g.setColor(Theme.MUTED);
-                    g.drawString("+" + (tags.size() - shown) + " more", x + 2,
-                            Math.min(getHeight() - 10, y + 12));
-                }
-            } finally {
-                g.dispose();
-            }
-        }
-
-        /**
-         * Compacts a tag for a chip.
-         *
-         * @param tag raw tag
-         * @return compact tag
-         */
-        private static String compactTag(String tag) {
-            if (tag == null) {
-                return "";
-            }
-            String out = tag.trim();
-            int colon = out.indexOf(':');
-            if (colon >= 0 && colon + 1 < out.length()) {
-                out = out.substring(colon + 1).trim();
-            }
-            out = out.replace('_', ' ')
-                    .replace(" side=", " ")
-                    .replace(" square=", " ")
-                    .replace(" file=", " ")
-                    .replace('=', ' ')
-                    .replaceAll("\\s+", " ")
-                    .trim();
-            return out.length() > 24 ? out.substring(0, 21) + "..." : out;
-        }
-
-        /**
-         * Escapes a tag list for a simple Swing HTML tooltip.
-         *
-         * @param values raw tags
-         * @return escaped tag lines joined with breaks
-         */
-        private static String htmlTags(List<String> values) {
-            StringBuilder builder = new StringBuilder();
-            for (String value : values) {
-                if (builder.length() > 0) {
-                    builder.append("<br>");
-                }
-                builder.append(escapeHtml(value));
-            }
-            return builder.toString();
-        }
-
-        /**
-         * Escapes text for Swing HTML labels.
-         *
-         * @param text raw text
-         * @return escaped text
-         */
-        private static String escapeHtml(String text) {
-            return text == null ? "" : text.replace("&", "&amp;")
-                    .replace("<", "&lt;")
-                    .replace(">", "&gt;")
-                    .replace("\"", "&quot;");
         }
     }
 
