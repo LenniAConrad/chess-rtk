@@ -16,6 +16,7 @@ import java.awt.Rectangle;
 import java.awt.RenderingHints;
 import java.awt.event.MouseEvent;
 import javax.swing.JComponent;
+import javax.swing.JTabbedPane;
 import javax.swing.event.MouseInputAdapter;
 import javax.swing.plaf.basic.BasicTabbedPaneUI;
 
@@ -246,6 +247,26 @@ public final class FlatTabbedPaneUI extends BasicTabbedPaneUI {
             g.drawRect(r.x, r.y, Math.max(0, r.width - 1), Math.max(0, r.height - 1));
         } finally {
             g.dispose();
+        }
+    }
+
+    /**
+     * Returns the tab under a point, guarding empty panes during shutdown.
+     *
+     * @param pane tabbed pane
+     * @param x x coordinate
+     * @param y y coordinate
+     * @return tab index, or -1 when none exists
+     */
+    @Override
+    public int tabForCoordinate(JTabbedPane pane, int x, int y) {
+        if (pane == null || pane.getTabCount() == 0) {
+            return -1;
+        }
+        try {
+            return super.tabForCoordinate(pane, x, y);
+        } catch (ArrayIndexOutOfBoundsException ex) {
+            return -1;
         }
     }
 
