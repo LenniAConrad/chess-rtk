@@ -104,7 +104,7 @@ public final class NnueDrawing {
         FontMetrics labelMetrics = g.getFontMetrics();
         g.setColor(Theme.MUTED);
         g.drawString(Ui.elide(label, labelMetrics, r.width - 18), r.x + 11, r.y + 11);
-        g.setFont(Theme.font(12, Font.BOLD));
+        g.setFont(Theme.font(r.width < 96 ? 11 : 12, Font.BOLD));
         FontMetrics valueMetrics = g.getFontMetrics();
         g.setColor(Theme.TEXT);
         g.drawString(Ui.elide(value, valueMetrics, r.width - 18), r.x + 11, r.y + 24);
@@ -117,23 +117,18 @@ public final class NnueDrawing {
      * @param transformed full transformed vector
      * @param transformedUs side-to-move transformed half
      * @param fc0 FC0 raw output including fwd row
-     * @param fc1Input FC1 input after squared/clipped split
      * @param fc1 FC1 clipped output
      * @return compact stack summary
      */
     public static String stockfishStackSummary(float[] transformed, float[] transformedUs,
-            float[] fc0, float[] fc1Input, float[] fc1) {
+            float[] fc0, float[] fc1) {
         int input = safeLength(transformed);
         if (input == 0) {
             input = safeLength(transformedUs);
         }
         int fc0Hidden = Math.max(0, safeLength(fc0) - 1);
-        int fc1In = safeLength(fc1Input);
         int fc1Out = safeLength(fc1);
-        if (fc1In > 0) {
-            return input + "->" + fc0Hidden + "+fwd->" + fc1In + "->" + fc1Out;
-        }
-        return input + "->" + fc0Hidden + "+fwd->" + fc1Out;
+        return input + " / " + fc0Hidden + " / " + fc1Out;
     }
 
     /**
@@ -160,7 +155,7 @@ public final class NnueDrawing {
         g.setColor(Theme.MUTED);
         g.drawString(Ui.elide(label, fm, Math.max(20, r.width - 18)),
                 r.x + 15, r.y + 15);
-        g.setFont(Theme.font(18, Font.BOLD));
+        g.setFont(Theme.font(r.width < 140 ? 15 : 18, Font.BOLD));
         fm = g.getFontMetrics();
         g.setColor(Theme.TEXT);
         g.drawString(Ui.elide(value, fm, Math.max(20, r.width - 18)),

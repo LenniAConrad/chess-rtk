@@ -584,7 +584,7 @@ public final class Ui {
      * @param spinner spinner
      */
     public static void styleIntegerSpinner(JSpinner spinner) {
-        spinner.setEditor(new JSpinner.NumberEditor(spinner, "#"));
+        spinner.setEditor(new JSpinner.NumberEditor(spinner, "#,##0"));
         styleSpinner(spinner);
         if (spinner.getEditor() instanceof JSpinner.DefaultEditor editor) {
             JFormattedTextField field = editor.getTextField();

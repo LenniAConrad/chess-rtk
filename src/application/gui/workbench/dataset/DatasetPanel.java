@@ -13,7 +13,6 @@ import static application.gui.workbench.ui.Ui.label;
 import static application.gui.workbench.ui.Ui.placeholder;
 import static application.gui.workbench.ui.Ui.scroll;
 import static application.gui.workbench.ui.Ui.styleFields;
-import static application.gui.workbench.ui.Ui.styleIntegerSpinner;
 import static application.gui.workbench.ui.Ui.styleProgressBar;
 import static application.gui.workbench.ui.Ui.titled;
 import static application.gui.workbench.ui.Ui.transparentPanel;
@@ -31,6 +30,7 @@ import java.io.File;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import javax.swing.JButton;
@@ -40,12 +40,10 @@ import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JProgressBar;
 import javax.swing.JScrollPane;
-import javax.swing.JSpinner;
 import javax.swing.JSplitPane;
 import javax.swing.JTabbedPane;
 import javax.swing.JTable;
 import javax.swing.JTextField;
-import javax.swing.SpinnerNumberModel;
 import javax.swing.SwingWorker;
 import javax.swing.filechooser.FileNameExtensionFilter;
 import javax.swing.table.TableColumnModel;
@@ -76,11 +74,6 @@ public final class DatasetPanel extends JPanel {
     private static final int MAX_ROW_LIMIT = 1_000_000;
 
     /**
-     * Row-limit spinner step.
-     */
-    private static final int ROW_LIMIT_STEP = 1_000;
-
-    /**
      * Standard row height for dataset tables.
      */
     private static final int TABLE_ROW_HEIGHT = 25;
@@ -107,8 +100,7 @@ public final class DatasetPanel extends JPanel {
     /**
      * Row scan limit control.
      */
-    private final JSpinner rowLimitSpinner = new JSpinner(
-            new SpinnerNumberModel(DEFAULT_ROW_LIMIT, MIN_ROW_LIMIT, MAX_ROW_LIMIT, ROW_LIMIT_STEP));
+    private final JTextField rowLimitField = new JTextField(formatRowLimit(DEFAULT_ROW_LIMIT));
 
     /**
      * Analyze action button.
@@ -264,7 +256,14 @@ public final class DatasetPanel extends JPanel {
             setStatus("Choose a dataset file or directory first", Theme.ForegroundRole.WARNING);
             return;
         }
-        startAnalysis(Path.of(text), ((Number) rowLimitSpinner.getValue()).longValue());
+        Long rowLimit = rowLimitValue();
+        if (rowLimit == null) {
+            setStatus("Row limit must be between " + formatRowLimit(MIN_ROW_LIMIT) + " and "
+                    + formatRowLimit(MAX_ROW_LIMIT) + ".", Theme.ForegroundRole.WARNING);
+            rowLimitField.requestFocusInWindow();
+            return;
+        }
+        startAnalysis(Path.of(text), rowLimit.longValue());
     }
 
     /**
@@ -354,25 +353,29 @@ public final class DatasetPanel extends JPanel {
      * @return toolbar
      */
     private JComponent createToolbar() {
-        JPanel toolbar = transparentPanel(new BorderLayout(Theme.SPACE_SM, 0));
         styleFields(sourceField);
         sourceField.setToolTipText("Dataset file or directory");
         placeholder(sourceField, "Dataset file or directory");
-        toolbar.add(sourceField, BorderLayout.CENTER);
-
-        JPanel controls = transparentPanel(new FlowLayout(FlowLayout.RIGHT, Theme.SPACE_SM, 0));
         JButton browse = button("Browse", false, event -> chooseDatasetPath());
-        styleIntegerSpinner(rowLimitSpinner);
-        rowLimitSpinner.setPreferredSize(new Dimension(118, Theme.CONTROL_HEIGHT));
+        JPanel sourceRow = transparentPanel(new BorderLayout(Theme.SPACE_SM, 0));
+        sourceRow.add(sourceField, BorderLayout.CENTER);
+        sourceRow.add(browse, BorderLayout.EAST);
+
+        JPanel controls = transparentPanel(new FlowLayout(FlowLayout.LEFT, Theme.SPACE_SM, 0));
+        styleFields(rowLimitField);
+        rowLimitField.setColumns(10);
+        rowLimitField.setToolTipText("Maximum rows to scan");
+        rowLimitField.setPreferredSize(new Dimension(120, Theme.CONTROL_HEIGHT));
         controls.add(label("row limit"));
-        controls.add(rowLimitSpinner);
-        controls.add(browse);
+        controls.add(rowLimitField);
         controls.add(analyzeButton);
         controls.add(stopButton);
         controls.add(copyReportButton);
-        toolbar.add(controls, BorderLayout.EAST);
 
         JPanel wrapper = transparentPanel(new BorderLayout(0, Theme.SPACE_SM));
+        JPanel toolbar = transparentPanel(new BorderLayout(0, Theme.SPACE_SM));
+        toolbar.add(sourceRow, BorderLayout.NORTH);
+        toolbar.add(controls, BorderLayout.CENTER);
         wrapper.add(toolbar, BorderLayout.CENTER);
         JPanel status = transparentPanel(new BorderLayout(Theme.SPACE_SM, 0));
         progress.setIndeterminate(true);
@@ -381,6 +384,37 @@ public final class DatasetPanel extends JPanel {
         status.add(progress, BorderLayout.EAST);
         wrapper.add(status, BorderLayout.SOUTH);
         return wrapper;
+    }
+
+    /**
+     * Parses the visible row-limit field.
+     *
+     * @return row limit, or null when the value is invalid
+     */
+    private Long rowLimitValue() {
+        String raw = rowLimitField.getText() == null ? "" : rowLimitField.getText()
+                .replace(",", "")
+                .replace("_", "")
+                .trim();
+        if (raw.isEmpty()) {
+            return null;
+        }
+        try {
+            long value = Long.parseLong(raw);
+            return value >= MIN_ROW_LIMIT && value <= MAX_ROW_LIMIT ? Long.valueOf(value) : null;
+        } catch (NumberFormatException ex) {
+            return null;
+        }
+    }
+
+    /**
+     * Formats row-limit values using stable ASCII grouping.
+     *
+     * @param value row count
+     * @return formatted row count
+     */
+    private static String formatRowLimit(long value) {
+        return String.format(Locale.ROOT, "%,d", value);
     }
 
     /**

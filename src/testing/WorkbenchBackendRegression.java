@@ -36,6 +36,7 @@ import javax.swing.text.AttributeSet;
 import javax.swing.text.StyleConstants;
 
 import application.gui.workbench.session.LogPanel;
+import application.gui.workbench.network.NnueDrawing;
 import application.gui.workbench.ui.Theme;
 
 import chess.core.Move;
@@ -76,6 +77,7 @@ final class WorkbenchBackendRegression {
         testNetworkMctsUpdatesAreNonBlocking();
         testNetworkDiagnosticsPreviewHighlightsConfig();
         testNetworkDiagnosticsPreviewRecolorsForDarkTheme();
+        testNnueStackSummaryStaysCompact();
         testNnueViewsPaintSyntheticSnapshotHeadlessly();
         testNnueTraceFitsViewportAndCentersColumns();
         testNnueHalfKpDecodingUsesFeatureEncoderLayout();
@@ -447,6 +449,17 @@ final class WorkbenchBackendRegression {
         Theme.setMode(Theme.Mode.LIGHT);
         timer.stop();
         invoke(panel, "dispose", new Class<?>[0]);
+    }
+
+    /**
+     * Verifies the NNUE header stack label remains compact enough for small
+     * network panels.
+     */
+    private static void testNnueStackSummaryStaysCompact() {
+        String summary = NnueDrawing.stockfishStackSummary(new float[1024], new float[512],
+                new float[32], new float[32]);
+        assertEquals("1024 / 31 / 32", summary, "compact Stockfish NNUE stack summary");
+        assertFalse(summary.contains("fwd"), "forward skip detail stays in the trace, not cramped header");
     }
 
     /**

@@ -605,7 +605,6 @@ public abstract class NnueViewBase extends NetworkView implements Scrollable {
         float[] transformed = snapshot.data("nnue.stockfish.transformed");
         float[] transformedUs = snapshot.data("nnue.stockfish.transformed.us");
         float[] fc0 = snapshot.data("nnue.stockfish.fc0.raw");
-        float[] fc1Input = snapshot.data("nnue.stockfish.fc1.input");
         float[] fc1 = snapshot.data("nnue.stockfish.fc1.clipped");
         float[] psqt = snapshot.data("nnue.stockfish.psqt.cp");
         float affine = aff == null ? 0.0f : aff[0];
@@ -650,7 +649,7 @@ public abstract class NnueViewBase extends NetworkView implements Scrollable {
                 ? new String[] {
                         activeUs + " / " + traceFeatureLanes(),
                         psqt == null ? "--" : String.format("%+.0f", psqt[0]),
-                        stockfishStackSummary(transformed, transformedUs, fc0, fc1Input, fc1)
+                        stockfishStackSummary(transformed, transformedUs, fc0, fc1)
                 }
                 : new String[] {
                         activeUs + " / " + activeThem,

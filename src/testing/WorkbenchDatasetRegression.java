@@ -100,8 +100,12 @@ final class WorkbenchDatasetRegression {
     private static void testDatasetPanelAndChartsPaint() {
         DatasetPanel panel = new DatasetPanel();
         JButton copy = (JButton) field(panel, "copyReportButton");
+        JTextField rowLimit = (JTextField) field(panel, "rowLimitField");
         JTextField source = (JTextField) field(panel, "sourceField");
         assertFalse(copy.isEnabled(), "copy report disabled before a scan");
+        assertTrue(rowLimit.getPreferredSize().width >= 108, "dataset row-limit field stays legible");
+        assertEquals("50,000", rowLimit.getText(),
+                "dataset row-limit value uses readable grouping");
         assertEquals("Dataset file or directory", source.getToolTipText(), "dataset source tooltip");
         panel.applySummary(new DatasetSummary(Path.of("sample.fen"), 1, 2L, 2L, 0L, 0L, 1L, 1L,
                 0L, 0L, 0L, 1L, 1L, 0, 8_000, 4_000.0d,
