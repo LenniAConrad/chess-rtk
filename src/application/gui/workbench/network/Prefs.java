@@ -1,5 +1,6 @@
 package application.gui.workbench.network;
 
+import application.cli.PathOps;
 import java.util.prefs.Preferences;
 
 /**
@@ -26,7 +27,7 @@ public final class Prefs {
      * @return export directory path
      */
     public static String exportDir() {
-        return NODE.get("exportDir", System.getProperty("user.home"));
+        return NODE.get("exportDir", PathOps.DEFAULT_DUMP_DIR.toString());
     }
 
     /**
@@ -35,6 +36,6 @@ public final class Prefs {
      * @param value export directory path
      */
     public static void setExportDir(String value) {
-        NODE.put("exportDir", value == null ? System.getProperty("user.home") : value);
+        NODE.put("exportDir", value == null ? PathOps.DEFAULT_DUMP_DIR.toString() : value);
     }
 }

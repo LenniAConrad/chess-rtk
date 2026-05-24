@@ -5,6 +5,7 @@ import static application.cli.Constants.CMD_WORKBENCH;
 
 import application.cli.CliCommand;
 import application.cli.CliRegistry;
+import application.cli.PathOps;
 import chess.core.Setup;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -419,7 +420,7 @@ public final class CommandTemplates {
      */
     private static List<CommandOption> generateFenOptions() {
         List<CommandOption> options = new ArrayList<>();
-        options.add(opt("--output", "workbench-fens", true, "Output directory"));
+        options.add(opt("--output", PathOps.dumpPath("workbench-fens").toString(), true, "Output directory"));
         options.add(opt("--files", "1", true, "Number of shard files"));
         options.add(opt("--per-file", "100", true, "FENs per shard file"));
         options.add(opt("--batch", "256", true, "Positions per RNG batch"));

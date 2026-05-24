@@ -123,7 +123,7 @@ javac --release 17 -d out $(find src -name &quot;*.java&quot;)</code></pre>
 ./scripts/run_regression_suite.sh perft-smoke
 ./scripts/run_regression_suite.sh release</code></pre>
 <h2 id="quality-checks">Quality checks</h2>
-<p>The VS Code workspace enables SonarLint automatic analysis and excludes local artifact directories such as <code>data/</code>, <code>dump/</code>, <code>models/</code>, <code>out/</code>, and <code>session/</code>. There is no required SonarQube server for local development.</p>
+<p>The VS Code workspace enables SonarLint automatic analysis and excludes local artifact directories such as <code>data/</code>, <code>dump/</code>, <code>models/</code>, <code>out/</code>, and legacy <code>session/</code>. There is no required SonarQube server for local development.</p>
 <p>Use these local checks before committing Java changes:</p>
 <pre><code class="language-bash">./scripts/run_regression_suite.sh recommended</code></pre>
 <p>If the workflow depends on a configured external UCI engine, also run:</p>
@@ -183,7 +183,7 @@ crtk help</code></pre>
 <pre><code class="language-bash">./scripts/uninstall.sh</code></pre>
 <p>Keep the desktop app entry while uninstalling other local pieces:</p>
 <pre><code class="language-bash">./scripts/uninstall.sh --keep-desktop</code></pre>
-<p>Also remove data directories created by the app (<code>dump/</code>, <code>session/</code>):</p>
+<p>Also remove data directories created by the app (<code>dump/</code>, plus legacy <code>session/</code> if present):</p>
 <pre><code class="language-bash">./scripts/uninstall.sh --remove-data</code></pre>
         </article>
         <aside class="toc"><h2>On This Page</h2>

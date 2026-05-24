@@ -1,6 +1,7 @@
 package application.gui.workbench.window;
 
 import application.Config;
+import application.cli.PathOps;
 import application.gui.workbench.audio.SoundCue;
 import application.gui.workbench.audio.SoundService;
 import application.gui.workbench.command.CommandRunner;
@@ -768,7 +769,7 @@ public abstract class WindowGameLayer extends WindowEngineLayer {
      * Saves the current line as PGN.
      */
     protected void savePgnFile() {
-        JFileChooser chooser = FileDialogs.createFileChooser(null, new File("workbench-game.pgn"),
+        JFileChooser chooser = FileDialogs.createFileChooser(null, PathOps.dumpPath("workbench-game.pgn").toFile(),
     new FileNameExtensionFilter("PGN file", "pgn"));
         int result = chooser.showSaveDialog(this);
         if (result != JFileChooser.APPROVE_OPTION) {

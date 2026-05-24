@@ -79,7 +79,7 @@ Useful focused suites:
 
 The VS Code workspace enables SonarLint automatic analysis and excludes local
 artifact directories such as `data/`, `dump/`, `models/`, `out/`, and
-`session/`. There is no required SonarQube server for local development.
+legacy `session/`. There is no required SonarQube server for local development.
 
 Use these local checks before committing Java changes:
 
@@ -214,7 +214,7 @@ Keep the desktop app entry while uninstalling other local pieces:
 ./scripts/uninstall.sh --keep-desktop
 ```
 
-Also remove data directories created by the app (`dump/`, `session/`):
+Also remove data directories created by the app (`dump/`, plus legacy `session/` if present):
 
 ```bash
 ./scripts/uninstall.sh --remove-data

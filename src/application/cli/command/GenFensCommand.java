@@ -11,6 +11,7 @@ import static application.cli.Constants.OPT_OUTPUT_SHORT;
 import static application.cli.Constants.OPT_PER_FILE;
 import static application.cli.Constants.OPT_VERBOSE;
 import static application.cli.Constants.OPT_VERBOSE_SHORT;
+import static application.cli.PathOps.dumpPath;
 import static application.cli.Validation.requireBetweenInclusive;
 import static application.cli.Validation.requirePositive;
 
@@ -18,7 +19,6 @@ import java.io.BufferedWriter;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -259,7 +259,7 @@ public final class GenFensCommand {
 		validateGenFensArgs(files, perFile, batch, chess960Files, maxAttempts);
 
 		if (outDir == null) {
-			outDir = Paths.get("all_positions_shards");
+			outDir = dumpPath("all_positions_shards");
 		}
 
 		ensureDirectoryOrExit(COMMAND_LABEL, outDir, verbose);

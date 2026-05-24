@@ -556,10 +556,10 @@ public final class PublishingPanel {
      */
     private void installFieldPlaceholders() {
         placeholder(publishInputField, "path/to/input.pgn or path/to/fens.txt");
-        placeholder(publishOutputField, "path/to/output.pdf");
-        placeholder(publishManifestOutputField, "path/to/normalized-study.toml");
-        placeholder(publishPdfOutputField, "path/to/interior.pdf");
-        placeholder(publishCoverOutputField, "path/to/cover.pdf");
+        placeholder(publishOutputField, Defaults.PUBLISH_BOOK_OUTPUT);
+        placeholder(publishManifestOutputField, Defaults.PUBLISH_MANIFEST_OUTPUT);
+        placeholder(publishPdfOutputField, PathOps.dumpPath("workbench-interior.pdf").toString());
+        placeholder(publishCoverOutputField, Defaults.PUBLISH_COVER_OUTPUT);
         placeholder(publishTitleField, "e.g. My Chess Study");
         placeholder(publishSubtitleField, "e.g. Annotated tactics");
         placeholder(publishAuthorField, "e.g. Lennart A. Conrad");

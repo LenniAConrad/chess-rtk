@@ -1,5 +1,6 @@
 package testing;
 
+import application.cli.PathOps;
 import static testing.WorkbenchTestSupport.*;
 
 import java.awt.Component;
@@ -209,9 +210,10 @@ final class WorkbenchUiRegression {
     private static void testOptionFilterTokenMatching() {
         assertTrue(optionFilterMatches("min pieces", "--min-pieces", "", "Minimum piece count"),
                 "option filter split token match");
-        assertTrue(optionFilterMatches("output dir", "--output", "workbench-fens", "Output directory"),
+        String defaultFenDir = PathOps.dumpPath("workbench-fens").toString();
+        assertTrue(optionFilterMatches("output dir", "--output", defaultFenDir, "Output directory"),
                 "option filter cross-column match");
-        assertFalse(optionFilterMatches("output mate", "--output", "workbench-fens", "Output directory"),
+        assertFalse(optionFilterMatches("output mate", "--output", defaultFenDir, "Output directory"),
                 "option filter missing token");
     }
 

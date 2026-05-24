@@ -12,31 +12,31 @@ Mining outputs are single top-level JSON arrays (objects appended incrementally)
 
 ## Derived record outputs
 
-Common converters derive output names from the input stem when `--output` is
-omitted:
+Common converters derive output names under `dump/` from the input stem when
+`--output` is omitted:
 
-- `record export plain`: `<stem>.plain`
-- `record export csv`: `<stem>.csv`
-- `record export pgn`: `<stem>.pgn`
-- `puzzle pgn`: `<stem>.pgn`
-- `record analysis-delta`: `<stem>.analysis-delta.jsonl`
-- `record export training-jsonl`: `<stem>.training.jsonl`
+- `record export plain`: `dump/<stem>.plain`
+- `record export csv`: `dump/<stem>.csv`
+- `record export pgn`: `dump/<stem>.pgn`
+- `puzzle pgn`: `dump/<stem>.pgn`
+- `record analysis-delta`: `dump/<stem>.analysis-delta.jsonl`
+- `record export training-jsonl`: `dump/<stem>.training.jsonl`
 
 Tensor exporters write multiple files from one output stem:
 
-- `record dataset npy`: `<stem>.features.npy`, `<stem>.labels.npy`
-- `record dataset lc0`: `<stem>.lc0.inputs.npy`, `<stem>.lc0.policy.npy`, `<stem>.lc0.value.npy`, `<stem>.lc0.meta.json`
-- `record dataset classifier`: `<stem>.classifier.inputs.npy`, `<stem>.classifier.labels.npy`, `<stem>.classifier.meta.json`
+- `record dataset npy`: `dump/<stem>.features.npy`, `dump/<stem>.labels.npy`
+- `record dataset lc0`: `dump/<stem>.lc0.inputs.npy`, `dump/<stem>.lc0.policy.npy`, `dump/<stem>.lc0.value.npy`, `dump/<stem>.lc0.meta.json`
+- `record dataset classifier`: `dump/<stem>.classifier.inputs.npy`, `dump/<stem>.classifier.labels.npy`, `dump/<stem>.classifier.meta.json`
 
 Publishing commands follow the same convention:
 
-- `book pdf`: defaults to the input stem plus `.pdf` when an input path exists.
-- `book render`: defaults to the manifest stem plus `.pdf`.
-- `book cover`: defaults to the manifest stem plus `-cover.pdf`.
+- `book pdf`: defaults to `dump/<stem>.pdf` when an input path exists, otherwise `dump/chess.pdf`.
+- `book render`: defaults to `dump/<stem>.pdf`.
+- `book cover`: defaults to `dump/<stem>-cover.pdf`.
 
-## Session logs (`session/`)
+## Session logs (`dump/session/`)
 
-The CLI writes logs under `session/` via `chess.debug.LogService`.
+The CLI writes logs under `dump/session/` via `chess.debug.LogService`.
 
 To clear session artifacts:
 

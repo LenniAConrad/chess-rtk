@@ -1,5 +1,7 @@
 package application.gui.workbench;
 
+import application.cli.PathOps;
+
 /**
  * Shared user-facing defaults for the Swing workbench.
  *
@@ -142,32 +144,32 @@ public final class Defaults {
     /**
      * Placeholder path used in command previews for generated PGN files.
      */
-    public static final String WORKBENCH_GAME_PLACEHOLDER = "<workbench-game.pgn>";
+    public static final String WORKBENCH_GAME_PLACEHOLDER = "<dump/workbench-game.pgn>";
 
     /**
      * Placeholder path used in command previews for generated FEN files.
      */
-    public static final String WORKBENCH_FENS_PLACEHOLDER = "<workbench-fens.txt>";
+    public static final String WORKBENCH_FENS_PLACEHOLDER = "<dump/workbench-fens.txt>";
 
     /**
      * Default diagram PDF output path.
      */
-    public static final String PUBLISH_DIAGRAMS_OUTPUT = "workbench-diagrams.pdf";
+    public static final String PUBLISH_DIAGRAMS_OUTPUT = PathOps.dumpPath("workbench-diagrams.pdf").toString();
 
     /**
      * Default interior PDF output path.
      */
-    public static final String PUBLISH_BOOK_OUTPUT = "workbench-book.pdf";
+    public static final String PUBLISH_BOOK_OUTPUT = PathOps.dumpPath("workbench-book.pdf").toString();
 
     /**
      * Default cover PDF output path.
      */
-    public static final String PUBLISH_COVER_OUTPUT = "workbench-cover.pdf";
+    public static final String PUBLISH_COVER_OUTPUT = PathOps.dumpPath("workbench-cover.pdf").toString();
 
     /**
      * Default manifest output path.
      */
-    public static final String PUBLISH_MANIFEST_OUTPUT = "workbench-book.toml";
+    public static final String PUBLISH_MANIFEST_OUTPUT = PathOps.dumpPath("workbench-book.toml").toString();
 
     /**
      * Prevents instantiation.

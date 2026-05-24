@@ -912,29 +912,29 @@ public final class HelpCommand {
 
 			record export plain options:
 			  --input|-i PATH            Input .record JSON file
-			  --output|-o PATH           Output .plain file (default: input stem + .plain)
+			  --output|-o PATH           Output .plain file (default: dump/<input-stem>.plain)
 			  --export-all|--sidelines   Include all sidelines (default: mainline only)
 			  --filter|-f DSL            Filter-DSL to select records
 			  --csv                      Also export a CSV file
-			  --csv-output|-C PATH       Output CSV file path (default: input stem + .csv)
+			  --csv-output|-C PATH       Output CSV file path (default: dump/<input-stem>.csv)
 
 			record export csv options:
 			  --input|-i PATH            Input .record JSON file
-			  --output|-o PATH           Output CSV file (default: input stem + .csv)
+			  --output|-o PATH           Output CSV file (default: dump/<input-stem>.csv)
 			  --filter|-f DSL            Filter-DSL to select records
 
 			record dataset npy options:
 			  --input|-i PATH            Input .record JSON file
-			  --output|-o PATH           Output dataset prefix (default: input stem + .dataset)
+			  --output|-o PATH           Output dataset prefix (default: dump/<input-stem>.dataset)
 
 			record dataset lc0 options:
 			  --input|-i PATH            Input .record JSON file
-			  --output|-o PATH           Output dataset prefix (default: input stem + .lc0)
+			  --output|-o PATH           Output dataset prefix (default: dump/<input-stem>.lc0)
 			  --weights PATH             Optional LC0 weights for policy-map compression
 
 			record dataset classifier options:
 			  --input|-i PATH            Input record file(s) or directories
-			  --output|-o PATH           Output dataset prefix (default: input stem + .classifier)
+			  --output|-o PATH           Output dataset prefix (default: dump/<input-stem>.classifier)
 			  --filter|-f DSL            Optional row-selection Filter DSL
 			  --label-filter DSL         Optional positive-label Filter DSL (overrides kind)
 			  --max-positives N          Cap positive rows
@@ -944,7 +944,7 @@ public final class HelpCommand {
 
 			record export puzzle-jsonl options:
 			  --input|-i PATH            Input .record JSON file
-			  --output|-o PATH           Output JSONL file (default: input stem + .puzzle.jsonl)
+			  --output|-o PATH           Output JSONL file (default: dump/<input-stem>.puzzle.jsonl)
 			  --weights PATH             LC0 CNN weights path
 			  --filter|-f DSL            Optional row-selection Filter DSL
 			  --puzzles                  Keep only puzzle records
@@ -953,7 +953,7 @@ public final class HelpCommand {
 
 			record export puzzle-elo-jsonl options:
 			  --input|-i PATH            Input record file(s) or directories
-			  --output|-o PATH           Output JSONL file (default: input stem + .puzzle-elo.jsonl)
+			  --output|-o PATH           Output JSONL file (default: dump/<input-stem>.puzzle-elo.jsonl)
 			  --recursive                Recurse into input directories
 			  --max-records N            Score at most N verified puzzles (0/default: no cap)
 			  --threads N                Tree-scoring worker threads (default: available processors)
@@ -962,7 +962,7 @@ public final class HelpCommand {
 
 			record export training-jsonl options:
 			  --input|-i PATH            Input record file(s) or directories
-			  --output|-o PATH           Output JSONL file (default: input stem + .training.jsonl)
+			  --output|-o PATH           Output JSONL file (default: dump/<input-stem>.training.jsonl)
 			  --filter|-f DSL            Puzzle Filter DSL; matching rows become verified_puzzle
 			  --recursive                Recurse into input directories
 			  --include-engine-metadata  Include engine/PV metadata as metadata only
@@ -976,11 +976,11 @@ public final class HelpCommand {
 
 			record export pgn options:
 			  --input|-i PATH            Input .record JSON file
-			  --output|-o PATH           Output PGN file (default: input stem + .pgn)
+			  --output|-o PATH           Output PGN file (default: dump/<input-stem>.pgn)
 
 			puzzle pgn options:
 			  --input|-i PATH            Input mixed puzzle dump file
-			  --output|-o PATH           Output PGN file (default: input stem + .pgn)
+			  --output|-o PATH           Output PGN file (default: dump/<input-stem>.pgn)
 
 			record files options:
 			  --input|-i PATH            Input record file(s) or directories
@@ -994,7 +994,7 @@ public final class HelpCommand {
 
 			record analysis-delta options:
 			  --input|-i PATH            Input record file
-			  --output|-o PATH           Output JSONL path (default: input stem + .analysis-delta.jsonl)
+			  --output|-o PATH           Output JSONL path (default: dump/<input-stem>.analysis-delta.jsonl)
 			  --verbose|-v               Print stack trace on failure
 
 			batch run options:
@@ -1018,7 +1018,7 @@ public final class HelpCommand {
 			  --verbose|-v               Print stack trace on failure
 
 			fen generate options:
-			  --output|-o PATH           Output directory
+			  --output|-o PATH           Output directory (default: dump/all_positions_shards)
 			  --files N                  Number of shard files to write
 			  --per-file N               FENs per shard file
 			  --batch N                  Positions per RNG batch
@@ -1143,7 +1143,7 @@ public final class HelpCommand {
 
 			book collection options:
 			  --input|-i PATH            Input record JSON or JSONL with position + analysis PV
-			  --output|-o PATH           Output TOML manifest path (default: input stem + .book.toml)
+			  --output|-o PATH           Output TOML manifest path (default: dump/<input-stem>.book.toml)
 			  --pdf-output PATH          Also render the interior PDF to this path
 			  --cover-output PATH        Also render the matching cover PDF to this path
 			  --title TEXT               Book title (default: Chess Puzzle Collection)
@@ -1174,7 +1174,7 @@ public final class HelpCommand {
 
 			book study options:
 			  --input|-i PATH            Input puzzle-study JSON/TOML manifest
-			  --output|-o PATH           Output interior PDF path (default: input stem + .pdf when no other output is requested)
+			  --output|-o PATH           Output interior PDF path (default: dump/<input-stem>.pdf when no other output is requested)
 			  --manifest-output PATH     Also write a normalized TOML manifest to this path
 			  --cover-output PATH        Also render the matching native cover PDF
 			  --title TEXT               Optional book title override
@@ -1198,7 +1198,7 @@ public final class HelpCommand {
 
 			book render options:
 			  --input|-i PATH            Input chess-book JSON/TOML file
-			  --output|-o PATH           Output PDF path (default: input stem + .pdf)
+			  --output|-o PATH           Output PDF path (default: dump/<input-stem>.pdf)
 			  --title TEXT               Optional title override
 			  --subtitle TEXT            Optional subtitle override
 			  --limit N                  Render first N puzzles and update count text
@@ -1211,7 +1211,7 @@ public final class HelpCommand {
 			book cover options:
 			  --input|-i PATH            Input chess-book JSON/TOML file
 			  --pdf PATH                 Interior PDF used to infer trim size and page count
-			  --output|-o PATH           Output cover PDF path (default: input stem + -cover.pdf)
+			  --output|-o PATH           Output cover PDF path (default: dump/<input-stem>-cover.pdf)
 			  --title TEXT               Optional title override
 			  --subtitle TEXT            Optional subtitle override
 			  --binding TYPE             paperback, hardcover, or ebook (default: paperback)
@@ -1232,7 +1232,7 @@ public final class HelpCommand {
 			  --fen FEN                  Input FEN (repeatable; positional FEN also allowed)
 			  --input|-i PATH            Input FEN list / FEN-pair text file
 			  --pgn PATH                 Input PGN file (exports one composition per mainline game)
-			  --output|-o PATH           Output PDF path
+			  --output|-o PATH           Output PDF path (default: dump/<input-stem>.pdf or dump/chess.pdf)
 			  --title TEXT               Document title override
 			  --page-size SIZE           Page size: a4, a5, letter (default: a4)
 			  --diagrams-per-row N       Diagrams per row (default: 2)
@@ -1671,7 +1671,7 @@ public final class HelpCommand {
 
 			fen pgn options:
 			  --input|-i PATH            Input PGN file
-			  --output|-o PATH           Output FEN list (default: input stem + .txt)
+			  --output|-o PATH           Output FEN list (default: dump/<input-stem>.txt)
 			  --mainline                 Only output mainline positions
 			  --pairs                    Output (parent, child) pairs
 			  --verbose|-v               Print stack trace on failure

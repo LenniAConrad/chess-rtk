@@ -26,6 +26,7 @@ import static application.cli.Constants.OPT_CSV;
 import static application.cli.Constants.OPT_CSV_OUTPUT;
 import static application.cli.Constants.OPT_CSV_OUTPUT_SHORT;
 import static application.cli.PathOps.deriveOutputPath;
+import static application.cli.PathOps.dumpPath;
 import static application.cli.PathOps.ensureParentDir;
 import static application.cli.command.RecordCommandSupport.byteProgress;
 import static application.cli.command.RecordCommandSupport.exitWithError;
@@ -182,6 +183,9 @@ public final class RecordCommands {
 			filter = FilterDSL.fromString(filterDsl);
 		}
 
+		if (out == null) {
+			out = deriveOutputPath(in, ".plain");
+		}
 		Bar plainBar = fileProgressBar(in, 1, RECORD_EXPORT_PLAIN);
 		try {
 			Converter.recordToPlain(exportAll, filter, in, out, byteProgress(plainBar));
@@ -189,6 +193,9 @@ public final class RecordCommands {
 			finishProgress(plainBar);
 		}
 		if (csv || csvOut != null) {
+			if (csvOut == null) {
+				csvOut = deriveOutputPath(in, ".csv");
+			}
 			Bar csvBar = fileProgressBar(in, 2, RECORD_EXPORT_CSV);
 			try {
 				Converter.recordToCsv(filter, in, csvOut, byteProgress(csvBar));
@@ -215,6 +222,9 @@ public final class RecordCommands {
 			filter = FilterDSL.fromString(filterDsl);
 		}
 
+		if (out == null) {
+			out = deriveOutputPath(in, ".csv");
+		}
 		Bar bar = fileProgressBar(in, 2, RECORD_EXPORT_CSV);
 		try {
 			Converter.recordToCsv(filter, in, out, byteProgress(bar));
@@ -234,12 +244,7 @@ public final class RecordCommands {
 		a.ensureConsumed();
 
 		if (out == null) {
-			String stem = in.getFileName().toString();
-			int dot = stem.lastIndexOf('.');
-			if (dot > 0) {
-				stem = stem.substring(0, dot);
-			}
-			out = in.resolveSibling(stem + ".dataset");
+			out = deriveOutputPath(in, ".dataset");
 		}
 
 		Bar bar = fileProgressBar(in, 1, "record dataset npy");
@@ -272,12 +277,7 @@ public final class RecordCommands {
 		argv.ensureConsumed();
 
 		if (out == null) {
-			String stem = in.getFileName().toString();
-			int dot = stem.lastIndexOf('.');
-			if (dot > 0) {
-				stem = stem.substring(0, dot);
-			}
-			out = in.resolveSibling(stem + ".lc0");
+			out = deriveOutputPath(in, ".lc0");
 		}
 
 		Bar bar = fileProgressBar(in, 1, "record dataset lc0");
@@ -450,6 +450,14 @@ public final class RecordCommands {
 		Path out = a.path(OPT_OUTPUT, OPT_OUTPUT_SHORT);
 		a.ensureConsumed();
 
+		if (out == null) {
+			out = deriveOutputPath(in, ".pgn");
+		}
+		try {
+			ensureParentDir(out);
+		} catch (IOException ex) {
+			exitWithError("record export pgn: failed to prepare output: " + ex.getMessage(), ex, false);
+		}
 		Converter.recordToPgn(in, out);
 	}
 
@@ -556,7 +564,7 @@ public final class RecordCommands {
 		if (inputFiles.size() == 1) {
 			return defaultOutputPath(inputFiles.get(0), null, EXT_PUZZLE_ELO_JSONL);
 		}
-		return Paths.get("puzzles" + EXT_PUZZLE_ELO_JSONL);
+		return dumpPath("puzzles" + EXT_PUZZLE_ELO_JSONL);
 	}
 
 	/**
@@ -608,7 +616,7 @@ public final class RecordCommands {
 	}
 
 	/**
-	 * Returns the explicit output path or a sibling path with the requested suffix.
+	 * Returns the explicit output path or a dump-local path with the requested suffix.
 	 *
 	 * @param input source input file
 	 * @param output explicit output path
@@ -619,12 +627,7 @@ public final class RecordCommands {
 		if (output != null) {
 			return output;
 		}
-		String stem = input.getFileName().toString();
-		int dot = stem.lastIndexOf('.');
-		if (dot > 0) {
-			stem = stem.substring(0, dot);
-		}
-		return input.resolveSibling(stem + suffix);
+		return deriveOutputPath(input, suffix);
 	}
 
 	/**
@@ -1065,6 +1068,14 @@ public final class RecordCommands {
 		Path out = a.path(OPT_OUTPUT, OPT_OUTPUT_SHORT);
 		a.ensureConsumed();
 
+		if (out == null) {
+			out = deriveOutputPath(in, ".pgn");
+		}
+		try {
+			ensureParentDir(out);
+		} catch (IOException ex) {
+			exitWithError("puzzle pgn: failed to prepare output: " + ex.getMessage(), ex, false);
+		}
 		Config.reload();
 		Filter verify = Config.getPuzzleVerify();
 		Converter.puzzlesToPgn(in, out, objJson -> isPuzzleRecordJson(objJson, null, verify));

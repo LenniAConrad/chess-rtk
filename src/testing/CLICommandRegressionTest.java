@@ -107,6 +107,7 @@ public final class CLICommandRegressionTest {
 		testStructuredFenAndMoveFailures();
 		testVersionCommand();
 		testBatchRunCommandScript();
+		testDefaultOutputPathsUseDumpDirectory();
 		testCorePerftCommand();
 		testEngineEvalEvaluatorModes();
 		testHighValueResearchCommands();
@@ -152,6 +153,18 @@ public final class CLICommandRegressionTest {
 		} catch (IOException ex) {
 			throw new AssertionError("batch run temp file failed", ex);
 		}
+	}
+
+	/**
+	 * Verifies implicit CLI outputs are derived under the shared dump directory.
+	 */
+	private static void testDefaultOutputPathsUseDumpDirectory() {
+		assertEquals(Path.of("dump", "games.txt"),
+				PathOps.deriveOutputPath(Path.of("input", "games.pgn"), ".txt"),
+				"derived output uses dump directory");
+		assertEquals(Path.of("dump", "workbench-game.pgn"),
+				PathOps.dumpPath("workbench-game.pgn"),
+				"dump path helper");
 	}
 
 	/**

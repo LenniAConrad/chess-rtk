@@ -1,6 +1,7 @@
 package application.gui.workbench.window;
 
 import application.Config;
+import application.cli.PathOps;
 import application.gui.workbench.audio.SoundCue;
 import application.gui.workbench.audio.SoundService;
 import application.gui.workbench.board.BoardEditorPanel;
@@ -845,7 +846,7 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
      * Saves the visible console text to a user-chosen log file.
      */
     protected void saveConsoleLog() {
-        JFileChooser chooser = FileDialogs.createFileChooser(null, new File("workbench-console.log"),
+        JFileChooser chooser = FileDialogs.createFileChooser(null, PathOps.dumpPath("workbench-console.log").toFile(),
     new FileNameExtensionFilter("Log files", "log", "txt"));
         int result = chooser.showSaveDialog(this);
         if (result != JFileChooser.APPROVE_OPTION) {

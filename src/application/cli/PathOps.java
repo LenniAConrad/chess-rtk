@@ -15,6 +15,11 @@ import java.nio.file.Paths;
 public final class PathOps {
 
 	/**
+	 * Default directory for user-visible generated files.
+	 */
+	public static final Path DEFAULT_DUMP_DIR = Paths.get("dump");
+
+	/**
 	 * Utility class; prevent instantiation.
 	 */
 	private PathOps() {
@@ -99,16 +104,30 @@ public final class PathOps {
 	}
 
 	/**
-	 * Derives an output path by replacing the input's extension with the given suffix.
+	 * Returns a path inside the default dump directory.
+	 *
+	 * @param filename filename to resolve under {@code dump/}
+	 * @return dump-local path
+	 */
+	public static Path dumpPath(String filename) {
+		if (filename == null || filename.isBlank()) {
+			return DEFAULT_DUMP_DIR;
+		}
+		return DEFAULT_DUMP_DIR.resolve(filename);
+	}
+
+	/**
+	 * Derives an output path in the default dump directory by replacing the
+	 * input's extension with the given suffix.
 	 *
 	 * @param input  input path used to derive the stem
 	 * @param suffix suffix to append (including dot)
-	 * @return new path alongside the input path with the new suffix
+	 * @return new path under {@code dump/} with the derived filename
 	 */
 	public static Path deriveOutputPath(Path input, String suffix) {
 		String name = input.getFileName().toString();
 		int dot = name.lastIndexOf('.');
 		String stem = (dot > 0) ? name.substring(0, dot) : name;
-		return input.resolveSibling(stem + suffix);
+		return dumpPath(stem + suffix);
 	}
 }

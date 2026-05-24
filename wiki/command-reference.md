@@ -217,10 +217,10 @@ Convert a `.record` JSON array into Leela-style `.plain` blocks.
 
 Options:
 - `--input|-i <path>`: input `.record` (required)
-- `--output|-o <path>`: output `.plain` (optional; default derived from input)
+- `--output|-o <path>`: output `.plain` (optional; default `dump/<input-stem>.plain`)
 - `--filter|-f <dsl>`: Filter DSL to select which records are exported
 - `--sidelines|--export-all|-a`: include sidelines / export additional PVs when present
-- `--csv`: also emit a CSV export (default path derived)
+- `--csv`: also emit a CSV export (default `dump/<input-stem>.csv`)
 - `--csv-output|-c <path>`: explicit CSV output path (also enables CSV export)
 
 ## `record export csv`
@@ -229,7 +229,7 @@ Convert a `.record` JSON array directly to CSV (no `.plain` output).
 
 Options:
 - `--input|-i <path>`: input `.record` (required)
-- `--output|-o <path>`: output `.csv` (optional; default derived from input)
+- `--output|-o <path>`: output `.csv` (optional; default `dump/<input-stem>.csv`)
 - `--filter|-f <dsl>`: Filter DSL to select which records are exported
 
 ## `record export pgn`
@@ -238,7 +238,7 @@ Convert a `.record` JSON array into one or more PGN games.
 
 Options:
 - `--input|-i <path>`: input `.record` (required)
-- `--output|-o <path>`: output `.pgn` (optional; default derived from input)
+- `--output|-o <path>`: output `.pgn` (optional; default `dump/<input-stem>.pgn`)
 
 ## `record analysis-delta`
 
@@ -247,7 +247,7 @@ final eval, delta type/value, fluctuation range, and time/depth to final value.
 
 Options:
 - `--input|-i <path>`: input record file (required)
-- `--output|-o <path>`: output `.analysis-delta.jsonl` path (optional; default derived from input)
+- `--output|-o <path>`: output `.analysis-delta.jsonl` path (optional; default `dump/<input-stem>.analysis-delta.jsonl`)
 - `--verbose|-v`: print stack traces on failure
 
 ## `puzzle pgn`
@@ -258,7 +258,7 @@ configured puzzle verify filter is applied.
 
 Options:
 - `--input|-i <path>`: input dump (JSON array or JSONL)
-- `--output|-o <path>`: output `.pgn` (optional; default derived from input)
+- `--output|-o <path>`: output `.pgn` (optional; default `dump/<input-stem>.pgn`)
 
 ## `record files`
 
@@ -282,7 +282,7 @@ Convert a `.record` JSON array into NumPy tensors:
 
 Options:
 - `--input|-i <path>`: input `.record` (required)
-- `--output|-o <path>`: output stem (optional; default derived when omitted)
+- `--output|-o <path>`: output stem (optional; default `dump/<input-stem>.dataset`)
 
 ## `record dataset lc0`
 
@@ -294,7 +294,7 @@ Convert a `.record` JSON array into LC0-style tensors:
 
 Options:
 - `--input|-i <path>`: input `.record` (required)
-- `--output|-o <path>`: output stem (optional; default derived when omitted)
+- `--output|-o <path>`: output stem (optional; default `dump/<input-stem>.lc0`)
 - `--weights <path>`: optional LC0 weights to compress the policy to the net's size
 
 ## `record export puzzle-jsonl`
@@ -304,7 +304,7 @@ requires ChessRTK LC0 CNN `.bin` weights so it can use the network policy map.
 
 Options:
 - `--input|-i <path>`: input `.record` file (required)
-- `--output|-o <path>`: output `.jsonl` path (optional; default derived from input)
+- `--output|-o <path>`: output `.jsonl` path (optional; default `dump/<input-stem>.puzzle.jsonl`)
 - `--weights <path>`: ChessRTK LC0 CNN `.bin` weights path (required)
 - `--filter|-f <dsl>`: optional row-selection Filter DSL
 - `--puzzles`: keep only records classified as puzzles by the configured verify filter
@@ -326,7 +326,7 @@ Labeling:
 
 Options:
 - `--input|-i <path>`: input record file or directory (repeatable; required)
-- `--output|-o <path>`: output stem (optional for a single file; required for multiple inputs/directories)
+- `--output|-o <path>`: output stem (default `dump/<input-stem>.classifier` for a single file; required for multiple inputs/directories)
 - `--filter|-f <dsl>`: optional row-selection Filter DSL before labeling
 - `--label-filter <dsl>`: optional positive-label Filter DSL
 - `--max-positives <n>`: cap positive rows
@@ -343,7 +343,7 @@ rows become random/negative examples.
 
 Options:
 - `--input|-i <path>`: input record file or directory (repeatable; required)
-- `--output|-o <path>`: output `.jsonl` path (optional for a single file; required for multiple inputs/directories)
+- `--output|-o <path>`: output `.jsonl` path (default `dump/<input-stem>.training.jsonl` for a single file; required for multiple inputs/directories)
 - `--filter|-f <dsl>`: puzzle Filter DSL; defaults to configured puzzle verification
 - `--recursive`: recurse into input directories
 - `--include-engine-metadata`: retain engine/PV details as metadata
@@ -378,7 +378,7 @@ Options:
 Generate random legal FEN shards to disk (standard + Chess960 mix).
 
 Options:
-- `--output|-o <dir>`: output directory (default `all_positions_shards/`)
+- `--output|-o <dir>`: output directory (default `dump/all_positions_shards/`)
 - `--files <n>`: number of shard files to generate (default `1000`)
 - `--per-file <n>` / `--fens-per-file <n>`: FENs per file (default `100000`)
 - `--chess960-files <n>` / `--chess960 <n>`: how many of the first shard files use Chess960 starts (default `100`)
@@ -648,7 +648,7 @@ Options:
 - `--fen "<FEN...>"`: input FEN (repeatable; a single positional FEN is also allowed)
 - `--input|-i <path>`: input FEN list or FEN-pair text file
 - `--pgn <path>`: input PGN file
-- `--output|-o <path>`: output PDF path (optional; default derived from input or `chess.pdf`)
+- `--output|-o <path>`: output PDF path (optional; default `dump/<input-stem>.pdf` or `dump/chess.pdf`)
 - `--title <text>`: document title override
 - `--page-size <size>`: `a4`, `a5`, or `letter`
 - `--diagrams-per-row <n>`: diagrams per row (default `2`)
@@ -1255,7 +1255,7 @@ Options:
 
 ## `clean`
 
-Delete session cache/logs under `session/`.
+Delete session cache/logs under `dump/session/`.
 
 Options:
 - `--verbose|-v`: print stack traces on failure

@@ -12,6 +12,7 @@ import static application.cli.Constants.OPT_TITLE;
 import static application.cli.Constants.OPT_VERBOSE;
 import static application.cli.Constants.OPT_VERBOSE_SHORT;
 import static application.cli.PathOps.deriveOutputPath;
+import static application.cli.PathOps.dumpPath;
 import static application.cli.command.CommandSupport.trimToNull;
 
 import java.io.IOException;
@@ -441,7 +442,7 @@ public final class BookPdfCommand {
 		if (input != null) {
 			return deriveOutputPath(input, ".pdf");
 		}
-		return Path.of("chess.pdf");
+		return dumpPath("chess.pdf");
 	}
 
 	/**

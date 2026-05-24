@@ -1,5 +1,6 @@
 package application.gui.workbench.session;
 
+import application.cli.PathOps;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.time.Instant;
@@ -13,7 +14,7 @@ public final class RunLog {
     /**
      * Directory for full workbench command logs.
      */
-    public static final Path DEFAULT_DIR = Path.of("session", "workbench-logs");
+    public static final Path DEFAULT_DIR = PathOps.dumpPath("workbench-logs");
 
     /**
      * Prevents instantiation.

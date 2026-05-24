@@ -16,7 +16,7 @@ public final class SessionCache {
 	/**
 	 * Default location for session artifacts.
 	 */
-	private static final Path SESSION_DIR = Paths.get("session");
+	private static final Path SESSION_DIR = Paths.get("dump", "session");
 
 	/**
 	 * Prevents instantiation of this utility class.

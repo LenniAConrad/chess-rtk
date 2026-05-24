@@ -1,5 +1,6 @@
 package application.gui.workbench.session;
 
+import application.cli.PathOps;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -30,7 +31,7 @@ public final class RunManifest {
     /**
      * Directory for persisted workbench run manifests.
      */
-    public static final Path DEFAULT_DIR = Path.of("session", "workbench-runs");
+    public static final Path DEFAULT_DIR = PathOps.dumpPath("workbench-runs");
 
     /**
      * Command options whose following token names an input/config file.

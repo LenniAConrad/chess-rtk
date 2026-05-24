@@ -1,7 +1,10 @@
 package application.gui.workbench.ui;
 
+import application.cli.PathOps;
 import java.awt.Component;
 import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
 import java.util.Locale;
 import javax.swing.JFileChooser;
 import javax.swing.JTextField;
@@ -70,13 +73,52 @@ public final class FileDialogs {
             chooser.setDialogTitle(title);
         }
         if (selectedFile != null) {
-            chooser.setSelectedFile(selectedFile);
+            applySelectedFile(chooser, selectedFile);
+        } else {
+            chooser.setCurrentDirectory(defaultDirectory());
         }
         if (filter != null) {
             chooser.setFileFilter(new ReadableExtensionFilter(filter));
         }
         Ui.styleFileChooser(chooser);
         return chooser;
+    }
+
+    /**
+     * Returns the default directory used by workbench file choosers.
+     *
+     * @return dump directory when available, otherwise the process directory
+     */
+    private static File defaultDirectory() {
+        try {
+            Files.createDirectories(PathOps.DEFAULT_DUMP_DIR);
+            return PathOps.DEFAULT_DUMP_DIR.toFile();
+        } catch (IOException ex) {
+            return new File(".");
+        }
+    }
+
+    /**
+     * Applies the initial selection while keeping relative save paths anchored in
+     * their parent directory.
+     *
+     * @param chooser chooser to update
+     * @param selectedFile selected file
+     */
+    private static void applySelectedFile(JFileChooser chooser, File selectedFile) {
+        File parent = selectedFile.getParentFile();
+        if (parent != null) {
+            try {
+                Files.createDirectories(parent.toPath());
+                chooser.setCurrentDirectory(parent);
+            } catch (IOException ex) {
+                chooser.setCurrentDirectory(defaultDirectory());
+            }
+            chooser.setSelectedFile(new File(selectedFile.getName()));
+            return;
+        }
+        chooser.setCurrentDirectory(defaultDirectory());
+        chooser.setSelectedFile(selectedFile);
     }
 
     /**

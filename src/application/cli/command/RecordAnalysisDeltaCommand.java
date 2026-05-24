@@ -6,6 +6,7 @@ import static application.cli.Constants.OPT_OUTPUT;
 import static application.cli.Constants.OPT_OUTPUT_SHORT;
 import static application.cli.Constants.OPT_VERBOSE;
 import static application.cli.Constants.OPT_VERBOSE_SHORT;
+import static application.cli.PathOps.deriveOutputPath;
 import static application.cli.PathOps.ensureParentDir;
 import static application.cli.RecordIO.streamRecordFile;
 
@@ -107,7 +108,7 @@ public final class RecordAnalysisDeltaCommand {
 		a.ensureConsumed();
 
 		if (output == null) {
-			output = deriveOutput(input, EXT_ANALYSIS_DELTA_JSONL);
+			output = deriveOutputPath(input, EXT_ANALYSIS_DELTA_JSONL);
 		}
 
 		try {
@@ -155,19 +156,6 @@ public final class RecordAnalysisDeltaCommand {
 		if (bar != null) {
 			bar.finish();
 		}
-	}
-
-	/**
-	 * Handles derive output.
-	 * @param input input
-	 * @param suffix suffix
-	 * @return computed value
-	 */
-	private static Path deriveOutput(Path input, String suffix) {
-		String name = input.getFileName().toString();
-		int dot = name.lastIndexOf('.');
-		String stem = (dot > 0) ? name.substring(0, dot) : name;
-		return input.resolveSibling(stem + suffix);
 	}
 
 	/**

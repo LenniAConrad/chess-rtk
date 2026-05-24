@@ -1,5 +1,6 @@
 package application.gui.workbench.publish;
 
+import application.cli.PathOps;
 import application.gui.workbench.game.GameModel;
 import application.gui.workbench.game.PositionText;
 import application.gui.workbench.ui.FileDialogs;
@@ -180,7 +181,7 @@ public final class ReportPanel {
         if (preview.getText() == null || preview.getText().isBlank()) {
             generateReport();
         }
-        JFileChooser chooser = FileDialogs.createFileChooser(null, new File("workbench-report.txt"),
+        JFileChooser chooser = FileDialogs.createFileChooser(null, PathOps.dumpPath("workbench-report.txt").toFile(),
     new FileNameExtensionFilter("Text report", "txt"));
         int result = chooser.showSaveDialog(host.owner());
         if (result != JFileChooser.APPROVE_OPTION) {
