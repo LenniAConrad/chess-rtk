@@ -20,6 +20,7 @@ import application.gui.workbench.game.PuzzleLibrary;
 import application.gui.workbench.game.PuzzlePanel;
 import application.gui.workbench.game.PuzzleSession;
 import application.gui.workbench.game.SanRenderer;
+import application.gui.workbench.ui.NotationPainter;
 import application.gui.workbench.ui.Theme;
 
 import chess.core.Move;
@@ -45,6 +46,7 @@ final class WorkbenchGameRegression {
      */
     static void run() {
         testWorkbenchSanRendererUsesNeutralPieceSvgs();
+        testInlineNotationPainterHandlesFeatureLabels();
         testGameModelLoadsPgnVariations();
         testGameModelNavigatesSelectedVariationLine();
         testPuzzleSessionExploresOpponentVariationBranches();
@@ -95,6 +97,25 @@ final class WorkbenchGameRegression {
                 "SAN rook uses report-style cutout interior");
         assertTrue(redPixelCount(cutoutImage, 6, 8, 48, 48) > 220,
                 "SAN rook paints the cutout outline in the table foreground");
+    }
+
+    /**
+     * Verifies shared inline notation also handles NN feature labels with
+     * lowercase piece markers.
+     */
+    private static void testInlineNotationPainterHandlesFeatureLabels() {
+        assertEquals(Integer.valueOf(4),
+                Integer.valueOf(NotationPainter.pieceSvgCount("Kc5 / qd1 / Ne1 / pa7")),
+                "feature labels replace both king and piece letters with SVG pieces");
+
+        BufferedImage image = new BufferedImage(180, 46, BufferedImage.TYPE_INT_ARGB);
+        java.awt.Graphics2D graphics = image.createGraphics();
+        graphics.setFont(Theme.font(24, Font.BOLD));
+        NotationPainter.draw(graphics, "Kc5 / qd1", 4, 32, 160, Color.RED);
+        graphics.dispose();
+
+        assertTrue(redPixelCount(image, 4, 6, 36, 36) > 120,
+                "inline notation paints a cutout SVG for coordinate labels");
     }
 
     /**

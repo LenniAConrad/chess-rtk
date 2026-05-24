@@ -1,6 +1,7 @@
 package application.gui.workbench.network;
 
 import application.gui.workbench.board.BoardStyle;
+import application.gui.workbench.ui.NotationPainter;
 import application.gui.workbench.ui.Theme;
 import application.gui.workbench.ui.Ui;
 import java.awt.BasicStroke;
@@ -195,8 +196,8 @@ public final class TensorViz {
         g.setFont(Theme.font(10, Font.BOLD));
         fm = g.getFontMetrics();
         g.setColor(Theme.TEXT);
-        g.drawString(Ui.elide(value, fm, Math.max(12, r.width - split - 8)),
-                r.x + split, r.y + Math.max(13, r.height / 2 + 3));
+        NotationPainter.draw(g, value, r.x + split, r.y + Math.max(13, r.height / 2 + 3),
+                Math.max(12, r.width - split - 8), Theme.TEXT);
     }
 
     /**

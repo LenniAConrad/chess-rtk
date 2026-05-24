@@ -3,6 +3,7 @@ package application.gui.workbench.mcts;
 import application.gui.workbench.board.BoardStyle;
 import application.gui.workbench.mcts.MctsSearch;
 import application.gui.workbench.network.TensorViz;
+import application.gui.workbench.ui.NotationPainter;
 import application.gui.workbench.ui.Theme;
 import application.gui.workbench.ui.Ui;
 import chess.core.Move;
@@ -328,8 +329,7 @@ public final class MctsWeightsPanel extends javax.swing.JComponent {
             int x, int y, int w, int h) {
         g.setFont(Theme.font(10, Font.BOLD));
         g.setColor(Theme.TEXT);
-        FontMetrics fm = g.getFontMetrics();
-        g.drawString(Ui.elide(row.san(), fm, w - 2), x, y + h - 2);
+        NotationPainter.draw(g, row.san(), x, y + h - 2, w - 2, Theme.TEXT);
     }
 
     /**

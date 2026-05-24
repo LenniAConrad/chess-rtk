@@ -2,6 +2,7 @@ package application.gui.workbench.network;
 
 import application.gui.workbench.board.BoardStyle;
 import application.gui.workbench.ui.HitRegions;
+import application.gui.workbench.ui.NotationPainter;
 import application.gui.workbench.ui.Theme;
 import application.gui.workbench.ui.Ui;
 import java.awt.BasicStroke;
@@ -99,9 +100,8 @@ public final class NnueDrawing {
         g.setColor(Theme.MUTED);
         g.drawString(Ui.elide(label, labelMetrics, r.width - 18), r.x + 11, r.y + 11);
         g.setFont(Theme.font(r.width < 96 ? 11 : 12, Font.BOLD));
-        FontMetrics valueMetrics = g.getFontMetrics();
         g.setColor(Theme.TEXT);
-        g.drawString(Ui.elide(value, valueMetrics, r.width - 18), r.x + 11, r.y + 24);
+        NotationPainter.draw(g, value, r.x + 11, r.y + 24, r.width - 18, Theme.TEXT);
     }
 
     /**
@@ -152,8 +152,8 @@ public final class NnueDrawing {
         g.setFont(Theme.font(r.width < 140 ? 15 : 18, Font.BOLD));
         fm = g.getFontMetrics();
         g.setColor(Theme.TEXT);
-        g.drawString(Ui.elide(value, fm, Math.max(20, r.width - 18)),
-                r.x + 15, r.y + 36);
+        NotationPainter.draw(g, value, r.x + 15, r.y + 36,
+                Math.max(20, r.width - 18), Theme.TEXT);
         if (r.height >= 58) {
             g.setFont(Theme.font(10, Font.PLAIN));
             fm = g.getFontMetrics();

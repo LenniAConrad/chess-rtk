@@ -1,5 +1,6 @@
 package application.gui.workbench.network;
 
+import application.gui.workbench.ui.NotationPainter;
 import application.gui.workbench.ui.Theme;
 import application.gui.workbench.ui.Ui;
 import java.awt.BasicStroke;
@@ -439,8 +440,8 @@ public abstract class NnueAtlasView extends NnueViewBase {
             g.setFont(Theme.font(9, Font.PLAIN));
             String label = atlasSlotArchetype(atlas, slot, planes, squares);
             fm = g.getFontMetrics();
-            g.drawString(Ui.elide(label, fm, Math.max(20, card.width - thumb.width - 18)),
-                    thumb.x + thumb.width + 8, card.y + 54);
+            NotationPainter.draw(g, label, thumb.x + thumb.width + 8, card.y + 54,
+                    Math.max(20, card.width - thumb.width - 18), Theme.MUTED);
             hitRegions.add(card,
                     "Slot " + slot + " · gallery",
                     "Select this accumulator slot in the atlas browser.",
@@ -630,8 +631,8 @@ public abstract class NnueAtlasView extends NnueViewBase {
             FontMetrics fm = g.getFontMetrics();
             String label = decodeUsHalfKP(featureIdx);
             int valueW = 86;
-            g.drawString(Ui.elide(label, fm, Math.max(20, line.width - valueW - glyph - 12)),
-                    line.x + glyph + 8, line.y + 16);
+            NotationPainter.draw(g, label, line.x + glyph + 8, line.y + 16,
+                    Math.max(20, line.width - valueW - glyph - 12), Theme.TEXT);
             g.setColor(weight >= 0.0f ? TensorViz.POSITIVE : TensorViz.NEGATIVE);
             g.setFont(Theme.font(10, Font.BOLD));
             g.drawString(String.format("%+.3f", weight), line.x + line.width - valueW, line.y + 12);

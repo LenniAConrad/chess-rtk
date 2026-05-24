@@ -1,5 +1,6 @@
 package application.gui.workbench.network;
 
+import application.gui.workbench.ui.NotationPainter;
 import application.gui.workbench.ui.Theme;
 import application.gui.workbench.ui.Ui;
 import java.awt.Color;
@@ -285,7 +286,8 @@ public abstract class NnueOverviewView extends NnueAtlasView {
         g.setColor(Theme.TEXT);
         g.setFont(Theme.font(10, Font.PLAIN));
         String label = "#" + featureIdx + "  " + decodeHalfKP(featureIdx, whitePerspective);
-        g.drawString(label, glyph.x + glyphSize + 6, y + rowH / 2 + 4);
+        NotationPainter.draw(g, label, glyph.x + glyphSize + 6, y + rowH / 2 + 4,
+                Math.max(20, gridLeft - glyph.x - glyphSize - 68), Theme.TEXT);
         g.setColor(v >= 0 ? TensorViz.POSITIVE : TensorViz.NEGATIVE);
         g.setFont(Theme.font(10, Font.BOLD));
         g.drawString(String.format("%+5.1f cp", v),
@@ -897,7 +899,7 @@ public abstract class NnueOverviewView extends NnueAtlasView {
             int valueX = row.x + row.width - tailW - 8;
             int labelW = Math.max(24, valueX - textX - 8);
             int textY = row.y + (compact ? 15 : 16);
-            g.drawString(Ui.elide(label, fm, labelW), textX, textY);
+            NotationPainter.draw(g, label, textX, textY, labelW, Theme.TEXT);
             int barX = textX;
             int barW = Math.max(1, valueX - barX - 8);
             if (barW > 18) {
