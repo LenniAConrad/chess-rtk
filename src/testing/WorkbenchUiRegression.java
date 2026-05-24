@@ -133,6 +133,7 @@ final class WorkbenchUiRegression {
         testTabbedPaneRolloverIgnoresEmptyPanes();
         testSplitAreaUsesIndependentEditorGroups();
         testSplitAreaTabSelectionDoesNotRebuildDivider();
+        testSplitAreaTabSelectionReusesTabComponents();
         testSplitAreaThemeRefreshUpdatesHiddenTabs();
         testSplitAreaSupportsCornerEditorGroups();
         testSplitAreaDocksDraggedTabsBackIntoGroup();
@@ -1580,6 +1581,29 @@ final class WorkbenchUiRegression {
                 "tab selection keeps divider location stable");
         assertEquals(Integer.valueOf(1), invoke(area, "selectedIndex", new Class<?>[0]),
                 "selected primary tab becomes active");
+    }
+
+    /**
+     * Verifies ordinary tab selection updates existing tab components in place
+     * instead of recreating the whole strip for every click.
+     */
+    private static void testSplitAreaTabSelectionReusesTabComponents() {
+        Object area = construct(type("layout.EditorSplitArea"), new Class<?>[0]);
+        for (int i = 0; i < 24; i++) {
+            invoke(area, "addPanel", new Class<?>[] { String.class, javax.swing.JComponent.class },
+                    "Tab " + i, new JPanel());
+        }
+        invoke(area, "install", new Class<?>[0]);
+        JPanel primaryStrip = (JPanel) field(area, "primaryStrip");
+        Component firstTab = primaryStrip.getComponent(0);
+        Component secondTab = primaryStrip.getComponent(1);
+
+        invoke(area, "select", new Class<?>[] { int.class }, 1);
+
+        assertTrue(firstTab == primaryStrip.getComponent(0), "first tab component is reused");
+        assertTrue(secondTab == primaryStrip.getComponent(1), "selected tab component is reused");
+        assertEquals(Integer.valueOf(1), invoke(area, "selectedIndex", new Class<?>[0]),
+                "tab selection still changes the active panel");
     }
 
     /**

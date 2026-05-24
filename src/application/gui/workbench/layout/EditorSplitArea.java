@@ -17,7 +17,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.function.IntConsumer;
 import java.util.function.Supplier;
-import javax.swing.BorderFactory;
 import javax.swing.JComponent;
 import javax.swing.MenuSelectionManager;
 import javax.swing.JPanel;
@@ -313,6 +312,17 @@ public final class EditorSplitArea extends JPanel {
     private final JPanel quaternaryStrip = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
 
     /**
+     * Persistent editor-group headers indexed by pane id.
+     */
+    private final JPanel[] paneHeaders = { new JPanel(new BorderLayout()), new JPanel(new BorderLayout()),
+        new JPanel(new BorderLayout()), new JPanel(new BorderLayout()) };
+
+    /**
+     * Persistent split-button host in the primary editor header.
+     */
+    private final JPanel splitButtonHolder = new JPanel(new FlowLayout(FlowLayout.RIGHT, 4, 3));
+
+    /**
      * Centre area holding either one editor group or the split pane.
      */
     private final JPanel centre = new JPanel(new BorderLayout());
@@ -327,6 +337,12 @@ public final class EditorSplitArea extends JPanel {
      */
     public EditorSplitArea() {
         super(new BorderLayout());
+        EditorPaneShell.install(primaryPane, paneHeader(PANE_PRIMARY), primaryStrip, primaryHost, splitButtonHolder,
+                splitButton, true);
+        EditorPaneShell.install(secondaryPane, paneHeader(PANE_SECONDARY), secondaryStrip, secondaryHost, splitButtonHolder, splitButton, false);
+        EditorPaneShell.install(tertiaryPane, paneHeader(PANE_TERTIARY), tertiaryStrip, tertiaryHost, splitButtonHolder,
+                splitButton, false);
+        EditorPaneShell.install(quaternaryPane, paneHeader(PANE_QUATERNARY), quaternaryStrip, quaternaryHost, splitButtonHolder, splitButton, false);
         applyChromeTheme();
         add(centre, BorderLayout.CENTER);
     }
@@ -623,6 +639,10 @@ public final class EditorSplitArea extends JPanel {
         if (!validPanel(index)) {
             return;
         }
+        if (tabsForPane(pane).contains(index) && paneVisible(pane)
+                && paneIndex(pane) == index && activePane == pane) {
+            return;
+        }
         if (tabsForPane(pane).contains(index) && paneVisible(pane)) {
             setPaneIndex(pane, index);
             activePane = pane;
@@ -717,25 +737,50 @@ public final class EditorSplitArea extends JPanel {
      * @param pane editor group id
      */
     private void rebuildStrip(JPanel strip, List<Integer> tabList, int activeIndex, int pane) {
+        boolean paneActive = activePane == pane || (!isSplitActive() && pane == PANE_PRIMARY);
+        if (EditorTabStripState.refreshInPlace(strip, tabList, activeIndex, paneActive,
+                isSplitActive(), open.size(), panels.size(), factoryBackedPanelCount(), needsReopenButton())) {
+            return;
+        }
         strip.removeAll();
         for (int index : tabList) {
             int panelIndex = index;
             EditorTab tab = new EditorTab(names.get(index),
                     () -> setPaneSelection(pane, panelIndex),
                     () -> closeTab(panelIndex));
+            EditorTabStripState.markTab(tab, panelIndex);
             tab.setSelected(index == activeIndex);
             tab.setDragHandler(
                     point -> handleTabDrag(strip, tabList, panelIndex, tab, point),
                     () -> finishTabDrag(panelIndex));
             tab.setComponentPopupMenu(tabContextMenu(pane, panelIndex));
             strip.add(tab);
-            tab.setPaneActive(activePane == pane || (!isSplitActive() && pane == PANE_PRIMARY));
+            tab.setPaneActive(paneActive);
         }
-        if (open.size() < panels.size() || panelFactories.stream().anyMatch(Objects::nonNull)) {
+        if (needsReopenButton()) {
             strip.add(reopenButton(pane));
         }
+        EditorTabStripState.remember(strip, isSplitActive(), open.size(), panels.size(), factoryBackedPanelCount());
         strip.revalidate();
         strip.repaint();
+    }
+
+    /**
+     * Returns whether the strip needs a restore-or-new tab affordance.
+     *
+     * @return true when closed or factory-backed tabs are available
+     */
+    private boolean needsReopenButton() {
+        return open.size() < panels.size() || panelFactories.stream().anyMatch(Objects::nonNull);
+    }
+
+    /**
+     * Returns the number of panels that can create duplicate tabs.
+     *
+     * @return duplicate-capable panel count
+     */
+    private int factoryBackedPanelCount() {
+        return (int) panelFactories.stream().filter(Objects::nonNull).count();
     }
 
     /**
@@ -746,6 +791,7 @@ public final class EditorSplitArea extends JPanel {
      */
     private JComponent reopenButton(int pane) {
         JToggleButton plus = new JToggleButton("+");
+        EditorTabStripState.markReopenButton(plus);
         Theme.commandTab(plus);
         plus.setToolTipText("New or restore tab");
         plus.addActionListener(event -> {
@@ -1323,27 +1369,15 @@ public final class EditorSplitArea extends JPanel {
         JPanel host = paneHost(pane);
         List<Integer> tabList = tabsForPane(pane);
         int activeIndex = paneIndex(pane);
-        panePanel.removeAll();
-        host.removeAll();
+        EditorPaneShell.install(panePanel, paneHeader(pane), strip, host,
+                splitButtonHolder, splitButton, pane == PANE_PRIMARY);
+        JComponent panel = null;
         if (validPanel(activeIndex) && tabList.contains(activeIndex)) {
-            JComponent panel = panels.get(activeIndex);
+            panel = panels.get(activeIndex);
             refreshPanelThemeIfNeeded(activeIndex, panel);
-            host.add(panel, BorderLayout.CENTER);
         }
+        EditorPaneShell.updateHost(host, panel);
         rebuildStrip(strip, tabList, activeIndex, pane);
-        JPanel header = new JPanel(new BorderLayout());
-        header.setOpaque(true);
-        header.setBackground(Theme.BG);
-        header.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, Theme.LINE));
-        header.add(strip, BorderLayout.CENTER);
-        if (pane == PANE_PRIMARY) {
-            JPanel splitHolder = new JPanel(new FlowLayout(FlowLayout.RIGHT, 4, 3));
-            splitHolder.setOpaque(false);
-            splitHolder.add(splitButton);
-            header.add(splitHolder, BorderLayout.EAST);
-        }
-        panePanel.add(header, BorderLayout.NORTH);
-        panePanel.add(host, BorderLayout.CENTER);
     }
 
     /**
@@ -1393,6 +1427,10 @@ public final class EditorSplitArea extends JPanel {
         tertiaryStrip.setBackground(Theme.BG);
         quaternaryStrip.setOpaque(true);
         quaternaryStrip.setBackground(Theme.BG);
+        for (JPanel header : paneHeaders) {
+            EditorPaneShell.styleHeader(header);
+        }
+        splitButtonHolder.setOpaque(false);
     }
 
     /**
@@ -1404,7 +1442,8 @@ public final class EditorSplitArea extends JPanel {
         Component left = columnLayout(PANE_PRIMARY, PANE_TERTIARY);
         Component right = columnLayout(PANE_SECONDARY, PANE_QUATERNARY);
         if (left != null && right != null) {
-            return createSplitPane(JSplitPane.HORIZONTAL_SPLIT, left, right);
+            return EditorSplitLayout.createSplitPane(JSplitPane.HORIZONTAL_SPLIT, left, right,
+                    verticalDividerLocation, horizontalDividerLocation, splitPanes);
         }
         if (left != null) {
             return left;
@@ -1423,37 +1462,13 @@ public final class EditorSplitArea extends JPanel {
         boolean topVisible = paneVisible(topPane);
         boolean bottomVisible = paneVisible(bottomPane);
         if (topVisible && bottomVisible) {
-            return createSplitPane(JSplitPane.VERTICAL_SPLIT, panePanel(topPane), panePanel(bottomPane));
+            return EditorSplitLayout.createSplitPane(JSplitPane.VERTICAL_SPLIT, panePanel(topPane),
+                    panePanel(bottomPane), verticalDividerLocation, horizontalDividerLocation, splitPanes);
         }
         if (topVisible) {
             return panePanel(topPane);
         }
         return bottomVisible ? panePanel(bottomPane) : null;
-    }
-
-    /**
-     * Creates a styled split pane and restores the remembered divider location
-     * for its orientation when available.
-     *
-     * @param orientation split orientation
-     * @param first first component
-     * @param second second component
-     * @return styled split pane
-     */
-    private JSplitPane createSplitPane(int orientation, Component first, Component second) {
-        JSplitPane pane = new JSplitPane(orientation, first, second);
-        SplitPaneStyler.style(pane);
-        pane.setResizeWeight(0.5);
-        int remembered = orientation == JSplitPane.VERTICAL_SPLIT
-                ? verticalDividerLocation
-                : horizontalDividerLocation;
-        if (remembered > 0) {
-            pane.setDividerLocation(remembered);
-        } else {
-            pane.setDividerLocation(0.5);
-        }
-        splitPanes.add(pane);
-        return pane;
     }
 
     /**
@@ -1740,6 +1755,16 @@ public final class EditorSplitArea extends JPanel {
             case PANE_QUATERNARY -> quaternaryStrip;
             default -> primaryStrip;
         };
+    }
+
+    /**
+     * Returns the persistent header for an editor group.
+     *
+     * @param pane editor group id
+     * @return editor-group header
+     */
+    private JPanel paneHeader(int pane) {
+        return paneHeaders[pane >= PANE_PRIMARY && pane <= PANE_QUATERNARY ? pane : PANE_PRIMARY];
     }
 
     /**
