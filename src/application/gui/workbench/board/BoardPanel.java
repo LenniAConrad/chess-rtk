@@ -68,17 +68,8 @@ public final class BoardPanel extends JPanel {
     private static final BasicStroke STROKE_1 = new BasicStroke(1f);
     /** Cached drag transparency composite. */
     private static final AlphaComposite DRAG_ALPHA = AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 1f);
-    /** Cached transparent variant of the check-glow used at the radial gradient edges. */
-    private static final Color CHECK_GLOW_FADE = Theme.withAlpha(Theme.CHECK_GLOW, 0);
     /** Sentinel destination for a circle annotation. */
     private static final byte MARKUP_CIRCLE = Field.NO_SQUARE;
-    /** Lichess/Chessground user annotation brushes. */
-    private static final MarkupBrush[] MARKUP_BRUSHES = {
-    new MarkupBrush("green", Theme.STATUS_SUCCESS_TEXT, 10),
-    new MarkupBrush("red", Theme.STATUS_ERROR_TEXT, 10),
-    new MarkupBrush("blue", Theme.ACCENT, 10),
-    new MarkupBrush("yellow", Theme.STATUS_WARNING_TEXT, 10)
-    };
     /** Active-drawing opacity matching Chessground current shape rendering. */
     private static final double MARKUP_CURRENT_OPACITY = 0.9;
     /** Pending-erase opacity matching Chessground shape toggling feedback. */
@@ -494,7 +485,7 @@ public final class BoardPanel extends JPanel {
         if (!isSquareIndex(from) || !isSquareIndex(to) || color == null) {
             return;
         }
-        boardMarkups.add(new BoardMarkup(from, to, new MarkupBrush("custom", color, 10)));
+        boardMarkups.add(new BoardMarkup(from, to, MarkupBrush.forThemeColor(color)));
         repaint();
     }
     /** Sets the duration of move/snapback/snap/flip animations.
@@ -705,7 +696,7 @@ public final class BoardPanel extends JPanel {
     private void drawBoardMarkup(Graphics2D g, Rectangle board, BoardMarkup markup, double opacity) {
         Color savedColor = g.getColor();
         try {
-            g.setColor(markupColor(markup.brush().color(), opacity));
+            g.setColor(markupColor(markup.brush().themedColor(), opacity));
             if (markup.isCircle()) {
                 drawMarkupCircle(g, squareBounds(board, markup.from()), markup.brush());
             } else {
@@ -885,9 +876,10 @@ public final class BoardPanel extends JPanel {
             Point2D center = new Point2D.Double(bounds.getCenterX(), bounds.y + bounds.height * 0.52);
             Color core = Theme.CHECK_CORE;
             Color glow = Theme.CHECK_GLOW;
+            Color fade = Theme.withAlpha(glow, 0);
             g.setPaint(new RadialGradientPaint(center, radius,
                     CHECK_GRADIENT_FRACTIONS,
-                    new Color[] { core, core, glow, CHECK_GLOW_FADE, CHECK_GLOW_FADE }));
+                    new Color[] { core, core, glow, fade, fade }));
             g.fillRect(bounds.x, bounds.y, bounds.width, bounds.height);
             g.setPaint(savedPaint);
             g.setColor(Theme.CHECK_EDGE);
@@ -1223,7 +1215,7 @@ public final class BoardPanel extends JPanel {
     private static MarkupBrush markupBrush(MouseEvent event) {
         boolean modA = event.isShiftDown() || event.isControlDown();
         boolean modB = event.isAltDown() || event.isMetaDown() || event.isAltGraphDown();
-        return MARKUP_BRUSHES[(modA ? 1 : 0) + (modB ? 2 : 0)];
+        return MarkupBrush.forGesture((modA ? 1 : 0) + (modB ? 2 : 0));
     }
     /** Toggles one annotation using Chessground's same-endpoints behavior: same color deletes, different color replaces.
      * @param markup board markup to draw */
@@ -1254,7 +1246,7 @@ public final class BoardPanel extends JPanel {
      * @param second second value to compare
      * @return true when both annotations use the same brush color */
     private static boolean sameMarkupBrush(BoardMarkup first, BoardMarkup second) {
-        return first.brush().color().getRGB() == second.brush().color().getRGB();
+        return first.brush().matches(second.brush());
     }
     /** Returns the subset of legal moves that target a square.
      * @param moves candidate moves

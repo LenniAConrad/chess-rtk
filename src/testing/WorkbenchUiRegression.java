@@ -50,6 +50,7 @@ import javax.swing.table.TableCellRenderer;
 
 import application.gui.workbench.layout.LazyPanel;
 import application.gui.workbench.layout.FlatTabbedPaneUI;
+import application.gui.workbench.board.MarkupBrush;
 import application.gui.workbench.dataset.DatasetChart;
 import application.gui.workbench.network.TensorViz;
 import application.gui.workbench.ui.FileDialogs;
@@ -110,6 +111,7 @@ final class WorkbenchUiRegression {
         testNetworkPaletteUsesSemanticFocusColor();
         testNetworkArchitectureBlocksKeepReadableNeutralFill();
         testHorizontalMetricBarKeepsLabelLaneClear();
+        testBoardMarkupBrushesFollowThemeMode();
         testThemeRefreshPreservesLabelRoles();
         testThemeRefreshUpdatesLineBorders();
         testThemeRefreshRestoresCustomControlUis();
@@ -126,6 +128,7 @@ final class WorkbenchUiRegression {
         testTabbedPaneRolloverIgnoresEmptyPanes();
         testSplitAreaUsesIndependentEditorGroups();
         testSplitAreaTabSelectionDoesNotRebuildDivider();
+        testSplitAreaThemeRefreshUpdatesHiddenTabs();
         testSplitAreaSupportsCornerEditorGroups();
         testSplitAreaDocksDraggedTabsBackIntoGroup();
         testSplitAreaExposesFlexibleTabActions();
@@ -1036,6 +1039,24 @@ final class WorkbenchUiRegression {
     }
 
     /**
+     * Verifies board annotation brushes resolve colors lazily from the active
+     * theme instead of keeping stale colors from the mode in which they were
+     * created.
+     */
+    private static void testBoardMarkupBrushesFollowThemeMode() {
+        Theme.setMode(Theme.Mode.LIGHT);
+        MarkupBrush blue = new MarkupBrush("blue", Theme.ACCENT, 10);
+        Color lightBlue = blue.themedColor();
+
+        Theme.setMode(Theme.Mode.DARK);
+        assertEquals(themeColor("ACCENT"), blue.themedColor(), "blue markup follows dark accent");
+        assertColorDistanceAtLeast(lightBlue, blue.themedColor(), 16.0,
+                "blue markup changes when the theme accent changes");
+
+        Theme.setMode(Theme.Mode.LIGHT);
+    }
+
+    /**
      * Verifies the active theme palette has sufficient contrast.
      *
      * @param modeName mode label for assertion messages
@@ -1436,6 +1457,33 @@ final class WorkbenchUiRegression {
                 "tab selection keeps divider location stable");
         assertEquals(Integer.valueOf(1), invoke(area, "selectedIndex", new Class<?>[0]),
                 "selected primary tab becomes active");
+    }
+
+    /**
+     * Verifies editor-shell theme refresh reaches stored tab panels that are
+     * not currently attached to the visible Swing hierarchy.
+     */
+    private static void testSplitAreaThemeRefreshUpdatesHiddenTabs() {
+        Theme.setMode(Theme.Mode.LIGHT);
+        Object area = construct(type("layout.EditorSplitArea"), new Class<?>[0]);
+        JPanel visible = new JPanel();
+        JPanel hidden = new JPanel();
+        invoke(area, "addPanel", new Class<?>[] { String.class, javax.swing.JComponent.class },
+                "Visible", visible);
+        invoke(area, "addPanel", new Class<?>[] { String.class, javax.swing.JComponent.class },
+                "Hidden", hidden);
+        invoke(area, "install", new Class<?>[0]);
+        assertTrue(hidden.getParent() == null, "second tab panel starts detached from the visible host");
+
+        Theme.setMode(Theme.Mode.DARK);
+        invoke(area, "refreshTheme", new Class<?>[0]);
+        assertEquals(themeColor("PANEL_SOLID"), visible.getBackground(), "visible tab follows dark panel");
+        assertEquals(themeColor("PANEL_SOLID"), hidden.getBackground(), "hidden tab follows dark panel");
+        assertEquals(themeColor("BG"), ((JComponent) area).getBackground(), "editor shell restores dark chrome");
+
+        Theme.setMode(Theme.Mode.LIGHT);
+        invoke(area, "refreshTheme", new Class<?>[0]);
+        assertEquals(themeColor("PANEL_SOLID"), hidden.getBackground(), "hidden tab follows light panel");
     }
 
     /**

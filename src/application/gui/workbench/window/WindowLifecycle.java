@@ -322,6 +322,9 @@ public abstract class WindowLifecycle extends WindowBase {
         WORKBENCH_PREFS.put(PREF_THEME_MODE, Theme.mode().id());
         Theme.install();
         Theme.refreshComponentTree(this);
+        if (tabs != null) {
+            tabs.refreshTheme();
+        }
         if (settingsMenu != null) {
             settingsMenu.syncMode();
             settingsMenu.refreshTheme();

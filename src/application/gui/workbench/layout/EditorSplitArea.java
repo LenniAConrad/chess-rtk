@@ -327,34 +327,7 @@ public final class EditorSplitArea extends JPanel {
      */
     public EditorSplitArea() {
         super(new BorderLayout());
-        setOpaque(true);
-        setBackground(Theme.BG);
-        primaryPane.setOpaque(true);
-        primaryPane.setBackground(Theme.PANEL_SOLID);
-        secondaryPane.setOpaque(true);
-        secondaryPane.setBackground(Theme.PANEL_SOLID);
-        tertiaryPane.setOpaque(true);
-        tertiaryPane.setBackground(Theme.PANEL_SOLID);
-        quaternaryPane.setOpaque(true);
-        quaternaryPane.setBackground(Theme.PANEL_SOLID);
-        primaryHost.setOpaque(true);
-        primaryHost.setBackground(Theme.PANEL_SOLID);
-        secondaryHost.setOpaque(true);
-        secondaryHost.setBackground(Theme.PANEL_SOLID);
-        tertiaryHost.setOpaque(true);
-        tertiaryHost.setBackground(Theme.PANEL_SOLID);
-        quaternaryHost.setOpaque(true);
-        quaternaryHost.setBackground(Theme.PANEL_SOLID);
-        centre.setOpaque(true);
-        centre.setBackground(Theme.PANEL_SOLID);
-        primaryStrip.setOpaque(true);
-        primaryStrip.setBackground(Theme.BG);
-        secondaryStrip.setOpaque(true);
-        secondaryStrip.setBackground(Theme.BG);
-        tertiaryStrip.setOpaque(true);
-        tertiaryStrip.setBackground(Theme.BG);
-        quaternaryStrip.setOpaque(true);
-        quaternaryStrip.setBackground(Theme.BG);
+        applyChromeTheme();
         add(centre, BorderLayout.CENTER);
     }
 
@@ -426,6 +399,27 @@ public final class EditorSplitArea extends JPanel {
         splitButton.setToolTipText("Split editor right");
         splitButton.addActionListener(event -> splitSelectedTabRight());
         relayout();
+    }
+
+    /**
+     * Refreshes the editor shell and every stored tab panel after a workbench
+     * theme switch, including panels that are open but not currently attached
+     * to a visible editor group.
+     */
+    public void refreshTheme() {
+        applyChromeTheme();
+        Theme.Mode currentMode = Theme.mode();
+        for (int i = 0; i < panels.size(); i++) {
+            JComponent panel = panels.get(i);
+            if (panel != null) {
+                Theme.refreshComponentTree(panel);
+                panelThemeModes.set(i, currentMode);
+            }
+        }
+        relayout();
+        applyChromeTheme();
+        revalidate();
+        repaint();
     }
 
     /**
@@ -1365,6 +1359,40 @@ public final class EditorSplitArea extends JPanel {
         }
         Theme.refreshComponentTree(panel);
         panelThemeModes.set(index, currentMode);
+    }
+
+    /**
+     * Applies theme colors to persistent editor-shell containers.
+     */
+    private void applyChromeTheme() {
+        setOpaque(true);
+        setBackground(Theme.BG);
+        primaryPane.setOpaque(true);
+        primaryPane.setBackground(Theme.PANEL_SOLID);
+        secondaryPane.setOpaque(true);
+        secondaryPane.setBackground(Theme.PANEL_SOLID);
+        tertiaryPane.setOpaque(true);
+        tertiaryPane.setBackground(Theme.PANEL_SOLID);
+        quaternaryPane.setOpaque(true);
+        quaternaryPane.setBackground(Theme.PANEL_SOLID);
+        primaryHost.setOpaque(true);
+        primaryHost.setBackground(Theme.PANEL_SOLID);
+        secondaryHost.setOpaque(true);
+        secondaryHost.setBackground(Theme.PANEL_SOLID);
+        tertiaryHost.setOpaque(true);
+        tertiaryHost.setBackground(Theme.PANEL_SOLID);
+        quaternaryHost.setOpaque(true);
+        quaternaryHost.setBackground(Theme.PANEL_SOLID);
+        centre.setOpaque(true);
+        centre.setBackground(Theme.PANEL_SOLID);
+        primaryStrip.setOpaque(true);
+        primaryStrip.setBackground(Theme.BG);
+        secondaryStrip.setOpaque(true);
+        secondaryStrip.setBackground(Theme.BG);
+        tertiaryStrip.setOpaque(true);
+        tertiaryStrip.setBackground(Theme.BG);
+        quaternaryStrip.setOpaque(true);
+        quaternaryStrip.setBackground(Theme.BG);
     }
 
     /**
