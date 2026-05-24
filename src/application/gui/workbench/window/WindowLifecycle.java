@@ -9,6 +9,7 @@ import application.gui.workbench.game.PgnExplorerDialog;
 import application.gui.workbench.layout.EditorSplitArea;
 import application.gui.workbench.layout.LazyPanel;
 import application.gui.workbench.network.TensorViz;
+import application.gui.workbench.session.LogPanel;
 import application.gui.workbench.ui.BackdropPanel;
 import application.gui.workbench.ui.SettingsChipRow;
 import application.gui.workbench.ui.Theme;
@@ -474,9 +475,10 @@ public abstract class WindowLifecycle extends WindowBase {
         if (tagWorker != null && !tagWorker.isDone()) {
             tagWorker.cancel(true);
         }
-        if (networkPanel != null) {
-            networkPanel.dispose();
+        for (application.gui.workbench.network.NetworkPanel panel : new java.util.ArrayList<>(networkPanels)) {
+            panel.dispose();
         }
+        networkPanels.clear();
         mctsPanel.dispose();
         super.dispose();
     }
@@ -672,12 +674,17 @@ public abstract class WindowLifecycle extends WindowBase {
         tabs.addPanel("Analyze", createBoardTab(), this::createDetachedAnalysisTab);
         tabs.addPanel("Commands", createCommandTab());
         tabs.addPanel("Batch", createBatchTab());
-        tabs.addPanel("Datasets", new LazyPanel("Datasets", this::createDatasetTab));
-        tabs.addPanel("Publish", new LazyPanel("Publish", this::createPublishTab));
+        tabs.addPanel("Datasets", new LazyPanel("Datasets", this::createDatasetTab),
+                () -> new LazyPanel("Datasets", this::createDetachedDatasetTab));
+        tabs.addPanel("Publish", new LazyPanel("Publish", this::createPublishTab),
+                () -> new LazyPanel("Publish", this::createDetachedPublishTab));
         tabs.addPanel("Console", createConsolePanel());
-        tabs.addPanel("Logs", new LazyPanel("Logs", this::createLogTab));
-        tabs.addPanel("Network", new LazyPanel("Network", this::networkPanel));
-        tabs.addPanel("Puzzles", new LazyPanel("Puzzles", this::createPuzzleTab));
+        tabs.addPanel("Logs", new LazyPanel("Logs", this::createLogTab),
+                () -> new LazyPanel("Logs", this::createDetachedLogTab));
+        tabs.addPanel("Network", new LazyPanel("Network", this::createNetworkTab),
+                () -> new LazyPanel("Network", this::createDetachedNetworkTab));
+        tabs.addPanel("Puzzles", new LazyPanel("Puzzles", this::createPuzzleTab),
+                () -> new LazyPanel("Puzzles", this::createDetachedPuzzleTab));
         tabs.install();
         tabs.setSelectionListener(index -> onWorkbenchTabVisibilityChanged());
         tabs.select(TAB_DASHBOARD);
@@ -1363,13 +1370,15 @@ public abstract class WindowLifecycle extends WindowBase {
      * background UCI engine consuming a core.
      */
     protected void onWorkbenchTabVisibilityChanged() {
-        boolean networkVisible = tabs != null && tabs.isVisibleInPane(TAB_NETWORK);
-        boolean logsVisible = tabs != null && tabs.isVisibleInPane(TAB_LOGS);
-        if (networkPanel != null || networkVisible) {
-            networkPanel().setActive(networkVisible);
+        if (tabs != null) {
+            for (application.gui.workbench.network.NetworkPanel panel : networkPanels) {
+                panel.setActive(SwingUtilities.isDescendingFrom(panel, tabs));
+            }
         }
-        if (logPanel != null && logsVisible) {
-            logPanel.refreshLogs();
+        for (LogPanel panel : logPanels) {
+            if (tabs != null && SwingUtilities.isDescendingFrom(panel, tabs)) {
+                panel.refreshLogs();
+            }
         }
         if (liveExternalEngineEnabled && isAnalyzePaneVisible()) {
             requestLiveAnalysisUpdate();

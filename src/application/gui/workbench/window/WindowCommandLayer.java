@@ -246,8 +246,8 @@ public abstract class WindowCommandLayer extends WindowGameLayer {
      * Updates the publishing command preview.
      */
     protected void updatePublishCommand() {
-        if (publishingPanel != null) {
-            publishingPanel.updateCommand();
+        for (application.gui.workbench.publish.PublishingPanel panel : publishingPanels) {
+            panel.updateCommand();
         }
     }
 
@@ -255,8 +255,8 @@ public abstract class WindowCommandLayer extends WindowGameLayer {
      * Queues a publishing preview refresh after document edits settle.
      */
     protected void requestPublishCommandUpdate() {
-        if (publishingPanel != null) {
-            publishingPanel.requestCommandUpdate();
+        for (application.gui.workbench.publish.PublishingPanel panel : publishingPanels) {
+            panel.requestCommandUpdate();
         }
     }
 

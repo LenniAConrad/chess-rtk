@@ -2,6 +2,7 @@ package application.gui.workbench.window;
 
 import application.gui.workbench.game.GameModel;
 import application.gui.workbench.publish.PublishingPanel;
+import application.gui.workbench.publish.ReportPanel;
 import application.gui.workbench.ui.Toast;
 import java.awt.Component;
 import java.util.List;
@@ -13,12 +14,18 @@ import javax.swing.JComponent;
 public final class WindowPublishingHost extends WindowHost implements PublishingPanel.Host {
 
     /**
+     * Report panel owned by this publishing tab instance.
+     */
+    private final ReportPanel reportPanel;
+
+    /**
      * Creates a publishing host.
      *
      * @param window owning workbench window
      */
     public WindowPublishingHost(WindowBase window) {
         super(window);
+        reportPanel = new ReportPanel(new WindowReportHost(window));
     }
 
     @Override
@@ -43,12 +50,12 @@ public final class WindowPublishingHost extends WindowHost implements Publishing
 
     @Override
     public JComponent reportPanel() {
-        return window.reportPanel.component();
+        return reportPanel.component();
     }
 
     @Override
     public void generateReport() {
-        window.generateReport();
+        reportPanel.generateReport();
     }
 
     @Override

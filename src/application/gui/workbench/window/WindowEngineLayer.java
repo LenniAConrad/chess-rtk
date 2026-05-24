@@ -133,8 +133,8 @@ public abstract class WindowEngineLayer extends WindowBoardLayer {
         fenField.setText(currentPosition.toString());
         board.setPosition(currentPosition, lastMove, reverseMoveAnimation);
         analysisGraph.resetForPosition(currentPosition.toString());
-        if (networkPanel != null) {
-            networkPanel.setFen(currentPosition.toString());
+        for (application.gui.workbench.network.NetworkPanel panel : networkPanels) {
+            panel.setFen(currentPosition.toString());
         }
         mctsPanel.setFen(currentPosition.toString());
         updateMoves();

@@ -15,6 +15,7 @@ import java.lang.reflect.Proxy;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 
 import javax.swing.BorderFactory;
 import javax.swing.JComboBox;
@@ -146,6 +147,7 @@ final class WorkbenchUiRegression {
         testSplitAreaDocksDraggedTabsBackIntoGroup();
         testSplitAreaExposesFlexibleTabActions();
         testSplitAreaDuplicatesFactoryBackedTabs();
+        testSplitAreaDuplicatesFactoryBackedToolTabs();
         testDetachedAnalysisWorkspaceKeepsLocalHistory();
         testEditorShellUsesVscodeStyleSplitChrome();
         testEditorShellShowsRookWatermarkWhenEmpty();
@@ -1866,6 +1868,50 @@ final class WorkbenchUiRegression {
         List<Integer> quaternaryTabs = (List<Integer>) field(splitArea, "quaternaryTabs");
         assertTrue(secondaryTabs.contains(1), "existing right group keeps its active duplicate");
         assertTrue(quaternaryTabs.contains(2), "down split from right group targets bottom-right");
+    }
+
+    /**
+     * Verifies tool-style tabs such as Network, Datasets, and Publish can be
+     * opened repeatedly from factory-backed registrations.
+     */
+    @SuppressWarnings("unchecked")
+    private static void testSplitAreaDuplicatesFactoryBackedToolTabs() {
+        Object area = construct(type("layout.EditorSplitArea"), new Class<?>[0]);
+        AtomicInteger networkCreated = new AtomicInteger();
+        Supplier<JComponent> networkFactory = () -> new LazyPanel("Network", () -> {
+            networkCreated.incrementAndGet();
+            return new JPanel();
+        });
+        Supplier<JComponent> dataFactory = () -> new LazyPanel("Datasets", JPanel::new);
+        Supplier<JComponent> publishFactory = () -> new LazyPanel("Publish", JPanel::new);
+        invoke(area, "addPanel",
+                new Class<?>[] { String.class, javax.swing.JComponent.class, java.util.function.Supplier.class },
+                "Network", new LazyPanel("Network", JPanel::new), networkFactory);
+        invoke(area, "addPanel",
+                new Class<?>[] { String.class, javax.swing.JComponent.class, java.util.function.Supplier.class },
+                "Datasets", new LazyPanel("Datasets", JPanel::new), dataFactory);
+        invoke(area, "addPanel",
+                new Class<?>[] { String.class, javax.swing.JComponent.class, java.util.function.Supplier.class },
+                "Publish", new LazyPanel("Publish", JPanel::new), publishFactory);
+        invoke(area, "install", new Class<?>[0]);
+
+        int networkSecond = (Integer) invoke(area, "duplicate", new Class<?>[] { int.class }, 0);
+        int networkThird = (Integer) invoke(area, "duplicate", new Class<?>[] { int.class }, 0);
+        int dataSecond = (Integer) invoke(area, "duplicate", new Class<?>[] { int.class }, 1);
+        int publishSecond = (Integer) invoke(area, "duplicate", new Class<?>[] { int.class }, 2);
+
+        assertEquals(Integer.valueOf(7), invoke(area, "openTabCount", new Class<?>[0]),
+                "multiple tool tab duplicates remain open");
+        List<String> names = (List<String>) field(area, "names");
+        assertEquals("Network 2", names.get(networkSecond), "first Network duplicate is numbered");
+        assertEquals("Network 3", names.get(networkThird), "second Network duplicate is numbered");
+        assertEquals("Datasets 2", names.get(dataSecond), "Datasets duplicate is numbered");
+        assertEquals("Publish 2", names.get(publishSecond), "Publish duplicate is numbered");
+        List<JComponent> panels = (List<JComponent>) field(area, "panels");
+        assertFalse(panels.get(0) == panels.get(networkSecond), "Network duplicate has a distinct wrapper");
+        assertEquals(0, networkCreated.get(), "duplicate tool tabs stay lazy until shown");
+        invoke(panels.get(networkSecond), "materialize", new Class<?>[0]);
+        assertEquals(1, networkCreated.get(), "materializing one Network duplicate creates one panel");
     }
 
     /**

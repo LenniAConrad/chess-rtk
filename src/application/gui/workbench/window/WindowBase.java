@@ -154,6 +154,11 @@ public abstract class WindowBase extends JFrame {
     protected NetworkPanel networkPanel;
 
     /**
+     * All materialized Network visualizer panels, including duplicates.
+     */
+    protected final List<NetworkPanel> networkPanels = new ArrayList<>();
+
+    /**
      * Leela-style PUCT search visualizer.
      */
     protected final MctsPanel mctsPanel = new MctsPanel();
@@ -246,6 +251,11 @@ public abstract class WindowBase extends JFrame {
      * Persisted application and command log browser, created lazily.
      */
     protected LogPanel logPanel;
+
+    /**
+     * Materialized persisted-log browsers, including duplicates.
+     */
+    protected final List<LogPanel> logPanels = new ArrayList<>();
 
     /**
      * Command execution state label.
@@ -411,6 +421,11 @@ public abstract class WindowBase extends JFrame {
             "Continuously analyze the current board with the configured external UCI engine");
 
     /**
+     * Materialized publishing workflow panels, including duplicates.
+     */
+    protected final List<PublishingPanel> publishingPanels = new ArrayList<>();
+
+    /**
      * Batch workflow panel.
      */
     protected final BatchPanel batchPanel = new BatchPanel(
@@ -432,12 +447,40 @@ public abstract class WindowBase extends JFrame {
      */
     protected NetworkPanel networkPanel() {
         if (networkPanel == null) {
-            networkPanel = new NetworkPanel();
-            if (currentPosition != null) {
-                networkPanel.setFen(currentPosition.toString());
-            }
+            networkPanel = createNetworkPanelInstance(true);
         }
         return networkPanel;
+    }
+
+    /**
+     * Creates an additional independent Network visualizer.
+     *
+     * @return new network visualizer panel
+     */
+    protected NetworkPanel createDetachedNetworkPanel() {
+        return createNetworkPanelInstance(false);
+    }
+
+    /**
+     * Creates and registers a Network visualizer instance.
+     *
+     * @param primary true when this is the canonical Network tab
+     * @return network visualizer panel
+     */
+    private NetworkPanel createNetworkPanelInstance(boolean primary) {
+        if (primary && networkPanel != null) {
+            return networkPanel;
+        }
+        NetworkPanel panel = new NetworkPanel();
+        if (currentPosition != null) {
+            panel.setFen(currentPosition.toString());
+        }
+        panel.setActive(true);
+        networkPanels.add(panel);
+        if (primary) {
+            networkPanel = panel;
+        }
+        return panel;
     }
 
     /**
@@ -448,9 +491,35 @@ public abstract class WindowBase extends JFrame {
      */
     protected DatasetPanel datasetPanel() {
         if (datasetPanel == null) {
-            datasetPanel = new DatasetPanel();
+            datasetPanel = createDatasetPanelInstance(true);
         }
         return datasetPanel;
+    }
+
+    /**
+     * Creates an additional independent dataset inspector.
+     *
+     * @return new dataset panel
+     */
+    protected DatasetPanel createDetachedDatasetPanel() {
+        return createDatasetPanelInstance(false);
+    }
+
+    /**
+     * Creates a dataset panel instance.
+     *
+     * @param primary true when this is the canonical Datasets tab
+     * @return dataset panel
+     */
+    private DatasetPanel createDatasetPanelInstance(boolean primary) {
+        if (primary && datasetPanel != null) {
+            return datasetPanel;
+        }
+        DatasetPanel panel = new DatasetPanel();
+        if (primary) {
+            datasetPanel = panel;
+        }
+        return panel;
     }
 
     /**
@@ -466,6 +535,15 @@ public abstract class WindowBase extends JFrame {
     }
 
     /**
+     * Creates an additional independent puzzle trainer.
+     *
+     * @return new puzzle panel
+     */
+    protected PuzzlePanel createDetachedPuzzlePanel() {
+        return new PuzzlePanel();
+    }
+
+    /**
      * Returns the publishing panel, creating it only when publishing tools are
      * opened or run.
      *
@@ -473,9 +551,36 @@ public abstract class WindowBase extends JFrame {
      */
     protected PublishingPanel publishingPanel() {
         if (publishingPanel == null) {
-            publishingPanel = new PublishingPanel(new WindowPublishingHost(this));
+            publishingPanel = createPublishingPanelInstance(true);
         }
         return publishingPanel;
+    }
+
+    /**
+     * Creates an additional independent publishing workflow panel.
+     *
+     * @return new publishing panel
+     */
+    protected PublishingPanel createDetachedPublishingPanel() {
+        return createPublishingPanelInstance(false);
+    }
+
+    /**
+     * Creates and registers a publishing panel instance.
+     *
+     * @param primary true when this is the canonical Publish tab
+     * @return publishing panel
+     */
+    private PublishingPanel createPublishingPanelInstance(boolean primary) {
+        if (primary && publishingPanel != null) {
+            return publishingPanel;
+        }
+        PublishingPanel panel = new PublishingPanel(new WindowPublishingHost(this));
+        publishingPanels.add(panel);
+        if (primary) {
+            publishingPanel = panel;
+        }
+        return panel;
     }
 
     /**
@@ -763,9 +868,37 @@ public abstract class WindowBase extends JFrame {
      * @return computed value */
     protected abstract JComponent createDatasetTab();
 
+    /**
+     * Creates a detached Datasets tab instance.
+     *
+     * @return detached datasets tab
+     */
+    protected abstract JComponent createDetachedDatasetTab();
+
     /** Creates the Publish tab.
      * @return computed value */
     protected abstract JComponent createPublishTab();
+
+    /**
+     * Creates a detached Publish tab instance.
+     *
+     * @return detached publish tab
+     */
+    protected abstract JComponent createDetachedPublishTab();
+
+    /**
+     * Creates the Network tab.
+     *
+     * @return network tab
+     */
+    protected abstract JComponent createNetworkTab();
+
+    /**
+     * Creates a detached Network tab instance.
+     *
+     * @return detached network tab
+     */
+    protected abstract JComponent createDetachedNetworkTab();
 
     /**
      * Creates the Puzzles tab.
@@ -773,6 +906,13 @@ public abstract class WindowBase extends JFrame {
      * @return computed value
      */
     protected abstract JComponent createPuzzleTab();
+
+    /**
+     * Creates a detached Puzzles tab instance.
+     *
+     * @return detached puzzles tab
+     */
+    protected abstract JComponent createDetachedPuzzleTab();
 
     /** Creates the Console tab.
      * @return computed value */
@@ -784,6 +924,13 @@ public abstract class WindowBase extends JFrame {
      * @return computed value
      */
     protected abstract JComponent createLogTab();
+
+    /**
+     * Creates a detached Logs tab instance.
+     *
+     * @return detached logs tab
+     */
+    protected abstract JComponent createDetachedLogTab();
 
     /** Navigates the loaded game by a relative ply delta.
      * @param delta relative ply delta */

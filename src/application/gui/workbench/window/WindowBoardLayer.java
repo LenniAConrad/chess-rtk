@@ -747,6 +747,15 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
     }
 
     /**
+     * Creates an independent datasets tab instance.
+     *
+     * @return datasets tab
+     */
+    protected JComponent createDetachedDatasetTab() {
+        return createDetachedDatasetPanel().component();
+    }
+
+    /**
      * Creates the publishing tab.
      *
      * @return publish tab
@@ -756,12 +765,48 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
     }
 
     /**
+     * Creates an independent publishing tab instance.
+     *
+     * @return publish tab
+     */
+    protected JComponent createDetachedPublishTab() {
+        return createDetachedPublishingPanel().component();
+    }
+
+    /**
+     * Creates the network visualizer tab.
+     *
+     * @return network tab
+     */
+    protected JComponent createNetworkTab() {
+        return networkPanel();
+    }
+
+    /**
+     * Creates an independent network visualizer tab instance.
+     *
+     * @return network tab
+     */
+    protected JComponent createDetachedNetworkTab() {
+        return createDetachedNetworkPanel();
+    }
+
+    /**
      * Creates the puzzle trainer tab.
      *
      * @return puzzle tab
      */
     protected JComponent createPuzzleTab() {
         return puzzlePanel();
+    }
+
+    /**
+     * Creates an independent puzzle trainer tab instance.
+     *
+     * @return puzzle tab
+     */
+    protected JComponent createDetachedPuzzleTab() {
+        return createDetachedPuzzlePanel();
     }
 
     /**
@@ -854,15 +899,42 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
     }
 
     /**
+     * Creates an independent persisted-log tab instance.
+     *
+     * @return log tab component
+     */
+    protected JComponent createDetachedLogTab() {
+        return createLogPanelInstance(false);
+    }
+
+    /**
      * Returns the lazily-created persisted-log browser.
      *
      * @return log panel
      */
     protected LogPanel logPanel() {
         if (logPanel == null) {
-            logPanel = new LogPanel(this::copyText);
+            logPanel = createLogPanelInstance(true);
         }
         return logPanel;
+    }
+
+    /**
+     * Creates and registers a log browser instance.
+     *
+     * @param primary true when this is the canonical Logs tab
+     * @return log panel
+     */
+    private LogPanel createLogPanelInstance(boolean primary) {
+        if (primary && logPanel != null) {
+            return logPanel;
+        }
+        LogPanel panel = new LogPanel(this::copyText);
+        logPanels.add(panel);
+        if (primary) {
+            logPanel = panel;
+        }
+        return panel;
     }
 
 }

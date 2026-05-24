@@ -50,7 +50,7 @@ public final class WindowBatchHost extends WindowHost implements BatchPanel.Host
 
     @Override
     public void updatePublishCommand() {
-        if (window.publishingPanel != null) {
+        if (!window.publishingPanels.isEmpty()) {
             window.updatePublishCommand();
         }
     }
