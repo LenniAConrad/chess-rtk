@@ -2,6 +2,8 @@ package application.gui.workbench.ui;
 
 import java.awt.BasicStroke;
 import java.awt.BorderLayout;
+import java.awt.Component;
+import java.awt.Container;
 import java.awt.Dimension;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
@@ -9,8 +11,11 @@ import java.awt.Insets;
 import java.awt.RenderingHints;
 import java.awt.geom.AffineTransform;
 import java.awt.geom.Path2D;
+import java.util.ArrayList;
+import java.util.List;
 import javax.swing.JButton;
 import javax.swing.JComponent;
+import javax.swing.JScrollPane;
 import javax.swing.JPanel;
 import javax.swing.SwingConstants;
 import javax.swing.Timer;
@@ -87,6 +92,17 @@ final class CollapsibleSection extends JPanel {
     private boolean initialized;
 
     /**
+     * Scroll-pane policy snapshots hidden during active expand/collapse
+     * transitions.
+     */
+    private final transient List<ScrollPolicySnapshot> suspendedScrollPanes = new ArrayList<>();
+
+    /**
+     * Whether nested scroll bars are currently suspended for the transition.
+     */
+    private boolean scrollBarsSuspended;
+
+    /**
      * Timer driving visible expand/collapse transitions.
      */
     private final Timer expansionTimer = new Timer(ANIMATION_DELAY_MS, event -> tickExpansionAnimation());
@@ -159,6 +175,7 @@ final class CollapsibleSection extends JPanel {
             finishExpansion(value);
             return;
         }
+        suspendNestedScrollBars();
         if (!expansionTimer.isRunning()) {
             expansionTimer.start();
         }
@@ -172,6 +189,7 @@ final class CollapsibleSection extends JPanel {
     @Override
     public void removeNotify() {
         expansionTimer.stop();
+        restoreNestedScrollBars();
         super.removeNotify();
     }
 
@@ -266,14 +284,79 @@ final class CollapsibleSection extends JPanel {
             contentHolder.setVisible(true);
             content.setVisible(true);
             applyDisclosureProgress(1.0d);
+            restoreNestedScrollBars();
         } else {
             applyAnimatedContentHeight(0);
             content.setVisible(false);
             contentHolder.setVisible(false);
             applyDisclosureProgress(0.0d);
+            restoreNestedScrollBars();
         }
         revalidate();
         repaint();
+    }
+
+    /**
+     * Temporarily hides nested scroll bars so partial-height animation frames do
+     * not show transient scroll handles.
+     */
+    private void suspendNestedScrollBars() {
+        if (scrollBarsSuspended) {
+            return;
+        }
+        suspendedScrollPanes.clear();
+        collectScrollPanes(contentHolder);
+        for (ScrollPolicySnapshot snapshot : suspendedScrollPanes) {
+            snapshot.scrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_NEVER);
+            snapshot.scrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+        }
+        scrollBarsSuspended = !suspendedScrollPanes.isEmpty();
+    }
+
+    /**
+     * Restores nested scroll bars to their caller-selected policies.
+     */
+    private void restoreNestedScrollBars() {
+        if (!scrollBarsSuspended) {
+            return;
+        }
+        for (ScrollPolicySnapshot snapshot : suspendedScrollPanes) {
+            snapshot.scrollPane.setVerticalScrollBarPolicy(snapshot.verticalPolicy);
+            snapshot.scrollPane.setHorizontalScrollBarPolicy(snapshot.horizontalPolicy);
+        }
+        suspendedScrollPanes.clear();
+        scrollBarsSuspended = false;
+    }
+
+    /**
+     * Collects nested scroll panes whose bars should be hidden during animation.
+     *
+     * @param component component tree root
+     */
+    private void collectScrollPanes(Component component) {
+        if (component instanceof JScrollPane pane) {
+            suspendedScrollPanes.add(new ScrollPolicySnapshot(pane,
+                    pane.getVerticalScrollBarPolicy(), pane.getHorizontalScrollBarPolicy()));
+        }
+        if (component instanceof Container container) {
+            for (Component child : container.getComponents()) {
+                collectScrollPanes(child);
+            }
+        }
+    }
+
+    /**
+     * Original scroll-bar policies for one nested scroll pane.
+     *
+     * @param scrollPane scroll pane
+     * @param verticalPolicy vertical scroll-bar policy
+     * @param horizontalPolicy horizontal scroll-bar policy
+     */
+    private record ScrollPolicySnapshot(
+            JScrollPane scrollPane,
+            int verticalPolicy,
+            int horizontalPolicy) {
+        // data carrier
     }
 
     /**

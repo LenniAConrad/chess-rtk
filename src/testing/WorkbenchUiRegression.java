@@ -128,6 +128,7 @@ final class WorkbenchUiRegression {
         testToastUsesBottomRightPlacement();
         testToastFadeAppliesToTextAndChromeTogether();
         testCollapsibleInfoSectionTogglesContent();
+        testCollapsibleSectionDefersNestedScrollbarsDuringAnimation();
         testLazyPanelDefersConstruction();
         testCommandTabsReserveSelectedTextWidth();
         testTabbedPaneUsesScrollableSingleRowTabs();
@@ -1449,6 +1450,42 @@ final class WorkbenchUiRegression {
         assertFalse(timer.isRunning(), "hidden collapsible does not keep an animation timer");
         toggle.doClick();
         assertTrue(content.isVisible(), "collapsible content restored");
+    }
+
+    /**
+     * Verifies nested scroll panes do not show transient scroll bars while a
+     * collapsed section is still animating open.
+     */
+    private static void testCollapsibleSectionDefersNestedScrollbarsDuringAnimation() {
+        JTextArea text = new JTextArea("line 1\nline 2\nline 3\nline 4\nline 5\nline 6");
+        JScrollPane scroll = Ui.scroll(text);
+        scroll.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
+        scroll.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
+        JComponent section = (JComponent) invokeStatic(type("Ui"), "collapsible",
+                new Class<?>[] { String.class, javax.swing.JComponent.class, boolean.class },
+                "Solution", scroll, false);
+
+        invoke(section, "setExpanded", new Class<?>[] { boolean.class, boolean.class }, true, true);
+
+        assertEquals(Integer.valueOf(JScrollPane.VERTICAL_SCROLLBAR_NEVER),
+                Integer.valueOf(scroll.getVerticalScrollBarPolicy()),
+                "nested vertical scrollbar is hidden during expansion");
+        assertEquals(Integer.valueOf(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER),
+                Integer.valueOf(scroll.getHorizontalScrollBarPolicy()),
+                "nested horizontal scrollbar is hidden during expansion");
+
+        Timer timer = (Timer) field(section, "expansionTimer");
+        assertTrue(timer.isRunning(), "collapsible expansion animation is active");
+        setField(section, "expansionAnimationStartedAt", Long.valueOf(System.currentTimeMillis() - 1000L));
+        invoke(section, "tickExpansionAnimation", new Class<?>[0]);
+
+        assertFalse(timer.isRunning(), "collapsible expansion animation finishes");
+        assertEquals(Integer.valueOf(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED),
+                Integer.valueOf(scroll.getVerticalScrollBarPolicy()),
+                "nested vertical scrollbar returns after expansion");
+        assertEquals(Integer.valueOf(JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED),
+                Integer.valueOf(scroll.getHorizontalScrollBarPolicy()),
+                "nested horizontal scrollbar returns after expansion");
     }
 
     /**
