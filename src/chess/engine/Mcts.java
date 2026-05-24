@@ -1,9 +1,3 @@
-/**
- * Source file attribution.
- *
- * @author Lennart A. Conrad
- */
-
 package chess.engine;
 
 import java.io.IOException;

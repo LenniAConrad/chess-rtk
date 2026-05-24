@@ -1,9 +1,3 @@
-/**
- * Source file attribution.
- *
- * @author Lennart A. Conrad
- */
-
 package application.gui.workbench.mcts;
 
 import application.gui.workbench.board.BoardStyle;

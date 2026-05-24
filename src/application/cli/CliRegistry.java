@@ -1,9 +1,3 @@
-/**
- * Source file attribution.
- *
- * @author Lennart A. Conrad
- */
-
 package application.cli;
 
 import static application.cli.Constants.CMD_GUI;

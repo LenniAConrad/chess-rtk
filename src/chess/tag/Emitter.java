@@ -1,9 +1,3 @@
-/**
- * Source file attribution.
- *
- * @author Lennart A. Conrad
- */
-
 package chess.tag;
 
 import static chess.tag.core.Literals.*;

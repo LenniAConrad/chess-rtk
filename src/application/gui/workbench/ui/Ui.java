@@ -1,9 +1,3 @@
-/**
- * Source file attribution.
- *
- * @author Lennart A. Conrad
- */
-
 package application.gui.workbench.ui;
 
 import application.gui.workbench.layout.FlatTabbedPaneUI;

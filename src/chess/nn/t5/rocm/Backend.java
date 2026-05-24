@@ -1,9 +1,3 @@
-/**
- * Source file attribution.
- *
- * @author Lennart A. Conrad
- */
-
 package chess.nn.t5.rocm;
 
 import chess.nn.t5.Model;

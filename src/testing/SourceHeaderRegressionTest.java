@@ -1,9 +1,3 @@
-/**
- * Source file attribution.
- *
- * @author Lennart A. Conrad
- */
-
 package testing;
 
 import java.io.IOException;
@@ -15,7 +9,7 @@ import java.util.List;
 import java.util.stream.Stream;
 
 /**
- * Regression checks for repository-wide Java source attribution headers.
+ * Regression checks for repository-wide Java source layout.
  *
  * @since 2026
  * @author Lennart A. Conrad
@@ -28,16 +22,13 @@ public final class SourceHeaderRegressionTest {
     private static final Path SOURCE_ROOT = Path.of("src");
 
     /**
-     * Required top-of-file Java source attribution header.
+     * Detached top-of-file attribution banner that should not be used.
      */
-    private static final String REQUIRED_HEADER = """
-            /**
-             * Source file attribution.
-             *
-             * @author Lennart A. Conrad
-             */
-
-            """;
+    private static final String DETACHED_ATTRIBUTION_HEADER = "/**\n"
+            + " * Source file " + "attribution.\n"
+            + " *\n"
+            + " * @author Lennart A. Conrad\n"
+            + " */\n\n";
 
     /**
      * Java source filename suffix.
@@ -52,19 +43,19 @@ public final class SourceHeaderRegressionTest {
     }
 
     /**
-     * Runs all source-header regression checks.
+     * Runs all source-layout regression checks.
      *
      * @param args unused command-line arguments
      */
     public static void main(String[] args) {
-        List<Path> missingHeaders = new ArrayList<>();
+        List<Path> filesWithDetachedHeaders = new ArrayList<>();
         for (Path sourceFile : javaSources()) {
-            if (!hasRequiredHeader(sourceFile)) {
-                missingHeaders.add(sourceFile);
+            if (hasDetachedAttributionHeader(sourceFile)) {
+                filesWithDetachedHeaders.add(sourceFile);
             }
         }
-        if (!missingHeaders.isEmpty()) {
-            throw new AssertionError("missing Java source attribution header: " + missingHeaders);
+        if (!filesWithDetachedHeaders.isEmpty()) {
+            throw new AssertionError("detached Java source attribution header: " + filesWithDetachedHeaders);
         }
         System.out.println("SourceHeaderRegressionTest: all checks passed");
     }
@@ -87,14 +78,14 @@ public final class SourceHeaderRegressionTest {
     }
 
     /**
-     * Verifies one source file starts with the standard attribution header.
+     * Verifies whether one source file starts with a detached attribution banner.
      *
      * @param sourceFile Java source file
-     * @return true when the file starts with the required header
+     * @return true when the file starts with the detached banner
      */
-    private static boolean hasRequiredHeader(Path sourceFile) {
+    private static boolean hasDetachedAttributionHeader(Path sourceFile) {
         try {
-            return Files.readString(sourceFile, StandardCharsets.UTF_8).startsWith(REQUIRED_HEADER);
+            return Files.readString(sourceFile, StandardCharsets.UTF_8).startsWith(DETACHED_ATTRIBUTION_HEADER);
         } catch (IOException ex) {
             throw new AssertionError("could not read Java source file " + sourceFile, ex);
         }

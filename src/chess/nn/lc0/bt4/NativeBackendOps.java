@@ -1,9 +1,3 @@
-/**
- * Source file attribution.
- *
- * @author Lennart A. Conrad
- */
-
 package chess.nn.lc0.bt4;
 
 import java.nio.file.Path;

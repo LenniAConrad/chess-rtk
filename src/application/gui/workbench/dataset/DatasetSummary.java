@@ -1,9 +1,3 @@
-/**
- * Source file attribution.
- *
- * @author Lennart A. Conrad
- */
-
 package application.gui.workbench.dataset;
 
 import java.nio.file.Path;

@@ -1,9 +1,3 @@
-/**
- * Source file attribution.
- *
- * @author Lennart A. Conrad
- */
-
 package chess.images.render;
 
 import static chess.images.render.RenderSvgSupport.appendColorAttribute;

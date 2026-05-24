@@ -1,10 +1,4 @@
 /**
- * Source file attribution.
- *
- * @author Lennart A. Conrad
- */
-
-/**
  * Application GUI entry package.
  *
  * <p>The supported desktop UI is the Swing workbench under
