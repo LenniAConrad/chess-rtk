@@ -6,6 +6,10 @@
 
 package application.gui.workbench.command;
 
+import static application.cli.Constants.CMD_GUI;
+import static application.cli.Constants.CMD_GUI_WORKBENCH;
+import static application.cli.Constants.CMD_WORKBENCH;
+
 import application.cli.CliCommand;
 import application.cli.CliRegistry;
 import chess.core.Setup;
@@ -246,13 +250,30 @@ public final class CommandTemplates {
      * @param paths destination path list
      */
     private static void collectRunnableCommandChoices(CliCommand command, List<String> paths) {
-        if (command.isRunnable() && !command.commandPath().isBlank()) {
+        if (command.isRunnable() && !command.commandPath().isBlank()
+                && !isWorkbenchLauncherPath(command.commandPath())) {
             paths.add(command.commandPath());
-            paths.addAll(command.aliasPaths());
+            for (String aliasPath : command.aliasPaths()) {
+                if (!isWorkbenchLauncherPath(aliasPath)) {
+                    paths.add(aliasPath);
+                }
+            }
         }
         for (CliCommand child : command.children()) {
             collectRunnableCommandChoices(child, paths);
         }
+    }
+
+    /**
+     * Returns whether a command path opens this same workbench application.
+     *
+     * @param commandPath command path or alias path
+     * @return true when the path is a workbench launcher
+     */
+    private static boolean isWorkbenchLauncherPath(String commandPath) {
+        return CMD_WORKBENCH.equals(commandPath)
+                || CMD_GUI.equals(commandPath)
+                || CMD_GUI_WORKBENCH.equals(commandPath);
     }
 
     /**

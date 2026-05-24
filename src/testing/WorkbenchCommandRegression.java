@@ -393,12 +393,13 @@ final class WorkbenchCommandRegression {
             }
         }
         assertFalse(choices.isEmpty(), "all-cli template exposes command choices");
-        for (String path : runnableCliPaths()) {
+        for (String path : commandControllerCliPaths()) {
             assertTrue(choices.contains(path), "all-cli template covers " + path);
         }
         for (String choice : choices) {
             CliCommand command = CliRegistry.resolve(List.of(choice.split("\\s+")));
             assertTrue(command != null && command.isRunnable(), "all-cli choice resolves: " + choice);
+            assertFalse(isWorkbenchLauncherPath(choice), "all-cli excludes nested workbench launcher: " + choice);
         }
     }
 
@@ -444,29 +445,46 @@ final class WorkbenchCommandRegression {
     }
 
     /**
-     * Returns canonical runnable CLI paths from the central registry.
+     * Returns runnable CLI command paths and aliases that should be offered by
+     * the command controller.
      *
-     * @return runnable paths
+     * @return runnable command-controller paths
      */
-    private static List<String> runnableCliPaths() {
+    private static List<String> commandControllerCliPaths() {
         List<String> paths = new ArrayList<>();
-        collectRunnableCliPaths(CliRegistry.root(), paths);
+        collectCommandControllerCliPaths(CliRegistry.root(), paths);
         return List.copyOf(paths);
     }
 
     /**
-     * Recursively collects runnable CLI paths.
+     * Recursively collects runnable CLI paths and aliases.
      *
      * @param command current command node
      * @param paths destination list
      */
-    private static void collectRunnableCliPaths(CliCommand command, List<String> paths) {
-        if (command.isRunnable() && !command.commandPath().isBlank()) {
+    private static void collectCommandControllerCliPaths(CliCommand command, List<String> paths) {
+        if (command.isRunnable() && !command.commandPath().isBlank()
+                && !isWorkbenchLauncherPath(command.commandPath())) {
             paths.add(command.commandPath());
+            for (String aliasPath : command.aliasPaths()) {
+                if (!isWorkbenchLauncherPath(aliasPath)) {
+                    paths.add(aliasPath);
+                }
+            }
         }
         for (CliCommand child : command.children()) {
-            collectRunnableCliPaths(child, paths);
+            collectCommandControllerCliPaths(child, paths);
         }
+    }
+
+    /**
+     * Returns whether a command path launches the workbench itself.
+     *
+     * @param path command path
+     * @return true when path is a nested workbench launcher
+     */
+    private static boolean isWorkbenchLauncherPath(String path) {
+        return "workbench".equals(path) || "gui".equals(path) || "gui-workbench".equals(path);
     }
 
     /**
