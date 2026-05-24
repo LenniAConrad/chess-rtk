@@ -281,11 +281,6 @@ public final class NetworkPanel extends JPanel {
             new ToggleBox("Follow leaf", Defaults.NETWORK_MCTS_FOLLOW_LEAF);
 
     /**
-     * Compact global sound toggle shown beside the Network-tab MCTS controls.
-     */
-    private final ToggleBox mctsSoundToggle = new ToggleBox("Sound", true);
-
-    /**
      * Search status shown in the Network tab.
      */
     private final StatusBadge mctsStatusBadge = new StatusBadge();
@@ -444,11 +439,6 @@ public final class NetworkPanel extends JPanel {
     private long lastMctsProgressSoundNanos;
 
     /**
-     * Keeps the toolbar sound chip in sync with settings-menu changes.
-     */
-    private final transient Runnable soundSettingsListener = this::syncMctsSoundToggle;
-
-    /**
      * Card key ({@link #ARCH_NNUE} / {@link #ARCH_CNN} / {@link #ARCH_BT4})
      * the next debounce tick should infer, or null when nothing is pending.
      */
@@ -527,9 +517,6 @@ public final class NetworkPanel extends JPanel {
         mctsFollowLeafToggle.setSelected(Defaults.NETWORK_MCTS_FOLLOW_LEAF);
         mctsFollowLeafEnabled = mctsFollowLeafToggle.isSelected();
         mctsFollowLeafToggle.addActionListener(event -> onMctsFollowLeafChanged());
-        syncMctsSoundToggle();
-        mctsSoundToggle.addActionListener(event -> SoundService.setMuted(!mctsSoundToggle.isSelected()));
-        SoundService.addSettingsListener(soundSettingsListener);
         updateNetworkMctsButtons(false);
         debounceTimer = new Timer(DEBOUNCE_MS, event -> startInference());
         debounceTimer.setRepeats(false);
@@ -605,7 +592,6 @@ public final class NetworkPanel extends JPanel {
      * Cancels background workers owned by this panel.
      */
     public void dispose() {
-        SoundService.removeSettingsListener(soundSettingsListener);
         stopNetworkMcts(false);
         debounceTimer.stop();
         if (inferenceWorker != null && !inferenceWorker.isDone()) {
@@ -779,7 +765,6 @@ public final class NetworkPanel extends JPanel {
         mctsPauseButton.setToolTipText("Pause or resume the PUCT worker while keeping the current leaf on screen.");
         mctsStopButton.setToolTipText("Stop PUCT and return the network view to the board/canned position.");
         mctsFollowLeafToggle.setToolTipText("When on, the network view shows the leaf currently being evaluated.");
-        mctsSoundToggle.setToolTipText("Enable restrained sound cues for moves, jobs, puzzles, and MCTS.");
         mctsStatusBadge.idle("MCTS idle");
 
         JPanel controls = Ui.transparentPanel(
@@ -795,7 +780,6 @@ public final class NetworkPanel extends JPanel {
         controls.add(Ui.label("Cpuct"));
         controls.add(mctsCpuctSpinner);
         controls.add(mctsFollowLeafToggle);
-        controls.add(mctsSoundToggle);
 
         JPanel status = Ui.transparentPanel(
     new FlowLayout(FlowLayout.RIGHT, Theme.SPACE_SM, 0));
@@ -1429,13 +1413,6 @@ public final class NetworkPanel extends JPanel {
         if (mctsSearch != null) {
             showNetworkMctsSnapshot(mctsSearch.snapshot(mctsPaused), isNetworkMctsRunning());
         }
-    }
-
-    /**
-     * Synchronizes the compact MCTS sound chip with global sound settings.
-     */
-    private void syncMctsSoundToggle() {
-        mctsSoundToggle.setSelected(!SoundService.isMuted());
     }
 
     /**

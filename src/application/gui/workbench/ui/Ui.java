@@ -1,5 +1,7 @@
 package application.gui.workbench.ui;
 
+import application.gui.workbench.audio.SoundCue;
+import application.gui.workbench.audio.SoundService;
 import application.gui.workbench.layout.FlatTabbedPaneUI;
 import java.awt.BasicStroke;
 import java.awt.BorderLayout;
@@ -122,7 +124,10 @@ public final class Ui {
         JButton button = new StyledButton(text);
         Theme.button(button, primary);
         button.setToolTipText(text);
-        button.addActionListener(listener);
+        if (listener != null) {
+            button.addActionListener(listener);
+        }
+        button.addActionListener(event -> SoundService.play(SoundCue.UI_CLICK));
         return button;
     }
 

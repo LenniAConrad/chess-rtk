@@ -1,6 +1,8 @@
 package application.gui.workbench.window;
 
 import application.Config;
+import application.gui.workbench.audio.SoundCue;
+import application.gui.workbench.audio.SoundService;
 import application.gui.workbench.command.CommandRunner;
 import application.gui.workbench.game.EngineEval;
 import application.gui.workbench.ui.Toast;
@@ -69,6 +71,12 @@ public abstract class WindowEngineLayer extends WindowBoardLayer {
      */
     protected static final long LIVE_ANALYSIS_UPDATE_INTERVAL_MS = 80L;
 
+    /**
+     * True after the first successful startup position has been applied. The
+     * initial load should be quiet; later explicit position loads get feedback.
+     */
+    private boolean positionLoadSoundArmed;
+
     @Override
     protected boolean hasLiveEngineWorker() {
         return liveEngineWorker != null;
@@ -93,6 +101,11 @@ public abstract class WindowEngineLayer extends WindowBoardLayer {
             session.clearEvalHistory();
             showGamePly(0);
             appendConsole("New game from " + start + "\n");
+            if (positionLoadSoundArmed) {
+                SoundService.play(SoundCue.POSITION_LOAD);
+            } else {
+                positionLoadSoundArmed = true;
+            }
         } catch (IllegalArgumentException ex) {
             showError("Invalid FEN", ex.getMessage());
         }

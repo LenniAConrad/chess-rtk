@@ -1,5 +1,7 @@
 package application.gui.workbench.window;
 
+import application.gui.workbench.audio.SoundCue;
+import application.gui.workbench.audio.SoundService;
 import application.gui.workbench.ui.Theme;
 import application.gui.workbench.ui.MenuGlyphs;
 import java.awt.Component;
@@ -173,8 +175,14 @@ public final class SettingsMenu {
         ButtonGroup group = new ButtonGroup();
         group.add(lightModeItem);
         group.add(darkModeItem);
-        lightModeItem.addActionListener(event -> controller.setThemeMode(Theme.Mode.LIGHT));
-        darkModeItem.addActionListener(event -> controller.setThemeMode(Theme.Mode.DARK));
+        lightModeItem.addActionListener(event -> {
+            SoundService.play(SoundCue.UI_CLICK);
+            controller.setThemeMode(Theme.Mode.LIGHT);
+        });
+        darkModeItem.addActionListener(event -> {
+            SoundService.play(SoundCue.UI_CLICK);
+            controller.setThemeMode(Theme.Mode.DARK);
+        });
         appearance.add(lightModeItem);
         appearance.add(darkModeItem);
         return appearance;
@@ -187,7 +195,10 @@ public final class SettingsMenu {
      */
     private JMenu createSoundMenu() {
         JMenu sound = new JMenu("Sound");
-        soundEffectsItem.addActionListener(event -> controller.setSoundEnabled(soundEffectsItem.isSelected()));
+        soundEffectsItem.addActionListener(event -> {
+            controller.setSoundEnabled(soundEffectsItem.isSelected());
+            SoundService.play(SoundCue.UI_CLICK);
+        });
         sound.add(soundEffectsItem);
         sound.add(menuItem("Sound Settings", null, controller::showSoundSettings));
         return sound;
@@ -206,7 +217,10 @@ public final class SettingsMenu {
         if (accelerator != null) {
             item.setAccelerator(KeyStroke.getKeyStroke(accelerator));
         }
-        item.addActionListener(event -> action.run());
+        item.addActionListener(event -> {
+            SoundService.play(SoundCue.UI_CLICK);
+            action.run();
+        });
         return item;
     }
 

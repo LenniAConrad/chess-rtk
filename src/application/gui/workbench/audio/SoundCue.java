@@ -6,6 +6,16 @@ package application.gui.workbench.audio;
 public enum SoundCue {
 
     /**
+     * General button, switch, and menu activation click.
+     */
+    UI_CLICK,
+
+    /**
+     * Position loaded into a board or analysis surface.
+     */
+    POSITION_LOAD,
+
+    /**
      * Quiet legal non-capture move tick.
      */
     MOVE,

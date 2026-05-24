@@ -1,5 +1,7 @@
 package application.gui.workbench.ui;
 
+import application.gui.workbench.audio.SoundCue;
+import application.gui.workbench.audio.SoundService;
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Font;
@@ -135,6 +137,7 @@ public final class ToggleBox extends JCheckBox {
         animationTimer = new Timer(ANIMATION_DELAY_MS, event -> tickAnimation());
         animationTimer.setCoalesce(true);
         addItemListener(event -> animateSelectionChange());
+        addActionListener(event -> SoundService.play(SoundCue.UI_CLICK));
     }
 
     /**

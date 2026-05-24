@@ -245,6 +245,8 @@ public final class SoundService {
      */
     private static byte[] synthesize(SoundCue cue, double volume) {
         return switch (cue) {
+            case UI_CLICK -> uiClick(volume);
+            case POSITION_LOAD -> positionLoad(volume);
             case MOVE -> move(volume);
             case CAPTURE -> capture(volume);
             case CHECK -> check(volume);
@@ -270,6 +272,33 @@ public final class SoundService {
     }
 
     /**
+     * Builds the general UI click cue.
+     *
+     * @param volume output multiplier
+     * @return PCM bytes
+     */
+    private static byte[] uiClick(double volume) {
+        double[] mix = buffer(74);
+        wood(mix, 0, 48, 610.0, 0.068);
+        wood(mix, 15, 38, 880.0, 0.028);
+        return pcm(mix, volume * 0.62);
+    }
+
+    /**
+     * Builds the position-loaded cue.
+     *
+     * @param volume output multiplier
+     * @return PCM bytes
+     */
+    private static byte[] positionLoad(double volume) {
+        double[] mix = buffer(165);
+        wood(mix, 0, 68, 355.0, 0.105);
+        wood(mix, 50, 62, 525.0, 0.065);
+        bell(mix, 82, 70, 720.0, 0.038);
+        return pcm(mix, volume * 0.82);
+    }
+
+    /**
      * Builds the normal move cue.
      *
      * @param volume output multiplier
@@ -277,7 +306,8 @@ public final class SoundService {
      */
     private static byte[] move(double volume) {
         double[] mix = buffer(92);
-        wood(mix, 0, 82, 365.0, 0.24);
+        wood(mix, 0, 78, 370.0, 0.22);
+        wood(mix, 22, 46, 520.0, 0.055);
         return pcm(mix, volume);
     }
 
@@ -289,8 +319,9 @@ public final class SoundService {
      */
     private static byte[] capture(double volume) {
         double[] mix = buffer(130);
-        thud(mix, 0, 108, 235.0, 0.25);
-        wood(mix, 18, 80, 420.0, 0.13);
+        thud(mix, 0, 102, 220.0, 0.22);
+        wood(mix, 16, 72, 430.0, 0.14);
+        wood(mix, 44, 48, 610.0, 0.055);
         return pcm(mix, volume);
     }
 
@@ -302,8 +333,9 @@ public final class SoundService {
      */
     private static byte[] check(double volume) {
         double[] mix = buffer(170);
-        bell(mix, 0, 118, 659.25, 0.13);
-        bell(mix, 62, 96, 880.0, 0.10);
+        wood(mix, 0, 55, 520.0, 0.085);
+        bell(mix, 28, 104, 659.25, 0.105);
+        bell(mix, 82, 78, 880.0, 0.075);
         return pcm(mix, volume);
     }
 
@@ -315,8 +347,9 @@ public final class SoundService {
      */
     private static byte[] castle(double volume) {
         double[] mix = buffer(180);
-        wood(mix, 0, 74, 330.0, 0.18);
-        wood(mix, 78, 76, 440.0, 0.18);
+        wood(mix, 0, 68, 330.0, 0.17);
+        wood(mix, 72, 70, 460.0, 0.17);
+        wood(mix, 100, 42, 620.0, 0.045);
         return pcm(mix, volume);
     }
 
@@ -328,9 +361,10 @@ public final class SoundService {
      */
     private static byte[] promotion(double volume) {
         double[] mix = buffer(235);
-        bell(mix, 0, 108, 523.25, 0.12);
-        bell(mix, 68, 122, 659.25, 0.10);
-        bell(mix, 138, 86, 783.99, 0.08);
+        wood(mix, 0, 56, 430.0, 0.07);
+        bell(mix, 38, 100, 523.25, 0.10);
+        bell(mix, 102, 100, 659.25, 0.085);
+        bell(mix, 164, 60, 783.99, 0.06);
         return pcm(mix, volume);
     }
 
@@ -369,8 +403,9 @@ public final class SoundService {
      */
     private static byte[] puzzleCorrect(double volume) {
         double[] mix = buffer(155);
-        bell(mix, 0, 84, 620.0, 0.10);
-        bell(mix, 56, 84, 820.0, 0.08);
+        wood(mix, 0, 48, 560.0, 0.065);
+        bell(mix, 44, 78, 700.0, 0.07);
+        bell(mix, 82, 60, 920.0, 0.045);
         return pcm(mix, volume);
     }
 
@@ -485,8 +520,8 @@ public final class SoundService {
      */
     private static byte[] mctsProgress(double volume) {
         double[] mix = buffer(58);
-        wood(mix, 0, 48, 560.0, 0.045);
-        return pcm(mix, volume * 0.68);
+        wood(mix, 0, 42, 560.0, 0.052);
+        return pcm(mix, volume * 0.55);
     }
 
     /**
@@ -560,10 +595,12 @@ public final class SoundService {
      * @param gain linear gain
      */
     private static void wood(double[] mix, int startMs, int durationMs, double frequency, double gain) {
-        add(mix, startMs, durationMs, frequency, frequency * 0.985, gain, true);
-        add(mix, startMs + 2, Math.max(20, durationMs - 12),
-                frequency * 1.87, frequency * 1.83, gain * 0.24, true);
-        noise(mix, startMs, 9, gain * 0.06);
+        add(mix, startMs, durationMs, frequency, frequency * 0.965, gain, true);
+        add(mix, startMs + 1, Math.max(18, durationMs - 12),
+                frequency * 1.53, frequency * 1.48, gain * 0.25, true);
+        add(mix, startMs + 3, Math.max(16, durationMs - 18),
+                frequency * 2.32, frequency * 2.24, gain * 0.105, true);
+        noise(mix, startMs, 13, gain * 0.12);
     }
 
     /**
@@ -593,7 +630,7 @@ public final class SoundService {
         add(mix, startMs, durationMs, frequency, frequency * 0.92, gain, true);
         add(mix, startMs + 4, Math.max(20, durationMs - 18),
                 frequency * 0.5, frequency * 0.48, gain * 0.20, true);
-        noise(mix, startMs, 7, gain * 0.035);
+        noise(mix, startMs, 11, gain * 0.075);
     }
 
     /**
@@ -669,8 +706,8 @@ public final class SoundService {
             return 0.0;
         }
         double t = index / (double) count;
-        double attack = Math.min(1.0, index / Math.max(1.0, SAMPLE_RATE * 0.004));
-        return attack * Math.exp(-5.5 * t);
+        double attack = Math.min(1.0, index / Math.max(1.0, SAMPLE_RATE * 0.0026));
+        return attack * Math.exp(-7.8 * t);
     }
 
     /**
@@ -710,7 +747,7 @@ public final class SoundService {
      */
     private static byte[] pcm(double[] mix, double volume) {
         byte[] out = new byte[mix.length * 2];
-        double master = Math.max(0.0, Math.min(1.0, volume)) * 0.52;
+        double master = Math.max(0.0, Math.min(1.0, volume)) * 0.58;
         for (int i = 0; i < mix.length; i++) {
             double edge = edgeEnvelope(i, mix.length);
             double softened = Math.tanh(mix[i] * 1.2) * master * edge;

@@ -1,5 +1,7 @@
 package application.gui.workbench.window;
 
+import application.gui.workbench.audio.SoundCue;
+import application.gui.workbench.audio.SoundService;
 import application.gui.workbench.ui.Theme;
 import application.gui.workbench.ui.MenuGlyphs;
 import java.awt.BasicStroke;
@@ -174,7 +176,10 @@ public final class LayoutMenu {
         ChromeButton button = new ChromeButton();
         button.setToolTipText(tooltip);
         button.setIcon(new LayoutIcon(kind));
-        button.addActionListener(event -> action.run());
+        button.addActionListener(event -> {
+            SoundService.play(SoundCue.UI_CLICK);
+            action.run();
+        });
         return button;
     }
 
@@ -289,7 +294,10 @@ public final class LayoutMenu {
             Consumer<Boolean> action) {
         JCheckBoxMenuItem item = new JCheckBoxMenuItem(text, selected);
         item.setEnabled(enabled);
-        item.addActionListener(event -> action.accept(Boolean.valueOf(item.isSelected())));
+        item.addActionListener(event -> {
+            SoundService.play(SoundCue.UI_CLICK);
+            action.accept(Boolean.valueOf(item.isSelected()));
+        });
         return item;
     }
 
@@ -303,7 +311,10 @@ public final class LayoutMenu {
      */
     private static JMenuItem actionItem(String text, String shortcut, Runnable action) {
         JMenuItem item = new ShortcutItem(text, shortcut);
-        item.addActionListener(event -> action.run());
+        item.addActionListener(event -> {
+            SoundService.play(SoundCue.UI_CLICK);
+            action.run();
+        });
         return item;
     }
 

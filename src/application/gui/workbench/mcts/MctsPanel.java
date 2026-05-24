@@ -7,7 +7,6 @@ import application.gui.workbench.board.BoardPanel;
 import application.gui.workbench.mcts.MctsSearch;
 import application.gui.workbench.ui.SurfacePanel;
 import application.gui.workbench.ui.Theme;
-import application.gui.workbench.ui.ToggleBox;
 import application.gui.workbench.ui.Ui;
 import chess.core.Move;
 import chess.core.Position;
@@ -162,11 +161,6 @@ public final class MctsPanel extends JPanel {
     private final JButton stopButton = Ui.button("Stop", false, event -> stopSearch());
 
     /**
-     * Compact global sound toggle for MCTS controls.
-     */
-    private final ToggleBox soundOutputToggle = new ToggleBox("Sound", true);
-
-    /**
      * Active worker.
      */
     private SwingWorker<Void, MctsSearch.Snapshot> worker;
@@ -187,11 +181,6 @@ public final class MctsPanel extends JPanel {
     private long lastProgressSoundNanos;
 
     /**
-     * Keeps the compact sound chip synchronized with global sound settings.
-     */
-    private final transient Runnable soundSettingsListener = this::syncSoundOutputToggle;
-
-    /**
      * Creates the panel.
      */
     public MctsPanel() {
@@ -199,9 +188,6 @@ public final class MctsPanel extends JPanel {
         setOpaque(false);
         add(Ui.collapsible("Controls", createControls(), true), BorderLayout.NORTH);
         add(createCenter(), BorderLayout.CENTER);
-        syncSoundOutputToggle();
-        soundOutputToggle.addActionListener(event -> SoundService.setMuted(!soundOutputToggle.isSelected()));
-        SoundService.addSettingsListener(soundSettingsListener);
         showFen(Game.STANDARD_START_FEN);
         updateButtons(false);
     }
@@ -226,7 +212,6 @@ public final class MctsPanel extends JPanel {
      * Stops background work.
      */
     public void dispose() {
-        SoundService.removeSettingsListener(soundSettingsListener);
         stopSearch(false);
     }
 
@@ -308,11 +293,10 @@ public final class MctsPanel extends JPanel {
         row.add(startButton);
         row.add(pauseButton);
         row.add(stopButton);
-        soundOutputToggle.setToolTipText("Enable restrained sound cues for moves, jobs, puzzles, and MCTS.");
-        row.add(soundOutputToggle);
         row.add(Ui.button("Use board", false, event -> {
             fenField.setText(liveFen);
             showFen(liveFen);
+            SoundService.play(SoundCue.POSITION_LOAD);
         }));
         row.add(Ui.button("Load FEN", false, event -> loadFenFromField()));
         return row;
@@ -477,6 +461,7 @@ public final class MctsPanel extends JPanel {
         try {
             Position position = new Position(fenField.getText().trim());
             showFen(position.toString());
+            SoundService.play(SoundCue.POSITION_LOAD);
             statusLabel.setText("root loaded");
         } catch (IllegalArgumentException ex) {
             statusLabel.setText("invalid FEN: " + ex.getMessage());
@@ -554,13 +539,6 @@ public final class MctsPanel extends JPanel {
         return playouts <= LIVE_WARMUP_PLAYOUTS
                 || playouts % PUBLISH_INTERVAL == 0L
                 || nowNanos - lastPublishNanos >= MIN_PUBLISH_NANOS;
-    }
-
-    /**
-     * Synchronizes the compact sound chip with global sound settings.
-     */
-    private void syncSoundOutputToggle() {
-        soundOutputToggle.setSelected(!SoundService.isMuted());
     }
 
     /**

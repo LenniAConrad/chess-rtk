@@ -1,6 +1,7 @@
 package application.gui.workbench.window;
 
 import application.Config;
+import application.gui.workbench.audio.SoundCue;
 import application.gui.workbench.audio.SoundService;
 import application.gui.workbench.board.BoardEditorPanel;
 import application.gui.workbench.game.EcoExplorerPanel;
@@ -446,7 +447,7 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
         GridBagConstraints soundC = constraints();
         soundC.insets = new Insets(3, 0, 3, 0);
         grid(soundSettings, settingsToggle("Sound effects",
-                "Play restrained procedural feedback sounds for moves, puzzles, and long jobs",
+                "Play procedural feedback for controls, moves, loaded positions, puzzles, MCTS, and long jobs",
                 !SoundService.isMuted(), selected -> {
                     SoundService.setMuted(!selected);
                     if (settingsMenu != null) {
@@ -455,6 +456,8 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
                 }), soundC, 0, 0, 1, 1);
         grid(soundSettings, labeledControl("Volume", createSoundVolumeSlider()),
                 soundC, 0, 1, 1, 1);
+        grid(soundSettings, button("Preview", false, event -> SoundService.play(SoundCue.POSITION_LOAD)),
+                soundC, 0, 2, 1, 1);
 
         JPanel boardSettings = settingsGroupPanel();
         GridBagConstraints boardC = constraints();
@@ -499,7 +502,7 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
     private static JSlider createSoundVolumeSlider() {
         JSlider slider = new JSlider(0, 100, SoundService.volumePercent());
         styleSlider(slider);
-        slider.setToolTipText("Set feedback sound volume");
+        slider.setToolTipText("Set global workbench feedback volume");
         slider.setPreferredSize(new Dimension(190, Theme.CONTROL_HEIGHT));
         slider.addChangeListener(event -> SoundService.setVolumePercent(slider.getValue()));
         return slider;
