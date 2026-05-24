@@ -1,6 +1,8 @@
 package application.gui.workbench.network;
 
 import application.gui.workbench.Defaults;
+import application.gui.workbench.audio.SoundCue;
+import application.gui.workbench.audio.SoundService;
 import application.gui.workbench.game.Positions;
 import application.gui.workbench.mcts.MctsSearch;
 import application.gui.workbench.mcts.MctsWeightsPanel;
@@ -207,6 +209,11 @@ public final class NetworkPanel extends JPanel {
     private static final int NETWORK_MCTS_YIELD_INTERVAL = 64;
 
     /**
+     * Minimum time between audible MCTS progress ticks.
+     */
+    private static final long NETWORK_MCTS_SOUND_INTERVAL_NANOS = 1_350_000_000L;
+
+    /**
      * Starts a PUCT search rooted at the current network position.
      */
     private final JButton mctsStartButton = Ui.button("Start MCTS", true,
@@ -261,6 +268,11 @@ public final class NetworkPanel extends JPanel {
      */
     private final ToggleBox mctsFollowLeafToggle =
             new ToggleBox("Follow leaf", Defaults.NETWORK_MCTS_FOLLOW_LEAF);
+
+    /**
+     * Compact global sound toggle shown beside the Network-tab MCTS controls.
+     */
+    private final ToggleBox mctsSoundToggle = new ToggleBox("Sound", true);
 
     /**
      * Search status shown in the Network tab.
@@ -395,6 +407,16 @@ public final class NetworkPanel extends JPanel {
     private String mctsLeafFen;
 
     /**
+     * Last audible MCTS progress tick timestamp.
+     */
+    private long lastMctsProgressSoundNanos;
+
+    /**
+     * Keeps the toolbar sound chip in sync with settings-menu changes.
+     */
+    private final transient Runnable soundSettingsListener = this::syncMctsSoundToggle;
+
+    /**
      * Card key ({@link #ARCH_NNUE} / {@link #ARCH_CNN} / {@link #ARCH_BT4})
      * the next debounce tick should infer, or null when nothing is pending.
      */
@@ -509,6 +531,9 @@ public final class NetworkPanel extends JPanel {
         mctsFollowLeafToggle.setSelected(Defaults.NETWORK_MCTS_FOLLOW_LEAF);
         mctsFollowLeafEnabled = mctsFollowLeafToggle.isSelected();
         mctsFollowLeafToggle.addActionListener(event -> onMctsFollowLeafChanged());
+        syncMctsSoundToggle();
+        mctsSoundToggle.addActionListener(event -> SoundService.setMuted(!mctsSoundToggle.isSelected()));
+        SoundService.addSettingsListener(soundSettingsListener);
         updateNetworkMctsButtons(false);
         debounceTimer = new Timer(DEBOUNCE_MS, event -> startInference());
         debounceTimer.setRepeats(false);
@@ -584,6 +609,7 @@ public final class NetworkPanel extends JPanel {
      * Cancels background workers owned by this panel.
      */
     public void dispose() {
+        SoundService.removeSettingsListener(soundSettingsListener);
         stopNetworkMcts(false);
         debounceTimer.stop();
         if (inferenceWorker != null && !inferenceWorker.isDone()) {
@@ -757,6 +783,7 @@ public final class NetworkPanel extends JPanel {
         mctsPauseButton.setToolTipText("Pause or resume the PUCT worker while keeping the current leaf on screen.");
         mctsStopButton.setToolTipText("Stop PUCT and return the network view to the board/canned position.");
         mctsFollowLeafToggle.setToolTipText("When on, the network view shows the leaf currently being evaluated.");
+        mctsSoundToggle.setToolTipText("Enable restrained sound cues for moves, jobs, puzzles, and MCTS.");
         mctsStatusBadge.idle("MCTS idle");
 
         JPanel controls = Ui.transparentPanel(
@@ -772,6 +799,7 @@ public final class NetworkPanel extends JPanel {
         controls.add(Ui.label("Cpuct"));
         controls.add(mctsCpuctSpinner);
         controls.add(mctsFollowLeafToggle);
+        controls.add(mctsSoundToggle);
 
         JPanel status = Ui.transparentPanel(
     new FlowLayout(FlowLayout.RIGHT, Theme.SPACE_SM, 0));
@@ -1099,6 +1127,7 @@ public final class NetworkPanel extends JPanel {
             root = new Position(fen);
         } catch (IllegalArgumentException ex) {
             mctsStatusBadge.error("MCTS: " + ex.getMessage());
+            SoundService.play(SoundCue.ILLEGAL);
             return;
         }
         int budget = ((Number) mctsVisitsSpinner.getValue()).intValue();
@@ -1110,8 +1139,10 @@ public final class NetworkPanel extends JPanel {
         mctsSearch = new MctsSearch(root, cpuct);
         final MctsSearch search = mctsSearch;
         mctsLeafFen = root.toString();
+        lastMctsProgressSoundNanos = 0L;
         updateNetworkMctsButtons(true);
         mctsStatusBadge.busy("starting MCTS...");
+        SoundService.play(SoundCue.MCTS_START);
         final NetworkMctsInferenceState inferenceState = new NetworkMctsInferenceState();
         SwingWorker<Void, NetworkMctsFrame> activeWorker = new SwingWorker<>() {
             @Override
@@ -1158,19 +1189,24 @@ public final class NetworkPanel extends JPanel {
                     return;
                 }
                 updateNetworkMctsButtons(false);
+                boolean failed = false;
                 try {
                     get();
                 } catch (CancellationException ex) {
                     // stop button already restored the toolbar state
                 } catch (InterruptedException ex) {
                     Thread.currentThread().interrupt();
+                    failed = true;
                 } catch (ExecutionException ex) {
+                    failed = true;
                     Throwable cause = ex.getCause() != null ? ex.getCause() : ex;
                     mctsStatusBadge.error("MCTS failed: "
                             + cause.getClass().getSimpleName() + ": " + cause.getMessage());
+                    SoundService.play(SoundCue.JOB_FAILURE);
                 }
-                if (!isCancelled()) {
+                if (!isCancelled() && !failed) {
                     showNetworkMctsSnapshot(search.snapshot(mctsPaused), false);
+                    SoundService.play(SoundCue.MCTS_COMPLETE);
                 }
                 search.close();
             }
@@ -1188,6 +1224,7 @@ public final class NetworkPanel extends JPanel {
         }
         mctsPaused = !mctsPaused;
         updateNetworkMctsButtons(true);
+        SoundService.play(mctsPaused ? SoundCue.MCTS_PAUSE : SoundCue.MCTS_RESUME);
         if (mctsSearch != null) {
             showNetworkMctsSnapshot(mctsSearch.snapshot(mctsPaused), true);
         }
@@ -1207,7 +1244,8 @@ public final class NetworkPanel extends JPanel {
      */
     private void stopNetworkMcts(boolean restoreBase) {
         MctsSearch activeSearch = mctsSearch;
-        if (mctsWorker != null && !mctsWorker.isDone()) {
+        boolean cancelled = mctsWorker != null && !mctsWorker.isDone();
+        if (cancelled) {
             mctsWorker.cancel(true);
         }
         mctsWorker = null;
@@ -1221,6 +1259,9 @@ public final class NetworkPanel extends JPanel {
             mctsLeafFen = null;
             mctsWeightsPanel.clear();
             mctsStatusBadge.idle("MCTS stopped");
+            if (cancelled) {
+                SoundService.play(SoundCue.MCTS_STOP);
+            }
             revalidate();
             requestActiveInference();
         }
@@ -1326,8 +1367,26 @@ public final class NetworkPanel extends JPanel {
             mctsStatusBadge.idle("paused · " + message);
         } else if (running || isNetworkMctsRunning()) {
             mctsStatusBadge.busy(message);
+            maybePlayNetworkMctsProgress(snapshot);
         } else {
             mctsStatusBadge.success("done · " + message);
+        }
+    }
+
+    /**
+     * Plays an occasional soft progress tick while Network-tab MCTS is active.
+     *
+     * @param snapshot current search snapshot
+     */
+    private void maybePlayNetworkMctsProgress(MctsSearch.Snapshot snapshot) {
+        if (snapshot.playouts() < NETWORK_MCTS_PUBLISH_INTERVAL) {
+            return;
+        }
+        long now = System.nanoTime();
+        if (lastMctsProgressSoundNanos == 0L
+                || now - lastMctsProgressSoundNanos >= NETWORK_MCTS_SOUND_INTERVAL_NANOS) {
+            lastMctsProgressSoundNanos = now;
+            SoundService.play(SoundCue.MCTS_PROGRESS);
         }
     }
 
@@ -1344,6 +1403,13 @@ public final class NetworkPanel extends JPanel {
         if (mctsSearch != null) {
             showNetworkMctsSnapshot(mctsSearch.snapshot(mctsPaused), isNetworkMctsRunning());
         }
+    }
+
+    /**
+     * Synchronizes the compact MCTS sound chip with global sound settings.
+     */
+    private void syncMctsSoundToggle() {
+        mctsSoundToggle.setSelected(!SoundService.isMuted());
     }
 
     /**

@@ -74,6 +74,11 @@ public abstract class WindowLifecycle extends WindowBase {
     protected transient LayoutMenu layoutMenu;
 
     /**
+     * Listener keeping menu sound checkmarks synchronized with sound chips.
+     */
+    private final transient Runnable soundSettingsListener = this::syncSoundSettingsControls;
+
+    /**
      * Preferences node used to persist workbench UI state.
      */
     protected static final Preferences WORKBENCH_PREFS =
@@ -438,10 +443,21 @@ public abstract class WindowLifecycle extends WindowBase {
     }
 
     /**
+     * Synchronizes settings-menu sound controls after an external sound chip
+     * changes the global mute state.
+     */
+    private void syncSoundSettingsControls() {
+        if (settingsMenu != null) {
+            settingsMenu.syncMode();
+        }
+    }
+
+    /**
      * Cancels background work and persists window geometry before disposing.
      */
     @Override
     public void dispose() {
+        SoundService.removeSettingsListener(soundSettingsListener);
         saveWindowGeometry();
         evalRequestId++;
         cancelEvalCommand();
@@ -547,6 +563,7 @@ public abstract class WindowLifecycle extends WindowBase {
                 runArtifacts.openLogsDirectory();
             }
         });
+        SoundService.addSettingsListener(soundSettingsListener);
         layoutMenu = new LayoutMenu(new LayoutMenu.Controller() {
             /**
              * Returns whether the workbench status bar is visible.

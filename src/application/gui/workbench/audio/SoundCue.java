@@ -78,5 +78,35 @@ public enum SoundCue {
     /**
      * User-started workbench command was cancelled.
      */
-    JOB_CANCELLED
+    JOB_CANCELLED,
+
+    /**
+     * Monte Carlo search started.
+     */
+    MCTS_START,
+
+    /**
+     * Quiet Monte Carlo search progress tick.
+     */
+    MCTS_PROGRESS,
+
+    /**
+     * Monte Carlo search paused.
+     */
+    MCTS_PAUSE,
+
+    /**
+     * Monte Carlo search resumed.
+     */
+    MCTS_RESUME,
+
+    /**
+     * Monte Carlo search completed normally.
+     */
+    MCTS_COMPLETE,
+
+    /**
+     * Monte Carlo search was stopped by the user.
+     */
+    MCTS_STOP
 }

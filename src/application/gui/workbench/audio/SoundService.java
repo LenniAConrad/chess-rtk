@@ -1,15 +1,18 @@
 package application.gui.workbench.audio;
 
 import java.awt.GraphicsEnvironment;
+import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.prefs.Preferences;
 import javax.sound.sampled.AudioFormat;
 import javax.sound.sampled.AudioSystem;
 import javax.sound.sampled.LineUnavailableException;
 import javax.sound.sampled.SourceDataLine;
+import javax.swing.SwingUtilities;
 
 /**
  * Procedural, non-blocking sound playback for short workbench feedback cues.
@@ -38,7 +41,7 @@ public final class SoundService {
     /**
      * Default conservative output volume.
      */
-    private static final int DEFAULT_VOLUME_PERCENT = 30;
+    private static final int DEFAULT_VOLUME_PERCENT = 28;
 
     /**
      * Minimum accepted volume percentage.
@@ -94,6 +97,11 @@ public final class SoundService {
             PREFS.getInt(PREF_VOLUME_PERCENT, DEFAULT_VOLUME_PERCENT));
 
     /**
+     * Settings listeners used by visible sound chips and settings controls.
+     */
+    private static final List<Runnable> SETTINGS_LISTENERS = new CopyOnWriteArrayList<>();
+
+    /**
      * Prevents instantiation.
      */
     private SoundService() {
@@ -138,8 +146,12 @@ public final class SoundService {
      * @param value true to mute workbench sounds
      */
     public static void setMuted(boolean value) {
+        if (muted == value) {
+            return;
+        }
         muted = value;
         PREFS.putBoolean(PREF_MUTED, value);
+        notifySettingsListeners();
     }
 
     /**
@@ -158,8 +170,43 @@ public final class SoundService {
      */
     public static void setVolumePercent(int value) {
         int clamped = clampVolume(value);
+        if (volumePercent == clamped) {
+            return;
+        }
         volumePercent = clamped;
         PREFS.putInt(PREF_VOLUME_PERCENT, clamped);
+        notifySettingsListeners();
+    }
+
+    /**
+     * Registers a listener for sound setting changes.
+     *
+     * @param listener listener to run after mute or volume changes
+     */
+    public static void addSettingsListener(Runnable listener) {
+        SETTINGS_LISTENERS.add(Objects.requireNonNull(listener, "listener"));
+    }
+
+    /**
+     * Removes a sound settings listener.
+     *
+     * @param listener listener to remove
+     */
+    public static void removeSettingsListener(Runnable listener) {
+        SETTINGS_LISTENERS.remove(listener);
+    }
+
+    /**
+     * Notifies sound setting listeners on the Swing thread.
+     */
+    private static void notifySettingsListeners() {
+        for (Runnable listener : SETTINGS_LISTENERS) {
+            if (SwingUtilities.isEventDispatchThread()) {
+                listener.run();
+            } else {
+                SwingUtilities.invokeLater(listener);
+            }
+        }
     }
 
     /**
@@ -213,6 +260,12 @@ public final class SoundService {
             case JOB_SUCCESS -> jobSuccess(volume);
             case JOB_FAILURE -> jobFailure(volume);
             case JOB_CANCELLED -> jobCancelled(volume);
+            case MCTS_START -> mctsStart(volume);
+            case MCTS_PROGRESS -> mctsProgress(volume);
+            case MCTS_PAUSE -> mctsPause(volume);
+            case MCTS_RESUME -> mctsResume(volume);
+            case MCTS_COMPLETE -> mctsComplete(volume);
+            case MCTS_STOP -> mctsStop(volume);
         };
     }
 
@@ -223,9 +276,8 @@ public final class SoundService {
      * @return PCM bytes
      */
     private static byte[] move(double volume) {
-        double[] mix = buffer(90);
-        tick(mix, 0, 78, 430.0, 0.38);
-        noise(mix, 0, 18, 0.08);
+        double[] mix = buffer(92);
+        wood(mix, 0, 82, 365.0, 0.24);
         return pcm(mix, volume);
     }
 
@@ -236,9 +288,9 @@ public final class SoundService {
      * @return PCM bytes
      */
     private static byte[] capture(double volume) {
-        double[] mix = buffer(125);
-        tick(mix, 0, 105, 270.0, 0.44);
-        noise(mix, 0, 32, 0.14);
+        double[] mix = buffer(130);
+        thud(mix, 0, 108, 235.0, 0.25);
+        wood(mix, 18, 80, 420.0, 0.13);
         return pcm(mix, volume);
     }
 
@@ -249,9 +301,9 @@ public final class SoundService {
      * @return PCM bytes
      */
     private static byte[] check(double volume) {
-        double[] mix = buffer(150);
-        tone(mix, 0, 82, 660.0, 0.25);
-        tone(mix, 54, 92, 880.0, 0.22);
+        double[] mix = buffer(170);
+        bell(mix, 0, 118, 659.25, 0.13);
+        bell(mix, 62, 96, 880.0, 0.10);
         return pcm(mix, volume);
     }
 
@@ -263,8 +315,8 @@ public final class SoundService {
      */
     private static byte[] castle(double volume) {
         double[] mix = buffer(180);
-        tick(mix, 0, 70, 390.0, 0.32);
-        tick(mix, 72, 76, 450.0, 0.32);
+        wood(mix, 0, 74, 330.0, 0.18);
+        wood(mix, 78, 76, 440.0, 0.18);
         return pcm(mix, volume);
     }
 
@@ -275,10 +327,10 @@ public final class SoundService {
      * @return PCM bytes
      */
     private static byte[] promotion(double volume) {
-        double[] mix = buffer(220);
-        tone(mix, 0, 95, 523.25, 0.20);
-        tone(mix, 70, 120, 659.25, 0.18);
-        tone(mix, 132, 82, 783.99, 0.16);
+        double[] mix = buffer(235);
+        bell(mix, 0, 108, 523.25, 0.12);
+        bell(mix, 68, 122, 659.25, 0.10);
+        bell(mix, 138, 86, 783.99, 0.08);
         return pcm(mix, volume);
     }
 
@@ -290,9 +342,9 @@ public final class SoundService {
      */
     private static byte[] gameEnd(double volume) {
         double[] mix = buffer(460);
-        tone(mix, 0, 160, 392.0, 0.20);
-        tone(mix, 120, 180, 493.88, 0.18);
-        tone(mix, 260, 185, 587.33, 0.18);
+        bell(mix, 0, 150, 392.0, 0.10);
+        bell(mix, 126, 172, 493.88, 0.095);
+        bell(mix, 272, 162, 587.33, 0.09);
         return pcm(mix, volume);
     }
 
@@ -304,8 +356,8 @@ public final class SoundService {
      */
     private static byte[] illegal(double volume) {
         double[] mix = buffer(115);
-        tone(mix, 0, 110, 142.0, 0.36);
-        noise(mix, 0, 30, 0.10);
+        thud(mix, 0, 104, 128.0, 0.23);
+        sweep(mix, 0, 96, 180.0, 118.0, 0.055);
         return pcm(mix, volume);
     }
 
@@ -317,8 +369,8 @@ public final class SoundService {
      */
     private static byte[] puzzleCorrect(double volume) {
         double[] mix = buffer(155);
-        tone(mix, 0, 78, 620.0, 0.18);
-        tone(mix, 54, 95, 820.0, 0.16);
+        bell(mix, 0, 84, 620.0, 0.10);
+        bell(mix, 56, 84, 820.0, 0.08);
         return pcm(mix, volume);
     }
 
@@ -330,8 +382,7 @@ public final class SoundService {
      */
     private static byte[] puzzleWrong(double volume) {
         double[] mix = buffer(115);
-        tone(mix, 0, 105, 180.0, 0.28);
-        noise(mix, 0, 24, 0.06);
+        thud(mix, 0, 102, 158.0, 0.18);
         return pcm(mix, volume);
     }
 
@@ -343,9 +394,9 @@ public final class SoundService {
      */
     private static byte[] puzzleComplete(double volume) {
         double[] mix = buffer(360);
-        tone(mix, 0, 110, 523.25, 0.18);
-        tone(mix, 100, 120, 659.25, 0.17);
-        tone(mix, 215, 135, 783.99, 0.16);
+        bell(mix, 0, 112, 523.25, 0.10);
+        bell(mix, 96, 118, 659.25, 0.09);
+        bell(mix, 214, 120, 783.99, 0.08);
         return pcm(mix, volume);
     }
 
@@ -357,7 +408,7 @@ public final class SoundService {
      */
     private static byte[] hint(double volume) {
         double[] mix = buffer(85);
-        tone(mix, 0, 74, 980.0, 0.12);
+        bell(mix, 0, 72, 987.77, 0.055);
         return pcm(mix, volume);
     }
 
@@ -369,7 +420,8 @@ public final class SoundService {
      */
     private static byte[] reveal(double volume) {
         double[] mix = buffer(190);
-        sweep(mix, 0, 170, 420.0, 660.0, 0.13);
+        sweep(mix, 0, 170, 420.0, 640.0, 0.075);
+        bell(mix, 84, 84, 640.0, 0.045);
         return pcm(mix, volume);
     }
 
@@ -381,8 +433,8 @@ public final class SoundService {
      */
     private static byte[] jobSuccess(double volume) {
         double[] mix = buffer(125);
-        tone(mix, 0, 105, 520.0, 0.16);
-        tone(mix, 55, 60, 690.0, 0.11);
+        wood(mix, 0, 82, 480.0, 0.10);
+        bell(mix, 52, 62, 640.0, 0.055);
         return pcm(mix, volume);
     }
 
@@ -394,8 +446,8 @@ public final class SoundService {
      */
     private static byte[] jobFailure(double volume) {
         double[] mix = buffer(170);
-        tone(mix, 0, 80, 260.0, 0.22);
-        tone(mix, 74, 86, 196.0, 0.20);
+        thud(mix, 0, 92, 238.0, 0.17);
+        thud(mix, 78, 78, 178.0, 0.14);
         return pcm(mix, volume);
     }
 
@@ -407,7 +459,84 @@ public final class SoundService {
      */
     private static byte[] jobCancelled(double volume) {
         double[] mix = buffer(105);
-        tone(mix, 0, 88, 210.0, 0.15);
+        thud(mix, 0, 82, 204.0, 0.12);
+        wood(mix, 42, 48, 310.0, 0.045);
+        return pcm(mix, volume);
+    }
+
+    /**
+     * Builds the MCTS start cue.
+     *
+     * @param volume output multiplier
+     * @return PCM bytes
+     */
+    private static byte[] mctsStart(double volume) {
+        double[] mix = buffer(150);
+        wood(mix, 0, 70, 410.0, 0.11);
+        bell(mix, 58, 78, 620.0, 0.055);
+        return pcm(mix, volume);
+    }
+
+    /**
+     * Builds the soft MCTS progress cue.
+     *
+     * @param volume output multiplier
+     * @return PCM bytes
+     */
+    private static byte[] mctsProgress(double volume) {
+        double[] mix = buffer(58);
+        wood(mix, 0, 48, 560.0, 0.045);
+        return pcm(mix, volume * 0.68);
+    }
+
+    /**
+     * Builds the MCTS pause cue.
+     *
+     * @param volume output multiplier
+     * @return PCM bytes
+     */
+    private static byte[] mctsPause(double volume) {
+        double[] mix = buffer(125);
+        sweep(mix, 0, 104, 420.0, 260.0, 0.075);
+        return pcm(mix, volume);
+    }
+
+    /**
+     * Builds the MCTS resume cue.
+     *
+     * @param volume output multiplier
+     * @return PCM bytes
+     */
+    private static byte[] mctsResume(double volume) {
+        double[] mix = buffer(125);
+        sweep(mix, 0, 104, 260.0, 420.0, 0.075);
+        wood(mix, 72, 42, 520.0, 0.04);
+        return pcm(mix, volume);
+    }
+
+    /**
+     * Builds the MCTS completion cue.
+     *
+     * @param volume output multiplier
+     * @return PCM bytes
+     */
+    private static byte[] mctsComplete(double volume) {
+        double[] mix = buffer(260);
+        bell(mix, 0, 100, 440.0, 0.075);
+        bell(mix, 92, 104, 554.37, 0.068);
+        bell(mix, 178, 72, 659.25, 0.052);
+        return pcm(mix, volume);
+    }
+
+    /**
+     * Builds the MCTS stop cue.
+     *
+     * @param volume output multiplier
+     * @return PCM bytes
+     */
+    private static byte[] mctsStop(double volume) {
+        double[] mix = buffer(105);
+        thud(mix, 0, 82, 184.0, 0.12);
         return pcm(mix, volume);
     }
 
@@ -422,29 +551,49 @@ public final class SoundService {
     }
 
     /**
-     * Adds a short decaying tick to a buffer.
+     * Adds a soft wooden pluck with a small filtered transient.
      *
      * @param mix target buffer
      * @param startMs start offset in milliseconds
      * @param durationMs duration in milliseconds
-     * @param frequency frequency in Hertz
+     * @param frequency fundamental frequency in Hertz
      * @param gain linear gain
      */
-    private static void tick(double[] mix, int startMs, int durationMs, double frequency, double gain) {
-        add(mix, startMs, durationMs, frequency, frequency, gain, true);
+    private static void wood(double[] mix, int startMs, int durationMs, double frequency, double gain) {
+        add(mix, startMs, durationMs, frequency, frequency * 0.985, gain, true);
+        add(mix, startMs + 2, Math.max(20, durationMs - 12),
+                frequency * 1.87, frequency * 1.83, gain * 0.24, true);
+        noise(mix, startMs, 9, gain * 0.06);
     }
 
     /**
-     * Adds a steady sine tone to a buffer.
+     * Adds a restrained chime with a quiet harmonic.
      *
      * @param mix target buffer
      * @param startMs start offset in milliseconds
      * @param durationMs duration in milliseconds
-     * @param frequency frequency in Hertz
+     * @param frequency fundamental frequency in Hertz
      * @param gain linear gain
      */
-    private static void tone(double[] mix, int startMs, int durationMs, double frequency, double gain) {
+    private static void bell(double[] mix, int startMs, int durationMs, double frequency, double gain) {
         add(mix, startMs, durationMs, frequency, frequency, gain, false);
+        add(mix, startMs, durationMs, frequency * 2.01, frequency * 2.01, gain * 0.27, false);
+    }
+
+    /**
+     * Adds a low, rounded thud for negative feedback.
+     *
+     * @param mix target buffer
+     * @param startMs start offset in milliseconds
+     * @param durationMs duration in milliseconds
+     * @param frequency fundamental frequency in Hertz
+     * @param gain linear gain
+     */
+    private static void thud(double[] mix, int startMs, int durationMs, double frequency, double gain) {
+        add(mix, startMs, durationMs, frequency, frequency * 0.92, gain, true);
+        add(mix, startMs + 4, Math.max(20, durationMs - 18),
+                frequency * 0.5, frequency * 0.48, gain * 0.20, true);
+        noise(mix, startMs, 7, gain * 0.035);
     }
 
     /**
@@ -474,10 +623,12 @@ public final class SoundService {
         int start = samples(startMs);
         int count = samples(durationMs);
         long seed = 0x5DEECE66DL + start * 31L + count;
+        double filtered = 0.0;
         for (int i = 0; i < count && start + i < mix.length; i++) {
             seed = seed * 6364136223846793005L + 1442695040888963407L;
             double raw = (((seed >>> 40) & 0xffff) / 32768.0) - 1.0;
-            mix[start + i] += raw * gain * decayEnvelope(i, count);
+            filtered = filtered * 0.68 + raw * 0.32;
+            mix[start + i] += filtered * gain * decayEnvelope(i, count);
         }
     }
 
@@ -559,12 +710,31 @@ public final class SoundService {
      */
     private static byte[] pcm(double[] mix, double volume) {
         byte[] out = new byte[mix.length * 2];
-        double master = Math.max(0.0, Math.min(1.0, volume)) * 0.72;
+        double master = Math.max(0.0, Math.min(1.0, volume)) * 0.52;
         for (int i = 0; i < mix.length; i++) {
-            int sample = (int) Math.round(Math.max(-1.0, Math.min(1.0, mix[i] * master)) * 32767.0);
+            double edge = edgeEnvelope(i, mix.length);
+            double softened = Math.tanh(mix[i] * 1.2) * master * edge;
+            int sample = (int) Math.round(Math.max(-1.0, Math.min(1.0, softened)) * 32767.0);
             out[i * 2] = (byte) (sample & 0xff);
             out[i * 2 + 1] = (byte) ((sample >>> 8) & 0xff);
         }
         return out;
+    }
+
+    /**
+     * Returns a short global fade that prevents boundary clicks.
+     *
+     * @param index sample index
+     * @param count total sample count
+     * @return edge envelope in {@code [0.0, 1.0]}
+     */
+    private static double edgeEnvelope(int index, int count) {
+        if (count <= 0) {
+            return 0.0;
+        }
+        int fadeSamples = Math.max(1, samples(3));
+        double in = Math.min(1.0, index / (double) fadeSamples);
+        double out = Math.min(1.0, (count - index - 1) / (double) fadeSamples);
+        return Math.max(0.0, Math.min(in, out));
     }
 }

@@ -35,6 +35,7 @@ import application.gui.workbench.audio.SoundService;
 import application.gui.workbench.session.LogPanel;
 import application.gui.workbench.network.NnueDrawing;
 import application.gui.workbench.ui.Theme;
+import application.gui.workbench.ui.ToggleBox;
 
 import chess.core.Move;
 import chess.core.Position;
@@ -259,12 +260,21 @@ final class WorkbenchBackendRegression {
         int oldVolume = SoundService.volumePercent();
         boolean oldMuted = SoundService.isMuted();
         try {
-            assertEquals(Integer.valueOf(15), Integer.valueOf(SoundCue.values().length),
+            assertEquals(Integer.valueOf(21), Integer.valueOf(SoundCue.values().length),
                     "sound cue count");
             assertEquals(SoundCue.CAPTURE, SoundCue.valueOf("CAPTURE"),
                     "capture cue present");
             assertEquals(SoundCue.PUZZLE_COMPLETE, SoundCue.valueOf("PUZZLE_COMPLETE"),
                     "puzzle complete cue present");
+            assertEquals(SoundCue.MCTS_PROGRESS, SoundCue.valueOf("MCTS_PROGRESS"),
+                    "MCTS progress cue present");
+            int[] notifications = { 0 };
+            Runnable listener = () -> notifications[0]++;
+            SoundService.addSettingsListener(listener);
+            SoundService.setMuted(!oldMuted);
+            flushEdt();
+            assertTrue(notifications[0] > 0, "sound settings listener notified");
+            SoundService.removeSettingsListener(listener);
             SoundService.setVolumePercent(-50);
             assertEquals(Integer.valueOf(0), Integer.valueOf(SoundService.volumePercent()),
                     "sound volume clamps low");
@@ -437,6 +447,7 @@ final class WorkbenchBackendRegression {
         timer.stop();
         JSpinner visits = (JSpinner) field(panel, "mctsVisitsSpinner");
         JCheckBox followLeaf = (JCheckBox) field(panel, "mctsFollowLeafToggle");
+        JCheckBox soundToggle = (JCheckBox) field(panel, "mctsSoundToggle");
         assertFalse(((JComponent) field(panel, "mctsWeightsPanel")).isVisible(),
                 "network MCTS edge weights start collapsed");
         assertTrue(((JComponent) field(panel, "detailsTabs")).isVisible(),
@@ -444,6 +455,14 @@ final class WorkbenchBackendRegression {
         assertEquals(staticField(type("Defaults"), "MCTS_VISITS"), visits.getValue(),
                 "network MCTS uses shared visit default");
         assertFalse(followLeaf.isSelected(), "network leaf following starts off");
+        boolean oldMuted = SoundService.isMuted();
+        SoundService.setMuted(true);
+        flushEdt();
+        assertFalse(soundToggle.isSelected(), "network MCTS sound chip follows muted state");
+        SoundService.setMuted(false);
+        flushEdt();
+        assertTrue(soundToggle.isSelected(), "network MCTS sound chip follows enabled state");
+        SoundService.setMuted(oldMuted);
         JComboBox<?> archCombo = (JComboBox<?>) field(panel, "archCombo");
         assertEquals(Integer.valueOf(3), Integer.valueOf(archCombo.getItemCount()),
                 "network selector exposes one entry per network family");
@@ -1290,6 +1309,15 @@ final class WorkbenchBackendRegression {
         JSpinner playouts = (JSpinner) field(panel, "playoutSpinner");
         assertEquals(staticField(type("Defaults"), "MCTS_VISITS"), playouts.getValue(),
                 "MCTS panel uses shared visit default");
+        boolean oldMuted = SoundService.isMuted();
+        ToggleBox soundToggle = (ToggleBox) field(panel, "soundOutputToggle");
+        SoundService.setMuted(true);
+        flushEdt();
+        assertFalse(soundToggle.isSelected(), "MCTS panel sound chip follows muted state");
+        SoundService.setMuted(false);
+        flushEdt();
+        assertTrue(soundToggle.isSelected(), "MCTS panel sound chip follows enabled state");
+        SoundService.setMuted(oldMuted);
         invoke(panel, "setFen", new Class<?>[] { String.class }, START_FEN);
         JComponent component = (JComponent) panel;
         component.setSize(720, 560);

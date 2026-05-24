@@ -1,10 +1,13 @@
 package application.gui.workbench.mcts;
 
 import application.gui.workbench.Defaults;
+import application.gui.workbench.audio.SoundCue;
+import application.gui.workbench.audio.SoundService;
 import application.gui.workbench.board.BoardPanel;
 import application.gui.workbench.mcts.MctsSearch;
 import application.gui.workbench.ui.SurfacePanel;
 import application.gui.workbench.ui.Theme;
+import application.gui.workbench.ui.ToggleBox;
 import application.gui.workbench.ui.Ui;
 import chess.core.Move;
 import chess.core.Position;
@@ -43,6 +46,11 @@ public final class MctsPanel extends JPanel {
      * Publish every N playouts.
      */
     private static final int PUBLISH_INTERVAL = 24;
+
+    /**
+     * Minimum time between audible progress ticks.
+     */
+    private static final long SOUND_INTERVAL_NANOS = 1_350_000_000L;
 
     /**
      * Current-board FEN supplied by the workbench.
@@ -139,6 +147,11 @@ public final class MctsPanel extends JPanel {
     private final JButton stopButton = Ui.button("Stop", false, event -> stopSearch());
 
     /**
+     * Compact global sound toggle for MCTS controls.
+     */
+    private final ToggleBox soundOutputToggle = new ToggleBox("Sound", true);
+
+    /**
      * Active worker.
      */
     private SwingWorker<Void, MctsSearch.Snapshot> worker;
@@ -154,6 +167,16 @@ public final class MctsPanel extends JPanel {
     private volatile boolean paused;
 
     /**
+     * Last audible progress tick timestamp.
+     */
+    private long lastProgressSoundNanos;
+
+    /**
+     * Keeps the compact sound chip synchronized with global sound settings.
+     */
+    private final transient Runnable soundSettingsListener = this::syncSoundOutputToggle;
+
+    /**
      * Creates the panel.
      */
     public MctsPanel() {
@@ -161,6 +184,9 @@ public final class MctsPanel extends JPanel {
         setOpaque(false);
         add(Ui.collapsible("Controls", createControls(), true), BorderLayout.NORTH);
         add(createCenter(), BorderLayout.CENTER);
+        syncSoundOutputToggle();
+        soundOutputToggle.addActionListener(event -> SoundService.setMuted(!soundOutputToggle.isSelected()));
+        SoundService.addSettingsListener(soundSettingsListener);
         showFen(Game.STANDARD_START_FEN);
         updateButtons(false);
     }
@@ -185,7 +211,8 @@ public final class MctsPanel extends JPanel {
      * Stops background work.
      */
     public void dispose() {
-        stopSearch();
+        SoundService.removeSettingsListener(soundSettingsListener);
+        stopSearch(false);
     }
 
     /**
@@ -266,6 +293,8 @@ public final class MctsPanel extends JPanel {
         row.add(startButton);
         row.add(pauseButton);
         row.add(stopButton);
+        soundOutputToggle.setToolTipText("Enable restrained sound cues for moves, jobs, puzzles, and MCTS.");
+        row.add(soundOutputToggle);
         row.add(Ui.button("Use board", false, event -> {
             fenField.setText(liveFen);
             showFen(liveFen);
@@ -278,12 +307,13 @@ public final class MctsPanel extends JPanel {
      * Starts a new search.
      */
     private void startSearch() {
-        stopSearch();
+        stopSearch(false);
         Position root;
         try {
             root = new Position(fenField.getText().trim());
         } catch (IllegalArgumentException ex) {
             statusLabel.setText("invalid FEN: " + ex.getMessage());
+            SoundService.play(SoundCue.ILLEGAL);
             return;
         }
         showFen(root.toString());
@@ -292,8 +322,10 @@ public final class MctsPanel extends JPanel {
         double cpuct = ((Number) cpuctSpinner.getValue()).doubleValue();
         paused = false;
         search = new MctsSearch(root, cpuct);
-    final MctsSearch activeSearch = search;
+        final MctsSearch activeSearch = search;
+        lastProgressSoundNanos = 0L;
         updateButtons(true);
+        SoundService.play(SoundCue.MCTS_START);
         SwingWorker<Void, MctsSearch.Snapshot> activeWorker = new SwingWorker<>() {
             @Override
             protected Void doInBackground() throws Exception {
@@ -326,7 +358,24 @@ public final class MctsPanel extends JPanel {
                     return;
                 }
                 updateButtons(false);
-                showSnapshot(activeSearch.snapshot(paused));
+                boolean failed = false;
+                try {
+                    get();
+                } catch (java.util.concurrent.CancellationException ex) {
+                    // stopSearch already restored the controls and played the stop cue
+                } catch (InterruptedException ex) {
+                    Thread.currentThread().interrupt();
+                    failed = true;
+                } catch (java.util.concurrent.ExecutionException ex) {
+                    Throwable cause = ex.getCause() == null ? ex : ex.getCause();
+                    statusLabel.setText("failed: " + cause.getMessage());
+                    failed = true;
+                    SoundService.play(SoundCue.JOB_FAILURE);
+                }
+                if (!isCancelled() && !failed) {
+                    showSnapshot(activeSearch.snapshot(paused));
+                    SoundService.play(SoundCue.MCTS_COMPLETE);
+                }
                 activeSearch.close();
             }
         };
@@ -344,14 +393,25 @@ public final class MctsPanel extends JPanel {
         paused = !paused;
         pauseButton.setText(paused ? "Resume" : "Pause");
         statusLabel.setText(paused ? "paused" : "running");
+        SoundService.play(paused ? SoundCue.MCTS_PAUSE : SoundCue.MCTS_RESUME);
     }
 
     /**
      * Stops the active search.
      */
     private void stopSearch() {
+        stopSearch(true);
+    }
+
+    /**
+     * Stops the active search.
+     *
+     * @param audible true to play a user-facing stop cue
+     */
+    private void stopSearch(boolean audible) {
         MctsSearch activeSearch = search;
-        if (worker != null && !worker.isDone()) {
+        boolean cancelled = worker != null && !worker.isDone();
+        if (cancelled) {
             worker.cancel(true);
         }
         worker = null;
@@ -360,6 +420,9 @@ public final class MctsPanel extends JPanel {
         updateButtons(false);
         if (activeSearch != null) {
             activeSearch.close();
+        }
+        if (audible && cancelled) {
+            SoundService.play(SoundCue.MCTS_STOP);
         }
     }
 
@@ -445,5 +508,32 @@ public final class MctsPanel extends JPanel {
                 snapshot.elapsedMillis(),
                 snapshot.rootScoreLabel(),
                 best));
+        if (isRunning() && !snapshot.paused()) {
+            maybePlayProgressSound(snapshot);
+        }
+    }
+
+    /**
+     * Synchronizes the compact sound chip with global sound settings.
+     */
+    private void syncSoundOutputToggle() {
+        soundOutputToggle.setSelected(!SoundService.isMuted());
+    }
+
+    /**
+     * Plays an occasional soft MCTS progress tick.
+     *
+     * @param snapshot current search snapshot
+     */
+    private void maybePlayProgressSound(MctsSearch.Snapshot snapshot) {
+        if (snapshot.playouts() < PUBLISH_INTERVAL) {
+            return;
+        }
+        long now = System.nanoTime();
+        if (lastProgressSoundNanos == 0L
+                || now - lastProgressSoundNanos >= SOUND_INTERVAL_NANOS) {
+            lastProgressSoundNanos = now;
+            SoundService.play(SoundCue.MCTS_PROGRESS);
+        }
     }
 }
