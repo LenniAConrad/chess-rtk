@@ -113,7 +113,26 @@ public final class PathOps {
 		if (filename == null || filename.isBlank()) {
 			return DEFAULT_DUMP_DIR;
 		}
-		return DEFAULT_DUMP_DIR.resolve(filename);
+		return DEFAULT_DUMP_DIR.resolve(validateDumpFilename(filename));
+	}
+
+	/**
+	 * Validates that a dump output name is a single filename, not a path.
+	 *
+	 * @param filename candidate filename
+	 * @return normalized filename text
+	 */
+	private static String validateDumpFilename(String filename) {
+		String trimmed = filename.trim();
+		if (".".equals(trimmed) || "..".equals(trimmed)) {
+			throw new IllegalArgumentException("dump filename must not be a traversal segment: " + filename);
+		}
+		Path path = Paths.get(trimmed);
+		if (path.isAbsolute() || path.getParent() != null
+				|| trimmed.contains("/") || trimmed.contains("\\")) {
+			throw new IllegalArgumentException("dump filename must not contain path separators: " + filename);
+		}
+		return trimmed;
 	}
 
 	/**

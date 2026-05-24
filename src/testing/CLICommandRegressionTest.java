@@ -165,6 +165,29 @@ public final class CLICommandRegressionTest {
 		assertEquals(Path.of("dump", "workbench-game.pgn"),
 				PathOps.dumpPath("workbench-game.pgn"),
 				"dump path helper");
+		assertEquals(Path.of("dump", "trimmed.txt"),
+				PathOps.dumpPath(" trimmed.txt "),
+				"dump path trims filenames");
+		assertDumpPathRejected("../escape.txt");
+		assertDumpPathRejected("nested/escape.txt");
+		assertDumpPathRejected("nested\\escape.txt");
+		assertDumpPathRejected("/tmp/escape.txt");
+		assertDumpPathRejected(".");
+		assertDumpPathRejected("..");
+	}
+
+	/**
+	 * Verifies unsafe dump filenames are rejected before they can escape dump/.
+	 *
+	 * @param filename filename candidate
+	 */
+	private static void assertDumpPathRejected(String filename) {
+		try {
+			PathOps.dumpPath(filename);
+		} catch (IllegalArgumentException expected) {
+			return;
+		}
+		throw new AssertionError("dump path rejected " + filename + ": expected IllegalArgumentException");
 	}
 
 	/**
