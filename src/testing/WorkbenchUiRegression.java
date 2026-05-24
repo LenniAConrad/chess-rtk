@@ -486,11 +486,15 @@ final class WorkbenchUiRegression {
         JRadioButtonMenuItem dark = radioItem(appearance, "Dark");
         assertTrue(light.isSelected(), "light mode starts selected");
         assertTrue(!dark.isSelected(), "dark mode starts unselected");
+        assertThemedRadioIcon(light, "light mode");
+        assertThemedRadioIcon(dark, "dark mode");
 
         dark.doClick();
         assertEquals(Theme.Mode.DARK, activeMode[0], "dark menu item applies dark mode");
         menu.syncMode();
+        menu.refreshTheme();
         assertTrue(dark.isSelected(), "dark menu item reflects controller state");
+        assertThemedRadioIcon(dark, "dark mode after refresh");
 
         item(settings, "Board Settings").doClick();
         item(settings, "Engine Settings").doClick();
@@ -659,6 +663,22 @@ final class WorkbenchUiRegression {
             return radio;
         }
         throw new AssertionError("menu item is not a radio item " + text);
+    }
+
+    /**
+     * Verifies a settings radio item uses the custom theme-aware glyph.
+     *
+     * @param item radio menu item
+     * @param label assertion label
+     */
+    private static void assertThemedRadioIcon(JRadioButtonMenuItem item, String label) {
+        Icon icon = item.getIcon();
+        assertTrue(icon != null, label + " radio icon present");
+        assertTrue(icon.getClass().getName().contains("SettingsMenu"), label + " radio icon is themed");
+        assertEquals(icon, item.getSelectedIcon(), label + " selected icon is themed");
+        assertEquals(icon, item.getDisabledIcon(), label + " disabled icon is themed");
+        assertTrue(icon.getIconWidth() >= 14, label + " icon width");
+        assertTrue(icon.getIconHeight() >= 14, label + " icon height");
     }
 
     /**

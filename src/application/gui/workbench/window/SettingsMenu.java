@@ -7,12 +7,18 @@
 package application.gui.workbench.window;
 
 import application.gui.workbench.ui.Theme;
+import java.awt.BasicStroke;
 import java.awt.Component;
 import java.awt.Container;
 import java.awt.Font;
+import java.awt.Graphics;
+import java.awt.Graphics2D;
+import java.awt.RenderingHints;
 import java.util.Objects;
+import javax.swing.AbstractButton;
 import javax.swing.BorderFactory;
 import javax.swing.ButtonGroup;
+import javax.swing.Icon;
 import javax.swing.JComponent;
 import javax.swing.JMenu;
 import javax.swing.JMenuBar;
@@ -26,6 +32,11 @@ import javax.swing.KeyStroke;
  * Top-level settings menu for the native workbench window.
  */
 public final class SettingsMenu {
+
+    /**
+     * Theme-aware radio glyph used by appearance menu items.
+     */
+    private static final Icon RADIO_ICON = new MenuRadioIcon();
 
     /**
      * Window callbacks used by the menu without coupling it to one concrete
@@ -225,6 +236,25 @@ public final class SettingsMenu {
         item.setForeground(Theme.TEXT);
         item.setFont(Theme.font(12, Font.PLAIN));
         item.setBorder(BorderFactory.createEmptyBorder(5, 10, 5, 10));
+        if (item instanceof JRadioButtonMenuItem radio) {
+            styleRadioMenuItem(radio);
+        }
+    }
+
+    /**
+     * Styles one radio menu item with the workbench glyph rather than the
+     * platform look-and-feel radio.
+     *
+     * @param item radio menu item
+     */
+    private static void styleRadioMenuItem(JRadioButtonMenuItem item) {
+        item.setIcon(RADIO_ICON);
+        item.setSelectedIcon(RADIO_ICON);
+        item.setDisabledIcon(RADIO_ICON);
+        item.setDisabledSelectedIcon(RADIO_ICON);
+        item.setIconTextGap(8);
+        item.setBorderPainted(false);
+        item.setFocusPainted(false);
     }
 
     /**
@@ -242,6 +272,104 @@ public final class SettingsMenu {
                 component.setBackground(Theme.PANEL_SOLID);
             }
             styleMenuTree(child);
+        }
+    }
+
+    /**
+     * Theme-aware radio icon for settings menu rows.
+     */
+    private static final class MenuRadioIcon implements Icon {
+
+        /**
+         * Icon box size.
+         */
+        private static final int SIZE = 16;
+
+        /**
+         * Outer circle diameter.
+         */
+        private static final int OUTER = 11;
+
+        /**
+         * Inner selected dot diameter.
+         */
+        private static final int INNER = 5;
+
+        /**
+         * Stroke used for the outer ring.
+         */
+        private static final BasicStroke STROKE =
+                new BasicStroke(1.35f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND);
+
+        /**
+         * Returns icon width.
+         *
+         * @return width
+         */
+        @Override
+        public int getIconWidth() {
+            return SIZE;
+        }
+
+        /**
+         * Returns icon height.
+         *
+         * @return height
+         */
+        @Override
+        public int getIconHeight() {
+            return SIZE;
+        }
+
+        /**
+         * Paints the themed radio ring and selected dot.
+         *
+         * @param component owner component
+         * @param graphics graphics context
+         * @param x icon x
+         * @param y icon y
+         */
+        @Override
+        public void paintIcon(Component component, Graphics graphics, int x, int y) {
+            boolean selected = component instanceof AbstractButton button && button.isSelected();
+            boolean armed = component instanceof AbstractButton button
+                    && (button.getModel().isArmed() || button.getModel().isRollover());
+            boolean enabled = component == null || component.isEnabled();
+            Graphics2D g = (Graphics2D) graphics.create();
+            try {
+                g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                int ox = x + (SIZE - OUTER) / 2;
+                int oy = y + (SIZE - OUTER) / 2;
+                g.setStroke(STROKE);
+                g.setColor(ringColor(selected, armed, enabled));
+                g.drawOval(ox, oy, OUTER, OUTER);
+                if (selected) {
+                    int ix = x + (SIZE - INNER) / 2;
+                    int iy = y + (SIZE - INNER) / 2;
+                    g.setColor(enabled ? Theme.ACCENT : Theme.BUTTON_DISABLED_TEXT);
+                    g.fillOval(ix, iy, INNER, INNER);
+                }
+            } finally {
+                g.dispose();
+            }
+        }
+
+        /**
+         * Returns the ring color for a menu radio state.
+         *
+         * @param selected true when selected
+         * @param armed true when hovered or armed
+         * @param enabled true when enabled
+         * @return ring color
+         */
+        private static java.awt.Color ringColor(boolean selected, boolean armed, boolean enabled) {
+            if (!enabled) {
+                return Theme.BUTTON_DISABLED_TEXT;
+            }
+            if (selected) {
+                return Theme.ACCENT;
+            }
+            return armed ? Theme.TEXT : Theme.MUTED;
         }
     }
 }
