@@ -681,7 +681,7 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
      * @return datasets tab
      */
     protected JComponent createDatasetTab() {
-        return datasetPanel.component();
+        return datasetPanel().component();
     }
 
     /**
@@ -690,7 +690,7 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
      * @return publish tab
      */
     protected JComponent createPublishTab() {
-        return publishingPanel.component();
+        return publishingPanel().component();
     }
 
     /**

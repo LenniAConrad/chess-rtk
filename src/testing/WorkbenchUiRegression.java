@@ -17,6 +17,7 @@ import java.awt.event.ActionListener;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import javax.swing.BorderFactory;
 import javax.swing.JComboBox;
@@ -51,6 +52,7 @@ import javax.swing.UIManager;
 import javax.swing.filechooser.FileNameExtensionFilter;
 import javax.swing.table.TableCellRenderer;
 
+import application.gui.workbench.layout.LazyPanel;
 import application.gui.workbench.network.TensorViz;
 import application.gui.workbench.ui.FileDialogs;
 import application.gui.workbench.ui.Theme;
@@ -108,6 +110,7 @@ final class WorkbenchUiRegression {
         testToastUsesBottomRightPlacement();
         testToastFadeAppliesToTextAndChromeTogether();
         testCollapsibleInfoSectionTogglesContent();
+        testLazyPanelDefersConstruction();
         testCommandTabsReserveSelectedTextWidth();
         testTabbedPaneSwitchesWithoutSnapshotOverlay();
         testSplitAreaUsesIndependentEditorGroups();
@@ -985,6 +988,23 @@ final class WorkbenchUiRegression {
         assertFalse(content.isVisible(), "collapsible content hidden");
         toggle.doClick();
         assertTrue(content.isVisible(), "collapsible content restored");
+    }
+
+    /**
+     * Verifies lazy editor wrappers do not construct heavy panels until the
+     * wrapper is materialized.
+     */
+    private static void testLazyPanelDefersConstruction() {
+        AtomicInteger created = new AtomicInteger();
+        LazyPanel panel = new LazyPanel("Network", () -> {
+            created.incrementAndGet();
+            return new JPanel();
+        });
+        assertFalse(panel.isLoaded(), "lazy panel starts as placeholder");
+        assertEquals(0, created.get(), "lazy panel factory is deferred");
+        invoke(panel, "materialize", new Class<?>[0]);
+        assertTrue(panel.isLoaded(), "lazy panel materializes on demand");
+        assertEquals(1, created.get(), "lazy panel factory runs once");
     }
 
     /**

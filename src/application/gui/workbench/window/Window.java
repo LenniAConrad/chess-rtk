@@ -15,6 +15,7 @@ import java.awt.Component;
 import java.awt.Dimension;
 import javax.swing.JTextField;
 import javax.swing.KeyStroke;
+import javax.swing.SwingUtilities;
 
 import static application.gui.workbench.ui.Ui.label;
 
@@ -58,9 +59,23 @@ public final class Window extends WindowCommandLayer {
         }
         applyDisplaySettings(false);
         board.setWhiteDown(whiteDown);
-        startNewGame(initialFen);
-        generateReport();
         setVisible(true);
+        SwingUtilities.invokeLater(() -> finishStartup(initialFen));
+    }
+
+    /**
+     * Loads the initial position after the first frame has been shown.
+     *
+     * @param initialFen initial FEN to load
+     */
+    private void finishStartup(String initialFen) {
+        if (!isDisplayable()) {
+            return;
+        }
+        startNewGame(initialFen);
+        if (publishingPanel != null) {
+            generateReport();
+        }
     }
 
     /** Returns the first FEN line in free-form text.

@@ -259,21 +259,25 @@ public abstract class WindowCommandLayer extends WindowGameLayer {
      * Updates the publishing command preview.
      */
     protected void updatePublishCommand() {
-        publishingPanel.updateCommand();
+        if (publishingPanel != null) {
+            publishingPanel.updateCommand();
+        }
     }
 
     /**
      * Queues a publishing preview refresh after document edits settle.
      */
     protected void requestPublishCommandUpdate() {
-        publishingPanel.requestCommandUpdate();
+        if (publishingPanel != null) {
+            publishingPanel.requestCommandUpdate();
+        }
     }
 
     /**
      * Runs the selected publishing workflow.
      */
     protected void runPublishingCommand() {
-        publishingPanel.runCommand();
+        publishingPanel().runCommand();
     }
 
     /**

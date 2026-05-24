@@ -11,6 +11,7 @@ import application.gui.workbench.Defaults;
 import application.gui.workbench.command.CommandPalette.PaletteAction;
 import application.gui.workbench.command.CommandPalette;
 import application.gui.workbench.layout.EditorSplitArea;
+import application.gui.workbench.layout.LazyPanel;
 import application.gui.workbench.network.TensorViz;
 import application.gui.workbench.ui.BackdropPanel;
 import application.gui.workbench.ui.Theme;
@@ -441,7 +442,9 @@ public abstract class WindowLifecycle extends WindowBase {
         if (tagWorker != null && !tagWorker.isDone()) {
             tagWorker.cancel(true);
         }
-        networkPanel.dispose();
+        if (networkPanel != null) {
+            networkPanel.dispose();
+        }
         mctsPanel.dispose();
         super.dispose();
     }
@@ -607,10 +610,10 @@ public abstract class WindowLifecycle extends WindowBase {
         tabs.addPanel("Analyze", createBoardTab(), this::createDetachedAnalysisTab);
         tabs.addPanel("Commands", createCommandTab());
         tabs.addPanel("Batch", createBatchTab());
-        tabs.addPanel("Datasets", createDatasetTab());
-        tabs.addPanel("Publish", createPublishTab());
+        tabs.addPanel("Datasets", new LazyPanel("Datasets", this::createDatasetTab));
+        tabs.addPanel("Publish", new LazyPanel("Publish", this::createPublishTab));
         tabs.addPanel("Console", createConsolePanel());
-        tabs.addPanel("Network", networkPanel);
+        tabs.addPanel("Network", new LazyPanel("Network", this::networkPanel));
         tabs.install();
         tabs.setSelectionListener(index -> onWorkbenchTabVisibilityChanged());
         tabs.select(TAB_DASHBOARD);
@@ -1022,7 +1025,8 @@ public abstract class WindowLifecycle extends WindowBase {
     new PaletteAction("Open commands tab", "Show command controller", () -> selectTab(TAB_COMMANDS)),
     new PaletteAction("Open batch tab", "Show batch workflows", () -> selectTab(TAB_BATCH)),
     new PaletteAction("Open datasets tab", "Inspect and analyze training datasets", () -> selectTab(TAB_DATASETS)),
-    new PaletteAction("Analyze dataset", "Scan the selected dataset source", datasetPanel::analyzeCurrentSource),
+    new PaletteAction("Analyze dataset", "Scan the selected dataset source",
+                        () -> datasetPanel().analyzeCurrentSource()),
     new PaletteAction("Open publish tab", "Show report and publishing tools", () -> selectTab(TAB_PUBLISH)),
     new PaletteAction("Open console tab", "Show command output and process state",
                         () -> selectTab(TAB_CONSOLE)),
@@ -1222,7 +1226,10 @@ public abstract class WindowLifecycle extends WindowBase {
      * background UCI engine consuming a core.
      */
     protected void onWorkbenchTabVisibilityChanged() {
-        networkPanel.setActive(tabs != null && tabs.isVisibleInPane(TAB_NETWORK));
+        boolean networkVisible = tabs != null && tabs.isVisibleInPane(TAB_NETWORK);
+        if (networkPanel != null || networkVisible) {
+            networkPanel().setActive(networkVisible);
+        }
         if (liveExternalEngineEnabled && isAnalyzePaneVisible()) {
             requestLiveAnalysisUpdate();
         } else if (hasLiveEngineWorker()) {

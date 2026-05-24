@@ -144,7 +144,7 @@ public abstract class WindowBase extends JFrame {
     /**
      * Network-architecture visualizer (NNUE / lc0-CNN / lc0-BT4).
      */
-    protected final NetworkPanel networkPanel = new NetworkPanel();
+    protected NetworkPanel networkPanel;
 
     /**
      * Leela-style PUCT search visualizer.
@@ -171,7 +171,7 @@ public abstract class WindowBase extends JFrame {
     /**
      * Dataset inspection and visualization tab.
      */
-    protected final DatasetPanel datasetPanel = new DatasetPanel();
+    protected DatasetPanel datasetPanel;
 
     /**
      * Job record for the foreground command currently tracked, or null.
@@ -392,8 +392,49 @@ public abstract class WindowBase extends JFrame {
     /**
      * Publishing workflow panel.
      */
-    protected final PublishingPanel publishingPanel =
-    new PublishingPanel(new WindowPublishingHost(this));
+    protected PublishingPanel publishingPanel;
+
+    /**
+     * Returns the network visualizer, creating it only when the Network tab is
+     * first opened.
+     *
+     * @return network visualizer panel
+     */
+    protected NetworkPanel networkPanel() {
+        if (networkPanel == null) {
+            networkPanel = new NetworkPanel();
+            if (currentPosition != null) {
+                networkPanel.setFen(currentPosition.toString());
+            }
+        }
+        return networkPanel;
+    }
+
+    /**
+     * Returns the dataset panel, creating it only when a dataset workflow is
+     * requested.
+     *
+     * @return dataset panel
+     */
+    protected DatasetPanel datasetPanel() {
+        if (datasetPanel == null) {
+            datasetPanel = new DatasetPanel();
+        }
+        return datasetPanel;
+    }
+
+    /**
+     * Returns the publishing panel, creating it only when publishing tools are
+     * opened or run.
+     *
+     * @return publishing panel
+     */
+    protected PublishingPanel publishingPanel() {
+        if (publishingPanel == null) {
+            publishingPanel = new PublishingPanel(new WindowPublishingHost(this));
+        }
+        return publishingPanel;
+    }
 
     /**
      * Current position.
