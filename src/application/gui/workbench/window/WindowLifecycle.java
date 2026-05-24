@@ -10,9 +10,9 @@ import application.gui.workbench.layout.EditorSplitArea;
 import application.gui.workbench.layout.LazyPanel;
 import application.gui.workbench.network.TensorViz;
 import application.gui.workbench.ui.BackdropPanel;
+import application.gui.workbench.ui.SettingsChipRow;
 import application.gui.workbench.ui.Theme;
 import application.gui.workbench.ui.Toast;
-import application.gui.workbench.ui.ToggleBox;
 import application.gui.workbench.ui.Ui;
 import chess.core.Move;
 import chess.core.Position;
@@ -52,7 +52,6 @@ import static application.gui.workbench.ui.Ui.label;
 import static application.gui.workbench.ui.Ui.placeholder;
 import static application.gui.workbench.ui.Ui.transparentPanel;
 import static application.gui.workbench.ui.Ui.trimmed;
-import static application.gui.workbench.ui.Ui.withTooltip;
 
 /**
  * A new native Swing command and analysis workbench for ChessRTK.
@@ -1273,12 +1272,9 @@ public abstract class WindowLifecycle extends WindowBase {
      * @param onChange change callback
      * @return styled toggle
      */
-    protected ToggleBox settingsToggle(String text, String tooltip, boolean selected,
+    protected SettingsChipRow settingsToggle(String text, String tooltip, boolean selected,
             Consumer<Boolean> onChange) {
-        ToggleBox toggle = withTooltip(new ToggleBox(text), tooltip);
-        toggle.setSelected(selected);
-        toggle.addActionListener(event -> onChange.accept(toggle.isSelected()));
-        return toggle;
+        return new SettingsChipRow(text, tooltip, selected, onChange);
     }
 
     /**

@@ -8,6 +8,7 @@ import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.event.ActionListener;
+import java.awt.event.MouseEvent;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.util.List;
@@ -30,7 +31,6 @@ import javax.swing.JMenuBar;
 import javax.swing.JMenuItem;
 import javax.swing.JPanel;
 import javax.swing.JProgressBar;
-import javax.swing.JRadioButtonMenuItem;
 import javax.swing.JPopupMenu;
 import javax.swing.JScrollPane;
 import javax.swing.JSlider;
@@ -53,7 +53,9 @@ import application.gui.workbench.layout.FlatTabbedPaneUI;
 import application.gui.workbench.board.MarkupBrush;
 import application.gui.workbench.dataset.DatasetChart;
 import application.gui.workbench.network.TensorViz;
+import application.gui.workbench.ui.ChipGroup;
 import application.gui.workbench.ui.FileDialogs;
+import application.gui.workbench.ui.SettingsChipRow;
 import application.gui.workbench.ui.TagCloud;
 import application.gui.workbench.ui.Theme;
 import application.gui.workbench.ui.Ui;
@@ -531,14 +533,17 @@ final class WorkbenchUiRegression {
     }
 
     /**
-     * Verifies settings toggles reserve enough width for full labels.
+     * Verifies settings chip rows reserve enough width for full labels.
      */
     private static void testSettingsToggleRowsAreReadable() {
-        JComponent toggle = (JComponent) construct(type("ToggleBox"), new Class<?>[] { String.class },
-                "Legal move preview");
-        Dimension size = toggle.getPreferredSize();
+        SettingsChipRow row = new SettingsChipRow("Legal move preview",
+                "Show selected-piece destinations and legal drag targets", true, value -> {
+                    // no-op test callback
+                });
+        Dimension size = row.getPreferredSize();
         assertTrue(size.width >= 300, "settings toggle row is wide enough for labels");
         assertTrue(size.height <= 36, "settings toggle row remains compact");
+        assertTrue(row.isSelected(), "settings chip row starts selected");
     }
 
     /**
@@ -621,39 +626,34 @@ final class WorkbenchUiRegression {
         assertEquals(Integer.valueOf(1), Integer.valueOf(bar.getMenuCount()), "settings menu count");
         JMenu settings = bar.getMenu(0);
         assertEquals("Settings", settings.getText(), "settings menu label");
-        JMenu appearance = menu(settings, "Appearance");
-        JRadioButtonMenuItem light = radioItem(appearance, "Light");
-        JRadioButtonMenuItem dark = radioItem(appearance, "Dark");
-        assertTrue(light.isSelected(), "light mode starts selected");
-        assertTrue(!dark.isSelected(), "dark mode starts unselected");
-        assertThemedRadioIcon(light, "light mode");
-        assertThemedRadioIcon(dark, "dark mode");
-        assertWorkbenchMenuChrome(light, "light mode");
-        assertWorkbenchMenuChrome(dark, "dark mode");
-        JMenu sound = menu(settings, "Sound");
-        JCheckBoxMenuItem soundEffects = (JCheckBoxMenuItem) item(sound, "Sound Effects");
-        assertTrue(soundEffects.isSelected(), "sound starts enabled");
-        assertThemedCheckIcon(soundEffects, "sound effects");
-        assertWorkbenchMenuChrome(soundEffects, "sound effects");
+        JPopupMenu popup = settings.getPopupMenu();
+        JPanel settingsPanel = namedComponent(popup, JPanel.class, "settingsPanel");
+        assertTrue(settingsPanel.getPreferredSize().width >= 360, "settings popup is a larger grouped panel");
+        ChipGroup appearance = namedComponent(popup, ChipGroup.class, "settings.appearance");
+        ChipGroup sound = namedComponent(popup, ChipGroup.class, "settings.sound");
+        assertEquals(Integer.valueOf(0), Integer.valueOf(appearance.getSelectedIndex()),
+                "light mode starts selected");
+        assertEquals(Integer.valueOf(0), Integer.valueOf(sound.getSelectedIndex()),
+                "sound starts enabled");
 
-        dark.doClick();
+        clickChip(appearance, 1);
         assertEquals(Theme.Mode.DARK, activeMode[0], "dark menu item applies dark mode");
         Theme.setMode(Theme.Mode.DARK);
         menu.syncMode();
         menu.refreshTheme();
-        assertTrue(dark.isSelected(), "dark menu item reflects controller state");
-        assertThemedRadioIcon(dark, "dark mode after refresh");
-        assertWorkbenchMenuChrome(dark, "dark mode after refresh");
+        assertEquals(Integer.valueOf(1), Integer.valueOf(appearance.getSelectedIndex()),
+                "dark chip reflects controller state");
         Theme.setMode(Theme.Mode.LIGHT);
 
-        soundEffects.doClick();
+        clickChip(sound, 1);
         assertTrue(!soundEnabled[0], "sound menu toggles effects off");
         soundEnabled[0] = true;
         menu.syncMode();
-        assertTrue(soundEffects.isSelected(), "sound menu reflects controller state");
-        item(sound, "Sound Settings").doClick();
-        item(settings, "Board Settings").doClick();
-        item(settings, "Engine Settings").doClick();
+        assertEquals(Integer.valueOf(0), Integer.valueOf(sound.getSelectedIndex()),
+                "sound chip reflects controller state");
+        button(popup, "Sound").doClick();
+        button(popup, "Board").doClick();
+        button(popup, "Engine").doClick();
         assertTrue(soundSettingsOpened[0], "settings menu opens sound settings");
         assertTrue(displaySettingsOpened[0], "settings menu opens board settings");
         assertTrue(engineSettingsOpened[0], "settings menu opens engine settings");
@@ -760,40 +760,6 @@ final class WorkbenchUiRegression {
     }
 
     /**
-     * Finds a submenu by label.
-     *
-     * @param parent parent menu
-     * @param text submenu text
-     * @return matching submenu
-     */
-    private static JMenu menu(JMenu parent, String text) {
-        for (int index = 0; index < parent.getItemCount(); index++) {
-            JMenuItem child = parent.getItem(index);
-            if (child instanceof JMenu menu && text.equals(menu.getText())) {
-                return menu;
-            }
-        }
-        throw new AssertionError("missing submenu " + text);
-    }
-
-    /**
-     * Finds a menu item by label.
-     *
-     * @param parent parent menu
-     * @param text item text
-     * @return matching item
-     */
-    private static JMenuItem item(JMenu parent, String text) {
-        for (int index = 0; index < parent.getItemCount(); index++) {
-            JMenuItem child = parent.getItem(index);
-            if (child != null && text.equals(child.getText())) {
-                return child;
-            }
-        }
-        throw new AssertionError("missing menu item " + text);
-    }
-
-    /**
      * Finds a popup menu item by label.
      *
      * @param popup popup menu
@@ -810,34 +776,66 @@ final class WorkbenchUiRegression {
     }
 
     /**
-     * Finds a radio menu item by label.
+     * Finds a named component inside a component tree.
      *
-     * @param parent parent menu
-     * @param text item text
-     * @return matching radio item
+     * @param <T> component type
+     * @param root root component
+     * @param type component type
+     * @param name component name
+     * @return matching component
      */
-    private static JRadioButtonMenuItem radioItem(JMenu parent, String text) {
-        JMenuItem child = item(parent, text);
-        if (child instanceof JRadioButtonMenuItem radio) {
-            return radio;
+    private static <T extends Component> T namedComponent(Component root, Class<T> type, String name) {
+        if (type.isInstance(root) && name.equals(root.getName())) {
+            return type.cast(root);
         }
-        throw new AssertionError("menu item is not a radio item " + text);
+        if (root instanceof Container container) {
+            for (Component child : container.getComponents()) {
+                try {
+                    return namedComponent(child, type, name);
+                } catch (AssertionError ex) {
+                    // continue searching sibling branches
+                }
+            }
+        }
+        throw new AssertionError("missing component " + name);
     }
 
     /**
-     * Verifies a settings radio item uses the custom theme-aware glyph.
+     * Finds a button by text inside a component tree.
      *
-     * @param item radio menu item
-     * @param label assertion label
+     * @param root root component
+     * @param text button text
+     * @return matching button
      */
-    private static void assertThemedRadioIcon(JRadioButtonMenuItem item, String label) {
-        Icon icon = item.getIcon();
-        assertTrue(icon != null, label + " radio icon present");
-        assertTrue(icon.getClass().getName().contains("MenuGlyphs"), label + " radio icon is themed");
-        assertEquals(icon, item.getSelectedIcon(), label + " selected icon is themed");
-        assertEquals(icon, item.getDisabledIcon(), label + " disabled icon is themed");
-        assertTrue(icon.getIconWidth() >= 14, label + " icon width");
-        assertTrue(icon.getIconHeight() >= 14, label + " icon height");
+    private static JButton button(Component root, String text) {
+        if (root instanceof JButton button && text.equals(button.getText())) {
+            return button;
+        }
+        if (root instanceof Container container) {
+            for (Component child : container.getComponents()) {
+                try {
+                    return button(child, text);
+                } catch (AssertionError ex) {
+                    // continue searching sibling branches
+                }
+            }
+        }
+        throw new AssertionError("missing button " + text);
+    }
+
+    /**
+     * Simulates a mouse press on a two-choice chip group.
+     *
+     * @param chips chip group
+     * @param index chip index
+     */
+    private static void clickChip(ChipGroup chips, int index) {
+        Dimension size = chips.getPreferredSize();
+        chips.setSize(size);
+        int x = index == 0 ? 6 : size.width - 6;
+        MouseEvent event = new MouseEvent(chips, MouseEvent.MOUSE_PRESSED,
+                System.currentTimeMillis(), 0, x, size.height / 2, 1, false, MouseEvent.BUTTON1);
+        chips.dispatchEvent(event);
     }
 
     /**
