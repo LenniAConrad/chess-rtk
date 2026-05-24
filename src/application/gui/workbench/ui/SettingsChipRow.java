@@ -30,7 +30,7 @@ public final class SettingsChipRow extends JPanel {
     /**
      * Fixed row height.
      */
-    private static final int ROW_HEIGHT = 34;
+    private static final int ROW_HEIGHT = 48;
 
     /**
      * Chip selector for the boolean value.
@@ -49,17 +49,25 @@ public final class SettingsChipRow extends JPanel {
         super(new BorderLayout(14, 0));
         setOpaque(false);
         setBorder(BorderFactory.createEmptyBorder(2, 0, 2, 0));
+        JPanel copy = new JPanel(new BorderLayout(0, 2));
+        copy.setOpaque(false);
         JLabel label = new JLabel(text);
         Theme.foreground(label, Theme.ForegroundRole.TEXT);
         label.setFont(Theme.font(13, Font.BOLD));
         label.setToolTipText(tooltip);
+        JLabel detail = new JLabel(tooltip == null ? "" : tooltip);
+        Theme.foreground(detail, Theme.ForegroundRole.MUTED);
+        detail.setFont(Theme.font(12, Font.PLAIN));
+        detail.setToolTipText(tooltip);
         chips.setToolTipText(tooltip);
         chips.setSelectedIndex(selected ? 1 : 0);
         chips.setOnSelect(index -> {
             SoundService.play(SoundCue.UI_CLICK);
             onChange.accept(index == 1);
         });
-        add(label, BorderLayout.CENTER);
+        copy.add(label, BorderLayout.NORTH);
+        copy.add(detail, BorderLayout.CENTER);
+        add(copy, BorderLayout.CENTER);
         add(chips, BorderLayout.EAST);
     }
 

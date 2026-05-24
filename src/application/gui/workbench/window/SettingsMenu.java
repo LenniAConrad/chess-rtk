@@ -298,13 +298,14 @@ public final class SettingsMenu {
     private static JPanel chipRow(String title, String detail, ChipGroup chips) {
         JPanel row = new JPanel(new BorderLayout(14, 0));
         row.setOpaque(false);
+        row.setMinimumSize(new Dimension(340, 46));
         JPanel copy = new JPanel(new BorderLayout(0, 1));
         copy.setOpaque(false);
         JLabel titleLabel = new JLabel(title);
         titleLabel.setFont(Theme.font(13, Font.BOLD));
         Theme.foreground(titleLabel, Theme.ForegroundRole.TEXT);
         JLabel detailLabel = new JLabel(detail);
-        detailLabel.setFont(Theme.font(11, Font.PLAIN));
+        detailLabel.setFont(Theme.font(12, Font.PLAIN));
         Theme.foreground(detailLabel, Theme.ForegroundRole.MUTED);
         copy.add(titleLabel, BorderLayout.NORTH);
         copy.add(detailLabel, BorderLayout.CENTER);

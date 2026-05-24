@@ -18,6 +18,7 @@ import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 import javax.swing.BorderFactory;
+import javax.swing.AbstractButton;
 import javax.swing.JComboBox;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
@@ -108,6 +109,7 @@ final class WorkbenchUiRegression {
         testSettingsToggleRowsAreReadable();
         testSettingsSliderRefreshKeepsReadableColors();
         testSettingsMenuExposesThemeModes();
+        testSettingsTextStaysReadableInBothModes();
         testLayoutMenuExposesUsefulWorkbenchControls();
         testToggleSwitchAnimatesStateChanges();
         testStatusBadgeAnimatesStateChanges();
@@ -551,7 +553,8 @@ final class WorkbenchUiRegression {
                 });
         Dimension size = row.getPreferredSize();
         assertTrue(size.width >= 300, "settings toggle row is wide enough for labels");
-        assertTrue(size.height <= 36, "settings toggle row remains compact");
+        assertTrue(size.height >= 44, "settings toggle row reserves help text");
+        assertTrue(size.height <= 50, "settings toggle row remains compact");
         assertTrue(row.isSelected(), "settings chip row starts selected");
     }
 
@@ -666,6 +669,149 @@ final class WorkbenchUiRegression {
         assertTrue(soundSettingsOpened[0], "settings menu opens sound settings");
         assertTrue(displaySettingsOpened[0], "settings menu opens board settings");
         assertTrue(engineSettingsOpened[0], "settings menu opens engine settings");
+    }
+
+    /**
+     * Verifies settings text remains readable in both palettes.
+     */
+    private static void testSettingsTextStaysReadableInBothModes() {
+        Theme.Mode original = Theme.mode();
+        for (Theme.Mode mode : Theme.Mode.values()) {
+            Theme.setMode(mode);
+            Theme.install();
+            SettingsChipRow row = new SettingsChipRow("Legal move preview",
+                    "Show selected-piece destinations and legal drag targets", true, value -> {
+                        // no-op test callback
+                    });
+            Theme.refreshComponentTree(row);
+            assertReadableTextTree(row, themeColor("PANEL_SOLID"), mode.label() + " settings row");
+
+            SettingsMenu menu = new SettingsMenu(settingsMenuControllerForContrast());
+            menu.refreshTheme();
+            assertReadableTextTree(menu.component(), themeColor("BG"), mode.label() + " settings menu");
+            assertReadableTextTree(menu.component().getMenu(0).getPopupMenu(),
+                    themeColor("PANEL_SOLID"), mode.label() + " settings popup");
+        }
+        Theme.setMode(original);
+        Theme.install();
+    }
+
+    /**
+     * Creates a no-op settings-menu controller for UI contrast tests.
+     *
+     * @return controller
+     */
+    private static SettingsMenu.Controller settingsMenuControllerForContrast() {
+        return new SettingsMenu.Controller() {
+            @Override
+            public Theme.Mode themeMode() {
+                return Theme.mode();
+            }
+
+            @Override
+            public void setThemeMode(Theme.Mode mode) {
+                Theme.setMode(mode);
+            }
+
+            @Override
+            public boolean soundEnabled() {
+                return true;
+            }
+
+            @Override
+            public void setSoundEnabled(boolean enabled) {
+                // no-op test controller
+            }
+
+            @Override
+            public void showDisplaySettings() {
+                // no-op test controller
+            }
+
+            @Override
+            public void showEngineSettings() {
+                // no-op test controller
+            }
+
+            @Override
+            public void showSoundSettings() {
+                // no-op test controller
+            }
+
+            @Override
+            public void showCommandPalette() {
+                // no-op test controller
+            }
+
+            @Override
+            public void openLogsDirectory() {
+                // no-op test controller
+            }
+        };
+    }
+
+    /**
+     * Recursively verifies visible text components have readable contrast.
+     *
+     * @param component component tree root
+     * @param inheritedBackground background inherited from the parent
+     * @param label assertion label
+     */
+    private static void assertReadableTextTree(Component component, Color inheritedBackground, String label) {
+        Color background = readableBackground(component, inheritedBackground);
+        if (component instanceof JLabel textLabel && hasVisibleText(textLabel.getText())) {
+            assertReadableText(textLabel.getForeground(), background, label + " label " + textLabel.getText());
+        } else if (component instanceof AbstractButton button && hasVisibleText(button.getText())) {
+            assertReadableText(button.getForeground(), background, label + " button " + button.getText());
+        }
+        if (component instanceof Container container) {
+            for (Component child : container.getComponents()) {
+                assertReadableTextTree(child, background, label);
+            }
+        }
+    }
+
+    /**
+     * Returns the background a text component is visually painted on.
+     *
+     * @param component component to inspect
+     * @param inherited parent background
+     * @return effective readable background
+     */
+    private static Color readableBackground(Component component, Color inherited) {
+        Color background = component.getBackground();
+        if (component instanceof AbstractButton && background != null && background.getAlpha() > 0) {
+            return background;
+        }
+        if (component instanceof JComponent jComponent
+                && jComponent.isOpaque()
+                && background != null
+                && background.getAlpha() > 0) {
+            return background;
+        }
+        return inherited == null ? themeColor("PANEL_SOLID") : inherited;
+    }
+
+    /**
+     * Returns whether a Swing text value should be checked.
+     *
+     * @param text component text
+     * @return true when text is non-blank
+     */
+    private static boolean hasVisibleText(String text) {
+        return text != null && !text.isBlank();
+    }
+
+    /**
+     * Verifies one foreground/background pair is readable.
+     *
+     * @param foreground foreground color
+     * @param background background color
+     * @param label assertion label
+     */
+    private static void assertReadableText(Color foreground, Color background, String label) {
+        assertTrue(contrastRatio(foreground, background) >= 4.5d,
+                label + " has readable contrast");
     }
 
     /**
