@@ -173,10 +173,10 @@ public final class SvgIcon implements Icon {
             case "Back" -> Kind.PREVIOUS;
             case "Forward", "Skip" -> Kind.NEXT;
             case "End" -> Kind.LAST;
-            case "Reset", "Restart", "Drop Optional", "Clear", "Clear Flags", "Defaults" -> Kind.RESET;
+            case "Reset", "Restart", "Drop Optional", "Clear", "Clear Flags", "Defaults", "Refresh" -> Kind.RESET;
             case "Flip" -> Kind.FLIP;
             case "Copy", "Copy FEN", "Copy Command", "Copy Report", "Copy PGN", "Copy SAN", "Copy UCI",
-                    "Copy FEN List", "Copy FENs" ->
+                    "Copy FEN List", "Copy FENs", "Copy Path" ->
                     Kind.COPY;
             case "Stop" -> Kind.STOP;
             case "Info", "Info +", "Info -", "Hint" -> Kind.INFO;
@@ -187,7 +187,7 @@ public final class SvgIcon implements Icon {
             case "Add Current FEN", "Add FEN", "Add to Batch", "New Game", "Sample" -> Kind.PLUS;
             case "Publish", "Browse", "Load File", "Open PGN", "PGN Explorer", "Save PGN", "Save Report",
                     "Choose Input", "Choose Output", "Choose PDF", "Choose Cover", "Choose Manifest",
-                    "Choose Protocol" ->
+                    "Choose Protocol", "Open Folder", "Open Selected" ->
                     Kind.FILE;
             default -> null;
         };

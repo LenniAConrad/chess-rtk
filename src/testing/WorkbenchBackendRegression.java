@@ -35,6 +35,7 @@ import javax.swing.Timer;
 import javax.swing.text.AttributeSet;
 import javax.swing.text.StyleConstants;
 
+import application.gui.workbench.session.LogPanel;
 import application.gui.workbench.ui.Theme;
 
 import chess.core.Move;
@@ -62,6 +63,7 @@ final class WorkbenchBackendRegression {
         testJobLifecycleTransitions();
         testRunLogWritesFullOutput();
         testRunLogAvoidsClobberingExistingFile();
+        testLogPanelConstructsHeadlessly();
         testRunManifestWritesReplayMetadata();
         testRunManifestAvoidsClobberingExistingFile();
         testJobHistoryIsBounded();
@@ -194,6 +196,28 @@ final class WorkbenchBackendRegression {
             assertEquals(log, invoke(job, "logPath", new Class<?>[0]), "job log path");
         } catch (java.io.IOException ex) {
             throw new AssertionError("log test setup failed", ex);
+        }
+    }
+
+    /**
+     * Verifies the persisted-log browser constructs and paints without a
+     * display server.
+     */
+    private static void testLogPanelConstructsHeadlessly() {
+        Theme.Mode previous = Theme.mode();
+        LogPanel panel = new LogPanel(value -> {
+            // Clipboard writes are not part of this headless paint regression.
+        });
+        try {
+            Theme.setMode(Theme.Mode.LIGHT);
+            Theme.refreshComponentTree(panel);
+            assertPaintsOpaqueCorner(panel, 760, 460, "log panel light opaque background");
+            Theme.setMode(Theme.Mode.DARK);
+            Theme.refreshComponentTree(panel);
+            assertPaintsOpaqueCorner(panel, 760, 460, "log panel dark opaque background");
+        } finally {
+            Theme.setMode(previous);
+            Theme.refreshComponentTree(panel);
         }
     }
 

@@ -29,6 +29,7 @@ import application.gui.workbench.network.NetworkPanel;
 import application.gui.workbench.publish.PublishingPanel;
 import application.gui.workbench.publish.ReportPanel;
 import application.gui.workbench.session.Job;
+import application.gui.workbench.session.LogPanel;
 import application.gui.workbench.session.RunArtifacts;
 import application.gui.workbench.session.Session;
 import application.gui.workbench.ui.AnalysisGraph;
@@ -124,14 +125,19 @@ public abstract class WindowBase extends JFrame {
     protected static final int TAB_CONSOLE = 6;
 
     /**
+     * Persisted logs tab index.
+     */
+    protected static final int TAB_LOGS = 7;
+
+    /**
      * Network visualizer tab index.
      */
-    protected static final int TAB_NETWORK = 7;
+    protected static final int TAB_NETWORK = 8;
 
     /**
      * Puzzle trainer tab index.
      */
-    protected static final int TAB_PUZZLES = 8;
+    protected static final int TAB_PUZZLES = 9;
 
     /**
      * Board view.
@@ -241,6 +247,11 @@ public abstract class WindowBase extends JFrame {
      * Console output with carriage-return handling and line highlighting.
      */
     protected final Console console = new Console();
+
+    /**
+     * Persisted application and command log browser, created lazily.
+     */
+    protected LogPanel logPanel;
 
     /**
      * Command execution state label.
@@ -759,6 +770,13 @@ public abstract class WindowBase extends JFrame {
     /** Creates the Console tab.
      * @return computed value */
     protected abstract JComponent createConsolePanel();
+
+    /**
+     * Creates the Logs tab.
+     *
+     * @return computed value
+     */
+    protected abstract JComponent createLogTab();
 
     /** Navigates the loaded game by a relative ply delta.
      * @param delta relative ply delta */

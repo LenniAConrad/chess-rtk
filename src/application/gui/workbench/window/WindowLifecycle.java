@@ -617,6 +617,7 @@ public abstract class WindowLifecycle extends WindowBase {
         tabs.addPanel("Datasets", new LazyPanel("Datasets", this::createDatasetTab));
         tabs.addPanel("Publish", new LazyPanel("Publish", this::createPublishTab));
         tabs.addPanel("Console", createConsolePanel());
+        tabs.addPanel("Logs", new LazyPanel("Logs", this::createLogTab));
         tabs.addPanel("Network", new LazyPanel("Network", this::networkPanel));
         tabs.addPanel("Puzzles", new LazyPanel("Puzzles", this::createPuzzleTab));
         tabs.install();
@@ -1048,6 +1049,8 @@ public abstract class WindowLifecycle extends WindowBase {
     new PaletteAction("Open publish tab", "Show report and publishing tools", () -> selectTab(TAB_PUBLISH)),
     new PaletteAction("Open console tab", "Show command output and process state",
                         () -> selectTab(TAB_CONSOLE)),
+    new PaletteAction("Open logs tab", "Show persisted application and command logs",
+                        () -> selectTab(TAB_LOGS)),
     new PaletteAction("Open puzzles tab", "Train PGN tactics with variation branches",
                         () -> selectTab(TAB_PUZZLES)),
     new PaletteAction("Split tab right", "Move the active workbench tab into a right editor group",
@@ -1247,8 +1250,12 @@ public abstract class WindowLifecycle extends WindowBase {
      */
     protected void onWorkbenchTabVisibilityChanged() {
         boolean networkVisible = tabs != null && tabs.isVisibleInPane(TAB_NETWORK);
+        boolean logsVisible = tabs != null && tabs.isVisibleInPane(TAB_LOGS);
         if (networkPanel != null || networkVisible) {
             networkPanel().setActive(networkVisible);
+        }
+        if (logPanel != null && logsVisible) {
+            logPanel.refreshLogs();
         }
         if (liveExternalEngineEnabled && isAnalyzePaneVisible()) {
             requestLiveAnalysisUpdate();

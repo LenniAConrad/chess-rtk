@@ -11,6 +11,7 @@ import application.gui.workbench.board.BoardEditorPanel;
 import application.gui.workbench.game.EcoExplorerPanel;
 import application.gui.workbench.game.SanRenderer;
 import application.gui.workbench.layout.SplitPaneStyler;
+import application.gui.workbench.session.LogPanel;
 import application.gui.workbench.ui.FileDialogs;
 import application.gui.workbench.ui.SurfacePanel;
 import application.gui.workbench.ui.Theme;
@@ -814,6 +815,27 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
         panel.add(top, BorderLayout.NORTH);
         panel.add(scroll(console), BorderLayout.CENTER);
         return panel;
+    }
+
+    /**
+     * Creates the persisted-log tab.
+     *
+     * @return log tab component
+     */
+    protected JComponent createLogTab() {
+        return logPanel();
+    }
+
+    /**
+     * Returns the lazily-created persisted-log browser.
+     *
+     * @return log panel
+     */
+    protected LogPanel logPanel() {
+        if (logPanel == null) {
+            logPanel = new LogPanel(this::copyText);
+        }
+        return logPanel;
     }
 
 }
