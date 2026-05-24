@@ -199,6 +199,7 @@ final class DataTableStyler {
      */
     private static JCheckBox booleanEditor() {
         JCheckBox editor = new JCheckBox();
+        Ui.styleCheckBox(editor);
         editor.setHorizontalAlignment(SwingConstants.CENTER);
         editor.setOpaque(true);
         editor.setBackground(Theme.ELEVATED_SOLID);

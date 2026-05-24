@@ -7,6 +7,7 @@
 package application.gui.workbench.window;
 
 import application.gui.workbench.ui.Theme;
+import application.gui.workbench.ui.MenuGlyphs;
 import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Component;
@@ -363,6 +364,9 @@ public final class LayoutMenu {
         item.setForeground(item.isEnabled() ? Theme.TEXT : Theme.MUTED);
         item.setFont(Theme.font(12, Font.PLAIN));
         item.setBorder(BorderFactory.createEmptyBorder(5, 12, 5, 12));
+        if (item instanceof JCheckBoxMenuItem checkbox) {
+            MenuGlyphs.styleCheckItem(checkbox);
+        }
     }
 
     /**

@@ -328,6 +328,11 @@ final class WorkbenchUiRegression {
         assertTrue(((JComponent) cell).isOpaque(), "boolean renderer opaque");
         assertEquals(table.getSelectionBackground(), cell.getBackground(), "boolean renderer selected background");
         assertTrue(table.getDefaultEditor(Boolean.class) != null, "boolean table editor installed");
+        Component editor = table.getDefaultEditor(Boolean.class)
+                .getTableCellEditorComponent(table, Boolean.TRUE, true, 0, 0);
+        assertTrue(editor instanceof JCheckBox, "boolean table editor checkbox");
+        assertTrue(((JCheckBox) editor).getIcon() != null, "boolean table editor uses workbench glyph");
+        assertFalse(((JCheckBox) editor).isFocusPainted(), "boolean table editor hides platform focus paint");
     }
 
     /**
@@ -586,6 +591,7 @@ final class WorkbenchUiRegression {
                 "layout popup exposes status-bar visibility");
         JCheckBoxMenuItem statusItem = (JCheckBoxMenuItem) popupItem(popup, "Status Bar");
         assertTrue(statusItem.isSelected(), "status-bar row reflects controller state");
+        assertThemedCheckIcon(statusItem, "status-bar row");
         statusItem.doClick();
         assertFalse(statusVisible[0], "status-bar row toggles controller state");
 
@@ -674,7 +680,23 @@ final class WorkbenchUiRegression {
     private static void assertThemedRadioIcon(JRadioButtonMenuItem item, String label) {
         Icon icon = item.getIcon();
         assertTrue(icon != null, label + " radio icon present");
-        assertTrue(icon.getClass().getName().contains("SettingsMenu"), label + " radio icon is themed");
+        assertTrue(icon.getClass().getName().contains("MenuGlyphs"), label + " radio icon is themed");
+        assertEquals(icon, item.getSelectedIcon(), label + " selected icon is themed");
+        assertEquals(icon, item.getDisabledIcon(), label + " disabled icon is themed");
+        assertTrue(icon.getIconWidth() >= 14, label + " icon width");
+        assertTrue(icon.getIconHeight() >= 14, label + " icon height");
+    }
+
+    /**
+     * Verifies a layout checkbox menu item uses the custom theme-aware glyph.
+     *
+     * @param item checkbox menu item
+     * @param label assertion label
+     */
+    private static void assertThemedCheckIcon(JCheckBoxMenuItem item, String label) {
+        Icon icon = item.getIcon();
+        assertTrue(icon != null, label + " check icon present");
+        assertTrue(icon.getClass().getName().contains("MenuGlyphs"), label + " check icon is themed");
         assertEquals(icon, item.getSelectedIcon(), label + " selected icon is themed");
         assertEquals(icon, item.getDisabledIcon(), label + " disabled icon is themed");
         assertTrue(icon.getIconWidth() >= 14, label + " icon width");
