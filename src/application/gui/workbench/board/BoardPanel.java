@@ -1259,7 +1259,8 @@ public final class BoardPanel extends JPanel {
         }
         boolean wasDragging = draggingPiece;
         Rectangle board = boardBounds();
-        Rectangle oldDirty = dragRepaintBounds(board, dragTargetSquare, dragHoverSquare, dragX, dragY, wasDragging);
+        Rectangle oldDirty = dragRepaintBounds(board, dragTargetSquare, dragHoverSquare,
+                dragX, dragY, wasDragging, false);
         dragX = event.getX();
         dragY = event.getY();
         if (!draggingPiece && isDragPastThreshold(dragStartX, dragStartY, dragX, dragY)) {
@@ -1274,8 +1275,10 @@ public final class BoardPanel extends JPanel {
             dragHoverSquare = Field.NO_SQUARE;
         }
         if (wasDragging || draggingPiece) {
+            boolean dragStarted = !wasDragging && draggingPiece;
             repaintDirty(union(oldDirty,
-                    dragRepaintBounds(board, dragTargetSquare, dragHoverSquare, dragX, dragY, draggingPiece)));
+                    dragRepaintBounds(board, dragTargetSquare, dragHoverSquare,
+                            dragX, dragY, draggingPiece, dragStarted)));
         }
     }
     /** Handles pointer release after a possible drag.
@@ -1590,6 +1593,8 @@ public final class BoardPanel extends JPanel {
      * @param pointerX pointer x coordinate
      * @param pointerY pointer y coordinate
      * @param includeDraggedPiece true to include the dragged piece bounds
+     * @param includeOriginSquare true to include the source square whose static
+     *     piece has just been hidden
      * @return computed value */
     private Rectangle dragRepaintBounds(
             Rectangle board,
@@ -1597,9 +1602,10 @@ public final class BoardPanel extends JPanel {
             byte hoverSquare,
             int pointerX,
             int pointerY,
-            boolean includeDraggedPiece) {
+            boolean includeDraggedPiece,
+            boolean includeOriginSquare) {
         Rectangle dirty = null;
-        if (isSquareIndex(dragSquare)) {
+        if (includeOriginSquare && isSquareIndex(dragSquare)) {
             dirty = union(dirty, expanded(squareBounds(board, dragSquare), DRAG_REPAINT_PADDING));
         }
         if (isSquareIndex(targetSquare)) {

@@ -63,6 +63,7 @@ final class WorkbenchBoardRegression {
         testBoardDragEmitsLegalMove();
         testBoardDragInvalidHoverDoesNotPaintRedBox();
         testBoardDragDirtyBoundsIncludesInvalidHoverSquare();
+        testBoardDragDirtyBoundsDoNotSpanOriginAfterStart();
         testBoardMoveAnimationStarts();
         testBoardCaptureAnimationStarts();
         testBoardCastlingAnimationStarts();
@@ -336,11 +337,65 @@ final class WorkbenchBoardRegression {
 
         Rectangle boardBounds = (Rectangle) invoke(board, "boardBounds", new Class<?>[0]);
         Rectangle dirty = (Rectangle) invoke(board, "dragRepaintBounds",
-                new Class<?>[] { Rectangle.class, byte.class, byte.class, int.class, int.class, boolean.class },
-                boardBounds, Field.NO_SQUARE, invalidHover, 12, 12, Boolean.FALSE);
+                new Class<?>[] {
+                        Rectangle.class,
+                        byte.class,
+                        byte.class,
+                        int.class,
+                        int.class,
+                        boolean.class,
+                        boolean.class },
+                boardBounds, Field.NO_SQUARE, invalidHover, 12, 12, Boolean.FALSE, Boolean.FALSE);
 
         assertTrue(dirty != null && dirty.contains(boardPoint(invalidHover, true, 640, 640)),
                 "drag dirty bounds include invalid hover square");
+    }
+
+    /**
+     * Verifies active drag frames repaint only moving/hover regions instead of
+     * spanning from the source square to the pointer on every mouse event.
+     */
+    private static void testBoardDragDirtyBoundsDoNotSpanOriginAfterStart() {
+        Object board = construct(type("BoardPanel"), new Class<?>[0]);
+        Component component = (Component) board;
+        component.setSize(640, 640);
+        invoke(board, "setPosition", new Class<?>[] { Position.class, short.class },
+                new Position(START_FEN), Move.NO_MOVE);
+        byte origin = Field.toIndex('a', '2');
+        byte target = Field.toIndex('h', '7');
+        setField(board, "dragSquare", Byte.valueOf(origin));
+        setField(board, "draggedPiece", Byte.valueOf(Piece.WHITE_PAWN));
+        Rectangle boardBounds = (Rectangle) invoke(board, "boardBounds", new Class<?>[0]);
+        Point pointer = boardPoint(target, true, 640, 640);
+
+        Rectangle firstFrame = (Rectangle) invoke(board, "dragRepaintBounds",
+                new Class<?>[] {
+                        Rectangle.class,
+                        byte.class,
+                        byte.class,
+                        int.class,
+                        int.class,
+                        boolean.class,
+                        boolean.class },
+                boardBounds, Field.NO_SQUARE, target, pointer.x, pointer.y, Boolean.TRUE, Boolean.TRUE);
+        Rectangle activeFrame = (Rectangle) invoke(board, "dragRepaintBounds",
+                new Class<?>[] {
+                        Rectangle.class,
+                        byte.class,
+                        byte.class,
+                        int.class,
+                        int.class,
+                        boolean.class,
+                        boolean.class },
+                boardBounds, Field.NO_SQUARE, target, pointer.x, pointer.y, Boolean.TRUE, Boolean.FALSE);
+
+        assertTrue(firstFrame != null && firstFrame.contains(boardPoint(origin, true, 640, 640)),
+                "first drag frame repaints the hidden origin square");
+        assertTrue(activeFrame != null, "active drag frame exists");
+        assertFalse(activeFrame.contains(boardPoint(origin, true, 640, 640)),
+                "active drag frame does not keep spanning back to origin");
+        assertTrue(activeFrame.width < firstFrame.width || activeFrame.height < firstFrame.height,
+                "active drag frame is smaller after origin is already hidden");
     }
 
     /**
