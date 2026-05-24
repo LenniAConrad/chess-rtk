@@ -432,7 +432,11 @@ public final class NetworkPanel extends JPanel {
         JPanel center = new JPanel(new BorderLayout(0, Theme.SPACE_SM));
         center.setOpaque(false);
         center.add(content, BorderLayout.CENTER);
-        center.add(Ui.collapsible("Edge weights", mctsWeightsPanel, false), BorderLayout.SOUTH);
+        JPanel lowerDiagnostics = Ui.transparentPanel(new BorderLayout(0, Theme.SPACE_SM));
+        lowerDiagnostics.add(Ui.collapsible("MCTS", buildMctsToolbar(), false), BorderLayout.NORTH);
+        lowerDiagnostics.add(Ui.collapsible("Edge weights", mctsWeightsPanel, false),
+                BorderLayout.CENTER);
+        center.add(lowerDiagnostics, BorderLayout.SOUTH);
         add(center, BorderLayout.CENTER);
         archCombo.addActionListener(event -> onArchitectureChanged());
         positionCombo.addActionListener(event -> onPositionPicked());
@@ -662,7 +666,6 @@ public final class NetworkPanel extends JPanel {
         bar.add(actions, BorderLayout.EAST);
         JPanel outer = Ui.transparentPanel(new BorderLayout(0, Theme.SPACE_XS));
         outer.add(bar, BorderLayout.NORTH);
-        outer.add(Ui.collapsible("MCTS", buildMctsToolbar(), false), BorderLayout.SOUTH);
         return outer;
     }
 
