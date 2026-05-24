@@ -569,28 +569,50 @@ public final class TensorViz {
         if (s <= 0.0f) {
             s = Math.max(1.0f, Math.abs(value));
         }
+        FontMetrics labelMetrics = null;
+        int labelWidth = 0;
+        boolean reserveLabelLane = false;
+        int reservedWidth = 0;
+        if (label != null) {
+            g.setFont(Theme.font(11, Font.PLAIN));
+            labelMetrics = g.getFontMetrics();
+            labelWidth = labelMetrics.stringWidth(label);
+            reservedWidth = labelWidth + 16;
+            reserveLabelLane = r.width >= labelWidth + 72;
+        }
+        Rectangle bar = reserveLabelLane
+                ? new Rectangle(r.x, r.y, Math.max(1, r.width - reservedWidth), r.height)
+                : r;
         g.setColor(Theme.PANEL_SOLID);
         g.fillRect(r.x, r.y, r.width, r.height);
         g.setColor(Theme.LINE);
         g.drawRect(r.x, r.y, r.width - 1, r.height - 1);
-        int midX = r.x + r.width / 2;
+        int midX = bar.x + bar.width / 2;
         g.setColor(Theme.MUTED);
-        g.drawLine(midX, r.y, midX, r.y + r.height);
+        g.drawLine(midX, bar.y, midX, bar.y + bar.height);
         float v = clamp(value / s, -1.0f, 1.0f);
-        int barW = (int) Math.round(Math.abs(v) * (r.width / 2.0));
+        int barW = (int) Math.round(Math.abs(v) * (bar.width / 2.0));
         if (v >= 0.0f) {
             g.setColor(POSITIVE);
-            g.fillRect(midX + 1, r.y + 2, barW, r.height - 4);
+            g.fillRect(midX + 1, bar.y + 2, barW, bar.height - 4);
         } else {
             g.setColor(NEGATIVE);
-            g.fillRect(midX - barW, r.y + 2, barW, r.height - 4);
+            g.fillRect(midX - barW, bar.y + 2, barW, bar.height - 4);
+        }
+        if (reserveLabelLane) {
+            g.setColor(Theme.LINE);
+            g.drawLine(bar.x + bar.width, r.y, bar.x + bar.width, r.y + r.height);
         }
         if (label != null) {
             g.setColor(Theme.TEXT);
             g.setFont(Theme.font(11, Font.PLAIN));
-            FontMetrics fm = g.getFontMetrics();
-            int lw = fm.stringWidth(label);
-            g.drawString(label, r.x + r.width - lw - 6, r.y + r.height - 4);
+            if (!reserveLabelLane) {
+                g.setColor(Theme.PANEL_SOLID);
+                g.fillRect(Math.max(r.x + 1, r.x + r.width - labelWidth - 10), r.y + 1,
+                        Math.min(r.width - 2, labelWidth + 9), r.height - 2);
+                g.setColor(Theme.TEXT);
+            }
+            g.drawString(label, r.x + r.width - labelWidth - 6, r.y + r.height - 4);
         }
     }
 

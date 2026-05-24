@@ -109,6 +109,7 @@ final class WorkbenchUiRegression {
         testThemeUsesVscodeModernColorTokens();
         testNetworkPaletteUsesSemanticFocusColor();
         testNetworkArchitectureBlocksKeepReadableNeutralFill();
+        testHorizontalMetricBarKeepsLabelLaneClear();
         testThemeRefreshPreservesLabelRoles();
         testThemeRefreshUpdatesLineBorders();
         testThemeRefreshRestoresCustomControlUis();
@@ -1004,6 +1005,31 @@ final class WorkbenchUiRegression {
                 "dark NN architecture title remains readable");
         assertTrue(contrastRatio(themeColor("MUTED"), fill) >= 4.5,
                 "dark NN architecture subtitle remains readable");
+
+        Theme.setMode(Theme.Mode.LIGHT);
+        TensorViz.refreshPalette();
+    }
+
+    /**
+     * Verifies signed metric bars reserve a label lane instead of painting the
+     * positive/negative fill underneath the value text.
+     */
+    private static void testHorizontalMetricBarKeepsLabelLaneClear() {
+        Theme.setMode(Theme.Mode.DARK);
+        TensorViz.refreshPalette();
+        String label = "+72 cp";
+        BufferedImage image = new BufferedImage(240, 36, BufferedImage.TYPE_INT_ARGB);
+        java.awt.Graphics2D graphics = image.createGraphics();
+        java.awt.Rectangle rect = new java.awt.Rectangle(5, 7, 220, 20);
+        graphics.setFont(Theme.font(11, Font.PLAIN));
+        int reservedWidth = graphics.getFontMetrics().stringWidth(label) + 16;
+        TensorViz.drawHorizontalBar(graphics, rect, 72.0f, 80.0f, label);
+        graphics.dispose();
+
+        int laneX = rect.x + rect.width - reservedWidth + 4;
+        Color laneSample = new Color(image.getRGB(laneX, rect.y + rect.height / 2), true);
+        assertColor(themeColor("PANEL_SOLID"), laneSample,
+                "horizontal NN metric bar keeps value lane neutral");
 
         Theme.setMode(Theme.Mode.LIGHT);
         TensorViz.refreshPalette();
