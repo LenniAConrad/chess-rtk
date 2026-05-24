@@ -11,8 +11,10 @@ import java.awt.event.ActionListener;
 import java.awt.event.MouseEvent;
 import java.awt.image.BufferedImage;
 import java.io.File;
+import java.lang.reflect.Proxy;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Consumer;
 
 import javax.swing.BorderFactory;
 import javax.swing.JComboBox;
@@ -62,6 +64,7 @@ import application.gui.workbench.ui.Ui;
 import application.gui.workbench.window.LayoutMenu;
 import application.gui.workbench.window.SettingsMenu;
 
+import chess.core.Move;
 import chess.struct.Game;
 import chess.uci.Output;
 
@@ -143,6 +146,7 @@ final class WorkbenchUiRegression {
         testSplitAreaDocksDraggedTabsBackIntoGroup();
         testSplitAreaExposesFlexibleTabActions();
         testSplitAreaDuplicatesFactoryBackedTabs();
+        testDetachedAnalysisWorkspaceKeepsLocalHistory();
         testEditorShellUsesVscodeStyleSplitChrome();
         testEditorShellShowsRookWatermarkWhenEmpty();
         testEditorShellRefreshesHiddenPanelTheme();
@@ -1862,6 +1866,46 @@ final class WorkbenchUiRegression {
         List<Integer> quaternaryTabs = (List<Integer>) field(splitArea, "quaternaryTabs");
         assertTrue(secondaryTabs.contains(1), "existing right group keeps its active duplicate");
         assertTrue(quaternaryTabs.contains(2), "down split from right group targets bottom-right");
+    }
+
+    /**
+     * Verifies duplicate Analyze workspaces keep their own move history and
+     * keyboard/navigation controls instead of being one-way throwaway boards.
+     */
+    @SuppressWarnings("unchecked")
+    private static void testDetachedAnalysisWorkspaceKeepsLocalHistory() {
+        Class<?> builderType = type("AnalysisWorkspacePanel$CommandBuilder");
+        Object builder = Proxy.newProxyInstance(builderType.getClassLoader(),
+                new Class<?>[] { builderType }, (proxy, method, args) -> List.of("engine", "analyze"));
+        Consumer<List<String>> runner = args -> {
+            // no-op command runner
+        };
+        Consumer<String> copier = text -> {
+            // no-op clipboard bridge
+        };
+        Object workspace = construct(type("AnalysisWorkspacePanel"),
+                new Class<?>[] { String.class, boolean.class, builderType, Consumer.class, Consumer.class },
+                START_FEN, Boolean.TRUE, builder, runner, copier);
+
+        invoke(workspace, "playMove", new Class<?>[] { short.class }, Move.parse("e2e4"));
+        String afterE4 = (String) invoke(workspace, "currentFen", new Class<?>[0]);
+        assertFalse(START_FEN.equals(afterE4), "detached analysis move changes local board");
+
+        assertTrue((Boolean) invoke(workspace, "navigatePosition", new Class<?>[] { int.class }, -1),
+                "detached analysis can navigate backward");
+        assertEquals(START_FEN, invoke(workspace, "currentFen", new Class<?>[0]),
+                "detached analysis back returns to local start");
+        assertTrue((Boolean) invoke(workspace, "navigatePosition", new Class<?>[] { int.class }, 1),
+                "detached analysis can navigate forward");
+        assertEquals(afterE4, invoke(workspace, "currentFen", new Class<?>[0]),
+                "detached analysis forward restores local move");
+
+        invoke(workspace, "jumpPositionToStart", new Class<?>[0]);
+        assertEquals(START_FEN, invoke(workspace, "currentFen", new Class<?>[0]),
+                "detached analysis start shortcut uses local history");
+        invoke(workspace, "jumpPositionToEnd", new Class<?>[0]);
+        assertEquals(afterE4, invoke(workspace, "currentFen", new Class<?>[0]),
+                "detached analysis end shortcut uses local history");
     }
 
     /**

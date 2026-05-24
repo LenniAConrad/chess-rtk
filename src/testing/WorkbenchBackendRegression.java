@@ -32,6 +32,7 @@ import javax.swing.text.StyleConstants;
 
 import application.gui.workbench.audio.SoundCue;
 import application.gui.workbench.audio.SoundService;
+import application.gui.workbench.game.Positions;
 import application.gui.workbench.mcts.MctsSearch;
 import application.gui.workbench.session.LogPanel;
 import application.gui.workbench.network.NnueDrawing;
@@ -77,6 +78,7 @@ final class WorkbenchBackendRegression {
         testNetworkMctsUpdatesAreNonBlocking();
         testNetworkMctsQueuesLeafInferenceAfterFrame();
         testNetworkMctsUsesSelectedArchitectureBackend();
+        testNetworkPositionPickerClearsLeafOverride();
         testNetworkDiagnosticsPreviewHighlightsConfig();
         testNetworkDiagnosticsPreviewRecolorsForDarkTheme();
         testNnueStackSummaryStaysCompact();
@@ -745,6 +747,31 @@ final class WorkbenchBackendRegression {
                 "BT4 selection routes MCTS through the BT4 backend");
         assertFalse(source.contains("mctsSearch = new MctsSearch(root, cpuct)"),
                 "Network-tab MCTS no longer hardwires the default backend");
+    }
+
+    /**
+     * Verifies a manual Network position selection takes over from any streamed
+     * MCTS leaf position.
+     */
+    private static void testNetworkPositionPickerClearsLeafOverride() {
+        Object panel = construct(type("NetworkPanel"), new Class<?>[0]);
+        Timer timer = (Timer) field(panel, "debounceTimer");
+        timer.stop();
+        setField(panel, "active", Boolean.TRUE);
+        setField(panel, "mainBoardFen", START_FEN);
+        setField(panel, "mctsLeafFen", MATE_IN_ONE_FEN);
+        JComboBox<?> positionCombo = (JComboBox<?>) field(panel, "positionCombo");
+        positionCombo.setSelectedItem("Rook endgame");
+        invoke(panel, "onPositionPicked", new Class<?>[0]);
+
+        String expected = Positions.fenFor("Rook endgame");
+        assertEquals(expected, field(panel, "overrideFen"), "canned position is pinned");
+        assertEquals(null, field(panel, "mctsLeafFen"), "manual position clears MCTS leaf override");
+        assertEquals(expected, invoke(panel, "effectiveFen", new Class<?>[0]),
+                "effective network FEN follows the selected position");
+        assertEquals(expected, field(panel, "pendingFen"), "selected position queues inference");
+        timer.stop();
+        invoke(panel, "dispose", new Class<?>[0]);
     }
 
     /**

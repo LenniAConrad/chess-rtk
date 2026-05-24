@@ -707,7 +707,26 @@ public final class NetworkPanel extends JPanel {
         String label = (String) positionCombo.getSelectedItem();
         String fen = Positions.fenFor(label);
         overrideFen = fen;
+        clearMctsLeafOverrideForManualPosition();
         requestActiveInference();
+    }
+
+    /**
+     * Clears the transient MCTS leaf position when the user explicitly chooses a
+     * network position. Without this, a finished or running leaf-follow session
+     * keeps overriding the combo-box selection.
+     */
+    private void clearMctsLeafOverrideForManualPosition() {
+        boolean hadSearch = mctsSearch != null || mctsWorker != null || mctsLeafFen != null;
+        if (!hadSearch) {
+            return;
+        }
+        stopNetworkMcts(false);
+        cancelPendingInference();
+        mctsLeafFen = null;
+        mctsWeightsPanel.clear();
+        mctsStatusBadge.idle("MCTS stopped");
+        revalidate();
     }
 
     /**
@@ -727,7 +746,7 @@ public final class NetworkPanel extends JPanel {
 
         styleToolbarCombo(archCombo, 166,
                 "Pick the network family to visualise.");
-        styleToolbarCombo(positionCombo, 188,
+        styleToolbarCombo(positionCombo, 244,
                 "Pin a canned position to explore, or follow the main board.");
         exportPngButton.setToolTipText("Capture the current network view to a PNG file.");
 
