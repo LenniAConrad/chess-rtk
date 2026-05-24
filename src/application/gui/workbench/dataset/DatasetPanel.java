@@ -16,9 +16,14 @@ import application.gui.workbench.ui.FileDialogs;
 import application.gui.workbench.ui.SurfacePanel;
 import application.gui.workbench.ui.Theme;
 import java.awt.BorderLayout;
+import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
+import java.awt.Font;
+import java.awt.Graphics;
+import java.awt.Graphics2D;
 import java.awt.GridLayout;
+import java.awt.RenderingHints;
 import java.awt.Toolkit;
 import java.awt.datatransfer.StringSelection;
 import java.io.File;
@@ -77,14 +82,14 @@ public final class DatasetPanel extends JPanel {
      * Labels used by the material histogram.
      */
     private static final String[] MATERIAL_LABELS = {
-        "0-999", "1k", "2k", "3k", "4k", "5k", "6k", "7k+"
+        "0-999 cp", "1k cp", "2k cp", "3k cp", "4k cp", "5k cp", "6k cp", "7k+ cp"
     };
 
     /**
      * Labels used by the evaluation histogram.
      */
     private static final String[] EVAL_LABELS = {
-        "-900", "-600", "-300", "0", "+300", "+600", "+900"
+        "< -900", "-600", "-300", "equal", "+300", "+600", "> +900"
     };
 
     /**
@@ -123,34 +128,59 @@ public final class DatasetPanel extends JPanel {
     private final JProgressBar progress = new JProgressBar();
 
     /**
-     * File-count metric label.
+     * Source-size metric tile.
      */
-    private final JLabel filesValue = metricValue();
+    private final MetricTile filesMetric = new MetricTile("source", DatasetChart.Role.NEUTRAL);
 
     /**
-     * Row-count metric label.
+     * Row-count metric tile.
      */
-    private final JLabel rowsValue = metricValue();
+    private final MetricTile rowsMetric = new MetricTile("rows", DatasetChart.Role.ACCENT);
 
     /**
-     * Valid-position metric label.
+     * Validity metric tile.
      */
-    private final JLabel validValue = metricValue();
+    private final MetricTile validMetric = new MetricTile("validity", DatasetChart.Role.SUCCESS);
 
     /**
-     * Duplicate-position metric label.
+     * Duplicate-position metric tile.
      */
-    private final JLabel duplicateValue = metricValue();
+    private final MetricTile duplicateMetric = new MetricTile("uniqueness", DatasetChart.Role.WARNING);
 
     /**
-     * Average-material metric label.
+     * Tag-coverage metric tile.
      */
-    private final JLabel materialValue = metricValue();
+    private final MetricTile tagsMetric = new MetricTile("tags", DatasetChart.Role.PURPLE);
 
     /**
-     * Tagged-row metric label.
+     * Evaluation-coverage metric tile.
      */
-    private final JLabel tagsValue = metricValue();
+    private final MetricTile evalMetric = new MetricTile("scores", DatasetChart.Role.ACCENT);
+
+    /**
+     * Average-material metric tile.
+     */
+    private final MetricTile materialMetric = new MetricTile("material", DatasetChart.Role.NEUTRAL);
+
+    /**
+     * Quality insight label.
+     */
+    private final JLabel qualityInsight = insightLabel();
+
+    /**
+     * Coverage insight label.
+     */
+    private final JLabel coverageInsight = insightLabel();
+
+    /**
+     * Side-balance insight label.
+     */
+    private final JLabel balanceInsight = insightLabel();
+
+    /**
+     * Material insight label.
+     */
+    private final JLabel materialInsight = insightLabel();
 
     /**
      * Quality chart.
@@ -432,14 +462,17 @@ public final class DatasetPanel extends JPanel {
      */
     private JComponent createOverview() {
         JPanel overview = transparentPanel(new BorderLayout(0, Theme.SPACE_MD));
-        overview.add(createMetrics(), BorderLayout.NORTH);
+        JPanel top = transparentPanel(new BorderLayout(0, Theme.SPACE_SM));
+        top.add(createMetrics(), BorderLayout.NORTH);
+        top.add(createInsights(), BorderLayout.CENTER);
+        overview.add(top, BorderLayout.NORTH);
         JPanel charts = transparentPanel(new GridLayout(2, 3, Theme.SPACE_MD, Theme.SPACE_MD));
-        charts.add(titled("Quality", qualityChart));
-        charts.add(titled("Side To Move", sideChart));
-        charts.add(titled("Material", materialChart));
-        charts.add(titled("Evaluation", evalChart));
-        charts.add(titled("Tags", tagChart));
-        charts.add(titled("Engines", engineChart));
+        charts.add(titled("Dataset Health", qualityChart));
+        charts.add(titled("Side Balance", sideChart));
+        charts.add(titled("Material Bands", materialChart));
+        charts.add(titled("Score Bands", evalChart));
+        charts.add(titled("Top Tags", tagChart));
+        charts.add(titled("Engine Sources", engineChart));
         overview.add(charts, BorderLayout.CENTER);
         return overview;
     }
@@ -450,26 +483,41 @@ public final class DatasetPanel extends JPanel {
      * @return metrics component
      */
     private JComponent createMetrics() {
-        JPanel metrics = transparentPanel(new GridLayout(1, 6, Theme.SPACE_SM, 0));
-        metrics.add(metric("files", filesValue));
-        metrics.add(metric("rows", rowsValue));
-        metrics.add(metric("valid", validValue));
-        metrics.add(metric("duplicates", duplicateValue));
-        metrics.add(metric("avg material", materialValue));
-        metrics.add(metric("tagged", tagsValue));
+        JPanel metrics = transparentPanel(new GridLayout(1, 7, Theme.SPACE_SM, 0));
+        metrics.add(filesMetric);
+        metrics.add(rowsMetric);
+        metrics.add(validMetric);
+        metrics.add(duplicateMetric);
+        metrics.add(tagsMetric);
+        metrics.add(evalMetric);
+        metrics.add(materialMetric);
         return metrics;
     }
 
     /**
-     * Creates one metric cell.
+     * Creates the analytical insight strip.
      *
-     * @param title metric title
-     * @param value value label
-     * @return metric component
+     * @return insight strip
      */
-    private JComponent metric(String title, JLabel value) {
+    private JComponent createInsights() {
+        JPanel insights = transparentPanel(new GridLayout(1, 4, Theme.SPACE_SM, 0));
+        insights.add(insight("Quality", qualityInsight));
+        insights.add(insight("Coverage", coverageInsight));
+        insights.add(insight("Balance", balanceInsight));
+        insights.add(insight("Material", materialInsight));
+        return insights;
+    }
+
+    /**
+     * Creates one insight cell.
+     *
+     * @param title insight title
+     * @param value insight text
+     * @return insight component
+     */
+    private static JComponent insight(String title, JLabel value) {
         JPanel panel = transparentPanel(new BorderLayout(0, 2));
-        panel.setBorder(Theme.pad(4, 6, 4, 6));
+        panel.setBorder(Theme.pad(5, 7, 5, 7));
         panel.add(caption(title), BorderLayout.NORTH);
         panel.add(value, BorderLayout.CENTER);
         return panel;
@@ -537,18 +585,6 @@ public final class DatasetPanel extends JPanel {
     }
 
     /**
-     * Creates a metric value label.
-     *
-     * @return label
-     */
-    private static JLabel metricValue() {
-        JLabel value = new JLabel("-");
-        Theme.foreground(value, Theme.ForegroundRole.TEXT);
-        value.setFont(Theme.font(18, java.awt.Font.BOLD));
-        return value;
-    }
-
-    /**
      * Opens a dataset file chooser.
      */
     private void chooseDatasetPath() {
@@ -610,12 +646,48 @@ public final class DatasetPanel extends JPanel {
      * Updates the metric strip.
      */
     private void updateMetrics() {
-        filesValue.setText(format(summary.scannedFiles()));
-        rowsValue.setText(format(summary.rows()));
-        validValue.setText(format(summary.validPositions()));
-        duplicateValue.setText(format(summary.duplicatePositions()));
-        materialValue.setText(summary.validPositions() == 0L ? "-" : Math.round(summary.averageMaterial()) + " cp");
-        tagsValue.setText(format(summary.withTags()));
+        filesMetric.setMetric(format(summary.scannedFiles()), sourceName());
+        rowsMetric.setMetric(format(summary.rows()),
+                summary.truncated() ? "row limit reached" : "rows scanned");
+        validMetric.setMetric(summary.rows() == 0L ? "-" : percent(summary.validRatio()),
+                format(summary.validPositions()) + " valid / " + format(summary.rows()));
+        duplicateMetric.setMetric(summary.validPositions() == 0L ? "-" : percent(1.0d - summary.duplicateRatio()),
+                format(summary.duplicatePositions()) + " duplicate FENs");
+        tagsMetric.setMetric(summary.validPositions() == 0L ? "-" : percent(ratio(summary.withTags(), summary.validPositions())),
+                format(summary.withTags()) + " tagged rows");
+        evalMetric.setMetric(summary.validPositions() == 0L ? "-" : percent(ratio(summary.withEval(), summary.validPositions())),
+                format(summary.withEval()) + " scored rows");
+        materialMetric.setMetric(summary.validPositions() == 0L ? "-" : Math.round(summary.averageMaterial()) + " cp",
+                materialRangeText());
+        updateInsights();
+    }
+
+    /**
+     * Updates analytical insight text.
+     */
+    private void updateInsights() {
+        if (summary.rows() == 0L) {
+            setInsight(qualityInsight, "Load a dataset to profile row quality.", Theme.ForegroundRole.MUTED);
+            setInsight(coverageInsight, "Tags and scores will be measured per valid row.", Theme.ForegroundRole.MUTED);
+            setInsight(balanceInsight, "Side-to-move balance will appear after scanning.", Theme.ForegroundRole.MUTED);
+            setInsight(materialInsight, "Material range will show opening/endgame spread.", Theme.ForegroundRole.MUTED);
+            return;
+        }
+        boolean clean = summary.invalidRows() == 0L && summary.duplicatePositions() == 0L;
+        setInsight(qualityInsight, clean
+                        ? "Clean scan: no invalid rows or duplicate FENs."
+                        : format(summary.invalidRows()) + " invalid, "
+                                + format(summary.duplicatePositions()) + " duplicate.",
+                clean ? Theme.ForegroundRole.SUCCESS : Theme.ForegroundRole.WARNING);
+        setInsight(coverageInsight,
+                "Tags " + percent(ratio(summary.withTags(), summary.validPositions()))
+                        + " · scores " + percent(ratio(summary.withEval(), summary.validPositions())) + ".",
+                coverageRole());
+        setInsight(balanceInsight, sideBalanceText(), sideBalanceRole());
+        setInsight(materialInsight,
+                summary.validPositions() == 0L ? "No valid positions to profile."
+                        : "Avg " + Math.round(summary.averageMaterial()) + " cp · " + materialRangeText() + ".",
+                Theme.ForegroundRole.INFO);
     }
 
     /**
@@ -623,16 +695,17 @@ public final class DatasetPanel extends JPanel {
      */
     private void updateCharts() {
         qualityChart.setBars(List.of(
-                new DatasetChart.Bar("valid", summary.validPositions(), DatasetChart.Role.SUCCESS),
-                new DatasetChart.Bar("invalid", summary.invalidRows(), DatasetChart.Role.ERROR),
-                new DatasetChart.Bar("duplicate", summary.duplicatePositions(), DatasetChart.Role.WARNING)));
+                new DatasetChart.Bar("unique valid", Math.max(0L,
+                        summary.validPositions() - summary.duplicatePositions()), DatasetChart.Role.SUCCESS),
+                new DatasetChart.Bar("duplicate valid", summary.duplicatePositions(), DatasetChart.Role.WARNING),
+                new DatasetChart.Bar("invalid row", summary.invalidRows(), DatasetChart.Role.ERROR)));
         sideChart.setBars(List.of(
-                new DatasetChart.Bar("white", summary.whiteToMove(), DatasetChart.Role.ACCENT),
-                new DatasetChart.Bar("black", summary.blackToMove(), DatasetChart.Role.PURPLE)));
+                new DatasetChart.Bar("white to move", summary.whiteToMove(), DatasetChart.Role.ACCENT),
+                new DatasetChart.Bar("black to move", summary.blackToMove(), DatasetChart.Role.PURPLE)));
         materialChart.setBuckets(MATERIAL_LABELS, summary.materialBuckets(), DatasetChart.Role.ACCENT);
         evalChart.setBuckets(EVAL_LABELS, summary.evalBuckets(), DatasetChart.Role.PURPLE);
         tagChart.setBars(namedBars(summary.topTags(), DatasetChart.Role.PURPLE));
-        engineChart.setBars(namedBars(summary.topEngines(), DatasetChart.Role.NEUTRAL));
+        engineChart.setBars(namedBars(summary.topEngines(), DatasetChart.Role.ACCENT));
     }
 
     /**
@@ -709,6 +782,138 @@ public final class DatasetPanel extends JPanel {
     }
 
     /**
+     * Creates an insight label.
+     *
+     * @return styled insight label
+     */
+    private static JLabel insightLabel() {
+        JLabel label = new JLabel("-");
+        Theme.foreground(label, Theme.ForegroundRole.MUTED);
+        label.setFont(Theme.font(12, Font.PLAIN));
+        return label;
+    }
+
+    /**
+     * Applies insight text and semantic color.
+     *
+     * @param label target label
+     * @param text insight text
+     * @param role foreground role
+     */
+    private static void setInsight(JLabel label, String text, Theme.ForegroundRole role) {
+        label.setText(text == null ? "" : text);
+        Theme.foreground(label, role);
+    }
+
+    /**
+     * Returns a ratio with zero-denominator protection.
+     *
+     * @param value numerator
+     * @param total denominator
+     * @return ratio in {@code [0, 1]} when possible
+     */
+    private static double ratio(long value, long total) {
+        return total <= 0L ? 0.0d : Math.max(0.0d, Math.min(1.0d, (double) value / (double) total));
+    }
+
+    /**
+     * Formats a ratio as a compact percentage.
+     *
+     * @param ratio ratio value
+     * @return percentage text
+     */
+    private static String percent(double ratio) {
+        return String.format(Locale.ROOT, "%.0f%%", Math.max(0.0d, Math.min(1.0d, ratio)) * 100.0d);
+    }
+
+    /**
+     * Compacts a text label to a maximum character count.
+     *
+     * @param text source text
+     * @param maxChars maximum displayed characters
+     * @return compact text
+     */
+    private static String compactText(String text, int maxChars) {
+        String value = text == null ? "" : text;
+        if (value.length() <= maxChars) {
+            return value;
+        }
+        return value.substring(0, Math.max(0, maxChars - 3)) + "...";
+    }
+
+    /**
+     * Returns material range text.
+     *
+     * @return material range
+     */
+    private String materialRangeText() {
+        if (summary.validPositions() == 0L) {
+            return "no valid rows";
+        }
+        return format(summary.minMaterial()) + "-" + format(summary.maxMaterial()) + " cp";
+    }
+
+    /**
+     * Returns a compact source filename for metric display.
+     *
+     * @return compact source label
+     */
+    private String sourceName() {
+        if (summary.source() == null) {
+            return "no source selected";
+        }
+        Path fileName = summary.source().getFileName();
+        String text = fileName == null ? summary.source().toString() : fileName.toString();
+        return compactText(text, 26);
+    }
+
+    /**
+     * Returns side-balance insight text.
+     *
+     * @return side-balance text
+     */
+    private String sideBalanceText() {
+        long total = summary.whiteToMove() + summary.blackToMove();
+        if (total <= 0L) {
+            return "No side-to-move data in valid rows.";
+        }
+        return "White " + percent(ratio(summary.whiteToMove(), total))
+                + " · black " + percent(ratio(summary.blackToMove(), total)) + ".";
+    }
+
+    /**
+     * Returns the semantic role for side-balance insight.
+     *
+     * @return foreground role
+     */
+    private Theme.ForegroundRole sideBalanceRole() {
+        long total = summary.whiteToMove() + summary.blackToMove();
+        if (total <= 0L) {
+            return Theme.ForegroundRole.MUTED;
+        }
+        double whiteRatio = ratio(summary.whiteToMove(), total);
+        return Math.abs(whiteRatio - 0.5d) <= 0.15d
+                ? Theme.ForegroundRole.SUCCESS : Theme.ForegroundRole.WARNING;
+    }
+
+    /**
+     * Returns the semantic role for metadata coverage.
+     *
+     * @return foreground role
+     */
+    private Theme.ForegroundRole coverageRole() {
+        if (summary.validPositions() == 0L) {
+            return Theme.ForegroundRole.MUTED;
+        }
+        double coverage = (ratio(summary.withTags(), summary.validPositions())
+                + ratio(summary.withEval(), summary.validPositions())) / 2.0d;
+        if (coverage >= 0.75d) {
+            return Theme.ForegroundRole.SUCCESS;
+        }
+        return coverage >= 0.35d ? Theme.ForegroundRole.WARNING : Theme.ForegroundRole.MUTED;
+    }
+
+    /**
      * Formats a count.
      *
      * @param value count
@@ -731,5 +936,112 @@ public final class DatasetPanel extends JPanel {
         }
         String message = cause.getMessage();
         return message == null || message.isBlank() ? cause.getClass().getSimpleName() : message;
+    }
+
+    /**
+     * Compact metric card for high-level dataset indicators.
+     */
+    private static final class MetricTile extends JPanel {
+
+        /**
+         * Serialization identifier for Swing component compatibility.
+         */
+        private static final long serialVersionUID = 1L;
+
+        /**
+         * Accent role painted on the tile edge.
+         */
+        private final DatasetChart.Role role;
+
+        /**
+         * Metric title.
+         */
+        private final JLabel titleLabel = new JLabel();
+
+        /**
+         * Primary metric value.
+         */
+        private final JLabel valueLabel = new JLabel("-");
+
+        /**
+         * Secondary metric context.
+         */
+        private final JLabel detailLabel = new JLabel("-");
+
+        /**
+         * Creates a metric tile.
+         *
+         * @param title metric title
+         * @param role accent role
+         */
+        MetricTile(String title, DatasetChart.Role role) {
+            super(new BorderLayout(0, 2));
+            this.role = role == null ? DatasetChart.Role.NEUTRAL : role;
+            setOpaque(false);
+            setBorder(Theme.pad(7, 9, 7, 9));
+            titleLabel.setText(title == null ? "" : title);
+            Theme.foreground(titleLabel, Theme.ForegroundRole.MUTED);
+            titleLabel.setFont(Theme.font(11, Font.BOLD));
+            Theme.foreground(valueLabel, Theme.ForegroundRole.TEXT);
+            valueLabel.setFont(Theme.font(18, Font.BOLD));
+            Theme.foreground(detailLabel, Theme.ForegroundRole.MUTED);
+            detailLabel.setFont(Theme.font(11, Font.PLAIN));
+            add(titleLabel, BorderLayout.NORTH);
+            add(valueLabel, BorderLayout.CENTER);
+            add(detailLabel, BorderLayout.SOUTH);
+        }
+
+        /**
+         * Applies a metric value and detail line.
+         *
+         * @param value primary value
+         * @param detail secondary detail
+         */
+        void setMetric(String value, String detail) {
+            valueLabel.setText(value == null || value.isBlank() ? "-" : value);
+            detailLabel.setText(detail == null || detail.isBlank() ? "-" : detail);
+            setToolTipText(titleLabel.getText() + ": " + valueLabel.getText()
+                    + " - " + detailLabel.getText());
+            repaint();
+        }
+
+        /**
+         * Paints the tile surface.
+         *
+         * @param graphics graphics context
+         */
+        @Override
+        protected void paintComponent(Graphics graphics) {
+            Graphics2D g = (Graphics2D) graphics.create();
+            try {
+                g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g.setColor(Theme.ELEVATED_SOLID);
+                g.fillRoundRect(0, 0, getWidth() - 1, getHeight() - 1, Theme.RADIUS, Theme.RADIUS);
+                g.setColor(Theme.LINE);
+                g.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, Theme.RADIUS, Theme.RADIUS);
+                g.setColor(roleColor(role));
+                g.fillRoundRect(0, 0, 3, getHeight() - 1, Theme.RADIUS, Theme.RADIUS);
+            } finally {
+                g.dispose();
+            }
+            super.paintComponent(graphics);
+        }
+    }
+
+    /**
+     * Returns a themed chart/metric role color.
+     *
+     * @param role color role
+     * @return themed color
+     */
+    private static Color roleColor(DatasetChart.Role role) {
+        return switch (role == null ? DatasetChart.Role.NEUTRAL : role) {
+            case SUCCESS -> Theme.STATUS_SUCCESS_BORDER;
+            case WARNING -> Theme.STATUS_WARNING_BORDER;
+            case ERROR -> Theme.STATUS_ERROR_BORDER;
+            case PURPLE -> Theme.NN_POLICY;
+            case NEUTRAL -> Theme.MUTED;
+            case ACCENT -> Theme.ACCENT;
+        };
     }
 }

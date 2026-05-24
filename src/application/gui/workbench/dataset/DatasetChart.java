@@ -26,12 +26,12 @@ public final class DatasetChart extends JComponent {
     /**
      * Preferred chart height.
      */
-    private static final int PREFERRED_HEIGHT = 150;
+    private static final int PREFERRED_HEIGHT = 168;
 
     /**
-     * Minimum label column width.
+     * Preferred label column width.
      */
-    private static final int LABEL_WIDTH = 88;
+    private static final int LABEL_WIDTH = 122;
 
     /**
      * Right-side value column width.
@@ -41,12 +41,12 @@ public final class DatasetChart extends JComponent {
     /**
      * Vertical gap between bars.
      */
-    private static final int BAR_GAP = 6;
+    private static final int BAR_GAP = 8;
 
     /**
      * Minimum bar row height.
      */
-    private static final int BAR_HEIGHT = 14;
+    private static final int BAR_HEIGHT = 12;
 
     /**
      * Animation frame cadence for newly loaded chart bars.
@@ -229,7 +229,7 @@ public final class DatasetChart extends JComponent {
         try {
             g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
             paintShell(g);
-            List<Bar> visible = bars.stream().filter(bar -> bar.value() > 0L).toList();
+            List<Bar> visible = visibleBars();
             if (visible.isEmpty()) {
                 paintEmpty(g);
             } else {
@@ -277,16 +277,39 @@ public final class DatasetChart extends JComponent {
         long max = visible.stream().mapToLong(Bar::value).max().orElse(1L);
         int x = Theme.SPACE_MD;
         int y = Theme.SPACE_SM;
-        int rowHeight = Math.max(BAR_HEIGHT + BAR_GAP,
-                (getHeight() - 2 * Theme.SPACE_SM) / Math.max(1, visible.size()));
-        int barX = x + LABEL_WIDTH;
+        int availableHeight = Math.max(1, getHeight() - 2 * Theme.SPACE_SM);
+        int rowHeight = Math.max(BAR_HEIGHT + BAR_GAP, availableHeight / Math.max(1, visible.size()));
+        int labelWidth = labelWidth();
+        int barX = x + labelWidth;
         int barW = Math.max(1, getWidth() - barX - VALUE_WIDTH - Theme.SPACE_MD);
         g.setFont(Theme.font(11, java.awt.Font.PLAIN));
         FontMetrics metrics = g.getFontMetrics();
         for (Bar bar : visible) {
-            paintBarRow(g, bar, max, x, y, rowHeight, barX, barW, metrics);
+            paintBarRow(g, bar, max, x, y, rowHeight, labelWidth, barX, barW, metrics);
             y += rowHeight;
         }
+    }
+
+    /**
+     * Returns non-zero bars that can fit in the current chart height.
+     *
+     * @return visible bars
+     */
+    private List<Bar> visibleBars() {
+        List<Bar> visible = bars.stream().filter(bar -> bar.value() > 0L).toList();
+        int rowCapacity = Math.max(1,
+                (getHeight() - 2 * Theme.SPACE_SM) / Math.max(1, BAR_HEIGHT + BAR_GAP));
+        return visible.size() <= rowCapacity ? visible : visible.subList(0, rowCapacity);
+    }
+
+    /**
+     * Returns the label-column width for the current component width.
+     *
+     * @return label width
+     */
+    private int labelWidth() {
+        int dynamic = Math.max(LABEL_WIDTH, getWidth() / 5);
+        return Math.min(dynamic, Math.max(72, getWidth() / 3));
     }
 
     /**
@@ -298,15 +321,16 @@ public final class DatasetChart extends JComponent {
      * @param x row x coordinate
      * @param y row y coordinate
      * @param rowHeight row height
+     * @param labelWidth label column width
      * @param barX bar x coordinate
      * @param barW available bar width
      * @param metrics font metrics
      */
     private void paintBarRow(Graphics2D g, Bar bar, long max, int x, int y, int rowHeight,
-            int barX, int barW, FontMetrics metrics) {
+            int labelWidth, int barX, int barW, FontMetrics metrics) {
         int textY = y + (rowHeight + metrics.getAscent()) / 2 - 2;
         g.setColor(Theme.MUTED);
-        g.drawString(elide(metrics, bar.label(), LABEL_WIDTH - Theme.SPACE_SM), x, textY);
+        g.drawString(elide(metrics, bar.label(), labelWidth - Theme.SPACE_SM), x, textY);
 
         int barY = y + Math.max(0, (rowHeight - BAR_HEIGHT) / 2);
         g.setColor(Theme.NN_NEUTRAL);

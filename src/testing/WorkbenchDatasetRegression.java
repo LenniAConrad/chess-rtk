@@ -18,6 +18,7 @@ import java.nio.file.Path;
 import java.util.List;
 import javax.swing.JButton;
 import javax.swing.JComponent;
+import javax.swing.JLabel;
 import javax.swing.JSplitPane;
 import javax.swing.JTextField;
 
@@ -119,6 +120,12 @@ final class WorkbenchDatasetRegression {
                         "white", 8_000, "opening", "")),
                 List.of(), false, "Scan complete"));
         assertTrue(copy.isEnabled(), "copy report enabled after a scan");
+        JLabel qualityInsight = (JLabel) field(panel, "qualityInsight");
+        JLabel coverageInsight = (JLabel) field(panel, "coverageInsight");
+        assertTrue(qualityInsight.getText().contains("Clean scan"),
+                "dataset quality insight summarizes clean scans");
+        assertTrue(coverageInsight.getText().contains("Tags 50%"),
+                "dataset coverage insight reports tag ratio");
         paintPanel(panel, 980, 680, "dataset panel paints surface");
 
         DatasetChart chart = new DatasetChart();
