@@ -22,6 +22,7 @@ import javax.swing.JComponent;
 import javax.swing.Icon;
 import javax.swing.JFrame;
 import javax.swing.JFileChooser;
+import javax.swing.JFormattedTextField;
 import javax.swing.JLabel;
 import javax.swing.JList;
 import javax.swing.JMenu;
@@ -92,6 +93,7 @@ final class WorkbenchUiRegression {
         testPlainCheckboxUsesWorkbenchGlyph();
         testProgressBarUsesWorkbenchChrome();
         testDisabledComboUsesThemeBackground();
+        testSpinnerEditorUsesReadableInputColors();
         testGameLineImportInputKeepsMultilineHeight();
         testSettingsToggleRowsAreReadable();
         testSettingsSliderRefreshKeepsReadableColors();
@@ -411,6 +413,25 @@ final class WorkbenchUiRegression {
 
         invokeStatic(type("Theme"), "setMode", new Class<?>[] { modeType },
                 enumValue(modeType, "LIGHT"));
+    }
+
+    /**
+     * Verifies spinner editors use readable input colors without a nested
+     * text-field border.
+     */
+    private static void testSpinnerEditorUsesReadableInputColors() {
+        Theme.setMode(Theme.Mode.DARK);
+        JSpinner spinner = new JSpinner();
+        Ui.styleIntegerSpinner(spinner);
+        Theme.refreshComponentTree(spinner);
+        JFormattedTextField field = ((JSpinner.DefaultEditor) spinner.getEditor()).getTextField();
+        assertEquals(themeColor("TEXT"), field.getForeground(), "spinner editor foreground");
+        assertEquals(themeColor("INPUT"), field.getBackground(), "spinner editor background");
+        assertColorDistanceAtLeast(field.getForeground(), field.getBackground(), 80.0,
+                "spinner editor text contrast");
+        assertTrue(field.getBorder().getBorderInsets(field).left <= 8,
+                "spinner editor avoids nested input border");
+        Theme.setMode(Theme.Mode.LIGHT);
     }
 
     /**

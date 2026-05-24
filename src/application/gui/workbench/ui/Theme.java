@@ -16,6 +16,7 @@ import javax.swing.JLabel;
 import javax.swing.JList;
 import javax.swing.JMenuBar;
 import javax.swing.JMenuItem;
+import javax.swing.JFormattedTextField;
 import javax.swing.JScrollPane;
 import javax.swing.JSlider;
 import javax.swing.JSpinner;
@@ -982,6 +983,9 @@ public final class Theme {
             console.applyConsoleTheme();
         } else if (component instanceof JTextArea area) {
             area(area);
+        } else if (component instanceof JFormattedTextField field
+                && field.getParent() instanceof JSpinner.DefaultEditor editor) {
+            Ui.styleSpinnerEditor(editor);
         } else if (component instanceof JTextField field) {
             field(field);
         } else if (component instanceof JTextPane pane) {

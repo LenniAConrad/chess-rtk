@@ -570,7 +570,7 @@ public final class Ui {
         spinner.setBorder(InputChrome.compactBorder(false, false));
         InputChrome.install(spinner, true);
         if (spinner.getEditor() instanceof JSpinner.DefaultEditor editor) {
-            Theme.field(editor.getTextField());
+            styleSpinnerEditor(editor);
         }
     }
 
@@ -590,6 +590,29 @@ public final class Ui {
                 formatter.setCommitsOnValidEdit(true);
             }
         }
+    }
+
+    /**
+     * Styles the text field embedded inside a spinner without adding another
+     * nested input border.
+     *
+     * @param editor spinner editor
+     */
+    static void styleSpinnerEditor(JSpinner.DefaultEditor editor) {
+        JFormattedTextField field = editor.getTextField();
+        editor.setOpaque(true);
+        editor.setBackground(Theme.INPUT);
+        field.setOpaque(true);
+        field.setBackground(Theme.INPUT);
+        field.setForeground(Theme.TEXT);
+        field.setDisabledTextColor(Theme.BUTTON_DISABLED_TEXT);
+        field.setCaretColor(Theme.ACCENT);
+        field.setSelectionColor(Theme.TEXT_SELECTION);
+        field.setSelectedTextColor(Theme.TEXT);
+        field.setBorder(BorderFactory.createEmptyBorder(0, 8, 0, 6));
+        field.setFont(Theme.font(13, Font.PLAIN));
+        field.setHorizontalAlignment(SwingConstants.RIGHT);
+        field.setMinimumSize(new Dimension(32, Theme.CONTROL_HEIGHT - 2));
     }
 
     /**
@@ -899,6 +922,9 @@ public final class Ui {
             styleScrollPane(pane);
         } else if (component instanceof JTextArea area) {
             Theme.area(area);
+        } else if (component instanceof JFormattedTextField field
+                && field.getParent() instanceof JSpinner.DefaultEditor editor) {
+            styleSpinnerEditor(editor);
         } else if (component instanceof JTextField field) {
             Theme.field(field);
         } else if (component instanceof JComboBox<?> combo) {

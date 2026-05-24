@@ -520,7 +520,7 @@ public final class NetworkPanel extends JPanel {
         center.setOpaque(false);
         center.add(content, BorderLayout.CENTER);
         JPanel lowerDiagnostics = Ui.transparentPanel(new BorderLayout(0, Theme.SPACE_SM));
-        lowerDiagnostics.add(Ui.collapsible("MCTS", buildMctsToolbar(), false), BorderLayout.NORTH);
+        lowerDiagnostics.add(buildMctsToolbar(), BorderLayout.NORTH);
         lowerDiagnostics.add(Ui.collapsible("Edge weights", mctsWeightsPanel, false),
                 BorderLayout.CENTER);
         center.add(lowerDiagnostics, BorderLayout.SOUTH);

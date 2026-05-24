@@ -448,6 +448,10 @@ final class WorkbenchBackendRegression {
         JSpinner visits = (JSpinner) field(panel, "mctsVisitsSpinner");
         JCheckBox followLeaf = (JCheckBox) field(panel, "mctsFollowLeafToggle");
         JCheckBox soundToggle = (JCheckBox) field(panel, "mctsSoundToggle");
+        JComponent mctsToolbar = (JComponent) field(panel, "mctsToolbar");
+        assertTrue(mctsToolbar.getParent() != null
+                && !mctsToolbar.getParent().getClass().getName().contains("CollapsibleSection"),
+                "one-line network MCTS toolbar is not wrapped in a collapsible section");
         assertFalse(((JComponent) field(panel, "mctsWeightsPanel")).isVisible(),
                 "network MCTS edge weights start collapsed");
         assertTrue(((JComponent) field(panel, "detailsTabs")).isVisible(),
