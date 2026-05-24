@@ -108,6 +108,7 @@ final class WorkbenchUiRegression {
         testThemeColorContrast();
         testThemeUsesVscodeModernColorTokens();
         testNetworkPaletteUsesSemanticFocusColor();
+        testNetworkArchitectureBlocksKeepReadableNeutralFill();
         testThemeRefreshPreservesLabelRoles();
         testThemeRefreshUpdatesLineBorders();
         testThemeRefreshRestoresCustomControlUis();
@@ -979,6 +980,31 @@ final class WorkbenchUiRegression {
         TensorViz.refreshPalette();
         assertColor(themeColor("NN_FOCUS"), TensorViz.FOCUS, "dark NN focus alias");
         assertColor(TensorViz.FOCUS, TensorViz.sequentialRamp(1.0f), "dark sequential NN ramp");
+        Theme.setMode(Theme.Mode.LIGHT);
+        TensorViz.refreshPalette();
+    }
+
+    /**
+     * Verifies NN architecture blocks keep high-chroma semantic colors out of
+     * large text-bearing backgrounds.
+     */
+    private static void testNetworkArchitectureBlocksKeepReadableNeutralFill() {
+        Theme.setMode(Theme.Mode.DARK);
+        TensorViz.refreshPalette();
+        BufferedImage image = new BufferedImage(160, 90, BufferedImage.TYPE_INT_ARGB);
+        java.awt.Graphics2D graphics = image.createGraphics();
+        TensorViz.drawAbstractBlock(graphics, new java.awt.Rectangle(10, 10, 140, 64),
+                "value", "W/D/L", 1.0f, TensorViz.VALUE);
+        graphics.dispose();
+
+        Color fill = new Color(image.getRGB(80, 56), true);
+        assertTrue(colorDistance(fill, themeColor("PANEL_SOLID")) < colorDistance(fill, TensorViz.VALUE),
+                "dark NN architecture block stays closer to neutral panel than green accent");
+        assertTrue(contrastRatio(themeColor("TEXT"), fill) >= 4.5,
+                "dark NN architecture title remains readable");
+        assertTrue(contrastRatio(themeColor("MUTED"), fill) >= 4.5,
+                "dark NN architecture subtitle remains readable");
+
         Theme.setMode(Theme.Mode.LIGHT);
         TensorViz.refreshPalette();
     }

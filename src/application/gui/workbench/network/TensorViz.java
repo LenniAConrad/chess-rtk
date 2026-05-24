@@ -28,6 +28,16 @@ public final class TensorViz {
     // These aliases keep the existing TensorViz.* call sites terse.
 
     /**
+     * Dark label ink for labels painted directly over light data bars.
+     */
+    private static final Color DATA_BAR_DARK_TEXT = new Color(0x1F1F1F);
+
+    /**
+     * Light label ink for labels painted directly over dark data bars.
+     */
+    private static final Color DATA_BAR_LIGHT_TEXT = new Color(0xF5F5F5);
+
+    /**
      * Positive-activation accent (used for "up" / gain).
      */
     public static Color POSITIVE = Theme.NN_POSITIVE;
@@ -357,19 +367,24 @@ public final class TensorViz {
             int ww = Math.round(bar.width * w);
             int dw = Math.round(bar.width * d);
             int lw = Math.max(0, bar.width - ww - dw);
-            g.setColor(POSITIVE);
+            Color winFill = outcomeSegmentFill(POSITIVE);
+            Color drawFill = Theme.isDark() ? Theme.ELEVATED_SOLID : Theme.LINE;
+            Color lossFill = outcomeSegmentFill(NEGATIVE);
+            g.setColor(winFill);
             g.fillRect(bar.x, bar.y, ww, bar.height);
-            g.setColor(Theme.LINE);
+            g.setColor(drawFill);
             g.fillRect(bar.x + ww, bar.y, dw, bar.height);
-            g.setColor(NEGATIVE);
+            g.setColor(lossFill);
             g.fillRect(bar.x + ww + dw, bar.y, lw, bar.height);
             g.setColor(Theme.LINE);
             g.drawRect(bar.x, bar.y, bar.width - 1, bar.height - 1);
             g.setFont(Theme.font(11, Font.BOLD));
-            g.setColor(Theme.TEXT);
-            drawSegmentLabel(g, "W " + Math.round(w * 100) + "%", bar.x, bar.y, ww, bar.height);
-            drawSegmentLabel(g, "D " + Math.round(d * 100) + "%", bar.x + ww, bar.y, dw, bar.height);
-            drawSegmentLabel(g, "L " + Math.round(l * 100) + "%", bar.x + ww + dw, bar.y, lw, bar.height);
+            drawSegmentLabel(g, "W " + Math.round(w * 100) + "%", bar.x, bar.y, ww, bar.height,
+                    readableDataBarText(winFill));
+            drawSegmentLabel(g, "D " + Math.round(d * 100) + "%", bar.x + ww, bar.y, dw, bar.height,
+                    readableDataBarText(drawFill));
+            drawSegmentLabel(g, "L " + Math.round(l * 100) + "%", bar.x + ww + dw, bar.y, lw, bar.height,
+                    readableDataBarText(lossFill));
         } else {
             g.setColor(Theme.MUTED);
             g.setFont(Theme.font(11, Font.PLAIN));
@@ -392,12 +407,15 @@ public final class TensorViz {
      * @param y segment y
      * @param width segment width
      * @param height segment height
+     * @param textColor text color chosen for the segment fill
      */
-    private static void drawSegmentLabel(Graphics2D g, String text, int x, int y, int width, int height) {
+    private static void drawSegmentLabel(Graphics2D g, String text, int x, int y, int width, int height,
+            Color textColor) {
         FontMetrics fm = g.getFontMetrics();
         if (width < fm.stringWidth(text) + 8) {
             return;
         }
+        g.setColor(textColor);
         g.drawString(text, x + (width - fm.stringWidth(text)) / 2,
                 y + (height + fm.getAscent() - fm.getDescent()) / 2);
     }
@@ -675,7 +693,7 @@ public final class TensorViz {
     public static void drawAbstractBlock(Graphics2D g, Rectangle r, String title, String subtitle,
             float activity, Color accent) {
         float a = clamp(activity, 0.0f, 1.0f);
-        Color fill = lerp(Theme.PANEL_SOLID, accent, 0.18f + 0.55f * a);
+        Color fill = abstractBlockFill(accent, a);
         g.setColor(fill);
         g.fillRoundRect(r.x, r.y, r.width, r.height, 3, 3);
         g.setColor(accent);
@@ -696,6 +714,51 @@ public final class TensorViz {
         g.fillRect(r.x + 10, barY, barW, 4);
         g.setColor(accent);
         g.fillRect(r.x + 10, barY, Math.round(barW * a), 4);
+    }
+
+    /**
+     * Returns a restrained block fill for text-bearing architecture cards.
+     *
+     * <p>High-chroma semantic colors work well as borders and activity bars,
+     * but large green/purple/red fills make labels harder to scan in dark
+     * mode. The fill therefore stays close to the neutral panel surface
+     * while retaining a small hue cue.</p>
+     *
+     * @param accent semantic accent color
+     * @param activity clamped activity in [0, 1]
+     * @return neutral-tinted block fill
+     */
+    private static Color abstractBlockFill(Color accent, float activity) {
+        Color base = Theme.PANEL_SOLID;
+        float tint = Theme.isDark()
+                ? 0.03f + 0.05f * activity
+                : 0.06f + 0.10f * activity;
+        return lerp(base, accent, tint);
+    }
+
+    /**
+     * Returns a softened W/D/L segment fill.
+     *
+     * @param accent outcome accent
+     * @return segment fill
+     */
+    private static Color outcomeSegmentFill(Color accent) {
+        float tint = Theme.isDark() ? 0.72f : 0.86f;
+        return lerp(Theme.PANEL_SOLID, accent, tint);
+    }
+
+    /**
+     * Chooses high-contrast text for labels painted directly on a colored data
+     * segment.
+     *
+     * @param background segment background color
+     * @return readable text color
+     */
+    private static Color readableDataBarText(Color background) {
+        int yiq = (background.getRed() * 299
+                + background.getGreen() * 587
+                + background.getBlue() * 114) / 1000;
+        return yiq >= 128 ? DATA_BAR_DARK_TEXT : DATA_BAR_LIGHT_TEXT;
     }
 
     /**
