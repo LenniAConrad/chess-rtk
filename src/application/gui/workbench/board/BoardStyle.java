@@ -18,6 +18,21 @@ public final class BoardStyle {
     public static final int BORDER_WIDTH = 2;
 
     /**
+     * Dark coordinate color used when it gives the best contrast.
+     */
+    private static final Color COORD_DARK_TEXT = new Color(35, 26, 20);
+
+    /**
+     * Light coordinate color used on very dark custom board colors.
+     */
+    private static final Color COORD_LIGHT_TEXT = new Color(255, 248, 234);
+
+    /**
+     * Minimum alpha for the coordinate halo.
+     */
+    private static final int COORD_HALO_ALPHA = 150;
+
+    /**
      * Prevents instantiation.
      */
     private BoardStyle() {
@@ -157,8 +172,6 @@ public final class BoardStyle {
         int fileBlockPad = Math.max(1, Math.round(size / 14.0f));
         int rankInlinePad = Math.max(2, Math.round(size / 7.0f));
         int rankBlockPad = Math.max(2, Math.round(size / 7.0f));
-        int bottomRank = whiteDown ? 1 : 8;
-        int leftFile = whiteDown ? 0 : 7;
         for (int i = 0; i < 8; i++) {
             int file = whiteDown ? i : 7 - i;
             int rank = whiteDown ? 8 - i : i + 1;
@@ -169,11 +182,11 @@ public final class BoardStyle {
             drawCoordinateString(g, fileText,
                     fileCell.x + fileCell.width - metrics.stringWidth(fileText) - fileInlinePad,
                     fileCell.y + fileCell.height - fileBlockPad - metrics.getDescent(),
-                    notationColor(file, bottomRank));
+                    squareColor(7, i));
             drawCoordinateString(g, rankText,
                     rankCell.x + rankInlinePad,
                     rankCell.y + rankBlockPad + metrics.getAscent(),
-                    notationColor(leftFile, rank));
+                    squareColor(i, 0));
         }
     }
 
@@ -184,11 +197,12 @@ public final class BoardStyle {
      * @param text coordinate label text
      * @param x x coordinate
      * @param baseline text baseline
-     * @param color primary coordinate color
+     * @param squareColor square color behind the label
      */
-    private static void drawCoordinateString(Graphics2D g, String text, int x, int baseline, Color color) {
+    private static void drawCoordinateString(Graphics2D g, String text, int x, int baseline, Color squareColor) {
         Color savedColor = g.getColor();
         try {
+            Color color = coordinateTextColor(squareColor);
             g.setColor(coordinateHalo(color));
             g.drawString(text, x - 1, baseline);
             g.drawString(text, x + 1, baseline);
@@ -202,14 +216,19 @@ public final class BoardStyle {
     }
 
     /**
-     * Returns the coordinate label color for a real board square.
+     * Returns the coordinate label color with the strongest contrast against a
+     * square color. The ordinary board palette chooses one stable dark label
+     * color for both tan squares, while very dark custom palettes fall back to
+     * the light label color.
      *
-     * @param file file index
-     * @param rank rank number
+     * @param squareColor square color behind the label
      * @return coordinate label color
      */
-    private static Color notationColor(int file, int rank) {
-        return ((file + rank) & 1) == 0 ? Theme.COORD_ON_LIGHT : Theme.COORD_ON_DARK;
+    private static Color coordinateTextColor(Color squareColor) {
+        Color background = squareColor == null ? Theme.BOARD_LIGHT : squareColor;
+        return contrastRatio(COORD_DARK_TEXT, background) >= contrastRatio(COORD_LIGHT_TEXT, background)
+                ? COORD_DARK_TEXT
+                : COORD_LIGHT_TEXT;
     }
 
     /**
@@ -220,6 +239,44 @@ public final class BoardStyle {
      */
     private static Color coordinateHalo(Color color) {
         int luminance = color.getRed() + color.getGreen() + color.getBlue();
-        return luminance > 500 ? Theme.BOARD_EDGE : Theme.BOARD_LIGHT;
+        return luminance > 500
+                ? Theme.withAlpha(COORD_DARK_TEXT, COORD_HALO_ALPHA)
+                : Theme.withAlpha(COORD_LIGHT_TEXT, COORD_HALO_ALPHA);
+    }
+
+    /**
+     * Returns the WCAG contrast ratio between two colors.
+     *
+     * @param first first color
+     * @param second second color
+     * @return contrast ratio
+     */
+    private static double contrastRatio(Color first, Color second) {
+        double l1 = relativeLuminance(first) + 0.05d;
+        double l2 = relativeLuminance(second) + 0.05d;
+        return Math.max(l1, l2) / Math.min(l1, l2);
+    }
+
+    /**
+     * Returns the relative luminance of an sRGB color.
+     *
+     * @param color color
+     * @return relative luminance
+     */
+    private static double relativeLuminance(Color color) {
+        return 0.2126d * linear(color.getRed())
+                + 0.7152d * linear(color.getGreen())
+                + 0.0722d * linear(color.getBlue());
+    }
+
+    /**
+     * Converts one sRGB channel to linear light.
+     *
+     * @param channel channel value from 0 to 255
+     * @return linear-light channel value
+     */
+    private static double linear(int channel) {
+        double value = channel / 255.0d;
+        return value <= 0.03928d ? value / 12.92d : Math.pow((value + 0.055d) / 1.055d, 2.4d);
     }
 }

@@ -64,6 +64,7 @@ final class WorkbenchBoardRegression {
         testBoardCaptureAnimationStarts();
         testBoardCastlingAnimationStarts();
         testBoardPaintUsesChessboardJsColors();
+        testBoardCoordinateLabelsUseHighContrastColor();
         testBoardSuggestedMoveArrowIsLegalAndClean();
         testBoardLegalMovePreviewCanBeHidden();
         testBoardLastMoveAndBestArrowCanBeHidden();
@@ -662,6 +663,31 @@ final class WorkbenchBoardRegression {
         invoke(board, "setPosition", new Class<?>[] { Position.class, short.class }, start, Move.NO_MOVE);
         invoke(board, "setPosition", new Class<?>[] { Position.class, short.class }, start.copy().play(move), move);
         assertFalse((Boolean) field(board, "moveAnimationActive"), "move animation suppressed");
+    }
+
+    /**
+     * Verifies board coordinate labels choose a stable high-contrast color
+     * instead of swapping raw square colors.
+     */
+    private static void testBoardCoordinateLabelsUseHighContrastColor() {
+        Class<?> boardStyle = type("BoardStyle");
+        Color lightSquare = themeColor("BOARD_LIGHT");
+        Color darkSquare = themeColor("BOARD_DARK");
+        Color lightLabel = (Color) invokeStatic(boardStyle, "coordinateTextColor",
+                new Class<?>[] { Color.class }, lightSquare);
+        Color darkLabel = (Color) invokeStatic(boardStyle, "coordinateTextColor",
+                new Class<?>[] { Color.class }, darkSquare);
+        assertTrue(contrastRatio(lightLabel, lightSquare) >= 4.5d,
+                "coordinate label contrasts with light square");
+        assertTrue(contrastRatio(darkLabel, darkSquare) >= 4.5d,
+                "coordinate label contrasts with dark square");
+        assertEquals(lightLabel, darkLabel, "ordinary board coordinates use one stable label color");
+
+        Color veryDarkSquare = new Color(18, 18, 18);
+        Color veryDarkLabel = (Color) invokeStatic(boardStyle, "coordinateTextColor",
+                new Class<?>[] { Color.class }, veryDarkSquare);
+        assertTrue(contrastRatio(veryDarkLabel, veryDarkSquare) >= 7.0d,
+                "coordinate label adapts to very dark custom squares");
     }
 
     /**
