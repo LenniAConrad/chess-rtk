@@ -1581,6 +1581,23 @@ public final class Ui {
     private static final class StyledComboBoxUI extends BasicComboBoxUI {
 
         /**
+         * Paints the full input well before the current value and arrow button
+         * are painted, avoiding unfilled platform-background gaps between the
+         * value renderer and the chevron area.
+         *
+         * @param graphics graphics context
+         * @param component combo component
+         */
+        @Override
+        public void paint(Graphics graphics, JComponent component) {
+            graphics.setColor(comboBox.isEnabled() ? Theme.INPUT : Theme.INPUT_DISABLED);
+            graphics.fillRect(1, 1,
+                    Math.max(0, component.getWidth() - 2),
+                    Math.max(0, component.getHeight() - 2));
+            super.paint(graphics, component);
+        }
+
+        /**
          * Creates the combo arrow button.
          *
          * @return arrow button

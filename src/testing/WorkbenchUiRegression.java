@@ -94,6 +94,7 @@ final class WorkbenchUiRegression {
         testPlainCheckboxUsesWorkbenchGlyph();
         testProgressBarUsesWorkbenchChrome();
         testDisabledComboUsesThemeBackground();
+        testEnabledComboFillsArrowGutter();
         testSpinnerEditorUsesReadableInputColors();
         testGameLineImportInputKeepsMultilineHeight();
         testSettingsToggleRowsAreReadable();
@@ -418,6 +419,43 @@ final class WorkbenchUiRegression {
 
         invokeStatic(type("Theme"), "setMode", new Class<?>[] { modeType },
                 enumValue(modeType, "LIGHT"));
+    }
+
+    /**
+     * Verifies enabled combo boxes fill the full input well, including the
+     * gutter before the arrow button.
+     */
+    private static void testEnabledComboFillsArrowGutter() {
+        Theme.setMode(Theme.Mode.DARK);
+        JComboBox<String> combo = new JComboBox<>(new String[] { "endgame" });
+        Ui.styleCombo(combo);
+        combo.setSize(280, 32);
+        combo.doLayout();
+
+        BufferedImage image = paint(combo, 280, 32);
+        Color expected = themeColor("INPUT");
+        assertComboInputPixel(image, 150, 16, expected, "combo middle input fill");
+        assertComboInputPixel(image, 250, 16, expected, "combo arrow gutter input fill");
+        assertComboInputPixel(image, 276, 10, expected, "combo right input fill");
+
+        Theme.setMode(Theme.Mode.LIGHT);
+    }
+
+    /**
+     * Verifies one combo-box input pixel is near the expected input fill.
+     *
+     * @param image painted combo image
+     * @param x sample x
+     * @param y sample y
+     * @param expected expected color
+     * @param label assertion label
+     */
+    private static void assertComboInputPixel(BufferedImage image, int x, int y, Color expected, String label) {
+        Color sample = new Color(image.getRGB(x, y), true);
+        if (colorDistance(sample, expected) > 6.0) {
+            throw new AssertionError(label + ": expected near " + colorText(expected)
+                    + ", got " + colorText(sample));
+        }
     }
 
     /**
