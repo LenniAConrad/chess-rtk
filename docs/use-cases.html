@@ -75,14 +75,14 @@
       <main class="content-layout">
         <article class="content">
           <h1 id="use-cases">Use Cases</h1>
-<p>ChessRTK is broad, so the easiest way to learn it is to start from the job you want done.</p>
-<h2 id="i-want-to-study-one-position">I Want To Study One Position</h2>
+<p>This page maps common tasks to the commands and documentation sections that usually apply.</p>
+<h2 id="study-one-position">Study One Position</h2>
 <p>Use the position and move primitives first. They run in-process and do not need a configured UCI engine.</p>
 <pre><code class="language-bash">crtk fen print --fen &quot;&lt;FEN&gt;&quot;
 crtk fen normalize --fen &quot;&lt;FEN&gt;&quot;
 crtk move list --fen &quot;&lt;FEN&gt;&quot; --format both
 crtk move play --fen &quot;&lt;FEN&gt;&quot; &quot;e4 e5 Nf3 Nc6&quot;</code></pre>
-<p>Then ask an engine:</p>
+<p>Then use an engine:</p>
 <pre><code class="language-bash">crtk engine bestmove --fen &quot;&lt;FEN&gt;&quot; --format both --max-duration 2s
 crtk engine analyze --fen &quot;&lt;FEN&gt;&quot; --multipv 3 --max-duration 5s</code></pre>
 <p>Read next:</p>
@@ -91,7 +91,7 @@ crtk engine analyze --fen &quot;&lt;FEN&gt;&quot; --multipv 3 --max-duration 5s<
 <li><a href="configuration.html">Configuration</a></li>
 <li><a href="in-house-engine.html">In-House Engine</a></li>
 </ul>
-<h2 id="i-want-to-verify-move-generation">I Want To Verify Move Generation</h2>
+<h2 id="verify-move-generation">Verify Move Generation</h2>
 <p>Use perft and the stored regression suite. These commands validate ChessRTK&#x27;s Java move generator directly.</p>
 <pre><code class="language-bash">crtk engine perft --startpos --depth 4 --threads 4
 crtk engine perft --fen &quot;&lt;FEN&gt;&quot; --depth 5 --divide --threads 4
@@ -102,7 +102,7 @@ crtk engine perft-suite --depth 6 --threads 4</code></pre>
 <li><a href="architecture.html">Architecture</a></li>
 <li><a href="development-notes.html">Development Notes</a></li>
 </ul>
-<h2 id="i-want-to-mine-puzzles">I Want To Mine Puzzles</h2>
+<h2 id="mine-puzzles">Mine Puzzles</h2>
 <p>Start from PGN or FEN seeds, run bounded UCI analysis, then keep accepted and rejected records for later filtering or training.</p>
 <pre><code class="language-bash">crtk fen pgn --input games.pgn --output seeds.txt
 crtk puzzle mine --input seeds.txt --output dump/run.json --engine-instances 4 --max-duration 60s
@@ -114,7 +114,7 @@ crtk puzzle pgn --input dump/run.puzzles.json --output dump/run.pgn</code></pre>
 <li><a href="filter-dsl.html">Filter DSL</a></li>
 <li><a href="outputs-and-logs.html">Outputs and Logs</a></li>
 </ul>
-<h2 id="i-want-to-generate-filtered-position-sets">I Want To Generate Filtered Position Sets</h2>
+<h2 id="generate-filtered-position-sets">Generate Filtered Position Sets</h2>
 <p>Use <code>gen fens</code> when you need reusable FEN shards for training, test corpora, or targeted engine checks. Filters combine with AND, so every selected condition must match.</p>
 <pre><code class="language-bash">crtk gen fens --output endgames/ --files 2 --per-file 500 --endgame --max-material-imbalance 300
 crtk gen fens --output rook-endgames/ --files 1 --per-file 200 --rook-endgame --rooks 2
@@ -125,7 +125,7 @@ crtk gen fens --output specials/ --files 1 --per-file 50 --promotion --capture -
 <li><a href="example-commands.html">Example Commands</a></li>
 <li><a href="datasets.html">Datasets</a></li>
 </ul>
-<h2 id="i-want-to-build-training-data">I Want To Build Training Data</h2>
+<h2 id="build-training-data">Build Training Data</h2>
 <p>Use <code>record</code> commands after mining or importing analysis records.</p>
 <pre><code class="language-bash">crtk record files -i dump/ -o dump/merged.json --recursive --puzzles
 crtk record dataset npy -i dump/merged.json -o training/run
@@ -136,8 +136,8 @@ crtk record dataset classifier -i dump/run.puzzles.json -i dump/run.nonpuzzles.j
 <li><a href="piece-tags.html">Piece and Position Tags</a></li>
 <li><a href="filter-dsl.html">Filter DSL</a></li>
 </ul>
-<h2 id="i-want-to-publish-diagrams-or-books">I Want To Publish Diagrams Or Books</h2>
-<p>Use <code>book pdf</code> for quick diagram sheets and <code>book render</code> / <code>book cover</code> for full book projects.</p>
+<h2 id="publish-diagrams-or-books">Publish Diagrams Or Books</h2>
+<p>Use <code>book pdf</code> for diagram sheets and <code>book render</code> / <code>book cover</code> for book manifests.</p>
 <pre><code class="language-bash">crtk book pdf --fen &quot;&lt;FEN&gt;&quot; -o dist/position.pdf
 crtk book render -i books/puzzles.toml --check
 crtk book render -i books/puzzles.toml -o dist/puzzles.pdf
@@ -147,7 +147,7 @@ crtk book cover -i books/puzzles.toml --pdf dist/puzzles.pdf --check --binding p
 <li><a href="book-publishing.html">Book Publishing</a></li>
 <li><a href="example-commands.html">Example Commands</a></li>
 </ul>
-<h2 id="i-want-agent-friendly-chess-primitives">I Want Agent-Friendly Chess Primitives</h2>
+<h2 id="use-agent-oriented-chess-primitives">Use Agent-Oriented Chess Primitives</h2>
 <p>Prefer deterministic command shapes with explicit formats and bounded engine work.</p>
 <pre><code class="language-bash">crtk fen normalize --fen &quot;&lt;FEN&gt;&quot;
 crtk move list --fen &quot;&lt;FEN&gt;&quot; --format both
@@ -158,7 +158,7 @@ crtk engine bestmove --fen &quot;&lt;FEN&gt;&quot; --format both --max-duration 
 <li><a href="ai-agents.html">AI Agents and Automation</a></li>
 <li><a href="command-cheatsheet.html">Command Cheatsheet</a></li>
 </ul>
-<h2 id="i-want-to-work-on-chessrtk-itself">I Want To Work On ChessRTK Itself</h2>
+<h2 id="work-on-chessrtk">Work On ChessRTK</h2>
 <p>Run focused checks for your edit area and the recommended suite before pushing.</p>
 <pre><code class="language-bash">./scripts/run_regression_suite.sh build
 ./scripts/run_regression_suite.sh lint
@@ -171,14 +171,14 @@ crtk engine bestmove --fen &quot;&lt;FEN&gt;&quot; --format both --max-duration 
 </ul>
         </article>
         <aside class="toc"><h2>On This Page</h2>
-<a class="toc-h2" href="#i-want-to-study-one-position">I Want To Study One Position</a>
-<a class="toc-h2" href="#i-want-to-verify-move-generation">I Want To Verify Move Generation</a>
-<a class="toc-h2" href="#i-want-to-mine-puzzles">I Want To Mine Puzzles</a>
-<a class="toc-h2" href="#i-want-to-generate-filtered-position-sets">I Want To Generate Filtered Position Sets</a>
-<a class="toc-h2" href="#i-want-to-build-training-data">I Want To Build Training Data</a>
-<a class="toc-h2" href="#i-want-to-publish-diagrams-or-books">I Want To Publish Diagrams Or Books</a>
-<a class="toc-h2" href="#i-want-agent-friendly-chess-primitives">I Want Agent-Friendly Chess Primitives</a>
-<a class="toc-h2" href="#i-want-to-work-on-chessrtk-itself">I Want To Work On ChessRTK Itself</a></aside>
+<a class="toc-h2" href="#study-one-position">Study One Position</a>
+<a class="toc-h2" href="#verify-move-generation">Verify Move Generation</a>
+<a class="toc-h2" href="#mine-puzzles">Mine Puzzles</a>
+<a class="toc-h2" href="#generate-filtered-position-sets">Generate Filtered Position Sets</a>
+<a class="toc-h2" href="#build-training-data">Build Training Data</a>
+<a class="toc-h2" href="#publish-diagrams-or-books">Publish Diagrams Or Books</a>
+<a class="toc-h2" href="#use-agent-oriented-chess-primitives">Use Agent-Oriented Chess Primitives</a>
+<a class="toc-h2" href="#work-on-chessrtk">Work On ChessRTK</a></aside>
       </main>
       <footer class="footer">
         <span>Generated from <code>wiki/use-cases.md</code>.</span>

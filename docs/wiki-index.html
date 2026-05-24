@@ -75,18 +75,18 @@
       <main class="content-layout">
         <article class="content">
           <h1 id="chessrtk-wiki">ChessRTK Wiki</h1>
-<p>Welcome to the ChessRTK documentation. This wiki is the project handbook: it starts with installation and first commands, then moves into configuration, engine workflows, mining, datasets, publishing, architecture, and maintenance.</p>
+<p>This wiki is the ChessRTK project handbook. It starts with installation and first commands, then covers configuration, engine workflows, mining, datasets, publishing, architecture, and maintenance.</p>
 <p>For a website-style version with sidebar navigation and readable page layout, open <code>https://LenniAConrad.github.io/chess-rtk/</code>.</p>
 <p>If the launcher is not installed, replace <code>crtk &lt;command&gt; ...</code> with <code>java -cp out application.Main &lt;command&gt; ...</code> after building the project.</p>
-<h2 id="start-here">Start Here</h2>
+<h2 id="navigation">Navigation</h2>
 <ul>
 <li><a href="getting-started.html">Getting started</a> - build, install, verify, and run the</li>
 </ul>
-<p>first useful commands</p>
+<p>first commands</p>
 <ul>
 <li><a href="faq.html">FAQ</a> - practical answers for new users</li>
 <li><a href="use-cases.html">Use cases</a> - workflow paths by role or job</li>
-<li><a href="command-cheatsheet.html">Command cheatsheet</a> - fastest path from goal to command</li>
+<li><a href="command-cheatsheet.html">Command cheatsheet</a> - common tasks mapped to commands</li>
 <li><a href="command-reference.html">Command reference</a> - grouped CLI surface and options</li>
 <li><a href="example-commands.html">Example commands</a> - copyable command recipes</li>
 <li><a href="troubleshooting.html">Troubleshooting</a> - common setup and runtime failures</li>
@@ -121,7 +121,7 @@
 <li><a href="roadmap.html">Roadmap and ideas</a></li>
 <li><a href="glossary.html">Glossary</a></li>
 </ul>
-<h2 id="capability-map">Capability Map</h2>
+<h2 id="command-areas">Command Areas</h2>
 <div class="table-wrap"><table>
 <thead><tr>
 <th>Task</th>
@@ -179,15 +179,15 @@
 <td><a href="book-publishing.html">Book publishing</a></td>
 </tr>
 <tr>
-<td>Automate safely</td>
+<td>Automate command use</td>
 <td><code>doctor</code>, <code>config validate</code>, deterministic move and bestmove commands</td>
 <td><a href="ai-agents.html">AI agents and automation</a></td>
 </tr>
 </tbody></table></div>
-<h2 id="architecture-at-a-glance">Architecture At A Glance</h2>
+<h2 id="architecture-summary">Architecture Summary</h2>
 <p><img src="assets/diagrams/crtk-position-toolbox.png" alt="ChessRTK position toolbox" loading="lazy"></p>
 <p>ChessRTK is built around one shared Java position model. The same legality and notation code drives the CLI, perft validation, built-in search, tagging, dataset export, rendering, GUI tools, and publishing output.</p>
-<h2 id="quick-verification">Quick Verification</h2>
+<h2 id="verification">Verification</h2>
 <pre><code class="language-bash">mkdir -p out
 javac --release 17 -d out $(find src -name &quot;*.java&quot;)
 java -cp out testing.CoreMoveGenerationRegressionTest
@@ -211,13 +211,13 @@ java -cp out application.Main engine builtin --startpos --depth 3 --format summa
 <p>as roadmap or planning material.</p>
         </article>
         <aside class="toc"><h2>On This Page</h2>
-<a class="toc-h2" href="#start-here">Start Here</a>
+<a class="toc-h2" href="#navigation">Navigation</a>
 <a class="toc-h2" href="#guides-for-users">Guides For Users</a>
 <a class="toc-h2" href="#workflows">Workflows</a>
 <a class="toc-h2" href="#developer-documentation">Developer Documentation</a>
-<a class="toc-h2" href="#capability-map">Capability Map</a>
-<a class="toc-h2" href="#architecture-at-a-glance">Architecture At A Glance</a>
-<a class="toc-h2" href="#quick-verification">Quick Verification</a>
+<a class="toc-h2" href="#command-areas">Command Areas</a>
+<a class="toc-h2" href="#architecture-summary">Architecture Summary</a>
+<a class="toc-h2" href="#verification">Verification</a>
 <a class="toc-h2" href="#project-policy-notes">Project Policy Notes</a></aside>
       </main>
       <footer class="footer">

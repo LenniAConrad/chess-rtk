@@ -75,11 +75,11 @@
       <main class="content-layout">
         <article class="content">
           <h1 id="ai-agents-and-automation">AI Agents and Automation</h1>
-<p>ChessRTK exposes deterministic chess primitives that work well in CI, scripts, and LLM tool workflows. The safest pattern is to use the narrowest command for the task: move conversion for notation, FEN commands for position validity, perft commands for move-generation checks, and bounded engine commands for analysis.</p>
-<p>These commands are worth using because they are built on the same correctness surface as the rest of the toolkit: one shared position model, deterministic output shapes, and regression-backed move-generation checks instead of ad hoc string parsing or GUI scraping.</p>
+<p>ChessRTK exposes deterministic chess primitives for CI, scripts, and LLM tool workflows. Use the narrowest command for the task: move conversion for notation, FEN commands for position validity, perft commands for move-generation checks, and bounded engine commands for analysis.</p>
+<p>These commands use the same correctness surface as the rest of the toolkit: one shared position model, deterministic output shapes, and regression-backed move-generation checks.</p>
 <p><img src="assets/diagrams/crtk-agentic-commands.png" alt="Agentic command contracts" loading="lazy"></p>
 <p>Diagram source: <code>assets/diagrams/crtk-agentic-commands.dot</code>.</p>
-<h2 id="why-agents-can-trust-this">Why Agents Can Trust This</h2>
+<h2 id="automation-contract">Automation Contract</h2>
 <ul>
 <li>Machine-oriented commands prefer line-based or JSON/JSONL formats, explicit</li>
 </ul>
@@ -227,7 +227,7 @@ java -cp out application.Main move list --format both --fen &quot;rnbqkbnr/ppppp
 <td>diagnostics and process exit status</td>
 </tr>
 </tbody></table></div>
-<h2 id="recommended-agent-workflow">Recommended Agent Workflow</h2>
+<h2 id="automation-sequence">Automation Sequence</h2>
 <ol>
 <li>Run <code>crtk doctor</code> and <code>crtk config validate</code> before long jobs.</li>
 <li>Normalize input FENs with <code>fen normalize</code>.</li>
@@ -257,7 +257,7 @@ crtk move to-uci --fen &quot;&lt;FEN&gt;&quot; Nf3</code></pre>
 <p>Apply a SAN or UCI line:</p>
 <pre><code class="language-bash">crtk move play --fen &quot;&lt;FEN&gt;&quot; &quot;e4 e5 Nf3 Nc6&quot;
 crtk move play --fen &quot;&lt;FEN&gt;&quot; e2e4 e7e5 g1f3 --intermediate</code></pre>
-<p>These commands are better for automation than parsing board diagrams because they have compact, line-oriented output.</p>
+<p>These commands avoid parsing board diagrams and provide compact, line-oriented output.</p>
 <h2 id="engine-tasks">Engine Tasks</h2>
 <p>External UCI engine:</p>
 <pre><code class="language-bash">crtk engine bestmove --fen &quot;&lt;FEN&gt;&quot; --format both --max-duration 5s
@@ -304,10 +304,10 @@ crtk record export training-jsonl -i dump/puzzles.json -i dump/nonpuzzles.json -
 <p>gates for CI jobs.</p>
         </article>
         <aside class="toc"><h2>On This Page</h2>
-<a class="toc-h2" href="#why-agents-can-trust-this">Why Agents Can Trust This</a>
+<a class="toc-h2" href="#automation-contract">Automation Contract</a>
 <a class="toc-h2" href="#quick-verification">Quick Verification</a>
 <a class="toc-h2" href="#command-contracts">Command Contracts</a>
-<a class="toc-h2" href="#recommended-agent-workflow">Recommended Agent Workflow</a>
+<a class="toc-h2" href="#automation-sequence">Automation Sequence</a>
 <a class="toc-h2" href="#deterministic-move-tasks">Deterministic Move Tasks</a>
 <a class="toc-h2" href="#engine-tasks">Engine Tasks</a>
 <a class="toc-h2" href="#move-generation-checks">Move-Generation Checks</a>

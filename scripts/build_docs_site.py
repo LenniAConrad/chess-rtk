@@ -363,10 +363,10 @@ def render_page(page: Page, pages: list[Page]) -> tuple[str, str]:
 <section class="hero">
   <div>
     <p class="eyebrow">ChessRTK documentation</p>
-    <h1>Chess tools, engine workflows, datasets, and publishing in one CLI.</h1>
-    <p>Use the sidebar to browse guides, command references, architecture notes, and workflow docs.</p>
+    <h1>Command-line chess tooling, engine workflows, datasets, and publishing.</h1>
+    <p>The documentation covers setup, command references, architecture notes, and workflow guides.</p>
     <p class="hero-actions">
-      <a href="getting-started.html">Get started</a>
+      <a href="getting-started.html">Setup</a>
       <a href="command-cheatsheet.html">Command cheatsheet</a>
       <a href="architecture.html">Architecture</a>
     </p>

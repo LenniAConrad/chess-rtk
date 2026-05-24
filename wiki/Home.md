@@ -11,13 +11,13 @@ The project is organized around one shared position model. That means the same
 rules implementation drives command-line move lists, built-in search, UCI
 analysis, tags, datasets, diagrams, GUI views, and book output.
 
-## Pick Your Path
+## Navigation
 
-| If you want to... | Read this | Then run |
+| Task | Read this | First command |
 | --- | --- | --- |
 | Install and verify ChessRTK | [Getting Started](getting-started) | `crtk doctor` |
-| Choose the right workflow | [Use Cases](use-cases) | start with the row that matches your job |
-| Copy useful recipes | [Command Cheatsheet](command-cheatsheet) | `crtk move list --startpos --format both` |
+| Choose a workflow | [Use Cases](use-cases) | start with the matching task |
+| Copy command recipes | [Command Cheatsheet](command-cheatsheet) | `crtk move list --startpos --format both` |
 | Learn the command shape | [Command Reference](command-reference) | `crtk help --full` |
 | Configure Stockfish or LC0 | [Configuration](configuration) | `crtk engine uci-smoke --nodes 1` |
 | Mine tactical data | [Mining Puzzles](mining) | `crtk puzzle mine --random-count 50 --output dump/` |
@@ -27,7 +27,7 @@ analysis, tags, datasets, diagrams, GUI views, and book output.
 | Check quality before pushing | [Quality and Testing](quality-and-testing) | `./scripts/run_regression_suite.sh recommended` |
 | Diagnose a failure | [Troubleshooting](troubleshooting) | start with the matching failure section |
 
-## Copy-Paste Smoke Test
+## Smoke Test
 
 ```bash
 crtk doctor
@@ -43,7 +43,7 @@ If the launcher is not installed, use:
 java -cp out application.Main <area> <action> [options]
 ```
 
-## Documentation Surfaces
+## Documentation Formats
 
 | Surface | Best for | Link |
 | --- | --- | --- |
@@ -52,7 +52,7 @@ java -cp out application.Main <area> <action> [options]
 | PDF manual | offline reading, printing, and release attachments | [chessrtk-manual.pdf](https://LenniAConrad.github.io/chess-rtk/chessrtk-manual.pdf) |
 | CLI help | exact installed command options | `crtk help --full` |
 
-## What ChessRTK Covers
+## Command Areas
 
 | Area | Main commands | Notes |
 | --- | --- | --- |
@@ -65,7 +65,7 @@ java -cp out application.Main <area> <action> [options]
 | Dataset export | `record dataset npy`, `record dataset lc0`, `record dataset classifier` | Writes portable files directly |
 | Publishing | `book pdf`, `book render`, `book cover` | Native PDFs, no LaTeX required |
 
-## Most Common Workflows
+## Common Workflows
 
 ### Study One Position
 
@@ -90,13 +90,13 @@ crtk puzzle mine --input seeds.txt --output dump/run.json --engine-instances 4
 crtk record export pgn --input dump/run.puzzles.json --output dump/run.pgn
 ```
 
-## Architecture At A Glance
+## Architecture Summary
 
 ![ChessRTK position toolbox](../assets/diagrams/crtk-position-toolbox.png)
 
-The main design rule is simple: avoid separate chess implementations for
-separate tools. FEN parsing, SAN conversion, legality, make/undo, perft,
-search, rendering, tagging, and export paths all meet at the same Java core.
+The main design rule is to avoid separate chess implementations for separate
+tools. FEN parsing, SAN conversion, legality, make/undo, perft, search,
+rendering, tagging, and export paths all meet at the same Java core.
 
 ## Core Documentation
 

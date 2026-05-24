@@ -105,7 +105,7 @@ def render_manual_html(pages: list[docs.Page]) -> str:
   <section class="cover">
     <p class="eyebrow">ChessRTK Manual</p>
     <h1>ChessRTK</h1>
-    <p class="tagline">A practical manual for deterministic chess tooling, engine workflows, datasets, and publishing.</p>
+    <p class="tagline">Reference manual for deterministic chess commands, engine workflows, datasets, and publishing.</p>
     <img src="assets/banner/github/crtk-github-banner.png" alt="ChessRTK banner">
     <dl>
       <div><dt>Runtime</dt><dd>Java 17 command-line toolkit</dd></div>

@@ -1,21 +1,19 @@
 # AI Agents and Automation
 
-ChessRTK exposes deterministic chess primitives that work well in CI, scripts,
-and LLM tool workflows. The safest pattern is to use the narrowest command for
-the task: move conversion for notation, FEN commands for position validity,
-perft commands for move-generation checks, and bounded engine commands for
-analysis.
+ChessRTK exposes deterministic chess primitives for CI, scripts, and LLM tool
+workflows. Use the narrowest command for the task: move conversion for notation,
+FEN commands for position validity, perft commands for move-generation checks,
+and bounded engine commands for analysis.
 
-These commands are worth using because they are built on the same correctness
-surface as the rest of the toolkit: one shared position model, deterministic
-output shapes, and regression-backed move-generation checks instead of ad hoc
-string parsing or GUI scraping.
+These commands use the same correctness surface as the rest of the toolkit: one
+shared position model, deterministic output shapes, and regression-backed
+move-generation checks.
 
 ![Agentic command contracts](../assets/diagrams/crtk-agentic-commands.png)
 
 Diagram source: `assets/diagrams/crtk-agentic-commands.dot`.
 
-## Why Agents Can Trust This
+## Automation Contract
 
 - Machine-oriented commands prefer line-based or JSON/JSONL formats, explicit
   flags, stable exit codes, and bounded search budgets.
@@ -66,7 +64,7 @@ java -cp out application.Main move list --format both --fen "rnbqkbnr/pppppppp/8
 | Movegen regression | `engine perft-suite` | progress bar, then truth/calculated table; `--suite` accepts custom TSV rows |
 | Setup health | `doctor`, `config validate`, `engine uci-smoke` | diagnostics and process exit status |
 
-## Recommended Agent Workflow
+## Automation Sequence
 
 1. Run `crtk doctor` and `crtk config validate` before long jobs.
 2. Normalize input FENs with `fen normalize`.
@@ -103,8 +101,8 @@ crtk move play --fen "<FEN>" "e4 e5 Nf3 Nc6"
 crtk move play --fen "<FEN>" e2e4 e7e5 g1f3 --intermediate
 ```
 
-These commands are better for automation than parsing board diagrams because
-they have compact, line-oriented output.
+These commands avoid parsing board diagrams and provide compact, line-oriented
+output.
 
 ## Engine Tasks
 

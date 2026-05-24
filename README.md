@@ -1,13 +1,12 @@
 # ChessRTK (`crtk`)
 
-ChessRTK is a Java 17 chess research toolkit for people who want reliable
-chess primitives from the command line: FEN and SAN handling, legal move
-generation, perft validation, engine analysis, puzzle mining, dataset export,
-board rendering, and native PDF book publishing.
+ChessRTK is a Java 17 chess research toolkit for command-line workflows: FEN
+and SAN handling, legal move generation, perft validation, engine analysis,
+puzzle mining, dataset export, board rendering, and native PDF book publishing.
 
-It is not trying to be a consumer chess app. It is a toolkit for building,
-checking, mining, exporting, and publishing chess work with commands that are
-explicit enough for terminals, scripts, CI, and AI-agent workflows.
+It is not a consumer chess app. It provides commands for building, checking,
+mining, exporting, and publishing chess data in terminals, scripts, CI, and
+AI-agent workflows.
 
 [Website docs](docs/index.html) |
 [PDF manual](docs/chessrtk-manual.pdf) |
@@ -19,11 +18,10 @@ explicit enough for terminals, scripts, CI, and AI-agent workflows.
 [FAQ](wiki/faq.md) |
 [Troubleshooting](wiki/troubleshooting.md)
 
-## Why ChessRTK Exists
+## Scope
 
-Chess tooling often starts as a collection of one-off scripts. ChessRTK keeps
-the hard parts in one shared Java core so every workflow uses the same position
-model:
+ChessRTK keeps chess-specific behavior in one shared Java core. The same
+position model is used for:
 
 - legal move generation, make/undo, attack detection, and perft counters
 - FEN, SAN, UCI move conversion, Chess960 starts, and line application
@@ -31,11 +29,11 @@ model:
 - position tags, puzzle mining, record filtering, and dataset writers
 - board images, diagram PDFs, puzzle books, and print-cover generation
 
-That shared core matters because one mistake in castling rights, en-passant,
-promotion, notation, or move legality can poison search, tags, datasets,
-rendering, and book output.
+This reduces differences between search, tags, datasets, rendering, and book
+output when they depend on castling rights, en-passant, promotion, notation, or
+move legality.
 
-## Quick Start
+## Setup
 
 Requirements:
 
@@ -66,7 +64,7 @@ If the launcher is not installed, replace `crtk ...` with:
 java -cp out application.Main ...
 ```
 
-## First Useful Commands
+## Initial Commands
 
 Inspect the starting position:
 
@@ -102,7 +100,7 @@ crtk engine bestmove --fen "<FEN>" --format both --max-duration 2s
 crtk engine builtin --fen "<FEN>" --depth 3 --format summary
 ```
 
-Run research-friendly batch checks:
+Run batch checks:
 
 ```bash
 crtk engine bestmove-batch --input positions.txt --max-duration 1s
@@ -119,7 +117,7 @@ crtk config validate
 crtk engine uci-smoke --nodes 1 --max-duration 5s
 ```
 
-## What You Can Do
+## Command Areas
 
 | Goal | Start with |
 | --- | --- |
@@ -148,7 +146,7 @@ crtk help --full
 
 or open [wiki/command-reference.md](wiki/command-reference.md).
 
-## Example Workflows
+## Workflow Examples
 
 ### Verify The Chess Core
 

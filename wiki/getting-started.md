@@ -1,6 +1,6 @@
 # Getting Started
 
-This page gets a fresh checkout from source code to useful commands.
+This page covers the path from a fresh checkout to the first working commands.
 
 ## Requirements
 
@@ -72,7 +72,7 @@ crtk move list --help
 crtk help --full
 ```
 
-## First Position Workflow
+## Position Workflow
 
 ```bash
 crtk fen print --startpos
@@ -81,7 +81,7 @@ crtk move after --startpos e2e4
 crtk move play --startpos "e4 e5 Nf3 Nc6"
 ```
 
-## First Engine Workflow
+## Engine Workflow
 
 Use the in-process engine when you want no external process:
 
@@ -96,7 +96,7 @@ crtk engine uci-smoke --nodes 1 --max-duration 5s
 crtk engine bestmove --startpos --format both --max-duration 2s
 ```
 
-## First Publishing Workflow
+## Publishing Workflow
 
 ```bash
 crtk book pdf --fen "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1" -o dist/startpos.pdf
@@ -104,7 +104,7 @@ crtk book pdf --fen "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1" -
 
 For full books and covers, continue with [Book publishing](book-publishing.md).
 
-## Next Pages
+## Related Pages
 
 - [Configuration](configuration.md)
 - [Command reference](command-reference.md)

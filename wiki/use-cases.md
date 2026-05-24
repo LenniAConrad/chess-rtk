@@ -1,9 +1,9 @@
 # Use Cases
 
-ChessRTK is broad, so the easiest way to learn it is to start from the job you
-want done.
+This page maps common tasks to the commands and documentation sections that
+usually apply.
 
-## I Want To Study One Position
+## Study One Position
 
 Use the position and move primitives first. They run in-process and do not need
 a configured UCI engine.
@@ -15,7 +15,7 @@ crtk move list --fen "<FEN>" --format both
 crtk move play --fen "<FEN>" "e4 e5 Nf3 Nc6"
 ```
 
-Then ask an engine:
+Then use an engine:
 
 ```bash
 crtk engine bestmove --fen "<FEN>" --format both --max-duration 2s
@@ -28,7 +28,7 @@ Read next:
 - [Configuration](configuration)
 - [In-House Engine](in-house-engine)
 
-## I Want To Verify Move Generation
+## Verify Move Generation
 
 Use perft and the stored regression suite. These commands validate ChessRTK's
 Java move generator directly.
@@ -45,7 +45,7 @@ Read next:
 - [Architecture](architecture)
 - [Development Notes](development-notes)
 
-## I Want To Mine Puzzles
+## Mine Puzzles
 
 Start from PGN or FEN seeds, run bounded UCI analysis, then keep accepted and
 rejected records for later filtering or training.
@@ -63,7 +63,7 @@ Read next:
 - [Filter DSL](filter-dsl)
 - [Outputs and Logs](outputs-and-logs)
 
-## I Want To Generate Filtered Position Sets
+## Generate Filtered Position Sets
 
 Use `gen fens` when you need reusable FEN shards for training, test corpora, or
 targeted engine checks. Filters combine with AND, so every selected condition
@@ -81,7 +81,7 @@ Read next:
 - [Example Commands](example-commands)
 - [Datasets](datasets)
 
-## I Want To Build Training Data
+## Build Training Data
 
 Use `record` commands after mining or importing analysis records.
 
@@ -97,10 +97,10 @@ Read next:
 - [Piece and Position Tags](piece-tags)
 - [Filter DSL](filter-dsl)
 
-## I Want To Publish Diagrams Or Books
+## Publish Diagrams Or Books
 
-Use `book pdf` for quick diagram sheets and `book render` / `book cover` for
-full book projects.
+Use `book pdf` for diagram sheets and `book render` / `book cover` for book
+manifests.
 
 ```bash
 crtk book pdf --fen "<FEN>" -o dist/position.pdf
@@ -114,7 +114,7 @@ Read next:
 - [Book Publishing](book-publishing)
 - [Example Commands](example-commands)
 
-## I Want Agent-Friendly Chess Primitives
+## Use Agent-Oriented Chess Primitives
 
 Prefer deterministic command shapes with explicit formats and bounded engine
 work.
@@ -131,7 +131,7 @@ Read next:
 - [AI Agents and Automation](ai-agents)
 - [Command Cheatsheet](command-cheatsheet)
 
-## I Want To Work On ChessRTK Itself
+## Work On ChessRTK
 
 Run focused checks for your edit area and the recommended suite before pushing.
 

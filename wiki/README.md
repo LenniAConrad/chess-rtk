@@ -1,8 +1,8 @@
 # ChessRTK Wiki
 
-Welcome to the ChessRTK documentation. This wiki is the project handbook: it
-starts with installation and first commands, then moves into configuration,
-engine workflows, mining, datasets, publishing, architecture, and maintenance.
+This wiki is the ChessRTK project handbook. It starts with installation and
+first commands, then covers configuration, engine workflows, mining, datasets,
+publishing, architecture, and maintenance.
 
 For a website-style version with sidebar navigation and readable page layout,
 open `https://LenniAConrad.github.io/chess-rtk/`.
@@ -10,13 +10,13 @@ open `https://LenniAConrad.github.io/chess-rtk/`.
 If the launcher is not installed, replace `crtk <command> ...` with
 `java -cp out application.Main <command> ...` after building the project.
 
-## Start Here
+## Navigation
 
 - [Getting started](getting-started) - build, install, verify, and run the
-  first useful commands
+  first commands
 - [FAQ](faq) - practical answers for new users
 - [Use cases](use-cases) - workflow paths by role or job
-- [Command cheatsheet](command-cheatsheet) - fastest path from goal to command
+- [Command cheatsheet](command-cheatsheet) - common tasks mapped to commands
 - [Command reference](command-reference) - grouped CLI surface and options
 - [Example commands](example-commands) - copyable command recipes
 - [Troubleshooting](troubleshooting) - common setup and runtime failures
@@ -51,7 +51,7 @@ If the launcher is not installed, replace `crtk <command> ...` with
 - [Roadmap and ideas](roadmap)
 - [Glossary](glossary)
 
-## Capability Map
+## Command Areas
 
 | Task | Main commands | Docs |
 | --- | --- | --- |
@@ -65,9 +65,9 @@ If the launcher is not installed, replace `crtk <command> ...` with
 | Tag positions and lines | `fen tags`, `puzzle tags`, `record tag-stats` | [Piece and position tags](piece-tags), [Tag reference](tag-reference) |
 | Export training data | `record dataset npy`, `record dataset lc0`, `record dataset classifier` | [Datasets](datasets) |
 | Render diagrams and books | `fen render`, `book pdf`, `book render`, `book cover` | [Book publishing](book-publishing) |
-| Automate safely | `doctor`, `config validate`, deterministic move and bestmove commands | [AI agents and automation](ai-agents) |
+| Automate command use | `doctor`, `config validate`, deterministic move and bestmove commands | [AI agents and automation](ai-agents) |
 
-## Architecture At A Glance
+## Architecture Summary
 
 ![ChessRTK position toolbox](../assets/diagrams/crtk-position-toolbox.png)
 
@@ -75,7 +75,7 @@ ChessRTK is built around one shared Java position model. The same legality and
 notation code drives the CLI, perft validation, built-in search, tagging,
 dataset export, rendering, GUI tools, and publishing output.
 
-## Quick Verification
+## Verification
 
 ```bash
 mkdir -p out

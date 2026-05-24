@@ -1,10 +1,10 @@
 # Command Cheatsheet
 
-This page is the shortest path from "what do I want?" to the command to run.
-For complete options, use `crtk help --full` or open
+This page maps common tasks to command examples. For complete options, use
+`crtk help --full` or open
 [Command Reference](command-reference).
 
-## One-Minute Demo
+## Smoke Test
 
 ```bash
 crtk doctor
@@ -13,7 +13,7 @@ crtk move list --startpos --format both
 crtk engine builtin --startpos --depth 3 --format summary
 ```
 
-## Setup And Health
+## Setup And Diagnostics
 
 | Task | Command |
 | --- | --- |

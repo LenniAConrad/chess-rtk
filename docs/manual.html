@@ -281,7 +281,7 @@ blockquote {
   <section class="cover">
     <p class="eyebrow">ChessRTK Manual</p>
     <h1>ChessRTK</h1>
-    <p class="tagline">A practical manual for deterministic chess tooling, engine workflows, datasets, and publishing.</p>
+    <p class="tagline">Reference manual for deterministic chess commands, engine workflows, datasets, and publishing.</p>
     <img src="assets/banner/github/crtk-github-banner.png" alt="ChessRTK banner">
     <dl>
       <div><dt>Runtime</dt><dd>Java 17 command-line toolkit</dd></div>
@@ -330,12 +330,12 @@ blockquote {
   <div class="chapter-body">
     <p>ChessRTK (<code>crtk</code>) is a Java 17 chess research toolkit for deterministic chess workflows: FEN and SAN handling, legal move generation, perft validation, engine analysis, puzzle mining, dataset export, board rendering, and native PDF book publishing.</p>
 <p>The project is organized around one shared position model. That means the same rules implementation drives command-line move lists, built-in search, UCI analysis, tags, datasets, diagrams, GUI views, and book output.</p>
-<h2 id="chapter-home-pick-your-path">Pick Your Path</h2>
+<h2 id="chapter-home-navigation">Navigation</h2>
 <div class="table-wrap"><table>
 <thead><tr>
-<th>If you want to...</th>
+<th>Task</th>
 <th>Read this</th>
-<th>Then run</th>
+<th>First command</th>
 </tr></thead><tbody>
 <tr>
 <td>Install and verify ChessRTK</td>
@@ -343,12 +343,12 @@ blockquote {
 <td><code>crtk doctor</code></td>
 </tr>
 <tr>
-<td>Choose the right workflow</td>
+<td>Choose a workflow</td>
 <td><a href="#chapter-use-cases">Use Cases</a></td>
-<td>start with the row that matches your job</td>
+<td>start with the matching task</td>
 </tr>
 <tr>
-<td>Copy useful recipes</td>
+<td>Copy command recipes</td>
 <td><a href="#chapter-command-cheatsheet">Command Cheatsheet</a></td>
 <td><code>crtk move list --startpos --format both</code></td>
 </tr>
@@ -393,7 +393,7 @@ blockquote {
 <td>start with the matching failure section</td>
 </tr>
 </tbody></table></div>
-<h2 id="chapter-home-copy-paste-smoke-test">Copy-Paste Smoke Test</h2>
+<h2 id="chapter-home-smoke-test">Smoke Test</h2>
 <pre><code class="language-bash">crtk doctor
 crtk fen print --startpos
 crtk move list --startpos --format both
@@ -401,7 +401,7 @@ crtk engine perft --startpos --depth 4 --threads 4
 crtk engine builtin --startpos --depth 3 --format summary</code></pre>
 <p>If the launcher is not installed, use:</p>
 <pre><code class="language-bash">java -cp out application.Main &lt;area&gt; &lt;action&gt; [options]</code></pre>
-<h2 id="chapter-home-documentation-surfaces">Documentation Surfaces</h2>
+<h2 id="chapter-home-documentation-formats">Documentation Formats</h2>
 <div class="table-wrap"><table>
 <thead><tr>
 <th>Surface</th>
@@ -429,7 +429,7 @@ crtk engine builtin --startpos --depth 3 --format summary</code></pre>
 <td><code>crtk help --full</code></td>
 </tr>
 </tbody></table></div>
-<h2 id="chapter-home-what-chessrtk-covers">What ChessRTK Covers</h2>
+<h2 id="chapter-home-command-areas">Command Areas</h2>
 <div class="table-wrap"><table>
 <thead><tr>
 <th>Area</th>
@@ -477,7 +477,7 @@ crtk engine builtin --startpos --depth 3 --format summary</code></pre>
 <td>Native PDFs, no LaTeX required</td>
 </tr>
 </tbody></table></div>
-<h2 id="chapter-home-most-common-workflows">Most Common Workflows</h2>
+<h2 id="chapter-home-common-workflows">Common Workflows</h2>
 <h3 id="chapter-home-study-one-position">Study One Position</h3>
 <pre><code class="language-bash">crtk fen print --fen &quot;&lt;FEN&gt;&quot;
 crtk move list --fen &quot;&lt;FEN&gt;&quot; --format both
@@ -489,9 +489,9 @@ crtk engine perft-suite --depth 6 --threads 4</code></pre>
 <pre><code class="language-bash">crtk fen pgn --input games.pgn --output seeds.txt
 crtk puzzle mine --input seeds.txt --output dump/run.json --engine-instances 4
 crtk record export pgn --input dump/run.puzzles.json --output dump/run.pgn</code></pre>
-<h2 id="chapter-home-architecture-at-a-glance">Architecture At A Glance</h2>
+<h2 id="chapter-home-architecture-summary">Architecture Summary</h2>
 <p><img src="assets/diagrams/crtk-position-toolbox.png" alt="ChessRTK position toolbox" loading="lazy"></p>
-<p>The main design rule is simple: avoid separate chess implementations for separate tools. FEN parsing, SAN conversion, legality, make/undo, perft, search, rendering, tagging, and export paths all meet at the same Java core.</p>
+<p>The main design rule is to avoid separate chess implementations for separate tools. FEN parsing, SAN conversion, legality, make/undo, perft, search, rendering, tagging, and export paths all meet at the same Java core.</p>
 <h2 id="chapter-home-core-documentation">Core Documentation</h2>
 <div class="table-wrap"><table>
 <thead><tr>
@@ -534,7 +534,7 @@ crtk record export pgn --input dump/run.puzzles.json --output dump/run.pgn</code
   <p class="chapter-kicker">Start Here · Chapter 2</p>
   <h1 id="chapter-getting-started">Getting Started</h1>
   <div class="chapter-body">
-    <p>This page gets a fresh checkout from source code to useful commands.</p>
+    <p>This page covers the path from a fresh checkout to the first working commands.</p>
 <h2 id="chapter-getting-started-requirements">Requirements</h2>
 <ul>
 <li>Java 17+ JDK with <code>javac</code></li>
@@ -570,21 +570,21 @@ crtk record dataset npy --input dump/run.puzzles.json --output training/run</cod
 crtk move --help
 crtk move list --help
 crtk help --full</code></pre>
-<h2 id="chapter-getting-started-first-position-workflow">First Position Workflow</h2>
+<h2 id="chapter-getting-started-position-workflow">Position Workflow</h2>
 <pre><code class="language-bash">crtk fen print --startpos
 crtk move list --startpos --format both
 crtk move after --startpos e2e4
 crtk move play --startpos &quot;e4 e5 Nf3 Nc6&quot;</code></pre>
-<h2 id="chapter-getting-started-first-engine-workflow">First Engine Workflow</h2>
+<h2 id="chapter-getting-started-engine-workflow">Engine Workflow</h2>
 <p>Use the in-process engine when you want no external process:</p>
 <pre><code class="language-bash">crtk engine builtin --startpos --depth 3 --format summary</code></pre>
 <p>Use a configured UCI engine when strength matters:</p>
 <pre><code class="language-bash">crtk engine uci-smoke --nodes 1 --max-duration 5s
 crtk engine bestmove --startpos --format both --max-duration 2s</code></pre>
-<h2 id="chapter-getting-started-first-publishing-workflow">First Publishing Workflow</h2>
+<h2 id="chapter-getting-started-publishing-workflow">Publishing Workflow</h2>
 <pre><code class="language-bash">crtk book pdf --fen &quot;rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1&quot; -o dist/startpos.pdf</code></pre>
 <p>For full books and covers, continue with <a href="#chapter-book-publishing">Book publishing</a>.</p>
-<h2 id="chapter-getting-started-next-pages">Next Pages</h2>
+<h2 id="chapter-getting-started-related-pages">Related Pages</h2>
 <ul>
 <li><a href="#chapter-configuration">Configuration</a></li>
 <li><a href="#chapter-command-reference">Command reference</a></li>
@@ -599,14 +599,14 @@ crtk engine bestmove --startpos --format both --max-duration 2s</code></pre>
   <p class="chapter-kicker">Start Here · Chapter 3</p>
   <h1 id="chapter-use-cases">Use Cases</h1>
   <div class="chapter-body">
-    <p>ChessRTK is broad, so the easiest way to learn it is to start from the job you want done.</p>
-<h2 id="chapter-use-cases-i-want-to-study-one-position">I Want To Study One Position</h2>
+    <p>This page maps common tasks to the commands and documentation sections that usually apply.</p>
+<h2 id="chapter-use-cases-study-one-position">Study One Position</h2>
 <p>Use the position and move primitives first. They run in-process and do not need a configured UCI engine.</p>
 <pre><code class="language-bash">crtk fen print --fen &quot;&lt;FEN&gt;&quot;
 crtk fen normalize --fen &quot;&lt;FEN&gt;&quot;
 crtk move list --fen &quot;&lt;FEN&gt;&quot; --format both
 crtk move play --fen &quot;&lt;FEN&gt;&quot; &quot;e4 e5 Nf3 Nc6&quot;</code></pre>
-<p>Then ask an engine:</p>
+<p>Then use an engine:</p>
 <pre><code class="language-bash">crtk engine bestmove --fen &quot;&lt;FEN&gt;&quot; --format both --max-duration 2s
 crtk engine analyze --fen &quot;&lt;FEN&gt;&quot; --multipv 3 --max-duration 5s</code></pre>
 <p>Read next:</p>
@@ -615,7 +615,7 @@ crtk engine analyze --fen &quot;&lt;FEN&gt;&quot; --multipv 3 --max-duration 5s<
 <li><a href="#chapter-configuration">Configuration</a></li>
 <li><a href="#chapter-in-house-engine">In-House Engine</a></li>
 </ul>
-<h2 id="chapter-use-cases-i-want-to-verify-move-generation">I Want To Verify Move Generation</h2>
+<h2 id="chapter-use-cases-verify-move-generation">Verify Move Generation</h2>
 <p>Use perft and the stored regression suite. These commands validate ChessRTK&#x27;s Java move generator directly.</p>
 <pre><code class="language-bash">crtk engine perft --startpos --depth 4 --threads 4
 crtk engine perft --fen &quot;&lt;FEN&gt;&quot; --depth 5 --divide --threads 4
@@ -626,7 +626,7 @@ crtk engine perft-suite --depth 6 --threads 4</code></pre>
 <li><a href="#chapter-architecture">Architecture</a></li>
 <li><a href="#chapter-development-notes">Development Notes</a></li>
 </ul>
-<h2 id="chapter-use-cases-i-want-to-mine-puzzles">I Want To Mine Puzzles</h2>
+<h2 id="chapter-use-cases-mine-puzzles">Mine Puzzles</h2>
 <p>Start from PGN or FEN seeds, run bounded UCI analysis, then keep accepted and rejected records for later filtering or training.</p>
 <pre><code class="language-bash">crtk fen pgn --input games.pgn --output seeds.txt
 crtk puzzle mine --input seeds.txt --output dump/run.json --engine-instances 4 --max-duration 60s
@@ -638,7 +638,7 @@ crtk puzzle pgn --input dump/run.puzzles.json --output dump/run.pgn</code></pre>
 <li><a href="#chapter-filter-dsl">Filter DSL</a></li>
 <li><a href="#chapter-outputs-and-logs">Outputs and Logs</a></li>
 </ul>
-<h2 id="chapter-use-cases-i-want-to-generate-filtered-position-sets">I Want To Generate Filtered Position Sets</h2>
+<h2 id="chapter-use-cases-generate-filtered-position-sets">Generate Filtered Position Sets</h2>
 <p>Use <code>gen fens</code> when you need reusable FEN shards for training, test corpora, or targeted engine checks. Filters combine with AND, so every selected condition must match.</p>
 <pre><code class="language-bash">crtk gen fens --output endgames/ --files 2 --per-file 500 --endgame --max-material-imbalance 300
 crtk gen fens --output rook-endgames/ --files 1 --per-file 200 --rook-endgame --rooks 2
@@ -649,7 +649,7 @@ crtk gen fens --output specials/ --files 1 --per-file 50 --promotion --capture -
 <li><a href="#chapter-example-commands">Example Commands</a></li>
 <li><a href="#chapter-datasets">Datasets</a></li>
 </ul>
-<h2 id="chapter-use-cases-i-want-to-build-training-data">I Want To Build Training Data</h2>
+<h2 id="chapter-use-cases-build-training-data">Build Training Data</h2>
 <p>Use <code>record</code> commands after mining or importing analysis records.</p>
 <pre><code class="language-bash">crtk record files -i dump/ -o dump/merged.json --recursive --puzzles
 crtk record dataset npy -i dump/merged.json -o training/run
@@ -660,8 +660,8 @@ crtk record dataset classifier -i dump/run.puzzles.json -i dump/run.nonpuzzles.j
 <li><a href="#chapter-piece-tags">Piece and Position Tags</a></li>
 <li><a href="#chapter-filter-dsl">Filter DSL</a></li>
 </ul>
-<h2 id="chapter-use-cases-i-want-to-publish-diagrams-or-books">I Want To Publish Diagrams Or Books</h2>
-<p>Use <code>book pdf</code> for quick diagram sheets and <code>book render</code> / <code>book cover</code> for full book projects.</p>
+<h2 id="chapter-use-cases-publish-diagrams-or-books">Publish Diagrams Or Books</h2>
+<p>Use <code>book pdf</code> for diagram sheets and <code>book render</code> / <code>book cover</code> for book manifests.</p>
 <pre><code class="language-bash">crtk book pdf --fen &quot;&lt;FEN&gt;&quot; -o dist/position.pdf
 crtk book render -i books/puzzles.toml --check
 crtk book render -i books/puzzles.toml -o dist/puzzles.pdf
@@ -671,7 +671,7 @@ crtk book cover -i books/puzzles.toml --pdf dist/puzzles.pdf --check --binding p
 <li><a href="#chapter-book-publishing">Book Publishing</a></li>
 <li><a href="#chapter-example-commands">Example Commands</a></li>
 </ul>
-<h2 id="chapter-use-cases-i-want-agent-friendly-chess-primitives">I Want Agent-Friendly Chess Primitives</h2>
+<h2 id="chapter-use-cases-use-agent-oriented-chess-primitives">Use Agent-Oriented Chess Primitives</h2>
 <p>Prefer deterministic command shapes with explicit formats and bounded engine work.</p>
 <pre><code class="language-bash">crtk fen normalize --fen &quot;&lt;FEN&gt;&quot;
 crtk move list --fen &quot;&lt;FEN&gt;&quot; --format both
@@ -682,7 +682,7 @@ crtk engine bestmove --fen &quot;&lt;FEN&gt;&quot; --format both --max-duration 
 <li><a href="#chapter-ai-agents">AI Agents and Automation</a></li>
 <li><a href="#chapter-command-cheatsheet">Command Cheatsheet</a></li>
 </ul>
-<h2 id="chapter-use-cases-i-want-to-work-on-chessrtk-itself">I Want To Work On ChessRTK Itself</h2>
+<h2 id="chapter-use-cases-work-on-chessrtk">Work On ChessRTK</h2>
 <p>Run focused checks for your edit area and the recommended suite before pushing.</p>
 <pre><code class="language-bash">./scripts/run_regression_suite.sh build
 ./scripts/run_regression_suite.sh lint
@@ -700,13 +700,13 @@ crtk engine bestmove --fen &quot;&lt;FEN&gt;&quot; --format both --max-duration 
   <p class="chapter-kicker">Start Here · Chapter 4</p>
   <h1 id="chapter-command-cheatsheet">Command Cheatsheet</h1>
   <div class="chapter-body">
-    <p>This page is the shortest path from &quot;what do I want?&quot; to the command to run. For complete options, use <code>crtk help --full</code> or open <a href="#chapter-command-reference">Command Reference</a>.</p>
-<h2 id="chapter-command-cheatsheet-one-minute-demo">One-Minute Demo</h2>
+    <p>This page maps common tasks to command examples. For complete options, use <code>crtk help --full</code> or open <a href="#chapter-command-reference">Command Reference</a>.</p>
+<h2 id="chapter-command-cheatsheet-smoke-test">Smoke Test</h2>
 <pre><code class="language-bash">crtk doctor
 crtk fen print --startpos
 crtk move list --startpos --format both
 crtk engine builtin --startpos --depth 3 --format summary</code></pre>
-<h2 id="chapter-command-cheatsheet-setup-and-health">Setup And Health</h2>
+<h2 id="chapter-command-cheatsheet-setup-and-diagnostics">Setup And Diagnostics</h2>
 <div class="table-wrap"><table>
 <thead><tr>
 <th>Task</th>
@@ -1326,11 +1326,6 @@ crtk engine builtin --lc0 --weights models/leela_112planes-10blocksx128-policyhe
 <li><code>crtk book cover ...</code>: render a native PDF cover for a chess-book file</li>
 <li><code>crtk book pdf ...</code>: export chess diagrams to a PDF</li>
 </ul>
-<p>Compatibility aliases:</p>
-<ul>
-<li><code>book ilovechess</code> -&gt; <code>book collection</code></li>
-<li><code>book artofchess</code> / <code>book art</code> -&gt; <code>book study</code></li>
-</ul>
 <h2 id="chapter-command-reference-puzzle"><code>puzzle</code></h2>
 <p>Grouped puzzle mining, conversion, tag, and text workflows.</p>
 <p>Usage:</p>
@@ -1761,11 +1756,10 @@ crtk engine builtin --lc0 --weights models/leela_112planes-10blocksx128-policyhe
 <li><code>-h|--help</code>: show help</li>
 </ul>
 <h2 id="chapter-command-reference-workbench"><code>workbench</code></h2>
-<p>Launch the native Swing command and analysis workbench. The aliases <code>gui</code> and <code>gui-workbench</code> launch this same workbench.</p>
+<p>Launch the native Swing command and analysis workbench. The alias <code>gui</code> launches this same workbench.</p>
 <p>Alias:</p>
 <ul>
 <li><code>gui</code></li>
-<li><code>gui-workbench</code></li>
 </ul>
 <p>The workbench includes:</p>
 <ul>
@@ -3464,7 +3458,7 @@ crtk record dataset classifier \
 <li><code>book render</code>: full puzzle books from JSON/TOML manifests.</li>
 <li><code>book cover</code>: matching paperback, hardcover, or ebook covers from the same manifest.</li>
 </ul>
-<p>No LaTeX step is required for these commands. Legacy aliases <code>book ilovechess</code> and <code>book artofchess</code> still resolve to <code>book collection</code> and <code>book study</code>.</p>
+<p>No LaTeX step is required for these commands.</p>
 <p>The native book renderer keeps publishing-specific text helpers in <code>chess.book.render</code>. Solution SAN in captions and tables is converted to figurine algebraic notation, so moves such as <code>Qxe8+</code> render with chess figurines and a multiplication sign for captures.</p>
 <h2 id="chapter-book-publishing-minimal-workflow">Minimal workflow</h2>
 <pre><code class="language-bash">mkdir -p dist
@@ -4029,11 +4023,11 @@ crtk puzzle text --fen &quot;&lt;FEN&gt;&quot; --model models/t5.bin --include-f
   <p class="chapter-kicker">Workflows · Chapter 22</p>
   <h1 id="chapter-ai-agents">AI Agents</h1>
   <div class="chapter-body">
-    <p>ChessRTK exposes deterministic chess primitives that work well in CI, scripts, and LLM tool workflows. The safest pattern is to use the narrowest command for the task: move conversion for notation, FEN commands for position validity, perft commands for move-generation checks, and bounded engine commands for analysis.</p>
-<p>These commands are worth using because they are built on the same correctness surface as the rest of the toolkit: one shared position model, deterministic output shapes, and regression-backed move-generation checks instead of ad hoc string parsing or GUI scraping.</p>
+    <p>ChessRTK exposes deterministic chess primitives for CI, scripts, and LLM tool workflows. Use the narrowest command for the task: move conversion for notation, FEN commands for position validity, perft commands for move-generation checks, and bounded engine commands for analysis.</p>
+<p>These commands use the same correctness surface as the rest of the toolkit: one shared position model, deterministic output shapes, and regression-backed move-generation checks.</p>
 <p><img src="assets/diagrams/crtk-agentic-commands.png" alt="Agentic command contracts" loading="lazy"></p>
 <p>Diagram source: <code>assets/diagrams/crtk-agentic-commands.dot</code>.</p>
-<h2 id="chapter-ai-agents-why-agents-can-trust-this">Why Agents Can Trust This</h2>
+<h2 id="chapter-ai-agents-automation-contract">Automation Contract</h2>
 <ul>
 <li>Machine-oriented commands prefer line-based or JSON/JSONL formats, explicit</li>
 </ul>
@@ -4181,7 +4175,7 @@ java -cp out application.Main move list --format both --fen &quot;rnbqkbnr/ppppp
 <td>diagnostics and process exit status</td>
 </tr>
 </tbody></table></div>
-<h2 id="chapter-ai-agents-recommended-agent-workflow">Recommended Agent Workflow</h2>
+<h2 id="chapter-ai-agents-automation-sequence">Automation Sequence</h2>
 <ol>
 <li>Run <code>crtk doctor</code> and <code>crtk config validate</code> before long jobs.</li>
 <li>Normalize input FENs with <code>fen normalize</code>.</li>
@@ -4211,7 +4205,7 @@ crtk move to-uci --fen &quot;&lt;FEN&gt;&quot; Nf3</code></pre>
 <p>Apply a SAN or UCI line:</p>
 <pre><code class="language-bash">crtk move play --fen &quot;&lt;FEN&gt;&quot; &quot;e4 e5 Nf3 Nc6&quot;
 crtk move play --fen &quot;&lt;FEN&gt;&quot; e2e4 e7e5 g1f3 --intermediate</code></pre>
-<p>These commands are better for automation than parsing board diagrams because they have compact, line-oriented output.</p>
+<p>These commands avoid parsing board diagrams and provide compact, line-oriented output.</p>
 <h2 id="chapter-ai-agents-engine-tasks">Engine Tasks</h2>
 <p>External UCI engine:</p>
 <pre><code class="language-bash">crtk engine bestmove --fen &quot;&lt;FEN&gt;&quot; --format both --max-duration 5s
@@ -8735,18 +8729,18 @@ explain text: &lt;short reason shown by --explain-tags&gt;</code></pre>
   <p class="chapter-kicker">Development · Chapter 30</p>
   <h1 id="chapter-readme">Wiki Index</h1>
   <div class="chapter-body">
-    <p>Welcome to the ChessRTK documentation. This wiki is the project handbook: it starts with installation and first commands, then moves into configuration, engine workflows, mining, datasets, publishing, architecture, and maintenance.</p>
+    <p>This wiki is the ChessRTK project handbook. It starts with installation and first commands, then covers configuration, engine workflows, mining, datasets, publishing, architecture, and maintenance.</p>
 <p>For a website-style version with sidebar navigation and readable page layout, open <code>https://LenniAConrad.github.io/chess-rtk/</code>.</p>
 <p>If the launcher is not installed, replace <code>crtk &lt;command&gt; ...</code> with <code>java -cp out application.Main &lt;command&gt; ...</code> after building the project.</p>
-<h2 id="chapter-readme-start-here">Start Here</h2>
+<h2 id="chapter-readme-navigation">Navigation</h2>
 <ul>
 <li><a href="#chapter-getting-started">Getting started</a> - build, install, verify, and run the</li>
 </ul>
-<p>first useful commands</p>
+<p>first commands</p>
 <ul>
 <li><a href="#chapter-faq">FAQ</a> - practical answers for new users</li>
 <li><a href="#chapter-use-cases">Use cases</a> - workflow paths by role or job</li>
-<li><a href="#chapter-command-cheatsheet">Command cheatsheet</a> - fastest path from goal to command</li>
+<li><a href="#chapter-command-cheatsheet">Command cheatsheet</a> - common tasks mapped to commands</li>
 <li><a href="#chapter-command-reference">Command reference</a> - grouped CLI surface and options</li>
 <li><a href="#chapter-example-commands">Example commands</a> - copyable command recipes</li>
 <li><a href="#chapter-troubleshooting">Troubleshooting</a> - common setup and runtime failures</li>
@@ -8781,7 +8775,7 @@ explain text: &lt;short reason shown by --explain-tags&gt;</code></pre>
 <li><a href="#chapter-roadmap">Roadmap and ideas</a></li>
 <li><a href="#chapter-glossary">Glossary</a></li>
 </ul>
-<h2 id="chapter-readme-capability-map">Capability Map</h2>
+<h2 id="chapter-readme-command-areas">Command Areas</h2>
 <div class="table-wrap"><table>
 <thead><tr>
 <th>Task</th>
@@ -8839,15 +8833,15 @@ explain text: &lt;short reason shown by --explain-tags&gt;</code></pre>
 <td><a href="#chapter-book-publishing">Book publishing</a></td>
 </tr>
 <tr>
-<td>Automate safely</td>
+<td>Automate command use</td>
 <td><code>doctor</code>, <code>config validate</code>, deterministic move and bestmove commands</td>
 <td><a href="#chapter-ai-agents">AI agents and automation</a></td>
 </tr>
 </tbody></table></div>
-<h2 id="chapter-readme-architecture-at-a-glance">Architecture At A Glance</h2>
+<h2 id="chapter-readme-architecture-summary">Architecture Summary</h2>
 <p><img src="assets/diagrams/crtk-position-toolbox.png" alt="ChessRTK position toolbox" loading="lazy"></p>
 <p>ChessRTK is built around one shared Java position model. The same legality and notation code drives the CLI, perft validation, built-in search, tagging, dataset export, rendering, GUI tools, and publishing output.</p>
-<h2 id="chapter-readme-quick-verification">Quick Verification</h2>
+<h2 id="chapter-readme-verification">Verification</h2>
 <pre><code class="language-bash">mkdir -p out
 javac --release 17 -d out $(find src -name &quot;*.java&quot;)
 java -cp out testing.CoreMoveGenerationRegressionTest

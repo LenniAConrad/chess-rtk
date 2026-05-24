@@ -75,10 +75,10 @@
 <section class="hero">
   <div>
     <p class="eyebrow">ChessRTK documentation</p>
-    <h1>Chess tools, engine workflows, datasets, and publishing in one CLI.</h1>
-    <p>Use the sidebar to browse guides, command references, architecture notes, and workflow docs.</p>
+    <h1>Command-line chess tooling, engine workflows, datasets, and publishing.</h1>
+    <p>The documentation covers setup, command references, architecture notes, and workflow guides.</p>
     <p class="hero-actions">
-      <a href="getting-started.html">Get started</a>
+      <a href="getting-started.html">Setup</a>
       <a href="command-cheatsheet.html">Command cheatsheet</a>
       <a href="architecture.html">Architecture</a>
     </p>
@@ -90,12 +90,12 @@
         <article class="content">
           <p>ChessRTK (<code>crtk</code>) is a Java 17 chess research toolkit for deterministic chess workflows: FEN and SAN handling, legal move generation, perft validation, engine analysis, puzzle mining, dataset export, board rendering, and native PDF book publishing.</p>
 <p>The project is organized around one shared position model. That means the same rules implementation drives command-line move lists, built-in search, UCI analysis, tags, datasets, diagrams, GUI views, and book output.</p>
-<h2 id="pick-your-path">Pick Your Path</h2>
+<h2 id="navigation">Navigation</h2>
 <div class="table-wrap"><table>
 <thead><tr>
-<th>If you want to...</th>
+<th>Task</th>
 <th>Read this</th>
-<th>Then run</th>
+<th>First command</th>
 </tr></thead><tbody>
 <tr>
 <td>Install and verify ChessRTK</td>
@@ -103,12 +103,12 @@
 <td><code>crtk doctor</code></td>
 </tr>
 <tr>
-<td>Choose the right workflow</td>
+<td>Choose a workflow</td>
 <td><a href="use-cases.html">Use Cases</a></td>
-<td>start with the row that matches your job</td>
+<td>start with the matching task</td>
 </tr>
 <tr>
-<td>Copy useful recipes</td>
+<td>Copy command recipes</td>
 <td><a href="command-cheatsheet.html">Command Cheatsheet</a></td>
 <td><code>crtk move list --startpos --format both</code></td>
 </tr>
@@ -153,7 +153,7 @@
 <td>start with the matching failure section</td>
 </tr>
 </tbody></table></div>
-<h2 id="copy-paste-smoke-test">Copy-Paste Smoke Test</h2>
+<h2 id="smoke-test">Smoke Test</h2>
 <pre><code class="language-bash">crtk doctor
 crtk fen print --startpos
 crtk move list --startpos --format both
@@ -161,7 +161,7 @@ crtk engine perft --startpos --depth 4 --threads 4
 crtk engine builtin --startpos --depth 3 --format summary</code></pre>
 <p>If the launcher is not installed, use:</p>
 <pre><code class="language-bash">java -cp out application.Main &lt;area&gt; &lt;action&gt; [options]</code></pre>
-<h2 id="documentation-surfaces">Documentation Surfaces</h2>
+<h2 id="documentation-formats">Documentation Formats</h2>
 <div class="table-wrap"><table>
 <thead><tr>
 <th>Surface</th>
@@ -189,7 +189,7 @@ crtk engine builtin --startpos --depth 3 --format summary</code></pre>
 <td><code>crtk help --full</code></td>
 </tr>
 </tbody></table></div>
-<h2 id="what-chessrtk-covers">What ChessRTK Covers</h2>
+<h2 id="command-areas">Command Areas</h2>
 <div class="table-wrap"><table>
 <thead><tr>
 <th>Area</th>
@@ -237,7 +237,7 @@ crtk engine builtin --startpos --depth 3 --format summary</code></pre>
 <td>Native PDFs, no LaTeX required</td>
 </tr>
 </tbody></table></div>
-<h2 id="most-common-workflows">Most Common Workflows</h2>
+<h2 id="common-workflows">Common Workflows</h2>
 <h3 id="study-one-position">Study One Position</h3>
 <pre><code class="language-bash">crtk fen print --fen &quot;&lt;FEN&gt;&quot;
 crtk move list --fen &quot;&lt;FEN&gt;&quot; --format both
@@ -249,9 +249,9 @@ crtk engine perft-suite --depth 6 --threads 4</code></pre>
 <pre><code class="language-bash">crtk fen pgn --input games.pgn --output seeds.txt
 crtk puzzle mine --input seeds.txt --output dump/run.json --engine-instances 4
 crtk record export pgn --input dump/run.puzzles.json --output dump/run.pgn</code></pre>
-<h2 id="architecture-at-a-glance">Architecture At A Glance</h2>
+<h2 id="architecture-summary">Architecture Summary</h2>
 <p><img src="assets/diagrams/crtk-position-toolbox.png" alt="ChessRTK position toolbox" loading="lazy"></p>
-<p>The main design rule is simple: avoid separate chess implementations for separate tools. FEN parsing, SAN conversion, legality, make/undo, perft, search, rendering, tagging, and export paths all meet at the same Java core.</p>
+<p>The main design rule is to avoid separate chess implementations for separate tools. FEN parsing, SAN conversion, legality, make/undo, perft, search, rendering, tagging, and export paths all meet at the same Java core.</p>
 <h2 id="core-documentation">Core Documentation</h2>
 <div class="table-wrap"><table>
 <thead><tr>
@@ -289,15 +289,15 @@ crtk record export pgn --input dump/run.puzzles.json --output dump/run.pgn</code
 <pre><code class="language-bash">./scripts/run_regression_suite.sh recommended</code></pre>
         </article>
         <aside class="toc"><h2>On This Page</h2>
-<a class="toc-h2" href="#pick-your-path">Pick Your Path</a>
-<a class="toc-h2" href="#copy-paste-smoke-test">Copy-Paste Smoke Test</a>
-<a class="toc-h2" href="#documentation-surfaces">Documentation Surfaces</a>
-<a class="toc-h2" href="#what-chessrtk-covers">What ChessRTK Covers</a>
-<a class="toc-h2" href="#most-common-workflows">Most Common Workflows</a>
+<a class="toc-h2" href="#navigation">Navigation</a>
+<a class="toc-h2" href="#smoke-test">Smoke Test</a>
+<a class="toc-h2" href="#documentation-formats">Documentation Formats</a>
+<a class="toc-h2" href="#command-areas">Command Areas</a>
+<a class="toc-h2" href="#common-workflows">Common Workflows</a>
 <a class="toc-h3" href="#study-one-position">Study One Position</a>
 <a class="toc-h3" href="#validate-the-core">Validate The Core</a>
 <a class="toc-h3" href="#mine-and-export-puzzles">Mine And Export Puzzles</a>
-<a class="toc-h2" href="#architecture-at-a-glance">Architecture At A Glance</a>
+<a class="toc-h2" href="#architecture-summary">Architecture Summary</a>
 <a class="toc-h2" href="#core-documentation">Core Documentation</a>
 <a class="toc-h2" href="#website-version">Website Version</a>
 <a class="toc-h2" href="#support">Support</a></aside>

@@ -75,7 +75,7 @@
       <main class="content-layout">
         <article class="content">
           <h1 id="getting-started">Getting Started</h1>
-<p>This page gets a fresh checkout from source code to useful commands.</p>
+<p>This page covers the path from a fresh checkout to the first working commands.</p>
 <h2 id="requirements">Requirements</h2>
 <ul>
 <li>Java 17+ JDK with <code>javac</code></li>
@@ -111,21 +111,21 @@ crtk record dataset npy --input dump/run.puzzles.json --output training/run</cod
 crtk move --help
 crtk move list --help
 crtk help --full</code></pre>
-<h2 id="first-position-workflow">First Position Workflow</h2>
+<h2 id="position-workflow">Position Workflow</h2>
 <pre><code class="language-bash">crtk fen print --startpos
 crtk move list --startpos --format both
 crtk move after --startpos e2e4
 crtk move play --startpos &quot;e4 e5 Nf3 Nc6&quot;</code></pre>
-<h2 id="first-engine-workflow">First Engine Workflow</h2>
+<h2 id="engine-workflow">Engine Workflow</h2>
 <p>Use the in-process engine when you want no external process:</p>
 <pre><code class="language-bash">crtk engine builtin --startpos --depth 3 --format summary</code></pre>
 <p>Use a configured UCI engine when strength matters:</p>
 <pre><code class="language-bash">crtk engine uci-smoke --nodes 1 --max-duration 5s
 crtk engine bestmove --startpos --format both --max-duration 2s</code></pre>
-<h2 id="first-publishing-workflow">First Publishing Workflow</h2>
+<h2 id="publishing-workflow">Publishing Workflow</h2>
 <pre><code class="language-bash">crtk book pdf --fen &quot;rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1&quot; -o dist/startpos.pdf</code></pre>
 <p>For full books and covers, continue with <a href="book-publishing.html">Book publishing</a>.</p>
-<h2 id="next-pages">Next Pages</h2>
+<h2 id="related-pages">Related Pages</h2>
 <ul>
 <li><a href="configuration.html">Configuration</a></li>
 <li><a href="command-reference.html">Command reference</a></li>
@@ -140,10 +140,10 @@ crtk engine bestmove --startpos --format both --max-duration 2s</code></pre>
 <a class="toc-h2" href="#install-the-launcher">Install The Launcher</a>
 <a class="toc-h2" href="#verify-the-checkout">Verify The Checkout</a>
 <a class="toc-h2" href="#learn-the-command-shape">Learn The Command Shape</a>
-<a class="toc-h2" href="#first-position-workflow">First Position Workflow</a>
-<a class="toc-h2" href="#first-engine-workflow">First Engine Workflow</a>
-<a class="toc-h2" href="#first-publishing-workflow">First Publishing Workflow</a>
-<a class="toc-h2" href="#next-pages">Next Pages</a></aside>
+<a class="toc-h2" href="#position-workflow">Position Workflow</a>
+<a class="toc-h2" href="#engine-workflow">Engine Workflow</a>
+<a class="toc-h2" href="#publishing-workflow">Publishing Workflow</a>
+<a class="toc-h2" href="#related-pages">Related Pages</a></aside>
       </main>
       <footer class="footer">
         <span>Generated from <code>wiki/getting-started.md</code>.</span>
