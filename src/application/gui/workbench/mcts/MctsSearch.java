@@ -98,6 +98,11 @@ public final class MctsSearch implements AutoCloseable {
     private Node lastLeaf;
 
     /**
+     * Leaf selected for the playout currently being evaluated.
+     */
+    private Node currentLeaf;
+
+    /**
      * True after resources owned by the backend have been released.
      */
     private boolean closed;
@@ -206,13 +211,9 @@ public final class MctsSearch implements AutoCloseable {
         if (immediateRootDecision != null) {
             return;
         }
-        List<Node> path = new ArrayList<>();
-        Node node = root;
-        path.add(node);
-        while (node.proof == ProofState.UNKNOWN && node.expanded && !node.children.isEmpty()) {
-            node = selectChild(node);
-            path.add(node);
-        }
+        List<Node> path = selectPathToLeaf();
+        Node node = path.get(path.size() - 1);
+        currentLeaf = node;
         SearchEvaluation value = evaluate(node, path);
         if (!node.expanded && !isTerminal(node, path)) {
             expand(node, path);
@@ -221,6 +222,22 @@ public final class MctsSearch implements AutoCloseable {
         propagateProof(path);
         lastLeaf = node;
         playouts++;
+    }
+
+    /**
+     * Builds a snapshot after selecting the leaf that the next playout will
+     * evaluate, without mutating visits or values.
+     *
+     * @param paused true when the worker is paused
+     * @return search snapshot focused on the next evaluated leaf
+     */
+    public Snapshot previewNextLeaf(boolean paused) {
+        ensureOpen();
+        if (immediateRootDecision == null && root.proof == ProofState.UNKNOWN) {
+            List<Node> path = selectPathToLeaf();
+            currentLeaf = path.get(path.size() - 1);
+        }
+        return snapshot(paused);
     }
 
     /**
@@ -243,6 +260,22 @@ public final class MctsSearch implements AutoCloseable {
     }
 
     /**
+     * Selects the root-to-leaf path that the next playout will evaluate.
+     *
+     * @return selected path
+     */
+    private List<Node> selectPathToLeaf() {
+        List<Node> path = new ArrayList<>();
+        Node node = root;
+        path.add(node);
+        while (node.proof == ProofState.UNKNOWN && node.expanded && !node.children.isEmpty()) {
+            node = selectChild(node);
+            path.add(node);
+        }
+        return path;
+    }
+
+    /**
      * Re-roots the tree to an already-searched child position when possible.
      *
      * @param newRoot target root position
@@ -255,6 +288,7 @@ public final class MctsSearch implements AutoCloseable {
         long key = newRoot.signature();
         if (root.key == key) {
             rootPosition = newRoot.copy();
+            currentLeaf = root;
             refreshImmediateRootDecision();
             return true;
         }
@@ -266,6 +300,7 @@ public final class MctsSearch implements AutoCloseable {
             root = reused;
             rootPosition = newRoot.copy();
             lastLeaf = root;
+            currentLeaf = root;
             playouts = root.visits();
             refreshImmediateRootDecision();
             return true;
@@ -273,6 +308,7 @@ public final class MctsSearch implements AutoCloseable {
         rootPosition = newRoot.copy();
         root = newNode(null, Move.NO_MOVE, rootPosition.copy(), 1.0, 0);
         lastLeaf = null;
+        currentLeaf = null;
         playouts = 0L;
         expand(root, List.of(root));
         refreshImmediateRootDecision();
@@ -360,10 +396,12 @@ public final class MctsSearch implements AutoCloseable {
                 break;
             }
         }
-        Position exploring = immediateDecisionAsLeaf(decision) ? preview.copy()
-                : lastLeaf == null ? rootPosition.copy() : lastLeaf.position.copy();
-        short[] exploringLine = immediateDecisionAsLeaf(decision) ? bestPv
-                : lastLeaf == null ? new short[0] : lineTo(lastLeaf, 12);
+        Node exploringLeaf = currentLeaf == null ? lastLeaf : currentLeaf;
+        boolean decisionLeaf = exploringLeaf == null && immediateDecisionAsLeaf(decision);
+        Position exploring = decisionLeaf ? preview.copy()
+                : exploringLeaf == null ? rootPosition.copy() : exploringLeaf.position.copy();
+        short[] exploringLine = decisionLeaf ? bestPv
+                : exploringLeaf == null ? new short[0] : lineTo(exploringLeaf, 12);
         double displayValue = decision == null
                 ? root.proof == ProofState.UNKNOWN
                         ? best == null ? root.q() : rootPerspectiveQ(best)

@@ -722,6 +722,10 @@ final class WorkbenchBackendRegression {
                 "network MCTS still builds follow-leaf activations off the EDT");
         assertTrue(source.contains("buildNetworkMctsFrame"),
                 "network MCTS builds live frames off the EDT");
+        int previewLeaf = source.indexOf("search.previewNextLeaf(false)");
+        int iterateLeaf = source.indexOf("search.iterate();");
+        assertTrue(previewLeaf >= 0 && iterateLeaf > previewLeaf,
+                "network MCTS publishes the selected leaf before evaluating it");
         assertTrue(source.contains("setCollapsibleExpanded(mctsWeightsSection, true)"),
                 "network MCTS expands live edge weights when search starts");
         assertTrue(viewSource.contains("Dimension previousPreferred = getPreferredSize()")
@@ -744,9 +748,9 @@ final class WorkbenchBackendRegression {
         } catch (IOException ex) {
             throw new AssertionError("unable to read NetworkPanel source", ex);
         }
-        int publishTree = source.indexOf("publishNetworkMctsFrame(frame, playouts);");
+        int publishTree = source.indexOf("publishNetworkMctsFrame(frame, nextPlayout);");
         int buildActivation = source.indexOf("buildNetworkMctsLeafActivationFrame(frame)");
-        int publishActivation = source.indexOf("publishNetworkMctsFrame(activationFrame, playouts)");
+        int publishActivation = source.indexOf("publishNetworkMctsFrame(activationFrame, nextPlayout)");
         assertTrue(publishTree >= 0 && buildActivation > publishTree,
                 "network MCTS publishes tree weights before building leaf activation");
         assertTrue(publishActivation > buildActivation,
@@ -1342,6 +1346,17 @@ final class WorkbenchBackendRegression {
         assertTrue(!rows.isEmpty(), "MCTS snapshot has root rows");
         short bestMove = (Short) invoke(snapshot, "bestMove", new Class<?>[0]);
         assertTrue(new Position(START_FEN).isLegalMove(bestMove), "MCTS best move is legal");
+        long beforePreview = ((Long) invoke(search, "playouts", new Class<?>[0])).longValue();
+        Object preview = invoke(search, "previewNextLeaf", new Class<?>[] { boolean.class }, false);
+        assertEquals(Long.valueOf(beforePreview), invoke(preview, "playouts", new Class<?>[0]),
+                "MCTS leaf preview does not count as a playout");
+        String previewLeaf = (String) invoke(preview, "exploringLineText", new Class<?>[0]);
+        assertTrue(previewLeaf != null && !previewLeaf.isBlank(),
+                "MCTS preview focuses the leaf selected for evaluation");
+        invoke(search, "iterate", new Class<?>[0]);
+        Object afterPreview = invoke(search, "snapshot", new Class<?>[] { boolean.class }, false);
+        assertEquals(previewLeaf, invoke(afterPreview, "exploringLineText", new Class<?>[0]),
+                "MCTS snapshot stays on the evaluated leaf instead of the current best line");
     }
 
     /**
@@ -1587,6 +1602,17 @@ final class WorkbenchBackendRegression {
     private static void testMctsPanelStreamsWarmupFrames() {
         Class<?> panel = type("MctsPanel");
         Class<?>[] signature = { long.class, long.class, long.class };
+        String panelSource;
+        try {
+            panelSource = Files.readString(Path.of("src/application/gui/workbench/mcts/MctsPanel.java"),
+                    StandardCharsets.UTF_8);
+        } catch (IOException ex) {
+            throw new AssertionError("unable to read MCTS panel source", ex);
+        }
+        int previewPublish = panelSource.indexOf("publish(activeSearch.previewNextLeaf(false));");
+        int iterateCall = panelSource.indexOf("activeSearch.iterate();");
+        assertTrue(previewPublish >= 0 && iterateCall > previewPublish,
+                "Analyze MCTS publishes the selected leaf before evaluating it");
         assertEquals(Short.valueOf(Move.parse("g1f3")),
                 invokeStatic(panel, "lastLineMove",
                         new Class<?>[] { short[].class },

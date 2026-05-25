@@ -337,16 +337,17 @@ public final class MctsPanel extends JPanel {
                         Thread.sleep(80L);
                         continue;
                     }
-                    activeSearch.iterate();
-                    long playouts = activeSearch.playouts();
+                    long nextPlayout = activeSearch.playouts() + 1L;
                     long now = System.nanoTime();
-                    if (shouldPublishLiveFrame(playouts, now, lastPublishNanos)) {
-                        publish(activeSearch.snapshot(false));
+                    boolean publishLeaf = shouldPublishLiveFrame(nextPlayout, now, lastPublishNanos);
+                    if (publishLeaf) {
+                        publish(activeSearch.previewNextLeaf(false));
                         lastPublishNanos = now;
-                        if (playouts <= LIVE_WARMUP_PLAYOUTS) {
+                        if (nextPlayout <= LIVE_WARMUP_PLAYOUTS) {
                             Thread.sleep(LIVE_WARMUP_DELAY_MS);
                         }
                     }
+                    activeSearch.iterate();
                 }
                 publish(activeSearch.snapshot(paused));
                 return null;

@@ -1198,26 +1198,26 @@ public final class NetworkPanel extends JPanel {
                         Thread.sleep(80L);
                         continue;
                     }
-                    search.iterate();
-                    long playouts = search.playouts();
+                    long nextPlayout = search.playouts() + 1L;
                     long now = System.nanoTime();
-                    boolean treeFrameDue = shouldPublishNetworkMctsFrame(playouts, now, lastPublishNanos);
+                    boolean treeFrameDue = shouldPublishNetworkMctsFrame(nextPlayout, now, lastPublishNanos);
                     boolean leafFrameDue = mctsFollowLeafEnabled
                             && shouldPublishNetworkMctsLeafFrame(now, lastLeafActivationNanos);
                     if (treeFrameDue || leafFrameDue) {
-                        NetworkMctsFrame frame = buildNetworkMctsFrame(search.snapshot(false));
-                        publishNetworkMctsFrame(frame, playouts);
+                        NetworkMctsFrame frame = buildNetworkMctsFrame(search.previewNextLeaf(false));
+                        publishNetworkMctsFrame(frame, nextPlayout);
                         lastPublishNanos = now;
                         if (leafFrameDue && !isCancelled()) {
                             NetworkMctsFrame activationFrame = buildNetworkMctsLeafActivationFrame(frame);
                             lastLeafActivationNanos = System.nanoTime();
                             if (!isCancelled() && mctsFollowLeafEnabled
                                     && activationFrame.leafSnapshot() != null) {
-                                publishNetworkMctsFrame(activationFrame, playouts);
+                                publishNetworkMctsFrame(activationFrame, nextPlayout);
                             }
                         }
                     }
-                    if (playouts % NETWORK_MCTS_YIELD_INTERVAL == 0) {
+                    search.iterate();
+                    if (search.playouts() % NETWORK_MCTS_YIELD_INTERVAL == 0) {
                         Thread.sleep(1L);
                     }
                 }
