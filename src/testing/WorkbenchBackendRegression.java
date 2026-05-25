@@ -88,6 +88,7 @@ final class WorkbenchBackendRegression {
         testNnueTraceFitsViewportAndCentersColumns();
         testNnueRawUsesStableFeatureLanes();
         testNnueHalfKpDecodingUsesFeatureEncoderLayout();
+        testNnueForwardSkipUsesNormalLineStyle();
         testNnueTraceRanksCombinedContributionsAndShowsAllFeatures();
         testNnueTraceInlineInspectorShowsGatheredColumn();
         testCnnAndBt4AtlasPaintSyntheticSnapshotsHeadlessly();
@@ -1078,6 +1079,28 @@ final class WorkbenchBackendRegression {
                 "synthetic NNUE emits Stockfish-shaped FC1 data");
         assertTrue(data(snapshot, "nnue.stockfish.output.parts").length == 4,
                 "synthetic NNUE emits Stockfish output decomposition");
+    }
+
+    /**
+     * Verifies the Stockfish forward-skip edge does not use a separate border,
+     * endpoint marker, or heavier stroke than ordinary Trace edges.
+     */
+    private static void testNnueForwardSkipUsesNormalLineStyle() {
+        String source;
+        try {
+            source = Files.readString(Path.of("src/application/gui/workbench/network/NnueDrawing.java"),
+                    StandardCharsets.UTF_8);
+        } catch (IOException ex) {
+            throw new AssertionError("unable to read NNUE drawing source", ex);
+        }
+        assertFalse(source.contains("TRACE_SKIP_EDGE_UNDERLAY_WIDTH"),
+                "forward skip line has no cutout underlay");
+        assertFalse(source.contains("TRACE_SKIP_EDGE_WIDTH"),
+                "forward skip line does not define a separate heavy stroke");
+        assertFalse(source.contains("drawSkipEndpoint"),
+                "forward skip line has no endpoint marker");
+        assertTrue(source.contains("g.setStroke(new BasicStroke(TRACE_EDGE_WIDTH"),
+                "forward skip line reuses ordinary trace edge width");
     }
 
     /**

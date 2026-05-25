@@ -40,17 +40,6 @@ public final class NnueDrawing {
     private static final int TRACE_EDGE_FOCUS_BOOST = 58;
 
     /**
-     * Opaque stroke width used to carve a readable skip lane through dense
-     * trace wiring.
-     */
-    private static final float TRACE_SKIP_EDGE_UNDERLAY_WIDTH = 6.0f;
-
-    /**
-     * Accent stroke width for the Stockfish forward-skip bypass.
-     */
-    private static final float TRACE_SKIP_EDGE_WIDTH = 1.9f;
-
-    /**
      * Utility class.
      */
     private NnueDrawing() {
@@ -422,7 +411,7 @@ public final class NnueDrawing {
         int top = Math.min(Math.min(y1, y2), laneY);
         int bottom = Math.max(Math.max(y1, y2), laneY);
         if (right - left < 24) {
-            drawTraceEdge(g, x1, y1, x2, y2, strength, true);
+            drawTraceEdge(g, x1, y1, x2, y2, strength, false);
             return new Rectangle(left, top, Math.max(1, right - left), Math.max(1, bottom - top));
         }
 
@@ -430,25 +419,15 @@ public final class NnueDrawing {
         float mag = (float) Math.sqrt(Math.abs(s));
         Color base = Math.abs(s) < 0.004f ? Theme.MUTED
                 : s >= 0.0f ? TensorViz.POSITIVE : TensorViz.NEGATIVE;
-        int alpha = Math.min(235, TRACE_EDGE_ALPHA_MIN
-                + Math.round((TRACE_EDGE_ALPHA_MAX - TRACE_EDGE_ALPHA_MIN) * mag)
-                + TRACE_EDGE_FOCUS_BOOST);
-        Color accent = new Color(base.getRed(), base.getGreen(), base.getBlue(), alpha);
+        int alpha = TRACE_EDGE_ALPHA_MIN
+                + Math.round((TRACE_EDGE_ALPHA_MAX - TRACE_EDGE_ALPHA_MIN) * mag);
         Path2D.Double curve = skipBezierPath(x1, y1, x2, y2, laneY);
         Stroke oldStroke = g.getStroke();
 
-        g.setColor(Theme.withAlpha(Theme.PANEL_SOLID, Theme.isDark() ? 220 : 235));
-        g.setStroke(new BasicStroke(TRACE_SKIP_EDGE_UNDERLAY_WIDTH,
+        g.setColor(new Color(base.getRed(), base.getGreen(), base.getBlue(), alpha));
+        g.setStroke(new BasicStroke(TRACE_EDGE_WIDTH,
                 BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
         g.draw(curve);
-
-        g.setColor(Theme.withAlpha(base, Math.min(255, alpha + 10)));
-        g.setStroke(new BasicStroke(TRACE_SKIP_EDGE_WIDTH,
-                BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-        g.draw(curve);
-
-        drawSkipEndpoint(g, x1, y1, accent);
-        drawSkipEndpoint(g, x2, y2, accent);
         g.setStroke(oldStroke);
 
         return new Rectangle(left - 6, top - 10, right - left + 12, bottom - top + 20);
@@ -472,24 +451,6 @@ public final class NnueDrawing {
         path.moveTo(x1, y1);
         path.curveTo(c1x, laneY, c2x, laneY, x2, y2);
         return path;
-    }
-
-    /**
-     * Draws an endpoint marker for the forward-skip line.
-     *
-     * @param g graphics
-     * @param x marker center x
-     * @param y marker center y
-     * @param accent marker accent
-     */
-    private static void drawSkipEndpoint(Graphics2D g, int x, int y, Color accent) {
-        g.setColor(Theme.withAlpha(Theme.PANEL_SOLID, Theme.isDark() ? 238 : 245));
-        g.fillOval(x - 4, y - 4, 8, 8);
-        g.setStroke(new BasicStroke(1.35f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-        g.setColor(Theme.withAlpha(accent, 220));
-        g.drawOval(x - 4, y - 4, 8, 8);
-        g.setColor(Theme.withAlpha(accent, 92));
-        g.fillOval(x - 2, y - 2, 4, 4);
     }
 
     /**
