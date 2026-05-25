@@ -2,6 +2,7 @@ package application.gui.workbench.game;
 
 import chess.core.Move;
 import chess.core.Position;
+import chess.struct.Game;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -10,6 +11,8 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * File-backed puzzle library support for the workbench puzzle trainer.
@@ -17,14 +20,19 @@ import java.util.Locale;
 public final class PuzzleLibrary {
 
     /**
-     * Default difficult puzzle collection generated from local puzzle data.
+     * Default puzzle collection exported from the chess-web puzzle PGN.
      */
-    public static final Path DEFAULT_PATH = Path.of("assets", "puzzles", "difficult-lichess-10k.csv");
+    public static final Path DEFAULT_PATH = Path.of("assets", "puzzles", "chess-web-stack-100k.pgn");
 
     /**
      * Expected Lichess CSV column count.
      */
     private static final int LICHESS_COLUMN_COUNT = 10;
+
+    /**
+     * Pattern for PGN tag pair lines.
+     */
+    private static final Pattern PGN_TAG_LINE = Pattern.compile("^\\[(\\w+)\\s+\"(.*)\"\\]$");
 
     /**
      * Puzzle identifier column index.
@@ -69,7 +77,7 @@ public final class PuzzleLibrary {
     }
 
     /**
-     * One Lichess-style puzzle entry.
+     * One CSV or PGN-backed puzzle entry.
      *
      * @param id source puzzle identifier
      * @param fen start FEN
@@ -78,6 +86,7 @@ public final class PuzzleLibrary {
      * @param themes source theme labels
      * @param gameUrl source game URL
      * @param openingTags source opening labels
+     * @param pgnText original PGN block for variation-aware puzzles
      */
     public record Entry(
             String id,
@@ -86,7 +95,8 @@ public final class PuzzleLibrary {
             int rating,
             String themes,
             String gameUrl,
-            String openingTags) {
+            String openingTags,
+            String pgnText) {
 
         /**
          * Normalizes nullable entry fields.
@@ -98,6 +108,16 @@ public final class PuzzleLibrary {
             themes = safe(themes);
             gameUrl = safe(gameUrl);
             openingTags = safe(openingTags);
+            pgnText = pgnText == null ? "" : pgnText.trim();
+        }
+
+        /**
+         * Returns whether the entry carries its source PGN block.
+         *
+         * @return true when PGN text is available
+         */
+        public boolean hasPgnText() {
+            return !pgnText.isBlank();
         }
 
         /**
@@ -106,6 +126,9 @@ public final class PuzzleLibrary {
          * @return entry title
          */
         public String title() {
+            if (hasPgnText()) {
+                return id.isBlank() ? "Chess-web puzzle" : id;
+            }
             return id.isBlank() ? "Difficult Puzzle" : "Difficult " + id;
         }
 
@@ -131,13 +154,31 @@ public final class PuzzleLibrary {
     }
 
     /**
+     * Reads a puzzle library file. CSV rows are interpreted as Lichess-style
+     * UCI lines; PGN files are indexed as variation-aware puzzle blocks.
+     *
+     * @param path puzzle library file
+     * @return parsed entries
+     * @throws IOException when the file cannot be read or no entries exist
+     */
+    public static List<Entry> read(Path path) throws IOException {
+        if (isCsv(path)) {
+            return readCsv(path);
+        }
+        if (isPgn(path)) {
+            return readPgn(path);
+        }
+        throw new IOException("Unsupported puzzle library format: " + path);
+    }
+
+    /**
      * Reads a Lichess-style puzzle CSV.
      *
      * @param path CSV file
      * @return parsed entries
      * @throws IOException when the file cannot be read or no entries exist
      */
-    public static List<Entry> read(Path path) throws IOException {
+    private static List<Entry> readCsv(Path path) throws IOException {
         List<Entry> entries = new ArrayList<>();
         try (BufferedReader reader = Files.newBufferedReader(path, StandardCharsets.UTF_8)) {
             String line;
@@ -161,6 +202,49 @@ public final class PuzzleLibrary {
     }
 
     /**
+     * Reads a PGN puzzle library while keeping each source block intact.
+     *
+     * @param path PGN file
+     * @return indexed entries
+     * @throws IOException when the file cannot be read or no entries exist
+     */
+    private static List<Entry> readPgn(Path path) throws IOException {
+        List<Entry> entries = new ArrayList<>();
+        try (BufferedReader reader = Files.newBufferedReader(path, StandardCharsets.UTF_8)) {
+            StringBuilder current = new StringBuilder();
+            boolean sawMoveText = false;
+            String line;
+            while ((line = reader.readLine()) != null) {
+                String trimmed = line.trim();
+                if (trimmed.isEmpty()) {
+                    if (sawMoveText && !current.isEmpty()) {
+                        addPgnEntry(entries, current, path);
+                        sawMoveText = false;
+                    } else if (!current.isEmpty()) {
+                        current.append(System.lineSeparator());
+                    }
+                    continue;
+                }
+
+                if (!current.isEmpty()) {
+                    current.append(System.lineSeparator());
+                }
+                current.append(line);
+                if (!trimmed.startsWith("[")) {
+                    sawMoveText = true;
+                }
+            }
+            if (!current.isEmpty()) {
+                addPgnEntry(entries, current, path);
+            }
+        }
+        if (entries.isEmpty()) {
+            throw new IOException("No puzzle entries found in " + path);
+        }
+        return List.copyOf(entries);
+    }
+
+    /**
      * Returns whether a file path looks like a CSV puzzle library.
      *
      * @param path file path
@@ -174,12 +258,39 @@ public final class PuzzleLibrary {
     }
 
     /**
+     * Returns whether a file path looks like a PGN puzzle library.
+     *
+     * @param path file path
+     * @return true when the extension is pgn
+     */
+    public static boolean isPgn(Path path) {
+        if (path == null || path.getFileName() == null) {
+            return false;
+        }
+        String name = path.getFileName().toString().toLowerCase(Locale.ROOT);
+        return name.endsWith(".pgn") || name.endsWith(".txt");
+    }
+
+    /**
+     * Returns whether a file path is a supported puzzle library.
+     *
+     * @param path file path
+     * @return true when the extension is supported
+     */
+    public static boolean isLibrary(Path path) {
+        return isCsv(path) || isPgn(path);
+    }
+
+    /**
      * Converts one puzzle entry to a PGN-like text preview.
      *
      * @param entry puzzle entry
      * @return PGN text
      */
     public static String toPgn(Entry entry) {
+        if (entry.hasPgnText()) {
+            return entry.pgnText().endsWith("\n") ? entry.pgnText() : entry.pgnText() + '\n';
+        }
         Position cursor = new Position(entry.fen());
         StringBuilder builder = new StringBuilder(256);
         appendTag(builder, "Event", entry.title());
@@ -237,7 +348,39 @@ public final class PuzzleLibrary {
                 parseRating(columns.get(RATING_COLUMN)),
                 columns.get(THEMES_COLUMN),
                 columns.get(URL_COLUMN),
-                columns.get(OPENING_COLUMN));
+                columns.get(OPENING_COLUMN),
+                "");
+    }
+
+    /**
+     * Adds one indexed PGN puzzle entry and clears the source block.
+     *
+     * @param entries destination entries
+     * @param current source PGN block
+     * @param path source file path
+     */
+    private static void addPgnEntry(List<Entry> entries, StringBuilder current, Path path) {
+        String pgnText = current.toString().trim();
+        current.setLength(0);
+        if (pgnText.isBlank()) {
+            return;
+        }
+        int index = entries.size() + 1;
+        String title = firstNonBlank(tagValue(pgnText, "Event"), fileStem(path) + " #" + index);
+        String fen = firstNonBlank(tagValue(pgnText, "FEN"), Game.STANDARD_START_FEN);
+        String themes = firstNonBlank(tagValue(pgnText, "Themes"), "chess-web pgn");
+        String normalizedPgn = tagValue(pgnText, "Event").isBlank()
+                ? tagLine("Event", title) + System.lineSeparator() + pgnText
+                : pgnText;
+        entries.add(new Entry(
+                title,
+                fen,
+                List.of(),
+                parseRating(tagValue(pgnText, "PuzzleRating")),
+                themes,
+                tagValue(pgnText, "Site"),
+                tagValue(pgnText, "Opening"),
+                normalizedPgn));
     }
 
     /**
@@ -317,11 +460,18 @@ public final class PuzzleLibrary {
      * @param value tag value
      */
     private static void appendTag(StringBuilder builder, String name, String value) {
-        builder.append('[')
-                .append(name)
-                .append(" \"")
-                .append(safe(value).replace("\\", "\\\\").replace("\"", "\\\""))
-                .append("\"]\n");
+        builder.append(tagLine(name, value)).append('\n');
+    }
+
+    /**
+     * Formats one escaped PGN tag line.
+     *
+     * @param name tag name
+     * @param value tag value
+     * @return formatted tag line
+     */
+    private static String tagLine(String name, String value) {
+        return '[' + name + " \"" + safe(value).replace("\\", "\\\\").replace("\"", "\\\"") + "\"]";
     }
 
     /**
@@ -342,6 +492,75 @@ public final class PuzzleLibrary {
             }
         }
         return String.join(", ", visible);
+    }
+
+    /**
+     * Reads one PGN tag value from a source block.
+     *
+     * @param pgnText source PGN block
+     * @param tagName tag name
+     * @return unescaped tag value, or an empty string
+     */
+    private static String tagValue(String pgnText, String tagName) {
+        for (String line : pgnText.split("\\R")) {
+            Matcher matcher = PGN_TAG_LINE.matcher(line.trim());
+            if (matcher.matches() && matcher.group(1).equals(tagName)) {
+                return unescapeTag(matcher.group(2));
+            }
+        }
+        return "";
+    }
+
+    /**
+     * Returns the first non-blank value.
+     *
+     * @param preferred preferred value
+     * @param fallback fallback value
+     * @return selected value
+     */
+    private static String firstNonBlank(String preferred, String fallback) {
+        return safe(preferred).isBlank() ? safe(fallback) : safe(preferred);
+    }
+
+    /**
+     * Derives a readable file stem from a source path.
+     *
+     * @param path source path
+     * @return file stem
+     */
+    private static String fileStem(Path path) {
+        if (path == null || path.getFileName() == null) {
+            return "Puzzle";
+        }
+        String name = path.getFileName().toString();
+        int dot = name.lastIndexOf('.');
+        return dot > 0 ? name.substring(0, dot) : name;
+    }
+
+    /**
+     * Unescapes a PGN tag value.
+     *
+     * @param value escaped tag value
+     * @return unescaped value
+     */
+    private static String unescapeTag(String value) {
+        StringBuilder builder = new StringBuilder(value.length());
+        boolean escaping = false;
+        for (int i = 0; i < value.length(); i++) {
+            char ch = value.charAt(i);
+            if (escaping) {
+                builder.append(ch);
+                escaping = false;
+            } else if (ch == '\\') {
+                escaping = true;
+            } else {
+                builder.append(ch);
+            }
+        }
+        if (escaping) {
+            builder.append('\\');
+        }
+        return builder.toString();
     }
 
     /**

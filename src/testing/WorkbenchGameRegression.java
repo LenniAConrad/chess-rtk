@@ -6,6 +6,7 @@ import java.awt.Component;
 import java.awt.Color;
 import java.awt.Font;
 import java.awt.image.BufferedImage;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 
@@ -54,6 +55,7 @@ final class WorkbenchGameRegression {
         testPuzzleWrongMoveUsesChessWebMarker();
         testPuzzleSessionReviewNavigation();
         testPuzzleLibraryLoadsDifficultCsv();
+        testPuzzleLibraryLoadsChessWebPgn();
         testPuzzlePanelPaintsOpaqueSurface();
         testPgnExplorerModelFiltersGames();
         testEcoExplorerFiltersAndLoadsLines();
@@ -357,6 +359,28 @@ final class WorkbenchGameRegression {
         assertEquals(PuzzleSession.StepResult.CORRECT, response.result(), "CSV puzzle first move plays");
         assertTrue(PuzzleLibrary.toPgn(first).contains("[PuzzleRating \"" + first.rating() + "\"]"),
                 "CSV puzzle preview includes rating");
+    }
+
+    /**
+     * Verifies the bundled chess-web PGN library is indexed as a 100k
+     * variation-aware puzzle source.
+     */
+    private static void testPuzzleLibraryLoadsChessWebPgn() {
+        assertTrue(Files.isRegularFile(PuzzleLibrary.DEFAULT_PATH), "default chess-web PGN exists");
+        List<PuzzleLibrary.Entry> entries;
+        try {
+            entries = PuzzleLibrary.read(PuzzleLibrary.DEFAULT_PATH);
+        } catch (java.io.IOException ex) {
+            throw new AssertionError("chess-web PGN puzzle library loads", ex);
+        }
+        assertEquals(Integer.valueOf(100_000), Integer.valueOf(entries.size()), "chess-web PGN puzzle count");
+
+        PuzzleLibrary.Entry first = entries.get(0);
+        assertTrue(first.hasPgnText(), "PGN puzzle keeps source text");
+        assertTrue(PuzzleLibrary.toPgn(first).contains("(34. Rxc3"), "PGN puzzle keeps variation movetext");
+        PuzzleSession session = PuzzleSession.fromPgn(first.pgnText(), first.id(),
+                PuzzleSession.VariationMode.EXPLORE);
+        assertEquals("d5c3", Move.toString(session.expectedMove()), "first chess-web PGN move is expected");
     }
 
     /**

@@ -456,14 +456,14 @@ public final class PuzzlePanel extends JPanel {
     }
 
     /**
-     * Loads the default difficult puzzle library when available.
+     * Loads the default chess-web puzzle library when available.
      */
     private void loadDefaultLibrary() {
         if (!Files.isRegularFile(PuzzleLibrary.DEFAULT_PATH)) {
             setStatus("Default puzzle file not found; loaded sample.");
             return;
         }
-        setStatus("Loading difficult puzzle set...");
+        setStatus("Loading chess-web puzzle set...");
         loadLibraryAsync(PuzzleLibrary.DEFAULT_PATH);
     }
 
@@ -480,7 +480,7 @@ public final class PuzzlePanel extends JPanel {
             return;
         }
         Path path = chooser.getSelectedFile().toPath();
-        if (PuzzleLibrary.isCsv(path)) {
+        if (PuzzleLibrary.isLibrary(path)) {
             setStatus("Loading puzzle library " + path.getFileName() + "...");
             loadLibraryAsync(path);
             return;
@@ -526,14 +526,14 @@ public final class PuzzlePanel extends JPanel {
     }
 
     /**
-     * Loads a puzzle CSV library asynchronously.
+     * Loads a puzzle library asynchronously.
      *
      * @param path selected library path
      */
     private void loadLibraryAsync(Path path) {
         new SwingWorker<List<PuzzleLibrary.Entry>, Void>() {
             /**
-             * Reads and parses the selected CSV off the Swing thread.
+             * Reads and parses the selected library off the Swing thread.
              *
              * @return puzzle entries
              * @throws Exception when loading fails
@@ -577,7 +577,7 @@ public final class PuzzlePanel extends JPanel {
             return;
         }
         loadLibraryPuzzle(0);
-        setStatus("Loaded " + puzzleLibrary.size() + " difficult puzzles from " + path.getFileName() + ".");
+        setStatus("Loaded " + puzzleLibrary.size() + " puzzles from " + path.getFileName() + ".");
     }
 
     /**
@@ -675,8 +675,10 @@ public final class PuzzlePanel extends JPanel {
             int candidate = Math.floorMod(requestedIndex + offset, puzzleLibrary.size());
             PuzzleLibrary.Entry entry = puzzleLibrary.get(candidate);
             try {
-                session = PuzzleSession.fromUciLine(entry.title(), entry.id(), entry.fen(), entry.moves(),
-                        variationMode());
+                session = entry.hasPgnText()
+                        ? PuzzleSession.fromPgn(entry.pgnText(), entry.id(), variationMode())
+                        : PuzzleSession.fromUciLine(entry.title(), entry.id(), entry.fen(), entry.moves(),
+                                variationMode());
                 session.reset();
                 puzzleLibraryIndex = candidate;
                 pgnInput.setText(PuzzleLibrary.toPgn(entry));
