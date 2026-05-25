@@ -341,6 +341,43 @@ public final class TensorViz {
     }
 
     /**
+     * Fast signed heatmap using the same diverging palette as NNUE All mode.
+     * Positive values ramp toward {@link #POSITIVE}, negative values ramp
+     * toward {@link #NEGATIVE}, and zero stays on the shared neutral heat base.
+     *
+     * @param g graphics
+     * @param r destination rectangle
+     * @param data flat row-major values
+     * @param cols column count
+     * @param rows row count
+     * @param scale absolute max for the colour ramp
+     */
+    public static void drawSignedGammaHeatmap(Graphics2D g, Rectangle r, float[] data, int cols, int rows,
+            float scale) {
+        if (data == null || cols <= 0 || rows <= 0 || data.length < cols * rows
+                || r.width <= 0 || r.height <= 0) {
+            return;
+        }
+        float s = scale <= 0.0f ? 1.0f : scale;
+        java.awt.image.BufferedImage image =
+                new java.awt.image.BufferedImage(cols, rows, java.awt.image.BufferedImage.TYPE_INT_RGB);
+        int[] pixels = new int[cols * rows];
+        Color zero = heatmapZeroBase();
+        for (int i = 0; i < pixels.length; ++i) {
+            float v = clamp(data[i] / s, -1.0f, 1.0f);
+            pixels[i] = signedRampRgb(zero, v);
+        }
+        image.setRGB(0, 0, cols, rows, pixels, 0, cols);
+        Object previous = g.getRenderingHint(RenderingHints.KEY_INTERPOLATION);
+        g.setRenderingHint(RenderingHints.KEY_INTERPOLATION,
+                RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
+        g.drawImage(image, r.x, r.y, r.width, r.height, null);
+        if (previous != null) {
+            g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, previous);
+        }
+    }
+
+    /**
      * Draws the shared value-head card: a segmented win / draw / loss bar plus
      * the raw value scalar. Used by both the CNN and BT4 overviews so the two
      * architectures present their value output identically.
@@ -453,6 +490,28 @@ public final class TensorViz {
             return lerp(heatmapZeroBase(), POSITIVE, strength);
         }
         return lerp(heatmapZeroBase(), NEGATIVE, strength);
+    }
+
+    /**
+     * Returns a packed RGB value for the signed heatmap ramp without allocating
+     * a {@link Color}. Used by dense bitmap-backed atlases.
+     *
+     * @param zero zero-signal base color
+     * @param value signed value in [-1, 1]
+     * @return packed RGB color
+     */
+    private static int signedRampRgb(Color zero, float value) {
+        float v = clamp(value, -1.0f, 1.0f);
+        float magnitude = (float) Math.sqrt(Math.abs(v));
+        if (magnitude <= 0.0f) {
+            return zero.getRGB();
+        }
+        float strength = 0.10f + 0.90f * magnitude;
+        Color target = v >= 0.0f ? POSITIVE : NEGATIVE;
+        int red = Math.round(zero.getRed() + (target.getRed() - zero.getRed()) * strength);
+        int green = Math.round(zero.getGreen() + (target.getGreen() - zero.getGreen()) * strength);
+        int blue = Math.round(zero.getBlue() + (target.getBlue() - zero.getBlue()) * strength);
+        return 0xFF000000 | (red << 16) | (green << 8) | blue;
     }
 
     /**

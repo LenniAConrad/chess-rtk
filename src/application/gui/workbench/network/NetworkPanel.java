@@ -207,17 +207,24 @@ public final class NetworkPanel extends JPanel {
     private static final long NETWORK_MCTS_WARMUP_DELAY_MS = 6L;
 
     /**
-     * Minimum time between expensive leaf-inference snapshots while Network
-     * MCTS is streaming. This keeps the view live without turning every
-     * playout into a full network forward pass.
-     */
-    private static final long NETWORK_MCTS_INFERENCE_MIN_UPDATE_NANOS = 140_000_000L;
-
-    /**
      * Playout interval where the background worker yields briefly so pointer
      * and keyboard events stay responsive on smaller machines.
      */
     private static final int NETWORK_MCTS_YIELD_INTERVAL = 64;
+
+    /**
+     * Short pause after publishing a live MCTS frame. Without this, very fast
+     * searches can finish before the EDT has a chance to process intermediate
+     * weight updates.
+     */
+    private static final long NETWORK_MCTS_FRAME_YIELD_MS = 3L;
+
+    /**
+     * Additional pacing for follow-leaf animation frames. The neural trace is a
+     * visual teaching mode, so it deliberately favours readable frame cadence
+     * over maximum playout throughput while the toggle is enabled.
+     */
+    private static final long NETWORK_MCTS_FOLLOW_LEAF_FRAME_DELAY_MS = 18L;
 
     /**
      * Minimum time between audible MCTS progress ticks.
@@ -426,21 +433,6 @@ public final class NetworkPanel extends JPanel {
     private String mctsLeafFen;
 
     /**
-     * Last queued Network-tab MCTS leaf-inference timestamp.
-     */
-    private long lastMctsLeafInferenceRequestNanos;
-
-    /**
-     * Last queued Network-tab MCTS leaf-inference FEN.
-     */
-    private String lastMctsLeafInferenceFen;
-
-    /**
-     * Last queued Network-tab MCTS leaf-inference architecture key.
-     */
-    private String lastMctsLeafInferenceCardKey;
-
-    /**
      * Last audible MCTS progress tick timestamp.
      */
     private long lastMctsProgressSoundNanos;
@@ -474,11 +466,13 @@ public final class NetworkPanel extends JPanel {
      * @param snapshot search snapshot
      * @param leafCardKey architecture key that should follow the leaf
      * @param leafFen current leaf FEN, when leaf following is enabled
+     * @param leafSnapshot activation snapshot painted for the current leaf
      */
     private record NetworkMctsFrame(
             MctsSearch.Snapshot snapshot,
             String leafCardKey,
-            String leafFen) {
+            String leafFen,
+            ActivationSnapshot leafSnapshot) {
     }
 
     /**
@@ -1156,9 +1150,6 @@ public final class NetworkPanel extends JPanel {
         final MctsSearch search = mctsSearch;
         mctsLeafFen = root.toString();
         lastMctsProgressSoundNanos = 0L;
-        lastMctsLeafInferenceRequestNanos = 0L;
-        lastMctsLeafInferenceFen = null;
-        lastMctsLeafInferenceCardKey = null;
         updateNetworkMctsButtons(true);
         Ui.setCollapsibleExpanded(mctsWeightsSection, true);
         mctsStatusBadge.busy("starting " + search.backendName() + " MCTS...");
@@ -1166,11 +1157,11 @@ public final class NetworkPanel extends JPanel {
         SwingWorker<Void, NetworkMctsFrame> activeWorker = new SwingWorker<>() {
             @Override
             protected Void doInBackground() throws Exception {
-                publish(buildNetworkMctsFrame(search.snapshot(false)));
+                publishNetworkMctsFrame(buildNetworkMctsFrame(search.snapshot(false)), 0L);
                 long lastPublishNanos = System.nanoTime();
                 while (!isCancelled() && search.shouldContinue(budget, maxMillis)) {
                     if (mctsPaused) {
-                        publish(buildNetworkMctsFrame(search.snapshot(true)));
+                        publishNetworkMctsFrame(buildNetworkMctsFrame(search.snapshot(true)), 0L);
                         lastPublishNanos = System.nanoTime();
                         Thread.sleep(80L);
                         continue;
@@ -1179,18 +1170,35 @@ public final class NetworkPanel extends JPanel {
                     long playouts = search.playouts();
                     long now = System.nanoTime();
                     if (shouldPublishNetworkMctsFrame(playouts, now, lastPublishNanos)) {
-                        publish(buildNetworkMctsFrame(search.snapshot(false)));
+                        publishNetworkMctsFrame(buildNetworkMctsFrame(search.snapshot(false)), playouts);
                         lastPublishNanos = now;
-                        if (mctsFollowLeafEnabled && playouts <= NETWORK_MCTS_WARMUP_PLAYOUTS) {
-                            Thread.sleep(NETWORK_MCTS_WARMUP_DELAY_MS);
-                        }
                     }
                     if (playouts % NETWORK_MCTS_YIELD_INTERVAL == 0) {
                         Thread.sleep(1L);
                     }
                 }
-                publish(buildNetworkMctsFrame(search.snapshot(mctsPaused)));
+                publishNetworkMctsFrame(buildNetworkMctsFrame(search.snapshot(mctsPaused)), search.playouts());
                 return null;
+            }
+
+            /**
+             * Publishes the tree frame first, then optionally publishes a second
+             * frame with the neural activation snapshot for the current leaf.
+             *
+             * @param frame tree frame
+             * @param playouts current playout count
+             * @throws InterruptedException if the worker is interrupted
+             */
+            private void publishNetworkMctsFrame(NetworkMctsFrame frame, long playouts) throws InterruptedException {
+                publish(frame);
+                Thread.sleep(networkMctsFrameDelay(playouts));
+                if (!isCancelled() && mctsFollowLeafEnabled && frame.leafFen() != null) {
+                    NetworkMctsFrame activationFrame = buildNetworkMctsLeafActivationFrame(frame);
+                    if (activationFrame.leafSnapshot() != null) {
+                        publish(activationFrame);
+                        Thread.sleep(NETWORK_MCTS_FOLLOW_LEAF_FRAME_DELAY_MS);
+                    }
+                }
             }
 
             @Override
@@ -1200,7 +1208,7 @@ public final class NetworkPanel extends JPanel {
                 }
                 NetworkMctsFrame frame = chunks.get(chunks.size() - 1);
                 showNetworkMctsSnapshot(frame.snapshot(), true,
-                        frame.leafCardKey(), frame.leafFen());
+                        frame.leafCardKey(), frame.leafFen(), frame.leafSnapshot());
             }
 
             @Override
@@ -1288,9 +1296,6 @@ public final class NetworkPanel extends JPanel {
         mctsWorker = null;
         mctsSearch = null;
         mctsPaused = false;
-        lastMctsLeafInferenceRequestNanos = 0L;
-        lastMctsLeafInferenceFen = null;
-        lastMctsLeafInferenceCardKey = null;
         if (activeSearch != null) {
             activeSearch.close();
         }
@@ -1324,13 +1329,13 @@ public final class NetworkPanel extends JPanel {
      * @param running true while the worker is expected to keep running
      */
     private void showNetworkMctsSnapshot(MctsSearch.Snapshot snapshot, boolean running) {
-        showNetworkMctsSnapshot(snapshot, running, null, null);
+        showNetworkMctsSnapshot(snapshot, running, null, null, null);
     }
 
     /**
-     * Builds one streamed MCTS frame. Leaf inference is intentionally queued
-     * later on the EDT so slow model forward passes cannot hide live tree
-     * updates.
+     * Builds one streamed MCTS tree frame. Neural activation painting is added
+     * by {@link #buildNetworkMctsLeafActivationFrame(NetworkMctsFrame)} so the
+     * edge-weight panel can repaint before slow model visualization work starts.
      *
      * @param snapshot search snapshot
      * @return UI frame with optional leaf-follow metadata
@@ -1339,24 +1344,44 @@ public final class NetworkPanel extends JPanel {
         if (snapshot == null
                 || !mctsFollowLeafEnabled
                 || snapshot.exploringPosition() == null) {
-            return new NetworkMctsFrame(snapshot, null, null);
+            return new NetworkMctsFrame(snapshot, null, null, null);
         }
         String fen = snapshot.exploringPosition().toString();
         String cardKey = mctsStreamCardKey == null ? ARCH_NNUE : mctsStreamCardKey;
-        return new NetworkMctsFrame(snapshot, cardKey, fen);
+        return new NetworkMctsFrame(snapshot, cardKey, fen, null);
     }
 
     /**
-     * Applies a Network-tab MCTS snapshot and queues leaf inference separately
-     * when leaf following is active.
+     * Builds a second frame carrying the activation snapshot for a follow-leaf
+     * position. This method runs on the MCTS worker, never the EDT.
+     *
+     * @param frame tree frame to enrich
+     * @return frame carrying a leaf activation snapshot, or the original frame
+     */
+    private NetworkMctsFrame buildNetworkMctsLeafActivationFrame(NetworkMctsFrame frame) {
+        if (frame == null
+                || frame.leafCardKey() == null
+                || frame.leafFen() == null
+                || frame.leafFen().isBlank()
+                || !mctsFollowLeafEnabled) {
+            return frame;
+        }
+        ActivationSnapshot leafSnapshot = inferSnapshotQuietly(frame.leafCardKey(), frame.leafFen());
+        return new NetworkMctsFrame(frame.snapshot(), frame.leafCardKey(), frame.leafFen(), leafSnapshot);
+    }
+
+    /**
+     * Applies a Network-tab MCTS snapshot and, when present, paints the leaf
+     * activation snapshot produced on the worker.
      *
      * @param snapshot search snapshot
      * @param running true while the worker is expected to keep running
      * @param leafCardKey architecture key that should follow the leaf
      * @param leafFen current leaf FEN, or null to read it from the snapshot
+     * @param leafSnapshot activation snapshot for the current leaf, or null
      */
     private void showNetworkMctsSnapshot(MctsSearch.Snapshot snapshot,
-            boolean running, String leafCardKey, String leafFen) {
+            boolean running, String leafCardKey, String leafFen, ActivationSnapshot leafSnapshot) {
         if (snapshot == null) {
             return;
         }
@@ -1365,7 +1390,7 @@ public final class NetworkPanel extends JPanel {
         if (mctsFollowLeafToggle.isSelected() && snapshot.exploringPosition() != null) {
             String fen = leafFen == null ? snapshot.exploringPosition().toString() : leafFen;
             mctsLeafFen = fen;
-            queueNetworkMctsLeafInference(leafCardKey == null ? activeCardKey() : leafCardKey, fen);
+            applyNetworkMctsLeafSnapshot(leafCardKey == null ? activeCardKey() : leafCardKey, fen, leafSnapshot);
         }
         String leaf = snapshot.exploringLineText();
         if (leaf == null || leaf.isBlank()) {
@@ -1407,38 +1432,35 @@ public final class NetworkPanel extends JPanel {
     }
 
     /**
-     * Queues asynchronous network inference for the currently streamed MCTS
-     * leaf without blocking search-frame publication.
+     * Returns the short worker-side pause after a live MCTS frame.
+     *
+     * @param playouts completed playouts
+     * @return delay in milliseconds
+     */
+    private static long networkMctsFrameDelay(long playouts) {
+        return playouts <= NETWORK_MCTS_WARMUP_PLAYOUTS
+                ? Math.max(NETWORK_MCTS_FRAME_YIELD_MS, NETWORK_MCTS_WARMUP_DELAY_MS)
+                : NETWORK_MCTS_FRAME_YIELD_MS;
+    }
+
+    /**
+     * Applies or caches the activation snapshot attached to an MCTS leaf frame.
      *
      * @param cardKey architecture card key
      * @param fen leaf FEN
+     * @param leafSnapshot activation snapshot, or null for tree-only frames
      */
-    private void queueNetworkMctsLeafInference(String cardKey, String fen) {
+    private void applyNetworkMctsLeafSnapshot(String cardKey, String fen, ActivationSnapshot leafSnapshot) {
         if (!active || cardKey == null || fen == null || fen.isBlank()) {
             return;
         }
         String key = cacheKey(cardKey, fen);
-        ActivationSnapshot cached = snapshotCache.get(key);
-        if (cached != null) {
-            applySnapshot(cardKey, fen, cached);
+        ActivationSnapshot snapshot = leafSnapshot == null ? snapshotCache.get(key) : leafSnapshot;
+        if (snapshot == null) {
             return;
         }
-        if (key.equals(displayedKey)
-                || (cardKey.equals(runningArch) && fen.equals(runningFen))) {
-            return;
-        }
-        long now = System.nanoTime();
-        boolean changed = !fen.equals(lastMctsLeafInferenceFen)
-                || !cardKey.equals(lastMctsLeafInferenceCardKey);
-        if (!changed && now - lastMctsLeafInferenceRequestNanos < NETWORK_MCTS_INFERENCE_MIN_UPDATE_NANOS) {
-            return;
-        }
-        lastMctsLeafInferenceFen = fen;
-        lastMctsLeafInferenceCardKey = cardKey;
-        lastMctsLeafInferenceRequestNanos = now;
-        pendingArch = cardKey;
-        pendingFen = fen;
-        startInference();
+        snapshotCache.put(key, snapshot);
+        applySnapshot(cardKey, fen, snapshot);
     }
 
     /**
@@ -1516,6 +1538,24 @@ public final class NetworkPanel extends JPanel {
                     (architecture, phase, path) -> updateLoadingPhase(cardKey, fen, phase));
             default -> provider.inferNnue(fen,
                     (architecture, phase, path) -> updateLoadingPhase(cardKey, fen, phase));
+        };
+    }
+
+    /**
+     * Runs one forward pass for MCTS leaf animation without switching the card to
+     * the loading surface. The worker that calls this already owns the pacing, so
+     * the visible tree frame remains on screen until the painted activation frame
+     * is ready.
+     *
+     * @param cardKey architecture card
+     * @param fen FEN to infer
+     * @return sealed activation snapshot
+     */
+    private ActivationSnapshot inferSnapshotQuietly(String cardKey, String fen) {
+        return switch (cardKey) {
+            case ARCH_CNN -> provider.inferCnn(fen);
+            case ARCH_BT4 -> provider.inferBt4(fen);
+            default -> provider.inferNnue(fen);
         };
     }
 

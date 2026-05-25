@@ -248,8 +248,8 @@ public final class CnnView extends NetworkView {
         }
         TensorViz.drawSectionHeader(g,
     new Rectangle(body.x, body.y, body.width, headerH),
-                "raw channel atlas — every layer × every channel",
-                "rows = layer · cols = channel · click a layer row to zoom into its channels");
+                "raw activation atlas — every CNN layer at once",
+                "rows = layer · cols = channel · NNUE All palette · click a row to focus");
         int maxChannels = 0;
         for (LayerInfo info : spatial) {
             if (info.shapeDims[0] > maxChannels) {
@@ -313,7 +313,9 @@ public final class CnnView extends NetworkView {
                 if (off + 64 <= info.values.length) {
                     System.arraycopy(info.values, off, slice, 0, 64);
                 }
-                drawGammaHeatmap(g, cell, slice, 8, 8, perLayerScale[li], colorFor(info.name));
+                drawRawHeatmap(g, cell, slice, 8, 8, perLayerScale[li]);
+                g.setColor(Theme.LINE);
+                g.drawRect(x, y, cellW - 1, cellH - 1);
             }
             // One zoom hit region per layer row.
             hitRegions.add(new Rectangle(body.x, y, body.width, cellH),
@@ -337,7 +339,7 @@ public final class CnnView extends NetworkView {
         TensorViz.drawSectionHeader(g,
     new Rectangle(body.x, body.y, body.width, headerH),
                 "layer " + info.name + " — " + channels + " channels",
-                "8×8 activation per channel · click anywhere to zoom back out");
+                "8×8 activation per channel · NNUE All palette · click anywhere to zoom back out");
         float maxAbs = 0.0f;
         for (float v : info.values) {
             maxAbs = Math.max(maxAbs, Math.abs(v));
@@ -363,7 +365,9 @@ public final class CnnView extends NetworkView {
             if (off + 64 <= info.values.length) {
                 System.arraycopy(info.values, off, slice, 0, 64);
             }
-            drawGammaHeatmap(g, r, slice, 8, 8, scale, colorFor(info.name));
+            drawRawHeatmap(g, r, slice, 8, 8, scale);
+            g.setColor(Theme.LINE);
+            g.drawRect(r.x, r.y, r.width - 1, r.height - 1);
             if (cell >= 26) {
                 g.setColor(Theme.MUTED);
                 g.drawString(Integer.toString(c), x + 2, y + 10);
@@ -374,8 +378,8 @@ public final class CnnView extends NetworkView {
     }
 
     /**
-     * Sequential heatmap with a sqrt gamma so low values stay visible.
-     * Uses the selected layer's semantic NN palette color.
+     * Signed heatmap with a sqrt gamma so low values stay visible.
+     * Uses the same diverging palette as NNUE All mode.
      *
      * @param g graphics
      * @param r destination rectangle
@@ -383,14 +387,13 @@ public final class CnnView extends NetworkView {
      * @param cols column count
      * @param rows row count
      * @param scale absolute max for the colour ramp
-     * @param tint semantic NN palette tint
      */
-    private static void drawGammaHeatmap(Graphics2D g, Rectangle r, float[] data,
-            int cols, int rows, float scale, Color tint) {
+    private static void drawRawHeatmap(Graphics2D g, Rectangle r, float[] data,
+            int cols, int rows, float scale) {
         // Render into a cols x rows bitmap and blit it once. The raw atlas
         // packs thousands of these, so a per-data-cell fillRect loop turned
         // every repaint into millions of draw calls and froze the tab.
-        TensorViz.drawGammaHeatmap(g, r, data, cols, rows, scale, tint);
+        TensorViz.drawSignedGammaHeatmap(g, r, data, cols, rows, scale);
     }
 
     /**

@@ -350,7 +350,7 @@ public final class Bt4View extends NetworkView {
     protected void paintRaw(Graphics2D g, Rectangle body) {
         paintBt4AttentionGrid(g, body,
                 "raw attention atlas — 480 heads at once",
-                "top grid: 64×64 attention matrices · bottom grid: 8×8 mean attention-received on the board · click any cell to focus");
+                "top grid: 64×64 attention matrices · bottom grid: 8×8 mean attention-received · NNUE All palette");
     }
 
     /**
@@ -725,9 +725,9 @@ public final class Bt4View extends NetworkView {
 
     /**
      * Draws a heatmap with a square-root gamma applied to each value so
-     * low values stay visible. Same overall API as
-     * {@link TensorViz#drawHeatmap} but tuned for the dense raw
-     * atlas where most attention values are small.
+     * low values stay visible. The color ramp matches NNUE All mode while
+     * staying tuned for the dense raw atlas where most attention values are
+     * small.
      *
      * @param g graphics
      * @param r destination rectangle
@@ -744,8 +744,8 @@ public final class Bt4View extends NetworkView {
         }
         // Blit one bitmap instead of cols x rows fills — the raw atlas packs
         // 480 attention heads, so the per-cell loop froze the whole tab.
-        TensorViz.drawGammaHeatmap(g, r, data, cols, rows, scale, TensorViz.POLICY);
-        g.setColor(Theme.withAlpha(Theme.TEXT, 36));
+        TensorViz.drawSignedGammaHeatmap(g, r, data, cols, rows, scale);
+        g.setColor(Theme.LINE);
         g.drawRect(r.x, r.y, r.width - 1, r.height - 1);
     }
 

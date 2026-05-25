@@ -76,7 +76,7 @@ final class WorkbenchBackendRegression {
         testNetworkLoadingPanelIsTextOnly();
         testRealActivationProgressReportsFallback();
         testNetworkMctsUpdatesAreNonBlocking();
-        testNetworkMctsQueuesLeafInferenceAfterFrame();
+        testNetworkMctsPublishesWeightsBeforeLeafActivation();
         testNetworkMctsUsesSelectedArchitectureBackend();
         testNetworkPositionPickerClearsLeafOverride();
         testNetworkDiagnosticsPreviewHighlightsConfig();
@@ -688,8 +688,10 @@ final class WorkbenchBackendRegression {
                 "network MCTS has a publish throttle");
         assertTrue(source.contains("SwingWorker<Void, NetworkMctsFrame>"),
                 "network MCTS publishes live tree frames");
-        assertTrue(source.contains("NETWORK_MCTS_INFERENCE_MIN_UPDATE_NANOS"),
-                "network MCTS throttles streamed leaf inference");
+        assertTrue(source.contains("NETWORK_MCTS_FRAME_YIELD_MS"),
+                "network MCTS yields after streamed tree frames");
+        assertTrue(source.contains("buildNetworkMctsLeafActivationFrame"),
+                "network MCTS paints follow-leaf activations as a second frame");
         assertTrue(source.contains("buildNetworkMctsFrame"),
                 "network MCTS builds live frames off the EDT");
         assertTrue(source.contains("setCollapsibleExpanded(mctsWeightsSection, true)"),
@@ -697,10 +699,10 @@ final class WorkbenchBackendRegression {
     }
 
     /**
-     * Verifies Network-tab MCTS publishes the tree frame before queuing slower
-     * leaf inference.
+     * Verifies Network-tab MCTS publishes the tree frame before doing slower
+     * leaf activation painting.
      */
-    private static void testNetworkMctsQueuesLeafInferenceAfterFrame() {
+    private static void testNetworkMctsPublishesWeightsBeforeLeafActivation() {
         String source;
         try {
             source = Files.readString(Path.of("src/application/gui/workbench/network/NetworkPanel.java"),
@@ -708,11 +710,13 @@ final class WorkbenchBackendRegression {
         } catch (IOException ex) {
             throw new AssertionError("unable to read NetworkPanel source", ex);
         }
+        int publishTree = source.indexOf("publish(frame);");
+        int buildActivation = source.indexOf("buildNetworkMctsLeafActivationFrame(frame)");
+        assertTrue(publishTree >= 0 && buildActivation > publishTree,
+                "network MCTS publishes weights before leaf activation rendering");
         int frameBuilder = source.indexOf("private NetworkMctsFrame buildNetworkMctsFrame");
-        int leafQueue = source.indexOf("private void queueNetworkMctsLeafInference");
-        assertTrue(frameBuilder >= 0 && leafQueue > frameBuilder,
-                "network MCTS queues leaf inference after frame construction");
-        String builderBody = source.substring(frameBuilder, leafQueue);
+        int activationBuilder = source.indexOf("private NetworkMctsFrame buildNetworkMctsLeafActivationFrame");
+        String builderBody = source.substring(frameBuilder, activationBuilder);
         assertFalse(builderBody.contains("inferSnapshot("),
                 "network MCTS frame builder does not block on model inference");
     }
