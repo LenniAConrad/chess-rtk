@@ -326,6 +326,14 @@ final class WorkbenchUiRegression {
                 "MOVE: legal=20"));
         assertEquals(Integer.valueOf(4), Integer.valueOf(full.tagCount()), "full tag cloud stores parsed tags");
         full.setSize(420, 180);
+        assertEquals(null, full.getToolTipText(), "tag cloud has no aggregate tooltip");
+        MouseEvent chipHover = new MouseEvent(full, MouseEvent.MOUSE_MOVED, System.currentTimeMillis(),
+                0, 16, 35, 0, false);
+        assertEquals("FACT: castle_rights=KQkq", full.getToolTipText(chipHover),
+                "tag cloud shows only hovered chip tooltip");
+        MouseEvent backgroundHover = new MouseEvent(full, MouseEvent.MOUSE_MOVED, System.currentTimeMillis(),
+                0, 5, 5, 0, false);
+        assertEquals(null, full.getToolTipText(backgroundHover), "tag cloud background has no tooltip");
         BufferedImage fullImage = paint(full, 420, 180);
         assertTrue(maxAlpha(fullImage) > 180, "full tag cloud paints chip pixels");
 

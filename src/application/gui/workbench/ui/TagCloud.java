@@ -8,6 +8,7 @@ import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.Rectangle;
 import java.awt.RenderingHints;
+import java.awt.event.MouseEvent;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -15,6 +16,7 @@ import java.util.Locale;
 import java.util.Map;
 import javax.swing.JComponent;
 import javax.swing.Scrollable;
+import javax.swing.ToolTipManager;
 
 /**
  * Wrap-layout social tag cloud for position tags. Tags are grouped by their
@@ -124,6 +126,7 @@ public final class TagCloud extends JComponent implements Scrollable {
         this.mode = mode == null ? Mode.FULL : mode;
         setOpaque(false);
         setFont(Theme.font(11, Font.PLAIN));
+        ToolTipManager.sharedInstance().registerComponent(this);
     }
 
     /**
@@ -133,9 +136,23 @@ public final class TagCloud extends JComponent implements Scrollable {
      */
     public void setTags(List<String> values) {
         tags = parseTags(values);
-        setToolTipText(tags.isEmpty() ? null : "<html>" + htmlTags(tags) + "</html>");
         revalidate();
         repaint();
+    }
+
+    /**
+     * Returns only the tag below the cursor as tooltip text.
+     *
+     * @param event mouse location
+     * @return hovered tag text, or null outside chips
+     */
+    @Override
+    public String getToolTipText(MouseEvent event) {
+        if (event == null || tags.isEmpty()) {
+            return null;
+        }
+        TagItem item = tagAt(event.getX(), event.getY());
+        return item == null ? null : item.raw();
     }
 
     /**
@@ -431,6 +448,50 @@ public final class TagCloud extends JComponent implements Scrollable {
     }
 
     /**
+     * Finds the chip item at a component coordinate.
+     *
+     * @param pointX x coordinate
+     * @param pointY y coordinate
+     * @return hovered tag item, or null
+     */
+    private TagItem tagAt(int pointX, int pointY) {
+        FontMetrics metrics = getFontMetrics(Theme.font(11, Font.PLAIN));
+        int maxWidth = Math.max(120, availableWidth() - PAD * 2);
+        int y = PAD;
+        int painted = 0;
+        for (Map.Entry<String, List<TagItem>> entry : groupedTags().entrySet()) {
+            if (painted >= maxPaintedTags()) {
+                break;
+            }
+            if (mode == Mode.FULL) {
+                y += HEADING_HEIGHT;
+            }
+            int x = PAD;
+            for (TagItem item : entry.getValue()) {
+                if (painted >= maxPaintedTags()) {
+                    break;
+                }
+                int chipWidth = chipWidth(metrics, item, maxWidth);
+                if (x > PAD && x + chipWidth > PAD + maxWidth) {
+                    x = PAD;
+                    y += CHIP_HEIGHT + ROW_GAP;
+                }
+                if (mode == Mode.COMPACT && y + CHIP_HEIGHT > getHeight() - PAD) {
+                    return null;
+                }
+                Rectangle bounds = new Rectangle(x, y, chipWidth, CHIP_HEIGHT);
+                if (bounds.contains(pointX, pointY)) {
+                    return item;
+                }
+                x += chipWidth + CHIP_GAP;
+                painted++;
+            }
+            y += CHIP_HEIGHT + GROUP_GAP;
+        }
+        return null;
+    }
+
+    /**
      * Computes one chip width.
      *
      * @param metrics active font metrics
@@ -572,36 +633,6 @@ public final class TagCloud extends JComponent implements Scrollable {
         return value.replace('_', ' ')
                 .replaceAll("\\s+", " ")
                 .trim();
-    }
-
-    /**
-     * Builds an HTML tooltip from tags.
-     *
-     * @param values parsed tag values
-     * @return escaped HTML lines
-     */
-    private static String htmlTags(List<TagItem> values) {
-        StringBuilder builder = new StringBuilder();
-        for (TagItem value : values) {
-            if (builder.length() > 0) {
-                builder.append("<br>");
-            }
-            builder.append(escapeHtml(value.raw()));
-        }
-        return builder.toString();
-    }
-
-    /**
-     * Escapes text for Swing HTML.
-     *
-     * @param text raw text
-     * @return escaped text
-     */
-    private static String escapeHtml(String text) {
-        return text == null ? "" : text.replace("&", "&amp;")
-                .replace("<", "&lt;")
-                .replace(">", "&gt;")
-                .replace("\"", "&quot;");
     }
 
     /**
