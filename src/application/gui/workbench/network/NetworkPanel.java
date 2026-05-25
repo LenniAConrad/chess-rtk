@@ -221,11 +221,12 @@ public final class NetworkPanel extends JPanel {
     private static final long NETWORK_MCTS_FRAME_YIELD_MS = 3L;
 
     /**
-     * Additional pacing for follow-leaf animation frames. The neural trace is a
-     * visual teaching mode, so it deliberately favours readable frame cadence
-     * over maximum playout throughput while the toggle is enabled.
+     * Minimum time between expensive follow-leaf activation frames. The search
+     * may evaluate many leaves between two visual samples; this keeps dense NN
+     * painting inside a UI frame budget instead of forcing every playout
+     * through the EDT.
      */
-    private static final long NETWORK_MCTS_FOLLOW_LEAF_FRAME_DELAY_MS = 18L;
+    private static final long NETWORK_MCTS_FOLLOW_LEAF_MIN_UPDATE_NANOS = 90_000_000L;
 
     /**
      * Minimum time between audible MCTS progress ticks.
@@ -1158,11 +1159,12 @@ public final class NetworkPanel extends JPanel {
         SwingWorker<Void, NetworkMctsFrame> activeWorker = new SwingWorker<>() {
             @Override
             protected Void doInBackground() throws Exception {
-                publishNetworkMctsFrame(buildNetworkMctsFrame(search.snapshot(false)), 0L, true);
+                publishNetworkMctsFrame(buildNetworkMctsFrame(search.snapshot(false)), 0L);
                 long lastPublishNanos = System.nanoTime();
+                long lastLeafActivationNanos = 0L;
                 while (!isCancelled() && search.shouldContinue(budget, maxMillis)) {
                     if (mctsPaused) {
-                        publishNetworkMctsFrame(buildNetworkMctsFrame(search.snapshot(true)), 0L, false);
+                        publishNetworkMctsFrame(buildNetworkMctsFrame(search.snapshot(true)), 0L);
                         lastPublishNanos = System.nanoTime();
                         Thread.sleep(80L);
                         continue;
@@ -1170,80 +1172,44 @@ public final class NetworkPanel extends JPanel {
                     search.iterate();
                     long playouts = search.playouts();
                     long now = System.nanoTime();
-                    if (mctsFollowLeafEnabled || shouldPublishNetworkMctsFrame(playouts, now, lastPublishNanos)) {
-                        publishNetworkMctsFrame(buildNetworkMctsFrame(search.snapshot(false)), playouts, true);
+                    boolean treeFrameDue = shouldPublishNetworkMctsFrame(playouts, now, lastPublishNanos);
+                    boolean leafFrameDue = mctsFollowLeafEnabled
+                            && shouldPublishNetworkMctsLeafFrame(now, lastLeafActivationNanos);
+                    if (treeFrameDue || leafFrameDue) {
+                        NetworkMctsFrame frame = buildNetworkMctsFrame(search.snapshot(false));
+                        publishNetworkMctsFrame(frame, playouts);
                         lastPublishNanos = now;
+                        if (leafFrameDue && !isCancelled()) {
+                            NetworkMctsFrame activationFrame = buildNetworkMctsLeafActivationFrame(frame);
+                            lastLeafActivationNanos = System.nanoTime();
+                            if (!isCancelled() && mctsFollowLeafEnabled
+                                    && activationFrame.leafSnapshot() != null) {
+                                publishNetworkMctsFrame(activationFrame, playouts);
+                            }
+                        }
                     }
                     if (playouts % NETWORK_MCTS_YIELD_INTERVAL == 0) {
                         Thread.sleep(1L);
                     }
                 }
-                publishNetworkMctsFrame(buildNetworkMctsFrame(search.snapshot(mctsPaused)), search.playouts(), true);
+                publishNetworkMctsFrame(buildNetworkMctsFrame(search.snapshot(mctsPaused)), search.playouts());
                 return null;
             }
 
             /**
-             * Publishes one MCTS frame. Follow-leaf mode is intentionally a
-             * synchronous visual stepper: the worker evaluates the leaf
-             * snapshot off the EDT, applies it on the EDT, forces a paint, and
-             * only then starts the next playout.
+             * Publishes one MCTS frame. Follow-leaf activation snapshots are
+             * built off the EDT and delivered through SwingWorker's normal
+             * coalesced process queue so dense network paints never block input
+             * dispatch with immediate full-panel painting.
              *
-             * @param frame tree frame
+             * @param frame UI frame
              * @param playouts current playout count
-             * @param visualStep true when the frame represents a search step
              * @throws InterruptedException if the worker is interrupted
              */
-            private void publishNetworkMctsFrame(NetworkMctsFrame frame, long playouts,
-                    boolean visualStep) throws InterruptedException {
-                if (visualStep && mctsFollowLeafEnabled && frame.leafFen() != null) {
-                    NetworkMctsFrame activationFrame = buildNetworkMctsLeafActivationFrame(frame);
-                    if (!isCancelled() && mctsFollowLeafEnabled && activationFrame.leafSnapshot() != null) {
-                        showNetworkMctsFrameSynchronously(activationFrame);
-                        Thread.sleep(NETWORK_MCTS_FOLLOW_LEAF_FRAME_DELAY_MS);
-                        return;
-                    }
-                }
+            private void publishNetworkMctsFrame(NetworkMctsFrame frame, long playouts)
+                    throws InterruptedException {
                 publish(frame);
                 Thread.sleep(networkMctsFrameDelay(playouts));
-            }
-
-            /**
-             * Applies a follow-leaf frame immediately on the EDT and paints the
-             * network panel before the worker starts another playout.
-             *
-             * @param frame frame with a leaf activation snapshot
-             * @throws InterruptedException if interrupted while waiting for EDT
-             */
-            private void showNetworkMctsFrameSynchronously(NetworkMctsFrame frame) throws InterruptedException {
-                try {
-                    SwingUtilities.invokeAndWait(() -> {
-                        if (mctsWorker != this || mctsSearch != search || isCancelled()) {
-                            return;
-                        }
-                        showNetworkMctsSnapshot(frame.snapshot(), true,
-                                frame.leafCardKey(), frame.leafFen(), frame.leafSnapshot());
-                        paintNetworkMctsFrameImmediately();
-                    });
-                } catch (java.lang.reflect.InvocationTargetException ex) {
-                    Throwable cause = ex.getCause() == null ? ex : ex.getCause();
-                    if (cause instanceof RuntimeException runtime) {
-                        throw runtime;
-                    }
-                    if (cause instanceof Error error) {
-                        throw error;
-                    }
-                    throw new IllegalStateException(cause);
-                }
-            }
-
-            /**
-             * Forces the current MCTS leaf frame to become visible before the
-             * next search step is computed.
-             */
-            private void paintNetworkMctsFrameImmediately() {
-                if (NetworkPanel.this.isShowing()) {
-                    NetworkPanel.this.paintImmediately(NetworkPanel.this.getVisibleRect());
-                }
             }
 
             @Override
@@ -1430,8 +1396,11 @@ public final class NetworkPanel extends JPanel {
         if (snapshot == null) {
             return;
         }
+        boolean visibleBefore = mctsWeightsPanel.isVisible();
         mctsWeightsPanel.setSnapshot(snapshot);
-        revalidate();
+        if (visibleBefore != mctsWeightsPanel.isVisible()) {
+            revalidate();
+        }
         if (mctsFollowLeafToggle.isSelected() && snapshot.exploringPosition() != null) {
             String fen = leafFen == null ? snapshot.exploringPosition().toString() : leafFen;
             mctsLeafFen = fen;
@@ -1474,6 +1443,19 @@ public final class NetworkPanel extends JPanel {
         return playouts <= NETWORK_MCTS_WARMUP_PLAYOUTS
                 || playouts % NETWORK_MCTS_PUBLISH_INTERVAL == 0L
                 || nowNanos - lastPublishNanos >= NETWORK_MCTS_MIN_UPDATE_NANOS;
+    }
+
+    /**
+     * Returns whether an expensive follow-leaf activation frame should be
+     * produced.
+     *
+     * @param nowNanos current monotonic time
+     * @param lastLeafActivationNanos last activation-frame monotonic time
+     * @return true when the worker should build one activation snapshot
+     */
+    private static boolean shouldPublishNetworkMctsLeafFrame(long nowNanos, long lastLeafActivationNanos) {
+        return lastLeafActivationNanos == 0L
+                || nowNanos - lastLeafActivationNanos >= NETWORK_MCTS_FOLLOW_LEAF_MIN_UPDATE_NANOS;
     }
 
     /**

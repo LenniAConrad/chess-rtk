@@ -675,16 +675,19 @@ final class WorkbenchBackendRegression {
     }
 
     /**
-     * Verifies Network-tab MCTS keeps the default throttled publisher while
-     * follow-leaf mode switches to synchronous visual stepping.
+     * Verifies Network-tab MCTS keeps the UI update pipeline asynchronous and
+     * throttled even when follow-leaf visualization is enabled.
      */
     private static void testNetworkMctsUpdatesAreNonBlocking() {
         String source;
+        String viewSource;
         try {
             source = Files.readString(Path.of("src/application/gui/workbench/network/NetworkPanel.java"),
                     StandardCharsets.UTF_8);
+            viewSource = Files.readString(Path.of("src/application/gui/workbench/network/NetworkView.java"),
+                    StandardCharsets.UTF_8);
         } catch (IOException ex) {
-            throw new AssertionError("unable to read NetworkPanel source", ex);
+            throw new AssertionError("unable to read network source", ex);
         }
         assertTrue(source.contains("NETWORK_MCTS_PUBLISH_INTERVAL"),
                 "network MCTS has a publish throttle");
@@ -692,25 +695,31 @@ final class WorkbenchBackendRegression {
                 "network MCTS publishes live tree frames");
         assertTrue(source.contains("NETWORK_MCTS_FRAME_YIELD_MS"),
                 "network MCTS yields after streamed tree frames");
-        assertTrue(source.contains("mctsFollowLeafEnabled || shouldPublishNetworkMctsFrame"),
-                "follow-leaf mode streams every leaf instead of only throttled frames");
-        assertTrue(source.contains("showNetworkMctsFrameSynchronously"),
-                "follow-leaf mode applies each visual leaf frame synchronously");
-        assertTrue(source.contains("SwingUtilities.invokeAndWait"),
-                "follow-leaf stepping waits for the EDT to apply the frame");
-        assertTrue(source.contains("paintImmediately"),
-                "follow-leaf stepping forces the current frame to become visible");
+        assertTrue(source.contains("NETWORK_MCTS_FOLLOW_LEAF_MIN_UPDATE_NANOS"),
+                "follow-leaf activation frames have their own UI frame budget");
+        assertTrue(source.contains("shouldPublishNetworkMctsLeafFrame"),
+                "follow-leaf activation frames are rate-limited");
+        assertFalse(source.contains("showNetworkMctsFrameSynchronously"),
+                "follow-leaf mode does not synchronously block the EDT");
+        assertFalse(source.contains("SwingUtilities.invokeAndWait"),
+                "network MCTS never waits for the EDT from its worker");
+        assertFalse(source.contains("paintImmediately"),
+                "network MCTS never forces full-panel immediate paints");
         assertTrue(source.contains("buildNetworkMctsLeafActivationFrame"),
-                "network MCTS builds follow-leaf activations before stepping");
+                "network MCTS still builds follow-leaf activations off the EDT");
         assertTrue(source.contains("buildNetworkMctsFrame"),
                 "network MCTS builds live frames off the EDT");
         assertTrue(source.contains("setCollapsibleExpanded(mctsWeightsSection, true)"),
                 "network MCTS expands live edge weights when search starts");
+        assertTrue(viewSource.contains("Dimension previousPreferred = getPreferredSize()")
+                && viewSource.contains("if (!nextPreferred.equals(previousPreferred))"),
+                "network views only revalidate when a snapshot changes layout size");
     }
 
     /**
-     * Verifies Network-tab follow-leaf rendering builds the expensive
-     * activation snapshot off the EDT before applying the frame synchronously.
+     * Verifies Network-tab follow-leaf rendering publishes the tree frame
+     * before doing expensive activation inference, so root-edge updates can
+     * reach the EDT while the worker builds the neural snapshot.
      */
     private static void testNetworkMctsPublishesWeightsBeforeLeafActivation() {
         String source;
@@ -720,14 +729,13 @@ final class WorkbenchBackendRegression {
         } catch (IOException ex) {
             throw new AssertionError("unable to read NetworkPanel source", ex);
         }
+        int publishTree = source.indexOf("publishNetworkMctsFrame(frame, playouts);");
         int buildActivation = source.indexOf("buildNetworkMctsLeafActivationFrame(frame)");
-        int showSynchronously = source.indexOf("showNetworkMctsFrameSynchronously(activationFrame)");
-        assertTrue(buildActivation >= 0 && showSynchronously > buildActivation,
-                "network MCTS builds leaf activation before synchronous display");
-        int invokeAndWait = source.indexOf("SwingUtilities.invokeAndWait");
-        int showSnapshot = source.indexOf("showNetworkMctsSnapshot(frame.snapshot(), true");
-        assertTrue(invokeAndWait >= 0 && showSnapshot > invokeAndWait,
-                "network MCTS applies leaf frames on the EDT");
+        int publishActivation = source.indexOf("publishNetworkMctsFrame(activationFrame, playouts)");
+        assertTrue(publishTree >= 0 && buildActivation > publishTree,
+                "network MCTS publishes tree weights before building leaf activation");
+        assertTrue(publishActivation > buildActivation,
+                "network MCTS publishes activation frames asynchronously after inference");
         int frameBuilder = source.indexOf("private NetworkMctsFrame buildNetworkMctsFrame");
         int activationBuilder = source.indexOf("private NetworkMctsFrame buildNetworkMctsLeafActivationFrame");
         String builderBody = source.substring(frameBuilder, activationBuilder);

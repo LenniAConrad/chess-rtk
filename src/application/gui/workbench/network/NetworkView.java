@@ -121,10 +121,14 @@ public abstract class NetworkView extends JComponent {
      * @param newSnapshot sealed snapshot, or null to clear
      */
     public final void setSnapshot(ActivationSnapshot newSnapshot) {
+        Dimension previousPreferred = getPreferredSize();
         this.snapshot = newSnapshot;
         onSnapshotChanged();
-        invalidate();
-        revalidate();
+        Dimension nextPreferred = getPreferredSize();
+        if (!nextPreferred.equals(previousPreferred)) {
+            invalidate();
+            revalidate();
+        }
         repaint();
     }
 
