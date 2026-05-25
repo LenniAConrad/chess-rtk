@@ -412,18 +412,15 @@ public final class NnueDrawing {
      * @param x2 target x
      * @param y2 target y
      * @param strength signed magnitude in [-1, 1]
-     * @param label edge label
-     * @param detail secondary label text
-     * @param labelY y coordinate for the label lane
-     * @param maxLabelWidth maximum label width
+     * @param laneY y coordinate for the bypass lane
      * @return approximate bounds for hover hit-testing
      */
     public static Rectangle drawTraceSkipEdge(Graphics2D g, int x1, int y1, int x2, int y2,
-            float strength, String label, String detail, int labelY, int maxLabelWidth) {
+            float strength, int laneY) {
         int left = Math.min(x1, x2);
         int right = Math.max(x1, x2);
-        int top = Math.min(Math.min(y1, y2), labelY);
-        int bottom = Math.max(Math.max(y1, y2), labelY);
+        int top = Math.min(Math.min(y1, y2), laneY);
+        int bottom = Math.max(Math.max(y1, y2), laneY);
         if (right - left < 24) {
             drawTraceEdge(g, x1, y1, x2, y2, strength, true);
             return new Rectangle(left, top, Math.max(1, right - left), Math.max(1, bottom - top));
@@ -437,7 +434,7 @@ public final class NnueDrawing {
                 + Math.round((TRACE_EDGE_ALPHA_MAX - TRACE_EDGE_ALPHA_MIN) * mag)
                 + TRACE_EDGE_FOCUS_BOOST);
         Color accent = new Color(base.getRed(), base.getGreen(), base.getBlue(), alpha);
-        Path2D.Double curve = skipBezierPath(x1, y1, x2, y2, labelY);
+        Path2D.Double curve = skipBezierPath(x1, y1, x2, y2, laneY);
         Stroke oldStroke = g.getStroke();
 
         g.setColor(Theme.withAlpha(Theme.PANEL_SOLID, Theme.isDark() ? 220 : 235));
@@ -454,14 +451,7 @@ public final class NnueDrawing {
         drawSkipEndpoint(g, x2, y2, accent);
         g.setStroke(oldStroke);
 
-        Rectangle labelBounds = drawSkipEdgeLabel(g, label, detail,
-                (x1 + x2) / 2, labelY, labelY < Math.min(y1, y2),
-                Math.min(maxLabelWidth, Math.max(48, right - left - 18)), accent);
-        Rectangle hit = new Rectangle(left - 6, top - 10, right - left + 12, bottom - top + 20);
-        if (labelBounds != null) {
-            hit = hit.union(labelBounds);
-        }
-        return hit;
+        return new Rectangle(left - 6, top - 10, right - left + 12, bottom - top + 20);
     }
 
     /**
@@ -500,58 +490,6 @@ public final class NnueDrawing {
         g.drawOval(x - 4, y - 4, 8, 8);
         g.setColor(Theme.withAlpha(accent, 92));
         g.fillOval(x - 2, y - 2, 4, 4);
-    }
-
-    /**
-     * Draws the label for the skip edge.
-     *
-     * @param g graphics
-     * @param text label text
-     * @param detail secondary text
-     * @param centerX label center x
-     * @param labelY label lane y
-     * @param below true when the label should sit below the lane
-     * @param maxWidth maximum text width
-     * @param accent accent color
-     * @return label bounds or {@code null} when no text fits
-     */
-    private static Rectangle drawSkipEdgeLabel(Graphics2D g, String text, String detail,
-            int centerX, int labelY, boolean below, int maxWidth, Color accent) {
-        g.setFont(Theme.font(9, Font.BOLD));
-        FontMetrics titleMetrics = g.getFontMetrics();
-        String fitted = fitText(titleMetrics, text, Math.max(0, maxWidth - 18));
-        if (fitted.isEmpty()) {
-            return null;
-        }
-        g.setFont(Theme.font(9, Font.PLAIN));
-        FontMetrics detailMetrics = g.getFontMetrics();
-        String fittedDetail = fitText(detailMetrics, detail, Math.max(0, maxWidth - 18));
-        int titleW = titleMetrics.stringWidth(fitted);
-        int detailW = fittedDetail.isEmpty() ? 0 : detailMetrics.stringWidth(fittedDetail);
-        int width = Math.min(maxWidth, Math.max(titleW, detailW) + 18);
-        int height = fittedDetail.isEmpty()
-                ? titleMetrics.getHeight() + 9
-                : titleMetrics.getHeight() + detailMetrics.getHeight() + 10;
-        int x = centerX - width / 2;
-        int y = below ? labelY + 6 : labelY - height - 6;
-        Rectangle bg = new Rectangle(x, y, width, height);
-        g.setColor(Theme.PANEL_SOLID);
-        g.fillRoundRect(bg.x, bg.y, bg.width, bg.height, Theme.RADIUS, Theme.RADIUS);
-        g.setColor(Theme.LINE);
-        g.drawRoundRect(bg.x, bg.y, bg.width - 1, bg.height - 1, Theme.RADIUS, Theme.RADIUS);
-        g.setColor(accent);
-        g.fillRoundRect(bg.x, bg.y, 3, bg.height, Theme.RADIUS, Theme.RADIUS);
-        int textX = bg.x + 9;
-        int titleBaseline = bg.y + 5 + titleMetrics.getAscent();
-        g.setFont(Theme.font(9, Font.BOLD));
-        g.setColor(Theme.TEXT);
-        g.drawString(fitted, textX, titleBaseline);
-        if (!fittedDetail.isEmpty()) {
-            g.setFont(Theme.font(9, Font.PLAIN));
-            g.setColor(Theme.MUTED);
-            g.drawString(fittedDetail, textX, titleBaseline + detailMetrics.getHeight() - 1);
-        }
-        return bg;
     }
 
     /**

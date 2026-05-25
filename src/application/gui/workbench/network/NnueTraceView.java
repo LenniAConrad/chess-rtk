@@ -1175,10 +1175,8 @@ public abstract class NnueTraceView extends NnueOverviewView {
             float strength = valueAt(fc0FwdContribution, 0) / contribScale;
             int sourceX = layout.clippedCx + layout.slotRadius;
             int targetX = layout.outputCx - (layout.slotRadius + 6);
-            int labelY = skipEdgeLabelY(layout, fwdY, outCy);
-            Rectangle hit = drawTraceSkipEdge(g, sourceX, fwdY, targetX, outCy, strength,
-                    "forward skip", "bypasses FC1", labelY,
-                    Math.max(116, targetX - sourceX - 18));
+            int laneY = skipEdgeLaneY(layout, fwdY, outCy);
+            Rectangle hit = drawTraceSkipEdge(g, sourceX, fwdY, targetX, outCy, strength, laneY);
             hitRegions.add(hit,
                     "FC0 forward skip edge",
                     "Stockfish NNUE carries this FC0 forward branch directly into the output, bypassing FC1.",
@@ -1187,14 +1185,14 @@ public abstract class NnueTraceView extends NnueOverviewView {
     }
 
     /**
-     * Chooses a readable label lane for the Stockfish FC0 forward-skip line.
+     * Chooses a quiet bypass lane for the Stockfish FC0 forward-skip line.
      *
      * @param layout trace layout
      * @param fwdY FC0 forward-row y coordinate
      * @param outCy output-node y coordinate
-     * @return label lane y coordinate
+     * @return bypass lane y coordinate
      */
-    private static int skipEdgeLabelY(NnueTraceLayout layout, int fwdY, int outCy) {
+    private static int skipEdgeLaneY(NnueTraceLayout layout, int fwdY, int outCy) {
         int lowerRoom = layout.graphBottom - Math.max(fwdY, outCy);
         if (lowerRoom >= 44) {
             return Math.min(layout.graphBottom - 8, Math.max(fwdY, outCy) + 36);
