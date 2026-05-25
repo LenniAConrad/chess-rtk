@@ -7,6 +7,7 @@ import application.gui.workbench.game.Positions;
 import application.gui.workbench.mcts.MctsSearch;
 import application.gui.workbench.mcts.MctsWeightsPanel;
 import application.gui.workbench.ui.InspectorPanel;
+import application.gui.workbench.ui.RenderAcceleration;
 import application.gui.workbench.ui.SegmentedSwitcher;
 import application.gui.workbench.ui.StatusBadge;
 import application.gui.workbench.ui.Theme;
@@ -919,7 +920,7 @@ public final class NetworkPanel extends JPanel {
         int w = Math.max(1, Math.max(target.getWidth(), target.getPreferredSize().width));
         int h = Math.max(1, Math.max(target.getHeight(), target.getPreferredSize().height));
         try {
-            BufferedImage img = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);
+            BufferedImage img = RenderAcceleration.translucentImage(w, h);
             java.awt.Graphics2D g = img.createGraphics();
             try {
                 // Lay the view out at the full capture size, paint, then let

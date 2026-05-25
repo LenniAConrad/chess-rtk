@@ -2,6 +2,7 @@ package application.gui.workbench.network;
 
 import application.gui.workbench.board.BoardStyle;
 import application.gui.workbench.ui.NotationPainter;
+import application.gui.workbench.ui.RenderAcceleration;
 import application.gui.workbench.ui.Theme;
 import application.gui.workbench.ui.Ui;
 import java.awt.BasicStroke;
@@ -322,8 +323,7 @@ public final class TensorViz {
         float s = scale <= 0.0f ? 1.0f : scale;
         Color base = tint == null ? FOCUS : tint;
         int rgb = (base.getRed() << 16) | (base.getGreen() << 8) | base.getBlue();
-        java.awt.image.BufferedImage image =
-                new java.awt.image.BufferedImage(cols, rows, java.awt.image.BufferedImage.TYPE_INT_ARGB);
+        java.awt.image.BufferedImage image = RenderAcceleration.translucentImage(cols, rows);
         int[] pixels = new int[cols * rows];
         for (int i = 0; i < pixels.length; ++i) {
             float v = Math.min(1.0f, Math.abs(data[i]) / s);
@@ -359,8 +359,7 @@ public final class TensorViz {
             return;
         }
         float s = scale <= 0.0f ? 1.0f : scale;
-        java.awt.image.BufferedImage image =
-                new java.awt.image.BufferedImage(cols, rows, java.awt.image.BufferedImage.TYPE_INT_RGB);
+        java.awt.image.BufferedImage image = RenderAcceleration.opaqueImage(cols, rows);
         int[] pixels = new int[cols * rows];
         Color zero = heatmapZeroBase();
         for (int i = 0; i < pixels.length; ++i) {

@@ -6,6 +6,7 @@ import static testing.WorkbenchTestSupport.*;
 import java.awt.Color;
 import java.awt.Graphics2D;
 import java.awt.Rectangle;
+import java.awt.Transparency;
 import java.awt.event.MouseEvent;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
@@ -36,6 +37,7 @@ import application.gui.workbench.game.Positions;
 import application.gui.workbench.mcts.MctsSearch;
 import application.gui.workbench.session.LogPanel;
 import application.gui.workbench.network.NnueDrawing;
+import application.gui.workbench.ui.RenderAcceleration;
 import application.gui.workbench.ui.Theme;
 
 import chess.core.Move;
@@ -81,6 +83,7 @@ final class WorkbenchBackendRegression {
         testNetworkPositionPickerClearsLeafOverride();
         testNetworkDiagnosticsPreviewHighlightsConfig();
         testNetworkDiagnosticsPreviewRecolorsForDarkTheme();
+        testRenderAccelerationProvidesCompatibleImages();
         testNnueStackSummaryStaysCompact();
         testNnueViewsPaintSyntheticSnapshotHeadlessly();
         testNnueContributorLedgerUsesReadableRows();
@@ -843,6 +846,21 @@ final class WorkbenchBackendRegression {
         assertEquals(themeColor("ACCENT"), StyleConstants.getForeground(keyAttrs),
                 "diagnostics config key recolors to dark accent");
         Theme.setMode(Theme.Mode.LIGHT);
+    }
+
+    /**
+     * Verifies heavy workbench painters can request Java2D-compatible buffers
+     * without depending on a live display during headless regression runs.
+     */
+    private static void testRenderAccelerationProvidesCompatibleImages() {
+        BufferedImage image = RenderAcceleration.compatibleImage(17, 19,
+                Transparency.TRANSLUCENT);
+        assertEquals(Integer.valueOf(17), Integer.valueOf(image.getWidth()),
+                "compatible image width");
+        assertEquals(Integer.valueOf(19), Integer.valueOf(image.getHeight()),
+                "compatible image height");
+        assertTrue(!RenderAcceleration.summary().isBlank(),
+                "render acceleration reports status");
     }
 
     /**

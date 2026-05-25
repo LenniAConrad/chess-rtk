@@ -1,5 +1,6 @@
 package application.gui.workbench.board;
 
+import application.gui.workbench.ui.RenderAcceleration;
 import application.gui.workbench.ui.Theme;
 import chess.core.Field;
 import chess.core.Piece;
@@ -437,7 +438,7 @@ public final class BoardEditorPanel extends JPanel {
      * @return palette icon image
      */
     private BufferedImage paletteIcon(byte piece) {
-        BufferedImage icon = new BufferedImage(TOOL_TILE_SIZE, TOOL_TILE_SIZE, BufferedImage.TYPE_INT_ARGB);
+        BufferedImage icon = RenderAcceleration.translucentImage(TOOL_TILE_SIZE, TOOL_TILE_SIZE);
         Graphics2D graphics = icon.createGraphics();
         try {
             graphics.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);

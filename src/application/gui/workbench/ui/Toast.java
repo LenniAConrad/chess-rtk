@@ -312,7 +312,7 @@ public final class Toast {
                 super.paint(graphics);
                 return;
             }
-            BufferedImage buffer = new BufferedImage(getWidth(), getHeight(), BufferedImage.TYPE_INT_ARGB);
+            BufferedImage buffer = RenderAcceleration.translucentImage(getWidth(), getHeight());
             Graphics2D bufferedGraphics = buffer.createGraphics();
             try {
                 super.paint(bufferedGraphics);

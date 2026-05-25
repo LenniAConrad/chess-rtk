@@ -1,6 +1,7 @@
 package application.gui.workbench.network;
 
 import application.Config;
+import application.gui.workbench.ui.RenderAcceleration;
 import application.gui.workbench.ui.Theme;
 import application.gui.workbench.ui.TomlHighlighter;
 import application.gui.workbench.ui.Ui;
@@ -276,6 +277,7 @@ public final class NetworkDiagnosticsPanel extends JPanel {
      */
     private static List<GpuState> gpuStates() {
         List<GpuState> out = new ArrayList<>();
+        out.add(java2dState());
         out.add(gpu("LC0 CUDA", safeLoaded(() -> chess.nn.lc0.cnn.cuda.Support.isLoaded()),
                 safeCount(() -> chess.nn.lc0.cnn.cuda.Support.deviceCount())));
         out.add(gpu("LC0 ROCm", safeLoaded(() -> chess.nn.lc0.cnn.rocm.Support.isLoaded()),
@@ -285,6 +287,24 @@ public final class NetworkDiagnosticsPanel extends JPanel {
         out.add(gpu("T5 oneAPI", safeLoaded(() -> chess.nn.t5.oneapi.Support.isLoaded()),
                 safeCount(() -> chess.nn.t5.oneapi.Support.deviceCount())));
         return out;
+    }
+
+    /**
+     * Builds the Java2D rendering-acceleration row.
+     *
+     * @return Java2D state row
+     */
+    private static GpuState java2dState() {
+        RenderAcceleration.RenderStatus status = RenderAcceleration.status();
+        Theme.ForegroundRole role = status.volatileImageAccelerated()
+                ? Theme.ForegroundRole.SUCCESS
+                : status.gpuRequested()
+                        ? Theme.ForegroundRole.INFO
+                        : Theme.ForegroundRole.MUTED;
+        String state = status.volatileImageAccelerated()
+                ? "gpu"
+                : status.gpuRequested() ? "requested" : "default";
+        return new GpuState("Java2D", state, RenderAcceleration.summary(), role);
     }
 
     /**

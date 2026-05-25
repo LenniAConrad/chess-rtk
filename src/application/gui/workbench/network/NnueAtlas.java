@@ -1,6 +1,7 @@
 package application.gui.workbench.network;
 
 import application.gui.workbench.board.BoardStyle;
+import application.gui.workbench.ui.RenderAcceleration;
 import application.gui.workbench.ui.Theme;
 import application.gui.workbench.ui.Ui;
 import java.awt.Color;
@@ -297,8 +298,7 @@ public final class NnueAtlas {
             int hidden, int planes, int squares, float[] perNeuronScale) {
         int width = Math.max(1, planes * 8);
         int height = Math.max(1, hidden * 8);
-        java.awt.image.BufferedImage image =
-                new java.awt.image.BufferedImage(width, height, java.awt.image.BufferedImage.TYPE_INT_ARGB);
+        java.awt.image.BufferedImage image = RenderAcceleration.translucentImage(width, height);
         int[] pixels = new int[width * height];
         int[] palette = atlasRampArgbPalette();
         for (int row = 0; row < hidden && row < order.length; row++) {

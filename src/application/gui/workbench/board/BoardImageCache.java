@@ -1,5 +1,6 @@
 package application.gui.workbench.board;
 
+import application.gui.workbench.ui.RenderAcceleration;
 import chess.core.Piece;
 import chess.images.assets.Shapes;
 import java.awt.Graphics2D;
@@ -126,7 +127,7 @@ final class BoardImageCache {
      * @return rendered board texture
      */
     private static BufferedImage renderBoardTexture(int size) {
-        BufferedImage image = new BufferedImage(size, size, BufferedImage.TYPE_INT_ARGB);
+        BufferedImage image = RenderAcceleration.opaqueImage(size, size);
         Graphics2D graphics = image.createGraphics();
         try {
             int cell = size / 8;
@@ -150,7 +151,7 @@ final class BoardImageCache {
      * @return rendered piece bitmap
      */
     private static BufferedImage renderPieceImage(byte piece, int cell) {
-        BufferedImage image = new BufferedImage(cell, cell, BufferedImage.TYPE_INT_ARGB);
+        BufferedImage image = RenderAcceleration.translucentImage(cell, cell);
         Graphics2D graphics = image.createGraphics();
         try {
             graphics.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
