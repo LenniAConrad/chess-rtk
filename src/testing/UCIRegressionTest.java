@@ -25,7 +25,7 @@ import chess.uci.Protocol;
  * @author Lennart A. Conrad
  * @since 2026
  */
-@SuppressWarnings("java:S2187")
+
 public final class UCIRegressionTest {
 
 	/**

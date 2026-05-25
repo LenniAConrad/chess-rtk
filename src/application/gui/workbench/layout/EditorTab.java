@@ -312,19 +312,44 @@ final class EditorTab extends JComponent {
                     RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
             int w = getWidth();
             int h = getHeight();
-            Color background = selected ? (paneActive ? Theme.PANEL_SOLID : Theme.ELEVATED_SOLID)
-                    : hover ? Theme.TAB_HOVER : Theme.BG;
+            // VS Code-style tab body:
+            //  - Active tab background = PANEL_SOLID, matching the editor
+            //    pane host's background, so the active tab visually merges
+            //    with the content area below it (no visible seam).
+            //  - Inactive tabs sit on BG (the darker tab-strip surface),
+            //    hover lifts to TAB_HOVER.
+            //  - 3px accent bar along the TOP marks the active tab.
+            //  - Active label uses TEXT colour, not ACCENT, so the label
+            //    reads as content rather than as a coloured chip.
+            Color background;
+            if (selected) {
+                background = paneActive ? Theme.PANEL_SOLID : Theme.ELEVATED_SOLID;
+            } else if (hover) {
+                background = Theme.TAB_HOVER;
+            } else {
+                background = Theme.BG;
+            }
             g.setColor(background);
             g.fillRect(0, 0, w, h);
-            // Trailing separator between tabs.
+            // Thin trailing separator between tabs (the strip's "side" rule).
+            // Extends the full vertical span of the tab so the line meets the
+            // top and bottom edges flush, matching VS Code's tab separators.
             g.setColor(Theme.LINE);
-            g.drawLine(w - 1, 4, w - 1, h - 4);
-            // Accent underline marks the active tab.
-            if (selected) {
+            g.drawLine(w - 1, 0, w - 1, h - 1);
+            // Per-tab bottom separator: directly beneath the tab body so the
+            // line sits right against the cell, not down in a gap below the
+            // strip. Skipped on the active tab so it merges with the pane
+            // below — matches the VS Code reference where the bottom rule
+            // breaks under the selected tab.
+            if (!selected) {
+                g.fillRect(0, h - 1, w, 1);
+            } else {
+                // 1px accent rule — the subtlest VS Code-style top mark
+                // that still reads against the tab strip below.
                 g.setColor(paneActive ? Theme.ACCENT : Theme.LINE);
-                g.fillRect(0, h - 2, w, 2);
+                g.fillRect(0, 0, w, 1);
             }
-            g.setFont(Theme.font(12, selected ? Font.BOLD : Font.PLAIN));
+            g.setFont(Theme.font(12, Font.PLAIN));
             g.setColor(selected && paneActive ? Theme.TEXT : Theme.MUTED);
             FontMetrics fm = g.getFontMetrics();
             g.drawString(name, PAD, (h + fm.getAscent() - fm.getDescent()) / 2);

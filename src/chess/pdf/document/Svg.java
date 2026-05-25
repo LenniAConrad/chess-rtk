@@ -1070,7 +1070,7 @@ final class Svg {
 	/**
 	 * Resolved SVG style state inherited through the DOM tree.
 	 */
-	@SuppressWarnings("java:S107")
+
 	private static final class StyleState {
 
 		/**

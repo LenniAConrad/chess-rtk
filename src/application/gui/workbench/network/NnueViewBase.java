@@ -85,7 +85,6 @@ public abstract class NnueViewBase extends NetworkView implements Scrollable {
      */
     protected static final int TRACE_RIBBON_H = 92;
 
-
     /**
      * Short label describing the loaded NNUE version.
      */
@@ -317,8 +316,6 @@ public abstract class NnueViewBase extends NetworkView implements Scrollable {
         return r.tooltipHtml();
     }
 
-
-
     /**
      * Sets the atlas neuron-sort mode.
      *
@@ -468,8 +465,6 @@ public abstract class NnueViewBase extends NetworkView implements Scrollable {
         return shape != null && shape.length >= 1 ? shape[0] : 0;
     }
 
-
-
     /**
      * Sets a label describing the loaded NNUE network version (or "synthetic").
      *
@@ -608,9 +603,6 @@ public abstract class NnueViewBase extends NetworkView implements Scrollable {
         }
     }
 
-
-
-
     /**
      * Paints the empty-state hint.
      *
@@ -719,9 +711,6 @@ public abstract class NnueViewBase extends NetworkView implements Scrollable {
                 "nnue.output.centipawns", 0, 0, 0, "1");
     }
 
-
-
-
     /**
      * Computes the detailed trace layout for the supplied wire graph bounds.
      *
@@ -756,9 +745,25 @@ public abstract class NnueViewBase extends NetworkView implements Scrollable {
             java.util.Arrays.sort(ranked,
                     (a, b) -> Float.compare(Math.abs(slotRankValues[b]), Math.abs(slotRankValues[a])));
             int n = Math.min(TRACE_MAX_VISIBLE_SLOTS, ranked.length);
+            // Force-include the pinned slot so a user-selected lane stays in
+            // the visible set even when a new snapshot pushes it out of the
+            // top-N ranking. Without this, switching to a new MCTS leaf
+            // re-ranks slots and the previous selection silently drops.
+            boolean forceSelected = selectedSlotId >= 0 && selectedSlotId < slotRankValues.length;
             visibleSlots = new int[n];
-            for (int i = 0; i < n; ++i) {
-                visibleSlots[i] = ranked[i];
+            int written = 0;
+            if (forceSelected) {
+                visibleSlots[written++] = selectedSlotId;
+            }
+            for (int i = 0; i < ranked.length && written < n; ++i) {
+                int slot = ranked[i];
+                if (forceSelected && slot == selectedSlotId) {
+                    continue;
+                }
+                visibleSlots[written++] = slot;
+            }
+            if (written < n) {
+                visibleSlots = java.util.Arrays.copyOf(visibleSlots, written);
             }
         }
         float[] featureIndices = snapshot.data("nnue.features.us.indices");

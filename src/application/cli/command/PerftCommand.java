@@ -392,9 +392,28 @@ public final class PerftCommand {
 	 */
 	private static void printResult(Position position, Result result, String heading) {
 		System.out.println("FEN: " + position);
+		printRootStatus(position);
 		System.out.println(heading + " depth " + result.depth());
 		printStats(result.stats());
 		printTiming(result.nanos(), result.nodesPerSecond());
+	}
+
+	/**
+	 * Surfaces terminal-position state at the root. Without this line, running
+	 * perft on a checkmated position reports nodes=0 with no explanation that
+	 * the root itself has no legal moves; users read this as "perft is broken"
+	 * rather than "position is mate."
+	 *
+	 * @param position root position
+	 */
+	private static void printRootStatus(Position position) {
+		if (position.isCheckmate()) {
+			System.out.println("root status: checkmate (no legal moves)");
+		} else if (position.isStalemate()) {
+			System.out.println("root status: stalemate (no legal moves)");
+		} else if (position.inCheck()) {
+			System.out.println("root status: in check");
+		}
 	}
 
 	/**
@@ -411,6 +430,7 @@ public final class PerftCommand {
 			return;
 		}
 		System.out.println("FEN: " + position);
+		printRootStatus(position);
 		if (format == PerftFormat.TABLE) {
 			System.out.printf("Perft divide (depth %d)%n", result.depth());
 			printDivideTable(result);

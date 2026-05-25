@@ -25,7 +25,6 @@ public final class NnueView extends NnueTraceView {
     /** Serialization identifier for Swing component compatibility. */
     private static final long serialVersionUID = 1L;
 
-
     /**
      * Decodes a HalfKP feature index for regression tests and tooltip text.
      *

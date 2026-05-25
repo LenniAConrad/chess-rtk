@@ -47,11 +47,6 @@ public final class StatusBadge extends JComponent {
     private static final int TRANSITION_MS = 120;
 
     /**
-     * Duration for one subtle busy pulse in milliseconds.
-     */
-    private static final int BUSY_PULSE_MS = 900;
-
-    /**
      * The severity of a status message, which selects the dot colour.
      */
     public enum Kind {
@@ -315,17 +310,15 @@ public final class StatusBadge extends JComponent {
     }
 
     /**
-     * Returns the current busy-state dot size.
+     * Returns the status-dot size in pixels. Constant across all states; the
+     * accent colour alone communicates BUSY. The previous implementation
+     * pulsed the diameter ±1px on a 900ms sine wave, which read as the badge
+     * scaling weirdly on every tick.
      *
      * @return dot size in pixels
      */
     private int animatedDotSize() {
-        if (kind != Kind.BUSY || pulseStartedAt == 0L) {
-            return DOT;
-        }
-        long elapsed = Math.max(0L, System.currentTimeMillis() - pulseStartedAt);
-        double angle = (elapsed % BUSY_PULSE_MS) / (double) BUSY_PULSE_MS * Math.PI * 2.0d;
-        return DOT - 1 + (int) Math.round((Math.sin(angle) + 1.0d) * 0.5d * 2.0d);
+        return DOT;
     }
 
     /**

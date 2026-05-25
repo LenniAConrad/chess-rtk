@@ -490,7 +490,7 @@ public final class Scorer {
         } catch (ReflectiveOperationException | LinkageError ex) {
             // Standalone scoring builds may not include the full classical stack.
         }
-        return new MaterialVisibilityEvaluator();
+        return new ScorerSupport.MaterialVisibilityEvaluator();
     }
 
     /**
@@ -582,19 +582,19 @@ public final class Scorer {
         int movingPiece = fromSquare >= 0 && fromSquare < 64 ? root.pieceAt(fromSquare) : Piece.EMPTY;
         int pieceType = Math.abs(movingPiece);
         int toSquare = solution == Move.NO_MOVE ? -1 : root.actualToSquare(solution);
-        RootMaterial material = rootMaterial(root);
+        RootMaterial material = ScorerSupport.rootMaterial(root);
 
         return new NodeScore(
                 root.signatureCore(),
                 goal,
                 rawScore,
-                moveToString(solution),
+                ScorerSupport.moveToString(solution),
                 Move.hash(solution),
                 deepBestCp,
                 deepSecondCp,
                 deepMarginCp,
                 cheap.staticCp,
-                moveToString(cheap.bestMove),
+                ScorerSupport.moveToString(cheap.bestMove),
                 cheap.bestCp,
                 cheap.solutionCp,
                 cheap.solutionRank,
@@ -665,10 +665,10 @@ public final class Scorer {
         rating = addDirectRatingJitter(rating, node.positionSignature);
         rating = capDirectMateRating(rating, node.keyShape(), 1);
         double score = scoreForRating(rating);
-        String label = labelFor(score);
+        String label = ScorerSupport.labelFor(score);
         FeatureSignals signals = new FeatureSignals(node.goal, node.rawScore, length, variation, diversity, special,
                 nonforcing);
-        List<String> names = featureNames(signals, t, node.keyShape(),
+        List<String> names = ScorerSupport.featureNames(signals, t, node.keyShape(),
                 new CheapVisibility(node.cheapStaticCp, node.cheapSolutionCp));
         DifficultyFeatures features = new DifficultyFeatures(
                 node.goal,
@@ -1597,227 +1597,17 @@ public final class Scorer {
      * @param score normalized difficulty score
      * @return difficulty label
      */
-    private static String labelFor(double score) {
-        if (score <= 0.20) {
-            return "very_easy";
-        }
-        if (score <= 0.35) {
-            return "easy";
-        }
-        if (score <= 0.55) {
-            return "medium";
-        }
-        if (score <= 0.70) {
-            return "hard";
-        }
-        return "very_hard";
-    }
-
-    /**
-     * Builds a compact list of high-signal feature names.
-     *
-     * <p>
-     * The feature list is explanatory metadata, not a complete feature vector.
-     * It favors stable names that are useful in CSV exports and tags.
-     * </p>
-     *
-     * @param signals scalar scoring signals
-     * @param tree explicit continuation summary
-     * @param key key move shape
-     * @param cheap cheap visibility values
-     * @return feature names
-     */
-    private static List<String> featureNames(FeatureSignals signals, PuzzleTreeSummary tree, KeyShape key,
-            CheapVisibility cheap) {
-        List<String> names = new ArrayList<>();
-        addGoalFeature(names, signals.goal);
-        addSignalFeatures(names, signals, tree);
-        addKeyFeatures(names, key);
-        addCheapVisibilityFeature(names, cheap);
-        if (names.isEmpty()) {
-            names.add("forcing_key");
-        }
-        return List.copyOf(names);
-    }
-
-    /**
-     * Adds the puzzle-goal feature name.
-     *
-     * <p>
-     * Winning puzzles are the default and do not receive an extra feature name.
-     * </p>
-     *
-     * @param names mutable feature-name list
-     * @param goal inferred puzzle goal
-     */
-    private static void addGoalFeature(List<String> names, Goal goal) {
-        if (goal == Goal.DRAW) {
-            names.add("draw_resource");
-        } else if (goal == Goal.UNKNOWN) {
-            names.add("uncertain_goal");
-        }
-    }
-
-    /**
-     * Adds scalar difficulty signal names.
-     *
-     * <p>
-     * Names are added only when a signal crosses a threshold that should be
-     * visible to report readers.
-     * </p>
-     *
-     * @param names mutable feature-name list
-     * @param signals scalar scoring signals
-     * @param tree explicit continuation summary
-     */
-    private static void addSignalFeatures(List<String> names, FeatureSignals signals, PuzzleTreeSummary tree) {
-        if (signals.node > 0.45) {
-            names.add("ambiguous_candidates");
-        }
-        if (signals.node > 0.60) {
-            names.add("hidden_eval");
-        }
-        if (signals.length > 0.35) {
-            names.add("multi_move");
-        }
-        if (signals.variation > 0.30 || tree.branchPointCount > 0) {
-            names.add("branching");
-        }
-        if (signals.diversity > 0.25) {
-            names.add("piece_diversity");
-        }
-        if (tree.pieceIdentityCount > 1) {
-            names.add("multiple_pieces");
-        }
-        if (signals.special > 0.0) {
-            names.add("special_move");
-        }
-        if (signals.nonforcing > 0.75) {
-            names.add("nonforcing");
-        }
-    }
-
-    /**
-     * Adds key-move shape names.
-     *
-     * <p>
-     * These names describe properties of the first required solver move.
-     * </p>
-     *
-     * @param names mutable feature-name list
-     * @param key key move shape
-     */
-    private static void addKeyFeatures(List<String> names, KeyShape key) {
-        if (key.quiet) {
-            names.add("quiet_key");
-        }
-        if (key.underpromotion) {
-            names.add("underpromotion");
-        } else if (key.promotion) {
-            names.add("promotion");
-        }
-        if (key.enPassant) {
-            names.add("en_passant");
-        }
-        if (key.castle) {
-            names.add("castling");
-        }
-        if (key.mate) {
-            names.add("mate_key");
-        }
-    }
-
-    /**
-     * Adds cheap-evaluator visibility names.
-     *
-     * <p>
-     * A large cheap static-to-solution drop is treated as a possible sacrifice
-     * or temporary concession.
-     * </p>
-     *
-     * @param names mutable feature-name list
-     * @param cheap cheap visibility values
-     */
-    private static void addCheapVisibilityFeature(List<String> names, CheapVisibility cheap) {
-        if (cheap.solutionCp < cheap.staticCp - 150) {
-            names.add("sacrifice_or_concession");
-        }
-    }
-
-    /**
-     * Formats a move safely.
-     *
-     * <p>
-     * Invalid or sentinel moves are converted to {@code 0000} instead of
-     * propagating formatting exceptions into exports.
-     * </p>
-     *
-     * @param move encoded move
-     * @return UCI move text
-     */
-    private static String moveToString(short move) {
-        try {
-            return Move.toString(move);
-        } catch (RuntimeException ex) {
-            return "0000";
-        }
-    }
-
     /**
      * Formats the solution move as SAN when available.
-     *
-     * <p>
-     * The method falls back to UCI text when SAN conversion is unavailable for
-     * the supplied position.
-     * </p>
      *
      * @param root root position
      * @param move solution move
      * @return SAN or UCI fallback
      */
     public static String solutionSan(Position root, short move) {
-        if (root == null || move == Move.NO_MOVE) {
-            return "0000";
-        }
-        try {
-            return SAN.toAlgebraic(root, move);
-        } catch (RuntimeException ex) {
-            return moveToString(move);
-        }
+        return ScorerSupport.solutionSan(root, move);
     }
 
-    /**
-     * Summarizes non-king root material for tree-evidence scaling.
-     *
-     * @param position position to inspect
-     * @return root material summary
-     */
-    private static RootMaterial rootMaterial(Position position) {
-        int pawns = pieceCount(position, Position.WHITE_PAWN) + pieceCount(position, Position.BLACK_PAWN);
-        int knights = pieceCount(position, Position.WHITE_KNIGHT) + pieceCount(position, Position.BLACK_KNIGHT);
-        int bishops = pieceCount(position, Position.WHITE_BISHOP) + pieceCount(position, Position.BLACK_BISHOP);
-        int rooks = pieceCount(position, Position.WHITE_ROOK) + pieceCount(position, Position.BLACK_ROOK);
-        int queens = pieceCount(position, Position.WHITE_QUEEN) + pieceCount(position, Position.BLACK_QUEEN);
-        int nonPawnPieces = knights + bishops + rooks + queens;
-        int nonKingPieces = pawns + nonPawnPieces;
-        int material = pawns * Piece.VALUE_PAWN
-                + knights * Piece.VALUE_KNIGHT
-                + bishops * Piece.VALUE_BISHOP
-                + rooks * Piece.VALUE_ROOK
-                + queens * Piece.VALUE_QUEEN;
-        return new RootMaterial(nonKingPieces, nonPawnPieces, material);
-    }
-
-    /**
-     * Counts pieces for one position piece index.
-     *
-     * @param position position to inspect
-     * @param pieceIndex position piece index
-     * @return number of pieces of that indexed type
-     */
-    private static int pieceCount(Position position, int pieceIndex) {
-        return Long.bitCount(position.pieces(pieceIndex));
-    }
 
     /**
      * Minimal material/tempo evaluator used when the full classical evaluator is not
@@ -1833,124 +1623,6 @@ public final class Scorer {
      * classical evaluator; it only provides deterministic material ordering.
      * </p>
      */
-    private static final class MaterialVisibilityEvaluator implements CentipawnEvaluator {
-
-        /**
-         * Restricts fallback evaluator construction to the scorer.
-         *
-         * <p>
-         * Instances are created only by {@link Scorer#defaultCheapEvaluator()}.
-         * </p>
-         */
-        private MaterialVisibilityEvaluator() {
-            // fallback helper
-        }
-
-        /**
-         * Evaluates material from the side-to-move perspective.
-         *
-         * <p>
-         * A small tempo hint and bishop-pair bonus are included to avoid fully
-         * flat material scores in simple positions.
-         * </p>
-         *
-         * @param position position to evaluate
-         * @return centipawn estimate
-         */
-        @Override
-        public int evaluate(Position position) {
-            int white = sideMaterial(position, true);
-            int black = sideMaterial(position, false);
-            int whitePerspective = white - black + (position.isWhiteToMove() ? 8 : -8);
-            return position.isWhiteToMove() ? whitePerspective : -whitePerspective;
-        }
-
-        /**
-         * Scores material and a bishop-pair hint for one side.
-         *
-         * <p>
-         * The returned value is always from the requested side's material
-         * perspective, independent of side to move.
-         * </p>
-         *
-         * @param position position to inspect
-         * @param white    side to score
-         * @return material score
-         */
-        private static int sideMaterial(Position position, boolean white) {
-            int pawnIndex = white ? Position.WHITE_PAWN : Position.BLACK_PAWN;
-            int knightIndex = white ? Position.WHITE_KNIGHT : Position.BLACK_KNIGHT;
-            int bishopIndex = white ? Position.WHITE_BISHOP : Position.BLACK_BISHOP;
-            int rookIndex = white ? Position.WHITE_ROOK : Position.BLACK_ROOK;
-            int queenIndex = white ? Position.WHITE_QUEEN : Position.BLACK_QUEEN;
-            int bishops = Long.bitCount(position.pieces(bishopIndex));
-            return Long.bitCount(position.pieces(pawnIndex)) * Piece.VALUE_PAWN
-                    + Long.bitCount(position.pieces(knightIndex)) * Piece.VALUE_KNIGHT
-                    + bishops * Piece.VALUE_BISHOP
-                    + Long.bitCount(position.pieces(rookIndex)) * Piece.VALUE_ROOK
-                    + Long.bitCount(position.pieces(queenIndex)) * Piece.VALUE_QUEEN
-                    + (bishops >= 2 ? 30 : 0);
-        }
-    }
-
-    /**
-     * Root material summary used by tree-evidence heuristics.
-     *
-     * <p>
-     * Kings are excluded because they do not reflect tactical material richness.
-     * </p>
-     *
-     * @param nonKingPieceCount number of non-king pieces on the board
-     * @param nonPawnPieceCount number of non-pawn, non-king pieces on the board
-     * @param nonKingMaterialCp material value of all non-king pieces
-     */
-    private record RootMaterial(int nonKingPieceCount, int nonPawnPieceCount, int nonKingMaterialCp) {
-
-        /**
-         * Normalizes material counters.
-         *
-         * @param nonKingPieceCount number of non-king pieces on the board
-         * @param nonPawnPieceCount number of non-pawn, non-king pieces on the board
-         * @param nonKingMaterialCp material value of all non-king pieces
-         */
-        private RootMaterial {
-            nonKingPieceCount = Math.max(0, nonKingPieceCount);
-            nonPawnPieceCount = Math.max(0, nonPawnPieceCount);
-            nonKingMaterialCp = Math.max(0, nonKingMaterialCp);
-        }
-    }
-
-    /**
-     * Cheap move summary.
-     *
-     * <p>
-     * The summary is the normalized view of cheap-evaluator root visibility
-     * after fallback defaults are applied.
-     * </p>
-     *
-     * @param staticCp static root score
-     * @param bestMove cheap best move
-     * @param bestCp cheap best score
-     * @param solutionCp cheap solution score
-     * @param solutionRank cheap solution rank
-     */
-    private record CheapMoveSummary(int staticCp, short bestMove, int bestCp, int solutionCp, int solutionRank) {
-    }
-
-    /**
-     * Cheap move search result before fallback defaults are applied.
-     *
-     * <p>
-     * Sentinel scores indicate that the legal move loop did not produce a value
-     * for that field.
-     * </p>
-     *
-     * @param bestMove cheap best move
-     * @param bestCp cheap best score, or {@link Integer#MIN_VALUE}
-     * @param solutionCp solution score, or {@link Integer#MIN_VALUE}
-     */
-    private record CheapMoveScores(short bestMove, int bestCp, int solutionCp) {
-    }
 
     /**
      * Per-position difficulty signals for one solver-to-move record.
@@ -2244,42 +1916,4 @@ public final class Scorer {
      * @param special special move score
      * @param nonforcing nonforcing-key score
      */
-    private record FeatureSignals(Goal goal, double node, double length, double variation, double diversity,
-            double special, double nonforcing) {
-    }
-
-    /**
-     * Cheap-evaluator visibility scores used for feature names.
-     *
-     * <p>
-     * These values are retained after scoring so features can explain whether a
-     * move looked like a concession to the cheap evaluator.
-     * </p>
-     *
-     * @param staticCp root static score
-     * @param solutionCp solution score
-     */
-    private record CheapVisibility(int staticCp, int solutionCp) {
-    }
-
-    /**
-     * Key move shape summary.
-     *
-     * <p>
-     * The shape records tactical and rare-move properties of the first required
-     * solver move.
-     * </p>
-     *
-     * @param capture whether the key captures
-     * @param promotion whether the key promotes
-     * @param underpromotion whether the key underpromotes
-     * @param castle whether the key castles
-     * @param enPassant whether the key captures en-passant
-     * @param check whether the key checks
-     * @param mate whether the key mates
-     * @param quiet whether the key is quiet
-     */
-    private record KeyShape(boolean capture, boolean promotion, boolean underpromotion, boolean castle,
-            boolean enPassant, boolean check, boolean mate, boolean quiet) {
-    }
 }

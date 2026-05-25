@@ -15,7 +15,6 @@ import javax.swing.JTextField;
 import application.cli.CliCommand;
 import application.cli.CliRegistry;
 
-
 import utility.CommandLine;
 
 /**
@@ -57,6 +56,9 @@ final class WorkbenchCommandRegression {
         testPublishingVisualPreviewPaintsTaskLayouts();
     }
 
+    /**
+     * Verifies FEN extraction ignores non-FEN notes before the first position.
+     */
     private static void testFirstFenLineSkipsNonFenRows() {
         String text = "analysis note" + System.lineSeparator() + START_FEN;
         assertEquals(START_FEN, invokeStatic(type("Window"), "firstFenLine",
@@ -162,10 +164,9 @@ final class WorkbenchCommandRegression {
      * Verifies the mate command has a first-class GUI builder wired to the
      * top-level CLI shortcut.
      */
-    @SuppressWarnings("unchecked")
     private static void testMateTemplateUsesCliShortcut() {
         Object template = template("Mate");
-        List<String> baseArgs = (List<String>) invoke(template, "baseArgs", new Class<?>[0]);
+        List<String> baseArgs = stringList(invoke(template, "baseArgs", new Class<?>[0]));
         assertEquals(List.of("mate"), baseArgs, "mate template uses top-level shortcut");
 
         Object options = optionsFor("Mate");
@@ -253,12 +254,11 @@ final class WorkbenchCommandRegression {
      */
     private static void testEngineBatchTasksUseExternalConfigOptions() {
         Object task = batchTask("Analyze batch");
-        @SuppressWarnings("unchecked")
-        List<String> args = (List<String>) invoke(task, "build",
+        List<String> args = stringList(invoke(task, "build",
                 new Class<?>[] { java.nio.file.Path.class, type("CommandTemplates$TemplateContext") },
                 java.nio.file.Path.of("positions.txt"),
                 templateContext(START_FEN, "4s", "5", "3", "6",
-                        "config/default.engine.toml", "900", "128"));
+                        "config/default.engine.toml", "900", "128")));
 
         assertTrue(hasFlag(args, "--protocol-path"), "batch protocol flag");
         assertTrue(hasFlag(args, "--max-nodes"), "batch nodes flag");
@@ -352,10 +352,9 @@ final class WorkbenchCommandRegression {
     /**
      * Verifies command templates expose stable labels suitable for command tabs.
      */
-    @SuppressWarnings("unchecked")
     private static void testCommandTemplatesHaveCompactTabLabels() {
-        List<Object> templates = (List<Object>) invokeStatic(type("CommandTemplates"),
-                "commandTemplates", new Class<?>[0]);
+        List<Object> templates = objectList(invokeStatic(type("CommandTemplates"),
+                "commandTemplates", new Class<?>[0]));
         DefaultComboBoxModel<?> model = (DefaultComboBoxModel<?>) invokeStatic(type("CommandTemplates"),
                 "commandModel", new Class<?>[0]);
         assertEquals(Integer.valueOf(model.getSize()), Integer.valueOf(templates.size()),
@@ -375,13 +374,12 @@ final class WorkbenchCommandRegression {
      * Verifies the generic command-controller template is backed by the real CLI
      * registry.
      */
-    @SuppressWarnings("unchecked")
     private static void testCommandControllerCoversCliRegistry() {
         Object allCli = template("All CLI");
-        List<Object> options = (List<Object>) invoke(allCli, "options", new Class<?>[0]);
+        List<Object> options = objectList(invoke(allCli, "options", new Class<?>[0]));
         List<String> choices = List.of();
         for (Object option : options) {
-            List<String> candidate = (List<String>) invoke(option, "choices", new Class<?>[0]);
+            List<String> candidate = stringList(invoke(option, "choices", new Class<?>[0]));
             if (!candidate.isEmpty()) {
                 choices = candidate;
                 break;
@@ -401,7 +399,6 @@ final class WorkbenchCommandRegression {
     /**
      * Verifies the batch runner can execute arbitrary CLI command scripts.
      */
-    @SuppressWarnings("unchecked")
     private static void testBatchRunnerOffersCliScriptForAllCliCommands() {
         Object task = batchTask("CLI script");
         assertEquals("COMMAND_LINES", String.valueOf(invoke(task, "inputKind", new Class<?>[0])),
@@ -411,9 +408,9 @@ final class WorkbenchCommandRegression {
         assertEquals(Boolean.TRUE, invoke(task, "usesCommandInput", new Class<?>[0]),
                 "CLI script validates command rows");
         Path script = Path.of("out", "tmp", "crtk-commands.txt");
-        List<String> args = (List<String>) invoke(task, "build",
+        List<String> args = stringList(invoke(task, "build",
                 new Class<?>[] { Path.class, type("CommandTemplates$TemplateContext") },
-                script, templateContext(START_FEN, "1s", "4", "2", "1"));
+                script, templateContext(START_FEN, "1s", "4", "2", "1")));
         assertEquals(List.of("batch", "run", "--input", script.toString(), "--keep-going"), args,
                 "CLI script delegates to batch run");
     }
@@ -550,5 +547,9 @@ final class WorkbenchCommandRegression {
         String command = (String) invokeStatic(type("CommandRunner"), "displayCommand",
                 new Class<?>[] { List.class }, List.of("book", "render", "--title", "A B"));
         assertEquals("crtk book render --title \"A B\"", command, "quoted command preview");
+        String block = (String) invokeStatic(type("CommandRunner"), "displayCommandBlock",
+                new Class<?>[] { List.class }, List.of("book", "render", "--title", "A B"));
+        assertEquals("crtk \\\n  book \\\n  render \\\n  --title \\\n  \"A B\"", block,
+                "multiline command preview");
     }
 }

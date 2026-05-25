@@ -28,7 +28,7 @@ import utility.Toml;
  * @since 2026
  * @author Lennart A. Conrad
  */
-@SuppressWarnings("java:S1192")
+
 public final class StudyBook {
 
 	/**
@@ -671,8 +671,7 @@ public final class StudyBook {
 	 * @param key field name
 	 * @return string list, never null
 	 */
-	@SuppressWarnings("unchecked")
-	private static List<String> stringListValue(Map<String, Object> table, String key) {
+private static List<String> stringListValue(Map<String, Object> table, String key) {
 		if (table == null) {
 			return List.of();
 		}

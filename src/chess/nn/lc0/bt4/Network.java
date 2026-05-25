@@ -21,7 +21,7 @@ import chess.gpu.BackendNames;
  * @since 2026
  * @author Lennart A. Conrad
  */
-@SuppressWarnings({ "java:S107", "java:S3776", "java:S6218", "java:S6539" })
+
 public final class Network implements AutoCloseable {
 
     /**

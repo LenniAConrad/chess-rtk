@@ -727,7 +727,6 @@ public final class RecordPgnExporter {
         return lineLengthBySig;
     }
 
-
     /**
      * Adds a directed edge once per SAN sequence to avoid duplicate expansions.
      *

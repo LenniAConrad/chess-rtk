@@ -10,7 +10,10 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 import javax.swing.DefaultComboBoxModel;
@@ -30,7 +33,7 @@ import chess.struct.Game;
 /**
  * Shared reflective and rendering helpers for workbench regression suites.
  */
-@SuppressWarnings("java:S3011")
+
 final class WorkbenchTestSupport {
 
     /**
@@ -572,9 +575,8 @@ final class WorkbenchTestSupport {
      * @param options option model
      * @return enabled arguments
      */
-    @SuppressWarnings("unchecked")
     static List<String> enabledArgs(Object options) {
-        return (List<String>) invoke(options, "enabledArgs", new Class<?>[0]);
+        return stringList(invoke(options, "enabledArgs", new Class<?>[0]));
     }
 
     /**
@@ -583,9 +585,111 @@ final class WorkbenchTestSupport {
      * @param template command template
      * @return option metadata
      */
-    @SuppressWarnings("unchecked")
     static List<Object> templateOptions(Object template) {
-        return (List<Object>) invoke(template, "options", new Class<?>[0]);
+        return objectList(invoke(template, "options", new Class<?>[0]));
+    }
+
+    /**
+     * Checks a reflected value is a list.
+     *
+     * @param value reflected value
+     * @return wildcard list
+     */
+    static List<?> listValue(Object value) {
+        if (value instanceof List<?> list) {
+            return list;
+        }
+        throw new AssertionError("expected List but got " + typeName(value));
+    }
+
+    /**
+     * Copies a reflected list after checking every element type.
+     *
+     * @param <T> element type
+     * @param value reflected value
+     * @param elementType required element type
+     * @return checked copy
+     */
+    static <T> List<T> typedList(Object value, Class<T> elementType) {
+        List<?> raw = listValue(value);
+        List<T> typed = new ArrayList<>(raw.size());
+        for (Object item : raw) {
+            try {
+                typed.add(elementType.cast(item));
+            } catch (ClassCastException ex) {
+                throw new AssertionError("expected " + elementType.getName()
+                        + " but got " + typeName(item), ex);
+            }
+        }
+        return typed;
+    }
+
+    /**
+     * Copies a reflected list as plain objects.
+     *
+     * @param value reflected value
+     * @return object list
+     */
+    static List<Object> objectList(Object value) {
+        return new ArrayList<>(listValue(value));
+    }
+
+    /**
+     * Copies a reflected string list.
+     *
+     * @param value reflected value
+     * @return string list
+     */
+    static List<String> stringList(Object value) {
+        return typedList(value, String.class);
+    }
+
+    /**
+     * Copies a reflected integer list.
+     *
+     * @param value reflected value
+     * @return integer list
+     */
+    static List<Integer> integerList(Object value) {
+        return typedList(value, Integer.class);
+    }
+
+    /**
+     * Checks a reflected value is a map.
+     *
+     * @param value reflected value
+     * @return wildcard map
+     */
+    static Map<?, ?> mapValue(Object value) {
+        if (value instanceof Map<?, ?> map) {
+            return map;
+        }
+        throw new AssertionError("expected Map but got " + typeName(value));
+    }
+
+    /**
+     * Copies a reflected map after checking string keys and values.
+     *
+     * @param value reflected value
+     * @return string map
+     */
+    static Map<String, String> stringMap(Object value) {
+        Map<?, ?> raw = mapValue(value);
+        Map<String, String> typed = new LinkedHashMap<>();
+        for (Map.Entry<?, ?> entry : raw.entrySet()) {
+            typed.put(String.class.cast(entry.getKey()), String.class.cast(entry.getValue()));
+        }
+        return typed;
+    }
+
+    /**
+     * Describes a reflected value's runtime type.
+     *
+     * @param value reflected value
+     * @return type name
+     */
+    private static String typeName(Object value) {
+        return value == null ? "null" : value.getClass().getName();
     }
 
     /**
@@ -824,9 +928,16 @@ final class WorkbenchTestSupport {
      * @param name constant name
      * @return enum value
      */
-    @SuppressWarnings({ "unchecked", "rawtypes" })
     static Object enumValue(Class<?> type, String name) {
-        return Enum.valueOf((Class) type, name);
+        if (!type.isEnum()) {
+            throw new AssertionError("expected enum type but got " + type.getName());
+        }
+        for (Object constant : type.getEnumConstants()) {
+            if (constant instanceof Enum<?> value && value.name().equals(name)) {
+                return value;
+            }
+        }
+        throw new AssertionError("missing enum constant " + type.getName() + "." + name);
     }
 
     /**

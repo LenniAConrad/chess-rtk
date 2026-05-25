@@ -47,7 +47,7 @@ import utility.Argv;
  * @since 2026
  * @author Lennart A. Conrad
  */
-@SuppressWarnings({"java:S1141", "squid:S1141"})
+
 public final class BuiltInEngineCommand {
 
 	/**

@@ -173,6 +173,7 @@ public final class SvgIcon implements Icon {
                     "Copy FEN List", "Copy FENs", "Copy Path" ->
                     Kind.COPY;
             case "Stop" -> Kind.STOP;
+            case "Hide", "Close" -> Kind.CLOSE;
             case "Info", "Info +", "Info -", "Hint" -> Kind.INFO;
             case "Settings" -> Kind.SETTINGS;
             case "Tags" -> Kind.TAG;
@@ -258,6 +259,7 @@ public final class SvgIcon implements Icon {
             case NEXT -> paintNext(g);
             case LAST -> paintLast(g);
             case FILE -> paintFile(g);
+            case CLOSE -> paintClose(g);
         }
     }
 
@@ -338,6 +340,17 @@ public final class SvgIcon implements Icon {
      */
     private void paintStop(Graphics2D g) {
         g.fillRoundRect(7, 7, 10, 10, 2, 2);
+    }
+
+    /**
+     * Paints a close icon.
+     *
+     * @param g graphics context
+     */
+    private void paintClose(Graphics2D g) {
+        g.setStroke(STROKE_BOLD);
+        g.drawLine(7, 7, 17, 17);
+        g.drawLine(17, 7, 7, 17);
     }
 
     /**
@@ -667,6 +680,11 @@ public final class SvgIcon implements Icon {
         /**
          * File import/export command.
          */
-        FILE
+        FILE,
+
+        /**
+         * Close or hide a panel.
+         */
+        CLOSE
     }
 }

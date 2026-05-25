@@ -10,6 +10,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -497,15 +498,86 @@ public final class Encyclopedia {
      * @return a map of table-array names to their row lists
      * @throws IOException if reflection fails
      */
-    @SuppressWarnings({ "unchecked", "java:S3011" })
     private static Map<String, List<Map<String, Object>>> getTableArrays(Toml toml) throws IOException {
         try {
             Field f = Toml.class.getDeclaredField("tableArrays");
             f.setAccessible(true);
-            return (Map<String, List<Map<String, Object>>>) f.get(toml);
+            return checkedTableArrays(f.get(toml));
         } catch (ReflectiveOperationException ex) {
             throw new IOException("Cannot access TOML table arrays", ex);
         }
+    }
+
+    /**
+     * Converts reflected TOML table arrays into their declared generic shape.
+     *
+     * @param value reflected table-array value
+     * @return checked table arrays
+     * @throws IOException when the reflected structure is not the parser shape
+     */
+    private static Map<String, List<Map<String, Object>>> checkedTableArrays(Object value) throws IOException {
+        if (!(value instanceof Map<?, ?> rawArrays)) {
+            throw new IOException("TOML table arrays are not a map");
+        }
+        Map<String, List<Map<String, Object>>> typed = new LinkedHashMap<>();
+        for (Map.Entry<?, ?> entry : rawArrays.entrySet()) {
+            String tableName = checkedString(entry.getKey(), "TOML table-array name");
+            typed.put(tableName, checkedRows(entry.getValue(), tableName));
+        }
+        return typed;
+    }
+
+    /**
+     * Converts one reflected TOML table-array list.
+     *
+     * @param value reflected row-list value
+     * @param tableName table-array name for diagnostics
+     * @return checked row list
+     * @throws IOException when the reflected structure is not a row list
+     */
+    private static List<Map<String, Object>> checkedRows(Object value, String tableName) throws IOException {
+        if (!(value instanceof List<?> rawRows)) {
+            throw new IOException("TOML table array " + tableName + " is not a list");
+        }
+        List<Map<String, Object>> typedRows = new ArrayList<>(rawRows.size());
+        for (Object row : rawRows) {
+            typedRows.add(checkedRow(row, tableName));
+        }
+        return typedRows;
+    }
+
+    /**
+     * Converts one reflected TOML table row.
+     *
+     * @param value reflected row value
+     * @param tableName table-array name for diagnostics
+     * @return checked row map
+     * @throws IOException when the reflected structure is not a row map
+     */
+    private static Map<String, Object> checkedRow(Object value, String tableName) throws IOException {
+        if (!(value instanceof Map<?, ?> rawRow)) {
+            throw new IOException("TOML table array " + tableName + " contains a non-map row");
+        }
+        Map<String, Object> typedRow = new LinkedHashMap<>();
+        for (Map.Entry<?, ?> entry : rawRow.entrySet()) {
+            typedRow.put(checkedString(entry.getKey(), "TOML row key"), entry.getValue());
+        }
+        return typedRow;
+    }
+
+    /**
+     * Reads a required reflected string.
+     *
+     * @param value reflected value
+     * @param label diagnostic label
+     * @return string value
+     * @throws IOException when the value is not a string
+     */
+    private static String checkedString(Object value, String label) throws IOException {
+        if (value instanceof String text) {
+            return text;
+        }
+        throw new IOException(label + " is not a string");
     }
 
 }

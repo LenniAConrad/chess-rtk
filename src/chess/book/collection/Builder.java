@@ -25,7 +25,7 @@ import chess.uci.Output;
  * @since 2026
  * @author Lennart A. Conrad
  */
-@SuppressWarnings({"java:S1192", "java:S135", "java:S6213"})
+
 public final class Builder {
 
 	/**

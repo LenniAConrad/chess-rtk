@@ -69,6 +69,31 @@ public record DatasetSummary(
 
     /**
      * Normalizes mutable inputs into immutable values.
+     *
+     * @param source analyzed path
+     * @param scannedFiles number of files visited
+     * @param rows non-empty dataset rows inspected
+     * @param validPositions rows with a parseable chess position
+     * @param invalidRows rows without a usable position
+     * @param duplicatePositions repeated normalized positions
+     * @param whiteToMove valid rows with White to move
+     * @param blackToMove valid rows with Black to move
+     * @param inCheck valid rows where the side to move is in check
+     * @param checkmates valid rows that are checkmates
+     * @param stalemates valid rows that are stalemates
+     * @param withTags rows carrying tags or labels
+     * @param withEval rows carrying parseable engine scores
+     * @param minMaterial minimum non-king material in centipawns
+     * @param maxMaterial maximum non-king material in centipawns
+     * @param averageMaterial average non-king material in centipawns
+     * @param materialBuckets distribution of non-king material
+     * @param evalBuckets distribution of score samples
+     * @param topTags most common tags
+     * @param topEngines most common engine names
+     * @param samples representative valid rows
+     * @param issues representative invalid or duplicate rows
+     * @param truncated true when a row limit stopped the scan early
+     * @param note human-readable scan note
      */
     public DatasetSummary {
         materialBuckets = materialBuckets == null ? new int[MATERIAL_BUCKET_COUNT] : materialBuckets.clone();
@@ -147,6 +172,9 @@ public record DatasetSummary(
     public record NamedCount(String name, long count) {
         /**
          * Normalizes null labels.
+         *
+         * @param name display label
+         * @param count observed count
          */
         public NamedCount {
             name = name == null || name.isBlank() ? "unknown" : name.trim();
@@ -177,6 +205,15 @@ public record DatasetSummary(
 
         /**
          * Normalizes nullable table values.
+         *
+         * @param file source file name
+         * @param line line number or synthetic object index
+         * @param kind detected row kind
+         * @param fen normalized FEN, or raw row text when invalid
+         * @param side side to move
+         * @param material non-king material in centipawns
+         * @param label compact tags or score label
+         * @param issue issue text, blank for normal samples
          */
         public SampleRow {
             file = file == null ? "" : file;

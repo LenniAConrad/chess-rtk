@@ -3,7 +3,7 @@ package testing;
 /**
  * Headless regression checks for workbench support classes.
  */
-@SuppressWarnings("java:S2187")
+
 public final class WorkbenchRegressionTest {
 
     /**

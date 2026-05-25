@@ -24,12 +24,12 @@ import javax.swing.ListSelectionModel;
 import javax.swing.SwingUtilities;
 
 import static application.gui.workbench.ui.Ui.label;
+import static application.gui.workbench.ui.Ui.toolbarSeparator;
 import static application.gui.workbench.ui.Ui.trimmed;
 
 /**
  * A new native Swing command and analysis workbench for ChessRTK.
  */
-@SuppressWarnings("java:S6539")
 
 public abstract class WindowCommandLayer extends WindowGameLayer {
     /** Serialization identifier for Swing frame compatibility. */
@@ -66,8 +66,14 @@ public abstract class WindowCommandLayer extends WindowGameLayer {
         commandPicker.removeAll();
         commandButtons.clear();
         ButtonGroup group = new ButtonGroup();
+        String previousCategory = null;
         for (int i = 0; i < commandTemplates.size(); i++) {
             CommandTemplate template = commandTemplates.get(i);
+            String category = commandCategoryOf(template.name());
+            if (previousCategory != null && !category.equals(previousCategory)) {
+                commandPicker.add(toolbarSeparator());
+            }
+            previousCategory = category;
             javax.swing.JToggleButton tab = new javax.swing.JToggleButton(template.name());
             Theme.commandTab(tab);
             tab.setSelected(i == selectedCommandIndex);
@@ -79,6 +85,24 @@ public abstract class WindowCommandLayer extends WindowGameLayer {
         }
         commandPicker.revalidate();
         commandPicker.repaint();
+    }
+
+    /**
+     * Categorises a command template by name so the picker can render related
+     * commands together. Three categories: <em>inspect</em> reads the current
+     * position, <em>compute</em> runs an engine, <em>mutate</em> changes the
+     * board or produces new data.
+     *
+     * @param name template name
+     * @return category key
+     */
+    private static String commandCategoryOf(String name) {
+        return switch (name) {
+            case "Legal moves", "Tags", "Threats", "Position diff" -> "inspect";
+            case "Best move", "Mate", "Analyze", "Eval", "Built-in search", "Perft" -> "compute";
+            case "Apply move", "Generate FENs", "All CLI" -> "mutate";
+            default -> "inspect";
+        };
     }
 
     /**
@@ -180,12 +204,33 @@ public abstract class WindowCommandLayer extends WindowGameLayer {
      */
     protected void updateBuiltCommand() {
         try {
-            commandField.setText(CommandRunner.displayCommand(selectedTemplateArgs()));
+            commandField.setText(CommandRunner.displayCommandBlock(selectedTemplateArgs()));
         } catch (IllegalArgumentException ex) {
             commandField.setText("invalid template: " + ex.getMessage());
         }
+        commandField.setRows(previewRows(commandField.getText()));
+        commandField.revalidate();
         // Keep the command start visible rather than scrolling to the caret.
         commandField.setCaretPosition(0);
+    }
+
+    /**
+     * Chooses a compact but useful preview height for a multiline command.
+     *
+     * @param text preview text
+     * @return row count
+     */
+    private static int previewRows(String text) {
+        if (text == null || text.isBlank()) {
+            return 3;
+        }
+        int lines = 1;
+        for (int i = 0; i < text.length(); i++) {
+            if (text.charAt(i) == '\n') {
+                lines++;
+            }
+        }
+        return Math.max(3, Math.min(14, lines));
     }
 
     /**
@@ -446,7 +491,6 @@ public abstract class WindowCommandLayer extends WindowGameLayer {
     protected void copyText(String text) {
         Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new StringSelection(text == null ? "" : text),
                 null);
-        appendConsole("[copied]\n");
     }
 
     /**

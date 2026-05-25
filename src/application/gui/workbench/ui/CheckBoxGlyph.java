@@ -13,7 +13,7 @@ import javax.swing.Icon;
 /**
  * Flat workbench checkbox glyph for plain Swing checkboxes.
  */
-@SuppressWarnings("java:S6548")
+
 final class CheckBoxGlyph implements Icon {
 
     /**

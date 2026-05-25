@@ -5,12 +5,16 @@ import chess.core.Position;
 import chess.struct.Game;
 import java.io.BufferedReader;
 import java.io.IOException;
+import java.net.URISyntaxException;
+import java.security.CodeSource;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -20,9 +24,23 @@ import java.util.regex.Pattern;
 public final class PuzzleLibrary {
 
     /**
-     * Default puzzle collection exported from the chess-web puzzle PGN.
+     * Default puzzle collection exported from the chess-web puzzle PGN. This
+     * lives beside the ECO book under config so the launcher can auto-load it
+     * from the application home.
      */
-    public static final Path DEFAULT_PATH = Path.of("assets", "puzzles", "chess-web-stack-100k.pgn");
+    public static final Path DEFAULT_PATH = Path.of("config", "puzzles.pgn");
+
+    /**
+     * Previous config location retained as a fallback for existing checkouts.
+     */
+    private static final Path PREVIOUS_DEFAULT_PATH =
+            Path.of("config", "puzzles", "chess-web-stack-100k.pgn");
+
+    /**
+     * Original asset location retained as a fallback for older checkouts.
+     */
+    private static final Path LEGACY_ASSET_PATH =
+            Path.of("assets", "puzzles", "chess-web-stack-100k.pgn");
 
     /**
      * Expected Lichess CSV column count.
@@ -100,6 +118,15 @@ public final class PuzzleLibrary {
 
         /**
          * Normalizes nullable entry fields.
+         *
+         * @param id source puzzle identifier
+         * @param fen start FEN
+         * @param moves solution moves in UCI order
+         * @param rating puzzle rating
+         * @param themes source theme labels
+         * @param gameUrl source game URL
+         * @param openingTags source opening labels
+         * @param pgnText original PGN block
          */
         public Entry {
             id = safe(id);
@@ -169,6 +196,92 @@ public final class PuzzleLibrary {
             return readPgn(path);
         }
         throw new IOException("Unsupported puzzle library format: " + path);
+    }
+
+    /**
+     * Resolves the bundled chess-web puzzle collection from either the current
+     * working directory or the application home that contains the running jar.
+     *
+     * @return first existing default puzzle path, or {@link #DEFAULT_PATH}
+     */
+    public static Path defaultPath() {
+        for (Path candidate : defaultPathCandidates()) {
+            if (Files.isRegularFile(candidate)) {
+                return candidate;
+            }
+        }
+        return DEFAULT_PATH;
+    }
+
+    /**
+     * Builds ordered fallback locations for the default puzzle pack.
+     *
+     * @return candidate paths
+     */
+    private static List<Path> defaultPathCandidates() {
+        Set<Path> candidates = new LinkedHashSet<>();
+        addDefaultPathCandidate(candidates, DEFAULT_PATH);
+        addDefaultPathCandidate(candidates, PREVIOUS_DEFAULT_PATH);
+        addDefaultPathCandidate(candidates, LEGACY_ASSET_PATH);
+
+        String appHome = System.getProperty("crtk.home");
+        if (appHome != null && !appHome.isBlank()) {
+            addDefaultPathCandidates(candidates, Path.of(appHome));
+        }
+
+        Path codeSourceDirectory = codeSourceDirectory();
+        if (codeSourceDirectory != null) {
+            addDefaultPathCandidates(candidates, codeSourceDirectory);
+            Path parent = codeSourceDirectory.getParent();
+            if (parent != null) {
+                addDefaultPathCandidates(candidates, parent);
+            }
+        }
+        return List.copyOf(candidates);
+    }
+
+    /**
+     * Adds default and legacy default paths relative to a base directory.
+     *
+     * @param candidates destination set
+     * @param base base directory
+     */
+    private static void addDefaultPathCandidates(Set<Path> candidates, Path base) {
+        if (base != null) {
+            addDefaultPathCandidate(candidates, base.resolve(DEFAULT_PATH));
+            addDefaultPathCandidate(candidates, base.resolve(PREVIOUS_DEFAULT_PATH));
+            addDefaultPathCandidate(candidates, base.resolve(LEGACY_ASSET_PATH));
+        }
+    }
+
+    /**
+     * Adds one normalized candidate path.
+     *
+     * @param candidates destination set
+     * @param path candidate path
+     */
+    private static void addDefaultPathCandidate(Set<Path> candidates, Path path) {
+        if (path != null) {
+            candidates.add(path.normalize());
+        }
+    }
+
+    /**
+     * Returns the directory that contains the active class path entry.
+     *
+     * @return code-source directory, or null when unavailable
+     */
+    private static Path codeSourceDirectory() {
+        try {
+            CodeSource source = PuzzleLibrary.class.getProtectionDomain().getCodeSource();
+            if (source == null || source.getLocation() == null) {
+                return null;
+            }
+            Path path = Path.of(source.getLocation().toURI());
+            return Files.isRegularFile(path) ? path.getParent() : path;
+        } catch (IllegalArgumentException | SecurityException | URISyntaxException ex) {
+            return null;
+        }
     }
 
     /**

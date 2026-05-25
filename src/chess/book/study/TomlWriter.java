@@ -14,7 +14,7 @@ import chess.pdf.Composition;
  * @since 2026
  * @author Lennart A. Conrad
  */
-@SuppressWarnings("java:S3776")
+
 public final class TomlWriter {
 
 	/**

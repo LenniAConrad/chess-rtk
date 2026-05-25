@@ -562,7 +562,6 @@ public final class Toml {
      *               {@code Long.class}, or {@code Double.class})
      * @return the coerced value of type {@code T}, or {@code null} if not coercible
      */
-    @SuppressWarnings("unchecked")
     private <T> T convert(Object raw, Class<T> target) {
         if (raw == null) {
             return null;
@@ -570,20 +569,18 @@ public final class Toml {
 
         if (target == String.class) {
             if (raw instanceof String s)
-                return (T) s;
+                return target.cast(s);
             if (raw instanceof Number || raw instanceof Boolean)
-                return (T) raw.toString();
+                return target.cast(raw.toString());
             return null; // do not stringify complex types
         }
 
         if (target == Long.class) {
-            Long v = coerceToLong(raw);
-            return (T) v;
+            return target.cast(coerceToLong(raw));
         }
 
         if (target == Double.class) {
-            Double v = coerceToDouble(raw);
-            return (T) v;
+            return target.cast(coerceToDouble(raw));
         }
 
         return null;
@@ -786,9 +783,19 @@ public final class Toml {
      * @param k the key to retrieve
      * @return the list of strings, or null if not found or not a list of strings
      */
-    @SuppressWarnings("unchecked")
     public List<String> getStringList(String k) {
-        return (List<String>) kv.get(k);
+        Object value = kv.get(k);
+        if (!(value instanceof List<?> items)) {
+            return null;
+        }
+        List<String> strings = new ArrayList<>(items.size());
+        for (Object item : items) {
+            if (!(item instanceof String s)) {
+                return null;
+            }
+            strings.add(s);
+        }
+        return strings;
     }
 
     /**

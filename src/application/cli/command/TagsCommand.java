@@ -790,8 +790,7 @@ public final class TagsCommand {
          /**
          * Stores the analysis.
          */
-         @SuppressWarnings("unused")
-        private final Analysis analysis;
+private final Analysis analysis;
 
          /**
          * Creates a new tag entry instance.

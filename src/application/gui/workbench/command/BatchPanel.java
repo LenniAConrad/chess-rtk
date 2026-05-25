@@ -56,6 +56,7 @@ import static application.gui.workbench.ui.Ui.transparentPanel;
  * Batch workflow tab: FEN input, task-specific controls, command preview, and
  * run handling.
  */
+
 public final class BatchPanel {
 
     /**
@@ -204,7 +205,6 @@ public final class BatchPanel {
     /**
      * Whether duration text is currently being synchronized from the frame.
      */
-    @SuppressWarnings("java:S1450")
     private boolean settingDuration;
 
     /**

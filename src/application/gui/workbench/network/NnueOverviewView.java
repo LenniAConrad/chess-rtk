@@ -30,7 +30,6 @@ import static application.gui.workbench.network.NnueTraceGeometry.*;
  * the NNUE-specific drawing plus the {@link Scrollable} plumbing used to keep
  * dense atlas and trace views inside the active viewport.</p>
  */
-
 public abstract class NnueOverviewView extends NnueAtlasView {
     /** Serialization identifier for Swing component compatibility. */
     private static final long serialVersionUID = 1L;
@@ -406,7 +405,6 @@ public abstract class NnueOverviewView extends NnueAtlasView {
         return row + 1;
     }
 
-
     /**
      * Paints the abstract overview ("why is the score what it is?").
      *
@@ -419,6 +417,13 @@ public abstract class NnueOverviewView extends NnueAtlasView {
      */
     @Override
     protected void paintAbstract(Graphics2D g, Rectangle body) {
+        // VS Code-style overview = 3 panels max:
+        //   1. Summary band (score + driver chips)
+        //   2. Position board (left)
+        //   3. Top contributors (right)
+        // The signal lines and feature inspector belong on the Trace view;
+        // having them here made Overview indistinguishable from Trace and
+        // gave the user "everything at once" instead of a calm summary.
         int gap = 12;
         int summaryH = body.width < 760 ? 78 : 84;
         Rectangle summary = new Rectangle(body.x, body.y, body.width, Math.min(summaryH, body.height));
@@ -429,52 +434,20 @@ public abstract class NnueOverviewView extends NnueAtlasView {
             return;
         }
         if (body.width < 820) {
-            int boardH = Math.max(170, Math.min(320, rest.height / 3));
-            int signalH = Math.max(190, Math.min(320, rest.height / 3));
-            int inspectorH = Math.max(130, Math.min(220, rest.height / 5));
-            int y = rest.y;
-            Rectangle boardRect = new Rectangle(rest.x, y, rest.width, Math.min(boardH, rest.height));
-            y += boardRect.height + gap;
-            Rectangle signal = new Rectangle(rest.x, y, rest.width,
-                    Math.min(signalH, Math.max(1, rest.y + rest.height - y)));
-            y += signal.height + gap;
-            Rectangle featureInspector = new Rectangle(rest.x, y, rest.width,
-                    Math.min(inspectorH, Math.max(1, rest.y + rest.height - y)));
-            y += featureInspector.height + gap;
-            Rectangle contributors = new Rectangle(rest.x, y, rest.width,
-                    Math.max(1, rest.y + rest.height - y));
+            int boardH = Math.max(180, Math.min(360, rest.height / 2));
+            Rectangle boardRect = new Rectangle(rest.x, rest.y, rest.width, Math.min(boardH, rest.height));
+            Rectangle contributors = new Rectangle(rest.x, boardRect.y + boardRect.height + gap,
+                    rest.width, Math.max(1, rest.y + rest.height - boardRect.y - boardRect.height - gap));
             paintPositionOverview(g, boardRect);
-            paintOverviewSignal(g, signal);
-            paintFeatureInspector(g, featureInspector);
             paintTopContributors(g, contributors);
             return;
         }
 
-        int driversH = Math.min(Math.max(250, rest.height * 38 / 100),
-                Math.max(250, rest.height - 260));
-        driversH = Math.min(driversH, Math.max(1, rest.height - 220));
-        int topH = Math.max(1, rest.height - driversH - gap);
-        Rectangle top = new Rectangle(rest.x, rest.y, rest.width, topH);
-        Rectangle contributors = new Rectangle(rest.x, top.y + top.height + gap,
-                rest.width, Math.max(1, driversH));
-
-        int inspectorW = Math.min(360, Math.max(270, top.width / 5));
-        int boardW = Math.min(Math.max(330, top.width / 3), Math.max(330, top.height + 80));
-        int signalW = Math.max(240, top.width - boardW - inspectorW - gap * 2);
-        if (signalW < 300) {
-            inspectorW = Math.min(inspectorW, Math.max(230, top.width / 4));
-            boardW = Math.min(boardW, Math.max(260, top.width - inspectorW - 300 - gap * 2));
-            signalW = Math.max(1, top.width - boardW - inspectorW - gap * 2);
-        }
-        Rectangle boardRect = new Rectangle(top.x, top.y, boardW, top.height);
-        Rectangle signal = new Rectangle(boardRect.x + boardRect.width + gap, top.y,
-                signalW, top.height);
-        Rectangle featureInspector = new Rectangle(signal.x + signal.width + gap, top.y,
-                Math.max(1, top.x + top.width - signal.x - signal.width - gap), top.height);
-
+        int boardW = Math.min(Math.max(380, rest.width * 2 / 5), rest.width - 360);
+        Rectangle boardRect = new Rectangle(rest.x, rest.y, boardW, rest.height);
+        Rectangle contributors = new Rectangle(boardRect.x + boardRect.width + gap, rest.y,
+                Math.max(1, rest.width - boardW - gap), rest.height);
         paintPositionOverview(g, boardRect);
-        paintOverviewSignal(g, signal);
-        paintFeatureInspector(g, featureInspector);
         paintTopContributors(g, contributors);
     }
 
@@ -529,7 +502,6 @@ public abstract class NnueOverviewView extends NnueAtlasView {
                 String.format("%+d cp · us %d · them %d", Math.round(cp), activeUs, activeThem),
                 "nnue.output.centipawns", 0, 1, 0, "1");
     }
-
 
     /**
      * Paints the central signal stack: accumulator comparison and dense trunk.
@@ -725,7 +697,6 @@ public abstract class NnueOverviewView extends NnueAtlasView {
                 featureImpactRank(row, impact), true);
     }
 
-
     /**
      * Returns a human-readable label for a driver.
      *
@@ -829,8 +800,6 @@ public abstract class NnueOverviewView extends NnueAtlasView {
         highlightSquare(g, board, feature.pieceSquare, tint);
     }
 
-
-
     /**
      * Paints the per-piece contributor columns. Each active half-KP feature
      * is one piece-and-king-square pairing; the column on the left lists the
@@ -866,12 +835,43 @@ public abstract class NnueOverviewView extends NnueAtlasView {
         }
         int colGap = 12;
         int colW = (r.width - colGap) / 2;
-        Rectangle posCol = new Rectangle(r.x, r.y + 40, colW, r.height - 40);
-        Rectangle negCol = new Rectangle(r.x + colW + colGap, r.y + 40, colW, r.height - 40);
+        int availableH = Math.max(1, r.height - 40);
+        int colH = Math.min(availableH, Math.max(
+                preferredContributorColumnHeight(impact, true),
+                preferredContributorColumnHeight(impact, false)));
+        Rectangle posCol = new Rectangle(r.x, r.y + 40, colW, colH);
+        Rectangle negCol = new Rectangle(r.x + colW + colGap, r.y + 40, colW, colH);
         paintContributorColumnBackground(g, posCol);
         paintContributorColumnBackground(g, negCol);
         paintContributorColumn(g, posCol, indices, impact, true);
         paintContributorColumn(g, negCol, indices, impact, false);
+    }
+
+    /**
+     * Returns the contributor tray height needed for the visible top-N rows.
+     * This avoids drawing a tall empty column when the board beside it is much
+     * larger than the actual contributor list.
+     *
+     * @param impact feature impacts
+     * @param positive true for positive contributors
+     * @return preferred column height
+     */
+    private static int preferredContributorColumnHeight(float[] impact, boolean positive) {
+        int total = 0;
+        if (impact != null) {
+            for (float v : impact) {
+                if (positive ? v > 0.0f : v < 0.0f) {
+                    total++;
+                }
+            }
+        }
+        int rows = Math.min(CONTRIBUTOR_MAX_ROWS, total);
+        if (rows <= 0) {
+            return CONTRIBUTOR_COLUMN_HEADER_HEIGHT + 32;
+        }
+        return CONTRIBUTOR_COLUMN_HEADER_HEIGHT
+                + rows * CONTRIBUTOR_ROW_MAX_HEIGHT
+                + (rows - 1) * CONTRIBUTOR_ROW_GAP;
     }
 
     /**
@@ -1342,9 +1342,6 @@ public abstract class NnueOverviewView extends NnueAtlasView {
         }
         return r.y + r.height;
     }
-
-
-
 
     /**
      * Paints a compact positive-vs-negative contribution ledger.

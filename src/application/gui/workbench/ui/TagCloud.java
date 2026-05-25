@@ -152,7 +152,63 @@ public final class TagCloud extends JComponent implements Scrollable {
             return null;
         }
         TagItem item = tagAt(event.getX(), event.getY());
-        return item == null ? null : item.raw();
+        if (item == null) {
+            return null;
+        }
+        // HTML tooltip with category meaning + raw payload so hovering a
+        // chip explains what it represents, not just what it says. Plain
+        // tooltips before this change repeated the raw text already
+        // visible on the chip.
+        String category = item.category();
+        String meaning = categoryMeaning(category);
+        StringBuilder tip = new StringBuilder("<html><body style='width:240px'>");
+        tip.append("<b>").append(category).append("</b>")
+                .append(" &nbsp; ").append("<span style='color:#888'>")
+                .append(escapeHtml(meaning)).append("</span><br>");
+        tip.append(escapeHtml(item.raw())).append("</body></html>");
+        return tip.toString();
+    }
+
+    /**
+     * Returns a one-line description of what a tag category captures, used
+     * in hover tooltips so the workbench surfaces meaning without forcing
+     * the user to memorise the tag taxonomy.
+     *
+     * @param category uppercase category name
+     * @return short human description
+     */
+    private static String categoryMeaning(String category) {
+        return switch (category == null ? "" : category.toUpperCase(Locale.ROOT)) {
+            case "FACT" -> "static observation derived from the position";
+            case "META" -> "position metadata such as side to move or game status";
+            case "MOVE" -> "property of the next or last move";
+            case "MATERIAL" -> "material balance / imbalance";
+            case "OPENING" -> "opening classification";
+            case "PIECE" -> "individual piece role or placement";
+            case "MOBILITY" -> "available squares and reach";
+            case "DEVELOPMENT" -> "piece development state";
+            case "TACTIC" -> "tactical motif or pattern";
+            case "THREAT" -> "active or latent threat";
+            case "CHECK" -> "check / check-related condition";
+            case "ERROR" -> "error or anomaly";
+            case "INFO" -> "informational annotation";
+            case "SPACE" -> "spatial control";
+            case "STATUS" -> "position evaluation status";
+            default -> "tag category";
+        };
+    }
+
+    /**
+     * Tiny HTML escaper used by tag tooltips.
+     *
+     * @param text raw text
+     * @return HTML-safe text
+     */
+    private static String escapeHtml(String text) {
+        if (text == null || text.isEmpty()) {
+            return "";
+        }
+        return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
     }
 
     /**

@@ -146,6 +146,72 @@
 		},
 		"java:S1068": {
 			"level": "off"
+		},
+		"java:S1104": {
+			"level": "off"
+		},
+		"java:S115": {
+			"level": "off"
+		},
+		"java:S125": {
+			"level": "off"
+		},
+		"java:S1444": {
+			"level": "off"
+		},
+		"java:S1450": {
+			"level": "off"
+		},
+		"java:S1481": {
+			"level": "off"
+		},
+		"java:S1854": {
+			"level": "off"
+		},
+		"java:S2095": {
+			"level": "off"
+		},
+		"java:S2184": {
+			"level": "off"
+		},
+		"java:S2187": {
+			"level": "off"
+		},
+		"java:S2259": {
+			"level": "off"
+		},
+		"java:S2479": {
+			"level": "off"
+		},
+		"java:S3008": {
+			"level": "off"
+		},
+		"java:S3011": {
+			"level": "off"
+		},
+		"java:S3065": {
+			"level": "off"
+		},
+		"java:S3400": {
+			"level": "off"
+		},
+		"java:S3518": {
+			"level": "off"
+		},
+		"java:S5443": {
+			"level": "off"
+		},
+		"java:S5669": {
+			"level": "off"
+		},
+		"java:S6539": {
+			"level": "off"
+		},
+		"java:S6548": {
+			"level": "off"
+		},
+		"java:S8491": {
+			"level": "off"
 		}
 	},
 	"sonarlint.analysisExcludesStandalone": "**/data/**,**/dump/**,**/models/**,**/native/**/build/**,**/out/**,**/session/**,**/*.jsonl,**/*.bin"

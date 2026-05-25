@@ -19,7 +19,7 @@ import chess.nn.nnue.UpstreamNetwork;
 /**
  * Regression checks for Stockfish-compatible NNUE loading and inference.
  */
-@SuppressWarnings({ "java:S2187", "java:S3011", "java:S5669" })
+
 public final class UpstreamRegressionTest {
 
     /**

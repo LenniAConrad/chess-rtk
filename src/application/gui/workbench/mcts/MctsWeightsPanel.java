@@ -37,6 +37,11 @@ public final class MctsWeightsPanel extends javax.swing.JComponent {
     private static final int HEIGHT = 286;
 
     /**
+     * Preferred height when the host view already supplies the position board.
+     */
+    private static final int COMPACT_HEIGHT = 226;
+
+    /**
      * Top coordinate for the live summary chips.
      */
     private static final int SUMMARY_TOP = 42;
@@ -77,12 +82,17 @@ public final class MctsWeightsPanel extends javax.swing.JComponent {
     private MctsSearch.Snapshot snapshot;
 
     /**
+     * Whether to reserve space for the currently explored leaf board.
+     */
+    private boolean leafBoardVisible = true;
+
+    /**
      * Creates the panel.
      */
     public MctsWeightsPanel() {
         setOpaque(false);
         setVisible(false);
-        setPreferredSize(new Dimension(720, HEIGHT));
+        setPreferredSize(new Dimension(720, preferredHeight()));
     }
 
     /**
@@ -106,13 +116,45 @@ public final class MctsWeightsPanel extends javax.swing.JComponent {
     }
 
     /**
-     * Returns the fixed preferred size for the weights card.
+     * Shows or hides the embedded MCTS leaf board.
+     *
+     * @param visible true to paint the leaf board
+     */
+    public void setLeafBoardVisible(boolean visible) {
+        if (leafBoardVisible == visible) {
+            return;
+        }
+        leafBoardVisible = visible;
+        revalidate();
+        repaint();
+    }
+
+    /**
+     * Returns whether the embedded MCTS leaf board is visible.
+     *
+     * @return true when the leaf board is painted
+     */
+    public boolean isLeafBoardVisible() {
+        return leafBoardVisible;
+    }
+
+    /**
+     * Returns the preferred size for the current display density.
      *
      * @return preferred size
      */
     @Override
     public Dimension getPreferredSize() {
-    return new Dimension(720, HEIGHT);
+        return new Dimension(720, preferredHeight());
+    }
+
+    /**
+     * Returns the height appropriate for the current board-visibility mode.
+     *
+     * @return preferred height
+     */
+    private int preferredHeight() {
+        return leafBoardVisible ? HEIGHT : COMPACT_HEIGHT;
     }
 
     /**
@@ -135,7 +177,9 @@ public final class MctsWeightsPanel extends javax.swing.JComponent {
                 return;
             }
             int rowTop = drawHeader(g, bounds);
-            drawLiveBoard(g, bounds);
+            if (leafBoardVisible) {
+                drawLiveBoard(g, bounds);
+            }
             drawRows(g, bounds, rowTop);
         } finally {
             g.dispose();
@@ -175,7 +219,7 @@ public final class MctsWeightsPanel extends javax.swing.JComponent {
         FontMetrics fm = g.getFontMetrics();
         int left = bounds.x + 14;
         int top = bounds.y + SUMMARY_TOP;
-        int right = contentRight(bounds);
+        int right = contentRight(bounds, leafBoardVisible);
         int width = Math.max(120, right - left);
         boolean compact = width < 620;
         int columns = compact ? 2 : 4;
@@ -218,7 +262,10 @@ public final class MctsWeightsPanel extends javax.swing.JComponent {
         Rectangle board = new Rectangle(x, y, side, side);
         g.setFont(Theme.font(10, Font.BOLD));
         g.setColor(Theme.MUTED);
-        g.drawString("current board", board.x, board.y - 7);
+        // Labelled "MCTS leaf" so users do not read it as a duplicate of the
+        // main inspection board; this is the position the search is
+        // currently evaluating, not the user-selected position.
+        g.drawString("MCTS leaf", board.x, board.y - 7);
         TensorViz.drawMiniBoard(g, board);
         TensorViz.drawPositionPieces(g, board, snapshot.exploringPosition().toString());
         short[] line = snapshot.exploringLine();
@@ -248,7 +295,7 @@ public final class MctsWeightsPanel extends javax.swing.JComponent {
         }
         int left = bounds.x + 14;
         int moveW = 54;
-        int right = contentRight(bounds);
+        int right = contentRight(bounds, leafBoardVisible);
         int available = Math.max(300, right - left - moveW - 42);
         int visitW = Math.max(110, available * 36 / 100);
         int priorW = Math.max(72, available * 20 / 100);
@@ -308,8 +355,8 @@ public final class MctsWeightsPanel extends javax.swing.JComponent {
      * @param bounds drawing bounds
      * @return right edge for content
      */
-    private static int contentRight(Rectangle bounds) {
-        if (bounds.width < 520) {
+    private static int contentRight(Rectangle bounds, boolean leafBoardVisible) {
+        if (!leafBoardVisible || bounds.width < 520) {
             return bounds.x + bounds.width - 16;
         }
         return bounds.x + bounds.width - 236;

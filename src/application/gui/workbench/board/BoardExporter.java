@@ -148,12 +148,12 @@ public final class BoardExporter {
         g.setColor(Theme.BOARD_EDGE);
         g.fillRect(board.x - border, board.y - border, board.width + border * 2, board.height + border * 2);
         BoardStyle.drawBoardSurface(g, board, false);
-        paintRasterHighlights(snapshot, g, board);
-        paintRasterPieces(snapshot, g, board);
-        paintRasterAnnotations(snapshot, g, board);
         if (snapshot.showNotation()) {
             BoardStyle.drawInsideCoordinates(g, board, snapshot.whiteDown(), Math.max(12, board.width / 44));
         }
+        paintRasterHighlights(snapshot, g, board);
+        paintRasterPieces(snapshot, g, board);
+        paintRasterAnnotations(snapshot, g, board);
     }
 
     /**
@@ -278,12 +278,12 @@ public final class BoardExporter {
         appendRect(svg, board.x - border, board.y - border, board.width + border * 2,
                 board.height + border * 2, Theme.BOARD_EDGE);
         appendSquares(svg, board);
-        appendSvgHighlights(snapshot, svg, board);
-        appendSvgPieces(snapshot, svg, board);
-        appendSvgAnnotations(snapshot, svg, board);
         if (snapshot.showNotation()) {
             appendCoordinates(svg, board, snapshot.whiteDown());
         }
+        appendSvgHighlights(snapshot, svg, board);
+        appendSvgPieces(snapshot, svg, board);
+        appendSvgAnnotations(snapshot, svg, board);
     }
 
     /**

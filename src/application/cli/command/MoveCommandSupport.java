@@ -23,7 +23,7 @@ import utility.Argv;
  * @since 2026
  * @author Lennart A. Conrad
  */
-@SuppressWarnings("java:S3776")
+
 final class MoveCommandSupport {
 
 	/**

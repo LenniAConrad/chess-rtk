@@ -1,0 +1,89 @@
+package chess.engine;
+
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+
+import chess.classical.Wdl;
+import chess.core.Position;
+import chess.eval.CentipawnEvaluator;
+import chess.eval.Classical;
+
+/**
+ * Shared helpers for MCTS policy/value backends.
+ */
+final class MctsBackendSupport {
+
+    /**
+     * Utility class; prevent instantiation.
+     */
+    private MctsBackendSupport() {
+        // utility
+    }
+
+    /**
+     * Converts legal-move policy logits to normalized priors.
+     * @param position chess position
+     * @param moves candidate moves
+     * @param fallback fallback value
+     * @param logits logits value
+     * @param indexer indexer value
+     * @return policy priors from logits result
+     */
+    static double[] policyPriorsFromLogits(
+            Position position,
+            short[] moves,
+            double[] fallback,
+            float[] logits,
+            PolicyIndex indexer) {
+        if (position == null || moves == null || logits == null || indexer == null) {
+            return fallback;
+        }
+        double[] out = new double[moves.length];
+        int[] indices = new int[moves.length];
+        float max = Float.NEGATIVE_INFINITY;
+        int valid = 0;
+        for (int i = 0; i < moves.length; i++) {
+            int index = indexer.index(position, moves[i]);
+            indices[i] = index;
+            if (index >= 0 && index < logits.length && Float.isFinite(logits[index])) {
+                max = Math.max(max, logits[index]);
+                valid++;
+            }
+        }
+        if (valid == 0 || !Float.isFinite(max)) {
+            return fallback;
+        }
+        double sum = 0.0;
+        for (int i = 0; i < moves.length; i++) {
+            int index = indices[i];
+            if (index >= 0 && index < logits.length && Float.isFinite(logits[index])) {
+                out[i] = Math.exp(logits[index] - max);
+                sum += out[i];
+            }
+        }
+        if (!Double.isFinite(sum) || sum <= 0.0) {
+            return fallback;
+        }
+        for (int i = 0; i < out.length; i++) {
+            out[i] /= sum;
+        }
+        return out;
+    }
+    /**
+     * Creates a small access-ordered prediction cache.
+     * @param <T> < t> value
+     * @return new recent prediction cache result
+     */
+    static <T> Map<Long, T> newRecentPredictionCache() {
+        return new LinkedHashMap<>(256, 0.75f, true) {
+            private static final long serialVersionUID = 1L;
+
+            @Override
+            protected boolean removeEldestEntry(Map.Entry<Long, T> eldest) {
+                return size() > 512;
+            }
+        };
+    }
+}

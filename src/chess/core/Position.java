@@ -470,16 +470,11 @@ public class Position implements Comparable<Position> {
     /**
      * Applies a legal or pseudo-legal move to this position.
      *
-     * <p>
-     * This convenience overload allocates an undo state. Perft code should use
-     * {@link #play(short, State)} with caller-owned state objects.
-     * </p>
-     *
      * @param move encoded move
      * @return this position
      */
     public Position play(short move) {
-        if (!isEncodedMove(move)) {
+        if (!PositionMoveSupport.isEncodedMove(move)) {
             throw new IllegalArgumentException("Invalid encoded move: " + (move & 0xFFFF));
         }
         return play(move, new State());
@@ -488,257 +483,32 @@ public class Position implements Comparable<Position> {
     /**
      * Applies a legal or pseudo-legal move and fills caller-owned undo state.
      *
-     * <p>
-     * The method updates piece bitboards, square table, occupancy caches,
-     * castling rights, en-passant state, move counters, and cached king squares.
-     * It does not validate king safety; callers decide whether a pseudo-legal
-     * move is legal.
-     * </p>
-     *
      * @param move encoded move
      * @param state target undo state
      * @return this position
      */
     public Position play(short move, State state) {
-        int from = move & 0x3F;
-        int to = (move >>> 6) & 0x3F;
-        int promotion = (move >>> 12) & 0x7;
-        int moving = pieceIndexAt(from);
-        if (moving < 0) {
-            throw new IllegalArgumentException("No piece on " + Bits.name(from));
-        }
-
-        boolean white = moving < BLACK_PAWN;
-        int castleRight = castlingRightForMove(moving, to);
-        boolean castleMove = castleRight != 0;
-        int actualTo = castleMove ? castlingKingTarget(castleRight) : to;
-        int captured = castleMove ? -1 : pieceIndexAt(actualTo);
-        int capturedSquare = actualTo;
-        boolean capture = !castleMove && captured >= 0;
-        boolean pawnMove = moving == WHITE_PAWN || moving == BLACK_PAWN;
-        saveUndoState(state, moving, captured, capturedSquare, actualTo);
-
-        if (castlingRights != 0) {
-            castlingRights &= castlingKeepMask(from, to);
-        }
-
-        clearPiece(moving, from);
-        if (captured >= 0) {
-            clearPiece(captured, actualTo);
-        }
-
-        if (pawnMove && actualTo == enPassantSquare && captured < 0) {
-            applyEnPassantCapture(state, white, actualTo);
-            capture = true;
-        }
-
-        int delta = actualTo - from;
-        if (castleMove) {
-            moveCastlingRook(white, castleRight, state);
-            state.castle = true;
-        }
-
-        int placed = promotion == 0 ? moving : promotionPieceIndex(moving, promotion);
-        setPiece(placed, actualTo);
-        enPassantSquare = nextEnPassantSquare(pawnMove, delta, from, actualTo, white);
-        updateHalfMoveClock(pawnMove || capture);
-        if (!whiteToMove) {
-            fullMoveNumber++;
-        }
-        whiteToMove = !whiteToMove;
-        return this;
-    }
-
-    /**
-     * Stores all reversible state needed to undo one move.
-     *
-     * @param state target undo state
-     * @param moving moving piece index
-     * @param captured captured piece index, or -1
-     * @param capturedSquare square where the captured piece is removed
-     * @param kingTo actual king target square for castling moves
-     */
-    private void saveUndoState(
-            State state,
-            int moving,
-            int captured,
-            int capturedSquare,
-            int kingTo) {
-        state.moving = moving;
-        state.captured = captured;
-        state.capturedSquare = capturedSquare;
-        state.kingTo = kingTo;
-        state.castlingRights = castlingRights;
-        state.enPassantSquare = enPassantSquare;
-        state.halfMoveClock = halfMoveClock;
-        state.fullMoveNumber = fullMoveNumber;
-        state.whiteToMove = whiteToMove;
-        state.rook = -1;
-        state.rookFrom = Field.NO_SQUARE;
-        state.rookTo = Field.NO_SQUARE;
-        state.enPassantCapture = false;
-        state.castle = false;
-    }
-
-    /**
-     * Removes the pawn captured by an en-passant move.
-     *
-     * @param state undo state receiving capture metadata
-     * @param white true when White made the capture
-     * @param actualTo en-passant target square
-     */
-    private void applyEnPassantCapture(State state, boolean white, int actualTo) {
-        int capturedSquare = white ? actualTo + 8 : actualTo - 8;
-        int captured = white ? BLACK_PAWN : WHITE_PAWN;
-        state.captured = captured;
-        state.capturedSquare = capturedSquare;
-        state.enPassantCapture = true;
-        clearPiece(captured, capturedSquare);
-    }
-
-    /**
-     * Calculates the next en-passant square after a move.
-     *
-     * @param pawnMove true when the moving piece was a pawn
-     * @param delta target minus origin
-     * @param from origin square
-     * @param actualTo final target square
-     * @param white true when the moving piece was White
-     * @return en-passant target square, or {@link Field#NO_SQUARE}
-     */
-    private byte nextEnPassantSquare(boolean pawnMove, int delta, int from, int actualTo, boolean white) {
-        if (!pawnMove || (delta != 16 && delta != -16)) {
-            return Field.NO_SQUARE;
-        }
-        int target = (from + actualTo) / 2;
-        long enemyPawns = pieces[white ? BLACK_PAWN : WHITE_PAWN];
-        long attackers = white ? MoveGenerator.WHITE_PAWN_ATTACKS[target] : MoveGenerator.BLACK_PAWN_ATTACKS[target];
-        return (attackers & enemyPawns) == 0L ? Field.NO_SQUARE : (byte) target;
-    }
-
-    /**
-     * Updates the halfmove clock after a move.
-     *
-     * @param reset true when a pawn move or capture resets the clock
-     */
-    private void updateHalfMoveClock(boolean reset) {
-        if (reset) {
-            halfMoveClock = 0;
-        } else {
-            halfMoveClock++;
-        }
+        return PositionMoveSupport.play(this, move, state);
     }
 
     /**
      * Undoes a move previously made with {@link #play(short, State)}.
      *
-     * <p>
-     * The supplied state must be the exact state object filled by the matching
-     * call to {@code play}. No validation is performed in the hot undo path.
-     * </p>
-     *
      * @param move encoded move
      * @param state undo state
      */
     public void undo(short move, State state) {
-        int from = move & 0x3F;
-        int to = state.castle ? state.kingTo : (move >>> 6) & 0x3F;
-        int promotion = (move >>> 12) & 0x7;
-        int placed = promotion == 0 ? state.moving : promotionPieceIndex(state.moving, promotion);
-        boolean white = state.moving < BLACK_PAWN;
-        long fromMask = 1L << from;
-        long toMask = 1L << to;
-
-        pieces[placed] &= ~toMask;
-        board[to] = -1;
-        if (white) {
-            whiteOccupancy &= ~toMask;
-        } else {
-            blackOccupancy &= ~toMask;
-        }
-        occupancy &= ~toMask;
-        if (state.rook >= 0) {
-            clearPiece(state.rook, state.rookTo);
-        }
-        pieces[state.moving] |= fromMask;
-        board[from] = (byte) state.moving;
-        if (white) {
-            whiteOccupancy |= fromMask;
-        } else {
-            blackOccupancy |= fromMask;
-        }
-        occupancy |= fromMask;
-        if (state.moving == WHITE_KING) {
-            whiteKingSquare = (byte) from;
-        } else if (state.moving == BLACK_KING) {
-            blackKingSquare = (byte) from;
-        }
-        if (state.rook >= 0) {
-            setPiece(state.rook, state.rookFrom);
-        }
-        if (state.captured >= 0) {
-            long capturedMask = 1L << state.capturedSquare;
-            pieces[state.captured] |= capturedMask;
-            board[state.capturedSquare] = (byte) state.captured;
-            if (state.captured < BLACK_PAWN) {
-                whiteOccupancy |= capturedMask;
-            } else {
-                blackOccupancy |= capturedMask;
-            }
-            occupancy |= capturedMask;
-        }
-
-        castlingRights = state.castlingRights;
-        enPassantSquare = state.enPassantSquare;
-        halfMoveClock = state.halfMoveClock;
-        fullMoveNumber = state.fullMoveNumber;
-        whiteToMove = state.whiteToMove;
+        PositionMoveSupport.undo(this, move, state);
     }
 
     /**
      * Applies a reversible null move for search pruning.
      *
-     * <p>
-     * A null move is not a legal chess move; it is a search heuristic that passes
-     * the turn after clearing any en-passant target. Castling rights, piece
-     * placement, and move counters are intentionally left unchanged so the method
-     * can be used only as a temporary make/undo operation inside search.
-     * </p>
-     *
      * @param state target undo state
      * @return this position
-     * @throws IllegalStateException if the side to move is currently in check
      */
     public Position playNull(State state) {
-        if (inCheck()) {
-            throw new IllegalStateException("Cannot play a null move while in check");
-        }
-        saveNullUndoState(state);
-        enPassantSquare = Field.NO_SQUARE;
-        whiteToMove = !whiteToMove;
-        return this;
-    }
-
-    /**
-     * Stores reversible state for {@link #playNull(State)}.
-     *
-     * @param state target undo state
-     */
-    private void saveNullUndoState(State state) {
-        state.moving = -1;
-        state.captured = -1;
-        state.capturedSquare = Field.NO_SQUARE;
-        state.kingTo = Field.NO_SQUARE;
-        state.castlingRights = castlingRights;
-        state.enPassantSquare = enPassantSquare;
-        state.halfMoveClock = halfMoveClock;
-        state.fullMoveNumber = fullMoveNumber;
-        state.whiteToMove = whiteToMove;
-        state.rook = -1;
-        state.rookFrom = Field.NO_SQUARE;
-        state.rookTo = Field.NO_SQUARE;
-        state.enPassantCapture = false;
-        state.castle = false;
+        return PositionMoveSupport.playNull(this, state);
     }
 
     /**
@@ -747,12 +517,9 @@ public class Position implements Comparable<Position> {
      * @param state undo state filled by the matching null move
      */
     public void undoNull(State state) {
-        castlingRights = state.castlingRights;
-        enPassantSquare = state.enPassantSquare;
-        halfMoveClock = state.halfMoveClock;
-        fullMoveNumber = state.fullMoveNumber;
-        whiteToMove = state.whiteToMove;
+        PositionMoveSupport.undoNull(this, state);
     }
+
 
     /**
      * Generates all legal moves for the side to move.
@@ -803,7 +570,7 @@ public class Position implements Comparable<Position> {
      * @return true when the move is currently legal
      */
     public boolean isLegalMove(short move) {
-        if (!isEncodedMove(move)) {
+        if (!PositionMoveSupport.isEncodedMove(move)) {
             return false;
         }
         return legalMoves().contains(move);
@@ -987,7 +754,7 @@ public class Position implements Comparable<Position> {
      * @return true when both bishops are bound to the same color complex
      */
     private static boolean sameSquareColor(long first, long second) {
-        return squareColor(Long.numberOfTrailingZeros(first)) == squareColor(Long.numberOfTrailingZeros(second));
+        return PositionRules.squareColor(Long.numberOfTrailingZeros(first)) == PositionRules.squareColor(Long.numberOfTrailingZeros(second));
     }
 
     /**
@@ -1054,7 +821,7 @@ public class Position implements Comparable<Position> {
      */
     public boolean hasPiece(int square, int pieceIndex) {
         Bits.requireSquare(square);
-        requirePieceIndex(pieceIndex);
+        PositionRules.requirePieceIndex(pieceIndex);
         return board[square] == pieceIndex;
     }
 
@@ -1088,7 +855,7 @@ public class Position implements Comparable<Position> {
      * @return number of pieces of that type
      */
     public int countPieces(int pieceIndex) {
-        requirePieceIndex(pieceIndex);
+        PositionRules.requirePieceIndex(pieceIndex);
         return Long.bitCount(pieces[pieceIndex]);
     }
 
@@ -1145,7 +912,7 @@ public class Position implements Comparable<Position> {
      * @return total White material
      */
     public int countWhiteMaterial() {
-        return material(true);
+        return PositionRules.material(this, true);
     }
 
     /**
@@ -1154,7 +921,7 @@ public class Position implements Comparable<Position> {
      * @return total Black material
      */
     public int countBlackMaterial() {
-        return material(false);
+        return PositionRules.material(this, false);
     }
 
     /**
@@ -1186,10 +953,10 @@ public class Position implements Comparable<Position> {
         if (white == 0L || black == 0L) {
             return false;
         }
-        boolean whiteLight = hasBishopOnColor(white, 0);
-        boolean whiteDark = hasBishopOnColor(white, 1);
-        boolean blackLight = hasBishopOnColor(black, 0);
-        boolean blackDark = hasBishopOnColor(black, 1);
+        boolean whiteLight = PositionRules.hasBishopOnColor(white, 0);
+        boolean whiteDark = PositionRules.hasBishopOnColor(white, 1);
+        boolean blackLight = PositionRules.hasBishopOnColor(black, 0);
+        boolean blackDark = PositionRules.hasBishopOnColor(black, 1);
         return (whiteLight && blackDark) || (whiteDark && blackLight);
     }
 
@@ -1204,7 +971,7 @@ public class Position implements Comparable<Position> {
         if (file < 0 || file >= 8) {
             throw new IllegalArgumentException("Invalid file: " + file);
         }
-        return Long.bitCount(pieces[white ? WHITE_PAWN : BLACK_PAWN] & fileMask(file));
+        return Long.bitCount(pieces[white ? WHITE_PAWN : BLACK_PAWN] & PositionRules.fileMask(file));
     }
 
     /**
@@ -1221,7 +988,7 @@ public class Position implements Comparable<Position> {
         long pawns = pieces[white ? WHITE_PAWN : BLACK_PAWN];
         long out = 0L;
         for (int file = 0; file < 8; file++) {
-            long filePawns = pawns & fileMask(file);
+            long filePawns = pawns & PositionRules.fileMask(file);
             if (Long.bitCount(filePawns) > 1) {
                 out |= filePawns;
             }
@@ -1249,10 +1016,10 @@ public class Position implements Comparable<Position> {
             int file = square & 7;
             long adjacent = 0L;
             if (file > 0) {
-                adjacent |= fileMask(file - 1);
+                adjacent |= PositionRules.fileMask(file - 1);
             }
             if (file < 7) {
-                adjacent |= fileMask(file + 1);
+                adjacent |= PositionRules.fileMask(file + 1);
             }
             if ((pawns & adjacent) == 0L) {
                 out |= 1L << square;
@@ -1304,7 +1071,7 @@ public class Position implements Comparable<Position> {
         int rank = Bits.rank(square);
         long blockers = 0L;
         for (int targetFile = Math.max(0, file - 1); targetFile <= Math.min(7, file + 1); targetFile++) {
-            blockers |= fileMask(targetFile);
+            blockers |= PositionRules.fileMask(targetFile);
         }
         long scan = enemies & blockers;
         while (scan != 0L) {
@@ -1376,7 +1143,7 @@ public class Position implements Comparable<Position> {
      * @return attacking square indexes
      */
     public byte[] attackerSquares(boolean byWhite, int square) {
-        return squares(attackerMask(byWhite, square));
+        return PositionRules.squares(attackerMask(byWhite, square));
     }
 
     /**
@@ -1484,7 +1251,7 @@ public class Position implements Comparable<Position> {
         int pieceRow = square >>> 3;
         int fileDelta = Integer.compare(pieceFile, kingFile);
         int rowDelta = Integer.compare(pieceRow, kingRow);
-        if (!aligned(kingFile, kingRow, pieceFile, pieceRow)) {
+        if (!PositionRules.aligned(kingFile, kingRow, pieceFile, pieceRow)) {
             return null;
         }
         if (hasPieceBetween(kingFile, kingRow, pieceFile, pieceRow, fileDelta, rowDelta)) {
@@ -1550,7 +1317,7 @@ public class Position implements Comparable<Position> {
             int target = row * 8 + file;
             int pinner = board[target];
             if (pinner >= 0) {
-                if (isEnemySliderForPin(pinner, white, diagonal)) {
+                if (PositionRules.isEnemySliderForPin(pinner, white, diagonal)) {
                     return new PinInfo(square, (byte) target, pieceCode(pinner));
                 }
                 return null;
@@ -1578,7 +1345,7 @@ public class Position implements Comparable<Position> {
      * @return moving piece index, or -1 when the origin is empty
      */
     public int movingPiece(short move) {
-        if (!isEncodedMove(move)) {
+        if (!PositionMoveSupport.isEncodedMove(move)) {
             return -1;
         }
         return board[move & 0x3F];
@@ -1623,7 +1390,7 @@ public class Position implements Comparable<Position> {
      * @return true when the promotion field is non-zero
      */
     public boolean isPromotion(short move) {
-        if (!isEncodedMove(move)) {
+        if (!PositionMoveSupport.isEncodedMove(move)) {
             return false;
         }
         return ((move >>> 12) & 0x7) != 0;
@@ -1767,7 +1534,7 @@ public class Position implements Comparable<Position> {
      * @return bitboard for that piece type
      */
     public long pieces(int pieceIndex) {
-        requirePieceIndex(pieceIndex);
+        PositionRules.requirePieceIndex(pieceIndex);
         return pieces[pieceIndex];
     }
 
@@ -1957,6 +1724,17 @@ public class Position implements Comparable<Position> {
     }
 
     /**
+     * Returns the castling right represented by a king move target.
+     *
+     * @param moving moving piece index
+     * @param target encoded move target
+     * @return castling-right bit or zero
+     */
+    int castlingRightForMove(int moving, int target) {
+        return PositionMoveSupport.castlingRightForMove(this, moving, target);
+    }
+
+    /**
      * Returns the repository piece code on a square.
      *
      * @param square board square, 0..63
@@ -2031,232 +1809,6 @@ public class Position implements Comparable<Position> {
      *
      * @param pieceIndex candidate piece index
      */
-    private static void requirePieceIndex(int pieceIndex) {
-        if (pieceIndex < WHITE_PAWN || pieceIndex > BLACK_KING) {
-            throw new IllegalArgumentException("Invalid piece index: " + pieceIndex);
-        }
-    }
-
-    /**
-     * Returns whether a compact move value is usable by this position.
-     *
-     * @param move candidate encoded move
-     * @return true when the value is not the sentinel and has a valid promotion
-     */
-    private static boolean isEncodedMove(short move) {
-        if (move == Move.NO_MOVE || move < 0) {
-            return false;
-        }
-        return ((move >>> 12) & 0x7) <= PROMOTION_QUEEN;
-    }
-
-    /**
-     * Returns material for one side.
-     *
-     * @param white true for White material
-     * @return centipawn material
-     */
-    private int material(boolean white) {
-        int start = white ? WHITE_PAWN : BLACK_PAWN;
-        int end = white ? WHITE_KING : BLACK_KING;
-        int value = 0;
-        for (int piece = start; piece <= end; piece++) {
-            value += Long.bitCount(pieces[piece]) * Piece.getValue(pieceCode(piece));
-        }
-        return value;
-    }
-
-    /**
-     * Returns the mask for one file.
-     *
-     * @param file file index, 0..7
-     * @return file mask
-     */
-    private static long fileMask(int file) {
-        return switch (file) {
-            case 0 -> Bits.FILE_A;
-            case 1 -> Bits.FILE_B;
-            case 2 -> Bits.FILE_C;
-            case 3 -> Bits.FILE_D;
-            case 4 -> Bits.FILE_E;
-            case 5 -> Bits.FILE_F;
-            case 6 -> Bits.FILE_G;
-            case 7 -> Bits.FILE_H;
-            default -> throw new IllegalArgumentException("Invalid file: " + file);
-        };
-    }
-
-    /**
-     * Checks whether a bishop mask contains at least one bishop on a square color.
-     *
-     * @param bishops bishop mask
-     * @param color square color, 0 or 1
-     * @return true when present
-     */
-    private static boolean hasBishopOnColor(long bishops, int color) {
-        long scan = bishops;
-        while (scan != 0L) {
-            int square = Bits.lsb(scan);
-            scan = Bits.withoutLsb(scan);
-            if (squareColor(square) == color) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    /**
-     * Returns the checkerboard color of a square.
-     *
-     * @param square board square, 0..63
-     * @return square color, 0 or 1
-     */
-    private static int squareColor(int square) {
-        return (Bits.file(square) + Bits.rank(square)) & 1;
-    }
-
-    /**
-     * Converts a bitboard mask to square indexes.
-     *
-     * @param mask square mask
-     * @return squares in least-significant-bit order
-     */
-    private static byte[] squares(long mask) {
-        byte[] out = new byte[Long.bitCount(mask)];
-        int index = 0;
-        while (mask != 0L) {
-            int square = Bits.lsb(mask);
-            mask = Bits.withoutLsb(mask);
-            out[index++] = (byte) square;
-        }
-        return out;
-    }
-
-    /**
-     * Returns whether two squares share a rank, file, or diagonal.
-     *
-     * @param firstFile first square file
-     * @param firstRow first square row
-     * @param secondFile second square file
-     * @param secondRow second square row
-     * @return true when aligned
-     */
-    private static boolean aligned(int firstFile, int firstRow, int secondFile, int secondRow) {
-        return firstFile == secondFile
-                || firstRow == secondRow
-                || Math.abs(firstFile - secondFile) == Math.abs(firstRow - secondRow);
-    }
-
-    /**
-     * Checks whether a piece can pin along the inspected line.
-     *
-     * @param piece candidate pinning piece index
-     * @param pinnedWhite true when the pinned piece is White
-     * @param diagonal true for a diagonal pin line
-     * @return true when the enemy slider pins along that line
-     */
-    private static boolean isEnemySliderForPin(int piece, boolean pinnedWhite, boolean diagonal) {
-        boolean enemy = pinnedWhite ? piece >= BLACK_PAWN : piece >= WHITE_PAWN && piece <= WHITE_KING;
-        if (!enemy) {
-            return false;
-        }
-        if (diagonal) {
-            return piece == WHITE_BISHOP || piece == BLACK_BISHOP
-                    || piece == WHITE_QUEEN || piece == BLACK_QUEEN;
-        }
-        return piece == WHITE_ROOK || piece == BLACK_ROOK
-                || piece == WHITE_QUEEN || piece == BLACK_QUEEN;
-    }
-
-    /**
-     * Computes the castling rights retained after touching two squares.
-     *
-     * <p>
-     * Earlier versions stored a 64-entry table on each Chess960 position. The
-     * same mask can be derived from the current king and rook squares, avoiding a
-     * per-position array allocation while preserving the branch-free call site
-     * when no castling rights remain.
-     * </p>
-     *
-     * @param first first touched square
-     * @param second second touched square
-     * @return castling-right mask retained after both squares are touched
-     */
-    private int castlingKeepMask(int first, int second) {
-        return castlingKeepMask(first) & castlingKeepMask(second);
-    }
-
-    /**
-     * Computes the castling rights retained after touching one square.
-     *
-     * @param square touched square
-     * @return castling-right mask retained after touching the square
-     */
-    private int castlingKeepMask(int square) {
-        int keep = WHITE_KINGSIDE | WHITE_QUEENSIDE | BLACK_KINGSIDE | BLACK_QUEENSIDE;
-        if (square == whiteKingSquare) {
-            keep &= ~(WHITE_KINGSIDE | WHITE_QUEENSIDE);
-        }
-        if (square == blackKingSquare) {
-            keep &= ~(BLACK_KINGSIDE | BLACK_QUEENSIDE);
-        }
-        if (square == whiteKingsideRookSquare) {
-            keep &= ~WHITE_KINGSIDE;
-        }
-        if (square == whiteQueensideRookSquare) {
-            keep &= ~WHITE_QUEENSIDE;
-        }
-        if (square == blackKingsideRookSquare) {
-            keep &= ~BLACK_KINGSIDE;
-        }
-        if (square == blackQueensideRookSquare) {
-            keep &= ~BLACK_QUEENSIDE;
-        }
-        return keep;
-    }
-
-    /**
-     * Returns the castling right represented by a king move target.
-     *
-     * @param moving moving piece index
-     * @param target encoded move target
-     * @return castling-right bit or zero
-     */
-    int castlingRightForMove(int moving, int target) {
-        if (moving == WHITE_KING) {
-            if (canCastle(WHITE_KINGSIDE) && target == castlingMoveTarget(WHITE_KINGSIDE)) {
-                return WHITE_KINGSIDE;
-            }
-            if (canCastle(WHITE_QUEENSIDE) && target == castlingMoveTarget(WHITE_QUEENSIDE)) {
-                return WHITE_QUEENSIDE;
-            }
-        } else if (moving == BLACK_KING) {
-            if (canCastle(BLACK_KINGSIDE) && target == castlingMoveTarget(BLACK_KINGSIDE)) {
-                return BLACK_KINGSIDE;
-            }
-            if (canCastle(BLACK_QUEENSIDE) && target == castlingMoveTarget(BLACK_QUEENSIDE)) {
-                return BLACK_QUEENSIDE;
-            }
-        }
-        return 0;
-    }
-
-    /**
-     * Moves the rook for a standard or Chess960 castling move.
-     *
-     * @param white true for White
-     * @param right castling-right bit
-     * @param state undo state receiving rook-move metadata
-     */
-    private void moveCastlingRook(boolean white, int right, State state) {
-        int rook = white ? WHITE_ROOK : BLACK_ROOK;
-        int rookFrom = castlingRookSquare(right);
-        int rookTo = castlingRookTarget(right);
-        state.rook = rook;
-        state.rookFrom = rookFrom;
-        state.rookTo = rookTo;
-        movePiece(rook, rookFrom, rookTo);
-    }
 
     /**
      * Places one piece on a square and updates all cached occupancy data.
@@ -2276,7 +1828,7 @@ public class Position implements Comparable<Position> {
     protected void clearAnalysisSquare(int square) {
         int piece = pieceIndexAt(square);
         if (piece >= 0) {
-            clearPiece(piece, square);
+            PositionStateSupport.clearPiece(this, piece, square);
         }
     }
 
@@ -2299,31 +1851,6 @@ public class Position implements Comparable<Position> {
      * @param piece piece index
      * @param square square
      */
-    private void clearPiece(int piece, int square) {
-        PositionStateSupport.clearPiece(this, piece, square);
-    }
-
-    /**
-     * Moves one piece between two squares using the shared set/clear helpers.
-     *
-     * @param piece piece index
-     * @param from origin
-     * @param to target
-     */
-    private void movePiece(int piece, int from, int to) {
-        PositionStateSupport.movePiece(this, piece, from, to);
-    }
-
-    /**
-     * Returns the piece index that should occupy the target square after a move.
-     *
-     * @param moving moving piece
-     * @param promotion promotion code
-     * @return piece index
-     */
-    private int promotionPieceIndex(int moving, int promotion) {
-        return PositionStateSupport.promotionPieceIndex(moving, promotion);
-    }
 
     /**
      * Describes a piece pinned to its own king by an enemy slider.
@@ -2373,190 +1900,16 @@ public class Position implements Comparable<Position> {
      * {@link #play(short, State)} or {@link #playNull(State)}.
      * </p>
      */
-    public static final class State {
+    /**
+     * Mutable undo state for allocation-free make/undo recursion.
+     */
+    public static final class State extends PositionUndoState {
 
         /**
          * Creates an empty undo state for one make/undo slot.
          */
         public State() {
             // filled by Position.play(short, State)
-        }
-
-        /**
-         * Piece index moved by the encoded move.
-         */
-        private int moving;
-
-        /**
-         * Captured piece index, or -1 when the move was not a capture.
-         */
-        private int captured;
-
-        /**
-         * Square where the captured piece was removed.
-         *
-         * <p>
-         * This differs from the move target square for en-passant captures.
-         * </p>
-         */
-        private int capturedSquare;
-
-        /**
-         * Actual king target square for a castling move.
-         */
-        private int kingTo;
-
-        /**
-         * Castling-right mask before the move was applied.
-         */
-        private int castlingRights;
-
-        /**
-         * En-passant target square before the move was applied.
-         */
-        private byte enPassantSquare;
-
-        /**
-         * Halfmove clock before the move was applied.
-         */
-        private short halfMoveClock;
-
-        /**
-         * Fullmove number before the move was applied.
-         */
-        private short fullMoveNumber;
-
-        /**
-         * Side-to-move flag before the move was applied.
-         */
-        private boolean whiteToMove;
-
-        /**
-         * Castling rook piece index, or -1 when the move was not castling.
-         */
-        private int rook;
-
-        /**
-         * Castling rook origin square.
-         */
-        private int rookFrom;
-
-        /**
-         * Castling rook target square.
-         */
-        private int rookTo;
-
-        /**
-         * Whether the move captured by en-passant.
-         */
-        private boolean enPassantCapture;
-
-        /**
-         * Whether the move was castling.
-         */
-        private boolean castle;
-
-        /**
-         * Returns whether the move captured a piece.
-         *
-         * @return true when captured
-         */
-        public boolean capture() {
-            return captured >= 0;
-        }
-
-        /**
-         * Returns the moved internal piece index.
-         *
-         * @return moved piece index
-         */
-        public int movingPiece() {
-            return moving;
-        }
-
-        /**
-         * Returns the captured internal piece index.
-         *
-         * @return captured piece index, or {@code -1}
-         */
-        public int capturedPiece() {
-            return captured;
-        }
-
-        /**
-         * Returns the square from which the captured piece was removed.
-         *
-         * @return captured square, or {@link Field#NO_SQUARE}
-         */
-        public int capturedSquare() {
-            return capturedSquare;
-        }
-
-        /**
-         * Returns the final king target square used by the move.
-         *
-         * <p>
-         * For non-castling moves this is the move's normal destination square.
-         * </p>
-         *
-         * @return actual destination square
-         */
-        public int actualToSquare() {
-            return kingTo;
-        }
-
-        /**
-         * Returns the side to move before the move was applied.
-         *
-         * @return true when White moved
-         */
-        public boolean whiteToMove() {
-            return whiteToMove;
-        }
-
-        /**
-         * Returns the castling rook piece index.
-         *
-         * @return rook piece index, or {@code -1}
-         */
-        public int rookPiece() {
-            return rook;
-        }
-
-        /**
-         * Returns the castling rook origin square.
-         *
-         * @return rook origin, or {@link Field#NO_SQUARE}
-         */
-        public int rookFromSquare() {
-            return rookFrom;
-        }
-
-        /**
-         * Returns the castling rook target square.
-         *
-         * @return rook target, or {@link Field#NO_SQUARE}
-         */
-        public int rookToSquare() {
-            return rookTo;
-        }
-
-        /**
-         * Returns whether the move was an en-passant capture.
-         *
-         * @return true when en-passant
-         */
-        public boolean enPassantCapture() {
-            return enPassantCapture;
-        }
-
-        /**
-         * Returns whether the move was standard castling.
-         *
-         * @return true when castling
-         */
-        public boolean castle() {
-            return castle;
         }
     }
 

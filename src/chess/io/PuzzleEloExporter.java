@@ -52,6 +52,7 @@ import utility.Json;
  * @since 2026
  * @author Lennart A. Conrad
  */
+
 public final class PuzzleEloExporter {
 
     /**
@@ -835,7 +836,6 @@ public final class PuzzleEloExporter {
          * Scores independent root trees using worker threads.
          * @return score parallel result
          */
-        @SuppressWarnings("java:S2095")
         private List<ScoredPuzzle> scoreParallel() {
             int workers = Math.min(options.threads(), roots.size());
             int chunkSize = Math.max(1_000, roots.size() / Math.max(1, workers * 8));

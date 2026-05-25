@@ -51,7 +51,6 @@ import static application.gui.workbench.ui.Ui.showConfirmDialog;
 /**
  * A new native Swing command and analysis workbench for ChessRTK.
  */
-@SuppressWarnings("java:S6539")
 
 public abstract class WindowGameLayer extends WindowEngineLayer {
     /** Serialization identifier for Swing frame compatibility. */
@@ -584,6 +583,7 @@ public abstract class WindowGameLayer extends WindowEngineLayer {
             showWarning("Command running", "Stop the current command before starting another one.");
             return;
         }
+        showConsoleDock();
         appendConsole("\n$ " + CommandRunner.displayCommand(args) + "\n");
         setCommandState("Running");
         // Track the run as a dashboard job so the recent-jobs table reflects
@@ -602,6 +602,7 @@ public abstract class WindowGameLayer extends WindowEngineLayer {
                 artifacts = runArtifacts.recordFromCommand(args);
             }
             runArtifacts.persistManifest(job, artifacts, stdin);
+            refreshLogBrowsers();
             if (!artifacts.isEmpty()) {
                 toast(Toast.Kind.SUCCESS, exportToastMessage(artifacts));
             } else if (result.exitCode() != 0) {
@@ -623,6 +624,7 @@ public abstract class WindowGameLayer extends WindowEngineLayer {
                         System.currentTimeMillis() - runningJobStartMillis);
             }
             runArtifacts.persistManifest(job, List.of(), stdin);
+            refreshLogBrowsers();
             updateHealthFailedFromCommand(args);
             runningJob = null;
             healthCheckQueue.clear();
@@ -687,6 +689,7 @@ public abstract class WindowGameLayer extends WindowEngineLayer {
                 session.jobs().markCancelled(runningJob,
                         System.currentTimeMillis() - runningJobStartMillis);
                 runArtifacts.persistManifest(runningJob, List.of(), null);
+                refreshLogBrowsers();
                 runningJob = null;
             }
             healthCheckQueue.clear();

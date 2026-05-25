@@ -103,6 +103,10 @@ public final class DatasetChart extends JComponent {
     public record Bar(String label, long value, Role role) {
         /**
          * Normalizes nullable labels and roles.
+         *
+         * @param label display label
+         * @param value numeric value
+         * @param role color role
          */
         public Bar {
             label = label == null || label.isBlank() ? "-" : label.trim();

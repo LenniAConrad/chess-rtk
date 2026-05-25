@@ -29,7 +29,6 @@ import static application.gui.workbench.ui.Ui.trimmed;
 /**
  * A new native Swing command and analysis workbench for ChessRTK.
  */
-@SuppressWarnings("java:S6539")
 
 public abstract class WindowEngineLayer extends WindowBoardLayer {
     /** Serialization identifier for Swing frame compatibility. */
@@ -77,6 +76,11 @@ public abstract class WindowEngineLayer extends WindowBoardLayer {
      */
     private boolean positionLoadSoundArmed;
 
+    /**
+     * Returns whether a live external-engine worker is active.
+     *
+     * @return true when live analysis has a worker
+     */
     @Override
     protected boolean hasLiveEngineWorker() {
         return liveEngineWorker != null;
@@ -157,7 +161,6 @@ public abstract class WindowEngineLayer extends WindowBoardLayer {
         for (application.gui.workbench.network.NetworkPanel panel : networkPanels) {
             panel.setFen(currentPosition.toString());
         }
-        mctsPanel.setFen(currentPosition.toString());
         updateMoves();
         updateStatus();
         updateTagsAsync();

@@ -34,8 +34,16 @@ public enum ViewMode {
     RAW,
 
     /**
-     * Learned-weight atlas view. Only NNUE renders a bespoke atlas; CNN and BT4
-     * route this onto their raw mosaic.
+     * Bespoke atlas view. Each architecture renders a distinct curated
+     * summary distinct from its raw mosaic and detailed drill-down:
+     *
+     * <ul>
+     *   <li>NNUE: learned-weight atlas keyed by feature.
+     *   <li>CNN: layer×channel fingerprint + strongest filters +
+     *       board-footprint projection of the final map and policy planes.
+     *   <li>BT4: head×block fingerprint + attention board footprint +
+     *       selected head's 64×64 attention matrix.
+     * </ul>
      */
     ATLAS,
 

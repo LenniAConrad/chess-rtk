@@ -1,6 +1,7 @@
 # Logs
 session/*
 !session/.gitkeep
+hs_err_pid*.log
 
 # Calculation results
 dump/*

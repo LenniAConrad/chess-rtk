@@ -4,7 +4,15 @@ import application.cli.PathOps;
 import application.gui.workbench.ui.FileDialogs;
 import application.gui.workbench.ui.Toast;
 import java.awt.Component;
+import java.awt.Image;
+import java.awt.Toolkit;
 import java.awt.Window;
+import java.awt.datatransfer.Clipboard;
+import java.awt.datatransfer.DataFlavor;
+import java.awt.datatransfer.StringSelection;
+import java.awt.datatransfer.Transferable;
+import java.awt.datatransfer.UnsupportedFlavorException;
+import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
 import java.time.LocalDateTime;
@@ -53,6 +61,44 @@ public final class BoardExportActions {
      */
     public static void exportSvg(Component owner, BoardPanel board) {
         export(owner, board, Format.SVG);
+    }
+
+    /**
+     * Copies a board snapshot to the system clipboard as an image.
+     *
+     * @param owner toast owner
+     * @param board source board
+     */
+    public static void copyImage(Component owner, BoardPanel board) {
+        if (board == null) {
+            return;
+        }
+        try {
+            BufferedImage image = BoardExporter.renderPng(board, BoardExporter.DEFAULT_BOARD_SIZE);
+            Clipboard clipboard = Toolkit.getDefaultToolkit().getSystemClipboard();
+            clipboard.setContents(new ImageTransferable(image), null);
+        } catch (RuntimeException ex) {
+            toast(owner, Toast.Kind.ERROR, "Copy failed: " + ex.getMessage());
+        }
+    }
+
+    /**
+     * Copies an SVG representation of the board to the clipboard as text.
+     *
+     * @param owner toast owner
+     * @param board source board
+     */
+    public static void copySvg(Component owner, BoardPanel board) {
+        if (board == null) {
+            return;
+        }
+        try {
+            String svg = BoardExporter.toSvg(board, BoardExporter.DEFAULT_BOARD_SIZE);
+            Clipboard clipboard = Toolkit.getDefaultToolkit().getSystemClipboard();
+            clipboard.setContents(new StringSelection(svg), null);
+        } catch (RuntimeException ex) {
+            toast(owner, Toast.Kind.ERROR, "Copy failed: " + ex.getMessage());
+        }
     }
 
     /**
@@ -151,6 +197,62 @@ public final class BoardExportActions {
             this.title = title;
             this.description = description;
             this.extension = extension;
+        }
+    }
+
+    /**
+     * Clipboard wrapper that exposes a rendered board as an image.
+     */
+    private static final class ImageTransferable implements Transferable {
+
+        /**
+         * Image payload.
+         */
+        private final Image image;
+
+        /**
+         * Creates a transferable for one image.
+         *
+         * @param image image payload
+         */
+        ImageTransferable(Image image) {
+            this.image = image;
+        }
+
+        /**
+         * Returns the image transfer flavor.
+         *
+         * @return supported transfer flavors
+         */
+        @Override
+        public DataFlavor[] getTransferDataFlavors() {
+            return new DataFlavor[] { DataFlavor.imageFlavor };
+        }
+
+        /**
+         * Checks whether the requested flavor is the image flavor.
+         *
+         * @param flavor requested flavor
+         * @return true when the flavor is supported
+         */
+        @Override
+        public boolean isDataFlavorSupported(DataFlavor flavor) {
+            return DataFlavor.imageFlavor.equals(flavor);
+        }
+
+        /**
+         * Returns the image payload for the supported flavor.
+         *
+         * @param flavor requested flavor
+         * @return image payload
+         * @throws UnsupportedFlavorException when the flavor is not an image
+         */
+        @Override
+        public Object getTransferData(DataFlavor flavor) throws UnsupportedFlavorException {
+            if (!DataFlavor.imageFlavor.equals(flavor)) {
+                throw new UnsupportedFlavorException(flavor);
+            }
+            return image;
         }
     }
 }

@@ -15,7 +15,7 @@ import chess.book.study.StudyBook;
  * @since 2026
  * @author Lennart A. Conrad
  */
-@SuppressWarnings({"java:S2187", "java:S3400"})
+
 public final class PuzzleStudyCommandRegressionTest {
 
 	/**

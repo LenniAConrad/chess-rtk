@@ -16,7 +16,7 @@ import chess.tag.Sort;
  * No-framework regression checks for tag parsing, emitting, sorting, and
  * semantic identity behavior.
  */
-@SuppressWarnings({ "java:S2187", "java:S3011" })
+
 public final class ParserRegressionTest {
 
     /**
@@ -221,9 +221,8 @@ public final class ParserRegressionTest {
      * @param line parsed line
      * @return fields
      */
-    @SuppressWarnings("unchecked")
     private static Map<String, String> lineFields(Object line) {
-        return (Map<String, String>) field(line, "fields");
+        return WorkbenchTestSupport.stringMap(field(line, "fields"));
     }
 
     /**

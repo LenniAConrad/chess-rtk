@@ -46,7 +46,7 @@ import utility.Numbers;
  * @author Lennart A. Conrad
  * @since 2026
  */
-@SuppressWarnings({ "java:S107", "java:S135" })
+
 public final class Generator {
 
     /**
@@ -540,7 +540,7 @@ public final class Generator {
      */
     private static void addStatusFacts(List<String> tags, Context ctx, Position position) {
         String status = statusLabel(ctx, position);
-        if (NORMAL.equals(status) && isInsufficientMaterial(position)) {
+        if (NORMAL.equals(status) && GeneratorSupport.isInsufficientMaterial(position)) {
             status = INSUFFICIENT;
         }
         tags.add(STATUS_PREFIX + status);
@@ -603,7 +603,7 @@ public final class Generator {
      */
     private static void applyCenterFact(List<String> tags, Context ctx, String trimmed) {
         if (trimmed.startsWith(CENTER_CONTROL_PREFIX)) {
-            String val = valueAfter(trimmed, CENTER_CONTROL_PREFIX);
+            String val = GeneratorSupport.valueAfter(trimmed, CENTER_CONTROL_PREFIX);
             if (val != null) {
                 ctx.centerControl = val;
                 tags.add(CENTER_CONTROL_PREFIX + val);
@@ -611,7 +611,7 @@ public final class Generator {
             return;
         }
         if (trimmed.startsWith(SPACE_ADVANTAGE_PREFIX)) {
-            String val = valueAfter(trimmed, SPACE_ADVANTAGE_PREFIX);
+            String val = GeneratorSupport.valueAfter(trimmed, SPACE_ADVANTAGE_PREFIX);
             if (val != null) {
                 ctx.spaceAdvantage = val;
                 tags.add(SPACE_ADVANTAGE_PREFIX + val);
@@ -619,7 +619,7 @@ public final class Generator {
             return;
         }
         if (trimmed.startsWith(FACT_CENTER_STATE_PREFIX)) {
-            String val = valueAfter(trimmed, FACT_CENTER_STATE_PREFIX);
+            String val = GeneratorSupport.valueAfter(trimmed, FACT_CENTER_STATE_PREFIX);
             if (val != null) {
                 tags.add(FACT_CENTER_STATE_PREFIX + val);
             }
@@ -658,7 +658,7 @@ public final class Generator {
             tags.add(MATERIAL_IMBALANCE_PREFIX + ROOKLESS);
         }
         if (whiteBishops == 1 && blackBishops == 1) {
-            if (hasOppositeColoredBishops(position.getBoard())) {
+            if (GeneratorSupport.hasOppositeColoredBishops(position.getBoard())) {
                 tags.add(MATERIAL_IMBALANCE_PREFIX + OPPOSITE_COLOR_BISHOPS);
             } else {
                 tags.add(MATERIAL_IMBALANCE_PREFIX + SAME_COLOR_BISHOPS);
@@ -679,7 +679,7 @@ public final class Generator {
             }
             String trimmed = tag.trim();
             if (trimmed.startsWith(FACT_PIECE_COUNT_PREFIX)) {
-                Map<String, String> kv = parseKeyValues(trimmed.substring(FACT_HEADER.length()).trim());
+                Map<String, String> kv = GeneratorSupport.parseKeyValues(trimmed.substring(FACT_HEADER.length()).trim());
                 String side = kv.get(SIDE);
                 String piece = kv.get(PIECE_KEY);
                 String count = kv.get(COUNT);
@@ -702,7 +702,7 @@ public final class Generator {
             addPieceExtremeTag(tags, trimmed);
             return;
         }
-        ParsedPieceTier parsed = parseTierTag(trimmed);
+        ParsedPieceTier parsed = GeneratorSupport.parseTierTag(trimmed);
         if (parsed != null) {
             tags.add(PIECE_TIER_PREFIX + parsed.tier + SIDE_FIELD + parsed.side + SPACE_TEXT + PIECE_KEY
                     + EQUAL_SIGN + parsed.piece + SQUARE_FIELD + parsed.square);
@@ -775,7 +775,7 @@ public final class Generator {
      * @param outpostPrefix  the prefix to use for outpost tags, or {@code null}
      */
     private static void addParsedPieceTag(List<String> tags, String text, String activityPrefix, String outpostPrefix) {
-        ParsedPieceInfo info = parsePieceInfo(text);
+        ParsedPieceInfo info = GeneratorSupport.parsePieceInfo(text);
         if (info == null) {
             return;
         }
@@ -818,7 +818,7 @@ public final class Generator {
         if (!trimmed.startsWith(FACT_PAWN_STRUCTURE_PREFIX)) {
             return null;
         }
-        Map<String, String> kv = parseKeyValues(trimmed.substring(FACT_HEADER.length()).trim());
+        Map<String, String> kv = GeneratorSupport.parseKeyValues(trimmed.substring(FACT_HEADER.length()).trim());
         String type = kv.get(TYPE);
         String side = kv.get(SIDE);
         if (type == null || side == null) {
@@ -827,9 +827,9 @@ public final class Generator {
         StringBuilder sb = new StringBuilder(64);
         sb.append(PAWN_FAMILY).append(COLON_SPACE).append(STRUCTURE).append(EQUAL_SIGN).append(type)
                 .append(SIDE_FIELD).append(side);
-        appendIfPresent(sb, SQUARE, kv.get(SQUARE));
-        appendIfPresent(sb, FILE, kv.get(FILE));
-        appendIfPresent(sb, SQUARES, kv.get(SQUARES));
+        GeneratorSupport.appendIfPresent(sb, SQUARE, kv.get(SQUARE));
+        GeneratorSupport.appendIfPresent(sb, FILE, kv.get(FILE));
+        GeneratorSupport.appendIfPresent(sb, SQUARES, kv.get(SQUARES));
         return sb.toString();
     }
 
@@ -893,7 +893,7 @@ public final class Generator {
         if (!trimmed.startsWith(FACT_PROMOTION_AVAILABLE_PREFIX)) {
             return null;
         }
-        Map<String, String> kv = parseKeyValues(trimmed.substring(FACT_HEADER.length()).trim());
+        Map<String, String> kv = GeneratorSupport.parseKeyValues(trimmed.substring(FACT_HEADER.length()).trim());
         String side = kv.get(SIDE);
         if (side == null) {
             return null;
@@ -901,7 +901,7 @@ public final class Generator {
         StringBuilder sb = new StringBuilder(64);
         sb.append(THREAT_PROMOTION_PREFIX).append(side).append(SPACE_TEXT).append(SEVERITY).append(EQUAL_SIGN)
                 .append(IMMEDIATE);
-        appendIfPresent(sb, SQUARE, kv.get(SQUARE));
+        GeneratorSupport.appendIfPresent(sb, SQUARE, kv.get(SQUARE));
         tags.add(sb.toString());
         return side;
     }
@@ -916,21 +916,21 @@ public final class Generator {
         if (!trimmed.startsWith(FACT_TACTICAL_PREFIX)) {
             return;
         }
-        String text = extractQuoted(trimmed);
+        String text = GeneratorSupport.extractQuoted(trimmed);
         if (text == null || text.isBlank()) {
             return;
         }
-        String motif = tacticalMotif(text);
+        String motif = GeneratorSupport.tacticalMotif(text);
         if (motif == null) {
             return;
         }
         StringBuilder sb = new StringBuilder(96);
         sb.append(TACTIC_MOTIF_PREFIX).append(motif);
-        String side = leadingColor(text);
+        String side = GeneratorSupport.leadingColor(text);
         if (side != null) {
             sb.append(SIDE_FIELD).append(side);
         }
-        sb.append(TACTIC_DETAIL_FIELD).append(escape(text)).append(QUOTE);
+        sb.append(TACTIC_DETAIL_FIELD).append(GeneratorSupport.escape(text)).append(QUOTE);
         tags.add(sb.toString());
     }
 
@@ -947,9 +947,9 @@ public final class Generator {
             }
             String trimmed = tag.trim();
             if (trimmed.startsWith(FACT_ENDGAME_PREFIX)) {
-                String val = valueAfter(trimmed, FACT_ENDGAME_PREFIX);
+                String val = GeneratorSupport.valueAfter(trimmed, FACT_ENDGAME_PREFIX);
                 if (val != null) {
-                    tags.add(ENDGAME_TYPE_PREFIX + mapEndgame(val));
+                    tags.add(ENDGAME_TYPE_PREFIX + GeneratorSupport.mapEndgame(val));
                 }
             } else if (trimmed.startsWith(FACT_OPPOSITE_COLORED_BISHOPS_PREFIX)) {
                 tags.add(ENDGAME_TYPE_PREFIX + OPPOSITE_BISHOPS);
@@ -970,14 +970,14 @@ public final class Generator {
             }
             String trimmed = tag.trim();
             if (trimmed.startsWith(META_ECO_PREFIX)) {
-                String eco = valueAfter(trimmed, META_ECO_PREFIX);
+                String eco = GeneratorSupport.valueAfter(trimmed, META_ECO_PREFIX);
                 if (eco != null) {
                     tags.add(OPENING_ECO_PREFIX + eco);
                 }
             } else if (trimmed.startsWith(META_OPENING_PREFIX)) {
-                String name = extractQuoted(trimmed);
+                String name = GeneratorSupport.extractQuoted(trimmed);
                 if (name != null) {
-                    tags.add(OPENING_NAME_PREFIX + escape(name) + QUOTE);
+                    tags.add(OPENING_NAME_PREFIX + GeneratorSupport.escape(name) + QUOTE);
                 }
             }
         }
@@ -1066,17 +1066,17 @@ public final class Generator {
             }
             String trimmed = tag.trim();
             if (trimmed.startsWith(WHITE)) {
-                applyKingSafetyToken(white, trimmed);
+                GeneratorSupport.applyKingSafetyToken(white, trimmed);
             } else if (trimmed.startsWith(BLACK)) {
-                applyKingSafetyToken(black, trimmed);
+                GeneratorSupport.applyKingSafetyToken(black, trimmed);
             } else if (trimmed.startsWith(OPEN_FILE_NEAR_WHITE_KING)) {
                 white.openFile = true;
             } else if (trimmed.startsWith(OPEN_FILE_NEAR_BLACK_KING)) {
                 black.openFile = true;
             }
         }
-        addKingSafetyTags(tags, WHITE, white, position.kingSquare(true) != Field.NO_SQUARE);
-        addKingSafetyTags(tags, BLACK, black, position.kingSquare(false) != Field.NO_SQUARE);
+        GeneratorSupport.addKingSafetyTags(tags, WHITE, white, position.kingSquare(true) != Field.NO_SQUARE);
+        GeneratorSupport.addKingSafetyTags(tags, BLACK, black, position.kingSquare(false) != Field.NO_SQUARE);
     }
 
     /**
@@ -1589,24 +1589,24 @@ public final class Generator {
      * @param position the position being tagged
      */
     private static void addStrategicTags(List<String> tags, Context ctx, Position position) {
-        String spaceSide = spaceSide(ctx);
+        String spaceSide = GeneratorSupport.spaceSide(ctx);
         if (spaceSide != null) {
             tags.add(SPACE_SIDE_PREFIX + spaceSide);
         }
 
-        String developmentSide = developmentSide(position);
+        String developmentSide = GeneratorSupport.developmentSide(position);
         if (developmentSide != null) {
             tags.add(DEVELOPMENT_SIDE_PREFIX + developmentSide);
         }
         addDevelopmentDetails(tags, position);
 
-        String mobilitySide = mobilitySide(position);
+        String mobilitySide = GeneratorSupport.mobilitySide(position);
         if (mobilitySide != null) {
             tags.add(MOBILITY_SIDE_PREFIX + mobilitySide);
         }
         addMobilityDetails(tags, ctx, position);
 
-        String initiativeSide = initiativeSide(ctx);
+        String initiativeSide = GeneratorSupport.initiativeSide(ctx);
         if (initiativeSide != null) {
             tags.add(INITIATIVE_SIDE_PREFIX + initiativeSide);
         }
@@ -1976,525 +1976,6 @@ public final class Generator {
      * @param key the prefix to search for
      * @return the trimmed suffix after the prefix, or {@code null} when absent
      */
-    private static String valueAfter(String tag, String key) {
-        int idx = tag.indexOf(key);
-        if (idx < 0) {
-            return null;
-        }
-        return tag.substring(idx + key.length()).trim();
-    }
-
-    /**
-     * Extracts the text between the first pair of quotes.
-     *
-     * @param tag the tag text to inspect
-     * @return the quoted text, or {@code null} when no quoted segment exists
-     */
-    private static String extractQuoted(String tag) {
-        int first = tag.indexOf(QUOTE);
-        if (first < 0) {
-            return null;
-        }
-        int second = tag.indexOf(QUOTE, first + 1);
-        if (second < 0) {
-            return null;
-        }
-        return tag.substring(first + 1, second);
-    }
-
-    /**
-     * Escapes backslashes and quotes for tag output.
-     *
-     * @param value the raw text to escape
-     * @return the escaped text
-     */
-    private static String escape(String value) {
-        return value.replace(String.valueOf(BACKSLASH), ESCAPED_BACKSLASH)
-                .replace(String.valueOf(QUOTE), ESCAPED_QUOTE);
-    }
-
-    /**
-     * Appends an optional field to a serialized tag buffer.
-     *
-     * @param sb    the output buffer
-     * @param label the field label to append
-     * @param value the field value, if present
-     */
-    private static void appendIfPresent(StringBuilder sb, String label, String value) {
-        if (value != null) {
-            sb.append(SPACE_TEXT).append(label).append(EQUAL_SIGN).append(value);
-        }
-    }
-
-    /**
-     * Parses whitespace-separated key-value pairs into a map.
-     *
-     * @param text the text to parse
-     * @return the parsed key-value map
-     */
-    private static Map<String, String> parseKeyValues(String text) {
-        Map<String, String> map = new LinkedHashMap<>();
-        if (text == null || text.isBlank()) {
-            return map;
-        }
-        String[] tokens = text.split(SPACE_REGEX);
-        for (String token : tokens) {
-            int eq = token.indexOf(EQUAL_SIGN);
-            if (eq <= 0) {
-                continue;
-            }
-            String key = token.substring(0, eq).trim();
-            String value = token.substring(eq + 1).trim();
-            if (!key.isEmpty() && !value.isEmpty()) {
-                map.put(key, value);
-            }
-        }
-        return map;
-    }
-
-    /**
-     * Parses a tier-style piece tag into a structured record.
-     *
-     * @param tag the tag text to parse
-     * @return the parsed tier record, or {@code null} if the text does not match
-     */
-    private static ParsedPieceTier parseTierTag(String tag) {
-        if (tag == null || tag.isBlank()) {
-            return null;
-        }
-        String lowered = tag.toLowerCase();
-        ParsedPrefix prefix = matchTierPrefix(lowered);
-        if (prefix == null) {
-            return null;
-        }
-        String[] parts = prefix.remainder.split(SPACE_REGEX);
-        if (parts.length < 3) {
-            return null;
-        }
-        if (!isSideLabel(parts[0])) {
-            return null;
-        }
-        if (isSquareLabel(parts[1]) && isPieceLabel(parts[2])) {
-            return new ParsedPieceTier(prefix.value, parts[0], parts[2], parts[1]);
-        }
-        if (isPieceLabel(parts[1]) && isSquareLabel(parts[2])) {
-            return new ParsedPieceTier(prefix.value, parts[0], parts[1], parts[2]);
-        }
-        return null;
-    }
-
-    /**
-     * Matches a tier prefix in lowercase text.
-     *
-     * @param lowered the lowercase text to inspect
-     * @return the matched prefix, or {@code null} if none matches
-     */
-    private static ParsedPrefix matchTierPrefix(String lowered) {
-        ParsedPrefix prefix = findPrefix(lowered,
-                new ParsedPrefix(VERY_STRONG_TEXT, VERY_STRONG),
-                new ParsedPrefix(STRONG, STRONG),
-                new ParsedPrefix(SLIGHTLY_STRONG_TEXT, SLIGHTLY_STRONG),
-                new ParsedPrefix(NEUTRAL, NEUTRAL),
-                new ParsedPrefix(SLIGHTLY_WEAK_TEXT, SLIGHTLY_WEAK),
-                new ParsedPrefix(VERY_WEAK_TEXT, VERY_WEAK),
-                new ParsedPrefix(WEAK, WEAK));
-        if (prefix == null) {
-            return null;
-        }
-        return new ParsedPrefix(prefix.key, prefix.value, lowered.substring(prefix.key.length()).trim());
-    }
-
-    /**
-     * Finds the first matching prefix and returns its associated value.
-     *
-     * @param text     the text to inspect
-     * @param prefixes the candidate prefixes
-     * @return the matched prefix value, or {@code null} if none matches
-     */
-    private static String startsWithAny(String text, ParsedPrefix... prefixes) {
-        ParsedPrefix match = findPrefix(text, prefixes);
-        return match == null ? null : match.value;
-    }
-
-    /**
-     * Finds the first matching prefix from a list of candidates.
-     *
-     * @param text     the text to inspect
-     * @param prefixes the candidate prefixes
-     * @return the matched prefix, or {@code null} if none matches
-     */
-    private static ParsedPrefix findPrefix(String text, ParsedPrefix... prefixes) {
-        for (ParsedPrefix prefix : prefixes) {
-            if (text.startsWith(prefix.key)) {
-                return prefix;
-            }
-        }
-        return null;
-    }
-
-    /**
-     * Parses a piece description into side, piece, and square fields.
-     *
-     * @param text the piece description text
-     * @return the parsed piece info, or {@code null} if the text is incomplete
-     */
-    private static ParsedPieceInfo parsePieceInfo(String text) {
-        if (text == null || text.isBlank()) {
-            return null;
-        }
-        String[] parts = text.trim().split(SPACE_REGEX);
-        if (parts.length < 3) {
-            return null;
-        }
-        String side = parts[0];
-        String piece = parts[1];
-        String square = parts[2];
-        return new ParsedPieceInfo(side, piece, square);
-    }
-
-    /**
-     * Detects the tactical motif name from a free-form tactical description.
-     *
-     * @param text the tactical description text
-     * @return the motif label, or {@code null} when no known motif is found
-     */
-    private static String tacticalMotif(String text) {
-        String lowered = text.toLowerCase();
-        return startsWithAny(lowered,
-                new ParsedPrefix(PIN_HEADER, PIN),
-                new ParsedPrefix(SKEWER_HEADER, SKEWER),
-                new ParsedPrefix(DISCOVERED_ATTACK_HEADER, DISCOVERED_ATTACK),
-                new ParsedPrefix(OVERLOADED_DEFENDER_HEADER, OVERLOAD),
-                new ParsedPrefix(HANGING_PREFIX, HANGING));
-    }
-
-    /**
-     * Extracts a leading color token from a free-form text.
-     *
-     * @param text the text to inspect
-     * @return {@code white} or {@code black} when present, otherwise {@code null}
-     */
-    private static String leadingColor(String text) {
-        String[] tokens = text.split(SPACE_REGEX);
-        for (String token : tokens) {
-            if (WHITE.equals(token)) {
-                return WHITE;
-            }
-            if (BLACK.equals(token)) {
-                return BLACK;
-            }
-        }
-        return null;
-    }
-
-    /**
-     * Checks whether text is a canonical side label.
-     *
-     * @param value the value to inspect
-     * @return {@code true} when the value is {@code white} or {@code black}
-     */
-    private static boolean isSideLabel(String value) {
-        return WHITE.equals(value) || BLACK.equals(value);
-    }
-
-    /**
-     * Checks whether text is a canonical piece label.
-     *
-     * @param value the value to inspect
-     * @return {@code true} when the value names a chess piece
-     */
-    private static boolean isPieceLabel(String value) {
-        return PAWN.equals(value) || KNIGHT.equals(value) || BISHOP.equals(value) || ROOK.equals(value)
-                || QUEEN.equals(value) || KING_NAME.equals(value);
-    }
-
-    /**
-     * Checks whether text is a lowercase algebraic board square.
-     *
-     * @param value the value to inspect
-     * @return {@code true} when the value is in {@code a1..h8}
-     */
-    private static boolean isSquareLabel(String value) {
-        return value != null && value.length() == 2
-                && value.charAt(0) >= 'a' && value.charAt(0) <= 'h'
-                && value.charAt(1) >= '1' && value.charAt(1) <= '8';
-    }
-
-    /**
-     * Applies king-safety markers to the aggregated king-safety state.
-     *
-     * @param safety the mutable safety state to update
-     * @param token  the normalized token text
-     */
-    private static void applyKingSafetyToken(KingSafety safety, String token) {
-        if (token.contains(CASTLED)) {
-            safety.castled = true;
-        }
-        if (token.contains(UNCASTLED)) {
-            safety.castled = false;
-        }
-        if (token.contains(PAWN_SHIELD_WEAKENED)) {
-            safety.shieldWeakened = true;
-        }
-        if (token.contains(KING_EXPOSED)) {
-            safety.exposed = true;
-        }
-        if (token.contains(OPEN_FILE_NEAR)) {
-            safety.openFile = true;
-        }
-    }
-
-    /**
-     * Emits the final king-safety tags for one side.
-     *
-     * @param tags        the mutable tag accumulator
-     * @param side        the side label to attach
-     * @param safety      the aggregated safety state
-     * @param kingPresent whether this side's king exists on the board
-     */
-    private static void addKingSafetyTags(List<String> tags, String side, KingSafety safety, boolean kingPresent) {
-        if (!kingPresent) {
-            return;
-        }
-        boolean castled = Boolean.TRUE.equals(safety.castled);
-        tags.add(KING_CASTLED_PREFIX + (castled ? YES : NO) + SIDE_FIELD + side);
-        String shelter = PAWNS_INTACT;
-        if (safety.openFile) {
-            shelter = OPEN;
-        } else if (safety.shieldWeakened) {
-            shelter = WEAKENED;
-        }
-        tags.add(KING_SHELTER_PREFIX + shelter + SIDE_FIELD + side);
-
-        String safetyLabel = SAFE;
-        if (safety.exposed) {
-            safetyLabel = VERY_UNSAFE;
-        } else if (safety.openFile || safety.shieldWeakened) {
-            safetyLabel = UNSAFE;
-        } else if (castled) {
-            safetyLabel = VERY_SAFE;
-        }
-        tags.add(KING_SAFETY_PREFIX + safetyLabel + SIDE_FIELD + side);
-    }
-
-    /**
-     * Checks whether the board contains bishops on opposite colors.
-     *
-     * @param board the board array to inspect
-     * @return {@code true} when both bishop colors occupy opposite-colored squares
-     */
-    private static boolean hasOppositeColoredBishops(byte[] board) {
-        BishopColorState bishops = new BishopColorState();
-        for (int index = 0; index < board.length; index++) {
-            byte piece = board[index];
-            if (Piece.isBishop(piece)) {
-                bishops.mark(piece, (byte) index);
-            }
-        }
-        return bishops.hasOppositeColors();
-    }
-
-    /**
-     * Determines whether the position has insufficient mating material.
-     *
-     * @param position the position to inspect
-     * @return {@code true} when the remaining material cannot force mate
-     */
-    private static boolean isInsufficientMaterial(Position position) {
-        return position.isInsufficientMaterial();
-    }
-
-    /**
-     * Maps verbose endgame labels to the canonical endgame tag values.
-     *
-     * @param val the raw endgame label
-     * @return the canonical endgame label
-     */
-    private static String mapEndgame(String val) {
-        switch (val) {
-            case QUEENLESS:
-                return QUEENLESS;
-            case ROOK_ENDGAME:
-                return ROOK_ENDGAME_SHORT;
-            case MINOR_PIECE_ENDGAME:
-                return MINOR_ENDGAME_SHORT;
-            default:
-                return val;
-        }
-    }
-
-    /**
-     * Determines the side with a space advantage.
-     *
-     * @param ctx the shared tagging context
-     * @return the side with the advantage, or equal when no preference exists
-     */
-    private static String spaceSide(Context ctx) {
-        if (WHITE.equals(ctx.spaceAdvantage) || BLACK.equals(ctx.spaceAdvantage)) {
-            return ctx.spaceAdvantage;
-        }
-        if (ctx.centerControl != null) {
-            if (WHITE.equals(ctx.centerControl)) {
-                return WHITE;
-            }
-            if (BLACK.equals(ctx.centerControl)) {
-                return BLACK;
-            }
-        }
-        return EQUAL;
-    }
-
-    /**
-     * Determines the side with a development advantage.
-     *
-     * @param position the position to inspect
-     * @return the side with the advantage, or equal when no preference exists
-     */
-    private static String developmentSide(Position position) {
-        int white = undevelopedMinors(position, true);
-        int black = undevelopedMinors(position, false);
-        int diff = black - white;
-        if (diff >= 2) {
-            return WHITE;
-        }
-        if (diff <= -2) {
-            return BLACK;
-        }
-        return EQUAL;
-    }
-
-    /**
-     * Determines the side with a mobility advantage.
-     *
-     * @param position the position to inspect
-     * @return the side with the advantage, or equal when no preference exists
-     */
-    private static String mobilitySide(Position position) {
-        int whiteMoves = mobilityForSide(position, true);
-        int blackMoves = mobilityForSide(position, false);
-        int diff = whiteMoves - blackMoves;
-        if (diff >= 5) {
-            return WHITE;
-        }
-        if (diff <= -5) {
-            return BLACK;
-        }
-        return EQUAL;
-    }
-
-    /**
-     * Determines the side with the initiative.
-     *
-     * @param ctx the shared tagging context
-     * @return the side that appears to have the initiative, or equal when unclear
-     */
-    private static String initiativeSide(Context ctx) {
-        if (ctx.hasThreatWhite && !ctx.hasThreatBlack) {
-            return WHITE;
-        }
-        if (ctx.hasThreatBlack && !ctx.hasThreatWhite) {
-            return BLACK;
-        }
-        if (ctx.evalCpWhite != null) {
-            if (ctx.evalCpWhite > 80) {
-                return WHITE;
-            }
-            if (ctx.evalCpWhite < -80) {
-                return BLACK;
-            }
-        }
-        return EQUAL;
-    }
-
-    /**
-     * Counts undeveloped minor pieces for a given side.
-     *
-     * @param position the position to inspect
-     * @param white    whether to count White pieces or Black pieces
-     * @return the number of undeveloped minor pieces
-     */
-    private static int undevelopedMinors(Position position, boolean white) {
-        int count = 0;
-        byte[] board = position.getBoard();
-        if (white) {
-            count += pieceCountAt(board, Piece.WHITE_KNIGHT, Field.B1);
-            count += pieceCountAt(board, Piece.WHITE_KNIGHT, Field.G1);
-            count += pieceCountAt(board, Piece.WHITE_BISHOP, Field.C1);
-            count += pieceCountAt(board, Piece.WHITE_BISHOP, Field.F1);
-        } else {
-            count += pieceCountAt(board, Piece.BLACK_KNIGHT, Field.B8);
-            count += pieceCountAt(board, Piece.BLACK_KNIGHT, Field.G8);
-            count += pieceCountAt(board, Piece.BLACK_BISHOP, Field.C8);
-            count += pieceCountAt(board, Piece.BLACK_BISHOP, Field.F8);
-        }
-        return count;
-    }
-
-    /**
-     * Checks whether a specific piece occupies a specific square.
-     *
-     * @param board  the board array to inspect
-     * @param piece  the piece to match
-     * @param square the square to inspect
-     * @return {@code true} when the board square contains the piece
-     */
-    private static boolean isPieceAt(byte[] board, byte piece, byte square) {
-        if (square == Field.NO_SQUARE) {
-            return false;
-        }
-        return board[square] == piece;
-    }
-
-    /**
-     * Returns 1 when a piece is on a given square and 0 otherwise.
-     *
-     * @param board  the board array to inspect
-     * @param piece  the piece to match
-     * @param square the square to inspect
-     * @return 1 when the piece occupies the square, otherwise 0
-     */
-    private static int pieceCountAt(byte[] board, byte piece, byte square) {
-        return isPieceAt(board, piece, square) ? 1 : 0;
-    }
-
-    /**
-     * Counts legal moves for one side, even when that side is not on move.
-     *
-     * @param position the position to inspect
-     * @param white    whether to count White's mobility or Black's mobility
-     * @return the number of legal moves for the requested side
-     */
-    private static int mobilityForSide(Position position, boolean white) {
-        if (position.isWhiteToMove() == white) {
-            return position.legalMoves().size();
-        }
-        String flipped = flipSideToMove(position.toString(), white);
-        if (flipped == null) {
-            return position.legalMoves().size();
-        }
-        try {
-            Position other = new Position(flipped);
-            return other.legalMoves().size();
-        } catch (IllegalArgumentException ex) {
-            return position.legalMoves().size();
-        }
-    }
-
-    /**
-     * Flips the side-to-move field in a FEN string.
-     *
-     * @param fen   the source FEN text
-     * @param white whether the resulting FEN should indicate White to move
-     * @return the rewritten FEN, or {@code null} when the input is malformed
-     */
-    private static String flipSideToMove(String fen, boolean white) {
-        String[] parts = fen.split(SPACE_REGEX);
-        if (parts.length < 2) {
-            return null;
-        }
-        parts[1] = white ? FEN_WHITE_TO_MOVE : FEN_BLACK_TO_MOVE;
-        return String.join(SPACE_TEXT, parts);
-    }
 
     /**
      * Holds the parsed tier components for a piece ablation tag.
@@ -2502,377 +1983,4 @@ public final class Generator {
      * @author Lennart A. Conrad
      * @since 2026
      */
-    private static final class ParsedPieceTier {
-
-        /**
-         * The tier label.
-         */
-        private final String tier;
-
-        /**
-         * The side label.
-         */
-        private final String side;
-
-        /**
-         * The piece label.
-         */
-        private final String piece;
-
-        /**
-         * The square label.
-         */
-        private final String square;
-
-        /**
-         * Creates a parsed piece tier record.
-         *
-         * @param tier   the tier label
-         * @param side   the side label
-         * @param piece  the piece label
-         * @param square the square label
-         */
-        private ParsedPieceTier(String tier, String side, String piece, String square) {
-            this.tier = tier;
-            this.side = side;
-            this.piece = piece;
-            this.square = square;
-        }
-    }
-
-    /**
-     * Holds the parsed side, piece, and square components for piece activity tags.
-     *
-     * @author Lennart A. Conrad
-     * @since 2026
-     */
-    private static final class ParsedPieceInfo {
-
-        /**
-         * The side label.
-         */
-        private final String side;
-
-        /**
-         * The piece label.
-         */
-        private final String piece;
-
-        /**
-         * The square label.
-         */
-        private final String square;
-
-        /**
-         * Creates a parsed piece-info record.
-         *
-         * @param side   the side label
-         * @param piece  the piece label
-         * @param square the square label
-         */
-        private ParsedPieceInfo(String side, String piece, String square) {
-            this.side = side;
-            this.piece = piece;
-            this.square = square;
-        }
-    }
-
-    /**
-     * Captures king-safety properties while folding multiple tokens together.
-     *
-     * @author Lennart A. Conrad
-     * @since 2026
-     */
-    private static final class KingSafety {
-
-        /**
-         * Whether castling status was observed.
-         */
-        private Boolean castled;
-
-        /**
-         * Whether the pawn shield appears weakened.
-         */
-        private boolean shieldWeakened;
-
-        /**
-         * Whether the king appears exposed.
-         */
-        private boolean exposed;
-
-        /**
-         * Whether an open file is near the king.
-         */
-        private boolean openFile;
-    }
-
-    /**
-     * Holds one target discovered during a ray scan.
-     *
-     * @author Lennart A. Conrad
-     * @since 2026
-     */
-    private static final class LineTarget {
-
-        /**
-         * The board index.
-         */
-        private final int index;
-
-        /**
-         * The piece on the target square.
-         */
-        private final byte piece;
-
-        /**
-         * Creates a line target snapshot.
-         *
-         * @param index the board index
-         * @param piece the piece on the target square
-         */
-        private LineTarget(int index, byte piece) {
-            this.index = index;
-            this.piece = piece;
-        }
-    }
-
-    /**
-     * Represents a candidate prefix and its normalized value.
-     *
-     * @author Lennart A. Conrad
-     * @since 2026
-     */
-    private static final class ParsedPrefix {
-
-        /**
-         * The prefix text to match.
-         */
-        private final String key;
-
-        /**
-         * The value associated with the prefix.
-         */
-        private final String value;
-
-        /**
-         * The remainder of the string after the prefix.
-         */
-        private final String remainder;
-
-        /**
-         * Creates a prefix/value pair without a remainder.
-         *
-         * @param key   the prefix text
-         * @param value the normalized value
-         */
-        private ParsedPrefix(String key, String value) {
-            this(key, value, null);
-        }
-
-        /**
-         * Creates a prefix/value pair with a parsed remainder.
-         *
-         * @param key       the prefix text
-         * @param value     the normalized value
-         * @param remainder the remaining text after the prefix
-         */
-        private ParsedPrefix(String key, String value, String remainder) {
-            this.key = key;
-            this.value = value;
-            this.remainder = remainder;
-        }
-    }
-
-    /**
-     * Tracks bishop-square colors for each side.
-     *
-     * @author Lennart A. Conrad
-     * @since 2026
-     */
-    private static final class BishopColorState {
-
-        /**
-         * Whether White has a bishop on a light square.
-         */
-        private boolean whiteLight;
-
-        /**
-         * Whether White has a bishop on a dark square.
-         */
-        private boolean whiteDark;
-
-        /**
-         * Whether Black has a bishop on a light square.
-         */
-        private boolean blackLight;
-
-        /**
-         * Whether Black has a bishop on a dark square.
-         */
-        private boolean blackDark;
-
-        /**
-         * Records a bishop on its square color.
-         *
-         * @param piece  the bishop piece code
-         * @param square the square index
-         */
-        private void mark(byte piece, byte square) {
-            boolean light = isLightSquare(square);
-            if (Piece.isWhite(piece)) {
-                whiteLight |= light;
-                whiteDark |= !light;
-            } else {
-                blackLight |= light;
-                blackDark |= !light;
-            }
-        }
-
-        /**
-         * Checks whether opposite-colored bishops are present.
-         *
-         * @return {@code true} when the bishop colors are opposite across sides
-         */
-        private boolean hasOppositeColors() {
-            return (whiteLight && blackDark) || (whiteDark && blackLight);
-        }
-
-        /**
-         * Determines whether a square is light-colored.
-         *
-         * @param square the square index
-         * @return {@code true} when the square is light-colored
-         */
-        private static boolean isLightSquare(byte square) {
-            int file = Field.getX(square);
-            int rank = Field.getY(square);
-            return ((file + rank) & 1) == 0;
-        }
-    }
-
-    /**
-     * Stores pawn-file and pawn-majority statistics for both sides.
-     *
-     * @author Lennart A. Conrad
-     * @since 2026
-     */
-    private static final class PawnStats {
-
-        /**
-         * The number of White pawn islands.
-         */
-        private final int whiteIslands;
-
-        /**
-         * The number of Black pawn islands.
-         */
-        private final int blackIslands;
-
-        /**
-         * White's majority-side label, if any.
-         */
-        private final String whiteMajority;
-
-        /**
-         * Black's majority-side label, if any.
-         */
-        private final String blackMajority;
-
-        /**
-         * Creates a pawn-statistics snapshot.
-         *
-         * @param whiteIslands  the White pawn-island count
-         * @param blackIslands  the Black pawn-island count
-         * @param whiteMajority the White majority label
-         * @param blackMajority the Black majority label
-         */
-        private PawnStats(int whiteIslands, int blackIslands, String whiteMajority, String blackMajority) {
-            this.whiteIslands = whiteIslands;
-            this.blackIslands = blackIslands;
-            this.whiteMajority = whiteMajority;
-            this.blackMajority = blackMajority;
-        }
-
-        /**
-         * Computes pawn statistics from the current position.
-         *
-         * @param position the position to inspect
-         * @return the computed pawn statistics
-         */
-        private static PawnStats from(Position position) {
-            int[] whiteFiles = new int[8];
-            int[] blackFiles = new int[8];
-            byte[] board = position.getBoard();
-            for (int i = 0; i < board.length; i++) {
-                byte piece = board[i];
-                if (!Piece.isPawn(piece)) {
-                    continue;
-                }
-                int file = Field.getX((byte) i);
-                if (Piece.isWhite(piece)) {
-                    whiteFiles[file]++;
-                } else {
-                    blackFiles[file]++;
-                }
-            }
-            int whiteIslands = countIslands(whiteFiles);
-            int blackIslands = countIslands(blackFiles);
-
-            String whiteMajority = majoritySide(whiteFiles, blackFiles, true);
-            String blackMajority = majoritySide(whiteFiles, blackFiles, false);
-            return new PawnStats(whiteIslands, blackIslands, whiteMajority, blackMajority);
-        }
-
-        /**
-         * Counts separate pawn islands on the file array.
-         *
-         * @param files the pawn counts per file
-         * @return the number of contiguous pawn islands
-         */
-        private static int countIslands(int[] files) {
-            int islands = 0;
-            boolean inIsland = false;
-            for (int file = 0; file < files.length; file++) {
-                if (files[file] > 0) {
-                    if (!inIsland) {
-                        islands++;
-                        inIsland = true;
-                    }
-                } else {
-                    inIsland = false;
-                }
-            }
-            return islands;
-        }
-
-        /**
-         * Determines whether one side has a regional pawn majority.
-         *
-         * @param whiteFiles White pawn counts per file
-         * @param blackFiles Black pawn counts per file
-         * @param forWhite   whether the query is for White's perspective
-         * @return the majority-region label, or {@code null} when no majority exists
-         */
-        private static String majoritySide(int[] whiteFiles, int[] blackFiles, boolean forWhite) {
-            int[] regions = new int[] { 0, 3, 5, 8 }; // a-c, d-e, f-h
-            String[] labels = new String[] { QUEENSIDE, CENTER, KINGSIDE };
-            String best = null;
-            for (int i = 0; i < labels.length; i++) {
-                int start = regions[i];
-                int end = regions[i + 1];
-                int white = 0;
-                int black = 0;
-                for (int file = start; file < end; file++) {
-                    white += whiteFiles[file];
-                    black += blackFiles[file];
-                }
-                int diff = white - black;
-                if ((forWhite && diff >= 2) || (!forWhite && diff <= -2)) {
-                    best = labels[i];
-                }
-            }
-            return best;
-        }
-    }
-
 }

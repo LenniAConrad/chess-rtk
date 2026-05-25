@@ -279,8 +279,6 @@ public abstract class NnueTraceView extends NnueOverviewView {
         g.drawLine(x2, y, x2 - 4, y + 3);
     }
 
-
-
     /**
      * Computes column geometry for the Trace diagram
      * (features → accumulator → clipped → contribution → output).
@@ -318,7 +316,6 @@ public abstract class NnueTraceView extends NnueOverviewView {
         out.labelY = Math.max(r.y + 18, Math.min(out.startY, out.featureStartY) - 18);
         return out;
     }
-
 
     /**
      * Paints subtle stage bands behind the Trace graph. The bands turn the dense
@@ -397,9 +394,6 @@ public abstract class NnueTraceView extends NnueOverviewView {
                 "Raw accumulator, clipped activation and output contribution for the same selected slots.",
                 visibleSlots.length + " visible lanes");
     }
-
-
-
 
     /**
      * Draws column labels.
@@ -530,7 +524,6 @@ public abstract class NnueTraceView extends NnueOverviewView {
         return total + " " + unit;
     }
 
-
     /**
      * Draws the feature node column.
      *
@@ -603,7 +596,6 @@ public abstract class NnueTraceView extends NnueOverviewView {
             }
         }
     }
-
 
     /**
      * Draws the raw accumulator column. The visible slot set is still ranked by
@@ -1122,38 +1114,56 @@ public abstract class NnueTraceView extends NnueOverviewView {
         int fc0DisplayRows = fc0 == null ? 0 : fc0.length;
         int fc0Stride = fc0Shape != null && fc0Shape.length >= 2 ? fc0Shape[1] : 0;
         float fc0Scale = Math.max(matrixScale(fc0Weights), matrixScale(fc0FwdWeights));
+        // Accumulator activation supplies the per-position factor; multiplied
+        // by the static weight, the rendered edge magnitude now reflects the
+        // actual flow through this layer rather than just the learned wiring.
+        float[] accumulatorUs = snapshot.data("nnue.accumulator.us");
+        float accumulatorScale = Math.max(1e-6f, maxAbs(accumulatorUs));
         for (int si = 0; si < visibleSlots.length; si++) {
             int slotIdx = visibleSlots[si];
             int sourceY = layout.startY + si * layout.slotPitch;
+            float sourceActivation = accumulatorUs != null && slotIdx < accumulatorUs.length
+                    ? accumulatorUs[slotIdx] / accumulatorScale : 0.0f;
             for (int row = 0; row < fc0Rows; row++) {
                 int targetY = columnY(layout, row, fc0DisplayRows);
                 int offset = row * fc0Stride + slotIdx;
-                float strength = fc0Weights != null && fc0Stride > 0
+                float weight = fc0Weights != null && fc0Stride > 0
                         && slotIdx < fc0Stride && offset < fc0Weights.length
                         ? fc0Weights[offset] / fc0Scale : 0.0f;
                 drawTraceEdge(g, layout.accumCx + layout.slotRadius, sourceY,
-                        layout.clippedCx - layout.slotRadius, targetY, strength, si == selectedSlot);
+                        layout.clippedCx - layout.slotRadius, targetY,
+                        weight * sourceActivation, si == selectedSlot);
             }
             if (fc0DisplayRows > fc0Rows) {
                 int fwdY = columnY(layout, fc0Rows, fc0DisplayRows);
-                float strength = fc0FwdWeights != null && slotIdx < fc0FwdWeights.length
+                float weight = fc0FwdWeights != null && slotIdx < fc0FwdWeights.length
                         ? fc0FwdWeights[slotIdx] / fc0Scale : 0.0f;
                 drawTraceEdge(g, layout.accumCx + layout.slotRadius, sourceY,
-                        layout.clippedCx - layout.slotRadius, fwdY, strength, si == selectedSlot);
+                        layout.clippedCx - layout.slotRadius, fwdY,
+                        weight * sourceActivation, si == selectedSlot);
             }
         }
 
         int fc1Rows = fc1 == null ? 0 : fc1.length;
         int fc1Stride = fc1Shape != null && fc1Shape.length >= 2 ? fc1Shape[1] : 0;
-        float fc1Scale = matrixScale(fc1Weights);
+        // Per-position edge strength: weight × source FC0 activation, both
+        // normalised. Without the activation factor the mesh between FC0
+        // and FC1 was the same for every position (just the static weight
+        // matrix), which made the trace look frozen when the user changed
+        // the board.
+        float fc1WeightScale = Math.max(1e-6f, matrixScale(fc1Weights));
+        float fc0ActivationScale = Math.max(1e-6f, maxAbs(fc0));
         for (int row = 0; row < fc0Rows; row++) {
             int sourceY = columnY(layout, row, fc0DisplayRows);
+            float sourceActivation = fc0 != null && row < fc0.length
+                    ? fc0[row] / fc0ActivationScale : 0.0f;
             for (int next = 0; next < fc1Rows; next++) {
                 int targetY = columnY(layout, next, fc1Rows);
                 int offset = next * fc1Stride + row;
-                float strength = fc1Weights != null && fc1Stride > 0
+                float weight = fc1Weights != null && fc1Stride > 0
                         && row < fc1Stride && offset < fc1Weights.length
-                        ? fc1Weights[offset] / fc1Scale : 0.0f;
+                        ? fc1Weights[offset] / fc1WeightScale : 0.0f;
+                float strength = weight * sourceActivation;
                 drawTraceEdge(g, layout.clippedCx + layout.slotRadius, sourceY,
                         layout.contribCx - layout.slotRadius, targetY, strength, false);
             }
@@ -1182,8 +1192,6 @@ public abstract class NnueTraceView extends NnueOverviewView {
                     String.format("branch contribution %+.2f cp", valueAt(fc0FwdContribution, 0)));
         }
     }
-
-
 
     /**
      * Draws the detail-mode readout footer.
@@ -1261,10 +1269,6 @@ public abstract class NnueTraceView extends NnueOverviewView {
         g.drawString(Ui.elide(text, fm, Math.max(24, body.width - 16)),
                 body.x + 8, body.y + body.height - 8);
     }
-
-
-
-
 
     /**
      * Recomputes the visible-slot / visible-feature index lists from the

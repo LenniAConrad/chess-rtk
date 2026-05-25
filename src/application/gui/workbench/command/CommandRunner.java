@@ -267,6 +267,11 @@ public final class CommandRunner {
             }
         }
 
+        /**
+         * Returns the captured output with a truncation marker when needed.
+         *
+         * @return retained output text
+         */
         @Override
         public String toString() {
             if (dropped == 0) {
@@ -314,7 +319,35 @@ public final class CommandRunner {
         List<String> withLauncher = new ArrayList<>();
         withLauncher.add("crtk");
         withLauncher.addAll(args);
-    return join(withLauncher);
+        return join(withLauncher);
+    }
+
+    /**
+     * Renders a CRTK argument list as a multiline command preview. The output
+     * stays shell-friendly on Unix-like systems while making each argument
+     * visible on its own line in the workbench command block.
+     *
+     * @param args CRTK arguments
+     * @return multiline display command
+     */
+    public static String displayCommandBlock(List<String> args) {
+        List<String> withLauncher = new ArrayList<>();
+        withLauncher.add("crtk");
+        withLauncher.addAll(args);
+        StringBuilder out = new StringBuilder(withLauncher.size() * 20);
+        for (int i = 0; i < withLauncher.size(); i++) {
+            if (i > 0) {
+                out.append("  ");
+            }
+            out.append(CommandLine.join(List.of(withLauncher.get(i))));
+            if (i + 1 < withLauncher.size()) {
+                out.append(" \\");
+            }
+            if (i + 1 < withLauncher.size()) {
+                out.append(System.lineSeparator());
+            }
+        }
+        return out.toString();
     }
 
     /**

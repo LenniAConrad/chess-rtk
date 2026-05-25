@@ -251,14 +251,18 @@ public final class DashboardPanel extends JPanel implements SessionListener {
         c.insets = new Insets(Theme.SPACE_XS, Theme.SPACE_XS,
                 Theme.SPACE_XS, Theme.SPACE_XS);
 
+        // Compact quick actions sit above the status cards without turning
+        // the dashboard into a landing page.
         c.gridy = 0;
-        grid.add(topColumns, c);
+        grid.add(buildQuickActionsCard(), c);
         c.gridy = 1;
-        grid.add(buildJobsCard(), c);
+        grid.add(topColumns, c);
         c.gridy = 2;
+        grid.add(buildJobsCard(), c);
+        c.gridy = 3;
         grid.add(buildOutputsCard(), c);
 
-        c.gridy = 3;
+        c.gridy = 4;
         c.weighty = 1.0;
         c.fill = GridBagConstraints.BOTH;
         grid.add(Ui.transparentPanel(null), c);
@@ -279,9 +283,24 @@ public final class DashboardPanel extends JPanel implements SessionListener {
     // ------------------------------------------------------------------
 
     /**
-     * Builds the Current Position card.
+     * Builds the quick-action strip at the top of the Dashboard.
      *
-     * @return card component
+     * @return quick-action card component
+     */
+    private JComponent buildQuickActionsCard() {
+        JPanel body = cardBody();
+        body.add(actionRow(
+                quickButton("Analyze position", actions::openAnalyzeTab),
+                quickButton("Open Batch", actions::openBatchTab),
+                quickButton("Open Console", actions::openConsoleTab),
+                quickButton("Run all checks", actions::runAllHealthChecks)));
+        return card("Quick Actions", body);
+    }
+
+    /**
+     * Builds the current-position summary card.
+     *
+     * @return position card
      */
     private JComponent buildPositionCard() {
         JPanel body = cardBody();
@@ -353,10 +372,12 @@ public final class DashboardPanel extends JPanel implements SessionListener {
      * @return card component
      */
     private JComponent buildHealthCard() {
+        // The previous Health card spent ~200px on three big circular rings
+        // that repeated the same data the rows below already showed. Three
+        // compact rows + a "Run all checks" button communicate the state in
+        // a sixth of the space and match the modern editor-style density of
+        // the rest of the Dashboard.
         JPanel body = cardBody();
-        healthRings.setAlignmentX(Component.LEFT_ALIGNMENT);
-        body.add(healthRings);
-        body.add(Box.createVerticalStrut(Theme.SPACE_SM));
         body.add(infoRow("Config validate", healthConfigValue));
         body.add(infoRow("Doctor", healthDoctorValue));
         body.add(infoRow("Engine smoke", healthSmokeValue));
@@ -503,7 +524,8 @@ public final class DashboardPanel extends JPanel implements SessionListener {
         List<Path> recent = session.artifacts().recent();
         if (recent.isEmpty()) {
             JLabel empty = value();
-            empty.setText("No artifacts yet.");
+            empty.setText("No artifacts yet. Run a command and exported files will appear here.");
+            empty.setForeground(Theme.MUTED);
             empty.setAlignmentX(Component.LEFT_ALIGNMENT);
             artifactList.add(empty);
         } else {
@@ -553,7 +575,7 @@ public final class DashboardPanel extends JPanel implements SessionListener {
         boolean hasSelection = jobModel.jobAt(jobTable.getSelectedRow()) != null;
         jobsCaption.setText(hasRows
                 ? "Newest first · select a row for actions"
-                : "No runs yet.");
+                : "No runs yet. Run a command from the Commands or Batch tab to populate this list.");
         if (jobScrollPane != null) {
             jobScrollPane.setVisible(hasRows);
         }
@@ -731,13 +753,12 @@ public final class DashboardPanel extends JPanel implements SessionListener {
         JPanel cardPanel = new JPanel(new BorderLayout(0, Theme.SPACE_SM));
         cardPanel.setOpaque(true);
         cardPanel.setBackground(Theme.PANEL_SOLID);
-        cardPanel.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createMatteBorder(1, 0, 0, 0, Theme.LINE),
-                Theme.pad(Theme.SPACE_MD, Theme.SPACE_SM,
-                        Theme.SPACE_MD, Theme.SPACE_SM)));
-        JLabel header = new JLabel(title);
-        header.setFont(Theme.font(13, Font.BOLD));
-        header.setForeground(Theme.TEXT);
+        cardPanel.setBorder(Theme.pad(Theme.SPACE_MD, Theme.SPACE_SM,
+                Theme.SPACE_MD, Theme.SPACE_SM));
+        // Use the shared editor-style section label so Dashboard cards and
+        // Analyze/Commands panels read as one design system; the previous
+        // 13px bold title made Dashboard look like a separate older surface.
+        JLabel header = Theme.section(title);
         cardPanel.add(header, BorderLayout.NORTH);
         cardPanel.add(body, BorderLayout.CENTER);
         // Cap the height so a card keeps its natural size inside a vertical
@@ -976,26 +997,46 @@ public final class DashboardPanel extends JPanel implements SessionListener {
          *
          * @param value stats
          */
-    void setStats(PositionStats value) {
+        void setStats(PositionStats value) {
             stats = value == null ? PositionStats.empty() : value;
             repaint();
         }
 
+        /**
+         * Returns the preferred material-strip size.
+         *
+         * @return preferred size
+         */
         @Override
         public Dimension getPreferredSize() {
-    return new Dimension(260, 58);
+            return new Dimension(260, 58);
         }
 
+        /**
+         * Returns the minimum material-strip size.
+         *
+         * @return minimum size
+         */
         @Override
         public Dimension getMinimumSize() {
-    return getPreferredSize();
+            return getPreferredSize();
         }
 
+        /**
+         * Returns the maximum material-strip size.
+         *
+         * @return maximum size
+         */
         @Override
         public Dimension getMaximumSize() {
-    return new Dimension(Integer.MAX_VALUE, 58);
+            return new Dimension(Integer.MAX_VALUE, 58);
         }
 
+        /**
+         * Paints the material-balance strip.
+         *
+         * @param graphics graphics context
+         */
         @Override
         protected void paintComponent(Graphics graphics) {
             Graphics2D g = (Graphics2D) graphics.create();
@@ -1084,23 +1125,38 @@ public final class DashboardPanel extends JPanel implements SessionListener {
          * @param newLabel label
          * @param color accent color
          */
-    void setValue(float newValue, String newLabel, Color color) {
+        void setValue(float newValue, String newLabel, Color color) {
             value = clamp01(newValue);
             label = newLabel == null ? "" : newLabel;
             accent = color == null ? Theme.ACCENT : color;
             repaint();
         }
 
+        /**
+         * Returns the preferred meter size.
+         *
+         * @return preferred size
+         */
         @Override
         public Dimension getPreferredSize() {
-    return new Dimension(150, 54);
+            return new Dimension(150, 54);
         }
 
+        /**
+         * Returns the minimum meter size.
+         *
+         * @return minimum size
+         */
         @Override
         public Dimension getMinimumSize() {
-    return getPreferredSize();
+            return getPreferredSize();
         }
 
+        /**
+         * Paints the labelled metric meter.
+         *
+         * @param graphics graphics context
+         */
         @Override
         protected void paintComponent(Graphics graphics) {
             Graphics2D g = (Graphics2D) graphics.create();
@@ -1163,7 +1219,7 @@ public final class DashboardPanel extends JPanel implements SessionListener {
          * @param doctorCheck doctor check
          * @param smokeCheck engine smoke check
          */
-    void setChecks(HealthSnapshot.Check configCheck,
+        void setChecks(HealthSnapshot.Check configCheck,
                 HealthSnapshot.Check doctorCheck,
                 HealthSnapshot.Check smokeCheck) {
             config = configCheck == null ? HealthSnapshot.Check.UNKNOWN : configCheck;
@@ -1172,16 +1228,31 @@ public final class DashboardPanel extends JPanel implements SessionListener {
             repaint();
         }
 
+        /**
+         * Returns the preferred health-ring size.
+         *
+         * @return preferred size
+         */
         @Override
         public Dimension getPreferredSize() {
-    return new Dimension(260, 74);
+            return new Dimension(260, 74);
         }
 
+        /**
+         * Returns the maximum health-ring size.
+         *
+         * @return maximum size
+         */
         @Override
         public Dimension getMaximumSize() {
-    return new Dimension(Integer.MAX_VALUE, 74);
+            return new Dimension(Integer.MAX_VALUE, 74);
         }
 
+        /**
+         * Paints the three health rings.
+         *
+         * @param graphics graphics context
+         */
         @Override
         protected void paintComponent(Graphics graphics) {
             Graphics2D g = (Graphics2D) graphics.create();

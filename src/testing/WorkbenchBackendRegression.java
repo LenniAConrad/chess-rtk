@@ -103,8 +103,8 @@ final class WorkbenchBackendRegression {
         testMctsSearchTerminalAndDrawHandling();
         testMctsSearchReusesRootSubtree();
         testMctsSearchClosesBackend();
-        testMctsPanelConstructsHeadlessly();
-        testMctsPanelStreamsWarmupFrames();
+        // MctsPanel has been removed; its interactive controls live in the
+        // Network tab's MCTS toolbar (covered by the network MCTS tests).
         testDashboardTabIsFirst();
         testSessionEvalHistory();
         testMiniChartRendersHeadlessly();
@@ -359,7 +359,7 @@ final class WorkbenchBackendRegression {
             invoke(job, "recordManifest", new Class<?>[] { Path.class, List.class }, manifest, List.of(output));
             assertEquals(manifest, invoke(job, "manifestPath", new Class<?>[0]),
                     "job manifest path");
-            assertEquals(Integer.valueOf(1), Integer.valueOf(((List<?>) invoke(job, "artifacts",
+            assertEquals(Integer.valueOf(1), Integer.valueOf(listValue(invoke(job, "artifacts",
                     new Class<?>[0])).size()), "job artifact count");
         } catch (java.io.IOException ex) {
             throw new AssertionError("manifest test setup failed", ex);
@@ -467,10 +467,15 @@ final class WorkbenchBackendRegression {
         assertTrue(mctsToolbar.getParent() != null
                 && !mctsToolbar.getParent().getClass().getName().contains("CollapsibleSection"),
                 "one-line network MCTS toolbar is not wrapped in a collapsible section");
-        assertFalse(((JComponent) field(panel, "mctsWeightsPanel")).isVisible(),
+        JComponent mctsWeightsPanel = (JComponent) field(panel, "mctsWeightsPanel");
+        assertFalse(mctsWeightsPanel.isVisible(),
                 "network MCTS edge weights start collapsed");
-        assertTrue(((JComponent) field(panel, "detailsTabs")).isVisible(),
-                "network inspector stays available by default");
+        assertFalse((Boolean) invoke(mctsWeightsPanel, "isLeafBoardVisible", new Class<?>[0]),
+                "network trace keeps a single position board");
+        assertTrue(mctsWeightsPanel.getPreferredSize().height < 260,
+                "network MCTS diagnostics stay compact without the duplicate board");
+        assertFalse(((JComponent) field(panel, "detailsTabs")).isVisible(),
+                "network inspector starts collapsed until data is selected");
         assertEquals(staticField(type("Defaults"), "MCTS_VISITS"), visits.getValue(),
                 "network MCTS uses shared visit default");
         assertFalse(followLeaf.isSelected(), "network leaf following starts off");
@@ -700,6 +705,9 @@ final class WorkbenchBackendRegression {
                 "network MCTS yields after streamed tree frames");
         assertTrue(source.contains("NETWORK_MCTS_FOLLOW_LEAF_MIN_UPDATE_NANOS"),
                 "follow-leaf activation frames have their own UI frame budget");
+        assertTrue(source.contains("NETWORK_MCTS_FOLLOW_LEAF_MIN_UPDATE_NANOS =\n"
+                + "            NETWORK_MCTS_MIN_UPDATE_NANOS"),
+                "follow-leaf activation cadence matches visible tree frames");
         assertTrue(source.contains("shouldPublishNetworkMctsLeafFrame"),
                 "follow-leaf activation frames are rate-limited");
         assertTrue(source.contains("public void addNotify()")
@@ -712,12 +720,17 @@ final class WorkbenchBackendRegression {
                 "hidden network MCTS idles and skips EDT frame processing");
         assertTrue(source.contains("|| !active) {\n            return frame;"),
                 "hidden network MCTS skips follow-leaf activation inference");
-        assertFalse(source.contains("showNetworkMctsFrameSynchronously"),
-                "follow-leaf mode does not synchronously block the EDT");
-        assertFalse(source.contains("SwingUtilities.invokeAndWait"),
-                "network MCTS never waits for the EDT from its worker");
-        assertFalse(source.contains("paintImmediately"),
-                "network MCTS never forces full-panel immediate paints");
+        // Per-leaf sync painting was deliberately added so the user can see
+        // each NN evaluation paint as the search visits its leaves; without
+        // it SwingWorker.publish coalesces consecutive leaf frames and the
+        // intermediate activation snapshots are never rendered.
+        assertTrue(source.contains("applyLeafFrameSynchronously"),
+                "network MCTS sync-paints each follow-leaf activation");
+        assertTrue(source.contains("SwingUtilities.invokeAndWait")
+                        || source.contains("javax.swing.SwingUtilities.invokeAndWait"),
+                "network MCTS waits for the EDT to actually paint each leaf");
+        assertTrue(source.contains("paintImmediately"),
+                "network MCTS forces an immediate paint so per-leaf visuals are not coalesced away");
         assertTrue(source.contains("buildNetworkMctsLeafActivationFrame"),
                 "network MCTS still builds follow-leaf activations off the EDT");
         assertTrue(source.contains("buildNetworkMctsFrame"),
@@ -750,11 +763,14 @@ final class WorkbenchBackendRegression {
         }
         int publishTree = source.indexOf("publishNetworkMctsFrame(frame, nextPlayout);");
         int buildActivation = source.indexOf("buildNetworkMctsLeafActivationFrame(frame)");
-        int publishActivation = source.indexOf("publishNetworkMctsFrame(activationFrame, nextPlayout)");
+        int applyActivation = source.indexOf("applyLeafFrameSynchronously(activationFrame)");
         assertTrue(publishTree >= 0 && buildActivation > publishTree,
                 "network MCTS publishes tree weights before building leaf activation");
-        assertTrue(publishActivation > buildActivation,
-                "network MCTS publishes activation frames asynchronously after inference");
+        assertTrue(applyActivation > buildActivation,
+                "network MCTS applies activation frames after inference completes");
+        int recordActivationStart = source.indexOf("lastLeafActivationStartNanos = now;");
+        assertTrue(recordActivationStart >= 0 && recordActivationStart < buildActivation,
+                "network MCTS counts follow-leaf throttling from inference start");
         int frameBuilder = source.indexOf("private NetworkMctsFrame buildNetworkMctsFrame");
         int activationBuilder = source.indexOf("private NetworkMctsFrame buildNetworkMctsLeafActivationFrame");
         String builderBody = source.substring(frameBuilder, activationBuilder);
@@ -790,6 +806,10 @@ final class WorkbenchBackendRegression {
                 "CNN selection routes MCTS through the CNN backend");
         assertTrue(source.contains("MctsSearch.bt4(root, cpuct, RealActivations.bt4Path())"),
                 "BT4 selection routes MCTS through the BT4 backend");
+        assertTrue(source.contains("if (isNetworkMctsRunning())")
+                && source.contains("startNetworkMcts();")
+                && source.contains("if (!isNetworkMctsRunning())"),
+                "switching network family during MCTS restarts the selected backend");
         assertFalse(source.contains("mctsSearch = new MctsSearch(root, cpuct)"),
                 "Network-tab MCTS no longer hardwires the default backend");
     }
@@ -1282,6 +1302,8 @@ final class WorkbenchBackendRegression {
         Class<?> baseType = type("NetworkView");
         Class<?> modeType = type("ViewMode");
         Object atlas = enumValue(modeType, "ATLAS");
+        Object detailed = enumValue(modeType, "DETAILED");
+        Object rawMode = enumValue(modeType, "RAW");
 
         Object cnnView = construct(type("CnnView"), new Class<?>[0]);
         Object cnnSnapshot = construct(snapshotType, new Class<?>[0]);
@@ -1293,6 +1315,10 @@ final class WorkbenchBackendRegression {
         invokeOn(baseType, cnnView, "setViewMode", new Class<?>[] { modeType }, atlas);
         assertPaintsOpaqueCorner((JComponent) cnnView, 1240, 760,
                 "CNN atlas paints synthetic snapshot");
+        assertModesRenderDistinctly((JComponent) cnnView, baseType, modeType,
+                new Object[] { atlas, detailed, rawMode },
+                new String[] { "Atlas", "Trace", "All" }, "CNN");
+        assertCnnTraceAndAllModesAreExplicit();
 
         Object bt4View = construct(type("Bt4View"), new Class<?>[0]);
         Object bt4Snapshot = construct(snapshotType, new Class<?>[0]);
@@ -1304,6 +1330,87 @@ final class WorkbenchBackendRegression {
         invokeOn(baseType, bt4View, "setViewMode", new Class<?>[] { modeType }, atlas);
         assertPaintsOpaqueCorner((JComponent) bt4View, 1240, 760,
                 "BT4 atlas paints synthetic snapshot");
+        assertModesRenderDistinctly((JComponent) bt4View, baseType, modeType,
+                new Object[] { atlas, detailed, rawMode },
+                new String[] { "Atlas", "Trace", "All" }, "BT4");
+    }
+
+    /**
+     * Verifies CNN mode labels and render paths make Trace vs All explicit.
+     */
+    private static void assertCnnTraceAndAllModesAreExplicit() {
+        String source;
+        try {
+            source = Files.readString(Path.of("src/application/gui/workbench/network/CnnView.java"),
+                    StandardCharsets.UTF_8);
+        } catch (IOException ex) {
+            throw new AssertionError("unable to read CnnView source", ex);
+        }
+        assertTrue(source.contains("CNN Trace — one selected layer"),
+                "CNN Trace advertises selected-layer scope");
+        assertTrue(source.contains("raw activation atlas — every CNN layer at once"),
+                "CNN All advertises exhaustive atlas scope");
+        assertTrue(source.contains("paintTracePath"),
+                "CNN Trace uses a path control instead of an all-layer channel atlas");
+    }
+
+    /**
+     * Renders one network view in every supplied view mode and asserts that
+     * each rendering differs from the others by a non-trivial pixel ratio.
+     * Guards against a future regression where one mode silently delegates
+     * to another (the "Atlas is a reskin of Trace" failure mode).
+     *
+     * @param view network view component
+     * @param baseType NetworkView base class
+     * @param modeType ViewMode enum class
+     * @param modes view mode values to render
+     * @param modeNames human-readable labels for diagnostics
+     * @param arch architecture label
+     */
+    private static void assertModesRenderDistinctly(JComponent view, Class<?> baseType,
+            Class<?> modeType, Object[] modes, String[] modeNames, String arch) {
+        int width = 1240;
+        int height = 760;
+        view.setSize(width, height);
+        java.awt.image.BufferedImage[] frames = new java.awt.image.BufferedImage[modes.length];
+        for (int i = 0; i < modes.length; i++) {
+            invokeOn(baseType, view, "setViewMode", new Class<?>[] { modeType }, modes[i]);
+            frames[i] = paint(view, width, height);
+        }
+        // At least 5% of pixels must differ between any two modes; below this
+        // the renderings are visually indistinguishable.
+        int totalPixels = width * height;
+        int minDistinctPixels = totalPixels / 20;
+        for (int i = 0; i < frames.length; i++) {
+            for (int j = i + 1; j < frames.length; j++) {
+                int differing = countDifferingPixels(frames[i], frames[j]);
+                String label = arch + " " + modeNames[i] + " vs " + modeNames[j];
+                assertTrue(differing >= minDistinctPixels,
+                        label + " renders distinct pixels (" + differing + "/" + totalPixels + ")");
+            }
+        }
+    }
+
+    /**
+     * Counts pixels whose RGB differs between two equal-sized images.
+     *
+     * @param a first image
+     * @param b second image
+     * @return differing-pixel count
+     */
+    private static int countDifferingPixels(java.awt.image.BufferedImage a,
+            java.awt.image.BufferedImage b) {
+        int width = a.getWidth();
+        int height = a.getHeight();
+        int differ = 0;
+        for (int y = 0; y < height; y++) {
+            for (int x = 0; x < width; x++) {
+                if ((a.getRGB(x, y) & 0xFFFFFF) != (b.getRGB(x, y) & 0xFFFFFF)) {
+                    differ++;
+                }
+            }
+        }
+        return differ;
     }
 
     /**
@@ -1341,8 +1448,7 @@ final class WorkbenchBackendRegression {
             invoke(search, "iterate", new Class<?>[0]);
         }
         Object snapshot = invoke(search, "snapshot", new Class<?>[] { boolean.class }, false);
-        @SuppressWarnings("unchecked")
-        List<Object> rows = (List<Object>) invoke(snapshot, "rows", new Class<?>[0]);
+        List<Object> rows = objectList(invoke(snapshot, "rows", new Class<?>[0]));
         assertTrue(!rows.isEmpty(), "MCTS snapshot has root rows");
         short bestMove = (Short) invoke(snapshot, "bestMove", new Class<?>[0]);
         assertTrue(new Position(START_FEN).isLegalMove(bestMove), "MCTS best move is legal");
@@ -1383,8 +1489,7 @@ final class WorkbenchBackendRegression {
         assertEquals(Long.valueOf(0L),
                 invoke(snapshot, "playouts", new Class<?>[0]),
                 "MCTS mate-in-one iterate remains a no-op");
-        @SuppressWarnings("unchecked")
-        List<Object> rows = (List<Object>) invoke(snapshot, "rows", new Class<?>[0]);
+        List<Object> rows = objectList(invoke(snapshot, "rows", new Class<?>[0]));
         assertTrue(!rows.isEmpty(), "MCTS mate-in-one snapshot still lists root rows");
         assertEquals("g6g7",
                 invoke(rows.get(0), "uci", new Class<?>[0]),
@@ -1439,8 +1544,7 @@ final class WorkbenchBackendRegression {
         assertFalse((Boolean) invoke(search, "shouldContinue",
                 new Class<?>[] { long.class, long.class }, 100L, 0L),
                 "MCTS forced mate-in-four proof stops the worker loop");
-        @SuppressWarnings("unchecked")
-        List<Object> rows = (List<Object>) invoke(snapshot, "rows", new Class<?>[0]);
+        List<Object> rows = objectList(invoke(snapshot, "rows", new Class<?>[0]));
         assertTrue(!rows.isEmpty(), "MCTS forced mate-in-four proof snapshot still lists root rows");
         assertEquals("c1c8",
                 invoke(rows.get(0), "uci", new Class<?>[0]),
@@ -1483,8 +1587,7 @@ final class WorkbenchBackendRegression {
         Object drawSearch = construct(searchType,
                 new Class<?>[] { Position.class, double.class }, drawRoot, 1.25);
         Object snapshot = invoke(drawSearch, "snapshot", new Class<?>[] { boolean.class }, false);
-        @SuppressWarnings("unchecked")
-        List<Object> rows = (List<Object>) invoke(snapshot, "rows", new Class<?>[0]);
+        List<Object> rows = objectList(invoke(snapshot, "rows", new Class<?>[0]));
         assertEquals(Integer.valueOf(0), Integer.valueOf(rows.size()),
                 "MCTS does not expand 50-move draw roots");
         invoke(drawSearch, "iterate", new Class<?>[0]);
@@ -1518,8 +1621,7 @@ final class WorkbenchBackendRegression {
         snapshot = invoke(search, "snapshot", new Class<?>[] { boolean.class }, false);
         assertEquals(child.toString(), invoke(snapshot, "rootFen", new Class<?>[0]),
                 "MCTS root FEN advances after subtree reuse");
-        @SuppressWarnings("unchecked")
-        java.util.Map<Long, ?> table = (java.util.Map<Long, ?>) field(search, "transpositions");
+        java.util.Map<?, ?> table = mapValue(field(search, "transpositions"));
         assertTrue(!table.isEmpty(), "MCTS hash table stores position stats");
         invoke(search, "close", new Class<?>[0]);
 
@@ -1528,12 +1630,10 @@ final class WorkbenchBackendRegression {
                 new Position(START_FEN), 1.25);
         invoke(deeperSearch, "iterate", new Class<?>[0]);
         Object root = field(deeperSearch, "root");
-        @SuppressWarnings("unchecked")
-        List<Object> rootChildren = (List<Object>) field(root, "children");
+        List<Object> rootChildren = objectList(field(root, "children"));
         Object grandchild = null;
         for (Object rootChild : rootChildren) {
-            @SuppressWarnings("unchecked")
-            List<Object> childChildren = (List<Object>) field(rootChild, "children");
+            List<Object> childChildren = objectList(field(rootChild, "children"));
             if (!childChildren.isEmpty()) {
                 grandchild = childChildren.get(0);
                 break;
@@ -1547,8 +1647,7 @@ final class WorkbenchBackendRegression {
         Object reusedRoot = field(deeperSearch, "root");
         assertEquals(Integer.valueOf(0), field(reusedRoot, "depth"),
                 "MCTS rebases reused descendant root depth");
-        @SuppressWarnings("unchecked")
-        List<Object> reusedChildren = (List<Object>) field(reusedRoot, "children");
+        List<Object> reusedChildren = objectList(field(reusedRoot, "children"));
         if (!reusedChildren.isEmpty()) {
             assertEquals(Integer.valueOf(1), field(reusedChildren.get(0), "depth"),
                     "MCTS rebases reused descendant child depth");
@@ -1577,62 +1676,6 @@ final class WorkbenchBackendRegression {
         }
         assertTrue(failed, "MCTS close prevents further iteration");
         invoke(search, "close", new Class<?>[0]);
-    }
-
-    /**
-     * Verifies the MCTS panel builds its controls headlessly.
-     */
-    private static void testMctsPanelConstructsHeadlessly() {
-        Object panel = construct(type("MctsPanel"), new Class<?>[0]);
-        assertTrue(panel instanceof JComponent, "MCTS panel is a Swing component");
-        JSpinner playouts = (JSpinner) field(panel, "playoutSpinner");
-        assertEquals(staticField(type("Defaults"), "MCTS_VISITS"), playouts.getValue(),
-                "MCTS panel uses shared visit default");
-        invoke(panel, "setFen", new Class<?>[] { String.class }, START_FEN);
-        JComponent component = (JComponent) panel;
-        component.setSize(720, 560);
-        paint(component, 720, 560);
-        invoke(panel, "dispose", new Class<?>[0]);
-    }
-
-    /**
-     * Verifies Analyze-tab MCTS streams its opening playouts and then falls
-     * back to interval/time-based refreshes.
-     */
-    private static void testMctsPanelStreamsWarmupFrames() {
-        Class<?> panel = type("MctsPanel");
-        Class<?>[] signature = { long.class, long.class, long.class };
-        String panelSource;
-        try {
-            panelSource = Files.readString(Path.of("src/application/gui/workbench/mcts/MctsPanel.java"),
-                    StandardCharsets.UTF_8);
-        } catch (IOException ex) {
-            throw new AssertionError("unable to read MCTS panel source", ex);
-        }
-        int previewPublish = panelSource.indexOf("publish(activeSearch.previewNextLeaf(false));");
-        int iterateCall = panelSource.indexOf("activeSearch.iterate();");
-        assertTrue(previewPublish >= 0 && iterateCall > previewPublish,
-                "Analyze MCTS publishes the selected leaf before evaluating it");
-        assertEquals(Short.valueOf(Move.parse("g1f3")),
-                invokeStatic(panel, "lastLineMove",
-                        new Class<?>[] { short[].class },
-                        new short[] { Move.parse("e2e4"), Move.parse("g1f3") }),
-                "MCTS leaf board uses final exploring move as last-move highlight");
-        assertEquals(Short.valueOf(Move.NO_MOVE),
-                invokeStatic(panel, "lastLineMove", new Class<?>[] { short[].class }, new short[0]),
-                "MCTS root leaf board has no last move");
-        assertEquals(Boolean.TRUE,
-                invokeStatic(panel, "shouldPublishLiveFrame", signature, 1L, 1_000L, 1_000L),
-                "MCTS streams first playout");
-        assertEquals(Boolean.FALSE,
-                invokeStatic(panel, "shouldPublishLiveFrame", signature, 41L, 2_000L, 1_000L),
-                "MCTS skips non-due late playout");
-        assertEquals(Boolean.TRUE,
-                invokeStatic(panel, "shouldPublishLiveFrame", signature, 40L, 2_000L, 1_000L),
-                "MCTS publishes interval playout");
-        assertEquals(Boolean.TRUE,
-                invokeStatic(panel, "shouldPublishLiveFrame", signature, 41L, 40_000_000L, 1_000L),
-                "MCTS publishes timed playout");
     }
 
     /**

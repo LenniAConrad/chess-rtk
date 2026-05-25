@@ -35,7 +35,7 @@ import javax.swing.text.JTextComponent;
 /**
  * Native Swing styling helpers for the CRTK Workbench.
  */
-@SuppressWarnings({ "java:S1104", "java:S1444", "java:S3008" })
+
 public final class Theme {
 
     /**
@@ -265,9 +265,9 @@ public final class Theme {
     private static final Color DARK_MUTED = new Color(0x9D9D9D);
 
     /**
-     * Dark workbench chrome.
+     * Unified dark workbench background.
      */
-    private static final Color DARK_CHROME = new Color(24, 24, 24);
+    private static final Color DARK_CHROME = new Color(31, 31, 31);
 
     /**
      * VS Code Dark Modern panel/editor border and subtle surface.
@@ -280,9 +280,11 @@ public final class Theme {
     private static final Color DARK_DOCUMENT = new Color(31, 31, 31);
 
     /**
-     * VS Code Dark Modern input/dropdown surface.
+     * VS Code Dark Modern input/dropdown surface. Kept equal to the editor
+     * surface so dark popups, fields, and cards do not alternate between
+     * competing gray backgrounds.
      */
-    private static final Color DARK_ELEVATED = new Color(0x313131);
+    private static final Color DARK_ELEVATED = DARK_DOCUMENT;
 
     /**
      * VS Code Dark Modern input/dropdown border.
@@ -1854,9 +1856,17 @@ public final class Theme {
      * @return label
      */
     public static JLabel section(String text) {
-        JLabel label = new JLabel(text);
+        // Modern editor-style section label: small, uppercase, slightly
+        // tracked out. The bottom divider line was removed — the uppercase
+        // tracking already provides enough visual separation, and dropping
+        // the divider trims redundant chrome from every section header in
+        // the app. Foreground stays TEXT (pinned by a regression test).
+        String upper = text == null ? "" : text.toUpperCase(java.util.Locale.ROOT);
+        JLabel label = new JLabel(upper);
         foreground(label, ForegroundRole.TEXT);
-        label.setFont(font(12, Font.BOLD));
+        label.setFont(font(10, Font.BOLD).deriveFont(java.util.Map.of(
+                java.awt.font.TextAttribute.TRACKING, 0.12f)));
+        label.setBorder(pad(0, 0, 4, 0));
         return label;
     }
 

@@ -1053,6 +1053,18 @@ set -euo pipefail
 APP_HOME=$APP_HOME_LITERAL
 JAVA_BIN="\${JAVA_BIN:-java}"
 JAVA_OPTS="\${JAVA_OPTS:-}"
+# Java2D GPU acceleration. The OpenGL pipeline offloads board / network
+# rendering to the GPU when one is available, and silently falls back to
+# the software pipeline otherwise. Override via JAVA_OPTS to disable.
+GPU_OPTS=(
+  -Dsun.java2d.opengl=true
+  -Dsun.java2d.opengl.fbobject=true
+  -Dawt.useSystemAAFontSettings=on
+  -Dswing.aatext=true
+)
+if [[ "\$JAVA_OPTS" == *"-Dsun.java2d.opengl"* ]]; then
+  GPU_OPTS=()
+fi
 cd "\$APP_HOME"
 LIB_DIRS=()
 if [[ -f "\$APP_HOME/native/cuda/build/liblc0_cuda.so" || -f "\$APP_HOME/native/cuda/build/libt5_cuda.so" ]]; then
@@ -1070,7 +1082,7 @@ if [[ \${#LIB_DIRS[@]} -gt 0 && "\$JAVA_OPTS" != *"-Djava.library.path="* ]]; th
   LIB_OPT="-Djava.library.path=\$LIB_PATH"
 fi
 # shellcheck disable=SC2086
-exec "\$JAVA_BIN" \$JAVA_OPTS \$LIB_OPT -jar "\$APP_HOME/crtk.jar" "\$@"
+exec "\$JAVA_BIN" "\${GPU_OPTS[@]}" \$JAVA_OPTS \$LIB_OPT -jar "\$APP_HOME/crtk.jar" "\$@"
 EOF
 
   $SUDO mv "$LAUNCHER_TMP" "$LAUNCHER"

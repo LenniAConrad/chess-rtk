@@ -242,7 +242,7 @@ public final class Config {
      * Used for seeding a brand-new configuration file with explanatory comments and
      * defaults that mirror the constant defaults in this class.
      */
-    @SuppressWarnings("java:S1192") // Intentional repetition keeps template readable.
+     // Intentional repetition keeps template readable.
     private static final String[] DEFAULT_CONFIG_FILE = {
             "# ENGINE PROTOCOL",
             "# Path to your UCI/TOML protocol file (command set) for the engine.",

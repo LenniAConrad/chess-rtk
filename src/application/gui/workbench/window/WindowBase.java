@@ -18,7 +18,6 @@ import application.gui.workbench.game.MovesModel;
 import application.gui.workbench.game.PgnExplorerDialog;
 import application.gui.workbench.game.PuzzlePanel;
 import application.gui.workbench.layout.EditorSplitArea;
-import application.gui.workbench.mcts.MctsPanel;
 import application.gui.workbench.network.NetworkPanel;
 import application.gui.workbench.publish.PublishingPanel;
 import application.gui.workbench.publish.ReportPanel;
@@ -65,7 +64,6 @@ import static application.gui.workbench.ui.Ui.withTooltip;
 /**
  * A new native Swing command and analysis workbench for ChessRTK.
  */
-@SuppressWarnings("java:S6539")
 
 public abstract class WindowBase extends JFrame {
     /**
@@ -113,25 +111,39 @@ public abstract class WindowBase extends JFrame {
      */
     protected static final int TAB_PUBLISH = 5;
 
+    // Console + Logs moved out of the top tab row into a bottom dock;
+    // callers now route through showInBottomDock(String). The TAB_CONSOLE
+    // and TAB_LOGS constants stay as -1 sentinels so legacy selectTab
+    // calls are inert and don't accidentally select a real top tab.
     /**
-     * Console tab index.
+     * Deprecated console tab sentinel. Use showInBottomDock("Console").
      */
-    protected static final int TAB_CONSOLE = 6;
+    protected static final int TAB_CONSOLE = -1;
 
     /**
-     * Persisted logs tab index.
+     * Deprecated logs tab sentinel. Use showInBottomDock("Logs").
      */
-    protected static final int TAB_LOGS = 7;
+    protected static final int TAB_LOGS = -1;
+
+    /**
+     * Bottom dock title for the command console.
+     */
+    protected static final String DOCK_CONSOLE = "Console";
+
+    /**
+     * Bottom dock title for persisted logs.
+     */
+    protected static final String DOCK_LOGS = "Logs";
 
     /**
      * Network visualizer tab index.
      */
-    protected static final int TAB_NETWORK = 8;
+    protected static final int TAB_NETWORK = 6;
 
     /**
      * Puzzle trainer tab index.
      */
-    protected static final int TAB_PUZZLES = 9;
+    protected static final int TAB_PUZZLES = 7;
 
     /**
      * Board view.
@@ -157,11 +169,6 @@ public abstract class WindowBase extends JFrame {
      * All materialized Network visualizer panels, including duplicates.
      */
     protected final List<NetworkPanel> networkPanels = new ArrayList<>();
-
-    /**
-     * Leela-style PUCT search visualizer.
-     */
-    protected final MctsPanel mctsPanel = new MctsPanel();
 
     /**
      * Shared, observable session model the Dashboard tab renders from.
@@ -263,9 +270,11 @@ public abstract class WindowBase extends JFrame {
     protected final JLabel commandStateLabel = new JLabel("Idle");
 
     /**
-     * Command text field.
+     * Generated command preview. A multi-line wrapping text area so long
+     * commands stay legible without horizontal scrubbing; styled to read as
+     * terminal output, not as another input field.
      */
-    protected final JTextField commandField = new JTextField();
+    protected final javax.swing.JTextArea commandField = new javax.swing.JTextArea();
 
     /**
      * Wrapping bar of command-selector toggle buttons.
@@ -417,7 +426,7 @@ public abstract class WindowBase extends JFrame {
     /**
      * Live external-engine analysis toggle for the board.
      */
-    protected final JCheckBox liveEngineToggle = withTooltip(new ToggleBox("Live external engine"),
+    protected final JCheckBox liveEngineToggle = withTooltip(new ToggleBox("Live", true),
             "Continuously analyze the current board with the configured external UCI engine");
 
     /**
@@ -739,6 +748,10 @@ public abstract class WindowBase extends JFrame {
      * @param index tab index */
     protected abstract void selectTab(int index);
 
+    /** Pops the bottom dock open and selects a section by title.
+     * @param dockTab dock tab title ("Console" / "Logs") */
+    public abstract void showInBottomDock(String dockTab);
+
     /** Runs a command with optional standard input.
      * @param args command arguments
      * @param stdin standard input text, or null for none */
@@ -859,6 +872,23 @@ public abstract class WindowBase extends JFrame {
      * @return computed value */
     protected abstract JComponent createCommandTab();
 
+    /**
+     * Creates the in-workbench display settings panel, exposed as an abstract
+     * hook so the parent lifecycle layer can build the unified Settings dialog
+     * without depending on a concrete subclass.
+     *
+     * @return display-settings panel
+     */
+    protected abstract JComponent createDisplaySettingsPanel();
+
+    /**
+     * Creates the in-workbench engine settings panel, exposed as an abstract
+     * hook for the unified Settings dialog.
+     *
+     * @return engine-settings panel
+     */
+    protected abstract JComponent createEngineSettingsPanel();
+
     /** Creates the Batch tab.
      * @return computed value */
     protected abstract JComponent createBatchTab();
@@ -923,6 +953,13 @@ public abstract class WindowBase extends JFrame {
      * @return computed value
      */
     protected abstract JComponent createLogTab();
+
+    /**
+     * Returns the primary persisted-log browser.
+     *
+     * @return log browser
+     */
+    protected abstract LogPanel primaryLogPanel();
 
     /**
      * Creates a detached Logs tab instance.

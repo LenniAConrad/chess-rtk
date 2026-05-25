@@ -65,6 +65,7 @@ final class WorkbenchBoardRegression {
         testBoardCastlingAnimationStarts();
         testBoardPaintUsesChessboardJsColors();
         testBoardCoordinateLabelsUseOppositeSquareColor();
+        testBoardCoordinatesPaintBelowOverlays();
         testBoardSuggestedMoveArrowIsLegalAndClean();
         testBoardSelectionUsesChessboardJsTargetMarkers();
         testBoardLegalMovePreviewCanBeHidden();
@@ -178,6 +179,22 @@ final class WorkbenchBoardRegression {
         } catch (java.io.IOException ex) {
             throw new AssertionError("unable to read workbench source " + relativePath, ex);
         }
+    }
+
+    /**
+     * Verifies one source fragment appears before another in a rendering method.
+     *
+     * @param source source text
+     * @param first fragment expected first
+     * @param second fragment expected second
+     * @param label assertion label
+     */
+    private static void assertSourceOrder(String source, String first, String second, String label) {
+        int firstIndex = source.indexOf(first);
+        int secondIndex = source.indexOf(second);
+        assertTrue(firstIndex >= 0, label + " missing first fragment");
+        assertTrue(secondIndex >= 0, label + " missing second fragment");
+        assertTrue(firstIndex < secondIndex, label);
     }
 
     /**
@@ -785,6 +802,38 @@ final class WorkbenchBoardRegression {
                 "coordinate label on a dark square uses light-square color");
         assertEquals(darkSquare, lightLabel, "light-square coordinate is drawn in board dark");
         assertEquals(lightSquare, darkLabel, "dark-square coordinate is drawn in board light");
+    }
+
+    /**
+     * Verifies board coordinates are painted just above the board squares so
+     * highlights, pieces, arrows, and exported SVG overlays cover the labels.
+     */
+    private static void testBoardCoordinatesPaintBelowOverlays() {
+        String panel = readWorkbenchSource("board/BoardPanel.java");
+        assertSourceOrder(panel, "drawBoardTexture(copy, board);", "drawCoordinates(copy, board);",
+                "board coordinates draw after board texture");
+        assertSourceOrder(panel, "drawCoordinates(copy, board);", "drawSquareHighlights(copy, board);",
+                "square highlights paint over board coordinates");
+        assertSourceOrder(panel, "drawCoordinates(copy, board);", "drawPieces(copy, board);",
+                "pieces paint over board coordinates");
+        assertSourceOrder(panel, "drawCoordinates(copy, board);", "drawSuggestedMove(copy, board);",
+                "suggested arrows paint over board coordinates");
+        assertSourceOrder(panel, "drawCoordinates(copy, board);", "drawBoardMarkups(copy, board);",
+                "user arrows and circles paint over board coordinates");
+
+        String exporter = readWorkbenchSource("board/BoardExporter.java");
+        assertSourceOrder(exporter, "BoardStyle.drawBoardSurface(g, board, false);",
+                "BoardStyle.drawInsideCoordinates(g, board",
+                "raster export coordinates draw after board surface");
+        assertSourceOrder(exporter, "BoardStyle.drawInsideCoordinates(g, board",
+                "paintRasterHighlights(snapshot, g, board);",
+                "raster export highlights paint over coordinates");
+        assertSourceOrder(exporter, "appendSquares(svg, board);",
+                "appendCoordinates(svg, board, snapshot.whiteDown());",
+                "svg export coordinates are low in DOM");
+        assertSourceOrder(exporter, "appendCoordinates(svg, board, snapshot.whiteDown());",
+                "appendSvgHighlights(snapshot, svg, board);",
+                "svg export highlights are above coordinates in DOM");
     }
 
     /**

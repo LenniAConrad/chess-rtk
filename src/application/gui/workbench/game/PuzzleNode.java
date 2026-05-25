@@ -50,6 +50,17 @@ public record PuzzleNode(
 
     /**
      * Validates and normalizes node text.
+     *
+     * @param id stable node identifier
+     * @param parentId parent node identifier
+     * @param ply one-based ply number, or zero for the root
+     * @param san SAN move text
+     * @param move CRTK move encoding
+     * @param uci UCI move text
+     * @param actor side role that owns this move
+     * @param mainline true for PGN mainline nodes
+     * @param siblingOrder stable child order
+     * @param fenAfter FEN after this move
      */
     public PuzzleNode {
         san = san == null ? "" : san;

@@ -52,7 +52,7 @@ import application.gui.workbench.launch.LaunchCommand;
  * @since 2026
  * @author Lennart A. Conrad
  */
-@SuppressWarnings("java:S1192")
+
 public final class CliRegistry {
 
 	/**

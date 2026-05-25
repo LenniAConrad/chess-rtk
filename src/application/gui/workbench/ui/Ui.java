@@ -325,7 +325,7 @@ public final class Ui {
         JComponent separator = new JComponent() {
             private static final long serialVersionUID = 1L;
 
-            @Override
+@Override
             public Dimension getPreferredSize() {
     return new Dimension(1 + 2 * Theme.SPACE_XS, Theme.CONTROL_HEIGHT);
             }
@@ -1360,9 +1360,13 @@ public final class Ui {
         private static final long serialVersionUID = 1L;
 
         /**
-         * Chip corner radius.
+         * Button corner radius. Aligned with {@link Theme#RADIUS} so buttons
+         * match the subtle 3px rounding modern editor apps (VS Code, Cursor,
+         * Atom) use on interactive controls. Larger 8px pills looked too
+         * "designed"; structural surfaces around them are square so the
+         * mismatch felt out of place.
          */
-        private static final int RADIUS = 5;
+        private static final int RADIUS = Theme.RADIUS;
 
         /**
          * Live set of buttons currently animating; ticked by the shared timer.
@@ -1635,10 +1639,9 @@ public final class Ui {
          * @param bounds value bounds
          * @param hasFocus whether the combo has focus
          */
-        @SuppressWarnings({ "rawtypes", "unchecked" })
         @Override
         public void paintCurrentValue(Graphics graphics, Rectangle bounds, boolean hasFocus) {
-            ListCellRenderer renderer = comboBox.getRenderer();
+            ListCellRenderer<Object> renderer = comboBox.getRenderer();
             Component component = renderer.getListCellRendererComponent(listBox,
                     comboBox.getSelectedItem(), -1, false, false);
             component.setFont(comboBox.getFont());

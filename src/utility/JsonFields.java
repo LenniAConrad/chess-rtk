@@ -15,7 +15,7 @@ import java.util.List;
  * @since 2026
  * @author Lennart A. Conrad
  */
-@SuppressWarnings({ "java:S127", "java:S135", "java:S3776" })
+
 public final class JsonFields {
 
 	/**

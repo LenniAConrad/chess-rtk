@@ -309,6 +309,9 @@ public final class CommandForm extends JPanel {
             (block.required() ? required : optional).add(block);
         }
         if (!required.isEmpty()) {
+            // Required fields lead the form by position; an explicit "Required"
+            // heading reads as redundant and was removed by deliberate UX
+            // decision (see WorkbenchCommandRegression).
             for (Block block : required) {
                 body.add(renderBlock(block, false));
                 body.add(Box.createVerticalStrut(Theme.SPACE_XS));
@@ -396,9 +399,10 @@ public final class CommandForm extends JPanel {
         panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
         panel.setAlignmentX(LEFT_ALIGNMENT);
         panel.setOpaque(false);
-        panel.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createMatteBorder(0, 0, 1, 0, Theme.LINE),
-                Theme.pad(Theme.SPACE_XS, 0, Theme.SPACE_SM, 0)));
+        // Padding-only border; the previous bottom divider line stacked with
+        // section headers and other group dividers, adding chrome noise.
+        // Spacing alone gives the chip group enough visual separation.
+        panel.setBorder(Theme.pad(Theme.SPACE_XS, 0, Theme.SPACE_SM, 0));
         JLabel title = new JLabel(block.group());
         title.setFont(Theme.font(11, Font.BOLD));
         title.setForeground(Theme.MUTED);
@@ -989,6 +993,16 @@ public final class CommandForm extends JPanel {
          */
         private static final long serialVersionUID = 1L;
 
+        /**
+         * Renders a dropdown value, showing blank optional values as "not set".
+         *
+         * @param list owning list
+         * @param value raw value
+         * @param index row index
+         * @param isSelected true when selected
+         * @param cellHasFocus true when focused
+         * @return renderer component
+         */
         @Override
         public Component getListCellRendererComponent(JList<?> list, Object value, int index,
                 boolean isSelected, boolean cellHasFocus) {
@@ -1199,26 +1213,54 @@ public final class CommandForm extends JPanel {
      */
     private static final class FlagGridLayout implements LayoutManager {
 
+        /**
+         * Accepts a child without named layout constraints.
+         *
+         * @param name ignored constraint name
+         * @param component child component
+         */
         @Override
         public void addLayoutComponent(String name, Component component) {
             // no named constraints
         }
 
+        /**
+         * Removes a child from the layout.
+         *
+         * @param component removed component
+         */
         @Override
         public void removeLayoutComponent(Component component) {
             // no cached component state
         }
 
+        /**
+         * Calculates preferred size from the available parent width.
+         *
+         * @param parent parent container
+         * @return preferred layout size
+         */
         @Override
         public Dimension preferredLayoutSize(Container parent) {
             return layoutSize(parent, availableWidth(parent));
         }
 
+        /**
+         * Calculates minimum size from one minimum-width column.
+         *
+         * @param parent parent container
+         * @return minimum layout size
+         */
         @Override
         public Dimension minimumLayoutSize(Container parent) {
             return layoutSize(parent, minimumColumnWidth(parent));
         }
 
+        /**
+         * Lays out visible children in responsive rows.
+         *
+         * @param parent parent container
+         */
         @Override
         public void layoutContainer(Container parent) {
             synchronized (parent.getTreeLock()) {

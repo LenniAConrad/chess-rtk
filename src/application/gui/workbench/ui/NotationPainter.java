@@ -399,7 +399,12 @@ public final class NotationPainter {
      * @return icon y coordinate
      */
     private static int iconY(FontMetrics metrics, int baseline, int iconSize) {
-        return baseline - metrics.getAscent() + Math.max(0, (metrics.getHeight() - iconSize) / 2);
+        // Centre the piece icon on the text's visual midline rather than on
+        // the font's ascender box. The previous formula placed icons too high
+        // — the visible piece sat near the cap line instead of vertically
+        // centred against the move label.
+        int textMidline = baseline - (metrics.getAscent() - metrics.getDescent()) / 2;
+        return textMidline - iconSize / 2;
     }
 
     /**

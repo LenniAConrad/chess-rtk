@@ -18,7 +18,7 @@ import chess.core.Position;
  * @since 2026
  * @author Lennart A. Conrad
  */
-@SuppressWarnings("java:S135")
+
 public final class Classical implements CentipawnEvaluator {
 
     /**

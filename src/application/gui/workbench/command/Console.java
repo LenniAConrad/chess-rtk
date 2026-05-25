@@ -100,6 +100,29 @@ public final class Console extends JTextPane implements Theme.ConsoleLike {
         }
         for (int i = 0; i < text.length(); i++) {
             char ch = text.charAt(i);
+            // Strip ANSI escape sequences. Scripts like install.sh and many
+            // CLI tools emit CSI codes ([ ... letter) for colour and
+            // cursor moves. The Console is not a terminal — leaving the
+            // codes in produced visible garbage like "[1;32m" instead of
+            // the styled "loading screen" output the user expected.
+            if (ch == '' && i + 1 < text.length()) {
+                int next = text.charAt(i + 1);
+                if (next == '[') {
+                    int end = i + 2;
+                    while (end < text.length()) {
+                        char c = text.charAt(end);
+                        if (c >= '@' && c <= '~') {
+                            break;
+                        }
+                        end++;
+                    }
+                    i = end;
+                    continue;
+                }
+                // Two-byte escapes (ESC + single byte) — skip both.
+                i++;
+                continue;
+            }
             switch (ch) {
                 case '\n' -> commitNewline();
                 case '\r' -> column = 0;

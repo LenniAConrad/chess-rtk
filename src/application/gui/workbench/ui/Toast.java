@@ -105,7 +105,80 @@ public final class Toast {
         if (frame == null || message == null || message.isBlank()) {
             return;
         }
+        recordHistory(kind, message);
         SwingUtilities.invokeLater(() -> showOnEdt(frame, kind, message));
+    }
+
+    /**
+     * Persistent rolling history of recent toasts. The status bar reads
+     * this list through {@link #history()} so users can recover toast
+     * messages that have already faded.
+     */
+    private static final java.util.Deque<Entry> HISTORY = new java.util.ArrayDeque<>();
+
+    /**
+     * Maximum number of toasts retained in the history popover.
+     */
+    private static final int HISTORY_LIMIT = 40;
+
+    /**
+     * Listeners notified after a new entry is recorded so the status-bar
+     * bell can flash and update its unread count.
+     */
+    private static final java.util.List<Runnable> HISTORY_LISTENERS = new java.util.concurrent.CopyOnWriteArrayList<>();
+
+    /**
+     * One toast in the history popover.
+     *
+     * @param kind severity
+     * @param message message body
+     * @param timestamp epoch millis when the toast fired
+     */
+    public record Entry(Kind kind, String message, long timestamp) { }
+
+    /**
+     * Appends a toast to the rolling history.
+     *
+     * @param kind toast kind
+     * @param message toast message
+     */
+    private static void recordHistory(Kind kind, String message) {
+        synchronized (HISTORY) {
+            HISTORY.addFirst(new Entry(kind, message, System.currentTimeMillis()));
+            while (HISTORY.size() > HISTORY_LIMIT) {
+                HISTORY.removeLast();
+            }
+        }
+        for (Runnable listener : HISTORY_LISTENERS) {
+            try {
+                listener.run();
+            } catch (RuntimeException ignored) {
+                // listener failures must not poison the toast pipeline
+            }
+        }
+    }
+
+    /**
+     * Returns a snapshot of the most recent toasts, newest first.
+     *
+     * @return immutable copy of the rolling history
+     */
+    public static java.util.List<Entry> history() {
+        synchronized (HISTORY) {
+            return java.util.List.copyOf(HISTORY);
+        }
+    }
+
+    /**
+     * Subscribes for history-changed notifications. Used by the workbench
+     * status-bar bell so it can flash on new entries.
+     *
+     * @param listener change listener
+     */
+    public static void addHistoryListener(Runnable listener) {
+        if (listener != null) {
+            HISTORY_LISTENERS.add(listener);
+        }
     }
 
     /**

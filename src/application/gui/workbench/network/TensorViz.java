@@ -22,7 +22,7 @@ import java.awt.geom.Path2D;
  * connections, section headers, mode-toggle buttons, and statistic helpers.
  * Mirrors the C++ visualizer's TensorViz module so view classes stay terse.</p>
  */
-@SuppressWarnings({ "java:S1104", "java:S1444", "java:S3008" })
+
 public final class TensorViz {
 
     // The network-view accent palette lives in Theme so the NN

@@ -42,175 +42,173 @@ import javax.swing.Timer;
 
 /** Native Java2D chess board used by the CRTK Workbench. */
 public final class BoardPanel extends JPanel {
-    /** Serialization identifier for Swing panel compatibility. */
     private static final long serialVersionUID = 1L;
-    /** Board margin in pixels. */
     private static final int BOARD_MARGIN = 32;
-    /** Minimum board size in pixels. */
     private static final int MIN_BOARD_SIZE = 64;
-    /** Width of the engine eval bar when one is attached. */
     private static final int EVAL_BAR_WIDTH = 22;
-    /** Gap between the eval bar and the board square. */
     private static final int EVAL_BAR_GAP = 8;
-    /** Engine evaluation bar painted flush against the board, or null when no bar is attached. */
     private transient EvalBar evalBar;
-    /** Minimum pointer movement before a press becomes a drag. */
     private static final int DRAG_THRESHOLD = 5;
-    /** Piece glide duration for short board transitions. */
     private static final int MOVE_ANIMATION_MS = 95;
-    /** Board animation timer interval. */
     private static final int ANIMATION_DELAY_MS = 16;
-    /** Extra pixels included around drag dirty rectangles. */
     private static final int DRAG_REPAINT_PADDING = 8;
-    /** Minimum interval between drag repaint submissions. */
     private static final long DRAG_REPAINT_FRAME_NANOS = 16_000_000L;
-    /** Cached 1-pixel stroke for board hairlines. */
     private static final BasicStroke STROKE_1 = new BasicStroke(1f);
-    /** Cached drag transparency composite. */
     private static final AlphaComposite DRAG_ALPHA = AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 1f);
-    /** Sentinel destination for a circle annotation. */
     private static final byte MARKUP_CIRCLE = Field.NO_SQUARE;
-    /** Active-drawing opacity matching Chessground current shape rendering. */
     private static final double MARKUP_CURRENT_OPACITY = 0.9;
-    /** Pending-erase opacity matching Chessground shape toggling feedback. */
     private static final double MARKUP_PENDING_ERASE_OPACITY = 0.6;
-    /** Current position. */
+    /** Current position rendered on the board. */
     private Position position;
-    /** Board orientation. */
+
+    /** True when White is rendered at the bottom. */
     private boolean whiteDown = true;
-    /** Last played move. */
-    private short lastMove = Move.NO_MOVE;
-    /** Suggested move highlighted by command output. */
-    private short suggestedMove = Move.NO_MOVE;
-    /** Selected square. */
+
+    /** Last played move and suggested engine move. */
+    private short lastMove = Move.NO_MOVE, suggestedMove = Move.NO_MOVE;
+
+    /** Selected source square. */
     private byte selectedSquare = Field.NO_SQUARE;
-    /** Legal moves from the selected square. */
+
+    /**
+     * Legal move cache for the selected source square.
+     */
     private short[] selectedLegalMoves = new short[0];
-    /** Unique legal targets from the selected square. */
+
+    /**
+     * Legal target-square cache for the selected source square.
+     */
     private byte[] selectedLegalTargets = new byte[0];
-    /** Square currently being dragged. */
-    private byte dragSquare = Field.NO_SQUARE;
-    /** Current legal drop target under the pointer. */
-    private byte dragTargetSquare = Field.NO_SQUARE;
-    /** Current pointer-hovered square during a drag, regardless of legality. */
-    private byte dragHoverSquare = Field.NO_SQUARE;
-    /** Piece currently being dragged. */
-    private byte draggedPiece = Piece.EMPTY;
-    /** Pointer x coordinate at drag start. */
-    private int dragStartX;
-    /** Pointer y coordinate at drag start. */
-    private int dragStartY;
-    /** Current drag pointer x coordinate. */
-    private int dragX;
-    /** Current drag pointer y coordinate. */
-    private int dragY;
-    /** Whether the current press has crossed the drag threshold. */
+
+    /**
+     * Drag source, target, hover square, and piece state.
+     */
+    private byte dragSquare = Field.NO_SQUARE, dragTargetSquare = Field.NO_SQUARE,
+            dragHoverSquare = Field.NO_SQUARE, draggedPiece = Piece.EMPTY;
+
+    /** Drag anchor and live pointer coordinates. */
+    private int dragStartX, dragStartY, dragX, dragY;
+
+    /** True while a piece drag is active. */
     private boolean draggingPiece;
-    /** Dirty region accumulated while drag repainting is throttled. */
+
+    /** Dirty rectangle queued for throttled drag repainting. */
     private Rectangle pendingDragDirty;
-    /** Last timestamp when a drag repaint was submitted. */
+
+    /** Last throttled drag repaint timestamp. */
     private long lastDragRepaintNanos;
-    /** Piece currently gliding after a played move. */
-    private byte animatedMovePiece = Piece.EMPTY;
-    /** Secondary piece gliding after a compound move such as castling. */
-    private byte animatedSecondaryMovePiece = Piece.EMPTY;
-    /** Captured piece currently fading out. */
-    private byte animatedCapturePiece = Piece.EMPTY;
-    /** Origin square for the gliding piece. */
-    private byte animatedMoveFrom = Field.NO_SQUARE;
-    /** Destination square for the gliding piece. */
-    private byte animatedMoveTo = Field.NO_SQUARE;
-    /** Origin square for a secondary gliding piece. */
-    private byte animatedSecondaryMoveFrom = Field.NO_SQUARE;
-    /** Destination square for a secondary gliding piece. */
-    private byte animatedSecondaryMoveTo = Field.NO_SQUARE;
-    /** Square where a captured piece fades out. */
-    private byte animatedCaptureSquare = Field.NO_SQUARE;
-    /** Move-animation start time. */
+
+    /**
+     * Pieces involved in the current move animation.
+     */
+    private byte animatedMovePiece = Piece.EMPTY, animatedSecondaryMovePiece = Piece.EMPTY,
+            animatedCapturePiece = Piece.EMPTY;
+
+    /**
+     * Squares involved in the current move animation.
+     */
+    private byte animatedMoveFrom = Field.NO_SQUARE, animatedMoveTo = Field.NO_SQUARE,
+            animatedSecondaryMoveFrom = Field.NO_SQUARE, animatedSecondaryMoveTo = Field.NO_SQUARE,
+            animatedCaptureSquare = Field.NO_SQUARE;
+
+    /** Move-animation start timestamp. */
     private long moveAnimationStartedAt;
-    /** Whether a move animation is currently active. */
+
+    /** True while a move animation is running. */
     private boolean moveAnimationActive;
-    /** Move handler. */
+
+    /** Move handler used for drag-drop play. */
     private MoveHandler moveHandler;
-    /** Timer driving subtle board animations. */
-    private final Timer animationTimer;
-    /** Single-shot timer that coalesces high-frequency drag repaint requests. */
-    private final Timer dragRepaintTimer;
-    /** Bitmap cache for board texture and piece images. */
+
+    /** Animation and drag repaint timers. */
+    private final Timer animationTimer, dragRepaintTimer;
+
+    /** Cached board images for piece rendering. */
     private final BoardImageCache imageCache = new BoardImageCache();
-    /** Painter for suggested and user-drawn arrows. */
+
+    /** Painter for board arrows. */
     private final BoardArrowPainter arrowPainter = new BoardArrowPainter();
-    /** Cached legal moves for the current position (lazy, invalidated on every #setPosition). */
+
+    /** Cached legal move list for the current position. */
     private MoveList cachedLegalMoves;
-    /** Whether file/rank coordinates are painted on the board. */
-    private boolean showNotation = true;
-    /** Whether selected-piece legal destinations and drag targets are painted. */
-    private boolean showLegalMovePreview = true;
-    /** Whether the previous move should be highlighted. */
-    private boolean showLastMoveHighlight = true;
-    /** Whether engine suggested moves should be painted as arrows. */
-    private boolean showSuggestedMoveArrow = true;
-    /** Whether board animations should run. */
-    private boolean animationsEnabled = true;
-    /** User-supplied square highlights (overlaid on top of the board texture). */
+
+    /**
+     * Board overlay visibility toggles.
+     */
+    private boolean showNotation = true, showLegalMovePreview = true,
+            showLastMoveHighlight = true, showSuggestedMoveArrow = true, animationsEnabled = true;
+
+    /** Programmatic square highlights. */
     private final Map<Byte, Color> squareHighlights = new LinkedHashMap<>();
-    /** User-supplied Lichess-style arrow and circle markups. */
+
+    /** Persistent arrow and highlight markups. */
     private final List<BoardMarkup> boardMarkups = new ArrayList<>();
-    /** Active right-button drawing preview. */
+
+    /** Markup currently being drawn by the user. */
     private BoardMarkup currentMarkup;
-    /** Origin square of the active right-button drawing gesture. */
+
+    /** Source square for a pending board markup. */
     private byte markupOrigin = Field.NO_SQUARE;
-    /** Brush of the active right-button drawing gesture. */
+
+    /** Active board markup brush. */
     private MarkupBrush markupBrush;
-    /** Optional drag-start veto. When set, a drag is allowed only if the predicate returns true. Mirrors chessboard.js onDragStart. */
+
+    /** Optional drag-start filter. */
     private Predicate<DragContext> dragStartFilter;
-    /** Optional drop callback. Receives drop context and returns the move to play, or Move.NO_MOVE for snapback. Mirrors onDrop. */
+
+    /** Optional drop resolver for custom board interactions. */
     private ToIntFunction<DropContext> dropResolver;
-    /** Optional position-change observer (old FEN, new FEN). */
+
+    /** FEN and SAN change observer. */
     private BiConsumer<String, String> changeObserver;
-    /** Optional snapback-completion observer. */
-    private Runnable snapbackEndObserver;
-    /** Optional snap-completion observer. */
-    private Runnable snapEndObserver;
-    /** Whether illegal drag snapbacks should play the generic board cue. */
+
+    /** Snapback and snap completion observers. */
+    private Runnable snapbackEndObserver, snapEndObserver;
+
+    /** True when illegal-move snapback sound is enabled. */
     private boolean snapbackSoundEnabled = true;
-    /** Optional mouseover-square observer. */
+
+    /** Mouseover-square observer. */
     private IntConsumer mouseoverSquareObserver;
-    /** Last square reported to #mouseoverSquareObserver, or Field#NO_SQUARE. */
+
+    /** Last square reported to the mouseover observer. */
     private byte lastMouseoverSquare = Field.NO_SQUARE;
-    /** Whether the board is currently controlled by the setup editor. */
+
+    /** True while setup editing is active. */
     private boolean setupEditMode;
-    /** Mutable board used while setup editing is active. */
+
+    /** Mutable board used by setup editing. */
     private final byte[] setupEditBoard = new byte[64];
-    /** Piece painted by a left click in setup editing mode. */
-    private byte setupEditSelectedPiece = Piece.WHITE_KING;
-    /** Last square edited by setup mode, used for a subtle cursor mark. */
-    private byte setupEditLastSquare = Field.NO_SQUARE;
-    /** Observer notified when setup mode changes one square. */
+
+    /** Selected setup-edit piece and last edited square. */
+    private byte setupEditSelectedPiece = Piece.WHITE_KING, setupEditLastSquare = Field.NO_SQUARE;
+
+    /** Setup edit observer. */
     private BiConsumer<Byte, Byte> setupEditObserver;
-    /** Active snapback/snap animation state. */
+
+    /** Active snap animation. */
     private SnapAnimation snapAnimation;
-    /** Square whose static piece should not be painted while a snap or move animation is making the piece visually appear there. */
+
+    /** Square hidden while a snap animation paints the moving piece. */
     private byte snapHiddenSquare = Field.NO_SQUARE;
-    /** When true, the next #setPosition call will skip starting a move animation. */
+
+    /** True to skip the next move animation. */
     private boolean suppressNextMoveAnimation;
-    /** Active orientation-flip animation progress (0..1), or NaN when idle. */
+
+    /** Flip animation progress and start time. */
     private double flipAnimationProgress = Double.NaN;
-    /** Flip animation start time. */
+    /** Flip animation start timestamp. */
     private long flipAnimationStartedAt;
-    /** Move-animation duration (chessboard.js moveSpeed equivalent). */
-    private int moveAnimationMs = MOVE_ANIMATION_MS;
-    /** Snapback duration when an illegal drop returns to its origin. */
-    private int snapbackAnimationMs = 90;
-    /** Snap duration when a valid drop slides into place. */
-    private int snapAnimationMs = 55;
-    /** Flip animation duration. */
-    private int flipAnimationMs = 140;
-    /** Duration of the chess-web-style wrong-move badge animation. */
+
+    /**
+     * Animation durations in milliseconds.
+     */
+    private int moveAnimationMs = MOVE_ANIMATION_MS, snapbackAnimationMs = 90,
+            snapAnimationMs = 55, flipAnimationMs = 140;
     private static final int WRONG_MOVE_MARKER_MS = 320;
-    /** Square carrying the temporary wrong-move badge. */
+    /** Wrong-move marker square and start timestamp. */
     private byte wrongMoveMarkerSquare = Field.NO_SQUARE;
-    /** Wall-clock start time for the temporary wrong-move badge. */
+    /** Wrong-move marker start timestamp. */
     private long wrongMoveMarkerStartedAt;
     /** Creates the board panel. */
     public BoardPanel() {
@@ -289,11 +287,6 @@ public final class BoardPanel extends JPanel {
     public void setPositionInstant(Position value, short move) {
         setPosition(value, move, false, false);
     }
-    /** Sets the position with explicit animation control.
-     * @param value new value
-     * @param move move encoded in CRTK move format
-     * @param reverseMoveAnimation true to glide the move from destination back to origin
-     * @param animateMove true to start a move animation when the transition supports it */
     private void setPosition(Position value, short move, boolean reverseMoveAnimation, boolean animateMove) {
         byte[] previousBoard = position == null ? null : position.getBoard();
         position = value;
@@ -312,8 +305,6 @@ public final class BoardPanel extends JPanel {
         clearWrongMoveMarkerState();
         repaint();
     }
-    /** Returns lazily-cached legal moves for the current position.
-     * @return cached legal moves, or null when no position is loaded */
     private MoveList currentLegalMoves() {
         if (position == null) {
             return null;
@@ -346,9 +337,6 @@ public final class BoardPanel extends JPanel {
         // them here cancelled a move the moment the engine replied.
         repaint();
     }
-    /** Returns whether a suggested move is legal in the current board state.
-     * @param move move encoded in CRTK move format
-     * @return true when the suggested move is legal */
     private boolean legalSuggestedMove(short move) {
         if (move == Move.NO_MOVE || position == null) {
             return false;
@@ -409,7 +397,7 @@ public final class BoardPanel extends JPanel {
         startAnimation();
         repaint();
     }
-    /** True between the start of a flip animation and its midpoint, while the orientation should still appear as it did before #flip() was called. */
+    /** True when a flip animation is pending completion. */
     private boolean flipPending;
     /** Sets the orientation explicitly.
      * @param value new value */
@@ -675,10 +663,6 @@ public final class BoardPanel extends JPanel {
         setupEditObserver = observer;
     }
 
-    /** Internal #setPosition extension that fires the change observer.
-     * @param next next position
-     * @param move move encoded in CRTK move format
-     * @param animate true to animate the position change */
     private void applyPosition(Position next, short move, boolean animate) {
         String oldFen = position == null ? null : position.toString();
         if (animate) {
@@ -704,7 +688,7 @@ public final class BoardPanel extends JPanel {
     public void setMoveHandler(MoveHandler handler) {
         moveHandler = handler;
     }
-    /** Paints the board shell, coordinates, highlights, pieces, and suggested move. */
+    /** Paints the board shell, low-level coordinates, highlights, pieces, and suggested move. */
     @Override
     protected void paintComponent(Graphics graphics) {
         super.paintComponent(graphics);
@@ -725,14 +709,12 @@ public final class BoardPanel extends JPanel {
             g.dispose();
         }
     }
-    /** Draws everything clipped to the square chessboard.js board surface.
-     * @param g graphics context
-     * @param board board drawing bounds */
     private void drawBoardContent(Graphics2D g, Rectangle board) {
         Graphics2D copy = (Graphics2D) g.create();
         try {
             copy.clip(board);
             drawBoardTexture(copy, board);
+            drawCoordinates(copy, board);
             if (setupEditMode) {
                 drawSetupEditHighlight(copy, board);
             } else {
@@ -749,7 +731,6 @@ public final class BoardPanel extends JPanel {
                 drawSuggestedMove(copy, board);
                 drawBoardMarkups(copy, board);
             }
-            drawCoordinates(copy, board);
             if (!setupEditMode) {
                 drawWrongMoveMarker(copy, board);
             }
@@ -761,9 +742,6 @@ public final class BoardPanel extends JPanel {
             copy.dispose();
         }
     }
-    /** Paints a soft veil over the board during the orientation flip so the change feels animated rather than instantaneous.
-     * @param g graphics context
-     * @param board board drawing bounds */
     private void drawFlipOverlay(Graphics2D g, Rectangle board) {
         if (Double.isNaN(flipAnimationProgress)) {
             return;
@@ -784,9 +762,6 @@ public final class BoardPanel extends JPanel {
             g.setColor(savedColor);
         }
     }
-    /** Paints user-supplied square highlights.
-     * @param g graphics context
-     * @param board board drawing bounds */
     private void drawSquareHighlights(Graphics2D g, Rectangle board) {
         if (squareHighlights.isEmpty()) {
             return;
@@ -799,9 +774,6 @@ public final class BoardPanel extends JPanel {
             }
         }
     }
-    /** Paints Lichess-style user annotations on top of pieces.
-     * @param g graphics context
-     * @param board board drawing bounds */
     private void drawBoardMarkups(Graphics2D g, Rectangle board) {
         if (boardMarkups.isEmpty() && currentMarkup == null) {
             return;
@@ -815,11 +787,6 @@ public final class BoardPanel extends JPanel {
             drawBoardMarkup(g, board, currentMarkup, MARKUP_CURRENT_OPACITY);
         }
     }
-    /** Paints one user annotation.
-     * @param g graphics context
-     * @param board board drawing bounds
-     * @param markup board markup to draw
-     * @param opacity paint opacity from 0.0 to 1.0 */
     private void drawBoardMarkup(Graphics2D g, Rectangle board, BoardMarkup markup, double opacity) {
         Color savedColor = g.getColor();
         try {
@@ -833,10 +800,6 @@ public final class BoardPanel extends JPanel {
             g.setColor(savedColor);
         }
     }
-    /** Paints a Lichess-style square circle.
-     * @param g graphics context
-     * @param bounds drawing bounds
-     * @param brush annotation brush */
     private static void drawMarkupCircle(Graphics2D g, Rectangle bounds, MarkupBrush brush) {
         Stroke savedStroke = g.getStroke();
         try {
@@ -853,25 +816,15 @@ public final class BoardPanel extends JPanel {
             g.setStroke(savedStroke);
         }
     }
-    /** Paints a Lichess-style user arrow.
-     * @param g graphics context
-     * @param board board drawing bounds
-     * @param markup board markup to draw */
     private void drawMarkupArrow(Graphics2D g, Rectangle board, BoardMarkup markup) {
         int cell = Math.max(1, board.width / 8);
         float lineWidth = Math.max(5f, cell * markup.brush().lineWidth() / 64f);
         arrowPainter.draw(g, center(board, markup.from()), center(board, markup.to()), lineWidth, lineWidth);
     }
-    /** Returns the visible annotation color for one opacity multiplier.
-     * @param color display color
-     * @param opacity paint opacity from 0.0 to 1.0
-     * @return color with opacity applied */
     private static Color markupColor(Color color, double opacity) {
         int alpha = (int) Math.round(color.getAlpha() * Math.max(0.0, Math.min(1.0, opacity)));
         return Theme.withAlpha(color, alpha);
     }
-    /** Returns the mark that would be toggled off by the active drawing preview.
-     * @return pending erase markup index, or -1 when nothing would be erased */
     private int pendingEraseMarkupIndex() {
         if (currentMarkup == null) {
             return -1;
@@ -884,9 +837,6 @@ public final class BoardPanel extends JPanel {
         }
         return -1;
     }
-    /** Paints the snap/snapback animation ghost piece.
-     * @param g graphics context
-     * @param board board drawing bounds */
     private void drawSnapAnimation(Graphics2D g, Rectangle board) {
         SnapAnimation snap = snapAnimation;
         if (snap == null) {
@@ -899,17 +849,11 @@ public final class BoardPanel extends JPanel {
         int y = (int) Math.round(snap.startY + (snap.endY - snap.startY) * eased);
         drawPieceAt(g, cell, x, y, snap.piece);
     }
-    /** Draws the chessboard.js board border.
-     * @param g graphics context
-     * @param board board drawing bounds */
     private void drawShell(Graphics2D g, Rectangle board) {
         g.setColor(Theme.BOARD_EDGE);
         g.fillRect(board.x - BoardStyle.BORDER_WIDTH, board.y - BoardStyle.BORDER_WIDTH,
                 board.width + BoardStyle.BORDER_WIDTH * 2, board.height + BoardStyle.BORDER_WIDTH * 2);
     }
-    /** Draws the cached chessboard.js board texture.
-     * @param g graphics context
-     * @param board board drawing bounds */
     private void drawBoardTexture(Graphics2D g, Rectangle board) {
         BufferedImage texture = imageCache.boardTexture(board.width);
         Rectangle clip = g.getClipBounds();
@@ -928,24 +872,15 @@ public final class BoardPanel extends JPanel {
                 sx, sy, sx + dirty.width, sy + dirty.height,
                 null);
     }
-    /** Returns the cached board texture for a board size.
-     * @param size board image size in pixels
-     * @return cached board texture */
     private BufferedImage boardTexture(int size) {
         return imageCache.boardTexture(size);
     }
-    /** Draws coordinates.
-     * @param g graphics context
-     * @param board board drawing bounds */
     private void drawCoordinates(Graphics2D g, Rectangle board) {
         if (!showNotation) {
             return;
         }
         BoardStyle.drawInsideCoordinates(g, board, whiteDown, 14);
     }
-    /** Draws last-move highlights.
-     * @param g graphics context
-     * @param board board drawing bounds */
     private void drawMoveHighlights(Graphics2D g, Rectangle board) {
         if (!showLastMoveHighlight || lastMove == Move.NO_MOVE) {
             return;
@@ -960,9 +895,6 @@ public final class BoardPanel extends JPanel {
             BoardStyle.drawFilledSquareHighlight(g, to, Theme.LAST_MOVE_EDGE);
         }
     }
-    /** Draws the selected square and legal destinations.
-     * @param g graphics context
-     * @param board board drawing bounds */
     private void drawSelection(Graphics2D g, Rectangle board) {
         if (position == null || selectedSquare == Field.NO_SQUARE) {
             return;
@@ -977,9 +909,6 @@ public final class BoardPanel extends JPanel {
             drawDropTarget(g, board);
         }
     }
-    /** Draws the checked-king marker.
-     * @param g graphics context
-     * @param board board drawing bounds */
     private void drawCheckHighlight(Graphics2D g, Rectangle board) {
         byte square = checkedKingSquare();
         if (square == Field.NO_SQUARE) {
@@ -1011,10 +940,7 @@ public final class BoardPanel extends JPanel {
             g.setColor(savedColor);
         }
     }
-    /** Cached radial-gradient stops for the check highlight. */
     private static final float[] CHECK_GRADIENT_FRACTIONS = { 0.0f, 0.24f, 0.42f, 0.74f, 1.0f };
-    /** Returns the checked side-to-move king square.
-     * @return checked king square, or {@link chess.core.Field#NO_SQUARE} when no king is in check */
     private byte checkedKingSquare() {
         if (position == null || !position.inCheck()) {
             return Field.NO_SQUARE;
@@ -1028,9 +954,6 @@ public final class BoardPanel extends JPanel {
         }
         return Field.NO_SQUARE;
     }
-    /** Draws selected-piece legal destinations.
-     * @param g graphics context
-     * @param board board drawing bounds */
     private void drawLegalTargets(Graphics2D g, Rectangle board) {
         Rectangle clip = g.getClipBounds();
         for (byte target : selectedLegalTargets) {
@@ -1042,9 +965,6 @@ public final class BoardPanel extends JPanel {
             }
         }
     }
-    /** Paints the most recent setup-edit square.
-     * @param g graphics context
-     * @param board board drawing bounds */
     private void drawSetupEditHighlight(Graphics2D g, Rectangle board) {
         if (setupEditLastSquare == Field.NO_SQUARE) {
             return;
@@ -1064,9 +984,6 @@ public final class BoardPanel extends JPanel {
             g.setStroke(previousStroke);
         }
     }
-    /** Paints the temporary wrong-move badge used by the puzzle trainer.
-     * @param g graphics context
-     * @param board board drawing bounds */
     private void drawWrongMoveMarker(Graphics2D g, Rectangle board) {
         if (wrongMoveMarkerSquare == Field.NO_SQUARE) {
             return;
@@ -1104,9 +1021,6 @@ public final class BoardPanel extends JPanel {
             marker.dispose();
         }
     }
-    /** Draws all pieces.
-     * @param g graphics context
-     * @param board board drawing bounds */
     private void drawPieces(Graphics2D g, Rectangle board) {
         byte[] pieces = setupEditMode ? setupEditBoard : position == null ? null : position.getBoard();
         if (pieces == null) {
@@ -1136,21 +1050,12 @@ public final class BoardPanel extends JPanel {
             }
         }
     }
-    /** Draws one piece glyph at a board-relative pixel position.
-     * @param g graphics context
-     * @param cell board cell size in pixels
-     * @param x x coordinate
-     * @param y y coordinate
-     * @param piece signed piece code */
     private void drawPieceAt(Graphics2D g, int cell, int x, int y, byte piece) {
         BufferedImage image = pieceImage(piece, cell);
         if (image != null) {
             g.drawImage(image, x, y, null);
         }
     }
-    /** Draws the suggested move arrow.
-     * @param g graphics context
-     * @param board board drawing bounds */
     private void drawSuggestedMove(Graphics2D g, Rectangle board) {
         if (!showSuggestedMoveArrow || suggestedMove == Move.NO_MOVE || !legalSuggestedMove(suggestedMove)) {
             return;
@@ -1158,9 +1063,6 @@ public final class BoardPanel extends JPanel {
         arrowPainter.drawSuggested(g, center(board, Move.getFromIndex(suggestedMove)),
                 center(board, Move.getToIndex(suggestedMove)));
     }
-    /** Draws the moving piece during a played-move animation.
-     * @param g graphics context
-     * @param board board drawing bounds */
     private void drawAnimatedMove(Graphics2D g, Rectangle board) {
         if (!moveAnimationActive) {
             return;
@@ -1168,12 +1070,6 @@ public final class BoardPanel extends JPanel {
         drawAnimatedPiece(g, board, animatedMovePiece, animatedMoveFrom, animatedMoveTo);
         drawAnimatedPiece(g, board, animatedSecondaryMovePiece, animatedSecondaryMoveFrom, animatedSecondaryMoveTo);
     }
-    /** Draws one moving piece during a played-move animation.
-     * @param g graphics context
-     * @param board board drawing bounds
-     * @param piece signed piece code
-     * @param from origin square
-     * @param to destination square */
     private void drawAnimatedPiece(Graphics2D g, Rectangle board, byte piece, byte from, byte to) {
         if (piece == Piece.EMPTY || from == Field.NO_SQUARE || to == Field.NO_SQUARE) {
             return;
@@ -1186,9 +1082,6 @@ public final class BoardPanel extends JPanel {
         int y = (int) Math.round(fromBounds.y + (toBounds.y - fromBounds.y) * progress);
         drawPieceAt(g, cell, x, y, piece);
     }
-    /** Draws a fading captured piece during a played-move animation.
-     * @param g graphics context
-     * @param board board drawing bounds */
     private void drawAnimatedCapture(Graphics2D g, Rectangle board) {
         if (!moveAnimationActive || animatedCapturePiece == Piece.EMPTY || animatedCaptureSquare == Field.NO_SQUARE) {
             return;
@@ -1204,9 +1097,6 @@ public final class BoardPanel extends JPanel {
             g.setComposite(savedComposite);
         }
     }
-    /** Draws the active drop target while dragging a piece.
-     * @param g graphics context
-     * @param board board drawing bounds */
     private void drawDropTarget(Graphics2D g, Rectangle board) {
         if (!draggingPiece) {
             return;
@@ -1218,9 +1108,6 @@ public final class BoardPanel extends JPanel {
             }
         }
     }
-    /** Draws the dragged piece at the current pointer position.
-     * @param g graphics context
-     * @param board board drawing bounds */
     private void drawDraggedPiece(Graphics2D g, Rectangle board) {
         if (!draggingPiece || draggedPiece == Piece.EMPTY) {
             return;
@@ -1245,10 +1132,7 @@ public final class BoardPanel extends JPanel {
             g.setColor(savedColor);
         }
     }
-    /** Scale factor applied to a piece while it is being dragged so it lifts visibly over the board. */
     private static final double DRAG_SCALE = 1.0;
-    /** Pre-renders the dragged piece bitmap before high-frequency drag events start.
-     * @param piece signed piece code */
     private void warmDragPieceImage(byte piece) {
         Rectangle board = boardBounds();
         int cell = board.width / 8;
@@ -1257,8 +1141,6 @@ public final class BoardPanel extends JPanel {
             imageCache.dragPieceImage(piece, scaledCell);
         }
     }
-    /** Handles one mouse press.
-     * @param event mouse event */
     private void handlePress(MouseEvent event) {
         if (setupEditMode) {
             handleSetupEdit(event);
@@ -1318,8 +1200,6 @@ public final class BoardPanel extends JPanel {
         }
         repaint();
     }
-    /** Applies the active setup-edit tool at a pointer location.
-     * @param event mouse event */
     private void handleSetupEdit(MouseEvent event) {
         if (!setupPaintGesture(event) && !setupEraseGesture(event)) {
             return;
@@ -1333,22 +1213,14 @@ public final class BoardPanel extends JPanel {
         setCursor(Cursor.getPredefinedCursor(Cursor.CROSSHAIR_CURSOR));
         event.consume();
     }
-    /** Returns whether a setup-edit event should paint the selected tool.
-     * @param event mouse event
-     * @return true when the event paints */
     private static boolean setupPaintGesture(MouseEvent event) {
         return SwingUtilities.isLeftMouseButton(event)
                 || (event.getModifiersEx() & MouseEvent.BUTTON1_DOWN_MASK) != 0;
     }
-    /** Returns whether a setup-edit event should erase a square.
-     * @param event mouse event
-     * @return true when the event erases */
     private static boolean setupEraseGesture(MouseEvent event) {
         return SwingUtilities.isRightMouseButton(event)
                 || (event.getModifiersEx() & MouseEvent.BUTTON3_DOWN_MASK) != 0;
     }
-    /** Starts a Lichess-style right-button annotation gesture.
-     * @param event mouse event */
     private void handleMarkupPress(MouseEvent event) {
         byte square = squareAt(event.getX(), event.getY());
         if (square == Field.NO_SQUARE) {
@@ -1363,15 +1235,11 @@ public final class BoardPanel extends JPanel {
         currentMarkup = markupFromPointer(event.getX(), event.getY());
         repaint();
     }
-    /** Updates the active annotation preview.
-     * @param event mouse event */
     private void handleMarkupDrag(MouseEvent event) {
         event.consume();
         currentMarkup = markupFromPointer(event.getX(), event.getY());
         repaint();
     }
-    /** Commits or toggles the active annotation.
-     * @param event mouse event */
     private void handleMarkupRelease(MouseEvent event) {
         event.consume();
         BoardMarkup finished = markupFromPointer(event.getX(), event.getY());
@@ -1381,10 +1249,6 @@ public final class BoardPanel extends JPanel {
         }
         repaint();
     }
-    /** Returns the annotation shape described by the active gesture and pointer.
-     * @param pointerX pointer x coordinate
-     * @param pointerY pointer y coordinate
-     * @return markup described by the active pointer gesture */
     private BoardMarkup markupFromPointer(int pointerX, int pointerY) {
         byte target = squareAt(pointerX, pointerY);
         if (target == Field.NO_SQUARE || markupBrush == null || markupOrigin == Field.NO_SQUARE) {
@@ -1392,22 +1256,16 @@ public final class BoardPanel extends JPanel {
         }
     return new BoardMarkup(markupOrigin, target == markupOrigin ? MARKUP_CIRCLE : target, markupBrush);
     }
-    /** Clears the active right-button drawing gesture. */
     private void clearMarkupGesture() {
         currentMarkup = null;
         markupOrigin = Field.NO_SQUARE;
         markupBrush = null;
     }
-    /** Returns the Lichess/Chessground brush for a mouse event modifier set.
-     * @param event mouse event
-     * @return annotation brush for the mouse modifiers */
     private static MarkupBrush markupBrush(MouseEvent event) {
         boolean modA = event.isShiftDown() || event.isControlDown();
         boolean modB = event.isAltDown() || event.isMetaDown() || event.isAltGraphDown();
         return MarkupBrush.forGesture((modA ? 1 : 0) + (modB ? 2 : 0));
     }
-    /** Toggles one annotation using Chessground's same-endpoints behavior: same color deletes, different color replaces.
-     * @param markup board markup to draw */
     private void toggleMarkup(BoardMarkup markup) {
         boolean foundSameEndpoints = false;
         boolean foundSameBrush = false;
@@ -1423,24 +1281,12 @@ public final class BoardPanel extends JPanel {
             boardMarkups.add(markup);
         }
     }
-    /** Returns whether two annotations share the same shape endpoints.
-     * @param first first value to compare
-     * @param second second value to compare
-     * @return true when both annotations share endpoints */
     private static boolean sameMarkupEndpoints(BoardMarkup first, BoardMarkup second) {
         return first.from() == second.from() && first.to() == second.to();
     }
-    /** Returns whether two annotations use the same brush color.
-     * @param first first value to compare
-     * @param second second value to compare
-     * @return true when both annotations use the same brush color */
     private static boolean sameMarkupBrush(BoardMarkup first, BoardMarkup second) {
         return first.brush().matches(second.brush());
     }
-    /** Returns the subset of legal moves that target a square.
-     * @param moves candidate moves
-     * @param to destination square
-     * @return legal moves targeting the supplied square */
     private static short[] matchingMovesTo(short[] moves, byte to) {
         int count = 0;
         short[] buffer = new short[moves.length];
@@ -1451,10 +1297,6 @@ public final class BoardPanel extends JPanel {
         }
         return Arrays.copyOf(buffer, count);
     }
-    /** Plays the unique candidate, or shows a promotion picker when multiple promotion options are legal so the user can choose under-promotion.
-     * @param candidates legal candidate moves
-     * @param popupX popup x coordinate
-     * @param popupY popup y coordinate */
     private void playOrPromote(short[] candidates, int popupX, int popupY) {
         boolean anyPromotion = false;
         for (short m : candidates) {
@@ -1466,25 +1308,20 @@ public final class BoardPanel extends JPanel {
         }
         showPromotionOverlay(candidates);
     }
-    /** Active promotion picker overlay; null when no picker is visible. */
+    /** Active promotion choice overlay. */
     private PromotionOverlay promotionOverlay;
-    /** Shows the in-board promotion picker for the supplied candidates.
-     * @param candidates legal candidate moves */
     private void showPromotionOverlay(short[] candidates) {
         cancelPromotionOverlay();
         byte target = Move.getToIndex(candidates[0]);
         promotionOverlay = new PromotionOverlay(target, candidates, () -> position != null && position.isWhiteToMove());
         repaint();
     }
-    /** Cancels any visible promotion overlay. */
     private void cancelPromotionOverlay() {
         if (promotionOverlay != null) {
             promotionOverlay = null;
             repaint();
         }
     }
-    /** Handles pointer movement during a piece drag.
-     * @param event mouse event */
     private void handleDrag(MouseEvent event) {
         if (setupEditMode) {
             handleSetupEdit(event);
@@ -1524,8 +1361,6 @@ public final class BoardPanel extends JPanel {
                             dragX, dragY, draggingPiece, dragStarted)));
         }
     }
-    /** Handles pointer release after a possible drag.
-     * @param event mouse event */
     private void handleRelease(MouseEvent event) {
         if (setupEditMode) {
             updateCursor(event);
@@ -1581,9 +1416,6 @@ public final class BoardPanel extends JPanel {
         }
         repaint();
     }
-    /** Returns true if the candidate set contains more than one promotion choice.
-     * @param candidates legal candidate moves
-     * @return true when the candidate list contains more than one promotion piece */
     private static boolean hasPromotionAlternatives(short[] candidates) {
         if (candidates.length <= 1) {
             return false;
@@ -1594,12 +1426,6 @@ public final class BoardPanel extends JPanel {
         }
         return anyPromotion;
     }
-    /** Begins a snap or snapback animation for the dragged piece.
-     * @param piece signed piece code
-     * @param fromX origin x coordinate
-     * @param fromY origin y coordinate
-     * @param landingSquare target square for the snap animation
-     * @param snapback true when the piece should return to its origin */
     private void startSnapAnimation(byte piece, int fromX, int fromY, byte landingSquare, boolean snapback) {
         if (!isSquareIndex(landingSquare)) {
             return;
@@ -1618,18 +1444,12 @@ public final class BoardPanel extends JPanel {
         snapHiddenSquare = landingSquare;
         startAnimation();
     }
-    /** Returns the drop target only when it is legal for the current drag origin.
-     * @param square board square index
-     * @return legal drop target, or {@link chess.core.Field#NO_SQUARE} when none exists */
     private byte legalDropTarget(byte square) {
         if (square == Field.NO_SQUARE || dragSquare == Field.NO_SQUARE) {
             return Field.NO_SQUARE;
         }
     return findLegalMove(dragSquare, square) == Move.NO_MOVE ? Field.NO_SQUARE : square;
     }
-    /** Returns whether a target square contains an opponent piece.
-     * @param square board square index
-     * @return true when the square is a legal capture target */
     private boolean isCaptureTarget(byte square) {
         if (position == null || !isSquareIndex(square)) {
             return false;
@@ -1637,7 +1457,6 @@ public final class BoardPanel extends JPanel {
         byte piece = position.getBoard()[square];
         return piece != Piece.EMPTY && Piece.isWhite(piece) != position.isWhiteToMove();
     }
-    /** Clears drag-only state. */
     private void clearDragState() {
         cancelPendingDragRepaint();
         dragSquare = Field.NO_SQUARE;
@@ -1646,16 +1465,11 @@ public final class BoardPanel extends JPanel {
         draggedPiece = Piece.EMPTY;
         draggingPiece = false;
     }
-    /** Clears selected-square move caches. */
     private void clearSelection() {
         selectedSquare = Field.NO_SQUARE;
         selectedLegalMoves = new short[0];
         selectedLegalTargets = new byte[0];
     }
-    /** Updates one setup-edit square.
-     * @param square board square index
-     * @param piece piece code
-     * @param notify true to notify the setup editor */
     private void setSetupEditPieceAt(byte square, byte piece, boolean notify) {
         if (!isSquareIndex(square)) {
             throw new IllegalArgumentException("Invalid square " + square);
@@ -1673,14 +1487,10 @@ public final class BoardPanel extends JPanel {
             repaint(squareBounds(boardBounds(), square));
         }
     }
-    /** Selects one square and caches its legal moves.
-     * @param square board square index */
     private void selectSquare(byte square) {
         selectedSquare = square;
         refreshSelectedLegalMoves();
     }
-    /** Updates the cursor based on the square below the pointer.
-     * @param event mouse event */
     private void updateCursor(MouseEvent event) {
         if (setupEditMode) {
             byte square = squareAt(event.getX(), event.getY());
@@ -1701,8 +1511,6 @@ public final class BoardPanel extends JPanel {
         setCursor(draggable ? Cursor.getPredefinedCursor(Cursor.HAND_CURSOR) : Cursor.getDefaultCursor());
         notifyMouseover(square);
     }
-    /** Notifies the mouseover observer when the pointer enters a new square.
-     * @param square board square index */
     private void notifyMouseover(byte square) {
         if (mouseoverSquareObserver == null) {
             return;
@@ -1713,20 +1521,12 @@ public final class BoardPanel extends JPanel {
         lastMouseoverSquare = square;
         mouseoverSquareObserver.accept(square);
     }
-    /** Finds a legal move between two squares.
-     * @param from origin square
-     * @param to destination square
-     * @return matching legal move, or {@link chess.core.Move#NO_MOVE} when none exists */
     private short findLegalMove(byte from, byte to) {
         if (selectedSquare == from) {
     return findLegalMove(selectedLegalMoves, to);
         }
     return findLegalMove(legalMovesFrom(from), to);
     }
-    /** Finds a legal move to one target in a cached move array.
-     * @param moves candidate moves
-     * @param to destination square
-     * @return matching legal move, or {@link chess.core.Move#NO_MOVE} when none exists */
     private static short findLegalMove(short[] moves, byte to) {
         short first = Move.NO_MOVE;
         for (short move : moves) {
@@ -1741,9 +1541,6 @@ public final class BoardPanel extends JPanel {
         }
         return first;
     }
-    /** Returns legal moves from one square.
-     * @param from origin square
-     * @return legal moves from the supplied origin square */
     private short[] legalMovesFrom(byte from) {
         MoveList moves = currentLegalMoves();
         if (moves == null) {
@@ -1759,7 +1556,6 @@ public final class BoardPanel extends JPanel {
         }
         return Arrays.copyOf(buffer, count);
     }
-    /** Refreshes selected-square legal move and target caches. */
     private void refreshSelectedLegalMoves() {
         if (position == null || selectedSquare == Field.NO_SQUARE) {
             clearSelection();
@@ -1787,11 +1583,6 @@ public final class BoardPanel extends JPanel {
         selectedLegalMoves = Arrays.copyOf(moveBuffer, moveCount);
         selectedLegalTargets = Arrays.copyOf(targetBuffer, targetCount);
     }
-    /** Returns whether a target is already present in a compact target buffer.
-     * @param targets candidate target squares
-     * @param count number of populated entries to inspect
-     * @param target target square
-     * @return true when the target is present in the populated entries */
     private static boolean containsTarget(byte[] targets, int count, byte target) {
         for (int i = 0; i < count; i++) {
             if (targets[i] == target) {
@@ -1800,8 +1591,6 @@ public final class BoardPanel extends JPanel {
         }
         return false;
     }
-    /** Returns board bounds.
-     * @return current board drawing bounds */
     private Rectangle boardBounds() {
         // Reserve a left strip for the eval bar so the board square never
         // slides underneath it.
@@ -1862,8 +1651,6 @@ public final class BoardPanel extends JPanel {
                 showLastMoveHighlight,
                 showSuggestedMoveArrow);
     }
-    /** Returns selected legal targets that currently capture a piece.
-     * @return capture target squares */
     private byte[] selectedCaptureTargets() {
         byte[] captures = new byte[selectedLegalTargets.length];
         int count = 0;
@@ -1874,41 +1661,17 @@ public final class BoardPanel extends JPanel {
         }
         return Arrays.copyOf(captures, count);
     }
-    /** Returns square bounds.
-     * @param board board drawing bounds
-     * @param square board square index
-     * @return bounds for the supplied board square */
     private Rectangle squareBounds(Rectangle board, byte square) {
         return BoardGeometry.squareBounds(board, square, whiteDown);
     }
-    /** Returns a scaled cached image for one chess piece.
-     * @param piece signed piece code
-     * @param cell board cell size in pixels
-     * @return computed value */
     private BufferedImage pieceImage(byte piece, int cell) {
         return imageCache.pieceImage(piece, cell);
     }
-    /** Returns whether a pointer movement has crossed the drag threshold.
-     * @param startX starting pointer x coordinate
-     * @param startY starting pointer y coordinate
-     * @param currentX current pointer x coordinate
-     * @param currentY current pointer y coordinate
-     * @return true when the pointer movement exceeds the drag threshold */
     private static boolean isDragPastThreshold(int startX, int startY, int currentX, int currentY) {
         long dx = (long) currentX - startX;
         long dy = (long) currentY - startY;
         return dx * dx + dy * dy >= (long) DRAG_THRESHOLD * DRAG_THRESHOLD;
     }
-    /** Returns the dirty area needed to repaint one drag frame.
-     * @param board board drawing bounds
-     * @param targetSquare target square
-     * @param hoverSquare hovered square
-     * @param pointerX pointer x coordinate
-     * @param pointerY pointer y coordinate
-     * @param includeDraggedPiece true to include the dragged piece bounds
-     * @param includeOriginSquare true to include the source square whose static
-     *     piece has just been hidden
-     * @return computed value */
     private Rectangle dragRepaintBounds(
             Rectangle board,
             byte targetSquare,
@@ -1938,8 +1701,6 @@ public final class BoardPanel extends JPanel {
         }
         return dirty;
     }
-    /** Schedules one drag repaint, coalescing bursts to a display-frame cadence.
-     * @param dirty dirty repaint bounds */
     private void scheduleDragRepaint(Rectangle dirty) {
         if (dirty == null) {
             return;
@@ -1958,7 +1719,6 @@ public final class BoardPanel extends JPanel {
             dragRepaintTimer.restart();
         }
     }
-    /** Submits the accumulated drag dirty rectangle immediately. */
     private void flushPendingDragRepaint() {
         Rectangle dirty = pendingDragDirty;
         pendingDragDirty = null;
@@ -1968,31 +1728,20 @@ public final class BoardPanel extends JPanel {
             repaintDirty(dirty);
         }
     }
-    /** Cancels any delayed drag repaint request. */
     private void cancelPendingDragRepaint() {
         pendingDragDirty = null;
         lastDragRepaintNanos = 0L;
         dragRepaintTimer.stop();
     }
-    /** Repaints one dirty rectangle.
-     * @param dirty dirty repaint bounds */
     private void repaintDirty(Rectangle dirty) {
         if (dirty != null) {
             repaint(dirty.x, dirty.y, dirty.width, dirty.height);
         }
     }
-    /** Returns a rectangle expanded by a fixed padding.
-     * @param bounds drawing bounds
-     * @param padding padding in pixels
-     * @return expanded rectangle */
     private static Rectangle expanded(Rectangle bounds, int padding) {
     return new Rectangle(bounds.x - padding, bounds.y - padding,
                 bounds.width + padding * 2, bounds.height + padding * 2);
     }
-    /** Returns the union of two optional rectangles.
-     * @param first first value to compare
-     * @param second second value to compare
-     * @return union rectangle */
     private static Rectangle union(Rectangle first, Rectangle second) {
         if (first == null) {
             return second == null ? null : new Rectangle(second);
@@ -2002,38 +1751,20 @@ public final class BoardPanel extends JPanel {
         }
         return first.union(second);
     }
-    /** Returns whether a drawing bounds intersects the current clip.
-     * @param clip active graphics clip, or null when unclipped
-     * @param bounds drawing bounds
-     * @return true when the bounds should be painted */
     private static boolean intersectsClip(Rectangle clip, Rectangle bounds) {
         return clip == null || bounds == null || clip.intersects(bounds);
     }
-    /** Returns the square at screen coordinates.
-     * @param x x coordinate
-     * @param y y coordinate
-     * @return square at the coordinates, or {@link chess.core.Field#NO_SQUARE} outside the board */
     private byte squareAt(int x, int y) {
         return BoardGeometry.squareAt(boardBounds(), x, y, whiteDown);
     }
-    /** Returns square center.
-     * @param board board drawing bounds
-     * @param square board square index
-     * @return computed value */
     private Point center(Rectangle board, byte square) {
         return BoardGeometry.center(board, square, whiteDown);
     }
-    /** Starts the animation timer when needed. */
     private void startAnimation() {
         if (!animationTimer.isRunning()) {
             animationTimer.start();
         }
     }
-    /** Starts a played-move animation when the previous and current boards allow it.
-     * @param oldBoard previous board array
-     * @param newBoard new board array
-     * @param move move encoded in CRTK move format
-     * @param reverseMoveAnimation true when replay navigation should animate the move backward */
     private void startMoveAnimation(byte[] oldBoard, byte[] newBoard, short move,
             boolean reverseMoveAnimation) {
         if (!animationsEnabled || moveAnimationMs <= 0) {
@@ -2068,12 +1799,6 @@ public final class BoardPanel extends JPanel {
         moveAnimationActive = true;
         startAnimation();
     }
-    /** Returns the piece to draw for a legal-looking board transition.
-     * @param oldBoard previous board array
-     * @param newBoard new board array
-     * @param from animated origin square
-     * @param to animated target square
-     * @return piece to draw, or {@link Piece#EMPTY} when the boards do not describe that move */
     private static byte animatedPiece(byte[] oldBoard, byte[] newBoard, byte from, byte to) {
         byte source = oldBoard[from];
         byte target = newBoard[to];
@@ -2082,12 +1807,6 @@ public final class BoardPanel extends JPanel {
         }
         return target;
     }
-    /** Captures direct and en-passant victims for the fade-out part of the animation.
-     * @param oldBoard previous board array
-     * @param newBoard new board array
-     * @param from origin square
-     * @param to destination square
-     * @param movingPiece piece being animated */
     private void configureAnimatedCapture(byte[] oldBoard, byte[] newBoard, byte from, byte to, byte movingPiece) {
         byte direct = oldBoard[to];
         if (direct != Piece.EMPTY && Piece.isWhite(direct) != Piece.isWhite(movingPiece)) {
@@ -2105,12 +1824,6 @@ public final class BoardPanel extends JPanel {
             animatedCaptureSquare = candidate;
         }
     }
-    /** Finds a secondary same-color piece move caused by a compound move.
-     * @param oldBoard previous board array
-     * @param newBoard new board array
-     * @param moveFrom original move origin square
-     * @param moveTo original move destination square
-     * @param reverseMoveAnimation true when the compound move is being undone */
     private void configureSecondaryMove(byte[] oldBoard, byte[] newBoard, byte moveFrom, byte moveTo,
             boolean reverseMoveAnimation) {
         byte kingFrom = reverseMoveAnimation ? moveTo : moveFrom;
@@ -2138,7 +1851,6 @@ public final class BoardPanel extends JPanel {
         animatedSecondaryMoveFrom = rookFrom;
         animatedSecondaryMoveTo = rookTo;
     }
-    /** Clears played-move animation state. */
     private void clearMoveAnimation() {
         animatedMovePiece = Piece.EMPTY;
         animatedSecondaryMovePiece = Piece.EMPTY;
@@ -2151,7 +1863,6 @@ public final class BoardPanel extends JPanel {
         moveAnimationStartedAt = 0L;
         moveAnimationActive = false;
     }
-    /** Clears every currently active board animation. */
     private void clearAllAnimations() {
         clearMoveAnimation();
         snapAnimation = null;
@@ -2167,7 +1878,6 @@ public final class BoardPanel extends JPanel {
         clearWrongMoveMarkerState();
         animationTimer.stop();
     }
-    /** Advances board animations one frame. */
     private void tickAnimation() {
         if (moveAnimationActive && moveAnimationProgress() >= 1.0) {
             clearMoveAnimation();
@@ -2204,16 +1914,12 @@ public final class BoardPanel extends JPanel {
         }
         repaint();
     }
-    /** Returns whether any board animation is still active.
-     * @return true when any board animation is active */
     private boolean hasActiveAnimation() {
         return moveAnimationActive
                 || snapAnimation != null
                 || !Double.isNaN(flipAnimationProgress)
                 || wrongMoveMarkerSquare != Field.NO_SQUARE;
     }
-    /** Returns played-move animation progress.
-     * @return move-animation progress from 0.0 to 1.0 */
     private double moveAnimationProgress() {
         if (!moveAnimationActive || moveAnimationStartedAt == 0L) {
             return 1.0;
@@ -2221,8 +1927,6 @@ public final class BoardPanel extends JPanel {
         double elapsed = (double) System.currentTimeMillis() - (double) moveAnimationStartedAt;
         return Math.max(0.0, Math.min(1.0, elapsed / Math.max(1.0, moveAnimationMs)));
     }
-    /** Returns wrong-move badge animation progress.
-     * @return progress from 0.0 to 1.0 */
     private double wrongMoveMarkerProgress() {
         if (wrongMoveMarkerSquare == Field.NO_SQUARE || wrongMoveMarkerStartedAt == 0L) {
             return 1.0;
@@ -2230,7 +1934,6 @@ public final class BoardPanel extends JPanel {
         double elapsed = (double) System.currentTimeMillis() - (double) wrongMoveMarkerStartedAt;
         return Math.max(0.0, Math.min(1.0, elapsed / Math.max(1.0, WRONG_MOVE_MARKER_MS)));
     }
-    /** Clears wrong-move badge state without repainting. */
     private void clearWrongMoveMarkerState() {
         wrongMoveMarkerSquare = Field.NO_SQUARE;
         wrongMoveMarkerStartedAt = 0L;
@@ -2241,21 +1944,14 @@ public final class BoardPanel extends JPanel {
     public static double easeOutCubic(double value) {
         return Ui.easeOutCubic(value);
     }
-    /** Returns whether a byte is a valid board square index.
-     * @param square board square index
-     * @return true when the byte is a valid board square index */
     private static boolean isSquareIndex(byte square) {
         return square >= 0 && square < 64;
     }
-    /** Validates a setup-edit piece code.
-     * @param piece piece code */
     private static void validateSetupPiece(byte piece) {
         if (piece < Piece.BLACK_KING || piece > Piece.WHITE_KING) {
             throw new IllegalArgumentException("Invalid piece " + piece);
         }
     }
-    /** Returns the system DPI scale factor used for sizing heuristics.
-     * @return system display scale factor */
     private static float displayScale() {
         try {
             java.awt.GraphicsEnvironment env = java.awt.GraphicsEnvironment.getLocalGraphicsEnvironment();

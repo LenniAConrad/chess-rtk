@@ -249,7 +249,7 @@ public final class CnnView extends NetworkView {
         TensorViz.drawSectionHeader(g,
     new Rectangle(body.x, body.y, body.width, headerH),
                 "raw activation atlas — every CNN layer at once",
-                "rows = layer · cols = channel · NNUE All palette · click a row to focus");
+                "rows = layer · cols = channel · signed activation palette · click a row to focus");
         int maxChannels = 0;
         for (LayerInfo info : spatial) {
             if (info.shapeDims[0] > maxChannels) {
@@ -339,7 +339,7 @@ public final class CnnView extends NetworkView {
         TensorViz.drawSectionHeader(g,
     new Rectangle(body.x, body.y, body.width, headerH),
                 "layer " + info.name + " — " + channels + " channels",
-                "8×8 activation per channel · NNUE All palette · click anywhere to zoom back out");
+                "8×8 activation per channel · signed activation palette · click anywhere to zoom back out");
         float maxAbs = 0.0f;
         for (float v : info.values) {
             maxAbs = Math.max(maxAbs, Math.abs(v));
@@ -1090,51 +1090,11 @@ public final class CnnView extends NetworkView {
         cellHitBoxes.clear();
         cellLayerIndices.clear();
         TensorViz.drawSectionHeader(g, new Rectangle(body.x, body.y, body.width, 40),
-                "layer cards (top) · board + channel grid (below)",
-                "click a card to focus a layer; the board overlay shows its 8×8 mean activity");
+                "CNN Trace — one selected layer",
+                "click a stage in the path; the board and channel panel inspect only that layer");
         int top = body.y + 50;
-        int cardW = Math.max(72, Math.min(110, (body.width - 8) / Math.max(1, layers.size())));
-        int cardH = 60;
-        int gap = 6;
-        int cols = Math.max(1, (body.width - 8) / (cardW + gap));
-        int rows = (layers.size() + cols - 1) / cols;
-        int gridH = rows * cardH + (rows - 1) * gap;
-        float scale = 0.0f;
-        for (LayerInfo info : layers) {
-            scale = Math.max(scale, info.rms);
-        }
-        if (scale <= 0.0f) {
-            scale = 1.0f;
-        }
-        for (int i = 0; i < layers.size(); ++i) {
-            int row = i / cols;
-            int col = i % cols;
-            int x = body.x + 4 + col * (cardW + gap);
-            int y = top + row * (cardH + gap);
-            Rectangle card = new Rectangle(x, y, cardW, cardH);
-            LayerInfo info = layers.get(i);
-            boolean selected = i == selectedLayer;
-            Color accent = colorFor(info.name);
-            TensorViz.drawCard(g, card, info.name, info.shape, accent);
-            float a = TensorViz.clamp(info.rms / scale, 0.0f, 1.0f);
-            int barW = card.width - 16;
-            g.setColor(Theme.LINE);
-            g.fillRect(card.x + 8, card.y + card.height - 10, barW, 3);
-            g.setColor(accent);
-            g.fillRect(card.x + 8, card.y + card.height - 10, Math.round(barW * a), 3);
-            if (selected) {
-                g.setColor(TensorViz.FOCUS);
-                g.drawRect(card.x - 2, card.y - 2, card.width + 3, card.height + 3);
-            }
-            cellHitBoxes.add(card);
-            cellLayerIndices.add(i);
-            hitRegions.add(card,
-                    info.name + "  " + info.shape,
-                    "Click the card to focus this layer in the inspector below.",
-                    String.format("rms %.3f · mean %+.3f · range %+.2f..%+.2f",
-                            info.rms, info.mean, info.min, info.max));
-        }
-        int inspectorTop = top + gridH + 14;
+        int pathH = Math.min(104, Math.max(78, body.height / 5));
+        int inspectorTop = paintTracePath(g, new Rectangle(body.x, top, body.width, pathH)) + 14;
         int inspectorH = Math.max(220, body.y + body.height - inspectorTop - 4);
         int boardW = Math.min(360, Math.max(220, inspectorH));
         Rectangle boardArea = new Rectangle(body.x, inspectorTop, boardW, inspectorH);
@@ -1142,6 +1102,72 @@ public final class CnnView extends NetworkView {
                 body.width - boardW - 12, inspectorH);
         paintDetailedBoard(g, boardArea);
         paintDetailedChannels(g, channelArea);
+    }
+
+    /**
+     * Paints the Trace-mode layer path. Unlike All mode, this is a one-layer
+     * drill-down control: it shows the forward path and uses clicks to choose
+     * which layer the board and channel panel below should inspect.
+     *
+     * @param g graphics context
+     * @param r path rectangle
+     * @return bottom y coordinate
+     */
+    private int paintTracePath(Graphics2D g, Rectangle r) {
+        if (layers.isEmpty()) {
+            return r.y + r.height;
+        }
+        int focused = selectedLayer < 0 || selectedLayer >= layers.size() ? defaultLayer() : selectedLayer;
+        float scale = 0.0f;
+        for (LayerInfo info : layers) {
+            scale = Math.max(scale, info.rms);
+        }
+        if (scale <= 0.0f) {
+            scale = 1.0f;
+        }
+        int top = r.y + 4;
+        int h = Math.max(28, r.height - 8);
+        int count = layers.size();
+        int gap = count > 48 ? 1 : 3;
+        int cellW = Math.max(3, (r.width - gap * (count - 1)) / count);
+        int x = r.x;
+        g.setFont(Theme.font(10, Font.BOLD));
+        FontMetrics fm = g.getFontMetrics();
+        for (int i = 0; i < count; i++) {
+            LayerInfo info = layers.get(i);
+            int w = i == count - 1 ? Math.max(8, r.x + r.width - x) : cellW;
+            Rectangle cell = new Rectangle(x, top, w, h);
+            Color accent = colorFor(info.name);
+            boolean selected = i == focused;
+            float activity = TensorViz.clamp(info.rms / scale, 0.0f, 1.0f);
+            g.setColor(TensorViz.lerp(Theme.PANEL_SOLID, accent, 0.10f + activity * 0.38f));
+            g.fillRect(cell.x, cell.y, cell.width, cell.height);
+            g.setColor(selected ? TensorViz.FOCUS : Theme.LINE);
+            g.drawRect(cell.x, cell.y, cell.width - 1, cell.height - 1);
+            if (cell.width > 8) {
+                int barW = Math.max(1, Math.round((cell.width - 6) * activity));
+                g.setColor(accent);
+                g.fillRect(cell.x + 3, cell.y + cell.height - 7, barW, 3);
+            }
+            if (cell.width >= 34) {
+                g.setColor(selected ? Theme.TEXT : Theme.MUTED);
+                String label = Ui.elide(info.name, fm, Math.max(8, cell.width - 6));
+                g.drawString(label, cell.x + 3, cell.y + 16);
+            }
+            if (selected) {
+                g.setColor(TensorViz.FOCUS);
+                g.drawRect(cell.x + 1, cell.y + 1, cell.width - 3, cell.height - 3);
+            }
+            cellHitBoxes.add(cell);
+            cellLayerIndices.add(i);
+            hitRegions.add(cell,
+                    "Trace layer: " + info.name + "  " + info.shape,
+                    "Click to inspect this one layer on the board and channel panel below.",
+                    String.format("rms %.3f · mean %+.3f · range %+.2f..%+.2f",
+                            info.rms, info.mean, info.min, info.max));
+            x += w + gap;
+        }
+        return r.y + r.height;
     }
 
     /**
@@ -1250,6 +1276,15 @@ public final class CnnView extends NetworkView {
      * @param info input layer info
      */
     private void paintInputPlanes(Graphics2D g, Rectangle r, LayerInfo info) {
+        // The LC0 encoder rewrites the position into side-to-move perspective:
+        // when black is to move, ranks are mirrored and the colour roles are
+        // swapped. Painting the encoded planes onto a white-at-bottom mini
+        // board therefore puts "own" pieces in the wrong half of the
+        // visualisation. Detect side to move and pass that to
+        // drawSquareOverlay (flipped=true) so the lit squares line up with
+        // the absolute board orientation the user already sees in the
+        // position panel on the left.
+        boolean blackToMove = fen != null && fenSideToMove(fen) == 'b';
         String[] labels = {
                 "own P", "own N", "own B", "own R", "own Q", "own K",
                 "enemy P", "enemy N", "enemy B", "enemy R", "enemy Q", "enemy K",
@@ -1271,7 +1306,7 @@ public final class CnnView extends NetworkView {
             TensorViz.drawMiniBoard(g, board);
             float[] slice = new float[64];
             System.arraycopy(info.values, c * 64, slice, 0, 64);
-            TensorViz.drawSquareOverlay(g, board, slice, 0.0f, false);
+            TensorViz.drawSquareOverlay(g, board, slice, 0.0f, blackToMove);
             g.setColor(Theme.MUTED);
             g.setFont(Theme.font(10, Font.BOLD));
             g.drawString(labels[c], x, y + labelH - 2);
@@ -1281,6 +1316,24 @@ public final class CnnView extends NetworkView {
                     String.format("plane %d", c),
                     "cnn.input", c * 64, 64, 8, "8x8");
         }
+    }
+
+    /**
+     * Returns the side-to-move character ('w' or 'b') from a FEN string.
+     *
+     * @param fenString full FEN
+     * @return 'w' / 'b', defaulting to 'w' on malformed input
+     */
+    private static char fenSideToMove(String fenString) {
+        if (fenString == null) {
+            return 'w';
+        }
+        int firstSpace = fenString.indexOf(' ');
+        if (firstSpace < 0 || firstSpace + 1 >= fenString.length()) {
+            return 'w';
+        }
+        char value = Character.toLowerCase(fenString.charAt(firstSpace + 1));
+        return value == 'b' ? 'b' : 'w';
     }
 
     /**

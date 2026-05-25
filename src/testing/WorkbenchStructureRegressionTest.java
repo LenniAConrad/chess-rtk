@@ -16,7 +16,7 @@ import java.util.stream.Stream;
  * @since 2026
  * @author Lennart A. Conrad
  */
-@SuppressWarnings("java:S2187")
+
 public final class WorkbenchStructureRegressionTest {
 
     /**

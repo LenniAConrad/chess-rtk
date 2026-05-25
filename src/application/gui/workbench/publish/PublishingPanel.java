@@ -509,7 +509,6 @@ public final class PublishingPanel {
      */
     private JButton publishCoverOutputButton;
 
-
     /**
      * Creates the publishing panel.
      *
@@ -1209,7 +1208,6 @@ public final class PublishingPanel {
     private void copyPublishingPreview() {
         updatePublishCommand();
         host.copyText(publishPreview.getText());
-        host.toast(Toast.Kind.SUCCESS, "Publishing preview copied");
     }
 
     /**
@@ -1871,7 +1869,6 @@ public final class PublishingPanel {
         String title = save ? "Choose PDF output" : "Choose interior PDF";
         FileDialogs.choosePath(host.owner(), publishPdfOutputField, save, title, new FileNameExtensionFilter("PDF document", "pdf"));
     }
-
 
     /**
      * Queues a publishing preview refresh after document edits settle.

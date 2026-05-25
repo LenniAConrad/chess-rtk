@@ -297,7 +297,7 @@ public final class PerftSuite {
      *
      * @param summary comparison summary
      */
-    @SuppressWarnings("java:S106")
+
     public static void print(Summary summary) {
         int fenWidth = Math.max("FEN".length(), summary.rows().stream().mapToInt(row -> row.fen().length()).max().orElse(0));
         String header = "%2s  %5s  %-" + fenWidth + "s  %15s  %15s  %12s  %5s%n";

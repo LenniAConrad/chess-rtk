@@ -22,7 +22,7 @@ import chess.nn.nnue.Network;
 /**
  * Regression checks for the pure-Java NNUE implementation.
  */
-@SuppressWarnings("java:S2187")
+
 public final class NNUERegressionTest {
 
     /**

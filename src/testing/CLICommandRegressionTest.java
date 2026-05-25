@@ -16,7 +16,7 @@ import chess.core.Position;
  * @since 2026
  * @author Lennart A. Conrad
  */
-@SuppressWarnings({"java:S1192", "java:S2187"})
+
 public final class CLICommandRegressionTest {
 
 	/**

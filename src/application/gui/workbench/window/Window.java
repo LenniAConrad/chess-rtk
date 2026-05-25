@@ -16,7 +16,6 @@ import static application.gui.workbench.ui.Ui.label;
 /**
  * A new native Swing command and analysis workbench for ChessRTK.
  */
-@SuppressWarnings("java:S6539")
 
 public final class Window extends WindowCommandLayer {
 
@@ -37,7 +36,7 @@ public final class Window extends WindowCommandLayer {
      * @param initialFen initial FEN to load
      * @param whiteDown true when white is rendered at the bottom */
     public Window(String initialFen, boolean whiteDown) {
-        setTitle("ChessRTK Workbench");
+        setTitle("Workbench");
         loadThemeSetting();
         Theme.install();
         setDefaultCloseOperation(DISPOSE_ON_CLOSE);

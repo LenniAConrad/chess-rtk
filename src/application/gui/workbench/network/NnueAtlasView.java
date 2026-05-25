@@ -206,7 +206,6 @@ public abstract class NnueAtlasView extends NnueViewBase {
                 selectedSlot, planes, squares);
     }
 
-
     /**
      * Computes the no-scroll atlas browser layout. On wide panes the whole
      * pixel-plane atlas fills the left side while the selected slot board and
@@ -246,7 +245,6 @@ public abstract class NnueAtlasView extends NnueViewBase {
                 content.width, Math.max(1, content.y + content.height - detail.y - detail.height - gap));
         return new AtlasBrowserLayout(overview, detail, explanation);
     }
-
 
     /**
      * Paints a true whole-atlas pixel-plane overview: every selected-order slot,
@@ -365,8 +363,6 @@ public abstract class NnueAtlasView extends NnueViewBase {
             }
         }
     }
-
-
 
     /**
      * Paints the sorted slot thumbnail gallery.
@@ -584,7 +580,6 @@ public abstract class NnueAtlasView extends NnueViewBase {
                 Math.max(1, inner.y + inner.height - y)), slot);
     }
 
-
     /**
      * Draws strongest active Half-KP rows feeding one atlas slot.
      *
@@ -709,16 +704,6 @@ public abstract class NnueAtlasView extends NnueViewBase {
         return atlasWholeRowsPerColumn(inner.width, rowAreaH, hidden, planes);
     }
 
-
-
-
-
-
-
-
-
-
-
     /**
      * Computes per-neuron overlay magnitude — the current activation × output
      * weight if both are available, falling back to |output| only when not.
@@ -826,7 +811,6 @@ public abstract class NnueAtlasView extends NnueViewBase {
         return order;
     }
 
-
     /**
      * Paints the multi-variant grid view: one small atlas thumbnail per
      * discovered NNUE network, laid out left-to-right.
@@ -897,7 +881,6 @@ public abstract class NnueAtlasView extends NnueViewBase {
         g.setColor(Theme.LINE);
         g.drawRect(r.x, r.y, r.width - 1, r.height - 1);
     }
-
 
     /**
      * Paints the architecture-diagram view: a schematic of the loaded
@@ -1301,9 +1284,5 @@ public abstract class NnueAtlasView extends NnueViewBase {
                     && paletteKey == requestedPaletteKey;
         }
     }
-
-
-
-
 
 }

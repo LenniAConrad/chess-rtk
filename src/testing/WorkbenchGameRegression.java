@@ -54,11 +54,15 @@ final class WorkbenchGameRegression {
         testGameModelLoadsPgnVariations();
         testGameModelNavigatesSelectedVariationLine();
         testPuzzleSessionExploresOpponentVariationBranches();
+        testPuzzlePanelStartsStandardWithoutLoadedLibrary();
+        testPuzzlePanelTogglesReviewStartEnd();
         testPuzzlePanelAnimatesOpponentReplySeparately();
         testPuzzleWrongMoveUsesChessWebMarker();
         testPuzzleSessionReviewNavigation();
         testPuzzleLibraryLoadsDifficultCsv();
         testPuzzleLibraryLoadsChessWebPgn();
+        testPuzzleLibraryDefaultPathResolves();
+        testPuzzlePanelShufflesLoadedLibrary();
         testPuzzlePanelPaintsOpaqueSurface();
         testAnalysisBoardExportsRasterAndSvg();
         testPgnExplorerModelFiltersGames();
@@ -256,12 +260,47 @@ final class WorkbenchGameRegression {
     }
 
     /**
+     * Verifies an idle puzzle panel shows the normal starting position when no
+     * puzzle library is loaded.
+     */
+    private static void testPuzzlePanelStartsStandardWithoutLoadedLibrary() {
+        PuzzlePanel panel = (PuzzlePanel) construct(type("PuzzlePanel"), new Class<?>[] { boolean.class },
+                Boolean.FALSE);
+        Object board = field(panel, "board");
+
+        assertEquals(START_FEN, invoke(board, "position", new Class<?>[0]),
+                "puzzle panel without library starts from the normal chess position");
+        assertEquals(null, field(panel, "session"), "puzzle panel has no active sample session by default");
+    }
+
+    /**
+     * Verifies the puzzle panel owns its own start/end review toggle instead of
+     * relying on the analysis game model ply.
+     */
+    private static void testPuzzlePanelTogglesReviewStartEnd() {
+        PuzzlePanel panel = (PuzzlePanel) construct(type("PuzzlePanel"), new Class<?>[] { boolean.class },
+                Boolean.FALSE);
+        invoke(panel, "loadSamplePuzzle", new Class<?>[0]);
+        PuzzleSession session = (PuzzleSession) field(panel, "session");
+
+        assertEquals(Integer.valueOf(0), Integer.valueOf(session.cursor().cursorIndex()),
+                "puzzle review toggle starts at branch root");
+        panel.toggleReviewStartEnd();
+        assertEquals(Integer.valueOf(session.lastPly()), Integer.valueOf(session.cursor().cursorIndex()),
+                "puzzle review toggle jumps to branch end");
+        panel.toggleReviewStartEnd();
+        assertEquals(Integer.valueOf(0), Integer.valueOf(session.cursor().cursorIndex()),
+                "puzzle review toggle returns to branch root");
+    }
+
+    /**
      * Verifies the puzzle board shows the solver move first and then animates
      * the automatic opponent reply as a separate board transition.
      */
     private static void testPuzzlePanelAnimatesOpponentReplySeparately() {
         PuzzlePanel panel = (PuzzlePanel) construct(type("PuzzlePanel"), new Class<?>[] { boolean.class },
                 Boolean.FALSE);
+        invoke(panel, "loadSamplePuzzle", new Class<?>[0]);
         Object board = field(panel, "board");
         Position start = new Position(
                 "6n1/1P2k2r/3r1b2/R2p1b1p/pp2NP2/1n6/7R/7K w - - 4 63");
@@ -302,6 +341,7 @@ final class WorkbenchGameRegression {
     private static void testPuzzleWrongMoveUsesChessWebMarker() {
         PuzzlePanel panel = (PuzzlePanel) construct(type("PuzzlePanel"), new Class<?>[] { boolean.class },
                 Boolean.FALSE);
+        invoke(panel, "loadSamplePuzzle", new Class<?>[0]);
         Object board = field(panel, "board");
         short wrongMove = Move.parse("e4f6");
 
@@ -392,6 +432,52 @@ final class WorkbenchGameRegression {
         PuzzleSession session = PuzzleSession.fromPgn(first.pgnText(), first.id(),
                 PuzzleSession.VariationMode.EXPLORE);
         assertEquals("d5c3", Move.toString(session.expectedMove()), "first chess-web PGN move is expected");
+    }
+
+    /**
+     * Verifies the bundled chess-web puzzle path resolves through the default
+     * loader path used by the installed workbench.
+     */
+    private static void testPuzzleLibraryDefaultPathResolves() {
+        Path path = PuzzleLibrary.defaultPath();
+        assertTrue(Files.isRegularFile(path), "default chess-web PGN resolves");
+        assertEquals(PuzzleLibrary.DEFAULT_PATH.getFileName().toString(), path.getFileName().toString(),
+                "resolved default puzzle file name");
+    }
+
+    /**
+     * Verifies loaded puzzle libraries are shuffled before the first puzzle is
+     * selected.
+     */
+    private static void testPuzzlePanelShufflesLoadedLibrary() {
+        List<PuzzleLibrary.Entry> entries = new java.util.ArrayList<>();
+        for (int index = 0; index < 12; index++) {
+            entries.add(new PuzzleLibrary.Entry(
+                    "puzzle-" + index,
+                    START_FEN,
+                    List.of("e2e4"),
+                    0,
+                    "",
+                    "",
+                    "",
+                    ""));
+        }
+
+        List<PuzzleLibrary.Entry> shuffled = typedList(invokeStatic(
+                type("PuzzlePanel"),
+                "shuffledLibrary",
+                new Class<?>[] { List.class, java.util.Random.class },
+                entries,
+                new java.util.Random(7L)), PuzzleLibrary.Entry.class);
+
+        assertEquals(Integer.valueOf(entries.size()), Integer.valueOf(shuffled.size()),
+                "shuffle preserves puzzle count");
+        assertEquals(entries.stream().map(PuzzleLibrary.Entry::id).sorted().toList(),
+                shuffled.stream().map(PuzzleLibrary.Entry::id).sorted().toList(),
+                "shuffle preserves puzzle identities");
+        assertFalse(entries.stream().map(PuzzleLibrary.Entry::id).toList()
+                .equals(shuffled.stream().map(PuzzleLibrary.Entry::id).toList()),
+                "loaded puzzle library order is shuffled");
     }
 
     /**

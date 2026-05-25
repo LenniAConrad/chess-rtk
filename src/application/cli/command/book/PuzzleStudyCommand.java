@@ -46,7 +46,7 @@ import utility.Argv;
  * @since 2026
  * @author Lennart A. Conrad
  */
-@SuppressWarnings({"java:S107", "java:S3776"})
+
 public final class PuzzleStudyCommand {
 
 	/**

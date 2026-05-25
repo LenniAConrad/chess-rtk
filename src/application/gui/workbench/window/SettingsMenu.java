@@ -1,30 +1,18 @@
 package application.gui.workbench.window;
 
-import application.gui.workbench.audio.SoundCue;
-import application.gui.workbench.audio.SoundService;
-import application.gui.workbench.ui.ChipGroup;
 import application.gui.workbench.ui.Theme;
 import application.gui.workbench.ui.MenuGlyphs;
-import application.gui.workbench.ui.Ui;
 import java.awt.Component;
 import java.awt.Container;
-import java.awt.BorderLayout;
 import java.awt.Dimension;
 import java.awt.Font;
-import java.awt.GridBagConstraints;
-import java.awt.GridBagLayout;
-import java.awt.Insets;
-import java.util.List;
 import java.util.Objects;
 import javax.swing.BorderFactory;
-import javax.swing.JButton;
 import javax.swing.JCheckBoxMenuItem;
 import javax.swing.JComponent;
-import javax.swing.JLabel;
 import javax.swing.JMenu;
 import javax.swing.JMenuBar;
 import javax.swing.JMenuItem;
-import javax.swing.MenuSelectionManager;
 import javax.swing.JPanel;
 import javax.swing.JPopupMenu;
 import javax.swing.JRadioButtonMenuItem;
@@ -34,11 +22,6 @@ import javax.swing.JSeparator;
  * Top-level settings menu for the native workbench window.
  */
 public final class SettingsMenu {
-
-    /**
-     * Preferred size for the grouped settings popup.
-     */
-    private static final Dimension SETTINGS_PANEL_SIZE = new Dimension(390, 294);
 
     /**
      * Window callbacks used by the menu without coupling it to one concrete
@@ -98,6 +81,96 @@ public final class SettingsMenu {
          * Opens the persisted workbench log directory.
          */
         void openLogsDirectory();
+
+        /** Opens a PGN file or the PGN explorer. */
+        default void openPgn() { }
+
+        /** Saves the current game as PGN. */
+        default void savePgn() { }
+
+        /** Copies the current FEN. */
+        default void copyFen() { }
+
+        /** Copies the generated command preview. */
+        default void copyBuiltCommand() { }
+
+        /** Opens the dashboard. */
+        default void openDashboard() { }
+
+        /** Opens the analysis workspace. */
+        default void openAnalyze() { }
+
+        /** Opens the command builder. */
+        default void openCommands() { }
+
+        /** Opens batch workflows. */
+        default void openBatch() { }
+
+        /** Opens dataset tools. */
+        default void openDatasets() { }
+
+        /** Opens publishing tools. */
+        default void openPublish() { }
+
+        /** Opens network visualizations. */
+        default void openNetwork() { }
+
+        /** Opens puzzles. */
+        default void openPuzzles() { }
+
+        /** Opens a new independent analysis tab. */
+        default void newAnalyzeTab() { }
+
+        /** Shows command output. */
+        default void showConsole() { }
+
+        /** Shows persisted logs. */
+        default void showLogs() { }
+
+        /** Jumps to the first position. */
+        default void firstPosition() { }
+
+        /** Moves to the previous position. */
+        default void previousPosition() { }
+
+        /** Moves to the next position. */
+        default void nextPosition() { }
+
+        /** Jumps to the final position. */
+        default void lastPosition() { }
+
+        /** Runs the generated command. */
+        default void runBuiltCommand() { }
+
+        /** Runs best-move analysis. */
+        default void runBestMove() { }
+
+        /** Runs engine analysis. */
+        default void runAnalyze() { }
+
+        /** Runs perft. */
+        default void runPerft() { }
+
+        /** Runs the selected batch workflow. */
+        default void runBatch() { }
+
+        /** Runs the publishing workflow. */
+        default void runPublishing() { }
+
+        /** Runs all health checks. */
+        default void runAllChecks() { }
+
+        /** Stops the running command. */
+        default void stopCommand() { }
+
+        /** Splits the selected editor to the right. */
+        default void splitRight() { }
+
+        /** Splits the selected editor below. */
+        default void splitDown() { }
+
+        /** Reopens all workbench tabs. */
+        default void reopenAllTabs() { }
     }
 
     /**
@@ -109,21 +182,6 @@ public final class SettingsMenu {
      * Native Swing menu bar installed on the workbench frame.
      */
     private final JMenuBar menuBar = new JMenuBar();
-
-    /**
-     * Chip selector for the light/dark appearance.
-     */
-    private final ChipGroup appearanceChips = new ChipGroup(List.of("Light", "Dark"));
-
-    /**
-     * Chip selector for global sound effects.
-     */
-    private final ChipGroup soundChips = new ChipGroup(List.of("On", "Muted"));
-
-    /**
-     * Large grouped settings popup content.
-     */
-    private final JPanel settingsPanel = new JPanel(new GridBagLayout());
 
     /**
      * Creates the settings menu.
@@ -147,12 +205,12 @@ public final class SettingsMenu {
     }
 
     /**
-     * Synchronizes checked appearance items with the current theme state.
+     * No-op placeholder retained so existing callers (theme-switch hooks,
+     * sound listeners) keep compiling. The popover chips that this used to
+     * sync have been removed in favour of the unified SettingsDialog.
      */
     public void syncMode() {
-        Theme.Mode mode = controller.themeMode();
-        appearanceChips.setSelectedIndex(mode == Theme.Mode.DARK ? 1 : 0);
-        soundChips.setSelectedIndex(controller.soundEnabled() ? 0 : 1);
+        // Settings live in the unified dialog now; nothing to sync here.
     }
 
     /**
@@ -161,157 +219,108 @@ public final class SettingsMenu {
     public void refreshTheme() {
         styleMenuBar(menuBar);
         styleMenuTree(menuBar);
-        Theme.refreshComponentTree(settingsPanel);
-        settingsPanel.setBackground(Theme.PANEL_SOLID);
     }
 
     /**
      * Builds all menus and menu items.
      */
     private void buildMenuBar() {
-        JMenu settings = new JMenu("Settings");
-        settings.getPopupMenu().setPreferredSize(SETTINGS_PANEL_SIZE);
-        settings.add(createSettingsPanel());
-        menuBar.add(settings);
+        menuBar.add(menu("File",
+                item("Open PGN…", "Ctrl+P", controller::openPgn),
+                item("Save PGN", null, controller::savePgn),
+                separator(),
+                item("Open Logs Folder", null, controller::openLogsDirectory),
+                separator(),
+                item("Settings…", "Ctrl+,", controller::showDisplaySettings)));
+        menuBar.add(menu("Edit",
+                item("Command Palette…", "Ctrl+K", controller::showCommandPalette),
+                separator(),
+                item("Copy FEN", null, controller::copyFen),
+                item("Copy Built Command", null, controller::copyBuiltCommand)));
+        menuBar.add(menu("Selection",
+                item("First Position", "Home", controller::firstPosition),
+                item("Previous Position", "Left", controller::previousPosition),
+                item("Next Position", "Right", controller::nextPosition),
+                item("Last Position", "End", controller::lastPosition)));
+        menuBar.add(menu("View",
+                item("Dashboard", "Ctrl+1", controller::openDashboard),
+                item("Analyze", "Ctrl+2", controller::openAnalyze),
+                item("Commands", "Ctrl+3", controller::openCommands),
+                item("Batch", "Ctrl+4", controller::openBatch),
+                item("Datasets", "Ctrl+5", controller::openDatasets),
+                item("Publish", "Ctrl+6", controller::openPublish),
+                item("Network", "Ctrl+7", controller::openNetwork),
+                item("Puzzles", "Ctrl+8", controller::openPuzzles),
+                separator(),
+                item("Console", "Ctrl+`", controller::showConsole),
+                item("Logs", null, controller::showLogs),
+                separator(),
+                item("Board Settings…", null, controller::showDisplaySettings),
+                item("Engine Settings…", null, controller::showEngineSettings)));
+        menuBar.add(menu("Go",
+                item("New Analyze Tab", null, controller::newAnalyzeTab),
+                separator(),
+                item("Split Right", "Ctrl+\\", controller::splitRight),
+                item("Split Down", "Ctrl+Shift+\\", controller::splitDown),
+                item("Reopen All Tabs", null, controller::reopenAllTabs)));
+        menuBar.add(menu("Run",
+                item("Run Built Command", null, controller::runBuiltCommand),
+                item("Best Move", null, controller::runBestMove),
+                item("Analyze Position", null, controller::runAnalyze),
+                item("Perft", null, controller::runPerft),
+                separator(),
+                item("Run Batch", null, controller::runBatch),
+                item("Run Publishing", null, controller::runPublishing),
+                item("Run All Checks", null, controller::runAllChecks),
+                separator(),
+                item("Stop Command", "Esc", controller::stopCommand)));
+        menuBar.add(menu("Terminal",
+                item("Show Console", "Ctrl+`", controller::showConsole),
+                item("Show Logs", null, controller::showLogs),
+                item("Open Logs Folder", null, controller::openLogsDirectory)));
+        menuBar.add(menu("Help",
+                item("Command Palette…", "Ctrl+K", controller::showCommandPalette),
+                item("Settings…", "Ctrl+,", controller::showDisplaySettings)));
     }
 
     /**
-     * Creates the grouped settings panel shown by the Settings menu.
+     * Creates one top-level menu.
      *
-     * @return settings panel
+     * @param label menu label
+     * @param items menu contents
+     * @return menu
      */
-    private JPanel createSettingsPanel() {
-        settingsPanel.setName("settingsPanel");
-        settingsPanel.setOpaque(true);
-        settingsPanel.setBackground(Theme.PANEL_SOLID);
-        settingsPanel.setBorder(BorderFactory.createEmptyBorder(12, 14, 14, 14));
-        settingsPanel.setPreferredSize(SETTINGS_PANEL_SIZE);
-        appearanceChips.setName("settings.appearance");
-        soundChips.setName("settings.sound");
-        appearanceChips.setToolTipText("Choose the workbench palette");
-        soundChips.setToolTipText("Enable or mute workbench sound cues");
-        appearanceChips.setOnSelect(index -> {
-            SoundService.play(SoundCue.UI_CLICK);
-            controller.setThemeMode(index == 1 ? Theme.Mode.DARK : Theme.Mode.LIGHT);
-            syncMode();
-        });
-        soundChips.setOnSelect(index -> {
-            SoundService.play(SoundCue.UI_CLICK);
-            controller.setSoundEnabled(index == 0);
-            syncMode();
-        });
-
-        GridBagConstraints c = new GridBagConstraints();
-        c.gridx = 0;
-        c.weightx = 1.0;
-        c.fill = GridBagConstraints.HORIZONTAL;
-        c.insets = new Insets(0, 0, 8, 0);
-        int row = 0;
-        addPanelRow(settingsPanel, sectionLabel("Appearance"), c, row++);
-        addPanelRow(settingsPanel, chipRow("Theme", "Switch all workbench chrome and boards", appearanceChips),
-                c, row++);
-        addPanelRow(settingsPanel, sectionLabel("Feedback"), c, row++);
-        addPanelRow(settingsPanel, chipRow("Sound effects", "Moves, puzzles, MCTS, jobs, and controls", soundChips),
-                c, row++);
-        addPanelRow(settingsPanel, actionGrid(), c, row);
-        return settingsPanel;
+    private static JMenu menu(String label, Component... items) {
+        JMenu menu = new JMenu(label);
+        for (Component item : items) {
+            menu.add(item);
+        }
+        return menu;
     }
 
     /**
-     * Creates a compact two-column action grid.
+     * Creates one action menu item.
      *
-     * @return action grid
+     * @param label item label
+     * @param shortcut optional shortcut hint
+     * @param action item action
+     * @return menu item
      */
-    private JPanel actionGrid() {
-        JPanel grid = new JPanel(new GridBagLayout());
-        grid.setOpaque(false);
-        GridBagConstraints c = new GridBagConstraints();
-        c.fill = GridBagConstraints.HORIZONTAL;
-        c.weightx = 1.0;
-        c.insets = new Insets(3, 0, 3, 6);
-        grid.add(actionButton("Board", controller::showDisplaySettings), c);
-        c.gridx = 1;
-        c.insets = new Insets(3, 6, 3, 0);
-        grid.add(actionButton("Engine", controller::showEngineSettings), c);
-        c.gridx = 0;
-        c.gridy = 1;
-        c.insets = new Insets(3, 0, 3, 6);
-        grid.add(actionButton("Sound", controller::showSoundSettings), c);
-        c.gridx = 1;
-        c.insets = new Insets(3, 6, 3, 0);
-        grid.add(actionButton("Actions", controller::showCommandPalette), c);
-        c.gridx = 0;
-        c.gridy = 2;
-        c.gridwidth = 2;
-        c.insets = new Insets(3, 0, 0, 0);
-        grid.add(actionButton("Open logs folder", controller::openLogsDirectory), c);
-        return grid;
+    private static JMenuItem item(String label, String shortcut, Runnable action) {
+        JMenuItem item = new JMenuItem(shortcut == null || shortcut.isBlank()
+                ? label
+                : label + "    " + shortcut);
+        item.addActionListener(event -> action.run());
+        return item;
     }
 
     /**
-     * Creates one action button and closes the popup before running it.
+     * Creates a menu separator.
      *
-     * @param text button text
-     * @param action action to run
-     * @return action button
+     * @return separator
      */
-    private static JButton actionButton(String text, Runnable action) {
-        return Ui.button(text, false, event -> {
-            MenuSelectionManager.defaultManager().clearSelectedPath();
-            action.run();
-        });
-    }
-
-    /**
-     * Adds a component row to the settings panel.
-     *
-     * @param panel target panel
-     * @param component component to add
-     * @param c base constraints
-     * @param row row index
-     */
-    private static void addPanelRow(JPanel panel, Component component, GridBagConstraints c, int row) {
-        c.gridy = row;
-        panel.add(component, c);
-    }
-
-    /**
-     * Creates a section label.
-     *
-     * @param text label text
-     * @return section label
-     */
-    private static JLabel sectionLabel(String text) {
-        JLabel label = Theme.section(text);
-        label.setBorder(BorderFactory.createEmptyBorder(2, 0, 0, 0));
-        return label;
-    }
-
-    /**
-     * Creates a label-plus-chip settings row.
-     *
-     * @param title row title
-     * @param detail row detail
-     * @param chips selector chips
-     * @return settings row
-     */
-    private static JPanel chipRow(String title, String detail, ChipGroup chips) {
-        JPanel row = new JPanel(new BorderLayout(14, 0));
-        row.setOpaque(false);
-        row.setMinimumSize(new Dimension(340, 46));
-        JPanel copy = new JPanel(new BorderLayout(0, 1));
-        copy.setOpaque(false);
-        JLabel titleLabel = new JLabel(title);
-        titleLabel.setFont(Theme.font(13, Font.BOLD));
-        Theme.foreground(titleLabel, Theme.ForegroundRole.TEXT);
-        JLabel detailLabel = new JLabel(detail);
-        detailLabel.setFont(Theme.font(12, Font.PLAIN));
-        Theme.foreground(detailLabel, Theme.ForegroundRole.MUTED);
-        copy.add(titleLabel, BorderLayout.NORTH);
-        copy.add(detailLabel, BorderLayout.CENTER);
-        row.add(copy, BorderLayout.CENTER);
-        row.add(chips, BorderLayout.EAST);
-        return row;
+    private static JSeparator separator() {
+        return new JSeparator();
     }
 
     /**

@@ -2,7 +2,6 @@ package application.gui.workbench.layout;
 
 import application.gui.workbench.ui.Theme;
 import java.awt.BorderLayout;
-import javax.swing.BorderFactory;
 import javax.swing.JComponent;
 import javax.swing.JPanel;
 import javax.swing.JToggleButton;
@@ -82,6 +81,8 @@ final class EditorPaneShell {
     static void styleHeader(JPanel header) {
         header.setOpaque(true);
         header.setBackground(Theme.BG);
-        header.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, Theme.LINE));
+        // No strip-wide bottom border: each tab paints its own bottom 1px
+        // line directly beneath itself, and the active tab skips that line
+        // so it merges visually with the content area below (VS Code-style).
     }
 }

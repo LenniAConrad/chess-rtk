@@ -26,7 +26,7 @@ import chess.nn.lc0.bt4.PolicyEncoder;
  * @since 2026
  * @author Lennart A. Conrad
  */
-@SuppressWarnings("java:S2187")
+
 public final class BT4RegressionTest {
 
     /**

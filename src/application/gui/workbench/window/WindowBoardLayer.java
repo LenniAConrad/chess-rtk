@@ -35,10 +35,15 @@ import java.io.File;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import javax.swing.BorderFactory;
+import javax.swing.Box;
+import javax.swing.BoxLayout;
 import javax.swing.JButton;
 import javax.swing.JComponent;
 import javax.swing.JFileChooser;
+import javax.swing.JLabel;
+import javax.swing.JMenuItem;
 import javax.swing.JPanel;
+import javax.swing.JPopupMenu;
 import javax.swing.JScrollPane;
 import javax.swing.JSlider;
 import javax.swing.JSplitPane;
@@ -74,7 +79,6 @@ import static application.gui.workbench.ui.Ui.transparentPanel;
 /**
  * A new native Swing command and analysis workbench for ChessRTK.
  */
-@SuppressWarnings("java:S6539")
 
 public abstract class WindowBoardLayer extends WindowLifecycle {
     /** Serialization identifier for Swing frame compatibility. */
@@ -167,6 +171,9 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
         JPanel panel = new SurfacePanel(new GridBagLayout());
         GridBagConstraints c = constraints();
 
+        // The "Position" title was previously added here as part of a
+        // hierarchy pass but flagged as redundant by WorkbenchBoardRegression:
+        // the FEN field and transport row already speak for themselves.
         styleFields(fenField);
         fenField.addActionListener(event -> setPositionFromField());
         grid(panel, fenField, c, 0, 0, 4, 1);
@@ -180,55 +187,113 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
         setTransportShortcut(boardForwardButton, "Right / Numpad 6 / Alt+Right");
         setTransportShortcut(boardEndButton, "Down / End / Numpad 2 / Alt+Down");
         updateBoardNavigationControls();
+        // Transport (start/back/forward/end) is a single logical widget;
+        // pack the four icon buttons into their own tight cell so the row
+        // doesn't read as four peer-level actions next to Load and Reset.
+        JComponent transportGroup = transportButtonGroup(boardStartButton,
+                boardBackButton, boardForwardButton, boardEndButton);
         grid(panel, buttonRow(FlowLayout.LEFT,
-                button("Load", true, event -> setPositionFromField()),
-                boardStartButton,
-                boardBackButton,
-                boardForwardButton,
-                boardEndButton,
-                iconButton("Reset", event -> startNewGame(Setup.getStandardStartFEN()))), c, 0, 1, 4, 1);
+                // Load FEN is demoted to secondary — pressing Enter in the
+                // FEN field already loads it, and the headline primary on
+                // the Analyze tab should be the analysis action, not the
+                // position-input action.
+                button("Load", false, event -> setPositionFromField())), c, 0, 2, 1, 1);
+        JPanel transportRow = transparentPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
+        transportRow.add(transportGroup);
+        transportRow.add(iconButton("Reset", event -> startNewGame(Setup.getStandardStartFEN())));
+        grid(panel, transportRow, c, 1, 2, 3, 1);
         grid(panel, buttonRow(FlowLayout.LEFT,
                 iconButton("Flip", event -> {
                     board.setWhiteDown(!board.isWhiteDown());
                     appendConsole("Board flipped\n");
                 }),
                 iconButton("Copy FEN", event -> copyText(fenField.getText())),
-                iconButton("Export PNG", event -> BoardExportActions.exportPng(this, board)),
-                iconButton("Export SVG", event -> BoardExportActions.exportSvg(this, board)),
-                iconButton("Settings", event -> showDisplaySettings()),
-                iconButton("Actions", event -> showCommandPalette())), c, 0, 2, 4, 1);
-        grid(panel, createPgnExplorerLauncher(), c, 0, 3, 4, 1);
+                createExportBoardButton()), c, 0, 3, 4, 1);
+        grid(panel, createPgnExplorerLauncher(), c, 0, 4, 4, 1);
         return panel;
     }
 
     /**
-     * Creates a compact PGN quick-open launcher styled like a command-center
-     * search field.
+     * Creates a single Export button that opens a popup with PNG, SVG, and
+     * clipboard targets. Replaces two peer-level export icons so the row reads
+     * as one action.
+     *
+     * @return export button
+     */
+    private JButton createExportBoardButton() {
+        JPopupMenu menu = new JPopupMenu();
+        menu.setOpaque(true);
+        menu.setBackground(Theme.PANEL_SOLID);
+        menu.setForeground(Theme.TEXT);
+        menu.setBorder(BorderFactory.createLineBorder(Theme.LINE));
+        menu.add(exportMenuItem("Save PNG…", event -> BoardExportActions.exportPng(this, board)));
+        menu.add(exportMenuItem("Save SVG…", event -> BoardExportActions.exportSvg(this, board)));
+        menu.addSeparator();
+        menu.add(exportMenuItem("Copy image", event -> BoardExportActions.copyImage(this, board)));
+        menu.add(exportMenuItem("Copy SVG", event -> BoardExportActions.copySvg(this, board)));
+        JButton trigger = iconButton("Export", null);
+        for (java.awt.event.ActionListener listener : trigger.getActionListeners()) {
+            trigger.removeActionListener(listener);
+        }
+        trigger.addActionListener(event -> {
+            SoundService.play(SoundCue.UI_CLICK);
+            menu.show(trigger, 0, trigger.getHeight());
+        });
+        trigger.setToolTipText("Export board image (PNG / SVG / Copy)");
+        return trigger;
+    }
+
+    /**
+     * Packs transport icon buttons into a single tight pill so the four
+     * actions read as one navigation widget rather than four peers.
+     *
+     * @param buttons transport buttons in display order
+     * @return wrapped transport group
+     */
+    private static JComponent transportButtonGroup(JButton... buttons) {
+        JPanel group = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+        group.setOpaque(true);
+        group.setBackground(Theme.ELEVATED_SOLID);
+        // Square border matches the VS Code pattern: structural strips and
+        // segmented groups are hard-edged; only interactive controls inside
+        // them carry the subtle Theme.RADIUS rounding.
+        group.setBorder(BorderFactory.createLineBorder(Theme.LINE, 1, false));
+        for (JButton button : buttons) {
+            group.add(button);
+        }
+        return group;
+    }
+
+    /**
+     * Builds a styled popup menu item for the board export menu.
+     *
+     * @param label menu label
+     * @param listener click listener
+     * @return menu item
+     */
+    private static JMenuItem exportMenuItem(String label, java.awt.event.ActionListener listener) {
+        JMenuItem item = new JMenuItem(label);
+        item.setOpaque(true);
+        item.setBackground(Theme.PANEL_SOLID);
+        item.setForeground(Theme.TEXT);
+        item.setFont(Theme.font(12, Font.PLAIN));
+        item.setBorder(Theme.pad(5, 10, 5, 10));
+        item.addActionListener(listener);
+        return item;
+    }
+
+    /**
+     * Creates a single PGN explorer launcher button. Replaces the previous
+     * faux-input field + button pair that mimicked a search affordance the
+     * field did not actually have.
      *
      * @return PGN explorer launcher
      */
     private JComponent createPgnExplorerLauncher() {
-        JPanel row = transparentPanel(new BorderLayout(6, 0));
-        JTextField launcher = new JTextField("Search or open PGN");
-        styleFields(launcher);
-        launcher.setEditable(false);
-        launcher.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        launcher.setToolTipText("Open PGN explorer (Ctrl+P)");
-        launcher.getAccessibleContext().setAccessibleName("Open PGN explorer");
-        launcher.addActionListener(event -> showPgnExplorer());
-        launcher.addMouseListener(new MouseAdapter() {
-            /**
-             * Opens the PGN explorer on click.
-             *
-             * @param event mouse event
-             */
-            @Override
-            public void mousePressed(MouseEvent event) {
-                showPgnExplorer();
-            }
-        });
-        row.add(launcher, BorderLayout.CENTER);
-        row.add(button("Open PGN", false, event -> showPgnExplorer()), BorderLayout.EAST);
+        JPanel row = transparentPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+        JButton open = button("Open PGN…", false, event -> showPgnExplorer());
+        open.setToolTipText("Open PGN explorer (Ctrl+P)");
+        row.add(open);
         return row;
     }
 
@@ -240,7 +305,19 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
     protected JComponent createAnalysisControls() {
         JPanel panel = new SurfacePanel(new GridBagLayout());
         GridBagConstraints c = constraints();
-        grid(panel, Theme.section("Analysis"), c, 0, 0, 4, 1);
+        // Row 0: section title + the live-engine toggle, side by side. The
+        // toggle was buried at row 4 below the depth/time spinners; that
+        // hid a feature that fundamentally changes app behaviour (constant
+        // background CPU vs on-demand). Promoting it to the section header
+        // makes the on/off state the first thing the eye reads.
+        JPanel sectionHeader = transparentPanel(new BorderLayout(Theme.SPACE_SM, 0));
+        sectionHeader.add(Theme.section("Analysis"), BorderLayout.WEST);
+        liveEngineToggle.setSelected(liveExternalEngineEnabled);
+        liveEngineToggle.addActionListener(event -> setLiveExternalEngineEnabled(liveEngineToggle.isSelected()));
+        multipvModel.addChangeListener(event -> requestLiveAnalysisUpdate());
+        threadsModel.addChangeListener(event -> requestLiveAnalysisUpdate());
+        sectionHeader.add(liveEngineToggle, BorderLayout.EAST);
+        grid(panel, sectionHeader, c, 0, 0, 4, 1);
         Theme.foreground(statusLabel, Theme.ForegroundRole.MUTED);
         statusLabel.setFont(Theme.font(12, Font.PLAIN));
         grid(panel, statusLabel, c, 0, 1, 4, 1);
@@ -258,12 +335,7 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
                 button("Search", true, event -> runBuiltInSearch()),
                 button("Best", false, event -> runBestMove()),
                 button("Analyze", false, event -> runAnalyze())), c, 0, 3, 4, 1);
-        liveEngineToggle.setSelected(liveExternalEngineEnabled);
-        liveEngineToggle.addActionListener(event -> setLiveExternalEngineEnabled(liveEngineToggle.isSelected()));
-        multipvModel.addChangeListener(event -> requestLiveAnalysisUpdate());
-        threadsModel.addChangeListener(event -> requestLiveAnalysisUpdate());
-        grid(panel, liveEngineToggle, c, 0, 4, 4, 1);
-        grid(panel, collapsible("More", createAdvancedAnalysisControls(), false), c, 0, 5, 4, 1);
+        grid(panel, collapsible("More", createAdvancedAnalysisControls(), false), c, 0, 4, 4, 1);
         return panel;
     }
 
@@ -355,15 +427,16 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
             }
         });
 
+        // Position inspector: read-only views of the current position. Editor
+        // remains here as the one creative "change the position" affordance;
+        // MCTS / Settings / Engine moved to the dedicated Settings dialog so
+        // this strip stops being an eight-tab junk drawer.
         boardDetailTabs = createSectionTabs();
         boardDetailTabs.addTab("Moves", titled("Legal Moves", scroll(movesTable)));
         boardDetailTabs.addTab("Tags", titled("Tags", scroll(tagCloud)));
         boardDetailTabs.addTab("ECO", createEcoExplorerPanel());
-        boardDetailTabs.addTab("Editor", createBoardEditorPanel());
         boardDetailTabs.addTab("Data", createAnalysisDataPanel());
-        boardDetailTabs.addTab("MCTS", mctsPanel);
-        boardDetailTabs.addTab("Settings", createDisplaySettingsPanel());
-        boardDetailTabs.addTab("Engine", createEngineSettingsPanel());
+        boardDetailTabs.addTab("Editor", createBoardEditorPanel());
         boardDetailTabs.addChangeListener(event -> syncBoardEditorMode());
         syncBoardEditorMode();
         return boardDetailTabs;
@@ -476,9 +549,27 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
         JPanel appearance = settingsGroupPanel();
         GridBagConstraints appearanceC = constraints();
         appearanceC.insets = new Insets(3, 0, 3, 0);
-        grid(appearance, settingsToggle("Dark mode",
-                "Switch the workbench chrome and controls to the dark palette",
-                isDarkMode(), this::setDarkMode), appearanceC, 0, 0, 1, 1);
+        // VS Code-style horizontal chip picker for the workbench theme.
+        // Replaces the previous single Dark-mode toggle so users see both
+        // choices at a glance and can flip with one click.
+        application.gui.workbench.ui.ChipGroup themePicker =
+                new application.gui.workbench.ui.ChipGroup(java.util.List.of("Light", "Dark"));
+        themePicker.setSelectedIndex(isDarkMode() ? 1 : 0);
+        themePicker.setOnSelect(index -> setDarkMode(index == 1));
+        themePicker.setToolTipText("Switch the workbench palette");
+        JPanel themeRow = transparentPanel(new BorderLayout(Theme.SPACE_SM, 0));
+        JLabel themeLabel = new JLabel("Theme");
+        themeLabel.setFont(Theme.font(13, Font.BOLD));
+        Theme.foreground(themeLabel, Theme.ForegroundRole.TEXT);
+        JLabel themeDetail = new JLabel("Pick the workbench colour palette");
+        themeDetail.setFont(Theme.font(11, Font.PLAIN));
+        Theme.foreground(themeDetail, Theme.ForegroundRole.MUTED);
+        JPanel themeCopy = transparentPanel(new BorderLayout(0, 1));
+        themeCopy.add(themeLabel, BorderLayout.NORTH);
+        themeCopy.add(themeDetail, BorderLayout.CENTER);
+        themeRow.add(themeCopy, BorderLayout.CENTER);
+        themeRow.add(themePicker, BorderLayout.EAST);
+        grid(appearance, themeRow, appearanceC, 0, 0, 1, 1);
 
         JPanel soundSettings = settingsGroupPanel();
         GridBagConstraints soundC = constraints();
@@ -594,11 +685,43 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
                 button("Validate Config", false, event -> runConfigValidate()),
                 button("Defaults", false, event -> resetEngineSettings())), limitsC, 0, 1, 1, 1);
 
+        // Live preview line: shows the effective config that would be
+        // applied so the user sees the side-effect of a tuning change
+        // before the next Search/Analyze run.
+        JLabel preview = new JLabel(" ");
+        preview.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 11));
+        Theme.foreground(preview, Theme.ForegroundRole.MUTED);
+        preview.setBorder(Theme.pad(Theme.SPACE_SM, 0, 0, 0));
+        Runnable updatePreview = () -> preview.setText(buildEnginePreview());
+        engineProtocolField.getDocument().addDocumentListener(changeListener(updatePreview));
+        engineNodesField.getDocument().addDocumentListener(changeListener(updatePreview));
+        engineHashField.getDocument().addDocumentListener(changeListener(updatePreview));
+        updatePreview.run();
+
         int row = 0;
         grid(panel, collapsible("Protocol", protocol, true), c, 0, row++, 4, 1);
         grid(panel, collapsible("Limits", limits, false), c, 0, row++, 4, 1);
+        grid(panel, preview, c, 0, row++, 4, 1);
         addVerticalFiller(panel, c, row, 4);
         return panel;
+    }
+
+    /**
+     * Builds the engine settings preview string. Renders the current field
+     * values as the effective config so the user sees what would be applied
+     * before launching another search.
+     *
+     * @return one-line preview text
+     */
+    private String buildEnginePreview() {
+        StringBuilder line = new StringBuilder("preview: ");
+        String protocolPath = engineProtocolField.getText().trim();
+        line.append("protocol=").append(protocolPath.isEmpty() ? "<none>" : protocolPath);
+        String nodes = engineNodesField.getText().trim();
+        line.append("  ·  nodes=").append(nodes.isEmpty() ? "default" : nodes);
+        String hash = engineHashField.getText().trim();
+        line.append("  ·  hash=").append(hash.isEmpty() ? "default" : hash + " MB");
+        return line.toString();
     }
 
     /**
@@ -667,7 +790,9 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
         grid(importTools, gameInputScroll, importC, 1, 0, 3, 1);
 
         grid(importTools, buttonRow(FlowLayout.LEFT,
-                button("Load Line", true, event -> loadGameText(gameInput.getText())),
+                // Demoted to secondary so the Analyze tab has a single
+                // headline primary (Search) across all sections.
+                button("Load Line", false, event -> loadGameText(gameInput.getText())),
                 button("Load File", false, event -> loadGameFile()),
                 button("Save PGN", false, event -> savePgnFile()),
                 button("New Game", false, event -> startNewGame(currentFen()))), importC, 1, 1, 3, 1);
@@ -719,37 +844,74 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
 
         commandForm.setChangeListener(this::updateBuiltCommand);
         commandForm.setRunGate(this::updateCommandRunGate);
-        styleFields(commandField);
+        styleCommandPreviewField(commandField);
         depthModel.addChangeListener(event -> requestCommandPreviews());
         multipvModel.addChangeListener(event -> requestCommandPreviews());
         threadsModel.addChangeListener(event -> requestCommandPreviews());
 
-        // Header: the wrapping command-selector bar replaces a JTabbedPane
-        // whose empty content pane left a blank gap.
-        JPanel header = transparentPanel(new BorderLayout(0, 6));
-        header.add(commandPicker, BorderLayout.CENTER);
-        panel.add(header, BorderLayout.NORTH);
-
-        panel.add(commandForm, BorderLayout.CENTER);
-
-        JPanel south = transparentPanel(new BorderLayout(0, 8));
         commandField.setEditable(false);
-        JPanel previewRow = transparentPanel(new BorderLayout(8, 0));
         commandField.setToolTipText("Generated command");
+        JPanel previewRow = transparentPanel(new BorderLayout(8, 4));
+        JLabel previewLabel = new JLabel("$");
+        previewLabel.setFont(new Font(Font.MONOSPACED, Font.BOLD, 12));
+        Theme.foreground(previewLabel, Theme.ForegroundRole.MUTED);
+        previewRow.add(previewLabel, BorderLayout.WEST);
         previewRow.add(commandField, BorderLayout.CENTER);
-        south.add(previewRow, BorderLayout.NORTH);
+        previewRow.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createMatteBorder(0, 0, 1, 0, Theme.LINE),
+                Theme.pad(6, 10, 6, 10)));
+        previewRow.setOpaque(true);
+        previewRow.setBackground(Theme.ELEVATED_SOLID);
+
+        // Top stack: command picker, the form, and the generated CLI preview
+        // ride together as a single vertical block so the form and its
+        // resulting command line stay visually connected. Previously the
+        // preview sat at the bottom of the pane with a huge empty band
+        // between it and the form, breaking the cause-and-effect line.
+        JPanel topStack = new JPanel();
+        topStack.setOpaque(false);
+        topStack.setLayout(new BoxLayout(topStack, BoxLayout.Y_AXIS));
+        commandPicker.setAlignmentX(LEFT_ALIGNMENT);
+        commandForm.setAlignmentX(LEFT_ALIGNMENT);
+        previewRow.setAlignmentX(LEFT_ALIGNMENT);
+        topStack.add(commandPicker);
+        topStack.add(Box.createVerticalStrut(8));
+        topStack.add(commandForm);
+        topStack.add(Box.createVerticalStrut(6));
+        topStack.add(previewRow);
+        panel.add(topStack, BorderLayout.CENTER);
+
         runCommandButton = button("Run", true, event -> runSelectedTemplate());
-        south.add(buttonRow(FlowLayout.LEFT,
+        panel.add(buttonRow(FlowLayout.LEFT,
                 runCommandButton,
                 button("Copy", false, event -> copyBuiltCommand()),
                 button("Reset", false, event -> resetSelectedTemplate()),
                 button("Clear Flags", false, event -> clearOptionalTemplateOptions()),
                 button("Stop", false, event -> stopCommand())), BorderLayout.SOUTH);
-        panel.add(south, BorderLayout.SOUTH);
 
         updateCommandOptions();
         updateBuiltCommand();
         return panel;
+    }
+
+    /**
+     * Styles the generated command field so it reads as command output rather
+     * than another input row: monospace text, no editable border, muted
+     * foreground, transparent background that blends with the wrapper panel.
+     *
+     * @param field generated-command field
+     */
+    private static void styleCommandPreviewField(javax.swing.JTextArea field) {
+        field.setOpaque(false);
+        field.setBorder(BorderFactory.createEmptyBorder());
+        field.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 12));
+        field.setForeground(Theme.TEXT);
+        field.setCaretColor(Theme.MUTED);
+        field.setSelectionColor(Theme.SELECTION_SOLID);
+        field.setEditable(false);
+        field.setLineWrap(true);
+        field.setWrapStyleWord(false);
+        field.setRows(3);
     }
 
     /**
@@ -917,7 +1079,7 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
         commandStateLabel.setBorder(Theme.pad(0, Theme.SPACE_SM));
         top.add(commandStateLabel, BorderLayout.CENTER);
         top.add(buttonRow(FlowLayout.RIGHT,
-                button("Open Logs", false, event -> runArtifacts.openLogsDirectory()),
+                button("Open Logs", false, event -> showLogsDock()),
                 button("Save Log", false, event -> saveConsoleLog()),
                 button("Clear", false, event -> console.clearOutput()),
                 button("Stop", false, event -> stopCommand())), BorderLayout.EAST);
@@ -932,7 +1094,7 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
      * @return log tab component
      */
     protected JComponent createLogTab() {
-        return logPanel();
+        return primaryLogPanel();
     }
 
     /**
@@ -949,7 +1111,7 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
      *
      * @return log panel
      */
-    protected LogPanel logPanel() {
+    protected LogPanel primaryLogPanel() {
         if (logPanel == null) {
             logPanel = createLogPanelInstance(true);
         }

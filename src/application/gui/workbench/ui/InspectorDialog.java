@@ -3,29 +3,27 @@ package application.gui.workbench.ui;
 import application.gui.workbench.network.ActivationSnapshot;
 import java.awt.BorderLayout;
 import java.awt.Component;
-import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.Insets;
-import java.awt.Window;
 import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
-import javax.swing.JDialog;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
-import javax.swing.SwingUtilities;
 
 /**
- * Modeless dialog that shows the raw tensor slice behind a clicked region.
+ * In-workbench overlay that shows the raw tensor slice behind a clicked
+ * region. Replaces the previous standalone {@code JDialog}: opening the
+ * inspector no longer spawns a separate OS window, keeping the user inside
+ * the workbench frame in line with modern editor UX.
  *
- * <p>One shared instance is reused across the three architecture views so the
- * user gets a single secondary window rather than a window per arch. The dialog
- * is non-modal so the user can keep clicking around the visualizer while it is
- * open. Calling {@link #inspect} again reuses the same window.</p>
+ * <p>The shared instance is mounted via {@link ModalOverlay#forComponent}
+ * onto the workbench's modal layer; calling {@link #inspect} again reuses
+ * the same panel and re-centres it.</p>
  */
-public final class InspectorDialog extends JDialog {
+public final class InspectorDialog extends JPanel {
 
     /**
      * Maximum number of rows shown when rendering a matrix slice.
@@ -38,7 +36,17 @@ public final class InspectorDialog extends JDialog {
     private static final int MAX_MATRIX_COLS = 16;
 
     /**
-     * Serialization identifier for Swing dialog compatibility.
+     * Preferred overlay width.
+     */
+    private static final int PREFERRED_WIDTH = 620;
+
+    /**
+     * Preferred overlay height.
+     */
+    private static final int PREFERRED_HEIGHT = 520;
+
+    /**
+     * Serialization identifier for Swing panel compatibility.
      */
     private static final long serialVersionUID = 1L;
 
@@ -48,21 +56,21 @@ public final class InspectorDialog extends JDialog {
     private static InspectorDialog instance;
 
     /**
-     * Returns the shared dialog instance, creating it on first use.
+     * Returns the shared inspector panel, creating it on first use.
      *
-     * @param near component used to find the owner window
-     * @return shared dialog
+     * @param near component used to resolve the workbench overlay
+     * @return shared inspector
      */
     public static InspectorDialog shared(Component near) {
         if (instance == null) {
-            Window owner = near == null ? null : SwingUtilities.getWindowAncestor(near);
-            instance = new InspectorDialog(owner);
+            instance = new InspectorDialog();
         }
+        instance.attach(near);
         return instance;
     }
 
     /**
-     * Title label shown at the top of the dialog body.
+     * Title label shown at the top of the body.
      */
     private final JLabel titleLabel = new JLabel();
 
@@ -82,17 +90,22 @@ public final class InspectorDialog extends JDialog {
     private final JTextArea body = new JTextArea();
 
     /**
-     * Creates the dialog. Initial visibility is hidden; call {@link #inspect}.
-     *
-     * @param owner owner window
+     * Close button anchored in the header.
      */
-    private InspectorDialog(Window owner) {
-        super(owner);
-        setTitle("Tensor inspector");
-        setDefaultCloseOperation(JDialog.HIDE_ON_CLOSE);
-        setLayout(new BorderLayout());
-        setMinimumSize(new Dimension(440, 360));
-        setSize(580, 480);
+    private final JButtonClose closeButton = new JButtonClose();
+
+    /**
+     * Most recently resolved overlay, used for show/hide on the EDT.
+     */
+    private transient ModalOverlay overlay;
+
+    /**
+     * Creates the inspector panel.
+     */
+    private InspectorDialog() {
+        super(new BorderLayout());
+        setOpaque(true);
+        setBackground(Theme.BG);
 
         titleLabel.setFont(Theme.font(13, Font.BOLD));
         titleLabel.setForeground(Theme.TEXT);
@@ -115,6 +128,13 @@ public final class InspectorDialog extends JDialog {
         header.add(Box.createVerticalStrut(6));
         header.add(statsLabel);
 
+        JPanel headerRow = new JPanel(new BorderLayout());
+        headerRow.setOpaque(true);
+        headerRow.setBackground(Theme.PANEL_SOLID);
+        headerRow.add(header, BorderLayout.CENTER);
+        headerRow.add(closeButton, BorderLayout.EAST);
+        closeButton.addActionListener(event -> hideInspector());
+
         body.setEditable(false);
         body.setFont(Theme.mono(11));
         body.setBackground(Theme.BG);
@@ -126,13 +146,30 @@ public final class InspectorDialog extends JDialog {
         scroll.setBorder(BorderFactory.createEmptyBorder());
         scroll.getViewport().setBackground(Theme.BG);
 
-        add(header, BorderLayout.NORTH);
+        add(headerRow, BorderLayout.NORTH);
         add(scroll, BorderLayout.CENTER);
-        getContentPane().setBackground(Theme.BG);
     }
 
     /**
-     * Shows the dialog with the contents of one region's tensor slice.
+     * Resolves the overlay backing this inspector against the given anchor.
+     *
+     * @param near anchor component
+     */
+    private void attach(Component near) {
+        overlay = ModalOverlay.forComponent(near);
+    }
+
+    /**
+     * Hides the inspector overlay if it is currently shown.
+     */
+    private void hideInspector() {
+        if (overlay != null) {
+            overlay.hide();
+        }
+    }
+
+    /**
+     * Shows the inspector with the contents of one region's tensor slice.
      *
      * @param region clicked region (must have a non-null data key)
      * @param snapshot snapshot to read from
@@ -148,7 +185,7 @@ public final class InspectorDialog extends JDialog {
         if (data == null) {
             statsLabel.setText("(no data for key " + region.dataKey + ")");
             body.setText("");
-            showDialog();
+            present();
             return;
         }
         int off = Math.max(0, Math.min(region.dataOffset, data.length));
@@ -156,24 +193,22 @@ public final class InspectorDialog extends JDialog {
         if (len <= 0) {
             statsLabel.setText("(empty slice for key " + region.dataKey + ")");
             body.setText("");
-            showDialog();
+            present();
             return;
         }
         renderStats(data, off, len, region.shapeText);
         body.setText(formatValues(data, off, len, region.dataStride));
         body.setCaretPosition(0);
-        showDialog();
+        present();
     }
 
     /**
-     * Shows and raises the dialog.
+     * Mounts the inspector on the workbench overlay.
      */
-    private void showDialog() {
-        if (!isVisible()) {
-            setLocationRelativeTo(getOwner());
+    private void present() {
+        if (overlay != null) {
+            overlay.show(this, PREFERRED_WIDTH, PREFERRED_HEIGHT);
         }
-        setVisible(true);
-        toFront();
     }
 
     /**
@@ -261,4 +296,23 @@ public final class InspectorDialog extends JDialog {
         return sb.toString();
     }
 
+    /**
+     * Lightweight close affordance used in the inspector header.
+     */
+    private static final class JButtonClose extends javax.swing.JButton {
+
+        /**
+         * Serialization identifier for Swing button compatibility.
+         */
+        private static final long serialVersionUID = 1L;
+
+        /**
+         * Creates the close button.
+         */
+        JButtonClose() {
+            super("Close");
+            Theme.button(this, false);
+            setMargin(new Insets(4, 10, 4, 10));
+        }
+    }
 }

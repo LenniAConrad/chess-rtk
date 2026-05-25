@@ -408,7 +408,7 @@ public final class Perft {
             int depth,
             PerftContext context,
             int ply,
-            Counter counter) {
+        Counter counter) {
         if (depth == 0) {
             counter.nodes++;
             return;

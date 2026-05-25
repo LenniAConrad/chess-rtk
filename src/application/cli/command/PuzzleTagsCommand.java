@@ -49,10 +49,7 @@ import utility.Json;
 /**
  * Generates per-move tags (with deltas) for a puzzle line including PV variations.
  */
-@SuppressWarnings({
-    "java:S107", "java:S1168", "java:S135", "java:S3776",
-    "squid:S107", "squid:S1168", "squid:S135", "squid:S3776"
-})
+
 public final class PuzzleTagsCommand {
 
     /**
@@ -639,7 +636,7 @@ public final class PuzzleTagsCommand {
          * @param noWdl no wdl
          * @param fen fen
          */
-         private PuzzleOptions(boolean verbose, boolean analyzeTags, String protoPath, long nodesCap, long durMs, // NOSONAR
+         private PuzzleOptions(boolean verbose, boolean analyzeTags, String protoPath, long nodesCap, long durMs,
                 int multipv, int tagMultipv, int pvPlies, Integer threads, Integer hash, boolean wdl, boolean noWdl,
                 String fen) {
             this.verbose = verbose;

@@ -13,6 +13,7 @@ import application.gui.workbench.ui.Ui;
 import application.gui.workbench.ui.WrappingFlowLayout;
 import chess.core.Move;
 import chess.core.Position;
+import chess.core.Setup;
 import java.awt.BorderLayout;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
@@ -25,7 +26,9 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Random;
 import java.util.concurrent.ThreadLocalRandom;
 import javax.swing.BorderFactory;
 import javax.swing.JComboBox;
@@ -75,7 +78,7 @@ public final class PuzzlePanel extends JPanel {
     /**
      * Default file used for the built-in difficult puzzle collection.
      */
-    private static final File DEFAULT_PUZZLE_FILE = PuzzleLibrary.DEFAULT_PATH.toFile();
+    private static final File DEFAULT_PUZZLE_FILE = PuzzleLibrary.defaultPath().toFile();
 
     /**
      * Width reserved for the puzzle branch-mode selector.
@@ -95,7 +98,7 @@ public final class PuzzlePanel extends JPanel {
     /**
      * PGN input area.
      */
-    private final JTextArea pgnInput = new JTextArea(SAMPLE_PGN);
+    private final JTextArea pgnInput = new JTextArea();
 
     /**
      * Hidden/collapsible solution preview.
@@ -212,7 +215,7 @@ public final class PuzzlePanel extends JPanel {
         add(createHeader(), BorderLayout.NORTH);
         add(createBody(), BorderLayout.CENTER);
         installBoardHandlers();
-        loadSamplePuzzle();
+        showStartingPosition("No puzzle library loaded.");
         if (loadLibrary) {
             loadDefaultLibrary();
         }
@@ -440,6 +443,24 @@ public final class PuzzlePanel extends JPanel {
     }
 
     /**
+     * Shows the normal chess starting position while no puzzle is active.
+     *
+     * @param status status text
+     */
+    private void showStartingPosition(String status) {
+        finishResponseAnimationInstantly();
+        clearLibrarySelection();
+        session = null;
+        pgnInput.setText("");
+        board.clearMarkup();
+        board.clearWrongMoveMarker();
+        board.setWhiteDown(true);
+        board.setPositionInstant(new Position(Setup.getStandardStartFEN()), Move.NO_MOVE);
+        updateLabels();
+        setStatus(status);
+    }
+
+    /**
      * Loads a puzzle from the editor text.
      */
     private void loadFromEditor() {
@@ -459,12 +480,13 @@ public final class PuzzlePanel extends JPanel {
      * Loads the default chess-web puzzle library when available.
      */
     private void loadDefaultLibrary() {
-        if (!Files.isRegularFile(PuzzleLibrary.DEFAULT_PATH)) {
-            setStatus("Default puzzle file not found; loaded sample.");
+        Path defaultPath = PuzzleLibrary.defaultPath();
+        if (!Files.isRegularFile(defaultPath)) {
+            showStartingPosition("Default puzzle library not found.");
             return;
         }
         setStatus("Loading chess-web puzzle set...");
-        loadLibraryAsync(PuzzleLibrary.DEFAULT_PATH);
+        loadLibraryAsync(defaultPath);
     }
 
     /**
@@ -552,10 +574,9 @@ public final class PuzzlePanel extends JPanel {
                     applyLibrary(path, get());
                 } catch (InterruptedException ex) {
                     Thread.currentThread().interrupt();
-                    setStatus("Puzzle library loading interrupted.");
+                    showStartingPosition("Puzzle library loading interrupted.");
                 } catch (java.util.concurrent.ExecutionException ex) {
-                    setStatus("Could not load puzzle library: " + ex.getCause().getMessage());
-                    updateLabels();
+                    showStartingPosition("Could not load puzzle library: " + ex.getCause().getMessage());
                 }
             }
         }.execute();
@@ -568,16 +589,43 @@ public final class PuzzlePanel extends JPanel {
      * @param entries puzzle entries
      */
     private void applyLibrary(Path path, List<PuzzleLibrary.Entry> entries) {
-        puzzleLibrary = entries == null ? List.of() : List.copyOf(entries);
+        puzzleLibrary = shuffledLibrary(entries);
         puzzleLibraryPath = path;
         puzzleLibraryIndex = -1;
         if (puzzleLibrary.isEmpty()) {
-            setStatus("Puzzle library is empty.");
-            updateLabels();
+            showStartingPosition("Puzzle library is empty.");
             return;
         }
         loadLibraryPuzzle(0);
-        setStatus("Loaded " + puzzleLibrary.size() + " puzzles from " + path.getFileName() + ".");
+        setStatus("Loaded and shuffled " + puzzleLibrary.size() + " puzzles from " + path.getFileName() + ".");
+    }
+
+    /**
+     * Returns a randomized, immutable copy of a loaded puzzle library.
+     *
+     * @param entries source entries
+     * @return shuffled entries
+     */
+    private static List<PuzzleLibrary.Entry> shuffledLibrary(List<PuzzleLibrary.Entry> entries) {
+        return shuffledLibrary(entries, ThreadLocalRandom.current());
+    }
+
+    /**
+     * Returns a randomized, immutable copy of a loaded puzzle library.
+     *
+     * @param entries source entries
+     * @param random random source
+     * @return shuffled entries
+     */
+    private static List<PuzzleLibrary.Entry> shuffledLibrary(List<PuzzleLibrary.Entry> entries, Random random) {
+        if (entries == null || entries.isEmpty()) {
+            return List.of();
+        }
+        List<PuzzleLibrary.Entry> shuffled = new ArrayList<>(entries);
+        if (shuffled.size() > 1) {
+            Collections.shuffle(shuffled, random == null ? ThreadLocalRandom.current() : random);
+        }
+        return List.copyOf(shuffled);
     }
 
     /**
@@ -639,6 +687,20 @@ public final class PuzzlePanel extends JPanel {
     public void jumpReviewToEnd() {
         if (session != null) {
             jumpReviewTo(session.lastPly());
+        }
+    }
+
+    /**
+     * Toggles the active puzzle review between the branch start and end.
+     */
+    public void toggleReviewStartEnd() {
+        if (session == null) {
+            return;
+        }
+        if (session.cursor().cursorIndex() > 0) {
+            jumpReviewToStart();
+        } else {
+            jumpReviewToEnd();
         }
     }
 

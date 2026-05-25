@@ -60,6 +60,11 @@ final class EmptyEditorHost extends JPanel {
      */
     EmptyEditorHost() {
         super(new BorderLayout());
+        // Breathing room around every tab's content. Previously panels sat
+        // flush against the tab strip and pane edges; even 10px inside the
+        // host gives the workbench a noticeably less cramped feel without
+        // touching any per-panel layout.
+        setBorder(Theme.pad(10));
     }
 
     /**
