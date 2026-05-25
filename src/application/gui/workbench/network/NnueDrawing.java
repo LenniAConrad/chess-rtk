@@ -400,11 +400,11 @@ public final class NnueDrawing {
     }
 
     /**
-     * Draws the Stockfish FC0 forward-skip edge as a straight connection.
+     * Draws the Stockfish FC0 forward-skip edge as a Bezier bypass line.
      *
-     * <p>The branch bypasses FC1. The line stays direct so the topology is easy
-     * to read, while the label is placed in a spare lane to avoid covering the
-     * connection.</p>
+     * <p>The branch bypasses FC1. The curve drops through a spare lane and
+     * rises into the output node, matching the way this shortcut visually skips
+     * the hidden stack without using an arrowhead.</p>
      *
      * @param g graphics
      * @param x1 source x
@@ -437,21 +437,21 @@ public final class NnueDrawing {
                 + Math.round((TRACE_EDGE_ALPHA_MAX - TRACE_EDGE_ALPHA_MIN) * mag)
                 + TRACE_EDGE_FOCUS_BOOST);
         Color accent = new Color(base.getRed(), base.getGreen(), base.getBlue(), alpha);
+        Path2D.Double curve = skipBezierPath(x1, y1, x2, y2, labelY);
         Stroke oldStroke = g.getStroke();
 
         g.setColor(Theme.withAlpha(Theme.PANEL_SOLID, Theme.isDark() ? 220 : 235));
         g.setStroke(new BasicStroke(TRACE_SKIP_EDGE_UNDERLAY_WIDTH,
                 BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-        g.drawLine(x1, y1, x2, y2);
+        g.draw(curve);
 
         g.setColor(Theme.withAlpha(base, Math.min(255, alpha + 10)));
         g.setStroke(new BasicStroke(TRACE_SKIP_EDGE_WIDTH,
                 BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-        g.drawLine(x1, y1, x2, y2);
+        g.draw(curve);
 
         drawSkipEndpoint(g, x1, y1, accent);
         drawSkipEndpoint(g, x2, y2, accent);
-        drawLineArrowHead(g, x1, y1, x2, y2, accent);
         g.setStroke(oldStroke);
 
         Rectangle labelBounds = drawSkipEdgeLabel(g, label, detail,
@@ -462,6 +462,26 @@ public final class NnueDrawing {
             hit = hit.union(labelBounds);
         }
         return hit;
+    }
+
+    /**
+     * Creates one smooth lower-gutter Bezier path for the forward skip.
+     *
+     * @param x1 source x
+     * @param y1 source y
+     * @param x2 target x
+     * @param y2 target y
+     * @param laneY bypass lane y coordinate
+     * @return Bezier path
+     */
+    private static Path2D.Double skipBezierPath(int x1, int y1, int x2, int y2, int laneY) {
+        double dx = x2 - x1;
+        double c1x = x1 + dx * 0.34d;
+        double c2x = x2 - dx * 0.28d;
+        Path2D.Double path = new Path2D.Double();
+        path.moveTo(x1, y1);
+        path.curveTo(c1x, laneY, c2x, laneY, x2, y2);
+        return path;
     }
 
     /**
@@ -480,39 +500,6 @@ public final class NnueDrawing {
         g.drawOval(x - 4, y - 4, 8, 8);
         g.setColor(Theme.withAlpha(accent, 92));
         g.fillOval(x - 2, y - 2, 4, 4);
-    }
-
-    /**
-     * Draws an arrow head tangent to a straight skip edge.
-     *
-     * @param g graphics
-     * @param fromX source x
-     * @param fromY source y
-     * @param tipX arrow tip x
-     * @param tipY arrow tip y
-     * @param accent arrow accent
-     */
-    private static void drawLineArrowHead(Graphics2D g, double fromX, double fromY, int tipX, int tipY,
-            Color accent) {
-        double angle = Math.atan2(tipY - fromY, tipX - fromX);
-        int size = 7;
-        double inset = 2.0;
-        double backX = tipX - Math.cos(angle) * size;
-        double backY = tipY - Math.sin(angle) * size;
-        double leftX = backX + Math.cos(angle - Math.PI / 2.0) * size * 0.42;
-        double leftY = backY + Math.sin(angle - Math.PI / 2.0) * size * 0.42;
-        double rightX = backX + Math.cos(angle + Math.PI / 2.0) * size * 0.42;
-        double rightY = backY + Math.sin(angle + Math.PI / 2.0) * size * 0.42;
-        Path2D.Double head = new Path2D.Double();
-        head.moveTo(tipX + Math.cos(angle) * inset, tipY + Math.sin(angle) * inset);
-        head.lineTo(leftX, leftY);
-        head.lineTo(rightX, rightY);
-        head.closePath();
-        g.setColor(Theme.withAlpha(Theme.PANEL_SOLID, Theme.isDark() ? 238 : 245));
-        g.setStroke(new BasicStroke(2.2f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-        g.draw(head);
-        g.setColor(accent);
-        g.fill(head);
     }
 
     /**
