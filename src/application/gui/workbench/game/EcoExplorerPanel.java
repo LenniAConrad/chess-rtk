@@ -358,6 +358,8 @@ public final class EcoExplorerPanel extends JPanel {
         columns.getColumn(2).setPreferredWidth(44);
         columns.getColumn(3).setPreferredWidth(170);
         columns.getColumn(4).setPreferredWidth(260);
+        columns.getColumn(1).setCellRenderer(new SanRenderer());
+        columns.getColumn(4).setCellRenderer(new SanRenderer());
     }
 
     /**

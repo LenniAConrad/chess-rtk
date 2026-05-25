@@ -376,6 +376,12 @@ final class WorkbenchGameRegression {
                 "ECO table header uses workbench background");
         assertEquals(themeColor("MUTED"), header.getForeground(),
                 "ECO table header uses workbench foreground");
+        assertTrue(table.getColumnModel().getColumn(1).getCellRenderer() instanceof SanRenderer,
+                "ECO next-move column uses inline SAN renderer");
+        assertTrue(table.getColumnModel().getColumn(4).getCellRenderer() instanceof SanRenderer,
+                "ECO line column uses inline SAN renderer");
+        assertTrue(NotationPainter.pieceSvgCount(loaded[0]) > 0,
+                "selected ECO movetext contains drawable algebraic piece notation");
         assertPaintsOpaqueCorner((JComponent) explorer, 420, 520, "ECO explorer opaque background");
     }
 
