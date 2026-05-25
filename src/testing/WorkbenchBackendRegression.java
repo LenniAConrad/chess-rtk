@@ -87,7 +87,7 @@ final class WorkbenchBackendRegression {
         testNnueStackSummaryStaysCompact();
         testNnueViewsPaintSyntheticSnapshotHeadlessly();
         testNnueContributorLedgerUsesReadableRows();
-        testNnueContributorBarUsesLightTrackAndDarkFill();
+        testNnueContributorBarUsesNeutralTrackAndBrightFill();
         testNnueTraceFitsViewportAndCentersColumns();
         testNnueRawUsesStableFeatureLanes();
         testNnueHalfKpDecodingUsesFeatureEncoderLayout();
@@ -949,10 +949,10 @@ final class WorkbenchBackendRegression {
     }
 
     /**
-     * Verifies NNUE contributor bars use the lighter signed colour as the lane
-     * and the darker signed colour as the actual magnitude fill.
+     * Verifies NNUE contributor bars use the neutral elevated shade as the lane
+     * and a brighter signed colour as the actual magnitude fill.
      */
-    private static void testNnueContributorBarUsesLightTrackAndDarkFill() {
+    private static void testNnueContributorBarUsesNeutralTrackAndBrightFill() {
         Theme.Mode previous = Theme.mode();
         try {
             Theme.setMode(Theme.Mode.DARK);
@@ -971,10 +971,12 @@ final class WorkbenchBackendRegression {
             }
             Color fill = new Color(image.getRGB(28, 12), true);
             Color track = new Color(image.getRGB(92, 12), true);
-            assertTrue(relativeLuminance(track) > relativeLuminance(fill),
-                    "NNUE contributor bar track is the lighter signed shade");
-            assertColorDistanceAtLeast(track, fill, 18.0,
-                    "NNUE contributor bar fill is visually distinct from the track");
+            assertTrue(colorDistance(track, themeColor("ELEVATED_SOLID")) <= 1.0,
+                    "NNUE contributor bar track uses the neutral elevated shade");
+            assertTrue(relativeLuminance(fill) > relativeLuminance(track),
+                    "NNUE contributor bar fill is brighter than the neutral track");
+            assertColorDistanceAtLeast(track, fill, 48.0,
+                    "NNUE contributor bar fill is clearly distinct from the track");
         } finally {
             Theme.setMode(previous);
             invokeStatic(type("TensorViz"), "refreshPalette", new Class<?>[0]);

@@ -868,8 +868,25 @@ public abstract class NnueOverviewView extends NnueAtlasView {
         int colW = (r.width - colGap) / 2;
         Rectangle posCol = new Rectangle(r.x, r.y + 40, colW, r.height - 40);
         Rectangle negCol = new Rectangle(r.x + colW + colGap, r.y + 40, colW, r.height - 40);
+        paintContributorColumnBackground(g, posCol);
+        paintContributorColumnBackground(g, negCol);
         paintContributorColumn(g, posCol, indices, impact, true);
         paintContributorColumn(g, negCol, indices, impact, false);
+    }
+
+    /**
+     * Paints the contributor column tray. In dark mode this intentionally uses
+     * the lighter editor-control shade so the row cards can sit on the darker
+     * document shade without creating the inverted bar look.
+     *
+     * @param g graphics
+     * @param r column rectangle
+     */
+    private static void paintContributorColumnBackground(Graphics2D g, Rectangle r) {
+        g.setColor(contributorColumnBackground());
+        g.fillRoundRect(r.x, r.y, r.width, r.height, Theme.RADIUS, Theme.RADIUS);
+        g.setColor(Theme.LINE);
+        g.drawRoundRect(r.x, r.y, r.width - 1, r.height - 1, Theme.RADIUS, Theme.RADIUS);
     }
 
     /**
@@ -934,7 +951,7 @@ public abstract class NnueOverviewView extends NnueAtlasView {
             int y = r.y + CONTRIBUTOR_COLUMN_HEADER_HEIGHT + i * (rowH + CONTRIBUTOR_ROW_GAP);
             Rectangle row = new Rectangle(r.x, y, r.width, rowH);
             boolean isSelected = featureIdx == selectedFeature;
-            g.setColor(Theme.ELEVATED_SOLID);
+            g.setColor(contributorRowBackground());
             g.fillRoundRect(row.x, row.y, row.width, row.height, Theme.RADIUS, Theme.RADIUS);
             g.setColor(isSelected ? TensorViz.FOCUS : Theme.LINE);
             g.drawRoundRect(row.x, row.y, row.width - 1, row.height - 1, Theme.RADIUS, Theme.RADIUS);
@@ -1020,7 +1037,7 @@ public abstract class NnueOverviewView extends NnueAtlasView {
         float ratio = Math.min(1.0f, Math.abs(value) / Math.max(1.0e-6f, scale));
         int fillW = Math.max(2, Math.round(r.width * ratio));
         Color accent = positive ? TensorViz.POSITIVE : TensorViz.NEGATIVE;
-        Color track = contributorBarTrack(accent);
+        Color track = contributorBarTrack();
         Color fill = contributorBarFill(accent);
         g.setColor(track);
         g.fillRoundRect(r.x, r.y, r.width, r.height, r.height, r.height);
@@ -1032,26 +1049,41 @@ public abstract class NnueOverviewView extends NnueAtlasView {
     }
 
     /**
-     * Returns the lighter signed lane background for contributor bars.
+     * Returns the column tray color for contributor rows.
      *
-     * @param accent signed neural-network accent
-     * @return track color
+     * @return column tray color
      */
-    private static Color contributorBarTrack(Color accent) {
-        Color base = Theme.isDark() ? Theme.ELEVATED_SOLID : Theme.PANEL_SOLID;
-        float tint = Theme.isDark() ? 0.50f : 0.34f;
-        return TensorViz.lerp(base, accent, tint);
+    private static Color contributorColumnBackground() {
+        return Theme.isDark() ? Theme.ELEVATED_SOLID : Theme.PANEL_SOLID;
     }
 
     /**
-     * Returns the darker signed fill color for contributor bars.
+     * Returns the row color for one contributor row.
+     *
+     * @return row color
+     */
+    private static Color contributorRowBackground() {
+        return Theme.isDark() ? Theme.PANEL_SOLID : Theme.ELEVATED_SOLID;
+    }
+
+    /**
+     * Returns the neutral lane background for contributor bars.
+     *
+     * @return track color
+     */
+    private static Color contributorBarTrack() {
+        return Theme.isDark() ? Theme.ELEVATED_SOLID : Theme.PANEL_SOLID;
+    }
+
+    /**
+     * Returns the signed fill color for contributor bars.
      *
      * @param accent signed neural-network accent
      * @return fill color
      */
     private static Color contributorBarFill(Color accent) {
         if (Theme.isDark()) {
-            return TensorViz.lerp(Theme.ELEVATED_SOLID, accent, 0.26f);
+            return TensorViz.lerp(accent, Theme.TEXT, 0.08f);
         }
         return TensorViz.lerp(accent, Theme.TEXT, 0.22f);
     }
