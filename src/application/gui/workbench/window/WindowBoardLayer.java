@@ -165,11 +165,10 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
     protected JComponent createPositionControls() {
         JPanel panel = new SurfacePanel(new GridBagLayout());
         GridBagConstraints c = constraints();
-        grid(panel, Theme.section("Position"), c, 0, 0, 4, 1);
 
         styleFields(fenField);
         fenField.addActionListener(event -> setPositionFromField());
-        grid(panel, fenField, c, 0, 1, 4, 1);
+        grid(panel, fenField, c, 0, 0, 4, 1);
 
         boardStartButton = iconButton("Start", event -> jumpGameTo(0));
         boardBackButton = iconButton("Back", event -> navigateGame(-1));
@@ -186,7 +185,7 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
                 boardBackButton,
                 boardForwardButton,
                 boardEndButton,
-                iconButton("Reset", event -> startNewGame(Setup.getStandardStartFEN()))), c, 0, 2, 4, 1);
+                iconButton("Reset", event -> startNewGame(Setup.getStandardStartFEN()))), c, 0, 1, 4, 1);
         grid(panel, buttonRow(FlowLayout.LEFT,
                 iconButton("Flip", event -> {
                     board.setWhiteDown(!board.isWhiteDown());
@@ -194,8 +193,8 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
                 }),
                 iconButton("Copy FEN", event -> copyText(fenField.getText())),
                 iconButton("Settings", event -> showDisplaySettings()),
-                iconButton("Actions", event -> showCommandPalette())), c, 0, 3, 4, 1);
-        grid(panel, createPgnExplorerLauncher(), c, 0, 4, 4, 1);
+                iconButton("Actions", event -> showCommandPalette())), c, 0, 2, 4, 1);
+        grid(panel, createPgnExplorerLauncher(), c, 0, 3, 4, 1);
         return panel;
     }
 

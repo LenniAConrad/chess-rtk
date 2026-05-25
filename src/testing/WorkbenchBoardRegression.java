@@ -155,7 +155,29 @@ final class WorkbenchBoardRegression {
         invoke(editor, "setEditingBoardActive", new Class<?>[] { boolean.class }, Boolean.FALSE);
         assertFalse((Boolean) invoke(board, "isSetupEditMode", new Class<?>[0]),
                 "leaving editor disables direct board editing");
+        assertFalse(readWorkbenchSource("board/BoardEditorPanel.java").contains("white bottom"),
+                "board editor does not show the old orientation label");
+        assertFalse(readWorkbenchSource("board/BoardEditorPanel.java").contains("label(\"main board\")"),
+                "board editor does not replace orientation text with another board label");
+        assertFalse(readWorkbenchSource("window/WindowBoardLayer.java").contains("Theme.section(\"Position\")"),
+                "position controls no longer show a redundant position title");
         assertPaintsOpaqueCorner((JComponent) editor, 360, 560, "board editor opaque background");
+    }
+
+    /**
+     * Reads one workbench source file for source-level UI regression checks.
+     *
+     * @param relativePath path below the workbench package
+     * @return source text
+     */
+    private static String readWorkbenchSource(String relativePath) {
+        try {
+            return java.nio.file.Files.readString(
+                    java.nio.file.Path.of("src/application/gui/workbench", relativePath),
+                    java.nio.charset.StandardCharsets.UTF_8);
+        } catch (java.io.IOException ex) {
+            throw new AssertionError("unable to read workbench source " + relativePath, ex);
+        }
     }
 
     /**

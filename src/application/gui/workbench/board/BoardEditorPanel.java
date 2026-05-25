@@ -387,10 +387,6 @@ public final class BoardEditorPanel extends JPanel {
     private JComponent createHeader() {
         JPanel header = transparentPanel(new BorderLayout(8, 0));
         header.add(Theme.section("Editor"), BorderLayout.WEST);
-        JLabel mode = label("main board");
-        mode.setFont(Theme.font(11, Font.PLAIN));
-        Theme.foreground(mode, Theme.ForegroundRole.MUTED);
-        header.add(mode, BorderLayout.EAST);
         return header;
     }
 
