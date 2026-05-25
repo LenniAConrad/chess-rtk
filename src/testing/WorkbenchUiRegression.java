@@ -144,6 +144,7 @@ final class WorkbenchUiRegression {
         testTabbedPaneSwitchesWithoutSnapshotOverlay();
         testTabbedPaneRolloverIgnoresEmptyPanes();
         testSplitAreaUsesIndependentEditorGroups();
+        testSplitAreaCreatesVerticalSplitsForTopBottomActions();
         testSplitAreaTabSelectionDoesNotRebuildDivider();
         testSplitAreaTabSelectionReusesTabComponents();
         testSplitAreaThemeRefreshUpdatesHiddenTabs();
@@ -1796,6 +1797,47 @@ final class WorkbenchUiRegression {
         invoke(area, "setPrimary", new Class<?>[] { int.class }, 1);
         assertTrue(primary.contains(1), "tab can move back to primary group");
         assertFalse(secondary.contains(1), "tab is not duplicated across editor groups");
+    }
+
+    /**
+     * Verifies top and bottom split actions create vertical editor groups
+     * rather than being routed through the horizontal left/right split.
+     */
+    @SuppressWarnings("unchecked")
+    private static void testSplitAreaCreatesVerticalSplitsForTopBottomActions() {
+        Object downArea = splitFixture();
+        invoke(downArea, "splitSelectedTabDown", new Class<?>[0]);
+        JSplitPane downSplit = (JSplitPane) field(downArea, "splitPane");
+        assertEquals(Integer.valueOf(JSplitPane.VERTICAL_SPLIT), Integer.valueOf(downSplit.getOrientation()),
+                "split-down creates a top-bottom split pane");
+        assertEquals(Integer.valueOf(2), invoke(downArea, "visibleGroupCount", new Class<?>[0]),
+                "split-down leaves two visible editor groups");
+        List<Integer> tertiary = (List<Integer>) field(downArea, "tertiaryTabs");
+        assertTrue(tertiary.contains(1), "split-down places the selected tab below");
+
+        Object upArea = splitFixture();
+        invoke(upArea, "splitSelectedTabUp", new Class<?>[0]);
+        JSplitPane upSplit = (JSplitPane) field(upArea, "splitPane");
+        assertEquals(Integer.valueOf(JSplitPane.VERTICAL_SPLIT), Integer.valueOf(upSplit.getOrientation()),
+                "split-up creates a top-bottom split pane");
+        List<Integer> primary = (List<Integer>) field(upArea, "primaryTabs");
+        assertTrue(primary.contains(1), "split-up places the selected tab above");
+    }
+
+    /**
+     * Creates a selected three-tab editor area for split command tests.
+     *
+     * @return installed editor split area
+     */
+    private static Object splitFixture() {
+        Object area = construct(type("layout.EditorSplitArea"), new Class<?>[0]);
+        for (int i = 0; i < 3; i++) {
+            invoke(area, "addPanel", new Class<?>[] { String.class, javax.swing.JComponent.class },
+                    "Tab " + i, new JPanel());
+        }
+        invoke(area, "install", new Class<?>[0]);
+        invoke(area, "select", new Class<?>[] { int.class }, 1);
+        return area;
     }
 
     /**

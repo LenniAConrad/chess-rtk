@@ -1170,8 +1170,7 @@ public final class EditorSplitArea extends JPanel {
             case DROP_SECONDARY_CENTER -> setSecondary(panelIndex);
             case DROP_TERTIARY_CENTER -> setTertiary(panelIndex);
             case DROP_QUATERNARY_CENTER -> setQuaternary(panelIndex);
-            case DROP_RIGHT, DROP_BOTTOM -> splitWithDragged(panelIndex, false);
-            case DROP_LEFT, DROP_TOP -> splitWithDragged(panelIndex, true);
+            case DROP_RIGHT, DROP_BOTTOM, DROP_LEFT, DROP_TOP -> splitWithDragged(panelIndex, zone);
             case DROP_TOP_LEFT -> splitWithDraggedInPane(panelIndex, PANE_PRIMARY);
             case DROP_TOP_RIGHT -> splitWithDraggedInPane(panelIndex, PANE_SECONDARY);
             case DROP_BOTTOM_LEFT -> splitWithDraggedInPane(panelIndex, PANE_TERTIARY);
@@ -1247,6 +1246,17 @@ public final class EditorSplitArea extends JPanel {
      *     primary group
      */
     private void splitWithDragged(int draggedPanelIndex, boolean draggedInPrimary) {
+        splitWithDragged(draggedPanelIndex, draggedInPrimary ? DROP_LEFT : DROP_RIGHT);
+    }
+
+    /**
+     * Creates a two-group split with the dragged tab alone in the requested
+     * direction and the remaining tabs in the opposite group.
+     *
+     * @param draggedPanelIndex dragged panel index
+     * @param zone drop-zone/action constant
+     */
+    private void splitWithDragged(int draggedPanelIndex, int zone) {
         if (!validPanel(draggedPanelIndex)) {
             return;
         }
@@ -1266,24 +1276,60 @@ public final class EditorSplitArea extends JPanel {
         secondaryTabs.clear();
         tertiaryTabs.clear();
         quaternaryTabs.clear();
+        secondaryIndex = -1;
         tertiaryIndex = -1;
         quaternaryIndex = -1;
-        if (draggedInPrimary) {
-            primaryTabs.add(draggedPanelIndex);
-            secondaryTabs.addAll(others);
-            primaryIndex = draggedPanelIndex;
-            secondaryIndex = secondaryTabs.get(0);
-            activePane = PANE_PRIMARY;
-        } else {
-            primaryTabs.addAll(others);
-            secondaryTabs.add(draggedPanelIndex);
-            primaryIndex = primaryTabs.contains(primaryIndex) ? primaryIndex : primaryTabs.get(0);
-            secondaryIndex = draggedPanelIndex;
-            activePane = PANE_SECONDARY;
+        switch (zone) {
+            case DROP_LEFT -> {
+                primaryTabs.add(draggedPanelIndex);
+                secondaryTabs.addAll(others);
+                primaryIndex = draggedPanelIndex;
+                secondaryIndex = secondaryTabs.get(0);
+                activePane = PANE_PRIMARY;
+            }
+            case DROP_TOP -> {
+                primaryTabs.add(draggedPanelIndex);
+                tertiaryTabs.addAll(others);
+                primaryIndex = draggedPanelIndex;
+                tertiaryIndex = tertiaryTabs.get(0);
+                activePane = PANE_PRIMARY;
+            }
+            case DROP_BOTTOM -> {
+                primaryTabs.addAll(others);
+                tertiaryTabs.add(draggedPanelIndex);
+                primaryIndex = selectedOrFirst(primaryTabs, primaryIndex);
+                tertiaryIndex = draggedPanelIndex;
+                activePane = PANE_TERTIARY;
+            }
+            case DROP_RIGHT -> {
+                primaryTabs.addAll(others);
+                secondaryTabs.add(draggedPanelIndex);
+                primaryIndex = selectedOrFirst(primaryTabs, primaryIndex);
+                secondaryIndex = draggedPanelIndex;
+                activePane = PANE_SECONDARY;
+            }
+            default -> {
+                primaryTabs.addAll(others);
+                secondaryTabs.add(draggedPanelIndex);
+                primaryIndex = selectedOrFirst(primaryTabs, primaryIndex);
+                secondaryIndex = draggedPanelIndex;
+                activePane = PANE_SECONDARY;
+            }
         }
         syncOpenFromGroups();
         relayout();
         notifySelectionChanged();
+    }
+
+    /**
+     * Keeps the previous selection for a tab group when possible.
+     *
+     * @param tabs tab group
+     * @param selected current selected panel index
+     * @return retained selected index, or the first group tab
+     */
+    private static int selectedOrFirst(List<Integer> tabs, int selected) {
+        return tabs.contains(selected) ? selected : tabs.get(0);
     }
 
     /**
@@ -1300,7 +1346,7 @@ public final class EditorSplitArea extends JPanel {
                 ? targetPane
                 : PANE_PRIMARY;
         if (!isSplitActive()) {
-            splitWithDragged(draggedPanelIndex, targetPaneId == PANE_PRIMARY || targetPaneId == PANE_TERTIARY);
+            splitWithDragged(draggedPanelIndex, initialSplitZone(targetPaneId));
             return;
         }
         ensureOpen(draggedPanelIndex);
@@ -1328,6 +1374,23 @@ public final class EditorSplitArea extends JPanel {
         syncOpenFromGroups();
         relayout();
         notifySelectionChanged();
+    }
+
+    /**
+     * Maps a requested editor quadrant onto the closest two-pane split when no
+     * split layout exists yet.
+     *
+     * @param targetPane target editor group id
+     * @return drop-zone/action constant
+     */
+    private static int initialSplitZone(int targetPane) {
+        return switch (targetPane) {
+            case PANE_PRIMARY -> DROP_TOP;
+            case PANE_SECONDARY -> DROP_RIGHT;
+            case PANE_TERTIARY -> DROP_BOTTOM;
+            case PANE_QUATERNARY -> DROP_RIGHT;
+            default -> DROP_RIGHT;
+        };
     }
 
     /**
