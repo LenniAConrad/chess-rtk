@@ -85,6 +85,11 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
     protected EcoExplorerPanel ecoExplorerPanel;
 
     /**
+     * Setup editor panel, created lazily with the board detail tabs.
+     */
+    protected BoardEditorPanel boardEditorPanel;
+
+    /**
      * Creates the board tab.
      *
      * @return tab component
@@ -357,6 +362,8 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
         boardDetailTabs.addTab("MCTS", mctsPanel);
         boardDetailTabs.addTab("Settings", createDisplaySettingsPanel());
         boardDetailTabs.addTab("Engine", createEngineSettingsPanel());
+        boardDetailTabs.addChangeListener(event -> syncBoardEditorMode());
+        syncBoardEditorMode();
         return boardDetailTabs;
     }
 
@@ -396,8 +403,35 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
      * @return editor component
      */
     protected JComponent createBoardEditorPanel() {
-        BoardEditorPanel editor = new BoardEditorPanel(this::currentFen, this::applyBoardEditorFen, this::copyText);
-        return scroll(fillViewport(editor));
+        boardEditorPanel = new BoardEditorPanel(this::currentFen, this::applyBoardEditorFen, this::copyText);
+        boardEditorPanel.attachBoard(board);
+        return scroll(fillViewport(boardEditorPanel));
+    }
+
+    /**
+     * Synchronizes direct board editing with the selected side tab.
+     */
+    protected void syncBoardEditorMode() {
+        if (boardEditorPanel == null || boardDetailTabs == null) {
+            board.setSetupEditMode(false);
+            return;
+        }
+        boolean active = isBoardEditorSelected();
+        if (active) {
+            boardEditorPanel.loadFen(currentFen());
+        }
+        boardEditorPanel.setEditingBoardActive(active);
+    }
+
+    /**
+     * Returns whether the setup editor tab is selected.
+     *
+     * @return true when the setup editor is selected
+     */
+    protected boolean isBoardEditorSelected() {
+        return boardDetailTabs != null
+                && boardDetailTabs.getSelectedIndex() >= 0
+                && "Editor".equals(boardDetailTabs.getTitleAt(boardDetailTabs.getSelectedIndex()));
     }
 
     /**

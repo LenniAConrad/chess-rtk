@@ -149,6 +149,10 @@ public abstract class WindowEngineLayer extends WindowBoardLayer {
         } else {
             board.setPositionInstant(currentPosition, lastMove);
         }
+        if (boardEditorPanel != null) {
+            boardEditorPanel.loadFen(currentPosition.toString());
+            boardEditorPanel.setEditingBoardActive(isBoardEditorSelected());
+        }
         analysisGraph.resetForPosition(currentPosition.toString());
         for (application.gui.workbench.network.NetworkPanel panel : networkPanels) {
             panel.setFen(currentPosition.toString());

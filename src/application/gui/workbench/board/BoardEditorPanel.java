@@ -2,26 +2,20 @@ package application.gui.workbench.board;
 
 import application.gui.workbench.ui.RenderAcceleration;
 import application.gui.workbench.ui.Theme;
-import chess.core.Field;
 import chess.core.Piece;
 import chess.core.Position;
 import chess.core.Setup;
 import java.awt.BorderLayout;
-import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
-import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.GridLayout;
 import java.awt.Image;
 import java.awt.Insets;
-import java.awt.Rectangle;
 import java.awt.RenderingHints;
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
 import java.awt.image.BufferedImage;
 import java.util.Arrays;
 import java.util.Objects;
@@ -38,7 +32,6 @@ import javax.swing.JSpinner;
 import javax.swing.JTextField;
 import javax.swing.JToggleButton;
 import javax.swing.SpinnerNumberModel;
-import javax.swing.SwingUtilities;
 
 import static application.gui.workbench.ui.Ui.button;
 import static application.gui.workbench.ui.Ui.buttonRow;
@@ -76,34 +69,19 @@ public final class BoardEditorPanel extends JPanel {
     private static final int BOARD_EDGE = 8;
 
     /**
-     * Inner padding around the editable board.
-     */
-    private static final int BOARD_PADDING = 6;
-
-    /**
-     * Preferred editable board size in the compact side pane.
-     */
-    private static final int PREFERRED_BOARD_SIZE = 224;
-
-    /**
-     * Minimum editable board size before the palette becomes cramped.
-     */
-    private static final int MINIMUM_BOARD_SIZE = 200;
-
-    /**
      * Piece icon size used in the palette.
      */
-    private static final int TOOL_ICON_SIZE = 24;
+    private static final int TOOL_ICON_SIZE = 26;
 
     /**
      * Board-colored tile size used behind palette piece icons.
      */
-    private static final int TOOL_TILE_SIZE = 28;
+    private static final int TOOL_TILE_SIZE = 30;
 
     /**
      * Fixed size for each palette button.
      */
-    private static final Dimension TOOL_BUTTON_SIZE = new Dimension(38, 34);
+    private static final Dimension TOOL_BUTTON_SIZE = new Dimension(46, 38);
 
     /**
      * FEN marker for an unavailable optional field.
@@ -153,11 +131,6 @@ public final class BoardEditorPanel extends JPanel {
      * Mutable board edited by the user, using repository piece codes.
      */
     private final byte[] editedBoard = new byte[BOARD_SQUARE_COUNT];
-
-    /**
-     * Editable board canvas.
-     */
-    private final EditorBoardCanvas boardCanvas = new EditorBoardCanvas();
 
     /**
      * Side-to-move selector.
@@ -216,9 +189,14 @@ public final class BoardEditorPanel extends JPanel {
     private byte selectedPiece = Piece.WHITE_KING;
 
     /**
-     * Most recently changed square for a lightweight cursor highlight.
+     * Main workbench board used for direct setup editing, or null in tests.
      */
-    private byte lastEditedSquare = Field.NO_SQUARE;
+    private transient BoardPanel hostBoard;
+
+    /**
+     * Whether the host board should currently intercept setup edits.
+     */
+    private boolean editingBoardActive;
 
     /**
      * Non-standard Chess960 castling text preserved from a loaded FEN until the
@@ -316,9 +294,10 @@ public final class BoardEditorPanel extends JPanel {
         validateSquare(square);
         validatePiece(piece);
         editedBoard[square] = piece;
-        lastEditedSquare = square;
         updateFenPreview();
-        boardCanvas.repaint();
+        if (hostBoard != null) {
+            hostBoard.setSetupEditPieceAt(square, piece);
+        }
     }
 
     /**
@@ -343,6 +322,39 @@ public final class BoardEditorPanel extends JPanel {
     }
 
     /**
+     * Attaches the editor to the main board so piece edits happen directly on
+     * the visible chessboard.
+     *
+     * @param board main workbench board, or null to detach
+     */
+    public void attachBoard(BoardPanel board) {
+        if (hostBoard != null) {
+            hostBoard.setSetupEditMode(false);
+            hostBoard.setSetupEditObserver(null);
+        }
+        hostBoard = board;
+        if (hostBoard != null) {
+            hostBoard.setSetupEditObserver(this::handleHostBoardEdit);
+        }
+        syncHostBoard();
+    }
+
+    /**
+     * Enables or disables direct editing on the attached main board.
+     *
+     * @param active true while the Editor tab is selected
+     */
+    public void setEditingBoardActive(boolean active) {
+        if (editingBoardActive == active) {
+            syncHostBoard();
+            return;
+        }
+        editingBoardActive = active;
+        syncHostBoard();
+        setStatus(active ? "Editing main board" : "Ready", Theme.ForegroundRole.MUTED);
+    }
+
+    /**
      * Configures the root panel.
      */
     private void configurePanel() {
@@ -355,16 +367,14 @@ public final class BoardEditorPanel extends JPanel {
         c.insets = new Insets(0, 0, 8, 0);
         grid(this, createHeader(), c, 0, 0, 1, 1);
         c.insets = new Insets(0, 0, 10, 0);
-        grid(this, boardCanvas, c, 0, 1, 1, 1);
+        grid(this, createPalettePanel(), c, 0, 1, 1, 1);
         c.insets = new Insets(0, 0, 10, 0);
-        grid(this, createPalette(), c, 0, 2, 1, 1);
-        c.insets = new Insets(0, 0, 10, 0);
-        grid(this, collapsible("State", createStateControls(), false), c, 0, 3, 1, 1);
+        grid(this, collapsible("State", createStateControls(), true), c, 0, 2, 1, 1);
         c.insets = new Insets(0, 0, 8, 0);
-        grid(this, collapsible("FEN", createFenPreview(), true), c, 0, 4, 1, 1);
+        grid(this, collapsible("FEN", createFenPreview(), true), c, 0, 3, 1, 1);
         c.insets = new Insets(0, 0, 0, 0);
-        grid(this, createActionRows(), c, 0, 5, 1, 1);
-        c.gridy = 6;
+        grid(this, createActionRows(), c, 0, 4, 1, 1);
+        c.gridy = 5;
         c.weighty = 1.0;
         add(transparentPanel(new BorderLayout()), c);
     }
@@ -377,10 +387,23 @@ public final class BoardEditorPanel extends JPanel {
     private JComponent createHeader() {
         JPanel header = transparentPanel(new BorderLayout(8, 0));
         header.add(Theme.section("Editor"), BorderLayout.WEST);
-        JLabel orientation = label("white bottom");
-        orientation.setFont(Theme.font(11, Font.PLAIN));
-        header.add(orientation, BorderLayout.EAST);
+        JLabel mode = label("main board");
+        mode.setFont(Theme.font(11, Font.PLAIN));
+        Theme.foreground(mode, Theme.ForegroundRole.MUTED);
+        header.add(mode, BorderLayout.EAST);
         return header;
+    }
+
+    /**
+     * Creates the piece-tool panel.
+     *
+     * @return tool panel
+     */
+    private JComponent createPalettePanel() {
+        JPanel panel = transparentPanel(new BorderLayout(0, 6));
+        panel.add(Theme.section("Pieces"), BorderLayout.NORTH);
+        panel.add(createPalette(), BorderLayout.CENTER);
+        return panel;
     }
 
     /**
@@ -426,7 +449,10 @@ public final class BoardEditorPanel extends JPanel {
             button.setIcon(new ImageIcon(paletteIcon(piece)));
         }
         Theme.commandTab(button);
-        button.addActionListener(event -> selectedPiece = piece);
+        button.addActionListener(event -> {
+            selectedPiece = piece;
+            syncHostBoardSelection();
+        });
         return button;
     }
 
@@ -541,6 +567,46 @@ public final class BoardEditorPanel extends JPanel {
     }
 
     /**
+     * Accepts a square edit from the main board.
+     *
+     * @param square boxed board square
+     * @param piece boxed piece code
+     */
+    private void handleHostBoardEdit(Byte square, Byte piece) {
+        if (square == null || piece == null) {
+            return;
+        }
+        byte squareValue = square.byteValue();
+        byte pieceValue = piece.byteValue();
+        validateSquare(squareValue);
+        validatePiece(pieceValue);
+        editedBoard[squareValue] = pieceValue;
+        updateFenPreview();
+        setStatus(pieceValue == Piece.EMPTY ? "Square cleared" : pieceLabel(pieceValue), Theme.ForegroundRole.MUTED);
+    }
+
+    /**
+     * Pushes the editor board and mode into the attached main board.
+     */
+    private void syncHostBoard() {
+        if (hostBoard == null) {
+            return;
+        }
+        hostBoard.setSetupEditBoard(editedBoard);
+        syncHostBoardSelection();
+        hostBoard.setSetupEditMode(editingBoardActive);
+    }
+
+    /**
+     * Pushes the current piece tool into the attached main board.
+     */
+    private void syncHostBoardSelection() {
+        if (hostBoard != null) {
+            hostBoard.setSetupEditSelectedPiece(selectedPiece);
+        }
+    }
+
+    /**
      * Wires live FEN preview updates.
      */
     private void installControlListeners() {
@@ -573,12 +639,11 @@ public final class BoardEditorPanel extends JPanel {
             enPassantField.setText(parts[3]);
             halfmoveSpinner.setValue(Integer.valueOf(parts[4]));
             fullmoveSpinner.setValue(Integer.valueOf(parts[5]));
-            lastEditedSquare = Field.NO_SQUARE;
         } finally {
             suppressPreviewUpdates = false;
         }
         updateFenPreview();
-        boardCanvas.repaint();
+        syncHostBoard();
     }
 
     /**
@@ -618,13 +683,12 @@ public final class BoardEditorPanel extends JPanel {
             enPassantField.setText(FEN_NONE);
             halfmoveSpinner.setValue(Integer.valueOf(0));
             fullmoveSpinner.setValue(Integer.valueOf(1));
-            lastEditedSquare = Field.NO_SQUARE;
         } finally {
             suppressPreviewUpdates = false;
         }
         updateFenPreview();
         setStatus("Board cleared", Theme.ForegroundRole.WARNING);
-        boardCanvas.repaint();
+        syncHostBoard();
     }
 
     /**
@@ -817,163 +881,4 @@ public final class BoardEditorPanel extends JPanel {
         }
     }
 
-    /**
-     * Editable board canvas.
-     */
-    private final class EditorBoardCanvas extends JComponent {
-
-        /**
-         * Serialization identifier for Swing component compatibility.
-         */
-        private static final long serialVersionUID = 1L;
-
-        /**
-         * Creates the board canvas.
-         */
-        private EditorBoardCanvas() {
-            setOpaque(false);
-            setPreferredSize(new Dimension(PREFERRED_BOARD_SIZE, PREFERRED_BOARD_SIZE));
-            setMinimumSize(new Dimension(MINIMUM_BOARD_SIZE, MINIMUM_BOARD_SIZE));
-            MouseAdapter editorMouse = new MouseAdapter() {
-                /**
-                 * Edits a square when pressed.
-                 *
-                 * @param event mouse event
-                 */
-                @Override
-                public void mousePressed(MouseEvent event) {
-                    editAt(event);
-                }
-
-                /**
-                 * Repeats the current edit tool during a drag.
-                 *
-                 * @param event mouse event
-                 */
-                @Override
-                public void mouseDragged(MouseEvent event) {
-                    editAt(event);
-                }
-            };
-            addMouseListener(editorMouse);
-            addMouseMotionListener(editorMouse);
-        }
-
-        /**
-         * Returns the preferred canvas size.
-         *
-         * @return preferred size
-         */
-        @Override
-        public Dimension getPreferredSize() {
-            int width = Math.max(MINIMUM_BOARD_SIZE, super.getPreferredSize().width);
-            return new Dimension(width, width);
-        }
-
-        /**
-         * Paints the board and edited pieces.
-         *
-         * @param graphics graphics context
-         */
-        @Override
-        protected void paintComponent(Graphics graphics) {
-            Graphics2D g = (Graphics2D) graphics.create();
-            try {
-                g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                paintBoard(g);
-            } finally {
-                g.dispose();
-            }
-        }
-
-        /**
-         * Applies the selected tool at a pointer location.
-         *
-         * @param event mouse event
-         */
-        private void editAt(MouseEvent event) {
-            byte square = BoardGeometry.squareAt(boardBounds(), event.getX(), event.getY(), true);
-            if (square == Field.NO_SQUARE) {
-                return;
-            }
-            byte piece = SwingUtilities.isRightMouseButton(event) ? Piece.EMPTY : selectedPiece;
-            if (editedBoard[square] != piece) {
-                setPieceAt(square, piece);
-            } else {
-                lastEditedSquare = square;
-                repaint();
-            }
-        }
-
-        /**
-         * Paints board texture, focus, and pieces.
-         *
-         * @param g graphics context
-         */
-        private void paintBoard(Graphics2D g) {
-            Rectangle bounds = boardBounds();
-            if (bounds.width <= 0) {
-                return;
-            }
-            Image boardTexture = imageCache.boardTexture(bounds.width);
-            g.drawImage(boardTexture, bounds.x, bounds.y, null);
-            paintLastEditedSquare(g, bounds);
-            paintPieces(g, bounds);
-            g.setColor(Theme.LINE);
-            g.drawRect(bounds.x, bounds.y, bounds.width - 1, bounds.height - 1);
-        }
-
-        /**
-         * Paints the last changed square highlight.
-         *
-         * @param g graphics context
-         * @param bounds board bounds
-         */
-        private void paintLastEditedSquare(Graphics2D g, Rectangle bounds) {
-            if (lastEditedSquare == Field.NO_SQUARE) {
-                return;
-            }
-            Rectangle square = BoardGeometry.squareBounds(bounds, lastEditedSquare, true);
-            Color fill = Theme.withAlpha(Theme.ACCENT, 70);
-            g.setColor(fill);
-            g.fillRect(square.x, square.y, square.width, square.height);
-            g.setColor(Theme.ACCENT);
-            g.drawRect(square.x + 1, square.y + 1, square.width - 3, square.height - 3);
-        }
-
-        /**
-         * Paints edited pieces.
-         *
-         * @param g graphics context
-         * @param bounds board bounds
-         */
-        private void paintPieces(Graphics2D g, Rectangle bounds) {
-            int cell = bounds.width / BOARD_EDGE;
-            for (byte square = 0; square < BOARD_SQUARE_COUNT; square++) {
-                byte piece = editedBoard[square];
-                if (piece == Piece.EMPTY) {
-                    continue;
-                }
-                Rectangle squareBounds = BoardGeometry.squareBounds(bounds, square, true);
-                Image image = imageCache.pieceImage(piece, cell);
-                if (image != null) {
-                    g.drawImage(image, squareBounds.x, squareBounds.y, null);
-                }
-            }
-        }
-
-        /**
-         * Returns square board bounds for the current canvas.
-         *
-         * @return board bounds
-         */
-        private Rectangle boardBounds() {
-            int available = Math.min(getWidth(), getHeight()) - 2 * BOARD_PADDING;
-            int size = Math.max(0, available);
-            size -= size % BOARD_EDGE;
-            int x = (getWidth() - size) / 2;
-            int y = (getHeight() - size) / 2;
-            return new Rectangle(x, y, size, size);
-        }
-    }
 }

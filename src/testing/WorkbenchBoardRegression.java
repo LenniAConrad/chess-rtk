@@ -126,19 +126,35 @@ final class WorkbenchBoardRegression {
 
         assertTrue((Boolean) invoke(editor, "loadFen", new Class<?>[] { String.class }, base),
                 "board editor loads valid FEN");
+        Object board = construct(type("BoardPanel"), new Class<?>[0]);
+        invoke(editor, "attachBoard", new Class<?>[] { type("BoardPanel") }, board);
+        invoke(editor, "setEditingBoardActive", new Class<?>[] { boolean.class }, Boolean.TRUE);
+        assertTrue((Boolean) invoke(board, "isSetupEditMode", new Class<?>[0]),
+                "board editor activates direct editing on the main board");
         invoke(editor, "setPieceAt", new Class<?>[] { byte.class, byte.class },
                 Field.H4, Piece.WHITE_QUEEN);
         assertEquals(Byte.valueOf(Piece.WHITE_QUEEN),
                 invoke(editor, "pieceAt", new Class<?>[] { byte.class }, Field.H4),
                 "board editor stores placed piece");
+        assertEquals(Byte.valueOf(Piece.WHITE_QUEEN),
+                invoke(board, "setupEditPieceAt", new Class<?>[] { byte.class }, Field.H4),
+                "board editor paints pieces on the main board");
         assertEquals("4k3/8/8/8/7Q/8/8/4K3 w - - 0 1",
                 invoke(editor, "fen", new Class<?>[0]), "board editor FEN placement");
+        invoke(board, "setSetupEditPieceAt", new Class<?>[] { byte.class, byte.class },
+                Field.A8, Piece.BLACK_ROOK);
+        assertEquals(Byte.valueOf(Piece.BLACK_ROOK),
+                invoke(editor, "pieceAt", new Class<?>[] { byte.class }, Field.A8),
+                "main board direct edit updates editor model");
 
         invoke(editor, "setWhiteToMove", new Class<?>[] { boolean.class }, false);
         assertTrue((Boolean) invoke(editor, "applyEditedFen", new Class<?>[0]),
                 "board editor applies legal FEN");
-        assertEquals("4k3/8/8/8/7Q/8/8/4K3 b - - 0 1", applied[0],
+        assertEquals("r3k3/8/8/8/7Q/8/8/4K3 b - - 0 1", applied[0],
                 "board editor normalizes applied FEN");
+        invoke(editor, "setEditingBoardActive", new Class<?>[] { boolean.class }, Boolean.FALSE);
+        assertFalse((Boolean) invoke(board, "isSetupEditMode", new Class<?>[0]),
+                "leaving editor disables direct board editing");
         assertPaintsOpaqueCorner((JComponent) editor, 360, 560, "board editor opaque background");
     }
 

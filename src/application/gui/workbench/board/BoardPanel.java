@@ -178,6 +178,16 @@ public final class BoardPanel extends JPanel {
     private IntConsumer mouseoverSquareObserver;
     /** Last square reported to #mouseoverSquareObserver, or Field#NO_SQUARE. */
     private byte lastMouseoverSquare = Field.NO_SQUARE;
+    /** Whether the board is currently controlled by the setup editor. */
+    private boolean setupEditMode;
+    /** Mutable board used while setup editing is active. */
+    private final byte[] setupEditBoard = new byte[64];
+    /** Piece painted by a left click in setup editing mode. */
+    private byte setupEditSelectedPiece = Piece.WHITE_KING;
+    /** Last square edited by setup mode, used for a subtle cursor mark. */
+    private byte setupEditLastSquare = Field.NO_SQUARE;
+    /** Observer notified when setup mode changes one square. */
+    private BiConsumer<Byte, Byte> setupEditObserver;
     /** Active snapback/snap animation state. */
     private SnapAnimation snapAnimation;
     /** Square whose static piece should not be painted while a snap or move animation is making the piece visually appear there. */
@@ -572,6 +582,73 @@ public final class BoardPanel extends JPanel {
     public void setMouseoverSquareObserver(IntConsumer observer) {
         mouseoverSquareObserver = observer;
     }
+
+    /** Enables direct setup editing on the board surface.
+     * @param enabled true when setup editing should intercept board input */
+    public void setSetupEditMode(boolean enabled) {
+        if (enabled == setupEditMode) {
+            return;
+        }
+        setupEditMode = enabled;
+        cancelPromotionOverlay();
+        clearDragState();
+        clearSelection();
+        setCursor(Cursor.getDefaultCursor());
+        repaint();
+    }
+
+    /** Returns whether setup editing is active.
+     * @return true when setup editing is active */
+    public boolean isSetupEditMode() {
+        return setupEditMode;
+    }
+
+    /** Replaces the board shown by setup editing.
+     * @param board board piece array, or null to clear */
+    public void setSetupEditBoard(byte[] board) {
+        if (board == null) {
+            Arrays.fill(setupEditBoard, Piece.EMPTY);
+        } else if (board.length != setupEditBoard.length) {
+            throw new IllegalArgumentException("Setup board must contain 64 squares");
+        } else {
+            System.arraycopy(board, 0, setupEditBoard, 0, setupEditBoard.length);
+        }
+        setupEditLastSquare = Field.NO_SQUARE;
+        if (setupEditMode) {
+            repaint();
+        }
+    }
+
+    /** Sets the piece painted by a left click in setup editing mode.
+     * @param piece piece code, or {@link Piece#EMPTY} for erase */
+    public void setSetupEditSelectedPiece(byte piece) {
+        validateSetupPiece(piece);
+        setupEditSelectedPiece = piece;
+    }
+
+    /** Sets one setup-edit square and notifies the editor model.
+     * @param square board square index
+     * @param piece piece code */
+    public void setSetupEditPieceAt(byte square, byte piece) {
+        setSetupEditPieceAt(square, piece, true);
+    }
+
+    /** Returns one setup-edit square.
+     * @param square board square index
+     * @return piece code */
+    public byte setupEditPieceAt(byte square) {
+        if (!isSquareIndex(square)) {
+            throw new IllegalArgumentException("Invalid square " + square);
+        }
+        return setupEditBoard[square];
+    }
+
+    /** Sets the setup-edit observer.
+     * @param observer observer, or null */
+    public void setSetupEditObserver(BiConsumer<Byte, Byte> observer) {
+        setupEditObserver = observer;
+    }
+
     /** Internal #setPosition extension that fires the change observer.
      * @param next next position
      * @param move move encoded in CRTK move format
@@ -629,19 +706,25 @@ public final class BoardPanel extends JPanel {
         try {
             copy.clip(board);
             drawBoardTexture(copy, board);
-            drawSquareHighlights(copy, board);
-            drawMoveHighlights(copy, board);
-            drawSelection(copy, board);
-            drawCheckHighlight(copy, board);
+            if (setupEditMode) {
+                drawSetupEditHighlight(copy, board);
+            } else {
+                drawSquareHighlights(copy, board);
+                drawMoveHighlights(copy, board);
+                drawSelection(copy, board);
+                drawCheckHighlight(copy, board);
+            }
             drawPieces(copy, board);
-            drawAnimatedCapture(copy, board);
-            drawAnimatedMove(copy, board);
-            drawSnapAnimation(copy, board);
-            drawSuggestedMove(copy, board);
-            drawBoardMarkups(copy, board);
+            if (!setupEditMode) {
+                drawAnimatedCapture(copy, board);
+                drawAnimatedMove(copy, board);
+                drawSnapAnimation(copy, board);
+                drawSuggestedMove(copy, board);
+                drawBoardMarkups(copy, board);
+            }
             drawCoordinates(copy, board);
             drawFlipOverlay(copy, board);
-            if (promotionOverlay != null) {
+            if (!setupEditMode && promotionOverlay != null) {
                 promotionOverlay.paint(copy, board, whiteDown, this::drawPieceAt);
             }
         } finally {
@@ -929,14 +1012,36 @@ public final class BoardPanel extends JPanel {
             }
         }
     }
+    /** Paints the most recent setup-edit square.
+     * @param g graphics context
+     * @param board board drawing bounds */
+    private void drawSetupEditHighlight(Graphics2D g, Rectangle board) {
+        if (setupEditLastSquare == Field.NO_SQUARE) {
+            return;
+        }
+        Rectangle bounds = squareBounds(board, setupEditLastSquare);
+        if (!intersectsClip(g.getClipBounds(), bounds)) {
+            return;
+        }
+        g.setColor(Theme.withAlpha(Theme.ACCENT, 74));
+        g.fillRect(bounds.x, bounds.y, bounds.width, bounds.height);
+        Stroke previousStroke = g.getStroke();
+        try {
+            g.setColor(Theme.withAlpha(Theme.ACCENT, 190));
+            g.setStroke(STROKE_1);
+            g.drawRect(bounds.x + 1, bounds.y + 1, bounds.width - 3, bounds.height - 3);
+        } finally {
+            g.setStroke(previousStroke);
+        }
+    }
     /** Draws all pieces.
      * @param g graphics context
      * @param board board drawing bounds */
     private void drawPieces(Graphics2D g, Rectangle board) {
-        if (position == null) {
+        byte[] pieces = setupEditMode ? setupEditBoard : position == null ? null : position.getBoard();
+        if (pieces == null) {
             return;
         }
-        byte[] pieces = position.getBoard();
         int cell = board.width / 8;
         Rectangle clip = g.getClipBounds();
         for (byte square = 0; square < 64; square++) {
@@ -1085,6 +1190,10 @@ public final class BoardPanel extends JPanel {
     /** Handles one mouse press.
      * @param event mouse event */
     private void handlePress(MouseEvent event) {
+        if (setupEditMode) {
+            handleSetupEdit(event);
+            return;
+        }
         if (SwingUtilities.isRightMouseButton(event)) {
             handleMarkupPress(event);
             return;
@@ -1138,6 +1247,35 @@ public final class BoardPanel extends JPanel {
             clearSelection();
         }
         repaint();
+    }
+    /** Applies the active setup-edit tool at a pointer location.
+     * @param event mouse event */
+    private void handleSetupEdit(MouseEvent event) {
+        if (!setupPaintGesture(event) && !setupEraseGesture(event)) {
+            return;
+        }
+        byte square = squareAt(event.getX(), event.getY());
+        if (square == Field.NO_SQUARE) {
+            return;
+        }
+        byte piece = setupEraseGesture(event) ? Piece.EMPTY : setupEditSelectedPiece;
+        setSetupEditPieceAt(square, piece, true);
+        setCursor(Cursor.getPredefinedCursor(Cursor.CROSSHAIR_CURSOR));
+        event.consume();
+    }
+    /** Returns whether a setup-edit event should paint the selected tool.
+     * @param event mouse event
+     * @return true when the event paints */
+    private static boolean setupPaintGesture(MouseEvent event) {
+        return SwingUtilities.isLeftMouseButton(event)
+                || (event.getModifiersEx() & MouseEvent.BUTTON1_DOWN_MASK) != 0;
+    }
+    /** Returns whether a setup-edit event should erase a square.
+     * @param event mouse event
+     * @return true when the event erases */
+    private static boolean setupEraseGesture(MouseEvent event) {
+        return SwingUtilities.isRightMouseButton(event)
+                || (event.getModifiersEx() & MouseEvent.BUTTON3_DOWN_MASK) != 0;
     }
     /** Starts a Lichess-style right-button annotation gesture.
      * @param event mouse event */
@@ -1278,6 +1416,10 @@ public final class BoardPanel extends JPanel {
     /** Handles pointer movement during a piece drag.
      * @param event mouse event */
     private void handleDrag(MouseEvent event) {
+        if (setupEditMode) {
+            handleSetupEdit(event);
+            return;
+        }
         if (markupOrigin != Field.NO_SQUARE) {
             handleMarkupDrag(event);
             return;
@@ -1315,6 +1457,10 @@ public final class BoardPanel extends JPanel {
     /** Handles pointer release after a possible drag.
      * @param event mouse event */
     private void handleRelease(MouseEvent event) {
+        if (setupEditMode) {
+            updateCursor(event);
+            return;
+        }
         if (markupOrigin != Field.NO_SQUARE) {
             handleMarkupRelease(event);
             return;
@@ -1436,6 +1582,27 @@ public final class BoardPanel extends JPanel {
         selectedLegalMoves = new short[0];
         selectedLegalTargets = new byte[0];
     }
+    /** Updates one setup-edit square.
+     * @param square board square index
+     * @param piece piece code
+     * @param notify true to notify the setup editor */
+    private void setSetupEditPieceAt(byte square, byte piece, boolean notify) {
+        if (!isSquareIndex(square)) {
+            throw new IllegalArgumentException("Invalid square " + square);
+        }
+        validateSetupPiece(piece);
+        if (setupEditBoard[square] == piece && setupEditLastSquare == square) {
+            return;
+        }
+        setupEditBoard[square] = piece;
+        setupEditLastSquare = square;
+        if (notify && setupEditObserver != null) {
+            setupEditObserver.accept(Byte.valueOf(square), Byte.valueOf(piece));
+        }
+        if (setupEditMode) {
+            repaint(squareBounds(boardBounds(), square));
+        }
+    }
     /** Selects one square and caches its legal moves.
      * @param square board square index */
     private void selectSquare(byte square) {
@@ -1445,6 +1612,14 @@ public final class BoardPanel extends JPanel {
     /** Updates the cursor based on the square below the pointer.
      * @param event mouse event */
     private void updateCursor(MouseEvent event) {
+        if (setupEditMode) {
+            byte square = squareAt(event.getX(), event.getY());
+            setCursor(square == Field.NO_SQUARE
+                    ? Cursor.getDefaultCursor()
+                    : Cursor.getPredefinedCursor(Cursor.CROSSHAIR_CURSOR));
+            notifyMouseover(square);
+            return;
+        }
         if (position == null) {
             setCursor(Cursor.getDefaultCursor());
             notifyMouseover(Field.NO_SQUARE);
@@ -1947,6 +2122,13 @@ public final class BoardPanel extends JPanel {
      * @return true when the byte is a valid board square index */
     private static boolean isSquareIndex(byte square) {
         return square >= 0 && square < 64;
+    }
+    /** Validates a setup-edit piece code.
+     * @param piece piece code */
+    private static void validateSetupPiece(byte piece) {
+        if (piece < Piece.BLACK_KING || piece > Piece.WHITE_KING) {
+            throw new IllegalArgumentException("Invalid piece " + piece);
+        }
     }
     /** Returns the system DPI scale factor used for sizing heuristics.
      * @return system display scale factor */
