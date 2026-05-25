@@ -1822,6 +1822,17 @@ public final class Theme {
     }
 
     /**
+     * Returns whether a styled table row is currently hovered.
+     *
+     * @param table source table
+     * @param row view row
+     * @return true when the row is the active hover row
+     */
+    public static boolean isHoveredTableRow(JTable table, int row) {
+        return table != null && row >= 0 && DataTableStyler.hoverRow(table) == row;
+    }
+
+    /**
      * Styles a list as a solid data surface.
      *
      * @param list list

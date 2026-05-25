@@ -164,7 +164,7 @@ final class DataTableStyler {
      * @param table table
      * @return hovered view row or -1
      */
-    private static int hoverRow(JTable table) {
+    static int hoverRow(JTable table) {
         Object value = table.getClientProperty(HOVER_ROW_PROPERTY);
         return value instanceof Integer row ? row.intValue() : -1;
     }

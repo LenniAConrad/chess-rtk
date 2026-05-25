@@ -64,7 +64,9 @@ public final class SanRenderer extends JComponent implements TableCellRenderer {
         line = value == null ? "" : value.toString();
         Color foreground = isSelected ? table.getSelectionForeground() : table.getForeground();
         textColor = foreground == null ? Theme.TEXT : foreground;
-        setBackground(isSelected ? Theme.SELECTION_SOLID : table.getBackground());
+        boolean hovered = Theme.isHoveredTableRow(table, row);
+        setBackground(isSelected ? table.getSelectionBackground()
+                : hovered ? Theme.SECONDARY_BUTTON_HOVER : table.getBackground());
         return this;
     }
 

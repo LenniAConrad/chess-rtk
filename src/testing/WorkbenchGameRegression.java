@@ -92,6 +92,13 @@ final class WorkbenchGameRegression {
         component.setSize(240, 27);
         BufferedImage image = paint(component, 240, 27);
         assertTrue(alphaSum(image, 0, 0, 240, 27) > 0, "SAN renderer paints SVG-backed notation");
+        table.setSelectionBackground(new Color(0x445566));
+        Component selectedComponent = renderer.getTableCellRendererComponent(table,
+                "1. Qxe8+ Nbd6", true, false, 0, 0);
+        selectedComponent.setSize(240, 27);
+        BufferedImage selectedImage = paint(selectedComponent, 240, 27);
+        assertColor(table.getSelectionBackground(), new Color(selectedImage.getRGB(235, 2), true),
+                "SAN renderer fills selected table background");
 
         JTable cutoutTable = new JTable(1, 1);
         cutoutTable.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 42));
