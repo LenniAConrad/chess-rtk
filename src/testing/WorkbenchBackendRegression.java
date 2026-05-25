@@ -84,6 +84,7 @@ final class WorkbenchBackendRegression {
         testNnueStackSummaryStaysCompact();
         testNnueViewsPaintSyntheticSnapshotHeadlessly();
         testNnueContributorLedgerUsesReadableRows();
+        testNnueContributorBarUsesLightTrackAndDarkFill();
         testNnueTraceFitsViewportAndCentersColumns();
         testNnueRawUsesStableFeatureLanes();
         testNnueHalfKpDecodingUsesFeatureEncoderLayout();
@@ -926,6 +927,39 @@ final class WorkbenchBackendRegression {
                 "NNUE contributor rows do not use alternating table backgrounds");
         assertFalse(source.contains("TensorViz.drawHorizontalBar(g, bar, v, maxAbs, null)"),
                 "NNUE contributor columns do not render signed midpoint bars");
+    }
+
+    /**
+     * Verifies NNUE contributor bars use the lighter signed colour as the lane
+     * and the darker signed colour as the actual magnitude fill.
+     */
+    private static void testNnueContributorBarUsesLightTrackAndDarkFill() {
+        Theme.Mode previous = Theme.mode();
+        try {
+            Theme.setMode(Theme.Mode.DARK);
+            invokeStatic(type("TensorViz"), "refreshPalette", new Class<?>[0]);
+            BufferedImage image = new BufferedImage(120, 24, BufferedImage.TYPE_INT_ARGB);
+            Graphics2D graphics = image.createGraphics();
+            try {
+                graphics.setColor(themeColor("ELEVATED_SOLID"));
+                graphics.fillRect(0, 0, image.getWidth(), image.getHeight());
+                invokeStatic(type("NnueOverviewView"), "drawContributorMagnitudeBar",
+                        new Class<?>[] { Graphics2D.class, Rectangle.class, float.class, float.class,
+                                boolean.class },
+                        graphics, new Rectangle(10, 8, 100, 8), 0.5f, 1.0f, Boolean.TRUE);
+            } finally {
+                graphics.dispose();
+            }
+            Color fill = new Color(image.getRGB(28, 12), true);
+            Color track = new Color(image.getRGB(92, 12), true);
+            assertTrue(relativeLuminance(track) > relativeLuminance(fill),
+                    "NNUE contributor bar track is the lighter signed shade");
+            assertColorDistanceAtLeast(track, fill, 18.0,
+                    "NNUE contributor bar fill is visually distinct from the track");
+        } finally {
+            Theme.setMode(previous);
+            invokeStatic(type("TensorViz"), "refreshPalette", new Class<?>[0]);
+        }
     }
 
     /**

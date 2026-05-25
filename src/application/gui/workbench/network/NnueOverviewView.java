@@ -1019,14 +1019,41 @@ public abstract class NnueOverviewView extends NnueAtlasView {
             float value, float scale, boolean positive) {
         float ratio = Math.min(1.0f, Math.abs(value) / Math.max(1.0e-6f, scale));
         int fillW = Math.max(2, Math.round(r.width * ratio));
-        Color fill = positive ? TensorViz.POSITIVE : TensorViz.NEGATIVE;
-        g.setColor(Theme.PANEL_SOLID);
+        Color accent = positive ? TensorViz.POSITIVE : TensorViz.NEGATIVE;
+        Color track = contributorBarTrack(accent);
+        Color fill = contributorBarFill(accent);
+        g.setColor(track);
         g.fillRoundRect(r.x, r.y, r.width, r.height, r.height, r.height);
-        g.setColor(Theme.LINE);
+        g.setColor(Theme.withAlpha(fill, Theme.isDark() ? 150 : 130));
         g.drawRoundRect(r.x, r.y, r.width - 1, r.height - 1, r.height, r.height);
         g.setColor(fill);
         int fillX = positive ? r.x : r.x + r.width - fillW;
         g.fillRoundRect(fillX, r.y, fillW, r.height, r.height, r.height);
+    }
+
+    /**
+     * Returns the lighter signed lane background for contributor bars.
+     *
+     * @param accent signed neural-network accent
+     * @return track color
+     */
+    private static Color contributorBarTrack(Color accent) {
+        Color base = Theme.isDark() ? Theme.ELEVATED_SOLID : Theme.PANEL_SOLID;
+        float tint = Theme.isDark() ? 0.50f : 0.34f;
+        return TensorViz.lerp(base, accent, tint);
+    }
+
+    /**
+     * Returns the darker signed fill color for contributor bars.
+     *
+     * @param accent signed neural-network accent
+     * @return fill color
+     */
+    private static Color contributorBarFill(Color accent) {
+        if (Theme.isDark()) {
+            return TensorViz.lerp(Theme.ELEVATED_SOLID, accent, 0.26f);
+        }
+        return TensorViz.lerp(accent, Theme.TEXT, 0.22f);
     }
 
     /**
