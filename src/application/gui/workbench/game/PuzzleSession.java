@@ -555,6 +555,18 @@ public final class PuzzleSession {
     }
 
     /**
+     * Returns the move that produced the currently displayed puzzle position.
+     *
+     * @return encoded move, or {@link Move#NO_MOVE} at the puzzle root
+     */
+    public short currentLastMove() {
+        List<Integer> line = lineAt(cursor.lineIndex());
+        int nodeId = line.get(Math.min(cursor.cursorIndex(), line.size() - 1)).intValue();
+        PuzzleNode node = nodeById.get(Integer.valueOf(nodeId));
+        return node == null ? Move.NO_MOVE : node.move();
+    }
+
+    /**
      * Returns the active FEN.
      *
      * @return current FEN

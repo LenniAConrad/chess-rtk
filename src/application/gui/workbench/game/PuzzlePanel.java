@@ -807,7 +807,8 @@ public final class PuzzlePanel extends JPanel {
         PuzzleSession.Snapshot snapshot = session.snapshot();
         board.clearMarkup();
         board.setWhiteDown(session.userWhite());
-        board.setPosition(new Position(snapshot.fen()), lastMove);
+        short highlightMove = lastMove == Move.NO_MOVE ? session.currentLastMove() : lastMove;
+        board.setPosition(new Position(snapshot.fen()), highlightMove);
         updateLabels();
     }
 

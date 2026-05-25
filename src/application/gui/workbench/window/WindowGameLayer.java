@@ -191,8 +191,7 @@ public abstract class WindowGameLayer extends WindowEngineLayer {
         boolean adjacent = pathsAreAdjacent(previousPath, targetPath);
         boolean reverseMoveAnimation = adjacent && targetPath.size() < previousPath.size();
         short visualMove = reverseMoveAnimation ? previousLastMove : gameModel.currentLastMove();
-        setPosition(gameModel.currentPosition(), adjacent ? visualMove : Move.NO_MOVE,
-                reverseMoveAnimation);
+        setPosition(gameModel.currentPosition(), visualMove, reverseMoveAnimation, adjacent);
         selectCurrentGameRow();
     }
 

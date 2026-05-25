@@ -265,6 +265,20 @@ public final class BoardPanel extends JPanel {
      * @param move move encoded in CRTK move format
      * @param reverseMoveAnimation true to glide the move from destination back to origin */
     public void setPosition(Position value, short move, boolean reverseMoveAnimation) {
+        setPosition(value, move, reverseMoveAnimation, true);
+    }
+    /** Sets the position without starting a move animation.
+     * @param value new value
+     * @param move move encoded in CRTK move format */
+    public void setPositionInstant(Position value, short move) {
+        setPosition(value, move, false, false);
+    }
+    /** Sets the position with explicit animation control.
+     * @param value new value
+     * @param move move encoded in CRTK move format
+     * @param reverseMoveAnimation true to glide the move from destination back to origin
+     * @param animateMove true to start a move animation when the transition supports it */
+    private void setPosition(Position value, short move, boolean reverseMoveAnimation, boolean animateMove) {
         byte[] previousBoard = position == null ? null : position.getBoard();
         position = value;
         cachedLegalMoves = null;
@@ -272,7 +286,7 @@ public final class BoardPanel extends JPanel {
         suggestedMove = Move.NO_MOVE;
         clearSelection();
         clearDragState();
-        if (suppressNextMoveAnimation) {
+        if (!animateMove || suppressNextMoveAnimation) {
             suppressNextMoveAnimation = false;
             clearMoveAnimation();
         } else {

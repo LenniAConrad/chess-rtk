@@ -494,7 +494,7 @@ public final class MctsPanel extends JPanel {
     private void showSnapshot(MctsSearch.Snapshot snapshot) {
         rootBoard.setPosition(new Position(snapshot.rootFen()), Move.NO_MOVE);
         rootBoard.setSuggestedMove(snapshot.bestMove());
-        leafBoard.setPosition(snapshot.exploringPosition(), Move.NO_MOVE);
+        leafBoard.setPositionInstant(snapshot.exploringPosition(), lastLineMove(snapshot.exploringLine()));
         treeModel.setRowCount(0);
         for (MctsSearch.Row row : snapshot.rows()) {
             treeModel.addRow(new Object[] {
@@ -527,6 +527,16 @@ public final class MctsPanel extends JPanel {
         if (isRunning() && !snapshot.paused()) {
             maybePlayProgressSound(snapshot);
         }
+    }
+
+    /**
+     * Returns the last move from a displayed MCTS line.
+     *
+     * @param line root-to-node line
+     * @return final move, or {@link Move#NO_MOVE} for the root
+     */
+    private static short lastLineMove(short[] line) {
+        return line == null || line.length == 0 ? Move.NO_MOVE : line[line.length - 1];
     }
 
     /**

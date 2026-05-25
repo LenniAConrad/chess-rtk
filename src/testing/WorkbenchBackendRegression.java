@@ -1481,6 +1481,14 @@ final class WorkbenchBackendRegression {
     private static void testMctsPanelStreamsWarmupFrames() {
         Class<?> panel = type("MctsPanel");
         Class<?>[] signature = { long.class, long.class, long.class };
+        assertEquals(Short.valueOf(Move.parse("g1f3")),
+                invokeStatic(panel, "lastLineMove",
+                        new Class<?>[] { short[].class },
+                        new short[] { Move.parse("e2e4"), Move.parse("g1f3") }),
+                "MCTS leaf board uses final exploring move as last-move highlight");
+        assertEquals(Short.valueOf(Move.NO_MOVE),
+                invokeStatic(panel, "lastLineMove", new Class<?>[] { short[].class }, new short[0]),
+                "MCTS root leaf board has no last move");
         assertEquals(Boolean.TRUE,
                 invokeStatic(panel, "shouldPublishLiveFrame", signature, 1L, 1_000L, 1_000L),
                 "MCTS streams first playout");

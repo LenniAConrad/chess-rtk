@@ -129,9 +129,26 @@ public abstract class WindowEngineLayer extends WindowBoardLayer {
      * @param reverseMoveAnimation true to reverse the board move glide
      */
     protected void setPosition(Position position, short lastMove, boolean reverseMoveAnimation) {
+        setPosition(position, lastMove, reverseMoveAnimation, true);
+    }
+
+    /**
+     * Sets the visible current position.
+     *
+     * @param position position
+     * @param lastMove last move
+     * @param reverseMoveAnimation true to reverse the board move glide
+     * @param animateMove true to run a move animation when the transition supports it
+     */
+    protected void setPosition(Position position, short lastMove, boolean reverseMoveAnimation,
+            boolean animateMove) {
         currentPosition = position.copy();
         fenField.setText(currentPosition.toString());
-        board.setPosition(currentPosition, lastMove, reverseMoveAnimation);
+        if (animateMove) {
+            board.setPosition(currentPosition, lastMove, reverseMoveAnimation);
+        } else {
+            board.setPositionInstant(currentPosition, lastMove);
+        }
         analysisGraph.resetForPosition(currentPosition.toString());
         for (application.gui.workbench.network.NetworkPanel panel : networkPanels) {
             panel.setFen(currentPosition.toString());

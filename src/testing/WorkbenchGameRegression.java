@@ -254,10 +254,14 @@ final class WorkbenchGameRegression {
         assertEquals(Integer.valueOf(1), Integer.valueOf(session.cursor().cursorIndex()),
                 "review cursor advances one ply");
         assertTrue(session.currentFen().contains(" b "), "review forward shows side to move after e4");
+        assertEquals("e2e4", Move.toString(session.currentLastMove()),
+                "review exposes the move that produced the displayed board");
 
         assertTrue(session.navigatePly(-1), "review moves backward");
         assertEquals(Integer.valueOf(0), Integer.valueOf(session.cursor().cursorIndex()),
                 "review cursor returns to the root");
+        assertEquals(Short.valueOf(Move.NO_MOVE), Short.valueOf(session.currentLastMove()),
+                "review root has no last move");
         assertFalse(session.navigatePly(-1), "review clamps at the root");
 
         assertTrue(session.jumpToPly(session.lastPly()), "review jumps to end");

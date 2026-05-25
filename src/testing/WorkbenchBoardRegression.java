@@ -69,6 +69,7 @@ final class WorkbenchBoardRegression {
         testBoardSelectionUsesChessboardJsTargetMarkers();
         testBoardLegalMovePreviewCanBeHidden();
         testBoardLastMoveAndBestArrowCanBeHidden();
+        testBoardInstantPositionShowsLastMoveWithoutAnimation();
         testBoardNotationAndAnimationsCanBeHidden();
         testBoardReverseMoveAnimationStarts();
         testBoardCheckHighlightPaintsCheckedKingMarker();
@@ -673,6 +674,32 @@ final class WorkbenchBoardRegression {
         invoke(board, "setSuggestedMove", new Class<?>[] { short.class }, Move.parse("e2e4"));
         Color hiddenArrow = new Color(paint(component, 640, 640).getRGB(arrowSample.x, arrowSample.y), true);
         assertColor(baseline, hiddenArrow, "best move arrow hidden");
+    }
+
+    /**
+     * Verifies position jumps can preserve the last-move highlight without
+     * starting a misleading move animation from an unrelated previous board.
+     */
+    private static void testBoardInstantPositionShowsLastMoveWithoutAnimation() {
+        Object board = construct(type("BoardPanel"), new Class<?>[0]);
+        Component component = (Component) board;
+        component.setSize(640, 640);
+        Position start = new Position(START_FEN);
+        short move = Move.parse("e2e4");
+        Position after = start.copy().play(move);
+        invoke(board, "setPosition", new Class<?>[] { Position.class, short.class }, start, Move.NO_MOVE);
+        invoke(board, "setPositionInstant", new Class<?>[] { Position.class, short.class }, after, move);
+
+        assertEquals(Short.valueOf(move), field(board, "lastMove"),
+                "instant position stores the last move for highlighting");
+        assertFalse((Boolean) field(board, "moveAnimationActive"),
+                "instant position does not start move animation");
+        assertColorDistanceAtLeast(boardSquareCenterColor(component, Field.toIndex('e', '2')),
+                baseBoardColor(Field.toIndex('e', '2')), 16.0,
+                "instant position highlights last-move origin");
+        assertColorDistanceAtLeast(boardSquareCenterColor(component, Field.toIndex('e', '4')),
+                baseBoardColor(Field.toIndex('e', '4')), 16.0,
+                "instant position highlights last-move destination");
     }
 
     /**
