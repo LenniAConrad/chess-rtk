@@ -64,7 +64,7 @@ final class WorkbenchBoardRegression {
         testBoardCaptureAnimationStarts();
         testBoardCastlingAnimationStarts();
         testBoardPaintUsesChessboardJsColors();
-        testBoardCoordinateLabelsUseHighContrastColor();
+        testBoardCoordinateLabelsUseOppositeSquareColor();
         testBoardSuggestedMoveArrowIsLegalAndClean();
         testBoardSelectionUsesChessboardJsTargetMarkers();
         testBoardLegalMovePreviewCanBeHidden();
@@ -730,10 +730,10 @@ final class WorkbenchBoardRegression {
     }
 
     /**
-     * Verifies board coordinate labels choose a stable high-contrast color
-     * instead of swapping raw square colors.
+     * Verifies board coordinate labels use the opposite square colour, matching
+     * the chessboard.js inside-coordinate treatment.
      */
-    private static void testBoardCoordinateLabelsUseHighContrastColor() {
+    private static void testBoardCoordinateLabelsUseOppositeSquareColor() {
         Class<?> boardStyle = type("BoardStyle");
         Color lightSquare = themeColor("BOARD_LIGHT");
         Color darkSquare = themeColor("BOARD_DARK");
@@ -741,17 +741,12 @@ final class WorkbenchBoardRegression {
                 new Class<?>[] { Color.class }, lightSquare);
         Color darkLabel = (Color) invokeStatic(boardStyle, "coordinateTextColor",
                 new Class<?>[] { Color.class }, darkSquare);
-        assertTrue(contrastRatio(lightLabel, lightSquare) >= 4.5d,
-                "coordinate label contrasts with light square");
-        assertTrue(contrastRatio(darkLabel, darkSquare) >= 4.5d,
-                "coordinate label contrasts with dark square");
-        assertEquals(lightLabel, darkLabel, "ordinary board coordinates use one stable label color");
-
-        Color veryDarkSquare = new Color(18, 18, 18);
-        Color veryDarkLabel = (Color) invokeStatic(boardStyle, "coordinateTextColor",
-                new Class<?>[] { Color.class }, veryDarkSquare);
-        assertTrue(contrastRatio(veryDarkLabel, veryDarkSquare) >= 7.0d,
-                "coordinate label adapts to very dark custom squares");
+        assertEquals(themeColor("COORD_ON_LIGHT"), lightLabel,
+                "coordinate label on a light square uses dark-square color");
+        assertEquals(themeColor("COORD_ON_DARK"), darkLabel,
+                "coordinate label on a dark square uses light-square color");
+        assertEquals(darkSquare, lightLabel, "light-square coordinate is drawn in board dark");
+        assertEquals(lightSquare, darkLabel, "dark-square coordinate is drawn in board light");
     }
 
     /**
