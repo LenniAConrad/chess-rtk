@@ -51,6 +51,7 @@ final class WorkbenchGameRegression {
         testGameModelNavigatesSelectedVariationLine();
         testPuzzleSessionExploresOpponentVariationBranches();
         testPuzzlePanelAnimatesOpponentReplySeparately();
+        testPuzzleWrongMoveUsesChessWebMarker();
         testPuzzleSessionReviewNavigation();
         testPuzzleLibraryLoadsDifficultCsv();
         testPuzzlePanelPaintsOpaqueSurface();
@@ -279,6 +280,30 @@ final class WorkbenchGameRegression {
                 "opponent reply animated origin");
         assertEquals(Byte.valueOf(Move.getToIndex(opponentMove)), field(board, "animatedMoveTo"),
                 "opponent reply animated target");
+    }
+
+    /**
+     * Verifies wrong puzzle moves use the chess-web red target badge instead
+     * of revealing the expected move with hint arrows.
+     */
+    private static void testPuzzleWrongMoveUsesChessWebMarker() {
+        PuzzlePanel panel = (PuzzlePanel) construct(type("PuzzlePanel"), new Class<?>[] { boolean.class },
+                Boolean.FALSE);
+        Object board = field(panel, "board");
+        short wrongMove = Move.parse("e4f6");
+
+        invoke(panel, "playUserMove", new Class<?>[] { short.class }, wrongMove);
+
+        assertEquals(Short.valueOf(Move.NO_MOVE), field(board, "suggestedMove"),
+                "wrong puzzle move does not reveal expected move arrow");
+        assertEquals(Byte.valueOf(Move.getToIndex(wrongMove)), field(board, "wrongMoveMarkerSquare"),
+                "wrong puzzle move marks attempted target");
+        assertTrue(((java.util.Map<?, ?>) field(board, "squareHighlights")).isEmpty(),
+                "wrong puzzle move avoids hint square highlight");
+        assertTrue(((java.util.List<?>) field(board, "boardMarkups")).isEmpty(),
+                "wrong puzzle move avoids hint arrow markup");
+        String status = ((javax.swing.JLabel) field(panel, "statusLabel")).getText();
+        assertFalse(status.contains("e4d6"), "wrong puzzle status does not print expected move");
     }
 
     /**

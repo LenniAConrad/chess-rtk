@@ -206,6 +206,12 @@ public final class BoardPanel extends JPanel {
     private int snapAnimationMs = 55;
     /** Flip animation duration. */
     private int flipAnimationMs = 140;
+    /** Duration of the chess-web-style wrong-move badge animation. */
+    private static final int WRONG_MOVE_MARKER_MS = 320;
+    /** Square carrying the temporary wrong-move badge. */
+    private byte wrongMoveMarkerSquare = Field.NO_SQUARE;
+    /** Wall-clock start time for the temporary wrong-move badge. */
+    private long wrongMoveMarkerStartedAt;
     /** Creates the board panel. */
     public BoardPanel() {
         setOpaque(true);
@@ -303,6 +309,7 @@ public final class BoardPanel extends JPanel {
             startMoveAnimation(previousBoard, position == null ? null : position.getBoard(),
                     move, reverseMoveAnimation);
         }
+        clearWrongMoveMarkerState();
         repaint();
     }
     /** Returns lazily-cached legal moves for the current position.
@@ -501,6 +508,25 @@ public final class BoardPanel extends JPanel {
         clearMarkupGesture();
         repaint();
     }
+    /** Shows a temporary chess-web-style wrong-move badge on one square.
+     * @param square board square index */
+    public void showWrongMoveMarker(byte square) {
+        if (!isSquareIndex(square)) {
+            return;
+        }
+        wrongMoveMarkerSquare = square;
+        wrongMoveMarkerStartedAt = System.currentTimeMillis();
+        startAnimation();
+        repaint();
+    }
+    /** Clears the temporary wrong-move badge. */
+    public void clearWrongMoveMarker() {
+        if (wrongMoveMarkerSquare == Field.NO_SQUARE) {
+            return;
+        }
+        clearWrongMoveMarkerState();
+        repaint();
+    }
     /** Adds an arrow markup between two squares.
      * @param from origin square
      * @param to destination square
@@ -665,6 +691,7 @@ public final class BoardPanel extends JPanel {
             clearSelection();
             clearDragState();
             clearMoveAnimation();
+            clearWrongMoveMarkerState();
             repaint();
         }
         String newFen = next == null ? null : next.toString();
@@ -723,6 +750,9 @@ public final class BoardPanel extends JPanel {
                 drawBoardMarkups(copy, board);
             }
             drawCoordinates(copy, board);
+            if (!setupEditMode) {
+                drawWrongMoveMarker(copy, board);
+            }
             drawFlipOverlay(copy, board);
             if (!setupEditMode && promotionOverlay != null) {
                 promotionOverlay.paint(copy, board, whiteDown, this::drawPieceAt);
@@ -1032,6 +1062,46 @@ public final class BoardPanel extends JPanel {
             g.drawRect(bounds.x + 1, bounds.y + 1, bounds.width - 3, bounds.height - 3);
         } finally {
             g.setStroke(previousStroke);
+        }
+    }
+    /** Paints the temporary wrong-move badge used by the puzzle trainer.
+     * @param g graphics context
+     * @param board board drawing bounds */
+    private void drawWrongMoveMarker(Graphics2D g, Rectangle board) {
+        if (wrongMoveMarkerSquare == Field.NO_SQUARE) {
+            return;
+        }
+        Rectangle square = squareBounds(board, wrongMoveMarkerSquare);
+        if (!intersectsClip(g.getClipBounds(), square)) {
+            return;
+        }
+        double progress = wrongMoveMarkerProgress();
+        if (progress >= 1.0) {
+            return;
+        }
+        double scale = progress < 0.6
+                ? 0.25 + (1.08 - 0.25) * (progress / 0.6)
+                : 1.08 + (1.0 - 1.08) * ((progress - 0.6) / 0.4);
+        float alpha = (float) Math.max(0.0, Math.min(1.0, progress / 0.6));
+        int baseSize = Math.max(14, Math.round(square.width * 0.46f));
+        int size = Math.max(8, (int) Math.round(baseSize * scale));
+        int centerX = square.x + square.width - Math.round(square.width * 0.12f);
+        int centerY = square.y + Math.round(square.height * 0.12f);
+        int x = centerX - size / 2;
+        int y = centerY - size / 2;
+        Graphics2D marker = (Graphics2D) g.create();
+        try {
+            marker.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
+            marker.setColor(Theme.STATUS_ERROR_TEXT);
+            marker.fillOval(x, y, size, size);
+            marker.setColor(Theme.withAlpha(Color.WHITE, 230));
+            float stroke = Math.max(2f, size * 0.12f);
+            marker.setStroke(new BasicStroke(stroke, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+            int inset = Math.max(4, Math.round(size * 0.28f));
+            marker.drawLine(x + inset, y + inset, x + size - inset, y + size - inset);
+            marker.drawLine(x + size - inset, y + inset, x + inset, y + size - inset);
+        } finally {
+            marker.dispose();
         }
     }
     /** Draws all pieces.
@@ -2061,6 +2131,7 @@ public final class BoardPanel extends JPanel {
         }
         flipAnimationStartedAt = 0L;
         flipAnimationProgress = Double.NaN;
+        clearWrongMoveMarkerState();
         animationTimer.stop();
     }
     /** Advances board animations one frame. */
@@ -2079,6 +2150,9 @@ public final class BoardPanel extends JPanel {
             } else if (snapEndObserver != null) {
                 snapEndObserver.run();
             }
+        }
+        if (wrongMoveMarkerSquare != Field.NO_SQUARE && wrongMoveMarkerProgress() >= 1.0) {
+            clearWrongMoveMarkerState();
         }
         if (!Double.isNaN(flipAnimationProgress)) {
             double elapsed = (double) System.currentTimeMillis() - (double) flipAnimationStartedAt;
@@ -2100,7 +2174,10 @@ public final class BoardPanel extends JPanel {
     /** Returns whether any board animation is still active.
      * @return true when any board animation is active */
     private boolean hasActiveAnimation() {
-        return moveAnimationActive || snapAnimation != null || !Double.isNaN(flipAnimationProgress);
+        return moveAnimationActive
+                || snapAnimation != null
+                || !Double.isNaN(flipAnimationProgress)
+                || wrongMoveMarkerSquare != Field.NO_SQUARE;
     }
     /** Returns played-move animation progress.
      * @return move-animation progress from 0.0 to 1.0 */
@@ -2110,6 +2187,20 @@ public final class BoardPanel extends JPanel {
         }
         double elapsed = (double) System.currentTimeMillis() - (double) moveAnimationStartedAt;
         return Math.max(0.0, Math.min(1.0, elapsed / Math.max(1.0, moveAnimationMs)));
+    }
+    /** Returns wrong-move badge animation progress.
+     * @return progress from 0.0 to 1.0 */
+    private double wrongMoveMarkerProgress() {
+        if (wrongMoveMarkerSquare == Field.NO_SQUARE || wrongMoveMarkerStartedAt == 0L) {
+            return 1.0;
+        }
+        double elapsed = (double) System.currentTimeMillis() - (double) wrongMoveMarkerStartedAt;
+        return Math.max(0.0, Math.min(1.0, elapsed / Math.max(1.0, WRONG_MOVE_MARKER_MS)));
+    }
+    /** Clears wrong-move badge state without repainting. */
+    private void clearWrongMoveMarkerState() {
+        wrongMoveMarkerSquare = Field.NO_SQUARE;
+        wrongMoveMarkerStartedAt = 0L;
     }
     /** Cubic ease-out matching the short board transition feel.
      * @param value new value

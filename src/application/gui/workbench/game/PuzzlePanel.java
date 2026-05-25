@@ -731,6 +731,7 @@ public final class PuzzlePanel extends JPanel {
             return;
         }
         board.clearMarkup();
+        board.clearWrongMoveMarker();
         board.highlightSquare(hint.fromSquare(), Theme.ACCENT);
         board.addArrow(hint.fromSquare(), Move.getToIndex(hint.move()), Theme.ACCENT);
         board.setSuggestedMove(hint.move());
@@ -775,7 +776,7 @@ public final class PuzzlePanel extends JPanel {
         }
         PuzzleSession.MoveResponse response = session.playUserMove(move, skipSimilarToggle.isSelected());
         if (response.result() == PuzzleSession.StepResult.INCORRECT) {
-            markWrongMove(response.expectedMove());
+            markWrongMove(move);
             return;
         }
         playPuzzleResponseSound(response, false);
@@ -800,24 +801,23 @@ public final class PuzzlePanel extends JPanel {
         }
         PuzzleSession.MoveResponse response =
                 session.playUserMove(context.defaultMove(), skipSimilarToggle.isSelected());
-        markWrongMove(response.expectedMove());
+        markWrongMove(context.defaultMove());
         return Move.NO_MOVE;
     }
 
     /**
      * Shows wrong-move feedback without changing the board position.
      *
-     * @param expected expected move
+     * @param attempted attempted move
      */
-    private void markWrongMove(short expected) {
+    private void markWrongMove(short attempted) {
         board.clearMarkup();
-        if (expected != Move.NO_MOVE) {
-            board.highlightSquare(Move.getFromIndex(expected), Theme.STATUS_WARNING_TEXT);
-            board.addArrow(Move.getFromIndex(expected), Move.getToIndex(expected), Theme.STATUS_WARNING_TEXT);
-            board.setSuggestedMove(expected);
-            setStatus("Try again. Best is " + Move.toString(expected) + ".");
+        board.clearWrongMoveMarker();
+        if (attempted != Move.NO_MOVE) {
+            board.showWrongMoveMarker(Move.getToIndex(attempted));
+            setStatus("Incorrect. Try again.");
         } else {
-            setStatus("Try again.");
+            setStatus("Incorrect.");
         }
         SoundService.play(SoundCue.PUZZLE_WRONG);
         updateLabels();
