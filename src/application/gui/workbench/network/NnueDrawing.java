@@ -51,22 +51,6 @@ public final class NnueDrawing {
     private static final float TRACE_SKIP_EDGE_WIDTH = 1.9f;
 
     /**
-     * Minimum horizontal span before the skip edge becomes a bridge with a
-     * straight center lane.
-     */
-    private static final int TRACE_SKIP_EDGE_BRIDGE_MIN_SPAN = 104;
-
-    /**
-     * Smallest shoulder used when bending into the skip bridge lane.
-     */
-    private static final int TRACE_SKIP_EDGE_SHOULDER_MIN = 30;
-
-    /**
-     * Largest shoulder used when bending into the skip bridge lane.
-     */
-    private static final int TRACE_SKIP_EDGE_SHOULDER_MAX = 82;
-
-    /**
      * Utility class.
      */
     private NnueDrawing() {
@@ -416,12 +400,11 @@ public final class NnueDrawing {
     }
 
     /**
-     * Draws the Stockfish FC0 forward-skip edge as a routed bridge.
+     * Draws the Stockfish FC0 forward-skip edge as a straight connection.
      *
-     * <p>The skip branch bypasses FC1, so a straight diagonal makes the graph
-     * read as if it flowed through the hidden column. This helper routes the
-     * edge through a spare gutter and places the label on an opaque pill beside
-     * that bridge.</p>
+     * <p>The branch bypasses FC1. The line stays direct so the topology is easy
+     * to read, while the label is placed in a spare lane to avoid covering the
+     * connection.</p>
      *
      * @param g graphics
      * @param x1 source x
@@ -431,16 +414,16 @@ public final class NnueDrawing {
      * @param strength signed magnitude in [-1, 1]
      * @param label edge label
      * @param detail secondary label text
-     * @param routeY y coordinate for the curve control lane
+     * @param labelY y coordinate for the label lane
      * @param maxLabelWidth maximum label width
      * @return approximate bounds for hover hit-testing
      */
     public static Rectangle drawTraceSkipEdge(Graphics2D g, int x1, int y1, int x2, int y2,
-            float strength, String label, String detail, int routeY, int maxLabelWidth) {
+            float strength, String label, String detail, int labelY, int maxLabelWidth) {
         int left = Math.min(x1, x2);
         int right = Math.max(x1, x2);
-        int top = Math.min(Math.min(y1, y2), routeY);
-        int bottom = Math.max(Math.max(y1, y2), routeY);
+        int top = Math.min(Math.min(y1, y2), labelY);
+        int bottom = Math.max(Math.max(y1, y2), labelY);
         if (right - left < 24) {
             drawTraceEdge(g, x1, y1, x2, y2, strength, true);
             return new Rectangle(left, top, Math.max(1, right - left), Math.max(1, bottom - top));
@@ -454,29 +437,25 @@ public final class NnueDrawing {
                 + Math.round((TRACE_EDGE_ALPHA_MAX - TRACE_EDGE_ALPHA_MIN) * mag)
                 + TRACE_EDGE_FOCUS_BOOST);
         Color accent = new Color(base.getRed(), base.getGreen(), base.getBlue(), alpha);
-        int distance = Math.max(1, right - left);
-        int direction = x2 >= x1 ? 1 : -1;
-        int shoulder = skipShoulder(distance);
-        Path2D.Double bridge = skipBridgePath(x1, y1, x2, y2, routeY, direction, shoulder);
         Stroke oldStroke = g.getStroke();
 
         g.setColor(Theme.withAlpha(Theme.PANEL_SOLID, Theme.isDark() ? 220 : 235));
         g.setStroke(new BasicStroke(TRACE_SKIP_EDGE_UNDERLAY_WIDTH,
                 BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-        g.draw(bridge);
+        g.drawLine(x1, y1, x2, y2);
 
         g.setColor(Theme.withAlpha(base, Math.min(255, alpha + 10)));
         g.setStroke(new BasicStroke(TRACE_SKIP_EDGE_WIDTH,
                 BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-        g.draw(bridge);
+        g.drawLine(x1, y1, x2, y2);
 
         drawSkipEndpoint(g, x1, y1, accent);
         drawSkipEndpoint(g, x2, y2, accent);
-        drawCurveArrowHead(g, x2 - direction * shoulder * 0.55, y2, x2, y2, accent);
+        drawLineArrowHead(g, x1, y1, x2, y2, accent);
         g.setStroke(oldStroke);
 
         Rectangle labelBounds = drawSkipEdgeLabel(g, label, detail,
-                (x1 + x2) / 2, routeY, routeY < Math.min(y1, y2),
+                (x1 + x2) / 2, labelY, labelY < Math.min(y1, y2),
                 Math.min(maxLabelWidth, Math.max(48, right - left - 18)), accent);
         Rectangle hit = new Rectangle(left - 6, top - 10, right - left + 12, bottom - top + 20);
         if (labelBounds != null) {
@@ -486,53 +465,7 @@ public final class NnueDrawing {
     }
 
     /**
-     * Calculates a proportional bridge shoulder length for a skip edge.
-     *
-     * @param distance horizontal distance between endpoints
-     * @return shoulder length in pixels
-     */
-    private static int skipShoulder(int distance) {
-        return Math.max(TRACE_SKIP_EDGE_SHOULDER_MIN,
-                Math.min(TRACE_SKIP_EDGE_SHOULDER_MAX, distance / 5));
-    }
-
-    /**
-     * Creates the forward-skip path. Wide spans use two smooth shoulders and a
-     * straight center lane; narrow spans fall back to a single cubic curve.
-     *
-     * @param x1 source x
-     * @param y1 source y
-     * @param x2 target x
-     * @param y2 target y
-     * @param routeY center lane y coordinate
-     * @param direction horizontal drawing direction
-     * @param shoulder shoulder length
-     * @return routed path
-     */
-    private static Path2D.Double skipBridgePath(int x1, int y1, int x2, int y2,
-            int routeY, int direction, int shoulder) {
-        int distance = Math.abs(x2 - x1);
-        Path2D.Double path = new Path2D.Double();
-        path.moveTo(x1, y1);
-        if (distance < TRACE_SKIP_EDGE_BRIDGE_MIN_SPAN) {
-            path.curveTo(x1 + direction * shoulder * 0.8, y1,
-                    x2 - direction * shoulder * 0.8, routeY, x2, y2);
-            return path;
-        }
-        double startLaneX = x1 + direction * shoulder;
-        double endLaneX = x2 - direction * shoulder;
-        path.curveTo(x1 + direction * shoulder * 0.55, y1,
-                startLaneX - direction * shoulder * 0.35, routeY,
-                startLaneX, routeY);
-        path.lineTo(endLaneX, routeY);
-        path.curveTo(endLaneX + direction * shoulder * 0.35, routeY,
-                x2 - direction * shoulder * 0.55, y2,
-                x2, y2);
-        return path;
-    }
-
-    /**
-     * Draws an endpoint marker for the routed bypass lane.
+     * Draws an endpoint marker for the forward-skip line.
      *
      * @param g graphics
      * @param x marker center x
@@ -550,16 +483,16 @@ public final class NnueDrawing {
     }
 
     /**
-     * Draws an arrow head tangent to a Bezier curve endpoint.
+     * Draws an arrow head tangent to a straight skip edge.
      *
      * @param g graphics
-     * @param fromX tangent source x
-     * @param fromY tangent source y
+     * @param fromX source x
+     * @param fromY source y
      * @param tipX arrow tip x
      * @param tipY arrow tip y
      * @param accent arrow accent
      */
-    private static void drawCurveArrowHead(Graphics2D g, double fromX, double fromY, int tipX, int tipY,
+    private static void drawLineArrowHead(Graphics2D g, double fromX, double fromY, int tipX, int tipY,
             Color accent) {
         double angle = Math.atan2(tipY - fromY, tipX - fromX);
         int size = 7;
@@ -583,20 +516,20 @@ public final class NnueDrawing {
     }
 
     /**
-     * Draws the label for the routed skip edge.
+     * Draws the label for the skip edge.
      *
      * @param g graphics
      * @param text label text
      * @param detail secondary text
      * @param centerX label center x
-     * @param routeY routed edge y
-     * @param below true when the label should sit below the route
+     * @param labelY label lane y
+     * @param below true when the label should sit below the lane
      * @param maxWidth maximum text width
      * @param accent accent color
      * @return label bounds or {@code null} when no text fits
      */
     private static Rectangle drawSkipEdgeLabel(Graphics2D g, String text, String detail,
-            int centerX, int routeY, boolean below, int maxWidth, Color accent) {
+            int centerX, int labelY, boolean below, int maxWidth, Color accent) {
         g.setFont(Theme.font(9, Font.BOLD));
         FontMetrics titleMetrics = g.getFontMetrics();
         String fitted = fitText(titleMetrics, text, Math.max(0, maxWidth - 18));
@@ -613,7 +546,7 @@ public final class NnueDrawing {
                 ? titleMetrics.getHeight() + 9
                 : titleMetrics.getHeight() + detailMetrics.getHeight() + 10;
         int x = centerX - width / 2;
-        int y = below ? routeY + 6 : routeY - height - 6;
+        int y = below ? labelY + 6 : labelY - height - 6;
         Rectangle bg = new Rectangle(x, y, width, height);
         g.setColor(Theme.PANEL_SOLID);
         g.fillRoundRect(bg.x, bg.y, bg.width, bg.height, Theme.RADIUS, Theme.RADIUS);
