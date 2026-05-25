@@ -681,10 +681,13 @@ final class WorkbenchBackendRegression {
     private static void testNetworkMctsUpdatesAreNonBlocking() {
         String source;
         String viewSource;
+        String windowBaseSource;
         try {
             source = Files.readString(Path.of("src/application/gui/workbench/network/NetworkPanel.java"),
                     StandardCharsets.UTF_8);
             viewSource = Files.readString(Path.of("src/application/gui/workbench/network/NetworkView.java"),
+                    StandardCharsets.UTF_8);
+            windowBaseSource = Files.readString(Path.of("src/application/gui/workbench/window/WindowBase.java"),
                     StandardCharsets.UTF_8);
         } catch (IOException ex) {
             throw new AssertionError("unable to read network source", ex);
@@ -699,6 +702,16 @@ final class WorkbenchBackendRegression {
                 "follow-leaf activation frames have their own UI frame budget");
         assertTrue(source.contains("shouldPublishNetworkMctsLeafFrame"),
                 "follow-leaf activation frames are rate-limited");
+        assertTrue(source.contains("public void addNotify()")
+                && source.contains("public void removeNotify()")
+                && source.contains("setActive(false);"),
+                "network panels activate only while attached to the visible hierarchy");
+        assertTrue(source.contains("if (!active)")
+                && source.contains("Thread.sleep(120L);")
+                && source.contains("chunks.isEmpty() || !active"),
+                "hidden network MCTS idles and skips EDT frame processing");
+        assertTrue(source.contains("|| !active) {\n            return frame;"),
+                "hidden network MCTS skips follow-leaf activation inference");
         assertFalse(source.contains("showNetworkMctsFrameSynchronously"),
                 "follow-leaf mode does not synchronously block the EDT");
         assertFalse(source.contains("SwingUtilities.invokeAndWait"),
@@ -714,6 +727,8 @@ final class WorkbenchBackendRegression {
         assertTrue(viewSource.contains("Dimension previousPreferred = getPreferredSize()")
                 && viewSource.contains("if (!nextPreferred.equals(previousPreferred))"),
                 "network views only revalidate when a snapshot changes layout size");
+        assertFalse(windowBaseSource.contains("panel.setActive(true);"),
+                "network tabs are not marked active before they are visible");
     }
 
     /**

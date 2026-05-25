@@ -475,7 +475,6 @@ public abstract class WindowBase extends JFrame {
         if (currentPosition != null) {
             panel.setFen(currentPosition.toString());
         }
-        panel.setActive(true);
         networkPanels.add(panel);
         if (primary) {
             networkPanel = panel;

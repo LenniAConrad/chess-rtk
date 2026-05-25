@@ -452,9 +452,10 @@ public final class NetworkPanel extends JPanel {
 
     /**
      * Whether the Network pane is currently visible in any workbench editor
-     * group. Heavy inference stays lazy until this is true.
+     * group. Heavy inference and MCTS visualization stay lazy until this is
+     * true. Read by the MCTS worker, therefore volatile.
      */
-    private boolean active;
+    private volatile boolean active;
 
     /**
      * The {@code cardKey + "::" + fen} key currently displayed by the active
@@ -533,6 +534,26 @@ public final class NetworkPanel extends JPanel {
     }
 
     /**
+     * Activates expensive work only while the panel is actually attached to a
+     * visible editor group.
+     */
+    @Override
+    public void addNotify() {
+        super.addNotify();
+        setActive(true);
+    }
+
+    /**
+     * Suspends expensive work as soon as the panel leaves the visible Swing
+     * hierarchy.
+     */
+    @Override
+    public void removeNotify() {
+        setActive(false);
+        super.removeNotify();
+    }
+
+    /**
      * Wraps a network view in a JScrollPane styled to match the workbench
      * theme. The atlas paint paths use the scroll view to expose every
      * neuron at a comfortable tile size.
@@ -570,9 +591,9 @@ public final class NetworkPanel extends JPanel {
     }
 
     /**
-     * Sets whether the Network pane is visible. Becoming visible triggers the
-     * latest pending inference; becoming hidden cancels only the debounce so a
-     * worker already in flight can finish without blocking the EDT.
+     * Sets whether the Network pane is visible. Becoming visible refreshes the
+     * current frame; becoming hidden cancels pending inference and suspends
+     * MCTS visualization so hidden tabs do not consume paint time.
      *
      * @param value true when visible
      */
@@ -582,12 +603,13 @@ public final class NetworkPanel extends JPanel {
         }
         active = value;
         if (active) {
-            requestActiveInference();
+            if (isNetworkMctsRunning() && mctsSearch != null) {
+                showNetworkMctsSnapshot(mctsSearch.snapshot(mctsPaused), true);
+            } else {
+                requestActiveInference();
+            }
         } else {
-            debounceTimer.stop();
-            pendingArch = null;
-            pendingFen = null;
-            clearLoading(null, null);
+            cancelPendingInference();
         }
     }
 
@@ -1162,7 +1184,14 @@ public final class NetworkPanel extends JPanel {
                 publishNetworkMctsFrame(buildNetworkMctsFrame(search.snapshot(false)), 0L);
                 long lastPublishNanos = System.nanoTime();
                 long lastLeafActivationNanos = 0L;
-                while (!isCancelled() && search.shouldContinue(budget, maxMillis)) {
+                while (!isCancelled()) {
+                    if (!active) {
+                        Thread.sleep(120L);
+                        continue;
+                    }
+                    if (!search.shouldContinue(budget, maxMillis)) {
+                        break;
+                    }
                     if (mctsPaused) {
                         publishNetworkMctsFrame(buildNetworkMctsFrame(search.snapshot(true)), 0L);
                         lastPublishNanos = System.nanoTime();
@@ -1214,7 +1243,7 @@ public final class NetworkPanel extends JPanel {
 
             @Override
             protected void process(List<NetworkMctsFrame> chunks) {
-                if (mctsWorker != this || mctsSearch != search || chunks.isEmpty()) {
+                if (mctsWorker != this || mctsSearch != search || chunks.isEmpty() || !active) {
                     return;
                 }
                 NetworkMctsFrame frame = chunks.get(chunks.size() - 1);
@@ -1244,7 +1273,9 @@ public final class NetworkPanel extends JPanel {
                     SoundService.play(SoundCue.JOB_FAILURE);
                 }
                 if (!isCancelled() && !failed) {
-                    showNetworkMctsSnapshot(search.snapshot(mctsPaused), false);
+                    if (active) {
+                        showNetworkMctsSnapshot(search.snapshot(mctsPaused), false);
+                    }
                     SoundService.play(SoundCue.MCTS_COMPLETE);
                 }
                 search.close();
@@ -1374,7 +1405,8 @@ public final class NetworkPanel extends JPanel {
                 || frame.leafCardKey() == null
                 || frame.leafFen() == null
                 || frame.leafFen().isBlank()
-                || !mctsFollowLeafEnabled) {
+                || !mctsFollowLeafEnabled
+                || !active) {
             return frame;
         }
         ActivationSnapshot leafSnapshot = inferSnapshotQuietly(frame.leafCardKey(), frame.leafFen());
@@ -1393,7 +1425,7 @@ public final class NetworkPanel extends JPanel {
      */
     private void showNetworkMctsSnapshot(MctsSearch.Snapshot snapshot,
             boolean running, String leafCardKey, String leafFen, ActivationSnapshot leafSnapshot) {
-        if (snapshot == null) {
+        if (snapshot == null || !active) {
             return;
         }
         boolean visibleBefore = mctsWeightsPanel.isVisible();
@@ -1692,7 +1724,7 @@ public final class NetworkPanel extends JPanel {
                 try {
                     ActivationSnapshot snapshot = get();
                     snapshotCache.put(key, snapshot);
-                    if (cardKey.equals(activeCardKey()) && fen.equals(effectiveFen())) {
+                    if (active && cardKey.equals(activeCardKey()) && fen.equals(effectiveFen())) {
                         applySnapshot(cardKey, fen, snapshot);
                     }
                 } catch (CancellationException ex) {
@@ -1709,15 +1741,15 @@ public final class NetworkPanel extends JPanel {
                 }
                 // Keep the error message visible; otherwise show the
                 // provider's healthy load state.
-                if (!failed) {
+                if (!failed && active) {
                     refreshStatusBadge();
-                } else {
+                } else if (active) {
                     showSelected();
                 }
-                if (pendingFen != null) {
+                if (active && pendingFen != null) {
                     SwingUtilities.invokeLater(NetworkPanel.this::startInference);
-                } else if (displayedKey == null
-                        || !displayedKey.equals(cacheKey(activeCardKey(), effectiveFen()))) {
+                } else if (active && (displayedKey == null
+                        || !displayedKey.equals(cacheKey(activeCardKey(), effectiveFen())))) {
                     requestActiveInference();
                 }
             }
