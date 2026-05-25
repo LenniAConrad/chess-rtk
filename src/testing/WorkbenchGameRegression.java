@@ -15,6 +15,8 @@ import javax.swing.JTable;
 import javax.swing.JTextField;
 import javax.swing.Timer;
 
+import application.gui.workbench.board.BoardExporter;
+import application.gui.workbench.board.BoardPanel;
 import application.gui.workbench.game.GameModel;
 import application.gui.workbench.game.PgnExplorerModel;
 import application.gui.workbench.game.PuzzleLibrary;
@@ -26,6 +28,7 @@ import application.gui.workbench.ui.Theme;
 
 import chess.core.Move;
 import chess.core.Position;
+import chess.core.Setup;
 import chess.struct.Game;
 import chess.struct.Pgn;
 import chess.uci.Output;
@@ -57,6 +60,7 @@ final class WorkbenchGameRegression {
         testPuzzleLibraryLoadsDifficultCsv();
         testPuzzleLibraryLoadsChessWebPgn();
         testPuzzlePanelPaintsOpaqueSurface();
+        testAnalysisBoardExportsRasterAndSvg();
         testPgnExplorerModelFiltersGames();
         testEcoExplorerFiltersAndLoadsLines();
         testEvalBarMapping();
@@ -389,6 +393,29 @@ final class WorkbenchGameRegression {
     private static void testPuzzlePanelPaintsOpaqueSurface() {
         JComponent panel = new PuzzlePanel();
         assertPaintsOpaqueCorner(panel, 720, 520, "puzzle panel opaque background");
+    }
+
+    /**
+     * Verifies analysis-board exports are rendered from board state instead of
+     * relying on a visible component screenshot.
+     */
+    private static void testAnalysisBoardExportsRasterAndSvg() {
+        BoardPanel board = new BoardPanel();
+        Position position = new Position(Setup.getStandardStartFEN());
+        short move = Move.parse("e2e4");
+        position.play(move);
+        board.setPositionInstant(position, move);
+
+        BufferedImage image = BoardExporter.renderPng(board, 512);
+        assertTrue(image.getWidth() >= 512 && image.getHeight() >= 512,
+                "board PNG export uses requested resolution");
+        assertTrue((image.getRGB(image.getWidth() / 2, image.getHeight() / 2) >>> 24) != 0,
+                "board PNG export paints opaque board content");
+
+        String svg = BoardExporter.toSvg(board, 512);
+        assertTrue(svg.startsWith("<svg"), "board SVG export starts with svg root");
+        assertTrue(svg.contains("ChessRTK analysis board"), "board SVG export has accessible label");
+        assertTrue(svg.contains("<path"), "board SVG export embeds vector piece paths");
     }
 
     /**

@@ -23,6 +23,7 @@ import java.awt.FlowLayout;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.LinkedHashMap;
@@ -67,6 +68,17 @@ public final class NetworkPanel extends JPanel {
      * Architecture identifier for NNUE.
      */
     private static final String ARCH_NNUE = "NNUE";
+
+    /**
+     * Logical scale used for render-based network PNG exports.
+     */
+    private static final double PNG_EXPORT_SCALE = 2.0;
+
+    /**
+     * Maximum exported PNG dimension before falling back to 1x to avoid
+     * excessive heap pressure on very large diagnostic views.
+     */
+    private static final int PNG_EXPORT_MAX_DIMENSION = 8192;
 
     /**
      * User-facing NNUE selector label.
@@ -766,7 +778,7 @@ public final class NetworkPanel extends JPanel {
                 "Pick the network family to visualise.");
         styleToolbarCombo(positionCombo, 244,
                 "Pin a canned position to explore, or follow the main board.");
-        exportPngButton.setToolTipText("Capture the current network view to a PNG file.");
+        exportPngButton.setToolTipText("Render the full current network view to a high-resolution PNG file.");
 
         JPanel controls = Ui.transparentPanel(
     new FlowLayout(FlowLayout.LEFT, Theme.SPACE_SM, 0));
@@ -929,13 +941,14 @@ public final class NetworkPanel extends JPanel {
     }
 
     /**
-     * Captures the currently-visible network view as a PNG and writes it next
-     * to the user's last export. The file name embeds the architecture and a
+     * Renders the current network view as a PNG and writes it next to the
+     * user's last export. The file name embeds the architecture and a
      * timestamp so consecutive exports don't collide.
      *
-     * <p>The capture is taken at the view's full preferred size when that is
-     * larger than the current viewport, preserving dense diagnostic views
-     * without depending on the scroll-pane clipping state.</p>
+     * <p>The render is taken at the view's full preferred size when that is
+     * larger than the current viewport, then painted to an offscreen image at
+     * an elevated scale. This preserves dense diagnostic views without
+     * depending on the scroll-pane clipping state or monitor pixels.</p>
      */
     private void exportPng() {
         JComponent target = activeView();
@@ -943,13 +956,23 @@ public final class NetworkPanel extends JPanel {
         int w = Math.max(1, Math.max(target.getWidth(), target.getPreferredSize().width));
         int h = Math.max(1, Math.max(target.getHeight(), target.getPreferredSize().height));
         try {
-            BufferedImage img = RenderAcceleration.translucentImage(w, h);
+            double scale = exportScale(w, h);
+            BufferedImage img = RenderAcceleration.translucentImage(
+                    Math.max(1, (int) Math.ceil(w * scale)),
+                    Math.max(1, (int) Math.ceil(h * scale)));
             java.awt.Graphics2D g = img.createGraphics();
             try {
                 // Lay the view out at the full capture size, paint, then let
                 // the scroll pane restore it on the next validation pass.
                 target.setSize(w, h);
                 target.doLayout();
+                g.setRenderingHint(java.awt.RenderingHints.KEY_ANTIALIASING,
+                        java.awt.RenderingHints.VALUE_ANTIALIAS_ON);
+                g.setRenderingHint(java.awt.RenderingHints.KEY_TEXT_ANTIALIASING,
+                        java.awt.RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+                g.setRenderingHint(java.awt.RenderingHints.KEY_INTERPOLATION,
+                        java.awt.RenderingHints.VALUE_INTERPOLATION_BICUBIC);
+                g.scale(scale, scale);
                 target.paint(g);
             } finally {
                 g.dispose();
@@ -961,17 +984,30 @@ public final class NetworkPanel extends JPanel {
                     DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss"));
             String arch = displayNameFor(activeCardKey()).replaceAll("\\W+", "_");
             File dir = new File(Prefs.exportDir());
-            if (!dir.exists()) {
-                dir.mkdirs();
-            }
+            Files.createDirectories(dir.toPath());
             File out = new File(dir, "workbench-" + arch + "-" + stamp + ".png");
             ImageIO.write(img, "png", out);
-            statusBadge.success("exported " + out.getName());
+            Prefs.setExportDir(dir.getPath());
+            statusBadge.success("rendered " + out.getName());
             toast(Toast.Kind.SUCCESS, "Exported " + out.getName());
         } catch (IOException ex) {
             statusBadge.error("export failed: " + ex.getMessage());
             toast(Toast.Kind.ERROR, "Export failed: " + ex.getMessage());
         }
+    }
+
+    /**
+     * Returns the offscreen export scale for a logical view size.
+     *
+     * @param width logical view width
+     * @param height logical view height
+     * @return export scale
+     */
+    private static double exportScale(int width, int height) {
+        return width * PNG_EXPORT_SCALE <= PNG_EXPORT_MAX_DIMENSION
+                && height * PNG_EXPORT_SCALE <= PNG_EXPORT_MAX_DIMENSION
+                        ? PNG_EXPORT_SCALE
+                        : 1.0;
     }
 
     /**

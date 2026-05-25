@@ -5,6 +5,7 @@ import application.cli.PathOps;
 import application.gui.workbench.audio.SoundCue;
 import application.gui.workbench.audio.SoundService;
 import application.gui.workbench.board.BoardEditorPanel;
+import application.gui.workbench.board.BoardExportActions;
 import application.gui.workbench.game.EcoExplorerPanel;
 import application.gui.workbench.game.SanRenderer;
 import application.gui.workbench.layout.SplitPaneStyler;
@@ -192,6 +193,8 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
                     appendConsole("Board flipped\n");
                 }),
                 iconButton("Copy FEN", event -> copyText(fenField.getText())),
+                iconButton("Export PNG", event -> BoardExportActions.exportPng(this, board)),
+                iconButton("Export SVG", event -> BoardExportActions.exportSvg(this, board)),
                 iconButton("Settings", event -> showDisplaySettings()),
                 iconButton("Actions", event -> showCommandPalette())), c, 0, 2, 4, 1);
         grid(panel, createPgnExplorerLauncher(), c, 0, 3, 4, 1);

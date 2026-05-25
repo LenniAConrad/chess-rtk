@@ -1,6 +1,7 @@
 package application.gui.workbench.window;
 
 import application.gui.workbench.Defaults;
+import application.gui.workbench.board.BoardExportActions;
 import application.gui.workbench.board.BoardPanel;
 import application.gui.workbench.game.MovesModel;
 import application.gui.workbench.game.SanRenderer;
@@ -263,6 +264,8 @@ final class AnalysisWorkspacePanel extends JPanel {
                 endButton,
                 iconButton("Flip", event -> board.setWhiteDown(!board.isWhiteDown())),
                 iconButton("Copy FEN", event -> textCopier.accept(currentFen())),
+                iconButton("Export PNG", event -> BoardExportActions.exportPng(this, board)),
+                iconButton("Export SVG", event -> BoardExportActions.exportSvg(this, board)),
                 button("Analyze", false, event -> runAnalyze()),
                 button("Reset", false, event -> loadFen(Setup.getStandardStartFEN()))), c, 0, 3, 4, 1);
         grid(panel, statusLabel, c, 0, 4, 4, 1);

@@ -1841,6 +1841,39 @@ public final class BoardPanel extends JPanel {
     public Rectangle currentBoardBounds() {
         return boardBounds();
     }
+    /** Returns immutable board state for render-based PNG/SVG exports.
+     * @return export snapshot */
+    BoardExportSnapshot exportSnapshot() {
+        byte[] pieces = setupEditMode ? setupEditBoard.clone()
+                : position == null ? new byte[64] : position.getBoard().clone();
+        return new BoardExportSnapshot(
+                pieces,
+                whiteDown,
+                lastMove,
+                suggestedMove,
+                selectedSquare,
+                selectedLegalTargets,
+                selectedCaptureTargets(),
+                checkedKingSquare(),
+                new LinkedHashMap<>(squareHighlights),
+                new ArrayList<>(boardMarkups),
+                showNotation,
+                showLegalMovePreview,
+                showLastMoveHighlight,
+                showSuggestedMoveArrow);
+    }
+    /** Returns selected legal targets that currently capture a piece.
+     * @return capture target squares */
+    private byte[] selectedCaptureTargets() {
+        byte[] captures = new byte[selectedLegalTargets.length];
+        int count = 0;
+        for (byte target : selectedLegalTargets) {
+            if (isCaptureTarget(target)) {
+                captures[count++] = target;
+            }
+        }
+        return Arrays.copyOf(captures, count);
+    }
     /** Returns square bounds.
      * @param board board drawing bounds
      * @param square board square index
