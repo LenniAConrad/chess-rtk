@@ -1102,8 +1102,8 @@ final class WorkbenchBackendRegression {
     }
 
     /**
-     * Verifies the Stockfish forward-skip edge does not use a separate border,
-     * endpoint marker, or heavier stroke than ordinary Trace edges.
+     * Verifies the Stockfish forward-skip edge stays a plain straight Trace
+     * line without a separate border, endpoint marker, or heavier stroke.
      */
     private static void testNnueForwardSkipUsesNormalLineStyle() {
         String source;
@@ -1119,6 +1119,12 @@ final class WorkbenchBackendRegression {
                 "forward skip line does not define a separate heavy stroke");
         assertFalse(source.contains("drawSkipEndpoint"),
                 "forward skip line has no endpoint marker");
+        assertFalse(source.contains("Path2D"),
+                "forward skip line does not use a Bezier path");
+        assertFalse(source.contains("skipBezierPath"),
+                "forward skip line does not build a curved bypass path");
+        assertTrue(source.contains("drawTraceEdge(g, x1, y1, x2, y2, strength, false)"),
+                "forward skip line delegates to the ordinary straight trace edge");
         assertTrue(source.contains("g.setStroke(new BasicStroke(TRACE_EDGE_WIDTH"),
                 "forward skip line reuses ordinary trace edge width");
     }

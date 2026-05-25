@@ -11,8 +11,6 @@ import java.awt.Font;
 import java.awt.FontMetrics;
 import java.awt.Graphics2D;
 import java.awt.Rectangle;
-import java.awt.Stroke;
-import java.awt.geom.Path2D;
 
 /**
  * Stateless tooltip, vector, and trace drawing helpers for {@link NnueView}.
@@ -389,11 +387,7 @@ public final class NnueDrawing {
     }
 
     /**
-     * Draws the Stockfish FC0 forward-skip edge as a Bezier bypass line.
-     *
-     * <p>The branch bypasses FC1. The curve drops through a spare lane and
-     * rises into the output node, matching the way this shortcut visually skips
-     * the hidden stack without using an arrowhead.</p>
+     * Draws the Stockfish FC0 forward-skip edge as a normal Trace line.
      *
      * @param g graphics
      * @param x1 source x
@@ -401,56 +395,17 @@ public final class NnueDrawing {
      * @param x2 target x
      * @param y2 target y
      * @param strength signed magnitude in [-1, 1]
-     * @param laneY y coordinate for the bypass lane
      * @return approximate bounds for hover hit-testing
      */
     public static Rectangle drawTraceSkipEdge(Graphics2D g, int x1, int y1, int x2, int y2,
-            float strength, int laneY) {
+            float strength) {
         int left = Math.min(x1, x2);
         int right = Math.max(x1, x2);
-        int top = Math.min(Math.min(y1, y2), laneY);
-        int bottom = Math.max(Math.max(y1, y2), laneY);
-        if (right - left < 24) {
-            drawTraceEdge(g, x1, y1, x2, y2, strength, false);
-            return new Rectangle(left, top, Math.max(1, right - left), Math.max(1, bottom - top));
-        }
-
-        float s = Math.max(-1.0f, Math.min(1.0f, strength));
-        float mag = (float) Math.sqrt(Math.abs(s));
-        Color base = Math.abs(s) < 0.004f ? Theme.MUTED
-                : s >= 0.0f ? TensorViz.POSITIVE : TensorViz.NEGATIVE;
-        int alpha = TRACE_EDGE_ALPHA_MIN
-                + Math.round((TRACE_EDGE_ALPHA_MAX - TRACE_EDGE_ALPHA_MIN) * mag);
-        Path2D.Double curve = skipBezierPath(x1, y1, x2, y2, laneY);
-        Stroke oldStroke = g.getStroke();
-
-        g.setColor(new Color(base.getRed(), base.getGreen(), base.getBlue(), alpha));
-        g.setStroke(new BasicStroke(TRACE_EDGE_WIDTH,
-                BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-        g.draw(curve);
-        g.setStroke(oldStroke);
-
-        return new Rectangle(left - 6, top - 10, right - left + 12, bottom - top + 20);
-    }
-
-    /**
-     * Creates one smooth lower-gutter Bezier path for the forward skip.
-     *
-     * @param x1 source x
-     * @param y1 source y
-     * @param x2 target x
-     * @param y2 target y
-     * @param laneY bypass lane y coordinate
-     * @return Bezier path
-     */
-    private static Path2D.Double skipBezierPath(int x1, int y1, int x2, int y2, int laneY) {
-        double dx = x2 - x1;
-        double c1x = x1 + dx * 0.34d;
-        double c2x = x2 - dx * 0.28d;
-        Path2D.Double path = new Path2D.Double();
-        path.moveTo(x1, y1);
-        path.curveTo(c1x, laneY, c2x, laneY, x2, y2);
-        return path;
+        int top = Math.min(y1, y2);
+        int bottom = Math.max(y1, y2);
+        drawTraceEdge(g, x1, y1, x2, y2, strength, false);
+        return new Rectangle(left - 6, top - 6, Math.max(1, right - left + 12),
+                Math.max(1, bottom - top + 12));
     }
 
     /**
