@@ -669,8 +669,8 @@ final class WorkbenchBackendRegression {
     }
 
     /**
-     * Verifies Network-tab MCTS uses throttled SwingWorker publishing instead
-     * of blocking the event thread for every streamed playout.
+     * Verifies Network-tab MCTS keeps the default throttled publisher while
+     * follow-leaf mode switches to synchronous visual stepping.
      */
     private static void testNetworkMctsUpdatesAreNonBlocking() {
         String source;
@@ -680,18 +680,22 @@ final class WorkbenchBackendRegression {
         } catch (IOException ex) {
             throw new AssertionError("unable to read NetworkPanel source", ex);
         }
-        assertFalse(source.contains("invokeAndWait"),
-                "network MCTS does not block the EDT with invokeAndWait");
-        assertFalse(source.contains("paintImmediately"),
-                "network MCTS does not force synchronous repainting");
         assertTrue(source.contains("NETWORK_MCTS_PUBLISH_INTERVAL"),
                 "network MCTS has a publish throttle");
         assertTrue(source.contains("SwingWorker<Void, NetworkMctsFrame>"),
                 "network MCTS publishes live tree frames");
         assertTrue(source.contains("NETWORK_MCTS_FRAME_YIELD_MS"),
                 "network MCTS yields after streamed tree frames");
+        assertTrue(source.contains("mctsFollowLeafEnabled || shouldPublishNetworkMctsFrame"),
+                "follow-leaf mode streams every leaf instead of only throttled frames");
+        assertTrue(source.contains("showNetworkMctsFrameSynchronously"),
+                "follow-leaf mode applies each visual leaf frame synchronously");
+        assertTrue(source.contains("SwingUtilities.invokeAndWait"),
+                "follow-leaf stepping waits for the EDT to apply the frame");
+        assertTrue(source.contains("paintImmediately"),
+                "follow-leaf stepping forces the current frame to become visible");
         assertTrue(source.contains("buildNetworkMctsLeafActivationFrame"),
-                "network MCTS paints follow-leaf activations as a second frame");
+                "network MCTS builds follow-leaf activations before stepping");
         assertTrue(source.contains("buildNetworkMctsFrame"),
                 "network MCTS builds live frames off the EDT");
         assertTrue(source.contains("setCollapsibleExpanded(mctsWeightsSection, true)"),
@@ -699,8 +703,8 @@ final class WorkbenchBackendRegression {
     }
 
     /**
-     * Verifies Network-tab MCTS publishes the tree frame before doing slower
-     * leaf activation painting.
+     * Verifies Network-tab follow-leaf rendering builds the expensive
+     * activation snapshot off the EDT before applying the frame synchronously.
      */
     private static void testNetworkMctsPublishesWeightsBeforeLeafActivation() {
         String source;
@@ -710,10 +714,14 @@ final class WorkbenchBackendRegression {
         } catch (IOException ex) {
             throw new AssertionError("unable to read NetworkPanel source", ex);
         }
-        int publishTree = source.indexOf("publish(frame);");
         int buildActivation = source.indexOf("buildNetworkMctsLeafActivationFrame(frame)");
-        assertTrue(publishTree >= 0 && buildActivation > publishTree,
-                "network MCTS publishes weights before leaf activation rendering");
+        int showSynchronously = source.indexOf("showNetworkMctsFrameSynchronously(activationFrame)");
+        assertTrue(buildActivation >= 0 && showSynchronously > buildActivation,
+                "network MCTS builds leaf activation before synchronous display");
+        int invokeAndWait = source.indexOf("SwingUtilities.invokeAndWait");
+        int showSnapshot = source.indexOf("showNetworkMctsSnapshot(frame.snapshot(), true");
+        assertTrue(invokeAndWait >= 0 && showSnapshot > invokeAndWait,
+                "network MCTS applies leaf frames on the EDT");
         int frameBuilder = source.indexOf("private NetworkMctsFrame buildNetworkMctsFrame");
         int activationBuilder = source.indexOf("private NetworkMctsFrame buildNetworkMctsLeafActivationFrame");
         String builderBody = source.substring(frameBuilder, activationBuilder);

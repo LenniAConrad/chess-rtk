@@ -1157,11 +1157,11 @@ public final class NetworkPanel extends JPanel {
         SwingWorker<Void, NetworkMctsFrame> activeWorker = new SwingWorker<>() {
             @Override
             protected Void doInBackground() throws Exception {
-                publishNetworkMctsFrame(buildNetworkMctsFrame(search.snapshot(false)), 0L);
+                publishNetworkMctsFrame(buildNetworkMctsFrame(search.snapshot(false)), 0L, true);
                 long lastPublishNanos = System.nanoTime();
                 while (!isCancelled() && search.shouldContinue(budget, maxMillis)) {
                     if (mctsPaused) {
-                        publishNetworkMctsFrame(buildNetworkMctsFrame(search.snapshot(true)), 0L);
+                        publishNetworkMctsFrame(buildNetworkMctsFrame(search.snapshot(true)), 0L, false);
                         lastPublishNanos = System.nanoTime();
                         Thread.sleep(80L);
                         continue;
@@ -1169,35 +1169,79 @@ public final class NetworkPanel extends JPanel {
                     search.iterate();
                     long playouts = search.playouts();
                     long now = System.nanoTime();
-                    if (shouldPublishNetworkMctsFrame(playouts, now, lastPublishNanos)) {
-                        publishNetworkMctsFrame(buildNetworkMctsFrame(search.snapshot(false)), playouts);
+                    if (mctsFollowLeafEnabled || shouldPublishNetworkMctsFrame(playouts, now, lastPublishNanos)) {
+                        publishNetworkMctsFrame(buildNetworkMctsFrame(search.snapshot(false)), playouts, true);
                         lastPublishNanos = now;
                     }
                     if (playouts % NETWORK_MCTS_YIELD_INTERVAL == 0) {
                         Thread.sleep(1L);
                     }
                 }
-                publishNetworkMctsFrame(buildNetworkMctsFrame(search.snapshot(mctsPaused)), search.playouts());
+                publishNetworkMctsFrame(buildNetworkMctsFrame(search.snapshot(mctsPaused)), search.playouts(), true);
                 return null;
             }
 
             /**
-             * Publishes the tree frame first, then optionally publishes a second
-             * frame with the neural activation snapshot for the current leaf.
+             * Publishes one MCTS frame. Follow-leaf mode is intentionally a
+             * synchronous visual stepper: the worker evaluates the leaf
+             * snapshot off the EDT, applies it on the EDT, forces a paint, and
+             * only then starts the next playout.
              *
              * @param frame tree frame
              * @param playouts current playout count
+             * @param visualStep true when the frame represents a search step
              * @throws InterruptedException if the worker is interrupted
              */
-            private void publishNetworkMctsFrame(NetworkMctsFrame frame, long playouts) throws InterruptedException {
+            private void publishNetworkMctsFrame(NetworkMctsFrame frame, long playouts,
+                    boolean visualStep) throws InterruptedException {
+                if (visualStep && mctsFollowLeafEnabled && frame.leafFen() != null) {
+                    NetworkMctsFrame activationFrame = buildNetworkMctsLeafActivationFrame(frame);
+                    if (!isCancelled() && mctsFollowLeafEnabled && activationFrame.leafSnapshot() != null) {
+                        showNetworkMctsFrameSynchronously(activationFrame);
+                        Thread.sleep(NETWORK_MCTS_FOLLOW_LEAF_FRAME_DELAY_MS);
+                        return;
+                    }
+                }
                 publish(frame);
                 Thread.sleep(networkMctsFrameDelay(playouts));
-                if (!isCancelled() && mctsFollowLeafEnabled && frame.leafFen() != null) {
-                    NetworkMctsFrame activationFrame = buildNetworkMctsLeafActivationFrame(frame);
-                    if (activationFrame.leafSnapshot() != null) {
-                        publish(activationFrame);
-                        Thread.sleep(NETWORK_MCTS_FOLLOW_LEAF_FRAME_DELAY_MS);
+            }
+
+            /**
+             * Applies a follow-leaf frame immediately on the EDT and paints the
+             * network panel before the worker starts another playout.
+             *
+             * @param frame frame with a leaf activation snapshot
+             * @throws InterruptedException if interrupted while waiting for EDT
+             */
+            private void showNetworkMctsFrameSynchronously(NetworkMctsFrame frame) throws InterruptedException {
+                try {
+                    SwingUtilities.invokeAndWait(() -> {
+                        if (mctsWorker != this || mctsSearch != search || isCancelled()) {
+                            return;
+                        }
+                        showNetworkMctsSnapshot(frame.snapshot(), true,
+                                frame.leafCardKey(), frame.leafFen(), frame.leafSnapshot());
+                        paintNetworkMctsFrameImmediately();
+                    });
+                } catch (java.lang.reflect.InvocationTargetException ex) {
+                    Throwable cause = ex.getCause() == null ? ex : ex.getCause();
+                    if (cause instanceof RuntimeException runtime) {
+                        throw runtime;
                     }
+                    if (cause instanceof Error error) {
+                        throw error;
+                    }
+                    throw new IllegalStateException(cause);
+                }
+            }
+
+            /**
+             * Forces the current MCTS leaf frame to become visible before the
+             * next search step is computed.
+             */
+            private void paintNetworkMctsFrameImmediately() {
+                if (NetworkPanel.this.isShowing()) {
+                    NetworkPanel.this.paintImmediately(NetworkPanel.this.getVisibleRect());
                 }
             }
 
