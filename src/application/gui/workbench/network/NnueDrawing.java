@@ -13,6 +13,7 @@ import java.awt.Graphics2D;
 import java.awt.Rectangle;
 import java.awt.Stroke;
 import java.awt.geom.CubicCurve2D;
+import java.awt.geom.Path2D;
 
 /**
  * Stateless tooltip, vector, and trace drawing helpers for {@link NnueView}.
@@ -38,6 +39,17 @@ public final class NnueDrawing {
      * Extra alpha for the currently selected lane's connections.
      */
     private static final int TRACE_EDGE_FOCUS_BOOST = 58;
+
+    /**
+     * Opaque stroke width used to carve a readable skip lane through dense
+     * trace wiring.
+     */
+    private static final float TRACE_SKIP_EDGE_UNDERLAY_WIDTH = 7.0f;
+
+    /**
+     * Accent stroke width for the Stockfish forward-skip bypass.
+     */
+    private static final float TRACE_SKIP_EDGE_WIDTH = 2.15f;
 
     /**
      * Utility class.
@@ -403,12 +415,13 @@ public final class NnueDrawing {
      * @param y2 target y
      * @param strength signed magnitude in [-1, 1]
      * @param label edge label
+     * @param detail secondary label text
      * @param routeY y coordinate for the curve control lane
      * @param maxLabelWidth maximum label width
      * @return approximate bounds for hover hit-testing
      */
     public static Rectangle drawTraceSkipEdge(Graphics2D g, int x1, int y1, int x2, int y2,
-            float strength, String label, int routeY, int maxLabelWidth) {
+            float strength, String label, String detail, int routeY, int maxLabelWidth) {
         int left = Math.min(x1, x2);
         int right = Math.max(x1, x2);
         int top = Math.min(Math.min(y1, y2), routeY);
@@ -425,6 +438,7 @@ public final class NnueDrawing {
         int alpha = Math.min(235, TRACE_EDGE_ALPHA_MIN
                 + Math.round((TRACE_EDGE_ALPHA_MAX - TRACE_EDGE_ALPHA_MIN) * mag)
                 + TRACE_EDGE_FOCUS_BOOST);
+        Color accent = new Color(base.getRed(), base.getGreen(), base.getBlue(), alpha);
         int dx = x2 - x1;
         CubicCurve2D curve = new CubicCurve2D.Float(
                 x1,
@@ -436,21 +450,46 @@ public final class NnueDrawing {
                 x2,
                 y2);
         Stroke oldStroke = g.getStroke();
-        g.setColor(new Color(base.getRed(), base.getGreen(), base.getBlue(), alpha));
-        g.setStroke(new BasicStroke(TRACE_EDGE_WIDTH + 0.75f,
+
+        g.setColor(Theme.withAlpha(Theme.PANEL_SOLID, Theme.isDark() ? 220 : 235));
+        g.setStroke(new BasicStroke(TRACE_SKIP_EDGE_UNDERLAY_WIDTH,
                 BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
         g.draw(curve);
-        drawCurveArrowHead(g, x2 - dx * 0.22, routeY, x2, y2);
+
+        g.setColor(Theme.withAlpha(base, Math.min(255, alpha + 16)));
+        g.setStroke(new BasicStroke(TRACE_SKIP_EDGE_WIDTH,
+                BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND,
+                10.0f, new float[] { 9.0f, 4.0f }, 0.0f));
+        g.draw(curve);
+
+        drawSkipEndpoint(g, x1, y1, accent);
+        drawSkipEndpoint(g, x2, y2, accent);
+        drawCurveArrowHead(g, x2 - dx * 0.22, routeY, x2, y2, accent);
         g.setStroke(oldStroke);
 
-        int labelBaseline = routeY < Math.min(y1, y2) ? routeY + 18 : routeY - 8;
-        Rectangle labelBounds = drawSkipEdgeLabel(g, label,
-                (x1 + x2) / 2, labelBaseline, Math.min(maxLabelWidth, Math.max(36, right - left - 18)));
+        Rectangle labelBounds = drawSkipEdgeLabel(g, label, detail,
+                (x1 + x2) / 2, routeY, routeY < Math.min(y1, y2),
+                Math.min(maxLabelWidth, Math.max(48, right - left - 18)), accent);
         Rectangle hit = new Rectangle(left - 6, top - 10, right - left + 12, bottom - top + 20);
         if (labelBounds != null) {
             hit = hit.union(labelBounds);
         }
         return hit;
+    }
+
+    /**
+     * Draws an endpoint marker for the routed bypass lane.
+     *
+     * @param g graphics
+     * @param x marker center x
+     * @param y marker center y
+     * @param accent marker accent
+     */
+    private static void drawSkipEndpoint(Graphics2D g, int x, int y, Color accent) {
+        g.setColor(Theme.withAlpha(Theme.PANEL_SOLID, Theme.isDark() ? 238 : 245));
+        g.fillOval(x - 4, y - 4, 8, 8);
+        g.setColor(accent);
+        g.fillOval(x - 3, y - 3, 6, 6);
     }
 
     /**
@@ -461,16 +500,29 @@ public final class NnueDrawing {
      * @param fromY tangent source y
      * @param tipX arrow tip x
      * @param tipY arrow tip y
+     * @param accent arrow accent
      */
-    private static void drawCurveArrowHead(Graphics2D g, double fromX, double fromY, int tipX, int tipY) {
+    private static void drawCurveArrowHead(Graphics2D g, double fromX, double fromY, int tipX, int tipY,
+            Color accent) {
         double angle = Math.atan2(tipY - fromY, tipX - fromX);
-        int size = 6;
-        int xA = (int) Math.round(tipX - Math.cos(angle - Math.PI / 6.0) * size);
-        int yA = (int) Math.round(tipY - Math.sin(angle - Math.PI / 6.0) * size);
-        int xB = (int) Math.round(tipX - Math.cos(angle + Math.PI / 6.0) * size);
-        int yB = (int) Math.round(tipY - Math.sin(angle + Math.PI / 6.0) * size);
-        g.drawLine(tipX, tipY, xA, yA);
-        g.drawLine(tipX, tipY, xB, yB);
+        int size = 8;
+        double inset = 2.0;
+        double backX = tipX - Math.cos(angle) * size;
+        double backY = tipY - Math.sin(angle) * size;
+        double leftX = backX + Math.cos(angle - Math.PI / 2.0) * size * 0.42;
+        double leftY = backY + Math.sin(angle - Math.PI / 2.0) * size * 0.42;
+        double rightX = backX + Math.cos(angle + Math.PI / 2.0) * size * 0.42;
+        double rightY = backY + Math.sin(angle + Math.PI / 2.0) * size * 0.42;
+        Path2D.Double head = new Path2D.Double();
+        head.moveTo(tipX + Math.cos(angle) * inset, tipY + Math.sin(angle) * inset);
+        head.lineTo(leftX, leftY);
+        head.lineTo(rightX, rightY);
+        head.closePath();
+        g.setColor(Theme.withAlpha(Theme.PANEL_SOLID, Theme.isDark() ? 238 : 245));
+        g.setStroke(new BasicStroke(2.2f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+        g.draw(head);
+        g.setColor(accent);
+        g.fill(head);
     }
 
     /**
@@ -478,29 +530,50 @@ public final class NnueDrawing {
      *
      * @param g graphics
      * @param text label text
+     * @param detail secondary text
      * @param centerX label center x
-     * @param baseline label baseline y
+     * @param routeY routed edge y
+     * @param below true when the label should sit below the route
      * @param maxWidth maximum text width
+     * @param accent accent color
      * @return label bounds or {@code null} when no text fits
      */
-    private static Rectangle drawSkipEdgeLabel(Graphics2D g, String text,
-            int centerX, int baseline, int maxWidth) {
+    private static Rectangle drawSkipEdgeLabel(Graphics2D g, String text, String detail,
+            int centerX, int routeY, boolean below, int maxWidth, Color accent) {
         g.setFont(Theme.font(9, Font.BOLD));
-        FontMetrics fm = g.getFontMetrics();
-        String fitted = fitText(fm, text, maxWidth);
+        FontMetrics titleMetrics = g.getFontMetrics();
+        String fitted = fitText(titleMetrics, text, Math.max(0, maxWidth - 18));
         if (fitted.isEmpty()) {
             return null;
         }
-        int textW = fm.stringWidth(fitted);
-        int x = centerX - textW / 2;
-        Rectangle bg = new Rectangle(x - 7, baseline - fm.getAscent() - 4,
-                textW + 14, fm.getHeight() + 7);
+        g.setFont(Theme.font(9, Font.PLAIN));
+        FontMetrics detailMetrics = g.getFontMetrics();
+        String fittedDetail = fitText(detailMetrics, detail, Math.max(0, maxWidth - 18));
+        int titleW = titleMetrics.stringWidth(fitted);
+        int detailW = fittedDetail.isEmpty() ? 0 : detailMetrics.stringWidth(fittedDetail);
+        int width = Math.min(maxWidth, Math.max(titleW, detailW) + 18);
+        int height = fittedDetail.isEmpty()
+                ? titleMetrics.getHeight() + 9
+                : titleMetrics.getHeight() + detailMetrics.getHeight() + 10;
+        int x = centerX - width / 2;
+        int y = below ? routeY + 6 : routeY - height - 6;
+        Rectangle bg = new Rectangle(x, y, width, height);
         g.setColor(Theme.PANEL_SOLID);
-        g.fillRoundRect(bg.x, bg.y, bg.width, bg.height, 8, 8);
+        g.fillRoundRect(bg.x, bg.y, bg.width, bg.height, Theme.RADIUS, Theme.RADIUS);
         g.setColor(Theme.LINE);
-        g.drawRoundRect(bg.x, bg.y, bg.width - 1, bg.height - 1, 8, 8);
-        g.setColor(TensorViz.FOCUS);
-        g.drawString(fitted, x, baseline);
+        g.drawRoundRect(bg.x, bg.y, bg.width - 1, bg.height - 1, Theme.RADIUS, Theme.RADIUS);
+        g.setColor(accent);
+        g.fillRoundRect(bg.x, bg.y, 3, bg.height, Theme.RADIUS, Theme.RADIUS);
+        int textX = bg.x + 9;
+        int titleBaseline = bg.y + 5 + titleMetrics.getAscent();
+        g.setFont(Theme.font(9, Font.BOLD));
+        g.setColor(Theme.TEXT);
+        g.drawString(fitted, textX, titleBaseline);
+        if (!fittedDetail.isEmpty()) {
+            g.setFont(Theme.font(9, Font.PLAIN));
+            g.setColor(Theme.MUTED);
+            g.drawString(fittedDetail, textX, titleBaseline + detailMetrics.getHeight() - 1);
+        }
         return bg;
     }
 

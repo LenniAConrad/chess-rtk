@@ -1177,7 +1177,8 @@ public abstract class NnueTraceView extends NnueOverviewView {
             int targetX = layout.outputCx - (layout.slotRadius + 6);
             int routeY = skipEdgeRouteY(layout, fwdY, outCy);
             Rectangle hit = drawTraceSkipEdge(g, sourceX, fwdY, targetX, outCy, strength,
-                    "FC0 fwd skip -> output", routeY, Math.max(80, targetX - sourceX - 18));
+                    "FC0 fwd skip", "direct output branch", routeY,
+                    Math.max(96, targetX - sourceX - 18));
             hitRegions.add(hit,
                     "FC0 forward skip edge",
                     "Stockfish NNUE carries this FC0 forward branch directly into the output, bypassing FC1.",
