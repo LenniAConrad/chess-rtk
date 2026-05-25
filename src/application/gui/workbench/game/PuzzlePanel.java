@@ -36,6 +36,7 @@ import javax.swing.JPanel;
 import javax.swing.JSplitPane;
 import javax.swing.JTextArea;
 import javax.swing.SwingWorker;
+import javax.swing.Timer;
 import javax.swing.filechooser.FileNameExtensionFilter;
 
 import static application.gui.workbench.ui.Ui.button;
@@ -80,6 +81,11 @@ public final class PuzzlePanel extends JPanel {
      * Width reserved for the puzzle branch-mode selector.
      */
     private static final int MODE_COMBO_WIDTH = 176;
+
+    /**
+     * Delay between the user's visible move and the automatic opponent reply.
+     */
+    private static final int OPPONENT_REPLY_DELAY_MS = 130;
 
     /**
      * Main puzzle board.
@@ -138,6 +144,12 @@ public final class PuzzlePanel extends JPanel {
     private final ToggleBox skipSimilarToggle = new ToggleBox("Skip repeats", true);
 
     /**
+     * Timer that advances queued puzzle reply animations one move at a time.
+     */
+    private final Timer responseAnimationTimer = new Timer(OPPONENT_REPLY_DELAY_MS,
+            event -> advanceResponseAnimation());
+
+    /**
      * Active puzzle session.
      */
     private PuzzleSession session;
@@ -156,6 +168,31 @@ public final class PuzzlePanel extends JPanel {
      * Source file for the loaded puzzle library.
      */
     private Path puzzleLibraryPath;
+
+    /**
+     * Queued board positions for an animated puzzle response.
+     */
+    private List<AnimatedMove> pendingResponseMoves = List.of();
+
+    /**
+     * Index of the next queued response move to show.
+     */
+    private int pendingResponseIndex;
+
+    /**
+     * Final FEN used if an in-flight response animation is interrupted.
+     */
+    private String pendingResponseFinalFen = "";
+
+    /**
+     * Final last-move highlight used if an in-flight response animation is interrupted.
+     */
+    private short pendingResponseFinalMove = Move.NO_MOVE;
+
+    /**
+     * Whether a puzzle response is currently animating through automatic moves.
+     */
+    private boolean responseAnimationActive;
 
     /**
      * Creates the puzzle trainer panel.
@@ -182,6 +219,15 @@ public final class PuzzlePanel extends JPanel {
     }
 
     /**
+     * Stops pending reply timers when the puzzle panel leaves the component tree.
+     */
+    @Override
+    public void removeNotify() {
+        clearResponseAnimationState();
+        super.removeNotify();
+    }
+
+    /**
      * Applies root component styling.
      */
     private void configurePanel() {
@@ -202,6 +248,8 @@ public final class PuzzlePanel extends JPanel {
         pgnInput.setWrapStyleWord(false);
         pgnInput.setRows(13);
         pgnInput.setColumns(36);
+        responseAnimationTimer.setRepeats(false);
+        responseAnimationTimer.setCoalesce(true);
         solutionArea.setRows(5);
         solutionArea.setColumns(36);
         styleAreas(pgnInput, solutionArea);
@@ -385,6 +433,7 @@ public final class PuzzlePanel extends JPanel {
      * Loads the bundled sample puzzle.
      */
     private void loadSamplePuzzle() {
+        finishResponseAnimationInstantly();
         clearLibrarySelection();
         pgnInput.setText(SAMPLE_PGN);
         loadFromEditor();
@@ -395,6 +444,7 @@ public final class PuzzlePanel extends JPanel {
      */
     private void loadFromEditor() {
         try {
+            finishResponseAnimationInstantly();
             clearLibrarySelection();
             session = PuzzleSession.fromPgn(pgnInput.getText(), "editor", variationMode());
             session.reset();
@@ -421,6 +471,7 @@ public final class PuzzlePanel extends JPanel {
      * Opens a PGN or CSV puzzle file and loads it asynchronously.
      */
     private void openFile() {
+        finishResponseAnimationInstantly();
         JFileChooser chooser = FileDialogs.createFileChooser("Open Puzzle File",
                 DEFAULT_PUZZLE_FILE,
                 new FileNameExtensionFilter("Puzzle files", "pgn", "txt", "csv"));
@@ -535,6 +586,7 @@ public final class PuzzlePanel extends JPanel {
      * @param delta index delta
      */
     private void loadAdjacentPuzzle(int delta) {
+        finishResponseAnimationInstantly();
         if (puzzleLibrary.isEmpty()) {
             setStatus("Load a puzzle library first.");
             return;
@@ -547,6 +599,7 @@ public final class PuzzlePanel extends JPanel {
      * Loads a random puzzle from the active collection.
      */
     private void loadRandomPuzzle() {
+        finishResponseAnimationInstantly();
         if (puzzleLibrary.isEmpty()) {
             setStatus("Load a puzzle library first.");
             return;
@@ -561,6 +614,7 @@ public final class PuzzlePanel extends JPanel {
      * @param delta signed ply delta
      */
     public void navigateReview(int delta) {
+        finishResponseAnimationInstantly();
         if (session == null) {
             return;
         }
@@ -594,6 +648,7 @@ public final class PuzzlePanel extends JPanel {
      * @param ply target ply index
      */
     private void jumpReviewTo(int ply) {
+        finishResponseAnimationInstantly();
         if (session == null) {
             return;
         }
@@ -611,6 +666,7 @@ public final class PuzzlePanel extends JPanel {
      * @param requestedIndex requested entry index
      */
     private void loadLibraryPuzzle(int requestedIndex) {
+        finishResponseAnimationInstantly();
         if (puzzleLibrary.isEmpty()) {
             return;
         }
@@ -650,6 +706,7 @@ public final class PuzzlePanel extends JPanel {
      * Restarts the active puzzle.
      */
     private void restart() {
+        finishResponseAnimationInstantly();
         if (session == null) {
             loadFromEditor();
             return;
@@ -663,6 +720,7 @@ public final class PuzzlePanel extends JPanel {
      * Shows a source-square and arrow hint.
      */
     private void showHint() {
+        finishResponseAnimationInstantly();
         if (session == null) {
             return;
         }
@@ -685,6 +743,7 @@ public final class PuzzlePanel extends JPanel {
      * Reveals and plays the expected move.
      */
     private void reveal() {
+        finishResponseAnimationInstantly();
         if (session == null) {
             return;
         }
@@ -697,6 +756,7 @@ public final class PuzzlePanel extends JPanel {
      * Skips the active branch.
      */
     private void skipVariation() {
+        finishResponseAnimationInstantly();
         if (session == null) {
             return;
         }
@@ -710,7 +770,7 @@ public final class PuzzlePanel extends JPanel {
      * @param move CRTK move encoding
      */
     private void playUserMove(short move) {
-        if (session == null || move == Move.NO_MOVE) {
+        if (responseAnimationActive || session == null || move == Move.NO_MOVE) {
             return;
         }
         PuzzleSession.MoveResponse response = session.playUserMove(move, skipSimilarToggle.isSelected());
@@ -729,6 +789,9 @@ public final class PuzzlePanel extends JPanel {
      * @return move to allow, or {@link Move#NO_MOVE} for snapback
      */
     private int resolveDrop(DropContext context) {
+        if (responseAnimationActive) {
+            return Move.NO_MOVE;
+        }
         if (session == null || context.defaultMove() == Move.NO_MOVE) {
             return Move.NO_MOVE;
         }
@@ -785,7 +848,12 @@ public final class PuzzlePanel extends JPanel {
      */
     private void applyResponse(PuzzleSession.MoveResponse response, short fallbackMove, String prefix) {
         short displayMove = displayMove(response.autoPlayedMoves(), fallbackMove);
-        displaySnapshot(displayMove);
+        List<AnimatedMove> sequence = responseAnimationSequence(response, fallbackMove);
+        if (sequence.isEmpty()) {
+            displaySnapshot(displayMove);
+        } else {
+            beginResponseAnimation(sequence, response.snapshot().fen(), displayMove);
+        }
         if (response.result() == PuzzleSession.StepResult.COMPLETED || response.solved()) {
             setStatus(prefix + ". Puzzle complete.");
         } else if (!response.autoPlayedMoves().isEmpty()) {
@@ -804,12 +872,153 @@ public final class PuzzlePanel extends JPanel {
         if (session == null) {
             return;
         }
+        clearResponseAnimationState();
         PuzzleSession.Snapshot snapshot = session.snapshot();
         board.clearMarkup();
         board.setWhiteDown(session.userWhite());
         short highlightMove = lastMove == Move.NO_MOVE ? session.currentLastMove() : lastMove;
         board.setPosition(new Position(snapshot.fen()), highlightMove);
         updateLabels();
+    }
+
+    /**
+     * Builds the visible board steps for a puzzle response.
+     *
+     * @param response session response
+     * @param fallbackMove solver move to include before automatic replies
+     * @return animated board steps, or an empty list when the response cannot
+     *     be represented as a simple forward move sequence
+     */
+    private List<AnimatedMove> responseAnimationSequence(PuzzleSession.MoveResponse response, short fallbackMove) {
+        if (response == null || !response.rewindFens().isEmpty()) {
+            return List.of();
+        }
+        String currentFen = board.position();
+        if (currentFen == null || currentFen.isBlank()) {
+            return List.of();
+        }
+        try {
+            Position cursor = new Position(currentFen);
+            List<AnimatedMove> steps = new ArrayList<>();
+            if (fallbackMove != Move.NO_MOVE) {
+                cursor = appendAnimatedStep(steps, cursor, fallbackMove);
+                if (cursor == null) {
+                    return List.of();
+                }
+            }
+            for (Short moveValue : response.autoPlayedMoves()) {
+                short move = moveValue == null ? Move.NO_MOVE : moveValue.shortValue();
+                cursor = appendAnimatedStep(steps, cursor, move);
+                if (cursor == null) {
+                    return List.of();
+                }
+            }
+            if (steps.isEmpty() || !cursor.toString().equals(response.snapshot().fen())) {
+                return List.of();
+            }
+            return List.copyOf(steps);
+        } catch (RuntimeException ex) {
+            return List.of();
+        }
+    }
+
+    /**
+     * Appends one legal move to an animation sequence.
+     *
+     * @param steps output animation sequence
+     * @param position position before the move
+     * @param move move to play
+     * @return position after the move, or null when the move is not legal
+     */
+    private static Position appendAnimatedStep(List<AnimatedMove> steps, Position position, short move) {
+        if (position == null || move == Move.NO_MOVE || !position.isLegalMove(move)) {
+            return null;
+        }
+        Position next = position.copy();
+        next.play(move);
+        steps.add(new AnimatedMove(next, move));
+        return next;
+    }
+
+    /**
+     * Starts a queued response animation.
+     *
+     * @param sequence positions to show in order
+     * @param finalFen final session FEN
+     * @param finalMove final last-move highlight
+     */
+    private void beginResponseAnimation(List<AnimatedMove> sequence, String finalFen, short finalMove) {
+        clearResponseAnimationState();
+        board.clearMarkup();
+        board.setWhiteDown(session.userWhite());
+        pendingResponseMoves = List.copyOf(sequence);
+        pendingResponseFinalFen = finalFen == null ? "" : finalFen;
+        pendingResponseFinalMove = finalMove;
+        pendingResponseIndex = 0;
+        responseAnimationActive = pendingResponseMoves.size() > 1;
+        applyResponseAnimationStep();
+        if (responseAnimationActive) {
+            responseAnimationTimer.restart();
+        } else {
+            clearResponseAnimationState();
+        }
+        updateLabels();
+    }
+
+    /**
+     * Advances to the next automatic response move.
+     */
+    private void advanceResponseAnimation() {
+        if (!responseAnimationActive) {
+            return;
+        }
+        applyResponseAnimationStep();
+        if (pendingResponseIndex < pendingResponseMoves.size()) {
+            responseAnimationTimer.restart();
+            return;
+        }
+        clearResponseAnimationState();
+        updateLabels();
+    }
+
+    /**
+     * Applies the next queued response move to the board.
+     */
+    private void applyResponseAnimationStep() {
+        if (pendingResponseIndex >= pendingResponseMoves.size()) {
+            return;
+        }
+        AnimatedMove step = pendingResponseMoves.get(pendingResponseIndex);
+        pendingResponseIndex++;
+        board.setPosition(step.position(), step.move());
+    }
+
+    /**
+     * Finishes any pending response animation at the session's final position.
+     */
+    private void finishResponseAnimationInstantly() {
+        if (!responseAnimationActive) {
+            clearResponseAnimationState();
+            return;
+        }
+        responseAnimationTimer.stop();
+        if (!pendingResponseFinalFen.isBlank()) {
+            board.setPositionInstant(new Position(pendingResponseFinalFen), pendingResponseFinalMove);
+            updateLabels();
+        }
+        clearResponseAnimationState();
+    }
+
+    /**
+     * Clears queued response animation state.
+     */
+    private void clearResponseAnimationState() {
+        responseAnimationTimer.stop();
+        pendingResponseMoves = List.of();
+        pendingResponseIndex = 0;
+        pendingResponseFinalFen = "";
+        pendingResponseFinalMove = Move.NO_MOVE;
+        responseAnimationActive = false;
     }
 
     /**
@@ -923,4 +1132,12 @@ public final class PuzzlePanel extends JPanel {
         }
         return String.join(" ", text);
     }
+
+    /**
+     * One visible move in a puzzle response animation.
+     *
+     * @param position board position after the move
+     * @param move move that produced the position
+     */
+    private record AnimatedMove(Position position, short move) { }
 }

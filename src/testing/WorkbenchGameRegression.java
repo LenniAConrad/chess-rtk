@@ -50,6 +50,7 @@ final class WorkbenchGameRegression {
         testGameModelLoadsPgnVariations();
         testGameModelNavigatesSelectedVariationLine();
         testPuzzleSessionExploresOpponentVariationBranches();
+        testPuzzlePanelAnimatesOpponentReplySeparately();
         testPuzzleSessionReviewNavigation();
         testPuzzleLibraryLoadsDifficultCsv();
         testPuzzlePanelPaintsOpaqueSurface();
@@ -238,6 +239,46 @@ final class WorkbenchGameRegression {
         PuzzleSession.MoveResponse rejected = wrong.playUserMove(Move.parse("e4f6"), false);
         assertEquals(PuzzleSession.StepResult.INCORRECT, rejected.result(), "wrong puzzle move rejected");
         assertEquals("e4d6", Move.toString(rejected.expectedMove()), "expected move reported");
+    }
+
+    /**
+     * Verifies the puzzle board shows the solver move first and then animates
+     * the automatic opponent reply as a separate board transition.
+     */
+    private static void testPuzzlePanelAnimatesOpponentReplySeparately() {
+        PuzzlePanel panel = (PuzzlePanel) construct(type("PuzzlePanel"), new Class<?>[] { boolean.class },
+                Boolean.FALSE);
+        Object board = field(panel, "board");
+        Position start = new Position(
+                "6n1/1P2k2r/3r1b2/R2p1b1p/pp2NP2/1n6/7R/7K w - - 4 63");
+        short userMove = Move.parse("e4d6");
+        short opponentMove = Move.parse("f5e4");
+        Position afterUser = start.copy();
+        afterUser.play(userMove);
+        Position afterOpponent = afterUser.copy();
+        afterOpponent.play(opponentMove);
+
+        invoke(panel, "playUserMove", new Class<?>[] { short.class }, userMove);
+
+        assertEquals(afterUser.toString(), invoke(board, "position", new Class<?>[0]),
+                "puzzle board pauses after solver move");
+        assertTrue((Boolean) field(panel, "responseAnimationActive"),
+                "opponent reply animation is queued");
+        assertTrue(((Timer) field(panel, "responseAnimationTimer")).isRunning(),
+                "opponent reply timer is running");
+
+        invoke(panel, "advanceResponseAnimation", new Class<?>[0]);
+
+        assertEquals(afterOpponent.toString(), invoke(board, "position", new Class<?>[0]),
+                "puzzle board advances to opponent reply");
+        assertFalse((Boolean) field(panel, "responseAnimationActive"),
+                "opponent reply animation completes");
+        assertTrue((Boolean) field(board, "moveAnimationActive"),
+                "opponent reply uses board move animation");
+        assertEquals(Byte.valueOf(Move.getFromIndex(opponentMove)), field(board, "animatedMoveFrom"),
+                "opponent reply animated origin");
+        assertEquals(Byte.valueOf(Move.getToIndex(opponentMove)), field(board, "animatedMoveTo"),
+                "opponent reply animated target");
     }
 
     /**
