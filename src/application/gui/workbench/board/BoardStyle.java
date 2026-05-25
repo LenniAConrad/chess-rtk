@@ -191,19 +191,22 @@ public final class BoardStyle {
         try {
             int centerX = bounds.x + bounds.width / 2;
             int centerY = bounds.y + bounds.height / 2;
+            int cell = Math.min(bounds.width, bounds.height);
             if (capture) {
-                int diameter = Math.max(26, Math.round(bounds.width * 0.78f));
-                int strokeWidth = Math.max(3, Math.round(bounds.width * 0.055f));
-                g.setColor(Theme.LEGAL_CAPTURE_EDGE);
-                g.setStroke(new BasicStroke(strokeWidth));
-                g.drawOval(centerX - diameter / 2, centerY - diameter / 2, diameter, diameter);
-            } else {
-                int diameter = Math.max(12, Math.round(bounds.width * 0.32f));
-                int strokeWidth = Math.max(1, Math.round(bounds.width * 0.018f));
-                g.setColor(Theme.LEGAL_TARGET);
+                int diameter = Math.max(24, Math.round(cell * 0.86f));
+                int strokeWidth = Math.max(2, Math.round(cell * 0.035f));
+                g.setColor(Theme.LEGAL_CAPTURE_FILL);
                 g.fillOval(centerX - diameter / 2, centerY - diameter / 2, diameter, diameter);
                 g.setColor(Theme.LEGAL_CAPTURE_EDGE);
-                g.setStroke(new BasicStroke(strokeWidth));
+                g.setStroke(new BasicStroke(strokeWidth, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                g.drawOval(centerX - diameter / 2, centerY - diameter / 2, diameter, diameter);
+            } else {
+                int diameter = Math.max(10, Math.round(cell * 0.29f));
+                int strokeWidth = Math.max(1, Math.round(cell * 0.014f));
+                g.setColor(Theme.LEGAL_TARGET);
+                g.fillOval(centerX - diameter / 2, centerY - diameter / 2, diameter, diameter);
+                g.setColor(Theme.withAlpha(Theme.LEGAL_CAPTURE_EDGE, 70));
+                g.setStroke(new BasicStroke(strokeWidth, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
                 g.drawOval(centerX - diameter / 2, centerY - diameter / 2, diameter, diameter);
             }
         } finally {

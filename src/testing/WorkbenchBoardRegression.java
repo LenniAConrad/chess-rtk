@@ -66,6 +66,7 @@ final class WorkbenchBoardRegression {
         testBoardPaintUsesChessboardJsColors();
         testBoardCoordinateLabelsUseHighContrastColor();
         testBoardSuggestedMoveArrowIsLegalAndClean();
+        testBoardSelectionUsesChessboardJsTargetMarkers();
         testBoardLegalMovePreviewCanBeHidden();
         testBoardLastMoveAndBestArrowCanBeHidden();
         testBoardNotationAndAnimationsCanBeHidden();
@@ -535,9 +536,11 @@ final class WorkbenchBoardRegression {
         int e4x = boardX + 4 * cell;
         int e4y = boardY + 4 * cell;
         Color e4Center = new Color(image.getRGB(e4x + cell / 2, e4y + cell / 2), true);
-        assertColor(moveHighlight, e4Center, "highlight fills square center");
-        assertColor(moveHighlight, new Color(image.getRGB(e4x + 2, e4y + 2), true),
-                "filled move highlight");
+        assertTrue(moveHighlight.getAlpha() < 160, "board move highlight is translucent");
+        assertColorDistanceAtLeast(e4Center, themeColor("BOARD_LIGHT"), 20.0,
+                "highlight tints square center");
+        assertColorDistanceAtLeast(new Color(image.getRGB(e4x + 2, e4y + 2), true), themeColor("BOARD_LIGHT"),
+                20.0, "filled move highlight tints edge");
     }
 
     /**
@@ -577,11 +580,12 @@ final class WorkbenchBoardRegression {
         int boardY = (640 - size) / 2;
         Color arrowBody = new Color(image.getRGB(boardX + 4 * cell + cell / 2, boardY + 5 * cell + cell / 2), true);
         assertTrue(arrowBody.getBlue() > arrowBody.getRed(), "suggested move arrow is blue");
-        Color moveHighlight = themeColor("BOARD_HIGHLIGHT");
+        Color moveHighlight = themeColor("LAST_MOVE_EDGE");
         Color e4Edge = new Color(image.getRGB(boardX + 4 * cell + 2, boardY + 4 * cell + 2), true);
         assertFalse(e4Edge.equals(moveHighlight), "best arrow does not add square highlight");
         Color f3Edge = new Color(image.getRGB(boardX + 5 * cell + 2, boardY + 5 * cell + 2), true);
-        assertFalse(f3Edge.equals(moveHighlight), "best arrow suppresses stale last-move highlight");
+        assertColorDistanceAtLeast(f3Edge, baseBoardColor(Field.toIndex('f', '3')), 16.0,
+                "best arrow keeps last-move highlight visible");
     }
 
     /**
@@ -609,6 +613,34 @@ final class WorkbenchBoardRegression {
     }
 
     /**
+     * Verifies selected, move-target, and capture-target overlays use the
+     * shared translucent chessboard.js-style treatment.
+     */
+    private static void testBoardSelectionUsesChessboardJsTargetMarkers() {
+        Object board = construct(type("BoardPanel"), new Class<?>[0]);
+        Component component = (Component) board;
+        component.setSize(640, 640);
+        invoke(board, "setPosition", new Class<?>[] { Position.class, short.class },
+                new Position("4k3/8/8/3p4/4P3/8/8/4K3 w - - 0 1"), Move.NO_MOVE);
+        invoke(board, "selectSquare", new Class<?>[] { byte.class }, Field.toIndex('e', '4'));
+
+        assertTrue(themeColor("SELECTED_EDGE").getAlpha() < 160, "selected square highlight is translucent");
+        assertColorDistanceAtLeast(boardSquareEdgeColor(component, Field.toIndex('e', '4')),
+                baseBoardColor(Field.toIndex('e', '4')), 20.0,
+                "selected square is visibly tinted");
+        assertColorDistanceAtLeast(boardSquareCenterColor(component, Field.toIndex('e', '5')),
+                baseBoardColor(Field.toIndex('e', '5')), 30.0,
+                "quiet legal move dot is visible");
+
+        BufferedImage image = paint(component, 640, 640);
+        Point captureCenter = boardPoint(Field.toIndex('d', '5'), true, 640, 640);
+        int cell = boardCellSize(640, 640);
+        Color captureHalo = new Color(image.getRGB(captureCenter.x - cell / 2 + 8, captureCenter.y), true);
+        assertColorDistanceAtLeast(captureHalo, baseBoardColor(Field.toIndex('d', '5')), 18.0,
+                "capture target halo is visible around the piece");
+    }
+
+    /**
      * Verifies last-move highlights and suggested arrows can be disabled.
      */
     private static void testBoardLastMoveAndBestArrowCanBeHidden() {
@@ -618,16 +650,17 @@ final class WorkbenchBoardRegression {
         Position start = new Position(START_FEN);
         short move = Move.parse("e2e4");
         invoke(board, "setPosition", new Class<?>[] { Position.class, short.class }, start.copy().play(move), move);
-        Color highlight = themeColor("BOARD_HIGHLIGHT");
-        assertColor(highlight, boardSquareEdgeColor(component, Field.toIndex('e', '2')),
+        assertColorDistanceAtLeast(boardSquareEdgeColor(component, Field.toIndex('e', '2')),
+                baseBoardColor(Field.toIndex('e', '2')), 16.0,
                 "last move highlight visible by default");
-        assertColor(highlight, boardSquareCenterColor(component, Field.toIndex('e', '2')),
+        assertColorDistanceAtLeast(boardSquareCenterColor(component, Field.toIndex('e', '2')),
+                baseBoardColor(Field.toIndex('e', '2')), 16.0,
                 "last move highlight fills empty origin square");
 
         invoke(board, "setShowLastMoveHighlight", new Class<?>[] { boolean.class }, Boolean.FALSE);
         assertFalse((Boolean) invoke(board, "isShowLastMoveHighlight", new Class<?>[0]),
                 "last move highlight disabled");
-        assertFalse(boardSquareEdgeColor(component, Field.toIndex('e', '2')).equals(highlight),
+        assertColor(baseBoardColor(Field.toIndex('e', '2')), boardSquareEdgeColor(component, Field.toIndex('e', '2')),
                 "last move highlight hidden");
 
         invoke(board, "setPosition", new Class<?>[] { Position.class, short.class },
@@ -799,6 +832,29 @@ final class WorkbenchBoardRegression {
      */
     private static int lerfSquare(char file, int rank) {
         return (rank - 1) * 8 + (file - 'a');
+    }
+
+    /**
+     * Returns the unmarked base color for one white-bottom board square.
+     *
+     * @param square CRTK square index
+     * @return base board color
+     */
+    private static Color baseBoardColor(byte square) {
+        return BoardStyle.squareColor(square / 8, Field.getX(square));
+    }
+
+    /**
+     * Returns the board cell size for the standard test component geometry.
+     *
+     * @param width component width
+     * @param height component height
+     * @return cell size in pixels
+     */
+    private static int boardCellSize(int width, int height) {
+        int size = Math.min(width - 64, height - 64);
+        size = Math.max(64, size - size % 8);
+        return size / 8;
     }
 
     /**

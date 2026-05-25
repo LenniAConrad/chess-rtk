@@ -820,14 +820,7 @@ public final class BoardPanel extends JPanel {
      * @param g graphics context
      * @param board board drawing bounds */
     private void drawMoveHighlights(Graphics2D g, Rectangle board) {
-        // Suppress the last-move highlight only when the suggested-move arrow
-        // is actually going to be drawn over the same squares — not merely
-        // because a suggested move is set. drawSuggestedMove also requires the
-        // suggestion to be legal in the current position.
-        boolean arrowVisible = showSuggestedMoveArrow
-                && suggestedMove != Move.NO_MOVE
-                && legalSuggestedMove(suggestedMove);
-        if (!showLastMoveHighlight || lastMove == Move.NO_MOVE || arrowVisible) {
+        if (!showLastMoveHighlight || lastMove == Move.NO_MOVE) {
             return;
         }
         Rectangle clip = g.getClipBounds();

@@ -1381,11 +1381,15 @@ final class WorkbenchUiRegression {
         assertThemeContrast("info toast text", "STATUS_INFO_TEXT", "STATUS_INFO_BG", 4.5);
         assertThemeContrast("disabled button text", "BUTTON_DISABLED_TEXT", "BUTTON_DISABLED_BG", 3.0);
         Color moveHighlight = themeColor("BOARD_HIGHLIGHT");
-        assertColor(Color.YELLOW, moveHighlight, "move highlight follows chessboard.js yellow");
-        assertColorDistanceAtLeast(moveHighlight, themeColor("BOARD_LIGHT"), 95.0,
+        assertTrue(moveHighlight.getAlpha() < 160, "move highlight is translucent");
+        assertColorDistanceAtLeast(moveHighlight, themeColor("BOARD_LIGHT"), 70.0,
                 "move highlight distinguishes from light board squares");
-        assertColorDistanceAtLeast(moveHighlight, themeColor("BOARD_DARK"), 95.0,
+        assertColorDistanceAtLeast(moveHighlight, themeColor("BOARD_DARK"), 70.0,
                 "move highlight distinguishes from dark board squares");
+        assertTrue(themeColor("SELECTED_EDGE").getGreen() > themeColor("SELECTED_EDGE").getBlue(),
+                "selected square uses a chessboard.js-style green tint");
+        assertTrue(themeColor("LEGAL_TARGET").getAlpha() >= 120,
+                "legal move dot stays visible on board squares");
         assertColorDistanceAtLeast(themeColor("BOARD_ARROW"), themeColor("BOARD_LIGHT"), 95.0,
                 "best-move arrow distinguishes from light board squares");
         assertColorDistanceAtLeast(themeColor("BOARD_ARROW"), themeColor("BOARD_DARK"), 95.0,

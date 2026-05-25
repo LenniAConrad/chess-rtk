@@ -556,30 +556,34 @@ public final class Theme {
     public static Color COORD_ON_DARK = BOARD_LIGHT;
 
     /**
-     * Chessboard.js inset square-highlight edge color.
+     * Shared translucent board markup highlight.
      */
-    public static Color BOARD_HIGHLIGHT = Color.YELLOW;
+    public static Color BOARD_HIGHLIGHT = new Color(246, 222, 93, 86);
 
     /**
-     * Last-move highlight edge.
+     * Translucent last-move square fill.
      */
     public static Color LAST_MOVE_EDGE = BOARD_HIGHLIGHT;
 
     /**
-     * Selected square edge.
+     * Translucent selected-square fill.
      */
-    public static Color SELECTED_EDGE = BOARD_HIGHLIGHT;
+    public static Color SELECTED_EDGE = new Color(101, 143, 74, 112);
 
     /**
      * Quiet legal-target marker fill.
      */
-    public static Color LEGAL_TARGET = new Color(PASTEL_INK.getRed(), PASTEL_INK.getGreen(), PASTEL_INK.getBlue(), 150);
+    public static Color LEGAL_TARGET = new Color(77, 103, 50, 158);
+
+    /**
+     * Capture legal-target marker fill.
+     */
+    public static Color LEGAL_CAPTURE_FILL = new Color(77, 103, 50, 58);
 
     /**
      * Capture legal-target marker edge.
      */
-    public static Color LEGAL_CAPTURE_EDGE = new Color(PASTEL_INK.getRed(), PASTEL_INK.getGreen(),
-            PASTEL_INK.getBlue(), 185);
+    public static Color LEGAL_CAPTURE_EDGE = new Color(77, 103, 50, 132);
 
     /**
      * Suggested-move arrow color.
@@ -1350,11 +1354,12 @@ public final class Theme {
         BOARD_EDGE = new Color(64, 64, 64);
         COORD_ON_LIGHT = BOARD_DARK;
         COORD_ON_DARK = BOARD_LIGHT;
-        BOARD_HIGHLIGHT = Color.YELLOW;
+        BOARD_HIGHLIGHT = new Color(246, 222, 93, 86);
         LAST_MOVE_EDGE = BOARD_HIGHLIGHT;
-        SELECTED_EDGE = BOARD_HIGHLIGHT;
-        LEGAL_TARGET = withAlpha(TEXT, 150);
-        LEGAL_CAPTURE_EDGE = withAlpha(TEXT, 185);
+        SELECTED_EDGE = new Color(101, 143, 74, 112);
+        LEGAL_TARGET = new Color(77, 103, 50, 158);
+        LEGAL_CAPTURE_FILL = new Color(77, 103, 50, 58);
+        LEGAL_CAPTURE_EDGE = new Color(77, 103, 50, 132);
         BOARD_ARROW = new Color(143, 189, 232);
         CHECK_CORE = new Color((isDark() ? DARK_CORAL : PASTEL_CORAL).getRed(),
                 (isDark() ? DARK_CORAL : PASTEL_CORAL).getGreen(),
