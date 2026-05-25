@@ -141,10 +141,11 @@ public abstract class NnueOverviewView extends NnueAtlasView {
         int hidden = weightShape[1];
         int usCount = usIndices.length;
         int themCount = themIndices.length;
+        int featureLanes = rawFeatureLaneCount(usIndices, themIndices);
         boolean whiteToMove = sideToMoveWhite();
         int groupRows = 2;
         int summaryRows = 8;
-        int totalRows = usCount + themCount + groupRows + summaryRows;
+        int totalRows = featureLanes * 2 + groupRows + summaryRows;
         int rowLabelW = 230;
         int gridTop = body.y + headerH + 6;
         int gridH = body.height - headerH - 12;
@@ -186,21 +187,29 @@ public abstract class NnueOverviewView extends NnueAtlasView {
 
         int row = 0;
         drawRawGroupLabel(g, body, gridTop + row * rowH, rowH,
-                "side to move features", usCount + " active sparse inputs");
+                "side to move features", rawFeatureDetail(usCount, featureLanes));
         row++;
-        for (int i = 0; i < usCount; ++i) {
-            drawRawFeatureRow(g, body, gridTop + row * rowH, rowH, gridLeft, gridW,
-                    usIndices, usImpact, usWeights, hidden, i, featScale,
-                    "nnue.features.us.weights", "us feature", whiteToMove);
+        for (int i = 0; i < featureLanes; ++i) {
+            if (i < usCount) {
+                drawRawFeatureRow(g, body, gridTop + row * rowH, rowH, gridLeft, gridW,
+                        usIndices, usImpact, usWeights, hidden, i, featScale,
+                        "nnue.features.us.weights", "us feature", whiteToMove);
+            } else {
+                drawRawEmptyFeatureLane(g, gridTop + row * rowH, rowH, gridLeft, gridW);
+            }
             row++;
         }
         drawRawGroupLabel(g, body, gridTop + row * rowH, rowH,
-                "opponent features", themCount + " active sparse inputs");
+                "opponent features", rawFeatureDetail(themCount, featureLanes));
         row++;
-        for (int i = 0; i < themCount; ++i) {
-            drawRawFeatureRow(g, body, gridTop + row * rowH, rowH, gridLeft, gridW,
-                    themIndices, themImpact, themWeights, hidden, i, featScale,
-                    "nnue.features.them.weights", "them feature", !whiteToMove);
+        for (int i = 0; i < featureLanes; ++i) {
+            if (i < themCount) {
+                drawRawFeatureRow(g, body, gridTop + row * rowH, rowH, gridLeft, gridW,
+                        themIndices, themImpact, themWeights, hidden, i, featScale,
+                        "nnue.features.them.weights", "them feature", !whiteToMove);
+            } else {
+                drawRawEmptyFeatureLane(g, gridTop + row * rowH, rowH, gridLeft, gridW);
+            }
             row++;
         }
 
@@ -228,6 +237,55 @@ public abstract class NnueOverviewView extends NnueAtlasView {
         drawRawVectorRow(g, body, gridTop, rowH, gridLeft, gridW, row,
                 "output contribution (them)", contributionThem, hidden, contribScale, true,
                 "nnue.output.contribution.them", "Clipped activation × output weight, opponent side");
+    }
+
+    /**
+     * Returns the stable dense-row count used for each sparse feature bank.
+     *
+     * <p>The raw NNUE view is also used while MCTS follows leaf nodes. Active
+     * sparse inputs naturally fluctuate between positions, but the view should
+     * keep the same geometry and leave inactive lanes blank instead of changing
+     * row height every frame.</p>
+     *
+     * @param usIndices side-to-move sparse indices
+     * @param themIndices opponent sparse indices
+     * @return stable lane count for both feature groups
+     */
+    protected int rawFeatureLaneCount(float[] usIndices, float[] themIndices) {
+        int usCount = usIndices == null ? 0 : usIndices.length;
+        int themCount = themIndices == null ? 0 : themIndices.length;
+        return Math.max(traceFeatureLanes(), Math.max(usCount, themCount));
+    }
+
+    /**
+     * Formats the sparse feature count for a fixed-width dense group header.
+     *
+     * @param active active feature count
+     * @param lanes fixed lane count
+     * @return count label
+     */
+    protected String rawFeatureDetail(int active, int lanes) {
+        return active + " / " + lanes + " active sparse inputs";
+    }
+
+    /**
+     * Draws a blank placeholder lane in the dense NNUE activation table.
+     *
+     * <p>Inactive lanes intentionally contain no label, glyph, heatmap, or hit
+     * region. A faint baseline keeps the fixed row grid readable without
+     * implying a zero-valued feature row exists in the model.</p>
+     *
+     * @param g graphics
+     * @param y row y coordinate
+     * @param rowH row height
+     * @param gridLeft heatmap x coordinate
+     * @param gridW heatmap width
+     */
+    protected void drawRawEmptyFeatureLane(Graphics2D g, int y, int rowH,
+            int gridLeft, int gridW) {
+        int lineY = y + rowH - 1;
+        g.setColor(Theme.withAlpha(Theme.LINE, 90));
+        g.drawLine(gridLeft, lineY, gridLeft + gridW, lineY);
     }
 
     /**

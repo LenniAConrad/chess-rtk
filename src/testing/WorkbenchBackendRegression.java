@@ -85,6 +85,7 @@ final class WorkbenchBackendRegression {
         testNnueViewsPaintSyntheticSnapshotHeadlessly();
         testNnueContributorLedgerUsesReadableRows();
         testNnueTraceFitsViewportAndCentersColumns();
+        testNnueRawUsesStableFeatureLanes();
         testNnueHalfKpDecodingUsesFeatureEncoderLayout();
         testNnueTraceRanksCombinedContributionsAndShowsAllFeatures();
         testNnueTraceInlineInspectorShowsGatheredColumn();
@@ -975,6 +976,37 @@ final class WorkbenchBackendRegression {
                 "trace output head leaves room for its value bar before the board");
         assertTrue(featureStart > graphContentTop || slotStart > graphContentTop,
                 "trace columns are centered when there is spare height");
+    }
+
+    /**
+     * Verifies Raw/All mode reserves stable sparse input lanes while MCTS leaf
+     * following changes the currently active feature count.
+     */
+    private static void testNnueRawUsesStableFeatureLanes() {
+        Class<?> viewType = type("NnueView");
+        Class<?> snapshotType = type("ActivationSnapshot");
+        Class<?> baseType = type("NetworkView");
+        Class<?> overviewType = type("NnueOverviewView");
+
+        Object view = construct(viewType, new Class<?>[0]);
+        Object stockfishSnapshot = construct(snapshotType, new Class<?>[0]);
+        put(stockfishSnapshot, "nnue.stockfish.fc0.raw", new int[] { 33 }, new float[33]);
+        invokeOn(baseType, view, "setSnapshot", new Class<?>[] { snapshotType }, stockfishSnapshot);
+        int stockfishLanes = (Integer) invokeOn(overviewType, view, "rawFeatureLaneCount",
+                new Class<?>[] { float[].class, float[].class }, new float[30], new float[31]);
+        assertEquals(Integer.valueOf(32), Integer.valueOf(stockfishLanes),
+                "Raw Stockfish NNUE keeps all 32 sparse input lanes visible");
+        assertEquals("30 / 32 active sparse inputs",
+                invokeOn(overviewType, view, "rawFeatureDetail",
+                        new Class<?>[] { int.class, int.class }, 30, stockfishLanes),
+                "Raw NNUE header reports active lanes inside the fixed lane count");
+
+        Object classicSnapshot = construct(snapshotType, new Class<?>[0]);
+        invokeOn(baseType, view, "setSnapshot", new Class<?>[] { snapshotType }, classicSnapshot);
+        int classicLanes = (Integer) invokeOn(overviewType, view, "rawFeatureLaneCount",
+                new Class<?>[] { float[].class, float[].class }, new float[28], new float[29]);
+        assertEquals(Integer.valueOf(FeatureEncoder.MAX_ACTIVE_FEATURES), Integer.valueOf(classicLanes),
+                "Raw classic NNUE keeps the encoder's maximum sparse feature lanes visible");
     }
 
     /**
