@@ -12,7 +12,6 @@ import java.awt.FontMetrics;
 import java.awt.Graphics2D;
 import java.awt.Rectangle;
 import java.awt.Stroke;
-import java.awt.geom.CubicCurve2D;
 import java.awt.geom.Path2D;
 
 /**
@@ -44,12 +43,28 @@ public final class NnueDrawing {
      * Opaque stroke width used to carve a readable skip lane through dense
      * trace wiring.
      */
-    private static final float TRACE_SKIP_EDGE_UNDERLAY_WIDTH = 7.0f;
+    private static final float TRACE_SKIP_EDGE_UNDERLAY_WIDTH = 6.0f;
 
     /**
      * Accent stroke width for the Stockfish forward-skip bypass.
      */
-    private static final float TRACE_SKIP_EDGE_WIDTH = 2.15f;
+    private static final float TRACE_SKIP_EDGE_WIDTH = 1.9f;
+
+    /**
+     * Minimum horizontal span before the skip edge becomes a bridge with a
+     * straight center lane.
+     */
+    private static final int TRACE_SKIP_EDGE_BRIDGE_MIN_SPAN = 104;
+
+    /**
+     * Smallest shoulder used when bending into the skip bridge lane.
+     */
+    private static final int TRACE_SKIP_EDGE_SHOULDER_MIN = 30;
+
+    /**
+     * Largest shoulder used when bending into the skip bridge lane.
+     */
+    private static final int TRACE_SKIP_EDGE_SHOULDER_MAX = 82;
 
     /**
      * Utility class.
@@ -401,12 +416,12 @@ public final class NnueDrawing {
     }
 
     /**
-     * Draws the Stockfish FC0 forward-skip edge as a routed Bezier curve.
+     * Draws the Stockfish FC0 forward-skip edge as a routed bridge.
      *
      * <p>The skip branch bypasses FC1, so a straight diagonal makes the graph
-     * read as if it flowed through the hidden column. This helper bows the edge
-     * through a spare gutter and places the label on an opaque pill above the
-     * curve.</p>
+     * read as if it flowed through the hidden column. This helper routes the
+     * edge through a spare gutter and places the label on an opaque pill beside
+     * that bridge.</p>
      *
      * @param g graphics
      * @param x1 source x
@@ -439,32 +454,25 @@ public final class NnueDrawing {
                 + Math.round((TRACE_EDGE_ALPHA_MAX - TRACE_EDGE_ALPHA_MIN) * mag)
                 + TRACE_EDGE_FOCUS_BOOST);
         Color accent = new Color(base.getRed(), base.getGreen(), base.getBlue(), alpha);
-        int dx = x2 - x1;
-        CubicCurve2D curve = new CubicCurve2D.Float(
-                x1,
-                y1,
-                x1 + dx * 0.22f,
-                routeY,
-                x2 - dx * 0.22f,
-                routeY,
-                x2,
-                y2);
+        int distance = Math.max(1, right - left);
+        int direction = x2 >= x1 ? 1 : -1;
+        int shoulder = skipShoulder(distance);
+        Path2D.Double bridge = skipBridgePath(x1, y1, x2, y2, routeY, direction, shoulder);
         Stroke oldStroke = g.getStroke();
 
         g.setColor(Theme.withAlpha(Theme.PANEL_SOLID, Theme.isDark() ? 220 : 235));
         g.setStroke(new BasicStroke(TRACE_SKIP_EDGE_UNDERLAY_WIDTH,
                 BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-        g.draw(curve);
+        g.draw(bridge);
 
-        g.setColor(Theme.withAlpha(base, Math.min(255, alpha + 16)));
+        g.setColor(Theme.withAlpha(base, Math.min(255, alpha + 10)));
         g.setStroke(new BasicStroke(TRACE_SKIP_EDGE_WIDTH,
-                BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND,
-                10.0f, new float[] { 9.0f, 4.0f }, 0.0f));
-        g.draw(curve);
+                BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+        g.draw(bridge);
 
         drawSkipEndpoint(g, x1, y1, accent);
         drawSkipEndpoint(g, x2, y2, accent);
-        drawCurveArrowHead(g, x2 - dx * 0.22, routeY, x2, y2, accent);
+        drawCurveArrowHead(g, x2 - direction * shoulder * 0.55, y2, x2, y2, accent);
         g.setStroke(oldStroke);
 
         Rectangle labelBounds = drawSkipEdgeLabel(g, label, detail,
@@ -478,6 +486,52 @@ public final class NnueDrawing {
     }
 
     /**
+     * Calculates a proportional bridge shoulder length for a skip edge.
+     *
+     * @param distance horizontal distance between endpoints
+     * @return shoulder length in pixels
+     */
+    private static int skipShoulder(int distance) {
+        return Math.max(TRACE_SKIP_EDGE_SHOULDER_MIN,
+                Math.min(TRACE_SKIP_EDGE_SHOULDER_MAX, distance / 5));
+    }
+
+    /**
+     * Creates the forward-skip path. Wide spans use two smooth shoulders and a
+     * straight center lane; narrow spans fall back to a single cubic curve.
+     *
+     * @param x1 source x
+     * @param y1 source y
+     * @param x2 target x
+     * @param y2 target y
+     * @param routeY center lane y coordinate
+     * @param direction horizontal drawing direction
+     * @param shoulder shoulder length
+     * @return routed path
+     */
+    private static Path2D.Double skipBridgePath(int x1, int y1, int x2, int y2,
+            int routeY, int direction, int shoulder) {
+        int distance = Math.abs(x2 - x1);
+        Path2D.Double path = new Path2D.Double();
+        path.moveTo(x1, y1);
+        if (distance < TRACE_SKIP_EDGE_BRIDGE_MIN_SPAN) {
+            path.curveTo(x1 + direction * shoulder * 0.8, y1,
+                    x2 - direction * shoulder * 0.8, routeY, x2, y2);
+            return path;
+        }
+        double startLaneX = x1 + direction * shoulder;
+        double endLaneX = x2 - direction * shoulder;
+        path.curveTo(x1 + direction * shoulder * 0.55, y1,
+                startLaneX - direction * shoulder * 0.35, routeY,
+                startLaneX, routeY);
+        path.lineTo(endLaneX, routeY);
+        path.curveTo(endLaneX + direction * shoulder * 0.35, routeY,
+                x2 - direction * shoulder * 0.55, y2,
+                x2, y2);
+        return path;
+    }
+
+    /**
      * Draws an endpoint marker for the routed bypass lane.
      *
      * @param g graphics
@@ -488,8 +542,11 @@ public final class NnueDrawing {
     private static void drawSkipEndpoint(Graphics2D g, int x, int y, Color accent) {
         g.setColor(Theme.withAlpha(Theme.PANEL_SOLID, Theme.isDark() ? 238 : 245));
         g.fillOval(x - 4, y - 4, 8, 8);
-        g.setColor(accent);
-        g.fillOval(x - 3, y - 3, 6, 6);
+        g.setStroke(new BasicStroke(1.35f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+        g.setColor(Theme.withAlpha(accent, 220));
+        g.drawOval(x - 4, y - 4, 8, 8);
+        g.setColor(Theme.withAlpha(accent, 92));
+        g.fillOval(x - 2, y - 2, 4, 4);
     }
 
     /**
@@ -505,7 +562,7 @@ public final class NnueDrawing {
     private static void drawCurveArrowHead(Graphics2D g, double fromX, double fromY, int tipX, int tipY,
             Color accent) {
         double angle = Math.atan2(tipY - fromY, tipX - fromX);
-        int size = 8;
+        int size = 7;
         double inset = 2.0;
         double backX = tipX - Math.cos(angle) * size;
         double backY = tipY - Math.sin(angle) * size;
