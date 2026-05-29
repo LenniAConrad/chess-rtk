@@ -52,7 +52,8 @@ enum Outcome {
 
     /**
      * Outcome.
-     * @param label label text */
+     * @param label label text
+     */
     Outcome(String label) {
         this.label = label;
     }

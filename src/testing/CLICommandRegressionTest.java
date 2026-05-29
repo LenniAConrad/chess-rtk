@@ -101,6 +101,7 @@ public final class CLICommandRegressionTest {
 		testFilteredFenGenerationShortcut();
 		testFenGenerateFilterValidation();
 		testFenTagsLegalMoveTactics();
+		testPuzzleTagsAnalyzeFlagConflict();
 		testMovesFormatOption();
 		testGroupedFenAndMoveCommands();
 		testMachineReadableFenAndMoveCommands();
@@ -111,6 +112,8 @@ public final class CLICommandRegressionTest {
 		testCorePerftCommand();
 		testEngineEvalEvaluatorModes();
 		testHighValueResearchCommands();
+		testPositionDescribeClassicalGoldenOutput();
+		testPositionDescribeJsonlAndT5Failure();
 		testHelpListsNewCommands();
 		testContextualHelpForms();
 		System.out.println("CLICommandRegressionTest: all checks passed");
@@ -303,6 +306,33 @@ public final class CLICommandRegressionTest {
 	}
 
 	/**
+	 * Verifies puzzle tag analysis flags reject contradictory selectors.
+	 */
+	private static void testPuzzleTagsAnalyzeFlagConflict() {
+		TestSupport.FailureResult conflict = TestSupport.runMainExpectFailure(
+				"puzzle",
+				"tags",
+				FEN_OPTION,
+				SIMPLE_FEN,
+				"--analyze",
+				"--no-analyze");
+		assertEquals(2, conflict.exitCode(), "puzzle tags analyze/no-analyze conflict exit code");
+		assertTrue(conflict.stderr().contains("only one of --analyze or --no-analyze"),
+				"puzzle tags analyze/no-analyze conflict message");
+
+		TestSupport.FailureResult textConflict = TestSupport.runMainExpectFailure(
+				"puzzle",
+				"text",
+				FEN_OPTION,
+				SIMPLE_FEN,
+				"--analyze",
+				"--no-analyze");
+		assertEquals(2, textConflict.exitCode(), "puzzle text analyze/no-analyze conflict exit code");
+		assertTrue(textConflict.stderr().contains("only one of --analyze or --no-analyze"),
+				"puzzle text analyze/no-analyze conflict message");
+	}
+
+	/**
 	 * Verifies the generic {@code moves} command accepts the shared format option.
 	 */
 	private static void testMovesFormatOption() {
@@ -380,6 +410,15 @@ public final class CLICommandRegressionTest {
 		assertEquals(3, badFen.exitCode(), "fen normalize invalid FEN exit code");
 		assertTrue(badFen.stderr().contains("Invalid FEN"), "fen normalize invalid FEN message");
 		assertFalse(badFen.stderr().contains("Exception"), "fen normalize invalid FEN hides stack by default");
+
+		TestSupport.FailureResult adjacentFenDigits = TestSupport.runMainExpectFailure(
+				"fen",
+				"validate",
+				FEN_OPTION,
+				"11111111/8/8/8/8/8/8/K6k w - - 0 1");
+		assertEquals(3, adjacentFenDigits.exitCode(), "fen validate adjacent digits exit code");
+		assertTrue(adjacentFenDigits.stderr().contains("adjacent empty-square counts"),
+				"fen validate adjacent digits message");
 
 		TestSupport.FailureResult badFormat = TestSupport.runMainExpectFailure(
 				"move",
@@ -481,10 +520,19 @@ public final class CLICommandRegressionTest {
 				FEN_OPTION, SIMPLE_FEN);
 		assertTrue(classical.contains("backend: classical"), "engine eval --evaluator classical backend");
 
+		if (Files.exists(chess.nn.otis.Model.DEFAULT_WEIGHTS)) {
+			String otis = TestSupport.runMain(ENGINE_COMMAND, "eval", "--otis", FEN_OPTION, SIMPLE_FEN);
+			String params = chess.nn.otis.Model.formatParameterCount(chess.nn.otis.Model.DEFAULT_PARAMETER_COUNT)
+					+ " params";
+			assertTrue(otis.contains("model: otis(java-i249-random-v2, " + params + ")"),
+					"engine eval --otis model metadata");
+		}
+
 		FailureResult none = TestSupport.runMainExpectFailure(ENGINE_COMMAND, "eval", "--evaluator", "none",
 				FEN_OPTION, SIMPLE_FEN);
 		assertEquals(2, none.exitCode(), "engine eval rejects none");
-		assertTrue(none.stderr().contains("expected auto, lc0, or classical"), "engine eval none message");
+		assertTrue(none.stderr().contains("expected auto, lc0, otis, or classical"),
+				"engine eval none message");
 
 		FailureResult conflict = TestSupport.runMainExpectFailure(ENGINE_COMMAND, "eval", "--evaluator", "auto",
 				"--lc0", FEN_OPTION, SIMPLE_FEN);
@@ -495,7 +543,7 @@ public final class CLICommandRegressionTest {
 		FailureResult weights = TestSupport.runMainExpectFailure(ENGINE_COMMAND, "eval", "--evaluator", "classical",
 				"--weights", "models/missing.bin", FEN_OPTION, SIMPLE_FEN);
 		assertEquals(2, weights.exitCode(), "engine eval rejects weights for classical");
-		assertTrue(weights.stderr().contains("--weights requires --evaluator auto or lc0"),
+		assertTrue(weights.stderr().contains("--weights requires --evaluator auto, lc0, or otis"),
 				"engine eval classical weights message");
 	}
 
@@ -554,6 +602,66 @@ public final class CLICommandRegressionTest {
 		} catch (IOException ex) {
 			throw new AssertionError("custom perft suite test failed", ex);
 		}
+	}
+
+	/**
+	 * Verifies deterministic classical position-description text at each detail
+	 * level.
+	 */
+	private static void testPositionDescribeClassicalGoldenOutput() {
+		assertEquals(
+				"White to move in an opening position with equal material and 20 legal moves.",
+				TestSupport.runMain("position", "describe", FEN_OPTION, START_FEN, "--detail", "brief").strip(),
+				"position describe brief golden");
+		assertEquals(
+				"White to move in an opening position; status is normal. Material is equal material "
+						+ "(White Q1 R2 B2 N2 P8, Black Q1 R2 B2 N2 P8). Legal moves: 20 legal moves, "
+						+ "no forcing moves. Classical static evaluation is +8 cp for White. "
+						+ "Candidate moves: Nc3 (develops a minor piece), Nf3 (develops a minor piece), "
+						+ "d4 (takes central space).",
+				TestSupport.runMain("position", "describe", FEN_OPTION, START_FEN, "--detail", "normal").strip(),
+				"position describe normal golden");
+		assertEquals(
+				"Side and phase: white to move, endgame, insufficient material. Material: equal material; "
+						+ "White Q0 R0 B0 N0 P0; Black Q0 R0 B0 N0 P0. Mobility: Legal moves: 3 legal moves, "
+						+ "no forcing moves. Evaluation: +8 cp for White from classical-static, with WDL 0/1000/0. "
+						+ "Tactics: no immediate forcing threats. Candidate moves: Kb2 (improves a piece), "
+						+ "Ka2 (improves a piece). Source signals: 32 cheap tags, FEN " + SIMPLE_FEN + ".",
+				TestSupport.runMain("position", "describe", FEN_OPTION, SIMPLE_FEN, "--detail", "full",
+						"--budget", "2").strip(),
+				"position describe full golden");
+	}
+
+	/**
+	 * Verifies batch JSONL rows, output file writing, and the explicit unavailable
+	 * T5 path.
+	 */
+	private static void testPositionDescribeJsonlAndT5Failure() {
+		try {
+			Path input = PathOps.createLocalTempFile("crtk-position-describe-", ".fen");
+			Files.writeString(input, START_FEN + System.lineSeparator() + SIMPLE_FEN + System.lineSeparator());
+			String jsonl = TestSupport.runMain("position", "describe", "--input", input.toString(),
+					"--format", "jsonl", "--detail", "brief");
+			String[] lines = jsonl.strip().split("\\R");
+			assertEquals(2, lines.length, "position describe jsonl row count");
+			assertTrue(lines[0].contains("\"index\":1"), "position describe jsonl first index");
+			assertTrue(lines[1].contains("\"index\":2"), "position describe jsonl second index");
+			assertTrue(lines[0].contains("\"input\":"), "position describe jsonl includes structured input");
+
+			Path output = PathOps.createLocalTempFile("crtk-position-describe-output-", ".txt");
+			assertEquals("", TestSupport.runMain("position", "describe", FEN_OPTION, SIMPLE_FEN,
+					"--output", output.toString()), "position describe --output stdout");
+			assertTrue(Files.readString(output).contains("White to move in an endgame position"),
+					"position describe writes output file");
+		} catch (IOException ex) {
+			throw new AssertionError("position describe temp file failed", ex);
+		}
+
+		TestSupport.FailureResult t5 = TestSupport.runMainExpectFailure("position", "describe",
+				FEN_OPTION, SIMPLE_FEN, "--engine", "t5");
+		assertEquals(2, t5.exitCode(), "position describe t5 unavailable exit code");
+		assertTrue(t5.stderr().contains("T5 position-description generation is unavailable"),
+				"position describe t5 unavailable message");
 	}
 
 	/**

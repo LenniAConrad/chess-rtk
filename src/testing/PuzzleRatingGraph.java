@@ -29,6 +29,13 @@ final class PuzzleRatingGraph {
         // utility
     }
 
+    /**
+     * Writes the puzzle rating distribution graph as PNG.
+     *
+     * @param output output image path
+     * @param rows puzzle rating rows
+     * @throws IOException on write failure
+     */
     static void writePng(Path output, List<PuzzleRatingRow> rows) throws IOException {
         Path parent = output.getParent();
         if (parent != null) {

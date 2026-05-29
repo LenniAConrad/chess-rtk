@@ -53,7 +53,9 @@ import static application.gui.workbench.ui.Ui.showConfirmDialog;
  */
 
 public abstract class WindowGameLayer extends WindowEngineLayer {
-    /** Serialization identifier for Swing frame compatibility. */
+    /**
+     * Serialization identifier for Swing frame compatibility.
+     */
     private static final long serialVersionUID = 1L;
 
     /**

@@ -5,13 +5,21 @@ package application.gui.workbench.publish;
  */
 public enum PublishSource {
 
-    /** The current board position. */
+    /**
+     * The current board position.
+     */
     CURRENT_FEN("Current FEN"),
-    /** The workbench game PGN. */
+    /**
+     * The workbench game PGN.
+     */
     GAME_PGN("Game PGN"),
-    /** The batch FEN editor. */
+    /**
+     * The batch FEN editor.
+     */
     BATCH_FENS("Batch FENs"),
-    /** A user-selected file. */
+    /**
+     * A user-selected file.
+     */
     EXISTING_FILE("Existing File");
 
     /**

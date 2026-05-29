@@ -193,25 +193,51 @@ public final class NnueDrawing {
      * @param tint translucent fill colour
      */
     public static void highlightSquare(java.awt.Graphics2D g, Rectangle board, int square, java.awt.Color tint) {
-        Rectangle cell = BoardStyle.lerfSquareBounds(board, square, true);
+        highlightSquare(g, board, square, tint, true);
+    }
+
+    /**
+     * Fills one board square with a translucent halo.
+     *
+     * @param g graphics
+     * @param board mini-board rectangle
+     * @param square 0..63 LERF index
+     * @param tint translucent fill colour
+     * @param whiteDown whether White is rendered at the bottom
+     */
+    public static void highlightSquare(java.awt.Graphics2D g, Rectangle board, int square,
+            java.awt.Color tint, boolean whiteDown) {
+        Rectangle cell = BoardStyle.lerfSquareBounds(board, square, whiteDown);
         g.setColor(tint);
         g.fillRect(cell.x, cell.y, cell.width, cell.height);
     }
 
     /**
-     * Labels NNUE mini-board orientation. The boards always use absolute
-     * board coordinates with White's home rank at the bottom.
+     * Labels NNUE mini-board orientation.
      *
      * @param g graphics context
      * @param board board bounds
      * @param maxY maximum allowed y coordinate
      */
     public static void drawWhiteBottomLabel(Graphics2D g, Rectangle board, int maxY) {
+        drawSideToMoveBoardLabel(g, board, maxY, true);
+    }
+
+    /**
+     * Labels the side rendered at the bottom of a mini-board.
+     *
+     * @param g graphics context
+     * @param board board bounds
+     * @param maxY maximum allowed y coordinate
+     * @param whiteDown whether White is rendered at the bottom
+     */
+    public static void drawSideToMoveBoardLabel(Graphics2D g, Rectangle board, int maxY,
+            boolean whiteDown) {
         int y = board.y + board.height + 12;
         if (y > maxY - 2) {
             return;
         }
-        String label = "white bottom";
+        String label = whiteDown ? "white to move" : "black to move";
         g.setFont(Theme.font(9, Font.BOLD));
         FontMetrics fm = g.getFontMetrics();
         int x = board.x + board.width - fm.stringWidth(label);

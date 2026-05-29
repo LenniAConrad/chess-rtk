@@ -52,11 +52,17 @@ final class Bt4SearchBackend implements SearchBackend {
         this.network = network;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public SearchEvaluation evaluate(Position position) {
         return SearchEvaluation.fromWdl(predict(position).prediction().wdl());
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public double[] priors(Position position, short[] moves, double[] fallback) {
         Bt4Prediction prediction = predict(position);
@@ -69,6 +75,9 @@ final class Bt4SearchBackend implements SearchBackend {
                 (pos, move) -> chess.nn.lc0.bt4.PolicyEncoder.compressedPolicyIndex(pos, move, transform));
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public String name() {
         return "bt4(" + network.backend() + ")";

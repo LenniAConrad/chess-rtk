@@ -6,9 +6,12 @@ import java.util.List;
 import chess.core.Move;
 import chess.core.MoveList;
 import chess.core.Position;
+import chess.eval.Evaluator;
 import chess.tag.Delta;
 import chess.tag.Sort;
 import chess.tag.Generator;
+import chess.tag.eval.Summary;
+import chess.uci.Analysis;
 
 /**
  * Small no-framework regression checks for canonical position tagging.
@@ -68,6 +71,7 @@ public final class TaggingRegressionTest {
         testLegalPromotionMoveTags();
         testBlackPromotionMoveTags();
         testPromotionTagsRequireLegalPromotion();
+        testEvalSummaryUsesInjectedPuzzleFilters();
         testGeneratedTacticalTagsHaveStableFieldsAndIdentities();
         testCanonicalOutputShapeAcrossRepresentativePositions();
         System.out.println("TaggingRegressionTest: all checks passed");
@@ -90,6 +94,32 @@ public final class TaggingRegressionTest {
         assertNoPrefix(tags, "ENDGAME:");
         assertNotContains(tags, "MATERIAL: imbalance=opposite_color_bishops");
         assertPieceTierFields(tags);
+    }
+
+     /**
+     * Verifies evaluation summary puzzle labels come from injected predicates
+     * instead of application-level configuration.
+     */
+    private static void testEvalSummaryUsesInjectedPuzzleFilters() {
+        Position position = new Position("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+        Evaluator evaluator = new Evaluator();
+        Analysis analysis = new Analysis().add("info depth 1 score cp 42 nodes 1 pv e2e4");
+
+        List<String> defaultTags = Summary.tags(position, evaluator, analysis);
+        assertContains(defaultTags, "META: eval_cp=42");
+        assertNoPrefix(defaultTags, "FACT: puzzle=");
+
+        List<String> winningTags = Summary.tags(position, evaluator, analysis,
+                new Summary.PuzzleFilters(value -> true, value -> true, value -> false));
+        assertContains(winningTags, "FACT: puzzle=winning");
+
+        List<String> drawingTags = Summary.tags(position, evaluator, analysis,
+                new Summary.PuzzleFilters(value -> true, value -> false, value -> true));
+        assertContains(drawingTags, "FACT: puzzle=draw");
+
+        List<String> rejectedTags = Summary.tags(position, evaluator, analysis,
+                new Summary.PuzzleFilters(value -> false, value -> true, value -> true));
+        assertNoPrefix(rejectedTags, "FACT: puzzle=");
     }
 
      /**

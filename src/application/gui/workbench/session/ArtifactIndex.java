@@ -52,8 +52,9 @@ public final class ArtifactIndex {
         if (path == null) {
             return;
         }
-        recent.remove(path);
-        recent.add(0, path);
+        Path normalized = path.toAbsolutePath().normalize();
+        recent.remove(normalized);
+        recent.add(0, normalized);
         while (recent.size() > LIMIT) {
             recent.remove(recent.size() - 1);
         }

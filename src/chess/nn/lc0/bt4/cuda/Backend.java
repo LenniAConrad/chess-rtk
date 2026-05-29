@@ -87,18 +87,21 @@ public final class Backend implements AutoCloseable {
     /**
      * Creates a native backend instance.
      * @param weightsPath path to the weights file
-     * @return native backend handle */
+     * @return native backend handle
+     */
     private static native long nativeCreate(String weightsPath);
 
     /**
      * Destroys a native backend instance.
-     * @param handle native backend handle */
+     * @param handle native backend handle
+     */
     private static native void nativeDestroy(long handle);
 
     /**
      * Returns the native backend name.
      * @param handle native backend handle
-     * @return native backend name */
+     * @return native backend name
+     */
     private static native String nativeGetName(long handle);
 
     /**
@@ -113,6 +116,7 @@ public final class Backend implements AutoCloseable {
      * @param encodedPlanes encoded input planes
      * @param outPolicy policy output buffer
      * @param outWdl WDL output buffer
-     * @return predicted value score */
+     * @return predicted value score
+     */
     private static native float nativePredict(long handle, float[] encodedPlanes, float[] outPolicy, float[] outWdl);
 }

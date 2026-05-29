@@ -141,11 +141,17 @@ public final class SegmentedSwitcher extends JComponent {
         setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         selectionTimer.setCoalesce(true);
         addMouseListener(new MouseAdapter() {
+            /**
+             * {@inheritDoc}
+             */
             @Override
             public void mousePressed(MouseEvent event) {
                 onPress(event.getX(), event.getY());
             }
 
+            /**
+             * {@inheritDoc}
+             */
             @Override
             public void mouseExited(MouseEvent event) {
                 if (hovered != -1) {
@@ -155,6 +161,9 @@ public final class SegmentedSwitcher extends JComponent {
             }
         });
         addMouseMotionListener(new MouseAdapter() {
+            /**
+             * {@inheritDoc}
+             */
             @Override
             public void mouseMoved(MouseEvent event) {
                 updateHover(event.getX(), event.getY());

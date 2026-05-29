@@ -51,11 +51,17 @@ final class CnnSearchBackend implements SearchBackend {
         this.model = model;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public SearchEvaluation evaluate(Position position) {
         return SearchEvaluation.fromWdl(predict(position).wdl());
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public double[] priors(Position position, short[] moves, double[] fallback) {
         return PolicyPriors.fromLogits(
@@ -66,11 +72,17 @@ final class CnnSearchBackend implements SearchBackend {
                 chess.nn.lc0.cnn.PolicyEncoder::rawPolicyIndex);
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public String name() {
         return "cnn(" + model.backend() + ")";
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public void close() {
         lastPrediction = null;
@@ -123,6 +135,9 @@ final class CnnSearchBackend implements SearchBackend {
              */
             private static final long serialVersionUID = 1L;
 
+            /**
+             * {@inheritDoc}
+             */
             @Override
             protected boolean removeEldestEntry(Map.Entry<Long, chess.nn.lc0.cnn.Network.Prediction> eldest) {
                 return size() > 512;

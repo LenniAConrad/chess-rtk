@@ -59,6 +59,9 @@ public final class SplitPaneStyler {
      */
     public static void style(JSplitPane pane) {
         pane.setUI(new BasicSplitPaneUI() {
+            /**
+             * {@inheritDoc}
+             */
             @Override
             public BasicSplitPaneDivider createDefaultDivider() {
     return new SashDivider(this);
@@ -127,21 +130,33 @@ public final class SplitPaneStyler {
             setBorder(BorderFactory.createEmptyBorder());
             transitionTimer.setCoalesce(true);
             addMouseListener(new MouseAdapter() {
+                /**
+                 * {@inheritDoc}
+                 */
                 @Override
                 public void mouseEntered(MouseEvent event) {
                     setHover(true);
                 }
 
+                /**
+                 * {@inheritDoc}
+                 */
                 @Override
                 public void mouseExited(MouseEvent event) {
                     setHover(false);
                 }
 
+                /**
+                 * {@inheritDoc}
+                 */
                 @Override
                 public void mousePressed(MouseEvent event) {
                     setActive(true);
                 }
 
+                /**
+                 * {@inheritDoc}
+                 */
                 @Override
                 public void mouseReleased(MouseEvent event) {
                     setActive(false);

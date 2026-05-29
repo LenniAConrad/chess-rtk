@@ -5,6 +5,7 @@ import static application.cli.Constants.OPT_EVALUATOR;
 import static application.cli.Constants.OPT_INPUT;
 import static application.cli.Constants.OPT_INPUT_SHORT;
 import static application.cli.Constants.OPT_LC0;
+import static application.cli.Constants.OPT_OTIS;
 import static application.cli.Constants.OPT_TERMINAL;
 import static application.cli.Constants.OPT_TERMINAL_AWARE;
 import static application.cli.Constants.OPT_VERBOSE;
@@ -12,6 +13,7 @@ import static application.cli.Constants.OPT_VERBOSE_SHORT;
 import static application.cli.Constants.OPT_WEIGHTS;
 import static application.cli.EvalOps.evalClassicalEntries;
 import static application.cli.EvalOps.evalEvaluatorEntries;
+import static application.cli.EvalOps.evalOtisEntries;
 
 import java.nio.file.Path;
 import java.util.List;
@@ -55,6 +57,11 @@ public final class EvalCommand {
 		LC0,
 
 		/**
+		 * Require the OTIS policy/WDL evaluator.
+		 */
+		OTIS,
+
+		/**
 		 * Use only the classical evaluator.
 		 */
 		CLASSICAL
@@ -77,14 +84,15 @@ public final class EvalCommand {
 		Path input = a.path(OPT_INPUT, OPT_INPUT_SHORT);
 		String evaluatorValue = a.string(OPT_EVALUATOR);
 		boolean lc0Shortcut = a.flag(OPT_LC0);
+		boolean otisShortcut = a.flag(OPT_OTIS);
 		boolean classicalShortcut = a.flag(OPT_CLASSICAL);
 		boolean terminalAware = a.flag(OPT_TERMINAL_AWARE, OPT_TERMINAL);
 		Path weights = a.path(OPT_WEIGHTS);
 		String fen = CommandSupport.resolveFenArgument(a, ENGINE_EVAL, false);
-		EvalMode mode = resolveEvalMode(evaluatorValue, lc0Shortcut, classicalShortcut);
+		EvalMode mode = resolveEvalMode(evaluatorValue, lc0Shortcut, otisShortcut, classicalShortcut);
 		if (weights != null && mode == EvalMode.CLASSICAL) {
 			throw new CommandFailure(ENGINE_EVAL + ": " + OPT_WEIGHTS + " requires "
-					+ OPT_EVALUATOR + " auto or lc0", 2);
+					+ OPT_EVALUATOR + " auto, lc0, or otis", 2);
 		}
 
 		List<String> fens = CommandSupport.resolveFenInputs(ENGINE_EVAL, input, fen);
@@ -98,6 +106,24 @@ public final class EvalCommand {
 			}
 			finishProgress(bar);
 			return;
+		}
+
+		if (mode == EvalMode.OTIS) {
+			Path weightsPath = weights == null ? chess.nn.otis.Model.DEFAULT_WEIGHTS : weights;
+			try (chess.eval.Otis evaluator = new chess.eval.Otis(weightsPath)) {
+				if (!evalOtisEntries(fens, evaluator, includeFen, verbose, ENGINE_EVAL, progressStep(bar))) {
+					throw new CommandFailure("", 2);
+				}
+				finishProgress(bar);
+				return;
+			} catch (CommandFailure failure) {
+				finishProgress(bar);
+				throw failure;
+			} catch (Exception ex) {
+				finishProgress(bar);
+				throw new CommandFailure(ENGINE_EVAL + ": failed to initialize OTIS evaluator: "
+						+ ex.getMessage(), ex, 2, verbose);
+			}
 		}
 
 		Path weightsPath = (weights == null) ? Path.of(Config.getLc0ModelPath()) : weights;
@@ -143,11 +169,12 @@ public final class EvalCommand {
 	 *
 	 * @param value optional {@code --evaluator} value
 	 * @param lc0 whether {@code --lc0} was provided
+	 * @param otis whether {@code --otis} was provided
 	 * @param classical whether {@code --classical} was provided
 	 * @return selected evaluator mode
 	 */
-	private static EvalMode resolveEvalMode(String value, boolean lc0, boolean classical) {
-		int shortcuts = (lc0 ? 1 : 0) + (classical ? 1 : 0);
+	private static EvalMode resolveEvalMode(String value, boolean lc0, boolean otis, boolean classical) {
+		int shortcuts = (lc0 ? 1 : 0) + (otis ? 1 : 0) + (classical ? 1 : 0);
 		if (value != null && shortcuts > 0) {
 			throw new CommandFailure(ENGINE_EVAL + ": use either " + OPT_EVALUATOR
 					+ " or evaluator shortcut flags, not both", 2);
@@ -160,6 +187,9 @@ public final class EvalCommand {
 		}
 		if (lc0) {
 			return EvalMode.LC0;
+		}
+		if (otis) {
+			return EvalMode.OTIS;
 		}
 		if (classical) {
 			return EvalMode.CLASSICAL;
@@ -177,9 +207,10 @@ public final class EvalCommand {
 		return switch (value.trim().toLowerCase(Locale.ROOT)) {
 			case "auto", "default" -> EvalMode.AUTO;
 			case "lc0", "leela", "leelachesszero" -> EvalMode.LC0;
+			case "otis" -> EvalMode.OTIS;
 			case "classical", "static" -> EvalMode.CLASSICAL;
 			default -> throw new CommandFailure(ENGINE_EVAL + ": unsupported " + OPT_EVALUATOR
-					+ " value: " + value + " (expected auto, lc0, or classical)", 2);
+					+ " value: " + value + " (expected auto, lc0, otis, or classical)", 2);
 		};
 	}
 

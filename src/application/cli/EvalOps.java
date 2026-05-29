@@ -6,6 +6,7 @@ import chess.classical.Wdl;
 import chess.core.Position;
 import chess.eval.Backend;
 import chess.eval.Evaluator;
+import chess.eval.Otis;
 import chess.eval.Result;
 
 import static application.cli.Format.formatBackendLabel;
@@ -158,6 +159,47 @@ public final class EvalOps {
 				return false;
 			} catch (Exception ex) {
 				System.err.println(cmdLabel + ": failed to evaluate position: " + ex.getMessage());
+				if (verbose) {
+					ex.printStackTrace(System.err);
+				}
+				return false;
+			} finally {
+				advance(progress);
+			}
+		}
+		return true;
+	}
+
+	/**
+	 * Evaluates a list of FEN strings using an OTIS evaluator.
+	 *
+	 * @param fens list of raw FENs
+	 * @param evaluator OTIS evaluator
+	 * @param includeFen whether to include the original FEN in the output
+	 * @param verbose whether to print stack traces on failure
+	 * @param cmdLabel subcommand label used for diagnostics
+	 * @param progress optional progress callback
+	 * @return true when evaluation succeeded for every FEN entry
+	 */
+	public static boolean evalOtisEntries(
+			List<String> fens,
+			Otis evaluator,
+			boolean includeFen,
+			boolean verbose,
+			String cmdLabel,
+			Runnable progress) {
+		for (String entry : fens) {
+			try {
+				Position pos = EngineOps.parsePositionOrNull(entry, cmdLabel, verbose);
+				if (pos == null) {
+					continue;
+				}
+				printEvalResult(pos, evaluator.result(pos), includeFen);
+				if (!includeFen) {
+					System.out.println("model: " + evaluator.name());
+				}
+			} catch (Exception ex) {
+				System.err.println(cmdLabel + ": OTIS unavailable: " + ex.getMessage());
 				if (verbose) {
 					ex.printStackTrace(System.err);
 				}

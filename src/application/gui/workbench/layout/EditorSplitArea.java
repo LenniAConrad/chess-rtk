@@ -90,34 +90,54 @@ public final class EditorSplitArea extends JPanel {
 
     private final transient List<Integer> quaternaryTabs = new ArrayList<>();
 
-    /** Selected tab index for the primary pane. */
+    /**
+     * Selected tab index for the primary pane.
+     */
     private int primaryIndex;
 
-    /** Selected tab index for each optional split pane. */
+    /**
+     * Selected tab index for each optional split pane.
+     */
     private int secondaryIndex = -1, tertiaryIndex = -1, quaternaryIndex = -1;
 
-    /** Current drag drop zone. */
+    /**
+     * Current drag drop zone.
+     */
     private int dragZone;
 
-    /** Target pane and insertion index for a tab drag. */
+    /**
+     * Target pane and insertion index for a tab drag.
+     */
     private int dragTargetPane = -1, dragTargetIndex = -1;
 
-    /** Current tab-drag x coordinate. */
+    /**
+     * Current tab-drag x coordinate.
+     */
     private int dragTargetX = -1;
 
-    /** Pane that currently owns keyboard and command focus. */
+    /**
+     * Pane that currently owns keyboard and command focus.
+     */
     private int activePane;
 
-    /** Remembered divider locations for split restoration. */
+    /**
+     * Remembered divider locations for split restoration.
+     */
     private int horizontalDividerLocation = -1, verticalDividerLocation = -1;
 
-    /** Root split pane when more than one editor group is visible. */
+    /**
+     * Root split pane when more than one editor group is visible.
+     */
     private JSplitPane splitPane;
 
-    /** All live split panes. */
+    /**
+     * All live split panes.
+     */
     private final transient List<JSplitPane> splitPanes = new ArrayList<>();
 
-    /** Optional selected-tab listener. */
+    /**
+     * Optional selected-tab listener.
+     */
     private transient IntConsumer selectionListener;
 
     /**
@@ -150,28 +170,50 @@ public final class EditorSplitArea extends JPanel {
     private final JPanel[] paneHeaders = { new JPanel(new BorderLayout()), new JPanel(new BorderLayout()),
         new JPanel(new BorderLayout()), new JPanel(new BorderLayout()) };
 
-    /** Container for the split-layout menu button. */
-    private final JPanel splitButtonHolder = new JPanel(new FlowLayout(FlowLayout.RIGHT, 4, 3));
+    /**
+     * Containers for per-pane split-layout action buttons.
+     */
+    private final JPanel[] splitButtonHolders = {
+        splitButtonHolder(), splitButtonHolder(), splitButtonHolder(), splitButtonHolder()
+    };
 
-    /** Root center panel holding the current split layout. */
+    /**
+     * Root center panel holding the current split layout.
+     */
     private final JPanel centre = new JPanel(new BorderLayout());
 
-    /** Button used to open split-layout actions. */
-    private final JToggleButton splitButton = new SplitGroupButton();
+    /**
+     * Buttons used to split each editor group.
+     */
+    private final JToggleButton[] splitButtons = {
+        new SplitGroupButton(), new SplitGroupButton(), new SplitGroupButton(), new SplitGroupButton()
+    };
+
+    /**
+     * Primary split button retained for existing reflective tests.
+     */
+    private final JToggleButton splitButton = splitButtons[PANE_PRIMARY];
 
     /**
      * Creates an empty split area.
      */
     public EditorSplitArea() {
         super(new BorderLayout());
-        EditorPaneShell.install(primaryPane, paneHeader(PANE_PRIMARY), primaryStrip, primaryHost, splitButtonHolder,
-                splitButton, true);
-        EditorPaneShell.install(secondaryPane, paneHeader(PANE_SECONDARY), secondaryStrip, secondaryHost, splitButtonHolder, splitButton, false);
-        EditorPaneShell.install(tertiaryPane, paneHeader(PANE_TERTIARY), tertiaryStrip, tertiaryHost, splitButtonHolder,
-                splitButton, false);
-        EditorPaneShell.install(quaternaryPane, paneHeader(PANE_QUATERNARY), quaternaryStrip, quaternaryHost, splitButtonHolder, splitButton, false);
+        for (int pane = PANE_PRIMARY; pane <= PANE_QUATERNARY; pane++) {
+            int paneId = pane;
+            splitButtons[pane].addActionListener(event -> splitSelectedTabRightFromPane(paneId));
+            splitButtonHolders[pane].add(splitButtons[pane]);
+            EditorPaneShell.install(panePanel(pane), paneHeader(pane), paneStrip(pane), paneHost(pane),
+                    splitButtonHolders[pane]);
+        }
         applyChromeTheme();
         add(centre, BorderLayout.CENTER);
+    }
+
+    private static JPanel splitButtonHolder() {
+        JPanel holder = new JPanel(new FlowLayout(FlowLayout.RIGHT, 4, 3));
+        holder.setOpaque(false);
+        return holder;
     }
 
     /**
@@ -239,8 +281,7 @@ public final class EditorSplitArea extends JPanel {
      * panel has been added.
      */
     public void install() {
-        splitButton.setToolTipText("Split editor right");
-        splitButton.addActionListener(event -> splitSelectedTabRight());
+        updateSplitButtonState();
         relayout();
     }
 
@@ -369,6 +410,13 @@ public final class EditorSplitArea extends JPanel {
      * Splits the selected tab into a group on the right.
      */
     public void splitSelectedTabRight() {
+        splitSelectedTabCopy(DROP_RIGHT);
+    }
+
+    private void splitSelectedTabRightFromPane(int pane) {
+        if (paneVisible(pane)) {
+            activePane = pane;
+        }
         splitSelectedTabCopy(DROP_RIGHT);
     }
 
@@ -547,7 +595,12 @@ public final class EditorSplitArea extends JPanel {
         JToggleButton plus = new JToggleButton("+");
         EditorTabStripState.markReopenButton(plus);
         Theme.commandTab(plus);
-        plus.setToolTipText("New or restore tab");
+        plus.setToolTipText("New duplicate tab or restore a closed tab");
+        plus.setActionCommand("workbench.editor.tabs.newOrRestore");
+        plus.setName("workbench.editor.tabs.newOrRestore");
+        plus.getAccessibleContext().setAccessibleName("New or restore tab");
+        plus.getAccessibleContext().setAccessibleDescription(
+                "Opens another duplicate-capable tab or restores a closed workbench tab.");
         plus.addActionListener(event -> {
             plus.setSelected(false);
             JPopupMenu menu = new JPopupMenu();
@@ -579,32 +632,47 @@ public final class EditorSplitArea extends JPanel {
     private JPopupMenu tabContextMenu(int pane, int panelIndex) {
         JPopupMenu menu = new JPopupMenu();
         PopupMenus.style(menu);
-        menu.add(PopupMenus.item("Split Right", () -> splitTabCopy(panelIndex, DROP_RIGHT)));
-        menu.add(PopupMenus.item("Split Down", () -> splitTabCopy(panelIndex, DROP_BOTTOM)));
-        menu.add(PopupMenus.item("Split Left", () -> splitTabCopy(panelIndex, DROP_LEFT)));
-        menu.add(PopupMenus.item("Split Up", () -> splitTabCopy(panelIndex, DROP_TOP)));
+        boolean canSplit = canSplitTab(panelIndex);
+        menu.add(PopupMenus.item("Split Tab Right", () -> splitTabCopy(panelIndex, DROP_RIGHT), canSplit));
+        menu.add(PopupMenus.item("Split Tab Down", () -> splitTabCopy(panelIndex, DROP_BOTTOM), canSplit));
+        menu.add(PopupMenus.item("Split Tab Left", () -> splitTabCopy(panelIndex, DROP_LEFT), canSplit));
+        menu.add(PopupMenus.item("Split Tab Up", () -> splitTabCopy(panelIndex, DROP_TOP), canSplit));
         if (validPanel(panelIndex) && panelFactories.get(panelIndex) != null) {
-            menu.add(PopupMenus.item("Duplicate", () -> duplicate(panelIndex)));
+            menu.add(PopupMenus.item("Duplicate Tab", () -> duplicate(panelIndex)));
         }
         menu.add(PopupMenus.item("Close", () -> closeTab(panelIndex)));
-        menu.add(PopupMenus.item("Close Others", () -> closeOtherTabs(panelIndex)));
+        menu.add(PopupMenus.item("Close Other Tabs", () -> closeOtherTabs(panelIndex), open.size() > 1));
         if (open.size() < panels.size()) {
             menu.add(PopupMenus.item("Restore Closed Tabs", () -> reopenAllTabs(pane)));
         }
         if (isSplitActive()) {
-            menu.add(PopupMenus.item("Collapse Groups", this::collapseAndRelayout));
+            menu.add(PopupMenus.item("Collapse Editor Groups", this::collapseAndRelayout));
         }
         return menu;
     }
 
     private String nextDuplicateName(String baseName) {
+        if (!openDuplicateNameTaken(baseName, baseName)) {
+            return baseName;
+        }
         int ordinal = 2;
         String candidate = baseName + " " + ordinal;
-        while (names.contains(candidate)) {
+        while (openDuplicateNameTaken(baseName, candidate)) {
             ordinal++;
             candidate = baseName + " " + ordinal;
         }
         return candidate;
+    }
+
+    private boolean openDuplicateNameTaken(String baseName, String candidate) {
+        for (int index : open) {
+            if (validPanel(index)
+                    && baseName.equals(baseNames.get(index))
+                    && candidate.equals(names.get(index))) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private void handleTabDrag(
@@ -1001,6 +1069,7 @@ public final class EditorSplitArea extends JPanel {
     private void relayout() {
         rememberDividerLocation();
         repairGroups();
+        updateSplitButtonState();
         centre.removeAll();
         splitPanes.clear();
         preparePane(PANE_PRIMARY);
@@ -1023,6 +1092,26 @@ public final class EditorSplitArea extends JPanel {
         centre.repaint();
     }
 
+    private void updateSplitButtonState() {
+        for (int pane = PANE_PRIMARY; pane <= PANE_QUATERNARY; pane++) {
+            updateSplitButtonState(pane);
+        }
+    }
+
+    private void updateSplitButtonState(int pane) {
+        JToggleButton button = splitButtons[pane];
+        boolean enabled = paneVisible(pane) && canSplitTab(paneIndex(pane));
+        button.setEnabled(enabled);
+        button.setSelected(enabled && isSplitActive() && activePane == pane);
+        button.setToolTipText(enabled
+                ? "Split active tab to the right"
+                : "Open another tab or select a duplicate-capable tab to split right");
+    }
+
+    private boolean canSplitTab(int index) {
+        return validPanel(index) && (open.size() >= 2 || panelFactories.get(index) != null);
+    }
+
     private void preparePane(int pane) {
         JPanel panePanel = panePanel(pane);
         JPanel strip = paneStrip(pane);
@@ -1030,7 +1119,7 @@ public final class EditorSplitArea extends JPanel {
         List<Integer> tabList = tabsForPane(pane);
         int activeIndex = paneIndex(pane);
         EditorPaneShell.install(panePanel, paneHeader(pane), strip, host,
-                splitButtonHolder, splitButton, pane == PANE_PRIMARY);
+                splitButtonHolders[pane]);
         JComponent panel = null;
         if (validPanel(activeIndex) && tabList.contains(activeIndex)) {
             panel = panels.get(activeIndex);
@@ -1081,7 +1170,9 @@ public final class EditorSplitArea extends JPanel {
         for (JPanel header : paneHeaders) {
             EditorPaneShell.styleHeader(header);
         }
-        splitButtonHolder.setOpaque(false);
+        for (JPanel holder : splitButtonHolders) {
+            holder.setOpaque(false);
+        }
     }
 
     private Component editorLayout() {
@@ -1481,6 +1572,9 @@ public final class EditorSplitArea extends JPanel {
                 Math.max(1, rectangle.width - amount * 2),
                 Math.max(1, rectangle.height - amount * 2));
     }
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public Dimension getPreferredSize() {
         return new Dimension(900, 620);

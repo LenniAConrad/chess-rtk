@@ -210,7 +210,9 @@ public abstract class NnueViewBase extends NetworkView implements Scrollable {
         String actionName = "nnueAtlasNavigate." + name;
         getInputMap(JComponent.WHEN_FOCUSED).put(stroke, actionName);
         getActionMap().put(actionName, new AbstractAction() {
-            /** Serialization identifier for Swing action compatibility. */
+            /**
+             * Serialization identifier for Swing action compatibility.
+             */
             private static final long serialVersionUID = 1L;
 
             /**
@@ -538,14 +540,13 @@ public abstract class NnueViewBase extends NetworkView implements Scrollable {
         }
         // Mini-board click → set the bidirectional-link square.
         if (r.title != null && r.title.startsWith("Current position")) {
-            int fileLocal = (int) (((x - r.bounds.x) / (double) r.bounds.width) * 8);
-            int drawRank = (int) (((y - r.bounds.y) / (double) r.bounds.height) * 8);
-            if (fileLocal >= 0 && fileLocal < 8 && drawRank >= 0 && drawRank < 8) {
-                int sq = (7 - drawRank) * 8 + fileLocal;
-                selectedBoardSquare = (selectedBoardSquare == sq) ? -1 : sq;
-                repaint();
+            int sq = TensorViz.boardSquareAt(r.bounds, x, y, sideToMoveWhite());
+            if (sq < 0) {
                 return;
             }
+            selectedBoardSquare = (selectedBoardSquare == sq) ? -1 : sq;
+            repaint();
+            return;
         }
         if (r.title != null && r.title.startsWith("Slot ")) {
             int slot = parseSlotNumber(r.title);

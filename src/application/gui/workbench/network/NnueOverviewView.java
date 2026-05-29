@@ -31,7 +31,9 @@ import static application.gui.workbench.network.NnueTraceGeometry.*;
  * dense atlas and trace views inside the active viewport.</p>
  */
 public abstract class NnueOverviewView extends NnueAtlasView {
-    /** Serialization identifier for Swing component compatibility. */
+    /**
+     * Serialization identifier for Swing component compatibility.
+     */
     private static final long serialVersionUID = 1L;
 
     /**
@@ -724,11 +726,11 @@ public abstract class NnueOverviewView extends NnueAtlasView {
         Rectangle innerBoard = new Rectangle(r.x + (r.width - side) / 2,
                 r.y + 36 + Math.max(0, (availableH - side) / 2),
                 side, side);
+        boolean whiteDown = sideToMoveWhite();
         TensorViz.drawMiniBoard(g, innerBoard);
-        TensorViz.drawPositionPieces(g, innerBoard, fen);
-        paintOverviewFeatureOverlay(g, innerBoard);
-        TensorViz.drawBoardCoordinates(g, innerBoard);
-        drawWhiteBottomLabel(g, innerBoard, r.y + r.height);
+        TensorViz.drawPositionPieces(g, innerBoard, fen, whiteDown);
+        paintOverviewFeatureOverlay(g, innerBoard, whiteDown);
+        TensorViz.drawBoardCoordinates(g, innerBoard, whiteDown);
         hitRegions.add(innerBoard, "Current position",
                 fen == null ? "no FEN" : fen,
                 "NNUE half-KP features are derived from this position");
@@ -742,6 +744,18 @@ public abstract class NnueOverviewView extends NnueAtlasView {
      * @param board mini-board rectangle
      */
     protected void paintSelectedFeatureOverlay(Graphics2D g, Rectangle board) {
+        paintSelectedFeatureOverlay(g, board, sideToMoveWhite());
+    }
+
+    /**
+     * Highlights the king and piece squares of the currently selected feature
+     * on the mini position board to connect the feature list to the board.
+     *
+     * @param g graphics
+     * @param board mini-board rectangle
+     * @param whiteDown whether White is rendered at the bottom
+     */
+    protected void paintSelectedFeatureOverlay(Graphics2D g, Rectangle board, boolean whiteDown) {
         if (selectedFeature < 0) {
             return;
         }
@@ -749,12 +763,13 @@ public abstract class NnueOverviewView extends NnueAtlasView {
         if (!feature.valid) {
             return;
         }
-        highlightSquare(g, board, feature.kingSquare, Theme.withAlpha(TensorViz.FOCUS, 110));
+        highlightSquare(g, board, feature.kingSquare, Theme.withAlpha(TensorViz.FOCUS, 110), whiteDown);
         if (feature.pieceSquare != feature.kingSquare) {
             boolean enemy = feature.pieceCode >= 5;
             highlightSquare(g, board, feature.pieceSquare,
                     enemy ? Theme.withAlpha(TensorViz.NEGATIVE, 110)
-                            : Theme.withAlpha(TensorViz.POSITIVE, 110));
+                            : Theme.withAlpha(TensorViz.POSITIVE, 110),
+                    whiteDown);
         }
     }
 
@@ -765,18 +780,29 @@ public abstract class NnueOverviewView extends NnueAtlasView {
      * @param board board bounds
      */
     protected void paintOverviewFeatureOverlay(Graphics2D g, Rectangle board) {
+        paintOverviewFeatureOverlay(g, board, sideToMoveWhite());
+    }
+
+    /**
+     * Paints selected or top-driver feature anchors on the overview board.
+     *
+     * @param g graphics context
+     * @param board board bounds
+     * @param whiteDown whether White is rendered at the bottom
+     */
+    protected void paintOverviewFeatureOverlay(Graphics2D g, Rectangle board, boolean whiteDown) {
         if (selectedBoardSquare >= 0) {
             TensorViz.drawBoardSquareRing(g, board, selectedBoardSquare,
-                    TensorViz.FOCUS);
+                    TensorViz.FOCUS, whiteDown);
         }
         if (selectedFeature >= 0) {
-            paintSelectedFeatureOverlay(g, board);
+            paintSelectedFeatureOverlay(g, board, whiteDown);
             return;
         }
         paintDriverFeatureOverlay(g, board, strongestDriver(true),
-                Theme.withAlpha(TensorViz.POSITIVE, 110));
+                Theme.withAlpha(TensorViz.POSITIVE, 110), whiteDown);
         paintDriverFeatureOverlay(g, board, strongestDriver(false),
-                Theme.withAlpha(TensorViz.NEGATIVE, 105));
+                Theme.withAlpha(TensorViz.NEGATIVE, 105), whiteDown);
     }
 
     /**
@@ -789,6 +815,20 @@ public abstract class NnueOverviewView extends NnueAtlasView {
      */
     protected void paintDriverFeatureOverlay(Graphics2D g, Rectangle board,
             FeatureDriver driver, Color tint) {
+        paintDriverFeatureOverlay(g, board, driver, tint, sideToMoveWhite());
+    }
+
+    /**
+     * Paints one driver's king and piece anchors on the board.
+     *
+     * @param g graphics context
+     * @param board board bounds
+     * @param driver feature driver
+     * @param tint piece-square tint
+     * @param whiteDown whether White is rendered at the bottom
+     */
+    protected void paintDriverFeatureOverlay(Graphics2D g, Rectangle board,
+            FeatureDriver driver, Color tint, boolean whiteDown) {
         if (!driver.valid()) {
             return;
         }
@@ -796,8 +836,8 @@ public abstract class NnueOverviewView extends NnueAtlasView {
         if (!feature.valid) {
             return;
         }
-        highlightSquare(g, board, feature.kingSquare, Theme.withAlpha(TensorViz.FOCUS, 80));
-        highlightSquare(g, board, feature.pieceSquare, tint);
+        highlightSquare(g, board, feature.kingSquare, Theme.withAlpha(TensorViz.FOCUS, 80), whiteDown);
+        highlightSquare(g, board, feature.pieceSquare, tint, whiteDown);
     }
 
     /**

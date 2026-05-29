@@ -604,21 +604,23 @@ public final class CnnView extends NetworkView {
      */
     private void drawCnnAtlasBoard(Graphics2D g, Rectangle board, String title,
             float[] values, String caption) {
-        int focusSquare = strongestSquare(values, true);
+        boolean whiteDown = TensorViz.whiteDownForSideToMove(fen);
+        float[] boardValues = toBoardSquares(values);
+        int focusSquare = strongestSquare(boardValues, true);
         String focus = focusSquare >= 0 ? " · focus " + TensorViz.squareLabel(focusSquare) : "";
         g.setColor(Theme.MUTED);
         g.setFont(Theme.font(10, Font.BOLD));
         FontMetrics fm = g.getFontMetrics();
         g.drawString(Ui.elide(title + focus, fm, board.width + 10), board.x, board.y - 4);
         TensorViz.drawMiniBoard(g, board);
-        TensorViz.drawPositionPieces(g, board, fen);
-        if (values != null) {
-            float scale = scaleFor("cnnAtlas:board:" + title, maxAbs(values));
-            TensorViz.drawSquareOverlay(g, board, values, scale, false);
-            TensorViz.drawBoardSquareRing(g, board, focusSquare, TensorViz.FOCUS);
-            addBoardSquareTooltips(board, values, caption);
+        TensorViz.drawPositionPieces(g, board, fen, whiteDown);
+        if (boardValues != null) {
+            float scale = scaleFor("cnnAtlas:board:" + title, maxAbs(boardValues));
+            TensorViz.drawSquareOverlay(g, board, boardValues, scale, whiteDown);
+            TensorViz.drawBoardSquareRing(g, board, focusSquare, TensorViz.FOCUS, whiteDown);
+            addBoardSquareTooltips(board, boardValues, caption, whiteDown);
         }
-        TensorViz.drawBoardCoordinates(g, board);
+        TensorViz.drawBoardCoordinates(g, board, whiteDown);
     }
 
     /**
@@ -919,15 +921,18 @@ public final class CnnView extends NetworkView {
         float[] heatmap = snapshot.data("cnn.final.activation");
         int size = Math.min(r.width, r.height - 60);
         Rectangle board = new Rectangle(r.x + (r.width - size) / 2, r.y + 50, size - 16, size - 16);
+        boolean whiteDown = TensorViz.whiteDownForSideToMove(fen);
         TensorViz.drawMiniBoard(g, board);
-        TensorViz.drawPositionPieces(g, board, fen);
+        TensorViz.drawPositionPieces(g, board, fen, whiteDown);
         if (heatmap != null && heatmap.length >= 64) {
-            float s = scaleFor("policyAttention", maxAbs(heatmap));
-            TensorViz.drawSquareOverlay(g, board, heatmap, s, false);
-            TensorViz.drawBoardSquareRing(g, board, strongestSquare(heatmap, true), TensorViz.FOCUS);
-            addBoardSquareTooltips(board, heatmap, "Final-map mean activation");
+            float[] boardValues = toBoardSquares(heatmap);
+            float s = scaleFor("policyAttention", maxAbs(boardValues));
+            TensorViz.drawSquareOverlay(g, board, boardValues, s, whiteDown);
+            TensorViz.drawBoardSquareRing(g, board, strongestSquare(boardValues, true), TensorViz.FOCUS,
+                    whiteDown);
+            addBoardSquareTooltips(board, boardValues, "Final-map mean activation", whiteDown);
         }
-        TensorViz.drawBoardCoordinates(g, board);
+        TensorViz.drawBoardCoordinates(g, board, whiteDown);
 
         float[] policy = snapshot.data("cnn.policy.logits");
         if (policy != null) {
@@ -943,12 +948,12 @@ public final class CnnView extends NetworkView {
      * @param values 64 cell values in rank-major (rank 0 = a1)
      * @param caption tooltip caption
      */
-    private void addBoardSquareTooltips(Rectangle board, float[] values, String caption) {
+    private void addBoardSquareTooltips(Rectangle board, float[] values, String caption, boolean whiteDown) {
         if (values == null || values.length < 64) {
             return;
         }
         for (int sq = 0; sq < 64; ++sq) {
-            Rectangle cell = BoardStyle.lerfSquareBounds(board, sq, true);
+            Rectangle cell = BoardStyle.lerfSquareBounds(board, sq, whiteDown);
             hitRegions.add(cell,
                     TensorViz.squareLabel(sq),
                     caption,
@@ -1184,20 +1189,23 @@ public final class CnnView extends NetworkView {
                 "position", "mean activity of the selected layer overlaid on the board");
         int size = Math.min(r.width - 8, r.height - 80);
         Rectangle board = new Rectangle(r.x + (r.width - size) / 2, r.y + 24, size, size);
+        boolean whiteDown = TensorViz.whiteDownForSideToMove(fen);
         TensorViz.drawMiniBoard(g, board);
-        TensorViz.drawPositionPieces(g, board, fen);
+        TensorViz.drawPositionPieces(g, board, fen, whiteDown);
         int idx = selectedLayer < 0 || selectedLayer >= layers.size() ? defaultLayer() : selectedLayer;
         if (idx >= 0) {
             LayerInfo info = layers.get(idx);
             float[] perSquare = meanPerSquare(info);
             if (perSquare != null) {
-                float s = scaleFor("detailedBoard:" + info.name, maxAbs(perSquare));
-                TensorViz.drawSquareOverlay(g, board, perSquare, s, false);
-                TensorViz.drawBoardSquareRing(g, board, strongestSquare(perSquare, true), TensorViz.FOCUS);
-                addBoardSquareTooltips(board, perSquare,
-                        info.name + " · mean activity (channel-averaged)");
+                float[] boardValues = toBoardSquares(perSquare);
+                float s = scaleFor("detailedBoard:" + info.name, maxAbs(boardValues));
+                TensorViz.drawSquareOverlay(g, board, boardValues, s, whiteDown);
+                TensorViz.drawBoardSquareRing(g, board, strongestSquare(boardValues, true), TensorViz.FOCUS,
+                        whiteDown);
+                addBoardSquareTooltips(board, boardValues,
+                        info.name + " · mean activity (channel-averaged)", whiteDown);
             }
-            TensorViz.drawBoardCoordinates(g, board);
+            TensorViz.drawBoardCoordinates(g, board, whiteDown);
             g.setColor(Theme.MUTED);
             g.setFont(Theme.font(11, Font.PLAIN));
             g.drawString("layer: " + info.name + "  ·  " + info.shape,
@@ -1205,7 +1213,7 @@ public final class CnnView extends NetworkView {
             g.drawString(String.format("rms %.3f   mean %+.3f   range %+.2f..%+.2f",
                     info.rms, info.mean, info.min, info.max),
                     r.x + 6, board.y + board.height + 34);
-            int focusSquare = strongestSquare(perSquare, true);
+            int focusSquare = strongestSquare(toBoardSquares(perSquare), true);
             if (focusSquare >= 0) {
                 g.drawString("strongest board square: " + TensorViz.squareLabel(focusSquare),
                         r.x + 6, board.y + board.height + 50);
@@ -1238,6 +1246,17 @@ public final class CnnView extends NetworkView {
             out[s] *= inv;
         }
         return out;
+    }
+
+    /**
+     * Converts LC0 CNN square data from encoded side-to-move perspective back
+     * to absolute board squares before painting over a human board.
+     *
+     * @param values network-square values
+     * @return board-square values
+     */
+    private float[] toBoardSquares(float[] values) {
+        return TensorViz.lc0NetworkSquaresToBoard(values, fen, 0);
     }
 
     /**
@@ -1276,15 +1295,7 @@ public final class CnnView extends NetworkView {
      * @param info input layer info
      */
     private void paintInputPlanes(Graphics2D g, Rectangle r, LayerInfo info) {
-        // The LC0 encoder rewrites the position into side-to-move perspective:
-        // when black is to move, ranks are mirrored and the colour roles are
-        // swapped. Painting the encoded planes onto a white-at-bottom mini
-        // board therefore puts "own" pieces in the wrong half of the
-        // visualisation. Detect side to move and pass that to
-        // drawSquareOverlay (flipped=true) so the lit squares line up with
-        // the absolute board orientation the user already sees in the
-        // position panel on the left.
-        boolean blackToMove = fen != null && fenSideToMove(fen) == 'b';
+        boolean whiteDown = TensorViz.whiteDownForSideToMove(fen);
         String[] labels = {
                 "own P", "own N", "own B", "own R", "own Q", "own K",
                 "enemy P", "enemy N", "enemy B", "enemy R", "enemy Q", "enemy K",
@@ -1306,7 +1317,8 @@ public final class CnnView extends NetworkView {
             TensorViz.drawMiniBoard(g, board);
             float[] slice = new float[64];
             System.arraycopy(info.values, c * 64, slice, 0, 64);
-            TensorViz.drawSquareOverlay(g, board, slice, 0.0f, blackToMove);
+            float[] boardValues = toBoardSquares(slice);
+            TensorViz.drawSquareOverlay(g, board, boardValues, 0.0f, whiteDown);
             g.setColor(Theme.MUTED);
             g.setFont(Theme.font(10, Font.BOLD));
             g.drawString(labels[c], x, y + labelH - 2);
@@ -1316,24 +1328,6 @@ public final class CnnView extends NetworkView {
                     String.format("plane %d", c),
                     "cnn.input", c * 64, 64, 8, "8x8");
         }
-    }
-
-    /**
-     * Returns the side-to-move character ('w' or 'b') from a FEN string.
-     *
-     * @param fenString full FEN
-     * @return 'w' / 'b', defaulting to 'w' on malformed input
-     */
-    private static char fenSideToMove(String fenString) {
-        if (fenString == null) {
-            return 'w';
-        }
-        int firstSpace = fenString.indexOf(' ');
-        if (firstSpace < 0 || firstSpace + 1 >= fenString.length()) {
-            return 'w';
-        }
-        char value = Character.toLowerCase(fenString.charAt(firstSpace + 1));
-        return value == 'b' ? 'b' : 'w';
     }
 
     /**

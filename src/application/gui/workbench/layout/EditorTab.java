@@ -119,6 +119,9 @@ final class EditorTab extends JComponent {
         this.name = name;
         setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         MouseAdapter mouse = new MouseAdapter() {
+            /**
+             * {@inheritDoc}
+             */
             @Override
             public void mouseClicked(MouseEvent event) {
                 if (!SwingUtilities.isLeftMouseButton(event)) {
@@ -135,6 +138,9 @@ final class EditorTab extends JComponent {
                 }
             }
 
+            /**
+             * {@inheritDoc}
+             */
             @Override
             public void mousePressed(MouseEvent event) {
                 pressPoint = event.getPoint();
@@ -144,6 +150,9 @@ final class EditorTab extends JComponent {
                 suppressClick = false;
             }
 
+            /**
+             * {@inheritDoc}
+             */
             @Override
             public void mouseDragged(MouseEvent event) {
                 if (onDrag != null && dragArmed) {
@@ -156,6 +165,9 @@ final class EditorTab extends JComponent {
                 }
             }
 
+            /**
+             * {@inheritDoc}
+             */
             @Override
             public void mouseReleased(MouseEvent event) {
                 if (dragging) {
@@ -168,16 +180,25 @@ final class EditorTab extends JComponent {
                 pressPoint = null;
             }
 
+            /**
+             * {@inheritDoc}
+             */
             @Override
             public void mouseMoved(MouseEvent event) {
                 updateHover(true, closeRegion().contains(event.getPoint()));
             }
 
+            /**
+             * {@inheritDoc}
+             */
             @Override
             public void mouseEntered(MouseEvent event) {
                 updateHover(true, closeRegion().contains(event.getPoint()));
             }
 
+            /**
+             * {@inheritDoc}
+             */
             @Override
             public void mouseExited(MouseEvent event) {
                 updateHover(false, false);

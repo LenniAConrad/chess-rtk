@@ -19,6 +19,9 @@ final class TransformSink implements chess.nn.ActivationSink {
      */
     int transform;
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public void put(String key, int[] shape, float[] data) {
         if ("bt4.input.transform".equals(key) && data != null && data.length > 0) {

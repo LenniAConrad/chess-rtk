@@ -890,9 +890,14 @@ public final class Toml {
         int start = 0;
         int i = 0;
         boolean inQuote = false;
+        boolean escaped = false;
         while (i < body.length()) {
             char c = body.charAt(i);
-            if (c == '"') {
+            if (escaped) {
+                escaped = false;
+            } else if (inQuote && c == '\\') {
+                escaped = true;
+            } else if (c == '"') {
                 inQuote = !inQuote;
             } else if (c == ',' && !inQuote) {
                 out.add(stripQuotes(body.substring(start, i).trim()));
@@ -913,9 +918,14 @@ public final class Toml {
      */
     private static int inQuotesAwareIndexOf(String s, char target) {
         boolean inQuote = false;
+        boolean escaped = false;
         for (int i = 0; i < s.length(); i++) {
             char c = s.charAt(i);
-            if (c == '"') {
+            if (escaped) {
+                escaped = false;
+            } else if (inQuote && c == '\\') {
+                escaped = true;
+            } else if (c == '"') {
                 inQuote = !inQuote;
             } else if (c == target && !inQuote) {
                 return i;
@@ -944,8 +954,34 @@ public final class Toml {
      * @return the unescaped string
      */
     private static String unescape(String s) {
-        // Minimal unescape to match the original behavior.
-        return s.replace("\\\"", "\"").replace("\\\\", "\\");
+        StringBuilder out = new StringBuilder(s.length());
+        boolean escaped = false;
+        for (int i = 0; i < s.length(); i++) {
+            char ch = s.charAt(i);
+            if (!escaped) {
+                if (ch == '\\') {
+                    escaped = true;
+                } else {
+                    out.append(ch);
+                }
+                continue;
+            }
+            switch (ch) {
+                case '"' -> out.append('"');
+                case '\\' -> out.append('\\');
+                case 'b' -> out.append('\b');
+                case 't' -> out.append('\t');
+                case 'n' -> out.append('\n');
+                case 'f' -> out.append('\f');
+                case 'r' -> out.append('\r');
+                default -> out.append('\\').append(ch);
+            }
+            escaped = false;
+        }
+        if (escaped) {
+            out.append('\\');
+        }
+        return out.toString();
     }
 
     /**

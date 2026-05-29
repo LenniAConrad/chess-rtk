@@ -169,79 +169,92 @@ public final class PuzzleVolatilityReport {
      * Color.
      * @param 74 74 value
      * @param 85 85 value
-     * @param 98 98 value */
+     * @param 98 98 value
+     */
     static final Color REPORT_MUTED = new Color(74, 85, 98);
     /**
      * Color.
      * @param 111 111 value
      * @param 82 82 value
-     * @param 56 56 value */
+     * @param 56 56 value
+     */
     static final Color REPORT_ACCENT = new Color(111, 82, 56);
     /**
      * Color.
      * @param 42 42 value
      * @param 32 32 value
-     * @param 24 24 value */
+     * @param 24 24 value
+     */
     static final Color REPORT_RULE = new Color(42, 32, 24);
     /**
      * Color.
      * @param 216 216 value
      * @param 216 216 value
-     * @param 216 216 value */
+     * @param 216 216 value
+     */
     static final Color REPORT_GRID = new Color(216, 216, 216);
     /**
      * Color.
      * @param 132 132 value
      * @param 185 185 value
-     * @param 216 216 value */
+     * @param 216 216 value
+     */
     static final Color REPORT_BAR = new Color(132, 185, 216);
     /**
      * Color.
      * @param 92 92 value
      * @param 143 143 value
-     * @param 174 174 value */
+     * @param 174 174 value
+     */
     static final Color REPORT_TREND = new Color(92, 143, 174);
     /**
      * Color.
      * @param 226 226 value
      * @param 211 211 value
-     * @param 193 193 value */
+     * @param 193 193 value
+     */
     static final Color REPORT_SOFT_RULE = new Color(226, 211, 193);
     /**
      * Color.
      * @param 253 253 value
      * @param 249 249 value
-     * @param 242 242 value */
+     * @param 242 242 value
+     */
     static final Color REPORT_CARD = new Color(253, 249, 242);
     /**
      * Color.
      * @param 254 254 value
      * @param 251 251 value
-     * @param 247 247 value */
+     * @param 247 247 value
+     */
     static final Color REPORT_PANEL = new Color(254, 251, 247);
     /**
      * Color.
      * @param 247 247 value
      * @param 236 236 value
-     * @param 220 220 value */
+     * @param 220 220 value
+     */
     static final Color REPORT_TABLE_HEADER = new Color(247, 236, 220);
     /**
      * Color.
      * @param 254 254 value
      * @param 251 251 value
-     * @param 247 247 value */
+     * @param 247 247 value
+     */
     static final Color REPORT_TABLE_STRIPE = new Color(254, 251, 247);
     /**
      * Color.
      * @param 229 229 value
      * @param 214 214 value
-     * @param 195 195 value */
+     * @param 195 195 value
+     */
     static final Color REPORT_TABLE_RULE = new Color(229, 214, 195);
     /**
      * Color.
      * @param 178 178 value
      * @param 178 178 value
-     * @param 178 178 value */
+     * @param 178 178 value
+     */
     static final Color REPORT_QUANTILE_LINE = new Color(178, 178, 178);
     /**
      * R e p o r t  q u a n t i l e  l a b e l.

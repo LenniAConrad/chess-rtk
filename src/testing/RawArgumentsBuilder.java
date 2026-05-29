@@ -72,7 +72,8 @@ final class RawArgumentsBuilder {
     /**
      * Accept output prefix.
      * @param tokens token values
-     * @return accept output prefix result */
+     * @return accept output prefix result
+     */
     private boolean acceptOutputPrefix(Iterator<String> tokens) {
         if (prefix != null || !tokens.hasNext()) {
             return false;
@@ -84,7 +85,8 @@ final class RawArgumentsBuilder {
     /**
      * Accept max puzzles.
      * @param tokens token values
-     * @return accept max puzzles result */
+     * @return accept max puzzles result
+     */
     private boolean acceptMaxPuzzles(Iterator<String> tokens) {
         if (maxPuzzles != 0 || !tokens.hasNext()) {
             return false;
@@ -96,7 +98,8 @@ final class RawArgumentsBuilder {
     /**
      * Parse max puzzles.
      * @param value value to use
-     * @return parse max puzzles result */
+     * @return parse max puzzles result
+     */
     private static int parseMaxPuzzles(String value) {
         try {
             return Math.max(1, Integer.parseInt(value));

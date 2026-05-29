@@ -43,27 +43,31 @@ public final class Support {
 
     /**
      * Returns whether the backend is available.
-     * @return true when the backend is available */
+     * @return true when the backend is available
+     */
     public static boolean isAvailable() {
         return STATE.deviceCount() > 0;
     }
 
     /**
      * Is loaded.
-     * @return true when is loaded */
+     * @return true when is loaded
+     */
     public static boolean isLoaded() {
         return STATE.loaded();
     }
 
     /**
      * Device count.
-     * @return device count result */
+     * @return device count result
+     */
     public static int deviceCount() {
         return STATE.deviceCount();
     }
 
     /**
      * Native device count.
-     * @return native device count result */
+     * @return native device count result
+     */
     private static native int nativeDeviceCount();
 }

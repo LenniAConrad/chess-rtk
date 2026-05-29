@@ -20,7 +20,8 @@ final class CnnBackend implements SearchBackend {
     final chess.nn.lc0.cnn.Model model;
     /**
      * New recent prediction cache.
-     * @return new recent prediction cache result */
+     * @return new recent prediction cache result
+     */
     final Map<Long, chess.nn.lc0.cnn.Network.Prediction> cache = MctsBackendSupport.newRecentPredictionCache();
     /**
      * Last key.
@@ -33,16 +34,23 @@ final class CnnBackend implements SearchBackend {
 
     /**
      * Cnn backend.
-     * @param model model value */
+     * @param model model value
+     */
     CnnBackend(chess.nn.lc0.cnn.Model model) {
         this.model = model;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public Evaluation evaluate(Position position) {
         return Evaluation.fromWdl(predict(position).wdl());
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public List<Evaluation> evaluateBatch(List<Position> positions) {
         List<chess.nn.lc0.cnn.Network.Prediction> predictions = model.predictBatch(positions);
@@ -56,6 +64,9 @@ final class CnnBackend implements SearchBackend {
         return out;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public double[] priors(Position position, short[] moves, double[] fallback) {
         float[] logits = predict(position).policy();
@@ -67,11 +78,17 @@ final class CnnBackend implements SearchBackend {
                 chess.nn.lc0.cnn.PolicyEncoder::rawPolicyIndex);
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public String name() {
         return "lc0(" + model.backend() + ")";
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public void close() {
         lastPrediction = null;
@@ -82,7 +99,8 @@ final class CnnBackend implements SearchBackend {
     /**
      * Predict.
      * @param position chess position
-     * @return predict result */
+     * @return predict result
+     */
     chess.nn.lc0.cnn.Network.Prediction predict(Position position) {
         long key = position.signature();
         if (lastPrediction != null && lastKey == key) {
@@ -101,7 +119,8 @@ final class CnnBackend implements SearchBackend {
     /**
      * Remember.
      * @param key lookup key
-     * @param prediction prediction value */
+     * @param prediction prediction value
+     */
     void remember(long key, chess.nn.lc0.cnn.Network.Prediction prediction) {
         lastKey = key;
         lastPrediction = prediction;

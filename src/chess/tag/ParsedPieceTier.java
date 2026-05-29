@@ -10,6 +10,9 @@ import chess.core.Field;
 import chess.core.Piece;
 import chess.core.Position;
 
+/**
+ * Parsed tier tag with side, piece, and square labels.
+ */
 final class ParsedPieceTier {
 
     /**

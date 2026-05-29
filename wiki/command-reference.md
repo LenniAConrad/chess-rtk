@@ -113,7 +113,7 @@ Usage:
 - `crtk engine builtin ...`: search with the in-house Java engine
 - `crtk engine java ...`: run the same built-in Java engine
 - `crtk engine threats ...`: analyze opponent threats
-- `crtk engine eval ...`: evaluate a FEN with LC0 or classical heuristics
+- `crtk engine eval ...`: evaluate a FEN with LC0, OTIS, or classical heuristics
 - `crtk engine static ...`: evaluate a FEN with the classical backend
 - `crtk engine perft ...`: run perft on a position
 - `crtk engine perft-suite ...`: run the perft regression suite
@@ -156,7 +156,8 @@ Options:
 - `--classical`: shortcut for `--evaluator classical`
 - `--nnue`: shortcut for `--evaluator nnue`
 - `--lc0`: shortcut for `--evaluator lc0`
-- `--weights <path>`: NNUE or LC0 evaluator weights path
+- `--otis`: shortcut for `--evaluator otis`
+- `--weights <path>`: NNUE, LC0, or OTIS evaluator weights path
 - `--depth|-d <n>`: maximum iterative-deepening depth in plies (default `3`)
 - `--max-nodes|--nodes <n>`: node budget; `0` means unlimited. If omitted,
   the default is `250000` without `--depth`, and unlimited when `--depth` is
@@ -176,9 +177,13 @@ Evaluator notes:
   smoke-test fallback.
 - `lc0`: pure-Java LC0 value evaluator using the configured LC0 CNN model path by
   default, or an explicit `--weights` path.
+- `otis`: OTIS i249-style tactical sheaf policy/WDL evaluator using
+  `models/otis_policy_wdl_random.bin`
+  by default, or an explicit `--weights` path.
 
 Search notes:
-- The engine uses alpha-beta search, not LC0-style MCTS.
+- Classical and NNUE modes use alpha-beta search. LC0 and OTIS modes use the
+  in-process MCTS backend so their policy priors can guide root exploration.
 - The search is single-threaded and owns an internal transposition table plus a
   static-evaluation cache. The table size is fixed in code; `--threads` and
   `--hash` are UCI-engine options, not built-in-engine options.
@@ -1232,14 +1237,15 @@ Options:
 ## `engine eval`
 
 Evaluate a position using the Java LC0 evaluator with classical fallback, or
-force one backend explicitly. This command does not use a UCI engine.
+force LC0, OTIS, or classical explicitly. This command does not use a UCI
+engine.
 
 Options:
 - `--input|-i <path>`: FEN list file (optional)
 - `--fen "<FEN...>"`: FEN string (or pass it positionally)
-- `--evaluator <mode>`: `auto`, `lc0`, or `classical` (default: `auto`)
-- `--lc0`, `--classical`: shortcut evaluator selectors
-- `--weights <path>`: ChessRTK LC0 CNN `.bin` weights path (optional)
+- `--evaluator <mode>`: `auto`, `lc0`, `otis`, or `classical` (default: `auto`)
+- `--lc0`, `--otis`, `--classical`: shortcut evaluator selectors
+- `--weights <path>`: ChessRTK LC0 CNN or OTIS `.bin` weights path (optional)
 - `--terminal-aware`: use terminal-aware classical evaluation
 - `--verbose|-v`: print stack traces on failure
 

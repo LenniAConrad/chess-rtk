@@ -35,6 +35,11 @@ public enum Backend {
     LC0_ONEAPI,
 
     /**
+     * OTIS policy/WDL model evaluated the position.
+     */
+    OTIS,
+
+    /**
      * Classical heuristic evaluation was used (no neural network involved).
      */
     CLASSICAL

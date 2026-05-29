@@ -41,6 +41,7 @@ import javax.swing.JPanel;
 import javax.swing.JProgressBar;
 import javax.swing.JPopupMenu;
 import javax.swing.JScrollPane;
+import javax.swing.JSeparator;
 import javax.swing.JSlider;
 import javax.swing.JViewport;
 import javax.swing.Scrollable;
@@ -98,6 +99,10 @@ final class WorkbenchUiRegression {
         testOptionFilterTokenMatching();
         testTextAreaScrollPaintsOpaque();
         testScrollPaneUsesSolidCorners();
+        testWorkbenchRawScrollPanesUseSharedStyling();
+        testPopupMenusUseSharedStyling();
+        testWorkbenchRawPopupMenusUseSharedStyling();
+        testWorkbenchRawStandardControlsUseSharedStyling();
         testViewportFillWrapperTracksAvailableHeight();
         testCenteredViewportAvoidsHorizontalScrolling();
         testDataSurfacesUseSolidBackgrounds();
@@ -122,11 +127,12 @@ final class WorkbenchUiRegression {
         testStatusBadgeCanReserveStableTextWidth();
         testSegmentedSwitcherAnimatesSelection();
         testSplitPaneSashAnimatesHover();
+        testWorkbenchSplitPanesUseSharedStyler();
         testChartsRevealNewData();
         testCommandFormOptionalTogglesFillLeadColumn();
         testCommandFormFlagsWrapAcrossColumns();
         testThemeColorContrast();
-        testThemeUsesVscodeModernColorTokens();
+        testThemeUsesVscodeVisualStudioColorTokens();
         testNetworkPaletteUsesSemanticFocusColor();
         testNetworkArchitectureBlocksKeepReadableNeutralFill();
         testNnueAtlasPlaneLabelsUseUniformColor();
@@ -148,6 +154,7 @@ final class WorkbenchUiRegression {
         testTabbedPaneUsesScrollableSingleRowTabs();
         testTabbedPaneSwitchesWithoutSnapshotOverlay();
         testTabbedPaneRolloverIgnoresEmptyPanes();
+        testConsoleAndLogsAreMovableWorkbenchTabs();
         WorkbenchUiEditorRegression.run();
     }
 
@@ -220,6 +227,41 @@ final class WorkbenchUiRegression {
     }
 
     /**
+     * Verifies Console and Logs live in the split editor instead of a fixed
+     * bottom dock, so users can drag, split, and resize them like other tabs.
+     */
+    private static void testConsoleAndLogsAreMovableWorkbenchTabs() {
+        String lifecycle;
+        String base;
+        String dashboardActions;
+        try {
+            lifecycle = Files.readString(Path.of("src/application/gui/workbench/window/WindowLifecycle.java"),
+                    StandardCharsets.UTF_8);
+            base = Files.readString(Path.of("src/application/gui/workbench/window/WindowBase.java"),
+                    StandardCharsets.UTF_8);
+            dashboardActions = Files.readString(
+                    Path.of("src/application/gui/workbench/window/WindowDashboardActions.java"),
+                    StandardCharsets.UTF_8);
+        } catch (java.io.IOException ex) {
+            throw new AssertionError("unable to read workbench window sources", ex);
+        }
+        assertTrue(lifecycle.contains("tabs.addPanel(\"Console\", createConsolePanel())"),
+                "Console is registered as a workbench tab");
+        assertTrue(lifecycle.contains("tabs.addPanel(\"Logs\", new LazyPanel(\"Logs\", this::createLogTab)"),
+                "Logs is registered as a lazy workbench tab");
+        assertTrue(lifecycle.contains("() -> new LazyPanel(\"Logs\", this::createDetachedLogTab)"),
+                "Logs can create detached/split instances");
+        assertFalse(lifecycle.contains("buildBottomDock"),
+                "Console and Logs are no longer hosted in a fixed bottom dock");
+        assertTrue(base.contains("protected static final int TAB_CONSOLE = 6;"),
+                "Console has a stable top-level tab index");
+        assertTrue(base.contains("protected static final int TAB_LOGS = 7;"),
+                "Logs has a stable top-level tab index");
+        assertTrue(dashboardActions.contains("window.selectTab(WindowBase.TAB_CONSOLE);"),
+                "Dashboard opens the movable Console tab directly");
+    }
+
+    /**
      * Verifies workbench file drops only read explicit FEN/PGN/text payloads.
      */
     private static void testWorkbenchDropFileFilterAcceptsOnlyFenPgnTxt() {
@@ -289,6 +331,198 @@ final class WorkbenchUiRegression {
         assertEquals(pane.getViewport().getBackground(),
                 pane.getCorner(javax.swing.ScrollPaneConstants.LOWER_RIGHT_CORNER).getBackground(),
                 "scroll corner background");
+    }
+
+    /**
+     * Verifies production workbench scroll panes install the shared scrollbar
+     * chrome even when a panel must construct the scroll pane directly.
+     */
+    private static void testWorkbenchRawScrollPanesUseSharedStyling() {
+        Path root = Path.of("src/application/gui/workbench");
+        try (java.util.stream.Stream<Path> files = Files.walk(root)) {
+            files.filter(Files::isRegularFile)
+                    .filter(file -> file.getFileName().toString().endsWith(".java"))
+                    .forEach(file -> assertRawScrollPaneStyling(root, file));
+        } catch (java.io.IOException ex) {
+            throw new AssertionError("unable to scan workbench scroll panes", ex);
+        }
+    }
+
+    /**
+     * Verifies raw scroll panes in one source file use shared styling.
+     *
+     * @param root workbench source root
+     * @param file source file to inspect
+     */
+    private static void assertRawScrollPaneStyling(Path root, Path file) {
+        String source;
+        try {
+            source = Files.readString(file, StandardCharsets.UTF_8);
+        } catch (java.io.IOException ex) {
+            throw new AssertionError("unable to read " + file, ex);
+        }
+        int scrollPaneCreations = occurrences(source, "new JScrollPane(");
+        if (scrollPaneCreations == 0) {
+            return;
+        }
+        int styledScrollPanes = occurrences(source, "styleScrollPane(")
+                + occurrences(source, "refreshScrollPaneTheme(");
+        assertTrue(styledScrollPanes >= scrollPaneCreations,
+                root.relativize(file) + " styles every raw JScrollPane through Ui");
+    }
+
+    /**
+     * Verifies shared popup styling covers menus, normal items, check items,
+     * and separators.
+     */
+    private static void testPopupMenusUseSharedStyling() {
+        JPopupMenu popup = new JPopupMenu();
+        JMenuItem item = new JMenuItem("Item");
+        JCheckBoxMenuItem check = new JCheckBoxMenuItem("Check");
+        JSeparator separator = new JSeparator();
+        popup.add(item);
+        popup.add(check);
+        popup.add(separator);
+
+        Ui.stylePopupMenu(popup);
+
+        assertTrue(popup.isOpaque(), "popup menu is opaque");
+        assertEquals(themeColor("PANEL_SOLID"), popup.getBackground(), "popup menu background");
+        assertEquals(themeColor("TEXT"), item.getForeground(), "popup item foreground");
+        assertTrue(check.getIcon() != null, "popup check item uses workbench glyph");
+        assertEquals(themeColor("LINE"), separator.getForeground(), "popup separator line color");
+    }
+
+    /**
+     * Verifies production workbench popup menus go through shared styling.
+     */
+    private static void testWorkbenchRawPopupMenusUseSharedStyling() {
+        Path root = Path.of("src/application/gui/workbench");
+        try (java.util.stream.Stream<Path> files = Files.walk(root)) {
+            files.filter(Files::isRegularFile)
+                    .filter(file -> file.getFileName().toString().endsWith(".java"))
+                    .forEach(file -> assertRawPopupMenuStyling(root, file));
+        } catch (java.io.IOException ex) {
+            throw new AssertionError("unable to scan workbench popup menus", ex);
+        }
+    }
+
+    /**
+     * Verifies raw popup menus in one source file use shared styling.
+     *
+     * @param root workbench source root
+     * @param file source file to inspect
+     */
+    private static void assertRawPopupMenuStyling(Path root, Path file) {
+        String source;
+        try {
+            source = Files.readString(file, StandardCharsets.UTF_8);
+        } catch (java.io.IOException ex) {
+            throw new AssertionError("unable to read " + file, ex);
+        }
+        int popupCreations = occurrences(source, "new JPopupMenu(")
+                + occurrences(source, "new javax.swing.JPopupMenu(");
+        if (popupCreations == 0) {
+            return;
+        }
+        int styledPopups = occurrences(source, "stylePopupMenu(")
+                + occurrences(source, "PopupMenus.style(")
+                + occurrences(source, "stylePopupTree(")
+                + occurrences(source, "styleMenuTree(");
+        assertTrue(styledPopups >= popupCreations,
+                root.relativize(file) + " styles every raw JPopupMenu through shared helpers");
+    }
+
+    /**
+     * Verifies common Swing controls either use a shared factory or immediately
+     * enter the shared styling path. This keeps future panels from reintroducing
+     * platform-default tab strips, combo boxes, sliders, or data tables.
+     */
+    private static void testWorkbenchRawStandardControlsUseSharedStyling() {
+        Path root = Path.of("src/application/gui/workbench");
+        try (java.util.stream.Stream<Path> files = Files.walk(root)) {
+            files.filter(Files::isRegularFile)
+                    .filter(file -> file.getFileName().toString().endsWith(".java"))
+                    .forEach(file -> assertRawStandardControlStyling(root, file));
+        } catch (java.io.IOException ex) {
+            throw new AssertionError("unable to scan workbench standard controls", ex);
+        }
+    }
+
+    /**
+     * Verifies raw standard controls in one source file use shared styling.
+     *
+     * @param root workbench source root
+     * @param file source file to inspect
+     */
+    private static void assertRawStandardControlStyling(Path root, Path file) {
+        String source = readSource(file);
+        String relative = root.relativize(file).toString().replace(File.separatorChar, '/');
+
+        int tabbedPaneCreations = occurrences(source, "new JTabbedPane(")
+                + occurrences(source, "new javax.swing.JTabbedPane(");
+        if (tabbedPaneCreations > 0) {
+            assertEquals("ui/Ui.java", relative,
+                    relative + " creates tab panes through Ui.tabbedPane()");
+        }
+
+        int comboCreations = occurrences(source, "new JComboBox");
+        if (comboCreations > 0) {
+            assertTrue(source.contains("styleCombo(")
+                    || source.contains("styleCombos(")
+                    || source.contains("styleComponentTree(")
+                    || source.contains("refreshComponentTree("),
+                    relative + " styles every raw JComboBox through shared helpers");
+        }
+
+        int sliderCreations = occurrences(source, "new JSlider(")
+                + occurrences(source, "new javax.swing.JSlider(");
+        if (sliderCreations > 0) {
+            assertTrue(source.contains("styleSlider(")
+                    || source.contains("styleComponentTree(")
+                    || source.contains("refreshComponentTree("),
+                    relative + " styles every raw JSlider through shared helpers");
+        }
+
+        int tableCreations = occurrences(source, "new JTable(")
+                + occurrences(source, "new javax.swing.JTable(");
+        if (tableCreations > 0) {
+            assertTrue(source.contains("Theme.table(")
+                    || source.contains("styleComponentTree(")
+                    || windowBaseTablesAreStyledByLayers(root, relative),
+                    relative + " styles every raw JTable through shared helpers");
+        }
+    }
+
+    /**
+     * Returns whether WindowBase tables are styled by their layer classes.
+     *
+     * @param root workbench source root
+     * @param relative source path relative to the workbench root
+     * @return true when layer styling covers WindowBase tables
+     */
+    private static boolean windowBaseTablesAreStyledByLayers(Path root, String relative) {
+        if (!"window/WindowBase.java".equals(relative)) {
+            return false;
+        }
+        String boardLayer = readSource(root.resolve("window/WindowBoardLayer.java"));
+        String commandLayer = readSource(root.resolve("window/WindowCommandLayer.java"));
+        return boardLayer.contains("Theme.table(movesTable")
+                && commandLayer.contains("Theme.table(gameTable");
+    }
+
+    /**
+     * Reads one source file for source-shape assertions.
+     *
+     * @param file source file
+     * @return source text
+     */
+    private static String readSource(Path file) {
+        try {
+            return Files.readString(file, StandardCharsets.UTF_8);
+        } catch (java.io.IOException ex) {
+            throw new AssertionError("unable to read " + file, ex);
+        }
     }
 
     /**
@@ -647,56 +881,89 @@ final class WorkbenchUiRegression {
         boolean[] runBuiltCommand = { false };
         boolean[] soundEnabled = { true };
         SettingsMenu menu = new SettingsMenu(new SettingsMenu.Controller() {
+            /**
+             * {@inheritDoc}
+             */
             @Override
             public Theme.Mode themeMode() {
                 return activeMode[0];
             }
 
+            /**
+             * {@inheritDoc}
+             */
             @Override
             public void setThemeMode(Theme.Mode mode) {
                 activeMode[0] = mode;
             }
 
+            /**
+             * {@inheritDoc}
+             */
             @Override
             public boolean soundEnabled() {
                 return soundEnabled[0];
             }
 
+            /**
+             * {@inheritDoc}
+             */
             @Override
             public void setSoundEnabled(boolean enabled) {
                 soundEnabled[0] = enabled;
             }
 
+            /**
+             * {@inheritDoc}
+             */
             @Override
             public void showDisplaySettings() {
                 displaySettingsOpened[0] = true;
             }
 
+            /**
+             * {@inheritDoc}
+             */
             @Override
             public void showEngineSettings() {
                 engineSettingsOpened[0] = true;
             }
 
+            /**
+             * {@inheritDoc}
+             */
             @Override
             public void showSoundSettings() {
                 // not needed for this regression
             }
 
+            /**
+             * {@inheritDoc}
+             */
             @Override
             public void showCommandPalette() {
                 commandPaletteOpened[0] = true;
             }
 
+            /**
+             * {@inheritDoc}
+             */
             @Override
             public void openLogsDirectory() {
                 logsOpened[0] = true;
             }
 
+            /**
+             * {@inheritDoc}
+             */
             @Override
             public void openAnalyze() {
                 analyzeOpened[0] = true;
             }
 
+            /**
+             * {@inheritDoc}
+             */
             @Override
             public void runBuiltCommand() {
                 runBuiltCommand[0] = true;
@@ -778,46 +1045,73 @@ final class WorkbenchUiRegression {
      */
     private static SettingsMenu.Controller settingsMenuControllerForContrast() {
         return new SettingsMenu.Controller() {
+            /**
+             * {@inheritDoc}
+             */
             @Override
             public Theme.Mode themeMode() {
                 return Theme.mode();
             }
 
+            /**
+             * {@inheritDoc}
+             */
             @Override
             public void setThemeMode(Theme.Mode mode) {
                 Theme.setMode(mode);
             }
 
+            /**
+             * {@inheritDoc}
+             */
             @Override
             public boolean soundEnabled() {
                 return true;
             }
 
+            /**
+             * {@inheritDoc}
+             */
             @Override
             public void setSoundEnabled(boolean enabled) {
                 // no-op test controller
             }
 
+            /**
+             * {@inheritDoc}
+             */
             @Override
             public void showDisplaySettings() {
                 // no-op test controller
             }
 
+            /**
+             * {@inheritDoc}
+             */
             @Override
             public void showEngineSettings() {
                 // no-op test controller
             }
 
+            /**
+             * {@inheritDoc}
+             */
             @Override
             public void showSoundSettings() {
                 // no-op test controller
             }
 
+            /**
+             * {@inheritDoc}
+             */
             @Override
             public void showCommandPalette() {
                 // no-op test controller
             }
 
+            /**
+             * {@inheritDoc}
+             */
             @Override
             public void openLogsDirectory() {
                 // no-op test controller
@@ -902,51 +1196,81 @@ final class WorkbenchUiRegression {
         int[] restoreTabs = { 0 };
         int[] closeOthers = { 0 };
         LayoutMenu menu = new LayoutMenu(new LayoutMenu.Controller() {
+            /**
+             * {@inheritDoc}
+             */
             @Override
             public boolean statusBarVisible() {
                 return statusVisible[0];
             }
 
+            /**
+             * {@inheritDoc}
+             */
             @Override
             public void setStatusBarVisible(boolean visible) {
                 statusVisible[0] = visible;
             }
 
+            /**
+             * {@inheritDoc}
+             */
             @Override
             public void splitRight() {
                 splitRight[0]++;
             }
 
+            /**
+             * {@inheritDoc}
+             */
             @Override
             public void splitDown() {
                 splitDown[0]++;
             }
 
+            /**
+             * {@inheritDoc}
+             */
             @Override
             public void splitLeft() {
                 splitLeft[0]++;
             }
 
+            /**
+             * {@inheritDoc}
+             */
             @Override
             public void splitUp() {
                 splitUp[0]++;
             }
 
+            /**
+             * {@inheritDoc}
+             */
             @Override
             public void reopenAllTabs() {
                 restoreTabs[0]++;
             }
 
+            /**
+             * {@inheritDoc}
+             */
             @Override
             public void closeOtherTabs() {
                 closeOthers[0]++;
             }
 
+            /**
+             * {@inheritDoc}
+             */
             @Override
             public int openTabCount() {
                 return 7;
             }
 
+            /**
+             * {@inheritDoc}
+             */
             @Override
             public int visibleGroupCount() {
                 return 2;
@@ -956,8 +1280,14 @@ final class WorkbenchUiRegression {
         JComponent component = menu.component();
         assertEquals(Integer.valueOf(4), Integer.valueOf(component.getComponentCount()),
                 "layout toolbar exposes four chrome buttons");
-        assertEquals("Customize Layout", ((JButton) component.getComponent(0)).getToolTipText(),
+        assertEquals("Customize layout and visibility", ((JButton) component.getComponent(0)).getToolTipText(),
                 "layout toolbar starts with customize button");
+        assertEquals("workbench.layout.customize", ((JButton) component.getComponent(0)).getActionCommand(),
+                "layout customize button exposes a command id");
+        assertEquals("Split active tab right", ((JButton) component.getComponent(1)).getToolTipText(),
+                "layout split-right tooltip names the tab action");
+        assertEquals("workbench.layout.splitRight", ((JButton) component.getComponent(1)).getActionCommand(),
+                "layout split-right button exposes a command id");
         ((JButton) component.getComponent(1)).doClick();
         ((JButton) component.getComponent(2)).doClick();
         ((JButton) component.getComponent(3)).doClick();
@@ -978,8 +1308,8 @@ final class WorkbenchUiRegression {
         statusItem.doClick();
         assertFalse(statusVisible[0], "status-bar row toggles controller state");
 
-        popupItem(popup, "Split Left").doClick();
-        popupItem(popup, "Split Up").doClick();
+        popupItem(popup, "Split Tab Left").doClick();
+        popupItem(popup, "Split Tab Up").doClick();
         popupItem(popup, "Close Other Tabs").doClick();
         assertEquals(Integer.valueOf(1), Integer.valueOf(splitLeft[0]),
                 "layout popup split-left item works");
@@ -1209,6 +1539,60 @@ final class WorkbenchUiRegression {
     }
 
     /**
+     * Verifies production workbench split panes use the shared sash styling
+     * helper instead of the native Swing divider defaults.
+     */
+    private static void testWorkbenchSplitPanesUseSharedStyler() {
+        Path root = Path.of("src/application/gui/workbench");
+        try (java.util.stream.Stream<Path> files = Files.walk(root)) {
+            files.filter(Files::isRegularFile)
+                    .filter(file -> file.getFileName().toString().endsWith(".java"))
+                    .forEach(file -> assertSplitPaneStyling(root, file));
+        } catch (java.io.IOException ex) {
+            throw new AssertionError("unable to scan workbench split panes", ex);
+        }
+    }
+
+    /**
+     * Verifies split panes in one source file use the shared split-pane styler.
+     *
+     * @param root workbench source root
+     * @param file source file to inspect
+     */
+    private static void assertSplitPaneStyling(Path root, Path file) {
+        String source;
+        try {
+            source = Files.readString(file, StandardCharsets.UTF_8);
+        } catch (java.io.IOException ex) {
+            throw new AssertionError("unable to read " + file, ex);
+        }
+        int splitPaneCreations = occurrences(source, "new JSplitPane(");
+        if (splitPaneCreations == 0) {
+            return;
+        }
+        int styledSplitPanes = occurrences(source, "SplitPaneStyler.style(");
+        assertTrue(styledSplitPanes >= splitPaneCreations,
+                root.relativize(file) + " styles every JSplitPane through SplitPaneStyler");
+    }
+
+    /**
+     * Counts non-overlapping occurrences of text in source.
+     *
+     * @param source source text
+     * @param needle text to count
+     * @return occurrence count
+     */
+    private static int occurrences(String source, String needle) {
+        int count = 0;
+        int index = source.indexOf(needle);
+        while (index >= 0) {
+            count++;
+            index = source.indexOf(needle, index + needle.length());
+        }
+        return count;
+    }
+
+    /**
      * Verifies chart widgets reveal new values instead of popping them in.
      */
     private static void testChartsRevealNewData() {
@@ -1289,33 +1673,33 @@ final class WorkbenchUiRegression {
     }
 
     /**
-     * Verifies the workbench uses VS Code Modern neutral and control tokens
+     * Verifies the workbench uses VS Code Visual Studio neutral and control tokens
      * consistently across light and dark modes.
      */
-    private static void testThemeUsesVscodeModernColorTokens() {
+    private static void testThemeUsesVscodeVisualStudioColorTokens() {
         Theme.setMode(Theme.Mode.LIGHT);
-        assertColor(new Color(0xF8F8F8), themeColor("BG"), "light panel background");
+        assertColor(new Color(0xF3F3F3), themeColor("BG"), "light Visual Studio widget background");
         assertColor(Color.WHITE, themeColor("PANEL_SOLID"), "light VS Code editor background");
-        assertColor(Color.WHITE, themeColor("ELEVATED_SOLID"), "light VS Code dropdown background");
-        assertColor(new Color(0xE5E5E5), themeColor("LINE"), "light panel border");
+        assertColor(new Color(0xF3F3F3), themeColor("ELEVATED_SOLID"), "light VS Code dropdown background");
+        assertColor(new Color(0xD4D4D4), themeColor("LINE"), "light widget border");
         assertColor(new Color(0xCECECE), themeColor("INPUT_BORDER"), "light input border");
         assertColor(new Color(0xFFFFFF), themeColor("TAB_HOVER"), "light VS Code tab hover");
-        assertColor(new Color(0xF8F8F8), themeColor("TAB_IDLE"), "light inactive tab");
-        assertColor(new Color(0x3B3B3B), themeColor("TEXT"), "light foreground");
-        assertColor(new Color(0x616161), themeColor("MUTED"), "light muted foreground");
+        assertColor(new Color(0xF3F3F3), themeColor("TAB_IDLE"), "light inactive tab");
+        assertColor(new Color(0x000000), themeColor("TEXT"), "light foreground");
+        assertColor(new Color(0x6F6F6F), themeColor("MUTED"), "light muted foreground");
         assertColor(new Color(0x005FB8), themeColor("ACCENT"), "light VS Code focus accent");
         assertColor(new Color(0xBED6ED), themeColor("TOGGLE_ON_BG"), "light active option fill");
 
         Theme.setMode(Theme.Mode.DARK);
-        assertColor(new Color(0x1F1F1F), themeColor("BG"), "dark unified panel background");
-        assertColor(new Color(0x1F1F1F), themeColor("PANEL_SOLID"), "dark VS Code editor background");
-        assertColor(new Color(0x1F1F1F), themeColor("ELEVATED_SOLID"), "dark unified dropdown background");
-        assertColor(new Color(0x2B2B2B), themeColor("LINE"), "dark panel border");
-        assertColor(new Color(0x3C3C3C), themeColor("INPUT_BORDER"), "dark input border");
-        assertColor(new Color(0x1F1F1F), themeColor("TAB_HOVER"), "dark VS Code tab hover");
-        assertColor(new Color(0x1F1F1F), themeColor("TAB_IDLE"), "dark unified inactive tab");
-        assertColor(new Color(0xCCCCCC), themeColor("TEXT"), "dark foreground");
-        assertColor(new Color(0x9D9D9D), themeColor("MUTED"), "dark muted foreground");
+        assertColor(new Color(0x252526), themeColor("BG"), "dark Visual Studio menu background");
+        assertColor(new Color(0x1E1E1E), themeColor("PANEL_SOLID"), "dark VS Code editor background");
+        assertColor(new Color(0x252526), themeColor("ELEVATED_SOLID"), "dark VS Code dropdown background");
+        assertColor(new Color(0x303031), themeColor("LINE"), "dark widget border");
+        assertColor(new Color(0x454545), themeColor("INPUT_BORDER"), "dark menu/input border");
+        assertColor(new Color(0x222222), themeColor("TAB_HOVER"), "dark VS Code tab hover");
+        assertColor(new Color(0x252526), themeColor("TAB_IDLE"), "dark inactive tab");
+        assertColor(new Color(0xD4D4D4), themeColor("TEXT"), "dark foreground");
+        assertColor(new Color(0xA6A6A6), themeColor("MUTED"), "dark muted foreground");
         assertColor(new Color(0x0078D4), themeColor("ACCENT"), "dark VS Code focus accent");
         assertColor(new Color(36, 137, 219, 130), themeColor("TOGGLE_ON_BG"),
                 "dark active option fill");

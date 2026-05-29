@@ -27,6 +27,7 @@ import application.cli.command.MovesCommand;
 import application.cli.command.PerftCommand;
 import application.cli.command.PgnCommand;
 import application.cli.command.PositionCommand;
+import application.cli.command.PositionDescribeCommand;
 import application.cli.command.PuzzleTagsCommand;
 import application.cli.command.PuzzleTextCommand;
 import application.cli.command.RecordAnalysisDeltaCommand;
@@ -568,7 +569,7 @@ public final class CliRegistry {
 				.usage("[options]")
 				.example("crtk engine threats --startpos --max-duration 2s")
 				.example("crtk engine threats --fen \"<FEN>\" --max-duration 2s"));
-		engine.add(CliCommand.leaf("eval", "Evaluate a position with LC0 or classical", EvalCommand::runEval)
+		engine.add(CliCommand.leaf("eval", "Evaluate a position with LC0, OTIS, or classical", EvalCommand::runEval)
 				.detailHelpKey("engine eval")
 				.usage("[options]")
 				.example("crtk engine eval --startpos")
@@ -614,6 +615,15 @@ public final class CliRegistry {
 				.usage("[options] [LEFT_FEN RIGHT_FEN]")
 				.example("crtk position diff --fen \"<FEN>\" --other \"<FEN>\"")
 				.example("crtk position diff \"<LEFT_FEN>\" \"<RIGHT_FEN>\" --json"));
+		position.add(CliCommand.leaf("describe", "Describe a position with deterministic text",
+				PositionDescribeCommand::runDescribe)
+				.detailHelpKey("position describe")
+				.alias("text")
+				.usage("[options] [FEN]")
+				.about("Builds a shared structured position-description input and renders it with a deterministic classical generator. The T5 path is accepted for configuration checks but remains unavailable until trained weights exist.")
+				.example("crtk position describe --fen \"<FEN>\" --detail normal")
+				.example("crtk position describe --input positions.txt --format jsonl")
+				.example("crtk position describe --fen \"<FEN>\" --engine t5 --model models/t5-position.bin"));
 		return position;
 	}
 

@@ -139,6 +139,13 @@ final class RecordPuzzleJsonlCommand {
 		return new IllegalStateException("unreachable");
 	}
 
+	/**
+	 * Validates puzzle-jsonl selector and weight arguments.
+	 *
+	 * @param puzzles true to export only puzzles
+	 * @param nonpuzzles true to export only non-puzzles
+	 * @param weights LC0 weights path
+	 */
 	private static void validatePuzzleJsonlArguments(boolean puzzles, boolean nonpuzzles, Path weights) {
 		if (puzzles && nonpuzzles) {
 			exitWithError(COMMAND_RECORD_EXPORT_PUZZLE_JSONL + ": cannot combine "
@@ -165,6 +172,14 @@ final class RecordPuzzleJsonlCommand {
 		return Config.getPuzzleVerify();
 	}
 
+	/**
+	 * Loads LC0 network artifacts required for policy labels.
+	 *
+	 * @param weights weights path
+	 * @param verbose true to include verbose failure diagnostics
+	 * @param command command name for diagnostics
+	 * @return loaded artifacts
+	 */
 	private static Lc0Artifacts loadLc0Artifacts(Path weights, boolean verbose, String command) {
 		try {
 			return new Lc0Artifacts(Network.load(weights), invertPolicyMap(Network.loadPolicyMap(weights)));
@@ -173,6 +188,14 @@ final class RecordPuzzleJsonlCommand {
 			throw unreachable();
 		}
 	}
+	/**
+	 * Writes puzzle-jsonl rows from one record input file.
+	 *
+	 * @param input input record file
+	 * @param output output JSONL file
+	 * @param context export context
+	 * @param stats mutable export stats
+	 */
 	private static void exportPuzzleJsonl(
 			Path input,
 			Path output,
@@ -206,6 +229,13 @@ final class RecordPuzzleJsonlCommand {
 				stats.skipped,
 				output);
 	}
+	/**
+	 * Converts one record JSON object into an optional puzzle-jsonl row.
+	 *
+	 * @param objJson record JSON object
+	 * @param context write context
+	 * @param stats mutable export stats
+	 */
 	private static void writePuzzleJsonlRecord(
 			String objJson,
 			PuzzleJsonlWriteContext context,
@@ -237,6 +267,14 @@ final class RecordPuzzleJsonlCommand {
 		stats.written++;
 		updatePuzzleJsonlProgress(context.bar, stats);
 	}
+	/**
+	 * Applies puzzle-jsonl filters to one record.
+	 *
+	 * @param objJson raw record JSON object
+	 * @param rec parsed record
+	 * @param options export options
+	 * @return true when the record should be exported
+	 */
 	private static boolean acceptPuzzleJsonlRecord(
 			String objJson,
 			Record rec,
@@ -253,6 +291,12 @@ final class RecordPuzzleJsonlCommand {
 		}
 		return !isPuzzle;
 	}
+	/**
+	 * Updates the puzzle-jsonl progress bar with periodic counters.
+	 *
+	 * @param bar progress bar, or null
+	 * @param stats export stats
+	 */
 	private static void updatePuzzleJsonlProgress(Bar bar, PuzzleJsonlExportStats stats) {
 		if (bar != null && stats.seen % 1000L == 0L) {
 			bar.setPostfix(String.format(Locale.ROOT,

@@ -21,5 +21,12 @@ import chess.struct.Record;
 import chess.uci.Analysis;
 import utility.Json;
 
+/**
+ * Shared parsed command-line arguments for puzzle report tools.
+ *
+ * @param inputs input record files or directories
+ * @param prefix output path prefix
+ * @param maxPuzzles maximum puzzle rows to process
+ */
 record Arguments(List<Path> inputs, Path prefix, int maxPuzzles) {
 }

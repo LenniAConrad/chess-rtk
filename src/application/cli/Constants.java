@@ -581,6 +581,11 @@ public final class Constants {
 	public static final String OPT_LC0 = "--lc0";
 
 	/**
+	 * {@code --otis} option flag.
+	 */
+	public static final String OPT_OTIS = "--otis";
+
+	/**
 	 * {@code --classical} option flag.
 	 */
 	public static final String OPT_CLASSICAL = "--classical";

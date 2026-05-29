@@ -2,7 +2,7 @@ package application.gui.workbench.network;
 
 /**
  * The mutually-exclusive rendering modes shared by every workbench network
- * view (NNUE / CNN / BT4).
+ * view (NNUE / CNN / BT4 / OTIS).
  *
  * <p>Replaces the previous quartet of independent boolean flags
  * ({@code detailed} / {@code rawView} / {@code atlasView} / {@code diagramView})
@@ -43,6 +43,8 @@ public enum ViewMode {
      *       board-footprint projection of the final map and policy planes.
      *   <li>BT4: head×block fingerprint + attention board footprint +
      *       selected head's 64×64 attention matrix.
+     *   <li>OTIS: sheaf relation pressure and policy/WDL projection atlas from
+     *       the placeholder weights.
      * </ul>
      */
     ATLAS,

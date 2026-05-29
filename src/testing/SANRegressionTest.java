@@ -30,6 +30,7 @@ public final class SANRegressionTest {
 	 */
 	public static void main(String[] args) {
 		testCastlingTokenNormalization();
+		testSemicolonComments();
 		testSanLineApplication();
 		testInvalidSanLineKeepsValidPrefix();
 		testLastMoveToken();
@@ -43,6 +44,21 @@ public final class SANRegressionTest {
 		Position position = new Position("r3k2r/8/8/8/8/8/8/R3K2R w KQkq - 0 1");
 		assertEquals("e1g1", Move.toString(SAN.fromAlgebraic(position, "0-0")), "zero kingside castle");
 		assertEquals("e1c1", Move.toString(SAN.fromAlgebraic(position, "o-o-o")), "lowercase queenside castle");
+	}
+
+	/**
+	 * Verifies PGN semicolon comments are skipped through the end of the line.
+	 */
+	private static void testSemicolonComments() {
+		String raw = "1. e4 ; ignored fake move e5\n1... c5";
+		assertEquals("e4 c5", SAN.cleanMoveString(raw), "semicolon comment cleaned");
+
+		SAN.PlayedLine line = SAN.playLine(new Position(Game.STANDARD_START_FEN), raw);
+		assertTrue(line.isParsed(), "semicolon comment line parsed");
+		assertEquals(2, line.getPliesPlayed(), "semicolon comment line plies");
+		assertEquals("c7c5", Move.toString(line.getLastMove()), "semicolon comment line last move");
+		assertEquals("rnbqkbnr/pp1ppppp/8/2p5/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2",
+				line.getResult().toString(), "semicolon comment line result");
 	}
 
 	/**

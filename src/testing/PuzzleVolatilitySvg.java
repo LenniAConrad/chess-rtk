@@ -70,6 +70,17 @@ final class PuzzleVolatilitySvg {
         return sb.toString();
     }
 
+    /**
+     * Appends one SVG line element.
+     *
+     * @param sb SVG buffer
+     * @param x1 start x
+     * @param y1 start y
+     * @param x2 end x
+     * @param y2 end y
+     * @param stroke stroke color
+     * @param dashArray optional stroke dash array
+     */
     private static void appendLine(StringBuilder sb, double x1, double y1, double x2, double y2, String stroke,
             String dashArray) {
         sb.append("<line x1=\"").append(fmt(x1)).append("\" y1=\"").append(fmt(y1))

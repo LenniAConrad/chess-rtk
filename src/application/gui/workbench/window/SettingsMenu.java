@@ -2,6 +2,7 @@ package application.gui.workbench.window;
 
 import application.gui.workbench.ui.Theme;
 import application.gui.workbench.ui.MenuGlyphs;
+import application.gui.workbench.ui.Ui;
 import java.awt.Component;
 import java.awt.Container;
 import java.awt.Dimension;
@@ -82,94 +83,159 @@ public final class SettingsMenu {
          */
         void openLogsDirectory();
 
-        /** Opens a PGN file or the PGN explorer. */
+        /**
+         * Opens a PGN file or the PGN explorer.
+         */
         default void openPgn() { }
 
-        /** Saves the current game as PGN. */
+        /**
+         * Saves the current game as PGN.
+         */
         default void savePgn() { }
 
-        /** Copies the current FEN. */
+        /**
+         * Copies the current FEN.
+         */
         default void copyFen() { }
 
-        /** Copies the generated command preview. */
+        /**
+         * Copies the generated command preview.
+         */
         default void copyBuiltCommand() { }
 
-        /** Opens the dashboard. */
+        /**
+         * Opens the dashboard.
+         */
         default void openDashboard() { }
 
-        /** Opens the analysis workspace. */
+        /**
+         * Opens the analysis workspace.
+         */
         default void openAnalyze() { }
 
-        /** Opens the command builder. */
+        /**
+         * Opens the command builder.
+         */
         default void openCommands() { }
 
-        /** Opens batch workflows. */
+        /**
+         * Opens batch workflows.
+         */
         default void openBatch() { }
 
-        /** Opens dataset tools. */
+        /**
+         * Opens dataset tools.
+         */
         default void openDatasets() { }
 
-        /** Opens publishing tools. */
+        /**
+         * Opens publishing tools.
+         */
         default void openPublish() { }
 
-        /** Opens network visualizations. */
+        /**
+         * Opens network visualizations.
+         */
         default void openNetwork() { }
 
-        /** Opens puzzles. */
+        /**
+         * Opens MCTS inspection.
+         */
+        default void openMcts() { }
+
+        /**
+         * Opens puzzles.
+         */
         default void openPuzzles() { }
 
-        /** Opens a new independent analysis tab. */
+        /**
+         * Opens a new independent analysis tab.
+         */
         default void newAnalyzeTab() { }
 
-        /** Shows command output. */
+        /**
+         * Shows command output.
+         */
         default void showConsole() { }
 
-        /** Shows persisted logs. */
+        /**
+         * Shows persisted logs.
+         */
         default void showLogs() { }
 
-        /** Jumps to the first position. */
+        /**
+         * Jumps to the first position.
+         */
         default void firstPosition() { }
 
-        /** Moves to the previous position. */
+        /**
+         * Moves to the previous position.
+         */
         default void previousPosition() { }
 
-        /** Moves to the next position. */
+        /**
+         * Moves to the next position.
+         */
         default void nextPosition() { }
 
-        /** Jumps to the final position. */
+        /**
+         * Jumps to the final position.
+         */
         default void lastPosition() { }
 
-        /** Runs the generated command. */
+        /**
+         * Runs the generated command.
+         */
         default void runBuiltCommand() { }
 
-        /** Runs best-move analysis. */
+        /**
+         * Runs best-move analysis.
+         */
         default void runBestMove() { }
 
-        /** Runs engine analysis. */
+        /**
+         * Runs engine analysis.
+         */
         default void runAnalyze() { }
 
-        /** Runs perft. */
+        /**
+         * Runs perft.
+         */
         default void runPerft() { }
 
-        /** Runs the selected batch workflow. */
+        /**
+         * Runs the selected batch workflow.
+         */
         default void runBatch() { }
 
-        /** Runs the publishing workflow. */
+        /**
+         * Runs the publishing workflow.
+         */
         default void runPublishing() { }
 
-        /** Runs all health checks. */
+        /**
+         * Runs all health checks.
+         */
         default void runAllChecks() { }
 
-        /** Stops the running command. */
+        /**
+         * Stops the running command.
+         */
         default void stopCommand() { }
 
-        /** Splits the selected editor to the right. */
+        /**
+         * Splits the selected editor to the right.
+         */
         default void splitRight() { }
 
-        /** Splits the selected editor below. */
+        /**
+         * Splits the selected editor below.
+         */
         default void splitDown() { }
 
-        /** Reopens all workbench tabs. */
+        /**
+         * Reopens all workbench tabs.
+         */
         default void reopenAllTabs() { }
     }
 
@@ -250,7 +316,8 @@ public final class SettingsMenu {
                 item("Datasets", "Ctrl+5", controller::openDatasets),
                 item("Publish", "Ctrl+6", controller::openPublish),
                 item("Network", "Ctrl+7", controller::openNetwork),
-                item("Puzzles", "Ctrl+8", controller::openPuzzles),
+                item("MCTS", "Ctrl+8", controller::openMcts),
+                item("Puzzles", "Ctrl+9", controller::openPuzzles),
                 separator(),
                 item("Console", "Ctrl+`", controller::showConsole),
                 item("Logs", null, controller::showLogs),
@@ -260,9 +327,9 @@ public final class SettingsMenu {
         menuBar.add(menu("Go",
                 item("New Analyze Tab", null, controller::newAnalyzeTab),
                 separator(),
-                item("Split Right", "Ctrl+\\", controller::splitRight),
-                item("Split Down", "Ctrl+Shift+\\", controller::splitDown),
-                item("Reopen All Tabs", null, controller::reopenAllTabs)));
+                item("Split Tab Right", "Ctrl+\\", controller::splitRight),
+                item("Split Tab Down", "Ctrl+Shift+\\", controller::splitDown),
+                item("Restore Closed Tabs", null, controller::reopenAllTabs)));
         menuBar.add(menu("Run",
                 item("Run Built Command", null, controller::runBuiltCommand),
                 item("Best Move", null, controller::runBestMove),
@@ -402,10 +469,7 @@ public final class SettingsMenu {
      * @param popup popup menu
      */
     private static void stylePopup(JPopupMenu popup) {
-        popup.setOpaque(true);
-        popup.setBackground(Theme.PANEL_SOLID);
-        popup.setForeground(Theme.TEXT);
-        popup.setBorder(BorderFactory.createLineBorder(Theme.LINE));
+        Ui.stylePopupMenu(popup);
         for (Component child : popup.getComponents()) {
             if (child instanceof JComponent component) {
                 component.setBackground(Theme.PANEL_SOLID);

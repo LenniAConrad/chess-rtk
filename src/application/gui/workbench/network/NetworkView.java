@@ -15,7 +15,7 @@ import javax.swing.JComponent;
 import javax.swing.ToolTipManager;
 
 /**
- * Shared base for the three workbench network visualisers (NNUE / CNN / BT4).
+ * Shared base for the workbench network visualisers (NNUE / CNN / BT4 / OTIS).
  *
  * <p>Before this class existed each view re-implemented the same scaffolding:
  * the {@code paintComponent} skeleton, the empty/header/body split, the
@@ -96,6 +96,9 @@ public abstract class NetworkView extends JComponent {
         setPreferredSize(new Dimension(preferredWidth, preferredHeight));
         ToolTipManager.sharedInstance().registerComponent(this);
         addMouseListener(new MouseAdapter() {
+            /**
+             * {@inheritDoc}
+             */
             @Override
             public void mousePressed(MouseEvent event) {
                 requestFocusInWindow();

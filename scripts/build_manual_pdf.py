@@ -175,6 +175,22 @@ def main(argv: list[str] | None = None) -> int:
 
 
 MANUAL_STYLES = r"""
+:root {
+  color-scheme: light;
+  --bg: #f6f6f3;
+  --surface: #ffffff;
+  --surface-muted: #f0f1ed;
+  --text: #202420;
+  --muted: #666d67;
+  --border: #d9ddd7;
+  --accent: #2f6f5e;
+  --accent-strong: #245447;
+  --accent-soft: #e7f0ec;
+  --code-bg: #111827;
+  --code-text: #e7ece9;
+  --shadow: 0 18px 45px rgba(17, 24, 39, 0.08);
+}
+
 @page {
   size: A4;
   margin: 17mm 15mm 19mm;
@@ -186,21 +202,17 @@ MANUAL_STYLES = r"""
   box-sizing: border-box;
 }
 
-html {
-  color-scheme: light;
-}
-
 body {
   margin: 0;
-  background: #f4f7f3;
-  color: #17221b;
+  background: var(--bg);
+  color: var(--text);
   font: 10.5pt/1.55 Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   print-color-adjust: exact;
   -webkit-print-color-adjust: exact;
 }
 
 a {
-  color: #226b4a;
+  color: var(--accent);
   text-decoration-thickness: 0.06em;
   text-underline-offset: 0.15em;
 }
@@ -212,10 +224,10 @@ img {
 
 code {
   padding: 0.08em 0.28em;
-  border: 1px solid #d9e5d9;
+  border: 1px solid #dde2dd;
   border-radius: 5px;
-  background: #eef5ef;
-  color: #143923;
+  background: var(--surface-muted);
+  color: #1e3f35;
   font-size: 0.92em;
 }
 
@@ -225,8 +237,8 @@ pre {
   margin: 4mm 0;
   padding: 4mm;
   border-radius: 8px;
-  background: #14221a;
-  color: #edf7ef;
+  background: var(--code-bg);
+  color: var(--code-text);
 }
 
 pre code {
@@ -245,15 +257,14 @@ pre code {
 .cover {
   min-height: 247mm;
   padding: 23mm 18mm;
+  border: 1px solid var(--border);
   border-radius: 8px;
-  background:
-    linear-gradient(125deg, rgba(216, 166, 58, 0.20), transparent 42%),
-    linear-gradient(135deg, #0d1c14 0%, #153723 58%, #102018 100%);
-  color: #ffffff;
+  background: var(--surface);
 }
 
 .cover h1 {
   margin: 7mm 0 4mm;
+  color: var(--text);
   font-size: 46pt;
   line-height: 0.95;
   letter-spacing: 0;
@@ -262,7 +273,7 @@ pre code {
 .cover .tagline {
   max-width: 128mm;
   margin: 0 0 14mm;
-  color: #dbe8de;
+  color: #3f4740;
   font-size: 15pt;
 }
 
@@ -270,8 +281,8 @@ pre code {
   display: block;
   width: 132mm;
   margin: 0 0 14mm;
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  background: #ffffff;
+  border: 1px solid var(--border);
+  background: var(--surface);
 }
 
 .cover dl {
@@ -284,25 +295,25 @@ pre code {
 .cover dl div {
   min-height: 22mm;
   padding: 4mm;
-  border: 1px solid rgba(255, 255, 255, 0.18);
+  border: 1px solid var(--border);
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.08);
+  background: #fbfbf9;
 }
 
 .cover dt {
-  color: #d8a63a;
+  color: var(--accent);
   font-weight: 800;
 }
 
 .cover dd {
   margin: 1mm 0 0;
-  color: #eaf2ec;
+  color: #303630;
 }
 
 .eyebrow,
 .chapter-kicker {
   margin: 0;
-  color: #b88412;
+  color: var(--accent);
   font-weight: 800;
   letter-spacing: 0;
   text-transform: uppercase;
@@ -314,7 +325,7 @@ pre code {
 
 .contents h1 {
   margin: 2mm 0 8mm;
-  color: #123b2b;
+  color: var(--text);
   font-size: 27pt;
   letter-spacing: 0;
 }
@@ -323,14 +334,14 @@ pre code {
   break-inside: avoid;
   margin: 0 0 7mm;
   padding: 5mm;
-  border: 1px solid #d5dfd6;
+  border: 1px solid var(--border);
   border-radius: 8px;
-  background: #fffefb;
+  background: var(--surface);
 }
 
 .contents h2 {
   margin: 0 0 2mm;
-  color: #123b2b;
+  color: var(--text);
   font-size: 13pt;
 }
 
@@ -351,8 +362,8 @@ pre code {
 .chapter h1 {
   margin: 2mm 0 7mm;
   padding-bottom: 4mm;
-  border-bottom: 2px solid #d8a63a;
-  color: #123b2b;
+  border-bottom: 2px solid var(--accent);
+  color: var(--text);
   font-size: 25pt;
   line-height: 1.1;
   letter-spacing: 0;
@@ -361,21 +372,23 @@ pre code {
 .chapter h2 {
   break-after: avoid;
   margin: 8mm 0 2.5mm;
-  color: #123b2b;
+  color: var(--text);
   font-size: 16pt;
   line-height: 1.2;
+  letter-spacing: 0;
 }
 
 .chapter h3 {
   break-after: avoid;
   margin: 6mm 0 2mm;
-  color: #263c2b;
+  color: #2c332e;
   font-size: 12.5pt;
+  letter-spacing: 0;
 }
 
 .chapter p,
 .chapter li {
-  color: #303830;
+  color: #303630;
 }
 
 .chapter ul,
@@ -386,9 +399,9 @@ pre code {
 .table-wrap {
   overflow: visible;
   margin: 4mm 0;
-  border: 1px solid #d5dfd6;
+  border: 1px solid var(--border);
   border-radius: 8px;
-  background: #fffefb;
+  background: var(--surface);
 }
 
 table {
@@ -400,14 +413,18 @@ table {
 th,
 td {
   padding: 2.5mm;
-  border-bottom: 1px solid #d5dfd6;
+  border-bottom: 1px solid var(--border);
   text-align: left;
   vertical-align: top;
 }
 
 th {
-  background: #edf5ef;
-  color: #123b2b;
+  background: var(--surface-muted);
+  color: #2c332e;
+}
+
+tbody tr:nth-child(even) td {
+  background: #fbfbf9;
 }
 
 tr:last-child td {
@@ -417,9 +434,9 @@ tr:last-child td {
 blockquote {
   margin: 4mm 0;
   padding: 3mm 4mm;
-  border-left: 4px solid #2e7d57;
+  border-left: 4px solid var(--accent);
   border-radius: 0 8px 8px 0;
-  background: #e4f4ea;
+  background: var(--accent-soft);
 }
 
 @media screen {
@@ -434,16 +451,10 @@ blockquote {
   .chapter {
     margin-bottom: 10mm;
     padding: 12mm;
-    border: 1px solid #d5dfd6;
+    border: 1px solid var(--border);
     border-radius: 8px;
-    background-color: #fffefb;
-    box-shadow: 0 18px 45px rgba(24, 37, 28, 0.10);
-  }
-
-  .cover {
-    background:
-      linear-gradient(125deg, rgba(216, 166, 58, 0.20), transparent 42%),
-      linear-gradient(135deg, #0d1c14 0%, #153723 58%, #102018 100%);
+    background-color: var(--surface);
+    box-shadow: var(--shadow);
   }
 }
 """

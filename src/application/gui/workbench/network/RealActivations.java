@@ -56,6 +56,11 @@ public final class RealActivations {
     public static final String LABEL_BT4 = "BT4 - 1024x15x32h";
 
     /**
+     * User-facing OTIS model family label.
+     */
+    public static final String LABEL_OTIS = "OTIS (Policy + WDL)";
+
+    /**
      * Long-running activation provider stage surfaced to the loading panel.
      */
     public enum Phase {
@@ -155,6 +160,11 @@ public final class RealActivations {
     private static final Path BT4_PATH = Path.of("models/bt4-1024x15x32h.bin");
 
     /**
+     * OTIS randomized placeholder weights path.
+     */
+    private static final Path OTIS_PATH = chess.nn.otis.Model.DEFAULT_WEIGHTS;
+
+    /**
      * Returns the CNN weights path used by the workbench.
      *
      * @return CNN weights path
@@ -170,6 +180,15 @@ public final class RealActivations {
      */
     public static Path bt4Path() {
         return BT4_PATH;
+    }
+
+    /**
+     * Returns the OTIS weights path used by the workbench.
+     *
+     * @return OTIS weights path
+     */
+    public static Path otisPath() {
+        return OTIS_PATH;
     }
 
     /**
@@ -221,6 +240,16 @@ public final class RealActivations {
      * BT4 load failure message; non-null when the model could not be loaded.
      */
     private String bt4LoadError;
+
+    /**
+     * OTIS model, lazily loaded.
+     */
+    private chess.nn.otis.Model otisModel;
+
+    /**
+     * OTIS load failure message; non-null when the model could not be loaded.
+     */
+    private String otisLoadError;
 
     /**
      * Creates a provider.
@@ -450,6 +479,54 @@ public final class RealActivations {
     }
 
     /**
+     * Runs OTIS policy/WDL inference for a position and returns a freshly-built,
+     * sealed snapshot. Falls back to synthetic activations when the randomized
+     * placeholder weights cannot be loaded.
+     *
+     * @param fen current position FEN
+     * @return sealed snapshot (real placeholder inference or synthetic fallback)
+     */
+    public synchronized ActivationSnapshot inferOtis(String fen) {
+        return inferOtis(fen, null);
+    }
+
+    /**
+     * Runs OTIS policy/WDL inference and reports load/inference phases.
+     *
+     * @param fen current position FEN
+     * @param progress optional progress listener
+     * @return sealed snapshot (real placeholder inference or synthetic fallback)
+     */
+    public synchronized ActivationSnapshot inferOtis(String fen, ProgressListener progress) {
+        ActivationSnapshot out = new ActivationSnapshot();
+        try {
+            if (otisModel == null && otisLoadError == null) {
+                if (!Files.exists(OTIS_PATH)) {
+                    otisLoadError = "model file missing: " + OTIS_PATH;
+                } else {
+                    report(progress, LABEL_OTIS, Phase.LOADING_MODEL, OTIS_PATH);
+                    otisModel = chess.nn.otis.Model.load(OTIS_PATH);
+                }
+            }
+            if (otisModel == null) {
+                report(progress, LABEL_OTIS, Phase.SYNTHETIC_FALLBACK, OTIS_PATH);
+                SyntheticActivations.fillOtis(fen, out);
+            } else {
+                report(progress, LABEL_OTIS, Phase.RUNNING_INFERENCE, OTIS_PATH);
+                chess.core.Position position = parsePosition(fen);
+                otisModel.predict(position, out);
+            }
+        } catch (RuntimeException | IOException ex) {
+            otisLoadError = ex.getClass().getSimpleName() + ": " + ex.getMessage();
+            out = new ActivationSnapshot();
+            report(progress, LABEL_OTIS, Phase.SYNTHETIC_FALLBACK, OTIS_PATH);
+            SyntheticActivations.fillOtis(fen, out);
+        }
+        out.seal();
+        return out;
+    }
+
+    /**
      * Returns a short status describing each network's load state for the UI.
      *
      * @return human-readable multi-line status
@@ -457,7 +534,8 @@ public final class RealActivations {
     public String status() {
         return LABEL_NNUE + ": " + describe(nnueModel != null, nnueLoadError)
                 + "   " + LABEL_CNN + ": " + describe(cnnNetwork != null, cnnLoadError)
-                + "   " + LABEL_BT4 + ": " + describe(bt4Network != null, bt4LoadError);
+                + "   " + LABEL_BT4 + ": " + describe(bt4Network != null, bt4LoadError)
+                + "   " + LABEL_OTIS + ": " + describeOtis();
     }
 
     /**
@@ -471,6 +549,7 @@ public final class RealActivations {
             case "nnue" -> describe(nnueModel != null, nnueLoadError);
             case "cnn" -> describe(cnnNetwork != null, cnnLoadError);
             case "bt4" -> describe(bt4Network != null, bt4LoadError);
+            case "otis" -> describeOtis();
             default -> "?";
         };
     }
@@ -486,7 +565,33 @@ public final class RealActivations {
         return List.of(
                 preview(LABEL_NNUE, nnuePath, nnueModel != null, nnueLoadError),
                 preview(LABEL_CNN, CNN_PATH, cnnNetwork != null, cnnLoadError),
-                preview(LABEL_BT4, BT4_PATH, bt4Network != null, bt4LoadError));
+                preview(LABEL_BT4, BT4_PATH, bt4Network != null, bt4LoadError),
+                otisPreview());
+    }
+
+    /**
+     * Builds the OTIS model status row with architecture metadata.
+     *
+     * @return OTIS model status
+     */
+    private ModelStatus otisPreview() {
+        boolean present = Files.exists(OTIS_PATH);
+        String architecture = otisModel == null
+                ? chess.nn.otis.Model.defaultArchitectureLabel()
+                : otisModel.architectureLabel();
+        if (otisModel != null) {
+            return new ModelStatus(LABEL_OTIS, OTIS_PATH, present, true, "loaded",
+                    fileDetail(OTIS_PATH, architecture + " - real inference ready"));
+        }
+        if (otisLoadError != null) {
+            return new ModelStatus(LABEL_OTIS, OTIS_PATH, present, false, "fallback", otisLoadError);
+        }
+        if (present) {
+            return new ModelStatus(LABEL_OTIS, OTIS_PATH, true, false, "available",
+                    fileDetail(OTIS_PATH, architecture + " - loads on first inference"));
+        }
+        return new ModelStatus(LABEL_OTIS, OTIS_PATH, false, false, "missing",
+                architecture + " - synthetic fallback");
     }
 
     /**
@@ -570,6 +675,28 @@ public final class RealActivations {
         }
         if (error != null) {
             return "synthetic (" + error + ")";
+        }
+        return "synthetic (not loaded yet)";
+    }
+
+    /**
+     * Returns a compact OTIS status with the visible parameter count.
+     *
+     * @return OTIS status
+     */
+    private String describeOtis() {
+        if (otisModel != null) {
+            return "real inference - "
+                    + chess.nn.otis.Model.formatParameterCount(otisModel.info().parameterCount())
+                    + " params";
+        }
+        if (otisLoadError != null) {
+            return "synthetic (" + otisLoadError + ")";
+        }
+        if (Files.exists(OTIS_PATH)) {
+            return "available - "
+                    + chess.nn.otis.Model.formatParameterCount(chess.nn.otis.Model.DEFAULT_PARAMETER_COUNT)
+                    + " params";
         }
         return "synthetic (not loaded yet)";
     }

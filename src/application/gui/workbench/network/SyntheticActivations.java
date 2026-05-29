@@ -64,6 +64,11 @@ public final class SyntheticActivations {
     private static final int BT4_HEADS = 32;
 
     /**
+     * OTIS placeholder trunk channel count.
+     */
+    private static final int OTIS_CHANNELS = 64;
+
+    /**
      * Prevents instantiation.
      */
     private SyntheticActivations() {
@@ -446,6 +451,120 @@ public final class SyntheticActivations {
     }
 
     /**
+     * Fills an OTIS policy/WDL snapshot.
+     *
+     * @param fen current position FEN, used as PRNG seed
+     * @param out destination snapshot (cleared first)
+     */
+    public static void fillOtis(String fen, ActivationSnapshot out) {
+        out.clear();
+        Random rng = seed(fen, "otis");
+
+        float[] input = gaussian(rng, chess.nn.otis.Model.INPUT_PLANES * 8 * 8, 0.35f);
+        out.put("otis.input", new int[] { chess.nn.otis.Model.INPUT_PLANES, 8, 8 }, input);
+
+        float[] salience = new float[64];
+        for (int sq = 0; sq < 64; sq++) {
+            salience[sq] = (float) Math.tanh(rng.nextGaussian() * 0.65);
+        }
+        out.put("otis.square.salience", new int[] { 8, 8 }, salience);
+
+        float[] sheafNode = new float[64];
+        float[] sheafLaplacian = new float[64];
+        for (int sq = 0; sq < 64; sq++) {
+            sheafNode[sq] = (float) Math.tanh(salience[sq] + rng.nextGaussian() * 0.22);
+            sheafLaplacian[sq] = (float) Math.tanh(rng.nextGaussian() * 0.35 - sheafNode[sq] * 0.18);
+        }
+        out.put("otis.sheaf.node", new int[] { 8, 8 }, sheafNode);
+        out.put("otis.sheaf.laplacian", new int[] { 8, 8 }, sheafLaplacian);
+
+        float[] relationDensity = new float[chess.nn.otis.Model.RELATION_COUNT];
+        float[] relationEnergy = new float[chess.nn.otis.Model.RELATION_COUNT];
+        float[] relationGate = new float[chess.nn.otis.Model.RELATION_COUNT];
+        float[] sourcePressure = new float[chess.nn.otis.Model.RELATION_COUNT * 64];
+        float[] targetPressure = new float[chess.nn.otis.Model.RELATION_COUNT * 64];
+        for (int r = 0; r < chess.nn.otis.Model.RELATION_COUNT; r++) {
+            relationDensity[r] = (float) Math.max(0.0, rng.nextGaussian() * 0.018 + 0.035);
+            relationEnergy[r] = (float) Math.abs(rng.nextGaussian() * 0.22 + relationDensity[r] * 6.0);
+            relationGate[r] = (float) (0.75 + rng.nextDouble() * 0.65);
+            for (int sq = 0; sq < 64; sq++) {
+                float base = Math.max(0.0f, sheafNode[sq] + 1.0f) * 0.5f;
+                sourcePressure[r * 64 + sq] = (float) Math.max(0.0, base + rng.nextGaussian() * 0.18);
+                targetPressure[r * 64 + sq] = (float) Math.max(0.0, base + rng.nextGaussian() * 0.18);
+            }
+        }
+        out.put("otis.sheaf.target.pressure",
+                new int[] { chess.nn.otis.Model.RELATION_COUNT, 8, 8 }, targetPressure);
+        out.put("otis.sheaf.source.pressure",
+                new int[] { chess.nn.otis.Model.RELATION_COUNT, 8, 8 }, sourcePressure);
+        out.put("otis.sheaf.relation.density",
+                new int[] { chess.nn.otis.Model.RELATION_COUNT }, relationDensity);
+        out.put("otis.sheaf.relation.energy",
+                new int[] { chess.nn.otis.Model.RELATION_COUNT }, relationEnergy);
+        out.put("otis.sheaf.relation.gate",
+                new int[] { chess.nn.otis.Model.RELATION_COUNT }, relationGate);
+        out.putScalar("otis.sheaf.tension", mean(relationEnergy));
+        out.putScalar("otis.sheaf.transport_imbalance", Math.abs(relationDensity[0] - relationDensity[1])
+                / Math.max(1.0e-6f, relationDensity[0] + relationDensity[1]));
+        out.putScalar("otis.sheaf.topology_pressure", mean(relationDensity));
+        out.putScalar("otis.sheaf.pin_pressure", relationDensity[11]);
+
+        float[] trunk = new float[OTIS_CHANNELS * 64];
+        float[] summary = new float[OTIS_CHANNELS];
+        for (int c = 0; c < OTIS_CHANNELS; c++) {
+            float sum = 0.0f;
+            for (int sq = 0; sq < 64; sq++) {
+                float v = (float) Math.tanh(salience[sq] * (0.8 + rng.nextDouble() * 0.35)
+                        + rng.nextGaussian() * 0.18);
+                trunk[c * 64 + sq] = v;
+                sum += v;
+            }
+            summary[c] = sum / 64.0f;
+        }
+        out.put("otis.trunk", new int[] { OTIS_CHANNELS, 8, 8 }, trunk);
+        out.put("otis.trunk.summary", new int[] { OTIS_CHANNELS }, summary);
+
+        float[] policyLogits = gaussian(rng, chess.nn.lc0.bt4.PolicyEncoder.POLICY_SIZE, 1.1f);
+        out.put("otis.policy.logits", new int[] { policyLogits.length }, policyLogits);
+
+        float[] valueLogits = gaussian(rng, 3, 1.0f);
+        out.put("otis.value.logits", new int[] { 3 }, valueLogits);
+        float[] wdl = softmax(valueLogits);
+        out.put("otis.value.wdl", new int[] { 3 }, wdl);
+        out.putScalar("otis.value.scalar", wdl[0] - wdl[2]);
+
+        out.put("otis.weights.square", new int[] { 8, 8 }, gaussian(rng, 64, 0.7f));
+        out.put("otis.weights.policy", new int[] { 8, 8 }, gaussian(rng, 64, 0.7f));
+        out.put("otis.weights.value", new int[] { 8, 8 }, gaussian(rng, 64, 0.7f));
+        out.put("otis.weights.raw_proj",
+                new int[] { chess.nn.otis.Model.RAW_DIM, chess.nn.otis.Model.INPUT_PLANES },
+                gaussian(rng, chess.nn.otis.Model.RAW_DIM * chess.nn.otis.Model.INPUT_PLANES, 0.08f));
+        out.put("otis.weights.piece_proj",
+                new int[] { chess.nn.otis.Model.PIECE_DIM, chess.nn.otis.Model.PIECE_STATE_PLANES },
+                gaussian(rng, chess.nn.otis.Model.PIECE_DIM * chess.nn.otis.Model.PIECE_STATE_PLANES, 0.08f));
+        out.put("otis.weights.coord_proj", new int[] { chess.nn.otis.Model.COORD_DIM, 6 },
+                gaussian(rng, chess.nn.otis.Model.COORD_DIM * 6, 0.08f));
+        out.put("otis.weights.rho_src",
+                new int[] { chess.nn.otis.Model.DEFAULT_BLOCKS * chess.nn.otis.Model.RELATION_COUNT,
+                        chess.nn.otis.Model.STALK_DIM, chess.nn.otis.Model.STALK_DIM },
+                gaussian(rng, chess.nn.otis.Model.DEFAULT_BLOCKS * chess.nn.otis.Model.RELATION_COUNT
+                        * chess.nn.otis.Model.STALK_DIM * chess.nn.otis.Model.STALK_DIM, 0.12f));
+        out.put("otis.weights.rho_dst",
+                new int[] { chess.nn.otis.Model.DEFAULT_BLOCKS * chess.nn.otis.Model.RELATION_COUNT,
+                        chess.nn.otis.Model.STALK_DIM, chess.nn.otis.Model.STALK_DIM },
+                gaussian(rng, chess.nn.otis.Model.DEFAULT_BLOCKS * chess.nn.otis.Model.RELATION_COUNT
+                        * chess.nn.otis.Model.STALK_DIM * chess.nn.otis.Model.STALK_DIM, 0.12f));
+        out.put("otis.weights.readout_hidden",
+                new int[] { chess.nn.otis.Model.HIDDEN_DIM, chess.nn.otis.Model.defaultReadoutDim() },
+                gaussian(rng, chess.nn.otis.Model.HIDDEN_DIM * chess.nn.otis.Model.defaultReadoutDim(), 0.04f));
+        out.put("otis.weights.policy_head",
+                new int[] { chess.nn.otis.Model.DEFAULT_POLICY_SIZE, chess.nn.otis.Model.HIDDEN_DIM },
+                gaussian(rng, chess.nn.otis.Model.DEFAULT_POLICY_SIZE * chess.nn.otis.Model.HIDDEN_DIM, 0.03f));
+        out.put("otis.weights.wdl_head", new int[] { 3, chess.nn.otis.Model.HIDDEN_DIM },
+                gaussian(rng, 3 * chess.nn.otis.Model.HIDDEN_DIM, 0.04f));
+    }
+
+    /**
      * Fills a single 64x64 attention head into the destination buffer with a
      * non-uniform pattern that emphasises rank/file/diagonal structure so the
      * visualizer can show recognisable chess motifs.
@@ -513,7 +632,7 @@ public final class SyntheticActivations {
             h ^= combined.charAt(i);
             h *= 1099511628211L;
         }
-    return new Random(h);
+        return new Random(h);
     }
 
     /**
@@ -525,9 +644,19 @@ public final class SyntheticActivations {
      * @return indices
      */
     private static int[] pickFeatureIndices(Random rng, int n, int dim) {
-        int[] out = new int[n];
-        for (int i = 0; i < n; ++i) {
-            out[i] = rng.nextInt(dim);
+        int count = Math.min(Math.max(n, 0), Math.max(dim, 0));
+        int[] out = new int[count];
+        if (count == 0) {
+            return out;
+        }
+        boolean[] used = new boolean[dim];
+        int filled = 0;
+        while (filled < count) {
+            int candidate = rng.nextInt(dim);
+            if (!used[candidate]) {
+                used[candidate] = true;
+                out[filled++] = candidate;
+            }
         }
         return out;
     }
@@ -574,6 +703,23 @@ public final class SyntheticActivations {
             out[i] = Math.max(0.0f, Math.min(1.0f, input[i]));
         }
         return out;
+    }
+
+    /**
+     * Returns arithmetic mean.
+     *
+     * @param values values
+     * @return mean, or zero for an empty array
+     */
+    private static float mean(float[] values) {
+        if (values == null || values.length == 0) {
+            return 0.0f;
+        }
+        float sum = 0.0f;
+        for (float value : values) {
+            sum += value;
+        }
+        return sum / values.length;
     }
 
     /**

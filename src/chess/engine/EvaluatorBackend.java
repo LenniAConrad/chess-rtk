@@ -21,11 +21,15 @@ final class EvaluatorBackend implements SearchBackend {
 
     /**
      * Evaluator backend.
-     * @param evaluator evaluator value */
+     * @param evaluator evaluator value
+     */
     EvaluatorBackend(CentipawnEvaluator evaluator) {
         this.evaluator = evaluator;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public Evaluation evaluate(Position position) {
         if (evaluator instanceof Classical) {
@@ -34,26 +38,41 @@ final class EvaluatorBackend implements SearchBackend {
         return Evaluation.fromCentipawns(evaluator.evaluate(position));
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public void prepareMoveOrdering(Position position) {
         evaluator.prepareMoveOrdering(position);
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public void scoreMoves(Position position, short[] moves, int[] scores) {
         evaluator.scoreMoves(position, moves, scores);
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public String name() {
         return evaluator.name();
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public boolean threadSafe() {
         return evaluator instanceof Classical;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public void close() {
         evaluator.close();

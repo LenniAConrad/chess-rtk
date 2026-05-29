@@ -123,13 +123,11 @@ public final class WindowDashboardActions extends WindowHost implements Dashboar
     }
 
     /**
-     * Opens the Console bottom-dock tab.
+     * Opens the Console tab.
      */
     @Override
     public void openConsoleTab() {
-        // Console moved into the bottom dock; route through the dock helper
-        // so the dock pops open and selects the Console section.
-        window.showInBottomDock(WindowBase.DOCK_CONSOLE);
+        window.selectTab(WindowBase.TAB_CONSOLE);
     }
 
     /**

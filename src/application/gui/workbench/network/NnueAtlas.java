@@ -668,10 +668,24 @@ public final class NnueAtlas {
      * @param square 0..63 LERF index
      */
     public static void overlaySelectedSquare(Graphics2D g, Rectangle tile, int square) {
+        overlaySelectedSquare(g, tile, square, true);
+    }
+
+    /**
+     * Lightly outlines one board square inside an atlas tile so the user can
+     * see which cell maps to the currently-selected board square.
+     *
+     * @param g graphics
+     * @param tile tile rectangle
+     * @param square 0..63 LERF index
+     * @param whiteDown whether White is rendered at the bottom
+     */
+    public static void overlaySelectedSquare(Graphics2D g, Rectangle tile, int square, boolean whiteDown) {
         if (tile.width < 8 || tile.height < 8) {
             return;
         }
-        BoardStyle.drawInsetSquareHighlight(g, BoardStyle.lerfSquareBounds(tile, square, true), TensorViz.FOCUS);
+        BoardStyle.drawInsetSquareHighlight(g, BoardStyle.lerfSquareBounds(tile, square, whiteDown),
+                TensorViz.FOCUS);
     }
 
     /**
@@ -726,8 +740,26 @@ public final class NnueAtlas {
      */
     public static void paintAtlasTileDense(Graphics2D g, Rectangle r, float[] atlas,
             int offset, float scale, boolean selected) {
+        paintAtlasTileDense(g, r, atlas, offset, scale, selected, true);
+    }
+
+    /**
+     * Paints a single dense atlas tile straight onto the canvas with no
+     * border, reading 64 weights from a flat atlas array starting at the
+     * given offset.
+     *
+     * @param g graphics
+     * @param r tile rectangle
+     * @param atlas flat atlas data
+     * @param offset starting offset of this tile's 64 weights
+     * @param scale max-abs scale
+     * @param selected highlight ring when selected
+     * @param whiteDown whether White is rendered at the bottom
+     */
+    public static void paintAtlasTileDense(Graphics2D g, Rectangle r, float[] atlas,
+            int offset, float scale, boolean selected, boolean whiteDown) {
         for (int sq = 0; sq < 64; sq++) {
-            Rectangle cell = BoardStyle.lerfSquareBounds(r, sq, true);
+            Rectangle cell = BoardStyle.lerfSquareBounds(r, sq, whiteDown);
             float v = atlas[offset + sq] / scale;
             if (v > 1.0f) {
                 v = 1.0f;

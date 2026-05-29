@@ -170,34 +170,34 @@ public final class Theme {
     private static final String FOREGROUND_ROLE_PROPERTY = Theme.class.getName() + ".foregroundRole";
 
     /**
-     * VS Code Light Modern primary foreground.
+     * VS Code Light (Visual Studio) primary foreground.
      */
-    private static final Color PASTEL_INK = new Color(0x3B3B3B);
+    private static final Color PASTEL_INK = new Color(0x000000);
 
     /**
-     * VS Code Light Modern inactive foreground.
+     * VS Code Light (Visual Studio) secondary foreground.
      */
-    private static final Color PASTEL_MUTED = new Color(0x616161);
+    private static final Color PASTEL_MUTED = new Color(0x6F6F6F);
 
     /**
-     * VS Code Light Modern chrome background.
+     * VS Code Light (Visual Studio) chrome/widget background.
      */
-    private static final Color PASTEL_CHROME = new Color(0xF8F8F8);
+    private static final Color PASTEL_CHROME = new Color(0xF3F3F3);
 
     /**
-     * VS Code Light Modern hover/subtle-fill base.
+     * VS Code Light (Visual Studio) hover/subtle-fill base.
      */
-    private static final Color PASTEL_SUBTLE = new Color(0xF2F2F2);
+    private static final Color PASTEL_SUBTLE = new Color(0xE8E8E8);
 
     /**
-     * Light document/editor surface.
+     * VS Code Light (Visual Studio) document/editor surface.
      */
     private static final Color PASTEL_DOCUMENT = new Color(255, 255, 255);
 
     /**
-     * VS Code Light Modern panel/editor border.
+     * VS Code Light (Visual Studio) widget/menu border.
      */
-    private static final Color PASTEL_BORDER = new Color(0xE5E5E5);
+    private static final Color PASTEL_BORDER = new Color(0xD4D4D4);
 
     /**
      * VS Code Light Modern focus/action blue.
@@ -255,41 +255,39 @@ public final class Theme {
     private static final Color PASTEL_PURPLE = new Color(204, 154, 245);
 
     /**
-     * VS Code Dark Modern primary foreground.
+     * VS Code Dark (Visual Studio) primary foreground.
      */
-    private static final Color DARK_INK = new Color(0xCCCCCC);
+    private static final Color DARK_INK = new Color(0xD4D4D4);
 
     /**
-     * VS Code Dark Modern inactive foreground.
+     * VS Code Dark (Visual Studio) secondary foreground.
      */
-    private static final Color DARK_MUTED = new Color(0x9D9D9D);
+    private static final Color DARK_MUTED = new Color(0xA6A6A6);
 
     /**
-     * Unified dark workbench background.
+     * VS Code Dark (Visual Studio) menu/sidebar chrome background.
      */
-    private static final Color DARK_CHROME = new Color(31, 31, 31);
+    private static final Color DARK_CHROME = new Color(0x252526);
 
     /**
-     * VS Code Dark Modern panel/editor border and subtle surface.
+     * VS Code Dark (Visual Studio) widget border.
      */
-    private static final Color DARK_SUBTLE = new Color(0x2B2B2B);
+    private static final Color DARK_SUBTLE = new Color(0x303031);
 
     /**
-     * Dark editor/panel surface.
+     * VS Code Dark (Visual Studio) editor surface.
      */
-    private static final Color DARK_DOCUMENT = new Color(31, 31, 31);
+    private static final Color DARK_DOCUMENT = new Color(0x1E1E1E);
 
     /**
-     * VS Code Dark Modern input/dropdown surface. Kept equal to the editor
-     * surface so dark popups, fields, and cards do not alternate between
-     * competing gray backgrounds.
+     * VS Code Dark (Visual Studio) popup/dropdown surface.
      */
-    private static final Color DARK_ELEVATED = DARK_DOCUMENT;
+    private static final Color DARK_ELEVATED = DARK_CHROME;
 
     /**
-     * VS Code Dark Modern input/dropdown border.
+     * VS Code Dark (Visual Studio) menu separator and input border.
      */
-    private static final Color DARK_BORDER = new Color(0x3C3C3C);
+    private static final Color DARK_BORDER = new Color(0x454545);
 
     /**
      * VS Code Dark Modern focus/action blue.
@@ -370,7 +368,7 @@ public final class Theme {
     /**
      * Elevated panel color.
      */
-    public static Color ELEVATED = PASTEL_DOCUMENT;
+    public static Color ELEVATED = PASTEL_CHROME;
 
     /**
      * Solid elevated fallback for data surfaces and scroll viewports.
@@ -400,7 +398,7 @@ public final class Theme {
     /**
      * Table and tree selection color.
      */
-    public static Color SELECTION = new Color(0xE8E8E8);
+    public static Color SELECTION = new Color(0xE5EBF1);
 
     /**
      * Solid selection fallback for opaque renderers.
@@ -420,17 +418,17 @@ public final class Theme {
     /**
      * Secondary button color.
      */
-    public static Color SECONDARY_BUTTON = PASTEL_BORDER;
+    public static Color SECONDARY_BUTTON = PASTEL_CHROME;
 
     /**
      * Secondary button hover color.
      */
-    public static Color SECONDARY_BUTTON_HOVER = new Color(0xCCCCCC);
+    public static Color SECONDARY_BUTTON_HOVER = PASTEL_SUBTLE;
 
     /**
      * Secondary button pressed color.
      */
-    public static Color SECONDARY_BUTTON_PRESSED = new Color(0xC8C8C8);
+    public static Color SECONDARY_BUTTON_PRESSED = new Color(0xDDDDDD);
 
     /**
      * Secondary button text color.
@@ -465,7 +463,7 @@ public final class Theme {
     /**
      * Disabled input background color.
      */
-    public static Color INPUT_DISABLED = PASTEL_SUBTLE;
+    public static Color INPUT_DISABLED = PASTEL_CHROME;
 
     /**
      * Toggle-off background color.
@@ -671,7 +669,7 @@ public final class Theme {
     /**
      * Tooltip surface color.
      */
-    public static Color TOOLTIP_BG = PASTEL_DOCUMENT;
+    public static Color TOOLTIP_BG = PASTEL_CHROME;
 
     /**
      * Tooltip text color.
@@ -830,7 +828,7 @@ public final class Theme {
     // ------------------------------------------------------------------
     // Neural-network visualization palette
     //
-    // The accent colors the NNUE / CNN / BT4 views paint activations and
+    // The accent colors the NNUE / CNN / BT4 / OTIS views paint activations and
     // data-flow branches with. Kept here (rather than as private literals in
     // TensorViz) so the network views speak the same color language
     // as the rest of the workbench chrome.
@@ -1101,10 +1099,12 @@ public final class Theme {
         int rgb = color.getRGB() & 0x00ff_ffff;
         return rgb == (PASTEL_BORDER.getRGB() & 0x00ff_ffff)
                 || rgb == 0xe5e5e5
+                || rgb == 0xd4d4d4
                 || rgb == 0xe1e5eb
                 || rgb == 0xc7cdd7
                 || rgb == (DARK_SUBTLE.getRGB() & 0x00ff_ffff)
                 || rgb == (DARK_BORDER.getRGB() & 0x00ff_ffff)
+                || rgb == 0x303031
                 || rgb == 0x373737
                 || rgb == 0x454545
                 || rgb == 0x2b2b2b
@@ -1204,26 +1204,26 @@ public final class Theme {
         TRANSPARENT = new Color(PASTEL_DOCUMENT.getRed(), PASTEL_DOCUMENT.getGreen(), PASTEL_DOCUMENT.getBlue(), 0);
         PANEL = PASTEL_DOCUMENT;
         PANEL_SOLID = blendOver(PANEL, BG);
-        ELEVATED = PASTEL_DOCUMENT;
+        ELEVATED = PASTEL_CHROME;
         ELEVATED_SOLID = blendOver(ELEVATED, BG);
         LINE = PASTEL_BORDER;
         TEXT = PASTEL_INK;
         MUTED = PASTEL_MUTED;
         ACCENT = PASTEL_BLUE;
-        SELECTION = new Color(0xE8E8E8);
+        SELECTION = new Color(0xE5EBF1);
         SELECTION_SOLID = blendOver(SELECTION, BG);
         ACCENT_HOVER = PASTEL_BLUE_HOVER;
         ACCENT_PRESSED = PASTEL_BLUE_PRESSED;
-        SECONDARY_BUTTON = PASTEL_BORDER;
-        SECONDARY_BUTTON_HOVER = new Color(0xCCCCCC);
-        SECONDARY_BUTTON_PRESSED = new Color(0xC8C8C8);
+        SECONDARY_BUTTON = PASTEL_CHROME;
+        SECONDARY_BUTTON_HOVER = PASTEL_SUBTLE;
+        SECONDARY_BUTTON_PRESSED = new Color(0xDDDDDD);
         SECONDARY_BUTTON_TEXT = PASTEL_INK;
         BUTTON_DISABLED_BG = PASTEL_CHROME;
         BUTTON_DISABLED_BORDER = PASTEL_BORDER;
         BUTTON_DISABLED_TEXT = PASTEL_MUTED;
         INPUT_BORDER = new Color(0xCECECE);
         INPUT_FOCUS = PASTEL_BLUE;
-        INPUT_DISABLED = PASTEL_SUBTLE;
+        INPUT_DISABLED = PASTEL_CHROME;
         TOGGLE_BG = PASTEL_SUBTLE;
         TOGGLE_BORDER = INPUT_BORDER;
         TOGGLE_TRACK = PASTEL_MUTED;
@@ -1243,7 +1243,7 @@ public final class Theme {
         SCROLLBAR_TRACK = new Color(PASTEL_CHROME.getRed(), PASTEL_CHROME.getGreen(), PASTEL_CHROME.getBlue(), 0);
         SCROLLBAR_THUMB = new Color(PASTEL_MUTED.getRed(), PASTEL_MUTED.getGreen(), PASTEL_MUTED.getBlue(), 80);
         SCROLLBAR_THUMB_HOVER = new Color(PASTEL_MUTED.getRed(), PASTEL_MUTED.getGreen(), PASTEL_MUTED.getBlue(), 130);
-        TOOLTIP_BG = PASTEL_DOCUMENT;
+        TOOLTIP_BG = PASTEL_CHROME;
         TOOLTIP_TEXT = PASTEL_INK;
         TOOLTIP_BORDER = PASTEL_BORDER;
         STATUS_SUCCESS_BG = new Color(239, 250, 243);
@@ -1285,20 +1285,20 @@ public final class Theme {
         TEXT = DARK_INK;
         MUTED = DARK_MUTED;
         ACCENT = DARK_ACCENT;
-        SELECTION = withAlpha(new Color(0x2489DB), 82);
+        SELECTION = new Color(0x3A3D41);
         SELECTION_SOLID = blendOver(SELECTION, BG);
         ACCENT_HOVER = DARK_ACCENT_HOVER;
         ACCENT_PRESSED = DARK_ACCENT_PRESSED;
-        SECONDARY_BUTTON = DARK_DOCUMENT;
+        SECONDARY_BUTTON = DARK_CHROME;
         SECONDARY_BUTTON_HOVER = DARK_SUBTLE;
-        SECONDARY_BUTTON_PRESSED = DARK_ELEVATED;
+        SECONDARY_BUTTON_PRESSED = new Color(0x383A49);
         SECONDARY_BUTTON_TEXT = DARK_INK;
         BUTTON_DISABLED_BG = DARK_DOCUMENT;
         BUTTON_DISABLED_BORDER = DARK_SUBTLE;
         BUTTON_DISABLED_TEXT = new Color(0x868686);
         INPUT_BORDER = DARK_BORDER;
         INPUT_FOCUS = DARK_ACCENT;
-        INPUT_DISABLED = DARK_SUBTLE;
+        INPUT_DISABLED = DARK_CHROME;
         TOGGLE_BG = DARK_ELEVATED;
         TOGGLE_BORDER = DARK_BORDER;
         TOGGLE_TRACK = DARK_MUTED;
@@ -1313,7 +1313,7 @@ public final class Theme {
         PRIMARY_BUTTON_TEXT = Color.WHITE;
         setFixedBoardAndEvalColors();
         TAB_ACCENT_UNDERLINE = withAlpha(ACCENT, 255);
-        TAB_HOVER = new Color(DARK_DOCUMENT.getRed(), DARK_DOCUMENT.getGreen(), DARK_DOCUMENT.getBlue(), 255);
+        TAB_HOVER = new Color(0x222222);
         TAB_IDLE = new Color(BG.getRed(), BG.getGreen(), BG.getBlue(), 255);
         SCROLLBAR_TRACK = new Color(DARK_CHROME.getRed(), DARK_CHROME.getGreen(), DARK_CHROME.getBlue(), 0);
         SCROLLBAR_THUMB = new Color(DARK_MUTED.getRed(), DARK_MUTED.getGreen(), DARK_MUTED.getBlue(), 82);

@@ -22,6 +22,13 @@ final class PuzzleVolatilityCsv {
         // utility
     }
 
+    /**
+     * Writes root-level volatility metrics as CSV.
+     *
+     * @param path output CSV path
+     * @param reports root reports
+     * @throws IOException on write failure
+     */
     static void writeRootCsv(Path path, List<RootReport> reports) throws IOException {
         createParent(path);
         StringBuilder sb = new StringBuilder(Math.max(1024, reports.size() * 420));

@@ -195,6 +195,18 @@ public final class Mcts implements AutoCloseable {
     }
 
     /**
+     * Creates an OTIS policy/WDL-backed MCTS searcher.
+     *
+     * @param weights OTIS weights path
+     * @return policy/value-backed searcher
+     * @throws IOException if weights cannot be loaded
+     */
+    public static Mcts otis(Path weights) throws IOException {
+        Path resolved = weights == null ? chess.nn.otis.Model.DEFAULT_WEIGHTS : weights;
+        return new Mcts(new OtisBackend(chess.nn.otis.Model.load(resolved)), DEFAULT_CPUCT);
+    }
+
+    /**
      * Creates a searcher around a policy/value backend.
      * @param backend backend value
      * @param cpuct cpuct value
@@ -1774,6 +1786,9 @@ public final class Mcts implements AutoCloseable {
         return new LinkedHashMap<>(1024, 0.75f, true) {
             private static final long serialVersionUID = 1L;
 
+            /**
+             * {@inheritDoc}
+             */
             @Override
             protected boolean removeEldestEntry(Map.Entry<Long, Stats> eldest) {
                 return size() > cap;

@@ -32,7 +32,9 @@ import static application.gui.workbench.ui.Ui.trimmed;
  */
 
 public abstract class WindowCommandLayer extends WindowGameLayer {
-    /** Serialization identifier for Swing frame compatibility. */
+    /**
+     * Serialization identifier for Swing frame compatibility.
+     */
     private static final long serialVersionUID = 1L;
 
     /**
@@ -230,7 +232,7 @@ public abstract class WindowCommandLayer extends WindowGameLayer {
                 lines++;
             }
         }
-        return Math.max(3, Math.min(14, lines));
+        return Math.max(3, Math.min(6, lines));
     }
 
     /**

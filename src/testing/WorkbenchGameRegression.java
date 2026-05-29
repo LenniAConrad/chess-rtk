@@ -5,6 +5,7 @@ import static testing.WorkbenchTestSupport.*;
 import java.awt.Component;
 import java.awt.Color;
 import java.awt.Font;
+import java.awt.Point;
 import java.awt.image.BufferedImage;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -27,6 +28,7 @@ import application.gui.workbench.ui.NotationPainter;
 import application.gui.workbench.ui.Theme;
 
 import chess.core.Move;
+import chess.core.Field;
 import chess.core.Position;
 import chess.core.Setup;
 import chess.struct.Game;
@@ -58,6 +60,8 @@ final class WorkbenchGameRegression {
         testPuzzlePanelTogglesReviewStartEnd();
         testPuzzlePanelAnimatesOpponentReplySeparately();
         testPuzzleWrongMoveUsesChessWebMarker();
+        testPuzzleWrongMoveMarkerStaysInsideEdgeSquare();
+        testPuzzleSampleBranchTransitionAnimatesRewind();
         testPuzzleSessionReviewNavigation();
         testPuzzleLibraryLoadsDifficultCsv();
         testPuzzleLibraryLoadsChessWebPgn();
@@ -153,6 +157,31 @@ final class WorkbenchGameRegression {
             for (int xx = x; xx < x + width; xx++) {
                 Color color = new Color(image.getRGB(xx, yy), true);
                 if (color.getRed() > 180 && color.getGreen() < 100 && color.getBlue() < 100) {
+                    count++;
+                }
+            }
+        }
+        return count;
+    }
+
+    /**
+     * Counts red-dominant error marker pixels in a rectangular region.
+     *
+     * @param image source image
+     * @param x region x
+     * @param y region y
+     * @param width region width
+     * @param height region height
+     * @return red-dominant pixel count
+     */
+    private static int errorMarkerPixelCount(BufferedImage image, int x, int y, int width, int height) {
+        int count = 0;
+        for (int yy = y; yy < y + height; yy++) {
+            for (int xx = x; xx < x + width; xx++) {
+                Color color = new Color(image.getRGB(xx, yy), true);
+                if (color.getAlpha() > 120
+                        && color.getRed() > color.getGreen() * 2
+                        && color.getRed() > color.getBlue() * 2) {
                     count++;
                 }
             }
@@ -357,6 +386,78 @@ final class WorkbenchGameRegression {
                 "wrong puzzle move avoids hint arrow markup");
         String status = ((javax.swing.JLabel) field(panel, "statusLabel")).getText();
         assertFalse(status.contains("e4d6"), "wrong puzzle status does not print expected move");
+    }
+
+    /**
+     * Verifies the wrong-move badge stays inside edge squares instead of being
+     * clipped by the board edge.
+     */
+    private static void testPuzzleWrongMoveMarkerStaysInsideEdgeSquare() {
+        Object board = construct(type("BoardPanel"), new Class<?>[0]);
+        Component component = (Component) board;
+        component.setSize(640, 640);
+        invoke(board, "setPosition", new Class<?>[] { Position.class, short.class },
+                new Position(START_FEN), Move.NO_MOVE);
+        byte target = Field.toIndex('h', '8');
+
+        invoke(board, "showWrongMoveMarker", new Class<?>[] { byte.class }, target);
+        setField(board, "wrongMoveMarkerStartedAt", Long.valueOf(System.currentTimeMillis() - 200L));
+        BufferedImage image = paint(component, 640, 640);
+        Point center = boardPoint(target, true, 640, 640);
+        int cell = Math.min(640 - 64, 640 - 64) / 8;
+        int left = center.x - cell / 2;
+        int top = center.y - cell / 2;
+        int right = left + cell - 1;
+
+        assertTrue(errorMarkerPixelCount(image, left, top, cell, cell) > 40,
+                "wrong-move marker is visible on an edge square");
+        assertEquals(Integer.valueOf(0),
+                Integer.valueOf(errorMarkerPixelCount(image, left, top, cell, 1)),
+                "wrong-move marker does not touch the board top edge");
+        assertEquals(Integer.valueOf(0),
+                Integer.valueOf(errorMarkerPixelCount(image, right, top, 1, cell)),
+                "wrong-move marker does not touch the board right edge");
+    }
+
+    /**
+     * Verifies the bundled sample puzzle shows the user's final mainline move
+     * before rewinding to the variation branch and auto-playing the opponent.
+     */
+    private static void testPuzzleSampleBranchTransitionAnimatesRewind() {
+        PuzzlePanel panel = (PuzzlePanel) construct(type("PuzzlePanel"), new Class<?>[] { boolean.class },
+                Boolean.FALSE);
+        invoke(panel, "loadSamplePuzzle", new Class<?>[0]);
+        Object board = field(panel, "board");
+
+        invoke(panel, "playUserMove", new Class<?>[] { short.class }, Move.parse("e4d6"));
+        invoke(panel, "advanceResponseAnimation", new Class<?>[0]);
+        invoke(panel, "playUserMove", new Class<?>[] { short.class }, Move.parse("d6e4"));
+        invoke(panel, "advanceResponseAnimation", new Class<?>[0]);
+        assertEquals("6n1/1P2k2r/5b2/n2p3p/pp2NP2/8/7R/7K w - - 0 65",
+                invoke(board, "position", new Class<?>[0]),
+                "sample reaches the final mainline solver decision");
+
+        invoke(panel, "playUserMove", new Class<?>[] { short.class }, Move.parse("b7b8q"));
+
+        assertEquals("1Q4n1/4k2r/5b2/n2p3p/pp2NP2/8/7R/7K b - - 0 65",
+                invoke(board, "position", new Class<?>[0]),
+                "sample shows the user's promotion before branch rewind");
+        assertTrue((Boolean) field(panel, "responseAnimationActive"),
+                "sample branch transition is animated");
+
+        invoke(panel, "advanceResponseAnimation", new Class<?>[0]);
+        assertEquals("6n1/1P2k2r/5b2/n2p3p/pp2NP2/8/7R/7K w - - 0 65",
+                invoke(board, "position", new Class<?>[0]),
+                "sample rewinds visibly before loading the variation reply");
+        while ((Boolean) field(panel, "responseAnimationActive")) {
+            invoke(panel, "advanceResponseAnimation", new Class<?>[0]);
+        }
+        assertEquals("6n1/1P5r/3k1b2/R2p1b1p/pp3P2/1n6/7R/7K w - - 0 64",
+                invoke(board, "position", new Class<?>[0]),
+                "sample settles on the variation branch after the opponent reply");
+        PuzzleSession session = (PuzzleSession) field(panel, "session");
+        assertEquals("b7b8q", Move.toString(session.expectedMove()),
+                "sample variation still asks for the final solver move");
     }
 
     /**

@@ -1,7 +1,6 @@
 package application.gui.workbench.layout;
 
-import application.gui.workbench.ui.Theme;
-import javax.swing.BorderFactory;
+import application.gui.workbench.ui.Ui;
 import javax.swing.JMenuItem;
 import javax.swing.JPopupMenu;
 
@@ -25,8 +24,21 @@ final class PopupMenus {
      * @return styled item
      */
     static JMenuItem item(String label, Runnable action) {
+        return item(label, action, true);
+    }
+
+    /**
+     * Creates a styled popup menu item with an explicit enabled state.
+     *
+     * @param label item label
+     * @param action item action
+     * @param enabled whether the item can run
+     * @return styled item
+     */
+    static JMenuItem item(String label, Runnable action, boolean enabled) {
         JMenuItem item = new JMenuItem(label);
         styleItem(item);
+        item.setEnabled(enabled);
         item.addActionListener(event -> action.run());
         return item;
     }
@@ -37,10 +49,7 @@ final class PopupMenus {
      * @param menu popup menu
      */
     static void style(JPopupMenu menu) {
-        menu.setOpaque(true);
-        menu.setBackground(Theme.PANEL_SOLID);
-        menu.setForeground(Theme.TEXT);
-        menu.setBorder(BorderFactory.createLineBorder(Theme.LINE));
+        Ui.stylePopupMenu(menu);
     }
 
     /**
@@ -49,10 +58,6 @@ final class PopupMenus {
      * @param item popup item
      */
     static void styleItem(JMenuItem item) {
-        item.setOpaque(true);
-        item.setBackground(Theme.PANEL_SOLID);
-        item.setForeground(Theme.TEXT);
-        item.setFont(Theme.font(12, java.awt.Font.PLAIN));
-        item.setBorder(Theme.pad(5, 10, 5, 10));
+        Ui.stylePopupMenuItem(item);
     }
 }

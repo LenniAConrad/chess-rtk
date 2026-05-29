@@ -199,6 +199,16 @@ final class PositionMoveSupport {
         return 0;
     }
 
+    /**
+     * Stores undo state before a concrete move is applied.
+     *
+     * @param position source position
+     * @param state undo state to populate
+     * @param moving moving piece index
+     * @param captured captured piece index, or {@code -1}
+     * @param capturedSquare captured square
+     * @param kingTo king destination for castling metadata
+     */
     private static void saveUndoState(Position position, Position.State state, int moving, int captured,
             int capturedSquare, int kingTo) {
         state.moving = moving;
@@ -217,6 +227,14 @@ final class PositionMoveSupport {
         state.castle = false;
     }
 
+    /**
+     * Applies the captured pawn removal for an en-passant move.
+     *
+     * @param position mutable position
+     * @param state undo state
+     * @param white true when White is moving
+     * @param actualTo move destination square
+     */
     private static void applyEnPassantCapture(Position position, Position.State state, boolean white, int actualTo) {
         int capturedSquare = white ? actualTo + 8 : actualTo - 8;
         int captured = white ? BLACK_PAWN : WHITE_PAWN;
@@ -226,6 +244,17 @@ final class PositionMoveSupport {
         PositionStateSupport.clearPiece(position, captured, capturedSquare);
     }
 
+    /**
+     * Computes the next en-passant target square after a double pawn push.
+     *
+     * @param position source position
+     * @param pawnMove true when the move is a pawn move
+     * @param delta board-index move delta
+     * @param from source square
+     * @param actualTo destination square
+     * @param white true when White is moving
+     * @return en-passant target square or {@link Field#NO_SQUARE}
+     */
     private static byte nextEnPassantSquare(Position position, boolean pawnMove, int delta, int from, int actualTo,
             boolean white) {
         if (!pawnMove || (delta != 16 && delta != -16)) {
@@ -237,6 +266,12 @@ final class PositionMoveSupport {
         return (attackers & enemyPawns) == 0L ? Field.NO_SQUARE : (byte) target;
     }
 
+    /**
+     * Updates the halfmove clock after a move.
+     *
+     * @param position mutable position
+     * @param reset true to reset the clock to zero
+     */
     private static void updateHalfMoveClock(Position position, boolean reset) {
         if (reset) {
             position.halfMoveClock = 0;
@@ -245,6 +280,12 @@ final class PositionMoveSupport {
         }
     }
 
+    /**
+     * Stores undo state for a null move.
+     *
+     * @param position source position
+     * @param state undo state to populate
+     */
     private static void saveNullUndoState(Position position, Position.State state) {
         state.moving = -1;
         state.captured = -1;
@@ -262,10 +303,25 @@ final class PositionMoveSupport {
         state.castle = false;
     }
 
+    /**
+     * Computes castling rights retained after two squares are vacated or captured.
+     *
+     * @param position source position
+     * @param first first relevant square
+     * @param second second relevant square
+     * @return retained castling-right bit mask
+     */
     private static int castlingKeepMask(Position position, int first, int second) {
         return castlingKeepMask(position, first) & castlingKeepMask(position, second);
     }
 
+    /**
+     * Computes castling rights retained after one square is vacated or captured.
+     *
+     * @param position source position
+     * @param square relevant square
+     * @return retained castling-right bit mask
+     */
     private static int castlingKeepMask(Position position, int square) {
         int keep = WHITE_KINGSIDE | WHITE_QUEENSIDE | BLACK_KINGSIDE | BLACK_QUEENSIDE;
         if (square == position.whiteKingSquare) {
@@ -289,6 +345,14 @@ final class PositionMoveSupport {
         return keep;
     }
 
+    /**
+     * Moves the rook that participates in a castling move.
+     *
+     * @param position mutable position
+     * @param white true when White castles
+     * @param right castling right being used
+     * @param state undo state to populate with rook movement
+     */
     private static void moveCastlingRook(Position position, boolean white, int right, Position.State state) {
         int rook = white ? WHITE_ROOK : BLACK_ROOK;
         int rookFrom = position.castlingRookSquare(right);

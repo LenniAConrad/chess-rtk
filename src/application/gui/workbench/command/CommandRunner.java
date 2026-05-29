@@ -6,9 +6,11 @@ import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicReference;
@@ -56,18 +58,11 @@ public final class CommandRunner {
                 List<String> processArgs = javaInvocation(args);
                 ProcessBuilder builder = new ProcessBuilder(processArgs);
                 builder.redirectErrorStream(true);
-                if (isCancelled()) {
-                    running.markCancelled();
-    throw new CancellationException("command cancelled");
-                }
+                throwIfCancelled(false);
                 Process process = builder.start();
                 running.process.set(process);
                 running.markRunning();
-                if (isCancelled()) {
-                    running.destroyProcess();
-                    running.markCancelled();
-    throw new CancellationException("command cancelled");
-                }
+                throwIfCancelled(true);
                 Thread stdinThread = startStdinThread(process, stdin);
                 BoundedOutput output = new BoundedOutput(MAX_OUTPUT_BYTES);
                 try {
@@ -76,11 +71,7 @@ public final class CommandRunner {
                         char[] buffer = new char[4096];
                         int read;
                         while ((read = reader.read(buffer)) >= 0) {
-                            if (isCancelled()) {
-                                running.destroyProcess();
-                                running.markCancelled();
-    throw new CancellationException("command cancelled");
-                            }
+                            throwIfCancelled(true);
                             String chunk = new String(buffer, 0, read);
                             output.append(chunk);
                             publish(chunk);
@@ -102,7 +93,24 @@ public final class CommandRunner {
                 int exitCode = process.waitFor();
                 long millis = (System.nanoTime() - started) / 1_000_000L;
                 running.markCompleted();
-    return new CommandResult(List.copyOf(args), exitCode, output.toString(), millis);
+                return new CommandResult(List.copyOf(args), exitCode, output.toString(), millis);
+            }
+
+            /**
+             * Fails fast when this worker has been cancelled, optionally destroying the
+             * child process first.
+             *
+             * @param destroyProcess true once a child process may exist
+             */
+            private void throwIfCancelled(boolean destroyProcess) {
+                if (!isCancelled()) {
+                    return;
+                }
+                if (destroyProcess) {
+                    running.destroyProcess();
+                }
+                running.markCancelled();
+                throw new CancellationException("command cancelled");
             }
 
             /**
@@ -135,7 +143,7 @@ public final class CommandRunner {
                 try {
                     if (isCancelled()) {
                         running.markCancelled();
-    throw new CancellationException("command cancelled");
+                        throw new CancellationException("command cancelled");
                     }
                     if (onDone != null) {
                         onDone.accept(get());
@@ -241,7 +249,7 @@ public final class CommandRunner {
          *
          * @param chunk output chunk
          */
-    void append(String chunk) {
+        void append(String chunk) {
             if (head.length() < limit / 2) {
                 int room = (limit / 2) - head.length();
                 head.append(chunk, 0, Math.min(room, chunk.length()));
@@ -324,8 +332,8 @@ public final class CommandRunner {
 
     /**
      * Renders a CRTK argument list as a multiline command preview. The output
-     * stays shell-friendly on Unix-like systems while making each argument
-     * visible on its own line in the workbench command block.
+     * stays shell-friendly on Unix-like systems while keeping value-taking
+     * options on the same line as their value.
      *
      * @param args CRTK arguments
      * @return multiline display command
@@ -335,19 +343,107 @@ public final class CommandRunner {
         withLauncher.add("crtk");
         withLauncher.addAll(args);
         StringBuilder out = new StringBuilder(withLauncher.size() * 20);
-        for (int i = 0; i < withLauncher.size(); i++) {
-            if (i > 0) {
+        int line = 0;
+        for (int i = 0; i < withLauncher.size();) {
+            List<String> segment = previewSegment(withLauncher, i);
+            if (line > 0) {
                 out.append("  ");
             }
-            out.append(CommandLine.join(List.of(withLauncher.get(i))));
-            if (i + 1 < withLauncher.size()) {
+            out.append(CommandLine.join(segment));
+            i += segment.size();
+            if (i < withLauncher.size()) {
                 out.append(" \\");
-            }
-            if (i + 1 < withLauncher.size()) {
                 out.append(System.lineSeparator());
             }
+            line++;
         }
         return out.toString();
+    }
+
+    /**
+     * Returns one display segment starting at {@code index}.
+     *
+     * @param tokens launcher and CRTK arguments
+     * @param index start index
+     * @return one display segment
+     */
+    private static List<String> previewSegment(List<String> tokens, int index) {
+        String token = tokens.get(index);
+        if (index + 1 < tokens.size() && optionTakesPreviewValue(token, tokens.get(index + 1))) {
+            return List.of(token, tokens.get(index + 1));
+        }
+        return List.of(token);
+    }
+
+    /**
+     * Returns whether a command preview option should be kept with the next token.
+     *
+     * @param option option token
+     * @param next following token
+     * @return true when the following token is this option's value
+     */
+    private static boolean optionTakesPreviewValue(String option, String next) {
+        if (!isOptionToken(option) || option.contains("=") || "--".equals(option)) {
+            return false;
+        }
+        if (PreviewOptionFlags.BOOLEAN_FLAGS.contains(option)) {
+            return false;
+        }
+        if (PreviewOptionFlags.VALUE_FLAGS.contains(option)) {
+            return true;
+        }
+        return next != null && !isOptionToken(next) && !option.startsWith("--no-");
+    }
+
+    /**
+     * Returns whether a token looks like a shell option.
+     *
+     * @param token token
+     * @return true for option-like tokens
+     */
+    private static boolean isOptionToken(String token) {
+        return token != null && token.startsWith("-") && token.length() > 1;
+    }
+
+    /**
+     * Lazily derived option metadata used only for readable command previews.
+     */
+    private static final class PreviewOptionFlags {
+
+        /**
+         * Known Workbench template options that take a value.
+         */
+        private static final Set<String> VALUE_FLAGS = collectPreviewFlags(true);
+
+        /**
+         * Known Workbench template options that do not take a value.
+         */
+        private static final Set<String> BOOLEAN_FLAGS = collectPreviewFlags(false);
+
+        /**
+         * Prevents instantiation.
+         */
+        private PreviewOptionFlags() {
+            // utility
+        }
+
+        /**
+         * Collects flags from curated Workbench command templates.
+         *
+         * @param takesValue true for value options, false for boolean flags
+         * @return normalized flag set
+         */
+        private static Set<String> collectPreviewFlags(boolean takesValue) {
+            Set<String> flags = new LinkedHashSet<>();
+            for (CommandTemplates.CommandTemplate template : CommandTemplates.commandTemplates()) {
+                for (CommandTemplates.CommandOption option : template.options()) {
+                    if (!option.flag().isBlank() && option.takesValue() == takesValue) {
+                        flags.add(option.flag());
+                    }
+                }
+            }
+            return Set.copyOf(flags);
+        }
     }
 
     /**
@@ -406,15 +502,25 @@ public final class CommandRunner {
          * Lifecycle states for a running command.
          */
         enum State {
-            /** Created but not yet running. */
+            /**
+             * Created but not yet running.
+             */
             PENDING,
-            /** Process has started and is running. */
+            /**
+             * Process has started and is running.
+             */
             RUNNING,
-            /** Cancelled by the user. */
+            /**
+             * Cancelled by the user.
+             */
             CANCELLED,
-            /** Finished with an exit code. */
+            /**
+             * Finished with an exit code.
+             */
             COMPLETED,
-            /** Failed with an exception. */
+            /**
+             * Failed with an exception.
+             */
             FAILED
         }
 
@@ -505,35 +611,35 @@ public final class CommandRunner {
          *
          * @return state
          */
-    State state() {
+        State state() {
             return state;
         }
 
         /**
          * Marks the command task as running.
          */
-    void markRunning() {
+        void markRunning() {
             state = State.RUNNING;
         }
 
         /**
          * Marks the command task as cancelled.
          */
-    void markCancelled() {
+        void markCancelled() {
             state = State.CANCELLED;
         }
 
         /**
          * Marks the command task as completed successfully.
          */
-    void markCompleted() {
+        void markCompleted() {
             state = State.COMPLETED;
         }
 
         /**
          * Marks the command task as failed.
          */
-    void markFailed() {
+        void markFailed() {
             state = State.FAILED;
         }
     }

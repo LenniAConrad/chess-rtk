@@ -17,6 +17,7 @@ import java.awt.GridBagLayout;
 import java.awt.Insets;
 import java.awt.RenderingHints;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -70,6 +71,11 @@ public final class NetworkDiagnosticsPanel extends JPanel {
     private final JPanel gpuRows = rowsPanel();
 
     /**
+     * NN cache status rows.
+     */
+    private final JPanel cacheRows = rowsPanel();
+
+    /**
      * Read-only TOML config preview.
      */
     private final JTextPane configPane = new JTextPane();
@@ -96,6 +102,16 @@ public final class NetworkDiagnosticsPanel extends JPanel {
     private String selectedArchitecture = "";
 
     /**
+     * Most recent activation-cache summary supplied by the host.
+     */
+    private String cacheSummary = "No network snapshots cached yet.";
+
+    /**
+     * Whether to include the full config preview section.
+     */
+    private final boolean includeConfigPreview;
+
+    /**
      * Theme mode used for the currently highlighted config text.
      */
     private Theme.Mode configThemeMode = Theme.mode();
@@ -104,12 +120,23 @@ public final class NetworkDiagnosticsPanel extends JPanel {
      * Creates the diagnostics panel.
      */
     public NetworkDiagnosticsPanel() {
+        this(true);
+    }
+
+    /**
+     * Creates the diagnostics panel.
+     *
+     * @param includeConfigPreview true to include the TOML config preview
+     */
+    public NetworkDiagnosticsPanel(boolean includeConfigPreview) {
         super(new BorderLayout(0, Theme.SPACE_SM));
+        this.includeConfigPreview = includeConfigPreview;
         setOpaque(true);
         setBackground(Theme.PANEL_SOLID);
-        setBorder(Theme.pad(Theme.SPACE_MD));
-        setPreferredSize(new Dimension(SIDEBAR_WIDTH, 600));
-        setMinimumSize(new Dimension(220, 260));
+        setBorder(includeConfigPreview ? Theme.pad(Theme.SPACE_MD)
+                : Theme.pad(Theme.SPACE_SM, 0, Theme.SPACE_SM, 0));
+        setPreferredSize(new Dimension(SIDEBAR_WIDTH, includeConfigPreview ? 600 : 280));
+        setMinimumSize(new Dimension(220, includeConfigPreview ? 260 : 180));
 
         JPanel top = Ui.transparentPanel(new BorderLayout(0, Theme.SPACE_MD));
         JPanel stack = Ui.transparentPanel(new GridBagLayout());
@@ -121,8 +148,10 @@ public final class NetworkDiagnosticsPanel extends JPanel {
         c.gridy = 0;
         stack.add(Ui.collapsible("Models", modelRows, true), c);
         c.gridy = 1;
+        stack.add(Ui.collapsible("Backends", gpuRows, !includeConfigPreview), c);
+        c.gridy = 2;
         c.insets = new Insets(0, 0, 0, 0);
-        stack.add(Ui.collapsible("GPU", gpuRows, false), c);
+        stack.add(Ui.collapsible("Cache", cacheRows, true), c);
         top.add(stack, BorderLayout.NORTH);
 
         configPane.setEditable(false);
@@ -153,7 +182,11 @@ public final class NetworkDiagnosticsPanel extends JPanel {
         configBody.add(configScroll, BorderLayout.CENTER);
 
         add(top, BorderLayout.NORTH);
-        add(Ui.collapsible("Config", configBody, false), BorderLayout.CENTER);
+        if (includeConfigPreview) {
+            add(Ui.collapsible("Config", configBody, false), BorderLayout.CENTER);
+        } else {
+            add(Ui.transparentPanel(new BorderLayout()), BorderLayout.CENTER);
+        }
     }
 
     /**
@@ -174,11 +207,29 @@ public final class NetworkDiagnosticsPanel extends JPanel {
      * @param architecture selected architecture label
      */
     public void refresh(RealActivations newProvider, String architecture) {
+        refresh(newProvider, architecture, cacheSummary);
+    }
+
+    /**
+     * Refreshes model, GPU, cache, and config diagnostics.
+     *
+     * @param newProvider network activation provider
+     * @param architecture selected architecture label
+     * @param newCacheSummary current activation-cache summary
+     */
+    public void refresh(RealActivations newProvider, String architecture,
+            String newCacheSummary) {
         provider = newProvider;
         selectedArchitecture = architecture == null ? "" : architecture;
+        cacheSummary = newCacheSummary == null || newCacheSummary.isBlank()
+                ? "No network snapshots cached yet."
+                : newCacheSummary;
         refreshModels();
         refreshGpu();
-        refreshConfigPreview();
+        refreshCache();
+        if (includeConfigPreview) {
+            refreshConfigPreview();
+        }
     }
 
     /**
@@ -186,7 +237,7 @@ public final class NetworkDiagnosticsPanel extends JPanel {
      */
     private void reloadConfig() {
         Config.reload();
-        refresh(provider, selectedArchitecture);
+        refresh(provider, selectedArchitecture, cacheSummary);
     }
 
     /**
@@ -236,12 +287,26 @@ public final class NetworkDiagnosticsPanel extends JPanel {
     }
 
     /**
+     * Rebuilds activation-cache status rows.
+     */
+    private void refreshCache() {
+        cacheRows.removeAll();
+        Theme.ForegroundRole role = cacheSummary.startsWith("0 /")
+                ? Theme.ForegroundRole.MUTED
+                : Theme.ForegroundRole.INFO;
+        cacheRows.add(statusRow("Activation", cacheSummary.startsWith("0 /") ? "empty" : "ready",
+                cacheSummary, role));
+        cacheRows.revalidate();
+        cacheRows.repaint();
+    }
+
+    /**
      * Reloads the config preview from disk and syntax-colors it.
      */
     private void refreshConfigPreview() {
         Path configPath = Config.getConfigPath();
         try {
-            String text = Files.readString(configPath);
+            String text = Files.readString(configPath, StandardCharsets.UTF_8);
             configPathLabel.setText(pathLabel(configPath));
             configPathLabel.setToolTipText(configPath.toAbsolutePath().toString());
             TomlHighlighter.apply(configPane, text);
@@ -428,9 +493,11 @@ public final class NetworkDiagnosticsPanel extends JPanel {
      * @return detail
      */
     private static String modelDetail(RealActivations.ModelStatus status) {
-        String path = status.path() == null ? "" : status.path().toString();
-        String prefix = path.isBlank() ? "" : path + " - ";
-        return prefix + status.detail();
+        String detail = status.detail();
+        if (status.path() == null) {
+            return detail;
+        }
+        return detail + " - " + pathLabel(status.path());
     }
 
     /**

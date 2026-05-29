@@ -127,6 +127,7 @@ run_engine() {
   run_test testing.BuiltInEngineRegressionTest
   run_test testing.PuzzleDifficultyRegressionTest
   run_test testing.BT4RegressionTest
+  run_test testing.T5RegressionTest
 }
 
 run_uci() {

@@ -14,12 +14,24 @@ final class PositionRules {
         // utility
     }
 
+    /**
+     * Validates a piece-array index.
+     *
+     * @param pieceIndex piece index to validate
+     */
     static void requirePieceIndex(int pieceIndex) {
         if (pieceIndex < WHITE_PAWN || pieceIndex > BLACK_KING) {
             throw new IllegalArgumentException("Invalid piece index: " + pieceIndex);
         }
     }
 
+    /**
+     * Computes material for one side.
+     *
+     * @param position source position
+     * @param white true for White, false for Black
+     * @return material value
+     */
     static int material(Position position, boolean white) {
         int start = white ? WHITE_PAWN : BLACK_PAWN;
         int end = white ? WHITE_KING : BLACK_KING;
@@ -30,6 +42,12 @@ final class PositionRules {
         return value;
     }
 
+    /**
+     * Returns the bitboard mask for a file.
+     *
+     * @param file zero-based file
+     * @return file bitboard mask
+     */
     static long fileMask(int file) {
         return switch (file) {
             case 0 -> Bits.FILE_A;
@@ -44,6 +62,13 @@ final class PositionRules {
         };
     }
 
+    /**
+     * Returns whether a bishop bitboard contains a bishop on one square color.
+     *
+     * @param bishops bishop bitboard
+     * @param color square color
+     * @return true when a bishop occupies that color
+     */
     static boolean hasBishopOnColor(long bishops, int color) {
         long scan = bishops;
         while (scan != 0L) {
@@ -56,10 +81,22 @@ final class PositionRules {
         return false;
     }
 
+    /**
+     * Returns a square color parity.
+     *
+     * @param square square index
+     * @return color parity
+     */
     static int squareColor(int square) {
         return (Bits.file(square) + Bits.rank(square)) & 1;
     }
 
+    /**
+     * Expands a bitboard into square indices.
+     *
+     * @param mask source bitboard
+     * @return occupied squares
+     */
     static byte[] squares(long mask) {
         byte[] out = new byte[Long.bitCount(mask)];
         int index = 0;
@@ -71,12 +108,29 @@ final class PositionRules {
         return out;
     }
 
+    /**
+     * Returns whether two coordinates share a rook or bishop line.
+     *
+     * @param firstFile first file
+     * @param firstRow first rank
+     * @param secondFile second file
+     * @param secondRow second rank
+     * @return true when the coordinates are aligned
+     */
     static boolean aligned(int firstFile, int firstRow, int secondFile, int secondRow) {
         return firstFile == secondFile
                 || firstRow == secondRow
                 || Math.abs(firstFile - secondFile) == Math.abs(firstRow - secondRow);
     }
 
+    /**
+     * Returns whether a piece can pin along the requested line type.
+     *
+     * @param piece candidate piece index
+     * @param pinnedWhite true when the pinned side is White
+     * @param diagonal true for diagonal pins, false for orthogonal pins
+     * @return true when the piece is an enemy slider for that line
+     */
     static boolean isEnemySliderForPin(int piece, boolean pinnedWhite, boolean diagonal) {
         boolean enemy = pinnedWhite ? piece >= BLACK_PAWN : piece >= WHITE_PAWN && piece <= WHITE_KING;
         if (!enemy) {

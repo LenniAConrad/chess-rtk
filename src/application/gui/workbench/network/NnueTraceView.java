@@ -30,7 +30,9 @@ import static application.gui.workbench.network.NnueTraceGeometry.*;
  */
 
 public abstract class NnueTraceView extends NnueOverviewView {
-    /** Serialization identifier for Swing component compatibility. */
+    /**
+     * Serialization identifier for Swing component compatibility.
+     */
     private static final long serialVersionUID = 1L;
 
     /**
@@ -70,17 +72,14 @@ public abstract class NnueTraceView extends NnueOverviewView {
         drawClippedColumn(g, layout);
         drawContributionColumn(g, layout);
         drawOutputColumn(g, layout);
+        boolean whiteDown = sideToMoveWhite();
         TensorViz.drawMiniBoard(g, boardArea);
-        TensorViz.drawPositionPieces(g, boardArea, fen);
-        paintSelectedFeatureOverlay(g, boardArea);
-        TensorViz.drawBoardCoordinates(g, boardArea);
-        drawWhiteBottomLabel(g, boardArea, body.y + body.height);
+        TensorViz.drawPositionPieces(g, boardArea, fen, whiteDown);
+        paintSelectedFeatureOverlay(g, boardArea, whiteDown);
+        TensorViz.drawBoardCoordinates(g, boardArea, whiteDown);
         hitRegions.add(boardArea, "Current position",
                 fen == null ? "no FEN" : fen,
                 "Half-KP features are derived from this board");
-        g.setColor(Theme.MUTED);
-        g.setFont(Theme.font(10, Font.PLAIN));
-        g.drawString("position", boardArea.x, boardArea.y - 4);
         drawSlotZoom(g, new Rectangle(boardArea.x, boardArea.y + boardArea.height + 12,
                 boardArea.width, Math.min(240, body.y + body.height - boardArea.y - boardArea.height - 46)),
                 layout);

@@ -38,16 +38,25 @@ final class NnueSearchBackend implements SearchBackend {
         this.model = model;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public SearchEvaluation evaluate(Position position) {
         return SearchEvaluation.fromCentipawns(model.evaluateCentipawns(position));
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public String name() {
         return "nnue(" + model.backend() + ")";
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public void close() {
         model.close();

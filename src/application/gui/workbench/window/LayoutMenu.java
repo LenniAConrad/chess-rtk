@@ -4,9 +4,11 @@ import application.gui.workbench.audio.SoundCue;
 import application.gui.workbench.audio.SoundService;
 import application.gui.workbench.ui.Theme;
 import application.gui.workbench.ui.MenuGlyphs;
+import application.gui.workbench.ui.Ui;
 import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Component;
+import java.awt.Cursor;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
@@ -132,11 +134,12 @@ public final class LayoutMenu {
      */
     public LayoutMenu(Controller controller) {
         this.controller = Objects.requireNonNull(controller, "controller");
-        customizeButton = button("Customize Layout", LayoutIcon.Kind.CUSTOMIZE, this::showPopup);
+        customizeButton = button("Customize layout and visibility",
+                LayoutIcon.Kind.CUSTOMIZE, this::showPopup);
         toolbar.add(customizeButton);
-        toolbar.add(button("Split Editor Right", LayoutIcon.Kind.SPLIT_RIGHT, controller::splitRight));
-        toolbar.add(button("Split Editor Down", LayoutIcon.Kind.SPLIT_DOWN, controller::splitDown));
-        toolbar.add(button("Restore Tabs", LayoutIcon.Kind.RESTORE, controller::reopenAllTabs));
+        toolbar.add(button("Split active tab right", LayoutIcon.Kind.SPLIT_RIGHT, controller::splitRight));
+        toolbar.add(button("Split active tab down", LayoutIcon.Kind.SPLIT_DOWN, controller::splitDown));
+        toolbar.add(button("Restore closed tabs", LayoutIcon.Kind.RESTORE, controller::reopenAllTabs));
         refreshTheme();
     }
 
@@ -175,12 +178,32 @@ public final class LayoutMenu {
     private static ChromeButton button(String tooltip, LayoutIcon.Kind kind, Runnable action) {
         ChromeButton button = new ChromeButton();
         button.setToolTipText(tooltip);
+        button.setActionCommand(actionCommand(kind));
+        button.setName(actionCommand(kind));
+        button.getAccessibleContext().setAccessibleName(tooltip);
+        button.getAccessibleContext().setAccessibleDescription(tooltip);
         button.setIcon(new LayoutIcon(kind));
         button.addActionListener(event -> {
             SoundService.play(SoundCue.UI_CLICK);
             action.run();
         });
         return button;
+    }
+
+    /**
+     * Returns the stable command id for a chrome layout button.
+     *
+     * @param kind icon/action kind
+     * @return action command
+     */
+    private static String actionCommand(LayoutIcon.Kind kind) {
+        String suffix = switch (kind) {
+            case CUSTOMIZE -> "customize";
+            case SPLIT_RIGHT -> "splitRight";
+            case SPLIT_DOWN -> "splitDown";
+            case RESTORE -> "restoreTabs";
+        };
+        return "workbench.layout." + suffix;
     }
 
     /**
@@ -238,12 +261,12 @@ public final class LayoutMenu {
                 controller::setStatusBarVisible));
         popup.add(new JSeparator());
         popup.add(section("Editor Groups"));
-        popup.add(actionItem("Split Right", "Ctrl + \\", controller::splitRight));
-        popup.add(actionItem("Split Down", "Ctrl + Shift + \\", controller::splitDown));
-        popup.add(actionItem("Split Left", null, controller::splitLeft));
-        popup.add(actionItem("Split Up", null, controller::splitUp));
+        popup.add(actionItem("Split Tab Right", "Ctrl + \\", controller::splitRight));
+        popup.add(actionItem("Split Tab Down", "Ctrl + Shift + \\", controller::splitDown));
+        popup.add(actionItem("Split Tab Left", null, controller::splitLeft));
+        popup.add(actionItem("Split Tab Up", null, controller::splitUp));
         popup.add(actionItem("Close Other Tabs", null, controller::closeOtherTabs));
-        popup.add(actionItem("Restore Tabs", null, controller::reopenAllTabs));
+        popup.add(actionItem("Restore Closed Tabs", null, controller::reopenAllTabs));
         popup.add(new JSeparator());
         popup.add(summary());
         stylePopupTree(popup);
@@ -337,10 +360,7 @@ public final class LayoutMenu {
      */
     private static void stylePopupTree(Component component) {
         if (component instanceof JPopupMenu popup) {
-            popup.setOpaque(true);
-            popup.setBackground(Theme.PANEL_SOLID);
-            popup.setForeground(Theme.TEXT);
-            popup.setBorder(BorderFactory.createLineBorder(Theme.LINE));
+            Ui.stylePopupMenu(popup);
         } else if (component instanceof JMenuItem item) {
             styleMenuItem(item);
         } else if (component instanceof JSeparator separator) {
@@ -399,6 +419,8 @@ public final class LayoutMenu {
             setContentAreaFilled(false);
             setRolloverEnabled(true);
             setHorizontalAlignment(SwingConstants.CENTER);
+            setFocusable(true);
+            setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         }
 
         /**
@@ -442,6 +464,10 @@ public final class LayoutMenu {
                 if (highlighted()) {
                     g.setColor(getModel().isPressed() ? Theme.SELECTION : Theme.SELECTION_SOLID);
                     g.fillRoundRect(2, 2, getWidth() - 4, getHeight() - 4, 4, 4);
+                }
+                if (hasFocus()) {
+                    g.setColor(Theme.withAlpha(Theme.ACCENT, 190));
+                    g.drawRoundRect(2, 2, getWidth() - 5, getHeight() - 5, 4, 4);
                 }
             } finally {
                 g.dispose();

@@ -26,21 +26,27 @@ final class ScorerSupport {
         // utility
     }
 
-static String labelFor(double score) {
-    if (score <= 0.20) {
-        return "very_easy";
+    /**
+     * Converts a normalized puzzle score into a difficulty label.
+     *
+     * @param score normalized score
+     * @return difficulty label
+     */
+    static String labelFor(double score) {
+        if (score <= 0.20) {
+            return "very_easy";
+        }
+        if (score <= 0.35) {
+            return "easy";
+        }
+        if (score <= 0.55) {
+            return "medium";
+        }
+        if (score <= 0.70) {
+            return "hard";
+        }
+        return "very_hard";
     }
-    if (score <= 0.35) {
-        return "easy";
-    }
-    if (score <= 0.55) {
-        return "medium";
-    }
-    if (score <= 0.70) {
-        return "hard";
-    }
-    return "very_hard";
-}
 
 /**
  * Builds a compact list of high-signal feature names.
@@ -247,6 +253,10 @@ static RootMaterial rootMaterial(Position position) {
 private static int pieceCount(Position position, int pieceIndex) {
     return Long.bitCount(position.pieces(pieceIndex));
 }
+
+/**
+ * Material-only fallback evaluator used when no full evaluator is configured.
+ */
 static final class MaterialVisibilityEvaluator implements CentipawnEvaluator {
 
     /**

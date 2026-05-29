@@ -49,8 +49,10 @@ final class WorkbenchCommandRegression {
         testCommandTemplatesHaveCompactTabLabels();
         testCommandControllerCoversCliRegistry();
         testBatchRunnerOffersCliScriptForAllCliCommands();
+        testRunArtifactsDesktopOpenHandlesRuntimeFailures();
         testCommandLineTokenizerPreservesQuotedArguments();
         testCommandPreviewQuoting();
+        testCommandPreviewHeightCapsAtSixRows();
         testPublishingPreviewFenCompaction();
         testPublishingVisualPreviewPages();
         testPublishingVisualPreviewPaintsTaskLayouts();
@@ -107,6 +109,7 @@ final class WorkbenchCommandRegression {
         assertTrue(hasRowForFlag(eval, "auto"), "eval exposes auto evaluator default");
         assertFalse(hasRowForFlag(eval, "none"), "eval does not expose none evaluator");
         assertFalse(hasFlag(enabledArgs(eval), "--lc0"), "eval auto emits no lc0 shortcut");
+        assertFalse(hasFlag(enabledArgs(eval), "--otis"), "eval auto emits no otis shortcut");
         assertFalse(hasFlag(enabledArgs(eval), "--classical"), "eval auto emits no classical shortcut");
 
         invoke(eval, "setValueAt", new Class<?>[] { Object.class, int.class, int.class },
@@ -114,6 +117,7 @@ final class WorkbenchCommandRegression {
         List<String> evalClassicalArgs = enabledArgs(eval);
         assertTrue(hasFlag(evalClassicalArgs, "--classical"), "eval classical shortcut emits flag");
         assertFalse(hasFlag(evalClassicalArgs, "--lc0"), "eval classical disables lc0 shortcut");
+        assertFalse(hasFlag(evalClassicalArgs, "--otis"), "eval classical disables otis shortcut");
 
         Object builtin = optionsFor("Built-in search");
         assertTrue(hasRowForFlag(builtin, "classical"), "built-in exposes classical evaluator default");
@@ -126,6 +130,7 @@ final class WorkbenchCommandRegression {
         List<String> builtinLc0Args = enabledArgs(builtin);
         assertTrue(hasFlag(builtinLc0Args, "--lc0"), "built-in lc0 shortcut emits flag");
         assertFalse(hasFlag(builtinLc0Args, "--nnue"), "built-in lc0 disables nnue shortcut");
+        assertFalse(hasFlag(builtinLc0Args, "--otis"), "built-in lc0 disables otis shortcut");
     }
 
     /**
@@ -416,6 +421,31 @@ final class WorkbenchCommandRegression {
     }
 
     /**
+     * Verifies artifact opening reports desktop-integration runtime failures
+     * through the Workbench error path instead of letting them escape the EDT.
+     */
+    private static void testRunArtifactsDesktopOpenHandlesRuntimeFailures() {
+        String source;
+        String helper;
+        try {
+            source = java.nio.file.Files.readString(
+                    java.nio.file.Path.of("src/application/gui/workbench/session/RunArtifacts.java"),
+                    java.nio.charset.StandardCharsets.UTF_8);
+            helper = java.nio.file.Files.readString(
+                    java.nio.file.Path.of("src/application/gui/workbench/session/DesktopOpen.java"),
+                    java.nio.charset.StandardCharsets.UTF_8);
+        } catch (java.io.IOException ex) {
+            throw new AssertionError("unable to read desktop-open sources", ex);
+        }
+        assertTrue(source.contains("DesktopOpen.open(path)"),
+                "RunArtifacts delegates desktop opening to the shared helper");
+        assertTrue(helper.contains("desktop.isSupported(Desktop.Action.OPEN)"),
+                "DesktopOpen checks desktop OPEN action support");
+        assertTrue(helper.contains("catch (IOException | RuntimeException ex)"),
+                "RunArtifacts catches desktop-open runtime failures");
+    }
+
+    /**
      * Verifies raw command fields preserve quoted values and reject unfinished
      * quotes.
      */
@@ -549,7 +579,28 @@ final class WorkbenchCommandRegression {
         assertEquals("crtk book render --title \"A B\"", command, "quoted command preview");
         String block = (String) invokeStatic(type("CommandRunner"), "displayCommandBlock",
                 new Class<?>[] { List.class }, List.of("book", "render", "--title", "A B"));
-        assertEquals("crtk \\\n  book \\\n  render \\\n  --title \\\n  \"A B\"", block,
+        assertEquals("crtk \\\n  book \\\n  render \\\n  --title \"A B\"", block,
                 "multiline command preview");
+        String fenBlock = (String) invokeStatic(type("CommandRunner"), "displayCommandBlock",
+                new Class<?>[] { List.class }, List.of("move", "list", "--fen", START_FEN, "--format", "both"));
+        assertEquals("crtk \\\n  move \\\n  list \\\n  --fen \"" + START_FEN + "\" \\\n  --format both",
+                fenBlock, "value-taking options stay with their values");
+        String flagBlock = (String) invokeStatic(type("CommandRunner"), "displayCommandBlock",
+                new Class<?>[] { List.class }, List.of("move", "after", "--json", "e2e4"));
+        assertEquals("crtk \\\n  move \\\n  after \\\n  --json \\\n  e2e4", flagBlock,
+                "boolean flags do not absorb trailing positional arguments");
+    }
+
+    /**
+     * Verifies the command preview grows for short commands but caps tall
+     * commands so the scroll pane handles overflow.
+     */
+    private static void testCommandPreviewHeightCapsAtSixRows() {
+        String shortCommand = "crtk \\\n  move \\\n  list";
+        assertEquals(Integer.valueOf(3), invokeStatic(type("WindowCommandLayer"), "previewRows",
+                new Class<?>[] { String.class }, shortCommand), "short preview keeps compact minimum");
+        String tallCommand = String.join("\n", List.of("crtk", "a", "b", "c", "d", "e", "f", "g"));
+        assertEquals(Integer.valueOf(6), invokeStatic(type("WindowCommandLayer"), "previewRows",
+                new Class<?>[] { String.class }, tallCommand), "tall preview caps at six rows");
     }
 }

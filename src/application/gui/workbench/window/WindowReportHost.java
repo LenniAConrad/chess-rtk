@@ -21,46 +21,73 @@ public final class WindowReportHost extends WindowHost implements ReportPanel.Ho
         super(window);
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public Component owner() {
         return window;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public Position currentPosition() {
         return window.currentPosition;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public short[] visibleMoves() {
         return window.visibleMoves;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public GameModel gameModel() {
         return window.gameModel;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public DefaultListModel<String> tagModel() {
         return window.tagModel;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public void copyText(String text) {
         window.copyText(text);
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public void appendConsole(String text) {
         window.appendConsole(text);
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public void toast(Toast.Kind kind, String message) {
         window.toast(kind, message);
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public void showError(String title, String message) {
         window.showError(title, message);

@@ -22,7 +22,9 @@ import static application.gui.workbench.network.NnueTraceGeometry.*;
  * dense atlas and trace views inside the active viewport.</p>
  */
 public final class NnueView extends NnueTraceView {
-    /** Serialization identifier for Swing component compatibility. */
+    /**
+     * Serialization identifier for Swing component compatibility.
+     */
     private static final long serialVersionUID = 1L;
 
     /**

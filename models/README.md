@@ -36,6 +36,7 @@ Compact ChessRTK `.bin` files use this filename convention:
 | `leela_112planes-10blocksx128-policyhead80-valuehead32-policy4672-wdl3.bin` | 112 input planes, 10 residual blocks x 128 channels, 80-channel policy head, 32-channel value head, 4672 policy logits, 3 WDL outputs | [Download](https://github.com/LenniAConrad/chess-models/blob/main/models/lc0_744706.bin) |
 | `BT4-1024x15x32h-swa-6147500-policytune-332.pb.gz` | Official LCZero BT4 transformer network, 1024 embedding size, 15 encoder blocks, 32 attention heads, LC0 protobuf gzip format; SHA-256 `e6ada9d6c4a769bfab3aa0848d82caeb809aa45f83e6c605fc58a31d21bdd618` | [Download](https://storage.lczero.org/files/networks-contrib/BT4-1024x15x32h-swa-6147500-policytune-332.pb.gz) |
 | `classifier_21planes-6blocksx64-head32-logit1.bin` | 21 input planes, 6 residual blocks x 64 channels, 32-channel classifier head, 1 output logit | Local smoke-test weights |
+| `otis_policy_wdl_random.bin` | OTIS i249-style policy/WDL placeholder, chess-nn-playground `simple_18` input planes, 64 trunk channels, 2 sheaf/MLP blocks, 12 typed tactical sheaf relations, about 272k randomized parameters, 1858 compressed policy logits, 3 WDL outputs | Local randomized placeholder |
 
 The BT4 network is kept under its upstream LCZero filename. Use it with LC0 as a
 UCI engine through `WeightsFile`, or keep it in `models/` as the local archived
@@ -53,4 +54,5 @@ models/
   leela_112planes-10blocksx128-policyhead80-valuehead32-policy4672-wdl3.bin
   BT4-1024x15x32h-swa-6147500-policytune-332.pb.gz
   classifier_21planes-6blocksx64-head32-logit1.bin
+  otis_policy_wdl_random.bin
 ```

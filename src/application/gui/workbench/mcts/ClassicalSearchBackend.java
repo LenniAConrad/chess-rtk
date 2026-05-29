@@ -15,21 +15,33 @@ final class ClassicalSearchBackend implements SearchBackend {
      */
     private final CentipawnEvaluator evaluator = new Classical();
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public SearchEvaluation evaluate(Position position) {
         return SearchEvaluation.fromWdl(Wdl.evaluate(position, false));
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public void prepareMoveOrdering(Position position) {
         evaluator.prepareMoveOrdering(position);
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public void scoreMoves(Position position, short[] moves, int[] scores) {
         evaluator.scoreMoves(position, moves, scores);
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public String name() {
         return "classical";

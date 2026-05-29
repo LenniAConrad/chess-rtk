@@ -381,6 +381,11 @@ public final class HelpCommand {
 	private static final String POSITION_DIFF_OPTIONS_MARKER = "position diff options:";
 
 	/**
+	 * Help marker for {@code position describe}.
+	 */
+	private static final String POSITION_DESCRIBE_OPTIONS_MARKER = "position describe options:";
+
+	/**
 	 * Help marker for {@code fen pgn}.
 	 */
 	private static final String PGN_TO_FENS_OPTIONS_MARKER = "fen pgn options:";
@@ -481,6 +486,8 @@ public final class HelpCommand {
 			Map.entry(CMD_ENGINE + " " + CMD_UCI_SMOKE, UCI_SMOKE_OPTIONS_MARKER),
 			Map.entry(CMD_POSITION, POSITION_SUBCOMMANDS_MARKER),
 			Map.entry("position diff", POSITION_DIFF_OPTIONS_MARKER),
+			Map.entry("position describe", POSITION_DESCRIBE_OPTIONS_MARKER),
+			Map.entry("position text", POSITION_DESCRIBE_OPTIONS_MARKER),
 			Map.entry(CMD_BOOK, BOOK_SUBCOMMANDS_MARKER),
 			Map.entry("book collection", PUZZLE_COLLECTION_OPTIONS_MARKER),
 			Map.entry("book study", PUZZLE_STUDY_OPTIONS_MARKER),
@@ -887,7 +894,7 @@ public final class HelpCommand {
 			  builtin                    Search with the built-in MCTS engine
 			  java                       Run the built-in MCTS engine
 			  threats                    Analyze opponent threats
-			  eval                       Evaluate a position with LC0 or classical
+			  eval                       Evaluate a position with LC0, OTIS, or classical
 			  static                     Evaluate a position with the classical backend
 			  perft                      Run perft on a position
 			  perft-suite                Run a small perft regression suite
@@ -896,6 +903,7 @@ public final class HelpCommand {
 
 			position subcommands:
 			  diff                       Compare two FEN positions
+			  describe                   Describe a position with deterministic text
 
 			book subcommands:
 			  collection                 Build a dense puzzle collection from record JSON/JSONL
@@ -1601,9 +1609,10 @@ public final class HelpCommand {
 			  --randompos                Use a reachable random legal standard position
 			  --input|-i PATH            Input FEN file
 			  --uci                      Run the minimal built-in UCI loop
-			  --evaluator KIND           classical, nnue, or lc0 (default: classical)
-			  --classical|--nnue|--lc0   Shortcut evaluator selectors
-			  --weights PATH             NNUE or LC0 weights path
+			  --evaluator KIND           classical, nnue, lc0, or otis (default: classical)
+			  --classical|--nnue|--lc0|--otis
+			                              Shortcut evaluator selectors
+			  --weights PATH             NNUE, LC0, or OTIS weights path
 			  --depth|-d N               Search depth hint (default: 3)
 			  --max-nodes|--nodes N      MCTS playout budget; 0 disables the node cap
 			  --max-duration D           Time budget, e.g. 5s; 0 means no time cap
@@ -1669,6 +1678,24 @@ public final class HelpCommand {
 			  --quiet                    Suppress non-row chatter where supported
 			  --verbose|-v               Print stack trace on failure
 
+			position describe options:
+			  --fen FEN                  Input FEN
+			  --startpos                 Use the standard chess start position
+			  --randompos                Use a reachable random legal standard position
+			  --input|-i PATH            Input FEN list
+			  --stdin                    Read FEN rows from standard input
+			  --engine MODE              classical or t5 (default: classical)
+			  --detail LEVEL             brief, normal, or full (default: normal)
+			  --format FMT               text, json, or jsonl (default: text)
+			  --json                     Alias for --format json
+			  --jsonl                    Alias for --format jsonl
+			  --budget N                 Maximum candidate moves in generated text
+			  --max-candidates N         Alias for --budget
+			  --output|-o PATH           Write output to a file
+			  --model PATH               Future T5 position-description model path
+			  --max-new N                Future T5 generated-token budget
+			  --verbose|-v               Print stack trace on failure
+
 			fen pgn options:
 			  --input|-i PATH            Input PGN file
 			  --output|-o PATH           Output FEN list (default: dump/<input-stem>.txt)
@@ -1681,10 +1708,10 @@ public final class HelpCommand {
 			  --startpos                 Use the standard chess start position
 			  --randompos                Use a reachable random legal standard position
 			  --input|-i PATH            Input FEN file
-			  --evaluator MODE          auto, lc0, or classical (default: auto)
-			  --lc0|--classical         Shortcut evaluator selectors
+			  --evaluator MODE          auto, lc0, otis, or classical (default: auto)
+			  --lc0|--otis|--classical  Shortcut evaluator selectors
 			  --terminal-aware|--terminal Enable terminal-aware evaluation
-			  --weights PATH             LC0 weights path
+			  --weights PATH             LC0 or OTIS weights path
 			  --verbose|-v               Print stack trace on failure
 
 			engine static options:

@@ -212,6 +212,31 @@ public final class CommandSupport {
 	}
 
 	/**
+	 * Resolves a boolean flag that defaults to enabled and supports an explicit
+	 * {@code --no-...} form.
+	 *
+	 * @param a argument parser for the current subcommand
+	 * @param cmd command label used in diagnostics
+	 * @param positiveFlag positive flag name, for example {@code --analyze}
+	 * @return selected value, defaulting to {@code true}
+	 */
+	public static boolean resolveDefaultEnabledFlag(Argv a, String cmd, String positiveFlag) {
+		Boolean selected = null;
+		for (;;) {
+			Boolean value = a.flagValue(positiveFlag);
+			if (value == null) {
+				break;
+			}
+			if (selected != null && selected.booleanValue() != value.booleanValue()) {
+				throw new CommandFailure(cmd + ": only one of " + positiveFlag + " or "
+						+ negatedFlag(positiveFlag) + " may be set", 2);
+			}
+			selected = value;
+		}
+		return selected == null || selected.booleanValue();
+	}
+
+	/**
 	 * Reads non-blank UTF-8 lines from standard input.
 	 *
 	 * @param cmd     command label used in diagnostics
@@ -429,6 +454,20 @@ public final class CommandSupport {
 	 */
 	public static String optional(String value, String def) {
 		return (value == null || value.isEmpty()) ? def : value;
+	}
+
+	/**
+	 * Returns the standard negated form for a long flag.
+	 *
+	 * @param positiveFlag positive flag name
+	 * @return negated long flag name
+	 */
+	private static String negatedFlag(String positiveFlag) {
+		String flag = positiveFlag == null ? "" : positiveFlag.strip();
+		while (flag.startsWith("-")) {
+			flag = flag.substring(1);
+		}
+		return "--no-" + flag;
 	}
 
 	/**

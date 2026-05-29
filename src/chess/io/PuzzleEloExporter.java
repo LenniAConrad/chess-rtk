@@ -1,6 +1,4 @@
 package chess.io;
-
-import application.cli.PathOps;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.IOException;
@@ -279,7 +277,9 @@ public final class PuzzleEloExporter {
             Files.createDirectories(parent);
             return Files.createTempFile(parent, output.getFileName().toString() + ".", ".verified-puzzles.tmp");
         }
-        return PathOps.createLocalTempFile("crtk-puzzle-elo-", ".verified-puzzles.tmp");
+        Path tempDir = Path.of("out", "tmp");
+        Files.createDirectories(tempDir);
+        return Files.createTempFile(tempDir, "crtk-puzzle-elo-", ".verified-puzzles.tmp");
     }
 
     /**

@@ -1,6 +1,5 @@
 package application.gui.workbench.session;
 
-import java.awt.Desktop;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -222,14 +221,12 @@ public final class RunArtifacts {
             host.showWarning(title, "File does not exist: " + path);
             return;
         }
-        if (!Desktop.isDesktopSupported()) {
-            host.showWarning(title, "Desktop integration is not supported.");
-            return;
-        }
-        try {
-            Desktop.getDesktop().open(path.toFile());
-        } catch (IOException ex) {
-            host.showError(title, "Failed to open file: " + ex.getMessage());
+        DesktopOpen.Result result = DesktopOpen.open(path);
+        switch (result.status()) {
+            case OPENED -> { }
+            case UNSUPPORTED_DESKTOP -> host.showWarning(title, "Desktop integration is not supported.");
+            case UNSUPPORTED_OPEN -> host.showWarning(title, "Opening files is not supported by this desktop.");
+            case FAILED -> host.showError(title, "Failed to open file: " + result.detail());
         }
     }
 

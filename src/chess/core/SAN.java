@@ -237,15 +237,21 @@ public final class SAN {
         StringBuilder token = new StringBuilder(16);
         int commentDepth = 0;
         int variationDepth = 0;
+        boolean lineComment = false;
         for (int i = 0; i <= movetext.length(); i++) {
             char ch = i == movetext.length() ? ' ' : movetext.charAt(i);
-            if (commentDepth > 0) {
+            if (lineComment) {
+                lineComment = ch != '\n' && ch != '\r';
+            } else if (commentDepth > 0) {
                 commentDepth = updateCommentDepth(commentDepth, ch);
             } else if (variationDepth > 0) {
                 variationDepth = updateVariationDepth(variationDepth, ch);
             } else if (ch == '{') {
                 appendCleanToken(result, token);
                 commentDepth++;
+            } else if (ch == ';') {
+                appendCleanToken(result, token);
+                lineComment = true;
             } else if (ch == '(') {
                 appendCleanToken(result, token);
                 variationDepth++;

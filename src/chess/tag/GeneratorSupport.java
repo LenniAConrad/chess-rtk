@@ -18,53 +18,66 @@ import chess.core.Position;
  */
 final class GeneratorSupport {
 
-    /** Minimum move-count gap used to report mobility outliers. */
+    /**
+     * Minimum move-count gap used to report mobility outliers.
+     */
     private static final int MOBILITY_OUTLIER_THRESHOLD = 6;
 
-    /** Maximum legal-move count treated as restricted mobility. */
+    /**
+     * Maximum legal-move count treated as restricted mobility.
+     */
     private static final int MOBILITY_RESTRICTED_THRESHOLD = 5;
 
-    /** Utility class; prevent instantiation. */
+    /**
+     * Utility class; prevent instantiation.
+     */
     private GeneratorSupport() {
         // utility
     }
 
-static String valueAfter(String tag, String key) {
-    int idx = tag.indexOf(key);
-    if (idx < 0) {
-        return null;
+    /**
+     * Returns text after a key inside a serialized tag.
+     *
+     * @param tag serialized tag text
+     * @param key key marker
+     * @return trailing text, or {@code null} when the key is absent
+     */
+    static String valueAfter(String tag, String key) {
+        int idx = tag.indexOf(key);
+        if (idx < 0) {
+            return null;
+        }
+        return tag.substring(idx + key.length()).trim();
     }
-    return tag.substring(idx + key.length()).trim();
-}
 
-/**
- * Extracts the text between the first pair of quotes.
- *
- * @param tag the tag text to inspect
- * @return the quoted text, or {@code null} when no quoted segment exists
- */
-static String extractQuoted(String tag) {
-    int first = tag.indexOf(QUOTE);
-    if (first < 0) {
-        return null;
+    /**
+     * Extracts the text between the first pair of quotes.
+     *
+     * @param tag the tag text to inspect
+     * @return the quoted text, or {@code null} when no quoted segment exists
+     */
+    static String extractQuoted(String tag) {
+        int first = tag.indexOf(QUOTE);
+        if (first < 0) {
+            return null;
+        }
+        int second = tag.indexOf(QUOTE, first + 1);
+        if (second < 0) {
+            return null;
+        }
+        return tag.substring(first + 1, second);
     }
-    int second = tag.indexOf(QUOTE, first + 1);
-    if (second < 0) {
-        return null;
-    }
-    return tag.substring(first + 1, second);
-}
 
-/**
- * Escapes backslashes and quotes for tag output.
- *
- * @param value the raw text to escape
- * @return the escaped text
- */
-static String escape(String value) {
-    return value.replace(String.valueOf(BACKSLASH), ESCAPED_BACKSLASH)
-            .replace(String.valueOf(QUOTE), ESCAPED_QUOTE);
-}
+    /**
+     * Escapes backslashes and quotes for tag output.
+     *
+     * @param value the raw text to escape
+     * @return the escaped text
+     */
+    static String escape(String value) {
+        return value.replace(String.valueOf(BACKSLASH), ESCAPED_BACKSLASH)
+                .replace(String.valueOf(QUOTE), ESCAPED_QUOTE);
+    }
 
 /**
  * Appends an optional field to a serialized tag buffer.

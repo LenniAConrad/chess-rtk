@@ -113,6 +113,9 @@ public final class ChipGroup extends JComponent {
         animator = new Timer(16, event -> tick());
         animator.setCoalesce(true);
         addMouseListener(new MouseAdapter() {
+            /**
+             * {@inheritDoc}
+             */
             @Override
             public void mousePressed(MouseEvent event) {
                 int hit = chipAt(event.getX());
@@ -219,22 +222,34 @@ public final class ChipGroup extends JComponent {
         return -1;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public Dimension getPreferredSize() {
         int width = chipX[labels.size() - 1] + chipW[labels.size() - 1];
     return new Dimension(width, HEIGHT);
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public Dimension getMinimumSize() {
     return getPreferredSize();
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public Dimension getMaximumSize() {
     return getPreferredSize();
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     protected void paintComponent(Graphics graphics) {
         Graphics2D g = (Graphics2D) graphics.create();

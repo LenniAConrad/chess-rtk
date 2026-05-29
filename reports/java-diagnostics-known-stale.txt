@@ -1,0 +1,4 @@
+# Exact VS Code JDT marker messages that were reproduced and documented as
+# stale editor state in reports/java-diagnostics-triage.md.
+src/chess/io/ClassifierDatasetExporter.java: The method streamRecordJson(Path, Consumer<String>) from the type ClassifierDatasetExporter is never used locally
+src/chess/io/RecordPgnExporter.java: The method streamRecordObjects(Path, Consumer<String>) from the type RecordPgnExporter is never used locally

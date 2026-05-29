@@ -109,13 +109,28 @@ public final class Argv {
      *         negated form or absent
      */
     public boolean flag(String... keys) {
+        Boolean value = flagValue(keys);
+        return value != null && value.booleanValue();
+    }
+
+    /**
+     * Reads a boolean flag option and reports whether it was present.
+     * Supports {@code --flag}, {@code -f}, and {@code --no-flag}. The key is
+     * consumed if present.
+     *
+     * @param keys the accepted key aliases (e.g., {@code "--verbose"},
+     *             {@code "-v"})
+     * @return {@code Boolean.TRUE} for a positive form, {@code Boolean.FALSE} for
+     *         a negated form, or {@code null} if absent
+     */
+    public Boolean flagValue(String... keys) {
         int idx = matchKey(keys);
         if (idx < 0) {
-            return false;
+            return null;
         }
         String tok = tokens.get(idx);
         consumeAt(idx);
-        return !tok.startsWith("--no-");
+        return Boolean.valueOf(!tok.startsWith("--no-"));
     }
 
     /**

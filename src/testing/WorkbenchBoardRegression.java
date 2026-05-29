@@ -979,7 +979,7 @@ final class WorkbenchBoardRegression {
         values[square] = 1.0f;
         Graphics2D graphics = image.createGraphics();
         try {
-            TensorViz.drawSquareOverlay(graphics, board, values, 1.0f, false);
+            TensorViz.drawSquareOverlay(graphics, board, values, 1.0f, true);
         } finally {
             graphics.dispose();
         }

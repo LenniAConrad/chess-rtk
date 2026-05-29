@@ -161,6 +161,12 @@ final class RecordTrainingJsonlCommand {
 		return new IllegalStateException("unreachable");
 	}
 
+	/**
+	 * Parses training-jsonl export arguments.
+	 *
+	 * @param a argument parser
+	 * @return parsed export request
+	 */
 	private static TrainingJsonlRequest parseTrainingJsonlRequest(Argv a) {
 		boolean verbose = a.flag(OPT_VERBOSE, OPT_VERBOSE_SHORT);
 		boolean recursive = a.flag(OPT_RECURSIVE);
@@ -256,6 +262,12 @@ final class RecordTrainingJsonlCommand {
 					+ ": failed to write output: " + ex.getMessage(), ex, request.verbose);
 		}
 	}
+	/**
+	 * Derives a default training-jsonl output path for a single file input.
+	 *
+	 * @param inputs raw input path strings
+	 * @return derived output path
+	 */
 	private static Path deriveTrainingJsonlOutputOrExit(List<String> inputs) {
 		if (inputs.size() == 1) {
 			Path input = Paths.get(inputs.get(0));
@@ -1024,6 +1036,12 @@ final class RecordTrainingJsonlCommand {
 		}
 		return new Bar(totalRecords, label);
 	}
+	/**
+	 * Serializes WDL chances as a compact JSON array.
+	 *
+	 * @param chances WDL chances
+	 * @return JSON array or {@code null}
+	 */
 	private static String toWdlJson(Chances chances) {
 		if (chances == null) {
 			return "null";
@@ -1038,6 +1056,14 @@ final class RecordTrainingJsonlCommand {
 				.append(']')
 				.toString();
 	}
+	/**
+	 * Collects record input files from files and directories.
+	 *
+	 * @param inputs input path strings
+	 * @param recursive true to scan directories recursively
+	 * @return record files
+	 * @throws IOException on invalid input or directory traversal failure
+	 */
 	private static List<Path> collectRecordInputs(List<String> inputs, boolean recursive) throws IOException {
 		List<Path> files = new ArrayList<>();
 		for (String entry : inputs) {

@@ -182,7 +182,29 @@ public final class BuiltInEngineRegressionTest {
 		testCliFormats();
 		testBuiltInUciLoop();
 		testNnueCliEvaluator();
+		testSharedLibraryExplicitPathParsing();
 		System.out.println("BuiltInEngineRegressionTest: all checks passed");
+	}
+
+	/**
+	 * Verifies optional native-library environment paths are treated as advisory:
+	 * invalid values must fall back instead of aborting GPU backend discovery.
+	 */
+	private static void testSharedLibraryExplicitPathParsing() throws IOException {
+		try {
+			Method parser = Class.forName("chess.gpu.SharedLibrarySupport")
+					.getDeclaredMethod("existingExplicitLibraryPath", String.class);
+			parser.setAccessible(true);
+			assertEquals(null, parser.invoke(null, "bad\u0000path"),
+					"invalid explicit native library path ignored");
+			assertEquals(null, parser.invoke(null, "missing-native-library.so"),
+					"missing explicit native library path ignored");
+			Path existing = PathOps.createLocalTempFile("crtk-native-lib-", ".so");
+			assertEquals(existing, parser.invoke(null, existing.toString()),
+					"existing explicit native library path retained");
+		} catch (ReflectiveOperationException ex) {
+			throw new AssertionError("native library path parser regression failed", ex);
+		}
 	}
 
 	/**
@@ -442,6 +464,8 @@ public final class BuiltInEngineRegressionTest {
 				"nnue evaluator parse");
 		assertTrue(Kind.parse("lc0") == Kind.LC0,
 				"lc0 evaluator parse");
+		assertTrue(Kind.parse("otis") == Kind.OTIS,
+				"otis evaluator parse");
 
 		try (Mcts searcher = new Mcts(new Classical())) {
 			Result result = searcher.search(new Position(SIMPLE_FEN), new Limits(1, 0L, 0L));

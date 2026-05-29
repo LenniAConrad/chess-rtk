@@ -1,5 +1,6 @@
 package testing;
 
+import java.io.StringReader;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
@@ -11,6 +12,7 @@ import java.util.Map;
 import chess.tag.Delta;
 import chess.tag.Emitter;
 import chess.tag.Sort;
+import utility.Toml;
 
 /**
  * No-framework regression checks for tag parsing, emitting, sorting, and
@@ -46,6 +48,9 @@ public final class ParserRegressionTest {
         testFamilySortOrderIncludesPlannedFamilies();
         testPlannedFamilyIdentities();
         testDeltaUsesPlannedFamilyIdentities();
+        testTomlStringArrayEscapedQuoteRoundTrip();
+        testTomlStringEscapedQuoteBeforeHashRoundTrip();
+        testTomlStringControlEscapesRoundTrip();
         System.out.println("ParserRegressionTest: all checks passed");
     }
 
@@ -152,6 +157,54 @@ public final class ParserRegressionTest {
         assertChange(delta, "CHECKMATE:delivery", "CHECKMATE: delivery=queen", "CHECKMATE: delivery=rook");
         assertEquals(List.of("CHECKMATE: pattern=smothered_mate"), delta.added(), "added pattern");
         assertEquals(List.of("CHECKMATE: pattern=back_rank_mate"), delta.removed(), "removed pattern");
+    }
+
+    /**
+     * Verifies TOML string arrays round-trip escaped quotes before commas.
+     */
+    private static void testTomlStringArrayEscapedQuoteRoundTrip() {
+        try {
+            StringBuilder source = new StringBuilder();
+            Toml.appendStringArray(source, "items", new String[] { "a \", still first", "second" });
+            Toml toml = Toml.load(new StringReader(source.toString()));
+
+            assertEquals(List.of("a \", still first", "second"), toml.getStringList("items"),
+                    "TOML escaped quote array round trip");
+        } catch (Exception ex) {
+            throw new AssertionError("TOML escaped quote array round trip failed", ex);
+        }
+    }
+
+    /**
+     * Verifies an escaped quote does not make a following hash look like a comment.
+     */
+    private static void testTomlStringEscapedQuoteBeforeHashRoundTrip() {
+        try {
+            StringBuilder source = new StringBuilder();
+            Toml.appendString(source, "note", "value \" # still value");
+            Toml toml = Toml.load(new StringReader(source.toString()));
+
+            assertEquals("value \" # still value", toml.getString("note"),
+                    "TOML escaped quote before hash round trip");
+        } catch (Exception ex) {
+            throw new AssertionError("TOML escaped quote before hash round trip failed", ex);
+        }
+    }
+
+    /**
+     * Verifies TOML control-character escapes emitted by the writer parse back.
+     */
+    private static void testTomlStringControlEscapesRoundTrip() {
+        try {
+            String value = "line1\nline2\tend\r\n";
+            StringBuilder source = new StringBuilder();
+            Toml.appendString(source, "note", value);
+            Toml toml = Toml.load(new StringReader(source.toString()));
+
+            assertEquals(value, toml.getString("note"), "TOML control escape round trip");
+        } catch (Exception ex) {
+            throw new AssertionError("TOML control escape round trip failed", ex);
+        }
     }
 
     /**

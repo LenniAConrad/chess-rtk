@@ -9,6 +9,9 @@ import java.util.Map;
 import chess.core.Move;
 import chess.core.Position;
 
+/**
+ * Mutable puzzle-rating CSV row with cached score and FEN keys.
+ */
 final class PuzzleRatingRow {
 
     /**

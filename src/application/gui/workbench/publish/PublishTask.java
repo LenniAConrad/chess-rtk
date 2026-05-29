@@ -5,15 +5,25 @@ package application.gui.workbench.publish;
  */
 public enum PublishTask {
 
-    /** Direct diagram PDFs. */
+    /**
+     * Direct diagram PDFs.
+     */
     DIAGRAMS("Diagrams PDF"),
-    /** Render a manifest PDF. */
+    /**
+     * Render a manifest PDF.
+     */
     RENDER("Render Manifest PDF"),
-    /** Build a puzzle collection. */
+    /**
+     * Build a puzzle collection.
+     */
     COLLECTION("Puzzle Collection"),
-    /** Render a study book. */
+    /**
+     * Render a study book.
+     */
     STUDY("Study Book"),
-    /** Render a cover PDF. */
+    /**
+     * Render a cover PDF.
+     */
     COVER("Cover PDF");
 
     /**

@@ -5,8 +5,8 @@ import static chess.tag.core.Literals.*;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.function.Predicate;
 
-import application.Config;
 import chess.classical.Wdl;
 import chess.core.MoveList;
 import chess.core.Position;
@@ -25,6 +25,52 @@ import chess.uci.Output;
  * @since 2026
  */
 public final class Summary {
+
+    /**
+     * Predicate that never classifies an analysis as a puzzle.
+     */
+    private static final Predicate<Analysis> NO_PUZZLE_MATCH = analysis -> false;
+
+    /**
+     * Puzzle filters used by evaluation-summary tag generation.
+     *
+     * <p>
+     * The core tag package does not read application configuration directly.
+     * Application or CLI callers that want configured puzzle labels should pass
+     * the configured predicates through this value object.
+     * </p>
+     *
+     * @param quality predicate that gates whether the analysis is puzzle-quality
+     * @param winning predicate that recognizes winning puzzles
+     * @param drawing predicate that recognizes drawing puzzles
+     */
+    public record PuzzleFilters(
+            Predicate<Analysis> quality,
+            Predicate<Analysis> winning,
+            Predicate<Analysis> drawing) {
+
+        /**
+         * Normalizes nullable predicates to disabled predicates.
+         *
+         * @param quality predicate that gates whether the analysis is puzzle-quality
+         * @param winning predicate that recognizes winning puzzles
+         * @param drawing predicate that recognizes drawing puzzles
+         */
+        public PuzzleFilters {
+            quality = quality == null ? NO_PUZZLE_MATCH : quality;
+            winning = winning == null ? NO_PUZZLE_MATCH : winning;
+            drawing = drawing == null ? NO_PUZZLE_MATCH : drawing;
+        }
+
+        /**
+         * Returns filters that never emit a puzzle tag.
+         *
+         * @return disabled puzzle filters
+         */
+        public static PuzzleFilters disabled() {
+            return new PuzzleFilters(NO_PUZZLE_MATCH, NO_PUZZLE_MATCH, NO_PUZZLE_MATCH);
+        }
+    }
 
     /**
      * Prevents instantiation of this utility class.
@@ -59,15 +105,40 @@ public final class Summary {
      * @throws NullPointerException if {@code position} or {@code evaluator} is {@code null}
      */
     public static List<String> tags(Position position, Evaluator evaluator, Analysis analysis) {
+        return tags(position, evaluator, analysis, PuzzleFilters.disabled());
+    }
+
+    /**
+     * Builds evaluation tags for a position with optional engine analysis and
+     * caller-supplied puzzle classification filters.
+     *
+     * <p>
+     * The method emits early-exit tags for mate and stalemate, otherwise it
+     * falls back to centipawn evaluation and optional puzzle labels.
+     * </p>
+     *
+     * @param position the position to inspect
+     * @param evaluator the evaluator used for fallback centipawn scoring
+     * @param analysis optional engine analysis used for mate and puzzle metadata
+     * @param puzzleFilters optional puzzle-classification filters
+     * @return an immutable list of evaluation tags
+     * @throws NullPointerException if {@code position} or {@code evaluator} is {@code null}
+     */
+    public static List<String> tags(
+            Position position,
+            Evaluator evaluator,
+            Analysis analysis,
+            PuzzleFilters puzzleFilters) {
         Objects.requireNonNull(position, POSITION);
         Objects.requireNonNull(evaluator, EVALUATOR);
+        PuzzleFilters filters = puzzleFilters == null ? PuzzleFilters.disabled() : puzzleFilters;
 
         List<String> tags = new ArrayList<>(3);
         tags.add(META_TO_MOVE_PREFIX + (position.isWhiteToMove() ? WHITE : BLACK));
 
         if (position.isCheckmate()) {
             tags.add(STATUS_PREFIX + CHECKMATED);
-            addPuzzleTagIfAny(tags, analysis);
+            addPuzzleTagIfAny(tags, analysis, filters);
             return List.copyOf(tags);
         }
 
@@ -75,11 +146,11 @@ public final class Summary {
         if (moves.isEmpty()) {
             if (!position.inCheck()) {
                 tags.add(STATUS_PREFIX + STALEMATE);
-                addPuzzleTagIfAny(tags, analysis);
+                addPuzzleTagIfAny(tags, analysis, filters);
                 return List.copyOf(tags);
             }
             tags.add(STATUS_PREFIX + CHECKMATED);
-            addPuzzleTagIfAny(tags, analysis);
+            addPuzzleTagIfAny(tags, analysis, filters);
             return List.copyOf(tags);
         }
 
@@ -87,7 +158,7 @@ public final class Summary {
         if (analysisEval != null && analysisEval.isMate() && analysisEval.getValue() != 0) {
             int mateValue = analysisEval.getValue();
             tags.add(formatMateMeta(mateValue));
-            addPuzzleTagIfAny(tags, analysis);
+            addPuzzleTagIfAny(tags, analysis, filters);
             return List.copyOf(tags);
         }
 
@@ -95,7 +166,7 @@ public final class Summary {
             Position next = position.copy().play(moves.get(i));
             if (next.isCheckmate()) {
                 tags.add(META_MATE_IN_PREFIX + 1);
-                addPuzzleTagIfAny(tags, analysis);
+                addPuzzleTagIfAny(tags, analysis, filters);
                 return List.copyOf(tags);
             }
         }
@@ -103,7 +174,7 @@ public final class Summary {
         if (cp != null) {
             tags.add(META_EVAL_CP_PREFIX + formatSigned(cp));
         }
-        addPuzzleTagIfAny(tags, analysis);
+        addPuzzleTagIfAny(tags, analysis, filters);
         return List.copyOf(tags);
     }
 
@@ -180,9 +251,10 @@ public final class Summary {
      *
      * @param tags the mutable tag accumulator
      * @param analysis optional engine analysis
+     * @param puzzleFilters puzzle classification filters
      */
-    private static void addPuzzleTagIfAny(List<String> tags, Analysis analysis) {
-        String puzzleTag = puzzleTagFromFilters(analysis);
+    private static void addPuzzleTagIfAny(List<String> tags, Analysis analysis, PuzzleFilters puzzleFilters) {
+        String puzzleTag = puzzleTagFromFilters(analysis, puzzleFilters);
         if (puzzleTag != null) {
             tags.add(puzzleTag);
         }
@@ -192,19 +264,20 @@ public final class Summary {
      * Derives a puzzle classification tag from configured filters.
      *
      * @param analysis optional engine analysis
+     * @param puzzleFilters puzzle classification filters
      * @return the puzzle tag, or {@code null} if the analysis does not qualify
      */
-    private static String puzzleTagFromFilters(Analysis analysis) {
+    private static String puzzleTagFromFilters(Analysis analysis, PuzzleFilters puzzleFilters) {
         if (analysis == null || analysis.isEmpty()) {
             return null;
         }
-        if (!Config.getPuzzleQuality().apply(analysis)) {
+        if (!puzzleFilters.quality().test(analysis)) {
             return null;
         }
-        if (Config.getPuzzleWinning().apply(analysis)) {
+        if (puzzleFilters.winning().test(analysis)) {
             return FACT_PUZZLE_WINNING;
         }
-        if (Config.getPuzzleDrawing().apply(analysis)) {
+        if (puzzleFilters.drawing().test(analysis)) {
             return FACT_PUZZLE_DRAW;
         }
         return null;

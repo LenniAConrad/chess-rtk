@@ -31,6 +31,14 @@ final class PuzzleRatingReport {
         // utility
     }
 
+    /**
+     * Writes the native PDF puzzle rating report.
+     *
+     * @param output requested output path
+     * @param rows puzzle rating rows
+     * @param records source record paths
+     * @throws IOException on write failure
+     */
     static void writeReport(Path output, List<PuzzleRatingRow> rows, List<Path> records) throws IOException {
         Path pdf = reportPdfPath(output);
         Path parent = pdf.getParent();

@@ -16,6 +16,31 @@ import java.util.Map;
  */
 public final class BinLoader {
   /**
+   * Maximum accepted UTF-8 string byte length in the binary export.
+   */
+  private static final int MAX_STRING_LENGTH = 10_000_000;
+
+  /**
+   * Upper bound for SentencePiece vocabulary rows accepted before allocation.
+   */
+  private static final int MAX_SENTENCEPIECE_VOCAB = 1_000_000;
+
+  /**
+   * Upper bound for tensor records accepted before map allocation.
+   */
+  private static final int MAX_TENSOR_COUNT = 100_000;
+
+  /**
+   * Upper bound for one tensor's rank.
+   */
+  private static final int MAX_TENSOR_DIMS = 8;
+
+  /**
+   * Upper bound for one tensor's flat float element count.
+   */
+  private static final int MAX_TENSOR_ELEMENTS = 100_000_000;
+
+  /**
    * Prevent instantiation since helpers are static.
    */
   private BinLoader() {}
@@ -55,7 +80,7 @@ public final class BinLoader {
       in.readInt(); // fp16 flag (unused for now)
       float layerNormEps = in.readFloat();
 
-      int spVocab = in.readInt();
+      int spVocab = readNonNegativeInt(in, "SentencePiece vocabulary size", MAX_SENTENCEPIECE_VOCAB);
       String[] pieces = new String[spVocab];
       for (int i = 0; i < spVocab; i++) {
         pieces[i] = readString(in);
@@ -65,18 +90,18 @@ public final class BinLoader {
         scores[i] = in.readFloat();
       }
 
-      int tensorCount = in.readInt();
-      Map<String, Tensor> tensors = new HashMap<>(tensorCount * 2);
+      int tensorCount = readNonNegativeInt(in, "tensor count", MAX_TENSOR_COUNT);
+      Map<String, Tensor> tensors = new HashMap<>(Math.max(16, tensorCount * 2));
       for (int t = 0; t < tensorCount; t++) {
         String tensorName = readString(in);
-        int dims = in.readInt();
+        int dims = readNonNegativeInt(in, "dimension count for tensor " + tensorName, MAX_TENSOR_DIMS);
         int[] shape = new int[dims];
         int total = 1;
         for (int i = 0; i < dims; i++) {
-          shape[i] = in.readInt();
-          total *= shape[i];
+          shape[i] = readNonNegativeInt(in, "dimension " + i + " for tensor " + tensorName, MAX_TENSOR_ELEMENTS);
+          total = checkedElementProduct(total, shape[i], tensorName);
         }
-        int count = in.readInt();
+        int count = readNonNegativeInt(in, "element count for tensor " + tensorName, MAX_TENSOR_ELEMENTS);
         if (count != total) {
           throw new IOException("Tensor size mismatch for " + tensorName);
         }
@@ -105,13 +130,47 @@ public final class BinLoader {
    * @throws IOException on I/O errors or invalid length
    */
   private static String readString(DataInputStream in) throws IOException {
-    int len = in.readInt();
-    if (len < 0 || len > 10_000_000) {
-      throw new IOException("Invalid string length: " + len);
-    }
+    int len = readNonNegativeInt(in, "string length", MAX_STRING_LENGTH);
     byte[] data = new byte[len];
     in.readFully(data);
     return new String(data, StandardCharsets.UTF_8);
+  }
+
+  /**
+   * Reads a bounded non-negative integer field from the binary export.
+   *
+   * @param in input stream
+   * @param label field label for diagnostics
+   * @param max largest accepted value
+   * @return validated integer value
+   * @throws IOException on I/O errors or invalid values
+   */
+  private static int readNonNegativeInt(DataInputStream in, String label, int max) throws IOException {
+    int value = in.readInt();
+    if (value < 0 || value > max) {
+      throw new IOException("Invalid " + label + ": " + value);
+    }
+    return value;
+  }
+
+  /**
+   * Multiplies tensor dimensions while rejecting overflow and huge tensors
+   * before allocation.
+   *
+   * @param current current element product
+   * @param dimension next tensor dimension
+   * @param tensorName tensor name for diagnostics
+   * @return updated element product
+   * @throws IOException when the tensor is too large
+   */
+  private static int checkedElementProduct(int current, int dimension, String tensorName) throws IOException {
+    if (current == 0 || dimension == 0) {
+      return 0;
+    }
+    if (current > MAX_TENSOR_ELEMENTS / dimension) {
+      throw new IOException("Tensor too large for " + tensorName);
+    }
+    return current * dimension;
   }
 
   /**

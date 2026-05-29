@@ -42,6 +42,17 @@ final class PuzzleRatingSnapshot {
         // utility
     }
 
+    /**
+     * Draws the hardest-puzzle snapshot panel.
+     *
+     * @param canvas target canvas
+     * @param row puzzle row
+     * @param detail puzzle detail
+     * @param x left coordinate
+     * @param y top coordinate
+     * @param width panel width
+     * @param height panel height
+     */
     static void drawPuzzleSnapshotPanel(Canvas canvas, PuzzleRatingRow row, PuzzleRatingDetail detail, double x, double y,
             double width, double height) {
         canvas.fillRect(x, y, width, height, REPORT_PANEL);

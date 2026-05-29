@@ -2,48 +2,247 @@
 
 ## Current priorities
 
-### Tagging
+### Java Code Quality And Packaging
 
-- Close tag docs / release readiness:
-  - Add performance notes for large FEN / puzzle batches.
-  - Add migration notes for renamed or canonicalized tags.
-  - Keep `wiki/tag-reference.md` synchronized with emitted families as detectors change.
-  - Run the full regression suite after the tag pass.
-- Continue the remaining detector backlog from `wiki/tagging-implementation-plan.md`:
-  - Broaden fixture coverage for tag families that still rely mainly on ad hoc tests.
-  - Triage the remaining named mate patterns; implement only predicates that are safe from final position alone.
-  - Document excluded or history-dependent mate names instead of forcing weak detectors.
-  - Continue tactical motif work: discovered checks, double checks, trapped pieces, overloads, deflections, clearances, sacrifices, quiet moves, zwischenzug, perpetual-check, and windmill candidates.
-  - Normalize any remaining engine-enriched eval, PV, candidate, threat, and mate-in-N tags.
+Goal: get the Java workspace clean under the VS Code SonarQube/SonarLint
+session and keep source organization uniform. This is the foundation before
+large UI, MCTS, and backend work keeps growing the codebase.
 
-### CLI consistency
+- Use VS Code SonarQube/SonarLint as source of truth:
+  - Use `scripts/inspect_java_diagnostics.sh`, `reports/java-diagnostics-triage.md`,
+    and the VS Code Problems/SonarQube views before and after each cleanup
+    batch.
+  - Repeat scans until no Java errors or warnings remain.
+- Keep naming/package structure uniform:
+  - Rename vague or inconsistent classes only when the new name clarifies
+    ownership or behavior.
+- Improve Java documentation:
+  - Add proper multiline Javadoc to classes, public/protected methods,
+    constructors, fields, and constants.
+  - Document package-private types and members when they define important
+    internal contracts or non-obvious behavior.
+  - Include parameter, return, and thrown-exception tags where they clarify the
+    contract.
+  - Keep comments useful: explain purpose, invariants, ownership, threading,
+    lifecycle, units, and edge cases rather than restating obvious code.
+  - Keep Javadocs current during refactors and verify generated docs do not
+    surface stale or misleading comments.
+- Clean up and deduplicate code:
+  - Use SonarQube/SonarLint duplicate-code and complexity findings to identify
+    repeated logic.
+  - Consolidate repeated Workbench UI styling, board rendering, command parsing,
+    output formatting, and backend-selection code into shared helpers where the
+    abstraction is genuinely clearer.
+  - Remove dead code, stale compatibility shims, unused helpers, and unused
+    imports found during cleanup.
+  - Split oversized methods/classes only when it improves ownership,
+    testability, or readability.
+  - Avoid churn-only refactors; each cleanup should either remove duplication,
+    reduce complexity, or fix a real static-analysis issue.
+- Verify:
+  - Full compile passes.
+  - Focused regressions pass for touched areas.
+  - VS Code SonarQube/SonarLint Java diagnostics are clean.
 
-- Continue standardizing position input across older commands:
-  `--fen`, positional FEN where sensible, `--input`, `--pgn`, and `--stdin`.
-- Continue standardizing machine/script output across older commands:
-  `--format`, `--json`, `--jsonl`, `--output`, `--no-header`, and `--fields`.
-- Reduce remaining raw `System.exit` / direct stack-trace handling in older command paths:
-  `ConfigOps`, `EngineOps`, `EvalOps`, `EvalCommand`, `BuiltInEngineCommand`,
-  `PositionViewCommand`, `TagsCommand`, `PuzzleTagsCommand`, `TagTextCommand`,
-  `PuzzleTextCommand`, `PuzzleSupport`, `MineCommand`, `GenFensCommand`, and
-  `ThreatsCommand`.
-- Keep command handlers thin: orchestration in CLI packages, chess logic in core / engine packages.
-- Add shell completion for bash, zsh, and fish.
-- Add broader CLI snapshot/golden tests for help output, table output, JSON output, and common error messages.
-- Add `position show` and `selftest` only if they still look worthwhile after the current command set settles.
-- Tighten defaults so common commands work well without excessive flags.
+### Workbench UI Foundation
 
-### Repo quality
+Goal: unify Workbench layout behavior and styling so all current and future
+panels inherit the same controls, resize handles, scrollbars, and visual rules.
 
-- Add or document a one-command local workflow layer (`just` or `Makefile`) for build, release, install, and smoke tests.
-- Add optional `pre-commit` hooks for shell scripts and Java formatting.
-- Consider `jlink` / `jpackage` for optional self-contained distributions.
+- Manual layout-control pass:
+  - Check narrow, normal, and wide Workbench windows.
+  - Exercise open, split, dock, detach, collapse, restore, close, and keyboard
+    focus flows.
+  - Fix any remaining unclear tab/layout controls with clear tooltips,
+    accessible names, action ids, disabled states, and focus/hover feedback.
+- Unify Workbench styling:
+  - Audit toolbar buttons and inspector panes for unstyled or inconsistently
+    styled native Swing defaults.
+  - Reuse existing custom styling helpers wherever possible instead of adding
+    one-off paint/styling code.
+  - Consolidate duplicate components or helper methods that do the same visual
+    job in slightly different ways.
+  - Keep styling centralized in `Theme`, `Ui`, and dedicated reusable UI
+    components so future panels inherit the same look automatically.
+- Verify:
+  - Workbench regression coverage for any changed tab/layout behavior.
+  - Manual pass confirms focus, restore controls, and remaining custom controls
+    are consistent across the shell.
 
-## Recently worked off
+### Workbench MCTS Graph And Live Search
 
-- `wiki/tag-reference.md` exists and is linked from the user docs.
-- Command examples for `fen tags` and `puzzle tags` are present in the wiki.
-- Exact `MOVE` aggregate tags are implemented in `chess.tag.MoveFacts`.
-- Conservative terminal `CHECKMATE` attributes and high-confidence mate patterns are implemented in `chess.tag.Checkmate`.
-- `MOVE` and `CHECKMATE` tags have direct regression coverage in `TaggingRegressionTest`, `ParserRegressionTest`, and `testdata/tags/static.tsv`.
-- Initial native workbench regression coverage exists in `WorkbenchRegressionTest`.
+Goal: keep the current MCTS table/details workflow and add a viable graph view
+for the full tree being calculated, while making live search/NN visualization
+advance incrementally instead of jumping from initial to final state.
+
+- Preserve and improve the table workflow:
+  - Keep the root move table as a first-class view; it is useful for scanning,
+    sorting, comparing visits/scores, and inspecting candidate moves.
+  - Keep selected-node details and board preview synchronized with table
+    selection.
+  - Add a clear view switcher for `Table` and `Graph` rather than replacing the
+    table with the graph.
+- Build the zoomable node/branch graph:
+  - Add a custom Swing `JComponent` canvas for the explored MCTS graph.
+  - Draw connected parent/child branches with highlighted PV and selected line.
+  - Add graph style modes:
+    - `Boards`: each node is a small chessboard thumbnail.
+    - `Moves`: each node is a compact box/card with algebraic move text,
+      visits, score, and key metrics.
+    - `Hybrid` if it proves useful: board thumbnails for selected/PV nodes and
+      compact move boxes elsewhere.
+  - Implement zoom, pan, fit-to-view, selected-node centering, omitted-node
+    badges, and stable viewport across refreshes.
+  - Keep large trees bounded with depth/node/min-visit filters while making
+    omitted branches obvious.
+  - Keep graph selection synchronized with the table, selected-node details, and
+    board preview.
+- Share MCTS state with the Network tab:
+  - Replace or retire the Network tab's older local MCTS worker.
+  - Let Network follow-leaf visualization observe `MctsSession`.
+  - Keep stop/pause/resume coherent when both MCTS and Network tabs are open.
+- Restore incremental live NN visualization during search:
+  - Fix the regression where live search only shows the initial and final NN
+    frames.
+  - When Follow leaf/live NN visualization is enabled, the search should advance
+    in visible steps: choose next leaf, compute its NN snapshot, show that
+    visualization, wait until the UI has actually rendered or acknowledged the
+    frame, then continue to the next step.
+  - Use explicit render backpressure instead of unbounded publish/coalescing:
+    the UI must not skip all intermediate frames, but it also must not freeze
+    the EDT.
+  - Keep a bounded frame rate or "visualize every N leaves" setting so users can
+    choose between speed and seeing each branch calculation.
+  - Show progress/status while the worker is waiting for the UI frame, and make
+    pause/stop respond promptly even during this wait.
+  - Add regression/manual checks that Follow leaf shows multiple intermediate
+    NN frames during a search, not only start/end.
+- Strengthen backend/reuse behavior:
+  - Validate missing/slow/unavailable non-classical backends.
+  - Improve subtree reuse for known next positions and clean reset for unknown
+    positions.
+  - Surface backend/model errors without killing the tab.
+- Verify:
+  - Regression coverage for Network observing `MctsSession`.
+  - Tree canvas zoom/pan/selection math.
+  - Bounded rendering on large synthetic trees.
+
+### Workbench NN Views And Runtime
+
+Goal: finish NN board consistency and runtime diagnostics after the first
+orientation/runtime pass.
+
+- NN board cleanup:
+  - Add a reusable collapsible chessboard section wrapper for dense NN views.
+  - Keep collapsed layouts stable and focus-safe.
+  - Keep NNUE, CNN, BT4, and OTIS board placement, empty/error states,
+    overlays, coordinates, focus rings, and hit regions consistent.
+  - Avoid visible board captions/helper text on small board surfaces; use
+    tooltip and inspector details instead.
+- Dashboard runtime diagnostics:
+  - Expand `Network Runtime` beyond the current compact summary.
+  - Show Java2D/OpenGL status, model availability, loaded backends,
+    GPU/native availability, NN cache status, and readable model-path summaries.
+- Verify:
+  - Headless paint tests for collapsible board behavior.
+  - Manual smoke with MCTS running, Follow leaf enabled, and NNUE Trace visible.
+
+### OTIS CUDA Backend
+
+Goal: add an optimized CUDA implementation of the OTIS architecture and iterate
+on it until it is as fast as practical while staying numerically correct.
+
+- Implement the CUDA backend:
+  - Add native CUDA kernels for OTIS inference, including input preparation,
+    sheaf/Laplacian-style propagation, trunk blocks, policy logits, WDL/value
+    output, and any required reductions.
+  - Add JNI bindings and Java backend selection consistent with the existing
+    NN CUDA/native backend patterns.
+  - Support clean CPU fallback when CUDA is unavailable, model loading fails, or
+    the current platform cannot load native libraries.
+  - Keep memory ownership explicit: model upload, device buffers, batch-size
+    assumptions, cleanup, and error reporting.
+- Optimize through measured variants:
+  - Start with a straightforward correct CUDA implementation.
+  - Build and benchmark alternative kernels/layouts for the expensive stages:
+    fused kernels, shared-memory tiling, coalesced access patterns, reduced
+    host/device copies, persistent uploaded weights, and batched evaluation if
+    it helps MCTS.
+  - Compare CPU, naive CUDA, and optimized CUDA paths on the same positions and
+    model files.
+  - Pick the fastest implementation that preserves accuracy; do not trade away
+    correctness for small speed gains.
+  - Record benchmark hardware, driver/runtime version, model shape, batch size,
+    latency, throughput, and numerical max/mean error.
+- Accuracy and parity:
+  - Add CPU-vs-CUDA parity tests for representative FENs.
+  - Check policy logits, WDL/value outputs, intermediate tensors where exposed,
+    and top-move ordering.
+  - Define acceptable tolerances for float differences and fail loudly outside
+    them.
+  - Include edge cases: empty-ish boards, tactical positions, endgames,
+    castling/en-passant rights, black-to-move orientation, and malformed model
+    handling.
+- Integrate with Workbench/CLI:
+  - Add config/status reporting so Dashboard/Runtime diagnostics show OTIS CUDA
+    availability, loaded backend, device name, and fallback reason.
+  - Let OTIS-backed MCTS and Network views use the CUDA backend when selected
+    and available.
+  - Keep command-line evaluator/backend selection explicit and scriptable.
+- Verification:
+  - Compile native CUDA code and Java code from a clean checkout.
+  - Run CPU-vs-CUDA parity tests.
+  - Run OTIS MCTS smoke tests with CUDA enabled and disabled.
+  - Benchmark several candidate implementations and keep the fastest accurate
+    one, with results saved under `reports/` or documented in the wiki.
+
+### Position Description Text
+
+Goal: improve `position describe` and the Workbench Describe tab, then prepare
+the future T5 text model.
+
+- Improve classical descriptions:
+  - Review golden outputs for repetition, weak ordering, and awkward phrasing.
+  - Improve fact ranking across side to move, material, king safety, pawn
+    structure, tactical motifs, threats, candidates, and likely plans.
+  - Add optional engine eval/PV enrichment when budgets allow, while keeping the
+    default cheap and deterministic.
+- Improve Workbench Describe:
+  - Make engine selection, detail level, regenerate, freeze current position,
+    copy/export, status, and source-signal display feel complete.
+  - Keep T5 unavailable status clear until trained weights exist.
+  - Ensure generation remains non-blocking while following the board.
+- Prepare T5/training:
+  - Finalize model-path config and runtime diagnostics for local T5 weights.
+  - Serialize `PositionDescriptionInput` into a compact prompt/feature format.
+  - Export deterministic training rows with FEN, structured signals, classical
+    text, and metadata.
+  - Use LLM-distilled targets later to make the generated text shorter, less
+    repetitive, and more natural.
+  - Add filters for illegal FENs, contradictory tags, hallucinated moves,
+    repeated sentences, excessive length, and missing tactical facts.
+- Verify:
+  - More golden tests for tactical, strategic, quiet, endgame, and malformed-FEN
+    positions.
+  - Training export schema tests.
+  - Workbench non-blocking generation tests beyond tab registration.
+
+### Documentation Site
+
+Goal: finish the GitHub Pages docs revamp and make the generated site ready to
+publish.
+
+- Publish-ready follow-through:
+  - Commit regenerated docs output with generator changes when the GitHub Pages
+    update is desired.
+  - Smoke-test the generated site locally.
+  - Run link/image checks for internal pages and generated assets.
+  - Check desktop and mobile layouts for readable line length, non-overlapping
+    navigation, and usable tables/code blocks.
+- Keep the style restrained:
+  - Maintain the neutral palette with one accent color across generated pages,
+    manual HTML, and PDF output.
+  - Reduce duplicated pages and stale generated fragments.
+  - Keep command reference pages scannable with stable anchors and concise
+    examples.
+  - Keep source-of-truth content in `wiki/` where possible.

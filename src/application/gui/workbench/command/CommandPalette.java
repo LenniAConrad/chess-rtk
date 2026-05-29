@@ -53,64 +53,104 @@ import static application.gui.workbench.ui.Ui.transparentPanel;
  */
 public final class CommandPalette extends JPanel {
 
-    /** Serialization identifier for Swing dialog compatibility. */
+    /**
+     * Serialization identifier for Swing dialog compatibility.
+     */
     private static final long serialVersionUID = 1L;
 
-    /** Preferred palette width in pixels. */
+    /**
+     * Preferred palette width in pixels.
+     */
     private static final int WIDTH = 600;
 
-    /** Preferred palette height in pixels. */
+    /**
+     * Preferred palette height in pixels.
+     */
     private static final int HEIGHT = 520;
 
-    /** Minimum overlay width that keeps the search field usable. */
+    /**
+     * Minimum overlay width that keeps the search field usable.
+     */
     private static final int MIN_WIDTH = 360;
 
-    /** Minimum overlay height that keeps several actions visible. */
+    /**
+     * Minimum overlay height that keeps several actions visible.
+     */
     private static final int MIN_HEIGHT = 240;
 
-    /** Horizontal margin inside the layered pane. */
+    /**
+     * Horizontal margin inside the layered pane.
+     */
     private static final int SIDE_MARGIN = 16;
 
-    /** Distance from the top of the workbench content area. */
+    /**
+     * Distance from the top of the workbench content area.
+     */
     private static final int TOP_MARGIN = 12;
 
-    /** Tight corner radius matching VS Code's palette body. */
+    /**
+     * Tight corner radius matching VS Code's palette body.
+     */
     private static final int PALETTE_RADIUS = 4;
 
-    /** Pixels reserved below the body for the drop shadow. */
+    /**
+     * Pixels reserved below the body for the drop shadow.
+     */
     private static final int SHADOW_SIZE = 6;
 
-    /** Horizontal padding shared by the search field underline and result rows. */
+    /**
+     * Horizontal padding shared by the search field underline and result rows.
+     */
     private static final int ROW_HPAD = 12;
 
-    /** Maximum number of recent action titles retained for frecency boosting. */
+    /**
+     * Maximum number of recent action titles retained for frecency boosting.
+     */
     private static final int MAX_RECENTS = 12;
 
-    /** Shared empty-hits sentinel so non-search renders allocate nothing. */
+    /**
+     * Shared empty-hits sentinel so non-search renders allocate nothing.
+     */
     private static final int[] NO_HITS = new int[0];
 
-    /** Owning workbench frame. */
+    /**
+     * Owning workbench frame.
+     */
     private final JFrame owner;
 
-    /** Input field used to filter actions. */
+    /**
+     * Input field used to filter actions.
+     */
     private final JTextField searchField = new JTextField();
 
-    /** Visible row model. */
+    /**
+     * Visible row model.
+     */
     private final DefaultListModel<PaletteRow> visibleRows = new DefaultListModel<>();
 
-    /** Result row list. */
+    /**
+     * Result row list.
+     */
     private final JList<PaletteRow> rowList = new JList<>(visibleRows);
 
-    /** Empty-state label shown when no actions match. */
+    /**
+     * Empty-state label shown when no actions match.
+     */
     private final JLabel emptyLabel = new JLabel("No matching commands. Press Esc to dismiss.");
 
-    /** Full action list for the current palette invocation. */
+    /**
+     * Full action list for the current palette invocation.
+     */
     private List<PaletteAction> actions = List.of();
 
-    /** Recently-run action titles, most-recent first. */
+    /**
+     * Recently-run action titles, most-recent first.
+     */
     private final LinkedHashSet<String> recentTitles = new LinkedHashSet<>();
 
-    /** Repositions the floating overlay when the owning frame changes size. */
+    /**
+     * Repositions the floating overlay when the owning frame changes size.
+     */
     private final ComponentAdapter ownerResizeListener = new ComponentAdapter() {
         /**
          * Repositions the palette after the owner frame is resized.
@@ -133,10 +173,14 @@ public final class CommandPalette extends JPanel {
         }
     };
 
-    /** True once the owner resize listener has been installed. */
+    /**
+     * True once the owner resize listener has been installed.
+     */
     private boolean resizeListenerInstalled;
 
-    /** Lazily-created outside-click dismiss listener. */
+    /**
+     * Lazily-created outside-click dismiss listener.
+     */
     private java.awt.event.AWTEventListener outsideClickDismiss;
 
     /**
@@ -232,6 +276,7 @@ public final class CommandPalette extends JPanel {
         configureRowList();
         JPanel results = transparentPanel(new BorderLayout(0, 6));
         JScrollPane resultScroll = new JScrollPane(rowList);
+        Ui.styleScrollPane(resultScroll);
         resultScroll.setOpaque(false);
         resultScroll.setBorder(BorderFactory.createEmptyBorder());
         resultScroll.setViewportBorder(BorderFactory.createEmptyBorder());
@@ -265,7 +310,9 @@ public final class CommandPalette extends JPanel {
                 BorderFactory.createEmptyBorder(7, ROW_HPAD, 7, ROW_HPAD));
     }
 
-    /** Reapplies current theme colors after a mode switch. */
+    /**
+     * Reapplies current theme colors after a mode switch.
+     */
     public void refreshTheme() {
         Theme.refreshComponentTree(this);
         searchField.setBackground(Theme.PANEL_SOLID);
@@ -275,7 +322,9 @@ public final class CommandPalette extends JPanel {
         repaint();
     }
 
-    /** Adds this overlay to the owning frame's layered pane. */
+    /**
+     * Adds this overlay to the owning frame's layered pane.
+     */
     private void mountOverlay() {
         JLayeredPane layeredPane = owner.getLayeredPane();
         if (getParent() != layeredPane) {
@@ -290,7 +339,9 @@ public final class CommandPalette extends JPanel {
         }
     }
 
-    /** Positions the overlay at the top center of the workbench content. */
+    /**
+     * Positions the overlay at the top center of the workbench content.
+     */
     private void positionOverlay() {
         JLayeredPane layeredPane = owner.getLayeredPane();
         int availableWidth = layeredPane.getWidth();
@@ -306,7 +357,9 @@ public final class CommandPalette extends JPanel {
         repaint();
     }
 
-    /** Configures the searchable row list. */
+    /**
+     * Configures the searchable row list.
+     */
     private void configureRowList() {
         rowList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         rowList.setVisibleRowCount(10);
@@ -314,6 +367,9 @@ public final class CommandPalette extends JPanel {
         rowList.getAccessibleContext().setAccessibleName("Action results");
         applyRowListChrome();
         rowList.addMouseListener(new MouseAdapter() {
+            /**
+             * {@inheritDoc}
+             */
             @Override
             public void mouseClicked(MouseEvent event) {
                 if (event.getClickCount() == 2) {
@@ -323,7 +379,9 @@ public final class CommandPalette extends JPanel {
         });
     }
 
-    /** Applies list colors. The renderer is responsible for selection paint. */
+    /**
+     * Applies list colors. The renderer is responsible for selection paint.
+     */
     private void applyRowListChrome() {
         Theme.list(rowList);
         rowList.setOpaque(false);
@@ -334,7 +392,9 @@ public final class CommandPalette extends JPanel {
         rowList.setFixedCellHeight(-1);
     }
 
-    /** Configures the empty-state label. */
+    /**
+     * Configures the empty-state label.
+     */
     private void configureEmptyLabel() {
         emptyLabel.setForeground(Theme.MUTED);
         emptyLabel.setFont(Theme.font(12, Font.PLAIN));
@@ -343,7 +403,9 @@ public final class CommandPalette extends JPanel {
         emptyLabel.setVisible(false);
     }
 
-    /** Installs keyboard behavior for palette execution and dismissal. */
+    /**
+     * Installs keyboard behavior for palette execution and dismissal.
+     */
     private void installKeys() {
         getInputMap(JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT)
                 .put(KeyStroke.getKeyStroke("ESCAPE"), "closePalette");
@@ -361,11 +423,16 @@ public final class CommandPalette extends JPanel {
         searchField.addActionListener(event -> runSelection());
     }
 
-    /** Creates a Swing action from a runnable. */
+    /**
+     * Creates a Swing action from a runnable.
+     */
     private static AbstractAction swingAction(Runnable runnable) {
         return new AbstractAction() {
             private static final long serialVersionUID = 1L;
 
+            /**
+             * {@inheritDoc}
+             */
             @Override
             public void actionPerformed(ActionEvent event) {
                 runnable.run();
@@ -373,7 +440,9 @@ public final class CommandPalette extends JPanel {
         };
     }
 
-    /** Rebuilds visible rows for the current search query. */
+    /**
+     * Rebuilds visible rows for the current search query.
+     */
     private void refill() {
         visibleRows.clear();
         String query = searchField.getText();
@@ -440,7 +509,9 @@ public final class CommandPalette extends JPanel {
         }
     }
 
-    /** Returns recent actions in most-recently-used order. */
+    /**
+     * Returns recent actions in most-recently-used order.
+     */
     private List<PaletteAction> recentActionsInOrder() {
         List<PaletteAction> recents = new ArrayList<>();
         for (String title : recentTitles) {
@@ -454,7 +525,9 @@ public final class CommandPalette extends JPanel {
         return recents;
     }
 
-    /** Returns true when at least one selectable action row is visible. */
+    /**
+     * Returns true when at least one selectable action row is visible.
+     */
     private boolean anySelectableRow() {
         for (int i = 0; i < visibleRows.size(); i++) {
             if (visibleRows.get(i) instanceof PaletteRow.ActionRow) {
@@ -464,7 +537,9 @@ public final class CommandPalette extends JPanel {
         return false;
     }
 
-    /** Selects the first action row, skipping headers and dividers. */
+    /**
+     * Selects the first action row, skipping headers and dividers.
+     */
     private void selectFirstAction() {
         for (int i = 0; i < visibleRows.size(); i++) {
             if (visibleRows.get(i) instanceof PaletteRow.ActionRow) {
@@ -493,7 +568,9 @@ public final class CommandPalette extends JPanel {
         return 0;
     }
 
-    /** One ranked palette result. */
+    /**
+     * One ranked palette result.
+     */
     private record RankedRow(PaletteAction action, int[] hits, int score) { }
 
     /**
@@ -528,7 +605,9 @@ public final class CommandPalette extends JPanel {
         }
     }
 
-    /** Runs the currently selected action. */
+    /**
+     * Runs the currently selected action.
+     */
     private void runSelection() {
         PaletteRow selected = rowList.getSelectedValue();
         if (!(selected instanceof PaletteRow.ActionRow row)) {
@@ -572,7 +651,9 @@ public final class CommandPalette extends JPanel {
         return outsideClickDismiss;
     }
 
-    /** Hides the in-frame overlay without discarding recent-action state. */
+    /**
+     * Hides the in-frame overlay without discarding recent-action state.
+     */
     private void hidePalette() {
         setVisible(false);
         owner.getLayeredPane().repaint(getBounds());
@@ -628,7 +709,9 @@ public final class CommandPalette extends JPanel {
             } : action;
         }
 
-        /** Match score plus title-relative hit indices. */
+        /**
+         * Match score plus title-relative hit indices.
+         */
         public record MatchResult(int score, int[] hits) { }
 
         /**
@@ -738,12 +821,18 @@ public final class CommandPalette extends JPanel {
      */
     public sealed interface PaletteRow {
 
-        /** Section title shown above a group (e.g. {@code "recently used"}). */
+        /**
+         * Section title shown above a group (e.g. {@code "recently used"}).
+         */
         record Header(String label) implements PaletteRow { }
 
-        /** Horizontal rule between sections. */
+        /**
+         * Horizontal rule between sections.
+         */
         final class Divider implements PaletteRow {
-            /** Singleton divider instance. */
+            /**
+             * Singleton divider instance.
+             */
             public static final Divider INSTANCE = new Divider();
 
             /**
@@ -753,7 +842,9 @@ public final class CommandPalette extends JPanel {
             }
         }
 
-        /** Selectable command row with optional title-hit highlights. */
+        /**
+         * Selectable command row with optional title-hit highlights.
+         */
         record ActionRow(PaletteAction action, int[] hits, boolean showCategory) implements PaletteRow {
             /**
              * Creates a command row that includes the category prefix.
@@ -822,7 +913,9 @@ public final class CommandPalette extends JPanel {
         }
     }
 
-    /** Row panel for a selectable command, with bold-highlighted title. */
+    /**
+     * Row panel for a selectable command, with bold-highlighted title.
+     */
     private static final class ActionRowPanel extends JPanel {
 
         /**
@@ -1206,7 +1299,9 @@ public final class CommandPalette extends JPanel {
         }
     }
 
-    /** Section header row. */
+    /**
+     * Section header row.
+     */
     private static final class HeaderRowPanel extends JPanel {
 
         /**
@@ -1253,7 +1348,9 @@ public final class CommandPalette extends JPanel {
         }
     }
 
-    /** Horizontal divider between sections. */
+    /**
+     * Horizontal divider between sections.
+     */
     private static final class DividerRowPanel extends JPanel {
 
         /**

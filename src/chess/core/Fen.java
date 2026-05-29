@@ -197,8 +197,13 @@ public final class Fen {
             return;
         }
         if (ch >= '1' && ch <= '8') {
+            if (state.previousWasDigit) {
+                throw new IllegalArgumentException("Invalid FEN '" + source
+                        + "' adjacent empty-square counts: " + placement);
+            }
             state.rankSquares += ch - '0';
             state.square += ch - '0';
+            state.previousWasDigit = true;
             validatePlacementBounds(placement, source, state);
             return;
         }
@@ -218,6 +223,7 @@ public final class Fen {
         }
         state.rankSquares = 0;
         state.ranks++;
+        state.previousWasDigit = false;
     }
 
     /**
@@ -244,6 +250,7 @@ public final class Fen {
         }
         position.setPiece(piece, state.square++);
         state.rankSquares++;
+        state.previousWasDigit = false;
         validatePlacementBounds(placement, source, state);
     }
 
@@ -384,6 +391,11 @@ public final class Fen {
          * Completed rank count.
          */
         private int ranks;
+
+        /**
+         * Whether the previous token in this rank was an empty-square digit.
+         */
+        private boolean previousWasDigit;
     }
 
     /**

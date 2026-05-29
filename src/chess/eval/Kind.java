@@ -28,7 +28,12 @@ public enum Kind {
     /**
      * LC0 policy/value network evaluator.
      */
-    LC0("lc0");
+    LC0("lc0"),
+
+    /**
+     * OTIS policy/WDL evaluator.
+     */
+    OTIS("otis");
 
     /**
      * Stable lowercase token accepted by CLI flags and shown in engine output.
@@ -68,8 +73,9 @@ public enum Kind {
             case "classical", "static" -> CLASSICAL;
             case "nnue" -> NNUE;
             case "lc0", "leela" -> LC0;
+            case "otis" -> OTIS;
             default -> throw new IllegalArgumentException(
-                    "Unsupported evaluator: " + value + " (expected classical, nnue, or lc0)");
+                    "Unsupported evaluator: " + value + " (expected classical, nnue, lc0, or otis)");
         };
     }
 }

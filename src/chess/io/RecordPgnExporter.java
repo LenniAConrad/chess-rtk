@@ -24,7 +24,6 @@ import java.util.function.Consumer;
 import java.util.function.LongConsumer;
 import java.util.function.Predicate;
 
-import application.console.Bar;
 import chess.core.MoveList;
 import chess.core.Position;
 import chess.core.SAN;
@@ -68,6 +67,33 @@ public final class RecordPgnExporter {
     }
 
     /**
+     * Creates progress sinks for long-running record export phases.
+     */
+    @FunctionalInterface
+    public interface ProgressFactory {
+
+        /**
+         * Creates a progress sink.
+         *
+         * @param total total work units, or 0 when unknown
+         * @param label phase label
+         * @return progress sink, or {@code null} to disable progress
+         */
+        ProgressSink create(long total, String label);
+    }
+
+    /**
+     * Receives absolute progress updates for one export phase.
+     */
+    public interface ProgressSink extends LongConsumer {
+
+        /**
+         * Completes and releases the progress sink.
+         */
+        void finish();
+    }
+
+    /**
      * Converts a {@code .record} JSON array/JSONL file into PGN games by linking records
      * via their {@code parent} and {@code position} FENs.
      *
@@ -85,7 +111,19 @@ public final class RecordPgnExporter {
      * @throws IllegalArgumentException if {@code recordFile} or {@code pgnFile} is null.
      */
     public static void export(Path recordFile, Path pgnFile) {
-        exportFiltered(recordFile, pgnFile, null);
+        export(recordFile, pgnFile, null);
+    }
+
+    /**
+     * Converts a {@code .record} JSON array/JSONL file into PGN games while
+     * reporting progress through the supplied factory.
+     *
+     * @param recordFile      input JSON (array or JSONL) path
+     * @param pgnFile         output PGN path
+     * @param progressFactory optional progress sink factory
+     */
+    public static void export(Path recordFile, Path pgnFile, ProgressFactory progressFactory) {
+        exportFiltered(recordFile, pgnFile, null, progressFactory);
     }
 
     /**
@@ -98,6 +136,21 @@ public final class RecordPgnExporter {
      * @throws IllegalArgumentException if {@code recordFile} or {@code pgnFile} is null.
      */
     public static void exportFiltered(Path recordFile, Path pgnFile, Predicate<String> includeRecordJson) {
+        exportFiltered(recordFile, pgnFile, includeRecordJson, null);
+    }
+
+    /**
+     * Converts a {@code .record} JSON array/JSONL file into PGN games while
+     * filtering records and reporting progress through the supplied factory.
+     *
+     * @param recordFile        input JSON (array or JSONL) path
+     * @param pgnFile           output PGN path
+     * @param includeRecordJson predicate to decide whether a record should be included
+     * @param progressFactory   optional progress sink factory
+     * @throws IllegalArgumentException if {@code recordFile} or {@code pgnFile} is null
+     */
+    public static void exportFiltered(Path recordFile, Path pgnFile, Predicate<String> includeRecordJson,
+            ProgressFactory progressFactory) {
         if (recordFile == null) {
             throw new IllegalArgumentException("recordfile is null");
         }
@@ -118,7 +171,7 @@ public final class RecordPgnExporter {
 
         try {
             long totalBytes = fileSize(recordFile);
-            IndexData index = indexRecords(recordFile, ok, bad, badEdges, totalBytes, include);
+            IndexData index = indexRecords(recordFile, ok, bad, badEdges, totalBytes, include, progressFactory);
             if (index.positionsBySig.isEmpty()) {
                 LogService.info(String.format(
                         "No records parsed from '%s'; skipping PGN output '%s'.",
@@ -264,7 +317,8 @@ public final class RecordPgnExporter {
             AtomicLong bad,
             AtomicLong badEdges,
             long totalBytes,
-            Predicate<String> include) throws IOException {
+            Predicate<String> include,
+            ProgressFactory progressFactory) throws IOException {
         final Map<String, String> positionsBySig = new LinkedHashMap<>();
         final Map<String, List<ChildInfo>> childrenByParentSig = new HashMap<>();
         final Map<String, Set<String>> directChildren = new HashMap<>();
@@ -273,7 +327,7 @@ public final class RecordPgnExporter {
         final Map<String, String> descriptionBySig = new HashMap<>();
         final Map<String, Integer> evalScoreBySig = new HashMap<>();
 
-        Bar indexBar = progressBar(totalBytes, "Indexing records");
+        ProgressSink indexProgress = progressSink(progressFactory, totalBytes, "Indexing records");
         IndexMaps indexMaps = new IndexMaps(positionsBySig, childrenByParentSig, bestMoveBySig, descriptionBySig,
                 evalScoreBySig);
         IndexContext indexCtx = new IndexContext(ok, bad, indexMaps);
@@ -283,10 +337,10 @@ public final class RecordPgnExporter {
                     return;
                 }
                 handleIndexRecord(objJson, indexCtx);
-            }, progressSetter(indexBar));
+            }, progressSetter(indexProgress));
         } finally {
-            if (indexBar != null) {
-                indexBar.finish();
+            if (indexProgress != null) {
+                indexProgress.finish();
             }
         }
 
@@ -295,9 +349,9 @@ public final class RecordPgnExporter {
         BridgeContext directCtx = new BridgeContext(adjacency, incoming, badEdges, bestMoveBySig, directChildren,
                 edgeKeysByFrom, null);
         addDirectEdges(childrenByParentSig, positionsBySig, directCtx);
-        Bar bridgeBar = progressBar(totalBytes, "Linking records");
+        ProgressSink bridgeProgress = progressSink(progressFactory, totalBytes, "Linking records");
         BridgeContext bridgeCtx = new BridgeContext(adjacency, incoming, badEdges, bestMoveBySig, directChildren,
-                edgeKeysByFrom, bridgeBar);
+                edgeKeysByFrom, bridgeProgress);
         addBridgedEdges(recordFile, childrenByParentSig, bridgeCtx, include);
 
         return new IndexData(positionsBySig, adjacency, incoming, bestMoveBySig, descriptionBySig, evalScoreBySig);
@@ -579,7 +633,7 @@ public final class RecordPgnExporter {
                 if (include.test(objJson)) {
                     processBridgedRecord(objJson, childrenByParentSig, ctx);
                 }
-            }, progressSetter(ctx.bridgeBar));
+            }, progressSetter(ctx.bridgeProgress));
         } finally {
             finishBridgeBar(ctx);
         }
@@ -651,8 +705,8 @@ public final class RecordPgnExporter {
      * @param ctx bridge context holding the bar.
      */
     private static void finishBridgeBar(BridgeContext ctx) {
-        if (ctx.bridgeBar != null) {
-            ctx.bridgeBar.finish();
+        if (ctx.bridgeProgress != null) {
+            ctx.bridgeProgress.finish();
         }
     }
 
@@ -1348,9 +1402,9 @@ public final class RecordPgnExporter {
         private final Map<String, Set<EdgeKey>> edgeKeysByFrom;
 
         /**
-         * Progress bar for bridge linking.
+         * Progress sink for bridge linking.
          */
-        private final Bar bridgeBar;
+        private final ProgressSink bridgeProgress;
 
         /**
          * Creates a context for the bridging pass.
@@ -1361,7 +1415,7 @@ public final class RecordPgnExporter {
          * @param bestMoveBySig    recorded best moves keyed by signature
          * @param directChildren   direct children keyed by parent signature
          * @param edgeKeysByFrom   edge deduplication keys per source signature
-         * @param bridgeBar        progress bar for bridge linking (may be null)
+         * @param bridgeProgress   progress sink for bridge linking (may be null)
          */
         private BridgeContext(
                 Map<String, List<Edge>> adjacency,
@@ -1370,14 +1424,14 @@ public final class RecordPgnExporter {
                 Map<String, String> bestMoveBySig,
                 Map<String, Set<String>> directChildren,
                 Map<String, Set<EdgeKey>> edgeKeysByFrom,
-                Bar bridgeBar) {
+                ProgressSink bridgeProgress) {
             this.adjacency = adjacency;
             this.incoming = incoming;
             this.badEdges = badEdges;
             this.bestMoveBySig = bestMoveBySig;
             this.directChildren = directChildren;
             this.edgeKeysByFrom = edgeKeysByFrom;
-            this.bridgeBar = bridgeBar;
+            this.bridgeProgress = bridgeProgress;
         }
     }
 
@@ -1797,26 +1851,28 @@ public final class RecordPgnExporter {
     }
 
     /**
-     * Builds a progress bar capped to int range; returns null when total is unknown.
+     * Creates a progress sink for one export phase.
      *
-     * @param totalRecords total record count (may be 0 or negative for unknown).
-     * @param label        label prefix for the bar.
-     * @return progress bar instance or {@code null} if disabled.
+     * @param factory optional progress factory
+     * @param total   total work units
+     * @param label   phase label
+     * @return progress sink or {@code null}
      */
-    private static Bar progressBar(long totalRecords, String label) {
-        if (totalRecords <= 0) {
+    private static ProgressSink progressSink(ProgressFactory factory, long total, String label) {
+        if (factory == null || total <= 0) {
             return null;
         }
-        return new Bar(totalRecords, label);
+        return factory.create(total, label);
     }
 
-     /**
-     * Handles progress setter.
-     * @param bar bar
-     * @return computed value
+    /**
+     * Adapts a progress sink to the stream parser callback.
+     *
+     * @param sink progress sink
+     * @return absolute-progress callback or {@code null}
      */
-     private static LongConsumer progressSetter(Bar bar) {
-        return bar == null ? null : bar::set;
+    private static LongConsumer progressSetter(ProgressSink sink) {
+        return sink == null ? null : sink::accept;
     }
 
 }

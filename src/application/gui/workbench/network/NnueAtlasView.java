@@ -33,7 +33,9 @@ import static application.gui.workbench.network.NnueTraceGeometry.*;
  */
 
 public abstract class NnueAtlasView extends NnueViewBase {
-    /** Serialization identifier for Swing component compatibility. */
+    /**
+     * Serialization identifier for Swing component compatibility.
+     */
     private static final long serialVersionUID = 1L;
 
     /**
@@ -497,14 +499,14 @@ public abstract class NnueAtlasView extends NnueViewBase {
         Rectangle board = new Rectangle(inner.x + Math.max(0, (inner.width - side) / 2),
                 boardTop, side, side);
         int offset = (slot * planes + atlasSelectedPlane) * squares;
+        boolean whiteDown = sideToMoveWhite();
         TensorViz.drawMiniBoard(g, board);
-        paintAtlasTileDense(g, board, atlas, offset, Math.max(1e-6f, scale), false);
-        TensorViz.drawPositionPieces(g, board, fen);
-        drawWhiteBottomLabel(g, board, inner.y + inner.height);
+        paintAtlasTileDense(g, board, atlas, offset, Math.max(1e-6f, scale), false, whiteDown);
+        TensorViz.drawPositionPieces(g, board, fen, whiteDown);
         if (selectedBoardSquare >= 0) {
-            TensorViz.drawBoardSquareRing(g, board, selectedBoardSquare, TensorViz.FOCUS);
+            TensorViz.drawBoardSquareRing(g, board, selectedBoardSquare, TensorViz.FOCUS, whiteDown);
         }
-        TensorViz.drawBoardCoordinates(g, board);
+        TensorViz.drawBoardCoordinates(g, board, whiteDown);
         hitRegions.addInspectable(board,
                 "Slot " + slot + " · " + atlasPlaneName(atlasSelectedPlane, planes),
                 "Selected slot/piece-plane weight board.",

@@ -31,7 +31,9 @@ import static application.gui.workbench.ui.Ui.trimmed;
  */
 
 public abstract class WindowEngineLayer extends WindowBoardLayer {
-    /** Serialization identifier for Swing frame compatibility. */
+    /**
+     * Serialization identifier for Swing frame compatibility.
+     */
     private static final long serialVersionUID = 1L;
 
     /**
@@ -160,6 +162,12 @@ public abstract class WindowEngineLayer extends WindowBoardLayer {
         analysisGraph.resetForPosition(currentPosition.toString());
         for (application.gui.workbench.network.NetworkPanel panel : networkPanels) {
             panel.setFen(currentPosition.toString());
+        }
+        for (application.gui.workbench.mcts.MctsPanel panel : mctsPanels) {
+            panel.setBoardFen(currentPosition.toString());
+        }
+        if (positionDescriptionPanel != null) {
+            positionDescriptionPanel.setFen(currentPosition.toString());
         }
         updateMoves();
         updateStatus();

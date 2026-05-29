@@ -55,6 +55,7 @@ import chess.core.Move;
 import chess.io.Converter;
 import chess.io.ClassifierDatasetExporter;
 import chess.io.PuzzleEloExporter;
+import chess.io.RecordPgnExporter;
 import chess.io.Writer;
 import chess.nn.lc0.cnn.Encoder;
 import chess.nn.lc0.cnn.Network;
@@ -458,7 +459,7 @@ public final class RecordCommands {
 		} catch (IOException ex) {
 			exitWithError("record export pgn: failed to prepare output: " + ex.getMessage(), ex, false);
 		}
-		Converter.recordToPgn(in, out);
+		RecordPgnExporter.export(in, out, RecordCommands::recordPgnProgress);
 	}
 
 	/**
@@ -1135,6 +1136,37 @@ public final class RecordCommands {
 			return null;
 		}
 		return new Bar(totalRecords, label);
+	}
+
+	/**
+	 * Creates a PGN export progress sink backed by the CLI progress bar.
+	 *
+	 * @param total total work units
+	 * @param label phase label
+	 * @return progress sink or {@code null}
+	 */
+	private static RecordPgnExporter.ProgressSink recordPgnProgress(long total, String label) {
+		Bar bar = progressBar(total, label);
+		if (bar == null) {
+			return null;
+		}
+		return new RecordPgnExporter.ProgressSink() {
+			/**
+			 * {@inheritDoc}
+			 */
+			@Override
+			public void accept(long value) {
+				bar.set(value);
+			}
+
+			/**
+			 * {@inheritDoc}
+			 */
+			@Override
+			public void finish() {
+				finishProgress(bar);
+			}
+		};
 	}
 
 

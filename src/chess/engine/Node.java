@@ -69,7 +69,8 @@ final class Node {
      * @param depth search depth
      * @param key lookup key
      * @param coreKey core key value
-     * @param stats statistics data */
+     * @param stats statistics data
+     */
     Node(
             Node parent,
             short move,
@@ -91,14 +92,16 @@ final class Node {
 
     /**
      * Q.
-     * @return q result */
+     * @return q result
+     */
     double q() {
         return stats.q();
     }
 
     /**
      * Visits.
-     * @return visits result */
+     * @return visits result
+     */
     int visits() {
         return stats.visits;
     }

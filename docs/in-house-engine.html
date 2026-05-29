@@ -122,6 +122,10 @@ crtk engine builtin --evaluator lc0 --weights models/leela_112planes-10blocksx12
 <li><code>lc0</code>: pure-Java LC0 value evaluator using the configured LC0 CNN model path by</li>
 </ul>
 <p>default, or an explicit <code>--weights</code> path.</p>
+<ul>
+<li><code>otis</code>: OTIS i249-style tactical sheaf policy/WDL evaluator using</li>
+</ul>
+<p><code>models/otis_policy_wdl_random.bin</code> by default, or an explicit <code>--weights</code> path.</p>
 <p>The evaluator is used as the static score at the search frontier. The engine search itself is still a classical alpha-beta search; choosing <code>--lc0</code> does not turn the engine into an LC0-style MCTS engine. LC0 evaluation is much more expensive than the handcrafted evaluator, so high alpha-beta depths with <code>--lc0</code> can take a long time.</p>
 <h2 id="nnue-architecture">NNUE architecture</h2>
 <p>The Java NNUE path is intentionally small and explicit.</p>

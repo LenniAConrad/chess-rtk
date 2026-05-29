@@ -6,7 +6,6 @@ import application.gui.workbench.ui.Theme;
 import chess.debug.SessionCache;
 import java.awt.BorderLayout;
 import java.awt.Component;
-import java.awt.Desktop;
 import java.awt.FlowLayout;
 import java.awt.Font;
 import java.awt.Toolkit;
@@ -602,15 +601,12 @@ public final class LogPanel extends JPanel {
      * @param actionName action label for status text
      */
     private void openPath(Path path, String actionName) {
-        if (!Desktop.isDesktopSupported()) {
-            showStatus(actionName + " is not supported on this desktop.", Theme.ForegroundRole.WARNING);
-            return;
-        }
-        try {
-            Desktop.getDesktop().open(path.toFile());
-            showStatus("Opened " + path + ".", Theme.ForegroundRole.SUCCESS);
-        } catch (IOException | RuntimeException ex) {
-            showStatus(actionName + " failed: " + ex.getMessage(), Theme.ForegroundRole.ERROR);
+        DesktopOpen.Result result = DesktopOpen.open(path);
+        switch (result.status()) {
+            case OPENED -> showStatus("Opened " + path + ".", Theme.ForegroundRole.SUCCESS);
+            case UNSUPPORTED_DESKTOP, UNSUPPORTED_OPEN ->
+                    showStatus(actionName + " is not supported on this desktop.", Theme.ForegroundRole.WARNING);
+            case FAILED -> showStatus(actionName + " failed: " + result.detail(), Theme.ForegroundRole.ERROR);
         }
     }
 

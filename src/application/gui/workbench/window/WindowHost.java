@@ -7,7 +7,9 @@ import java.util.Objects;
  */
 public abstract class WindowHost {
 
-    /** Owning workbench window. */
+    /**
+     * Owning workbench window.
+     */
     protected final WindowBase window;
 
     /**

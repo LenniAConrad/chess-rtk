@@ -54,6 +54,8 @@ final class WorkbenchUiEditorRegression {
         testSplitAreaSupportsCornerEditorGroups();
         testSplitAreaDocksDraggedTabsBackIntoGroup();
         testSplitAreaExposesFlexibleTabActions();
+        testEditorSplitActionsExposeClearStates();
+        testSplitGroupsKeepLocalLayoutControls();
         testSplitAreaDuplicatesFactoryBackedTabs();
         testSplitAreaDuplicatesFactoryBackedToolTabs();
         testDetachedAnalysisWorkspaceKeepsLocalHistory();
@@ -71,6 +73,9 @@ final class WorkbenchUiEditorRegression {
         testBoardNavigationButtonsExposeShortcutTooltips();
     }
 
+    /**
+     * Verifies split panes keep independent tab groups while dragging tabs.
+     */
     private static void testSplitAreaUsesIndependentEditorGroups() {
         Object area = construct(type("layout.EditorSplitArea"), new Class<?>[0]);
         for (int i = 0; i < 4; i++) {
@@ -316,9 +321,9 @@ final class WorkbenchUiEditorRegression {
         Component firstTab = primaryStrip.getComponent(0);
         JPopupMenu menu = ((JComponent) firstTab).getComponentPopupMenu();
         assertTrue(menu != null, "tab exposes a context action menu");
-        assertEquals("Split Right", ((JMenuItem) menu.getComponent(0)).getText(),
+        assertEquals("Split Tab Right", ((JMenuItem) menu.getComponent(0)).getText(),
                 "tab menu starts with split actions");
-        assertEquals("Close Others", ((JMenuItem) menu.getComponent(5)).getText(),
+        assertEquals("Close Other Tabs", ((JMenuItem) menu.getComponent(5)).getText(),
                 "tab menu exposes close-others action");
 
         invoke(area, "closeOtherTabs", new Class<?>[0]);
@@ -330,6 +335,121 @@ final class WorkbenchUiEditorRegression {
         invoke(area, "closeSelectedTab", new Class<?>[0]);
         assertEquals(Integer.valueOf(2), invoke(area, "openTabCount", new Class<?>[0]),
                 "close active tab hides one tab");
+    }
+
+    /**
+     * Verifies icon-only editor layout controls expose clear names, stable
+     * command ids, and disabled no-op states.
+     */
+    private static void testEditorSplitActionsExposeClearStates() {
+        Object single = construct(type("layout.EditorSplitArea"), new Class<?>[0]);
+        invoke(single, "addPanel", new Class<?>[] { String.class, javax.swing.JComponent.class },
+                "Only", new JPanel());
+        invoke(single, "install", new Class<?>[0]);
+        JToggleButton splitButton = (JToggleButton) field(single, "splitButton");
+        assertFalse(splitButton.isEnabled(), "single non-duplicable tab cannot split");
+        assertEquals("workbench.editor.split.right", splitButton.getActionCommand(),
+                "split button exposes stable command id");
+        assertTrue(splitButton.getToolTipText().contains("duplicate-capable"),
+                "disabled split tooltip explains recovery");
+
+        Object area = splitFixture();
+        splitButton = (JToggleButton) field(area, "splitButton");
+        assertTrue(splitButton.isEnabled(), "multi-tab editor can split selected tab");
+        assertEquals("Split active tab to the right", splitButton.getToolTipText(),
+                "split button names its actual action");
+
+        JPanel primaryStrip = (JPanel) field(single, "primaryStrip");
+        assertEquals(Integer.valueOf(1), Integer.valueOf(primaryStrip.getComponentCount()),
+                "single closed/restorable fixture starts with one tab only");
+        invoke(single, "closeSelectedTab", new Class<?>[0]);
+        primaryStrip = (JPanel) field(single, "primaryStrip");
+        JToggleButton reopen = (JToggleButton) primaryStrip.getComponent(0);
+        assertEquals("workbench.editor.tabs.newOrRestore", reopen.getActionCommand(),
+                "restore button exposes stable command id");
+        assertTrue(reopen.getToolTipText().contains("restore a closed tab"),
+                "restore button tooltip explains its action");
+    }
+
+    /**
+     * Verifies every visible split group owns its local layout controls instead
+     * of sharing a single Swing component that can only appear in one header.
+     */
+    private static void testSplitGroupsKeepLocalLayoutControls() {
+        Class<?> areaType = type("layout.EditorSplitArea");
+        Object area = construct(areaType, new Class<?>[0]);
+        for (int i = 0; i < 5; i++) {
+            invoke(area, "addPanel", new Class<?>[] { String.class, javax.swing.JComponent.class },
+                    "Tab " + i, new JPanel());
+        }
+        invoke(area, "install", new Class<?>[0]);
+        invoke(area, "splitWithDragged", new Class<?>[] { int.class, boolean.class }, 2, false);
+        setField(area, "dragZone", staticField(areaType, "DROP_BOTTOM_RIGHT"));
+        invoke(area, "finishTabDrag", new Class<?>[] { int.class }, 1);
+        setField(area, "dragZone", staticField(areaType, "DROP_TOP_LEFT"));
+        invoke(area, "finishTabDrag", new Class<?>[] { int.class }, 3);
+        assertEquals(Integer.valueOf(4), invoke(area, "visibleGroupCount", new Class<?>[0]),
+                "fixture exposes all four editor groups");
+
+        JPanel[] headers = (JPanel[]) field(area, "paneHeaders");
+        JToggleButton[] splitButtons = (JToggleButton[]) field(area, "splitButtons");
+        for (int pane = 0; pane < headers.length; pane++) {
+            assertTrue(containsDescendant(headers[pane], splitButtons[pane]),
+                    "split group " + pane + " owns its split button");
+            assertEquals("workbench.editor.split.right", splitButtons[pane].getActionCommand(),
+                    "split group " + pane + " split button has stable command id");
+            assertTrue(splitButtons[pane].isEnabled(), "split group " + pane + " split button is usable");
+        }
+
+        invoke(area, "closeTab", new Class<?>[] { int.class }, 4);
+        JPanel[] strips = {
+            (JPanel) field(area, "primaryStrip"),
+            (JPanel) field(area, "secondaryStrip"),
+            (JPanel) field(area, "tertiaryStrip"),
+            (JPanel) field(area, "quaternaryStrip")
+        };
+        for (int pane = 0; pane < strips.length; pane++) {
+            assertTrue(containsButtonWithCommand(strips[pane], "workbench.editor.tabs.newOrRestore"),
+                    "split group " + pane + " keeps its restore/new-tab control");
+        }
+    }
+
+    /**
+     * Returns whether a component subtree contains a target component.
+     *
+     * @param parent subtree root
+     * @param target target component
+     * @return true when the target is found
+     */
+    private static boolean containsDescendant(Container parent, Component target) {
+        for (Component child : parent.getComponents()) {
+            if (child == target) {
+                return true;
+            }
+            if (child instanceof Container nested && containsDescendant(nested, target)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Returns whether a component subtree contains a toggle button command.
+     *
+     * @param parent subtree root
+     * @param command action command to find
+     * @return true when a matching button is found
+     */
+    private static boolean containsButtonWithCommand(Container parent, String command) {
+        for (Component child : parent.getComponents()) {
+            if (child instanceof JToggleButton button && command.equals(button.getActionCommand())) {
+                return true;
+            }
+            if (child instanceof Container nested && containsButtonWithCommand(nested, command)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -346,7 +466,8 @@ final class WorkbenchUiEditorRegression {
         JPanel primaryStrip = (JPanel) field(area, "primaryStrip");
         assertTrue(primaryStrip.getComponent(1) instanceof JToggleButton,
                 "factory-backed tabs expose a visible new-tab affordance");
-        assertEquals("New or restore tab", ((JToggleButton) primaryStrip.getComponent(1)).getToolTipText(),
+        assertEquals("New duplicate tab or restore a closed tab",
+                ((JToggleButton) primaryStrip.getComponent(1)).getToolTipText(),
                 "new-tab affordance explains both creation and restore");
 
         int firstCopy = (Integer) invoke(area, "duplicate", new Class<?>[] { int.class }, 0);
@@ -362,11 +483,28 @@ final class WorkbenchUiEditorRegression {
         List<JComponent> panels = typedList(field(area, "panels"), JComponent.class);
         assertFalse(panels.get(0) == panels.get(firstCopy), "duplicate tab has a fresh component");
 
+        invoke(area, "closeTab", new Class<?>[] { int.class }, firstCopy);
+        int replacementCopy = (Integer) invoke(area, "duplicate", new Class<?>[] { int.class }, 0);
+        names = stringList(field(area, "names"));
+        assertEquals("Analyze 2", names.get(replacementCopy), "closed duplicate suffix is reused");
+
         invoke(area, "splitWithDragged", new Class<?>[] { int.class, boolean.class }, secondCopy, false);
         assertEquals(Integer.valueOf(2), invoke(area, "visibleGroupCount", new Class<?>[0]),
                 "duplicate tab can split beside the original");
         assertTrue((Boolean) invoke(area, "isVisibleInPane", new Class<?>[] { int.class }, secondCopy),
                 "duplicate tab is visible after splitting");
+
+        Object restartArea = construct(type("layout.EditorSplitArea"), new Class<?>[0]);
+        invoke(restartArea, "addPanel",
+                new Class<?>[] { String.class, javax.swing.JComponent.class, java.util.function.Supplier.class },
+                "Analyze", new JPanel(), supplier);
+        invoke(restartArea, "install", new Class<?>[0]);
+        invoke(restartArea, "closeTab", new Class<?>[] { int.class }, 0);
+        int restarted = (Integer) invoke(restartArea, "duplicate", new Class<?>[] { int.class }, 0);
+        List<String> restartNames = stringList(field(restartArea, "names"));
+        assertEquals("Analyze", restartNames.get(restarted), "new Analyze tab after closing all tabs is unnumbered");
+        assertEquals(Integer.valueOf(1), invoke(restartArea, "openTabCount", new Class<?>[0]),
+                "restarted analysis workspace opens as a single tab");
 
         Object splitArea = construct(type("layout.EditorSplitArea"), new Class<?>[0]);
         invoke(splitArea, "addPanel",

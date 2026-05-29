@@ -11,6 +11,7 @@ import static application.cli.Constants.OPT_LC0;
 import static application.cli.Constants.OPT_MAX_DURATION;
 import static application.cli.Constants.OPT_MAX_NODES;
 import static application.cli.Constants.OPT_NODES;
+import static application.cli.Constants.OPT_OTIS;
 import static application.cli.Constants.OPT_VERBOSE;
 import static application.cli.Constants.OPT_VERBOSE_SHORT;
 import static application.cli.Constants.OPT_WEIGHTS;
@@ -215,6 +216,7 @@ public final class BuiltInEngineCommand {
 		boolean classical = a.flag(OPT_CLASSICAL);
 		boolean nnue = a.flag(OPT_NNUE);
 		boolean lc0 = a.flag(OPT_LC0);
+		boolean otis = a.flag(OPT_OTIS);
 		boolean uciLoop = a.flag(OPT_UCI);
 		Path weights = a.path(OPT_WEIGHTS);
 		Integer depthOpt = a.integer(OPT_DEPTH, OPT_DEPTH_SHORT);
@@ -252,9 +254,10 @@ public final class BuiltInEngineCommand {
 		}
 
 		Limits limits = new Limits(depth, maxNodes, maxDuration);
-		Kind evaluator = resolveEvaluator(evaluatorValue, classical, nnue, lc0);
+		Kind evaluator = resolveEvaluator(evaluatorValue, classical, nnue, lc0, otis);
 		if (weights != null && evaluator == Kind.CLASSICAL) {
-			System.err.println(CMD_BUILTIN + ": " + OPT_WEIGHTS + " requires " + OPT_EVALUATOR + " nnue or lc0");
+			System.err.println(CMD_BUILTIN + ": " + OPT_WEIGHTS + " requires "
+					+ OPT_EVALUATOR + " nnue, lc0, or otis");
 			System.exit(2);
 		}
 		return new Options(verbose, input, fen, limits, parseFormat(format), evaluator, weights, uciLoop);
@@ -267,10 +270,11 @@ public final class BuiltInEngineCommand {
 	 * @param classical whether {@code --classical} was provided
 	 * @param nnue whether {@code --nnue} was provided
 	 * @param lc0 whether {@code --lc0} was provided
+	 * @param otis whether {@code --otis} was provided
 	 * @return evaluator kind
 	 */
-	private static Kind resolveEvaluator(String value, boolean classical, boolean nnue, boolean lc0) {
-		int flags = (classical ? 1 : 0) + (nnue ? 1 : 0) + (lc0 ? 1 : 0);
+	private static Kind resolveEvaluator(String value, boolean classical, boolean nnue, boolean lc0, boolean otis) {
+		int flags = (classical ? 1 : 0) + (nnue ? 1 : 0) + (lc0 ? 1 : 0) + (otis ? 1 : 0);
 		if (value != null && flags > 0) {
 			System.err.println(CMD_BUILTIN + ": use either " + OPT_EVALUATOR + " or evaluator shortcut flags, not both");
 			System.exit(2);
@@ -293,6 +297,9 @@ public final class BuiltInEngineCommand {
 		if (lc0) {
 			return Kind.LC0;
 		}
+		if (otis) {
+			return Kind.OTIS;
+		}
 		return Kind.CLASSICAL;
 	}
 
@@ -307,6 +314,10 @@ public final class BuiltInEngineCommand {
 		if (opts.evaluator() == Kind.LC0) {
 			Path weights = opts.weights() == null ? Path.of(Config.getLc0ModelPath()) : opts.weights();
 			return Mcts.lc0(weights);
+		}
+		if (opts.evaluator() == Kind.OTIS) {
+			Path weights = opts.weights() == null ? chess.nn.otis.Model.DEFAULT_WEIGHTS : opts.weights();
+			return Mcts.otis(weights);
 		}
 		return new Mcts(createEvaluator(opts));
 	}

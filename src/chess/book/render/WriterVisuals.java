@@ -28,6 +28,12 @@ final class WriterVisuals {
 		// utility
 	}
 
+	/**
+	 * Renders the puzzle starting position as SVG.
+	 *
+	 * @param element puzzle element
+	 * @return SVG board markup
+	 */
 	static String renderPuzzleSvg(Element element) {
 		Position position = new Position(element.getPosition());
 		return new Render()

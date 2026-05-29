@@ -17,21 +17,33 @@ public final class WindowRunArtifactHost extends WindowHost implements RunArtifa
         super(window);
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public Session session() {
         return window.session;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public void appendConsole(String text) {
         window.appendConsole(text);
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public void showWarning(String title, String message) {
         window.showWarning(title, message);
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public void showError(String title, String message) {
         window.showError(title, message);

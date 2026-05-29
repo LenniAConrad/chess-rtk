@@ -42,7 +42,8 @@ final class Stats {
 
     /**
      * Q.
-     * @return q result */
+     * @return q result
+     */
     double q() {
         int totalVisits = visits + virtualVisits;
         return totalVisits == 0 ? 0.0 : (valueSum - virtualLossSum) / totalVisits;

@@ -184,11 +184,25 @@ public final class SharedLibrarySupport {
       return null;
     }
     String explicit = System.getenv(envVar);
+    return existingExplicitLibraryPath(explicit);
+  }
+
+  /**
+   * Converts an explicit library path value into an existing {@link Path}.
+   *
+   * @param explicit explicit path text
+   * @return existing path or {@code null} for blank, invalid, or missing paths
+   */
+  private static Path existingExplicitLibraryPath(String explicit) {
     if (explicit == null || explicit.isBlank()) {
       return null;
     }
-    Path explicitPath = Path.of(explicit.trim());
-    return Files.exists(explicitPath) ? explicitPath : null;
+    try {
+      Path explicitPath = Path.of(explicit.trim());
+      return Files.exists(explicitPath) ? explicitPath : null;
+    } catch (RuntimeException ex) {
+      return null;
+    }
   }
 
   /**

@@ -44,17 +44,34 @@ final class SplitGroupButton extends JToggleButton {
         setContentAreaFilled(false);
         setBorderPainted(false);
         setOpaque(false);
+        setFocusable(true);
+        setActionCommand("workbench.editor.split.right");
+        setName("workbench.editor.split.right");
         setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         setPreferredSize(new Dimension(SIZE, SIZE));
         setMinimumSize(new Dimension(SIZE, SIZE));
         setMaximumSize(new Dimension(SIZE, SIZE));
-        getAccessibleContext().setAccessibleName("Split editor group");
+        getAccessibleContext().setAccessibleName("Split active tab right");
+        getAccessibleContext().setAccessibleDescription(
+                "Creates an editor group to the right using the active tab.");
+        addPropertyChangeListener("enabled", event -> {
+            setCursor(isEnabled()
+                    ? Cursor.getPredefinedCursor(Cursor.HAND_CURSOR)
+                    : Cursor.getDefaultCursor());
+            repaint();
+        });
         addMouseListener(new MouseAdapter() {
+            /**
+             * {@inheritDoc}
+             */
             @Override
             public void mouseEntered(MouseEvent event) {
                 setHover(true);
             }
 
+            /**
+             * {@inheritDoc}
+             */
             @Override
             public void mouseExited(MouseEvent event) {
                 setHover(false);
@@ -86,13 +103,18 @@ final class SplitGroupButton extends JToggleButton {
             g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
             int w = getWidth();
             int h = getHeight();
-            if (isSelected() || hover) {
+            boolean enabled = isEnabled();
+            if (enabled && (isSelected() || hover)) {
                 g.setColor(isSelected()
                         ? Theme.withAlpha(Theme.ACCENT, 30)
                         : Theme.TAB_HOVER);
                 g.fillRect(2, 2, Math.max(0, w - 4), Math.max(0, h - 4));
             }
-            Color stroke = isSelected() ? Theme.ACCENT : Theme.MUTED;
+            if (enabled && hasFocus()) {
+                g.setColor(Theme.withAlpha(Theme.ACCENT, 190));
+                g.drawRoundRect(2, 2, Math.max(0, w - 5), Math.max(0, h - 5), 5, 5);
+            }
+            Color stroke = !enabled ? Theme.BUTTON_DISABLED_TEXT : isSelected() ? Theme.ACCENT : Theme.MUTED;
             g.setColor(stroke);
             g.setStroke(new BasicStroke(1.4f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
             int x = (w - 16) / 2;

@@ -4,6 +4,8 @@ import application.cli.PathOps;
 import static testing.WorkbenchTestSupport.*;
 
 import java.awt.Color;
+import java.awt.Component;
+import java.awt.Container;
 import java.awt.Graphics2D;
 import java.awt.Rectangle;
 import java.awt.Transparency;
@@ -17,12 +19,19 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.Random;
+import java.util.function.Predicate;
 
 import javax.swing.JComboBox;
 import javax.swing.JCheckBox;
+import javax.swing.BoxLayout;
 import javax.swing.JComponent;
+import javax.swing.JLabel;
+import javax.swing.JPanel;
 import javax.swing.Scrollable;
+import javax.swing.JScrollPane;
 import javax.swing.JSpinner;
+import javax.swing.JSplitPane;
 import javax.swing.JTextArea;
 import javax.swing.JTextPane;
 import javax.swing.SwingUtilities;
@@ -34,9 +43,13 @@ import javax.swing.text.StyleConstants;
 import application.gui.workbench.audio.SoundCue;
 import application.gui.workbench.audio.SoundService;
 import application.gui.workbench.game.Positions;
+import application.gui.workbench.mcts.MctsPanel;
 import application.gui.workbench.mcts.MctsSearch;
+import application.gui.workbench.mcts.MctsSession;
+import application.gui.workbench.session.ArtifactIndex;
 import application.gui.workbench.session.LogPanel;
 import application.gui.workbench.network.NnueDrawing;
+import application.gui.workbench.network.TensorViz;
 import application.gui.workbench.ui.RenderAcceleration;
 import application.gui.workbench.ui.Theme;
 
@@ -66,24 +79,28 @@ final class WorkbenchBackendRegression {
         testRunLogWritesFullOutput();
         testRunLogAvoidsClobberingExistingFile();
         testLogPanelConstructsHeadlessly();
+        testDesktopOpenRejectsMissingPath();
         testSoundServiceProceduralCueSettings();
         testRunManifestWritesReplayMetadata();
         testRunManifestAvoidsClobberingExistingFile();
         testJobHistoryIsBounded();
+        testArtifactIndexNormalizesAndDeduplicatesPaths();
         testCommandResultParserSummaries();
         testDashboardPanelConstructsHeadlessly();
+        testDashboardCardsGrowWithDynamicContent();
         testNetworkPanelSimpleControlsRenderHeadlessly();
         testNetworkLoadingCardTracksRequestedArchitecture();
         testNetworkLoadingCardShowsProviderPhase();
         testNetworkLoadingPanelIsTextOnly();
         testRealActivationProgressReportsFallback();
-        testNetworkMctsUpdatesAreNonBlocking();
+        testNetworkMctsFollowLeafUsesRenderBackpressure();
         testNetworkMctsPublishesWeightsBeforeLeafActivation();
         testNetworkMctsUsesSelectedArchitectureBackend();
         testNetworkPositionPickerClearsLeafOverride();
         testNetworkDiagnosticsPreviewHighlightsConfig();
         testNetworkDiagnosticsPreviewRecolorsForDarkTheme();
         testRenderAccelerationProvidesCompatibleImages();
+        testSyntheticFeaturePickerReturnsDistinctIndices();
         testNnueStackSummaryStaysCompact();
         testNnueViewsPaintSyntheticSnapshotHeadlessly();
         testNnueContributorLedgerUsesReadableRows();
@@ -91,11 +108,13 @@ final class WorkbenchBackendRegression {
         testNnueTraceFitsViewportAndCentersColumns();
         testNnueRawUsesStableFeatureLanes();
         testNnueHalfKpDecodingUsesFeatureEncoderLayout();
+        testNetworkBoardOrientationFollowsSideToMove();
         testNnueForwardSkipUsesNormalLineStyle();
         testNnueTraceRanksCombinedContributionsAndShowsAllFeatures();
         testNnueTraceInlineInspectorShowsGatheredColumn();
         testCnnAndBt4AtlasPaintSyntheticSnapshotsHeadlessly();
         testWorkbenchCnnUsesRealWeightsWhenAvailable();
+        testWorkbenchOtisShowsArchitectureMetadata();
         testMctsSearchBuildsRootRows();
         testMctsSearchMateInOneUsesCliShortcut();
         testMctsSearchForcedMateProofOverridesVisits();
@@ -103,8 +122,12 @@ final class WorkbenchBackendRegression {
         testMctsSearchTerminalAndDrawHandling();
         testMctsSearchReusesRootSubtree();
         testMctsSearchClosesBackend();
-        // MctsPanel has been removed; its interactive controls live in the
-        // Network tab's MCTS toolbar (covered by the network MCTS tests).
+        testMctsTreeSnapshotCapsAndSelection();
+        testMctsSessionLifecyclePublishesSnapshots();
+        testMctsPanelInspectorUsesSolidSurface();
+        // Full MCTS tab registration coverage is intentionally not part of
+        // this Workbench pass; the Network tab still covers shared MCTS
+        // controls.
         testDashboardTabIsFirst();
         testSessionEvalHistory();
         testMiniChartRendersHeadlessly();
@@ -218,6 +241,20 @@ final class WorkbenchBackendRegression {
      * display server.
      */
     private static void testLogPanelConstructsHeadlessly() {
+        String source;
+        String helper;
+        try {
+            source = Files.readString(Path.of("src/application/gui/workbench/session/LogPanel.java"),
+                    StandardCharsets.UTF_8);
+            helper = Files.readString(Path.of("src/application/gui/workbench/session/DesktopOpen.java"),
+                    StandardCharsets.UTF_8);
+        } catch (IOException ex) {
+            throw new AssertionError("unable to read desktop-open sources", ex);
+        }
+        assertTrue(source.contains("DesktopOpen.open(path)"),
+                "LogPanel delegates desktop opening to the shared helper");
+        assertTrue(helper.contains("desktop.isSupported(Desktop.Action.OPEN)"),
+                "DesktopOpen checks desktop OPEN action support");
         Theme.Mode previous = Theme.mode();
         LogPanel panel = new LogPanel(value -> {
             // Clipboard writes are not part of this headless paint regression.
@@ -233,6 +270,19 @@ final class WorkbenchBackendRegression {
             Theme.setMode(previous);
             Theme.refreshComponentTree(panel);
         }
+    }
+
+    /**
+     * Verifies missing artifact/log paths do not throw from desktop-open
+     * integration.
+     */
+    private static void testDesktopOpenRejectsMissingPath() {
+        Object result = invokeStatic(type("DesktopOpen"), "open",
+                new Class<?>[] { Path.class }, new Object[] { null });
+        assertEquals("FAILED", String.valueOf(invoke(result, "status", new Class<?>[0])),
+                "desktop open null path status");
+        assertTrue(String.valueOf(invoke(result, "detail", new Class<?>[0])).contains("No path"),
+                "desktop open null path detail");
     }
 
     /**
@@ -411,6 +461,22 @@ final class WorkbenchBackendRegression {
     }
 
     /**
+     * Verifies dashboard artifact paths normalize before deduplication.
+     */
+    private static void testArtifactIndexNormalizesAndDeduplicatesPaths() {
+        ArtifactIndex index = new ArtifactIndex();
+        Path first = Path.of("out", "..", "out", "workbench.log");
+        Path second = Path.of("out", "workbench.log");
+        index.add(first);
+        index.add(second);
+        List<Path> recent = index.recent();
+        assertEquals(Integer.valueOf(1), Integer.valueOf(recent.size()),
+                "equivalent artifact paths are deduplicated");
+        assertEquals(second.toAbsolutePath().normalize(), recent.get(0),
+                "artifact path is stored normalized");
+    }
+
+    /**
      * Verifies the command-result parser produces representative summaries.
      */
     private static void testCommandResultParserSummaries() {
@@ -443,6 +509,10 @@ final class WorkbenchBackendRegression {
         assertTrue(panel instanceof JComponent, "dashboard panel is a Swing component");
         assertTrue(((JComponent) panel).getComponentCount() > 0,
                 "dashboard panel builds its cards");
+        assertTrue(componentTreeHasLabelText((JComponent) panel, "NETWORK RUNTIME"),
+                "dashboard hosts network runtime diagnostics");
+        assertTrue(componentTreeContainsClass((JComponent) panel, "NetworkDiagnosticsPanel"),
+                "dashboard embeds reusable network diagnostics panel");
         invoke(session, "updatePosition",
                 new Class<?>[] { String.class, boolean.class, int.class, int.class, int.class },
                 START_FEN, true, 0, 0, 20);
@@ -450,6 +520,71 @@ final class WorkbenchBackendRegression {
                 List.of("OPENING: name=\"Start\"", "MATERIAL: equal"));
         assertPaintsOpaqueCorner((JComponent) panel, 1000, 760,
                 "dashboard infographics paint opaquely");
+    }
+
+    /**
+     * Verifies dashboard cards keep their natural height cap after content
+     * changes, so dynamic cards like Outputs do not clip newly-added rows.
+     */
+    private static void testDashboardCardsGrowWithDynamicContent() {
+        JPanel body = new JPanel();
+        body.setLayout(new BoxLayout(body, BoxLayout.Y_AXIS));
+        body.add(new JLabel("first"));
+        JComponent card = (JComponent) invokeStatic(type("DashboardPanel"), "card",
+                new Class<?>[] { String.class, JComponent.class }, "Dynamic", body);
+        int initialHeight = card.getMaximumSize().height;
+        for (int i = 0; i < 12; i++) {
+            body.add(new JLabel("row " + i));
+        }
+        body.revalidate();
+        int expandedHeight = card.getMaximumSize().height;
+        assertTrue(expandedHeight > initialHeight,
+                "dashboard card max height follows dynamic content");
+    }
+
+    /**
+     * Returns whether a component tree contains a class with the given simple
+     * name.
+     *
+     * @param component root component
+     * @param simpleName class simple name
+     * @return true when found
+     */
+    private static boolean componentTreeContainsClass(Component component, String simpleName) {
+        if (component != null && simpleName.equals(component.getClass().getSimpleName())) {
+            return true;
+        }
+        if (component instanceof Container container) {
+            for (Component child : container.getComponents()) {
+                if (componentTreeContainsClass(child, simpleName)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Returns whether every scroll pane in the component subtree uses an opaque
+     * viewport.
+     *
+     * @param component root component
+     * @return true when all scroll viewports are opaque
+     */
+    private static boolean scrollViewportsAreOpaque(Component component) {
+        if (component instanceof JScrollPane scroll
+                && scroll.getViewport() != null
+                && !scroll.getViewport().isOpaque()) {
+            return false;
+        }
+        if (component instanceof Container container) {
+            for (Component child : container.getComponents()) {
+                if (!scrollViewportsAreOpaque(child)) {
+                    return false;
+                }
+            }
+        }
+        return true;
     }
 
     /**
@@ -476,11 +611,16 @@ final class WorkbenchBackendRegression {
                 "network MCTS diagnostics stay compact without the duplicate board");
         assertFalse(((JComponent) field(panel, "detailsTabs")).isVisible(),
                 "network inspector starts collapsed until data is selected");
+        JComponent detailsTabs = (JComponent) field(panel, "detailsTabs");
+        assertEquals(Integer.valueOf(1), Integer.valueOf(((javax.swing.JTabbedPane) detailsTabs).getTabCount()),
+                "network details keep diagnostics out of the inspector tabs");
+        assertEquals("Inspector", ((javax.swing.JTabbedPane) detailsTabs).getTitleAt(0),
+                "network details contain only the inspector tab");
         assertEquals(staticField(type("Defaults"), "MCTS_VISITS"), visits.getValue(),
                 "network MCTS uses shared visit default");
         assertFalse(followLeaf.isSelected(), "network leaf following starts off");
         JComboBox<?> archCombo = (JComboBox<?>) field(panel, "archCombo");
-        assertEquals(Integer.valueOf(3), Integer.valueOf(archCombo.getItemCount()),
+        assertEquals(Integer.valueOf(4), Integer.valueOf(archCombo.getItemCount()),
                 "network selector exposes one entry per network family");
         assertEquals(Integer.valueOf(1), Integer.valueOf(countArchItems(archCombo, "NNUE")),
                 "network selector exposes only one NNUE entry");
@@ -488,6 +628,8 @@ final class WorkbenchBackendRegression {
         JComponent viewMode = (JComponent) field(panel, "viewMode");
         assertTrue(viewMode.getPreferredSize().width < 340,
                 "view selector exposes only the simple modes");
+        assertTrue(scrollViewportsAreOpaque((JComponent) panel),
+                "network scroll panes keep opaque viewports to avoid repaint trails");
         boolean[] enabled = (boolean[]) field(viewMode, "segmentEnabled");
         assertTrue(enabled[2], "NNUE all-neurons segment enabled");
         assertTrue(enabled[3], "NNUE atlas segment enabled");
@@ -499,6 +641,10 @@ final class WorkbenchBackendRegression {
         enabled = (boolean[]) field(viewMode, "segmentEnabled");
         assertTrue(enabled[2], "BT4 all-neurons segment enabled");
         assertTrue(enabled[3], "BT4 atlas segment enabled");
+        archCombo.setSelectedItem("OTIS (Policy + WDL)");
+        enabled = (boolean[]) field(viewMode, "segmentEnabled");
+        assertTrue(enabled[2], "OTIS all-neurons segment enabled");
+        assertTrue(enabled[3], "OTIS atlas segment enabled");
         invoke(panel, "setFen", new Class<?>[] { String.class }, START_FEN);
         invoke(panel, "setActive", new Class<?>[] { boolean.class }, true);
         timer.stop();
@@ -551,6 +697,9 @@ final class WorkbenchBackendRegression {
         setField(panel, "runningArch", "NNUE");
         setField(panel, "runningFen", START_FEN);
         setField(panel, "inferenceWorker", new SwingWorker<Void, Void>() {
+            /**
+             * {@inheritDoc}
+             */
             @Override
             protected Void doInBackground() {
                 return null;
@@ -680,10 +829,10 @@ final class WorkbenchBackendRegression {
     }
 
     /**
-     * Verifies Network-tab MCTS keeps the UI update pipeline asynchronous and
-     * throttled even when follow-leaf visualization is enabled.
+     * Verifies Network-tab MCTS keeps heavy leaf inference off the EDT while
+     * applying follow-leaf frames synchronously before the search advances.
      */
-    private static void testNetworkMctsUpdatesAreNonBlocking() {
+    private static void testNetworkMctsFollowLeafUsesRenderBackpressure() {
         String source;
         String viewSource;
         String windowBaseSource;
@@ -703,13 +852,6 @@ final class WorkbenchBackendRegression {
                 "network MCTS publishes live tree frames");
         assertTrue(source.contains("NETWORK_MCTS_FRAME_YIELD_MS"),
                 "network MCTS yields after streamed tree frames");
-        assertTrue(source.contains("NETWORK_MCTS_FOLLOW_LEAF_MIN_UPDATE_NANOS"),
-                "follow-leaf activation frames have their own UI frame budget");
-        assertTrue(source.contains("NETWORK_MCTS_FOLLOW_LEAF_MIN_UPDATE_NANOS =\n"
-                + "            NETWORK_MCTS_MIN_UPDATE_NANOS"),
-                "follow-leaf activation cadence matches visible tree frames");
-        assertTrue(source.contains("shouldPublishNetworkMctsLeafFrame"),
-                "follow-leaf activation frames are rate-limited");
         assertTrue(source.contains("public void addNotify()")
                 && source.contains("public void removeNotify()")
                 && source.contains("setActive(false);"),
@@ -720,17 +862,16 @@ final class WorkbenchBackendRegression {
                 "hidden network MCTS idles and skips EDT frame processing");
         assertTrue(source.contains("|| !active) {\n            return frame;"),
                 "hidden network MCTS skips follow-leaf activation inference");
-        // Per-leaf sync painting was deliberately added so the user can see
-        // each NN evaluation paint as the search visits its leaves; without
-        // it SwingWorker.publish coalesces consecutive leaf frames and the
-        // intermediate activation snapshots are never rendered.
-        assertTrue(source.contains("applyLeafFrameSynchronously"),
-                "network MCTS sync-paints each follow-leaf activation");
-        assertTrue(source.contains("SwingUtilities.invokeAndWait")
-                        || source.contains("javax.swing.SwingUtilities.invokeAndWait"),
-                "network MCTS waits for the EDT to actually paint each leaf");
+        assertTrue(source.contains("latestNetworkMctsFrameForDisplay"),
+                "network MCTS coalesces published tree frames before EDT rendering");
+        assertTrue(source.contains("boolean leafFrameDue = mctsFollowLeafEnabled;"),
+                "follow-leaf mode visualizes every selected search leaf");
+        assertTrue(source.contains("applyLeafFrameSynchronously(this, search, activationFrame);"),
+                "network MCTS applies follow-leaf activations before advancing search");
+        assertTrue(source.contains("SwingUtilities.invokeAndWait"),
+                "network MCTS waits for the EDT to accept each follow-leaf frame");
         assertTrue(source.contains("paintImmediately"),
-                "network MCTS forces an immediate paint so per-leaf visuals are not coalesced away");
+                "network MCTS flushes the current visible leaf frame");
         assertTrue(source.contains("buildNetworkMctsLeafActivationFrame"),
                 "network MCTS still builds follow-leaf activations off the EDT");
         assertTrue(source.contains("buildNetworkMctsFrame"),
@@ -763,14 +904,14 @@ final class WorkbenchBackendRegression {
         }
         int publishTree = source.indexOf("publishNetworkMctsFrame(frame, nextPlayout);");
         int buildActivation = source.indexOf("buildNetworkMctsLeafActivationFrame(frame)");
-        int applyActivation = source.indexOf("applyLeafFrameSynchronously(activationFrame)");
+        int applyActivation = source.indexOf("applyLeafFrameSynchronously(this, search, activationFrame);");
+        int iterate = source.indexOf("search.iterate();");
         assertTrue(publishTree >= 0 && buildActivation > publishTree,
                 "network MCTS publishes tree weights before building leaf activation");
         assertTrue(applyActivation > buildActivation,
                 "network MCTS applies activation frames after inference completes");
-        int recordActivationStart = source.indexOf("lastLeafActivationStartNanos = now;");
-        assertTrue(recordActivationStart >= 0 && recordActivationStart < buildActivation,
-                "network MCTS counts follow-leaf throttling from inference start");
+        assertTrue(iterate > applyActivation,
+                "network MCTS shows the current leaf before evaluating it");
         int frameBuilder = source.indexOf("private NetworkMctsFrame buildNetworkMctsFrame");
         int activationBuilder = source.indexOf("private NetworkMctsFrame buildNetworkMctsLeafActivationFrame");
         String builderBody = source.substring(frameBuilder, activationBuilder);
@@ -908,6 +1049,24 @@ final class WorkbenchBackendRegression {
                 "compatible image height");
         assertTrue(!RenderAcceleration.summary().isBlank(),
                 "render acceleration reports status");
+    }
+
+    /**
+     * Verifies the synthetic NNUE feature picker honors its distinct-index
+     * contract.
+     */
+    private static void testSyntheticFeaturePickerReturnsDistinctIndices() {
+        int[] indices = (int[]) invokeStatic(type("SyntheticActivations"), "pickFeatureIndices",
+                new Class<?>[] { Random.class, int.class, int.class }, new Random(123L), 64, 64);
+        boolean[] seen = new boolean[64];
+        for (int index : indices) {
+            assertTrue(index >= 0 && index < seen.length,
+                    "synthetic feature index is in range");
+            assertFalse(seen[index], "synthetic feature index is unique");
+            seen[index] = true;
+        }
+        assertEquals(Integer.valueOf(64), Integer.valueOf(indices.length),
+                "synthetic feature picker fills requested unique range");
     }
 
     /**
@@ -1149,6 +1308,82 @@ final class WorkbenchBackendRegression {
     }
 
     /**
+     * Verifies network mini-board orientation and LC0 square remapping follow
+     * the side to move.
+     */
+    private static void testNetworkBoardOrientationFollowsSideToMove() {
+        String whiteFen = START_FEN;
+        String blackFen = "rnbqkbnr/ppp1pppp/8/3p4/8/8/PPPPPPPP/RNBQKBNR b KQkq - 0 1";
+        Rectangle board = new Rectangle(0, 0, 80, 80);
+        assertTrue(TensorViz.whiteDownForSideToMove(whiteFen),
+                "white-to-move network board has White at the bottom");
+        assertTrue(!TensorViz.whiteDownForSideToMove(blackFen),
+                "black-to-move network board has Black at the bottom");
+        assertEquals(Integer.valueOf(56),
+                Integer.valueOf(TensorViz.boardSquareAt(board, 5, 5, true)),
+                "white-down top-left is a8");
+        assertEquals(Integer.valueOf(7),
+                Integer.valueOf(TensorViz.boardSquareAt(board, 5, 5, false)),
+                "black-down top-left is h1");
+
+        float[] encoded = new float[64];
+        encoded[10] = 1.0f; // c2 in side-to-move perspective, i.e. c7 on a black-to-move board.
+        float[] boardSquares = TensorViz.lc0NetworkSquaresToBoard(encoded, blackFen, 0);
+        assertEquals(Float.valueOf(1.0f), Float.valueOf(boardSquares[50]),
+                "black LC0 perspective rank-mirrors back to c7");
+        assertEquals(Integer.valueOf(10),
+                Integer.valueOf(TensorViz.boardSquareToLc0NetworkSquare(50, blackFen, 0)),
+                "black board square maps back to the encoded c2 token");
+
+        int transpose = chess.nn.lc0.bt4.Encoder.TRANSPOSE_TRANSFORM;
+        assertEquals(Integer.valueOf(55),
+                Integer.valueOf(TensorViz.boardSquareToLc0NetworkSquare(1, whiteFen, transpose)),
+                "BT4 transpose maps b1 to h7 like the input encoder");
+        float[] transformed = new float[64];
+        transformed[55] = 1.0f;
+        assertEquals(Float.valueOf(1.0f),
+                Float.valueOf(TensorViz.lc0NetworkSquaresToBoard(transformed, whiteFen, transpose)[1]),
+                "BT4 transpose remaps token h7 back to b1 for display");
+
+        assertTrue(boardOverlayChangesTopLeft(56, true),
+                "white-down overlays use the same top-left square as hit testing");
+        assertTrue(boardOverlayChangesTopLeft(7, false),
+                "black-down overlays use the same top-left square as hit testing");
+    }
+
+    /**
+     * Returns whether a single-square overlay changes the board's top-left
+     * cell for the requested visual orientation.
+     *
+     * @param square LERF square to tint
+     * @param whiteDown board orientation
+     * @return true when top-left pixels changed
+     */
+    private static boolean boardOverlayChangesTopLeft(int square, boolean whiteDown) {
+        Rectangle board = new Rectangle(0, 0, 80, 80);
+        BufferedImage base = new BufferedImage(80, 80, BufferedImage.TYPE_INT_ARGB);
+        BufferedImage over = new BufferedImage(80, 80, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D g = base.createGraphics();
+        try {
+            TensorViz.drawMiniBoard(g, board);
+        } finally {
+            g.dispose();
+        }
+        g = over.createGraphics();
+        try {
+            TensorViz.drawMiniBoard(g, board);
+            float[] values = new float[64];
+            values[square] = 1.0f;
+            TensorViz.drawSquareOverlay(g, board, values, 1.0f, whiteDown);
+        } finally {
+            g.dispose();
+        }
+        Color before = new Color(base.getRGB(5, 5), true);
+        Color after = new Color(over.getRGB(5, 5), true);
+        return colorDistance(before, after) > 8.0;
+    }
+
+    /**
      * Verifies the Stockfish forward-skip edge stays a plain straight Trace
      * line without a separate border, endpoint marker, or heavier stroke.
      */
@@ -1333,6 +1568,27 @@ final class WorkbenchBackendRegression {
         assertModesRenderDistinctly((JComponent) bt4View, baseType, modeType,
                 new Object[] { atlas, detailed, rawMode },
                 new String[] { "Atlas", "Trace", "All" }, "BT4");
+
+        Object otisView = construct(type("OtisView"), new Class<?>[0]);
+        Object otisSnapshot = construct(snapshotType, new Class<?>[0]);
+        invokeStatic(type("SyntheticActivations"), "fillOtis",
+                new Class<?>[] { String.class, snapshotType }, START_FEN, otisSnapshot);
+        assertEquals(Integer.valueOf(64), Integer.valueOf(data(otisSnapshot, "otis.sheaf.laplacian").length),
+                "OTIS synthetic sheaf Laplacian is board-shaped");
+        assertEquals(Integer.valueOf(12), Integer.valueOf(data(otisSnapshot, "otis.sheaf.relation.energy").length),
+                "OTIS synthetic relation energy exposes i018/i249 relation count");
+        assertEquals(Integer.valueOf(12 * 64),
+                Integer.valueOf(data(otisSnapshot, "otis.sheaf.target.pressure").length),
+                "OTIS synthetic relation target maps are present");
+        invoke(otisSnapshot, "seal", new Class<?>[0]);
+        invokeOn(baseType, otisView, "setFen", new Class<?>[] { String.class }, START_FEN);
+        invokeOn(baseType, otisView, "setSnapshot", new Class<?>[] { snapshotType }, otisSnapshot);
+        invokeOn(baseType, otisView, "setViewMode", new Class<?>[] { modeType }, atlas);
+        assertPaintsOpaqueCorner((JComponent) otisView, 1240, 760,
+                "OTIS atlas paints synthetic snapshot");
+        assertModesRenderDistinctly((JComponent) otisView, baseType, modeType,
+                new Object[] { atlas, detailed, rawMode },
+                new String[] { "Atlas", "Trace", "All" }, "OTIS");
     }
 
     /**
@@ -1434,6 +1690,70 @@ final class WorkbenchBackendRegression {
         assertEquals(Integer.valueOf(128), Integer.valueOf(blockShape[0]), "CNN real trunk channels");
         assertEquals(Integer.valueOf(8), Integer.valueOf(blockShape[1]), "CNN block board rows");
         assertEquals(Integer.valueOf(8), Integer.valueOf(blockShape[2]), "CNN block board columns");
+    }
+
+    /**
+     * Verifies the workbench surfaces OTIS v2 architecture metadata and, when
+     * the local placeholder file exists, captures real placeholder tensors.
+     */
+    private static void testWorkbenchOtisShowsArchitectureMetadata() {
+        Object provider = construct(type("RealActivations"), new Class<?>[0]);
+        String params = chess.nn.otis.Model.formatParameterCount(chess.nn.otis.Model.DEFAULT_PARAMETER_COUNT)
+                + " params";
+        assertOtisStatusDetailContains(provider, "simple_18");
+        assertOtisStatusDetailContains(provider, params);
+
+        if (!Files.exists(chess.nn.otis.Model.DEFAULT_WEIGHTS)) {
+            return;
+        }
+        Object snapshot = invoke(provider, "inferOtis", new Class<?>[] { String.class }, START_FEN);
+        String status = String.valueOf(invoke(provider, "statusFor", new Class<?>[] { String.class }, "otis"));
+        assertTrue(status.contains(params), "OTIS workbench status shows parameter count");
+        int[] inputShape = (int[]) invoke(snapshot, "shape", new Class<?>[] { String.class }, "otis.input");
+        int[] trunkShape = (int[]) invoke(snapshot, "shape", new Class<?>[] { String.class }, "otis.trunk");
+        int[] policyShape = (int[]) invoke(snapshot, "shape", new Class<?>[] { String.class },
+                "otis.policy.logits");
+        int[] policyHeadShape = (int[]) invoke(snapshot, "shape", new Class<?>[] { String.class },
+                "otis.weights.policy_head");
+        int[] readoutShape = (int[]) invoke(snapshot, "shape", new Class<?>[] { String.class },
+                "otis.weights.readout_hidden");
+        int[] rhoShape = (int[]) invoke(snapshot, "shape", new Class<?>[] { String.class },
+                "otis.weights.rho_src");
+        assertEquals(Integer.valueOf(chess.nn.otis.Model.INPUT_PLANES), Integer.valueOf(inputShape[0]),
+                "OTIS real input uses simple_18 planes");
+        assertEquals(Integer.valueOf(chess.nn.otis.Model.DEFAULT_TRUNK_CHANNELS), Integer.valueOf(trunkShape[0]),
+                "OTIS real trunk channel count");
+        assertEquals(Integer.valueOf(chess.nn.otis.Model.DEFAULT_POLICY_SIZE), Integer.valueOf(policyShape[0]),
+                "OTIS real policy width");
+        assertEquals(Integer.valueOf(chess.nn.otis.Model.DEFAULT_POLICY_SIZE), Integer.valueOf(policyHeadShape[0]),
+                "OTIS real policy-head matrix rows");
+        assertEquals(Integer.valueOf(chess.nn.otis.Model.HIDDEN_DIM), Integer.valueOf(policyHeadShape[1]),
+                "OTIS real policy-head matrix columns");
+        assertEquals(Integer.valueOf(chess.nn.otis.Model.HIDDEN_DIM), Integer.valueOf(readoutShape[0]),
+                "OTIS real readout matrix rows");
+        assertEquals(Integer.valueOf(chess.nn.otis.Model.defaultReadoutDim()), Integer.valueOf(readoutShape[1]),
+                "OTIS real readout matrix columns");
+        assertEquals(Integer.valueOf(chess.nn.otis.Model.DEFAULT_BLOCKS * chess.nn.otis.Model.RELATION_COUNT),
+                Integer.valueOf(rhoShape[0]), "OTIS real sheaf rho map count");
+    }
+
+    /**
+     * Verifies the OTIS diagnostics row contains expected text.
+     *
+     * @param provider real activation provider
+     * @param expected expected substring
+     */
+    private static void assertOtisStatusDetailContains(Object provider, String expected) {
+        List<Object> statuses = objectList(invoke(provider, "modelStatuses", new Class<?>[0]));
+        for (Object status : statuses) {
+            String label = String.valueOf(invoke(status, "label", new Class<?>[0]));
+            if (label.startsWith("OTIS")) {
+                String detail = String.valueOf(invoke(status, "detail", new Class<?>[0]));
+                assertTrue(detail.contains(expected), "OTIS diagnostics detail contains " + expected);
+                return;
+            }
+        }
+        throw new AssertionError("missing OTIS diagnostics status row");
     }
 
     /**
@@ -1676,6 +1996,185 @@ final class WorkbenchBackendRegression {
         }
         assertTrue(failed, "MCTS close prevents further iteration");
         invoke(search, "close", new Class<?>[0]);
+    }
+
+    /**
+     * Verifies the bounded tree snapshot carries stable node ids, selected
+     * node details, and cap accounting before Swing sees the model.
+     */
+    private static void testMctsTreeSnapshotCapsAndSelection() {
+        MctsSearch search = new MctsSearch(new Position(START_FEN), 1.25);
+        for (int i = 0; i < 90; i++) {
+            search.iterate();
+        }
+        MctsSearch.TreeSnapshot compact = search.treeSnapshot(
+                false,
+                new MctsSearch.TreeOptions(8, 4, 0, false),
+                "root");
+        assertTrue(compact.nodes().size() <= 4, "MCTS tree snapshot respects node cap");
+        assertTrue(compact.omittedNodes() > 0, "MCTS tree snapshot reports omitted nodes");
+        assertEquals("root", compact.selectedNode().id(),
+                "MCTS tree snapshot defaults to root selection");
+        assertTrue(!compact.rootRows().isEmpty(), "MCTS tree snapshot includes root rows");
+        String childId = compact.rootRows().get(0).nodeId();
+        MctsSearch.TreeSnapshot selected = search.treeSnapshot(
+                false,
+                MctsSearch.TreeOptions.defaults(),
+                childId);
+        assertEquals(childId, selected.selectedNode().id(),
+                "MCTS tree snapshot selects a stable root child id");
+        assertTrue(selected.selectedNode().visits() >= 0,
+                "MCTS selected node exposes visits");
+        assertTrue(selected.selectedNode().pvText() != null,
+                "MCTS selected node exposes PV text");
+        search.close();
+    }
+
+    /**
+     * Verifies the shared MCTS session publishes bounded snapshots while
+     * supporting pause, resume, and stop without EDT blocking.
+     */
+    private static void testMctsSessionLifecyclePublishesSnapshots() {
+        MctsSession session = new MctsSession();
+        int[] notifications = { 0 };
+        session.addListener(source -> notifications[0]++);
+        session.requestRootFen(START_FEN, true);
+        flushEdt();
+        assertEquals(START_FEN, session.snapshot().rootFen(),
+                "MCTS session stores requested root FEN");
+        session.start(new MctsSession.Config(
+                START_FEN,
+                MctsSession.Backend.CLASSICAL,
+                10_000,
+                0L,
+                1.25,
+                true));
+        session.pause();
+        MctsSession.Snapshot paused = waitForMctsSession(session,
+                snapshot -> snapshot.state() == MctsSession.State.PAUSED
+                        && snapshot.tree() != null,
+                "MCTS session reaches paused state with a tree snapshot");
+        assertTrue(!paused.tree().rootRows().isEmpty(),
+                "MCTS session publishes root rows");
+        session.resume();
+        waitForMctsSession(session,
+                snapshot -> snapshot.state() == MctsSession.State.RUNNING
+                        || snapshot.state() == MctsSession.State.DONE,
+                "MCTS session resumes");
+        session.stop();
+        MctsSession.Snapshot stopped = waitForMctsSession(session,
+                snapshot -> snapshot.state() == MctsSession.State.IDLE,
+                "MCTS session stops");
+        assertEquals(MctsSession.State.IDLE, stopped.state(),
+                "MCTS session stop leaves idle state");
+        assertTrue(notifications[0] > 0, "MCTS session notifies listeners");
+        session.close();
+    }
+
+    /**
+     * Verifies the MCTS inspector side paints as one solid workbench surface
+     * instead of exposing background-colored gutters around its child views.
+     */
+    private static void testMctsPanelInspectorUsesSolidSurface() {
+        MctsSession session = new MctsSession();
+        MctsPanel panel = new MctsPanel(session, () -> START_FEN);
+        try {
+            JSplitPane split = firstSplitPane(panel);
+            assertTrue(split.getRightComponent() instanceof JComponent,
+                    "MCTS split has an inspector component");
+            JComponent inspector = (JComponent) split.getRightComponent();
+            assertTrue(inspector.isOpaque(), "MCTS inspector surface is opaque");
+            assertEquals(themeColor("PANEL_SOLID"), inspector.getBackground(),
+                    "MCTS inspector surface uses panel background");
+            assertPaintsOpaqueCorner(inspector, 360, 360,
+                    "MCTS inspector paints opaque gutters");
+        } finally {
+            panel.dispose();
+            session.close();
+        }
+    }
+
+    /**
+     * Finds the first split pane in a component tree.
+     *
+     * @param component root component
+     * @return split pane
+     */
+    private static JSplitPane firstSplitPane(Component component) {
+        if (component instanceof JSplitPane split) {
+            return split;
+        }
+        if (component instanceof Container container) {
+            for (Component child : container.getComponents()) {
+                try {
+                    return firstSplitPane(child);
+                } catch (AssertionError ex) {
+                    // Continue searching siblings.
+                }
+            }
+        }
+        throw new AssertionError("missing split pane");
+    }
+
+    /**
+     * Verifies the top-level Workbench MCTS tab is lazy and registered before
+     * the puzzle tab.
+     */
+    private static void testMctsTabRegistrationIsLazy() {
+        String lifecycle;
+        String base;
+        String settings;
+        try {
+            lifecycle = Files.readString(Path.of("src/application/gui/workbench/window/WindowLifecycle.java"),
+                    StandardCharsets.UTF_8);
+            base = Files.readString(Path.of("src/application/gui/workbench/window/WindowBase.java"),
+                    StandardCharsets.UTF_8);
+            settings = Files.readString(Path.of("src/application/gui/workbench/window/SettingsMenu.java"),
+                    StandardCharsets.UTF_8);
+        } catch (IOException ex) {
+            throw new AssertionError("unable to read workbench window sources", ex);
+        }
+        int mctsTab = lifecycle.indexOf("tabs.addPanel(\"MCTS\", new LazyPanel(\"MCTS\"");
+        int puzzleTab = lifecycle.indexOf("tabs.addPanel(\"Puzzles\"");
+        assertTrue(mctsTab >= 0, "Workbench registers lazy MCTS tab");
+        assertTrue(puzzleTab > mctsTab, "Workbench places MCTS before Puzzles");
+        assertTrue(base.contains("protected static final int TAB_MCTS"),
+                "Workbench exposes stable MCTS tab index");
+        assertTrue(settings.contains("item(\"MCTS\", \"Ctrl+8\""),
+                "Workbench view menu exposes MCTS tab");
+    }
+
+    /**
+     * Waits for an MCTS session snapshot that satisfies the expected state predicate.
+     *
+     * @param session session to poll
+     * @param predicate snapshot predicate that marks completion
+     * @param label assertion label used in timeout and error messages
+     * @return first matching session snapshot
+     */
+    private static MctsSession.Snapshot waitForMctsSession(
+            MctsSession session,
+            Predicate<MctsSession.Snapshot> predicate,
+            String label) {
+        long deadline = System.currentTimeMillis() + 5_000L;
+        MctsSession.Snapshot snapshot = session.snapshot();
+        while (System.currentTimeMillis() < deadline) {
+            flushEdt();
+            snapshot = session.snapshot();
+            if (predicate.test(snapshot)) {
+                return snapshot;
+            }
+            if (snapshot.state() == MctsSession.State.ERROR) {
+                throw new AssertionError(label + ": " + snapshot.error());
+            }
+            try {
+                Thread.sleep(20L);
+            } catch (InterruptedException ex) {
+                Thread.currentThread().interrupt();
+                throw new AssertionError(label + " interrupted", ex);
+            }
+        }
+        throw new AssertionError(label + " timed out at " + snapshot.state());
     }
 
     /**

@@ -18,36 +18,57 @@ public final class WindowBatchHost extends WindowHost implements BatchPanel.Host
         super(window);
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public String currentFen() {
         return window.currentFen();
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public TemplateContext templateContext() {
         return window.templateContext();
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public void runCommand(List<String> args, String stdin) {
         window.runCommand(args, stdin);
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public void copyText(String text) {
         window.copyText(text);
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public void showError(String title, String message) {
         window.showError(title, message);
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public void updateBatchSummary(String summary) {
         window.session.updateBatch(summary);
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public void updatePublishCommand() {
         if (!window.publishingPanels.isEmpty()) {
@@ -55,6 +76,9 @@ public final class WindowBatchHost extends WindowHost implements BatchPanel.Host
         }
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public void syncBatchDuration(String value) {
         window.syncDurationFromBatch(value);

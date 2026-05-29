@@ -220,7 +220,7 @@
 <li><code>crtk engine builtin ...</code>: search with the in-house Java engine</li>
 <li><code>crtk engine java ...</code>: run the same built-in Java engine</li>
 <li><code>crtk engine threats ...</code>: analyze opponent threats</li>
-<li><code>crtk engine eval ...</code>: evaluate a FEN with LC0 or classical heuristics</li>
+<li><code>crtk engine eval ...</code>: evaluate a FEN with LC0, OTIS, or classical heuristics</li>
 <li><code>crtk engine static ...</code>: evaluate a FEN with the classical backend</li>
 <li><code>crtk engine perft ...</code>: run perft on a position</li>
 <li><code>crtk engine perft-suite ...</code>: run the perft regression suite</li>
@@ -252,7 +252,8 @@ crtk engine builtin --lc0 --weights models/leela_112planes-10blocksx128-policyhe
 <li><code>--classical</code>: shortcut for <code>--evaluator classical</code></li>
 <li><code>--nnue</code>: shortcut for <code>--evaluator nnue</code></li>
 <li><code>--lc0</code>: shortcut for <code>--evaluator lc0</code></li>
-<li><code>--weights &lt;path&gt;</code>: NNUE or LC0 evaluator weights path</li>
+<li><code>--otis</code>: shortcut for <code>--evaluator otis</code></li>
+<li><code>--weights &lt;path&gt;</code>: NNUE, LC0, or OTIS evaluator weights path</li>
 <li><code>--depth|-d &lt;n&gt;</code>: maximum iterative-deepening depth in plies (default <code>3</code>)</li>
 <li><code>--max-nodes|--nodes &lt;n&gt;</code>: node budget; <code>0</code> means unlimited. If omitted,</li>
 </ul>
@@ -278,9 +279,16 @@ crtk engine builtin --lc0 --weights models/leela_112planes-10blocksx128-policyhe
 <li><code>lc0</code>: pure-Java LC0 value evaluator using the configured LC0 CNN model path by</li>
 </ul>
 <p>default, or an explicit <code>--weights</code> path.</p>
+<ul>
+<li><code>otis</code>: OTIS i249-style tactical sheaf policy/WDL evaluator using</li>
+</ul>
+<p><code>models/otis_policy_wdl_random.bin</code> by default, or an explicit <code>--weights</code> path.</p>
 <p>Search notes:</p>
 <ul>
-<li>The engine uses alpha-beta search, not LC0-style MCTS.</li>
+<li>Classical and NNUE modes use alpha-beta search. LC0 and OTIS modes use the</li>
+</ul>
+<p>in-process MCTS backend so their policy priors can guide root exploration.</p>
+<ul>
 <li>The search is single-threaded and owns an internal transposition table plus a</li>
 </ul>
 <p>static-evaluation cache. The table size is fixed in code; <code>--threads</code> and <code>--hash</code> are UCI-engine options, not built-in-engine options.</p>
@@ -1249,14 +1257,14 @@ crtk workbench --fen &quot;&lt;FEN&gt;&quot;</code></pre>
 <li><code>--verbose|-v</code>: print stack traces on failure</li>
 </ul>
 <h2 id="engine-eval"><code>engine eval</code></h2>
-<p>Evaluate a position using the Java LC0 evaluator with classical fallback, or force one backend explicitly. This command does not use a UCI engine.</p>
+<p>Evaluate a position using the Java LC0 evaluator with classical fallback, or force LC0, OTIS, or classical explicitly. This command does not use a UCI engine.</p>
 <p>Options:</p>
 <ul>
 <li><code>--input|-i &lt;path&gt;</code>: FEN list file (optional)</li>
 <li><code>--fen &quot;&lt;FEN...&gt;&quot;</code>: FEN string (or pass it positionally)</li>
-<li><code>--evaluator &lt;mode&gt;</code>: <code>auto</code>, <code>lc0</code>, or <code>classical</code> (default: <code>auto</code>)</li>
-<li><code>--lc0</code>, <code>--classical</code>: shortcut evaluator selectors</li>
-<li><code>--weights &lt;path&gt;</code>: ChessRTK LC0 CNN <code>.bin</code> weights path (optional)</li>
+<li><code>--evaluator &lt;mode&gt;</code>: <code>auto</code>, <code>lc0</code>, <code>otis</code>, or <code>classical</code> (default: <code>auto</code>)</li>
+<li><code>--lc0</code>, <code>--otis</code>, <code>--classical</code>: shortcut evaluator selectors</li>
+<li><code>--weights &lt;path&gt;</code>: ChessRTK LC0 CNN or OTIS <code>.bin</code> weights path (optional)</li>
 <li><code>--terminal-aware</code>: use terminal-aware classical evaluation</li>
 <li><code>--verbose|-v</code>: print stack traces on failure</li>
 </ul>

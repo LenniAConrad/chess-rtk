@@ -8,7 +8,6 @@ import static application.cli.Constants.OPT_MAX_DURATION;
 import static application.cli.Constants.OPT_MAX_NODES;
 import static application.cli.Constants.OPT_MULTIPV;
 import static application.cli.Constants.OPT_NODES;
-import static application.cli.Constants.OPT_NO_ANALYZE;
 import static application.cli.Constants.OPT_NO_WDL;
 import static application.cli.Constants.OPT_PROTOCOL_PATH;
 import static application.cli.Constants.OPT_PROTOCOL_PATH_SHORT;
@@ -210,8 +209,7 @@ public final class PuzzleTextCommand {
      private static PuzzleTextOptions parseOptions(Argv a) {
         boolean verbose = a.flag(OPT_VERBOSE, OPT_VERBOSE_SHORT);
         boolean includeFen = a.flag(OPT_INCLUDE_FEN);
-        a.flag(OPT_ANALYZE);
-        boolean noAnalyze = a.flag(OPT_NO_ANALYZE);
+        boolean analyzeTags = CommandSupport.resolveDefaultEnabledFlag(a, COMMAND_LABEL, OPT_ANALYZE);
         String protoPath = CommandSupport.optional(a.string(OPT_PROTOCOL_PATH, OPT_PROTOCOL_PATH_SHORT),
                 Config.getProtocolPath());
         long nodesCap = Math.max(1, CommandSupport.optional(a.lng(OPT_MAX_NODES, OPT_NODES), Config.getMaxNodes()));
@@ -250,7 +248,6 @@ public final class PuzzleTextCommand {
         int mpv = multipv == null ? 3 : Math.max(1, multipv);
         int plies = pvPlies == null ? 12 : Math.max(1, pvPlies);
         int tagMpv = tagMultipv == null ? 1 : Math.max(1, tagMultipv);
-        boolean analyzeTags = !noAnalyze;
         int maxOut = maxNew == null ? 128 : Math.max(1, maxNew);
         PuzzleTextOptions.Flags flags = new PuzzleTextOptions.Flags(verbose, includeFen, analyzeTags);
         PuzzleTextOptions.EngineConfig engineConfig = new PuzzleTextOptions.EngineConfig(protoPath, mpv, tagMpv,

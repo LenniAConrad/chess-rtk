@@ -16,8 +16,11 @@ import application.gui.workbench.game.EngineEval;
 import application.gui.workbench.game.GameModel;
 import application.gui.workbench.game.MovesModel;
 import application.gui.workbench.game.PgnExplorerDialog;
+import application.gui.workbench.game.PositionDescriptionPanel;
 import application.gui.workbench.game.PuzzlePanel;
 import application.gui.workbench.layout.EditorSplitArea;
+import application.gui.workbench.mcts.MctsPanel;
+import application.gui.workbench.mcts.MctsSession;
 import application.gui.workbench.network.NetworkPanel;
 import application.gui.workbench.publish.PublishingPanel;
 import application.gui.workbench.publish.ReportPanel;
@@ -111,39 +114,46 @@ public abstract class WindowBase extends JFrame {
      */
     protected static final int TAB_PUBLISH = 5;
 
-    // Console + Logs moved out of the top tab row into a bottom dock;
-    // callers now route through showInBottomDock(String). The TAB_CONSOLE
-    // and TAB_LOGS constants stay as -1 sentinels so legacy selectTab
-    // calls are inert and don't accidentally select a real top tab.
     /**
-     * Deprecated console tab sentinel. Use showInBottomDock("Console").
+     * Position description tab sentinel. The panel exists, but the Workbench
+     * shell does not register it until the feature is ready for navigation.
      */
-    protected static final int TAB_CONSOLE = -1;
+    protected static final int TAB_DESCRIBE = -1;
 
     /**
-     * Deprecated logs tab sentinel. Use showInBottomDock("Logs").
+     * Console tab index.
      */
-    protected static final int TAB_LOGS = -1;
+    protected static final int TAB_CONSOLE = 6;
 
     /**
-     * Bottom dock title for the command console.
+     * Logs tab index.
+     */
+    protected static final int TAB_LOGS = 7;
+
+    /**
+     * Legacy title for the command console surface.
      */
     protected static final String DOCK_CONSOLE = "Console";
 
     /**
-     * Bottom dock title for persisted logs.
+     * Legacy title for the persisted logs surface.
      */
     protected static final String DOCK_LOGS = "Logs";
 
     /**
      * Network visualizer tab index.
      */
-    protected static final int TAB_NETWORK = 6;
+    protected static final int TAB_NETWORK = 8;
+
+    /**
+     * MCTS tree-inspection tab index.
+     */
+    protected static final int TAB_MCTS = 9;
 
     /**
      * Puzzle trainer tab index.
      */
-    protected static final int TAB_PUZZLES = 7;
+    protected static final int TAB_PUZZLES = 10;
 
     /**
      * Board view.
@@ -171,6 +181,21 @@ public abstract class WindowBase extends JFrame {
     protected final List<NetworkPanel> networkPanels = new ArrayList<>();
 
     /**
+     * Shared MCTS session observed by MCTS inspection panels.
+     */
+    protected final MctsSession mctsSession = new MctsSession();
+
+    /**
+     * Canonical MCTS inspection panel.
+     */
+    protected MctsPanel mctsPanel;
+
+    /**
+     * All materialized MCTS inspection panels, including duplicates.
+     */
+    protected final List<MctsPanel> mctsPanels = new ArrayList<>();
+
+    /**
      * Shared, observable session model the Dashboard tab renders from.
      */
     protected final Session session = new Session();
@@ -196,6 +221,11 @@ public abstract class WindowBase extends JFrame {
      * PGN puzzle trainer tab, created on first use.
      */
     protected PuzzlePanel puzzlePanel;
+
+    /**
+     * Position description tab, created on first use.
+     */
+    protected PositionDescriptionPanel positionDescriptionPanel;
 
     /**
      * Job record for the foreground command currently tracked, or null.
@@ -492,6 +522,49 @@ public abstract class WindowBase extends JFrame {
     }
 
     /**
+     * Returns the MCTS inspector, creating it only when the tab is first
+     * opened.
+     *
+     * @return MCTS inspector
+     */
+    protected MctsPanel mctsPanel() {
+        if (mctsPanel == null) {
+            mctsPanel = createMctsPanelInstance(true);
+        }
+        return mctsPanel;
+    }
+
+    /**
+     * Creates an additional MCTS inspector observing the shared session.
+     *
+     * @return new MCTS inspector
+     */
+    protected MctsPanel createDetachedMctsPanel() {
+        return createMctsPanelInstance(false);
+    }
+
+    /**
+     * Creates and registers an MCTS inspector instance.
+     *
+     * @param primary true when this is the canonical MCTS tab
+     * @return MCTS inspector
+     */
+    private MctsPanel createMctsPanelInstance(boolean primary) {
+        if (primary && mctsPanel != null) {
+            return mctsPanel;
+        }
+        MctsPanel panel = new MctsPanel(mctsSession, this::currentFen);
+        if (currentPosition != null) {
+            panel.setBoardFen(currentPosition.toString());
+        }
+        mctsPanels.add(panel);
+        if (primary) {
+            mctsPanel = panel;
+        }
+        return panel;
+    }
+
+    /**
      * Returns the dataset panel, creating it only when a dataset workflow is
      * requested.
      *
@@ -549,6 +622,21 @@ public abstract class WindowBase extends JFrame {
      */
     protected PuzzlePanel createDetachedPuzzlePanel() {
         return new PuzzlePanel();
+    }
+
+    /**
+     * Returns the position-description panel, creating it only when opened.
+     *
+     * @return position-description panel
+     */
+    protected PositionDescriptionPanel positionDescriptionPanel() {
+        if (positionDescriptionPanel == null) {
+            positionDescriptionPanel = new PositionDescriptionPanel();
+            if (currentPosition != null) {
+                positionDescriptionPanel.setFen(currentPosition.toString());
+            }
+        }
+        return positionDescriptionPanel;
     }
 
     /**
@@ -713,152 +801,240 @@ public abstract class WindowBase extends JFrame {
      */
     protected boolean syncingDuration;
 
-    /** Runs the built-in engine search action. */
+    /**
+     * Runs the built-in engine search action.
+     */
     protected abstract void runBuiltInSearch();
 
-    /** Runs the best-move action. */
+    /**
+     * Runs the best-move action.
+     */
     protected abstract void runBestMove();
 
-    /** Runs the analysis action. */
+    /**
+     * Runs the analysis action.
+     */
     protected abstract void runAnalyze();
 
-    /** Runs the tag-generation action. */
+    /**
+     * Runs the tag-generation action.
+     */
     protected abstract void runTagsCommand();
 
-    /** Runs the perft action. */
+    /**
+     * Runs the perft action.
+     */
     protected abstract void runPerft();
 
-    /** Runs the engine-smoke health check. */
+    /**
+     * Runs the engine-smoke health check.
+     */
     protected abstract void runEngineSmoke();
 
-    /** Runs configuration validation. */
+    /**
+     * Runs configuration validation.
+     */
     protected abstract void runConfigValidate();
 
-    /** Runs the doctor health check. */
+    /**
+     * Runs the doctor health check.
+     */
     protected abstract void runDoctor();
 
-    /** Runs all health checks. */
+    /**
+     * Runs all health checks.
+     */
     protected abstract void runAllHealthChecks();
 
-    /** Copies text to the clipboard and console.
-     * @param text source text */
+    /**
+     * Copies text to the clipboard and console.
+     * @param text source text
+     */
     protected abstract void copyText(String text);
 
-    /** Selects the workbench tab at the supplied index.
-     * @param index tab index */
+    /**
+     * Selects the workbench tab at the supplied index.
+     * @param index tab index
+     */
     protected abstract void selectTab(int index);
 
-    /** Pops the bottom dock open and selects a section by title.
-     * @param dockTab dock tab title ("Console" / "Logs") */
+    /**
+     * Selects a former dock surface by title. Retained for host adapters that
+     * still speak in Console/Logs terms.
+     *
+     * @param dockTab surface title ("Console" / "Logs")
+     */
     public abstract void showInBottomDock(String dockTab);
 
-    /** Runs a command with optional standard input.
+    /**
+     * Runs a command with optional standard input.
      * @param args command arguments
-     * @param stdin standard input text, or null for none */
+     * @param stdin standard input text, or null for none
+     */
     protected abstract void runCommand(List<String> args, String stdin);
 
-    /** Runs the selected command-template action. */
+    /**
+     * Runs the selected command-template action.
+     */
     protected abstract void runSelectedTemplate();
 
-    /** Copies the currently built command. */
+    /**
+     * Copies the currently built command.
+     */
     protected abstract void copyBuiltCommand();
 
-    /** Resets the selected command template. */
+    /**
+     * Resets the selected command template.
+     */
     protected abstract void resetSelectedTemplate();
 
-    /** Clears optional command-template options. */
+    /**
+     * Clears optional command-template options.
+     */
     protected abstract void clearOptionalTemplateOptions();
 
-    /** Updates command-builder option controls. */
+    /**
+     * Updates command-builder option controls.
+     */
     protected abstract void updateCommandOptions();
 
-    /** Updates the command-builder preview text. */
+    /**
+     * Updates the command-builder preview text.
+     */
     protected abstract void updateBuiltCommand();
 
-    /** Refreshes dynamic command previews. */
+    /**
+     * Refreshes dynamic command previews.
+     */
     protected abstract void updateCommandPreviews();
 
-    /** Returns the selected template arguments.
-     * @return selected command-template arguments */
+    /**
+     * Returns the selected template arguments.
+     * @return selected command-template arguments
+     */
     protected abstract List<String> selectedTemplateArgs();
 
-    /** Installs command templates. */
+    /**
+     * Installs command templates.
+     */
     protected abstract void installTemplates();
 
-    /** Returns the current FEN.
-     * @return current FEN string */
+    /**
+     * Returns the current FEN.
+     * @return current FEN string
+     */
     protected abstract String currentFen();
 
-    /** Returns the current command-template context.
-     * @return current command-template context */
+    /**
+     * Returns the current command-template context.
+     * @return current command-template context
+     */
     protected abstract TemplateContext templateContext();
 
-    /** Appends text to the console.
-     * @param text source text */
+    /**
+     * Appends text to the console.
+     * @param text source text
+     */
     protected abstract void appendConsole(String text);
 
-    /** Shows a toast.
+    /**
+     * Shows a toast.
      * @param kind toast kind
-     * @param message message text */
+     * @param message message text
+     */
     protected abstract void toast(Toast.Kind kind, String message);
 
-    /** Shows a warning notice.
+    /**
+     * Shows a warning notice.
      * @param title dialog title
-     * @param message message text */
+     * @param message message text
+     */
     protected abstract void showWarning(String title, String message);
 
-    /** Shows an error notice.
+    /**
+     * Shows an error notice.
      * @param title dialog title
-     * @param message message text */
+     * @param message message text
+     */
     protected abstract void showError(String title, String message);
 
-    /** Generates the report panel content. */
+    /**
+     * Generates the report panel content.
+     */
     protected abstract void generateReport();
 
-    /** Copies the generated report. */
+    /**
+     * Copies the generated report.
+     */
     protected abstract void copyReport();
 
-    /** Runs the selected publishing workflow. */
+    /**
+     * Runs the selected publishing workflow.
+     */
     protected abstract void runPublishingCommand();
 
-    /** Stops the foreground command. */
+    /**
+     * Stops the foreground command.
+     */
     protected abstract void stopCommand();
 
-    /** Requests a publish command refresh. */
+    /**
+     * Requests a publish command refresh.
+     */
     protected abstract void updatePublishCommand();
 
-    /** Synchronizes batch duration into analysis controls.
-     * @param value new value */
+    /**
+     * Synchronizes batch duration into analysis controls.
+     * @param value new value
+     */
     protected abstract void syncDurationFromBatch(String value);
 
-    /** Starts the debounced eval command. */
+    /**
+     * Starts the debounced eval command.
+     */
     protected abstract void startEvalCommand();
 
-    /** Cancels the eval-bar command. */
+    /**
+     * Cancels the eval-bar command.
+     */
     protected abstract void cancelEvalCommand();
 
-    /** Restarts live external analysis. */
+    /**
+     * Restarts live external analysis.
+     */
     protected abstract void restartLiveAnalysis();
 
-    /** Pauses hidden live analysis. */
+    /**
+     * Pauses hidden live analysis.
+     */
     protected abstract void pauseHiddenLiveAnalysis();
 
-    /** Requests a live-analysis update. */
+    /**
+     * Requests a live-analysis update.
+     */
     protected abstract void requestLiveAnalysisUpdate();
 
-    /** Stops live external analysis. */
+    /**
+     * Stops live external analysis.
+     */
     protected abstract void stopLiveAnalysis();
 
-    /** Enables or disables live external analysis.
-     * @param enabled true to enable the behavior */
+    /**
+     * Enables or disables live external analysis.
+     * @param enabled true to enable the behavior
+     */
     protected abstract void setLiveExternalEngineEnabled(boolean enabled);
 
-    /** Returns true when a live-analysis worker exists.
-     * @return true when a live-analysis worker exists */
+    /**
+     * Returns true when a live-analysis worker exists.
+     * @return true when a live-analysis worker exists
+     */
     protected abstract boolean hasLiveEngineWorker();
 
-    /** Creates the Analyze tab.
-     * @return computed value */
+    /**
+     * Creates the Analyze tab.
+     * @return computed value
+     */
     protected abstract JComponent createBoardTab();
 
     /**
@@ -868,8 +1044,10 @@ public abstract class WindowBase extends JFrame {
      */
     protected abstract JComponent createDetachedAnalysisTab();
 
-    /** Creates the Commands tab.
-     * @return computed value */
+    /**
+     * Creates the Commands tab.
+     * @return computed value
+     */
     protected abstract JComponent createCommandTab();
 
     /**
@@ -889,12 +1067,16 @@ public abstract class WindowBase extends JFrame {
      */
     protected abstract JComponent createEngineSettingsPanel();
 
-    /** Creates the Batch tab.
-     * @return computed value */
+    /**
+     * Creates the Batch tab.
+     * @return computed value
+     */
     protected abstract JComponent createBatchTab();
 
-    /** Creates the Datasets tab.
-     * @return computed value */
+    /**
+     * Creates the Datasets tab.
+     * @return computed value
+     */
     protected abstract JComponent createDatasetTab();
 
     /**
@@ -904,9 +1086,18 @@ public abstract class WindowBase extends JFrame {
      */
     protected abstract JComponent createDetachedDatasetTab();
 
-    /** Creates the Publish tab.
-     * @return computed value */
+    /**
+     * Creates the Publish tab.
+     * @return computed value
+     */
     protected abstract JComponent createPublishTab();
+
+    /**
+     * Creates the position-description tab.
+     *
+     * @return position-description tab
+     */
+    protected abstract JComponent createDescribeTab();
 
     /**
      * Creates a detached Publish tab instance.
@@ -930,6 +1121,20 @@ public abstract class WindowBase extends JFrame {
     protected abstract JComponent createDetachedNetworkTab();
 
     /**
+     * Creates the MCTS tab.
+     *
+     * @return MCTS tab
+     */
+    protected abstract JComponent createMctsTab();
+
+    /**
+     * Creates a detached MCTS tab instance.
+     *
+     * @return detached MCTS tab
+     */
+    protected abstract JComponent createDetachedMctsTab();
+
+    /**
      * Creates the Puzzles tab.
      *
      * @return computed value
@@ -943,8 +1148,10 @@ public abstract class WindowBase extends JFrame {
      */
     protected abstract JComponent createDetachedPuzzleTab();
 
-    /** Creates the Console tab.
-     * @return computed value */
+    /**
+     * Creates the Console tab.
+     * @return computed value
+     */
     protected abstract JComponent createConsolePanel();
 
     /**
@@ -968,103 +1175,163 @@ public abstract class WindowBase extends JFrame {
      */
     protected abstract JComponent createDetachedLogTab();
 
-    /** Navigates the loaded game by a relative ply delta.
-     * @param delta relative ply delta */
+    /**
+     * Navigates the loaded game by a relative ply delta.
+     * @param delta relative ply delta
+     */
     protected abstract void navigateGame(int delta);
 
-    /** Jumps the loaded game to an absolute ply.
-     * @param ply game ply index */
+    /**
+     * Jumps the loaded game to an absolute ply.
+     * @param ply game ply index
+     */
     protected abstract void jumpGameTo(int ply);
 
-    /** Focuses the option filter. */
+    /**
+     * Focuses the option filter.
+     */
     protected abstract void focusOptionFilter();
 
-    /** Focuses the FEN field. */
+    /**
+     * Focuses the FEN field.
+     */
     protected abstract void focusFenField();
 
-    /** Focuses the game-input field. */
+    /**
+     * Focuses the game-input field.
+     */
     protected abstract void focusGameInput();
 
-    /** Shows display settings. */
+    /**
+     * Shows display settings.
+     */
     protected abstract void showDisplaySettings();
 
-    /** Shows engine settings. */
+    /**
+     * Shows engine settings.
+     */
     protected abstract void showEngineSettings();
 
-    /** Shows analysis data. */
+    /**
+     * Shows analysis data.
+     */
     protected abstract void showAnalysisData();
 
-    /** Copies the analysis CSV. */
+    /**
+     * Copies the analysis CSV.
+     */
     protected abstract void copyAnalysisCsv();
 
-    /** Copies the analysis report. */
+    /**
+     * Copies the analysis report.
+     */
     protected abstract void copyAnalysisReport();
 
-    /** Prints the analysis report. */
+    /**
+     * Prints the analysis report.
+     */
     protected abstract void printAnalysisReport();
 
-    /** Clears the analysis data. */
+    /**
+     * Clears the analysis data.
+     */
     protected abstract void clearAnalysisData();
 
-    /** Resets engine settings to defaults. */
+    /**
+     * Resets engine settings to defaults.
+     */
     protected abstract void resetEngineSettings();
 
-    /** Plays a move from the board.
-     * @param move move encoded in CRTK move format */
+    /**
+     * Plays a move from the board.
+     * @param move move encoded in CRTK move format
+     */
     protected abstract void playMove(short move);
 
-    /** Applies the current FEN field. */
+    /**
+     * Applies the current FEN field.
+     */
     protected abstract void setPositionFromField();
 
-    /** Starts a new game from a FEN.
-     * @param fen FEN string */
+    /**
+     * Starts a new game from a FEN.
+     * @param fen FEN string
+     */
     protected abstract void startNewGame(String fen);
 
-    /** Shows a game ply.
-     * @param ply game ply index */
+    /**
+     * Shows a game ply.
+     * @param ply game ply index
+     */
     protected abstract void showGamePly(int ply);
 
-    /** Updates the legal-move table. */
+    /**
+     * Updates the legal-move table.
+     */
     protected abstract void updateMoves();
 
-    /** Updates the position status label. */
+    /**
+     * Updates the position status label.
+     */
     protected abstract void updateStatus();
 
-    /** Updates generated tags asynchronously. */
+    /**
+     * Updates generated tags asynchronously.
+     */
     protected abstract void updateTagsAsync();
 
-    /** Updates game-state text. */
+    /**
+     * Updates game-state text.
+     */
     protected abstract void updateGameState();
 
-    /** Configures the game table. */
+    /**
+     * Configures the game table.
+     */
     protected abstract void configureGameTable();
 
-    /** Loads game text as PGN, FEN, or SAN/UCI line.
-     * @param text source text */
+    /**
+     * Loads game text as PGN, FEN, or SAN/UCI line.
+     * @param text source text
+     */
     protected abstract void loadGameText(String text);
 
-    /** Opens a game file. */
+    /**
+     * Opens a game file.
+     */
     protected abstract void loadGameFile();
 
-    /** Saves the current game as PGN. */
+    /**
+     * Saves the current game as PGN.
+     */
     protected abstract void savePgnFile();
 
-    /** Loads a move line from text.
-     * @param text source text */
+    /**
+     * Loads a move line from text.
+     * @param text source text
+     */
     protected abstract void loadMoveLine(String text);
 
-    /** Synchronizes analysis duration into batch controls. */
+    /**
+     * Synchronizes analysis duration into batch controls.
+     */
     protected abstract void syncDurationFromAnalysis();
 
-    /** Requests command-preview refresh. */
+    /**
+     * Requests command-preview refresh.
+     */
     protected abstract void requestCommandPreviews();
 
-    /** Requests an eval refresh. */
+    /**
+     * Requests an eval refresh.
+     */
     protected abstract void requestEvalUpdate();
 
-    /** Builds eval-bar CLI arguments for a FEN.
+    /**
+     * Builds eval-bar CLI arguments for a FEN.
      * @param fen FEN string
-     * @return CLI arguments for the eval-bar command */
+     * @return CLI arguments for the eval-bar command
+     */
     protected abstract List<String> buildEvalBarArgs(String fen);
 
     /**
@@ -1077,55 +1344,79 @@ public abstract class WindowBase extends JFrame {
      */
     protected abstract List<String> buildAnalyzeArgs(String fen, String multipv, String duration);
 
-    /** Returns the engine protocol field value.
-     * @return engine protocol field value */
+    /**
+     * Returns the engine protocol field value.
+     * @return engine protocol field value
+     */
     protected abstract String engineProtocolValue();
 
-    /** Returns the engine nodes field value.
-     * @return engine nodes field value */
+    /**
+     * Returns the engine nodes field value.
+     * @return engine nodes field value
+     */
     protected abstract String engineNodesValue();
 
-    /** Returns the engine hash field value.
-     * @return engine hash field value */
+    /**
+     * Returns the engine hash field value.
+     * @return engine hash field value
+     */
     protected abstract String engineHashValue();
 
-    /** Returns the duration field value.
-     * @return duration field value */
+    /**
+     * Returns the duration field value.
+     * @return duration field value
+     */
     protected abstract String durationValue();
 
-    /** Returns the depth field value.
-     * @return depth field value */
+    /**
+     * Returns the depth field value.
+     * @return depth field value
+     */
     protected abstract String depthValue();
 
-    /** Returns the MultiPV field value.
-     * @return MultiPV field value */
+    /**
+     * Returns the MultiPV field value.
+     * @return MultiPV field value
+     */
     protected abstract String multipvValue();
 
-    /** Returns the thread-count field value.
-     * @return thread-count field value */
+    /**
+     * Returns the thread-count field value.
+     * @return thread-count field value
+     */
     protected abstract String threadsValue();
 
-    /** Highlights a move from command output when appropriate.
+    /**
+     * Highlights a move from command output when appropriate.
      * @param args command arguments
-     * @param output command or engine output text */
+     * @param output command or engine output text
+     */
     protected abstract void maybeHighlightMove(List<String> args, String output);
 
-    /** Applies health status from a finished command.
+    /**
+     * Applies health status from a finished command.
      * @param args command arguments
-     * @param exitCode process exit code */
+     * @param exitCode process exit code
+     */
     protected abstract void updateHealthFromCommand(List<String> args, int exitCode);
 
-    /** Applies health failure status from a failed command.
-     * @param args command arguments */
+    /**
+     * Applies health failure status from a failed command.
+     * @param args command arguments
+     */
     protected abstract void updateHealthFailedFromCommand(List<String> args);
 
-    /** Updates the command-state label.
-     * @param state state text */
+    /**
+     * Updates the command-state label.
+     * @param state state text
+     */
     protected abstract void setCommandState(String state);
 
-    /** Parses engine eval output for the eval bar.
+    /**
+     * Parses engine eval output for the eval bar.
      * @param output command or engine output text
-     * @return parsed engine evaluation */
+     * @return parsed engine evaluation
+     */
     protected static EngineEval parseEngineEval(String output) {
         return EngineEval.parse(output);
     }

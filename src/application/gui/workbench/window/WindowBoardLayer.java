@@ -70,6 +70,8 @@ import static application.gui.workbench.ui.Ui.optionGroup;
 import static application.gui.workbench.ui.Ui.scroll;
 import static application.gui.workbench.ui.Ui.styleAreas;
 import static application.gui.workbench.ui.Ui.styleFields;
+import static application.gui.workbench.ui.Ui.stylePopupMenu;
+import static application.gui.workbench.ui.Ui.stylePopupMenuItem;
 import static application.gui.workbench.ui.Ui.styleSlider;
 import static application.gui.workbench.ui.Ui.styleSpinners;
 import static application.gui.workbench.ui.Ui.tabbedPane;
@@ -81,7 +83,9 @@ import static application.gui.workbench.ui.Ui.transparentPanel;
  */
 
 public abstract class WindowBoardLayer extends WindowLifecycle {
-    /** Serialization identifier for Swing frame compatibility. */
+    /**
+     * Serialization identifier for Swing frame compatibility.
+     */
     private static final long serialVersionUID = 1L;
 
     /**
@@ -222,15 +226,12 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
      */
     private JButton createExportBoardButton() {
         JPopupMenu menu = new JPopupMenu();
-        menu.setOpaque(true);
-        menu.setBackground(Theme.PANEL_SOLID);
-        menu.setForeground(Theme.TEXT);
-        menu.setBorder(BorderFactory.createLineBorder(Theme.LINE));
         menu.add(exportMenuItem("Save PNG…", event -> BoardExportActions.exportPng(this, board)));
         menu.add(exportMenuItem("Save SVG…", event -> BoardExportActions.exportSvg(this, board)));
         menu.addSeparator();
         menu.add(exportMenuItem("Copy image", event -> BoardExportActions.copyImage(this, board)));
         menu.add(exportMenuItem("Copy SVG", event -> BoardExportActions.copySvg(this, board)));
+        stylePopupMenu(menu);
         JButton trigger = iconButton("Export", null);
         for (java.awt.event.ActionListener listener : trigger.getActionListeners()) {
             trigger.removeActionListener(listener);
@@ -273,11 +274,7 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
      */
     private static JMenuItem exportMenuItem(String label, java.awt.event.ActionListener listener) {
         JMenuItem item = new JMenuItem(label);
-        item.setOpaque(true);
-        item.setBackground(Theme.PANEL_SOLID);
-        item.setForeground(Theme.TEXT);
-        item.setFont(Theme.font(12, Font.PLAIN));
-        item.setBorder(Theme.pad(5, 10, 5, 10));
+        stylePopupMenuItem(item);
         item.addActionListener(listener);
         return item;
     }
@@ -856,7 +853,10 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
         previewLabel.setFont(new Font(Font.MONOSPACED, Font.BOLD, 12));
         Theme.foreground(previewLabel, Theme.ForegroundRole.MUTED);
         previewRow.add(previewLabel, BorderLayout.WEST);
-        previewRow.add(commandField, BorderLayout.CENTER);
+        JScrollPane commandScroll = scroll(commandField);
+        commandScroll.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
+        commandScroll.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
+        previewRow.add(commandScroll, BorderLayout.CENTER);
         previewRow.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createMatteBorder(0, 0, 1, 0, Theme.LINE),
                 Theme.pad(6, 10, 6, 10)));
@@ -909,9 +909,10 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
         field.setCaretColor(Theme.MUTED);
         field.setSelectionColor(Theme.SELECTION_SOLID);
         field.setEditable(false);
-        field.setLineWrap(true);
+        field.setLineWrap(false);
         field.setWrapStyleWord(false);
         field.setRows(3);
+        field.setColumns(88);
     }
 
     /**
@@ -964,6 +965,15 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
     }
 
     /**
+     * Creates the position-description tab.
+     *
+     * @return position-description tab
+     */
+    protected JComponent createDescribeTab() {
+        return positionDescriptionPanel();
+    }
+
+    /**
      * Creates an independent publishing tab instance.
      *
      * @return publish tab
@@ -988,6 +998,24 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
      */
     protected JComponent createDetachedNetworkTab() {
         return createDetachedNetworkPanel();
+    }
+
+    /**
+     * Creates the MCTS inspection tab.
+     *
+     * @return MCTS tab
+     */
+    protected JComponent createMctsTab() {
+        return mctsPanel();
+    }
+
+    /**
+     * Creates an independent MCTS inspection tab sharing the session.
+     *
+     * @return MCTS tab
+     */
+    protected JComponent createDetachedMctsTab() {
+        return createDetachedMctsPanel();
     }
 
     /**

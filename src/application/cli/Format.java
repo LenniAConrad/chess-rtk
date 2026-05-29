@@ -46,6 +46,9 @@ public final class Format {
 		if (backend == Backend.LC0_CPU) {
 			return "LC0 (cpu)";
 		}
+		if (backend == Backend.OTIS) {
+			return "OTIS";
+		}
 		return "classical";
 	}
 

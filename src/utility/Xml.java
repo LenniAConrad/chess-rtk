@@ -51,16 +51,25 @@ public final class Xml {
      * standard error while preserving failure behavior.
      */
     private static final ErrorHandler THROWING_ERROR_HANDLER = new ErrorHandler() {
+        /**
+         * {@inheritDoc}
+         */
         @Override
         public void warning(SAXParseException exception) throws SAXParseException {
             throw exception;
         }
 
+        /**
+         * {@inheritDoc}
+         */
         @Override
         public void error(SAXParseException exception) throws SAXParseException {
             throw exception;
         }
 
+        /**
+         * {@inheritDoc}
+         */
         @Override
         public void fatalError(SAXParseException exception) throws SAXParseException {
             throw exception;

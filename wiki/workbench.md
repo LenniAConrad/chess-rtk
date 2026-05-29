@@ -43,9 +43,9 @@ controls so commands can be assembled without memorizing every option.
 
 ## Network Visualizer
 
-The network tab provides NNUE, LC0 CNN, and BT4 inspection. It can show loaded
-model state, inference state, feature boards, activation summaries, atlases,
-trace views, runtime information, and exportable visualizations.
+The network tab provides NNUE, LC0 CNN, BT4, and OTIS inspection. It can show
+loaded model state, inference state, feature boards, activation summaries,
+atlases, trace views, runtime information, and exportable visualizations.
 
 ![Workbench network visualizer](../assets/screenshots/workbench-network.png)
 
@@ -61,7 +61,7 @@ trace views, runtime information, and exportable visualizations.
 | Publish | Diagram, book, study, collection, cover, and report previews |
 | Console | Command output with terminal-style progress handling |
 | Logs | Persisted workbench job logs and artifacts |
-| Network | NNUE, CNN, and BT4 model diagnostics |
+| Network | NNUE, CNN, BT4, and OTIS model diagnostics |
 | Puzzles | Interactive puzzle practice |
 
 ## Keyboard And Layout

@@ -77,13 +77,21 @@ public final class Toast {
      * Toast severity controlling color.
      */
     public enum Kind {
-        /** Informational message. */
+        /**
+         * Informational message.
+         */
         INFO,
-        /** Successful operation. */
+        /**
+         * Successful operation.
+         */
         SUCCESS,
-        /** Warning that does not require user action. */
+        /**
+         * Warning that does not require user action.
+         */
         WARNING,
-        /** Error surfaced non-blockingly. */
+        /**
+         * Error surfaced non-blockingly.
+         */
         ERROR
     }
 
@@ -209,6 +217,9 @@ public final class Toast {
             return;
         }
         ComponentListener listener = new ComponentAdapter() {
+            /**
+             * {@inheritDoc}
+             */
             @Override
             public void componentResized(ComponentEvent event) {
                 relayout(frame);

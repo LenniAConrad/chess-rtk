@@ -281,6 +281,9 @@ final class AnalysisWorkspacePanel extends JPanel {
         movesTable.setAutoCreateColumnsFromModel(false);
         movesTable.getColumnModel().getColumn(1).setCellRenderer(new SanRenderer());
         movesTable.addMouseListener(new MouseAdapter() {
+            /**
+             * {@inheritDoc}
+             */
             @Override
             public void mouseClicked(MouseEvent event) {
                 if (event.getClickCount() == 2) {

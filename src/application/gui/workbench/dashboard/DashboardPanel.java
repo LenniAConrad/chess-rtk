@@ -5,6 +5,9 @@ import application.gui.workbench.session.Job;
 import application.gui.workbench.session.JobTableModel;
 import application.gui.workbench.session.Session;
 import application.gui.workbench.session.SessionListener;
+import application.gui.workbench.network.NetworkDiagnosticsPanel;
+import application.gui.workbench.network.NetworkPanel;
+import application.gui.workbench.network.RealActivations;
 import application.gui.workbench.ui.MiniChart;
 import application.gui.workbench.ui.TagCloud;
 import application.gui.workbench.ui.Theme;
@@ -200,6 +203,17 @@ public final class DashboardPanel extends JPanel implements SessionListener {
     private final HealthRings healthRings = new HealthRings();
 
     /**
+     * Lightweight provider used only for runtime diagnostic previews.
+     */
+    private final RealActivations networkDiagnosticsProvider = new RealActivations();
+
+    /**
+     * Dashboard-hosted network runtime diagnostics.
+     */
+    private final NetworkDiagnosticsPanel networkDiagnosticsPanel =
+            new NetworkDiagnosticsPanel(false);
+
+    /**
      * Outputs card body — rebuilt whenever the artifact index changes.
      */
     private final JPanel artifactList = new JPanel();
@@ -258,11 +272,13 @@ public final class DashboardPanel extends JPanel implements SessionListener {
         c.gridy = 1;
         grid.add(topColumns, c);
         c.gridy = 2;
-        grid.add(buildJobsCard(), c);
+        grid.add(buildNetworkRuntimeCard(), c);
         c.gridy = 3;
+        grid.add(buildJobsCard(), c);
+        c.gridy = 4;
         grid.add(buildOutputsCard(), c);
 
-        c.gridy = 4;
+        c.gridy = 5;
         c.weighty = 1.0;
         c.fill = GridBagConstraints.BOTH;
         grid.add(Ui.transparentPanel(null), c);
@@ -388,6 +404,18 @@ public final class DashboardPanel extends JPanel implements SessionListener {
     }
 
     /**
+     * Builds the Network Runtime diagnostics card.
+     *
+     * @return card component
+     */
+    private JComponent buildNetworkRuntimeCard() {
+        JPanel body = cardBody();
+        networkDiagnosticsPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        body.add(networkDiagnosticsPanel);
+        return card("Network Runtime", body);
+    }
+
+    /**
      * Builds the recent-Jobs card.
      *
      * @return card component
@@ -443,7 +471,8 @@ public final class DashboardPanel extends JPanel implements SessionListener {
      */
     private JComponent buildOutputsCard() {
         artifactList.setLayout(new BoxLayout(artifactList, BoxLayout.Y_AXIS));
-        artifactList.setOpaque(false);
+        artifactList.setOpaque(true);
+        artifactList.setBackground(Theme.PANEL_SOLID);
         JPanel body = cardBody();
         body.add(artifactList);
     return card("Outputs", body);
@@ -490,6 +519,8 @@ public final class DashboardPanel extends JPanel implements SessionListener {
         healthDoctorValue.setText(health.doctor().label());
         healthSmokeValue.setText(health.engineSmoke().label());
         healthRings.setChecks(health.config(), health.doctor(), health.engineSmoke());
+        networkDiagnosticsPanel.refresh(networkDiagnosticsProvider, "Dashboard",
+                NetworkPanel.runtimeCacheSummary());
 
         int[] evalCentipawns = session.evalHistoryCentipawns();
         float[] evalPawns = new float[evalCentipawns.length];
@@ -750,7 +781,17 @@ public final class DashboardPanel extends JPanel implements SessionListener {
      * @return section component
      */
     private static JComponent card(String title, JComponent body) {
-        JPanel cardPanel = new JPanel(new BorderLayout(0, Theme.SPACE_SM));
+        JPanel cardPanel = new JPanel(new BorderLayout(0, Theme.SPACE_SM)) {
+            private static final long serialVersionUID = 1L;
+
+            /**
+             * {@inheritDoc}
+             */
+            @Override
+            public Dimension getMaximumSize() {
+                return new Dimension(Integer.MAX_VALUE, getPreferredSize().height);
+            }
+        };
         cardPanel.setOpaque(true);
         cardPanel.setBackground(Theme.PANEL_SOLID);
         cardPanel.setBorder(Theme.pad(Theme.SPACE_MD, Theme.SPACE_SM,
@@ -764,8 +805,6 @@ public final class DashboardPanel extends JPanel implements SessionListener {
         // Cap the height so a card keeps its natural size inside a vertical
         // BoxLayout column instead of stretching to share spare space.
         cardPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
-        cardPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE,
-                cardPanel.getPreferredSize().height));
         return cardPanel;
     }
 

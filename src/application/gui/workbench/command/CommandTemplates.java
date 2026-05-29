@@ -53,6 +53,16 @@ public final class CommandTemplates {
     private static final String GROUP_EVALUATOR = "evaluator";
 
     /**
+     * Exclusive group for position text generators.
+     */
+    private static final String GROUP_TEXT_ENGINE = "text engine";
+
+    /**
+     * Exclusive group for position text detail levels.
+     */
+    private static final String GROUP_TEXT_DETAIL = "text detail";
+
+    /**
      * Exclusive group for PGN line-selection flags.
      */
     private static final String GROUP_PGN_LINE = "pgn line";
@@ -163,8 +173,9 @@ public final class CommandTemplates {
                         optSource("--fen", ValueSource.CURRENT_FEN, true, "Position FEN"),
                         exclusiveDefault("auto", true, "Default: LC0 with classical fallback", GROUP_EVALUATOR),
                         exclusiveFlag("--lc0", false, "Use the LC0 evaluator", GROUP_EVALUATOR),
+                        exclusiveFlag("--otis", false, "Use the OTIS evaluator", GROUP_EVALUATOR),
                         exclusiveFlag("--classical", false, "Use the classical evaluator", GROUP_EVALUATOR),
-                        opt("--weights", "", false, "LC0 weights path"),
+                        opt("--weights", "", false, "LC0 or OTIS weights path"),
                         flag("--terminal-aware", false, "Score terminal positions exactly"),
                         commonVerbose())),
     new CommandTemplate("Threats", List.of("engine", "threats"), List.of(
@@ -175,7 +186,8 @@ public final class CommandTemplates {
                         exclusiveDefault("classical", true, "Default classical evaluator", GROUP_EVALUATOR),
                         exclusiveFlag("--nnue", false, "Use NNUE evaluator", GROUP_EVALUATOR),
                         exclusiveFlag("--lc0", false, "Use LC0 evaluator", GROUP_EVALUATOR),
-                        opt("--weights", "", false, "NNUE or LC0 weights path"),
+                        exclusiveFlag("--otis", false, "Use OTIS evaluator", GROUP_EVALUATOR),
+                        opt("--weights", "", false, "NNUE, LC0, or OTIS weights path"),
                         depthOption(true),
                         nodesOption(false),
                         durationOption(false),
@@ -209,6 +221,26 @@ public final class CommandTemplates {
                         outputFlag("--jsonl", false, "Emit one JSON object line"),
                         commonNoHeader(),
                         commonQuiet(),
+                        commonVerbose())),
+    new CommandTemplate("Position describe", List.of("position", "describe"), List.of(
+                        optSourceExclusive("--fen", ValueSource.CURRENT_FEN, true, "Input FEN",
+                                GROUP_INPUT_SOURCE),
+                        inputSource("--input", false, "Input FEN list path"),
+                        flag("--stdin", false, "Read FEN rows from standard input"),
+                        exclusiveChoice("--engine", "classical", true, "Deterministic classical text",
+                                GROUP_TEXT_ENGINE),
+                        exclusiveChoice("--engine", "t5", false, "Configured T5 path; unavailable until trained",
+                                GROUP_TEXT_ENGINE),
+                        exclusiveChoice("--detail", "brief", false, "Brief text", GROUP_TEXT_DETAIL),
+                        exclusiveChoice("--detail", "normal", true, "Normal text", GROUP_TEXT_DETAIL),
+                        exclusiveChoice("--detail", "full", false, "Full signal text", GROUP_TEXT_DETAIL),
+                        resultFormatChoice("text", true, "Plain text"),
+                        resultFormatChoice("json", false, "Emit JSON"),
+                        resultFormatChoice("jsonl", false, "Emit JSONL"),
+                        opt("--budget", "", false, "Maximum candidate moves in text"),
+                        opt("--output", "", false, "Output file"),
+                        opt("--model", "", false, "Future T5 position-description model path"),
+                        opt("--max-new", "128", false, "Future T5 token budget"),
                         commonVerbose())),
     new CommandTemplate("Generate FENs", List.of("fen", "generate"), generateFenOptions())));
         templates.add(allCliTemplate());

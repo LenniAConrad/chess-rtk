@@ -32,7 +32,7 @@ public final class TensorViz {
     /**
      * Dark label ink for labels painted directly over light data bars.
      */
-    private static final Color DATA_BAR_DARK_TEXT = new Color(0x1F1F1F);
+    private static final Color DATA_BAR_DARK_TEXT = new Color(0x1E1E1E);
 
     /**
      * Light label ink for labels painted directly over dark data bars.
@@ -232,10 +232,24 @@ public final class TensorViz {
      * @param color marker colour
      */
     public static void drawBoardSquareRing(Graphics2D g, Rectangle board, int square, Color color) {
+        drawBoardSquareRing(g, board, square, color, true);
+    }
+
+    /**
+     * Draws a shared chessboard.js-style marker around a LERF board square.
+     *
+     * @param g graphics
+     * @param board board rectangle
+     * @param square 0..63 square
+     * @param color marker colour
+     * @param whiteDown whether White is rendered at the bottom
+     */
+    public static void drawBoardSquareRing(Graphics2D g, Rectangle board, int square, Color color,
+            boolean whiteDown) {
         if (square < 0 || square >= 64 || board.width <= 0 || board.height <= 0) {
             return;
         }
-        BoardStyle.drawInsetSquareHighlight(g, BoardStyle.lerfSquareBounds(board, square, true), color);
+        BoardStyle.drawInsetSquareHighlight(g, BoardStyle.lerfSquareBounds(board, square, whiteDown), color);
     }
 
     /**
@@ -683,13 +697,27 @@ public final class TensorViz {
      * @param fen current position FEN; null draws an empty board
      */
     public static void drawPositionPieces(Graphics2D g, Rectangle r, String fen) {
+        drawPositionPieces(g, r, fen, true);
+    }
+
+    /**
+     * Draws pieces from a FEN over a mini-board.
+     *
+     * @param g graphics
+     * @param r board rectangle
+     * @param fen current position FEN; null draws an empty board
+     * @param whiteDown whether White is rendered at the bottom
+     */
+    public static void drawPositionPieces(Graphics2D g, Rectangle r, String fen, boolean whiteDown) {
         if (fen == null || fen.isBlank()) {
+            drawBoardUnavailable(g, r, "No FEN");
             return;
         }
         chess.core.Position position;
         try {
             position = new chess.core.Position(fen);
         } catch (IllegalArgumentException ex) {
+            drawBoardUnavailable(g, r, "Invalid FEN");
             return;
         }
         byte[] squares = position.getBoard();
@@ -698,7 +726,7 @@ public final class TensorViz {
             if (piece == chess.core.Piece.EMPTY) {
                 continue;
             }
-            Rectangle cell = BoardStyle.fieldSquareBounds(r, (byte) positionIndex, true);
+            Rectangle cell = BoardStyle.fieldSquareBounds(r, (byte) positionIndex, whiteDown);
             chess.images.assets.Shapes.drawPiece(piece, g, cell.x, cell.y, cell.width, cell.height);
         }
     }
@@ -714,16 +742,43 @@ public final class TensorViz {
     }
 
     /**
+     * Draws a compact empty/error label over a board that has no valid FEN.
+     *
+     * @param g graphics
+     * @param r board rectangle
+     * @param text status text
+     */
+    private static void drawBoardUnavailable(Graphics2D g, Rectangle r, String text) {
+        if (r.width <= 24 || r.height <= 24) {
+            return;
+        }
+        g.setFont(Theme.font(Math.max(9, Math.min(12, r.width / 18)), Font.BOLD));
+        FontMetrics fm = g.getFontMetrics();
+        int labelW = Math.min(r.width - 12, fm.stringWidth(text) + 16);
+        int labelH = Math.min(r.height - 12, fm.getHeight() + 8);
+        int x = r.x + (r.width - labelW) / 2;
+        int y = r.y + (r.height - labelH) / 2;
+        g.setColor(Theme.withAlpha(Theme.PANEL_SOLID, 220));
+        g.fillRoundRect(x, y, labelW, labelH, 6, 6);
+        g.setColor(Theme.LINE);
+        g.drawRoundRect(x, y, labelW - 1, labelH - 1, 6, 6);
+        g.setColor(Theme.MUTED);
+        g.drawString(Ui.elide(text, fm, labelW - 10),
+                x + (labelW - Math.min(labelW - 10, fm.stringWidth(text))) / 2,
+                y + (labelH + fm.getAscent() - fm.getDescent()) / 2);
+    }
+
+    /**
      * Overlays a per-square color halo onto a mini board.
      *
      * @param g graphics
      * @param r destination rectangle
      * @param squareValues 64 signed values
      * @param scale absolute max (auto if &lt;= 0)
-     * @param flipped if true, rank 0 sits at the top
+     * @param whiteDown whether White is rendered at the bottom
      */
     public static void drawSquareOverlay(Graphics2D g, Rectangle r, float[] squareValues, float scale,
-            boolean flipped) {
+            boolean whiteDown) {
         if (squareValues == null || squareValues.length < 64) {
             return;
         }
@@ -737,7 +792,7 @@ public final class TensorViz {
             }
         }
         for (int sq = 0; sq < 64; ++sq) {
-            Rectangle cell = BoardStyle.lerfSquareBounds(r, sq, !flipped);
+            Rectangle cell = BoardStyle.lerfSquareBounds(r, sq, whiteDown);
             float v = squareValues[sq] / s;
             v = clamp(v, -1.0f, 1.0f);
             Color base = signedRamp(v);
@@ -757,8 +812,148 @@ public final class TensorViz {
      * @param r board rectangle
      */
     public static void drawBoardCoordinates(Graphics2D g, Rectangle r) {
+        drawBoardCoordinates(g, r, true);
+    }
+
+    /**
+     * Draws coordinate labels around a mini board.
+     *
+     * @param g graphics
+     * @param r board rectangle
+     * @param whiteDown whether White is rendered at the bottom
+     */
+    public static void drawBoardCoordinates(Graphics2D g, Rectangle r, boolean whiteDown) {
         int fontSize = Math.max(7, Math.min(11, Math.round(r.width / 18.0f)));
-        BoardStyle.drawInsideCoordinates(g, r, true, fontSize);
+        BoardStyle.drawInsideCoordinates(g, r, whiteDown, fontSize);
+    }
+
+    /**
+     * Returns whether the current FEN should be drawn with White at the bottom
+     * when using a side-to-move-down board convention.
+     *
+     * @param fen position FEN
+     * @return true for White to move or malformed/unknown FENs
+     */
+    public static boolean whiteDownForSideToMove(String fen) {
+        return !blackToMove(fen);
+    }
+
+    /**
+     * Returns whether the FEN side-to-move token is black.
+     *
+     * @param fen position FEN
+     * @return true when Black is to move
+     */
+    public static boolean blackToMove(String fen) {
+        if (fen == null || fen.isBlank()) {
+            return false;
+        }
+        String[] parts = fen.trim().split("\\s+");
+        return parts.length >= 2 && "b".equals(parts[1]);
+    }
+
+    /**
+     * Returns the LERF square at a point inside a board.
+     *
+     * @param board board bounds
+     * @param x x
+     * @param y y
+     * @param whiteDown whether White is rendered at the bottom
+     * @return 0..63 square, or -1 when outside
+     */
+    public static int boardSquareAt(Rectangle board, int x, int y, boolean whiteDown) {
+        if (board == null || !board.contains(x, y)) {
+            return -1;
+        }
+        int col = Math.max(0, Math.min(7, (x - board.x) * 8 / Math.max(1, board.width)));
+        int row = Math.max(0, Math.min(7, (y - board.y) * 8 / Math.max(1, board.height)));
+        int file = whiteDown ? col : 7 - col;
+        int rank = whiteDown ? 7 - row : row;
+        return (rank << 3) | file;
+    }
+
+    /**
+     * Maps LC0 side-to-move/canonical token-square data back to board squares.
+     *
+     * @param values 64 values in encoded network square order
+     * @param fen source position FEN
+     * @param transform LC0 canonical transform bit mask
+     * @return 64 values indexed by absolute LERF board square
+     */
+    public static float[] lc0NetworkSquaresToBoard(float[] values, String fen, int transform) {
+        if (values == null || values.length < 64) {
+            return values;
+        }
+        boolean black = blackToMove(fen);
+        float[] out = new float[64];
+        for (int token = 0; token < 64; token++) {
+            int perspective = inverseLc0TransformSquare(token, transform);
+            int boardSquare = black ? (perspective ^ 56) : perspective;
+            out[boardSquare] = values[token];
+        }
+        return out;
+    }
+
+    /**
+     * Converts an absolute board square to the LC0 encoded token square.
+     *
+     * @param square absolute LERF square
+     * @param fen source position FEN
+     * @param transform LC0 canonical transform bit mask
+     * @return encoded token square
+     */
+    public static int boardSquareToLc0NetworkSquare(int square, String fen, int transform) {
+        int safeSquare = Math.max(0, Math.min(63, square));
+        int perspective = blackToMove(fen) ? (safeSquare ^ 56) : safeSquare;
+        return lc0TransformSquare(perspective, transform);
+    }
+
+    /**
+     * Applies LC0's canonical square transform.
+     *
+     * @param square square in side-to-move perspective
+     * @param transform transform bit mask
+     * @return transformed token square
+     */
+    private static int lc0TransformSquare(int square, int transform) {
+        int file = square & 7;
+        int rank = square >>> 3;
+        if ((transform & chess.nn.lc0.bt4.Encoder.FLIP_TRANSFORM) != 0) {
+            file = 7 - file;
+        }
+        if ((transform & chess.nn.lc0.bt4.Encoder.MIRROR_TRANSFORM) != 0) {
+            rank = 7 - rank;
+        }
+        if ((transform & chess.nn.lc0.bt4.Encoder.TRANSPOSE_TRANSFORM) != 0) {
+            int previousFile = file;
+            file = 7 - rank;
+            rank = 7 - previousFile;
+        }
+        return (rank << 3) | file;
+    }
+
+    /**
+     * Reverses LC0's canonical square transform.
+     *
+     * @param square encoded token square
+     * @param transform transform bit mask
+     * @return side-to-move-perspective square before canonicalization
+     */
+    private static int inverseLc0TransformSquare(int square, int transform) {
+        int file = square & 7;
+        int rank = square >>> 3;
+        if ((transform & chess.nn.lc0.bt4.Encoder.TRANSPOSE_TRANSFORM) != 0) {
+            int previousFile = file;
+            file = 7 - rank;
+            rank = 7 - previousFile;
+        }
+        if ((transform & chess.nn.lc0.bt4.Encoder.MIRROR_TRANSFORM) != 0) {
+            rank = 7 - rank;
+        }
+        if ((transform & chess.nn.lc0.bt4.Encoder.FLIP_TRANSFORM) != 0) {
+            file = 7 - file;
+        }
+        return (rank << 3) | file;
     }
 
     /**

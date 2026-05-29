@@ -28,7 +28,7 @@ public final class Factory {
      * Creates an evaluator.
      *
      * @param kind evaluator kind
-     * @param weights optional weights path for NNUE or LC0
+     * @param weights optional weights path for NNUE, LC0, or OTIS
      * @return evaluator
      * @throws IOException if model weights cannot be loaded
      */
@@ -38,6 +38,7 @@ public final class Factory {
             case CLASSICAL -> new Classical();
             case NNUE -> new Nnue(weights);
             case LC0 -> new Lc0(weights);
+            case OTIS -> new Otis(weights);
         };
     }
 }

@@ -198,12 +198,10 @@ public final class Bt4View extends NetworkView {
             return;
         }
         if (boardBounds.contains(x, y)) {
-            int relX = x - boardBounds.x;
-            int relY = y - boardBounds.y;
-            int file = Math.max(0, Math.min(7, relX * 8 / Math.max(1, boardBounds.width)));
-            int drawRank = Math.max(0, Math.min(7, relY * 8 / Math.max(1, boardBounds.height)));
-            int rank = 7 - drawRank;
-            int sq = rank * 8 + file;
+            int sq = TensorViz.boardSquareAt(boardBounds, x, y, TensorViz.whiteDownForSideToMove(fen));
+            if (sq < 0) {
+                return;
+            }
             // Click same square again to deselect; otherwise select it.
             selectedSquare = (sq == selectedSquare) ? -1 : sq;
             repaint();
@@ -638,21 +636,23 @@ public final class Bt4View extends NetworkView {
      */
     private void drawBt4AtlasBoard(Graphics2D g, Rectangle board, String title,
             float[] values, String caption) {
-        int focusSquare = strongestSquare(values);
+        boolean whiteDown = TensorViz.whiteDownForSideToMove(fen);
+        float[] boardValues = toBoardSquares(values);
+        int focusSquare = strongestSquare(boardValues);
         String focus = focusSquare >= 0 ? " · focus " + TensorViz.squareLabel(focusSquare) : "";
         g.setColor(Theme.MUTED);
         g.setFont(Theme.font(10, Font.BOLD));
         FontMetrics fm = g.getFontMetrics();
         g.drawString(Ui.elide(title + focus, fm, board.width + 10), board.x, board.y - 4);
         TensorViz.drawMiniBoard(g, board);
-        TensorViz.drawPositionPieces(g, board, fen);
-        if (values != null) {
-            float scale = scaleFor("bt4Atlas:board:" + title, maxAbs(values));
-            TensorViz.drawSquareOverlay(g, board, values, scale, false);
-            TensorViz.drawBoardSquareRing(g, board, focusSquare, TensorViz.FOCUS);
-            addBoardSquareTooltips(board, values, caption);
+        TensorViz.drawPositionPieces(g, board, fen, whiteDown);
+        if (boardValues != null) {
+            float scale = scaleFor("bt4Atlas:board:" + title, maxAbs(boardValues));
+            TensorViz.drawSquareOverlay(g, board, boardValues, scale, whiteDown);
+            TensorViz.drawBoardSquareRing(g, board, focusSquare, TensorViz.FOCUS, whiteDown);
+            addBoardSquareTooltips(board, boardValues, caption, whiteDown);
         }
-        TensorViz.drawBoardCoordinates(g, board);
+        TensorViz.drawBoardCoordinates(g, board, whiteDown);
     }
 
     /**
@@ -887,16 +887,18 @@ public final class Bt4View extends NetworkView {
         int boardArea = Math.min(r.width, Math.max(160, (r.height - 50) * 3 / 5));
         Rectangle board = new Rectangle(r.x + Math.max(8, (r.width - boardArea) / 2),
                 r.y + 50, boardArea - 16, boardArea - 16);
+        boolean whiteDown = TensorViz.whiteDownForSideToMove(fen);
         TensorViz.drawMiniBoard(g, board);
-        TensorViz.drawPositionPieces(g, board, fen);
+        TensorViz.drawPositionPieces(g, board, fen, whiteDown);
         float[] energy = snapshot.data("bt4.token.energy");
         if (energy != null && energy.length >= 64) {
-            float s = scaleFor("tokenEnergy", maxAbs(energy));
-            TensorViz.drawSquareOverlay(g, board, energy, s, false);
-            TensorViz.drawBoardSquareRing(g, board, strongestSquare(energy), TensorViz.FOCUS);
-            addBoardSquareTooltips(board, energy, "Mean attention received");
+            float[] boardValues = toBoardSquares(energy);
+            float s = scaleFor("tokenEnergy", maxAbs(boardValues));
+            TensorViz.drawSquareOverlay(g, board, boardValues, s, whiteDown);
+            TensorViz.drawBoardSquareRing(g, board, strongestSquare(boardValues), TensorViz.FOCUS, whiteDown);
+            addBoardSquareTooltips(board, boardValues, "Mean attention received", whiteDown);
         }
-        TensorViz.drawBoardCoordinates(g, board);
+        TensorViz.drawBoardCoordinates(g, board, whiteDown);
         int barsTop = board.y + board.height + 30;
         if (barsTop + 40 <= r.y + r.height) {
             Rectangle barsR = new Rectangle(r.x + 8, barsTop,
@@ -953,12 +955,12 @@ public final class Bt4View extends NetworkView {
      * @param values 64 values in rank-major order (rank 0 = first rank)
      * @param caption tooltip caption
      */
-    private void addBoardSquareTooltips(Rectangle board, float[] values, String caption) {
+    private void addBoardSquareTooltips(Rectangle board, float[] values, String caption, boolean whiteDown) {
         if (values == null || values.length < 64) {
             return;
         }
         for (int sq = 0; sq < 64; ++sq) {
-            Rectangle cell = BoardStyle.lerfSquareBounds(board, sq, true);
+            Rectangle cell = BoardStyle.lerfSquareBounds(board, sq, whiteDown);
             hitRegions.add(cell,
                     TensorViz.squareLabel(sq),
                     caption,
@@ -984,9 +986,38 @@ public final class Bt4View extends NetworkView {
         } catch (RuntimeException ex) {
             return java.util.Collections.emptyList();
         }
-        float[] tx = snapshot.data("bt4.input.transform");
-        int transform = tx == null ? 0 : Math.round(tx[0]);
-        return chess.nn.lc0.bt4.PolicyEncoder.topLegalMoves(position, policy, transform, k);
+        return chess.nn.lc0.bt4.PolicyEncoder.topLegalMoves(position, policy, inputTransform(), k);
+    }
+
+    /**
+     * Converts BT4 token-square data back to absolute board squares.
+     *
+     * @param values token-square values
+     * @return board-square values
+     */
+    private float[] toBoardSquares(float[] values) {
+        return TensorViz.lc0NetworkSquaresToBoard(values, fen, inputTransform());
+    }
+
+    /**
+     * Converts an absolute board square to the token square used by the BT4
+     * attention tensors.
+     *
+     * @param square absolute board square
+     * @return token square
+     */
+    private int toNetworkSquare(int square) {
+        return TensorViz.boardSquareToLc0NetworkSquare(square, fen, inputTransform());
+    }
+
+    /**
+     * Returns the captured BT4 canonical transform.
+     *
+     * @return transform bit mask, or 0 when absent
+     */
+    private int inputTransform() {
+        float[] tx = snapshot == null ? null : snapshot.data("bt4.input.transform");
+        return tx == null || tx.length == 0 ? 0 : Math.round(tx[0]);
     }
 
     /**
@@ -1257,27 +1288,31 @@ public final class Bt4View extends NetworkView {
         int availH = r.height - headerH - 6 - bottomReserve;
         int size = Math.min(availW, availH);
         Rectangle board = new Rectangle(r.x + (r.width - size) / 2, top, size, size);
+        boolean whiteDown = TensorViz.whiteDownForSideToMove(fen);
         TensorViz.drawMiniBoard(g, board);
-        TensorViz.drawPositionPieces(g, board, fen);
+        TensorViz.drawPositionPieces(g, board, fen, whiteDown);
         boardBounds = board;
         if (selectedSquare >= 0) {
             float[] heads = snapshot.data("bt4.block" + selectedBlock + ".attention.heads");
             if (heads != null) {
                 int off = selectedHead * 64 * 64;
-                float[] toOverlay = new float[64];
-                float[] fromOverlay = new float[64];
-                for (int sq = 0; sq < 64; ++sq) {
-                    toOverlay[sq] = heads[off + selectedSquare * 64 + sq];
-                    fromOverlay[sq] = heads[off + sq * 64 + selectedSquare];
+                int selectedToken = toNetworkSquare(selectedSquare);
+                float[] toTokenOverlay = new float[64];
+                float[] fromTokenOverlay = new float[64];
+                for (int token = 0; token < 64; ++token) {
+                    toTokenOverlay[token] = heads[off + selectedToken * 64 + token];
+                    fromTokenOverlay[token] = heads[off + token * 64 + selectedToken];
                 }
+                float[] toOverlay = toBoardSquares(toTokenOverlay);
+                float[] fromOverlay = toBoardSquares(fromTokenOverlay);
                 float dynamicMax = Math.max(maxAbs(toOverlay), maxAbs(fromOverlay));
                 float scale = scaleFor("boardOverlay:joint", dynamicMax);
-                drawTriangleOverlay(g, board, toOverlay, fromOverlay, scale);
-                addTriangleTooltips(board, toOverlay, fromOverlay);
-                TensorViz.drawBoardSquareRing(g, board, selectedSquare, TensorViz.FOCUS);
+                drawTriangleOverlay(g, board, toOverlay, fromOverlay, scale, whiteDown);
+                addTriangleTooltips(board, toOverlay, fromOverlay, whiteDown);
+                TensorViz.drawBoardSquareRing(g, board, selectedSquare, TensorViz.FOCUS, whiteDown);
             }
         }
-        TensorViz.drawBoardCoordinates(g, board);
+        TensorViz.drawBoardCoordinates(g, board, whiteDown);
         g.setColor(Theme.MUTED);
         g.setFont(Theme.font(10, Font.PLAIN));
         String hint = selectedSquare < 0
@@ -1303,7 +1338,7 @@ public final class Bt4View extends NetworkView {
      * @param scale shared colour scale (max value mapped to full opacity)
      */
     private static void drawTriangleOverlay(java.awt.Graphics2D g, Rectangle board,
-            float[] toData, float[] fromData, float scale) {
+            float[] toData, float[] fromData, float scale, boolean whiteDown) {
         if (toData == null || fromData == null || scale <= 0.0f) {
             return;
         }
@@ -1311,7 +1346,7 @@ public final class Bt4View extends NetworkView {
         Color incomingBase = TensorViz.NEGATIVE;
         Color diagonal = Theme.withAlpha(Theme.TEXT, 58);
         for (int sq = 0; sq < 64; ++sq) {
-            Rectangle cell = BoardStyle.lerfSquareBounds(board, sq, true);
+            Rectangle cell = BoardStyle.lerfSquareBounds(board, sq, whiteDown);
             double xd = cell.x;
             double yd = cell.y;
             double xr = (double) cell.x + cell.width;
@@ -1368,10 +1403,10 @@ public final class Bt4View extends NetworkView {
      * @param toData selected → this
      * @param fromData this → selected
      */
-    private void addTriangleTooltips(Rectangle board, float[] toData, float[] fromData) {
+    private void addTriangleTooltips(Rectangle board, float[] toData, float[] fromData, boolean whiteDown) {
         String selectedLabel = TensorViz.squareLabel(selectedSquare);
         for (int sq = 0; sq < 64; ++sq) {
-            Rectangle cell = BoardStyle.lerfSquareBounds(board, sq, true);
+            Rectangle cell = BoardStyle.lerfSquareBounds(board, sq, whiteDown);
             hitRegions.add(cell,
                     TensorViz.squareLabel(sq),
                     selectedLabel + " → this : " + String.format("%.4f", toData[sq])

@@ -20,7 +20,7 @@ import java.util.Map;
  * a prior probability, visits and an accumulated Q value; selection combines Q
  * with a PUCT exploration term; leaf values are backed up through the visited
  * path. The default constructor uses CRTK's built-in classical evaluator,
- * while the Network tab can select NNUE, LC0 CNN, or BT4 policy/value
+ * while the Network tab can select NNUE, LC0 CNN, BT4, or OTIS policy/value
  * backends.</p>
  */
 public final class MctsSearch implements AutoCloseable {
@@ -179,6 +179,25 @@ public final class MctsSearch implements AutoCloseable {
             throw new IllegalArgumentException("weights == null");
         }
         return new MctsSearch(root, cpuct, CnnSearchBackend.load(weights), DEFAULT_TRANSPOSITION_LIMIT);
+    }
+
+    /**
+     * Creates an OTIS policy/WDL MCTS search.
+     *
+     * @param root root position
+     * @param cpuct exploration constant
+     * @param weights OTIS weights path
+     * @return OTIS-backed search
+     * @throws IOException if weights cannot be loaded
+     */
+    public static MctsSearch otis(Position root, double cpuct, Path weights) throws IOException {
+        if (root == null) {
+            throw new IllegalArgumentException("root == null");
+        }
+        if (weights == null) {
+            throw new IllegalArgumentException("weights == null");
+        }
+        return new MctsSearch(root, cpuct, OtisSearchBackend.load(weights), DEFAULT_TRANSPOSITION_LIMIT);
     }
 
     /**
@@ -370,6 +389,7 @@ public final class MctsSearch implements AutoCloseable {
             double q = rootRowQ(decision, child);
             short[] pv = principalVariation(child, 10);
             rows.add(new Row(
+                    nodeId(child),
                     child.move,
                     moveSan(rootPosition, child.move),
                     Move.toString(child.move),
@@ -429,6 +449,65 @@ public final class MctsSearch implements AutoCloseable {
                 exploringLine,
                 pvText(rootPosition, exploringLine),
                 rows);
+    }
+
+    /**
+     * Builds a bounded tree-inspection snapshot for Swing.
+     */
+    public TreeSnapshot treeSnapshot(boolean paused, TreeOptions options, String selectedNodeId) {
+        TreeOptions safeOptions = options == null ? TreeOptions.defaults() : options.normalized();
+        Snapshot rootSnapshot = snapshot(paused);
+        List<NodeInfo> nodes = new ArrayList<>();
+        int[] omitted = { 0 };
+        NodeInfo selected = null;
+        List<Node> frontier = new ArrayList<>();
+        frontier.add(root);
+        while (!frontier.isEmpty()) {
+            Node node = frontier.remove(0);
+            if (node.depth > safeOptions.maxDepth()) {
+                omitted[0]++;
+                continue;
+            }
+            if (nodes.size() >= safeOptions.maxNodes()) {
+                omitted[0] += countVisibleDescendants(node, safeOptions);
+                continue;
+            }
+            NodeInfo info = nodeInfo(node);
+            nodes.add(info);
+            if (info.id().equals(selectedNodeId)) {
+                selected = info;
+            }
+            if (node.depth >= safeOptions.maxDepth()) {
+                omitted[0] += visibleChildCount(node, safeOptions);
+                continue;
+            }
+            List<Node> children = safeOptions.pvOnly()
+                    ? pvChildren(node)
+                    : orderedChildren(node);
+            for (Node child : children) {
+                if (child.visits() < safeOptions.minVisits()) {
+                    omitted[0] += countVisibleDescendants(child, safeOptions);
+                } else {
+                    frontier.add(child);
+                }
+            }
+        }
+        if (selected == null) {
+            selected = nodes.isEmpty() ? nodeInfo(root) : nodes.get(0);
+        }
+        return new TreeSnapshot(
+                rootSnapshot.rootFen(),
+                rootSnapshot.playouts(),
+                rootSnapshot.elapsedMillis(),
+                rootSnapshot.paused(),
+                backend.name(),
+                rootSnapshot.rootScoreLabel(),
+                rootSnapshot.bestMove(),
+                rootSnapshot.bestPvText(),
+                rootSnapshot.rows(),
+                nodes,
+                selected,
+                Math.max(0, omitted[0]));
     }
 
     /**
@@ -501,6 +580,134 @@ public final class MctsSearch implements AutoCloseable {
         List<Node> children = new ArrayList<>(root.children);
         children.sort((left, right) -> compareRootChildren(decision, left, right));
         return children;
+    }
+
+    /**
+     * Returns children in deterministic inspection order.
+     */
+    private List<Node> orderedChildren(Node parent) {
+        if (parent == root) {
+            return orderedRootChildren(immediateRootDecision);
+        }
+        List<Node> children = new ArrayList<>(parent.children);
+        children.sort((left, right) -> {
+            int leftRank = proofRankForParent(left);
+            int rightRank = proofRankForParent(right);
+            if (leftRank != rightRank) {
+                return Integer.compare(rightRank, leftRank);
+            }
+            int visits = Integer.compare(right.visits(), left.visits());
+            if (visits != 0) {
+                return visits;
+            }
+            int prior = Double.compare(right.prior, left.prior);
+            if (prior != 0) {
+                return prior;
+            }
+            return Move.toString(left.move).compareTo(Move.toString(right.move));
+        });
+        return children;
+    }
+
+    /**
+     * Returns the single principal-variation child for PV-spine traversal.
+     */
+    private List<Node> pvChildren(Node parent) {
+        Node child = mostVisitedChild(parent);
+        return child == null ? List.of() : List.of(child);
+    }
+
+    /**
+     * Counts descendants omitted by traversal controls.
+     */
+    private int countVisibleDescendants(Node start, TreeOptions options) {
+        if (start.depth > options.maxDepth()) {
+            return 0;
+        }
+        int count = 0;
+        List<Node> queue = new ArrayList<>();
+        queue.add(start);
+        for (int i = 0; i < queue.size(); i++) {
+            Node node = queue.get(i);
+            if (node.depth > options.maxDepth()) {
+                continue;
+            }
+            count++;
+            if (node.depth >= options.maxDepth()) {
+                continue;
+            }
+            for (Node child : options.pvOnly() ? pvChildren(node) : orderedChildren(node)) {
+                if (child.visits() >= options.minVisits()) {
+                    queue.add(child);
+                }
+            }
+        }
+        return count;
+    }
+
+    /**
+     * Counts children that traversal would expose below a depth-limited node.
+     */
+    private int visibleChildCount(Node node, TreeOptions options) {
+        int count = 0;
+        for (Node child : options.pvOnly() ? pvChildren(node) : orderedChildren(node)) {
+            if (child.visits() >= options.minVisits()) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    /**
+     * Builds one immutable node-inspection row.
+     */
+    private NodeInfo nodeInfo(Node node) {
+        String id = nodeId(node);
+        String parentId = node.parent == null ? "" : nodeId(node.parent);
+        short[] line = lineTo(node, 64);
+        short[] pv = node == root ? rootPrincipalVariation(10) : principalVariation(node, 10);
+        double q = node.parent == null ? node.q() : rootPerspective(node.parent, node);
+        double u = node.parent == null ? 0.0 : exploration(node.parent, node);
+        int visits = node.visits();
+        double win = visits == 0 ? 0.0 : node.stats.winSum / visits;
+        double draw = visits == 0 ? 0.0 : node.stats.drawSum / visits;
+        double loss = visits == 0 ? 0.0 : node.stats.lossSum / visits;
+        return new NodeInfo(
+                id,
+                parentId,
+                line,
+                pv,
+                node.move,
+                moveSan(node.parent == null ? rootPosition : node.parent.position, node.move),
+                node.move == Move.NO_MOVE ? "" : Move.toString(node.move),
+                uciText(line),
+                pvText(rootPosition, line),
+                node.depth,
+                visits,
+                node.prior,
+                q,
+                u,
+                q + u,
+                win,
+                draw,
+                loss,
+                node.proof.name().toLowerCase(java.util.Locale.ROOT),
+                terminalState(node),
+                node.children.size(),
+                node.position.toString(),
+                pvText(rootPosition, pv));
+    }
+
+    /**
+     * Returns the current root principal variation.
+     */
+    private short[] rootPrincipalVariation(int maxMoves) {
+        RootDecision decision = immediateRootDecision;
+        if (decision != null) {
+            return decision.pv();
+        }
+        Node child = mostVisitedChild(root);
+        return child == null ? new short[0] : principalVariation(child, maxMoves);
     }
 
     /**
@@ -1320,6 +1527,47 @@ public final class MctsSearch implements AutoCloseable {
     }
 
     /**
+     * Returns the stable UCI-line id for a node.
+     */
+    private static String nodeId(Node node) {
+        short[] line = lineTo(node, 128);
+        return line.length == 0 ? "root" : uciText(line);
+    }
+
+    /**
+     * Formats a move line as UCI tokens.
+     */
+    private static String uciText(short[] line) {
+        if (line == null || line.length == 0) {
+            return "";
+        }
+        StringBuilder sb = new StringBuilder();
+        for (short move : line) {
+            if (move == Move.NO_MOVE) {
+                continue;
+            }
+            if (sb.length() > 0) {
+                sb.append(' ');
+            }
+            sb.append(Move.toString(move));
+        }
+        return sb.toString();
+    }
+
+    /**
+     * Returns compact terminal-state text for tree inspection.
+     */
+    private static String terminalState(Node node) {
+        if (node.proof != ProofState.UNKNOWN) {
+            return node.proof == ProofState.DRAW ? "draw" : "proven";
+        }
+        if (node.expanded && node.children.isEmpty()) {
+            return "terminal";
+        }
+        return "non-terminal";
+    }
+
+    /**
      * Formats a move in SAN, falling back to UCI if SAN cannot be produced.
      *
      * @param position position before the move
@@ -1639,6 +1887,7 @@ public final class MctsSearch implements AutoCloseable {
      * Immutable root child row for the UI table.
      */
     public record Row(
+            String nodeId,
             short move,
             String san,
             String uci,
@@ -1649,6 +1898,75 @@ public final class MctsSearch implements AutoCloseable {
             double score,
             short[] pv,
             String pvText) {
+    }
+
+    /**
+     * Bounded tree traversal controls.
+     */
+    public record TreeOptions(int maxDepth, int maxNodes, int minVisits, boolean pvOnly) {
+        /**
+         * Default compact tree controls for interactive Swing rendering.
+         */
+        public static TreeOptions defaults() {
+            return new TreeOptions(3, 256, 0, false);
+        }
+
+        /**
+         * Returns clamped traversal controls.
+         */
+        public TreeOptions normalized() {
+            int depth = Math.max(0, Math.min(16, maxDepth));
+            int nodes = Math.max(1, Math.min(2_000, maxNodes));
+            int visits = Math.max(0, minVisits);
+            return new TreeOptions(depth, nodes, visits, pvOnly);
+        }
+    }
+
+    /**
+     * Immutable node row for tree inspection.
+     */
+    public record NodeInfo(
+            String id,
+            String parentId,
+            short[] line,
+            short[] pv,
+            short move,
+            String san,
+            String uci,
+            String lineUci,
+            String lineSan,
+            int depth,
+            int visits,
+            double prior,
+            double q,
+            double u,
+            double score,
+            double win,
+            double draw,
+            double loss,
+            String proofState,
+            String terminalState,
+            int childCount,
+            String fen,
+            String pvText) {
+    }
+
+    /**
+     * Bounded tree-inspection snapshot.
+     */
+    public record TreeSnapshot(
+            String rootFen,
+            long playouts,
+            long elapsedMillis,
+            boolean paused,
+            String backendName,
+            String rootScoreLabel,
+            short bestMove,
+            String bestPvText,
+            List<Row> rootRows,
+            List<NodeInfo> nodes,
+            NodeInfo selectedNode,
+            int omittedNodes) {
     }
 
     /**

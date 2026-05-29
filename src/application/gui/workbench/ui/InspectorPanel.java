@@ -149,6 +149,7 @@ public final class InspectorPanel extends JPanel {
                 ScrollPaneConstants.HORIZONTAL_SCROLLBAR_AS_NEEDED);
         dataScroll.setBorder(BorderFactory.createLineBorder(Theme.LINE));
         dataScroll.getViewport().setBackground(Theme.BG);
+        Ui.refreshScrollPaneTheme(dataScroll);
 
         JPanel header = new JPanel();
         header.setLayout(new BoxLayout(header, BoxLayout.Y_AXIS));
@@ -335,6 +336,9 @@ public final class InspectorPanel extends JPanel {
         }
         if (title.startsWith("top policy") || title.startsWith("top move")) {
             return "Compressed LC0 policy index decoded to a legal move. Probability is computed with softmax over the legal moves only.";
+        }
+        if (title.startsWith("otis")) {
+            return "OTIS is the experimental i249-style tactical sheaf policy/WDL architecture entry. The current placeholder model uses randomized weights but the same loader and evaluator path as a trained model.";
         }
         if (title.startsWith("value head") || title.startsWith("centipawn output")) {
             return "Network's win/draw/loss prediction for the side to move. Sum is normalised to 1 by softmax.";

@@ -35,12 +35,17 @@ import javax.swing.JFileChooser;
 import javax.swing.JFormattedTextField;
 import javax.swing.JLabel;
 import javax.swing.JList;
+import javax.swing.JCheckBoxMenuItem;
+import javax.swing.JMenuItem;
 import javax.swing.ListCellRenderer;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JProgressBar;
+import javax.swing.JPopupMenu;
+import javax.swing.JRadioButtonMenuItem;
 import javax.swing.JScrollBar;
 import javax.swing.JScrollPane;
+import javax.swing.JSeparator;
 import javax.swing.JSlider;
 import javax.swing.JSpinner;
 import javax.swing.JTabbedPane;
@@ -325,11 +330,17 @@ public final class Ui {
         JComponent separator = new JComponent() {
             private static final long serialVersionUID = 1L;
 
+/**
+ * {@inheritDoc}
+ */
 @Override
             public Dimension getPreferredSize() {
     return new Dimension(1 + 2 * Theme.SPACE_XS, Theme.CONTROL_HEIGHT);
             }
 
+            /**
+             * {@inheritDoc}
+             */
             @Override
             protected void paintComponent(Graphics g) {
                 int x = getWidth() / 2;
@@ -506,6 +517,58 @@ public final class Ui {
         pane.setTabLayoutPolicy(JTabbedPane.SCROLL_TAB_LAYOUT);
         styleTabs(pane);
         return pane;
+    }
+
+    /**
+     * Applies shared workbench chrome to a popup menu and its current children.
+     *
+     * @param menu popup menu
+     */
+    public static void stylePopupMenu(JPopupMenu menu) {
+        menu.setOpaque(true);
+        menu.setBackground(Theme.PANEL_SOLID);
+        menu.setForeground(Theme.TEXT);
+        menu.setBorder(BorderFactory.createLineBorder(Theme.LINE));
+        for (Component child : menu.getComponents()) {
+            stylePopupComponent(child);
+        }
+    }
+
+    /**
+     * Applies shared workbench chrome to one popup menu item.
+     *
+     * @param item menu item
+     */
+    public static void stylePopupMenuItem(JMenuItem item) {
+        if (item instanceof JRadioButtonMenuItem radio) {
+            MenuGlyphs.styleRadioItem(radio);
+        } else if (item instanceof JCheckBoxMenuItem check) {
+            MenuGlyphs.styleCheckItem(check);
+        } else {
+            MenuGlyphs.styleItem(item);
+        }
+    }
+
+    private static void stylePopupComponent(Component component) {
+        if (component instanceof JPopupMenu popup) {
+            stylePopupMenu(popup);
+            return;
+        }
+        if (component instanceof JMenuItem item) {
+            stylePopupMenuItem(item);
+        } else if (component instanceof JSeparator separator) {
+            separator.setBackground(Theme.PANEL_SOLID);
+            separator.setForeground(Theme.LINE);
+        } else if (component instanceof JComponent jComponent) {
+            jComponent.setOpaque(true);
+            jComponent.setBackground(Theme.PANEL_SOLID);
+            jComponent.setForeground(Theme.TEXT);
+        }
+        if (component instanceof Container container) {
+            for (Component child : container.getComponents()) {
+                stylePopupComponent(child);
+            }
+        }
     }
 
     /**
@@ -830,18 +893,7 @@ public final class Ui {
      * @param component root component
      */
     public static void styleComponentTree(Component component) {
-        if (component == null) {
-            return;
-        }
-        styleComponent(component);
-        if (component instanceof Container container) {
-            for (Component child : container.getComponents()) {
-                styleComponentTree(child);
-            }
-        }
-        if (component instanceof JScrollPane pane) {
-            styleScrollPane(pane);
-        }
+        ComponentTreeStyler.style(component);
     }
 
     /**
@@ -913,84 +965,6 @@ public final class Ui {
         dialog.dispose();
         Object value = pane.getValue();
         return value instanceof Integer option ? option.intValue() : JOptionPane.CLOSED_OPTION;
-    }
-
-    /**
-     * Applies styling for one component in a recursively scanned dialog tree.
-     *
-     * @param component component
-     */
-    private static void styleComponent(Component component) {
-        if (component instanceof JFileChooser chooser) {
-            chooser.setOpaque(true);
-            chooser.setBackground(Theme.BG);
-            chooser.setForeground(Theme.TEXT);
-        } else if (component instanceof JScrollPane pane) {
-            styleScrollPane(pane);
-        } else if (component instanceof JTextArea area) {
-            Theme.area(area);
-        } else if (component instanceof JFormattedTextField field
-                && field.getParent() instanceof JSpinner.DefaultEditor editor) {
-            styleSpinnerEditor(editor);
-        } else if (component instanceof JTextField field) {
-            Theme.field(field);
-        } else if (component instanceof JComboBox<?> combo) {
-            styleCombo(combo);
-        } else if (component instanceof JSlider slider) {
-            styleSlider(slider);
-        } else if (component instanceof JSpinner spinner) {
-            styleSpinner(spinner);
-        } else if (component instanceof JProgressBar bar) {
-            styleProgressBar(bar);
-        } else if (component instanceof JTable table) {
-            Theme.table(table, Math.max(24, table.getRowHeight()));
-        } else if (component instanceof JList<?> list) {
-            Theme.list(list);
-            list.setFixedCellHeight(Math.max(24, list.getFixedCellHeight()));
-        } else if (component instanceof JTabbedPane tabs) {
-            styleTabs(tabs);
-        } else if (component instanceof JCheckBox box) {
-            styleCheckBox(box);
-        } else if (component instanceof AbstractButton button) {
-            styleAbstractButton(button);
-        } else if (component instanceof JLabel label) {
-            Theme.refreshForeground(label);
-            label.setFont(Theme.font(12, Font.PLAIN));
-        } else if (component instanceof JPanel panel) {
-            panel.setOpaque(true);
-            panel.setBackground(Theme.PANEL_SOLID);
-        } else if (component instanceof JComponent jComponent) {
-            jComponent.setBackground(Theme.PANEL_SOLID);
-            Theme.refreshForeground(jComponent);
-        }
-    }
-
-    /**
-     * Styles a standard dialog button without breaking icon-only chooser controls.
-     *
-     * @param button button
-     */
-    private static void styleAbstractButton(AbstractButton button) {
-        String text = button.getText();
-        if (text != null && !text.isBlank() && button instanceof JButton) {
-            Theme.button(button, false);
-            return;
-        }
-        button.setOpaque(false);
-        button.setContentAreaFilled(false);
-        button.setBorderPainted(false);
-        button.setFocusPainted(false);
-        button.setRolloverEnabled(true);
-        button.setForeground(Theme.TEXT);
-        button.setFont(Theme.font(12, Font.PLAIN));
-        button.setBorder(Theme.pad(4, 6, 4, 6));
-        if (button.getIcon() != null) {
-            Dimension size = new Dimension(32, 32);
-            button.setMargin(new Insets(0, 0, 0, 0));
-            button.setPreferredSize(size);
-            button.setMinimumSize(size);
-            button.setMaximumSize(size);
-        }
     }
 
     /**

@@ -4,7 +4,6 @@ import application.gui.workbench.ui.Theme;
 import java.awt.BorderLayout;
 import javax.swing.JComponent;
 import javax.swing.JPanel;
-import javax.swing.JToggleButton;
 
 /**
  * Maintains the persistent chrome around an editor group.
@@ -26,30 +25,36 @@ final class EditorPaneShell {
      * @param header persistent header
      * @param strip tab strip
      * @param host selected-panel host
-     * @param splitButtonHolder persistent split-button holder
-     * @param splitButton split button
-     * @param includeSplitButton true when this pane owns the split action
+     * @param actions persistent editor-group action controls
      */
     static void install(
             JPanel panePanel,
             JPanel header,
             JPanel strip,
             JPanel host,
-            JPanel splitButtonHolder,
-            JToggleButton splitButton,
-            boolean includeSplitButton) {
+            JComponent actions) {
+        ensureHeader(header, strip, actions);
         if (header.getParent() != panePanel || host.getParent() != panePanel) {
             panePanel.removeAll();
-            header.removeAll();
-            header.add(strip, BorderLayout.CENTER);
-            if (includeSplitButton) {
-                splitButtonHolder.removeAll();
-                splitButtonHolder.add(splitButton);
-                header.add(splitButtonHolder, BorderLayout.EAST);
-            }
             panePanel.add(header, BorderLayout.NORTH);
             panePanel.add(host, BorderLayout.CENTER);
         }
+    }
+
+    /**
+     * Ensures the tab strip and action controls are attached to a pane header.
+     *
+     * @param header pane header
+     * @param strip tab strip
+     * @param actions pane actions
+     */
+    private static void ensureHeader(JPanel header, JPanel strip, JComponent actions) {
+        if (strip.getParent() == header && actions.getParent() == header) {
+            return;
+        }
+        header.removeAll();
+        header.add(strip, BorderLayout.CENTER);
+        header.add(actions, BorderLayout.EAST);
     }
 
     /**

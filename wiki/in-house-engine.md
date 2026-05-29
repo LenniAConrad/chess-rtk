@@ -68,6 +68,9 @@ Defaults:
   error instead of silently using the smoke-test fallback.
 - `lc0`: pure-Java LC0 value evaluator using the configured LC0 CNN model path by
   default, or an explicit `--weights` path.
+- `otis`: OTIS i249-style tactical sheaf policy/WDL evaluator using
+  `models/otis_policy_wdl_random.bin`
+  by default, or an explicit `--weights` path.
 
 The evaluator is used as the static score at the search frontier. The engine
 search itself is still a classical alpha-beta search; choosing `--lc0` does not

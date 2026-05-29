@@ -366,6 +366,9 @@ public final class NNUERegressionTest {
 		 */
 		private final Map<String, float[]> values = new HashMap<>();
 
+		/**
+		 * {@inheritDoc}
+		 */
 		@Override
 		public void put(String key, int[] shape, float[] data) {
 			values.put(key, data.clone());
@@ -374,7 +377,8 @@ public final class NNUERegressionTest {
 		/**
 		 * Data.
 		 * @param key lookup key
-		 * @return data result */
+		 * @return data result
+		 */
 		private float[] data(String key) {
 			float[] out = values.get(key);
 			if (out == null) {
@@ -425,7 +429,8 @@ public final class NNUERegressionTest {
 		 * @param featureWeights feature weights value
 		 * @param outputWeights output weights value
 		 * @param outputBias output bias value
-		 * @param outputScale output scale value */
+		 * @param outputScale output scale value
+		 */
 		private ModelArrays(
 				int hiddenSize,
 				float[] featureBias,

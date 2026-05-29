@@ -460,6 +460,9 @@ public final class CoreMoveGenerationRegressionTest {
         assertThrows(
                 () -> chess.core.Position.fromFen("7k/8/3n4/3pP3/8/8/8/4K3 w - d6 0 1"),
                 "en-passant target occupied by enemy piece rejected");
+        assertThrows(
+                () -> chess.core.Position.fromFen("11111111/8/8/8/8/8/8/K6k w - - 0 1"),
+                "adjacent FEN empty-square counts rejected");
     }
 
     /**

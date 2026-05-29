@@ -21,6 +21,16 @@ final class WriterText {
 		// utility
 	}
 
+	/**
+	 * Draws text centered between horizontal bounds.
+	 *
+	 * @param canvas target canvas
+	 * @param left left boundary
+	 * @param right right boundary
+	 * @param y text baseline y coordinate
+	 * @param style text style
+	 * @param text text to draw
+	 */
 	static void drawCentered(Canvas canvas, double left, double right, double y, TextStyle style, String text) {
 		String safe = blankTo(text, "");
 		double width = textWidth(style.font(), style.size(), safe);

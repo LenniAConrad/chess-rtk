@@ -80,6 +80,9 @@ final class MctsBackendSupport {
         return new LinkedHashMap<>(256, 0.75f, true) {
             private static final long serialVersionUID = 1L;
 
+            /**
+             * {@inheritDoc}
+             */
             @Override
             protected boolean removeEldestEntry(Map.Entry<Long, T> eldest) {
                 return size() > 512;

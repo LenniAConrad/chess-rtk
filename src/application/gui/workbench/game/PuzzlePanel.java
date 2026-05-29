@@ -173,6 +173,11 @@ public final class PuzzlePanel extends JPanel {
     private Path puzzleLibraryPath;
 
     /**
+     * Monotonic token used to ignore stale asynchronous puzzle loads.
+     */
+    private long loadGeneration;
+
+    /**
      * Queued board positions for an animated puzzle response.
      */
     private List<AnimatedMove> pendingResponseMoves = List.of();
@@ -449,6 +454,7 @@ public final class PuzzlePanel extends JPanel {
      */
     private void showStartingPosition(String status) {
         finishResponseAnimationInstantly();
+        nextLoadGeneration();
         clearLibrarySelection();
         session = null;
         pgnInput.setText("");
@@ -466,6 +472,7 @@ public final class PuzzlePanel extends JPanel {
     private void loadFromEditor() {
         try {
             finishResponseAnimationInstantly();
+            nextLoadGeneration();
             clearLibrarySelection();
             session = PuzzleSession.fromPgn(pgnInput.getText(), "editor", variationMode());
             session.reset();
@@ -516,6 +523,7 @@ public final class PuzzlePanel extends JPanel {
      * @param path selected file path
      */
     private void loadPgnFileAsync(Path path) {
+        long generation = nextLoadGeneration();
         setStatus("Loading " + path.getFileName() + "...");
         new SwingWorker<String, Void>() {
             /**
@@ -534,6 +542,9 @@ public final class PuzzlePanel extends JPanel {
              */
             @Override
             protected void done() {
+                if (!isCurrentLoadGeneration(generation)) {
+                    return;
+                }
                 try {
                     pgnInput.setText(get());
                     loadFromEditor();
@@ -553,6 +564,7 @@ public final class PuzzlePanel extends JPanel {
      * @param path selected library path
      */
     private void loadLibraryAsync(Path path) {
+        long generation = nextLoadGeneration();
         new SwingWorker<List<PuzzleLibrary.Entry>, Void>() {
             /**
              * Reads and parses the selected library off the Swing thread.
@@ -570,6 +582,9 @@ public final class PuzzlePanel extends JPanel {
              */
             @Override
             protected void done() {
+                if (!isCurrentLoadGeneration(generation)) {
+                    return;
+                }
                 try {
                     applyLibrary(path, get());
                 } catch (InterruptedException ex) {
@@ -767,6 +782,26 @@ public final class PuzzlePanel extends JPanel {
     }
 
     /**
+     * Starts a new logical puzzle load and cancels older async completions.
+     *
+     * @return generation token for the new load
+     */
+    private long nextLoadGeneration() {
+        loadGeneration++;
+        return loadGeneration;
+    }
+
+    /**
+     * Returns whether an async load token is still current.
+     *
+     * @param generation generation token captured by the async load
+     * @return true when the load may still update the panel
+     */
+    private boolean isCurrentLoadGeneration(long generation) {
+        return generation == loadGeneration;
+    }
+
+    /**
      * Restarts the active puzzle.
      */
     private void restart() {
@@ -954,7 +989,7 @@ public final class PuzzlePanel extends JPanel {
      *     be represented as a simple forward move sequence
      */
     private List<AnimatedMove> responseAnimationSequence(PuzzleSession.MoveResponse response, short fallbackMove) {
-        if (response == null || !response.rewindFens().isEmpty()) {
+        if (response == null) {
             return List.of();
         }
         String currentFen = board.position();
@@ -965,7 +1000,13 @@ public final class PuzzlePanel extends JPanel {
             Position cursor = new Position(currentFen);
             List<AnimatedMove> steps = new ArrayList<>();
             if (fallbackMove != Move.NO_MOVE) {
-                cursor = appendAnimatedStep(steps, cursor, fallbackMove);
+                Position afterFallback = appendAnimatedStep(steps, cursor, fallbackMove);
+                if (afterFallback != null) {
+                    cursor = afterFallback;
+                }
+            }
+            for (String rewindFen : response.rewindFens()) {
+                cursor = appendInstantStep(steps, rewindFen);
                 if (cursor == null) {
                     return List.of();
                 }
@@ -1000,8 +1041,24 @@ public final class PuzzlePanel extends JPanel {
         }
         Position next = position.copy();
         next.play(move);
-        steps.add(new AnimatedMove(next, move));
+        steps.add(new AnimatedMove(next, move, false));
         return next;
+    }
+
+    /**
+     * Appends one instant board state to an animation sequence.
+     *
+     * @param steps output animation sequence
+     * @param fen position FEN
+     * @return parsed position, or null when the FEN is invalid
+     */
+    private static Position appendInstantStep(List<AnimatedMove> steps, String fen) {
+        if (fen == null || fen.isBlank()) {
+            return null;
+        }
+        Position position = new Position(fen);
+        steps.add(new AnimatedMove(position, Move.NO_MOVE, true));
+        return position;
     }
 
     /**
@@ -1054,7 +1111,11 @@ public final class PuzzlePanel extends JPanel {
         }
         AnimatedMove step = pendingResponseMoves.get(pendingResponseIndex);
         pendingResponseIndex++;
-        board.setPosition(step.position(), step.move());
+        if (step.instant()) {
+            board.setPositionInstant(step.position(), step.move());
+        } else {
+            board.setPosition(step.position(), step.move());
+        }
     }
 
     /**
@@ -1202,6 +1263,7 @@ public final class PuzzlePanel extends JPanel {
      *
      * @param position board position after the move
      * @param move move that produced the position
+     * @param instant true to show the position without move animation
      */
-    private record AnimatedMove(Position position, short move) { }
+    private record AnimatedMove(Position position, short move, boolean instant) { }
 }

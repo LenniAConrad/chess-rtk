@@ -23,6 +23,7 @@ import java.awt.FlowLayout;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
+import java.lang.reflect.InvocationTargetException;
 import java.nio.file.Files;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -51,7 +52,7 @@ import javax.swing.border.Border;
 /**
  * Workbench network-visualizer host panel.
  *
- * <p>Owns the architecture switcher (NNUE / lc0-CNN / lc0-BT4) and the
+ * <p>Owns the architecture switcher (NNUE / lc0-CNN / lc0-BT4 / OTIS) and the
  * abstract-vs-detailed view-mode toggle. Runs real network inference on a
  * SwingWorker with a short debounce so rapid FEN changes coalesce into one
  * forward pass per architecture. Falls back to synthetic activations when a
@@ -77,20 +78,45 @@ public final class NetworkPanel extends JPanel {
 
     private static final String ARCH_BT4_LABEL = RealActivations.LABEL_BT4;
 
+    private static final String ARCH_OTIS = "OTIS";
+
+    private static final String ARCH_OTIS_LABEL = RealActivations.LABEL_OTIS;
+
     private static final String CARD_LOADING = "loading";
 
     private static final int DEBOUNCE_MS = 220;
 
-    /** Neural-network visualizers by architecture. */
+    /**
+     * Neural-network visualizers by architecture.
+     */
     private final NnueView nnueView = new NnueView();
 
-    /** CNN visualizer. */
+    /**
+     * CNN visualizer.
+     */
     private final CnnView cnnView = new CnnView();
 
-    /** BT4 transformer visualizer. */
+    /**
+     * BT4 transformer visualizer.
+     */
     private final Bt4View bt4View = new Bt4View();
 
+    /**
+     * OTIS policy/WDL visualizer.
+     */
+    private final OtisView otisView = new OtisView();
+
     private static final int SNAPSHOT_CACHE_LIMIT = 64;
+
+    /**
+     * Last published activation-cache size, surfaced on Dashboard diagnostics.
+     */
+    private static volatile int lastSnapshotCacheSize;
+
+    /**
+     * Last architecture whose snapshot cache changed.
+     */
+    private static volatile String lastSnapshotCacheArchitecture = "";
 
     /**
      * LRU cache for recently computed activation snapshots.
@@ -99,6 +125,9 @@ public final class NetworkPanel extends JPanel {
             new LinkedHashMap<>(16, 0.75f, true) {
                 private static final long serialVersionUID = 1L;
 
+                /**
+                 * {@inheritDoc}
+                 */
                 @Override
                 protected boolean removeEldestEntry(
                         Map.Entry<String, ActivationSnapshot> eldest) {
@@ -106,10 +135,14 @@ public final class NetworkPanel extends JPanel {
                 }
             };
 
-    /** Architecture selector. */
+    /**
+     * Architecture selector.
+     */
     private final JComboBox<String> archCombo = new JComboBox<>(buildArchOptions());
 
-    /** Position-source selector. */
+    /**
+     * Position-source selector.
+     */
     private final JComboBox<String> positionCombo = new JComboBox<>(Positions.labels());
 
     private static final int MODE_RAW = 2;
@@ -122,17 +155,17 @@ public final class NetworkPanel extends JPanel {
     private final SegmentedSwitcher viewMode = new SegmentedSwitcher(
             new String[] { "Overview", "Trace", "All", "Atlas" });
 
-    /** Export button for the active network view. */
+    /**
+     * Export button for the active network view.
+     */
     private final JButton exportPngButton = buildNetworkExportButton(this);
 
     private static JButton buildNetworkExportButton(NetworkPanel panel) {
         JButton trigger = Ui.button("Export", false, null);
         javax.swing.JPopupMenu menu = new javax.swing.JPopupMenu();
-        menu.setOpaque(true);
-        menu.setBackground(Theme.PANEL_SOLID);
-        menu.setBorder(javax.swing.BorderFactory.createLineBorder(Theme.LINE));
         menu.add(networkExportMenuItem("Save PNG…", event -> panel.exportPng()));
         menu.add(networkExportMenuItem("Copy image", event -> panel.copyImage()));
+        Ui.stylePopupMenu(menu);
         trigger.addActionListener(event -> menu.show(trigger, 0, trigger.getHeight()));
         return trigger;
     }
@@ -140,10 +173,7 @@ public final class NetworkPanel extends JPanel {
     private static javax.swing.JMenuItem networkExportMenuItem(String label,
             java.awt.event.ActionListener listener) {
         javax.swing.JMenuItem item = new javax.swing.JMenuItem(label);
-        item.setOpaque(true);
-        item.setBackground(Theme.PANEL_SOLID);
-        item.setForeground(Theme.TEXT);
-        item.setBorder(Theme.pad(5, 10, 5, 10));
+        Ui.stylePopupMenuItem(item);
         item.addActionListener(listener);
         return item;
     }
@@ -173,17 +203,26 @@ public final class NetworkPanel extends JPanel {
             java.awt.datatransfer.Clipboard clipboard =
                     java.awt.Toolkit.getDefaultToolkit().getSystemClipboard();
             clipboard.setContents(new java.awt.datatransfer.Transferable() {
+                /**
+                 * {@inheritDoc}
+                 */
                 @Override
                 public java.awt.datatransfer.DataFlavor[] getTransferDataFlavors() {
                     return new java.awt.datatransfer.DataFlavor[] {
                             java.awt.datatransfer.DataFlavor.imageFlavor };
                 }
 
+                /**
+                 * {@inheritDoc}
+                 */
                 @Override
                 public boolean isDataFlavorSupported(java.awt.datatransfer.DataFlavor flavor) {
                     return java.awt.datatransfer.DataFlavor.imageFlavor.equals(flavor);
                 }
 
+                /**
+                 * {@inheritDoc}
+                 */
                 @Override
                 public Object getTransferData(java.awt.datatransfer.DataFlavor flavor) {
                     return img;
@@ -194,7 +233,9 @@ public final class NetworkPanel extends JPanel {
         }
     }
 
-    /** Status badge for network inference. */
+    /**
+     * Status badge for network inference.
+     */
     private final StatusBadge statusBadge = new StatusBadge();
 
     private static final int NETWORK_MCTS_PUBLISH_INTERVAL = 8;
@@ -208,9 +249,6 @@ public final class NetworkPanel extends JPanel {
     private static final int NETWORK_MCTS_YIELD_INTERVAL = 64;
 
     private static final long NETWORK_MCTS_FRAME_YIELD_MS = 3L;
-
-    private static final long NETWORK_MCTS_FOLLOW_LEAF_MIN_UPDATE_NANOS =
-            NETWORK_MCTS_MIN_UPDATE_NANOS;
 
     private static final long NETWORK_MCTS_SOUND_INTERVAL_NANOS = 1_350_000_000L;
 
@@ -270,10 +308,14 @@ public final class NetworkPanel extends JPanel {
     private final ToggleBox mctsFollowLeafToggle =
             new ToggleBox("Follow leaf", Defaults.NETWORK_MCTS_FOLLOW_LEAF);
 
-    /** Status badge for MCTS progress. */
+    /**
+     * Status badge for MCTS progress.
+     */
     private final StatusBadge mctsStatusBadge = new StatusBadge();
 
-    /** MCTS edge-weight details panel. */
+    /**
+     * MCTS edge-weight details panel.
+     */
     private final MctsWeightsPanel mctsWeightsPanel = new MctsWeightsPanel();
 
     /**
@@ -282,93 +324,156 @@ public final class NetworkPanel extends JPanel {
     private final JComponent mctsWeightsSection =
             Ui.collapsible("Edge weights", mctsWeightsPanel, false);
 
-    /** Card layout for loading and architecture views. */
+    /**
+     * Card layout for loading and architecture views.
+     */
     private final CardLayout cards = new CardLayout();
 
-    /** Card panel for loading and architecture views. */
+    /**
+     * Card panel for loading and architecture views.
+     */
     private final JPanel cardPanel = new JPanel(cards);
 
-    /** Loading placeholder panel. */
+    /**
+     * Loading placeholder panel.
+     */
     private final LoadingPanel loadingPanel = new LoadingPanel();
 
-    /** Inspector panel shared by network views. */
+    /**
+     * Inspector panel shared by network views.
+     */
     private final InspectorPanel inspectorPanel = new InspectorPanel();
 
     /**
-     * Diagnostics panel for runtime network details.
+     * Details tab container.
      */
-    private final NetworkDiagnosticsPanel diagnosticsPanel =
-    new NetworkDiagnosticsPanel();
-
-    /** Details tab container. */
     private final JTabbedPane detailsTabs = Ui.tabbedPane();
 
-    /** Right-side details section. */
+    /**
+     * Right-side details section.
+     */
     private JComponent detailsSection;
 
-    /** Top network toolbar. */
+    /**
+     * Top network toolbar.
+     */
     private JPanel networkToolbar;
 
-    /** MCTS control toolbar. */
+    /**
+     * MCTS control toolbar.
+     */
     private JPanel mctsToolbar;
 
-    /** Real activation provider. */
+    /**
+     * Real activation provider.
+     */
     private final RealActivations provider = new RealActivations();
 
-    /** Current main-board FEN. */
+    /**
+     * Current main-board FEN.
+     */
     private String mainBoardFen = "";
 
-    /** Optional selected override FEN. */
+    /**
+     * Optional selected override FEN.
+     */
     private String overrideFen;
 
-    /** Debounce timer for inference refreshes. */
+    /**
+     * Debounce timer for inference refreshes.
+     */
     private final Timer debounceTimer;
 
-    /** Active inference worker. */
+    /**
+     * Active inference worker.
+     */
     private SwingWorker<ActivationSnapshot, Void> inferenceWorker;
 
-    /** Architecture and FEN currently being inferred. */
+    /**
+     * Architecture and FEN currently being inferred.
+     */
     private String runningArch;
-    /** FEN currently being inferred. */
+    /**
+     * FEN currently being inferred.
+     */
     private String runningFen;
 
-    /** Architecture and FEN currently shown in the loading panel. */
+    /**
+     * Architecture and FEN currently shown in the loading panel.
+     */
     private String loadingArch;
-    /** FEN currently shown in the loading panel. */
+    /**
+     * FEN currently shown in the loading panel.
+     */
     private String loadingFen;
 
-    /** Active MCTS worker. */
+    /**
+     * Active MCTS worker.
+     */
     private SwingWorker<Void, NetworkMctsFrame> mctsWorker;
 
-    /** Active MCTS search instance. */
+    /**
+     * Active MCTS search instance.
+     */
     private MctsSearch mctsSearch;
 
-    /** True when MCTS is paused. */
+    /**
+     * True when MCTS is paused.
+     */
     private volatile boolean mctsPaused;
 
-    /** True when MCTS should publish leaf positions to the view. */
+    /**
+     * True when MCTS should publish leaf positions to the view.
+     */
     private volatile boolean mctsFollowLeafEnabled = Defaults.NETWORK_MCTS_FOLLOW_LEAF;
 
-    /** Architecture card currently used for MCTS streaming. */
+    /**
+     * Architecture card currently used for MCTS streaming.
+     */
     private volatile String mctsStreamCardKey = ARCH_NNUE;
 
-    /** Latest MCTS leaf FEN. */
+    /**
+     * View mode currently used for MCTS follow-leaf streaming.
+     */
+    private volatile ViewMode mctsStreamViewMode = ViewMode.ABSTRACT;
+
+    /**
+     * Latest MCTS leaf FEN.
+     */
     private String mctsLeafFen;
 
-    /** Last MCTS progress sound timestamp. */
+    /**
+     * Last MCTS progress sound timestamp.
+     */
     private long lastMctsProgressSoundNanos;
 
-    /** Pending architecture and FEN requested while inference is busy. */
+    /**
+     * Pending architecture and FEN requested while inference is busy.
+     */
     private String pendingArch;
-    /** Pending FEN requested while inference is busy. */
+    /**
+     * Pending FEN requested while inference is busy.
+     */
     private String pendingFen;
 
-    /** True while this panel is visible in an active editor pane. */
+    /**
+     * True while this panel is visible in an active editor pane.
+     */
     private volatile boolean active;
 
-    /** Cache key currently displayed by the active view. */
+    /**
+     * Cache key currently displayed by the active view.
+     */
     private String displayedKey;
 
+    /**
+     * Published MCTS frame used for network follow-leaf updates.
+     *
+     * @param snapshot root search snapshot
+     * @param leafCardKey selected leaf architecture key
+     * @param leafFen selected leaf FEN
+     * @param leafSnapshot selected leaf activations
+     */
     private record NetworkMctsFrame(
             MctsSearch.Snapshot snapshot,
             String leafCardKey,
@@ -393,17 +498,18 @@ public final class NetworkPanel extends JPanel {
         cardPanel.add(wrapInScroll(nnueView), ARCH_NNUE);
         cardPanel.add(wrapInScroll(cnnView), ARCH_CNN);
         cardPanel.add(wrapInScroll(bt4View), ARCH_BT4);
+        cardPanel.add(wrapInScroll(otisView), ARCH_OTIS);
         cardPanel.add(loadingPanel, CARD_LOADING);
         nnueView.setInspector(inspectorPanel);
         cnnView.setInspector(inspectorPanel);
         bt4View.setInspector(inspectorPanel);
+        otisView.setInspector(inspectorPanel);
         detailsTabs.addTab("Inspector", inspectorPanel);
-        detailsTabs.addTab("Runtime", diagnosticsPanel);
         detailsTabs.setPreferredSize(new Dimension(304, 600));
         detailsTabs.setMinimumSize(new Dimension(232, 260));
         inspectorPanel.setInspectListener(() -> Ui.setCollapsibleExpanded(detailsSection, true));
         // Each architecture view owns its position board. Keep the shared
-        // MCTS diagnostics focused on edge weights so NNUE, CNN, and BT4
+        // MCTS diagnostics focused on edge weights so all network families
         // use the same one-board visual language.
         mctsWeightsPanel.setLeafBoardVisible(false);
         JPanel content = new JPanel(new BorderLayout(Theme.SPACE_SM, 0));
@@ -434,7 +540,7 @@ public final class NetworkPanel extends JPanel {
         showSelected();
         propagateViewMode();
         refreshToolbarChrome();
-        diagnosticsPanel.refresh(provider, displayNameFor(activeCardKey()));
+        publishCacheDiagnostics(activeCardKey());
     }
 
     /**
@@ -459,10 +565,8 @@ public final class NetworkPanel extends JPanel {
 
     private static JScrollPane wrapInScroll(JComponent view) {
         JScrollPane scroll = new JScrollPane(view);
+        Ui.styleScrollPane(scroll);
         scroll.setBorder(null);
-        scroll.setOpaque(false);
-        scroll.getViewport().setOpaque(false);
-        scroll.setBackground(Theme.BG);
         scroll.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED);
         scroll.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_AS_NEEDED);
         scroll.getVerticalScrollBar().setUnitIncrement(24);
@@ -543,6 +647,9 @@ public final class NetworkPanel extends JPanel {
         if (ARCH_BT4.equals(comboKey) || ARCH_BT4_LABEL.equals(comboKey)) {
             return ARCH_BT4;
         }
+        if (ARCH_OTIS.equals(comboKey) || ARCH_OTIS_LABEL.equals(comboKey)) {
+            return ARCH_OTIS;
+        }
         return ARCH_NNUE;
     }
 
@@ -602,7 +709,7 @@ public final class NetworkPanel extends JPanel {
         networkToolbar = bar;
         styleToolbarShell(bar, Theme.pad(Theme.SPACE_SM));
 
-        styleToolbarCombo(archCombo, 166,
+        styleToolbarCombo(archCombo, 188,
                 "Pick the network family to visualise.");
         styleToolbarCombo(positionCombo, 244,
                 "Pin a canned position to explore, or follow the main board.");
@@ -727,9 +834,10 @@ public final class NetworkPanel extends JPanel {
     }
 
     private JComponent activeView() {
-    return switch (activeCardKey()) {
+        return switch (activeCardKey()) {
             case ARCH_CNN -> cnnView;
             case ARCH_BT4 -> bt4View;
+            case ARCH_OTIS -> otisView;
             default -> nnueView;
         };
     }
@@ -859,6 +967,8 @@ public final class NetworkPanel extends JPanel {
             statusKey = "cnn";
         } else if (ARCH_BT4.equals(cardKey)) {
             statusKey = "bt4";
+        } else if (ARCH_OTIS.equals(cardKey)) {
+            statusKey = "otis";
         } else {
             statusKey = "nnue";
         }
@@ -871,18 +981,19 @@ public final class NetworkPanel extends JPanel {
         } else {
             statusBadge.idle(message);
         }
-        diagnosticsPanel.refresh(provider, displayNameFor(cardKey));
     }
 
     private static String[] buildArchOptions() {
-        return new String[] { ARCH_NNUE_LABEL, ARCH_CNN_LABEL, ARCH_BT4_LABEL };
+        return new String[] { ARCH_NNUE_LABEL, ARCH_CNN_LABEL, ARCH_BT4_LABEL, ARCH_OTIS_LABEL };
     }
 
     private void propagateViewMode() {
         ViewMode mode = selectedViewMode();
+        mctsStreamViewMode = mode;
         nnueView.setViewMode(mode);
         cnnView.setViewMode(mode);
         bt4View.setViewMode(mode);
+        otisView.setViewMode(mode);
         // The Atlas sub-controls only do anything in Atlas mode — grey them
         // out elsewhere so the toolbar shows what is actually live.
         updateAtlasAvailability();
@@ -903,6 +1014,7 @@ public final class NetworkPanel extends JPanel {
         nnueView.setFixedScale(fixed);
         cnnView.setFixedScale(fixed);
         bt4View.setFixedScale(fixed);
+        otisView.setFixedScale(fixed);
         cardPanel.repaint();
     }
 
@@ -945,11 +1057,13 @@ public final class NetworkPanel extends JPanel {
         mctsStatusBadge.busy("starting " + search.backendName() + " MCTS...");
         SoundService.play(SoundCue.MCTS_START);
         SwingWorker<Void, NetworkMctsFrame> activeWorker = new SwingWorker<>() {
+            /**
+             * {@inheritDoc}
+             */
             @Override
             protected Void doInBackground() throws Exception {
                 publishNetworkMctsFrame(buildNetworkMctsFrame(search.snapshot(false)), 0L);
                 long lastPublishNanos = System.nanoTime();
-                long lastLeafActivationStartNanos = 0L;
                 while (!isCancelled()) {
                     if (!active) {
                         Thread.sleep(120L);
@@ -967,23 +1081,18 @@ public final class NetworkPanel extends JPanel {
                     long nextPlayout = search.playouts() + 1L;
                     long now = System.nanoTime();
                     boolean treeFrameDue = shouldPublishNetworkMctsFrame(nextPlayout, now, lastPublishNanos);
-                    boolean leafFrameDue = mctsFollowLeafEnabled
-                            && shouldPublishNetworkMctsLeafFrame(now, lastLeafActivationStartNanos);
+                    boolean leafFrameDue = mctsFollowLeafEnabled;
                     if (treeFrameDue || leafFrameDue) {
                         NetworkMctsFrame frame = buildNetworkMctsFrame(search.previewNextLeaf(false));
-                        publishNetworkMctsFrame(frame, nextPlayout);
-                        lastPublishNanos = now;
+                        if (treeFrameDue) {
+                            publishNetworkMctsFrame(frame, nextPlayout);
+                            lastPublishNanos = now;
+                        }
                         if (leafFrameDue && !isCancelled()) {
-                            lastLeafActivationStartNanos = now;
                             NetworkMctsFrame activationFrame = buildNetworkMctsLeafActivationFrame(frame);
                             if (!isCancelled() && mctsFollowLeafEnabled
                                     && activationFrame.leafSnapshot() != null) {
-                                // Block the worker on the EDT until the leaf
-                                // frame has actually painted; this prevents
-                                // SwingWorker.publish coalescing from skipping
-                                // intermediate leaves and gives the user one
-                                // visible paint per evaluated leaf.
-                                applyLeafFrameSynchronously(activationFrame);
+                                applyLeafFrameSynchronously(this, search, activationFrame);
                             }
                         }
                     }
@@ -1002,30 +1111,22 @@ public final class NetworkPanel extends JPanel {
                 Thread.sleep(networkMctsFrameDelay(playouts));
             }
 
+            /**
+             * {@inheritDoc}
+             */
             @Override
             protected void process(List<NetworkMctsFrame> chunks) {
                 if (mctsWorker != this || mctsSearch != search || chunks.isEmpty() || !active) {
                     return;
                 }
-                // Apply each leaf-bearing frame in turn so per-leaf network
-                // paints aren't swallowed when SwingWorker.publish coalesces
-                // batches. Force a synchronous paint between leaves so the
-                // user sees the full MCTS reasoning, one leaf at a time.
-                for (NetworkMctsFrame frame : chunks) {
-                    if (frame.leafSnapshot() == null) {
-                        continue;
-                    }
-                    showNetworkMctsSnapshot(frame.snapshot(), true,
-                            frame.leafCardKey(), frame.leafFen(), frame.leafSnapshot());
-                    forceLeafFramePaint();
-                }
-                NetworkMctsFrame last = chunks.get(chunks.size() - 1);
-                if (last.leafSnapshot() == null) {
-                    showNetworkMctsSnapshot(last.snapshot(), true,
-                            last.leafCardKey(), last.leafFen(), null);
-                }
+                NetworkMctsFrame frame = latestNetworkMctsFrameForDisplay(chunks);
+                showNetworkMctsSnapshot(frame.snapshot(), true,
+                        frame.leafCardKey(), frame.leafFen(), frame.leafSnapshot());
             }
 
+            /**
+             * {@inheritDoc}
+             */
             @Override
             protected void done() {
                 if (mctsWorker != this || mctsSearch != search) {
@@ -1060,10 +1161,42 @@ public final class NetworkPanel extends JPanel {
         activeWorker.execute();
     }
 
+    private void applyLeafFrameSynchronously(
+            SwingWorker<?, ?> worker,
+            MctsSearch search,
+            NetworkMctsFrame frame) throws InterruptedException, ExecutionException {
+        if (frame == null || frame.leafSnapshot() == null
+                || frame.leafCardKey() == null || frame.leafFen() == null) {
+            return;
+        }
+        try {
+            SwingUtilities.invokeAndWait(() -> {
+                if (mctsWorker != worker || mctsSearch != search || !active
+                        || !mctsFollowLeafToggle.isSelected()) {
+                    return;
+                }
+                showNetworkMctsSnapshot(frame.snapshot(), true,
+                        frame.leafCardKey(), frame.leafFen(), frame.leafSnapshot());
+                paintActiveNetworkViewImmediately();
+            });
+        } catch (InvocationTargetException ex) {
+            Throwable cause = ex.getCause() == null ? ex : ex.getCause();
+            throw new ExecutionException(cause);
+        }
+    }
+
+    private void paintActiveNetworkViewImmediately() {
+        JComponent target = activeView();
+        if (target.isShowing() && target.getWidth() > 0 && target.getHeight() > 0) {
+            target.paintImmediately(0, 0, target.getWidth(), target.getHeight());
+        }
+    }
+
     private MctsSearch createNetworkMctsSearch(Position root, double cpuct, String cardKey) throws IOException {
         return switch (cardKey) {
             case ARCH_CNN -> MctsSearch.cnn(root, cpuct, RealActivations.cnnPath());
             case ARCH_BT4 -> MctsSearch.bt4(root, cpuct, RealActivations.bt4Path());
+            case ARCH_OTIS -> MctsSearch.otis(root, cpuct, RealActivations.otisPath());
             default -> MctsSearch.nnue(root, cpuct, provider.nnuePath());
         };
     }
@@ -1118,37 +1251,23 @@ public final class NetworkPanel extends JPanel {
         showNetworkMctsSnapshot(snapshot, running, null, null, null);
     }
 
-    private void forceLeafFramePaint() {
-        if (!cardPanel.isShowing() || cardPanel.getWidth() <= 0 || cardPanel.getHeight() <= 0) {
-            return;
+    private static NetworkMctsFrame latestNetworkMctsFrameForDisplay(List<NetworkMctsFrame> chunks) {
+        NetworkMctsFrame last = chunks.get(chunks.size() - 1);
+        for (int i = chunks.size() - 1; i >= 0; --i) {
+            NetworkMctsFrame frame = chunks.get(i);
+            if (frame.leafSnapshot() != null
+                    && !isOlderNetworkMctsFrame(frame, last)) {
+                return frame;
+            }
         }
-        cardPanel.paintImmediately(0, 0, cardPanel.getWidth(), cardPanel.getHeight());
+        return last;
     }
 
-    private void applyLeafFrameSynchronously(NetworkMctsFrame frame) {
-        if (frame == null || frame.leafSnapshot() == null) {
-            return;
+    private static boolean isOlderNetworkMctsFrame(NetworkMctsFrame left, NetworkMctsFrame right) {
+        if (left == null || right == null || left.snapshot() == null || right.snapshot() == null) {
+            return false;
         }
-        Runnable apply = () -> {
-            if (!active) {
-                return;
-            }
-            showNetworkMctsSnapshot(frame.snapshot(), true,
-                    frame.leafCardKey(), frame.leafFen(), frame.leafSnapshot());
-            forceLeafFramePaint();
-        };
-        try {
-            if (javax.swing.SwingUtilities.isEventDispatchThread()) {
-                apply.run();
-            } else {
-                javax.swing.SwingUtilities.invokeAndWait(apply);
-            }
-        } catch (InterruptedException ex) {
-            Thread.currentThread().interrupt();
-        } catch (java.lang.reflect.InvocationTargetException ex) {
-            // EDT-side faults are surfaced through showNetworkMctsSnapshot;
-            // a paint failure should not poison the worker loop.
-        }
+        return left.snapshot().playouts() < right.snapshot().playouts();
     }
 
     private NetworkMctsFrame buildNetworkMctsFrame(MctsSearch.Snapshot snapshot) {
@@ -1221,11 +1340,6 @@ public final class NetworkPanel extends JPanel {
                 || nowNanos - lastPublishNanos >= NETWORK_MCTS_MIN_UPDATE_NANOS;
     }
 
-    private static boolean shouldPublishNetworkMctsLeafFrame(long nowNanos, long lastLeafActivationStartNanos) {
-        return lastLeafActivationStartNanos == 0L
-                || nowNanos - lastLeafActivationStartNanos >= NETWORK_MCTS_FOLLOW_LEAF_MIN_UPDATE_NANOS;
-    }
-
     private static long networkMctsFrameDelay(long playouts) {
         return playouts <= NETWORK_MCTS_WARMUP_PLAYOUTS
                 ? Math.max(NETWORK_MCTS_FRAME_YIELD_MS, NETWORK_MCTS_WARMUP_DELAY_MS)
@@ -1242,6 +1356,7 @@ public final class NetworkPanel extends JPanel {
             return;
         }
         snapshotCache.put(key, snapshot);
+        publishCacheDiagnostics(cardKey);
         applySnapshot(cardKey, fen, snapshot);
     }
 
@@ -1294,6 +1409,8 @@ public final class NetworkPanel extends JPanel {
                     (architecture, phase, path) -> updateLoadingPhase(cardKey, fen, phase));
             case ARCH_BT4 -> provider.inferBt4(fen,
                     (architecture, phase, path) -> updateLoadingPhase(cardKey, fen, phase));
+            case ARCH_OTIS -> provider.inferOtis(fen,
+                    (architecture, phase, path) -> updateLoadingPhase(cardKey, fen, phase));
             default -> provider.inferNnue(fen,
                     (architecture, phase, path) -> updateLoadingPhase(cardKey, fen, phase));
         };
@@ -1303,6 +1420,7 @@ public final class NetworkPanel extends JPanel {
         return switch (cardKey) {
             case ARCH_CNN -> provider.inferCnn(fen);
             case ARCH_BT4 -> provider.inferBt4(fen);
+            case ARCH_OTIS -> provider.inferOtis(fen);
             default -> provider.inferNnue(fen);
         };
     }
@@ -1369,11 +1487,17 @@ public final class NetworkPanel extends JPanel {
         runningArch = cardKey;
         runningFen = fen;
         inferenceWorker = new SwingWorker<>() {
+            /**
+             * {@inheritDoc}
+             */
             @Override
             protected ActivationSnapshot doInBackground() {
     return inferSnapshot(cardKey, fen);
             }
 
+            /**
+             * {@inheritDoc}
+             */
             @Override
             protected void done() {
                 inferenceWorker = null;
@@ -1383,6 +1507,7 @@ public final class NetworkPanel extends JPanel {
                 try {
                     ActivationSnapshot snapshot = get();
                     snapshotCache.put(key, snapshot);
+                    publishCacheDiagnostics(cardKey);
                     if (active && cardKey.equals(activeCardKey()) && fen.equals(effectiveFen())) {
                         applySnapshot(cardKey, fen, snapshot);
                     }
@@ -1427,6 +1552,10 @@ public final class NetworkPanel extends JPanel {
                 bt4View.setSnapshot(snapshot);
                 bt4View.setFen(fen);
             }
+            case ARCH_OTIS -> {
+                otisView.setSnapshot(snapshot);
+                otisView.setFen(fen);
+            }
             default -> {
                 nnueView.setSnapshot(snapshot);
                 nnueView.setFen(fen);
@@ -1437,7 +1566,26 @@ public final class NetworkPanel extends JPanel {
         if (cardKey.equals(activeCardKey())) {
             displayedKey = cacheKey(cardKey, fen);
             cards.show(cardPanel, cardKey);
+            publishCacheDiagnostics(cardKey);
         }
+    }
+
+    /**
+     * Returns a compact summary of the most recently active Network tab cache.
+     *
+     * @return dashboard-friendly cache summary
+     */
+    public static String runtimeCacheSummary() {
+        String arch = lastSnapshotCacheArchitecture == null || lastSnapshotCacheArchitecture.isBlank()
+                ? "No active architecture"
+                : lastSnapshotCacheArchitecture;
+        return lastSnapshotCacheSize + " / " + SNAPSHOT_CACHE_LIMIT
+                + " snapshots - " + arch;
+    }
+
+    private void publishCacheDiagnostics(String cardKey) {
+        lastSnapshotCacheSize = snapshotCache.size();
+        lastSnapshotCacheArchitecture = displayNameFor(cardKey);
     }
 
     private void showLoading(String cardKey, String fen, String detail) {
@@ -1529,6 +1677,7 @@ public final class NetworkPanel extends JPanel {
         return switch (cardKey) {
             case ARCH_CNN -> ARCH_CNN_LABEL;
             case ARCH_BT4 -> ARCH_BT4_LABEL;
+            case ARCH_OTIS -> ARCH_OTIS_LABEL;
             default -> ARCH_NNUE_LABEL;
         };
     }

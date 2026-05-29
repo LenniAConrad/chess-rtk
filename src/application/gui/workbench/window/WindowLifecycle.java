@@ -40,7 +40,6 @@ import javax.swing.JLabel;
 import javax.swing.JList;
 import javax.swing.JPanel;
 import javax.swing.JSpinner;
-import javax.swing.JTabbedPane;
 import javax.swing.JTable;
 import javax.swing.KeyStroke;
 import javax.swing.SwingConstants;
@@ -60,13 +59,19 @@ import static application.gui.workbench.ui.Ui.trimmed;
  */
 
 public abstract class WindowLifecycle extends WindowBase {
-    /** Serialization identifier for Swing frame compatibility. */
+    /**
+     * Serialization identifier for Swing frame compatibility.
+     */
     private static final long serialVersionUID = 1L;
 
-    /** Top-level application menu. */
+    /**
+     * Top-level application menu.
+     */
     protected transient SettingsMenu settingsMenu;
 
-    /** Title-bar layout control menu. */
+    /**
+     * Title-bar layout control menu.
+     */
     protected transient LayoutMenu layoutMenu;
 
     private final transient Runnable soundSettingsListener = this::syncSoundSettingsControls;
@@ -77,52 +82,84 @@ public abstract class WindowLifecycle extends WindowBase {
     protected static final Preferences WORKBENCH_PREFS =
             Preferences.userNodeForPackage(Window.class);
 
-    /** Preference key for the appearance theme mode. */
+    /**
+     * Preference key for the appearance theme mode.
+     */
     protected static final String PREF_THEME_MODE = "appearance.themeMode";
 
-    /** Preference key for status-bar visibility. */
+    /**
+     * Preference key for status-bar visibility.
+     */
     protected static final String PREF_STATUS_BAR_VISIBLE = "layout.statusBarVisible";
 
-    /** Preference key for legal-move hover previews. */
+    /**
+     * Preference key for legal-move hover previews.
+     */
     protected static final String PREF_SHOW_LEGAL_MOVES = "display.showLegalMovePreview";
 
-    /** Preference key for the last-move highlight. */
+    /**
+     * Preference key for the last-move highlight.
+     */
     protected static final String PREF_SHOW_LAST_MOVE = "display.showLastMoveHighlight";
 
-    /** Preference key for best-move board arrows. */
+    /**
+     * Preference key for best-move board arrows.
+     */
     protected static final String PREF_SHOW_BEST_ARROWS = "display.showBestMoveArrows";
 
-    /** Preference key for board coordinates. */
+    /**
+     * Preference key for board coordinates.
+     */
     protected static final String PREF_SHOW_COORDINATES = "display.showCoordinates";
 
-    /** Preference key for board animations. */
+    /**
+     * Preference key for board animations.
+     */
     protected static final String PREF_BOARD_ANIMATIONS = "display.boardAnimations";
 
-    /** Preference key for automatic eval-bar updates. */
+    /**
+     * Preference key for automatic eval-bar updates.
+     */
     protected static final String PREF_AUTO_EVAL_BAR = "display.autoEvalBar";
 
-    /** Preference key for continuous external-engine analysis. */
+    /**
+     * Preference key for continuous external-engine analysis.
+     */
     protected static final String PREF_LIVE_EXTERNAL_ENGINE = "engine.liveExternal";
 
-    /** Preference key for the external-engine protocol path. */
+    /**
+     * Preference key for the external-engine protocol path.
+     */
     protected static final String PREF_ENGINE_PROTOCOL = "engine.protocolPath";
 
-    /** Preference key for the external-engine node limit. */
+    /**
+     * Preference key for the external-engine node limit.
+     */
     protected static final String PREF_ENGINE_NODES = "engine.maxNodes";
 
-    /** Preference key for the external-engine hash size. */
+    /**
+     * Preference key for the external-engine hash size.
+     */
     protected static final String PREF_ENGINE_HASH = "engine.hash";
 
-    /** Default window width in pixels. */
+    /**
+     * Default window width in pixels.
+     */
     protected static final int DEFAULT_WINDOW_WIDTH = 1440;
 
-    /** Default window height in pixels. */
+    /**
+     * Default window height in pixels.
+     */
     protected static final int DEFAULT_WINDOW_HEIGHT = 920;
 
-    /** Minimum usable workbench width in pixels. */
+    /**
+     * Minimum usable workbench width in pixels.
+     */
     protected static final int MIN_WINDOW_WIDTH = 1040;
 
-    /** Minimum usable workbench height in pixels. */
+    /**
+     * Minimum usable workbench height in pixels.
+     */
     protected static final int MIN_WINDOW_HEIGHT = 700;
 
     private static final KeyStroke[] PREVIOUS_POSITION_KEYS = keyStrokes(
@@ -147,7 +184,9 @@ public abstract class WindowLifecycle extends WindowBase {
             KeyEvent.VK_NUMPAD2,
             KeyEvent.VK_END);
 
-    /** Restores persisted window size, position, and maximized state. */
+    /**
+     * Restores persisted window size, position, and maximized state.
+     */
     protected void restoreWindowGeometry() {
         int width = WORKBENCH_PREFS.getInt("window.width", DEFAULT_WINDOW_WIDTH);
         int height = WORKBENCH_PREFS.getInt("window.height", DEFAULT_WINDOW_HEIGHT);
@@ -189,7 +228,9 @@ public abstract class WindowLifecycle extends WindowBase {
         return false;
     }
 
-    /** Persists the current window geometry. */
+    /**
+     * Persists the current window geometry.
+     */
     protected void saveWindowGeometry() {
         boolean maximized = (getExtendedState() & java.awt.Frame.MAXIMIZED_BOTH) == java.awt.Frame.MAXIMIZED_BOTH;
         WORKBENCH_PREFS.putBoolean("window.maximized", maximized);
@@ -202,14 +243,18 @@ public abstract class WindowLifecycle extends WindowBase {
         WORKBENCH_PREFS.putInt("window.y", getY());
     }
 
-    /** Loads the persisted theme mode. */
+    /**
+     * Loads the persisted theme mode.
+     */
     protected void loadThemeSetting() {
         Theme.setMode(Theme.Mode.fromPreference(
                 WORKBENCH_PREFS.get(PREF_THEME_MODE, Theme.Mode.LIGHT.id())));
         TensorViz.refreshPalette();
     }
 
-    /** Loads persisted board and analysis display settings. */
+    /**
+     * Loads persisted board and analysis display settings.
+     */
     protected void loadDisplaySettings() {
         showLegalMovePreview = WORKBENCH_PREFS.getBoolean(PREF_SHOW_LEGAL_MOVES, true);
         showLastMoveHighlight = WORKBENCH_PREFS.getBoolean(PREF_SHOW_LAST_MOVE, true);
@@ -220,12 +265,16 @@ public abstract class WindowLifecycle extends WindowBase {
         liveExternalEngineEnabled = WORKBENCH_PREFS.getBoolean(PREF_LIVE_EXTERNAL_ENGINE, false);
     }
 
-    /** Loads persisted workbench layout settings. */
+    /**
+     * Loads persisted workbench layout settings.
+     */
     protected void loadLayoutSettings() {
         statusBarVisible = WORKBENCH_PREFS.getBoolean(PREF_STATUS_BAR_VISIBLE, true);
     }
 
-    /** Saves board and analysis display settings. */
+    /**
+     * Saves board and analysis display settings.
+     */
     protected void saveDisplaySettings() {
         WORKBENCH_PREFS.putBoolean(PREF_SHOW_LEGAL_MOVES, showLegalMovePreview);
         WORKBENCH_PREFS.putBoolean(PREF_SHOW_LAST_MOVE, showLastMoveHighlight);
@@ -283,14 +332,18 @@ public abstract class WindowLifecycle extends WindowBase {
         return Theme.isDark();
     }
 
-    /** Loads persisted external-engine settings. */
+    /**
+     * Loads persisted external-engine settings.
+     */
     protected void loadEngineSettings() {
         engineProtocolField.setText(WORKBENCH_PREFS.get(PREF_ENGINE_PROTOCOL, Config.getProtocolPath()));
         engineNodesField.setText(WORKBENCH_PREFS.get(PREF_ENGINE_NODES, ""));
         engineHashField.setText(WORKBENCH_PREFS.get(PREF_ENGINE_HASH, ""));
     }
 
-    /** Installs example placeholders on editable fields. */
+    /**
+     * Installs example placeholders on editable fields.
+     */
     protected void installFieldPlaceholders() {
         placeholder(fenField, "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
         placeholder(analysisDurationField, "e.g. " + Defaults.ANALYSIS_DURATION + " or 500ms");
@@ -299,14 +352,18 @@ public abstract class WindowLifecycle extends WindowBase {
         placeholder(engineHashField, "e.g. 128");
     }
 
-    /** Installs listeners for engine-setting fields. */
+    /**
+     * Installs listeners for engine-setting fields.
+     */
     protected void installEngineSettingListeners() {
         engineProtocolField.getDocument().addDocumentListener(changeListener(this::engineSettingsChanged));
         engineNodesField.getDocument().addDocumentListener(changeListener(this::engineSettingsChanged));
         engineHashField.getDocument().addDocumentListener(changeListener(this::engineSettingsChanged));
     }
 
-    /** Saves external-engine settings. */
+    /**
+     * Saves external-engine settings.
+     */
     protected void saveEngineSettings() {
         putPreference(PREF_ENGINE_PROTOCOL, trimmed(engineProtocolField));
         putPreference(PREF_ENGINE_NODES, trimmed(engineNodesField));
@@ -327,7 +384,9 @@ public abstract class WindowLifecycle extends WindowBase {
         }
     }
 
-    /** Persists changed engine settings and refreshes dependent previews. */
+    /**
+     * Persists changed engine settings and refreshes dependent previews.
+     */
     protected void engineSettingsChanged() {
         saveEngineSettings();
         requestCommandPreviews();
@@ -397,10 +456,17 @@ public abstract class WindowLifecycle extends WindowBase {
             panel.dispose();
         }
         networkPanels.clear();
+        for (application.gui.workbench.mcts.MctsPanel panel : new java.util.ArrayList<>(mctsPanels)) {
+            panel.dispose();
+        }
+        mctsPanels.clear();
+        mctsSession.close();
         super.dispose();
     }
 
-    /** Builds the complete native workbench UI. */
+    /**
+     * Builds the complete native workbench UI.
+     */
     protected void buildUi() {
         loadLayoutSettings();
         settingsMenu = new SettingsMenu(new SettingsMenu.Controller() {
@@ -485,151 +551,249 @@ public abstract class WindowLifecycle extends WindowBase {
                 openLogsDockAndDirectory();
             }
 
+            /**
+             * {@inheritDoc}
+             */
             @Override
             public void openPgn() {
                 showPgnExplorer();
             }
 
+            /**
+             * {@inheritDoc}
+             */
             @Override
             public void savePgn() {
                 savePgnFile();
             }
 
+            /**
+             * {@inheritDoc}
+             */
             @Override
             public void copyFen() {
                 copyText(currentFen());
             }
 
+            /**
+             * {@inheritDoc}
+             */
             @Override
             public void copyBuiltCommand() {
                 WindowLifecycle.this.copyBuiltCommand();
             }
 
+            /**
+             * {@inheritDoc}
+             */
             @Override
             public void openDashboard() {
                 selectTab(TAB_DASHBOARD);
             }
 
+            /**
+             * {@inheritDoc}
+             */
             @Override
             public void openAnalyze() {
                 selectTab(TAB_ANALYZE);
             }
 
+            /**
+             * {@inheritDoc}
+             */
             @Override
             public void openCommands() {
                 selectTab(TAB_COMMANDS);
             }
 
+            /**
+             * {@inheritDoc}
+             */
             @Override
             public void openBatch() {
                 selectTab(TAB_BATCH);
             }
 
+            /**
+             * {@inheritDoc}
+             */
             @Override
             public void openDatasets() {
                 selectTab(TAB_DATASETS);
             }
 
+            /**
+             * {@inheritDoc}
+             */
             @Override
             public void openPublish() {
                 selectTab(TAB_PUBLISH);
             }
 
+            /**
+             * {@inheritDoc}
+             */
             @Override
             public void openNetwork() {
                 selectTab(TAB_NETWORK);
             }
 
+            /**
+             * {@inheritDoc}
+             */
+            @Override
+            public void openMcts() {
+                selectTab(TAB_MCTS);
+            }
+
+            /**
+             * {@inheritDoc}
+             */
             @Override
             public void openPuzzles() {
                 selectTab(TAB_PUZZLES);
             }
 
+            /**
+             * {@inheritDoc}
+             */
             @Override
             public void newAnalyzeTab() {
                 openNewAnalyzeTab();
             }
 
+            /**
+             * {@inheritDoc}
+             */
             @Override
             public void showConsole() {
                 showConsoleDock();
             }
 
+            /**
+             * {@inheritDoc}
+             */
             @Override
             public void showLogs() {
                 showLogsDock();
             }
 
+            /**
+             * {@inheritDoc}
+             */
             @Override
             public void firstPosition() {
                 jumpActivePositionToStart();
             }
 
+            /**
+             * {@inheritDoc}
+             */
             @Override
             public void previousPosition() {
                 navigateActivePosition(-1);
             }
 
+            /**
+             * {@inheritDoc}
+             */
             @Override
             public void nextPosition() {
                 navigateActivePosition(1);
             }
 
+            /**
+             * {@inheritDoc}
+             */
             @Override
             public void lastPosition() {
                 jumpActivePositionToEnd();
             }
 
+            /**
+             * {@inheritDoc}
+             */
             @Override
             public void runBuiltCommand() {
                 runSelectedTemplate();
             }
 
+            /**
+             * {@inheritDoc}
+             */
             @Override
             public void runBestMove() {
                 WindowLifecycle.this.runBestMove();
             }
 
+            /**
+             * {@inheritDoc}
+             */
             @Override
             public void runAnalyze() {
                 WindowLifecycle.this.runAnalyze();
             }
 
+            /**
+             * {@inheritDoc}
+             */
             @Override
             public void runPerft() {
                 WindowLifecycle.this.runPerft();
             }
 
+            /**
+             * {@inheritDoc}
+             */
             @Override
             public void runBatch() {
                 batchPanel.runBatch();
             }
 
+            /**
+             * {@inheritDoc}
+             */
             @Override
             public void runPublishing() {
                 runPublishingCommand();
             }
 
+            /**
+             * {@inheritDoc}
+             */
             @Override
             public void runAllChecks() {
                 runAllHealthChecks();
             }
 
+            /**
+             * {@inheritDoc}
+             */
             @Override
             public void stopCommand() {
                 WindowLifecycle.this.stopCommand();
             }
 
+            /**
+             * {@inheritDoc}
+             */
             @Override
             public void splitRight() {
                 tabs.splitSelectedTabRight();
             }
 
+            /**
+             * {@inheritDoc}
+             */
             @Override
             public void splitDown() {
                 tabs.splitSelectedTabDown();
             }
 
+            /**
+             * {@inheritDoc}
+             */
             @Override
             public void reopenAllTabs() {
                 tabs.reopenAllTabs();
@@ -750,24 +914,22 @@ public abstract class WindowLifecycle extends WindowBase {
                 () -> new LazyPanel("Datasets", this::createDetachedDatasetTab));
         tabs.addPanel("Publish", new LazyPanel("Publish", this::createPublishTab),
                 () -> new LazyPanel("Publish", this::createDetachedPublishTab));
-        // Console and Logs moved out of the top tab row into a VS Code-style
-        // bottom dock. The top tabs are navigation destinations; Console
-        // and Logs are transient output surfaces that belong below.
+        // Position-description UI is not part of this Workbench polish pass.
+        // Leave the unfinished tab unregistered so the shell still compiles.
+        tabs.addPanel("Console", createConsolePanel());
+        tabs.addPanel("Logs", new LazyPanel("Logs", this::createLogTab),
+                () -> new LazyPanel("Logs", this::createDetachedLogTab));
         tabs.addPanel("Network", new LazyPanel("Network", this::createNetworkTab),
                 () -> new LazyPanel("Network", this::createDetachedNetworkTab));
+        tabs.addPanel("MCTS", new LazyPanel("MCTS", this::createMctsTab),
+                () -> new LazyPanel("MCTS", this::createDetachedMctsTab));
         tabs.addPanel("Puzzles", new LazyPanel("Puzzles", this::createPuzzleTab),
                 () -> new LazyPanel("Puzzles", this::createDetachedPuzzleTab));
         tabs.install();
         tabs.setSelectionListener(index -> onWorkbenchTabVisibilityChanged());
         tabs.select(TAB_DASHBOARD);
 
-        bottomDock = buildBottomDock();
-        bottomDock.setVisible(bottomDockVisible);
-        JPanel centerStack = new JPanel(new BorderLayout(0, 0));
-        centerStack.setOpaque(false);
-        centerStack.add(tabs, BorderLayout.CENTER);
-        centerStack.add(bottomDock, BorderLayout.SOUTH);
-        root.add(centerStack, BorderLayout.CENTER);
+        root.add(tabs, BorderLayout.CENTER);
         statusBar = createStatusBar();
         statusBar.setVisible(statusBarVisible);
         root.add(statusBar, BorderLayout.SOUTH);
@@ -776,99 +938,50 @@ public abstract class WindowLifecycle extends WindowBase {
         installFenPgnDropTarget();
     }
 
-    /** Tab container for Console and Logs in the bottom dock. */
-    protected JTabbedPane bottomDockTabs;
-
-    /** Bottom-docked output panel. */
-    protected JComponent bottomDock;
-
-    /** True when the bottom dock is visible. */
-    protected boolean bottomDockVisible;
-
-    private JComponent buildBottomDock() {
-        bottomDockTabs = Ui.tabbedPane();
-        bottomDockTabs.addTab(DOCK_CONSOLE, createConsolePanel());
-        bottomDockTabs.addTab(DOCK_LOGS, new LazyPanel(DOCK_LOGS, this::createLogTab));
-
-        JPanel dock = new JPanel(new BorderLayout());
-        dock.setOpaque(true);
-        dock.setBackground(Theme.PANEL_SOLID);
-        dock.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, Theme.LINE));
-        JPanel header = transparentPanel(new BorderLayout(Theme.SPACE_SM, 0));
-        header.setOpaque(true);
-        header.setBackground(Theme.PANEL_SOLID);
-        header.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createMatteBorder(0, 0, 1, 0, Theme.LINE),
-                Theme.pad(4, 8, 4, 8)));
-        JLabel title = label("Output");
-        title.setFont(Theme.font(12, Font.BOLD));
-        Theme.foreground(title, Theme.ForegroundRole.MUTED);
-        header.add(title, BorderLayout.WEST);
-        javax.swing.JButton hideButton = Ui.iconButton("Hide", event -> setBottomDockVisible(false));
-        hideButton.setToolTipText("Hide bottom dock");
-        header.add(hideButton, BorderLayout.EAST);
-        dock.add(header, BorderLayout.NORTH);
-        dock.add(bottomDockTabs, BorderLayout.CENTER);
-        dock.setPreferredSize(new java.awt.Dimension(0, 240));
-        return dock;
-    }
-
     /**
-     * Shows or hides the bottom dock.
+     * Selects the Console or Logs workbench tab.
      *
-     * @param visible true to show the dock
-     */
-    protected void setBottomDockVisible(boolean visible) {
-        bottomDockVisible = visible;
-        if (bottomDock != null) {
-            bottomDock.setVisible(visible);
-            bottomDock.revalidate();
-            getContentPane().revalidate();
-            getContentPane().repaint();
-        }
-    }
-
-    /**
-     * Selects a section in the bottom dock and ensures the dock is shown.
-     *
-     * @param tabTitle dock tab title ("Console" or "Logs")
+     * @param tabTitle tab title ("Console" or "Logs")
      */
     @Override
     public void showInBottomDock(String tabTitle) {
-        if (bottomDockTabs == null) {
-            return;
+        if (DOCK_LOGS.equals(tabTitle)) {
+            showLogsDock();
+        } else {
+            showConsoleDock();
         }
-        for (int i = 0; i < bottomDockTabs.getTabCount(); i++) {
-            if (tabTitle.equals(bottomDockTabs.getTitleAt(i))) {
-                bottomDockTabs.setSelectedIndex(i);
-                break;
-            }
-        }
-        setBottomDockVisible(true);
     }
 
-    /** Opens the Console dock tab. */
+    /**
+     * Opens the Console tab.
+     */
     protected void showConsoleDock() {
-        showInBottomDock(DOCK_CONSOLE);
+        selectTab(TAB_CONSOLE);
     }
 
-    /** Opens the Logs dock tab. */
+    /**
+     * Opens the Logs tab.
+     */
     protected void showLogsDock() {
         boolean created = logPanel == null;
         LogPanel panel = primaryLogPanel();
         if (!created) {
             panel.refreshLogs();
         }
-        showInBottomDock(DOCK_LOGS);
+        selectTab(TAB_LOGS);
     }
 
-    /** Opens the Logs dock tab and the logs directory. */
+    /**
+     * Opens the Logs tab and the logs directory.
+     */
     protected void openLogsDockAndDirectory() {
         showLogsDock();
         runArtifacts.openLogsDirectory();
     }
 
-    /** Refreshes all live log browsers. */
+    /**
+     * Refreshes all live log browsers.
+     */
     protected void refreshLogBrowsers() {
         for (LogPanel panel : logPanels) {
             panel.refreshLogs();
@@ -878,6 +991,9 @@ public abstract class WindowLifecycle extends WindowBase {
     private void installFenPgnDropTarget() {
         new java.awt.dnd.DropTarget(getRootPane(), java.awt.dnd.DnDConstants.ACTION_COPY,
                 new java.awt.dnd.DropTargetAdapter() {
+                    /**
+                     * {@inheritDoc}
+                     */
                     @Override
                     public void drop(java.awt.dnd.DropTargetDropEvent event) {
                         try {
@@ -927,16 +1043,24 @@ public abstract class WindowLifecycle extends WindowBase {
         return name.endsWith(".fen") || name.endsWith(".pgn") || name.endsWith(".txt");
     }
 
-    /** True when the status bar is visible. */
+    /**
+     * True when the status bar is visible.
+     */
     protected boolean statusBarVisible = true;
 
-    /** Bottom status-bar component. */
+    /**
+     * Bottom status-bar component.
+     */
     protected JComponent statusBar;
 
-    /** Status-bar current-position cell. */
+    /**
+     * Status-bar current-position cell.
+     */
     protected final JLabel statusBarPosition = new JLabel("");
 
-    /** Status-bar current-ply cell. */
+    /**
+     * Status-bar current-ply cell.
+     */
     protected final JLabel statusBarPly = new JLabel("");
 
     /**
@@ -945,7 +1069,9 @@ public abstract class WindowLifecycle extends WindowBase {
     protected final application.gui.workbench.ui.StatusBadge statusBarEngine =
             new application.gui.workbench.ui.StatusBadge();
 
-    /** Status-bar engine-detail cell. */
+    /**
+     * Status-bar engine-detail cell.
+     */
     protected final JLabel statusBarEngineDetail = new JLabel("");
 
     /**
@@ -961,16 +1087,25 @@ public abstract class WindowLifecycle extends WindowBase {
         JComponent box = new JComponent() {
             private static final long serialVersionUID = 1L;
 
+            /**
+             * {@inheritDoc}
+             */
             @Override
             public java.awt.Dimension getPreferredSize() {
                 return new java.awt.Dimension(preferredWidth, preferredHeight);
             }
 
+            /**
+             * {@inheritDoc}
+             */
             @Override
             public java.awt.Dimension getMaximumSize() {
                 return new java.awt.Dimension(preferredWidth, preferredHeight);
             }
 
+            /**
+             * {@inheritDoc}
+             */
             @Override
             protected void paintComponent(java.awt.Graphics graphics) {
                 java.awt.Graphics2D g = (java.awt.Graphics2D) graphics.create();
@@ -1011,18 +1146,27 @@ public abstract class WindowLifecycle extends WindowBase {
         box.setToolTipText("Open command palette (Ctrl+K)");
         box.setOpaque(false);
         box.addMouseListener(new java.awt.event.MouseAdapter() {
+            /**
+             * {@inheritDoc}
+             */
             @Override
             public void mouseEntered(java.awt.event.MouseEvent event) {
                 hovered[0] = true;
                 box.repaint();
             }
 
+            /**
+             * {@inheritDoc}
+             */
             @Override
             public void mouseExited(java.awt.event.MouseEvent event) {
                 hovered[0] = false;
                 box.repaint();
             }
 
+            /**
+             * {@inheritDoc}
+             */
             @Override
             public void mousePressed(java.awt.event.MouseEvent event) {
                 showCommandPalette();
@@ -1096,11 +1240,17 @@ public abstract class WindowLifecycle extends WindowBase {
         JComponent bell = new JComponent() {
             private static final long serialVersionUID = 1L;
 
+            /**
+             * {@inheritDoc}
+             */
             @Override
             public java.awt.Dimension getPreferredSize() {
                 return new java.awt.Dimension(26, 22);
             }
 
+            /**
+             * {@inheritDoc}
+             */
             @Override
             protected void paintComponent(java.awt.Graphics graphics) {
                 java.awt.Graphics2D g = (java.awt.Graphics2D) graphics.create();
@@ -1136,18 +1286,27 @@ public abstract class WindowLifecycle extends WindowBase {
         bell.setCursor(java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.HAND_CURSOR));
         bell.setToolTipText("Recent notifications");
         bell.addMouseListener(new java.awt.event.MouseAdapter() {
+            /**
+             * {@inheritDoc}
+             */
             @Override
             public void mouseEntered(java.awt.event.MouseEvent event) {
                 hovered[0] = true;
                 bell.repaint();
             }
 
+            /**
+             * {@inheritDoc}
+             */
             @Override
             public void mouseExited(java.awt.event.MouseEvent event) {
                 hovered[0] = false;
                 bell.repaint();
             }
 
+            /**
+             * {@inheritDoc}
+             */
             @Override
             public void mousePressed(java.awt.event.MouseEvent event) {
                 unread[0] = false;
@@ -1165,9 +1324,6 @@ public abstract class WindowLifecycle extends WindowBase {
     private void showNotificationHistory(JComponent anchor) {
         java.util.List<Toast.Entry> entries = Toast.history();
         javax.swing.JPopupMenu popup = new javax.swing.JPopupMenu();
-        popup.setOpaque(true);
-        popup.setBackground(Theme.PANEL_SOLID);
-        popup.setBorder(BorderFactory.createLineBorder(Theme.LINE));
         if (entries.isEmpty()) {
             JLabel empty = new JLabel("No notifications yet.");
             empty.setBorder(Theme.pad(8, 14, 8, 14));
@@ -1194,6 +1350,7 @@ public abstract class WindowLifecycle extends WindowBase {
                 popup.add(row);
             }
         }
+        Ui.stylePopupMenu(popup);
         int width = Math.max(360, anchor.getWidth());
         popup.setPreferredSize(new java.awt.Dimension(width, Math.min(360, 24 + entries.size() * 26 + 16)));
         popup.show(anchor, -width + anchor.getWidth(), -popup.getPreferredSize().height);
@@ -1204,6 +1361,9 @@ public abstract class WindowLifecycle extends WindowBase {
         JPanel cell = new JPanel(new BorderLayout()) {
             private static final long serialVersionUID = 1L;
 
+            /**
+             * {@inheritDoc}
+             */
             @Override
             protected void paintComponent(java.awt.Graphics graphics) {
                 if (hovered[0]) {
@@ -1224,12 +1384,18 @@ public abstract class WindowLifecycle extends WindowBase {
             // no-op fallback
         } : onClick;
         java.awt.event.MouseAdapter listener = new java.awt.event.MouseAdapter() {
+            /**
+             * {@inheritDoc}
+             */
             @Override
             public void mouseEntered(java.awt.event.MouseEvent event) {
                 hovered[0] = true;
                 cell.repaint();
             }
 
+            /**
+             * {@inheritDoc}
+             */
             @Override
             public void mouseExited(java.awt.event.MouseEvent event) {
                 java.awt.Component source = (java.awt.Component) event.getSource();
@@ -1240,6 +1406,9 @@ public abstract class WindowLifecycle extends WindowBase {
                 }
             }
 
+            /**
+             * {@inheritDoc}
+             */
             @Override
             public void mousePressed(java.awt.event.MouseEvent event) {
                 if (SwingUtilities.isLeftMouseButton(event)) {
@@ -1320,10 +1489,14 @@ public abstract class WindowLifecycle extends WindowBase {
         getContentPane().repaint();
     }
 
-    /** Maximum compact FEN characters shown in the status bar. */
+    /**
+     * Maximum compact FEN characters shown in the status bar.
+     */
     protected static final int STATUS_FEN_BUDGET = 60;
 
-    /** Refreshes status-bar text from the current game state. */
+    /**
+     * Refreshes status-bar text from the current game state.
+     */
     protected void refreshStatusBar() {
         if (currentPosition == null) {
             statusBarPosition.setText("");
@@ -1410,17 +1583,28 @@ public abstract class WindowLifecycle extends WindowBase {
         statusBarEngineDetail.setText(message);
     }
 
+    /**
+     * Shows a non-blocking workbench toast.
+     *
+     * @param kind toast severity
+     * @param message message text
+     */
     protected void toast(Toast.Kind kind, String message) {
         Toast.show(this, kind, message);
     }
 
-    /** Installs global workbench key bindings. */
+    /**
+     * Installs global workbench key bindings.
+     */
     protected void installKeyBindings() {
         getRootPane().getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW)
                 .put(KeyStroke.getKeyStroke("control K"), "openCommandPalette");
         getRootPane().getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW)
                 .put(KeyStroke.getKeyStroke("meta K"), "openCommandPalette");
         getRootPane().getActionMap().put("openCommandPalette", new AbstractAction() {
+            /**
+             * Serialization identifier for Swing action compatibility.
+             */
             protected static final long serialVersionUID = 1L;
 
             /**
@@ -1435,11 +1619,9 @@ public abstract class WindowLifecycle extends WindowBase {
         });
         bindWindowAction("control P", "openPgnExplorer", event -> showPgnExplorer());
         bindWindowAction("meta P", "openPgnExplorerMeta", event -> showPgnExplorer());
-        // VS Code-style Ctrl+` toggles the bottom Console/Logs dock.
-        bindWindowAction("control BACK_QUOTE", "toggleBottomDock",
-                event -> setBottomDockVisible(!bottomDockVisible));
-        bindWindowAction("meta BACK_QUOTE", "toggleBottomDockMeta",
-                event -> setBottomDockVisible(!bottomDockVisible));
+        // Ctrl+` focuses the movable Console tab.
+        bindWindowAction("control BACK_QUOTE", "showConsoleTab", event -> showConsoleDock());
+        bindWindowAction("meta BACK_QUOTE", "showConsoleTabMeta", event -> showConsoleDock());
         bindWindowAction("control COMMA", "openDisplaySettings", event -> showDisplaySettings());
         bindWindowAction("meta COMMA", "openDisplaySettingsMeta", event -> showDisplaySettings());
         bindWindowAction("alt LEFT", "navigateBack", event -> navigateActivePosition(-1));
@@ -1478,7 +1660,9 @@ public abstract class WindowLifecycle extends WindowBase {
         navigateGame(delta);
     }
 
-    /** Jumps the active position surface to its start. */
+    /**
+     * Jumps the active position surface to its start.
+     */
     protected void jumpActivePositionToStart() {
         if (tabs != null && tabs.selectedIndex() == TAB_PUZZLES) {
             if (puzzlePanel != null) {
@@ -1489,7 +1673,9 @@ public abstract class WindowLifecycle extends WindowBase {
         jumpGameTo(0);
     }
 
-    /** Jumps the active position surface to its end. */
+    /**
+     * Jumps the active position surface to its end.
+     */
     protected void jumpActivePositionToEnd() {
         if (tabs != null && tabs.selectedIndex() == TAB_PUZZLES) {
             if (puzzlePanel != null) {
@@ -1532,7 +1718,9 @@ public abstract class WindowLifecycle extends WindowBase {
         return keys;
     }
 
-    /** Installs Ctrl+number shortcuts for visible workbench tabs. */
+    /**
+     * Installs Ctrl+number shortcuts for visible workbench tabs.
+     */
     protected void installTabNumberShortcuts() {
         int tabLimit = Math.min(9, tabs.count());
         for (int i = 0; i < tabLimit; i++) {
@@ -1568,6 +1756,9 @@ public abstract class WindowLifecycle extends WindowBase {
             Consumer<ActionEvent> body) {
         getRootPane().getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).put(keyStroke, name);
         getRootPane().getActionMap().put(name, new AbstractAction() {
+            /**
+             * Serialization identifier for Swing action compatibility.
+             */
             protected static final long serialVersionUID = 1L;
 
             /**
@@ -1630,7 +1821,16 @@ public abstract class WindowLifecycle extends WindowBase {
         getRootPane().getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW)
                 .put(KeyStroke.getKeyStroke(keyStroke), name);
         getRootPane().getActionMap().put(name, new AbstractAction() {
+            /**
+             * Serialization identifier for Swing action compatibility.
+             */
             protected static final long serialVersionUID = 1L;
+
+            /**
+             * Runs the bound window action.
+             *
+             * @param event action event
+             */
             @Override
             public void actionPerformed(ActionEvent event) {
                 body.accept(event);
@@ -1638,7 +1838,9 @@ public abstract class WindowLifecycle extends WindowBase {
         });
     }
 
-    /** Opens the command palette. */
+    /**
+     * Opens the command palette.
+     */
     protected void showCommandPalette() {
         if (commandPalette == null) {
             commandPalette = new CommandPalette(this);
@@ -1646,7 +1848,9 @@ public abstract class WindowLifecycle extends WindowBase {
         commandPalette.showActions(commandPaletteActions());
     }
 
-    /** Opens the PGN explorer. */
+    /**
+     * Opens the PGN explorer.
+     */
     protected void showPgnExplorer() {
         if (pgnExplorer == null) {
             pgnExplorer = new PgnExplorerDialog(this, this::loadGameText);
@@ -1712,12 +1916,12 @@ public abstract class WindowLifecycle extends WindowBase {
     new PaletteAction("Dataset", "Analyze dataset", "Scan the selected dataset source",
                         () -> datasetPanel().analyzeCurrentSource()),
     new PaletteAction("View", "Open publish tab", "Show report and publishing tools", () -> selectTab(TAB_PUBLISH)),
-    new PaletteAction("View", "Show Console", "Open the bottom command-output dock",
+    new PaletteAction("View", "Open describe tab", "Show deterministic position text", () -> selectTab(TAB_DESCRIBE)),
+    new PaletteAction("View", "Open MCTS tab", "Inspect the shared MCTS search tree", () -> selectTab(TAB_MCTS)),
+    new PaletteAction("View", "Show Console", "Open the command-output tab",
                         this::showConsoleDock),
-    new PaletteAction("View", "Show Logs", "Open and refresh the bottom log browser",
+    new PaletteAction("View", "Show Logs", "Open and refresh the log browser tab",
                         this::showLogsDock),
-    new PaletteAction("View", "Toggle bottom dock", "Show or hide the Console + Logs dock",
-                        () -> setBottomDockVisible(!bottomDockVisible)),
     new PaletteAction("View", "Open puzzles tab", "Train PGN tactics with variation branches",
                         () -> selectTab(TAB_PUZZLES)),
     new PaletteAction("Workbench", "Split tab right", "Move the active workbench tab into a right editor group",
@@ -1730,10 +1934,14 @@ public abstract class WindowLifecycle extends WindowBase {
                         this::openLogsDockAndDirectory));
     }
 
-    /** Lazily-created unified settings dialog. */
+    /**
+     * Lazily-created unified settings dialog.
+     */
     private SettingsDialog settingsDialog;
 
-    /** Shared modal overlay for settings and inspectors. */
+    /**
+     * Shared modal overlay for settings and inspectors.
+     */
     private application.gui.workbench.ui.ModalOverlay overlay;
 
     /**
@@ -1745,6 +1953,9 @@ public abstract class WindowLifecycle extends WindowBase {
         if (overlay == null) {
             overlay = new application.gui.workbench.ui.ModalOverlay(this);
             addComponentListener(new java.awt.event.ComponentAdapter() {
+                /**
+                 * {@inheritDoc}
+                 */
                 @Override
                 public void componentResized(java.awt.event.ComponentEvent event) {
                     overlay.revalidateBounds();
@@ -1768,12 +1979,18 @@ public abstract class WindowLifecycle extends WindowBase {
         return settingsDialog;
     }
 
+    /**
+     * Opens the display settings section.
+     */
     protected void showDisplaySettings() {
         SettingsDialog dialog = settingsDialog();
         dialog.selectSection("Display");
         dialog.showCentered();
     }
 
+    /**
+     * Opens the engine settings section.
+     */
     protected void showEngineSettings() {
         SettingsDialog dialog = settingsDialog();
         dialog.selectSection("Engine");
@@ -1781,6 +1998,9 @@ public abstract class WindowLifecycle extends WindowBase {
         SwingUtilities.invokeLater(engineProtocolField::requestFocusInWindow);
     }
 
+    /**
+     * Opens the analysis data view.
+     */
     protected void showAnalysisData() {
         selectTab(TAB_ANALYZE);
         if (analysisTabs != null) {
@@ -1803,14 +2023,23 @@ public abstract class WindowLifecycle extends WindowBase {
         }
     }
 
+    /**
+     * Copies analysis samples as CSV text.
+     */
     protected void copyAnalysisCsv() {
         copyText(analysisGraph.csvText());
     }
 
+    /**
+     * Copies the formatted analysis report.
+     */
     protected void copyAnalysisReport() {
         copyText(analysisGraph.reportText());
     }
 
+    /**
+     * Sends the analysis report to the platform print service.
+     */
     protected void printAnalysisReport() {
         if (!analysisGraph.hasSamples()) {
             toast(Toast.Kind.WARNING, "No analysis data to print");
@@ -1826,6 +2055,9 @@ public abstract class WindowLifecycle extends WindowBase {
         }
     }
 
+    /**
+     * Clears collected analysis graph samples.
+     */
     protected void clearAnalysisData() {
         analysisGraph.clearSamples();
         toast(Toast.Kind.INFO, "Analysis data cleared");
@@ -1875,11 +2107,17 @@ public abstract class WindowLifecycle extends WindowBase {
         applyDisplaySettings(refreshEval);
     }
 
+    /**
+     * Focuses the main FEN input field.
+     */
     protected void focusFenField() {
         selectTab(TAB_ANALYZE);
         SwingUtilities.invokeLater(fenField::requestFocusInWindow);
     }
 
+    /**
+     * Focuses the command option filter.
+     */
     protected void focusOptionFilter() {
         selectTab(TAB_COMMANDS);
         SwingUtilities.invokeLater(() -> {
@@ -1888,6 +2126,9 @@ public abstract class WindowLifecycle extends WindowBase {
         });
     }
 
+    /**
+     * Focuses the game text input.
+     */
     protected void focusGameInput() {
         selectTab(TAB_ANALYZE);
         if (analysisTabs != null) {
@@ -1896,20 +2137,29 @@ public abstract class WindowLifecycle extends WindowBase {
         SwingUtilities.invokeLater(gameInput::requestFocusInWindow);
     }
 
-    /** Opens another independent Analyze tab. */
+    /**
+     * Opens another independent Analyze tab.
+     */
     protected void openNewAnalyzeTab() {
         if (tabs != null) {
             tabs.duplicate(TAB_ANALYZE);
         }
     }
 
+    /**
+     * Selects a workbench tab by index.
+     *
+     * @param index tab index
+     */
     protected void selectTab(int index) {
         if (tabs != null && index >= 0 && index < tabs.count()) {
             tabs.select(index);
         }
     }
 
-    /** Refreshes dependent surfaces after tab visibility changes. */
+    /**
+     * Refreshes dependent surfaces after tab visibility changes.
+     */
     protected void onWorkbenchTabVisibilityChanged() {
         if (tabs != null) {
             for (application.gui.workbench.network.NetworkPanel panel : networkPanels) {

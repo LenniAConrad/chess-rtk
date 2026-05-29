@@ -28,56 +28,89 @@ public final class WindowPublishingHost extends WindowHost implements Publishing
         reportPanel = new ReportPanel(new WindowReportHost(window));
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public Component owner() {
         return window;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public String currentFen() {
         return window.currentFen();
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public GameModel gameModel() {
         return window.gameModel;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public String batchInputText() {
         return window.batchPanel.inputText();
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public JComponent reportPanel() {
         return reportPanel.component();
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public void generateReport() {
         reportPanel.generateReport();
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public void runCommand(List<String> args, String stdin) {
         window.runCommand(args, stdin);
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public void copyText(String text) {
         window.copyText(text);
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public void stopCommand() {
         window.stopCommand();
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public void toast(Toast.Kind kind, String message) {
         window.toast(kind, message);
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public void showError(String title, String message) {
         window.showError(title, message);
