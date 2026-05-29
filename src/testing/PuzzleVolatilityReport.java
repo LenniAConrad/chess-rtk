@@ -2,40 +2,25 @@ package testing;
 
 import java.awt.Color;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayDeque;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Comparator;
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
-import java.util.Queue;
 import java.util.Set;
 import java.util.StringJoiner;
 
 import application.Config;
 import application.cli.RecordIO;
 import chess.core.Move;
-import chess.core.Position;
-import chess.pdf.document.Canvas;
-import chess.pdf.document.Document;
 import chess.pdf.document.Font;
-import chess.pdf.document.Page;
-import chess.pdf.document.PageSize;
-import chess.struct.Record;
 import chess.uci.Analysis;
 import chess.uci.Chances;
 import chess.uci.Evaluation;
 import chess.uci.Output;
-import utility.Json;
 
 /**
  * Manual report for finding puzzle records whose evaluation and PV change

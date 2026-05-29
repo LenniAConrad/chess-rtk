@@ -1,6 +1,5 @@
 package application.gui.workbench.board;
 
-import chess.core.Field;
 
 /**
  * Context handed to a drop resolver.

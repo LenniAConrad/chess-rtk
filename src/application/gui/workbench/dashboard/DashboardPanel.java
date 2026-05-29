@@ -30,7 +30,6 @@ import java.awt.RenderingHints;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Locale;
-import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.JButton;

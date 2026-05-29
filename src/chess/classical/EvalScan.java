@@ -1,11 +1,6 @@
 package chess.classical;
 
-import static chess.classical.Wdl.*;
 
-import chess.core.Bits;
-import chess.core.MoveGenerator;
-import chess.core.Piece;
-import chess.core.Position;
 
 /**
  * Accumulates material and PST-derived signals during a board scan.

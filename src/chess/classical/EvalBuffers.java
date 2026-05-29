@@ -1,11 +1,6 @@
 package chess.classical;
 
-import static chess.classical.Wdl.*;
 
-import chess.core.Bits;
-import chess.core.MoveGenerator;
-import chess.core.Piece;
-import chess.core.Position;
 
 /**
  * Internal scratch space used for file-based pawn/rook analysis.

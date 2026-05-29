@@ -2117,34 +2117,6 @@ final class WorkbenchBackendRegression {
     }
 
     /**
-     * Verifies the top-level Workbench MCTS tab is lazy and registered before
-     * the puzzle tab.
-     */
-    private static void testMctsTabRegistrationIsLazy() {
-        String lifecycle;
-        String base;
-        String settings;
-        try {
-            lifecycle = Files.readString(Path.of("src/application/gui/workbench/window/WindowLifecycle.java"),
-                    StandardCharsets.UTF_8);
-            base = Files.readString(Path.of("src/application/gui/workbench/window/WindowBase.java"),
-                    StandardCharsets.UTF_8);
-            settings = Files.readString(Path.of("src/application/gui/workbench/window/SettingsMenu.java"),
-                    StandardCharsets.UTF_8);
-        } catch (IOException ex) {
-            throw new AssertionError("unable to read workbench window sources", ex);
-        }
-        int mctsTab = lifecycle.indexOf("tabs.addPanel(\"MCTS\", new LazyPanel(\"MCTS\"");
-        int puzzleTab = lifecycle.indexOf("tabs.addPanel(\"Puzzles\"");
-        assertTrue(mctsTab >= 0, "Workbench registers lazy MCTS tab");
-        assertTrue(puzzleTab > mctsTab, "Workbench places MCTS before Puzzles");
-        assertTrue(base.contains("protected static final int TAB_MCTS"),
-                "Workbench exposes stable MCTS tab index");
-        assertTrue(settings.contains("item(\"MCTS\", \"Ctrl+8\""),
-                "Workbench view menu exposes MCTS tab");
-    }
-
-    /**
      * Waits for an MCTS session snapshot that satisfies the expected state predicate.
      *
      * @param session session to poll

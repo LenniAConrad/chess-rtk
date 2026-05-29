@@ -5,7 +5,6 @@ import application.gui.workbench.ui.MenuGlyphs;
 import application.gui.workbench.ui.Ui;
 import java.awt.Component;
 import java.awt.Container;
-import java.awt.Dimension;
 import java.awt.Font;
 import java.util.Objects;
 import javax.swing.BorderFactory;

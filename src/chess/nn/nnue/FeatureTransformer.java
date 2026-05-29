@@ -3,13 +3,9 @@ package chess.nn.nnue;
 import static chess.nn.nnue.UpstreamNetwork.*;
 
 import java.io.IOException;
-import java.nio.BufferUnderflowException;
-import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 
 import chess.core.Position;
-import chess.nn.nnue.UpstreamNetwork.Size;
-import chess.nn.nnue.UpstreamNetwork.Variant;
 import utility.Numbers;
 
 /**

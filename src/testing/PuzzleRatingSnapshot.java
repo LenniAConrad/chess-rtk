@@ -102,26 +102,6 @@ final class PuzzleRatingSnapshot {
     }
 
     /**
-     * Draws wrapped chess notation with SVG figurines in place of SAN piece
-     * letters.
-     *
-     * @param canvas drawing surface
-     * @param x left edge in PDF points
-     * @param y top edge in PDF points
-     * @param width wrap width in PDF points
-     * @param font text font for ordinary characters
-     * @param fontSize text font size
-     * @param leading line advance
-     * @param color text fill color
-     * @param text figurine-formatted movetext
-     * @return consumed vertical space in PDF points
-     */
-    private static double drawWrappedNotationText(Canvas canvas, double x, double y, double width, Font font,
-            double fontSize, double leading, Color color, String text) {
-        return drawWrappedNotationText(canvas, x, y, width, font, fontSize, leading, color, text, Integer.MAX_VALUE);
-    }
-
-    /**
      * Draws wrapped chess notation with a maximum line count.
      *
      * @param canvas drawing surface

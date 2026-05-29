@@ -21,7 +21,6 @@ import chess.core.Setup;
 import chess.struct.Game;
 import chess.struct.Pgn;
 import chess.tag.Generator;
-import chess.uci.Engine;
 import java.awt.Dimension;
 import java.io.File;
 import java.nio.charset.StandardCharsets;
@@ -44,8 +43,6 @@ import javax.swing.filechooser.FileNameExtensionFilter;
 import static application.gui.workbench.command.CommandArgs.addOptionalPositiveIntegerArg;
 import static application.gui.workbench.command.CommandArgs.addOptionalTextArg;
 import static application.gui.workbench.ui.SwingTasks.runAsync;
-import static application.gui.workbench.ui.Ui.label;
-import static application.gui.workbench.ui.Ui.scroll;
 import static application.gui.workbench.ui.Ui.showConfirmDialog;
 
 /**

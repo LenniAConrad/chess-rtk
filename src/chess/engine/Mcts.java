@@ -9,7 +9,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 
-import chess.classical.Wdl;
 import chess.core.Move;
 import chess.core.MoveList;
 import chess.core.Piece;

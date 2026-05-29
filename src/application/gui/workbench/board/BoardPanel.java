@@ -1127,9 +1127,16 @@ public final class BoardPanel extends JPanel {
                 sx, sy, sx + dirty.width, sy + dirty.height,
                 null);
     }
-    private BufferedImage boardTexture(int size) {
+    /**
+     * Returns the cached board texture for tests and diagnostic callers.
+     *
+     * @param size texture size
+     * @return cached texture
+     */
+    BufferedImage boardTexture(int size) {
         return imageCache.boardTexture(size);
     }
+
     private void drawCoordinates(Graphics2D g, Rectangle board) {
         if (!showNotation) {
             return;

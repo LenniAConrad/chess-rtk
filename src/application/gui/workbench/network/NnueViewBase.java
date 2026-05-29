@@ -23,8 +23,6 @@ import javax.swing.KeyStroke;
 
 import static application.gui.workbench.network.NnueAtlas.*;
 import static application.gui.workbench.network.NnueDrawing.*;
-import static application.gui.workbench.network.NnueFeatureDecoder.*;
-import static application.gui.workbench.network.NnueTraceGeometry.*;
 
 /**
  * Workbench panel that visualises an NNUE half-KP forward pass.

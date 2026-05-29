@@ -1,9 +1,6 @@
 package chess.engine;
 
-import java.util.Arrays;
 
-import chess.core.Move;
-import chess.core.MoveList;
 
 /**
  * Small immutable state records used by {@link AlphaBeta}.

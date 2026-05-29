@@ -104,7 +104,7 @@ public final class EvalBar extends JComponent {
     /**
      * Current score label.
      */
-    private String label = "0.00";
+    String label = "0.00";
 
     /**
      * Animation timer.

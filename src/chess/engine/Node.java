@@ -3,8 +3,6 @@ package chess.engine;
 import java.util.ArrayList;
 import java.util.List;
 
-import chess.classical.Wdl;
-import chess.core.Move;
 import chess.core.Position;
 
 /**

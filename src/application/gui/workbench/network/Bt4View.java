@@ -10,8 +10,6 @@ import java.awt.Font;
 import java.awt.FontMetrics;
 import java.awt.Graphics2D;
 import java.awt.Rectangle;
-import java.util.ArrayList;
-import java.util.List;
 
 /**
  * Workbench panel that visualises an LC0 BT4 transformer forward pass.
@@ -703,24 +701,18 @@ public final class Bt4View extends NetworkView {
     }
 
     /**
-     * Returns the top attention heads by focus score.
+     * Returns the strongest attention-head focus score.
      *
-     * @param limit maximum count
-     * @return sorted picks
+     * @return top focus score
      */
-    private List<HeadPick> topAttentionHeads(int limit) {
-        List<HeadPick> picks = new ArrayList<>();
+    private float topAttentionFocus() {
+        float top = 0.0f;
         for (int b = 0; b < BLOCKS; b++) {
             for (int h = 0; h < HEADS; h++) {
-                float[] energy = headReceivedEnergy(b, h);
-                picks.add(new HeadPick(b, h, energy, headFocusScore(energy)));
+                top = Math.max(top, headFocusScore(headReceivedEnergy(b, h)));
             }
         }
-        picks.sort((a, b) -> Float.compare(b.score, a.score));
-        if (picks.size() > limit) {
-            return new ArrayList<>(picks.subList(0, limit));
-        }
-        return picks;
+        return top;
     }
 
     /**
@@ -1453,8 +1445,7 @@ public final class Bt4View extends NetworkView {
         g.setColor(Theme.MUTED);
         g.setFont(Theme.font(11, Font.PLAIN));
         float selectedFocus = headFocusScore(headReceivedEnergy(selectedBlock, selectedHead));
-        List<HeadPick> top = topAttentionHeads(1);
-        float topFocus = top.isEmpty() ? Math.max(1e-6f, selectedFocus) : Math.max(1e-6f, top.get(0).score);
+        float topFocus = Math.max(1e-6f, topAttentionFocus());
         String text = String.format("importance: %s (%.0f%% of top head) · hottest pair: %s -> %s (%.3f)",
                 attentionImportance(selectedFocus / topFocus),
                 Math.min(100.0f, 100.0f * selectedFocus / topFocus),
@@ -1560,44 +1551,4 @@ public final class Bt4View extends NetworkView {
         return "low";
     }
 
-    /**
-     * One high-focus attention head selected for the BT4 atlas.
-     */
-    private static final class HeadPick {
-
-        /**
-         * Block index.
-         */
-        private final int block;
-
-        /**
-         * Head index.
-         */
-        private final int head;
-
-        /**
-         * Board-shaped mean attention-received pattern.
-         */
-        private final float[] energy;
-
-        /**
-         * Focus score.
-         */
-        private final float score;
-
-        /**
-         * Creates a selected attention-head summary.
-         *
-         * @param block block index
-         * @param head head index
-         * @param energy attention energy map
-         * @param score focus score
-         */
-        HeadPick(int block, int head, float[] energy, float score) {
-            this.block = block;
-            this.head = head;
-            this.energy = energy;
-            this.score = score;
-        }
-    }
 }

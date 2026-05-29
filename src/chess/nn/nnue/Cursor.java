@@ -7,10 +7,6 @@ import java.nio.BufferUnderflowException;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 
-import chess.core.Position;
-import chess.nn.nnue.UpstreamNetwork.Size;
-import chess.nn.nnue.UpstreamNetwork.Variant;
-import utility.Numbers;
 
 /**
  * Little-endian byte cursor with Stockfish LEB128 helpers.

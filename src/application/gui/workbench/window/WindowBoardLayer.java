@@ -1,6 +1,5 @@
 package application.gui.workbench.window;
 
-import application.Config;
 import application.cli.PathOps;
 import application.gui.workbench.audio.SoundCue;
 import application.gui.workbench.audio.SoundService;
@@ -14,15 +13,8 @@ import application.gui.workbench.ui.FileDialogs;
 import application.gui.workbench.ui.SurfacePanel;
 import application.gui.workbench.ui.Theme;
 import application.gui.workbench.ui.Toast;
-import chess.core.Position;
-import chess.core.SAN;
 import chess.core.Setup;
-import chess.struct.Game;
-import chess.uci.Analysis;
-import chess.uci.Engine;
-import chess.uci.Protocol;
 import java.awt.BorderLayout;
-import java.awt.Cursor;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
@@ -49,7 +41,6 @@ import javax.swing.JSlider;
 import javax.swing.JSplitPane;
 import javax.swing.JTabbedPane;
 import javax.swing.JTextArea;
-import javax.swing.JTextField;
 import javax.swing.ListSelectionModel;
 import javax.swing.filechooser.FileNameExtensionFilter;
 

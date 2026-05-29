@@ -8,11 +8,8 @@ import java.awt.Font;
 import java.awt.FontMetrics;
 import java.awt.Graphics2D;
 import java.awt.Rectangle;
-import javax.swing.Scrollable;
 
-import static application.gui.workbench.network.NnueAtlas.*;
 import static application.gui.workbench.network.NnueDrawing.*;
-import static application.gui.workbench.network.NnueFeatureDecoder.*;
 import static application.gui.workbench.network.NnueTraceGeometry.*;
 
 /**

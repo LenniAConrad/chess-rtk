@@ -9,7 +9,6 @@ import application.gui.workbench.ui.FileDialogs;
 import application.gui.workbench.ui.SurfacePanel;
 import application.gui.workbench.ui.Theme;
 import application.gui.workbench.ui.ToggleBox;
-import application.gui.workbench.ui.Ui;
 import application.gui.workbench.ui.WrappingFlowLayout;
 import chess.core.Move;
 import chess.core.Position;
@@ -898,8 +897,7 @@ public final class PuzzlePanel extends JPanel {
         if (session.acceptsDrop(context.defaultMove())) {
             return context.defaultMove();
         }
-        PuzzleSession.MoveResponse response =
-                session.playUserMove(context.defaultMove(), skipSimilarToggle.isSelected());
+        session.playUserMove(context.defaultMove(), skipSimilarToggle.isSelected());
         markWrongMove(context.defaultMove());
         return Move.NO_MOVE;
     }

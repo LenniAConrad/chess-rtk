@@ -28,11 +28,6 @@ public final class ToggleBox extends JCheckBox {
     private static final int PAD_X = 10;
 
     /**
-     * Outer vertical padding.
-     */
-    private static final int PAD_Y = 5;
-
-    /**
      * Gap between label and switch.
      */
     private static final int LABEL_GAP = 9;

@@ -23,7 +23,6 @@ import java.awt.Window;
 import java.awt.event.ActionListener;
 import java.awt.event.HierarchyEvent;
 import java.awt.geom.Path2D;
-import javax.swing.AbstractButton;
 import javax.swing.BorderFactory;
 import javax.swing.DefaultListCellRenderer;
 import javax.swing.JButton;

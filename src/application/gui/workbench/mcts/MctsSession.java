@@ -1,6 +1,5 @@
 package application.gui.workbench.mcts;
 
-import application.gui.workbench.Defaults;
 import application.gui.workbench.network.RealActivations;
 import chess.core.Position;
 import chess.struct.Game;
@@ -55,11 +54,6 @@ public final class MctsSession implements AutoCloseable {
      * Active background worker, if any.
      */
     private SwingWorker<Void, Frame> worker;
-
-    /**
-     * Active search owned by the worker.
-     */
-    private MctsSearch search;
 
     /**
      * Monotonic worker generation used to discard stale frames.
@@ -392,7 +386,6 @@ public final class MctsSession implements AutoCloseable {
                         if (generation != id) {
                             return null;
                         }
-                        search = localSearch;
                     }
                     publishFrame(id, safeConfig, localSearch, false, "running");
                     long lastPublish = 0L;
@@ -407,8 +400,8 @@ public final class MctsSession implements AutoCloseable {
                                 localSearch = createSearch(new Position(request.fen()),
                                         safeConfig.cpuct(), safeConfig.backend());
                                 synchronized (lock) {
-                                    if (generation == id) {
-                                        search = localSearch;
+                                    if (generation != id) {
+                                        return null;
                                     }
                                 }
                                 reused = false;
@@ -495,7 +488,6 @@ public final class MctsSession implements AutoCloseable {
                 }
                 synchronized (lock) {
                     worker = null;
-                    search = null;
                     paused = false;
                 }
                 try {
@@ -553,7 +545,6 @@ public final class MctsSession implements AutoCloseable {
         synchronized (lock) {
             active = worker;
             worker = null;
-            search = null;
             paused = false;
             generation++;
         }

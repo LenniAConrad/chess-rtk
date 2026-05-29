@@ -1,6 +1,5 @@
 package application.gui.workbench.board;
 
-import chess.core.Field;
 import java.awt.Color;
 import java.util.List;
 import java.util.Map;

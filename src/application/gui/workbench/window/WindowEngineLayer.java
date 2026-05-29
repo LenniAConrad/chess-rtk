@@ -23,7 +23,6 @@ import java.util.concurrent.ExecutionException;
 import javax.swing.JTextField;
 import javax.swing.SwingWorker;
 
-import static application.gui.workbench.ui.Ui.label;
 import static application.gui.workbench.ui.Ui.trimmed;
 
 /**

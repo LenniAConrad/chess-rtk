@@ -1,6 +1,5 @@
 package chess.engine;
 
-import chess.core.Move;
 
 /**
  * Direct-mapped search caches used by {@link AlphaBeta}.

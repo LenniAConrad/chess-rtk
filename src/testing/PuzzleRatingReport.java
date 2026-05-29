@@ -937,30 +937,6 @@ final class PuzzleRatingReport {
     }
 
     /**
-     * Builds solver-shape rows.
-     * @param rows data rows
-     * @return solver rows result
-     */
-    private static String[][] solverRows(List<PuzzleRatingRow> rows) {
-        String[] names = { "Very easy", "Easy", "Medium", "Hard", "Very hard" };
-        int[] lo = { 600, 1040, 1370, 1810, 2140 };
-        int[] hi = { 1039, 1369, 1809, 2139, 3000 };
-        String[][] out = new String[names.length][6];
-        for (int i = 0; i < names.length; i++) {
-            List<PuzzleRatingRow> bucket = rowsInRange(rows, lo[i], hi[i]);
-            out[i] = new String[] {
-                    names[i],
-                    avg(bucket, PuzzleRatingRow::legalMoves),
-                    avg(bucket, PuzzleRatingRow::cheapRank),
-                    avg(bucket, PuzzleRatingRow::plies),
-                    avg(bucket, PuzzleRatingRow::nodes),
-                    pct(bucket.stream().filter(row -> "draw".equals(row.goal())).count(), bucket.size())
-            };
-        }
-        return out;
-    }
-
-    /**
      * Builds top feature rows.
      * @param rows data rows
      * @return feature rows result

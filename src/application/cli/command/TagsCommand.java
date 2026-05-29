@@ -475,7 +475,7 @@ public final class TagsCommand {
                 tags = Sort.sort(merged);
             }
         }
-        cache.put(fen, new TagEntry(tags, analysis));
+        cache.put(fen, new TagEntry(tags));
         return includeFen ? withFen(tags, fen) : tags;
     }
 
@@ -787,21 +787,14 @@ public final class TagsCommand {
          * Stores the tags.
          */
          private final List<String> tags;
-         /**
-         * Stores the analysis.
-         */
-private final Analysis analysis;
-
-         /**
-         * Creates a new tag entry instance.
-         * @param tags tags
-         * @param analysis analysis
-         */
-         private TagEntry(List<String> tags, Analysis analysis) {
-            this.tags = tags;
-            this.analysis = analysis;
-        }
-    }
+	         /**
+	         * Creates a new tag entry instance.
+	         * @param tags tags
+	         */
+	         private TagEntry(List<String> tags) {
+	            this.tags = tags;
+	        }
+	    }
 
      /**
      * Provides tags options behavior.

@@ -16,7 +16,6 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
-import chess.core.Move;
 import chess.pdf.document.Canvas;
 import chess.pdf.document.Document;
 import chess.pdf.document.Font;
@@ -1334,23 +1333,6 @@ final class PuzzleVolatilityOutput {
     }
 
     /**
-     * Builds output-health rows.
-     * @param stats statistics data
-     * @return output health rows result
-     */
-    private static String[][] outputHealthRows(ReportStats stats) {
-        return new String[][] {
-                { "Stacks scanned", num(stats.rootStacks()) },
-                { "Changed stacks", num(stats.changedStacks()) + " (" + pct(stats.changedStacks(), stats.rootStacks()) + ")" },
-                { "Changed nodes", num(stats.changedNodes()) },
-                { "Reversal stacks", num(stats.reversalStacks()) },
-                { "Swing span", stats.minSwing() + "-" + stats.maxSwing() },
-                { "Score sources", stats.scoreSources() },
-                { "CSV scope", "changed only" }
-        };
-    }
-
-    /**
      * Computes report-wide PDF statistics.
      * @param reports report data rows
      * @return report stats result
@@ -1617,20 +1599,6 @@ final class PuzzleVolatilityOutput {
     }
 
     /**
-     * Limits long body text.
-     * @param text text value
-     * @param maxChars max chars value
-     * @return fit chars result
-     */
-    private static String fitChars(String text, int maxChars) {
-        String safe = text == null ? "" : text;
-        if (safe.length() <= maxChars) {
-            return safe;
-        }
-        return safe.substring(0, Math.max(0, maxChars - 3)).stripTrailing() + "...";
-    }
-
-    /**
      * Formats an empty value as a dash.
      * @param value value to use
      * @return empty dash result
@@ -1754,24 +1722,6 @@ final class PuzzleVolatilityOutput {
             case "losing" -> "Lose";
             case "drawish" -> "Draw";
             default -> direction == null || direction.isBlank() ? "-" : direction;
-        };
-    }
-
-    /**
-     * Human-readable direction label for narrative text.
-     * @param direction direction value
-     * @return direction label result
-     */
-    private static String directionLabel(String direction) {
-        return switch (direction == null ? "" : direction) {
-            case "losing_to_winning" -> "losing to winning";
-            case "winning_to_losing" -> "winning to losing";
-            case "drawish_to_winning" -> "drawish to winning";
-            case "drawish_to_losing" -> "drawish to losing";
-            case "unclear_to_winning" -> "unclear to winning";
-            case "unclear_to_losing" -> "unclear to losing";
-            case "both_reversals" -> "both reversal directions";
-            default -> direction == null || direction.isBlank() ? "unknown direction" : direction.replace('_', ' ');
         };
     }
 

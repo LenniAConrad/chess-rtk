@@ -1,7 +1,6 @@
 package application.gui.workbench.mcts;
 
 import application.gui.workbench.board.BoardStyle;
-import application.gui.workbench.mcts.MctsSearch;
 import application.gui.workbench.network.TensorViz;
 import application.gui.workbench.ui.NotationPainter;
 import application.gui.workbench.ui.Theme;

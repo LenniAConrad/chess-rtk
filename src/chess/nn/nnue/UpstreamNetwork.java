@@ -11,7 +11,6 @@ import chess.core.Move;
 import chess.core.Piece;
 import chess.core.Position;
 import chess.gpu.BackendNames;
-import utility.Numbers;
 
 /**
  * Loader and pure-Java evaluator for modern Stockfish NNUE files.

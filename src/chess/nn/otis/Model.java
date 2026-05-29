@@ -71,11 +71,6 @@ public final class Model implements AutoCloseable {
     private static final int SQUARES = 64;
 
     /**
-     * Piece planes: own P/N/B/R/Q/K, opponent P/N/B/R/Q/K.
-     */
-    private static final int PIECE_PLANES = 12;
-
-    /**
      * Side-to-move-oriented piece-state channels: empty plus six us/them pieces.
      */
     public static final int PIECE_STATE_PLANES = 13;
@@ -1704,17 +1699,6 @@ public final class Model implements AutoCloseable {
      */
     private static boolean isOwn(byte piece, boolean whiteToMove) {
         return piece != Piece.EMPTY && Piece.isWhitePiece(piece) == whiteToMove;
-    }
-
-    /**
-     * Returns occupancy over input plane range.
-     */
-    private static float occupancy(float[] input, int square, int startPlane, int endPlane) {
-        float sum = 0.0f;
-        for (int plane = startPlane; plane < endPlane; plane++) {
-            sum += input[plane * SQUARES + square];
-        }
-        return Math.min(1.0f, sum);
     }
 
     /**

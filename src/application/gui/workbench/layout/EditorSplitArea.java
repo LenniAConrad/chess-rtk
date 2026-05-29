@@ -128,7 +128,7 @@ public final class EditorSplitArea extends JPanel {
     /**
      * Root split pane when more than one editor group is visible.
      */
-    private JSplitPane splitPane;
+    JSplitPane splitPane;
 
     /**
      * All live split panes.
@@ -945,7 +945,13 @@ public final class EditorSplitArea extends JPanel {
         MenuSelectionManager.defaultManager().clearSelectedPath();
     }
 
-    private void splitWithDragged(int draggedPanelIndex, boolean draggedInPrimary) {
+    /**
+     * Splits by dragging a tab toward the primary or secondary side.
+     *
+     * @param draggedPanelIndex dragged tab index
+     * @param draggedInPrimary true to split left, false to split right
+     */
+    void splitWithDragged(int draggedPanelIndex, boolean draggedInPrimary) {
         splitWithDragged(draggedPanelIndex, draggedInPrimary ? DROP_LEFT : DROP_RIGHT);
     }
 

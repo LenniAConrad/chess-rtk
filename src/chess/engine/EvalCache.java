@@ -1,6 +1,5 @@
 package chess.engine;
 
-import chess.core.Move;
 
 /**
  * Fixed-size direct-mapped evaluation cache.

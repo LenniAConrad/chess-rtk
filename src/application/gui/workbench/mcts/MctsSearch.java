@@ -873,8 +873,8 @@ public final class MctsSearch implements AutoCloseable {
      * @param position position to evaluate
      * @return scalar evaluation
      */
-    private double evaluate(Position position) {
-    return evaluatePosition(position).value();
+    double evaluate(Position position) {
+        return evaluatePosition(position).value();
     }
 
     /**
@@ -1657,7 +1657,7 @@ public final class MctsSearch implements AutoCloseable {
      * @return shared stats bucket
      */
     private Stats statsFor(long key) {
-        return transpositions.computeIfAbsent(key, Stats::new);
+        return transpositions.computeIfAbsent(key, ignored -> new Stats());
     }
 
     /**
@@ -1721,11 +1721,6 @@ public final class MctsSearch implements AutoCloseable {
      */
     private static final class Stats {
         /**
-         * Position signature.
-         */
-        private final long key;
-
-        /**
          * Visit count.
          */
         private int visits;
@@ -1749,15 +1744,6 @@ public final class MctsSearch implements AutoCloseable {
          * Sum of loss probabilities.
          */
         private double lossSum;
-
-        /**
-         * Creates a stats bucket.
-         *
-         * @param key position signature
-         */
-        private Stats(long key) {
-            this.key = key;
-        }
 
         /**
          * Returns average scalar value.

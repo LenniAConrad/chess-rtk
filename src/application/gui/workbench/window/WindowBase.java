@@ -33,12 +33,7 @@ import application.gui.workbench.ui.EvalBar;
 import application.gui.workbench.ui.TagCloud;
 import application.gui.workbench.ui.Toast;
 import application.gui.workbench.ui.ToggleBox;
-import chess.core.Move;
 import chess.core.Position;
-import chess.core.SAN;
-import chess.struct.Game;
-import chess.uci.Analysis;
-import chess.uci.Engine;
 import java.awt.FlowLayout;
 import java.util.ArrayList;
 import java.util.List;
@@ -59,8 +54,6 @@ import javax.swing.SpinnerNumberModel;
 import javax.swing.SwingWorker;
 import javax.swing.Timer;
 
-import static application.gui.workbench.ui.Ui.button;
-import static application.gui.workbench.ui.Ui.label;
 import static application.gui.workbench.ui.Ui.transparentPanel;
 import static application.gui.workbench.ui.Ui.withTooltip;
 

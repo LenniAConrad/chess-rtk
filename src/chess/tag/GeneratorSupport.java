@@ -19,16 +19,6 @@ import chess.core.Position;
 final class GeneratorSupport {
 
     /**
-     * Minimum move-count gap used to report mobility outliers.
-     */
-    private static final int MOBILITY_OUTLIER_THRESHOLD = 6;
-
-    /**
-     * Maximum legal-move count treated as restricted mobility.
-     */
-    private static final int MOBILITY_RESTRICTED_THRESHOLD = 5;
-
-    /**
      * Utility class; prevent instantiation.
      */
     private GeneratorSupport() {

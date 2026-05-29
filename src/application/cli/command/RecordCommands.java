@@ -2,7 +2,6 @@ package application.cli.command;
 
 import static application.cli.Constants.OPT_FILTER;
 import static application.cli.Constants.OPT_FILTER_SHORT;
-import static application.cli.Constants.OPT_INCLUDE_ENGINE_METADATA;
 import static application.cli.Constants.OPT_INPUT;
 import static application.cli.Constants.OPT_INPUT_SHORT;
 import static application.cli.Constants.OPT_MAX_RECORDS;
@@ -34,40 +33,28 @@ import static application.cli.command.RecordCommandSupport.fileProgressBar;
 import static application.cli.command.RecordCommandSupport.finishProgress;
 import static application.cli.command.RecordCommandSupport.requireReadableFile;
 
-import java.io.BufferedWriter;
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
-import java.util.Set;
 
 import application.Config;
 import application.console.Bar;
-import chess.core.Move;
 import chess.io.Converter;
 import chess.io.ClassifierDatasetExporter;
 import chess.io.PuzzleEloExporter;
 import chess.io.RecordPgnExporter;
 import chess.io.Writer;
-import chess.nn.lc0.cnn.Encoder;
-import chess.nn.lc0.cnn.Network;
-import chess.nn.lc0.cnn.PolicyEncoder;
 import chess.struct.Record;
-import chess.uci.Chances;
-import chess.uci.Evaluation;
 import chess.uci.Filter;
 import chess.uci.Filter.FilterDSL;
-import chess.uci.Output;
 import utility.Argv;
-import utility.Json;
 
 import static application.cli.RecordIO.streamRecordJson;
 
@@ -97,33 +84,9 @@ public final class RecordCommands {
 	 */
 	private static final String EXT_RECORD = ".record";
 	/**
-	 * Shared ext puzzle jsonl constant.
-	 */
-	private static final String EXT_PUZZLE_JSONL = ".puzzle.jsonl";
-	/**
 	 * Shared Elo-rated puzzle jsonl constant.
 	 */
 	private static final String EXT_PUZZLE_ELO_JSONL = ".puzzle-elo.jsonl";
-	/**
-	 * Shared ext training jsonl constant.
-	 */
-	private static final String EXT_TRAINING_JSONL = ".training.jsonl";
-	/**
-	 * Shared puzzle jsonl format name constant.
-	 */
-	private static final String PUZZLE_JSONL_FORMAT_NAME = "puzzle-jsonl";
-	/**
-	 * Shared label known non puzzle constant.
-	 */
-	private static final String LABEL_KNOWN_NON_PUZZLE = "known_non_puzzle";
-	/**
-	 * Shared label verified near puzzle constant.
-	 */
-	private static final String LABEL_VERIFIED_NEAR_PUZZLE = "verified_near_puzzle";
-	/**
-	 * Shared label verified puzzle constant.
-	 */
-	private static final String LABEL_VERIFIED_PUZZLE = "verified_puzzle";
 	/**
 	 * Current command label for plain export diagnostics.
 	 */
@@ -137,17 +100,9 @@ public final class RecordCommands {
 	 */
 	private static final String COMMAND_RECORD_DATASET_CLASSIFIER = "record dataset classifier";
 	/**
-	 * Shared puzzle-jsonl command label constant.
-	 */
-	private static final String COMMAND_RECORD_EXPORT_PUZZLE_JSONL = "record export puzzle-jsonl";
-	/**
 	 * Shared Elo-rated puzzle export command label constant.
 	 */
 	private static final String COMMAND_RECORD_EXPORT_PUZZLE_ELO_JSONL = "record export puzzle-elo-jsonl";
-	/**
-	 * Shared training-jsonl command label constant.
-	 */
-	private static final String COMMAND_RECORD_EXPORT_TRAINING_JSONL = "record export training-jsonl";
 	/**
 	 * Shared positional input hint constant.
 	 */

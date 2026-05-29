@@ -9,15 +9,11 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
-import java.util.Random;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import chess.book.model.Book;
 import chess.book.model.Element;
-import chess.core.Move;
-import chess.core.Position;
-import chess.images.render.Render;
 import chess.pdf.document.Canvas;
 import chess.pdf.document.Document;
 import chess.pdf.document.Font;

@@ -2,9 +2,6 @@ package chess.tag;
 
 import static chess.tag.core.Literals.*;
 
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
 
 import chess.core.Field;
 import chess.core.Piece;

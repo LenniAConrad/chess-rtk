@@ -1,12 +1,7 @@
 package testing;
 
-import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Graphics2D;
-import java.awt.RenderingHints;
-import java.awt.geom.AffineTransform;
-import java.awt.geom.Path2D;
-import java.awt.image.BufferedImage;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.IOException;
@@ -21,29 +16,14 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import javax.imageio.ImageIO;
 
-import application.cli.RecordIO;
-import chess.book.render.MoveText;
-import chess.book.render.NotationPieceSvg;
-import chess.book.collection.Builder;
 import chess.core.Move;
-import chess.core.MoveList;
 import chess.core.Position;
 import chess.core.SAN;
-import chess.images.render.Render;
 import chess.pdf.document.Canvas;
-import chess.pdf.document.Document;
 import chess.pdf.document.Font;
-import chess.pdf.document.Page;
-import chess.pdf.document.PageSize;
-import chess.uci.Analysis;
-import chess.uci.Evaluation;
-import chess.uci.Output;
-import utility.Json;
 
 /**
  * Redraws report artifacts from an already scored puzzle CSV without changing

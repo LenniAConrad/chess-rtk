@@ -901,23 +901,6 @@ public final class PublishingPanel {
      *
      * @param panel target panel
      * @param c shared constraints
-     * @param labelText row label
-     * @param field path field
-     * @param buttonText chooser button text
-     * @param row grid row
-     * @param chooserAction chooser action
-     * @return chooser button
-     */
-    private JButton addChooserRow(JPanel panel, GridBagConstraints c, String labelText, JTextField field,
-            String buttonText, int row, Runnable chooserAction) {
-    return addChooserRow(panel, c, label(labelText), field, buttonText, row, chooserAction);
-    }
-
-    /**
-     * Adds a publishing path row with a matching chooser button.
-     *
-     * @param panel target panel
-     * @param c shared constraints
      * @param rowLabel row label
      * @param field path field
      * @param buttonText chooser button text

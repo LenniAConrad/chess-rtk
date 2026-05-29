@@ -15,15 +15,9 @@ import application.gui.workbench.ui.SettingsChipRow;
 import application.gui.workbench.ui.Theme;
 import application.gui.workbench.ui.Toast;
 import application.gui.workbench.ui.Ui;
-import chess.core.Move;
-import chess.core.Position;
-import chess.uci.Analysis;
-import chess.uci.Engine;
 import java.awt.BorderLayout;
 import java.awt.Component;
-import java.awt.Font;
 import java.awt.GridBagConstraints;
-import java.awt.GridBagLayout;
 import java.awt.KeyboardFocusManager;
 import java.awt.event.ActionEvent;
 import java.awt.event.KeyEvent;
@@ -47,11 +41,8 @@ import javax.swing.SwingUtilities;
 import javax.swing.text.JTextComponent;
 
 import static application.gui.workbench.ui.Ui.changeListener;
-import static application.gui.workbench.ui.Ui.constraints;
 import static application.gui.workbench.ui.Ui.grid;
-import static application.gui.workbench.ui.Ui.label;
 import static application.gui.workbench.ui.Ui.placeholder;
-import static application.gui.workbench.ui.Ui.transparentPanel;
 import static application.gui.workbench.ui.Ui.trimmed;
 
 /**

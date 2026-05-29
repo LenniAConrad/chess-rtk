@@ -11,12 +11,10 @@ import java.awt.Rectangle;
 import java.awt.RenderingHints;
 import java.util.ArrayList;
 import java.util.List;
-import javax.swing.Scrollable;
 
 import static application.gui.workbench.network.NnueAtlas.*;
 import static application.gui.workbench.network.NnueDrawing.*;
 import static application.gui.workbench.network.NnueFeatureDecoder.*;
-import static application.gui.workbench.network.NnueTraceGeometry.*;
 
 /**
  * Workbench panel that visualises an NNUE half-KP forward pass.
@@ -158,14 +156,12 @@ public abstract class NnueAtlasView extends NnueViewBase {
 
         Integer[] order = sortNeurons(rawAtlas, output, hidden, planes, squares);
         float[] perNeuronScale = computePerNeuronScale(paintingData, hidden, planes, squares);
-        float[] overlayMagnitudes = computeOverlayMagnitudes(hidden);
         java.awt.image.BufferedImage wholePlaneImage = squares == 64
                 ? atlasPlaneImage(paintingData, order, hidden, planes, squares, perNeuronScale)
                 : null;
         atlasPaintFrame = new AtlasPaintFrame(snapshot, rawAtlas, output, compareSnapshot,
                 compareAtlas, atlasSort, selectedBoardSquare, hidden, planes, squares,
-                paletteKey, paintingData, subtitle, order, perNeuronScale,
-                overlayMagnitudes, wholePlaneImage);
+                paletteKey, paintingData, subtitle, order, perNeuronScale, wholePlaneImage);
         return atlasPaintFrame;
     }
 
@@ -625,7 +621,6 @@ public abstract class NnueAtlasView extends NnueViewBase {
                     feature.kingSquare, feature.pieceCode, feature.pieceSquare);
             g.setColor(Theme.TEXT);
             g.setFont(Theme.font(10, Font.PLAIN));
-            FontMetrics fm = g.getFontMetrics();
             String label = decodeUsHalfKP(featureIdx);
             int valueW = 86;
             NotationPainter.draw(g, label, line.x + glyph + 8, line.y + 16,
@@ -1196,11 +1191,6 @@ public abstract class NnueAtlasView extends NnueViewBase {
         private final float[] perNeuronScale;
 
         /**
-         * Optional output-overlay magnitudes.
-         */
-        private final float[] overlayMagnitudes;
-
-        /**
          * Cached whole pixel-plane atlas raster.
          */
         private final java.awt.image.BufferedImage wholePlaneImage;
@@ -1223,15 +1213,13 @@ public abstract class NnueAtlasView extends NnueViewBase {
          * @param subtitle header subtitle
          * @param order slot render order
          * @param perNeuronScale per-slot scale
-         * @param overlayMagnitudes overlay magnitudes
          * @param wholePlaneImage whole-atlas raster
          */
         AtlasPaintFrame(ActivationSnapshot snapshot, float[] rawAtlas, float[] output,
                 ActivationSnapshot compareSnapshot, float[] compareAtlas, String sortMode,
                 int selectedSquare, int hidden, int planes, int squares, int paletteKey,
                 float[] paintingData, String subtitle, Integer[] order,
-                float[] perNeuronScale, float[] overlayMagnitudes,
-                java.awt.image.BufferedImage wholePlaneImage) {
+                float[] perNeuronScale, java.awt.image.BufferedImage wholePlaneImage) {
             this.snapshot = snapshot;
             this.rawAtlas = rawAtlas;
             this.output = output;
@@ -1247,7 +1235,6 @@ public abstract class NnueAtlasView extends NnueViewBase {
             this.subtitle = subtitle;
             this.order = order;
             this.perNeuronScale = perNeuronScale;
-            this.overlayMagnitudes = overlayMagnitudes;
             this.wholePlaneImage = wholePlaneImage;
         }
 

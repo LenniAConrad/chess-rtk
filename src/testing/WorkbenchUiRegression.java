@@ -8,18 +8,14 @@ import java.awt.Container;
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Font;
-import java.awt.event.ActionListener;
 import java.awt.event.MouseEvent;
 import java.awt.image.BufferedImage;
 import java.io.File;
-import java.lang.reflect.Proxy;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.Consumer;
-import java.util.function.Supplier;
 
 import javax.swing.BorderFactory;
 import javax.swing.AbstractButton;
@@ -62,7 +58,6 @@ import application.gui.workbench.layout.FlatTabbedPaneUI;
 import application.gui.workbench.board.MarkupBrush;
 import application.gui.workbench.dataset.DatasetChart;
 import application.gui.workbench.network.TensorViz;
-import application.gui.workbench.ui.ChipGroup;
 import application.gui.workbench.ui.FileDialogs;
 import application.gui.workbench.ui.SettingsChipRow;
 import application.gui.workbench.ui.TagCloud;
@@ -71,9 +66,6 @@ import application.gui.workbench.ui.Ui;
 import application.gui.workbench.window.LayoutMenu;
 import application.gui.workbench.window.SettingsMenu;
 
-import chess.core.Move;
-import chess.struct.Game;
-import chess.uci.Output;
 
 /**
  * Theme, control, editor-shell, and layout regression checks.
@@ -1333,69 +1325,6 @@ final class WorkbenchUiRegression {
             }
         }
         throw new AssertionError("missing popup item " + text);
-    }
-
-    /**
-     * Finds a named component inside a component tree.
-     *
-     * @param <T> component type
-     * @param root root component
-     * @param type component type
-     * @param name component name
-     * @return matching component
-     */
-    private static <T extends Component> T namedComponent(Component root, Class<T> type, String name) {
-        if (type.isInstance(root) && name.equals(root.getName())) {
-            return type.cast(root);
-        }
-        if (root instanceof Container container) {
-            for (Component child : container.getComponents()) {
-                try {
-                    return namedComponent(child, type, name);
-                } catch (AssertionError ex) {
-                    // continue searching sibling branches
-                }
-            }
-        }
-        throw new AssertionError("missing component " + name);
-    }
-
-    /**
-     * Finds a button by text inside a component tree.
-     *
-     * @param root root component
-     * @param text button text
-     * @return matching button
-     */
-    private static JButton button(Component root, String text) {
-        if (root instanceof JButton button && text.equals(button.getText())) {
-            return button;
-        }
-        if (root instanceof Container container) {
-            for (Component child : container.getComponents()) {
-                try {
-                    return button(child, text);
-                } catch (AssertionError ex) {
-                    // continue searching sibling branches
-                }
-            }
-        }
-        throw new AssertionError("missing button " + text);
-    }
-
-    /**
-     * Simulates a mouse press on a two-choice chip group.
-     *
-     * @param chips chip group
-     * @param index chip index
-     */
-    private static void clickChip(ChipGroup chips, int index) {
-        Dimension size = chips.getPreferredSize();
-        chips.setSize(size);
-        int x = index == 0 ? 6 : size.width - 6;
-        MouseEvent event = new MouseEvent(chips, MouseEvent.MOUSE_PRESSED,
-                System.currentTimeMillis(), 0, x, size.height / 2, 1, false, MouseEvent.BUTTON1);
-        chips.dispatchEvent(event);
     }
 
     /**

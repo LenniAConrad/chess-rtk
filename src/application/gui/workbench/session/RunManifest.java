@@ -234,22 +234,6 @@ public final class RunManifest {
     }
 
     /**
-     * Serializes output artifact path entries.
-     *
-     * @param paths artifact paths
-     * @return JSON array
-     */
-    private static String pathEntries(List<Path> paths) {
-        List<PathEntry> entries = new ArrayList<>();
-        for (Path path : paths) {
-            if (path != null) {
-                entries.add(new PathEntry("artifact", path));
-            }
-        }
-    return serializePathEntries(entries);
-    }
-
-    /**
      * Serializes declared output paths plus detected artifact paths.
      *
      * @param args command arguments

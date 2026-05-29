@@ -1,13 +1,11 @@
 package chess.puzzle;
 
-import java.util.ArrayList;
 import java.util.List;
 
 import chess.core.Move;
 import chess.core.MoveList;
 import chess.core.Piece;
 import chess.core.Position;
-import chess.core.SAN;
 import chess.eval.CentipawnEvaluator;
 import chess.uci.Analysis;
 import chess.uci.Evaluation;
@@ -1429,18 +1427,6 @@ public final class Scorer {
             return 0.0;
         }
         return Numbers.clamp01(tree.nonforcingMoveCount / (double) tree.nodeCount);
-    }
-
-    /**
-     * Clamps a value into an arbitrary inclusive range.
-     *
-     * @param value input value
-     * @param min minimum value
-     * @param max maximum value
-     * @return clamped value
-     */
-    private static double clamp(double value, double min, double max) {
-        return Math.max(min, Math.min(max, value));
     }
 
     /**

@@ -433,11 +433,6 @@ public final class NetworkPanel extends JPanel {
     private volatile String mctsStreamCardKey = ARCH_NNUE;
 
     /**
-     * View mode currently used for MCTS follow-leaf streaming.
-     */
-    private volatile ViewMode mctsStreamViewMode = ViewMode.ABSTRACT;
-
-    /**
      * Latest MCTS leaf FEN.
      */
     private String mctsLeafFen;
@@ -989,7 +984,6 @@ public final class NetworkPanel extends JPanel {
 
     private void propagateViewMode() {
         ViewMode mode = selectedViewMode();
-        mctsStreamViewMode = mode;
         nnueView.setViewMode(mode);
         cnnView.setViewMode(mode);
         bt4View.setViewMode(mode);

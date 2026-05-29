@@ -8,7 +8,6 @@ import chess.core.Piece;
 import chess.core.Position;
 import chess.core.SAN;
 import chess.eval.CentipawnEvaluator;
-import chess.puzzle.Scorer.NodeScore;
 import chess.puzzle.Scorer.PuzzleTreeSummary;
 
 /**

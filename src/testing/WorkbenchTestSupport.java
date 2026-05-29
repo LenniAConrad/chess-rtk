@@ -25,7 +25,6 @@ import javax.swing.border.CompoundBorder;
 import javax.swing.border.LineBorder;
 import javax.swing.border.MatteBorder;
 
-import application.gui.workbench.ui.Theme;
 
 import chess.core.Field;
 import chess.struct.Game;
@@ -990,13 +989,19 @@ final class WorkbenchTestSupport {
      * @return field value
      */
     static Object staticField(Class<?> owner, String name) {
-        try {
-            java.lang.reflect.Field reflectedField = owner.getDeclaredField(name);
-            reflectedField.setAccessible(true);
-            return reflectedField.get(null);
-        } catch (ReflectiveOperationException ex) {
-            throw new AssertionError("could not read " + owner.getName() + "." + name, ex);
+        Class<?> cursor = owner;
+        while (cursor != null) {
+            try {
+                java.lang.reflect.Field reflectedField = cursor.getDeclaredField(name);
+                reflectedField.setAccessible(true);
+                return reflectedField.get(null);
+            } catch (NoSuchFieldException ex) {
+                cursor = cursor.getSuperclass();
+            } catch (IllegalAccessException ex) {
+                throw new AssertionError("could not read " + owner.getName() + "." + name, ex);
+            }
         }
+        throw new AssertionError("could not read " + owner.getName() + "." + name);
     }
 
     /**

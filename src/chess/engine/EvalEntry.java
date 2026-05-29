@@ -1,6 +1,5 @@
 package chess.engine;
 
-import chess.core.Move;
 
 /**
  * Mutable static-evaluation cache entry.

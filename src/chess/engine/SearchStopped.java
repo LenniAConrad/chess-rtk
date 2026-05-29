@@ -1,9 +1,6 @@
 package chess.engine;
 
-import java.util.Arrays;
 
-import chess.core.Move;
-import chess.core.MoveList;
 
 /**
  * Exception used to stop recursive search without stack traces.

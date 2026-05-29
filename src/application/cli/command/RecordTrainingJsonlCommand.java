@@ -983,17 +983,6 @@ final class RecordTrainingJsonlCommand {
 	}
 	/**
 	 * Handles collect record inputs or exit.
-	 * @param inputs inputs
-	 * @param recursive recursive
-	 * @param verbose verbose
-	 * @return computed value
-	 */
-	private static List<Path> collectRecordInputsOrExit(List<String> inputs, boolean recursive, boolean verbose) {
-		return collectRecordInputsOrExit("records", inputs, recursive, verbose);
-	}
-
-	/**
-	 * Handles collect record inputs or exit.
 	 * @param command command
 	 * @param inputs inputs
 	 * @param recursive recursive

@@ -14,10 +14,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
-import javax.swing.Icon;
 import javax.swing.JButton;
 import javax.swing.JComponent;
-import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JMenuItem;
 import javax.swing.JPopupMenu;
@@ -779,90 +777,6 @@ final class WorkbenchUiEditorRegression {
                 "MCTS default visit budget is lightweight");
         assertEquals(Boolean.FALSE, staticField(defaults, "NETWORK_MCTS_FOLLOW_LEAF"),
                 "Network MCTS does not re-infer every leaf by default");
-    }
-
-    /**
-     * Runs layout recursively after the root component receives a test size.
-     *
-     * @param component root component
-     */
-    private static void layoutTree(Component component) {
-        if (component instanceof Container container) {
-            container.doLayout();
-            for (Component child : container.getComponents()) {
-                layoutTree(child);
-            }
-        }
-    }
-
-    /**
-     * Verifies visible descendants stay within their immediate parent bounds.
-     *
-     * @param container parent container
-     * @param label assertion label
-     */
-    private static void assertVisibleChildrenInside(Container container, String label) {
-        for (Component child : container.getComponents()) {
-            if (!child.isVisible()) {
-                continue;
-            }
-            int overflowX = child.getX() + child.getWidth() - container.getWidth();
-            int overflowY = child.getY() + child.getHeight() - container.getHeight();
-            if (child.getX() < 0 || child.getY() < 0 || overflowX > 1 || overflowY > 1) {
-                throw new AssertionError(label + " clips " + child.getClass().getSimpleName()
-                        + " bounds=" + child.getBounds() + " parent="
-                        + container.getWidth() + "x" + container.getHeight());
-            }
-            if (child instanceof Container childContainer) {
-                assertVisibleChildrenInside(childContainer, label);
-            }
-        }
-    }
-
-    /**
-     * Paints an icon into a transparent image.
-     *
-     * @param icon icon to paint
-     * @return painted image
-     */
-    private static BufferedImage paintIcon(Icon icon) {
-        BufferedImage image = new BufferedImage(icon.getIconWidth(), icon.getIconHeight(),
-                BufferedImage.TYPE_INT_ARGB);
-        java.awt.Graphics2D g = image.createGraphics();
-        try {
-            icon.paintIcon(new JLabel(), g, 0, 0);
-        } finally {
-            g.dispose();
-        }
-        return image;
-    }
-
-    /**
-     * Returns the average color of non-transparent icon pixels.
-     *
-     * @param image source image
-     * @return average paint color
-     */
-    private static Color averagePaintColor(BufferedImage image) {
-        long red = 0L;
-        long green = 0L;
-        long blue = 0L;
-        long count = 0L;
-        for (int y = 0; y < image.getHeight(); y++) {
-            for (int x = 0; x < image.getWidth(); x++) {
-                Color pixel = new Color(image.getRGB(x, y), true);
-                if (pixel.getAlpha() > 32) {
-                    red += pixel.getRed();
-                    green += pixel.getGreen();
-                    blue += pixel.getBlue();
-                    count++;
-                }
-            }
-        }
-        if (count == 0L) {
-            return new Color(0, 0, 0, 0);
-        }
-        return new Color((int) (red / count), (int) (green / count), (int) (blue / count));
     }
 
     /**

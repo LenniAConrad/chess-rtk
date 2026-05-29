@@ -1,6 +1,5 @@
 package application.gui.workbench.game;
 
-import chess.core.Move;
 
 /**
  * Normalized move-tree node used by the native puzzle trainer.
