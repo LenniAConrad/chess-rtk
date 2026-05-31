@@ -404,18 +404,22 @@ public final class AlphaBeta implements AutoCloseable {
         int generationStart = shared ? generationBase : 0;
         int threads = Math.max(1, searchThreads);
         if (threads == 1) {
-            return runWorker(position, started, limits, listener, table, generationStart, shared, true);
+            return runWorker(position, started, limits, listener, table, generationStart, shared, true, 0);
         }
 
         // Lazy SMP: helper threads share the transposition table and deepen the
-        // main thread's search by cross-pollinating cutoffs and best moves. The
-        // main thread (thread 0) owns the returned result, the listener, and the
+        // main thread's search by cross-pollinating cutoffs and best moves. Each
+        // helper skips a different subset of iterative-deepening depths (see
+        // skipIteration) so the threads explore different depths concurrently and
+        // fill the table diversely instead of duplicating one search. The main
+        // thread (index 0) owns the returned result, the listener, and the
         // shared-table generation bookkeeping; helpers only fill the table.
         List<Thread> helpers = new ArrayList<>();
         for (int t = 1; t < threads; t++) {
+            final int threadIndex = t;
             Thread helper = new Thread(() -> {
                 try {
-                    runWorker(position, started, limits, null, table, generationStart, shared, false);
+                    runWorker(position, started, limits, null, table, generationStart, shared, false, threadIndex);
                 } catch (RuntimeException ignored) {
                     // a failed helper must not abort the main search
                 }
@@ -424,7 +428,7 @@ public final class AlphaBeta implements AutoCloseable {
             helpers.add(helper);
             helper.start();
         }
-        Result best = runWorker(position, started, limits, listener, table, generationStart, shared, true);
+        Result best = runWorker(position, started, limits, listener, table, generationStart, shared, true, 0);
         for (Thread helper : helpers) {
             try {
                 helper.join();
@@ -458,7 +462,8 @@ public final class AlphaBeta implements AutoCloseable {
             TranspositionTable table,
             int generationStart,
             boolean shared,
-            boolean manageGeneration) {
+            boolean manageGeneration,
+            int threadIndex) {
         Position root = position.copy();
         MoveList legalMoves = root.legalMoves();
         try (SearchContext context =
@@ -474,6 +479,12 @@ public final class AlphaBeta implements AutoCloseable {
             }
             short preferred = best.bestMove();
             for (int depth = 1; depth <= limits.depth(); depth++) {
+                if (threadIndex > 0 && skipIteration(threadIndex, depth)) {
+                    // Helper diversification: this thread skips this depth so the
+                    // pool covers different depths at once (Lazy SMP). The main
+                    // thread (index 0) never skips, so the result is unaffected.
+                    continue;
+                }
                 try {
                     context.newIteration();
                     RootOutcome outcome = searchRootWithAspiration(
@@ -519,6 +530,35 @@ public final class AlphaBeta implements AutoCloseable {
         if (shared) {
             generationBase = context.generation + 1;
         }
+    }
+
+    /**
+     * Per-helper iterative-deepening skip pattern (the classic Lazy SMP scheme).
+     * Helper threads skip runs of depths so that, at any instant, the pool is
+     * searching several different depths and filling the shared table with
+     * diverse entries rather than all repeating the main thread's search.
+     */
+    private static final int[] SKIP_SIZE =
+            { 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5 };
+
+    /**
+     * Depth-phase offsets paired with {@link #SKIP_SIZE}.
+     */
+    private static final int[] SKIP_PHASE =
+            { 0, 1, 0, 1, 2, 0, 1, 2, 0, 1, 2, 3, 0, 1, 2, 3 };
+
+    /**
+     * Returns whether a helper thread should skip searching this depth, so the
+     * helper pool diversifies across depths (Lazy SMP). The main thread
+     * (index 0) never skips.
+     *
+     * @param threadIndex helper thread index (1-based for helpers)
+     * @param depth iterative-deepening depth
+     * @return true to skip this depth on this helper
+     */
+    private static boolean skipIteration(int threadIndex, int depth) {
+        int i = (threadIndex - 1) % SKIP_SIZE.length;
+        return ((depth + SKIP_PHASE[i]) / SKIP_SIZE[i]) % 2 == 1;
     }
 
     /**

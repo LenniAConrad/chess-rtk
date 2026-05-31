@@ -8,7 +8,10 @@ import chess.engine.Result;
 import chess.eval.CentipawnEvaluator;
 import chess.eval.Nnue;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Random;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * NNUE speed + correctness harness, used to verify that an NNUE optimization is
@@ -81,6 +84,9 @@ public final class NnueBench {
             // Parity: incremental search-state eval must equal the full eval at
             // every node of a make/undo walk (mirrors how AlphaBeta drives it).
             parity(nnue);
+            // Concurrent parity: many threads each run their own incremental state
+            // over the shared network, proving Lazy SMP can use NNUE safely.
+            parityConcurrent(nnue, 8);
             // Golden eval: deterministic centipawns, must be identical across builds.
             for (String fen : FENS) {
                 System.out.println("GOLDEN\t" + fen + "\t" + nnue.evaluate(new Position(fen)));
@@ -131,6 +137,86 @@ public final class NnueBench {
             System.out.println("PARITY\tNO_INCREMENTAL_STATE (full-eval fallback)");
         } else {
             System.out.printf("PARITY\tchecks=%d\tmismatches=%d%n", parityChecks, parityMismatches);
+        }
+    }
+
+    /**
+     * Runs the parity walk on several threads at once, each with its own
+     * incremental {@link CentipawnEvaluator.SearchState} over the shared network,
+     * to prove concurrent (Lazy SMP) use of the NNUE incremental path is safe.
+     *
+     * @param nnue evaluator under test
+     * @param threadCount number of concurrent walker threads
+     */
+    private static void parityConcurrent(Nnue nnue, int threadCount) {
+        AtomicLong checks = new AtomicLong();
+        AtomicLong mismatches = new AtomicLong();
+        List<Thread> threads = new ArrayList<>();
+        for (int t = 0; t < threadCount; t++) {
+            final int tid = t;
+            Thread thread = new Thread(() -> {
+                for (String fen : PARITY_STARTS) {
+                    Position root = new Position(fen);
+                    CentipawnEvaluator.SearchState state = nnue.openSearchState(root, 40);
+                    if (state == null) {
+                        return;
+                    }
+                    try {
+                        walkConcurrent(nnue, root, state, 0, 4,
+                                new Random(fen.hashCode() * 31L + tid), checks, mismatches);
+                    } finally {
+                        state.close();
+                    }
+                }
+            }, "nnue-parity-" + t);
+            threads.add(thread);
+            thread.start();
+        }
+        for (Thread thread : threads) {
+            try {
+                thread.join();
+            } catch (InterruptedException ie) {
+                Thread.currentThread().interrupt();
+            }
+        }
+        System.out.printf("PARITY_CONCURRENT\tthreads=%d\tchecks=%d\tmismatches=%d%n",
+                threadCount, checks.get(), mismatches.get());
+    }
+
+    /**
+     * Thread-safe variant of {@link #walk} using atomic counters, for concurrent
+     * parity verification.
+     *
+     * @param nnue evaluator
+     * @param pos current position (mutated in place)
+     * @param state this thread's incremental state
+     * @param ply current ply
+     * @param depth remaining depth
+     * @param rng move sampler
+     * @param checks total comparisons counter
+     * @param mismatches total mismatch counter
+     */
+    private static void walkConcurrent(Nnue nnue, Position pos, CentipawnEvaluator.SearchState state,
+            int ply, int depth, Random rng, AtomicLong checks, AtomicLong mismatches) {
+        checks.incrementAndGet();
+        if (state.evaluate(pos, ply) != nnue.evaluate(pos)) {
+            mismatches.incrementAndGet();
+        }
+        if (depth == 0) {
+            return;
+        }
+        MoveList legal = pos.legalMoves();
+        if (legal.isEmpty()) {
+            return;
+        }
+        int samples = Math.min(4, legal.size());
+        for (int s = 0; s < samples; s++) {
+            short move = legal.raw(rng.nextInt(legal.size()));
+            Position.State undo = new Position.State();
+            pos.play(move, undo);
+            state.movePlayed(pos, move, undo, ply + 1);
+            walkConcurrent(nnue, pos, state, ply + 1, depth - 1, rng, checks, mismatches);
+            pos.undo(move, undo);
         }
     }
 
