@@ -18,6 +18,8 @@ package chess.engine;
  * @param pvNode true for principal-variation nodes
  * @param inCheck true when the side to move is in check
  * @param tactical true for captures, promotions, and en-passant
+ * @param losingCapture true for a capture with negative static-exchange value
+ *        (used to let late-move reductions reduce bad captures)
  * @param move move being considered
  * @param ply current ply from root
  */
@@ -29,6 +31,7 @@ record MoveDecision(
         boolean pvNode,
         boolean inCheck,
         boolean tactical,
+        boolean losingCapture,
         short move,
         int ply) {
 }

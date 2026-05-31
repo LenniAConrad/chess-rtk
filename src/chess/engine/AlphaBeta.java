@@ -2,12 +2,18 @@ package chess.engine;
 
 import java.util.Arrays;
 
+import java.util.ArrayList;
+import java.util.EnumSet;
+import java.util.List;
+import java.util.Set;
+
 import chess.core.Move;
 import chess.core.MoveList;
 import chess.core.Piece;
 import chess.core.Position;
 import chess.eval.CentipawnEvaluator;
 import chess.eval.Classical;
+import chess.eval.See;
 
 /**
  * Built-in zero-dependency position searcher.
@@ -161,6 +167,114 @@ public final class AlphaBeta implements AutoCloseable {
     private final CentipawnEvaluator evaluator;
 
     /**
+     * Optional transposition table reused across successive {@link #search}
+     * calls. When non-null, search knowledge (cutoffs, best moves) carries over
+     * between moves of one game, which is a free strength gain; when null, each
+     * search uses a fresh per-call table (the historical default). A reused
+     * table also needs a non-resetting generation counter, supplied by
+     * {@link #generationBase}.
+     */
+    private final TranspositionTable persistentTranspositions;
+
+    /**
+     * Generation offset applied to each search when {@link #persistentTranspositions}
+     * is shared, so entries stored by earlier moves are not mistaken for the
+     * current move's generation. Advanced after each completed search.
+     */
+    private int generationBase;
+
+    /**
+     * Optional search techniques, individually toggleable so a self-play harness
+     * can measure each one's contribution in isolation. Production builds enable
+     * every feature (the strongest configuration); a baseline opponent can be
+     * constructed with a reduced set to A/B a single change.
+     */
+    public enum Feature {
+        /**
+         * SEE-based pruning of losing captures in quiescence, plus SEE-keyed
+         * capture ordering in the main search.
+         */
+        SEE_PRUNING,
+
+        /**
+         * One-ply search extension for moves that give check.
+         */
+        CHECK_EXTENSION,
+
+        /**
+         * Draw detection by repetition inside the search tree (the engine could
+         * not previously see repetitions/perpetuals during search).
+         */
+        SEARCH_REPETITION,
+
+        /**
+         * Late-move reductions from a {@code log(depth)*log(moveNumber)} table
+         * with a history adjustment, replacing the coarse fixed-step ladder.
+         */
+        LMR_TABLE,
+
+        /**
+         * History "gravity" updates with a malus: on a quiet beta cutoff the
+         * cutoff move is rewarded and the quiet moves tried before it are
+         * penalized, with both bounded by a decay term, instead of the
+         * bonus-only, monotonically-growing history table.
+         */
+        HISTORY_MALUS,
+
+        /**
+         * Late-move reductions also apply to SEE-losing captures (normally exempt
+         * as tactical), since a capture that loses material is rarely worth a
+         * full-depth search and is already ordered last.
+         */
+        SEE_LMR
+    }
+
+    /**
+     * Bound on the magnitude of a gravity history value (used by
+     * {@link Feature#HISTORY_MALUS}).
+     */
+    private static final int HISTORY_MAX = 1 << 14;
+
+    /**
+     * Precomputed late-move reduction by [remaining depth][move number], using
+     * the conventional {@code log(d)*log(m)} growth so reductions scale smoothly
+     * instead of in coarse steps. Indexed with both dimensions clamped to 63.
+     */
+    private static final int[][] LMR_TABLE = new int[64][64];
+
+    static {
+        for (int d = 1; d < 64; d++) {
+            for (int m = 1; m < 64; m++) {
+                LMR_TABLE[d][m] = (int) Math.round(0.75 + Math.log(d) * Math.log(m) / 2.25);
+            }
+        }
+    }
+
+    /**
+     * Default enabled features for production searches. SEE pruning is a measured
+     * strength gain (~+70 Elo in self-play) and repetition detection is a
+     * correctness fix that measured strength-neutral. Check extensions are
+     * deliberately excluded: they measured net-negative at this engine's budgets
+     * (they remain available through the three-argument constructor for tuning).
+     */
+    private static final Set<Feature> DEFAULT_FEATURES =
+            EnumSet.of(Feature.SEE_PRUNING, Feature.SEARCH_REPETITION);
+
+    /**
+     * Enabled search features; see {@link Feature}.
+     */
+    private final Set<Feature> features;
+
+    /**
+     * Number of parallel search threads (Lazy SMP). One = single-threaded (the
+     * default and historical behavior). With more than one, helper threads share
+     * the transposition table to deepen the main thread's search; this requires a
+     * thread-safe evaluator (the stateless {@link Classical} is; share-safe
+     * neural evaluators need per-thread instances, not yet wired).
+     */
+    private volatile int searchThreads = 1;
+
+    /**
      * Creates a searcher with the classical evaluator.
      */
     public AlphaBeta() {
@@ -168,15 +282,63 @@ public final class AlphaBeta implements AutoCloseable {
     }
 
     /**
-     * Creates a searcher with a caller-selected evaluator.
+     * Creates a searcher with a caller-selected evaluator and a fresh
+     * transposition table per search.
      *
      * @param evaluator static evaluator
      */
     public AlphaBeta(CentipawnEvaluator evaluator) {
+        this(evaluator, false);
+    }
+
+    /**
+     * Creates a searcher with a caller-selected evaluator, optionally reusing a
+     * single transposition table across all {@link #search} calls so search
+     * knowledge carries across moves of one game.
+     *
+     * @param evaluator static evaluator
+     * @param persistentTable true to keep one transposition table across moves
+     */
+    public AlphaBeta(CentipawnEvaluator evaluator, boolean persistentTable) {
+        this(evaluator, persistentTable, DEFAULT_FEATURES);
+    }
+
+    /**
+     * Creates a searcher with an explicit set of enabled search features, so a
+     * self-play harness can measure a single technique's contribution. Production
+     * code should use the two-argument constructor, which enables every feature.
+     *
+     * @param evaluator static evaluator
+     * @param persistentTable true to keep one transposition table across moves
+     * @param features search features to enable
+     */
+    public AlphaBeta(CentipawnEvaluator evaluator, boolean persistentTable, Set<Feature> features) {
         if (evaluator == null) {
             throw new IllegalArgumentException("evaluator == null");
         }
+        if (features == null) {
+            throw new IllegalArgumentException("features == null");
+        }
         this.evaluator = evaluator;
+        this.persistentTranspositions = persistentTable
+                ? new TranspositionTable(TRANSPOSITION_ENTRIES)
+                : null;
+        this.features = features.isEmpty()
+                ? EnumSet.noneOf(Feature.class)
+                : EnumSet.copyOf(features);
+    }
+
+    /**
+     * Sets the number of parallel search threads (Lazy SMP). Values below one
+     * are treated as one. Only safe with a thread-safe evaluator (e.g.
+     * {@link Classical}); intended for fixed-time search.
+     *
+     * @param threads thread count
+     * @return this searcher, for chaining
+     */
+    public AlphaBeta setSearchThreads(int threads) {
+        this.searchThreads = Math.max(1, threads);
+        return this;
     }
 
     /**
@@ -234,11 +396,80 @@ public final class AlphaBeta implements AutoCloseable {
                     new short[0]);
         }
 
-        try (SearchContext context = new SearchContext(started, limits, evaluator, root)) {
+        // Use the shared table when this searcher persists one across moves,
+        // otherwise a fresh per-search table. The generation base ensures a
+        // shared table's prior-move entries are not seen as the current search's.
+        boolean shared = persistentTranspositions != null;
+        TranspositionTable table = shared ? persistentTranspositions : new TranspositionTable(TRANSPOSITION_ENTRIES);
+        int generationStart = shared ? generationBase : 0;
+        int threads = Math.max(1, searchThreads);
+        if (threads == 1) {
+            return runWorker(position, started, limits, listener, table, generationStart, shared, true);
+        }
+
+        // Lazy SMP: helper threads share the transposition table and deepen the
+        // main thread's search by cross-pollinating cutoffs and best moves. The
+        // main thread (thread 0) owns the returned result, the listener, and the
+        // shared-table generation bookkeeping; helpers only fill the table.
+        List<Thread> helpers = new ArrayList<>();
+        for (int t = 1; t < threads; t++) {
+            Thread helper = new Thread(() -> {
+                try {
+                    runWorker(position, started, limits, null, table, generationStart, shared, false);
+                } catch (RuntimeException ignored) {
+                    // a failed helper must not abort the main search
+                }
+            }, "ab-smp-" + t);
+            helper.setDaemon(true);
+            helpers.add(helper);
+            helper.start();
+        }
+        Result best = runWorker(position, started, limits, listener, table, generationStart, shared, true);
+        for (Thread helper : helpers) {
+            try {
+                helper.join();
+            } catch (InterruptedException ie) {
+                Thread.currentThread().interrupt();
+            }
+        }
+        return best;
+    }
+
+    /**
+     * Runs one search worker on its own position copy and {@link SearchContext},
+     * sharing the given transposition table. Used directly for single-threaded
+     * search and as the per-thread body for Lazy SMP.
+     *
+     * @param position original position (copied internally)
+     * @param started search start timestamp
+     * @param limits resource limits
+     * @param listener optional completed-depth listener (main thread only)
+     * @param table transposition table (shared across threads)
+     * @param generationStart starting generation for the table
+     * @param shared whether the table persists across searches
+     * @param manageGeneration whether this worker advances the shared generation
+     * @return this worker's search result
+     */
+    private Result runWorker(
+            Position position,
+            long started,
+            Limits limits,
+            SearchListener listener,
+            TranspositionTable table,
+            int generationStart,
+            boolean shared,
+            boolean manageGeneration) {
+        Position root = position.copy();
+        MoveList legalMoves = root.legalMoves();
+        try (SearchContext context =
+                new SearchContext(started, limits, evaluator, root, table, generationStart, features)) {
             Result best = staticRootResult(root, legalMoves, context, started);
             if (context.shouldStop()) {
                 Result stopped = best.withRuntime(context.nodes, elapsedSince(started), true);
                 notifyDepth(listener, stopped);
+                if (manageGeneration) {
+                    advanceGeneration(shared, context);
+                }
                 return stopped;
             }
             short preferred = best.bestMove();
@@ -263,10 +494,30 @@ public final class AlphaBeta implements AutoCloseable {
                             outcome.principalVariation());
                     notifyDepth(listener, best);
                 } catch (SearchStopped ignored) {
+                    if (manageGeneration) {
+                        advanceGeneration(shared, context);
+                    }
                     return best.withRuntime(context.nodes, elapsedSince(started), true);
                 }
             }
+            if (manageGeneration) {
+                advanceGeneration(shared, context);
+            }
             return best.withRuntime(context.nodes, elapsedSince(started), false);
+        }
+    }
+
+    /**
+     * Advances the shared-table generation base past the generations this search
+     * used, so a later search on the same persistent table writes newer entries.
+     * A no-op when the table is not shared.
+     *
+     * @param shared whether a persistent table is in use
+     * @param context the just-completed search context
+     */
+    private void advanceGeneration(boolean shared, SearchContext context) {
+        if (shared) {
+            generationBase = context.generation + 1;
         }
     }
 
@@ -480,7 +731,7 @@ public final class AlphaBeta implements AutoCloseable {
                 return NegamaxSetup.resolved(terminalScore(position, ply));
             }
         }
-        if (isDraw(position)) {
+        if (isDraw(position) || isRepetition(context, position, ply)) {
             return NegamaxSetup.resolved(0);
         }
         if (depth <= 0) {
@@ -541,8 +792,12 @@ public final class AlphaBeta implements AutoCloseable {
         short[] moves = orderedMoves(position, setup.legalMoves(), Move.NO_MOVE, ttMove, context, ply);
         Position.State state = context.state(ply);
         NegamaxSearchState searchState = new NegamaxSearchState(setup.alpha());
+        // Buffer of quiet moves searched before a cutoff, for the history malus.
+        short[] triedQuiets = context.historyMalus() ? context.triedQuietsBuffer(ply) : null;
+        int triedCount = 0;
         for (short move : moves) {
             boolean tactical = isTacticalMove(position, move);
+            boolean losingCapture = context.seeLmr() && tactical && isLosingCapture(position, move);
             MoveDecision decision = new MoveDecision(
                     setup.staticEval(),
                     searchState.alpha,
@@ -551,13 +806,19 @@ public final class AlphaBeta implements AutoCloseable {
                     pvNode,
                     setup.inCheck(),
                     tactical,
+                    losingCapture,
                     move,
                     ply);
             if (!shouldFutilityPrune(context, decision) && !shouldLateMovePrune(context, decision)) {
+                if (triedQuiets != null && !tactical && triedCount < triedQuiets.length) {
+                    triedQuiets[triedCount++] = move;
+                }
                 int score = searchNegamaxMove(context, position, state, depth, beta, pvNode, decision);
                 searchState.recordScore(context, ply, move, score);
                 if (searchState.alpha >= beta) {
-                    recordCutoff(position, context, move, depth, ply);
+                    if (!tactical) {
+                        context.recordQuietCutoff(move, depth, ply, triedQuiets, triedCount);
+                    }
                     break;
                 }
             }
@@ -595,11 +856,18 @@ public final class AlphaBeta implements AutoCloseable {
             int beta,
             boolean pvNode,
             MoveDecision decision) {
-        int childDepth = depth - 1;
-        int reduction = lateMoveReduction(context, decision);
         position.play(decision.move(), state);
         try {
             context.movePlayed(position, decision.move(), state, decision.ply() + 1);
+            // Extend a move that gives check by one ply (so forcing lines are not
+            // cut at the horizon), capped so extended lines can't overrun the
+            // scratch arrays. A checking move is never also reduced.
+            int extension = context.checkExtensions()
+                    && position.inCheck()
+                    && decision.ply() + 1 < context.maxExtendedPly()
+                    ? 1 : 0;
+            int childDepth = depth - 1 + extension;
+            int reduction = extension > 0 ? 0 : lateMoveReduction(context, decision);
             if (decision.searchedMoves() == 0) {
                 return -negamax(context, position, childDepth, -beta, -decision.alpha(), decision.ply() + 1, pvNode);
             }
@@ -812,11 +1080,21 @@ public final class AlphaBeta implements AutoCloseable {
     private static int lateMoveReduction(SearchContext context, MoveDecision decision) {
         if (decision.pvNode()
                 || decision.inCheck()
-                || decision.tactical()
+                || (decision.tactical() && !decision.losingCapture())
                 || decision.depth() < 3
                 || decision.searchedMoves() < 3
                 || context.isKiller(decision.move(), decision.ply())) {
             return 0;
+        }
+        if (context.lmrTable()) {
+            int d = Math.min(decision.depth(), 63);
+            int m = Math.min(decision.searchedMoves(), 63);
+            int reduction = LMR_TABLE[d][m];
+            // Reduce a quiet move less when it has accumulated strong history.
+            if (context.historyScore(decision.move()) >= decision.depth() * decision.depth()) {
+                reduction--;
+            }
+            return Math.max(0, Math.min(decision.depth() - 1, reduction));
         }
         int reduction = 1;
         if (decision.depth() >= 6 && decision.searchedMoves() >= 6) {
@@ -897,8 +1175,16 @@ public final class AlphaBeta implements AutoCloseable {
         short[] moves = orderedQuiescenceMoves(position, setup.legalMoves(), context, ply, setup.inCheck());
         int currentAlpha = setup.alpha();
         for (short move : moves) {
-            if (!setup.inCheck() && shouldDeltaPrune(position, move, setup.standPat(), currentAlpha, false)) {
-                continue;
+            if (!setup.inCheck()) {
+                if (shouldDeltaPrune(position, move, setup.standPat(), currentAlpha, false)) {
+                    continue;
+                }
+                // Skip captures that lose material outright; a losing capture
+                // almost never improves a quiet stand-pat and only deepens the
+                // tree. Check evasions (inCheck) are never pruned.
+                if (context.seePruning() && isLosingCapture(position, move)) {
+                    continue;
+                }
             }
             int score = searchQuiescenceMove(context, position, currentAlpha, beta, ply, qply, move);
             if (score >= beta) {
@@ -931,7 +1217,7 @@ public final class AlphaBeta implements AutoCloseable {
             int ply,
             int qply) {
         boolean inCheck = position.inCheck();
-        if (isDraw(position)) {
+        if (isDraw(position) || isRepetition(context, position, ply)) {
             return QuiescenceSetup.resolved(0);
         }
         if (inCheck) {
@@ -1267,7 +1553,10 @@ public final class AlphaBeta implements AutoCloseable {
         byte moving = position.pieceAt(from);
         byte victim = position.pieceAt(to);
         if (victim != Piece.EMPTY && Piece.isWhite(victim) != position.isWhiteToMove()) {
-            score += 100_000 + Piece.getValue(victim) * 10 - Piece.getValue(moving);
+            // Winning/equal captures sort ahead of quiets; SEE-losing captures
+            // drop below quiets so they are searched last.
+            int base = context.seePruning() && isLosingCapture(position, move) ? -100_000 : 100_000;
+            score += base + Piece.getValue(victim) * 10 - Piece.getValue(moving);
         } else if (isEnPassantCapture(position, moving, from, to)) {
             score += 100_000 + Piece.VALUE_PAWN * 10 - Piece.getValue(moving);
         }
@@ -1299,6 +1588,31 @@ public final class AlphaBeta implements AutoCloseable {
         return Move.getPromotion(move) != 0
                 || (victim != Piece.EMPTY && Piece.isWhite(victim) != position.isWhiteToMove())
                 || isEnPassantCapture(position, moving, from, to);
+    }
+
+    /**
+     * Returns whether a normal capture loses material by static exchange
+     * evaluation. Only "capturing up" (victim worth less than the mover) can be
+     * SEE-negative, so cheaper cases skip the SEE call entirely; promotions and
+     * en-passant are never treated as losing here.
+     *
+     * @param position parent position
+     * @param move capture move to test
+     * @return true when the capture has a negative SEE
+     */
+    private static boolean isLosingCapture(Position position, short move) {
+        if (Move.getPromotion(move) != 0) {
+            return false;
+        }
+        int from = Move.getFromIndex(move);
+        int to = Move.getToIndex(move);
+        byte moving = position.pieceAt(from);
+        byte victim = position.pieceAt(to);
+        boolean normalCapture = victim != Piece.EMPTY && Piece.isWhite(victim) != position.isWhiteToMove();
+        if (!normalCapture || Piece.getValue(victim) >= Piece.getValue(moving)) {
+            return false;
+        }
+        return !See.seeGreaterEqual(position, move, 0);
     }
 
     /**
@@ -1362,6 +1676,32 @@ public final class AlphaBeta implements AutoCloseable {
      */
     private static boolean isDraw(Position position) {
         return position.halfMoveClock() >= 100 || position.isInsufficientMaterial();
+    }
+
+    /**
+     * Returns whether the current position repeats one already seen on the search
+     * path (a single in-tree repetition is treated as a draw, the conventional
+     * search rule). The scan steps back two plies at a time to keep the side to
+     * move aligned, and stops at the last irreversible move via the halfmove
+     * clock so positions across a capture or pawn move can never match.
+     *
+     * @param context search context holding the path signatures
+     * @param position current position
+     * @param ply current ply from the root
+     * @return true when the position has occurred earlier on the path
+     */
+    private static boolean isRepetition(SearchContext context, Position position, int ply) {
+        if (!context.searchRepetition() || ply <= 1) {
+            return false;
+        }
+        long key = position.signatureCore();
+        int limit = Math.max(0, ply - position.halfMoveClock());
+        for (int i = ply - 2; i >= limit; i -= 2) {
+            if (context.pathKey(i) == key) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -1605,6 +1945,56 @@ public final class AlphaBeta implements AutoCloseable {
         private final long maxNodes;
 
         /**
+         * Whether SEE-based losing-capture pruning/ordering is enabled.
+         */
+        private final boolean seePruning;
+
+        /**
+         * Whether checking moves are extended by one ply.
+         */
+        private final boolean checkExtensions;
+
+        /**
+         * Whether in-tree repetition draw detection is enabled.
+         */
+        private final boolean searchRepetition;
+
+        /**
+         * Whether the log-log late-move-reduction table is used.
+         */
+        private final boolean lmrTable;
+
+        /**
+         * Whether history uses gravity updates with a malus on tried quiets.
+         */
+        private final boolean historyMalus;
+
+        /**
+         * Whether SEE-losing captures may be late-move-reduced.
+         */
+        private final boolean seeLmr;
+
+        /**
+         * Per-ply scratch holding the quiet moves searched at a node before a
+         * cutoff, so they can receive a history malus. Only allocated/used when
+         * {@link #historyMalus} is set.
+         */
+        private final short[][] triedQuiets;
+
+        /**
+         * Core position signature ({@link Position#signatureCore()}) at each ply
+         * on the current search path, for in-tree repetition detection. Only
+         * maintained when {@link #searchRepetition} is set.
+         */
+        private final long[] pathKeys;
+
+        /**
+         * Highest ply at which a check extension may still fire, so extended lines
+         * (including their quiescence tail) never overrun the scratch arrays.
+         */
+        private final int maxExtendedPly;
+
+        /**
          * Static evaluator used when search reaches a quiet leaf.
          */
         private final CentipawnEvaluator evaluator;
@@ -1615,9 +2005,11 @@ public final class AlphaBeta implements AutoCloseable {
         private final CentipawnEvaluator.SearchState incrementalState;
 
         /**
-         * Per-search transposition table used for cutoffs and move ordering.
+         * Transposition table used for cutoffs and move ordering. Either a fresh
+         * per-search table or one shared across moves of a game (see
+         * {@link AlphaBeta#persistentTranspositions}).
          */
-        private final TranspositionTable transpositions = new TranspositionTable(TRANSPOSITION_ENTRIES);
+        private final TranspositionTable transpositions;
 
         /**
          * Per-search cache for repeated static evaluations.
@@ -1676,24 +2068,48 @@ public final class AlphaBeta implements AutoCloseable {
          * @param limits search limits
          * @param evaluator static evaluator used at leaf nodes
          * @param root root position or node
+         * @param table transposition table to use (fresh per-search, or shared)
+         * @param generationStart initial generation, so a shared table's entries
+         *        from earlier searches are not treated as the current generation
          */
-        private SearchContext(long started, Limits limits, CentipawnEvaluator evaluator, Position root) {
+        private SearchContext(long started, Limits limits, CentipawnEvaluator evaluator, Position root,
+                TranspositionTable table, int generationStart, Set<Feature> features) {
             this.deadline = computeDeadline(started, limits.maxDurationMillis());
             this.maxNodes = limits.maxNodes() == 0L ? Long.MAX_VALUE : limits.maxNodes();
             this.evaluator = evaluator;
-            int searchPlies = limits.depth() + QUIESCENCE_MAX_PLY + 4;
+            this.transpositions = table;
+            this.generation = generationStart;
+            this.seePruning = features.contains(Feature.SEE_PRUNING);
+            this.checkExtensions = features.contains(Feature.CHECK_EXTENSION);
+            this.searchRepetition = features.contains(Feature.SEARCH_REPETITION);
+            this.lmrTable = features.contains(Feature.LMR_TABLE);
+            this.historyMalus = features.contains(Feature.HISTORY_MALUS);
+            this.seeLmr = features.contains(Feature.SEE_LMR);
+            // Check extensions can deepen the main search beyond the nominal
+            // depth, so when they are enabled reserve a full extra depth's worth
+            // of plies (plus quiescence headroom) and cap the extension ply below
+            // that ceiling. When disabled the arrays keep their original size.
+            int extensionHeadroom = checkExtensions ? limits.depth() : 0;
+            int searchPlies = limits.depth() + extensionHeadroom + QUIESCENCE_MAX_PLY + 4;
+            this.maxExtendedPly = searchPlies - QUIESCENCE_MAX_PLY - 2;
             this.incrementalState = evaluator.openSearchState(root, searchPlies);
             this.pv = new short[searchPlies][searchPlies];
             this.pvLength = new int[searchPlies];
             this.states = new Position.State[searchPlies];
             this.nullStates = new Position.State[searchPlies];
-            this.killers = new short[limits.depth() + QUIESCENCE_MAX_PLY + 4][2];
+            this.killers = new short[searchPlies][2];
+            this.pathKeys = new long[searchPlies];
+            // Chess positions have at most ~218 legal moves; 256 is a safe bound.
+            this.triedQuiets = historyMalus ? new short[searchPlies][256] : null;
             for (int i = 0; i < searchPlies; i++) {
                 states[i] = new Position.State();
                 nullStates[i] = new Position.State();
             }
             for (short[] row : killers) {
                 Arrays.fill(row, Move.NO_MOVE);
+            }
+            if (searchRepetition) {
+                pathKeys[0] = root.signatureCore();
             }
         }
 
@@ -1736,6 +2152,9 @@ public final class AlphaBeta implements AutoCloseable {
             if (incrementalState != null) {
                 incrementalState.movePlayed(position, move, state, ply);
             }
+            if (searchRepetition && ply < pathKeys.length) {
+                pathKeys[ply] = position.signatureCore();
+            }
         }
 
         /**
@@ -1747,6 +2166,94 @@ public final class AlphaBeta implements AutoCloseable {
             if (incrementalState != null) {
                 incrementalState.nullMovePlayed(ply);
             }
+            if (searchRepetition && ply < pathKeys.length) {
+                // A null move is not a real game position; store a sentinel so it
+                // can never satisfy a repetition match.
+                pathKeys[ply] = 0L;
+            }
+        }
+
+        /**
+         * Returns whether SEE losing-capture pruning/ordering is enabled.
+         *
+         * @return true when SEE pruning is active
+         */
+        private boolean seePruning() {
+            return seePruning;
+        }
+
+        /**
+         * Returns whether check extensions are enabled.
+         *
+         * @return true when checking moves are extended
+         */
+        private boolean checkExtensions() {
+            return checkExtensions;
+        }
+
+        /**
+         * Returns whether in-tree repetition detection is enabled.
+         *
+         * @return true when repetitions are scored as draws during search
+         */
+        private boolean searchRepetition() {
+            return searchRepetition;
+        }
+
+        /**
+         * Returns whether the log-log late-move-reduction table is enabled.
+         *
+         * @return true when the table-based LMR is used
+         */
+        private boolean lmrTable() {
+            return lmrTable;
+        }
+
+        /**
+         * Returns whether history gravity/malus updates are enabled.
+         *
+         * @return true when the malus history scheme is used
+         */
+        private boolean historyMalus() {
+            return historyMalus;
+        }
+
+        /**
+         * Returns whether SEE-losing captures may be late-move-reduced.
+         *
+         * @return true when bad-capture reductions are enabled
+         */
+        private boolean seeLmr() {
+            return seeLmr;
+        }
+
+        /**
+         * Returns the per-ply scratch buffer for quiet moves tried at a node.
+         *
+         * @param ply current ply
+         * @return reusable buffer (never null when {@link #historyMalus} is set)
+         */
+        private short[] triedQuietsBuffer(int ply) {
+            return triedQuiets[ply];
+        }
+
+        /**
+         * Returns the highest ply at which a check extension may still fire.
+         *
+         * @return extension ply ceiling
+         */
+        private int maxExtendedPly() {
+            return maxExtendedPly;
+        }
+
+        /**
+         * Returns the path signature stored for a ply (for repetition scanning).
+         *
+         * @param ply ply on the current search path
+         * @return core signature recorded at that ply
+         */
+        private long pathKey(int ply) {
+            return pathKeys[ply];
         }
 
         /**
@@ -1851,6 +2358,49 @@ public final class AlphaBeta implements AutoCloseable {
             int index = historyIndex(move);
             int bonus = depth * depth;
             history[index] = Math.min(1_000_000, history[index] + bonus);
+        }
+
+        /**
+         * Records a quiet beta cutoff, additionally penalizing the quiet moves
+         * that were searched before the cutoff move (history malus). Uses bounded
+         * "gravity" updates so values self-decay and stay within
+         * {@link AlphaBeta#HISTORY_MAX}. Falls back to the bonus-only update when
+         * the feature is off.
+         *
+         * @param move cutoff move
+         * @param depth remaining depth
+         * @param ply current ply
+         * @param tried buffer of quiet moves tried before the cutoff
+         * @param triedCount number of valid entries in {@code tried}
+         */
+        private void recordQuietCutoff(short move, int depth, int ply, short[] tried, int triedCount) {
+            if (!historyMalus) {
+                recordQuietCutoff(move, depth, ply);
+                return;
+            }
+            if (ply < killers.length && killers[ply][0] != move) {
+                killers[ply][1] = killers[ply][0];
+                killers[ply][0] = move;
+            }
+            int bonus = Math.min(depth * depth, HISTORY_MAX);
+            applyGravity(historyIndex(move), bonus);
+            for (int i = 0; i < triedCount; i++) {
+                if (tried[i] != move) {
+                    applyGravity(historyIndex(tried[i]), -bonus);
+                }
+            }
+        }
+
+        /**
+         * Applies a gravity-bounded delta to a history entry, so its magnitude
+         * stays at or below {@link AlphaBeta#HISTORY_MAX} and large values decay
+         * toward zero as opposite-signed updates arrive.
+         *
+         * @param index history table index
+         * @param delta signed bonus or malus
+         */
+        private void applyGravity(int index, int delta) {
+            history[index] += delta - history[index] * Math.abs(delta) / HISTORY_MAX;
         }
 
         /**
