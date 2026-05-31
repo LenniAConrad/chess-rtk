@@ -26,7 +26,11 @@ final class TransformOutput {
      * @param psqt PSQT output
      */
     TransformOutput(int[] features, int psqt) {
-        this.features = features == null ? new int[0] : features.clone();
+        // Stores the caller's array by reference (no defensive copy): the sole
+        // production producer (FeatureTransformer.transform) passes a freshly
+        // allocated buffer it never reuses, so the clone was pure per-eval waste.
+        // Callers must not retain and later mutate the array they pass in.
+        this.features = features == null ? new int[0] : features;
         this.psqt = psqt;
     }
 

@@ -198,9 +198,43 @@ final class FeatureTransformer {
         copyBias(psqAccumulation);
         int[] psqFeatures = UpstreamFeatures.activeHalfKa(board, perspective);
         addShortFeatures(psqAccumulation, psqtAccumulation, psqFeatures, psqWeights, psqtWeights);
-        if (!layout.useThreats) {
+        // A null threat accumulator means "PSQ only" (the incremental BIG-net slot
+        // keeps PSQ here and rebuilds threats separately), so skip the threat pass.
+        if (!layout.useThreats || threatAccumulation == null) {
             return;
         }
+        int[] threatFeatures = UpstreamFeatures.activeThreats(board, perspective, layout.variant);
+        addByteFeatures(threatAccumulation, threatPsqtAccumulation, threatFeatures, threatWeights, threatPsqtWeights);
+    }
+
+    /**
+     * Whether this transformer uses threat features (the BIG nets do).
+     *
+     * @return true when threat features are active
+     */
+    boolean useThreats() {
+        return layout.useThreats;
+    }
+
+    /**
+     * Rebuilds only the threat accumulators for one perspective from scratch,
+     * leaving PSQ untouched. Used by the incremental BIG-net search state, which
+     * keeps PSQ incremental but recomputes threats each node (threat features
+     * depend non-locally on board occupancy). Produces exactly the threat
+     * contribution {@link #accumulatePerspectiveFeatures} would.
+     *
+     * @param board Stockfish-order board
+     * @param perspective perspective color
+     * @param threatAccumulation hidden threat accumulator (reset then filled)
+     * @param threatPsqtAccumulation threat PSQT accumulator (reset then filled)
+     */
+    void accumulateThreatFeatures(
+            int[] board,
+            int perspective,
+            int[] threatAccumulation,
+            int[] threatPsqtAccumulation) {
+        Arrays.fill(threatAccumulation, 0);
+        Arrays.fill(threatPsqtAccumulation, 0);
         int[] threatFeatures = UpstreamFeatures.activeThreats(board, perspective, layout.variant);
         addByteFeatures(threatAccumulation, threatPsqtAccumulation, threatFeatures, threatWeights, threatPsqtWeights);
     }

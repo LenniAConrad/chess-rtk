@@ -600,7 +600,8 @@ public final class UpstreamNetwork implements AutoCloseable {
             throw new IllegalArgumentException("searchPlies must be positive");
         }
         if (size != Size.SMALL) {
-            return null;
+            // BIG nets keep PSQ (HalfKA) incremental and rebuild threats per node.
+            return transformer.useThreats() ? new BigSearchState(root, searchPlies) : null;
         }
         return new SmallSearchState(root, searchPlies);
     }
@@ -724,6 +725,184 @@ public final class UpstreamNetwork implements AutoCloseable {
                         state.rookPiece());
             }
         }
+    }
+
+    /**
+     * Per-search incremental state for the BIG nets (threats present). Keeps the
+     * HalfKA PSQ accumulators incremental exactly like {@link SmallSearchState},
+     * but rebuilds the threat accumulators from scratch each evaluation, because
+     * threat features depend non-locally on board occupancy and are not cleanly
+     * incremental. The combined PSQ+threat result is bit-identical to a full
+     * {@link FeatureTransformer#transform} rebuild (verified by parity tests).
+     */
+    private final class BigSearchState implements Model.SearchState {
+
+        /**
+         * PSQ accumulator slots indexed by ply.
+         */
+        private final SmallSearchSlot[] buffers;
+
+        /**
+         * Active PSQ slot views indexed by ply.
+         */
+        private final SmallSearchSlot[] active;
+
+        /**
+         * Reusable dense-layer workspace.
+         */
+        private final Architecture.Scratch scratch;
+
+        /**
+         * Reusable per-perspective threat accumulators, rebuilt each evaluation.
+         */
+        private final int[][] threatAccumulation;
+
+        /**
+         * Reusable per-perspective threat PSQT accumulators.
+         */
+        private final int[][] threatPsqtAccumulation;
+
+        /**
+         * Creates incremental BIG-net state rooted at one position.
+         *
+         * @param root root position
+         * @param searchPlies maximum ply count
+         */
+        private BigSearchState(Position root, int searchPlies) {
+            this.buffers = new SmallSearchSlot[searchPlies];
+            this.active = new SmallSearchSlot[searchPlies];
+            this.scratch = layerStacks[0].newScratch();
+            this.threatAccumulation = new int[2][transformer.transformedDimensions];
+            this.threatPsqtAccumulation = new int[2][LAYER_STACKS];
+            for (int ply = 0; ply < searchPlies; ply++) {
+                buffers[ply] = new SmallSearchSlot(transformer.transformedDimensions);
+            }
+            refreshSmallSlot(buffers[0], root);
+            active[0] = buffers[0];
+        }
+
+        /**
+         * Updates the child PSQ slot incrementally after a normal move.
+         *
+         * @param position child position after the move
+         * @param move encoded move that was played
+         * @param state undo state filled by the move application
+         * @param ply child ply from the root
+         */
+        @Override
+        public void movePlayed(Position position, short move, Position.State state, int ply) {
+            SmallSearchSlot child = buffers[ply];
+            child.copyFrom(active[ply - 1]);
+            active[ply] = child;
+            updateBigPerspective(child, position, move, state, UpstreamFeatures.WHITE);
+            updateBigPerspective(child, position, move, state, UpstreamFeatures.BLACK);
+        }
+
+        /**
+         * Reuses the parent slot for a null-move child ply.
+         *
+         * @param ply child ply from the root
+         */
+        @Override
+        public void nullMovePlayed(int ply) {
+            active[ply] = active[ply - 1];
+        }
+
+        /**
+         * Evaluates the active BIG-net slot, rebuilding threats for this node.
+         *
+         * @param position current position
+         * @param ply current ply from the root
+         * @return centipawns from the side-to-move perspective
+         */
+        @Override
+        public int evaluate(Position position, int ply) {
+            return evaluateBig(active[ply], position, threatAccumulation, threatPsqtAccumulation, scratch);
+        }
+
+        /**
+         * Updates one perspective's PSQ accumulator after a move (mirrors
+         * {@link SmallSearchState}'s logic; threats are not part of the slot).
+         *
+         * @param slot child slot
+         * @param position child position
+         * @param move encoded move
+         * @param state undo state filled by the move application
+         * @param perspective Stockfish color id
+         */
+        private void updateBigPerspective(
+                SmallSearchSlot slot,
+                Position position,
+                short move,
+                Position.State state,
+                int perspective) {
+            int moving = state.movingPiece();
+            if (moving == kingPieceIndex(perspective == UpstreamFeatures.WHITE)) {
+                refreshSmallPerspective(slot, position, perspective);
+                return;
+            }
+            updateHalfKaMove(
+                    slot,
+                    position,
+                    perspective,
+                    moving,
+                    Move.getFromIndex(move),
+                    state.actualToSquare(),
+                    promotedPieceIndex(moving, Move.getPromotion(move)));
+            if (state.capture()) {
+                updateHalfKaRemoval(slot, position, perspective, state.capturedPiece(), state.capturedSquare());
+            }
+            if (state.castle()) {
+                updateHalfKaMove(
+                        slot,
+                        position,
+                        perspective,
+                        state.rookPiece(),
+                        state.rookFromSquare(),
+                        state.rookToSquare(),
+                        state.rookPiece());
+            }
+        }
+    }
+
+    /**
+     * Evaluates one position from an incremental BIG-net slot: PSQ accumulators
+     * are incremental, threat accumulators are rebuilt here. Combines PSQ and
+     * threats exactly as {@link FeatureTransformer#transform}, so the result is
+     * bit-identical to a full rebuild.
+     *
+     * @param slot active PSQ slot
+     * @param position current position
+     * @param threatAccumulation reusable per-perspective threat accumulators
+     * @param threatPsqtAccumulation reusable per-perspective threat PSQT accumulators
+     * @param scratch dense-layer workspace
+     * @return centipawns from the side-to-move perspective
+     */
+    private int evaluateBig(
+            SmallSearchSlot slot,
+            Position position,
+            int[][] threatAccumulation,
+            int[][] threatPsqtAccumulation,
+            Architecture.Scratch scratch) {
+        int[] board = UpstreamFeatures.board(position);
+        int bucket = bucket(UpstreamFeatures.pieceCount(board));
+        int stm = UpstreamFeatures.sideToMove(position);
+        int opponent = stm ^ 1;
+        transformer.accumulateThreatFeatures(board, stm, threatAccumulation[stm], threatPsqtAccumulation[stm]);
+        transformer.accumulateThreatFeatures(
+                board, opponent, threatAccumulation[opponent], threatPsqtAccumulation[opponent]);
+
+        int psqt = slot.psqtAccumulation[stm][bucket] - slot.psqtAccumulation[opponent][bucket];
+        psqt = (psqt + threatPsqtAccumulation[stm][bucket] - threatPsqtAccumulation[opponent][bucket]) / 2;
+
+        int half = transformer.transformedDimensions / 2;
+        int smallClamp = variant.scaleSmallTransformer ? 254 : 255;
+        transformer.writePerspectiveFeatures(
+                slot.transformed, 0, slot.psqAccumulation[stm], threatAccumulation[stm], half, smallClamp);
+        transformer.writePerspectiveFeatures(
+                slot.transformed, half, slot.psqAccumulation[opponent], threatAccumulation[opponent], half, smallClamp);
+        int positional = layerStacks[bucket].propagate(slot.transformed, scratch);
+        return (psqt / OUTPUT_SCALE) + (positional / OUTPUT_SCALE);
     }
 
     /**
