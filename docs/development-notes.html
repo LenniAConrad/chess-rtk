@@ -3,167 +3,357 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Development notes | ChessRTK Wiki</title>
+  <title>Development Notes | ChessRTK</title>
+  <meta name="description" content="The deterministic chess research toolkit — Development Notes.">
+  <link rel="icon" href="assets/logo/crtk-logo.svg" type="image/svg+xml">
   <link rel="stylesheet" href="styles.css">
+  <script>
+    (function () {
+      var key = "crtk-theme";
+      var isTheme = function (value) { return value === "light" || value === "dark"; };
+      var urlTheme = "";
+      var stored = "";
+      try { urlTheme = new URLSearchParams(window.location.search).get("theme"); } catch (e) {}
+      try { stored = localStorage.getItem(key); } catch (e) {}
+      var theme = isTheme(urlTheme) ? urlTheme : (isTheme(stored) ? stored : "");
+      if (!theme) {
+        theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+      }
+      if (isTheme(urlTheme)) {
+        try { localStorage.setItem(key, urlTheme); } catch (e) {}
+      }
+      document.documentElement.setAttribute("data-theme", theme);
+    })();
+  </script>
   <script defer src="search-index.js"></script>
   <script defer src="site.js"></script>
 </head>
-<body>
-  <button class="menu-toggle" type="button" aria-label="Toggle navigation">Menu</button>
-  <div class="site-shell">
-    <aside class="sidebar">
-      <a class="brand" href="index.html">
-        <span class="brand-mark">CR</span>
-        <span><strong>ChessRTK</strong><small>Wiki</small></span>
+<body class="is-doc">
+
+  <header class="topnav">
+    <div class="topnav-inner">
+      <a class="topnav-brand" href="index.html">
+        <img src="assets/logo/crtk-logo.svg" alt="" width="32" height="32">
+        <span>ChessRTK</span>
       </a>
-      <label class="search-label" for="doc-search">Search pages</label>
-      <input id="doc-search" class="search" type="search" placeholder="Search docs...">
+      <button class="nav-toggle" type="button" aria-label="Toggle navigation" aria-expanded="false">
+        <span></span><span></span><span></span>
+      </button>
+      <nav class="topnav-links">
+        <a class="" href="getting-started.html">Get started</a>
+        <a class="" href="command-reference.html">Commands</a>
+        <a class="" href="workbench.html">Workbench</a>
+        <a class="" href="wiki-index.html">Docs</a>
+        <a class="" href="chessrtk-manual.pdf">Manual</a>
+        <a class="topnav-gh" href="https://github.com/LenniAConrad/chess-rtk" target="_blank" rel="noopener">GitHub</a>
+        <button class="theme-toggle" type="button" aria-label="Toggle dark mode" title="Toggle dark mode">
+          <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2v2.4M12 19.6V22M2 12h2.4M19.6 12H22M4.9 4.9l1.7 1.7M17.4 17.4l1.7 1.7M19.1 4.9l-1.7 1.7M6.6 17.4l-1.7 1.7"/></svg>
+          <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4 7 7 0 1 0 20 14.5Z"/></svg>
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <div class="doc-shell">
+    <aside class="sidebar" id="sidebar">
+      <label class="search-label" for="doc-search">Search the docs</label>
+      <input id="doc-search" class="search" type="search" placeholder="Search pages..." autocomplete="off">
       <div id="search-results" class="search-results" hidden></div>
       <nav class="nav"><section class="nav-section"><h2>Start Here</h2>
-<a class="" href="index.html" data-title="home">Home</a>
+<a class="" href="index.html" data-title="overview">Overview</a>
 <a class="" href="getting-started.html" data-title="getting started">Getting Started</a>
+<a class="" href="build-and-install.html" data-title="build &amp; install">Build &amp; Install</a>
 <a class="" href="use-cases.html" data-title="use cases">Use Cases</a>
-<a class="" href="command-cheatsheet.html" data-title="command cheatsheet">Command Cheatsheet</a>
 <a class="" href="faq.html" data-title="faq">FAQ</a>
-<a class="" href="command-reference.html" data-title="command reference">Command Reference</a>
-<a class="" href="example-commands.html" data-title="example commands">Example Commands</a>
 <a class="" href="troubleshooting.html" data-title="troubleshooting">Troubleshooting</a>
 </section>
-<section class="nav-section"><h2>User Guides</h2>
-<a class="" href="build-and-install.html" data-title="build &amp; install">Build &amp; Install</a>
-<a class="" href="workbench.html" data-title="desktop workbench">Desktop Workbench</a>
+<section class="nav-section"><h2>Commands</h2>
+<a class="" href="command-cheatsheet.html" data-title="cheatsheet">Cheatsheet</a>
+<a class="" href="command-reference.html" data-title="command reference">Command Reference</a>
+<a class="" href="example-commands.html" data-title="example commands">Example Commands</a>
 <a class="" href="configuration.html" data-title="configuration">Configuration</a>
-<a class="" href="in-house-engine.html" data-title="in-house engine">In-House Engine</a>
-<a class="" href="lc0.html" data-title="lc0">LC0</a>
 <a class="" href="outputs-and-logs.html" data-title="outputs &amp; logs">Outputs &amp; Logs</a>
-<a class="" href="support.html" data-title="support">Support</a>
+</section>
+<section class="nav-section"><h2>Desktop Workbench</h2>
+<a class="" href="workbench.html" data-title="workbench">Workbench</a>
+</section>
+<section class="nav-section"><h2>Engines &amp; Models</h2>
+<a class="" href="in-house-engine.html" data-title="built-in engine">Built-in Engine</a>
+<a class="" href="lc0.html" data-title="lc0 networks">LC0 Networks</a>
+<a class="" href="gpu.html" data-title="gpu acceleration">GPU Acceleration</a>
+<a class="" href="t5.html" data-title="t5 text">T5 Text</a>
 </section>
 <section class="nav-section"><h2>Workflows</h2>
-<a class="" href="mining.html" data-title="mining puzzles">Mining Puzzles</a>
+<a class="" href="mining.html" data-title="puzzle mining">Puzzle Mining</a>
 <a class="" href="filter-dsl.html" data-title="filter dsl">Filter DSL</a>
-<a class="" href="datasets.html" data-title="datasets">Datasets</a>
-<a class="" href="book-publishing.html" data-title="book publishing">Book Publishing</a>
-<a class="" href="piece-tags.html" data-title="tags">Tags</a>
+<a class="" href="datasets.html" data-title="ml datasets">ML Datasets</a>
+<a class="" href="piece-tags.html" data-title="tagging">Tagging</a>
 <a class="" href="tag-reference.html" data-title="tag reference">Tag Reference</a>
-<a class="" href="t5.html" data-title="t5 text">T5 Text</a>
-<a class="" href="ai-agents.html" data-title="ai agents">AI Agents</a>
+<a class="" href="book-publishing.html" data-title="book publishing">Book Publishing</a>
+<a class="" href="ai-agents.html" data-title="ai agents &amp; automation">AI Agents &amp; Automation</a>
 </section>
-<section class="nav-section"><h2>Development</h2>
+<section class="nav-section"><h2>Project</h2>
 <a class="" href="architecture.html" data-title="architecture">Architecture</a>
 <a class="" href="quality-and-testing.html" data-title="quality &amp; testing">Quality &amp; Testing</a>
 <a class="active" href="development-notes.html" data-title="development notes">Development Notes</a>
 <a class="" href="releasing.html" data-title="releasing">Releasing</a>
-<a class="" href="roadmap.html" data-title="roadmap">Roadmap</a>
 <a class="" href="glossary.html" data-title="glossary">Glossary</a>
-<a class="" href="tagging-implementation-plan.html" data-title="tagging plan">Tagging Plan</a>
+<a class="" href="support.html" data-title="support">Support</a>
 <a class="" href="wiki-index.html" data-title="wiki index">Wiki Index</a>
 </section></nav>
     </aside>
-    <div class="page">
-      <header class="topbar">
-        <div>
-          <span>Development</span>
-          <strong>Development notes</strong>
-        </div>
-        <nav>
-          <a href="index.html">Home</a>
-          <a href="wiki-index.html">Wiki Index</a>
-          <a href="chessrtk-manual.pdf">Manual PDF</a>
-          <a href="command-reference.html">Commands</a>
-        </nav>
-      </header>
-      
-      <main class="content-layout">
-        <article class="content">
-          <h1 id="development-notes">Development notes</h1>
-<h2 id="project-shape">Project shape</h2>
+    <main class="doc-main">
+      <article class="content">
+        <p class="content-kicker">Project</p>
+        <h1 id="development-notes">Development Notes</h1>
+<p>One rule shapes everything in this codebase: there is exactly one chess core, and everyone uses it. Commands, the desktop Workbench, the puzzle miner, the dataset exporters — all of them route legality, FEN/SAN/UCI, and Chess960 through the same code, so the same input produces the same output every time. Protecting that property is the thing to keep in mind as you read the rest of this page, which covers the repository layout, the build (and the one compiler flag you cannot skip), the regression suite, regenerating the docs site and manual PDF, re-rendering the diagrams, and the conventions the source follows.</p>
+<p>For end-user workflows see <a href="getting-started.html">Getting Started</a> and the <a href="command-reference.html">Command Reference</a>. For the system map, read <a href="architecture.html">Architecture</a>. For build prerequisites and install paths, see <a href="build-and-install.html">Build &amp; Install</a>.</p>
+<h2 id="prerequisites">Prerequisites</h2>
 <ul>
-<li><code>src/application/</code> — CLI entry point, config loading, session/log plumbing</li>
-<li><code>application.Main</code>: subcommand parsing + dispatch</li>
-<li><code>application.Config</code>: loads <code>config/cli.config.toml</code> (auto-seeded if missing)</li>
-<li><code>src/chess/</code> — chess core, UCI protocol, mining pipeline, render/display helpers</li>
-<li><code>chess.core</code>: Java-native board state, FEN/SAN helpers, legal move generation, and make/unmake</li>
-<li><code>chess.book.render</code>: native puzzle-book layout, table text, and figurine movetext formatting</li>
-<li><code>chess.debug</code>: perft runners, perft validation suite, board/move printers, and logging helpers</li>
-<li><code>chess.uci</code>: engine protocol + analysis parsing + Filter DSL</li>
-<li><code>chess.io</code>: converters, readers/writers, dataset exporters</li>
-<li><code>chess.engine</code>: in-process alpha-beta search used by <code>engine builtin</code></li>
-<li><code>chess.eval</code>: in-process evaluator facade used by <code>engine eval</code>,</li>
+<li>A JDK 17 or newer with <code>javac</code> on <code>PATH</code>. A newer JDK works fine; the build targets the 17 release regardless.</li>
+<li><code>jar</code> (ships with the JDK) to package <code>crtk.jar</code>.</li>
+<li>Optional: <code>python3</code> for the docs/manual scripts, Graphviz (<code>dot</code>) for diagrams, a headless Chromium/Chrome for the manual PDF, and native toolchains (CUDA/ROCm/oneAPI) only if you build GPU backends.</li>
+<li>No Maven, no Gradle, no third-party dependencies. Everything compiles from <code>src/</code> with the stock JDK.</li>
 </ul>
-<p><code>engine static</code>, <code>engine builtin</code>, display ablation, and tag helpers</p>
+<h2 id="repository-layout">Repository layout</h2>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Path</th>
+<th>What lives there</th>
+</tr></thead><tbody>
+<tr>
+<td><code>src/application/</code></td>
+<td>CLI entry point, command dispatch, config loading, and the Swing Workbench</td>
+</tr>
+<tr>
+<td><code>src/chess/</code></td>
+<td>The shared chess core plus engines, evaluators, neural nets, mining, rendering, and I/O</td>
+</tr>
+<tr>
+<td><code>src/utility/</code></td>
+<td>Dependency-free helpers (JSON, TOML, SVG, argv parsing, numeric clamps)</td>
+</tr>
+<tr>
+<td><code>src/testing/</code></td>
+<td>Self-contained regression tests, each with its own <code>main(...)</code></td>
+</tr>
+<tr>
+<td><code>scripts/</code></td>
+<td>Build/regen tooling: docs site, manual PDF, regression runner, release helpers</td>
+</tr>
+<tr>
+<td><code>assets/diagrams/</code></td>
+<td>Graphviz <code>.dot</code> sources and their rendered <code>.png</code> exports</td>
+</tr>
+<tr>
+<td><code>wiki/</code></td>
+<td>Markdown documentation (the source the docs site is generated from)</td>
+</tr>
+<tr>
+<td><code>docs/</code></td>
+<td>Generated static site and manual (build output — do not hand-edit)</td>
+</tr>
+<tr>
+<td><code>native/</code></td>
+<td>CUDA, ROCm, and oneAPI native backends for perft and OTIS</td>
+</tr>
+<tr>
+<td><code>config/</code></td>
+<td>Seeded TOML config and engine protocol files</td>
+</tr>
+</tbody></table></div>
+<h3 id="src-application-cli-and-workbench"><code>src/application/</code> — CLI and Workbench</h3>
 <ul>
-<li><code>chess.nn.lc0.cnn</code>: pure-Java LC0 CNN forward pass with optional CUDA,</li>
+<li><code>application.Main</code> is the <code>main-class</code> baked into <code>crtk.jar</code>, and not much else — a thin launcher that hands off to <code>application.cli</code>.</li>
+<li><code>application.cli.CliRegistry</code> maps each area/action to a <code>CliCommand</code> implementation under <code>application.cli.command</code>. One class per command (<code>AnalyzeCommand</code>, <code>PerftCommand</code>, <code>Chess960Command</code>, and so on) keeps the dispatch table flat and each command testable in isolation.</li>
+<li><code>application.cli.Constants</code> holds the canonical command tokens. The plumbing every command shares — engine setup, eval setup, record I/O, FEN/PGN parsing, output formatting, validation — lives in sibling classes like <code>EngineOps</code>, <code>EvalOps</code>, <code>RecordIO</code>, <code>PgnOps</code>, and <code>Format</code>, so a new command rarely has to reinvent any of it.</li>
+<li><code>application.gui.workbench</code> is the Swing Workbench launched by <code>workbench</code> (alias <code>gui</code>): board view, play-vs-engine, command forms, batch jobs, dataset tools, logs, publishing previews, puzzles, and neural-net visualizers.</li>
 </ul>
-<p>ROCm, and oneAPI native backends</p>
+<h3 id="src-chess-the-shared-core-and-everything-built-on-it"><code>src/chess/</code> — the shared core and everything built on it</h3>
 <ul>
-<li><code>chess.nn.lc0.bt4</code>: LC0 BT4 attention-body helpers, Java reference forward</li>
+<li><code>chess.core</code> is the canonical rules engine: <code>Position</code> (mutable state, FEN round-trip, <code>play(...)</code>/<code>undo(...)</code>), <code>MoveGenerator</code> (pseudo-legal/legal generation, attack and pin detection), <code>MoveList</code> (compact encoded <code>short</code> moves), <code>Fen</code>, <code>SAN</code>, and <code>Setup</code> (standard, Chess960, and random starts). Note what is absent: there is no separate <code>bitboard</code> package, because the bitboard-backed code <em>is</em> the core.</li>
+<li><code>chess.debug</code> holds the perft runners. Plain perft lives in <code>Perft</code>, the stored-truth regression suite in <code>PerftSuite</code>. The optional GPU path expands frontier positions on the CPU through <code>SplitPerft</code>, then hands the heavy node counting to a native backend.</li>
+<li><code>chess.uci</code> is the external-engine protocol layer. It drives Stockfish/LC0 for <code>engine analyze</code>, <code>engine bestmove</code>, <code>engine threats</code>, <code>engine compare</code>, MultiPV, and the batch commands, and it hosts the Filter DSL that gates puzzle mining.</li>
+<li><code>chess.engine</code> is the built-in MCTS searcher behind <code>engine builtin</code> / <code>engine java</code>, plus the alpha-beta search Workbench Play uses. <code>chess.eval</code> is the in-process evaluator facade for <code>engine eval</code> and <code>engine static</code>.</li>
+<li><code>chess.nn</code> holds the neural-network evaluators: an LC0 CNN forward pass, the simplified BT4 attention path, the OTIS policy/WDL evaluator, and the T5 text models behind <code>fen text</code> and <code>puzzle text</code>. Each backend ships a pure-Java path plus optional CUDA/ROCm/oneAPI acceleration that falls back to the CPU when the native library is missing.</li>
+<li><code>chess.puzzle</code>, <code>chess.tag</code>, <code>chess.io</code>, <code>chess.book</code>, <code>chess.pdf</code>, and <code>chess.images</code> cover puzzle mining, deterministic tagging, record/dataset export, native PDF publishing (no LaTeX), and board rendering.</li>
 </ul>
-<p>path, and optional CUDA, ROCm, and oneAPI native backends</p>
-<h2 id="core-chess-implementation">Core chess implementation</h2>
-<p>The current chess rules implementation lives in <code>chess.core</code>. There is no separate public <code>bitboard</code> package: the optimized bitboard-backed code is the core implementation.</p>
-<p>Important classes:</p>
-<ul>
-<li><code>Position</code>: mutable position state, FEN round-tripping, legal move helpers,</li>
-</ul>
-<p><code>play(...)</code>, and <code>undo(...)</code>.</p>
-<ul>
-<li><code>MoveGenerator</code>: pseudo-legal/legal move generation, attack tests, pinned</li>
-</ul>
-<p>piece detection, and node-only perft.</p>
-<ul>
-<li><code>MoveList</code>: compact mutable list for encoded <code>short</code> moves.</li>
-<li><code>Fen</code>: strict FEN parse/format helpers, including Chess960 castling metadata.</li>
-<li><code>SAN</code>: SAN formatting, SAN parsing, and move-line application.</li>
-<li><code>Setup</code>: standard starts, Chess960 starts, and random position helpers.</li>
-</ul>
-<p>Detailed perft is intentionally in <code>chess.debug.Perft</code>, while the stored-truth validation suite is in <code>chess.debug.PerftSuite</code>. Both use <code>chess.core</code> positions and move generation, and neither path depends on an external engine.</p>
-<h2 id="shared-helpers">Shared helpers</h2>
-<p>Keep small cross-package helpers in <code>utility</code> when the behavior is genuinely generic. Current examples:</p>
-<ul>
-<li><code>utility.Numbers</code>: inclusive numeric clamping, unit-interval clamping, and</li>
-</ul>
-<p>8-bit color-channel clamping.</p>
-<ul>
-<li><code>utility.Argv</code>: command-line option parsing.</li>
-<li><code>utility.Json</code>, <code>utility.Toml</code>, and <code>utility.Svg</code>: dependency-free structured</li>
-</ul>
-<p>text and rendering helpers.</p>
-<p>Rendering-specific text belongs near the renderer. For example, <code>chess.book.render.MoveText</code> converts SAN-like solution text to figurine algebraic notation for book tables and PDF captions.</p>
-<h2 id="adding-changing-cli-commands">Adding/changing CLI commands</h2>
+<blockquote><p>The networks are usable evaluators, not bit-exact reimplementations. crtk does <strong>not</strong> claim LC0/BT4 parity, and the BT4 path is simplified and experimental. Say so plainly in code comments and docs; an honest caveat beats a misleading benchmark.</p></blockquote>
+<h2 id="building-with-javac-release-17">Building with <code>javac --release 17</code></h2>
+<p>The canonical build is whatever <code>install.sh</code> does, which is two commands: compile every source under <code>src/</code>, then package a runnable jar.</p>
+<pre><code class="language-bash">find src -name &#x27;*.java&#x27; -print0 | xargs -0 javac --release 17 -d out
+jar --create --file crtk.jar --main-class application.Main -C out .</code></pre>
+<p>Then run it:</p>
+<pre><code class="language-bash">java -jar crtk.jar version
+java -jar crtk.jar help</code></pre>
+<p>You can also run without packaging, straight from the classes directory:</p>
+<pre><code class="language-bash">java -cp out application.Main help</code></pre>
+<h3 id="the-release-17-gotcha-do-not-skip-this">The <code>--release 17</code> gotcha (do not skip this)</h3>
+<p><strong>Always compile with <code>--release 17</code>, never with a bare JDK 21 default.</strong> Build against a newer release and you will get errors that point at nothing real — the MCTS session code is a repeat offender — because the compiler is resolving against a newer class library and language level than the source was written for. <code>--release 17</code> pins both the language level and the API surface to what the project targets and what CI uses. So when the editor lights up red, run a clean command-line <code>javac --release 17</code> and believe it over the IDE.</p>
+<p>IDE markers also go stale mid-edit. When in doubt, compile from scratch instead of trusting a single inline complaint.</p>
+<h2 id="running-the-regression-suite">Running the regression suite</h2>
+<p><code>scripts/run_regression_suite.sh</code> compiles the sources and runs the <code>src/testing/</code> checks. There is no test framework: each test is an ordinary class with its own <code>main(...)</code>, invoked as <code>java -cp out testing.&lt;Name&gt;</code>. That keeps the dependency count at zero and makes any failing test runnable on its own.</p>
+<pre><code class="language-bash">bash scripts/run_regression_suite.sh              # default: recommended
+bash scripts/run_regression_suite.sh core         # core chess + parsing tests
+bash scripts/run_regression_suite.sh cli          # CLI command regressions
+bash scripts/run_regression_suite.sh engine       # engine / NN / GPU perft tests</code></pre>
+<p>Available suite selectors:</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Selector</th>
+<th>Scope</th>
+</tr></thead><tbody>
+<tr>
+<td><code>recommended</code></td>
+<td>Default fast set covering core, CLI, and key engine paths</td>
+</tr>
+<tr>
+<td><code>build</code></td>
+<td>Compile only</td>
+</tr>
+<tr>
+<td><code>lint</code></td>
+<td>Source/style checks</td>
+</tr>
+<tr>
+<td><code>core</code></td>
+<td>Move generation, positions, SAN, JSON, parsing, tagging</td>
+</tr>
+<tr>
+<td><code>cli</code></td>
+<td>CLI command + PGN/book/puzzle command regressions</td>
+</tr>
+<tr>
+<td><code>engine</code></td>
+<td>Built-in engine, puzzle difficulty, BT4, T5, OTIS, GPU perft</td>
+</tr>
+<tr>
+<td><code>scripts</code></td>
+<td>Shell-script linting</td>
+</tr>
+<tr>
+<td><code>uci</code></td>
+<td>External-engine protocol tests</td>
+</tr>
+<tr>
+<td><code>book</code></td>
+<td>PDF/book rendering tests</td>
+</tr>
+<tr>
+<td><code>docs</code></td>
+<td>Documentation checks</td>
+</tr>
+<tr>
+<td><code>perft-smoke</code></td>
+<td>Quick perft sanity run</td>
+</tr>
+<tr>
+<td><code>jar</code></td>
+<td>Packaged-jar checks</td>
+</tr>
+<tr>
+<td><code>ci</code></td>
+<td>The continuous-integration set</td>
+</tr>
+<tr>
+<td><code>release</code></td>
+<td>The pre-release set</td>
+</tr>
+</tbody></table></div>
+<p>A few environment overrides are worth knowing: <code>CRTK_PERFT_THREADS</code>, <code>CRTK_PERFT_DEPTH</code>, <code>CRTK_PERFT_SUITE_DEPTH</code>, and <code>CRTK_REQUIRE_STOCKFISH</code> (set it to <code>1</code> when you want a missing Stockfish to fail the run rather than quietly skip).</p>
+<p>For a correctness check that needs no script at all, run the built-in perft regression directly:</p>
+<pre><code class="language-bash">java -jar crtk.jar engine perft-suite --depth 4</code></pre>
+<p>It checks stored node counts against the shared core move generator — the fastest way to know a movegen change did not quietly break something.</p>
+<h2 id="regenerating-the-docs-site-and-manual">Regenerating the docs site and manual</h2>
+<p>The Markdown under <code>wiki/</code> is the source of truth. The HTML under <code>docs/</code> is generated from it, so edits there get overwritten — change the Markdown.</p>
+<h3 id="static-site">Static site</h3>
+<pre><code class="language-bash">python3 scripts/build_docs_site.py</code></pre>
+<p>This reads <code>wiki/*.md</code> and writes the static site into <code>docs/</code>: a top nav, a landing hero, a left sidebar with per-page tables of contents (built from the <code>##</code>/<code>###</code> headings), a search index (<code>docs/search-index.js</code>), and a light/dark theme toggle. Page order and grouping come from the <code>NAVIGATION</code> table near the top of the script. Anything not listed there still ships — it lands in a trailing reference group rather than vanishing without a trace.</p>
+<h3 id="manual-pdf">Manual PDF</h3>
+<pre><code class="language-bash">python3 scripts/build_manual_pdf.py</code></pre>
+<p>This reuses <code>build_docs_site</code> to assemble one continuous <code>docs/manual.html</code>, then renders <code>docs/chessrtk-manual.pdf</code> through a headless Chromium/Chrome (<code>--headless --print-to-pdf</code>). It probes <code>PATH</code> for <code>chromium</code>, <code>chromium-browser</code>, <code>google-chrome</code>, <code>google-chrome-stable</code>, or <code>chrome</code>; if the PDF step fails, the usual cause is that none of those is installed. Run <code>build_docs_site.py</code> — or this script, which calls it — after any <code>wiki/</code> edit so the site and manual stay in step.</p>
+<h2 id="regenerating-diagrams">Regenerating diagrams</h2>
+<p>The architecture diagrams are Graphviz sources in <code>assets/diagrams/*.dot</code>, each with its rendered <code>*.png</code> checked in alongside it. They are all <code>digraph</code>s, so <code>dot</code> renders them:</p>
+<pre><code class="language-bash">dot -Tpng assets/diagrams/crtk-pipeline-overview.dot -o assets/diagrams/crtk-pipeline-overview.png</code></pre>
+<p>Regenerate every PNG at once:</p>
+<pre><code class="language-bash">for f in assets/diagrams/*.dot; do dot -Tpng &quot;$f&quot; -o &quot;${f%.dot}.png&quot;; done</code></pre>
+<p>Reach for <code>neato</code> only if you write a graph that wants a spring or radial layout; everything currently checked in is a directed-graph layout, so <code>dot</code> is the right tool. Reference a rendered diagram from Markdown by its assets path, for example <code>![Pipeline overview](../assets/diagrams/crtk-pipeline-overview.png)</code>.</p>
+<h2 id="adding-or-changing-a-cli-command">Adding or changing a CLI command</h2>
 <ol>
-<li>Add a new <code>case</code> in <code>application.Main.main(...)</code>.</li>
-<li>Implement a <code>runXxx(Argv a)</code> handler (use <code>utility.Argv</code> for parsing).</li>
-<li>Update the help text in <code>application.Main.help()</code>.</li>
-<li>Update docs:</li>
+<li>Add or update a <code>CliCommand</code> implementation under <code>src/application/cli/command/</code> (book/puzzle commands live in the <code>book</code> subpackage).</li>
+<li>Register the area/action in <code>application.cli.CliRegistry</code>, using the canonical tokens from <code>application.cli.Constants</code>.</li>
+<li>Reuse the shared plumbing — <code>EngineOps</code>, <code>EvalOps</code>, <code>RecordIO</code>, <code>PgnOps</code>, <code>Format</code>, <code>Validation</code> — rather than re-parsing FENs or re-spawning engines inline.</li>
+<li>Update the help text. <code>crtk help &lt;area&gt; [&lt;action&gt;]</code> is the ground-truth surface and must list every flag you add.</li>
+<li>Update the docs — <a href="command-reference.html">Command Reference</a> and <a href="example-commands.html">Example Commands</a> — then regenerate the site.</li>
+<li>Add or extend a <code>testing.*RegressionTest</code> and run the <code>cli</code> suite.</li>
 </ol>
+<p>Names are noun-then-verb, everywhere: <code>move list</code>, <code>move uci</code>, <code>engine bestmove</code>, <code>engine static</code>, <code>record tag-stats</code>, <code>fen pgn</code>, <code>puzzle mine</code>. The legacy forms — <code>pgn-to-fens</code>, <code>mine-puzzles</code>, <code>record-to-csv</code>, bare <code>moves</code>/<code>bestmove</code>/<code>eval-static</code>, <code>stats-tags</code> — are gone for good; do not bring them back.</p>
+<h2 id="coding-conventions">Coding conventions</h2>
 <ul>
-<li><code>wiki/command-reference.md</code></li>
-<li><code>wiki/example-commands.md</code></li>
+<li><strong>One shared core.</strong> New features call <code>chess.core</code> for legality, FEN/SAN/UCI, and Chess960. Never fork the rules — determinism here is engineered, not lucky.</li>
+<li><strong>Determinism by default.</strong> No hidden global state, no wall-clock-dependent output, no unseeded randomness in anything a command prints. The same FEN and flags should produce the same bytes on every run, on any machine.</li>
+<li><strong>No new dependencies.</strong> The build stays on the stock JDK. Generic, dependency-free helpers go in <code>utility</code> (<code>utility.Json</code>, <code>utility.Toml</code>, <code>utility.Svg</code>, <code>utility.Argv</code>, <code>utility.Numbers</code>); rendering-specific text stays next to its renderer.</li>
+<li><strong>Small, single-responsibility classes.</strong> Follow the existing split — one command per class, focused support classes — instead of letting a file grow into a monolith.</li>
+<li><strong>Compile clean at <code>--release 17</code>.</strong> Fix the source that produces a warning rather than reaching for a broad suppression, and trust a clean command-line compile over a transient IDE marker.</li>
+<li><strong>Help text is ground truth.</strong> Every flag you expose must show up in <code>crtk help</code>; the docs and AI-agent integrations quote it verbatim, so a stale help string becomes a wrong document elsewhere.</li>
 </ul>
-<h2 id="docs-policy">Docs policy</h2>
-<p>The root <code>README.md</code> should carry the first-screen framing: what ChessRTK is, why it is technically hard, how to verify it quickly, and where the main system boundaries are. Longer explanations, workflows, and reference material live under <code>wiki/</code>.</p>
-<h2 id="optional-tooling">Optional tooling</h2>
-<p>If you plan to iterate on ChessRTK regularly, consider adding a small layer of local tooling:</p>
-<ul>
-<li><code>just</code> (or a <code>Makefile</code>) for common tasks like build/release/smoke tests</li>
-<li><code>pre-commit</code> hooks for <code>shellcheck</code> (shell scripts) and <code>google-java-format</code> (Java)</li>
-<li><code>jlink</code> / <code>jpackage</code> for optional self-contained distributions</li>
-</ul>
-<p>Related: <code>wiki/roadmap.md</code>.</p>
-        </article>
-        <aside class="toc"><h2>On This Page</h2>
-<a class="toc-h2" href="#project-shape">Project shape</a>
-<a class="toc-h2" href="#core-chess-implementation">Core chess implementation</a>
-<a class="toc-h2" href="#shared-helpers">Shared helpers</a>
-<a class="toc-h2" href="#adding-changing-cli-commands">Adding/changing CLI commands</a>
-<a class="toc-h2" href="#docs-policy">Docs policy</a>
-<a class="toc-h2" href="#optional-tooling">Optional tooling</a></aside>
-      </main>
-      <footer class="footer">
-        <span>Generated from <code>wiki/development-notes.md</code>.</span>
-        <span>Build with <code>python3 scripts/build_docs_site.py</code>.</span>
-      </footer>
-    </div>
+<p>Related: <a href="architecture.html">Architecture</a>, <a href="build-and-install.html">Build &amp; Install</a>, <a href="quality-and-testing.html">Quality &amp; Testing</a>, <a href="command-reference.html">Command Reference</a>.</p>
+      </article>
+      <aside class="toc"><h2>On this page</h2>
+<a class="toc-h2" href="#prerequisites">Prerequisites</a>
+<a class="toc-h2" href="#repository-layout">Repository layout</a>
+<a class="toc-h3" href="#src-application-cli-and-workbench">src/application/ — CLI and Workbench</a>
+<a class="toc-h3" href="#src-chess-the-shared-core-and-everything-built-on-it">src/chess/ — the shared core and everything built on it</a>
+<a class="toc-h2" href="#building-with-javac-release-17">Building with javac --release 17</a>
+<a class="toc-h3" href="#the-release-17-gotcha-do-not-skip-this">The --release 17 gotcha (do not skip this)</a>
+<a class="toc-h2" href="#running-the-regression-suite">Running the regression suite</a>
+<a class="toc-h2" href="#regenerating-the-docs-site-and-manual">Regenerating the docs site and manual</a>
+<a class="toc-h3" href="#static-site">Static site</a>
+<a class="toc-h3" href="#manual-pdf">Manual PDF</a>
+<a class="toc-h2" href="#regenerating-diagrams">Regenerating diagrams</a>
+<a class="toc-h2" href="#adding-or-changing-a-cli-command">Adding or changing a CLI command</a>
+<a class="toc-h2" href="#coding-conventions">Coding conventions</a></aside>
+    </main>
   </div>
+
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <div class="footer-brand">
+        <a class="footer-logo" href="index.html">
+          <img src="assets/logo/crtk-logo.svg" alt="" width="40" height="40">
+          <span>ChessRTK</span>
+        </a>
+        <p>The deterministic chess research toolkit. Free, open-source, and built on one shared Java chess core.</p>
+        <p class="footer-license">Licensed under GPL-3.0-only.</p>
+      </div>
+      <div class="footer-cols">
+        <div class="footer-col"><h3>Documentation</h3><ul>
+          <li><a href="getting-started.html">Getting Started</a></li>
+          <li><a href="command-reference.html">Command Reference</a></li>
+          <li><a href="configuration.html">Configuration</a></li>
+          <li><a href="troubleshooting.html">Troubleshooting</a></li>
+          <li><a href="chessrtk-manual.pdf">Manual (PDF)</a></li>
+        </ul></div>
+        <div class="footer-col"><h3>Workflows</h3><ul>
+          <li><a href="mining.html">Puzzle Mining</a></li>
+          <li><a href="datasets.html">ML Datasets</a></li>
+          <li><a href="piece-tags.html">Tagging</a></li>
+          <li><a href="book-publishing.html">Book Publishing</a></li>
+          <li><a href="ai-agents.html">AI Agents</a></li>
+        </ul></div>
+        <div class="footer-col"><h3>Project</h3><ul>
+          <li><a href="architecture.html">Architecture</a></li>
+          <li><a href="quality-and-testing.html">Quality &amp; Testing</a></li>
+          <li><a href="https://github.com/LenniAConrad/chess-rtk" target="_blank" rel="noopener">GitHub</a></li>
+          <li><a href="https://github.com/LenniAConrad/chess-rtk/issues" target="_blank" rel="noopener">Issues</a></li>
+        </ul></div>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>&copy; ChessRTK contributors &middot; GPL-3.0-only</span>
+      <span>Documentation generated from the repository <a href="wiki-index.html">wiki</a>.</span>
+    </div>
+  </footer>
+
 </body>
 </html>

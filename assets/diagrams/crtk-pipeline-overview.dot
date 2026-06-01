@@ -1,6 +1,6 @@
 digraph crtk_pipeline_overview {
   rankdir=LR;
-  bgcolor="transparent";
+  bgcolor="#ffffff";
   splines=ortho;
   pad="0.20";
   nodesep="0.35";
@@ -8,37 +8,37 @@ digraph crtk_pipeline_overview {
 
   graph [fontname="Helvetica", fontsize=14];
   node  [fontname="Helvetica", fontsize=12];
-  edge  [fontname="Helvetica", fontsize=10, color="#444444", arrowsize=0.8, penwidth=1.2];
+  edge  [fontname="Helvetica", fontsize=10, color="#45708a", arrowsize=0.8, penwidth=1.2];
 
   subgraph cluster_seed {
     label="Seed generation";
     style="rounded";
-    color="#B39DDB";
-    fontcolor="#311B92";
+    color="#9fb6dd";
+    fontcolor="#15356b";
     penwidth=1.4;
 
-    node [shape=note, style="filled", fillcolor="#F3E5F5", color="#6A1B9A", penwidth=1.2];
+    node [shape=note, style="filled", fillcolor="#e8eef7", color="#1d4e89", penwidth=1.2];
     pgn [label="PGN games\n(games.pgn)"];
     fens [label="FEN seed list\n(seeds.txt)"];
 
-    node [shape=box, style="rounded,filled", fillcolor="#EDE7F6", color="#4527A0", penwidth=1.2];
-    pgn_to_fens [label="pgn-to-fens"];
+    node [shape=box, style="rounded,filled", fillcolor="#e7edf8", color="#234e8c", penwidth=1.2];
+    pgn_to_fens [label="fen pgn"];
   }
 
   subgraph cluster_mining {
     label="Mining";
     style="rounded";
-    color="#90CAF9";
-    fontcolor="#0D47A1";
+    color="#8fd3e6";
+    fontcolor="#0c3a4c";
     penwidth=1.4;
 
-    node [shape=oval, style="filled", fillcolor="#E3F2FD", color="#1565C0", penwidth=1.2];
+    node [shape=oval, style="filled", fillcolor="#e2f3f8", color="#11688a", penwidth=1.2];
     random [label="Random\nseeds"];
 
-    node [shape=box, style="rounded,filled", fillcolor="#E3F2FD", color="#1565C0", penwidth=1.2];
-    mine [label="mine-puzzles"];
+    node [shape=box, style="rounded,filled", fillcolor="#e2f3f8", color="#11688a", penwidth=1.2];
+    mine [label="puzzle mine"];
 
-    node [shape=note, style="filled", fillcolor="#E1F5FE", color="#0277BD", penwidth=1.2];
+    node [shape=note, style="filled", fillcolor="#def4fb", color="#0f6a85", penwidth=1.2];
     puzzles [label="*.puzzles.json"];
     nonpuzzles [label="*.nonpuzzles.json"];
   }
@@ -46,24 +46,24 @@ digraph crtk_pipeline_overview {
   subgraph cluster_post {
     label="Post-processing / export";
     style="rounded";
-    color="#A5D6A7";
-    fontcolor="#1B5E20";
+    color="#9fd9cf";
+    fontcolor="#0b4d44";
     penwidth=1.4;
 
-    node [shape=box, style="rounded,filled", fillcolor="#E8F5E9", color="#2E7D32", penwidth=1.2];
-    stats [label="stats"];
-    stats_tags [label="stats-tags"];
-    record_to_csv [label="record-to-csv"];
-    record_to_pgn [label="record-to-pgn"];
-    record_to_plain [label="record-to-plain"];
-    record_to_dataset [label="record-to-dataset"];
+    node [shape=box, style="rounded,filled", fillcolor="#e3f6f3", color="#0f766e", penwidth=1.2];
+    stats [label="record stats"];
+    stats_tags [label="record tag-stats"];
+    record_to_csv [label="record export csv"];
+    record_to_pgn [label="record export pgn"];
+    record_to_plain [label="record export plain"];
+    record_to_dataset [label="record dataset"];
 
-    node [shape=note, style="filled", fillcolor="#F1F8E9", color="#558B2F", penwidth=1.2];
+    node [shape=note, style="filled", fillcolor="#e9f6f1", color="#14756b", penwidth=1.2];
     out_csv [label="puzzles.csv"];
     out_pgn [label="puzzles.pgn"];
     out_plain [label="puzzles.plain"];
 
-    node [shape=cylinder, style="filled", fillcolor="#E8F5E9", color="#2E7D32", penwidth=1.2];
+    node [shape=cylinder, style="filled", fillcolor="#e3f6f3", color="#0f766e", penwidth=1.2];
     tensors [label="features + labels\n(tensor files)"];
   }
 

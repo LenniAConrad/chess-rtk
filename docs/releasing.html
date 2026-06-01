@@ -3,165 +3,386 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Releasing ChessRTK (`crtk`) | ChessRTK Wiki</title>
+  <title>Releasing ChessRTK | ChessRTK</title>
+  <meta name="description" content="The deterministic chess research toolkit — Releasing ChessRTK.">
+  <link rel="icon" href="assets/logo/crtk-logo.svg" type="image/svg+xml">
   <link rel="stylesheet" href="styles.css">
+  <script>
+    (function () {
+      var key = "crtk-theme";
+      var isTheme = function (value) { return value === "light" || value === "dark"; };
+      var urlTheme = "";
+      var stored = "";
+      try { urlTheme = new URLSearchParams(window.location.search).get("theme"); } catch (e) {}
+      try { stored = localStorage.getItem(key); } catch (e) {}
+      var theme = isTheme(urlTheme) ? urlTheme : (isTheme(stored) ? stored : "");
+      if (!theme) {
+        theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+      }
+      if (isTheme(urlTheme)) {
+        try { localStorage.setItem(key, urlTheme); } catch (e) {}
+      }
+      document.documentElement.setAttribute("data-theme", theme);
+    })();
+  </script>
   <script defer src="search-index.js"></script>
   <script defer src="site.js"></script>
 </head>
-<body>
-  <button class="menu-toggle" type="button" aria-label="Toggle navigation">Menu</button>
-  <div class="site-shell">
-    <aside class="sidebar">
-      <a class="brand" href="index.html">
-        <span class="brand-mark">CR</span>
-        <span><strong>ChessRTK</strong><small>Wiki</small></span>
+<body class="is-doc">
+
+  <header class="topnav">
+    <div class="topnav-inner">
+      <a class="topnav-brand" href="index.html">
+        <img src="assets/logo/crtk-logo.svg" alt="" width="32" height="32">
+        <span>ChessRTK</span>
       </a>
-      <label class="search-label" for="doc-search">Search pages</label>
-      <input id="doc-search" class="search" type="search" placeholder="Search docs...">
+      <button class="nav-toggle" type="button" aria-label="Toggle navigation" aria-expanded="false">
+        <span></span><span></span><span></span>
+      </button>
+      <nav class="topnav-links">
+        <a class="" href="getting-started.html">Get started</a>
+        <a class="" href="command-reference.html">Commands</a>
+        <a class="" href="workbench.html">Workbench</a>
+        <a class="" href="wiki-index.html">Docs</a>
+        <a class="" href="chessrtk-manual.pdf">Manual</a>
+        <a class="topnav-gh" href="https://github.com/LenniAConrad/chess-rtk" target="_blank" rel="noopener">GitHub</a>
+        <button class="theme-toggle" type="button" aria-label="Toggle dark mode" title="Toggle dark mode">
+          <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2v2.4M12 19.6V22M2 12h2.4M19.6 12H22M4.9 4.9l1.7 1.7M17.4 17.4l1.7 1.7M19.1 4.9l-1.7 1.7M6.6 17.4l-1.7 1.7"/></svg>
+          <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4 7 7 0 1 0 20 14.5Z"/></svg>
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <div class="doc-shell">
+    <aside class="sidebar" id="sidebar">
+      <label class="search-label" for="doc-search">Search the docs</label>
+      <input id="doc-search" class="search" type="search" placeholder="Search pages..." autocomplete="off">
       <div id="search-results" class="search-results" hidden></div>
       <nav class="nav"><section class="nav-section"><h2>Start Here</h2>
-<a class="" href="index.html" data-title="home">Home</a>
+<a class="" href="index.html" data-title="overview">Overview</a>
 <a class="" href="getting-started.html" data-title="getting started">Getting Started</a>
+<a class="" href="build-and-install.html" data-title="build &amp; install">Build &amp; Install</a>
 <a class="" href="use-cases.html" data-title="use cases">Use Cases</a>
-<a class="" href="command-cheatsheet.html" data-title="command cheatsheet">Command Cheatsheet</a>
 <a class="" href="faq.html" data-title="faq">FAQ</a>
-<a class="" href="command-reference.html" data-title="command reference">Command Reference</a>
-<a class="" href="example-commands.html" data-title="example commands">Example Commands</a>
 <a class="" href="troubleshooting.html" data-title="troubleshooting">Troubleshooting</a>
 </section>
-<section class="nav-section"><h2>User Guides</h2>
-<a class="" href="build-and-install.html" data-title="build &amp; install">Build &amp; Install</a>
-<a class="" href="workbench.html" data-title="desktop workbench">Desktop Workbench</a>
+<section class="nav-section"><h2>Commands</h2>
+<a class="" href="command-cheatsheet.html" data-title="cheatsheet">Cheatsheet</a>
+<a class="" href="command-reference.html" data-title="command reference">Command Reference</a>
+<a class="" href="example-commands.html" data-title="example commands">Example Commands</a>
 <a class="" href="configuration.html" data-title="configuration">Configuration</a>
-<a class="" href="in-house-engine.html" data-title="in-house engine">In-House Engine</a>
-<a class="" href="lc0.html" data-title="lc0">LC0</a>
 <a class="" href="outputs-and-logs.html" data-title="outputs &amp; logs">Outputs &amp; Logs</a>
-<a class="" href="support.html" data-title="support">Support</a>
+</section>
+<section class="nav-section"><h2>Desktop Workbench</h2>
+<a class="" href="workbench.html" data-title="workbench">Workbench</a>
+</section>
+<section class="nav-section"><h2>Engines &amp; Models</h2>
+<a class="" href="in-house-engine.html" data-title="built-in engine">Built-in Engine</a>
+<a class="" href="lc0.html" data-title="lc0 networks">LC0 Networks</a>
+<a class="" href="gpu.html" data-title="gpu acceleration">GPU Acceleration</a>
+<a class="" href="t5.html" data-title="t5 text">T5 Text</a>
 </section>
 <section class="nav-section"><h2>Workflows</h2>
-<a class="" href="mining.html" data-title="mining puzzles">Mining Puzzles</a>
+<a class="" href="mining.html" data-title="puzzle mining">Puzzle Mining</a>
 <a class="" href="filter-dsl.html" data-title="filter dsl">Filter DSL</a>
-<a class="" href="datasets.html" data-title="datasets">Datasets</a>
-<a class="" href="book-publishing.html" data-title="book publishing">Book Publishing</a>
-<a class="" href="piece-tags.html" data-title="tags">Tags</a>
+<a class="" href="datasets.html" data-title="ml datasets">ML Datasets</a>
+<a class="" href="piece-tags.html" data-title="tagging">Tagging</a>
 <a class="" href="tag-reference.html" data-title="tag reference">Tag Reference</a>
-<a class="" href="t5.html" data-title="t5 text">T5 Text</a>
-<a class="" href="ai-agents.html" data-title="ai agents">AI Agents</a>
+<a class="" href="book-publishing.html" data-title="book publishing">Book Publishing</a>
+<a class="" href="ai-agents.html" data-title="ai agents &amp; automation">AI Agents &amp; Automation</a>
 </section>
-<section class="nav-section"><h2>Development</h2>
+<section class="nav-section"><h2>Project</h2>
 <a class="" href="architecture.html" data-title="architecture">Architecture</a>
 <a class="" href="quality-and-testing.html" data-title="quality &amp; testing">Quality &amp; Testing</a>
 <a class="" href="development-notes.html" data-title="development notes">Development Notes</a>
 <a class="active" href="releasing.html" data-title="releasing">Releasing</a>
-<a class="" href="roadmap.html" data-title="roadmap">Roadmap</a>
 <a class="" href="glossary.html" data-title="glossary">Glossary</a>
-<a class="" href="tagging-implementation-plan.html" data-title="tagging plan">Tagging Plan</a>
+<a class="" href="support.html" data-title="support">Support</a>
 <a class="" href="wiki-index.html" data-title="wiki index">Wiki Index</a>
 </section></nav>
     </aside>
-    <div class="page">
-      <header class="topbar">
-        <div>
-          <span>Development</span>
-          <strong>Releasing ChessRTK (`crtk`)</strong>
-        </div>
-        <nav>
-          <a href="index.html">Home</a>
-          <a href="wiki-index.html">Wiki Index</a>
-          <a href="chessrtk-manual.pdf">Manual PDF</a>
-          <a href="command-reference.html">Commands</a>
-        </nav>
-      </header>
-      
-      <main class="content-layout">
-        <article class="content">
-          <h1 id="releasing-chessrtk-crtk">Releasing ChessRTK (<code>crtk</code>)</h1>
-<p>This repo is intentionally build-tool light: the CLI is a runnable Java 17 jar. Optional native GPU backends live under <code>native/cuda/</code>, <code>native/rocm/</code>, and <code>native/oneapi/</code>. The release script below packages the CUDA Linux artifact.</p>
-<h2 id="linux-x86-64-cuda-release-artifact">Linux (x86_64) + CUDA release artifact</h2>
+    <main class="doc-main">
+      <article class="content">
+        <p class="content-kicker">Project</p>
+        <h1 id="releasing-chessrtk">Releasing ChessRTK</h1>
+<p>A release is one runnable jar, a thin launcher, and — if you want the GPU — a native library beside it. There is <strong>no Maven or Gradle</strong>: <code>javac --release 17</code>, <code>jar</code>, and CMake produce every artifact, full stop. That austerity is the point. The same sources through the same three tools yield the same <code>crtk</code> binary, which is what lets the packager ship checksums and mean them.</p>
+<p>This page is for cutting a release. If you are setting up a development machine instead, start with <a href="build-and-install.html">Build and Install</a>; for the end-user install story, see <a href="getting-started.html">Getting Started</a>.</p>
+<h2 id="what-ships-in-a-release">What ships in a release</h2>
+<p>A release is a self-contained directory, tarred and gzipped. The Linux CUDA packager stages this layout:</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Item</th>
+<th>Path in bundle</th>
+<th>Notes</th>
+</tr></thead><tbody>
+<tr>
+<td>Runnable jar</td>
+<td><code>crtk.jar</code></td>
+<td>Pure Java 17; the entire CLI and Swing Workbench</td>
+</tr>
+<tr>
+<td>Launcher</td>
+<td><code>crtk</code></td>
+<td>Bash wrapper that runs <code>java -jar crtk.jar &quot;$@&quot;</code></td>
+</tr>
+<tr>
+<td>CUDA backend</td>
+<td><code>lib/liblc0_cuda.so</code></td>
+<td>Native GPU library; CPU fallback if absent</td>
+</tr>
+<tr>
+<td>License</td>
+<td><code>LICENSE.txt</code></td>
+<td>GPL-3.0-only; always bundled</td>
+</tr>
+<tr>
+<td>Readme</td>
+<td><code>README.md</code></td>
+<td>Project overview</td>
+</tr>
+<tr>
+<td>Config</td>
+<td><code>config/</code></td>
+<td>Default TOML configuration</td>
+</tr>
+<tr>
+<td>Docs</td>
+<td><code>wiki/</code></td>
+<td>The Markdown documentation set</td>
+</tr>
+<tr>
+<td>Models (optional)</td>
+<td><code>models/</code></td>
+<td>Only with <code>--include-models</code></td>
+</tr>
+</tbody></table></div>
+<p>When <code>lib/liblc0_cuda.so</code> is present, the launcher adds <code>-Djava.library.path=lib</code> on its own, so an extracted release finds the GPU without any further wiring. Model weights stay out by default: they are large, and they live in a separate model repository.</p>
+<blockquote><p>One honest note on the networks. The bundled evaluators (NNUE, LC0 CNN, OTIS, T5) are usable, not bit-exact reimplementations of their upstream engines. BT4 in particular is simplified and experimental. No release claims LC0 or BT4 parity, and you should not read one into it.</p></blockquote>
+<h2 id="versioning">Versioning</h2>
+<p>The <code>version</code> command is the single source of truth. Release checks and scripts read it, never a constant pasted somewhere else:</p>
+<pre><code class="language-bash">crtk version</code></pre>
+<pre><code class="language-text">crtk 1.0.0</code></pre>
+<p>For CI and release tooling, ask for JSON. It also reports the runtime it is running on:</p>
+<pre><code class="language-bash">crtk version --json</code></pre>
+<pre><code class="language-text">{&quot;name&quot;:&quot;ChessRTK&quot;,&quot;launcher&quot;:&quot;crtk&quot;,&quot;version&quot;:&quot;1.0.0&quot;,&quot;java&quot;:&quot;21.0.11&quot;}</code></pre>
+<p><code>crtk version</code> accepts these flags:</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Flag</th>
+<th>Effect</th>
+</tr></thead><tbody>
+<tr>
+<td><code>--json</code></td>
+<td>Emit one JSON object</td>
+</tr>
+<tr>
+<td><code>--jsonl</code></td>
+<td>Emit one JSON object line</td>
+</tr>
+<tr>
+<td><code>--no-header</code></td>
+<td>Accepted for script-friendly consistency</td>
+</tr>
+<tr>
+<td><code>--quiet</code></td>
+<td>Suppress non-row chatter where supported</td>
+</tr>
+</tbody></table></div>
+<p>Artifacts are tagged <code>vX.Y.Z</code>. The packager takes the version as its own argument (see below); omit it and it falls back to <code>git describe --tags --always</code>, then to a UTC date stamp outside a checkout. The one rule when cutting a release: the git tag, the bundle filename, and <code>crtk version</code> must agree. A mismatch there is the bug nobody notices until a user reports it.</p>
+<h2 id="build-the-runnable-jar">Build the runnable jar</h2>
+<p>Everything else hangs off the jar, so build it through the regression suite — the same path CI takes, which is the point of building it that way locally:</p>
+<pre><code class="language-bash">./scripts/run_regression_suite.sh jar</code></pre>
+<p>That compiles every source with <code>javac --release 17</code>, packages <code>crtk.jar</code> under main class <code>application.Main</code>, and runs a smoke check (<code>crtk --help</code>, plus <code>workbench</code>/<code>gui</code> help). The two underlying commands, if you ever want them by hand:</p>
+<pre><code class="language-bash">find src -name &#x27;*.java&#x27; -print0 | xargs -0 javac --release 17 -d out
+jar --create --file crtk.jar --main-class application.Main -C out .</code></pre>
+<p><code>--release 17</code> is not optional. It pins both the bytecode target and the standard-library surface the compiler will admit, which is what makes the build reproducible across JDK versions — you can compile on a newer JDK and still ship an artifact that only depends on 17.</p>
+<h2 id="build-the-linux-x86-64-cuda-release-artifact">Build the Linux (x86_64) + CUDA release artifact</h2>
+<p>One script does the whole pass: <code>scripts/make_release_linux_cuda.sh</code> builds the jar, builds the CUDA JNI library, stages the bundle, and writes the tarball and checksums.</p>
 <p>Prerequisites:</p>
 <ul>
-<li>Java 17+ JDK (<code>javac</code>, <code>jar</code>)</li>
-<li>CMake 3.18+</li>
+<li>A Java 17+ JDK on <code>PATH</code> (<code>javac</code>, <code>jar</code>)</li>
+<li>CMake 3.18+ (for CUDA language support)</li>
 <li>CUDA toolkit (<code>nvcc</code>)</li>
-<li>NVIDIA driver (runtime)</li>
+<li>An NVIDIA driver at runtime to actually use the GPU</li>
 </ul>
-<p>Build and package:</p>
-<pre><code class="language-bash">scripts/make_release_linux_cuda.sh --version vX.Y.Z</code></pre>
-<p>To include local, gitignored model files in the bundle:</p>
-<pre><code class="language-bash">scripts/make_release_linux_cuda.sh --version vX.Y.Z --include-models</code></pre>
-<p>Outputs:</p>
-<ul>
-<li><code>dist/crtk-vX.Y.Z-linux-x86_64-cuda.tar.gz</code></li>
-<li><code>dist/SHA256SUMS</code></li>
-</ul>
-<p>Quick smoke test (from the extracted artifact directory):</p>
-<pre><code class="language-bash">./crtk engine gpu
-./crtk help</code></pre>
-<h2 id="github-release-checklist">GitHub release checklist</h2>
-<h2 id="release-readiness-checklist">Release readiness checklist</h2>
+<p>Build and package a tagged release:</p>
+<pre><code class="language-bash">scripts/make_release_linux_cuda.sh --version v1.0.0</code></pre>
+<p>To fold local model weights into the bundle (gitignored, and absent from a normal release):</p>
+<pre><code class="language-bash">scripts/make_release_linux_cuda.sh --version v1.0.0 --include-models</code></pre>
+<p>Drop <code>--version</code> and it derives one from <code>git describe --tags --always</code>. Miss any of <code>javac</code>, <code>jar</code>, <code>cmake</code>, or <code>nvcc</code> and it fails early and says which — the packager will not quietly produce a CPU-only bundle. A release labeled CUDA should contain CUDA. The graceful CPU fallback belongs to <code>install.sh</code>, not here.</p>
+<p>Outputs land under <code>dist/</code>:</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Output</th>
+<th>Description</th>
+</tr></thead><tbody>
+<tr>
+<td><code>dist/crtk-&lt;version&gt;-linux-x86_64-cuda/</code></td>
+<td>Staged bundle directory</td>
+</tr>
+<tr>
+<td><code>dist/crtk-&lt;version&gt;-linux-x86_64-cuda.tar.gz</code></td>
+<td>The release tarball</td>
+</tr>
+<tr>
+<td><code>dist/SHA256SUMS</code></td>
+<td>SHA-256 checksum of the tarball</td>
+</tr>
+</tbody></table></div>
+<h3 id="smoke-test-the-artifact">Smoke-test the artifact</h3>
+<p>From the extracted directory, three commands tell you the launcher resolved and the GPU path is live:</p>
+<pre><code class="language-bash">./crtk version
+./crtk help
+./crtk engine gpu</code></pre>
+<p><code>crtk engine gpu</code> lists the native backends it found and says whether the CUDA library actually loaded; if it did not, crtk falls back to the CPU path without complaint. For what the accelerated commands look like (<code>engine perft --gpu</code>, OTIS evaluation), see <a href="gpu.html">GPU Backends</a> and the <a href="command-reference.html">Command Reference</a>.</p>
+<h2 id="other-native-backends">Other native backends</h2>
+<p>The packager only ships CUDA, but two more backends exist: ROCm for AMD and oneAPI for Intel, under <code>native/rocm/</code> and <code>native/oneapi/</code>. Those are <code>install.sh</code>&#x27;s job (see below), not the packager&#x27;s. All three are optional, and the design assumes none of them. With no native library loaded, every command still runs on the CPU. What the backends buy you is speed on <code>engine perft</code> / <code>engine perft-suite</code> and OTIS evaluation — and they all defer to the same in-process chess core, so they accelerate the work without ever disagreeing about the answer.</p>
+<h2 id="pre-release-checklist">Pre-release checklist</h2>
+<p>Before you tag, run the full suite once. It builds, lints, and exercises core movegen, the CLI, engines, UCI, book/PDF publishing, perft, and a jar smoke test:</p>
+<pre><code class="language-bash">./scripts/run_regression_suite.sh recommended</code></pre>
+<p>If the release touched move generation or notation, go deeper on perft — that is where off-by-one bugs hide:</p>
+<pre><code class="language-bash">CRTK_PERFT_SUITE_DEPTH=6 CRTK_PERFT_THREADS=4 ./scripts/run_regression_suite.sh perft-smoke</code></pre>
+<p>You can also run the suites one at a time: <code>build</code>, <code>lint</code>, <code>core</code>, <code>cli</code>, <code>engine</code>, <code>uci</code>, <code>book</code>, <code>docs</code>, <code>perft-smoke</code>, and <code>jar</code>. The <code>ci</code> suite adds a full docs-site rebuild on top. Then walk the checklist:</p>
 <ol>
-<li>Ensure the working tree is clean:</li>
+<li>Confirm a clean working tree: <code>git status --short</code>.</li>
+<li>Run <code>./scripts/run_regression_suite.sh recommended</code> and ensure it passes.</li>
+<li>Update docs that changed with the release — <code>README.md</code>, <a href="command-reference.html">Command Reference</a>, <a href="build-and-install.html">Build and Install</a>, and any new-feature pages.</li>
+<li>Confirm <code>crtk version</code> reports the version you intend to tag.</li>
+<li>Verify the release will bundle <code>LICENSE.txt</code> (the packager always copies it).</li>
 </ol>
-<p><code>git status --short</code></p>
-<ol>
-<li>Run a fresh compile and lint pass:</li>
-</ol>
-<p><code>./scripts/run_regression_suite.sh build</code> <code>./scripts/run_regression_suite.sh lint</code></p>
-<ol>
-<li>Run the recommended local regression suite:</li>
-</ol>
-<p><code>./scripts/run_regression_suite.sh recommended</code></p>
-<ol>
-<li>Run a deeper perft suite after move-generation or notation changes:</li>
-</ol>
-<p><code>CRTK_PERFT_SUITE_DEPTH=6 CRTK_PERFT_THREADS=4 ./scripts/run_regression_suite.sh perft-smoke</code></p>
-<ol>
-<li>Update docs that changed with the release:</li>
-</ol>
-<p><code>README.md</code>, <code>wiki/command-reference.md</code>, <code>wiki/build-and-install.md</code>, and any new feature notes</p>
-<ol>
-<li>Build a fresh runnable jar:</li>
-</ol>
-<p><code>./scripts/run_regression_suite.sh jar</code></p>
-<ol>
-<li>Confirm release artifacts include the current license file:</li>
-</ol>
-<p>keep <code>LICENSE.txt</code> bundled with packaged releases and distributed archives</p>
 <h2 id="github-release-workflow">GitHub release workflow</h2>
 <ol>
-<li>Ensure the release-readiness checklist above is complete.</li>
-<li>Decide on version <code>vX.Y.Z</code> and tag it:</li>
+<li>Complete the pre-release checklist above.</li>
+<li>Tag and push the version: <code>git tag -a v1.0.0 -m &quot;v1.0.0&quot;</code> then <code>git push origin v1.0.0</code>.</li>
+<li>Build the artifact: <code>scripts/make_release_linux_cuda.sh --version v1.0.0</code>.</li>
+<li>Create a GitHub Release for tag <code>v1.0.0</code> and attach <code>dist/crtk-v1.0.0-linux-x86_64-cuda.tar.gz</code> and <code>dist/SHA256SUMS</code>.</li>
 </ol>
+<h2 id="install-update-and-uninstall-scripts">Install, update, and uninstall scripts</h2>
+<p>Most users run crtk straight from a checkout via the repo&#x27;s helper scripts. <a href="build-and-install.html">Build and Install</a> documents them in full; what follows is the maintainer&#x27;s view — exactly what each script does, and what it refuses to do.</p>
+<h3 id="install-sh"><code>install.sh</code></h3>
+<p><code>./install.sh</code> builds crtk from the current checkout and wires it into the system. It:</p>
 <ul>
-<li><code>git tag -a vX.Y.Z -m &quot;vX.Y.Z&quot;</code></li>
-<li><code>git push origin vX.Y.Z</code></li>
+<li>Checks for Java 17+ and <code>javac</code>, offering to install OpenJDK 17 if missing.</li>
+<li>Optionally installs Stockfish for UCI-backed analysis.</li>
+<li>Optionally downloads model weights into <code>models/</code> (prompted, or forced with <code>--models</code> / skipped with <code>--no-models</code>).</li>
+<li>Compiles sources with <code>javac --release 17</code> and packages <code>crtk.jar</code>.</li>
+<li>Builds optional native backends and installs a launcher at <code>/usr/local/bin/crtk</code> plus a &quot;ChessRTK Workbench&quot; desktop entry.</li>
 </ul>
-<ol>
-<li>Run the release build:</li>
-</ol>
+<p>Backend selection flags:</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Flag</th>
+<th>Effect</th>
+</tr></thead><tbody>
+<tr>
+<td><code>--cuda</code> / <code>--no-cuda</code> / <code>--require-cuda</code></td>
+<td>Force, skip, or require the CUDA backend</td>
+</tr>
+<tr>
+<td><code>--rocm</code> / <code>--no-rocm</code> / <code>--require-rocm</code></td>
+<td>Force, skip, or require the ROCm (AMD) backend</td>
+</tr>
+<tr>
+<td><code>--oneapi</code> / <code>--no-oneapi</code> / <code>--require-oneapi</code></td>
+<td>Force, skip, or require the oneAPI (Intel) backend</td>
+</tr>
+<tr>
+<td><code>--models</code> / <code>--no-models</code></td>
+<td>Force or skip model-weight download</td>
+</tr>
+<tr>
+<td><code>--no-launcher</code></td>
+<td>Do not install <code>/usr/local/bin/crtk</code></td>
+</tr>
+<tr>
+<td><code>--no-desktop</code></td>
+<td>Do not install the Workbench desktop entry</td>
+</tr>
+</tbody></table></div>
+<p><code>--amd</code> and <code>--intel</code> are aliases for <code>--rocm</code> and <code>--oneapi</code>. The <code>--require-*</code> flags are the only ones that turn a failed backend into a non-zero exit; everywhere else a backend that won&#x27;t build just drops you to a CPU-only install. The installed launcher also turns on Java2D OpenGL acceleration for the Workbench and points <code>java.library.path</code> at whatever backends did build.</p>
+<h3 id="update-sh"><code>update.sh</code></h3>
+<p><code>./scripts/update.sh</code> fast-forwards the checkout and reruns the installer:</p>
 <ul>
-<li><code>scripts/make_release_linux_cuda.sh --version vX.Y.Z</code></li>
-<li>or at minimum <code>./scripts/run_regression_suite.sh release</code></li>
+<li>Refuses to pull on a dirty worktree or a detached HEAD — commit or stash first.</li>
+<li>Runs <code>git pull --ff-only</code> on the current branch, then re-executes <code>./install.sh</code>.</li>
+<li><code>--no-pull</code> skips the pull and just rebuilds the current checkout.</li>
+<li>Any other arguments are passed straight through to <code>install.sh</code>, e.g. <code>./scripts/update.sh --no-cuda</code> or <code>./scripts/update.sh --rocm --no-launcher</code>.</li>
 </ul>
-<ol>
-<li>Create a GitHub Release for tag <code>vX.Y.Z</code> and upload:</li>
-</ol>
+<h3 id="uninstall-sh"><code>uninstall.sh</code></h3>
+<p><code>./scripts/uninstall.sh</code> undoes what the installer created, and its guardrails refuse to touch anything outside the repo:</p>
 <ul>
-<li><code>dist/crtk-vX.Y.Z-linux-x86_64-cuda.tar.gz</code></li>
-<li><code>dist/SHA256SUMS</code></li>
+<li>Removes build artifacts by default: <code>out/</code>, <code>crtk.jar</code>, and <code>native/*/build/</code>.</li>
+<li>Removes the <code>/usr/local/bin/crtk</code> launcher and the Workbench desktop entry.</li>
+<li><code>--all</code> / <code>--remove-data</code> additionally removes the <code>dump/</code> and <code>session/</code> data directories (off by default).</li>
+<li><code>--keep-build</code>, <code>--keep-launcher</code>, and <code>--keep-desktop</code> preserve those pieces.</li>
+<li><code>-y</code> / <code>--yes</code> assumes yes for all prompts.</li>
 </ul>
-        </article>
-        <aside class="toc"><h2>On This Page</h2>
-<a class="toc-h2" href="#linux-x86-64-cuda-release-artifact">Linux (x86_64) + CUDA release artifact</a>
-<a class="toc-h2" href="#github-release-checklist">GitHub release checklist</a>
-<a class="toc-h2" href="#release-readiness-checklist">Release readiness checklist</a>
-<a class="toc-h2" href="#github-release-workflow">GitHub release workflow</a></aside>
-      </main>
-      <footer class="footer">
-        <span>Generated from <code>wiki/releasing.md</code>.</span>
-        <span>Build with <code>python3 scripts/build_docs_site.py</code>.</span>
-      </footer>
-    </div>
+<p>It never removes system packages. OpenJDK, Stockfish, CUDA, ROCm, and oneAPI stay exactly where they were — uninstalling crtk should not uninstall your toolchain.</p>
+<h2 id="reproducibility-notes">Reproducibility notes</h2>
+<ul>
+<li>One toolchain — <code>javac --release 17</code> and <code>jar</code>. No build framework, no plugin graph, no lockfile to drift out from under you.</li>
+<li>One chess core. The same legal move generation, make/undo, FEN/SAN/UCI, and Chess960 logic backs the CLI, the Workbench, and the native perft backends, so the three surfaces cannot quietly disagree.</li>
+<li>Deterministic output. The noun-verb commands return stable results, which is the precondition for everything else: it is why the packager can ship checksums and why <code>run_regression_suite.sh</code> can assert exact answers rather than approximate ones.</li>
+<li>Check a download with <code>sha256sum -c SHA256SUMS</code> from inside the extracted <code>dist/</code> directory.</li>
+</ul>
+<p>See also: <a href="build-and-install.html">Build and Install</a>, <a href="gpu.html">GPU Backends</a>, <a href="quality-and-testing.html">Quality and Testing</a>, and the <a href="command-reference.html">Command Reference</a>.</p>
+      </article>
+      <aside class="toc"><h2>On this page</h2>
+<a class="toc-h2" href="#what-ships-in-a-release">What ships in a release</a>
+<a class="toc-h2" href="#versioning">Versioning</a>
+<a class="toc-h2" href="#build-the-runnable-jar">Build the runnable jar</a>
+<a class="toc-h2" href="#build-the-linux-x86-64-cuda-release-artifact">Build the Linux (x86_64) + CUDA release artifact</a>
+<a class="toc-h3" href="#smoke-test-the-artifact">Smoke-test the artifact</a>
+<a class="toc-h2" href="#other-native-backends">Other native backends</a>
+<a class="toc-h2" href="#pre-release-checklist">Pre-release checklist</a>
+<a class="toc-h2" href="#github-release-workflow">GitHub release workflow</a>
+<a class="toc-h2" href="#install-update-and-uninstall-scripts">Install, update, and uninstall scripts</a>
+<a class="toc-h3" href="#install-sh">install.sh</a>
+<a class="toc-h3" href="#update-sh">update.sh</a>
+<a class="toc-h3" href="#uninstall-sh">uninstall.sh</a>
+<a class="toc-h2" href="#reproducibility-notes">Reproducibility notes</a></aside>
+    </main>
   </div>
+
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <div class="footer-brand">
+        <a class="footer-logo" href="index.html">
+          <img src="assets/logo/crtk-logo.svg" alt="" width="40" height="40">
+          <span>ChessRTK</span>
+        </a>
+        <p>The deterministic chess research toolkit. Free, open-source, and built on one shared Java chess core.</p>
+        <p class="footer-license">Licensed under GPL-3.0-only.</p>
+      </div>
+      <div class="footer-cols">
+        <div class="footer-col"><h3>Documentation</h3><ul>
+          <li><a href="getting-started.html">Getting Started</a></li>
+          <li><a href="command-reference.html">Command Reference</a></li>
+          <li><a href="configuration.html">Configuration</a></li>
+          <li><a href="troubleshooting.html">Troubleshooting</a></li>
+          <li><a href="chessrtk-manual.pdf">Manual (PDF)</a></li>
+        </ul></div>
+        <div class="footer-col"><h3>Workflows</h3><ul>
+          <li><a href="mining.html">Puzzle Mining</a></li>
+          <li><a href="datasets.html">ML Datasets</a></li>
+          <li><a href="piece-tags.html">Tagging</a></li>
+          <li><a href="book-publishing.html">Book Publishing</a></li>
+          <li><a href="ai-agents.html">AI Agents</a></li>
+        </ul></div>
+        <div class="footer-col"><h3>Project</h3><ul>
+          <li><a href="architecture.html">Architecture</a></li>
+          <li><a href="quality-and-testing.html">Quality &amp; Testing</a></li>
+          <li><a href="https://github.com/LenniAConrad/chess-rtk" target="_blank" rel="noopener">GitHub</a></li>
+          <li><a href="https://github.com/LenniAConrad/chess-rtk/issues" target="_blank" rel="noopener">Issues</a></li>
+        </ul></div>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>&copy; ChessRTK contributors &middot; GPL-3.0-only</span>
+      <span>Documentation generated from the repository <a href="wiki-index.html">wiki</a>.</span>
+    </div>
+  </footer>
+
 </body>
 </html>

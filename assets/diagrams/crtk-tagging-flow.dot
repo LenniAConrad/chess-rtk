@@ -1,6 +1,6 @@
 digraph crtk_tagging_flow {
   rankdir=LR;
-  bgcolor="transparent";
+  bgcolor="#ffffff";
   splines=ortho;
   pad="0.20";
   nodesep="0.35";
@@ -8,16 +8,16 @@ digraph crtk_tagging_flow {
 
   graph [fontname="Helvetica", fontsize=14];
   node  [fontname="Helvetica", fontsize=12];
-  edge  [fontname="Helvetica", fontsize=10, color="#424242", arrowsize=0.8, penwidth=1.2];
+  edge  [fontname="Helvetica", fontsize=10, color="#3a4f57", arrowsize=0.8, penwidth=1.2];
 
   subgraph cluster_input {
     label="Inputs";
     style="rounded";
-    color="#FFE0B2";
-    fontcolor="#E65100";
+    color="#f6ddb4";
+    fontcolor="#8a5410";
     penwidth=1.4;
 
-    node [shape=note, style="filled", fillcolor="#FFF3E0", color="#EF6C00", penwidth=1.2];
+    node [shape=note, style="filled", fillcolor="#fbf1dd", color="#b06d12", penwidth=1.2];
     fen [label="FEN / positions"];
     eco [label="ECO book\nconfig/book.eco.toml"];
     analysis [label="Engine analysis\n(--analyze)"];
@@ -27,28 +27,28 @@ digraph crtk_tagging_flow {
   subgraph cluster_tagging {
     label="Tagging core";
     style="rounded";
-    color="#B3E5FC";
-    fontcolor="#01579B";
+    color="#bfe8f3";
+    fontcolor="#0c5570";
     penwidth=1.4;
 
-    node [shape=box, style="rounded,filled", fillcolor="#E1F5FE", color="#0288D1", penwidth=1.2];
+    node [shape=box, style="rounded,filled", fillcolor="#def4fb", color="#1487a6", penwidth=1.2];
     tagging [label="Tagging + taggers\n(piece, pawn, tactical, material)"];
 
-    node [shape=note, style="filled", fillcolor="#E1F5FE", color="#0288D1", penwidth=1.2];
+    node [shape=note, style="filled", fillcolor="#def4fb", color="#1487a6", penwidth=1.2];
     tags [label="Tag lines\n+ strongest / weakest"];
   }
 
   subgraph cluster_outputs {
     label="Consumers";
     style="rounded";
-    color="#C5CAE9";
-    fontcolor="#1A237E";
+    color="#c4d0ea";
+    fontcolor="#14306a";
     penwidth=1.4;
 
-    node [shape=note, style="filled", fillcolor="#E8EAF6", color="#303F9F", penwidth=1.2];
-    tags_cmd [label="tags output\n(JSON array)"];
-    print_cmd [label="print output\n(board + tags)"];
-    records [label="record tags\n(mining)"];
+    node [shape=note, style="filled", fillcolor="#e7ecf6", color="#21508f", penwidth=1.2];
+    tags_cmd [label="fen tags output\n(JSON array)"];
+    print_cmd [label="fen print output\n(board + tags)"];
+    records [label="puzzle tags\n(mining records)"];
   }
 
   fen -> tagging;

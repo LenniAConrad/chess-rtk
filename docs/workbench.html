@@ -3,98 +3,150 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Desktop Workbench | ChessRTK Wiki</title>
+  <title>Desktop Workbench | ChessRTK</title>
+  <meta name="description" content="The deterministic chess research toolkit — Desktop Workbench.">
+  <link rel="icon" href="assets/logo/crtk-logo.svg" type="image/svg+xml">
   <link rel="stylesheet" href="styles.css">
+  <script>
+    (function () {
+      var key = "crtk-theme";
+      var isTheme = function (value) { return value === "light" || value === "dark"; };
+      var urlTheme = "";
+      var stored = "";
+      try { urlTheme = new URLSearchParams(window.location.search).get("theme"); } catch (e) {}
+      try { stored = localStorage.getItem(key); } catch (e) {}
+      var theme = isTheme(urlTheme) ? urlTheme : (isTheme(stored) ? stored : "");
+      if (!theme) {
+        theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+      }
+      if (isTheme(urlTheme)) {
+        try { localStorage.setItem(key, urlTheme); } catch (e) {}
+      }
+      document.documentElement.setAttribute("data-theme", theme);
+    })();
+  </script>
   <script defer src="search-index.js"></script>
   <script defer src="site.js"></script>
 </head>
-<body>
-  <button class="menu-toggle" type="button" aria-label="Toggle navigation">Menu</button>
-  <div class="site-shell">
-    <aside class="sidebar">
-      <a class="brand" href="index.html">
-        <span class="brand-mark">CR</span>
-        <span><strong>ChessRTK</strong><small>Wiki</small></span>
+<body class="is-doc">
+
+  <header class="topnav">
+    <div class="topnav-inner">
+      <a class="topnav-brand" href="index.html">
+        <img src="assets/logo/crtk-logo.svg" alt="" width="32" height="32">
+        <span>ChessRTK</span>
       </a>
-      <label class="search-label" for="doc-search">Search pages</label>
-      <input id="doc-search" class="search" type="search" placeholder="Search docs...">
+      <button class="nav-toggle" type="button" aria-label="Toggle navigation" aria-expanded="false">
+        <span></span><span></span><span></span>
+      </button>
+      <nav class="topnav-links">
+        <a class="" href="getting-started.html">Get started</a>
+        <a class="" href="command-reference.html">Commands</a>
+        <a class="active" href="workbench.html">Workbench</a>
+        <a class="" href="wiki-index.html">Docs</a>
+        <a class="" href="chessrtk-manual.pdf">Manual</a>
+        <a class="topnav-gh" href="https://github.com/LenniAConrad/chess-rtk" target="_blank" rel="noopener">GitHub</a>
+        <button class="theme-toggle" type="button" aria-label="Toggle dark mode" title="Toggle dark mode">
+          <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2v2.4M12 19.6V22M2 12h2.4M19.6 12H22M4.9 4.9l1.7 1.7M17.4 17.4l1.7 1.7M19.1 4.9l-1.7 1.7M6.6 17.4l-1.7 1.7"/></svg>
+          <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4 7 7 0 1 0 20 14.5Z"/></svg>
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <div class="doc-shell">
+    <aside class="sidebar" id="sidebar">
+      <label class="search-label" for="doc-search">Search the docs</label>
+      <input id="doc-search" class="search" type="search" placeholder="Search pages..." autocomplete="off">
       <div id="search-results" class="search-results" hidden></div>
       <nav class="nav"><section class="nav-section"><h2>Start Here</h2>
-<a class="" href="index.html" data-title="home">Home</a>
+<a class="" href="index.html" data-title="overview">Overview</a>
 <a class="" href="getting-started.html" data-title="getting started">Getting Started</a>
+<a class="" href="build-and-install.html" data-title="build &amp; install">Build &amp; Install</a>
 <a class="" href="use-cases.html" data-title="use cases">Use Cases</a>
-<a class="" href="command-cheatsheet.html" data-title="command cheatsheet">Command Cheatsheet</a>
 <a class="" href="faq.html" data-title="faq">FAQ</a>
-<a class="" href="command-reference.html" data-title="command reference">Command Reference</a>
-<a class="" href="example-commands.html" data-title="example commands">Example Commands</a>
 <a class="" href="troubleshooting.html" data-title="troubleshooting">Troubleshooting</a>
 </section>
-<section class="nav-section"><h2>User Guides</h2>
-<a class="" href="build-and-install.html" data-title="build &amp; install">Build &amp; Install</a>
-<a class="active" href="workbench.html" data-title="desktop workbench">Desktop Workbench</a>
+<section class="nav-section"><h2>Commands</h2>
+<a class="" href="command-cheatsheet.html" data-title="cheatsheet">Cheatsheet</a>
+<a class="" href="command-reference.html" data-title="command reference">Command Reference</a>
+<a class="" href="example-commands.html" data-title="example commands">Example Commands</a>
 <a class="" href="configuration.html" data-title="configuration">Configuration</a>
-<a class="" href="in-house-engine.html" data-title="in-house engine">In-House Engine</a>
-<a class="" href="lc0.html" data-title="lc0">LC0</a>
 <a class="" href="outputs-and-logs.html" data-title="outputs &amp; logs">Outputs &amp; Logs</a>
-<a class="" href="support.html" data-title="support">Support</a>
+</section>
+<section class="nav-section"><h2>Desktop Workbench</h2>
+<a class="active" href="workbench.html" data-title="workbench">Workbench</a>
+</section>
+<section class="nav-section"><h2>Engines &amp; Models</h2>
+<a class="" href="in-house-engine.html" data-title="built-in engine">Built-in Engine</a>
+<a class="" href="lc0.html" data-title="lc0 networks">LC0 Networks</a>
+<a class="" href="gpu.html" data-title="gpu acceleration">GPU Acceleration</a>
+<a class="" href="t5.html" data-title="t5 text">T5 Text</a>
 </section>
 <section class="nav-section"><h2>Workflows</h2>
-<a class="" href="mining.html" data-title="mining puzzles">Mining Puzzles</a>
+<a class="" href="mining.html" data-title="puzzle mining">Puzzle Mining</a>
 <a class="" href="filter-dsl.html" data-title="filter dsl">Filter DSL</a>
-<a class="" href="datasets.html" data-title="datasets">Datasets</a>
-<a class="" href="book-publishing.html" data-title="book publishing">Book Publishing</a>
-<a class="" href="piece-tags.html" data-title="tags">Tags</a>
+<a class="" href="datasets.html" data-title="ml datasets">ML Datasets</a>
+<a class="" href="piece-tags.html" data-title="tagging">Tagging</a>
 <a class="" href="tag-reference.html" data-title="tag reference">Tag Reference</a>
-<a class="" href="t5.html" data-title="t5 text">T5 Text</a>
-<a class="" href="ai-agents.html" data-title="ai agents">AI Agents</a>
+<a class="" href="book-publishing.html" data-title="book publishing">Book Publishing</a>
+<a class="" href="ai-agents.html" data-title="ai agents &amp; automation">AI Agents &amp; Automation</a>
 </section>
-<section class="nav-section"><h2>Development</h2>
+<section class="nav-section"><h2>Project</h2>
 <a class="" href="architecture.html" data-title="architecture">Architecture</a>
 <a class="" href="quality-and-testing.html" data-title="quality &amp; testing">Quality &amp; Testing</a>
 <a class="" href="development-notes.html" data-title="development notes">Development Notes</a>
 <a class="" href="releasing.html" data-title="releasing">Releasing</a>
-<a class="" href="roadmap.html" data-title="roadmap">Roadmap</a>
 <a class="" href="glossary.html" data-title="glossary">Glossary</a>
-<a class="" href="tagging-implementation-plan.html" data-title="tagging plan">Tagging Plan</a>
+<a class="" href="support.html" data-title="support">Support</a>
 <a class="" href="wiki-index.html" data-title="wiki index">Wiki Index</a>
 </section></nav>
     </aside>
-    <div class="page">
-      <header class="topbar">
-        <div>
-          <span>User Guides</span>
-          <strong>Desktop Workbench</strong>
-        </div>
-        <nav>
-          <a href="index.html">Home</a>
-          <a href="wiki-index.html">Wiki Index</a>
-          <a href="chessrtk-manual.pdf">Manual PDF</a>
-          <a href="command-reference.html">Commands</a>
-        </nav>
-      </header>
-      
-      <main class="content-layout">
-        <article class="content">
-          <h1 id="desktop-workbench">Desktop Workbench</h1>
-<p>The ChessRTK Workbench is the native Swing GUI for the toolkit. It is the easiest way to explore positions, run commands, inspect generated data, and use visual features without assembling long CLI invocations by hand.</p>
-<p>Use the CLI when a workflow needs scripting, CI, stable text output, or batch automation. Use the workbench when the task benefits from a board, controls, preview panes, and visual feedback.</p>
+    <main class="doc-main">
+      <article class="content">
+        <p class="content-kicker">Desktop Workbench</p>
+        <h1 id="desktop-workbench">Desktop Workbench</h1>
+<p>The Workbench is the same chess core as the CLI, with a board in front of it. There is no second engine, no second evaluator, no parallel implementation that drifts out of sync — a position you analyze in the GUI, a command you assemble in a form, and a dataset you inspect in a panel all resolve through the code path you would hit from a shell. Reach for the Workbench when a task wants a live board, a preview pane, or a command you&#x27;d rather click together than memorize. Reach for the <a href="command-reference.html">CLI</a> when you want scripting, CI, stable text output, or a batch run that doesn&#x27;t need a human watching it.</p>
+<h2 id="what-you-can-do">What you can do</h2>
+<ul>
+<li>Analyze positions and PGNs on an interactive board with legal-move overlays, deterministic tags, and ECO lookup.</li>
+<li>Play full games against an in-process opponent (alpha-beta or MCTS) backed by the classical, NNUE, LC0 CNN, or OTIS evaluator.</li>
+<li>Build any <code>crtk</code> command as a guided form, with validation and a live preview of the exact command text.</li>
+<li>Run batch jobs over FEN lists and command scripts, then watch progress and collect artifacts.</li>
+<li>Load, validate, and chart exported datasets and records.</li>
+<li>Preview publishing output (diagrams, books, studies, collections, covers) before rendering a PDF.</li>
+<li>Practice and inspect mined puzzles interactively.</li>
+<li>Visualize neural-network internals for NNUE, LC0 CNN, BT4, and OTIS.</li>
+</ul>
 <h2 id="launch">Launch</h2>
-<p>After installing ChessRTK, open <code>ChessRTK Workbench</code> from the applications menu. The same app can be launched from a shell:</p>
+<p>Once ChessRTK is installed, <code>ChessRTK Workbench</code> appears in your applications menu. The same window opens from a shell, through either the <code>workbench</code> area or its <code>gui</code> alias:</p>
 <pre><code class="language-bash">crtk workbench
 crtk gui
-crtk workbench --fen &quot;&lt;FEN&gt;&quot;</code></pre>
-<p>If the launcher is not installed, run:</p>
+crtk workbench --fen &quot;&lt;FEN&gt;&quot;
+crtk workbench --flip</code></pre>
+<p>If the launcher script isn&#x27;t on your path, point Java at the built classes:</p>
 <pre><code class="language-bash">java -cp out application.Main workbench --fen &quot;&lt;FEN&gt;&quot;</code></pre>
-<h2 id="analysis-workspace">Analysis Workspace</h2>
-<p>The analysis workspace combines a board, move navigation, legal moves, tags, ECO lookup, a board editor, MCTS controls, display settings, and engine settings. It supports PGN loading and game navigation from the same view.</p>
-<p><img src="assets/screenshots/workbench-analysis.png" alt="Workbench analysis board" loading="lazy"></p>
-<h2 id="command-controller">Command Controller</h2>
-<p>The command controller exposes the CLI as forms. It groups required inputs, exclusive choices, optional flags, validation, generated command text, and run controls so commands can be assembled without memorizing every option.</p>
-<p><img src="assets/screenshots/workbench-commands.png" alt="Workbench command controller" loading="lazy"></p>
-<h2 id="network-visualizer">Network Visualizer</h2>
-<p>The network tab provides NNUE, LC0 CNN, BT4, and OTIS inspection. It can show loaded model state, inference state, feature boards, activation summaries, atlases, trace views, runtime information, and exportable visualizations.</p>
-<p><img src="assets/screenshots/workbench-network.png" alt="Workbench network visualizer" loading="lazy"></p>
-<h2 id="main-areas">Main Areas</h2>
+<p>There are only three launch options, and they match what the CLI reports:</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Option</th>
+<th>Effect</th>
+</tr></thead><tbody>
+<tr>
+<td><code>--fen FEN</code></td>
+<td>Open on a specific position (default: the standard start FEN)</td>
+</tr>
+<tr>
+<td><code>--flip</code> / <code>--black-down</code></td>
+<td>Render the board with Black at the bottom</td>
+</tr>
+<tr>
+<td><code>-h</code> / <code>--help</code></td>
+<td>Print workbench launch help</td>
+</tr>
+</tbody></table></div>
+<h2 id="main-areas">Main areas</h2>
+<p>The Workbench is a set of dockable tabs, each carved out around one job rather than one feature.</p>
 <div class="table-wrap"><table>
 <thead><tr>
 <th>Area</th>
@@ -102,27 +154,31 @@ crtk workbench --fen &quot;&lt;FEN&gt;&quot;</code></pre>
 </tr></thead><tbody>
 <tr>
 <td>Dashboard</td>
-<td>Session overview, health, artifacts, and recent jobs</td>
+<td>Session overview, health, recent jobs, and generated artifacts</td>
 </tr>
 <tr>
 <td>Analyze</td>
-<td>Board, PGN, legal moves, tags, ECO, editor, MCTS, and engine controls</td>
+<td>Interactive board, PGN navigation, legal moves, tags, ECO, board editor, and engine controls</td>
+</tr>
+<tr>
+<td>Play</td>
+<td>Human-vs-engine games against an in-process alpha-beta or MCTS opponent</td>
 </tr>
 <tr>
 <td>Commands</td>
-<td>GUI forms for CLI commands</td>
+<td>GUI forms that build and run any <code>crtk</code> command</td>
 </tr>
 <tr>
 <td>Batch</td>
-<td>FEN-list and batch-command execution</td>
+<td>FEN-list and command-script execution with progress</td>
 </tr>
 <tr>
 <td>Datasets</td>
-<td>Dataset loading, validation, summaries, and charts</td>
+<td>Loading, validation, summaries, and charts for exported data</td>
 </tr>
 <tr>
 <td>Publish</td>
-<td>Diagram, book, study, collection, cover, and report previews</td>
+<td>Previews for diagrams, books, studies, collections, and covers</td>
 </tr>
 <tr>
 <td>Console</td>
@@ -130,39 +186,147 @@ crtk workbench --fen &quot;&lt;FEN&gt;&quot;</code></pre>
 </tr>
 <tr>
 <td>Logs</td>
-<td>Persisted workbench job logs and artifacts</td>
+<td>Persisted job logs and artifacts</td>
 </tr>
 <tr>
 <td>Network</td>
-<td>NNUE, CNN, BT4, and OTIS model diagnostics</td>
+<td>NNUE, LC0 CNN, BT4, and OTIS model diagnostics and visualizers</td>
 </tr>
 <tr>
 <td>Puzzles</td>
 <td>Interactive puzzle practice</td>
 </tr>
 </tbody></table></div>
-<h2 id="keyboard-and-layout">Keyboard And Layout</h2>
+<h2 id="analysis-and-pgn-board">Analysis and PGN board</h2>
+<p>Analyze is where you land. The board sits in the middle, surrounded by everything you&#x27;d want pointed at a position: move navigation, the legal-move list, deterministic tags, ECO opening lookup, a board editor for arbitrary setups, and panels for both the in-process search and the external analysis engine. Load a PGN and you step through the game from the same view.</p>
+<p><img src="assets/screenshots/workbench-analysis.png" alt="Workbench analysis board" loading="lazy"></p>
+<p>The board sees the world the way the CLI does: identical move generation, identical FEN/SAN/UCI handling, identical Chess960 support. The tags on the board are the ones <code>fen tags</code> produces, down to the bit. Live analysis drives your configured external UCI engine — Stockfish or LC0 — the same way <code>engine analyze</code> does, MultiPV included.</p>
+<h2 id="play-vs-engine">Play vs engine</h2>
+<p>Play runs a full human-versus-engine game from the start position, the current board, or a pasted FEN. Two selectors, chosen independently:</p>
 <ul>
-<li>Arrow keys navigate game positions; Home/End jump to the start or end.</li>
-<li>Tabs can be opened, closed, duplicated, and split into editor groups.</li>
-<li>The layout controls support left, right, top, bottom, and quadrant splits.</li>
-<li>Settings include light and dark appearance modes, board coordinates,</li>
+<li><strong>Search</strong> chooses the move-picking algorithm: <code>Alpha-Beta</code> or <code>MCTS</code>.</li>
+<li><strong>Network</strong> chooses the leaf evaluator: <code>Classical</code>, <code>NNUE</code>, <code>CNN</code> (LC0), or <code>OTIS</code>.</li>
 </ul>
-<p>animations, highlights, eval-bar behavior, and external-engine options.</p>
-        </article>
-        <aside class="toc"><h2>On This Page</h2>
+<p>Both opponents run in-process. Play never spawns an external process.</p>
+<ul>
+<li><code>Alpha-Beta</code> is iterative deepening with a transposition table, null-move pruning, and quiescence, scoring leaves with the chosen evaluator.</li>
+<li><code>MCTS</code> is the in-process Monte Carlo Tree Search over the chosen policy/value backend — the same search family as the CLI&#x27;s <code>engine builtin</code> and <code>engine java</code>, which are also MCTS and also keep to the JVM rather than reaching for a UCI engine.</li>
+</ul>
+<p>The Network selector decides which local model loads:</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Network</th>
+<th>Backend</th>
+</tr></thead><tbody>
+<tr>
+<td><code>Classical</code></td>
+<td>Hand-crafted evaluation, no model file required</td>
+</tr>
+<tr>
+<td><code>NNUE</code></td>
+<td><code>models/crtk-halfkp.nnue</code></td>
+</tr>
+<tr>
+<td><code>CNN</code></td>
+<td>The configured ChessRTK LC0 CNN <code>.bin</code> weights</td>
+</tr>
+<tr>
+<td><code>OTIS</code></td>
+<td>The configured OTIS policy/WDL weights</td>
+</tr>
+</tbody></table></div>
+<p>If a neural model is missing or won&#x27;t load, Play drops back to classical evaluation rather than refusing to start — you get a game, just a weaker one. The LC0 CNN and BT4 paths are real, playable evaluators, but they are simplified and not bit-exact reproductions of upstream LC0/BT4; <a href="lc0.html">LC0 networks</a> covers exactly where the fidelity stops.</p>
+<blockquote><p>Important: Play is in-process only. Whatever external UCI engine you&#x27;ve configured (Stockfish, full LC0) backs the Workbench&#x27;s live analysis and the engine command forms — never the Play opponent.</p></blockquote>
+<h2 id="command-controller-and-forms">Command controller and forms</h2>
+<p>The Commands tab is the CLI rendered as forms. Pick an area and action — <code>engine bestmove</code>, <code>puzzle mine</code>, <code>record dataset npy</code>, <code>fen tags</code> — and the form sorts the inputs into required fields, mutually exclusive choices, and optional flags, validating as you go. The exact <code>crtk</code> command takes shape in front of you while you fill it in, ready to copy into a script or run on the spot.</p>
+<p><img src="assets/screenshots/workbench-commands.png" alt="Workbench command controller" loading="lazy"></p>
+<p>Since every form lands on a real CLI command, this doubles as a way to learn the surface area: assemble a command by clicking, read off its flags, then lift the generated text into a script for reproducible runs. The <a href="command-reference.html">Command Reference</a> documents what each form mirrors.</p>
+<h2 id="batch-jobs">Batch jobs</h2>
+<p>Batch is for work measured in the thousands. Sweep a FEN list through an engine command, or run a command script — one <code>crtk</code> command per non-comment line — exactly as <code>batch run</code> would. It tracks progress, breaks out per-row results, and gathers the output, so a large mining or export pass never has to leave the GUI. Anything long-running reports into the Console and persists into Logs.</p>
+<h2 id="datasets">Datasets</h2>
+<p>The Datasets tab opens up whatever the export pipeline produced — the tensors from <code>record dataset npy</code>, <code>record dataset lc0</code>, and <code>record dataset classifier</code>, and the JSONL rows from the <code>record export ...-jsonl</code> family — and reports shapes, counts, label distributions, and charts. The point is to catch a broken or skewed training set here, before a trainer spends hours on it. See <a href="datasets.html">Datasets</a> for the export formats.</p>
+<h2 id="publishing-previews">Publishing previews</h2>
+<p>The Publish tab shows you the PDF before you pay for the render. It previews single diagrams (<code>book pdf</code>), puzzle collections (<code>book collection</code>), annotated studies (<code>book study</code>), book interiors (<code>book render</code>), and covers (<code>book cover</code>). The whole publishing stack is built in — no LaTeX, no external toolchain to install. See <a href="book-publishing.html">Book publishing</a> for the manifest formats and the full option set.</p>
+<h2 id="puzzles">Puzzles</h2>
+<p>The Puzzles tab is where you actually solve the things you mined. Load the <code>*.puzzles.json</code> output of <code>puzzle mine</code>, work a position on the board, then reveal the principal variation and the move-by-move tags — the same deterministic tagging behind <code>puzzle tags</code>. See <a href="mining.html">Puzzle mining</a> for how the sets are produced and gated by the Filter DSL.</p>
+<h2 id="network-visualizer">Network visualizer</h2>
+<p>The Network tab opens up the neural networks the toolkit has loaded — NNUE, the LC0 CNN, BT4, OTIS — and shows what they&#x27;re doing: loaded-model state, inference state, feature boards, activation summaries, atlases, trace views, runtime information, and exportable visualizations. As close as you can get to watching an evaluator look at a position.</p>
+<p><img src="assets/screenshots/workbench-network.png" alt="Workbench network visualizer" loading="lazy"></p>
+<p>Read this as a research and debugging aid, not ground truth about a reference engine. The networks are usable evaluators, but the LC0 CNN and BT4 paths are simplified and not bit-exact equivalents of upstream inference — so the activations are faithful to ChessRTK&#x27;s implementation, which is not quite the same thing as faithful to LC0 or BT4.</p>
+<h2 id="console-and-logs">Console and logs</h2>
+<p>The Console streams command output with terminal-style progress handling, so a running export or mining job reads much like it would in a shell. When the run ends, the Logs tab holds onto the job logs and their artifacts — your audit trail of what was produced and where it landed. See <a href="outputs-and-logs.html">Outputs and logs</a> for the on-disk layout.</p>
+<h2 id="keyboard-and-layout">Keyboard and layout</h2>
+<ul>
+<li>Arrow keys navigate game positions; <code>Home</code> and <code>End</code> jump to the start or end of the line.</li>
+<li>Tabs can be opened, closed, duplicated, and split into editor groups.</li>
+<li>The layout supports left, right, top, bottom, and quadrant splits.</li>
+<li>Settings include light and dark appearance, board coordinates, animations, highlights, eval-bar behavior, and external-engine options.</li>
+</ul>
+<h2 id="related-pages">Related pages</h2>
+<ul>
+<li><a href="getting-started.html">Getting Started</a> — install, configure, and run your first commands.</li>
+<li><a href="command-reference.html">Command Reference</a> — every area and action the command forms mirror.</li>
+<li><a href="in-house-engine.html">In-house engine</a> — the alpha-beta and MCTS search behind Play and <code>engine builtin</code>.</li>
+<li><a href="lc0.html">LC0 networks</a> — the LC0 CNN evaluator and its fidelity limits.</li>
+<li><a href="datasets.html">Datasets</a> and <a href="book-publishing.html">Book publishing</a> — what the Datasets and Publish tabs work with.</li>
+</ul>
+      </article>
+      <aside class="toc"><h2>On this page</h2>
+<a class="toc-h2" href="#what-you-can-do">What you can do</a>
 <a class="toc-h2" href="#launch">Launch</a>
-<a class="toc-h2" href="#analysis-workspace">Analysis Workspace</a>
-<a class="toc-h2" href="#command-controller">Command Controller</a>
-<a class="toc-h2" href="#network-visualizer">Network Visualizer</a>
-<a class="toc-h2" href="#main-areas">Main Areas</a>
-<a class="toc-h2" href="#keyboard-and-layout">Keyboard And Layout</a></aside>
-      </main>
-      <footer class="footer">
-        <span>Generated from <code>wiki/workbench.md</code>.</span>
-        <span>Build with <code>python3 scripts/build_docs_site.py</code>.</span>
-      </footer>
-    </div>
+<a class="toc-h2" href="#main-areas">Main areas</a>
+<a class="toc-h2" href="#analysis-and-pgn-board">Analysis and PGN board</a>
+<a class="toc-h2" href="#play-vs-engine">Play vs engine</a>
+<a class="toc-h2" href="#command-controller-and-forms">Command controller and forms</a>
+<a class="toc-h2" href="#batch-jobs">Batch jobs</a>
+<a class="toc-h2" href="#datasets">Datasets</a>
+<a class="toc-h2" href="#publishing-previews">Publishing previews</a>
+<a class="toc-h2" href="#puzzles">Puzzles</a>
+<a class="toc-h2" href="#network-visualizer">Network visualizer</a>
+<a class="toc-h2" href="#console-and-logs">Console and logs</a>
+<a class="toc-h2" href="#keyboard-and-layout">Keyboard and layout</a>
+<a class="toc-h2" href="#related-pages">Related pages</a></aside>
+    </main>
   </div>
+
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <div class="footer-brand">
+        <a class="footer-logo" href="index.html">
+          <img src="assets/logo/crtk-logo.svg" alt="" width="40" height="40">
+          <span>ChessRTK</span>
+        </a>
+        <p>The deterministic chess research toolkit. Free, open-source, and built on one shared Java chess core.</p>
+        <p class="footer-license">Licensed under GPL-3.0-only.</p>
+      </div>
+      <div class="footer-cols">
+        <div class="footer-col"><h3>Documentation</h3><ul>
+          <li><a href="getting-started.html">Getting Started</a></li>
+          <li><a href="command-reference.html">Command Reference</a></li>
+          <li><a href="configuration.html">Configuration</a></li>
+          <li><a href="troubleshooting.html">Troubleshooting</a></li>
+          <li><a href="chessrtk-manual.pdf">Manual (PDF)</a></li>
+        </ul></div>
+        <div class="footer-col"><h3>Workflows</h3><ul>
+          <li><a href="mining.html">Puzzle Mining</a></li>
+          <li><a href="datasets.html">ML Datasets</a></li>
+          <li><a href="piece-tags.html">Tagging</a></li>
+          <li><a href="book-publishing.html">Book Publishing</a></li>
+          <li><a href="ai-agents.html">AI Agents</a></li>
+        </ul></div>
+        <div class="footer-col"><h3>Project</h3><ul>
+          <li><a href="architecture.html">Architecture</a></li>
+          <li><a href="quality-and-testing.html">Quality &amp; Testing</a></li>
+          <li><a href="https://github.com/LenniAConrad/chess-rtk" target="_blank" rel="noopener">GitHub</a></li>
+          <li><a href="https://github.com/LenniAConrad/chess-rtk/issues" target="_blank" rel="noopener">Issues</a></li>
+        </ul></div>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>&copy; ChessRTK contributors &middot; GPL-3.0-only</span>
+      <span>Documentation generated from the repository <a href="wiki-index.html">wiki</a>.</span>
+    </div>
+  </footer>
+
 </body>
 </html>

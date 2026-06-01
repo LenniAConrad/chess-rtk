@@ -3,150 +3,471 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Filter DSL | ChessRTK Wiki</title>
+  <title>Filter DSL | ChessRTK</title>
+  <meta name="description" content="The deterministic chess research toolkit — Filter DSL.">
+  <link rel="icon" href="assets/logo/crtk-logo.svg" type="image/svg+xml">
   <link rel="stylesheet" href="styles.css">
+  <script>
+    (function () {
+      var key = "crtk-theme";
+      var isTheme = function (value) { return value === "light" || value === "dark"; };
+      var urlTheme = "";
+      var stored = "";
+      try { urlTheme = new URLSearchParams(window.location.search).get("theme"); } catch (e) {}
+      try { stored = localStorage.getItem(key); } catch (e) {}
+      var theme = isTheme(urlTheme) ? urlTheme : (isTheme(stored) ? stored : "");
+      if (!theme) {
+        theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+      }
+      if (isTheme(urlTheme)) {
+        try { localStorage.setItem(key, urlTheme); } catch (e) {}
+      }
+      document.documentElement.setAttribute("data-theme", theme);
+    })();
+  </script>
   <script defer src="search-index.js"></script>
   <script defer src="site.js"></script>
 </head>
-<body>
-  <button class="menu-toggle" type="button" aria-label="Toggle navigation">Menu</button>
-  <div class="site-shell">
-    <aside class="sidebar">
-      <a class="brand" href="index.html">
-        <span class="brand-mark">CR</span>
-        <span><strong>ChessRTK</strong><small>Wiki</small></span>
+<body class="is-doc">
+
+  <header class="topnav">
+    <div class="topnav-inner">
+      <a class="topnav-brand" href="index.html">
+        <img src="assets/logo/crtk-logo.svg" alt="" width="32" height="32">
+        <span>ChessRTK</span>
       </a>
-      <label class="search-label" for="doc-search">Search pages</label>
-      <input id="doc-search" class="search" type="search" placeholder="Search docs...">
+      <button class="nav-toggle" type="button" aria-label="Toggle navigation" aria-expanded="false">
+        <span></span><span></span><span></span>
+      </button>
+      <nav class="topnav-links">
+        <a class="" href="getting-started.html">Get started</a>
+        <a class="" href="command-reference.html">Commands</a>
+        <a class="" href="workbench.html">Workbench</a>
+        <a class="" href="wiki-index.html">Docs</a>
+        <a class="" href="chessrtk-manual.pdf">Manual</a>
+        <a class="topnav-gh" href="https://github.com/LenniAConrad/chess-rtk" target="_blank" rel="noopener">GitHub</a>
+        <button class="theme-toggle" type="button" aria-label="Toggle dark mode" title="Toggle dark mode">
+          <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2v2.4M12 19.6V22M2 12h2.4M19.6 12H22M4.9 4.9l1.7 1.7M17.4 17.4l1.7 1.7M19.1 4.9l-1.7 1.7M6.6 17.4l-1.7 1.7"/></svg>
+          <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4 7 7 0 1 0 20 14.5Z"/></svg>
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <div class="doc-shell">
+    <aside class="sidebar" id="sidebar">
+      <label class="search-label" for="doc-search">Search the docs</label>
+      <input id="doc-search" class="search" type="search" placeholder="Search pages..." autocomplete="off">
       <div id="search-results" class="search-results" hidden></div>
       <nav class="nav"><section class="nav-section"><h2>Start Here</h2>
-<a class="" href="index.html" data-title="home">Home</a>
+<a class="" href="index.html" data-title="overview">Overview</a>
 <a class="" href="getting-started.html" data-title="getting started">Getting Started</a>
+<a class="" href="build-and-install.html" data-title="build &amp; install">Build &amp; Install</a>
 <a class="" href="use-cases.html" data-title="use cases">Use Cases</a>
-<a class="" href="command-cheatsheet.html" data-title="command cheatsheet">Command Cheatsheet</a>
 <a class="" href="faq.html" data-title="faq">FAQ</a>
-<a class="" href="command-reference.html" data-title="command reference">Command Reference</a>
-<a class="" href="example-commands.html" data-title="example commands">Example Commands</a>
 <a class="" href="troubleshooting.html" data-title="troubleshooting">Troubleshooting</a>
 </section>
-<section class="nav-section"><h2>User Guides</h2>
-<a class="" href="build-and-install.html" data-title="build &amp; install">Build &amp; Install</a>
-<a class="" href="workbench.html" data-title="desktop workbench">Desktop Workbench</a>
+<section class="nav-section"><h2>Commands</h2>
+<a class="" href="command-cheatsheet.html" data-title="cheatsheet">Cheatsheet</a>
+<a class="" href="command-reference.html" data-title="command reference">Command Reference</a>
+<a class="" href="example-commands.html" data-title="example commands">Example Commands</a>
 <a class="" href="configuration.html" data-title="configuration">Configuration</a>
-<a class="" href="in-house-engine.html" data-title="in-house engine">In-House Engine</a>
-<a class="" href="lc0.html" data-title="lc0">LC0</a>
 <a class="" href="outputs-and-logs.html" data-title="outputs &amp; logs">Outputs &amp; Logs</a>
-<a class="" href="support.html" data-title="support">Support</a>
+</section>
+<section class="nav-section"><h2>Desktop Workbench</h2>
+<a class="" href="workbench.html" data-title="workbench">Workbench</a>
+</section>
+<section class="nav-section"><h2>Engines &amp; Models</h2>
+<a class="" href="in-house-engine.html" data-title="built-in engine">Built-in Engine</a>
+<a class="" href="lc0.html" data-title="lc0 networks">LC0 Networks</a>
+<a class="" href="gpu.html" data-title="gpu acceleration">GPU Acceleration</a>
+<a class="" href="t5.html" data-title="t5 text">T5 Text</a>
 </section>
 <section class="nav-section"><h2>Workflows</h2>
-<a class="" href="mining.html" data-title="mining puzzles">Mining Puzzles</a>
+<a class="" href="mining.html" data-title="puzzle mining">Puzzle Mining</a>
 <a class="active" href="filter-dsl.html" data-title="filter dsl">Filter DSL</a>
-<a class="" href="datasets.html" data-title="datasets">Datasets</a>
-<a class="" href="book-publishing.html" data-title="book publishing">Book Publishing</a>
-<a class="" href="piece-tags.html" data-title="tags">Tags</a>
+<a class="" href="datasets.html" data-title="ml datasets">ML Datasets</a>
+<a class="" href="piece-tags.html" data-title="tagging">Tagging</a>
 <a class="" href="tag-reference.html" data-title="tag reference">Tag Reference</a>
-<a class="" href="t5.html" data-title="t5 text">T5 Text</a>
-<a class="" href="ai-agents.html" data-title="ai agents">AI Agents</a>
+<a class="" href="book-publishing.html" data-title="book publishing">Book Publishing</a>
+<a class="" href="ai-agents.html" data-title="ai agents &amp; automation">AI Agents &amp; Automation</a>
 </section>
-<section class="nav-section"><h2>Development</h2>
+<section class="nav-section"><h2>Project</h2>
 <a class="" href="architecture.html" data-title="architecture">Architecture</a>
 <a class="" href="quality-and-testing.html" data-title="quality &amp; testing">Quality &amp; Testing</a>
 <a class="" href="development-notes.html" data-title="development notes">Development Notes</a>
 <a class="" href="releasing.html" data-title="releasing">Releasing</a>
-<a class="" href="roadmap.html" data-title="roadmap">Roadmap</a>
 <a class="" href="glossary.html" data-title="glossary">Glossary</a>
-<a class="" href="tagging-implementation-plan.html" data-title="tagging plan">Tagging Plan</a>
+<a class="" href="support.html" data-title="support">Support</a>
 <a class="" href="wiki-index.html" data-title="wiki index">Wiki Index</a>
 </section></nav>
     </aside>
-    <div class="page">
-      <header class="topbar">
-        <div>
-          <span>Workflows</span>
-          <strong>Filter DSL</strong>
-        </div>
-        <nav>
-          <a href="index.html">Home</a>
-          <a href="wiki-index.html">Wiki Index</a>
-          <a href="chessrtk-manual.pdf">Manual PDF</a>
-          <a href="command-reference.html">Commands</a>
-        </nav>
-      </header>
-      
-      <main class="content-layout">
-        <article class="content">
-          <h1 id="filter-dsl">Filter DSL</h1>
-<p>Mining gates (and some converters) use a compact, round-trippable DSL implemented by <code>chess.uci.Filter</code>.</p>
-<p>If you only want to tweak mining behavior, you generally only need:</p>
+    <main class="doc-main">
+      <article class="content">
+        <p class="content-kicker">Workflows</p>
+        <h1 id="filter-dsl">Filter DSL</h1>
+<p>Engine analysis is a firehose of numbers — depth, nodes, evaluations, win/draw/loss estimates across several lines. The Filter DSL is how you ask a sharp question of that data and get back a single <code>true</code> or <code>false</code>. A filter is a tree of boolean checks over a position&#x27;s principal variations (PVs), joined by a logical gate. The same machinery decides which analyzed positions become puzzles, picks rows out of <code>.record</code> files when you export or split them, and labels rows for ML datasets. It lives in <code>chess.uci.Filter</code>, round-trips through parse and serialize without loss, and is deterministic to the bit: identical filter, identical analysis, identical verdict.</p>
+<p>What follows is the reference — block structure, keys, predicates, operators — with worked examples you can drop straight into a flag or a config value.</p>
+<h2 id="where-filters-are-used">Where filters are used</h2>
+<p>A filter is always a plain DSL string. It reaches a command from one of two places:</p>
 <ul>
-<li>the list of supported predicates</li>
-<li>how <code>gate=...</code>, <code>break=...</code>, <code>null=...</code>, <code>empty=...</code> interact</li>
+<li><strong>Defaults in <code>config/cli.config.toml</code></strong> — the four mining gates ship as TOML multi-line strings: <code>puzzle-quality</code>, <code>puzzle-winning</code>, <code>puzzle-drawing</code>, and <code>puzzle-accelerate</code>. Tune these to match your engine.</li>
+<li><strong>Per-command flags</strong> — override or supply a filter at the command line.</li>
 </ul>
-<h2 id="shape">Shape</h2>
-<p>A filter is a tree of blocks. Each block:</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Command</th>
+<th>Flag</th>
+<th>What the filter does</th>
+</tr></thead><tbody>
+<tr>
+<td><code>puzzle mine</code></td>
+<td><code>--puzzle-quality DSL</code></td>
+<td>Minimum effort before a position is even considered</td>
+</tr>
+<tr>
+<td><code>puzzle mine</code></td>
+<td><code>--puzzle-winning DSL</code></td>
+<td>Accept as a &quot;winning&quot; puzzle</td>
+</tr>
+<tr>
+<td><code>puzzle mine</code></td>
+<td><code>--puzzle-drawing DSL</code></td>
+<td>Accept as a &quot;drawing&quot; puzzle</td>
+</tr>
+<tr>
+<td><code>puzzle mine</code></td>
+<td><code>--puzzle-accelerate DSL</code></td>
+<td>Cheap early reject to skip obvious non-puzzles</td>
+</tr>
+<tr>
+<td><code>record files</code></td>
+<td>`--filter\</td>
+<td>-f DSL`</td>
+<td>Keep only matching records when merging/splitting</td>
+</tr>
+<tr>
+<td><code>record export plain</code></td>
+<td>`--filter\</td>
+<td>-f DSL`</td>
+<td>Select records to export</td>
+</tr>
+<tr>
+<td><code>record export csv</code></td>
+<td>`--filter\</td>
+<td>-f DSL`</td>
+<td>Select records to export</td>
+</tr>
+<tr>
+<td><code>record export puzzle-jsonl</code></td>
+<td>`--filter\</td>
+<td>-f DSL`</td>
+<td>Row selection before export</td>
+</tr>
+<tr>
+<td><code>record export training-jsonl</code></td>
+<td>`--filter\</td>
+<td>-f DSL`</td>
+<td>Matching rows become <code>verified_puzzle</code></td>
+</tr>
+<tr>
+<td><code>record dataset classifier</code></td>
+<td>`--filter\</td>
+<td>-f DSL`</td>
+<td>Row selection</td>
+</tr>
+<tr>
+<td><code>record dataset classifier</code></td>
+<td><code>--label-filter DSL</code></td>
+<td>Positive-label rule (overrides the kind)</td>
+</tr>
+</tbody></table></div>
+<p>See <a href="mining.html">Mining</a> for the mining pipeline, <a href="datasets.html">Datasets</a> for export and dataset commands, and the <a href="configuration.html">Configuration</a> page for the TOML keys.</p>
+<h2 id="mental-model">Mental model</h2>
+<p>A filter is a <strong>tree of blocks</strong>. Each block does three things:</p>
+<ol>
+<li>Optionally picks a MultiPV line to inspect (<code>break=&lt;n&gt;</code>, where <code>1</code> = the best line / PV1, <code>2</code> = PV2, and so on).</li>
+<li>Evaluates its own predicates (e.g. <code>eval&gt;=300</code>) against that line, and recursively evaluates any nested child blocks (<code>leaf[ ... ]</code>).</li>
+<li>Reduces every resulting boolean — predicates plus children — into one value using its gate (<code>gate=AND</code>, <code>gate=OR</code>, …).</li>
+</ol>
+<p>The whole filter&#x27;s verdict is the outermost block&#x27;s verdict.</p>
+<blockquote><p>A block reads the deepest available output at its chosen <code>break</code> index. A predicate that references an attribute the engine never reported fails rather than erroring — so a filter is exactly as strict as the data behind it, no stricter.</p></blockquote>
+<h2 id="syntax">Syntax</h2>
 <ul>
-<li>picks a MultiPV line to inspect (<code>break=&lt;n&gt;</code>, where 1 = PV1, 2 = PV2, …)</li>
-<li>evaluates predicates against that PV output</li>
-<li>optionally evaluates nested blocks (<code>leaf[ ... ]</code>)</li>
-<li>combines all booleans using <code>gate=&lt;...&gt;</code></li>
+<li>Tokens within a block are separated by <code>;</code> (semicolons). Commas and spaces also work as separators, and whitespace is otherwise ignored.</li>
+<li>A nested block is written <code>leaf[ ... ]</code> — its contents are themselves a full filter.</li>
+<li>A predicate is <code>key</code> + operator + <code>value</code>, e.g. <code>nodes&gt;=50000000</code> or <code>eval&lt;=0</code>.</li>
+<li>Comparison operators are <code>&gt;</code>, <code>&gt;=</code>, <code>=</code>, <code>&lt;=</code>, <code>&lt;</code>.</li>
 </ul>
-<p>Separators:</p>
+<p>A minimal one-block filter:</p>
+<pre><code class="language-text">gate=AND;break=1;depth&gt;=20;eval&gt;=300</code></pre>
+<p>Read it left to right: on PV1, require depth of at least 20 <strong>and</strong> an evaluation of at least +3.00 pawns.</p>
+<h2 id="block-keys">Block keys</h2>
+<p>These keys configure the block rather than test the position:</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Key</th>
+<th>Values</th>
+<th>Default</th>
+<th>Meaning</th>
+</tr></thead><tbody>
+<tr>
+<td><code>gate=</code></td>
+<td><code>AND</code>, <code>NOT_AND</code>, <code>OR</code>, <code>NOT_OR</code>, <code>XOR</code>, <code>X_NOT_OR</code>, <code>SAME</code>, <code>NOT_SAME</code></td>
+<td><code>AND</code></td>
+<td>How this block reduces its booleans</td>
+</tr>
+<tr>
+<td><code>break=</code></td>
+<td>integer <code>&gt;= 1</code></td>
+<td>unbound</td>
+<td>Which MultiPV line to read predicates from</td>
+</tr>
+<tr>
+<td><code>null=</code></td>
+<td><code>true</code> or <code>false</code></td>
+<td><code>false</code></td>
+<td>Result returned when the requested PV data is missing</td>
+</tr>
+<tr>
+<td><code>empty=</code></td>
+<td><code>true</code> or <code>false</code></td>
+<td><code>false</code></td>
+<td>Result returned when the block has no predicates and no leaves</td>
+</tr>
+</tbody></table></div>
+<p>Notes on <code>break=</code>:</p>
 <ul>
-<li>predicates/keys are delimited by <code>;</code></li>
-<li>whitespace is ignored</li>
+<li><code>break=1</code> reads PV1 (the engine&#x27;s best line), <code>break=2</code> reads PV2, etc.</li>
+<li>If a block has predicates but no <code>break=</code> (or <code>break=0</code>), it defaults to PV1.</li>
+<li>A block with only nested <code>leaf[...]</code> children and no predicates of its own does not read any PV, so you can omit <code>break=</code> on those purely structural blocks.</li>
 </ul>
-<h2 id="core-keys">Core keys</h2>
+<p>Notes on <code>null=</code> and <code>empty=</code>:</p>
 <ul>
-<li><code>gate=&lt;AND|NOT_AND|OR|NOT_OR|XOR|X_NOT_OR|SAME|NOT_SAME&gt;</code></li>
-<li><code>break=&lt;n&gt;</code>: which PV line to inspect (1 = best line)</li>
-<li><code>null=&lt;true|false&gt;</code>: return value when PV data is missing</li>
-<li><code>empty=&lt;true|false&gt;</code>: return value when the block has no predicates/leaves</li>
+<li><code>null=true</code> makes a block pass when its PV is absent — handy when a missing second line should read as &quot;no counter-line exists.&quot; <code>null=false</code> makes the same block fail. Set this deliberately on anything reading <code>break=2</code> or higher, because that line genuinely may not be there.</li>
+<li><code>empty=</code> only bites on a block with no predicates and no leaves: it is the constant that empty block returns.</li>
 </ul>
-<h2 id="predicates-keys">Predicates (keys)</h2>
-<p>Predicates compare an output attribute using one of: <code>&gt;</code>, <code>&gt;=</code>, <code>=</code>, <code>&lt;=</code>, <code>&lt;</code>.</p>
-<p>Supported keys:</p>
+<h2 id="gates">Gates</h2>
+<p>A gate folds the booleans a block produced — its predicate results, then its child results — into one value.</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Gate</th>
+<th>True when</th>
+</tr></thead><tbody>
+<tr>
+<td><code>AND</code></td>
+<td>every value is true</td>
+</tr>
+<tr>
+<td><code>NOT_AND</code></td>
+<td>the AND result negated</td>
+</tr>
+<tr>
+<td><code>OR</code></td>
+<td>any value is true</td>
+</tr>
+<tr>
+<td><code>NOT_OR</code></td>
+<td>the OR result negated (none are true)</td>
+</tr>
+<tr>
+<td><code>XOR</code></td>
+<td>an odd number of values are true</td>
+</tr>
+<tr>
+<td><code>X_NOT_OR</code></td>
+<td>an even number of values are true (XNOR)</td>
+</tr>
+<tr>
+<td><code>SAME</code></td>
+<td>all values are identical</td>
+</tr>
+<tr>
+<td><code>NOT_SAME</code></td>
+<td>the values are not all identical</td>
+</tr>
+</tbody></table></div>
+<p><code>AND</code> and <code>OR</code> carry almost every filter you will ever write. The rest are here for completeness and to let any serialized filter round-trip exactly.</p>
+<h2 id="predicates">Predicates</h2>
+<p>A predicate tests one attribute of the selected PV with <code>&gt;</code>, <code>&gt;=</code>, <code>=</code>, <code>&lt;=</code>, or <code>&lt;</code>.</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Key</th>
+<th>Type</th>
+<th>Notes</th>
+</tr></thead><tbody>
+<tr>
+<td><code>depth</code></td>
+<td>integer</td>
+<td>Search depth</td>
+</tr>
+<tr>
+<td><code>seldepth</code></td>
+<td>integer</td>
+<td>Selective depth</td>
+</tr>
+<tr>
+<td><code>multipv</code></td>
+<td>integer</td>
+<td>MultiPV index reported on the line</td>
+</tr>
+<tr>
+<td><code>hashfull</code></td>
+<td>integer</td>
+<td>Hash-table fill, <code>0..1000</code> (1000 ≈ 100%)</td>
+</tr>
+<tr>
+<td><code>nodes</code></td>
+<td>integer</td>
+<td>Visited node count</td>
+</tr>
+<tr>
+<td><code>nps</code></td>
+<td>integer</td>
+<td>Nodes per second</td>
+</tr>
+<tr>
+<td><code>tbhits</code></td>
+<td>integer</td>
+<td>Endgame tablebase hits</td>
+</tr>
+<tr>
+<td><code>time</code></td>
+<td>integer</td>
+<td>Elapsed time in milliseconds</td>
+</tr>
+<tr>
+<td><code>eval</code></td>
+<td>score</td>
+<td>Centipawns, pawns, or a mate distance</td>
+</tr>
+<tr>
+<td><code>chances</code></td>
+<td>W/D/L</td>
+<td>Win/draw/loss probabilities</td>
+</tr>
+</tbody></table></div>
+<h3 id="eval-values"><code>eval</code> values</h3>
+<p>The right-hand side of an <code>eval</code> predicate takes three forms:</p>
 <ul>
-<li><code>depth</code>, <code>seldepth</code>, <code>multipv</code>, <code>hashfull</code></li>
-<li><code>nodes</code>, <code>nps</code>, <code>tbhits</code>, <code>time</code> (ms)</li>
-<li><code>eval</code> (centipawns or mate; decimals are allowed as pawns, e.g. <code>300</code> == <code>3.0</code>, <code>#-2</code>)</li>
-<li><code>chances</code> (WDL), e.g. <code>790/200/10</code> or <code>1000/0/0</code></li>
+<li><strong>Centipawns</strong> as a bare integer: <code>eval&gt;=300</code> means +3.00 pawns or better.</li>
+<li><strong>Pawns</strong> with a decimal point: <code>eval&gt;=3.0</code> is the same as <code>eval&gt;=300</code>; <code>eval&lt;-0.5</code> is <code>eval&lt;-50</code>.</li>
+<li><strong>Mate</strong> with a <code>#</code>: <code>eval&gt;=#3</code> (mate in 3 for the side to move), <code>eval&lt;=#-2</code> (getting mated in 2). A leading <code>+</code> is optional (<code>#+3</code> == <code>#3</code>).</li>
 </ul>
-<h2 id="examples">Examples</h2>
-<h3 id="quality-demand-enough-effort-on-pv1-and-pv2">“Quality”: demand enough effort on PV1 and PV2</h3>
-<pre><code class="language-txt">gate=AND;null=false;empty=false;
+<p>Every mate score outranks every centipawn score, so <code>eval&gt;=#5</code> matches any forced mate for the side to move regardless of distance. Comparisons also honor the engine&#x27;s bound hints: a lower-bound score can only satisfy <code>&gt;</code>/<code>&gt;=</code>, an upper-bound score only <code>&lt;</code>/<code>&lt;=</code>, and <code>=</code> demands an exact, unbounded score.</p>
+<h3 id="chances-values"><code>chances</code> values</h3>
+<p><code>chances</code> tests the reported win/draw/loss triple. Its canonical form is three integers summing to 1000 (per-mille): <code>chances&gt;=790/200/10</code>, <code>chances=1000/0/0</code>. Percentages work too — <code>win 79% draw 20% loss 1%</code>, or just <code>79 20 1</code> when the three sum to 100 — and are normalized onto the <code>/1000</code> basis.</p>
+<h2 id="worked-examples">Worked examples</h2>
+<h3 id="quality-gate-demand-real-effort-on-the-top-two-lines">Quality gate: demand real effort on the top two lines</h3>
+<p>Don&#x27;t trust a verdict the engine hasn&#x27;t worked for: accept a position only after at least 50M nodes on both PV1 and PV2. This is the default <code>puzzle-quality</code> filter.</p>
+<pre><code class="language-text">gate=AND;null=false;empty=false;
 leaf[gate=AND;break=1;nodes&gt;=50000000];
 leaf[gate=AND;break=2;null=false;empty=false;nodes&gt;=50000000];</code></pre>
-<h3 id="winning-puzzle-best-line-clearly-good-second-line-not">“Winning puzzle”: best line clearly good, second line not</h3>
-<pre><code class="language-txt">gate=AND;
+<h3 id="winning-puzzle-one-good-move-no-good-alternative">Winning puzzle: one good move, no good alternative</h3>
+<p>A good puzzle has exactly one answer. Here PV1 wins outright (+3.00 or better) while PV2 is at best equal — the signature of a forcing tactic where the second-best move goes nowhere. This is the default <code>puzzle-winning</code> filter.</p>
+<pre><code class="language-text">gate=AND;
 leaf[eval&gt;=300];
 leaf[break=2;null=false;eval&lt;=0];</code></pre>
-<h3 id="accelerate-cheap-reject-to-avoid-wasting-time">“Accelerate”: cheap reject to avoid wasting time</h3>
-<pre><code class="language-txt">gate=AND;
+<h3 id="drawing-puzzle-only-one-move-holds">Drawing puzzle: only one move holds</h3>
+<p>The mirror image of the winning gate. PV1 holds the position equal or better; every alternative collapses by 3 pawns — find the only defense. This is the default <code>puzzle-drawing</code> filter.</p>
+<pre><code class="language-text">gate=AND;
+leaf[eval&gt;=0];
+leaf[break=2;null=false;eval&lt;=-300];</code></pre>
+<h3 id="accelerate-reject-obvious-non-puzzles-cheaply">Accelerate: reject obvious non-puzzles cheaply</h3>
+<p>Deep search is the expensive part, so spend it only on candidates worth the cost. After a shallow two-PV pass, this gate discards anything that can&#x27;t become a puzzle. It is the default <code>puzzle-accelerate</code> filter. The two nested <code>OR</code> blocks each say the same kind of thing — &quot;PV1 is unconvincing <strong>or</strong> PV2 is already strong&quot; — and either condition means the position has no unique best move.</p>
+<pre><code class="language-text">gate=AND;
 leaf[break=1;nodes&gt;=2000000];
 leaf[break=2;null=false;nodes&gt;=2000000];
 leaf[gate=OR;eval&lt;300;leaf[break=2;eval&gt;0]];
 leaf[gate=OR;eval&lt;0;leaf[break=2;eval&gt;-300]];</code></pre>
-<h2 id="where-filters-live">Where filters live</h2>
+<h3 id="mate-aware-quality-on-one-line">Mate-aware quality, on one line</h3>
+<p>Not every filter needs a tree. A single block mixing predicate types does fine when you only want one deeply searched, decisive line — common when selecting records:</p>
+<pre><code class="language-text">gate=AND;break=1;depth&gt;=30;nodes&gt;=100000000;eval&gt;=#5</code></pre>
+<h3 id="override-a-mining-gate-at-the-command-line">Override a mining gate at the command line</h3>
+<pre><code class="language-bash">java -jar crtk.jar puzzle mine --input seeds.txt --output dump/run \
+  --puzzle-winning &quot;gate=AND;leaf[eval&gt;=500];leaf[break=2;null=false;eval&lt;=0]&quot;</code></pre>
+<h3 id="filter-records-on-export">Filter records on export</h3>
+<pre><code class="language-bash">java -jar crtk.jar record files --input dump/run.puzzles.json --output dump/strong \
+  --filter &quot;gate=AND;break=1;eval&gt;=400&quot;</code></pre>
+<h2 id="reading-and-writing-filters-programmatically">Reading and writing filters programmatically</h2>
+<p><code>Filter.FilterDSL.fromString(...)</code> parses a DSL string into an immutable rule tree; <code>Filter.toString()</code> serializes it back. The serializer drops <code>break=</code> when it is unbound (0) and writes each predicate in canonical <code>key</code>+operator+<code>value</code> form, so parsing and re-serializing reaches a fixed point — the second pass produces the same string as the first.</p>
+<p>A persisted filter — the one recorded alongside a mining run, say — often reads fuller than what you typed: explicit <code>null=</code>/<code>empty=</code>, a <code>break=</code> on every line. That is each block spelling out its effective configuration, not a different filter. The expanded form and your compact one mean exactly the same thing.</p>
+<h2 id="tips">Tips</h2>
 <ul>
-<li>Default mining filters are stored in <code>config/cli.config.toml</code> as TOML multi-line strings.</li>
-<li>You can override them per run via <code>puzzle mine --puzzle-quality &lt;dsl&gt;</code>, etc.</li>
+<li><strong>Set <code>null=</code> on every counter-line block.</strong> A <code>break=2</code>-or-higher block can land on a position with fewer PVs than you assumed; leaving the default in place silently fails it. Decide on purpose whether a missing line should pass (<code>null=true</code>) or fail (<code>null=false</code>).</li>
+<li><strong>Calibrate thresholds to your engine.</strong> Centipawn scale, contempt, pruning, and network behavior all differ across Stockfish, LC0, and the built-in evaluators, so <code>+300</code> does not mean the same thing everywhere. The shipped defaults lean conservative.</li>
+<li><strong>Write pawns or <code>#</code>, not raw centipawns.</strong> <code>eval&gt;=3.0</code> and <code>eval&gt;=#3</code> parse identically to their integer forms and are far easier to read back six months later.</li>
+<li><strong>Order accelerate gates cheap-first.</strong> Put node and time checks ahead of evaluation checks so a fast reject short-circuits before the costly comparison runs.</li>
 </ul>
-        </article>
-        <aside class="toc"><h2>On This Page</h2>
-<a class="toc-h2" href="#shape">Shape</a>
-<a class="toc-h2" href="#core-keys">Core keys</a>
-<a class="toc-h2" href="#predicates-keys">Predicates (keys)</a>
-<a class="toc-h2" href="#examples">Examples</a>
-<a class="toc-h3" href="#quality-demand-enough-effort-on-pv1-and-pv2">“Quality”: demand enough effort on PV1 and PV2</a>
-<a class="toc-h3" href="#winning-puzzle-best-line-clearly-good-second-line-not">“Winning puzzle”: best line clearly good, second line not</a>
-<a class="toc-h3" href="#accelerate-cheap-reject-to-avoid-wasting-time">“Accelerate”: cheap reject to avoid wasting time</a>
-<a class="toc-h2" href="#where-filters-live">Where filters live</a></aside>
-      </main>
-      <footer class="footer">
-        <span>Generated from <code>wiki/filter-dsl.md</code>.</span>
-        <span>Build with <code>python3 scripts/build_docs_site.py</code>.</span>
-      </footer>
-    </div>
+<h2 id="related-pages">Related pages</h2>
+<ul>
+<li><a href="mining.html">Mining</a> — the mining pipeline these gates drive</li>
+<li><a href="datasets.html">Datasets</a> — <code>record files</code>, <code>record export</code>, and <code>record dataset</code> filtering</li>
+<li><a href="configuration.html">Configuration</a> — the <code>cli.config.toml</code> filter keys</li>
+<li><a href="command-reference.html">Command Reference</a> — full flag listings</li>
+</ul>
+      </article>
+      <aside class="toc"><h2>On this page</h2>
+<a class="toc-h2" href="#where-filters-are-used">Where filters are used</a>
+<a class="toc-h2" href="#mental-model">Mental model</a>
+<a class="toc-h2" href="#syntax">Syntax</a>
+<a class="toc-h2" href="#block-keys">Block keys</a>
+<a class="toc-h2" href="#gates">Gates</a>
+<a class="toc-h2" href="#predicates">Predicates</a>
+<a class="toc-h3" href="#eval-values">eval values</a>
+<a class="toc-h3" href="#chances-values">chances values</a>
+<a class="toc-h2" href="#worked-examples">Worked examples</a>
+<a class="toc-h3" href="#quality-gate-demand-real-effort-on-the-top-two-lines">Quality gate: demand real effort on the top two lines</a>
+<a class="toc-h3" href="#winning-puzzle-one-good-move-no-good-alternative">Winning puzzle: one good move, no good alternative</a>
+<a class="toc-h3" href="#drawing-puzzle-only-one-move-holds">Drawing puzzle: only one move holds</a>
+<a class="toc-h3" href="#accelerate-reject-obvious-non-puzzles-cheaply">Accelerate: reject obvious non-puzzles cheaply</a>
+<a class="toc-h3" href="#mate-aware-quality-on-one-line">Mate-aware quality, on one line</a>
+<a class="toc-h3" href="#override-a-mining-gate-at-the-command-line">Override a mining gate at the command line</a>
+<a class="toc-h3" href="#filter-records-on-export">Filter records on export</a>
+<a class="toc-h2" href="#reading-and-writing-filters-programmatically">Reading and writing filters programmatically</a>
+<a class="toc-h2" href="#tips">Tips</a>
+<a class="toc-h2" href="#related-pages">Related pages</a></aside>
+    </main>
   </div>
+
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <div class="footer-brand">
+        <a class="footer-logo" href="index.html">
+          <img src="assets/logo/crtk-logo.svg" alt="" width="40" height="40">
+          <span>ChessRTK</span>
+        </a>
+        <p>The deterministic chess research toolkit. Free, open-source, and built on one shared Java chess core.</p>
+        <p class="footer-license">Licensed under GPL-3.0-only.</p>
+      </div>
+      <div class="footer-cols">
+        <div class="footer-col"><h3>Documentation</h3><ul>
+          <li><a href="getting-started.html">Getting Started</a></li>
+          <li><a href="command-reference.html">Command Reference</a></li>
+          <li><a href="configuration.html">Configuration</a></li>
+          <li><a href="troubleshooting.html">Troubleshooting</a></li>
+          <li><a href="chessrtk-manual.pdf">Manual (PDF)</a></li>
+        </ul></div>
+        <div class="footer-col"><h3>Workflows</h3><ul>
+          <li><a href="mining.html">Puzzle Mining</a></li>
+          <li><a href="datasets.html">ML Datasets</a></li>
+          <li><a href="piece-tags.html">Tagging</a></li>
+          <li><a href="book-publishing.html">Book Publishing</a></li>
+          <li><a href="ai-agents.html">AI Agents</a></li>
+        </ul></div>
+        <div class="footer-col"><h3>Project</h3><ul>
+          <li><a href="architecture.html">Architecture</a></li>
+          <li><a href="quality-and-testing.html">Quality &amp; Testing</a></li>
+          <li><a href="https://github.com/LenniAConrad/chess-rtk" target="_blank" rel="noopener">GitHub</a></li>
+          <li><a href="https://github.com/LenniAConrad/chess-rtk/issues" target="_blank" rel="noopener">Issues</a></li>
+        </ul></div>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>&copy; ChessRTK contributors &middot; GPL-3.0-only</span>
+      <span>Documentation generated from the repository <a href="wiki-index.html">wiki</a>.</span>
+    </div>
+  </footer>
+
 </body>
 </html>

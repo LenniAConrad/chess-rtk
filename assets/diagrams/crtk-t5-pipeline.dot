@@ -1,6 +1,6 @@
 digraph crtk_t5_pipeline {
   rankdir=LR;
-  bgcolor="transparent";
+  bgcolor="#ffffff";
   splines=ortho;
   pad="0.20";
   nodesep="0.35";
@@ -8,27 +8,27 @@ digraph crtk_t5_pipeline {
 
   graph [fontname="Helvetica", fontsize=14];
   node  [fontname="Helvetica", fontsize=12];
-  edge  [fontname="Helvetica", fontsize=10, color="#424242", arrowsize=0.8, penwidth=1.2];
+  edge  [fontname="Helvetica", fontsize=10, color="#3a4f57", arrowsize=0.8, penwidth=1.2];
 
   subgraph cluster_input {
     label="Inputs";
     style="rounded";
-    color="#FFCC80";
-    fontcolor="#E65100";
+    color="#f0c98a";
+    fontcolor="#8a5410";
     penwidth=1.4;
 
-    node [shape=note, style="filled", fillcolor="#FFF3E0", color="#EF6C00", penwidth=1.2];
+    node [shape=note, style="filled", fillcolor="#fbf1dd", color="#b06d12", penwidth=1.2];
     tags [label="Tag lines\n(JSON or text)"];
   }
 
   subgraph cluster_prompt {
     label="Prompt + tokenization";
     style="rounded";
-    color="#B3E5FC";
-    fontcolor="#01579B";
+    color="#bfe8f3";
+    fontcolor="#0c5570";
     penwidth=1.4;
 
-    node [shape=box, style="rounded,filled", fillcolor="#E1F5FE", color="#0288D1", penwidth=1.2];
+    node [shape=box, style="rounded,filled", fillcolor="#def4fb", color="#1487a6", penwidth=1.2];
     parser [label="TagInputParser"];
     prompt [label="Prompt builder\n(\"summarize tags\")"];
     tokenizer [label="Tokenizer\n(SentencePiece)"];
@@ -37,14 +37,14 @@ digraph crtk_t5_pipeline {
   subgraph cluster_model {
     label="T5 inference";
     style="rounded";
-    color="#C8E6C9";
-    fontcolor="#1B5E20";
+    color="#c7ece6";
+    fontcolor="#0b4d44";
     penwidth=1.4;
 
-    node [shape=box, style="rounded,filled", fillcolor="#E8F5E9", color="#2E7D32", penwidth=1.2];
+    node [shape=box, style="rounded,filled", fillcolor="#e3f6f3", color="#0f766e", penwidth=1.2];
     model [label="T5 model\nencoder + decoder"];
 
-    node [shape=note, style="filled", fillcolor="#E8F5E9", color="#2E7D32", penwidth=1.2];
+    node [shape=note, style="filled", fillcolor="#e3f6f3", color="#0f766e", penwidth=1.2];
     weights [label="T5 .bin\nweights export"];
     backend [label="Backend\ncpu | cuda | rocm | oneapi"];
   }
@@ -52,11 +52,11 @@ digraph crtk_t5_pipeline {
   subgraph cluster_output {
     label="Output";
     style="rounded";
-    color="#D1C4E9";
-    fontcolor="#4527A0";
+    color="#c7d6ec";
+    fontcolor="#234e8c";
     penwidth=1.4;
 
-    node [shape=note, style="filled", fillcolor="#EDE7F6", color="#5E35B1", penwidth=1.2];
+    node [shape=note, style="filled", fillcolor="#e7edf8", color="#355a9c", penwidth=1.2];
     summary [label="Summary text\n(2-4 sentences)"];
   }
 

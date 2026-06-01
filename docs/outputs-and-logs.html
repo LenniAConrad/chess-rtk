@@ -3,124 +3,396 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Outputs &amp; logs | ChessRTK Wiki</title>
+  <title>Outputs and Logs | ChessRTK</title>
+  <meta name="description" content="The deterministic chess research toolkit — Outputs and Logs.">
+  <link rel="icon" href="assets/logo/crtk-logo.svg" type="image/svg+xml">
   <link rel="stylesheet" href="styles.css">
+  <script>
+    (function () {
+      var key = "crtk-theme";
+      var isTheme = function (value) { return value === "light" || value === "dark"; };
+      var urlTheme = "";
+      var stored = "";
+      try { urlTheme = new URLSearchParams(window.location.search).get("theme"); } catch (e) {}
+      try { stored = localStorage.getItem(key); } catch (e) {}
+      var theme = isTheme(urlTheme) ? urlTheme : (isTheme(stored) ? stored : "");
+      if (!theme) {
+        theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+      }
+      if (isTheme(urlTheme)) {
+        try { localStorage.setItem(key, urlTheme); } catch (e) {}
+      }
+      document.documentElement.setAttribute("data-theme", theme);
+    })();
+  </script>
   <script defer src="search-index.js"></script>
   <script defer src="site.js"></script>
 </head>
-<body>
-  <button class="menu-toggle" type="button" aria-label="Toggle navigation">Menu</button>
-  <div class="site-shell">
-    <aside class="sidebar">
-      <a class="brand" href="index.html">
-        <span class="brand-mark">CR</span>
-        <span><strong>ChessRTK</strong><small>Wiki</small></span>
+<body class="is-doc">
+
+  <header class="topnav">
+    <div class="topnav-inner">
+      <a class="topnav-brand" href="index.html">
+        <img src="assets/logo/crtk-logo.svg" alt="" width="32" height="32">
+        <span>ChessRTK</span>
       </a>
-      <label class="search-label" for="doc-search">Search pages</label>
-      <input id="doc-search" class="search" type="search" placeholder="Search docs...">
+      <button class="nav-toggle" type="button" aria-label="Toggle navigation" aria-expanded="false">
+        <span></span><span></span><span></span>
+      </button>
+      <nav class="topnav-links">
+        <a class="" href="getting-started.html">Get started</a>
+        <a class="" href="command-reference.html">Commands</a>
+        <a class="" href="workbench.html">Workbench</a>
+        <a class="" href="wiki-index.html">Docs</a>
+        <a class="" href="chessrtk-manual.pdf">Manual</a>
+        <a class="topnav-gh" href="https://github.com/LenniAConrad/chess-rtk" target="_blank" rel="noopener">GitHub</a>
+        <button class="theme-toggle" type="button" aria-label="Toggle dark mode" title="Toggle dark mode">
+          <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2v2.4M12 19.6V22M2 12h2.4M19.6 12H22M4.9 4.9l1.7 1.7M17.4 17.4l1.7 1.7M19.1 4.9l-1.7 1.7M6.6 17.4l-1.7 1.7"/></svg>
+          <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4 7 7 0 1 0 20 14.5Z"/></svg>
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <div class="doc-shell">
+    <aside class="sidebar" id="sidebar">
+      <label class="search-label" for="doc-search">Search the docs</label>
+      <input id="doc-search" class="search" type="search" placeholder="Search pages..." autocomplete="off">
       <div id="search-results" class="search-results" hidden></div>
       <nav class="nav"><section class="nav-section"><h2>Start Here</h2>
-<a class="" href="index.html" data-title="home">Home</a>
+<a class="" href="index.html" data-title="overview">Overview</a>
 <a class="" href="getting-started.html" data-title="getting started">Getting Started</a>
+<a class="" href="build-and-install.html" data-title="build &amp; install">Build &amp; Install</a>
 <a class="" href="use-cases.html" data-title="use cases">Use Cases</a>
-<a class="" href="command-cheatsheet.html" data-title="command cheatsheet">Command Cheatsheet</a>
 <a class="" href="faq.html" data-title="faq">FAQ</a>
-<a class="" href="command-reference.html" data-title="command reference">Command Reference</a>
-<a class="" href="example-commands.html" data-title="example commands">Example Commands</a>
 <a class="" href="troubleshooting.html" data-title="troubleshooting">Troubleshooting</a>
 </section>
-<section class="nav-section"><h2>User Guides</h2>
-<a class="" href="build-and-install.html" data-title="build &amp; install">Build &amp; Install</a>
-<a class="" href="workbench.html" data-title="desktop workbench">Desktop Workbench</a>
+<section class="nav-section"><h2>Commands</h2>
+<a class="" href="command-cheatsheet.html" data-title="cheatsheet">Cheatsheet</a>
+<a class="" href="command-reference.html" data-title="command reference">Command Reference</a>
+<a class="" href="example-commands.html" data-title="example commands">Example Commands</a>
 <a class="" href="configuration.html" data-title="configuration">Configuration</a>
-<a class="" href="in-house-engine.html" data-title="in-house engine">In-House Engine</a>
-<a class="" href="lc0.html" data-title="lc0">LC0</a>
 <a class="active" href="outputs-and-logs.html" data-title="outputs &amp; logs">Outputs &amp; Logs</a>
-<a class="" href="support.html" data-title="support">Support</a>
+</section>
+<section class="nav-section"><h2>Desktop Workbench</h2>
+<a class="" href="workbench.html" data-title="workbench">Workbench</a>
+</section>
+<section class="nav-section"><h2>Engines &amp; Models</h2>
+<a class="" href="in-house-engine.html" data-title="built-in engine">Built-in Engine</a>
+<a class="" href="lc0.html" data-title="lc0 networks">LC0 Networks</a>
+<a class="" href="gpu.html" data-title="gpu acceleration">GPU Acceleration</a>
+<a class="" href="t5.html" data-title="t5 text">T5 Text</a>
 </section>
 <section class="nav-section"><h2>Workflows</h2>
-<a class="" href="mining.html" data-title="mining puzzles">Mining Puzzles</a>
+<a class="" href="mining.html" data-title="puzzle mining">Puzzle Mining</a>
 <a class="" href="filter-dsl.html" data-title="filter dsl">Filter DSL</a>
-<a class="" href="datasets.html" data-title="datasets">Datasets</a>
-<a class="" href="book-publishing.html" data-title="book publishing">Book Publishing</a>
-<a class="" href="piece-tags.html" data-title="tags">Tags</a>
+<a class="" href="datasets.html" data-title="ml datasets">ML Datasets</a>
+<a class="" href="piece-tags.html" data-title="tagging">Tagging</a>
 <a class="" href="tag-reference.html" data-title="tag reference">Tag Reference</a>
-<a class="" href="t5.html" data-title="t5 text">T5 Text</a>
-<a class="" href="ai-agents.html" data-title="ai agents">AI Agents</a>
+<a class="" href="book-publishing.html" data-title="book publishing">Book Publishing</a>
+<a class="" href="ai-agents.html" data-title="ai agents &amp; automation">AI Agents &amp; Automation</a>
 </section>
-<section class="nav-section"><h2>Development</h2>
+<section class="nav-section"><h2>Project</h2>
 <a class="" href="architecture.html" data-title="architecture">Architecture</a>
 <a class="" href="quality-and-testing.html" data-title="quality &amp; testing">Quality &amp; Testing</a>
 <a class="" href="development-notes.html" data-title="development notes">Development Notes</a>
 <a class="" href="releasing.html" data-title="releasing">Releasing</a>
-<a class="" href="roadmap.html" data-title="roadmap">Roadmap</a>
 <a class="" href="glossary.html" data-title="glossary">Glossary</a>
-<a class="" href="tagging-implementation-plan.html" data-title="tagging plan">Tagging Plan</a>
+<a class="" href="support.html" data-title="support">Support</a>
 <a class="" href="wiki-index.html" data-title="wiki index">Wiki Index</a>
 </section></nav>
     </aside>
-    <div class="page">
-      <header class="topbar">
-        <div>
-          <span>User Guides</span>
-          <strong>Outputs &amp; logs</strong>
-        </div>
-        <nav>
-          <a href="index.html">Home</a>
-          <a href="wiki-index.html">Wiki Index</a>
-          <a href="chessrtk-manual.pdf">Manual PDF</a>
-          <a href="command-reference.html">Commands</a>
-        </nav>
-      </header>
-      
-      <main class="content-layout">
-        <article class="content">
-          <h1 id="outputs-logs">Outputs &amp; logs</h1>
-<h2 id="output-directory-dump">Output directory (<code>dump/</code>)</h2>
-<p>By default, outputs are written under <code>dump/</code> (configurable via <code>config/cli.config.toml</code> or <code>puzzle mine --output ...</code>).</p>
-<p><code>puzzle mine --output</code> behavior:</p>
+    <main class="doc-main">
+      <article class="content">
+        <p class="content-kicker">Commands</p>
+        <h1 id="outputs-and-logs">Outputs and Logs</h1>
+<p>Nothing crtk prints needs to be scraped. That is the whole design: a default text form a human can read, a machine-readable <strong>JSON</strong> or <strong>JSONL</strong> form one flag away, file artifacts that land in a predictable place under <code>dump/</code>, and a documented <strong>exit code</strong> at the end of every run that a script can branch on. Treat this page as the contract behind those promises — what the formats are, how <code>--format</code> / <code>--json</code> / <code>--jsonl</code> pick between them, what each exit code means, where the session cache and logs live, and what <code>clean</code> reclaims. Determinism is what makes it worth the trouble: the same command on the same inputs returns the same bytes, so the output is safe to diff, pipe, and commit.</p>
+<h2 id="output-formats-at-a-glance">Output formats at a glance</h2>
+<p>The vocabulary of output shapes is deliberately small, and a word means the same thing wherever it appears. Learn it once.</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Format</th>
+<th>Selected with</th>
+<th>Shape</th>
+<th>Typical use</th>
+</tr></thead><tbody>
+<tr>
+<td><code>summary</code> / text</td>
+<td>default on most commands</td>
+<td>one or more human-readable lines</td>
+<td>reading at the terminal</td>
+</tr>
+<tr>
+<td><code>uci</code></td>
+<td><code>--format uci</code></td>
+<td>move(s) in UCI long algebraic (<code>e2e4</code>, <code>e7e8q</code>)</td>
+<td>feeding other UCI tooling</td>
+</tr>
+<tr>
+<td><code>san</code></td>
+<td><code>--format san</code> or <code>--san</code></td>
+<td>move(s) in Standard Algebraic Notation (<code>Nf3</code>, <code>O-O</code>)</td>
+<td>PGN-style annotation</td>
+</tr>
+<tr>
+<td><code>both</code></td>
+<td><code>--format both</code> or <code>--both</code></td>
+<td>UCI and SAN together</td>
+<td>quick cross-checking</td>
+</tr>
+<tr>
+<td><code>json</code></td>
+<td><code>--json</code> (or <code>--format json</code>)</td>
+<td>one JSON array or object</td>
+<td>parsing a whole result at once</td>
+</tr>
+<tr>
+<td><code>jsonl</code></td>
+<td><code>--jsonl</code> (or <code>--format jsonl</code>)</td>
+<td>one JSON object per line</td>
+<td>streaming row-by-row</td>
+</tr>
+<tr>
+<td><code>csv</code></td>
+<td>file output (<code>record export csv</code>)</td>
+<td>header row plus data rows</td>
+<td>spreadsheets, pandas</td>
+</tr>
+<tr>
+<td><code>pgn</code></td>
+<td>file output (<code>record export pgn</code>, <code>puzzle pgn</code>)</td>
+<td>one PGN game per record</td>
+<td>chess GUIs, databases</td>
+</tr>
+<tr>
+<td><code>plain</code></td>
+<td>file output (<code>record export plain</code>)</td>
+<td>compact line-oriented record dump</td>
+<td>lightweight piping</td>
+</tr>
+</tbody></table></div>
+<p>Notation and structure are independent axes. The move-notation formats (<code>uci</code> / <code>san</code> / <code>both</code>) decide how a move is spelled; the structured formats (<code>json</code> / <code>jsonl</code>) decide whether the result is wrapped as data. The two choices do not interfere with each other.</p>
+<h2 id="choosing-a-format">Choosing a format</h2>
+<p>Three mechanisms select output. A command&#x27;s <code>crtk help &lt;area&gt; &lt;action&gt;</code> tells you which it honors, and that help is the authority when this page and your memory disagree.</p>
+<h3 id="format"><code>--format</code></h3>
+<p><code>--format</code> takes a named value and is the canonical selector once a command has more than two output modes:</p>
 <ul>
-<li>directory output: <code>standard-&lt;timestamp&gt;.puzzles.json</code> / <code>standard-&lt;timestamp&gt;.nonpuzzles.json</code> (or <code>chess960-...</code>)</li>
-<li>file-like root (<code>.json</code> or <code>.jsonl</code>): <code>&lt;stem&gt;.puzzles.json</code> / <code>&lt;stem&gt;.nonpuzzles.json</code></li>
+<li><code>move list</code> / <code>move uci</code> / <code>move san</code> / <code>move both</code>, and <code>engine bestmove</code>: <code>--format uci|san|both</code> (default <code>uci</code>).</li>
+<li><code>engine builtin</code>: <code>--format uci-info|uci|san|both|summary</code> (default <code>uci-info</code>).</li>
+<li><code>engine mate</code>: <code>--format summary|uci|san|both|json|jsonl</code> (default <code>summary</code>).</li>
+<li><code>engine perft</code>: <code>--format detail|table|stockfish</code>.</li>
+<li><code>position describe</code>: <code>--format text|json|jsonl|training-jsonl</code> (default <code>text</code>).</li>
+<li><code>fen chess960</code>: <code>--format fen|layout|both</code> (default <code>fen</code>).</li>
+<li><code>fen render</code>: <code>--format png|jpg|bmp|svg</code> (this selects the image encoding, not text).</li>
 </ul>
-<p>Mining outputs are single top-level JSON arrays (objects appended incrementally).</p>
-<h2 id="derived-record-outputs">Derived record outputs</h2>
-<p>Common converters derive output names under <code>dump/</code> from the input stem when <code>--output</code> is omitted:</p>
+<h3 id="json-and-jsonl"><code>--json</code> and <code>--jsonl</code></h3>
+<p>When the only real decision is text versus structured, two boolean flags cover it:</p>
 <ul>
-<li><code>record export plain</code>: <code>dump/&lt;stem&gt;.plain</code></li>
-<li><code>record export csv</code>: <code>dump/&lt;stem&gt;.csv</code></li>
-<li><code>record export pgn</code>: <code>dump/&lt;stem&gt;.pgn</code></li>
-<li><code>puzzle pgn</code>: <code>dump/&lt;stem&gt;.pgn</code></li>
-<li><code>record analysis-delta</code>: <code>dump/&lt;stem&gt;.analysis-delta.jsonl</code></li>
-<li><code>record export training-jsonl</code>: <code>dump/&lt;stem&gt;.training.jsonl</code></li>
+<li><code>--json</code> emits a single JSON value — one array for list-style commands, one object for single-result commands.</li>
+<li><code>--jsonl</code> emits JSON Lines: one self-contained JSON object per line, with no enclosing array.</li>
 </ul>
-<p>Tensor exporters write multiple files from one output stem:</p>
+<p>Where a command also takes <code>--format</code>, these are simply aliases for <code>--format json</code> and <code>--format jsonl</code> (as on <code>engine mate</code> and <code>position describe</code>). Batch commands lean the other way: <code>engine analyze-batch</code> and <code>engine bestmove-batch</code> default to <code>--jsonl</code>, because a stream you can process line by line beats one array you must hold in memory; pass <code>--json</code> when you want the whole thing collapsed.</p>
+<pre><code class="language-bash"># Same query, three contracts
+crtk move list --startpos                 # text: one UCI move per line
+crtk move list --startpos --json          # [{&quot;uci&quot;:&quot;a2a3&quot;,&quot;san&quot;:&quot;a3&quot;}, ...]
+crtk move list --startpos --jsonl         # {&quot;uci&quot;:&quot;a2a3&quot;,&quot;san&quot;:&quot;a3&quot;} per line</code></pre>
+<h3 id="script-friendly-flags">Script-friendly flags</h3>
+<p>Most row-producing commands take a few presentation flags that keep a pipeline&#x27;s input tidy:</p>
 <ul>
-<li><code>record dataset npy</code>: <code>dump/&lt;stem&gt;.features.npy</code>, <code>dump/&lt;stem&gt;.labels.npy</code></li>
-<li><code>record dataset lc0</code>: <code>dump/&lt;stem&gt;.lc0.inputs.npy</code>, <code>dump/&lt;stem&gt;.lc0.policy.npy</code>, <code>dump/&lt;stem&gt;.lc0.value.npy</code>, <code>dump/&lt;stem&gt;.lc0.meta.json</code></li>
-<li><code>record dataset classifier</code>: <code>dump/&lt;stem&gt;.classifier.inputs.npy</code>, <code>dump/&lt;stem&gt;.classifier.labels.npy</code>, <code>dump/&lt;stem&gt;.classifier.meta.json</code></li>
+<li><code>--fields LIST</code> — restrict columns (e.g. <code>--fields uci</code>, <code>--fields both</code>) on <code>move</code> commands.</li>
+<li><code>--no-header</code> — accepted for script-friendly consistency.</li>
+<li><code>--quiet</code> — suppress non-row chatter where supported.</li>
+<li><code>--output|-o PATH</code> — write to a file instead of stdout (on commands that produce a file or a redirectable stream).</li>
 </ul>
-<p>Publishing commands follow the same convention:</p>
+<h2 id="stable-machine-readable-contracts">Stable machine-readable contracts</h2>
+<p>The structured formats are for parsing, not for reading over your shoulder. Four guarantees make leaning on them safe:</p>
 <ul>
-<li><code>book pdf</code>: defaults to <code>dump/&lt;stem&gt;.pdf</code> when an input path exists, otherwise <code>dump/chess.pdf</code>.</li>
-<li><code>book render</code>: defaults to <code>dump/&lt;stem&gt;.pdf</code>.</li>
-<li><code>book cover</code>: defaults to <code>dump/&lt;stem&gt;-cover.pdf</code>.</li>
+<li><strong>Determinism.</strong> Pure core operations — move generation, FEN/SAN/UCI conversion, perft, tagging — depend only on their inputs, so the same command yields the same JSON every time. Snapshot it once as a golden fixture and every later run is a diff away from caught.</li>
+<li><strong>One object per JSONL line.</strong> Each line of a <code>--jsonl</code> stream parses on its own, so a result larger than memory is still a result you can process. <code>--json</code> is the all-at-once counterpart, for when you do want the whole thing in hand.</li>
+<li><strong>stdout for data, stderr for diagnostics.</strong> Rows and JSON go to stdout; progress notes, warnings, and stack traces go to stderr. Redirect stdout alone (<code>&gt; out.jsonl</code>) and the captured data stays clean.</li>
+<li><strong>Consistent vocabulary.</strong> A <code>uci</code> field is always UCI, a <code>san</code> field is always SAN, and <code>eval</code>, <code>nodes</code>, and their kin carry the same meaning across every engine command.</li>
 </ul>
-<h2 id="session-logs-dump-session">Session logs (<code>dump/session/</code>)</h2>
-<p>The CLI writes logs under <code>dump/session/</code> via <code>chess.debug.LogService</code>.</p>
-<p>To clear session artifacts:</p>
-<pre><code class="language-bash">crtk clean</code></pre>
-        </article>
-        <aside class="toc"><h2>On This Page</h2>
-<a class="toc-h2" href="#output-directory-dump">Output directory (dump/)</a>
-<a class="toc-h2" href="#derived-record-outputs">Derived record outputs</a>
-<a class="toc-h2" href="#session-logs-dump-session">Session logs (dump/session/)</a></aside>
-      </main>
-      <footer class="footer">
-        <span>Generated from <code>wiki/outputs-and-logs.md</code>.</span>
-        <span>Build with <code>python3 scripts/build_docs_site.py</code>.</span>
-      </footer>
-    </div>
+<blockquote><p>Engine-backed commands (<code>engine analyze</code>, <code>engine bestmove</code>, <code>engine eval</code>, <code>puzzle mine</code>) lean on an external UCI engine, a neural-network evaluator, or both. The <em>shape</em> of their output is stable; the <em>numbers</em> in it are not, because they answer to the configured engine and the search budget you gave it. crtk&#x27;s networks are usable evaluators, but neither the LC0 CNN nor the experimental, simplified BT4 path is a bit-exact reproduction of upstream LC0 — do not expect identical scores. For output you can reproduce, pin the engine, the weights, and <code>--max-nodes</code> / <code>--max-duration</code>. See <a href="in-house-engine.html">Engines and Evaluators</a> and <a href="lc0.html">LC0 Networks</a>.</p></blockquote>
+<h2 id="file-outputs-and-the-dump-directory">File outputs and the <code>dump/</code> directory</h2>
+<p>Commands that write an artifact instead of streaming to stdout drop it in the directory <code>crtk config show</code> reports as <code>Output:</code> — <code>dump/</code> unless you have said otherwise. Change the root in <code>config/cli.config.toml</code> (see <a href="configuration.html">Configuration</a>), or override a single run with <code>--output|-o</code>. Leave <code>--output</code> off and the name comes from the input file&#x27;s stem, so the artifact lands next to its source by an obvious naming rule.</p>
+<h3 id="derived-names-from-the-input-stem">Derived names from the input stem</h3>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Command</th>
+<th>Default output</th>
+</tr></thead><tbody>
+<tr>
+<td><code>record export plain</code></td>
+<td><code>dump/&lt;stem&gt;.plain</code></td>
+</tr>
+<tr>
+<td><code>record export csv</code></td>
+<td><code>dump/&lt;stem&gt;.csv</code></td>
+</tr>
+<tr>
+<td><code>record export pgn</code></td>
+<td><code>dump/&lt;stem&gt;.pgn</code></td>
+</tr>
+<tr>
+<td><code>record export puzzle-jsonl</code></td>
+<td><code>dump/&lt;stem&gt;.puzzle.jsonl</code></td>
+</tr>
+<tr>
+<td><code>record export puzzle-elo-jsonl</code></td>
+<td><code>dump/&lt;stem&gt;.puzzle-elo.jsonl</code></td>
+</tr>
+<tr>
+<td><code>record export training-jsonl</code></td>
+<td><code>dump/&lt;stem&gt;.training.jsonl</code></td>
+</tr>
+<tr>
+<td><code>record analysis-delta</code></td>
+<td><code>dump/&lt;stem&gt;.analysis-delta.jsonl</code></td>
+</tr>
+<tr>
+<td><code>puzzle pgn</code></td>
+<td><code>dump/&lt;stem&gt;.pgn</code></td>
+</tr>
+<tr>
+<td><code>fen pgn</code></td>
+<td><code>dump/&lt;stem&gt;.txt</code></td>
+</tr>
+</tbody></table></div>
+<h3 id="multi-file-tensor-exports">Multi-file tensor exports</h3>
+<p>A tensor export is rarely one file. Dataset exporters take a single output <em>prefix</em> and fan out several companion files around it (see <a href="datasets.html">Datasets</a>):</p>
+<ul>
+<li><code>record dataset npy</code> — <code>&lt;prefix&gt;.features.npy</code>, <code>&lt;prefix&gt;.labels.npy</code> (default prefix <code>dump/&lt;stem&gt;.dataset</code>).</li>
+<li><code>record dataset lc0</code> — <code>&lt;stem&gt;.lc0.inputs.npy</code>, <code>&lt;stem&gt;.lc0.policy.npy</code>, <code>&lt;stem&gt;.lc0.value.npy</code>, plus a <code>.meta.json</code> (default output prefix <code>dump/&lt;stem&gt;.lc0</code>).</li>
+<li><code>record dataset classifier</code> — <code>&lt;stem&gt;.classifier.inputs.npy</code>, <code>&lt;stem&gt;.classifier.labels.npy</code>, plus a <code>.meta.json</code> (default output prefix <code>dump/&lt;stem&gt;.classifier</code>).</li>
+</ul>
+<h3 id="puzzle-mining-outputs">Puzzle mining outputs</h3>
+<p><code>puzzle mine</code> keeps its books in pairs: a verified-puzzle set and the rejected set beside it, so you can audit what the gates threw out (see <a href="mining.html">Puzzle Mining</a>):</p>
+<ul>
+<li>Directory or default output: <code>standard-&lt;timestamp&gt;.puzzles.json</code> and <code>standard-&lt;timestamp&gt;.nonpuzzles.json</code> (the prefix becomes <code>chess960-</code> with <code>--chess960</code>).</li>
+<li>A file-like root ending in <code>.json</code> or <code>.jsonl</code>: <code>&lt;stem&gt;.puzzles.json</code> and <code>&lt;stem&gt;.nonpuzzles.json</code>.</li>
+<li><code>--output -</code> streams to stdout instead of writing files.</li>
+</ul>
+<p>Each file is one top-level JSON array, grown incrementally as positions clear the <a href="filter-dsl.html">Filter DSL</a> gates rather than written all at once at the end.</p>
+<h3 id="publishing-outputs">Publishing outputs</h3>
+<p>PDFs land under <code>dump/</code> like everything else, and no LaTeX toolchain is anywhere in the path — the renderer is native (see <a href="book-publishing.html">Book Publishing</a>):</p>
+<ul>
+<li><code>book render</code> — <code>dump/&lt;stem&gt;.pdf</code>.</li>
+<li><code>book pdf</code> — <code>dump/&lt;stem&gt;.pdf</code>, or <code>dump/chess.pdf</code> when there is no input path.</li>
+<li><code>book cover</code> — <code>dump/&lt;stem&gt;-cover.pdf</code>.</li>
+<li><code>book collection</code> — <code>dump/&lt;stem&gt;.book.toml</code> (with optional <code>--pdf-output</code> / <code>--cover-output</code>).</li>
+<li><code>book study</code> — <code>dump/&lt;stem&gt;.pdf</code>.</li>
+</ul>
+<h2 id="exit-codes">Exit codes</h2>
+<p>Every invocation returns a documented status. Branch on <code>$?</code> (or whatever your language calls it) and never parse text to learn whether a command succeeded — the exit code already said so.</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Code</th>
+<th>Meaning</th>
+</tr></thead><tbody>
+<tr>
+<td><code>0</code></td>
+<td>Success.</td>
+</tr>
+<tr>
+<td><code>1</code></td>
+<td>Diagnostics surfaced an issue, e.g. <code>doctor --strict</code> with warnings present.</td>
+</tr>
+<tr>
+<td><code>2</code></td>
+<td>Usage error — unknown command, missing required action, or a missing flag value.</td>
+</tr>
+<tr>
+<td><code>3</code></td>
+<td>Input or runtime error — e.g. an invalid FEN or a failed operation.</td>
+</tr>
+</tbody></table></div>
+<pre><code class="language-bash">crtk fen validate --fen &quot;$FEN&quot; &gt;/dev/null
+case $? in
+  0) echo &quot;valid&quot; ;;
+  3) echo &quot;rejected by the chess core&quot; ;;
+  *) echo &quot;called wrong&quot; ;;
+esac</code></pre>
+<p>When the code alone does not tell you enough, <code>--verbose</code> (<code>-v</code>) on most commands prints the full stack trace behind the failure.</p>
+<h2 id="session-cache-and-logs">Session cache and logs</h2>
+<p>Long jobs and engine-backed runs leave a trail. crtk keeps a session cache and per-run logs so you can reconstruct what happened after it has already happened. The log directory sits under the configured output root (typically <code>dump/session/</code>), and each run drops a timestamped <code>.log</code> there.</p>
+<p>To see where the output root actually resolved, along with the other paths:</p>
+<pre><code class="language-bash">crtk config show</code></pre>
+<p>Before committing hours to a job, confirm Java, configuration, the engine protocol, and local artifacts are sound. In CI, make a warning fatal so the failure surfaces before the job does:</p>
+<pre><code class="language-bash">crtk doctor
+crtk doctor --strict   # exit 1 if any warnings are present</code></pre>
+<h2 id="resetting-state-with-clean">Resetting state with <code>clean</code></h2>
+<p><code>crtk clean</code> empties the session cache without removing the directory that holds it. Reach for it to start a reproducible run from a known-empty state, or to win back disk after a mining session that filled it.</p>
+<pre><code class="language-bash">crtk clean
+crtk clean --verbose   # print a stack trace if cleanup fails</code></pre>
+<p>Its reach stops at session cache and log artifacts. Your committed <code>dump/</code> outputs — exported datasets, PGNs, PDFs — are yours to keep, and yours to delete when you are done with them. <code>clean</code> will not do it for you.</p>
+<h2 id="see-also">See also</h2>
+<ul>
+<li><a href="getting-started.html">Getting Started</a> — first commands and the noun-verb CLI.</li>
+<li><a href="command-reference.html">Command Reference</a> — every area, action, and flag.</li>
+<li><a href="configuration.html">Configuration</a> — the output root and other settings in <code>config/cli.config.toml</code>.</li>
+<li><a href="datasets.html">Datasets</a> — tensor and JSONL export formats in depth.</li>
+<li><a href="mining.html">Puzzle Mining</a> — <code>puzzle mine</code> outputs and the Filter DSL gates.</li>
+<li><a href="book-publishing.html">Book Publishing</a> — native PDF output.</li>
+<li><a href="troubleshooting.html">Troubleshooting</a> — diagnosing non-zero exit codes.</li>
+</ul>
+      </article>
+      <aside class="toc"><h2>On this page</h2>
+<a class="toc-h2" href="#output-formats-at-a-glance">Output formats at a glance</a>
+<a class="toc-h2" href="#choosing-a-format">Choosing a format</a>
+<a class="toc-h3" href="#format">--format</a>
+<a class="toc-h3" href="#json-and-jsonl">--json and --jsonl</a>
+<a class="toc-h3" href="#script-friendly-flags">Script-friendly flags</a>
+<a class="toc-h2" href="#stable-machine-readable-contracts">Stable machine-readable contracts</a>
+<a class="toc-h2" href="#file-outputs-and-the-dump-directory">File outputs and the dump/ directory</a>
+<a class="toc-h3" href="#derived-names-from-the-input-stem">Derived names from the input stem</a>
+<a class="toc-h3" href="#multi-file-tensor-exports">Multi-file tensor exports</a>
+<a class="toc-h3" href="#puzzle-mining-outputs">Puzzle mining outputs</a>
+<a class="toc-h3" href="#publishing-outputs">Publishing outputs</a>
+<a class="toc-h2" href="#exit-codes">Exit codes</a>
+<a class="toc-h2" href="#session-cache-and-logs">Session cache and logs</a>
+<a class="toc-h2" href="#resetting-state-with-clean">Resetting state with clean</a>
+<a class="toc-h2" href="#see-also">See also</a></aside>
+    </main>
   </div>
+
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <div class="footer-brand">
+        <a class="footer-logo" href="index.html">
+          <img src="assets/logo/crtk-logo.svg" alt="" width="40" height="40">
+          <span>ChessRTK</span>
+        </a>
+        <p>The deterministic chess research toolkit. Free, open-source, and built on one shared Java chess core.</p>
+        <p class="footer-license">Licensed under GPL-3.0-only.</p>
+      </div>
+      <div class="footer-cols">
+        <div class="footer-col"><h3>Documentation</h3><ul>
+          <li><a href="getting-started.html">Getting Started</a></li>
+          <li><a href="command-reference.html">Command Reference</a></li>
+          <li><a href="configuration.html">Configuration</a></li>
+          <li><a href="troubleshooting.html">Troubleshooting</a></li>
+          <li><a href="chessrtk-manual.pdf">Manual (PDF)</a></li>
+        </ul></div>
+        <div class="footer-col"><h3>Workflows</h3><ul>
+          <li><a href="mining.html">Puzzle Mining</a></li>
+          <li><a href="datasets.html">ML Datasets</a></li>
+          <li><a href="piece-tags.html">Tagging</a></li>
+          <li><a href="book-publishing.html">Book Publishing</a></li>
+          <li><a href="ai-agents.html">AI Agents</a></li>
+        </ul></div>
+        <div class="footer-col"><h3>Project</h3><ul>
+          <li><a href="architecture.html">Architecture</a></li>
+          <li><a href="quality-and-testing.html">Quality &amp; Testing</a></li>
+          <li><a href="https://github.com/LenniAConrad/chess-rtk" target="_blank" rel="noopener">GitHub</a></li>
+          <li><a href="https://github.com/LenniAConrad/chess-rtk/issues" target="_blank" rel="noopener">Issues</a></li>
+        </ul></div>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>&copy; ChessRTK contributors &middot; GPL-3.0-only</span>
+      <span>Documentation generated from the repository <a href="wiki-index.html">wiki</a>.</span>
+    </div>
+  </footer>
+
 </body>
 </html>

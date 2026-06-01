@@ -3,186 +3,366 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Quality And Testing | ChessRTK Wiki</title>
+  <title>Quality and Testing | ChessRTK</title>
+  <meta name="description" content="The deterministic chess research toolkit — Quality and Testing.">
+  <link rel="icon" href="assets/logo/crtk-logo.svg" type="image/svg+xml">
   <link rel="stylesheet" href="styles.css">
+  <script>
+    (function () {
+      var key = "crtk-theme";
+      var isTheme = function (value) { return value === "light" || value === "dark"; };
+      var urlTheme = "";
+      var stored = "";
+      try { urlTheme = new URLSearchParams(window.location.search).get("theme"); } catch (e) {}
+      try { stored = localStorage.getItem(key); } catch (e) {}
+      var theme = isTheme(urlTheme) ? urlTheme : (isTheme(stored) ? stored : "");
+      if (!theme) {
+        theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+      }
+      if (isTheme(urlTheme)) {
+        try { localStorage.setItem(key, urlTheme); } catch (e) {}
+      }
+      document.documentElement.setAttribute("data-theme", theme);
+    })();
+  </script>
   <script defer src="search-index.js"></script>
   <script defer src="site.js"></script>
 </head>
-<body>
-  <button class="menu-toggle" type="button" aria-label="Toggle navigation">Menu</button>
-  <div class="site-shell">
-    <aside class="sidebar">
-      <a class="brand" href="index.html">
-        <span class="brand-mark">CR</span>
-        <span><strong>ChessRTK</strong><small>Wiki</small></span>
+<body class="is-doc">
+
+  <header class="topnav">
+    <div class="topnav-inner">
+      <a class="topnav-brand" href="index.html">
+        <img src="assets/logo/crtk-logo.svg" alt="" width="32" height="32">
+        <span>ChessRTK</span>
       </a>
-      <label class="search-label" for="doc-search">Search pages</label>
-      <input id="doc-search" class="search" type="search" placeholder="Search docs...">
+      <button class="nav-toggle" type="button" aria-label="Toggle navigation" aria-expanded="false">
+        <span></span><span></span><span></span>
+      </button>
+      <nav class="topnav-links">
+        <a class="" href="getting-started.html">Get started</a>
+        <a class="" href="command-reference.html">Commands</a>
+        <a class="" href="workbench.html">Workbench</a>
+        <a class="" href="wiki-index.html">Docs</a>
+        <a class="" href="chessrtk-manual.pdf">Manual</a>
+        <a class="topnav-gh" href="https://github.com/LenniAConrad/chess-rtk" target="_blank" rel="noopener">GitHub</a>
+        <button class="theme-toggle" type="button" aria-label="Toggle dark mode" title="Toggle dark mode">
+          <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2v2.4M12 19.6V22M2 12h2.4M19.6 12H22M4.9 4.9l1.7 1.7M17.4 17.4l1.7 1.7M19.1 4.9l-1.7 1.7M6.6 17.4l-1.7 1.7"/></svg>
+          <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4 7 7 0 1 0 20 14.5Z"/></svg>
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <div class="doc-shell">
+    <aside class="sidebar" id="sidebar">
+      <label class="search-label" for="doc-search">Search the docs</label>
+      <input id="doc-search" class="search" type="search" placeholder="Search pages..." autocomplete="off">
       <div id="search-results" class="search-results" hidden></div>
       <nav class="nav"><section class="nav-section"><h2>Start Here</h2>
-<a class="" href="index.html" data-title="home">Home</a>
+<a class="" href="index.html" data-title="overview">Overview</a>
 <a class="" href="getting-started.html" data-title="getting started">Getting Started</a>
+<a class="" href="build-and-install.html" data-title="build &amp; install">Build &amp; Install</a>
 <a class="" href="use-cases.html" data-title="use cases">Use Cases</a>
-<a class="" href="command-cheatsheet.html" data-title="command cheatsheet">Command Cheatsheet</a>
 <a class="" href="faq.html" data-title="faq">FAQ</a>
-<a class="" href="command-reference.html" data-title="command reference">Command Reference</a>
-<a class="" href="example-commands.html" data-title="example commands">Example Commands</a>
 <a class="" href="troubleshooting.html" data-title="troubleshooting">Troubleshooting</a>
 </section>
-<section class="nav-section"><h2>User Guides</h2>
-<a class="" href="build-and-install.html" data-title="build &amp; install">Build &amp; Install</a>
-<a class="" href="workbench.html" data-title="desktop workbench">Desktop Workbench</a>
+<section class="nav-section"><h2>Commands</h2>
+<a class="" href="command-cheatsheet.html" data-title="cheatsheet">Cheatsheet</a>
+<a class="" href="command-reference.html" data-title="command reference">Command Reference</a>
+<a class="" href="example-commands.html" data-title="example commands">Example Commands</a>
 <a class="" href="configuration.html" data-title="configuration">Configuration</a>
-<a class="" href="in-house-engine.html" data-title="in-house engine">In-House Engine</a>
-<a class="" href="lc0.html" data-title="lc0">LC0</a>
 <a class="" href="outputs-and-logs.html" data-title="outputs &amp; logs">Outputs &amp; Logs</a>
-<a class="" href="support.html" data-title="support">Support</a>
+</section>
+<section class="nav-section"><h2>Desktop Workbench</h2>
+<a class="" href="workbench.html" data-title="workbench">Workbench</a>
+</section>
+<section class="nav-section"><h2>Engines &amp; Models</h2>
+<a class="" href="in-house-engine.html" data-title="built-in engine">Built-in Engine</a>
+<a class="" href="lc0.html" data-title="lc0 networks">LC0 Networks</a>
+<a class="" href="gpu.html" data-title="gpu acceleration">GPU Acceleration</a>
+<a class="" href="t5.html" data-title="t5 text">T5 Text</a>
 </section>
 <section class="nav-section"><h2>Workflows</h2>
-<a class="" href="mining.html" data-title="mining puzzles">Mining Puzzles</a>
+<a class="" href="mining.html" data-title="puzzle mining">Puzzle Mining</a>
 <a class="" href="filter-dsl.html" data-title="filter dsl">Filter DSL</a>
-<a class="" href="datasets.html" data-title="datasets">Datasets</a>
-<a class="" href="book-publishing.html" data-title="book publishing">Book Publishing</a>
-<a class="" href="piece-tags.html" data-title="tags">Tags</a>
+<a class="" href="datasets.html" data-title="ml datasets">ML Datasets</a>
+<a class="" href="piece-tags.html" data-title="tagging">Tagging</a>
 <a class="" href="tag-reference.html" data-title="tag reference">Tag Reference</a>
-<a class="" href="t5.html" data-title="t5 text">T5 Text</a>
-<a class="" href="ai-agents.html" data-title="ai agents">AI Agents</a>
+<a class="" href="book-publishing.html" data-title="book publishing">Book Publishing</a>
+<a class="" href="ai-agents.html" data-title="ai agents &amp; automation">AI Agents &amp; Automation</a>
 </section>
-<section class="nav-section"><h2>Development</h2>
+<section class="nav-section"><h2>Project</h2>
 <a class="" href="architecture.html" data-title="architecture">Architecture</a>
 <a class="active" href="quality-and-testing.html" data-title="quality &amp; testing">Quality &amp; Testing</a>
 <a class="" href="development-notes.html" data-title="development notes">Development Notes</a>
 <a class="" href="releasing.html" data-title="releasing">Releasing</a>
-<a class="" href="roadmap.html" data-title="roadmap">Roadmap</a>
 <a class="" href="glossary.html" data-title="glossary">Glossary</a>
-<a class="" href="tagging-implementation-plan.html" data-title="tagging plan">Tagging Plan</a>
+<a class="" href="support.html" data-title="support">Support</a>
 <a class="" href="wiki-index.html" data-title="wiki index">Wiki Index</a>
 </section></nav>
     </aside>
-    <div class="page">
-      <header class="topbar">
-        <div>
-          <span>Development</span>
-          <strong>Quality And Testing</strong>
-        </div>
-        <nav>
-          <a href="index.html">Home</a>
-          <a href="wiki-index.html">Wiki Index</a>
-          <a href="chessrtk-manual.pdf">Manual PDF</a>
-          <a href="command-reference.html">Commands</a>
-        </nav>
-      </header>
-      
-      <main class="content-layout">
-        <article class="content">
-          <h1 id="quality-and-testing">Quality And Testing</h1>
-<p>ChessRTK is correctness-sensitive. FEN parsing, SAN conversion, Chess960 castling, en-passant, promotion, make/undo state, and move generation all feed engine analysis, datasets, rendering, and publishing.</p>
-<h2 id="default-check-before-pushing">Default Check Before Pushing</h2>
+    <main class="doc-main">
+      <article class="content">
+        <p class="content-kicker">Project</p>
+        <h1 id="quality-and-testing">Quality and Testing</h1>
+<p>Because everything in crtk routes through one chess core — legal move generation, make/undo, attack detection, FEN/SAN/UCI conversion, Chess960, perft — a single regression suite can guard parsing, engine analysis, datasets, rendering, and PDF publishing in one pass. Correctness isn&#x27;t a phase here; it&#x27;s the product. The suite is a plain Bash script with named targets: <code>./scripts/run_regression_suite.sh &lt;target&gt;</code>. Each target is deterministic and builds with <code>javac --release 17</code> (no Maven, no Gradle). The same script drives your laptop and GitHub Actions, which is the whole point — a green local run is the same checks that gate CI, so it means a green CI run.</p>
+<blockquote><p>Run commands from the repository root (<code>/home/lennart/Code/chess-rtk</code>). Examples below use <code>crtk</code> as shorthand for <code>java -jar crtk.jar</code>.</p></blockquote>
+<h2 id="the-one-command-you-run-most">The One Command You Run Most</h2>
 <pre><code class="language-bash">./scripts/run_regression_suite.sh recommended</code></pre>
-<p>This is the normal local confidence pass. It builds the project, runs lint, and executes the core regression groups used most often during development.</p>
-<h2 id="focused-suites">Focused Suites</h2>
+<p>This is the pass to run before pushing. It builds, lints sources and shell scripts, then walks the core, CLI, engine, UCI, book, perft-smoke, and jar groups in order. Green means the change is ready to share.</p>
+<p>The <code>release</code> alias points at the same target, so cutting a release runs exactly these checks and nothing extra. One bar, used everywhere.</p>
+<h2 id="suite-targets">Suite Targets</h2>
+<p>Run a single group when you only touched one area and want a fast answer. The script announces each step as it goes (<code>==&gt; build</code>, <code>==&gt; lint</code>, <code>==&gt; jar</code>, and so on), so a failure tells you immediately which stage broke.</p>
 <div class="table-wrap"><table>
 <thead><tr>
-<th>Suite</th>
-<th>Use when</th>
+<th>Target</th>
+<th>What it does</th>
+<th>Run it when</th>
 </tr></thead><tbody>
 <tr>
 <td><code>build</code></td>
-<td>checking compilation only</td>
+<td>Clean-compiles every source under <code>src/</code> with <code>javac --release 17</code> into <code>out/</code></td>
+<td>Checking compilation only</td>
 </tr>
 <tr>
 <td><code>lint</code></td>
-<td>checking source quality guardrails</td>
+<td>Recompiles with <code>-Xlint:all</code>, runs the shell-script lint, and <code>git diff --check</code> for whitespace errors</td>
+<td>Tightening source quality before a commit</td>
 </tr>
 <tr>
 <td><code>scripts</code></td>
-<td>checking shell script syntax and ShellCheck errors when available</td>
+<td><code>bash -n</code> syntax check on every tracked <code>*.sh</code>, plus <code>shellcheck -S error</code> when ShellCheck is on <code>PATH</code></td>
+<td>Editing shell scripts</td>
 </tr>
 <tr>
 <td><code>core</code></td>
-<td>changing <code>chess.core</code>, FEN, SAN, move generation, or make/undo</td>
+<td>Position, move-generation, split-perft, SAN, JSON, XML-security, install-script, source-header, Chess960, parser, tagging, and workbench-structure regressions</td>
+<td>Changing <code>chess.core</code>, FEN, SAN, move generation, make/undo, or tagging</td>
 </tr>
 <tr>
 <td><code>cli</code></td>
-<td>changing command parsing or command output</td>
+<td>CLI command, PGN, book/cover/PDF command, and puzzle collection/study command regressions</td>
+<td>Changing command parsing or command output</td>
 </tr>
 <tr>
 <td><code>engine</code></td>
-<td>changing the built-in engine, evaluator, or puzzle difficulty scoring</td>
+<td>Built-in engine, puzzle-difficulty, BT4, T5, OTIS-backend, and GPU-perft regressions</td>
+<td>Changing the built-in engine, an evaluator, or puzzle scoring</td>
 </tr>
 <tr>
 <td><code>uci</code></td>
-<td>changing external-engine orchestration</td>
+<td>UCI orchestration regression plus a live <code>engine uci-smoke</code> against Stockfish if available</td>
+<td>Changing external-engine orchestration or protocol handling</td>
 </tr>
 <tr>
 <td><code>book</code></td>
-<td>changing PDF/book/rendering code</td>
+<td>Book, chess-PDF, and PDF-document regressions (headless)</td>
+<td>Changing book, cover, or PDF rendering</td>
 </tr>
 <tr>
 <td><code>docs</code></td>
-<td>changing wiki docs or docs generation scripts</td>
+<td>Rebuilds the docs site and the HTML manual from the wiki source</td>
+<td>Changing wiki docs or the docs generators</td>
 </tr>
 <tr>
 <td><code>perft-smoke</code></td>
-<td>changing legality, Chess960, castling, en-passant, or promotion behavior</td>
+<td>Runs <code>engine perft</code> and <code>engine perft-suite</code> at a shallow depth</td>
+<td>Changing legality, Chess960, castling, en-passant, or promotion</td>
+</tr>
+<tr>
+<td><code>jar</code></td>
+<td>Packages <code>crtk.jar</code> and smoke-tests <code>--help</code>, <code>workbench --help</code>, and <code>gui --help</code></td>
+<td>Verifying the packaged artifact</td>
+</tr>
+<tr>
+<td><code>recommended</code></td>
+<td>build + lint + core + cli + engine + uci + book + perft-smoke + jar</td>
+<td>Default pre-push pass</td>
+</tr>
+<tr>
+<td><code>ci</code></td>
+<td>build + lint + core + cli + engine + book + docs + uci + perft-smoke + jar</td>
+<td>Reproducing the full CI gate locally</td>
 </tr>
 <tr>
 <td><code>release</code></td>
-<td>preparing a packaged release</td>
+<td>Alias for <code>recommended</code></td>
+<td>Preparing a packaged release</td>
 </tr>
 </tbody></table></div>
-<p>Examples:</p>
+<p>A few examples:</p>
 <pre><code class="language-bash">./scripts/run_regression_suite.sh build
-./scripts/run_regression_suite.sh lint
-./scripts/run_regression_suite.sh core</code></pre>
-<h2 id="move-generation-confidence">Move-Generation Confidence</h2>
-<p>Use perft whenever a change can affect legal moves or board state.</p>
-<pre><code class="language-bash">crtk engine perft --startpos --depth 4 --threads 4
+./scripts/run_regression_suite.sh core
+./scripts/run_regression_suite.sh perft-smoke
+./scripts/run_regression_suite.sh ci</code></pre>
+<p>No target falls back to <code>recommended</code>. An unknown target prints the valid list and exits non-zero, so a typo never quietly runs the wrong thing.</p>
+<h2 id="move-generation-confidence-with-perft">Move-Generation Confidence with Perft</h2>
+<p>Perft (performance test) counts the legal leaf nodes reachable at a fixed depth. The answer is one integer with a known correct value, which is exactly what makes it merciless: any change that touches legality, Chess960 castling, en-passant, or promotion either reproduces the count or it doesn&#x27;t.</p>
+<pre><code class="language-bash">crtk engine perft --startpos --depth 5 --threads 4
 crtk engine perft --fen &quot;&lt;FEN&gt;&quot; --depth 5 --divide --threads 4
 crtk engine perft-suite --depth 6 --threads 4</code></pre>
-<p><code>engine perft-suite</code> compares stored truth positions against the Java move generator. It does not start Stockfish or any other external engine.</p>
-<h2 id="engine-and-uci-confidence">Engine And UCI Confidence</h2>
-<p>Use UCI smoke tests when external engine setup or protocol handling changed.</p>
+<p><code>engine perft</code> walks one position. <code>--divide</code> (alias <code>--per-move</code>) breaks the total down by root move, which is how you bisect a mismatch to a single move; <code>--threads N</code> splits those root moves across workers.</p>
+<p><code>engine perft-suite</code> checks a set of stored truth positions against the core move generator. Depth is clamped to <code>1..6</code> (default <code>6</code>). Point <code>--suite PATH</code> at a tab-delimited file to test your own positions — rows are parsed by column count, so several shapes work:</p>
+<pre><code class="language-text">name&lt;TAB&gt;depth&lt;TAB&gt;fen&lt;TAB&gt;nodes
+fen&lt;TAB&gt;depth&lt;TAB&gt;nodes
+name&lt;TAB&gt;fen&lt;TAB&gt;nodes
+fen&lt;TAB&gt;nodes</code></pre>
+<p>Neither command touches Stockfish or any external UCI engine. Both exercise the core move generator and only that — what they measure is crtk&#x27;s own legality, not someone else&#x27;s.</p>
+<h3 id="optional-gpu-perft">Optional GPU Perft</h3>
+<p>When a native backend (CUDA, ROCm, or oneAPI) is built and loadable, perft hands leaf expansion to the GPU. When it isn&#x27;t, crtk takes the CPU path without comment, so the same command works on any machine.</p>
+<pre><code class="language-bash">crtk engine perft --startpos --depth 6 --gpu --split 4
+crtk engine perft-suite --depth 6 --gpu --split 4
+crtk engine gpu</code></pre>
+<p><code>--gpu</code> requests the native backend; <code>--split N</code> is how deep the CPU expands before handing whole subtrees to the GPU — the knob that trades launch overhead against parallelism. Run <code>crtk engine gpu</code> to print the JNI backend status (<code>--verbose</code> for detail). See <a href="gpu.html">GPU Acceleration</a> and <a href="build-and-install.html">Build and Install</a> for setup.</p>
+<h2 id="tuning-the-perft-smoke-run">Tuning the Perft Smoke Run</h2>
+<p>A perft smoke test is only useful if it fits the runner. Three environment variables scale the cost of <code>perft-smoke</code> to your hardware; a fourth decides whether the <code>uci</code> target insists on a live Stockfish.</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Variable</th>
+<th>Default</th>
+<th>Effect</th>
+</tr></thead><tbody>
+<tr>
+<td><code>CRTK_PERFT_THREADS</code></td>
+<td>Online CPU count (fallback <code>2</code>)</td>
+<td>Worker threads for <code>engine perft</code> and <code>engine perft-suite</code></td>
+</tr>
+<tr>
+<td><code>CRTK_PERFT_DEPTH</code></td>
+<td><code>4</code></td>
+<td>Depth passed to <code>engine perft</code> in <code>perft-smoke</code></td>
+</tr>
+<tr>
+<td><code>CRTK_PERFT_SUITE_DEPTH</code></td>
+<td><code>4</code></td>
+<td>Depth passed to <code>engine perft-suite</code> in <code>perft-smoke</code></td>
+</tr>
+<tr>
+<td><code>CRTK_REQUIRE_STOCKFISH</code></td>
+<td><code>0</code></td>
+<td>When <code>1</code>, the <code>uci</code> target fails if Stockfish is missing instead of skipping the live smoke</td>
+</tr>
+</tbody></table></div>
+<pre><code class="language-bash">CRTK_PERFT_DEPTH=5 CRTK_PERFT_SUITE_DEPTH=5 CRTK_PERFT_THREADS=8 \
+  ./scripts/run_regression_suite.sh perft-smoke</code></pre>
+<h2 id="engine-and-uci-confidence">Engine and UCI Confidence</h2>
+<p>Reach for these after touching external-engine setup or protocol handling. Confirm the configuration parses, then prove the round trip with the smallest search that can fail:</p>
 <pre><code class="language-bash">crtk config validate
 crtk engine uci-smoke --nodes 1 --max-duration 5s --verbose</code></pre>
-<p>Use the built-in engine regression when <code>chess.engine</code> or evaluator integration changed:</p>
-<pre><code class="language-bash">java -cp out testing.BuiltInEngineRegressionTest</code></pre>
-<h2 id="publishing-confidence">Publishing Confidence</h2>
-<p>Use these checks for book, PDF, or rendering changes:</p>
-<pre><code class="language-bash">java -Djava.awt.headless=true -cp out testing.BookRegressionTest
-java -Djava.awt.headless=true -cp out testing.ChessBookCommandRegressionTest
-java -Djava.awt.headless=true -cp out testing.ChessBookCoverCommandRegressionTest</code></pre>
-<h2 id="documentation-confidence">Documentation Confidence</h2>
-<p>The website-style docs are generated from the repository wiki source:</p>
-<pre><code class="language-bash">python3 scripts/build_docs_site.py</code></pre>
-<p>The printable manual uses the same wiki source and writes both <code>docs/manual.html</code> and <code>docs/chessrtk-manual.pdf</code>:</p>
-<pre><code class="language-bash">python3 scripts/build_manual_pdf.py</code></pre>
-<p>Then check links/assets in <code>docs/</code> before publishing. The GitHub Wiki is a separate repository, so changes pushed there should also pass a simple internal link check.</p>
-<h2 id="recommended-bug-report-baseline">Recommended Bug Report Baseline</h2>
-<p>When reporting a bug, include:</p>
+<p><code>engine uci-smoke</code> launches the configured engine and runs a one-node search — just enough to prove the UCI handshake completes end to end. The <code>uci</code> suite target wraps it: the orchestration regression always runs, and the live smoke runs too when <code>stockfish</code> is on <code>PATH</code>. Set <code>CRTK_REQUIRE_STOCKFISH=1</code> and a missing Stockfish becomes a hard failure instead of a silent skip. That is precisely how CI runs it, because a test that quietly skips itself isn&#x27;t a test.</p>
+<p>See <a href="configuration.html">Configuration</a> for protocol TOML files and <a href="lc0.html">LC0 and External Engines</a> for engine setup.</p>
+<h2 id="determinism">Determinism</h2>
+<p>Same inputs, byte-identical outputs, every run. This isn&#x27;t a nicety — it&#x27;s what lets a golden comparison mean anything and what lets a reported failure reproduce on the first try.</p>
 <ul>
-<li>exact command</li>
-<li>full FEN or input file shape</li>
-<li>Java version and operating system</li>
-<li>UCI engine protocol TOML when relevant</li>
-<li>whether <code>./scripts/run_regression_suite.sh recommended</code> passes</li>
-<li>any failing perft row or regression test name</li>
+<li>The build is hermetic: <code>compile_sources</code> deletes <code>out/</code>, finds every <code>*.java</code> under <code>src/</code>, sorts the list, and compiles with a fixed <code>--release 17</code>. No discovery order to drift.</li>
+<li>Core checks compare against stored golden values — perft node counts, SAN strings, tag fixtures, JSON shapes — so any drift lands as a concrete diff, not a vague flake.</li>
+<li><code>lint</code> runs <code>git diff --check</code>, which means a stray trailing space or a leftover conflict marker fails the suite outright.</li>
+<li>The random generators (<code>--randompos</code>, <code>fen generate</code>) break the rule on purpose: they draw fresh positions every run. Pin an explicit FEN in a regression instead of assuming a &quot;random&quot; input will recur across runs or machines — it won&#x27;t.</li>
 </ul>
-        </article>
-        <aside class="toc"><h2>On This Page</h2>
-<a class="toc-h2" href="#default-check-before-pushing">Default Check Before Pushing</a>
-<a class="toc-h2" href="#focused-suites">Focused Suites</a>
-<a class="toc-h2" href="#move-generation-confidence">Move-Generation Confidence</a>
-<a class="toc-h2" href="#engine-and-uci-confidence">Engine And UCI Confidence</a>
-<a class="toc-h2" href="#publishing-confidence">Publishing Confidence</a>
+<p>To lean on determinism directly, run a command twice and diff:</p>
+<pre><code class="language-bash">crtk move list --startpos --format both &gt; /tmp/a.txt
+crtk move list --startpos --format both &gt; /tmp/b.txt
+diff /tmp/a.txt /tmp/b.txt &amp;&amp; echo &quot;deterministic&quot;</code></pre>
+<h2 id="what-the-regression-groups-cover">What the Regression Groups Cover</h2>
+<p>Each group maps to a cluster of focused regression classes under the <code>testing</code> package. A sample of what&#x27;s behind each target:</p>
+<ul>
+<li><strong>Core</strong> — <code>PositionRegressionTest</code>, <code>CoreMoveGenerationRegressionTest</code>, <code>SplitPerftRegressionTest</code>, <code>SANRegressionTest</code>, <code>Chess960SetupRegressionTest</code>, <code>ParserRegressionTest</code>, <code>TaggingRegressionTest</code>, <code>TagFixtureRegressionTest</code>, plus JSON, XML-security, install-script, source-header, and workbench-structure checks.</li>
+<li><strong>CLI</strong> — <code>CLICommandRegressionTest</code>, <code>PGNRegressionTest</code>, book/cover/PDF command tests, and puzzle collection/study command tests.</li>
+<li><strong>Engine</strong> — <code>BuiltInEngineRegressionTest</code>, <code>PuzzleDifficultyRegressionTest</code>, <code>BT4RegressionTest</code>, <code>T5RegressionTest</code>, <code>OtisBackendRegressionTest</code>, <code>GpuPerftRegressionTest</code>.</li>
+<li><strong>UCI</strong> — <code>UCIRegressionTest</code>, plus the live <code>engine uci-smoke</code>.</li>
+<li><strong>Book</strong> — <code>BookRegressionTest</code>, <code>ChessPDFRegressionTest</code>, <code>PDFDocumentRegressionTest</code> (run headless).</li>
+</ul>
+<blockquote><p>A word on neural-network fidelity, stated plainly. The LC0 CNN, NNUE, and OTIS evaluators are usable research evaluators; the BT4 path is simplified and experimental. crtk does <strong>not</strong> claim bit-exact parity with upstream LC0/BT4, and the docs won&#x27;t pretend otherwise. <code>BT4RegressionTest</code>, <code>T5RegressionTest</code>, and <code>OtisBackendRegressionTest</code> guard crtk&#x27;s own deterministic behavior — they pin what crtk does, not what upstream does.</p></blockquote>
+<h2 id="documentation-confidence">Documentation Confidence</h2>
+<p>These pages and the printable manual are generated from this same wiki source, which puts documentation inside the quality gate rather than beside it.</p>
+<pre><code class="language-bash">./scripts/run_regression_suite.sh docs</code></pre>
+<p>Under the hood the <code>docs</code> target runs the two generators in sequence:</p>
+<pre><code class="language-bash">python3 scripts/build_docs_site.py
+python3 scripts/build_manual_pdf.py --html-only</code></pre>
+<p>After regenerating, eyeball the links and assets under <code>docs/</code> before publishing. See <a href="development-notes.html">Development Notes</a> for the docs pipeline.</p>
+<h2 id="continuous-integration">Continuous Integration</h2>
+<p>CI lives in <code>.github/workflows/ci.yml</code> and fires on every pull request, every push to <code>main</code>, and manual dispatch. It calls the same <code>run_regression_suite.sh</code> you run locally — there is no second CI-only code path waiting to drift out of sync with the one you can see.</p>
+<p>The workflow:</p>
+<ol>
+<li>Checks out the repo and sets up Temurin Java 17.</li>
+<li>Installs <code>shellcheck</code> and <code>stockfish</code> so lint and the live UCI smoke have what they need.</li>
+<li>Runs each target as its own step — <code>build</code>, <code>lint</code>, <code>core</code>, <code>cli</code>, <code>engine</code>, <code>book</code>, <code>docs</code>, <code>uci</code>, <code>perft-smoke</code> — so a red check names the failing stage directly. The packaged-jar smoke rides along inside <code>recommended</code>/<code>ci</code> locally.</li>
+<li>Pins the smoke run to <code>CRTK_PERFT_THREADS=2</code>, <code>CRTK_PERFT_DEPTH=4</code>, <code>CRTK_PERFT_SUITE_DEPTH=4</code>, and sets <code>CRTK_REQUIRE_STOCKFISH=1</code> on the UCI step so a missing engine breaks the build rather than passing on a skip.</li>
+</ol>
+<p>To reproduce the full CI gate in one local command:</p>
+<pre><code class="language-bash">./scripts/run_regression_suite.sh ci</code></pre>
+<h2 id="environment-health-check">Environment Health Check</h2>
+<p>Separate from the regression suite, <code>doctor</code> audits the environment around crtk — Java version, configuration, engine protocols, and local artifacts:</p>
+<pre><code class="language-bash">crtk doctor
+crtk doctor --strict</code></pre>
+<p><code>--strict</code> promotes warnings to a non-zero exit, which is what you want in a script or a pre-commit hook where a warning should stop the line. See <a href="troubleshooting.html">Troubleshooting</a> and <a href="build-and-install.html">Build and Install</a> when <code>doctor</code> flags something.</p>
+<h2 id="a-good-bug-report">A Good Bug Report</h2>
+<p>Given the determinism guarantees above, a good report is one someone else can replay exactly. Include:</p>
+<ul>
+<li>The exact command, every flag.</li>
+<li>The full FEN, or the shape of the input file.</li>
+<li>Java version and operating system.</li>
+<li>The engine protocol TOML, if an external engine is in play.</li>
+<li>Whether <code>./scripts/run_regression_suite.sh recommended</code> passes.</li>
+<li>The failing perft row, or the name of the failing regression class.</li>
+</ul>
+<p>See also <a href="build-and-install.html">Build and Install</a>, <a href="configuration.html">Configuration</a>, and <a href="development-notes.html">Development Notes</a>.</p>
+      </article>
+      <aside class="toc"><h2>On this page</h2>
+<a class="toc-h2" href="#the-one-command-you-run-most">The One Command You Run Most</a>
+<a class="toc-h2" href="#suite-targets">Suite Targets</a>
+<a class="toc-h2" href="#move-generation-confidence-with-perft">Move-Generation Confidence with Perft</a>
+<a class="toc-h3" href="#optional-gpu-perft">Optional GPU Perft</a>
+<a class="toc-h2" href="#tuning-the-perft-smoke-run">Tuning the Perft Smoke Run</a>
+<a class="toc-h2" href="#engine-and-uci-confidence">Engine and UCI Confidence</a>
+<a class="toc-h2" href="#determinism">Determinism</a>
+<a class="toc-h2" href="#what-the-regression-groups-cover">What the Regression Groups Cover</a>
 <a class="toc-h2" href="#documentation-confidence">Documentation Confidence</a>
-<a class="toc-h2" href="#recommended-bug-report-baseline">Recommended Bug Report Baseline</a></aside>
-      </main>
-      <footer class="footer">
-        <span>Generated from <code>wiki/quality-and-testing.md</code>.</span>
-        <span>Build with <code>python3 scripts/build_docs_site.py</code>.</span>
-      </footer>
-    </div>
+<a class="toc-h2" href="#continuous-integration">Continuous Integration</a>
+<a class="toc-h2" href="#environment-health-check">Environment Health Check</a>
+<a class="toc-h2" href="#a-good-bug-report">A Good Bug Report</a></aside>
+    </main>
   </div>
+
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <div class="footer-brand">
+        <a class="footer-logo" href="index.html">
+          <img src="assets/logo/crtk-logo.svg" alt="" width="40" height="40">
+          <span>ChessRTK</span>
+        </a>
+        <p>The deterministic chess research toolkit. Free, open-source, and built on one shared Java chess core.</p>
+        <p class="footer-license">Licensed under GPL-3.0-only.</p>
+      </div>
+      <div class="footer-cols">
+        <div class="footer-col"><h3>Documentation</h3><ul>
+          <li><a href="getting-started.html">Getting Started</a></li>
+          <li><a href="command-reference.html">Command Reference</a></li>
+          <li><a href="configuration.html">Configuration</a></li>
+          <li><a href="troubleshooting.html">Troubleshooting</a></li>
+          <li><a href="chessrtk-manual.pdf">Manual (PDF)</a></li>
+        </ul></div>
+        <div class="footer-col"><h3>Workflows</h3><ul>
+          <li><a href="mining.html">Puzzle Mining</a></li>
+          <li><a href="datasets.html">ML Datasets</a></li>
+          <li><a href="piece-tags.html">Tagging</a></li>
+          <li><a href="book-publishing.html">Book Publishing</a></li>
+          <li><a href="ai-agents.html">AI Agents</a></li>
+        </ul></div>
+        <div class="footer-col"><h3>Project</h3><ul>
+          <li><a href="architecture.html">Architecture</a></li>
+          <li><a href="quality-and-testing.html">Quality &amp; Testing</a></li>
+          <li><a href="https://github.com/LenniAConrad/chess-rtk" target="_blank" rel="noopener">GitHub</a></li>
+          <li><a href="https://github.com/LenniAConrad/chess-rtk/issues" target="_blank" rel="noopener">Issues</a></li>
+        </ul></div>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>&copy; ChessRTK contributors &middot; GPL-3.0-only</span>
+      <span>Documentation generated from the repository <a href="wiki-index.html">wiki</a>.</span>
+    </div>
+  </footer>
+
 </body>
 </html>

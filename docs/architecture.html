@@ -3,199 +3,314 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Architecture | ChessRTK Wiki</title>
+  <title>Architecture | ChessRTK</title>
+  <meta name="description" content="The deterministic chess research toolkit — Architecture.">
+  <link rel="icon" href="assets/logo/crtk-logo.svg" type="image/svg+xml">
   <link rel="stylesheet" href="styles.css">
+  <script>
+    (function () {
+      var key = "crtk-theme";
+      var isTheme = function (value) { return value === "light" || value === "dark"; };
+      var urlTheme = "";
+      var stored = "";
+      try { urlTheme = new URLSearchParams(window.location.search).get("theme"); } catch (e) {}
+      try { stored = localStorage.getItem(key); } catch (e) {}
+      var theme = isTheme(urlTheme) ? urlTheme : (isTheme(stored) ? stored : "");
+      if (!theme) {
+        theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+      }
+      if (isTheme(urlTheme)) {
+        try { localStorage.setItem(key, urlTheme); } catch (e) {}
+      }
+      document.documentElement.setAttribute("data-theme", theme);
+    })();
+  </script>
   <script defer src="search-index.js"></script>
   <script defer src="site.js"></script>
 </head>
-<body>
-  <button class="menu-toggle" type="button" aria-label="Toggle navigation">Menu</button>
-  <div class="site-shell">
-    <aside class="sidebar">
-      <a class="brand" href="index.html">
-        <span class="brand-mark">CR</span>
-        <span><strong>ChessRTK</strong><small>Wiki</small></span>
+<body class="is-doc">
+
+  <header class="topnav">
+    <div class="topnav-inner">
+      <a class="topnav-brand" href="index.html">
+        <img src="assets/logo/crtk-logo.svg" alt="" width="32" height="32">
+        <span>ChessRTK</span>
       </a>
-      <label class="search-label" for="doc-search">Search pages</label>
-      <input id="doc-search" class="search" type="search" placeholder="Search docs...">
+      <button class="nav-toggle" type="button" aria-label="Toggle navigation" aria-expanded="false">
+        <span></span><span></span><span></span>
+      </button>
+      <nav class="topnav-links">
+        <a class="" href="getting-started.html">Get started</a>
+        <a class="" href="command-reference.html">Commands</a>
+        <a class="" href="workbench.html">Workbench</a>
+        <a class="" href="wiki-index.html">Docs</a>
+        <a class="" href="chessrtk-manual.pdf">Manual</a>
+        <a class="topnav-gh" href="https://github.com/LenniAConrad/chess-rtk" target="_blank" rel="noopener">GitHub</a>
+        <button class="theme-toggle" type="button" aria-label="Toggle dark mode" title="Toggle dark mode">
+          <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2v2.4M12 19.6V22M2 12h2.4M19.6 12H22M4.9 4.9l1.7 1.7M17.4 17.4l1.7 1.7M19.1 4.9l-1.7 1.7M6.6 17.4l-1.7 1.7"/></svg>
+          <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4 7 7 0 1 0 20 14.5Z"/></svg>
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <div class="doc-shell">
+    <aside class="sidebar" id="sidebar">
+      <label class="search-label" for="doc-search">Search the docs</label>
+      <input id="doc-search" class="search" type="search" placeholder="Search pages..." autocomplete="off">
       <div id="search-results" class="search-results" hidden></div>
       <nav class="nav"><section class="nav-section"><h2>Start Here</h2>
-<a class="" href="index.html" data-title="home">Home</a>
+<a class="" href="index.html" data-title="overview">Overview</a>
 <a class="" href="getting-started.html" data-title="getting started">Getting Started</a>
+<a class="" href="build-and-install.html" data-title="build &amp; install">Build &amp; Install</a>
 <a class="" href="use-cases.html" data-title="use cases">Use Cases</a>
-<a class="" href="command-cheatsheet.html" data-title="command cheatsheet">Command Cheatsheet</a>
 <a class="" href="faq.html" data-title="faq">FAQ</a>
-<a class="" href="command-reference.html" data-title="command reference">Command Reference</a>
-<a class="" href="example-commands.html" data-title="example commands">Example Commands</a>
 <a class="" href="troubleshooting.html" data-title="troubleshooting">Troubleshooting</a>
 </section>
-<section class="nav-section"><h2>User Guides</h2>
-<a class="" href="build-and-install.html" data-title="build &amp; install">Build &amp; Install</a>
-<a class="" href="workbench.html" data-title="desktop workbench">Desktop Workbench</a>
+<section class="nav-section"><h2>Commands</h2>
+<a class="" href="command-cheatsheet.html" data-title="cheatsheet">Cheatsheet</a>
+<a class="" href="command-reference.html" data-title="command reference">Command Reference</a>
+<a class="" href="example-commands.html" data-title="example commands">Example Commands</a>
 <a class="" href="configuration.html" data-title="configuration">Configuration</a>
-<a class="" href="in-house-engine.html" data-title="in-house engine">In-House Engine</a>
-<a class="" href="lc0.html" data-title="lc0">LC0</a>
 <a class="" href="outputs-and-logs.html" data-title="outputs &amp; logs">Outputs &amp; Logs</a>
-<a class="" href="support.html" data-title="support">Support</a>
+</section>
+<section class="nav-section"><h2>Desktop Workbench</h2>
+<a class="" href="workbench.html" data-title="workbench">Workbench</a>
+</section>
+<section class="nav-section"><h2>Engines &amp; Models</h2>
+<a class="" href="in-house-engine.html" data-title="built-in engine">Built-in Engine</a>
+<a class="" href="lc0.html" data-title="lc0 networks">LC0 Networks</a>
+<a class="" href="gpu.html" data-title="gpu acceleration">GPU Acceleration</a>
+<a class="" href="t5.html" data-title="t5 text">T5 Text</a>
 </section>
 <section class="nav-section"><h2>Workflows</h2>
-<a class="" href="mining.html" data-title="mining puzzles">Mining Puzzles</a>
+<a class="" href="mining.html" data-title="puzzle mining">Puzzle Mining</a>
 <a class="" href="filter-dsl.html" data-title="filter dsl">Filter DSL</a>
-<a class="" href="datasets.html" data-title="datasets">Datasets</a>
-<a class="" href="book-publishing.html" data-title="book publishing">Book Publishing</a>
-<a class="" href="piece-tags.html" data-title="tags">Tags</a>
+<a class="" href="datasets.html" data-title="ml datasets">ML Datasets</a>
+<a class="" href="piece-tags.html" data-title="tagging">Tagging</a>
 <a class="" href="tag-reference.html" data-title="tag reference">Tag Reference</a>
-<a class="" href="t5.html" data-title="t5 text">T5 Text</a>
-<a class="" href="ai-agents.html" data-title="ai agents">AI Agents</a>
+<a class="" href="book-publishing.html" data-title="book publishing">Book Publishing</a>
+<a class="" href="ai-agents.html" data-title="ai agents &amp; automation">AI Agents &amp; Automation</a>
 </section>
-<section class="nav-section"><h2>Development</h2>
+<section class="nav-section"><h2>Project</h2>
 <a class="active" href="architecture.html" data-title="architecture">Architecture</a>
 <a class="" href="quality-and-testing.html" data-title="quality &amp; testing">Quality &amp; Testing</a>
 <a class="" href="development-notes.html" data-title="development notes">Development Notes</a>
 <a class="" href="releasing.html" data-title="releasing">Releasing</a>
-<a class="" href="roadmap.html" data-title="roadmap">Roadmap</a>
 <a class="" href="glossary.html" data-title="glossary">Glossary</a>
-<a class="" href="tagging-implementation-plan.html" data-title="tagging plan">Tagging Plan</a>
+<a class="" href="support.html" data-title="support">Support</a>
 <a class="" href="wiki-index.html" data-title="wiki index">Wiki Index</a>
 </section></nav>
     </aside>
-    <div class="page">
-      <header class="topbar">
-        <div>
-          <span>Development</span>
-          <strong>Architecture</strong>
-        </div>
-        <nav>
-          <a href="index.html">Home</a>
-          <a href="wiki-index.html">Wiki Index</a>
-          <a href="chessrtk-manual.pdf">Manual PDF</a>
-          <a href="command-reference.html">Commands</a>
-        </nav>
-      </header>
-      
-      <main class="content-layout">
-        <article class="content">
-          <h1 id="architecture">Architecture</h1>
-<p>ChessRTK is organized around one shared Java position model. The goal is that a FEN accepted by one command means the same thing to every other command: notation conversion, legal move lists, perft, search, tags, datasets, rendering, and publishing all depend on the same chess rules implementation.</p>
-<h2 id="high-level-layers">High-Level Layers</h2>
-<p><img src="assets/diagrams/crtk-pipeline-overview.png" alt="ChessRTK pipeline overview" loading="lazy"></p>
+    <main class="doc-main">
+      <article class="content">
+        <p class="content-kicker">Project</p>
+        <h1 id="architecture">Architecture</h1>
+<p>Most chess tools accrete a second, third, and fourth notion of &quot;what is legal&quot; as they grow, and then spend their lives reconciling them. ChessRTK (&quot;crtk&quot;) refuses to. There is <strong>one shared chess core</strong>, and every part of the tool asks it the same questions. A FEN that is legal for <code>move list</code> is legal in exactly the same way for <code>engine perft</code>, <code>fen tags</code>, <code>record dataset npy</code>, <code>book render</code>, and the Swing <code>workbench</code>. Notation, search, evaluation, tagging, datasets, rendering, publishing — all of it sits on the single <code>chess.core</code> model of the board and the rules. That is why two commands never quietly disagree. This page maps the layers, names the real packages, and follows a command from a CLI flag down to its output.</p>
+<h2 id="what-one-shared-core-buys-you">What &quot;one shared core&quot; buys you</h2>
+<p>The bugs that hurt most in chess tooling are the consistency bugs. Let notation conversion believe one thing about castling rights and the move generator believe another, and the disagreement leaks into everything downstream: a SAN string, a perft count, a tagged puzzle, a training tensor, a printed diagram. None of them is obviously wrong on its own. Routing every question through one core closes that gap:</p>
+<ul>
+<li>Is this FEN legal, and what is its normalized form?</li>
+<li>Which moves are legal here, and what are their SAN and UCI spellings?</li>
+<li>What position results after this move or this whole line?</li>
+<li>Do perft counts match known reference positions (including Chess960)?</li>
+<li>What should the tagger, dataset exporter, renderer, and book generator all see?</li>
+</ul>
+<p>One implementation answers all of them, so <code>fen normalize</code>, <code>engine perft-suite</code>, and a rendered PDF are demonstrably talking about the same chess.</p>
+<p><img src="assets/diagrams/crtk-position-toolbox.png" alt="ChessRTK position toolbox" loading="lazy"></p>
+<h2 id="layer-map">Layer map</h2>
+<p>The codebase is a stack, and the dependency arrows point one way. Lower layers know nothing of the ones above; higher layers reuse the core instead of reinventing chess inside themselves.</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Layer</th>
+<th>Packages</th>
+<th>Responsibility</th>
+</tr></thead><tbody>
+<tr>
+<td>Chess core</td>
+<td><code>chess.core</code>, <code>chess.struct</code></td>
+<td>Board state, legal movegen, make/undo, attacks, FEN/SAN/UCI, Chess960, records</td>
+</tr>
+<tr>
+<td>Movegen tooling</td>
+<td><code>chess.debug</code>, <code>chess.debug.gpu</code></td>
+<td>Perft, divide, perft-suite, optional GPU perft dispatch</td>
+</tr>
+<tr>
+<td>Search</td>
+<td><code>chess.engine</code></td>
+<td>Built-in MCTS, alpha-beta, forced-mate prover, evaluator hooks</td>
+</tr>
+<tr>
+<td>Evaluation</td>
+<td><code>chess.eval</code>, <code>chess.classical</code></td>
+<td>Classical/static eval, NNUE, LC0, OTIS evaluator backends</td>
+</tr>
+<tr>
+<td>Neural nets</td>
+<td><code>chess.nn.*</code>, <code>chess.gpu</code></td>
+<td>LC0 CNN/BT4, NNUE, OTIS, T5, classifier model loaders + native ops</td>
+</tr>
+<tr>
+<td>External engines</td>
+<td><code>chess.uci</code></td>
+<td>UCI protocol orchestration, analysis parsing, MultiPV/WDL</td>
+</tr>
+<tr>
+<td>Workflow + I/O</td>
+<td><code>chess.io</code>, <code>chess.puzzle</code>, <code>chess.tag</code>, <code>chess.describe</code>, <code>chess.eco</code></td>
+<td>Puzzle mining/scoring, tagging, dataset export, descriptions</td>
+</tr>
+<tr>
+<td>Rendering + publishing</td>
+<td><code>chess.images</code>, <code>chess.pdf</code>, <code>chess.book</code></td>
+<td>Board images/SVG, native PDF books, covers, studies</td>
+</tr>
+<tr>
+<td>Application</td>
+<td><code>application.cli</code>, <code>application.console</code>, <code>utility</code></td>
+<td>Deterministic command contracts, dispatch, arg/config parsing</td>
+</tr>
+<tr>
+<td>Desktop UI</td>
+<td><code>application.gui.workbench.*</code></td>
+<td>Native Swing workbench reusing every layer below</td>
+</tr>
+</tbody></table></div>
+<p>Entry is <code>application.Main</code>, which dispatches into <code>application.cli</code>.</p>
+<h3 id="chess-core-chess-core-chess-struct">Chess core (<code>chess.core</code>, <code>chess.struct</code>)</h3>
+<p>Everything else stands on this. <code>Position</code> holds the mutable board state; <code>MoveGenerator</code>, <code>MoveList</code>, and <code>Move</code> produce and represent legal moves; <code>PositionRules</code>, <code>PositionMoveSupport</code>, and <code>PositionUndoState</code> carry make/undo and legality; <code>SlidingAttacks</code> and the attack helpers answer the check, pin, and threat questions. Notation lives in <code>Fen</code> and <code>SAN</code>, with <code>Setup</code> handling Chess960 start positions and the castling rules they imply. <code>chess.struct</code> defines the <code>Record</code>, <code>Game</code>, <code>Pgn</code>, and <code>Plain</code> shapes that the workflow layers pass around. Crucially, nothing here depends on engines, neural nets, or I/O — the core can be reasoned about, and tested, in isolation.</p>
+<h3 id="movegen-tooling-chess-debug">Movegen tooling (<code>chess.debug</code>)</h3>
+<p>Perft is how a move generator proves it is honest: count the leaves to a fixed depth and compare against numbers the chess world already agrees on. <code>Perft</code>, <code>SplitPerft</code>, and <code>PerftSuite</code> do exactly that, backing <code>engine perft</code>, <code>engine perft-suite</code>, and <code>engine benchmark</code>. The <code>chess.debug.gpu</code> package (<code>GpuPerft</code>, <code>NativePerftBackend</code>, <code>PositionCodec</code>) can hand the deep part of the tree to a native GPU library; <code>--split N</code> sets where the CPU stops expanding and the device takes over.</p>
+<h3 id="search-chess-engine">Search (<code>chess.engine</code>)</h3>
+<p>The built-in search never leaves the JVM, which keeps it dependency-free and trivially scriptable. <code>Mcts</code> and <code>MctsUci</code> provide the Monte Carlo Tree Search behind <code>engine builtin</code> and <code>engine java</code>; <code>AlphaBeta</code> (with <code>AspirationWindow</code>, <code>NegamaxSetup</code>, <code>QuiescenceSetup</code>) plays the Workbench Play opponent; <code>MateProver</code> and <code>ProofState</code> are the brute-force forced-mate prover behind <code>engine mate</code>. <code>EvaluatorBackend</code>, <code>SearchBackend</code>, and the <code>*Backend</code> classes (<code>CnnBackend</code>, <code>OtisBackend</code>, <code>Bt4Backend</code>) are the seam between search and whatever scores a position.</p>
+<h3 id="evaluation-chess-eval-chess-classical">Evaluation (<code>chess.eval</code>, <code>chess.classical</code>)</h3>
+<p>One abstraction, several scorers behind it. <code>chess.eval</code> defines the evaluator interface (<code>Evaluator</code>, <code>Backend</code>, <code>Kind</code>, <code>Factory</code>) and ships <code>Classical</code>, <code>Nnue</code>, <code>Lc0</code>, and <code>Otis</code> implementations, plus <code>See</code> for static exchange evaluation. The classical scorer&#x27;s heavier scanning routines live in <code>chess.classical</code>, kept separate so the hot loops stay readable. Together they back <code>engine static</code> (classical only) and <code>engine eval</code> (<code>auto</code>, <code>lc0</code>, <code>otis</code>, or <code>classical</code>).</p>
+<h3 id="neural-networks-chess-nn-chess-gpu">Neural networks (<code>chess.nn</code>, <code>chess.gpu</code>)</h3>
+<p>Model loading and inference live under <code>chess.nn</code>: <code>chess.nn.lc0</code> (the CNN and BT4 paths), <code>chess.nn.nnue</code>, <code>chess.nn.otis</code>, <code>chess.nn.t5</code> (the natural-language summaries behind <code>fen text</code> and <code>puzzle text</code>), and <code>chess.nn.classifier</code>. <code>chess.gpu</code> (<code>BackendNames</code>, <code>SharedLibrarySupport</code>) decides which backend is live — <code>cpu</code>, <code>cuda</code>, <code>rocm</code>, or <code>oneapi</code> — and the native CUDA, ROCm, and oneAPI sources for OTIS and T5 sit right beside the in-process loaders that call them.</p>
+<blockquote><p>Treat the neural networks as usable evaluators, not clones of their upstream namesakes. The LC0 CNN path works as a CNN evaluator; the BT4 path is simplified and experimental, and crtk makes no claim of bit-exact LC0 or BT4 parity. When you want the strongest play, point crtk at a real external engine through <code>chess.uci</code>.</p></blockquote>
+<h3 id="external-engines-chess-uci">External engines (<code>chess.uci</code>)</h3>
+<p>When you need real strength, this layer talks to it. <code>Engine</code>, <code>Protocol</code>, <code>Analysis</code>, and <code>Output</code> drive external UCI engines such as Stockfish and Leela Chess Zero — spawning the process, speaking the protocol, and parsing back the MultiPV, WDL, node, time, thread, and hash fields. It powers <code>engine analyze</code>, <code>engine bestmove</code>, <code>engine threats</code>, <code>engine compare</code>, the <code>*-batch</code> commands, and <code>engine uci-smoke</code>. Each binary is described by a protocol TOML file passed with <code>--protocol-path</code>, so swapping engines is configuration, not code.</p>
+<h3 id="workflow-and-i-o-chess-io-chess-puzzle-chess-tag-chess-describe-chess-eco">Workflow and I/O (<code>chess.io</code>, <code>chess.puzzle</code>, <code>chess.tag</code>, <code>chess.describe</code>, <code>chess.eco</code>)</h3>
+<p>Above the core sit the products a research pipeline actually ships:</p>
+<ul>
+<li><code>chess.io</code> — record readers/writers and exporters: <code>RecordPgnExporter</code>, <code>RecordDatasetExporter</code>, <code>RecordLc0Exporter</code>, <code>ClassifierDatasetExporter</code>, <code>PuzzleEloExporter</code>. These back <code>record export *</code>, <code>record dataset *</code>, and <code>record files</code>/<code>stats</code>.</li>
+<li><code>chess.puzzle</code> — puzzle scoring and difficulty signals (<code>Scorer</code>, <code>Difficulty</code>, <code>Goal</code>) used by <code>puzzle mine</code>.</li>
+<li><code>chess.tag</code> — deterministic position/tactic/theme tagging (<code>Generator</code>, <code>Detector</code>, <code>Emitter</code>, <code>Checkmate</code>, plus <code>core</code>, <code>material</code>, <code>move</code>, <code>pawn</code>, <code>piece</code>, <code>position</code> detectors) behind <code>fen tags</code> and <code>puzzle tags</code>.</li>
+<li><code>chess.describe</code> — deterministic and T5 position descriptions behind <code>position describe</code>.</li>
+<li><code>chess.eco</code> — ECO opening lookup.</li>
+</ul>
+<h3 id="rendering-and-publishing-chess-images-chess-pdf-chess-book">Rendering and publishing (<code>chess.images</code>, <code>chess.pdf</code>, <code>chess.book</code>)</h3>
+<p><code>chess.images.render</code> draws boards to PNG/JPG/BMP/SVG with arrows, circles, legal-move dots, and themes (behind <code>fen render</code> and <code>fen display</code>). <code>chess.pdf</code> is a from-scratch PDF writer — <strong>no LaTeX, no external typesetter</strong> — which means a clean machine produces the same book as a cluttered one. <code>chess.book</code> (<code>collection</code>, <code>study</code>, <code>render</code>, <code>cover</code>) assembles publication-ready puzzle books and diagram PDFs behind the <code>book</code> commands.</p>
+<h3 id="application-layer-application-cli-utility">Application layer (<code>application.cli</code>, <code>utility</code>)</h3>
+<p>This is where the noun-verb grammar lives. <code>CliRegistry</code> maps each area (<code>fen</code>, <code>move</code>, <code>engine</code>, <code>record</code>, <code>puzzle</code>, <code>book</code>, <code>position</code>, <code>config</code>, <code>batch</code>, <code>doctor</code>, <code>clean</code>, <code>workbench</code>, <code>version</code>, <code>help</code>) to its <code>application.cli.command.*</code> handler. The consistency you feel using crtk comes from shared helpers — <code>EngineOps</code>, <code>EvalOps</code>, <code>ConfigOps</code>, <code>PathOps</code>, <code>Format</code> — rather than copied conventions. <code>utility.Argv</code> parses flags and <code>application.Config</code> resolves defaults, so <code>--fen</code>, <code>--input</code>, <code>--output</code>, <code>--format</code>, <code>--max-nodes</code>, and <code>--max-duration</code> mean the same thing everywhere they appear.</p>
+<h3 id="desktop-workbench-application-gui-workbench">Desktop workbench (<code>application.gui.workbench</code>)</h3>
+<p>The native Swing workbench (<code>workbench</code>, alias <code>gui</code>) is deliberately thin: a UI over the layers below, with no chess logic of its own to drift out of sync. Its subpackages track its features — <code>board</code>, <code>play</code> (play against the in-process engine), <code>command</code> (CLI command forms), <code>dataset</code>, <code>network</code> (neural-net visualizers), <code>publish</code> (book previews), <code>dashboard</code>, <code>game</code>, and <code>session</code>. Play opponents run in-process via <code>chess.engine</code>; an external engine only starts for live analysis and the UCI-backed CLI commands.</p>
+<h2 id="command-flow">Command flow</h2>
+<p>Learn the shape once and every command becomes legible:</p>
 <ol>
-<li><code>chess.core</code></li>
+<li><code>application.Main</code> dispatches the <code>&lt;area&gt; &lt;action&gt;</code> to a <code>CliRegistry</code> handler.</li>
+<li><code>utility.Argv</code> parses flags; <code>application.Config</code> resolves defaults.</li>
+<li>The handler builds a <code>Position</code> from a FEN, PGN, generated seed, or record.</li>
+<li>It runs the request against the shared <code>chess.core</code> (plus search/eval/tag/render layers as needed).</li>
+<li>It emits a deterministic text, JSON/JSONL, image/SVG, tensor, or PDF output.</li>
 </ol>
+<p>Step 4 forks when a command needs analysis:</p>
 <ul>
-<li>mutable position state</li>
-<li>legal move generation</li>
-<li>make/undo state</li>
-<li>attack and pin helpers</li>
-<li>FEN, SAN, UCI move helpers</li>
-<li>Chess960 setup and castling behavior</li>
+<li><strong>In-process</strong> — call the built-in engine in <code>chess.engine</code> (<code>engine builtin</code>, <code>engine java</code>, <code>engine mate</code>, Workbench Play).</li>
+<li><strong>External</strong> — spawn a configured UCI engine via <code>chess.uci</code> (<code>engine analyze</code>, <code>engine bestmove</code>, <code>engine threats</code>, <code>engine compare</code>, the <code>*-batch</code> commands).</li>
 </ul>
-<ol>
-<li><code>chess.debug</code></li>
-</ol>
+<h2 id="data-flow">Data flow</h2>
+<p>The layers compose into a pipeline that runs from raw games to a finished artifact:</p>
+<pre><code class="language-text">PGN / FEN seeds / random shards
+  -&gt; puzzle mine | engine analyze
+  -&gt; .record files
+  -&gt; record stats | record tag-stats | record analysis-delta
+  -&gt; record export plain|csv|pgn|puzzle-jsonl|puzzle-elo-jsonl|training-jsonl
+  -&gt; record dataset npy|lc0|classifier
+  -&gt; fen render | book collection | book render | downstream training</code></pre>
+<p><code>puzzle mine</code> writes <code>*.puzzles.json</code> and <code>*.nonpuzzles.json</code>, gated by a Filter DSL; <code>record files</code> merges, filters, and splits what comes out; the export and dataset commands reshape it into JSONL, CSV, PGN, or tensors; and the <code>book</code> commands turn the verified puzzles into native PDFs. Each stage reads the previous stage&#x27;s files, so you can stop, inspect, and resume anywhere.</p>
+<h2 id="native-gpu-backends">Native GPU backends</h2>
+<p>GPU support is an accelerator, never a requirement. The in-process loaders in <code>chess.nn.otis</code>, <code>chess.nn.t5</code>, and <code>chess.nn.perft</code> probe for a native CUDA, ROCm, or oneAPI shared library at load time; find none and crtk simply runs on the CPU — no error, no missing feature, just slower. See what got wired up with <code>engine gpu</code>, push movegen onto the device with <code>engine perft --gpu</code> (and <code>--split N</code>), and tune <code>engine perft-suite --gpu</code>. The active backend reports as one of <code>cpu</code>, <code>cuda</code>, <code>rocm</code>, or <code>oneapi</code>.</p>
+<h2 id="design-constraints">Design constraints</h2>
+<p>A few rules earn the rest of the design, and they are not negotiated away for convenience:</p>
 <ul>
-<li>perft and divide tools</li>
-<li>reference-suite validation</li>
-<li>diagnostics and logging helpers</li>
+<li>Core commands are deterministic by default: same input, same output, every run.</li>
+<li>Engine work states its budget out loud through <code>--max-nodes</code> and <code>--max-duration</code> — no silent open-ended search.</li>
+<li>Model files, engine binaries, records, and generated PDFs stay local artifacts, never hidden state.</li>
+<li>Output favors line-based or structured (<code>--json</code>/<code>--jsonl</code>) forms, because the next command in your pipe should not have to guess.</li>
+<li>Anything that touches legality ships only after <code>engine perft-suite</code> and the SAN/FEN regressions agree.</li>
+<li>The whole project builds with <code>javac --release 17</code> — no Maven, no Gradle. Licensed GPL-3.0-only.</li>
 </ul>
-<ol>
-<li><code>chess.engine</code> and <code>chess.eval</code></li>
-</ol>
+<h2 id="related-pages">Related pages</h2>
 <ul>
-<li>built-in alpha-beta search</li>
-<li>classical, NNUE, and LC0-facing evaluator hooks</li>
-</ul>
-<ol>
-<li><code>chess.uci</code></li>
-</ol>
-<ul>
-<li>external engine protocol orchestration</li>
-<li>analysis parsing</li>
-<li>MultiPV, WDL, node, time, thread, and hash options</li>
-</ul>
-<ol>
-<li><code>application.cli</code></li>
-</ol>
-<ul>
-<li>stable command contracts</li>
-<li>grouped command dispatch</li>
-<li>config resolution and validation</li>
-</ul>
-<ol>
-<li>Workflow layers</li>
-</ol>
-<ul>
-<li>puzzle mining</li>
-<li>record filtering and export</li>
-<li>dataset generation</li>
-<li>image and PDF rendering</li>
-<li>Studio GUI and other GUI entry points</li>
-</ul>
-<h2 id="why-one-core-matters">Why One Core Matters</h2>
-<p>Chess workflows are coupled. If notation conversion and move generation use different assumptions, downstream results become hard to trust. ChessRTK avoids that by letting the same core answer these questions:</p>
-<ul>
-<li>Is the FEN legal?</li>
-<li>Which moves are legal?</li>
-<li>What is the SAN for this move?</li>
-<li>What position results after this line?</li>
-<li>Do perft counts match known reference positions?</li>
-<li>What should the renderer, tagger, dataset exporter, and book generator show?</li>
-</ul>
-<h2 id="command-flow">Command Flow</h2>
-<p>Most commands follow this shape:</p>
-<ol>
-<li>Parse CLI flags with <code>utility.Argv</code>.</li>
-<li>Resolve defaults through <code>application.Config</code>.</li>
-<li>Build a <code>Position</code> from FEN, PGN, generated input, or record data.</li>
-<li>Execute the command against the shared chess core.</li>
-<li>Emit a deterministic text, JSON, image, tensor, or PDF output.</li>
-</ol>
-<p>Commands that need engine analysis either:</p>
-<ul>
-<li>call the in-process Java engine through <code>chess.engine</code>, or</li>
-<li>start a configured UCI engine through <code>chess.uci</code>.</li>
-</ul>
-<h2 id="data-flow">Data Flow</h2>
-<p>Typical research pipeline:</p>
-<pre><code class="language-text">PGN/FEN/random seeds
-  -&gt; puzzle mine / engine analyze
-  -&gt; record files
-  -&gt; stats, tag-stats, analysis-delta
-  -&gt; PGN, CSV, JSONL, NPY, LC0 tensors, classifier tensors
-  -&gt; diagrams, books, or downstream training jobs</code></pre>
-<h2 id="important-design-constraints">Important Design Constraints</h2>
-<ul>
-<li>Keep core commands deterministic by default.</li>
-<li>Make node and time budgets explicit for engine work.</li>
-<li>Keep model files, engine binaries, dumps, and generated PDFs as local</li>
-</ul>
-<p>artifacts.</p>
-<ul>
-<li>Prefer line-based or structured outputs that are easy to script.</li>
-<li>Verify legality-sensitive changes with perft and SAN/FEN regressions.</li>
-</ul>
-<h2 id="related-pages">Related Pages</h2>
-<ul>
-<li><a href="development-notes.html">Development notes</a></li>
+<li><a href="getting-started.html">Getting started</a></li>
 <li><a href="command-reference.html">Command reference</a></li>
 <li><a href="in-house-engine.html">In-house Java engine</a></li>
 <li><a href="lc0.html">LC0 UCI engine and Java evaluator</a></li>
-<li><a href="datasets.html">Datasets</a></li>
+<li><a href="workbench.html">Workbench</a></li>
+<li><a href="development-notes.html">Development notes</a></li>
 </ul>
-        </article>
-        <aside class="toc"><h2>On This Page</h2>
-<a class="toc-h2" href="#high-level-layers">High-Level Layers</a>
-<a class="toc-h2" href="#why-one-core-matters">Why One Core Matters</a>
-<a class="toc-h2" href="#command-flow">Command Flow</a>
-<a class="toc-h2" href="#data-flow">Data Flow</a>
-<a class="toc-h2" href="#important-design-constraints">Important Design Constraints</a>
-<a class="toc-h2" href="#related-pages">Related Pages</a></aside>
-      </main>
-      <footer class="footer">
-        <span>Generated from <code>wiki/architecture.md</code>.</span>
-        <span>Build with <code>python3 scripts/build_docs_site.py</code>.</span>
-      </footer>
-    </div>
+      </article>
+      <aside class="toc"><h2>On this page</h2>
+<a class="toc-h2" href="#what-one-shared-core-buys-you">What &quot;one shared core&quot; buys you</a>
+<a class="toc-h2" href="#layer-map">Layer map</a>
+<a class="toc-h3" href="#chess-core-chess-core-chess-struct">Chess core (chess.core, chess.struct)</a>
+<a class="toc-h3" href="#movegen-tooling-chess-debug">Movegen tooling (chess.debug)</a>
+<a class="toc-h3" href="#search-chess-engine">Search (chess.engine)</a>
+<a class="toc-h3" href="#evaluation-chess-eval-chess-classical">Evaluation (chess.eval, chess.classical)</a>
+<a class="toc-h3" href="#neural-networks-chess-nn-chess-gpu">Neural networks (chess.nn, chess.gpu)</a>
+<a class="toc-h3" href="#external-engines-chess-uci">External engines (chess.uci)</a>
+<a class="toc-h3" href="#workflow-and-i-o-chess-io-chess-puzzle-chess-tag-chess-describe-chess-eco">Workflow and I/O (chess.io, chess.puzzle, chess.tag, chess.describe, chess.eco)</a>
+<a class="toc-h3" href="#rendering-and-publishing-chess-images-chess-pdf-chess-book">Rendering and publishing (chess.images, chess.pdf, chess.book)</a>
+<a class="toc-h3" href="#application-layer-application-cli-utility">Application layer (application.cli, utility)</a>
+<a class="toc-h3" href="#desktop-workbench-application-gui-workbench">Desktop workbench (application.gui.workbench)</a>
+<a class="toc-h2" href="#command-flow">Command flow</a>
+<a class="toc-h2" href="#data-flow">Data flow</a>
+<a class="toc-h2" href="#native-gpu-backends">Native GPU backends</a>
+<a class="toc-h2" href="#design-constraints">Design constraints</a>
+<a class="toc-h2" href="#related-pages">Related pages</a></aside>
+    </main>
   </div>
+
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <div class="footer-brand">
+        <a class="footer-logo" href="index.html">
+          <img src="assets/logo/crtk-logo.svg" alt="" width="40" height="40">
+          <span>ChessRTK</span>
+        </a>
+        <p>The deterministic chess research toolkit. Free, open-source, and built on one shared Java chess core.</p>
+        <p class="footer-license">Licensed under GPL-3.0-only.</p>
+      </div>
+      <div class="footer-cols">
+        <div class="footer-col"><h3>Documentation</h3><ul>
+          <li><a href="getting-started.html">Getting Started</a></li>
+          <li><a href="command-reference.html">Command Reference</a></li>
+          <li><a href="configuration.html">Configuration</a></li>
+          <li><a href="troubleshooting.html">Troubleshooting</a></li>
+          <li><a href="chessrtk-manual.pdf">Manual (PDF)</a></li>
+        </ul></div>
+        <div class="footer-col"><h3>Workflows</h3><ul>
+          <li><a href="mining.html">Puzzle Mining</a></li>
+          <li><a href="datasets.html">ML Datasets</a></li>
+          <li><a href="piece-tags.html">Tagging</a></li>
+          <li><a href="book-publishing.html">Book Publishing</a></li>
+          <li><a href="ai-agents.html">AI Agents</a></li>
+        </ul></div>
+        <div class="footer-col"><h3>Project</h3><ul>
+          <li><a href="architecture.html">Architecture</a></li>
+          <li><a href="quality-and-testing.html">Quality &amp; Testing</a></li>
+          <li><a href="https://github.com/LenniAConrad/chess-rtk" target="_blank" rel="noopener">GitHub</a></li>
+          <li><a href="https://github.com/LenniAConrad/chess-rtk/issues" target="_blank" rel="noopener">Issues</a></li>
+        </ul></div>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>&copy; ChessRTK contributors &middot; GPL-3.0-only</span>
+      <span>Documentation generated from the repository <a href="wiki-index.html">wiki</a>.</span>
+    </div>
+  </footer>
+
 </body>
 </html>

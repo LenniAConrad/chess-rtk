@@ -1,6 +1,6 @@
 digraph crtk_agentic_commands {
   rankdir=LR;
-  bgcolor="transparent";
+  bgcolor="#ffffff";
   splines=ortho;
   pad="0.20";
   nodesep="0.35";
@@ -8,53 +8,53 @@ digraph crtk_agentic_commands {
 
   graph [fontname="Helvetica", fontsize=14];
   node  [fontname="Helvetica", fontsize=12];
-  edge  [fontname="Helvetica", fontsize=10, color="#424242", arrowsize=0.8, penwidth=1.2];
+  edge  [fontname="Helvetica", fontsize=10, color="#3a4f57", arrowsize=0.8, penwidth=1.2];
 
   subgraph cluster_actor {
     label="Automation";
     style="rounded";
-    color="#FFCDD2";
-    fontcolor="#B71C1C";
+    color="#f4cdd3";
+    fontcolor="#8f2b37";
     penwidth=1.4;
 
-    node [shape=note, style="filled", fillcolor="#FFEBEE", color="#C62828", penwidth=1.2];
+    node [shape=note, style="filled", fillcolor="#fbe9ec", color="#b23a48", penwidth=1.2];
     agent [label="LLM / CI / scripts"];
   }
 
   subgraph cluster_commands {
     label="Agentic commands";
     style="rounded";
-    color="#BBDEFB";
-    fontcolor="#0D47A1";
+    color="#c3e7f2";
+    fontcolor="#0c3a4c";
     penwidth=1.4;
 
-    node [shape=box, style="rounded,filled", fillcolor="#E3F2FD", color="#1565C0", penwidth=1.2];
-    commands [label="moves* / bestmove*\n(tags, perft-suite, records)"];
-    determinism [label="Determinism flags\n(--seed, --limit, --no-shuffle)"];
+    node [shape=box, style="rounded,filled", fillcolor="#e2f3f8", color="#11688a", penwidth=1.2];
+    commands [label="move* / engine bestmove*\n(fen tags, perft-suite, record*)"];
+    determinism [label="Bounded-run flags\n(--max-nodes, --max-duration, --limit)"];
   }
 
   subgraph cluster_contracts {
     label="Machine contracts";
     style="rounded";
-    color="#C8E6C9";
-    fontcolor="#1B5E20";
+    color="#c7ece6";
+    fontcolor="#0b4d44";
     penwidth=1.4;
 
-    node [shape=box, style="rounded,filled", fillcolor="#E8F5E9", color="#2E7D32", penwidth=1.2];
+    node [shape=box, style="rounded,filled", fillcolor="#e3f6f3", color="#0f766e", penwidth=1.2];
     contracts [label="Stable output\n+ exit codes"];
 
-    node [shape=note, style="filled", fillcolor="#E8F5E9", color="#2E7D32", penwidth=1.2];
+    node [shape=note, style="filled", fillcolor="#e3f6f3", color="#0f766e", penwidth=1.2];
     json [label="JSON / JSONL"];
   }
 
   subgraph cluster_outcome {
     label="Outcomes";
     style="rounded";
-    color="#D1C4E9";
-    fontcolor="#4527A0";
+    color="#c7d6ec";
+    fontcolor="#234e8c";
     penwidth=1.4;
 
-    node [shape=note, style="filled", fillcolor="#EDE7F6", color="#5E35B1", penwidth=1.2];
+    node [shape=note, style="filled", fillcolor="#e7edf8", color="#355a9c", penwidth=1.2];
     pipelines [label="CI + regression\n+ dataset pipelines"];
   }
 

@@ -3,323 +3,393 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>AI Agents and Automation | ChessRTK Wiki</title>
+  <title>Automation and AI Agents | ChessRTK</title>
+  <meta name="description" content="The deterministic chess research toolkit — Automation and AI Agents.">
+  <link rel="icon" href="assets/logo/crtk-logo.svg" type="image/svg+xml">
   <link rel="stylesheet" href="styles.css">
+  <script>
+    (function () {
+      var key = "crtk-theme";
+      var isTheme = function (value) { return value === "light" || value === "dark"; };
+      var urlTheme = "";
+      var stored = "";
+      try { urlTheme = new URLSearchParams(window.location.search).get("theme"); } catch (e) {}
+      try { stored = localStorage.getItem(key); } catch (e) {}
+      var theme = isTheme(urlTheme) ? urlTheme : (isTheme(stored) ? stored : "");
+      if (!theme) {
+        theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+      }
+      if (isTheme(urlTheme)) {
+        try { localStorage.setItem(key, urlTheme); } catch (e) {}
+      }
+      document.documentElement.setAttribute("data-theme", theme);
+    })();
+  </script>
   <script defer src="search-index.js"></script>
   <script defer src="site.js"></script>
 </head>
-<body>
-  <button class="menu-toggle" type="button" aria-label="Toggle navigation">Menu</button>
-  <div class="site-shell">
-    <aside class="sidebar">
-      <a class="brand" href="index.html">
-        <span class="brand-mark">CR</span>
-        <span><strong>ChessRTK</strong><small>Wiki</small></span>
+<body class="is-doc">
+
+  <header class="topnav">
+    <div class="topnav-inner">
+      <a class="topnav-brand" href="index.html">
+        <img src="assets/logo/crtk-logo.svg" alt="" width="32" height="32">
+        <span>ChessRTK</span>
       </a>
-      <label class="search-label" for="doc-search">Search pages</label>
-      <input id="doc-search" class="search" type="search" placeholder="Search docs...">
+      <button class="nav-toggle" type="button" aria-label="Toggle navigation" aria-expanded="false">
+        <span></span><span></span><span></span>
+      </button>
+      <nav class="topnav-links">
+        <a class="" href="getting-started.html">Get started</a>
+        <a class="" href="command-reference.html">Commands</a>
+        <a class="" href="workbench.html">Workbench</a>
+        <a class="" href="wiki-index.html">Docs</a>
+        <a class="" href="chessrtk-manual.pdf">Manual</a>
+        <a class="topnav-gh" href="https://github.com/LenniAConrad/chess-rtk" target="_blank" rel="noopener">GitHub</a>
+        <button class="theme-toggle" type="button" aria-label="Toggle dark mode" title="Toggle dark mode">
+          <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2v2.4M12 19.6V22M2 12h2.4M19.6 12H22M4.9 4.9l1.7 1.7M17.4 17.4l1.7 1.7M19.1 4.9l-1.7 1.7M6.6 17.4l-1.7 1.7"/></svg>
+          <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4 7 7 0 1 0 20 14.5Z"/></svg>
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <div class="doc-shell">
+    <aside class="sidebar" id="sidebar">
+      <label class="search-label" for="doc-search">Search the docs</label>
+      <input id="doc-search" class="search" type="search" placeholder="Search pages..." autocomplete="off">
       <div id="search-results" class="search-results" hidden></div>
       <nav class="nav"><section class="nav-section"><h2>Start Here</h2>
-<a class="" href="index.html" data-title="home">Home</a>
+<a class="" href="index.html" data-title="overview">Overview</a>
 <a class="" href="getting-started.html" data-title="getting started">Getting Started</a>
+<a class="" href="build-and-install.html" data-title="build &amp; install">Build &amp; Install</a>
 <a class="" href="use-cases.html" data-title="use cases">Use Cases</a>
-<a class="" href="command-cheatsheet.html" data-title="command cheatsheet">Command Cheatsheet</a>
 <a class="" href="faq.html" data-title="faq">FAQ</a>
-<a class="" href="command-reference.html" data-title="command reference">Command Reference</a>
-<a class="" href="example-commands.html" data-title="example commands">Example Commands</a>
 <a class="" href="troubleshooting.html" data-title="troubleshooting">Troubleshooting</a>
 </section>
-<section class="nav-section"><h2>User Guides</h2>
-<a class="" href="build-and-install.html" data-title="build &amp; install">Build &amp; Install</a>
-<a class="" href="workbench.html" data-title="desktop workbench">Desktop Workbench</a>
+<section class="nav-section"><h2>Commands</h2>
+<a class="" href="command-cheatsheet.html" data-title="cheatsheet">Cheatsheet</a>
+<a class="" href="command-reference.html" data-title="command reference">Command Reference</a>
+<a class="" href="example-commands.html" data-title="example commands">Example Commands</a>
 <a class="" href="configuration.html" data-title="configuration">Configuration</a>
-<a class="" href="in-house-engine.html" data-title="in-house engine">In-House Engine</a>
-<a class="" href="lc0.html" data-title="lc0">LC0</a>
 <a class="" href="outputs-and-logs.html" data-title="outputs &amp; logs">Outputs &amp; Logs</a>
-<a class="" href="support.html" data-title="support">Support</a>
+</section>
+<section class="nav-section"><h2>Desktop Workbench</h2>
+<a class="" href="workbench.html" data-title="workbench">Workbench</a>
+</section>
+<section class="nav-section"><h2>Engines &amp; Models</h2>
+<a class="" href="in-house-engine.html" data-title="built-in engine">Built-in Engine</a>
+<a class="" href="lc0.html" data-title="lc0 networks">LC0 Networks</a>
+<a class="" href="gpu.html" data-title="gpu acceleration">GPU Acceleration</a>
+<a class="" href="t5.html" data-title="t5 text">T5 Text</a>
 </section>
 <section class="nav-section"><h2>Workflows</h2>
-<a class="" href="mining.html" data-title="mining puzzles">Mining Puzzles</a>
+<a class="" href="mining.html" data-title="puzzle mining">Puzzle Mining</a>
 <a class="" href="filter-dsl.html" data-title="filter dsl">Filter DSL</a>
-<a class="" href="datasets.html" data-title="datasets">Datasets</a>
-<a class="" href="book-publishing.html" data-title="book publishing">Book Publishing</a>
-<a class="" href="piece-tags.html" data-title="tags">Tags</a>
+<a class="" href="datasets.html" data-title="ml datasets">ML Datasets</a>
+<a class="" href="piece-tags.html" data-title="tagging">Tagging</a>
 <a class="" href="tag-reference.html" data-title="tag reference">Tag Reference</a>
-<a class="" href="t5.html" data-title="t5 text">T5 Text</a>
-<a class="active" href="ai-agents.html" data-title="ai agents">AI Agents</a>
+<a class="" href="book-publishing.html" data-title="book publishing">Book Publishing</a>
+<a class="active" href="ai-agents.html" data-title="ai agents &amp; automation">AI Agents &amp; Automation</a>
 </section>
-<section class="nav-section"><h2>Development</h2>
+<section class="nav-section"><h2>Project</h2>
 <a class="" href="architecture.html" data-title="architecture">Architecture</a>
 <a class="" href="quality-and-testing.html" data-title="quality &amp; testing">Quality &amp; Testing</a>
 <a class="" href="development-notes.html" data-title="development notes">Development Notes</a>
 <a class="" href="releasing.html" data-title="releasing">Releasing</a>
-<a class="" href="roadmap.html" data-title="roadmap">Roadmap</a>
 <a class="" href="glossary.html" data-title="glossary">Glossary</a>
-<a class="" href="tagging-implementation-plan.html" data-title="tagging plan">Tagging Plan</a>
+<a class="" href="support.html" data-title="support">Support</a>
 <a class="" href="wiki-index.html" data-title="wiki index">Wiki Index</a>
 </section></nav>
     </aside>
-    <div class="page">
-      <header class="topbar">
-        <div>
-          <span>Workflows</span>
-          <strong>AI Agents and Automation</strong>
-        </div>
-        <nav>
-          <a href="index.html">Home</a>
-          <a href="wiki-index.html">Wiki Index</a>
-          <a href="chessrtk-manual.pdf">Manual PDF</a>
-          <a href="command-reference.html">Commands</a>
-        </nav>
-      </header>
-      
-      <main class="content-layout">
-        <article class="content">
-          <h1 id="ai-agents-and-automation">AI Agents and Automation</h1>
-<p>ChessRTK exposes deterministic chess primitives for CI, scripts, and LLM tool workflows. Use the narrowest command for the task: move conversion for notation, FEN commands for position validity, perft commands for move-generation checks, and bounded engine commands for analysis.</p>
-<p>These commands use the same correctness surface as the rest of the toolkit: one shared position model, deterministic output shapes, and regression-backed move-generation checks.</p>
+    <main class="doc-main">
+      <article class="content">
+        <p class="content-kicker">Workflows</p>
+        <h1 id="automation-and-ai-agents">Automation and AI Agents</h1>
+<p>A program driving <code>crtk</code> should never have to guess. Every command is a noun-verb invocation (<code>crtk move list</code>, <code>crtk engine bestmove</code>, <code>crtk fen validate</code>) that takes its inputs through named flags, writes a stable line-based or JSON/JSONL shape to stdout, and exits with a code that means what it says. One chess core handles legality, notation, and search for the entire toolkit, so the FEN/SAN/UCI semantics an agent learns from one command hold everywhere else. What follows: where the machine-readable contracts live, how to keep a run from going open-ended, and how to push a whole plan through in a single process.</p>
 <p><img src="assets/diagrams/crtk-agentic-commands.png" alt="Agentic command contracts" loading="lazy"></p>
-<p>Diagram source: <code>assets/diagrams/crtk-agentic-commands.dot</code>.</p>
-<h2 id="automation-contract">Automation Contract</h2>
+<h2 id="why-crtk-is-agent-friendly">Why crtk Is Agent-Friendly</h2>
 <ul>
-<li>Machine-oriented commands prefer line-based or JSON/JSONL formats, explicit</li>
+<li><strong>Deterministic outputs.</strong> Move ordering, FEN normalization, perft counters, and the built-in search return the same answer for the same inputs and budgets. The core paths carry no hidden clocks and no randomized defaults.</li>
+<li><strong>Stable contracts.</strong> Most machine-facing commands take <code>--json</code> (one object or array) or <code>--jsonl</code> (one object per line); notation commands take <code>--format uci|san|both</code>. Parse a documented shape rather than scrape prose.</li>
+<li><strong>Explicit inputs.</strong> Positions come in through named flags (<code>--fen</code>, <code>--input</code>, <code>--startpos</code>, <code>--randompos</code>, <code>--stdin</code>), never positional guesswork. When a free-form argument could pass for a flag, separate it with <code>--</code>.</li>
+<li><strong>Exit codes that mean something.</strong> Success exits <code>0</code>; a bad FEN, a missing file, or a failed command exits non-zero. Errors go to stderr, so a failing run still leaves stdout clean for the parser.</li>
+<li><strong>Bounded work.</strong> Engine and search commands take <code>--max-nodes</code>, <code>--max-duration</code>, and <code>--multipv</code>; batch and export commands take <code>--limit</code>, <code>--max-records</code>, and <code>--max-total</code>. Nothing forces an agent to trust an unbounded run.</li>
+<li><strong>One shared core.</strong> Move generation is checked against stored perft truth positions (<code>engine perft-suite</code>), so a legality-sensitive workflow is correct without an external engine to vouch for it.</li>
 </ul>
-<p>flags, stable exit codes, and bounded search budgets.</p>
-<ul>
-<li>Core move generation is validated against stored perft truth positions and</li>
-</ul>
-<p>detailed counters, so legality-sensitive workflows do not depend on an external engine.</p>
-<ul>
-<li>The same core is reused for notation conversion, line application, perft</li>
-</ul>
-<p>checks, builtin search, exporters, and higher-level automation workflows.</p>
-<ul>
-<li><code>./scripts/run_regression_suite.sh core</code> and</li>
-</ul>
-<p><code>./scripts/run_regression_suite.sh recommended</code> provide repeatable regression entry points before longer CI or agent runs.</p>
-<h2 id="quick-verification">Quick Verification</h2>
-<p>Before using the commands in longer automated runs, a fast smoke pass is:</p>
-<pre><code class="language-bash">mkdir -p out
-javac --release 17 -d out $(find src -name &quot;*.java&quot;)
-java -cp out testing.CoreMoveGenerationRegressionTest
-java -cp out application.Main move list --format both --fen &quot;rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1&quot;</code></pre>
-<h2 id="command-contracts">Command Contracts</h2>
+<h2 id="quickstart-for-an-agent">Quickstart for an Agent</h2>
+<pre><code class="language-bash">crtk doctor                 # environment + config health
+crtk config validate        # config file is well-formed
+crtk version --json         # {&quot;name&quot;:&quot;ChessRTK&quot;,&quot;launcher&quot;:&quot;crtk&quot;,&quot;version&quot;:&quot;...&quot;,&quot;java&quot;:&quot;...&quot;}
+crtk help                   # area list; `crtk help &lt;area&gt; &lt;action&gt;` for any command</code></pre>
+<p>The smallest useful loop — is this position legal, and what can I play from it:</p>
+<pre><code class="language-bash">crtk fen validate --fen &quot;&lt;FEN&gt;&quot; --json
+crtk fen normalize --fen &quot;&lt;FEN&gt;&quot; --json
+crtk move list --fen &quot;&lt;FEN&gt;&quot; --format both</code></pre>
+<h2 id="machine-readable-output-by-command">Machine-Readable Output by Command</h2>
+<p>These are the commands worth reaching for first, paired with the contract each one emits.</p>
 <div class="table-wrap"><table>
 <thead><tr>
-<th>Need</th>
-<th>Command shape</th>
+<th>Task</th>
+<th>Command</th>
 <th>Output contract</th>
 </tr></thead><tbody>
 <tr>
-<td>Legal moves</td>
-<td>`move list --format uci</td>
-<td>san</td>
-<td>both`</td>
-<td>one move per line, deterministic order</td>
+<td>Validate a FEN</td>
+<td><code>fen validate --fen &quot;&lt;FEN&gt;&quot; --json</code></td>
+<td><code>{&quot;valid&quot;:true,&quot;input&quot;:...,&quot;fen&quot;:...}</code>; exits non-zero on invalid input</td>
 </tr>
 <tr>
-<td>Legal moves as objects</td>
-<td><code>move list --jsonl</code></td>
-<td>one JSON move object per line</td>
+<td>Normalize a FEN</td>
+<td><code>fen normalize --fen &quot;&lt;FEN&gt;&quot; --json</code></td>
+<td>normalized FEN object; <code>--jsonl</code> for batched stdin rows</td>
 </tr>
 <tr>
-<td>UCI move list</td>
-<td><code>move uci --fen &quot;&lt;FEN&gt;&quot;</code></td>
-<td>one UCI move per line</td>
+<td>List legal moves</td>
+<td><code>move list --fen &quot;&lt;FEN&gt;&quot; --jsonl</code></td>
+<td>one <code>{&quot;uci&quot;:...,&quot;san&quot;:...}</code> object per line</td>
 </tr>
 <tr>
-<td>SAN move list</td>
-<td><code>move san --fen &quot;&lt;FEN&gt;&quot;</code></td>
-<td>one SAN move per line</td>
-</tr>
-<tr>
-<td>UCI and SAN together</td>
-<td><code>move both --fen &quot;&lt;FEN&gt;&quot;</code></td>
-<td><code>uci&lt;TAB&gt;san</code> per line</td>
+<td>Legal moves (text)</td>
+<td><code>move list --format both</code></td>
+<td><code>uci&lt;TAB&gt;san</code> per line, deterministic order</td>
 </tr>
 <tr>
 <td>Convert one move</td>
 <td><code>move to-san</code>, <code>move to-uci</code></td>
-<td>one converted move</td>
+<td>one converted move; <code>--json</code> for an object</td>
 </tr>
 <tr>
 <td>Apply one move</td>
-<td><code>move after --fen &quot;&lt;FEN&gt;&quot; &lt;move&gt;</code></td>
-<td>resulting FEN</td>
+<td><code>move after --fen &quot;&lt;FEN&gt;&quot; &lt;move&gt; --json</code></td>
+<td>resulting FEN as an object</td>
 </tr>
 <tr>
 <td>Apply a line</td>
-<td><code>move play --fen &quot;&lt;FEN&gt;&quot; &lt;moves...&gt;</code></td>
-<td>final FEN, or every FEN with <code>--intermediate</code></td>
+<td><code>move play --fen &quot;&lt;FEN&gt;&quot; &lt;moves...&gt; --jsonl</code></td>
+<td>final FEN, or one per ply with <code>--intermediate</code></td>
 </tr>
 <tr>
-<td>Validate FEN</td>
-<td><code>fen validate --fen &quot;&lt;FEN&gt;&quot;</code></td>
-<td><code>valid&lt;TAB&gt;&lt;normalized-fen&gt;</code> on success, or JSON with <code>--json</code></td>
+<td>Best move (engine)</td>
+<td><code>engine bestmove --format both</code></td>
+<td>one best-move row</td>
 </tr>
 <tr>
-<td>Normalize FEN</td>
-<td><code>fen normalize --fen &quot;&lt;FEN&gt;&quot;</code></td>
-<td>normalized FEN, or JSON/JSONL with <code>--json</code>/<code>--jsonl</code></td>
+<td>Best move (UCI/SAN)</td>
+<td><code>engine bestmove-uci</code>, <code>engine bestmove-san</code>, <code>engine bestmove-both</code></td>
+<td>one move row in the named notation</td>
 </tr>
 <tr>
-<td>Chess960 starts</td>
-<td><code>fen chess960 &lt;index&gt;</code></td>
-<td>deterministic Scharnagl-indexed FEN</td>
+<td>Analyze a position</td>
+<td><code>engine analyze --multipv &lt;n&gt;</code></td>
+<td>per-PV analysis lines</td>
 </tr>
 <tr>
-<td>Position diff</td>
-<td><code>position diff --fen &quot;&lt;FEN&gt;&quot; --other &quot;&lt;FEN&gt;&quot; --json</code></td>
-<td>changed state fields and board squares</td>
-</tr>
-<tr>
-<td>Best move</td>
-<td>`engine bestmove --format uci</td>
-<td>san</td>
-<td>both`</td>
-<td>one best move row</td>
-</tr>
-<tr>
-<td>Best move batch</td>
+<td>Best move, many FENs</td>
 <td><code>engine bestmove-batch --input &lt;file&gt;</code></td>
-<td>one JSON object per position by default</td>
+<td>one JSON object per position (<code>--jsonl</code> default)</td>
 </tr>
 <tr>
-<td>Analysis batch</td>
+<td>Analyze, many FENs</td>
 <td><code>engine analyze-batch --input &lt;file&gt; --multipv &lt;n&gt;</code></td>
-<td>one JSON object per position by default</td>
+<td>one JSON object per position (<code>--jsonl</code> default)</td>
 </tr>
 <tr>
-<td>Engine comparison</td>
-<td><code>engine compare --left-protocol &lt;a&gt; --right-protocol &lt;b&gt;</code></td>
-<td>text table, JSON object with <code>--json</code>, rows with <code>--jsonl</code></td>
+<td>Compare two engines</td>
+<td><code>engine compare --left-protocol &lt;a&gt; --right-protocol &lt;b&gt; --json</code></td>
+<td>rows plus summary as one object</td>
 </tr>
 <tr>
-<td>Built-in fallback search</td>
-<td>`engine builtin --format uci</td>
-<td>san</td>
-<td>both</td>
-<td>summary`</td>
-<td>bounded in-process search output</td>
+<td>In-process search</td>
+<td><code>engine builtin --format summary</code></td>
+<td>bounded built-in MCTS output; no external process</td>
+</tr>
+<tr>
+<td>Prove a forced mate</td>
+<td><code>engine mate --format jsonl</code></td>
+<td>deterministic mate-prover row</td>
 </tr>
 <tr>
 <td>Static evaluation</td>
 <td><code>engine static</code>, <code>engine eval</code></td>
-<td>one evaluation per input position</td>
+<td>one evaluation per position</td>
+</tr>
+<tr>
+<td>Position diff</td>
+<td><code>position diff --fen &quot;&lt;L&gt;&quot; --other &quot;&lt;R&gt;&quot; --json</code></td>
+<td>changed state fields and board squares</td>
+</tr>
+<tr>
+<td>Position description</td>
+<td><code>position describe --format training-jsonl</code></td>
+<td>deterministic prompt/target row with features</td>
+</tr>
+<tr>
+<td>Perft counters</td>
+<td><code>engine perft --depth &lt;d&gt;</code></td>
+<td>nodes plus detailed counters</td>
+</tr>
+<tr>
+<td>Perft regression</td>
+<td><code>engine perft-suite --depth &lt;d&gt;</code></td>
+<td>progress bar, then truth/calculated/match table</td>
 </tr>
 <tr>
 <td>Core benchmark</td>
 <td><code>engine benchmark --json</code></td>
-<td>one benchmark JSON object</td>
+<td>one benchmark object</td>
 </tr>
 <tr>
-<td>Movegen counters</td>
-<td><code>engine perft</code></td>
-<td>nodes and detailed counters</td>
-</tr>
-<tr>
-<td>Movegen regression</td>
-<td><code>engine perft-suite</code></td>
-<td>progress bar, then truth/calculated table; <code>--suite</code> accepts custom TSV rows</td>
-</tr>
-<tr>
-<td>Setup health</td>
-<td><code>doctor</code>, <code>config validate</code>, <code>engine uci-smoke</code></td>
-<td>diagnostics and process exit status</td>
+<td>Version metadata</td>
+<td><code>version --json</code></td>
+<td>one object: name, launcher, version, java</td>
 </tr>
 </tbody></table></div>
-<h2 id="automation-sequence">Automation Sequence</h2>
-<ol>
-<li>Run <code>crtk doctor</code> and <code>crtk config validate</code> before long jobs.</li>
-<li>Normalize input FENs with <code>fen normalize</code>.</li>
-<li>Use <code>move list --format both</code> to expose legal moves with both UCI and SAN.</li>
-<li>Use <code>move after</code> or <code>move play</code> to advance positions instead of editing FENs.</li>
-<li>Use <code>engine bestmove --format both</code> when a configured UCI engine is</li>
-</ol>
-<p>available.</p>
-<ol>
-<li>Use <code>engine builtin --format summary</code> when in-process bounded search is</li>
-</ol>
-<p>preferable.</p>
-<ol>
-<li>Use <code>engine bestmove-batch</code> or <code>engine analyze-batch</code> for large FEN sets</li>
-</ol>
-<p>instead of parsing human analysis text.</p>
-<ol>
-<li>Run <code>engine perft-suite --depth 6 --threads &lt;n&gt;</code> after core move-generation</li>
-</ol>
-<p>changes; use <code>--suite custom.tsv</code> for targeted regression rows.</p>
-<h2 id="deterministic-move-tasks">Deterministic Move Tasks</h2>
-<p>List legal moves:</p>
-<pre><code class="language-bash">crtk move list --fen &quot;&lt;FEN&gt;&quot; --format both</code></pre>
-<p>Convert moves:</p>
-<pre><code class="language-bash">crtk move to-san --fen &quot;&lt;FEN&gt;&quot; e2e4
-crtk move to-uci --fen &quot;&lt;FEN&gt;&quot; Nf3</code></pre>
-<p>Apply a SAN or UCI line:</p>
-<pre><code class="language-bash">crtk move play --fen &quot;&lt;FEN&gt;&quot; &quot;e4 e5 Nf3 Nc6&quot;
-crtk move play --fen &quot;&lt;FEN&gt;&quot; e2e4 e7e5 g1f3 --intermediate</code></pre>
-<p>These commands avoid parsing board diagrams and provide compact, line-oriented output.</p>
-<h2 id="engine-tasks">Engine Tasks</h2>
-<p>External UCI engine:</p>
+<blockquote><p>Notation commands (<code>move list</code>, <code>move uci</code>, <code>move san</code>, <code>move both</code>, <code>move to-san</code>, <code>move to-uci</code>, <code>move after</code>, <code>move play</code>) and <code>fen validate</code>/<code>fen normalize</code> also accept <code>--no-header</code> and <code>--quiet</code> for script-friendly piping.</p></blockquote>
+<h2 id="bounding-engine-and-search-runs">Bounding Engine and Search Runs</h2>
+<p>Cap every automated analysis. The budget flags are consistent across commands, so one agent-side policy covers all of them.</p>
+<ul>
+<li><strong>External UCI engine</strong> (<code>engine analyze</code>, <code>bestmove</code>, <code>bestmove-batch</code>, <code>analyze-batch</code>, <code>compare</code>, <code>threats</code>): bound it with <code>--max-nodes</code> and <code>--max-duration</code> (<code>5s</code>, <code>500ms</code>), and pin <code>--multipv</code>, <code>--threads</code>, and <code>--hash</code> to keep the engine reproducible. Point at a protocol with <code>--protocol-path</code> (or <code>--left-protocol</code>/<code>--right-protocol</code> for <code>compare</code>).</li>
+<li><strong>Built-in MCTS</strong> (<code>engine builtin</code>, alias <code>engine java</code>): use <code>--depth</code>, <code>--max-nodes</code> (alias <code>--nodes</code>; <code>0</code> lifts the cap), and <code>--max-duration</code> (<code>0</code> means no time cap). It runs in-process, so <code>--threads</code>/<code>--hash</code> do not apply. Choose an evaluator with <code>--evaluator classical|nnue|lc0|otis</code>.</li>
+<li><strong>Forced-mate prover</strong> (<code>engine mate</code>): bound it with <code>--max-mate</code> (default <code>4</code>) and <code>--max-nodes</code>. This is brute force, no neural-network evaluation — depth, not heuristics, is what costs you.</li>
+<li><strong>Mining / dataset / book</strong> commands: cap volume with <code>--max-total</code>, <code>--max-waves</code>, <code>--max-frontier</code> (<code>puzzle mine</code>), <code>--max-records</code> (record exports), or <code>--limit</code> (<code>book collection</code>, <code>book render</code>).</li>
+</ul>
 <pre><code class="language-bash">crtk engine bestmove --fen &quot;&lt;FEN&gt;&quot; --format both --max-duration 5s
 crtk engine analyze --fen &quot;&lt;FEN&gt;&quot; --multipv 3 --max-nodes 1000000
-crtk engine bestmove-batch --input positions.txt --max-duration 1s
-crtk engine analyze-batch --input positions.txt --multipv 3 --jsonl
-crtk engine compare --input positions.txt --left-protocol a.toml --right-protocol b.toml --json
-crtk engine threats --fen &quot;&lt;FEN&gt;&quot; --max-duration 2s</code></pre>
-<p>Built-in Java engine:</p>
-<pre><code class="language-bash">crtk engine builtin --fen &quot;&lt;FEN&gt;&quot; --depth 4 --format summary
-crtk engine builtin --fen &quot;&lt;FEN&gt;&quot; --nodes 100000 --max-duration 500ms --format uci</code></pre>
-<p>For UCI engine commands, use explicit <code>--nodes</code>, <code>--max-duration</code>, <code>--threads</code>, and <code>--hash</code> values when you need reproducible behavior. For the built-in engine, use <code>--depth</code>, <code>--nodes</code>, <code>--max-duration</code>, and the evaluator flags; it does not spawn an engine process or accept UCI <code>--threads</code>/<code>--hash</code> options.</p>
-<h2 id="move-generation-checks">Move-Generation Checks</h2>
-<p>Single-position counters:</p>
-<pre><code class="language-bash">crtk engine perft --fen &quot;&lt;FEN&gt;&quot; --depth 5
-crtk engine perft --randompos --depth 4
-crtk engine perft --fen &quot;&lt;FEN&gt;&quot; --depth 5 --divide --threads 4
-crtk engine perft --fen &quot;&lt;FEN&gt;&quot; --depth 5 --format stockfish --threads 4</code></pre>
-<p>Regression suite:</p>
-<pre><code class="language-bash">crtk engine perft-suite --depth 6 --threads 4
+crtk engine builtin --fen &quot;&lt;FEN&gt;&quot; --evaluator classical --max-nodes 100000 --max-duration 500ms --format summary
+crtk engine mate --fen &quot;&lt;FEN&gt;&quot; --max-mate 4 --format jsonl</code></pre>
+<p>See <a href="in-house-engine.html">In-House Engine</a> and <a href="lc0.html">LC0 Integration</a> for engine setup and evaluator details.</p>
+<h2 id="batch-many-commands-in-one-run">Batch Many Commands in One Run</h2>
+<p><code>batch run</code> reads a UTF-8 script, one <code>crtk</code> command per line. Blank rows and <code>#</code> comments are skipped, and the leading <code>crtk</code> token is optional. For a fixed plan, this beats shelling out repeatedly — the runtime starts once instead of once per call.</p>
+<pre><code class="language-bash">crtk batch run --input commands.crtk
+crtk batch run --stdin --keep-going</code></pre>
+<p>Script behavior:</p>
+<ul>
+<li>Each command is echoed before it runs; <code>--quiet</code> suppresses the echo and trims output to the results.</li>
+<li>The run stops at the first command that exits non-zero. <code>--keep-going</code> continues through the remaining rows and still reports the failures.</li>
+<li><code>--stdin</code> reads the script from standard input — handy when the agent writes the plan as it goes.</li>
+</ul>
+<p>Example <code>commands.crtk</code>:</p>
+<pre><code class="language-text"># normalize, list moves, then ask the engine
+fen normalize --fen &quot;rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1&quot; --json
+move list --startpos --jsonl
+engine bestmove --startpos --format both --max-duration 2s</code></pre>
+<p>For large position sets, reach past <code>batch run</code> for the dedicated batch engine commands: they load the engine once and stream one JSON object per position.</p>
+<pre><code class="language-bash">crtk engine bestmove-batch --input positions.txt --max-duration 1s --jsonl
+crtk engine analyze-batch  --input positions.txt --multipv 3 --jsonl</code></pre>
+<h2 id="scripting-recipes">Scripting Recipes</h2>
+<p><strong>Verify legality before acting.</strong> Validate, normalize, then enumerate.</p>
+<pre><code class="language-bash">crtk fen validate --fen &quot;&lt;FEN&gt;&quot; --json || exit 1
+crtk move list --fen &quot;&lt;FEN&gt;&quot; --format both</code></pre>
+<p><strong>Advance a game without hand-editing FEN fields.</strong> Let the core apply the moves; it tracks castling rights, en passant, and clocks for you.</p>
+<pre><code class="language-bash">crtk move after --fen &quot;&lt;FEN&gt;&quot; e2e4 --json
+crtk move play --fen &quot;&lt;FEN&gt;&quot; &quot;e4 e5 Nf3 Nc6&quot; --jsonl
+crtk move play --fen &quot;&lt;FEN&gt;&quot; e2e4 e7e5 g1f3 --intermediate --jsonl</code></pre>
+<p><strong>Diff two candidate positions.</strong> A structured field/square delta, not a string comparison that breaks on cosmetic FEN differences.</p>
+<pre><code class="language-bash">crtk position diff --fen &quot;&lt;LEFT_FEN&gt;&quot; --other &quot;&lt;RIGHT_FEN&gt;&quot; --json</code></pre>
+<p><strong>Tag positions deterministically</strong> for labeling pipelines (no engine required unless you add <code>--analyze</code>):</p>
+<pre><code class="language-bash">crtk fen tags --fen &quot;&lt;FEN&gt;&quot; --include-fen
+crtk puzzle tags --fen &quot;&lt;FEN&gt;&quot; --no-analyze</code></pre>
+<p><strong>Generate natural-language summaries</strong> with the local T5 model (see <a href="t5.html">T5 Summaries</a>):</p>
+<pre><code class="language-bash">crtk fen text --fen &quot;&lt;FEN&gt;&quot; --include-fen
+crtk puzzle text --fen &quot;&lt;FEN&gt;&quot; --include-fen</code></pre>
+<h2 id="move-generation-checks-in-ci">Move-Generation Checks in CI</h2>
+<p>With one shared core, perft is the legality gate that matters. Run it after any change that could reach move generation — a regression here is silent everywhere else.</p>
+<pre><code class="language-bash">crtk engine perft --fen &quot;&lt;FEN&gt;&quot; --depth 5 --divide --threads 4
+crtk engine perft-suite --depth 6 --threads 4
 crtk engine perft-suite --suite custom-perft.tsv --threads 4
 crtk engine benchmark --startpos --depth 5 --iterations 5 --json</code></pre>
-<p>The suite prints a progress bar while positions run. After the progress bar finishes, it prints a table with <code>No</code>, <code>Depth</code>, <code>FEN</code>, <code>Truth</code>, <code>Calculated</code>, <code>Speed</code>, and <code>Match</code>.</p>
-<p>Compare two positions without editing FEN fields by hand:</p>
-<pre><code class="language-bash">crtk position diff --fen &quot;&lt;LEFT_FEN&gt;&quot; --other &quot;&lt;RIGHT_FEN&gt;&quot; --json</code></pre>
+<p><code>engine perft-suite</code> prints a progress bar, then a table with <code>No</code>, <code>Depth</code>, <code>FEN</code>, <code>Truth</code>, <code>Calculated</code>, <code>Speed</code>, and <code>Match</code>. A custom <code>--suite</code> TSV takes <code>name&lt;TAB&gt;depth&lt;TAB&gt;fen&lt;TAB&gt;nodes</code> rows, with shorter variants falling back to <code>--depth</code>. GPU acceleration is optional through <code>--gpu</code> with <code>--split &lt;n&gt;</code>, and quietly drops to CPU when no backend is present. See <a href="gpu.html">GPU Backends</a> and <a href="quality-and-testing.html">Quality and Testing</a>.</p>
 <h2 id="record-and-dataset-plumbing">Record and Dataset Plumbing</h2>
-<p>Agents can keep data transformations explicit:</p>
+<p>Data transformations stay explicit and reproducible because nothing is implicit: inputs and outputs are named, and exports emit stable JSON/JSONL or tensor artifacts.</p>
 <pre><code class="language-bash">crtk record files -i dump/ -o dump/merged.json --recursive --puzzles
 crtk record stats -i dump/merged.json
 crtk record tag-stats -i dump/merged.json
 crtk record analysis-delta -i dump/merged.json -o dump/merged.analysis-delta.jsonl</code></pre>
-<p>Dataset exports:</p>
+<p>Dataset and JSONL exports:</p>
 <pre><code class="language-bash">crtk record dataset npy -i dump/merged.json -o training/npy/merged
 crtk record dataset classifier -i dump/puzzles.json -i dump/nonpuzzles.json -o training/classifier/run
-crtk record export training-jsonl -i dump/puzzles.json -i dump/nonpuzzles.json -o training/run.jsonl</code></pre>
+crtk record export training-jsonl -i dump/puzzles.json -o training/run.jsonl --max-records 100000</code></pre>
+<p>Puzzle mining (<code>puzzle mine</code>) writes <code>*.puzzles.json</code> / <code>*.nonpuzzles.json</code> and is gated by the Filter DSL. See <a href="mining.html">Puzzle Mining</a>, <a href="datasets.html">Datasets</a>, and <a href="filter-dsl.html">Filter DSL</a>.</p>
+<h2 id="setup-gates-for-pipelines">Setup Gates for Pipelines</h2>
+<p>Run these as preflight checks before the real work, at the top of a CI job or agent session:</p>
+<ul>
+<li><code>crtk doctor</code> — checks the runtime, config, protocol, engines, and local artifacts. <code>doctor --strict</code> exits non-zero on warnings, not only on errors.</li>
+<li><code>crtk config validate</code> — confirms the config file is well-formed.</li>
+<li><code>crtk engine uci-smoke</code> — starts the configured engine and runs a tiny bounded search, proving the protocol works end to end before you depend on it.</li>
+</ul>
 <h2 id="practical-rules">Practical Rules</h2>
 <ul>
-<li>Prefer <code>--json</code>, <code>--jsonl</code>, or <code>--format uci|san|both|summary</code> flags over parsing prose.</li>
-<li>Prefer FEN and UCI/SAN commands over GUI or image output for agent decisions.</li>
-<li>Put engine budgets on every automated analysis command.</li>
-<li>Keep <code>--verbose</code> off in normal pipelines and enable it only for failures.</li>
-<li>Treat <code>doctor --strict</code>, <code>config validate</code>, and <code>engine uci-smoke</code> as setup</li>
+<li>Take <code>--json</code>, <code>--jsonl</code>, or <code>--format uci|san|both|summary</code> over parsing prose.</li>
+<li>Base decisions on FEN and UCI/SAN commands, not GUI or image output.</li>
+<li>Put an explicit budget (<code>--max-nodes</code> and/or <code>--max-duration</code>) on every automated analysis command.</li>
+<li>Leave <code>--verbose</code> off in normal pipelines; reach for it only when diagnosing a failure, since it prints stack traces.</li>
+<li>Read the exit code: <code>0</code> is success, non-zero is failure, and stdout stays parseable on both.</li>
 </ul>
-<p>gates for CI jobs.</p>
-        </article>
-        <aside class="toc"><h2>On This Page</h2>
-<a class="toc-h2" href="#automation-contract">Automation Contract</a>
-<a class="toc-h2" href="#quick-verification">Quick Verification</a>
-<a class="toc-h2" href="#command-contracts">Command Contracts</a>
-<a class="toc-h2" href="#automation-sequence">Automation Sequence</a>
-<a class="toc-h2" href="#deterministic-move-tasks">Deterministic Move Tasks</a>
-<a class="toc-h2" href="#engine-tasks">Engine Tasks</a>
-<a class="toc-h2" href="#move-generation-checks">Move-Generation Checks</a>
+<blockquote><p>The neural evaluators (<code>nnue</code>, <code>lc0</code>, <code>otis</code>) are working position evaluators, not bit-exact reproductions of the upstream engines. The BT4/LC0 CNN path is simplified and experimental: fine for analysis and labeling, but its scores are not LC0 parity and should not be quoted as such. When you need reference-grade evaluation, route it through an external UCI engine with <code>engine analyze</code>/<code>bestmove</code>.</p></blockquote>
+<h2 id="related-pages">Related Pages</h2>
+<ul>
+<li><a href="command-reference.html">Command Reference</a> — every area, action, and flag</li>
+<li><a href="command-cheatsheet.html">Command Cheatsheet</a> — one-liners for common tasks</li>
+<li><a href="example-commands.html">Example Commands</a> — copy-pasteable walkthroughs</li>
+<li><a href="outputs-and-logs.html">Outputs and Logs</a> — output formats and where artifacts land</li>
+<li><a href="configuration.html">Configuration</a> — config keys and engine protocols</li>
+<li><a href="use-cases.html">Use Cases</a> — end-to-end workflows</li>
+</ul>
+      </article>
+      <aside class="toc"><h2>On this page</h2>
+<a class="toc-h2" href="#why-crtk-is-agent-friendly">Why crtk Is Agent-Friendly</a>
+<a class="toc-h2" href="#quickstart-for-an-agent">Quickstart for an Agent</a>
+<a class="toc-h2" href="#machine-readable-output-by-command">Machine-Readable Output by Command</a>
+<a class="toc-h2" href="#bounding-engine-and-search-runs">Bounding Engine and Search Runs</a>
+<a class="toc-h2" href="#batch-many-commands-in-one-run">Batch Many Commands in One Run</a>
+<a class="toc-h2" href="#scripting-recipes">Scripting Recipes</a>
+<a class="toc-h2" href="#move-generation-checks-in-ci">Move-Generation Checks in CI</a>
 <a class="toc-h2" href="#record-and-dataset-plumbing">Record and Dataset Plumbing</a>
-<a class="toc-h2" href="#practical-rules">Practical Rules</a></aside>
-      </main>
-      <footer class="footer">
-        <span>Generated from <code>wiki/ai-agents.md</code>.</span>
-        <span>Build with <code>python3 scripts/build_docs_site.py</code>.</span>
-      </footer>
-    </div>
+<a class="toc-h2" href="#setup-gates-for-pipelines">Setup Gates for Pipelines</a>
+<a class="toc-h2" href="#practical-rules">Practical Rules</a>
+<a class="toc-h2" href="#related-pages">Related Pages</a></aside>
+    </main>
   </div>
+
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <div class="footer-brand">
+        <a class="footer-logo" href="index.html">
+          <img src="assets/logo/crtk-logo.svg" alt="" width="40" height="40">
+          <span>ChessRTK</span>
+        </a>
+        <p>The deterministic chess research toolkit. Free, open-source, and built on one shared Java chess core.</p>
+        <p class="footer-license">Licensed under GPL-3.0-only.</p>
+      </div>
+      <div class="footer-cols">
+        <div class="footer-col"><h3>Documentation</h3><ul>
+          <li><a href="getting-started.html">Getting Started</a></li>
+          <li><a href="command-reference.html">Command Reference</a></li>
+          <li><a href="configuration.html">Configuration</a></li>
+          <li><a href="troubleshooting.html">Troubleshooting</a></li>
+          <li><a href="chessrtk-manual.pdf">Manual (PDF)</a></li>
+        </ul></div>
+        <div class="footer-col"><h3>Workflows</h3><ul>
+          <li><a href="mining.html">Puzzle Mining</a></li>
+          <li><a href="datasets.html">ML Datasets</a></li>
+          <li><a href="piece-tags.html">Tagging</a></li>
+          <li><a href="book-publishing.html">Book Publishing</a></li>
+          <li><a href="ai-agents.html">AI Agents</a></li>
+        </ul></div>
+        <div class="footer-col"><h3>Project</h3><ul>
+          <li><a href="architecture.html">Architecture</a></li>
+          <li><a href="quality-and-testing.html">Quality &amp; Testing</a></li>
+          <li><a href="https://github.com/LenniAConrad/chess-rtk" target="_blank" rel="noopener">GitHub</a></li>
+          <li><a href="https://github.com/LenniAConrad/chess-rtk/issues" target="_blank" rel="noopener">Issues</a></li>
+        </ul></div>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>&copy; ChessRTK contributors &middot; GPL-3.0-only</span>
+      <span>Documentation generated from the repository <a href="wiki-index.html">wiki</a>.</span>
+    </div>
+  </footer>
+
 </body>
 </html>

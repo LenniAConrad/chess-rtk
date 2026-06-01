@@ -3,153 +3,264 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Troubleshooting | ChessRTK Wiki</title>
+  <title>Troubleshooting | ChessRTK</title>
+  <meta name="description" content="The deterministic chess research toolkit — Troubleshooting.">
+  <link rel="icon" href="assets/logo/crtk-logo.svg" type="image/svg+xml">
   <link rel="stylesheet" href="styles.css">
+  <script>
+    (function () {
+      var key = "crtk-theme";
+      var isTheme = function (value) { return value === "light" || value === "dark"; };
+      var urlTheme = "";
+      var stored = "";
+      try { urlTheme = new URLSearchParams(window.location.search).get("theme"); } catch (e) {}
+      try { stored = localStorage.getItem(key); } catch (e) {}
+      var theme = isTheme(urlTheme) ? urlTheme : (isTheme(stored) ? stored : "");
+      if (!theme) {
+        theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+      }
+      if (isTheme(urlTheme)) {
+        try { localStorage.setItem(key, urlTheme); } catch (e) {}
+      }
+      document.documentElement.setAttribute("data-theme", theme);
+    })();
+  </script>
   <script defer src="search-index.js"></script>
   <script defer src="site.js"></script>
 </head>
-<body>
-  <button class="menu-toggle" type="button" aria-label="Toggle navigation">Menu</button>
-  <div class="site-shell">
-    <aside class="sidebar">
-      <a class="brand" href="index.html">
-        <span class="brand-mark">CR</span>
-        <span><strong>ChessRTK</strong><small>Wiki</small></span>
+<body class="is-doc">
+
+  <header class="topnav">
+    <div class="topnav-inner">
+      <a class="topnav-brand" href="index.html">
+        <img src="assets/logo/crtk-logo.svg" alt="" width="32" height="32">
+        <span>ChessRTK</span>
       </a>
-      <label class="search-label" for="doc-search">Search pages</label>
-      <input id="doc-search" class="search" type="search" placeholder="Search docs...">
+      <button class="nav-toggle" type="button" aria-label="Toggle navigation" aria-expanded="false">
+        <span></span><span></span><span></span>
+      </button>
+      <nav class="topnav-links">
+        <a class="" href="getting-started.html">Get started</a>
+        <a class="" href="command-reference.html">Commands</a>
+        <a class="" href="workbench.html">Workbench</a>
+        <a class="" href="wiki-index.html">Docs</a>
+        <a class="" href="chessrtk-manual.pdf">Manual</a>
+        <a class="topnav-gh" href="https://github.com/LenniAConrad/chess-rtk" target="_blank" rel="noopener">GitHub</a>
+        <button class="theme-toggle" type="button" aria-label="Toggle dark mode" title="Toggle dark mode">
+          <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2v2.4M12 19.6V22M2 12h2.4M19.6 12H22M4.9 4.9l1.7 1.7M17.4 17.4l1.7 1.7M19.1 4.9l-1.7 1.7M6.6 17.4l-1.7 1.7"/></svg>
+          <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4 7 7 0 1 0 20 14.5Z"/></svg>
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <div class="doc-shell">
+    <aside class="sidebar" id="sidebar">
+      <label class="search-label" for="doc-search">Search the docs</label>
+      <input id="doc-search" class="search" type="search" placeholder="Search pages..." autocomplete="off">
       <div id="search-results" class="search-results" hidden></div>
       <nav class="nav"><section class="nav-section"><h2>Start Here</h2>
-<a class="" href="index.html" data-title="home">Home</a>
+<a class="" href="index.html" data-title="overview">Overview</a>
 <a class="" href="getting-started.html" data-title="getting started">Getting Started</a>
+<a class="" href="build-and-install.html" data-title="build &amp; install">Build &amp; Install</a>
 <a class="" href="use-cases.html" data-title="use cases">Use Cases</a>
-<a class="" href="command-cheatsheet.html" data-title="command cheatsheet">Command Cheatsheet</a>
 <a class="" href="faq.html" data-title="faq">FAQ</a>
-<a class="" href="command-reference.html" data-title="command reference">Command Reference</a>
-<a class="" href="example-commands.html" data-title="example commands">Example Commands</a>
 <a class="active" href="troubleshooting.html" data-title="troubleshooting">Troubleshooting</a>
 </section>
-<section class="nav-section"><h2>User Guides</h2>
-<a class="" href="build-and-install.html" data-title="build &amp; install">Build &amp; Install</a>
-<a class="" href="workbench.html" data-title="desktop workbench">Desktop Workbench</a>
+<section class="nav-section"><h2>Commands</h2>
+<a class="" href="command-cheatsheet.html" data-title="cheatsheet">Cheatsheet</a>
+<a class="" href="command-reference.html" data-title="command reference">Command Reference</a>
+<a class="" href="example-commands.html" data-title="example commands">Example Commands</a>
 <a class="" href="configuration.html" data-title="configuration">Configuration</a>
-<a class="" href="in-house-engine.html" data-title="in-house engine">In-House Engine</a>
-<a class="" href="lc0.html" data-title="lc0">LC0</a>
 <a class="" href="outputs-and-logs.html" data-title="outputs &amp; logs">Outputs &amp; Logs</a>
-<a class="" href="support.html" data-title="support">Support</a>
+</section>
+<section class="nav-section"><h2>Desktop Workbench</h2>
+<a class="" href="workbench.html" data-title="workbench">Workbench</a>
+</section>
+<section class="nav-section"><h2>Engines &amp; Models</h2>
+<a class="" href="in-house-engine.html" data-title="built-in engine">Built-in Engine</a>
+<a class="" href="lc0.html" data-title="lc0 networks">LC0 Networks</a>
+<a class="" href="gpu.html" data-title="gpu acceleration">GPU Acceleration</a>
+<a class="" href="t5.html" data-title="t5 text">T5 Text</a>
 </section>
 <section class="nav-section"><h2>Workflows</h2>
-<a class="" href="mining.html" data-title="mining puzzles">Mining Puzzles</a>
+<a class="" href="mining.html" data-title="puzzle mining">Puzzle Mining</a>
 <a class="" href="filter-dsl.html" data-title="filter dsl">Filter DSL</a>
-<a class="" href="datasets.html" data-title="datasets">Datasets</a>
-<a class="" href="book-publishing.html" data-title="book publishing">Book Publishing</a>
-<a class="" href="piece-tags.html" data-title="tags">Tags</a>
+<a class="" href="datasets.html" data-title="ml datasets">ML Datasets</a>
+<a class="" href="piece-tags.html" data-title="tagging">Tagging</a>
 <a class="" href="tag-reference.html" data-title="tag reference">Tag Reference</a>
-<a class="" href="t5.html" data-title="t5 text">T5 Text</a>
-<a class="" href="ai-agents.html" data-title="ai agents">AI Agents</a>
+<a class="" href="book-publishing.html" data-title="book publishing">Book Publishing</a>
+<a class="" href="ai-agents.html" data-title="ai agents &amp; automation">AI Agents &amp; Automation</a>
 </section>
-<section class="nav-section"><h2>Development</h2>
+<section class="nav-section"><h2>Project</h2>
 <a class="" href="architecture.html" data-title="architecture">Architecture</a>
 <a class="" href="quality-and-testing.html" data-title="quality &amp; testing">Quality &amp; Testing</a>
 <a class="" href="development-notes.html" data-title="development notes">Development Notes</a>
 <a class="" href="releasing.html" data-title="releasing">Releasing</a>
-<a class="" href="roadmap.html" data-title="roadmap">Roadmap</a>
 <a class="" href="glossary.html" data-title="glossary">Glossary</a>
-<a class="" href="tagging-implementation-plan.html" data-title="tagging plan">Tagging Plan</a>
+<a class="" href="support.html" data-title="support">Support</a>
 <a class="" href="wiki-index.html" data-title="wiki index">Wiki Index</a>
 </section></nav>
     </aside>
-    <div class="page">
-      <header class="topbar">
-        <div>
-          <span>Start Here</span>
-          <strong>Troubleshooting</strong>
-        </div>
-        <nav>
-          <a href="index.html">Home</a>
-          <a href="wiki-index.html">Wiki Index</a>
-          <a href="chessrtk-manual.pdf">Manual PDF</a>
-          <a href="command-reference.html">Commands</a>
-        </nav>
-      </header>
-      
-      <main class="content-layout">
-        <article class="content">
-          <h1 id="troubleshooting">Troubleshooting</h1>
-<h2 id="mining-fails-to-start-an-engine">Mining fails to start an engine</h2>
+    <main class="doc-main">
+      <article class="content">
+        <p class="content-kicker">Start Here</p>
+        <h1 id="troubleshooting">Troubleshooting</h1>
+<p>Most things that go wrong with crtk go wrong in one of seven places: the launcher or <code>PATH</code>, the runtime version, an external UCI engine that was never configured, a perft mismatch, a build error, missing model files, or a native GPU backend that failed to load. This page walks each one by symptom and gives the fix. Two commands diagnose nearly all of them in seconds, so start there.</p>
+<h2 id="start-here-two-diagnostic-commands">Start here: two diagnostic commands</h2>
+<p>Both are read-only and deterministic. They report what crtk actually resolved on this machine, not what you assume it did.</p>
 <ul>
-<li>Verify your engine binary exists and is executable (check <code>path = ...</code> in your engine protocol TOML).</li>
-<li>Run <code>crtk help</code> and confirm you’re passing <code>--protocol-path</code> to the right file.</li>
-<li>If your engine is on <code>PATH</code>, try <code>which stockfish</code> / <code>which lc0</code>.</li>
-<li>Commands such as <code>move list</code>, <code>engine perft</code>, <code>engine perft-suite</code>,</li>
+<li><code>crtk doctor</code> — checks the Java version, the resolved config and engine protocol files, the engine instance count, the output directory, and whether local model artifacts exist. It prints <code>ok</code>, <code>ok-with-warnings</code>, or an error, then lists each warning.</li>
+<li><code>crtk config validate</code> — validates <code>config/cli.config.toml</code> and the referenced engine protocol TOML and reports the first problem it finds.</li>
 </ul>
-<p><code>engine static</code>, and <code>engine builtin --classical</code> do not start a UCI engine; use them to isolate whether a failure is in the chess core or in external engine configuration.</p>
-<h2 id="perft-validation-fails">Perft validation fails</h2>
+<pre><code class="language-bash">crtk doctor
+crtk config validate
+crtk config show</code></pre>
+<p>A healthy machine prints something like this. Warnings — a missing optional T5 model, say — are non-fatal: <code>doctor</code> reports <code>ok-with-warnings</code> and everything else keeps working.</p>
+<pre><code class="language-text">doctor: ok-with-warnings
+Java: 21.0.11
+Config: /path/to/config/cli.config.toml
+Protocol: config/default.engine.toml
+Engine instances: 4
+Output: dump/
+Warnings:
+  - Missing model file for t5-model-path: /path/to/models/t5.bin</code></pre>
+<p>In CI or scripts, <code>crtk doctor --strict</code> turns warnings into failures — it exits non-zero the moment one is present. See <a href="configuration.html">Configuration</a> for what each value means and <a href="build-and-install.html">Build and Install</a> for installation details.</p>
+<h2 id="launcher-or-path-issues">Launcher or <code>PATH</code> issues</h2>
+<p><strong>Symptom:</strong> <code>crtk: command not found</code>, or the <code>crtk</code> launcher runs an old build.</p>
 <ul>
-<li><code>engine perft-suite</code> compares stored truth values against the Java core move</li>
+<li>Start with <code>which crtk</code>. If nothing prints, the wrapper is not on your <code>PATH</code>.</li>
+<li>The installer places the launcher for you. Re-run <code>./install.sh</code> from the repository root (add <code>--no-desktop</code> to skip the desktop entry), then open a new shell so the updated <code>PATH</code> takes effect.</li>
+<li>Installing with <code>./install.sh --no-launcher</code> skips the wrapper deliberately — invoke the toolkit directly, e.g. <code>java -jar crtk.jar doctor</code> from the repo root. Every <code>crtk &lt;area&gt; &lt;action&gt;</code> in these docs maps one-to-one to <code>java -jar crtk.jar &lt;area&gt; &lt;action&gt;</code>.</li>
+<li>If <code>crtk</code> runs but acts stale, check <code>crtk version</code>. Rebuild (see &quot;Build errors&quot; below), then verify again.</li>
 </ul>
-<p>generator. It does not call Stockfish or any other external process.</p>
+<h2 id="java-version-errors">Java version errors</h2>
+<p><strong>Symptom:</strong> <code>UnsupportedClassVersionError</code>, <code>class file has wrong version</code>, or crtk refuses to start.</p>
 <ul>
-<li>Re-run a failing row directly with `engine perft --fen &quot;&lt;FEN&gt;&quot; --depth &lt;n&gt;</li>
+<li>crtk targets Java 17 and is compiled with <code>javac --release 17</code>, so it runs on that release or anything newer — 21 is fine, as the <code>doctor</code> output above shows.</li>
+<li>See what you actually have with <code>java -version</code>. If it is older than 17, install a 17+ JDK/JRE and make it the default, or point <code>JAVA_HOME</code> at it.</li>
+<li>The <code>Java:</code> line from <code>crtk doctor</code> reports the version crtk resolved. When the launcher and your shell disagree on which runtime they pick, that line is where the disagreement shows.</li>
 </ul>
-<p>--divide` to inspect per-root-move counts.</p>
+<blockquote><p>A stock JDK is all you need to build and run. No Maven, no Gradle, no third-party dependency to resolve.</p></blockquote>
+<h2 id="uci-engine-not-configured">UCI engine not configured</h2>
+<p><strong>Symptom:</strong> an <code>engine</code> command that needs an external engine fails to start a process, hangs, or reports a missing binary. This affects <code>engine analyze</code>, <code>engine bestmove</code> (and <code>bestmove-uci</code> / <code>bestmove-san</code> / <code>bestmove-both</code>), <code>engine threats</code>, <code>engine compare</code>, <code>engine analyze-batch</code>, <code>engine bestmove-batch</code>, and <code>engine uci-smoke</code>, plus any tagging command run with <code>--analyze</code>.</p>
 <ul>
-<li>Recent edits to FEN parsing, Chess960 castling metadata, en-passant handling,</li>
+<li><code>crtk config validate</code> reads the engine protocol TOML named by your config and flags a missing or non-executable binary — usually the whole story.</li>
+<li>That protocol TOML names the engine and its <code>path = ...</code>. Confirm the path exists and is executable. If the engine lives on your <code>PATH</code>, <code>which stockfish</code> or <code>which lc0</code> tells you where.</li>
+<li>To debug against a specific protocol without touching your default, point one command at it with <code>--protocol-path /path/to/engine.toml</code> (short form <code>-P</code>).</li>
+<li>Isolate the wiring with the smallest possible search:</li>
 </ul>
-<p>SAN move application, make/undo, or attack detection can all affect perft.</p>
-<h2 id="filters-don-t-seem-to-stick">Filters don’t seem to “stick”</h2>
+<pre><code class="language-bash">crtk engine uci-smoke -P config/default.engine.toml --max-nodes 1</code></pre>
 <ul>
-<li>If a Filter DSL string is invalid, the CLI logs an error and falls back to the defaults.</li>
-<li>Prefer editing <code>config/cli.config.toml</code> first (then override per-run once you’re happy).</li>
+<li>To take the external engine out of the picture, use commands that never spawn a UCI process: <code>engine static</code> and <code>engine eval</code> (local evaluators), <code>engine builtin</code> / <code>engine java</code> (built-in MCTS searcher), <code>engine mate</code> (forced-mate prover), <code>move list</code>, <code>engine perft</code>, and <code>engine perft-suite</code>. If those run and <code>engine analyze</code> does not, the fault is in the external-engine configuration, not the chess core. See <a href="configuration.html">Configuration</a> and <a href="lc0.html">LC0</a> for protocol setup.</li>
 </ul>
-<h2 id="mining-is-too-slow">Mining is too slow</h2>
+<h2 id="perft-mismatches">Perft mismatches</h2>
+<p><strong>Symptom:</strong> <code>engine perft-suite</code> reports a failing row, or <code>engine perft</code> returns a node count that disagrees with a known reference.</p>
 <ul>
-<li>Lower <code>--max-nodes</code> / <code>--max-duration</code>.</li>
-<li>Reduce <code>--engine-instances</code>.</li>
-<li>Relax the quality gate (<code>puzzle-quality</code>) and/or the accelerate prefilter (<code>puzzle-accelerate</code>).</li>
+<li><code>engine perft-suite</code> checks stored truth values against crtk&#x27;s own move generator — or the native GPU backend when <code>--gpu</code> is set. No Stockfish, no external UCI process. A mismatch therefore implicates the core move generation, or on the GPU path, the device backend.</li>
+<li>Re-run the failing position on its own and break it down per root move:</li>
 </ul>
-<h2 id="fen-display-ablation-is-slow-or-uses-the-classical-backend"><code>fen display --ablation</code> is slow or uses the classical backend</h2>
+<pre><code class="language-bash">crtk engine perft --fen &quot;&lt;FEN&gt;&quot; --depth &lt;n&gt; --divide</code></pre>
 <ul>
-<li>The evaluator tries to load local <code>models/leela_112planes-10blocksx128-policyhead80-valuehead32-policy4672-wdl3.bin</code> weights and falls back to a classical heuristic when LC0 is unavailable. Fetch the default weights with <code>./install.sh --models</code>.</li>
-<li>If you want native GPU acceleration, build the matching backend under</li>
+<li>When a GPU row fails, separate the device backend from the core logic: run the position once with <code>--gpu --divide --split &lt;n&gt;</code>, then again without <code>--gpu</code>. A correct CPU run alongside a wrong GPU run pins the bug to the native backend.</li>
+<li>After code changes, mismatches usually trace to FEN parsing, Chess960 castling metadata, en-passant handling, SAN/UCI move application, make/undo, or attack detection. One chess core backs every command, so a single regression in any of those surfaces in many places at once. Rule out a malformed input first with <code>crtk fen validate --fen &quot;&lt;FEN&gt;&quot;</code>.</li>
+<li>For a fast end-to-end check of the generator&#x27;s throughput and correctness on the start position, use <code>crtk engine benchmark --startpos --depth 5</code>.</li>
 </ul>
-<p><code>native/cuda/</code>, <code>native/rocm/</code>, or <code>native/oneapi/</code> and run with <code>-Djava.library.path=...</code>.</p>
-<h2 id="engine-builtin-nnue-says-default-weights-are-missing"><code>engine builtin --nnue</code> says default weights are missing</h2>
+<h2 id="build-errors">Build errors</h2>
+<p><strong>Symptom:</strong> <code>javac</code> errors, or the build produces a jar that does not run.</p>
 <ul>
-<li>Run <code>./install.sh --models</code> to download <code>models/crtk-halfkp.nnue</code>, the</li>
+<li>Build against the Java 17 release target. A bare newer JDK without <code>--release 17</code> can throw spurious errors; the supported path is <code>javac --release 17</code>. The installer does this for you — re-run <code>./install.sh</code> from the repository root to compile and assemble <code>crtk.jar</code>.</li>
+<li>There is no <code>pom.xml</code> and no <code>build.gradle</code>. If you are looking for one, you are on the wrong path: the build is plain <code>javac</code> driven by <code>install.sh</code>.</li>
+<li>Once it builds, confirm the artifact runs. <code>java -jar crtk.jar version</code> prints the version; <code>crtk doctor</code> reports <code>ok</code> or <code>ok-with-warnings</code>.</li>
+<li>The native GPU libraries (CUDA / ROCm / oneAPI) are a separate, optional compile step behind the installer flags below. A failure there leaves the pure-Java build intact, and crtk falls back to CPU on its own. See <a href="build-and-install.html">Build and Install</a> for the full procedure.</li>
 </ul>
-<p>ChessRTK LC0 CNN <code>.bin</code> weights, and the official LC0 BT4 <code>.pb.gz</code> network.</p>
+<h2 id="model-files-missing">Model files missing</h2>
+<p><strong>Symptom:</strong> a command that needs local neural-network weights warns that default weights are missing and falls back to a classical heuristic, or a T5 command cannot find a model.</p>
+<p>Model binaries stay out of git and out of a fresh clone, so a new checkout reports them missing until you fetch them. This is expected, not a fault. <code>crtk doctor</code> names each expected-but-missing model in its warnings — the <code>t5-model-path</code> line above is one.</p>
 <ul>
-<li>Or pass <code>--weights /path/to/file.nnue</code> explicitly. Supported Stockfish NNUE files work here too.</li>
+<li>Fetch the default bundled weights in one step:</li>
 </ul>
-<h2 id="cover-dimensions-do-not-match-the-upload-form">Cover dimensions do not match the upload form</h2>
+<pre><code class="language-bash">./install.sh --models</code></pre>
 <ul>
-<li>Pass the rendered interior PDF to <code>book cover --pdf &lt;interior.pdf&gt;</code> so trim size and page count come from the actual file.</li>
-<li>Use <code>book cover --pages &lt;n&gt;</code> only when you need to override the PDF-derived spine count.</li>
-<li>Use a current interior token: <code>white-bw</code>, <code>cream-bw</code>, <code>white-standard-color</code>, or <code>white-premium-color</code>.</li>
-<li>Compare the dimensions printed by <code>book cover</code> with the publishing service&#x27;s own cover calculator before upload.</li>
+<li>That pulls the NNUE weights (<code>models/crtk-halfkp.nnue</code>), the ChessRTK LC0 CNN <code>.bin</code> weights, and the LC0 BT4 <code>.pb.gz</code> network into <code>models/</code>.</li>
+<li>The LC0 CNN and OTIS evaluators read their weights from <code>models/</code> and fall back to the classical heuristic when the files are gone. So on a fresh clone, <code>engine eval</code>, <code>fen display --ablation</code>, and <code>fen render --ablation</code> quietly use the classical backend until you fetch the weights.</li>
+<li>Override any default by naming weights explicitly: <code>engine builtin --nnue --weights /path/to/file.nnue</code>, <code>engine eval --lc0 --weights /path/to/file.bin</code>, or <code>engine eval --otis --weights /path/to/file</code>. Stockfish-format NNUE files work with the NNUE evaluator.</li>
+<li>For T5 natural-language summaries (<code>fen text</code>, <code>puzzle text</code>), pass <code>--model /path/to/t5.bin</code> or set <code>t5-model-path</code> in <code>config/cli.config.toml</code>.</li>
 </ul>
-<h2 id="t5-commands-cannot-find-a-model">T5 commands cannot find a model</h2>
+<blockquote><p>crtk&#x27;s networks are usable evaluators, but the BT4 path is simplified and experimental — not a bit-exact reproduction of upstream LC0/BT4 inference. Read its output as an approximation, not a reference. See <a href="lc0.html">LC0</a> for details on the network paths.</p></blockquote>
+<h2 id="gpu-backend-not-found">GPU backend not found</h2>
+<p><strong>Symptom:</strong> <code>engine perft --gpu</code>, <code>engine perft-suite --gpu</code>, or a GPU-accelerated OTIS evaluation runs on the CPU, or you want to confirm whether the native backend even loaded.</p>
 <ul>
-<li>Pass <code>--model /path/to/t5.bin</code>, or set <code>t5-model-path</code> in <code>config/cli.config.toml</code>.</li>
-<li>Model binaries are local artifacts and are ignored by git; they are not bundled with a fresh clone.</li>
+<li><code>crtk engine gpu</code> prints a per-backend status report. Each line says whether the JNI library loaded and whether a device is available:</li>
 </ul>
-        </article>
-        <aside class="toc"><h2>On This Page</h2>
-<a class="toc-h2" href="#mining-fails-to-start-an-engine">Mining fails to start an engine</a>
-<a class="toc-h2" href="#perft-validation-fails">Perft validation fails</a>
-<a class="toc-h2" href="#filters-don-t-seem-to-stick">Filters don’t seem to “stick”</a>
-<a class="toc-h2" href="#mining-is-too-slow">Mining is too slow</a>
-<a class="toc-h2" href="#fen-display-ablation-is-slow-or-uses-the-classical-backend">fen display --ablation is slow or uses the classical backend</a>
-<a class="toc-h2" href="#engine-builtin-nnue-says-default-weights-are-missing">engine builtin --nnue says default weights are missing</a>
-<a class="toc-h2" href="#cover-dimensions-do-not-match-the-upload-form">Cover dimensions do not match the upload form</a>
-<a class="toc-h2" href="#t5-commands-cannot-find-a-model">T5 commands cannot find a model</a></aside>
-      </main>
-      <footer class="footer">
-        <span>Generated from <code>wiki/troubleshooting.md</code>.</span>
-        <span>Build with <code>python3 scripts/build_docs_site.py</code>.</span>
-      </footer>
-    </div>
+<pre><code class="language-text">LC0 CNN CUDA JNI backend: loaded=yes, available=yes (deviceCount=1)
+OTIS CUDA JNI backend: loaded=yes, available=yes (deviceCount=1)
+PERFT CUDA JNI backend: loaded=yes, available=yes (deviceCount=1)
+PERFT ROCm JNI backend: loaded=no, available=no (deviceCount=0)</code></pre>
+<ul>
+<li><code>loaded=no</code> means the native shared library was never found, or could not be linked — you have to build it for your platform. The installer compiles the matching backend: <code>./install.sh --cuda</code> (NVIDIA), <code>./install.sh --rocm</code> (AMD), or <code>./install.sh --oneapi</code> (Intel). Sources live under <code>native/cuda/</code>, <code>native/rocm/</code>, and <code>native/oneapi/</code>.</li>
+<li><code>loaded=yes, available=no</code> means the library linked but found no usable device. That points at the GPU driver and runtime (CUDA / ROCm / oneAPI), not at crtk.</li>
+<li>Built the libraries by hand rather than through the installer? Make them visible at runtime with <code>-Djava.library.path=...</code>.</li>
+<li>A missing or broken GPU backend is never fatal — GPU perft and OTIS fall back to the CPU on their own. <code>crtk engine gpu --verbose</code> gives more detail. See <a href="build-and-install.html">Build and Install</a> for native backend build instructions.</li>
+</ul>
+<h2 id="still-stuck">Still stuck?</h2>
+<ul>
+<li><code>--verbose</code> (or <code>-v</code>) on almost any command swaps the one-line error for a full stack trace.</li>
+<li><code>crtk clean</code> clears the session cache and logs when stale state is in the way; re-run <code>crtk doctor</code> afterward.</li>
+<li>The <a href="faq.html">FAQ</a> answers the common questions, the <a href="command-reference.html">Command Reference</a> has the exact flags, and <a href="support.html">Support</a> explains how to report a bug.</li>
+</ul>
+      </article>
+      <aside class="toc"><h2>On this page</h2>
+<a class="toc-h2" href="#start-here-two-diagnostic-commands">Start here: two diagnostic commands</a>
+<a class="toc-h2" href="#launcher-or-path-issues">Launcher or PATH issues</a>
+<a class="toc-h2" href="#java-version-errors">Java version errors</a>
+<a class="toc-h2" href="#uci-engine-not-configured">UCI engine not configured</a>
+<a class="toc-h2" href="#perft-mismatches">Perft mismatches</a>
+<a class="toc-h2" href="#build-errors">Build errors</a>
+<a class="toc-h2" href="#model-files-missing">Model files missing</a>
+<a class="toc-h2" href="#gpu-backend-not-found">GPU backend not found</a>
+<a class="toc-h2" href="#still-stuck">Still stuck?</a></aside>
+    </main>
   </div>
+
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <div class="footer-brand">
+        <a class="footer-logo" href="index.html">
+          <img src="assets/logo/crtk-logo.svg" alt="" width="40" height="40">
+          <span>ChessRTK</span>
+        </a>
+        <p>The deterministic chess research toolkit. Free, open-source, and built on one shared Java chess core.</p>
+        <p class="footer-license">Licensed under GPL-3.0-only.</p>
+      </div>
+      <div class="footer-cols">
+        <div class="footer-col"><h3>Documentation</h3><ul>
+          <li><a href="getting-started.html">Getting Started</a></li>
+          <li><a href="command-reference.html">Command Reference</a></li>
+          <li><a href="configuration.html">Configuration</a></li>
+          <li><a href="troubleshooting.html">Troubleshooting</a></li>
+          <li><a href="chessrtk-manual.pdf">Manual (PDF)</a></li>
+        </ul></div>
+        <div class="footer-col"><h3>Workflows</h3><ul>
+          <li><a href="mining.html">Puzzle Mining</a></li>
+          <li><a href="datasets.html">ML Datasets</a></li>
+          <li><a href="piece-tags.html">Tagging</a></li>
+          <li><a href="book-publishing.html">Book Publishing</a></li>
+          <li><a href="ai-agents.html">AI Agents</a></li>
+        </ul></div>
+        <div class="footer-col"><h3>Project</h3><ul>
+          <li><a href="architecture.html">Architecture</a></li>
+          <li><a href="quality-and-testing.html">Quality &amp; Testing</a></li>
+          <li><a href="https://github.com/LenniAConrad/chess-rtk" target="_blank" rel="noopener">GitHub</a></li>
+          <li><a href="https://github.com/LenniAConrad/chess-rtk/issues" target="_blank" rel="noopener">Issues</a></li>
+        </ul></div>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>&copy; ChessRTK contributors &middot; GPL-3.0-only</span>
+      <span>Documentation generated from the repository <a href="wiki-index.html">wiki</a>.</span>
+    </div>
+  </footer>
+
 </body>
 </html>

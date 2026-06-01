@@ -1,6 +1,6 @@
 digraph crtk_position_toolbox {
   rankdir=LR;
-  bgcolor="transparent";
+  bgcolor="#ffffff";
   splines=ortho;
   pad="0.20";
   nodesep="0.35";
@@ -8,47 +8,47 @@ digraph crtk_position_toolbox {
 
   graph [fontname="Helvetica", fontsize=14];
   node  [fontname="Helvetica", fontsize=12];
-  edge  [fontname="Helvetica", fontsize=10, color="#444444", arrowsize=0.8, penwidth=1.2];
+  edge  [fontname="Helvetica", fontsize=10, color="#45708a", arrowsize=0.8, penwidth=1.2];
 
   subgraph cluster_input {
     label="Input";
     style="rounded";
-    color="#B39DDB";
-    fontcolor="#311B92";
+    color="#9fb6dd";
+    fontcolor="#15356b";
     penwidth=1.4;
 
-    node [shape=note, style="filled", fillcolor="#F3E5F5", color="#6A1B9A", penwidth=1.2];
+    node [shape=note, style="filled", fillcolor="#e8eef7", color="#1d4e89", penwidth=1.2];
     fen [label="FEN position\n(\"<FEN>\")"];
   }
 
   subgraph cluster_commands {
     label="Single-position commands";
     style="rounded";
-    color="#90CAF9";
-    fontcolor="#0D47A1";
+    color="#8fd3e6";
+    fontcolor="#0c3a4c";
     penwidth=1.4;
 
-    node [shape=box, style="rounded,filled", fillcolor="#E3F2FD", color="#1565C0", penwidth=1.2];
-    print [label="print"];
-    moves [label="moves\n(moves-uci/moves-san/moves-both)"];
-    tags [label="tags"];
-    render [label="render"];
-    display [label="display"];
-    eval [label="eval / eval-static"];
-    analyze [label="analyze"];
-    bestmove [label="bestmove\n(bestmove-uci/bestmove-san/bestmove-both)"];
-    threats [label="threats"];
-    perft [label="perft"];
+    node [shape=box, style="rounded,filled", fillcolor="#e2f3f8", color="#11688a", penwidth=1.2];
+    print [label="fen print"];
+    moves [label="move list\n(uci / san / both)"];
+    tags [label="fen tags"];
+    render [label="fen render"];
+    display [label="fen display"];
+    eval [label="engine eval / static"];
+    analyze [label="engine analyze"];
+    bestmove [label="engine bestmove\n(-uci / -san / -both)"];
+    threats [label="engine threats"];
+    perft [label="engine perft"];
   }
 
   subgraph cluster_engines {
     label="Backends (optional)";
     style="rounded";
-    color="#FFCC80";
-    fontcolor="#E65100";
+    color="#f0c98a";
+    fontcolor="#8a5410";
     penwidth=1.4;
 
-    node [shape=component, style="filled", fillcolor="#FFF3E0", color="#EF6C00", penwidth=1.2];
+    node [shape=component, style="filled", fillcolor="#fbf1dd", color="#b06d12", penwidth=1.2];
     uci [label="UCI engine\n(Stockfish / LC0)"];
     evaluator [label="Evaluator\n(Java LC0 / heuristics)"];
   }
@@ -56,11 +56,11 @@ digraph crtk_position_toolbox {
   subgraph cluster_outputs {
     label="What you get";
     style="rounded";
-    color="#A5D6A7";
-    fontcolor="#1B5E20";
+    color="#9fd9cf";
+    fontcolor="#0b4d44";
     penwidth=1.4;
 
-    node [shape=note, style="filled", fillcolor="#F1F8E9", color="#558B2F", penwidth=1.2];
+    node [shape=note, style="filled", fillcolor="#e9f6f1", color="#14756b", penwidth=1.2];
     out_ascii [label="ASCII board"];
     out_moves [label="Legal moves"];
     out_tags [label="Tags"];

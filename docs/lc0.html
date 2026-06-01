@@ -3,186 +3,338 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>LC0 (UCI Engine and Java Evaluator) | ChessRTK Wiki</title>
+  <title>LC0 Networks in ChessRTK | ChessRTK</title>
+  <meta name="description" content="The deterministic chess research toolkit — LC0 Networks in ChessRTK.">
+  <link rel="icon" href="assets/logo/crtk-logo.svg" type="image/svg+xml">
   <link rel="stylesheet" href="styles.css">
+  <script>
+    (function () {
+      var key = "crtk-theme";
+      var isTheme = function (value) { return value === "light" || value === "dark"; };
+      var urlTheme = "";
+      var stored = "";
+      try { urlTheme = new URLSearchParams(window.location.search).get("theme"); } catch (e) {}
+      try { stored = localStorage.getItem(key); } catch (e) {}
+      var theme = isTheme(urlTheme) ? urlTheme : (isTheme(stored) ? stored : "");
+      if (!theme) {
+        theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+      }
+      if (isTheme(urlTheme)) {
+        try { localStorage.setItem(key, urlTheme); } catch (e) {}
+      }
+      document.documentElement.setAttribute("data-theme", theme);
+    })();
+  </script>
   <script defer src="search-index.js"></script>
   <script defer src="site.js"></script>
 </head>
-<body>
-  <button class="menu-toggle" type="button" aria-label="Toggle navigation">Menu</button>
-  <div class="site-shell">
-    <aside class="sidebar">
-      <a class="brand" href="index.html">
-        <span class="brand-mark">CR</span>
-        <span><strong>ChessRTK</strong><small>Wiki</small></span>
+<body class="is-doc">
+
+  <header class="topnav">
+    <div class="topnav-inner">
+      <a class="topnav-brand" href="index.html">
+        <img src="assets/logo/crtk-logo.svg" alt="" width="32" height="32">
+        <span>ChessRTK</span>
       </a>
-      <label class="search-label" for="doc-search">Search pages</label>
-      <input id="doc-search" class="search" type="search" placeholder="Search docs...">
+      <button class="nav-toggle" type="button" aria-label="Toggle navigation" aria-expanded="false">
+        <span></span><span></span><span></span>
+      </button>
+      <nav class="topnav-links">
+        <a class="" href="getting-started.html">Get started</a>
+        <a class="" href="command-reference.html">Commands</a>
+        <a class="" href="workbench.html">Workbench</a>
+        <a class="" href="wiki-index.html">Docs</a>
+        <a class="" href="chessrtk-manual.pdf">Manual</a>
+        <a class="topnav-gh" href="https://github.com/LenniAConrad/chess-rtk" target="_blank" rel="noopener">GitHub</a>
+        <button class="theme-toggle" type="button" aria-label="Toggle dark mode" title="Toggle dark mode">
+          <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2v2.4M12 19.6V22M2 12h2.4M19.6 12H22M4.9 4.9l1.7 1.7M17.4 17.4l1.7 1.7M19.1 4.9l-1.7 1.7M6.6 17.4l-1.7 1.7"/></svg>
+          <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4 7 7 0 1 0 20 14.5Z"/></svg>
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <div class="doc-shell">
+    <aside class="sidebar" id="sidebar">
+      <label class="search-label" for="doc-search">Search the docs</label>
+      <input id="doc-search" class="search" type="search" placeholder="Search pages..." autocomplete="off">
       <div id="search-results" class="search-results" hidden></div>
       <nav class="nav"><section class="nav-section"><h2>Start Here</h2>
-<a class="" href="index.html" data-title="home">Home</a>
+<a class="" href="index.html" data-title="overview">Overview</a>
 <a class="" href="getting-started.html" data-title="getting started">Getting Started</a>
+<a class="" href="build-and-install.html" data-title="build &amp; install">Build &amp; Install</a>
 <a class="" href="use-cases.html" data-title="use cases">Use Cases</a>
-<a class="" href="command-cheatsheet.html" data-title="command cheatsheet">Command Cheatsheet</a>
 <a class="" href="faq.html" data-title="faq">FAQ</a>
-<a class="" href="command-reference.html" data-title="command reference">Command Reference</a>
-<a class="" href="example-commands.html" data-title="example commands">Example Commands</a>
 <a class="" href="troubleshooting.html" data-title="troubleshooting">Troubleshooting</a>
 </section>
-<section class="nav-section"><h2>User Guides</h2>
-<a class="" href="build-and-install.html" data-title="build &amp; install">Build &amp; Install</a>
-<a class="" href="workbench.html" data-title="desktop workbench">Desktop Workbench</a>
+<section class="nav-section"><h2>Commands</h2>
+<a class="" href="command-cheatsheet.html" data-title="cheatsheet">Cheatsheet</a>
+<a class="" href="command-reference.html" data-title="command reference">Command Reference</a>
+<a class="" href="example-commands.html" data-title="example commands">Example Commands</a>
 <a class="" href="configuration.html" data-title="configuration">Configuration</a>
-<a class="" href="in-house-engine.html" data-title="in-house engine">In-House Engine</a>
-<a class="active" href="lc0.html" data-title="lc0">LC0</a>
 <a class="" href="outputs-and-logs.html" data-title="outputs &amp; logs">Outputs &amp; Logs</a>
-<a class="" href="support.html" data-title="support">Support</a>
+</section>
+<section class="nav-section"><h2>Desktop Workbench</h2>
+<a class="" href="workbench.html" data-title="workbench">Workbench</a>
+</section>
+<section class="nav-section"><h2>Engines &amp; Models</h2>
+<a class="" href="in-house-engine.html" data-title="built-in engine">Built-in Engine</a>
+<a class="active" href="lc0.html" data-title="lc0 networks">LC0 Networks</a>
+<a class="" href="gpu.html" data-title="gpu acceleration">GPU Acceleration</a>
+<a class="" href="t5.html" data-title="t5 text">T5 Text</a>
 </section>
 <section class="nav-section"><h2>Workflows</h2>
-<a class="" href="mining.html" data-title="mining puzzles">Mining Puzzles</a>
+<a class="" href="mining.html" data-title="puzzle mining">Puzzle Mining</a>
 <a class="" href="filter-dsl.html" data-title="filter dsl">Filter DSL</a>
-<a class="" href="datasets.html" data-title="datasets">Datasets</a>
-<a class="" href="book-publishing.html" data-title="book publishing">Book Publishing</a>
-<a class="" href="piece-tags.html" data-title="tags">Tags</a>
+<a class="" href="datasets.html" data-title="ml datasets">ML Datasets</a>
+<a class="" href="piece-tags.html" data-title="tagging">Tagging</a>
 <a class="" href="tag-reference.html" data-title="tag reference">Tag Reference</a>
-<a class="" href="t5.html" data-title="t5 text">T5 Text</a>
-<a class="" href="ai-agents.html" data-title="ai agents">AI Agents</a>
+<a class="" href="book-publishing.html" data-title="book publishing">Book Publishing</a>
+<a class="" href="ai-agents.html" data-title="ai agents &amp; automation">AI Agents &amp; Automation</a>
 </section>
-<section class="nav-section"><h2>Development</h2>
+<section class="nav-section"><h2>Project</h2>
 <a class="" href="architecture.html" data-title="architecture">Architecture</a>
 <a class="" href="quality-and-testing.html" data-title="quality &amp; testing">Quality &amp; Testing</a>
 <a class="" href="development-notes.html" data-title="development notes">Development Notes</a>
 <a class="" href="releasing.html" data-title="releasing">Releasing</a>
-<a class="" href="roadmap.html" data-title="roadmap">Roadmap</a>
 <a class="" href="glossary.html" data-title="glossary">Glossary</a>
-<a class="" href="tagging-implementation-plan.html" data-title="tagging plan">Tagging Plan</a>
+<a class="" href="support.html" data-title="support">Support</a>
 <a class="" href="wiki-index.html" data-title="wiki index">Wiki Index</a>
 </section></nav>
     </aside>
-    <div class="page">
-      <header class="topbar">
-        <div>
-          <span>User Guides</span>
-          <strong>LC0 (UCI Engine and Java Evaluator)</strong>
-        </div>
-        <nav>
-          <a href="index.html">Home</a>
-          <a href="wiki-index.html">Wiki Index</a>
-          <a href="chessrtk-manual.pdf">Manual PDF</a>
-          <a href="command-reference.html">Commands</a>
-        </nav>
-      </header>
-      
-      <main class="content-layout">
-        <article class="content">
-          <h1 id="lc0-uci-engine-and-java-evaluator">LC0 (UCI Engine and Java Evaluator)</h1>
-<p>ChessRTK supports two LC0-related workflows:</p>
-<ol>
-<li>LC0 as an external UCI engine for analysis and mining, usually with</li>
-</ol>
-<p><code>.pb.gz</code> weights.</p>
-<ol>
-<li>A Java LC0 value evaluator for <code>engine eval</code>, <code>engine builtin --lc0</code>,</li>
-</ol>
-<p>board display, and ablation overlays, using ChessRTK LC0 CNN <code>.bin</code> weights.</p>
-<ol>
-<li>A Java/native LC0 BT4 architecture under <code>src/chess/nn/lc0/bt4/</code> for</li>
-</ol>
-<p>attention-body model integration and backend checks.</p>
-<p>Model weights are not checked into this repo. Local <code>models/<em>.bin</code>, <code>models/</em>.pb.gz</code>, and <code>models/*.nnue</code> files are gitignored; fetch the default LC0 CNN and official LC0 BT4 weights with <code>./install.sh --models</code> or download them manually from <code>models/README.md</code>.</p>
-<h2 id="lc0-as-a-uci-engine">LC0 as a UCI Engine</h2>
-<p>If your engine protocol points to <code>lc0</code> (see <code>config/lc0.engine.toml</code>), you typically also need to set:</p>
-<pre><code class="language-toml">setup = [
-  # ...
-  &quot;setoption name WeightsFile value /path/to/network.pb.gz&quot;,
-]</code></pre>
-<p>The default model download includes the official LCZero BT4 network:</p>
-<pre><code class="language-text">models/BT4-1024x15x32h-swa-6147500-policytune-332.pb.gz</code></pre>
-<p>It is the upstream LC0 protobuf gzip format, not a ChessRTK <code>.bin</code> file. Use it with LC0&#x27;s own <code>WeightsFile</code> option, for example:</p>
-<pre><code class="language-toml">setup = [
-  &quot;setoption name WeightsFile value models/BT4-1024x15x32h-swa-6147500-policytune-332.pb.gz&quot;,
-]</code></pre>
-<p>Recommended workflow:</p>
-<ol>
-<li>Download a network locally (gitignored):</li>
-</ol>
-<pre><code class="language-bash">   ./scripts/fetch_lc0_net.sh --url &lt;URL&gt; --out nets</code></pre>
-<ol>
-<li>Update your engine protocol TOML to point <code>WeightsFile</code> at that path.</li>
-<li>(Optional) switch mining thresholds to the included <code>config/cli.lc0.config.toml</code> baseline (copy it over <code>config/cli.config.toml</code>).</li>
-</ol>
-<p>Guardrail (fail if weights are tracked by git):</p>
-<pre><code class="language-bash">./scripts/check_no_weights_tracked.sh</code></pre>
-<p>Use the configured UCI engine through the normal engine commands:</p>
-<pre><code class="language-bash">crtk engine uci-smoke --nodes 1 --max-duration 5s
-crtk engine analyze --fen &quot;&lt;FEN&gt;&quot; --max-duration 10s --multipv 3
-crtk engine bestmove --fen &quot;&lt;FEN&gt;&quot; --format both --max-duration 5s
-crtk puzzle mine --input seeds.txt --output dump/lc0.json --engine-instances 2</code></pre>
+    <main class="doc-main">
+      <article class="content">
+        <p class="content-kicker">Engines &amp; Models</p>
+        <h1 id="lc0-networks-in-chessrtk">LC0 Networks in ChessRTK</h1>
+<p>There are two ways to put a Leela Chess Zero network to work here, and they answer different questions. Run upstream <code>lc0</code> as an <strong>external UCI engine</strong> against its own <code>.pb.gz</code> weights when you want LC0 itself, exactly. Or use the <strong>built-in Java LC0 CNN evaluator</strong>, which loads compact ChessRTK <code>.bin</code> weights and runs policy/value inference in-process on the CPU or an optional native GPU backend. The in-process evaluator sits on the same deterministic chess core as everything else, so the position you score (<code>engine eval --lc0</code>), search (<code>engine builtin --lc0</code>), visualize in the Workbench, or export as training tensors (<code>record dataset lc0</code>) is one and the same object. The catch worth stating up front: these are honest, usable evaluators, <strong>not</strong> bit-exact reproductions of upstream LC0. The transformer (BT4) path is more experimental still. When fidelity is the point, run real <code>lc0</code>.</p>
+<p>What follows: the CNN evaluator and its 112-plane input, the policy and value heads, the CPU and GPU backends, LC0 as an external engine, and dataset export. See <a href="configuration.html">Configuration</a> for engine protocols, <a href="in-house-engine.html">In-House Engine</a> for the built-in MCTS, and <a href="ai-agents.html">AI Agents</a> for the evaluator overview.</p>
+<h2 id="two-lc0-workflows-at-a-glance">Two LC0 Workflows at a Glance</h2>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Workflow</th>
+<th>Weights</th>
+<th>Entry points</th>
+<th>Fidelity</th>
+</tr></thead><tbody>
+<tr>
+<td>External UCI engine</td>
+<td>upstream LC0 <code>.pb.gz</code></td>
+<td><code>engine analyze</code>, <code>engine bestmove</code>, <code>engine threats</code>, <code>engine compare</code>, <code>puzzle mine</code></td>
+<td>Full upstream LC0 (it <em>is</em> LC0)</td>
+</tr>
+<tr>
+<td>Java LC0 CNN evaluator</td>
+<td>ChessRTK <code>.bin</code></td>
+<td><code>engine eval --lc0</code>, <code>engine builtin --lc0</code>, <code>fen display --ablation</code>, <code>record dataset lc0</code></td>
+<td>Usable; not bit-exact</td>
+</tr>
+<tr>
+<td>Java LC0 BT4 (transformer)</td>
+<td>ChessRTK BT4 <code>.bin</code></td>
+<td>backend checks / integration only</td>
+<td>Simplified, experimental</td>
+</tr>
+</tbody></table></div>
+<p>Model weights are not committed to the repository. Local <code>models/*.bin</code>, <code>models/*.pb.gz</code>, and <code>models/*.nnue</code> files are gitignored. Fetch the defaults with <code>./install.sh --models</code>, or download them manually as described in <code>models/README.md</code>.</p>
 <h2 id="java-lc0-cnn-evaluator">Java LC0 CNN Evaluator</h2>
 <p><img src="assets/diagrams/crtk-lc0-cnn.png" alt="LC0 CNN evaluator flow" loading="lazy"></p>
-<p>Diagram source: <code>assets/diagrams/crtk-lc0-cnn.dot</code> (render with <code>dot -Tpng -Gdpi=160 -o assets/diagrams/crtk-lc0-cnn.png assets/diagrams/crtk-lc0-cnn.dot</code>).</p>
-<p>The Java CNN evaluator lives under <code>src/chess/nn/lc0/cnn/</code> and is used by LC0-aware evaluation, display, and dataset paths.</p>
-<p>Defaults:</p>
-<ul>
-<li>weights path: <code>models/leela_112planes-10blocksx128-policyhead80-valuehead32-policy4672-wdl3.bin</code> (<code>chess.nn.lc0.cnn.Model.DEFAULT_WEIGHTS</code>)</li>
-<li>backend: <code>auto</code>, which uses an available native GPU backend before falling</li>
-</ul>
-<p>back to the pure Java CPU evaluator</p>
-<p>Backend selection (system properties):</p>
-<ul>
-<li><code>-Dcrtk.lc0.backend=auto|cpu|cuda|rocm|amd|hip|oneapi|intel</code> (default <code>auto</code>)</li>
-<li><code>-Dcrtk.lc0.threads=N</code> (CPU backend only)</li>
-</ul>
-<p>Evaluate a position:</p>
-<pre><code class="language-bash">crtk engine eval --fen &quot;&lt;FEN&gt;&quot; --lc0 \
+<p>The CNN evaluator lives under <code>src/chess/nn/lc0/cnn/</code>: a forward pass over a Leela-style convolutional residual network with squeeze-and-excitation (SE) blocks, a policy head, and a WDL value head, written in plain Java with no native dependency. Sharing the one chess core buys something useful here — the <code>Position</code> you analyze, search, or render becomes the exact tensor the network sees, so the same input always produces the same output.</p>
+<p>The default ChessRTK LC0 CNN weights file is:</p>
+<pre><code class="language-text">models/leela_112planes-10blocksx128-policyhead80-valuehead32-policy4672-wdl3.bin</code></pre>
+<p>The name spells out the shape: 112-plane input, 10 residual blocks of 128 trunk channels, an 80-channel policy head emitting 4,672 raw move logits, and a 32-channel value head emitting 3 WDL outputs. A heavier <code>30blocksx384</code> network ships alongside it. <code>chess.nn.lc0.cnn.Model.DEFAULT_WEIGHTS</code> defines the default path.</p>
+<h3 id="evaluate-a-position">Evaluate a Position</h3>
+<p><code>engine eval</code> runs one forward pass and prints the value and a policy summary. Choose the LC0 backend with <code>--lc0</code> and point <code>--weights</code> at a ChessRTK <code>.bin</code> file:</p>
+<pre><code class="language-bash">java -jar crtk.jar engine eval --fen &quot;&lt;FEN&gt;&quot; --lc0 \
   --weights models/leela_112planes-10blocksx128-policyhead80-valuehead32-policy4672-wdl3.bin</code></pre>
-<p>Use LC0 value evaluation at the frontier of the built-in alpha-beta search:</p>
-<pre><code class="language-bash">crtk engine builtin --fen &quot;&lt;FEN&gt;&quot; --lc0 \
+<p>The evaluator modes are <code>auto</code>, <code>lc0</code>, <code>otis</code>, and <code>classical</code> (default <code>auto</code>), and <code>--lc0</code>, <code>--otis</code>, and <code>--classical</code> are shortcuts for them. <code>--terminal-aware</code> folds mate and stalemate detection into the score, which matters when the network&#x27;s opinion of a dead position is beside the point. For a classical-only baseline that needs no weights at all, reach for <code>engine static</code>.</p>
+<h3 id="drive-the-built-in-mcts-search">Drive the Built-in MCTS Search</h3>
+<p>The same network can serve as the policy/value oracle inside the built-in MCTS engine. <code>engine builtin</code> accepts <code>--evaluator classical|nnue|lc0|otis</code> (default <code>classical</code>), with <code>--lc0</code> as a shortcut:</p>
+<pre><code class="language-bash">java -jar crtk.jar engine builtin --fen &quot;&lt;FEN&gt;&quot; --lc0 \
   --weights models/leela_112planes-10blocksx128-policyhead80-valuehead32-policy4672-wdl3.bin \
   --depth 2 --format summary</code></pre>
-<p>Display evaluator ablation and backend information:</p>
-<pre><code class="language-bash">crtk fen display --fen &quot;&lt;FEN&gt;&quot; --ablation --show-backend</code></pre>
-<p>Check native GPU backend availability:</p>
-<pre><code class="language-bash">crtk engine gpu</code></pre>
-<h3 id="native-gpu-backends-optional">Native GPU Backends (Optional)</h3>
-<p>The LC0 Java CNN and BT4 paths can run on the pure Java CPU backend with no native library. Optional JNI backends are available for CUDA, ROCm/HIP, and oneAPI. The shared native LC0 libraries are named:</p>
-<ul>
-<li><code>liblc0_cuda.so</code></li>
-<li><code>liblc0_rocm.so</code></li>
-<li><code>liblc0_oneapi.so</code></li>
-</ul>
-<p>Use <code>-Djava.library.path=...</code> to point Java at the backend build directory and <code>-Dcrtk.lc0.backend=...</code> to force a backend. BT4 can also be forced separately with <code>-Dcrtk.lc0.bt4.backend=...</code>. Leaving the backend as <code>auto</code> chooses the first available native backend and then falls back to CPU.</p>
-<p>CUDA build example:</p>
-<p>Build the JNI library:</p>
+<p><code>engine builtin</code> exposes <code>--max-nodes</code> (the MCTS playout budget; <code>0</code> removes the cap), <code>--max-duration</code> (e.g. <code>5s</code>), and <code>--format uci-info|uci|san|both|summary</code>. See <a href="in-house-engine.html">In-House Engine</a> for how the search uses them. This evaluator also backs the Workbench Play tab&#x27;s <code>CNN</code> opponent, and if the chosen model fails to load, Play quietly drops to classical evaluation rather than refusing to play.</p>
+<h3 id="inspect-the-evaluator-on-the-board">Inspect the Evaluator on the Board</h3>
+<p>To see what the evaluator is reacting to, <code>fen display</code> can overlay its per-square ablation heatmap and name the backend that produced it:</p>
+<pre><code class="language-bash">java -jar crtk.jar fen display --fen &quot;&lt;FEN&gt;&quot; --ablation --show-backend</code></pre>
+<p><code>fen render</code> takes the same <code>--ablation</code> and <code>--show-backend</code> flags but writes the overlay to an image file instead of a window.</p>
+<h2 id="input-planes-112-x-64">Input Planes (112 x 64)</h2>
+<p>The encoder (<code>chess.nn.lc0.cnn.Encoder</code>) flattens a <code>Position</code> into a <code>float[112 * 64]</code> tensor in <strong>channel-major</strong> order: the first 64 values are plane 0, the next 64 plane 1, and so on. Within a plane, squares run <code>a1..h1, a2..h2, ..., a8..h8</code>. Every plane is written from the <strong>side-to-move perspective</strong>, so when Black is to move the board is rank-mirrored and colors are swapped — &quot;our&quot; pieces always sit nearest rank 1. That is LC0&#x27;s convention, and copying it is what lets LC0-trained weights mean anything here.</p>
+<p>The 112 planes break down this way:</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Planes</th>
+<th>Meaning</th>
+</tr></thead><tbody>
+<tr>
+<td class="numeric">0..103</td>
+<td>8 history blocks of 13 planes each: 6 &quot;our&quot; pieces (P,N,B,R,Q,K), 6 &quot;their&quot; pieces, plus 1 repetition plane</td>
+</tr>
+<tr>
+<td class="numeric">104..107</td>
+<td>Castling rights: we-queenside, we-kingside, they-queenside, they-kingside</td>
+</tr>
+<tr>
+<td class="numeric">108</td>
+<td>Side-to-move flag (all ones when Black is to move)</td>
+</tr>
+<tr>
+<td class="numeric">109</td>
+<td>Rule-50 / halfmove clock as a constant-valued plane</td>
+</tr>
+<tr>
+<td class="numeric">110</td>
+<td>Unused (all zeros)</td>
+</tr>
+<tr>
+<td class="numeric">111</td>
+<td>Edge plane (all ones)</td>
+</tr>
+</tbody></table></div>
+<blockquote><p><strong>Fidelity note.</strong> <code>Position</code> carries no move history and no repetition state, so all eight history blocks hold copies of the current board and the repetition planes stay zero. That is the deliberate compromise: the layout is a faithful LC0 <em>classical 112-plane</em> encoding of a single position, but the temporal and repetition signal a real self-play input would carry is simply absent. The network can&#x27;t see what it was never given, which is why evaluations come out reasonable rather than bit-identical to upstream LC0.</p></blockquote>
+<h2 id="policy-and-value-heads">Policy and Value Heads</h2>
+<p>The trunk splits into two heads, following LC0&#x27;s structure.</p>
+<p><strong>Policy head.</strong> A policy stem and an output convolution produce raw move planes — 4,672 logits for the default network. The weights file carries a <code>policyMap</code> that gathers those raw planes into the compressed LC0 move-logit vector, so downstream code sees standard LC0-ordered move probabilities and never has to know about the raw plane layout. Out-of-range map indices count as zero.</p>
+<p><strong>Value head.</strong> A value convolution feeds two dense layers and a softmax, yielding three <strong>WDL</strong> probabilities ordered <code>[win, draw, loss]</code> from the side-to-move perspective. The scalar the evaluator reports is <code>win - loss</code>, so positive favors the side to move.</p>
+<p><strong>SE blocks.</strong> A residual block may carry a squeeze-and-excitation unit: global-average-pool each channel, run it through a small two-layer gate, then use the result to re-scale and shift the trunk activations before the residual add and ReLU. Whether a given block has one is read from the weights file, block by block.</p>
+<p>Along the way the forward pass captures named intermediate activations — stem, per-block ReLU, policy hidden/planes/logits, value conv/fc1/logits, WDL, scalar — which the Workbench neural-net visualizers draw.</p>
+<h2 id="backends-cpu-and-gpu">Backends: CPU and GPU</h2>
+<p>Out of the box the evaluator runs on a deterministic CPU backend with no native code behind it. Optional JNI backends offload inference to a GPU when you have one. JVM system properties decide which is used:</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Property</th>
+<th>Values</th>
+<th>Effect</th>
+</tr></thead><tbody>
+<tr>
+<td><code>-Dcrtk.lc0.backend</code></td>
+<td><code>auto</code>, <code>cpu</code>, <code>cuda</code>, <code>rocm</code>, <code>amd</code>, <code>hip</code>, <code>oneapi</code>, <code>intel</code></td>
+<td>Force the CNN backend (default <code>auto</code>)</td>
+</tr>
+<tr>
+<td><code>-Dcrtk.lc0.threads</code></td>
+<td><code>N</code></td>
+<td>CPU-backend worker threads</td>
+</tr>
+<tr>
+<td><code>-Dcrtk.lc0.bt4.backend</code></td>
+<td>same as <code>crtk.lc0.backend</code></td>
+<td>Force the BT4 backend separately</td>
+</tr>
+<tr>
+<td><code>-Djava.library.path</code></td>
+<td>path</td>
+<td>Where the JVM finds the native libraries</td>
+</tr>
+</tbody></table></div>
+<p><code>auto</code> tries an available native backend and falls back to the CPU evaluator if none loads — the GPU is a bonus, never a requirement. The shared libraries are <code>liblc0_cuda.so</code>, <code>liblc0_rocm.so</code>, and <code>liblc0_oneapi.so</code>.</p>
+<p>Check what&#x27;s actually available:</p>
+<pre><code class="language-bash">java -jar crtk.jar engine gpu</code></pre>
+<p><code>engine gpu</code> reports OTIS and native perft backend status too; the LC0 rows are the ones the <code>crtk.lc0.*</code> properties control.</p>
+<h3 id="building-a-native-backend">Building a Native Backend</h3>
+<p>Each backend is its own CMake project. The CUDA one, for instance:</p>
 <pre><code class="language-bash">cmake -S native/cuda -B native/cuda/build -DCMAKE_BUILD_TYPE=Release
 cmake --build native/cuda/build -j</code></pre>
-<p>Then run Java with the library on <code>java.library.path</code>:</p>
+<p>Then run with the library on <code>java.library.path</code> and the backend pinned:</p>
 <pre><code class="language-bash">java -cp out \
   -Djava.library.path=native/cuda/build \
   -Dcrtk.lc0.backend=cuda \
   application.Main fen display --fen &quot;&lt;FEN&gt;&quot; --ablation --show-backend</code></pre>
-<p>See <code>native/cuda/README.md</code>, <code>native/rocm/README.md</code>, and <code>native/oneapi/README.md</code> for backend-specific build notes.</p>
-<h2 id="java-lc0-bt4-architecture">Java LC0 BT4 Architecture</h2>
-<p>BT4 support lives under <code>src/chess/nn/lc0/bt4/</code>. It includes:</p>
-<ul>
-<li>LC0 112-plane BT4 input encoding</li>
-<li>attention-policy compression to 1,858 logits</li>
-<li>a Java CPU reference forward path</li>
-<li>optional CUDA, ROCm/HIP, and oneAPI JNI backends</li>
-</ul>
-<p>The Java BT4 loader reads ChessRTK&#x27;s compact <code>.bin</code> integration format. Official LC0 <code>.pb.gz</code> transformer networks, including the default BT4 download, should be used through the external LC0 UCI engine unless a converter is added.</p>
-        </article>
-        <aside class="toc"><h2>On This Page</h2>
-<a class="toc-h2" href="#lc0-as-a-uci-engine">LC0 as a UCI Engine</a>
+<p>See <code>native/cuda/README.md</code>, <code>native/rocm/README.md</code>, and <code>native/oneapi/README.md</code> for backend-specific build notes, and <a href="build-and-install.html">Build and Install</a> for the overall build flow.</p>
+<h2 id="lc0-as-an-external-uci-engine">LC0 as an External UCI Engine</h2>
+<p>When you need LC0 to behave exactly as LC0, point an engine protocol at the real <code>lc0</code> binary and let crtk drive it over UCI. This is the path to take for the official BT4 transformer and for any analysis where the answer has to be trustworthy rather than merely fast. The installer&#x27;s default model set includes the upstream network:</p>
+<pre><code class="language-text">models/BT4-1024x15x32h-swa-6147500-policytune-332.pb.gz</code></pre>
+<p>That is an LC0 protobuf-gzip file, not a ChessRTK <code>.bin</code> — <code>lc0</code> loads it through its own <code>WeightsFile</code> option, set in your engine protocol TOML:</p>
+<pre><code class="language-toml">setup = [
+  &quot;setoption name WeightsFile value models/BT4-1024x15x32h-swa-6147500-policytune-332.pb.gz&quot;,
+]</code></pre>
+<p>Once the protocol resolves to <code>lc0</code>, the ordinary engine commands apply (<code>--protocol-path</code> selects a specific protocol):</p>
+<pre><code class="language-bash">java -jar crtk.jar engine uci-smoke --nodes 1 --max-duration 5s
+java -jar crtk.jar engine analyze --fen &quot;&lt;FEN&gt;&quot; --max-duration 10s --multipv 3
+java -jar crtk.jar engine bestmove --fen &quot;&lt;FEN&gt;&quot; --format both --max-duration 5s
+java -jar crtk.jar puzzle mine --input seeds.txt --output dump/lc0.json --engine-instances 2</code></pre>
+<p><code>engine compare</code> pits an LC0 protocol against another UCI engine via <code>--left-protocol</code> / <code>--right-protocol</code>. See <a href="configuration.html">Configuration</a> for protocol TOML structure and <a href="use-cases.html">Use Cases</a> for mining workflows.</p>
+<h2 id="lc0-dataset-export">LC0 Dataset Export</h2>
+<p><code>record dataset lc0</code> turns a <code>.record</code> JSON file into LC0-format training tensors. Pass <code>--weights</code> to supply an LC0 CNN network, and policy targets get compressed against the very <code>policyMap</code> the evaluator uses — so the targets you train on line up with the moves the network can express:</p>
+<pre><code class="language-bash">java -jar crtk.jar record dataset lc0 --input dump/run.record.json \
+  --output dump/run.lc0 \
+  --weights models/leela_112planes-10blocksx128-policyhead80-valuehead32-policy4672-wdl3.bin</code></pre>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Option</th>
+<th>Meaning</th>
+</tr></thead><tbody>
+<tr>
+<td><code>--input</code> / <code>-i</code></td>
+<td>Input <code>.record</code> JSON file</td>
+</tr>
+<tr>
+<td><code>--output</code> / <code>-o</code></td>
+<td>Output dataset prefix (default <code>dump/&lt;input-stem&gt;.lc0</code>)</td>
+</tr>
+<tr>
+<td><code>--weights</code></td>
+<td>Optional LC0 weights for policy-map compression</td>
+</tr>
+</tbody></table></div>
+<p>Sibling exporters cover the other formats: <code>record dataset npy</code> (NPY tensors), <code>record dataset classifier</code> (classifier tensors), and the JSONL exporters under <code>record export</code> (<code>training-jsonl</code>, <code>puzzle-jsonl</code>, <code>puzzle-elo-jsonl</code>). See <a href="quality-and-testing.html">Quality and Testing</a> and <a href="use-cases.html">Use Cases</a> for end-to-end dataset pipelines.</p>
+<h2 id="java-lc0-bt4-experimental">Java LC0 BT4 (Experimental)</h2>
+<p>An in-process take on LC0&#x27;s attention-body <strong>BT4</strong> transformer lives under <code>src/chess/nn/lc0/bt4/</code> (with <code>src/chess/nn/lc0/bt4/ARCHITECTURE.md</code> alongside it). It models the <code>lc0-bt4-1024x15x32h</code> descriptor: 64 board tokens, 112 input planes, 1024 channels, 15 post-layer-norm encoder blocks, 32 attention heads, attention-policy compression to 1,858 logits, and a WDL value head ordered <code>[win, draw, loss]</code> with scalar <code>win - loss</code>.</p>
+<p>Treat this one as a work in progress: <strong>experimental and not bit-exact</strong> with upstream LC0. The loader reads a compact ChessRTK <code>.bin</code> integration format (<code>magic BT4J</code>, little-endian, version 1) that is intentionally far simpler than LC0&#x27;s protobuf — it exists for exporter tests, correctness checks, and crtk-side integration work, not as a lossless image of upstream weights. It runs on the CPU reference path or, as with the CNN, on optional CUDA/ROCm/oneAPI backends (<code>crtk.lc0.bt4.backend</code>, falling back to <code>crtk.lc0.backend</code>). For BT4 inference you can actually rely on, use the official <code>.pb.gz</code> network through the external LC0 UCI engine described above.</p>
+      </article>
+      <aside class="toc"><h2>On this page</h2>
+<a class="toc-h2" href="#two-lc0-workflows-at-a-glance">Two LC0 Workflows at a Glance</a>
 <a class="toc-h2" href="#java-lc0-cnn-evaluator">Java LC0 CNN Evaluator</a>
-<a class="toc-h3" href="#native-gpu-backends-optional">Native GPU Backends (Optional)</a>
-<a class="toc-h2" href="#java-lc0-bt4-architecture">Java LC0 BT4 Architecture</a></aside>
-      </main>
-      <footer class="footer">
-        <span>Generated from <code>wiki/lc0.md</code>.</span>
-        <span>Build with <code>python3 scripts/build_docs_site.py</code>.</span>
-      </footer>
-    </div>
+<a class="toc-h3" href="#evaluate-a-position">Evaluate a Position</a>
+<a class="toc-h3" href="#drive-the-built-in-mcts-search">Drive the Built-in MCTS Search</a>
+<a class="toc-h3" href="#inspect-the-evaluator-on-the-board">Inspect the Evaluator on the Board</a>
+<a class="toc-h2" href="#input-planes-112-x-64">Input Planes (112 x 64)</a>
+<a class="toc-h2" href="#policy-and-value-heads">Policy and Value Heads</a>
+<a class="toc-h2" href="#backends-cpu-and-gpu">Backends: CPU and GPU</a>
+<a class="toc-h3" href="#building-a-native-backend">Building a Native Backend</a>
+<a class="toc-h2" href="#lc0-as-an-external-uci-engine">LC0 as an External UCI Engine</a>
+<a class="toc-h2" href="#lc0-dataset-export">LC0 Dataset Export</a>
+<a class="toc-h2" href="#java-lc0-bt4-experimental">Java LC0 BT4 (Experimental)</a></aside>
+    </main>
   </div>
+
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <div class="footer-brand">
+        <a class="footer-logo" href="index.html">
+          <img src="assets/logo/crtk-logo.svg" alt="" width="40" height="40">
+          <span>ChessRTK</span>
+        </a>
+        <p>The deterministic chess research toolkit. Free, open-source, and built on one shared Java chess core.</p>
+        <p class="footer-license">Licensed under GPL-3.0-only.</p>
+      </div>
+      <div class="footer-cols">
+        <div class="footer-col"><h3>Documentation</h3><ul>
+          <li><a href="getting-started.html">Getting Started</a></li>
+          <li><a href="command-reference.html">Command Reference</a></li>
+          <li><a href="configuration.html">Configuration</a></li>
+          <li><a href="troubleshooting.html">Troubleshooting</a></li>
+          <li><a href="chessrtk-manual.pdf">Manual (PDF)</a></li>
+        </ul></div>
+        <div class="footer-col"><h3>Workflows</h3><ul>
+          <li><a href="mining.html">Puzzle Mining</a></li>
+          <li><a href="datasets.html">ML Datasets</a></li>
+          <li><a href="piece-tags.html">Tagging</a></li>
+          <li><a href="book-publishing.html">Book Publishing</a></li>
+          <li><a href="ai-agents.html">AI Agents</a></li>
+        </ul></div>
+        <div class="footer-col"><h3>Project</h3><ul>
+          <li><a href="architecture.html">Architecture</a></li>
+          <li><a href="quality-and-testing.html">Quality &amp; Testing</a></li>
+          <li><a href="https://github.com/LenniAConrad/chess-rtk" target="_blank" rel="noopener">GitHub</a></li>
+          <li><a href="https://github.com/LenniAConrad/chess-rtk/issues" target="_blank" rel="noopener">Issues</a></li>
+        </ul></div>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>&copy; ChessRTK contributors &middot; GPL-3.0-only</span>
+      <span>Documentation generated from the repository <a href="wiki-index.html">wiki</a>.</span>
+    </div>
+  </footer>
+
 </body>
 </html>

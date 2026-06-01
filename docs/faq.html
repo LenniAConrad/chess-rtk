@@ -3,129 +3,216 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>FAQ | ChessRTK Wiki</title>
+  <title>Frequently Asked Questions | ChessRTK</title>
+  <meta name="description" content="The deterministic chess research toolkit — Frequently Asked Questions.">
+  <link rel="icon" href="assets/logo/crtk-logo.svg" type="image/svg+xml">
   <link rel="stylesheet" href="styles.css">
+  <script>
+    (function () {
+      var key = "crtk-theme";
+      var isTheme = function (value) { return value === "light" || value === "dark"; };
+      var urlTheme = "";
+      var stored = "";
+      try { urlTheme = new URLSearchParams(window.location.search).get("theme"); } catch (e) {}
+      try { stored = localStorage.getItem(key); } catch (e) {}
+      var theme = isTheme(urlTheme) ? urlTheme : (isTheme(stored) ? stored : "");
+      if (!theme) {
+        theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+      }
+      if (isTheme(urlTheme)) {
+        try { localStorage.setItem(key, urlTheme); } catch (e) {}
+      }
+      document.documentElement.setAttribute("data-theme", theme);
+    })();
+  </script>
   <script defer src="search-index.js"></script>
   <script defer src="site.js"></script>
 </head>
-<body>
-  <button class="menu-toggle" type="button" aria-label="Toggle navigation">Menu</button>
-  <div class="site-shell">
-    <aside class="sidebar">
-      <a class="brand" href="index.html">
-        <span class="brand-mark">CR</span>
-        <span><strong>ChessRTK</strong><small>Wiki</small></span>
+<body class="is-doc">
+
+  <header class="topnav">
+    <div class="topnav-inner">
+      <a class="topnav-brand" href="index.html">
+        <img src="assets/logo/crtk-logo.svg" alt="" width="32" height="32">
+        <span>ChessRTK</span>
       </a>
-      <label class="search-label" for="doc-search">Search pages</label>
-      <input id="doc-search" class="search" type="search" placeholder="Search docs...">
+      <button class="nav-toggle" type="button" aria-label="Toggle navigation" aria-expanded="false">
+        <span></span><span></span><span></span>
+      </button>
+      <nav class="topnav-links">
+        <a class="" href="getting-started.html">Get started</a>
+        <a class="" href="command-reference.html">Commands</a>
+        <a class="" href="workbench.html">Workbench</a>
+        <a class="" href="wiki-index.html">Docs</a>
+        <a class="" href="chessrtk-manual.pdf">Manual</a>
+        <a class="topnav-gh" href="https://github.com/LenniAConrad/chess-rtk" target="_blank" rel="noopener">GitHub</a>
+        <button class="theme-toggle" type="button" aria-label="Toggle dark mode" title="Toggle dark mode">
+          <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2v2.4M12 19.6V22M2 12h2.4M19.6 12H22M4.9 4.9l1.7 1.7M17.4 17.4l1.7 1.7M19.1 4.9l-1.7 1.7M6.6 17.4l-1.7 1.7"/></svg>
+          <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4 7 7 0 1 0 20 14.5Z"/></svg>
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <div class="doc-shell">
+    <aside class="sidebar" id="sidebar">
+      <label class="search-label" for="doc-search">Search the docs</label>
+      <input id="doc-search" class="search" type="search" placeholder="Search pages..." autocomplete="off">
       <div id="search-results" class="search-results" hidden></div>
       <nav class="nav"><section class="nav-section"><h2>Start Here</h2>
-<a class="" href="index.html" data-title="home">Home</a>
+<a class="" href="index.html" data-title="overview">Overview</a>
 <a class="" href="getting-started.html" data-title="getting started">Getting Started</a>
+<a class="" href="build-and-install.html" data-title="build &amp; install">Build &amp; Install</a>
 <a class="" href="use-cases.html" data-title="use cases">Use Cases</a>
-<a class="" href="command-cheatsheet.html" data-title="command cheatsheet">Command Cheatsheet</a>
 <a class="active" href="faq.html" data-title="faq">FAQ</a>
-<a class="" href="command-reference.html" data-title="command reference">Command Reference</a>
-<a class="" href="example-commands.html" data-title="example commands">Example Commands</a>
 <a class="" href="troubleshooting.html" data-title="troubleshooting">Troubleshooting</a>
 </section>
-<section class="nav-section"><h2>User Guides</h2>
-<a class="" href="build-and-install.html" data-title="build &amp; install">Build &amp; Install</a>
-<a class="" href="workbench.html" data-title="desktop workbench">Desktop Workbench</a>
+<section class="nav-section"><h2>Commands</h2>
+<a class="" href="command-cheatsheet.html" data-title="cheatsheet">Cheatsheet</a>
+<a class="" href="command-reference.html" data-title="command reference">Command Reference</a>
+<a class="" href="example-commands.html" data-title="example commands">Example Commands</a>
 <a class="" href="configuration.html" data-title="configuration">Configuration</a>
-<a class="" href="in-house-engine.html" data-title="in-house engine">In-House Engine</a>
-<a class="" href="lc0.html" data-title="lc0">LC0</a>
 <a class="" href="outputs-and-logs.html" data-title="outputs &amp; logs">Outputs &amp; Logs</a>
-<a class="" href="support.html" data-title="support">Support</a>
+</section>
+<section class="nav-section"><h2>Desktop Workbench</h2>
+<a class="" href="workbench.html" data-title="workbench">Workbench</a>
+</section>
+<section class="nav-section"><h2>Engines &amp; Models</h2>
+<a class="" href="in-house-engine.html" data-title="built-in engine">Built-in Engine</a>
+<a class="" href="lc0.html" data-title="lc0 networks">LC0 Networks</a>
+<a class="" href="gpu.html" data-title="gpu acceleration">GPU Acceleration</a>
+<a class="" href="t5.html" data-title="t5 text">T5 Text</a>
 </section>
 <section class="nav-section"><h2>Workflows</h2>
-<a class="" href="mining.html" data-title="mining puzzles">Mining Puzzles</a>
+<a class="" href="mining.html" data-title="puzzle mining">Puzzle Mining</a>
 <a class="" href="filter-dsl.html" data-title="filter dsl">Filter DSL</a>
-<a class="" href="datasets.html" data-title="datasets">Datasets</a>
-<a class="" href="book-publishing.html" data-title="book publishing">Book Publishing</a>
-<a class="" href="piece-tags.html" data-title="tags">Tags</a>
+<a class="" href="datasets.html" data-title="ml datasets">ML Datasets</a>
+<a class="" href="piece-tags.html" data-title="tagging">Tagging</a>
 <a class="" href="tag-reference.html" data-title="tag reference">Tag Reference</a>
-<a class="" href="t5.html" data-title="t5 text">T5 Text</a>
-<a class="" href="ai-agents.html" data-title="ai agents">AI Agents</a>
+<a class="" href="book-publishing.html" data-title="book publishing">Book Publishing</a>
+<a class="" href="ai-agents.html" data-title="ai agents &amp; automation">AI Agents &amp; Automation</a>
 </section>
-<section class="nav-section"><h2>Development</h2>
+<section class="nav-section"><h2>Project</h2>
 <a class="" href="architecture.html" data-title="architecture">Architecture</a>
 <a class="" href="quality-and-testing.html" data-title="quality &amp; testing">Quality &amp; Testing</a>
 <a class="" href="development-notes.html" data-title="development notes">Development Notes</a>
 <a class="" href="releasing.html" data-title="releasing">Releasing</a>
-<a class="" href="roadmap.html" data-title="roadmap">Roadmap</a>
 <a class="" href="glossary.html" data-title="glossary">Glossary</a>
-<a class="" href="tagging-implementation-plan.html" data-title="tagging plan">Tagging Plan</a>
+<a class="" href="support.html" data-title="support">Support</a>
 <a class="" href="wiki-index.html" data-title="wiki index">Wiki Index</a>
 </section></nav>
     </aside>
-    <div class="page">
-      <header class="topbar">
-        <div>
-          <span>Start Here</span>
-          <strong>FAQ</strong>
-        </div>
-        <nav>
-          <a href="index.html">Home</a>
-          <a href="wiki-index.html">Wiki Index</a>
-          <a href="chessrtk-manual.pdf">Manual PDF</a>
-          <a href="command-reference.html">Commands</a>
-        </nav>
-      </header>
-      
-      <main class="content-layout">
-        <article class="content">
-          <h1 id="faq">FAQ</h1>
+    <main class="doc-main">
+      <article class="content">
+        <p class="content-kicker">Start Here</p>
+        <h1 id="frequently-asked-questions">Frequently Asked Questions</h1>
+<p>These are the questions that come up before anyone reads the manual: what crtk is, what it expects from your machine, what it deliberately leaves out, and how the parts connect. Every command and flag below is real and copy-pasteable. For broader orientation see <a href="getting-started.html">Getting Started</a>, <a href="command-reference.html">Command Reference</a>, and the <a href="glossary.html">Glossary</a>.</p>
 <h2 id="what-is-chessrtk">What is ChessRTK?</h2>
-<p>ChessRTK is a Java 17 command-line toolkit for chess research, automation, engine workflows, puzzle mining, dataset export, rendering, and book publishing.</p>
-<h2 id="is-this-a-chess-engine">Is this a chess engine?</h2>
-<p>Partly. ChessRTK includes <code>engine builtin</code>, a small in-process Java alpha-beta searcher, but the project is broader than an engine. It also provides FEN, move, perft, record, dataset, rendering, GUI, and publishing tools.</p>
-<p>For strength-sensitive analysis, use an external UCI engine through <code>engine analyze</code>, <code>engine bestmove</code>, or <code>puzzle mine</code>.</p>
+<p>ChessRTK (&quot;crtk&quot;) is a command-line workbench for chess research, automation, and content production. One shared chess core does the unglamorous, exacting work — legal move generation, make/undo, attack detection, FEN/SAN/UCI parsing, Chess960, perft — and everything else is built on top of it: external-engine analysis, a built-in search, several position evaluators, puzzle mining, deterministic tagging, machine-learning dataset export, and native PDF book publishing. It ships as a single <code>crtk.jar</code> and is driven entirely by <code>crtk &lt;area&gt; &lt;action&gt;</code>. Run <code>crtk help</code> to see every area.</p>
+<h2 id="is-chessrtk-a-chess-engine">Is ChessRTK a chess engine?</h2>
+<p>It contains one, but that is the smaller half of the story. <code>engine builtin</code> (alias <code>engine java</code>) is an in-process MCTS searcher, and <code>engine mate</code> is a brute-force forced-mate prover that needs no neural network at all. When you want genuinely strong analysis you hand the position to an external UCI engine through <code>engine analyze</code>, <code>engine bestmove</code>, and friends. crtk is the research platform around those engines, not a replacement for them.</p>
+<pre><code class="language-bash">crtk engine builtin --startpos --max-nodes 20000 --format both
+crtk engine mate --fen &quot;6k1/5ppp/8/8/8/8/5PPP/4R1K1 w - - 0 1&quot; --mate 3</code></pre>
 <h2 id="do-i-need-stockfish-or-lc0">Do I need Stockfish or LC0?</h2>
-<p>No for core commands. These run in-process:</p>
-<ul>
-<li><code>fen normalize</code>, <code>fen validate</code>, <code>fen print</code></li>
-<li><code>move list</code>, <code>move to-san</code>, <code>move to-uci</code>, <code>move after</code>, <code>move play</code></li>
-<li><code>engine perft</code>, <code>engine perft-suite</code></li>
-<li><code>engine static</code></li>
-<li><code>engine builtin --classical</code></li>
-</ul>
-<p>You need a UCI engine for UCI-backed analysis, best-move, threat, smoke-test, and mining workflows.</p>
-<h2 id="why-not-use-maven-or-gradle">Why not use Maven or Gradle?</h2>
-<p>The repo is intentionally build-tool light. A JDK is enough:</p>
-<pre><code class="language-bash">javac --release 17 -d out $(find src -name &quot;*.java&quot;)</code></pre>
-<p>The regression runner wraps the common local checks.</p>
-<h2 id="where-do-model-files-go">Where do model files go?</h2>
-<p>Put local model files under <code>models/</code>. They are intentionally ignored by git. Use <code>./install.sh --models</code> for the default model artifacts, or pass explicit paths with options such as <code>--weights</code> and <code>--model</code>.</p>
-<h2 id="what-is-a-record-file">What is a <code>.record</code> file?</h2>
-<p>It is ChessRTK&#x27;s reusable analysis-record JSON shape. Record commands can filter, merge, summarize, export, and convert those records into PGN, CSV, JSONL, NumPy tensors, LC0-style tensors, classifier tensors, and diagnostics.</p>
-<h2 id="how-do-i-know-move-generation-is-correct">How do I know move generation is correct?</h2>
-<p>Run:</p>
+<p>Not for the core. FEN, move, perft, tagging, the built-in MCTS, and the forced-mate prover all run in-process with nothing else installed. An external UCI engine — Stockfish, LC0, whatever you trust — only enters the picture for the UCI-backed commands: <code>engine analyze</code>, <code>engine bestmove</code>, <code>engine threats</code>, <code>engine compare</code>, <code>engine uci-smoke</code>, the <code>*-batch</code> variants, and <code>puzzle mine</code>. Describe your engine once in a protocol TOML, then pass it with <code>--protocol-path</code> or let it default from <code>crtk config show</code>.</p>
+<pre><code class="language-bash">crtk move list --startpos                 # in-process, no engine needed
+crtk engine perft --startpos --depth 5    # in-process
+crtk engine bestmove --fen &quot;&lt;FEN&gt;&quot;        # needs a configured UCI engine</code></pre>
+<h2 id="does-chessrtk-support-chess960">Does ChessRTK support Chess960?</h2>
+<p>Yes, and not as a bolt-on — the support lives in the shared core, so every tool inherits it. Enumerate the 960 standard openings by Scharnagl index, draw random ones, mine Chess960 puzzles, and run the full move and FEN toolkit on any of them. Castling and move generation follow Chess960 rules where they differ.</p>
+<pre><code class="language-bash">crtk fen chess960 --index 518            # the standard chess start position
+crtk fen chess960 --random --count 5
+crtk puzzle mine --chess960 --random-count 100</code></pre>
+<h2 id="is-the-output-deterministic-and-reproducible">Is the output deterministic and reproducible?</h2>
+<p>This is a design goal, not a happy accident. The shared core, perft, tagging, the built-in MCTS, and the dataset and export pipelines return the same output for the same input, which is what makes results worth diffing, caching, and regression-testing. <code>engine perft-suite</code> checks move generation against stored reference node counts. The one place determinism stops is the external UCI engine: its output depends on its own threads, hash, and node or time budgets, so pin those budgets when you need byte-stable engine results.</p>
 <pre><code class="language-bash">crtk engine perft-suite --depth 6 --threads 4</code></pre>
-<p>The suite compares stored reference positions against the Java move generator and reports whether every calculated node count matches the expected truth.</p>
-<h2 id="what-should-i-run-before-opening-a-pr-or-publishing-a-change">What should I run before opening a PR or publishing a change?</h2>
-<pre><code class="language-bash">./scripts/run_regression_suite.sh recommended</code></pre>
-<p>If you touched move generation, FEN, SAN, Chess960, or make/undo logic, also run a deeper perft smoke pass:</p>
-<pre><code class="language-bash">CRTK_PERFT_SUITE_DEPTH=6 CRTK_PERFT_THREADS=4 ./scripts/run_regression_suite.sh perft-smoke</code></pre>
-<h2 id="where-should-generated-files-go">Where should generated files go?</h2>
-<p>Use local artifact directories such as <code>dump/</code>, <code>data/</code>, <code>dist/</code>, <code>models/</code>, and <code>out/</code>. Do not commit generated PDFs, model weights, build output, or large analysis dumps unless a specific small fixture is required by a regression test.</p>
-        </article>
-        <aside class="toc"><h2>On This Page</h2>
+<h2 id="does-chessrtk-need-a-gpu">Does ChessRTK need a GPU?</h2>
+<p>No. CPU is the default and the floor. The native backends — CUDA, ROCm, oneAPI — optionally accelerate perft and the OTIS/LC0 evaluators, and when none is available crtk quietly falls back to CPU rather than failing. <code>engine gpu</code> reports what actually loaded on your machine; the <code>--gpu</code> flag opts perft into the accelerated path.</p>
+<pre><code class="language-bash">crtk engine gpu                                  # report JNI backend status
+crtk engine perft --startpos --depth 7 --gpu     # GPU when available, else CPU</code></pre>
+<h2 id="what-neural-networks-are-supported">What neural networks are supported?</h2>
+<p>Several evaluators are selectable through <code>engine eval</code>, <code>engine builtin</code>, and the workbench: classical/static, NNUE, an LC0 CNN, and OTIS. T5 natural-language models drive position summaries through <code>fen text</code> and <code>puzzle text</code>. A caveat worth stating plainly: these are usable evaluators, not bit-exact reproductions of the upstream engines, and the BT4 path especially is simplified and experimental. Drop local weight files under <code>models/</code> and point at them with <code>--weights</code>, or <code>--model</code> for the T5 models.</p>
+<pre><code class="language-bash">crtk engine eval --fen &quot;&lt;FEN&gt;&quot; --otis --weights models/otis.bin
+crtk fen text --fen &quot;&lt;FEN&gt;&quot;</code></pre>
+<h2 id="does-book-publishing-require-latex">Does book publishing require LaTeX?</h2>
+<p>No — no LaTeX, TeX, or external typesetting toolchain of any kind. The <code>book</code> commands render print-ready PDFs natively: dense puzzle collections with <code>book collection</code>, annotated studies with <code>book study</code>, diagram sheets with <code>book pdf</code>, full interiors with <code>book render</code>, and matching covers with <code>book cover</code>.</p>
+<pre><code class="language-bash">crtk book collection --input dump/puzzles.json --pdf-output dist/collection.pdf
+crtk book pdf --startpos --output dist/diagram.pdf</code></pre>
+<h2 id="what-java-version-does-chessrtk-require">What Java version does ChessRTK require?</h2>
+<p>Java 17 — that exact language and class-file level. There is no Maven or Gradle anywhere in the build, so a JDK and <code>javac</code> are all you need. See <a href="build-and-install.html">Build and Install</a> for the full procedure.</p>
+<pre><code class="language-bash">javac --release 17 -d out $(find src -name &quot;*.java&quot;)</code></pre>
+<h2 id="how-is-chessrtk-licensed">How is ChessRTK licensed?</h2>
+<p>Free and open-source software under the <strong>GPL-3.0-only</strong> license. The full text is in <code>LICENSE.txt</code> at the repository root.</p>
+<h2 id="is-there-a-gui">Is there a GUI?</h2>
+<p>Yes. <code>crtk workbench</code> (alias <code>crtk gui</code>) opens a native desktop Swing application over the toolkit: an interactive board, play-vs-engine, command forms for the CLI areas, batch jobs, dataset tools, logs, publishing previews, puzzle views, and neural-network visualizers. Play mode uses in-process opponents — alpha-beta or MCTS with local evaluators — while the live-analysis controls drive a configured external UCI engine.</p>
+<pre><code class="language-bash">crtk workbench
+crtk workbench --fen &quot;&lt;FEN&gt;&quot; --flip</code></pre>
+<h2 id="what-is-a-record-file">What is a <code>.record</code> file?</h2>
+<p>It is crtk&#x27;s reusable analysis-record JSON format, and the hub of the data pipeline. <code>record</code> commands summarize records (<code>record stats</code>, <code>record tag-stats</code>, <code>record analysis-delta</code>), merge, filter, and split them (<code>record files</code>), export them to other formats (<code>record export plain|csv|pgn|puzzle-jsonl|puzzle-elo-jsonl|training-jsonl</code>), and turn them into ML tensors (<code>record dataset npy|lc0|classifier</code>). Most record and puzzle commands take a Filter DSL through <code>--filter</code> to pick rows.</p>
+<pre><code class="language-bash">crtk record stats --input dump/run.record
+crtk record export pgn --input dump/run.record --output dump/run.pgn
+crtk record dataset npy --input dump/run.record</code></pre>
+<h2 id="how-do-i-check-my-setup">How do I check my setup?</h2>
+<p><code>crtk doctor</code> inspects your Java version, configuration, engine protocol, and local artifacts in one pass. Add <code>--strict</code> to exit non-zero on warnings — useful when the check runs in CI.</p>
+<pre><code class="language-bash">crtk doctor
+crtk doctor --strict</code></pre>
+<p>See also <a href="troubleshooting.html">Troubleshooting</a> and <a href="configuration.html">Configuration</a> for deeper diagnostics.</p>
+      </article>
+      <aside class="toc"><h2>On this page</h2>
 <a class="toc-h2" href="#what-is-chessrtk">What is ChessRTK?</a>
-<a class="toc-h2" href="#is-this-a-chess-engine">Is this a chess engine?</a>
+<a class="toc-h2" href="#is-chessrtk-a-chess-engine">Is ChessRTK a chess engine?</a>
 <a class="toc-h2" href="#do-i-need-stockfish-or-lc0">Do I need Stockfish or LC0?</a>
-<a class="toc-h2" href="#why-not-use-maven-or-gradle">Why not use Maven or Gradle?</a>
-<a class="toc-h2" href="#where-do-model-files-go">Where do model files go?</a>
+<a class="toc-h2" href="#does-chessrtk-support-chess960">Does ChessRTK support Chess960?</a>
+<a class="toc-h2" href="#is-the-output-deterministic-and-reproducible">Is the output deterministic and reproducible?</a>
+<a class="toc-h2" href="#does-chessrtk-need-a-gpu">Does ChessRTK need a GPU?</a>
+<a class="toc-h2" href="#what-neural-networks-are-supported">What neural networks are supported?</a>
+<a class="toc-h2" href="#does-book-publishing-require-latex">Does book publishing require LaTeX?</a>
+<a class="toc-h2" href="#what-java-version-does-chessrtk-require">What Java version does ChessRTK require?</a>
+<a class="toc-h2" href="#how-is-chessrtk-licensed">How is ChessRTK licensed?</a>
+<a class="toc-h2" href="#is-there-a-gui">Is there a GUI?</a>
 <a class="toc-h2" href="#what-is-a-record-file">What is a .record file?</a>
-<a class="toc-h2" href="#how-do-i-know-move-generation-is-correct">How do I know move generation is correct?</a>
-<a class="toc-h2" href="#what-should-i-run-before-opening-a-pr-or-publishing-a-change">What should I run before opening a PR or publishing a change?</a>
-<a class="toc-h2" href="#where-should-generated-files-go">Where should generated files go?</a></aside>
-      </main>
-      <footer class="footer">
-        <span>Generated from <code>wiki/faq.md</code>.</span>
-        <span>Build with <code>python3 scripts/build_docs_site.py</code>.</span>
-      </footer>
-    </div>
+<a class="toc-h2" href="#how-do-i-check-my-setup">How do I check my setup?</a></aside>
+    </main>
   </div>
+
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <div class="footer-brand">
+        <a class="footer-logo" href="index.html">
+          <img src="assets/logo/crtk-logo.svg" alt="" width="40" height="40">
+          <span>ChessRTK</span>
+        </a>
+        <p>The deterministic chess research toolkit. Free, open-source, and built on one shared Java chess core.</p>
+        <p class="footer-license">Licensed under GPL-3.0-only.</p>
+      </div>
+      <div class="footer-cols">
+        <div class="footer-col"><h3>Documentation</h3><ul>
+          <li><a href="getting-started.html">Getting Started</a></li>
+          <li><a href="command-reference.html">Command Reference</a></li>
+          <li><a href="configuration.html">Configuration</a></li>
+          <li><a href="troubleshooting.html">Troubleshooting</a></li>
+          <li><a href="chessrtk-manual.pdf">Manual (PDF)</a></li>
+        </ul></div>
+        <div class="footer-col"><h3>Workflows</h3><ul>
+          <li><a href="mining.html">Puzzle Mining</a></li>
+          <li><a href="datasets.html">ML Datasets</a></li>
+          <li><a href="piece-tags.html">Tagging</a></li>
+          <li><a href="book-publishing.html">Book Publishing</a></li>
+          <li><a href="ai-agents.html">AI Agents</a></li>
+        </ul></div>
+        <div class="footer-col"><h3>Project</h3><ul>
+          <li><a href="architecture.html">Architecture</a></li>
+          <li><a href="quality-and-testing.html">Quality &amp; Testing</a></li>
+          <li><a href="https://github.com/LenniAConrad/chess-rtk" target="_blank" rel="noopener">GitHub</a></li>
+          <li><a href="https://github.com/LenniAConrad/chess-rtk/issues" target="_blank" rel="noopener">Issues</a></li>
+        </ul></div>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>&copy; ChessRTK contributors &middot; GPL-3.0-only</span>
+      <span>Documentation generated from the repository <a href="wiki-index.html">wiki</a>.</span>
+    </div>
+  </footer>
+
 </body>
 </html>

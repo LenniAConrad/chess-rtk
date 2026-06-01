@@ -3,129 +3,249 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Glossary | ChessRTK Wiki</title>
+  <title>Glossary | ChessRTK</title>
+  <meta name="description" content="The deterministic chess research toolkit — Glossary.">
+  <link rel="icon" href="assets/logo/crtk-logo.svg" type="image/svg+xml">
   <link rel="stylesheet" href="styles.css">
+  <script>
+    (function () {
+      var key = "crtk-theme";
+      var isTheme = function (value) { return value === "light" || value === "dark"; };
+      var urlTheme = "";
+      var stored = "";
+      try { urlTheme = new URLSearchParams(window.location.search).get("theme"); } catch (e) {}
+      try { stored = localStorage.getItem(key); } catch (e) {}
+      var theme = isTheme(urlTheme) ? urlTheme : (isTheme(stored) ? stored : "");
+      if (!theme) {
+        theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+      }
+      if (isTheme(urlTheme)) {
+        try { localStorage.setItem(key, urlTheme); } catch (e) {}
+      }
+      document.documentElement.setAttribute("data-theme", theme);
+    })();
+  </script>
   <script defer src="search-index.js"></script>
   <script defer src="site.js"></script>
 </head>
-<body>
-  <button class="menu-toggle" type="button" aria-label="Toggle navigation">Menu</button>
-  <div class="site-shell">
-    <aside class="sidebar">
-      <a class="brand" href="index.html">
-        <span class="brand-mark">CR</span>
-        <span><strong>ChessRTK</strong><small>Wiki</small></span>
+<body class="is-doc">
+
+  <header class="topnav">
+    <div class="topnav-inner">
+      <a class="topnav-brand" href="index.html">
+        <img src="assets/logo/crtk-logo.svg" alt="" width="32" height="32">
+        <span>ChessRTK</span>
       </a>
-      <label class="search-label" for="doc-search">Search pages</label>
-      <input id="doc-search" class="search" type="search" placeholder="Search docs...">
+      <button class="nav-toggle" type="button" aria-label="Toggle navigation" aria-expanded="false">
+        <span></span><span></span><span></span>
+      </button>
+      <nav class="topnav-links">
+        <a class="" href="getting-started.html">Get started</a>
+        <a class="" href="command-reference.html">Commands</a>
+        <a class="" href="workbench.html">Workbench</a>
+        <a class="" href="wiki-index.html">Docs</a>
+        <a class="" href="chessrtk-manual.pdf">Manual</a>
+        <a class="topnav-gh" href="https://github.com/LenniAConrad/chess-rtk" target="_blank" rel="noopener">GitHub</a>
+        <button class="theme-toggle" type="button" aria-label="Toggle dark mode" title="Toggle dark mode">
+          <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2v2.4M12 19.6V22M2 12h2.4M19.6 12H22M4.9 4.9l1.7 1.7M17.4 17.4l1.7 1.7M19.1 4.9l-1.7 1.7M6.6 17.4l-1.7 1.7"/></svg>
+          <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4 7 7 0 1 0 20 14.5Z"/></svg>
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <div class="doc-shell">
+    <aside class="sidebar" id="sidebar">
+      <label class="search-label" for="doc-search">Search the docs</label>
+      <input id="doc-search" class="search" type="search" placeholder="Search pages..." autocomplete="off">
       <div id="search-results" class="search-results" hidden></div>
       <nav class="nav"><section class="nav-section"><h2>Start Here</h2>
-<a class="" href="index.html" data-title="home">Home</a>
+<a class="" href="index.html" data-title="overview">Overview</a>
 <a class="" href="getting-started.html" data-title="getting started">Getting Started</a>
+<a class="" href="build-and-install.html" data-title="build &amp; install">Build &amp; Install</a>
 <a class="" href="use-cases.html" data-title="use cases">Use Cases</a>
-<a class="" href="command-cheatsheet.html" data-title="command cheatsheet">Command Cheatsheet</a>
 <a class="" href="faq.html" data-title="faq">FAQ</a>
-<a class="" href="command-reference.html" data-title="command reference">Command Reference</a>
-<a class="" href="example-commands.html" data-title="example commands">Example Commands</a>
 <a class="" href="troubleshooting.html" data-title="troubleshooting">Troubleshooting</a>
 </section>
-<section class="nav-section"><h2>User Guides</h2>
-<a class="" href="build-and-install.html" data-title="build &amp; install">Build &amp; Install</a>
-<a class="" href="workbench.html" data-title="desktop workbench">Desktop Workbench</a>
+<section class="nav-section"><h2>Commands</h2>
+<a class="" href="command-cheatsheet.html" data-title="cheatsheet">Cheatsheet</a>
+<a class="" href="command-reference.html" data-title="command reference">Command Reference</a>
+<a class="" href="example-commands.html" data-title="example commands">Example Commands</a>
 <a class="" href="configuration.html" data-title="configuration">Configuration</a>
-<a class="" href="in-house-engine.html" data-title="in-house engine">In-House Engine</a>
-<a class="" href="lc0.html" data-title="lc0">LC0</a>
 <a class="" href="outputs-and-logs.html" data-title="outputs &amp; logs">Outputs &amp; Logs</a>
-<a class="" href="support.html" data-title="support">Support</a>
+</section>
+<section class="nav-section"><h2>Desktop Workbench</h2>
+<a class="" href="workbench.html" data-title="workbench">Workbench</a>
+</section>
+<section class="nav-section"><h2>Engines &amp; Models</h2>
+<a class="" href="in-house-engine.html" data-title="built-in engine">Built-in Engine</a>
+<a class="" href="lc0.html" data-title="lc0 networks">LC0 Networks</a>
+<a class="" href="gpu.html" data-title="gpu acceleration">GPU Acceleration</a>
+<a class="" href="t5.html" data-title="t5 text">T5 Text</a>
 </section>
 <section class="nav-section"><h2>Workflows</h2>
-<a class="" href="mining.html" data-title="mining puzzles">Mining Puzzles</a>
+<a class="" href="mining.html" data-title="puzzle mining">Puzzle Mining</a>
 <a class="" href="filter-dsl.html" data-title="filter dsl">Filter DSL</a>
-<a class="" href="datasets.html" data-title="datasets">Datasets</a>
-<a class="" href="book-publishing.html" data-title="book publishing">Book Publishing</a>
-<a class="" href="piece-tags.html" data-title="tags">Tags</a>
+<a class="" href="datasets.html" data-title="ml datasets">ML Datasets</a>
+<a class="" href="piece-tags.html" data-title="tagging">Tagging</a>
 <a class="" href="tag-reference.html" data-title="tag reference">Tag Reference</a>
-<a class="" href="t5.html" data-title="t5 text">T5 Text</a>
-<a class="" href="ai-agents.html" data-title="ai agents">AI Agents</a>
+<a class="" href="book-publishing.html" data-title="book publishing">Book Publishing</a>
+<a class="" href="ai-agents.html" data-title="ai agents &amp; automation">AI Agents &amp; Automation</a>
 </section>
-<section class="nav-section"><h2>Development</h2>
+<section class="nav-section"><h2>Project</h2>
 <a class="" href="architecture.html" data-title="architecture">Architecture</a>
 <a class="" href="quality-and-testing.html" data-title="quality &amp; testing">Quality &amp; Testing</a>
 <a class="" href="development-notes.html" data-title="development notes">Development Notes</a>
 <a class="" href="releasing.html" data-title="releasing">Releasing</a>
-<a class="" href="roadmap.html" data-title="roadmap">Roadmap</a>
 <a class="active" href="glossary.html" data-title="glossary">Glossary</a>
-<a class="" href="tagging-implementation-plan.html" data-title="tagging plan">Tagging Plan</a>
+<a class="" href="support.html" data-title="support">Support</a>
 <a class="" href="wiki-index.html" data-title="wiki index">Wiki Index</a>
 </section></nav>
     </aside>
-    <div class="page">
-      <header class="topbar">
-        <div>
-          <span>Development</span>
-          <strong>Glossary</strong>
-        </div>
-        <nav>
-          <a href="index.html">Home</a>
-          <a href="wiki-index.html">Wiki Index</a>
-          <a href="chessrtk-manual.pdf">Manual PDF</a>
-          <a href="command-reference.html">Commands</a>
-        </nav>
-      </header>
-      
-      <main class="content-layout">
-        <article class="content">
-          <h1 id="glossary">Glossary</h1>
-<h2 id="crtk">CRTK</h2>
-<p>Short command name for ChessRTK. The installed launcher is <code>crtk</code>.</p>
-<h2 id="fen">FEN</h2>
-<p>Forsyth-Edwards Notation. A single-line representation of a chess position.</p>
-<h2 id="san">SAN</h2>
-<p>Standard Algebraic Notation. Human-readable move notation such as <code>Nf3</code>, <code>exd5</code>, <code>O-O</code>, or <code>Qxe8+</code>.</p>
-<h2 id="uci">UCI</h2>
-<p>Universal Chess Interface. The protocol used by engines such as Stockfish and LC0. ChessRTK can start and control UCI engines through protocol TOML files.</p>
-<h2 id="perft">Perft</h2>
-<p>Performance test. Counts legal move-tree nodes to a fixed depth. Perft is a standard way to validate move generation because every legal move branch must be counted exactly.</p>
-<h2 id="divide">Divide</h2>
-<p>A per-root-move perft report. Divide output shows which first move contributes which node count, making move-generation bugs easier to isolate.</p>
-<h2 id="record">Record</h2>
-<p>ChessRTK&#x27;s reusable JSON analysis-record format. Record commands can filter, merge, summarize, export, and convert records into other data formats.</p>
-<h2 id="filter-dsl">Filter DSL</h2>
-<p>Small expression language used to select records or puzzle candidates based on fields such as evaluation, PV shape, move type, tags, and metadata.</p>
-<h2 id="nnue">NNUE</h2>
-<p>Efficient neural-network evaluator architecture used by modern alpha-beta chess engines. ChessRTK can load NNUE weights for the built-in search evaluator.</p>
-<h2 id="lc0">LC0</h2>
-<p>Leela Chess Zero. In ChessRTK docs this can mean either an external LC0 UCI engine or the Java LC0-style evaluator path, depending on context.</p>
-<h2 id="wdl">WDL</h2>
-<p>Win/draw/loss probabilities or estimates. Some UCI engines can report WDL alongside centipawn or mate scores.</p>
-<h2 id="multipv">MultiPV</h2>
-<p>Multiple principal variations from an engine search. Useful for analysis, threat detection, and puzzle mining.</p>
-<h2 id="pv">PV</h2>
-<p>Principal variation. The engine&#x27;s preferred line from the current position.</p>
-<h2 id="nag">NAG</h2>
-<p>Numeric annotation glyph in PGN, such as <code>$1</code> for a good move.</p>
-        </article>
-        <aside class="toc"><h2>On This Page</h2>
-<a class="toc-h2" href="#crtk">CRTK</a>
-<a class="toc-h2" href="#fen">FEN</a>
-<a class="toc-h2" href="#san">SAN</a>
-<a class="toc-h2" href="#uci">UCI</a>
-<a class="toc-h2" href="#perft">Perft</a>
-<a class="toc-h2" href="#divide">Divide</a>
-<a class="toc-h2" href="#record">Record</a>
-<a class="toc-h2" href="#filter-dsl">Filter DSL</a>
-<a class="toc-h2" href="#nnue">NNUE</a>
-<a class="toc-h2" href="#lc0">LC0</a>
-<a class="toc-h2" href="#wdl">WDL</a>
-<a class="toc-h2" href="#multipv">MultiPV</a>
-<a class="toc-h2" href="#pv">PV</a>
-<a class="toc-h2" href="#nag">NAG</a></aside>
-      </main>
-      <footer class="footer">
-        <span>Generated from <code>wiki/glossary.md</code>.</span>
-        <span>Build with <code>python3 scripts/build_docs_site.py</code>.</span>
-      </footer>
-    </div>
+    <main class="doc-main">
+      <article class="content">
+        <p class="content-kicker">Project</p>
+        <h1 id="glossary">Glossary</h1>
+<p>Chess research has its own dense vocabulary, and crtk borrows freely from all of it: the notations players use to write moves, the algorithms engines use to choose them, the network pieces that score positions, and a handful of formats crtk invented for itself. Because everything sits on one shared core, a term means the same thing at the CLI, in a batch script, and in the Workbench. The definitions below are deliberately terse. When one term deserves a chapter, the cross-link points to it.</p>
+<h2 id="terms">Terms</h2>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Term</th>
+<th>Meaning</th>
+</tr></thead><tbody>
+<tr>
+<td><strong>FEN</strong></td>
+<td>Forsyth-Edwards Notation. A single-line string encoding a complete chess position (piece placement, side to move, castling rights, en-passant target, clocks). The primary input format for nearly every crtk command; see the <code>fen</code> and <code>move</code> areas in the <a href="command-reference.html">Command Reference</a>.</td>
+</tr>
+<tr>
+<td><strong>SAN</strong></td>
+<td>Standard Algebraic Notation. Human-readable move notation such as <code>Nf3</code>, <code>exd5</code>, <code>O-O</code>, or <code>Qxe8+</code>. Produced and parsed by <code>move san</code>, <code>move to-san</code>, and <code>engine bestmove-san</code>.</td>
+</tr>
+<tr>
+<td><strong>UCI</strong></td>
+<td>Universal Chess Interface. The text protocol crtk uses to drive external engines such as Stockfish and LC0, and also a compact move notation like <code>e2e4</code> or <code>e7e8q</code>. See <code>engine analyze</code>, <code>move uci</code>, and <code>move to-uci</code>.</td>
+</tr>
+<tr>
+<td><strong>perft</strong></td>
+<td>Performance test. Counts the exact number of legal move-tree nodes to a fixed depth, used to validate move generation. Run with <code>engine perft</code> (add <code>--divide</code> for a per-root-move breakdown) and <code>engine perft-suite</code>.</td>
+</tr>
+<tr>
+<td><strong>MCTS</strong></td>
+<td>Monte Carlo Tree Search. The search algorithm behind crtk&#x27;s built-in engine, which grows a search tree by sampling promising lines under a playout budget. Invoked via <code>engine builtin</code> (alias <code>engine java</code>).</td>
+</tr>
+<tr>
+<td><strong>alpha-beta</strong></td>
+<td>A pruning search algorithm that skips branches proven irrelevant to the result, the classic method used by NNUE-style engines. In crtk it is one of the Workbench Play search modes, paired with a local evaluator.</td>
+</tr>
+<tr>
+<td><strong>NNUE</strong></td>
+<td>Efficiently Updatable Neural Network. A compact evaluator architecture that updates its accumulator incrementally as moves are made. Selectable as an evaluator for the built-in engine (<code>engine builtin --evaluator nnue</code>).</td>
+</tr>
+<tr>
+<td><strong>LC0</strong></td>
+<td>Leela Chess Zero. Either an external LC0 UCI engine or crtk&#x27;s Java LC0-style CNN evaluator path (<code>engine eval --lc0</code>). crtk&#x27;s neural networks are usable evaluators but are not bit-exact reproductions of upstream LC0 weights.</td>
+</tr>
+<tr>
+<td><strong>CNN</strong></td>
+<td>Convolutional Neural Network. The network family used by the LC0-style evaluator, which reads the board as stacked planes and emits policy and value heads. Available as a local backend in Workbench Play.</td>
+</tr>
+<tr>
+<td><strong>WDL</strong></td>
+<td>Win/Draw/Loss probabilities. An alternative to a single centipawn score, reported alongside it by engines that support it. Enable with <code>--wdl</code> (disable with <code>--no-wdl</code>) on analysis commands.</td>
+</tr>
+<tr>
+<td><strong>MultiPV</strong></td>
+<td>Multiple principal variations. Asks the engine for its top <em>N</em> candidate lines instead of just the best one, useful for analysis, threat detection, and puzzle mining. Controlled by <code>--multipv N</code>.</td>
+</tr>
+<tr>
+<td><strong>PV</strong></td>
+<td>Principal variation. The engine&#x27;s best line of play from a position: the expected move sequence under optimal play for both sides. The first PV is the basis for the best move.</td>
+</tr>
+<tr>
+<td><strong>OTIS</strong></td>
+<td>A neural evaluator backend bundled with crtk, selectable for evaluation and the built-in engine (<code>engine eval --otis</code>, <code>engine builtin --evaluator otis</code>) and also accelerated by the native GPU backends.</td>
+</tr>
+<tr>
+<td><strong>T5</strong></td>
+<td>A text-to-text transformer crtk runs locally to produce natural-language summaries of positions and puzzle lines, via <code>fen text</code> and <code>puzzle text</code>. Honest scope: T5 output is a generated summary, not engine analysis.</td>
+</tr>
+<tr>
+<td><strong>SentencePiece</strong></td>
+<td>The unigram subword tokenizer crtk uses to encode text for the T5 model. It splits summaries into deterministic subword pieces so the same input always produces the same token stream.</td>
+</tr>
+<tr>
+<td><strong>ECO</strong></td>
+<td>Encyclopaedia of Chess Openings. A standard code-and-name system for opening lines (e.g. <code>B90</code>). crtk ships an in-memory ECO encyclopedia used to label openings in tagging and the Workbench.</td>
+</tr>
+<tr>
+<td><strong>Chess960</strong></td>
+<td>Fischer Random Chess. A variant with one of 960 shuffled back-rank starting positions and adapted castling. Supported across the shared core; print starts with <code>fen chess960</code> and mine with <code>puzzle mine --chess960</code>.</td>
+</tr>
+<tr>
+<td><strong>record</strong></td>
+<td>crtk&#x27;s reusable JSON analysis-record format. Records carry a position plus its engine analysis and tags, and can be merged, filtered, summarized, and exported via the <code>record</code> commands; see <a href="datasets.html">Datasets</a>.</td>
+</tr>
+<tr>
+<td><strong>tag</strong></td>
+<td>A deterministic label describing a position or move (theme, tactic, motif, mate pattern). Generated with <code>fen tags</code> and <code>puzzle tags</code>, and summarized with <code>record tag-stats</code>.</td>
+</tr>
+<tr>
+<td><strong>Filter DSL gate</strong></td>
+<td>A small expression in crtk&#x27;s Filter DSL used as a pass/fail gate, for example in <code>puzzle mine</code> quality filters or <code>record files --filter</code>, selecting records by score, PV shape, move type, tags, or metadata.</td>
+</tr>
+</tbody></table></div>
+<h2 id="related-pages">Related pages</h2>
+<ul>
+<li><a href="command-reference.html">Command Reference</a> — every area and action in full, including the <code>fen</code> and <code>move</code> tools for FEN, SAN, UCI, and Chess960</li>
+<li><a href="in-house-engine.html">In-house Engine</a> — where MCTS, the evaluators, WDL, and MultiPV come together</li>
+<li><a href="mining.html">Puzzle Mining</a> — the Filter DSL and gating, applied rather than defined</li>
+<li><a href="datasets.html">Datasets</a> — the record format and what you can export it to</li>
+</ul>
+      </article>
+      <aside class="toc"><h2>On this page</h2>
+<a class="toc-h2" href="#terms">Terms</a>
+<a class="toc-h2" href="#related-pages">Related pages</a></aside>
+    </main>
   </div>
+
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <div class="footer-brand">
+        <a class="footer-logo" href="index.html">
+          <img src="assets/logo/crtk-logo.svg" alt="" width="40" height="40">
+          <span>ChessRTK</span>
+        </a>
+        <p>The deterministic chess research toolkit. Free, open-source, and built on one shared Java chess core.</p>
+        <p class="footer-license">Licensed under GPL-3.0-only.</p>
+      </div>
+      <div class="footer-cols">
+        <div class="footer-col"><h3>Documentation</h3><ul>
+          <li><a href="getting-started.html">Getting Started</a></li>
+          <li><a href="command-reference.html">Command Reference</a></li>
+          <li><a href="configuration.html">Configuration</a></li>
+          <li><a href="troubleshooting.html">Troubleshooting</a></li>
+          <li><a href="chessrtk-manual.pdf">Manual (PDF)</a></li>
+        </ul></div>
+        <div class="footer-col"><h3>Workflows</h3><ul>
+          <li><a href="mining.html">Puzzle Mining</a></li>
+          <li><a href="datasets.html">ML Datasets</a></li>
+          <li><a href="piece-tags.html">Tagging</a></li>
+          <li><a href="book-publishing.html">Book Publishing</a></li>
+          <li><a href="ai-agents.html">AI Agents</a></li>
+        </ul></div>
+        <div class="footer-col"><h3>Project</h3><ul>
+          <li><a href="architecture.html">Architecture</a></li>
+          <li><a href="quality-and-testing.html">Quality &amp; Testing</a></li>
+          <li><a href="https://github.com/LenniAConrad/chess-rtk" target="_blank" rel="noopener">GitHub</a></li>
+          <li><a href="https://github.com/LenniAConrad/chess-rtk/issues" target="_blank" rel="noopener">Issues</a></li>
+        </ul></div>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>&copy; ChessRTK contributors &middot; GPL-3.0-only</span>
+      <span>Documentation generated from the repository <a href="wiki-index.html">wiki</a>.</span>
+    </div>
+  </footer>
+
 </body>
 </html>

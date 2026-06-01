@@ -3,125 +3,300 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Support | ChessRTK Wiki</title>
+  <title>Support | ChessRTK</title>
+  <meta name="description" content="The deterministic chess research toolkit — Support.">
+  <link rel="icon" href="assets/logo/crtk-logo.svg" type="image/svg+xml">
   <link rel="stylesheet" href="styles.css">
+  <script>
+    (function () {
+      var key = "crtk-theme";
+      var isTheme = function (value) { return value === "light" || value === "dark"; };
+      var urlTheme = "";
+      var stored = "";
+      try { urlTheme = new URLSearchParams(window.location.search).get("theme"); } catch (e) {}
+      try { stored = localStorage.getItem(key); } catch (e) {}
+      var theme = isTheme(urlTheme) ? urlTheme : (isTheme(stored) ? stored : "");
+      if (!theme) {
+        theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+      }
+      if (isTheme(urlTheme)) {
+        try { localStorage.setItem(key, urlTheme); } catch (e) {}
+      }
+      document.documentElement.setAttribute("data-theme", theme);
+    })();
+  </script>
   <script defer src="search-index.js"></script>
   <script defer src="site.js"></script>
 </head>
-<body>
-  <button class="menu-toggle" type="button" aria-label="Toggle navigation">Menu</button>
-  <div class="site-shell">
-    <aside class="sidebar">
-      <a class="brand" href="index.html">
-        <span class="brand-mark">CR</span>
-        <span><strong>ChessRTK</strong><small>Wiki</small></span>
+<body class="is-doc">
+
+  <header class="topnav">
+    <div class="topnav-inner">
+      <a class="topnav-brand" href="index.html">
+        <img src="assets/logo/crtk-logo.svg" alt="" width="32" height="32">
+        <span>ChessRTK</span>
       </a>
-      <label class="search-label" for="doc-search">Search pages</label>
-      <input id="doc-search" class="search" type="search" placeholder="Search docs...">
+      <button class="nav-toggle" type="button" aria-label="Toggle navigation" aria-expanded="false">
+        <span></span><span></span><span></span>
+      </button>
+      <nav class="topnav-links">
+        <a class="" href="getting-started.html">Get started</a>
+        <a class="" href="command-reference.html">Commands</a>
+        <a class="" href="workbench.html">Workbench</a>
+        <a class="" href="wiki-index.html">Docs</a>
+        <a class="" href="chessrtk-manual.pdf">Manual</a>
+        <a class="topnav-gh" href="https://github.com/LenniAConrad/chess-rtk" target="_blank" rel="noopener">GitHub</a>
+        <button class="theme-toggle" type="button" aria-label="Toggle dark mode" title="Toggle dark mode">
+          <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2v2.4M12 19.6V22M2 12h2.4M19.6 12H22M4.9 4.9l1.7 1.7M17.4 17.4l1.7 1.7M19.1 4.9l-1.7 1.7M6.6 17.4l-1.7 1.7"/></svg>
+          <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4 7 7 0 1 0 20 14.5Z"/></svg>
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <div class="doc-shell">
+    <aside class="sidebar" id="sidebar">
+      <label class="search-label" for="doc-search">Search the docs</label>
+      <input id="doc-search" class="search" type="search" placeholder="Search pages..." autocomplete="off">
       <div id="search-results" class="search-results" hidden></div>
       <nav class="nav"><section class="nav-section"><h2>Start Here</h2>
-<a class="" href="index.html" data-title="home">Home</a>
+<a class="" href="index.html" data-title="overview">Overview</a>
 <a class="" href="getting-started.html" data-title="getting started">Getting Started</a>
+<a class="" href="build-and-install.html" data-title="build &amp; install">Build &amp; Install</a>
 <a class="" href="use-cases.html" data-title="use cases">Use Cases</a>
-<a class="" href="command-cheatsheet.html" data-title="command cheatsheet">Command Cheatsheet</a>
 <a class="" href="faq.html" data-title="faq">FAQ</a>
-<a class="" href="command-reference.html" data-title="command reference">Command Reference</a>
-<a class="" href="example-commands.html" data-title="example commands">Example Commands</a>
 <a class="" href="troubleshooting.html" data-title="troubleshooting">Troubleshooting</a>
 </section>
-<section class="nav-section"><h2>User Guides</h2>
-<a class="" href="build-and-install.html" data-title="build &amp; install">Build &amp; Install</a>
-<a class="" href="workbench.html" data-title="desktop workbench">Desktop Workbench</a>
+<section class="nav-section"><h2>Commands</h2>
+<a class="" href="command-cheatsheet.html" data-title="cheatsheet">Cheatsheet</a>
+<a class="" href="command-reference.html" data-title="command reference">Command Reference</a>
+<a class="" href="example-commands.html" data-title="example commands">Example Commands</a>
 <a class="" href="configuration.html" data-title="configuration">Configuration</a>
-<a class="" href="in-house-engine.html" data-title="in-house engine">In-House Engine</a>
-<a class="" href="lc0.html" data-title="lc0">LC0</a>
 <a class="" href="outputs-and-logs.html" data-title="outputs &amp; logs">Outputs &amp; Logs</a>
-<a class="active" href="support.html" data-title="support">Support</a>
+</section>
+<section class="nav-section"><h2>Desktop Workbench</h2>
+<a class="" href="workbench.html" data-title="workbench">Workbench</a>
+</section>
+<section class="nav-section"><h2>Engines &amp; Models</h2>
+<a class="" href="in-house-engine.html" data-title="built-in engine">Built-in Engine</a>
+<a class="" href="lc0.html" data-title="lc0 networks">LC0 Networks</a>
+<a class="" href="gpu.html" data-title="gpu acceleration">GPU Acceleration</a>
+<a class="" href="t5.html" data-title="t5 text">T5 Text</a>
 </section>
 <section class="nav-section"><h2>Workflows</h2>
-<a class="" href="mining.html" data-title="mining puzzles">Mining Puzzles</a>
+<a class="" href="mining.html" data-title="puzzle mining">Puzzle Mining</a>
 <a class="" href="filter-dsl.html" data-title="filter dsl">Filter DSL</a>
-<a class="" href="datasets.html" data-title="datasets">Datasets</a>
-<a class="" href="book-publishing.html" data-title="book publishing">Book Publishing</a>
-<a class="" href="piece-tags.html" data-title="tags">Tags</a>
+<a class="" href="datasets.html" data-title="ml datasets">ML Datasets</a>
+<a class="" href="piece-tags.html" data-title="tagging">Tagging</a>
 <a class="" href="tag-reference.html" data-title="tag reference">Tag Reference</a>
-<a class="" href="t5.html" data-title="t5 text">T5 Text</a>
-<a class="" href="ai-agents.html" data-title="ai agents">AI Agents</a>
+<a class="" href="book-publishing.html" data-title="book publishing">Book Publishing</a>
+<a class="" href="ai-agents.html" data-title="ai agents &amp; automation">AI Agents &amp; Automation</a>
 </section>
-<section class="nav-section"><h2>Development</h2>
+<section class="nav-section"><h2>Project</h2>
 <a class="" href="architecture.html" data-title="architecture">Architecture</a>
 <a class="" href="quality-and-testing.html" data-title="quality &amp; testing">Quality &amp; Testing</a>
 <a class="" href="development-notes.html" data-title="development notes">Development Notes</a>
 <a class="" href="releasing.html" data-title="releasing">Releasing</a>
-<a class="" href="roadmap.html" data-title="roadmap">Roadmap</a>
 <a class="" href="glossary.html" data-title="glossary">Glossary</a>
-<a class="" href="tagging-implementation-plan.html" data-title="tagging plan">Tagging Plan</a>
+<a class="active" href="support.html" data-title="support">Support</a>
 <a class="" href="wiki-index.html" data-title="wiki index">Wiki Index</a>
 </section></nav>
     </aside>
-    <div class="page">
-      <header class="topbar">
-        <div>
-          <span>User Guides</span>
-          <strong>Support</strong>
-        </div>
-        <nav>
-          <a href="index.html">Home</a>
-          <a href="wiki-index.html">Wiki Index</a>
-          <a href="chessrtk-manual.pdf">Manual PDF</a>
-          <a href="command-reference.html">Commands</a>
-        </nav>
-      </header>
-      
-      <main class="content-layout">
-        <article class="content">
-          <h1 id="support">Support</h1>
-<p>This page describes the information that makes ChessRTK issues actionable.</p>
-<h2 id="before-reporting">Before Reporting</h2>
-<p>Run the local health checks that match the failure:</p>
+    <main class="doc-main">
+      <article class="content">
+        <p class="content-kicker">Project</p>
+        <h1 id="support">Support</h1>
+<p>When crtk misbehaves, the good news is that it almost always misbehaves the same way twice. Determinism means a problem reproduces from one command plus its input, so a report that hands a maintainer that command rarely needs a follow-up. The self-checks below resolve the usual suspects — runtime version, config, protocol TOML, engine path, movegen — on their own, which is why they come before the issue tracker.</p>
+<h2 id="start-here-self-diagnose">Start Here: Self-Diagnose</h2>
+<p>Start here, because most of what looks like a bug is an environment or configuration problem these three commands will name for you.</p>
 <pre><code class="language-bash">crtk doctor
 crtk config validate
-./scripts/run_regression_suite.sh recommended</code></pre>
-<p>For UCI engine problems:</p>
-<pre><code class="language-bash">crtk engine uci-smoke --nodes 1 --max-duration 5s --verbose</code></pre>
-<p>For move-generation or notation problems:</p>
+crtk config show</code></pre>
+<p><code>crtk doctor</code> inspects the runtime, configuration, engine protocol files, external engine availability, and local artifacts. By default it tolerates warnings; <code>--strict</code> turns them into a non-zero exit, which is what you want in CI:</p>
+<pre><code class="language-bash">crtk doctor --strict --verbose</code></pre>
+<blockquote><p>No <code>crtk</code> launcher on your PATH? Replace <code>crtk ...</code> with <code>java -jar crtk.jar ...</code> (or <code>java -cp out application.Main ...</code>). Always tell us which form you used.</p></blockquote>
+<h2 id="run-the-regression-suite">Run the Regression Suite</h2>
+<p>Run the recommended suite from the repository root before you report anything. A clean pass narrows the search: your build and core are sound, so whatever you hit lives somewhere more specific. A failure here is the opposite of a dead end — it is the single most useful thing you can put in a report.</p>
+<pre><code class="language-bash">./scripts/run_regression_suite.sh recommended</code></pre>
+<p>The suite compiles with <code>javac --release 17</code>, lints, and exercises the core, CLI, and engine paths. When you already know roughly where the trouble is, a narrower target is faster:</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Target</th>
+<th>What it runs</th>
+</tr></thead><tbody>
+<tr>
+<td><code>recommended</code></td>
+<td>Default suite: build, core, CLI, engine, perft smoke, jar smoke</td>
+</tr>
+<tr>
+<td><code>build</code></td>
+<td>Compile only</td>
+</tr>
+<tr>
+<td><code>core</code></td>
+<td>Core chess-engine checks</td>
+</tr>
+<tr>
+<td><code>cli</code></td>
+<td>CLI command checks</td>
+</tr>
+<tr>
+<td><code>engine</code></td>
+<td>Engine integration checks</td>
+</tr>
+<tr>
+<td><code>perft-smoke</code></td>
+<td>Quick perft sanity check</td>
+</tr>
+<tr>
+<td><code>uci</code></td>
+<td>External UCI engine checks (needs Stockfish on PATH)</td>
+</tr>
+<tr>
+<td><code>ci</code></td>
+<td>Full continuous-integration suite</td>
+</tr>
+</tbody></table></div>
+<h2 id="targeted-self-checks">Targeted Self-Checks</h2>
+<p>Match the check to the symptom. Each command is deterministic, so its output drops straight into a bug report.</p>
+<h3 id="external-uci-engine-problems">External UCI engine problems</h3>
+<p>When <code>engine analyze</code>, <code>engine bestmove</code>, <code>engine compare</code>, <code>engine threats</code>, or <code>puzzle mine</code> can&#x27;t get a word out of Stockfish or LC0, the protocol TOML is the usual culprit. Smoke-test it:</p>
+<pre><code class="language-bash">crtk engine uci-smoke --protocol-path config/your-engine.toml --nodes 1 --max-duration 5s --verbose
+crtk engine compare --left-protocol config/a.toml --right-protocol config/b.toml --fen &quot;&lt;FEN&gt;&quot;</code></pre>
+<h3 id="move-generation-notation-or-perft-problems">Move generation, notation, or perft problems</h3>
+<p>Everything else stands on movegen, so if a move looks wrong, rule out the foundation first:</p>
 <pre><code class="language-bash">crtk engine perft-suite --depth 6 --threads 4
-crtk move list --fen &quot;&lt;FEN&gt;&quot; --format both</code></pre>
-<h2 id="include-this-in-bug-reports">Include This In Bug Reports</h2>
+crtk move both --fen &quot;&lt;FEN&gt;&quot;
+crtk fen validate --fen &quot;&lt;FEN&gt;&quot;</code></pre>
+<h3 id="native-gpu-backend-problems">Native GPU backend problems</h3>
+<p>A GPU run that quietly falls back to the CPU is the common failure here. Confirm the JNI status, then compare the two paths so you can see whether the native CUDA/ROCm/oneAPI backend actually engaged:</p>
+<pre><code class="language-bash">crtk engine gpu --verbose
+crtk engine perft-suite --depth 6 --gpu --split 4</code></pre>
+<h3 id="neural-network-and-evaluator-problems">Neural-network and evaluator problems</h3>
+<p>For evaluator selection, weights, or model-path trouble, drive the backends directly. One expectation to set before you report a discrepancy: crtk&#x27;s networks are workable evaluators, not bit-exact reproductions of LC0/BT4. The BT4 path is simplified and still experimental, so &quot;the numbers don&#x27;t match upstream LC0&quot; is the design, not a defect.</p>
+<pre><code class="language-bash">crtk engine eval --fen &quot;&lt;FEN&gt;&quot; --evaluator lc0 --weights models/your-weights
+crtk engine static --fen &quot;&lt;FEN&gt;&quot;
+crtk fen text --fen &quot;&lt;FEN&gt;&quot;</code></pre>
+<h2 id="what-to-include-in-a-bug-report">What to Include in a Bug Report</h2>
+<p>The fastest report is the one a maintainer can reproduce in a single command. Aim for that. Include:</p>
 <ul>
-<li>exact command line</li>
-<li>full FEN, PGN snippet, or input file shape</li>
-<li>expected behavior</li>
-<li>actual output or stack trace</li>
-<li>Java version from <code>java -version</code></li>
-<li>operating system</li>
-<li>whether the launcher or <code>java -cp out application.Main</code> was used</li>
-<li>external engine path and protocol TOML when UCI is involved</li>
-<li>whether <code>./scripts/run_regression_suite.sh recommended</code> passes</li>
+<li>The <strong>exact command line</strong> you ran, verbatim (with the area and action, e.g. <code>crtk engine bestmove ...</code>).</li>
+<li>The <strong>full input</strong>: the complete FEN string, a PGN snippet, or the shape of the input file (<code>--input</code> / <code>--stdin</code>).</li>
+<li>The <strong>expected behavior</strong> versus the <strong>actual output</strong>, including the full stack trace (re-run with <code>--verbose</code> to capture it).</li>
+<li>Your <strong>Java version</strong> from <code>java -version</code>.</li>
+<li>Your <strong>operating system</strong> and version.</li>
+<li>Which <strong>invocation form</strong> you used: the <code>crtk</code> launcher, <code>java -jar crtk.jar</code>, or <code>java -cp out application.Main</code>.</li>
+<li>For UCI engine issues: the <strong>engine path and protocol TOML</strong> contents (<code>--protocol-path</code>), plus output from <code>crtk engine uci-smoke --verbose</code>.</li>
+<li>Whether <strong><code>./scripts/run_regression_suite.sh recommended</code> passes</strong> on your checkout.</li>
+<li>For GPU issues: the output of <code>crtk engine gpu --verbose</code>.</li>
 </ul>
-<h2 id="common-places-to-start">Common Places To Start</h2>
+<p>Gathering this once beats trading questions for a week.</p>
+<h2 id="where-to-file-it">Where to File It</h2>
+<p>Open issues on the project&#x27;s GitHub issue tracker. Search first — perft mismatches, engine-protocol questions, and known operational quirks are often already tracked or documented, and the answer may be sitting in a closed thread. ChessRTK is GPL-3.0-only.</p>
+<h2 id="security-and-privacy-notes">Security and Privacy Notes</h2>
+<p>crtk runs locally and deterministically, so a good report rarely needs anything sensitive. Before pasting into a public issue:</p>
 <ul>
-<li>Setup failure: <a href="build-and-install.html">Build and install</a></li>
-<li>Engine failure: <a href="configuration.html">Configuration</a></li>
-<li>Command syntax: <a href="command-reference.html">Command reference</a></li>
-<li>Model files: <a href="lc0.html">LC0</a>, <a href="t5.html">T5</a>, and <code>models/README.md</code></li>
-<li>Generated outputs: <a href="outputs-and-logs.html">Outputs and logs</a></li>
-<li>Known operational issues: <a href="troubleshooting.html">Troubleshooting</a></li>
+<li>Do not share private engine binary paths, proprietary model/weights locations, private dataset paths, or unpublished book manuscripts unless they are genuinely needed and safe to share.</li>
+<li>Replace private paths with equivalent local examples (for example, a public Stockfish path or a sample FEN) wherever possible.</li>
 </ul>
-<h2 id="security-notes">Security Notes</h2>
-<p>Do not paste private engine paths, private dataset paths, unpublished book manuscripts, or proprietary model locations unless they are needed and safe to share. Replace them with equivalent local examples where possible.</p>
-        </article>
-        <aside class="toc"><h2>On This Page</h2>
-<a class="toc-h2" href="#before-reporting">Before Reporting</a>
-<a class="toc-h2" href="#include-this-in-bug-reports">Include This In Bug Reports</a>
-<a class="toc-h2" href="#common-places-to-start">Common Places To Start</a>
-<a class="toc-h2" href="#security-notes">Security Notes</a></aside>
-      </main>
-      <footer class="footer">
-        <span>Generated from <code>wiki/support.md</code>.</span>
-        <span>Build with <code>python3 scripts/build_docs_site.py</code>.</span>
-      </footer>
-    </div>
+<h2 id="where-to-look-next">Where to Look Next</h2>
+<p>Before filing, check whether the question already has a home:</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Symptom</th>
+<th>Page</th>
+</tr></thead><tbody>
+<tr>
+<td>Build, compile, or <code>crtk</code> launcher setup</td>
+<td><a href="build-and-install.html">Build and install</a></td>
+</tr>
+<tr>
+<td>First-run walkthrough</td>
+<td><a href="getting-started.html">Getting started</a></td>
+</tr>
+<tr>
+<td>Config files and engine protocol TOML</td>
+<td><a href="configuration.html">Configuration</a></td>
+</tr>
+<tr>
+<td>Command syntax and flags</td>
+<td><a href="command-reference.html">Command reference</a></td>
+</tr>
+<tr>
+<td>Known operational issues and workarounds</td>
+<td><a href="troubleshooting.html">Troubleshooting</a></td>
+</tr>
+<tr>
+<td>LC0 CNN evaluator and weights</td>
+<td><a href="lc0.html">LC0</a></td>
+</tr>
+<tr>
+<td>Built-in MCTS and forced-mate prover</td>
+<td><a href="in-house-engine.html">In-house engine</a></td>
+</tr>
+<tr>
+<td>Frequently asked questions</td>
+<td><a href="faq.html">FAQ</a></td>
+</tr>
+<tr>
+<td>Model files and weights</td>
+<td><code>models/README.md</code></td>
+</tr>
+</tbody></table></div>
+      </article>
+      <aside class="toc"><h2>On this page</h2>
+<a class="toc-h2" href="#start-here-self-diagnose">Start Here: Self-Diagnose</a>
+<a class="toc-h2" href="#run-the-regression-suite">Run the Regression Suite</a>
+<a class="toc-h2" href="#targeted-self-checks">Targeted Self-Checks</a>
+<a class="toc-h3" href="#external-uci-engine-problems">External UCI engine problems</a>
+<a class="toc-h3" href="#move-generation-notation-or-perft-problems">Move generation, notation, or perft problems</a>
+<a class="toc-h3" href="#native-gpu-backend-problems">Native GPU backend problems</a>
+<a class="toc-h3" href="#neural-network-and-evaluator-problems">Neural-network and evaluator problems</a>
+<a class="toc-h2" href="#what-to-include-in-a-bug-report">What to Include in a Bug Report</a>
+<a class="toc-h2" href="#where-to-file-it">Where to File It</a>
+<a class="toc-h2" href="#security-and-privacy-notes">Security and Privacy Notes</a>
+<a class="toc-h2" href="#where-to-look-next">Where to Look Next</a></aside>
+    </main>
   </div>
+
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <div class="footer-brand">
+        <a class="footer-logo" href="index.html">
+          <img src="assets/logo/crtk-logo.svg" alt="" width="40" height="40">
+          <span>ChessRTK</span>
+        </a>
+        <p>The deterministic chess research toolkit. Free, open-source, and built on one shared Java chess core.</p>
+        <p class="footer-license">Licensed under GPL-3.0-only.</p>
+      </div>
+      <div class="footer-cols">
+        <div class="footer-col"><h3>Documentation</h3><ul>
+          <li><a href="getting-started.html">Getting Started</a></li>
+          <li><a href="command-reference.html">Command Reference</a></li>
+          <li><a href="configuration.html">Configuration</a></li>
+          <li><a href="troubleshooting.html">Troubleshooting</a></li>
+          <li><a href="chessrtk-manual.pdf">Manual (PDF)</a></li>
+        </ul></div>
+        <div class="footer-col"><h3>Workflows</h3><ul>
+          <li><a href="mining.html">Puzzle Mining</a></li>
+          <li><a href="datasets.html">ML Datasets</a></li>
+          <li><a href="piece-tags.html">Tagging</a></li>
+          <li><a href="book-publishing.html">Book Publishing</a></li>
+          <li><a href="ai-agents.html">AI Agents</a></li>
+        </ul></div>
+        <div class="footer-col"><h3>Project</h3><ul>
+          <li><a href="architecture.html">Architecture</a></li>
+          <li><a href="quality-and-testing.html">Quality &amp; Testing</a></li>
+          <li><a href="https://github.com/LenniAConrad/chess-rtk" target="_blank" rel="noopener">GitHub</a></li>
+          <li><a href="https://github.com/LenniAConrad/chess-rtk/issues" target="_blank" rel="noopener">Issues</a></li>
+        </ul></div>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>&copy; ChessRTK contributors &middot; GPL-3.0-only</span>
+      <span>Documentation generated from the repository <a href="wiki-index.html">wiki</a>.</span>
+    </div>
+  </footer>
+
 </body>
 </html>

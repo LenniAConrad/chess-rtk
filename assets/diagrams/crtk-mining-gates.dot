@@ -1,6 +1,6 @@
 digraph crtk_mining_gates {
   rankdir=LR;
-  bgcolor="transparent";
+  bgcolor="#ffffff";
   splines=ortho;
   pad="0.20";
   nodesep="0.35";
@@ -8,83 +8,83 @@ digraph crtk_mining_gates {
 
   graph [fontname="Helvetica", fontsize=14];
   node  [fontname="Helvetica", fontsize=12];
-  edge  [fontname="Helvetica", fontsize=10, color="#444444", arrowsize=0.8, penwidth=1.2];
+  edge  [fontname="Helvetica", fontsize=10, color="#45708a", arrowsize=0.8, penwidth=1.2];
 
   subgraph cluster_seeds {
     label="Seeds";
     style="rounded";
-    color="#B39DDB";
-    fontcolor="#311B92";
+    color="#9fb6dd";
+    fontcolor="#15356b";
     penwidth=1.4;
 
-    node [shape=note, style="filled", fillcolor="#F3E5F5", color="#6A1B9A", penwidth=1.2];
-    random [label="Random\n(--random-*)"];
+    node [shape=note, style="filled", fillcolor="#e8eef7", color="#1d4e89", penwidth=1.2];
+    random [label="Random\n(--random-count)"];
     fen_list [label="FEN list\n(seeds.txt)"];
     pgn [label="PGN\n(games.pgn)"];
 
-    node [shape=note, style="filled", fillcolor="#EDE7F6", color="#4527A0", penwidth=1.2];
+    node [shape=note, style="filled", fillcolor="#e7edf8", color="#234e8c", penwidth=1.2];
     seed [label="Seed position\n(FEN)"];
   }
 
   subgraph cluster_engine {
     label="UCI engine";
     style="rounded";
-    color="#FFCC80";
-    fontcolor="#E65100";
+    color="#f0c98a";
+    fontcolor="#8a5410";
     penwidth=1.4;
 
-    node [shape=component, style="filled", fillcolor="#FFF3E0", color="#EF6C00", penwidth=1.2];
+    node [shape=component, style="filled", fillcolor="#fbf1dd", color="#b06d12", penwidth=1.2];
     uci [label="Engine process\n(Stockfish / LC0)"];
   }
 
   subgraph cluster_search {
-    label="mine-puzzles: search loop";
+    label="puzzle mine: search loop";
     style="rounded";
-    color="#90CAF9";
-    fontcolor="#0D47A1";
+    color="#8fd3e6";
+    fontcolor="#0c3a4c";
     penwidth=1.4;
 
-    node [shape=box, style="rounded,filled", fillcolor="#E3F2FD", color="#1565C0", penwidth=1.2];
+    node [shape=box, style="rounded,filled", fillcolor="#e2f3f8", color="#11688a", penwidth=1.2];
     search [label="UCI search\n(--max-nodes / --max-duration)"];
 
-    node [shape=diamond, style="filled", fillcolor="#E1F5FE", color="#0277BD", penwidth=1.2];
+    node [shape=diamond, style="filled", fillcolor="#def4fb", color="#0f6a85", penwidth=1.2];
     stop [label="Stop?\n(accelerate OR nodes/duration)"];
 
-    node [shape=note, style="filled", fillcolor="#E1F5FE", color="#0277BD", penwidth=1.2];
+    node [shape=note, style="filled", fillcolor="#def4fb", color="#0f6a85", penwidth=1.2];
     analysis [label="Final analysis\n(PV/eval/nodes)\n(search ended)"];
   }
 
   subgraph cluster_dsl {
     label="Filter DSL gates";
     style="rounded";
-    color="#A5D6A7";
-    fontcolor="#1B5E20";
+    color="#9fd9cf";
+    fontcolor="#0b4d44";
     penwidth=1.4;
 
     subgraph cluster_dsl_while {
       label="While search is ongoing";
       style="rounded";
-      color="#C8E6C9";
-      fontcolor="#1B5E20";
+      color="#c7ece6";
+      fontcolor="#0b4d44";
       penwidth=1.2;
 
-      node [shape=box, style="rounded,filled", fillcolor="#E8F5E9", color="#2E7D32", penwidth=1.2];
+      node [shape=box, style="rounded,filled", fillcolor="#e3f6f3", color="#0f766e", penwidth=1.2];
       accel [label="puzzle-accelerate\n(check UCI info updates)"];
     }
 
     subgraph cluster_dsl_after {
       label="After search";
       style="rounded";
-      color="#C8E6C9";
-      fontcolor="#1B5E20";
+      color="#c7ece6";
+      fontcolor="#0b4d44";
       penwidth=1.2;
 
-      node [shape=box, style="rounded,filled", fillcolor="#E8F5E9", color="#2E7D32", penwidth=1.2];
+      node [shape=box, style="rounded,filled", fillcolor="#e3f6f3", color="#0f766e", penwidth=1.2];
       quality [label="puzzle-quality"];
       winning [label="puzzle-winning"];
       drawing [label="puzzle-drawing"];
 
-      node [shape=note, style="filled", fillcolor="#F1F8E9", color="#558B2F", penwidth=1.2];
+      node [shape=note, style="filled", fillcolor="#e9f6f1", color="#14756b", penwidth=1.2];
       formula [label="Puzzle iff:\nquality AND (winning OR drawing)"];
     }
   }
@@ -92,11 +92,11 @@ digraph crtk_mining_gates {
   subgraph cluster_outputs {
     label="Outputs";
     style="rounded";
-    color="#A5D6A7";
-    fontcolor="#1B5E20";
+    color="#9fd9cf";
+    fontcolor="#0b4d44";
     penwidth=1.4;
 
-    node [shape=note, style="filled", fillcolor="#F1F8E9", color="#558B2F", penwidth=1.2];
+    node [shape=note, style="filled", fillcolor="#e9f6f1", color="#14756b", penwidth=1.2];
     puzzles [label="*.puzzles.json\n(streamed JSON array)"];
     nonpuzzles [label="*.nonpuzzles.json\n(streamed JSON array)"];
   }
@@ -113,21 +113,21 @@ digraph crtk_mining_gates {
   // During-search gate
   search -> accel;
   accel -> stop [constraint=false];
-  stop -> search [color="#2E7D32", xlabel="continue", constraint=false];
+  stop -> search [color="#0f766e", xlabel="continue", constraint=false];
   stop -> analysis [xlabel="stop"];
 
   // Post-search verification (quality AND (winning OR drawing))
   analysis -> quality;
-  quality -> nonpuzzles [color="#C62828", style=dashed, xlabel="fails"];
+  quality -> nonpuzzles [color="#b23a48", style=dashed, xlabel="fails"];
 
-  quality -> winning [color="#2E7D32", constraint=false];
-  quality -> drawing [color="#2E7D32", constraint=false];
+  quality -> winning [color="#0f766e", constraint=false];
+  quality -> drawing [color="#0f766e", constraint=false];
 
-  winning -> puzzles [color="#2E7D32"];
-  drawing -> puzzles [color="#2E7D32"];
+  winning -> puzzles [color="#0f766e"];
+  drawing -> puzzles [color="#0f766e"];
 
-  winning -> nonpuzzles [color="#C62828", style=dashed];
-  drawing -> nonpuzzles [color="#C62828", style=dashed];
+  winning -> nonpuzzles [color="#b23a48", style=dashed];
+  drawing -> nonpuzzles [color="#b23a48", style=dashed];
 
   quality -> formula [style=dotted];
   winning -> formula [style=dotted];

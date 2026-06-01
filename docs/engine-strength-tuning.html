@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Engine Strength Tuning — What Worked, What Didn&#x27;t | ChessRTK</title>
+  <meta name="description" content="The deterministic chess research toolkit — Engine Strength Tuning — What Worked, What Didn&#x27;t.">
+  <link rel="icon" href="assets/logo/crtk-logo.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css">
+  <script>
+    (function () {
+      var key = "crtk-theme";
+      var isTheme = function (value) { return value === "light" || value === "dark"; };
+      var urlTheme = "";
+      var stored = "";
+      try { urlTheme = new URLSearchParams(window.location.search).get("theme"); } catch (e) {}
+      try { stored = localStorage.getItem(key); } catch (e) {}
+      var theme = isTheme(urlTheme) ? urlTheme : (isTheme(stored) ? stored : "");
+      if (!theme) {
+        theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+      }
+      if (isTheme(urlTheme)) {
+        try { localStorage.setItem(key, urlTheme); } catch (e) {}
+      }
+      document.documentElement.setAttribute("data-theme", theme);
+    })();
+  </script>
+  <script defer src="search-index.js"></script>
+  <script defer src="site.js"></script>
+</head>
+<body class="is-doc">
+
+  <header class="topnav">
+    <div class="topnav-inner">
+      <a class="topnav-brand" href="index.html">
+        <img src="assets/logo/crtk-logo.svg" alt="" width="32" height="32">
+        <span>ChessRTK</span>
+      </a>
+      <button class="nav-toggle" type="button" aria-label="Toggle navigation" aria-expanded="false">
+        <span></span><span></span><span></span>
+      </button>
+      <nav class="topnav-links">
+        <a class="" href="getting-started.html">Get started</a>
+        <a class="" href="command-reference.html">Commands</a>
+        <a class="" href="workbench.html">Workbench</a>
+        <a class="" href="wiki-index.html">Docs</a>
+        <a class="" href="chessrtk-manual.pdf">Manual</a>
+        <a class="topnav-gh" href="https://github.com/LenniAConrad/chess-rtk" target="_blank" rel="noopener">GitHub</a>
+        <button class="theme-toggle" type="button" aria-label="Toggle dark mode" title="Toggle dark mode">
+          <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2v2.4M12 19.6V22M2 12h2.4M19.6 12H22M4.9 4.9l1.7 1.7M17.4 17.4l1.7 1.7M19.1 4.9l-1.7 1.7M6.6 17.4l-1.7 1.7"/></svg>
+          <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4 7 7 0 1 0 20 14.5Z"/></svg>
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <div class="doc-shell">
+    <aside class="sidebar" id="sidebar">
+      <label class="search-label" for="doc-search">Search the docs</label>
+      <input id="doc-search" class="search" type="search" placeholder="Search pages..." autocomplete="off">
+      <div id="search-results" class="search-results" hidden></div>
+      <nav class="nav"><section class="nav-section"><h2>Start Here</h2>
+<a class="" href="index.html" data-title="overview">Overview</a>
+<a class="" href="getting-started.html" data-title="getting started">Getting Started</a>
+<a class="" href="build-and-install.html" data-title="build &amp; install">Build &amp; Install</a>
+<a class="" href="use-cases.html" data-title="use cases">Use Cases</a>
+<a class="" href="faq.html" data-title="faq">FAQ</a>
+<a class="" href="troubleshooting.html" data-title="troubleshooting">Troubleshooting</a>
+</section>
+<section class="nav-section"><h2>Commands</h2>
+<a class="" href="command-cheatsheet.html" data-title="cheatsheet">Cheatsheet</a>
+<a class="" href="command-reference.html" data-title="command reference">Command Reference</a>
+<a class="" href="example-commands.html" data-title="example commands">Example Commands</a>
+<a class="" href="configuration.html" data-title="configuration">Configuration</a>
+<a class="" href="outputs-and-logs.html" data-title="outputs &amp; logs">Outputs &amp; Logs</a>
+</section>
+<section class="nav-section"><h2>Desktop Workbench</h2>
+<a class="" href="workbench.html" data-title="workbench">Workbench</a>
+</section>
+<section class="nav-section"><h2>Engines &amp; Models</h2>
+<a class="" href="in-house-engine.html" data-title="built-in engine">Built-in Engine</a>
+<a class="" href="lc0.html" data-title="lc0 networks">LC0 Networks</a>
+<a class="" href="gpu.html" data-title="gpu acceleration">GPU Acceleration</a>
+<a class="" href="t5.html" data-title="t5 text">T5 Text</a>
+</section>
+<section class="nav-section"><h2>Workflows</h2>
+<a class="" href="mining.html" data-title="puzzle mining">Puzzle Mining</a>
+<a class="" href="filter-dsl.html" data-title="filter dsl">Filter DSL</a>
+<a class="" href="datasets.html" data-title="ml datasets">ML Datasets</a>
+<a class="" href="piece-tags.html" data-title="tagging">Tagging</a>
+<a class="" href="tag-reference.html" data-title="tag reference">Tag Reference</a>
+<a class="" href="book-publishing.html" data-title="book publishing">Book Publishing</a>
+<a class="" href="ai-agents.html" data-title="ai agents &amp; automation">AI Agents &amp; Automation</a>
+</section>
+<section class="nav-section"><h2>Project</h2>
+<a class="" href="architecture.html" data-title="architecture">Architecture</a>
+<a class="" href="quality-and-testing.html" data-title="quality &amp; testing">Quality &amp; Testing</a>
+<a class="" href="development-notes.html" data-title="development notes">Development Notes</a>
+<a class="" href="releasing.html" data-title="releasing">Releasing</a>
+<a class="" href="glossary.html" data-title="glossary">Glossary</a>
+<a class="" href="support.html" data-title="support">Support</a>
+<a class="" href="wiki-index.html" data-title="wiki index">Wiki Index</a>
+</section></nav>
+    </aside>
+    <main class="doc-main">
+      <article class="content">
+        <p class="content-kicker">Reference</p>
+        <h1 id="engine-strength-tuning-what-worked-what-didn-t">Engine Strength Tuning — What Worked, What Didn&#x27;t</h1>
+<p>A running log of attempts to make the in-house <code>AlphaBeta</code> engine stronger, with the measured outcome of each. The point is to <strong>not relearn the same lessons</strong>: which techniques paid off, which didn&#x27;t, and — more importantly — the <em>methodology and gotchas</em> that decide whether a measurement can be trusted at all.</p>
+<p>The one rule that produced everything below: <strong>measure with self-play, never assert.</strong> Several textbook techniques that &quot;should&quot; help measured neutral or negative here; several that looked neutral at first were just under-sampled. Ship a change only when a gauntlet says it&#x27;s non-negative.</p>
+<h2 id="how-to-measure-the-harnesses">How to measure (the harnesses)</h2>
+<ul>
+<li><strong><code>src/testing/SelfPlayGauntlet.java</code></strong> — in-process A/B. Plays candidate vs baseline from a set of openings, <strong>each opening from both colors</strong> (so identical engines score exactly 50.0% — verified), at an <strong>equal fixed budget</strong> (<code>--nodes N</code> or <code>--movetime MS</code>). Prints W-D-L + a point Elo. Flags: <code>--a/--b CSV|all|none</code> (feature sets), <code>--threadsA/--threadsB</code>, <code>--eval classical|nnue</code>, <code>--openings N</code> (seeded reproducible generation), <code>--seed S</code>.</li>
+<li><strong><code>src/testing/NnueBench.java</code></strong> — NNUE correctness + speed. Prints a <strong>golden</strong> centipawn vector (must be byte-identical across builds → no eval change), a <strong>parity</strong> walk (incremental search-state eval == full eval at every make/undo node), a <strong>concurrent parity</strong> (8 threads, proves thread-safety), and an <strong>nps</strong> benchmark.</li>
+<li><strong><code>AlphaBeta.Feature</code></strong> enum + the 3-arg constructor let each technique be toggled independently, so the gauntlet can A/B one change in isolation, in one process.</li>
+</ul>
+<p>Build and run from a <strong>private output dir</strong> (see the gotcha about <code>out/</code> below), e.g.:</p>
+<pre><code class="language-bash">OUT=/tmp/crtk-ab &amp;&amp; rm -rf &quot;$OUT&quot; &amp;&amp; mkdir -p &quot;$OUT&quot;
+javac --release 17 -d &quot;$OUT&quot; $(find src -name &#x27;*.java&#x27;)
+java -cp &quot;$OUT&quot; testing.SelfPlayGauntlet --a SEE_PRUNING,SEARCH_REPETITION --b none \
+  --eval classical --nodes 5000 --openings 150</code></pre>
+<h2 id="what-worked-shipped">What worked (shipped)</h2>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Technique</th>
+<th>Measured gain</th>
+<th>Notes</th>
+</tr></thead><tbody>
+<tr>
+<td><strong>SEE pruning + capture ordering</strong></td>
+<td><strong>+73 Elo</strong> (300 games, classical, fixed nodes)</td>
+<td>Wire the existing <code>chess.eval.See</code> into the search: prune SEE-losing captures in quiescence; order losing captures last. Only &quot;capturing up&quot; (victim &lt; attacker) can be SEE-negative, so guard the SEE call on that.</td>
+</tr>
+<tr>
+<td><strong>In-search repetition detection</strong></td>
+<td><code>{SEE,REP}</code> vs old engine = <strong>+106</strong> fixed-nodes, <strong>+61</strong> fixed-time, <strong>+53</strong> NNUE</td>
+<td>The engine previously could not see repetitions/perpetuals during search. Scan a per-ply <code>signatureCore</code> path (step −2, bounded by the halfmove clock); return 0 on a repeat. Null move stores a sentinel so it can&#x27;t match.</td>
+</tr>
+<tr>
+<td><strong>NNUE incremental accumulator for BIG nets</strong></td>
+<td><strong>+34% nps</strong>, output-preserving</td>
+<td>The production 89MB net is a BIG (SFNNv13 + threats) net, for which <code>newSearchState</code> returned <code>null</code> — so every leaf ran a <em>full</em> feature-transformer rebuild (the incremental accumulator was dead code). <code>BigSearchState</code> keeps HalfKA PSQ incremental and rebuilds only threats per node. Verified bit-identical by a 7,759-node parity walk (0 mismatches).</td>
+</tr>
+<tr>
+<td><strong>Diversified Lazy SMP</strong></td>
+<td><strong>+67</strong> (classical), <strong>+66</strong> (NNUE), <strong>~+89</strong> with the lockless TT</td>
+<td>Naive SMP was <em>negative</em> (see below) — the fix is helper-thread <strong>depth-skip diversification</strong> (the classic <code>SKIP_SIZE</code>/<code>SKIP_PHASE</code> scheme) so threads cover different depths and fill the shared table diversely. Measured at fixed time. Enabled <strong>only at the Max strength setting</strong>.</td>
+</tr>
+<tr>
+<td><strong>LMR table + check extensions</strong></td>
+<td><strong>+32 Elo</strong> at deep search (600 games)</td>
+<td>Log-log LMR reductions + one-ply check extensions. <em>Neutral/negative when search is shallow</em> (see below) — enabled <strong>only at the Max setting</strong>, where NNUE + SMP make the search deep.</td>
+</tr>
+<tr>
+<td><strong>Tear-tolerant transposition table</strong></td>
+<td>correctness (clean SMP)</td>
+<td>Pack each entry&#x27;s depth/score/flag/move into one <code>long</code>; store the signature XOR-ed with it; validate via <code>(key ^ data) == signature</code>. A reader catching a concurrent (SMP) store mid-write fails the check and misses instead of returning a corrupt score.</td>
+</tr>
+</tbody></table></div>
+<p>The shipped default feature set is <code>{SEE_PRUNING, SEARCH_REPETITION}</code> (on at every strength — calibration-safe). The Max opponent additionally enables <code>{LMR_TABLE, CHECK_EXTENSION}</code> + 8-thread SMP; lower tiers stay single-threaded so their Elo calibration and reproducibility are intact.</p>
+<h2 id="what-did-not-work-rejected-kept-as-off-by-default-toggles">What did NOT work (rejected — kept as off-by-default toggles)</h2>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Technique</th>
+<th>Measured</th>
+<th>Why it&#x27;s off</th>
+</tr></thead><tbody>
+<tr>
+<td><strong>Naive Lazy SMP</strong> (all threads run the identical search)</td>
+<td><strong>−29 Elo</strong></td>
+<td>Threads duplicated one search; the only benefit was TT cross-fill, swamped by contention. Diversification (above) was the fix.</td>
+</tr>
+<tr>
+<td><strong>LMR table at shallow search</strong></td>
+<td>+2 (neutral)</td>
+<td>Helps only once search is deep — see the depth-scaling lesson.</td>
+</tr>
+<tr>
+<td><strong>Check extensions at shallow search</strong></td>
+<td><strong>−6</strong></td>
+<td>Spends node breadth on forcing lines when there&#x27;s no depth to exploit.</td>
+</tr>
+<tr>
+<td><strong>History malus / gravity</strong></td>
+<td>+6 over 600 games (neutral)</td>
+<td>Bonus-to-cutoff + malus-to-tried-quiets with decay. No measurable effect at this engine&#x27;s depths.</td>
+</tr>
+<tr>
+<td><strong>SEE-based bad-capture LMR</strong></td>
+<td>+7 (neutral)</td>
+<td>Reducing SEE-losing captures (instead of searching them full-depth). Within noise.</td>
+</tr>
+</tbody></table></div>
+<p>These remain in the code behind <code>AlphaBeta.Feature</code> so they can be re-measured (e.g. after a future depth increase) without reimplementing them.</p>
+<h2 id="the-lessons-that-will-save-the-most-time">The lessons that will save the most time</h2>
+<ol>
+<li><strong>Sample size dominates.</strong> A 48-game gauntlet has roughly <strong>±100 Elo</strong> of noise — enough to flip a true +73 to &quot;+22&quot; or a true 0 to &quot;−29.&quot; Several techniques read &quot;neutral&quot; or &quot;negative&quot; at 48 games and then settled at a different value by 300. <strong>Use ≥300 games before believing a ship/no-ship call</strong>, and confirm a marginal result with a second seed.</li>
+</ol>
+<ol>
+<li><strong>Depth-scaling techniques are invisible at shallow depth.</strong> LMR, check extensions, history, singular extensions, etc. pay off <em>more as search deepens</em>. This engine searches shallowly (NNUE ~12–28k nps; classical reaches ~depth 6–10 at a few-thousand-node budget), so they read neutral/negative on a shallow gauntlet. They flipped clearly positive at 20–30k nodes. <strong>Don&#x27;t reject a depth-scaling heuristic on a shallow measurement — re-test it deep</strong>, and gate it to the deep (Max) regime if it hurts when shallow.</li>
+</ol>
+<ol>
+<li><strong>Lazy SMP must diversify.</strong> N identical deterministic threads ≈ one search + overhead = <em>negative</em>. Helpers need a depth-skip (or move-order) scheme so they explore different parts of the tree. *<em>Measure SMP at fixed </em>time<em>, not fixed nodes</em>* (more threads = more nodes per unit time is the entire point).</li>
+</ol>
+<ol>
+<li><strong>The NNUE &quot;incremental accumulator&quot; can be dead code.</strong> For BIG nets it returned <code>null</code>, so the AB path fell back to a full forward pass per leaf — the real reason NNUE was slow. <strong>Before optimizing NNUE, confirm which path actually runs.</strong> An output-preserving speedup (verified bit-identical via the parity walk) needs <em>no</em> Elo measurement — more nps at identical eval is a pure win (deeper search in the same time).</li>
+</ol>
+<ol>
+<li><strong>Elo is not additive.</strong> Per-change gains were each measured against the <em>previous</em> config under different conditions; you can&#x27;t sum them. For a real total, run the <strong>full new config vs the original engine head-to-head</strong> at fixed time.</li>
+</ol>
+<h2 id="environment-tooling-gotchas">Environment / tooling gotchas</h2>
+<ul>
+<li><strong>The IDE clobbers <code>out/</code>.</strong> The VS Code <code>redhat.java</code> (Eclipse JDT) language server auto-builds the project on every file edit and intermittently rewrites/empties <code>out/</code>, causing flaky <code>ClassNotFoundException</code> mid-run. <strong>Compile and run from a private dir</strong> (<code>/tmp/crtk-…</code>) the IDE doesn&#x27;t manage. (The running workbench GUI from <code>crtk.jar</code> can also hold the tree.)</li>
+<li><strong>Don&#x27;t run two fixed-time gauntlets at once.</strong> Their threads contend for cores and skew each other&#x27;s wall-clock — fine for fixed-<em>nodes</em> (deterministic), wrong for fixed-<em>time</em>.</li>
+<li><strong>Build with <code>javac --release 17</code>.</strong> Bare JDK-21 emits false errors; the project targets 17. The Java Vector API (<code>jdk.incubator.vector</code>) is <strong>not</strong> available under the stock <code>--release 17</code> launch, so SIMD NNUE is out without a build/launch change.</li>
+<li><strong>Determinism is a feature here.</strong> Anything non-deterministic (Lazy SMP, sampling) is gated so the CLI, tests, and lower Play strengths stay reproducible.</li>
+</ul>
+<h2 id="open-levers-not-yet-attempted-risk-noted">Open levers (not yet attempted — risk noted)</h2>
+<ul>
+<li>*<em>Incremental NNUE </em>threats**<em> — threats ray-walk sliders and depend non-locally on occupancy, so a per-move delta risks silently changing eval. Only pursue behind the bit-exact parity harness; treat any divergence as a bug, not a tradeoff. Estimated </em>modest* (the threat rebuild is ~40% of the per-node cost).</li>
+<li><strong>Broaden SMP / deep-heuristics below the Max tier</strong> — a calibration tradeoff (it strengthens settings beyond their nominal Elo); make it an explicit Play &quot;use all cores&quot; option rather than silently shifting the slider&#x27;s meaning.</li>
+<li><strong>Re-test the shelved heuristics now that search is deeper</strong> (faster NNUE + SMP) — the depth-scaling lesson predicts some may now help.</li>
+</ul>
+      </article>
+      <aside class="toc"><h2>On this page</h2>
+<a class="toc-h2" href="#how-to-measure-the-harnesses">How to measure (the harnesses)</a>
+<a class="toc-h2" href="#what-worked-shipped">What worked (shipped)</a>
+<a class="toc-h2" href="#what-did-not-work-rejected-kept-as-off-by-default-toggles">What did NOT work (rejected — kept as off-by-default toggles)</a>
+<a class="toc-h2" href="#the-lessons-that-will-save-the-most-time">The lessons that will save the most time</a>
+<a class="toc-h2" href="#environment-tooling-gotchas">Environment / tooling gotchas</a>
+<a class="toc-h2" href="#open-levers-not-yet-attempted-risk-noted">Open levers (not yet attempted — risk noted)</a></aside>
+    </main>
+  </div>
+
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <div class="footer-brand">
+        <a class="footer-logo" href="index.html">
+          <img src="assets/logo/crtk-logo.svg" alt="" width="40" height="40">
+          <span>ChessRTK</span>
+        </a>
+        <p>The deterministic chess research toolkit. Free, open-source, and built on one shared Java chess core.</p>
+        <p class="footer-license">Licensed under GPL-3.0-only.</p>
+      </div>
+      <div class="footer-cols">
+        <div class="footer-col"><h3>Documentation</h3><ul>
+          <li><a href="getting-started.html">Getting Started</a></li>
+          <li><a href="command-reference.html">Command Reference</a></li>
+          <li><a href="configuration.html">Configuration</a></li>
+          <li><a href="troubleshooting.html">Troubleshooting</a></li>
+          <li><a href="chessrtk-manual.pdf">Manual (PDF)</a></li>
+        </ul></div>
+        <div class="footer-col"><h3>Workflows</h3><ul>
+          <li><a href="mining.html">Puzzle Mining</a></li>
+          <li><a href="datasets.html">ML Datasets</a></li>
+          <li><a href="piece-tags.html">Tagging</a></li>
+          <li><a href="book-publishing.html">Book Publishing</a></li>
+          <li><a href="ai-agents.html">AI Agents</a></li>
+        </ul></div>
+        <div class="footer-col"><h3>Project</h3><ul>
+          <li><a href="architecture.html">Architecture</a></li>
+          <li><a href="quality-and-testing.html">Quality &amp; Testing</a></li>
+          <li><a href="https://github.com/LenniAConrad/chess-rtk" target="_blank" rel="noopener">GitHub</a></li>
+          <li><a href="https://github.com/LenniAConrad/chess-rtk/issues" target="_blank" rel="noopener">Issues</a></li>
+        </ul></div>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>&copy; ChessRTK contributors &middot; GPL-3.0-only</span>
+      <span>Documentation generated from the repository <a href="wiki-index.html">wiki</a>.</span>
+    </div>
+  </footer>
+
+</body>
+</html>

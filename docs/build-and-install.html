@@ -3,97 +3,161 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Build &amp; install | ChessRTK Wiki</title>
+  <title>Build and Install | ChessRTK</title>
+  <meta name="description" content="The deterministic chess research toolkit — Build and Install.">
+  <link rel="icon" href="assets/logo/crtk-logo.svg" type="image/svg+xml">
   <link rel="stylesheet" href="styles.css">
+  <script>
+    (function () {
+      var key = "crtk-theme";
+      var isTheme = function (value) { return value === "light" || value === "dark"; };
+      var urlTheme = "";
+      var stored = "";
+      try { urlTheme = new URLSearchParams(window.location.search).get("theme"); } catch (e) {}
+      try { stored = localStorage.getItem(key); } catch (e) {}
+      var theme = isTheme(urlTheme) ? urlTheme : (isTheme(stored) ? stored : "");
+      if (!theme) {
+        theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+      }
+      if (isTheme(urlTheme)) {
+        try { localStorage.setItem(key, urlTheme); } catch (e) {}
+      }
+      document.documentElement.setAttribute("data-theme", theme);
+    })();
+  </script>
   <script defer src="search-index.js"></script>
   <script defer src="site.js"></script>
 </head>
-<body>
-  <button class="menu-toggle" type="button" aria-label="Toggle navigation">Menu</button>
-  <div class="site-shell">
-    <aside class="sidebar">
-      <a class="brand" href="index.html">
-        <span class="brand-mark">CR</span>
-        <span><strong>ChessRTK</strong><small>Wiki</small></span>
+<body class="is-doc">
+
+  <header class="topnav">
+    <div class="topnav-inner">
+      <a class="topnav-brand" href="index.html">
+        <img src="assets/logo/crtk-logo.svg" alt="" width="32" height="32">
+        <span>ChessRTK</span>
       </a>
-      <label class="search-label" for="doc-search">Search pages</label>
-      <input id="doc-search" class="search" type="search" placeholder="Search docs...">
+      <button class="nav-toggle" type="button" aria-label="Toggle navigation" aria-expanded="false">
+        <span></span><span></span><span></span>
+      </button>
+      <nav class="topnav-links">
+        <a class="" href="getting-started.html">Get started</a>
+        <a class="" href="command-reference.html">Commands</a>
+        <a class="" href="workbench.html">Workbench</a>
+        <a class="" href="wiki-index.html">Docs</a>
+        <a class="" href="chessrtk-manual.pdf">Manual</a>
+        <a class="topnav-gh" href="https://github.com/LenniAConrad/chess-rtk" target="_blank" rel="noopener">GitHub</a>
+        <button class="theme-toggle" type="button" aria-label="Toggle dark mode" title="Toggle dark mode">
+          <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2v2.4M12 19.6V22M2 12h2.4M19.6 12H22M4.9 4.9l1.7 1.7M17.4 17.4l1.7 1.7M19.1 4.9l-1.7 1.7M6.6 17.4l-1.7 1.7"/></svg>
+          <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4 7 7 0 1 0 20 14.5Z"/></svg>
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <div class="doc-shell">
+    <aside class="sidebar" id="sidebar">
+      <label class="search-label" for="doc-search">Search the docs</label>
+      <input id="doc-search" class="search" type="search" placeholder="Search pages..." autocomplete="off">
       <div id="search-results" class="search-results" hidden></div>
       <nav class="nav"><section class="nav-section"><h2>Start Here</h2>
-<a class="" href="index.html" data-title="home">Home</a>
+<a class="" href="index.html" data-title="overview">Overview</a>
 <a class="" href="getting-started.html" data-title="getting started">Getting Started</a>
+<a class="active" href="build-and-install.html" data-title="build &amp; install">Build &amp; Install</a>
 <a class="" href="use-cases.html" data-title="use cases">Use Cases</a>
-<a class="" href="command-cheatsheet.html" data-title="command cheatsheet">Command Cheatsheet</a>
 <a class="" href="faq.html" data-title="faq">FAQ</a>
-<a class="" href="command-reference.html" data-title="command reference">Command Reference</a>
-<a class="" href="example-commands.html" data-title="example commands">Example Commands</a>
 <a class="" href="troubleshooting.html" data-title="troubleshooting">Troubleshooting</a>
 </section>
-<section class="nav-section"><h2>User Guides</h2>
-<a class="active" href="build-and-install.html" data-title="build &amp; install">Build &amp; Install</a>
-<a class="" href="workbench.html" data-title="desktop workbench">Desktop Workbench</a>
+<section class="nav-section"><h2>Commands</h2>
+<a class="" href="command-cheatsheet.html" data-title="cheatsheet">Cheatsheet</a>
+<a class="" href="command-reference.html" data-title="command reference">Command Reference</a>
+<a class="" href="example-commands.html" data-title="example commands">Example Commands</a>
 <a class="" href="configuration.html" data-title="configuration">Configuration</a>
-<a class="" href="in-house-engine.html" data-title="in-house engine">In-House Engine</a>
-<a class="" href="lc0.html" data-title="lc0">LC0</a>
 <a class="" href="outputs-and-logs.html" data-title="outputs &amp; logs">Outputs &amp; Logs</a>
-<a class="" href="support.html" data-title="support">Support</a>
+</section>
+<section class="nav-section"><h2>Desktop Workbench</h2>
+<a class="" href="workbench.html" data-title="workbench">Workbench</a>
+</section>
+<section class="nav-section"><h2>Engines &amp; Models</h2>
+<a class="" href="in-house-engine.html" data-title="built-in engine">Built-in Engine</a>
+<a class="" href="lc0.html" data-title="lc0 networks">LC0 Networks</a>
+<a class="" href="gpu.html" data-title="gpu acceleration">GPU Acceleration</a>
+<a class="" href="t5.html" data-title="t5 text">T5 Text</a>
 </section>
 <section class="nav-section"><h2>Workflows</h2>
-<a class="" href="mining.html" data-title="mining puzzles">Mining Puzzles</a>
+<a class="" href="mining.html" data-title="puzzle mining">Puzzle Mining</a>
 <a class="" href="filter-dsl.html" data-title="filter dsl">Filter DSL</a>
-<a class="" href="datasets.html" data-title="datasets">Datasets</a>
-<a class="" href="book-publishing.html" data-title="book publishing">Book Publishing</a>
-<a class="" href="piece-tags.html" data-title="tags">Tags</a>
+<a class="" href="datasets.html" data-title="ml datasets">ML Datasets</a>
+<a class="" href="piece-tags.html" data-title="tagging">Tagging</a>
 <a class="" href="tag-reference.html" data-title="tag reference">Tag Reference</a>
-<a class="" href="t5.html" data-title="t5 text">T5 Text</a>
-<a class="" href="ai-agents.html" data-title="ai agents">AI Agents</a>
+<a class="" href="book-publishing.html" data-title="book publishing">Book Publishing</a>
+<a class="" href="ai-agents.html" data-title="ai agents &amp; automation">AI Agents &amp; Automation</a>
 </section>
-<section class="nav-section"><h2>Development</h2>
+<section class="nav-section"><h2>Project</h2>
 <a class="" href="architecture.html" data-title="architecture">Architecture</a>
 <a class="" href="quality-and-testing.html" data-title="quality &amp; testing">Quality &amp; Testing</a>
 <a class="" href="development-notes.html" data-title="development notes">Development Notes</a>
 <a class="" href="releasing.html" data-title="releasing">Releasing</a>
-<a class="" href="roadmap.html" data-title="roadmap">Roadmap</a>
 <a class="" href="glossary.html" data-title="glossary">Glossary</a>
-<a class="" href="tagging-implementation-plan.html" data-title="tagging plan">Tagging Plan</a>
+<a class="" href="support.html" data-title="support">Support</a>
 <a class="" href="wiki-index.html" data-title="wiki index">Wiki Index</a>
 </section></nav>
     </aside>
-    <div class="page">
-      <header class="topbar">
-        <div>
-          <span>User Guides</span>
-          <strong>Build &amp; install</strong>
-        </div>
-        <nav>
-          <a href="index.html">Home</a>
-          <a href="wiki-index.html">Wiki Index</a>
-          <a href="chessrtk-manual.pdf">Manual PDF</a>
-          <a href="command-reference.html">Commands</a>
-        </nav>
-      </header>
-      
-      <main class="content-layout">
-        <article class="content">
-          <h1 id="build-install">Build &amp; install</h1>
+    <main class="doc-main">
+      <article class="content">
+        <p class="content-kicker">Start Here</p>
+        <h1 id="build-and-install">Build and Install</h1>
+<p>There is no build system to learn here. One <code>javac</code> invocation compiles the whole project — no Maven, no Gradle, nothing fetched from the network at build time. From a fresh checkout you are a few commands away from a working <code>crtk</code>: install a JDK, compile, optionally package a JAR, optionally run the Linux installer, and confirm with <code>crtk doctor</code>. Native GPU backends are the one moving part that lives elsewhere; they are optional and covered in <a href="gpu.html">GPU Backends</a>.</p>
+<h2 id="what-you-get">What you get</h2>
+<ul>
+<li>A single shared chess core: legal move generation, make/undo, attack detection, FEN/SAN/UCI handling, Chess960, and perft validation — the same core behind the CLI, the Workbench, and every evaluator.</li>
+<li>A deterministic noun-verb command-line interface (for example <code>crtk move list</code>, <code>crtk engine bestmove</code>, <code>crtk fen tags</code>).</li>
+<li>Optional external UCI engine integration (Stockfish, LC0) and optional local model weights for the built-in evaluators.</li>
+</ul>
+<p>The same sources compiled against the same <code>--release 17</code> target produce the same classes, and no command leans on hidden global state, so a run today and a run next month agree. See <a href="getting-started.html">Getting Started</a> for your first commands.</p>
 <h2 id="requirements">Requirements</h2>
-<ul>
-<li>Java 17+ JDK (needs <code>javac</code> to build)</li>
-<li>Optional: a UCI chess engine either on <code>PATH</code> or configured via</li>
-</ul>
-<p><code>config/default.engine.toml</code> for <code>engine analyze</code>, <code>engine bestmove</code>, <code>engine threats</code>, <code>engine uci-smoke</code>, and puzzle mining</p>
-<ul>
-<li>Optional: local model weights under <code>models/</code> for LC0, BT4, NNUE, and</li>
-</ul>
-<p>T5-backed evaluator/text workflows</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Requirement</th>
+<th>Needed for</th>
+<th>Notes</th>
+</tr></thead><tbody>
+<tr>
+<td>Java 17+ JDK (with <code>javac</code>)</td>
+<td>Building from source</td>
+<td>The JDK is required because you compile the sources yourself. A JRE alone cannot build.</td>
+</tr>
+<tr>
+<td>Java 17+ runtime</td>
+<td>Running <code>crtk</code></td>
+<td>Any 17-or-newer runtime runs the built JAR.</td>
+</tr>
+<tr>
+<td>A UCI engine (e.g. Stockfish)</td>
+<td><code>engine analyze</code>, <code>engine bestmove</code>, <code>engine threats</code>, <code>engine compare</code>, <code>engine uci-smoke</code>, <code>puzzle mine</code></td>
+<td>Optional. On <code>PATH</code> or pointed to via a protocol TOML (<code>--protocol-path</code>). See <a href="configuration.html">Configuration</a>.</td>
+</tr>
+<tr>
+<td>Local model weights under <code>models/</code></td>
+<td>NNUE, LC0 CNN, OTIS, and T5 evaluators/text</td>
+<td>Optional. Used by <code>engine eval</code>, <code>engine builtin</code>, <code>fen text</code>, and <code>puzzle text</code>.</td>
+</tr>
+<tr>
+<td>Vendor GPU toolchain (CUDA/ROCm/oneAPI)</td>
+<td>Native perft and OTIS acceleration</td>
+<td>Optional, with automatic CPU fallback. See <a href="gpu.html">GPU Backends</a>.</td>
+</tr>
+</tbody></table></div>
+<p>A JDK is the only hard dependency. FEN tooling, move generation, perft, tagging, dataset export, PDF publishing — all of it runs with nothing else installed. External engines and model weights buy you the workflows that need them, and nothing more.</p>
+<h3 id="honest-note-on-neural-network-fidelity">Honest note on neural-network fidelity</h3>
+<p>The bundled evaluators (NNUE, LC0 CNN, OTIS) are real, deterministic position evaluators, but they are not bit-exact reimplementations of the upstream engines. The BT4 path is the rough one — simplified and still experimental. Read them as research-grade evaluators rather than stand-ins for native LC0 inference; for the strongest play and analysis, point crtk at an external UCI engine. See <a href="lc0.html">LC0 Integration</a>.</p>
 <h2 id="debian-ubuntu-packages">Debian/Ubuntu packages</h2>
-<p>Minimal install (build + run):</p>
+<p>Minimal install to build and run:</p>
 <pre><code class="language-bash">sudo apt-get update &amp;&amp; sudo apt-get install -y \
   git ca-certificates \
   openjdk-17-jdk</code></pre>
-<p>Install a UCI engine only if you want external-engine analysis or mining:</p>
+<p>Add a UCI engine only if you want external-engine analysis or puzzle mining:</p>
 <pre><code class="language-bash">sudo apt-get install -y stockfish</code></pre>
-<p>Optional (recommended if you use <code>./install.sh</code> and/or build the CUDA JNI backend):</p>
+<p>Reach for the optional tooling if you plan to run <code>./install.sh</code> or build the CUDA JNI backend:</p>
 <pre><code class="language-bash">sudo apt-get install -y \
   curl \
   build-essential \
@@ -101,109 +165,236 @@
   nvidia-cuda-toolkit</code></pre>
 <p>Notes:</p>
 <ul>
-<li><code>git</code> is included so a fresh machine can <code>git clone</code> this repo (and <code>ca-certificates</code> enables HTTPS downloads).</li>
-<li><code>nvidia-cuda-toolkit</code> is large and only needed to build the optional CUDA JNI backend under <code>native/cuda/</code>.</li>
+<li><code>git</code> clones the repository on a fresh machine; <code>ca-certificates</code> lets the installer fetch model weights over HTTPS.</li>
+<li><code>nvidia-cuda-toolkit</code> is large, and you only need it to build the optional CUDA JNI backend under <code>native/cuda/</code>. ROCm/HIP and oneAPI builds bring their own vendor toolchains. See <a href="gpu.html">GPU Backends</a>.</li>
 </ul>
-<p>ROCm/HIP and oneAPI builds use their vendor toolchains instead.</p>
-<h2 id="build-no-maven-gradle">Build (no Maven/Gradle)</h2>
+<h2 id="build-from-source">Build from source</h2>
+<p>Two lines from the repository root. Make a directory for the classes, then compile every source file into it:</p>
 <pre><code class="language-bash">mkdir -p out
 javac --release 17 -d out $(find src -name &quot;*.java&quot;)</code></pre>
-<h2 id="focused-regression-check">Focused regression check</h2>
-<p>Run the zero-dependency <code>Position</code> regression harness after a build:</p>
-<pre><code class="language-bash">java -cp out testing.PositionRegressionTest</code></pre>
-<h2 id="local-regression-runner">Local regression runner</h2>
-<p>Use the shared runner to keep local checks aligned with CI:</p>
-<pre><code class="language-bash">./scripts/run_regression_suite.sh recommended</code></pre>
-<p>Useful focused suites:</p>
-<pre><code class="language-bash">./scripts/run_regression_suite.sh build
-./scripts/run_regression_suite.sh lint
-./scripts/run_regression_suite.sh core
-./scripts/run_regression_suite.sh cli
-./scripts/run_regression_suite.sh uci
-./scripts/run_regression_suite.sh perft-smoke
-./scripts/run_regression_suite.sh release</code></pre>
-<h2 id="quality-checks">Quality checks</h2>
-<p>The VS Code workspace enables SonarLint automatic analysis and excludes local artifact directories such as <code>data/</code>, <code>dump/</code>, <code>models/</code>, <code>out/</code>, and legacy <code>session/</code>. There is no required SonarQube server for local development.</p>
-<p>Use these local checks before committing Java changes:</p>
-<pre><code class="language-bash">./scripts/run_regression_suite.sh recommended</code></pre>
-<p>If the workflow depends on a configured external UCI engine, also run:</p>
-<pre><code class="language-bash">CRTK_REQUIRE_STOCKFISH=1 ./scripts/run_regression_suite.sh uci</code></pre>
-<p>For rendering and PDF checks on a headless machine, pass the AWT headless flag:</p>
-<pre><code class="language-bash">./scripts/run_regression_suite.sh book</code></pre>
-<p>Run the full internal perft validation when changing move generation, FEN validation, SAN, make/undo, or Chess960 setup:</p>
-<pre><code class="language-bash">./scripts/run_regression_suite.sh perft-smoke
-CRTK_PERFT_SUITE_DEPTH=6 CRTK_PERFT_THREADS=4 ./scripts/run_regression_suite.sh perft-smoke</code></pre>
-<p>The perft suite uses stored truth values and the Java core move generator. It does not launch Stockfish or any other external process.</p>
-<h2 id="run">Run</h2>
+<blockquote><p>Keep <code>--release 17</code>. It pins both the language level and the platform API surface, so a newer JDK still emits Java 17-compatible classes that behave the same. Drop the flag and compile against a newer API and you can hit spurious errors that have nothing to do with your code.</p></blockquote>
+<p>Run straight from the compiled classes:</p>
 <pre><code class="language-bash">java -cp out application.Main help
-java -cp out application.Main &lt;command&gt; [options]</code></pre>
-<h2 id="package-a-runnable-jar-optional">Package a runnable JAR (optional)</h2>
+java -cp out application.Main &lt;area&gt; &lt;action&gt; [options]</code></pre>
+<h2 id="package-a-runnable-jar">Package a runnable JAR</h2>
+<p>Bundle the compiled classes into a self-contained <code>crtk.jar</code>:</p>
 <pre><code class="language-bash">jar --create --file crtk.jar --main-class application.Main -C out .
 java -jar crtk.jar help</code></pre>
+<p>The rest of this site writes commands as <code>crtk</code>, which is the launcher the installer drops on your <code>PATH</code>. Wherever you see it, <code>java -jar crtk.jar</code> does exactly the same thing.</p>
+<h2 id="verify-the-build">Verify the build</h2>
+<p>Three commands tell you whether everything is wired up:</p>
+<pre><code class="language-bash">crtk version
+crtk doctor
+crtk help</code></pre>
+<p><code>crtk version</code> prints version metadata; add <code>--json</code> for a machine-readable object:</p>
+<pre><code class="language-text">crtk 1.0.0</code></pre>
+<pre><code class="language-bash">crtk version --json</code></pre>
+<pre><code class="language-text">{&quot;name&quot;:&quot;ChessRTK&quot;,&quot;launcher&quot;:&quot;crtk&quot;,&quot;version&quot;:&quot;1.0.0&quot;,&quot;java&quot;:&quot;21.0.11&quot;}</code></pre>
+<p><code>crtk doctor</code> walks the runtime, the config file, the engine protocol, the configured engine instances, the output directory, and the local model artifacts, then summarizes the result as <code>ok</code> or <code>ok-with-warnings</code>:</p>
+<pre><code class="language-text">doctor: ok-with-warnings
+Java: 21.0.11
+Config: /path/to/config/cli.config.toml
+Protocol: config/default.engine.toml
+Engine instances: 4
+Output: dump/
+Warnings:
+  - Missing model file for t5-model-path: .../models/t5.bin</code></pre>
+<p>A missing optional model is a warning, not an error, because the core CLI runs fine without it. In CI you usually want the opposite stance — any warning should fail the check — so pass <code>--strict</code> and <code>doctor</code> exits non-zero:</p>
+<pre><code class="language-bash">crtk doctor --strict</code></pre>
+<p><code>crtk help</code> lists every area and action. Append a command to drill into one:</p>
+<pre><code class="language-bash">crtk help engine bestmove
+crtk help fen generate
+crtk help --full</code></pre>
 <h2 id="linux-installer-debian-ubuntu">Linux installer (Debian/Ubuntu)</h2>
-<p><code>./install.sh</code> is a convenience installer that:</p>
+<p>If the manual steps above feel like one too many, <code>./install.sh</code> collapses them into a single command that takes a fresh checkout to a fully wired-up install. It:</p>
 <ul>
 <li>optionally installs OpenJDK 17 and Stockfish via <code>apt-get</code></li>
 <li>optionally downloads NNUE, LC0 CNN, and official LC0 BT4 model artifacts into <code>models/</code></li>
-<li>compiles sources and builds <code>crtk.jar</code></li>
-<li>installs a launcher at <code>/usr/local/bin/crtk</code> that runs from this repo</li>
-<li>installs a <code>ChessRTK Workbench</code> desktop app entry that launches the Swing workbench without opening a terminal</li>
-<li>optionally builds CUDA, ROCm/HIP, and oneAPI JNI backends when their vendor</li>
+<li>compiles the sources with <code>javac --release 17</code> and builds <code>crtk.jar</code></li>
+<li>installs a launcher at <code>/usr/local/bin/crtk</code> that runs from this repository</li>
+<li>installs a <code>ChessRTK Workbench</code> desktop entry that launches the Swing workbench (<code>crtk workbench</code>) without opening a terminal</li>
+<li>optionally builds the CUDA, ROCm/HIP, and oneAPI JNI backends when their vendor toolchains are present</li>
 </ul>
-<p>toolchains are available</p>
-<p>Downloaded <code>models/<em>.bin</code>, <code>models/</em>.pb.gz</code>, and <code>models/*.nnue</code> files are local artifacts and are ignored by git.</p>
+<p>Any <code>models/*.bin</code>, <code>models/*.pb.gz</code>, and <code>models/*.nnue</code> files it downloads are local artifacts, and git ignores them.</p>
+<p>Run the installer, then verify:</p>
 <pre><code class="language-bash">./install.sh
 crtk help</code></pre>
-<p>After install, open <code>ChessRTK Workbench</code> from your applications menu for the desktop GUI, or launch the same app from a shell:</p>
+<p>After install, open <code>ChessRTK Workbench</code> from your applications menu, or launch the same desktop app from a shell:</p>
 <pre><code class="language-bash">crtk workbench</code></pre>
-<p>Fetch optional model weights without prompting:</p>
-<pre><code class="language-bash">./install.sh --models</code></pre>
-<p>Skip model weight downloads:</p>
-<pre><code class="language-bash">./install.sh --no-models</code></pre>
-<p>Skip native GPU backend builds:</p>
-<pre><code class="language-bash">./install.sh --no-cuda --no-rocm --no-oneapi</code></pre>
-<p>Install only the command-line launcher and skip the desktop app entry:</p>
-<pre><code class="language-bash">./install.sh --no-desktop</code></pre>
-<p>Force a native GPU backend build:</p>
-<pre><code class="language-bash">./install.sh --cuda
-./install.sh --rocm
-./install.sh --oneapi</code></pre>
+<p>The Workbench gives you a board, play-vs-engine, command forms, batch jobs, dataset and publishing previews, puzzles, and neural-network visualizers. See <a href="workbench.html">Workbench</a>.</p>
+<h3 id="installer-flags">Installer flags</h3>
+<p>Left alone, the installer detects what toolchains are present and acts on them. These flags take that decision out of its hands.</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Flag</th>
+<th>Effect</th>
+</tr></thead><tbody>
+<tr>
+<td><code>--models</code> (alias <code>--fetch-models</code>)</td>
+<td>Download optional model weights without prompting</td>
+</tr>
+<tr>
+<td><code>--no-models</code> (alias <code>--no-fetch-models</code>)</td>
+<td>Skip model weight downloads</td>
+</tr>
+<tr>
+<td><code>--cuda</code> / <code>--rocm</code> (<code>--amd</code>) / <code>--oneapi</code> (<code>--intel</code>)</td>
+<td>Force a native GPU backend build</td>
+</tr>
+<tr>
+<td><code>--require-cuda</code> / <code>--require-rocm</code> / <code>--require-oneapi</code></td>
+<td>Fail the install if that backend cannot be built</td>
+</tr>
+<tr>
+<td><code>--no-cuda</code> / <code>--no-rocm</code> / <code>--no-oneapi</code></td>
+<td>Skip that native GPU backend build</td>
+</tr>
+<tr>
+<td><code>--no-launcher</code></td>
+<td>Skip installing the <code>/usr/local/bin/crtk</code> launcher</td>
+</tr>
+<tr>
+<td><code>--no-desktop</code> (alias <code>--no-app-launcher</code>)</td>
+<td>Skip the desktop app entry</td>
+</tr>
+<tr>
+<td><code>-h</code>, <code>--help</code></td>
+<td>Show installer usage</td>
+</tr>
+</tbody></table></div>
+<p>Common combinations:</p>
+<pre><code class="language-bash">./install.sh --models
+./install.sh --no-models
+./install.sh --no-cuda --no-rocm --no-oneapi
+./install.sh --no-desktop
+./install.sh --cuda</code></pre>
+<p>None of the native GPU backends are required — build none of them and perft and OTIS quietly run on the CPU instead. See <a href="gpu.html">GPU Backends</a> for <code>engine gpu</code>, <code>engine perft --gpu</code>, and the toolchain requirements.</p>
 <h2 id="update">Update</h2>
-<p>Update the current git checkout with a fast-forward pull and rerun the installer:</p>
+<p>Fast-forward an existing checkout and rerun the installer in one step:</p>
 <pre><code class="language-bash">./scripts/update.sh</code></pre>
 <p>Rebuild and reinstall the current checkout without pulling new commits:</p>
 <pre><code class="language-bash">./scripts/update.sh --no-pull</code></pre>
 <p>Notes:</p>
 <ul>
-<li><code>scripts/update.sh</code> refuses to pull if the git worktree has local changes.</li>
-<li>Any remaining flags are passed through to <code>./install.sh</code>, for example <code>./scripts/update.sh --no-cuda</code>.</li>
+<li><code>scripts/update.sh</code> refuses to pull when the worktree has local changes, so an in-progress edit is never clobbered.</li>
+<li>Anything it doesn&#x27;t recognize passes straight through to <code>./install.sh</code> — for example <code>./scripts/update.sh --no-cuda</code>.</li>
 </ul>
 <h2 id="uninstall">Uninstall</h2>
-<p>Remove the launcher and local build artifacts:</p>
+<p>Remove the launcher, the desktop entry, and local build artifacts (<code>out/</code>, <code>crtk.jar</code>, <code>native/*/build/</code>):</p>
 <pre><code class="language-bash">./scripts/uninstall.sh</code></pre>
-<p>Keep the desktop app entry while uninstalling other local pieces:</p>
-<pre><code class="language-bash">./scripts/uninstall.sh --keep-desktop</code></pre>
-<p>Also remove data directories created by the app (<code>dump/</code>, plus legacy <code>session/</code> if present):</p>
-<pre><code class="language-bash">./scripts/uninstall.sh --remove-data</code></pre>
-        </article>
-        <aside class="toc"><h2>On This Page</h2>
+<p>Useful flags:</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Flag</th>
+<th>Effect</th>
+</tr></thead><tbody>
+<tr>
+<td><code>--remove-data</code> (alias <code>--all</code>)</td>
+<td>Also remove app-created data directories (<code>dump/</code>, plus legacy <code>session/</code> if present)</td>
+</tr>
+<tr>
+<td><code>--keep-build</code></td>
+<td>Keep build artifacts (<code>out/</code>, <code>crtk.jar</code>, native build dirs)</td>
+</tr>
+<tr>
+<td><code>--keep-launcher</code></td>
+<td>Keep <code>/usr/local/bin/crtk</code></td>
+</tr>
+<tr>
+<td><code>--keep-desktop</code></td>
+<td>Keep the <code>ChessRTK Workbench</code> desktop entry</td>
+</tr>
+<tr>
+<td><code>-y</code>, <code>--yes</code></td>
+<td>Assume yes for prompts</td>
+</tr>
+</tbody></table></div>
+<pre><code class="language-bash">./scripts/uninstall.sh --keep-desktop
+./scripts/uninstall.sh --remove-data</code></pre>
+<h2 id="regression-checks-after-a-build">Regression checks after a build</h2>
+<p>The same runner CI uses is yours to run locally, which is the point — what passes on your machine passes in the pipeline. From the repository root:</p>
+<pre><code class="language-bash">./scripts/run_regression_suite.sh recommended</code></pre>
+<p>Focused suites you can run individually:</p>
+<pre><code class="language-bash">./scripts/run_regression_suite.sh build
+./scripts/run_regression_suite.sh lint
+./scripts/run_regression_suite.sh core
+./scripts/run_regression_suite.sh cli
+./scripts/run_regression_suite.sh uci
+./scripts/run_regression_suite.sh book
+./scripts/run_regression_suite.sh perft-smoke
+./scripts/run_regression_suite.sh release</code></pre>
+<p>The perft smoke suite checks the in-process core move generator against stored truth values; it never launches Stockfish or any other external UCI process. Tune its depth and parallelism with environment variables:</p>
+<pre><code class="language-bash">CRTK_PERFT_SUITE_DEPTH=6 CRTK_PERFT_THREADS=4 ./scripts/run_regression_suite.sh perft-smoke</code></pre>
+<p>When a change you made depends on a configured external UCI engine, make the engine suite demand one rather than skip silently:</p>
+<pre><code class="language-bash">CRTK_REQUIRE_STOCKFISH=1 ./scripts/run_regression_suite.sh uci</code></pre>
+<p>Any time you touch move generation, FEN validation, SAN, make/undo, or Chess960 setup, run the full internal perft validation — that is where subtle correctness bugs hide. You can also exercise the perft path directly through the CLI:</p>
+<pre><code class="language-bash">crtk engine perft --startpos --depth 5
+crtk engine perft-suite --depth 6 --threads 4</code></pre>
+<p>Adding <code>--gpu</code> to <code>engine perft</code> / <code>engine perft-suite</code> (or the matching runner environment) routes the work to the optional native backend when one is built, and still launches no external UCI process. See <a href="gpu.html">GPU Backends</a>.</p>
+<h2 id="next-steps">Next steps</h2>
+<ul>
+<li><a href="getting-started.html">Getting Started</a> — your first commands and core workflows.</li>
+<li><a href="configuration.html">Configuration</a> — config files, engine protocols, and model paths.</li>
+<li><a href="command-reference.html">Command Reference</a> — every area and action.</li>
+<li><a href="gpu.html">GPU Backends</a> — native CUDA/ROCm/oneAPI perft and OTIS acceleration.</li>
+<li><a href="troubleshooting.html">Troubleshooting</a> — diagnosing build and runtime issues.</li>
+</ul>
+      </article>
+      <aside class="toc"><h2>On this page</h2>
+<a class="toc-h2" href="#what-you-get">What you get</a>
 <a class="toc-h2" href="#requirements">Requirements</a>
+<a class="toc-h3" href="#honest-note-on-neural-network-fidelity">Honest note on neural-network fidelity</a>
 <a class="toc-h2" href="#debian-ubuntu-packages">Debian/Ubuntu packages</a>
-<a class="toc-h2" href="#build-no-maven-gradle">Build (no Maven/Gradle)</a>
-<a class="toc-h2" href="#focused-regression-check">Focused regression check</a>
-<a class="toc-h2" href="#local-regression-runner">Local regression runner</a>
-<a class="toc-h2" href="#quality-checks">Quality checks</a>
-<a class="toc-h2" href="#run">Run</a>
-<a class="toc-h2" href="#package-a-runnable-jar-optional">Package a runnable JAR (optional)</a>
+<a class="toc-h2" href="#build-from-source">Build from source</a>
+<a class="toc-h2" href="#package-a-runnable-jar">Package a runnable JAR</a>
+<a class="toc-h2" href="#verify-the-build">Verify the build</a>
 <a class="toc-h2" href="#linux-installer-debian-ubuntu">Linux installer (Debian/Ubuntu)</a>
+<a class="toc-h3" href="#installer-flags">Installer flags</a>
 <a class="toc-h2" href="#update">Update</a>
-<a class="toc-h2" href="#uninstall">Uninstall</a></aside>
-      </main>
-      <footer class="footer">
-        <span>Generated from <code>wiki/build-and-install.md</code>.</span>
-        <span>Build with <code>python3 scripts/build_docs_site.py</code>.</span>
-      </footer>
-    </div>
+<a class="toc-h2" href="#uninstall">Uninstall</a>
+<a class="toc-h2" href="#regression-checks-after-a-build">Regression checks after a build</a>
+<a class="toc-h2" href="#next-steps">Next steps</a></aside>
+    </main>
   </div>
+
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <div class="footer-brand">
+        <a class="footer-logo" href="index.html">
+          <img src="assets/logo/crtk-logo.svg" alt="" width="40" height="40">
+          <span>ChessRTK</span>
+        </a>
+        <p>The deterministic chess research toolkit. Free, open-source, and built on one shared Java chess core.</p>
+        <p class="footer-license">Licensed under GPL-3.0-only.</p>
+      </div>
+      <div class="footer-cols">
+        <div class="footer-col"><h3>Documentation</h3><ul>
+          <li><a href="getting-started.html">Getting Started</a></li>
+          <li><a href="command-reference.html">Command Reference</a></li>
+          <li><a href="configuration.html">Configuration</a></li>
+          <li><a href="troubleshooting.html">Troubleshooting</a></li>
+          <li><a href="chessrtk-manual.pdf">Manual (PDF)</a></li>
+        </ul></div>
+        <div class="footer-col"><h3>Workflows</h3><ul>
+          <li><a href="mining.html">Puzzle Mining</a></li>
+          <li><a href="datasets.html">ML Datasets</a></li>
+          <li><a href="piece-tags.html">Tagging</a></li>
+          <li><a href="book-publishing.html">Book Publishing</a></li>
+          <li><a href="ai-agents.html">AI Agents</a></li>
+        </ul></div>
+        <div class="footer-col"><h3>Project</h3><ul>
+          <li><a href="architecture.html">Architecture</a></li>
+          <li><a href="quality-and-testing.html">Quality &amp; Testing</a></li>
+          <li><a href="https://github.com/LenniAConrad/chess-rtk" target="_blank" rel="noopener">GitHub</a></li>
+          <li><a href="https://github.com/LenniAConrad/chess-rtk/issues" target="_blank" rel="noopener">Issues</a></li>
+        </ul></div>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>&copy; ChessRTK contributors &middot; GPL-3.0-only</span>
+      <span>Documentation generated from the repository <a href="wiki-index.html">wiki</a>.</span>
+    </div>
+  </footer>
+
 </body>
 </html>

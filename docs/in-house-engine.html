@@ -3,234 +3,445 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>In-house Java engine | ChessRTK Wiki</title>
+  <title>Built-in Engine | ChessRTK</title>
+  <meta name="description" content="The deterministic chess research toolkit — Built-in Engine.">
+  <link rel="icon" href="assets/logo/crtk-logo.svg" type="image/svg+xml">
   <link rel="stylesheet" href="styles.css">
+  <script>
+    (function () {
+      var key = "crtk-theme";
+      var isTheme = function (value) { return value === "light" || value === "dark"; };
+      var urlTheme = "";
+      var stored = "";
+      try { urlTheme = new URLSearchParams(window.location.search).get("theme"); } catch (e) {}
+      try { stored = localStorage.getItem(key); } catch (e) {}
+      var theme = isTheme(urlTheme) ? urlTheme : (isTheme(stored) ? stored : "");
+      if (!theme) {
+        theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+      }
+      if (isTheme(urlTheme)) {
+        try { localStorage.setItem(key, urlTheme); } catch (e) {}
+      }
+      document.documentElement.setAttribute("data-theme", theme);
+    })();
+  </script>
   <script defer src="search-index.js"></script>
   <script defer src="site.js"></script>
 </head>
-<body>
-  <button class="menu-toggle" type="button" aria-label="Toggle navigation">Menu</button>
-  <div class="site-shell">
-    <aside class="sidebar">
-      <a class="brand" href="index.html">
-        <span class="brand-mark">CR</span>
-        <span><strong>ChessRTK</strong><small>Wiki</small></span>
+<body class="is-doc">
+
+  <header class="topnav">
+    <div class="topnav-inner">
+      <a class="topnav-brand" href="index.html">
+        <img src="assets/logo/crtk-logo.svg" alt="" width="32" height="32">
+        <span>ChessRTK</span>
       </a>
-      <label class="search-label" for="doc-search">Search pages</label>
-      <input id="doc-search" class="search" type="search" placeholder="Search docs...">
+      <button class="nav-toggle" type="button" aria-label="Toggle navigation" aria-expanded="false">
+        <span></span><span></span><span></span>
+      </button>
+      <nav class="topnav-links">
+        <a class="" href="getting-started.html">Get started</a>
+        <a class="" href="command-reference.html">Commands</a>
+        <a class="" href="workbench.html">Workbench</a>
+        <a class="" href="wiki-index.html">Docs</a>
+        <a class="" href="chessrtk-manual.pdf">Manual</a>
+        <a class="topnav-gh" href="https://github.com/LenniAConrad/chess-rtk" target="_blank" rel="noopener">GitHub</a>
+        <button class="theme-toggle" type="button" aria-label="Toggle dark mode" title="Toggle dark mode">
+          <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2v2.4M12 19.6V22M2 12h2.4M19.6 12H22M4.9 4.9l1.7 1.7M17.4 17.4l1.7 1.7M19.1 4.9l-1.7 1.7M6.6 17.4l-1.7 1.7"/></svg>
+          <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4 7 7 0 1 0 20 14.5Z"/></svg>
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <div class="doc-shell">
+    <aside class="sidebar" id="sidebar">
+      <label class="search-label" for="doc-search">Search the docs</label>
+      <input id="doc-search" class="search" type="search" placeholder="Search pages..." autocomplete="off">
       <div id="search-results" class="search-results" hidden></div>
       <nav class="nav"><section class="nav-section"><h2>Start Here</h2>
-<a class="" href="index.html" data-title="home">Home</a>
+<a class="" href="index.html" data-title="overview">Overview</a>
 <a class="" href="getting-started.html" data-title="getting started">Getting Started</a>
+<a class="" href="build-and-install.html" data-title="build &amp; install">Build &amp; Install</a>
 <a class="" href="use-cases.html" data-title="use cases">Use Cases</a>
-<a class="" href="command-cheatsheet.html" data-title="command cheatsheet">Command Cheatsheet</a>
 <a class="" href="faq.html" data-title="faq">FAQ</a>
-<a class="" href="command-reference.html" data-title="command reference">Command Reference</a>
-<a class="" href="example-commands.html" data-title="example commands">Example Commands</a>
 <a class="" href="troubleshooting.html" data-title="troubleshooting">Troubleshooting</a>
 </section>
-<section class="nav-section"><h2>User Guides</h2>
-<a class="" href="build-and-install.html" data-title="build &amp; install">Build &amp; Install</a>
-<a class="" href="workbench.html" data-title="desktop workbench">Desktop Workbench</a>
+<section class="nav-section"><h2>Commands</h2>
+<a class="" href="command-cheatsheet.html" data-title="cheatsheet">Cheatsheet</a>
+<a class="" href="command-reference.html" data-title="command reference">Command Reference</a>
+<a class="" href="example-commands.html" data-title="example commands">Example Commands</a>
 <a class="" href="configuration.html" data-title="configuration">Configuration</a>
-<a class="active" href="in-house-engine.html" data-title="in-house engine">In-House Engine</a>
-<a class="" href="lc0.html" data-title="lc0">LC0</a>
 <a class="" href="outputs-and-logs.html" data-title="outputs &amp; logs">Outputs &amp; Logs</a>
-<a class="" href="support.html" data-title="support">Support</a>
+</section>
+<section class="nav-section"><h2>Desktop Workbench</h2>
+<a class="" href="workbench.html" data-title="workbench">Workbench</a>
+</section>
+<section class="nav-section"><h2>Engines &amp; Models</h2>
+<a class="active" href="in-house-engine.html" data-title="built-in engine">Built-in Engine</a>
+<a class="" href="lc0.html" data-title="lc0 networks">LC0 Networks</a>
+<a class="" href="gpu.html" data-title="gpu acceleration">GPU Acceleration</a>
+<a class="" href="t5.html" data-title="t5 text">T5 Text</a>
 </section>
 <section class="nav-section"><h2>Workflows</h2>
-<a class="" href="mining.html" data-title="mining puzzles">Mining Puzzles</a>
+<a class="" href="mining.html" data-title="puzzle mining">Puzzle Mining</a>
 <a class="" href="filter-dsl.html" data-title="filter dsl">Filter DSL</a>
-<a class="" href="datasets.html" data-title="datasets">Datasets</a>
-<a class="" href="book-publishing.html" data-title="book publishing">Book Publishing</a>
-<a class="" href="piece-tags.html" data-title="tags">Tags</a>
+<a class="" href="datasets.html" data-title="ml datasets">ML Datasets</a>
+<a class="" href="piece-tags.html" data-title="tagging">Tagging</a>
 <a class="" href="tag-reference.html" data-title="tag reference">Tag Reference</a>
-<a class="" href="t5.html" data-title="t5 text">T5 Text</a>
-<a class="" href="ai-agents.html" data-title="ai agents">AI Agents</a>
+<a class="" href="book-publishing.html" data-title="book publishing">Book Publishing</a>
+<a class="" href="ai-agents.html" data-title="ai agents &amp; automation">AI Agents &amp; Automation</a>
 </section>
-<section class="nav-section"><h2>Development</h2>
+<section class="nav-section"><h2>Project</h2>
 <a class="" href="architecture.html" data-title="architecture">Architecture</a>
 <a class="" href="quality-and-testing.html" data-title="quality &amp; testing">Quality &amp; Testing</a>
 <a class="" href="development-notes.html" data-title="development notes">Development Notes</a>
 <a class="" href="releasing.html" data-title="releasing">Releasing</a>
-<a class="" href="roadmap.html" data-title="roadmap">Roadmap</a>
 <a class="" href="glossary.html" data-title="glossary">Glossary</a>
-<a class="" href="tagging-implementation-plan.html" data-title="tagging plan">Tagging Plan</a>
+<a class="" href="support.html" data-title="support">Support</a>
 <a class="" href="wiki-index.html" data-title="wiki index">Wiki Index</a>
 </section></nav>
     </aside>
-    <div class="page">
-      <header class="topbar">
-        <div>
-          <span>User Guides</span>
-          <strong>In-house Java engine</strong>
-        </div>
-        <nav>
-          <a href="index.html">Home</a>
-          <a href="wiki-index.html">Wiki Index</a>
-          <a href="chessrtk-manual.pdf">Manual PDF</a>
-          <a href="command-reference.html">Commands</a>
-        </nav>
-      </header>
-      
-      <main class="content-layout">
-        <article class="content">
-          <h1 id="in-house-java-engine">In-house Java engine</h1>
-<p>ChessRTK includes a small built-in Java engine exposed through <code>crtk engine builtin</code> and <code>crtk engine java</code>.</p>
-<p>The engine is an in-process search and benchmarking tool. It is not intended to be a top-tier engine competing with mature UCI engines. Use it when an in-process, zero-dependency search is valuable, when a workflow should continue without a configured UCI engine, or when you want to benchmark engine tasks such as puzzle solve speed.</p>
-<h2 id="cli-usage">CLI usage</h2>
-<p>Search one FEN with the default classical evaluator:</p>
-<pre><code class="language-bash">crtk engine builtin --fen &quot;&lt;FEN&gt;&quot; --depth 20
-crtk engine builtin --fen &quot;&lt;FEN&gt;&quot; --depth 4 --format summary
-crtk engine java --fen &quot;&lt;FEN&gt;&quot; --depth 4 --format both</code></pre>
-<p>Cap the search by nodes or time:</p>
-<pre><code class="language-bash">crtk engine builtin --fen &quot;&lt;FEN&gt;&quot; --depth 5 --nodes 250000 --format both
-crtk engine builtin --fen &quot;&lt;FEN&gt;&quot; --depth 8 --max-duration 2s --format summary</code></pre>
-<p>When <code>--depth</code> is explicit and <code>--nodes</code>/<code>--max-duration</code> are omitted, the search tries to complete that depth without the default node/time caps. Add <code>--nodes</code> or <code>--max-duration</code> when you want depth to act as a maximum inside a budget.</p>
+    <main class="doc-main">
+      <article class="content">
+        <p class="content-kicker">Engines &amp; Models</p>
+        <h1 id="built-in-engine">Built-in Engine</h1>
+<p>Everything here runs inside the same process that issued the command — no UCI subprocess to spawn, no socket to configure, no background engine to outlive its job. The core is a deterministic PUCT-style MCTS searcher (<code>engine builtin</code> / <code>engine java</code>) that you point at one of four evaluators: classical/handcrafted, NNUE, LC0 CNN, or OTIS. Around it sit a standalone exhaustive forced-mate prover (<code>engine mate</code>), one-shot position evaluation (<code>engine eval</code> / <code>engine static</code>), an opponent-threat analyzer (<code>engine threats</code>), and a move-generator benchmark (<code>engine benchmark</code>). All of them share crtk&#x27;s one chess core, return the same answer for the same inputs and budget, and stop only where you tell them to — via explicit <code>--depth</code>, <code>--nodes</code>, and <code>--max-duration</code> limits. That combination is what makes it pleasant in scripts, CI, and research you need to reproduce.</p>
+<p>It will not out-play Stockfish or LC0, and it isn&#x27;t trying to. The point is determinism and zero dependencies: a search that gives the same result every time and keeps working when no UCI engine is configured. When you need real playing strength, MultiPV, or large-scale mining, drive an external engine through <code>engine analyze</code> / <code>engine bestmove</code> instead — see <a href="lc0.html">LC0 &amp; external engines</a> and <a href="mining.html">Mining</a>.</p>
+<h2 id="what-runs-entirely-in-process">What runs entirely in-process</h2>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Command</th>
+<th>What it does</th>
+<th>Needs external engine?</th>
+</tr></thead><tbody>
+<tr>
+<td><code>engine builtin</code> / <code>engine java</code></td>
+<td>MCTS search with a selectable evaluator</td>
+<td>No</td>
+</tr>
+<tr>
+<td><code>engine mate</code></td>
+<td>Brute-force prover for forced mate-in-N</td>
+<td>No</td>
+</tr>
+<tr>
+<td><code>engine eval</code></td>
+<td>One-shot LC0 / OTIS / classical evaluation</td>
+<td>No</td>
+</tr>
+<tr>
+<td><code>engine static</code></td>
+<td>One-shot classical (handcrafted) evaluation</td>
+<td>No</td>
+</tr>
+<tr>
+<td><code>engine benchmark</code></td>
+<td>Move-generator throughput benchmark (perft-based)</td>
+<td>No</td>
+</tr>
+<tr>
+<td><code>engine threats</code></td>
+<td>Opponent-threat analysis</td>
+<td>Yes (uses configured UCI engine)</td>
+</tr>
+</tbody></table></div>
+<p><code>engine builtin</code> and <code>engine java</code> are the same command — <code>engine java</code> is an alias, so pick whichever reads better in your scripts. <code>engine mate</code> also answers to <code>engine find-mate</code>.</p>
+<h2 id="mcts-search-engine-builtin-engine-java">MCTS search — <code>engine builtin</code> / <code>engine java</code></h2>
+<p>Search a single position with the default classical evaluator:</p>
+<pre><code class="language-bash">crtk engine builtin --fen &quot;&lt;FEN&gt;&quot; --depth 4 --format summary
+crtk engine builtin --startpos --depth 4 --format both
+crtk engine java --fen &quot;&lt;FEN&gt;&quot; --depth 6</code></pre>
 <p>Read a file with one FEN per line:</p>
 <pre><code class="language-bash">crtk engine builtin --input positions.txt --depth 3 --format both</code></pre>
-<p>Select an evaluator:</p>
-<pre><code class="language-bash">crtk engine builtin --evaluator classical --fen &quot;&lt;FEN&gt;&quot;
-crtk engine builtin --classical --depth 6 --fen &quot;&lt;FEN&gt;&quot;
-crtk engine builtin --nnue --fen &quot;&lt;FEN&gt;&quot;   # after ./install.sh --models
+<p>Or expose the searcher as a minimal UCI loop, which is enough for local protocol tests:</p>
+<pre><code class="language-bash">crtk engine builtin --uci</code></pre>
+<h3 id="choosing-an-evaluator">Choosing an evaluator</h3>
+<p>Pass <code>--evaluator classical|nnue|lc0|otis</code>, or use the shortcut selectors <code>--classical</code>, <code>--nnue</code>, <code>--lc0</code>, <code>--otis</code>. The default is <code>classical</code>.</p>
+<pre><code class="language-bash">crtk engine builtin --classical --depth 6 --fen &quot;&lt;FEN&gt;&quot;
+crtk engine builtin --nnue --fen &quot;&lt;FEN&gt;&quot;
 crtk engine builtin --evaluator nnue --weights models/crtk-halfkp.nnue --fen &quot;&lt;FEN&gt;&quot;
-crtk engine builtin --evaluator lc0 --weights models/leela_112planes-10blocksx128-policyhead80-valuehead32-policy4672-wdl3.bin --fen &quot;&lt;FEN&gt;&quot;</code></pre>
-<p>Shortcut flags are also available: <code>--classical</code>, <code>--nnue</code>, and <code>--lc0</code>.</p>
-<p>Defaults:</p>
+crtk engine builtin --lc0 --weights models/leela.bin --fen &quot;&lt;FEN&gt;&quot;
+crtk engine builtin --otis --fen &quot;&lt;FEN&gt;&quot;</code></pre>
+<p><code>--weights PATH</code> names an explicit NNUE, LC0, or OTIS model file; omit it and each neural evaluator falls back to its configured default path. Install those defaults with <code>./install.sh --models</code> — see <a href="build-and-install.html">Build &amp; install</a>. The neural backends cost far more per node than the handcrafted one, so give them a real <code>--nodes</code> or <code>--max-duration</code> budget rather than the depth-derived default.</p>
+<h3 id="bounding-the-search">Bounding the search</h3>
+<p>Three flags decide how long the search runs, and nothing else does:</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Flag</th>
+<th>Meaning</th>
+</tr></thead><tbody>
+<tr>
+<td><code>--depth N</code> / <code>-d N</code></td>
+<td>Search depth hint (default: <code>3</code>)</td>
+</tr>
+<tr>
+<td><code>--nodes N</code> / <code>--max-nodes N</code></td>
+<td>MCTS playout budget; <code>0</code> disables the node cap</td>
+</tr>
+<tr>
+<td><code>--max-duration D</code></td>
+<td>Wall-clock budget, e.g. <code>5s</code>; <code>0</code> means no time cap</td>
+</tr>
+</tbody></table></div>
+<pre><code class="language-bash">crtk engine builtin --fen &quot;&lt;FEN&gt;&quot; --depth 5 --nodes 250000 --format both
+crtk engine builtin --fen &quot;&lt;FEN&gt;&quot; --depth 8 --max-duration 2s --format summary</code></pre>
+<p>For the MCTS CLI, <code>--nodes</code> is the playout budget directly. Set <code>--depth</code> alone — with no <code>--nodes</code> and no <code>--max-duration</code> — and the command translates depth into a small playout budget rather than searching forever. Whenever you care about the exact budget, state it: pass <code>--nodes</code> or <code>--max-duration</code> explicitly.</p>
+<h3 id="output-formats">Output formats</h3>
+<p><code>--format</code> accepts <code>uci-info</code>, <code>uci</code>, <code>san</code>, <code>both</code>, or <code>summary</code> (default: <code>uci-info</code>).</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Format</th>
+<th>Output</th>
+</tr></thead><tbody>
+<tr>
+<td><code>uci-info</code> (default)</td>
+<td>UCI-style <code>info depth ... pv ...</code> lines, then <code>bestmove ...</code></td>
+</tr>
+<tr>
+<td><code>uci</code></td>
+<td>Best move only, e.g. <code>e2e4</code></td>
+</tr>
+<tr>
+<td><code>san</code></td>
+<td>Best move only, e.g. <code>e4</code></td>
+</tr>
+<tr>
+<td><code>both</code></td>
+<td>UCI and SAN, separated by a tab</td>
+</tr>
+<tr>
+<td><code>summary</code></td>
+<td>FEN, evaluator, best move, score, completed depth, nodes, elapsed time, stopped flag, and PV</td>
+</tr>
+</tbody></table></div>
+<p>If a slow evaluator burns through its budget before depth 1 even completes, <code>uci-info</code> falls back to a static evaluation and emits it as <code>info depth 0 ... pv ...</code> — you still get a move out of it.</p>
+<h2 id="forced-mate-prover-engine-mate">Forced-mate prover — <code>engine mate</code></h2>
+<p><code>engine mate</code> answers one question without guessing: does the side to move have a forced mate within the given distance? It is an AND/OR proof search over legal moves, ordered to try forcing replies first and memoizing its proof bounds. No evaluator, no network — the verdict is proven, not estimated.</p>
+<pre><code class="language-bash">crtk engine mate --fen &quot;&lt;FEN&gt;&quot; --max-mate 4
+crtk engine mate --fen &quot;&lt;FEN&gt;&quot; --max-mate 6 --nodes 5000000 --threads 4 --format summary</code></pre>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Flag</th>
+<th>Meaning</th>
+</tr></thead><tbody>
+<tr>
+<td><code>--mate N</code> / <code>--max-mate N</code></td>
+<td>Maximum mate distance in moves (default: <code>4</code>)</td>
+</tr>
+<tr>
+<td><code>--nodes N</code> / <code>--max-nodes N</code></td>
+<td>Proof node budget; <code>0</code> disables the node cap</td>
+</tr>
+<tr>
+<td><code>--threads N</code></td>
+<td>Worker threads for root moves (default: <code>1</code>)</td>
+</tr>
+<tr>
+<td><code>--format FORMAT</code></td>
+<td><code>summary</code>, <code>uci</code>, <code>san</code>, <code>both</code>, <code>json</code>, or <code>jsonl</code> (default: <code>summary</code>)</td>
+</tr>
+<tr>
+<td><code>--json</code> / <code>--jsonl</code></td>
+<td>Aliases for <code>--format json</code> / <code>--format jsonl</code></td>
+</tr>
+</tbody></table></div>
+<p>Because the search is exhaustive within <code>--max-mate</code>, a positive result is a forced mate, full stop. Raise <code>--max-mate</code> to reach for longer mates; raise <code>--nodes</code> if the budget cut a proof short before it could finish.</p>
+<h2 id="one-shot-evaluation-engine-eval-and-engine-static">One-shot evaluation — <code>engine eval</code> and <code>engine static</code></h2>
+<p>Sometimes you want a number, not a search. These commands run a single forward evaluation and print the score — no tree, no playouts, no budget flags to set.</p>
+<p><code>engine static</code> runs the handcrafted classical evaluator:</p>
+<pre><code class="language-bash">crtk engine static --startpos
+crtk engine static --fen &quot;&lt;FEN&gt;&quot; --terminal-aware</code></pre>
+<p><code>engine eval</code> selects among the neural and classical backends:</p>
+<pre><code class="language-bash">crtk engine eval --startpos
+crtk engine eval --fen &quot;&lt;FEN&gt;&quot; --lc0
+crtk engine eval --fen &quot;&lt;FEN&gt;&quot; --otis --weights models/otis.bin
+crtk engine eval --fen &quot;&lt;FEN&gt;&quot; --classical --terminal-aware</code></pre>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Flag (<code>engine eval</code>)</th>
+<th>Meaning</th>
+</tr></thead><tbody>
+<tr>
+<td><code>--evaluator MODE</code></td>
+<td><code>auto</code>, <code>lc0</code>, <code>otis</code>, or <code>classical</code> (default: <code>auto</code>)</td>
+</tr>
+<tr>
+<td><code>--lc0</code> / <code>--otis</code> / <code>--classical</code></td>
+<td>Shortcut evaluator selectors</td>
+</tr>
+<tr>
+<td><code>--weights PATH</code></td>
+<td>LC0 or OTIS weights path</td>
+</tr>
+<tr>
+<td><code>--terminal-aware</code> / <code>--terminal</code></td>
+<td>Enable terminal-aware evaluation</td>
+</tr>
+</tbody></table></div>
+<p>Both commands also accept <code>--input PATH</code> to score one FEN per line.</p>
+<h2 id="the-evaluators">The evaluators</h2>
+<p>The MCTS searcher and the one-shot eval commands draw on the same four evaluators, and the split matters. <code>classical</code> and <code>nnue</code> return centipawns; the searcher uses them for leaf values and move priors. <code>lc0</code> and <code>otis</code> carry a policy head as well as a value, which lets their policy steer root exploration during MCTS rather than only scoring leaves.</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Evaluator</th>
+<th>What it is</th>
+<th>Default model</th>
+</tr></thead><tbody>
+<tr>
+<td><code>classical</code></td>
+<td>Handcrafted material, piece-square, mobility, king safety, pawn structure, and terminal-position scoring</td>
+<td>none (built in)</td>
+</tr>
+<tr>
+<td><code>nnue</code></td>
+<td>Pure-Java NNUE evaluator (HalfKP-style sparse features)</td>
+<td><code>models/crtk-halfkp.nnue</code></td>
+</tr>
+<tr>
+<td><code>lc0</code></td>
+<td>In-process LC0 CNN value/policy evaluator</td>
+<td>configured LC0 CNN <code>.bin</code></td>
+</tr>
+<tr>
+<td><code>otis</code></td>
+<td>OTIS tactical-sheaf policy/WDL evaluator</td>
+<td><code>models/otis_policy_wdl_random.bin</code></td>
+</tr>
+</tbody></table></div>
+<blockquote><p>A word on fidelity, plainly: crtk&#x27;s networks are usable, deterministic evaluators, not bit-exact copies of the upstream engines. The LC0 path is a simplified CNN and the BT4-style path is experimental, so do not expect LC0/BT4 parity from either. The caveats are spelled out in <a href="lc0.html">LC0 &amp; external engines</a>.</p></blockquote>
+<h3 id="nnue-internals">NNUE internals</h3>
+<p>The NNUE path is kept small and legible on purpose — you can follow every step by hand:</p>
 <ul>
-<li>If <code>--depth</code> is omitted, the command searches to depth <code>3</code> with a <code>250000</code></li>
+<li>The compact CRTK-format network uses HalfKP-style sparse features: 64 king buckets x 10 relative piece planes x 64 piece squares = 40,960 possible features.</li>
+<li>For each perspective, the active sparse features accumulate into a hidden vector, clipped ReLU runs, and the side-to-move and opponent activations pass through a single linear output layer to a centipawn score.</li>
+<li>The loader recognizes both the compact CRTK format and supported Stockfish <code>.nnue</code> files; an unsupported large Stockfish net falls back to full-rebuild evaluation.</li>
+<li><code>--nnue</code> needs its weights. If <code>models/crtk-halfkp.nnue</code> is missing it fails loudly with a missing-weights error instead of quietly substituting a smoke-test net — so a wrong score never masquerades as a real one. Install the file with <code>./install.sh --models</code>.</li>
 </ul>
-<p>node budget and a <code>5s</code> wall-clock budget.</p>
+<h3 id="otis">OTIS</h3>
+<p>OTIS is crtk&#x27;s tactical-sheaf evaluator. It emits both a move-policy distribution and a win/draw/loss head, so the policy can steer MCTS root exploration while the value scores leaves. Reach it through <code>engine eval --otis</code>, or behind the built-in MCTS search, and point <code>--weights</code> at an OTIS <code>.bin</code>. Like every crtk network it is a usable, deterministic evaluator, not a bit-exact reproduction of anything upstream. It is also the backend the optional native GPU libraries accelerate — see <a href="gpu.html">GPU Acceleration</a>.</p>
+<p><img src="assets/logo/otis/crtk-otis-lattice.svg" alt="OTIS tactical-lattice mark" loading="lazy"></p>
+<h2 id="opponent-threats-engine-threats">Opponent threats — <code>engine threats</code></h2>
+<p><code>engine threats</code> answers the counterfactual: what could the opponent do if the move were theirs? Handy for tactical alerts and annotation. It is the one command on this page that reaches outside the process — it drives the configured external UCI engine, so it takes the standard analysis flags.</p>
+<pre><code class="language-bash">crtk engine threats --startpos --max-duration 2s
+crtk engine threats --fen &quot;&lt;FEN&gt;&quot; --max-duration 2s --multipv 3</code></pre>
+<p>Relevant flags include <code>--protocol-path|-P</code>, <code>--max-nodes</code>, <code>--max-duration</code>, <code>--multipv</code>, <code>--threads</code>, <code>--hash</code>, and <code>--wdl</code> / <code>--no-wdl</code>. Configure the engine protocol as described in <a href="configuration.html">Configuration</a> and <a href="lc0.html">LC0 &amp; external engines</a>.</p>
+<h2 id="move-generator-benchmark-engine-benchmark">Move-generator benchmark — <code>engine benchmark</code></h2>
+<p><code>engine benchmark</code> times raw move generation by running perft on the shared core. It deliberately leaves search quality out of the picture, so the number reflects how fast the core enumerates moves and nothing else.</p>
+<pre><code class="language-bash">crtk engine benchmark --startpos --depth 5 --iterations 5
+crtk engine benchmark --fen &quot;&lt;FEN&gt;&quot; --depth 4 --json</code></pre>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Flag</th>
+<th>Meaning</th>
+</tr></thead><tbody>
+<tr>
+<td><code>--depth N</code> / <code>-d N</code></td>
+<td>Perft depth (default: <code>4</code>)</td>
+</tr>
+<tr>
+<td><code>--iterations N</code></td>
+<td>Repetitions (default: <code>3</code>)</td>
+</tr>
+<tr>
+<td><code>--threads N</code></td>
+<td>Worker threads for root moves (default: <code>1</code>)</td>
+</tr>
+<tr>
+<td><code>--json</code> / <code>--jsonl</code></td>
+<td>Emit one JSON object / one JSON object line</td>
+</tr>
+</tbody></table></div>
+<p>For correctness rather than speed, reach for <code>engine perft</code> and <code>engine perft-suite</code> — optionally on a native GPU backend with <code>--gpu</code>. The shared-core and GPU design is covered in <a href="architecture.html">Architecture</a>.</p>
+<h2 id="determinism-and-reproducibility">Determinism and reproducibility</h2>
+<p>Reproducibility was a design goal, not an afterthought:</p>
 <ul>
-<li>If <code>--depth</code> is provided and no budget is provided, the command attempts to</li>
+<li>One shared chess core handles legal move generation, make/undo, attack detection, FEN/SAN/UCI, and Chess960 for every command — the same code path the rest of crtk runs on.</li>
+<li>The same FEN, evaluator, and budget yield the same best move, score, and PV. Every time.</li>
+<li>The MCTS searcher is single-threaded and keeps its transposition state in-process and deterministic. That table is internal, with no <code>--hash</code> knob; when you pass <code>--threads</code>, <code>--hash</code>, and friends to the external commands, they go to the configured UCI engine, not to the in-house searcher.</li>
+<li>Every run stops at an explicit <code>--depth</code>, <code>--nodes</code>, or <code>--max-duration</code> limit, which is exactly what makes the output safe to assert on in CI.</li>
 </ul>
-<p>complete that depth without the default node/time caps.</p>
+<h2 id="when-to-use-which">When to use which</h2>
+<p>Reach for the built-in engine when you want:</p>
 <ul>
-<li><code>--nodes</code> and <code>--max-nodes</code> are aliases. A value of <code>0</code> means unlimited.</li>
-<li><code>--max-duration 0</code> means unlimited time.</li>
-</ul>
-<h2 id="evaluators">Evaluators</h2>
-<ul>
-<li><code>classical</code>: handcrafted material, piece-square, mobility, king safety, pawn</li>
-</ul>
-<p>structure, and terminal-position scoring.</p>
-<ul>
-<li><code>nnue</code>: pure-Java NNUE evaluator using <code>models/crtk-halfkp.nnue</code> by default,</li>
-</ul>
-<p>or an explicit <code>--weights</code> path. <code>./install.sh --models</code> installs the default file. If the default file is absent, <code>--nnue</code> fails with a missing-weights error instead of silently using the smoke-test fallback.</p>
-<ul>
-<li><code>lc0</code>: pure-Java LC0 value evaluator using the configured LC0 CNN model path by</li>
-</ul>
-<p>default, or an explicit <code>--weights</code> path.</p>
-<ul>
-<li><code>otis</code>: OTIS i249-style tactical sheaf policy/WDL evaluator using</li>
-</ul>
-<p><code>models/otis_policy_wdl_random.bin</code> by default, or an explicit <code>--weights</code> path.</p>
-<p>The evaluator is used as the static score at the search frontier. The engine search itself is still a classical alpha-beta search; choosing <code>--lc0</code> does not turn the engine into an LC0-style MCTS engine. LC0 evaluation is much more expensive than the handcrafted evaluator, so high alpha-beta depths with <code>--lc0</code> can take a long time.</p>
-<h2 id="nnue-architecture">NNUE architecture</h2>
-<p>The Java NNUE path is intentionally small and explicit.</p>
-<ul>
-<li>The compact CRTK-format network uses HalfKP-style sparse features:</li>
-</ul>
-<p><code>64 king buckets x 10 relative piece planes x 64 piece squares = 40,960</code> possible features.</p>
-<ul>
-<li>For each perspective, active sparse features are accumulated into one hidden</li>
-</ul>
-<p>vector, clipped ReLU is applied, and the side-to-move and opponent activations are projected through one linear output layer to a centipawn score.</p>
-<ul>
-<li><code>FeatureEncoder</code> maps a <code>Position</code> into sparse feature indices, and</li>
-</ul>
-<p><code>Accumulator</code> stores the hidden sums so the searcher can update deltas incrementally after moves instead of rebuilding from scratch each time.</p>
-<ul>
-<li><code>Model.load(path)</code> auto-detects both the compact CRTK format and supported</li>
-</ul>
-<p>Stockfish <code>.nnue</code> files. The compact CRTK path exposes public incremental search-state helpers; the Stockfish path is compatibility-oriented inference.</p>
-<p>For source-level package docs, see <code>src/chess/nn/nnue/package-info.java</code>.</p>
-<h2 id="search-behavior">Search behavior</h2>
-<p>The search is deterministic and supports:</p>
-<ul>
-<li>iterative deepening</li>
-<li>negamax alpha-beta search</li>
-<li>quiescence search for noisy leaf positions</li>
-<li>internal transposition and static-evaluation caches</li>
-<li>principal variation output</li>
-<li>move ordering with principal variation, transposition-table, capture,</li>
-</ul>
-<p>promotion, killer-move, and history signals</p>
-<ul>
-<li><code>--depth</code>, <code>--nodes</code>, and <code>--max-duration</code> limits</li>
-</ul>
-<p>The transposition table is built into the searcher and is not currently exposed as a user-tunable <code>--hash</code> option. External UCI commands still support <code>--threads</code> and <code>--hash</code> because those options are sent to the configured UCI engine; the in-house engine is single-threaded search with deterministic in-process state.</p>
-<p>Output formats:</p>
-<ul>
-<li>default / <code>--format uci-info</code>: UCI-style <code>info depth ... pv ...</code> lines,</li>
-</ul>
-<p>followed by <code>bestmove ...</code></p>
-<ul>
-<li>if a slow evaluator exhausts its budget before depth 1 completes, <code>uci-info</code></li>
-</ul>
-<p>emits the static fallback as <code>info depth 0 ... pv ...</code></p>
-<ul>
-<li><code>--format uci</code>: best move only, e.g. <code>e2e4</code></li>
-<li><code>--format san</code>: best move only, e.g. <code>e4</code></li>
-<li><code>--format both</code>: UCI and SAN separated by a tab</li>
-<li><code>--format summary</code>: FEN, evaluator, best move, score, completed depth, nodes,</li>
-</ul>
-<p>elapsed time, stopped flag, and PV</p>
-<h2 id="practical-uses">Practical Uses</h2>
-<p>Use the built-in engine for:</p>
-<ul>
-<li>deterministic best-move output in scripts that should not spawn an external</li>
-</ul>
-<p>process</p>
-<ul>
-<li>small smoke tests in CI</li>
-<li>bounded puzzle-solve timing</li>
-<li>evaluator experiments with the same search shell</li>
+<li>deterministic best-move or score output in scripts that must not spawn a subprocess</li>
+<li>small smoke tests and bounded timing in CI</li>
+<li>forced-mate proofs you can trust, via <code>engine mate</code></li>
+<li>evaluator experiments that swap classical, NNUE, LC0, and OTIS inside one search shell</li>
 <li>local analysis when no UCI engine is configured</li>
-<li>quick comparisons between classical, NNUE, and LC0 value evaluators</li>
-<li>local workflows where process startup and protocol parsing would dominate the</li>
 </ul>
-<p>work</p>
-<p>Use a mature UCI engine for:</p>
+<p>Reach for a mature external engine (through <code>engine analyze</code> / <code>engine bestmove</code>) when you want:</p>
 <ul>
-<li>strength-sensitive analysis</li>
-<li>long MultiPV analysis</li>
-<li>production puzzle mining</li>
-<li>large-scale tactical validation</li>
+<li>strength-sensitive analysis and long MultiPV runs</li>
+<li>production puzzle mining and large-scale tactical validation</li>
 </ul>
-<h2 id="benchmarking-and-validation">Benchmarking and Validation</h2>
-<p>The built-in engine reports completed depth, nodes, elapsed time, stopped flag, score, and PV in <code>--format summary</code>:</p>
-<pre><code class="language-bash">crtk engine builtin \
-  --fen &quot;&lt;FEN&gt;&quot; \
-  --depth 5 \
-  --nodes 250000 \
-  --max-duration 2s \
-  --format summary</code></pre>
-<p>Compare move-generation correctness separately from search quality:</p>
-<pre><code class="language-bash">crtk engine perft --fen &quot;&lt;FEN&gt;&quot; --depth 5
-crtk engine perft --fen &quot;&lt;FEN&gt;&quot; --depth 5 --divide --threads 4
-crtk engine perft --fen &quot;&lt;FEN&gt;&quot; --depth 5 --format stockfish --threads 4
-crtk engine perft-suite --depth 6 --threads 4</code></pre>
-<p><code>engine perft</code> and <code>engine perft-suite</code> use <code>chess.core</code> directly. The suite checks stored truth values for critical standard positions, Chess960 castling, en-passant, promotions, open castling lanes, and a knight-heavy stress position. It prints a progress bar first, then a table with <code>Truth</code>, <code>Calculated</code>, <code>Speed</code>, and <code>Match</code>.</p>
-<p>Use external engine commands when you want a reference move or PV:</p>
-<pre><code class="language-bash">crtk engine bestmove --fen &quot;&lt;FEN&gt;&quot; --format both --max-duration 5s
-crtk engine analyze --fen &quot;&lt;FEN&gt;&quot; --multipv 3 --max-nodes 1000000</code></pre>
-<p>When comparing engines, keep the limits explicit. Depth, node budgets, time budgets, evaluator choice, thread count, hash size, and startup overhead all change what a result means.</p>
-        </article>
-        <aside class="toc"><h2>On This Page</h2>
-<a class="toc-h2" href="#cli-usage">CLI usage</a>
-<a class="toc-h2" href="#evaluators">Evaluators</a>
-<a class="toc-h2" href="#nnue-architecture">NNUE architecture</a>
-<a class="toc-h2" href="#search-behavior">Search behavior</a>
-<a class="toc-h2" href="#practical-uses">Practical Uses</a>
-<a class="toc-h2" href="#benchmarking-and-validation">Benchmarking and Validation</a></aside>
-      </main>
-      <footer class="footer">
-        <span>Generated from <code>wiki/in-house-engine.md</code>.</span>
-        <span>Build with <code>python3 scripts/build_docs_site.py</code>.</span>
-      </footer>
-    </div>
+<h2 id="see-also">See also</h2>
+<ul>
+<li><a href="lc0.html">LC0 &amp; external engines</a> — neural-network models, fidelity caveats, and configuring UCI engines</li>
+<li><a href="configuration.html">Configuration</a> — model paths and engine protocols</li>
+<li><a href="build-and-install.html">Build &amp; install</a> — building with <code>javac --release 17</code> and installing models</li>
+<li><a href="architecture.html">Architecture</a> — the shared core, evaluators, and GPU backends</li>
+<li><a href="workbench.html">Workbench</a> — the desktop GUI, including play-vs-engine against the in-house search</li>
+<li><a href="command-reference.html">Command reference</a> — every command and flag</li>
+</ul>
+      </article>
+      <aside class="toc"><h2>On this page</h2>
+<a class="toc-h2" href="#what-runs-entirely-in-process">What runs entirely in-process</a>
+<a class="toc-h2" href="#mcts-search-engine-builtin-engine-java">MCTS search — engine builtin / engine java</a>
+<a class="toc-h3" href="#choosing-an-evaluator">Choosing an evaluator</a>
+<a class="toc-h3" href="#bounding-the-search">Bounding the search</a>
+<a class="toc-h3" href="#output-formats">Output formats</a>
+<a class="toc-h2" href="#forced-mate-prover-engine-mate">Forced-mate prover — engine mate</a>
+<a class="toc-h2" href="#one-shot-evaluation-engine-eval-and-engine-static">One-shot evaluation — engine eval and engine static</a>
+<a class="toc-h2" href="#the-evaluators">The evaluators</a>
+<a class="toc-h3" href="#nnue-internals">NNUE internals</a>
+<a class="toc-h3" href="#otis">OTIS</a>
+<a class="toc-h2" href="#opponent-threats-engine-threats">Opponent threats — engine threats</a>
+<a class="toc-h2" href="#move-generator-benchmark-engine-benchmark">Move-generator benchmark — engine benchmark</a>
+<a class="toc-h2" href="#determinism-and-reproducibility">Determinism and reproducibility</a>
+<a class="toc-h2" href="#when-to-use-which">When to use which</a>
+<a class="toc-h2" href="#see-also">See also</a></aside>
+    </main>
   </div>
+
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <div class="footer-brand">
+        <a class="footer-logo" href="index.html">
+          <img src="assets/logo/crtk-logo.svg" alt="" width="40" height="40">
+          <span>ChessRTK</span>
+        </a>
+        <p>The deterministic chess research toolkit. Free, open-source, and built on one shared Java chess core.</p>
+        <p class="footer-license">Licensed under GPL-3.0-only.</p>
+      </div>
+      <div class="footer-cols">
+        <div class="footer-col"><h3>Documentation</h3><ul>
+          <li><a href="getting-started.html">Getting Started</a></li>
+          <li><a href="command-reference.html">Command Reference</a></li>
+          <li><a href="configuration.html">Configuration</a></li>
+          <li><a href="troubleshooting.html">Troubleshooting</a></li>
+          <li><a href="chessrtk-manual.pdf">Manual (PDF)</a></li>
+        </ul></div>
+        <div class="footer-col"><h3>Workflows</h3><ul>
+          <li><a href="mining.html">Puzzle Mining</a></li>
+          <li><a href="datasets.html">ML Datasets</a></li>
+          <li><a href="piece-tags.html">Tagging</a></li>
+          <li><a href="book-publishing.html">Book Publishing</a></li>
+          <li><a href="ai-agents.html">AI Agents</a></li>
+        </ul></div>
+        <div class="footer-col"><h3>Project</h3><ul>
+          <li><a href="architecture.html">Architecture</a></li>
+          <li><a href="quality-and-testing.html">Quality &amp; Testing</a></li>
+          <li><a href="https://github.com/LenniAConrad/chess-rtk" target="_blank" rel="noopener">GitHub</a></li>
+          <li><a href="https://github.com/LenniAConrad/chess-rtk/issues" target="_blank" rel="noopener">Issues</a></li>
+        </ul></div>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>&copy; ChessRTK contributors &middot; GPL-3.0-only</span>
+      <span>Documentation generated from the repository <a href="wiki-index.html">wiki</a>.</span>
+    </div>
+  </footer>
+
 </body>
 </html>
