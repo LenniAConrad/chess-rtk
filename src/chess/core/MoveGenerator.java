@@ -164,6 +164,21 @@ public final class MoveGenerator {
             throw new IllegalArgumentException("state == null");
         }
         generatePseudoLegalMoves(position, pseudo);
+        legalize(position, pseudo, legal, state, inCheck);
+    }
+
+    /**
+     * Filters a pseudo-legal list down to fully legal moves, using the cheap
+     * pin/king test where possible and a play/undo king-safety check otherwise.
+     *
+     * @param position position
+     * @param pseudo pseudo-legal moves to filter
+     * @param legal cleared and filled with the legal subset
+     * @param state caller-owned undo state
+     * @param inCheck whether the side to move is in check
+     */
+    private static void legalize(Position position, MoveList pseudo, MoveList legal, Position.State state,
+            boolean inCheck) {
         legal.clear();
         boolean white = position.isWhiteToMove();
         long pinned = inCheck ? 0L : pinnedPieces(position, white);
@@ -181,6 +196,118 @@ public final class MoveGenerator {
             }
             position.undo(move, state);
         }
+    }
+
+    /**
+     * Generates the legal tactical moves (captures, promotions, en passant) into
+     * caller-owned scratch, for quiescence search. Equivalent to filtering the
+     * full legal list to {@link AlphaBeta}-tactical moves, but it never generates
+     * quiet moves. The caller is responsible for stalemate detection (an empty
+     * result does not imply no legal moves).
+     *
+     * @param position position
+     * @param pseudo caller-owned pseudo scratch list
+     * @param legal caller-owned legal output list (returned filled)
+     * @param state caller-owned undo state
+     * @param inCheck whether the side to move is in check
+     */
+    public static void generateLegalTacticals(Position position, MoveList pseudo, MoveList legal,
+            Position.State state, boolean inCheck) {
+        generatePseudoLegalTacticals(position, pseudo);
+        legalize(position, pseudo, legal, state, inCheck);
+    }
+
+    /**
+     * Generates pseudo-legal tactical moves only: captures and capture-promotions
+     * for every piece, quiet push-promotions for pawns, and en passant. Mirrors
+     * the capture/promotion lines of {@link #generatePseudoLegalMoves} exactly and
+     * omits only the quiet (non-promoting) pawn pushes and quiet piece moves.
+     *
+     * @param position position
+     * @param moves cleared and filled with pseudo-legal tactical moves
+     */
+    public static void generatePseudoLegalTacticals(Position position, MoveList moves) {
+        moves.clear();
+        boolean white = position.isWhiteToMove();
+        long occupancy = position.occupancy();
+        long enemyKing = position.pieces(white ? Position.BLACK_KING : Position.WHITE_KING);
+        long captures = position.occupancy(!white) & ~enemyKing;
+        if (white) {
+            addWhitePawnTacticals(position, moves);
+            addCaptureTargets(position, moves, Position.WHITE_KNIGHT, KNIGHT_ATTACKS, captures, occupancy, 0);
+            addCaptureTargets(position, moves, Position.WHITE_BISHOP, null, captures, occupancy, 1);
+            addCaptureTargets(position, moves, Position.WHITE_ROOK, null, captures, occupancy, 2);
+            addCaptureTargets(position, moves, Position.WHITE_QUEEN, null, captures, occupancy, 3);
+            addCaptureTargets(position, moves, Position.WHITE_KING, KING_ATTACKS, captures, occupancy, 0);
+        } else {
+            addBlackPawnTacticals(position, moves);
+            addCaptureTargets(position, moves, Position.BLACK_KNIGHT, KNIGHT_ATTACKS, captures, occupancy, 0);
+            addCaptureTargets(position, moves, Position.BLACK_BISHOP, null, captures, occupancy, 1);
+            addCaptureTargets(position, moves, Position.BLACK_ROOK, null, captures, occupancy, 2);
+            addCaptureTargets(position, moves, Position.BLACK_QUEEN, null, captures, occupancy, 3);
+            addCaptureTargets(position, moves, Position.BLACK_KING, KING_ATTACKS, captures, occupancy, 0);
+        }
+    }
+
+    /**
+     * Adds capture moves for one piece type by intersecting its attacks with the
+     * capturable (enemy non-king) mask.
+     *
+     * @param position position
+     * @param moves target list
+     * @param pieceIndex moving piece index
+     * @param attackTable precomputed attack table for non-sliders, else null
+     * @param captures enemy non-king occupancy mask
+     * @param occupancy full occupancy for slider attacks
+     * @param sliderType 0 = table lookup, 1 = bishop, 2 = rook, 3 = queen
+     */
+    private static void addCaptureTargets(Position position, MoveList moves, int pieceIndex,
+            long[] attackTable, long captures, long occupancy, int sliderType) {
+        long pieces = position.pieces(pieceIndex);
+        while (pieces != 0L) {
+            int from = Long.numberOfTrailingZeros(pieces);
+            pieces &= pieces - 1L;
+            long attacks = switch (sliderType) {
+                case 1 -> bishopAttacks(from, occupancy);
+                case 2 -> rookAttacks(from, occupancy);
+                case 3 -> bishopAttacks(from, occupancy) | rookAttacks(from, occupancy);
+                default -> attackTable[from];
+            };
+            addTargets(moves, from, attacks & captures);
+        }
+    }
+
+    /**
+     * Adds pseudo-legal tactical White pawn moves: diagonal captures (with
+     * capture-promotions and en passant) and quiet push-promotions.
+     *
+     * @param position position
+     * @param moves target list
+     */
+    private static void addWhitePawnTacticals(Position position, MoveList moves) {
+        long pawns = position.pieces(Position.WHITE_PAWN);
+        long empty = ~position.occupancy();
+        long enemies = position.blackOccupancy() & ~position.pieces(Position.BLACK_KING);
+        long capturable = enemies | enPassantMask(position, true);
+        addPawnTargets(moves, ((pawns >>> 8) & empty) & Bits.RANK_8, 8, true);
+        addPawnTargets(moves, ((pawns & ~Bits.FILE_A) >>> 9) & capturable, 9, true);
+        addPawnTargets(moves, ((pawns & ~Bits.FILE_H) >>> 7) & capturable, 7, true);
+    }
+
+    /**
+     * Adds pseudo-legal tactical Black pawn moves (see {@link #addWhitePawnTacticals}).
+     *
+     * @param position position
+     * @param moves target list
+     */
+    private static void addBlackPawnTacticals(Position position, MoveList moves) {
+        long pawns = position.pieces(Position.BLACK_PAWN);
+        long empty = ~position.occupancy();
+        long enemies = position.whiteOccupancy() & ~position.pieces(Position.WHITE_KING);
+        long capturable = enemies | enPassantMask(position, false);
+        addPawnTargets(moves, ((pawns << 8) & empty) & Bits.RANK_1, -8, false);
+        addPawnTargets(moves, ((pawns & ~Bits.FILE_A) << 7) & capturable, -7, false);
+        addPawnTargets(moves, ((pawns & ~Bits.FILE_H) << 9) & capturable, -9, false);
     }
 
     /**

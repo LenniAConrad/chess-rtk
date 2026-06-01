@@ -1594,11 +1594,17 @@ public final class AlphaBeta implements AutoCloseable {
             }
             return QuiescenceSetup.resolved(Math.max(alpha, standPat));
         }
-        MoveList legalMoves = context.legalMoves(position, false);
-        if (legalMoves.isEmpty()) {
-            return QuiescenceSetup.resolved(0);
+        // Generate only tactical moves (the only moves quiescence searches when
+        // not in check). An empty tactical list is NOT stalemate, so fall back to
+        // a cheap legal-move probe before standing pat.
+        MoveList tacticals = context.legalTacticals(position, false);
+        if (tacticals.isEmpty()) {
+            if (!position.hasLegalMove()) {
+                return QuiescenceSetup.resolved(0);
+            }
+            return QuiescenceSetup.resolved(Math.max(alpha, standPat));
         }
-        return QuiescenceSetup.search(legalMoves, false, standPat, Math.max(alpha, standPat));
+        return QuiescenceSetup.search(tacticals, false, standPat, Math.max(alpha, standPat));
     }
 
     /**
@@ -3069,6 +3075,18 @@ public final class AlphaBeta implements AutoCloseable {
          */
         private MoveList legalMoves(Position position, boolean inCheck) {
             return position.legalMoves(genPseudo, genLegal, genState, inCheck);
+        }
+
+        /**
+         * Generates only legal tactical moves into the shared scratch, for
+         * quiescence (no quiet moves, so an empty result is not stalemate).
+         *
+         * @param position position to generate for
+         * @param inCheck whether the side to move is in check
+         * @return the shared legal-tactical list
+         */
+        private MoveList legalTacticals(Position position, boolean inCheck) {
+            return position.legalTacticals(genPseudo, genLegal, genState, inCheck);
         }
 
         /**

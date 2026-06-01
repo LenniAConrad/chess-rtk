@@ -581,6 +581,22 @@ public class Position implements Comparable<Position> {
     }
 
     /**
+     * Generates only the legal tactical moves (captures, promotions, en passant)
+     * into caller-owned scratch, for quiescence search. Never generates quiet
+     * moves, so an empty result does not imply stalemate.
+     *
+     * @param pseudo caller-owned pseudo scratch list
+     * @param legal caller-owned legal output list (returned)
+     * @param state caller-owned undo state
+     * @param inCheck whether the side to move is in check
+     * @return the {@code legal} list, filled with legal tactical moves
+     */
+    public MoveList legalTacticals(MoveList pseudo, MoveList legal, State state, boolean inCheck) {
+        MoveGenerator.generateLegalTacticals(this, pseudo, legal, state, inCheck);
+        return legal;
+    }
+
+    /**
      * Generates pseudo-legal moves for the side to move.
      *
      * <p>
