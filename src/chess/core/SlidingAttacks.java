@@ -4,9 +4,13 @@ package chess.core;
  * Sliding-piece attack calculator for bishops and rooks.
  *
  * <p>
- * Runtime attack queries use hyperbola-style line arithmetic. Per-square tables
- * are retained only for relevant blocker mask checks, keeping the implementation
- * easy to audit without adding magic constants or external generated data.
+ * Runtime attack queries use magic-bitboard lookups: the relevant blockers are
+ * masked, multiplied by a per-square magic, and shifted to index a precomputed
+ * attack table. The tables are built once at class-initialization from the
+ * hyperbola-style line arithmetic kept below as the reference implementation, and
+ * the magics are found deterministically at init (no external generated data),
+ * so the lookup is bit-for-bit identical to the reference but branch-free and
+ * single-multiply per piece line.
  * </p>
  *
  * @since 2025
@@ -27,16 +31,6 @@ public final class SlidingAttacks {
     private static final int[][] ROOK_DIRECTIONS = {
             { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 }
     };
-
-    /**
-     * Per-square bishop tables used for relevant blocker mask validation.
-     */
-    private static final Table[] BISHOP_TABLES = buildTables(BISHOP_DIRECTIONS);
-
-    /**
-     * Per-square rook tables used for relevant blocker mask validation.
-     */
-    private static final Table[] ROOK_TABLES = buildTables(ROOK_DIRECTIONS);
 
     /**
      * Full rank masks, including the origin square, for line attack arithmetic.
@@ -68,6 +62,16 @@ public final class SlidingAttacks {
     }
 
     /**
+     * Per-square magic tables for bishop attacks.
+     */
+    private static final Table[] BISHOP_TABLES = buildMagicTables(BISHOP_DIRECTIONS, true);
+
+    /**
+     * Per-square magic tables for rook attacks.
+     */
+    private static final Table[] ROOK_TABLES = buildMagicTables(ROOK_DIRECTIONS, false);
+
+    /**
      * Prevents instantiation of this stateless utility class.
      */
     private SlidingAttacks() {
@@ -87,8 +91,7 @@ public final class SlidingAttacks {
      * @return attack bitboard
      */
     public static long bishopAttacks(int square, long occupancy) {
-        return lineAttacks(square, occupancy, DIAGONAL_MASKS[square])
-                | lineAttacks(square, occupancy, ANTIDIAGONAL_MASKS[square]);
+        return BISHOP_TABLES[square].lookup(occupancy);
     }
 
     /**
@@ -104,17 +107,11 @@ public final class SlidingAttacks {
      * @return attack bitboard
      */
     public static long rookAttacks(int square, long occupancy) {
-        return lineAttacks(square, occupancy, RANK_MASKS[square])
-                | lineAttacks(square, occupancy, FILE_MASKS[square]);
+        return ROOK_TABLES[square].lookup(occupancy);
     }
 
     /**
      * Returns the relevant blocker mask for bishop attacks from a square.
-     *
-     * <p>
-     * The mask excludes edge squares, matching the standard compact table
-     * construction used by magic-style sliding attack generators.
-     * </p>
      *
      * @param square origin square
      * @return blocker mask
@@ -127,11 +124,6 @@ public final class SlidingAttacks {
     /**
      * Returns the relevant blocker mask for rook attacks from a square.
      *
-     * <p>
-     * The mask excludes edge squares, matching the standard compact table
-     * construction used by magic-style sliding attack generators.
-     * </p>
-     *
      * @param square origin square
      * @return blocker mask
      */
@@ -141,17 +133,119 @@ public final class SlidingAttacks {
     }
 
     /**
-     * Builds per-square lookup tables for one sliding piece family.
+     * Builds per-square magic tables for one sliding piece family.
      *
      * @param directions ray direction vectors
-     * @return lookup table for each origin square
+     * @param bishop true for bishops, false for rooks (selects the reference)
+     * @return magic table for each origin square
      */
-    private static Table[] buildTables(int[][] directions) {
+    private static Table[] buildMagicTables(int[][] directions, boolean bishop) {
         Table[] tables = new Table[64];
-        for (int square = 0; square < tables.length; square++) {
-            tables[square] = new Table(relevantBlockers(square, directions));
+        // Deterministic xorshift state so the magics are reproducible across runs.
+        long[] rng = { 0x9E3779B97F4A7C15L ^ (bishop ? 0xD1B54A32D192ED03L : 0xA0761D6478BD642FL) };
+        for (int square = 0; square < 64; square++) {
+            long mask = relevantBlockers(square, directions);
+            tables[square] = buildMagic(square, mask, bishop, rng);
         }
         return tables;
+    }
+
+    /**
+     * Finds a magic and builds the attack table for one square.
+     *
+     * @param square origin square
+     * @param mask relevant blocker mask
+     * @param bishop true for bishop attacks
+     * @param rng one-element deterministic xorshift state
+     * @return populated magic table
+     */
+    private static Table buildMagic(int square, long mask, boolean bishop, long[] rng) {
+        int bits = Long.bitCount(mask);
+        int size = 1 << bits;
+        long[] occupancies = new long[size];
+        long[] reference = new long[size];
+        long subset = 0L;
+        for (int i = 0; i < size; i++) {
+            occupancies[i] = subset;
+            reference[i] = bishop ? bishopReference(square, subset) : rookReference(square, subset);
+            subset = (subset - mask) & mask;
+        }
+        int shift = 64 - bits;
+        long[] table = new long[size];
+        int[] usedEpoch = new int[size];
+        int epoch = 0;
+        while (true) {
+            long magic = sparseRandom(rng);
+            // Reject magics that scatter the mask's top byte poorly (standard filter).
+            if (Long.bitCount((mask * magic) & 0xFF00000000000000L) < 6) {
+                continue;
+            }
+            epoch++;
+            boolean ok = true;
+            for (int i = 0; i < size; i++) {
+                int index = (int) ((occupancies[i] * magic) >>> shift);
+                if (usedEpoch[index] != epoch) {
+                    usedEpoch[index] = epoch;
+                    table[index] = reference[i];
+                } else if (table[index] != reference[i]) {
+                    ok = false;
+                    break;
+                }
+            }
+            if (ok) {
+                return new Table(mask, magic, shift, table);
+            }
+        }
+    }
+
+    /**
+     * Deterministic sparse 64-bit value (AND of three xorshift draws), as used by
+     * magic-number searches to favour magics with few set bits.
+     *
+     * @param state one-element xorshift state, updated in place
+     * @return sparse pseudo-random value
+     */
+    private static long sparseRandom(long[] state) {
+        return nextRandom(state) & nextRandom(state) & nextRandom(state);
+    }
+
+    /**
+     * Advances an xorshift64 generator.
+     *
+     * @param state one-element state, updated in place
+     * @return next pseudo-random value
+     */
+    private static long nextRandom(long[] state) {
+        long x = state[0];
+        x ^= x << 13;
+        x ^= x >>> 7;
+        x ^= x << 17;
+        state[0] = x;
+        return x;
+    }
+
+    /**
+     * Reference bishop attacks via hyperbola line arithmetic (table source).
+     *
+     * @param square origin square
+     * @param occupancy occupied squares
+     * @return attack bitboard
+     */
+    private static long bishopReference(int square, long occupancy) {
+        return lineAttacks(square, occupancy, DIAGONAL_MASKS[square])
+                | lineAttacks(square, occupancy, ANTIDIAGONAL_MASKS[square]);
+    }
+
+    /**
+     * Reference rook attacks via hyperbola line arithmetic (table source).
+     *
+     * @param square origin square
+     * @param occupancy occupied squares
+     * @return attack bitboard
+     */
+    private static long rookReference(int square, long occupancy) {
+        return lineAttacks(square, occupancy, RANK_MASKS[square])
+                | lineAttacks(square, occupancy, FILE_MASKS[square]);
     }
 
     /**
@@ -159,8 +253,7 @@ public final class SlidingAttacks {
      *
      * <p>
      * Edge squares are excluded from the blocker mask because a blocker on the edge
-     * does not change which squares before the edge are attacked. The edge square is
-     * always included in the attack result unless a nearer blocker stops the ray.
+     * does not change which squares before the edge are attacked.
      * </p>
      *
      * @param square origin square
@@ -207,13 +300,7 @@ public final class SlidingAttacks {
     }
 
     /**
-     * Computes attacks on one rank, file, or diagonal line.
-     *
-     * <p>
-     * The formula subtracts the origin bit from both forward and reversed
-     * occupancy views, then combines both spans to recover blockers in both
-     * directions.
-     * </p>
+     * Computes attacks on one rank, file, or diagonal line (hyperbola method).
      *
      * @param square origin square
      * @param occupancy occupied squares
@@ -230,7 +317,7 @@ public final class SlidingAttacks {
     }
 
     /**
-     * Compact lookup table for one origin square.
+     * Per-square magic attack table.
      */
     private static final class Table {
 
@@ -240,12 +327,43 @@ public final class SlidingAttacks {
         private final long mask;
 
         /**
-         * Creates a compact attack table.
+         * Magic multiplier mapping masked occupancy to a table index.
+         */
+        private final long magic;
+
+        /**
+         * Right shift applied after the magic multiply ({@code 64 - bits}).
+         */
+        private final int shift;
+
+        /**
+         * Precomputed attacks indexed by the magic hash of the masked occupancy.
+         */
+        private final long[] attacks;
+
+        /**
+         * Creates a magic attack table.
          *
          * @param mask relevant blocker mask
+         * @param magic magic multiplier
+         * @param shift index shift
+         * @param attacks attack table
          */
-        private Table(long mask) {
+        private Table(long mask, long magic, int shift, long[] attacks) {
             this.mask = mask;
+            this.magic = magic;
+            this.shift = shift;
+            this.attacks = attacks;
+        }
+
+        /**
+         * Looks up the attack bitboard for an occupancy.
+         *
+         * @param occupancy occupied squares
+         * @return attack bitboard
+         */
+        private long lookup(long occupancy) {
+            return attacks[(int) (((occupancy & mask) * magic) >>> shift)];
         }
     }
 }
