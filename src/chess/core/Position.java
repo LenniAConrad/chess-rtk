@@ -133,6 +133,22 @@ public class Position implements Comparable<Position> {
     final byte[] board;
 
     /**
+     * Lazily cached {@link #signatureCore()} value, valid only while
+     * {@link #coreSignatureValid} is set. Invalidated by every move
+     * ({@link #play(short, State)} / {@link #undo} / null-move) so the hot
+     * search path (which queries the core signature several times per node for
+     * the transposition table, evaluation cache, and repetition detection) pays
+     * the full hash at most once per distinct position. Per-instance, so it is
+     * thread-safe under Lazy SMP where each worker owns its own position copy.
+     */
+    private long cachedCoreSignature;
+
+    /**
+     * Whether {@link #cachedCoreSignature} currently matches the board state.
+     */
+    private boolean coreSignatureValid;
+
+    /**
      * Cached occupancy mask for all White pieces.
      */
     long whiteOccupancy;
@@ -439,6 +455,9 @@ public class Position implements Comparable<Position> {
      * @return 64-bit core-state signature
      */
     public long signatureCore() {
+        if (coreSignatureValid) {
+            return cachedCoreSignature;
+        }
         long h = 1469598103934665603L;
         for (byte piece : board) {
             h ^= piece & 0xFFL;
@@ -464,7 +483,17 @@ public class Position implements Comparable<Position> {
         h *= 1099511628211L;
         h ^= blackKingSquare & 0xFFL;
         h *= 1099511628211L;
+        cachedCoreSignature = h;
+        coreSignatureValid = true;
         return h;
+    }
+
+    /**
+     * Marks the cached core signature stale. Called by every state mutation so
+     * {@link #signatureCore()} recomputes on its next use.
+     */
+    void invalidateSignatureCache() {
+        coreSignatureValid = false;
     }
 
     /**
@@ -488,6 +517,7 @@ public class Position implements Comparable<Position> {
      * @return this position
      */
     public Position play(short move, State state) {
+        coreSignatureValid = false;
         return PositionMoveSupport.play(this, move, state);
     }
 
@@ -498,6 +528,7 @@ public class Position implements Comparable<Position> {
      * @param state undo state
      */
     public void undo(short move, State state) {
+        coreSignatureValid = false;
         PositionMoveSupport.undo(this, move, state);
     }
 
@@ -508,6 +539,7 @@ public class Position implements Comparable<Position> {
      * @return this position
      */
     public Position playNull(State state) {
+        coreSignatureValid = false;
         return PositionMoveSupport.playNull(this, state);
     }
 
@@ -517,6 +549,7 @@ public class Position implements Comparable<Position> {
      * @param state undo state filled by the matching null move
      */
     public void undoNull(State state) {
+        coreSignatureValid = false;
         PositionMoveSupport.undoNull(this, state);
     }
 
