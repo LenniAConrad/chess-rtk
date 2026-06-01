@@ -49,6 +49,7 @@ final class PositionStateSupport {
 	 * @param square square index
 	 */
 	static void setPiece(Position position, int piece, int square) {
+		position.invalidateSignatureCache();
 		long mask = 1L << square;
 		position.pieces[piece] |= mask;
 		position.board[square] = (byte) piece;
@@ -73,6 +74,7 @@ final class PositionStateSupport {
 	 * @param square square index
 	 */
 	static void clearPiece(Position position, int piece, int square) {
+		position.invalidateSignatureCache();
 		long mask = 1L << square;
 		position.pieces[piece] &= ~mask;
 		position.board[square] = -1;
