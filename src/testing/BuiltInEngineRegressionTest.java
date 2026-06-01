@@ -180,6 +180,7 @@ public final class BuiltInEngineRegressionTest {
 		testEvaluatorSelection();
 		testClassicalEvaluatorSanity();
 		testCliFormats();
+		testAlphaBetaCliSearch();
 		testBuiltInUciLoop();
 		testNnueCliEvaluator();
 		testSharedLibraryExplicitPathParsing();
@@ -542,6 +543,66 @@ public final class BuiltInEngineRegressionTest {
 		assertTrue(builtinHelp.contains("--evaluator KIND"), "help engine builtin evaluator option");
 		assertTrue(builtinHelp.contains("--classical|--nnue|--lc0"), "help engine builtin evaluator shortcuts");
 		assertTrue(builtinHelp.contains("uci-info"), "help engine builtin UCI info format");
+	}
+
+	/**
+	 * Verifies the {@code --search alpha-beta} CLI path: it finds a mate, plays a
+	 * legal move, streams UCI info, rejects {@code --uci}, rejects bogus values,
+	 * is listed in help, and is deterministic.
+	 */
+	private static void testAlphaBetaCliSearch() {
+		String mate = TestSupport.runMain(ENGINE_COMMAND, BUILTIN_COMMAND, FEN_OPTION, MATE_IN_ONE_FEN,
+				"--search", "alpha-beta", DEPTH_OPTION, "2", "--evaluator", CLASSICAL_EVALUATOR,
+				FORMAT_OPTION, SUMMARY_FORMAT);
+		assertTrue(mate.contains(BEST_PREFIX + "g6g7 (Qg7#)"), "alpha-beta finds mate in one");
+		assertTrue(mate.contains("score: #1"), "alpha-beta reports mate score");
+		assertTrue(mate.contains("evaluator: " + CLASSICAL_EVALUATOR), "alpha-beta summary evaluator");
+
+		String simple = TestSupport.runMain(ENGINE_COMMAND, BUILTIN_COMMAND, FEN_OPTION, SIMPLE_FEN,
+				"--search", "alpha-beta", DEPTH_OPTION, "4", FORMAT_OPTION, SUMMARY_FORMAT);
+		assertTrue(simple.contains(BEST_PREFIX), "alpha-beta plays a legal move");
+
+		String uciInfo = TestSupport.runMain(ENGINE_COMMAND, BUILTIN_COMMAND, FEN_OPTION, MATE_IN_ONE_FEN,
+				"--search", "alpha-beta", DEPTH_OPTION, "3", "--evaluator", CLASSICAL_EVALUATOR);
+		assertTrue(uciInfo.contains("info depth "), "alpha-beta streams UCI info");
+		assertTrue(uciInfo.contains("bestmove "), "alpha-beta emits bestmove");
+		assertTrue(uciInfo.contains(" pv "), "alpha-beta streams a principal variation");
+
+		FailureResult uciReject = TestSupport.runMainExpectFailure(
+				ENGINE_COMMAND, BUILTIN_COMMAND, "--uci", "--search", "alpha-beta");
+		assertEquals(2, uciReject.exitCode(), "alpha-beta + --uci is rejected");
+		assertTrue(uciReject.stderr().contains("--uci") && uciReject.stderr().contains("--search"),
+				"alpha-beta + --uci rejection names both options");
+
+		FailureResult bogus = TestSupport.runMainExpectFailure(
+				ENGINE_COMMAND, BUILTIN_COMMAND, FEN_OPTION, SIMPLE_FEN, "--search", "bogus");
+		assertEquals(2, bogus.exitCode(), "unknown --search value is rejected");
+
+		String builtinHelp = TestSupport.runMain("help", ENGINE_COMMAND, BUILTIN_COMMAND);
+		assertTrue(builtinHelp.contains("--search"), "help lists the --search option");
+
+		String first = TestSupport.runMain(ENGINE_COMMAND, BUILTIN_COMMAND, FEN_OPTION, START_FEN,
+				"--search", "alpha-beta", DEPTH_OPTION, "6", "--evaluator", CLASSICAL_EVALUATOR,
+				FORMAT_OPTION, SUMMARY_FORMAT);
+		String second = TestSupport.runMain(ENGINE_COMMAND, BUILTIN_COMMAND, FEN_OPTION, START_FEN,
+				"--search", "alpha-beta", DEPTH_OPTION, "6", "--evaluator", CLASSICAL_EVALUATOR,
+				FORMAT_OPTION, SUMMARY_FORMAT);
+		assertEquals(bestLine(first), bestLine(second), "alpha-beta search is deterministic");
+	}
+
+	/**
+	 * Returns the {@code best:} line of a summary output, for determinism checks.
+	 *
+	 * @param summary summary output
+	 * @return the best-move line, or the whole string if absent
+	 */
+	private static String bestLine(String summary) {
+		for (String line : summary.split("\\R")) {
+			if (line.contains(BEST_PREFIX)) {
+				return line.strip();
+			}
+		}
+		return summary.strip();
 	}
 
 	/**

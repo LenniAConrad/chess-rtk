@@ -22,6 +22,10 @@ package chess.engine;
  *        (used to let late-move reductions reduce bad captures)
  * @param move move being considered
  * @param ply current ply from root
+ * @param improving whether the side to move's static eval rose over two plies
+ *        (used to scale reductions; always false when the improving feature is off)
+ * @param contIdx continuation-history target index ({@code piece*64 + to}) for a
+ *        quiet move, or -1 (used to reduce good-continuation quiets less)
  */
 record MoveDecision(
         int staticEval,
@@ -33,5 +37,7 @@ record MoveDecision(
         boolean tactical,
         boolean losingCapture,
         short move,
-        int ply) {
+        int ply,
+        boolean improving,
+        int contIdx) {
 }

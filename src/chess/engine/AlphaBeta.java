@@ -226,7 +226,49 @@ public final class AlphaBeta implements AutoCloseable {
          * as tactical), since a capture that loses material is rarely worth a
          * full-depth search and is already ordered last.
          */
-        SEE_LMR
+        SEE_LMR,
+
+        /**
+         * "Improving" heuristic: track the static evaluation along the search path
+         * and detect whether the side to move's static eval has risen versus two
+         * plies earlier. Pruning and reduction margins are tightened when the side
+         * is not improving (a worsening position is pruned more aggressively) and
+         * loosened when it is, which lets the same budget reach greater depth.
+         */
+        IMPROVING,
+
+        /**
+         * Continuation ("counter-move") history: in addition to the from/to butterfly
+         * history, score quiet moves by how often the same piece-to move produced a
+         * cutoff as a reply to the previous move (1 ply back) and the move before it
+         * (2 plies back). Used for move ordering and to reduce good-continuation
+         * quiets less in late-move reductions.
+         */
+        CONT_HISTORY,
+
+        /**
+         * Internal iterative reduction: when a node that should have a best move
+         * cached (sufficient depth, PV or expected-cut node) has no transposition
+         * move to try first, reduce its depth by one instead of searching it in full
+         * with poor move ordering. The shallower search seeds a TT move for a later
+         * re-visit far more cheaply than a full-width search would.
+         */
+        IIR,
+
+        /**
+         * Razoring: at shallow depth, when even a generous margin over the static
+         * evaluation cannot reach alpha, drop directly into quiescence rather than
+         * searching quiet moves that are very unlikely to raise alpha.
+         */
+        RAZORING,
+
+        /**
+         * Singular extensions: when the transposition move is much better than every
+         * alternative (a reduced-depth search of the other moves fails low below a
+         * margin under the TT score), extend it by one ply; conversely, when the TT
+         * score is already failing high well above beta, reduce ("multi-cut"-style).
+         */
+        SINGULAR_EXT
     }
 
     /**
@@ -234,6 +276,18 @@ public final class AlphaBeta implements AutoCloseable {
      * {@link Feature#HISTORY_MALUS}).
      */
     private static final int HISTORY_MAX = 1 << 14;
+
+    /**
+     * Continuation-history score at or above which a quiet move is reduced one ply
+     * less in late-move reductions.
+     */
+    private static final int CONT_HISTORY_LMR_GOOD = 1 << 12;
+
+    /**
+     * Continuation-history score at or below which a quiet move is reduced one ply
+     * more in late-move reductions.
+     */
+    private static final int CONT_HISTORY_LMR_BAD = -(1 << 12);
 
     /**
      * Precomputed late-move reduction by [remaining depth][move number], using
@@ -832,12 +886,17 @@ public final class AlphaBeta implements AutoCloseable {
         short[] moves = orderedMoves(position, setup.legalMoves(), Move.NO_MOVE, ttMove, context, ply);
         Position.State state = context.state(ply);
         NegamaxSearchState searchState = new NegamaxSearchState(setup.alpha());
-        // Buffer of quiet moves searched before a cutoff, for the history malus.
-        short[] triedQuiets = context.historyMalus() ? context.triedQuietsBuffer(ply) : null;
+        boolean improving = context.improving(ply, setup.staticEval());
+        // Buffer of quiet moves searched before a cutoff, for the history/
+        // continuation-history malus (needed by either feature).
+        boolean buffering = context.historyMalus() || context.contHistory();
+        short[] triedQuiets = buffering ? context.triedQuietsBuffer(ply) : null;
+        int[] triedContIdx = context.contHistory() ? context.triedContIdxBuffer(ply) : null;
         int triedCount = 0;
         for (short move : moves) {
             boolean tactical = isTacticalMove(position, move);
             boolean losingCapture = context.seeLmr() && tactical && isLosingCapture(position, move);
+            int contIdx = !tactical && context.contHistory() ? contTargetIndex(position, move) : -1;
             MoveDecision decision = new MoveDecision(
                     setup.staticEval(),
                     searchState.alpha,
@@ -848,10 +907,16 @@ public final class AlphaBeta implements AutoCloseable {
                     tactical,
                     losingCapture,
                     move,
-                    ply);
+                    ply,
+                    improving,
+                    contIdx);
             if (!shouldFutilityPrune(context, decision) && !shouldLateMovePrune(context, decision)) {
                 if (triedQuiets != null && !tactical && triedCount < triedQuiets.length) {
-                    triedQuiets[triedCount++] = move;
+                    if (triedContIdx != null) {
+                        triedContIdx[triedCount] = contIdx;
+                    }
+                    triedQuiets[triedCount] = move;
+                    triedCount++;
                 }
                 int score = searchNegamaxMove(context, position, state, depth, beta, pvNode, decision);
                 searchState.recordScore(context, ply, move, score);
@@ -1133,6 +1198,20 @@ public final class AlphaBeta implements AutoCloseable {
             // Reduce a quiet move less when it has accumulated strong history.
             if (context.historyScore(decision.move()) >= decision.depth() * decision.depth()) {
                 reduction--;
+            }
+            // Reduce more when the side to move is not improving (improving is
+            // always false when the feature is off, so this is gated on it).
+            if (context.improvingFeature() && !decision.improving()) {
+                reduction++;
+            }
+            // Reduce strong continuations less and weak ones more.
+            if (context.contHistory() && decision.contIdx() >= 0) {
+                int ch = context.contHistScore(decision.ply(), decision.contIdx());
+                if (ch >= CONT_HISTORY_LMR_GOOD) {
+                    reduction--;
+                } else if (ch <= CONT_HISTORY_LMR_BAD) {
+                    reduction++;
+                }
             }
             return Math.max(0, Math.min(decision.depth() - 1, reduction));
         }
@@ -1614,8 +1693,42 @@ public final class AlphaBeta implements AutoCloseable {
                 score += 70_000;
             }
             score += context.historyScore(move);
+            if (context.contHistory()) {
+                score += context.contHistScore(ply, contTargetIndex(position, move));
+            }
         }
         return score;
+    }
+
+    /**
+     * Maps a piece byte code to a dense 0..11 index (white pawn..king = 0..5,
+     * black pawn..king = 6..11) for continuation-history keys. Empty maps to -1.
+     *
+     * @param piece piece byte code
+     * @return dense piece index, or -1 for an empty square
+     */
+    private static int pieceIndex(byte piece) {
+        if (piece == Piece.EMPTY) {
+            return -1;
+        }
+        return piece > 0 ? piece - 1 : 5 - piece;
+    }
+
+    /**
+     * Continuation-history target index ({@code piece*64 + to}) for a move played
+     * from {@code position}, or -1 when the source square is empty (should not
+     * happen for a legal move).
+     *
+     * @param position parent position before the move
+     * @param move encoded move
+     * @return target index in 0..767, or -1
+     */
+    private static int contTargetIndex(Position position, short move) {
+        int piece = pieceIndex(position.pieceAt(Move.getFromIndex(move)));
+        if (piece < 0) {
+            return -1;
+        }
+        return piece * 64 + Move.getToIndex(move);
     }
 
     /**
@@ -2020,11 +2133,79 @@ public final class AlphaBeta implements AutoCloseable {
         private final boolean seeLmr;
 
         /**
+         * Whether the improving heuristic (static-eval path tracking) is enabled.
+         */
+        private final boolean improvingFeature;
+
+        /**
+         * Whether continuation (counter-move) history is maintained and used.
+         */
+        private final boolean contHistory;
+
+        /**
+         * Whether internal iterative reductions are enabled.
+         */
+        private final boolean iir;
+
+        /**
+         * Whether shallow razoring into quiescence is enabled.
+         */
+        private final boolean razoring;
+
+        /**
+         * Whether singular extensions are enabled.
+         */
+        private final boolean singularExt;
+
+        /**
+         * Static evaluation (side-to-move perspective) recorded for each ply on the
+         * current search path, or {@link #NO_SCORE} when unknown (e.g. in check).
+         * Used by the improving heuristic. Only maintained when
+         * {@link #improvingFeature} is set.
+         */
+        private final int[] pathEval;
+
+        /**
+         * Continuation-history context: the 0..11 piece index of the move that was
+         * played to reach each ply, or -1 for the root / a null move. Paired with
+         * {@link #contTo}. Only maintained when {@link #contHistory} is set.
+         */
+        private final int[] contPiece;
+
+        /**
+         * Continuation-history context: the destination square of the move that was
+         * played to reach each ply. Paired with {@link #contPiece}.
+         */
+        private final int[] contTo;
+
+        /**
+         * One-ply continuation history, indexed by
+         * {@code (contextPiece*64 + contextTo) * 768 + (movePiece*64 + moveTo)} and
+         * bounded like the butterfly history. Only allocated when
+         * {@link #contHistory} is set.
+         */
+        private final short[] contHist1;
+
+        /**
+         * Two-ply continuation history, same indexing as {@link #contHist1} but
+         * keyed by the move two plies back.
+         */
+        private final short[] contHist2;
+
+        /**
          * Per-ply scratch holding the quiet moves searched at a node before a
          * cutoff, so they can receive a history malus. Only allocated/used when
          * {@link #historyMalus} is set.
          */
         private final short[][] triedQuiets;
+
+        /**
+         * Per-ply scratch parallel to {@link #triedQuiets}, holding each tried
+         * quiet's continuation-history target index ({@code piece*64 + to}), so the
+         * cutoff update can penalize them without re-deriving the moved piece. Only
+         * allocated/used when {@link #contHistory} is set.
+         */
+        private final int[][] triedQuietContIdx;
 
         /**
          * Core position signature ({@link Position#signatureCore()}) at each ply
@@ -2130,6 +2311,11 @@ public final class AlphaBeta implements AutoCloseable {
             this.lmrTable = features.contains(Feature.LMR_TABLE);
             this.historyMalus = features.contains(Feature.HISTORY_MALUS);
             this.seeLmr = features.contains(Feature.SEE_LMR);
+            this.improvingFeature = features.contains(Feature.IMPROVING);
+            this.contHistory = features.contains(Feature.CONT_HISTORY);
+            this.iir = features.contains(Feature.IIR);
+            this.razoring = features.contains(Feature.RAZORING);
+            this.singularExt = features.contains(Feature.SINGULAR_EXT);
             // Check extensions can deepen the main search beyond the nominal
             // depth, so when they are enabled reserve a full extra depth's worth
             // of plies (plus quiescence headroom) and cap the extension ply below
@@ -2144,14 +2330,33 @@ public final class AlphaBeta implements AutoCloseable {
             this.nullStates = new Position.State[searchPlies];
             this.killers = new short[searchPlies][2];
             this.pathKeys = new long[searchPlies];
+            // The tried-quiet buffer feeds both the history malus and the
+            // continuation-history malus, so it is needed by either feature.
+            boolean needTried = historyMalus || contHistory;
             // Chess positions have at most ~218 legal moves; 256 is a safe bound.
-            this.triedQuiets = historyMalus ? new short[searchPlies][256] : null;
+            this.triedQuiets = needTried ? new short[searchPlies][256] : null;
+            this.triedQuietContIdx = contHistory ? new int[searchPlies][256] : null;
+            this.pathEval = improvingFeature ? new int[searchPlies] : null;
+            this.contPiece = contHistory ? new int[searchPlies] : null;
+            this.contTo = contHistory ? new int[searchPlies] : null;
+            // Continuation history is keyed by (contextPiece*64+contextTo) over the
+            // (movePiece*64+moveTo) target, i.e. 768*768 buckets per ply offset.
+            this.contHist1 = contHistory ? new short[768 * 768] : null;
+            this.contHist2 = contHistory ? new short[768 * 768] : null;
             for (int i = 0; i < searchPlies; i++) {
                 states[i] = new Position.State();
                 nullStates[i] = new Position.State();
             }
             for (short[] row : killers) {
                 Arrays.fill(row, Move.NO_MOVE);
+            }
+            if (improvingFeature) {
+                Arrays.fill(pathEval, NO_SCORE);
+            }
+            if (contHistory) {
+                // The root has no preceding move, so its continuation context is
+                // empty (-1 piece is treated as "no context" by lookups).
+                Arrays.fill(contPiece, -1);
             }
             if (searchRepetition) {
                 pathKeys[0] = root.signatureCore();
@@ -2200,6 +2405,13 @@ public final class AlphaBeta implements AutoCloseable {
             if (searchRepetition && ply < pathKeys.length) {
                 pathKeys[ply] = position.signatureCore();
             }
+            if (contHistory && ply < contPiece.length) {
+                // position is already AFTER the move, so the piece now on the
+                // destination square is the (possibly promoted) moving piece.
+                int to = Move.getToIndex(move);
+                contPiece[ply] = pieceIndex(position.pieceAt(to));
+                contTo[ply] = to;
+            }
         }
 
         /**
@@ -2215,6 +2427,10 @@ public final class AlphaBeta implements AutoCloseable {
                 // A null move is not a real game position; store a sentinel so it
                 // can never satisfy a repetition match.
                 pathKeys[ply] = 0L;
+            }
+            if (contHistory && ply < contPiece.length) {
+                // A null move has no continuation context for the child node.
+                contPiece[ply] = -1;
             }
         }
 
@@ -2270,6 +2486,145 @@ public final class AlphaBeta implements AutoCloseable {
          */
         private boolean seeLmr() {
             return seeLmr;
+        }
+
+        /**
+         * Returns whether the improving heuristic is enabled.
+         *
+         * @return true when static-eval path tracking is active
+         */
+        private boolean improvingFeature() {
+            return improvingFeature;
+        }
+
+        /**
+         * Returns whether continuation history is enabled.
+         *
+         * @return true when continuation history is maintained
+         */
+        private boolean contHistory() {
+            return contHistory;
+        }
+
+        /**
+         * Returns whether internal iterative reductions are enabled.
+         *
+         * @return true when IIR is active
+         */
+        private boolean iir() {
+            return iir;
+        }
+
+        /**
+         * Returns whether razoring is enabled.
+         *
+         * @return true when shallow razoring is active
+         */
+        private boolean razoring() {
+            return razoring;
+        }
+
+        /**
+         * Returns whether singular extensions are enabled.
+         *
+         * @return true when singular extensions are active
+         */
+        private boolean singularExt() {
+            return singularExt;
+        }
+
+        /**
+         * Records a node's static evaluation on the path (improving heuristic).
+         * Stores {@link #NO_SCORE} when the value is unknown (in check), so an
+         * earlier sibling's value cannot leak in.
+         *
+         * @param ply current ply from root
+         * @param eval static evaluation, or {@link #NO_SCORE}
+         */
+        private void recordStaticEval(int ply, int eval) {
+            if (improvingFeature && ply < pathEval.length) {
+                pathEval[ply] = eval;
+            }
+        }
+
+        /**
+         * Returns whether the side to move is "improving": its static evaluation is
+         * higher than two plies earlier. Unknown (returns false) at the first two
+         * plies, when in check, or when the two-plies-back value is unknown.
+         *
+         * @param ply current ply from root
+         * @param staticEval this node's static evaluation
+         * @return true when the position is improving for the side to move
+         */
+        private boolean improving(int ply, int staticEval) {
+            if (!improvingFeature || staticEval == NO_SCORE || ply < 2) {
+                return false;
+            }
+            int prev = pathEval[ply - 2];
+            return prev != NO_SCORE && staticEval > prev;
+        }
+
+        /**
+         * Returns the per-ply scratch buffer for tried quiets' continuation indices.
+         *
+         * @param ply current ply
+         * @return reusable buffer (never null when {@link #contHistory} is set)
+         */
+        private int[] triedContIdxBuffer(int ply) {
+            return triedQuietContIdx[ply];
+        }
+
+        /**
+         * Sums the one- and two-ply continuation-history scores for a quiet move
+         * with the given target index, under the current path context. Returns zero
+         * when continuation history is disabled or no context is available.
+         *
+         * @param ply current ply from root (context = move that reached this ply)
+         * @param targetIdx the move's {@code piece*64 + to} index, or -1
+         * @return summed continuation-history score
+         */
+        private int contHistScore(int ply, int targetIdx) {
+            if (!contHistory || targetIdx < 0) {
+                return 0;
+            }
+            int score = 0;
+            int p1 = contPiece[ply];
+            if (p1 >= 0) {
+                score += contHist1[(p1 * 64 + contTo[ply]) * 768 + targetIdx];
+            }
+            if (ply >= 1) {
+                int p2 = contPiece[ply - 1];
+                if (p2 >= 0) {
+                    score += contHist2[(p2 * 64 + contTo[ply - 1]) * 768 + targetIdx];
+                }
+            }
+            return score;
+        }
+
+        /**
+         * Applies a gravity-bounded continuation-history delta for a target index
+         * under the current path context (both the one- and two-ply tables).
+         *
+         * @param ply current ply from root
+         * @param targetIdx move target index ({@code piece*64 + to}), or -1
+         * @param delta signed bonus or malus
+         */
+        private void applyContGravity(int ply, int targetIdx, int delta) {
+            if (targetIdx < 0) {
+                return;
+            }
+            int p1 = contPiece[ply];
+            if (p1 >= 0) {
+                int idx = (p1 * 64 + contTo[ply]) * 768 + targetIdx;
+                contHist1[idx] = gravityShort(contHist1[idx], delta);
+            }
+            if (ply >= 1) {
+                int p2 = contPiece[ply - 1];
+                if (p2 >= 0) {
+                    int idx = (p2 * 64 + contTo[ply - 1]) * 768 + targetIdx;
+                    contHist2[idx] = gravityShort(contHist2[idx], delta);
+                }
+            }
         }
 
         /**
@@ -2419,19 +2774,29 @@ public final class AlphaBeta implements AutoCloseable {
          * @param triedCount number of valid entries in {@code tried}
          */
         private void recordQuietCutoff(short move, int depth, int ply, short[] tried, int triedCount) {
-            if (!historyMalus) {
+            if (historyMalus) {
+                if (ply < killers.length && killers[ply][0] != move) {
+                    killers[ply][1] = killers[ply][0];
+                    killers[ply][0] = move;
+                }
+                int bonus = Math.min(depth * depth, HISTORY_MAX);
+                applyGravity(historyIndex(move), bonus);
+                for (int i = 0; i < triedCount; i++) {
+                    if (tried[i] != move) {
+                        applyGravity(historyIndex(tried[i]), -bonus);
+                    }
+                }
+            } else {
                 recordQuietCutoff(move, depth, ply);
-                return;
             }
-            if (ply < killers.length && killers[ply][0] != move) {
-                killers[ply][1] = killers[ply][0];
-                killers[ply][0] = move;
-            }
-            int bonus = Math.min(depth * depth, HISTORY_MAX);
-            applyGravity(historyIndex(move), bonus);
-            for (int i = 0; i < triedCount; i++) {
-                if (tried[i] != move) {
-                    applyGravity(historyIndex(tried[i]), -bonus);
+            // Continuation history is updated regardless of the main-history scheme:
+            // reward the cutoff move's piece-to under the path context and penalize
+            // the quiet moves tried before it.
+            if (contHistory) {
+                int[] contIdx = triedQuietContIdx[ply];
+                int bonus = Math.min(depth * depth, HISTORY_MAX);
+                for (int i = 0; i < triedCount; i++) {
+                    applyContGravity(ply, contIdx[i], tried[i] == move ? bonus : -bonus);
                 }
             }
         }
@@ -2446,6 +2811,20 @@ public final class AlphaBeta implements AutoCloseable {
          */
         private void applyGravity(int index, int delta) {
             history[index] += delta - history[index] * Math.abs(delta) / HISTORY_MAX;
+        }
+
+        /**
+         * Gravity-bounded update of a {@code short} history cell, keeping the
+         * magnitude at or below {@link AlphaBeta#HISTORY_MAX} (well within the
+         * {@code short} range) and decaying large values toward zero.
+         *
+         * @param current current stored value
+         * @param delta signed bonus or malus
+         * @return updated value
+         */
+        private static short gravityShort(short current, int delta) {
+            int updated = current + delta - current * Math.abs(delta) / HISTORY_MAX;
+            return (short) updated;
         }
 
         /**
