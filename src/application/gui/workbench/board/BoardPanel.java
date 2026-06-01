@@ -134,6 +134,16 @@ public final class BoardPanel extends JPanel {
     private boolean whiteDown = true;
 
     /**
+     * Optional material strip above the board (the top side's captures), or null.
+     */
+    private transient MaterialStrip materialTop;
+
+    /**
+     * Optional material strip below the board (the bottom side's captures), or null.
+     */
+    private transient MaterialStrip materialBottom;
+
+    /**
      * Last played move and suggested engine move.
      */
     private short lastMove = Move.NO_MOVE, suggestedMove = Move.NO_MOVE;
@@ -470,7 +480,34 @@ public final class BoardPanel extends JPanel {
                     move, reverseMoveAnimation);
         }
         clearWrongMoveMarkerState();
+        refreshMaterialStrips();
         repaint();
+    }
+
+    /**
+     * Attaches the material strips painted above and below the board. They are
+     * refreshed automatically whenever the position or orientation changes.
+     *
+     * @param top strip above the board (top side's captures)
+     * @param bottom strip below the board (bottom side's captures)
+     */
+    public void setMaterialStrips(MaterialStrip top, MaterialStrip bottom) {
+        this.materialTop = top;
+        this.materialBottom = bottom;
+        refreshMaterialStrips();
+    }
+
+    /**
+     * Updates the material strips for the current position and orientation. The
+     * bottom strip shows the side rendered at the bottom of the board.
+     */
+    private void refreshMaterialStrips() {
+        if (materialTop == null || materialBottom == null) {
+            return;
+        }
+        boolean bottomIsWhite = whiteDown;
+        materialBottom.update(position, bottomIsWhite);
+        materialTop.update(position, !bottomIsWhite);
     }
     private MoveList currentLegalMoves() {
         if (position == null) {
@@ -487,6 +524,7 @@ public final class BoardPanel extends JPanel {
      */
     public void setWhiteDown(boolean value) {
         whiteDown = value;
+        refreshMaterialStrips();
         repaint();
     }
     /**
@@ -1405,6 +1443,17 @@ public final class BoardPanel extends JPanel {
         java.awt.Composite savedComposite = g.getComposite();
         Color savedColor = g.getColor();
         try {
+            // Soft contact shadow beneath the lifted piece gives the drag a
+            // sense of elevation, matching the chess.com / lichess feel.
+            int shadowWidth = Math.round(scaledCell * 0.66f);
+            int shadowHeight = Math.max(6, Math.round(scaledCell * 0.22f));
+            int shadowX = dragX - shadowWidth / 2;
+            int shadowY = pieceY + scaledCell - shadowHeight - Math.round(scaledCell * 0.04f);
+            for (int ring = 3; ring >= 1; ring--) {
+                g.setColor(new Color(0, 0, 0, 16));
+                g.fillOval(shadowX - ring * 2, shadowY - ring,
+                        shadowWidth + ring * 4, shadowHeight + ring * 2);
+            }
             g.setComposite(DRAG_ALPHA);
             BufferedImage scaled = imageCache.dragPieceImage(draggedPiece, scaledCell);
             g.drawImage(scaled, pieceX, pieceY, null);
@@ -1414,9 +1463,10 @@ public final class BoardPanel extends JPanel {
         }
     }
     /**
-     * Scale factor for the dragged piece image.
+     * Scale factor for the dragged piece image. Slightly larger than the
+     * resting square so a picked-up piece reads as lifted off the board.
      */
-    private static final double DRAG_SCALE = 1.0;
+    private static final double DRAG_SCALE = 1.12;
     private void warmDragPieceImage(byte piece) {
         Rectangle board = boardBounds();
         int cell = board.width / 8;
@@ -1886,6 +1936,16 @@ public final class BoardPanel extends JPanel {
         size = Math.max(MIN_BOARD_SIZE, size - size % 8);
         int x = leftReserve + (availWidth - size) / 2;
     return new Rectangle(x, (getHeight() - size) / 2, size, size);
+    }
+
+    /**
+     * Returns the current on-screen bounds of the board square, so adjacent
+     * components (such as the material strips) can align to it.
+     *
+     * @return board square rectangle in this panel's coordinates
+     */
+    public Rectangle boardSquareBounds() {
+        return boardBounds();
     }
     /**
      * Attaches an engine eval bar as a child component, painted flush against the left edge of the board square and matched to its height.

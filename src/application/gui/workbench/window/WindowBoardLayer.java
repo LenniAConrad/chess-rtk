@@ -107,7 +107,16 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
         // and free of the sibling-overlap flicker.
         board.setEvalBar(evalBar);
         JPanel boardStage = transparentPanel(new BorderLayout());
+        // Lichess-style material strips flush above and below the board, showing
+        // each side's captured pieces and a +N material advantage.
+        application.gui.workbench.board.MaterialStrip materialTop =
+                new application.gui.workbench.board.MaterialStrip(board);
+        application.gui.workbench.board.MaterialStrip materialBottom =
+                new application.gui.workbench.board.MaterialStrip(board);
+        board.setMaterialStrips(materialTop, materialBottom);
+        boardStage.add(materialTop, BorderLayout.NORTH);
         boardStage.add(board, BorderLayout.CENTER);
+        boardStage.add(materialBottom, BorderLayout.SOUTH);
 
         JPanel side = transparentPanel(new BorderLayout(8, 8));
         side.setPreferredSize(new Dimension(400, 560));
