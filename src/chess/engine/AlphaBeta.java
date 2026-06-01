@@ -122,6 +122,21 @@ public final class AlphaBeta implements AutoCloseable {
     private static final int LATE_MOVE_PRUNING_MAX_DEPTH = 5;
 
     /**
+     * Maximum remaining depth where razoring drops into quiescence.
+     */
+    private static final int RAZOR_MAX_DEPTH = 3;
+
+    /**
+     * Per-depth centipawn margin used by razoring.
+     */
+    private static final int RAZOR_MARGIN = 300;
+
+    /**
+     * Minimum remaining depth at which an internal iterative reduction may fire.
+     */
+    private static final int IIR_MIN_DEPTH = 4;
+
+    /**
      * Node interval between wall-clock stop checks.
      */
     private static final int STOP_CHECK_INTERVAL = 1024;
@@ -794,6 +809,15 @@ public final class AlphaBeta implements AutoCloseable {
         if (setup.resolved()) {
             return setup.resolvedScore();
         }
+        // Internal iterative reduction: with no transposition move to order first,
+        // search one ply shallower to cheaply seed a best move for later re-visits
+        // rather than spending full depth on a poorly ordered node.
+        if (context.iir()
+                && depth >= IIR_MIN_DEPTH
+                && !setup.inCheck()
+                && (setup.entry() == null || Transposition.moveOf(setup.entry().data) == Move.NO_MOVE)) {
+            depth--;
+        }
         return searchNegamaxMoves(context, position, depth, beta, ply, pvNode, setup);
     }
 
@@ -842,7 +866,17 @@ public final class AlphaBeta implements AutoCloseable {
         int staticEval = NO_SCORE;
         if (!inCheck) {
             staticEval = staticScore(context, position, ply);
-            int reverseFutilityScore = tryReverseFutilityPruning(depth, beta, pvNode, staticEval);
+        }
+        // Record the static eval on the path (NO_SCORE in check) so deeper nodes
+        // can compute the improving heuristic.
+        context.recordStaticEval(ply, staticEval);
+        if (!inCheck) {
+            boolean improving = context.improving(ply, staticEval);
+            int razorScore = tryRazoring(context, position, depth, alpha, beta, pvNode, ply, staticEval);
+            if (razorScore != NO_SCORE) {
+                return NegamaxSetup.resolved(razorScore);
+            }
+            int reverseFutilityScore = tryReverseFutilityPruning(depth, beta, pvNode, staticEval, improving);
             if (reverseFutilityScore != NO_SCORE) {
                 return NegamaxSetup.resolved(reverseFutilityScore);
             }
@@ -1064,14 +1098,56 @@ public final class AlphaBeta implements AutoCloseable {
             int depth,
             int beta,
             boolean pvNode,
-            int staticEval) {
+            int staticEval,
+            boolean improving) {
         if (pvNode
                 || depth > REVERSE_FUTILITY_MAX_DEPTH
                 || staticEval == NO_SCORE
                 || Math.abs(beta) >= MATE_THRESHOLD) {
             return NO_SCORE;
         }
-        return staticEval - (REVERSE_FUTILITY_MARGIN * depth) >= beta ? staticEval : NO_SCORE;
+        // Require a smaller margin (prune more) when the side to move is improving,
+        // since a fail-high is then more trustworthy. improving is always false
+        // when its feature is off, preserving the original margin.
+        int margin = REVERSE_FUTILITY_MARGIN * (depth - (improving ? 1 : 0));
+        return staticEval - margin >= beta ? staticEval : NO_SCORE;
+    }
+
+    /**
+     * Attempts razoring: at shallow depth in a non-PV node, when even a generous
+     * margin over the static evaluation cannot reach alpha, verify with a
+     * quiescence search and fail low directly if it confirms, skipping the quiet
+     * move search entirely.
+     *
+     * @param context search context
+     * @param position mutable current position
+     * @param depth remaining depth
+     * @param alpha alpha bound
+     * @param beta beta bound
+     * @param pvNode true when this node is in a principal-variation window
+     * @param ply current ply from root
+     * @param staticEval cached static evaluation
+     * @return a fail-low quiescence score, or {@link #NO_SCORE}
+     */
+    private static int tryRazoring(
+            SearchContext context,
+            Position position,
+            int depth,
+            int alpha,
+            int beta,
+            boolean pvNode,
+            int ply,
+            int staticEval) {
+        if (!context.razoring()
+                || pvNode
+                || depth > RAZOR_MAX_DEPTH
+                || staticEval == NO_SCORE
+                || Math.abs(alpha) >= MATE_THRESHOLD
+                || staticEval + RAZOR_MARGIN * depth > alpha) {
+            return NO_SCORE;
+        }
+        int score = quiescence(context, position, alpha, beta, ply, 0);
+        return score <= alpha ? score : NO_SCORE;
     }
 
     /**
