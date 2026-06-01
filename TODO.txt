@@ -227,6 +227,144 @@ the future T5 text model.
   - Training export schema tests.
   - Workbench non-blocking generation tests beyond tab registration.
 
+### Tag Engine Revamp
+
+Goal: extend chess.tag into a richer, explanation-friendly static tagger whose
+`FAMILY: key=value` output is the stable input format for the describe pipeline,
+the T5 tag->text model, and a future explanation layer. Every tag stays
+derivable WITHOUT an external engine (internal AlphaBeta/Mcts/MateProver,
+chess.eval.Evaluator, chess.eval.See, and the bundled ECO book only). Vocabulary
+is documented in src/chess/tag/SCHEMA.md; keep it in sync.
+
+Status (this effort, all verified green via scripts/run_regression_suite.sh):
+- 22 checkmate patterns in chess.tag.Checkmate (back_rank/smothered/corner/
+  support/double_check + arabian/epaulette/anastasia/david_and_goliath/damiano/
+  scholars/swallows_tail/dovetail/hook/opera/lawnmower/blackburne/greco/
+  kill_box/reti/anderssen/mayet). Each golden-fixtured in testdata/tags/static.tsv,
+  allow-listed in TaggingRegressionTest, and cross-collision-probed against the
+  others before integration. mate_in_N via MateProver. Tactics: rooks_on_7th and
+  a move-proven double_check.
+- [DONE] chess.eval.See -- Static Exchange Evaluation (see / seeGreaterEqual),
+  verified 14/14 by the workflow battery and 9/9 by an independent battery:
+  x-ray/battery reveals, en passant, promotion captures, and king-defends even
+  trades all correct. Not yet wired into tags.
+- Rejected/dropped: morphy (collides with greco), pillsbury & suffocation (FENs
+  not actually mate), h_file/boden (verifier-rejected), relative_pin (dup of
+  absolute pins). A rogue subagent once wrote an unverified suffocation detector
+  straight into live source -- removed; watch for agents editing source instead
+  of returning detector text.
+
+Verification workflow (keep using it): one subagent per pattern/tactic
+constructs a real FEN + detector by compiling/running probes; an independent
+skeptic recompiles and hunts misfires; only zero-misfire, fires-on-target
+detectors integrate. Same-batch detectors are cross-collision-probed against
+each other's FENs (the morphy/greco collision was caught this way). Port the
+agent's detector source VERBATIM (hand-simplified ports failed to fire), and
+re-derive must_contain from real Generator.tags output.
+
+Next (in order):
+- [DONE] Game-analysis evolution of the tagger (MOVE/LINE/VARIATION/GAME
+  families for move-transition, multi-move tactics, multi-variation tactics, and
+  whole-game narrative). Full plan in tag/GAME_ANALYSIS.md. Key insight: the
+  multi-move tactics rejected statically (deflection, zwischenzug, windmill,
+  combination) become groundable by REPLAYING a given move sequence - the line is
+  the proof, no search. SHIPPED: chess.tag.MoveEffect (Layer 1), chess.tag.game.
+  LineAnalyzer (Layer 2), chess.tag.game.VariationAnalyzer incl. tactic_shared
+  (Layer 3), chess.tag.game.GameAnalyzer + analyze(Game) (Layer 4), all golden-
+  tested. CLI: `fen tags --pgn <file> --analyze-game` emits whole-game analysis
+  JSON. Deferred (need engine/cross-sibling grounding): MOVE_EFFECT quality=
+  grade; VARIATION refutes/only_move/transposition_to; LINE zwischenzug/windmill/
+  clearance/interference. The FACT:tactical->TACTIC: round-trip cleanup is NOT
+  done and NOT required (it is load-bearing in Motifs, not dead code).
+
+- [DONE/PLATEAU] Remaining chessfox checkmate nets: final batch (pillsbury,
+  balestra, corridor, legal, max_lange) yielded 0 confirmed - pillsbury fired
+  on non-mate positions (checker simply capturable); the others did not produce
+  a clean distinct static frame (overlap opera/greco/damiano or are dynamic like
+  legal). Checkmate-pattern vocabulary has plateaued at 22 named nets; further
+  ones need move-sequence/dynamic detection, not single-frame geometry. Stop
+  here rather than ship ungrounded tags.
+
+- [DONE] chessfox tactics (search-gated): decoy integrated+tested+green (forcing sac, forced reply, MateProver/SEE-proven follow-up). greek_gift/deflection rejected (unsound non-forced lines); interference/clearance/zwischenzug skipped (need deeper search).
+
+- [DONE] chessfox tactics (search-gated): decoy (forcing sac + forced reply +
+  MateProver/SEE-proven follow-up) integrated, tested, green. greek_gift &
+  deflection REJECTED by adversarial verifier (unsound: non-forced lines);
+  interference, clearance, zwischenzug SKIPPED as not deterministically
+  groundable without deeper search. These are correct conservative outcomes.
+
+- [DONE] chessfox tactics (static batch): battery, x_ray, back_rank_weakness,
+  f7_weakness in chess.tag.tactical.Motifs (grounded geometry/attacker-count),
+  allow-listed, golden test + fixtures, suite green.
+
+- [DONE] THREAT beyond promotion: type=mate (mate-in-1 + MateProver), type=
+  king_attack (legal check into grounded weak shelter; suppressed when mate
+  exists); chess.tag.Threats wired into Generator (non-promote tags only, to keep
+  the existing promotion path + ctx flags). Golden test + fixture; suite green.
+  ORIGINAL NOTE (resolved): THREAT beyond promotion: DESIGNED + adversarially VERIFIED (verdict=confirm:
+  compiles, every threat grounded, mate threats proven, all moves legal, quiet
+  positions clean). BUT the build agent wrote chess.tag.Threats to an isolated
+  worktree that did NOT persist and returned a DESCRIPTION instead of source, so
+  the artifact was lost (src/chess/tag/Threats.java is an 11-byte stub; out/ has a
+  stale Threats.class with enum ThreatType{PROMOTE,MATE,MATERIAL,KING_ATTACK},
+  promotion-only). Generator currently emits promotion threats via its own
+  addPromotionThreatTags, NOT Threats.addThreats. TO FINISH: re-run a workflow
+  that RETURNS full source in the result (forbid disk writes), or hand-build
+  chess.tag.Threats.addThreats(List,Position) from this spec:
+    * type=mate: m1 via copy().play(m).isCheckmate() severity=immediate; longer via
+      MateProver.proveMate (Proof.bestMove():short, mateMoves():int) severity=soon
+      target=mate_in_N; require bestMove in legalMoves().
+    * type=king_attack: only when no mate; legal move with after.inCheck() &&
+      !after.isCheckmate() AND concrete enemy-king shelter weakness (open/half-open
+      file via frame-invariant pawn scan, or >=2 attacked ring squares); else none.
+    * type=material: SKIP (needs search to ground).
+    * preserve promote threats; field order type=,side=,severity=,move=/square=/target=;
+      SAN via SAN.toAlgebraic(pos,move) with Move.toString fallback; de-dup.
+    Wire Threats.addThreats into Generator.tags(); add golden test + fixture; build
+    src/chess/**+src/utility/** only (external play/ tree is broken). LESSON: workflow
+    build-agents must RETURN source in the result, never write repo files (their
+    worktree writes do not persist).
+
+- [DONE] IDEA family: chess.tag.Ideas.addIdeas emits grounded IDEA tags - type=
+  win_material (highest-SEE legal capture), promote (legal promotion move),
+  king_safety (king on open file + ring attackers, no move), space (countable
+  piece-advance majority). Every IDEA cites a legal move or a re-derivable board
+  fact; adversarially verified (4/4 grounding criteria) + independent exit-code
+  battery. Wired in Generator.tags(); test allow-list (assertIdeaFields) +
+  fixture added; full suite green.
+- [DONE] CAND note enrichment: Generator.addCandidate now emits a grounded
+  note="checkmate|wins material|promotes|check|" via candidateNote(...) (SEE-backed
+  for captures). Suite green.
+- [DONE] loses_material motif: SEE-backed tactic integrated in Motifs (addLosesMaterial),
+  with a Generator pass-through for already-structured TACTIC tags; only flags LEGAL
+  winning captures (pin-trap safe). Tag: TACTIC: motif=loses_material side=<loser>
+  move=<uci> piece= square= see=<cp>. Test + fixture + SCHEMA + validator allow-list
+  updated; full suite green.
+- SEE wiring decision (resolved empirically): do NOT redefine `hanging` via See.
+  Replacing isHangingPiece's "attacked && zero-defenders" with "some enemy
+  capture has See.see > 0" compiles + passes fixtures but FAILS
+  testDefendedAttackedPieceIsNotHanging: a DEFENDED queen captured by a lesser
+  piece has positive SEE (defender loses material), which is "loses material",
+  not "hanging/undefended". Keep `hanging` = undefended (current contract intact)
+  and add a NEW SEE-backed motif `loses_material`/`loose` (enemy capture with
+  See.see > 0 on a non-pawn, defended-or-not) via the verified workflow, with its
+  own fixtures. Then SEE also feeds CAND note= ("wins material") and the
+  explanation reason= fields. See.java is in place and battery-verified.
+- Explanation-friendly enrichment: fill CAND note=, strengthen THREAT
+  (type=mate|material|tactic|king_attack, severity, move=), emit the IDEA family
+  (id reserved in Literals, not emitted yet), add grounded reason=/detail=
+  fields. This is the core of the T5/explanation goal.
+- Chessfox tactics via the verified workflow: static-confirmable first (battery,
+  x_ray, back_rank_weakness, f7_weakness, pawn_fork, absolute/relative-pin
+  refinement), then bounded-search ones (deflection, decoy, interference,
+  clearance, zwischenzug, greek_gift) gated by a fixed budget with explicit
+  provenance, SEE-backed where material is involved.
+- Remaining chessfox mates as they yield (pillsbury, balestra, max_lange,
+  corridor, legal, railroad, blind_swine, suffocation); many are dynamic, not
+  single static frames, and will be rejected -- that is correct.
+- Deferred cleanup: remove the FACT: tactical="..." -> TACTIC: motif=... string
+  round-trip in Generator/GeneratorSupport (emit structured tags directly).
+
 ### Documentation Site
 
 Goal: finish the GitHub Pages docs revamp and make the generated site ready to

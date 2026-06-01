@@ -938,6 +938,107 @@ public final class Literals {
     public static final String SUPPORT_MATE = "support_mate";
 
     /**
+     * The Arabian-mate pattern label (knight-defended rook mating a cornered king).
+     */
+    public static final String ARABIAN_MATE = "arabian_mate";
+
+    /**
+     * The epaulette-mate pattern label (king flanked by its own rooks).
+     */
+    public static final String EPAULETTE_MATE = "epaulette_mate";
+
+    /**
+     * The Anastasia-mate pattern label (edge-file rook mate with a knight
+     * covering the inner flight squares).
+     */
+    public static final String ANASTASIA_MATE = "anastasia_mate";
+
+    /**
+     * The David-and-Goliath mate pattern label (a pawn delivers the mate).
+     */
+    public static final String DAVID_AND_GOLIATH_MATE = "david_and_goliath_mate";
+
+    /**
+     * The Damiano-mate pattern label (queen mate adjacent to the king,
+     * supported by a friendly pawn).
+     */
+    public static final String DAMIANO_MATE = "damiano_mate";
+
+    /**
+     * The Scholar's-mate pattern label (bishop-supported queen mates f7/f2 with
+     * the king still on its original e-file square).
+     */
+    public static final String SCHOLARS_MATE = "scholars_mate";
+
+    /**
+     * The swallow's-tail (gueridon) mate pattern label (orthogonally adjacent
+     * supported queen with the king's own pieces blocking both rear-diagonal
+     * flights).
+     */
+    public static final String SWALLOWS_TAIL_MATE = "swallows_tail_mate";
+
+    /**
+     * The dovetail (Cozio) mate pattern label (diagonally adjacent queen with
+     * the king's own pieces blocking the two far orthogonal flights).
+     */
+    public static final String DOVETAIL_MATE = "dovetail_mate";
+
+    /**
+     * The hook-mate pattern label (rook checks near the king, defended by a
+     * knight which is in turn defended by a pawn, with the king hemmed in by one
+     * of its own pawns).
+     */
+    public static final String HOOK_MATE = "hook_mate";
+
+    /**
+     * The Opera-mate pattern label (rook back-rank check with a friendly bishop
+     * guarding the diagonal flight square in front of the king).
+     */
+    public static final String OPERA_MATE = "opera_mate";
+
+    /**
+     * The lawnmower (ladder/staircase) mate pattern label (a heavy piece checks
+     * the edge king while a second heavy piece seals the adjacent line).
+     */
+    public static final String LAWNMOWER_MATE = "lawnmower_mate";
+
+    /**
+     * The Blackburne-mate pattern label (two bishops and a knight mate a
+     * cornered king with a bishop check).
+     */
+    public static final String BLACKBURNE_MATE = "blackburne_mate";
+
+    /**
+     * The Greco-mate pattern label (a bishop mates a pawn-boxed cornered king
+     * while a friendly rook or queen guards the escape flight).
+     */
+    public static final String GRECO_MATE = "greco_mate";
+
+    /**
+     * The kill-box mate pattern label (a rook checks the edge king while a queen
+     * a knight's-move away seals the escape box).
+     */
+    public static final String KILL_BOX_MATE = "kill_box_mate";
+
+    /**
+     * The Reti-mate pattern label (a bishop check backed by a long-range piece
+     * x-raying through it, against a king boxed by its own pieces).
+     */
+    public static final String RETI_MATE = "reti_mate";
+
+    /**
+     * The Anderssen-mate pattern label (a pawn-shielded rook or queen mates a
+     * cornered king that is not hemmed by its own pawn).
+     */
+    public static final String ANDERSSEN_MATE = "anderssen_mate";
+
+    /**
+     * The Mayet-mate pattern label (a rook adjacent to an edge king, defended by
+     * a distant bishop).
+     */
+    public static final String MAYET_MATE = "mayet_mate";
+
+    /**
      * The immediate severity label.
      */
     public static final String IMMEDIATE = "immediate";
@@ -1306,6 +1407,22 @@ public final class Literals {
      * The hanging prefix used for raw tactical text.
      */
     public static final String HANGING_PREFIX = "hanging ";
+
+    /**
+     * Free-form detail prefix for the rooks-on-the-7th motif.
+     */
+    public static final String ROOKS_ON_SEVENTH_PREFIX = "rooks on 7th: ";
+
+    /**
+     * Header used to map the rooks-on-the-7th detail text back to its motif.
+     */
+    public static final String ROOKS_ON_SEVENTH_HEADER = "rooks on 7th:";
+
+    /**
+     * The rooks-on-the-7th motif value (rooks on the enemy second-from-back
+     * rank; two of them is the strong "pigs on the 7th").
+     */
+    public static final String ROOKS_ON_SEVENTH = "rooks_on_7th";
 
     /**
      * The pin header used when matching raw tactical text.

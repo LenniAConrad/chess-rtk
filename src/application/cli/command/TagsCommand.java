@@ -2,6 +2,7 @@ package application.cli.command;
 
 import static application.cli.Constants.CMD_TAGS;
 import static application.cli.Constants.OPT_ANALYZE;
+import static application.cli.Constants.OPT_ANALYZE_GAME;
 import static application.cli.Constants.OPT_DELTA;
 import static application.cli.Constants.OPT_HASH;
 import static application.cli.Constants.OPT_INCLUDE_FEN;
@@ -47,6 +48,7 @@ import chess.struct.Record;
 import chess.tag.Delta;
 import chess.tag.Generator;
 import chess.tag.Sort;
+import chess.tag.game.GameAnalyzer;
 import chess.uci.Analysis;
 import chess.uci.Evaluation;
 import chess.uci.Engine;
@@ -75,11 +77,37 @@ public final class TagsCommand {
      */
      public static void runTags(Argv a) {
         TagsOptions opts = parseOptions(a);
+        if (opts.flags.analyzeGame) {
+            runGameAnalysis(opts);
+            return;
+        }
         TagsInputs inputs = loadInputs(opts);
         if (opts.flags.analyze) {
             runWithAnalysis(opts, inputs);
         } else {
             runWithoutAnalysis(opts, inputs);
+        }
+    }
+
+     /**
+     * Runs the whole-game analysis workflow: replays each game in the PGN through
+     * {@link GameAnalyzer} (engine-free, fully grounded) and prints one JSON
+     * object per game (per-ply move effects, line tactics, variations, and a game
+     * summary). Each object additionally carries its {@code game_index}.
+     *
+     * @param opts the parsed options (PGN input required)
+     */
+     private static void runGameAnalysis(TagsOptions opts) {
+        List<Game> games = PgnOps.readPgnOrExit(opts.inputConfig.pgn, opts.flags.verbose, CMD_TAGS);
+        int gameIndex = 0;
+        for (Game game : games) {
+            GameAnalyzer.Analysis analysis = GameAnalyzer.analyze(game);
+            String json = analysis.toJson();
+            // Splice game_index in as the first field of the JSON object.
+            String prefix = "{\"game_index\":" + gameIndex;
+            String body = json.startsWith("{") ? json.substring(1) : json;
+            System.out.println(body.startsWith("}") ? prefix + body : prefix + "," + body);
+            gameIndex++;
         }
     }
 
@@ -98,6 +126,7 @@ public final class TagsCommand {
         boolean includeFen = a.flag(OPT_INCLUDE_FEN);
         boolean mainline = a.flag(OPT_MAINLINE);
         boolean sidelines = a.flag(OPT_SIDELINES);
+        boolean analyzeGame = a.flag(OPT_ANALYZE_GAME);
 
         String protoPath = CommandSupport.optional(a.string(OPT_PROTOCOL_PATH, OPT_PROTOCOL_PATH_SHORT),
                 Config.getProtocolPath());
@@ -129,12 +158,15 @@ public final class TagsCommand {
             System.err.println(CMD_TAGS + ": use only one of --mainline or --sidelines");
             System.exit(2);
         }
+        if (analyzeGame && pgn == null) {
+            throw new CommandFailure(CMD_TAGS + ": --analyze-game requires --pgn", 2);
+        }
 
         TagsOptions.Limits limits = new TagsOptions.Limits(nodesCap, durMs);
         TagsOptions.EngineConfig engineConfig = new TagsOptions.EngineConfig(multipv, threads, hash);
         TagsOptions.WdlConfig wdlConfig = new TagsOptions.WdlConfig(wdl, noWdl);
         TagsOptions.Flags flags = new TagsOptions.Flags(verbose, analyze, sequence, delta, includeFen, mainline,
-                sidelines);
+                sidelines, analyzeGame);
         TagsOptions.InputConfig inputConfig = new TagsOptions.InputConfig(fen, input, pgn);
         return new TagsOptions(flags, protoPath, limits, engineConfig, wdlConfig, inputConfig);
     }
@@ -877,6 +909,10 @@ public final class TagsCommand {
              * Stores the sidelines.
              */
              private final boolean sidelines;
+             /**
+             * Stores the analyze-game flag (whole-game analysis JSON).
+             */
+             private final boolean analyzeGame;
 
              /**
              * Creates a new flags instance.
@@ -887,9 +923,10 @@ public final class TagsCommand {
              * @param includeFen include fen
              * @param mainline mainline
              * @param sidelines sidelines
+             * @param analyzeGame analyze-game (whole-game analysis JSON)
              */
              private Flags(boolean verbose, boolean analyze, boolean sequence, boolean delta, boolean includeFen,
-                    boolean mainline, boolean sidelines) {
+                    boolean mainline, boolean sidelines, boolean analyzeGame) {
                 this.verbose = verbose;
                 this.analyze = analyze;
                 this.sequence = sequence;
@@ -897,6 +934,7 @@ public final class TagsCommand {
                 this.includeFen = includeFen;
                 this.mainline = mainline;
                 this.sidelines = sidelines;
+                this.analyzeGame = analyzeGame;
             }
         }
 

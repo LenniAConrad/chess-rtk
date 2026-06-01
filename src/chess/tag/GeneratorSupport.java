@@ -217,6 +217,7 @@ static ParsedPieceInfo parsePieceInfo(String text) {
 static String tacticalMotif(String text) {
     String lowered = text.toLowerCase();
     return startsWithAny(lowered,
+            new ParsedPrefix(ROOKS_ON_SEVENTH_HEADER, ROOKS_ON_SEVENTH),
             new ParsedPrefix(PIN_HEADER, PIN),
             new ParsedPrefix(SKEWER_HEADER, SKEWER),
             new ParsedPrefix(DISCOVERED_ATTACK_HEADER, DISCOVERED_ATTACK),

@@ -39,6 +39,37 @@ public final class TaggingRegressionTest {
         testSmotheredMatePattern();
         testPin();
         testStaticSkewer();
+        testLosesMaterial();
+        testIdeaWinMaterial();
+        testStaticTacticMotifs();
+        testDecoyMotif();
+        testMoveEffect();
+        testLineAnalyzer();
+        testGameAnalyzer();
+        testVariationAnalyzer();
+        testGameAnalyzerFromGame();
+        testTacticShared();
+        testThreatMate();
+        testForcedMateInTwo();
+        testArabianMatePattern();
+        testEpauletteMatePattern();
+        testAnastasiaMatePattern();
+        testDavidAndGoliathMatePattern();
+        testDamianoMatePattern();
+        testScholarsMatePattern();
+        testSwallowsTailMatePattern();
+        testDovetailMatePattern();
+        testHookMatePattern();
+        testOperaMatePattern();
+        testLawnmowerMatePattern();
+        testBlackburneMatePattern();
+        testGrecoMatePattern();
+        testAnderssenMatePattern();
+        testMayetMatePattern();
+        testKillBoxMatePattern();
+        testRetiMatePattern();
+        testRooksOnSeventh();
+        testDoubleCheckMove();
         testHangingPiece();
         testHangingPawnsAreNotTacticalNoise();
         testQuietMinorOnlyPositionHasNoTactics();
@@ -215,6 +246,566 @@ public final class TaggingRegressionTest {
         List<String> tags = Generator.tags(new Position("4k3/8/8/8/8/8/8/r3K2R w - - 0 1"));
         assertContains(tags, "TACTIC: motif=skewer side=black detail=\"skewer: black rook a1 skewers white king e1 with white rook h1 behind\"");
     }
+
+     /**
+     * Verifies a forced mate in two is proven by the internal mate searcher and
+     * reported as a tactical motif, without relying on any external engine, and
+     * that a quiet position emits no forced-mate motif.
+     */
+     private static void testForcedMateInTwo() {
+        List<String> tags = Generator.tags(new Position("2k5/8/2K5/8/8/8/8/3Q4 w - - 0 1"));
+        assertContains(tags, "TACTIC: motif=mate_in_2 side=white move=d1d7");
+        List<String> quiet = Generator.tags(new Position(
+                "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"));
+        assertNoPrefix(quiet, "TACTIC: motif=mate_in");
+    }
+
+     /**
+     * Verifies the Arabian mate (knight-defended rook mating a cornered king)
+     * is recognized in addition to the corner/support geometry it refines.
+     */
+     private static void testArabianMatePattern() {
+        List<String> tags = Generator.tags(new Position("7k/7R/5N2/8/8/8/8/6K1 b - - 0 1"));
+        assertContains(tags, "FACT: status=checkmated");
+        assertContains(tags, "CHECKMATE: delivery=rook");
+        assertContains(tags, "CHECKMATE: pattern=arabian_mate");
+        assertContains(tags, "CHECKMATE: pattern=corner_mate");
+    }
+
+     /**
+     * Verifies the epaulette mate (king flanked by its own rooks, mated by a
+     * frontal queen) is recognized and does not collide with back-rank mate.
+     */
+     private static void testEpauletteMatePattern() {
+        List<String> tags = Generator.tags(new Position("3rkr2/8/4Q3/8/8/8/8/4K3 b - - 0 1"));
+        assertContains(tags, "FACT: status=checkmated");
+        assertContains(tags, "CHECKMATE: delivery=queen");
+        assertContains(tags, "CHECKMATE: pattern=epaulette_mate");
+        assertNoTagContaining(tags, "pattern=back_rank_mate");
+    }
+
+     /**
+     * Verifies the Anastasia mate (edge-file rook mate with a knight covering
+     * the inner flights) is recognized alongside the support-mate geometry.
+     */
+     private static void testAnastasiaMatePattern() {
+        List<String> tags = Generator.tags(new Position("8/4N1pk/8/8/8/8/8/6KR b - - 0 1"));
+        assertContains(tags, "FACT: status=checkmated");
+        assertContains(tags, "CHECKMATE: delivery=rook");
+        assertContains(tags, "CHECKMATE: pattern=anastasia_mate");
+        assertNoTagContaining(tags, "pattern=back_rank_mate");
+        assertNoTagContaining(tags, "pattern=corner_mate");
+     }
+
+     /**
+     * Verifies the David-and-Goliath mate (a pawn delivers the mate) is
+     * recognized.
+     */
+     private static void testDavidAndGoliathMatePattern() {
+        List<String> tags = Generator.tags(new Position("7k/6P1/5K2/8/2B1B3/8/8/8 b - - 0 1"));
+        assertContains(tags, "FACT: status=checkmated");
+        assertContains(tags, "CHECKMATE: delivery=pawn");
+        assertContains(tags, "CHECKMATE: pattern=david_and_goliath_mate");
+     }
+
+     /**
+     * Verifies the Damiano mate (pawn-supported queen mating beside the king)
+     * is recognized.
+     */
+     private static void testDamianoMatePattern() {
+        List<String> tags = Generator.tags(new Position("7k/6pQ/6P1/8/8/8/8/6K1 b - - 0 1"));
+        assertContains(tags, "FACT: status=checkmated");
+        assertContains(tags, "CHECKMATE: delivery=queen");
+        assertContains(tags, "CHECKMATE: pattern=damiano_mate");
+        assertNoTagContaining(tags, "pattern=back_rank_mate");
+     }
+
+     /**
+     * Verifies the rooks-on-the-7th motif fires for doubled rooks on the enemy
+     * second-from-back rank and stays silent when a rook is only on its own
+     * second rank.
+     */
+     private static void testRooksOnSeventh() {
+        List<String> doubled = Generator.tags(new Position("6k1/R2R4/8/8/8/8/6K1/8 w - - 0 1"));
+        assertContains(doubled, "TACTIC: motif=rooks_on_7th side=white detail=\"rooks on 7th: white rooks a7, d7\"");
+        List<String> blackSingle = Generator.tags(new Position("6k1/8/8/8/8/8/4r3/6K1 b - - 0 1"));
+        assertContains(blackSingle, "TACTIC: motif=rooks_on_7th side=black detail=\"rooks on 7th: black rook e2\"");
+        List<String> ownRank = Generator.tags(new Position("6k1/8/8/8/8/8/R7/6K1 w - - 0 1"));
+        assertNoPrefix(ownRank, "TACTIC: motif=rooks_on_7th");
+        List<String> start = Generator.tags(new Position(
+                "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"));
+        assertNoPrefix(start, "TACTIC: motif=rooks_on_7th");
+     }
+
+     /**
+     * Verifies the double-check motif fires for a legal move that gives check
+     * with two pieces at once, and stays silent in the quiet start position.
+     */
+     private static void testDoubleCheckMove() {
+        List<String> tags = Generator.tags(new Position("4k3/8/8/8/4N3/8/8/4RK2 w - - 0 1"));
+        assertContains(tags, "TACTIC: motif=double_check side=white move=e4d6");
+        List<String> start = Generator.tags(new Position(
+                "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"));
+        assertNoPrefix(start, "TACTIC: motif=double_check");
+     }
+
+     /**
+     * Verifies Scholar's mate (bishop-supported queen mating the e-file king on
+     * f7) is recognized.
+     */
+     private static void testScholarsMatePattern() {
+        List<String> tags = Generator.tags(new Position(
+                "r1bqkb1r/pppp1Qpp/2n2n2/4p3/2B1P3/8/PPPP1PPP/RNB1K1NR b KQkq - 0 4"));
+        assertContains(tags, "FACT: status=checkmated");
+        assertContains(tags, "CHECKMATE: delivery=queen");
+        assertContains(tags, "CHECKMATE: pattern=scholars_mate");
+        assertNoTagContaining(tags, "pattern=back_rank_mate");
+     }
+
+     /**
+     * Verifies the swallow's-tail (gueridon) mate is recognized alongside the
+     * support-mate geometry it refines.
+     */
+     private static void testSwallowsTailMatePattern() {
+        List<String> tags = Generator.tags(new Position("5r1r/6k1/6Q1/6K1/8/8/8/8 b - - 0 1"));
+        assertContains(tags, "FACT: status=checkmated");
+        assertContains(tags, "CHECKMATE: delivery=queen");
+        assertContains(tags, "CHECKMATE: pattern=swallows_tail_mate");
+        assertNoTagContaining(tags, "pattern=corner_mate");
+     }
+
+     /**
+     * Verifies the dovetail (Cozio) mate is recognized alongside the
+     * support-mate geometry it refines.
+     */
+     private static void testDovetailMatePattern() {
+        List<String> tags = Generator.tags(new Position("8/8/8/8/8/1p6/pk1K4/2Q5 b - - 0 1"));
+        assertContains(tags, "FACT: status=checkmated");
+        assertContains(tags, "CHECKMATE: delivery=queen");
+        assertContains(tags, "CHECKMATE: pattern=dovetail_mate");
+        assertNoTagContaining(tags, "pattern=epaulette_mate");
+     }
+
+     /**
+     * Verifies the hook mate (rook defended by a knight defended by a pawn, king
+     * hemmed in by its own pawn) is recognized.
+     */
+     private static void testHookMatePattern() {
+        List<String> tags = Generator.tags(new Position("8/8/8/1N6/P7/Rp6/k7/2K5 b - - 0 1"));
+        assertContains(tags, "FACT: status=checkmated");
+        assertContains(tags, "CHECKMATE: delivery=rook");
+        assertContains(tags, "CHECKMATE: pattern=hook_mate");
+        assertNoTagContaining(tags, "pattern=arabian_mate");
+        assertNoTagContaining(tags, "pattern=back_rank_mate");
+     }
+
+     /**
+     * Verifies the Opera mate (rook back-rank check with a bishop guarding the
+     * diagonal flight) is recognized alongside the support-mate geometry.
+     */
+     private static void testOperaMatePattern() {
+        List<String> tags = Generator.tags(new Position("Rk1B4/1B6/K7/8/8/8/8/8 b - - 0 1"));
+        assertContains(tags, "FACT: status=checkmated");
+        assertContains(tags, "CHECKMATE: delivery=rook");
+        assertContains(tags, "CHECKMATE: pattern=opera_mate");
+        assertNoTagContaining(tags, "pattern=back_rank_mate");
+     }
+
+     /**
+     * Verifies the lawnmower (ladder) mate is recognized for an edge king driven
+     * by two heavy pieces.
+     */
+     private static void testLawnmowerMatePattern() {
+        List<String> tags = Generator.tags(new Position("8/1R6/8/k7/8/8/8/R6K b - - 0 1"));
+        assertContains(tags, "FACT: status=checkmated");
+        assertContains(tags, "CHECKMATE: delivery=rook");
+        assertContains(tags, "CHECKMATE: pattern=lawnmower_mate");
+        assertNoTagContaining(tags, "pattern=back_rank_mate");
+     }
+
+     /**
+     * Verifies the Blackburne mate (two bishops and a knight) is recognized
+     * alongside the support-mate geometry.
+     */
+     private static void testBlackburneMatePattern() {
+        List<String> tags = Generator.tags(new Position("6kr/5B2/7B/6N1/K7/8/8/8 b - - 0 1"));
+        assertContains(tags, "FACT: status=checkmated");
+        assertContains(tags, "CHECKMATE: delivery=bishop");
+        assertContains(tags, "CHECKMATE: pattern=blackburne_mate");
+        assertNoTagContaining(tags, "pattern=corner_mate");
+     }
+
+     /**
+     * Verifies the Greco mate (bishop mating a pawn-boxed cornered king with a
+     * rook/queen guarding the flight) is recognized alongside the corner/support
+     * geometry it refines.
+     */
+     private static void testGrecoMatePattern() {
+        List<String> tags = Generator.tags(new Position("7k/7p/8/8/8/8/1B4R1/2K5 b - - 0 1"));
+        assertContains(tags, "FACT: status=checkmated");
+        assertContains(tags, "CHECKMATE: delivery=bishop");
+        assertContains(tags, "CHECKMATE: pattern=greco_mate");
+        assertNoTagContaining(tags, "pattern=opera_mate");
+        assertNoTagContaining(tags, "pattern=blackburne_mate");
+     }
+
+     /**
+     * Verifies the Anderssen mate (pawn-shielded rook mating a cornered king not
+     * hemmed by its own pawn) is recognized alongside the corner geometry.
+     */
+     private static void testAnderssenMatePattern() {
+        List<String> tags = Generator.tags(new Position("6Rk/5P2/6K1/8/8/8/8/8 b - - 0 1"));
+        assertContains(tags, "FACT: status=checkmated");
+        assertContains(tags, "CHECKMATE: delivery=rook");
+        assertContains(tags, "CHECKMATE: pattern=anderssen_mate");
+        assertNoTagContaining(tags, "pattern=damiano_mate");
+        assertNoTagContaining(tags, "pattern=back_rank_mate");
+     }
+
+     /**
+     * Verifies the Mayet mate (rook adjacent to an edge king, defended by a
+     * distant bishop) is recognized alongside the corner geometry.
+     */
+     private static void testMayetMatePattern() {
+        List<String> tags = Generator.tags(new Position("6Rk/7p/4B3/8/8/8/8/K7 b - - 0 1"));
+        assertContains(tags, "FACT: status=checkmated");
+        assertContains(tags, "CHECKMATE: delivery=rook");
+        assertContains(tags, "CHECKMATE: pattern=mayet_mate");
+        assertNoTagContaining(tags, "pattern=arabian_mate");
+        assertNoTagContaining(tags, "pattern=anderssen_mate");
+     }
+
+     /**
+     * Verifies the kill-box mate (rook check plus a knight's-move queen sealing
+     * the box) is recognized for an edge king.
+     */
+     private static void testKillBoxMatePattern() {
+        List<String> tags = Generator.tags(new Position("Rk6/3K4/2Q5/8/8/8/8/8 b - - 0 1"));
+        assertContains(tags, "FACT: status=checkmated");
+        assertContains(tags, "CHECKMATE: delivery=rook");
+        assertContains(tags, "CHECKMATE: pattern=kill_box_mate");
+        assertNoTagContaining(tags, "pattern=back_rank_mate");
+        assertNoTagContaining(tags, "pattern=lawnmower_mate");
+     }
+
+     /**
+     * Verifies the Reti mate (bishop check backed by a long-range piece against a
+     * self-boxed king) is recognized alongside the support geometry.
+     */
+     private static void testRetiMatePattern() {
+        List<String> tags = Generator.tags(new Position("1rk5/1ppBK3/8/8/6Q1/8/8/8 b - - 0 1"));
+        assertContains(tags, "FACT: status=checkmated");
+        assertContains(tags, "CHECKMATE: delivery=bishop");
+        assertContains(tags, "CHECKMATE: pattern=reti_mate");
+        assertNoTagContaining(tags, "pattern=greco_mate");
+        assertNoTagContaining(tags, "pattern=blackburne_mate");
+     }
+
+     /**
+     * Verifies the SEE-backed loses_material motif: a capture winning material is
+     * flagged (attributed to the losing side), and a quiet position emits none.
+     */
+     private static void testLosesMaterial() {
+        List<String> tags = Generator.tags(new Position("4k3/8/8/3q4/4P3/8/8/4K3 w - - 0 1"));
+        assertContains(tags, "TACTIC: motif=loses_material side=black move=e4d5 piece=queen square=d5 see=900");
+        List<String> quiet = Generator.tags(new Position(
+                "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"));
+        assertNoPrefix(quiet, "TACTIC: motif=loses_material");
+     }
+
+     /**
+     * Verifies the grounded IDEA family: a free winning capture yields a
+     * win_material idea citing a legal move, and the start position yields no
+     * win_material idea (nothing speculative).
+     */
+     private static void testIdeaWinMaterial() {
+        List<String> tags = Generator.tags(new Position("4k3/8/8/3q4/4P3/8/8/4K3 w - - 0 1"));
+        assertContains(tags, "IDEA: side=white type=win_material move=exd5 detail=\"wins material\"");
+        List<String> start = Generator.tags(new Position(
+                "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"));
+        assertNoTagContaining(start, "type=win_material");
+     }
+
+     /**
+     * Verifies a grounded mate THREAT: a mate-in-1 for the side to move yields a
+     * THREAT: type=mate citing the legal mating move; a quiet position none.
+     */
+     private static void testThreatMate() {
+        List<String> tags = Generator.tags(new Position("6k1/5ppp/8/8/8/8/8/4R1K1 w - - 0 1"));
+        assertContains(tags, "THREAT: type=mate side=white severity=immediate move=\"Re8#\"");
+        List<String> start = Generator.tags(new Position(
+                "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"));
+        assertNoTagContaining(start, "type=mate");
+     }
+
+     /**
+     * Verifies the statically-grounded chessfox tactic motifs (battery, x_ray,
+     * back_rank_weakness, f7_weakness) emit their exact tags and stay silent on
+     * the start position.
+     */
+     private static void testStaticTacticMotifs() {
+        {
+            List<String> tags = Generator.tags(new Position("3r2k1/8/8/8/8/3Q4/3R4/4K3 w - - 0 1"));
+            assertContains(tags, "TACTIC: motif=battery side=white pieces=rook@d2,queen@d3 line=file target=rook@d8 detail=\"doubled on the d-file\"");
+        }
+        {
+            List<String> tags = Generator.tags(new Position("6k1/6r1/8/8/3n4/8/8/B5K1 w - - 0 1"));
+            assertContains(tags, "TACTIC: motif=x_ray side=white piece=bishop square=a1 front=knight@d4 behind=rook@g7 detail=\"bishop on a1 x-rays knight to rook on g7\"");
+        }
+        {
+            List<String> tags = Generator.tags(new Position("6k1/5ppp/8/8/8/8/5PPP/R5K1 w - - 0 1"));
+            assertContains(tags, "TACTIC: motif=back_rank_weakness side=white square=g8 detail=\"black king boxed on back rank by own pawns f7,g7,h7 (no luft); landing a8\"");
+        }
+        {
+            List<String> tags = Generator.tags(new Position("r1bqkbnr/pppp1ppp/2n5/4p3/2B1P3/5Q2/PPPP1PPP/RNB1K1NR w KQkq - 0 1"));
+            assertContains(tags, "TACTIC: motif=f7_weakness side=white square=f7 attackers=2 defenders=1 detail=\"f-spot f7 attacked 2x vs defended 1x; black king on e8\"");
+        }
+        List<String> start = Generator.tags(new Position("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"));
+        assertNoPrefix(start, "TACTIC: motif=battery");
+        assertNoPrefix(start, "TACTIC: motif=x_ray");
+        assertNoPrefix(start, "TACTIC: motif=back_rank_weakness");
+        assertNoPrefix(start, "TACTIC: motif=f7_weakness");
+     }
+
+     /**
+     * Verifies the search-gated decoy motif: a forcing sacrifice luring a piece
+     * with a proven (MateProver/SEE) follow-up emits its exact tag; quiet none.
+     */
+     private static void testDecoyMotif() {
+        List<String> tags = Generator.tags(new Position("5r1k/6pp/7N/8/2Q5/8/8/6K1 w - - 0 1"));
+        assertContains(tags, "TACTIC: motif=decoy side=white move=c4g8 detail=\"queen sacrifice decoys enemy rook to g8 (forced f8g8), forced mate in 1 (bounded mate search)\"");
+        List<String> start = Generator.tags(new Position("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"));
+        assertNoPrefix(start, "TACTIC: motif=decoy");
+     }
+
+     /**
+     * Verifies move-transition tags (MOVE_EFFECT): a mating move is typed as
+     * checkmate and creates the checkmate pattern; a quiet developing move
+     * yields only its type with no created/removed motifs. Grounded purely on
+     * the parent/child static-tag delta.
+     */
+     private static void testMoveEffect() {
+        Position mp = new Position("6k1/5ppp/8/8/8/8/8/3R2K1 w - - 0 1");
+        List<String> mate = chess.tag.MoveEffect.effects(mp, mp.copy().play(chess.core.Move.parse("d1d8")));
+        assertContains(mate, "MOVE_EFFECT: san=Rd8# type=checkmate");
+        assertContains(mate, "MOVE_EFFECT: san=Rd8# creates=\"back_rank_mate\"");
+        Position qp = new Position("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+        List<String> quiet = chess.tag.MoveEffect.effects(qp, qp.copy().play(chess.core.Move.parse("g1f3")));
+        assertContains(quiet, "MOVE_EFFECT: san=Nf3 type=quiet");
+        assertNoTagContaining(quiet, "creates=");
+        assertNoTagContaining(quiet, "removes=");
+     }
+
+     /**
+     * Verifies replay-grounded multi-move LINE tags: a one-move back-rank mate
+     * is a combination ending in mate, a winning capture is a material
+     * combination, and a quiet opening line yields no combination tag. Each tag
+     * is grounded by replaying the supplied moves (the line is the proof).
+     */
+     private static void testLineAnalyzer() {
+        Position mate = new Position("6k1/5ppp/8/8/8/8/8/4R1K1 w - - 0 1");
+        List<String> mateTags = chess.tag.game.LineAnalyzer.tags(
+                mate, new short[] { chess.core.Move.parse("e1e8") });
+        assertContains(mateTags, "LINE: motif=combination length=1 nets=0 outcome=mate line=\"Re8#\"");
+        Position winQ = new Position("4k3/8/8/8/3q4/8/1B6/4K3 w - - 0 1");
+        List<String> winTags = chess.tag.game.LineAnalyzer.tags(
+                winQ, new short[] { chess.core.Move.parse("b2d4") });
+        assertContains(winTags, "LINE: motif=combination length=1 nets=900 outcome=material line=\"Bxd4\"");
+        Position quiet = new Position("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+        List<String> quietTags = chess.tag.game.LineAnalyzer.tags(quiet, new short[] {
+                chess.core.Move.parse("e2e4"), chess.core.Move.parse("e7e5"),
+                chess.core.Move.parse("g1f3"), chess.core.Move.parse("b8c6") });
+        assertNoTagContaining(quietTags, "motif=combination");
+     }
+
+     /**
+     * Verifies whole-game analysis: replaying a Scholar's mate game yields the
+     * grounded checkmate result-cause with its pattern, the correct ply count,
+     * per-ply MOVE_EFFECT tags, and structured JSON. Grounded purely by replay.
+     */
+     private static void testGameAnalyzer() {
+        Position start = new Position("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+        String[] uci = { "e2e4", "e7e5", "f1c4", "b8c6", "d1h5", "g8f6", "h5f7" };
+        short[] moves = new short[uci.length];
+        for (int i = 0; i < uci.length; i++) {
+            moves[i] = chess.core.Move.parse(uci[i]);
+        }
+        chess.tag.game.GameAnalyzer.Analysis analysis = chess.tag.game.GameAnalyzer.analyze(start, moves);
+        if (analysis.moves.size() != 7) {
+            throw new AssertionError("game analysis ply count: " + analysis.moves.size());
+        }
+        assertContains(analysis.gameTags, "GAME: result_cause=checkmate pattern=scholars_mate");
+        if (analysis.moves.get(0).effects.isEmpty()) {
+            throw new AssertionError("first ply has no MOVE_EFFECT tags");
+        }
+        String json = analysis.toJson();
+        if (!json.startsWith("{") || !json.contains("\"moves\"") || !json.contains("\"gameTags\"")) {
+            throw new AssertionError("game analysis JSON malformed: " + json);
+        }
+     }
+
+     /**
+     * Verifies variation (sideline) analysis: a quiet mainline with a back-rank
+     * mate offered as a root sideline yields exactly one VARIATION, branching at
+     * ply 0, carrying the sideline's SAN and the grounded LINE combination tag
+     * for the mating line. Grounded purely by replaying the sideline.
+     */
+     private static void testVariationAnalyzer() {
+        chess.struct.Game game = new chess.struct.Game();
+        game.setStartPosition(new Position("6k1/5ppp/8/8/8/8/5PPP/4R1K1 w - - 0 1"));
+        game.setMainline(new chess.struct.Game.Node("Kf1"));
+        game.addRootVariation(new chess.struct.Game.Node("Re8#"));
+        chess.tag.game.VariationAnalyzer.Result result =
+                chess.tag.game.VariationAnalyzer.analyze(game);
+        if (result.variations.size() != 1) {
+            throw new AssertionError("variation count: " + result.variations.size());
+        }
+        chess.tag.game.VariationAnalyzer.Variation variation = result.variations.get(0);
+        if (variation.branchPly != 0) {
+            throw new AssertionError("branch ply: " + variation.branchPly);
+        }
+        if (variation.sans.size() != 1 || !variation.sans.get(0).equals("Re8#")) {
+            throw new AssertionError("variation sans: " + variation.sans);
+        }
+        boolean hasCombination = false;
+        for (String line : variation.lines) {
+            if (line.startsWith("LINE: ") && line.contains("outcome=mate")) {
+                hasCombination = true;
+            }
+        }
+        if (!hasCombination) {
+            throw new AssertionError("no mating LINE tag in variation: " + variation.lines);
+        }
+        assertContains(result.tags(),
+                "VARIATION: branch_ply=0 length=1 line=\"Re8#\"");
+        String json = result.toJson();
+        if (!json.startsWith("{\"variations\":[") || !json.contains("Re8#")) {
+            throw new AssertionError("variation JSON malformed: " + json);
+        }
+     }
+
+     /**
+     * Verifies the unified game entry point: analyzing a parsed Game (SAN move
+     * tree) replays the mainline AND attaches sideline analysis. Scholar's mate
+     * with a defensive sideline (...g6 instead of Nf6) yields the mate
+     * result-cause, 7 plies, and one variation branching at ply 5 (g6 replaces
+     * the 6th move). Grounded purely by replay.
+     */
+     private static void testGameAnalyzerFromGame() {
+        chess.struct.Game game = new chess.struct.Game();
+        game.setStartPosition(new Position("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"));
+        String[] sans = { "e4", "e5", "Bc4", "Nc6", "Qh5", "Nf6", "Qxf7#" };
+        chess.struct.Game.Node head = null;
+        chess.struct.Game.Node prev = null;
+        chess.struct.Game.Node nf6 = null;
+        for (int i = 0; i < sans.length; i++) {
+            chess.struct.Game.Node node = new chess.struct.Game.Node(sans[i]);
+            if (head == null) {
+                head = node;
+            } else {
+                prev.setNext(node);
+            }
+            prev = node;
+            if (i == 5) {
+                nf6 = node;
+            }
+        }
+        game.setMainline(head);
+        // Standard PGN: ...g6 is an alternative to Nf6 (Black's 6th move), attached
+        // to the Nf6 node and branching from the position before it. Branches at ply 5.
+        nf6.addVariation(new chess.struct.Game.Node("g6"));
+
+        chess.tag.game.GameAnalyzer.Analysis analysis = chess.tag.game.GameAnalyzer.analyze(game);
+        if (analysis.moves.size() != 7) {
+            throw new AssertionError("mainline ply count: " + analysis.moves.size());
+        }
+        assertContains(analysis.gameTags, "GAME: result_cause=checkmate pattern=scholars_mate");
+        if (analysis.variations.variations.size() != 1) {
+            throw new AssertionError("variation count: " + analysis.variations.variations.size());
+        }
+        chess.tag.game.VariationAnalyzer.Variation variation = analysis.variations.variations.get(0);
+        if (variation.branchPly != 5 || !variation.sans.get(0).equals("g6")) {
+            throw new AssertionError("variation: ply=" + variation.branchPly + " sans=" + variation.sans);
+        }
+        String json = analysis.toJson();
+        if (!json.contains("\"variations\":[") || !json.contains("scholars_mate")) {
+            throw new AssertionError("unified JSON malformed: " + json);
+        }
+     }
+
+     /**
+     * Verifies the grounded multi-variation-tactic detector: three distinct
+     * mate-in-1 root siblings off one start position each carry a combination
+     * LINE motif in their (empty-prefix) divergent portion, so exactly one
+     * VARIATION: tactic_shared=combination tag is emitted with count=3. A lone
+     * sideline emits no shared tag (the >=2 guard). Grounded purely by replay.
+     */
+     private static void testTacticShared() {
+        chess.struct.Game game = new chess.struct.Game();
+        game.setStartPosition(new Position("7k/5Q2/6K1/8/8/8/8/8 w - - 0 1"));
+        game.setMainline(new chess.struct.Game.Node("Qf6"));
+        game.addRootVariation(new chess.struct.Game.Node("Qf8#"));
+        game.addRootVariation(new chess.struct.Game.Node("Qg7#"));
+        game.addRootVariation(new chess.struct.Game.Node("Qh7#"));
+        chess.tag.game.VariationAnalyzer.Result result =
+                chess.tag.game.VariationAnalyzer.analyze(game);
+
+        if (result.variations.size() != 3) {
+            throw new AssertionError("variation count: " + result.variations.size());
+        }
+        for (chess.tag.game.VariationAnalyzer.Variation v : result.variations) {
+            if (v.branchPly != 0 || v.branchKey.isEmpty()) {
+                throw new AssertionError("branch identity: ply=" + v.branchPly
+                        + " key=" + v.branchKey);
+            }
+        }
+        assertContains(result.tags(),
+                "VARIATION: tactic_shared=combination branch_ply=0 count=3 "
+                        + "detail=\"outcome=mate beneficiary=white\"");
+        if (result.sharedTactics.size() != 1) {
+            throw new AssertionError("sharedTactics: " + result.sharedTactics);
+        }
+        if (!result.toJson().contains("\"sharedTactics\":[")) {
+            throw new AssertionError("toJson missing sharedTactics: " + result.toJson());
+        }
+
+        // NEGATIVE: a lone sideline yields no shared tag (the >=2 guard).
+        chess.struct.Game lone = new chess.struct.Game();
+        lone.setStartPosition(new Position("6k1/5ppp/8/8/8/8/5PPP/4R1K1 w - - 0 1"));
+        lone.setMainline(new chess.struct.Game.Node("Kf1"));
+        lone.addRootVariation(new chess.struct.Game.Node("Re8#"));
+        chess.tag.game.VariationAnalyzer.Result loneResult =
+                chess.tag.game.VariationAnalyzer.analyze(lone);
+        assertNoPrefix(loneResult.tags(), "VARIATION: tactic_shared=");
+
+        // NEGATIVE: prefix mate (Scholar's) with a single g6 sideline at ply 5 —
+        // the combination lives wholly in the shared prefix and there is one
+        // sibling, so no shared tag (baseline-subtraction AND >=2 guards).
+        chess.struct.Game scholar = new chess.struct.Game();
+        scholar.setStartPosition(new Position(
+                "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"));
+        String[] sans = { "e4", "e5", "Bc4", "Nc6", "Qh5", "Nf6", "Qxf7#" };
+        chess.struct.Game.Node head = null;
+        chess.struct.Game.Node prev = null;
+        chess.struct.Game.Node nf6 = null;
+        for (int i = 0; i < sans.length; i++) {
+            chess.struct.Game.Node n = new chess.struct.Game.Node(sans[i]);
+            if (head == null) {
+                head = n;
+            } else {
+                prev.setNext(n);
+            }
+            prev = n;
+            if (i == 5) {
+                nf6 = n;
+            }
+        }
+        scholar.setMainline(head);
+        nf6.addVariation(new chess.struct.Game.Node("g6"));
+        chess.tag.game.VariationAnalyzer.Result scholarResult =
+                chess.tag.game.VariationAnalyzer.analyze(scholar);
+        assertNoPrefix(scholarResult.tags(), "VARIATION: tactic_shared=");
+     }
 
      /**
      * Handles test hanging piece.
@@ -805,7 +1396,10 @@ public final class TaggingRegressionTest {
             assertFieldOneOf(tag, key, List.of("pawn", "knight", "bishop", "rook", "queen", "king", "multiple"));
         } else if ("pattern".equals(key)) {
             assertFieldOneOf(tag, key, List.of("double_check", "back_rank_mate", "smothered_mate",
-                    "corner_mate", "support_mate"));
+                    "corner_mate", "support_mate", "arabian_mate", "epaulette_mate", "anastasia_mate",
+                    "david_and_goliath_mate", "damiano_mate", "scholars_mate", "swallows_tail_mate",
+                    "dovetail_mate", "hook_mate", "opera_mate", "lawnmower_mate", "blackburne_mate",
+                    "greco_mate", "kill_box_mate", "reti_mate", "anderssen_mate", "mayet_mate"));
         } else {
             throw new AssertionError("unknown checkmate tag: " + tag);
         }
@@ -842,7 +1436,8 @@ public final class TaggingRegressionTest {
      private static void assertTacticalFields(String tag) {
         String motif = field(tag, "motif");
         assertFieldOneOf(tag, "motif", List.of("pin", "skewer", "overload", "hanging", "mate_in_1",
-                "promotion", "underpromotion", "fork", "discovered_attack"));
+                "promotion", "underpromotion", "fork", "discovered_attack", "rooks_on_7th", "double_check",
+                "loses_material", "battery", "x_ray", "back_rank_weakness", "f7_weakness", "decoy"));
         assertSideField(tag);
         String move = field(tag, "move");
         if (move.isEmpty()) {

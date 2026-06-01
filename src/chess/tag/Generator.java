@@ -16,8 +16,10 @@ import chess.core.MoveList;
 import chess.core.Piece;
 import chess.core.Position;
 import chess.core.SAN;
+import chess.engine.MateProver;
 import chess.eval.Evaluator;
 import chess.eval.Result;
+import chess.eval.See;
 import chess.tag.core.Text;
 import chess.tag.material.Counts;
 import chess.tag.material.Endgame;
@@ -234,6 +236,7 @@ public final class Generator {
         addPawnTags(tags, ctx, position);
         addKingTags(tags, position);
         addTacticalTags(tags, ctx, position);
+        Ideas.addIdeas(tags, position);
         addStrategicTags(tags, ctx, position);
         addEndgameOpening(tags, position);
 
@@ -361,9 +364,38 @@ public final class Generator {
         if (evalCp != null) {
             sb.append(CAND_EVAL_CP_FIELD).append(evalCp);
         }
-        sb.append(CAND_EMPTY_NOTE_FIELD);
+        sb.append(SPACE_TEXT).append(NOTE).append(EQUAL_SIGN).append(QUOTE)
+                .append(candidateNote(position, move)).append(QUOTE);
         tags.add(sb.toString());
     }
+
+    /**
+     * Returns a short grounded reason a candidate move is notable, for the CAND
+     * {@code note} field. Empty when nothing concrete applies. Priority:
+     * checkmate, then a material-winning capture (SEE &gt; 0), then promotion, then
+     * a plain check.
+     *
+     * @param position the position before the move
+     * @param move     the candidate move
+     * @return a short grounded note, or the empty string
+     */
+    private static String candidateNote(Position position, short move) {
+        Position after = position.copy().play(move);
+        if (after.isCheckmate()) {
+            return "checkmate";
+        }
+        if (position.isCapture(move) && See.see(position, move) > 0) {
+            return "wins material";
+        }
+        if (Move.isPromotion(move)) {
+            return "promotes";
+        }
+        if (after.inCheck()) {
+            return "check";
+        }
+        return EMPTY;
+    }
+
 
     /**
      * Adds a principal variation tag from analysis data.
@@ -877,6 +909,24 @@ public final class Generator {
         }
     }
 
+
+    /**
+     * Adds grounded mate/king-attack THREAT tags from {@link Threats}, excluding
+     * promotion threats (already emitted by {@link #addPromotionThreatTags}).
+     *
+     * @param tags     the mutable tag accumulator
+     * @param position the position being tagged
+     */
+    private static void addStructuralThreats(List<String> tags, Position position) {
+        List<String> structural = new ArrayList<>();
+        Threats.addThreats(structural, position);
+        for (String tag : structural) {
+            if (tag != null && !tag.contains("type=promote") && !tags.contains(tag)) {
+                tags.add(tag);
+            }
+        }
+    }
+
     /**
      * Adds a single promotion-threat tag from the raw promotion output.
      *
@@ -1044,6 +1094,7 @@ public final class Generator {
         addPawnStructureTags(tags, position);
         addPawnStatTags(tags, position);
         addPromotionThreatTags(tags, ctx, position);
+        addStructuralThreats(tags, position);
     }
 
     /**
@@ -1087,8 +1138,14 @@ public final class Generator {
      */
     private static void addTacticalTags(List<String> tags, Context ctx, Position position) {
         for (String tag : Motifs.tags(position)) {
-            if (tag != null && !tag.isBlank()) {
-                addTacticalTag(tags, tag.trim());
+            if (tag == null || tag.isBlank()) {
+                continue;
+            }
+            String trimmed = tag.trim();
+            if (trimmed.startsWith(TACTIC_MOTIF_PREFIX)) {
+                tags.add(trimmed);
+            } else {
+                addTacticalTag(tags, trimmed);
             }
         }
         addLegalMoveTacticalTags(tags, ctx, position);
@@ -1107,6 +1164,7 @@ public final class Generator {
             return;
         }
         boolean moverWhite = position.isWhiteToMove();
+        addForcedMateTag(tags, position, moverWhite);
         List<String> beforeSkewers = skewerKeys(position, moverWhite);
         byte[] board = ctx.board();
         for (int i = 0; i < moves.size(); i++) {
@@ -1122,11 +1180,59 @@ public final class Generator {
             byte movedPiece = next.getBoard()[to];
             boolean forcingMove = position.isCapture(move) || next.inCheck() || Move.isPromotion(move);
             addMateInOneMoveTag(tags, next, moverWhite, uci);
+            addDoubleCheckMoveTag(tags, next, moverWhite, uci);
             addPromotionMoveTag(tags, move, movedPiece, moverWhite, uci, to);
             addDiscoveredAttackMoveTags(tags, position, next, movingPiece, moverWhite, uci, from, forcingMove);
             addForkMoveTag(tags, next, movedPiece, moverWhite, uci, to);
             addNewSkewerMoveTags(tags, next, beforeSkewers, moverWhite, uci);
         }
+    }
+
+    /**
+     * Maximum forced-mate distance (in full moves) the tagger proves. Mate in
+     * one is already detected per legal move, so this mainly bounds the search
+     * for longer mates while keeping tagging fast and deterministic.
+     */
+    private static final int MATE_TAG_MAX_MOVES = 4;
+
+    /**
+     * Node budget for the forced-mate proof per position. The proof never calls
+     * an external engine; this cap keeps quiet positions cheap and makes the
+     * emitted tag deterministic across runs.
+     * <p>
+     * This is deliberately lower than {@link MateProver#DEFAULT_NODE_LIMIT}
+     * (which targets deep stand-alone puzzle solving): the tagger may run over
+     * many positions in bulk, so the budget trades a little recall on rare deep
+     * mates for roughly a 2.5x lower per-position cost. Because the prover uses
+     * iterative deepening by mate distance and only returns a <em>proven</em>
+     * forced mate, a smaller budget can only reduce recall, never report a wrong
+     * or shorter mate.
+     * </p>
+     */
+    private static final long MATE_TAG_NODE_LIMIT = 8_000L;
+
+    /**
+     * Adds a forced-mate motif (mate in two or more) proven by the internal
+     * mate searcher.
+     * <p>
+     * Mate in one is already emitted per legal move by
+     * {@link #addMateInOneMoveTag(List, Position, boolean, String)}, so only
+     * longer forced mates are reported here. The proof runs without any external
+     * engine and is bounded by {@link #MATE_TAG_MAX_MOVES} and
+     * {@link #MATE_TAG_NODE_LIMIT}, keeping the tag deterministic.
+     * </p>
+     *
+     * @param tags       the mutable tag accumulator
+     * @param position   the position being tagged
+     * @param moverWhite whether the side to move is White
+     */
+    private static void addForcedMateTag(List<String> tags, Position position, boolean moverWhite) {
+        MateProver.Proof proof = MateProver.proveMate(position, MATE_TAG_MAX_MOVES, MATE_TAG_NODE_LIMIT);
+        if (proof == null || proof.mateMoves() < 2) {
+            return;
+        }
+        tags.add(TACTIC_MOTIF_PREFIX + MATE_IN + "_" + proof.mateMoves() + SIDE_FIELD + sideName(moverWhite)
+                + SPACE_TEXT + MOVE + EQUAL_SIGN + Move.toString(proof.bestMove()));
     }
 
     /**
@@ -1140,6 +1246,29 @@ public final class Generator {
     private static void addMateInOneMoveTag(List<String> tags, Position next, boolean moverWhite, String uci) {
         if (next.isCheckmate()) {
             tags.add(TACTIC_MOTIF_PREFIX + "mate_in_1" + SIDE_FIELD + sideName(moverWhite)
+                    + SPACE_TEXT + MOVE + EQUAL_SIGN + uci);
+        }
+    }
+
+    /**
+     * Adds a double-check motif when a legal move leaves the opponent king
+     * attacked by two of the mover's pieces at once. Pure board geometry on the
+     * post-move position; the attacker squares are unique by construction, so two
+     * or more of them is a genuine double check.
+     *
+     * @param tags       the mutable tag accumulator
+     * @param next       the position after the legal move
+     * @param moverWhite whether the mover was White
+     * @param uci        the move in UCI notation
+     */
+    private static void addDoubleCheckMoveTag(List<String> tags, Position next, boolean moverWhite, String uci) {
+        byte king = next.kingSquare(!moverWhite);
+        if (king == Field.NO_SQUARE) {
+            return;
+        }
+        byte[] checkers = moverWhite ? next.getAttackersByWhite(king) : next.getAttackersByBlack(king);
+        if (checkers.length >= 2) {
+            tags.add(TACTIC_MOTIF_PREFIX + DOUBLE_CHECK + SIDE_FIELD + sideName(moverWhite)
                     + SPACE_TEXT + MOVE + EQUAL_SIGN + uci);
         }
     }

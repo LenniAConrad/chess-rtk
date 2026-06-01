@@ -421,6 +421,12 @@ public final class Constants {
 	public static final String OPT_SIDELINES = "--sidelines";
 
 	/**
+	 * {@code --analyze-game} option flag: emit whole-game analysis JSON (per-ply
+	 * move effects, line tactics, variations, and a game summary) for PGN input.
+	 */
+	public static final String OPT_ANALYZE_GAME = "--analyze-game";
+
+	/**
 	 * {@code --export-all} option flag (alias for {@link #OPT_SIDELINES}).
 	 */
 	public static final String OPT_EXPORT_ALL = "--export-all";
@@ -634,6 +640,16 @@ public final class Constants {
 	 * {@code --suite} option flag.
 	 */
 	public static final String OPT_SUITE = "--suite";
+
+	/**
+	 * {@code --gpu} option flag (perft on a native device backend).
+	 */
+	public static final String OPT_GPU = "--gpu";
+
+	/**
+	 * {@code --split} option flag (CPU expansion depth for GPU perft).
+	 */
+	public static final String OPT_SPLIT = "--split";
 
 	/**
 	 * {@code --mainline} option flag.

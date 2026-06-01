@@ -98,9 +98,11 @@ public final class CLICommandRegressionTest {
 		testChess960Lookup();
 		testChess960AllLayouts();
 		testFenHelpers();
+		testFenRenderSvgAccent();
 		testFilteredFenGenerationShortcut();
 		testFenGenerateFilterValidation();
 		testFenTagsLegalMoveTactics();
+		testFenTagsAnalyzeGame();
 		testPuzzleTagsAnalyzeFlagConflict();
 		testMovesFormatOption();
 		testGroupedFenAndMoveCommands();
@@ -219,6 +221,36 @@ public final class CLICommandRegressionTest {
 	}
 
 	/**
+	 * Verifies {@code fen render --format svg --accent} tints the vector board.
+	 */
+	private static void testFenRenderSvgAccent() {
+		try {
+			Path output = PathOps.createLocalTempFile("crtk-render-accent-", ".svg");
+			String stdout = TestSupport.runMain(
+					"fen",
+					"render",
+					FEN_OPTION,
+					SIMPLE_FEN,
+					"--output",
+					output.toString(),
+					FORMAT_OPTION,
+					"svg",
+					"--accent",
+					"#4ab66f");
+			String svg = Files.readString(output);
+			assertTrue(stdout.contains("Saved board SVG:"), "fen render svg accent reports SVG output");
+			assertTrue(svg.contains("fill=\"#e4f4e9\""), "accent SVG light square fill");
+			assertTrue(svg.contains("fill=\"#c9e9d4\""), "accent SVG dark square fill");
+			assertTrue(svg.contains("fill=\"#aedebe\""), "accent SVG grid fill");
+			assertTrue(svg.contains("fill=\"#347f4e\""), "accent SVG frame fill");
+			assertFalse(svg.contains("fill=\"#e5e5e5\""), "accent SVG omits default light square fill");
+			assertFalse(svg.contains("fill=\"#cccccc\""), "accent SVG omits default dark square fill");
+		} catch (IOException ex) {
+			throw new AssertionError("fen render SVG accent test failed", ex);
+		}
+	}
+
+	/**
 	 * Verifies {@code gen fens} routes to filtered FEN generation.
 	 */
 	private static void testFilteredFenGenerationShortcut() {
@@ -303,6 +335,37 @@ public final class CLICommandRegressionTest {
 		assertTrue(output.contains("TACTIC: motif=fork side=black move=d4e2"),
 				"fen tags legal-move fork tag");
 		assertFalse(output.contains("behind=pawn@"), "fen tags suppresses pawn-behind skewers");
+	}
+
+	/**
+	 * Verifies {@code fen tags --pgn <file> --analyze-game} emits whole-game
+	 * analysis JSON (per-ply move effects, line tactics, and a game summary),
+	 * grounded by replay. Uses a Scholar's-mate game so the terminal cause is a
+	 * named checkmate pattern.
+	 */
+	private static void testFenTagsAnalyzeGame() {
+		try {
+			Path pgn = PathOps.createLocalTempFile("crtk-analyze-game-", ".pgn");
+			Files.writeString(pgn, "[Event \"t\"]" + System.lineSeparator()
+					+ "[Result \"1-0\"]" + System.lineSeparator() + System.lineSeparator()
+					+ "1. e4 e5 2. Bc4 Nc6 3. Qh5 Nf6 4. Qxf7# 1-0" + System.lineSeparator());
+			String output = TestSupport.runMain("fen", "tags", "--pgn", pgn.toString(),
+					"--analyze-game");
+			assertTrue(output.contains("\"game_index\":0"), "analyze-game emits game_index");
+			assertTrue(output.contains("GAME: result_cause=checkmate pattern=scholars_mate"),
+					"analyze-game emits grounded checkmate result cause");
+			assertTrue(output.contains("MOVE_EFFECT: san=Qxf7# type=checkmate"),
+					"analyze-game emits per-ply move effects");
+			assertTrue(output.contains("\"sharedTactics\":"), "analyze-game JSON carries sharedTactics");
+
+			TestSupport.FailureResult conflict = TestSupport.runMainExpectFailure(
+					"fen", "tags", FEN_OPTION, SIMPLE_FEN, "--analyze-game");
+			assertEquals(2, conflict.exitCode(), "analyze-game without --pgn exit code");
+			assertTrue(conflict.stderr().contains("--analyze-game requires --pgn"),
+					"analyze-game requires pgn message");
+		} catch (IOException ex) {
+			throw new AssertionError("analyze-game temp file failed", ex);
+		}
 	}
 
 	/**
@@ -479,6 +542,11 @@ public final class CLICommandRegressionTest {
 				"engine perft divide table total");
 		assertTrue(divide.contains("Summary: moves=20 nodes=20"), "engine perft divide summary");
 
+		String gpuDivide = TestSupport.runMain(ENGINE_COMMAND, PERFT_COMMAND, DEPTH_OPTION, "1", "--gpu", "--divide");
+		assertTrue(gpuDivide.contains("Perft divide (depth 1)"), "engine perft gpu divide title");
+		assertTrue(gpuDivide.matches("(?s).*Total\\s+20\\s+0\\s+0\\s+0\\s+0\\s+0\\s+0.*"),
+				"engine perft gpu divide total");
+
 		String detailDivide = TestSupport.runMain(ENGINE_COMMAND, PERFT_COMMAND, DEPTH_OPTION, "1", "--divide",
 				FORMAT_OPTION, "detail");
 		assertTrue(detailDivide.contains("a2a3: nodes=1"), "engine perft detail divide row");
@@ -489,6 +557,12 @@ public final class CLICommandRegressionTest {
 		assertTrue(stockfish.contains("a2a3: 1"), "engine perft stockfish divide row");
 		assertTrue(stockfish.contains("Nodes searched: 20"), "engine perft stockfish total");
 		assertFalse(stockfish.contains("FEN:"), "engine perft stockfish omits crtk heading");
+
+		String gpuStockfish = TestSupport.runMain(ENGINE_COMMAND, PERFT_COMMAND, DEPTH_OPTION, "1", "--gpu",
+				FORMAT_OPTION, "stockfish");
+		assertTrue(gpuStockfish.contains("a2a3: 1"), "engine perft gpu stockfish divide row");
+		assertTrue(gpuStockfish.contains("Nodes searched: 20"), "engine perft gpu stockfish total");
+		assertFalse(gpuStockfish.contains("FEN:"), "engine perft gpu stockfish omits crtk heading");
 
 		String explicitStart = TestSupport.runMain(ENGINE_COMMAND, PERFT_COMMAND, "--startpos", DEPTH_OPTION, "2");
 		assertTrue(explicitStart.contains("FEN: " + START_FEN), "engine perft --startpos uses standard start");
@@ -521,11 +595,23 @@ public final class CLICommandRegressionTest {
 		assertTrue(classical.contains("backend: classical"), "engine eval --evaluator classical backend");
 
 		if (Files.exists(chess.nn.otis.Model.DEFAULT_WEIGHTS)) {
-			String otis = TestSupport.runMain(ENGINE_COMMAND, "eval", "--otis", FEN_OPTION, SIMPLE_FEN);
-			String params = chess.nn.otis.Model.formatParameterCount(chess.nn.otis.Model.DEFAULT_PARAMETER_COUNT)
-					+ " params";
-			assertTrue(otis.contains("model: otis(java-i249-random-v2, " + params + ")"),
-					"engine eval --otis model metadata");
+			// Force the CPU backend so the asserted label is deterministic even
+			// when an optional OTIS GPU backend (CUDA/ROCm/oneAPI) is present.
+			String previousOtisBackend = System.getProperty("crtk.otis.backend");
+			System.setProperty("crtk.otis.backend", "cpu");
+			try {
+				String otis = TestSupport.runMain(ENGINE_COMMAND, "eval", "--otis", FEN_OPTION, SIMPLE_FEN);
+				String params = chess.nn.otis.Model.formatParameterCount(chess.nn.otis.Model.DEFAULT_PARAMETER_COUNT)
+						+ " params";
+				assertTrue(otis.contains("model: otis(java-i249-random-v2, " + params + ")"),
+						"engine eval --otis model metadata");
+			} finally {
+				if (previousOtisBackend == null) {
+					System.clearProperty("crtk.otis.backend");
+				} else {
+					System.setProperty("crtk.otis.backend", previousOtisBackend);
+				}
+			}
 		}
 
 		FailureResult none = TestSupport.runMainExpectFailure(ENGINE_COMMAND, "eval", "--evaluator", "none",
@@ -599,6 +685,17 @@ public final class CLICommandRegressionTest {
 			assertTrue(customSuite.contains("Perft validation (depth 1)"),
 					"engine perft-suite --suite heading");
 			assertTrue(customSuite.contains("match=true"), "engine perft-suite --suite summary");
+			String customGpuSuite = TestSupport.runMain(
+					ENGINE_COMMAND,
+					"perft-suite",
+					"--suite",
+					suite.toString(),
+					"--gpu",
+					"--split",
+					"0");
+			assertTrue(customGpuSuite.contains("Perft validation (depth 1)"),
+					"engine perft-suite --suite --gpu heading");
+			assertTrue(customGpuSuite.contains("match=true"), "engine perft-suite --suite --gpu summary");
 		} catch (IOException ex) {
 			throw new AssertionError("custom perft suite test failed", ex);
 		}
@@ -647,6 +744,24 @@ public final class CLICommandRegressionTest {
 			assertTrue(lines[0].contains("\"index\":1"), "position describe jsonl first index");
 			assertTrue(lines[1].contains("\"index\":2"), "position describe jsonl second index");
 			assertTrue(lines[0].contains("\"input\":"), "position describe jsonl includes structured input");
+
+			String trainingJsonl = TestSupport.runMain("position", "describe", "--input", input.toString(),
+					"--format", "training-jsonl", "--detail", "brief", "--budget", "2", "--max-new", "64");
+			String[] trainingLines = trainingJsonl.strip().split("\\R");
+			assertEquals(2, trainingLines.length, "position describe training-jsonl row count");
+			assertTrue(trainingLines[0].contains("\"schema\":\"crtk.position_description.training.v1\""),
+					"position describe training-jsonl schema");
+			assertTrue(trainingLines[0].contains("\"prompt\":\"describe_position detail=brief max_new=64\\nfeatures:"),
+					"position describe training-jsonl prompt");
+			assertTrue(trainingLines[0].contains("\"target\":\"White to move in an opening position"),
+					"position describe training-jsonl target");
+			assertTrue(trainingLines[0].contains("\"classical_text\":\"White to move in an opening position"),
+					"position describe training-jsonl classical text");
+			assertTrue(trainingLines[0].contains("\"input\":"), "position describe training-jsonl input");
+			assertTrue(trainingLines[0].contains("\"candidate_budget\":2"),
+					"position describe training-jsonl candidate budget");
+			assertTrue(trainingLines[0].contains("\"max_new_tokens\":64"),
+					"position describe training-jsonl max_new metadata");
 
 			Path output = PathOps.createLocalTempFile("crtk-position-describe-output-", ".txt");
 			assertEquals("", TestSupport.runMain("position", "describe", FEN_OPTION, SIMPLE_FEN,
@@ -725,6 +840,8 @@ public final class CLICommandRegressionTest {
 		assertTrue(enginePerft.contains("--randompos"), "help engine perft randompos option");
 		assertTrue(enginePerft.contains("--format FMT"), "help engine perft format option");
 		assertTrue(enginePerft.contains("--threads N"), "help engine perft threads option");
+		assertTrue(enginePerft.contains("--gpu"), "help engine perft gpu option");
+		assertTrue(enginePerft.contains("--split N"), "help engine perft split option");
 
 		String fenDisplay = TestSupport.runMain("help", "fen", "display");
 		assertTrue(fenDisplay.contains("--startpos"), "help fen display startpos option");
@@ -763,6 +880,8 @@ public final class CLICommandRegressionTest {
 				"help engine perft-suite options");
 		assertTrue(enginePerftSuite.contains("--threads N"), "help engine perft-suite threads option");
 		assertTrue(enginePerftSuite.contains("--suite PATH"), "help engine perft-suite custom suite option");
+		assertTrue(enginePerftSuite.contains("--gpu"), "help engine perft-suite gpu option");
+		assertTrue(enginePerftSuite.contains("--split N"), "help engine perft-suite split option");
 		assertFalse(enginePerftSuite.contains("--stockfish"), "help engine perft-suite does not expose stockfish");
 
 		String engineAnalyzeBatch = TestSupport.runMain("help", ENGINE_COMMAND, "analyze-batch");
