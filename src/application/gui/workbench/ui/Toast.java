@@ -190,6 +190,19 @@ public final class Toast {
     }
 
     /**
+     * Unsubscribes a previously added history listener. Windows must call this on
+     * disposal so the per-window status-bar bell does not accumulate across window
+     * instances.
+     *
+     * @param listener change listener to remove
+     */
+    public static void removeHistoryListener(Runnable listener) {
+        if (listener != null) {
+            HISTORY_LISTENERS.remove(listener);
+        }
+    }
+
+    /**
      * Implementation that runs on the EDT.
      *
      * @param frame target frame

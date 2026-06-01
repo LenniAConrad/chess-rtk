@@ -80,7 +80,7 @@ public final class MctsSearch implements AutoCloseable {
      * Immediate root result for terminal roots, static draws, and root states
      * already proven by expanded terminal children.
      */
-    private RootDecision immediateRootDecision;
+    private volatile RootDecision immediateRootDecision;
 
     /**
      * Search start time.
@@ -101,6 +101,14 @@ public final class MctsSearch implements AutoCloseable {
      * Leaf selected for the playout currently being evaluated.
      */
     private Node currentLeaf;
+
+    /**
+     * Guards tree mutations and snapshot reads so the EDT (snapshot/previewNextLeaf)
+     * always observes a consistent tree while the background worker runs iterate().
+     * The slow leaf evaluation (neural-net forward pass) is performed OUTSIDE this
+     * lock so a long inference never blocks the EDT.
+     */
+    private final Object treeLock = new Object();
 
     /**
      * True after resources owned by the backend have been released.
@@ -227,20 +235,29 @@ public final class MctsSearch implements AutoCloseable {
      */
     public void iterate() {
         ensureOpen();
-        if (immediateRootDecision != null) {
-            return;
+        List<Node> path;
+        Node node;
+        synchronized (treeLock) {
+            if (immediateRootDecision != null) {
+                return;
+            }
+            path = selectPathToLeaf();
+            node = path.get(path.size() - 1);
+            currentLeaf = node;
         }
-        List<Node> path = selectPathToLeaf();
-        Node node = path.get(path.size() - 1);
-        currentLeaf = node;
+        // Leaf evaluation (the neural-net forward pass) holds no lock so a long
+        // inference does not block the EDT's snapshot; it reads the immutable leaf
+        // position and mutates no shared tree state.
         SearchEvaluation value = evaluate(node, path);
-        if (!node.expanded && !isTerminal(node, path)) {
-            expand(node, path);
+        synchronized (treeLock) {
+            if (!node.expanded && !isTerminal(node, path)) {
+                expand(node, path);
+            }
+            backup(path, value);
+            propagateProof(path);
+            lastLeaf = node;
+            playouts++;
         }
-        backup(path, value);
-        propagateProof(path);
-        lastLeaf = node;
-        playouts++;
     }
 
     /**
@@ -252,11 +269,13 @@ public final class MctsSearch implements AutoCloseable {
      */
     public Snapshot previewNextLeaf(boolean paused) {
         ensureOpen();
-        if (immediateRootDecision == null && root.proof == ProofState.UNKNOWN) {
-            List<Node> path = selectPathToLeaf();
-            currentLeaf = path.get(path.size() - 1);
+        synchronized (treeLock) {
+            if (immediateRootDecision == null && root.proof == ProofState.UNKNOWN) {
+                List<Node> path = selectPathToLeaf();
+                currentLeaf = path.get(path.size() - 1);
+            }
+            return snapshot(paused);
         }
-        return snapshot(paused);
     }
 
     /**
@@ -304,34 +323,36 @@ public final class MctsSearch implements AutoCloseable {
         if (newRoot == null) {
             return false;
         }
-        long key = newRoot.signature();
-        if (root.key == key) {
+        synchronized (treeLock) {
+            long key = newRoot.signature();
+            if (root.key == key) {
+                rootPosition = newRoot.copy();
+                currentLeaf = root;
+                refreshImmediateRootDecision();
+                return true;
+            }
+            Node reused = findReusableRoot(key);
+            if (reused != null) {
+                reused.parent = null;
+                reused.move = Move.NO_MOVE;
+                rebaseDepths(reused, 0);
+                root = reused;
+                rootPosition = newRoot.copy();
+                lastLeaf = root;
+                currentLeaf = root;
+                playouts = root.visits();
+                refreshImmediateRootDecision();
+                return true;
+            }
             rootPosition = newRoot.copy();
-            currentLeaf = root;
+            root = newNode(null, Move.NO_MOVE, rootPosition.copy(), 1.0, 0);
+            lastLeaf = null;
+            currentLeaf = null;
+            playouts = 0L;
+            expand(root, List.of(root));
             refreshImmediateRootDecision();
-            return true;
+            return false;
         }
-        Node reused = findReusableRoot(key);
-        if (reused != null) {
-            reused.parent = null;
-            reused.move = Move.NO_MOVE;
-            rebaseDepths(reused, 0);
-            root = reused;
-            rootPosition = newRoot.copy();
-            lastLeaf = root;
-            currentLeaf = root;
-            playouts = root.visits();
-            refreshImmediateRootDecision();
-            return true;
-        }
-        rootPosition = newRoot.copy();
-        root = newNode(null, Move.NO_MOVE, rootPosition.copy(), 1.0, 0);
-        lastLeaf = null;
-        currentLeaf = null;
-        playouts = 0L;
-        expand(root, List.of(root));
-        refreshImmediateRootDecision();
-        return false;
     }
 
     /**
@@ -380,6 +401,7 @@ public final class MctsSearch implements AutoCloseable {
      * @return search snapshot
      */
     public Snapshot snapshot(boolean paused) {
+        synchronized (treeLock) {
         RootDecision decision = immediateRootDecision;
         List<Node> children = orderedRootChildren(decision);
         List<Row> rows = new ArrayList<>();
@@ -449,6 +471,7 @@ public final class MctsSearch implements AutoCloseable {
                 exploringLine,
                 pvText(rootPosition, exploringLine),
                 rows);
+        }
     }
 
     /**

@@ -68,6 +68,12 @@ public abstract class WindowLifecycle extends WindowBase {
     private final transient Runnable soundSettingsListener = this::syncSoundSettingsControls;
 
     /**
+     * Toast history listener driving the status-bar notification bell, removed on
+     * disposal so it does not leak across window instances.
+     */
+    private transient Runnable bellHistoryListener;
+
+    /**
      * Preferences node used for persisted workbench state.
      */
     protected static final Preferences WORKBENCH_PREFS =
@@ -408,6 +414,13 @@ public abstract class WindowLifecycle extends WindowBase {
         board.setShowSuggestedMoveArrow(showBestMoveArrows);
         board.setShowNotation(showBoardCoordinates);
         board.setAnimationsEnabled(boardAnimationsEnabled);
+        // Keep the Play tab's dedicated board visually identical to the main one.
+        playBoard.setPieceSet(pieceSet);
+        playBoard.setShowLegalMovePreview(showLegalMovePreview);
+        playBoard.setShowLastMoveHighlight(showLastMoveHighlight);
+        playBoard.setShowSuggestedMoveArrow(showBestMoveArrows);
+        playBoard.setShowNotation(showBoardCoordinates);
+        playBoard.setAnimationsEnabled(boardAnimationsEnabled);
         liveEngineToggle.setSelected(liveExternalEngineEnabled);
         if (liveExternalEngineEnabled) {
             evalDebounceTimer.stop();
@@ -441,6 +454,10 @@ public abstract class WindowLifecycle extends WindowBase {
     @Override
     public void dispose() {
         SoundService.removeSettingsListener(soundSettingsListener);
+        if (bellHistoryListener != null) {
+            Toast.removeHistoryListener(bellHistoryListener);
+            bellHistoryListener = null;
+        }
         saveWindowGeometry();
         evalRequestId++;
         cancelEvalCommand();
@@ -1323,10 +1340,11 @@ public abstract class WindowLifecycle extends WindowBase {
                 showNotificationHistory(bell);
             }
         });
-        Toast.addHistoryListener(() -> SwingUtilities.invokeLater(() -> {
+        bellHistoryListener = () -> SwingUtilities.invokeLater(() -> {
             unread[0] = true;
             bell.repaint();
-        }));
+        });
+        Toast.addHistoryListener(bellHistoryListener);
         return bell;
     }
 
@@ -1557,44 +1575,68 @@ public abstract class WindowLifecycle extends WindowBase {
         String message = text == null ? "" : text.trim();
         if (message.isEmpty() || "idle".equalsIgnoreCase(message)) {
             statusBarEngine.idle("idle");
-            statusBarEngineDetail.setText("");
+            setEngineDetail("");
             return;
         }
         String lower = message.toLowerCase(java.util.Locale.ROOT);
         if (lower.startsWith("live paused")) {
             statusBarEngine.idle("paused");
-            statusBarEngineDetail.setText(message.substring("live paused".length()).trim());
+            setEngineDetail(message.substring("live paused".length()).trim());
             return;
         }
         if (lower.startsWith("live failed")) {
             statusBarEngine.error("error");
-            statusBarEngineDetail.setText(message.substring("live failed".length()).trim());
+            setEngineDetail(message.substring("live failed".length()).trim());
             return;
         }
         if (lower.startsWith("live starting")) {
             statusBarEngine.busy("starting");
-            statusBarEngineDetail.setText(message.substring("live starting".length()).trim());
+            setEngineDetail(message.substring("live starting".length()).trim());
             return;
         }
         if (lower.startsWith("live config")) {
             statusBarEngine.busy("config");
-            statusBarEngineDetail.setText(message.substring("live config".length()).trim());
+            setEngineDetail(message.substring("live config".length()).trim());
             return;
         }
         if (lower.startsWith("live thinking")) {
             statusBarEngine.busy("live");
-            statusBarEngineDetail.setText(message.substring("live thinking".length()).trim());
+            setEngineDetail(message.substring("live thinking".length()).trim());
             return;
         }
         if (lower.startsWith("live")) {
             statusBarEngine.busy("live");
-            statusBarEngineDetail.setText(message.substring("live".length()).trim());
+            setEngineDetail(message.substring("live".length()).trim());
             return;
         }
         // Unknown free-form text — keep the badge fixed as "idle" and route the
         // payload to the detail line so it still surfaces.
         statusBarEngine.idle("idle");
-        statusBarEngineDetail.setText(message);
+        setEngineDetail(message);
+    }
+
+    /**
+     * Maximum characters shown in the status-bar engine-detail cell before it
+     * is truncated, so a long engine message cannot blow out the status bar.
+     */
+    private static final int ENGINE_DETAIL_MAX_CHARS = 48;
+
+    /**
+     * Sets the status-bar engine-detail text, truncating to a width-safe budget
+     * (full text remains available on hover) so long engine/error messages do
+     * not overflow the status bar.
+     *
+     * @param text engine detail text
+     */
+    private void setEngineDetail(String text) {
+        String value = text == null ? "" : text;
+        if (value.length() > ENGINE_DETAIL_MAX_CHARS) {
+            statusBarEngineDetail.setText(value.substring(0, ENGINE_DETAIL_MAX_CHARS - 1).trim() + "…");
+            statusBarEngineDetail.setToolTipText(value);
+        } else {
+            statusBarEngineDetail.setText(value);
+            statusBarEngineDetail.setToolTipText(value.isBlank() ? null : value);
+        }
     }
 
     /**
