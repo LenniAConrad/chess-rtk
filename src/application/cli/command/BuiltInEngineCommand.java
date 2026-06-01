@@ -311,11 +311,10 @@ public final class BuiltInEngineCommand {
 			}
 			CommandSupport.finish(bar);
 		} catch (IOException ex) {
-			System.err.println(CMD_BUILTIN + ": engine initialization failed: " + ex.getMessage());
 			if (opts.verbose()) {
 				ex.printStackTrace(System.err);
 			}
-			System.exit(2);
+			throw new CommandFailure(CMD_BUILTIN + ": engine initialization failed: " + ex.getMessage(), 2);
 		}
 	}
 
@@ -339,11 +338,10 @@ public final class BuiltInEngineCommand {
 			printResult(entry, position, result, searcher.evaluatorName(), opts.input() != null, opts.format(),
 					blankBeforeSummary);
 		} catch (RuntimeException ex) {
-			System.err.println(CMD_BUILTIN + ": search failed: " + ex.getMessage());
 			if (opts.verbose()) {
 				ex.printStackTrace(System.err);
 			}
-			System.exit(2);
+			throw new CommandFailure(CMD_BUILTIN + ": search failed: " + ex.getMessage(), 2);
 		}
 	}
 
@@ -379,12 +377,10 @@ public final class BuiltInEngineCommand {
 				throw new CommandFailure(CMD_BUILTIN + ": " + OPT_UCI + " requires " + OPT_SEARCH + " mcts", 2);
 			}
 			if (input != null) {
-				System.err.println(CMD_BUILTIN + ": " + OPT_UCI + " cannot be combined with " + OPT_INPUT);
-				System.exit(2);
+				throw new CommandFailure(CMD_BUILTIN + ": " + OPT_UCI + " cannot be combined with " + OPT_INPUT, 2);
 			}
 			if (!a.positionals().isEmpty()) {
-				System.err.println(CMD_BUILTIN + ": " + OPT_UCI + " does not take a FEN argument");
-				System.exit(2);
+				throw new CommandFailure(CMD_BUILTIN + ": " + OPT_UCI + " does not take a FEN argument", 2);
 			}
 			a.ensureConsumed();
 			fen = null;
@@ -394,20 +390,17 @@ public final class BuiltInEngineCommand {
 
 		Validation.requireBetweenInclusive(CMD_BUILTIN, OPT_DEPTH, depth, 1, AlphaBeta.MAX_DEPTH);
 		if (maxNodes < 0L) {
-			System.err.println(CMD_BUILTIN + ": " + OPT_MAX_NODES + " must be non-negative");
-			System.exit(2);
+			throw new CommandFailure(CMD_BUILTIN + ": " + OPT_MAX_NODES + " must be non-negative", 2);
 		}
 		if (maxDuration < 0L) {
-			System.err.println(CMD_BUILTIN + ": " + OPT_MAX_DURATION + " must be non-negative");
-			System.exit(2);
+			throw new CommandFailure(CMD_BUILTIN + ": " + OPT_MAX_DURATION + " must be non-negative", 2);
 		}
 
 		Limits limits = new Limits(depth, maxNodes, maxDuration);
 		Kind evaluator = resolveEvaluator(evaluatorValue, classical, nnue, lc0, otis);
 		if (weights != null && evaluator == Kind.CLASSICAL) {
-			System.err.println(CMD_BUILTIN + ": " + OPT_WEIGHTS + " requires "
-					+ OPT_EVALUATOR + " nnue, lc0, or otis");
-			System.exit(2);
+			throw new CommandFailure(CMD_BUILTIN + ": " + OPT_WEIGHTS + " requires "
+					+ OPT_EVALUATOR + " nnue, lc0, or otis", 2);
 		}
 		return new Options(verbose, input, fen, limits, parseFormat(format), evaluator, weights, uciLoop, search);
 	}
@@ -443,19 +436,17 @@ public final class BuiltInEngineCommand {
 	private static Kind resolveEvaluator(String value, boolean classical, boolean nnue, boolean lc0, boolean otis) {
 		int flags = (classical ? 1 : 0) + (nnue ? 1 : 0) + (lc0 ? 1 : 0) + (otis ? 1 : 0);
 		if (value != null && flags > 0) {
-			System.err.println(CMD_BUILTIN + ": use either " + OPT_EVALUATOR + " or evaluator shortcut flags, not both");
-			System.exit(2);
+			throw new CommandFailure(
+					CMD_BUILTIN + ": use either " + OPT_EVALUATOR + " or evaluator shortcut flags, not both", 2);
 		}
 		if (flags > 1) {
-			System.err.println(CMD_BUILTIN + ": choose only one evaluator flag");
-			System.exit(2);
+			throw new CommandFailure(CMD_BUILTIN + ": choose only one evaluator flag", 2);
 		}
 		if (value != null) {
 			try {
 				return Kind.parse(value);
 			} catch (IllegalArgumentException ex) {
-				System.err.println(CMD_BUILTIN + ": " + ex.getMessage());
-				System.exit(2);
+				throw new CommandFailure(CMD_BUILTIN + ": " + ex.getMessage(), 2);
 			}
 		}
 		if (nnue) {
@@ -554,12 +545,8 @@ public final class BuiltInEngineCommand {
 			case "san" -> OutputFormat.SAN;
 			case "both" -> OutputFormat.BOTH;
 			case "summary", "text" -> OutputFormat.SUMMARY;
-			default -> {
-				System.err.println(CMD_BUILTIN + ": unsupported " + OPT_FORMAT + " value: " + value
-						+ " (expected uci, uci-info, san, both, or summary)");
-				System.exit(2);
-				yield OutputFormat.UCI;
-			}
+			default -> throw new CommandFailure(CMD_BUILTIN + ": unsupported " + OPT_FORMAT + " value: " + value
+					+ " (expected uci, uci-info, san, both, or summary)", 2);
 		};
 	}
 
